@@ -22,8 +22,9 @@
 
 static const char *TAG = "TPS546.c";
 
-static uint8_t DEVICE_ID1[] = {0x54, 0x49, 0x54, 0x6B, 0x24, 0x41};
-static uint8_t DEVICE_ID2[] = {0x54, 0x49, 0x54, 0x6D, 0x24, 0x41};
+static uint8_t DEVICE_ID1[] = {0x54, 0x49, 0x54, 0x6B, 0x24, 0x41}; // TPS546D24A
+static uint8_t DEVICE_ID2[] = {0x54, 0x49, 0x54, 0x6D, 0x24, 0x41}; // TPS546D24A
+static uint8_t DEVICE_ID3[] = {0x54, 0x49, 0x54, 0x6D, 0x24, 0x62}; // TPS546D24S
 static uint8_t MFR_ID[] = {'B', 'A', 'X'};
 static uint8_t MFR_MODEL[] = {'H', 'E', 'X'};
 static uint8_t MFR_REVISION[] = {0x00, 0x00, 0x01};
@@ -374,8 +375,8 @@ int TPS546_init(void)
     smb_read_block(PMBUS_IC_DEVICE_ID, data, 6);
     ESP_LOGI(TAG, "Device ID: %02x %02x %02x %02x %02x %02x", data[0], data[1],
                  data[2], data[3], data[4], data[5]);
-    /* There's two different known device IDs observed so far */
-    if ( (memcmp(data, DEVICE_ID1, 6) != 0) && (memcmp(data, DEVICE_ID2, 6) != 0) )
+    /* There's 3 different known device IDs observed so far */
+    if ( (memcmp(data, DEVICE_ID1, 6) != 0) && (memcmp(data, DEVICE_ID2, 6) != 0) && (memcmp(data, DEVICE_ID3, 6) != 0))
     {
         ESP_LOGI(TAG, "ERROR- cannot find TPS546 regulator");
         return -1;
@@ -389,15 +390,16 @@ int TPS546_init(void)
  
     /* Read version number and see if it matches */
     TPS546_read_mfr_info(read_mfr_revision);
-    if (memcmp(read_mfr_revision, MFR_REVISION, 3) != 0) {
-        uint8_t voutmode;
-        // If it doesn't match, then write all the registers and set new version number
-        ESP_LOGI(TAG, "--------------------------------");
-        ESP_LOGI(TAG, "Config version mismatch, writing new config values");
-        smb_read_byte(PMBUS_VOUT_MODE, &voutmode);
-        ESP_LOGI(TAG, "VOUT_MODE: %02x", voutmode);
-        TPS546_write_entire_config();
-    }
+    // if (memcmp(read_mfr_revision, MFR_REVISION, 3) != 0) {
+    uint8_t voutmode;
+    // If it doesn't match, then write all the registers and set new version number
+    // ESP_LOGI(TAG, "--------------------------------");
+    // ESP_LOGI(TAG, "Config version mismatch, writing new config values");
+    ESP_LOGI(TAG, "Writing new config values");
+    smb_read_byte(PMBUS_VOUT_MODE, &voutmode);
+    ESP_LOGI(TAG, "VOUT_MODE: %02x", voutmode);
+    TPS546_write_entire_config();
+    //}
 
     /* Show temperature */
     ESP_LOGI(TAG, "--------------------------------");
@@ -560,9 +562,14 @@ void TPS546_write_entire_config(void)
     ESP_LOGI(TAG, "Writing MFR REVISION");
     smb_write_block(PMBUS_MFR_ID, MFR_REVISION, 3);
 
+    /*
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // Never write this to NVM as it can corrupt the TPS in an unrecoverable state, just do it on boot every time
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!
+    */
     /* store configuration in NVM */
-    ESP_LOGI(TAG, "---Saving new config---");
-    smb_write_byte(PMBUS_STORE_USER_ALL, 0x98);
+    // ESP_LOGI(TAG, "---Saving new config---");
+    // smb_write_byte(PMBUS_STORE_USER_ALL, 0x98);
 
 }
 

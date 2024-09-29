@@ -94,7 +94,7 @@ void POWER_MANAGEMENT_task(void * pvParameters)
         case DEVICE_MAX:
         case DEVICE_ULTRA:
         case DEVICE_SUPRA:
-			if (GLOBAL_STATE->board_version != 402) {
+			if (GLOBAL_STATE->board_version < 402 || GLOBAL_STATE->board_version > 499) {
                 // Configure GPIO12 as input(barrel jack) 1 is plugged in
                 gpio_config_t barrel_jack_conf = {
                     .pin_bit_mask = (1ULL << GPIO_NUM_12),
@@ -128,7 +128,7 @@ void POWER_MANAGEMENT_task(void * pvParameters)
             case DEVICE_MAX:
             case DEVICE_ULTRA:
             case DEVICE_SUPRA:
-				if (GLOBAL_STATE->board_version == 402) {
+				if (GLOBAL_STATE->board_version >= 402 && GLOBAL_STATE->board_version <= 499) {
                     power_management->voltage = TPS546_get_vin() * 1000;
                     power_management->current = TPS546_get_iout() * 1000;
                     // calculate regulator power (in milliwatts)
@@ -157,7 +157,7 @@ void POWER_MANAGEMENT_task(void * pvParameters)
 
         switch (GLOBAL_STATE->device_model) {
             case DEVICE_MAX:
-                power_management->chip_temp_avg = EMC2101_get_external_temp();
+                power_management->chip_temp_avg = GLOBAL_STATE->ASIC_initalized ? EMC2101_get_external_temp() : -1;
 
                 if ((power_management->chip_temp_avg > THROTTLE_TEMP) &&
                     (power_management->frequency_value > 50 || power_management->voltage > 1000)) {
@@ -177,8 +177,8 @@ void POWER_MANAGEMENT_task(void * pvParameters)
             case DEVICE_ULTRA:
             case DEVICE_SUPRA:
                 
-                if (GLOBAL_STATE->board_version == 402) {
-                    power_management->chip_temp_avg = EMC2101_get_external_temp();
+                if (GLOBAL_STATE->board_version >= 402 && GLOBAL_STATE->board_version <= 499) {
+                    power_management->chip_temp_avg = GLOBAL_STATE->ASIC_initalized ? EMC2101_get_external_temp() : -1;
                     power_management->vr_temp = (float)TPS546_get_temperature();
                 } else {
                     power_management->chip_temp_avg = EMC2101_get_internal_temp() + 5;
@@ -196,7 +196,7 @@ void POWER_MANAGEMENT_task(void * pvParameters)
                     ESP_LOGE(TAG, "OVERHEAT! VR: %fC ASIC %fC", power_management->vr_temp, power_management->chip_temp_avg );
 
                     EMC2101_set_fan_speed(1);
-                    if (GLOBAL_STATE->board_version == 402) {
+                    if (GLOBAL_STATE->board_version >= 402 && GLOBAL_STATE->board_version <= 499) {
                         // Turn off core voltage
                         VCORE_set_voltage(0.0, GLOBAL_STATE);
                     } else if (power_management->HAS_POWER_EN) {
@@ -212,7 +212,7 @@ void POWER_MANAGEMENT_task(void * pvParameters)
 
                 break;
             case DEVICE_GAMMA:
-                power_management->chip_temp_avg = EMC2101_get_external_temp();
+                power_management->chip_temp_avg = GLOBAL_STATE->ASIC_initalized ? EMC2101_get_external_temp() : -1;
                 power_management->vr_temp = (float)TPS546_get_temperature();
 
                 // EMC2101 will give bad readings if the ASIC is turned off

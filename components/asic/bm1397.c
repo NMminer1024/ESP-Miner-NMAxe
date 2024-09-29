@@ -127,6 +127,10 @@ static void _set_chip_address(uint8_t chipAddr)
     _send_BM1397((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), read_address, 2, BM1937_SERIALTX_DEBUG);
 }
 
+void BM1397_set_version_mask(uint32_t version_mask) {
+    // placeholder
+}
+
 // borrowed from cgminer driver-gekko.c calc_gsf_freq()
 void BM1397_send_hash_frequency(float frequency)
 {
@@ -384,8 +388,11 @@ void BM1397_send_work(void *pvParameters, bm_job *next_bm_job)
 
     pthread_mutex_lock(&GLOBAL_STATE->valid_jobs_lock);
     GLOBAL_STATE->valid_jobs[job.job_id] = 1;
-    // ESP_LOGI(TAG, "Added Job: %i", job.job_id);
     pthread_mutex_unlock(&GLOBAL_STATE->valid_jobs_lock);
+
+    #if BM1397_DEBUG_JOBS
+    ESP_LOGI(TAG, "Send Job: %02X", job.job_id);
+    #endif
 
     _send_BM1397((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), &job, sizeof(job_packet), BM1397_DEBUG_WORK);
 }

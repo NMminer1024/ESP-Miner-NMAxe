@@ -11,7 +11,7 @@ asicfrequency,data,u16,490
 asicvoltage,data,u16,1166
 asicmodel,data,string,BM1368
 devicemodel,data,string,supra
-boardversion,data,string,401
+boardversion,data,string,402
 flipscreen,data,u16,1
 invertfanpol,data,u16,1
 autofanspeed,data,u16,1

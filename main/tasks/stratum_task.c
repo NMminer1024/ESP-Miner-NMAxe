@@ -156,16 +156,16 @@ void stratum_task(void * pvParameters)
             // mining.configure - ID: 2
             STRATUM_V1_configure_version_rolling(GLOBAL_STATE->sock, &GLOBAL_STATE->version_mask);
 
-            //mining.suggest_difficulty - ID: 3
-            STRATUM_V1_suggest_difficulty(GLOBAL_STATE->sock, STRATUM_DIFFICULTY);
-
             char * username = nvs_config_get_string(NVS_CONFIG_STRATUM_USER, STRATUM_USER);
             char * password = nvs_config_get_string(NVS_CONFIG_STRATUM_PASS, STRATUM_PW);
 
-            //mining.authorize - ID: 4
+            //mining.authorize - ID: 3
             STRATUM_V1_authenticate(GLOBAL_STATE->sock, username, password);
             free(password);
             free(username);
+
+            //mining.suggest_difficulty - ID: 4
+            STRATUM_V1_suggest_difficulty(GLOBAL_STATE->sock, STRATUM_DIFFICULTY);
 
             while (1) {
                 char * line = STRATUM_V1_receive_jsonrpc_line(GLOBAL_STATE->sock);
@@ -203,6 +203,7 @@ void stratum_task(void * pvParameters)
                     // 1fffe000
                     ESP_LOGI(TAG, "Set version mask: %08lx", stratum_api_v1_message.version_mask);
                     GLOBAL_STATE->version_mask = stratum_api_v1_message.version_mask;
+                    GLOBAL_STATE->new_stratum_version_rolling_msg = true;
                 } else if (stratum_api_v1_message.method == STRATUM_RESULT_SUBSCRIBE) {
                     GLOBAL_STATE->extranonce_str = stratum_api_v1_message.extranonce_str;
                     GLOBAL_STATE->extranonce_2_len = stratum_api_v1_message.extranonce_2_len;

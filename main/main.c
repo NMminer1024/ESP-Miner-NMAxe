@@ -17,7 +17,13 @@
 #include "stratum_task.h"
 #include "user_input_task.h"
 
-static GlobalState GLOBAL_STATE = {.extranonce_str = NULL, .extranonce_2_len = 0, .abandon_work = 0, .version_mask = 0};
+static GlobalState GLOBAL_STATE = {
+    .extranonce_str = NULL, 
+    .extranonce_2_len = 0, 
+    .abandon_work = 0, 
+    .version_mask = 0,
+    .ASIC_initalized = false
+};
 
 static const char * TAG = "bitaxe";
 static const double NONCE_SPACE = 4294967296.0; //  2^32
@@ -71,9 +77,10 @@ void app_main(void)
                                         .receive_result_fn = BM1366_proccess_work,
                                         .set_max_baud_fn = BM1366_set_max_baud,
                                         .set_difficulty_mask_fn = BM1366_set_job_difficulty_mask,
-                                        .send_work_fn = BM1366_send_work};
+                                        .send_work_fn = BM1366_send_work,
+                                        .set_version_mask = BM1366_set_version_mask};
         //GLOBAL_STATE.asic_job_frequency_ms = (NONCE_SPACE / (double) (GLOBAL_STATE.POWER_MANAGEMENT_MODULE.frequency_value * BM1366_CORE_COUNT * 1000)) / (double) GLOBAL_STATE.asic_count; // version-rolling so Small Cores have different Nonce Space
-        GLOBAL_STATE.asic_job_frequency_ms = 2000; //ms
+        GLOBAL_STATE.asic_job_frequency_ms = ASIC_BM1366_JOB_FREQUENCY_MS; //2000ms
         GLOBAL_STATE.initial_ASIC_difficulty = BM1366_INITIAL_DIFFICULTY;
 
         GLOBAL_STATE.ASIC_functions = ASIC_functions;
@@ -84,9 +91,10 @@ void app_main(void)
                                         .receive_result_fn = BM1370_proccess_work,
                                         .set_max_baud_fn = BM1370_set_max_baud,
                                         .set_difficulty_mask_fn = BM1370_set_job_difficulty_mask,
-                                        .send_work_fn = BM1370_send_work};
+                                        .send_work_fn = BM1370_send_work,
+                                        .set_version_mask = BM1370_set_version_mask};
         //GLOBAL_STATE.asic_job_frequency_ms = (NONCE_SPACE / (double) (GLOBAL_STATE.POWER_MANAGEMENT_MODULE.frequency_value * BM1370_CORE_COUNT * 1000)) / (double) GLOBAL_STATE.asic_count; // version-rolling so Small Cores have different Nonce Space
-        GLOBAL_STATE.asic_job_frequency_ms = 500; //ms
+        GLOBAL_STATE.asic_job_frequency_ms = ASIC_BM1370_JOB_FREQUENCY_MS; //500ms
         GLOBAL_STATE.initial_ASIC_difficulty = BM1370_INITIAL_DIFFICULTY;
 
         GLOBAL_STATE.ASIC_functions = ASIC_functions;
@@ -97,9 +105,10 @@ void app_main(void)
                                         .receive_result_fn = BM1368_proccess_work,
                                         .set_max_baud_fn = BM1368_set_max_baud,
                                         .set_difficulty_mask_fn = BM1368_set_job_difficulty_mask,
-                                        .send_work_fn = BM1368_send_work};
+                                        .send_work_fn = BM1368_send_work,
+                                        .set_version_mask = BM1368_set_version_mask};
         //GLOBAL_STATE.asic_job_frequency_ms = (NONCE_SPACE / (double) (GLOBAL_STATE.POWER_MANAGEMENT_MODULE.frequency_value * BM1368_CORE_COUNT * 1000)) / (double) GLOBAL_STATE.asic_count; // version-rolling so Small Cores have different Nonce Space
-        GLOBAL_STATE.asic_job_frequency_ms = 500; //ms
+        GLOBAL_STATE.asic_job_frequency_ms = ASIC_BM1368_JOB_FREQUENCY_MS; //500ms
         GLOBAL_STATE.initial_ASIC_difficulty = BM1368_INITIAL_DIFFICULTY;
 
         GLOBAL_STATE.ASIC_functions = ASIC_functions;
@@ -110,7 +119,8 @@ void app_main(void)
                                         .receive_result_fn = BM1397_proccess_work,
                                         .set_max_baud_fn = BM1397_set_max_baud,
                                         .set_difficulty_mask_fn = BM1397_set_job_difficulty_mask,
-                                        .send_work_fn = BM1397_send_work};
+                                        .send_work_fn = BM1397_send_work,
+                                        .set_version_mask = BM1397_set_version_mask};
         GLOBAL_STATE.asic_job_frequency_ms = (NONCE_SPACE / (double) (GLOBAL_STATE.POWER_MANAGEMENT_MODULE.frequency_value * BM1397_SMALL_CORE_COUNT * 1000)) / (double) GLOBAL_STATE.asic_count; // no version-rolling so same Nonce Space is splitted between Small Cores
         GLOBAL_STATE.initial_ASIC_difficulty = BM1397_INITIAL_DIFFICULTY;
 
@@ -181,6 +191,7 @@ void app_main(void)
 
     // set the startup_done flag
     GLOBAL_STATE.SYSTEM_MODULE.startup_done = true;
+    GLOBAL_STATE.new_stratum_version_rolling_msg = false;
 
     xTaskCreate(USER_INPUT_task, "user input", 8192, (void *) &GLOBAL_STATE, 5, NULL);
 
@@ -195,6 +206,8 @@ void app_main(void)
         SERIAL_set_baud((*GLOBAL_STATE.ASIC_functions.set_max_baud_fn)());
         SERIAL_clear_buffer();
 
+        GLOBAL_STATE.ASIC_initalized = true;
+
         xTaskCreate(stratum_task, "stratum admin", 8192, (void *) &GLOBAL_STATE, 5, NULL);
         xTaskCreate(create_jobs_task, "stratum miner", 8192, (void *) &GLOBAL_STATE, 10, NULL);
         xTaskCreate(ASIC_task, "asic", 8192, (void *) &GLOBAL_STATE, 10, NULL);
@@ -204,7 +217,11 @@ void app_main(void)
 
 void MINER_set_wifi_status(wifi_status_t status, uint16_t retry_count)
 {
-    if (status == WIFI_RETRYING) {
+    if (status == WIFI_CONNECTED) {
+        snprintf(GLOBAL_STATE.SYSTEM_MODULE.wifi_status, 20, "Connected!");
+        return;
+    }
+    else if (status == WIFI_RETRYING) {
         snprintf(GLOBAL_STATE.SYSTEM_MODULE.wifi_status, 20, "Retrying: %d", retry_count);
         return;
     } else if (status == WIFI_CONNECT_FAILED) {
