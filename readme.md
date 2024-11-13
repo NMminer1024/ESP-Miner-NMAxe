@@ -1,11 +1,12 @@
 
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/NMMiner1024/ESP-Miner-NMAxe/total)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/t/NMMiner1024/ESP-Miner-NMAxe)
-![GitHub contributors](https://img.shields.io/github/contributors/NMMiner1024/ESP-Miner-NMAxe)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/NMminer1024/ESP-Miner-NMAxe/total)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/t/NMminer1024/ESP-Miner-NMAxe)
+![GitHub contributors](https://img.shields.io/github/contributors/NMminer1024/ESP-Miner-NMAxe)
 
 # NMAxe
 ***
 - NMAxe solo miner based on BM1366 which fork from [bitaxe](https://github.com/skot/bitaxe).
+- NMAxe [aliexpress](https://www.aliexpress.com/item/1005008053561633.html)
 <div align="center">
   <table width="100%">
     <tr>
@@ -15,11 +16,11 @@
   </table>
 </div>
 
-## Requirements
+## Build requirements
 ***
-| Platform           | framework             |
-| :---------------   | :--------------------:|
-|espressif32@6.6.0   |    Arduino            |
+| Platform           | framework  | PCB     | Firmware                     |
+| :---------------   | :---------:|:-------:|:----------------------------:|
+|espressif32@6.6.0   |    Arduino |JLC EDA  | VS code with platformio      |
 
 
 ## Features
@@ -44,6 +45,8 @@
 ### Power 
 - 8-12v/25W dc adapter least.
 - USB PD charger 25W at least. 
+
+
 
 ### Configuration
 ***
@@ -86,7 +89,6 @@
 <div align="center">
   <img src="image/nm-flash-tool.jpg" alt="nm-flash-tool">
 </div>
-
 
 ## TODO
 - According to different mining coin, the corresponding market prices are displayed.
