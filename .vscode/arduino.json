@@ -1,0 +1,4 @@
+{
+    "port": "COM27",
+    "board": "heltec:esp32:heltec_wireless_tracker"
+}

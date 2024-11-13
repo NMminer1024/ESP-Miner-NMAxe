@@ -1,0 +1,12 @@
+#logs {
+    height: 500px;
+    width: 100%;
+    font-family: monospace;
+    border: 1px solid #304562;
+    overflow-y: scroll;
+    >div {
+        max-width: 100%;
+        line-break: anywhere;
+
+    }
+}

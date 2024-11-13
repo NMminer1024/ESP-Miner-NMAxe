@@ -1,67 +1,108 @@
-[![](https://dcbadge.vercel.app/api/server/3E8ca2dkcC)](https://discord.gg/3E8ca2dkcC)
 
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/skot/esp-miner/total)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/t/skot/esp-miner)
-![GitHub contributors](https://img.shields.io/github/contributors/skot/esp-miner)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/NMMiner1024/ESP-Miner-NMAxe/total)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/t/NMMiner1024/ESP-Miner-NMAxe)
+![GitHub contributors](https://img.shields.io/github/contributors/NMMiner1024/ESP-Miner-NMAxe)
+
+# NMAxe
+***
+- NMAxe solo miner based on BM1366 which fork from [bitaxe](https://github.com/skot/bitaxe).
+<div align="center">
+  <table width="100%">
+    <tr>
+      <td width="50%" align="center"><img src="image/nmaxe-1.jpg" alt="nmaxe-1"></td>
+      <td width="50%" align="center"><img src="image/nmaxe-2.jpg" alt="nmaxe-2"></td>
+    </tr>
+  </table>
+</div>
+
+## Requirements
+***
+| Platform           | framework             |
+| :---------------   | :--------------------:|
+|espressif32@6.6.0   |    Arduino            |
 
 
-# ESP-Miner
-esp-miner is open source ESP32 firmware for the [Bitaxe](https://github.com/skot/bitaxe)
+## Features
+***
+- **ESP32S3R8 wifi connection**
+- **Stratum with ssl connection**
+- **USB PD power supply support**
+- **Raspberry Pi5 structure compatible**
+- **User-friendly UI with a 1.14-inch TFT LCD driven by LVGL**
+- **Low cost Vcore regulator solution**
+- [NMController_client](https://github.com/NMminer1024/NMController_client) monitor.
+- [NMController_web](https://github.com/NMminer1024/NMController_web) monitor.
 
-If you are looking for premade images to load on your Bitaxe, check out the [releases](https://github.com/skot/ESP-Miner/releases) page. Maybe you want [instructions](https://github.com/skot/ESP-Miner/blob/master/flashing.md) for loading factory images.
 
-# Bitaxetool
-We also have a command line python tool for flashing Bitaxe and updating the config called Bitaxetool 
+### Buttons
+***
+| Buttons           | Action             | Description             |
+| :---------------  | :-----------------:|:-----------------:      |
+|boot               |    Unused          |        --               |
+|user               |    Long press      |  Restore to factory settings  |
 
-**Bitaxetool Requires Python3.4 or later and pip**
+### Power 
+- 8-12v/25W dc adapter least.
+- USB PD charger 25W at least. 
 
-Install bitaxetool from pip. pip is included with Python 3.4 but if you need to install it check <https://pip.pypa.io/en/stable/installation/>
+### Configuration
+***
+## Pool
+| Url               | Type               | Port               | Description       | Minimum required difficulty|
+| :---------------  | :-----------------:| :-----------------:|:-----------------:| :----------------------:   |
+|public-pool.io     | tcp                |    21496           |        BTC        | 1M initial, Minimum 0.001  |
+|solo.ckpool.org    | tcp                |    3333            |        BTC        | 10K initial, dynamically adjusted based on hashrate|
+|pool.nmminer.com   | tcp                |    3333            |        XEC        | 1K initial, dynamically adjusted based on hashrate |
+|eu.molepool.com    | tcp                |    7450            |        DGB        | Minimum 32.768K constantly         |
+|eu.molepool.com    | tcp                |    5566            |        BCH        | Minimum 32.768K constantly         |
+|eu.molepool.com    | tcp                |    2566            |        SPACE      | Minimum 32.768K constantly         |
+|eu.molepool.com    | tcp                |    1801            |        FB         | Minimum 32.768K constantly         |
 
-```
-pip install --upgrade bitaxetool
-```
-The bitaxetool includes all necessary library for flashing the binary file to the Bitaxe Hardware.
 
-You need to provide a config.cvs file (see repo for examples) and the appropiate firmware.bin file in it's executed directory.
+## How to monitor
+- In fact, both ***NMController_client*** and ***NMController_web*** have the same feature, ***NMController_client*** for Windows, ***NMController_web*** for Windows and MACOS, We make an example by ***NMController_client*** here.
 
-- Flash with the bitaxetool
+- ***NMController_client***, scan the machine in your LAN, just as below.
 
-```
-bitaxetool --config ./config.cvs --firmware ./esp-miner-factory-v2.0.3.bin
-```
+<div align="center">
+  <img src="image/nmcontroller-home.jpg" alt="nmcontroller-home">
+</div>
 
-## AxeOS API
-The esp-miner UI is called AxeOS and provides an API to expose actions and information.
+- Redirect to the web monitor for more details. 
 
-For more details take a look at `main/http_server/http_server.c`.
+<div align="center">
+  <img src="image/nmcontroller-details.jpg" alt="nmcontroller-details">
+</div>
 
-Things that can be done are:
-  
-  - Get System Info
-  - Get Swarm Info
-  - Update Swarm
-  - Swarm Options
-  - System Restart Action
-  - Update System Settings Action
-  - System Options
-  - Update OTA Firmware
-  - Update OTA WWW
-  - WebSocket
+## Firmware update
+***
+- *Via AxeOS ota*
+<div align="center">
+  <img src="image/ota.jpg" alt="ota">
+</div>
 
-Some API examples in curl:
-  ```bash
-  # Get system information
-  curl http://YOUR-BITAXE-IP/api/system/info
-  ```
-  ```bash
-  # Get swarm information
-  curl http://YOUR-BITAXE-IP/api/swarm/info
-  ```
-  ```bash
-  # System restart action
-  curl -X POST http://YOUR-BITAXE-IP/api/system/restart
-  ```
 
-## Administration
+- *Via [NMMiner flash tool](https://flash.nmminer.com/)*
+<div align="center">
+  <img src="image/nm-flash-tool.jpg" alt="nm-flash-tool">
+</div>
 
-The firmware hosts a small web server on port 80 for administrative purposes. Once the Bitaxe device is connected to the local network, the admin web front end may be accessed via a web browser connected to the same network at `http://<IP>`, replacing `IP` with the LAN IP address of the Bitaxe device, or `http://bitaxe`, provided your network supports mDNS configuration.
+
+## TODO
+- According to different mining coin, the corresponding market prices are displayed.
+
+
+## Contact
+- Anything do not work as your expectation, just let us know.
+
+| Email                   |  Telegram                       |
+| :-----------------:     |  :-----------------:            |
+|nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |
+
+
+
+## Release Log
+***
+### (2024.11.13) - v0.2.14
+- First push.
+
