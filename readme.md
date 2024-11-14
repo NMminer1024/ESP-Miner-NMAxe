@@ -105,6 +105,7 @@
 
 ## Release Log
 ***
-### (2024.11.13) - v0.2.14
+### (2024.11.13) - v2.1.11
 - First push.
+- Checkout NMAxe branch.
 
