@@ -43,7 +43,7 @@
 |user               |    Long press      |  Restore to factory settings  |
 
 ### Power 
-- 8-12v/25W dc adapter least.
+- DC adapter 8-12v/25W at least.
 - USB PD charger 25W at least. 
 
 
@@ -97,9 +97,9 @@
 ## Contact
 - Anything do not work as your expectation, just let us know.
 
-| Email                   |  Telegram                       |
-| :-----------------:     |  :-----------------:            |
-|nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |
+| Email                   |  Telegram                       | Home page           |
+| :-----------------:     |  :-----------------:            |:-----------------:  |
+|nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |[NMTech](https://www.nmminer.com/) |
 
 
 
