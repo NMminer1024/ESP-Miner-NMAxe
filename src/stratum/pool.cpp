@@ -33,6 +33,7 @@ bool poolClass::connect(){
     if(!this->_pwclient->connect(this->_pool_ip, this->_pool_cfg.port)){
         err_cnt++;
         LOG_E("Failed to connect to pool %s:%d, %d times", this->_pool_cfg.url.c_str(), this->_pool_cfg.port, err_cnt);
+        if(err_cnt > 100) ESP.restart();
         return false;
     }
     else  err_cnt = 0;
