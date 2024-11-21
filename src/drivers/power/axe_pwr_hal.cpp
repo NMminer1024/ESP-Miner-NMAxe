@@ -80,9 +80,9 @@ bool AxePowerHal::init(){
     this->_ibus_adc_chars = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
     ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_2_5, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_ibus_adc_chars);
     //vcore
-    adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_ATTEN_DB_2_5); 
+    adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_ATTEN_DB_6); 
     this->_vcore_adc_chars = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_2_5, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vcore_adc_chars);
+    ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vcore_adc_chars);
 
     return true;
 }

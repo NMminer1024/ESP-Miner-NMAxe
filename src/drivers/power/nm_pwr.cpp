@@ -76,7 +76,7 @@ void NMAxePowerClass::set_vcore_voltage(uint16_t req_mv){
     uint16_t pwm = 0;
     //pwm = 0.14*req_mv - 140
     if (req_mv >= 1100 && req_mv <= 1300) {
-        pwm = 0.14 * req_mv - 140;
+        pwm = 0.14 * (req_mv+20) - 140; //bias 20mv
     } else {
         pwm = 0; //default
     }

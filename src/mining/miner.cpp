@@ -211,6 +211,8 @@ double AsicMinerClass::calculate_hashrate(){
 
     hashrate = (duration > 0) ? ((total_diff * 4294967296.0) / duration) : 0.0;
 
+    // LOG_W("Total diff [%.3f], Duration [%s]s, Hashrate [%s]GH/s, size [%d]", total_diff, formatNumber(duration, 4).c_str(), formatNumber(hashrate/1000.0f/1000.0f/1000.0f, 4).c_str(), diff_samples.size());
+
     return hashrate;
 }
 
