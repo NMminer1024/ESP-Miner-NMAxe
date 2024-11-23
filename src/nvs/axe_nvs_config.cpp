@@ -200,20 +200,20 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.pool.url                 = url.substring(url.indexOf(":") + 3);
     g_nmaxe.connection.pool.port                = nvs_config_get_u16(NVS_CONFIG_STRATUM_PORT, 21496);
     g_nmaxe.connection.stratum.user             = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
-    g_nmaxe.connection.stratum.pwd              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS, "x"));
+    g_nmaxe.connection.stratum.pwd              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS, "d=15000"));
     g_nmaxe.connection.stratum.diff             = DEFAULT_POOL_DIFFICULTY;
     g_nmaxe.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "TP-LINK_74864531"));
     g_nmaxe.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "heltec_test"));
     g_nmaxe.connection.wifi.conn_param.hostname = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, ("NMAxe_" + g_nmaxe.board.devcie_code.substring(0, 4)).c_str()));
     g_nmaxe.mstatus.best_ever                   = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_nmaxe.asic.type                           = String(nvs_config_get_string(NVS_CONFIG_ASIC_MODEL, "BM1366"));
-    g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 485);
-    g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1200);
+    g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 575);
+    g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1300);
     g_nmaxe.fan.is_auto_speed                   = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     g_nmaxe.fan.invert_ploarity                 = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, true); 
     g_nmaxe.fan.speed                           = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     g_nmaxe.fan.self_test                       = false;
-    g_nmaxe.led.indicator                       = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, false);
+    g_nmaxe.led.indicator                       = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     g_nmaxe.screen.flip                         = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
 
     return true;

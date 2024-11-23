@@ -23,11 +23,16 @@ AsicMinerClass::AsicMinerClass(BMxxx *asic){
     this->_asic = asic;
     this->_pool_job_id_now = "";
     this->_asic_job_map.clear();
+    this->_is_init = false;
     memset(&this->_asic_job_now, 0, sizeof(asic_job));
 }
 
 AsicMinerClass::~AsicMinerClass(){
 
+}
+
+bool AsicMinerClass::is_init(){
+    return this->_is_init;
 }
 
 bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
@@ -40,6 +45,7 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
     }
     LOG_I("======= Found %d BM1366 ASICs =======", asics);
     this->_asic->change_uart_baud(ESP32_TO_BM1366_WORK_BUAD);
+    this->_is_init = true;
     return this->_asic->clear_port_cache();
 }
 
@@ -239,9 +245,10 @@ void miner_asic_tx_thread_entry(void *args){
     xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
     //begin asic hardware
     if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, BM1366_DIFF_THR)){
-        LOG_E("Miner begin failed, Miner thread exit");
-        delete g_nmaxe.miner, delete bm1366;
-        vTaskDelete(NULL);
+        while (true){
+            LOG_E("Miner begin failed, Miner thread exit...");
+            delay(1000);
+        }
     }
     //forever loop
     while (true){
@@ -305,6 +312,8 @@ void miner_asic_rx_thread_entry(void *args){
 
     //wait for miner instance ready
     while (g_nmaxe.miner == NULL)delay(10);
+    while (g_nmaxe.miner->is_init() == false)delay(10);
+    
     //wait for first job cache ready forever
     xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
 
