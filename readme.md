@@ -105,6 +105,28 @@
 
 ## Release Log
 ***
+### (2024.11.13) - v2.1.13
+- Add:
+  - None.
+- Fixed:
+  - ASIC not found reboot issue.
+- Improved:
+  - None.
+- Modify:
+  - Led indicator enable default.
+  - Overclock 575Mhz and Vcore 1300mV default.
+  - Fan self-test threshold changed to 4800 rpm.
+
+### (2024.11.13) - v2.1.12
+- Add:
+  - None.
+- Fixed:
+  - None.
+- Improved:
+  - None.
+- Modify:
+  - Vcore bias set to 10mV.
+
 ### (2024.11.13) - v2.1.11
 - First push.
 - Checkout NMAxe branch.
