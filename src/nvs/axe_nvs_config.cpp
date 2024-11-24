@@ -192,7 +192,7 @@ bool load_g_nmaxe(void){
         g_nmaxe.mstatus.update_xsem                 = xSemaphoreCreateCounting(1, 0);
         g_nmaxe.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
         g_nmaxe.connection.wifi.softap_param.pwd    = "12345678";
-        g_nmaxe.connection.wifi.softap_param.ssid   = "NMAxe_" + g_nmaxe.board.devcie_code.substring(0, 4);
+        g_nmaxe.connection.wifi.softap_param.ssid   = "NMAxe_" + g_nmaxe.board.devcie_code.substring(0, 5);
         g_nmaxe.mstatus.block_hits                  = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     }
     String url = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+tcp://public-pool.io"));
@@ -204,7 +204,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.stratum.diff             = DEFAULT_POOL_DIFFICULTY;
     g_nmaxe.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "TP-LINK_74864531"));
     g_nmaxe.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "heltec_test"));
-    g_nmaxe.connection.wifi.conn_param.hostname = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, ("NMAxe_" + g_nmaxe.board.devcie_code.substring(0, 4)).c_str()));
+    g_nmaxe.connection.wifi.conn_param.hostname = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_nmaxe.connection.wifi.softap_param.ssid.c_str()));
     g_nmaxe.mstatus.best_ever                   = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_nmaxe.asic.type                           = String(nvs_config_get_string(NVS_CONFIG_ASIC_MODEL, "BM1366"));
     g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 575);

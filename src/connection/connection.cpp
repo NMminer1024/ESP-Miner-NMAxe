@@ -82,7 +82,7 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
         if(maxRetries >= 15){
             LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.conn_param.hostname.c_str());
             WiFi.mode(WIFI_AP);
-            WiFi.softAP(g_nmaxe.connection.wifi.conn_param.hostname, g_nmaxe.connection.wifi.softap_param.pwd.c_str());
+            WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid, g_nmaxe.connection.wifi.softap_param.pwd.c_str());
             WiFi.softAPConfig(g_nmaxe.connection.wifi.softap_param.ip, g_nmaxe.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
             delay(1000);
             xSemaphoreGive(g_nmaxe.connection.wifi.force_cfg_xsem);

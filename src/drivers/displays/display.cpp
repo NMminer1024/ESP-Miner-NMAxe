@@ -545,7 +545,7 @@ void ui_thread_entry(void *args){
       const lv_font_t *font = &lv_font_montserrat_12;
       lv_color_t font_color = lv_color_hex(0xFFFFFF);
       lv_obj_t *lb_cfg = lv_label_create(config_page);
-      String str = "ssid:" + g_nmaxe.connection.wifi.conn_param.hostname + "\r\npwd: " + g_nmaxe.connection.wifi.softap_param.pwd + "\r\nlogin:"+ g_nmaxe.connection.wifi.softap_param.ip.toString();
+      String str = "ssid:" + g_nmaxe.connection.wifi.softap_param.ssid + "\r\npwd: " + g_nmaxe.connection.wifi.softap_param.pwd + "\r\nlogin:"+ g_nmaxe.connection.wifi.softap_param.ip.toString();
 
       lv_obj_set_width(lb_cfg, 120);
       lv_label_set_text(lb_cfg, str.c_str());
@@ -553,11 +553,11 @@ void ui_thread_entry(void *args){
       lv_obj_set_style_text_color(lb_cfg, font_color, LV_PART_MAIN);
       lv_label_set_long_mode(lb_cfg, LV_LABEL_LONG_WRAP);
       lv_obj_set_style_text_line_space(lb_cfg, 0, LV_PART_MAIN); 
-      lv_obj_align(lb_cfg, LV_ALIGN_LEFT_MID, 8, 45);
+      lv_obj_align(lb_cfg, LV_ALIGN_LEFT_MID, 8, 38);
 
       //QR code
       lv_obj_t *qrcode = lv_qrcode_create(config_page, SCREEN_HEIGHT - 30, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
-      String qr_str = "WIFI:T:WPA;S:" + g_nmaxe.connection.wifi.conn_param.hostname + ";P:" + g_nmaxe.connection.wifi.softap_param.pwd + ";H:false;";
+      String qr_str = "WIFI:T:WPA;S:" + g_nmaxe.connection.wifi.softap_param.ssid + ";P:" + g_nmaxe.connection.wifi.softap_param.pwd + ";H:false;";
       lv_qrcode_update(qrcode, (uint8_t*)qr_str.c_str(), qr_str.length());
       lv_obj_align(qrcode, LV_ALIGN_RIGHT_MID, 0, 0);
 
