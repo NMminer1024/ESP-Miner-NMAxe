@@ -105,6 +105,17 @@
 
 ## Release Log
 ***
+
+### (2024.11.13) - v2.1.13
+- Add:
+  - None.
+- Fixed:
+  - Soft AP name issue.
+- Improved:
+  - None.
+- Modify:
+  - None.
+
 ### (2024.11.13) - v2.1.13
 - Add:
   - None.
