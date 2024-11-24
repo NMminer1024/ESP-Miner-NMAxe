@@ -65,10 +65,7 @@ static void config_timeout_monitor_thread_entry(void *args){
 
 void axe_wifi_connecet(axe_wifi_conn_param_t param){
     LOG_I("Initializing WiFi...");
-    WiFi.mode(WIFI_AP_STA);
-    LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.conn_param.hostname.c_str());
-    WiFi.softAP(g_nmaxe.connection.wifi.conn_param.hostname, g_nmaxe.connection.wifi.softap_param.pwd.c_str());
-    WiFi.softAPConfig(g_nmaxe.connection.wifi.softap_param.ip, g_nmaxe.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
+    WiFi.mode(WIFI_STA);
     WiFi.setTxPower(WIFI_POWER_15dBm);
     WiFi.onEvent(WiFiEvent);
 
@@ -83,9 +80,13 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
         maxRetries++;
         LOG_I("Try to connect [%s] %ds...", param.ssid.c_str(), maxRetries);
         if(maxRetries >= 15){
+            LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.conn_param.hostname.c_str());
             WiFi.mode(WIFI_AP);
+            WiFi.softAP(g_nmaxe.connection.wifi.conn_param.hostname, g_nmaxe.connection.wifi.softap_param.pwd.c_str());
+            WiFi.softAPConfig(g_nmaxe.connection.wifi.softap_param.ip, g_nmaxe.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
+            delay(1000);
             xSemaphoreGive(g_nmaxe.connection.wifi.force_cfg_xsem);
-            
+
             //config time out monitor
             String taskName = "(config_monitor)";
             xTaskCreatePinnedToCore(config_timeout_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
