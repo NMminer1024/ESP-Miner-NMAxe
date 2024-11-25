@@ -57,18 +57,16 @@ void setup() {
   taskName = "(button)";
   xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_BTN, &btnTask,1);
   delay(10);
+  /********************************************************* CREATE FAN THREAD *********************************************************/
+  taskName = "(fan)";
+  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_FAN, &fanTask,1);
+  delay(10);
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
   xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_PWR, &pwrTask,1);
   xSemaphoreTake(g_nmaxe.power.good_xsem, portMAX_DELAY);
   /************************************************************** INIT WIFI ************************************************************/
   axe_wifi_connecet(g_nmaxe.connection.wifi.conn_param);//blockingly connect to wifi
-  /********************************************************* CREATE FAN THREAD *********************************************************/
-  taskName = "(fan)";
-  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_FAN, &fanTask,1);
-  while (!g_nmaxe.fan.self_test){
-    delay(10);
-  }
   /*********************************************************** CREATE MARKET THREAD ***************************************************/
   taskName = "(market)";
   xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, NULL, 1);

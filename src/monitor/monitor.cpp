@@ -84,6 +84,11 @@ void monitor_thread_entry(void *args){
           g_nmaxe.power.set_vcore_voltage(vcore_now);
           LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", g_nmaxe.board.temp_vcore, vcore_now);
         }
+        if(g_nmaxe.fan.rpm <= 1000){
+          LOG_W("Fan rpm is too low, stop miner...");
+          delay(1000);
+          ESP.restart();
+        }
       }
       //save status to NVS
       if(xSemaphoreTake(g_nmaxe.mstatus.nvs_save_xsem, 0) == pdTRUE){

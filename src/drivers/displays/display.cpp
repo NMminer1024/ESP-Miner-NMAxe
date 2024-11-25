@@ -513,7 +513,17 @@ void ui_thread_entry(void *args){
   ui_update_loading_string("Vbus " + String(g_nmaxe.power.get_vbus() / 1000.0, 3) + "V.", 0x00FF00, true);
   delay(500);
 
-  //Vcore check 
+  /***************************************wait fan self test *******************************************/
+  ui_update_loading_string(fan_test_str[0], 0xFFFFFF, true);
+  while(!g_nmaxe.fan.self_test){
+    static uint8_t cnt = 0;
+    ui_update_loading_string(String(fan_test_str[cnt++ % 4]) + String(g_nmaxe.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + "rpm", 0xFFFFFF, false);
+    delay(300);
+  }
+  ui_update_loading_string("Pass! [" + String(g_nmaxe.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + " rpm]", 0x00FF00, true);
+  delay(3000);
+
+  /***************************************wait Vcore self test *****************************************/
   ui_update_loading_string("Vcore check...", 0xFFFFFF, true);
   delay(500);
   //Vcore voltage check
@@ -569,15 +579,6 @@ void ui_thread_entry(void *args){
   }
   ui_update_loading_string("Connected.", 0x00FF00, true);
   delay(500);
-  /***************************************wait fan self test *******************************************/
-  ui_update_loading_string(fan_test_str[0], 0xFFFFFF, true);
-  while(!g_nmaxe.fan.self_test){
-    static uint8_t cnt = 0;
-    ui_update_loading_string(String(fan_test_str[cnt++ % 4]) + String(g_nmaxe.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + "rpm", 0xFFFFFF, false);
-    delay(300);
-  }
-  ui_update_loading_string("Pass! [" + String(g_nmaxe.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + " rpm]", 0x00FF00, true);
-  delay(3000);
   /***************************************wait for market connected************************************/
   ui_update_loading_string(market_con_str[0], 0xFFFFFF, true);
   while(!g_nmaxe.market.connected){
