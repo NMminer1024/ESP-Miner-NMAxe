@@ -95,7 +95,7 @@
                 <h5>Power</h5>
                 <div class="grid text-center">
                     <div class="col-4">
-                        <p-knob [min]="1" [max]="25" [readonly]="true" [(ngModel)]="info.power"
+                        <p-knob [min]="1" [max]="30" [readonly]="true" [(ngModel)]="info.power"
                             valueTemplate="{value}W"></p-knob>
                         Power
                     </div>
@@ -104,7 +104,7 @@
                         <p-knob [min]="8" [max]="15" [readonly]="true" [(ngModel)]="info.voltage"
                             valueTemplate="{value}V"></p-knob>
                         Input Voltage
-                        <span class="danger" *ngIf="info.voltage < 9">&nbsp; Danger:Low voltage</span>
+                        <span class="danger" *ngIf="info.voltage < 8">&nbsp; Danger:Low</span>
                     </div>
 
                     <div class="col-4">
@@ -122,25 +122,22 @@
                 <h5>Heat</h5>
                 <div class="grid text-center">
                     <div class="col-6" *ngIf="info.mcuTemp">
-                        <p-knob [min]="20" [max]="85" [readonly]="true" [(ngModel)]="info.mcuTemp"
+                        <p-knob [min]="0" [max]="80" [readonly]="true" [(ngModel)]="info.mcuTemp"
                             valueTemplate="{value}C"></p-knob>
                         MCU
+                        <span class="danger" *ngIf="info.mcuTemp >= 60">&nbsp;Danger:High</span>
                     </div>
                     <div class="col-6">
-                        <p-knob [min]="20" [max]="75" [readonly]="true" [(ngModel)]="info.temp"
+                        <p-knob [min]="0" [max]="80" [readonly]="true" [(ngModel)]="info.temp"
                             valueTemplate="{value}C"></p-knob>
                         ASIC
-                        <span class="danger" *ngIf="info.temp >= 70">&nbsp;
-                            Danger:
-                            High Temperature</span>
+                        <span class="danger" *ngIf="info.temp >= 65">&nbsp;Danger:High</span>
                     </div>
                     <div class="col-6" *ngIf="info.vrTemp > 0">
-                        <p-knob  [min]="20" [max]="145" [readonly]="true" [(ngModel)]="info.vrTemp"
+                        <p-knob  [min]="0" [max]="120" [readonly]="true" [(ngModel)]="info.vrTemp"
                             valueTemplate="{value}C"></p-knob>
                         Vcore
-                        <span class="danger" *ngIf="info.vrTemp >= 105">&nbsp;
-                            Danger:
-                            High Temperature</span>
+                        <span class="danger" *ngIf="info.vrTemp >= 90">&nbsp;Danger:High</span>
                     </div>
                     <!-- <div class="col-6">
                         <p-knob [min]="0" [max]="100" [readonly]="true" [(ngModel)]="info.fanspeed"

@@ -67,7 +67,7 @@
         {
             "label": "Compile All and upload",
             "dependsOn": [
-                // "Upload SPIFFS",
+                "Upload SPIFFS",
                 "Compile Arduino"
             ],
             "dependsOrder": "sequence",
