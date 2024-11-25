@@ -31,8 +31,12 @@
 - **Raspberry Pi5 structure compatible**
 - **User-friendly UI with a 1.14-inch TFT LCD driven by LVGL**
 - **Low cost Vcore regulator solution**
-- [NMController_client](https://github.com/NMminer1024/NMController_client) monitor.
-- [NMController_web](https://github.com/NMminer1024/NMController_web) monitor.
+- **Vcore adjustment without restart**
+- **A more accurate way for calculating hashrate**
+- **Dynamically adjust ASIC difficulty threshold**
+- **[One click deployment](https://flash.nmminer.com/)**
+- **[NMController_client](https://github.com/NMminer1024/NMController_client) monitor**.
+- **[NMController_web](https://github.com/NMminer1024/NMController_web) monitor**.
 
 
 ### Buttons
