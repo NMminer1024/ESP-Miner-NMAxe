@@ -369,7 +369,7 @@ static void ui_update_loading_string(String str, uint32_t color, bool prgress_up
     static lv_obj_t *lb_loading = NULL;
     static lv_obj_t * bar = NULL;
     static lv_obj_t * label_progress = NULL;
-    static uint8_t progress = 0, progress_total = 12;
+    static uint8_t progress = 0, progress_total = 14;
 
     lv_color_t font_color = lv_color_hex(color);
 
@@ -467,6 +467,7 @@ void ui_thread_entry(void *args){
   const char* fan_test_str[] = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
   const char* market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
   const char* pool_con_str[] = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
+  const char* wait_job_str[] = {"Waiting job   ","Waiting job.  ","Waiting job.. ","Waiting job..."};
 
   tft_init();
 
@@ -587,7 +588,7 @@ void ui_thread_entry(void *args){
     delay(300);
   }
   ui_update_loading_string("Connected!", 0x00FF00, true);
-  delay(1000);
+  delay(500);
   /***************************************wait for pool connected**************************************/
   while(!g_nmaxe.stratum.is_subscribed()){
     static uint8_t cnt = 0;
@@ -596,11 +597,17 @@ void ui_thread_entry(void *args){
   }
   ui_update_loading_string("Connected.", 0x00FF00, true);
   delay(500);
+  /******************************************wait first job*******************************************/
+  while(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 0) == pdFAIL){
+    static uint8_t cnt = 0;
+    ui_update_loading_string(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
+    delay(300);
+  }
+  ui_update_loading_string("Ready!", 0x00FF00, true);
+  delay(500);
 
-  //wait for miner ready status update signal, blockingly
-  xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
 
-  //scroll to miner page
+  /***************************************scroll to miner page***************************************/
   lv_obj_scroll_to_view(miner_page, LV_ANIM_ON); 
 
   lv_color_t font_color;
