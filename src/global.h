@@ -8,7 +8,7 @@
 #include "stratum.h"
 #include "miner.h"
 
-#define CURRENT_FW_VERSION  "v2.1.142"
+#define CURRENT_FW_VERSION  "v2.1.143"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -19,6 +19,8 @@
 #define VCORE_TEMP_DANGER   (90.0f)
 #define VCORE_TEMP_LOW      (50.0f)
 #define BOARD_MCU_DANGER    (60.0f)
+
+#define NVS_SAVE_INTERVAL   (60*30)
 
 #define FAN_FULL_RPM_MIN    (4800)
 

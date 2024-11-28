@@ -215,7 +215,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.fan.self_test                       = false;
     g_nmaxe.led.indicator                       = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     g_nmaxe.screen.flip                         = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
-
+    g_nmaxe.mstatus.uptime                      = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     return true;
 }
 

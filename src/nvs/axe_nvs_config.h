@@ -25,6 +25,7 @@
 #define NVS_CONFIG_SELF_TEST "selftest"
 #define NVS_CONFIG_OVERHEAT_MODE "overheat_mode"
 #define NVS_CONFIG_BLOCK_HITS "blockhits"
+#define NVS_CONFIG_UPTIME     "uptime"
 
 // #define NVS_CONFIG_SWARM "swarmconfig"
 

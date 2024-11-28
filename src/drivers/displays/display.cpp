@@ -375,7 +375,7 @@ static void ui_update_loading_string(String str, uint32_t color, bool prgress_up
 
     if (lb_loading == NULL){
       lb_loading = lv_label_create(loading_page);
-      lv_obj_set_width(lb_loading, SCREEN_WIDTH);
+      lv_obj_set_width(lb_loading, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 7.2));
       lv_obj_set_style_text_font(lb_loading, font, LV_PART_MAIN);
       lv_label_set_long_mode(lb_loading, LV_LABEL_LONG_DOT);
       lv_obj_align(lb_loading, LV_ALIGN_BOTTOM_LEFT, 3, 0);
@@ -545,7 +545,7 @@ void ui_thread_entry(void *args){
   /***************************************wait for wifi connected****************************************/
   while(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED){
     static uint8_t cnt = 0;
-    ui_update_loading_string(wifi_con_str[(cnt++)%4], 0xFFFFFF, false);
+    ui_update_loading_string(wifi_con_str[(cnt++)%4]  + String("[") + g_nmaxe.connection.wifi.conn_param.ssid +  String("]"), 0xFFFFFF, false);
     if(xSemaphoreTake(g_nmaxe.connection.wifi.force_cfg_xsem, 100) == pdTRUE){
       ui_update_loading_string(String("Timeout!"), 0xFF0000, false);
       delay(500);
