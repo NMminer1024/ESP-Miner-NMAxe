@@ -5,9 +5,6 @@
 
 #define CONFIG_TIMEOUT 60*3
 
-static IPAddress PrimaryDNS(8, 8, 8, 8);   
-static IPAddress SecondaryDNS(8, 8, 4, 4); 
-
 static void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     const char* reason = NULL;
     wifi_event_sta_disconnected_t disconnected;
@@ -103,13 +100,6 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
         delay(1000);
     }
     
-    IPAddress localIP = WiFi.localIP();
-    IPAddress gateway = WiFi.gatewayIP();
-    IPAddress subnet  = WiFi.subnetMask();
-    if (!WiFi.config(localIP, gateway, subnet, PrimaryDNS, SecondaryDNS)) {
-        LOG_W("Failed to configure DNS");
-        return;
-    }
     LOG_I("------------------------------------");
     LOG_I("SSID     : %s ", WiFi.SSID().c_str());
     LOG_I("IP       : %s ", WiFi.localIP().toString().c_str());
