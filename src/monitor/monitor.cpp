@@ -44,7 +44,9 @@ void monitor_thread_entry(void *args){
           StaticJsonDocument<512> jsonDoc;
           jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
           jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate, 5) + "H/s";
-          jsonDoc["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted);
+          uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
+          float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
+          jsonDoc["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
           jsonDoc["NetDiff"] = formatNumber(g_nmaxe.mstatus.network_diff,4);
           jsonDoc["PoolDiff"] = formatNumber(g_nmaxe.mstatus.pool_diff,4);
           jsonDoc["LastDiff"] = formatNumber(g_nmaxe.mstatus.last_diff,4);
