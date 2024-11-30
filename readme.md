@@ -110,7 +110,18 @@
 ## Release Log
 ***
 
-### (2024.11.13) - v2.1.14
+### (2024.11.30) - v2.1.15
+- Add:
+  - None.
+- Fixed:
+  - Order of vcore settle.
+  - DNS issue.
+- Improved:
+  - None.
+- Modify:
+  - Danger temp.
+
+### (2024.11.25) - v2.1.14
 - Add:
   - None.
 - Fixed:
