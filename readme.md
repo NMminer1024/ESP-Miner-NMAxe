@@ -43,7 +43,7 @@
 ***
 | Buttons           | Action             | Description             |
 | :---------------  | :-----------------:|:-----------------:      |
-|boot               |    Unused          |        --               |
+|boot               |    Long press      |  Force configuration    |
 |user               |    Long press      |  Restore to factory settings  |
 
 ### Power 
