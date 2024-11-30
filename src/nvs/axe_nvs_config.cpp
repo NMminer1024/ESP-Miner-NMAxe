@@ -202,8 +202,8 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.stratum.user             = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
     g_nmaxe.connection.stratum.pwd              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS, "d=15000"));
     g_nmaxe.connection.stratum.diff             = DEFAULT_POOL_DIFFICULTY;
-    g_nmaxe.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "TP-LINK_74864531"));
-    g_nmaxe.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "heltec_test"));
+    g_nmaxe.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
+    g_nmaxe.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     g_nmaxe.connection.wifi.conn_param.hostname = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_nmaxe.connection.wifi.softap_param.ssid.c_str()));
     g_nmaxe.mstatus.best_ever                   = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_nmaxe.asic.type                           = String(nvs_config_get_string(NVS_CONFIG_ASIC_MODEL, "BM1366"));
