@@ -26,6 +26,7 @@
 #define NVS_CONFIG_OVERHEAT_MODE "overheat_mode"
 #define NVS_CONFIG_BLOCK_HITS "blockhits"
 #define NVS_CONFIG_UPTIME     "uptime"
+#define NVS_CONFIG_FORCE_CONFIG "forceconfig"
 
 // #define NVS_CONFIG_SWARM "swarmconfig"
 

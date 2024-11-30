@@ -168,7 +168,6 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
 bool load_g_nmaxe(void){
     static bool nvs_init_flag = false;
     if(!nvs_init_flag){
-        // LOG_I("Initializing NVS...");
         esp_err_t ret = nvs_flash_init();
         while (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
             LOG_W("NVS partition is full or has invalid version, erasing...");
@@ -194,6 +193,7 @@ bool load_g_nmaxe(void){
         g_nmaxe.connection.wifi.softap_param.pwd    = "12345678";
         g_nmaxe.connection.wifi.softap_param.ssid   = "NMAxe_" + g_nmaxe.board.devcie_code.substring(0, 5);
         g_nmaxe.mstatus.block_hits                  = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
+        g_nmaxe.force_config                        = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     }
     String url = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+tcp://public-pool.io"));
     g_nmaxe.connection.pool.ssl                 = (url.indexOf("ssl") != -1);

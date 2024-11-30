@@ -124,6 +124,7 @@ typedef struct{
     NMAxePowerClass  power;
     StratumClass     stratum;
     AsicMinerClass   *miner;
+    bool             force_config;
 }axe_sal_t;
 
 

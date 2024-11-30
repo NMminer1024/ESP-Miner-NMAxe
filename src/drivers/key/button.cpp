@@ -16,7 +16,12 @@ static void recover_factory_cb(void){
   ESP.restart();
 }
 
-
+static void force_config_cb(void){
+  LOG_W("Force config...");
+  nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, true);
+  delay(500);
+  ESP.restart();
+}
 
 void button_thread_entry(void *args){
   char *name = (char*)malloc(20);
@@ -29,7 +34,7 @@ void button_thread_entry(void *args){
   boot_btn.attachDoubleClick(NULL);
   boot_btn.attachLongPressStart(NULL);
   boot_btn.attachLongPressStop(NULL);
-  boot_btn.attachDuringLongPress(NULL);
+  boot_btn.attachDuringLongPress(force_config_cb);
 
   // link the user button functions.
   user_btn.attachClick(NULL);

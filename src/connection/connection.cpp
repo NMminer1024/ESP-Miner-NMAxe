@@ -79,7 +79,7 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
     while (WiFi.status() != WL_CONNECTED && maxRetries < 60*5) {
         maxRetries++;
         LOG_I("Try to connect [%s] %ds...", param.ssid.c_str(), maxRetries);
-        if(maxRetries >= 15){
+        if((maxRetries >= 15) || (g_nmaxe.force_config)){
             LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.conn_param.hostname.c_str());
             WiFi.mode(WIFI_AP);
             WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid, g_nmaxe.connection.wifi.softap_param.pwd.c_str());
