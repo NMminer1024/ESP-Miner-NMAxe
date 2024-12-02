@@ -63,7 +63,7 @@
 |eu.molepool.com    | tcp                |    7450            |        DGB        | Minimum 32.768K constantly         |
 |eu.molepool.com    | tcp                |    5566            |        BCH        | Minimum 32.768K constantly         |
 |eu.molepool.com    | tcp                |    2566            |        SPACE      | Minimum 32.768K constantly         |
-|eu.molepool.com    | tcp                |    1801            |        FB         | Minimum 32.768K constantly         |
+|eu2.molepool.com   | tcp                |    1801            |        FB         | Minimum 32.768K constantly         |
 
 
 ## How to monitor
