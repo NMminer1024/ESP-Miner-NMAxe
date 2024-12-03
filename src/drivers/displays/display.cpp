@@ -20,8 +20,9 @@ LV_FONT_DECLARE(symbol_14)
 static TFT_eSPI tft = TFT_eSPI();
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
-static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *staus_page = NULL;
+static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *status_page = NULL;
 static lv_obj_t *lb_version = NULL, *lb_cfg_timeout = NULL, *lb_hashrate = NULL, *lb_blk_hit = NULL, *lb_temp = NULL, *lb_power = NULL, *lb_wifi = NULL, *lb_uptime_day = NULL, *lb_uptime_hms = NULL, *lb_diff = NULL;
+static lv_obj_t *lb_hr_healthy = NULL;
 static lv_obj_t *lb_share = NULL, *lb_fan = NULL, *lb_hr_unit = NULL, *lb_uptime_day_unit = NULL;
 static lv_obj_t *lb_uptime_symbol = NULL, *lb_wifi_symbol = NULL, *lb_diff_symbol = NULL, *lb_share_symb = NULL, *lb_temp_symb = NULL, *lb_fan_symb = NULL;
 static lv_obj_t *lb_price = NULL;
@@ -136,13 +137,13 @@ static void ui_layout_init(void){
   lv_obj_set_size(miner_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(miner_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create status page  
-  staus_page = lv_obj_create(parent_docker);
-  lv_obj_set_size(staus_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(staus_page, 1 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(staus_page, 0, 0);
-  lv_obj_set_style_border_width(staus_page, 0, 0);
-  lv_obj_set_scrollbar_mode(staus_page, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_t *status_img_obj = lv_img_create(staus_page);
+  status_page = lv_obj_create(parent_docker);
+  lv_obj_set_size(status_page, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(status_page, 1 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
+  lv_obj_set_style_pad_all(status_page, 0, 0);
+  lv_obj_set_style_border_width(status_page, 0, 0);
+  lv_obj_set_scrollbar_mode(status_page, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_t *status_img_obj = lv_img_create(status_page);
   lv_img_set_src(status_img_obj, &status_page_img);
   lv_obj_set_size(status_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(status_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
@@ -150,7 +151,7 @@ static void ui_layout_init(void){
   pages[0] = loading_page;
   pages[1] = config_page;
   pages[2] = miner_page;
-  pages[3] = staus_page;
+  pages[3] = status_page;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version
   const lv_font_t *font = &lv_font_montserrat_14;
@@ -173,15 +174,15 @@ static void ui_layout_init(void){
   lv_label_set_long_mode(lb_cfg_timeout, LV_LABEL_LONG_DOT);
   lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 175, 0);
   //////////////////////////////////////status page layout///////////////////////////////////////////////
-  font_color = lv_color_hex(0xFFFFFF);
-
-
-
-
-
-
-
-
+  font_color = lv_color_hex(0x808080);
+  font = &lv_font_montserrat_18;
+  lb_hr_healthy   = lv_label_create( status_page );
+  lv_obj_set_width(lb_hr_healthy, SCREEN_WIDTH);
+  lv_label_set_text( lb_hr_healthy, "HR healthy");
+  lv_obj_set_style_text_font(lb_hr_healthy, font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(lb_hr_healthy, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(lb_hr_healthy, LV_LABEL_LONG_DOT);
+  lv_obj_align( lb_hr_healthy, LV_ALIGN_TOP_MID, 133, 2);
   //////////////////////////////////////miner page layout///////////////////////////////////////////////
   //Hashrate value
   font = &ds_digib_font_38;
@@ -470,8 +471,75 @@ static void ui_update_ota_bar(int progress){
 
 }
 
+static void ui_hashrate_distribution(double hashrate){
+  #define MAX_HASHRATE 600  
+  #define STEP 60 // step 
+  #define NUM_BARS (MAX_HASHRATE / STEP) 
+
+  static lv_obj_t *chart;
+  static lv_chart_series_t *series;
+  static lv_obj_t *label_scale;
+  static uint64_t hr_total_cnt = 0;
+
+  if(chart == NULL){
+    chart = lv_chart_create(status_page);
+    lv_obj_set_size(chart, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 50); 
+    lv_obj_align(chart, LV_ALIGN_CENTER, 16, 0);
+
+    // set the chart type
+    lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
+
+    // set the number of data points
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
+
+    // Add a series to the chart
+    series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+
+    //Add a scale to the chart
+    label_scale = lv_label_create(status_page);
+    lv_label_set_text(label_scale, ("Scale: " + String(STEP) + "GH/s").c_str());
+    lv_obj_set_style_text_color(label_scale, lv_color_hex(0xFFED00), LV_PART_MAIN); 
+    lv_obj_align(label_scale, LV_ALIGN_TOP_LEFT, 5, 5); 
+
+    // set all bars to 0
+    for (int i = 0; i < NUM_BARS; i++) {
+        lv_chart_set_value_by_id(chart, series, i, 0);
+    }
+
+    // set axis ticks
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 2, 2, NUM_BARS, 1, true, 0);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 2, 2, 5, 1, true, 25);
+
+    // set style to transparent
+    lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+
+    // set grid style
+    static lv_style_t style_grid;
+    lv_style_init(&style_grid);
+    lv_style_set_line_dash_width(&style_grid, 2); 
+    lv_style_set_line_dash_gap(&style_grid, 4); 
+    lv_obj_add_style(chart, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+
+    // set font for ticks
+    lv_obj_set_style_text_font(chart, &lv_font_montserrat_12, LV_PART_TICKS); 
+  }
+
+  static uint64_t counts[NUM_BARS] = {0};
+  int index = hashrate/1000/1000/1000 / STEP;
+  index = (index >= NUM_BARS) ? NUM_BARS - 1 : index;
+
+  counts[index]++;
+  hr_total_cnt++;
+
+  for (int i = 0; i < NUM_BARS; i++) {
+      lv_chart_set_value_by_id(chart, series, i, (uint8_t)(100*(float)counts[i] / (float)hr_total_cnt));
+  }
+}
+
 void ui_switch_next_page_cb(){
-  static uint16_t page_index = 2;
+  static uint8_t page_index = 2;
   page_index = (page_index == 2) ? 3 : 2;//switch between miner page and status page
   lv_obj_scroll_to_view(pages[page_index], LV_ANIM_ON);
 }
@@ -694,12 +762,18 @@ void ui_thread_entry(void *args){
       else font_color = lv_color_hex(0xFFFFFF);//white
       lv_obj_set_style_text_color(lb_price, font_color, LV_PART_MAIN);
 
-
-
       //ota progress layout
       if(g_nmaxe.ota.ota_running){
         ui_update_ota_bar(g_nmaxe.ota.progress);
       }
+
+      //hashrate distribution chart
+      static double last_hashrate = 0;
+      if(last_hashrate != g_nmaxe.mstatus.hashrate){
+        ui_hashrate_distribution(g_nmaxe.mstatus.hashrate);
+        last_hashrate = g_nmaxe.mstatus.hashrate;
+      }
+
 
       //hashrate
       lv_label_set_text_fmt(lb_hashrate, "%s", hashrate.substring(0, hashrate.length() - 1).c_str());
