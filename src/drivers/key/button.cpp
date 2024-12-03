@@ -31,7 +31,7 @@ void button_thread_entry(void *args){
   
   // link the boot button functions.
   boot_btn.attachClick(NULL);
-  boot_btn.attachDoubleClick(NULL);
+  boot_btn.attachDoubleClick(ui_switch_next_page_cb);
   boot_btn.attachLongPressStart(NULL);
   boot_btn.attachLongPressStop(NULL);
   boot_btn.attachDuringLongPress(force_config_cb);
@@ -46,6 +46,6 @@ void button_thread_entry(void *args){
   while (true){
     boot_btn.tick();
     user_btn.tick();
-    delay(100);
+    delay(50);
   }
 }

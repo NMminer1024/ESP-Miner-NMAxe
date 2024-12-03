@@ -25,7 +25,7 @@ static lv_obj_t *lb_version = NULL, *lb_cfg_timeout = NULL, *lb_hashrate = NULL,
 static lv_obj_t *lb_share = NULL, *lb_fan = NULL, *lb_hr_unit = NULL, *lb_uptime_day_unit = NULL;
 static lv_obj_t *lb_uptime_symbol = NULL, *lb_wifi_symbol = NULL, *lb_diff_symbol = NULL, *lb_share_symb = NULL, *lb_temp_symb = NULL, *lb_fan_symb = NULL;
 static lv_obj_t *lb_price = NULL;
-
+static lv_obj_t *pages[] = {NULL, NULL, NULL, NULL};
 
 
 static void tft_init(){
@@ -102,7 +102,6 @@ static void ui_layout_init(void){
   lv_obj_align(parent_docker, LV_ALIGN_TOP_LEFT, 0, 0);
   lv_obj_set_style_bg_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
   lv_obj_set_style_border_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
-
   // Create loading page
   loading_page = lv_obj_create(parent_docker);
   lv_obj_set_size(loading_page, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -147,6 +146,11 @@ static void ui_layout_init(void){
   lv_img_set_src(status_img_obj, &status_page_img);
   lv_obj_set_size(status_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(status_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  // Create pages array
+  pages[0] = loading_page;
+  pages[1] = config_page;
+  pages[2] = miner_page;
+  pages[3] = staus_page;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version
   const lv_font_t *font = &lv_font_montserrat_14;
@@ -168,6 +172,16 @@ static void ui_layout_init(void){
   lv_obj_set_style_text_color(lb_cfg_timeout, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(lb_cfg_timeout, LV_LABEL_LONG_DOT);
   lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 175, 0);
+  //////////////////////////////////////status page layout///////////////////////////////////////////////
+  font_color = lv_color_hex(0xFFFFFF);
+
+
+
+
+
+
+
+
   //////////////////////////////////////miner page layout///////////////////////////////////////////////
   //Hashrate value
   font = &ds_digib_font_38;
@@ -454,6 +468,12 @@ static void ui_update_ota_bar(int progress){
   lv_bar_set_value(bar, progress, LV_ANIM_ON);
   lv_label_set_text(label_file, g_nmaxe.ota.firmware.c_str());
 
+}
+
+void ui_switch_next_page_cb(){
+  static uint16_t page_index = 2;
+  page_index = (page_index == 2) ? 3 : 2;//switch between miner page and status page
+  lv_obj_scroll_to_view(pages[page_index], LV_ANIM_ON);
 }
 
 void ui_thread_entry(void *args){
