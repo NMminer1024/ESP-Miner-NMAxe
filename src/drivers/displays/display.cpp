@@ -472,8 +472,8 @@ static void ui_update_ota_bar(int progress){
 }
 
 static void ui_hashrate_distribution(double hashrate){
-  #define MAX_HASHRATE 600  
-  #define STEP 60 // step 
+  #define MAX_HASHRATE 1000  
+  #define STEP 50 // step 
   #define NUM_BARS (MAX_HASHRATE / STEP) 
 
   static lv_obj_t *chart;
@@ -483,17 +483,24 @@ static void ui_hashrate_distribution(double hashrate){
 
   if(chart == NULL){
     chart = lv_chart_create(status_page);
-    lv_obj_set_size(chart, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 50); 
-    lv_obj_align(chart, LV_ALIGN_CENTER, 16, 0);
+    lv_obj_set_size(chart, SCREEN_WIDTH - 15, SCREEN_HEIGHT - 48); 
+    lv_obj_align(chart, LV_ALIGN_CENTER, 15, 8);
 
     // set the chart type
     lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
 
     // set the number of data points
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, NUM_BARS - 1); 
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
+
+    //set the number of horizontal lines
+    lv_chart_set_div_line_count(chart, 5, 4);
 
     // Add a series to the chart
     series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+
+    // Set the number of points (bars)
+    lv_chart_set_point_count(chart, NUM_BARS);
 
     //Add a scale to the chart
     label_scale = lv_label_create(status_page);
@@ -502,13 +509,11 @@ static void ui_hashrate_distribution(double hashrate){
     lv_obj_align(label_scale, LV_ALIGN_TOP_LEFT, 5, 5); 
 
     // set all bars to 0
-    for (int i = 0; i < NUM_BARS; i++) {
-        lv_chart_set_value_by_id(chart, series, i, 0);
-    }
+    lv_chart_set_all_value(chart, series, 0);
 
     // set axis ticks
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 2, 2, NUM_BARS, 1, true, 0);
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 2, 2, 5, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, NUM_BARS, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
 
     // set style to transparent
     lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -518,12 +523,13 @@ static void ui_hashrate_distribution(double hashrate){
     static lv_style_t style_grid;
     lv_style_init(&style_grid);
     lv_style_set_line_dash_width(&style_grid, 2); 
-    lv_style_set_line_dash_gap(&style_grid, 4); 
+    lv_style_set_line_dash_gap(&style_grid, 6); 
+    lv_style_set_line_opa(&style_grid, LV_OPA_50); 
     lv_obj_add_style(chart, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
 
 
     // set font for ticks
-    lv_obj_set_style_text_font(chart, &lv_font_montserrat_12, LV_PART_TICKS); 
+    lv_obj_set_style_text_font(chart, &lv_font_montserrat_10, LV_PART_TICKS); 
   }
 
   static uint64_t counts[NUM_BARS] = {0};
@@ -534,7 +540,8 @@ static void ui_hashrate_distribution(double hashrate){
   hr_total_cnt++;
 
   for (int i = 0; i < NUM_BARS; i++) {
-      lv_chart_set_value_by_id(chart, series, i, (uint8_t)(100*(float)counts[i] / (float)hr_total_cnt));
+    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)hr_total_cnt);
+    lv_chart_set_value_by_id(chart, series, i, y);
   }
 }
 
