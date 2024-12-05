@@ -92,7 +92,7 @@ static void ui_layout_init(void){
 
   //create parent object
   parent_docker = lv_obj_create(lv_scr_act());
-  lv_obj_set_size(parent_docker, SCREEN_WIDTH * 2, SCREEN_HEIGHT * 3); 
+  lv_obj_set_size(parent_docker, SCREEN_WIDTH * 3, SCREEN_HEIGHT * 2); 
   lv_obj_set_pos(parent_docker, 0, 0);
   lv_obj_set_scrollbar_mode(lv_scr_act(), LV_SCROLLBAR_MODE_OFF); 
   lv_obj_set_scroll_dir(parent_docker, LV_DIR_ALL); 
@@ -136,10 +136,21 @@ static void ui_layout_init(void){
   lv_img_set_src(miner_img_obj, &main_page_img);
   lv_obj_set_size(miner_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(miner_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  // Create dashboard page  
+  dashboard_page = lv_obj_create(parent_docker);
+  lv_obj_set_size(dashboard_page, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(dashboard_page, 1 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
+  lv_obj_set_style_pad_all(dashboard_page, 0, 0);
+  lv_obj_set_style_border_width(dashboard_page, 0, 0);
+  lv_obj_set_scrollbar_mode(dashboard_page, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_t *dashboard_img_obj = lv_img_create(dashboard_page);
+  lv_img_set_src(dashboard_img_obj, &status_page_img);
+  lv_obj_set_size(dashboard_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(dashboard_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create health page  
   health_page = lv_obj_create(parent_docker);
   lv_obj_set_size(health_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(health_page, 1 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
+  lv_obj_set_pos(health_page, 2 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
   lv_obj_set_style_pad_all(health_page, 0, 0);
   lv_obj_set_style_border_width(health_page, 0, 0);
   lv_obj_set_scrollbar_mode(health_page, LV_SCROLLBAR_MODE_OFF);
@@ -147,23 +158,12 @@ static void ui_layout_init(void){
   lv_img_set_src(status_img_obj, &status_page_img);
   lv_obj_set_size(status_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(status_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  // Create dashboard page  
-  dashboard_page = lv_obj_create(parent_docker);
-  lv_obj_set_size(dashboard_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(dashboard_page, 1 * SCREEN_WIDTH, 2 * SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(dashboard_page, 0, 0);
-  lv_obj_set_style_border_width(dashboard_page, 0, 0);
-  lv_obj_set_scrollbar_mode(dashboard_page, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_t *dashboard_img_obj = lv_img_create(dashboard_page);
-  lv_img_set_src(dashboard_img_obj, &status_page_img);
-  lv_obj_set_size(status_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(dashboard_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create pages array
   pages[0] = loading_page;
   pages[1] = config_page;
   pages[2] = miner_page;
-  pages[3] = health_page;
-  pages[4] = dashboard_page;
+  pages[3] = dashboard_page;
+  pages[4] = health_page ;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version
   const lv_font_t *font = &lv_font_montserrat_14;
@@ -576,12 +576,104 @@ static void ui_hashrate_distribution(double hashrate){
   lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String((millis() - start) / 1000) + "s").c_str());
 }
 
-static void ui_hashrate_realtime_chart(double hashrate){
-  static lv_obj_t *chart;
-  static lv_chart_series_t *series;
-  if(series == NULL){
+static void ui_dashboard_chart(double hashrate){
+  static lv_obj_t * arc_power = NULL, *arc_vbus = NULL, *arc_vcore_req = NULL, *arc_vcore_measure = NULL;
+  static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
+  const lv_font_t *font = &lv_font_montserrat_14;
+  lv_color_t font_color = lv_color_hex(0xFFFFFF);
 
+  uint8_t arc_r = 30, arc_line_width = 8;
+  uint16_t arc_angle_full = 270;
+  if((dashboard_page != NULL) && (arc_power == NULL)) {
+    // Hashrate label
+    font = &ds_digib_font_36;
+    font_color = lv_color_hex(0xFFA500);
+    lb_ds_hr   = lv_label_create( dashboard_page );
+    lv_obj_set_width(lb_ds_hr, 80);
+    lv_label_set_text( lb_ds_hr, " ");
+    lv_obj_set_style_text_font(lb_ds_hr, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_ds_hr, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_ds_hr, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_ds_hr, LV_ALIGN_TOP_MID, 55, -4);
+    //Hashrate uint
+    font = &ds_digib_font_20;
+    font_color = lv_color_hex(0x808080);
+    lb_ds_hr_unit   = lv_label_create( dashboard_page );
+    lv_obj_set_width(lb_ds_hr_unit, 50);
+    lv_label_set_text( lb_ds_hr_unit, " ");
+    lv_obj_set_style_text_font(lb_ds_hr_unit, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_ds_hr_unit, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_ds_hr_unit, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_ds_hr_unit, LV_ALIGN_TOP_MID, 100, 8); 
+
+
+    // Create vbus arc
+    arc_vbus = lv_arc_create(dashboard_page);
+    lv_obj_set_size(arc_vbus, 2*arc_r, 2*arc_r);
+    lv_arc_set_bg_angles(arc_vbus, 0, arc_angle_full);
+    lv_arc_set_angles(arc_vbus, 0, 50);
+    lv_obj_remove_style(arc_vbus, NULL, LV_PART_KNOB);
+    lv_arc_set_rotation(arc_vbus, 90 + (360 - arc_angle_full) / 2);
+    lv_obj_set_style_arc_width(arc_vbus, arc_line_width, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(arc_vbus, arc_line_width, LV_PART_INDICATOR);
+    lv_obj_set_pos(arc_vbus, 0, 4); 
+
+    // Create power arc
+    arc_power = lv_arc_create(dashboard_page);
+    lv_obj_set_size(arc_power, 2*arc_r, 2*arc_r);
+    lv_arc_set_bg_angles(arc_power, 0, arc_angle_full); 
+    lv_arc_set_angles(arc_power, 0, 116); 
+    lv_obj_remove_style(arc_power, NULL, LV_PART_KNOB);
+    lv_arc_set_rotation(arc_power, 90 + (360 - arc_angle_full) / 2);
+    lv_obj_set_style_arc_width(arc_power, arc_line_width, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(arc_power, arc_line_width, LV_PART_INDICATOR);
+    lv_obj_set_pos(arc_power, 0, 4 + 2*arc_r + 10);
+
+    
+    // Create vcore_req arc
+    arc_vcore_req = lv_arc_create(dashboard_page);
+    lv_obj_set_size(arc_vcore_req, 2*arc_r, 2*arc_r);
+    lv_arc_set_bg_angles(arc_vcore_req, 0, arc_angle_full);
+    lv_arc_set_angles(arc_vcore_req, 0, 98);
+    lv_obj_remove_style(arc_vcore_req, NULL, LV_PART_KNOB);
+    lv_arc_set_rotation(arc_vcore_req, 90 + (360 - arc_angle_full) / 2);
+    lv_obj_set_style_arc_width(arc_vcore_req, arc_line_width, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(arc_vcore_req, arc_line_width, LV_PART_INDICATOR);
+    lv_obj_set_pos(arc_vcore_req, 2*arc_r + 10, 4);
+    // Create arc_vcore_measure arc
+    arc_vcore_measure = lv_arc_create(dashboard_page);
+    lv_obj_set_size(arc_vcore_measure, 2*arc_r, 2*arc_r);
+    lv_arc_set_bg_angles(arc_vcore_measure, 0, arc_angle_full);
+    lv_arc_set_angles(arc_vcore_measure, 0, 86);
+    lv_obj_remove_style(arc_vcore_measure, NULL, LV_PART_KNOB);
+    lv_arc_set_rotation(arc_vcore_measure, 90 + (360 - arc_angle_full) / 2);
+    lv_obj_set_style_arc_width(arc_vcore_measure, arc_line_width, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(arc_vcore_measure, arc_line_width, LV_PART_INDICATOR);
+    lv_obj_set_pos(arc_vcore_measure, 2*arc_r + 10, 4 + 2*arc_r + 10);
+
+    // const lv_font_t *font = &lv_font_montserrat_18;
+    // lv_color_t font_color = lv_color_hex(0xFFFFFF);
+    // // Create a label in the center of the arc
+    // lv_obj_t * label = lv_label_create(dashboard_page);
+    // lv_label_set_text(label, "75%");
+    // lv_obj_set_style_text_font(label, font, LV_PART_MAIN);
+    // lv_obj_set_style_text_color(label, font_color, LV_PART_MAIN); 
+    // lv_obj_align(label, LV_ALIGN_TOP_LEFT, 0, 0);
   }
+
+  String hr = formatNumber(hashrate, 3);
+  String hr_unit = (hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
+
+  //hashrate
+  lv_label_set_text_fmt(lb_ds_hr, "%s", hr.substring(0, hr.length() - 1).c_str());
+  //hashrate unit
+  lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
+
+
+
+
+
+
 }
 
 void ui_switch_next_page_cb(){
@@ -818,6 +910,7 @@ void ui_thread_entry(void *args){
       static double last_hashrate = 0;
       if(last_hashrate != g_nmaxe.mstatus.hashrate){
         ui_hashrate_distribution(g_nmaxe.mstatus.hashrate);
+        ui_dashboard_chart(g_nmaxe.mstatus.hashrate);
         last_hashrate = g_nmaxe.mstatus.hashrate;
       }
 
