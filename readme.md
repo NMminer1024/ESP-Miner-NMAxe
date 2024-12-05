@@ -43,7 +43,7 @@
 ***
 | Buttons           | Action             | Description             |
 | :---------------  | :-----------------:|:-----------------:      |
-|boot               |    Click           |  Switch to next page    |
+|boot               |    Double click    |  Switch to next page    |
 |boot               |    Long press      |  Force configuration    |
 |user               |    Long press      |  Restore to factory settings  |
 

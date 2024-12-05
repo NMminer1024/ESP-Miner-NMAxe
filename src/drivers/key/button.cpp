@@ -30,8 +30,8 @@ void button_thread_entry(void *args){
   free(name);
   
   // link the boot button functions.
-  boot_btn.attachClick(ui_switch_next_page_cb);
-  boot_btn.attachDoubleClick(NULL);
+  boot_btn.attachClick(NULL);
+  boot_btn.attachDoubleClick(ui_switch_next_page_cb);
   boot_btn.attachLongPressStart(NULL);
   boot_btn.attachLongPressStop(NULL);
   boot_btn.attachDuringLongPress(force_config_cb);
