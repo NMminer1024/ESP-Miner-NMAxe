@@ -30,7 +30,6 @@ static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
 static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL};
 static lv_obj_t *lb_cfg_timeout = NULL;
-static lv_obj_t *lb_hr_health_title = NULL, *lb_hr_health_duration = NULL;
 static uint8_t   current_page_index = PAGE_MINER;
 
 static void tft_init(){
@@ -55,7 +54,7 @@ static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color
 
 static void lvgl_tick_task(void *args){
   char *name = (char*)malloc(20);
-  uint16_t tick_interval = 100;
+  uint16_t tick_interval = 50;
   strcpy(name, (char*)args);
   LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
   free(name);
@@ -190,7 +189,6 @@ static void ui_layout_init(void){
   lv_label_set_long_mode(lb_cfg_timeout, LV_LABEL_LONG_DOT);
   lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 175, 0);
 }
-
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
     static const lv_font_t *font = &lv_font_montserrat_14;
@@ -575,125 +573,30 @@ static void ui_ota_page_update(){
 
 }
 
-static void ui_hashrate_dist_page_update(){
-  #define MAX_HASHRATE 1000  
-  #define STEP 50 // step 
-  #define NUM_BARS (MAX_HASHRATE / STEP) 
-
-  static lv_obj_t *chart = NULL, *label_scale = NULL;
-  static lv_chart_series_t *series;
-  static uint64_t hr_total_cnt = 0;
-  static bool first_time = true;
-
-  static double last_hashrate = 0;
-  if(last_hashrate == g_nmaxe.mstatus.hashrate) return;
-  last_hashrate = g_nmaxe.mstatus.hashrate;
-
-  if(first_time){
-    first_time = false;
-    //title 
-    lv_color_t font_color = lv_color_hex(0x808080);
-    const lv_font_t * font = &lv_font_montserrat_18;
-    lb_hr_health_title   = lv_label_create( ui_pages[PAGE_HR_HEALTH] );
-    lv_obj_set_width(lb_hr_health_title, 120);
-    lv_label_set_text( lb_hr_health_title, "HR Healthy");
-    lv_obj_set_style_text_font(lb_hr_health_title, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_hr_health_title, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_hr_health_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align( lb_hr_health_title, LV_ALIGN_TOP_MID, 70, 2);
-    //time cost
-    font_color = lv_color_hex(0xFFA500);
-    font = &lv_font_montserrat_12;
-    lb_hr_health_duration   = lv_label_create( ui_pages[PAGE_HR_HEALTH] );
-    lv_obj_set_width(lb_hr_health_duration, 120);
-    lv_label_set_text( lb_hr_health_duration, " ");
-    lv_obj_set_style_text_font(lb_hr_health_duration, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_hr_health_duration, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_hr_health_duration, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align( lb_hr_health_duration, LV_ALIGN_TOP_LEFT, 1, 18);
-
-
-
-    // Create a chart
-    chart = lv_chart_create(ui_pages[PAGE_HR_HEALTH]);
-    lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
-    lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
-
-    // set the chart type
-    lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
-
-    // set the number of data points
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, NUM_BARS - 1); 
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
-
-    //set the number of horizontal lines
-    lv_chart_set_div_line_count(chart, 5, 4);
-
-    // Add a series to the chart
-    series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-
-    // Set the number of points (bars)
-    lv_chart_set_point_count(chart, NUM_BARS);
-
-    //Add a scale to the chart
-    label_scale = lv_label_create(ui_pages[PAGE_HR_HEALTH]);
-
-    lv_label_set_text(label_scale, ("Scale     : " + String(STEP) + " GH/s").c_str());
-    lv_obj_set_style_text_font(label_scale, &lv_font_montserrat_12, LV_PART_MAIN);
-    lv_obj_set_style_text_color(label_scale, lv_color_hex(0xFFA500), LV_PART_MAIN); 
-    lv_obj_align(label_scale, LV_ALIGN_TOP_LEFT, 1, 3); 
-
-    // set all bars to 0
-    lv_chart_set_all_value(chart, series, 0);
-
-    // set axis ticks
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, NUM_BARS, 1, true, 25);
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
-
-    // set style to transparent
-    lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
-
-    // set grid style
-    static lv_style_t style_grid;
-    lv_style_init(&style_grid);
-    lv_style_set_line_dash_width(&style_grid, 2); 
-    lv_style_set_line_dash_gap(&style_grid, 4); 
-    lv_style_set_line_opa(&style_grid, LV_OPA_50); 
-    lv_obj_add_style(chart, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
-
-
-    // set font for ticks
-    lv_obj_set_style_text_font(chart, &lv_font_montserrat_10, LV_PART_TICKS); 
-  }
-
-  static uint64_t counts[NUM_BARS] = {0};
-  int index = g_nmaxe.mstatus.hashrate/1000/1000/1000 / STEP;
-  index = (index >= NUM_BARS) ? NUM_BARS - 1 : index;
-
-  counts[index]++;
-  hr_total_cnt++;
-
-  for (int i = 0; i < NUM_BARS; i++) {
-    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)hr_total_cnt);
-    lv_chart_set_value_by_id(chart, series, i, y);
-  }
-
-  // time cost of this feature
-  static uint64_t start = millis();
-  uint64_t duration = (millis() - start) / 1000;
-
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String((millis() - start) / 1000) + "s").c_str());
-}
-
 static void ui_dashboard_page_update(){
+  #define VBUS_MIN 8.0f
+  #define VBUS_MAX 15.0f
+
+  #define POWER_MIN 0.0f
+  #define POWER_MAX 30.0f
+
+  #define VCORE_REQ_MIN 1.0f
+  #define VCORE_REQ_MAX 1.5f
+
+  #define VCORE_MEASURE_MIN 1.0f
+  #define VCORE_MEASURE_MAX 1.5f
+
+
   static lv_obj_t * arc_power = NULL, *arc_vbus = NULL, *arc_vcore_req = NULL, *arc_vcore_measure = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
+  static lv_obj_t * lb_pwr = NULL, * lb_vbus = NULL, * lb_vcore_req = NULL, * lb_vcore_measure = NULL;
+  static lv_obj_t * lb_pwr_title = NULL, * lb_vbus_title = NULL, * lb_vcore_req_title = NULL, * lb_vcore_measure_title = NULL;
+
   const lv_font_t *font = &lv_font_montserrat_14;
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
 
   uint8_t arc_r = 30, arc_line_width = 8;
-  uint16_t arc_angle_full = 270;
+  uint16_t arc_angle_full = 230;
   if((ui_pages[PAGE_DASHBOARD] != NULL) && (arc_power == NULL)) {
     // Hashrate label
     font = &ds_digib_font_36;
@@ -717,68 +620,287 @@ static void ui_dashboard_page_update(){
     lv_obj_align( lb_ds_hr_unit, LV_ALIGN_TOP_MID, 100, 8); 
 
 
+
     // Create vbus arc
     arc_vbus = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
     lv_obj_set_size(arc_vbus, 2*arc_r, 2*arc_r);
     lv_arc_set_bg_angles(arc_vbus, 0, arc_angle_full);
-    lv_arc_set_angles(arc_vbus, 0, 50);
+    lv_arc_set_angles(arc_vbus, 0, 0);
     lv_obj_remove_style(arc_vbus, NULL, LV_PART_KNOB);
     lv_arc_set_rotation(arc_vbus, 90 + (360 - arc_angle_full) / 2);
     lv_obj_set_style_arc_width(arc_vbus, arc_line_width, LV_PART_MAIN);
     lv_obj_set_style_arc_width(arc_vbus, arc_line_width, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(arc_vbus, lv_color_hex(0xC0C0C0), LV_PART_MAIN);
     lv_obj_set_pos(arc_vbus, 0, 4); 
-
     // Create power arc
     arc_power = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
     lv_obj_set_size(arc_power, 2*arc_r, 2*arc_r);
     lv_arc_set_bg_angles(arc_power, 0, arc_angle_full); 
-    lv_arc_set_angles(arc_power, 0, 116); 
+    lv_arc_set_angles(arc_power, 0, 0); 
     lv_obj_remove_style(arc_power, NULL, LV_PART_KNOB);
     lv_arc_set_rotation(arc_power, 90 + (360 - arc_angle_full) / 2);
     lv_obj_set_style_arc_width(arc_power, arc_line_width, LV_PART_MAIN);
     lv_obj_set_style_arc_width(arc_power, arc_line_width, LV_PART_INDICATOR);
-    lv_obj_set_pos(arc_power, 0, 4 + 2*arc_r + 10);
-
-    
+    lv_obj_set_style_arc_color(arc_power, lv_color_hex(0xC0C0C0), LV_PART_MAIN);
+    lv_obj_set_pos(arc_power, 2*arc_r + 10, 4);
     // Create vcore_req arc
     arc_vcore_req = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
     lv_obj_set_size(arc_vcore_req, 2*arc_r, 2*arc_r);
     lv_arc_set_bg_angles(arc_vcore_req, 0, arc_angle_full);
-    lv_arc_set_angles(arc_vcore_req, 0, 98);
+    lv_arc_set_angles(arc_vcore_req, 0, 0);
     lv_obj_remove_style(arc_vcore_req, NULL, LV_PART_KNOB);
     lv_arc_set_rotation(arc_vcore_req, 90 + (360 - arc_angle_full) / 2);
     lv_obj_set_style_arc_width(arc_vcore_req, arc_line_width, LV_PART_MAIN);
     lv_obj_set_style_arc_width(arc_vcore_req, arc_line_width, LV_PART_INDICATOR);
-    lv_obj_set_pos(arc_vcore_req, 2*arc_r + 10, 4);
+    lv_obj_set_style_arc_color(arc_vcore_req, lv_color_hex(0xC0C0C0), LV_PART_MAIN);
+    lv_obj_set_pos(arc_vcore_req, 0, 4 + 2*arc_r + 8);
     // Create arc_vcore_measure arc
     arc_vcore_measure = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
     lv_obj_set_size(arc_vcore_measure, 2*arc_r, 2*arc_r);
     lv_arc_set_bg_angles(arc_vcore_measure, 0, arc_angle_full);
-    lv_arc_set_angles(arc_vcore_measure, 0, 86);
+    lv_arc_set_angles(arc_vcore_measure, 0, 0);
     lv_obj_remove_style(arc_vcore_measure, NULL, LV_PART_KNOB);
     lv_arc_set_rotation(arc_vcore_measure, 90 + (360 - arc_angle_full) / 2);
     lv_obj_set_style_arc_width(arc_vcore_measure, arc_line_width, LV_PART_MAIN);
     lv_obj_set_style_arc_width(arc_vcore_measure, arc_line_width, LV_PART_INDICATOR);
-    lv_obj_set_pos(arc_vcore_measure, 2*arc_r + 10, 4 + 2*arc_r + 10);
+    lv_obj_set_style_arc_color(arc_vcore_measure, lv_color_hex(0xC0C0C0), LV_PART_MAIN);
+    lv_obj_set_pos(arc_vcore_measure, 2*arc_r + 10, 4 + 2*arc_r + 8);
 
-    // const lv_font_t *font = &lv_font_montserrat_18;
-    // lv_color_t font_color = lv_color_hex(0xFFFFFF);
-    // // Create a label in the center of the arc
-    // lv_obj_t * label = lv_label_create(dashboard_page);
-    // lv_label_set_text(label, "75%");
-    // lv_obj_set_style_text_font(label, font, LV_PART_MAIN);
-    // lv_obj_set_style_text_color(label, font_color, LV_PART_MAIN); 
-    // lv_obj_align(label, LV_ALIGN_TOP_LEFT, 0, 0);
+
+
+
+
+    // Create vbus label
+    const lv_font_t *  font = &lv_font_montserrat_14;
+    lv_color_t font_color = lv_color_hex(0xFFFFFF);
+    lb_vbus   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_vbus, 80);
+    lv_label_set_text( lb_vbus, " ");
+    lv_obj_set_style_text_font(lb_vbus, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_vbus, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_vbus, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_vbus, LV_ALIGN_TOP_LEFT, arc_r - 15, arc_r - 2);
+    // Create vbus title label
+    font = &lv_font_montserrat_14;
+    font_color = lv_color_hex(0xFFFFFF);
+    lb_vbus_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_vbus_title, 80);
+    lv_label_set_text( lb_vbus_title, "Vbus");
+    lv_obj_set_style_text_font(lb_vbus_title, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_vbus_title, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_vbus_title, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_vbus_title, LV_ALIGN_TOP_LEFT, arc_r - 18, arc_r + 20);
+
+
+
+
+
+    // Create power label
+    font = &lv_font_montserrat_14;
+    font_color = lv_color_hex(0xFFFFFF);
+    lb_pwr   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_pwr, 80);
+    lv_label_set_text( lb_pwr, " ");
+    lv_obj_set_style_text_font(lb_pwr, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_pwr, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_pwr, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_pwr, LV_ALIGN_TOP_LEFT, 2 * arc_r + arc_r - 8, arc_r - 2);
+    // Create power title label
+    font = &lv_font_montserrat_14;
+    font_color = lv_color_hex(0xFFFFFF);
+    lb_pwr_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_pwr_title, 80);
+    lv_label_set_text( lb_pwr_title, "Power");
+    lv_obj_set_style_text_font(lb_pwr_title, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_pwr_title, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_pwr_title, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_pwr_title, LV_ALIGN_TOP_LEFT, 3 * arc_r - 12, arc_r + 20);
+
+
+
+    // Create vcroe_req label
+    font = &lv_font_montserrat_14;
+    font_color = lv_color_hex(0xFFFFFF);
+    lb_vcore_req   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_vcore_req, 80);
+    lv_label_set_text( lb_vcore_req, " ");
+    lv_obj_set_style_text_font(lb_vcore_req, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_vcore_req, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_vcore_req, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_vcore_req, LV_ALIGN_TOP_LEFT, arc_r - 18 , 3 * arc_r + 3);
+    // Create vcroe_req title label
+    font = &lv_font_montserrat_14;
+    font_color = lv_color_hex(0xFFFFFF);
+    lb_vcore_req_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_vcore_req_title, 80);
+    lv_label_set_text( lb_vcore_req_title, "Vc req");
+    lv_obj_set_style_text_font(lb_vcore_req_title, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_vcore_req_title, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_vcore_req_title, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_vcore_req_title, LV_ALIGN_TOP_LEFT, arc_r - 20 , 3 * arc_r + 27);
+
+
+    // Create vcroe_measure label
+    font = &lv_font_montserrat_14;
+    font_color = lv_color_hex(0xFFFFFF);
+    lb_vcore_measure   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_vcore_measure, 80);
+    lv_label_set_text( lb_vcore_measure, " ");
+    lv_obj_set_style_text_font(lb_vcore_measure, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_vcore_measure, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_vcore_measure, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_vcore_measure, LV_ALIGN_TOP_LEFT, 2 * arc_r + arc_r - 8, 3 * arc_r + 3);
+    // Create vcroe_measure title label
+    font = &lv_font_montserrat_14;
+    font_color = lv_color_hex(0xFFFFFF);
+    lb_vcore_measure_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_vcore_measure_title, 80);
+    lv_label_set_text( lb_vcore_measure_title, "Vc real");
+    lv_obj_set_style_text_font(lb_vcore_measure_title, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_vcore_measure_title, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_vcore_measure_title, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_vcore_measure_title, LV_ALIGN_TOP_LEFT, 3 * arc_r - 12 , 3 * arc_r + 27);
   }
+
+  String hr_value = formatNumber(g_nmaxe.mstatus.hashrate, 3);
+  String hr_unit = (g_nmaxe.mstatus.hashrate > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
+  String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
+  String vbus = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
+  uint16_t vbus_angle = arc_angle_full * (g_nmaxe.board.vbus/1000.0 - VBUS_MIN) / (VBUS_MAX - VBUS_MIN); 
+  uint16_t pwr_angle  = arc_angle_full * (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
+
+  uint16_t vcore_req_angle = arc_angle_full * (g_nmaxe.asic.vcore_req/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
+  uint16_t vcore_measure_angle  = arc_angle_full * (g_nmaxe.asic.vcore_measured /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
+
+  lv_arc_set_angles(arc_vbus,  0, vbus_angle);
+  lv_arc_set_angles(arc_power, 0, pwr_angle);
+  lv_arc_set_angles(arc_vcore_req,  0, vcore_req_angle);
+  lv_arc_set_angles(arc_vcore_measure, 0, vcore_measure_angle);
+
+  //hashrate
+  lv_label_set_text_fmt(lb_ds_hr, "%s", hr_value.substring(0, hr_value.length() - 1).c_str());
+  //hashrate unit
+  lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
+  //power 
+  lv_label_set_text_fmt(lb_pwr, "%sw", power.c_str());
+  //vbus
+  lv_label_set_text_fmt(lb_vbus, "%sv", vbus.c_str());
+  //vcore_req
+  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_nmaxe.asic.vcore_req/1000.0, 3).c_str());
+  //vcore_measure
+  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_nmaxe.asic.vcore_measured/1000.0, 3).c_str());
+}
+
+
+static void ui_hashrate_dist_page_update(){
+  #define MAX_HASHRATE 1000  
+  #define STEP 50 // step 
+  #define NUM_BARS (MAX_HASHRATE / STEP) 
+
+  static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
+  static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
+  static lv_chart_series_t *series;
+  static uint64_t hr_total_cnt = 0;
+  static bool first_time = true;
+
+  static double last_hashrate = 0;
+  if(last_hashrate == g_nmaxe.mstatus.hashrate) return;
+  last_hashrate = g_nmaxe.mstatus.hashrate;
+
+  if(first_time){
+    first_time = false;
+    // Hashrate label
+    const lv_font_t *  font = &ds_digib_font_36;
+    lv_color_t font_color = lv_color_hex(0xFFA500);
+    lb_ds_hr   = lv_label_create( ui_pages[PAGE_HR_HEALTH] );
+    lv_obj_set_width(lb_ds_hr, 80);
+    lv_label_set_text( lb_ds_hr, " ");
+    lv_obj_set_style_text_font(lb_ds_hr, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_ds_hr, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_ds_hr, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_ds_hr, LV_ALIGN_TOP_MID, 55, -4);
+    //Hashrate uint
+    font = &ds_digib_font_20;
+    font_color = lv_color_hex(0x808080);
+    lb_ds_hr_unit   = lv_label_create( ui_pages[PAGE_HR_HEALTH] );
+    lv_obj_set_width(lb_ds_hr_unit, 50);
+    lv_label_set_text( lb_ds_hr_unit, " ");
+    lv_obj_set_style_text_font(lb_ds_hr_unit, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_ds_hr_unit, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_ds_hr_unit, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_ds_hr_unit, LV_ALIGN_TOP_MID, 100, 8); 
+    //scale
+    font_color = lv_color_hex(0xFFA500);
+    font = &lv_font_montserrat_12;
+    label_scale = lv_label_create(ui_pages[PAGE_HR_HEALTH]);
+    lv_label_set_text(label_scale, ("Scale     : " + String(STEP) + " GH/s").c_str());
+    lv_obj_set_style_text_font(label_scale, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(label_scale, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(label_scale, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_align(label_scale, LV_ALIGN_TOP_LEFT, 1, 3); 
+    //time cost
+    font_color = lv_color_hex(0xFFA500);
+    font = &lv_font_montserrat_12;
+    lb_hr_health_duration   = lv_label_create( ui_pages[PAGE_HR_HEALTH] );
+    lv_obj_set_width(lb_hr_health_duration, 120);
+    lv_label_set_text( lb_hr_health_duration, " ");
+    lv_obj_set_style_text_font(lb_hr_health_duration, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_hr_health_duration, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_hr_health_duration, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_align( lb_hr_health_duration, LV_ALIGN_TOP_LEFT, 1, 18);
+
+    // Create a chart
+    chart = lv_chart_create(ui_pages[PAGE_HR_HEALTH]);
+    lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
+    lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
+    lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, NUM_BARS - 1); 
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
+    lv_chart_set_div_line_count(chart, 5, 4);
+
+    // Add a series to the chart
+    series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    lv_chart_set_point_count(chart, NUM_BARS);
+    lv_chart_set_all_value(chart, series, 0);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, NUM_BARS, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
+    lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+
+    // set grid style
+    static lv_style_t style_grid;
+    lv_style_init(&style_grid);
+    lv_style_set_line_dash_width(&style_grid, 2); 
+    lv_style_set_line_dash_gap(&style_grid, 4); 
+    lv_style_set_line_opa(&style_grid, LV_OPA_50); 
+    lv_obj_add_style(chart, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
+    // set font for ticks
+    lv_obj_set_style_text_font(chart, &lv_font_montserrat_10, LV_PART_TICKS); 
+  }
+
+  static uint64_t counts[NUM_BARS] = {0};
+  int index = g_nmaxe.mstatus.hashrate/1000/1000/1000 / STEP;
+  index = (index >= NUM_BARS) ? NUM_BARS - 1 : index;
+  counts[index]++;
+  hr_total_cnt++;
+  for (int i = 0; i < NUM_BARS; i++) {
+    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)hr_total_cnt);
+    lv_chart_set_value_by_id(chart, series, i, y);
+  }
+  // time cost of this feature
+  static uint64_t start = millis();
+  uint64_t duration = (millis() - start) / 1000;
 
   String hr = formatNumber(g_nmaxe.mstatus.hashrate, 3);
   String hr_unit = (g_nmaxe.mstatus.hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
-
   //hashrate
   lv_label_set_text_fmt(lb_ds_hr, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
   lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
+  //time cost
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String((millis() - start) / 1000) + "s").c_str());
 }
+
 
 void ui_switch_next_page_cb(){
   current_page_index = (current_page_index == PAGE_HR_HEALTH) ? PAGE_CONFIG : current_page_index;
@@ -938,27 +1060,20 @@ void ui_thread_entry(void *args){
 
 
   /***************************************scroll to miner page***************************************/
-  lv_obj_scroll_to_view(ui_pages[PAGE_MINER], LV_ANIM_ON); 
+  lv_obj_scroll_to_view(ui_pages[PAGE_DASHBOARD], LV_ANIM_ON); 
 
   while (true){
     //wait for miner status update forever
     xSemaphoreTake(g_nmaxe.mstatus.update_xsem, portMAX_DELAY);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
-      switch(current_page_index){
-        case PAGE_MINER:
-          ui_miner_page_update();
-          break;
-        case PAGE_HR_HEALTH:
-          ui_hashrate_dist_page_update();
-          break;
-        case PAGE_DASHBOARD:
-          ui_dashboard_page_update();
-          break;
-        default:
-          break;
-      }
+      //update miner page
+      ui_miner_page_update();
+      //update dashboard page
+      ui_dashboard_page_update();
+      //update hashrate distribution page
+      ui_hashrate_dist_page_update();
 
-      //ota progress layout
+      //update ota page
       if(g_nmaxe.ota.ota_running){
         ui_ota_page_update();
       }
