@@ -20,13 +20,13 @@ LV_FONT_DECLARE(symbol_14)
 static TFT_eSPI tft = TFT_eSPI();
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
-static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *status_page = NULL;
+static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *health_page = NULL, *dashboard_page = NULL;
 static lv_obj_t *lb_version = NULL, *lb_cfg_timeout = NULL, *lb_hashrate = NULL, *lb_blk_hit = NULL, *lb_temp = NULL, *lb_power = NULL, *lb_wifi = NULL, *lb_uptime_day = NULL, *lb_uptime_hms = NULL, *lb_diff = NULL;
 static lv_obj_t *lb_hr_health_title = NULL, *lb_hr_health_duration = NULL;
 static lv_obj_t *lb_share = NULL, *lb_fan = NULL, *lb_hr_unit = NULL, *lb_uptime_day_unit = NULL;
 static lv_obj_t *lb_uptime_symbol = NULL, *lb_wifi_symbol = NULL, *lb_diff_symbol = NULL, *lb_share_symb = NULL, *lb_temp_symb = NULL, *lb_fan_symb = NULL;
 static lv_obj_t *lb_price = NULL;
-static lv_obj_t *pages[] = {NULL, NULL, NULL, NULL};
+static lv_obj_t *pages[] = {NULL, NULL, NULL, NULL, NULL};
 
 
 static void tft_init(){
@@ -92,7 +92,7 @@ static void ui_layout_init(void){
 
   //create parent object
   parent_docker = lv_obj_create(lv_scr_act());
-  lv_obj_set_size(parent_docker, SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2); 
+  lv_obj_set_size(parent_docker, SCREEN_WIDTH * 2, SCREEN_HEIGHT * 3); 
   lv_obj_set_pos(parent_docker, 0, 0);
   lv_obj_set_scrollbar_mode(lv_scr_act(), LV_SCROLLBAR_MODE_OFF); 
   lv_obj_set_scroll_dir(parent_docker, LV_DIR_ALL); 
@@ -136,22 +136,34 @@ static void ui_layout_init(void){
   lv_img_set_src(miner_img_obj, &main_page_img);
   lv_obj_set_size(miner_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(miner_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  // Create status page  
-  status_page = lv_obj_create(parent_docker);
-  lv_obj_set_size(status_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(status_page, 1 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(status_page, 0, 0);
-  lv_obj_set_style_border_width(status_page, 0, 0);
-  lv_obj_set_scrollbar_mode(status_page, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_t *status_img_obj = lv_img_create(status_page);
+  // Create health page  
+  health_page = lv_obj_create(parent_docker);
+  lv_obj_set_size(health_page, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(health_page, 1 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
+  lv_obj_set_style_pad_all(health_page, 0, 0);
+  lv_obj_set_style_border_width(health_page, 0, 0);
+  lv_obj_set_scrollbar_mode(health_page, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_t *status_img_obj = lv_img_create(health_page);
   lv_img_set_src(status_img_obj, &status_page_img);
   lv_obj_set_size(status_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(status_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  // Create dashboard page  
+  dashboard_page = lv_obj_create(parent_docker);
+  lv_obj_set_size(dashboard_page, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(dashboard_page, 1 * SCREEN_WIDTH, 2 * SCREEN_HEIGHT);
+  lv_obj_set_style_pad_all(dashboard_page, 0, 0);
+  lv_obj_set_style_border_width(dashboard_page, 0, 0);
+  lv_obj_set_scrollbar_mode(dashboard_page, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_t *dashboard_img_obj = lv_img_create(dashboard_page);
+  lv_img_set_src(dashboard_img_obj, &status_page_img);
+  lv_obj_set_size(status_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(dashboard_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create pages array
   pages[0] = loading_page;
   pages[1] = config_page;
   pages[2] = miner_page;
-  pages[3] = status_page;
+  pages[3] = health_page;
+  pages[4] = dashboard_page;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version
   const lv_font_t *font = &lv_font_montserrat_14;
@@ -177,7 +189,7 @@ static void ui_layout_init(void){
   //title 
   font_color = lv_color_hex(0x808080);
   font = &lv_font_montserrat_18;
-  lb_hr_health_title   = lv_label_create( status_page );
+  lb_hr_health_title   = lv_label_create( health_page );
   lv_obj_set_width(lb_hr_health_title, 120);
   lv_label_set_text( lb_hr_health_title, "HR Healthy");
   lv_obj_set_style_text_font(lb_hr_health_title, font, LV_PART_MAIN);
@@ -187,7 +199,7 @@ static void ui_layout_init(void){
   //time cost
   font_color = lv_color_hex(0xFFA500);
   font = &lv_font_montserrat_12;
-  lb_hr_health_duration   = lv_label_create( status_page );
+  lb_hr_health_duration   = lv_label_create( health_page );
   lv_obj_set_width(lb_hr_health_duration, 120);
   lv_label_set_text( lb_hr_health_duration, " ");
   lv_obj_set_style_text_font(lb_hr_health_duration, font, LV_PART_MAIN);
@@ -493,7 +505,7 @@ static void ui_hashrate_distribution(double hashrate){
   static uint64_t hr_total_cnt = 0;
 
   if(chart == NULL){
-    chart = lv_chart_create(status_page);
+    chart = lv_chart_create(health_page);
     lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
     lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
 
@@ -514,7 +526,7 @@ static void ui_hashrate_distribution(double hashrate){
     lv_chart_set_point_count(chart, NUM_BARS);
 
     //Add a scale to the chart
-    label_scale = lv_label_create(status_page);
+    label_scale = lv_label_create(health_page);
 
     lv_label_set_text(label_scale, ("Scale     : " + String(STEP) + " GH/s").c_str());
     lv_obj_set_style_text_font(label_scale, &lv_font_montserrat_12, LV_PART_MAIN);
@@ -564,9 +576,18 @@ static void ui_hashrate_distribution(double hashrate){
   lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String((millis() - start) / 1000) + "s").c_str());
 }
 
+static void ui_hashrate_realtime_chart(double hashrate){
+  static lv_obj_t *chart;
+  static lv_chart_series_t *series;
+  if(series == NULL){
+
+  }
+}
+
 void ui_switch_next_page_cb(){
   static uint8_t page_index = 2;
-  page_index = (page_index == 2) ? 3 : 2;//switch between miner page and status page
+  page_index = (page_index == 4) ? 1 : page_index;
+  page_index++;
   lv_obj_scroll_to_view(pages[page_index], LV_ANIM_ON);
 }
 
