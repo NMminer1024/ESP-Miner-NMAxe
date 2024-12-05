@@ -191,7 +191,7 @@ double AsicMinerClass::calculate_hashrate(){
     static uint32_t hr_cal_time_begin = millis();
     static std::vector<double>    diff_samples;
     static std::vector<uint32_t>  time_samples;
-    static const uint8_t          hr_sample_len_max = 50;
+    static const uint8_t          hr_sample_len_max = 100;
     double total_diff = 0.0, duration = 0.0, hashrate = 0.0;
 
     diff_samples.push_back(this->_asic->get_asic_difficulty());

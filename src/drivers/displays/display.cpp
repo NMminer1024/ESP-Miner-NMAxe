@@ -22,7 +22,7 @@ static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
 static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *status_page = NULL;
 static lv_obj_t *lb_version = NULL, *lb_cfg_timeout = NULL, *lb_hashrate = NULL, *lb_blk_hit = NULL, *lb_temp = NULL, *lb_power = NULL, *lb_wifi = NULL, *lb_uptime_day = NULL, *lb_uptime_hms = NULL, *lb_diff = NULL;
-static lv_obj_t *lb_hr_healthy = NULL;
+static lv_obj_t *lb_hr_health_title = NULL, *lb_hr_health_duration = NULL;
 static lv_obj_t *lb_share = NULL, *lb_fan = NULL, *lb_hr_unit = NULL, *lb_uptime_day_unit = NULL;
 static lv_obj_t *lb_uptime_symbol = NULL, *lb_wifi_symbol = NULL, *lb_diff_symbol = NULL, *lb_share_symb = NULL, *lb_temp_symb = NULL, *lb_fan_symb = NULL;
 static lv_obj_t *lb_price = NULL;
@@ -174,15 +174,26 @@ static void ui_layout_init(void){
   lv_label_set_long_mode(lb_cfg_timeout, LV_LABEL_LONG_DOT);
   lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 175, 0);
   //////////////////////////////////////status page layout///////////////////////////////////////////////
+  //title 
   font_color = lv_color_hex(0x808080);
   font = &lv_font_montserrat_18;
-  lb_hr_healthy   = lv_label_create( status_page );
-  lv_obj_set_width(lb_hr_healthy, SCREEN_WIDTH);
-  lv_label_set_text( lb_hr_healthy, "HR healthy");
-  lv_obj_set_style_text_font(lb_hr_healthy, font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(lb_hr_healthy, font_color, LV_PART_MAIN); 
-  lv_label_set_long_mode(lb_hr_healthy, LV_LABEL_LONG_DOT);
-  lv_obj_align( lb_hr_healthy, LV_ALIGN_TOP_MID, 133, 2);
+  lb_hr_health_title   = lv_label_create( status_page );
+  lv_obj_set_width(lb_hr_health_title, 120);
+  lv_label_set_text( lb_hr_health_title, "HR Healthy");
+  lv_obj_set_style_text_font(lb_hr_health_title, font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(lb_hr_health_title, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(lb_hr_health_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
+  lv_obj_align( lb_hr_health_title, LV_ALIGN_TOP_MID, 70, 2);
+  //time cost
+  font_color = lv_color_hex(0xFFA500);
+  font = &lv_font_montserrat_12;
+  lb_hr_health_duration   = lv_label_create( status_page );
+  lv_obj_set_width(lb_hr_health_duration, 120);
+  lv_label_set_text( lb_hr_health_duration, " ");
+  lv_obj_set_style_text_font(lb_hr_health_duration, font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(lb_hr_health_duration, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(lb_hr_health_duration, LV_LABEL_LONG_SCROLL_CIRCULAR);
+  lv_obj_align( lb_hr_health_duration, LV_ALIGN_TOP_LEFT, 1, 18);
   //////////////////////////////////////miner page layout///////////////////////////////////////////////
   //Hashrate value
   font = &ds_digib_font_38;
@@ -483,8 +494,8 @@ static void ui_hashrate_distribution(double hashrate){
 
   if(chart == NULL){
     chart = lv_chart_create(status_page);
-    lv_obj_set_size(chart, SCREEN_WIDTH - 15, SCREEN_HEIGHT - 48); 
-    lv_obj_align(chart, LV_ALIGN_CENTER, 15, 8);
+    lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
+    lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
 
     // set the chart type
     lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
@@ -504,9 +515,11 @@ static void ui_hashrate_distribution(double hashrate){
 
     //Add a scale to the chart
     label_scale = lv_label_create(status_page);
-    lv_label_set_text(label_scale, ("Scale: " + String(STEP) + "GH/s").c_str());
-    lv_obj_set_style_text_color(label_scale, lv_color_hex(0xFFED00), LV_PART_MAIN); 
-    lv_obj_align(label_scale, LV_ALIGN_TOP_LEFT, 5, 5); 
+
+    lv_label_set_text(label_scale, ("Scale     : " + String(STEP) + " GH/s").c_str());
+    lv_obj_set_style_text_font(label_scale, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_set_style_text_color(label_scale, lv_color_hex(0xFFA500), LV_PART_MAIN); 
+    lv_obj_align(label_scale, LV_ALIGN_TOP_LEFT, 1, 3); 
 
     // set all bars to 0
     lv_chart_set_all_value(chart, series, 0);
@@ -523,7 +536,7 @@ static void ui_hashrate_distribution(double hashrate){
     static lv_style_t style_grid;
     lv_style_init(&style_grid);
     lv_style_set_line_dash_width(&style_grid, 2); 
-    lv_style_set_line_dash_gap(&style_grid, 6); 
+    lv_style_set_line_dash_gap(&style_grid, 4); 
     lv_style_set_line_opa(&style_grid, LV_OPA_50); 
     lv_obj_add_style(chart, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
 
@@ -543,6 +556,12 @@ static void ui_hashrate_distribution(double hashrate){
     uint8_t y = (uint8_t)(100*(float)counts[i] / (float)hr_total_cnt);
     lv_chart_set_value_by_id(chart, series, i, y);
   }
+
+  // time cost of this feature
+  static uint64_t start = millis();
+  uint64_t duration = (millis() - start) / 1000;
+
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String((millis() - start) / 1000) + "s").c_str());
 }
 
 void ui_switch_next_page_cb(){
