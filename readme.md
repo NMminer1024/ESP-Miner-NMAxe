@@ -5,7 +5,7 @@
 
 
 <div align="center">
-  <h1>Join a great game all over the world!</h1>
+  <h1>Join a great game that spans the world!</h1>
 </div>
 
 # NMAxe
