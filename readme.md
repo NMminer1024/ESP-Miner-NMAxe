@@ -5,7 +5,7 @@
 
 
 <div align="center">
-  <h1>Join a great game that spans the world!</h1>
+  <h1>Join a global block game!</h1>
 </div>
 
 # NMAxe
@@ -56,8 +56,6 @@
 - DC adapter 8-12v/25W at least.
 - USB PD charger 25W at least. 
 
-
-
 ### Configuration
 ***
 ## Pool
@@ -70,7 +68,6 @@
 |eu.molepool.com    | tcp                |    5566            |        BCH        | Minimum 32.768K constantly         |
 |eu.molepool.com    | tcp                |    2566            |        SPACE      | Minimum 32.768K constantly         |
 |eu2.molepool.com   | tcp                |    1801            |        FB         | Minimum 32.768K constantly         |
-
 
 ## How to monitor
 - In fact, both ***NMController_client*** and ***NMController_web*** have the same feature, ***NMController_client*** for Windows, ***NMController_web*** for Windows and MACOS, We make an example by ***NMController_client*** here.
