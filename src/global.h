@@ -8,7 +8,7 @@
 #include "stratum.h"
 #include "miner.h"
 
-#define CURRENT_FW_VERSION  "v2.1.154"
+#define CURRENT_FW_VERSION  "v2.2.11"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 

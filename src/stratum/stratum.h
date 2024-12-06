@@ -69,6 +69,7 @@ private:
     String          _rsp_str;
     bool            _parse_rsp();
     bool            _clear_rsp_id_cache();
+    bool            _suggest_diff_support;
     uint32_t        _vr_mask;//version rolling mask
     double          _pool_difficulty;
     StaticJsonDocument<4096> _rsp_json;
@@ -91,6 +92,7 @@ public:
         this->_rsp_json.clear();
         this->_sub_info = {"", "", 0};
         this->_msg_rsp_map.clear();
+        this->_suggest_diff_support = true;
         this->new_job_xsem   = xSemaphoreCreateCounting(5,0);
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
     };

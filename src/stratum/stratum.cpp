@@ -33,6 +33,7 @@ uint32_t StratumClass::_get_msg_id(){
 bool StratumClass::_parse_rsp(){
     DeserializationError error = deserializeJson(this->_rsp_json, this->_rsp_str);
     if (error) {
+        LOG_E("Failed to parse JSON: %s => %s", error.c_str(), this->_rsp_str.c_str());
         return false;
     }
     return true;
@@ -55,7 +56,7 @@ bool StratumClass::_clear_rsp_id_cache(){
 bool StratumClass::hello_pool(uint32_t hello_interval, uint32_t lost_max_time){
     this->_clear_rsp_id_cache();//clear cache of msg id, only keep the latest 15 ids
 
-    if(millis() - this->pool.get_last_write_ms() > hello_interval){
+    if((millis() - this->pool.get_last_write_ms() > hello_interval) && this->_suggest_diff_support){
         uint32_t id = this->_get_msg_id();
         String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
         if(this->pool.write(payload) != 0){
@@ -107,9 +108,13 @@ stratum_method_data StratumClass::listen_methods(){
     }
     else{
         if(this->_rsp_json["error"].isNull()){
-            // LOG_I("Received success response, %s", this->_rsp_str.c_str());
             return {id, STRATUM_DOWN_SUCCESS, "", this->_rsp_str};
         }else{
+            //'suggest_difficulty' method didn't support 
+            if(4 == id){
+                this->_suggest_diff_support = false;
+                LOG_W("Pool doesn't support suggest_difficulty!");
+            }
             return {id, STRATUM_DOWN_ERROR, "", this->_rsp_str};
         }
     }
@@ -144,7 +149,6 @@ bool StratumClass::set_sub_extranonce2_size(int size){
     this->_sub_info.extranonce2_size = size;
     return true;
 }
-
 
 bool StratumClass::subscribe(){
     this->_sub_info.extranonce2 = "";
@@ -197,7 +201,6 @@ bool StratumClass::suggest_difficulty(){
         LOG_E("Failed to send mining.suggest_difficulty request");
         return false;
     }
-
     this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false};
     log_i("Sending mining.suggest_difficulty : %s", payload.c_str());
     delay(100);
@@ -340,7 +343,7 @@ void stratum_thread_entry(void *args){
     g_nmaxe.stratum = StratumClass(g_nmaxe.connection.pool, g_nmaxe.connection.stratum, 10);
     g_nmaxe.stratum.pool.begin(g_nmaxe.connection.pool.ssl);
     g_nmaxe.stratum.set_pool_difficulty(DEFAULT_POOL_DIFFICULTY);
-    StaticJsonDocument<1024*2> json;
+    StaticJsonDocument<1024*4> json;
     while(true){
         if(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED){
             xSemaphoreGive(g_nmaxe.connection.wifi.reconnect_xsem);
