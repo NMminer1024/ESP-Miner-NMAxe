@@ -93,6 +93,7 @@
 
 
 - *Via [NMMiner flash tool](https://flash.nmminer.com/)*
+***Notice***：Long press and hold **boot** button，then click **reset** button to let the NMAxe force into bootloader mode, So that the computer will recognize a COMx device plug in.
 <div align="center">
   <img src="image/nm-flash-tool.jpg" alt="nm-flash-tool">
 </div>
