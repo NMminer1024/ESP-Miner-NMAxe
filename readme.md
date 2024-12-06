@@ -3,6 +3,11 @@
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/t/NMminer1024/ESP-Miner-NMAxe)
 ![GitHub contributors](https://img.shields.io/github/contributors/NMminer1024/ESP-Miner-NMAxe)
 
+
+<div align="center">
+  <h1>Join a great game all over the world!</h1>
+</div>
+
 # NMAxe
 ***
 - NMAxe solo miner based on BM1366 which fork from [bitaxe](https://github.com/skot/bitaxe).
