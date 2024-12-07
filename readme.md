@@ -116,6 +116,18 @@
 ## Release Log
 ***
 
+### (2024.12.08) - v2.2.11
+- Add:
+  - Pool mining support.
+  - Local dashboard.
+  - Local hashrate healthy page.
+- Fixed:
+  - None.
+- Improved:
+  - None.
+- Modify:
+  - None.
+
 ### (2024.11.30) - v2.1.15
 - Add:
   - None.
