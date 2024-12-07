@@ -21,6 +21,7 @@ BM1366 *bm1366  = new BM1366(Serial1, ESP32_TO_BM1366_INIT_BUAD, NM_AXE_ESP32_RX
 
 AsicMinerClass::AsicMinerClass(BMxxx *asic){
     this->_asic = asic;
+    this->_asic_count = 0;
     this->_pool_job_id_now = "";
     this->_asic_job_map.clear();
     memset(&this->_asic_job_now, 0, sizeof(asic_job));
@@ -33,14 +34,15 @@ AsicMinerClass::~AsicMinerClass(){
 bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
     this->_asic->reset();
     this->calculate_hashrate();
-    uint8_t asics = this->_asic->init(freq, diff);
-    if(asics == 0){
+    this->_asic_count = this->_asic->init(freq, diff);
+    if(0 == this->_asic_count){
         LOG_E("xxxxxxx No BM1366 ASIC(s) found xxxxxxx");
         return false;
     }
-    LOG_I("======= Found %d BM1366 ASICs =======", asics);
+    LOG_I("======= Found %d BM1366 ASIC(s) =======", this->_asic_count);
     this->_asic->change_uart_baud(ESP32_TO_BM1366_WORK_BUAD);
-    return this->_asic->clear_port_cache();
+    this->_asic->clear_port_cache();
+    return true;
 }
 
 esp_err_t AsicMinerClass::listen_asic_rsp(asic_result *result, uint32_t timeout_ms){
@@ -121,6 +123,10 @@ bool AsicMinerClass::set_asic_diff(uint64_t diff){
 
 double AsicMinerClass::get_asic_diff(){
     return this->_asic->get_asic_difficulty();
+}
+
+uint8_t AsicMinerClass::get_asic_count(){
+    return this->_asic_count;
 }
 
 bool AsicMinerClass::find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job){
@@ -223,6 +229,25 @@ bool AsicMinerClass::end(){
 
 
 
+void miner_asic_init_thread_entry(void *args){
+    char *name = (char*)malloc(20);
+    strcpy(name, (char*)args);
+    LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
+    free(name);
+
+    //acic instance
+    g_nmaxe.miner = new AsicMinerClass(bm1366);
+
+    //begin asic hardware
+    if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, BM1366_DIFF_THR)){
+        while (true){
+            LOG_E("Miner asic init failed!");
+            delay(1000);
+        }
+    }
+    vTaskDelete(NULL);
+}
+
 
 void miner_asic_tx_thread_entry(void *args){
     char *name = (char*)malloc(20);
@@ -230,20 +255,13 @@ void miner_asic_tx_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
-    g_nmaxe.miner = new AsicMinerClass(bm1366);
-
     pool_job_data_t pool_job;
     double last_diff = BM1366_DIFF_THR;
 
     //wait for first job cache ready forever
     xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
-    //begin asic hardware
-    if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, BM1366_DIFF_THR)){
-        while (true){
-            LOG_E("Miner begin failed, Miner thread exit...");
-            delay(1000);
-        }
-    }
+    delay(500);//necessary delay for first job cache ready
+
     //forever loop
     while (true){
         //null loop if not subscribed
@@ -302,10 +320,6 @@ void miner_asic_rx_thread_entry(void *args){
 
     asic_job job = {0,};
     asic_result result = {0,};
-    esp_err_t err = ESP_FAIL;
-
-    //wait for miner instance ready
-    while (g_nmaxe.miner == NULL)delay(10);
 
     //wait for first job cache ready forever
     xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
@@ -316,7 +330,7 @@ void miner_asic_rx_thread_entry(void *args){
             delay(1000);
             continue;
         }
-        err = g_nmaxe.miner->listen_asic_rsp(&result);
+        esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result);
         if(ESP_OK == err){
             if(!g_nmaxe.stratum.is_subscribed()) continue;
             if(g_nmaxe.miner->find_job_by_asic_job_id(result.job_id, &job)){

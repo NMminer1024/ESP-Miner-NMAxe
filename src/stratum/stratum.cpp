@@ -433,18 +433,16 @@ void stratum_thread_entry(void *args){
                             xSemaphoreGive(g_nmaxe.stratum.clear_job_xsem);
                         }
                         size_t cached_size = g_nmaxe.stratum.push_job_cache(job);
-                        // LOG_I("Job [%s] received", job.id.c_str());
                         
                         //Give the new job semaphore to the other threads
-                        xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);
+                        xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//asic tx thread
                         static bool first_job = true;
                         if(first_job){
                             //first job will release the asic rx , monitor and ui thread
-                            xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);
-                            xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);
-                            xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);
-                            //start the asic tx first loop
-                            xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);
+                            xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//asic tx thread
+                            xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//asic rx thread
+                            xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//ui thread
+                            xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//monitor thread
                             first_job = false;
                         }
                     }         

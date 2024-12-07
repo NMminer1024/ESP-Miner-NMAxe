@@ -958,11 +958,12 @@ void ui_thread_entry(void *args){
   free(name);
 
   const char* vbus_chk_str[] = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
+  const char* asci_init_str[] = {"Found 0 ASIC   ","Found 0 ASIC.  ","Found 0 ASIC.. ","Found 0 ASIC..."};
   const char* wifi_con_str[] = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
   const char* fan_test_str[] = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
   const char* market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
   const char* pool_con_str[] = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
-  const char* wait_job_str[] = {"Waiting job   ","Waiting job.  ","Waiting job.. ","Waiting job..."};
+  const char* wait_job_str[] = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
 
   tft_init();
 
@@ -1017,7 +1018,7 @@ void ui_thread_entry(void *args){
     delay(300);
   }
   ui_loading_str_update("Pass! [" + String(g_nmaxe.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + " rpm]", 0x00FF00, true);
-  delay(3000);
+  delay(2000);
 
   /***************************************wait Vcore self test *****************************************/
   ui_loading_str_update("Vcore check...", 0xFFFFFF, true);
@@ -1033,10 +1034,14 @@ void ui_thread_entry(void *args){
   delay(200);//wait for vcore set to target voltage
   ui_loading_str_update(String("Vcore ") + String(g_nmaxe.power.get_vcore() / 1000.0, 3) + "v.", 0x00FF00, true);
   delay(500);
-
-  //Loading status
-  ui_loading_str_update("Loading...", 0xFFFFFF, true);
-  delay(500);
+  /****************************************wait for asic init********************************************/
+  while(g_nmaxe.miner->get_asic_count() == 0){
+    static uint8_t cnt = 0;
+    ui_loading_str_update(String(asci_init_str[cnt++ % 4]), 0xFFFFFF, false);
+    delay(300);
+  }
+  ui_loading_str_update(String("Found " + String(g_nmaxe.miner->get_asic_count())) + " chip", 0x00FF00, true);
+  delay(1000);
   /***************************************wait for wifi connected****************************************/
   while(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED){
     static uint8_t cnt = 0;
@@ -1073,7 +1078,7 @@ void ui_thread_entry(void *args){
       }
     }
   }
-  ui_loading_str_update("Connected.", 0x00FF00, true);
+  ui_loading_str_update("Wifi connected!", 0x00FF00, true);
   delay(500);
   /***************************************wait for market connected************************************/
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
@@ -1082,7 +1087,7 @@ void ui_thread_entry(void *args){
     ui_loading_str_update(market_con_str[cnt++ % 4] , 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update("Connected!", 0x00FF00, true);
+  ui_loading_str_update("Market connected!", 0x00FF00, true);
   delay(500);
   /***************************************wait for pool connected**************************************/
   while(!g_nmaxe.stratum.is_subscribed()){
@@ -1090,15 +1095,14 @@ void ui_thread_entry(void *args){
     ui_loading_str_update(pool_con_str[(cnt++)%4], 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update("Connected.", 0x00FF00, true);
+  ui_loading_str_update("Pool connected!", 0x00FF00, true);
   delay(500);
   /******************************************wait first job*******************************************/
-  while(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 0) == pdFAIL){
+  while(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 300) == pdFAIL){
     static uint8_t cnt = 0;
     ui_loading_str_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
-    delay(300);
   }
-  ui_loading_str_update("Ready!", 0x00FF00, true);
+  ui_loading_str_update("Miner ready!", 0x00FF00, true);
   delay(500);
 
 

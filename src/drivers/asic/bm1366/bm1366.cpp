@@ -81,7 +81,7 @@ void BM1366::_set_hash_frequency(float target_freq){
         puts("Finding dividers failed, using default value (200Mhz)");
     } else {
         newf = 25.0 * (float) (fb_divider) / (float) (ref_divider * post_divider1 * post_divider2);
-        LOG_I("final refdiv: %d, fbdiv: %d, postdiv1: %d, postdiv2: %d, min diff value: %f\n", ref_divider, fb_divider,
+        LOG_I("final refdiv: %d, fbdiv: %d, postdiv1: %d, postdiv2: %d, min diff value: %f", ref_divider, fb_divider,
                post_divider1, post_divider2, min_difference);
 
         freqbuf[3] = fb_divider;

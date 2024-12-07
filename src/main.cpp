@@ -11,7 +11,7 @@
 #include "axe_http_server.h"
 #include "axe_nvs_config.h"
 
-TaskHandle_t fanTask, ledTask, pwrTask, btnTask, uiTask, monitorTask, stratumTask, minerTxTask, minerRxTask;
+TaskHandle_t fanTask, ledTask, pwrTask, asicinitTask, btnTask, uiTask, monitorTask, stratumTask, minerTxTask, minerRxTask;
 
 axe_sal_t g_nmaxe = {
   .power = NMAxePowerClass(
@@ -65,6 +65,12 @@ void setup() {
   taskName = "(power)";
   xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_PWR, &pwrTask,1);
   xSemaphoreTake(g_nmaxe.power.good_xsem, portMAX_DELAY);
+  /************************************************************* INIT ASIC *************************************************************/
+  taskName = "(asic_init)";
+  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_ASIC_INIT, &asicinitTask,1);
+  while (g_nmaxe.miner->get_asic_count() == 0){
+    delay(10);
+  }
   /************************************************************** INIT WIFI ************************************************************/
   axe_wifi_connecet(g_nmaxe.connection.wifi.conn_param);//blockingly connect to wifi
   /*********************************************************** CREATE MARKET THREAD ***************************************************/

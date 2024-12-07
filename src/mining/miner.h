@@ -8,6 +8,7 @@
 class AsicMinerClass{
 private:
     BMxxx                       *_asic;  
+    uint8_t                     _asic_count;
     asic_job                    _asic_job_now;
     String                      _pool_job_id_now;
     std::map<uint8_t, asic_job> _asic_job_map;
@@ -18,6 +19,7 @@ public:
     bool begin(uint16_t freq, uint16_t diff);
     bool mining(pool_job_data_t *pool_job);
     bool set_asic_diff(uint64_t diff);
+    uint8_t get_asic_count();
     double get_asic_diff();
     String get_extranonce2_by_asic_job_id(uint8_t asic_job_id);
     esp_err_t listen_asic_rsp(asic_result *result, uint32_t timeout_ms = 1000*60);
@@ -30,7 +32,7 @@ public:
     bool end();
 };
 
-
+void miner_asic_init_thread_entry(void *args);
 void miner_asic_tx_thread_entry(void *args);
 void miner_asic_rx_thread_entry(void *args);
 

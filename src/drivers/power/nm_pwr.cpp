@@ -131,7 +131,7 @@ void power_thread_entry(void *args){
         delay(1000);
     }
     while (!g_nmaxe.fan.self_test){
-        LOG_W("Waiting for fan self test %d/%d...", g_nmaxe.fan.rpm, FAN_FULL_RPM_MIN);
+        LOG_W("Fan self test %d/%d...", g_nmaxe.fan.rpm, FAN_FULL_RPM_MIN);
         delay(1000);
     }
     
@@ -148,6 +148,7 @@ void power_thread_entry(void *args){
     }
     //set vcore voltage to required voltage
     g_nmaxe.power.set_vcore_voltage(g_nmaxe.asic.vcore_req);
+    delay(500);
     xSemaphoreGive(g_nmaxe.power.good_xsem);
     //exit
     vTaskDelete(NULL);

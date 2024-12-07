@@ -8,7 +8,7 @@
 #include "stratum.h"
 #include "miner.h"
 
-#define CURRENT_FW_VERSION  "v2.2.11"
+#define CURRENT_FW_VERSION  "v2.2.111"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -30,6 +30,7 @@
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
     TASK_PRIORITY_PWR      ,
+    TASK_PRIORITY_ASIC_INIT,
     TASK_PRIORITY_BTN      ,
     TASK_PRIORITY_LED      ,
     TASK_PRIORITY_UI       ,

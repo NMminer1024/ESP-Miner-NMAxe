@@ -115,7 +115,6 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
         }
         delay(1000);
     }
-    
     LOG_I("------------------------------------");
     LOG_I("SSID     : %s ", WiFi.SSID().c_str());
     LOG_I("IP       : %s ", WiFi.localIP().toString().c_str());

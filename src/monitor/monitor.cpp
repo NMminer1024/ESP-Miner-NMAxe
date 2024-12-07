@@ -21,7 +21,8 @@ void monitor_thread_entry(void *args){
   udpStatus.begin(status_udp_port);
   //wait for first job cache ready forever when process start
   xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
-  
+  delay(500);//necessary delay for first job cache ready
+
   while(true){
       g_nmaxe.mstatus.uptime++;
       //update temperature and power status
@@ -107,12 +108,6 @@ void monitor_thread_entry(void *args){
           last_save_time = g_nmaxe.mstatus.uptime;
           LOG_I("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime).c_str());
       }
-
-
-
-
-
-
       //thread delay 1s
       delay(1000);
   }
