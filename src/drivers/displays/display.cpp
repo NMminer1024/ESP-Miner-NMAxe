@@ -52,7 +52,7 @@ static void tft_init(){
   pinMode(NM_AXE_TFT_BL_PIN, OUTPUT);
   ledcSetup(blpwmChannel, freq, resolution);
   ledcAttachPin(NM_AXE_TFT_BL_PIN, blpwmChannel);
-  tft_bl_ctrl(g_nmaxe.screen.brightness);
+  tft_bl_ctrl(g_nmaxe.screen.brightness * 2.55);
 }
 
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
@@ -1125,7 +1125,7 @@ void ui_thread_entry(void *args){
   while (true){
     //wait for miner status update forever
     xSemaphoreTake(g_nmaxe.mstatus.update_xsem, portMAX_DELAY);
-    tft_bl_ctrl(g_nmaxe.screen.brightness);
+    tft_bl_ctrl(g_nmaxe.screen.brightness * 2.55);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
       //update miner page
       ui_miner_page_update();
