@@ -35,6 +35,7 @@
 #define NM_AXE_IIC_SDA_PIN                             9
 
 #define NM_AXE_TFT_PWER_PIN                            18
+#define NM_AXE_TFT_BL_PIN                              17
 
 #define LED_WIFI_STA_PIN                                6
 #define LED_POOL_STA_PIN                                4

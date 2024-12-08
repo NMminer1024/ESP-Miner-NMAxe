@@ -32,12 +32,27 @@ static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL};
 static lv_obj_t *lb_cfg_timeout = NULL;
 static uint8_t   current_page_index = PAGE_MINER;
 
+
+static int blpwmChannel = 0;   
+static void tft_bl_ctrl(int dutyCycle){
+  uint8_t pwm = (TFT_BACKLIGHT_ON == HIGH) ? dutyCycle : (255 - dutyCycle);
+  ledcWrite(blpwmChannel, pwm);
+}
+
 static void tft_init(){
   pinMode(NM_AXE_TFT_PWER_PIN, OUTPUT);
   digitalWrite(NM_AXE_TFT_PWER_PIN, LOW);
   tft.begin(); 
   if(g_nmaxe.screen.flip)tft.setRotation(1); 
   else tft.setRotation(3); 
+
+
+  int freq = 5*1000;    
+  int resolution = 8;   
+  pinMode(NM_AXE_TFT_BL_PIN, OUTPUT);
+  ledcSetup(blpwmChannel, freq, resolution);
+  ledcAttachPin(NM_AXE_TFT_BL_PIN, blpwmChannel);
+  tft_bl_ctrl(g_nmaxe.screen.brightness);
 }
 
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
@@ -1104,14 +1119,13 @@ void ui_thread_entry(void *args){
   }
   ui_loading_str_update("Miner ready!", 0x00FF00, true);
   delay(500);
-
-
   /***************************************scroll to miner page***************************************/
   lv_obj_scroll_to_view(ui_pages[PAGE_MINER], LV_ANIM_ON); 
 
   while (true){
     //wait for miner status update forever
     xSemaphoreTake(g_nmaxe.mstatus.update_xsem, portMAX_DELAY);
+    tft_bl_ctrl(g_nmaxe.screen.brightness);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
       //update miner page
       ui_miner_page_update();

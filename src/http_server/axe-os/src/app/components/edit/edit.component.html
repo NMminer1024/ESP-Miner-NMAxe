@@ -53,7 +53,6 @@
 
 
         <ng-container *ngIf="!devToolsOpen && ASICModel == eASICModel.BM1366">
-
             <div class="field grid p-fluid">
                 <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="frequency">OverClock(MHz)</label>
                 <div class="col-12 md:col-10">
@@ -67,6 +66,20 @@
                 <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coreVoltage">Vcore(mV)</label>
                 <p-dropdown class="col-12 md:col-10" [options]="BM1366CoreVoltage" optionLabel="name"
                     optionValue="value" formControlName="coreVoltage"></p-dropdown>
+            </div>
+
+            <div class="field grid p-fluid">
+                <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="brightness">Screen Brightness</label>
+                <div class="col-12 md:col-10">
+                  <div class="p-grid">
+                    <div class="p-col-10">
+                      <p-slider formControlName="brightness" [(ngModel)]="form.controls['brightness'].value"></p-slider>
+                    </div>
+                    <div class="p-col-2">
+                      <label>{{ form.controls['brightness'].value }}%</label>
+                    </div>
+                  </div>
+                </div>
             </div>
 
         </ng-container>

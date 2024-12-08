@@ -82,7 +82,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["sharesAccepted"] = g_nmaxe.mstatus.share_accepted;
     root["sharesRejected"] = g_nmaxe.mstatus.share_rejected;
     root["uptimeSeconds"] = g_nmaxe.mstatus.uptime;
-    root["asicCount"] = 1;
+    root["asicCount"] = g_nmaxe.miner->get_asic_count();
     root["smallCoreCount"] = small_core_count;
     root["ASICModel"] = g_nmaxe.asic.type;
     root["stratumURL"] = g_nmaxe.connection.pool.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool.url) : ("stratum+tcp://" + g_nmaxe.connection.pool.url);
@@ -99,6 +99,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["autofanspeed"] = g_nmaxe.fan.is_auto_speed;
     root["fanspeed"] = g_nmaxe.fan.speed;
     root["fanrpm"] = g_nmaxe.fan.rpm;
+    root["brightness"] = g_nmaxe.screen.brightness;
 
     String sys_info;
     serializeJson(root, sys_info);
@@ -179,6 +180,10 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
             g_nmaxe.asic.vcore_req = req_mv;
             g_nmaxe.power.set_vcore_voltage(req_mv);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, root["coreVoltage"].as<uint16_t>());
+        }
+        if(root.containsKey("brightness")){
+            g_nmaxe.screen.brightness = root["brightness"].as<uint8_t>();
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_nmaxe.screen.brightness);
         }
         if(root.containsKey("frequency")){
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, root["frequency"].as<uint16_t>());
