@@ -58,7 +58,8 @@
 
 ### Configuration
 ***
-## Pool
+
+## Solo
 | Url               | Type               | Port               | Description       | Minimum required difficulty|
 | :---------------  | :-----------------:| :-----------------:|:-----------------:| :----------------------:   |
 |public-pool.io     | tcp                |    21496           |        BTC        | 1M initial, Minimum 0.001  |
@@ -68,6 +69,16 @@
 |eu.molepool.com    | tcp                |    5566            |        BCH        | Minimum 32.768K constantly         |
 |eu.molepool.com    | tcp                |    2566            |        SPACE      | Minimum 32.768K constantly         |
 |eu2.molepool.com   | tcp                |    1801            |        FB         | Minimum 32.768K constantly         |
+
+## Pool(v2.2.xx at least)
+| Url               | Type               | Port               | Description       | Minimum required difficulty|
+| :---------------  | :-----------------:| :-----------------:|:-----------------:| :----------------------:   |
+|btc.f2pool.com     | tcp                |    1314            |        BTC        | common  |
+|btc-asia.f2pool.com| tcp                |    1314            |        BTC        | Asia    |
+|btc-na.f2pool.com  | tcp                |    1314            |        BTC        | North America|
+|btc-euro.f2pool.com| tcp                |    1314            |        BTC        | Europe|
+|btc-africa.f2pool.com| tcp              |    1314            |        BTC        | Africa|
+|btc-latin.f2pool.com| tcp               |    1314            |        BTC        | Latin|
 
 ## How to monitor
 - In fact, both ***NMController_client*** and ***NMController_web*** have the same feature, ***NMController_client*** for Windows, ***NMController_web*** for Windows and MACOS, We make an example by ***NMController_client*** here.
