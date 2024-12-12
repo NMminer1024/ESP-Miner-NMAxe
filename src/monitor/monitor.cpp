@@ -42,6 +42,7 @@ void monitor_thread_entry(void *args){
       }
       //send status to udp broadcast
       if(g_nmaxe.mstatus.uptime % 2 == 0){
+        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
           StaticJsonDocument<512> jsonDoc;
           jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
           jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate, 5) + "H/s";
@@ -65,6 +66,7 @@ void monitor_thread_entry(void *args){
           udpStatus.beginPacket(status_udp_addr, status_udp_port);
           udpStatus.write((uint8_t*)jsonBuffer,n);
           udpStatus.endPacket();
+        }
       }
       //check overheat
       if(g_nmaxe.mstatus.uptime % 5 == 0){
@@ -101,6 +103,7 @@ void monitor_thread_entry(void *args){
       if(g_nmaxe.mstatus.uptime - last_save_time > NVS_SAVE_INTERVAL){
         xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
       }
+      //save some status to NVS
       if(xSemaphoreTake(g_nmaxe.mstatus.nvs_save_xsem, 0) == pdTRUE){
           nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(g_nmaxe.mstatus.best_ever).c_str());
           nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, g_nmaxe.mstatus.block_hits);

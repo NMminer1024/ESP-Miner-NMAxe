@@ -19,7 +19,6 @@ void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
                     if (strcmp(event, "avgPrice") == 0) {
                         g_nmaxe.market.connected = true;
                         g_nmaxe.market.price = String(doc["w"].as<float>(), 1).toFloat();
-                        // LOG_W("Price: $%f", g_nmaxe.market.price);
                     }
                 } else {
                     LOG_W("Failed to parse JSON");
@@ -55,7 +54,7 @@ void marketClass::loop(){
     this->_wsclient->loop();
 }
 
-
+static marketClass  market = marketClass("data-stream.binance.vision", 443, "/ws/btcusdt@avgPrice");
 
 void market_thread_entry(void *args){
     char *name = (char*)malloc(20);
@@ -63,9 +62,14 @@ void market_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
-    marketClass  market = marketClass("data-stream.binance.vision", 443, "/ws/btcusdt@avgPrice");
-    while(!g_nmaxe.ota.ota_running){
-        market.loop();
+
+    while(true){
+        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
+            market.loop();
+        }
+
+        if(g_nmaxe.ota.ota_running)break;
+
         delay(100);
     }
     LOG_W("Market thread exit.");

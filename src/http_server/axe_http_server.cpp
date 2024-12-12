@@ -315,7 +315,9 @@ static void websocket_loop(void *args){
     free(name);
     uint32_t cnt = 0;
     while (true){
-        webSocket.loop();
+        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
+            webSocket.loop();
+        }
         // if(cnt++ % 20 == 0){
         //     UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(NULL);
         //     LOG_D("%s free stack: %d", name, highWaterMark);
