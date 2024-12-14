@@ -8,7 +8,7 @@
   <h1>Join a global block game!</h1>
 </div>
 
-# NMAxe
+## NMAxe
 ***
 - NMAxe solo miner based on BM1366 which fork from [bitaxe](https://github.com/skot/bitaxe).
 - NMAxe [aliexpress](https://www.aliexpress.com/item/1005008053561633.html)
@@ -20,6 +20,11 @@
     </tr>
   </table>
 </div>
+
+## Tutorial
+***
+- [NMTech YouTube Channel](https://www.youtube.com/@NMTech-official)
+
 
 ## Build requirements
 ***
@@ -44,7 +49,7 @@
 - **[NMController_web](https://github.com/NMminer1024/NMController_web) monitor**.
 
 
-### Buttons
+## Buttons
 ***
 | Buttons           | Action             | Description             |
 | :---------------  | :-----------------:|:-----------------:      |
@@ -52,14 +57,14 @@
 |boot               |    Long press      |  Force configuration    |
 |user               |    Long press      |  Restore to factory settings  |
 
-### Power 
+## Power 
 - DC adapter 8-12v/25W at least.
 - USB PD charger 25W at least. 
 
-### Configuration
+## Configuration
 ***
 
-## Solo
+### Solo
 | Url               | Type               | Port               | Description       | Minimum required difficulty|
 | :---------------  | :-----------------:| :-----------------:|:-----------------:| :----------------------:   |
 |public-pool.io     | tcp                |    21496           |        BTC        | 1M initial, Minimum 0.001  |
@@ -70,7 +75,7 @@
 |eu.molepool.com    | tcp                |    2566            |        SPACE      | Minimum 32.768K constantly         |
 |eu2.molepool.com   | tcp                |    1801            |        FB         | Minimum 32.768K constantly         |
 
-## Pool(v2.2.xx at least)
+### Pool(v2.2.xx at least)
 | Url               | Type               | Port               | Description       | Minimum required difficulty|
 | :---------------  | :-----------------:| :-----------------:|:-----------------:| :----------------------:   |
 |btc.f2pool.com     | tcp                |    1314            |        BTC        | common  |
@@ -121,9 +126,6 @@
 | Email                   |  Telegram                       | Home page           |
 | :-----------------:     |  :-----------------:            |:-----------------:  |
 |nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |[NMTech](https://www.nmminer.com/) |
-
-## YouTube Page
-- [Tutorial here.](https://www.youtube.com/@NMTech-official)
 
 
 ## Release Log
