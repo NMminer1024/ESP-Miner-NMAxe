@@ -122,6 +122,8 @@
 | :-----------------:     |  :-----------------:            |:-----------------:  |
 |nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |[NMTech](https://www.nmminer.com/) |
 
+## YouTube Page
+- [Tutorial here.](https://www.youtube.com/@NMTech-official)
 
 
 ## Release Log
@@ -130,6 +132,7 @@
 ### (2024.12.14) - v2.2.22
 - Add:
   - Hashrate real time page.
+  - Screen brightness adjustment.
 - Fixed:
   - Restart issues.
 - Improved:
