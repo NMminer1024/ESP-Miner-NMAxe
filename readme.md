@@ -127,6 +127,16 @@
 ## Release Log
 ***
 
+### (2024.12.14) - v2.2.22
+- Add:
+  - Hashrate real time page.
+- Fixed:
+  - Restart issues.
+- Improved:
+  - None.
+- Modify:
+  - None.
+
 ### (2024.12.08) - v2.2.11
 - Add:
   - Pool mining support.

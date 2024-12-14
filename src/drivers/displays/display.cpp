@@ -13,7 +13,8 @@ enum{
     PAGE_CONFIG,
     PAGE_MINER,
     PAGE_DASHBOARD,
-    PAGE_HR_HEALTH
+    PAGE_HR_HEALTH,
+    PAGE_HR_REALTIME
 };
 
 LV_FONT_DECLARE(ds_digib_font_16)
@@ -28,7 +29,7 @@ LV_FONT_DECLARE(symbol_14)
 static TFT_eSPI tft = TFT_eSPI();
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
-static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL};
+static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
 static lv_obj_t *lb_cfg_timeout = NULL;
 static uint8_t   current_page_index = PAGE_MINER;
 
@@ -105,7 +106,7 @@ static void ui_drv_register(void){
 }
 
 static void ui_layout_init(void){
-  static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *health_page = NULL, *dashboard_page = NULL;
+  static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *hr_realtime_page = NULL;
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
   //create parent object
@@ -172,16 +173,28 @@ static void ui_layout_init(void){
   lv_obj_set_style_pad_all(health_page, 0, 0);
   lv_obj_set_style_border_width(health_page, 0, 0);
   lv_obj_set_scrollbar_mode(health_page, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_t *status_img_obj = lv_img_create(health_page);
-  lv_img_set_src(status_img_obj, &status_page_img);
-  lv_obj_set_size(status_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(status_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  lv_obj_t *hr_healthy_img_obj = lv_img_create(health_page);
+  lv_img_set_src(hr_healthy_img_obj, &status_page_img);
+  lv_obj_set_size(hr_healthy_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(hr_healthy_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  // Create hash rate real time page  
+  hr_realtime_page = lv_obj_create(parent_docker);
+  lv_obj_set_size(hr_realtime_page, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(hr_realtime_page, 2 * SCREEN_WIDTH, 0 * SCREEN_HEIGHT);
+  lv_obj_set_style_pad_all(hr_realtime_page, 0, 0);
+  lv_obj_set_style_border_width(hr_realtime_page, 0, 0);
+  lv_obj_set_scrollbar_mode(hr_realtime_page, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_t *hr_real_time_img_obj = lv_img_create(hr_realtime_page);
+  lv_img_set_src(hr_real_time_img_obj, &status_page_img);
+  lv_obj_set_size(hr_real_time_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(hr_real_time_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create ui_pages array
   ui_pages[0] = loading_page;
   ui_pages[1] = config_page;
   ui_pages[2] = miner_page;
   ui_pages[3] = dashboard_page;
   ui_pages[4] = health_page ;
+  ui_pages[5] = hr_realtime_page;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version
   const lv_font_t *font = &lv_font_montserrat_14;
@@ -850,7 +863,7 @@ static void ui_dashboard_page_update(){
   lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_nmaxe.asic.temp, 2).c_str());
 }
 
-static void ui_hashrate_dist_page_update(){
+static void ui_hr_healthy_page_update(){
   #define MAX_HASHRATE 1000  
   #define STEP 50 // step 
   #define NUM_BARS (MAX_HASHRATE / STEP) 
@@ -937,7 +950,7 @@ static void ui_hashrate_dist_page_update(){
   }
 
   static uint64_t counts[NUM_BARS] = {0};
-  int index = g_nmaxe.mstatus.hashrate/1000/1000/1000 / STEP;
+  int index = last_hashrate/1000/1000/1000 / STEP;
   index = (index >= NUM_BARS) ? NUM_BARS - 1 : index;
   counts[index]++;
   hr_total_cnt++;
@@ -949,19 +962,125 @@ static void ui_hashrate_dist_page_update(){
   static uint64_t start = millis();
   uint64_t duration = (millis() - start) / 1000;
 
-  String hr = formatNumber(g_nmaxe.mstatus.hashrate, 3);
-  String hr_unit = (g_nmaxe.mstatus.hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
+  String hr = formatNumber(last_hashrate, 3);
+  String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
   lv_label_set_text_fmt(lb_ds_hr, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
   lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
   //time cost
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String((millis() - start) / 1000) + "s").c_str());
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String(duration) + "s").c_str());
+}
+
+static void ui_hr_real_time_page_update(){
+  #define NUM_DOTS 20
+
+  static lv_obj_t *chart = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
+  static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
+  static lv_chart_series_t *series;
+  static uint64_t hr_total_cnt = 0;
+  static bool first_time = true;
+
+  static double last_hashrate = 0;
+  if(last_hashrate == g_nmaxe.mstatus.hashrate) return;
+  last_hashrate = g_nmaxe.mstatus.hashrate;
+
+  if(first_time){
+    first_time = false;
+    // Hashrate label
+    const lv_font_t *  font = &ds_digib_font_36;
+    lv_color_t font_color = lv_color_hex(0x000000);
+    lb_ds_hr   = lv_label_create( ui_pages[PAGE_HR_REALTIME] );
+    lv_obj_set_width(lb_ds_hr, 80);
+    lv_label_set_text( lb_ds_hr, " ");
+    lv_obj_set_style_text_font(lb_ds_hr, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_ds_hr, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_ds_hr, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_ds_hr, LV_ALIGN_TOP_MID, 55, -4);
+    //Hashrate uint
+    font = &ds_digib_font_20;
+    font_color = lv_color_hex(0x808080);
+    lb_ds_hr_unit   = lv_label_create( ui_pages[PAGE_HR_REALTIME] );
+    lv_obj_set_width(lb_ds_hr_unit, 50);
+    lv_label_set_text( lb_ds_hr_unit, " ");
+    lv_obj_set_style_text_font(lb_ds_hr_unit, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_ds_hr_unit, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_ds_hr_unit, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_ds_hr_unit, LV_ALIGN_TOP_MID, 100, 8); 
+    //time cost
+    font_color = lv_color_hex(0xFFA500);
+    font = &lv_font_montserrat_12;
+    lb_hr_health_duration   = lv_label_create( ui_pages[PAGE_HR_REALTIME] );
+    lv_obj_set_width(lb_hr_health_duration, 120);
+    lv_label_set_text( lb_hr_health_duration, " ");
+    lv_obj_set_style_text_font(lb_hr_health_duration, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_hr_health_duration, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_hr_health_duration, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_align( lb_hr_health_duration, LV_ALIGN_TOP_LEFT, 1, 5);
+
+    // Create a chart
+    chart = lv_chart_create(ui_pages[PAGE_HR_REALTIME]);
+    lv_obj_set_size(chart, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 48); 
+    lv_obj_align(chart, LV_ALIGN_CENTER, 16, 8);
+    lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, NUM_BARS - 1); 
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
+    lv_chart_set_div_line_count(chart, 5, 4);
+
+    // Add a series to the chart
+    series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    lv_chart_set_point_count(chart, NUM_BARS);
+    lv_chart_set_all_value(chart, series, 0);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, NUM_BARS, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
+    lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+
+    // set grid style
+    static lv_style_t style_grid;
+    lv_style_init(&style_grid);
+    lv_style_set_line_dash_width(&style_grid, 2); 
+    lv_style_set_line_dash_gap(&style_grid, 4); 
+    lv_style_set_line_opa(&style_grid, LV_OPA_50); 
+    lv_obj_add_style(chart, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
+    // set font for ticks
+    lv_obj_set_style_text_font(chart, &lv_font_montserrat_10, LV_PART_TICKS); 
+  }
+
+
+
+  // Update the chart with the new hashrate value
+  for (int i = 0; i < NUM_DOTS - 1; i++) {
+    series->y_points[i] = series->y_points[i + 1];
+  }
+  series->y_points[NUM_DOTS - 1] = last_hashrate / 1000 / 1000 / 1000;
+  //adjust the chart_Y scale
+  uint16_t y_max = 0;
+  for (int i = 0; i < NUM_DOTS - 1; i++) {
+    y_max = (series->y_points[i] > y_max) ? series->y_points[i] : y_max;
+  }
+  lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, y_max*1.2);
+  lv_chart_refresh(chart); // Refresh the chart to show the updated data
+
+
+
+
+  // time cost of this feature
+  static uint64_t start = millis();
+  uint64_t duration = (millis() - start) / 1000;
+  String hr = formatNumber(last_hashrate, 3);
+  String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
+  //hashrate
+  lv_label_set_text_fmt(lb_ds_hr, "%s", hr.substring(0, hr.length() - 1).c_str());
+  //hashrate unit
+  lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
+  //time cost
+  lv_label_set_text_fmt(lb_hr_health_duration,"Uptime: %s",String(String( (millis() - start) / 1000) + "s").c_str());
 }
 
 
 void ui_switch_next_page_cb(){
-  current_page_index = (current_page_index == PAGE_HR_HEALTH) ? PAGE_CONFIG : current_page_index;
+  current_page_index = (current_page_index == PAGE_HR_REALTIME) ? PAGE_CONFIG : current_page_index;
   current_page_index++;
   lv_obj_scroll_to_view(ui_pages[current_page_index], LV_ANIM_ON);
 }
@@ -1131,9 +1250,10 @@ void ui_thread_entry(void *args){
       ui_miner_page_update();
       //update dashboard page
       ui_dashboard_page_update();
-      //update hashrate distribution page
-      ui_hashrate_dist_page_update();
-
+      //update hashrate healthy page
+      ui_hr_healthy_page_update();
+      //update hashrate real time page
+      ui_hr_real_time_page_update();
       //update ota page
       if(g_nmaxe.ota.ota_running){
         ui_ota_page_update();
