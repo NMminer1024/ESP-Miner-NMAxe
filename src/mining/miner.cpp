@@ -109,7 +109,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     this->_asic_job_map[this->_asic_job_now.id]     = this->_asic_job_now;
     this->_extranonce2_map[this->_asic_job_now.id]  = extranonce2;
 
-    // LOG_W("Job id [%03d] constructed with extranonce2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
+    // LOG_L("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
 
     ////////////////////////////////////////send asic job//////////////////////////////////
     this->_asic->send_work_to_asic(&this->_asic_job_now);
@@ -355,18 +355,18 @@ void miner_asic_rx_thread_entry(void *args){
                     String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);
                     g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
 
+                    LOG_I("+------%010d-----+",g_nmaxe.stratum.get_last_submit_id());
+                    LOG_I("|        %-4sH/s      |", formatNumber(g_nmaxe.mstatus.hashrate, 2).c_str());
                     LOG_I("+---------------------+");
-                    LOG_I("|        %sH/s      |", formatNumber(g_nmaxe.mstatus.hashrate, 2).c_str());
-                    LOG_I("+---------------------+");
-                    LOG_I("| Last diff | %s  |", formatNumber(g_nmaxe.mstatus.last_diff, 4).c_str());
-                    LOG_I("| Pool diff | %s  |", formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
-                    LOG_I("| From boot | %s  |", formatNumber(g_nmaxe.mstatus.best_session, 4).c_str());
-                    LOG_I("| Best ever | %s  |", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str());
-                    LOG_I("| Netw diff | %s  |", formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
+                    LOG_I("| Last diff | %-6s  |", formatNumber(g_nmaxe.mstatus.last_diff, 4).c_str());
+                    LOG_I("| Pool diff | %-6s  |", formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
+                    LOG_I("| From boot | %-6s  |", formatNumber(g_nmaxe.mstatus.best_session, 4).c_str());
+                    LOG_I("| Best ever | %-6s  |", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str());
+                    LOG_I("| Netw diff | %-6s  |", formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
                     LOG_I("+---------------------+");
                 }
                 else {
-                    LOG_W("Diff [%s/%s/%s]", formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), formatNumber(diff, 3).c_str(), formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
+                    LOG_W("%03d : Diff [%-3s/%-5s/%-5s]", result.job_id, formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), formatNumber(diff, 3).c_str(), formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
                     continue;
                 }
 
@@ -390,8 +390,8 @@ void miner_asic_rx_thread_entry(void *args){
                     //caculate hash
                     csha256d(header, sizeof(header), hash);
 
-                    LOG_W("*************** Your Are The Chosen One *****************");
-                    LOG_I("!!!!!!!!!!!!!!!!!!!!!!BLOCK FOUND!!!!!!!!!!!!!!!!!!!!!!!!");
+                    LOG_W("******************************* Your Are The Chosen One ********************************");
+                    LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BLOCK FOUND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                     log_i("Nonce       : %08x", result.nonce);
                     log_i("\r\nVersion     : %08x", version);
 
@@ -404,7 +404,7 @@ void miner_asic_rx_thread_entry(void *args){
                     for(int i = 0; i < sizeof(hash); i++)log_i("%02x", hash[i]);
 
                     log_i("\r\n");
-                    LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
+                    LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
                     xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
                 }
                 //update all time best diff

@@ -221,12 +221,12 @@ bool StratumClass::cfg_version_rolling(){
 }
 
 bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime, uint32_t nonce, uint32_t version){
-    uint32_t msgid = this->_get_msg_id();
+    this->_last_submit_id = this->_get_msg_id();
     char version_str[9] = {0,}, nonce_str[9] = {0,};
     sprintf(version_str, "%08x", version);
     sprintf(nonce_str, "%08x", nonce);
 
-    String payload = "{\"id\": " + String(msgid) + ", \"method\": \"mining.submit\", \"params\": [\"" + 
+    String payload = "{\"id\": " + String(this->_last_submit_id) + ", \"method\": \"mining.submit\", \"params\": [\"" + 
     this->_stratum_info.user + "\", \"" + 
     pool_job_id + "\", \"" + 
     extranonce2 + "\", \"" + 
@@ -238,7 +238,7 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
         LOG_E("Failed to send mining.submit request");
         return false;
     }
-    this->_msg_rsp_map[msgid] = {"mining.submit", false};
+    this->_msg_rsp_map[this->_last_submit_id] = {"mining.submit", false};
     // log_i("%s", payload.c_str());
     return true;
 }
@@ -318,6 +318,10 @@ stratum_rsp StratumClass::get_method_rsp_by_id(uint32_t id){
 bool StratumClass::set_version_mask(uint32_t mask){
     this->_vr_mask = mask;
     return true;
+}
+
+uint32_t StratumClass::get_last_submit_id(){
+    return this->_last_submit_id;
 }
 
 uint32_t StratumClass::get_version_mask(){

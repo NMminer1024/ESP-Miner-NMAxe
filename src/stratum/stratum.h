@@ -65,6 +65,7 @@ private:
     stratum_info_t  _stratum_info;
     bool            _is_subscribed;
     uint32_t        _gid;
+    uint32_t        _last_submit_id;
     uint32_t        _get_msg_id();
     String          _rsp_str;
     bool            _parse_rsp();
@@ -118,6 +119,7 @@ public:
     bool set_version_mask(uint32_t mask);
     uint32_t get_version_mask();
     bool set_pool_difficulty(double diff);
+    uint32_t get_last_submit_id();
     double get_pool_difficulty();
     bool   set_sub_extranonce1(String extranonce1);
     bool   set_sub_extranonce2_size(int size);
