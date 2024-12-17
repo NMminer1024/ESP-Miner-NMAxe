@@ -205,7 +205,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_text_font(lb_version, font, LV_PART_MAIN);
   lv_obj_set_style_text_color(lb_version, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(lb_version, LV_LABEL_LONG_DOT);
-  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 7.2), SCREEN_HEIGHT - 15);
+  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 8), SCREEN_HEIGHT - 15);
   //////////////////////////////////////config page layout///////////////////////////////////////////////
   //config timeout
   font_color = lv_color_hex(0xFFFFFF);
@@ -238,6 +238,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       bar = lv_bar_create(ui_pages[PAGE_LOADING]);
       lv_bar_set_range(bar, 0, progress_total);
       lv_bar_set_value(bar, progress, LV_ANIM_ON);
+      lv_obj_set_style_bg_opa(bar, LV_OPA_50, LV_PART_MAIN);
       lv_obj_set_size(bar, SCREEN_WIDTH * 0.9, 5);
       lv_obj_align(bar, LV_ALIGN_CENTER, 0, 0);
       lv_obj_set_style_bg_color(bar, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR);
@@ -1235,6 +1236,12 @@ void ui_thread_entry(void *args){
   while(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 300) == pdFAIL){
     static uint8_t cnt = 0;
     ui_loading_str_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
+    while (cnt >= 3*20){
+      ui_loading_str_update("Stratum user error!", 0xFF0000, false);
+      delay(500);
+      ui_loading_str_update("Stratum user error!", 0xFFFFFF, false);
+      delay(500);
+    }
   }
   ui_loading_str_update("Miner ready!", 0x00FF00, true);
   delay(500);

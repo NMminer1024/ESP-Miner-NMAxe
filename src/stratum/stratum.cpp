@@ -337,13 +337,19 @@ double StratumClass::get_pool_difficulty(){
     return this->_pool_difficulty;
 }
 
-
+#include "addr.h"
 void stratum_thread_entry(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
     
+
+
+    btc_addr_test();
+
+
+
     g_nmaxe.stratum = StratumClass(g_nmaxe.connection.pool, g_nmaxe.connection.stratum, 10);
     g_nmaxe.stratum.pool.begin(g_nmaxe.connection.pool.ssl);
     g_nmaxe.stratum.set_pool_difficulty(DEFAULT_POOL_DIFFICULTY);
@@ -357,6 +363,7 @@ void stratum_thread_entry(void *args){
         }
 
         if(!g_nmaxe.stratum.pool.is_connected()){
+            LOG_W("Lost connection to pool, reconnecting...");
             g_nmaxe.stratum.reset();
             g_nmaxe.stratum.pool.begin(g_nmaxe.connection.pool.ssl);
             g_nmaxe.stratum.pool.connect();
@@ -481,7 +488,7 @@ void stratum_thread_entry(void *args){
                     if(json["method"] == "mining.set_version_mask"){
                         if(json["params"].size() > 0){
                             g_nmaxe.stratum.set_version_mask(strtoul(json["params"][0].as<const char*>(), NULL, 16));
-                            LOG_I("Version mask set to %s", json["params"][0].as<const char*>());
+                            LOG_L("Version mask set to %s", json["params"][0].as<const char*>());
                         }else{
                             g_nmaxe.stratum.set_version_mask(0xffffffff);
                             LOG_W("Version mask not found in params");
@@ -494,7 +501,7 @@ void stratum_thread_entry(void *args){
                 }
                     break;
                 case STRATUM_DOWN_SET_EXTRANONCE:{
-                        LOG_D("Stratum set extranonce => %s", method.id, method.raw.c_str());
+                        LOG_L("Stratum set extranonce => %s", method.id, method.raw.c_str());
                         json.clear();
                         DeserializationError error = deserializeJson(json, method.raw);
                         if (error) {
