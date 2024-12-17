@@ -223,7 +223,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
     static lv_obj_t *lb_loading = NULL;
     static lv_obj_t * bar = NULL;
     static lv_obj_t * label_progress = NULL;
-    static uint8_t progress = 0, progress_total = 14;
+    static uint8_t progress = 0, progress_total = 16;
 
     lv_color_t font_color = lv_color_hex(color);
 
@@ -1098,6 +1098,7 @@ void ui_thread_entry(void *args){
   const char* fan_test_str[] = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
   const char* market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
   const char* pool_con_str[] = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
+  const char* pool_auth_str[] = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
   const char* wait_job_str[] = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
 
   tft_init();
@@ -1231,16 +1232,32 @@ void ui_thread_entry(void *args){
     delay(300);
   }
   ui_loading_str_update("Pool connected!", 0x00FF00, true);
-  delay(500);
+  delay(100);
+  /******************************************wait pool authorized*************************************/
+  while(!g_nmaxe.stratum.is_authorized()){
+    static uint8_t cnt = 0;
+    ui_loading_str_update(pool_auth_str[(cnt++)%4], 0xFFFFFF, false);
+    delay(300);
+    while (cnt >= 20){
+      ui_loading_str_update("Stratum user error!", 0xFF0000, false);
+      delay(500);
+      ui_loading_str_update("Stratum user error!", 0xFFFFFF, false);
+      delay(500);
+      if(g_nmaxe.stratum.is_authorized()) break;
+    }
+  }
+  ui_loading_str_update("Pool authorized!", 0x00FF00, true);
+  delay(100);
   /******************************************wait first job*******************************************/
   while(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 300) == pdFAIL){
     static uint8_t cnt = 0;
     ui_loading_str_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
     while (cnt >= 3*20){
-      ui_loading_str_update("Stratum user error!", 0xFF0000, false);
+      ui_loading_str_update("Pool job timeout!", 0xFF0000, false);
       delay(500);
-      ui_loading_str_update("Stratum user error!", 0xFFFFFF, false);
+      ui_loading_str_update("Pool job timeout!", 0xFFFFFF, false);
       delay(500);
+      if(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 0) == pdPASS) break;
     }
   }
   ui_loading_str_update("Miner ready!", 0x00FF00, true);

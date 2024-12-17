@@ -64,6 +64,7 @@ class StratumClass{
 private:
     stratum_info_t  _stratum_info;
     bool            _is_subscribed;
+    bool            _is_authorized;
     uint32_t        _gid;
     uint32_t        _last_submit_id;
     uint32_t        _get_msg_id();
@@ -94,6 +95,8 @@ public:
         this->_sub_info = {"", "", 0};
         this->_msg_rsp_map.clear();
         this->_suggest_diff_support = true;
+        this->_is_subscribed = false;
+        this->_is_authorized = false;
         this->new_job_xsem   = xSemaphoreCreateCounting(5,0);
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
     };
@@ -109,6 +112,7 @@ public:
     bool hello_pool(uint32_t hello_interval, uint32_t lost_max_time);
     stratum_method_data listen_methods();
     bool is_subscribed();
+    bool is_authorized();
     size_t push_job_cache(pool_job_data_t job);
     size_t get_job_cache_size();
     size_t clear_job_cache();
@@ -117,6 +121,7 @@ public:
     bool set_msg_rsp_map(uint32_t id, bool status);
     bool del_msg_rsp_map(uint32_t id);
     bool set_version_mask(uint32_t mask);
+    bool set_authorize(bool status);
     uint32_t get_version_mask();
     bool set_pool_difficulty(double diff);
     uint32_t get_last_submit_id();

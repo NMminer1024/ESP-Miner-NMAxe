@@ -5,37 +5,53 @@
 #include "csha256.h"
 
 #define SHA256_SIZE 32
-static const String BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+static const char* BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 static const char *BECH32_ALPHABET  = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
 bool isBase58(const String &str) {
     for (char c : str) {
-        if (BASE58_ALPHABET.indexOf(c) == -1) {
+        if (std::strchr(BASE58_ALPHABET, c) == nullptr) {
             return false;
         }
     }
-    return true;
+    return true; 
 }
 
 std::vector<unsigned char> base58Decode(const String &str) {
-    std::vector<unsigned char> result; 
+    std::vector<unsigned char> result;
+    result.reserve(str.length());
+
     for (char c : str) {
-        int carry = BASE58_ALPHABET.indexOf(c);
-        for (auto &byte : result) {
-            carry += 58 * byte;
-            byte = carry % 256;
+        const char* p = std::strchr(BASE58_ALPHABET, c);
+        if (p == nullptr) {
+            throw std::runtime_error("Invalid character in Base58 string");
+        }
+        result.push_back(p - BASE58_ALPHABET);
+    }
+
+    std::vector<unsigned char> decoded;
+    decoded.reserve((str.length() * 733) / 1000 + 1); // log(58) / log(256), rounded up
+
+    int carry;
+    for (unsigned char c : result) {
+        carry = c;
+        for (auto it = decoded.rbegin(); it != decoded.rend(); ++it) {
+            carry += 58 * (*it);
+            *it = carry % 256;
             carry /= 256;
         }
         while (carry) {
-            result.insert(result.begin(), carry % 256);
+            decoded.insert(decoded.begin(), carry % 256);
             carry /= 256;
         }
     }
-    auto it = result.begin();
-    while (it != result.end() && *it == 0) {
-        it = result.erase(it);
+
+    // Skip leading zeroes in the input
+    for (char c : str) {
+        if (c != '1') break;
+        decoded.insert(decoded.begin(), 0);
     }
-    return result;
+    return decoded;
 }
 
 bool validateBase58BTCAddress(const String &address) {
@@ -50,9 +66,9 @@ bool validateBase58BTCAddress(const String &address) {
     for (auto &byte : decoded) {
         log_i("%02x", byte);
     }
-    // if (decoded.size() != 25) {
-    //     return false;
-    // }
+    if (decoded.size() != 25) {
+        return false;
+    }
     log_i("\r\n");
 
     unsigned char hash1[SHA256_SIZE];
@@ -124,7 +140,7 @@ bool validateBTCAddress(const String &address) {
     return validateBase58BTCAddress(address) || validateBech32BTCAddress(address);
 }
 
-bool validateInput(const String &input) {
+bool validate_stratum_user(const String &input) {
     int dotIndex = input.indexOf('.');
     if (dotIndex == -1) {
         // if no dot, check if it is a BTC address
@@ -133,44 +149,15 @@ bool validateInput(const String &input) {
         // if there is a dot, split the input into two parts
         String part1 = input.substring(0, dotIndex);
         String part2 = input.substring(dotIndex + 1);
-        if (validateBTCAddress(part1) && part2.length() > 0) {
+        if (validateBTCAddress(part1) && (part2.length() > 0)) {
+            LOG_W("*part1 %s, part2 %s", part1.c_str(), part2.c_str());
             return true;
         }
-        if (part1.length() > 0 && part2.length() > 0) {
+        if (part1.length() > 0 && (part2.length() > 0)) {
+            LOG_W("+part1 %s, part2 %s", part1.c_str(), part2.c_str());
             return true;
         }
     }
     return false;
-}
-
-void btc_addr_test() {
-    String input1 = "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1.001";
-    String input2 = "1wSzR8Z6Hwrub6q8WxcbHWzTHLbMT126F";
-    String input3 = "username.worker01";
-    String input4 = "bc1q2wyhh3msmyv2pgrahp665lfyy7z7vwd2mvvys4";
-
-    // if (validateInput(input1)) {
-    //     LOG_I("Input 1 is valid");
-    // } else {
-    //     LOG_E("Input 1 is invalid");
-    // }
-
-    if (validateInput(input2)) {
-        LOG_I("Input 2 is valid");
-    } else {
-        LOG_E("Input 2 is invalid");
-    }
-
-    // if (validateInput(input3)) {
-    //     LOG_I("Input 3 is valid");
-    // } else {
-    //     LOG_E("Input 3 is invalid");
-    // }
-
-    // if (validateInput(input4)) {
-    //     LOG_I("Input 4 is valid");
-    // } else {
-    //     LOG_E("Input 4 is invalid");
-    // }
 }
 

@@ -243,9 +243,17 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
     return true;
 }
 
+bool StratumClass::set_authorize(bool status){
+    this->_is_authorized = status;
+    return true;
+}
 bool StratumClass::is_subscribed(){
     return this->_is_subscribed;
 }
+
+bool StratumClass::is_authorized(){
+    return this->_is_authorized;
+}   
 
 size_t StratumClass::push_job_cache(pool_job_data_t job){
     LOG_D("");
@@ -343,12 +351,6 @@ void stratum_thread_entry(void *args){
     strcpy(name, (char*)args);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
-    
-
-
-    btc_addr_test();
-
-
 
     g_nmaxe.stratum = StratumClass(g_nmaxe.connection.pool, g_nmaxe.connection.stratum, 10);
     g_nmaxe.stratum.pool.begin(g_nmaxe.connection.pool.ssl);
@@ -513,7 +515,7 @@ void stratum_thread_entry(void *args){
                     }
                     break;
                 case STRATUM_DOWN_SUCCESS: 
-                    LOG_D("Stratum success, id : %d => %s", method.id, method.raw.c_str());
+                    
                     if(method.id != -1){
                         g_nmaxe.stratum.set_msg_rsp_map(method.id, true);
                         stratum_rsp rsp = g_nmaxe.stratum.get_method_rsp_by_id(method.id);
@@ -546,21 +548,40 @@ void stratum_thread_entry(void *args){
                                 }
                             }
                         }
+                        else if(rsp.method == "mining.authorize"){
+                            DeserializationError error = deserializeJson(json, method.raw);
+                            if (error) {
+                                LOG_E("Failed to parse JSON: %s", error.c_str());
+                            }
+                            else{
+                                if(json.containsKey("result")){
+                                    g_nmaxe.stratum.set_authorize(json["result"]);
+                                    LOG_W("Authorization %s ", json["result"] ? "success" : "failed");
+                                }
+                            }
+                        }
+                        else{
+                            LOG_W("Stratum success, id : %d => %s", method.id, method.raw.c_str());
+                        }
                         g_nmaxe.stratum.del_msg_rsp_map(method.id);
                     }
                     break;
                 case STRATUM_DOWN_ERROR: 
-                    LOG_E("Stratum error, id : %d => %s", method.id, method.raw.c_str());
+                    // LOG_E("Stratum error, id : %d => %s", method.id, method.raw.c_str());
                     if(method.id != -1){
                         g_nmaxe.stratum.set_msg_rsp_map(method.id, true);
                         stratum_rsp rsp = g_nmaxe.stratum.get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
                             g_nmaxe.mstatus.share_rejected++;
                             g_nmaxe.stratum.del_msg_rsp_map(method.id);
-                            LOG_W("Share id [%d] rejected.\r\n", method.id);
+                            LOG_E("Share id [%d] rejected.\r\n", method.id);
+                        }
+                        else if(rsp.method == "mining.authorize"){
+                            g_nmaxe.stratum.set_authorize(false);
+                            LOG_E("Authorization failed, id %d => %s", method.id, method.raw.c_str());
                         }
                         else{
-                            LOG_W("Unknown error response, id : %d => %s", method.id, method.raw.c_str());
+                            LOG_E("Unknown error response, id : %d => %s", method.id, method.raw.c_str());
                         }
                     }
                     break;

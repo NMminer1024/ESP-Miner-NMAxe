@@ -4,7 +4,7 @@
 
 
 
-void btc_addr_test();
+bool validate_stratum_user(const String &input);
 
 
 
