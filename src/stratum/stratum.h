@@ -13,6 +13,9 @@
 #define  HELLO_POOL_INTERVAL_MS         1000*30
 #define  LOST_POOL_TIMEOUT_MS           1000*60*5
 
+typedef uint32_t stratum_msg_rsp_id_t;
+
+
 typedef enum {
     STRATUM_DOWN_SUCCESS,
     STRATUM_DOWN_NOTIFY,
@@ -52,6 +55,7 @@ typedef struct {
     String version;
     String ntime;
     bool clean_jobs;
+    uint64_t stamp;//local timestamp, for job order
 }pool_job_data_t;
 
 typedef struct {
@@ -65,6 +69,7 @@ private:
     stratum_info_t  _stratum_info;
     bool            _is_subscribed;
     bool            _is_authorized;
+    uint64_t        _last_job_clear_stamp;
     uint32_t        _gid;
     uint32_t        _last_submit_id;
     uint32_t        _get_msg_id();
@@ -79,7 +84,7 @@ private:
     uint32_t        _max_rsp_id_cache;
     uint8_t         _pool_job_cache_size;
     std::deque<pool_job_data_t>        _pool_job_cache;
-    std::map<uint32_t, stratum_rsp>    _msg_rsp_map;
+    std::map<stratum_msg_rsp_id_t, stratum_rsp>    _msg_rsp_map;
 public:
     poolClass  pool;
     StratumClass(){};
@@ -97,6 +102,7 @@ public:
         this->_suggest_diff_support = true;
         this->_is_subscribed = false;
         this->_is_authorized = false;
+        this->_last_submit_id = 0;
         this->new_job_xsem   = xSemaphoreCreateCounting(5,0);
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
     };
@@ -124,6 +130,8 @@ public:
     bool set_authorize(bool status);
     uint32_t get_version_mask();
     bool set_pool_difficulty(double diff);
+    bool set_job_clear_stamp(uint64_t stamp);
+    uint64_t get_job_clear_stamp();
     uint32_t get_last_submit_id();
     double get_pool_difficulty();
     bool   set_sub_extranonce1(String extranonce1);

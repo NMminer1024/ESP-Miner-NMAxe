@@ -10,10 +10,10 @@ private:
     BMxxx                       *_asic;  
     uint8_t                     _asic_count;
     asic_job                    _asic_job_now;
-    String                      _pool_job_id_now;
     std::map<uint8_t, asic_job> _asic_job_map;
     std::map<uint8_t, String>   _extranonce2_map;
 public:
+    pool_job_data_t             pool_job_now;
     AsicMinerClass(BMxxx *asic);
     ~AsicMinerClass();
     bool begin(uint16_t freq, uint16_t diff);

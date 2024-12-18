@@ -22,7 +22,7 @@ BM1366 *bm1366  = new BM1366(Serial1, ESP32_TO_BM1366_INIT_BUAD, NM_AXE_ESP32_RX
 AsicMinerClass::AsicMinerClass(BMxxx *asic){
     this->_asic = asic;
     this->_asic_count = 0;
-    this->_pool_job_id_now = "";
+    this->pool_job_now.id = "";
     this->_asic_job_map.clear();
     memset(&this->_asic_job_now, 0, sizeof(asic_job));
 }
@@ -65,7 +65,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     if(this->_asic == NULL) return false;
     ////////////////////////////////////////construct asic job//////////////////////////////////
     this->_asic_job_now.id = (this->_asic_job_now.id + 8) % 128;
-    this->_pool_job_id_now = pool_job->id;
+    this->pool_job_now.id  = pool_job->id;
     String  extranonce2    = g_nmaxe.stratum.get_sub_extranonce2();
     /**************************************** coinhash ****************************************/
     String coinbaseStr = pool_job->coinb1 + g_nmaxe.stratum.get_sub_extranonce1() + extranonce2 + pool_job->coinb2;
@@ -190,7 +190,7 @@ String AsicMinerClass::get_extranonce2_by_asic_job_id(uint8_t asic_job_id){
 }
 
 bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version){
-    return g_nmaxe.stratum.submit(this->_pool_job_id_now, extranonce2, ntime, nonce, version);
+    return g_nmaxe.stratum.submit(this->pool_job_now.id, extranonce2, ntime, nonce, version);
 }
 
 double AsicMinerClass::calculate_hashrate(){
@@ -248,15 +248,11 @@ void miner_asic_init_thread_entry(void *args){
     vTaskDelete(NULL);
 }
 
-
 void miner_asic_tx_thread_entry(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
-
-    pool_job_data_t pool_job;
-    double last_diff = BM1366_DIFF_THR;
 
     //wait for first job cache ready forever
     xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
@@ -277,14 +273,14 @@ void miner_asic_tx_thread_entry(void *args){
         }
 
         //get job from pool job caches
-        pool_job = g_nmaxe.stratum.pop_job_cache();
-        if(pool_job.id == "")continue;
+        g_nmaxe.miner->pool_job_now = g_nmaxe.stratum.pop_job_cache();
+        if(g_nmaxe.miner->pool_job_now.id == "")continue;
 
-        g_nmaxe.mstatus.network_diff = g_nmaxe.miner->calculate_diff(pool_job.nbits);
-        LOG_I("Get [%s] net %s", pool_job.id.c_str(), formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
+        g_nmaxe.mstatus.network_diff = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);
+        LOG_I("Get [%s] net %s", g_nmaxe.miner->pool_job_now.id.c_str(), formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
         while (true){
             //construct asic job and send to asic every 2s
-            if(!g_nmaxe.miner->mining(&pool_job)) continue;
+            if(!g_nmaxe.miner->mining(&g_nmaxe.miner->pool_job_now)) continue;
             //exit if pool disconnected
             if(!g_nmaxe.stratum.is_subscribed()) break;
 
@@ -353,6 +349,12 @@ void miner_asic_rx_thread_entry(void *args){
                 if(diff >= g_nmaxe.stratum.get_pool_difficulty()){
                     uint32_t version_submit = version ^ (*(uint32_t*)job.version);
                     String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);
+                    //job stale check
+                    if(g_nmaxe.miner->pool_job_now.stamp < g_nmaxe.stratum.get_job_clear_stamp()) {
+                        LOG_W("Job [%s] is stale, %lu < %lu, skip submit...", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.miner->pool_job_now.stamp, g_nmaxe.stratum.get_job_clear_stamp());
+                        continue;
+                    }
+                    //submit sulution
                     g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
 
                     LOG_I("+------%010d-----+",g_nmaxe.stratum.get_last_submit_id());

@@ -247,6 +247,7 @@ bool StratumClass::set_authorize(bool status){
     this->_is_authorized = status;
     return true;
 }
+
 bool StratumClass::is_subscribed(){
     return this->_is_subscribed;
 }
@@ -341,11 +342,19 @@ bool StratumClass::set_pool_difficulty(double diff){
     return true;
 }
 
+bool StratumClass::set_job_clear_stamp(uint64_t stamp){
+    this->_last_job_clear_stamp = stamp;
+    return true;
+}
+
+uint64_t StratumClass::get_job_clear_stamp(){
+    return this->_last_job_clear_stamp;
+}
+
 double StratumClass::get_pool_difficulty(){
     return this->_pool_difficulty;
 }
 
-#include "addr.h"
 void stratum_thread_entry(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
@@ -438,15 +447,20 @@ void stratum_thread_entry(void *args){
                         LOG_D("Nbits             : %s", job.nbits.c_str());
                         LOG_D("Ntime             : %s", job.ntime.c_str());
                         LOG_D("Clean jobs        : %s", job.clean_jobs ? "true" : "false");
+                        LOG_D("Stamp             : %lu", job.stamp);
                         LOG_D("Version mask      : 0x%08x", g_nmaxe.stratum.get_version_mask());
                         LOG_D("Pool difficulty   : %s", formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 5).c_str());
 
                         if(job.clean_jobs){
                             g_nmaxe.stratum.clear_job_cache();
+                            g_nmaxe.stratum.set_job_clear_stamp(micros());//set the last job clear stamp to current time, Do not submit the old job
                             xSemaphoreGive(g_nmaxe.stratum.clear_job_xsem);
                         }
+                        job.stamp = micros();
+                        LOG_D("last job clear stamp : %lu", g_nmaxe.stratum.get_job_clear_stamp());
+                        LOG_D("job stamp            : %lu", job.stamp);
+
                         size_t cached_size = g_nmaxe.stratum.push_job_cache(job);
-                        
                         //Give the new job semaphore to the other threads
                         xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//asic tx thread
                         static bool first_job = true;
@@ -561,7 +575,7 @@ void stratum_thread_entry(void *args){
                             }
                         }
                         else{
-                            LOG_W("Stratum success, id : %d => %s", method.id, method.raw.c_str());
+                            LOG_D("Stratum success, id : %d => %s", method.id, method.raw.c_str());
                         }
                         g_nmaxe.stratum.del_msg_rsp_map(method.id);
                     }
