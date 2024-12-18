@@ -457,9 +457,7 @@ void stratum_thread_entry(void *args){
                             xSemaphoreGive(g_nmaxe.stratum.clear_job_xsem);
                         }
                         job.stamp = micros();
-                        LOG_D("last job clear stamp : %lu", g_nmaxe.stratum.get_job_clear_stamp());
-                        LOG_D("job stamp            : %lu", job.stamp);
-
+                        
                         size_t cached_size = g_nmaxe.stratum.push_job_cache(job);
                         //Give the new job semaphore to the other threads
                         xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//asic tx thread

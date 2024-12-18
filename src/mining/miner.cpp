@@ -351,7 +351,7 @@ void miner_asic_rx_thread_entry(void *args){
                     String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);
                     //job stale check
                     if(g_nmaxe.miner->pool_job_now.stamp < g_nmaxe.stratum.get_job_clear_stamp()) {
-                        LOG_W("Job [%s] is stale, %lu < %lu, skip submit...", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.miner->pool_job_now.stamp, g_nmaxe.stratum.get_job_clear_stamp());
+                        LOG_W("Job [%s] is stale, skip submit...", g_nmaxe.miner->pool_job_now.id.c_str());
                         continue;
                     }
                     //submit sulution

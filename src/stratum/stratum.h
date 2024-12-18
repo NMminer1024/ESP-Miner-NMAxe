@@ -103,6 +103,7 @@ public:
         this->_is_subscribed = false;
         this->_is_authorized = false;
         this->_last_submit_id = 0;
+        this->_last_job_clear_stamp = micros();
         this->new_job_xsem   = xSemaphoreCreateCounting(5,0);
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
     };
