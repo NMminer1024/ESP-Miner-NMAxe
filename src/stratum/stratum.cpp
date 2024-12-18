@@ -452,8 +452,8 @@ void stratum_thread_entry(void *args){
                         LOG_D("Pool difficulty   : %s", formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 5).c_str());
 
                         if(job.clean_jobs){
-                            g_nmaxe.stratum.clear_job_cache();
                             g_nmaxe.stratum.set_job_clear_stamp(micros());//set the last job clear stamp to current time, Do not submit the old job
+                            g_nmaxe.stratum.clear_job_cache();
                             xSemaphoreGive(g_nmaxe.stratum.clear_job_xsem);
                         }
                         job.stamp = micros();

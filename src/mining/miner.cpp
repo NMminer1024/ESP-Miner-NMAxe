@@ -368,7 +368,7 @@ void miner_asic_rx_thread_entry(void *args){
                     LOG_I("+---------------------+");
                 }
                 else {
-                    LOG_W("%03d : Diff [%-3s/%-5s/%-5s]", result.job_id, formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), formatNumber(diff, 3).c_str(), formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
+                    LOG_W("%03d:Diff [%-3s/%-5s/%-5s]", result.job_id, formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), formatNumber(diff, 3).c_str(), formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
                     continue;
                 }
 

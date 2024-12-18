@@ -131,6 +131,16 @@
 ## Release Log
 ***
 
+### (2024.12.18) - v2.2.23
+- Add:
+  - None.
+- Fixed:
+  - Stratum user issues.
+- Improved:
+  - Increase share accept rate.
+- Modify:
+  - None.
+
 ### (2024.12.14) - v2.2.22
 - Add:
   - Hashrate real time page.
