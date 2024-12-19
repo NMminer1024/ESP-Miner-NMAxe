@@ -29,10 +29,10 @@ void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
             LOG_W("Binary data received");
             break;
         case WStype_PING:
-            LOG_W("Ping received");
+            LOG_D("Ping received");
             break;
         case WStype_PONG:
-            LOG_W("Pong received");
+            LOG_D("Pong received");
             break;
     }
 }

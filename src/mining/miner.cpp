@@ -277,7 +277,7 @@ void miner_asic_tx_thread_entry(void *args){
         if(g_nmaxe.miner->pool_job_now.id == "")continue;
 
         g_nmaxe.mstatus.network_diff = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);
-        LOG_I("Job [%s] from %s:%d, net %s", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum.pool.get_pool_info().url.c_str(), g_nmaxe.stratum.pool.get_pool_info().port,formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
+        LOG_W("Job [%s] from %s:%d", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum.pool.get_pool_info().url.c_str(), g_nmaxe.stratum.pool.get_pool_info().port);
         while (true){
             //construct asic job and send to asic every 2s
             if(!g_nmaxe.miner->mining(&g_nmaxe.miner->pool_job_now)) continue;
@@ -299,7 +299,7 @@ void miner_asic_tx_thread_entry(void *args){
                 //avoid some stale share submit, clear job cache if clean job signal received
                 if(xSemaphoreTake(g_nmaxe.stratum.clear_job_xsem, 0) == pdTRUE) {
                     g_nmaxe.miner->clear_asic_job_cache();
-                    LOG_W("Job cache clear...");
+                    LOG_D("Job cache clear...");
                 }
                 xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//release the semaphore for next pool job
                 break;
@@ -332,45 +332,31 @@ void miner_asic_rx_thread_entry(void *args){
             if(g_nmaxe.miner->find_job_by_asic_job_id(result.job_id, &job)){
                 uint32_t version_bits = (reverse_uint16(result.version) << 13);  //logic from project bitaxe: https://github.com/skot/bitaxe 
                 uint32_t version      = version_bits | (*(uint32_t*)job.version);//logic from project bitaxe: https://github.com/skot/bitaxe 
-
-                double diff = g_nmaxe.miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
+                double diff           = g_nmaxe.miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
 
                 //skip if diff <= 0.0001 or diff is nan or diff is inf
                 if((diff <= 0.0001) || std::isnan(diff) || (diff == std::numeric_limits<double>::infinity())) continue;
 
                 //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
                 g_nmaxe.mstatus.hashrate        = g_nmaxe.miner->calculate_hashrate();
-                //update diff record
                 g_nmaxe.mstatus.last_diff       = diff;
                 g_nmaxe.mstatus.best_session    = (diff > g_nmaxe.mstatus.best_session) ? diff : g_nmaxe.mstatus.best_session;
                 g_nmaxe.mstatus.best_ever       = (diff > g_nmaxe.mstatus.best_ever) ? diff : g_nmaxe.mstatus.best_ever;
 
-                //submit share if diff >= pool diff
-                if(diff >= g_nmaxe.stratum.get_pool_difficulty()){
-                    uint32_t version_submit = version ^ (*(uint32_t*)job.version);
-                    String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);
-                    //job stale check
-                    if(g_nmaxe.miner->pool_job_now.stamp < g_nmaxe.stratum.get_job_clear_stamp()) {
-                        LOG_W("Job [%s] is stale, skip submit...", g_nmaxe.miner->pool_job_now.id.c_str());
-                        continue;
-                    }
-                    //submit sulution
-                    g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
+                LOG_I("Diff [%-3s/%-5s/%-6s/%-5s]", 
+                    formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), 
+                    formatNumber(diff, 3).c_str(), 
+                    formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str(),
+                    formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
 
-                    LOG_I("+---------------------+");
-                    LOG_I("|        %-4sH/s      |", formatNumber(g_nmaxe.mstatus.hashrate, 2).c_str());
-                    LOG_I("+---------------------+");
-                    LOG_I("| Last diff | %-6s  |", formatNumber(g_nmaxe.mstatus.last_diff, 4).c_str());
-                    LOG_I("| Pool diff | %-6s  |", formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
-                    LOG_I("| From boot | %-6s  |", formatNumber(g_nmaxe.mstatus.best_session, 4).c_str());
-                    LOG_I("| Best ever | %-6s  |", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str());
-                    LOG_I("| Netw diff | %-6s  |", formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
-                    LOG_I("+---------------------+");
-                }
-                else {
-                    LOG_W("%03d:Diff [%-3s/%-5s/%-5s]", result.job_id, formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), formatNumber(diff, 3).c_str(), formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
-                    continue;
-                }
+                //skip if diff < pool diff
+                if(diff < g_nmaxe.stratum.get_pool_difficulty())continue; 
+                //job stale check
+                if(g_nmaxe.miner->pool_job_now.stamp < g_nmaxe.stratum.get_job_clear_stamp()) continue;
+                //submit sulution
+                uint32_t version_submit = version ^ (*(uint32_t*)job.version);
+                String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);
+                g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
 
                 //update the block hit counter
                 if(diff >= g_nmaxe.mstatus.network_diff){
@@ -409,6 +395,7 @@ void miner_asic_rx_thread_entry(void *args){
                     LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
                     xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
                 }
+
                 //update all time best diff
                 if(diff == g_nmaxe.mstatus.best_ever){
                     xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);

@@ -61,7 +61,7 @@ bool StratumClass::hello_pool(uint32_t hello_interval, uint32_t lost_max_time){
         String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
         if(this->pool.write(payload) != 0){
             this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, micros()};
-            LOG_L("Hello pool...");
+            LOG_D("Hello pool...");
             return true;
         }
         else{
@@ -479,7 +479,7 @@ void stratum_thread_entry(void *args){
                     if(json["method"] == "mining.set_difficulty"){
                         if(json["params"].size() > 0){
                             g_nmaxe.stratum.set_pool_difficulty(json["params"][0]);
-                            LOG_L("Pool difficulty set : %s", formatNumber(json["params"][0], 5).c_str());
+                            LOG_D("Pool difficulty set : %s", formatNumber(json["params"][0], 5).c_str());
                         }else{
                             LOG_W("Pool difficulty not found in params");
                         }
@@ -530,11 +530,11 @@ void stratum_thread_entry(void *args){
                             uint64_t latency = micros() - rsp.stamp;
                             if (rsp.status == true){
                                 g_nmaxe.mstatus.share_accepted++;
-                                LOG_L("#%d share accepted, %ldms.\r\n", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));      
+                                LOG_L("#%d share accepted, %ldms.", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));      
                             }
                             else {
                                 g_nmaxe.mstatus.share_rejected++;
-                                LOG_E("#%d share rejected, %ldms.\r\n", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
+                                LOG_E("#%d share rejected, %ldms.", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
                             }
                         }
                         else if(rsp.method == "mining.configure"){
@@ -583,7 +583,7 @@ void stratum_thread_entry(void *args){
                             uint64_t latency = micros() - rsp.stamp;
                             g_nmaxe.mstatus.share_rejected++;
                             g_nmaxe.stratum.del_msg_rsp_map(method.id);
-                            LOG_E("#%d share rejected, %ldms.\r\n", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
+                            LOG_E("#%d share rejected, %ldms.", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
                         }
                         else if(rsp.method == "mining.authorize"){
                             g_nmaxe.stratum.set_authorize(false);
@@ -598,7 +598,7 @@ void stratum_thread_entry(void *args){
                     LOG_E("Stratum unknown, id : %d => %s", method.id, method.raw.c_str());
                     break;
             }
-            delay(1);
+            delay(5);
         }
         delay(50);
     }
