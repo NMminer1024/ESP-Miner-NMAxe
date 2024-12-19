@@ -277,7 +277,7 @@ void miner_asic_tx_thread_entry(void *args){
         if(g_nmaxe.miner->pool_job_now.id == "")continue;
 
         g_nmaxe.mstatus.network_diff = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);
-        LOG_I("Get [%s] net %s", g_nmaxe.miner->pool_job_now.id.c_str(), formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
+        LOG_I("Job [%s] from %s:%d, net %s", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum.pool.get_pool_info().url.c_str(), g_nmaxe.stratum.pool.get_pool_info().port,formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
         while (true){
             //construct asic job and send to asic every 2s
             if(!g_nmaxe.miner->mining(&g_nmaxe.miner->pool_job_now)) continue;
@@ -357,7 +357,7 @@ void miner_asic_rx_thread_entry(void *args){
                     //submit sulution
                     g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
 
-                    LOG_I("+------%010d-----+",g_nmaxe.stratum.get_last_submit_id());
+                    LOG_I("+---------------------+");
                     LOG_I("|        %-4sH/s      |", formatNumber(g_nmaxe.mstatus.hashrate, 2).c_str());
                     LOG_I("+---------------------+");
                     LOG_I("| Last diff | %-6s  |", formatNumber(g_nmaxe.mstatus.last_diff, 4).c_str());

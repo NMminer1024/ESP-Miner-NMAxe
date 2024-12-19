@@ -15,7 +15,6 @@
 
 typedef uint32_t stratum_msg_rsp_id_t;
 
-
 typedef enum {
     STRATUM_DOWN_SUCCESS,
     STRATUM_DOWN_NOTIFY,
@@ -28,8 +27,9 @@ typedef enum {
 } stratum_method_down;
 
 typedef struct{
-    String method;
-    bool   status;
+    String   method;
+    bool     status;
+    uint64_t stamp;
 }stratum_rsp;
 
 typedef struct{
@@ -71,7 +71,6 @@ private:
     bool            _is_authorized;
     uint64_t        _last_job_clear_stamp;
     uint32_t        _gid;
-    uint32_t        _last_submit_id;
     uint32_t        _get_msg_id();
     String          _rsp_str;
     bool            _parse_rsp();
@@ -83,8 +82,8 @@ private:
     stratum_subscribe_info_t _sub_info;
     uint32_t        _max_rsp_id_cache;
     uint8_t         _pool_job_cache_size;
-    std::deque<pool_job_data_t>        _pool_job_cache;
-    std::map<stratum_msg_rsp_id_t, stratum_rsp>    _msg_rsp_map;
+    std::deque<pool_job_data_t>                  _pool_job_cache;
+    std::map<stratum_msg_rsp_id_t, stratum_rsp>  _msg_rsp_map;
 public:
     poolClass  pool;
     StratumClass(){};
@@ -102,7 +101,6 @@ public:
         this->_suggest_diff_support = true;
         this->_is_subscribed = false;
         this->_is_authorized = false;
-        this->_last_submit_id = 0;
         this->_last_job_clear_stamp = micros();
         this->new_job_xsem   = xSemaphoreCreateCounting(5,0);
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
