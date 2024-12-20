@@ -75,13 +75,13 @@ void setup() {
   axe_wifi_connecet(g_nmaxe.connection.wifi.conn_param);//blockingly connect to wifi
   /*********************************************************** CREATE MARKET THREAD ***************************************************/
   taskName = "(market)";
-  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, NULL, 1);
+  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, NULL, 0);
   while (!g_nmaxe.market.connected){
     delay(10);
   }
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";
-  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*12, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 1);
+  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*12, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 0);
   delay(10);
   /********************************************************** CREATE MONITOR THREAD ***************************************************/
   taskName = "(monitor)";
