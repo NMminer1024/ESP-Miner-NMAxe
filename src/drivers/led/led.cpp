@@ -112,7 +112,7 @@ void led_thread_entry(void *args){
         }
 
         // sys led, indicate hashrate
-        if(g_nmaxe.mstatus.hashrate > 0){
+        if(g_nmaxe.mstatus.hashrate._5m > 0){
             ledcWrite(pwmChannel, (uint32_t)((1 + sin(led_cnt/100.0f)) * (1<<resolution - 1)));
         }
         else{

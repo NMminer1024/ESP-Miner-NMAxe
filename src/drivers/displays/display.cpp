@@ -469,8 +469,8 @@ static void ui_miner_page_update(){
   }
   
   String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime);
-  String hashrate = formatNumber(g_nmaxe.mstatus.hashrate, 3);
-  String hashuint = (g_nmaxe.mstatus.hashrate > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
+  String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._5m, 3);
+  String hashuint = (g_nmaxe.mstatus.hashrate._5m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
   String last_diff = formatNumber(g_nmaxe.mstatus.last_diff, 1);
   String best_session = formatNumber(g_nmaxe.mstatus.best_session, 1);
   String best_ever = formatNumber(g_nmaxe.mstatus.best_ever, 1);
@@ -830,8 +830,8 @@ static void ui_dashboard_page_update(){
 
   }
 
-  String hr_value = formatNumber(g_nmaxe.mstatus.hashrate, 3);
-  String hr_unit = (g_nmaxe.mstatus.hashrate > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
+  String hr_value = formatNumber(g_nmaxe.mstatus.hashrate._5m, 3);
+  String hr_unit = (g_nmaxe.mstatus.hashrate._5m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
   String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
   String vbus = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
   String asic_temp = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
@@ -876,8 +876,8 @@ static void ui_hr_healthy_page_update(){
   static bool first_time = true;
 
   static double last_hashrate = 0;
-  if(last_hashrate == g_nmaxe.mstatus.hashrate) return;
-  last_hashrate = g_nmaxe.mstatus.hashrate;
+  if(last_hashrate == g_nmaxe.mstatus.hashrate._5m) return;
+  last_hashrate = g_nmaxe.mstatus.hashrate._5m;
 
   if(first_time){
     first_time = false;
@@ -983,8 +983,8 @@ static void ui_hr_real_time_page_update(){
   static bool first_time = true;
 
   static double last_hashrate = 0;
-  if(last_hashrate == g_nmaxe.mstatus.hashrate) return;
-  last_hashrate = g_nmaxe.mstatus.hashrate;
+  if(last_hashrate == g_nmaxe.mstatus.hashrate._5m) return;
+  last_hashrate = g_nmaxe.mstatus.hashrate._5m;
 
   if(first_time){
     first_time = false;
@@ -1093,7 +1093,7 @@ void ui_thread_entry(void *args){
   free(name);
 
   const char* vbus_chk_str[] = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
-  const char* asci_init_str[] = {"Found 0 ASIC   ","Found 0 ASIC.  ","Found 0 ASIC.. ","Found 0 ASIC..."};
+  const char* asci_init_str[] = {"Init ASIC   ","Init ASIC.  ","Init ASIC.. ","Init ASIC..."};
   const char* wifi_con_str[] = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
   const char* fan_test_str[] = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
   const char* market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};

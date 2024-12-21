@@ -45,7 +45,7 @@ void monitor_thread_entry(void *args){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
           StaticJsonDocument<512> jsonDoc;
           jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
-          jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate, 5) + "H/s";
+          jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._5m, 5) + "H/s";
           uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
           float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
           jsonDoc["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
@@ -89,19 +89,29 @@ void monitor_thread_entry(void *args){
           g_nmaxe.power.set_vcore_voltage(vcore_now);
           LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", g_nmaxe.board.temp_vcore, vcore_now);
         }
-        static uint8_t fan_cnt = 0;
+        static uint8_t fan_err_cnt = 0;
         if(g_nmaxe.fan.rpm <= 1000){
-          fan_cnt++;
-          if(fan_cnt > 0){//avoid some noise
+          fan_err_cnt++;
+          if(fan_err_cnt > 0){//avoid some noise
             LOG_W("Fan rpm is too low, restart miner...");
             ESP.restart();
           }
-        }else fan_cnt = 0;
+        }else fan_err_cnt = 0;
+
+        //check power status
+        static uint8_t pwr_err_cnt = 0;
+        if((g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0 / 1000.0) < BOARD_LOW_POWER){
+          LOG_W("Power %0.1fW is too low...", g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0 / 1000.0);
+          if(++pwr_err_cnt > 5){
+            LOG_W("Power is too low, restart miner...");
+            ESP.restart();
+          }
+        }else pwr_err_cnt = 0;
       }
-      
+      //print summary to log
       if(g_nmaxe.mstatus.uptime % 60 == 0){
         LOG_I("+---------NMAxe Summary-------+");
-        LOG_I("|           %-4s           |", formatNumber(g_nmaxe.mstatus.hashrate, 5).c_str());
+        LOG_I("|           %-4s           |", formatNumber(g_nmaxe.mstatus.hashrate._5m, 5).c_str());
         LOG_I("+-----------------------------+");
         LOG_I("|Last diff|From boot|Best ever|");
         LOG_I("| %-6s  | %-5s | %-7s |", 

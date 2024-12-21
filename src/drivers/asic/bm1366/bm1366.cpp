@@ -357,11 +357,12 @@ uint8_t BM1366::init(uint64_t freq, int diff){
     uint8_t init3[7] = {0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A};
     this->send(init3, 7);
 
-    uint8_t chip_counter = 0;
-    uint8_t rsp[11];
+    uint8_t chip_counter = 0, rsp[11] = {0,};
     while (true) {
-        if(this->receive(rsp, sizeof(rsp), 1000) > 0) {
-            chip_counter++;
+        if(this->receive(rsp, sizeof(rsp), 5000) > 0) {
+            if(memcmp(rsp, "\xaa\x55\x13\x66\x00\x00", 6) == 0){
+                chip_counter++;
+            }
         } else {
             break;
         }

@@ -33,7 +33,6 @@ AsicMinerClass::~AsicMinerClass(){
 
 bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
     this->_asic->reset();
-    this->calculate_hashrate();
     this->_asic_count = this->_asic->init(freq, diff);
     if(0 == this->_asic_count){
         LOG_E("xxxxxxx No BM1366 ASIC(s) found xxxxxxx");
@@ -193,33 +192,97 @@ bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32
     return g_nmaxe.stratum.submit(this->pool_job_now.id, extranonce2, ntime, nonce, version);
 }
 
-double AsicMinerClass::calculate_hashrate(){
-    static uint32_t hr_cal_time_begin = millis();
-    static std::vector<double>    diff_samples;
-    static std::vector<uint32_t>  time_samples;
-    static const uint8_t          hr_sample_len_max = 100;
-    double total_diff = 0.0, duration = 0.0, hashrate = 0.0;
+bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
+    // static uint32_t hr_cal_time_begin = millis();
+    // static std::vector<double>    diff_samples;
+    // static std::vector<uint32_t>  time_samples;
+    // static const uint8_t          hr_sample_len_max = 100;
+    // double total_diff = 0.0, duration = 0.0, hashrate = 0.0;
 
-    diff_samples.push_back(this->_asic->get_asic_difficulty());
-    time_samples.push_back(millis());
+    // diff_samples.push_back(this->_asic->get_asic_difficulty());
+    // time_samples.push_back(millis());
 
-    if(diff_samples.size() > hr_sample_len_max){
-        diff_samples.erase(diff_samples.begin());
-        time_samples.erase(time_samples.begin());
-        hr_cal_time_begin = time_samples.front();
+    // if(diff_samples.size() > hr_sample_len_max){
+    //     diff_samples.erase(diff_samples.begin());
+    //     time_samples.erase(time_samples.begin());
+    //     hr_cal_time_begin = time_samples.front();
+    // }
+
+    // for(auto diff : diff_samples){
+    //     total_diff += diff;
+    // }
+
+    // duration = (double)(millis() - hr_cal_time_begin) / 1000.0;//convert to second  
+    // hashrate = (duration > 0) ? ((total_diff * 4294967296.0) / duration) : 0.0;
+
+    if (phr == NULL) return false;
+    
+    static   std::deque<std::pair<uint32_t, double>> hr_samples;
+    double   sum = 0.0;
+    uint32_t now = millis(), duration = 0;
+
+    // record hashrate samples
+    hr_samples.push_back({now, this->_asic->get_asic_difficulty()});
+    // remove samples older than 24 hours
+    duration = 6*60*60;
+    while (!hr_samples.empty() && (now - hr_samples.front().first > duration * 1000)) { 
+        hr_samples.pop_front();
     }
 
-    for(auto diff : diff_samples){
-        total_diff += diff;
+
+    // calculate hashrate for 5 minute
+    duration = 5 * 60.0;
+    sum = 0.0;
+    for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
+        if((now - it->first) <= duration * 1000) { // 5 minute
+            sum += it->second;
+        }
+        else break;
     }
+    phr->_5m = sum * 4294967296.0 / duration;
 
-    duration = (double)(millis() - hr_cal_time_begin) / 1000.0;//convert to second  
 
-    hashrate = (duration > 0) ? ((total_diff * 4294967296.0) / duration) : 0.0;
+    // calculate hashrate for 30 minute
+    duration = 30 * 60.0;
+    sum = 0.0;
+    for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
+        if((now - it->first) <= duration * 1000) { // 30 minute
+            sum += it->second;
+        }
+        else break;
+    }
+    phr->_30m = sum * 4294967296.0 / duration;
 
-    // LOG_W("Total diff [%.3f], Duration [%s]s, Hashrate [%s]GH/s, size [%d]", total_diff, formatNumber(duration, 4).c_str(), formatNumber(hashrate/1000.0f/1000.0f/1000.0f, 4).c_str(), diff_samples.size());
 
-    return hashrate;
+    // calculate hashrate for 1 hour
+    duration = 60 * 60.0;
+    sum = 0.0;
+    for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
+        if((now - it->first) <= duration * 1000) { // 1 hour
+            sum += it->second;
+        }
+        else break;
+    }
+    phr->_1h = sum * 4294967296.0 / duration;
+
+    // calculate hashrate for 6 hour
+    duration = 6 * 60 * 60.0;
+    sum = 0.0;
+    for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
+        if((now - it->first) <= duration * 1000) { // 6 hour
+            sum += it->second;
+        }
+        else break;
+    }
+    phr->_6h = sum * 4294967296.0 / duration;
+
+    LOG_L(">>>>>> hr_samples.size =  %d, time cost = %ldms", hr_samples.size(), now - hr_samples.front().first);
+    LOG_L(">>>>>> hr->_5m  : %0.1fGH/s", phr->_5m/1000.0/1000.0/1000.0);
+    LOG_L(">>>>>> hr->_30m : %0.1fGH/s", phr->_30m/1000.0/1000.0/1000.0);
+    LOG_L(">>>>>> hr->_1h  : %0.1fGH/s", phr->_1h/1000.0/1000.0/1000.0);
+    LOG_L(">>>>>> hr->_6h  : %0.1fGH/s", phr->_6h/1000.0/1000.0/1000.0);
+
+    return true;
 }
 
 bool AsicMinerClass::end(){
@@ -245,6 +308,7 @@ void miner_asic_init_thread_entry(void *args){
             delay(1000);
         }
     }
+    g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
     vTaskDelete(NULL);
 }
 
@@ -263,7 +327,7 @@ void miner_asic_tx_thread_entry(void *args){
         //null loop if not subscribed
         if(!g_nmaxe.stratum.is_subscribed()){
             g_nmaxe.miner->end();
-            g_nmaxe.mstatus.hashrate = 0.0;
+            g_nmaxe.mstatus.hashrate._5m = 0.0;
             delay(1000);
             continue;   
         }
@@ -338,7 +402,7 @@ void miner_asic_rx_thread_entry(void *args){
                 if((diff <= 0.0001) || std::isnan(diff) || (diff == std::numeric_limits<double>::infinity())) continue;
 
                 //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
-                g_nmaxe.mstatus.hashrate        = g_nmaxe.miner->calculate_hashrate();
+                g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
                 g_nmaxe.mstatus.last_diff       = diff;
                 g_nmaxe.mstatus.best_session    = (diff > g_nmaxe.mstatus.best_session) ? diff : g_nmaxe.mstatus.best_session;
                 g_nmaxe.mstatus.best_ever       = (diff > g_nmaxe.mstatus.best_ever) ? diff : g_nmaxe.mstatus.best_ever;

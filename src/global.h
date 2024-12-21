@@ -19,6 +19,7 @@
 #define VCORE_TEMP_DANGER   (90.0f)
 #define VCORE_TEMP_LOW      (50.0f)
 #define BOARD_MCU_DANGER    (60.0f)
+#define BOARD_LOW_POWER     (6.0f)   //Watt
 
 #define NVS_SAVE_INTERVAL   (60*30)
 
@@ -94,18 +95,18 @@ typedef struct{
 }ota_info_t;
 
 typedef struct{
-    uint32_t share_rejected;
-    uint32_t share_accepted;
-    uint64_t uptime;
-    double   hashrate;
-    uint16_t block_hits;
-    double   best_session;
-    double   best_ever;
-    double   pool_diff;
-    double   last_diff;
-    double   network_diff;
-    SemaphoreHandle_t  nvs_save_xsem;//save status to NVS signal
-    SemaphoreHandle_t  update_xsem;  //miner status update signal
+    uint32_t            share_rejected;
+    uint32_t            share_accepted;
+    uint64_t            uptime;
+    hashrate_t          hashrate;
+    uint16_t            block_hits;
+    double              best_session;
+    double              best_ever;
+    double              pool_diff;
+    double              last_diff;
+    double              network_diff;
+    SemaphoreHandle_t   nvs_save_xsem;//save status to NVS signal
+    SemaphoreHandle_t   update_xsem;  //miner status update signal
 }miner_status_t;
 
 typedef struct{

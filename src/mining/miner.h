@@ -5,6 +5,13 @@
 #include "bm1366.h"
 #include <map>
 
+typedef struct{
+    double   _5m;
+    double   _30m;
+    double   _1h;
+    double   _6h;
+}hashrate_t;
+
 class AsicMinerClass{
 private:
     BMxxx                       *_asic;  
@@ -28,7 +35,7 @@ public:
     bool clear_asic_job_cache();
     double calculate_diff(uint32_t version, uint8_t *prev_block_hash, uint8_t *merkle_root, uint32_t ntime, uint32_t nbits, uint32_t nonce);
     double calculate_diff(String nBits);
-    double calculate_hashrate();
+    bool calculate_hashrate(hashrate_t *phr);
     bool end();
 };
 

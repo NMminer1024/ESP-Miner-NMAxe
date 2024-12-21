@@ -70,7 +70,7 @@ void setup() {
   xSemaphoreTake(g_nmaxe.power.good_xsem, portMAX_DELAY);
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";
-  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_ASIC_INIT, &asicinitTask,1);
+  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_ASIC_INIT, &asicinitTask,1);
   while (g_nmaxe.miner->get_asic_count() == 0){
     delay(10);
   }
