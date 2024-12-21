@@ -374,6 +374,8 @@ void stratum_thread_entry(void *args){
             g_nmaxe.stratum.reset();
             g_nmaxe.stratum.pool.begin(g_nmaxe.connection.pool.ssl);
             g_nmaxe.stratum.pool.connect();
+            g_nmaxe.mstatus.best_session = 0;
+            g_nmaxe.mstatus.last_diff = 0;
             delay(1000);
             continue;
         }
