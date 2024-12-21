@@ -4,7 +4,7 @@
 #include <driver/adc.h>
 
 #define DEFAULT_VREF    1100
-#define SAMPLES_N   32  
+#define SAMPLES_N       8  
 
 
 static adc1_channel_t get_adc1_channel_from_gpio(int gpio_num) {

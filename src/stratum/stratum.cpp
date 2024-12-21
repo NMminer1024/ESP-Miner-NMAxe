@@ -61,7 +61,7 @@ bool StratumClass::hello_pool(uint32_t hello_interval, uint32_t lost_max_time){
         String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
         if(this->pool.write(payload) != 0){
             this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, micros()};
-            LOG_D("Hello pool...");
+            LOG_I("Hello pool...");
             return true;
         }
         else{
