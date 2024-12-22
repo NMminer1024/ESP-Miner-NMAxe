@@ -115,7 +115,7 @@ void monitor_thread_entry(void *args){
         LOG_I(" ============================== ");
         LOG_I("|         NMAxe Summary        |");
         LOG_I("+------------Uptime------------+");
-        LOG_I("|        %s         |", convert_uptime_to_string((millis() - start) / 1000).c_str());
+        LOG_I("|         %s        |", convert_uptime_to_string((millis() - start) / 1000).c_str());
         LOG_I("+-----------HashRate-----------+");
         LOG_I("|   5m    |    30m   |    1h   |");
         LOG_I("|%-4sH/s| %-4sH/s|%-4sH/s|", 
@@ -123,7 +123,7 @@ void monitor_thread_entry(void *args){
               formatNumber(g_nmaxe.mstatus.hashrate._30m, 4).c_str(),
               formatNumber(g_nmaxe.mstatus.hashrate._1h, 4).c_str());
         LOG_I("+----------Difficulty----------+");
-        LOG_I("|From boot| Best ever| Net diff|");
+        LOG_I("|From boot| Best ever| Network |");
         LOG_I("| %-6s |  %-5s | %-7s |", 
               formatNumber(g_nmaxe.mstatus.best_session, 5).c_str(), 
               formatNumber(g_nmaxe.mstatus.best_ever, 5).c_str(),

@@ -137,6 +137,7 @@ public:
     bool   set_sub_extranonce2_size(int size);
     String get_sub_extranonce1();
     String get_sub_extranonce2();
+    bool   clear_sub_extranonce2();
 };
 
 void stratum_thread_entry(void *args);

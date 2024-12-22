@@ -108,7 +108,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     this->_asic_job_map[this->_asic_job_now.id]     = this->_asic_job_now;
     this->_extranonce2_map[this->_asic_job_now.id]  = extranonce2;
 
-    // LOG_L("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
+    LOG_D("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
 
     ////////////////////////////////////////send asic job//////////////////////////////////
     this->_asic->send_work_to_asic(&this->_asic_job_now);
@@ -310,7 +310,11 @@ void miner_asic_tx_thread_entry(void *args){
         //get job from pool job caches
         g_nmaxe.miner->pool_job_now = g_nmaxe.stratum.pop_job_cache();
         if(g_nmaxe.miner->pool_job_now.id == "")continue;
+        
+        // //clear extranonce2 if clean job signal received
+        // if(!g_nmaxe.stratum.clear_sub_extranonce2()) continue;
 
+        //calculate network diff
         g_nmaxe.mstatus.network_diff = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);
         LOG_W("Job [%s] from %s:%d", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum.pool.get_pool_info().url.c_str(), g_nmaxe.stratum.pool.get_pool_info().port);
         while (true){

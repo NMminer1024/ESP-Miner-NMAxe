@@ -20,7 +20,7 @@ void StratumClass::reset(){
     this->_rsp_json.clear();
     this->_msg_rsp_map.clear();
     this->_sub_info.extranonce1 = "";
-    this->_sub_info.extranonce2 = "00000000";
+    this->_sub_info.extranonce2 = "0";
     this->_sub_info.extranonce2_size = 0;
     this->_is_subscribed = false;
     this->_gid = 1;
@@ -139,6 +139,11 @@ String StratumClass::get_sub_extranonce2() {
     this->_sub_info.extranonce2 = next_ext2;
     return next_ext2;
 }
+
+bool StratumClass::clear_sub_extranonce2(){
+    this->_sub_info.extranonce2 = "0";
+    return true;
+}   
 
 bool StratumClass::set_sub_extranonce1(String extranonce1){
     this->_sub_info.extranonce1 = extranonce1;
