@@ -864,7 +864,7 @@ static void ui_dashboard_page_update(){
   lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_nmaxe.asic.temp, 2).c_str());
 }
 
-static void ui_hr_healthy_page_update(){
+static void ui_hr_healthy_page_update(double hashrate){
   #define MAX_HASHRATE 1000  
   #define STEP 50 // step 
   #define NUM_BARS (MAX_HASHRATE / STEP) 
@@ -876,8 +876,8 @@ static void ui_hr_healthy_page_update(){
   static bool first_time = true;
 
   static double last_hashrate = 0;
-  if(last_hashrate == g_nmaxe.mstatus.hashrate._5m) return;
-  last_hashrate = g_nmaxe.mstatus.hashrate._5m;
+  if(last_hashrate == hashrate) return;
+  last_hashrate = hashrate;
 
   if(first_time){
     first_time = false;
@@ -973,18 +973,19 @@ static void ui_hr_healthy_page_update(){
   lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String(duration) + "s").c_str());
 }
 
-static void ui_hr_real_time_page_update(){
+static void ui_hr_real_time_page_update(hashrate_t *hashrate){
   #define NUM_DOTS 20
 
-  static lv_obj_t *chart = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
+  static lv_obj_t *chart = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL,*lb_title_5m = NULL, *lb_title_30m = NULL, *lb_title_1h = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
-  static lv_chart_series_t *series;
+  static lv_chart_series_t *ser_5m,*ser_30m,*ser_1h;
   static uint64_t hr_total_cnt = 0;
   static bool first_time = true;
 
-  static double last_hashrate = 0;
-  if(last_hashrate == g_nmaxe.mstatus.hashrate._5m) return;
-  last_hashrate = g_nmaxe.mstatus.hashrate._5m;
+  static hashrate_t last_hashrate = {0, 0, 0};
+  if((last_hashrate._5m == hashrate->_5m) && (last_hashrate._30m == hashrate->_30m) && (last_hashrate._1h == hashrate->_1h)) return;
+  last_hashrate = *hashrate;
+
 
   if(first_time){
     first_time = false;
@@ -1019,6 +1020,38 @@ static void ui_hr_real_time_page_update(){
     lv_label_set_long_mode(lb_hr_health_duration, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_align( lb_hr_health_duration, LV_ALIGN_TOP_LEFT, 1, 5);
 
+    //5m title
+    font_color = lv_palette_main(LV_PALETTE_RED);
+    font = &lv_font_montserrat_12;
+    lb_title_5m   = lv_label_create( ui_pages[PAGE_HR_REALTIME] );
+    lv_obj_set_width(lb_title_5m, 120);
+    lv_label_set_text( lb_title_5m, "5m");
+    lv_obj_set_style_text_font(lb_title_5m, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_title_5m, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_title_5m, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_align( lb_title_5m, LV_ALIGN_TOP_LEFT, 1, 18);
+    //30m title
+    font_color = lv_palette_main(LV_PALETTE_BLUE);
+    font = &lv_font_montserrat_12;
+    lb_title_30m   = lv_label_create( ui_pages[PAGE_HR_REALTIME] );
+    lv_obj_set_width(lb_title_30m, 120);
+    lv_label_set_text( lb_title_30m, "30m");
+    lv_obj_set_style_text_font(lb_title_30m, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_title_30m, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_title_30m, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_align( lb_title_30m, LV_ALIGN_TOP_LEFT, 35, 18);
+    //1h title
+    font_color = lv_palette_main(LV_PALETTE_GREEN);
+    font = &lv_font_montserrat_12;
+    lb_title_1h   = lv_label_create( ui_pages[PAGE_HR_REALTIME] );
+    lv_obj_set_width(lb_title_1h, 120);
+    lv_label_set_text( lb_title_1h, "60m");
+    lv_obj_set_style_text_font(lb_title_1h, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_title_1h, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_title_1h, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_align( lb_title_1h, LV_ALIGN_TOP_LEFT, 75, 18);
+
+
     // Create a chart
     chart = lv_chart_create(ui_pages[PAGE_HR_REALTIME]);
     lv_obj_set_size(chart, SCREEN_WIDTH - 16, SCREEN_HEIGHT - 48); 
@@ -1028,10 +1061,26 @@ static void ui_hr_real_time_page_update(){
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
     lv_chart_set_div_line_count(chart, 5, 4);
 
-    // Add a series to the chart
-    series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    // Add a 5m_series to the chart
+    ser_5m = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
     lv_chart_set_point_count(chart, NUM_BARS);
-    lv_chart_set_all_value(chart, series, 0);
+    lv_chart_set_all_value(chart, ser_5m, 0);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, NUM_BARS, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
+    lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+    // Add a 30m_series to the chart
+    ser_30m = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
+    lv_chart_set_point_count(chart, NUM_BARS);
+    lv_chart_set_all_value(chart, ser_30m, 0);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, NUM_BARS, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
+    lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+    // Add a 1h_series to the chart
+    ser_1h = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
+    lv_chart_set_point_count(chart, NUM_BARS);
+    lv_chart_set_all_value(chart, ser_1h, 0);
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, NUM_BARS, 1, true, 25);
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
     lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -1050,15 +1099,30 @@ static void ui_hr_real_time_page_update(){
 
 
 
-  // Update the chart with the new hashrate value
+  // Update the chart with the new 5m_hashrate value
   for (int i = 0; i < NUM_DOTS - 1; i++) {
-    series->y_points[i] = series->y_points[i + 1];
+    ser_5m->y_points[i] = ser_5m->y_points[i + 1];
   }
-  series->y_points[NUM_DOTS - 1] = last_hashrate / 1000 / 1000 / 1000;
+  ser_5m->y_points[NUM_DOTS - 1] = last_hashrate._5m / 1000 / 1000 / 1000;
+  // Update the chart with the new 30m_hashrate value
+  for (int i = 0; i < NUM_DOTS - 1; i++) {
+    ser_30m->y_points[i] = ser_30m->y_points[i + 1];
+  }
+  ser_30m->y_points[NUM_DOTS - 1] = last_hashrate._30m / 1000 / 1000 / 1000;
+  // Update the chart with the new 1h_hashrate value
+  for (int i = 0; i < NUM_DOTS - 1; i++) {
+    ser_1h->y_points[i] = ser_1h->y_points[i + 1];
+  }
+  ser_1h->y_points[NUM_DOTS - 1] = last_hashrate._1h / 1000 / 1000 / 1000;
+
+
+
   //adjust the chart_Y scale
   uint16_t y_max = 0;
   for (int i = 0; i < NUM_DOTS - 1; i++) {
-    y_max = (series->y_points[i] > y_max) ? series->y_points[i] : y_max;
+    y_max = (ser_5m->y_points[i] > y_max) ? ser_5m->y_points[i] : y_max;
+    y_max = (ser_30m->y_points[i] > y_max) ? ser_30m->y_points[i] : y_max;
+    y_max = (ser_1h->y_points[i] > y_max) ? ser_1h->y_points[i] : y_max;
   }
   lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, y_max*1.2);
   lv_chart_refresh(chart); // Refresh the chart to show the updated data
@@ -1069,8 +1133,8 @@ static void ui_hr_real_time_page_update(){
   // time cost of this feature
   static uint64_t start = millis();
   uint64_t duration = (millis() - start) / 1000;
-  String hr = formatNumber(last_hashrate, 3);
-  String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
+  String hr = formatNumber(last_hashrate._5m, 3);
+  String hr_unit = (last_hashrate._5m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
   lv_label_set_text_fmt(lb_ds_hr, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
@@ -1275,9 +1339,9 @@ void ui_thread_entry(void *args){
       //update dashboard page
       ui_dashboard_page_update();
       //update hashrate healthy page
-      ui_hr_healthy_page_update();
+      ui_hr_healthy_page_update(g_nmaxe.mstatus.hashrate._5m);
       //update hashrate real time page
-      ui_hr_real_time_page_update();
+      ui_hr_real_time_page_update(&g_nmaxe.mstatus.hashrate);
       //update ota page
       if(g_nmaxe.ota.ota_running){
         ui_ota_page_update();
