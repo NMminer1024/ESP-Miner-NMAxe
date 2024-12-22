@@ -9,7 +9,6 @@ typedef struct{
     double   _5m;
     double   _30m;
     double   _1h;
-    double   _6h;
 }hashrate_t;
 
 class AsicMinerClass{

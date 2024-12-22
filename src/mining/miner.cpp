@@ -35,10 +35,10 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
     this->_asic->reset();
     this->_asic_count = this->_asic->init(freq, diff);
     if(0 == this->_asic_count){
-        LOG_E("xxxxxxx No BM1366 ASIC(s) found xxxxxxx");
+        LOG_E("xxxxxxx No BM1366 ASIC found xxxxxxx");
         return false;
     }
-    LOG_I("======= Found %d BM1366 ASIC(s) =======", this->_asic_count);
+    LOG_I("======= Found %d BM1366 %s =======", this->_asic_count, (this->_asic_count > 1) ? "chips" : "chip");
     this->_asic->change_uart_baud(ESP32_TO_BM1366_WORK_BUAD);
     this->_asic->clear_port_cache();
     return true;
@@ -193,38 +193,18 @@ bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32
 }
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
-    // static uint32_t hr_cal_time_begin = millis();
-    // static std::vector<double>    diff_samples;
-    // static std::vector<uint32_t>  time_samples;
-    // static const uint8_t          hr_sample_len_max = 100;
-    // double total_diff = 0.0, duration = 0.0, hashrate = 0.0;
-
-    // diff_samples.push_back(this->_asic->get_asic_difficulty());
-    // time_samples.push_back(millis());
-
-    // if(diff_samples.size() > hr_sample_len_max){
-    //     diff_samples.erase(diff_samples.begin());
-    //     time_samples.erase(time_samples.begin());
-    //     hr_cal_time_begin = time_samples.front();
-    // }
-
-    // for(auto diff : diff_samples){
-    //     total_diff += diff;
-    // }
-
-    // duration = (double)(millis() - hr_cal_time_begin) / 1000.0;//convert to second  
-    // hashrate = (duration > 0) ? ((total_diff * 4294967296.0) / duration) : 0.0;
-
     if (phr == NULL) return false;
-    
+
+    uint64_t cal_start = micros();
+
     static   std::deque<std::pair<uint32_t, double>> hr_samples;
     double   sum = 0.0;
     uint32_t now = millis(), duration = 0;
 
     // record hashrate samples
     hr_samples.push_back({now, this->_asic->get_asic_difficulty()});
-    // remove samples older than 24 hours
-    duration = 6*60*60;
+    // remove samples older than 1 hour
+    duration = 1*60*60;
     while (!hr_samples.empty() && (now - hr_samples.front().first > duration * 1000)) { 
         hr_samples.pop_front();
     }
@@ -265,22 +245,13 @@ bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     }
     phr->_1h = sum * 4294967296.0 / duration;
 
-    // calculate hashrate for 6 hour
-    duration = 6 * 60 * 60.0;
-    sum = 0.0;
-    for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
-        if((now - it->first) <= duration * 1000) { // 6 hour
-            sum += it->second;
-        }
-        else break;
-    }
-    phr->_6h = sum * 4294967296.0 / duration;
 
-    LOG_L(">>>>>> hr_samples.size =  %d, time cost = %ldms", hr_samples.size(), now - hr_samples.front().first);
-    LOG_L(">>>>>> hr->_5m  : %0.1fGH/s", phr->_5m/1000.0/1000.0/1000.0);
-    LOG_L(">>>>>> hr->_30m : %0.1fGH/s", phr->_30m/1000.0/1000.0/1000.0);
-    LOG_L(">>>>>> hr->_1h  : %0.1fGH/s", phr->_1h/1000.0/1000.0/1000.0);
-    LOG_L(">>>>>> hr->_6h  : %0.1fGH/s", phr->_6h/1000.0/1000.0/1000.0);
+    // LOG_L("###### cal cost : %ldus", micros() - cal_start);
+    // LOG_L(">>>>>> size     : %d", hr_samples.size());
+    // LOG_L(">>>>>> duration : %s", convert_uptime_to_string((now - hr_samples.front().first) / 1000));
+    // LOG_L(">>>>>> hr->_5m  : %0.1fGH/s", phr->_5m/1000.0/1000.0/1000.0);
+    // LOG_L(">>>>>> hr->_30m : %0.1fGH/s", phr->_30m/1000.0/1000.0/1000.0);
+    // LOG_L(">>>>>> hr->_1h  : %0.1fGH/s", phr->_1h/1000.0/1000.0/1000.0);
 
     return true;
 }
@@ -352,7 +323,7 @@ void miner_asic_tx_thread_entry(void *args){
             if(g_nmaxe.stratum.get_pool_difficulty() <= BM1366_DIFF_THR){
                 static double last_diff = BM1366_DIFF_THR;
                 if(g_nmaxe.stratum.get_pool_difficulty() != last_diff){
-                    LOG_W("Change asic diff from [%s] to [%s]", formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
+                    LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
                     last_diff = g_nmaxe.stratum.get_pool_difficulty();
                     g_nmaxe.miner->set_asic_diff(last_diff);
                 }

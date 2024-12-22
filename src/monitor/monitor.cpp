@@ -23,6 +23,8 @@ void monitor_thread_entry(void *args){
   xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
   delay(500);//necessary delay for first job cache ready
 
+  uint32_t start = millis();
+
   while(true){
       g_nmaxe.mstatus.uptime++;
       //update temperature and power status
@@ -110,15 +112,23 @@ void monitor_thread_entry(void *args){
       }
       //print summary to log
       if(g_nmaxe.mstatus.uptime % 60 == 0){
-        LOG_I("+---------NMAxe Summary-------+");
-        LOG_I("|           %-4s           |", formatNumber(g_nmaxe.mstatus.hashrate._5m, 5).c_str());
-        LOG_I("+-----------------------------+");
-        LOG_I("|Last diff|From boot|Best ever|");
-        LOG_I("| %-6s  | %-5s | %-7s |", 
-              formatNumber(g_nmaxe.mstatus.last_diff, 4).c_str(), 
+        LOG_I(" ============================== ");
+        LOG_I("|         NMAxe Summary        |");
+        LOG_I("+------------Uptime------------+");
+        LOG_I("|        %s         |", convert_uptime_to_string((millis() - start) / 1000).c_str());
+        LOG_I("+-----------HashRate-----------+");
+        LOG_I("|   5m    |    30m   |    1h   |");
+        LOG_I("|%-4sH/s| %-4sH/s|%-4sH/s|", 
+              formatNumber(g_nmaxe.mstatus.hashrate._5m, 4).c_str(), 
+              formatNumber(g_nmaxe.mstatus.hashrate._30m, 4).c_str(),
+              formatNumber(g_nmaxe.mstatus.hashrate._1h, 4).c_str());
+        LOG_I("+----------Difficulty----------+");
+        LOG_I("|From boot| Best ever| Net diff|");
+        LOG_I("| %-6s |  %-5s | %-7s |", 
               formatNumber(g_nmaxe.mstatus.best_session, 5).c_str(), 
-              formatNumber(g_nmaxe.mstatus.best_ever, 5).c_str());
-        LOG_I("+-----------------------------+");
+              formatNumber(g_nmaxe.mstatus.best_ever, 5).c_str(),
+              formatNumber(g_nmaxe.mstatus.network_diff, 5).c_str());
+        LOG_I(" ============================== ");
       }
       //save status to NVS
       static uint64_t last_save_time = g_nmaxe.mstatus.uptime;

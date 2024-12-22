@@ -357,14 +357,22 @@ uint8_t BM1366::init(uint64_t freq, int diff){
     uint8_t init3[7] = {0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A};
     this->send(init3, 7);
 
-    uint8_t chip_counter = 0, rsp[11] = {0,};
+    uint8_t chip_counter = 0, rsp[100] = {0,};
     while (true) {
-        if(this->receive(rsp, sizeof(rsp), 5000) > 0) {
-            if(memcmp(rsp, "\xaa\x55\x13\x66\x00\x00", 6) == 0){
+        uint8_t len = this->receive(rsp, sizeof(rsp), 3000);
+        if(len == 0) break;
+
+        // dbg::hex_print(rsp, len, "init3");
+        uint8_t *rsp_ptr = rsp;
+        while (rsp_ptr <= rsp + len - 11) {
+            if(memcmp(rsp_ptr, "\xaa\x55\x13\x66\x00\x00", 6) == 0){
+                // dbg::hex_print(rsp_ptr, 11, "found chip");
                 chip_counter++;
+                break;
             }
-        } else {
-            break;
+            else{
+                rsp_ptr++;
+            }
         }
     }
 
