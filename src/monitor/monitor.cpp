@@ -114,7 +114,7 @@ void monitor_thread_entry(void *args){
       if(g_nmaxe.mstatus.uptime % 60 == 0){
         LOG_I(" ============================== ");
         LOG_I("|         NMAxe Summary        |");
-        LOG_I("+------------Uptime------------+");
+        LOG_I("+--------Session  Uptime-------+");
         LOG_I("|         %s        |", convert_uptime_to_string((millis() - start) / 1000).c_str());
         LOG_I("+-----------HashRate-----------+");
         LOG_I("|   5m    |    30m   |    1h   |");
