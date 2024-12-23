@@ -118,8 +118,8 @@ void monitor_thread_entry(void *args){
       if(g_nmaxe.mstatus.uptime % 60 == 0){
         LOG_I(" ============================== ");
         LOG_I("|         NMAxe Summary        |");
-        LOG_I("+--------Session  Uptime-------+");
-        LOG_I("|         %s        |", convert_uptime_to_string((millis() - start) / 1000).c_str());
+        LOG_I("+------------Uptime------------+");
+        LOG_I("|%s | %s |", convert_uptime_to_string((millis() - start) / 1000).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime).c_str());
         LOG_I("+-----------HashRate-----------+");
         LOG_I("|   3m    |    30m   |    1h   |");
         LOG_I("|%-4sH/s| %-4sH/s|%-4sH/s|", 

@@ -375,7 +375,11 @@ void stratum_thread_entry(void *args){
         }
 
         if(!g_nmaxe.stratum.pool.is_connected()){
-            LOG_W("Lost connection to pool, reconnecting...");
+            static bool first_connect = true;
+            if(first_connect){
+                LOG_I("Pool connecting...");
+                first_connect = false;
+            }else LOG_W("Lost connection to pool, reconnecting...");
             g_nmaxe.stratum.reset();
             g_nmaxe.stratum.pool.begin(g_nmaxe.connection.pool.ssl);
             g_nmaxe.stratum.pool.connect();
