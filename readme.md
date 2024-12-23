@@ -76,7 +76,7 @@
 |eu2.molepool.com   | tcp                |    1801            |        FB         | Minimum 32.768K constantly         |
 
 ### Pool(v2.2.xx at least)
-| Url               | Type               | Port               | Description       | Minimum required difficulty|
+| Url               | Type               | Port               | Description       | Region|
 | :---------------  | :-----------------:| :-----------------:|:-----------------:| :----------------------:   |
 |btc.f2pool.com     | tcp                |    1314            |        BTC        | common  |
 |btc-asia.f2pool.com| tcp                |    1314            |        BTC        | Asia    |
