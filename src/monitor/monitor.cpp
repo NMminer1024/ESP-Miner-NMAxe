@@ -47,7 +47,7 @@ void monitor_thread_entry(void *args){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
           StaticJsonDocument<512> jsonDoc;
           jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
-          jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._5m, 5) + "H/s";
+          jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
           uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
           float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
           jsonDoc["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
@@ -117,9 +117,9 @@ void monitor_thread_entry(void *args){
         LOG_I("+--------Session  Uptime-------+");
         LOG_I("|         %s        |", convert_uptime_to_string((millis() - start) / 1000).c_str());
         LOG_I("+-----------HashRate-----------+");
-        LOG_I("|   5m    |    30m   |    1h   |");
+        LOG_I("|   3m    |    30m   |    1h   |");
         LOG_I("|%-4sH/s| %-4sH/s|%-4sH/s|", 
-              formatNumber(g_nmaxe.mstatus.hashrate._5m, 4).c_str(), 
+              formatNumber(g_nmaxe.mstatus.hashrate._3m, 4).c_str(), 
               formatNumber(g_nmaxe.mstatus.hashrate._30m, 4).c_str(),
               formatNumber(g_nmaxe.mstatus.hashrate._1h, 4).c_str());
         LOG_I("+----------Difficulty----------+");

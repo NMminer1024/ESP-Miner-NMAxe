@@ -194,9 +194,7 @@ bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     if (phr == NULL) return false;
-
-    uint64_t cal_start = micros();
-
+    
     static   std::deque<std::pair<uint32_t, double>> hr_samples;
     double   sum = 0.0;
     uint32_t now = millis(), duration = 0;
@@ -210,16 +208,16 @@ bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     }
 
 
-    // calculate hashrate for 5 minute
-    duration = 5 * 60.0;
+    // calculate hashrate for 3 minute
+    duration = 3 * 60.0;
     sum = 0.0;
     for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
-        if((now - it->first) <= duration * 1000) { // 5 minute
+        if((now - it->first) <= duration * 1000) { // 3 minute
             sum += it->second;
         }
         else break;
     }
-    phr->_5m = sum * 4294967296.0 / duration;
+    phr->_3m = sum * 4294967296.0 / duration;
 
 
     // calculate hashrate for 30 minute
@@ -244,14 +242,6 @@ bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
         else break;
     }
     phr->_1h = sum * 4294967296.0 / duration;
-
-
-    // LOG_L("###### cal cost : %ldus", micros() - cal_start);
-    // LOG_L(">>>>>> size     : %d", hr_samples.size());
-    // LOG_L(">>>>>> duration : %s", convert_uptime_to_string((now - hr_samples.front().first) / 1000));
-    // LOG_L(">>>>>> hr->_5m  : %0.1fGH/s", phr->_5m/1000.0/1000.0/1000.0);
-    // LOG_L(">>>>>> hr->_30m : %0.1fGH/s", phr->_30m/1000.0/1000.0/1000.0);
-    // LOG_L(">>>>>> hr->_1h  : %0.1fGH/s", phr->_1h/1000.0/1000.0/1000.0);
 
     return true;
 }
@@ -298,7 +288,7 @@ void miner_asic_tx_thread_entry(void *args){
         //null loop if not subscribed
         if(!g_nmaxe.stratum.is_subscribed()){
             g_nmaxe.miner->end();
-            g_nmaxe.mstatus.hashrate._5m = 0.0;
+            g_nmaxe.mstatus.hashrate._3m = 0.0;
             delay(1000);
             continue;   
         }

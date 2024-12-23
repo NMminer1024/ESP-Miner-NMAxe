@@ -469,8 +469,8 @@ static void ui_miner_page_update(){
   }
   
   String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime);
-  String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._5m, 3);
-  String hashuint = (g_nmaxe.mstatus.hashrate._5m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
+  String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
+  String hashuint = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
   String last_diff = formatNumber(g_nmaxe.mstatus.last_diff, 1);
   String best_session = formatNumber(g_nmaxe.mstatus.best_session, 1);
   String best_ever = formatNumber(g_nmaxe.mstatus.best_ever, 1);
@@ -830,8 +830,8 @@ static void ui_dashboard_page_update(){
 
   }
 
-  String hr_value = formatNumber(g_nmaxe.mstatus.hashrate._5m, 3);
-  String hr_unit = (g_nmaxe.mstatus.hashrate._5m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
+  String hr_value = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
+  String hr_unit = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
   String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
   String vbus = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
   String asic_temp = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
@@ -983,7 +983,7 @@ static void ui_hr_real_time_page_update(hashrate_t *hashrate){
   static bool first_time = true;
 
   static hashrate_t last_hashrate = {0, 0, 0};
-  if((last_hashrate._5m == hashrate->_5m) && (last_hashrate._30m == hashrate->_30m) && (last_hashrate._1h == hashrate->_1h)) return;
+  if((last_hashrate._3m == hashrate->_3m) && (last_hashrate._30m == hashrate->_30m) && (last_hashrate._1h == hashrate->_1h)) return;
   last_hashrate = *hashrate;
 
 
@@ -1103,7 +1103,7 @@ static void ui_hr_real_time_page_update(hashrate_t *hashrate){
   for (int i = 0; i < NUM_DOTS - 1; i++) {
     ser_5m->y_points[i] = ser_5m->y_points[i + 1];
   }
-  ser_5m->y_points[NUM_DOTS - 1] = last_hashrate._5m / 1000 / 1000 / 1000;
+  ser_5m->y_points[NUM_DOTS - 1] = last_hashrate._3m / 1000 / 1000 / 1000;
   // Update the chart with the new 30m_hashrate value
   for (int i = 0; i < NUM_DOTS - 1; i++) {
     ser_30m->y_points[i] = ser_30m->y_points[i + 1];
@@ -1133,8 +1133,8 @@ static void ui_hr_real_time_page_update(hashrate_t *hashrate){
   // time cost of this feature
   static uint64_t start = millis();
   uint64_t duration = (millis() - start) / 1000;
-  String hr = formatNumber(last_hashrate._5m, 3);
-  String hr_unit = (last_hashrate._5m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
+  String hr = formatNumber(last_hashrate._3m, 3);
+  String hr_unit = (last_hashrate._3m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
   lv_label_set_text_fmt(lb_ds_hr, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
@@ -1339,7 +1339,7 @@ void ui_thread_entry(void *args){
       //update dashboard page
       ui_dashboard_page_update();
       //update hashrate healthy page
-      ui_hr_healthy_page_update(g_nmaxe.mstatus.hashrate._5m);
+      ui_hr_healthy_page_update(g_nmaxe.mstatus.hashrate._3m);
       //update hashrate real time page
       ui_hr_real_time_page_update(&g_nmaxe.mstatus.hashrate);
       //update ota page

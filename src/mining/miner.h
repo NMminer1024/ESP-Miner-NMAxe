@@ -6,7 +6,7 @@
 #include <map>
 
 typedef struct{
-    double   _5m;
+    double   _3m;
     double   _30m;
     double   _1h;
 }hashrate_t;
