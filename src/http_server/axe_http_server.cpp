@@ -283,28 +283,28 @@ static void post_ota_update(AsyncWebServerRequest *request) {
 static void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     switch (type) {
         case WStype_DISCONNECTED:
-            LOG_W("[%u] webSocket disconnected!\n", num);
+            LOG_W("[%u] webSocket disconnected!", num);
             break;
         case WStype_CONNECTED: {
             IPAddress ip = webSocket.remoteIP(num);
-            LOG_W("[%u] webSocket connected from %s\n", num, ip.toString().c_str());
+            LOG_W("[%u] webSocket connected from %s", num, ip.toString().c_str());
             break;
         }
         case WStype_TEXT:
-            LOG_W("[%u] webSocket get Text: %s\n", num, payload);
+            LOG_W("[%u] webSocket get Text: %s", num, payload);
             webSocket.sendTXT(num, payload, length);
             break;
         case WStype_BIN:
-            LOG_W("[%u] webSocket get binary length: %u\n", num, length);
+            LOG_W("[%u] webSocket get binary length: %u", num, length);
             break;
         case WStype_PING:
-            LOG_W("[%u] webSocket get ping\n", num);
+            LOG_W("[%u] webSocket get ping", num);
             break;
         case WStype_PONG:
-            LOG_W("[%u] webSocket get pong\n", num);
+            LOG_W("[%u] webSocket get pong", num);
             break;
         case WStype_ERROR:
-            LOG_W("[%u] webSocket get error\n", num);
+            LOG_W("[%u] webSocket get error", num);
             break;
     }
 }
@@ -322,7 +322,7 @@ static void websocket_loop(void *args){
         //     UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(NULL);
         //     LOG_D("%s free stack: %d", name, highWaterMark);
         // }
-        delay(100);
+        delay(500);
     }
 }
 

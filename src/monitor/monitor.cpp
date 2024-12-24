@@ -33,12 +33,8 @@ void monitor_thread_entry(void *args){
         g_nmaxe.board.vbus = g_nmaxe.power.get_vbus();
         g_nmaxe.board.ibus = g_nmaxe.power.get_ibus();
         g_nmaxe.asic.vcore_measured = g_nmaxe.power.get_vcore();
-        //update mcu temperature every 30s
-        static uint8_t mcu_tmp_cnt = 0;
-        if((mcu_tmp_cnt++ % 30) == 0){
-          g_nmaxe.board.temp_mcu  = (int8_t)get_mcu_temperature();
-        }
         //update board temperature
+        g_nmaxe.board.temp_mcu    = (int8_t)get_mcu_temperature();
         g_nmaxe.board.temp_vcore  = (int8_t)get_vcore_temperature();
         g_nmaxe.asic.temp         = (int8_t)get_asic_temperature();
         //update wifi rssi
@@ -74,13 +70,17 @@ void monitor_thread_entry(void *args){
           udpStatus.endPacket();
         }
       }
-      //check overheat
-      if(g_nmaxe.mstatus.uptime % 5 == 0){
+
+
+      //status check
+      if(g_nmaxe.mstatus.uptime % 3 == 0){
+        //check mcu temperature status
         if(g_nmaxe.board.temp_mcu > BOARD_MCU_DANGER){
           LOG_W("MCU temp is too high, restart...");
           delay(1000);
           ESP.restart();
         }
+        //check vcore temperature status
         if(g_nmaxe.board.temp_vcore > VCORE_TEMP_DANGER || g_nmaxe.asic.temp > ASIC_TEMP_DANGER){
           uint16_t vcore_now = g_nmaxe.power.get_vcore();
           if(vcore_now >= 1200)vcore_now -= 100;
@@ -95,6 +95,7 @@ void monitor_thread_entry(void *args){
           g_nmaxe.power.set_vcore_voltage(vcore_now);
           LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", g_nmaxe.board.temp_vcore, vcore_now);
         }
+        //check fan status
         static uint8_t fan_err_cnt = 0;
         if(g_nmaxe.fan.rpm <= 1000){
           fan_err_cnt++;
@@ -113,7 +114,20 @@ void monitor_thread_entry(void *args){
             ESP.restart();
           }
         }else pwr_err_cnt = 0;
+
+
+        //check hashrate
+        static uint8_t hr_err_cnt = 0;
+        if(g_nmaxe.mstatus.hashrate._3m <= 1){
+          if(++hr_err_cnt > 20){
+            LOG_W("Hashrate is too low, restart miner...");
+            ESP.restart();
+          }
+        }else hr_err_cnt = 0;
       }
+
+
+
       //print summary to log
       if(g_nmaxe.mstatus.uptime % 60 == 0){
         LOG_I(" ============================== ");
@@ -133,9 +147,11 @@ void monitor_thread_entry(void *args){
               formatNumber(g_nmaxe.mstatus.best_ever, 5).c_str(),
               formatNumber(g_nmaxe.mstatus.network_diff, 5).c_str());
         LOG_I("+----------Free  heap----------+");
-        LOG_I("|            %-5sKB          |", formatNumber(ESP.getFreeHeap() / 1024.0f, 5).c_str() );
+        LOG_I("|           %-5sKB           |", formatNumber(ESP.getFreeHeap() / 1024.0f, 5).c_str() );
         LOG_I(" ============================== ");
       }
+
+
       //save status to NVS
       static uint64_t last_save_time = g_nmaxe.mstatus.uptime;
       if(g_nmaxe.mstatus.uptime - last_save_time > NVS_SAVE_INTERVAL){

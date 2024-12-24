@@ -70,7 +70,7 @@ void market_thread_entry(void *args){
 
         if(g_nmaxe.ota.ota_running)break;
 
-        delay(100);
+        delay(500);
     }
     LOG_W("Market thread exit.");
     vTaskDelete(NULL);
