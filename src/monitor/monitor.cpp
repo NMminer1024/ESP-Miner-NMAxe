@@ -132,7 +132,7 @@ void monitor_thread_entry(void *args){
               formatNumber(g_nmaxe.mstatus.best_session, 5).c_str(), 
               formatNumber(g_nmaxe.mstatus.best_ever, 5).c_str(),
               formatNumber(g_nmaxe.mstatus.network_diff, 5).c_str());
-        LOG_I("+-----------Free heap----------+");
+        LOG_I("+----------Free  heap----------+");
         LOG_I("|            %-5sKB          |", formatNumber(ESP.getFreeHeap() / 1024.0f, 5).c_str() );
         LOG_I(" ============================== ");
       }

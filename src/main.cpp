@@ -104,7 +104,6 @@ void setup() {
 void loop() {
   //WiFi monitor
   if(xSemaphoreTake(g_nmaxe.connection.wifi.reconnect_xsem, 500) == pdTRUE){
-    LOG_W("WiFi reconnecting..");
     WiFi.begin(g_nmaxe.connection.wifi.conn_param.ssid.c_str(), g_nmaxe.connection.wifi.conn_param.pwd.c_str());
   }
 }

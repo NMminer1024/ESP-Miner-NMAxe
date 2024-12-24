@@ -359,7 +359,7 @@ uint8_t BM1366::init(uint64_t freq, int diff){
 
     uint8_t chip_counter = 0, rsp[100] = {0,};
     while (true) {
-        uint8_t len = this->receive(rsp, sizeof(rsp), 3000);
+        uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
         if(len == 0) break;
 
         // dbg::hex_print(rsp, len, "init3");

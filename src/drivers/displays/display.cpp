@@ -1157,7 +1157,7 @@ void ui_thread_entry(void *args){
   free(name);
 
   const char* vbus_chk_str[] = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
-  const char* asci_init_str[] = {"Init ASIC   ","Init ASIC.  ","Init ASIC.. ","Init ASIC..."};
+  const char* asci_init_str[] = {"ASIC init  ","ASIC init.  ","ASIC init.. ","ASIC init..."};
   const char* wifi_con_str[] = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
   const char* fan_test_str[] = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
   const char* market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};

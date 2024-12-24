@@ -29,11 +29,11 @@ bool poolClass::connect(){
     WiFi.hostByName(this->_pool_cfg.url.c_str(), this->_pool_ip);
     LOG_I("Resolving pool address [%s] to  [%s]", this->_pool_cfg.url.c_str(), this->_pool_ip.toString().c_str());
 
-    static uint16_t err_cnt = 0;
+    static uint16_t err_cnt = 0, max_err = 10;
     if(!this->_pwclient->connect(this->_pool_ip, this->_pool_cfg.port)){
         err_cnt++;
-        LOG_E("Failed to connect to pool %s:%d, %d times", this->_pool_cfg.url.c_str(), this->_pool_cfg.port, err_cnt);
-        if(err_cnt > 10) ESP.restart();
+        LOG_E("Failed to connect to pool %s:%d, %d/%d", this->_pool_cfg.url.c_str(), this->_pool_cfg.port, err_cnt, max_err);
+        if(err_cnt > max_err) ESP.restart();
         return false;
     }
     else  err_cnt = 0;

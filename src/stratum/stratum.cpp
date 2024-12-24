@@ -367,12 +367,18 @@ void stratum_thread_entry(void *args){
     g_nmaxe.stratum.set_pool_difficulty(DEFAULT_POOL_DIFFICULTY);
     StaticJsonDocument<1024*4> json;
     while(true){
+        static int retry = 0, maxRetries = 24;
         if(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED){
+            retry++;
+            LOG_W("WiFi reconnecting %d/%d...", retry, maxRetries);
+            if(retry >= maxRetries) ESP.restart();
+
             xSemaphoreGive(g_nmaxe.connection.wifi.reconnect_xsem);
             g_nmaxe.stratum.reset();
-            delay(8000);
+            delay(5000);
             continue;
-        }
+        } else retry = 0;
+        
 
         if(!g_nmaxe.stratum.pool.is_connected()){
             static bool first_connect = true;
@@ -541,11 +547,11 @@ void stratum_thread_entry(void *args){
                             uint64_t latency = micros() - rsp.stamp;
                             if (rsp.status == true){
                                 g_nmaxe.mstatus.share_accepted++;
-                                LOG_L("#%d share accepted, %ldms.", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));      
+                                LOG_L("#%d share accepted, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));      
                             }
                             else {
                                 g_nmaxe.mstatus.share_rejected++;
-                                LOG_E("#%d share rejected, %ldms.", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
+                                LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
                             }
                         }
                         else if(rsp.method == "mining.configure"){
@@ -594,7 +600,7 @@ void stratum_thread_entry(void *args){
                             uint64_t latency = micros() - rsp.stamp;
                             g_nmaxe.mstatus.share_rejected++;
                             g_nmaxe.stratum.del_msg_rsp_map(method.id);
-                            LOG_E("#%d share rejected, %ldms.", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
+                            LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
                         }
                         else if(rsp.method == "mining.authorize"){
                             g_nmaxe.stratum.set_authorize(false);
