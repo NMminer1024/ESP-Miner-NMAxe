@@ -47,7 +47,7 @@ void monitor_thread_entry(void *args){
         xSemaphoreGive(g_nmaxe.mstatus.update_xsem);
       }
       //send status to udp broadcast
-      if(g_nmaxe.mstatus.uptime % 2 == 0){
+      if(g_nmaxe.mstatus.uptime % 5 == 0){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
           StaticJsonDocument<512> jsonDoc;
           jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
@@ -132,6 +132,8 @@ void monitor_thread_entry(void *args){
               formatNumber(g_nmaxe.mstatus.best_session, 5).c_str(), 
               formatNumber(g_nmaxe.mstatus.best_ever, 5).c_str(),
               formatNumber(g_nmaxe.mstatus.network_diff, 5).c_str());
+        LOG_I("+-----------Free heap----------+");
+        LOG_I("|            %-5sKB          |", formatNumber(ESP.getFreeHeap() / 1024.0f, 5).c_str() );
         LOG_I(" ============================== ");
       }
       //save status to NVS
