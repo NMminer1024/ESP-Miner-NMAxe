@@ -364,7 +364,7 @@ void miner_asic_rx_thread_entry(void *args){
                 double diff           = g_nmaxe.miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
 
                 //skip if diff <= 0.0001 or diff is nan or diff is inf
-                if((diff <= 0.0001) || std::isnan(diff) || (diff == std::numeric_limits<double>::infinity())) continue;
+                if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff)) continue;
 
                 //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
                 g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);

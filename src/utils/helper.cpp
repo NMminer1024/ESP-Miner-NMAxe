@@ -237,5 +237,12 @@ double le_hash_to_diff(uint8_t *hash){
     if (dcut64 == 0.0 || std::abs(dcut64) < std::numeric_limits<double>::epsilon()) {
         return std::numeric_limits<double>::quiet_NaN();
     }
-    return diffone / dcut64;
+
+    double result = diffone / dcut64;
+    if (std::isinf(result)) {
+        LOG_E("diff calculate error, infinite result!!!");
+        return std::numeric_limits<double>::infinity();
+    }
+
+    return result;
 }

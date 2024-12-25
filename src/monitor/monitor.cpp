@@ -44,6 +44,7 @@ void monitor_thread_entry(void *args){
       }
       //send status to udp broadcast
       if(g_nmaxe.mstatus.uptime % 5 == 0){
+
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
           StaticJsonDocument<512> jsonDoc;
           jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
