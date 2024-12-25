@@ -4,7 +4,7 @@
 #include "axe_http_server.h"  
 #include "axe_nvs_config.h"
 
-#define CONFIG_TIMEOUT 60*5
+#define CONFIG_TIMEOUT 60*10
 
 static void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     const char* reason = NULL;

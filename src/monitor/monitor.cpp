@@ -20,7 +20,6 @@ void monitor_thread_entry(void *args){
   //udp status boardcast begin
   udp_client.begin(udp_client_port);
   //set udp timeout to 500ms for listen
-  // udp_client.setTimeout(500);
 
   //wait for first job cache ready forever when process start
   xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
@@ -47,6 +46,40 @@ void monitor_thread_entry(void *args){
         xSemaphoreGive(g_nmaxe.mstatus.update_xsem);
       }
       
+      //listen udp status
+      if(g_nmaxe.mstatus.uptime % 2 == 0){
+        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
+          int packetSize = udp_client.parsePacket();
+          if (packetSize > 0) {
+              char *incomingPacket = (char*)malloc(packetSize);
+              memset(incomingPacket, '\0', packetSize);
+              int len = udp_client.read(incomingPacket, packetSize);
+
+              StaticJsonDocument<512> json;
+              DeserializationError error = deserializeJson(json, incomingPacket);
+              if(error) {
+                free(incomingPacket);
+                udp_client.flush();
+                continue;
+              }
+
+
+              static std::map<String, String> swarm_map;
+              if(json.containsKey("ip")){
+                swarm_map[json["ip"].as<String>()] = incomingPacket;
+              }
+
+              // uint8_t cnt = 1;
+              // for(auto it = swarm_map.begin(); it != swarm_map.end();it++){
+              //   LOG_W("%d : IP [%s]", cnt, it->first.c_str());cnt++;
+              // }
+
+              free(incomingPacket);
+              udp_client.flush();
+          }
+        }
+      }
+
       //status check
       if(g_nmaxe.mstatus.uptime % 3 == 0){
         //check mcu temperature status
@@ -101,38 +134,8 @@ void monitor_thread_entry(void *args){
         }else hr_err_cnt = 0;
       }
       
-      //listen udp status
-      if(g_nmaxe.mstatus.uptime % 4 == 0){
-        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
-          int packetSize = udp_client.parsePacket();
-          if (packetSize > 0) {
-              char *incomingPacket = (char*)malloc(packetSize);
-              memset(incomingPacket, '\0', packetSize);
-              int len = udp_client.read(incomingPacket, packetSize);
-
-              StaticJsonDocument<512> json;
-              DeserializationError error = deserializeJson(json, incomingPacket);
-              if(error) {
-                LOG_E("Failed to parse udp JSON: %s", error.c_str());
-                free(incomingPacket);
-                udp_client.flush();
-                continue;
-              }
-
-              for(JsonPair kv : json.as<JsonObject>()){
-                // LOG_W("%s:   %s", kv.key().c_str(), kv.value().as<String>().c_str());
-                if(kv.key() == "ip"){
-                  LOG_W("Listen udp from %s", kv.value().as<String>().c_str());
-                }
-              }
-              free(incomingPacket);
-              udp_client.flush();
-          }
-        }
-      }
-
       //status udp broadcast
-      if(g_nmaxe.mstatus.uptime % 5 == 0){
+      if(g_nmaxe.mstatus.uptime % 4 == 0){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
           StaticJsonDocument<512> jsonDoc;
           jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
