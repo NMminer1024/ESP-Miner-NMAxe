@@ -7,9 +7,9 @@
 #include "global.h"
 #include "tmp102.h"
 
-static WiFiUDP        udpStatus;
-static const char*    status_udp_addr = "255.255.255.255"; 
-static const int      status_udp_port = 12345; 
+static WiFiUDP        udp_client;
+static const char*    udp_client_addr = "255.255.255.255"; 
+static const int      udp_client_port = 12345; 
 
 void monitor_thread_entry(void *args){
   char *name = (char*)malloc(20);
@@ -18,9 +18,13 @@ void monitor_thread_entry(void *args){
   free(name);
 
   //udp status boardcast begin
-  udpStatus.begin(status_udp_port);
+  udp_client.begin(udp_client_port);
+  //set udp timeout to 500ms for listen
+  // udp_client.setTimeout(500);
+
   //wait for first job cache ready forever when process start
   xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
+
   delay(500);//necessary delay for first job cache ready
 
   uint32_t start = millis();
@@ -42,37 +46,7 @@ void monitor_thread_entry(void *args){
         //give miner update signal
         xSemaphoreGive(g_nmaxe.mstatus.update_xsem);
       }
-      //send status to udp broadcast
-      if(g_nmaxe.mstatus.uptime % 5 == 0){
-
-        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
-          StaticJsonDocument<512> jsonDoc;
-          jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
-          jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
-          uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
-          float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
-          jsonDoc["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
-          jsonDoc["NetDiff"] = formatNumber(g_nmaxe.mstatus.network_diff,4);
-          jsonDoc["PoolDiff"] = formatNumber(g_nmaxe.mstatus.pool_diff,4);
-          jsonDoc["LastDiff"] = formatNumber(g_nmaxe.mstatus.last_diff,4);
-          jsonDoc["BestDiff"] = formatNumber(g_nmaxe.mstatus.best_ever,4);
-          jsonDoc["Valid"] = g_nmaxe.mstatus.block_hits;
-          jsonDoc["Temp"] = g_nmaxe.asic.temp;
-          jsonDoc["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
-          jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
-          jsonDoc["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime);
-          jsonDoc["Version"] = g_nmaxe.board.fw_version;
-          jsonDoc["BoardType"] = g_nmaxe.board.hw_model;
-
-          char jsonBuffer[512];
-          size_t n = serializeJson(jsonDoc, jsonBuffer);
-          udpStatus.beginPacket(status_udp_addr, status_udp_port);
-          udpStatus.write((uint8_t*)jsonBuffer,n);
-          udpStatus.endPacket();
-        }
-      }
-
-
+      
       //status check
       if(g_nmaxe.mstatus.uptime % 3 == 0){
         //check mcu temperature status
@@ -126,8 +100,65 @@ void monitor_thread_entry(void *args){
           }
         }else hr_err_cnt = 0;
       }
+      
+      //listen udp status
+      if(g_nmaxe.mstatus.uptime % 4 == 0){
+        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
+          int packetSize = udp_client.parsePacket();
+          if (packetSize > 0) {
+              char *incomingPacket = (char*)malloc(packetSize);
+              memset(incomingPacket, '\0', packetSize);
+              int len = udp_client.read(incomingPacket, packetSize);
 
+              StaticJsonDocument<512> json;
+              DeserializationError error = deserializeJson(json, incomingPacket);
+              if(error) {
+                LOG_E("Failed to parse udp JSON: %s", error.c_str());
+                free(incomingPacket);
+                udp_client.flush();
+                continue;
+              }
 
+              for(JsonPair kv : json.as<JsonObject>()){
+                // LOG_W("%s:   %s", kv.key().c_str(), kv.value().as<String>().c_str());
+                if(kv.key() == "ip"){
+                  LOG_W("Listen udp from %s", kv.value().as<String>().c_str());
+                }
+              }
+              free(incomingPacket);
+              udp_client.flush();
+          }
+        }
+      }
+
+      //status udp broadcast
+      if(g_nmaxe.mstatus.uptime % 5 == 0){
+        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
+          StaticJsonDocument<512> jsonDoc;
+          jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
+          jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
+          uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
+          float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
+          jsonDoc["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
+          jsonDoc["NetDiff"] = formatNumber(g_nmaxe.mstatus.network_diff,4);
+          jsonDoc["PoolDiff"] = formatNumber(g_nmaxe.mstatus.pool_diff,4);
+          jsonDoc["LastDiff"] = formatNumber(g_nmaxe.mstatus.last_diff,4);
+          jsonDoc["BestDiff"] = formatNumber(g_nmaxe.mstatus.best_ever,4);
+          jsonDoc["Valid"] = g_nmaxe.mstatus.block_hits;
+          jsonDoc["Temp"] = g_nmaxe.asic.temp;
+          jsonDoc["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
+          jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
+          jsonDoc["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime);
+          jsonDoc["Version"] = g_nmaxe.board.fw_version;
+          jsonDoc["BoardType"] = g_nmaxe.board.hw_model;
+
+          char jsonBuffer[512];
+          size_t n = serializeJson(jsonDoc, jsonBuffer);
+          udp_client.beginPacket(udp_client_addr, udp_client_port);
+          udp_client.write((uint8_t*)jsonBuffer,n);
+          udp_client.endPacket();
+        }
+      }
 
       //print summary to log
       if(g_nmaxe.mstatus.uptime % 60 == 0){
@@ -151,13 +182,13 @@ void monitor_thread_entry(void *args){
         LOG_I("|           %-5sKB           |", formatNumber(ESP.getFreeHeap() / 1024.0f, 5).c_str() );
         LOG_I(" ============================== ");
       }
-
-
+      
       //save status to NVS
       static uint64_t last_save_time = g_nmaxe.mstatus.uptime;
       if(g_nmaxe.mstatus.uptime - last_save_time > NVS_SAVE_INTERVAL){
         xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
       }
+      
       //save some status to NVS
       if(xSemaphoreTake(g_nmaxe.mstatus.nvs_save_xsem, 0) == pdTRUE){
           nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(g_nmaxe.mstatus.best_ever).c_str());
@@ -166,6 +197,7 @@ void monitor_thread_entry(void *args){
           last_save_time = g_nmaxe.mstatus.uptime;
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime).c_str());
       }
+      
       //thread delay 1s
       delay(1000);
   }
