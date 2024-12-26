@@ -210,7 +210,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 575);
     g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1300);
     g_nmaxe.fan.is_auto_speed                   = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
-    g_nmaxe.fan.invert_ploarity                 = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, true); 
+    g_nmaxe.fan.invert_ploarity                 = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, false); 
     g_nmaxe.fan.speed                           = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     g_nmaxe.fan.self_test                       = false;
     g_nmaxe.led.indicator                       = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);

@@ -56,14 +56,21 @@ void fan_thread_entry(void *args){
     int16_t now_count = 0, last_count = 0;
     fan_init();
     while(1){
-        if(g_nmaxe.fan.is_auto_speed){
-            // Linearly increase fan speed from 40 to 60 degrees
-            g_nmaxe.fan.speed = (g_nmaxe.asic.temp < 40.0f) ? 0.0f :
-                                (g_nmaxe.asic.temp > 60.0f) ? 100.0f :
-                                (g_nmaxe.asic.temp - 40.0f) * (100.0f / 20.0f);
+        // Fan self test flag set only once
+        if(!g_nmaxe.fan.self_test){
+            g_nmaxe.fan.self_test = (g_nmaxe.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
+            g_nmaxe.fan.speed = 100.0f;
         }
-        fan_set_speed(g_nmaxe.fan.speed / 100.0f);
 
+        if(g_nmaxe.fan.is_auto_speed && g_nmaxe.fan.self_test){
+            // Linearly increase fan speed from 40 to 60 degrees
+            g_nmaxe.fan.speed = (g_nmaxe.asic.temp < 20.0f) ? 0.0f :
+                                (g_nmaxe.asic.temp > 40.0f) ? 100.0f :
+                                (g_nmaxe.asic.temp - 20.0f) * (100.0f / (40.0 - 20.0));
+        }
+        fan_set_speed(g_nmaxe.fan.speed / 100.0);
+
+        // Calculate fan RPM
         if(millis() - start_ms > 1000){
             pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
             uint16_t delta_pcnt = 0;
@@ -73,11 +80,6 @@ void fan_thread_entry(void *args){
             g_nmaxe.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
             last_count = now_count;
             start_ms = millis();
-        }
-
-        // Fan self test flag set only once
-        if(!g_nmaxe.fan.self_test){
-            g_nmaxe.fan.self_test = (g_nmaxe.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
         }
         delay(100);
     }
