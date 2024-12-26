@@ -37,7 +37,8 @@ void monitor_thread_entry(void *args){
         g_nmaxe.board.ibus = g_nmaxe.power.get_ibus();
         g_nmaxe.asic.vcore_measured = g_nmaxe.power.get_vcore();
         //update board temperature
-        g_nmaxe.board.temp_mcu    = (int8_t)get_mcu_temperature();
+        static uint8_t mcu_cnt = 0;
+        g_nmaxe.board.temp_mcu    = (mcu_cnt++ % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
         g_nmaxe.board.temp_vcore  = (int8_t)get_vcore_temperature();
         g_nmaxe.asic.temp         = (int8_t)get_asic_temperature();
         //update wifi rssi
@@ -69,10 +70,10 @@ void monitor_thread_entry(void *args){
                 swarm_map[json["ip"].as<String>()] = incomingPacket;
               }
 
-              // uint8_t cnt = 1;
-              // for(auto it = swarm_map.begin(); it != swarm_map.end();it++){
-              //   LOG_W("%d : IP [%s]", cnt, it->first.c_str());cnt++;
-              // }
+              uint8_t cnt = 1;
+              for(auto it = swarm_map.begin(); it != swarm_map.end();it++){
+                LOG_D("%d : IP [%s]", cnt, it->first.c_str());cnt++;
+              }
 
               free(incomingPacket);
               udp_client.flush();
@@ -122,7 +123,6 @@ void monitor_thread_entry(void *args){
             ESP.restart();
           }
         }else pwr_err_cnt = 0;
-
 
         //check hashrate
         static uint8_t hr_err_cnt = 0;
