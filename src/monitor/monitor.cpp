@@ -48,33 +48,55 @@ void monitor_thread_entry(void *args){
       }
       
       //listen udp status
-      if(g_nmaxe.mstatus.uptime % 2 == 0){
+      if(g_nmaxe.mstatus.uptime % 1 == 0){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
           int packetSize = udp_client.parsePacket();
           if (packetSize > 0) {
-              char *incomingPacket = (char*)malloc(packetSize);
-              memset(incomingPacket, '\0', packetSize);
+              char *incomingPacket = (char*)malloc(packetSize + 1 );
+              memset(incomingPacket, '\0', packetSize + 1);
               int len = udp_client.read(incomingPacket, packetSize);
 
               StaticJsonDocument<512> json;
-              DeserializationError error = deserializeJson(json, incomingPacket);
+              char *json_str = (char*)malloc(packetSize + 1);
+              memset(json_str, '\0', packetSize + 1);
+              memcpy(json_str, incomingPacket, packetSize);
+              DeserializationError error = deserializeJson(json, json_str);
               if(error) {
-                free(incomingPacket);
+                free(json_str);
                 udp_client.flush();
                 continue;
               }
+              json["Lastseen"] = millis();
 
+              char js_t[512] = {0,};
+              size_t n = serializeJson(json, js_t);
 
-              static std::map<String, String> swarm_map;
+              //update swarm list if has this ip
+              static std::map<String, String>   swarm_map;
+              static std::map<String, uint32_t> last_seen_map;
               if(json.containsKey("ip")){
-                swarm_map[json["ip"].as<String>()] = incomingPacket;
+                swarm_map[json["ip"].as<String>()] = String(js_t);
+                last_seen_map[json["ip"].as<String>()] = json["Lastseen"];
               }
 
-              uint8_t cnt = 1;
+              //update json string
+              char jsonBuffer[512] = {'\0',};
               for(auto it = swarm_map.begin(); it != swarm_map.end();it++){
-                LOG_D("%d : IP [%s]", cnt, it->first.c_str());cnt++;
+                memset(jsonBuffer, '\0', sizeof(jsonBuffer));
+                DeserializationError error = deserializeJson(json, it->second);
+                if(error) continue;
+
+                json["Lastseen"] = millis() - last_seen_map[it->first];
+                size_t n = serializeJson(json, jsonBuffer);
+                it->second = (n>0) ? String(jsonBuffer) : "";
               }
 
+              LOG_L(" ==============  Swarm count: %d ==============", swarm_map.size());
+              for(auto it = swarm_map.begin(); it != swarm_map.end();it++){
+                LOG_W("Swarm => %s", it->second.c_str());
+              }
+
+              free(json_str);
               free(incomingPacket);
               udp_client.flush();
           }
@@ -154,6 +176,7 @@ void monitor_thread_entry(void *args){
           jsonDoc["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime);
           jsonDoc["Version"] = g_nmaxe.board.fw_version;
           jsonDoc["BoardType"] = g_nmaxe.board.hw_model;
+          jsonDoc["Power"]     = g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0;
 
           char jsonBuffer[512];
           size_t n = serializeJson(jsonDoc, jsonBuffer);
