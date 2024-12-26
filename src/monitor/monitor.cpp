@@ -20,6 +20,7 @@ void monitor_thread_entry(void *args){
   //udp status boardcast begin
   udp_client.begin(udp_client_port);
   //set udp timeout to 500ms for listen
+  // udp_client.setTimeout(500);
 
   //wait for first job cache ready forever when process start
   xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
@@ -28,10 +29,17 @@ void monitor_thread_entry(void *args){
 
   uint32_t start = millis();
 
+  uint64_t monitor_cnt = 0;
   while(true){
-      g_nmaxe.mstatus.uptime++;
+      //thread delay 0.1s
+      delay(200);
+      if(monitor_cnt++ % 5 == 0){
+        g_nmaxe.mstatus.uptime++;
+      }
+
+
       //update temperature and power status
-      if(g_nmaxe.mstatus.uptime % 1 == 0){
+      if(monitor_cnt % 5 == 0){
         //update power status
         g_nmaxe.board.vbus = g_nmaxe.power.get_vbus();
         g_nmaxe.board.ibus = g_nmaxe.power.get_ibus();
@@ -48,7 +56,7 @@ void monitor_thread_entry(void *args){
       }
       
       //listen udp status
-      if(g_nmaxe.mstatus.uptime % 1 == 0){
+      if(monitor_cnt % 1 == 0){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
           int packetSize = udp_client.parsePacket();
           if (packetSize > 0) {
@@ -72,16 +80,15 @@ void monitor_thread_entry(void *args){
               size_t n = serializeJson(json, js_t);
 
               //update swarm list if has this ip
-              static std::map<String, String>   swarm_map;
               static std::map<String, uint32_t> last_seen_map;
               if(json.containsKey("ip")){
-                swarm_map[json["ip"].as<String>()] = String(js_t);
+                g_nmaxe.swarm[json["ip"].as<String>()] = String(js_t);
                 last_seen_map[json["ip"].as<String>()] = json["Lastseen"];
               }
 
               //update json string
               char jsonBuffer[512] = {'\0',};
-              for(auto it = swarm_map.begin(); it != swarm_map.end();it++){
+              for(auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end();it++){
                 memset(jsonBuffer, '\0', sizeof(jsonBuffer));
                 DeserializationError error = deserializeJson(json, it->second);
                 if(error) continue;
@@ -91,10 +98,14 @@ void monitor_thread_entry(void *args){
                 it->second = (n>0) ? String(jsonBuffer) : "";
               }
 
-              LOG_L(" ==============  Swarm count: %d ==============", swarm_map.size());
-              for(auto it = swarm_map.begin(); it != swarm_map.end();it++){
-                LOG_W("Swarm => %s", it->second.c_str());
-              }
+
+              // LOG_L(" ==============  Swarm count: %d ==============", g_nmaxe.swarm.size());
+              // for(auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end();it++){
+              //   DeserializationError error = deserializeJson(json, it->second.c_str());
+              //   if(error) continue;
+              //   LOG_W("%s => %.2fs", it->first.c_str() ,json["Lastseen"].as<uint32_t>()/1000.0f);
+              // }
+              
 
               free(json_str);
               free(incomingPacket);
@@ -104,7 +115,7 @@ void monitor_thread_entry(void *args){
       }
 
       //status check
-      if(g_nmaxe.mstatus.uptime % 3 == 0){
+      if(monitor_cnt % 15 == 0){
         //check mcu temperature status
         if(g_nmaxe.board.temp_mcu > BOARD_MCU_DANGER){
           LOG_W("MCU temp is too high, restart...");
@@ -157,7 +168,7 @@ void monitor_thread_entry(void *args){
       }
       
       //status udp broadcast
-      if(g_nmaxe.mstatus.uptime % 4 == 0){
+      if(monitor_cnt % 20 == 0){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
           StaticJsonDocument<512> jsonDoc;
           jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
@@ -187,7 +198,7 @@ void monitor_thread_entry(void *args){
       }
 
       //print summary to log
-      if(g_nmaxe.mstatus.uptime % 60 == 0){
+      if(monitor_cnt % 300 == 0){
         LOG_I(" ============================== ");
         LOG_I("|         NMAxe Summary        |");
         LOG_I("+------------Uptime------------+");
@@ -223,8 +234,5 @@ void monitor_thread_entry(void *args){
           last_save_time = g_nmaxe.mstatus.uptime;
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime).c_str());
       }
-      
-      //thread delay 1s
-      delay(1000);
   }
 }

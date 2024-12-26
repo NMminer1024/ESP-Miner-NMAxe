@@ -8,7 +8,7 @@
 #include "stratum.h"
 #include "miner.h"
 
-#define CURRENT_FW_VERSION  "v2.3.10"
+#define CURRENT_FW_VERSION  "v2.3.10@"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -124,6 +124,7 @@ typedef struct{
     miner_status_t   mstatus;
     ota_info_t       ota;
     market_info_t    market;
+    std::map<String, String>  swarm;
     NMAxePowerClass  power;
     StratumClass     stratum;
     AsicMinerClass   *miner;
