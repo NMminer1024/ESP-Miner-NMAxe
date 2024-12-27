@@ -37,7 +37,6 @@ void monitor_thread_entry(void *args){
         g_nmaxe.mstatus.uptime++;
       }
 
-
       //update temperature and power status
       if(monitor_cnt % 5 == 0){
         //update power status
@@ -46,7 +45,8 @@ void monitor_thread_entry(void *args){
         g_nmaxe.asic.vcore_measured = g_nmaxe.power.get_vcore();
         //update board temperature
         static uint8_t mcu_cnt = 0;
-        g_nmaxe.board.temp_mcu    = (mcu_cnt++ % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
+        // g_nmaxe.board.temp_mcu    = (mcu_cnt++ % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
+        g_nmaxe.board.temp_mcu    = (int8_t)get_mcu_temperature();
         g_nmaxe.board.temp_vcore  = (int8_t)get_vcore_temperature();
         g_nmaxe.asic.temp         = (int8_t)get_asic_temperature();
         //update wifi rssi
@@ -103,7 +103,8 @@ void monitor_thread_entry(void *args){
               // for(auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end();it++){
               //   DeserializationError error = deserializeJson(json, it->second.c_str());
               //   if(error) continue;
-              //   LOG_W("%s => %.2fs", it->first.c_str() ,json["Lastseen"].as<uint32_t>()/1000.0f);
+              //   LOG_W("key: %s, value: %s", it->first.c_str(), it->second.c_str());
+              //   // LOG_W("%s => %.2fs", it->first.c_str() ,json["Lastseen"].as<uint32_t>()/1000.0f);
               // }
               
 
