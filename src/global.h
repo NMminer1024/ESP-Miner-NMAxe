@@ -114,6 +114,12 @@ typedef struct{
     bool        connected;
 }market_info_t;
 
+
+
+typedef String swarm_ip_t;
+
+typedef String swarm_info_t;
+
 typedef struct{
     board_info_t     board;
     fan_info_t       fan;
@@ -124,7 +130,7 @@ typedef struct{
     miner_status_t   mstatus;
     ota_info_t       ota;
     market_info_t    market;
-    std::map<String, String>  swarm;
+    std::map<swarm_ip_t, swarm_info_t>  swarm;
     NMAxePowerClass  power;
     StratumClass     stratum;
     AsicMinerClass   *miner;
