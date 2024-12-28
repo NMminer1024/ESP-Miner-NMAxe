@@ -81,7 +81,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["wifiStatus"] = ((g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
     root["sharesAccepted"] = g_nmaxe.mstatus.share_accepted;
     root["sharesRejected"] = g_nmaxe.mstatus.share_rejected;
-    root["uptimeSeconds"] = g_nmaxe.mstatus.uptime_ever;
+    root["uptimeSeconds"] = g_nmaxe.mstatus.uptime_session;
     root["asicCount"] = g_nmaxe.miner->get_asic_count();
     root["smallCoreCount"] = small_core_count;
     root["ASICModel"] = g_nmaxe.asic.type;
@@ -90,7 +90,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["stratumUser"] = g_nmaxe.connection.stratum.user;
     root["version"] = g_nmaxe.board.fw_version;
     root["boardVersion"] = g_nmaxe.board.hw_version;
-    root["runningPartition"] = "part1";
+    // root["runningPartition"] = "part1";
     root["flipscreen"] = g_nmaxe.screen.flip;
     root["ledindicator"] = g_nmaxe.led.indicator;
     root["overheat_mode"] = 0;
@@ -136,7 +136,6 @@ static void get_swarm_info(AsyncWebServerRequest* request){
         deviceObj["BestDiff"] = deviceDoc["BestDiff"].as<std::string>();
         deviceObj["Valid"] = deviceDoc["Valid"].as<int>();
         deviceObj["Power"] = (deviceDoc.containsKey("Power")) ? deviceDoc["Power"].as<std::string>() : "---";
-
         deviceObj["Temp"] = deviceDoc["Temp"].as<float>();
         deviceObj["RSSI"] = deviceDoc["RSSI"].as<int>();
         deviceObj["FreeHeap"] = deviceDoc["FreeHeap"].as<float>();

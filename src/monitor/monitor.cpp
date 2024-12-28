@@ -185,12 +185,12 @@ void monitor_thread_entry(void *args){
           json["NetDiff"] = formatNumber(g_nmaxe.mstatus.network_diff,4);
           json["PoolDiff"] = formatNumber(g_nmaxe.mstatus.pool_diff,4);
           json["LastDiff"] = formatNumber(g_nmaxe.mstatus.last_diff,4);
-          json["BestDiff"] = formatNumber(g_nmaxe.mstatus.best_ever,4);
+          json["BestDiff"] = formatNumber(g_nmaxe.mstatus.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.best_ever,4);
           json["Valid"] = g_nmaxe.mstatus.block_hits;
           json["Temp"] = g_nmaxe.asic.temp;
           json["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
           json["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
-          json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_session);
+          json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
           json["Version"] = g_nmaxe.board.fw_version;
           json["BoardType"] = g_nmaxe.board.hw_model;
           json["Power"]     = String(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 1) + "W";
@@ -215,7 +215,7 @@ void monitor_thread_entry(void *args){
         LOG_I(" ============================== ");
         LOG_I("|         NMAxe Summary        |");
         LOG_I("+------------Uptime------------+");
-        LOG_I("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
+        LOG_I("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str());
         LOG_I("+-----------HashRate-----------+");
         LOG_I("|   3m    |    30m   |    1h   |");
         LOG_I("|%-4sH/s| %-4sH/s|%-4sH/s|", 

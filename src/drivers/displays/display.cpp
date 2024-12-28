@@ -468,7 +468,7 @@ static void ui_miner_page_update(){
     lv_obj_align( lb_fan_symb, LV_ALIGN_TOP_MID, 110, 76);
   }
   
-  String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
+  String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session);
   String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
   String hashuint = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
   String last_diff = formatNumber(g_nmaxe.mstatus.last_diff, 1);
@@ -804,7 +804,7 @@ static void ui_dashboard_page_update(){
     lv_obj_set_style_text_font(lb_vcore_measure_title, font, LV_PART_MAIN);
     lv_obj_set_style_text_color(lb_vcore_measure_title, font_color, LV_PART_MAIN); 
     lv_label_set_long_mode(lb_vcore_measure_title, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_vcore_measure_title, LV_ALIGN_TOP_LEFT, 3 * arc_r - 12 , 3 * arc_r + 27);
+    lv_obj_align( lb_vcore_measure_title, LV_ALIGN_TOP_LEFT, 3 * arc_r - 15 , 3 * arc_r + 27);
 
 
     // Create lb_asic_temp label
@@ -826,7 +826,7 @@ static void ui_dashboard_page_update(){
     lv_obj_set_style_text_font(lb_asic_temp_title, font, LV_PART_MAIN);
     lv_obj_set_style_text_color(lb_asic_temp_title, font_color, LV_PART_MAIN); 
     lv_label_set_long_mode(lb_asic_temp_title, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_asic_temp_title, LV_ALIGN_TOP_LEFT, 150, 105);
+    lv_obj_align( lb_asic_temp_title, LV_ALIGN_TOP_LEFT, 146, 105);
 
   }
 

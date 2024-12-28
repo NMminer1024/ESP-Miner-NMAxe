@@ -224,7 +224,6 @@ void clear_g_nmaxe(void){
     esp_err_t err;
     err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // NVS 分区已满或版本不匹配，先擦除再重新初始化
         LOG_W("NVS partition is full or has invalid version, erasing...");
         err = nvs_flash_erase();
         if (err != ESP_OK) {
