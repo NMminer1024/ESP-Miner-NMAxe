@@ -28,15 +28,14 @@ void monitor_thread_entry(void *args){
 
   delay(500);//necessary delay for first job cache ready
 
-  uint32_t start = millis();
-
   uint64_t monitor_cnt = 0;
 
   while(true){
       //thread delay 0.1s
       delay(200);
       if(monitor_cnt++ % 5 == 0){
-        g_nmaxe.mstatus.uptime++;
+        g_nmaxe.mstatus.uptime_ever++;
+        g_nmaxe.mstatus.uptime_session++;
       }
 
       //update temperature and power status
@@ -191,7 +190,7 @@ void monitor_thread_entry(void *args){
           json["Temp"] = g_nmaxe.asic.temp;
           json["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
           json["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
-          json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime);
+          json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
           json["Version"] = g_nmaxe.board.fw_version;
           json["BoardType"] = g_nmaxe.board.hw_model;
           json["Power"]     = String(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 1) + "W";
@@ -216,7 +215,7 @@ void monitor_thread_entry(void *args){
         LOG_I(" ============================== ");
         LOG_I("|         NMAxe Summary        |");
         LOG_I("+------------Uptime------------+");
-        LOG_I("|%s | %s |", convert_uptime_to_string((millis() - start) / 1000).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime).c_str());
+        LOG_I("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
         LOG_I("+-----------HashRate-----------+");
         LOG_I("|   3m    |    30m   |    1h   |");
         LOG_I("|%-4sH/s| %-4sH/s|%-4sH/s|", 
@@ -235,8 +234,8 @@ void monitor_thread_entry(void *args){
       }
       
       //save status to NVS
-      static uint64_t last_save_time = g_nmaxe.mstatus.uptime;
-      if(g_nmaxe.mstatus.uptime - last_save_time > NVS_SAVE_INTERVAL){
+      static uint64_t last_save_time = g_nmaxe.mstatus.uptime_ever;
+      if(g_nmaxe.mstatus.uptime_ever - last_save_time > NVS_SAVE_INTERVAL){
         xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
       }
       
@@ -244,9 +243,9 @@ void monitor_thread_entry(void *args){
       if(xSemaphoreTake(g_nmaxe.mstatus.nvs_save_xsem, 0) == pdTRUE){
           nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(g_nmaxe.mstatus.best_ever).c_str());
           nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, g_nmaxe.mstatus.block_hits);
-          nvs_config_set_u64(NVS_CONFIG_UPTIME, g_nmaxe.mstatus.uptime);
-          last_save_time = g_nmaxe.mstatus.uptime;
-          LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime).c_str());
+          nvs_config_set_u64(NVS_CONFIG_UPTIME, g_nmaxe.mstatus.uptime_ever);
+          last_save_time = g_nmaxe.mstatus.uptime_ever;
+          LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
   }
 }

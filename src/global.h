@@ -97,7 +97,8 @@ typedef struct{
 typedef struct{
     uint32_t            share_rejected;
     uint32_t            share_accepted;
-    uint64_t            uptime;
+    uint64_t            uptime_ever;
+    uint64_t            uptime_session;
     hashrate_t          hashrate;
     uint16_t            block_hits;
     double              best_session;

@@ -468,7 +468,7 @@ static void ui_miner_page_update(){
     lv_obj_align( lb_fan_symb, LV_ALIGN_TOP_MID, 110, 76);
   }
   
-  String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime);
+  String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
   String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
   String hashuint = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
   String last_diff = formatNumber(g_nmaxe.mstatus.last_diff, 1);

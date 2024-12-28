@@ -81,7 +81,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["wifiStatus"] = ((g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
     root["sharesAccepted"] = g_nmaxe.mstatus.share_accepted;
     root["sharesRejected"] = g_nmaxe.mstatus.share_rejected;
-    root["uptimeSeconds"] = g_nmaxe.mstatus.uptime;
+    root["uptimeSeconds"] = g_nmaxe.mstatus.uptime_ever;
     root["asicCount"] = g_nmaxe.miner->get_asic_count();
     root["smallCoreCount"] = small_core_count;
     root["ASICModel"] = g_nmaxe.asic.type;

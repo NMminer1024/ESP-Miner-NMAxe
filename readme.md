@@ -5,7 +5,7 @@
 
 
 <div align="center">
-  <h1>Join a global block game!</h1>
+  <h1>Join a global game of block!</h1>
 </div>
 
 ## NMAxe
@@ -86,22 +86,13 @@
 |btc-latin.f2pool.com| tcp               |    1314            |        BTC        | Latin|
 
 ## How to monitor
-- In fact, both ***NMController_client*** and ***NMController_web*** have the same feature, ***NMController_client*** for Windows, ***NMController_web*** for Windows and MACOS, We make an example by ***NMController_client*** here.
 
-- ***NMController_client***, scan the machine in your LAN, just as below.
-
-<div align="center">
-  <img src="image/nmcontroller-home.jpg" alt="nmcontroller-home">
-</div>
-
-- Redirect to the web monitor for more details. 
-
-<div align="center">
-  <img src="image/nmcontroller-details.jpg" alt="nmcontroller-details">
+- *Swarm*
+- <div align="center">
+  <img src="image/swarm.jpg" alt="swarm">
 </div>
 
 ## Firmware update
-***
 - *Via AxeOS ota*
 <div align="center">
   <img src="image/ota.jpg" alt="ota">
@@ -130,6 +121,20 @@
 
 ## Release Log
 ***
+
+### (2024.12.18) - v2.3.10
+- Add:
+  - Share latency.
+  - Swarm list.
+  - Hashrate real time page on NMAxe.
+- Fixed:
+  - CPU1 wtd restart issue.
+  - Auto fan issue.
+  - Low power and hashrate expect issue.
+- Improved:
+  - Increase share accept rate.
+- Modify:
+  - Hashrate on 3m, 5m, 60m.
 
 ### (2024.12.18) - v2.2.23
 - Add:
