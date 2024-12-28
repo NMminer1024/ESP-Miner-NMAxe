@@ -88,7 +88,7 @@
 ## How to monitor
 
 - *Swarm*
-- <div align="center">
+<div align="center">
   <img src="image/swarm.jpg" alt="swarm">
 </div>
 
