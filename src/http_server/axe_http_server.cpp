@@ -135,15 +135,8 @@ static void get_swarm_info(AsyncWebServerRequest* request){
         deviceObj["LastDiff"] = deviceDoc["LastDiff"].as<std::string>();
         deviceObj["BestDiff"] = deviceDoc["BestDiff"].as<std::string>();
         deviceObj["Valid"] = deviceDoc["Valid"].as<int>();
-        if(deviceDoc.containsKey("Power"))
-        {
-            deviceObj["Power"] = deviceDoc["Power"].as<std::string>();
-        }
-        else
-        {
-            deviceObj["Power"] = "---";
-        }
-        // deviceObj["Power"] = deviceDoc["power"].as<float>();
+        deviceObj["Power"] = (deviceDoc.containsKey("Power")) ? deviceDoc["Power"].as<std::string>() : "---";
+
         deviceObj["Temp"] = deviceDoc["Temp"].as<float>();
         deviceObj["RSSI"] = deviceDoc["RSSI"].as<int>();
         deviceObj["FreeHeap"] = deviceDoc["FreeHeap"].as<float>();
