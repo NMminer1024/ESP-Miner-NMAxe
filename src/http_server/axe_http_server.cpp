@@ -110,6 +110,58 @@ static void get_system_info(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
 }
+
+static void get_swarm_info(AsyncWebServerRequest* request){
+    DynamicJsonDocument root(1024*10);
+    JsonArray devicesArray = root.createNestedArray("devices");
+
+    for (auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end(); it++) {
+        String ip = it->first;
+        String swarm_str = it->second;
+
+        DynamicJsonDocument deviceDoc(512);
+        DeserializationError error = deserializeJson(deviceDoc, swarm_str);
+        if (error) {
+            continue;
+        }
+
+        JsonObject deviceObj = devicesArray.createNestedObject();
+        deviceObj["ip"] = ip;
+        deviceObj["BoardType"] = deviceDoc["BoardType"].as<std::string>();
+        deviceObj["HashRate"] = deviceDoc["HashRate"].as<std::string>();
+        deviceObj["Share"] = deviceDoc["Share"].as<std::string>();
+        deviceObj["PoolDiff"] = deviceDoc["PoolDiff"].as<std::string>();
+        deviceObj["NetDiff"] = deviceDoc["NetDiff"].as<std::string>();
+        deviceObj["LastDiff"] = deviceDoc["LastDiff"].as<std::string>();
+        deviceObj["BestDiff"] = deviceDoc["BestDiff"].as<std::string>();
+        deviceObj["Valid"] = deviceDoc["Valid"].as<int>();
+        if(deviceDoc.containsKey("Power"))
+        {
+            deviceObj["Power"] = deviceDoc["Power"].as<std::string>();
+        }
+        else
+        {
+            deviceObj["Power"] = "---";
+        }
+        // deviceObj["Power"] = deviceDoc["power"].as<float>();
+        deviceObj["Temp"] = deviceDoc["Temp"].as<float>();
+        deviceObj["RSSI"] = deviceDoc["RSSI"].as<int>();
+        deviceObj["FreeHeap"] = deviceDoc["FreeHeap"].as<float>();
+        deviceObj["Version"] = deviceDoc["Version"].as<std::string>();
+        deviceObj["Uptime"] = deviceDoc["Uptime"].as<std::string>();
+        deviceObj["Lastseen"] = deviceDoc["Lastseen"].as<int>() / 1000.0;
+    }
+
+    String swarm_info;
+    serializeJson(root, swarm_info);
+
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", swarm_info);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    request->send(response);
+}
+
 static void echo_handler(AsyncWebServerRequest* request){
     LOG_I("Echo Request...");
 }
@@ -117,10 +169,15 @@ static void post_restart(AsyncWebServerRequest * request){
     LOG_I("Restarting System because of API Request");
     // Send HTTP response before restarting
     const char* resp_str = "System will restart shortly.";
-    request->send(200, "text/plain", resp_str);
+
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", resp_str);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    request->send(response);
 
     // Delay to ensure the response is sent
-    delay(1000);
+    delay(1500);
     // Restart the system
     ESP.restart();
     delay(1000);
@@ -337,6 +394,10 @@ void start_http_server(void) {
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);
+    webServer.on("/api/system/restart", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
+        request->send(200, "text/plain", "OPTIONS method allowed");
+    });
+
     webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){
         request->send(200, "text/plain", "POST method allowed");
     }, handleFileUpload);
@@ -346,6 +407,7 @@ void start_http_server(void) {
     webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){
         request->send(200, "text/plain", "PATCH method allowed");
     }, NULL, patch_update_settings);
+    webServer.on("/api/swarm", HTTP_GET, get_swarm_info);
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
     webServer.begin();
 }

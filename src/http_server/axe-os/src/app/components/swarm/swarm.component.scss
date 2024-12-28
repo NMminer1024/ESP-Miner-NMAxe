@@ -22,7 +22,20 @@ td {
 }
 
 a {
-    color: white;
+    color: green;
+    text-decoration: underline;
+}
+
+a:link {
+    color: rgb(118, 66, 192);
+}
+
+a:visited {
+    color: rgb(118, 66, 192);
+}
+
+a:active {
+    color: green;
 }
 
 .modal-backdrop {
@@ -52,4 +65,20 @@ a {
     right: 20px;
     top: 20px;
     cursor: pointer;
+}
+
+.uptime-column {
+    width: 130px;
+}
+
+.type-column {
+    width: 130px;
+}
+
+.lastseen-column {
+    width: 100px;
+}
+
+.common-column {
+    width: 90px;
 }

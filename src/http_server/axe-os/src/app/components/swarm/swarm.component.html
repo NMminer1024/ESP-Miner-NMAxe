@@ -1,51 +1,71 @@
-<div class="card">
-    <form [formGroup]="form">
-        <div class="field grid p-fluid">
-            <label htmlFor="ip" class="col-12 mb-2 md:col-2 md:mb-0">AxeOS Device IP</label>
-            <div class="col-12 md:col-10">
-                <p-inputGroup>
-                    <input pInputText id="ip" formControlName="ip" type="text" />
-                    <button pButton (click)="add()" [disabled]="form.invalid">Add</button>
-                </p-inputGroup>
-
-            </div>
-        </div>
-
-    </form>
+<!-- <div class="card">
+    <div class="field grid p-fluid">
+        <label htmlFor="ip" class="col-12 mb-2 md:col-2 md:mb-0">NMTech AxeOS device swarm v0.2</label>
+    </div>
 </div>
+<div class="logs">
+    <h3>Logs</h3>
+    <ul>
+      <li *ngFor="let log of logs">{{ log }}</li>
+    </ul>
+  </div>
 <div>
     <button pButton (click)="refresh()">Refresh</button>
+</div> -->
+<div class="clock">
+    <p>{{ currentDate }} {{ currentTime }}</p>
 </div>
 <div>
-    <table cellspacing="0" cellpadding="0" *ngIf="swarm$ | async as swarm">
+    <!-- <table cellspacing="0" cellpadding="0" *ngIf="swarm$ | async as swarm"> -->
+    <table cellspacing="0" cellpadding="0">
         <tr>
+            <th>#</th>
             <th>IP</th>
+            <th>BoardType</th>
             <th>Hash Rate</th>
-            <th>Uptime</th>
-            <th>Accepted</th>
+            <th>Share(R/A)</th>
+            <th>Pool Diff</th>
+            <th>Net Diff</th>
+            <th>Last Diff</th>
+            <th>Best Diff</th>
+            <th>Valid</th>
             <th>Power</th>
             <th>Temp</th>
-            <th>Best Difficulty</th>
+            <th>RSSI</th>
+            <th>Free Heap</th>
             <th>Version</th>
-            <th>Edit</th>
+            <th>Uptime</th>
+            <th>Last Seen</th>
+            <!-- <th>Edit</th> -->
             <th>Restart</th>
-            <th>Remove</th>
+            <!-- <th>Remove</th> -->
         </tr>
-        <ng-container *ngFor="let axeOs$ of swarm">
-            <tr *ngIf="axeOs$ | async as axe">
+        <!-- <ng-container *ngFor="let axeOs$ of swarm">
+            <tr *ngIf="axeOs$ | async as axe"> -->
+        <!-- <ng-container *ngFor="let axe of swarmData">         -->
+            <tr *ngFor="let axe of swarmData; let i = index">
+                <td>{{ i + 1 }}</td>
                 <td><a [href]="'http://'+axe.ip" target="_blank">{{axe.ip}}</a></td>
-                <td>{{axe.hashRate | number: '1.2-2'}} <small>Gh/s</small></td>
-                <td>{{axe.uptimeSeconds | dateAgo}}</td>
-                <td>{{axe.sharesAccepted}}</td>
-                <td>{{axe.power | number: '1.2-2'}} <small>W</small> </td>
-                <td>{{axe.temp}} <small>C</small></td>
-                <td>{{axe.bestDiff}}</td>
-                <td>{{axe.version}}</td>
-                <td><p-button icon="pi pi-pencil" pp-button (click)="edit(axe)"></p-button></td>
+                <td class="type-column">{{axe.BoardType}}</td>
+                <td>{{axe.HashRate}}</td>
+                <td>{{axe.Share}}</td>
+                <td>{{axe.PoolDiff}}</td>
+                <td>{{axe.NetDiff}}</td>
+                <td>{{axe.LastDiff}}</td>
+                <td>{{axe.BestDiff}}</td>
+                <td>{{axe.Valid}}</td>
+                <td>{{axe.Power}}</td>
+                <td class="common-column">{{axe.Temp | number: '1.1-1'}} <small>℃</small></td>
+                <td class="common-column">{{axe.RSSI}} <small>dBm</small></td>
+                <td class="common-column">{{axe.FreeHeap | number: '1.1-1'}} <small>KB</small></td>
+                <td>{{axe.Version}}</td>
+                <td class="uptime-column">{{axe.Uptime}}</td>
+                <td class="lastseen-column">{{axe.Lastseen | number: '1.1-1'}}s ago</td>
+                <!-- <td><p-button icon="pi pi-pencil" pp-button (click)="edit(axe)"></p-button></td> -->
                 <td><p-button icon="pi pi-sync" pp-button severity="danger" (click)="restart(axe)"></p-button></td>
-                <td><p-button icon="pi pi-trash" pp-button severity="secondary" (click)="remove(axe)"></p-button></td>
+                <!-- <td><p-button icon="pi pi-trash" pp-button severity="secondary" (click)="remove(axe)"></p-button></td> -->
             </tr>
-        </ng-container>
+        <!-- </ng-container> -->
     </table>
 </div>
 

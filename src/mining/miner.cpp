@@ -306,6 +306,9 @@ void miner_asic_tx_thread_entry(void *args){
 
         //calculate network diff
         g_nmaxe.mstatus.network_diff = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);
+        //update pool diff
+        g_nmaxe.mstatus.pool_diff = g_nmaxe.stratum.get_pool_difficulty();
+        
         LOG_W("Job [%s] from %s:%d", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum.pool.get_pool_info().url.c_str(), g_nmaxe.stratum.pool.get_pool_info().port);
         while (true){
             //construct asic job and send to asic every 2s
