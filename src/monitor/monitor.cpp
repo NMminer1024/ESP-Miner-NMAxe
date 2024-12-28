@@ -190,7 +190,7 @@ void monitor_thread_entry(void *args){
           json["Temp"] = g_nmaxe.asic.temp;
           json["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
           json["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
-          json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
+          json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_session);
           json["Version"] = g_nmaxe.board.fw_version;
           json["BoardType"] = g_nmaxe.board.hw_model;
           json["Power"]     = String(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 1) + "W";
