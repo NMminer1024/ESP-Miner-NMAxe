@@ -22,7 +22,13 @@ void StratumClass::reset(){
     this->_sub_info.extranonce1 = "";
     this->_sub_info.extranonce2 = "0";
     this->_sub_info.extranonce2_size = 0;
+    this->_sub_info = {"", "", 0};
     this->_is_subscribed = false;
+    this->_is_authorized = false;
+    this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
+    this->_vr_mask = 0xffffffff;
+    this->_suggest_diff_support = true;
+    this->_last_job_clear_stamp = micros();
     this->_gid = 1;
 }
 
@@ -189,7 +195,7 @@ bool StratumClass::subscribe(){
 bool StratumClass::authorize(){
     uint32_t id = this->_get_msg_id();
     String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.authorize\", \"params\": [\"" + this->_stratum_info.user+ "\", \"" + this->_stratum_info.pwd + "\"]}\n";
-    if(this->pool.write(payload) == 0){
+    if(this->pool.write(payload) != payload.length()){
         LOG_E("Failed to send mining.authorize request");
         return false;
     }
@@ -202,7 +208,7 @@ bool StratumClass::authorize(){
 bool StratumClass::suggest_difficulty(){
     uint32_t id = this->_get_msg_id();
     String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
-    if(this->pool.write(payload) == 0){
+    if(this->pool.write(payload) != payload.length()){
         LOG_E("Failed to send mining.suggest_difficulty request");
         return false;
     }
@@ -215,7 +221,7 @@ bool StratumClass::suggest_difficulty(){
 bool StratumClass::cfg_version_rolling(){
     uint32_t id = this->_get_msg_id();
     String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.configure\", \"params\": [[\"version-rolling\"], {\"version-rolling.mask\": \"ffffffff\"}]}\n";
-    if(this->pool.write(payload) == 0){
+    if(this->pool.write(payload) != payload.length()){
         LOG_E("Failed to send mining.configure request");
         return false;
     }
@@ -239,12 +245,12 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
     String(nonce_str) + "\", \"" + 
     String(version_str) + "\"]}\n";
 
-    if(this->pool.write(payload) == 0){
+    if(this->pool.write(payload) != payload.length()){
         LOG_E("Failed to send mining.submit request");
         return false;
     }
     this->_msg_rsp_map[msgid] = {"mining.submit", false, micros()};
-    // log_i("%s", payload.c_str());
+    LOG_I("%s", payload.c_str());
     return true;
 }
 
@@ -379,7 +385,6 @@ void stratum_thread_entry(void *args){
             continue;
         } else retry = 0;
         
-
         if(!g_nmaxe.stratum.pool.is_connected()){
             static bool first_connect = true;
             if(first_connect){
@@ -612,6 +617,9 @@ void stratum_thread_entry(void *args){
                     }
                     break;
                 case STRATUM_DOWN_UNKNOWN:                   
+                    LOG_E("Stratum unknown, id : %d => %s", method.id, method.raw.c_str());
+                    break;
+                default :
                     LOG_E("Stratum unknown, id : %d => %s", method.id, method.raw.c_str());
                     break;
             }
