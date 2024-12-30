@@ -1256,6 +1256,7 @@ void ui_thread_entry(void *args){
       const lv_font_t *font = &lv_font_montserrat_12;
       lv_color_t font_color = lv_color_hex(0xFFFFFF);
       lv_obj_t *lb_cfg = lv_label_create(ui_pages[PAGE_CONFIG]);
+      lv_obj_t *lb_version = lv_label_create(ui_pages[PAGE_CONFIG]);
       String str = "ssid:" + g_nmaxe.connection.wifi.softap_param.ssid + "\r\npwd: " + g_nmaxe.connection.wifi.softap_param.pwd + "\r\nlogin:"+ g_nmaxe.connection.wifi.softap_param.ip.toString();
 
       lv_obj_set_width(lb_cfg, 120);
@@ -1265,6 +1266,14 @@ void ui_thread_entry(void *args){
       lv_label_set_long_mode(lb_cfg, LV_LABEL_LONG_WRAP);
       lv_obj_set_style_text_line_space(lb_cfg, 0, LV_PART_MAIN); 
       lv_obj_align(lb_cfg, LV_ALIGN_LEFT_MID, 8, 38);
+
+      lv_obj_set_width(lb_version, 120);
+      lv_label_set_text(lb_version, g_nmaxe.board.fw_version.c_str());
+      lv_obj_set_style_text_font(lb_version, font, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_version, font_color, LV_PART_MAIN);
+      lv_label_set_long_mode(lb_version, LV_LABEL_LONG_WRAP);
+      lv_obj_set_style_text_line_space(lb_version, 0, LV_PART_MAIN); 
+      lv_obj_align(lb_version, LV_ALIGN_TOP_MID, 98, 1);
 
       //QR code
       lv_obj_t *qrcode = lv_qrcode_create(ui_pages[PAGE_CONFIG], SCREEN_HEIGHT - 30, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));

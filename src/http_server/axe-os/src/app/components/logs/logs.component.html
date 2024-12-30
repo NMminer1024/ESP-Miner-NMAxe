@@ -32,7 +32,7 @@
 
     </div>
 
-    <div class="col-12">
+    <!-- <div class="col-12">
         <div class="card">
             <h2>Realtime Logs <button pButton (click)="toggleLogs()" style="margin-left: 15px;"
                     class="btn btn-secondary">{{showLogs
@@ -47,5 +47,25 @@
                 <div *ngFor="let log of logs">₿ {{log }}</div>
             </div>
         </div>
+    </div> -->
+    
+    <div class="col-12">
+        <div class="card">
+            <h2>Realtime Logs 
+                <button pButton (click)="toggleLogs()" style="margin-left: 15px;" class="btn btn-secondary">
+                    {{showLogs ? 'Hide' : 'Show'}} Logs
+                </button>
+                <button pButton style="margin-left: 15px;" class="btn btn-secondary" (click)="stopScroll = !stopScroll" *ngIf="showLogs">
+                    {{stopScroll ? 'Start' : 'Stop'}} Scrolling
+                </button>
+            </h2>
+    
+            <div *ngIf="showLogs" id="logs" #scrollContainer>
+                <pre *ngFor="let log of logs" class="log-entry">₿ {{log}}</pre>
+            </div>
+        </div>
     </div>
+
+
+
 </div>

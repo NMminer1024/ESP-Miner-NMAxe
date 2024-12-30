@@ -129,6 +129,7 @@
   - Hashrate on pool drop to zero.
 - Improved:
   - Stability.
+  - Pretty log in AxeOS.
 - Modify:
   - Order of session uptime and total uptime. 
   - Swarm support 60 devices.
