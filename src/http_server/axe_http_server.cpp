@@ -110,21 +110,18 @@ static void get_system_info(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
 }
-
 static void get_swarm_info(AsyncWebServerRequest* request){
-    DynamicJsonDocument root(1024*10);
+    DynamicJsonDocument root(1024*20);// 20kB about 60 devices
     JsonArray devicesArray = root.createNestedArray("devices");
 
     for (auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end(); it++) {
-        String ip = it->first;
+        String ip        = it->first;
         String swarm_str = it->second;
 
         DynamicJsonDocument deviceDoc(512);
         DeserializationError error = deserializeJson(deviceDoc, swarm_str);
-        if (error) {
-            continue;
-        }
-
+        if (error) continue;
+        
         JsonObject deviceObj = devicesArray.createNestedObject();
         deviceObj["ip"] = ip;
         deviceObj["BoardType"] = deviceDoc["BoardType"].as<std::string>();
@@ -153,7 +150,6 @@ static void get_swarm_info(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
 }
-
 static void echo_handler(AsyncWebServerRequest* request){
     LOG_I("Echo Request...");
 }

@@ -122,6 +122,17 @@
 ## Release Log
 ***
 
+### (2024.12.19) - v2.3.20
+- Add:
+  - None.
+- Fixed:
+  - Hashrate on pool drop to zero.
+- Improved:
+  - Stability.
+- Modify:
+  - Order of session uptime and total uptime. 
+  - Swarm support 60 devices.
+
 ### (2024.12.18) - v2.3.10
 - Add:
   - Share latency.

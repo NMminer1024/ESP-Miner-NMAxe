@@ -60,8 +60,7 @@ bool StratumClass::_clear_rsp_id_cache(){
 }
 
 bool StratumClass::hello_pool(uint32_t hello_interval, uint32_t lost_max_time){
-    this->_clear_rsp_id_cache();//clear cache of msg id, only keep the latest 15 ids
-
+    this->_clear_rsp_id_cache();//clear cache of msg id, only keep the latest 20 ids
     if((millis() - this->pool.get_last_write_ms() > hello_interval) && this->_suggest_diff_support){
         uint32_t id = this->_get_msg_id();
         String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
@@ -250,7 +249,25 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
         return false;
     }
     this->_msg_rsp_map[msgid] = {"mining.submit", false, micros()};
-    LOG_I("%s", payload.c_str());
+    // LOG_I("%s", payload.c_str());
+    return true;
+}
+
+bool StratumClass::is_submit_timeout(){
+    static uint64_t submit_time_cnt = micros();
+    for(auto it = this->_msg_rsp_map.rbegin(); it != this->_msg_rsp_map.rend();it++){
+        if((it->second.method == "mining.submit") && (it->second.status == false)){
+            if(micros() - it->second.stamp > SUBMIT_TIMEOUT_US){
+                LOG_W("Submit timeout, job id : %d", it->first);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool StratumClass::set_subscribe(bool status){
+    this->_is_subscribed = status;
     return true;
 }
 
@@ -327,9 +344,9 @@ stratum_rsp StratumClass::get_method_rsp_by_id(uint32_t id){
         .method = "",
         .status = false
     };
-    if (!_msg_rsp_map.empty()) {
-       if(_msg_rsp_map.find(id) != _msg_rsp_map.end()){
-           rsp = _msg_rsp_map[id];
+    if (!this->_msg_rsp_map.empty()) {
+       if(this->_msg_rsp_map.find(id) != this->_msg_rsp_map.end()){
+           rsp = this->_msg_rsp_map[id];
        }
     }
     return rsp;
@@ -426,6 +443,13 @@ void stratum_thread_entry(void *args){
         if(!g_nmaxe.stratum.hello_pool(HELLO_POOL_INTERVAL_MS, POOL_INACTIVITY_TIME_MS)){
             LOG_W("Pool is inactive, retrying in 5 seconds...");
             delay(5000);
+            continue;
+        }
+
+        if(g_nmaxe.stratum.is_submit_timeout()){
+            LOG_W("Submit timeout, rebooting...");
+            delay(1000);
+            ESP.restart();
             continue;
         }
 
@@ -593,7 +617,7 @@ void stratum_thread_entry(void *args){
                         else{
                             LOG_D("Stratum success, id : %d => %s", method.id, method.raw.c_str());
                         }
-                        g_nmaxe.stratum.del_msg_rsp_map(method.id);
+                        // g_nmaxe.stratum.del_msg_rsp_map(method.id);
                     }
                     break;
                 case STRATUM_DOWN_ERROR: 
@@ -604,7 +628,7 @@ void stratum_thread_entry(void *args){
                         if(rsp.method == "mining.submit"){
                             uint64_t latency = micros() - rsp.stamp;
                             g_nmaxe.mstatus.share_rejected++;
-                            g_nmaxe.stratum.del_msg_rsp_map(method.id);
+                            // g_nmaxe.stratum.del_msg_rsp_map(method.id);
                             LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
                         }
                         else if(rsp.method == "mining.authorize"){

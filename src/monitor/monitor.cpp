@@ -218,10 +218,10 @@ void monitor_thread_entry(void *args){
         LOG_I("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str());
         LOG_I("+-----------HashRate-----------+");
         LOG_I("|   3m    |    30m   |    1h   |");
-        LOG_I("|%-4sH/s| %-4sH/s|%-4sH/s|", 
-              formatNumber(g_nmaxe.mstatus.hashrate._3m, 4).c_str(), 
-              formatNumber(g_nmaxe.mstatus.hashrate._30m, 4).c_str(),
-              formatNumber(g_nmaxe.mstatus.hashrate._1h, 4).c_str());
+        LOG_I("| %-3sH/s |  %-3sH/s | %-3sH/s |", 
+              formatNumber(g_nmaxe.mstatus.hashrate._3m, 3).c_str(), 
+              formatNumber(g_nmaxe.mstatus.hashrate._30m, 3).c_str(),
+              formatNumber(g_nmaxe.mstatus.hashrate._1h, 3).c_str());
         LOG_I("+----------Difficulty----------+");
         LOG_I("|From boot| Best ever| Network |");
         LOG_I("| %-6s |  %-5s | %-7s |", 

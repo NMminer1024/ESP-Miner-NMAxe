@@ -9,11 +9,13 @@
 #include "helper.h"
 #include "pool.h"   
 
-#define  DEFAULT_POOL_DIFFICULTY        512
-#define  HELLO_POOL_INTERVAL_MS         1000*30
-#define  LOST_POOL_TIMEOUT_MS           1000*60*5
+#define  DEFAULT_POOL_DIFFICULTY   (512)
+#define  HELLO_POOL_INTERVAL_MS    (1000*30)
+#define  LOST_POOL_TIMEOUT_MS      (1000*60*5)
+#define  SUBMIT_TIMEOUT_US         (1000*1000*60*2)
 
 typedef uint32_t stratum_msg_rsp_id_t;
+// typedef uint32_t stratum_msg_begin_t;
 
 typedef enum {
     STRATUM_DOWN_SUCCESS,
@@ -82,8 +84,8 @@ private:
     stratum_subscribe_info_t _sub_info;
     uint32_t        _max_rsp_id_cache;
     uint8_t         _pool_job_cache_size;
-    std::deque<pool_job_data_t>                  _pool_job_cache;
-    std::map<stratum_msg_rsp_id_t, stratum_rsp>  _msg_rsp_map;
+    std::deque<pool_job_data_t>                   _pool_job_cache;
+    std::map<stratum_msg_rsp_id_t, stratum_rsp>   _msg_rsp_map;
 public:
     poolClass  pool;
     StratumClass(){};
@@ -104,6 +106,7 @@ public:
         this->_last_job_clear_stamp = micros();
         this->new_job_xsem   = xSemaphoreCreateCounting(5,0);
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
+        // this->_msg_submit_timeout = {false, millis()};
     };
     ~StratumClass();
     SemaphoreHandle_t new_job_xsem;
@@ -127,11 +130,12 @@ public:
     bool del_msg_rsp_map(uint32_t id);
     bool set_version_mask(uint32_t mask);
     bool set_authorize(bool status);
+    bool set_subscribe(bool status);
     uint32_t get_version_mask();
     bool set_pool_difficulty(double diff);
     bool set_job_clear_stamp(uint64_t stamp);
     uint64_t get_job_clear_stamp();
-    uint32_t get_last_submit_id();
+    bool is_submit_timeout();
     double get_pool_difficulty();
     bool   set_sub_extranonce1(String extranonce1);
     bool   set_sub_extranonce2_size(int size);
