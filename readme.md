@@ -114,13 +114,24 @@
 ## Contact
 - Anything do not work as your expectation, just let us know.
 
-| Email                   |  Telegram                       | Home page           |
-| :-----------------:     |  :-----------------:            |:-----------------:  |
-|nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |[NMTech](https://www.nmminer.com/) |
+| Email                   |  Telegram                       | Home page           |reddit community      |
+| :-----------------:     |  :-----------------:            |:-----------------:  | :-----------------:  |
+|nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |[NMTech](https://www.nmminer.com/) | [NMAxe_NMMiner](https://www.reddit.com/r/NMAxe_NMMiner) |
 
 
 ## Release Log
 ***
+
+### (2025.01.10) - v2.3.30
+- Add:
+  - Latest firmware check on AxeOS.
+- Fixed:
+  - 
+- Improved:
+  - 
+  - 
+- Modify:
+  - 
 
 ### (2024.12.31) - v2.3.20
 - Add:

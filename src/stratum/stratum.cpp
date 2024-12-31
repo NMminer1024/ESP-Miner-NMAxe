@@ -147,7 +147,7 @@ String StratumClass::get_sub_extranonce2() {
 
 bool StratumClass::clear_sub_extranonce2(){
     this->_sub_info.extranonce2 = "0";
-    return true;
+    return (this->_sub_info.extranonce2 == "0");
 }   
 
 bool StratumClass::set_sub_extranonce1(String extranonce1){
@@ -249,7 +249,7 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
         return false;
     }
     this->_msg_rsp_map[msgid] = {"mining.submit", false, micros()};
-    // LOG_I("%s", payload.c_str());
+    log_i("%s", payload.c_str());
     return true;
 }
 

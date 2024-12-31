@@ -92,7 +92,7 @@ public:
     StratumClass(pool_info_t pConfig, stratum_info_t sConfig, uint8_t job_cached_max): 
         pool(pConfig), _stratum_info(sConfig), _pool_job_cache_size(job_cached_max)
     {
-        this->_max_rsp_id_cache = 20;
+        this->_max_rsp_id_cache = 8;
         this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
         this->_gid = 1;
         this->_rsp_str = "";

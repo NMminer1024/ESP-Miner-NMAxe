@@ -301,8 +301,8 @@ void miner_asic_tx_thread_entry(void *args){
         g_nmaxe.miner->pool_job_now = g_nmaxe.stratum.pop_job_cache();
         if(g_nmaxe.miner->pool_job_now.id == "")continue;
         
-        // //clear extranonce2 if clean job signal received
-        // if(!g_nmaxe.stratum.clear_sub_extranonce2()) continue;
+        //clear extranonce2 if clean job signal received
+        if(!g_nmaxe.stratum.clear_sub_extranonce2()) continue;
 
         //calculate network diff
         g_nmaxe.mstatus.network_diff = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);

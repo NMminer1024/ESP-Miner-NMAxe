@@ -212,7 +212,7 @@ void monitor_thread_entry(void *args){
 
       //print summary to log
       if(monitor_cnt % 300 == 0){
-        LOG_I(" ============================== ");
+        LOG_I(" ============%s=========== ",g_nmaxe.board.fw_version.c_str());
         LOG_I("|         NMAxe Summary        |");
         LOG_I("+------------Uptime------------+");
         LOG_I("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
