@@ -10,7 +10,7 @@
 static WiFiUDP        udp_client;
 static const char*    udp_client_addr = "255.255.255.255"; 
 static const int      udp_client_port = 12345; 
-static const int      swarm_offline_timeout = 30*60*1000; //30min 
+static const int      swarm_offline_timeout = 10*60*1000; //10min 
 
 void monitor_thread_entry(void *args){
   char *name = (char*)malloc(20);

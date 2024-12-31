@@ -82,11 +82,11 @@ void setup() {
   }
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";
-  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*12, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 1);
+  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*12, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 0);
   delay(10);
   /********************************************************** CREATE MONITOR THREAD ***************************************************/
   taskName = "(monitor)";
-  xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MONITOR, &monitorTask,1);
+  xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MONITOR, &monitorTask,0);
   delay(10);
   /********************************************************** CREATE MINER TX THREAD **************************************************/
   taskName = "(asic_tx)";
@@ -101,7 +101,7 @@ void setup() {
 
 void loop() {
   //WiFi monitor
-  if(xSemaphoreTake(g_nmaxe.connection.wifi.reconnect_xsem, 500) == pdTRUE){
+  if(xSemaphoreTake(g_nmaxe.connection.wifi.reconnect_xsem, 1000) == pdTRUE){
     WiFi.begin(g_nmaxe.connection.wifi.conn_param.ssid.c_str(), g_nmaxe.connection.wifi.conn_param.pwd.c_str());
   }
 }
