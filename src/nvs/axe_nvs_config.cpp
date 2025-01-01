@@ -185,6 +185,9 @@ bool load_g_nmaxe(void){
         g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
         g_nmaxe.board.hw_model                      = BOARD_MODEL;
         g_nmaxe.board.devcie_code                   = gen_device_code();
+        g_nmaxe.board.temp_mcu                      = 0.0f;
+        g_nmaxe.board.temp_vcore                    = 0.0f;
+        g_nmaxe.asic.temp                           = 0.0f;
         g_nmaxe.mstatus.nvs_save_xsem               = xSemaphoreCreateCounting(1, 0);
         g_nmaxe.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
         g_nmaxe.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);

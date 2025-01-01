@@ -60,7 +60,7 @@ bool StratumClass::_clear_rsp_id_cache(){
 }
 
 bool StratumClass::hello_pool(uint32_t hello_interval, uint32_t lost_max_time){
-    this->_clear_rsp_id_cache();//clear cache of msg id, only keep the latest 20 ids
+    this->_clear_rsp_id_cache();//clear cache of msg id
     if((millis() - this->pool.get_last_write_ms() > hello_interval) && this->_suggest_diff_support){
         uint32_t id = this->_get_msg_id();
         String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
@@ -249,13 +249,12 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
         return false;
     }
     this->_msg_rsp_map[msgid] = {"mining.submit", false, micros()};
-    log_i("%s", payload.c_str());
+    // log_i("%s", payload.c_str());
     return true;
 }
 
 bool StratumClass::is_submit_timeout(){
-    static uint64_t submit_time_cnt = micros();
-    for(auto it = this->_msg_rsp_map.rbegin(); it != this->_msg_rsp_map.rend();it++){
+    for(auto it = this->_msg_rsp_map.begin(); it != this->_msg_rsp_map.end();it++){
         if((it->second.method == "mining.submit") && (it->second.status == false)){
             if(micros() - it->second.stamp > SUBMIT_TIMEOUT_US){
                 LOG_W("Submit timeout, job id : %d", it->first);

@@ -46,7 +46,7 @@ void monitor_thread_entry(void *args){
         g_nmaxe.asic.vcore_measured = g_nmaxe.power.get_vcore();
         //update board temperature
         static uint8_t mcu_cnt = 0;
-        g_nmaxe.board.temp_mcu    = (mcu_cnt++ % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
+        // g_nmaxe.board.temp_mcu    = (mcu_cnt++ % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
         g_nmaxe.board.temp_vcore  = (int8_t)get_vcore_temperature();
         g_nmaxe.asic.temp         = (int8_t)get_asic_temperature();
         //update wifi rssi
