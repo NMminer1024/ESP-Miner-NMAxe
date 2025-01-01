@@ -82,11 +82,11 @@ void setup() {
   }
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";
-  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*12, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 0);
+  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*12, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 1);
   delay(10);
   /********************************************************** CREATE MONITOR THREAD ***************************************************/
   taskName = "(monitor)";
-  xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MONITOR, &monitorTask,0);
+  xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MONITOR, &monitorTask,1);
   delay(10);
   /********************************************************** CREATE MINER TX THREAD **************************************************/
   taskName = "(asic_tx)";

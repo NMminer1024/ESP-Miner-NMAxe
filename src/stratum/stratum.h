@@ -12,7 +12,7 @@
 #define  DEFAULT_POOL_DIFFICULTY   (512)
 #define  HELLO_POOL_INTERVAL_MS    (1000*30)
 #define  LOST_POOL_TIMEOUT_MS      (1000*60*5)
-#define  SUBMIT_TIMEOUT_US         (1000*1000*60*2)
+#define  SUBMIT_TIMEOUT_MS         (1000*60*2)
 
 typedef uint32_t stratum_msg_rsp_id_t;
 // typedef uint32_t stratum_msg_begin_t;
@@ -31,7 +31,7 @@ typedef enum {
 typedef struct{
     String   method;
     bool     status;
-    uint64_t stamp;
+    uint32_t stamp;
 }stratum_rsp;
 
 typedef struct{
@@ -106,7 +106,6 @@ public:
         this->_last_job_clear_stamp = micros();
         this->new_job_xsem   = xSemaphoreCreateCounting(5,0);
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
-        // this->_msg_submit_timeout = {false, millis()};
     };
     ~StratumClass();
     SemaphoreHandle_t new_job_xsem;

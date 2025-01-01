@@ -65,7 +65,7 @@ bool StratumClass::hello_pool(uint32_t hello_interval, uint32_t lost_max_time){
         uint32_t id = this->_get_msg_id();
         String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
         if(this->pool.write(payload) != 0){
-            this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, micros()};
+            this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, millis()};
             LOG_I("Hello pool...");
             return true;
         }
@@ -184,7 +184,7 @@ bool StratumClass::subscribe(){
     this->_sub_info.extranonce1 = String((const char*)this->_rsp_json["result"][1]);
     this->_sub_info.extranonce2_size = this->_rsp_json["result"][2];
     this->_is_subscribed = true;
-    this->_msg_rsp_map[id] = {"mining.subscribe", false, micros()};
+    this->_msg_rsp_map[id] = {"mining.subscribe", false, millis()};
     log_i("Sending mining.subscribe : %s", payload.c_str());
     LOG_I("extranonce1 : %s", this->_sub_info.extranonce1.c_str());
     LOG_I("extranonce2 size : %d", this->_sub_info.extranonce2_size);
@@ -198,7 +198,7 @@ bool StratumClass::authorize(){
         LOG_E("Failed to send mining.authorize request");
         return false;
     }
-    this->_msg_rsp_map[id] = {"mining.authorize", false, micros()};
+    this->_msg_rsp_map[id] = {"mining.authorize", false, millis()};
     log_i("Sending mining.authorize : %s", payload.c_str());
     delay(100);
     return true;
@@ -211,7 +211,7 @@ bool StratumClass::suggest_difficulty(){
         LOG_E("Failed to send mining.suggest_difficulty request");
         return false;
     }
-    this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, micros()};
+    this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, millis()};
     log_i("Sending mining.suggest_difficulty : %s", payload.c_str());
     delay(100);
     return true;
@@ -224,7 +224,7 @@ bool StratumClass::cfg_version_rolling(){
         LOG_E("Failed to send mining.configure request");
         return false;
     }
-    this->_msg_rsp_map[id] = {"mining.configure", false, micros()};
+    this->_msg_rsp_map[id] = {"mining.configure", false, millis()};
     log_i("Sending mining.configure : %s", payload.c_str());
     delay(100);
     return true;
@@ -248,7 +248,7 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
         LOG_E("Failed to send mining.submit request");
         return false;
     }
-    this->_msg_rsp_map[msgid] = {"mining.submit", false, micros()};
+    this->_msg_rsp_map[msgid] = {"mining.submit", false, millis()};
     // log_i("%s", payload.c_str());
     return true;
 }
@@ -256,8 +256,8 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
 bool StratumClass::is_submit_timeout(){
     for(auto it = this->_msg_rsp_map.begin(); it != this->_msg_rsp_map.end();it++){
         if((it->second.method == "mining.submit") && (it->second.status == false)){
-            if(micros() - it->second.stamp > SUBMIT_TIMEOUT_US){
-                LOG_W("Submit timeout, job id : %d", it->first);
+            if(millis() - it->second.stamp > SUBMIT_TIMEOUT_MS){
+                LOG_W("Submit timeout, msg id : %d", it->first);
                 return true;
             }
         }
@@ -572,14 +572,14 @@ void stratum_thread_entry(void *args){
                         g_nmaxe.stratum.set_msg_rsp_map(method.id, true);
                         stratum_rsp rsp = g_nmaxe.stratum.get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
-                            uint64_t latency = micros() - rsp.stamp;
+                            uint32_t latency = millis() - rsp.stamp;
                             if (rsp.status == true){
                                 g_nmaxe.mstatus.share_accepted++;
-                                LOG_L("#%d share accepted, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));      
+                                LOG_L("#%d share accepted, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, latency);      
                             }
                             else {
                                 g_nmaxe.mstatus.share_rejected++;
-                                LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
+                                LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, latency);
                             }
                         }
                         else if(rsp.method == "mining.configure"){
@@ -625,10 +625,10 @@ void stratum_thread_entry(void *args){
                         g_nmaxe.stratum.set_msg_rsp_map(method.id, true);
                         stratum_rsp rsp = g_nmaxe.stratum.get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
-                            uint64_t latency = micros() - rsp.stamp;
+                            uint32_t latency = millis() - rsp.stamp;
                             g_nmaxe.mstatus.share_rejected++;
                             // g_nmaxe.stratum.del_msg_rsp_map(method.id);
-                            LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, (uint32_t)(latency/1000));
+                            LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, latency);
                         }
                         else if(rsp.method == "mining.authorize"){
                             g_nmaxe.stratum.set_authorize(false);
