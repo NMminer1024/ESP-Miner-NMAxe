@@ -105,7 +105,7 @@ export class SwarmComponent {
     this.systemService.restart(`http://${axe.ip}`).subscribe(res => {
 
     });
-    this.toastr.success('Success!', 'Bitaxe restarted');
+    this.toastr.success('Success!', 'NMAxe restarted');
   }
 
   public remove(axeOs: any) {

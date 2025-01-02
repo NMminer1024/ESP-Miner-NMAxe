@@ -31,7 +31,7 @@ void monitor_thread_entry(void *args){
   uint64_t monitor_cnt = 0;
 
   while(true){
-      //thread delay 0.1s
+      //thread delay 0.2s
       delay(200);
       if(monitor_cnt++ % 5 == 0){
         g_nmaxe.mstatus.uptime_ever++;

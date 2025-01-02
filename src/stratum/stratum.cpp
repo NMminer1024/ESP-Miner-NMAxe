@@ -250,6 +250,7 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
     }
     this->_msg_rsp_map[msgid] = {"mining.submit", false, millis()};
     // log_i("%s", payload.c_str());
+    LOG_I("submit job [%s] with nonce [%s], ntime [%s], version [%s]", pool_job_id.c_str(), nonce_str, String(ntime, 16).c_str(), version_str);
     return true;
 }
 
@@ -646,8 +647,28 @@ void stratum_thread_entry(void *args){
                     LOG_E("Stratum unknown, id : %d => %s", method.id, method.raw.c_str());
                     break;
             }
-            delay(5);
+
+
+
+
+            LOG_I(">>>>>>>> Share accepted : %d, rejected : %d", g_nmaxe.mstatus.share_accepted, g_nmaxe.mstatus.share_rejected);
+
+
+
+            delay(10);
         }
+
+
+
+        static uint32_t last_cnt = millis();
+        if(millis() - last_cnt > 30*1000){
+            last_cnt = millis();
+            LOG_I("<<<<<<<< stratum thred is running...");
+        }
+
+
+
+
         delay(50);
     }
 }

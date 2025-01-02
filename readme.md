@@ -114,9 +114,9 @@
 ## Contact
 - Anything do not work as your expectation, just let us know.
 
-| Email                   |  Telegram                       | Home page           |reddit community      |
-| :-----------------:     |  :-----------------:            |:-----------------:  | :-----------------:  |
-|nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |[NMTech](https://www.nmminer.com/) | [NMAxe_NMMiner](https://www.reddit.com/r/NMAxe_NMMiner) |
+| Email                   |  Telegram                       | Home page           |
+| :-----------------:     |  :-----------------:            |:-----------------:  |
+|nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |[NMTech](https://www.nmminer.com/) |
 
 
 ## Release Log
