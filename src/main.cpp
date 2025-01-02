@@ -94,7 +94,7 @@ void setup() {
   delay(10);
   /*********************************************************  CREATE MINER RX THREAD **************************************************/
   taskName = "(asic_rx)";
-  xTaskCreatePinnedToCore(miner_asic_rx_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MINER_RX, &minerRxTask,1);
+  xTaskCreatePinnedToCore(miner_asic_rx_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MINER_RX, &minerRxTask,0);
   delay(10);
 }
 
