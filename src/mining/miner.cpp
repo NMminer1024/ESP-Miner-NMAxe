@@ -383,8 +383,10 @@ void miner_asic_rx_thread_entry(void *args){
 
                 //skip if diff < pool diff
                 if(diff < g_nmaxe.stratum.get_pool_difficulty())continue; 
-                //job stale check
-                if(g_nmaxe.miner->pool_job_now.stamp < g_nmaxe.stratum.get_job_clear_stamp()) continue;
+                
+                // //job stale check
+                // if(g_nmaxe.miner->pool_job_now.stamp < g_nmaxe.stratum.get_job_clear_stamp()) continue;
+
                 //submit sulution
                 uint32_t version_submit = version ^ (*(uint32_t*)job.version);
                 String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);

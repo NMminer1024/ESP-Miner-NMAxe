@@ -28,7 +28,7 @@ void StratumClass::reset(){
     this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
     this->_vr_mask = 0xffffffff;
     this->_suggest_diff_support = true;
-    this->_last_job_clear_stamp = micros();
+    // this->_last_job_clear_stamp = micros();
     this->_gid = 1;
 }
 
@@ -366,14 +366,14 @@ bool StratumClass::set_pool_difficulty(double diff){
     return true;
 }
 
-bool StratumClass::set_job_clear_stamp(uint64_t stamp){
-    this->_last_job_clear_stamp = stamp;
-    return true;
-}
+// bool StratumClass::set_job_clear_stamp(uint64_t stamp){
+//     this->_last_job_clear_stamp = stamp;
+//     return true;
+// }
 
-uint64_t StratumClass::get_job_clear_stamp(){
-    return this->_last_job_clear_stamp;
-}
+// uint64_t StratumClass::get_job_clear_stamp(){
+//     return this->_last_job_clear_stamp;
+// }
 
 double StratumClass::get_pool_difficulty(){
     return this->_pool_difficulty;
@@ -494,11 +494,11 @@ void stratum_thread_entry(void *args){
                         LOG_D("Pool difficulty   : %s", formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 5).c_str());
 
                         if(job.clean_jobs){
-                            g_nmaxe.stratum.set_job_clear_stamp(micros());//set the last job clear stamp to current time, Do not submit the old job
+                            // g_nmaxe.stratum.set_job_clear_stamp(micros());//set the last job clear stamp to current time, Do not submit the old job
                             g_nmaxe.stratum.clear_job_cache();
                             xSemaphoreGive(g_nmaxe.stratum.clear_job_xsem);
                         }
-                        job.stamp = micros();
+                        // job.stamp = micros();
                         
                         size_t cached_size = g_nmaxe.stratum.push_job_cache(job);
                         //Give the new job semaphore to the other threads

@@ -57,7 +57,7 @@ typedef struct {
     String version;
     String ntime;
     bool clean_jobs;
-    uint64_t stamp;//local timestamp, for job order
+    // uint64_t stamp;//local timestamp, for job order
 }pool_job_data_t;
 
 typedef struct {
@@ -71,7 +71,7 @@ private:
     stratum_info_t  _stratum_info;
     bool            _is_subscribed;
     bool            _is_authorized;
-    uint64_t        _last_job_clear_stamp;
+    // uint64_t        _last_job_clear_stamp;
     uint32_t        _gid;
     uint32_t        _get_msg_id();
     String          _rsp_str;
@@ -103,7 +103,7 @@ public:
         this->_suggest_diff_support = true;
         this->_is_subscribed = false;
         this->_is_authorized = false;
-        this->_last_job_clear_stamp = micros();
+        // this->_last_job_clear_stamp = micros();
         this->new_job_xsem   = xSemaphoreCreateCounting(5,0);
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
     };
@@ -132,8 +132,8 @@ public:
     bool set_subscribe(bool status);
     uint32_t get_version_mask();
     bool set_pool_difficulty(double diff);
-    bool set_job_clear_stamp(uint64_t stamp);
-    uint64_t get_job_clear_stamp();
+    // bool set_job_clear_stamp(uint64_t stamp);
+    // uint64_t get_job_clear_stamp();
     bool is_submit_timeout();
     double get_pool_difficulty();
     bool   set_sub_extranonce1(String extranonce1);
