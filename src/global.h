@@ -83,9 +83,12 @@ typedef struct{
 }asic_info_t;
 
 typedef struct{
+    bool           force_config;
+    bool           client_connected;
     wifi_info_t    wifi; 
     pool_info_t    pool;
     stratum_info_t stratum;
+
 }connect_info_t;
 
 typedef struct{
@@ -135,7 +138,6 @@ typedef struct{
     NMAxePowerClass  power;
     StratumClass     stratum;
     AsicMinerClass   *miner;
-    bool             force_config;
 }axe_sal_t;
 
 

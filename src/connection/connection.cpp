@@ -4,7 +4,7 @@
 #include "axe_http_server.h"  
 #include "axe_nvs_config.h"
 
-#define CONFIG_TIMEOUT 60*10
+#define CONFIG_TIMEOUT 60*5
 
 static void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     const char* reason = NULL;
@@ -56,12 +56,15 @@ static void config_timeout_monitor_thread_entry(void *args){
         if (WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status) {
             break;
         }
-        if(timeout++ >= CONFIG_TIMEOUT){
-            LOG_W("WiFi configuration timeout, rebooting...");
-            delay(1000);
-            ESP.restart();
+
+        if(g_nmaxe.connection.client_connected == false){
+            if(timeout++ >= CONFIG_TIMEOUT){
+                LOG_W("WiFi configuration timeout, rebooting...");
+                delay(1000);
+                ESP.restart();
+            }
+            g_nmaxe.connection.wifi.status_param.config_timeout = CONFIG_TIMEOUT - timeout;
         }
-        g_nmaxe.connection.wifi.status_param.config_timeout = CONFIG_TIMEOUT - timeout;
         delay(1000);
     }
     LOG_I("WiFi configuration monitor exit...");
@@ -80,7 +83,7 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
     //start http server
     start_http_server();
     //force config
-    if(g_nmaxe.force_config){
+    if(g_nmaxe.connection.force_config){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
         LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.conn_param.hostname.c_str());
         WiFi.mode(WIFI_AP);
@@ -92,8 +95,11 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
         String taskName = "(config_monitor)";
         xTaskCreatePinnedToCore(config_timeout_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
         while(true){
+            g_nmaxe.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
+            if (WiFi.softAPgetStationNum() == 0) {
+                LOG_W("Force configuration, timeout: %ds...", g_nmaxe.connection.wifi.status_param.config_timeout);
+            }
             delay(1000);
-            LOG_W("Force configuration, timeout: %ds...", g_nmaxe.connection.wifi.status_param.config_timeout);
         }
     }
     //wait for connection
@@ -114,8 +120,9 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
             xTaskCreatePinnedToCore(config_timeout_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
             
             while (true){
-                if (WiFi.softAPgetStationNum() > 0) {
-                    LOG_I("Connected: %d client.", WiFi.softAPgetStationNum());
+                g_nmaxe.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
+                if (WiFi.softAPgetStationNum() == 0) {
+                    LOG_W("Force configuration, timeout: %ds...", g_nmaxe.connection.wifi.status_param.config_timeout);
                 }
                 delay(1000);
             }

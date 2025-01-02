@@ -1164,6 +1164,7 @@ void ui_thread_entry(void *args){
   const char* pool_con_str[] = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
   const char* pool_auth_str[] = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
   const char* wait_job_str[] = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
+  const char* config_str[] = {"Config   ","Config.  ","Config.. ","Config..."};
 
   tft_init();
 
@@ -1273,7 +1274,7 @@ void ui_thread_entry(void *args){
       lv_obj_set_style_text_color(lb_version, font_color, LV_PART_MAIN);
       lv_label_set_long_mode(lb_version, LV_LABEL_LONG_WRAP);
       lv_obj_set_style_text_line_space(lb_version, 0, LV_PART_MAIN); 
-      lv_obj_align(lb_version, LV_ALIGN_TOP_MID, 98, 1);
+      lv_obj_align(lb_version, LV_ALIGN_TOP_MID, 110, 1);
 
       //QR code
       lv_obj_t *qrcode = lv_qrcode_create(ui_pages[PAGE_CONFIG], SCREEN_HEIGHT - 30, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
@@ -1282,7 +1283,17 @@ void ui_thread_entry(void *args){
       lv_obj_align(qrcode, LV_ALIGN_RIGHT_MID, 0, 0);
 
       while (true){
-        lv_label_set_text(lb_cfg_timeout, (String(g_nmaxe.connection.wifi.status_param.config_timeout) + "s").c_str());
+        static uint8_t cnt = 0;
+        String str = (g_nmaxe.connection.client_connected) ? config_str[cnt++%4] : (String(g_nmaxe.connection.wifi.status_param.config_timeout) + "s");
+        //config timeout label location
+        if(g_nmaxe.connection.client_connected) lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 160, 0);
+        else lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 175, 0);
+
+        lv_label_set_text(lb_cfg_timeout, str.c_str());
+        //update ota page
+        if(g_nmaxe.ota.ota_running){
+          ui_ota_page_update();
+        }
         delay(1000);//wait for configuration and miner will restart after configuration
       }
     }

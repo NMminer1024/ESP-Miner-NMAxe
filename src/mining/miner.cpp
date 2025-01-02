@@ -388,8 +388,9 @@ void miner_asic_rx_thread_entry(void *args){
                 //submit sulution
                 uint32_t version_submit = version ^ (*(uint32_t*)job.version);
                 String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);
-                g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
-
+                bool res = g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
+                if(!res) continue;
+                
                 //update the block hit counter
                 if(diff >= g_nmaxe.mstatus.network_diff){
                     g_nmaxe.mstatus.block_hits ++;
