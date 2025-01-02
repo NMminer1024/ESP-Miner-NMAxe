@@ -377,7 +377,7 @@ void start_http_server(void) {
     webSocket.onEvent(webSocketEvent);
 
     String name = "(websocket)";
-    xTaskCreate(websocket_loop, name.c_str(), 1024*5, (void*)name.c_str(), TASK_PRIORITY_WS, NULL);
+    xTaskCreatePinnedToCore(websocket_loop, name.c_str(), 1024*5, (void*)name.c_str(), TASK_PRIORITY_WS, NULL, 1);
 
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/ws", HTTP_GET, echo_handler);
