@@ -28,7 +28,6 @@ void StratumClass::reset(){
     this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
     this->_vr_mask = 0xffffffff;
     this->_suggest_diff_support = true;
-    // this->_last_job_clear_stamp = micros();
     this->_gid = 1;
 }
 
@@ -250,7 +249,6 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
     }
     this->_msg_rsp_map[msgid] = {"mining.submit", false, millis()};
     // log_i("%s", payload.c_str());
-    LOG_I("submit job [%s] with nonce [%s], ntime [%s], version [%s]", pool_job_id.c_str(), nonce_str, String(ntime, 16).c_str(), version_str);
     return true;
 }
 
@@ -365,15 +363,6 @@ bool StratumClass::set_pool_difficulty(double diff){
     this->_pool_difficulty = diff;
     return true;
 }
-
-// bool StratumClass::set_job_clear_stamp(uint64_t stamp){
-//     this->_last_job_clear_stamp = stamp;
-//     return true;
-// }
-
-// uint64_t StratumClass::get_job_clear_stamp(){
-//     return this->_last_job_clear_stamp;
-// }
 
 double StratumClass::get_pool_difficulty(){
     return this->_pool_difficulty;
@@ -494,13 +483,11 @@ void stratum_thread_entry(void *args){
                         LOG_D("Pool difficulty   : %s", formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 5).c_str());
 
                         if(job.clean_jobs){
-                            // g_nmaxe.stratum.set_job_clear_stamp(micros());//set the last job clear stamp to current time, Do not submit the old job
                             g_nmaxe.stratum.clear_job_cache();
                             xSemaphoreGive(g_nmaxe.stratum.clear_job_xsem);
                         }
-                        // job.stamp = micros();
-                        
                         size_t cached_size = g_nmaxe.stratum.push_job_cache(job);
+                        
                         //Give the new job semaphore to the other threads
                         xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//asic tx thread
                         static bool first_job = true;
@@ -617,18 +604,15 @@ void stratum_thread_entry(void *args){
                         else{
                             LOG_D("Stratum success, id : %d => %s", method.id, method.raw.c_str());
                         }
-                        // g_nmaxe.stratum.del_msg_rsp_map(method.id);
                     }
                     break;
                 case STRATUM_DOWN_ERROR: 
-                    // LOG_E("Stratum error, id : %d => %s", method.id, method.raw.c_str());
                     if(method.id != -1){
                         g_nmaxe.stratum.set_msg_rsp_map(method.id, true);
                         stratum_rsp rsp = g_nmaxe.stratum.get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
                             uint32_t latency = millis() - rsp.stamp;
                             g_nmaxe.mstatus.share_rejected++;
-                            // g_nmaxe.stratum.del_msg_rsp_map(method.id);
                             LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, latency);
                         }
                         else if(rsp.method == "mining.authorize"){
@@ -647,28 +631,8 @@ void stratum_thread_entry(void *args){
                     LOG_E("Stratum unknown, id : %d => %s", method.id, method.raw.c_str());
                     break;
             }
-
-
-
-
-            LOG_I(">>>>>>>> Share accepted : %d, rejected : %d", g_nmaxe.mstatus.share_accepted, g_nmaxe.mstatus.share_rejected);
-
-
-
-            delay(10);
+            delay(5);
         }
-
-
-
-        static uint32_t last_cnt = millis();
-        if(millis() - last_cnt > 30*1000){
-            last_cnt = millis();
-            LOG_I("<<<<<<<< stratum thred is running...");
-        }
-
-
-
-
         delay(50);
     }
 }
