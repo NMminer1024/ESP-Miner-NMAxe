@@ -94,9 +94,18 @@
 
 ## Firmware update
 - *Via AxeOS ota*
+
+Check the latest **firmware.bin** and **spiffs.bin**.
+
 <div align="center">
-  <img src="image/ota.jpg" alt="ota">
+  <img src="image/firmware-check.jpg" alt="firmware-check">
 </div>
+
+Download the latest **firmware.bin** and **spiffs.bin** file.
+<div align="center">
+  <img src="image/firmware-check-fm.jpg" alt="firmware-check-fm">
+</div>
+
 
 
 - *Via [NMMiner flash tool](https://flash.nmminer.com/)*
