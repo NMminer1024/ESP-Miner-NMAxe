@@ -448,12 +448,12 @@ void stratum_thread_entry(void *args){
             continue;
         }
 
-        if(g_nmaxe.stratum.is_submit_timeout()){
-            LOG_W("Submit timeout, rebooting...");
-            delay(1000);
-            ESP.restart();
-            continue;
-        }
+        // if(g_nmaxe.stratum.is_submit_timeout()){
+        //     LOG_W("Submit timeout, rebooting...");
+        //     delay(1000);
+        //     ESP.restart();
+        //     continue;
+        // }
 
         while(g_nmaxe.stratum.pool.available()){
             stratum_method_data method = g_nmaxe.stratum.listen_methods();
