@@ -122,16 +122,15 @@
 ## Release Log
 ***
 
-### (2025.01.10) - v2.3.30
+### (2025.01.03) - v2.4.10
 - Add:
   - Latest firmware check on AxeOS.
 - Fixed:
-  - 
+  - Restart issue.
 - Improved:
-  - 
-  - 
+  - None.
 - Modify:
-  - 
+  - None.
 
 ### (2024.12.31) - v2.3.20
 - Add:
