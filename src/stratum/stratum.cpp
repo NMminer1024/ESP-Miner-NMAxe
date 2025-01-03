@@ -253,15 +253,28 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
 }
 
 bool StratumClass::is_submit_timeout(){
+    bool timeout = true, has_submit = false;
+    
+    //cache size check
+    if(this->_msg_rsp_map.size() <= this->_max_rsp_id_cache / 2) return false;
+
+    //check if there is any submit request
     for(auto it = this->_msg_rsp_map.begin(); it != this->_msg_rsp_map.end();it++){
-        if((it->second.method == "mining.submit") && (it->second.status == false)){
-            if(millis() - it->second.stamp > SUBMIT_TIMEOUT_MS){
-                LOG_W("Submit timeout, msg id : %d", it->first);
-                return true;
-            }
+        if(it->second.method == "mining.submit"){
+            has_submit = true;
+            break;
         }
     }
-    return false;
+    if(!has_submit) return false;
+
+    //timeout check, if all submit has no response, return true
+    for(auto it = this->_msg_rsp_map.begin(); it != this->_msg_rsp_map.end();it++){
+        if((it->second.method == "mining.submit") && (it->second.status)){//submit response received
+            timeout = false;
+            break;
+        }
+    }
+    return timeout;
 }
 
 bool StratumClass::set_subscribe(bool status){
