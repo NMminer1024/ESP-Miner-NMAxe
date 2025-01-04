@@ -43,8 +43,6 @@ export class LogsComponent implements OnDestroy, AfterViewChecked {
       }),
       shareReplay({ refCount: true, bufferSize: 1 })
     );
-
-
   }
   ngOnDestroy(): void {
     this.websocketSubscription?.unsubscribe();
