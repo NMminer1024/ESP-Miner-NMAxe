@@ -150,18 +150,18 @@ export class HomeComponent {
         } else if (info.stratumURL.includes('solo.ckpool.org')) {
           const address = info.stratumUser.split('.')[0]
           return `https://solostats.ckpool.org/stats/${address}`;
-        } else {
+        } else if (info.stratumURL.includes('pool.nmminer.com')) {
+          const address = info.stratumUser.split('.')[0]
+          return `https://pool.nmminer.com/user?workername=${address}`;
+        } else if (info.stratumURL.includes('molepool.com')) {
+          const address = info.stratumUser.split('.')[0]
+          return `https://btc.molepool.com/account/${address}`;
+        } 
+        else {
           return undefined;
         }
       })
     )
-
-
-
   }
-
-
-
-
 }
 
