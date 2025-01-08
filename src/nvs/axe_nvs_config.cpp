@@ -255,8 +255,4 @@ void clear_g_nmaxe(void){
         return;
     }
     LOG_I("NVS partition erased and reinitialized successfully");
-
-    //reset stratum to tcp 
-    nvs_config_set_string(NVS_CONFIG_STRATUM_URL, "stratum+tcp://public-pool.io");
-    nvs_config_set_u16(NVS_CONFIG_STRATUM_PORT, 21496);
 }

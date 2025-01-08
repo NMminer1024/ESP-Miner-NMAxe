@@ -12,6 +12,12 @@ OneButton user_btn(NM_AXE_BUTTON_USER_PIN, true);
 static void recover_factory_cb(void){
   LOG_W("Recover factory settings...");
   clear_g_nmaxe();
+  delay(100);
+
+  //reset stratum to tcp , just for factory test
+  nvs_config_set_string(NVS_CONFIG_STRATUM_URL, "stratum+tcp://public-pool.io");
+  nvs_config_set_u16(NVS_CONFIG_STRATUM_PORT, 21496);
+  
   delay(500);
   ESP.restart();
 }
