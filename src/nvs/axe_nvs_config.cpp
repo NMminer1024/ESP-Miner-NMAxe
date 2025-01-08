@@ -199,10 +199,10 @@ bool load_g_nmaxe(void){
         g_nmaxe.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
         g_nmaxe.connection.client_connected         = false;
     }
-    String url = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+tcp://public-pool.io"));
+    String url = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+ssl://hk.kxsw.pro"));
     g_nmaxe.connection.pool.ssl                 = (url.indexOf("ssl") != -1);
     g_nmaxe.connection.pool.url                 = url.substring(url.indexOf(":") + 3);
-    g_nmaxe.connection.pool.port                = nvs_config_get_u16(NVS_CONFIG_STRATUM_PORT, 21496);
+    g_nmaxe.connection.pool.port                = nvs_config_get_u16(NVS_CONFIG_STRATUM_PORT, 12345);
     g_nmaxe.connection.stratum.user             = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
     g_nmaxe.connection.stratum.pwd              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS, "d=15000"));
     g_nmaxe.connection.stratum.diff             = DEFAULT_POOL_DIFFICULTY;
@@ -255,4 +255,8 @@ void clear_g_nmaxe(void){
         return;
     }
     LOG_I("NVS partition erased and reinitialized successfully");
+
+    //reset stratum to tcp 
+    nvs_config_set_string(NVS_CONFIG_STRATUM_URL, "stratum+tcp://public-pool.io");
+    nvs_config_set_u16(NVS_CONFIG_STRATUM_PORT, 21496);
 }
