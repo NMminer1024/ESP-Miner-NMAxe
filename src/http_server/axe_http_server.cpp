@@ -89,7 +89,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["stratumPort"] = g_nmaxe.connection.pool.port;
     root["stratumUser"] = g_nmaxe.connection.stratum.user;
     root["version"] = g_nmaxe.board.fw_version;
-    root["boardVersion"] = g_nmaxe.board.hw_version;
+    root["boardVersion"] = g_nmaxe.board.hw_model;
     // root["runningPartition"] = "part1";
     root["flipscreen"] = g_nmaxe.screen.flip;
     root["ledindicator"] = g_nmaxe.led.indicator;

@@ -16,18 +16,18 @@ TaskHandle_t fanTask, ledTask, pwrTask, asicinitTask, btnTask, uiTask, monitorTa
 axe_sal_t g_nmaxe = {
   .power = NMAxePowerClass(
       {
-          .pwr_0v8 = NM_AXE_POWER_BM1366_VPLL_0V8_ENABLE_PIN,
-          .pwr_1v8 = NM_AXE_POWER_BM1366_VDD_1V8_ENABLE_PIN,
-          .pwr_vcore = NM_AXE_POWER_BM1366_VCORE_ENABLE_PIN
+          .pwr_0v8 = NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN,
+          .pwr_1v8 = NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN,
+          .pwr_vcore = NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN
       },
       {
-          .vbus = NM_AXE_POWER_BM1366_VBUS_ADC_PIN,
-          .ibus = NM_AXE_POWER_BM1366_IBUS_ADC_PIN,
-          .vcore = NM_AXE_POWER_BM1366_VCORE_ADC_PIN
+          .vbus = NM_AXE_POWER_BM13xx_VBUS_ADC_PIN,
+          .ibus = NM_AXE_POWER_BM13xx_IBUS_ADC_PIN,
+          .vcore = NM_AXE_POWER_BM13xx_VCORE_ADC_PIN
       },
-      NM_AXE_POWER_BM1366_VCORE_REGULATOR_PWM_PIN,
-      NM_AXE_POWER_BM1366_VCORE_P_GOOD_DET_PIN,
-      NM_AXE_POWER_BM1366_VBUS_PLUG_SENSE_DET_PIN
+      NM_AXE_POWER_BM13xx_VCORE_REGULATOR_PWM_PIN,
+      NM_AXE_POWER_BM13xx_VCORE_P_GOOD_DET_PIN,
+      NM_AXE_POWER_BM13xx_VBUS_PLUG_SENSE_DET_PIN
   )
 };
 

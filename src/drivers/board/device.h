@@ -2,7 +2,9 @@
 #define __DEVICE_H__
 
 #if defined(NM_AXE_1366)
-#include "nm_axe_1366.h"
+#include "nmaxe_v1x.h"
+#elif defined(NM_AXE_1370)
+#include "nmaxe_gamma.h"
 
 
 
