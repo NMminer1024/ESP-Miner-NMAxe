@@ -131,6 +131,16 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 ## Release Log
 ***
 
+### (2025.01.09) - v2.4.11
+- Add:
+  - None
+- Fixed:
+  - None
+- Improved:
+  - Swarm.
+- Modify:
+  - ssl default in first flash for test in BTC banned region, tcp connection once long press user button.
+
 ### (2025.01.03) - v2.4.10
 - Add:
   - Latest firmware check on AxeOS.
