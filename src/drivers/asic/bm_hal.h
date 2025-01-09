@@ -39,7 +39,7 @@ public:
     size_t receive(uint8_t *buf, uint16_t len, uint32_t timeout_ms);
     bool clear_port_cache();
     virtual uint8_t init(uint64_t freq, int diff) = 0;
-    virtual void frequency_ramp_up() = 0;
+    virtual void frequency_ramp_up(float target_frequency) = 0;
     virtual void set_job_difficulty(int difficulty) = 0;
     virtual uint32_t get_asic_difficulty() = 0;
     virtual void send_work_to_asic(asic_job *job) = 0;

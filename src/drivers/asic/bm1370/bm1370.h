@@ -1,9 +1,8 @@
-#ifndef BM1366_H_
-#define BM1366_H_
+#ifndef BM1370_H_
+#define BM1370_H_
 #include "bm_hal.h"
 
-#define BM1366_DIFF_THR 512
-#define BM1366_DEFAULT_VSERSION_MASK  (0x1fffe000)
+#define BM1370_DIFF_THR 1024
 
 #define TYPE_JOB 0x20
 #define TYPE_CMD 0x40
@@ -41,16 +40,15 @@ typedef enum{
 
 
 
-class BM1366: public BMxxx{
+class BM1370: public BMxxx{
 private:
     uint32_t _diff_current;
-    void _send_bm1366(uint8_t header, uint8_t * data, uint8_t len);
+    void _send_bm1370(uint8_t header, uint8_t * data, uint8_t len);
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();
-    void _set_version_mask(uint32_t version_mask);
     void _set_hash_frequency(float target_freq);
 public:
-    BM1366(HardwareSerial &sport, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst):BMxxx(sport, init_baud, rx, tx, rst) {
+    BM1370(HardwareSerial &sport, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst):BMxxx(sport, init_baud, rx, tx, rst) {
         this->_diff_current = 0;
     }
     uint8_t init(uint64_t freq, int diff);

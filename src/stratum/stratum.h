@@ -57,7 +57,6 @@ typedef struct {
     String version;
     String ntime;
     bool clean_jobs;
-    // uint64_t stamp;//local timestamp, for job order
 }pool_job_data_t;
 
 typedef struct {

@@ -2,8 +2,16 @@
 #define MINER_H_
 #include <Arduino.h>
 #include "stratum.h"
-#include "bm1366.h"
 #include <map>
+
+#if defined(NM_AXE_1366)
+#include "bm1366.h"
+#define  ASIC_DIFF_THR  BM1366_DIFF_THR
+
+#elif defined(NM_AXE_1370)
+#include "bm1370.h"
+#define ASIC_DIFF_THR   BM1370_DIFF_THR
+#endif
 
 typedef struct{
     double   _3m;

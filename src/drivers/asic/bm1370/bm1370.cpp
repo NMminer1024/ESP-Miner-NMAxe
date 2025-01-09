@@ -1,10 +1,10 @@
-#include "bm1366.h"
+#include "bm1370.h"
 #include "logger.h"
 #include "crc.h"
 #include "helper.h"
 
 
-void BM1366::_send_bm1366(uint8_t header, uint8_t * data, uint8_t len){
+void BM1370::_send_bm1370(uint8_t header, uint8_t * data, uint8_t len){
     packet_type_t packet_type = (header & TYPE_JOB) ? JOB_PACKET : CMD_PACKET;
     uint8_t total_length = (packet_type == JOB_PACKET) ? (len + 6) : (len + 5);
     uint8_t * buf = (uint8_t *)malloc(total_length); 
@@ -30,18 +30,18 @@ void BM1366::_send_bm1366(uint8_t header, uint8_t * data, uint8_t len){
     free(buf);
 }
 
-void BM1366::_set_chain_inactive(){
+void BM1370::_set_chain_inactive(){
     uint8_t read_address[] = {0x00,0x00};
 
-    this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), read_address, 2);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), read_address, 2);
 }
 
-void BM1366::_set_chip_address(uint8_t address){
+void BM1370::_set_chip_address(uint8_t address){
     uint8_t read_address[] = {address,0x00};
-    this->_send_bm1366((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), read_address, 2);
+    this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), read_address, 2);
 }
 
-void BM1366::_set_hash_frequency(float target_freq){
+void BM1370::_set_hash_frequency(float target_freq){
     // default 200Mhz if it fails
     unsigned char freqbuf[9] = {0x00, 0x08, 0x40, 0xA0, 0x02, 0x41}; // freqbuf - pll0_parameter
     float newf = 200.0;
@@ -81,8 +81,8 @@ void BM1366::_set_hash_frequency(float target_freq){
         puts("Finding dividers failed, using default value (200Mhz)");
     } else {
         newf = 25.0 * (float) (fb_divider) / (float) (ref_divider * post_divider1 * post_divider2);
-        // LOG_I("final refdiv: %d, fbdiv: %d, postdiv1: %d, postdiv2: %d, min diff value: %f", ref_divider, fb_divider,
-            //    post_divider1, post_divider2, min_difference);
+        LOG_I("final refdiv: %d, fbdiv: %d, postdiv1: %d, postdiv2: %d, min diff value: %f", ref_divider, fb_divider,
+               post_divider1, post_divider2, min_difference);
 
         freqbuf[3] = fb_divider;
         freqbuf[4] = ref_divider;
@@ -93,20 +93,12 @@ void BM1366::_set_hash_frequency(float target_freq){
         }
     }
 
-    this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_WRITE), freqbuf, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), freqbuf, 6);
 
-    // LOG_W("Setting clock frequency to %.2fMHz (%.2f)", target_freq, newf);
+    LOG_W("Setting clock frequency to %.2fMHz (%.2f)", target_freq, newf);
 }
 
-void BM1366::_set_version_mask(uint32_t version_mask) {
-    int versions_to_roll = version_mask >> 13;
-    uint8_t version_byte0 = (versions_to_roll >> 8);
-    uint8_t version_byte1 = (versions_to_roll & 0xFF); 
-    uint8_t version_cmd[] = {0x00, 0xA4, 0x90, 0x00, version_byte0, version_byte1};
-    this->_send_bm1366(TYPE_CMD | GROUP_ALL | CMD_WRITE, version_cmd, 6);
-}
-
-void BM1366::set_job_difficulty(int difficulty){
+void BM1370::set_job_difficulty(int difficulty){
     // Default mask of 256 diff
     uint8_t job_difficulty_mask[9] = {0x00, TICKET_MASK, 0b00000000, 0b00000000, 0b00000000, 0b11111111};
 
@@ -129,14 +121,14 @@ void BM1366::set_job_difficulty(int difficulty){
     }
     this->_diff_current = diff_mask + 1;
     LOG_W("Setting job ASIC mask to %d", diff_mask);
-    this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6);
 }
 
-uint32_t BM1366::get_asic_difficulty(){
+uint32_t BM1370::get_asic_difficulty(){
     return this->_diff_current;
 }
 
-void BM1366::frequency_ramp_up(float target_frequency){
+void BM1370::frequency_ramp_up(float target_frequency){
     float current_frequency = 56.25;
     float step = 6.25;
     float current = current_frequency;
@@ -153,19 +145,21 @@ void BM1366::frequency_ramp_up(float target_frequency){
         }
         current = next_dividable;
         this->_set_hash_frequency(current);
+        delay(100);
     }
 
     while ((direction > 0 && current < target) || (direction < 0 && current > target)) {
         float next_step = fmin(fabs(direction), fabs(target - current));
         current += direction > 0 ? next_step : -next_step;
         this->_set_hash_frequency(current);
+        delay(100);
     }
     this->_set_hash_frequency(target);
-    LOG_W("Setting clock frequency to %.2fMHz", target);
     return;
 
+
     // // TODO: figure out how to replicate this ramp up.
-    // //       bm1366 doesn't get going until after this sequence
+    // //       BM1370 doesn't get going until after this sequence
     // uint8_t init724[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x08, 0x40, 0xA2, 0x02, 0x55, 0x0F};
     // this->send(init724, 11);
 
@@ -377,10 +371,15 @@ void BM1366::frequency_ramp_up(float target_frequency){
     // this->send(init793, 11);
 }
 
-uint8_t BM1366::init(uint64_t freq, int diff){
-    for (int i = 0; i < 3; i++) {
-        this->_set_version_mask(BM1366_DEFAULT_VSERSION_MASK);
-    }
+uint8_t BM1370::init(uint64_t freq, int diff){
+    uint8_t init0[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF, 0x1C};
+    this->send(init0, 11);
+
+    uint8_t init1[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF, 0x1C};
+    this->send(init1, 11);
+
+    uint8_t init2[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF, 0x1C};
+    this->send(init2, 11);
 
     // read register 00 on all chips
     uint8_t init3[7] = {0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A};
@@ -413,7 +412,9 @@ uint8_t BM1366::init(uint64_t freq, int diff){
     uint8_t init5[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x18, 0xFF, 0x0F, 0xC1, 0x00, 0x00};
     this->send(init5, 11);
 
-    this->_set_chain_inactive();
+    this->_set_chain_inactive();//_send_chain_inactive();
+    // uint8_t init6[7] = {0x55, 0xAA, 0x53, 0x05, 0x00, 0x00, 0x03};
+    // this->send(init6, 7);
 
     // split the chip address space evenly
     uint8_t address_interval = (uint8_t) (256 / chip_counter);
@@ -427,6 +428,8 @@ uint8_t BM1366::init(uint64_t freq, int diff){
     uint8_t init136[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x3C, 0x80, 0x00, 0x80, 0x20, 0x19};
     this->send(init136, 11);
 
+    // uint8_t init137[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x14, 0x00, 0x00, 0x00, 0xFF, 0x08};
+    // this->send(init137, 11);
     this->set_job_difficulty(diff);//BM1366_set_job_difficulty_mask(BM1366_DIFF_THR);
 
     uint8_t init138[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x54, 0x00, 0x00, 0x00, 0x03, 0x1D};
@@ -443,20 +446,18 @@ uint8_t BM1366::init(uint64_t freq, int diff){
 
     for (uint8_t i = 0; i < chip_counter; i++) {
         uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
-        this->_send_bm1366((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_a8_register, 6);
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_a8_register, 6);
         uint8_t set_18_register[6] = {(uint8_t)(i * address_interval), 0x18, 0xF0, 0x00, 0xC1, 0x00};
-        this->_send_bm1366((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_18_register, 6);
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_18_register, 6);
         uint8_t set_3c_register_first[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x85, 0x40};
-        this->_send_bm1366((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_first, 6);
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_first, 6);
         uint8_t set_3c_register_second[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x80, 0x20};
-        this->_send_bm1366((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_second, 6);
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_second, 6);
         uint8_t set_3c_register_third[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x82, 0xAA};
-        this->_send_bm1366((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_third, 6);
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_third, 6);
     }
 
-    this->frequency_ramp_up((float)freq);//do_frequency_ramp_up();
-
-    // this->_set_hash_frequency(freq);//BM1366_send_hash_frequency(frequency);
+    this->frequency_ramp_up(freq);//do_frequency_ramp_up();
 
     //register 10 is still a bit of a mystery. discussion: https://github.com/skot/ESP-Miner/pull/167
 
@@ -464,7 +465,7 @@ uint8_t BM1366::init(uint64_t freq, int diff){
     // uint8_t set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x14, 0x46}; //S19XP-Luxos Default
     uint8_t set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x15, 0x1C}; //S19XP-Stock Default
     // uint8_t set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x0F, 0x00, 0x00}; //supposedly the "full" 32bit nonce range
-    this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_WRITE), set_10_hash_counting, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), set_10_hash_counting, 6);
 
     uint8_t init795[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF, 0x1C};
     this->send(init795, 11);
@@ -472,12 +473,12 @@ uint8_t BM1366::init(uint64_t freq, int diff){
     return chip_counter;
 }
 
-void BM1366::send_work_to_asic(asic_job *job){
+void BM1370::send_work_to_asic(asic_job *job){
     job->num_midstates = 0x01;
-    this->_send_bm1366((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*)job, sizeof(asic_job));
+    this->_send_bm1370((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*)job, sizeof(asic_job));
 }
 
-esp_err_t BM1366::wait_for_result(asic_result *result, uint32_t timeout_ms){
+esp_err_t BM1370::wait_for_result(asic_result *result, uint32_t timeout_ms){
     uint8_t rsp[11] = {0,};
     uint16_t len = this->receive(rsp, sizeof(rsp), timeout_ms);
     if(len == 0) return ESP_ERR_TIMEOUT;
