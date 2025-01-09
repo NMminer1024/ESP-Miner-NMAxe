@@ -128,7 +128,7 @@ void BM1366::set_job_difficulty(int difficulty){
         job_difficulty_mask[5 - i] = reverse_bits(value);
     }
     this->_diff_current = diff_mask + 1;
-    LOG_W("Setting job ASIC mask to %d", diff_mask);
+    LOG_W("Setting ASIC diff mask to %d", diff_mask);
     this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6);
 }
 

@@ -132,9 +132,7 @@ String StratumClass::get_sub_extranonce1(){
 String StratumClass::get_sub_extranonce2() {
     uint64_t ext2 = strtoull(this->_sub_info.extranonce2.c_str(), NULL, 16); 
     ext2++;
-    if (ext2 >= (1ULL << (8 * this->_sub_info.extranonce2_size))) {
-        return this->_sub_info.extranonce2; 
-    }
+    ext2 = ext2 & ((1ULL << (8 * this->_sub_info.extranonce2_size)) - 1);
 
     char buffer[2 * this->_sub_info.extranonce2_size + 1];
     snprintf(buffer, sizeof(buffer), "%0*llx", 2 * this->_sub_info.extranonce2_size, ext2);
@@ -413,7 +411,7 @@ void stratum_thread_entry(void *args){
             g_nmaxe.stratum.reset();
             g_nmaxe.stratum.pool.begin(g_nmaxe.connection.pool.ssl);
             g_nmaxe.stratum.pool.connect();
-            g_nmaxe.mstatus.best_session = 0;
+            // g_nmaxe.mstatus.best_session = 0;
             g_nmaxe.mstatus.last_diff = 0;
             delay(1000);
             continue;
