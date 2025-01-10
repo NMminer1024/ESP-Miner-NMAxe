@@ -4,14 +4,17 @@
 #include "stratum.h"
 #include <map>
 
-#if defined(NM_AXE_1366)
+#if defined(ASIC_BM1366)
 #include "bm1366.h"
 #define  ASIC_DIFF_THR  BM1366_DIFF_THR
-
-#elif defined(NM_AXE_1370)
+#elif defined(ASIC_BM1370)
 #include "bm1370.h"
 #define ASIC_DIFF_THR   BM1370_DIFF_THR
 #endif
+
+#define ESP32_TO_BM13xx_INIT_BUAD 115200
+#define ESP32_TO_BM13xx_WORK_BUAD 1000000
+
 
 typedef struct{
     double   _3m;

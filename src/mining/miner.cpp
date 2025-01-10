@@ -9,15 +9,13 @@
 #include "csha256.h"
 #include "helper.h"
 
-#define ESP32_TO_BM13xx_INIT_BUAD 115200
-#define ESP32_TO_BM13xx_WORK_BUAD 1000000
-//Asic chip instance
-BM1366 *bm1366  = new BM1366(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-//Asic chip instance
-//BM1368 *bm1368  = new BM1368(Serial1, ESP32_TO_BM1368_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM1368, NM_AXE_ESP32_TX_TO_BM1368, NM_AXE_ESP32_RST_TO_BM1368);
-//Asic chip instance
-//BM1397 *bm1397  = new BM1397(Serial1, ESP32_TO_BM1397_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM1397, NM_AXE_ESP32_TX_TO_BM1397, NM_AXE_ESP32_RST_TO_BM1397);
 
+//Asic chip instance
+#if defined(ASIC_BM1366)
+BMxxx *asic_instance  = new BM1366(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+#elif defined(ASIC_BM1370)
+BMxxx *asic_instance  = new BM1370(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+#endif
 
 AsicMinerClass::AsicMinerClass(BMxxx *asic){
     this->_asic = asic;
@@ -259,8 +257,8 @@ void miner_asic_init_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
-    //acic instance
-    g_nmaxe.miner = new AsicMinerClass(bm1366);
+    //miner instance
+    g_nmaxe.miner = new AsicMinerClass(asic_instance);
 
     //begin asic hardware
     if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, ASIC_DIFF_THR)){
