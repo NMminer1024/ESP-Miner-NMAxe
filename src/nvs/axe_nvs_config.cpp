@@ -202,7 +202,7 @@ bool load_g_nmaxe(void){
     String url = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+ssl://hk.kxsw.pro"));
     g_nmaxe.connection.pool.ssl                 = (url.indexOf("ssl") != -1);
     g_nmaxe.connection.pool.url                 = url.substring(url.indexOf(":") + 3);
-    g_nmaxe.connection.pool.port                = nvs_config_get_u16(NVS_CONFIG_STRATUM_PORT, 12345);
+    g_nmaxe.connection.pool.port                = nvs_config_get_u16(NVS_CONFIG_STRATUM_PORT, 9527);
     g_nmaxe.connection.stratum.user             = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
     g_nmaxe.connection.stratum.pwd              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS, "d=15000"));
     g_nmaxe.connection.stratum.diff             = DEFAULT_POOL_DIFFICULTY;
