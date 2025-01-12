@@ -269,7 +269,7 @@ void miner_asic_init_thread_entry(void *args){
             delay(1000);
         }
     }
-    g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
+    // g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
     vTaskDelete(NULL);
 }
 

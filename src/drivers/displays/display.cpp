@@ -20,6 +20,8 @@ enum{
 LV_FONT_DECLARE(ds_digib_font_16)
 LV_FONT_DECLARE(ds_digib_font_18)
 LV_FONT_DECLARE(ds_digib_font_20)
+LV_FONT_DECLARE(ds_digib_font_24)
+LV_FONT_DECLARE(ds_digib_font_28)
 LV_FONT_DECLARE(ds_digib_font_36)
 LV_FONT_DECLARE(ds_digib_font_38)
 LV_FONT_DECLARE(ds_digib_font_50)
@@ -220,9 +222,7 @@ static void ui_layout_init(void){
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
     static const lv_font_t *font = &lv_font_montserrat_14;
-    static lv_obj_t *lb_loading = NULL;
-    static lv_obj_t * bar = NULL;
-    static lv_obj_t * label_progress = NULL;
+    static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL;
     static uint8_t progress = 0, progress_total = 16;
 
     lv_color_t font_color = lv_color_hex(color);
@@ -233,6 +233,16 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_obj_set_style_text_font(lb_loading, font, LV_PART_MAIN);
       lv_label_set_long_mode(lb_loading, LV_LABEL_LONG_DOT);
       lv_obj_align(lb_loading, LV_ALIGN_BOTTOM_LEFT, 3, 0);
+
+      //hardward model
+      lb_hard_model   = lv_label_create( ui_pages[PAGE_LOADING] );
+      lv_obj_set_width(lb_hard_model, 240);
+      lv_label_set_text( lb_hard_model, g_nmaxe.board.hw_model.c_str());
+      lv_obj_set_style_text_font(lb_hard_model, &lv_font_montserrat_16, LV_PART_MAIN);
+      // lv_obj_set_style_text_font(lb_hard_model, &ds_digib_font_24, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_hard_model, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      lv_label_set_long_mode(lb_hard_model, LV_LABEL_LONG_SCROLL_CIRCULAR);
+      lv_obj_align( lb_hard_model, LV_ALIGN_TOP_LEFT, 2, 1);
 
       //bar 
       bar = lv_bar_create(ui_pages[PAGE_LOADING]);
@@ -364,7 +374,7 @@ static void ui_miner_page_update(){
     lv_obj_set_style_text_font(lb_diff, font, LV_PART_MAIN);
     lv_label_set_long_mode(lb_diff, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_style_text_color(lb_diff, font_color, LV_PART_MAIN); 
-    lv_obj_align( lb_diff, LV_ALIGN_TOP_LEFT, 132, 26 );
+    lv_obj_align( lb_diff, LV_ALIGN_TOP_LEFT, 132, 25 );
     //share value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
@@ -374,7 +384,7 @@ static void ui_miner_page_update(){
     lv_obj_set_style_text_font(lb_share, font, LV_PART_MAIN);
     lv_label_set_long_mode(lb_share, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lb_share, font_color, LV_PART_MAIN); 
-    lv_obj_align( lb_share, LV_ALIGN_TOP_LEFT, 132, 42 ); 
+    lv_obj_align( lb_share, LV_ALIGN_TOP_LEFT, 132, 41 ); 
     //temp value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
@@ -384,7 +394,7 @@ static void ui_miner_page_update(){
     lv_obj_set_style_text_font(lb_temp, font, LV_PART_MAIN);
     lv_label_set_long_mode(lb_temp, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lb_temp, font_color, LV_PART_MAIN); 
-    lv_obj_align( lb_temp, LV_ALIGN_TOP_LEFT, 132, 59 );
+    lv_obj_align( lb_temp, LV_ALIGN_TOP_LEFT, 132, 58 );
     //Fan value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
@@ -394,9 +404,9 @@ static void ui_miner_page_update(){
     lv_obj_set_style_text_font(lb_fan, font, LV_PART_MAIN);
     lv_label_set_long_mode(lb_fan, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lb_fan, font_color, LV_PART_MAIN); 
-    lv_obj_align( lb_fan, LV_ALIGN_TOP_LEFT, 132, 76); 
+    lv_obj_align( lb_fan, LV_ALIGN_TOP_LEFT, 132, 75); 
     //Hashrate uint
-    font = &ds_digib_font_20;
+    font = &ds_digib_font_28;
     font_color = lv_color_hex(0xFFFFFF);
     lb_hr_unit   = lv_label_create( ui_pages[PAGE_MINER] );
     lv_obj_set_width(lb_hr_unit, SCREEN_WIDTH);
@@ -404,7 +414,7 @@ static void ui_miner_page_update(){
     lv_obj_set_style_text_font(lb_hr_unit, font, LV_PART_MAIN);
     lv_obj_set_style_text_color(lb_hr_unit, font_color, LV_PART_MAIN); 
     lv_label_set_long_mode(lb_hr_unit, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_hr_unit, LV_ALIGN_TOP_MID, 195, 115); 
+    lv_obj_align( lb_hr_unit, LV_ALIGN_TOP_MID, 182, 110); 
     // symbol uptime
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xFFA500);
