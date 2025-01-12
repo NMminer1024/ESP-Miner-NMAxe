@@ -166,39 +166,35 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
 
 
 bool load_g_nmaxe(void){
-    static bool nvs_init_flag = false;
-    if(!nvs_init_flag){
-        esp_err_t ret = nvs_flash_init();
-        while (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-            LOG_W("NVS partition is full or has invalid version, erasing...");
-            if(nvs_flash_erase() != ESP_OK){
+    esp_err_t ret = nvs_flash_init();
+    while (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        LOG_W("NVS partition is full or has invalid version, erasing...");
+        if(nvs_flash_erase() != ESP_OK){
             LOG_E("NVS partition erase failed");
-            }
-            LOG_I("Reinitializing NVS...");
-            ret = nvs_flash_init();
-            delay(1000);
         }
-        nvs_init_flag = true;
-
-        //first time init
-        g_nmaxe.board.fw_version                    = CURRENT_FW_VERSION;
-        g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
-        g_nmaxe.board.hw_model                      = BOARD_MODEL;
-        g_nmaxe.board.devcie_code                   = gen_device_code();
-        g_nmaxe.board.temp_mcu                      = 0.0f;
-        g_nmaxe.board.temp_vcore                    = 0.0f;
-        g_nmaxe.asic.temp                           = 0.0f;
-        g_nmaxe.mstatus.nvs_save_xsem               = xSemaphoreCreateCounting(1, 0);
-        g_nmaxe.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
-        g_nmaxe.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
-        g_nmaxe.mstatus.update_xsem                 = xSemaphoreCreateCounting(1, 0);
-        g_nmaxe.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
-        g_nmaxe.connection.wifi.softap_param.pwd    = "12345678";
-        g_nmaxe.connection.wifi.softap_param.ssid   = "NMAxe_" + g_nmaxe.board.devcie_code.substring(0, 5);
-        g_nmaxe.mstatus.block_hits                  = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
-        g_nmaxe.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
-        g_nmaxe.connection.client_connected         = false;
+        LOG_I("Reinitializing NVS...");
+        ret = nvs_flash_init();
+        delay(1000);
     }
+
+    g_nmaxe.board.fw_version                    = CURRENT_FW_VERSION;
+    g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
+    g_nmaxe.board.hw_model                      = BOARD_MODEL;
+    g_nmaxe.board.devcie_code                   = gen_device_code();
+    g_nmaxe.board.temp_mcu                      = 0.0f;
+    g_nmaxe.board.temp_vcore                    = 0.0f;
+    g_nmaxe.asic.temp                           = 0.0f;
+    g_nmaxe.mstatus.nvs_save_xsem               = xSemaphoreCreateCounting(1, 0);
+    g_nmaxe.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
+    g_nmaxe.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
+    g_nmaxe.mstatus.update_xsem                 = xSemaphoreCreateCounting(1, 0);
+    g_nmaxe.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
+    g_nmaxe.connection.wifi.softap_param.pwd    = "12345678";
+    g_nmaxe.connection.wifi.softap_param.ssid   = "NMAxe_" + g_nmaxe.board.devcie_code.substring(0, 5);
+    g_nmaxe.mstatus.block_hits                  = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
+    g_nmaxe.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
+    g_nmaxe.connection.client_connected         = false;
+    
     String url = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+ssl://hk.kxsw.pro"));
     g_nmaxe.connection.pool.ssl                 = (url.indexOf("ssl") != -1);
     g_nmaxe.connection.pool.url                 = url.substring(url.indexOf(":") + 3);
@@ -221,6 +217,11 @@ bool load_g_nmaxe(void){
     g_nmaxe.screen.flip                         = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     g_nmaxe.screen.brightness                   = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 99);
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
+    g_nmaxe.miner                               = NULL;
+    g_nmaxe.stratum                             = new StratumClass(g_nmaxe.connection.pool, g_nmaxe.connection.stratum, 10);
+    g_nmaxe.power                               = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
+                                                                      {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},
+                                                                       NM_AXE_POWER_BM13xx_VCORE_REGULATOR_PWM_PIN, NM_AXE_POWER_BM13xx_VCORE_P_GOOD_DET_PIN, NM_AXE_POWER_BM13xx_VBUS_PLUG_SENSE_DET_PIN);
     return true;
 }
 

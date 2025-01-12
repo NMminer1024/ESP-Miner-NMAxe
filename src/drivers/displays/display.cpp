@@ -1184,31 +1184,31 @@ void ui_thread_entry(void *args){
 
   //Vbus check 
   ui_loading_str_update(vbus_chk_str[0], 0xFFFFFF, true);
-  while (!g_nmaxe.power.is_adc_ready()){
+  while (!g_nmaxe.power->is_adc_ready()){
     static uint8_t cnt = 0;
     ui_loading_str_update(vbus_chk_str[(cnt++)%4], 0xFFFFFF, false);
     delay(500);
   }
   
   //Vbus type check, DC or USB 
-  if(g_nmaxe.power.is_dc_pluged()) ui_loading_str_update("DC pluged.", 0x00ff00, true);
+  if(g_nmaxe.power->is_dc_pluged()) ui_loading_str_update("DC pluged.", 0x00ff00, true);
   else ui_loading_str_update("USB pluged.", 0x00ff00, true);
   delay(500);
 
   //Vbus type check and voltage check
-  while(g_nmaxe.power.get_vbus() < VBUS_MIN_VOLTAGE){
+  while(g_nmaxe.power->get_vbus() < VBUS_MIN_VOLTAGE){
       static bool blink = false;
       uint32_t color = (blink) ? 0xFF0000 : 0xFFFFFF;
-      String vbusString = "Vbus " + String(g_nmaxe.power.get_vbus()/1000.0, 1) + "v(at least" + String(VBUS_MIN_VOLTAGE / 1000.0, 1) + "v)";
+      String vbusString = "Vbus " + String(g_nmaxe.power->get_vbus()/1000.0, 1) + "v(at least" + String(VBUS_MIN_VOLTAGE / 1000.0, 1) + "v)";
       ui_loading_str_update(vbusString, color, false);
       blink = !blink;
-      if(!g_nmaxe.power.is_dc_pluged()){
+      if(!g_nmaxe.power->is_dc_pluged()){
         disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
         delay(500);
       }
       delay(500);
   }
-  ui_loading_str_update("Vbus " + String(g_nmaxe.power.get_vbus() / 1000.0, 3) + "V.", 0x00FF00, true);
+  ui_loading_str_update("Vbus " + String(g_nmaxe.power->get_vbus() / 1000.0, 3) + "V.", 0x00FF00, true);
   delay(500);
 
   /***************************************wait fan self test *******************************************/
@@ -1225,7 +1225,7 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Vcore check...", 0xFFFFFF, true);
   delay(500);
   //Vcore voltage check
-  while(!g_nmaxe.power.is_vcore_good()){
+  while(!g_nmaxe.power->is_vcore_good()){
     static bool blink = false;
     uint32_t color = (blink) ? 0xFF0000 : 0xFFFFFF;
     ui_loading_str_update("Vcore error.", color, false);
@@ -1233,7 +1233,7 @@ void ui_thread_entry(void *args){
     delay(500);
   }
   delay(200);//wait for vcore set to target voltage
-  ui_loading_str_update(String("Vcore ") + String(g_nmaxe.power.get_vcore() / 1000.0, 3) + "v.", 0x00FF00, true);
+  ui_loading_str_update(String("Vcore ") + String(g_nmaxe.power->get_vcore() / 1000.0, 3) + "v.", 0x00FF00, true);
   delay(500);
   /****************************************wait for asic init********************************************/
   while(g_nmaxe.miner->get_asic_count() == 0){
@@ -1310,7 +1310,7 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Market connected!", 0x00FF00, true);
   delay(500);
   /***************************************wait for pool connected**************************************/
-  while(!g_nmaxe.stratum.is_subscribed()){
+  while(!g_nmaxe.stratum->is_subscribed()){
     static uint8_t cnt = 0;
     ui_loading_str_update(pool_con_str[(cnt++)%4], 0xFFFFFF, false);
     delay(300);
@@ -1318,7 +1318,7 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Pool connected!", 0x00FF00, true);
   delay(100);
   /******************************************wait pool authorized*************************************/
-  while(!g_nmaxe.stratum.is_authorized()){
+  while(!g_nmaxe.stratum->is_authorized()){
     static uint8_t cnt = 0;
     ui_loading_str_update(pool_auth_str[(cnt++)%4], 0xFFFFFF, false);
     delay(300);
@@ -1327,13 +1327,13 @@ void ui_thread_entry(void *args){
       delay(500);
       ui_loading_str_update("Stratum user error!", 0xFFFFFF, false);
       delay(500);
-      if(g_nmaxe.stratum.is_authorized()) break;
+      if(g_nmaxe.stratum->is_authorized()) break;
     }
   }
   ui_loading_str_update("Pool authorized!", 0x00FF00, true);
   delay(100);
   /******************************************wait first job*******************************************/
-  while(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 300) == pdFAIL){
+  while(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, 300) == pdFAIL){
     static uint8_t cnt = 0;
     ui_loading_str_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
     while (cnt >= 3*20){
@@ -1341,7 +1341,7 @@ void ui_thread_entry(void *args){
       delay(500);
       ui_loading_str_update("Pool job timeout!", 0xFFFFFF, false);
       delay(500);
-      if(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 0) == pdPASS) break;
+      if(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, 0) == pdPASS) break;
     }
   }
   ui_loading_str_update("Miner ready!", 0x00FF00, true);

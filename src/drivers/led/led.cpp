@@ -40,7 +40,7 @@ void led_thread_entry(void *args){
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, LOW);
                 else digitalWrite(LED_WIFI_STA_PIN, HIGH);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, LOW);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, LOW);
                 else digitalWrite(LED_POOL_STA_PIN, HIGH);
 
             break;
@@ -48,7 +48,7 @@ void led_thread_entry(void *args){
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, HIGH);
                 else digitalWrite(LED_WIFI_STA_PIN, LOW);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
                 else digitalWrite(LED_POOL_STA_PIN, LOW);
 
             break;
@@ -56,14 +56,14 @@ void led_thread_entry(void *args){
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, HIGH);
                 else digitalWrite(LED_WIFI_STA_PIN, HIGH);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
                 else digitalWrite(LED_POOL_STA_PIN, HIGH);
             break;
         case 4 * dot:
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, HIGH);
                 else digitalWrite(LED_WIFI_STA_PIN, LOW);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
                 else digitalWrite(LED_POOL_STA_PIN, LOW);
 
             break;
@@ -71,42 +71,42 @@ void led_thread_entry(void *args){
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, HIGH);
                 else digitalWrite(LED_WIFI_STA_PIN, HIGH);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
                 else digitalWrite(LED_POOL_STA_PIN, HIGH);
             break;
         case 6 * dot:
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, HIGH);
                 else digitalWrite(LED_WIFI_STA_PIN, LOW);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
                 else digitalWrite(LED_POOL_STA_PIN, LOW);
             break;
         case 7 * dot:
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, HIGH);
                 else digitalWrite(LED_WIFI_STA_PIN, HIGH);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
                 else digitalWrite(LED_POOL_STA_PIN, HIGH);
             break;
         case 8 * dot:
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, HIGH);
                 else digitalWrite(LED_WIFI_STA_PIN, LOW);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
                 else digitalWrite(LED_POOL_STA_PIN, LOW);
             break;
         case 9 * dot:
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, HIGH);
                 else digitalWrite(LED_WIFI_STA_PIN, HIGH);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
                 else digitalWrite(LED_POOL_STA_PIN, HIGH);
             break;
         case 10 * dot:
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, HIGH);
                 else digitalWrite(LED_WIFI_STA_PIN, LOW);
 
-                if(g_nmaxe.stratum.is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
+                if(g_nmaxe.stratum->is_subscribed()) digitalWrite(LED_POOL_STA_PIN, HIGH);
                 else digitalWrite(LED_POOL_STA_PIN, LOW);
             break;
         }

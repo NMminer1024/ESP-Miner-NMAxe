@@ -247,7 +247,7 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         if(root.containsKey("coreVoltage")){
             uint16_t req_mv = root["coreVoltage"].as<uint16_t>();
             g_nmaxe.asic.vcore_req = req_mv;
-            g_nmaxe.power.set_vcore_voltage(req_mv);
+            g_nmaxe.power->set_vcore_voltage(req_mv);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, root["coreVoltage"].as<uint16_t>());
         }
         if(root.containsKey("brightness")){

@@ -37,6 +37,6 @@ typedef struct{
 }wifi_info_t;
 
 
-void axe_wifi_connecet(axe_wifi_conn_param_t param);
+void wifi_connect_thread_entry(void *args);
 
 #endif // _WMANAGER_H

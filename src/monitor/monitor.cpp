@@ -30,7 +30,7 @@ void monitor_thread_entry(void *args){
   udp_client->begin(udp_client_port);
 
   //wait for first job cache ready forever when process start
-  xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
+  xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, portMAX_DELAY);
 
   delay(500);//necessary delay for first job cache ready
 
@@ -47,9 +47,9 @@ void monitor_thread_entry(void *args){
       //update temperature and power status
       if(monitor_cnt % 5 == 0){
         //update power status
-        g_nmaxe.board.vbus = g_nmaxe.power.get_vbus();
-        g_nmaxe.board.ibus = g_nmaxe.power.get_ibus();
-        g_nmaxe.asic.vcore_measured = g_nmaxe.power.get_vcore();
+        g_nmaxe.board.vbus = g_nmaxe.power->get_vbus();
+        g_nmaxe.board.ibus = g_nmaxe.power->get_ibus();
+        g_nmaxe.asic.vcore_measured = g_nmaxe.power->get_vcore();
         //update board temperature
         static uint8_t mcu_cnt = 0;
         g_nmaxe.board.temp_mcu    = (mcu_cnt++ % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
@@ -136,7 +136,7 @@ void monitor_thread_entry(void *args){
         }
         //check vcore temperature status
         if(g_nmaxe.board.temp_vcore > VCORE_TEMP_DANGER || g_nmaxe.asic.temp > ASIC_TEMP_DANGER){
-          uint16_t vcore_now = g_nmaxe.power.get_vcore();
+          uint16_t vcore_now = g_nmaxe.power->get_vcore();
           if(vcore_now >= 1200)vcore_now -= 100;
           else{
             static uint8_t cnt = 0;
@@ -146,7 +146,7 @@ void monitor_thread_entry(void *args){
               ESP.restart();
             }
           }
-          g_nmaxe.power.set_vcore_voltage(vcore_now);
+          g_nmaxe.power->set_vcore_voltage(vcore_now);
           LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", g_nmaxe.board.temp_vcore, vcore_now);
         }
         //check fan status

@@ -121,13 +121,13 @@ void power_thread_entry(void *args){
     free(name);
 
     //detect power plug or pd plug
-    if(g_nmaxe.power.is_dc_pluged()) LOG_I("DC plug detected...");
+    if(g_nmaxe.power->is_dc_pluged()) LOG_I("DC plug detected...");
     else LOG_I("USB plug detected...");
 
     //detect vbus voltage, if lower than VBUS_MIN_VOLTAGE , wait for power settle or throw error
-    g_nmaxe.power.init();
-    while (g_nmaxe.power.get_vbus() < VBUS_MIN_VOLTAGE){
-        LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", g_nmaxe.power.get_vbus()/1000.0, VBUS_MIN_VOLTAGE/1000.0);
+    g_nmaxe.power->init();
+    while (g_nmaxe.power->get_vbus() < VBUS_MIN_VOLTAGE){
+        LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", g_nmaxe.power->get_vbus()/1000.0, VBUS_MIN_VOLTAGE/1000.0);
         delay(1000);
     }
     while (!g_nmaxe.fan.self_test){
@@ -136,20 +136,20 @@ void power_thread_entry(void *args){
     }
     
     //set vdd_1v8 and pll_0v8 power
-    g_nmaxe.power.set_pll_0v8(PWR_ON);
-    g_nmaxe.power.set_vdd_1v8(PWR_ON);
+    g_nmaxe.power->set_pll_0v8(PWR_ON);
+    g_nmaxe.power->set_vdd_1v8(PWR_ON);
     //set vcore to default 1.0V, then wait for vcore power settle, and set vcore voltage to required voltage
-    g_nmaxe.power.set_vcore_voltage(1000);
+    g_nmaxe.power->set_vcore_voltage(1000);
     delay(50);
-    g_nmaxe.power.set_vcore(PWR_ON);
-    while (!g_nmaxe.power.is_vcore_good()){
+    g_nmaxe.power->set_vcore(PWR_ON);
+    while (!g_nmaxe.power->is_vcore_good()){
         LOG_W("Waiting for vcore power setup...");
         delay(100);
     }
     //set vcore voltage to required voltage
-    g_nmaxe.power.set_vcore_voltage(g_nmaxe.asic.vcore_req);
+    g_nmaxe.power->set_vcore_voltage(g_nmaxe.asic.vcore_req);
     delay(500);
-    xSemaphoreGive(g_nmaxe.power.good_xsem);
+    xSemaphoreGive(g_nmaxe.power->good_xsem);
     //exit
     vTaskDelete(NULL);
 }

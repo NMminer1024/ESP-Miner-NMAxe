@@ -71,15 +71,18 @@ static void config_timeout_monitor_thread_entry(void *args){
     vTaskDelete(NULL);
 }
 
-void axe_wifi_connecet(axe_wifi_conn_param_t param){
+void wifi_connect_thread_entry(void *args){
+    axe_wifi_conn_param_t *param = (axe_wifi_conn_param_t*)malloc(sizeof(axe_wifi_conn_param_t));
+    memcpy(param, args, sizeof(axe_wifi_conn_param_t));
+
     LOG_I("Initializing WiFi...");
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(WIFI_POWER_15dBm);
     WiFi.onEvent(WiFiEvent);
 
-    LOG_I("Try to connect [%s]...", param.ssid.c_str());
+    LOG_I("Try to connect [%s]...", param->ssid.c_str());
     WiFi.setHostname(g_nmaxe.connection.wifi.conn_param.hostname.c_str());
-    WiFi.begin(param.ssid.c_str(), param.pwd.c_str());
+    WiFi.begin(param->ssid.c_str(), param->pwd.c_str());
     //start http server
     start_http_server();
     //force config
@@ -106,7 +109,7 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
     int maxRetries = 0;
     while (WiFi.status() != WL_CONNECTED && maxRetries < 60*5) {
         maxRetries++;
-        LOG_I("Try to connect [%s] %ds...", param.ssid.c_str(), maxRetries);
+        LOG_I("Try to connect [%s] %ds...", param->ssid.c_str(), maxRetries);
         if(maxRetries >= 15){
             LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.conn_param.hostname.c_str());
             WiFi.mode(WIFI_AP);
@@ -129,6 +132,7 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
         }
         delay(1000);
     }
+    
     LOG_I("------------------------------------");
     LOG_I("SSID     : %s ", WiFi.SSID().c_str());
     LOG_I("IP       : %s ", WiFi.localIP().toString().c_str());
@@ -137,6 +141,9 @@ void axe_wifi_connecet(axe_wifi_conn_param_t param){
     LOG_I("DNS      : %s, %s", WiFi.dnsIP(0).toString().c_str(), WiFi.dnsIP(1).toString().c_str());
     LOG_I("Gateway  : %s", WiFi.gatewayIP().toString().c_str());
     LOG_I("------------------------------------");
+
+    free(param);
+    vTaskDelete(NULL);
 }
 
 

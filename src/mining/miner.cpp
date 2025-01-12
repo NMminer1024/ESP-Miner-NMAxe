@@ -63,9 +63,9 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     ////////////////////////////////////////construct asic job//////////////////////////////////
     this->_asic_job_now.id = (this->_asic_job_now.id + 8) % 128;
     this->pool_job_now.id  = pool_job->id;
-    String  extranonce2    = g_nmaxe.stratum.get_sub_extranonce2();
+    String  extranonce2    = g_nmaxe.stratum->get_sub_extranonce2();
     /**************************************** coinhash ****************************************/
-    String coinbaseStr = pool_job->coinb1 + g_nmaxe.stratum.get_sub_extranonce1() + extranonce2 + pool_job->coinb2;
+    String coinbaseStr = pool_job->coinb1 + g_nmaxe.stratum->get_sub_extranonce1() + extranonce2 + pool_job->coinb2;
     uint8_t merkle_root[32], coinbase[coinbaseStr.length()/2];
     size_t res = str_to_byte_array(coinbaseStr.c_str(), coinbaseStr.length(), coinbase);
     if(res <= 0){
@@ -187,12 +187,11 @@ String AsicMinerClass::get_extranonce2_by_asic_job_id(uint8_t asic_job_id){
 }
 
 bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version){
-    return g_nmaxe.stratum.submit(this->pool_job_now.id, extranonce2, ntime, nonce, version);
+    return g_nmaxe.stratum->submit(this->pool_job_now.id, extranonce2, ntime, nonce, version);
 }
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     if (phr == NULL) return false;
-    // static   std::deque<std::pair<uint32_t, double>> hr_samples;
 
     //acllocate memory in psram
     static std::deque<std::pair<uint32_t, double>, PsramAllocator<std::pair<uint32_t, double>>> hr_samples;
@@ -281,57 +280,57 @@ void miner_asic_tx_thread_entry(void *args){
     free(name);
 
     //wait for first job cache ready forever
-    xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
+    xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, portMAX_DELAY);
     delay(500);//necessary delay for first job cache ready
 
     //forever loop
     while (true){
         //null loop if not subscribed
-        if(!g_nmaxe.stratum.is_subscribed()){
+        if(!g_nmaxe.stratum->is_subscribed()){
             g_nmaxe.miner->end();
             g_nmaxe.mstatus.hashrate._3m = 0.0;
             delay(1000);
             continue;   
         }
         //wait for new job signal 1000ms max
-        if(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 1000) != pdTRUE) {
+        if(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, 1000) != pdTRUE) {
             continue;
         }
 
         //get job from pool job caches
-        g_nmaxe.miner->pool_job_now = g_nmaxe.stratum.pop_job_cache();
+        g_nmaxe.miner->pool_job_now = g_nmaxe.stratum->pop_job_cache();
         if(g_nmaxe.miner->pool_job_now.id == "")continue;
         
         //calculate network diff
         g_nmaxe.mstatus.network_diff = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);
         //update pool diff
-        g_nmaxe.mstatus.pool_diff = g_nmaxe.stratum.get_pool_difficulty();
+        g_nmaxe.mstatus.pool_diff = g_nmaxe.stratum->get_pool_difficulty();
         
-        LOG_W("Job [%s] from %s:%d", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum.pool.get_pool_info().url.c_str(), g_nmaxe.stratum.pool.get_pool_info().port);
+        LOG_W("Job [%s] from %s:%d", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum->pool.get_pool_info().url.c_str(), g_nmaxe.stratum->pool.get_pool_info().port);
         while (true){
             //construct asic job and send to asic every 2s
             if(!g_nmaxe.miner->mining(&g_nmaxe.miner->pool_job_now)) continue;
             //exit if pool disconnected
-            if(!g_nmaxe.stratum.is_subscribed()) break;
+            if(!g_nmaxe.stratum->is_subscribed()) break;
 
             //set asic diff as pool diff if pool diff < initial asic diff
-            if(g_nmaxe.stratum.get_pool_difficulty() <= ASIC_DIFF_THR){
+            if(g_nmaxe.stratum->get_pool_difficulty() <= ASIC_DIFF_THR){
                 static double last_diff = ASIC_DIFF_THR;
-                if(g_nmaxe.stratum.get_pool_difficulty() != last_diff){
-                    LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str());
-                    last_diff = g_nmaxe.stratum.get_pool_difficulty();
+                if(g_nmaxe.stratum->get_pool_difficulty() != last_diff){
+                    LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str());
+                    last_diff = g_nmaxe.stratum->get_pool_difficulty();
                     g_nmaxe.miner->set_asic_diff(last_diff);
                 }
             }
 
             //interval 2000ms every asic job, exit if a new pool job arrived
-            if(xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, 2000) == pdTRUE) {
+            if(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, 2000) == pdTRUE) {
                 //avoid some stale share submit, clear job cache if clean job signal received
-                if(xSemaphoreTake(g_nmaxe.stratum.clear_job_xsem, 0) == pdTRUE) {
+                if(xSemaphoreTake(g_nmaxe.stratum->clear_job_xsem, 0) == pdTRUE) {
                     g_nmaxe.miner->clear_asic_job_cache();
                     LOG_D("Job cache clear...");
                 }
-                xSemaphoreGive(g_nmaxe.stratum.new_job_xsem);//release the semaphore for next pool job
+                xSemaphoreGive(g_nmaxe.stratum->new_job_xsem);//release the semaphore for next pool job
                 break;
             }
         }
@@ -348,17 +347,17 @@ void miner_asic_rx_thread_entry(void *args){
     asic_result result = {0,};
 
     //wait for first job cache ready forever
-    xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
+    xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, portMAX_DELAY);
 
     //forever loop
     while(true){
-        if(!g_nmaxe.stratum.is_subscribed()){
+        if(!g_nmaxe.stratum->is_subscribed()){
             delay(1000);
             continue;
         }
         esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result);
         if(ESP_OK == err){
-            if(!g_nmaxe.stratum.is_subscribed()) continue;
+            if(!g_nmaxe.stratum->is_subscribed()) continue;
             if(g_nmaxe.miner->find_job_by_asic_job_id(result.job_id, &job)){
                 uint32_t version_bits = (reverse_uint16(result.version) << 13);  //logic from project bitaxe: https://github.com/skot/bitaxe 
                 uint32_t version      = version_bits | (*(uint32_t*)job.version);//logic from project bitaxe: https://github.com/skot/bitaxe 
@@ -376,11 +375,11 @@ void miner_asic_rx_thread_entry(void *args){
                 LOG_I("Diff [%-3s/%-5s/%-6s/%-5s]", 
                     formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), 
                     formatNumber(diff, 3).c_str(), 
-                    formatNumber(g_nmaxe.stratum.get_pool_difficulty(), 4).c_str(),
+                    formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str(),
                     formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
 
                 //skip if diff < pool diff
-                if(diff < g_nmaxe.stratum.get_pool_difficulty())continue; 
+                if(diff < g_nmaxe.stratum->get_pool_difficulty())continue; 
                 
                 //submit sulution
                 uint32_t version_submit = version ^ (*(uint32_t*)job.version);

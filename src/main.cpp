@@ -11,25 +11,9 @@
 #include "axe_http_server.h"
 #include "axe_nvs_config.h"
 
-TaskHandle_t fanTask, ledTask, pwrTask, asicinitTask, btnTask, uiTask, monitorTask, stratumTask, minerTxTask, minerRxTask;
+TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, stratumTask, minerTxTask, minerRxTask;
 
-axe_sal_t  g_nmaxe = {
-  .power = NMAxePowerClass(
-      {
-          .pwr_0v8 = NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN,
-          .pwr_1v8 = NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN,
-          .pwr_vcore = NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN
-      },
-      {
-          .vbus = NM_AXE_POWER_BM13xx_VBUS_ADC_PIN,
-          .ibus = NM_AXE_POWER_BM13xx_IBUS_ADC_PIN,
-          .vcore = NM_AXE_POWER_BM13xx_VCORE_ADC_PIN
-      },
-      NM_AXE_POWER_BM13xx_VCORE_REGULATOR_PWM_PIN,
-      NM_AXE_POWER_BM13xx_VCORE_P_GOOD_DET_PIN,
-      NM_AXE_POWER_BM13xx_VBUS_PLUG_SENSE_DET_PIN
-  )
-};
+axe_sal_t  g_nmaxe;
 
 void setup() {
   String taskName;
@@ -63,16 +47,20 @@ void setup() {
   delay(10);
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
-  xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_PWR, &pwrTask,1);
-  xSemaphoreTake(g_nmaxe.power.good_xsem, portMAX_DELAY);
+  xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_PWR, NULL,1);
+  xSemaphoreTake(g_nmaxe.power->good_xsem, portMAX_DELAY);
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";
-  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_ASIC_INIT, &asicinitTask,1);
+  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_ASIC_INIT, NULL,1);
   while (g_nmaxe.miner->get_asic_count() == 0){
     delay(10);
   }
   /************************************************************** INIT WIFI ************************************************************/
-  axe_wifi_connecet(g_nmaxe.connection.wifi.conn_param);//blockingly connect to wifi
+  taskName = "(wifi)";
+  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)&g_nmaxe.connection.wifi.conn_param, TASK_PRIORITY_WIFI, NULL, 1);
+  while (WL_CONNECTED != g_nmaxe.connection.wifi.status_param.status){
+    delay(10);
+  }
   /*********************************************************** CREATE MARKET THREAD ***************************************************/
   taskName = "(market)";
   xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, NULL, 1);

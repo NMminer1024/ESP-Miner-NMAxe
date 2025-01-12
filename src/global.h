@@ -8,7 +8,7 @@
 #include "stratum.h"
 #include "miner.h"
 
-#define CURRENT_FW_VERSION  "v2.4.12#"
+#define CURRENT_FW_VERSION  "v2.4.12"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -38,6 +38,7 @@ enum{
     TASK_PRIORITY_LVGL_DRV ,
     TASK_PRIORITY_WS       ,
     TASK_PRIORITY_MONITOR  ,
+    TASK_PRIORITY_WIFI     ,
     TASK_PRIORITY_MARKET   ,
     TASK_PRIORITY_CONFIG_MONITOR,
     TASK_PRIORITY_STRATUM  ,
@@ -120,9 +121,11 @@ typedef struct{
 
 
 
-typedef String swarm_ip_t;
+typedef String axe_ip_t;
 
-typedef String swarm_info_t;
+typedef String axe_info_t;
+
+typedef std::map<axe_ip_t, axe_info_t> swarm_map_t;
 
 typedef struct{
     board_info_t     board;
@@ -134,9 +137,9 @@ typedef struct{
     miner_status_t   mstatus;
     ota_info_t       ota;
     market_info_t    market;
-    std::map<swarm_ip_t, swarm_info_t>  swarm;
-    NMAxePowerClass  power;
-    StratumClass     stratum;
+    swarm_map_t      swarm;
+    NMAxePowerClass  *power;
+    StratumClass     *stratum;
     AsicMinerClass   *miner;
 }axe_sal_t;
 
