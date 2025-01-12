@@ -192,8 +192,11 @@ bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     if (phr == NULL) return false;
-    
-    static   std::deque<std::pair<uint32_t, double>> hr_samples;
+    // static   std::deque<std::pair<uint32_t, double>> hr_samples;
+
+    //acllocate memory in psram
+    static std::deque<std::pair<uint32_t, double>, PsramAllocator<std::pair<uint32_t, double>>> hr_samples;
+
     double   sum = 0.0;
     uint32_t now = millis(), duration = 0;
 

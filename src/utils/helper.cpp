@@ -10,6 +10,9 @@
 #include "csha256.h"
 #include <time.h>
 
+
+
+
 void logo_print() {
   delay(2000);
   log_w("\r\n            ___          ___         ");
@@ -54,6 +57,7 @@ void* psramAllocator(size_t size) {
 void psramDeallocator(void* pointer) {
     heap_caps_free(pointer);
 }
+
 
 String gen_device_code(void){
   char chipIdStr[13] = {0,};

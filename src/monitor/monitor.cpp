@@ -64,11 +64,11 @@ void monitor_thread_entry(void *args){
       //listen udp status
       if(monitor_cnt % 1 == 0){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
-          int packetSize = udp_client.parsePacket();
+          int packetSize = udp_client->parsePacket();
           if (packetSize > 0) {
               char *incomingPacket = (char*)malloc(packetSize + 1 );
               memset(incomingPacket, '\0', packetSize + 1);
-              int len = udp_client.read(incomingPacket, packetSize);
+              int len = udp_client->read(incomingPacket, packetSize);
 
               StaticJsonDocument<512> json;
               char *json_str = (char*)malloc(packetSize + 1);
@@ -77,7 +77,7 @@ void monitor_thread_entry(void *args){
               DeserializationError error = deserializeJson(json, json_str);
               if(error) {
                 free(json_str);
-                udp_client.flush();
+                udp_client->flush();
                 continue;
               }
               json["Lastseen"] = millis();
@@ -121,7 +121,7 @@ void monitor_thread_entry(void *args){
 
               free(json_str);
               free(incomingPacket);
-              udp_client.flush();
+              udp_client->flush();
           }
         }
       }
