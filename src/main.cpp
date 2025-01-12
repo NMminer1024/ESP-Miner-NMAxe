@@ -13,7 +13,7 @@
 
 TaskHandle_t fanTask, ledTask, pwrTask, asicinitTask, btnTask, uiTask, monitorTask, stratumTask, minerTxTask, minerRxTask;
 
-axe_sal_t g_nmaxe = {
+axe_sal_t  g_nmaxe = {
   .power = NMAxePowerClass(
       {
           .pwr_0v8 = NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN,
@@ -50,6 +50,8 @@ void setup() {
   delay(10);
   /************************************************************* INIT LOGO **************************************************************/
   logo_print();
+  /********************************************************** INIT PSRAM SERVER **********************************************************/
+  // while (!psram_init()) delay(1000);
   /********************************************************** CREATE LED THREAD *********************************************************/
   taskName = "(led)";
   xTaskCreatePinnedToCore(led_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_LED, &ledTask, 1);

@@ -11,11 +11,8 @@ private:
 public:
     marketClass(String host, uint16_t port, String url);
     ~marketClass();
-
     void loop();
 };
-
-extern marketClass  g_market;
 
 void market_thread_entry(void *args);
 #endif

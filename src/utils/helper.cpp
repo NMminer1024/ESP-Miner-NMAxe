@@ -31,6 +31,30 @@ void disable_usb_uart(){
   pinMode(20, INPUT);
 }
 
+bool psram_init(){
+  if (esp_spiram_init() != ESP_OK) {
+      LOG_W("Seems like no PSRAM available.");
+      return false;
+  } else {
+      // 检查 PSRAM 大小
+      size_t psram_size = esp_spiram_get_size();
+      LOG_I("PSRAM Size: %d Mbytes", psram_size/1024/1024);
+      // 检查可用的堆内存
+      size_t free_heap = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+      LOG_I("HEAP Size: %d Mbytes", free_heap/1024/1024);
+        return true;
+  }
+}
+
+
+void* psramAllocator(size_t size) {
+    return heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+}
+
+void psramDeallocator(void* pointer) {
+    heap_caps_free(pointer);
+}
+
 String gen_device_code(void){
   char chipIdStr[13] = {0,};
   uint8_t deviceCode[32];

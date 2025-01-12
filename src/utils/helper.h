@@ -7,6 +7,12 @@
 
 void logo_print() ;
 
+bool psram_init();
+
+void* psramAllocator(size_t size);
+
+void psramDeallocator(void* pointer);
+
 void disable_usb_uart();
 
 String gen_device_code(void);

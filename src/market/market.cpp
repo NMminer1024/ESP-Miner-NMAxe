@@ -3,7 +3,7 @@
 #include <ArduinoJson.h>
 #include "global.h"
 
-void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
+static void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
     switch (type) {
         case WStype_DISCONNECTED:
             LOG_W("WebSocket Disconnected");
@@ -37,7 +37,6 @@ void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
     }
 }
 
-
 marketClass::marketClass(String host, uint16_t port, String url){
     this->_wsclient = new WebSocketsClient();
     this->_wsclient->onEvent(onWebSocketEvent);
@@ -49,12 +48,9 @@ marketClass::~marketClass(){
     delete this->_wsclient;
 }
 
-
 void marketClass::loop(){
     this->_wsclient->loop();
 }
-
-static marketClass  market = marketClass("data-stream.binance.vision", 443, "/ws/btcusdt@avgPrice");
 
 void market_thread_entry(void *args){
     char *name = (char*)malloc(20);
@@ -62,16 +58,25 @@ void market_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
+    // Allocate memory in PSRAM for market instance
+    void* buffer = psramAllocator(sizeof(marketClass));
+    if (!buffer) {
+        LOG_E("Failed to allocate memory in PSRAM for market instance");
+        return;
+    }
+    marketClass *market = new(buffer) marketClass("data-stream.binance.vision", 443, "/ws/btcusdt@avgPrice");
 
     while(true){
-        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
-            market.loop();
+        if(WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status){
+            market->loop();
         }
-
         if(g_nmaxe.ota.ota_running)break;
-
         delay(500);
     }
+
+    market->~marketClass();
+    psramDeallocator(buffer);
+
     LOG_W("Market thread exit.");
     vTaskDelete(NULL);
 }

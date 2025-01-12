@@ -7,7 +7,7 @@
 #include "global.h"
 #include "tmp102.h"
 
-static WiFiUDP        udp_client;
+static WiFiUDP*       udp_client;
 static const char*    udp_client_addr = "255.255.255.255"; 
 static const int      udp_client_port = 12345; 
 static const int      swarm_offline_timeout = 10*60*1000; //10min 
@@ -18,10 +18,16 @@ void monitor_thread_entry(void *args){
   LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
   free(name);
 
+  //malloc udp client
+  void* buffer = psramAllocator(sizeof(WiFiUDP));
+  if (!buffer) {
+      LOG_E("Failed to allocate memory in PSRAM for udp client");
+      return;
+  }
+  udp_client = new(buffer) WiFiUDP();
+
   //udp status boardcast begin
-  udp_client.begin(udp_client_port);
-  //set udp timeout to 500ms for listen
-  // udp_client.setTimeout(500);
+  udp_client->begin(udp_client_port);
 
   //wait for first job cache ready forever when process start
   xSemaphoreTake(g_nmaxe.stratum.new_job_xsem, portMAX_DELAY);
@@ -201,9 +207,9 @@ void monitor_thread_entry(void *args){
           char jsonBuffer[512] = {0,};
           size_t n = serializeJson(json, jsonBuffer);
           //broadcast status to udp
-          udp_client.beginPacket(udp_client_addr, udp_client_port);
-          udp_client.write((uint8_t*)jsonBuffer, n);
-          udp_client.endPacket();
+          udp_client->beginPacket(udp_client_addr, udp_client_port);
+          udp_client->write((uint8_t*)jsonBuffer, n);
+          udp_client->endPacket();
 
           //add self to swarm list
           g_nmaxe.swarm[g_nmaxe.connection.wifi.status_param.ip.toString()] = String(jsonBuffer);
