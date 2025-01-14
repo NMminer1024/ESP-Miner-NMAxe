@@ -1,9 +1,10 @@
-import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, OnDestroy, Input } from '@angular/core';
-import { ToastrService } from 'ngx-toastr';
-import { Subscription, interval } from 'rxjs';
-import { BehaviorSubject, catchError, combineLatest, forkJoin, map, Observable, of, startWith, switchMap } from 'rxjs';
-import { SystemService } from 'src/app/services/system.service';
+import {HttpClient} from '@angular/common/http';
+import {Component, OnInit, OnDestroy, Input} from '@angular/core';
+import {ToastrService} from 'ngx-toastr';
+import {Subscription, interval} from 'rxjs';
+import {BehaviorSubject, startWith, switchMap} from 'rxjs';
+import {HashSuffixPipe} from "../../pipes/hash-suffix.pipe";
+import {DiffSuffixPipe} from "../../pipes/diff-suffix.pipe";
 
 interface NMDevice {
   ip: string;
@@ -24,11 +25,17 @@ interface NMDevice {
   Lastseen: number;
 }
 
+interface SwarmSummary {
+  HashRate: string;
+  BestDiffSession: string;
+  BestDiffEver: string;
+}
+
 @Component({
-    selector: 'app-swarm',
-    templateUrl: './swarm.component.html',
-    styleUrls: ['./swarm.component.scss'],
-    standalone: false
+  selector: 'app-swarm',
+  templateUrl: './swarm.component.html',
+  styleUrls: ['./swarm.component.scss'],
+  standalone: false
 })
 export class SwarmComponent implements OnInit, OnDestroy {
 
@@ -37,6 +44,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
   public selectedAxeOs: any = null;
   public showEdit = false;
   public swarmData: NMDevice[] = [];
+  public swarmSummary: SwarmSummary | undefined = undefined;
 
   public logs: string[] = [];
 
@@ -50,7 +58,6 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   constructor(
     private http: HttpClient,
-    private systemService: SystemService,
     private toastr: ToastrService
   ) {
 
@@ -67,16 +74,18 @@ export class SwarmComponent implements OnInit, OnDestroy {
       startWith(0),
       switchMap(() => {
         this.logs.push(`Request sent ${this.uri}`)
-        return this.http.get<{ devices: NMDevice[] }>(`${this.uri}/api/swarm`);
+        return this.http.get<{ devices: NMDevice[] }>(`http://10.0.20.18/api/swarm`);
       })
     ).subscribe(
       data => {
         this.swarmData = data.devices;
+        this.swarmSummary = calculateSwarmSummary(this.swarmData);
         this.logs.push(`Request received ${this.uri}`);
       },
       error => console.error('Error fetching swarm data', error)
     );
   }
+
   ngOnDestroy(): void {
     if (this.subscription) {
       this.subscription.unsubscribe();
@@ -109,15 +118,51 @@ export class SwarmComponent implements OnInit, OnDestroy {
         headers: {
           'Content-Type': 'text/plain'
         },
-      }).subscribe(res => { 
+      }).subscribe(res => {
 
       });
       this.toastr.success('NMAxe restarted', 'Success');
 
-    }
-    else {
+    } else {
       this.toastr.warning('Warning!', 'Device is not NMAxe');
     }
   }
 
+}
+
+function calculateSwarmSummary(devices: NMDevice[]): SwarmSummary {
+  return {
+    HashRate: getHashRateSummary(devices),
+    BestDiffSession: getBestDiffSession(devices),
+    BestDiffEver: getBestDiffEver(devices)
+  }
+}
+
+function getHashRateSummary(devices: NMDevice[]): string {
+  let totalHashRate = 0;
+  devices.forEach(device => {
+    totalHashRate += HashSuffixPipe.revert(device.HashRate);
+  });
+  return HashSuffixPipe.transform(totalHashRate);
+}
+
+function getBestDiffSession(devices: NMDevice[]): string {
+  const sessionDiffs = devices.map(device => device.BestDiff.slice(0, device.BestDiff.indexOf('\r')));
+  return getBestDiffSummary(sessionDiffs);
+}
+
+function getBestDiffEver(devices: NMDevice[]): string {
+  const sessionDiffs = devices.map(device => device.BestDiff.slice(device.BestDiff.indexOf('\r')));
+  return getBestDiffSummary(sessionDiffs);
+}
+
+function getBestDiffSummary(diffs: string[]): string {
+  let max = 0;
+  diffs.forEach(item => {
+    const diff = DiffSuffixPipe.revert(item);
+    if (diff > max) {
+      max = diff;
+    }
+  });
+  return DiffSuffixPipe.transform(max);
 }
