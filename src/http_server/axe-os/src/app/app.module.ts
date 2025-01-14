@@ -1,7 +1,7 @@
 import 'chartjs-adapter-moment';
 
 import { CommonModule, HashLocationStrategy, LocationStrategy } from '@angular/common';
-import { HttpClientModule } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { NgModule } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { BrowserModule } from '@angular/platform-browser';
@@ -33,33 +33,26 @@ const components = [
   LogsComponent
 ];
 
-@NgModule({
-  declarations: [
-    ...components,
-
-    ANSIPipe,
-    DateAgoPipe,
-    SwarmComponent,
-    SettingsComponent,
-    HashSuffixPipe
-  ],
-  imports: [
-    BrowserModule,
-    AppRoutingModule,
-    HttpClientModule,
-    ReactiveFormsModule,
-    FormsModule,
-    ToastrModule.forRoot({
-      positionClass: 'toast-bottom-right'
-    }),
-    BrowserAnimationsModule,
-    CommonModule,
-    PrimeNGModule,
-    AppLayoutModule
-  ],
-  providers: [
-    { provide: LocationStrategy, useClass: HashLocationStrategy },
-  ],
-  bootstrap: [AppComponent]
-})
+@NgModule({ declarations: [
+        ...components,
+        ANSIPipe,
+        DateAgoPipe,
+        SwarmComponent,
+        SettingsComponent,
+        HashSuffixPipe
+    ],
+    bootstrap: [AppComponent], imports: [BrowserModule,
+        AppRoutingModule,
+        ReactiveFormsModule,
+        FormsModule,
+        ToastrModule.forRoot({
+            positionClass: 'toast-bottom-right'
+        }),
+        BrowserAnimationsModule,
+        CommonModule,
+        PrimeNGModule,
+        AppLayoutModule], providers: [
+        { provide: LocationStrategy, useClass: HashLocationStrategy },
+        provideHttpClient(withInterceptorsFromDi()),
+    ] })
 export class AppModule { }
