@@ -1,4 +1,4 @@
-import { HttpClientModule } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BrowserModule } from '@angular/platform-browser';
@@ -19,8 +19,7 @@ import { AppMenuitemComponent } from './app.menuitem.component';
 import { AppSidebarComponent } from './app.sidebar.component';
 import { AppTopBarComponent } from './app.topbar.component';
 
-@NgModule({
-    declarations: [
+@NgModule({ declarations: [
         AppMenuitemComponent,
         AppTopBarComponent,
         AppFooterComponent,
@@ -28,10 +27,8 @@ import { AppTopBarComponent } from './app.topbar.component';
         AppSidebarComponent,
         AppLayoutComponent,
     ],
-    imports: [
-        BrowserModule,
+    exports: [AppLayoutComponent], imports: [BrowserModule,
         FormsModule,
-        HttpClientModule,
         BrowserAnimationsModule,
         InputTextModule,
         SidebarModule,
@@ -40,9 +37,5 @@ import { AppTopBarComponent } from './app.topbar.component';
         InputSwitchModule,
         RippleModule,
         RouterModule,
-        PrimeNGModule,
-
-    ],
-    exports: [AppLayoutComponent]
-})
+        PrimeNGModule], providers: [provideHttpClient(withInterceptorsFromDi())] })
 export class AppLayoutModule { }

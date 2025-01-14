@@ -5,9 +5,10 @@ import { WebsocketService } from 'src/app/services/web-socket.service';
 import { ISystemInfo } from 'src/models/ISystemInfo';
 
 @Component({
-  selector: 'app-logs',
-  templateUrl: './logs.component.html',
-  styleUrl: './logs.component.scss'
+    selector: 'app-logs',
+    templateUrl: './logs.component.html',
+    styleUrl: './logs.component.scss',
+    standalone: false
 })
 export class LogsComponent implements OnDestroy, AfterViewChecked {
 

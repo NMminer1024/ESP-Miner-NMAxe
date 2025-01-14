@@ -14,11 +14,12 @@
       },
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-angular:browser",
+          "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/axe-os",
+            "outputPath": {
+              "base": "dist/axe-os"
+            },
             "index": "src/index.html",
-            "main": "src/main.ts",
             "polyfills": [
               "zone.js"
             ],
@@ -30,9 +31,10 @@
             ],
             "styles": [
               "src/styles.scss",
-              "node_modules/ngx-toastr/toastr.css" 
+              "node_modules/ngx-toastr/toastr.css"
             ],
-            "scripts": []
+            "scripts": [],
+            "browser": "src/main.ts"
           },
           "configurations": {
             "production": {
@@ -48,18 +50,18 @@
               "namedChunks": false,
               "aot": true,
               "extractLicenses": true,
-              "vendorChunk": false,
-              "buildOptimizer": true,
-              "outputPath": "dist/axe-os"
+              "outputPath": {
+                "base": "dist/axe-os"
+              }
             },
             "development": {
-              "buildOptimizer": false,
               "optimization": false,
-              "vendorChunk": true,
               "extractLicenses": false,
               "sourceMap": true,
               "namedChunks": true,
-              "outputPath": "dist/axe-os-dev",
+              "outputPath": {
+                "base": "dist/axe-os-dev"
+              },
               "outputHashing": "none"
             }
           }
@@ -67,14 +69,14 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "axe-os:build"
+            "buildTarget": "axe-os:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "axe-os:build:production"
+              "buildTarget": "axe-os:build:production"
             },
             "development": {
-              "browserTarget": "axe-os:build:development"
+              "buildTarget": "axe-os:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -82,7 +84,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "axe-os:build"
+            "buildTarget": "axe-os:build"
           }
         },
         "test": {
@@ -108,6 +110,7 @@
     }
   },
   "cli": {
-    "analytics": "9ab35fc9-d177-41fa-ae6d-1cab1cdac748"
+    "analytics": "9ab35fc9-d177-41fa-ae6d-1cab1cdac748",
+    "packageManager": "pnpm"
   }
 }
