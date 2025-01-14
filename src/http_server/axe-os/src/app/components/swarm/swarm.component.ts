@@ -111,8 +111,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 
   public restart(axe: any) {
-    if (axe.BoardType === 'NMAxe') {
-      // this.toastr.info(`[v0.3]Trying to restart device at ${axe.ip}`, 'Info');
+    if (axe.BoardType.includes('NMAxe')) {
       this.http.post(`http://${axe.ip}/api/system/restart`, {}, {
         headers: {
           'Content-Type': 'text/plain'
@@ -123,7 +122,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.toastr.success('NMAxe restarted', 'Success');
 
     } else {
-      this.toastr.warning('Warning!', 'Device is not NMAxe');
+      this.toastr.warning('Warning!', 'Device is not NMAxe series');
     }
   }
 

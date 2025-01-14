@@ -4,17 +4,17 @@
             <h5>Overview</h5>
             <table *ngIf="info$ | async as info">
                 <tr>
-                    <td>Model:</td>
+                    <td>ASIC Model:</td>
                     <td>{{info.ASICModel}}</td>
                 </tr>
                 <tr>
-                    <td>Uptime:</td>
+                    <td>Session Uptime:</td>
                     <td>{{info.uptimeSeconds | dateAgo}}</td>
                 </tr>
-                <tr>
+                <!-- <tr>
                     <td>WiFi Status:</td>
                     <td>{{info.wifiStatus}}</td>
-                </tr>
+                </tr> -->
                 <tr>
                     <td>Free Heap Memory:</td>
                     <td>{{info.freeHeap}}</td>
