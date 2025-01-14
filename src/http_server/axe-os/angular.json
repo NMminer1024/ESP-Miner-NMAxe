@@ -30,7 +30,7 @@
             ],
             "styles": [
               "src/styles.scss",
-              "node_modules/ngx-toastr/toastr.css" 
+              "node_modules/ngx-toastr/toastr.css"
             ],
             "scripts": []
           },
@@ -108,6 +108,7 @@
     }
   },
   "cli": {
-    "analytics": "9ab35fc9-d177-41fa-ae6d-1cab1cdac748"
+    "analytics": "9ab35fc9-d177-41fa-ae6d-1cab1cdac748",
+    "packageManager": "pnpm"
   }
 }
