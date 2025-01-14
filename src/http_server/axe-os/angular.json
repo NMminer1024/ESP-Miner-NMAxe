@@ -69,14 +69,14 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "buildTarget": "axe-os:build"
+            "browserTarget": "axe-os:build"
           },
           "configurations": {
             "production": {
-              "buildTarget": "axe-os:build:production"
+              "browserTarget": "axe-os:build:production"
             },
             "development": {
-              "buildTarget": "axe-os:build:development"
+              "browserTarget": "axe-os:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -84,7 +84,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "buildTarget": "axe-os:build"
+            "browserTarget": "axe-os:build"
           }
         },
         "test": {
