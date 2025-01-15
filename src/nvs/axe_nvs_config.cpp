@@ -194,7 +194,6 @@ bool load_g_nmaxe(void){
     g_nmaxe.mstatus.block_hits                  = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     g_nmaxe.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     g_nmaxe.connection.client_connected         = false;
-    
     String url = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+ssl://hk.kxsw.pro"));
     g_nmaxe.connection.pool.ssl                 = (url.indexOf("ssl") != -1);
     g_nmaxe.connection.pool.url                 = url.substring(url.indexOf(":") + 3);
@@ -218,6 +217,8 @@ bool load_g_nmaxe(void){
     g_nmaxe.screen.brightness                   = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 99);
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     g_nmaxe.miner                               = NULL;
+
+    g_nmaxe.market                              = new MarketClass("data-stream.binance.vision", 443, "/ws/btcusdt@avgPrice");
     g_nmaxe.stratum                             = new StratumClass(g_nmaxe.connection.pool, g_nmaxe.connection.stratum, 10);
     g_nmaxe.power                               = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
                                                                       {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},

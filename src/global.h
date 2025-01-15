@@ -7,6 +7,7 @@
 #include "tmp102.h"
 #include "stratum.h"
 #include "miner.h"
+#include "market.h"
 
 #define CURRENT_FW_VERSION  "v2.4.11b"
 #define CURRENT_HW_VERSION  "v1.1.1"
@@ -136,8 +137,8 @@ typedef struct{
     connect_info_t   connection;
     miner_status_t   mstatus;
     ota_info_t       ota;
-    market_info_t    market;
     swarm_map_t      swarm;
+    MarketClass      *market;
     NMAxePowerClass  *power;
     StratumClass     *stratum;
     AsicMinerClass   *miner;

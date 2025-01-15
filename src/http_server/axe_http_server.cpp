@@ -380,9 +380,10 @@ static void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t 
 static void websocket_loop(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
+    delay(100);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
-    
+
     while (true){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
             webSocket.loop();

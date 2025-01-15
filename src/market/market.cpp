@@ -3,13 +3,17 @@
 #include <ArduinoJson.h>
 #include "global.h"
 
+#define MARKET_TIMEOUT (1000*30)
+
 static void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
+    if(g_nmaxe.market == NULL) return;
+
     switch (type) {
         case WStype_DISCONNECTED:
-            LOG_W("WebSocket Disconnected");
+            LOG_W("Market Disconnected");
             break;
         case WStype_CONNECTED:
-            LOG_I("WebSocket Connected");
+            LOG_I("Market Connected");
             break;
         case WStype_TEXT:{
                 StaticJsonDocument<128> doc;
@@ -17,8 +21,8 @@ static void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
                 if (error == DeserializationError::Ok) {
                     const char* event = doc["e"];
                     if (strcmp(event, "avgPrice") == 0) {
-                        g_nmaxe.market.connected = true;
-                        g_nmaxe.market.price = String(doc["w"].as<float>(), 1).toFloat();
+                        g_nmaxe.market->updated = true;
+                        g_nmaxe.market->price = String(doc["w"].as<float>(), 1).toFloat();
                     }
                 } else {
                     LOG_W("Failed to parse JSON");
@@ -26,29 +30,30 @@ static void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
             }
             break;
         case WStype_BIN:
-            LOG_W("Binary data received");
             break;
         case WStype_PING:
-            LOG_D("Ping received");
             break;
         case WStype_PONG:
-            LOG_D("Pong received");
+            break;
+        default:
             break;
     }
 }
 
-marketClass::marketClass(String host, uint16_t port, String url){
+MarketClass::MarketClass(String host, uint16_t port, String url){   
+    this->timeout = false;
+    this->updated = false;
     this->_wsclient = new WebSocketsClient();
     this->_wsclient->onEvent(onWebSocketEvent);
     this->_wsclient->beginSSL(host, port, url);
     this->_wsclient->setReconnectInterval(5000);
 }
 
-marketClass::~marketClass(){
+MarketClass::~MarketClass(){
     delete this->_wsclient;
 }
 
-void marketClass::loop(){
+void MarketClass::loop(){
     this->_wsclient->loop();
 }
 
@@ -58,25 +63,28 @@ void market_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
-    // Allocate memory in PSRAM for market instance
-    void* buffer = psramAllocator(sizeof(marketClass));
-    if (!buffer) {
-        LOG_E("Failed to allocate memory in PSRAM for market instance");
-        return;
+    while (g_nmaxe.market == NULL){
+        LOG_W("MarketClass instance is NULL, waiting...");
+        delay(1000);
     }
-    marketClass *market = new(buffer) marketClass("data-stream.binance.vision", 443, "/ws/btcusdt@avgPrice");
 
     while(true){
         if(WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status){
-            market->loop();
+            g_nmaxe.market->loop();
         }
+
+        if(!g_nmaxe.market->updated){
+            static uint16_t start = millis();
+            if(millis() - start > MARKET_TIMEOUT){
+                g_nmaxe.market->timeout = true;
+            }
+        }
+
         if(g_nmaxe.ota.ota_running)break;
         delay(500);
     }
 
-    market->~marketClass();
-    psramDeallocator(buffer);
-
+    g_nmaxe.market->~MarketClass();
     LOG_W("Market thread exit.");
     vTaskDelete(NULL);
 }

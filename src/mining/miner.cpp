@@ -281,7 +281,7 @@ void miner_asic_tx_thread_entry(void *args){
 
     //wait for first job cache ready forever
     xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, portMAX_DELAY);
-    delay(500);//necessary delay for first job cache ready
+    delay(2000);//necessary delay for first job cache ready
 
     //forever loop
     while (true){

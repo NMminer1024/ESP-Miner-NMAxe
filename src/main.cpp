@@ -64,7 +64,12 @@ void setup() {
   /*********************************************************** CREATE MARKET THREAD ***************************************************/
   taskName = "(market)";
   xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, NULL, 1);
-  while (!g_nmaxe.market.connected){
+  while (!g_nmaxe.market->updated){
+    static uint32_t start = millis();
+    if(g_nmaxe.market->timeout) {
+      delay(2000);
+      break;
+    }
     delay(10);
   }
   /********************************************************** CREATE STRATUM THREAD ***************************************************/

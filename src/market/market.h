@@ -3,14 +3,17 @@
 #include <WebSocketsClient.h>
 
 
-
-class marketClass
+class MarketClass
 {
 private:
     WebSocketsClient  *_wsclient;
 public:
-    marketClass(String host, uint16_t port, String url);
-    ~marketClass();
+    bool  updated;
+    bool  timeout;
+    float price;
+
+    MarketClass(String host, uint16_t port, String url);
+    ~MarketClass();
     void loop();
 };
 
