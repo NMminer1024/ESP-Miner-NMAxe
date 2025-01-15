@@ -24,9 +24,9 @@
         <th>Best Diff Ever</th>
       </tr>
       <tr>
-        <td>{{swarmSummary.HashRate}}</td>
-        <td>{{swarmSummary.BestDiffSession}}</td>
-        <td>{{swarmSummary.BestDiffEver}}</td>
+        <td>{{ swarmSummary.HashRate }}</td>
+        <td>{{ swarmSummary.BestDiffSession }}</td>
+        <td>{{ swarmSummary.BestDiffEver }}</td>
       </tr>
     </table>
   }
@@ -34,19 +34,19 @@
   <table cellspacing="0" cellpadding="0">
     <tr>
       <th>#</th>
-      <th>IP</th>
-      <th>Board</th>
-      <th>Hash Rate</th>
-      <th>Share(R/A)</th>
-      <th>Pool Diff</th>
-      <th>Net Diff</th>
-      <th>Last Diff</th>
-      <th>Best Diff</th>
-      <th>Valid</th>
-      <th>Power</th>
-      <th>Temp</th>
-      <th>RSSI</th>
-      <th>Free Heap</th>
+      <th (click)="sortTable(SortIndex.IP)" class="sortable">IP</th>
+      <th (click)="sortTable(SortIndex.BoardType)" class="sortable">Board</th>
+      <th (click)="sortTable(SortIndex.HashRate)" class="sortable">Hash Rate</th>
+      <th (click)="sortTable(SortIndex.Share)" class="sortable">Share(R/A)</th>
+      <th (click)="sortTable(SortIndex.PoolDiff)" class="sortable">Pool Diff</th>
+      <th (click)="sortTable(SortIndex.NetDiff)" class="sortable">Net Diff</th>
+      <th (click)="sortTable(SortIndex.LastDiff)" class="sortable">Last Diff</th>
+      <th (click)="sortTable(SortIndex.BestDiff)" class="sortable">Best Diff</th>
+      <th (click)="sortTable(SortIndex.Valid)" class="sortable">Valid</th>
+      <th (click)="sortTable(SortIndex.Power)" class="sortable">Power</th>
+      <th (click)="sortTable(SortIndex.Temp)" class="sortable">Temp</th>
+      <th (click)="sortTable(SortIndex.RSSI)" class="sortable">RSSI</th>
+      <th (click)="sortTable(SortIndex.FreeHeap)" class="sortable">Free Heap</th>
       <th>Version</th>
       <th>Uptime</th>
       <th>Last Seen</th>
