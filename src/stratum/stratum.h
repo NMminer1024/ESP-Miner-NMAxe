@@ -85,7 +85,7 @@ private:
     std::deque<pool_job_data_t>                   _pool_job_cache;
     std::map<stratum_msg_rsp_id_t, stratum_rsp>   _msg_rsp_map;
 public:
-    poolClass  pool;
+    PoolClass  pool;
     StratumClass(){};
     StratumClass(pool_info_t pConfig, stratum_info_t sConfig, uint8_t job_cached_max): 
         pool(pConfig), _stratum_info(sConfig), _pool_job_cache_size(job_cached_max)

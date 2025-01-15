@@ -12,7 +12,7 @@ typedef struct{
     bool        ssl;
 }pool_info_t; 
 
-class poolClass{
+class PoolClass{
 private:
     WiFiClientSecure        _wificlientSecure;
     WiFiClient              _wificlient;
@@ -22,10 +22,11 @@ private:
     uint32_t                _last_read;
     IPAddress               _pool_ip;
     String                  _line;
+    String                  _last_err_str;
 public:
-    poolClass(){};
-    poolClass(pool_info_t config);
-    ~poolClass();
+    PoolClass(){};
+    PoolClass(pool_info_t config);
+    ~PoolClass();
     bool begin(bool ssl);
     bool connect();
     void end();
@@ -33,6 +34,7 @@ public:
     bool available();
     size_t write(const String data);
     String readline(uint32_t timeout_ms = 1000);
+    String get_last_errormsg();
     pool_info_t get_pool_info();
     uint32_t get_last_write_ms();
     uint32_t get_last_read_ms();

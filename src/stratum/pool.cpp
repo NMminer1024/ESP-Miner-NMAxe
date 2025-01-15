@@ -1,18 +1,19 @@
 #include "pool.h"
 #include "logger.h"
 
-poolClass::poolClass(pool_info_t config){
+PoolClass::PoolClass(pool_info_t config){
     this->_pool_cfg         = config;
     this->_pool_ip          = IPAddress(0,0,0,0);
     this->_wificlientSecure = WiFiClientSecure();
     this->_wificlient       = WiFiClient();
+    this->_last_err_str     = "";
     this->_pwclient = &this->_wificlient;
 }
 
-poolClass::~poolClass(){
+PoolClass::~PoolClass(){
     this->_pwclient->stop();
 }
-bool poolClass::begin(bool ssl){
+bool PoolClass::begin(bool ssl){
     if(ssl){
         this->_wificlientSecure.setInsecure();
         this->_pwclient  = &this->_wificlientSecure;
@@ -21,18 +22,24 @@ bool poolClass::begin(bool ssl){
     return true;
 }
 
-bool poolClass::connect(){
-    if(this->_pwclient->connected()){
-        return true;
-    }
-    LOG_I("Trying to resolve pool address %s use dns1 : %s, dns2 : %s", this->_pool_cfg.url.c_str(), WiFi.dnsIP(0).toString().c_str(), WiFi.dnsIP(1).toString().c_str());
-    WiFi.hostByName(this->_pool_cfg.url.c_str(), this->_pool_ip);
-    LOG_I("Resolving pool address [%s] to  [%s]", this->_pool_cfg.url.c_str(), this->_pool_ip.toString().c_str());
+bool PoolClass::connect(){
+    if(this->_pwclient->connected()) return true;
+    this->_last_err_str = "";
 
+    LOG_I("Resolve pool address %s use dns1 : %s, dns2 : %s", this->_pool_cfg.url.c_str(), WiFi.dnsIP(0).toString().c_str(), WiFi.dnsIP(1).toString().c_str());
+    int err = WiFi.hostByName(this->_pool_cfg.url.c_str(), this->_pool_ip);
+    if(err != 1){
+        this->_last_err_str = "Wrong pool URL!!!";
+        LOG_E("Failed to resolve pool [%s], pool crashed or wrong pool url.", this->_pool_cfg.url.c_str());
+        return false;
+    }
+
+    LOG_I("Resolving pool address [%s] to  [%s]", this->_pool_cfg.url.c_str(), this->_pool_ip.toString().c_str());
     static uint16_t err_cnt = 0, max_err = 10;
-    if(!this->_pwclient->connect(this->_pool_ip, this->_pool_cfg.port)){
+    if(!this->_pwclient->connect(this->_pool_ip, this->_pool_cfg.port, 5000)){
         err_cnt++;
-        LOG_E("Failed to connect to pool %s:%d, %d/%d", this->_pool_cfg.url.c_str(), this->_pool_cfg.port, err_cnt, max_err);
+        this->_last_err_str = "Wrong pool port!!!";
+        LOG_E("Failed to connect to pool %s:%d, %d/%d, pool port disabled or wrong port.", this->_pool_cfg.url.c_str(), this->_pool_cfg.port, err_cnt, max_err);
         if(err_cnt > max_err) ESP.restart();
         return false;
     }
@@ -41,27 +48,27 @@ bool poolClass::connect(){
     return true;
 }
 
-void poolClass::end(){
+void PoolClass::end(){
     if(this->_pwclient->connected()){
         this->_pwclient->stop();
     }
 }
 
-bool poolClass::is_connected(){
+bool PoolClass::is_connected(){
     return this->_pwclient->connected();
 }
 
-bool poolClass::available(){
+bool PoolClass::available(){
     return this->_pwclient->available();
 }
 
-size_t poolClass::write(const String data){
+size_t PoolClass::write(const String data){
     size_t ret = this->_pwclient->print(data);
     this->_last_write = (ret > 0) ? millis() : this->_last_write;
     return ret;
 }
 
-String poolClass::readline(uint32_t timeout_ms) {
+String PoolClass::readline(uint32_t timeout_ms) {
     if (!this->_pwclient->connected())  return "";
     this->_line = "";
     uint64_t start_time = millis();
@@ -80,14 +87,18 @@ String poolClass::readline(uint32_t timeout_ms) {
     return this->_line;
 }
 
-uint32_t poolClass::get_last_write_ms(){
+String PoolClass::get_last_errormsg(){
+    return this->_last_err_str;
+}
+
+uint32_t PoolClass::get_last_write_ms(){
     return this->_last_write;
 }
 
-uint32_t poolClass::get_last_read_ms(){
+uint32_t PoolClass::get_last_read_ms(){
     return this->_last_read;
 }
 
-pool_info_t poolClass::get_pool_info(){
+pool_info_t PoolClass::get_pool_info(){
     return this->_pool_cfg;
 }

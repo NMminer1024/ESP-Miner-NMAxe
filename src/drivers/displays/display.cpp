@@ -1329,7 +1329,13 @@ void ui_thread_entry(void *args){
   /***************************************wait for pool connected**************************************/
   while(!g_nmaxe.stratum->is_subscribed()){
     static uint8_t cnt = 0;
-    ui_loading_str_update(pool_con_str[(cnt++)%4], 0xFFFFFF, false);
+    if(g_nmaxe.stratum->pool.get_last_errormsg().length() > 0){
+      uint32_t color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
+      ui_loading_str_update(g_nmaxe.stratum->pool.get_last_errormsg().c_str(), color, false);
+    }else{
+      ui_loading_str_update(pool_con_str[(cnt)%4], 0xFFFFFF, false);
+    }
+    cnt++;
     delay(300);
   }
   ui_loading_str_update("Pool connected!", 0x00FF00, true);
