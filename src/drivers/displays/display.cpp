@@ -986,7 +986,7 @@ static void ui_hr_healthy_page_update(double hashrate){
 }
 
 static void ui_hr_real_time_page_update(hashrate_t *hashrate){
-  #define NUM_DOTS 40
+  #define NUM_DOTS 20
 
   static lv_obj_t *chart = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL,*lb_title_5m = NULL, *lb_title_30m = NULL, *lb_title_1h = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -1335,8 +1335,8 @@ void ui_thread_entry(void *args){
       uint32_t color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
       ui_loading_str_update(g_nmaxe.stratum->pool.get_last_errormsg().c_str(), color, false);
     }else{
-      String con_type = g_nmaxe.connection.pool.ssl ? "ssl" : "tcp";
-      ui_loading_str_update(pool_con_str[(cnt)%4] + con_type, 0xFFFFFF, false);
+      String con_type = g_nmaxe.connection.pool.ssl ? "[ssl]" : "[tcp]";
+      ui_loading_str_update(String(pool_con_str[(cnt)%4] + con_type), 0xFFFFFF, false);
     }
     cnt++;
     delay(300);
