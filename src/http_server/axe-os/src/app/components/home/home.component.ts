@@ -1,9 +1,9 @@
-import { Component } from '@angular/core';
-import { interval, map, Observable, shareReplay, startWith, switchMap, tap } from 'rxjs';
-import { HashSuffixPipe } from 'src/app/pipes/hash-suffix.pipe';
-import { SystemService } from 'src/app/services/system.service';
-import { eASICModel } from 'src/models/enum/eASICModel';
-import { ISystemInfo } from 'src/models/ISystemInfo';
+import {Component} from '@angular/core';
+import {interval, map, Observable, shareReplay, startWith, switchMap, tap} from 'rxjs';
+import {HashSuffixPipe} from 'src/app/pipes/hash-suffix.pipe';
+import {SystemService} from 'src/app/services/system.service';
+import {eASICModel} from 'src/models/enum/eASICModel';
+import {ISystemInfo} from 'src/models/ISystemInfo';
 
 @Component({
   selector: 'app-home',
@@ -111,7 +111,6 @@ export class HomeComponent {
         this.chartData.datasets[0].data = this.dataData;
 
 
-
         this.chartData = {
           ...this.chartData
         };
@@ -126,10 +125,9 @@ export class HomeComponent {
         info.temp = parseFloat(info.temp.toFixed(1));
 
 
-
         return info;
       }),
-      shareReplay({ refCount: true, bufferSize: 1 })
+      shareReplay({refCount: true, bufferSize: 1})
     );
 
     this.expectedHashRate$ = this.info$.pipe(map(info => {
@@ -156,8 +154,7 @@ export class HomeComponent {
         } else if (info.stratumURL.includes('molepool.com')) {
           const address = info.stratumUser.split('.')[0]
           return `https://btc.molepool.com/account/${address}`;
-        } 
-        else {
+        } else {
           return undefined;
         }
       })

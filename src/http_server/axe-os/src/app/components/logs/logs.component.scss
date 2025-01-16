@@ -12,20 +12,20 @@
 // }
 
 #logs {
-    height: 500px;
-    width: 100%;
-    font-family: "Courier New", Courier, monospace;
-    border: 1px solid #304562;
-    overflow-y: scroll;
+  height: 500px;
+  width: 100%;
+  font-family: "Courier New", Courier, monospace;
+  border: 1px solid #304562;
+  overflow-y: scroll;
 
-    > div {
-        max-width: 100%;
-        line-break: anywhere;
-    }
+  > div {
+    max-width: 100%;
+    line-break: anywhere;
+  }
 
-    .log-entry {
-        font-family: inherit; 
-        white-space: pre-wrap; 
-        margin: 0;
-    }
+  .log-entry {
+    font-family: inherit;
+    white-space: pre-wrap;
+    margin: 0;
+  }
 }

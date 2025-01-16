@@ -1,4 +1,4 @@
-import { ANSIPipe } from './ansi.pipe';
+import {ANSIPipe} from './ansi.pipe';
 
 describe('ANSIPipe', () => {
   it('create an instance', () => {
