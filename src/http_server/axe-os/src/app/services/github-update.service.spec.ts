@@ -1,6 +1,6 @@
-import { TestBed } from '@angular/core/testing';
+import {TestBed} from '@angular/core/testing';
 
-import { GithubUpdateService } from './github-update.service';
+import {GithubUpdateService} from './github-update.service';
 
 describe('GithubUpdateService', () => {
   let service: GithubUpdateService;

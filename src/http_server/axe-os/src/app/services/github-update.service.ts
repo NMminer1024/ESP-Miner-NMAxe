@@ -1,7 +1,7 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import {HttpClient} from '@angular/common/http';
+import {Injectable} from '@angular/core';
+import {Observable} from 'rxjs';
+import {map} from 'rxjs/operators';
 
 
 interface GithubRelease {
@@ -18,7 +18,8 @@ export class GithubUpdateService {
 
   constructor(
     private httpClient: HttpClient
-  ) { }
+  ) {
+  }
 
 
   public getReleases(): Observable<GithubRelease[]> {

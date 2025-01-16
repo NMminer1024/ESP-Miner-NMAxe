@@ -1,11 +1,11 @@
-import { HttpErrorResponse } from '@angular/common/http';
-import { Component, Input, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ToastrService } from 'ngx-toastr';
-import { startWith } from 'rxjs';
-import { LoadingService } from 'src/app/services/loading.service';
-import { SystemService } from 'src/app/services/system.service';
-import { eASICModel } from 'src/models/enum/eASICModel';
+import {HttpErrorResponse} from '@angular/common/http';
+import {Component, Input, OnInit} from '@angular/core';
+import {FormBuilder, FormGroup, Validators} from '@angular/forms';
+import {ToastrService} from 'ngx-toastr';
+import {startWith} from 'rxjs';
+import {LoadingService} from 'src/app/services/loading.service';
+import {SystemService} from 'src/app/services/system.service';
+import {eASICModel} from 'src/models/enum/eASICModel';
 
 @Component({
   selector: 'app-edit',
@@ -27,73 +27,73 @@ export class EditComponent implements OnInit {
   @Input() uri = '';
 
   public BM1397DropdownFrequency = [
-    { name: '400', value: 400 },
-    { name: '425 (default)', value: 425 },
-    { name: '450', value: 450 },
-    { name: '475', value: 475 },
-    { name: '485', value: 485 },
-    { name: '500', value: 500 },
-    { name: '525', value: 525 },
-    { name: '550', value: 550 },
-    { name: '575', value: 575 },
-    { name: '590', value: 590 },
-    { name: '600', value: 600 },
-    { name: '610', value: 610 },
-    { name: '620', value: 620 },
-    { name: '630', value: 630 },
-    { name: '640', value: 640 },
-    { name: '650', value: 650 },
+    {name: '400', value: 400},
+    {name: '425 (default)', value: 425},
+    {name: '450', value: 450},
+    {name: '475', value: 475},
+    {name: '485', value: 485},
+    {name: '500', value: 500},
+    {name: '525', value: 525},
+    {name: '550', value: 550},
+    {name: '575', value: 575},
+    {name: '590', value: 590},
+    {name: '600', value: 600},
+    {name: '610', value: 610},
+    {name: '620', value: 620},
+    {name: '630', value: 630},
+    {name: '640', value: 640},
+    {name: '650', value: 650},
   ];
 
   public BM1366DropdownFrequency = [
-    { name: '400', value: 400 },
-    { name: '425', value: 425 },
-    { name: '450', value: 450 },
-    { name: '475', value: 475 },
-    { name: '485 (default)', value: 485 },
-    { name: '500', value: 500 },
-    { name: '525', value: 525 },
-    { name: '550', value: 550 },
-    { name: '575', value: 575 },
+    {name: '400', value: 400},
+    {name: '425', value: 425},
+    {name: '450', value: 450},
+    {name: '475', value: 475},
+    {name: '485 (default)', value: 485},
+    {name: '500', value: 500},
+    {name: '525', value: 525},
+    {name: '550', value: 550},
+    {name: '575', value: 575},
   ];
 
   public BM1368DropdownFrequency = [
-    { name: '400', value: 400 },
-    { name: '425', value: 425 },
-    { name: '450', value: 450 },
-    { name: '475', value: 475 },
-    { name: '490 (default)', value: 490 },
-    { name: '500', value: 500 },
-    { name: '525', value: 525 },
-    { name: '550', value: 550 },
-    { name: '575', value: 575 },
+    {name: '400', value: 400},
+    {name: '425', value: 425},
+    {name: '450', value: 450},
+    {name: '475', value: 475},
+    {name: '490 (default)', value: 490},
+    {name: '500', value: 500},
+    {name: '525', value: 525},
+    {name: '550', value: 550},
+    {name: '575', value: 575},
   ];
 
   public BM1397CoreVoltage = [
-    { name: '1100', value: 1100 },
-    { name: '1150', value: 1150 },
-    { name: '1200', value: 1200 },
-    { name: '1250', value: 1250 },
-    { name: '1300', value: 1300 },
-    { name: '1350', value: 1350 },
-    { name: '1400', value: 1400 },
-    { name: '1450', value: 1450 },
-    { name: '1500', value: 1500 },
+    {name: '1100', value: 1100},
+    {name: '1150', value: 1150},
+    {name: '1200', value: 1200},
+    {name: '1250', value: 1250},
+    {name: '1300', value: 1300},
+    {name: '1350', value: 1350},
+    {name: '1400', value: 1400},
+    {name: '1450', value: 1450},
+    {name: '1500', value: 1500},
   ];
   public BM1366CoreVoltage = [
-    { name: '1100', value: 1100 },
-    { name: '1150', value: 1150 },
-    { name: '1200 (default)', value: 1200 },
-    { name: '1250', value: 1250 },
-    { name: '1300', value: 1300 },
+    {name: '1100', value: 1100},
+    {name: '1150', value: 1150},
+    {name: '1200 (default)', value: 1200},
+    {name: '1250', value: 1250},
+    {name: '1300', value: 1300},
   ];
   public BM1368CoreVoltage = [
-    { name: '1100', value: 1100 }, 
-    { name: '1150', value: 1150 },
-    { name: '1166 (default)', value: 1166 },
-    { name: '1200', value: 1200 },
-    { name: '1250', value: 1250 },
-    { name: '1300', value: 1300 },
+    {name: '1100', value: 1100},
+    {name: '1150', value: 1150},
+    {name: '1166 (default)', value: 1166},
+    {name: '1200', value: 1200},
+    {name: '1250', value: 1250},
+    {name: '1300', value: 1300},
   ];
 
   constructor(
@@ -108,6 +108,7 @@ export class EditComponent implements OnInit {
     this.checkDevTools();
 
   }
+
   ngOnInit(): void {
     this.systemService.getInfo(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
@@ -119,7 +120,7 @@ export class EditComponent implements OnInit {
           ledindicator: [info.ledindicator == 1],
           stratumURL: [info.stratumURL || 'stratum+tcp://', [
             Validators.required,
-            Validators.pattern(/^(stratum\+(tcp|ssl):\/\/).+$/) 
+            Validators.pattern(/^(stratum\+(tcp|ssl):\/\/).+$/)
           ]],
           stratumPort: [info.stratumPort, [
             Validators.required,

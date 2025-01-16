@@ -2,38 +2,38 @@ input[type="text"],
 input[type="number"],
 input[type="password"],
 input[type="range"] {
-    min-width: 250px;
-    max-width: 90%;
+  min-width: 250px;
+  max-width: 90%;
 }
 
 select {
-    min-width: 268px;
-    max-width: 90%;
+  min-width: 268px;
+  max-width: 90%;
 }
 
 .restart {
-    margin-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
 
 }
 
-@media only screen and (min-width:900px) {
+@media only screen and (min-width: 900px) {
 
-    input[type="text"],
-    input[type="password"],
-    input[type="number"],
-    input[type="range"] {
-        min-width: 500px
-    }
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  input[type="range"] {
+    min-width: 500px
+  }
 
-    select {
-        min-width: 518px
-    }
+  select {
+    min-width: 518px
+  }
 }
 
 a {
-    color: white;
+  color: white;
 }
 
 .upload-progress {
-    color: rgb(15, 95, 15);
+  color: rgb(15, 95, 15);
 }

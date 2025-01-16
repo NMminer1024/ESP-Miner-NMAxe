@@ -1,5 +1,5 @@
-import { Injectable } from '@angular/core';
-import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
+import {Injectable} from '@angular/core';
+import {webSocket, WebSocketSubject} from 'rxjs/webSocket';
 
 @Injectable({
   providedIn: 'root'
@@ -11,7 +11,9 @@ export class WebsocketService {
   constructor() {
     this.ws$ = webSocket({
       url: `ws://${window.location.hostname}:81/api/ws`,
-      deserializer: (e: MessageEvent) => { return e.data }
+      deserializer: (e: MessageEvent) => {
+        return e.data
+      }
     });
   }
 }

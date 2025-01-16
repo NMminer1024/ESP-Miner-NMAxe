@@ -1,8 +1,8 @@
-import { Component } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ToastrService } from 'ngx-toastr';
-import { BehaviorSubject, catchError, combineLatest, forkJoin, map, Observable, of, startWith, switchMap } from 'rxjs';
-import { SystemService } from 'src/app/services/system.service';
+import {Component} from '@angular/core';
+import {FormBuilder, FormGroup, Validators} from '@angular/forms';
+import {ToastrService} from 'ngx-toastr';
+import {BehaviorSubject, catchError, combineLatest, forkJoin, map, Observable, of, startWith, switchMap} from 'rxjs';
+import {SystemService} from 'src/app/services/system.service';
 
 @Component({
   selector: 'app-swarm',
@@ -31,14 +31,14 @@ export class SwarmComponent {
 
     this.swarm$ = this.systemService.getSwarmInfo().pipe(
       map(swarmInfo => {
-        return swarmInfo.map(({ ip }) => {
+        return swarmInfo.map(({ip}) => {
           // Make individual API calls for each IP
           return this.refresh$.pipe(
             switchMap(() => {
               return this.systemService.getInfo(`http://${ip}`);
             })
           ).pipe(
-            startWith({ ip }),
+            startWith({ip}),
             map(info => {
               return {
                 ip,
@@ -46,7 +46,7 @@ export class SwarmComponent {
               };
             }),
             catchError(error => {
-              return of({ ip, error: true });
+              return of({ip, error: true});
             })
           );
         });
@@ -64,15 +64,15 @@ export class SwarmComponent {
       switchMap(([newSwarmInfo, existingSwarmInfo]) => {
 
         if (existingSwarmInfo.length < 1) {
-          existingSwarmInfo.push({ ip: window.location.host });
+          existingSwarmInfo.push({ip: window.location.host});
         }
 
 
-        const swarmUpdate = existingSwarmInfo.map(({ ip }) => {
-          return this.systemService.updateSwarm('http://' + ip, [{ ip: newIp }, ...newSwarmInfo, ...existingSwarmInfo])
+        const swarmUpdate = existingSwarmInfo.map(({ip}) => {
+          return this.systemService.updateSwarm('http://' + ip, [{ip: newIp}, ...newSwarmInfo, ...existingSwarmInfo])
         });
 
-        const newAxeOs = this.systemService.updateSwarm('http://' + newIp, [{ ip: newIp }, ...existingSwarmInfo])
+        const newAxeOs = this.systemService.updateSwarm('http://' + newIp, [{ip: newIp}, ...existingSwarmInfo])
 
         return forkJoin([newAxeOs, ...swarmUpdate]);
 
@@ -114,7 +114,7 @@ export class SwarmComponent {
 
         const newSwarm = swarmInfo.filter((s: any) => s.ip != axeOs.ip);
 
-        const swarmUpdate = newSwarm.map(({ ip }) => {
+        const swarmUpdate = newSwarm.map(({ip}) => {
           return this.systemService.updateSwarm('http://' + ip, newSwarm)
         });
 
