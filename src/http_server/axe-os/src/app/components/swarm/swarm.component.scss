@@ -1,84 +1,87 @@
 form {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 table {
-    width: 100%;
-    margin-top: 40px;
-    margin-bottom: 40px;
-    border: 1px solid #304562;
+  width: 100%;
+  margin-top: 40px;
+  margin-bottom: 40px;
+  border: 1px solid #304562;
 }
 
 th {
-    text-align: left;
-    background-color: #1f2d40;
+  text-align: left;
+  background-color: #1f2d40;
 }
 
+th.sortable {
+  cursor: pointer;
+}
 
 th,
 td {
-    padding: 1rem 1rem;
-    border-bottom: 1px solid #304562;
+  padding: 1rem 1rem;
+  border-bottom: 1px solid #304562;
 }
 
 a {
-    color: green;
-    text-decoration: underline;
+  color: green;
+  text-decoration: underline;
 }
 
 a:link {
-    color: rgb(118, 66, 192);
+  color: rgb(118, 66, 192);
 }
 
 a:visited {
-    color: rgb(118, 66, 192);
+  color: rgb(118, 66, 192);
 }
 
 a:active {
-    color: green;
+  color: green;
 }
 
 .modal-backdrop {
-    background-color: rgba(0, 0, 0, 0.5);
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    position: fixed;
-    z-index: 9;
+  background-color: rgba(0, 0, 0, 0.5);
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  position: fixed;
+  z-index: 9;
 }
 
 .modal {
-    position: fixed;
-    max-height: 70vh;
-    width: 50vw;
-    z-index: 999;
-    top: 0;
-    left: 0;
-    margin: 12vh 25vw;
-    padding: 50px;
-    overflow-y: auto;
+  position: fixed;
+  max-height: 70vh;
+  width: 50vw;
+  z-index: 999;
+  top: 0;
+  left: 0;
+  margin: 12vh 25vw;
+  padding: 50px;
+  overflow-y: auto;
 }
 
 .close {
-    position: absolute;
-    right: 20px;
-    top: 20px;
-    cursor: pointer;
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  cursor: pointer;
 }
 
 .uptime-column {
-    width: 140px;
+  width: 140px;
 }
 
 .type-column {
-    width: 130px;
+  width: 130px;
 }
 
 .lastseen-column {
-    width: 95px;
+  width: 95px;
 }
 
 .common-column {
-    width: 90px;
+  width: 90px;
 }
