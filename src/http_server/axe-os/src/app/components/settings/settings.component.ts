@@ -147,6 +147,7 @@ export class SettingsComponent {
 
     if (file.name != 'firmware.bin') {
       this.toastrService.error('Incorrect file, looking for firmware.bin.', 'Error');
+      this.otaFileUploader.clear();
       return;
     }
 
