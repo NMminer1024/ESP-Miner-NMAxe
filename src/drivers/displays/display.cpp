@@ -1346,9 +1346,9 @@ void ui_thread_entry(void *args){
     ui_loading_str_update(pool_auth_str[(cnt++)%4], 0xFFFFFF, false);
     delay(300);
     while (cnt >= 20){
-      ui_loading_str_update("Stratum user error!", 0xFF0000, false);
+      ui_loading_str_update("Wrong stratum user!", 0xFF0000, false);
       delay(500);
-      ui_loading_str_update("Stratum user error!", 0xFFFFFF, false);
+      ui_loading_str_update("Wrong stratum user!", 0xFFFFFF, false);
       delay(500);
       if(g_nmaxe.stratum->is_authorized()) break;
     }

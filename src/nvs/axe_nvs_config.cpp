@@ -216,9 +216,9 @@ bool load_g_nmaxe(void){
     g_nmaxe.screen.flip                         = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     g_nmaxe.screen.brightness                   = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 99);
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    g_nmaxe.miner                               = NULL;
 
-    g_nmaxe.market                              = new MarketClass("data-stream.binance.vision", 443, "/ws/btcusdt@avgPrice");
+    g_nmaxe.miner                               = NULL;
+    g_nmaxe.market                              = new MarketClass(MARKET_URL, MARKET_PORT, MARKET_PATH);
     g_nmaxe.stratum                             = new StratumClass(g_nmaxe.connection.pool, g_nmaxe.connection.stratum, 10);
     g_nmaxe.power                               = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
                                                                       {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},

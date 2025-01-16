@@ -2,6 +2,10 @@
 #define _MARKET_H_
 #include <WebSocketsClient.h>
 
+#define MARKET_URL "data-stream.binance.vision"
+#define MARKET_PORT 443
+#define MARKET_PATH "/ws/btcusdt@avgPrice"
+
 
 class MarketClass
 {
