@@ -1,6 +1,6 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
 
-import { SwarmComponent } from './swarm.component';
+import {SwarmComponent} from './swarm.component';
 
 describe('SwarmComponent', () => {
   let component: SwarmComponent;

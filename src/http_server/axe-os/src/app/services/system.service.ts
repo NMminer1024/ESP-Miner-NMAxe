@@ -1,10 +1,10 @@
-import { HttpClient, HttpEvent } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { delay, Observable, of } from 'rxjs';
-import { eASICModel } from 'src/models/enum/eASICModel';
-import { ISystemInfo } from 'src/models/ISystemInfo';
+import {HttpClient, HttpEvent} from '@angular/common/http';
+import {Injectable} from '@angular/core';
+import {delay, Observable, of} from 'rxjs';
+import {eASICModel} from 'src/models/enum/eASICModel';
+import {ISystemInfo} from 'src/models/ISystemInfo';
 
-import { environment } from '../../environments/environment';
+import {environment} from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -13,7 +13,8 @@ export class SystemService {
 
   constructor(
     private httpClient: HttpClient
-  ) { }
+  ) {
+  }
 
   public getInfo(uri: string = ''): Observable<ISystemInfo> {
     if (environment.production) {
@@ -79,33 +80,36 @@ export class SystemService {
       formData.append('update', file);
 
       return this.httpClient.post(url, formData, {
-          reportProgress: true,
-          observe: 'events',
-          responseType:"text"
-        }).subscribe({
-          next: (e) => {
-            subscriber.next(e);
-          },
-          error: (err) => {
-            subscriber.error(err)
-          },
-          complete: () => {
-            subscriber.next()
-            subscriber.complete();
-          }
-        });
+        reportProgress: true,
+        observe: 'events',
+        responseType: "text"
+      }).subscribe({
+        next: (e) => {
+          subscriber.next(e);
+        },
+        error: (err) => {
+          subscriber.error(err)
+        },
+        complete: () => {
+          subscriber.next()
+          subscriber.complete();
+        }
+      });
     });
   }
-  
+
   public performOTAUpdate(file: File | Blob) {
     return this.otaUpdate(file, `/api/system/OTA`);
   }
+
   public performWWWOTAUpdate(file: File | Blob) {
     return this.otaUpdate(file, `/api/system/OTAWWW`);
   }
+
   public getSwarmInfo(uri: string = ''): Observable<{ ip: string }[]> {
     return this.httpClient.get(`${uri}/api/swarm/info`) as Observable<{ ip: string }[]>;
   }
+
   public updateSwarm(uri: string = '', swarmConfig: any) {
     return this.httpClient.patch(`${uri}/api/swarm`, swarmConfig);
   }

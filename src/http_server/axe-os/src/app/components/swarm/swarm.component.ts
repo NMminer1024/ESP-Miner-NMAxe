@@ -45,6 +45,9 @@ enum SortIndex {
   Temp,
   RSSI,
   FreeHeap,
+  Version,
+  UpTime,
+  LastSeen
 }
 
 enum SortOrder {
@@ -52,11 +55,30 @@ enum SortOrder {
   Desc
 }
 
+const StorageSwarmSortKey = "StorageSwarmSort";
+
+interface StorageSwarmSort {
+  index: SortIndex;
+  order: SortOrder;
+}
+
+function setStorageSwarmSort(index: SortIndex, order: SortOrder) {
+  localStorage.setItem(StorageSwarmSortKey, JSON.stringify({index, order}));
+}
+
+function getStorageSwarmSort(): StorageSwarmSort | null {
+  const item = localStorage.getItem(StorageSwarmSortKey);
+  if (item) {
+    return JSON.parse(item);
+  }
+  return null;
+}
+
 const TableSortFunctions = {
   [SortIndex.IP]: (a: NMDevice, b: NMDevice) => a.ip.localeCompare(b.ip),
   [SortIndex.BoardType]: (a: NMDevice, b: NMDevice) => a.BoardType.localeCompare(b.BoardType),
   [SortIndex.HashRate]: (a: NMDevice, b: NMDevice) => HashSuffixPipe.revert(a.HashRate) - HashSuffixPipe.revert(b.HashRate),
-  [SortIndex.Share]: (a: NMDevice, b: NMDevice) => a.Share.localeCompare(b.Share),
+  [SortIndex.Share]: (a: NMDevice, b: NMDevice) => parseFloat(a.Share.split('/')[1]) - parseFloat(b.Share.split('/')[1]),
   [SortIndex.PoolDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.PoolDiff) - DiffSuffixPipe.revert(b.PoolDiff),
   [SortIndex.NetDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.NetDiff) - DiffSuffixPipe.revert(b.NetDiff),
   [SortIndex.LastDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.LastDiff) - DiffSuffixPipe.revert(b.LastDiff),
@@ -66,6 +88,9 @@ const TableSortFunctions = {
   [SortIndex.Temp]: (a: NMDevice, b: NMDevice) => a.Temp - b.Temp,
   [SortIndex.RSSI]: (a: NMDevice, b: NMDevice) => a.RSSI - b.RSSI,
   [SortIndex.FreeHeap]: (a: NMDevice, b: NMDevice) => a.FreeHeap - b.FreeHeap,
+  [SortIndex.Version]: (a: NMDevice, b: NMDevice) => a.Version.localeCompare(b.Version),
+  [SortIndex.UpTime]: (a: NMDevice, b: NMDevice) => a.Uptime.localeCompare(b.Uptime),
+  [SortIndex.LastSeen]: (a: NMDevice, b: NMDevice) => a.Lastseen - b.Lastseen,
 }
 
 @Component({
@@ -104,6 +129,11 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
 
+    const storageSort = getStorageSwarmSort();
+    if (storageSort) {
+      this.sortIndex = storageSort.index;
+      this.sortOrder = storageSort.order
+    }
     this.updateTime();
     this.intervalId = setInterval(() => {
       this.updateTime();
@@ -186,6 +216,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.sortIndex = index;
     }
     this.swarmData = this.sort(this.swarmData);
+    setStorageSwarmSort(this.sortIndex, this.sortOrder);
   }
 
   protected readonly SortIndex = SortIndex;

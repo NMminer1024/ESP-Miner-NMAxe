@@ -1,13 +1,13 @@
-import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
-import { Component } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ToastrService } from 'ngx-toastr';
-import { FileUploadHandlerEvent } from 'primeng/fileupload';
-import { map, Observable, shareReplay, startWith } from 'rxjs';
-import { GithubUpdateService } from 'src/app/services/github-update.service';
-import { LoadingService } from 'src/app/services/loading.service';
-import { SystemService } from 'src/app/services/system.service';
-import { eASICModel } from 'src/models/enum/eASICModel';
+import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
+import {Component, ViewChild} from '@angular/core';
+import {FormBuilder, FormGroup, Validators} from '@angular/forms';
+import {ToastrService} from 'ngx-toastr';
+import {FileUpload, FileUploadHandlerEvent} from 'primeng/fileupload';
+import {map, Observable, shareReplay, startWith} from 'rxjs';
+import {GithubUpdateService} from 'src/app/services/github-update.service';
+import {LoadingService} from 'src/app/services/loading.service';
+import {SystemService} from 'src/app/services/system.service';
+import {eASICModel} from 'src/models/enum/eASICModel';
 
 @Component({
   selector: 'app-settings',
@@ -15,6 +15,9 @@ import { eASICModel } from 'src/models/enum/eASICModel';
   styleUrls: ['./settings.component.scss']
 })
 export class SettingsComponent {
+
+  @ViewChild('otaFileUploader') otaFileUploader!: FileUpload;
+
 
   public form!: FormGroup;
 
@@ -41,7 +44,6 @@ export class SettingsComponent {
   ) {
 
 
-
     window.addEventListener('resize', this.checkDevTools);
     this.checkDevTools();
 
@@ -52,7 +54,7 @@ export class SettingsComponent {
     this.info$ = this.systemService.getInfo().pipe(shareReplay({refCount: true, bufferSize: 1}))
 
 
-      this.info$.pipe(this.loadingService.lockUIUntilComplete())
+    this.info$.pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
         this.ASICModel = info.ASICModel;
         this.form = this.fb.group({
@@ -94,6 +96,7 @@ export class SettingsComponent {
       });
 
   }
+
   private checkDevTools = () => {
     if (
       window.outerWidth - window.innerWidth > 160 ||
@@ -118,7 +121,7 @@ export class SettingsComponent {
     form.invertfanpolarity = form.invertfanpolarity == true ? 1 : 0;
     form.autofanspeed = form.autofanspeed == true ? 1 : 0;
     form.ledindicator = form.ledindicator == true ? 1 : 0;
-    
+
 
     if (form.wifiPass === 'password') {
       delete form.wifiPass;
@@ -163,9 +166,11 @@ export class SettingsComponent {
         },
         error: (err) => {
           this.toastrService.error('Uploaded Error', 'Error');
+          this.otaFileUploader.clear();
         },
         complete: () => {
           this.firmwareUpdateProgress = null;
+          this.otaFileUploader.clear();
         }
       });
   }
@@ -181,27 +186,27 @@ export class SettingsComponent {
       .pipe(
         // this.loadingService.lockUIUntilComplete(),
       ).subscribe({
-        next: (event) => {
-          if (event.type === HttpEventType.UploadProgress) {
-            this.websiteUpdateProgress = Math.round((event.loaded / (event.total as number)) * 100);
-          } else if (event.type === HttpEventType.Response) {
-            if (event.ok) {
-              setTimeout(() => {
-                this.toastrService.success('Website updated', 'Success!');
-                window.location.reload();
-              }, 1000);
-            } else {
-              this.toastrService.error(event.statusText, 'Error');
-            }
+      next: (event) => {
+        if (event.type === HttpEventType.UploadProgress) {
+          this.websiteUpdateProgress = Math.round((event.loaded / (event.total as number)) * 100);
+        } else if (event.type === HttpEventType.Response) {
+          if (event.ok) {
+            setTimeout(() => {
+              this.toastrService.success('Website updated', 'Success!');
+              window.location.reload();
+            }, 1000);
+          } else {
+            this.toastrService.error(event.statusText, 'Error');
           }
-        },
-        error: (err) => {
-          this.toastrService.error('Upload Error', 'Error');
-        },
-        complete: () => {
-          this.websiteUpdateProgress = null;
         }
-      });
+      },
+      error: (err) => {
+        this.toastrService.error('Upload Error', 'Error');
+      },
+      complete: () => {
+        this.websiteUpdateProgress = null;
+      }
+    });
   }
 
   public restart() {

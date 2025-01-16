@@ -1,8 +1,8 @@
-import { AfterViewChecked, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
-import { interval, map, Observable, shareReplay, startWith, Subscription, switchMap } from 'rxjs';
-import { SystemService } from 'src/app/services/system.service';
-import { WebsocketService } from 'src/app/services/web-socket.service';
-import { ISystemInfo } from 'src/models/ISystemInfo';
+import {AfterViewChecked, Component, ElementRef, OnDestroy, ViewChild} from '@angular/core';
+import {interval, map, Observable, shareReplay, startWith, Subscription, switchMap} from 'rxjs';
+import {SystemService} from 'src/app/services/system.service';
+import {WebsocketService} from 'src/app/services/web-socket.service';
+import {ISystemInfo} from 'src/models/ISystemInfo';
 
 @Component({
   selector: 'app-logs',
@@ -41,12 +41,14 @@ export class LogsComponent implements OnDestroy, AfterViewChecked {
         info.coreVoltage = parseFloat((info.coreVoltage / 1000).toFixed(2));
         return info;
       }),
-      shareReplay({ refCount: true, bufferSize: 1 })
+      shareReplay({refCount: true, bufferSize: 1})
     );
   }
+
   ngOnDestroy(): void {
     this.websocketSubscription?.unsubscribe();
   }
+
   public toggleLogs() {
     this.showLogs = !this.showLogs;
 
@@ -65,11 +67,15 @@ export class LogsComponent implements OnDestroy, AfterViewChecked {
   }
 
   ngAfterViewChecked(): void {
-    if(this.stopScroll == true){
+    if (this.stopScroll == true) {
       return;
     }
     if (this.scrollContainer?.nativeElement != null) {
-      this.scrollContainer.nativeElement.scrollTo({ left: 0, top: this.scrollContainer.nativeElement.scrollHeight, behavior: 'smooth' });
+      this.scrollContainer.nativeElement.scrollTo({
+        left: 0,
+        top: this.scrollContainer.nativeElement.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }
 
