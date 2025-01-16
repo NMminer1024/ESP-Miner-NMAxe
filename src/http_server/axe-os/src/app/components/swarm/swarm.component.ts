@@ -31,6 +31,68 @@ interface SwarmSummary {
   BestDiffEver: string;
 }
 
+enum SortIndex {
+  IP,
+  BoardType,
+  HashRate,
+  Share,
+  PoolDiff,
+  NetDiff,
+  LastDiff,
+  BestDiff,
+  Valid,
+  Power,
+  Temp,
+  RSSI,
+  FreeHeap,
+  Version,
+  UpTime,
+  LastSeen
+}
+
+enum SortOrder {
+  Asc,
+  Desc
+}
+
+const StorageSwarmSortKey = "StorageSwarmSort";
+
+interface StorageSwarmSort {
+  index: SortIndex;
+  order: SortOrder;
+}
+
+function setStorageSwarmSort(index: SortIndex, order: SortOrder) {
+  localStorage.setItem(StorageSwarmSortKey, JSON.stringify({index, order}));
+}
+
+function getStorageSwarmSort(): StorageSwarmSort | null {
+  const item = localStorage.getItem(StorageSwarmSortKey);
+  if (item) {
+    return JSON.parse(item);
+  }
+  return null;
+}
+
+const TableSortFunctions = {
+  [SortIndex.IP]: (a: NMDevice, b: NMDevice) => a.ip.localeCompare(b.ip),
+  [SortIndex.BoardType]: (a: NMDevice, b: NMDevice) => a.BoardType.localeCompare(b.BoardType),
+  [SortIndex.HashRate]: (a: NMDevice, b: NMDevice) => HashSuffixPipe.revert(a.HashRate) - HashSuffixPipe.revert(b.HashRate),
+  [SortIndex.Share]: (a: NMDevice, b: NMDevice) => parseFloat(a.Share.split('/')[1]) - parseFloat(b.Share.split('/')[1]),
+  [SortIndex.PoolDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.PoolDiff) - DiffSuffixPipe.revert(b.PoolDiff),
+  [SortIndex.NetDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.NetDiff) - DiffSuffixPipe.revert(b.NetDiff),
+  [SortIndex.LastDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.LastDiff) - DiffSuffixPipe.revert(b.LastDiff),
+  [SortIndex.BestDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.BestDiff) - DiffSuffixPipe.revert(b.BestDiff),
+  [SortIndex.Valid]: (a: NMDevice, b: NMDevice) => a.Valid - b.Valid,
+  [SortIndex.Power]: (a: NMDevice, b: NMDevice) => a.Power.localeCompare(b.Power),
+  [SortIndex.Temp]: (a: NMDevice, b: NMDevice) => a.Temp - b.Temp,
+  [SortIndex.RSSI]: (a: NMDevice, b: NMDevice) => a.RSSI - b.RSSI,
+  [SortIndex.FreeHeap]: (a: NMDevice, b: NMDevice) => a.FreeHeap - b.FreeHeap,
+  [SortIndex.Version]: (a: NMDevice, b: NMDevice) => a.Version.localeCompare(b.Version),
+  [SortIndex.UpTime]: (a: NMDevice, b: NMDevice) => a.Uptime.localeCompare(b.Uptime),
+  [SortIndex.LastSeen]: (a: NMDevice, b: NMDevice) => a.Lastseen - b.Lastseen,
+}
+
 @Component({
   selector: 'app-swarm',
   templateUrl: './swarm.component.html',
@@ -51,6 +113,9 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   public currentDate: string = '';
   public currentTime: string = '';
+  public sortIndex: SortIndex | undefined = 0;
+  public sortOrder: SortOrder = SortOrder.Asc;
+
   private intervalId: any;
 
   @Input() uri = '';
@@ -64,6 +129,11 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
 
+    const storageSort = getStorageSwarmSort();
+    if (storageSort) {
+      this.sortIndex = storageSort.index;
+      this.sortOrder = storageSort.order
+    }
     this.updateTime();
     this.intervalId = setInterval(() => {
       this.updateTime();
@@ -77,7 +147,8 @@ export class SwarmComponent implements OnInit, OnDestroy {
       })
     ).subscribe(
       data => {
-        this.swarmData = data.devices;
+        this.swarmData = this.sort(data.devices);
+
         this.swarmSummary = calculateSwarmSummary(this.swarmData);
         this.logs.push(`Request received ${this.uri}`);
       },
@@ -126,6 +197,29 @@ export class SwarmComponent implements OnInit, OnDestroy {
     }
   }
 
+  public sort(data: NMDevice[]): NMDevice[] {
+    if (this.sortIndex === undefined) {
+      return data;
+    }
+    let result = data.sort(TableSortFunctions[this.sortIndex]);
+    if (this.sortOrder === SortOrder.Desc) {
+      result = result.reverse();
+    }
+    return result;
+  }
+
+  public sortTable(index: SortIndex) {
+    if (this.sortIndex === index) {
+      this.sortOrder = this.sortOrder === SortOrder.Asc ? SortOrder.Desc : SortOrder.Asc;
+    } else {
+      this.sortOrder = SortOrder.Asc;
+      this.sortIndex = index;
+    }
+    this.swarmData = this.sort(this.swarmData);
+    setStorageSwarmSort(this.sortIndex, this.sortOrder);
+  }
+
+  protected readonly SortIndex = SortIndex;
 }
 
 function calculateSwarmSummary(devices: NMDevice[]): SwarmSummary {
