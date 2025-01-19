@@ -131,6 +131,17 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 ## Release Log
 ***
 
+### (2025.01.19) - v2.4.12
+- Add:
+  - Column sort feature for swarm.
+  - Summary of swarm list.
+- Fixed:
+  - None
+- Improved:
+ - BM1366 class.
+- Modify:
+  - Input voltage danger threshold to 5v. 
+
 ### (2025.01.09) - v2.4.11
 - Add:
   - None
