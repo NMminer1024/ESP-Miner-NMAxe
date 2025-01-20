@@ -96,5 +96,11 @@ void loop() {
   if(xSemaphoreTake(g_nmaxe.connection.wifi.reconnect_xsem, 1000) == pdTRUE){
     WiFi.begin(g_nmaxe.connection.wifi.conn_param.ssid.c_str(), g_nmaxe.connection.wifi.conn_param.pwd.c_str());
   }
+  //Stratum monitor
+  if(millis() - g_nmaxe.connection.stratum_update > GLOBAL_ALIVE_TIMEOUT){
+    LOG_W("Stratum connection frozen, restarting...");
+    delay(100);
+    ESP.restart();
+  }
 }
 

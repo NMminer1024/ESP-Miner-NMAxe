@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.4.12"
+#define CURRENT_FW_VERSION  "v2.4.12b"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -28,6 +28,8 @@
 
 #define WIFI_RSSI_STRONG    (-60)
 #define WIFI_RSSI_GOOD      (-70)
+
+#define GLOBAL_ALIVE_TIMEOUT (1000*60*10)//10 minutes
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
@@ -87,10 +89,10 @@ typedef struct{
 typedef struct{
     bool           force_config;
     bool           client_connected;
+    uint32_t       stratum_update;//ms
     wifi_info_t    wifi; 
     pool_info_t    pool;
     stratum_info_t stratum;
-
 }connect_info_t;
 
 typedef struct{

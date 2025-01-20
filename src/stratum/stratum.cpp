@@ -461,6 +461,7 @@ void stratum_thread_entry(void *args){
         }
 
         while(g_nmaxe.stratum->pool.available()){
+            g_nmaxe.connection.stratum_update = millis();//pool is alive
             stratum_method_data method = g_nmaxe.stratum->listen_methods();
             switch (method.type){
                 case STRATUM_DOWN_PARSE_ERROR:   
