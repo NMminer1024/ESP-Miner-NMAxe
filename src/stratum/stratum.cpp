@@ -168,11 +168,27 @@ bool StratumClass::subscribe(){
         LOG_E("Failed to send mining.subscribe request");
         return false;
     }
-    this->_rsp_str = this->pool.readline(5000);
-    if(this->_rsp_str == ""){
-        LOG_E("Failed to read mining.subscribe response");
-        return false;
+
+
+    //wait for response
+    uint32_t start = millis();
+    while (true){
+        this->_rsp_str = this->pool.readline(100);
+        if(this->_rsp_str == "" ) {
+            if(millis() - start > 1000*10){
+                LOG_E("Failed to read mining.subscribe response");
+                return false;
+            }
+        }else{
+            break;
+        }
     }
+
+    // this->_rsp_str = this->pool.readline(5000);
+    // if(this->_rsp_str == ""){
+    //     LOG_E("Failed to read mining.subscribe response");
+    //     return false;
+    // }
 
     if(!this->_parse_rsp()){
         LOG_E("Failed to parse mining.subscribe response");
