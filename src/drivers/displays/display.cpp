@@ -550,7 +550,7 @@ static void ui_miner_page_update(){
   //Temp
   lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_nmaxe.board.temp_vcore, 2).c_str(), formatNumber(g_nmaxe.asic.temp, 2).c_str());
   //WiFi
-  lv_label_set_text_fmt(lb_wifi,   "%s / %d", g_nmaxe.connection.wifi.status_param.ip.toString().c_str(), g_nmaxe.connection.wifi.status_param.rssi);
+  lv_label_set_text_fmt(lb_wifi,   "%s", g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
   //uptime hms
   lv_label_set_text_fmt(lb_uptime_hms,    "%s", uptime.substring(5, uptime.length()).c_str());
   //uptime day
