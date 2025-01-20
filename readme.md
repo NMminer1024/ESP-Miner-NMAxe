@@ -138,7 +138,7 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 - Fixed:
   - None
 - Improved:
- - BM1366 class.
+  - BM1366 class.
 - Modify:
   - Input voltage danger threshold to 5v. 
 
