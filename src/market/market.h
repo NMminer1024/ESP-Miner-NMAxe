@@ -4,7 +4,7 @@
 
 #define MARKET_URL "data-stream.binance.vision"
 #define MARKET_PORT 443
-#define MARKET_PATH "/ws/btcusdt@avgPrice"
+// #define MARKET_PATH "/ws/btcusdt@avgPrice"
 
 
 class MarketClass
@@ -12,10 +12,9 @@ class MarketClass
 private:
     WebSocketsClient  *_wsclient;
 public:
-    bool  updated;
-    bool  timeout;
-    float price;
-
+    bool   updated;
+    bool   timeout;
+    float  price;
     MarketClass(String host, uint16_t port, String url);
     ~MarketClass();
     void loop();

@@ -487,7 +487,7 @@ static void ui_miner_page_update(){
   String network_diff = formatNumber(g_nmaxe.mstatus.network_diff, 4);
   String voltage = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
   String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
-  String price = (!g_nmaxe.market->timeout) ? String(g_nmaxe.market->price, 1) : "";
+  String price = (!g_nmaxe.market->timeout) ? formatNumber(g_nmaxe.market->price, 6) : "";
 
   //diff symbol color update
   if(g_nmaxe.mstatus.last_diff != 0){//avoid the first time update

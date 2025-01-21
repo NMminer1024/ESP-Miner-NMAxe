@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.4.12c"
+#define CURRENT_FW_VERSION  "v2.4.12d"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -140,6 +140,7 @@ typedef struct{
     miner_status_t   mstatus;
     ota_info_t       ota;
     swarm_map_t      swarm;
+    String           coin;
     MarketClass      *market;
     NMAxePowerClass  *power;
     StratumClass     *stratum;

@@ -91,9 +91,9 @@ export class EditComponent implements OnInit {
   public Coin = [
     {name: 'BTC', value: 'btc'},
     {name: 'BCH', value: 'bch'},
-    {name: 'BSV', value: 'bsv'},
-    {name: 'FB', value: 'fb'},
-    {name: 'SPACE', value: 'space'},
+    // {name: 'BSV', value: 'bsv'},
+    // {name: 'FB', value: 'fb'},
+    // {name: 'SPACE', value: 'space'},
     {name: 'XEC', value: 'xec'},
     {name: 'DGB', value: 'dgb'},
   ];

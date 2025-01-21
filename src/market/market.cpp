@@ -22,7 +22,7 @@ static void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
                     const char* event = doc["e"];
                     if (strcmp(event, "avgPrice") == 0) {
                         g_nmaxe.market->updated = true;
-                        g_nmaxe.market->price = String(doc["w"].as<float>(), 1).toFloat();
+                        g_nmaxe.market->price = doc["w"].as<float>();
                     }
                 } else {
                     LOG_W("Failed to parse JSON");

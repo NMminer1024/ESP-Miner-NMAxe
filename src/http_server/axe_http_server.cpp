@@ -108,6 +108,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     (*root)["fanspeed"] = g_nmaxe.fan.speed;
     (*root)["fanrpm"] = g_nmaxe.fan.rpm;
     (*root)["brightness"] = g_nmaxe.screen.brightness;
+    (*root)["coin"] = g_nmaxe.coin;
 
     String sys_info;
     serializeJson(*root, sys_info);
@@ -265,6 +266,9 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         }
         if(root.containsKey("overheat_mode")){
 
+        }
+        if(root.containsKey("coin")){
+            nvs_config_set_string(NVS_CONFIG_MINING_COIN,root["coin"].as<String>().c_str());
         }
         if(root.containsKey("invertscreen")){
 

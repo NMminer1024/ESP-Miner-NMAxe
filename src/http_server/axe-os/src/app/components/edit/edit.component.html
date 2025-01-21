@@ -1,12 +1,12 @@
 <ng-container *ngIf="form != null">
   <form [formGroup]="form">
 
-    <!-- <div class="field grid p-fluid">
+    <div class="field grid p-fluid">
         <label htmlFor="hostname" class="col-12 mb-2 md:col-2 md:mb-0">Hostname:</label>
         <div class="col-12 md:col-10">
             <input pInputText id="hostname" type="text" formControlName="hostname" />
         </div>
-    </div> -->
+    </div>
     <div class="field grid p-fluid">
       <label htmlFor="ssid" class="col-12 mb-2 md:col-2 md:mb-0">WiFi SSID:</label>
       <div class="col-12 md:col-10">
@@ -53,6 +53,13 @@
 
     <ng-container *ngIf="!devToolsOpen && ASICModel == eASICModel.BM1366">
       <div class="field grid p-fluid">
+        <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="Coin">Mining Coin:</label>
+        <p-dropdown class="col-12 md:col-10" [options]="Coin" optionLabel="name"
+                    optionValue="value" formControlName="coin"></p-dropdown>
+      </div>
+
+
+      <div class="field grid p-fluid">
         <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="frequency">OverClock(MHz)</label>
         <div class="col-12 md:col-10">
           <p-dropdown [options]="BM1366DropdownFrequency" optionLabel="name" optionValue="value"
@@ -65,12 +72,6 @@
         <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coreVoltage">Vcore(mV)</label>
         <p-dropdown class="col-12 md:col-10" [options]="BM1366CoreVoltage" optionLabel="name"
                     optionValue="value" formControlName="coreVoltage"></p-dropdown>
-      </div>
-
-      <div class="field grid p-fluid">
-        <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="Coin">Coin</label>
-        <p-dropdown class="col-12 md:col-10" [options]="Coin" optionLabel="name"
-                    optionValue="value" formControlName="coin"></p-dropdown>
       </div>
 
       <div class="field grid p-fluid">
