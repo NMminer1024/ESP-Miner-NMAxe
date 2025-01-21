@@ -47,6 +47,7 @@ export class SystemService {
           stratumPort: 21496,
           stratumUser: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
           frequency: 485,
+          coin: "btc",
           brightness: 100,
           version: "2.0",
           boardVersion: "204",

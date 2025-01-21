@@ -27,6 +27,7 @@ export interface ISystemInfo {
   stratumPort: number,
   stratumUser: string,
   frequency: number,
+  coin: string,
   brightness: number,
   version: string,
   boardVersion: string,
