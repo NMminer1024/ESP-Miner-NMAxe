@@ -87,6 +87,17 @@ export class EditComponent implements OnInit {
     {name: '1250', value: 1250},
     {name: '1300', value: 1300},
   ];
+
+  public Coin = [
+    {name: 'BTC', value: 'btc'},
+    {name: 'BCH', value: 'bch'},
+    {name: 'BSV', value: 'bsv'},
+    {name: 'FB', value: 'fb'},
+    {name: 'SPACE', value: 'space'},
+    {name: 'XEC', value: 'xec'},
+    {name: 'DGB', value: 'dgb'},
+  ];
+
   public BM1368CoreVoltage = [
     {name: '1100', value: 1100},
     {name: '1150', value: 1150},
@@ -135,6 +146,7 @@ export class EditComponent implements OnInit {
           wifiPass: ['password'],
           coreVoltage: [info.coreVoltage, [Validators.required]],
           frequency: [info.frequency, [Validators.required]],
+          coin: [info.coin, [Validators.required]],
           brightness: [info.brightness, [Validators.required]],
           autofanspeed: [info.autofanspeed == 1, [Validators.required]],
           invertfanpolarity: [info.invertfanpolarity == 1, [Validators.required]],
