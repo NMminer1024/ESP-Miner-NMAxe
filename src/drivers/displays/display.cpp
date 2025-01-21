@@ -327,7 +327,7 @@ static void ui_miner_page_update(){
     font = &ds_digib_font_16;
     font_color = lv_color_hex(0xFFFFFF);
     lb_wifi    = lv_label_create( ui_pages[PAGE_MINER] );
-    lv_obj_set_width(lb_wifi, 90);
+    lv_obj_set_width(lb_wifi, 98);
     lv_label_set_text( lb_wifi, " ");
     lv_obj_set_style_text_font(lb_wifi, font, LV_PART_MAIN);
     lv_label_set_long_mode(lb_wifi, LV_LABEL_LONG_SCROLL_CIRCULAR);
