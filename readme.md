@@ -131,6 +131,17 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 ## Release Log
 ***
 
+### (2025.01.xx) - v2.4.13
+- Add:
+  - Market price for BTC, BCH, XEC, DGB.
+- Fixed:
+  - Handle pool connection timeout.
+  - Stratum waiting response issue.
+- Improved:
+  - None.
+- Modify:
+  - Disable IP scroll on NMAxe.
+
 ### (2025.01.19) - v2.4.12
 - Add:
   - Column sort feature for swarm.
