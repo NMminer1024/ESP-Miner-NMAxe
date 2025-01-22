@@ -176,7 +176,7 @@ bool load_g_nmaxe(void){
         ret = nvs_flash_init();
         delay(1000);
     }
-
+    String stratum_url                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+ssl://hk.kxsw.pro"));
     g_nmaxe.board.fw_version                    = CURRENT_FW_VERSION;
     g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
     g_nmaxe.board.hw_model                      = BOARD_MODEL;
@@ -194,9 +194,8 @@ bool load_g_nmaxe(void){
     g_nmaxe.mstatus.block_hits                  = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     g_nmaxe.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     g_nmaxe.connection.client_connected         = false;
-    String url = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+ssl://hk.kxsw.pro"));
-    g_nmaxe.connection.pool.ssl                 = (url.indexOf("ssl") != -1);
-    g_nmaxe.connection.pool.url                 = url.substring(url.indexOf(":") + 3);
+    g_nmaxe.connection.pool.ssl                 = (stratum_url.indexOf("ssl") != -1);
+    g_nmaxe.connection.pool.url                 = stratum_url.substring(stratum_url.indexOf(":") + 3);
     g_nmaxe.connection.pool.port                = nvs_config_get_u16(NVS_CONFIG_STRATUM_PORT, 9527);
     g_nmaxe.connection.stratum.user             = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
     g_nmaxe.connection.stratum.pwd              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS, "d=15000"));

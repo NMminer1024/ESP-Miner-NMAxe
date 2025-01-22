@@ -183,13 +183,7 @@ bool StratumClass::subscribe(){
             break;
         }
     }
-
-    // this->_rsp_str = this->pool.readline(5000);
-    // if(this->_rsp_str == ""){
-    //     LOG_E("Failed to read mining.subscribe response");
-    //     return false;
-    // }
-
+    
     if(!this->_parse_rsp()){
         LOG_E("Failed to parse mining.subscribe response");
         return false;

@@ -110,15 +110,7 @@ void monitor_thread_entry(void *args){
                 size_t n = serializeJson(json, jsonBuffer);
                 it->second = (n>0) ? String(jsonBuffer) : "";
               }
-
-              // LOG_L(" ==============  Swarm count: %d ==============", g_nmaxe.swarm.size());
-              // for(auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end();it++){
-              //   DeserializationError error = deserializeJson(json, it->second.c_str());
-              //   if(error) continue;
-              //   LOG_W("key: %s, value: %s", it->first.c_str(), it->second.c_str());
-              //   // LOG_W("%s => %.2fs", it->first.c_str() ,json["Lastseen"].as<uint32_t>()/1000.0f);
-              // }
-
+              
               free(json_str);
               free(incomingPacket);
               udp_client->flush();
