@@ -46,15 +46,17 @@ void monitor_thread_entry(void *args){
 
       //update temperature and power status
       if(monitor_cnt % 5 == 0){
+        static uint8_t temp_cnt = 0;
+
         //update power status
-        g_nmaxe.board.vbus = g_nmaxe.power->get_vbus();
-        g_nmaxe.board.ibus = g_nmaxe.power->get_ibus();
-        g_nmaxe.asic.vcore_measured = g_nmaxe.power->get_vcore();
+        g_nmaxe.board.vbus = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vbus() : g_nmaxe.board.vbus;
+        g_nmaxe.board.ibus = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_ibus() : g_nmaxe.board.ibus;
+        g_nmaxe.asic.vcore_measured = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vcore() : g_nmaxe.asic.vcore_measured;
         //update board temperature
-        static uint8_t mcu_cnt = 0;
-        g_nmaxe.board.temp_mcu    = (mcu_cnt++ % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
-        g_nmaxe.board.temp_vcore  = (int8_t)get_vcore_temperature();
-        g_nmaxe.asic.temp         = (int8_t)get_asic_temperature();
+        g_nmaxe.board.temp_mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
+        g_nmaxe.board.temp_vcore  = (temp_cnt % 2 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.board.temp_vcore;
+        g_nmaxe.asic.temp         = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.asic.temp;
+        temp_cnt++;
         //update wifi rssi
         g_nmaxe.connection.wifi.status_param.rssi = WiFi.RSSI();
         //give miner update signal

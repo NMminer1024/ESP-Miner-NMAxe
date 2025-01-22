@@ -244,6 +244,7 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         }
         if(root.containsKey("hostname")){
             nvs_config_set_string(NVS_CONFIG_HOSTNAME,root["hostname"].as<String>().c_str());
+            g_nmaxe.connection.wifi.conn_param.hostname = root["hostname"].as<String>();
         }
         if(root.containsKey("coreVoltage")){
             uint16_t req_mv = root["coreVoltage"].as<uint16_t>();

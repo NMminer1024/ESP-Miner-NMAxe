@@ -116,9 +116,6 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
   <img src="image/nm-flash-tool.jpg" alt="nm-flash-tool">
 </div>
 
-## TODO
-- According to different mining coin, the corresponding market prices are displayed.
-
 
 ## Contact
 - Anything do not work as your expectation, just let us know.
@@ -131,14 +128,15 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 ## Release Log
 ***
 
-### (2025.01.xx) - v2.4.13
+### (2025.01.22) - v2.4.13
 - Add:
-  - Market price for BTC, BCH, XEC, DGB.
+  - Market price support BTC, BCH, XEC, DGB.
 - Fixed:
-  - Handle pool connection timeout.
+  - Pool connection timeout.
   - Stratum waiting response issue.
 - Improved:
-  - None.
+  - System stable.
+  - Swarm.
 - Modify:
   - Disable IP scroll on NMAxe.
 
