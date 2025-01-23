@@ -7,18 +7,27 @@
             <input pInputText id="hostname" type="text" formControlName="hostname" />
         </div>
     </div>
+    
     <div class="field grid p-fluid">
       <label htmlFor="ssid" class="col-12 mb-2 md:col-2 md:mb-0">WiFi SSID:</label>
       <div class="col-12 md:col-10">
         <input pInputText id="ssid" type="text" formControlName="ssid" />
       </div>
     </div>
+
     <div class="field grid p-fluid">
       <label htmlFor="wifiPass" class="col-12 mb-2 md:col-2 md:mb-0">WiFi Password:</label>
       <div class="col-12 md:col-10">
         <input pInputText id="wifiPass" formControlName="wifiPass" type="password" />
       </div>
     </div>
+
+    <div class="field grid p-fluid">
+      <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="Coin">Mining Coin:</label>
+      <p-dropdown class="col-12 md:col-10" [options]="Coin" optionLabel="name"
+                  optionValue="value" formControlName="coin"></p-dropdown>
+    </div>
+
     <div class="field grid p-fluid">
       <label htmlFor="stratumURL" class="col-12 mb-2 md:col-2 md:mb-0">Stratum URL:</label>
       <div class="col-12 md:col-10">
@@ -52,13 +61,6 @@
 
 
     <ng-container *ngIf="!devToolsOpen && ASICModel == eASICModel.BM1366">
-      <div class="field grid p-fluid">
-        <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="Coin">Mining Coin:</label>
-        <p-dropdown class="col-12 md:col-10" [options]="Coin" optionLabel="name"
-                    optionValue="value" formControlName="coin"></p-dropdown>
-      </div>
-
-
       <div class="field grid p-fluid">
         <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="frequency">OverClock(MHz)</label>
         <div class="col-12 md:col-10">
