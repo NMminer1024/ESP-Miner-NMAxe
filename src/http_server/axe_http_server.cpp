@@ -175,6 +175,56 @@ static void get_swarm_info(AsyncWebServerRequest* request){
     root->~DynamicJsonDocument();
     psramDeallocator(buffer);
 }
+static void options_theme_handler(AsyncWebServerRequest* request){
+
+
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    request->send(response);
+}
+static void get_theme_handler(AsyncWebServerRequest* request){
+    uint16_t json_size_max = 1024 * 2;
+
+    void* buffer = psramAllocator(json_size_max);
+    if (!buffer) {
+        request->send(500, "application/json", "{\"error\":\"Failed to allocate memory in PSRAM\"}");
+        LOG_E("Failed to allocate memory in PSRAM for theme handler.");
+        return;
+    }
+    DynamicJsonDocument* root = new(buffer) DynamicJsonDocument(json_size_max);
+
+
+
+
+
+
+
+    String test_info;
+    serializeJson(*root, test_info);
+
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", test_info);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    request->send(response);
+
+    //free memory
+    root->~DynamicJsonDocument();
+    psramDeallocator(buffer);
+}
+static void post_theme_handler(AsyncWebServerRequest* request){
+
+    // Send HTTP response before restarting
+    const char* resp_str = "post_theme_handler called";
+
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", resp_str);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    request->send(response);
+}
 static void echo_handler(AsyncWebServerRequest* request){
     LOG_I("Echo Request...");
 }
@@ -427,6 +477,9 @@ void start_http_server(void) {
     webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){
         request->send(200, "text/plain", "PATCH method allowed");
     }, NULL, patch_update_settings);
+    webServer.on("/api/theme", HTTP_GET, get_theme_handler);
+    webServer.on("/api/theme", HTTP_POST, post_theme_handler);
+    webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
     webServer.on("/api/swarm", HTTP_GET, get_swarm_info);
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
     webServer.begin();
