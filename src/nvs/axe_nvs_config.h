@@ -29,7 +29,10 @@
 #define NVS_CONFIG_UPTIME     "uptime"
 #define NVS_CONFIG_FORCE_CONFIG "forceconfig"
 #define NVS_CONFIG_MINING_COIN "minecoin"
-
+// Theme configuration
+#define NVS_CONFIG_THEME_SCHEME "themescheme"
+#define NVS_CONFIG_THEME_NAME "themename"
+#define NVS_CONFIG_THEME_COLORS "themecolors"
 
 char * nvs_config_get_string(const char * key, const char * default_value);
 void nvs_config_set_string(const char * key, const char * value);

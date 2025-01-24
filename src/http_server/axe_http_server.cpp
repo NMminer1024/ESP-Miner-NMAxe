@@ -176,8 +176,6 @@ static void get_swarm_info(AsyncWebServerRequest* request){
     psramDeallocator(buffer);
 }
 static void options_theme_handler(AsyncWebServerRequest* request){
-
-
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
     response->addHeader("Access-Control-Allow-Origin", "*");
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
@@ -185,7 +183,7 @@ static void options_theme_handler(AsyncWebServerRequest* request){
     request->send(response);
 }
 static void get_theme_handler(AsyncWebServerRequest* request){
-    uint16_t json_size_max = 1024 * 2;
+    uint16_t json_size_max = 1024;
 
     void* buffer = psramAllocator(json_size_max);
     if (!buffer) {
@@ -195,30 +193,90 @@ static void get_theme_handler(AsyncWebServerRequest* request){
     }
     DynamicJsonDocument* root = new(buffer) DynamicJsonDocument(json_size_max);
 
+    char *scheme = nvs_config_get_string(NVS_CONFIG_THEME_SCHEME, "dark");
+    char *name = nvs_config_get_string(NVS_CONFIG_THEME_NAME, "dark");
+    char *colors = nvs_config_get_string(NVS_CONFIG_THEME_COLORS, 
+        "{"
+        "\"--primary-color\":\"#F80421\","
+        "\"--primary-color-text\":\"#ffffff\","
+        "\"--highlight-bg\":\"#F80421\","
+        "\"--highlight-text-color\":\"#ffffff\","
+        "\"--focus-ring\":\"0 0 0 0.2rem rgba(248,4,33,0.2)\","
+        "\"--slider-bg\":\"#dee2e6\","
+        "\"--slider-range-bg\":\"#F80421\","
+        "\"--slider-handle-bg\":\"#F80421\","
+        "\"--progressbar-bg\":\"#dee2e6\","
+        "\"--progressbar-value-bg\":\"#F80421\","
+        "\"--checkbox-border\":\"#F80421\","
+        "\"--checkbox-bg\":\"#F80421\","
+        "\"--checkbox-hover-bg\":\"#df031d\","
+        "\"--button-bg\":\"#F80421\","
+        "\"--button-hover-bg\":\"#df031d\","
+        "\"--button-focus-shadow\":\"0 0 0 2px #ffffff, 0 0 0 4px #F80421\","
+        "\"--togglebutton-bg\":\"#F80421\","
+        "\"--togglebutton-border\":\"1px solid #F80421\","
+        "\"--togglebutton-hover-bg\":\"#df031d\","
+        "\"--togglebutton-hover-border\":\"1px solid #df031d\","
+        "\"--togglebutton-text-color\":\"#ffffff\""
+        "}"
+    );
+    
+    DynamicJsonDocument colors_json(1024);
+    DeserializationError error = deserializeJson(colors_json, colors);
 
+    (*root)["colorScheme"] = scheme;
+    (*root)["theme"] = name;
+    if(error.code() == DeserializationError::Ok){
+        (*root)["accentColors"] = colors_json;
+    }
 
+    String colors_str;
+    serializeJson(*root, colors_str);
 
-
-
-
-    String test_info;
-    serializeJson(*root, test_info);
-
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", test_info);
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", colors_str);
     response->addHeader("Access-Control-Allow-Origin", "*");
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
 
     //free memory
+    free(scheme);
+    free(name);
+    free(colors);
     root->~DynamicJsonDocument();
     psramDeallocator(buffer);
 }
-static void post_theme_handler(AsyncWebServerRequest* request){
+static void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+    if (!data) {
+        request->send(500, "application/json", "{\"error\":\"Failed to allocate memory\"}");
+        LOG_E("Failed to allocate memory for theme update request.");
+        return;
+    }
 
-    // Send HTTP response before restarting
-    const char* resp_str = "post_theme_handler called";
+    DynamicJsonDocument root = DynamicJsonDocument(1024*2);
+    DeserializationError error = deserializeJson(root, data);
+    if(error){
+        request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        return;
+    }
+    if(!root.is<JsonObject>()){
+        request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        return;
+    }
 
+    if(root.containsKey("colorScheme")){
+        nvs_config_set_string(NVS_CONFIG_THEME_SCHEME, root["colorScheme"].as<String>().c_str());
+    }
+    if(root.containsKey("theme")){
+        nvs_config_set_string(NVS_CONFIG_THEME_NAME, root["theme"].as<String>().c_str());
+    }
+    if(root.containsKey("accentColors")){
+        String colors_str;
+        serializeJson(root["accentColors"], colors_str);
+        nvs_config_set_string(NVS_CONFIG_THEME_COLORS, colors_str.c_str());
+    }
+
+    const char* resp_str = "{\"status\":\"ok\"}";
     AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", resp_str);
     response->addHeader("Access-Control-Allow-Origin", "*");
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
@@ -467,7 +525,6 @@ void start_http_server(void) {
     webServer.on("/api/system/restart", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
         request->send(200, "text/plain", "OPTIONS method allowed");
     });
-
     webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){
         request->send(200, "text/plain", "POST method allowed");
     }, handleFileUpload);
@@ -478,7 +535,9 @@ void start_http_server(void) {
         request->send(200, "text/plain", "PATCH method allowed");
     }, NULL, patch_update_settings);
     webServer.on("/api/theme", HTTP_GET, get_theme_handler);
-    webServer.on("/api/theme", HTTP_POST, post_theme_handler);
+    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){
+        request->send(200, "text/plain", "PATCH method allowed");
+    }, NULL, post_theme_handler);
     webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
     webServer.on("/api/swarm", HTTP_GET, get_swarm_info);
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
