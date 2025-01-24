@@ -128,14 +128,15 @@ export class EditComponent implements OnInit {
         this.form = this.fb.group({
           stratumURL: [info.stratumURL || 'stratum+tcp://', [
             Validators.required,
-            Validators.pattern(/^(stratum\+(tcp|ssl):\/\/).+$/)
+            // Validators.pattern(/^(stratum\+(tcp|ssl):\/\/).+$/)
+            Validators.pattern(/^(stratum\+(tcp|ssl):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
           ]],
-          stratumPort: [info.stratumPort, [
-            Validators.required,
-            Validators.pattern(/^[^:]*$/),
-            Validators.min(0),
-            Validators.max(65353)
-          ]],
+          // stratumPort: [info.stratumPort, [
+          //   Validators.required,
+          //   Validators.pattern(/^[^:]*$/),
+          //   Validators.min(0),
+          //   Validators.max(65353)
+          // ]],
           stratumUser: [info.stratumUser, [Validators.required]],
           stratumPassword: ['password', [Validators.required]],
           coreVoltage: [info.coreVoltage, [Validators.required]],

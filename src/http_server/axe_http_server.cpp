@@ -93,7 +93,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     (*root)["asicCount"] = g_nmaxe.miner->get_asic_count();
     (*root)["smallCoreCount"] = small_core_count;
     (*root)["ASICModel"] = g_nmaxe.asic.type;
-    (*root)["stratumURL"] = g_nmaxe.connection.pool.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool.url) : ("stratum+tcp://" + g_nmaxe.connection.pool.url);
+    (*root)["stratumURL"] = g_nmaxe.connection.pool.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool.url + ":" + String(g_nmaxe.connection.pool.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool.url + ":" + String(g_nmaxe.connection.pool.port));
     (*root)["stratumPort"] = g_nmaxe.connection.pool.port;
     (*root)["stratumUser"] = g_nmaxe.connection.stratum.user;
     (*root)["version"] = g_nmaxe.board.fw_version;
@@ -341,9 +341,9 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         if(root.containsKey("stratumPassword")){
             nvs_config_set_string(NVS_CONFIG_STRATUM_PASS,root["stratumPassword"].as<String>().c_str());
         }
-        if(root.containsKey("stratumPort")){
-            nvs_config_set_u16(NVS_CONFIG_STRATUM_PORT, root["stratumPort"].as<uint16_t>());
-        }
+        // if(root.containsKey("stratumPort")){
+        //     nvs_config_set_u16(NVS_CONFIG_STRATUM_PORT, root["stratumPort"].as<uint16_t>());
+        // }
         if(root.containsKey("ssid")){
             nvs_config_set_string(NVS_CONFIG_WIFI_SSID,root["ssid"].as<String>().c_str());
         }
