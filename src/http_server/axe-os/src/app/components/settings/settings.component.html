@@ -1,12 +1,20 @@
 <div class="card">
-  <h2>Settings</h2>
+  <h2>Network</h2>
+  <app-network/>
+</div>
+
+<div class="card">
+  <h2>Mining</h2>
   <app-edit></app-edit>
 </div>
 
-<div class="grid">
-  <div class="col-12">
-    <app-theme-config></app-theme-config>
-  </div>
+<div class="card">
+  <h2>Preference</h2>
+  <app-preferences/>
+</div>
+
+<div class="card">
+  <app-theme-config></app-theme-config>
 </div>
 
 <div class="grid">
@@ -35,7 +43,7 @@
   <div class="col-12 lg:col-6 xl:col-4">
     <div class="card" *ngIf="checkLatestRelease == false">
       <h5>Current Version: {{ (info$ | async)?.version }}</h5>
-      <h5>Latest Release:
+      <h5 class="modify-height">Latest Release:
         <p-button (onClick)="checkLatestRelease = true">Check</p-button>
       </h5>
     </div>

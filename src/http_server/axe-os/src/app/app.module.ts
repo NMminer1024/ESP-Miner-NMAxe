@@ -17,6 +17,7 @@ import {LoadingComponent} from './components/loading/loading.component';
 import {LogsComponent} from './components/logs/logs.component';
 import {NetworkComponent} from './components/network/network.component';
 import {SettingsComponent} from './components/settings/settings.component';
+import {PreferenceComponent} from "./components/preference/preference.component";
 import {SwarmComponent} from './components/swarm/swarm.component';
 import {ThemeConfigComponent} from './components/settings/theme-config.component';
 import {AppLayoutModule} from './layout/app.layout.module';
@@ -35,7 +36,8 @@ const components = [
   SettingsComponent,
   LogsComponent,
   NetworkComponent,
-  NetworkEditComponent
+  NetworkEditComponent,
+  PreferenceComponent
 ];
 
 @NgModule({
