@@ -104,7 +104,7 @@ Check the latest **firmware.bin** and **spiffs.bin**.
 
 Download the latest **firmware.bin** and **spiffs.bin** file.
 <div align="center">
-  <img src="image/firmware-check-fm.jpg" alt="firmware-check-fm">
+  <img src="image/firmware-check-download.jpg" alt="firmware-check-download">
 </div>
 
 
