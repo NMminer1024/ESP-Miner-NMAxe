@@ -1,0 +1,67 @@
+<ng-container *ngIf="form != null">
+  <form [formGroup]="form">
+    <ng-container *ngIf="!devToolsOpen && ASICModel == eASICModel.BM1366">
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="brightness">Screen Brightness</label>
+        <div class="col-12 md:col-10">
+          <div class="p-grid">
+            <div class="p-col-10">
+              <p-slider formControlName="brightness" [(ngModel)]="form.controls['brightness'].value"></p-slider>
+            </div>
+            <div class="p-col-2">
+              <label>{{ form.controls['brightness'].value }}%</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </ng-container>
+
+    <div class="col-12" style="display: flex; flex-wrap: wrap; gap: 10px;">
+      <div class="col-12 md:col-4" style="flex: 1;">
+        <div class="field-checkbox">
+          <p-checkbox name="flipscreen" formControlName="flipscreen" inputId="flipscreen" [binary]="true"></p-checkbox>
+          <label for="flipscreen">Flip Screen</label>
+        </div>
+      </div>
+      <div class="col-12 md:col-4" style="flex: 1;">
+        <div class="field-checkbox">
+          <p-checkbox name="ledindicator" formControlName="ledindicator" inputId="ledindicator"
+                      [binary]="true"></p-checkbox>
+          <label for="ledindicator">Led indicator</label>
+        </div>
+      </div>
+      <div class="col-12 md:col-4" style="flex: 1;">
+        <div class="field-checkbox">
+          <p-checkbox name="invertfanpolarity" formControlName="invertfanpolarity" inputId="invertfanpolarity"
+                      [binary]="true"></p-checkbox>
+          <label for="invertfanpolarity">Invert Fan Polarity</label>
+        </div>
+      </div>
+      <div class="col-12 md:col-4" style="flex: 1;">
+        <div class="field-checkbox">
+          <p-checkbox name="autofanspeed" formControlName="autofanspeed" inputId="autofanspeed"
+                      [binary]="true"></p-checkbox>
+          <label for="autofanspeed">Automatic Fan Control</label>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="form.controls['autofanspeed'].value != true">
+      <div class="col-12" *ngIf="form.controls['autofanspeed'].value != true">
+        <label>Fan Speed {{ form.controls['fanspeed'].value }}%
+          <b *ngIf="form.controls['fanspeed'].value < 33" style="color:red">Danger: Could Cause
+            Overheating</b> <b *ngIf="form.controls['fanspeed'].value == 100" style="color:	#F2A900">S19
+            Simulator</b></label>
+
+        <p-slider formControlName="fanspeed"></p-slider>
+      </div>
+    </div>
+    <div class="mt-2">
+      <button pButton [disabled]="form.invalid" (click)="updateSystem()"
+              class="btn btn-primary mr-2">Save
+      </button>
+      <b style="line-height: 34px;">You must restart this device after saving for changes to take effect.</b>
+    </div>
+  </form>
+</ng-container>

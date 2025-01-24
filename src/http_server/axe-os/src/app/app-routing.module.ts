@@ -22,10 +22,6 @@ const routes: Routes = [
         component: LogsComponent
       },
       {
-        path: 'network',
-        component: NetworkComponent
-      },
-      {
         path: 'settings',
         component: SettingsComponent
       },

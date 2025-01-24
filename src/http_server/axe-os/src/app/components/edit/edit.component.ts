@@ -126,9 +126,6 @@ export class EditComponent implements OnInit {
       .subscribe(info => {
         this.ASICModel = info.ASICModel;
         this.form = this.fb.group({
-          flipscreen: [info.flipscreen == 1],
-          invertscreen: [info.invertscreen == 1],
-          ledindicator: [info.ledindicator == 1],
           stratumURL: [info.stratumURL || 'stratum+tcp://', [
             Validators.required,
             Validators.pattern(/^(stratum\+(tcp|ssl):\/\/).+$/)
@@ -144,10 +141,6 @@ export class EditComponent implements OnInit {
           coreVoltage: [info.coreVoltage, [Validators.required]],
           frequency: [info.frequency, [Validators.required]],
           coin: [info.coin, [Validators.required]],
-          brightness: [info.brightness, [Validators.required]],
-          autofanspeed: [info.autofanspeed == 1, [Validators.required]],
-          invertfanpolarity: [info.invertfanpolarity == 1, [Validators.required]],
-          fanspeed: [info.fanspeed, [Validators.required]],
           overheat_mode: [info.overheat_mode, [Validators.required]]
         });
 
