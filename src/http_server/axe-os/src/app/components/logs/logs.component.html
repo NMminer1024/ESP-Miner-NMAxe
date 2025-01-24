@@ -1,37 +1,4 @@
 <div class="grid">
-  <div class="col-12 lg:col-6">
-    <div class="card">
-      <h5>Overview</h5>
-      <table *ngIf="info$ | async as info">
-        <tr>
-          <td>ASIC Model:</td>
-          <td>{{ info.ASICModel }}</td>
-        </tr>
-        <tr>
-          <td>Session Uptime:</td>
-          <td>{{ info.uptimeSeconds | dateAgo }}</td>
-        </tr>
-        <!-- <tr>
-            <td>WiFi Status:</td>
-            <td>{{info.wifiStatus}}</td>
-        </tr> -->
-        <tr>
-          <td>Free Heap Memory:</td>
-          <td>{{ info.freeHeap }}</td>
-        </tr>
-        <tr>
-          <td>Firmware Version:</td>
-          <td>{{ info.version }}</td>
-        </tr>
-        <tr>
-          <td>Hardware Model :</td>
-          <td>{{ info.boardVersion }}</td>
-        </tr>
-      </table>
-    </div>
-
-  </div>
-
   <!-- <div class="col-12">
       <div class="card">
           <h2>Realtime Logs <button pButton (click)="toggleLogs()" style="margin-left: 15px;"
