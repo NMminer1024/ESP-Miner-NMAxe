@@ -129,6 +129,16 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 ## Release Log
 ***
 
+### (2025.01.xx) - v2.5.01
+- Add:
+  - None.
+- Fixed:
+  - None.
+- Improved:
+  - AxeOS follow 'skot' version, theme preference option for user. 
+- Modify:
+  - Fan self test min rpm from 4800 to 4200 to fit compatible noctua fan.
+
 ### (2025.01.22) - v2.4.13
 - Add:
   - Market price support BTC, BCH, XEC, DGB.

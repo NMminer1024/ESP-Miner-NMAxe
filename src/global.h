@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.5.01"
+#define CURRENT_FW_VERSION  "v2.5.01a"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -24,7 +24,7 @@
 
 #define NVS_SAVE_INTERVAL   (60*60)  //second
 
-#define FAN_FULL_RPM_MIN    (4800)
+#define FAN_FULL_RPM_MIN    (4200)
 
 #define WIFI_RSSI_STRONG    (-60)
 #define WIFI_RSSI_GOOD      (-70)
