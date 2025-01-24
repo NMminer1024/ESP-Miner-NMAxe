@@ -141,9 +141,6 @@ export class EditComponent implements OnInit {
           ]],
           stratumUser: [info.stratumUser, [Validators.required]],
           stratumPassword: ['password', [Validators.required]],
-          hostname: [info.hostname, [Validators.required]],
-          ssid: [info.ssid, [Validators.required]],
-          wifiPass: ['password'],
           coreVoltage: [info.coreVoltage, [Validators.required]],
           frequency: [info.frequency, [Validators.required]],
           coin: [info.coin, [Validators.required]],
@@ -182,9 +179,6 @@ export class EditComponent implements OnInit {
 
     const form = this.form.getRawValue();
 
-    if (form.wifiPass === 'password') {
-      delete form.wifiPass;
-    }
     if (form.stratumPassword === 'password') {
       delete form.stratumPassword;
     }
