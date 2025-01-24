@@ -5,46 +5,63 @@
       <p-dropdown class="col-12 md:col-10" [options]="Coin" optionLabel="name"
                   optionValue="value" formControlName="coin"></p-dropdown>
     </div>
-
-    <div class="field grid p-fluid">
-      <label htmlFor="stratumURL" class="col-12 mb-2 md:col-2 md:mb-0">Stratum URL:</label>
-      <div class="col-12 md:col-10">
-        <input pInputText id="stratumURL" type="text" formControlName="stratumURL" formControlName="stratumURL" />
-        <div>
-          <small>'stratum+tcp://public-pool.io:12345' or 'stratum+ssl://public-pool.io:54321'</small>
-        </div>
-      </div>
-    </div>
-
-
-
-    <!-- <div class="field grid p-fluid">
-      <label htmlFor="stratumPort" class="col-12 mb-2 md:col-2 md:mb-0">Stratum Port:</label>
-      <div class="col-12 md:col-10">
-        <input pInputText id="stratumPort" formControlName="stratumPort" type="number" />
-      </div>
-    </div> -->
-
-
-
     <div class="field grid p-fluid">
       <label htmlFor="stratumUser" class="col-12 mb-2 md:col-2 md:mb-0">Stratum User:</label>
       <div class="col-12 md:col-10">
         <input pInputText id="stratumUser" formControlName="stratumUser" type="text" />
-        <div>
-          <small>Typically &lt;Your wallet address&gt;.&lt;worker name&gt;</small>
-      </div>
       </div>
     </div>
+
+
+
 
 
 
     <div class="field grid p-fluid">
-      <label htmlFor="stratumPassword" class="col-12 mb-2 md:col-2 md:mb-0">Stratum Password:</label>
+      <label htmlFor="stratumURL" class="col-12 mb-2 md:col-2 md:mb-0">Stratum URL(Primary):</label>
+      <div class="col-12 md:col-10">
+        <input pInputText id="stratumURL" type="text" formControlName="stratumURL" formControlName="stratumURL" />
+        <div>
+          <small class="light-green-text">'stratum+tcp://public-pool.io:12345' or 'stratum+ssl://public-pool.io:54321'</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="field grid p-fluid">
+      <label htmlFor="stratumPassword" class="col-12 mb-2 md:col-2 md:mb-0">Stratum Password(Primary):</label>
       <div class="col-12 md:col-10">
         <input pInputText id="stratumPassword" formControlName="stratumPassword" type="password" />
       </div>
     </div>
+
+
+
+
+
+
+    <div class="field grid p-fluid">
+      <label htmlFor="stratumURL" class="col-12 mb-2 md:col-2 md:mb-0">Stratum URL(FallBack):</label>
+      <div class="col-12 md:col-10">
+        <input pInputText id="stratumURL" type="text" formControlName="stratumURL" formControlName="stratumURL" />
+        <div>
+          <small class="light-green-text">'stratum+tcp://public-pool.io:12345' or 'stratum+ssl://public-pool.io:54321'</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="field grid p-fluid">
+      <label htmlFor="stratumPassword" class="col-12 mb-2 md:col-2 md:mb-0">Stratum Password(FallBack):</label>
+      <div class="col-12 md:col-10">
+        <input pInputText id="stratumPassword" formControlName="stratumPassword" type="password" />
+      </div>
+    </div>
+
+
+
+
+
+
+
 
 
     <ng-container *ngIf="!devToolsOpen && ASICModel == eASICModel.BM1366">

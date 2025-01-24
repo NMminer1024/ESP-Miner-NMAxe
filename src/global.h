@@ -123,7 +123,6 @@ typedef struct{
     led_info_t       led;
 }preference_info_t;
 
-
 typedef String axe_ip_t;
 
 typedef String axe_info_t;

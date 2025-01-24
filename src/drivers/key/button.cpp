@@ -15,7 +15,7 @@ static void recover_factory_cb(void){
   delay(100);
 
   //reset stratum to tcp , just for factory test
-  nvs_config_set_string(NVS_CONFIG_STRATUM_URL, "stratum+tcp://public-pool.io:21496");
+  nvs_config_set_string(NVS_CONFIG_STRATUM_PRIMARY, "stratum+tcp://public-pool.io:21496");
   // nvs_config_set_u16(NVS_CONFIG_STRATUM_PORT, 21496);
   
   delay(500);

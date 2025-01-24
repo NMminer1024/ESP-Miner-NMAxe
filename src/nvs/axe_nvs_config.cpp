@@ -177,10 +177,12 @@ bool load_g_nmaxe(void){
         delay(1000);
     }
 
-    String stratum_info                         = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL, "stratum+ssl://hk.kxsw.pro:12345"));
+    String stratum_info                         = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PRIMARY, "stratum+ssl://hk.kxsw.pro:12345"));
     g_nmaxe.connection.pool.ssl                 = (stratum_info.indexOf("ssl") != -1);
     g_nmaxe.connection.pool.url                 = stratum_info.substring(stratum_info.indexOf(":") + 3, stratum_info.lastIndexOf(":"));
     g_nmaxe.connection.pool.port                = stratum_info.substring(stratum_info.lastIndexOf(":") + 1, stratum_info.length()).toInt();
+
+
     g_nmaxe.board.fw_version                    = CURRENT_FW_VERSION;
     g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
     g_nmaxe.board.hw_model                      = BOARD_MODEL;

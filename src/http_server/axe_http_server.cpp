@@ -94,7 +94,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     (*root)["smallCoreCount"] = small_core_count;
     (*root)["ASICModel"] = g_nmaxe.asic.type;
     (*root)["stratumURL"] = g_nmaxe.connection.pool.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool.url + ":" + String(g_nmaxe.connection.pool.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool.url + ":" + String(g_nmaxe.connection.pool.port));
-    (*root)["stratumPort"] = g_nmaxe.connection.pool.port;
+    // (*root)["stratumPort"] = g_nmaxe.connection.pool.port;
     (*root)["stratumUser"] = g_nmaxe.connection.stratum.user;
     (*root)["version"] = g_nmaxe.board.fw_version;
     (*root)["boardVersion"] = g_nmaxe.board.hw_model;
@@ -333,7 +333,7 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         }
 
         if(root.containsKey("stratumURL")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_URL, root["stratumURL"].as<String>().c_str());
+            nvs_config_set_string(NVS_CONFIG_STRATUM_PRIMARY, root["stratumURL"].as<String>().c_str());
         }
         if(root.containsKey("stratumUser")){
             nvs_config_set_string(NVS_CONFIG_STRATUM_USER,root["stratumUser"].as<String>().c_str());
