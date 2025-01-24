@@ -6,7 +6,6 @@ import {LogsComponent} from './components/logs/logs.component';
 import {SettingsComponent} from './components/settings/settings.component';
 import {SwarmComponent} from './components/swarm/swarm.component';
 import {AppLayoutComponent} from './layout/app.layout.component';
-import {NetworkComponent} from "./components/network/network.component";
 
 const routes: Routes = [
   {
