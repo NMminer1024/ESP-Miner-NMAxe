@@ -10,7 +10,7 @@
 
 ## NMAxe
 ***
-- NMAxe solo miner based on BM1366 which fork from [bitaxe](https://github.com/skot/bitaxe).
+- NMAxe solo miner based on BM1366 which fork from [bitaxe](https://github.com/skot/bitaxe), hashrate around 450~550GH/s.
 - NMAxe [aliexpress](https://www.aliexpress.com/item/1005008053561633.html)
 <div align="center">
   <table width="100%">
@@ -35,8 +35,9 @@
 
 ## Features
 ***
+- **Hashrate on SHA256d algorithm around 450~550GH/s, maximum power consumption 18W**
 - **ESP32S3R8 wifi connection**
-- **Stratum with ssl connection**
+- **Stratum with ssl connection optional**
 - **USB PD power supply support**
 - **Raspberry Pi5 structure compatible**
 - **User-friendly UI with a 1.14-inch TFT LCD driven by LVGL**
