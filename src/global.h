@@ -29,7 +29,7 @@
 #define WIFI_RSSI_STRONG    (-60)
 #define WIFI_RSSI_GOOD      (-70)
 
-#define GLOBAL_ALIVE_TIMEOUT (1000*60*10)//10 minutes
+#define GLOBAL_ALIVE_TIMEOUT (1000*60*5)//5 minutes
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
