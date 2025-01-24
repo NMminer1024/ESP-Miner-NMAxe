@@ -94,15 +94,9 @@ static void get_system_info(AsyncWebServerRequest* request){
     (*root)["smallCoreCount"] = small_core_count;
     (*root)["ASICModel"] = g_nmaxe.asic.type;
     (*root)["stratumUser"] = g_nmaxe.connection.stratum_use.user;
-
     (*root)["stratumURLUSED"] = g_nmaxe.connection.pool_use.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port));
-
     (*root)["stratumURL1"] = g_nmaxe.connection.pool_primary.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port));
-    (*root)["stratumPass1"] = g_nmaxe.connection.stratum_primary.pwd;
-
     (*root)["stratumURL2"] = g_nmaxe.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port));
-    (*root)["stratumPass2"] = g_nmaxe.connection.stratum_fallback.pwd;
-
     (*root)["version"] = g_nmaxe.board.fw_version;
     (*root)["boardVersion"] = g_nmaxe.board.hw_model;
     // (*root)["runningPartition"] = "part1";

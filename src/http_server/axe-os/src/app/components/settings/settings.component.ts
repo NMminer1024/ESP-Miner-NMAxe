@@ -69,13 +69,6 @@ export class SettingsComponent {
             Validators.required,
             Validators.pattern(/^(stratum\+(tcp|ssl):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/),
           ]],
-
-          // stratumPort: [info.stratumPort, [
-          //   Validators.required,
-          //   Validators.pattern(/^[^:]*$/),
-          //   Validators.min(0),
-          //   Validators.max(65353)
-          // ]],
           stratumUser: [info.stratumUser, [Validators.required]],
           stratumPassword1: ['password', [Validators.required]],
           stratumPassword2: ['password', [Validators.required]],
@@ -131,8 +124,11 @@ export class SettingsComponent {
     if (form.wifiPass === 'password') {
       delete form.wifiPass;
     }
-    if (form.stratumPassword === 'password') {
-      delete form.stratumPassword;
+    if (form.stratumPassword1 === 'password') {
+      delete form.stratumPassword1;
+    }
+    if (form.stratumPassword2 === 'password') {
+      delete form.stratumPassword2;
     }
 
     this.systemService.updateSystem(undefined, form)
