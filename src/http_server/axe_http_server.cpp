@@ -99,15 +99,15 @@ static void get_system_info(AsyncWebServerRequest* request){
     (*root)["version"] = g_nmaxe.board.fw_version;
     (*root)["boardVersion"] = g_nmaxe.board.hw_model;
     // (*root)["runningPartition"] = "part1";
-    (*root)["flipscreen"] = g_nmaxe.screen.flip;
-    (*root)["ledindicator"] = g_nmaxe.led.indicator;
+    (*root)["flipscreen"] = g_nmaxe.preference.screen.flip;
+    (*root)["ledindicator"] = g_nmaxe.preference.led.indicator;
     (*root)["overheat_mode"] = 0;
     (*root)["invertscreen"]  = 1;
-    (*root)["invertfanpolarity"] = g_nmaxe.fan.invert_ploarity;
-    (*root)["autofanspeed"] = g_nmaxe.fan.is_auto_speed;
-    (*root)["fanspeed"] = g_nmaxe.fan.speed;
-    (*root)["fanrpm"] = g_nmaxe.fan.rpm;
-    (*root)["brightness"] = g_nmaxe.screen.brightness;
+    (*root)["invertfanpolarity"] = g_nmaxe.preference.fan.invert_ploarity;
+    (*root)["autofanspeed"] = g_nmaxe.preference.fan.is_auto_speed;
+    (*root)["fanspeed"] = g_nmaxe.preference.fan.speed;
+    (*root)["fanrpm"] = g_nmaxe.preference.fan.rpm;
+    (*root)["brightness"] = g_nmaxe.preference.screen.brightness;
     (*root)["coin"] = g_nmaxe.coin;
 
     String sys_info;
@@ -361,8 +361,8 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, root["coreVoltage"].as<uint16_t>());
         }
         if(root.containsKey("brightness")){
-            g_nmaxe.screen.brightness = root["brightness"].as<uint8_t>();
-            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_nmaxe.screen.brightness);
+            g_nmaxe.preference.screen.brightness = root["brightness"].as<uint8_t>();
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_nmaxe.preference.screen.brightness);
         }
         if(root.containsKey("frequency")){
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, root["frequency"].as<uint16_t>());
@@ -384,15 +384,15 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         }
         if(root.containsKey("invertfanpolarity")){
             nvs_config_set_u16(NVS_CONFIG_INVERT_FAN_POLARITY, root["invertfanpolarity"].as<uint16_t>());
-            g_nmaxe.fan.invert_ploarity = root["invertfanpolarity"].as<uint16_t>();
+            g_nmaxe.preference.fan.invert_ploarity = root["invertfanpolarity"].as<uint16_t>();
         }
         if(root.containsKey("autofanspeed")){
             nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());
-            g_nmaxe.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
+            g_nmaxe.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
         }
         if(root.containsKey("fanspeed")){
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
-            g_nmaxe.fan.speed = root["fanspeed"].as<uint16_t>();
+            g_nmaxe.preference.fan.speed = root["fanspeed"].as<uint16_t>();
         }
 
         for (JsonPair kv : root.as<JsonObject>()) {

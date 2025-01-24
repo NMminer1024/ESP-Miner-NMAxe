@@ -34,7 +34,7 @@ void led_thread_entry(void *args){
     ledInit();
     uint64_t led_cnt = 0;
     const uint8_t  dot = 20;
-    while(g_nmaxe.led.indicator){
+    while(g_nmaxe.preference.led.indicator){
         switch (led_cnt % 201){
         case 1 * dot:
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(LED_WIFI_STA_PIN, LOW);

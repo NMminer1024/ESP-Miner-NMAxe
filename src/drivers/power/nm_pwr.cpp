@@ -130,8 +130,8 @@ void power_thread_entry(void *args){
         LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", g_nmaxe.power->get_vbus()/1000.0, VBUS_MIN_VOLTAGE/1000.0);
         delay(1000);
     }
-    while (!g_nmaxe.fan.self_test){
-        LOG_W("Fan self test %d/%d...", g_nmaxe.fan.rpm, FAN_FULL_RPM_MIN);
+    while (!g_nmaxe.preference.fan.self_test){
+        LOG_W("Fan self test %d/%d...", g_nmaxe.preference.fan.rpm, FAN_FULL_RPM_MIN);
         delay(1000);
     }
     

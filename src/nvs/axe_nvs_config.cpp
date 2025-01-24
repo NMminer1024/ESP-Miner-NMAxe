@@ -199,7 +199,6 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.pool.port                = nvs_config_get_u16(NVS_CONFIG_STRATUM_PORT, 9527);
     g_nmaxe.connection.stratum.user             = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
     g_nmaxe.connection.stratum.pwd              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS, "d=15000"));
-    g_nmaxe.connection.stratum.diff             = DEFAULT_POOL_DIFFICULTY;
     g_nmaxe.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
     g_nmaxe.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     g_nmaxe.connection.wifi.conn_param.hostname = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_nmaxe.connection.wifi.softap_param.ssid.c_str()));
@@ -208,13 +207,13 @@ bool load_g_nmaxe(void){
     g_nmaxe.asic.type                           = String(nvs_config_get_string(NVS_CONFIG_ASIC_MODEL, ASIC_MODEL));
     g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 575);
     g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1300);
-    g_nmaxe.fan.is_auto_speed                   = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
-    g_nmaxe.fan.invert_ploarity                 = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, false); 
-    g_nmaxe.fan.speed                           = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
-    g_nmaxe.fan.self_test                       = false;
-    g_nmaxe.led.indicator                       = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
-    g_nmaxe.screen.flip                         = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
-    g_nmaxe.screen.brightness                   = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 99);
+    g_nmaxe.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
+    g_nmaxe.preference.fan.invert_ploarity      = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, false); 
+    g_nmaxe.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
+    g_nmaxe.preference.fan.self_test            = false;
+    g_nmaxe.preference.led.indicator            = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
+    g_nmaxe.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
+    g_nmaxe.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 99);
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "btc"));
     g_nmaxe.miner                               = NULL;

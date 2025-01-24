@@ -70,7 +70,7 @@ typedef struct{
 }fan_info_t;
 
 typedef struct{
-    bool   flip;
+    bool     flip;
     uint16_t brightness;
 }screen_info_t;
 
@@ -118,10 +118,10 @@ typedef struct{
 }miner_status_t;
 
 typedef struct{
-    float       price;
-    bool        connected;
-}market_info_t;
-
+    fan_info_t       fan;
+    screen_info_t    screen;
+    led_info_t       led;
+}preference_info_t;
 
 
 typedef String axe_ip_t;
@@ -130,21 +130,20 @@ typedef String axe_info_t;
 
 typedef std::map<axe_ip_t, axe_info_t> swarm_map_t;
 
+
 typedef struct{
-    board_info_t     board;
-    fan_info_t       fan;
-    screen_info_t    screen;
-    led_info_t       led;
-    asic_info_t      asic;
-    connect_info_t   connection;
-    miner_status_t   mstatus;
-    ota_info_t       ota;
-    swarm_map_t      swarm;
-    String           coin;
-    MarketClass      *market;
-    NMAxePowerClass  *power;
-    StratumClass     *stratum;
-    AsicMinerClass   *miner;
+    board_info_t        board;
+    preference_info_t   preference;
+    asic_info_t         asic;
+    connect_info_t      connection;
+    miner_status_t      mstatus;
+    ota_info_t          ota;
+    swarm_map_t         swarm;
+    String              coin;
+    MarketClass         *market;
+    NMAxePowerClass     *power;
+    StratumClass        *stratum;
+    AsicMinerClass      *miner;
 }axe_sal_t;
 
 

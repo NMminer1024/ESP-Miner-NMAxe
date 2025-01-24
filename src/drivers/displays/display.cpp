@@ -46,7 +46,7 @@ static void tft_init(){
   pinMode(NM_AXE_TFT_PWER_PIN, OUTPUT);
   digitalWrite(NM_AXE_TFT_PWER_PIN, LOW);
   tft.begin(); 
-  if(g_nmaxe.screen.flip)tft.setRotation(1); 
+  if(g_nmaxe.preference.screen.flip)tft.setRotation(1); 
   else tft.setRotation(3); 
 
 
@@ -55,7 +55,7 @@ static void tft_init(){
   pinMode(NM_AXE_TFT_BL_PIN, OUTPUT);
   ledcSetup(blpwmChannel, freq, resolution);
   ledcAttachPin(NM_AXE_TFT_BL_PIN, blpwmChannel);
-  tft_bl_ctrl(g_nmaxe.screen.brightness * 2.55);
+  tft_bl_ctrl(g_nmaxe.preference.screen.brightness * 2.55);
 }
 
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
@@ -520,12 +520,12 @@ static void ui_miner_page_update(){
 
   //fan symbol color update, blink
   static bool fan_color_update = false;
-  if(g_nmaxe.fan.rpm > 0){
+  if(g_nmaxe.preference.fan.rpm > 0){
     if(fan_color_update)font_color = lv_color_hex(0xA9A9A9);
     else font_color = lv_color_hex(0x00ff00);
     fan_color_update =!fan_color_update;
   }
-  else if(g_nmaxe.fan.rpm == 0) font_color = lv_color_hex(0xA9A9A9);//gray
+  else if(g_nmaxe.preference.fan.rpm == 0) font_color = lv_color_hex(0xA9A9A9);//gray
   lv_obj_set_style_text_color(lb_fan_symb, font_color, LV_PART_MAIN);
 
   //price color update, blink
@@ -558,7 +558,7 @@ static void ui_miner_page_update(){
   //share
   lv_label_set_text_fmt(lb_share,  "%d/%d", g_nmaxe.mstatus.share_rejected, g_nmaxe.mstatus.share_accepted);
   //fan
-  lv_label_set_text_fmt(lb_fan, "%d rpm", g_nmaxe.fan.rpm);
+  lv_label_set_text_fmt(lb_fan, "%d rpm", g_nmaxe.preference.fan.rpm);
   //price
   if(!g_nmaxe.market->timeout){
     lv_label_set_text_fmt(lb_price,  "$%s", price.c_str());
@@ -1227,12 +1227,12 @@ void ui_thread_entry(void *args){
 
   /***************************************wait fan self test *******************************************/
   ui_loading_str_update(fan_test_str[0], 0xFFFFFF, true);
-  while(!g_nmaxe.fan.self_test){
+  while(!g_nmaxe.preference.fan.self_test){
     static uint8_t cnt = 0;
-    ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_nmaxe.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + "rpm", 0xFFFFFF, false);
+    ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_nmaxe.preference.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + "rpm", 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update("Pass! [" + String(g_nmaxe.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + " rpm]", 0x00FF00, true);
+  ui_loading_str_update("Pass! [" + String(g_nmaxe.preference.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + " rpm]", 0x00FF00, true);
   delay(2000);
 
   /***************************************wait Vcore self test *****************************************/
@@ -1378,7 +1378,7 @@ void ui_thread_entry(void *args){
   while (true){
     //wait for miner status update forever
     xSemaphoreTake(g_nmaxe.mstatus.update_xsem, portMAX_DELAY);
-    tft_bl_ctrl(g_nmaxe.screen.brightness * 2.55);
+    tft_bl_ctrl(g_nmaxe.preference.screen.brightness * 2.55);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
       //update miner page
       ui_miner_page_update();

@@ -145,7 +145,7 @@ void monitor_thread_entry(void *args){
         }
         //check fan status
         static uint8_t fan_err_cnt = 0;
-        if(g_nmaxe.fan.rpm <= 1000){
+        if(g_nmaxe.preference.fan.rpm <= 1000){
           fan_err_cnt++;
           if(fan_err_cnt > 0){//avoid some noise
             LOG_W("Fan rpm is too low, restart miner...");

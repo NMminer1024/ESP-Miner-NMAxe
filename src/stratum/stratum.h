@@ -37,7 +37,6 @@ typedef struct{
 typedef struct{
     String      user;
     String      pwd;
-    double      diff;
 }stratum_info_t;
 
 typedef struct {
