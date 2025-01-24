@@ -1335,7 +1335,7 @@ void ui_thread_entry(void *args){
       uint32_t color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
       ui_loading_str_update(g_nmaxe.stratum->pool.get_last_errormsg().c_str(), color, false);
     }else{
-      String con_type = g_nmaxe.connection.pool.ssl ? "[ssl]" : "[tcp]";
+      String con_type = g_nmaxe.connection.pool_use.ssl ? "[ssl]" : "[tcp]";
       ui_loading_str_update(String(pool_con_str[(cnt)%4] + con_type), 0xFFFFFF, false);
     }
     cnt++;

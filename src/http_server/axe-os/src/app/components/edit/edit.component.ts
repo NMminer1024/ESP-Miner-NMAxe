@@ -126,19 +126,19 @@ export class EditComponent implements OnInit {
       .subscribe(info => {
         this.ASICModel = info.ASICModel;
         this.form = this.fb.group({
-          stratumURL: [info.stratumURL || 'stratum+tcp://', [
+          stratumURL1: [info.stratumURL1 || 'stratum+tcp://', [
             Validators.required,
-            // Validators.pattern(/^(stratum\+(tcp|ssl):\/\/).+$/)
             Validators.pattern(/^(stratum\+(tcp|ssl):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
           ]],
-          // stratumPort: [info.stratumPort, [
-          //   Validators.required,
-          //   Validators.pattern(/^[^:]*$/),
-          //   Validators.min(0),
-          //   Validators.max(65353)
-          // ]],
+
+          stratumURL2: [info.stratumURL2 || 'stratum+tcp://', [
+            Validators.required,
+            Validators.pattern(/^(stratum\+(tcp|ssl):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
+          ]],
+          
           stratumUser: [info.stratumUser, [Validators.required]],
-          stratumPassword: ['password', [Validators.required]],
+          stratumPassword1: ['password', [Validators.required]],
+          stratumPassword2: ['password', [Validators.required]],
           coreVoltage: [info.coreVoltage, [Validators.required]],
           frequency: [info.frequency, [Validators.required]],
           coin: [info.coin, [Validators.required]],

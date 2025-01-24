@@ -5,6 +5,11 @@
 #define BOARD_MODEL                                    "NMAxe"
 #define ASIC_MODEL                                     "BM1366"
 
+#define PRIMARY_POOL_URL                               "stratum+tcp://public-pool.io:21496"
+#define FALLBACK_POOL_URL                              "stratum+tcp://solo.ckpool.org:3333"
+
+
+
 #define NM_AXE_BUTTON_BOOT_PIN                         0
 #define NM_AXE_BUTTON_USER_PIN                         12
 

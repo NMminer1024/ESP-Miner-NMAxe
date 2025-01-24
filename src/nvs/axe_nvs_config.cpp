@@ -177,11 +177,18 @@ bool load_g_nmaxe(void){
         delay(1000);
     }
 
-    String stratum_info                         = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PRIMARY, "stratum+ssl://hk.kxsw.pro:12345"));
-    g_nmaxe.connection.pool.ssl                 = (stratum_info.indexOf("ssl") != -1);
-    g_nmaxe.connection.pool.url                 = stratum_info.substring(stratum_info.indexOf(":") + 3, stratum_info.lastIndexOf(":"));
-    g_nmaxe.connection.pool.port                = stratum_info.substring(stratum_info.lastIndexOf(":") + 1, stratum_info.length()).toInt();
+    String stratum_pri                         = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PRIMARY,  PRIMARY_POOL_URL));
+    String stratum_fb                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_FALLBACK, FALLBACK_POOL_URL));
+    
+    g_nmaxe.connection.pool_primary.ssl        = (stratum_pri.indexOf("ssl") != -1);
+    g_nmaxe.connection.pool_primary.url        = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
+    g_nmaxe.connection.pool_primary.port       = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1, stratum_pri.length()).toInt();
 
+    g_nmaxe.connection.pool_fallback.ssl       = (stratum_fb.indexOf("ssl") != -1);
+    g_nmaxe.connection.pool_fallback.url       = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
+    g_nmaxe.connection.pool_fallback.port      = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
+
+    g_nmaxe.connection.pool_use                = g_nmaxe.connection.pool_primary;
 
     g_nmaxe.board.fw_version                    = CURRENT_FW_VERSION;
     g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
@@ -200,8 +207,12 @@ bool load_g_nmaxe(void){
     g_nmaxe.mstatus.block_hits                  = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     g_nmaxe.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     g_nmaxe.connection.client_connected         = false;
-    g_nmaxe.connection.stratum.user             = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
-    g_nmaxe.connection.stratum.pwd              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS, "d=15000"));
+    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
+    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
+    g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "d=15000"));
+    g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=15000"));
+    g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
+    
     g_nmaxe.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
     g_nmaxe.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     g_nmaxe.connection.wifi.conn_param.hostname = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_nmaxe.connection.wifi.softap_param.ssid.c_str()));
@@ -221,7 +232,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "btc"));
     g_nmaxe.miner                               = NULL;
     g_nmaxe.market                              = new MarketClass(MARKET_URL, MARKET_PORT, "/ws/" + g_nmaxe.coin + "usdt@avgPrice");
-    g_nmaxe.stratum                             = new StratumClass(g_nmaxe.connection.pool, g_nmaxe.connection.stratum, 10);
+    g_nmaxe.stratum                             = new StratumClass(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use, 10);
     g_nmaxe.power                               = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
                                                                       {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},
                                                                        NM_AXE_POWER_BM13xx_VCORE_REGULATOR_PWM_PIN, NM_AXE_POWER_BM13xx_VCORE_P_GOOD_DET_PIN, NM_AXE_POWER_BM13xx_VBUS_PLUG_SENSE_DET_PIN);

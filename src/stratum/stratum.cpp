@@ -395,7 +395,11 @@ void stratum_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
     
-    g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool.ssl);
+
+    LOG_W("Stratum pool %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+    LOG_W("Stratum password %s", g_nmaxe.connection.stratum_use.pwd.c_str());
+
+    g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool_use.ssl);
     g_nmaxe.stratum->set_pool_difficulty(DEFAULT_POOL_DIFFICULTY);
     StaticJsonDocument<1024*4> json;
     while(true){
@@ -418,7 +422,7 @@ void stratum_thread_entry(void *args){
                 first_connect = false;
             }else LOG_W("Lost connection to pool, reconnecting...");
             g_nmaxe.stratum->reset();
-            g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool.ssl);
+            g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool_use.ssl);
             g_nmaxe.stratum->pool.connect();
             g_nmaxe.mstatus.last_diff = 0;
             delay(5000);

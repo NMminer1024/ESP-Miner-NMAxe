@@ -136,22 +136,22 @@ export class HomeComponent {
 
     this.quickLink$ = this.info$.pipe(
       map(info => {
-        if (info.stratumURL.includes('public-pool.io')) {
+        if (info.stratumURLUSED.includes('public-pool.io')) {
           const address = info.stratumUser.split('.')[0]
           return `https://web.public-pool.io/#/app/${address}`;
-        } else if (info.stratumURL.includes('ocean.xyz')) {
+        } else if (info.stratumURLUSED.includes('ocean.xyz')) {
           const address = info.stratumUser.split('.')[0]
           return `https://ocean.xyz/stats/${address}`;
-        } else if (info.stratumURL.includes('solo.d-central.tech')) {
+        } else if (info.stratumURLUSED.includes('solo.d-central.tech')) {
           const address = info.stratumUser.split('.')[0]
           return `https://solo.d-central.tech/#/app/${address}`;
-        } else if (info.stratumURL.includes('solo.ckpool.org')) {
+        } else if (info.stratumURLUSED.includes('solo.ckpool.org')) {
           const address = info.stratumUser.split('.')[0]
           return `https://solostats.ckpool.org/stats/${address}`;
-        } else if (info.stratumURL.includes('pool.nmminer.com')) {
+        } else if (info.stratumURLUSED.includes('pool.nmminer.com')) {
           const address = info.stratumUser.split('.')[0]
           return `https://pool.nmminer.com/user?workername=${address}`;
-        } else if (info.stratumURL.includes('molepool.com')) {
+        } else if (info.stratumURLUSED.includes('molepool.com')) {
           const address = info.stratumUser.split('.')[0]
           return `https://btc.molepool.com/account/${address}`;
         } else {

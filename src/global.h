@@ -91,8 +91,15 @@ typedef struct{
     bool           client_connected;
     uint32_t       stratum_update;//ms
     wifi_info_t    wifi; 
-    pool_info_t    pool;
-    stratum_info_t stratum;
+
+    pool_info_t    pool_primary;
+    stratum_info_t stratum_primary;
+
+    pool_info_t    pool_fallback;
+    stratum_info_t stratum_fallback;
+
+    pool_info_t    pool_use;
+    stratum_info_t stratum_use;
 }connect_info_t;
 
 typedef struct{
