@@ -137,7 +137,7 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 - Improved:
   - AxeOS follow 'skot' version, theme preference option for user. 
 - Modify:
-  - Fan self test min rpm from 4800 to 4200 to fit compatible noctua fan.
+  - In order to compatible noctua fan,Fan self test min rpm from 4800 to 4200.
 
 ### (2025.01.22) - v2.4.13
 - Add:
