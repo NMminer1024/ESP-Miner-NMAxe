@@ -226,7 +226,6 @@ void swarm_thread_entry(void *args){
     if(swarm_cnt % 20 == 0){
       if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
         StaticJsonDocument<512> json;
-        // json["Hostname"] = g_nmaxe.board.hostname;
         json["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
         json["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
         uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
@@ -254,8 +253,6 @@ void swarm_thread_entry(void *args){
         udp_client->beginPacket(udp_client_addr, udp_client_port);
         udp_client->write((uint8_t*)jsonBuffer, n);
         udp_client->endPacket();
-
-        LOG_I("Broadcast str [%s]", jsonBuffer);
 
         //add self to swarm list
         g_nmaxe.swarm[g_nmaxe.connection.wifi.status_param.ip.toString()] = String(jsonBuffer);
