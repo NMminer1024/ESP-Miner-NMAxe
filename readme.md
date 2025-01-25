@@ -129,13 +129,15 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 ## Release Log
 ***
 
-### (2025.01.xx) - v2.5.01
+### (2025.01.25) - v2.5.01
 - Add:
-  - None.
+  - Fallback pool.
 - Fixed:
-  - None.
+  - Swarm issues.
 - Improved:
-  - AxeOS follow 'skot' version, theme preference option for user. 
+  - AxeOS follow 'skot' version, theme preference option for user. (clear your browser cache after firmware update)
+  - The primary pool will back to 'public-pool.io' after you update this version, just change it as you want. 
+  - Display the IP of the NMAxe on the loading page. Even if the NMAxe is stuck on the loading page, you can log in to the device through the IP.
 - Modify:
   - In order to compatible noctua fan,Fan self test min rpm from 4800 to 4200.
 
