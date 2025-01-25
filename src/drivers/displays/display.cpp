@@ -222,7 +222,7 @@ static void ui_layout_init(void){
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
     static const lv_font_t *font = &lv_font_montserrat_14;
-    static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL;
+    static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL, *lb_ip = NULL;
     static uint8_t progress = 0, progress_total = 16;
 
     lv_color_t font_color = lv_color_hex(color);
@@ -259,6 +259,20 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_label_set_text(label_progress, "");
       lv_obj_set_style_text_color(label_progress, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
       lv_obj_align(label_progress, LV_ALIGN_LEFT_MID, 0, 0);
+    }
+
+    if(lb_ip == NULL){
+      lb_ip   = lv_label_create( ui_pages[PAGE_LOADING] );
+      lv_obj_set_width(lb_ip, SCREEN_WIDTH);
+      lv_label_set_text( lb_ip, "");
+      lv_obj_set_style_text_font(lb_ip, &lv_font_montserrat_16, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_ip, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      lv_label_set_long_mode(lb_ip, LV_LABEL_LONG_SCROLL_CIRCULAR);
+      lv_obj_align( lb_ip, LV_ALIGN_TOP_MID, 65, 90);
+    }
+
+    if(WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status){
+      lv_label_set_text( lb_ip, g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
     }
 
     if(prgress_update){
