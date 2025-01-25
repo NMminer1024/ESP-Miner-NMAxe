@@ -429,20 +429,28 @@ void stratum_thread_entry(void *args){
             continue;
         } else w_retry = 0;
         
-        static uint16_t p_retry = 0, p_maxRetries = 10;
+        static uint16_t p_retry = 0, p_maxRetries = 5;
         if(!g_nmaxe.stratum->pool.is_connected()){
             static bool    first_connect = true;
             if(first_connect){
                 LOG_I("Pool connecting...");
                 first_connect = false;
             }else LOG_W("Lost connection to pool, reconnecting %d/%d...", p_retry, p_maxRetries);
-
-            if(++p_retry % p_maxRetries == 0){
-                g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_fallback;
-                g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_fallback;
-                LOG_W("Set pool to fallback %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
-            }
             
+            if(++p_retry % p_maxRetries == 0){
+                static bool sel_fallback = true;
+                if(sel_fallback){
+                    sel_fallback = false;
+                    g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_fallback;
+                    g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_fallback;
+                    LOG_W("Set pool to fallback %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+                }else{
+                    sel_fallback = true;
+                    g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_primary;
+                    g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_primary;
+                    LOG_W("Set pool to primary %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+                }
+            }
             g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
             g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool_use.ssl);
             g_nmaxe.stratum->pool.connect();

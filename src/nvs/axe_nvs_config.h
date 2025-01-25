@@ -10,8 +10,8 @@
 #define NVS_CONFIG_HOSTNAME "hostname"
 #define NVS_CONFIG_STRATUM_USER "stratumuser"
 
-#define NVS_CONFIG_STRATUM_PRIMARY "stratumurl"
-#define NVS_CONFIG_STRATUM_PASS_PRIMARY "stratumpass"
+#define NVS_CONFIG_STRATUM_PRIMARY "stratumurl1"
+#define NVS_CONFIG_STRATUM_PASS_PRIMARY "stratumpass1"
 
 #define NVS_CONFIG_STRATUM_FALLBACK "stratumurl2"
 #define NVS_CONFIG_STRATUM_PASS_FALLBACK "stratumpass2"
