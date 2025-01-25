@@ -226,6 +226,7 @@ void swarm_thread_entry(void *args){
     if(swarm_cnt % 20 == 0){
       if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
         StaticJsonDocument<512> json;
+        json["Hostname"] = g_nmaxe.board.hostname;
         json["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
         json["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
         uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;

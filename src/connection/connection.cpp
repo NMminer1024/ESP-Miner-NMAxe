@@ -81,14 +81,14 @@ void wifi_connect_thread_entry(void *args){
     WiFi.onEvent(WiFiEvent);
 
     LOG_I("Try to connect [%s]...", param->ssid.c_str());
-    WiFi.setHostname(g_nmaxe.connection.wifi.conn_param.hostname.c_str());
+    WiFi.setHostname(g_nmaxe.board.hostname.c_str());
     WiFi.begin(param->ssid.c_str(), param->pwd.c_str());
     //start http server
     start_http_server();
     //force config
     if(g_nmaxe.connection.force_config){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
-        LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.conn_param.hostname.c_str());
+        LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.softap_param.ssid.c_str());
         WiFi.mode(WIFI_AP);
         WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid, g_nmaxe.connection.wifi.softap_param.pwd.c_str());
         WiFi.softAPConfig(g_nmaxe.connection.wifi.softap_param.ip, g_nmaxe.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
@@ -111,7 +111,7 @@ void wifi_connect_thread_entry(void *args){
         maxRetries++;
         LOG_I("Try to connect [%s] %ds...", param->ssid.c_str(), maxRetries);
         if(maxRetries >= 15){
-            LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.conn_param.hostname.c_str());
+            LOG_I("Set softAP [%s]...", g_nmaxe.board.hostname.c_str());
             WiFi.mode(WIFI_AP);
             WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid, g_nmaxe.connection.wifi.softap_param.pwd.c_str());
             WiFi.softAPConfig(g_nmaxe.connection.wifi.softap_param.ip, g_nmaxe.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));

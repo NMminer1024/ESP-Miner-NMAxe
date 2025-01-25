@@ -6,7 +6,6 @@
 typedef struct{
     String ssid;
     String pwd;
-    String hostname;
 } axe_wifi_conn_param_t;
 
 typedef struct{

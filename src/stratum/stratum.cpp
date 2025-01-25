@@ -443,12 +443,12 @@ void stratum_thread_entry(void *args){
                     sel_fallback = false;
                     g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_fallback;
                     g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_fallback;
-                    LOG_W("Set pool to fallback %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+                    LOG_W(">>>> Set pool to fallback %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
                 }else{
                     sel_fallback = true;
                     g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_primary;
                     g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_primary;
-                    LOG_W("Set pool to primary %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+                    LOG_W(">>>> Set pool to primary %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
                 }
             }
             g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);

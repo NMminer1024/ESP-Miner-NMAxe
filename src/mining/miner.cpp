@@ -106,7 +106,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     this->_asic_job_map[this->_asic_job_now.id]     = this->_asic_job_now;
     this->_extranonce2_map[this->_asic_job_now.id]  = extranonce2;
 
-    LOG_D("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
+    LOG_W("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
 
     ////////////////////////////////////////send asic job//////////////////////////////////
     this->_asic->send_work_to_asic(&this->_asic_job_now);

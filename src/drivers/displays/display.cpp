@@ -207,7 +207,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_text_font(lb_version, font, LV_PART_MAIN);
   lv_obj_set_style_text_color(lb_version, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(lb_version, LV_LABEL_LONG_DOT);
-  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 8), SCREEN_HEIGHT - 15);
+  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 7), SCREEN_HEIGHT - 15);
   //////////////////////////////////////config page layout///////////////////////////////////////////////
   //config timeout
   font_color = lv_color_hex(0xFFFFFF);
@@ -268,23 +268,33 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_obj_set_style_text_font(lb_ip, &lv_font_montserrat_20, LV_PART_MAIN);
       lv_obj_set_style_text_color(lb_ip, lv_color_hex(0x00FF00), LV_PART_MAIN); 
       lv_label_set_long_mode(lb_ip, LV_LABEL_LONG_SCROLL_CIRCULAR);
-      lv_obj_align( lb_ip, LV_ALIGN_TOP_MID, 50, 80);
+      lv_obj_align( lb_ip, LV_ALIGN_CENTER, 0, 10);
     }
 
-    // if(lb_pool_url == NULL){
-    //   lb_pool_url   = lv_label_create( ui_pages[PAGE_LOADING] );
-    //   lv_obj_set_width(lb_pool_url, SCREEN_WIDTH);
-    //   lv_label_set_text( lb_pool_url, "");
-    //   lv_obj_set_style_text_font(lb_pool_url, &lv_font_montserrat_16, LV_PART_MAIN);
-    //   lv_obj_set_style_text_color(lb_pool_url, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
-    //   lv_label_set_long_mode(lb_pool_url, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    //   lv_obj_align( lb_pool_url, LV_ALIGN_TOP_MID, 40, 80);
-    // }
+    if(lb_pool_url == NULL){
+      lb_pool_url   = lv_label_create( ui_pages[PAGE_LOADING] );
+      lv_obj_set_width(lb_pool_url, SCREEN_WIDTH);
+      lv_label_set_text( lb_pool_url, "");
+      lv_obj_set_style_text_font(lb_pool_url, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_pool_url, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      lv_label_set_long_mode(lb_pool_url, LV_LABEL_LONG_SCROLL_CIRCULAR);
+      lv_obj_align( lb_pool_url, LV_ALIGN_CENTER, 0, 40);
+    }
 
     if(WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status){
+      String ip_str = g_nmaxe.connection.wifi.status_param.ip.toString();
+      lv_coord_t width = lv_txt_get_width(ip_str.c_str(), strlen(ip_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
+
+      lv_obj_set_width(lb_ip, width);
       lv_label_set_text( lb_ip, g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
-      // lv_label_set_text( lb_pool_url, (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port).c_str());
     }
+    if(true == g_nmaxe.market->updated){
+      String pool_str = (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port);
+      lv_coord_t width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), &lv_font_montserrat_14, 0, LV_TEXT_FLAG_NONE);
+      lv_obj_set_width(lb_pool_url, width);
+      lv_label_set_text( lb_pool_url, (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port).c_str());
+    }
+
 
 
     if(prgress_update){
@@ -1361,9 +1371,8 @@ void ui_thread_entry(void *args){
       uint32_t color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
       ui_loading_str_update(g_nmaxe.stratum->pool.get_last_errormsg().c_str(), color, false);
     }else{
-      // String con_type = g_nmaxe.connection.pool_use.ssl ? "[ssl]" : "[tcp]";
-      String pool = g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port);
-      ui_loading_str_update(String(pool_con_str[(cnt)%4] + pool), 0xFFFFFF, false);
+      String con_type = g_nmaxe.connection.pool_use.ssl ? "[ssl]" : "[tcp]";
+      ui_loading_str_update(String(pool_con_str[(cnt)%4] + con_type), 0xFFFFFF, false);
     }
     cnt++;
     delay(300);

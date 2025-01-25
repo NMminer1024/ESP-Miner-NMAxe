@@ -145,7 +145,7 @@ export class HomeComponent {
         } else if (info.stratumURLUSED.includes('solo.d-central.tech')) {
           const address = info.stratumUser.split('.')[0]
           return `https://solo.d-central.tech/#/app/${address}`;
-        } else if (info.stratumURLUSED.includes('solo.ckpool.org')) {
+        } else if (info.stratumURLUSED.includes('solo.ckpool.org:3333')) {
           const address = info.stratumUser.split('.')[0]
           return `https://solostats.ckpool.org/users/${address}`;
         } else if (info.stratumURLUSED.includes('pool.nmminer.com')) {
@@ -153,7 +153,8 @@ export class HomeComponent {
           return `https://pool.nmminer.com/user?workername=${address}`;
         } else if (info.stratumURLUSED.includes('molepool.com')) {
           const address = info.stratumUser.split('.')[0]
-          return `https://btc.molepool.com/account/${address}`;
+          const coin    = info.coin;
+          return `https://${coin}.molepool.com/account/${address}`;
         } else {
           return undefined;
         }
