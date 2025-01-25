@@ -147,7 +147,7 @@ export class HomeComponent {
           return `https://solo.d-central.tech/#/app/${address}`;
         } else if (info.stratumURLUSED.includes('solo.ckpool.org')) {
           const address = info.stratumUser.split('.')[0]
-          return `https://solostats.ckpool.org/stats/${address}`;
+          return `https://solostats.ckpool.org/users/${address}`;
         } else if (info.stratumURLUSED.includes('pool.nmminer.com')) {
           const address = info.stratumUser.split('.')[0]
           return `https://pool.nmminer.com/user?workername=${address}`;

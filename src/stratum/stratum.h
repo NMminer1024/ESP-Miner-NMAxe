@@ -107,6 +107,7 @@ public:
     SemaphoreHandle_t new_job_xsem;
     SemaphoreHandle_t clear_job_xsem;
     void reset();
+    void reset(pool_info_t pConfig, stratum_info_t sConfig);
     bool subscribe();
     bool authorize();
     bool suggest_difficulty();

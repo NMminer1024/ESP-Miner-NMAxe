@@ -3,5 +3,5 @@
 #include <Arduino.h>
 
 void monitor_thread_entry(void *args);
-
+void swarm_thread_entry(void *args);
 #endif

@@ -31,6 +31,25 @@ void StratumClass::reset(){
     this->_gid = 1;
 }
 
+void StratumClass::reset(pool_info_t pConfig, stratum_info_t sConfig){
+    this->pool = PoolClass(pConfig);
+    this->_stratum_info = sConfig;
+
+    this->_rsp_str = "";
+    this->_rsp_json.clear();
+    this->_msg_rsp_map.clear();
+    this->_sub_info.extranonce1 = "";
+    this->_sub_info.extranonce2 = "0";
+    this->_sub_info.extranonce2_size = 0;
+    this->_sub_info = {"", "", 0};
+    this->_is_subscribed = false;
+    this->_is_authorized = false;
+    this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
+    this->_vr_mask = 0xffffffff;
+    this->_suggest_diff_support = true;
+    this->_gid = 1;
+}
+
 uint32_t StratumClass::_get_msg_id(){
     return this->_gid++;
 }
@@ -394,40 +413,43 @@ void stratum_thread_entry(void *args){
     strcpy(name, (char*)args);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
-    
 
-    LOG_W("Stratum pool %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
-    LOG_W("Stratum password %s", g_nmaxe.connection.stratum_use.pwd.c_str());
-
-    g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool_use.ssl);
     g_nmaxe.stratum->set_pool_difficulty(DEFAULT_POOL_DIFFICULTY);
     StaticJsonDocument<1024*4> json;
     while(true){
-        static int retry = 0, maxRetries = 24;
+        static int w_retry = 0, w_maxRetries = 24;
         if(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED){
-            retry++;
-            LOG_W("WiFi reconnecting %d/%d...", retry, maxRetries);
-            if(retry >= maxRetries) ESP.restart();
+            w_retry++;
+            LOG_W("WiFi reconnecting %d/%d...", w_retry, w_maxRetries);
+            if(w_retry >= w_maxRetries) ESP.restart();
 
             xSemaphoreGive(g_nmaxe.connection.wifi.reconnect_xsem);
             g_nmaxe.stratum->reset();
             delay(5000);
             continue;
-        } else retry = 0;
+        } else w_retry = 0;
         
+        static uint16_t p_retry = 0, p_maxRetries = 10;
         if(!g_nmaxe.stratum->pool.is_connected()){
-            static bool first_connect = true;
+            static bool    first_connect = true;
             if(first_connect){
                 LOG_I("Pool connecting...");
                 first_connect = false;
-            }else LOG_W("Lost connection to pool, reconnecting...");
-            g_nmaxe.stratum->reset();
+            }else LOG_W("Lost connection to pool, reconnecting %d/%d...", p_retry, p_maxRetries);
+
+            if(++p_retry % p_maxRetries == 0){
+                g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_fallback;
+                g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_fallback;
+                LOG_W("Set pool to fallback %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+            }
+            
+            g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
             g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool_use.ssl);
             g_nmaxe.stratum->pool.connect();
             g_nmaxe.mstatus.last_diff = 0;
             delay(5000);
             continue;
-        }
+        }else p_retry = 0;
 
         if(!g_nmaxe.stratum->is_subscribed()){
             if(!g_nmaxe.stratum->subscribe()){

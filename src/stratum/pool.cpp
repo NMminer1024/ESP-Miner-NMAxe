@@ -7,17 +7,21 @@ PoolClass::PoolClass(pool_info_t config){
     this->_wificlientSecure = WiFiClientSecure();
     this->_wificlient       = WiFiClient();
     this->_last_err_str     = "";
-    this->_pwclient = &this->_wificlient;
+    this->_pwclient         = &this->_wificlient;
 }
 
 PoolClass::~PoolClass(){
     this->_pwclient->stop();
 }
+
 bool PoolClass::begin(bool ssl){
     if(ssl){
         this->_wificlientSecure.setInsecure();
         this->_pwclient  = &this->_wificlientSecure;
         LOG_I("ssl enabled.");
+    }else{
+        this->_pwclient  = &this->_wificlient;
+        LOG_I("tcp enabled.");
     }
     return true;
 }
@@ -35,12 +39,10 @@ bool PoolClass::connect(){
     }
 
     LOG_I("Resolving pool address [%s] to  [%s]", this->_pool_cfg.url.c_str(), this->_pool_ip.toString().c_str());
-    static uint16_t err_cnt = 0, max_err = 10;
+    static uint16_t err_cnt = 0;
     if(!this->_pwclient->connect(this->_pool_ip, this->_pool_cfg.port, 5000)){
         err_cnt++;
         this->_last_err_str = "Wrong pool port!!!";
-        LOG_E("Failed to connect to pool %s:%d, %d/%d, pool port disabled or wrong port.", this->_pool_cfg.url.c_str(), this->_pool_cfg.port, err_cnt, max_err);
-        if(err_cnt > max_err) ESP.restart();
         return false;
     }
     else  err_cnt = 0;

@@ -12,40 +12,28 @@ static const char*    udp_client_addr = "255.255.255.255";
 static const int      udp_client_port = 12345; 
 static const int      swarm_offline_timeout = 10*60*1000; //10min 
 
+
+
 void monitor_thread_entry(void *args){
   char *name = (char*)malloc(20);
   strcpy(name, (char*)args);
   LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
   free(name);
-
-  //malloc udp client
-  void* buffer = psramAllocator(sizeof(WiFiUDP));
-  if (!buffer) {
-      LOG_E("Failed to allocate memory in PSRAM for udp client");
-      return;
-  }
-  udp_client = new(buffer) WiFiUDP();
-
-  //udp status boardcast begin
-  udp_client->begin(udp_client_port);
-
+  
   //wait for first job cache ready forever when process start
   xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, portMAX_DELAY);
 
   delay(500);//necessary delay for first job cache ready
 
-  uint64_t monitor_cnt = 0;
-
   while(true){
-      //thread delay 0.2s
-      delay(200);
-      if(monitor_cnt++ % 5 == 0){
-        g_nmaxe.mstatus.uptime_ever++;
-        g_nmaxe.mstatus.uptime_session++;
-      }
+      //thread delay 1000ms
+      delay(1000);
+
+      g_nmaxe.mstatus.uptime_ever++;
+      g_nmaxe.mstatus.uptime_session++;
 
       //update temperature and power status
-      if(monitor_cnt % 5 == 0){
+      if(g_nmaxe.mstatus.uptime_session % 1 == 0){
         static uint8_t temp_cnt = 0;
 
         //update power status
@@ -63,65 +51,8 @@ void monitor_thread_entry(void *args){
         xSemaphoreGive(g_nmaxe.mstatus.update_xsem);
       }
       
-      //listen udp status
-      if(monitor_cnt % 1 == 0){
-        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
-          int packetSize = udp_client->parsePacket();
-          if (packetSize > 0) {
-              char *incomingPacket = (char*)malloc(packetSize + 1 );
-              memset(incomingPacket, '\0', packetSize + 1);
-              int len = udp_client->read(incomingPacket, packetSize);
-
-              StaticJsonDocument<512> json;
-              char *json_str = (char*)malloc(packetSize + 1);
-              memset(json_str, '\0', packetSize + 1);
-              memcpy(json_str, incomingPacket, packetSize);
-              DeserializationError error = deserializeJson(json, json_str);
-              if(error) {
-                free(json_str);
-                udp_client->flush();
-                continue;
-              }
-              json["Lastseen"] = millis();
-
-              char js_t[512] = {0,};
-              size_t n = serializeJson(json, js_t);
-
-              //update swarm list if has this ip
-              static std::map<String, uint32_t> last_seen_map;
-              if(json.containsKey("ip")){
-                g_nmaxe.swarm[json["ip"].as<String>()] = String(js_t);
-                last_seen_map[json["ip"].as<String>()] = json["Lastseen"];
-              }
-
-              //update json string
-              for(auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end();it++){
-                //self status not in last seen map
-                if(last_seen_map.find(it->first) == last_seen_map.end()) continue;
-
-                if(deserializeJson(json, it->second)) continue;
-
-                json["Lastseen"] = millis() - last_seen_map[it->first];
-                //remove offline device
-                if(json["Lastseen"].as<uint32_t>() > swarm_offline_timeout){
-                  g_nmaxe.swarm.erase(it->first);
-                  continue;
-                }
-
-                char jsonBuffer[512] = {'\0',};
-                size_t n = serializeJson(json, jsonBuffer);
-                it->second = (n>0) ? String(jsonBuffer) : "";
-              }
-              
-              free(json_str);
-              free(incomingPacket);
-              udp_client->flush();
-          }
-        }
-      }
-
       //status check
-      if(monitor_cnt % 15 == 0){
+      if(g_nmaxe.mstatus.uptime_session % 2 == 0){
         //check mcu temperature status
         if(g_nmaxe.board.temp_mcu > BOARD_MCU_DANGER){
           LOG_W("MCU temp is too high, restart...");
@@ -166,52 +97,15 @@ void monitor_thread_entry(void *args){
         //check hashrate
         static uint8_t hr_err_cnt = 0;
         if(g_nmaxe.mstatus.hashrate._3m <= 1){
-          if(++hr_err_cnt > 20){
+          if(++hr_err_cnt > 60*5){
             LOG_W("Hashrate is too low, restart miner...");
             ESP.restart();
           }
         }else hr_err_cnt = 0;
       }
       
-      //status udp broadcast
-      if(monitor_cnt % 20 == 0){
-        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
-          StaticJsonDocument<512> json;
-          json["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
-          json["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
-          uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
-          float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
-          json["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
-          json["NetDiff"] = formatNumber(g_nmaxe.mstatus.network_diff,4);
-          json["PoolDiff"] = formatNumber(g_nmaxe.mstatus.pool_diff,4);
-          json["LastDiff"] = formatNumber(g_nmaxe.mstatus.last_diff,4);
-          json["BestDiff"] = formatNumber(g_nmaxe.mstatus.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.best_ever,4);
-          json["Valid"] = g_nmaxe.mstatus.block_hits;
-          json["Temp"] = g_nmaxe.asic.temp;
-          json["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
-          json["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
-          json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
-          json["Version"] = g_nmaxe.board.fw_version;
-          json["BoardType"] = g_nmaxe.board.hw_model;
-          json["Power"]     = String(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 1) + "W";
-          static uint32_t last_seen = millis();
-          json["Lastseen"]  = millis() - last_seen;
-          last_seen = millis();
-
-          char jsonBuffer[512] = {0,};
-          size_t n = serializeJson(json, jsonBuffer);
-          //broadcast status to udp
-          udp_client->beginPacket(udp_client_addr, udp_client_port);
-          udp_client->write((uint8_t*)jsonBuffer, n);
-          udp_client->endPacket();
-
-          //add self to swarm list
-          g_nmaxe.swarm[g_nmaxe.connection.wifi.status_param.ip.toString()] = String(jsonBuffer);
-        }
-      }
-
       //print summary to log
-      if(monitor_cnt % 300 == 0){
+      if(g_nmaxe.mstatus.uptime_session % 30 == 0){
         LOG_I(" ============%s=========== ",g_nmaxe.board.fw_version.c_str());
         LOG_I("|         NMAxe Summary        |");
         LOG_I("+------------Uptime------------+");
@@ -247,5 +141,121 @@ void monitor_thread_entry(void *args){
           last_save_time = g_nmaxe.mstatus.uptime_ever;
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
+  }
+}
+
+void swarm_thread_entry(void *args){
+  char *name = (char*)malloc(20);
+  strcpy(name, (char*)args);
+  LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
+  free(name);
+
+  //malloc udp client
+  void* buffer = psramAllocator(sizeof(WiFiUDP));
+  if (!buffer) {
+      LOG_E("Failed to allocate memory in PSRAM for udp client");
+      return;
+  }
+  udp_client = new(buffer) WiFiUDP();
+
+  //udp status boardcast begin
+  udp_client->begin(udp_client_port);
+
+  uint64_t swarm_cnt = 0;
+
+  while (true){
+    swarm_cnt++;
+    delay(100);
+    //listen udp status
+    if(swarm_cnt % 1 == 0){
+      if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
+        int packetSize = udp_client->parsePacket();
+        if (packetSize > 0) {
+            char *incomingPacket = (char*)malloc(packetSize + 1 );
+            memset(incomingPacket, '\0', packetSize + 1);
+            int len = udp_client->read(incomingPacket, packetSize);
+
+            StaticJsonDocument<512> json;
+            char *json_str = (char*)malloc(packetSize + 1);
+            memset(json_str, '\0', packetSize + 1);
+            memcpy(json_str, incomingPacket, packetSize);
+            DeserializationError error = deserializeJson(json, json_str);
+            if(error) {
+              free(json_str);
+              udp_client->flush();
+              continue;
+            }
+            json["Lastseen"] = millis();
+
+            char js_t[512] = {0,};
+            size_t n = serializeJson(json, js_t);
+
+            //update swarm list if has this ip
+            static std::map<String, uint32_t> last_seen_map;
+            if(json.containsKey("ip")){
+              g_nmaxe.swarm[json["ip"].as<String>()] = String(js_t);
+              last_seen_map[json["ip"].as<String>()] = json["Lastseen"];
+            }
+
+            //update json string
+            for(auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end();it++){
+              //self status not in last seen map
+              if(last_seen_map.find(it->first) == last_seen_map.end()) continue;
+
+              if(deserializeJson(json, it->second)) continue;
+
+              json["Lastseen"] = millis() - last_seen_map[it->first];
+              //remove offline device
+              if(json["Lastseen"].as<uint32_t>() > swarm_offline_timeout){
+                g_nmaxe.swarm.erase(it->first);
+                continue;
+              }
+
+              char jsonBuffer[512] = {'\0',};
+              size_t n = serializeJson(json, jsonBuffer);
+              it->second = (n>0) ? String(jsonBuffer) : "";
+            }
+            
+            free(json_str);
+            free(incomingPacket);
+            udp_client->flush();
+        }
+      }
+    }
+    //status udp broadcast
+    if(swarm_cnt % 20 == 0){
+      if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
+        StaticJsonDocument<512> json;
+        json["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
+        json["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
+        uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
+        float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
+        json["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
+        json["NetDiff"] = formatNumber(g_nmaxe.mstatus.network_diff,4);
+        json["PoolDiff"] = formatNumber(g_nmaxe.mstatus.pool_diff,4);
+        json["LastDiff"] = formatNumber(g_nmaxe.mstatus.last_diff,4);
+        json["BestDiff"] = formatNumber(g_nmaxe.mstatus.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.best_ever,4);
+        json["Valid"] = g_nmaxe.mstatus.block_hits;
+        json["Temp"] = g_nmaxe.asic.temp;
+        json["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
+        json["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
+        json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
+        json["Version"] = g_nmaxe.board.fw_version;
+        json["BoardType"] = g_nmaxe.board.hw_model;
+        json["Power"]     = String(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 1) + "W";
+        static uint32_t last_seen = millis();
+        json["Lastseen"]  = millis() - last_seen;
+        last_seen = millis();
+
+        char jsonBuffer[512] = {0,};
+        size_t n = serializeJson(json, jsonBuffer);
+        //broadcast status to udp
+        udp_client->beginPacket(udp_client_addr, udp_client_port);
+        udp_client->write((uint8_t*)jsonBuffer, n);
+        udp_client->endPacket();
+        //add self to swarm list
+        g_nmaxe.swarm[g_nmaxe.connection.wifi.status_param.ip.toString()] = String(jsonBuffer);
+      }
+    }
   }
 }

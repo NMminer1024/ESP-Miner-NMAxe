@@ -222,7 +222,7 @@ static void ui_layout_init(void){
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
     static const lv_font_t *font = &lv_font_montserrat_14;
-    static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL, *lb_ip = NULL;
+    static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL, *lb_ip = NULL, *lb_pool_url = NULL;
     static uint8_t progress = 0, progress_total = 16;
 
     lv_color_t font_color = lv_color_hex(color);
@@ -250,7 +250,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_bar_set_value(bar, progress, LV_ANIM_ON);
       lv_obj_set_style_bg_opa(bar, LV_OPA_50, LV_PART_MAIN);
       lv_obj_set_size(bar, SCREEN_WIDTH * 0.9, 5);
-      lv_obj_align(bar, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_align(bar, LV_ALIGN_CENTER, 0, -20);
       lv_obj_set_style_bg_color(bar, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR);
       lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_INDICATOR);
 
@@ -258,28 +258,40 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       label_progress = lv_label_create(ui_pages[PAGE_LOADING]);
       lv_label_set_text(label_progress, "");
       lv_obj_set_style_text_color(label_progress, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-      lv_obj_align(label_progress, LV_ALIGN_LEFT_MID, 0, 0);
+      lv_obj_align(label_progress, LV_ALIGN_LEFT_MID, 0, -20);
     }
 
     if(lb_ip == NULL){
       lb_ip   = lv_label_create( ui_pages[PAGE_LOADING] );
       lv_obj_set_width(lb_ip, SCREEN_WIDTH);
       lv_label_set_text( lb_ip, "");
-      lv_obj_set_style_text_font(lb_ip, &lv_font_montserrat_16, LV_PART_MAIN);
-      lv_obj_set_style_text_color(lb_ip, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      lv_obj_set_style_text_font(lb_ip, &lv_font_montserrat_20, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_ip, lv_color_hex(0x00FF00), LV_PART_MAIN); 
       lv_label_set_long_mode(lb_ip, LV_LABEL_LONG_SCROLL_CIRCULAR);
-      lv_obj_align( lb_ip, LV_ALIGN_TOP_MID, 65, 90);
+      lv_obj_align( lb_ip, LV_ALIGN_TOP_MID, 50, 80);
     }
+
+    // if(lb_pool_url == NULL){
+    //   lb_pool_url   = lv_label_create( ui_pages[PAGE_LOADING] );
+    //   lv_obj_set_width(lb_pool_url, SCREEN_WIDTH);
+    //   lv_label_set_text( lb_pool_url, "");
+    //   lv_obj_set_style_text_font(lb_pool_url, &lv_font_montserrat_16, LV_PART_MAIN);
+    //   lv_obj_set_style_text_color(lb_pool_url, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+    //   lv_label_set_long_mode(lb_pool_url, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    //   lv_obj_align( lb_pool_url, LV_ALIGN_TOP_MID, 40, 80);
+    // }
 
     if(WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status){
       lv_label_set_text( lb_ip, g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
+      // lv_label_set_text( lb_pool_url, (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port).c_str());
     }
+
 
     if(prgress_update){
       lv_coord_t bar_x = lv_obj_get_x(bar);
       lv_coord_t bar_w = lv_obj_get_width(bar);
       lv_coord_t label_x = bar_x + (bar_w * progress / progress_total) - lv_obj_get_width(label_progress) / 2;
-      lv_obj_set_pos(label_progress, label_x, 10);
+      lv_obj_set_pos(label_progress, label_x, -10);
       lv_label_set_text(label_progress, (String(100 * (float)progress/(float)progress_total, 0) + "%").c_str());
       lv_bar_set_value(bar, progress, LV_ANIM_ON);
       progress++;
