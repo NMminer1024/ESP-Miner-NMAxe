@@ -1,17 +1,4 @@
-<!-- <div class="card">
-    <div class="field grid p-fluid">
-        <label htmlFor="ip" class="col-12 mb-2 md:col-2 md:mb-0">NMTech AxeOS device swarm v0.2</label>
-    </div>
-</div>
-<div class="logs">
-    <h3>Logs</h3>
-    <ul>
-      <li *ngFor="let log of logs">{{ log }}</li>
-    </ul>
-  </div>
-<div>
-    <button pButton (click)="refresh()">Refresh</button>
-</div> -->
+
 <div class="clock">
   <p>{{ currentDate }} {{ currentTime }}</p>
 </div>
@@ -74,8 +61,7 @@
       <td class="common-column">{{ axe.FreeHeap | number: '1.1-1' }} <small>KB</small></td>
       <td>{{ axe.Version }}</td>
       <td class="uptime-column">{{ axe.Uptime }}</td>
-      <td class="lastseen-column">{{ axe.Lastseen | number: '1.1-1' }}s ago</td>
-      <!-- <td><p-button icon="pi pi-pencil" pp-button (click)="edit(axe)"></p-button></td> -->
+      <td class="lastseen-column">{{ axe.Lastseen | dateAgo }}</td>
       <td>
         <p-button icon="pi pi-sync" pp-button severity="danger" (click)="restart(axe)"></p-button>
       </td>

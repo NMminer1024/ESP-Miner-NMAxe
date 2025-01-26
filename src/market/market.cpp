@@ -3,7 +3,7 @@
 #include <ArduinoJson.h>
 #include "global.h"
 
-#define MARKET_TIMEOUT (1000*30)
+#define MARKET_TIMEOUT (1000*50)
 
 static void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
     if(g_nmaxe.market == NULL) return;

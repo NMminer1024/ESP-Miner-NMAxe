@@ -5,6 +5,7 @@ import {Subscription, interval} from 'rxjs';
 import {BehaviorSubject, startWith, switchMap} from 'rxjs';
 import {HashSuffixPipe} from "../../pipes/hash-suffix.pipe";
 import {DiffSuffixPipe} from "../../pipes/diff-suffix.pipe";
+import { DateAgoPipe } from '../../pipes/date-ago.pipe'; 
 
 interface NMDevice {
   ip: string;
@@ -139,7 +140,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.updateTime();
     }, 1000);
 
-    this.subscription = interval(10000).pipe(
+    this.subscription = interval(3000).pipe(
       startWith(0),
       switchMap(() => {
         this.logs.push(`Request sent ${this.uri}`)

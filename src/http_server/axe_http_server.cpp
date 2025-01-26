@@ -51,12 +51,12 @@ static void rest_common_get_handler(AsyncWebServerRequest *request) {
         return bytesRead;
     });
 
+
     if (!request->url().endsWith("/")) {
-        response->addHeader("Cache-Control", "max-age=3600"); // cache for 1 hour
+        response->addHeader("Cache-Control", "max-age=86400"); // cache for 24 hour
     }
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
-    
     LOG_L("File sending complete: %s, free heap: %d", base_path.c_str(), ESP.getFreeHeap());
 }
 static void get_system_info(AsyncWebServerRequest* request){
@@ -88,11 +88,9 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["asicCount"] = g_nmaxe.miner->get_asic_count();
     root["smallCoreCount"] = small_core_count;
     root["ASICModel"] = g_nmaxe.asic.type;
-
     root["stratumUserUSED"] = g_nmaxe.connection.stratum_use.user;
     root["stratumUser1"] = g_nmaxe.connection.stratum_primary.user;
     root["stratumUser2"] = g_nmaxe.connection.stratum_fallback.user;
-    
     root["stratumURLUSED"] = g_nmaxe.connection.pool_use.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port));
     root["stratumURL1"] = g_nmaxe.connection.pool_primary.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port));
     root["stratumURL2"] = g_nmaxe.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port));
