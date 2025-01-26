@@ -20,8 +20,8 @@
     <table cellspacing="0" cellpadding="0">
       <tr>
         <th>Total Hash Rate</th>
-        <th>Best Diff Session</th>
-        <th>Best Diff Ever</th>
+        <th>Session peak difficulty</th>
+        <th>All time peak difficulty</th>
       </tr>
       <tr>
         <td>{{ swarmSummary.HashRate }}</td>
@@ -60,7 +60,7 @@
     <tr *ngFor="let axe of swarmData; let i = index">
       <td>{{ i + 1 }}</td>
       <td><a [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
-      <td class="type-column">{{ axe.BoardType }}</td>
+      <td class="boardtype-column">{{ axe.BoardType }}</td>
       <td>{{ axe.HashRate }}</td>
       <td>{{ axe.Share }}</td>
       <td>{{ axe.PoolDiff }}</td>

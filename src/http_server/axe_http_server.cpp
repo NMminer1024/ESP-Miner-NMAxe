@@ -56,6 +56,7 @@ static void rest_common_get_handler(AsyncWebServerRequest *request) {
     }
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
+    
     LOG_L("File sending complete: %s, free heap: %d", base_path.c_str(), ESP.getFreeHeap());
 }
 static void get_system_info(AsyncWebServerRequest* request){
@@ -246,6 +247,7 @@ static void get_theme_handler(AsyncWebServerRequest* request){
     free(colors);
     root->~DynamicJsonDocument();
     psramDeallocator(buffer);
+
 }
 static void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
     if (!data) {
