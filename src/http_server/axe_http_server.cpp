@@ -52,7 +52,7 @@ static void rest_common_get_handler(AsyncWebServerRequest *request) {
     });
 
     if (!request->url().endsWith("/")) {
-        response->addHeader("Cache-Control", "max-age=86400"); // cache for 1 day
+        response->addHeader("Cache-Control", "max-age=3600"); // cache for 1 hour
     }
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
@@ -63,67 +63,57 @@ static void get_system_info(AsyncWebServerRequest* request){
     const uint16_t json_size_max  =  1024;
     const uint16_t small_core_count = 894;
 
-    void* buffer = psramAllocator(sizeof(StaticJsonDocument<json_size_max>));
-    if (!buffer) {
-        request->send(500, "application/json", "{\"error\":\"Failed to allocate memory in PSRAM\"}");
-        LOG_E("Failed to allocate memory in PSRAM for system info");
-        return;
-    }
-    StaticJsonDocument<json_size_max>* root = new(buffer) StaticJsonDocument<json_size_max>();
+    StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
-    root->clear();
-    (*root)["power"] = (g_nmaxe.board.ibus /1000.0f) * (g_nmaxe.board.vbus / 1000.0f);
-    (*root)["voltage"] = g_nmaxe.board.vbus;
-    (*root)["current"] = g_nmaxe.board.ibus;
-    (*root)["temp"] = g_nmaxe.asic.temp;
-    (*root)["vrTemp"] = g_nmaxe.board.temp_vcore;
-    (*root)["mcuTemp"] = g_nmaxe.board.temp_mcu;
-    (*root)["hashRate"] = g_nmaxe.mstatus.hashrate._3m/1000/1000/1000;
-    (*root)["bestDiff"] = formatNumber(g_nmaxe.mstatus.best_ever, 4);
-    (*root)["bestSessionDiff"] = formatNumber(g_nmaxe.mstatus.best_session, 4);
-    (*root)["freeHeap"] = ESP.getFreeHeap();
-    (*root)["coreVoltage"] = g_nmaxe.asic.vcore_req;
-    (*root)["coreVoltageActual"] = g_nmaxe.asic.vcore_measured;
-    (*root)["frequency"] = g_nmaxe.asic.frequency_req;
-    (*root)["hostname"] = g_nmaxe.board.hostname;
-    (*root)["ssid"] = g_nmaxe.connection.wifi.conn_param.ssid;
-    (*root)["wifiStatus"] = ((g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
-    (*root)["sharesAccepted"] = g_nmaxe.mstatus.share_accepted;
-    (*root)["sharesRejected"] = g_nmaxe.mstatus.share_rejected;
-    (*root)["uptimeSeconds"] = g_nmaxe.mstatus.uptime_session;
-    (*root)["asicCount"] = g_nmaxe.miner->get_asic_count();
-    (*root)["smallCoreCount"] = small_core_count;
-    (*root)["ASICModel"] = g_nmaxe.asic.type;
-    (*root)["stratumUser"] = g_nmaxe.connection.stratum_use.user;
-    (*root)["stratumURLUSED"] = g_nmaxe.connection.pool_use.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port));
-    (*root)["stratumURL1"] = g_nmaxe.connection.pool_primary.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port));
-    (*root)["stratumURL2"] = g_nmaxe.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port));
-    (*root)["version"] = g_nmaxe.board.fw_version;
-    (*root)["boardVersion"] = g_nmaxe.board.hw_model;
-    // (*root)["runningPartition"] = "part1";
-    (*root)["flipscreen"] = g_nmaxe.preference.screen.flip;
-    (*root)["ledindicator"] = g_nmaxe.preference.led.indicator;
-    (*root)["overheat_mode"] = 0;
-    (*root)["invertscreen"]  = 1;
-    (*root)["invertfanpolarity"] = g_nmaxe.preference.fan.invert_ploarity;
-    (*root)["autofanspeed"] = g_nmaxe.preference.fan.is_auto_speed;
-    (*root)["fanspeed"] = g_nmaxe.preference.fan.speed;
-    (*root)["fanrpm"] = g_nmaxe.preference.fan.rpm;
-    (*root)["brightness"] = g_nmaxe.preference.screen.brightness;
-    (*root)["coin"] = g_nmaxe.coin;
+    root.clear();
+    root["power"] = (g_nmaxe.board.ibus /1000.0f) * (g_nmaxe.board.vbus / 1000.0f);
+    root["voltage"] = g_nmaxe.board.vbus;
+    root["current"] = g_nmaxe.board.ibus;
+    root["temp"] = g_nmaxe.asic.temp;
+    root["vrTemp"] = g_nmaxe.board.temp_vcore;
+    root["mcuTemp"] = g_nmaxe.board.temp_mcu;
+    root["hashRate"] = g_nmaxe.mstatus.hashrate._3m/1000/1000/1000;
+    root["bestDiff"] = formatNumber(g_nmaxe.mstatus.best_ever, 4);
+    root["bestSessionDiff"] = formatNumber(g_nmaxe.mstatus.best_session, 4);
+    root["freeHeap"] = ESP.getFreeHeap();
+    root["coreVoltage"] = g_nmaxe.asic.vcore_req;
+    root["coreVoltageActual"] = g_nmaxe.asic.vcore_measured;
+    root["frequency"] = g_nmaxe.asic.frequency_req;
+    root["hostname"] = g_nmaxe.board.hostname;
+    root["ssid"] = g_nmaxe.connection.wifi.conn_param.ssid;
+    root["wifiStatus"] = ((g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
+    root["sharesAccepted"] = g_nmaxe.mstatus.share_accepted;
+    root["sharesRejected"] = g_nmaxe.mstatus.share_rejected;
+    root["uptimeSeconds"] = g_nmaxe.mstatus.uptime_session;
+    root["asicCount"] = g_nmaxe.miner->get_asic_count();
+    root["smallCoreCount"] = small_core_count;
+    root["ASICModel"] = g_nmaxe.asic.type;
+    root["stratumUser"] = g_nmaxe.connection.stratum_use.user;
+    root["stratumURLUSED"] = g_nmaxe.connection.pool_use.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port));
+    root["stratumURL1"] = g_nmaxe.connection.pool_primary.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port));
+    root["stratumURL2"] = g_nmaxe.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port));
+    root["version"] = g_nmaxe.board.fw_version;
+    root["boardVersion"] = g_nmaxe.board.hw_model;
+    // root["runningPartition"] = "part1";
+    root["flipscreen"] = g_nmaxe.preference.screen.flip;
+    root["ledindicator"] = g_nmaxe.preference.led.indicator;
+    root["overheat_mode"] = 0;
+    root["invertscreen"]  = 1;
+    root["invertfanpolarity"] = g_nmaxe.preference.fan.invert_ploarity;
+    root["autofanspeed"] = g_nmaxe.preference.fan.is_auto_speed;
+    root["fanspeed"] = g_nmaxe.preference.fan.speed;
+    root["fanrpm"] = g_nmaxe.preference.fan.rpm;
+    root["brightness"] = g_nmaxe.preference.screen.brightness;
+    root["coin"] = g_nmaxe.coin;
 
     String sys_info;
-    serializeJson(*root, sys_info);
+    serializeJson(root, sys_info);
 
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", sys_info);
     response->addHeader("Access-Control-Allow-Origin", "*");
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
-
-    //free memory
-    root->~StaticJsonDocument();
-    psramDeallocator(buffer);
 }
 static void get_swarm_info(AsyncWebServerRequest* request){
     uint16_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
@@ -187,13 +177,13 @@ static void options_theme_handler(AsyncWebServerRequest* request){
 static void get_theme_handler(AsyncWebServerRequest* request){
     uint16_t json_size_max = 1024;
 
-    void* buffer = psramAllocator(json_size_max);
-    if (!buffer) {
-        request->send(500, "application/json", "{\"error\":\"Failed to allocate memory in PSRAM\"}");
-        LOG_E("Failed to allocate memory in PSRAM for theme handler.");
-        return;
-    }
-    DynamicJsonDocument* root = new(buffer) DynamicJsonDocument(json_size_max);
+    // void* buffer = psramAllocator(json_size_max);
+    // if (!buffer) {
+    //     request->send(500, "application/json", "{\"error\":\"Failed to allocate memory in PSRAM\"}");
+    //     LOG_E("Failed to allocate memory in PSRAM for theme handler.");
+    //     return;
+    // }
+    DynamicJsonDocument root = DynamicJsonDocument(json_size_max);
 
     char *scheme = nvs_config_get_string(NVS_CONFIG_THEME_SCHEME, "dark");
     char *name = nvs_config_get_string(NVS_CONFIG_THEME_NAME, "dark");
@@ -226,14 +216,14 @@ static void get_theme_handler(AsyncWebServerRequest* request){
     DynamicJsonDocument colors_json(1024);
     DeserializationError error = deserializeJson(colors_json, colors);
 
-    (*root)["colorScheme"] = scheme;
-    (*root)["theme"] = name;
+    root["colorScheme"] = scheme;
+    root["theme"] = name;
     if(error.code() == DeserializationError::Ok){
-        (*root)["accentColors"] = colors_json;
+        root["accentColors"] = colors_json;
     }
 
     String colors_str;
-    serializeJson(*root, colors_str);
+    serializeJson(root, colors_str);
 
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", colors_str);
     response->addHeader("Access-Control-Allow-Origin", "*");
@@ -245,9 +235,6 @@ static void get_theme_handler(AsyncWebServerRequest* request){
     free(scheme);
     free(name);
     free(colors);
-    root->~DynamicJsonDocument();
-    psramDeallocator(buffer);
-
 }
 static void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
     if (!data) {
