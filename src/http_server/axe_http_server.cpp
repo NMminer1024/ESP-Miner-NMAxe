@@ -88,7 +88,11 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["asicCount"] = g_nmaxe.miner->get_asic_count();
     root["smallCoreCount"] = small_core_count;
     root["ASICModel"] = g_nmaxe.asic.type;
-    root["stratumUser"] = g_nmaxe.connection.stratum_use.user;
+
+    root["stratumUserUSED"] = g_nmaxe.connection.stratum_use.user;
+    root["stratumUser1"] = g_nmaxe.connection.stratum_primary.user;
+    root["stratumUser2"] = g_nmaxe.connection.stratum_fallback.user;
+    
     root["stratumURLUSED"] = g_nmaxe.connection.pool_use.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port));
     root["stratumURL1"] = g_nmaxe.connection.pool_primary.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port));
     root["stratumURL2"] = g_nmaxe.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port));
@@ -175,16 +179,6 @@ static void options_theme_handler(AsyncWebServerRequest* request){
     request->send(response);
 }
 static void get_theme_handler(AsyncWebServerRequest* request){
-    uint16_t json_size_max = 1024;
-
-    // void* buffer = psramAllocator(json_size_max);
-    // if (!buffer) {
-    //     request->send(500, "application/json", "{\"error\":\"Failed to allocate memory in PSRAM\"}");
-    //     LOG_E("Failed to allocate memory in PSRAM for theme handler.");
-    //     return;
-    // }
-    DynamicJsonDocument root = DynamicJsonDocument(json_size_max);
-
     char *scheme = nvs_config_get_string(NVS_CONFIG_THEME_SCHEME, "dark");
     char *name = nvs_config_get_string(NVS_CONFIG_THEME_NAME, "dark");
     char *colors = nvs_config_get_string(NVS_CONFIG_THEME_COLORS, 
@@ -213,7 +207,7 @@ static void get_theme_handler(AsyncWebServerRequest* request){
         "}"
     );
     
-    DynamicJsonDocument colors_json(1024);
+    DynamicJsonDocument root(1024), colors_json(512);
     DeserializationError error = deserializeJson(colors_json, colors);
 
     root["colorScheme"] = scheme;
@@ -322,21 +316,28 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
             return;
         }
 
-        if(root.containsKey("stratumUser")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_USER,root["stratumUser"].as<String>().c_str());
-        }
+
 
         //primary pool
+        if(root.containsKey("stratumUser1")){
+            nvs_config_set_string(NVS_CONFIG_STRATUM_USER_PRIMARY,root["stratumUser1"].as<String>().c_str());
+        }
         if(root.containsKey("stratumURL1")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_PRIMARY, root["stratumURL1"].as<String>().c_str());
+            nvs_config_set_string(NVS_CONFIG_STRATUM_URL_PRIMARY, root["stratumURL1"].as<String>().c_str());
         }
         if(root.containsKey("stratumPassword1")){
             nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_PRIMARY,root["stratumPassword1"].as<String>().c_str());
         }
 
+
+
+
         //fallback pool
+        if(root.containsKey("stratumUser2")){
+            nvs_config_set_string(NVS_CONFIG_STRATUM_USER_FALLBACK,root["stratumUser2"].as<String>().c_str());
+        }
         if(root.containsKey("stratumURL2")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_FALLBACK, root["stratumURL2"].as<String>().c_str());
+            nvs_config_set_string(NVS_CONFIG_STRATUM_URL_FALLBACK, root["stratumURL2"].as<String>().c_str());
         }
         if(root.containsKey("stratumPassword2")){
             nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK,root["stratumPassword2"].as<String>().c_str());

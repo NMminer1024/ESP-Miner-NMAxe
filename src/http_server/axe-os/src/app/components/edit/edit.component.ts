@@ -136,7 +136,8 @@ export class EditComponent implements OnInit {
             Validators.pattern(/^(stratum\+(tcp|ssl):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
           ]],
           
-          stratumUser: [info.stratumUser, [Validators.required]],
+          stratumUser1: [info.stratumUser1, [Validators.required]],
+          stratumUser2: [info.stratumUser2, [Validators.required]],
           stratumPassword1: ['password', [Validators.required]],
           stratumPassword2: ['password', [Validators.required]],
           coreVoltage: [info.coreVoltage, [Validators.required]],

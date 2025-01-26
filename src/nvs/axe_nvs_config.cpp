@@ -177,8 +177,8 @@ bool load_g_nmaxe(void){
         delay(1000);
     }
 
-    String stratum_pri                         = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PRIMARY,  PRIMARY_POOL_URL));
-    String stratum_fb                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_FALLBACK, FALLBACK_POOL_URL));
+    String stratum_pri                         = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
+    String stratum_fb                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
     
     g_nmaxe.connection.pool_primary.ssl        = (stratum_pri.indexOf("ssl") != -1);
     g_nmaxe.connection.pool_primary.url        = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
@@ -207,9 +207,11 @@ bool load_g_nmaxe(void){
     g_nmaxe.mstatus.block_hits                  = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     g_nmaxe.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     g_nmaxe.connection.client_connected         = false;
-    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
-    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
+    
+    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
     g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "d=15000"));
+
+    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
     g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=15000"));
     g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
     

@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.5.01q"
+#define CURRENT_FW_VERSION  "v2.5.01t"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -33,6 +33,7 @@
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
+    TASK_PRIORITY_SWARM    ,
     TASK_PRIORITY_PWR      ,
     TASK_PRIORITY_ASIC_INIT,
     TASK_PRIORITY_BTN      ,
@@ -43,7 +44,6 @@ enum{
     TASK_PRIORITY_MONITOR  ,
     TASK_PRIORITY_WIFI     ,
     TASK_PRIORITY_MARKET   ,
-    TASK_PRIORITY_SWARM    ,
     TASK_PRIORITY_CONFIG_MONITOR,
     TASK_PRIORITY_STRATUM  ,
     TASK_PRIORITY_MINER_TX ,

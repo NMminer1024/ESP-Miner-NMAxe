@@ -4,16 +4,16 @@
 #include <stdint.h>
 
 #define NVS_CONFIG_NAMESPACE "main"
-
 #define NVS_CONFIG_WIFI_SSID "wifissid"
 #define NVS_CONFIG_WIFI_PASS "wifipass"
 #define NVS_CONFIG_HOSTNAME "hostname"
-#define NVS_CONFIG_STRATUM_USER "stratumuser"
 
-#define NVS_CONFIG_STRATUM_PRIMARY "stratumurl1"
+#define NVS_CONFIG_STRATUM_USER_PRIMARY "stratumuser"
+#define NVS_CONFIG_STRATUM_URL_PRIMARY "stratumurl1"
 #define NVS_CONFIG_STRATUM_PASS_PRIMARY "stratumpass1"
 
-#define NVS_CONFIG_STRATUM_FALLBACK "stratumurl2"
+#define NVS_CONFIG_STRATUM_USER_FALLBACK "stratumuser2"
+#define NVS_CONFIG_STRATUM_URL_FALLBACK "stratumurl2"
 #define NVS_CONFIG_STRATUM_PASS_FALLBACK "stratumpass2"
 
 #define NVS_CONFIG_ASIC_FREQ "asicfrequency"
