@@ -138,8 +138,8 @@ export class EditComponent implements OnInit {
           
           stratumUser1: [info.stratumUser1, [Validators.required]],
           stratumUser2: [info.stratumUser2, [Validators.required]],
-          stratumPassword1: ['password', [Validators.required]],
-          stratumPassword2: ['password', [Validators.required]],
+          stratumPassword1: ['password'],
+          stratumPassword2: ['password'],
           coreVoltage: [info.coreVoltage, [Validators.required]],
           frequency: [info.frequency, [Validators.required]],
           coin: [info.coin, [Validators.required]],
