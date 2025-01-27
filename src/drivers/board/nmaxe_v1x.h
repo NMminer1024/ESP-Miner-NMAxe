@@ -8,7 +8,8 @@
 #define PRIMARY_POOL_URL                               "stratum+tcp://public-pool.io:21496"
 #define FALLBACK_POOL_URL                              "stratum+tcp://solo.ckpool.org:3333"
 
-
+#define SCREEN_WIDTH                                   240
+#define SCREEN_HEIGHT                                  135
 
 #define NM_AXE_BUTTON_BOOT_PIN                         0
 #define NM_AXE_BUTTON_USER_PIN                         12

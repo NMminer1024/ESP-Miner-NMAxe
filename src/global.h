@@ -9,12 +9,9 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.5.01r"
+#define CURRENT_FW_VERSION  "v2.5.01a"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
-
-#define SCREEN_WIDTH  240
-#define SCREEN_HEIGHT 135
 
 #define ASIC_TEMP_DANGER    (65.0f)
 #define VCORE_TEMP_DANGER   (90.0f)
