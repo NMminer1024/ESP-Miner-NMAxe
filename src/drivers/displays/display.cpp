@@ -582,7 +582,7 @@ static void ui_miner_page_update(){
   //block hit
   lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
   //Diff
-  lv_label_set_text_fmt(lb_diff, "%s/%s/%s", last_diff.c_str(), best_session.c_str(), best_ever.c_str());
+  lv_label_set_text_fmt(lb_diff, "%s/%s/%s", best_session.c_str(), best_ever.c_str(), network_diff.c_str());
   //Temp
   lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_nmaxe.board.temp_vcore, 2).c_str(), formatNumber(g_nmaxe.asic.temp, 2).c_str());
   //WiFi
