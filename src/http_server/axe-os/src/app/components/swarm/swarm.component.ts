@@ -5,7 +5,7 @@ import {Subscription, interval} from 'rxjs';
 import {BehaviorSubject, startWith, switchMap} from 'rxjs';
 import {HashSuffixPipe} from "../../pipes/hash-suffix.pipe";
 import {DiffSuffixPipe} from "../../pipes/diff-suffix.pipe";
-import { DateAgoPipe } from '../../pipes/date-ago.pipe'; 
+import { DateAgoPipe } from '../../pipes/date-ago.pipe';
 
 interface NMDevice {
   ip: string;
@@ -83,7 +83,7 @@ const TableSortFunctions = {
   [SortIndex.PoolDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.PoolDiff) - DiffSuffixPipe.revert(b.PoolDiff),
   [SortIndex.NetDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.NetDiff) - DiffSuffixPipe.revert(b.NetDiff),
   [SortIndex.LastDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.LastDiff) - DiffSuffixPipe.revert(b.LastDiff),
-  [SortIndex.BestDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.BestDiff) - DiffSuffixPipe.revert(b.BestDiff),
+  [SortIndex.BestDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.BestDiff.split("\r")[0]) - DiffSuffixPipe.revert(b.BestDiff.split("\r")[0]),
   [SortIndex.Valid]: (a: NMDevice, b: NMDevice) => a.Valid - b.Valid,
   [SortIndex.Power]: (a: NMDevice, b: NMDevice) => a.Power.localeCompare(b.Power),
   [SortIndex.Temp]: (a: NMDevice, b: NMDevice) => a.Temp - b.Temp,
