@@ -128,6 +128,16 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 
 ## Release Log
 ***
+### (2025.01.30) - v2.5.02
+- Add:
+  - Stratum user for primary and fallback.
+- Fixed:
+  - None.
+- Improved:
+  - Swarm.
+- Modify:
+  - None.
+
 
 ### (2025.01.25) - v2.5.01
 - Add:
