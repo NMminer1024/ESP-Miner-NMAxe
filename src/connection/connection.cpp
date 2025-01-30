@@ -1,8 +1,8 @@
 #include "logger.h"
 #include "connection.h"
 #include "global.h"
-#include "axe_http_server.h"  
-#include "axe_nvs_config.h"
+#include "http_server.h"  
+#include "nvs_config.h"
 
 #define CONFIG_TIMEOUT 60*5
 

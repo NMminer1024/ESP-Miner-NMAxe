@@ -3,7 +3,7 @@
 #include "logger.h"
 #include "monitor.h"
 #include "display.h"
-#include "axe_nvs_config.h"
+#include "nvs_config.h"
 
 OneButton boot_btn(NM_AXE_BUTTON_BOOT_PIN, true);
 OneButton user_btn(NM_AXE_BUTTON_USER_PIN, true);

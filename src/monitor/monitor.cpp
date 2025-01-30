@@ -1,18 +1,17 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
-#include "axe_nvs_config.h"
+#include "nvs_config.h"
 #include "monitor.h"
 #include "logger.h"
 #include "helper.h"
 #include "global.h"
 #include "tmp102.h"
 
-static WiFiUDP*       udp_client;
-static const char*    udp_client_addr = "255.255.255.255"; 
-static const int      udp_client_port = 12345; 
-static const int      swarm_offline_timeout = 3*60*1000; //10min 
+#define UDP_BOARDCAST_ADDR    IPAddress(255,255,255,255)
+#define UDP_BOARDCAST_PORT    (12345)
+#define SWARM_OFFLINE_TIMEOUT (3*60*1000) //3min
 
-
+static WiFiUDP*                udp_client;
 
 void monitor_thread_entry(void *args){
   char *name = (char*)malloc(20);
@@ -159,7 +158,7 @@ void swarm_thread_entry(void *args){
   udp_client = new(buffer) WiFiUDP();
 
   //udp status boardcast begin
-  udp_client->begin(udp_client_port);
+  udp_client->begin(UDP_BOARDCAST_PORT);
 
   uint64_t swarm_cnt = 0;
 
@@ -206,7 +205,7 @@ void swarm_thread_entry(void *args){
 
               json["Lastseen"] = millis() - last_seen_map[it->first];
               //remove offline device
-              if(json["Lastseen"].as<uint32_t>() > swarm_offline_timeout){
+              if(json["Lastseen"].as<uint32_t>() > SWARM_OFFLINE_TIMEOUT){
                 g_nmaxe.swarm.erase(it->first);
                 continue;
               }
@@ -250,7 +249,7 @@ void swarm_thread_entry(void *args){
         char jsonBuffer[512] = {0,};
         size_t n = serializeJson(json, jsonBuffer);
         //broadcast status to udp
-        udp_client->beginPacket(udp_client_addr, udp_client_port);
+        udp_client->beginPacket(UDP_BOARDCAST_ADDR, UDP_BOARDCAST_PORT);
         udp_client->write((uint8_t*)jsonBuffer, n);
         udp_client->endPacket();
 

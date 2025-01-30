@@ -5,8 +5,8 @@
 #include "ArduinoJson.h"
 #include "logger.h"
 #include "global.h"
-#include "axe_http_server.h"
-#include "axe_nvs_config.h"
+#include "http_server.h"
+#include "nvs_config.h"
 
 static AsyncWebServer  webServer(80);
 WebSocketsServer       webSocket(81);
@@ -499,13 +499,13 @@ static void websocket_loop(void *args){
         if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
             webSocket.loop();
         }
+        delay(250);
         
         // static uint32_t cnt = 0;
         // if(cnt++ % 20 == 0){
         //     UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(NULL);
         //     LOG_D("%s free stack: %d", name, highWaterMark);
         // }
-        delay(500);
     }
 }
 

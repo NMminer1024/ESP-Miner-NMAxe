@@ -1,4 +1,4 @@
-#include "axe_nvs_config.h"
+#include "nvs_config.h"
 #include "esp_log.h"
 #include <nvs_flash.h>
 #include <nvs.h>

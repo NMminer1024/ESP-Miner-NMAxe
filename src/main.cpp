@@ -8,8 +8,8 @@
 #include "Wire.h"
 #include "led.h"
 #include "market.h"
-#include "axe_http_server.h"
-#include "axe_nvs_config.h"
+#include "http_server.h"
+#include "nvs_config.h"
 
 TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, stratumTask, minerTxTask, minerRxTask;
 
