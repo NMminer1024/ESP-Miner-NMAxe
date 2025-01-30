@@ -81,7 +81,7 @@ void market_thread_entry(void *args){
         }
 
         if(g_nmaxe.ota.ota_running)break;
-        delay(500);
+        delay(200);
     }
 
     g_nmaxe.market->~MarketClass();
