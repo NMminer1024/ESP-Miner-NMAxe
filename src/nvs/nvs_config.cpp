@@ -234,9 +234,17 @@ bool load_g_nmaxe(void){
     g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     g_nmaxe.coin.toUpperCase();
     g_nmaxe.miner                               = NULL;
-    g_nmaxe.market                              = new MarketClass(MARKET_HOST, MARKET_PORT, MARKET_URL, g_nmaxe.coin + "_USDT");
-    g_nmaxe.stratum                             = new StratumClass(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use, 10);
-    g_nmaxe.power                               = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
+
+    void* market_buf                            = psramAllocator(sizeof(MarketClass));
+    void* stratum_buf                           = psramAllocator(sizeof(StratumClass));
+    void* power_buf                             = psramAllocator(sizeof(NMAxePowerClass));
+    if(!market_buf || !stratum_buf || !power_buf){
+        LOG_E("Failed to allocate memory in PSRAM for market, stratum or power class");
+        return false;
+    }
+    g_nmaxe.market                              = new(market_buf)  MarketClass(MARKET_HOST, MARKET_PORT, MARKET_URL, g_nmaxe.coin + "_USDT");
+    g_nmaxe.stratum                             = new(stratum_buf) StratumClass(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use, 10);
+    g_nmaxe.power                               = new(power_buf)   NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
                                                                       {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},
                                                                        NM_AXE_POWER_BM13xx_VCORE_REGULATOR_PWM_PIN, NM_AXE_POWER_BM13xx_VCORE_P_GOOD_DET_PIN, NM_AXE_POWER_BM13xx_VBUS_PLUG_SENSE_DET_PIN);
     return true;
