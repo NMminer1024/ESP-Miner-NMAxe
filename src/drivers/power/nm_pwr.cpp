@@ -131,8 +131,8 @@ void power_thread_entry(void *args){
         delay(1000);
     }
     while (!g_nmaxe.preference.fan.self_test){
-        LOG_W("Fan self test %d/%d...", g_nmaxe.preference.fan.rpm, FAN_FULL_RPM_MIN);
         delay(1000);
+        LOG_W("Fan self test %d/%d...", g_nmaxe.preference.fan.rpm, FAN_FULL_RPM_MIN);
     }
     
     //set vdd_1v8 and pll_0v8 power

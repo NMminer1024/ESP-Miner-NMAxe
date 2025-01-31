@@ -1354,7 +1354,7 @@ void ui_thread_entry(void *args){
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
   while(!g_nmaxe.market->updated){
     static uint8_t cnt = 0;
-    ui_loading_str_update(market_con_str[cnt++ % 4] , 0xFFFFFF, false);
+    ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_nmaxe.coin).c_str(), 0xFFFFFF, false);
     if(g_nmaxe.market->timeout){
       ui_loading_str_update("Market update timeout!", 0xFF0000, false);
       delay(500);
