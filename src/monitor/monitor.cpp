@@ -27,7 +27,7 @@ void monitor_thread_entry(void *args){
   while(true){
       //thread delay 1000ms
       delay(1000);
-
+      
       g_nmaxe.mstatus.uptime_ever++;
       g_nmaxe.mstatus.uptime_session++;
 

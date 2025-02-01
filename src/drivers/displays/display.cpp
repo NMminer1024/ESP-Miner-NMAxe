@@ -580,7 +580,13 @@ static void ui_miner_page_update(){
   //hashrate unit
   lv_label_set_text_fmt(lb_hr_unit, "%s", hashuint.c_str());
   //block hit
-  lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
+  if(g_nmaxe.mstatus.block_hits <= 9){
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
+  }else if (g_nmaxe.mstatus.block_hits <= 99){
+    lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 50); 
+    lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_28, LV_PART_MAIN);
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
+  }
   //Diff
   lv_label_set_text_fmt(lb_diff, "%s/%s/%s", best_session.c_str(), best_ever.c_str(), network_diff.c_str());
   //Temp
