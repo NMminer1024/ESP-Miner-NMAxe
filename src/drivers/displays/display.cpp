@@ -109,6 +109,21 @@ static void ui_drv_register(void){
 
 static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *hr_realtime_page = NULL;
+  const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL;
+
+  if(g_nmaxe.board.hw_model == "NMAxe"){
+    p_loading_img = &loading_page_img;
+    p_config_img = &config_page_img_nmaxe;
+    p_mining_img = &mining_page_img_nmaxe;
+    p_status_img = &status_page_img;
+  }
+  else if(g_nmaxe.board.hw_model == "NMAxe-Gamma"){
+    p_loading_img = &loading_page_img;
+    p_config_img = &config_page_img_nmaxe_gamma;
+    p_mining_img = &mining_page_img_nmaxe_gamma;
+    p_status_img = &status_page_img;
+  }
+  
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
   //create parent object
@@ -132,7 +147,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_border_width(loading_page, 0, 0);
   lv_obj_set_scrollbar_mode(loading_page, LV_SCROLLBAR_MODE_OFF); 
   lv_obj_t *loading_img_obj = lv_img_create(loading_page);
-  lv_img_set_src(loading_img_obj, &loading_img);
+  lv_img_set_src(loading_img_obj, p_loading_img);
   lv_obj_set_size(loading_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(loading_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create config page
@@ -143,7 +158,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_border_width(config_page, 0, 0);
   lv_obj_set_scrollbar_mode(config_page, LV_SCROLLBAR_MODE_OFF); 
   lv_obj_t *config_img_obj = lv_img_create(config_page);
-  lv_img_set_src(config_img_obj, &config_img);
+  lv_img_set_src(config_img_obj, p_config_img);
   lv_obj_set_size(config_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(config_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create miner page  
@@ -154,7 +169,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_border_width(miner_page, 0, 0);
   lv_obj_set_scrollbar_mode(miner_page, LV_SCROLLBAR_MODE_OFF);
   lv_obj_t *miner_img_obj = lv_img_create(miner_page);
-  lv_img_set_src(miner_img_obj, &main_page_img);
+  lv_img_set_src(miner_img_obj, p_mining_img);
   lv_obj_set_size(miner_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(miner_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create dashboard page  
@@ -165,7 +180,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_border_width(dashboard_page, 0, 0);
   lv_obj_set_scrollbar_mode(dashboard_page, LV_SCROLLBAR_MODE_OFF);
   lv_obj_t *dashboard_img_obj = lv_img_create(dashboard_page);
-  lv_img_set_src(dashboard_img_obj, &status_page_img);
+  lv_img_set_src(dashboard_img_obj, p_status_img);
   lv_obj_set_size(dashboard_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(dashboard_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create health page  

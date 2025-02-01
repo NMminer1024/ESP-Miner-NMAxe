@@ -61,6 +61,7 @@ void setup() {
   while (WL_CONNECTED != g_nmaxe.connection.wifi.status_param.status){
     delay(10);
   }
+  
   /************************************************************* INIT SWARM *************************************************************/
   taskName = "(swarm)";
   xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, NULL, 1);

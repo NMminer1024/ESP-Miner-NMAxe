@@ -167,7 +167,7 @@ void BM1366::frequency_ramp_up(float target_frequency){
 
 uint8_t BM1366::init(uint64_t freq, int diff){
     for (int i = 0; i < 3; i++) {
-        this->_set_version_mask(BM1366_DEFAULT_VSERSION_MASK);
+        this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
     }
 
     // read register 00 on all chips

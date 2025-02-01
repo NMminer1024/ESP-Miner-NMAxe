@@ -3,18 +3,14 @@
 #include <Arduino.h>
 #include "stratum.h"
 #include <map>
-
-#if defined(ASIC_BM1366)
 #include "bm1366.h"
-#define  ASIC_DIFF_THR  BM1366_DIFF_THR
-#elif defined(ASIC_BM1370)
 #include "bm1370.h"
-#define ASIC_DIFF_THR   BM1370_DIFF_THR
-#endif
 
 #define ESP32_TO_BM13xx_INIT_BUAD 115200
 #define ESP32_TO_BM13xx_WORK_BUAD 1000000
 
+#define BM1366_DIFF_THR 512
+#define BM1370_DIFF_THR 1024
 
 typedef struct{
     double   _3m;
@@ -25,6 +21,7 @@ typedef struct{
 class AsicMinerClass{
 private:
     BMxxx                       *_asic;  
+    float                       _asic_diff_thr;
     uint8_t                     _asic_count;
     asic_job                    _asic_job_now;
     std::map<uint8_t, asic_job> _asic_job_map;

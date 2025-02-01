@@ -7,15 +7,9 @@
 #include <limits> 
 #include "global.h"
 #include "csha256.h"
-#include "helper.h"
 
-
-//Asic chip instance
-#if defined(ASIC_BM1366)
-BMxxx *asic_instance  = new BM1366(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-#elif defined(ASIC_BM1370)
-BMxxx *asic_instance  = new BM1370(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-#endif
+static BMxxx *asic_instance = NULL;
+static double default_asic_diff_thr = 0.0f;
 
 AsicMinerClass::AsicMinerClass(BMxxx *asic){
     this->_asic = asic;
@@ -259,11 +253,21 @@ void miner_asic_init_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
+
+    if(g_nmaxe.board.hw_model == "NMAxe"){
+        default_asic_diff_thr = BM1366_DIFF_THR;
+        asic_instance         = new BM1366(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+    }
+    else if(g_nmaxe.board.hw_model == "NMAxe-Gamma"){
+        default_asic_diff_thr = BM1370_DIFF_THR;
+        asic_instance         = new BM1370(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+    }
+
     //miner instance
     g_nmaxe.miner = new AsicMinerClass(asic_instance);
 
     //begin asic hardware
-    if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, ASIC_DIFF_THR)){
+    if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, default_asic_diff_thr)){
         while (true){
             LOG_E("Miner asic init failed!");
             delay(1000);
@@ -314,8 +318,8 @@ void miner_asic_tx_thread_entry(void *args){
             if(!g_nmaxe.stratum->is_subscribed()) break;
 
             //set asic diff as pool diff if pool diff < initial asic diff
-            if(g_nmaxe.stratum->get_pool_difficulty() <= ASIC_DIFF_THR){
-                static double last_diff = ASIC_DIFF_THR;
+            if(g_nmaxe.stratum->get_pool_difficulty() <= default_asic_diff_thr){
+                static double last_diff = default_asic_diff_thr;
                 if(g_nmaxe.stratum->get_pool_difficulty() != last_diff){
                     LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str());
                     last_diff = g_nmaxe.stratum->get_pool_difficulty();
