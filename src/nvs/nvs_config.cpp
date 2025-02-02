@@ -216,9 +216,9 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.pool_fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
     g_nmaxe.connection.pool_use                 = g_nmaxe.connection.pool_primary;
 
-    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
+    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, PRIMARY_USER));
     g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "d=15000"));
-    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
+    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, FALLBACK_USER));
     g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=15000"));
     g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
 
@@ -254,7 +254,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     g_nmaxe.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 99);
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
+    g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "XEC"));
     g_nmaxe.coin.toUpperCase();
     g_nmaxe.miner                               = NULL;
 
