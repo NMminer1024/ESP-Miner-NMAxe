@@ -287,6 +287,8 @@ static void post_restart(AsyncWebServerRequest * request){
 }
 static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
     static uint16_t SCRATCH_BUFSIZE = 512;
+    AsyncWebServerResponse *response = NULL;
+
     LOG_W("Update Settings Request, Index: %d, Total: %d", index, total);
     if (total >= SCRATCH_BUFSIZE) {
         request->send(500, "text/plain", "Content too long");
@@ -304,17 +306,23 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         StaticJsonDocument<1024> root;
         DeserializationError error = deserializeJson(root, buffer);
         if(error){
-            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+            response = request->beginResponse(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+            response->addHeader("Access-Control-Allow-Origin", "*");
+            response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+            response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+            request->send(response);
             free(buffer);
             return;
         }
         if(!root.is<JsonObject>()){
-            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+            response = request->beginResponse(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+            response->addHeader("Access-Control-Allow-Origin", "*");
+            response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+            response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+            request->send(response);
             free(buffer);
             return;
         }
-
-
 
         //primary pool
         if(root.containsKey("stratumUser1")){
@@ -326,10 +334,6 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         if(root.containsKey("stratumPassword1")){
             nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_PRIMARY,root["stratumPassword1"].as<String>().c_str());
         }
-
-
-
-
         //fallback pool
         if(root.containsKey("stratumUser2")){
             nvs_config_set_string(NVS_CONFIG_STRATUM_USER_FALLBACK,root["stratumUser2"].as<String>().c_str());
@@ -340,8 +344,6 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         if(root.containsKey("stratumPassword2")){
             nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK,root["stratumPassword2"].as<String>().c_str());
         }
-
-
         if(root.containsKey("ssid")){
             nvs_config_set_string(NVS_CONFIG_WIFI_SSID,root["ssid"].as<String>().c_str());
         }
@@ -398,7 +400,12 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
             String value = kv.value().as<String>();
             LOG_I("Key: %s, Value: %s", key.c_str(), value.c_str());
         }
-        request->send(200, "application/json", "{\"status\":\"success\"}");
+
+        response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+        response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+        request->send(response);
     }
     free(buffer);
 }
@@ -444,8 +451,13 @@ static void handleFileUpload(AsyncWebServerRequest *request, const String& filen
     }
     delay(1);//yield to avoid WDT and UI thread freeze 
     if (final) {
+        AsyncWebServerResponse *response = NULL;
         if (Update.end(true)) {
-            request->send(200, "text/plain", "OTA Update Successful. Rebooting...");
+            response = request->beginResponse(200, "text/plain", "OTA Update Successful. Rebooting...");
+            response->addHeader("Access-Control-Allow-Origin", "*");
+            response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+            response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+            request->send(response);
             LOG_I("Update Success: %u bytes, rebooting...", index + len);
             g_nmaxe.ota.ota_running = false;
             g_nmaxe.ota.progress = 100;
@@ -453,7 +465,11 @@ static void handleFileUpload(AsyncWebServerRequest *request, const String& filen
             ESP.restart();
         } else {
             Update.printError(Serial);
-            request->send(500, "text/plain", "OTA Update Failed. End error.");
+            response = request->beginResponse(500, "text/plain", "OTA Update Failed. End error.");
+            response->addHeader("Access-Control-Allow-Origin", "*");
+            response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+            response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+            request->send(response);
         }
     }
 }
