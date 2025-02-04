@@ -166,14 +166,12 @@ bool StratumClass::clear_sub_extranonce2(){
     return (this->_sub_info.extranonce2 == "0");
 }   
 
-bool StratumClass::set_sub_extranonce1(String extranonce1){
+void StratumClass::set_sub_extranonce1(String extranonce1){
     this->_sub_info.extranonce1 = extranonce1;
-    return true;
 }
 
-bool StratumClass::set_sub_extranonce2_size(int size){
+void StratumClass::set_sub_extranonce2_size(int size){
     this->_sub_info.extranonce2_size = size;
-    return true;
 }
 
 bool StratumClass::subscribe(){
@@ -182,7 +180,7 @@ bool StratumClass::subscribe(){
     this->_is_subscribed = false;
     
     uint32_t id = this->_get_msg_id();
-    String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.subscribe\", \"params\": [\"" +  BOARD_MODEL  +"\"]}\n";
+    String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.subscribe\", \"params\": [\"" +  g_nmaxe.board.hw_model + "/" + CURRENT_FW_VERSION +"\"]}\n";
     if(this->pool.write(payload) == 0){
         LOG_E("Failed to send mining.subscribe request");
         return false;
@@ -243,7 +241,7 @@ bool StratumClass::suggest_difficulty(){
     return true;
 }
 
-bool StratumClass::cfg_version_rolling(){
+bool StratumClass::config_version_rolling(){
     uint32_t id = this->_get_msg_id();
     String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.configure\", \"params\": [[\"version-rolling\"], {\"version-rolling.mask\": \"ffffffff\"}]}\n";
     if(this->pool.write(payload) != payload.length()){
@@ -303,24 +301,6 @@ bool StratumClass::is_submit_timeout(){
     }
     return timeout;
 }
-
-bool StratumClass::set_subscribe(bool status){
-    this->_is_subscribed = status;
-    return true;
-}
-
-bool StratumClass::set_authorize(bool status){
-    this->_is_authorized = status;
-    return true;
-}
-
-bool StratumClass::is_subscribed(){
-    return this->_is_subscribed;
-}
-
-bool StratumClass::is_authorized(){
-    return this->_is_authorized;
-}   
 
 size_t StratumClass::push_job_cache(pool_job_data_t job){
     LOG_D("");
@@ -390,24 +370,6 @@ stratum_rsp StratumClass::get_method_rsp_by_id(uint32_t id){
     return rsp;
 }
 
-bool StratumClass::set_version_mask(uint32_t mask){
-    this->_vr_mask = mask;
-    return true;
-}
-
-uint32_t StratumClass::get_version_mask(){
-    return this->_vr_mask;
-}
-
-bool StratumClass::set_pool_difficulty(double diff){
-    this->_pool_difficulty = diff;
-    return true;
-}
-
-double StratumClass::get_pool_difficulty(){
-    return this->_pool_difficulty;
-}
-
 void stratum_thread_entry(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
@@ -454,7 +416,7 @@ void stratum_thread_entry(void *args){
             g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
             g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool_use.ssl);
             g_nmaxe.stratum->pool.connect();
-            g_nmaxe.mstatus.last_diff = 0;
+            g_nmaxe.mstatus.diff.last = 0;
             delay(5000);
             continue;
         }else p_retry = 0;
@@ -470,7 +432,7 @@ void stratum_thread_entry(void *args){
                 delay(100);
                 continue;
             }
-            if(!g_nmaxe.stratum->cfg_version_rolling()){
+            if(!g_nmaxe.stratum->config_version_rolling()){
                 LOG_W("Failed to config version rolling, retrying in 5 seconds...");
                 delay(100);
                 continue;

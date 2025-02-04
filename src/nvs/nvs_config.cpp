@@ -1,4 +1,4 @@
-#include "axe_nvs_config.h"
+#include "nvs_config.h"
 #include "esp_log.h"
 #include <nvs_flash.h>
 #include <nvs.h>
@@ -164,6 +164,21 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
     return;
 }
 
+board_model_t get_board_model(){
+  board_model_t model = BOARD_UNKNOWN;
+  pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLDOWN);
+  pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLDOWN);
+  delay(100);
+  
+  uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
+  uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
+
+  if(sel0 == HIGH && sel1 == LOW) model = NMAXE;
+  else if(sel0 == LOW && sel1 == LOW) model = NMAXE_GAMMA;
+  else model = BOARD_UNKNOWN;
+
+  return model;
+}
 
 bool load_g_nmaxe(void){
     esp_err_t ret = nvs_flash_init();
@@ -177,26 +192,43 @@ bool load_g_nmaxe(void){
         delay(1000);
     }
 
-    String stratum_pri                         = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
-    String stratum_fb                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
+    board_model_t model = get_board_model();
+
+    if(model == NMAXE){
+        g_nmaxe.board.hw_model = "NMAxe";
+        g_nmaxe.asic.model     = "BM1366";
+    }else if(model == NMAXE_GAMMA){
+        g_nmaxe.board.hw_model = "NMAxe-Gamma";
+        g_nmaxe.asic.model     = "BM1370";
+    }else if(model == BOARD_UNKNOWN){
+        LOG_E("Unknown board model, please check the model select pins.");
+        return false;
+    }
     
-    g_nmaxe.connection.pool_primary.ssl        = (stratum_pri.indexOf("ssl") != -1);
-    g_nmaxe.connection.pool_primary.url        = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
-    g_nmaxe.connection.pool_primary.port       = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1, stratum_pri.length()).toInt();
+    String stratum_pri                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
+    String stratum_fb                           = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
+    
+    g_nmaxe.connection.pool_primary.ssl         = (stratum_pri.indexOf("ssl") != -1);
+    g_nmaxe.connection.pool_primary.url         = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
+    g_nmaxe.connection.pool_primary.port        = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1, stratum_pri.length()).toInt();
+    g_nmaxe.connection.pool_fallback.ssl        = (stratum_fb.indexOf("ssl") != -1);
+    g_nmaxe.connection.pool_fallback.url        = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
+    g_nmaxe.connection.pool_fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
+    g_nmaxe.connection.pool_use                 = g_nmaxe.connection.pool_primary;
 
-    g_nmaxe.connection.pool_fallback.ssl       = (stratum_fb.indexOf("ssl") != -1);
-    g_nmaxe.connection.pool_fallback.url       = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
-    g_nmaxe.connection.pool_fallback.port      = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
+    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, PRIMARY_USER));
+    g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "d=15000"));
+    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, FALLBACK_USER));
+    g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=15000"));
+    g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
 
-    g_nmaxe.connection.pool_use                = g_nmaxe.connection.pool_primary;
 
     g_nmaxe.board.fw_version                    = CURRENT_FW_VERSION;
     g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
-    g_nmaxe.board.hw_model                      = BOARD_MODEL;
     g_nmaxe.board.devcie_code                   = gen_device_code();
-    g_nmaxe.board.temp_mcu                      = 0.0f;
-    g_nmaxe.board.temp_vcore                    = 0.0f;
-    g_nmaxe.asic.temp                           = 0.0f;
+    g_nmaxe.temp.mcu                      = 0.0f;
+    g_nmaxe.temp.vcore                    = 0.0f;
+    g_nmaxe.temp.asic                           = 0.0f;
     g_nmaxe.mstatus.nvs_save_xsem               = xSemaphoreCreateCounting(1, 0);
     g_nmaxe.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
     g_nmaxe.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
@@ -207,20 +239,11 @@ bool load_g_nmaxe(void){
     g_nmaxe.mstatus.block_hits                  = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     g_nmaxe.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     g_nmaxe.connection.client_connected         = false;
-    
-    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
-    g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "d=15000"));
-
-    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"));
-    g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=15000"));
-    g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
-    
     g_nmaxe.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
     g_nmaxe.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     g_nmaxe.board.hostname                      = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_nmaxe.connection.wifi.softap_param.ssid.c_str()));
     g_nmaxe.connection.stratum_update           = millis();
-    g_nmaxe.mstatus.best_ever                   = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
-    g_nmaxe.asic.type                           = String(nvs_config_get_string(NVS_CONFIG_ASIC_MODEL, ASIC_MODEL));
+    g_nmaxe.mstatus.diff.best_ever                   = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 575);
     g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1300);
     g_nmaxe.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
@@ -231,11 +254,20 @@ bool load_g_nmaxe(void){
     g_nmaxe.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     g_nmaxe.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 99);
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "btc"));
+    g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "XEC"));
+    g_nmaxe.coin.toUpperCase();
     g_nmaxe.miner                               = NULL;
-    g_nmaxe.market                              = new MarketClass(MARKET_URL, MARKET_PORT, "/ws/" + g_nmaxe.coin + "usdt@avgPrice");
-    g_nmaxe.stratum                             = new StratumClass(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use, 10);
-    g_nmaxe.power                               = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
+
+    void* market_buf                            = psramAllocator(sizeof(MarketClass));
+    void* stratum_buf                           = psramAllocator(sizeof(StratumClass));
+    void* power_buf                             = psramAllocator(sizeof(NMAxePowerClass));
+    if(!market_buf || !stratum_buf || !power_buf){
+        LOG_E("Failed to allocate memory in PSRAM for market, stratum or power class");
+        return false;
+    }
+    g_nmaxe.market                              = new(market_buf)  MarketClass(MARKET_HOST, MARKET_PORT, MARKET_URL, g_nmaxe.coin + "_USDT");
+    g_nmaxe.stratum                             = new(stratum_buf) StratumClass(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use, 10);
+    g_nmaxe.power                               = new(power_buf)   NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
                                                                       {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},
                                                                        NM_AXE_POWER_BM13xx_VCORE_REGULATOR_PWM_PIN, NM_AXE_POWER_BM13xx_VCORE_P_GOOD_DET_PIN, NM_AXE_POWER_BM13xx_VBUS_PLUG_SENSE_DET_PIN);
     return true;

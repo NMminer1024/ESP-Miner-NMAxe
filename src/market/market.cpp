@@ -14,15 +14,18 @@ static void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
             break;
         case WStype_CONNECTED:
             LOG_I("Market Connected");
+            g_nmaxe.market->subscribe();
             break;
         case WStype_TEXT:{
-                StaticJsonDocument<128> doc;
+                StaticJsonDocument<512> doc;
                 DeserializationError error = deserializeJson(doc, payload, length);
                 if (error == DeserializationError::Ok) {
-                    const char* event = doc["e"];
-                    if (strcmp(event, "avgPrice") == 0) {
-                        g_nmaxe.market->updated = true;
-                        g_nmaxe.market->price = doc["w"].as<float>();
+                    if(doc.containsKey("result")){
+                        if(doc["result"].containsKey("last")){
+                            g_nmaxe.market->updated = true;
+                            g_nmaxe.market->price = doc["result"]["last"].as<float>();
+                            LOG_D("%s_USDT price: %f", g_nmaxe.coin.c_str(), g_nmaxe.market->price);
+                        }
                     }
                 } else {
                     LOG_W("Failed to parse JSON");
@@ -32,26 +35,49 @@ static void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
         case WStype_BIN:
             break;
         case WStype_PING:
+            LOG_I("Market PING");
             break;
         case WStype_PONG:
+            LOG_I("Market PONG");
             break;
         default:
             break;
     }
 }
 
-MarketClass::MarketClass(String host, uint16_t port, String url){   
+MarketClass::MarketClass(String host, uint16_t port, String url, String symbol) {
     this->timeout = false;
     this->updated = false;
+    this->_host = host;
+    this->_port = port;
+    this->_url = url;
     this->_wsclient = new WebSocketsClient();
-    this->_wsclient->onEvent(onWebSocketEvent);
-    this->_wsclient->beginSSL(host, port, url);
-    this->_wsclient->setReconnectInterval(5000);
+
+    StaticJsonDocument<256> doc;
+    doc["time"] = millis();
+    doc["channel"] = "spot.tickers";
+    doc["event"]   = "subscribe";
+    JsonArray payload = doc.createNestedArray("payload");
+    payload.add(symbol);
+    serializeJson(doc, this->_subscribeMessage);
 }
 
 MarketClass::~MarketClass(){
     delete this->_wsclient;
 }
+
+bool MarketClass::connect(){
+    if(this->_wsclient == NULL) return false;
+    this->_wsclient->onEvent(onWebSocketEvent);
+    this->_wsclient->setReconnectInterval(2000);
+    this->_wsclient->beginSSL(this->_host, this->_port, this->_url);
+    return true;
+}
+
+bool MarketClass::subscribe(){
+    return this->_wsclient->sendTXT(this->_subscribeMessage);
+}
+
 
 void MarketClass::loop(){
     this->_wsclient->loop();
@@ -68,6 +94,8 @@ void market_thread_entry(void *args){
         delay(1000);
     }
 
+    g_nmaxe.market->connect();
+
     while(true){
         if(WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status){
             g_nmaxe.market->loop();
@@ -81,10 +109,11 @@ void market_thread_entry(void *args){
         }
 
         if(g_nmaxe.ota.ota_running)break;
-        delay(200);
+        delay(250);
     }
 
     g_nmaxe.market->~MarketClass();
     LOG_W("Market thread exit.");
     vTaskDelete(NULL);
 }
+

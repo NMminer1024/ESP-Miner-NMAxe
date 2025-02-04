@@ -109,6 +109,21 @@ static void ui_drv_register(void){
 
 static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *hr_realtime_page = NULL;
+  const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL;
+
+  if(g_nmaxe.board.hw_model == "NMAxe"){
+    p_loading_img = &loading_page_img;
+    p_config_img = &config_page_img_nmaxe;
+    p_mining_img = &mining_page_img_nmaxe;
+    p_status_img = &status_page_img;
+  }
+  else if(g_nmaxe.board.hw_model == "NMAxe-Gamma"){
+    p_loading_img = &loading_page_img;
+    p_config_img = &config_page_img_nmaxe_gamma;
+    p_mining_img = &mining_page_img_nmaxe_gamma;
+    p_status_img = &status_page_img;
+  }
+  
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
   //create parent object
@@ -132,7 +147,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_border_width(loading_page, 0, 0);
   lv_obj_set_scrollbar_mode(loading_page, LV_SCROLLBAR_MODE_OFF); 
   lv_obj_t *loading_img_obj = lv_img_create(loading_page);
-  lv_img_set_src(loading_img_obj, &loading_img);
+  lv_img_set_src(loading_img_obj, p_loading_img);
   lv_obj_set_size(loading_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(loading_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create config page
@@ -143,7 +158,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_border_width(config_page, 0, 0);
   lv_obj_set_scrollbar_mode(config_page, LV_SCROLLBAR_MODE_OFF); 
   lv_obj_t *config_img_obj = lv_img_create(config_page);
-  lv_img_set_src(config_img_obj, &config_img);
+  lv_img_set_src(config_img_obj, p_config_img);
   lv_obj_set_size(config_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(config_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create miner page  
@@ -154,7 +169,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_border_width(miner_page, 0, 0);
   lv_obj_set_scrollbar_mode(miner_page, LV_SCROLLBAR_MODE_OFF);
   lv_obj_t *miner_img_obj = lv_img_create(miner_page);
-  lv_img_set_src(miner_img_obj, &main_page_img);
+  lv_img_set_src(miner_img_obj, p_mining_img);
   lv_obj_set_size(miner_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(miner_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create dashboard page  
@@ -165,7 +180,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_border_width(dashboard_page, 0, 0);
   lv_obj_set_scrollbar_mode(dashboard_page, LV_SCROLLBAR_MODE_OFF);
   lv_obj_t *dashboard_img_obj = lv_img_create(dashboard_page);
-  lv_img_set_src(dashboard_img_obj, &status_page_img);
+  lv_img_set_src(dashboard_img_obj, p_status_img);
   lv_obj_set_size(dashboard_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(dashboard_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create health page  
@@ -517,25 +532,25 @@ static void ui_miner_page_update(){
   String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session);
   String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
   String hashuint = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
-  String last_diff = formatNumber(g_nmaxe.mstatus.last_diff, 1);
-  String best_session = formatNumber(g_nmaxe.mstatus.best_session, 1);
-  String best_ever = formatNumber(g_nmaxe.mstatus.best_ever, 1);
-  String network_diff = formatNumber(g_nmaxe.mstatus.network_diff, 4);
+  String last_diff = formatNumber(g_nmaxe.mstatus.diff.last, 1);
+  String best_session = formatNumber(g_nmaxe.mstatus.diff.best_session, 1);
+  String best_ever = formatNumber(g_nmaxe.mstatus.diff.best_ever, 1);
+  String network_diff = formatNumber(g_nmaxe.mstatus.diff.network, 4);
   String voltage = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
   String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
   String price = (!g_nmaxe.market->timeout) ? formatNumber(g_nmaxe.market->price, 6) : "";
 
   //diff symbol color update
-  if(g_nmaxe.mstatus.last_diff != 0){//avoid the first time update
-    if(g_nmaxe.mstatus.last_diff == g_nmaxe.mstatus.best_session) font_color = lv_color_hex(0x00ff00);//green
-    else if(g_nmaxe.mstatus.last_diff == g_nmaxe.mstatus.best_ever) font_color = lv_color_hex(0xffa500);//yellow
+  if(g_nmaxe.mstatus.diff.last != 0){//avoid the first time update
+    if(g_nmaxe.mstatus.diff.last == g_nmaxe.mstatus.diff.best_session) font_color = lv_color_hex(0x00ff00);//green
+    else if(g_nmaxe.mstatus.diff.last == g_nmaxe.mstatus.diff.best_ever) font_color = lv_color_hex(0xffa500);//yellow
     else font_color = lv_color_hex(0xA9A9A9);//gray
     lv_obj_set_style_text_color(lb_diff_symbol, font_color, LV_PART_MAIN); 
   }
 
   //temp symbol color update
-  if(g_nmaxe.board.temp_vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
-  else if(g_nmaxe.board.temp_vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
+  if(g_nmaxe.temp.vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
+  else if(g_nmaxe.temp.vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
   else font_color = lv_color_hex(0x00ff00);//green
   lv_obj_set_style_text_color(lb_temp_symb, font_color, LV_PART_MAIN); 
 
@@ -580,11 +595,17 @@ static void ui_miner_page_update(){
   //hashrate unit
   lv_label_set_text_fmt(lb_hr_unit, "%s", hashuint.c_str());
   //block hit
-  lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
+  if(g_nmaxe.mstatus.block_hits <= 9){
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
+  }else if (g_nmaxe.mstatus.block_hits <= 99){
+    lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 50); 
+    lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_28, LV_PART_MAIN);
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
+  }
   //Diff
   lv_label_set_text_fmt(lb_diff, "%s/%s/%s", best_session.c_str(), best_ever.c_str(), network_diff.c_str());
   //Temp
-  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_nmaxe.board.temp_vcore, 2).c_str(), formatNumber(g_nmaxe.asic.temp, 2).c_str());
+  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_nmaxe.temp.vcore, 2).c_str(), formatNumber(g_nmaxe.temp.asic, 2).c_str());
   //WiFi
   lv_label_set_text_fmt(lb_wifi,   "%s", g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
   //uptime hms
@@ -888,7 +909,7 @@ static void ui_dashboard_page_update(){
   uint16_t pwr_angle            = arc_angle_full * (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
   uint16_t vcore_req_angle      = arc_angle_full * (g_nmaxe.asic.vcore_req/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
   uint16_t vcore_measure_angle  = arc_angle_full * (g_nmaxe.asic.vcore_measured /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
-  uint16_t asic_temp_angle      = arc_angle_full * (g_nmaxe.asic.temp - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
+  uint16_t asic_temp_angle      = arc_angle_full * (g_nmaxe.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
 
   lv_arc_set_angles(arc_vbus,  0, vbus_angle);
   lv_arc_set_angles(arc_power, 0, pwr_angle);
@@ -909,7 +930,7 @@ static void ui_dashboard_page_update(){
   //vcore_measure
   lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_nmaxe.asic.vcore_measured/1000.0, 3).c_str());
   //asic temp
-  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_nmaxe.asic.temp, 2).c_str());
+  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_nmaxe.temp.asic, 2).c_str());
 }
 
 static void ui_hr_healthy_page_update(double hashrate){
@@ -1354,7 +1375,7 @@ void ui_thread_entry(void *args){
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
   while(!g_nmaxe.market->updated){
     static uint8_t cnt = 0;
-    ui_loading_str_update(market_con_str[cnt++ % 4] , 0xFFFFFF, false);
+    ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_nmaxe.coin).c_str(), 0xFFFFFF, false);
     if(g_nmaxe.market->timeout){
       ui_loading_str_update("Market update timeout!", 0xFF0000, false);
       delay(500);

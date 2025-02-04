@@ -89,13 +89,13 @@ export class EditComponent implements OnInit {
   ];
 
   public Coin = [
-    {name: 'BTC', value: 'btc'},
-    {name: 'BCH', value: 'bch'},
-    // {name: 'BSV', value: 'bsv'},
-    // {name: 'FB', value: 'fb'},
-    // {name: 'SPACE', value: 'space'},
-    {name: 'XEC', value: 'xec'},
-    {name: 'DGB', value: 'dgb'},
+    {name: 'BTC', value: 'BTC'},
+    {name: 'BCH', value: 'BCH'},
+    {name: 'BSV', value: 'BSV'},
+    {name: 'DGB', value: 'DGB'},
+    {name: 'FB', value: 'FB'},
+    {name: 'SPACE', value: 'SPACE'},
+    {name: 'XEC', value: 'XEC'},
   ];
 
   public BM1368CoreVoltage = [

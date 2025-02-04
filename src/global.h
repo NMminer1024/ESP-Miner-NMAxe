@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.5.02"
+#define CURRENT_FW_VERSION  "v2.5.02t"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -47,6 +47,12 @@ enum{
     TASK_PRIORITY_MINER_RX     //highest priority
 };
 
+typedef enum {
+    NMAXE         = 0xa0,
+    NMAXE_GAMMA ,
+    BOARD_UNKNOWN = 0xff,
+} board_model_t;
+
 
 typedef struct{
     String      hostname;
@@ -54,11 +60,16 @@ typedef struct{
     String      hw_version;
     String      hw_model;
     String      devcie_code;
-    float       temp_mcu;
-    float       temp_vcore;
     uint16_t    vbus;//mV
     uint16_t    ibus;//mA
 }board_info_t;
+
+typedef struct{
+    float       mcu;
+    float       vcore;
+    float       asic;
+}temp_info_t;
+
 
 typedef struct{
     bool        is_auto_speed;
@@ -78,11 +89,10 @@ typedef struct{
 }led_info_t;
 
 typedef struct{
-    String    type;
+    String    model;
     uint16_t  frequency_req;//MHz
     uint16_t  vcore_req;//mV
     uint16_t  vcore_measured;//mV
-    float     temp;
 }asic_info_t;
 
 typedef struct{
@@ -108,17 +118,21 @@ typedef struct{
 }ota_info_t;
 
 typedef struct{
+    double              best_session;
+    double              best_ever;
+    double              pool;
+    double              last;
+    double              network;
+}diff_info_t;
+
+typedef struct{
     uint32_t            share_rejected;
     uint32_t            share_accepted;
     uint64_t            uptime_ever;
     uint64_t            uptime_session;
     hashrate_t          hashrate;
     uint16_t            block_hits;
-    double              best_session;
-    double              best_ever;
-    double              pool_diff;
-    double              last_diff;
-    double              network_diff;
+    diff_info_t         diff;
     SemaphoreHandle_t   nvs_save_xsem;//save status to NVS signal
     SemaphoreHandle_t   update_xsem;  //miner status update signal
 }miner_status_t;
@@ -138,6 +152,7 @@ typedef std::map<axe_ip_t, axe_info_t> swarm_map_t;
 
 typedef struct{
     board_info_t        board;
+    temp_info_t         temp;
     preference_info_t   preference;
     asic_info_t         asic;
     connect_info_t      connection;

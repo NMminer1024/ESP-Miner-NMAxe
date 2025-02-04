@@ -1,18 +1,17 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
-#include "axe_nvs_config.h"
+#include "nvs_config.h"
 #include "monitor.h"
 #include "logger.h"
 #include "helper.h"
 #include "global.h"
 #include "tmp102.h"
 
-static WiFiUDP*       udp_client;
-static const char*    udp_client_addr = "255.255.255.255"; 
-static const int      udp_client_port = 12345; 
-static const int      swarm_offline_timeout = 3*60*1000; //10min 
+#define UDP_BOARDCAST_ADDR    IPAddress(255,255,255,255)
+#define UDP_BOARDCAST_PORT    (12345)
+#define SWARM_OFFLINE_TIMEOUT (3*60*1000) //3min
 
-
+static WiFiUDP*                udp_client;
 
 void monitor_thread_entry(void *args){
   char *name = (char*)malloc(20);
@@ -28,7 +27,7 @@ void monitor_thread_entry(void *args){
   while(true){
       //thread delay 1000ms
       delay(1000);
-
+      
       g_nmaxe.mstatus.uptime_ever++;
       g_nmaxe.mstatus.uptime_session++;
 
@@ -41,9 +40,9 @@ void monitor_thread_entry(void *args){
         g_nmaxe.board.ibus = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_ibus() : g_nmaxe.board.ibus;
         g_nmaxe.asic.vcore_measured = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vcore() : g_nmaxe.asic.vcore_measured;
         //update board temperature
-        g_nmaxe.board.temp_mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
-        g_nmaxe.board.temp_vcore  = (temp_cnt % 2 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.board.temp_vcore;
-        g_nmaxe.asic.temp         = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.asic.temp;
+        g_nmaxe.temp.mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.temp.mcu;
+        g_nmaxe.temp.vcore  = (temp_cnt % 2 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.temp.vcore;
+        g_nmaxe.temp.asic         = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.temp.asic;
         temp_cnt++;
         //update wifi rssi
         g_nmaxe.connection.wifi.status_param.rssi = WiFi.RSSI();
@@ -54,13 +53,13 @@ void monitor_thread_entry(void *args){
       //status check
       if(g_nmaxe.mstatus.uptime_session % 2 == 0){
         //check mcu temperature status
-        if(g_nmaxe.board.temp_mcu > BOARD_MCU_DANGER){
+        if(g_nmaxe.temp.mcu > BOARD_MCU_DANGER){
           LOG_W("MCU temp is too high, restart...");
           delay(1000);
           ESP.restart();
         }
         //check vcore temperature status
-        if(g_nmaxe.board.temp_vcore > VCORE_TEMP_DANGER || g_nmaxe.asic.temp > ASIC_TEMP_DANGER){
+        if(g_nmaxe.temp.vcore > VCORE_TEMP_DANGER || g_nmaxe.temp.asic > ASIC_TEMP_DANGER){
           uint16_t vcore_now = g_nmaxe.power->get_vcore();
           if(vcore_now >= 1200)vcore_now -= 100;
           else{
@@ -72,7 +71,7 @@ void monitor_thread_entry(void *args){
             }
           }
           g_nmaxe.power->set_vcore_voltage(vcore_now);
-          LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", g_nmaxe.board.temp_vcore, vcore_now);
+          LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", g_nmaxe.temp.vcore, vcore_now);
         }
         //check fan status
         static uint8_t fan_err_cnt = 0;
@@ -119,9 +118,9 @@ void monitor_thread_entry(void *args){
         LOG_I("+----------Difficulty----------+");
         LOG_I("|From boot| Best ever| Network |");
         LOG_I("| %-6s |  %-5s | %-7s |", 
-              formatNumber(g_nmaxe.mstatus.best_session, 5).c_str(), 
-              formatNumber(g_nmaxe.mstatus.best_ever, 5).c_str(),
-              formatNumber(g_nmaxe.mstatus.network_diff, 5).c_str());
+              formatNumber(g_nmaxe.mstatus.diff.best_session, 5).c_str(), 
+              formatNumber(g_nmaxe.mstatus.diff.best_ever, 5).c_str(),
+              formatNumber(g_nmaxe.mstatus.diff.network, 5).c_str());
         LOG_I("+----------Free  heap----------+");
         LOG_I("|           %-5sKB           |", formatNumber(ESP.getFreeHeap() / 1024.0f, 5).c_str() );
         LOG_I(" ============================== ");
@@ -135,11 +134,11 @@ void monitor_thread_entry(void *args){
       
       //save some status to NVS
       if(xSemaphoreTake(g_nmaxe.mstatus.nvs_save_xsem, 0) == pdTRUE){
-          nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(g_nmaxe.mstatus.best_ever).c_str());
+          nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(g_nmaxe.mstatus.diff.best_ever).c_str());
           nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, g_nmaxe.mstatus.block_hits);
           nvs_config_set_u64(NVS_CONFIG_UPTIME, g_nmaxe.mstatus.uptime_ever);
           last_save_time = g_nmaxe.mstatus.uptime_ever;
-          LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
+          LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
   }
 }
@@ -159,7 +158,7 @@ void swarm_thread_entry(void *args){
   udp_client = new(buffer) WiFiUDP();
 
   //udp status boardcast begin
-  udp_client->begin(udp_client_port);
+  udp_client->begin(UDP_BOARDCAST_PORT);
 
   uint64_t swarm_cnt = 0;
 
@@ -206,7 +205,7 @@ void swarm_thread_entry(void *args){
 
               json["Lastseen"] = millis() - last_seen_map[it->first];
               //remove offline device
-              if(json["Lastseen"].as<uint32_t>() > swarm_offline_timeout){
+              if(json["Lastseen"].as<uint32_t>() > SWARM_OFFLINE_TIMEOUT){
                 g_nmaxe.swarm.erase(it->first);
                 continue;
               }
@@ -231,12 +230,12 @@ void swarm_thread_entry(void *args){
         uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
         float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
         json["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
-        json["NetDiff"] = formatNumber(g_nmaxe.mstatus.network_diff,4);
-        json["PoolDiff"] = formatNumber(g_nmaxe.mstatus.pool_diff,4);
-        json["LastDiff"] = formatNumber(g_nmaxe.mstatus.last_diff,4);
-        json["BestDiff"] = formatNumber(g_nmaxe.mstatus.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.best_ever,4);
+        json["NetDiff"] = formatNumber(g_nmaxe.mstatus.diff.network,4);
+        json["PoolDiff"] = formatNumber(g_nmaxe.mstatus.diff.pool,4);
+        json["LastDiff"] = formatNumber(g_nmaxe.mstatus.diff.last,4);
+        json["BestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.diff.best_ever,4);
         json["Valid"] = g_nmaxe.mstatus.block_hits;
-        json["Temp"] = g_nmaxe.asic.temp;
+        json["Temp"] = g_nmaxe.temp.asic;
         json["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
         json["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
         json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
@@ -250,7 +249,7 @@ void swarm_thread_entry(void *args){
         char jsonBuffer[512] = {0,};
         size_t n = serializeJson(json, jsonBuffer);
         //broadcast status to udp
-        udp_client->beginPacket(udp_client_addr, udp_client_port);
+        udp_client->beginPacket(UDP_BOARDCAST_ADDR, UDP_BOARDCAST_PORT);
         udp_client->write((uint8_t*)jsonBuffer, n);
         udp_client->endPacket();
 

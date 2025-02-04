@@ -1,12 +1,11 @@
-#ifndef NM_AXE_1366_H
-#define NM_AXE_1366_H
+#ifndef _NM_AXE_H_
+#define _NM_AXE_H_
 
+#define PRIMARY_POOL_URL                               "stratum+tcp://pool.nmminer.com:3333"//xec
+#define FALLBACK_POOL_URL                              "stratum+tcp://eu.molepool.com:7450" //dgb
 
-#define BOARD_MODEL                                    "NMAxe"
-#define ASIC_MODEL                                     "BM1366"
-
-#define PRIMARY_POOL_URL                               "stratum+tcp://public-pool.io:21496"
-#define FALLBACK_POOL_URL                              "stratum+tcp://solo.ckpool.org:3333"
+#define PRIMARY_USER                                   "ecash:qpf6dlpplgltcxuq4rve99jfk67z4tlcjc3sscrrsf"//xec
+#define FALLBACK_USER                                  "DCmQfVccxEEBy7FGbc7HSyU7gQCkTjJCZv"//dgb
 
 #define SCREEN_WIDTH                                   240
 #define SCREEN_HEIGHT                                  135
@@ -43,8 +42,12 @@
 #define NM_AXE_TFT_PWER_PIN                            18
 #define NM_AXE_TFT_BL_PIN                              17
 
-#define LED_WIFI_STA_PIN                                6
-#define LED_POOL_STA_PIN                                4
-#define LED_SYS_STA_PIN                                 5
+#define NM_AXE_LED_WIFI_STA_PIN                        6
+#define NM_AXE_LED_POOL_STA_PIN                        4
+#define NM_AXE_LED_SYS_STA_PIN                         5
+
+#define NM_AXE_MODEL_SELECT_PIN0                       15
+#define NM_AXE_MODEL_SELECT_PIN1                       46
+
 
 #endif

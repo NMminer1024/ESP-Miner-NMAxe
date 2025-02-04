@@ -15,7 +15,6 @@
 #define  SUBMIT_TIMEOUT_MS         (1000*60*2)
 
 typedef uint32_t stratum_msg_rsp_id_t;
-// typedef uint32_t stratum_msg_begin_t;
 
 typedef enum {
     STRATUM_DOWN_SUCCESS,
@@ -85,6 +84,8 @@ private:
     std::map<stratum_msg_rsp_id_t, stratum_rsp>   _msg_rsp_map;
 public:
     PoolClass  pool;
+    SemaphoreHandle_t new_job_xsem, clear_job_xsem;
+
     StratumClass(){};
     StratumClass(pool_info_t pConfig, stratum_info_t sConfig, uint8_t job_cached_max): 
         pool(pConfig), _stratum_info(sConfig), _pool_job_cache_size(job_cached_max)
@@ -104,38 +105,60 @@ public:
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
     };
     ~StratumClass();
-    SemaphoreHandle_t new_job_xsem;
-    SemaphoreHandle_t clear_job_xsem;
+
     void reset();
     void reset(pool_info_t pConfig, stratum_info_t sConfig);
     bool subscribe();
     bool authorize();
     bool suggest_difficulty();
-    bool cfg_version_rolling();
+    bool config_version_rolling();
     bool submit(String pool_job_id, String extranonce2, uint32_t ntime, uint32_t nonce, uint32_t version);
     bool hello_pool(uint32_t hello_interval, uint32_t lost_max_time);
     stratum_method_data listen_methods();
-    bool is_subscribed();
-    bool is_authorized();
+
     size_t push_job_cache(pool_job_data_t job);
+    pool_job_data_t pop_job_cache();
+
     size_t get_job_cache_size();
     size_t clear_job_cache();
-    pool_job_data_t pop_job_cache();
+    
     stratum_rsp get_method_rsp_by_id(uint32_t id);
     bool set_msg_rsp_map(uint32_t id, bool status);
     bool del_msg_rsp_map(uint32_t id);
-    bool set_version_mask(uint32_t mask);
-    bool set_authorize(bool status);
-    bool set_subscribe(bool status);
-    uint32_t get_version_mask();
-    bool set_pool_difficulty(double diff);
     bool is_submit_timeout();
-    double get_pool_difficulty();
-    bool   set_sub_extranonce1(String extranonce1);
-    bool   set_sub_extranonce2_size(int size);
+
+    void   set_sub_extranonce1(String extranonce1);
+    void   set_sub_extranonce2_size(int size);
     String get_sub_extranonce1();
     String get_sub_extranonce2();
     bool   clear_sub_extranonce2();
+
+
+
+    bool is_subscribed(){
+        return this->_is_subscribed;
+    }
+    bool is_authorized(){
+        return this->_is_authorized;
+    }
+    void set_authorize(bool status){
+        this->_is_authorized = status;
+    }
+    void set_subscribe(bool status){
+        this->_is_subscribed = status;
+    }
+    void set_version_mask(uint32_t mask){
+        this->_vr_mask = mask;
+    }
+    uint32_t get_version_mask(){
+        return this->_vr_mask;
+    }
+    void set_pool_difficulty(double diff){
+        this->_pool_difficulty = diff;
+    }
+    double get_pool_difficulty(){
+        return this->_pool_difficulty;
+    }
 };
 
 void stratum_thread_entry(void *args);
