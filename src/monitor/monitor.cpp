@@ -118,9 +118,9 @@ void monitor_thread_entry(void *args){
         LOG_I("+----------Difficulty----------+");
         LOG_I("|From boot| Best ever| Network |");
         LOG_I("| %-6s |  %-5s | %-7s |", 
-              formatNumber(g_nmaxe.mstatus.best_session, 5).c_str(), 
-              formatNumber(g_nmaxe.mstatus.best_ever, 5).c_str(),
-              formatNumber(g_nmaxe.mstatus.network_diff, 5).c_str());
+              formatNumber(g_nmaxe.mstatus.diff.best_session, 5).c_str(), 
+              formatNumber(g_nmaxe.mstatus.diff.best_ever, 5).c_str(),
+              formatNumber(g_nmaxe.mstatus.diff.network, 5).c_str());
         LOG_I("+----------Free  heap----------+");
         LOG_I("|           %-5sKB           |", formatNumber(ESP.getFreeHeap() / 1024.0f, 5).c_str() );
         LOG_I(" ============================== ");
@@ -134,11 +134,11 @@ void monitor_thread_entry(void *args){
       
       //save some status to NVS
       if(xSemaphoreTake(g_nmaxe.mstatus.nvs_save_xsem, 0) == pdTRUE){
-          nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(g_nmaxe.mstatus.best_ever).c_str());
+          nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(g_nmaxe.mstatus.diff.best_ever).c_str());
           nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, g_nmaxe.mstatus.block_hits);
           nvs_config_set_u64(NVS_CONFIG_UPTIME, g_nmaxe.mstatus.uptime_ever);
           last_save_time = g_nmaxe.mstatus.uptime_ever;
-          LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
+          LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
   }
 }
@@ -230,10 +230,10 @@ void swarm_thread_entry(void *args){
         uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
         float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
         json["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
-        json["NetDiff"] = formatNumber(g_nmaxe.mstatus.network_diff,4);
-        json["PoolDiff"] = formatNumber(g_nmaxe.mstatus.pool_diff,4);
-        json["LastDiff"] = formatNumber(g_nmaxe.mstatus.last_diff,4);
-        json["BestDiff"] = formatNumber(g_nmaxe.mstatus.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.best_ever,4);
+        json["NetDiff"] = formatNumber(g_nmaxe.mstatus.diff.network,4);
+        json["PoolDiff"] = formatNumber(g_nmaxe.mstatus.diff.pool,4);
+        json["LastDiff"] = formatNumber(g_nmaxe.mstatus.diff.last,4);
+        json["BestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.diff.best_ever,4);
         json["Valid"] = g_nmaxe.mstatus.block_hits;
         json["Temp"] = g_nmaxe.asic.temp;
         json["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;

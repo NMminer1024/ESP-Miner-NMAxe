@@ -73,8 +73,8 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["vrTemp"] = g_nmaxe.board.temp_vcore;
     root["mcuTemp"] = g_nmaxe.board.temp_mcu;
     root["hashRate"] = g_nmaxe.mstatus.hashrate._3m/1000/1000/1000;
-    root["bestDiff"] = formatNumber(g_nmaxe.mstatus.best_ever, 4);
-    root["bestSessionDiff"] = formatNumber(g_nmaxe.mstatus.best_session, 4);
+    root["bestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_ever, 4);
+    root["bestSessionDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session, 4);
     root["freeHeap"] = ESP.getFreeHeap();
     root["coreVoltage"] = g_nmaxe.asic.vcore_req;
     root["coreVoltageActual"] = g_nmaxe.asic.vcore_measured;
@@ -87,7 +87,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["uptimeSeconds"] = g_nmaxe.mstatus.uptime_session;
     root["asicCount"] = g_nmaxe.miner->get_asic_count();
     root["smallCoreCount"] = small_core_count;
-    root["ASICModel"] = g_nmaxe.asic.type;
+    root["ASICModel"] = g_nmaxe.asic.model;
     root["stratumUserUSED"] = g_nmaxe.connection.stratum_use.user;
     root["stratumUser1"] = g_nmaxe.connection.stratum_primary.user;
     root["stratumUser2"] = g_nmaxe.connection.stratum_fallback.user;

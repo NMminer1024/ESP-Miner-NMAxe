@@ -306,9 +306,9 @@ void miner_asic_tx_thread_entry(void *args){
         if(g_nmaxe.miner->pool_job_now.id == "")continue;
         
         //calculate network diff
-        g_nmaxe.mstatus.network_diff = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);
+        g_nmaxe.mstatus.diff.network = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);
         //update pool diff
-        g_nmaxe.mstatus.pool_diff = g_nmaxe.stratum->get_pool_difficulty();
+        g_nmaxe.mstatus.diff.pool = g_nmaxe.stratum->get_pool_difficulty();
         
         LOG_W("Job [%s] from %s:%d", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum->pool.get_pool_info().url.c_str(), g_nmaxe.stratum->pool.get_pool_info().port);
         while (true){
@@ -372,15 +372,15 @@ void miner_asic_rx_thread_entry(void *args){
 
                 //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
                 g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
-                g_nmaxe.mstatus.last_diff       = diff;
-                g_nmaxe.mstatus.best_session    = (diff > g_nmaxe.mstatus.best_session) ? diff : g_nmaxe.mstatus.best_session;
-                g_nmaxe.mstatus.best_ever       = (diff > g_nmaxe.mstatus.best_ever) ? diff : g_nmaxe.mstatus.best_ever;
+                g_nmaxe.mstatus.diff.last       = diff;
+                g_nmaxe.mstatus.diff.best_session    = (diff > g_nmaxe.mstatus.diff.best_session) ? diff : g_nmaxe.mstatus.diff.best_session;
+                g_nmaxe.mstatus.diff.best_ever       = (diff > g_nmaxe.mstatus.diff.best_ever) ? diff : g_nmaxe.mstatus.diff.best_ever;
 
                 LOG_I("Diff [%-3s/%-5s/%-6s/%-5s]", 
                     formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), 
                     formatNumber(diff, 3).c_str(), 
                     formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str(),
-                    formatNumber(g_nmaxe.mstatus.network_diff, 4).c_str());
+                    formatNumber(g_nmaxe.mstatus.diff.network, 4).c_str());
 
                 //skip if diff < pool diff
                 if(diff < g_nmaxe.stratum->get_pool_difficulty())continue; 
@@ -392,7 +392,7 @@ void miner_asic_rx_thread_entry(void *args){
                 if(!res) continue;
                 
                 //update the block hit counter
-                if(diff >= g_nmaxe.mstatus.network_diff){
+                if(diff >= g_nmaxe.mstatus.diff.network){
                     g_nmaxe.mstatus.block_hits++;
 
                     uint8_t header[4 + 32 + 32 + 4 + 4 + 4] = {0,};
@@ -430,7 +430,7 @@ void miner_asic_rx_thread_entry(void *args){
                 }
 
                 //update all time best diff
-                if(diff == g_nmaxe.mstatus.best_ever){
+                if(diff == g_nmaxe.mstatus.diff.best_ever){
                     xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
                 }
             }

@@ -416,7 +416,7 @@ void stratum_thread_entry(void *args){
             g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
             g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool_use.ssl);
             g_nmaxe.stratum->pool.connect();
-            g_nmaxe.mstatus.last_diff = 0;
+            g_nmaxe.mstatus.diff.last = 0;
             delay(5000);
             continue;
         }else p_retry = 0;

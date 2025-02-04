@@ -196,10 +196,10 @@ bool load_g_nmaxe(void){
 
     if(model == NMAXE){
         g_nmaxe.board.hw_model = "NMAxe";
-        g_nmaxe.asic.type      = "BM1366";
+        g_nmaxe.asic.model     = "BM1366";
     }else if(model == NMAXE_GAMMA){
         g_nmaxe.board.hw_model = "NMAxe-Gamma";
-        g_nmaxe.asic.type      = "BM1370";
+        g_nmaxe.asic.model     = "BM1370";
     }else if(model == BOARD_UNKNOWN){
         LOG_E("Unknown board model, please check the model select pins.");
         return false;
@@ -243,7 +243,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     g_nmaxe.board.hostname                      = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_nmaxe.connection.wifi.softap_param.ssid.c_str()));
     g_nmaxe.connection.stratum_update           = millis();
-    g_nmaxe.mstatus.best_ever                   = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
+    g_nmaxe.mstatus.diff.best_ever                   = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 575);
     g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1300);
     g_nmaxe.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);

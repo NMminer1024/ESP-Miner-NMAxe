@@ -532,18 +532,18 @@ static void ui_miner_page_update(){
   String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session);
   String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
   String hashuint = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
-  String last_diff = formatNumber(g_nmaxe.mstatus.last_diff, 1);
-  String best_session = formatNumber(g_nmaxe.mstatus.best_session, 1);
-  String best_ever = formatNumber(g_nmaxe.mstatus.best_ever, 1);
-  String network_diff = formatNumber(g_nmaxe.mstatus.network_diff, 4);
+  String last_diff = formatNumber(g_nmaxe.mstatus.diff.last, 1);
+  String best_session = formatNumber(g_nmaxe.mstatus.diff.best_session, 1);
+  String best_ever = formatNumber(g_nmaxe.mstatus.diff.best_ever, 1);
+  String network_diff = formatNumber(g_nmaxe.mstatus.diff.network, 4);
   String voltage = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
   String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
   String price = (!g_nmaxe.market->timeout) ? formatNumber(g_nmaxe.market->price, 6) : "";
 
   //diff symbol color update
-  if(g_nmaxe.mstatus.last_diff != 0){//avoid the first time update
-    if(g_nmaxe.mstatus.last_diff == g_nmaxe.mstatus.best_session) font_color = lv_color_hex(0x00ff00);//green
-    else if(g_nmaxe.mstatus.last_diff == g_nmaxe.mstatus.best_ever) font_color = lv_color_hex(0xffa500);//yellow
+  if(g_nmaxe.mstatus.diff.last != 0){//avoid the first time update
+    if(g_nmaxe.mstatus.diff.last == g_nmaxe.mstatus.diff.best_session) font_color = lv_color_hex(0x00ff00);//green
+    else if(g_nmaxe.mstatus.diff.last == g_nmaxe.mstatus.diff.best_ever) font_color = lv_color_hex(0xffa500);//yellow
     else font_color = lv_color_hex(0xA9A9A9);//gray
     lv_obj_set_style_text_color(lb_diff_symbol, font_color, LV_PART_MAIN); 
   }

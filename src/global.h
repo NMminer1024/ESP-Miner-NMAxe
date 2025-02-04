@@ -84,7 +84,7 @@ typedef struct{
 }led_info_t;
 
 typedef struct{
-    String    type;
+    String    model;
     uint16_t  frequency_req;//MHz
     uint16_t  vcore_req;//mV
     uint16_t  vcore_measured;//mV
@@ -114,17 +114,21 @@ typedef struct{
 }ota_info_t;
 
 typedef struct{
+    double              best_session;
+    double              best_ever;
+    double              pool;
+    double              last;
+    double              network;
+}diff_info_t;
+
+typedef struct{
     uint32_t            share_rejected;
     uint32_t            share_accepted;
     uint64_t            uptime_ever;
     uint64_t            uptime_session;
     hashrate_t          hashrate;
     uint16_t            block_hits;
-    double              best_session;
-    double              best_ever;
-    double              pool_diff;
-    double              last_diff;
-    double              network_diff;
+    diff_info_t         diff;
     SemaphoreHandle_t   nvs_save_xsem;//save status to NVS signal
     SemaphoreHandle_t   update_xsem;  //miner status update signal
 }miner_status_t;
