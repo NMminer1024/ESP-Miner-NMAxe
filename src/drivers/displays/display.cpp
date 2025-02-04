@@ -549,8 +549,8 @@ static void ui_miner_page_update(){
   }
 
   //temp symbol color update
-  if(g_nmaxe.board.temp_vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
-  else if(g_nmaxe.board.temp_vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
+  if(g_nmaxe.temp.vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
+  else if(g_nmaxe.temp.vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
   else font_color = lv_color_hex(0x00ff00);//green
   lv_obj_set_style_text_color(lb_temp_symb, font_color, LV_PART_MAIN); 
 
@@ -605,7 +605,7 @@ static void ui_miner_page_update(){
   //Diff
   lv_label_set_text_fmt(lb_diff, "%s/%s/%s", best_session.c_str(), best_ever.c_str(), network_diff.c_str());
   //Temp
-  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_nmaxe.board.temp_vcore, 2).c_str(), formatNumber(g_nmaxe.asic.temp, 2).c_str());
+  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_nmaxe.temp.vcore, 2).c_str(), formatNumber(g_nmaxe.temp.asic, 2).c_str());
   //WiFi
   lv_label_set_text_fmt(lb_wifi,   "%s", g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
   //uptime hms
@@ -909,7 +909,7 @@ static void ui_dashboard_page_update(){
   uint16_t pwr_angle            = arc_angle_full * (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
   uint16_t vcore_req_angle      = arc_angle_full * (g_nmaxe.asic.vcore_req/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
   uint16_t vcore_measure_angle  = arc_angle_full * (g_nmaxe.asic.vcore_measured /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
-  uint16_t asic_temp_angle      = arc_angle_full * (g_nmaxe.asic.temp - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
+  uint16_t asic_temp_angle      = arc_angle_full * (g_nmaxe.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
 
   lv_arc_set_angles(arc_vbus,  0, vbus_angle);
   lv_arc_set_angles(arc_power, 0, pwr_angle);
@@ -930,7 +930,7 @@ static void ui_dashboard_page_update(){
   //vcore_measure
   lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_nmaxe.asic.vcore_measured/1000.0, 3).c_str());
   //asic temp
-  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_nmaxe.asic.temp, 2).c_str());
+  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_nmaxe.temp.asic, 2).c_str());
 }
 
 static void ui_hr_healthy_page_update(double hashrate){

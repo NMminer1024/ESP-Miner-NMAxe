@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.5.02c"
+#define CURRENT_FW_VERSION  "v2.5.02d"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -60,11 +60,16 @@ typedef struct{
     String      hw_version;
     String      hw_model;
     String      devcie_code;
-    float       temp_mcu;
-    float       temp_vcore;
     uint16_t    vbus;//mV
     uint16_t    ibus;//mA
 }board_info_t;
+
+typedef struct{
+    float       mcu;
+    float       vcore;
+    float       asic;
+}temp_info_t;
+
 
 typedef struct{
     bool        is_auto_speed;
@@ -88,7 +93,6 @@ typedef struct{
     uint16_t  frequency_req;//MHz
     uint16_t  vcore_req;//mV
     uint16_t  vcore_measured;//mV
-    float     temp;
 }asic_info_t;
 
 typedef struct{
@@ -148,6 +152,7 @@ typedef std::map<axe_ip_t, axe_info_t> swarm_map_t;
 
 typedef struct{
     board_info_t        board;
+    temp_info_t         temp;
     preference_info_t   preference;
     asic_info_t         asic;
     connect_info_t      connection;

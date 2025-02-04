@@ -40,9 +40,9 @@ void monitor_thread_entry(void *args){
         g_nmaxe.board.ibus = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_ibus() : g_nmaxe.board.ibus;
         g_nmaxe.asic.vcore_measured = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vcore() : g_nmaxe.asic.vcore_measured;
         //update board temperature
-        g_nmaxe.board.temp_mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.board.temp_mcu;
-        g_nmaxe.board.temp_vcore  = (temp_cnt % 2 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.board.temp_vcore;
-        g_nmaxe.asic.temp         = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.asic.temp;
+        g_nmaxe.temp.mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.temp.mcu;
+        g_nmaxe.temp.vcore  = (temp_cnt % 2 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.temp.vcore;
+        g_nmaxe.temp.asic         = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.temp.asic;
         temp_cnt++;
         //update wifi rssi
         g_nmaxe.connection.wifi.status_param.rssi = WiFi.RSSI();
@@ -53,13 +53,13 @@ void monitor_thread_entry(void *args){
       //status check
       if(g_nmaxe.mstatus.uptime_session % 2 == 0){
         //check mcu temperature status
-        if(g_nmaxe.board.temp_mcu > BOARD_MCU_DANGER){
+        if(g_nmaxe.temp.mcu > BOARD_MCU_DANGER){
           LOG_W("MCU temp is too high, restart...");
           delay(1000);
           ESP.restart();
         }
         //check vcore temperature status
-        if(g_nmaxe.board.temp_vcore > VCORE_TEMP_DANGER || g_nmaxe.asic.temp > ASIC_TEMP_DANGER){
+        if(g_nmaxe.temp.vcore > VCORE_TEMP_DANGER || g_nmaxe.temp.asic > ASIC_TEMP_DANGER){
           uint16_t vcore_now = g_nmaxe.power->get_vcore();
           if(vcore_now >= 1200)vcore_now -= 100;
           else{
@@ -71,7 +71,7 @@ void monitor_thread_entry(void *args){
             }
           }
           g_nmaxe.power->set_vcore_voltage(vcore_now);
-          LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", g_nmaxe.board.temp_vcore, vcore_now);
+          LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", g_nmaxe.temp.vcore, vcore_now);
         }
         //check fan status
         static uint8_t fan_err_cnt = 0;
@@ -235,7 +235,7 @@ void swarm_thread_entry(void *args){
         json["LastDiff"] = formatNumber(g_nmaxe.mstatus.diff.last,4);
         json["BestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.diff.best_ever,4);
         json["Valid"] = g_nmaxe.mstatus.block_hits;
-        json["Temp"] = g_nmaxe.asic.temp;
+        json["Temp"] = g_nmaxe.temp.asic;
         json["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
         json["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
         json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);

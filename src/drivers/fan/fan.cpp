@@ -64,9 +64,9 @@ void fan_thread_entry(void *args){
 
         if(g_nmaxe.preference.fan.is_auto_speed && g_nmaxe.preference.fan.self_test){
             // Linearly increase fan speed from 40 to 60 degrees
-            g_nmaxe.preference.fan.speed = (g_nmaxe.asic.temp < 20.0f) ? 0.0f :
-                                (g_nmaxe.asic.temp > 40.0f) ? 100.0f :
-                                (g_nmaxe.asic.temp - 20.0f) * (100.0f / (40.0 - 20.0));
+            g_nmaxe.preference.fan.speed = (g_nmaxe.temp.asic < 20.0f) ? 0.0f :
+                                (g_nmaxe.temp.asic > 40.0f) ? 100.0f :
+                                (g_nmaxe.temp.asic - 20.0f) * (100.0f / (40.0 - 20.0));
         }
         fan_set_speed(g_nmaxe.preference.fan.speed / 100.0);
 

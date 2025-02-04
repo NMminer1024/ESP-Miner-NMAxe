@@ -69,9 +69,9 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["power"] = (g_nmaxe.board.ibus /1000.0f) * (g_nmaxe.board.vbus / 1000.0f);
     root["voltage"] = g_nmaxe.board.vbus;
     root["current"] = g_nmaxe.board.ibus;
-    root["temp"] = g_nmaxe.asic.temp;
-    root["vrTemp"] = g_nmaxe.board.temp_vcore;
-    root["mcuTemp"] = g_nmaxe.board.temp_mcu;
+    root["temp"] = g_nmaxe.temp.asic;
+    root["vrTemp"] = g_nmaxe.temp.vcore;
+    root["mcuTemp"] = g_nmaxe.temp.mcu;
     root["hashRate"] = g_nmaxe.mstatus.hashrate._3m/1000/1000/1000;
     root["bestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_ever, 4);
     root["bestSessionDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session, 4);
