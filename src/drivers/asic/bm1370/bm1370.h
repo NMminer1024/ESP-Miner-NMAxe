@@ -2,44 +2,6 @@
 #define BM1370_H_
 #include "bm_hal.h"
 
-// #define BM1370_DIFF_THR 1024
-
-// #define TYPE_JOB 0x20
-// #define TYPE_CMD 0x40
-
-// #define GROUP_SINGLE 0x00
-// #define GROUP_ALL 0x10
-
-// #define CMD_JOB 0x01
-
-// #define CMD_SETADDRESS 0x00
-// #define CMD_WRITE 0x01
-// #define CMD_READ 0x02
-// #define CMD_INACTIVE 0x03
-
-// #define RESPONSE_CMD 0x00
-// #define RESPONSE_JOB 0x80
-
-// #define SLEEP_TIME 20
-// #define FREQ_MULT 25.0
-
-// #define CLOCK_ORDER_CONTROL_0 0x80
-// #define CLOCK_ORDER_CONTROL_1 0x84
-// #define ORDERED_CLOCK_ENABLE 0x20
-// #define CORE_REGISTER_CONTROL 0x3C
-// #define PLL3_PARAMETER 0x68
-// #define FAST_UART_CONFIGURATION 0x28
-// #define TICKET_MASK 0x14
-// #define MISC_CONTROL 0x18
-
-// typedef enum{
-//     JOB_PACKET = 0,
-//     CMD_PACKET = 1,
-// } packet_type_t;
-
-
-
-
 class BM1370: public BMxxx{
 private:
     uint32_t _diff_current;

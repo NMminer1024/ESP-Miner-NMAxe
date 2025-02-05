@@ -116,9 +116,8 @@ static void get_system_info(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
-    LOG_W("System info sent++++++++++++++++");
 }
-static void get_swarm_info(AsyncWebServerRequest* request){
+static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint16_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
 
     void* buffer = psramAllocator(json_size_max);
@@ -171,11 +170,7 @@ static void get_swarm_info(AsyncWebServerRequest* request){
     psramDeallocator(buffer);
 }
 static void options_theme_handler(AsyncWebServerRequest* request){
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
-    response->addHeader("Access-Control-Allow-Origin", "*");
-    response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-    request->send(response);
+    request->send(200, "application/json", "");
 }
 static void get_theme_handler(AsyncWebServerRequest* request){
     char *scheme = nvs_config_get_string(NVS_CONFIG_THEME_SCHEME, "dark");
@@ -258,13 +253,7 @@ static void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, si
         serializeJson(root["accentColors"], colors_str);
         nvs_config_set_string(NVS_CONFIG_THEME_COLORS, colors_str.c_str());
     }
-
-    const char* resp_str = "{\"status\":\"ok\"}";
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", resp_str);
-    response->addHeader("Access-Control-Allow-Origin", "*");
-    response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-    request->send(response);
+    request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
 static void echo_handler(AsyncWebServerRequest* request){
     LOG_I("Echo Request...");
@@ -286,10 +275,10 @@ static void post_restart(AsyncWebServerRequest * request){
     ESP.restart();
     delay(1000);
 }
-static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
+static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
     static uint16_t SCRATCH_BUFSIZE = 512;
-
-    LOG_W("Update Settings Request, Index: %d, Total: %d", index, total);
+    
+    LOG_W("Update Settings Request, request contentLength: %d, index: %d, total: %d", request->contentLength(), index, total);
     if (total >= SCRATCH_BUFSIZE) {
         request->send(500, "text/plain", "Content too long");
         LOG_E("request %s too long", request->url().c_str());
@@ -306,20 +295,12 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         StaticJsonDocument<1024> root;
         DeserializationError error = deserializeJson(root, buffer);
         if(error){
-            AsyncWebServerResponse *response =  request->beginResponse(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-            response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-            request->send(response);
+            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
             free(buffer);
             return;
         }
         if(!root.is<JsonObject>()){
-            AsyncWebServerResponse *response  = request->beginResponse(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-            response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-            request->send(response);
+            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
             free(buffer);
             return;
         }
@@ -395,24 +376,17 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
             g_nmaxe.preference.fan.speed = root["fanspeed"].as<uint16_t>();
         }
 
+        request->send(200, "application/json", "{\"status\":\"success\"}");
+
         for (JsonPair kv : root.as<JsonObject>()) {
             String key = kv.key().c_str();
             String value = kv.value().as<String>();
             LOG_I("Key: %s, Value: %s", key.c_str(), value.c_str());
         }
-
-        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"Settings updated\"}");
-        response->addHeader("Access-Control-Allow-Origin", "*");
-        response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-        response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-        request->send(response);
-
-        // request->send(200, "application/json", "{\"status\":\"Settings updated\"}");
-
     }
     free(buffer);
 }
-static void handleFileUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+static void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
     uint64_t flen = request->contentLength();
     if (index == 0) {
         LOG_I("OTA Update Started, File name: %s, Index: %d, Length: %d, Final: %d", filename.c_str(), index, flen, final);
@@ -454,13 +428,8 @@ static void handleFileUpload(AsyncWebServerRequest *request, const String& filen
     }
     delay(1);//yield to avoid WDT and UI thread freeze 
     if (final) {
-        AsyncWebServerResponse *response = NULL;
         if (Update.end(true)) {
-            response = request->beginResponse(200, "text/plain", "OTA Update Successful. Rebooting...");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-            response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-            request->send(response);
+            request->send(200, "text/plain", "OTA Update Successful. Rebooting...");
             LOG_I("Update Success: %u bytes, rebooting...", index + len);
             g_nmaxe.ota.ota_running = false;
             g_nmaxe.ota.progress = 100;
@@ -468,16 +437,9 @@ static void handleFileUpload(AsyncWebServerRequest *request, const String& filen
             ESP.restart();
         } else {
             Update.printError(Serial);
-            response = request->beginResponse(500, "text/plain", "OTA Update Failed. End error.");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-            response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-            request->send(response);
+            request->send(500, "text/plain", "OTA Update Failed. End error.");
         }
     }
-}
-static void post_ota_update(AsyncWebServerRequest *request) {
-    LOG_W("OTA Update Request, content length: %d", request->contentLength());
 }
 static void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     switch (type) {
@@ -539,23 +501,15 @@ void start_http_server(void) {
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);
+    webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+    webServer.on("/api/system/OTAWWW", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+    webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_update_settings_handler);
+
     webServer.on("/api/theme", HTTP_GET, get_theme_handler);
     webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
-    webServer.on("/api/swarm", HTTP_GET, get_swarm_info);
+    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
+    webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
 
-
-    webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){
-        request->send(200, "text/plain", "POST method allowed");
-    }, handleFileUpload);
-    webServer.on("/api/system/OTAWWW", HTTP_POST, [](AsyncWebServerRequest *request){
-        request->send(200, "text/plain", "POST method allowed");
-    }, handleFileUpload);
-    webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){
-        request->send(200, "text/plain", "PATCH method allowed");
-    }, NULL, patch_update_settings);
-    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){
-        request->send(200, "text/plain", "POST method allowed");
-    }, NULL, post_theme_handler);
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
     webServer.begin();
 }
