@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.5.02t"
+#define CURRENT_FW_VERSION  "v2.5.02r"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -112,9 +112,10 @@ typedef struct{
 }connect_info_t;
 
 typedef struct{
-    String   firmware;//name
-    bool     ota_running;
-    int      progress;
+    String              firmware;//name
+    bool                ota_running;
+    int                 progress;
+    SemaphoreHandle_t   reboot_xsem;
 }ota_info_t;
 
 typedef struct{

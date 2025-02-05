@@ -140,6 +140,12 @@ void monitor_thread_entry(void *args){
           last_save_time = g_nmaxe.mstatus.uptime_ever;
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
+  
+      //check ota status and reboot
+      if(xSemaphoreTake(g_nmaxe.ota.reboot_xsem, 0) == pdTRUE){
+        ESP.restart();
+      }
+
   }
 }
 
