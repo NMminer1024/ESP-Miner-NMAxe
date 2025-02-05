@@ -116,6 +116,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
+    LOG_W("System info sent++++++++++++++++");
 }
 static void get_swarm_info(AsyncWebServerRequest* request){
     uint16_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
@@ -287,7 +288,6 @@ static void post_restart(AsyncWebServerRequest * request){
 }
 static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
     static uint16_t SCRATCH_BUFSIZE = 512;
-    AsyncWebServerResponse *response = NULL;
 
     LOG_W("Update Settings Request, Index: %d, Total: %d", index, total);
     if (total >= SCRATCH_BUFSIZE) {
@@ -306,7 +306,7 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
         StaticJsonDocument<1024> root;
         DeserializationError error = deserializeJson(root, buffer);
         if(error){
-            response = request->beginResponse(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+            AsyncWebServerResponse *response =  request->beginResponse(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
             response->addHeader("Access-Control-Allow-Origin", "*");
             response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
             response->addHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -315,7 +315,7 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
             return;
         }
         if(!root.is<JsonObject>()){
-            response = request->beginResponse(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+            AsyncWebServerResponse *response  = request->beginResponse(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
             response->addHeader("Access-Control-Allow-Origin", "*");
             response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
             response->addHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -401,7 +401,7 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
             LOG_I("Key: %s, Value: %s", key.c_str(), value.c_str());
         }
 
-        response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
         response->addHeader("Access-Control-Allow-Origin", "*");
         response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
         response->addHeader("Access-Control-Allow-Headers", "Content-Type");
