@@ -11,7 +11,7 @@
 static AsyncWebServer  webServer(80);
 WebSocketsServer       webSocket(81);
 
-void file_system_init() {
+static void file_system_init() {
     if (!SPIFFS.begin(true, "", 5, NULL)) {
         LOG_E("An Error has occurred while mounting SPIFFS");
         return;
@@ -376,20 +376,19 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
             g_nmaxe.preference.fan.speed = root["fanspeed"].as<uint16_t>();
         }
 
-        request->send(200, "application/json", "{\"status\":\"success\"}");
-
         for (JsonPair kv : root.as<JsonObject>()) {
             String key = kv.key().c_str();
             String value = kv.value().as<String>();
             LOG_I("Key: %s, Value: %s", key.c_str(), value.c_str());
         }
+        request->send(200, "application/json", "{\"status\":\"success\"}");
     }
     free(buffer);
 }
 static void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
     uint64_t flen = request->contentLength();
     if (index == 0) {
-        LOG_I("OTA Update Started, File name: %s, Index: %d, Length: %d, Final: %d", filename.c_str(), index, flen, final);
+        LOG_I("OTA Update Started, File name: %s, Index: %d, contentLength: %d, len: %d, Final: %d", filename.c_str(), index, flen, len, final);
         size_t bin_size = UPDATE_SIZE_UNKNOWN;
         int update_type = U_FLASH; // Default to firmware update
 
@@ -429,7 +428,7 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
     delay(1);//yield to avoid WDT and UI thread freeze 
     if (final) {
         if (Update.end(true)) {
-            request->send(200, "text/plain", "OTA Update Successful. Rebooting...");
+            request->send(200);
             LOG_I("Update Success: %u bytes, rebooting...", index + len);
             g_nmaxe.ota.ota_running = false;
             g_nmaxe.ota.progress = 100;
@@ -498,18 +497,33 @@ void start_http_server(void) {
     String name = "(websocket)";
     xTaskCreatePinnedToCore(websocket_loop, name.c_str(), 1024*5, (void*)name.c_str(), TASK_PRIORITY_WS, NULL, 1);
 
+
+
+
+
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);
-    webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
-    webServer.on("/api/system/OTAWWW", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
-    webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_update_settings_handler);
 
+
+
+
+    webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){
+        // request->send(200);
+    }, file_upload_handler);
+    webServer.on("/api/system/OTAWWW", HTTP_POST, [](AsyncWebServerRequest *request){
+        // request->send(200);
+    }, file_upload_handler);
+
+
+
+    webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_update_settings_handler);
     webServer.on("/api/theme", HTTP_GET, get_theme_handler);
     webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
-    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
+    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){
+        request->send(200);
+    }, NULL, post_theme_handler);
     webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
-
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
     webServer.begin();
 }
