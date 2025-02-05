@@ -401,11 +401,14 @@ static void patch_update_settings(AsyncWebServerRequest * request, uint8_t *data
             LOG_I("Key: %s, Value: %s", key.c_str(), value.c_str());
         }
 
-        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"Settings updated\"}");
         response->addHeader("Access-Control-Allow-Origin", "*");
         response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
         response->addHeader("Access-Control-Allow-Headers", "Content-Type");
         request->send(response);
+
+        // request->send(200, "application/json", "{\"status\":\"Settings updated\"}");
+
     }
     free(buffer);
 }
@@ -536,9 +539,11 @@ void start_http_server(void) {
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);
-    webServer.on("/api/system/restart", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
-        request->send(200, "text/plain", "OPTIONS method allowed");
-    });
+    webServer.on("/api/theme", HTTP_GET, get_theme_handler);
+    webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
+    webServer.on("/api/swarm", HTTP_GET, get_swarm_info);
+
+
     webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){
         request->send(200, "text/plain", "POST method allowed");
     }, handleFileUpload);
@@ -548,12 +553,9 @@ void start_http_server(void) {
     webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){
         request->send(200, "text/plain", "PATCH method allowed");
     }, NULL, patch_update_settings);
-    webServer.on("/api/theme", HTTP_GET, get_theme_handler);
     webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){
-        request->send(200, "text/plain", "PATCH method allowed");
+        request->send(200, "text/plain", "POST method allowed");
     }, NULL, post_theme_handler);
-    webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
-    webServer.on("/api/swarm", HTTP_GET, get_swarm_info);
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
     webServer.begin();
 }
