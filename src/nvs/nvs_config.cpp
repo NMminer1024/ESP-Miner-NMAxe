@@ -166,16 +166,16 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
 
 board_model_t get_board_model(){
   board_model_t model = BOARD_UNKNOWN;
-  pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLDOWN);
-  pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLDOWN);
+  pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
+  pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
   delay(100);
   
   uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
   uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
 
-  if(sel0 == HIGH && sel1 == LOW) model = NMAXE;
-  else if(sel0 == LOW && sel1 == LOW) model = NMAXE_GAMMA;
-  else model = BOARD_UNKNOWN;
+  if(sel0 == HIGH && sel1 == HIGH) model = NMAXE;//0b11
+  else if(sel0 == LOW && sel1 == HIGH) model = NMAXE_GAMMA;//0b01
+  else model = BOARD_UNKNOWN;// 0b10 or 0b00
 
   return model;
 }
