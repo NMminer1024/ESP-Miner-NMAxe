@@ -155,8 +155,12 @@ static void get_swarm_info_handler(AsyncWebServerRequest* request){
     String swarm_info;
     serializeJson(*root, swarm_info);
 
-    request->send(200, "application/json", swarm_info);
-
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", swarm_info);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    request->send(response);
+    
     //free memory
     root->~DynamicJsonDocument();
     psramDeallocator(buffer);
