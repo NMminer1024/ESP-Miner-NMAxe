@@ -157,12 +157,14 @@ static void get_swarm_info_handler(AsyncWebServerRequest* request){
     String swarm_info;
     serializeJson(*root, swarm_info);
 
+    // request->send(200, "application/json", swarm_info);
+
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", swarm_info);
     response->addHeader("Access-Control-Allow-Origin", "*");
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
-    
+
     //free memory
     root->~DynamicJsonDocument();
     psramDeallocator(buffer);
@@ -419,26 +421,10 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
         if (Update.end(true)) {
             g_nmaxe.ota.ota_running = false;
             g_nmaxe.ota.progress = 100;
-
-
-            // AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "OTA Update Success");
-            // response->addHeader("Access-Control-Allow-Origin", "*");
-            // response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-            // response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-            // response->addHeader("Connection", "close");
-            // request->send(response);
-        
-            
-
-
-
-
-
             request->send(200);
-            LOG_I("Update Success: %u bytes, reboot", index + len);
-            delay(2000);
-            xSemaphoreGive(g_nmaxe.ota.reboot_xsem);
+            LOG_I("Update Success: %u bytes, rebooting...", index + len);
             delay(1000);
+            xSemaphoreGive(g_nmaxe.ota.reboot_xsem);
         } else {
             Update.printError(Serial);
             request->send(500, "text/plain", "OTA Update Failed. End error.");

@@ -217,7 +217,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.pool_use                 = g_nmaxe.connection.pool_primary;
 
     g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, PRIMARY_USER));
-    g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "d=15000"));
+    g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "x"));
     g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, FALLBACK_USER));
     g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=15000"));
     g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
