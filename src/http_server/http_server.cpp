@@ -89,9 +89,11 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["smallCoreCount"] = small_core_count;
     root["ASICModel"] = g_nmaxe.asic.model;
     root["stratumUserUSED"] = g_nmaxe.connection.stratum_use.user;
-    root["stratumUser1"] = g_nmaxe.connection.stratum_primary.user;
-    root["stratumUser2"] = g_nmaxe.connection.stratum_fallback.user;
     root["stratumURLUSED"] = g_nmaxe.connection.pool_use.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port));
+    root["stratumUser1"] = g_nmaxe.connection.stratum_primary.user;
+    root["stratumPassword1"] = g_nmaxe.connection.stratum_primary.pwd;
+    root["stratumUser2"]     = g_nmaxe.connection.stratum_fallback.user;
+    root["stratumPassword2"] = g_nmaxe.connection.stratum_fallback.pwd;
     root["stratumURL1"] = g_nmaxe.connection.pool_primary.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port));
     root["stratumURL2"] = g_nmaxe.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port));
     root["version"] = g_nmaxe.board.fw_version;
@@ -419,8 +421,9 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
             g_nmaxe.ota.ota_running = false;
             g_nmaxe.ota.progress = 100;
             request->send(200);
-            delay(1000);
+            delay(2000);
             xSemaphoreGive(g_nmaxe.ota.reboot_xsem);
+            delay(1000);
         } else {
             Update.printError(Serial);
             request->send(500, "text/plain", "OTA Update Failed. End error.");

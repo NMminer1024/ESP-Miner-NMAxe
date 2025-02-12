@@ -71,8 +71,8 @@ export class SettingsComponent {
           ]],
           stratumUser1: [info.stratumUser1, [Validators.required]],
           stratumUser2: [info.stratumUser2, [Validators.required]],
-          stratumPassword1: ['password', [Validators.required]],
-          stratumPassword2: ['password', [Validators.required]],
+          stratumPassword1:[info.stratumPassword1],
+          stratumPassword2:[info.stratumPassword2],
           ssid: [info.ssid, [Validators.required]],
           wifiPass: ['password'],
           coreVoltage: [info.coreVoltage, [Validators.required]],
@@ -125,12 +125,12 @@ export class SettingsComponent {
     if (form.wifiPass === 'password') {
       delete form.wifiPass;
     }
-    if (form.stratumPassword1 === 'password') {
-      delete form.stratumPassword1;
-    }
-    if (form.stratumPassword2 === 'password') {
-      delete form.stratumPassword2;
-    }
+    // if (form.stratumPassword1 === 'password') {
+    //   delete form.stratumPassword1;
+    // }
+    // if (form.stratumPassword2 === 'password') {
+    //   delete form.stratumPassword2;
+    // }
 
     this.systemService.updateSystem(undefined, form)
       .pipe(this.loadingService.lockUIUntilComplete())

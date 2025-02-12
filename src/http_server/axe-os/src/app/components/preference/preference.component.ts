@@ -78,12 +78,12 @@ export class PreferenceComponent implements OnInit {
 
     const form = this.form.getRawValue();
 
-    if (form.stratumPassword1 === 'password') {
-      delete form.stratumPassword1;
-    }
-    if (form.stratumPassword2 === 'password') {
-      delete form.stratumPassword2;
-    }
+    // if (form.stratumPassword1 === 'password') {
+    //   delete form.stratumPassword1;
+    // }
+    // if (form.stratumPassword2 === 'password') {
+    //   delete form.stratumPassword2;
+    // }
 
     form.overheat_mode = form.overheat_mode ? 1 : 0;
 
