@@ -417,10 +417,25 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
     delay(1);//yield to avoid WDT and UI thread freeze 
     if (final) {
         if (Update.end(true)) {
-            LOG_I("Update Success: %u bytes, rebooting...", index + len);
             g_nmaxe.ota.ota_running = false;
             g_nmaxe.ota.progress = 100;
+
+
+            // AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "OTA Update Success");
+            // response->addHeader("Access-Control-Allow-Origin", "*");
+            // response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+            // response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+            // response->addHeader("Connection", "close");
+            // request->send(response);
+        
+            
+
+
+
+
+
             request->send(200);
+            LOG_I("Update Success: %u bytes, reboot", index + len);
             delay(2000);
             xSemaphoreGive(g_nmaxe.ota.reboot_xsem);
             delay(1000);

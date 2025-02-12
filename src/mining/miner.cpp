@@ -310,7 +310,7 @@ void miner_asic_tx_thread_entry(void *args){
         //update pool diff
         g_nmaxe.mstatus.diff.pool = g_nmaxe.stratum->get_pool_difficulty();
         
-        LOG_W("Job [%s] from %s:%d", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum->pool.get_pool_info().url.c_str(), g_nmaxe.stratum->pool.get_pool_info().port);
+        LOG_W("Job [%s] from %s:%d", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum->pool->get_pool_info().url.c_str(), g_nmaxe.stratum->pool->get_pool_info().port);
         while (true){
             //construct asic job and send to asic every 2s
             if(!g_nmaxe.miner->mining(&g_nmaxe.miner->pool_job_now)) continue;

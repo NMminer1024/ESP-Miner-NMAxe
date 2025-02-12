@@ -14,8 +14,8 @@ typedef struct{
 
 class PoolClass{
 private:
-    WiFiClientSecure        _wificlientSecure;
-    WiFiClient              _wificlient;
+    WiFiClientSecure        *_wificlientSecure;
+    WiFiClient              *_wificlient;
     WiFiClient              *_pwclient;
     pool_info_t             _pool_cfg;
     uint32_t                _last_write;

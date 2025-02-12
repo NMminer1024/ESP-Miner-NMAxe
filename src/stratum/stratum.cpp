@@ -32,7 +32,7 @@ void StratumClass::reset(){
 }
 
 void StratumClass::reset(pool_info_t pConfig, stratum_info_t sConfig){
-    this->pool = PoolClass(pConfig);
+    // this->pool = PoolClass(pConfig);
     this->_stratum_info = sConfig;
 
     this->_rsp_str = "";
@@ -79,32 +79,32 @@ bool StratumClass::_clear_rsp_id_cache(){
 
 bool StratumClass::hello_pool(uint32_t hello_interval, uint32_t lost_max_time){
     this->_clear_rsp_id_cache();//clear cache of msg id
-    if((millis() - this->pool.get_last_write_ms() > hello_interval) && this->_suggest_diff_support){
+    if((millis() - this->pool->get_last_write_ms() > hello_interval) && this->_suggest_diff_support){
         uint32_t id = this->_get_msg_id();
         String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
-        if(this->pool.write(payload) != 0){
+        if(this->pool->write(payload) != 0){
             this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, millis()};
             LOG_I("Hello pool...");
             return true;
         }
         else{
-            LOG_W("Failed to send mining.suggest_difficulty, last sent to pool %lu s ago, reconnecting...", (millis() - this->pool.get_last_write_ms()) / 1000);
+            LOG_W("Failed to send mining.suggest_difficulty, last sent to pool %lu s ago, reconnecting...", (millis() - this->pool->get_last_write_ms()) / 1000);
             this->reset();
-            this->pool.end();
+            this->pool->end();
             return false;
         }
     }
-    if(millis() - this->pool.get_last_read_ms() > lost_max_time){
-        LOG_W("It seems pool inactive, last received from pool %lu s ago, reconnecting...", (millis() - this->pool.get_last_read_ms()) / 1000);
+    if(millis() - this->pool->get_last_read_ms() > lost_max_time){
+        LOG_W("It seems pool inactive, last received from pool %lu s ago, reconnecting...", (millis() - this->pool->get_last_read_ms()) / 1000);
         this->reset();
-        this->pool.end();
+        this->pool->end();
         return false;
     }
     return true;
 }
 
 stratum_method_data StratumClass::listen_methods(){
-    this->_rsp_str = this->pool.readline();
+    this->_rsp_str = this->pool->readline();
     if(this->_rsp_str == ""){
         return {-1, STRATUM_DOWN_PARSE_ERROR, "", ""};
     }
@@ -181,7 +181,7 @@ bool StratumClass::subscribe(){
     
     uint32_t id = this->_get_msg_id();
     String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.subscribe\", \"params\": [\"" +  g_nmaxe.board.hw_model + "/" + CURRENT_FW_VERSION +"\"]}\n";
-    if(this->pool.write(payload) == 0){
+    if(this->pool->write(payload) == 0){
         LOG_E("Failed to send mining.subscribe request");
         return false;
     }
@@ -190,7 +190,7 @@ bool StratumClass::subscribe(){
     //wait for response
     uint32_t start = millis();
     while (true){
-        this->_rsp_str = this->pool.readline(100);
+        this->_rsp_str = this->pool->readline(100);
         if(this->_rsp_str == "" ) {
             if(millis() - start > 1000*10){
                 LOG_E("Failed to read mining.subscribe response");
@@ -218,7 +218,7 @@ bool StratumClass::subscribe(){
 bool StratumClass::authorize(){
     uint32_t id = this->_get_msg_id();
     String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.authorize\", \"params\": [\"" + this->_stratum_info.user+ "\", \"" + this->_stratum_info.pwd + "\"]}\n";
-    if(this->pool.write(payload) != payload.length()){
+    if(this->pool->write(payload) != payload.length()){
         LOG_E("Failed to send mining.authorize request");
         return false;
     }
@@ -231,7 +231,7 @@ bool StratumClass::authorize(){
 bool StratumClass::suggest_difficulty(){
     uint32_t id = this->_get_msg_id();
     String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
-    if(this->pool.write(payload) != payload.length()){
+    if(this->pool->write(payload) != payload.length()){
         LOG_E("Failed to send mining.suggest_difficulty request");
         return false;
     }
@@ -244,7 +244,7 @@ bool StratumClass::suggest_difficulty(){
 bool StratumClass::config_version_rolling(){
     uint32_t id = this->_get_msg_id();
     String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.configure\", \"params\": [[\"version-rolling\"], {\"version-rolling.mask\": \"ffffffff\"}]}\n";
-    if(this->pool.write(payload) != payload.length()){
+    if(this->pool->write(payload) != payload.length()){
         LOG_E("Failed to send mining.configure request");
         return false;
     }
@@ -268,7 +268,7 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
     String(nonce_str) + "\", \"" + 
     String(version_str) + "\"]}\n";
 
-    if(this->pool.write(payload) != payload.length()){
+    if(this->pool->write(payload) != payload.length()){
         LOG_E("Failed to send mining.submit request");
         return false;
     }
@@ -392,7 +392,7 @@ void stratum_thread_entry(void *args){
         } else w_retry = 0;
         
         static uint16_t p_retry = 0, p_maxRetries = 5;
-        if(!g_nmaxe.stratum->pool.is_connected()){
+        if(!g_nmaxe.stratum->pool->is_connected()){
             static bool    first_connect = true;
             if(first_connect){
                 LOG_I("Pool connecting...");
@@ -414,8 +414,8 @@ void stratum_thread_entry(void *args){
                 }
             }
             g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
-            g_nmaxe.stratum->pool.begin(g_nmaxe.connection.pool_use.ssl);
-            g_nmaxe.stratum->pool.connect();
+            g_nmaxe.stratum->pool->begin(g_nmaxe.connection.pool_use.ssl);
+            g_nmaxe.stratum->pool->connect();
             g_nmaxe.mstatus.diff.last = 0;
             delay(5000);
             continue;
@@ -450,7 +450,7 @@ void stratum_thread_entry(void *args){
             continue;
         }
 
-        while(g_nmaxe.stratum->pool.available()){
+        while(g_nmaxe.stratum->pool->available()){
             g_nmaxe.connection.stratum_update = millis();//pool is alive
             stratum_method_data method = g_nmaxe.stratum->listen_methods();
             switch (method.type){

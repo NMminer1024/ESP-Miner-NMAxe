@@ -65,31 +65,32 @@ typedef struct {
 
 class StratumClass{
 private:
-    stratum_info_t  _stratum_info;
-    bool            _is_subscribed;
-    bool            _is_authorized;
-    uint32_t        _gid;
-    uint32_t        _get_msg_id();
-    String          _rsp_str;
-    bool            _parse_rsp();
-    bool            _clear_rsp_id_cache();
-    bool            _suggest_diff_support;
-    uint32_t        _vr_mask;//version rolling mask
-    double          _pool_difficulty;
-    StaticJsonDocument<4096> _rsp_json;
-    stratum_subscribe_info_t _sub_info;
-    uint32_t        _max_rsp_id_cache;
-    uint8_t         _pool_job_cache_size;
-    std::deque<pool_job_data_t>                   _pool_job_cache;
-    std::map<stratum_msg_rsp_id_t, stratum_rsp>   _msg_rsp_map;
+    stratum_info_t                                  _stratum_info;
+    bool                                            _is_subscribed;
+    bool                                            _is_authorized;
+    uint32_t                                        _gid;
+    uint32_t                                        _get_msg_id();
+    String                                          _rsp_str;
+    bool                                            _parse_rsp();
+    bool                                            _clear_rsp_id_cache();
+    bool                                            _suggest_diff_support;
+    uint32_t                                        _vr_mask;//version rolling mask
+    double                                          _pool_difficulty;
+    StaticJsonDocument<4096>                        _rsp_json;
+    stratum_subscribe_info_t                        _sub_info;
+    uint32_t                                        _max_rsp_id_cache;
+    uint8_t                                         _pool_job_cache_size;
+    std::deque<pool_job_data_t>                     _pool_job_cache;
+    std::map<stratum_msg_rsp_id_t, stratum_rsp>     _msg_rsp_map;
 public:
-    PoolClass  pool;
+    PoolClass  *pool;
     SemaphoreHandle_t new_job_xsem, clear_job_xsem;
 
     StratumClass(){};
     StratumClass(pool_info_t pConfig, stratum_info_t sConfig, uint8_t job_cached_max): 
-        pool(pConfig), _stratum_info(sConfig), _pool_job_cache_size(job_cached_max)
-    {
+     _stratum_info(sConfig), _pool_job_cache_size(job_cached_max){
+        void* pool_buf  = psramAllocator(sizeof(StratumClass));
+        this->pool = new(pool_buf) PoolClass(pConfig);
         this->_max_rsp_id_cache = 20;
         this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
         this->_gid = 1;

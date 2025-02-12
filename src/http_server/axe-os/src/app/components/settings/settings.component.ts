@@ -182,6 +182,7 @@ export class SettingsComponent {
     const file = event.files[0];
     if (file.name != 'spiffs.bin') {
       this.toastrService.error('Incorrect file, looking for spiffs.bin.', 'Error');
+      this.otaFileUploader.clear();
       return;
     }
 
@@ -205,9 +206,11 @@ export class SettingsComponent {
       },
       error: (err) => {
         this.toastrService.error('Upload Error', 'Error');
+        this.otaFileUploader.clear();
       },
       complete: () => {
         this.websiteUpdateProgress = null;
+        this.otaFileUploader.clear();
       }
     });
   }
