@@ -116,7 +116,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
   public selectedAxeOs: any = null;
   public showEdit = false;
   public showUpdateWebsite = false;
-  public showUpdateFirmware = true;
+  public showUpdateFirmware = false;
 
   public updateFirmwareDevices: UpdateDevice[] = [];
   public updateWebsiteDevices: UpdateDevice[] = [];
@@ -162,12 +162,11 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.updateTime();
     }, 1000);
 
-    this.subscription = interval(300000).pipe(
+    this.subscription = interval(3000).pipe(
       startWith(0),
       switchMap(() => {
         this.logs.push(`Request sent ${this.uri}`)
-        // return this.http.get<{ devices: NMDevice[] }>(`${this.uri}/api/swarm`);
-        return this.http.get<{ devices: NMDevice[] }>(`http://home.bitpony.xyz:12345/api/swarm`);
+        return this.http.get<{ devices: NMDevice[] }>(`${this.uri}/api/swarm`);
       })
     ).subscribe(
       data => {
