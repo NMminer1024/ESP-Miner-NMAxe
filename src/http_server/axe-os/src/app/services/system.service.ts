@@ -104,12 +104,12 @@ export class SystemService {
     });
   }
 
-  public performOTAUpdate(file: File | Blob) {
-    return this.otaUpdate(file, `/api/system/OTA`);
+  public performOTAUpdate(file: File | Blob, host = '') {
+    return this.otaUpdate(file, `${host}/api/system/OTA`);
   }
 
-  public performWWWOTAUpdate(file: File | Blob) {
-    return this.otaUpdate(file, `/api/system/OTAWWW`);
+  public performWWWOTAUpdate(file: File | Blob, host = '') {
+    return this.otaUpdate(file, `${host}/api/system/OTAWWW`);
   }
 
   public getSwarmInfo(uri: string = ''): Observable<{ ip: string }[]> {

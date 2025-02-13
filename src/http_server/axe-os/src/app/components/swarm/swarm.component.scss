@@ -1,3 +1,15 @@
+.clock {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  gap: 20px;
+
+  p {
+    width: 130px;
+    margin: 0;
+  }
+}
+
 form {
   margin-bottom: 20px;
 }
