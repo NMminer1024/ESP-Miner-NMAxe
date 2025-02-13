@@ -116,7 +116,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
   public selectedAxeOs: any = null;
   public showEdit = false;
   public showUpdateWebsite = false;
-  public showUpdateFirmware = true;
+  public showUpdateFirmware = false;
 
   public updateFirmwareDevices: UpdateDevice[] = [];
   public updateWebsiteDevices: UpdateDevice[] = [];
