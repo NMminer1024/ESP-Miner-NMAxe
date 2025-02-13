@@ -499,6 +499,13 @@ void start_http_server(void) {
     webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
     webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
+    webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
+        AsyncWebServerResponse *response = request->beginResponse(200);
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
+        response->addHeader("Access-Control-Allow-Headers", "Accept,Content-Type");
+        request->send(response);
+    });
     webServer.begin();
 }
 
