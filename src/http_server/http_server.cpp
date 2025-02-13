@@ -421,7 +421,13 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
         if (Update.end(true)) {
             g_nmaxe.ota.ota_running = false;
             g_nmaxe.ota.progress = 100;
-            request->send(200);
+            // request->send(200);
+            AsyncWebServerResponse *response = request->beginResponse(200);
+            response->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(response);
+
+
+
             LOG_I("Update Success: %u bytes, rebooting...", index + len);
             delay(1000);
             xSemaphoreGive(g_nmaxe.ota.reboot_xsem);

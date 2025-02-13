@@ -277,12 +277,12 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.systemService.performWWWOTAUpdate(file, `http://${item.ip}`).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
-            this.toastr.info(`Website update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
+            // this.toastr.info(`Website update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
             item.progress = `${Math.round((event.loaded / (event.total as number)) * 100)}%`;
           } else if (event.type === HttpEventType.Response) {
             if (event.ok) {
               setTimeout(() => {
-                this.toastr.success('Website updated', 'Success');
+                this.toastr.success('Website updated', 'Ok');
                 item.progress = "Success";
               }, 1000);
             } else {
@@ -319,13 +319,13 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.systemService.performOTAUpdate(file, `http://${item.ip}`).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
-            this.toastr.info(`Firmware update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
+            // this.toastr.info(`Firmware update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
             item.progress = `${Math.round((event.loaded / (event.total as number)) * 100)}%`;
           } else if (event.type === HttpEventType.Response) {
             if (event.ok) {
               setTimeout(() => {
                 this.toastr.success('Firmware updated', 'Success');
-                item.progress = "Success";
+                item.progress = "Ok";
               }, 1000);
             } else {
               this.toastr.error(event.statusText, 'Error');
