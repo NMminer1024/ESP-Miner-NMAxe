@@ -86,7 +86,9 @@
     <p-fileUpload #otaFileUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
                   chooseLabel="Browse" (uploadHandler)="otaUpdate($event)"></p-fileUpload>
     <small>(firmware.bin)</small>
-    <span class="upload-progress"></span>
+    <div class="progress-container">
+      <p class="upload-progress" *ngFor="let device of updateFirmwareDevices">{{device.ip + ":" +device.progress}}</p>
+    </div>
   </div>
 </div>
 
@@ -97,7 +99,9 @@
   <p-fileUpload #otaWebsiteUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
                 chooseLabel="Browse" (uploadHandler)="otaWWWUpdate($event)"></p-fileUpload>
   <small>(spiffs.bin)</small>
-  <span class="upload-progress"></span>
+  <div class="progress-container">
+    <p class="upload-progress" *ngFor="let device of updateWebsiteDevices">{{device.ip + ":" +device.progress}}</p>
+  </div>
 </div>
 
 <div class="modal-backdrop" *ngIf="showEdit" (click)="showEdit = false"></div>
