@@ -1,11 +1,13 @@
-import {HttpClient} from '@angular/common/http';
-import {Component, OnInit, OnDestroy, Input} from '@angular/core';
+import {HttpClient, HttpEventType} from '@angular/common/http';
+import {Component, OnInit, OnDestroy, Input, ViewChild} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
 import {Subscription, interval} from 'rxjs';
 import {BehaviorSubject, startWith, switchMap} from 'rxjs';
 import {HashSuffixPipe} from "../../pipes/hash-suffix.pipe";
 import {DiffSuffixPipe} from "../../pipes/diff-suffix.pipe";
-import { DateAgoPipe } from '../../pipes/date-ago.pipe';
+import {DateAgoPipe} from '../../pipes/date-ago.pipe';
+import {FileUpload, FileUploadHandlerEvent} from "primeng/fileupload";
+import {SystemService} from "../../services/system.service";
 
 interface NMDevice {
   ip: string;
@@ -24,6 +26,7 @@ interface NMDevice {
   Version: string;
   Uptime: string;
   Lastseen: number;
+  selected: boolean;
 }
 
 interface SwarmSummary {
@@ -100,12 +103,17 @@ const TableSortFunctions = {
   styleUrls: ['./swarm.component.scss']
 })
 export class SwarmComponent implements OnInit, OnDestroy {
+  @ViewChild('otaFileUploader') otaFileUploader!: FileUpload;
+  @ViewChild('otaWebsiteUploader') otaWebsiteUploader!: FileUpload;
 
   public refresh$: BehaviorSubject<null> = new BehaviorSubject(null);
 
   public selectedAxeOs: any = null;
   public showEdit = false;
+  public showUpdateWebsite = false;
+  public showUpdateFirmware = false;
   public swarmData: NMDevice[] = [];
+  public selectedItems: NMDevice[] = [];
   public swarmSummary: SwarmSummary | undefined = undefined;
 
   public logs: string[] = [];
@@ -117,13 +125,18 @@ export class SwarmComponent implements OnInit, OnDestroy {
   public sortIndex: SortIndex | undefined = 0;
   public sortOrder: SortOrder = SortOrder.Asc;
 
+  public allSelected = false;
+
+
   private intervalId: any;
+
 
   @Input() uri = '';
 
   constructor(
     private http: HttpClient,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private systemService: SystemService,
   ) {
 
   }
@@ -148,6 +161,12 @@ export class SwarmComponent implements OnInit, OnDestroy {
       })
     ).subscribe(
       data => {
+        const alreadySelectedIPs = this.selectedItems.map(item => item.ip);
+
+        data.devices.forEach(item => {
+          item.selected = alreadySelectedIPs.includes(item.ip);
+        });
+
         this.swarmData = this.sort(data.devices);
 
         this.swarmSummary = calculateSwarmSummary(this.swarmData);
@@ -218,6 +237,86 @@ export class SwarmComponent implements OnInit, OnDestroy {
     }
     this.swarmData = this.sort(this.swarmData);
     setStorageSwarmSort(this.sortIndex, this.sortOrder);
+  }
+
+  public toggleAll() {
+    this.swarmData.forEach(item => item.selected = this.allSelected);
+    this.updateSelection();
+  }
+
+  // 更新全选状态
+  updateSelection() {
+    this.allSelected = this.swarmData.every(item => item.selected);
+    this.selectedItems = this.swarmData.filter(item => item.selected);
+  }
+
+  public otaWWWUpdate(event: FileUploadHandlerEvent) {
+    const file = event.files[0];
+    if (file.name != 'spiffs.bin') {
+      this.toastr.error('Incorrect file, looking for spiffs.bin', 'Error');
+      this.otaWebsiteUploader.clear();
+      return;
+    }
+
+    if (this.selectedItems.length === 0) {
+      this.toastr.error('Please select at least one device', 'Error');
+      return;
+    }
+
+    this.selectedItems.forEach(item => {
+      this.systemService.performWWWOTAUpdate(file, `http://${item.ip}`).subscribe({
+        next: (event) => {
+          if (event.type === HttpEventType.UploadProgress) {
+            this.toastr.info(`Website update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
+          } else if (event.type === HttpEventType.Response) {
+            if (event.ok) {
+              setTimeout(() => {
+                this.toastr.success('Website updated', 'Success');
+              }, 1000);
+            } else {
+              this.toastr.error(event.statusText, 'Error');
+            }
+          }
+        },
+        error: (err) => {
+          this.toastr.error('Upload Error', 'Error');
+        }
+      });
+    });
+  }
+
+  public otaUpdate(event: FileUploadHandlerEvent) {
+    const file = event.files[0];
+    if (file.name != 'firmware.bin') {
+      this.toastr.error('Incorrect file, looking for firmware.bin.', 'Error');
+      this.otaFileUploader.clear();
+      return;
+    }
+    if (this.selectedItems.length === 0) {
+      this.toastr.error('Please select at least one device', 'Error');
+      return;
+    }
+    this.selectedItems.forEach(item => {
+      this.systemService.performOTAUpdate(file, `http://${item.ip}`).subscribe({
+        next: (event) => {
+          if (event.type === HttpEventType.UploadProgress) {
+            this.toastr.info(`Firmware update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
+          } else if (event.type === HttpEventType.Response) {
+            if (event.ok) {
+              setTimeout(() => {
+                this.toastr.success('Firmware updated', 'Success');
+              }, 1000);
+            } else {
+              this.toastr.error(event.statusText, 'Error');
+            }
+          }
+        },
+        error: (err) => {
+          this.toastr.error('Uploaded Error', 'Error');
+          this.otaFileUploader.clear();
+        }
+      });
+    });
   }
 
   protected readonly SortIndex = SortIndex;

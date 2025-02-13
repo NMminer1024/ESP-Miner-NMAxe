@@ -1,6 +1,9 @@
-
 <div class="clock">
   <p>{{ currentDate }} {{ currentTime }}</p>
+  @if (selectedItems.length > 0) {
+    <p-button severity="danger" (click)="showUpdateFirmware = true" label="Update Firmware"></p-button>
+    <p-button severity="danger" (click)="showUpdateWebsite = true" label="Update Website"></p-button>
+  }
 </div>
 <div>
   @if (swarmSummary) {
@@ -20,6 +23,9 @@
 
   <table cellspacing="0" cellpadding="0">
     <tr>
+      <th>
+        <input type="checkbox" [(ngModel)]="allSelected" (change)="toggleAll()" />
+      </th>
       <th>#</th>
       <th (click)="sortTable(SortIndex.IP)" class="sortable">IP</th>
       <th (click)="sortTable(SortIndex.BoardType)" class="sortable">Board</th>
@@ -45,6 +51,7 @@
         <tr *ngIf="axeOs$ | async as axe"> -->
     <!-- <ng-container *ngFor="let axe of swarmData">         -->
     <tr *ngFor="let axe of swarmData; let i = index">
+      <td><input type="checkbox" [(ngModel)]="axe.selected" (change)="updateSelection()" /></td>
       <td>{{ i + 1 }}</td>
       <td><a [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
       <td class="boardtype-column">{{ axe.BoardType }}</td>
@@ -69,6 +76,28 @@
     </tr>
     <!-- </ng-container> -->
   </table>
+</div>
+
+<div class="modal-backdrop" *ngIf="showUpdateFirmware" (click)="showUpdateFirmware = false"></div>
+<div class="modal card" *ngIf="showUpdateFirmware">
+  <div class="close" (click)="showUpdateFirmware = false">&#10006;</div>
+  <h1>Update Firmware</h1>
+  <div class="card">
+    <p-fileUpload #otaFileUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
+                  chooseLabel="Browse" (uploadHandler)="otaUpdate($event)"></p-fileUpload>
+    <small>(firmware.bin)</small>
+    <span class="upload-progress"></span>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showUpdateWebsite" (click)="showUpdateWebsite = false"></div>
+<div class="modal card" *ngIf="showUpdateWebsite">
+  <div class="close" (click)="showUpdateWebsite = false">&#10006;</div>
+  <h1>Update Website</h1>
+  <p-fileUpload #otaWebsiteUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
+                chooseLabel="Browse" (uploadHandler)="otaWWWUpdate($event)"></p-fileUpload>
+  <small>(spiffs.bin)</small>
+  <span class="upload-progress"></span>
 </div>
 
 <div class="modal-backdrop" *ngIf="showEdit" (click)="showEdit = false"></div>
