@@ -166,8 +166,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       startWith(0),
       switchMap(() => {
         this.logs.push(`Request sent ${this.uri}`)
-        // return this.http.get<{ devices: NMDevice[] }>(`${this.uri}/api/swarm`);
-        return this.http.get<{ devices: NMDevice[] }>(`http://home.bitpony.xyz:12345/api/swarm`);
+        return this.http.get<{ devices: NMDevice[] }>(`${this.uri}/api/swarm`);
       })
     ).subscribe(
       data => {
