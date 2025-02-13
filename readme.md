@@ -128,6 +128,18 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 
 ## Release Log
 ***
+
+### (2025.02.13) - v2.5.10
+- Add:
+  - BSV,FB,SPACE price.
+- Fixed:
+  - NMAxe will reboot when refresh the AxeOS frequently.
+- Improved:
+  - Swarm.
+- Modify:
+  - Stratum password to text type.
+  - NMAxe and NMAxe-Gamma board select pin.
+
 ### (2025.01.30) - v2.5.02
 - Add:
   - Stratum user for primary and fallback.
