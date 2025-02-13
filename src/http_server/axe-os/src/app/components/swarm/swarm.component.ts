@@ -162,7 +162,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.updateTime();
     }, 1000);
 
-    this.subscription = interval(300000).pipe(
+    this.subscription = interval(3000).pipe(
       startWith(0),
       switchMap(() => {
         this.logs.push(`Request sent ${this.uri}`)
