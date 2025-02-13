@@ -83,7 +83,7 @@ a:active {
 }
 
 .uptime-column {
-  width: 170px;
+  min-width: 130px
 }
 
 .boardtype-column {
@@ -96,4 +96,12 @@ a:active {
 
 .common-column {
   width: 100px;
+}
+
+.progress-container {
+  margin-top: 20px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+
 }

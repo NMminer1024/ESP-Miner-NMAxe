@@ -66,6 +66,11 @@ interface StorageSwarmSort {
   order: SortOrder;
 }
 
+interface UpdateDevice {
+  ip: string;
+  progress: string;
+}
+
 function setStorageSwarmSort(index: SortIndex, order: SortOrder) {
   localStorage.setItem(StorageSwarmSortKey, JSON.stringify({index, order}));
 }
@@ -111,7 +116,11 @@ export class SwarmComponent implements OnInit, OnDestroy {
   public selectedAxeOs: any = null;
   public showEdit = false;
   public showUpdateWebsite = false;
-  public showUpdateFirmware = false;
+  public showUpdateFirmware = true;
+
+  public updateFirmwareDevices: UpdateDevice[] = [];
+  public updateWebsiteDevices: UpdateDevice[] = [];
+
   public swarmData: NMDevice[] = [];
   public selectedItems: NMDevice[] = [];
   public swarmSummary: SwarmSummary | undefined = undefined;
@@ -153,11 +162,12 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.updateTime();
     }, 1000);
 
-    this.subscription = interval(3000).pipe(
+    this.subscription = interval(300000).pipe(
       startWith(0),
       switchMap(() => {
         this.logs.push(`Request sent ${this.uri}`)
-        return this.http.get<{ devices: NMDevice[] }>(`${this.uri}/api/swarm`);
+        // return this.http.get<{ devices: NMDevice[] }>(`${this.uri}/api/swarm`);
+        return this.http.get<{ devices: NMDevice[] }>(`http://home.bitpony.xyz:12345/api/swarm`);
       })
     ).subscribe(
       data => {
@@ -263,26 +273,33 @@ export class SwarmComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.selectedItems.forEach(item => {
+    this.updateWebsiteDevices = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%"}});
+    this.updateWebsiteDevices.forEach(item => {
       this.systemService.performWWWOTAUpdate(file, `http://${item.ip}`).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
             this.toastr.info(`Website update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
+            item.progress = `${Math.round((event.loaded / (event.total as number)) * 100)}%`;
           } else if (event.type === HttpEventType.Response) {
             if (event.ok) {
               setTimeout(() => {
                 this.toastr.success('Website updated', 'Success');
+                item.progress = "Success";
               }, 1000);
             } else {
               this.toastr.error(event.statusText, 'Error');
+              item.progress = "Error";
             }
           }
         },
         error: (err) => {
           this.toastr.error('Upload Error', 'Error');
+          this.otaWebsiteUploader.clear();
+          item.progress = "Error";
         }
       });
-    });
+    })
+
   }
 
   public otaUpdate(event: FileUploadHandlerEvent) {
@@ -296,24 +313,31 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.toastr.error('Please select at least one device', 'Error');
       return;
     }
-    this.selectedItems.forEach(item => {
+
+    this.updateFirmwareDevices  = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%"}});
+
+    this.updateFirmwareDevices.forEach(item => {
       this.systemService.performOTAUpdate(file, `http://${item.ip}`).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
             this.toastr.info(`Firmware update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
+            item.progress = `${Math.round((event.loaded / (event.total as number)) * 100)}%`;
           } else if (event.type === HttpEventType.Response) {
             if (event.ok) {
               setTimeout(() => {
                 this.toastr.success('Firmware updated', 'Success');
+                item.progress = "Success";
               }, 1000);
             } else {
               this.toastr.error(event.statusText, 'Error');
+              item.progress = "Error";
             }
           }
         },
         error: (err) => {
           this.toastr.error('Uploaded Error', 'Error');
           this.otaFileUploader.clear();
+          item.progress = "Error";
         }
       });
     });
