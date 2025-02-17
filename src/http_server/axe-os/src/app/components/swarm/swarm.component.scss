@@ -103,5 +103,11 @@ a:active {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
+  .success {
+    color: #4caf50;
+  }
 
+  .error {
+    color: #f44336;
+  }
 }

@@ -87,7 +87,8 @@
                   chooseLabel="Browse" (uploadHandler)="otaUpdate($event)"></p-fileUpload>
     <small>(firmware.bin)</small>
     <div class="progress-container">
-      <p class="upload-progress" *ngFor="let device of updateFirmwareDevices">{{device.ip + ":" +device.progress}}</p>
+      <p class="upload-progress"
+         *ngFor="let device of updateFirmwareDevices" [ngClass]="{'success': device.result, 'error': !device.result}">{{ device.ip + ":" + device.progress }}</p>
     </div>
   </div>
 </div>
@@ -96,11 +97,13 @@
 <div class="modal card" *ngIf="showUpdateWebsite">
   <div class="close" (click)="showUpdateWebsite = false">&#10006;</div>
   <h1>Update Website</h1>
-  <p-fileUpload #otaWebsiteUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
-                chooseLabel="Browse" (uploadHandler)="otaWWWUpdate($event)"></p-fileUpload>
-  <small>(spiffs.bin)</small>
-  <div class="progress-container">
-    <p class="upload-progress" *ngFor="let device of updateWebsiteDevices">{{device.ip + ":" +device.progress}}</p>
+  <div class="card">
+    <p-fileUpload #otaWebsiteUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
+                  chooseLabel="Browse" (uploadHandler)="otaWWWUpdate($event)"></p-fileUpload>
+    <small>(spiffs.bin)</small>
+    <div class="progress-container">
+      <p class="upload-progress" *ngFor="let device of updateWebsiteDevices" [ngClass]="{'success': device.result, 'error': !device.result}">{{ device.ip + ":" + device.progress }}</p>
+    </div>
   </div>
 </div>
 
