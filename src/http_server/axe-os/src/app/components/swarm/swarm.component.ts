@@ -69,6 +69,7 @@ interface StorageSwarmSort {
 interface UpdateDevice {
   ip: string;
   progress: string;
+  result: boolean
 }
 
 function setStorageSwarmSort(index: SortIndex, order: SortOrder) {
@@ -272,7 +273,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.updateWebsiteDevices = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%"}});
+    this.updateWebsiteDevices = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%", result: true}});
     this.updateWebsiteDevices.forEach(item => {
       this.systemService.performWWWOTAUpdate(file, `http://${item.ip}`).subscribe({
         next: (event) => {
@@ -288,6 +289,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
             } else {
               this.toastr.error(event.statusText, 'Error');
               item.progress = "Error";
+              item.result = false;
             }
           }
         },
@@ -295,6 +297,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
           this.toastr.error('Upload Error', 'Error');
           this.otaWebsiteUploader.clear();
           item.progress = "Error";
+          item.result = false;
         }
       });
     })
@@ -313,7 +316,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.updateFirmwareDevices  = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%"}});
+    this.updateFirmwareDevices  = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%", result: true}});
 
     this.updateFirmwareDevices.forEach(item => {
       this.systemService.performOTAUpdate(file, `http://${item.ip}`).subscribe({
@@ -330,6 +333,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
             } else {
               this.toastr.error(event.statusText, 'Error');
               item.progress = "Error";
+              item.result = false;
             }
           }
         },
@@ -337,6 +341,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
           this.toastr.error('Uploaded Error', 'Error');
           this.otaFileUploader.clear();
           item.progress = "Error";
+          item.result = false;
         }
       });
     });
