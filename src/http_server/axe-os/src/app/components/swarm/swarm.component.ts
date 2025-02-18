@@ -283,8 +283,8 @@ export class SwarmComponent implements OnInit, OnDestroy {
           } else if (event.type === HttpEventType.Response) {
             if (event.ok) {
               setTimeout(() => {
-                this.toastr.success('Website updated', 'Ok');
-                item.progress = "Success";
+                this.toastr.success('Website updated', 'Successed');
+                item.progress = "Ok";
               }, 1000);
             } else {
               this.toastr.error(event.statusText, 'Error');
@@ -327,7 +327,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
           } else if (event.type === HttpEventType.Response) {
             if (event.ok) {
               setTimeout(() => {
-                this.toastr.success('Firmware updated', 'Success');
+                this.toastr.success('Firmware updated', 'Successed');
                 item.progress = "Ok";
               }, 1000);
             } else {
