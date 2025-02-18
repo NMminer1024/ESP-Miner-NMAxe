@@ -88,7 +88,10 @@
     <small>(firmware.bin)</small>
     <div class="progress-container">
       <p class="upload-progress"
-         *ngFor="let device of updateFirmwareDevices" [ngClass]="{'success': device.result, 'error': !device.result}">{{ device.ip + ":" + device.progress }}</p>
+         *ngFor="let device of updateFirmwareDevices">
+        {{ device.ip + ":" }}
+        <span [ngClass]="{'success': device.result, 'error': !device.result}">{{ device.progress }}</span>
+      </p>
     </div>
   </div>
 </div>
@@ -102,7 +105,10 @@
                   chooseLabel="Browse" (uploadHandler)="otaWWWUpdate($event)"></p-fileUpload>
     <small>(spiffs.bin)</small>
     <div class="progress-container">
-      <p class="upload-progress" *ngFor="let device of updateWebsiteDevices" [ngClass]="{'success': device.result, 'error': !device.result}">{{ device.ip + ":" + device.progress }}</p>
+      <p class="upload-progress" *ngFor="let device of updateWebsiteDevices">
+        {{ device.ip + ":" }}
+        <span [ngClass]="{'success': device.result, 'error': !device.result}">{{ device.progress }}</span>
+      </p>
     </div>
   </div>
 </div>
