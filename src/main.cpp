@@ -67,16 +67,16 @@ void setup() {
   xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, NULL, 1);
   delay(10);
   /*********************************************************** CREATE MARKET THREAD ***************************************************/
-  taskName = "(market)";
-  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*8, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, NULL, 1);
-  while (!g_nmaxe.market->updated){
-    static uint32_t start = millis();
-    if(g_nmaxe.market->timeout) {
-      delay(2000);
-      break;
-    }
-    delay(10);
-  }
+  // taskName = "(market)";
+  // xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*8, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, NULL, 1);
+  // while (!g_nmaxe.market->updated){
+  //   static uint32_t start = millis();
+  //   if(g_nmaxe.market->timeout) {
+  //     delay(2000);
+  //     break;
+  //   }
+  //   delay(10);
+  // }
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";
   xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*12, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 1);

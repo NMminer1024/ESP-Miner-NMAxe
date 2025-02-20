@@ -93,6 +93,7 @@ typedef struct{
     uint16_t  frequency_req;//MHz
     uint16_t  vcore_req;//mV
     uint16_t  vcore_measured;//mV
+    uint16_t  job_frq_ms;//ms
 }asic_info_t;
 
 typedef struct{

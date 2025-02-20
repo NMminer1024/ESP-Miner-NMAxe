@@ -197,9 +197,11 @@ bool load_g_nmaxe(void){
     if(model == NMAXE){
         g_nmaxe.board.hw_model = "NMAxe";
         g_nmaxe.asic.model     = "BM1366";
+        g_nmaxe.asic.job_frq_ms = 2000;
     }else if(model == NMAXE_GAMMA){
         g_nmaxe.board.hw_model = "NMAxe-Gamma";
         g_nmaxe.asic.model     = "BM1370";
+        g_nmaxe.asic.job_frq_ms = 500;
     }else if(model == BOARD_UNKNOWN){
         LOG_E("Unknown board model, please check the model select pins.");
         return false;

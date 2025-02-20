@@ -55,7 +55,13 @@ esp_err_t AsicMinerClass::listen_asic_rsp(asic_result *result, uint32_t timeout_
 bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     if(this->_asic == NULL) return false;
     ////////////////////////////////////////construct asic job//////////////////////////////////
-    this->_asic_job_now.id = (this->_asic_job_now.id + 8) % 128;
+    uint8_t step = 8;
+    if(g_nmaxe.asic.model == "BM1366")       step = 8;
+    else if (g_nmaxe.asic.model == "BM1370") step = 24;
+    else LOG_W("Unknown ASIC model, using default step 8");
+
+    this->_asic_job_now.id = (this->_asic_job_now.id + step) % 128;
+
     this->pool_job_now.id  = pool_job->id;
     String  extranonce2    = g_nmaxe.stratum->get_sub_extranonce2();
     /**************************************** coinhash ****************************************/
@@ -100,7 +106,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     this->_asic_job_map[this->_asic_job_now.id]     = this->_asic_job_now;
     this->_extranonce2_map[this->_asic_job_now.id]  = extranonce2;
 
-    LOG_D("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
+    LOG_W("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
 
     ////////////////////////////////////////send asic job//////////////////////////////////
     this->_asic->send_work_to_asic(&this->_asic_job_now);
@@ -266,6 +272,8 @@ void miner_asic_init_thread_entry(void *args){
     //miner instance
     g_nmaxe.miner = new AsicMinerClass(asic_instance);
 
+    LOG_I("ASIC job interval set to %d ms", g_nmaxe.asic.job_frq_ms);
+
     //begin asic hardware
     if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, default_asic_diff_thr)){
         while (true){
@@ -328,7 +336,7 @@ void miner_asic_tx_thread_entry(void *args){
             }
 
             //interval 2000ms every asic job, exit if a new pool job arrived
-            if(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, 2000) == pdTRUE) {
+            if(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, g_nmaxe.asic.job_frq_ms) == pdTRUE) {
                 //avoid some stale share submit, clear job cache if clean job signal received
                 if(xSemaphoreTake(g_nmaxe.stratum->clear_job_xsem, 0) == pdTRUE) {
                     g_nmaxe.miner->clear_asic_job_cache();
@@ -359,7 +367,7 @@ void miner_asic_rx_thread_entry(void *args){
             delay(1000);
             continue;
         }
-        esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result);
+        esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result, 10000);
         if(ESP_OK == err){
             if(!g_nmaxe.stratum->is_subscribed()) continue;
             if(g_nmaxe.miner->find_job_by_asic_job_id(result.job_id, &job)){
@@ -372,7 +380,7 @@ void miner_asic_rx_thread_entry(void *args){
 
                 //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
                 g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
-                g_nmaxe.mstatus.diff.last       = diff;
+                g_nmaxe.mstatus.diff.last            = diff;
                 g_nmaxe.mstatus.diff.best_session    = (diff > g_nmaxe.mstatus.diff.best_session) ? diff : g_nmaxe.mstatus.diff.best_session;
                 g_nmaxe.mstatus.diff.best_ever       = (diff > g_nmaxe.mstatus.diff.best_ever) ? diff : g_nmaxe.mstatus.diff.best_ever;
 

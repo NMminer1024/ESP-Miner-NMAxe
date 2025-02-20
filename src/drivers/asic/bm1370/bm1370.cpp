@@ -89,7 +89,7 @@ void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
         this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
     }
 
-    LOG_I("Setting Frequency to %.2fMHz (%.2f)", target_freq, best_freq);
+    // LOG_I("Setting Frequency to %.2fMHz (%.2f)", target_freq, best_freq);
 }
 
 void BM1370::_set_version_mask(uint32_t version_mask) {
@@ -147,7 +147,7 @@ void BM1370::frequency_ramp_up(float target_frequency){
         float next_step = fminf(step, target_frequency - current);
         current += next_step;
         this->_set_hash_frequency(-1, current, 0.001);
-        delay(100);
+        // delay(100);
     }
 }
 
@@ -182,10 +182,10 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
 
     uint8_t init4[6] = {0x00, 0xA8, 0x00, 0x07, 0x00, 0x003};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), init4, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init4, 6);
 
     uint8_t init5[6] = {0x00, 0x18, 0xF0, 0x00, 0xC1, 0x00};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), init5, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init5, 6);
 
     this->_set_chain_inactive();
 
@@ -197,16 +197,16 @@ uint8_t BM1370::init(uint64_t freq, int diff){
 
     //Core register control
     uint8_t init6[6] = {0x00, 0x3C, 0x80, 0x00, 0x8B, 0x00};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), init6, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init6, 6);
 
     uint8_t init7[6] = {0x00, 0x3C, 0x80, 0x00, 0x80, 0x0C};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), init7, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init7, 6);
 
     //set difficulty mask
     this->set_job_difficulty(diff);
 
     uint8_t init8[6] = {0x00, 0x58, 0x00, 0x01, 0x11, 0x11};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), init8, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init8, 6);
 
     for(uint8_t i = 0; i < chip_counter; i++){
         uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
@@ -222,21 +222,25 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     }
 
     uint8_t init9[6] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), init9, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init9, 6);
 
     uint8_t init10[6] = {0x00, 0x54, 0x00, 0x00, 0x00, 0x02};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), init10, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init10, 6);
 
     uint8_t init11[6] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), init11, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init11, 6);
 
     uint8_t init12[6] = {0x00, 0x3C, 0x80, 0x00, 0x8D, 0xEE};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_INACTIVE), init12, 6);
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init12, 6);
 
     this->frequency_ramp_up((float)freq);
 
     uint8_t set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x1E, 0xB5}; //S21 Pro-Stock Default
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), set_10_hash_counting, 6);
+
+    // delay(1);
+    // uint8_t init13[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03};
+    // this->send(init13, 11);
 
     return chip_counter;
 }
@@ -250,6 +254,8 @@ esp_err_t BM1370::wait_for_result(asic_result *result, uint32_t timeout_ms){
     uint8_t rsp[11] = {0,};
     uint16_t len = this->receive(rsp, sizeof(rsp), timeout_ms);
     if(len == 0) return ESP_ERR_TIMEOUT;
+    dbg::hex_print(rsp, len, "asic result");
+
 
     if(len != 11){
         this->clear_port_cache();
@@ -260,5 +266,6 @@ esp_err_t BM1370::wait_for_result(asic_result *result, uint32_t timeout_ms){
         return ESP_ERR_INVALID_RESPONSE;
     }
     *result = *(asic_result*)(rsp);
+
     return ESP_OK;
 }
