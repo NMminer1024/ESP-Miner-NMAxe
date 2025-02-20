@@ -27,10 +27,10 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
     this->_asic->reset();
     this->_asic_count = this->_asic->init(freq, diff);
     if(0 == this->_asic_count){
-        LOG_E("xxxxxxx No BM1366 ASIC found xxxxxxx");
+        LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_nmaxe.asic.model);
         return false;
     }
-    LOG_I("======= Found %d BM1366 %s =======", this->_asic_count, (this->_asic_count > 1) ? "chips" : "chip");
+    LOG_I("======= Found %d %s %s =======", this->_asic_count, g_nmaxe.asic.model, (this->_asic_count > 1) ? "chips" : "chip");
     this->_asic->change_uart_baud(ESP32_TO_BM13xx_WORK_BUAD);
     this->_asic->clear_port_cache();
     return true;

@@ -8,6 +8,7 @@ private:
     void _send_bm1370(uint8_t header, uint8_t * data, uint8_t len);
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();
+    void _set_version_mask(uint32_t version_mask);
     void _set_hash_frequency(float target_freq);
 public:
     BM1370(HardwareSerial &sport, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst):BMxxx(sport, init_baud, rx, tx, rst) {
