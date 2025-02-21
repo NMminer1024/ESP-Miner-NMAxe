@@ -165,7 +165,7 @@ uint8_t BM1370::init(uint64_t freq, int diff){
         uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
         if(len == 0) break;
 
-        dbg::hex_print(rsp, len, "init3");
+        // dbg::hex_print(rsp, len, "init3");
         uint8_t *rsp_ptr = rsp;
         while (rsp_ptr <= rsp + len - 11) {
             if(memcmp(rsp_ptr, "\xaa\x55\x13\x70\x00\x00", 6) == 0){
@@ -216,10 +216,6 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     this->send(init173, 11);
 
 
-
-
-
-
     for (uint8_t i = 0; i < chip_counter; i++) {
         uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
         this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_a8_register, 6);
@@ -231,36 +227,7 @@ uint8_t BM1370::init(uint64_t freq, int diff){
         this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_second, 6);
         uint8_t set_3c_register_third[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x82, 0xAA};
         this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_third, 6);
-        // uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
-        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_a8_register, 6);
-        // uint8_t set_18_register[6] = {(uint8_t)(i * address_interval), 0x18, 0xF0, 0x00, 0xC1, 0x00};
-        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_18_register, 6);
-        // uint8_t set_3c_register_first[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x85, 0x40};
-        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_first, 6);
-        // uint8_t set_3c_register_second[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x80, 0x20};
-        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_second, 6);
-        // uint8_t set_3c_register_third[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x82, 0xAA};
-        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_third, 6);
     }
-
-
-    // //Some misc settings?
-    // uint8_t init174[] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
-    // // TX: 55 AA 51 09 [00 B9 00 00 44 80] 0D    //command all chips, write chip address 00, register B9, data 00 00 44 80
-    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init174, 6);
-
-    // uint8_t init175[] = {0x00, 0x54, 0x00, 0x00, 0x00, 0x02};
-    // // TX: 55 AA 51 09 [00 54 00 00 00 02] 18    //command all chips, write chip address 00, register 54, data 00 00 00 02 - Analog Mux Control - rumored to control the temp diode
-    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init175, 6);
-
-    // uint8_t init176[] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
-    // // TX: 55 AA 51 09 [00 B9 00 00 44 80] 0D    //command all chips, write chip address 00, register B9, data 00 00 44 80 -- duplicate of first command in series
-    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init176, 6);
-
-    // uint8_t init177[] = {0x00, 0x3C, 0x80, 0x00, 0x8D, 0xEE};
-    // // TX: 55 AA 51 09 [00 3C 80 00 8D EE] 1B    //command all chips, write chip address 00, register 3C, data 80 00 8D EE
-    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE),init177, 6);
-
 
     this->frequency_ramp_up((float)freq);//do_frequency_ramp_up();
 
@@ -382,7 +349,7 @@ esp_err_t BM1370::wait_for_result(asic_result *result, uint32_t timeout_ms){
     uint8_t rsp[11] = {0,};
     uint16_t len = this->receive(rsp, sizeof(rsp), timeout_ms);
     if(len == 0) return ESP_ERR_TIMEOUT;
-    dbg::hex_print(rsp, len, "asic result");
+    // dbg::hex_print(rsp, len, "asic result");
 
 
     if(len != 11){
