@@ -140,6 +140,9 @@ void wifi_connect_thread_entry(void *args){
     LOG_I("Channel  : %d", WiFi.channel());
     LOG_I("DNS      : %s, %s", WiFi.dnsIP(0).toString().c_str(), WiFi.dnsIP(1).toString().c_str());
     LOG_I("Gateway  : %s", WiFi.gatewayIP().toString().c_str());
+    LOG_I("Subnet   : %s", WiFi.subnetMask().toString().c_str());
+    LOG_I("MAC      : %s", WiFi.macAddress().c_str());
+    LOG_I("Hostname : %s", WiFi.getHostname());
     LOG_I("------------------------------------");
 
     free(param);

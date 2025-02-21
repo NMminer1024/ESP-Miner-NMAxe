@@ -10,7 +10,7 @@
 #define ESP32_TO_BM13xx_WORK_BUAD 1000000
 
 #define BM1366_DIFF_THR 512
-#define BM1370_DIFF_THR 1024
+#define BM1370_DIFF_THR 512
 
 typedef struct{
     double   _3m;

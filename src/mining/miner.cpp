@@ -106,7 +106,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     this->_asic_job_map[this->_asic_job_now.id]     = this->_asic_job_now;
     this->_extranonce2_map[this->_asic_job_now.id]  = extranonce2;
 
-    LOG_W("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
+    LOG_D("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
 
     ////////////////////////////////////////send asic job//////////////////////////////////
     this->_asic->send_work_to_asic(&this->_asic_job_now);
@@ -367,7 +367,7 @@ void miner_asic_rx_thread_entry(void *args){
             delay(1000);
             continue;
         }
-        esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result, 10000);
+        esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result, 1000*10);
         if(ESP_OK == err){
             if(!g_nmaxe.stratum->is_subscribed()) continue;
             if(g_nmaxe.miner->find_job_by_asic_job_id(result.job_id, &job)){
@@ -376,7 +376,7 @@ void miner_asic_rx_thread_entry(void *args){
                 double diff           = g_nmaxe.miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
 
                 //skip if diff <= 0.0001 or diff is nan or diff is inf
-                if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff)) continue;
+                if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff) || (diff == 0)) continue;
 
                 //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
                 g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
@@ -386,7 +386,7 @@ void miner_asic_rx_thread_entry(void *args){
 
                 LOG_I("Diff [%-3s/%-5s/%-6s/%-5s]", 
                     formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), 
-                    formatNumber(diff, 3).c_str(), 
+                    formatNumber(diff, 8).c_str(), 
                     formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str(),
                     formatNumber(g_nmaxe.mstatus.diff.network, 4).c_str());
 

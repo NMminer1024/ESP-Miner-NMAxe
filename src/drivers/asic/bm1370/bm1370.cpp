@@ -164,7 +164,8 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     while (true) {
         uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
         if(len == 0) break;
-        // dbg::hex_print(rsp, len, "init3 resp");
+
+        dbg::hex_print(rsp, len, "init3");
         uint8_t *rsp_ptr = rsp;
         while (rsp_ptr <= rsp + len - 11) {
             if(memcmp(rsp_ptr, "\xaa\x55\x13\x70\x00\x00", 6) == 0){
@@ -177,13 +178,138 @@ uint8_t BM1370::init(uint64_t freq, int diff){
             }
         }
     }
+
+    if(chip_counter == 0)  return 0;
+
+    uint8_t init4[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA8, 0x00, 0x07, 0x00, 0x00, 0x03};
+    this->send(init4, 11);
+
+    uint8_t init5[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x18, 0xFF, 0x0F, 0xC1, 0x00, 0x00};
+    this->send(init5, 11);
+
+    this->_set_chain_inactive();
+
+    // split the chip address space evenly
+    uint8_t address_interval = (uint8_t) (256 / chip_counter);
+    for (uint8_t i = 0; i < chip_counter; i++) {
+      this->_set_chip_address(i * address_interval);
+    }
+
+    uint8_t init135[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x3C, 0x80, 0x00, 0x85, 0x40, 0x0C};
+    this->send(init135, 11);
+
+    uint8_t init136[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x3C, 0x80, 0x00, 0x80, 0x20, 0x19};
+    this->send(init136, 11);
+
+    this->set_job_difficulty(diff);
+
+    uint8_t init138[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x54, 0x00, 0x00, 0x00, 0x03, 0x1D};
+    this->send(init138, 11);
+
+    uint8_t init139[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x58, 0x02, 0x11, 0x11, 0x11, 0x06};
+    this->send(init139, 11);
+
+    uint8_t init171[11] = {0x55, 0xAA, 0x41, 0x09, 0x00, 0x2C, 0x00, 0x7C, 0x00, 0x03, 0x03};
+    this->send(init171, 11);
+
+    uint8_t init173[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03};
+    this->send(init173, 11);
+
+
+
+
+
+
+    for (uint8_t i = 0; i < chip_counter; i++) {
+        uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_a8_register, 6);
+        uint8_t set_18_register[6] = {(uint8_t)(i * address_interval), 0x18, 0xF0, 0x00, 0xC1, 0x00};
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_18_register, 6);
+        uint8_t set_3c_register_first[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x8B, 0x00};
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_first, 6);
+        uint8_t set_3c_register_second[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x80, 0x0C};
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_second, 6);
+        uint8_t set_3c_register_third[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x82, 0xAA};
+        this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_third, 6);
+        // uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
+        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_a8_register, 6);
+        // uint8_t set_18_register[6] = {(uint8_t)(i * address_interval), 0x18, 0xF0, 0x00, 0xC1, 0x00};
+        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_18_register, 6);
+        // uint8_t set_3c_register_first[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x85, 0x40};
+        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_first, 6);
+        // uint8_t set_3c_register_second[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x80, 0x20};
+        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_second, 6);
+        // uint8_t set_3c_register_third[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x82, 0xAA};
+        // this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_third, 6);
+    }
+
+
+    // //Some misc settings?
+    // uint8_t init174[] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
+    // // TX: 55 AA 51 09 [00 B9 00 00 44 80] 0D    //command all chips, write chip address 00, register B9, data 00 00 44 80
+    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init174, 6);
+
+    // uint8_t init175[] = {0x00, 0x54, 0x00, 0x00, 0x00, 0x02};
+    // // TX: 55 AA 51 09 [00 54 00 00 00 02] 18    //command all chips, write chip address 00, register 54, data 00 00 00 02 - Analog Mux Control - rumored to control the temp diode
+    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init175, 6);
+
+    // uint8_t init176[] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
+    // // TX: 55 AA 51 09 [00 B9 00 00 44 80] 0D    //command all chips, write chip address 00, register B9, data 00 00 44 80 -- duplicate of first command in series
+    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init176, 6);
+
+    // uint8_t init177[] = {0x00, 0x3C, 0x80, 0x00, 0x8D, 0xEE};
+    // // TX: 55 AA 51 09 [00 3C 80 00 8D EE] 1B    //command all chips, write chip address 00, register 3C, data 80 00 8D EE
+    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE),init177, 6);
+
+
+    this->frequency_ramp_up((float)freq);//do_frequency_ramp_up();
+
+    //register 10 is still a bit of a mystery. discussion: https://github.com/skot/ESP-Miner/pull/167
+    // unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x11, 0x5A}; //S19k Pro Default
+    // unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x14, 0x46}; //S19XP-Luxos Default
+    // unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x15, 0x1C}; //S19XP-Stock Default
+    //unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x15, 0xA4}; //S21-Stock Default
+    unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x1E, 0xB5}; //S21 Pro-Stock Default
+    // unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x0F, 0x00, 0x00}; //supposedly the "full" 32bit nonce range
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), set_10_hash_counting, 6);
+
+    return chip_counter;
+
+#if 0
+    for (int i = 0; i < 3; i++) {
+        this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
+    }
+
+    // read register 00 on all chips
+    uint8_t init3[7] = {0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A};
+    this->send(init3, 7);
+
+    uint8_t chip_counter = 0, rsp[100] = {0,};
+    while (true) {
+        uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
+        if(len == 0) break;
+        // dbg::hex_print(rsp, len, "init3 resp");
+        uint8_t *rsp_ptr = rsp;
+        while (rsp_ptr <= rsp + len - 11) {
+            if(memcmp(rsp_ptr, "\xaa\x55\x13\x70\x00\x00", 6) == 0){
+                dbg::hex_print(rsp_ptr, 11, "found chip");
+                chip_counter++;
+                break;
+            }
+            else{
+                rsp_ptr++;
+            }
+        }
+    }
     if(chip_counter == 0)  return 0;
 
     this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
 
-    uint8_t init4[6] = {0x00, 0xA8, 0x00, 0x07, 0x00, 0x003};
+    //Reg_A8
+    uint8_t init4[6] = {0x00, 0xA8, 0x00, 0x07, 0x00, 0x00};
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init4, 6);
 
+    //Misc Control
     uint8_t init5[6] = {0x00, 0x18, 0xF0, 0x00, 0xC1, 0x00};
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init5, 6);
 
@@ -243,6 +369,8 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     // this->send(init13, 11);
 
     return chip_counter;
+
+#endif
 }
 
 void BM1370::send_work_to_asic(asic_job *job){
