@@ -1,21 +1,22 @@
 <ng-container *ngIf="form != null">
   <form [formGroup]="form">
-    <ng-container *ngIf="!devToolsOpen && ASICModel == eASICModel.BM1366">
-      <div class="field grid p-fluid">
-        <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="brightness">Screen Brightness</label>
-        <div class="col-12 md:col-10">
-          <div class="p-grid">
-            <div class="p-col-10">
-              <p-slider formControlName="brightness" [(ngModel)]="form.controls['brightness'].value"></p-slider>
-            </div>
-            <div class="p-col-2">
-              <label>{{ form.controls['brightness'].value }}%</label>
-            </div>
+    <!-- <ng-container *ngIf="!devToolsOpen && ASICModel == eASICModel.BM1366">
+
+    </ng-container> -->
+
+    <div class="field grid p-fluid">
+      <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="brightness">Screen Brightness</label>
+      <div class="col-12 md:col-10">
+        <div class="p-grid">
+          <div class="p-col-10">
+            <p-slider formControlName="brightness" [(ngModel)]="form.controls['brightness'].value"></p-slider>
+          </div>
+          <div class="p-col-2">
+            <label>{{ form.controls['brightness'].value }}%</label>
           </div>
         </div>
       </div>
-
-    </ng-container>
+    </div>
 
     <div class="col-12" style="display: flex; flex-wrap: wrap; gap: 10px;">
       <div class="col-12 md:col-4" style="flex: 1;">
