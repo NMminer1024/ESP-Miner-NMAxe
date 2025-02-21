@@ -37,37 +37,10 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
 }
 
 esp_err_t AsicMinerClass::listen_asic_rsp(asic_result *result, uint32_t timeout_ms){
-    // /* logic from project bitaxe: https://github.com/skot/bitaxe */
-    // /* Thanks for their efforts on this project */
-    // esp_err_t err = this->_asic->wait_for_result(result, timeout_ms);
-    // if(ESP_OK == err){
-    //     uint32_t core_id   =    ((result->nonce >> 24) & 0xff) |       // Move byte 3 to byte 0
-    //                             ((result->nonce  << 8) & 0xff0000) |   // Move byte 1 to byte 2
-    //                             ((result->nonce  >> 8) & 0xff00) |     // Move byte 2 to byte 1
-    //                             ((result->nonce  << 24)& 0xff000000);  // Move byte 0 to byte 3
-    //     core_id = (uint8_t)((core_id >> 25) & 0x7f);
-    //     uint8_t small_core = result->job_id & 0x07;
-    //     result->job_id     = result->job_id & 0xf8; 
-    // }
-    // return err;
-
     /* logic from project bitaxe: https://github.com/skot/bitaxe */
     /* Thanks for their efforts on this project */
     esp_err_t err = this->_asic->wait_for_result(result, timeout_ms);
-    if(ESP_OK == err){
-        uint32_t core_id   =    ((result->nonce >> 24) & 0xff) |       // Move byte 3 to byte 0
-                                ((result->nonce  << 8) & 0xff0000) |   // Move byte 1 to byte 2
-                                ((result->nonce  >> 8) & 0xff00) |     // Move byte 2 to byte 1
-                                ((result->nonce  << 24)& 0xff000000);  // Move byte 0 to byte 3
-        core_id = (uint8_t)((core_id >> 25) & 0x7f);
-        uint8_t small_core = result->job_id & 0x07;
-        result->job_id     = (result->job_id & 0xf0) >> 1; 
-    }
     return err;
-
-
-
-
 }
 
 bool AsicMinerClass::mining(pool_job_data_t *pool_job){
@@ -385,30 +358,14 @@ void miner_asic_rx_thread_entry(void *args){
             delay(1000);
             continue;
         }
-        esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result, 1000*10);
+        esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result, 1000*30);
         if(ESP_OK == err){
             if(!g_nmaxe.stratum->is_subscribed()) continue;
             if(g_nmaxe.miner->find_job_by_asic_job_id(result.job_id, &job)){
 
-
-                // uint32_t version_bits = (reverse_uint16(result.version) << 13);  //logic from project bitaxe: https://github.com/skot/bitaxe 
-                // uint32_t version      = version_bits | (*(uint32_t*)job.version);//logic from project bitaxe: https://github.com/skot/bitaxe 
-                // double diff           = g_nmaxe.miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
-
-
                 uint32_t version_bits = (reverse_uint16(result.version) << 13);  //logic from project bitaxe: https://github.com/skot/bitaxe 
                 uint32_t version      = version_bits | (*(uint32_t*)job.version);//logic from project bitaxe: https://github.com/skot/bitaxe 
                 double diff           = g_nmaxe.miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
-
-
-
-
-
-
-
-
-
-
 
                 //skip if diff <= 0.0001 or diff is nan or diff is inf
                 if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff) || (diff == 0)) continue;

@@ -360,7 +360,15 @@ esp_err_t BM1370::wait_for_result(asic_result *result, uint32_t timeout_ms){
         this->clear_port_cache();
         return ESP_ERR_INVALID_RESPONSE;
     }
-    *result = *(asic_result*)(rsp);
-
+    *result            = *(asic_result*)(rsp);
+    // /* logic from project bitaxe: https://github.com/skot/bitaxe */
+    // /* Thanks for their efforts on this project */
+    // uint32_t core_id   =    ((result->nonce >> 24) & 0xff) |       // Move byte 3 to byte 0
+    //                         ((result->nonce  << 8) & 0xff0000) |   // Move byte 1 to byte 2
+    //                         ((result->nonce  >> 8) & 0xff00) |     // Move byte 2 to byte 1
+    //                         ((result->nonce  << 24)& 0xff000000);  // Move byte 0 to byte 3
+    // core_id = (uint8_t)((core_id >> 25) & 0x7f);
+    // uint8_t small_core = result->job_id & 0x07;
+    result->job_id     = (result->job_id & 0xf0) >> 1; 
     return ESP_OK;
 }
