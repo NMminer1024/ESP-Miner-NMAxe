@@ -77,7 +77,7 @@ void monitor_thread_entry(void *args){
         static uint8_t fan_err_cnt = 0;
         if(g_nmaxe.preference.fan.rpm <= 1000){
           fan_err_cnt++;
-          if(fan_err_cnt > 0){//avoid some noise
+          if(fan_err_cnt > 5){//avoid some noise
             LOG_W("Fan rpm is too low, restart miner...");
             ESP.restart();
           }
