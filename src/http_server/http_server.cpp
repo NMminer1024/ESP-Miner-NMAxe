@@ -61,7 +61,6 @@ static void rest_common_get_handler(AsyncWebServerRequest *request) {
 }
 static void get_system_info(AsyncWebServerRequest* request){
     const uint16_t json_size_max  =  1024;
-    const uint16_t small_core_count = 894;
 
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
@@ -86,7 +85,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["sharesRejected"] = g_nmaxe.mstatus.share_rejected;
     root["uptimeSeconds"] = g_nmaxe.mstatus.uptime_session;
     root["asicCount"] = g_nmaxe.miner->get_asic_count();
-    root["smallCoreCount"] = small_core_count;
+    root["smallCoreCount"] = g_nmaxe.miner->get_asic_small_cores();
     root["ASICModel"] = g_nmaxe.asic.model;
     root["stratumUserUSED"] = g_nmaxe.connection.stratum_use.user;
     root["stratumURLUSED"] = g_nmaxe.connection.pool_use.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port));

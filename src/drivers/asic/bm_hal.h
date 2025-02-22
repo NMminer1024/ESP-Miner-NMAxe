@@ -32,6 +32,7 @@
 #define TICKET_MASK 0x14
 #define MISC_CONTROL 0x18
 
+
 typedef enum{
     JOB_PACKET = 0,
     CMD_PACKET = 1,
@@ -79,5 +80,7 @@ public:
     virtual uint32_t get_asic_difficulty() = 0;
     virtual void send_work_to_asic(asic_job *job) = 0;
     virtual esp_err_t wait_for_result(asic_result *result, uint32_t timeout_ms) = 0;
+    virtual uint16_t get_cores() = 0;
+    virtual uint16_t get_small_cores() = 0;
 };
 #endif

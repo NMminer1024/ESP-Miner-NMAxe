@@ -194,14 +194,20 @@ bool load_g_nmaxe(void){
 
     board_model_t model = get_board_model();
 
+    uint16_t default_asic_frq = 550, default_asic_vcore = 1300;
+
     if(model == NMAXE){
         g_nmaxe.board.hw_model = "NMAxe";
         g_nmaxe.asic.model     = "BM1366";
         g_nmaxe.asic.job_frq_ms = 2000;
+        default_asic_frq        = 575;
+        default_asic_vcore      = 1300;
     }else if(model == NMAXE_GAMMA){
         g_nmaxe.board.hw_model = "NMAxe-Gamma";
         g_nmaxe.asic.model     = "BM1370";
         g_nmaxe.asic.job_frq_ms = 500;
+        default_asic_frq        = 600;
+        default_asic_vcore      = 1150;
     }else if(model == BOARD_UNKNOWN){
         LOG_E("Unknown board model, please check the model select pins.");
         return false;
@@ -250,17 +256,17 @@ bool load_g_nmaxe(void){
     g_nmaxe.ota.firmware                        = "";
     g_nmaxe.ota.reboot_xsem                     = xSemaphoreCreateCounting(1, 0);
     g_nmaxe.mstatus.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
-    g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 575);
-    g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1300);
+    g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, default_asic_frq);
+    g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, default_asic_vcore);
     g_nmaxe.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     g_nmaxe.preference.fan.invert_ploarity      = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, false); 
-    g_nmaxe.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
+    g_nmaxe.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 90);
     g_nmaxe.preference.fan.self_test            = false;
     g_nmaxe.preference.led.indicator            = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     g_nmaxe.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
-    g_nmaxe.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 99);
+    g_nmaxe.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 90);
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "XEC"));
+    g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     g_nmaxe.coin.toUpperCase();
     g_nmaxe.miner                               = NULL;
 

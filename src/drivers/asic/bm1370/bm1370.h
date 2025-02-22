@@ -2,6 +2,9 @@
 #define BM1370_H_
 #include "bm_hal.h"
 
+#define BM1370_CORE_COUNT       128
+#define BM1370_SMALL_CORE_COUNT 2040
+
 class BM1370: public BMxxx{
 private:
     uint32_t _diff_current;
@@ -19,6 +22,8 @@ public:
     void set_job_difficulty(int difficulty);
     uint32_t get_asic_difficulty();
     void send_work_to_asic(asic_job *job);
+    uint16_t get_cores();
+    uint16_t get_small_cores();
     esp_err_t wait_for_result(asic_result *result, uint32_t timeout_ms = 60*1000);
 };
 #endif

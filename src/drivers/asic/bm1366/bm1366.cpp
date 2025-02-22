@@ -292,3 +292,10 @@ esp_err_t BM1366::wait_for_result(asic_result *result, uint32_t timeout_ms){
     result->job_id     = result->job_id & 0xf8;
     return ESP_OK;
 }
+
+uint16_t BM1366::get_cores(){
+    return BM1366_CORE_COUNT;
+}   
+uint16_t BM1366::get_small_cores(){
+    return BM1366_SMALL_CORE_COUNT;
+}

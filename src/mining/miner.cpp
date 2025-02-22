@@ -30,7 +30,7 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
         LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_nmaxe.asic.model);
         return false;
     }
-    LOG_I("======= Found %d %s %s =======", this->_asic_count, g_nmaxe.asic.model, (this->_asic_count > 1) ? "chips" : "chip");
+    LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_nmaxe.asic.model, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
     this->_asic->change_uart_baud(ESP32_TO_BM13xx_WORK_BUAD);
     this->_asic->clear_port_cache();
     return true;
@@ -115,6 +115,10 @@ double AsicMinerClass::get_asic_diff(){
 
 uint8_t AsicMinerClass::get_asic_count(){
     return this->_asic_count;
+}
+
+uint16_t AsicMinerClass::get_asic_small_cores(){
+    return this->_asic->get_small_cores();
 }
 
 bool AsicMinerClass::find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job){

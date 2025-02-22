@@ -341,24 +341,6 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), set_10_hash_counting, 6);
 
     return chip_counter;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
 
 void BM1370::send_work_to_asic(asic_job *job){
@@ -392,4 +374,11 @@ esp_err_t BM1370::wait_for_result(asic_result *result, uint32_t timeout_ms){
     // uint8_t small_core = result->job_id & 0x07;
     result->job_id     = (result->job_id & 0xf0) >> 1; 
     return ESP_OK;
+}
+
+uint16_t BM1370::get_cores(){
+    return BM1370_CORE_COUNT;
+}   
+uint16_t BM1370::get_small_cores(){
+    return BM1370_SMALL_CORE_COUNT;
 }

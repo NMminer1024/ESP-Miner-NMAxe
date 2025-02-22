@@ -34,6 +34,7 @@ public:
     bool mining(pool_job_data_t *pool_job);
     bool set_asic_diff(uint64_t diff);
     uint8_t get_asic_count();
+    uint16_t get_asic_small_cores();
     double get_asic_diff();
     String get_extranonce2_by_asic_job_id(uint8_t asic_job_id);
     esp_err_t listen_asic_rsp(asic_result *result, uint32_t timeout_ms = 1000*60);
