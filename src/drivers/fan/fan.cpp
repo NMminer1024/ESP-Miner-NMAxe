@@ -59,7 +59,7 @@ void fan_thread_entry(void *args){
         // Fan self test flag set only once
         if(!g_nmaxe.preference.fan.self_test){
             g_nmaxe.preference.fan.self_test = (g_nmaxe.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
-            g_nmaxe.preference.fan.speed = 100.0f;
+            fan_set_speed(100.0 / 100.0);
         }
 
         if(g_nmaxe.preference.fan.is_auto_speed && g_nmaxe.preference.fan.self_test){
