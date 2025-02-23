@@ -326,7 +326,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
 }
 
 static void ui_miner_page_update(){
-  static lv_obj_t *lb_share = NULL, *lb_fan = NULL, *lb_hr_unit = NULL, *lb_uptime_day_unit = NULL;
+  static lv_obj_t *lb_share = NULL, *lb_fan_and_efficiency = NULL, *lb_hr_unit = NULL, *lb_uptime_day_unit = NULL;
   static lv_obj_t *lb_hashrate = NULL, *lb_blk_hit = NULL, *lb_temp = NULL, *lb_power = NULL, *lb_wifi = NULL, *lb_uptime_day = NULL, *lb_uptime_hms = NULL, *lb_diff = NULL;
   static lv_obj_t *lb_uptime_symbol = NULL, *lb_wifi_symbol = NULL, *lb_diff_symbol = NULL, *lb_share_symb = NULL, *lb_temp_symb = NULL, *lb_fan_symb = NULL;
   static lv_obj_t *lb_price = NULL;
@@ -449,13 +449,13 @@ static void ui_miner_page_update(){
     //Fan value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_fan   = lv_label_create( ui_pages[PAGE_MINER] );
-    lv_obj_set_width(lb_fan, SCREEN_WIDTH);
-    lv_label_set_text( lb_fan, " ");
-    lv_obj_set_style_text_font(lb_fan, font, LV_PART_MAIN);
-    lv_label_set_long_mode(lb_fan, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(lb_fan, font_color, LV_PART_MAIN); 
-    lv_obj_align( lb_fan, LV_ALIGN_TOP_LEFT, 132, 75); 
+    lb_fan_and_efficiency   = lv_label_create( ui_pages[PAGE_MINER] );
+    lv_obj_set_width(lb_fan_and_efficiency, SCREEN_WIDTH);
+    lv_label_set_text( lb_fan_and_efficiency, " ");
+    lv_obj_set_style_text_font(lb_fan_and_efficiency, font, LV_PART_MAIN);
+    lv_label_set_long_mode(lb_fan_and_efficiency, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_color(lb_fan_and_efficiency, font_color, LV_PART_MAIN); 
+    lv_obj_align( lb_fan_and_efficiency, LV_ALIGN_TOP_LEFT, 132, 75); 
     //Hashrate uint
     font = &ds_digib_font_28;
     font_color = lv_color_hex(0xFFFFFF);
@@ -539,6 +539,8 @@ static void ui_miner_page_update(){
   String voltage = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
   String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
   String price = (!g_nmaxe.market->timeout) ? formatNumber(g_nmaxe.market->price, 6) : "";
+  String fan_and_efficiency = String(g_nmaxe.preference.fan.rpm) + " rpm";
+  // String fan_and_efficiency = formatNumber(g_nmaxe.board.efficiency, 4) + "J/TH";
 
   //diff symbol color update
   if(g_nmaxe.mstatus.diff.last != 0){//avoid the first time update
@@ -615,7 +617,7 @@ static void ui_miner_page_update(){
   //share
   lv_label_set_text_fmt(lb_share,  "%d/%d", g_nmaxe.mstatus.share_rejected, g_nmaxe.mstatus.share_accepted);
   //fan
-  lv_label_set_text_fmt(lb_fan, "%d rpm", g_nmaxe.preference.fan.rpm);
+  lv_label_set_text_fmt(lb_fan_and_efficiency, "%s", fan_and_efficiency.c_str());
   //price
   if(!g_nmaxe.market->timeout){
     lv_label_set_text_fmt(lb_price,  "$%s", price.c_str());

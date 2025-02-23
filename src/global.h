@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.5.10d"
+#define CURRENT_FW_VERSION  "v2.5.10e"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -62,6 +62,7 @@ typedef struct{
     String      devcie_code;
     uint16_t    vbus;//mV
     uint16_t    ibus;//mA
+    float       efficiency;
 }board_info_t;
 
 typedef struct{

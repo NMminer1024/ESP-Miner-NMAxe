@@ -36,13 +36,15 @@ void monitor_thread_entry(void *args){
         static uint8_t temp_cnt = 0;
 
         //update power status
-        g_nmaxe.board.vbus = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vbus() : g_nmaxe.board.vbus;
-        g_nmaxe.board.ibus = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_ibus() : g_nmaxe.board.ibus;
+        g_nmaxe.board.vbus          = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vbus() : g_nmaxe.board.vbus;
+        g_nmaxe.board.ibus          = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_ibus() : g_nmaxe.board.ibus;
+        g_nmaxe.board.efficiency    = ((temp_cnt % 2 == 0) && g_nmaxe.mstatus.hashrate._3m > 0) ? (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1e6) / (g_nmaxe.mstatus.hashrate._3m/1e12) : g_nmaxe.board.efficiency;
         g_nmaxe.asic.vcore_measured = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vcore() : g_nmaxe.asic.vcore_measured;
         //update board temperature
         g_nmaxe.temp.mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.temp.mcu;
         g_nmaxe.temp.vcore  = (temp_cnt % 2 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.temp.vcore;
-        g_nmaxe.temp.asic         = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.temp.asic;
+        g_nmaxe.temp.asic   = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.temp.asic;
+
         temp_cnt++;
         //update wifi rssi
         g_nmaxe.connection.wifi.status_param.rssi = WiFi.RSSI();
@@ -106,7 +108,7 @@ void monitor_thread_entry(void *args){
       //print summary to log
       if(g_nmaxe.mstatus.uptime_session % 30 == 0){
         LOG_I(" ============%s=========== ",g_nmaxe.board.fw_version.c_str());
-        LOG_I("|         NMAxe Summary        |");
+        LOG_I("|            Summary           |");
         LOG_I("+------------Uptime------------+");
         LOG_I("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
         LOG_I("+-----------HashRate-----------+");
@@ -121,8 +123,8 @@ void monitor_thread_entry(void *args){
               formatNumber(g_nmaxe.mstatus.diff.best_session, 5).c_str(), 
               formatNumber(g_nmaxe.mstatus.diff.best_ever, 5).c_str(),
               formatNumber(g_nmaxe.mstatus.diff.network, 5).c_str());
-        LOG_I("+----------Free  heap----------+");
-        LOG_I("|           %-5sKB           |", formatNumber(ESP.getFreeHeap() / 1024.0f, 5).c_str() );
+        LOG_I("+---Free heap-----Efficiency---+");
+        LOG_I("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(g_nmaxe.board.efficiency, 4).c_str());
         LOG_I(" ============================== ");
       }
       
