@@ -207,7 +207,7 @@ bool load_g_nmaxe(void){
         g_nmaxe.asic.model     = "BM1370";
         g_nmaxe.asic.job_frq_ms = 500;
         default_asic_frq        = 600;
-        default_asic_vcore      = 1150;
+        default_asic_vcore      = 1200;
     }else if(model == BOARD_UNKNOWN){
         LOG_E("Unknown board model, please check the model select pins.");
         return false;
@@ -258,9 +258,9 @@ bool load_g_nmaxe(void){
     g_nmaxe.mstatus.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, default_asic_frq);
     g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, default_asic_vcore);
-    g_nmaxe.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
+    g_nmaxe.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, false);
     g_nmaxe.preference.fan.invert_ploarity      = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, true); 
-    g_nmaxe.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 90);
+    g_nmaxe.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     g_nmaxe.preference.fan.self_test            = false;
     g_nmaxe.preference.led.indicator            = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     g_nmaxe.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);

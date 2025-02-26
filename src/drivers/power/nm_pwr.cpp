@@ -95,7 +95,7 @@ uint32_t NMAxePowerClass::get_vbus(void){
 
 uint32_t NMAxePowerClass::get_ibus(void){
     uint32_t vadc = this->get_ibus_adc();
-    LOG_W("ibus %dmv", vadc);
+    // LOG_W("ibus %dmv", vadc);
     float real = (float)vadc / GAIN_IBUS_SAMPLE;
     uint32_t current = (uint32_t)(real / REG_IBUS_SAMPLE); //0.01 ohm sampling resistor
     return current;
