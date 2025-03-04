@@ -130,7 +130,7 @@ static void get_swarm_info_handler(AsyncWebServerRequest* request){
         String ip        = it->first;
         String swarm_str = it->second;
 
-        DynamicJsonDocument deviceDoc(512);
+        DynamicJsonDocument deviceDoc(1024);
         DeserializationError error = deserializeJson(deviceDoc, swarm_str);
         if (error) continue;
         

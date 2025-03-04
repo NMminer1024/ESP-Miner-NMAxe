@@ -169,7 +169,8 @@ void swarm_thread_entry(void *args){
   udp_client->begin(UDP_BOARDCAST_PORT);
 
   uint64_t swarm_cnt = 0;
-
+  StaticJsonDocument<1024> jsonDoc;
+  char  jsonbuf[1024] = {0,};
   while (true){
     swarm_cnt++;
     delay(100);
@@ -182,26 +183,28 @@ void swarm_thread_entry(void *args){
             memset(incomingPacket, '\0', packetSize + 1);
             int len = udp_client->read(incomingPacket, packetSize);
 
-            StaticJsonDocument<512> json;
+
             char *json_str = (char*)malloc(packetSize + 1);
             memset(json_str, '\0', packetSize + 1);
             memcpy(json_str, incomingPacket, packetSize);
-            DeserializationError error = deserializeJson(json, json_str);
+            jsonDoc.clear();
+            DeserializationError error = deserializeJson(jsonDoc, json_str);
             if(error) {
               free(json_str);
+              free(incomingPacket);
               udp_client->flush();
               continue;
             }
-            json["Lastseen"] = millis();
+            jsonDoc["Lastseen"] = millis();
 
-            char js_t[512] = {0,};
-            size_t n = serializeJson(json, js_t);
+            memset(jsonbuf, 0, sizeof(jsonbuf));
+            size_t n = serializeJson(jsonDoc, jsonbuf);
 
             //update swarm list if has this ip
             static std::map<String, uint32_t> last_seen_map;
-            if(json.containsKey("ip")){
-              g_nmaxe.swarm[json["ip"].as<String>()] = String(js_t);
-              last_seen_map[json["ip"].as<String>()] = json["Lastseen"];
+            if(jsonDoc.containsKey("ip")){
+              g_nmaxe.swarm[jsonDoc["ip"].as<String>()] = String(jsonbuf);
+              last_seen_map[jsonDoc["ip"].as<String>()] = jsonDoc["Lastseen"];
             }
 
             //update json string
@@ -209,18 +212,18 @@ void swarm_thread_entry(void *args){
               //self status not in last seen map
               if(last_seen_map.find(it->first) == last_seen_map.end()) continue;
 
-              if(deserializeJson(json, it->second)) continue;
+              if(deserializeJson(jsonDoc, it->second)) continue;
 
-              json["Lastseen"] = millis() - last_seen_map[it->first];
+              jsonDoc["Lastseen"] = millis() - last_seen_map[it->first];
               //remove offline device
-              if(json["Lastseen"].as<uint32_t>() > SWARM_OFFLINE_TIMEOUT){
+              if(jsonDoc["Lastseen"].as<uint32_t>() > SWARM_OFFLINE_TIMEOUT){
                 g_nmaxe.swarm.erase(it->first);
                 continue;
               }
 
-              char jsonBuffer[512] = {'\0',};
-              size_t n = serializeJson(json, jsonBuffer);
-              it->second = (n>0) ? String(jsonBuffer) : "";
+              memset(jsonbuf, 0, sizeof(jsonbuf));
+              size_t n = serializeJson(jsonDoc, jsonbuf);
+              it->second = (n>0) ? String(jsonbuf) : "";
             }
             
             free(json_str);
@@ -232,37 +235,38 @@ void swarm_thread_entry(void *args){
     //status udp broadcast
     if(swarm_cnt % 20 == 0){
       if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
-        StaticJsonDocument<512> json;
-        json["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
-        json["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
+        jsonDoc.clear();
+        jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
+        jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
         uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
         float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
-        json["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
-        json["NetDiff"] = formatNumber(g_nmaxe.mstatus.diff.network,4);
-        json["PoolDiff"] = formatNumber(g_nmaxe.mstatus.diff.pool,4);
-        json["LastDiff"] = formatNumber(g_nmaxe.mstatus.diff.last,4);
-        json["BestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.diff.best_ever,4);
-        json["Valid"] = g_nmaxe.mstatus.block_hits;
-        json["Temp"] = g_nmaxe.temp.asic;
-        json["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
-        json["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
-        json["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
-        json["Version"] = g_nmaxe.board.fw_version;
-        json["BoardType"] = g_nmaxe.board.hw_model;
-        json["Power"]     = String(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 1) + "W";
+        jsonDoc["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
+        jsonDoc["NetDiff"] = formatNumber(g_nmaxe.mstatus.diff.network,4);
+        jsonDoc["PoolDiff"] = formatNumber(g_nmaxe.mstatus.diff.pool,4);
+        jsonDoc["LastDiff"] = formatNumber(g_nmaxe.mstatus.diff.last,4);
+        jsonDoc["BestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.diff.best_ever,4);
+        jsonDoc["Valid"] = g_nmaxe.mstatus.block_hits;
+        jsonDoc["Temp"] = g_nmaxe.temp.asic;
+        jsonDoc["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
+        jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
+        jsonDoc["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
+        jsonDoc["Version"] = g_nmaxe.board.fw_version;
+        jsonDoc["BoardType"] = g_nmaxe.board.hw_model;
+        jsonDoc["Power"]     = String(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 1) + "W";
+        jsonDoc["PoolInUse"] = g_nmaxe.connection.pool_use.url;
         static uint32_t last_seen = millis();
-        json["Lastseen"]  = millis() - last_seen;
+        jsonDoc["Lastseen"]  = millis() - last_seen;
         last_seen = millis();
 
-        char jsonBuffer[512] = {0,};
-        size_t n = serializeJson(json, jsonBuffer);
+        memset(jsonbuf, 0, sizeof(jsonbuf));
+        size_t n = serializeJson(jsonDoc, jsonbuf);
         //broadcast status to udp
         udp_client->beginPacket(UDP_BOARDCAST_ADDR, UDP_BOARDCAST_PORT);
-        udp_client->write((uint8_t*)jsonBuffer, n);
+        udp_client->write((uint8_t*)jsonbuf, n);
         udp_client->endPacket();
 
         //add self to swarm list
-        g_nmaxe.swarm[g_nmaxe.connection.wifi.status_param.ip.toString()] = String(jsonBuffer);
+        g_nmaxe.swarm[g_nmaxe.connection.wifi.status_param.ip.toString()] = String(jsonbuf);
       }
     }
   }
