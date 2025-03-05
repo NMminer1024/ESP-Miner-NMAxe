@@ -107,6 +107,11 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
   <img src="image/firmware-check-download.jpg" alt="firmware-check-download">
 </div>
 
+Batch firmware update on swarm page.
+<div align="center">
+  <img src="image/ota-batch.jpg" alt="ota-batch">
+</div>
+
 
 
 - *Via [NMMiner flash tool](https://flash.nmminer.com/)*
@@ -128,6 +133,17 @@ Download the latest **firmware.bin** and **spiffs.bin** file.
 
 ## Release Log
 ***
+
+### (2025.03.05) - v2.5.20
+- Add:
+  - Batch firmware upgrade on swarm page.
+  - BM1370 class.
+- Fixed:
+  - AxeOS compatible NMAxe and NMAxe-Gamma.
+- Improved:
+  - Swarm.
+- Modify:
+  - None.
 
 ### (2025.02.13) - v2.5.10
 - Add:
