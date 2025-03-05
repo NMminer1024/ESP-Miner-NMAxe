@@ -253,7 +253,7 @@ void swarm_thread_entry(void *args){
         jsonDoc["Version"] = g_nmaxe.board.fw_version;
         jsonDoc["BoardType"] = g_nmaxe.board.hw_model;
         jsonDoc["Power"]     = String(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 1) + "W";
-        jsonDoc["PoolInUse"] = g_nmaxe.connection.pool_use.url;
+        jsonDoc["PoolInUse"] = String(g_nmaxe.connection.pool_use.url) + ":" + String(g_nmaxe.connection.pool_use.port);
         static uint32_t last_seen = millis();
         jsonDoc["Lastseen"]  = millis() - last_seen;
         last_seen = millis();
