@@ -106,7 +106,7 @@ void monitor_thread_entry(void *args){
       }
       
       //print summary to log
-      if(g_nmaxe.mstatus.uptime_session % 30 == 0){
+      if(g_nmaxe.mstatus.uptime_session % 60 == 0){
         LOG_I(" ============%s=========== ",g_nmaxe.board.fw_version.c_str());
         LOG_I("|            Summary           |");
         LOG_I("+------------Uptime------------+");

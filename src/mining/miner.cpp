@@ -380,11 +380,20 @@ void miner_asic_rx_thread_entry(void *args){
                 g_nmaxe.mstatus.diff.best_session    = (diff > g_nmaxe.mstatus.diff.best_session) ? diff : g_nmaxe.mstatus.diff.best_session;
                 g_nmaxe.mstatus.diff.best_ever       = (diff > g_nmaxe.mstatus.diff.best_ever) ? diff : g_nmaxe.mstatus.diff.best_ever;
 
-                LOG_I("Diff [%-3s/%-5s/%-6s/%-5s]", 
+
+
+                static uint32_t title_cnt = 0;
+                if(title_cnt++ % 10 == 0){
+                    log_i("\r\n");
+                    LOG_I(" ++++++++++ Real Time +++++++++");
+                    LOG_I("| ASIC | Last | Pool | Network |");
+                    LOG_I("|------|------|------|---------|");
+                }
+                LOG_I("| %-4s |%-6s|%-6s|%-7s|", 
                     formatNumber(g_nmaxe.miner->get_asic_diff(), 3).c_str(), 
-                    formatNumber(diff, 3).c_str(), 
+                    formatNumber(diff, 4).c_str(), 
                     formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str(),
-                    formatNumber(g_nmaxe.mstatus.diff.network, 4).c_str());
+                    formatNumber(g_nmaxe.mstatus.diff.network, 7).c_str());
 
                 //skip if diff < pool diff
                 if(diff < g_nmaxe.stratum->get_pool_difficulty())continue; 
