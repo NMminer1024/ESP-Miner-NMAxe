@@ -329,7 +329,7 @@ static void ui_miner_page_update(){
   static lv_obj_t *lb_share = NULL, *lb_fan_and_efficiency = NULL, *lb_hr_unit = NULL, *lb_uptime_day_unit = NULL;
   static lv_obj_t *lb_hashrate = NULL, *lb_blk_hit = NULL, *lb_temp = NULL, *lb_power = NULL, *lb_wifi = NULL, *lb_uptime_day = NULL, *lb_uptime_hms = NULL, *lb_diff = NULL;
   static lv_obj_t *lb_uptime_symbol = NULL, *lb_wifi_symbol = NULL, *lb_diff_symbol = NULL, *lb_share_symb = NULL, *lb_temp_symb = NULL, *lb_fan_symb = NULL;
-  static lv_obj_t *lb_price = NULL;
+  static lv_obj_t *lb_price = NULL, *lb_mine_page_ver = NULL;
   static bool first_time = true;
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
   if(first_time){
@@ -364,6 +364,16 @@ static void ui_miner_page_update(){
     lv_label_set_long_mode(lb_price, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lb_price, font_color, LV_PART_MAIN); 
     lv_obj_align( lb_price, LV_ALIGN_LEFT_MID, 33, 29 ); 
+    //version value
+    font = &ds_digib_font_16;
+    font_color = lv_color_hex(0xFFFFFF);
+    lb_mine_page_ver   = lv_label_create( ui_pages[PAGE_MINER] );
+    lv_obj_set_width(lb_mine_page_ver, SCREEN_WIDTH);
+    lv_label_set_text( lb_mine_page_ver, g_nmaxe.board.fw_version.substring(1, g_nmaxe.board.fw_version.length()).c_str());
+    lv_obj_set_style_text_font(lb_mine_page_ver, font, LV_PART_MAIN);
+    lv_label_set_long_mode(lb_mine_page_ver, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN); 
+    lv_obj_align( lb_mine_page_ver, LV_ALIGN_TOP_LEFT, 4, 22 ); 
     //power value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
