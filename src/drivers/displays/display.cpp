@@ -251,13 +251,13 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
 
       //hardward model
       lb_hard_model   = lv_label_create( ui_pages[PAGE_LOADING] );
-      lv_obj_set_width(lb_hard_model, 240);
+      lv_coord_t width = lv_txt_get_width(g_nmaxe.board.hw_model.c_str(), strlen(g_nmaxe.board.hw_model.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
+      lv_obj_set_width(lb_hard_model, width);
       lv_label_set_text( lb_hard_model, g_nmaxe.board.hw_model.c_str());
-      lv_obj_set_style_text_font(lb_hard_model, &lv_font_montserrat_16, LV_PART_MAIN);
-      // lv_obj_set_style_text_font(lb_hard_model, &ds_digib_font_24, LV_PART_MAIN);
+      lv_obj_set_style_text_font(lb_hard_model, &lv_font_montserrat_24, LV_PART_MAIN);
       lv_obj_set_style_text_color(lb_hard_model, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
       lv_label_set_long_mode(lb_hard_model, LV_LABEL_LONG_SCROLL_CIRCULAR);
-      lv_obj_align( lb_hard_model, LV_ALIGN_TOP_LEFT, 2, 1);
+      lv_obj_align( lb_hard_model, LV_ALIGN_TOP_MID, 0, 5);
 
       //bar 
       bar = lv_bar_create(ui_pages[PAGE_LOADING]);
@@ -545,7 +545,7 @@ static void ui_miner_page_update(){
   String last_diff = formatNumber(g_nmaxe.mstatus.diff.last, 1);
   String best_session = formatNumber(g_nmaxe.mstatus.diff.best_session, 1);
   String best_ever = formatNumber(g_nmaxe.mstatus.diff.best_ever, 1);
-  String network_diff = formatNumber(g_nmaxe.mstatus.diff.network, 4);
+  String network_diff = formatNumber(g_nmaxe.mstatus.diff.network, 2);
   String voltage = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
   String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
   String price = (!g_nmaxe.market->timeout) ? formatNumber(g_nmaxe.market->price, 6) : "";
@@ -615,7 +615,7 @@ static void ui_miner_page_update(){
     lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
   }
   //Diff
-  lv_label_set_text_fmt(lb_diff, "%s/%s/%s", best_session.c_str(), best_ever.c_str(), network_diff.c_str());
+  lv_label_set_text_fmt(lb_diff, "%s/%s/%s/%s", last_diff.c_str(), best_session.c_str(), best_ever.c_str(), network_diff.c_str());
   //Temp
   lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_nmaxe.temp.vcore, 2).c_str(), formatNumber(g_nmaxe.temp.asic, 2).c_str());
   //WiFi
@@ -684,11 +684,11 @@ static void ui_ota_page_update(){
 }
 
 static void ui_dashboard_page_update(){
-  #define VBUS_MIN 8.0f
+  #define VBUS_MIN 5.0f
   #define VBUS_MAX 15.0f
 
   #define POWER_MIN 0.0f
-  #define POWER_MAX 30.0f
+  #define POWER_MAX 35.0f
 
   #define VCORE_REQ_MIN 1.0f
   #define VCORE_REQ_MAX 1.5f
@@ -946,9 +946,20 @@ static void ui_dashboard_page_update(){
 }
 
 static void ui_hr_healthy_page_update(double hashrate){
-  #define MAX_HASHRATE 1000  
-  #define STEP 50 // step 
-  #define NUM_BARS (MAX_HASHRATE / STEP) 
+  uint16_t MAX_HASHRATE = 2000;
+  uint16_t STEP = 100; // step
+  uint16_t NUM_BARS = (MAX_HASHRATE / STEP);
+
+  if(g_nmaxe.board.hw_model == "NMAxe"){
+    MAX_HASHRATE = 1000;
+    STEP = 50; // step
+    NUM_BARS = (MAX_HASHRATE / STEP);
+  }
+  else{
+    MAX_HASHRATE = 2000;
+    STEP = 100; // step
+    NUM_BARS = (MAX_HASHRATE / STEP);
+  }
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -1031,7 +1042,11 @@ static void ui_hr_healthy_page_update(double hashrate){
     lv_obj_set_style_text_font(chart, &lv_font_montserrat_10, LV_PART_TICKS); 
   }
 
-  static uint64_t counts[NUM_BARS] = {0};
+  static uint64_t *counts = NULL;
+  if (counts == NULL) {
+    counts = (uint64_t *)malloc(NUM_BARS * sizeof(uint64_t));
+    memset(counts, 0, NUM_BARS * sizeof(uint64_t));
+  }
   int index = last_hashrate/1000/1000/1000 / STEP;
   index = (index >= NUM_BARS) ? NUM_BARS - 1 : index;
   counts[index]++;
@@ -1056,6 +1071,20 @@ static void ui_hr_healthy_page_update(double hashrate){
 
 static void ui_hr_real_time_page_update(hashrate_t *hashrate){
   #define NUM_DOTS 20
+  uint16_t MAX_HASHRATE = 2000;
+  uint16_t STEP = 100; // step
+  uint16_t NUM_BARS = (MAX_HASHRATE / STEP);
+
+  if(g_nmaxe.board.hw_model == "NMAxe"){
+    MAX_HASHRATE = 1000;
+    STEP = 50; // step
+    NUM_BARS = (MAX_HASHRATE / STEP);
+  }
+  else{
+    MAX_HASHRATE = 2000;
+    STEP = 100; // step
+    NUM_BARS = (MAX_HASHRATE / STEP);
+  }
 
   static lv_obj_t *chart = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL,*lb_title_5m = NULL, *lb_title_30m = NULL, *lb_title_1h = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
