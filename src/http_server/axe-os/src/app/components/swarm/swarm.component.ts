@@ -254,7 +254,6 @@ export class SwarmComponent implements OnInit, OnDestroy {
     this.updateSelection();
   }
 
-  // 更新全选状态
   updateSelection() {
     this.allSelected = this.swarmData.every(item => item.selected);
     this.selectedItems = this.swarmData.filter(item => item.selected);

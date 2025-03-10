@@ -9,7 +9,7 @@
 #define ASIC_DIFF_THR 512
 #elif defined(CHIP_MODEL_BM1370)
 #include "bm1370.h"
-#define ASIC_DIFF_THR 1024
+#define ASIC_DIFF_THR 512
 #else 
 #error "Please define CHIP MODEL"
 #endif
