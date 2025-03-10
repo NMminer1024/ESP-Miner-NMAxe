@@ -111,18 +111,17 @@ static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *hr_realtime_page = NULL;
   const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL;
 
-  if(g_nmaxe.board.hw_model == "NMAxe"){
+#if defined(BOARD_MODEL_NMAXE)
     p_loading_img = &loading_page_img;
     p_config_img = &config_page_img_nmaxe;
     p_mining_img = &mining_page_img_nmaxe;
     p_status_img = &status_page_img;
-  }
-  else if(g_nmaxe.board.hw_model == "NMAxe-Gamma"){
+#elif defined(BOARD_MODEL_NMAXE_GAMMA)
     p_loading_img = &loading_page_img;
     p_config_img = &config_page_img_nmaxe_gamma;
     p_mining_img = &mining_page_img_nmaxe_gamma;
     p_status_img = &status_page_img;
-  }
+#endif
   
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
@@ -950,16 +949,15 @@ static void ui_hr_healthy_page_update(double hashrate){
   uint16_t STEP = 100; // step
   uint16_t NUM_BARS = (MAX_HASHRATE / STEP);
 
-  if(g_nmaxe.board.hw_model == "NMAxe"){
+#if defined(BOARD_MODEL_NMAXE)
     MAX_HASHRATE = 1000;
     STEP = 50; // step
     NUM_BARS = (MAX_HASHRATE / STEP);
-  }
-  else{
+#elif defined(BOARD_MODEL_NMAXE_GAMMA)
     MAX_HASHRATE = 2000;
     STEP = 100; // step
     NUM_BARS = (MAX_HASHRATE / STEP);
-  }
+#endif
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -1075,16 +1073,15 @@ static void ui_hr_real_time_page_update(hashrate_t *hashrate){
   uint16_t STEP = 100; // step
   uint16_t NUM_BARS = (MAX_HASHRATE / STEP);
 
-  if(g_nmaxe.board.hw_model == "NMAxe"){
+#if defined(BOARD_MODEL_NMAXE)
     MAX_HASHRATE = 1000;
     STEP = 50; // step
     NUM_BARS = (MAX_HASHRATE / STEP);
-  }
-  else{
+#elif defined(BOARD_MODEL_NMAXE_GAMMA)
     MAX_HASHRATE = 2000;
     STEP = 100; // step
     NUM_BARS = (MAX_HASHRATE / STEP);
-  }
+#endif
 
   static lv_obj_t *chart = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL,*lb_title_5m = NULL, *lb_title_30m = NULL, *lb_title_1h = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;

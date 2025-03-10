@@ -196,22 +196,28 @@ bool load_g_nmaxe(void){
 
     uint16_t default_asic_frq = 550, default_asic_vcore = 1300;
 
-    if(model == NMAXE){
+#ifdef BOARD_MODEL_NMAXE
         g_nmaxe.board.hw_model = "NMAxe";
         g_nmaxe.asic.model     = "BM1366";
         g_nmaxe.asic.job_frq_ms = 2000;
         default_asic_frq        = 575;
         default_asic_vcore      = 1300;
-    }else if(model == NMAXE_GAMMA){
+        if(model != NMAXE){
+            LOG_E("Board model is not NMAxe, please choose the correct firmware");
+            return false;
+        }
+#elif defined(BOARD_MODEL_NMAXE_GAMMA)
         g_nmaxe.board.hw_model = "NMAxe-Gamma";
         g_nmaxe.asic.model     = "BM1370";
         g_nmaxe.asic.job_frq_ms = 500;
+        g_nmaxe.asic.job_frq_ms = 500;
         default_asic_frq        = 600;
         default_asic_vcore      = 1200;
-    }else if(model == BOARD_UNKNOWN){
-        LOG_E("Unknown board model, please check the model select pins.");
-        return false;
-    }
+        if(model != NMAXE_GAMMA){
+            LOG_E("Board model is not NMAxe-Gamma, please choose the correct firmware");
+            return false;
+        }
+#endif
     
     String stratum_pri                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb                           = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));

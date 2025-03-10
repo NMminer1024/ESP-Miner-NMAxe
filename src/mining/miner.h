@@ -3,14 +3,19 @@
 #include <Arduino.h>
 #include "stratum.h"
 #include <map>
+
+#if defined(CHIP_MODEL_BM1366)
 #include "bm1366.h"
+#define ASIC_DIFF_THR 512
+#elif defined(CHIP_MODEL_BM1370)
 #include "bm1370.h"
+#define ASIC_DIFF_THR 512
+#else 
+#error "Please define CHIP MODEL"
+#endif
 
 #define ESP32_TO_BM13xx_INIT_BUAD 115200
 #define ESP32_TO_BM13xx_WORK_BUAD 1000000
-
-#define BM1366_DIFF_THR 512
-#define BM1370_DIFF_THR 512
 
 typedef struct{
     double   _3m;

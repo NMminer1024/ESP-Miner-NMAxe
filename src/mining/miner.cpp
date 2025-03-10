@@ -255,14 +255,13 @@ void miner_asic_init_thread_entry(void *args){
     free(name);
 
 
-    if(g_nmaxe.board.hw_model == "NMAxe"){
-        default_asic_diff_thr = BM1366_DIFF_THR;
+#if defined(CHIP_MODEL_BM1366)
+        default_asic_diff_thr = ASIC_DIFF_THR;
         asic_instance         = new BM1366(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-    }
-    else if(g_nmaxe.board.hw_model == "NMAxe-Gamma"){
-        default_asic_diff_thr = BM1370_DIFF_THR;
+#elif defined(CHIP_MODEL_BM1370)
+        default_asic_diff_thr = ASIC_DIFF_THR;
         asic_instance         = new BM1370(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-    }
+#endif
 
     //miner instance
     g_nmaxe.miner = new AsicMinerClass(asic_instance);
