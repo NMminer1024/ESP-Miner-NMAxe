@@ -687,7 +687,7 @@ static void ui_dashboard_page_update(){
   #define VBUS_MAX 15.0f
 
   #define POWER_MIN 0.0f
-  #define POWER_MAX 35.0f
+  #define POWER_MAX 40.0f
 
   #define VCORE_REQ_MIN 1.0f
   #define VCORE_REQ_MAX 1.5f

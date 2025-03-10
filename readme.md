@@ -5,7 +5,7 @@
 
 
 <div align="center">
-  <h1>Join the global blockchain game!</h1>
+  <h1>Join the global blockchain revolution!</h1>
 </div>
 
 ## NMAxe
