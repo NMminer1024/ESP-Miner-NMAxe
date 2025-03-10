@@ -385,7 +385,7 @@ void miner_asic_rx_thread_entry(void *args){
                     LOG_I("| ASIC | Last | Pool | Network |");
                     LOG_I("|------|------|------|---------|");
                 }
-                LOG_I("|%-5s|%-6s|%-6s|%-7s|", 
+                LOG_I("|%-6s|%-6s|%-6s|%-7s|", 
                     formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), 
                     formatNumber(diff, 4).c_str(), 
                     formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str(),
