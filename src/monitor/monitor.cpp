@@ -147,7 +147,6 @@ void monitor_thread_entry(void *args){
       if(xSemaphoreTake(g_nmaxe.ota.reboot_xsem, 0) == pdTRUE){
         ESP.restart();
       }
-
   }
 }
 

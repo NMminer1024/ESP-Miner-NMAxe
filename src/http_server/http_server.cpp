@@ -256,14 +256,9 @@ static void echo_handler(AsyncWebServerRequest* request){
 static void post_restart(AsyncWebServerRequest * request){
     LOG_I("Restarting System because of API Request");
     // Send HTTP response before restarting
-
     request->send(200, "text/plain", "System will restart shortly.");
-
-    // Delay to ensure the response is sent
-    delay(1500);
-    // Restart the system
-    ESP.restart();
-    delay(1000);
+    delay(500);
+    xSemaphoreGive(g_nmaxe.ota.reboot_xsem);
 }
 static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
     static uint16_t SCRATCH_BUFSIZE = 512;
