@@ -18,6 +18,7 @@
 #define ESP32_TO_BM13xx_WORK_BUAD 1000000
 
 typedef struct{
+    double   _1m;
     double   _3m;
     double   _30m;
     double   _1h;
