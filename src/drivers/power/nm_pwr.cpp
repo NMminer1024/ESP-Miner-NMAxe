@@ -74,25 +74,12 @@ void NMAxePowerClass::set_vcore(power_state_t state){
 
 void NMAxePowerClass::set_vcore_voltage(uint16_t req_mv){
     uint16_t pwm = 0;
-#if defined(CHIP_MODEL_BM1366)
     //pwm = 0.14*req_mv - 140
-    if (req_mv >= 1100 && req_mv <= 1300) {
-        pwm = 0.14 * (req_mv) - 140; //bias 10mv
+    if (req_mv >= VCORE_MIN_VOLTAGE && req_mv <= VCORE_MAX_VOLTAGE) {
+        pwm = 0.14 * (req_mv) - 140; // bias 140, linear 0.14
     } else {
-        pwm = 0; //default
+        pwm = 0; //for safety
     }
-#elif defined(CHIP_MODEL_BM1370)
-    //pwm = 0.14*req_mv - 140
-    if (req_mv >= 1000 && req_mv <= 1250) {
-        pwm = 0.14 * (req_mv) - 140; //bias 10mv
-    } else {
-        pwm = 0; //default
-    }
-#endif
-
-
-
-
     ledcWrite(VCORE_REGULATOR_PWM_CHANNEL, pwm);
 }
 
