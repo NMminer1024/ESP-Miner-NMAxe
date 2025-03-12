@@ -539,8 +539,8 @@ static void ui_miner_page_update(){
   }
   
   String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session);
-  String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._1m, 3);
-  String hashuint = (g_nmaxe.mstatus.hashrate._1m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
+  String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
+  String hashuint = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
   String last_diff = formatNumber(g_nmaxe.mstatus.diff.last, 1);
   String best_session = formatNumber(g_nmaxe.mstatus.diff.best_session, 1);
   String best_ever = formatNumber(g_nmaxe.mstatus.diff.best_ever, 1);
@@ -910,8 +910,8 @@ static void ui_dashboard_page_update(){
 
   }
 
-  String hr_value = formatNumber(g_nmaxe.mstatus.hashrate._1m, 3);
-  String hr_unit = (g_nmaxe.mstatus.hashrate._1m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
+  String hr_value = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
+  String hr_unit = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
   String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
   String vbus = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
   String asic_temp = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
@@ -1480,7 +1480,7 @@ void ui_thread_entry(void *args){
       //update dashboard page
       ui_dashboard_page_update();
       //update hashrate healthy page
-      ui_hr_healthy_page_update(g_nmaxe.mstatus.hashrate._1m);
+      ui_hr_healthy_page_update(g_nmaxe.mstatus.hashrate._3m);
       //update hashrate real time page
       ui_hr_real_time_page_update(&g_nmaxe.mstatus.hashrate);
       //update ota page

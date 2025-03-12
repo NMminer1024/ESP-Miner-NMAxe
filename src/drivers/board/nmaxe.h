@@ -1,11 +1,21 @@
 #ifndef _NM_AXE_H_
 #define _NM_AXE_H_
 
+
+#if defined(BOARD_MODEL_NMAXE)
 #define PRIMARY_POOL_URL                               "stratum+tcp://public-pool.io:21496"//btc
 #define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
 
-#define PRIMARY_USER                                   "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"//btc
-#define FALLBACK_USER                                  "ecash:qpf6dlpplgltcxuq4rve99jfk67z4tlcjc3sscrrsf"//xec
+#define PRIMARY_USER                                   "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1.NMAxe"//btc
+#define FALLBACK_USER                                  "ecash:qpf6dlpplgltcxuq4rve99jfk67z4tlcjc3sscrrsf.NMAxe"//xec
+#elif defined(BOARD_MODEL_NMAXE_GAMMA)
+#define PRIMARY_POOL_URL                               "stratum+tcp://public-pool.io:21496"//btc
+#define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
+
+#define PRIMARY_USER                                   "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1.NMAxeGamma"//btc
+#define FALLBACK_USER                                  "ecash:qpf6dlpplgltcxuq4rve99jfk67z4tlcjc3sscrrsf.NMAxeGamma"//xec
+#endif
+
 
 #define SCREEN_WIDTH                                   240
 #define SCREEN_HEIGHT                                  135

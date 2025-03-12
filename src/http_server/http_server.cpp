@@ -71,7 +71,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["temp"] = g_nmaxe.temp.asic;
     root["vrTemp"] = g_nmaxe.temp.vcore;
     root["mcuTemp"] = g_nmaxe.temp.mcu;
-    root["hashRate"] = g_nmaxe.mstatus.hashrate._1m/1000/1000/1000;
+    root["hashRate"] = g_nmaxe.mstatus.hashrate._3m/1000/1000/1000;
     root["bestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_ever, 4);
     root["bestSessionDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session, 4);
     root["freeHeap"] = ESP.getFreeHeap();

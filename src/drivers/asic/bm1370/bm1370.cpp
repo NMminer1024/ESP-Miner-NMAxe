@@ -282,6 +282,7 @@ esp_err_t BM1370::wait_for_result(asic_result *result, uint32_t timeout_ms){
 uint16_t BM1370::get_cores(){
     return BM1370_CORE_COUNT;
 }   
+
 uint16_t BM1370::get_small_cores(){
     return BM1370_SMALL_CORE_COUNT;
 }

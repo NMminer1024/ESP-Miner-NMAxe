@@ -208,16 +208,16 @@ bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
         hr_samples.pop_front();
     }
 
-    // calculate hashrate for 1 minute
-    duration = 1 * 60.0;
-    sum = 0.0;
-    for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
-        if((now - it->first) <= duration * 1000) { // 1 minute
-            sum += it->second;
-        }
-        else break;
-    }
-    phr->_1m = sum * 4294967296.0 / duration;
+    // // calculate hashrate for 1 minute
+    // duration = 1 * 60.0;
+    // sum = 0.0;
+    // for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
+    //     if((now - it->first) <= duration * 1000) { // 1 minute
+    //         sum += it->second;
+    //     }
+    //     else break;
+    // }
+    // phr->_1m = sum * 4294967296.0 / duration;
 
     // calculate hashrate for 3 minute
     duration = 3 * 60.0;
@@ -301,7 +301,7 @@ void miner_asic_tx_thread_entry(void *args){
         //null loop if not subscribed
         if(!g_nmaxe.stratum->is_subscribed()){
             g_nmaxe.miner->end();
-            g_nmaxe.mstatus.hashrate._1m = 0.0;
+            g_nmaxe.mstatus.hashrate._3m = 0.0;
             delay(1000);
             continue;   
         }

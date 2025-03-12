@@ -38,7 +38,7 @@ void monitor_thread_entry(void *args){
         //update power status
         g_nmaxe.board.vbus          = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vbus() : g_nmaxe.board.vbus;
         g_nmaxe.board.ibus          = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_ibus() : g_nmaxe.board.ibus;
-        g_nmaxe.board.efficiency    = ((temp_cnt % 2 == 0) && g_nmaxe.mstatus.hashrate._1m > 0) ? (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1e6) / (g_nmaxe.mstatus.hashrate._1m/1e12) : g_nmaxe.board.efficiency;
+        g_nmaxe.board.efficiency    = ((temp_cnt % 2 == 0) && g_nmaxe.mstatus.hashrate._3m > 0) ? (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1e6) / (g_nmaxe.mstatus.hashrate._3m/1e12) : g_nmaxe.board.efficiency;
         g_nmaxe.asic.vcore_measured = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vcore() : g_nmaxe.asic.vcore_measured;
         //update board temperature
         g_nmaxe.temp.mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.temp.mcu;
@@ -97,7 +97,7 @@ void monitor_thread_entry(void *args){
 
         //check hashrate
         static uint8_t hr_err_cnt = 0;
-        if(g_nmaxe.mstatus.hashrate._1m <= 1){
+        if(g_nmaxe.mstatus.hashrate._3m <= 1){
           if(++hr_err_cnt > 60*5){
             LOG_W("Hashrate is too low, restart miner...");
             ESP.restart();
@@ -236,7 +236,7 @@ void swarm_thread_entry(void *args){
       if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
         jsonDoc.clear();
         jsonDoc["ip"] = g_nmaxe.connection.wifi.status_param.ip.toString();
-        jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._1m, 5) + "H/s";
+        jsonDoc["HashRate"] = formatNumber(g_nmaxe.mstatus.hashrate._3m, 5) + "H/s";
         uint32_t share_total = g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected;
         float share_accepted = (share_total == 0) ? 0:(float)(g_nmaxe.mstatus.share_accepted) / (float)(share_total);
         jsonDoc["Share"] = String(g_nmaxe.mstatus.share_rejected) + "/"+ String(g_nmaxe.mstatus.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
