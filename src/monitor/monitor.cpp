@@ -89,7 +89,7 @@ void monitor_thread_entry(void *args){
         static uint8_t pwr_err_cnt = 0;
         if((g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0 / 1000.0) < BOARD_LOW_POWER){
           LOG_W("Power %0.1fW is too low...", g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0 / 1000.0);
-          if(++pwr_err_cnt > 5){
+          if(++pwr_err_cnt > 10){
             LOG_W("Power is too low, restart miner...");
             ESP.restart();
           }
