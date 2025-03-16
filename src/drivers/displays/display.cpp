@@ -372,7 +372,7 @@ static void ui_miner_page_update(){
     lv_obj_set_style_text_font(lb_mine_page_ver, font, LV_PART_MAIN);
     lv_label_set_long_mode(lb_mine_page_ver, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN); 
-    lv_obj_align( lb_mine_page_ver, LV_ALIGN_TOP_LEFT, 4, 22 ); 
+    lv_obj_align( lb_mine_page_ver, LV_ALIGN_TOP_LEFT, 2, 22 ); 
     //power value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);

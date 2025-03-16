@@ -21,9 +21,9 @@ void setup() {
   Serial.setTimeout(20);
   Serial.begin(115200);
   /************************************************************** INIT NVS  *************************************************************/
-  while(!load_g_nmaxe()){
+  if(!load_g_nmaxe()){
     LOG_E("Load global parameters failed!");
-    delay(1000);
+    delay(100);
   }
   /************************************************************* INIT I2C ***************************************************************/
   Wire.begin(NM_AXE_IIC_SDA_PIN, NM_AXE_IIC_SCL_PIN);

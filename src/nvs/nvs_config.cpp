@@ -165,19 +165,19 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
 }
 
 board_model_t get_board_model(){
-  board_model_t model = BOARD_UNKNOWN;
-  pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
-  pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
-  delay(100);
+    board_model_t model = BOARD_UNKNOWN;
+    pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
+    pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
+    delay(100);
+    
+    uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
+    uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
   
-  uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
-  uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
-
-  if(sel0 == HIGH && sel1 == HIGH) model = NMAXE;//0b11
-  else if(sel0 == LOW && sel1 == HIGH) model = NMAXE_GAMMA;//0b01
-  else model = BOARD_UNKNOWN;// 0b10 or 0b00
-
-  return model;
+    if(sel0 == HIGH && sel1 == HIGH) model = NMAXE;//0b11
+    else if(sel0 == LOW && sel1 == HIGH) model = NMAXE_GAMMA;//0b01
+    else model = BOARD_UNKNOWN;// 0b10 or 0b00
+  
+    return model;
 }
 
 bool load_g_nmaxe(void){
@@ -192,8 +192,6 @@ bool load_g_nmaxe(void){
         delay(1000);
     }
 
-    board_model_t model = get_board_model();
-
     uint16_t default_asic_frq = 550, default_asic_vcore = 1300;
 
 #ifdef BOARD_MODEL_NMAXE
@@ -202,21 +200,12 @@ bool load_g_nmaxe(void){
         g_nmaxe.asic.job_frq_ms = 2000;
         default_asic_frq        = 575;
         default_asic_vcore      = 1300;
-        if(model != NMAXE){
-            LOG_E("Board model is not NMAxe, please choose the correct firmware");
-            return false;
-        }
 #elif defined(BOARD_MODEL_NMAXE_GAMMA)
         g_nmaxe.board.hw_model = "NMAxe-Gamma";
         g_nmaxe.asic.model     = "BM1370";
         g_nmaxe.asic.job_frq_ms = 500;
-        g_nmaxe.asic.job_frq_ms = 500;
-        default_asic_frq        = 600;
-        default_asic_vcore      = 1200;
-        if(model != NMAXE_GAMMA){
-            LOG_E("Board model is not NMAxe-Gamma, please choose the correct firmware");
-            return false;
-        }
+        default_asic_frq        = 550;
+        default_asic_vcore      = 1150;
 #endif
     
     String stratum_pri                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
