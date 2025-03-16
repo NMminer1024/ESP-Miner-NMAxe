@@ -75,7 +75,7 @@ void NMAxePowerClass::set_vcore(power_state_t state){
 void NMAxePowerClass::set_vcore_voltage(uint16_t req_mv){
     uint16_t pwm = 0;
     //pwm = 0.14*req_mv - 140
-    if (req_mv >= VCORE_MIN_VOLTAGE && req_mv <= VCORE_MAX_VOLTAGE) {
+    if (req_mv >= this->_vcore_min_mv && req_mv <= this->_vcore_max_mv) {
         pwm = 0.14 * (req_mv) - 140; // bias 140, linear 0.14
     } else {
         pwm = 0; //for safety
@@ -83,7 +83,10 @@ void NMAxePowerClass::set_vcore_voltage(uint16_t req_mv){
     ledcWrite(VCORE_REGULATOR_PWM_CHANNEL, pwm);
 }
 
-
+void NMAxePowerClass::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
+    this->_vcore_min_mv = min_mv;
+    this->_vcore_max_mv = max_mv;
+}
 
 
 
@@ -110,16 +113,24 @@ uint32_t NMAxePowerClass::get_vcore(void){
 
 
 
-
-
-
-
 void power_thread_entry(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
+    // set vcore range according to board model
+    if(g_nmaxe.board.hw_model == BOARD_NMAxe){
+        g_nmaxe.power->set_vcore_range(1100, 1300);
+    }
+    else if(g_nmaxe.board.hw_model == BOARD_NMAxeGamma){
+        g_nmaxe.power->set_vcore_range(1000, 1250);
+    }
+    else{
+        g_nmaxe.power->set_vcore_range(1000, 1250);
+        LOG_W("Unknown board model %s, set vcore range to 1000-1250mV", g_nmaxe.board.hw_model.c_str());
+    }
+    
     //detect power plug or pd plug
     if(g_nmaxe.power->is_dc_pluged()) LOG_I("DC plug detected...");
     else LOG_I("USB plug detected...");

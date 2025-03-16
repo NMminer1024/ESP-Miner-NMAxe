@@ -8,14 +8,7 @@
 #include "global.h"
 #include "csha256.h"
 
-
-#if defined(CHIP_MODEL_BM1366)
-static BMxxx *asic_instance         = new BM1366(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-#elif defined(CHIP_MODEL_BM1370)
-static BMxxx *asic_instance         = new BM1370(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-#endif
-
-
+static BMxxx *asic_instance = NULL;
 
 AsicMinerClass::AsicMinerClass(BMxxx *asic){
     this->_asic = asic;
@@ -270,6 +263,16 @@ void miner_asic_init_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
     
+
+
+    if(g_nmaxe.asic.model == "BM1366")      asic_instance = new BM1366(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+    else if(g_nmaxe.asic.model == "BM1370") asic_instance = new BM1370(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+    else{
+        LOG_W("Unknown board model %s", g_nmaxe.board.hw_model.c_str());
+        return;
+    }
+
+
     //miner instance
     g_nmaxe.miner = new AsicMinerClass(asic_instance);
 

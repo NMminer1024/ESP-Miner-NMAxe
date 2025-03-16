@@ -6,24 +6,14 @@
 
 #define VBUS_MIN_VOLTAGE    (8000)
 
-
-#if defined(CHIP_MODEL_BM1366)
-#define VCORE_MIN_VOLTAGE   (1100)
-#define VCORE_MAX_VOLTAGE   (1300)
-#elif defined(CHIP_MODEL_BM1370)
-#define VCORE_MIN_VOLTAGE   (1000)
-#define VCORE_MAX_VOLTAGE   (1250)
-#endif
-
-
-
-
 class NMAxePowerClass: public AxePowerHal{
 private:
     uint8_t _vcore_regulator_pwm_pin;
     uint8_t _vcore_pgood_pin;
     uint8_t _dc_plug_pin;
     bool _adc_ready;
+    uint16_t _vcore_min_mv;
+    uint16_t _vcore_max_mv;
 public:
     NMAxePowerClass(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t vcore_regulator_pwm_pin, uint8_t pgood,  uint8_t plug):AxePowerHal(en_pins, adc_pins){
         this->_vcore_regulator_pwm_pin = vcore_regulator_pwm_pin;
@@ -38,6 +28,7 @@ public:
     void set_pll_0v8(power_state_t state);
     void set_vcore(power_state_t state);
     void set_vcore_voltage(uint16_t req_mv);
+    void set_vcore_range(uint16_t min_mv, uint16_t max_mv);
 
     uint32_t get_vbus(void);
     uint32_t get_ibus(void);

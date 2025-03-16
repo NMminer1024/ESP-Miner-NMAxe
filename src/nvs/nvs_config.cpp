@@ -192,22 +192,29 @@ bool load_g_nmaxe(void){
         delay(1000);
     }
 
-    uint16_t default_asic_frq = 550, default_asic_vcore = 1300;
+    uint16_t default_asic_frq = 550, default_asic_vcore = 1150;
 
-#ifdef BOARD_MODEL_NMAXE
-        g_nmaxe.board.hw_model = "NMAxe";
+
+    board_model_t model = get_board_model();
+    if(NMAXE == model){
+        g_nmaxe.board.hw_model = BOARD_NMAxe;
         g_nmaxe.asic.model     = "BM1366";
         g_nmaxe.asic.job_frq_ms = 2000;
         default_asic_frq        = 575;
         default_asic_vcore      = 1300;
-#elif defined(BOARD_MODEL_NMAXE_GAMMA)
-        g_nmaxe.board.hw_model = "NMAxe-Gamma";
+    }
+    else if(NMAXE_GAMMA == model){
+        g_nmaxe.board.hw_model = BOARD_NMAxeGamma;
         g_nmaxe.asic.model     = "BM1370";
         g_nmaxe.asic.job_frq_ms = 500;
         default_asic_frq        = 550;
         default_asic_vcore      = 1150;
-#endif
-    
+    }
+    else{
+        LOG_E("Board model not supported!");
+        return false;
+    }
+
     String stratum_pri                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb                           = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
     
@@ -219,9 +226,9 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.pool_fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
     g_nmaxe.connection.pool_use                 = g_nmaxe.connection.pool_primary;
 
-    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, PRIMARY_USER));
+    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + g_nmaxe.board.hw_model).c_str()));
     g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "x"));
-    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, FALLBACK_USER));
+    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + g_nmaxe.board.hw_model).c_str()));
     g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=15000"));
     g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
 

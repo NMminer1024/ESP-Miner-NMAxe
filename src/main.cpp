@@ -21,7 +21,7 @@ void setup() {
   Serial.setTimeout(20);
   Serial.begin(115200);
   /************************************************************** INIT NVS  *************************************************************/
-  if(!load_g_nmaxe()){
+  while(!load_g_nmaxe()){
     LOG_E("Load global parameters failed!");
     delay(100);
   }
