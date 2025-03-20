@@ -29,7 +29,7 @@ export class EditComponent implements OnInit {
   public BM1366DropdownFrequency = [
     {name: '400', value: 400},
     {name: '425', value: 425},
-    {name: '450', value: 450},
+    // {name: '450', value: 450},
     {name: '475', value: 475},
     {name: '485 (default)', value: 485},
     {name: '500', value: 500},
