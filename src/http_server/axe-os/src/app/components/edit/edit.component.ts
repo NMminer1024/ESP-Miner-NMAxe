@@ -29,20 +29,18 @@ export class EditComponent implements OnInit {
   public BM1366DropdownFrequency = [
     {name: '400', value: 400},
     {name: '425', value: 425},
-    // {name: '450', value: 450},
     {name: '475', value: 475},
-    {name: '485 (default)', value: 485},
+    {name: '485', value: 485},
     {name: '500', value: 500},
-    // {name: '525', value: 525},
     {name: '550', value: 550},
-    {name: '575', value: 575},
+    {name: '575 (default)', value: 575},
   ];
   public BM1366CoreVoltage = [
     {name: '1100', value: 1100},
     {name: '1150', value: 1150},
-    {name: '1200 (default)', value: 1200},
+    {name: '1200', value: 1200},
     {name: '1250', value: 1250},
-    {name: '1300', value: 1300},
+    {name: '1300 (default)', value: 1300},
   ];
 
 
@@ -50,16 +48,18 @@ export class EditComponent implements OnInit {
     { name: '400', value: 400 },
     { name: '440', value: 440 },
     { name: '490', value: 490 },
-    { name: '550 (default)', value: 550 },
+    { name: '550', value: 550 },
     { name: '575', value: 575 },
     { name: '600', value: 600 },
     { name: '625', value: 625 },
+    { name: '650 (default)', value: 650 },
   ];
   public BM1370CoreVoltage = [
     { name: '1000', value: 1000 },
     { name: '1060', value: 1060 },
     { name: '1100', value: 1100 },
-    { name: '1150 (default)', value: 1150 },
+    { name: '1125 (default)', value: 1125 },
+    { name: '1150', value: 1150 },
     { name: '1200', value: 1200 },
     { name: '1250', value: 1250 },
   ];
