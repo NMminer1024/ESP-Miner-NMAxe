@@ -33,7 +33,7 @@ export class EditComponent implements OnInit {
     {name: '475', value: 475},
     {name: '485 (default)', value: 485},
     {name: '500', value: 500},
-    {name: '525', value: 525},
+    // {name: '525', value: 525},
     {name: '550', value: 550},
     {name: '575', value: 575},
   ];
