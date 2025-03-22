@@ -10,7 +10,7 @@
 
 ## NMAxe
 ***
-- NMAxe and NMAxeGamma solo miner based on BM1366 and BM1370 which fork from [bitaxe](https://github.com/skot/bitaxe), hashrate around 450~550GH/s and 1.2~2.0TH/s.
+- NMAxe and NMAxeGamma solo miner based on BM1366 and BM1370 which fork from [bitaxe](https://github.com/skot/bitaxe), hashrate around 450-550GH/s and 1.2-2.0TH/s.
 - NMAxe [aliexpress](https://www.aliexpress.com/item/1005008053561633.html)
 
 <div align="center">
