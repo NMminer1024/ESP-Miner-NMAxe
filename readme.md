@@ -10,8 +10,9 @@
 
 ## NMAxe
 ***
-- NMAxe solo miner based on BM1366 which fork from [bitaxe](https://github.com/skot/bitaxe), hashrate around 450~550GH/s.
+- NMAxe and NMAxeGamma solo miner based on BM1366 and BM1370 which fork from [bitaxe](https://github.com/skot/bitaxe), hashrate around 450~550GH/s and 1.2~2.0TH/s.
 - NMAxe [aliexpress](https://www.aliexpress.com/item/1005008053561633.html)
+
 <div align="center">
   <table width="100%">
     <tr>
@@ -20,7 +21,14 @@
     </tr>
   </table>
 </div>
-
+<div align="center">
+  <table width="100%">
+    <tr>
+      <td width="50%" align="center"><img src="image/Gamma-1.jpg" alt="Gamma-1"></td>
+      <td width="50%" align="center"><img src="image/Gamma-2.jpg" alt="Gamma-2"></td>
+    </tr>
+  </table>
+</div>
 ## Tutorial
 ***
 - [NMTech YouTube Channel](https://www.youtube.com/@NMTech-official)
@@ -59,8 +67,12 @@
 |user               |    Long press      |  Restore to factory settings  |
 
 ## Power 
+### NMAxe
 - DC adapter 8-12v/25W at least.
 - USB PD charger 25W at least. 
+### NMAxeGamma
+- DC adapter 8-12v/40W at least.
+- USB PD charger 40W at least. 
 
 ## Configuration
 ***
@@ -133,6 +145,15 @@ Batch firmware update on swarm page.
 
 ## Release Log
 ***
+### (2025.03.22) - v2.5.30
+- Add:
+  - Benchmark support.
+- Fixed:
+  - Default settings with BM1366 and BM1730.
+- Improved:
+  - Real time log.
+- Modify:
+  - Default wallet address pad with worker name.
 
 ### (2025.03.05) - v2.5.20
 - Add:
