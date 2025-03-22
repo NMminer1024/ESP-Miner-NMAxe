@@ -32,9 +32,11 @@ void StratumClass::reset(){
 }
 
 void StratumClass::reset(pool_info_t pConfig, stratum_info_t sConfig){
-    // this->pool = PoolClass(pConfig);
-    this->_stratum_info = sConfig;
+    psramDeallocator(this->pool);
+    void* pool_buf  = psramAllocator(sizeof(PoolClass));
+    this->pool = new(pool_buf) PoolClass(pConfig);
 
+    this->_stratum_info = sConfig;
     this->_rsp_str = "";
     this->_rsp_json.clear();
     this->_msg_rsp_map.clear();
@@ -405,12 +407,12 @@ void stratum_thread_entry(void *args){
                     sel_fallback = false;
                     g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_fallback;
                     g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_fallback;
-                    LOG_W(">>>> Set pool to fallback %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+                    LOG_W(">>>> Set pool to fallback [%s:%d] <<<<", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
                 }else{
                     sel_fallback = true;
                     g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_primary;
                     g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_primary;
-                    LOG_W(">>>> Set pool to primary %s:%d", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+                    LOG_W(">>>> Set pool to primary [%s:%d] <<<<", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
                 }
             }
             g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
