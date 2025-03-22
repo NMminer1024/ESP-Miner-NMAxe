@@ -3,19 +3,17 @@
 #include "helper.h"
 
 PoolClass::PoolClass(pool_info_t config){
-    void* w_buf             = psramAllocator(sizeof(WiFiClient));
-    void* sw_buf            = psramAllocator(sizeof(WiFiClientSecure));
     this->_pool_cfg         = config;
     this->_pool_ip          = IPAddress(0,0,0,0);
-    this->_wificlientSecure = new(w_buf)  WiFiClientSecure();
-    this->_wificlient       = new(sw_buf) WiFiClient();
+    this->_wificlientSecure = new WiFiClientSecure();
+    this->_wificlient       = new WiFiClient();
     this->_last_err_str     = "";
     this->_pwclient         = this->_wificlient;
 }
 
 PoolClass::~PoolClass(){
-    psramDeallocator(this->_wificlientSecure);
-    psramDeallocator(this->_wificlient);
+    delete this->_wificlientSecure;
+    delete this->_wificlient;
     this->_pwclient->stop();
 }
 

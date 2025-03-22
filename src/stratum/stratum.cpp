@@ -32,9 +32,10 @@ void StratumClass::reset(){
 }
 
 void StratumClass::reset(pool_info_t pConfig, stratum_info_t sConfig){
-    psramDeallocator(this->pool);
-    void* pool_buf  = psramAllocator(sizeof(PoolClass));
-    this->pool = new(pool_buf) PoolClass(pConfig);
+    if(this->pool == NULL) return;
+    delete this->pool;
+    
+    this->pool = new PoolClass(pConfig);
 
     this->_stratum_info = sConfig;
     this->_rsp_str = "";

@@ -89,8 +89,7 @@ public:
     StratumClass(){};
     StratumClass(pool_info_t pConfig, stratum_info_t sConfig, uint8_t job_cached_max): 
      _stratum_info(sConfig), _pool_job_cache_size(job_cached_max){
-        void* pool_buf  = psramAllocator(sizeof(PoolClass));
-        this->pool = new(pool_buf) PoolClass(pConfig);
+        this->pool = new PoolClass(pConfig);
         this->_max_rsp_id_cache = 20;
         this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
         this->_gid = 1;
