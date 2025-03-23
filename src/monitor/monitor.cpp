@@ -105,29 +105,6 @@ void monitor_thread_entry(void *args){
         }else hr_err_cnt = 0;
       }
       
-      //print summary to log
-      if(g_nmaxe.mstatus.uptime_session % 60 == 0){
-        LOG_I(" ============%s=========== ",g_nmaxe.board.fw_version.c_str());
-        LOG_I("|            Summary           |");
-        LOG_I("+------------Uptime------------+");
-        LOG_I("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
-        LOG_I("+-----------HashRate-----------+");
-        LOG_I("|   3m    |    30m   |    1h   |");
-        LOG_I("|%-4sH/s| %-4sH/s|%-4sH/s|", 
-              formatNumber(g_nmaxe.mstatus.hashrate._3m, 4).c_str(), 
-              formatNumber(g_nmaxe.mstatus.hashrate._30m, 4).c_str(),
-              formatNumber(g_nmaxe.mstatus.hashrate._1h, 4).c_str());
-        LOG_I("+----------Difficulty----------+");
-        LOG_I("|From boot| Best ever| Network |");
-        LOG_I("| %-6s |  %-5s | %-7s |", 
-              formatNumber(g_nmaxe.mstatus.diff.best_session, 5).c_str(), 
-              formatNumber(g_nmaxe.mstatus.diff.best_ever, 5).c_str(),
-              formatNumber(g_nmaxe.mstatus.diff.network, 5).c_str());
-        LOG_I("+---Free heap-----Efficiency---+");
-        LOG_I("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(g_nmaxe.board.efficiency, 4).c_str());
-        LOG_I(" ============================== ");
-      }
-      
       //save status to NVS
       static uint64_t last_save_time = g_nmaxe.mstatus.uptime_ever;
       if(g_nmaxe.mstatus.uptime_ever - last_save_time > NVS_SAVE_INTERVAL){
