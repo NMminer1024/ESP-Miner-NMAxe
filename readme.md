@@ -24,8 +24,8 @@
 <div align="center">
   <table width="100%">
     <tr>
-      <td width="50%" align="center"><img src="image/Gamma-1.jpg" alt="Gamma-1"></td>
-      <td width="50%" align="center"><img src="image/Gamma-2.jpg" alt="Gamma-2"></td>
+      <td width="50%" align="center"><img src="image/02.png" alt="Gamma-1"></td>
+      <td width="50%" align="center"><img src="image/09.png" alt="Gamma-2"></td>
     </tr>
   </table>
 </div>
@@ -146,6 +146,17 @@ Batch firmware update on swarm page.
 
 ## Release Log
 ***
+
+### (2025.03.22) - v2.5.31
+- Add:
+  - None.
+- Fixed:
+  - Fallback pool issues.
+- Improved:
+  - Real time log.
+- Modify:
+  - None.
+
 ### (2025.03.22) - v2.5.30
 - Add:
   - Benchmark support.
