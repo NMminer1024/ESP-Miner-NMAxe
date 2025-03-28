@@ -56,19 +56,12 @@ void fan_thread_entry(void *args){
     int16_t now_count = 0, last_count = 0;
     fan_init();
     while(1){
+        delay(100);
         // Fan self test flag set only once
         if(!g_nmaxe.preference.fan.self_test){
             g_nmaxe.preference.fan.self_test = (g_nmaxe.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
             fan_set_speed(100.0 / 100.0);
         }
-
-        if(g_nmaxe.preference.fan.is_auto_speed && g_nmaxe.preference.fan.self_test){
-            // Linearly increase fan speed from 40 to 60 degrees
-            g_nmaxe.preference.fan.speed = (g_nmaxe.temp.asic < 20.0f) ? 0.0f :
-                                (g_nmaxe.temp.asic > 40.0f) ? 100.0f :
-                                (g_nmaxe.temp.asic - 20.0f) * (100.0f / (40.0 - 20.0));
-        }
-        fan_set_speed(g_nmaxe.preference.fan.speed / 100.0);
 
         // Calculate fan RPM
         if(millis() - start_ms > 1000){
@@ -81,6 +74,15 @@ void fan_thread_entry(void *args){
             last_count = now_count;
             start_ms = millis();
         }
-        delay(100);
+
+        if(!g_nmaxe.preference.fan.self_test)continue;
+
+        if(g_nmaxe.preference.fan.is_auto_speed && g_nmaxe.preference.fan.self_test){
+            // Linearly increase fan speed from 40 to 60 degrees
+            g_nmaxe.preference.fan.speed = (g_nmaxe.temp.asic < 20.0f) ? 0.0f :
+                                (g_nmaxe.temp.asic > 40.0f) ? 100.0f :
+                                (g_nmaxe.temp.asic - 20.0f) * (100.0f / (40.0 - 20.0));
+        }
+        fan_set_speed(g_nmaxe.preference.fan.speed / 100.0);
     }
 }
