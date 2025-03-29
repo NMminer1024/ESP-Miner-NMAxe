@@ -53,6 +53,9 @@ export class EditComponent implements OnInit {
     { name: '600', value: 600 },
     { name: '625', value: 625 },
     { name: '650 (default)', value: 650 },
+    { name: '700', value: 700 },
+    { name: '750', value: 750 },
+    { name: '800', value: 800 },
   ];
   public BM1370CoreVoltage = [
     { name: '1000', value: 1000 },
