@@ -146,7 +146,16 @@ Batch firmware update on swarm page.
 
 ## Release Log
 ***
-
+### (2025.03.30) - v2.5.41
+- Add:
+  - None.
+- Fixed:
+  - Fan self test bug.
+  - Restart button inactive on AxeOS when miner loading.
+- Improved:
+  - None.
+- Modify:
+  - None.
 ### (2025.03.26) - v2.5.31
 - Add:
   - None.

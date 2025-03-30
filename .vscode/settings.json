@@ -77,5 +77,6 @@
     },
     "cmake.sourceDirectory": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/libdeps/nm_axe_1366/ArduinoJson/src",
     "idf.flashType": "UART",
-    "idf.adapterTargetName": "esp32s3"
+    "idf.adapterTargetName": "esp32s3",
+    "cmake.ignoreCMakeListsMissing": true
 }
