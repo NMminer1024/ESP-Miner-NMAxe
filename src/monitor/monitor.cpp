@@ -119,7 +119,12 @@ void monitor_thread_entry(void *args){
           last_save_time = g_nmaxe.mstatus.uptime_ever;
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
-  }
+      
+      // //check ota status and reboot
+      // if(xSemaphoreTake(g_nmaxe.board.reboot_xsem, 0) == pdTRUE){
+      //   ESP.restart();
+      // }
+    }
 }
 
 void swarm_thread_entry(void *args){
@@ -253,13 +258,14 @@ void daemon_thread_entry(void *args){
   free(name);
 
   while (true){
-    //WiFi daemon
-    if(xSemaphoreTake(g_nmaxe.connection.wifi.reconnect_xsem, 500) == pdTRUE){
-      WiFi.begin(g_nmaxe.connection.wifi.conn_param.ssid.c_str(), g_nmaxe.connection.wifi.conn_param.pwd.c_str());
-    }
+    delay(1000);
     //check ota status and reboot
-    if(xSemaphoreTake(g_nmaxe.board.reboot_xsem, 500) == pdTRUE){
+    if(xSemaphoreTake(g_nmaxe.board.reboot_xsem, 0) == pdTRUE){
       ESP.restart();
+    }
+    //WiFi daemon
+    if(xSemaphoreTake(g_nmaxe.connection.wifi.reconnect_xsem, 0) == pdTRUE){
+      WiFi.begin(g_nmaxe.connection.wifi.conn_param.ssid.c_str(), g_nmaxe.connection.wifi.conn_param.pwd.c_str());
     }
     //Stratum daemon
     if(millis() - g_nmaxe.connection.stratum_update > GLOBAL_ALIVE_TIMEOUT){

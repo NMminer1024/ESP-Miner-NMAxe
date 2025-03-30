@@ -63,7 +63,7 @@ void setup() {
   }
   /************************************************************** INIT DAEMON **********************************************************/
   taskName = "(daemon)";
-  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, NULL, 1);
+  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, NULL, 1);
   delay(10);
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
@@ -100,6 +100,6 @@ void setup() {
 
 
 void loop() {
-
+  delay(1000);
 }
 
