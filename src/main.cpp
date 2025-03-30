@@ -61,12 +61,15 @@ void setup() {
   while (WL_CONNECTED != g_nmaxe.connection.wifi.status_param.status){
     delay(10);
   }
-  
-  /************************************************************* INIT SWARM *************************************************************/
+  /************************************************************** INIT DAEMON **********************************************************/
+  taskName = "(daemon)";
+  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, NULL, 1);
+  delay(10);
+  /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
   xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, NULL, 1);
   delay(10);
-  /*********************************************************** CREATE MARKET THREAD ***************************************************/
+  /*********************************************************** CREATE MARKET THREAD ****************************************************/
   taskName = "(market)";
   xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*8, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, NULL, 1);
   while (!g_nmaxe.market->updated){
@@ -97,15 +100,6 @@ void setup() {
 
 
 void loop() {
-  //WiFi monitor
-  if(xSemaphoreTake(g_nmaxe.connection.wifi.reconnect_xsem, 1000) == pdTRUE){
-    WiFi.begin(g_nmaxe.connection.wifi.conn_param.ssid.c_str(), g_nmaxe.connection.wifi.conn_param.pwd.c_str());
-  }
-  //Stratum monitor
-  if(millis() - g_nmaxe.connection.stratum_update > GLOBAL_ALIVE_TIMEOUT){
-    LOG_W("Stratum connection frozen, restarting...");
-    delay(100);
-    ESP.restart();
-  }
+
 }
 

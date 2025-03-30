@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.5.40"
+#define CURRENT_FW_VERSION  "v2.5.41"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -39,6 +39,7 @@ enum{
     TASK_PRIORITY_LVGL_DRV ,
     TASK_PRIORITY_WS       ,
     TASK_PRIORITY_MONITOR  ,
+    TASK_PRIORITY_DAEMON  ,
     TASK_PRIORITY_WIFI     ,
     TASK_PRIORITY_MARKET   ,
     TASK_PRIORITY_CONFIG_MONITOR,
@@ -63,6 +64,7 @@ typedef struct{
     uint16_t    vbus;//mV
     uint16_t    ibus;//mA
     float       efficiency;
+    SemaphoreHandle_t   reboot_xsem;
 }board_info_t;
 
 typedef struct{
@@ -117,7 +119,6 @@ typedef struct{
     String              firmware;//name
     bool                ota_running;
     int                 progress;
-    SemaphoreHandle_t   reboot_xsem;
 }ota_info_t;
 
 typedef struct{

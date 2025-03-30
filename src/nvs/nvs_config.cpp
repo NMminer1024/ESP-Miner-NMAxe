@@ -236,6 +236,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.board.fw_version                    = CURRENT_FW_VERSION;
     g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
     g_nmaxe.board.devcie_code                   = gen_device_code();
+    g_nmaxe.board.reboot_xsem                   = xSemaphoreCreateCounting(1, 0);
     g_nmaxe.temp.mcu                            = 0.0f;
     g_nmaxe.temp.vcore                          = 0.0f;
     g_nmaxe.temp.asic                           = 0.0f;
@@ -256,7 +257,6 @@ bool load_g_nmaxe(void){
     g_nmaxe.ota.ota_running                     = false;
     g_nmaxe.ota.progress                        = 0;
     g_nmaxe.ota.firmware                        = "";
-    g_nmaxe.ota.reboot_xsem                     = xSemaphoreCreateCounting(1, 0);
     g_nmaxe.mstatus.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, default_asic_frq);
     g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, default_asic_vcore);

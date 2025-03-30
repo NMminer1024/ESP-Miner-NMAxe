@@ -258,7 +258,7 @@ static void post_restart(AsyncWebServerRequest * request){
     // Send HTTP response before restarting
     request->send(200, "text/plain", "System will restart shortly.");
     delay(500);
-    xSemaphoreGive(g_nmaxe.ota.reboot_xsem);
+    xSemaphoreGive(g_nmaxe.board.reboot_xsem);
 }
 static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
     static uint16_t SCRATCH_BUFSIZE = 512;
@@ -424,7 +424,7 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
 
             LOG_I("Update Success: %u bytes, rebooting...", index + len);
             delay(1000);
-            xSemaphoreGive(g_nmaxe.ota.reboot_xsem);
+            xSemaphoreGive(g_nmaxe.board.reboot_xsem);
         } else {
             Update.printError(Serial);
             request->send(500, "text/plain", "OTA Update Failed. End error.");
