@@ -218,7 +218,7 @@ static void ui_layout_init(void){
   ui_pages[5] = hr_realtime_page;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version
-  const lv_font_t *font = &lv_font_montserrat_14;
+  const lv_font_t *font = &lv_font_montserrat_16;
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
   lv_obj_t *lb_version   = lv_label_create( loading_page );
   lv_obj_set_width(lb_version, SCREEN_WIDTH);
@@ -242,7 +242,7 @@ static void ui_layout_init(void){
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
     static const lv_font_t *font = &lv_font_montserrat_14;
     static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL, *lb_ip = NULL, *lb_pool_url = NULL;
-    static uint8_t progress = 0, progress_total = 16;
+    static uint8_t progress = 0, progress_total = 18;
 
     lv_color_t font_color = lv_color_hex(color);
 
@@ -340,7 +340,7 @@ static void ui_miner_page_update(){
     first_time = false;
     //Hashrate value
     const lv_font_t *font = &ds_digib_font_38;
-    font_color = lv_color_hex(0xFFA500);
+    font_color = lv_color_hex(0xEE7D30);
     lb_hashrate   = lv_label_create( ui_pages[PAGE_MINER] );
     lv_obj_set_width(lb_hashrate, 80);
     lv_label_set_text( lb_hashrate, " ");
@@ -350,7 +350,7 @@ static void ui_miner_page_update(){
     lv_obj_align( lb_hashrate, LV_ALIGN_BOTTOM_MID, 40, 0);
     //Hit value
     font = &ds_digib_font_50;
-    font_color = lv_color_hex(0xFFA500);
+    font_color = lv_color_hex(0xEE7D30);
     lb_blk_hit   = lv_label_create( ui_pages[PAGE_MINER] );
     lv_obj_set_width(lb_blk_hit, SCREEN_WIDTH);
     lv_label_set_text( lb_blk_hit, " ");
@@ -618,6 +618,22 @@ static void ui_miner_page_update(){
     lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_28, LV_PART_MAIN);
     lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
   }
+
+  //version
+  if(compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release) == -1){
+    static uint8_t version_cnt = 0;
+    if(version_cnt++ % 2 == 0){
+      font_color = lv_color_hex(0x00ff00);//green
+      lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN);
+      lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_nmaxe.board.fw_latest_release.substring(1, g_nmaxe.board.fw_latest_release.length()).c_str());
+    }
+    else{
+      font_color = lv_color_hex(0xFFFFFF);//white
+      lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN);
+      lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_nmaxe.board.fw_version.substring(1, g_nmaxe.board.fw_version.length()).c_str());
+    }
+  }
+
   //Diff
   lv_label_set_text_fmt(lb_diff, "%s/%s/%s/%s", last_diff.c_str(), best_session.c_str(), best_ever.c_str(), network_diff.c_str());
   //Temp
@@ -1269,6 +1285,10 @@ static void ui_hr_real_time_page_update(hashrate_t *hashrate){
 
 
 void ui_switch_next_page_cb(){
+  g_nmaxe.preference.led.sleep         = (g_nmaxe.preference.led.sleep_last) ? false : g_nmaxe.preference.led.sleep; //switch led sleep mode
+
+  g_nmaxe.preference.screen.brightness = g_nmaxe.preference.screen.brightness_last;//restore brightness
+
   current_page_index = (current_page_index == PAGE_HR_REALTIME) ? PAGE_CONFIG : current_page_index;
   current_page_index++;
   lv_obj_scroll_to_view(ui_pages[current_page_index], LV_ANIM_ON);
@@ -1285,6 +1305,7 @@ void ui_thread_entry(void *args){
   const char* wifi_con_str[] = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
   const char* fan_test_str[] = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
   const char* market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
+  const char* ver_chk_str[]  = {"Version check ","Version check.","Version check..","Version check..."};
   const char* pool_con_str[] = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
   const char* pool_auth_str[] = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
   const char* wait_job_str[] = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
@@ -1306,10 +1327,13 @@ void ui_thread_entry(void *args){
   //set the first page to loading page
   lv_obj_scroll_to_view(ui_pages[PAGE_LOADING], LV_ANIM_ON); 
 
+
+
+  uint16_t cnt = 0;
+
   //Vbus check 
   ui_loading_str_update(vbus_chk_str[0], 0xFFFFFF, true);
   while (!g_nmaxe.power->is_adc_ready()){
-    static uint8_t cnt = 0;
     ui_loading_str_update(vbus_chk_str[(cnt++)%4], 0xFFFFFF, false);
     delay(500);
   }
@@ -1336,9 +1360,9 @@ void ui_thread_entry(void *args){
   delay(500);
 
   /***************************************wait fan self test *******************************************/
+  cnt = 0;
   ui_loading_str_update(fan_test_str[0], 0xFFFFFF, true);
   while(!g_nmaxe.preference.fan.self_test){
-    static uint8_t cnt = 0;
     ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_nmaxe.preference.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + "rpm", 0xFFFFFF, false);
     delay(300);
   }
@@ -1360,16 +1384,16 @@ void ui_thread_entry(void *args){
   ui_loading_str_update(String("Vcore ") + String(g_nmaxe.power->get_vcore() / 1000.0, 3) + "v.", 0x00FF00, true);
   delay(500);
   /****************************************wait for asic init********************************************/
+  cnt = 0;
   while(g_nmaxe.miner->get_asic_count() == 0){
-    static uint8_t cnt = 0;
     ui_loading_str_update(String(asci_init_str[cnt++ % 4]), 0xFFFFFF, false);
     delay(300);
   }
   ui_loading_str_update(String("Found " + String(g_nmaxe.miner->get_asic_count())) + " chip", 0x00FF00, true);
   delay(1000);
   /***************************************wait for wifi connected****************************************/
+  cnt = 0;
   while(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED){
-    static uint8_t cnt = 0;
     ui_loading_str_update(wifi_con_str[(cnt++)%4]  + String("[") + g_nmaxe.connection.wifi.conn_param.ssid +  String("]"), 0xFFFFFF, false);
     if(xSemaphoreTake(g_nmaxe.connection.wifi.force_cfg_xsem, 100) == pdTRUE){
       ui_loading_str_update(String("Timeout!"), 0xFF0000, false);
@@ -1424,10 +1448,36 @@ void ui_thread_entry(void *args){
   }
   ui_loading_str_update("Wifi connected!", 0x00FF00, true);
   delay(500);
+  /***************************************wait for version check**************************************/
+  cnt = 0;
+  ui_loading_str_update(ver_chk_str[0], 0xFFFFFF, true);
+  while(g_nmaxe.board.fw_latest_release == ""){
+    ui_loading_str_update(ver_chk_str[cnt++ % 4], 0xFFFFFF, false);
+    delay(500);
+  }
+
+  int res = compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release);
+  if(res == -1){
+    ui_loading_str_update("Please update to: " + g_nmaxe.board.fw_latest_release, 0xFFFFFF, true);
+    while (cnt++ <= 15){
+      delay(250);
+      ui_loading_str_update("Please update to: " + g_nmaxe.board.fw_latest_release, 0xEE7D30, false);
+      delay(250);
+      ui_loading_str_update("Please update to: " + g_nmaxe.board.fw_latest_release, 0xFFFFFF, false);
+    }
+  }
+  else if(res == 0 || res == 1){
+    ui_loading_str_update("Up to date!", 0x00FF00, true);
+    delay(2000);
+  }
+  else{
+    ui_loading_str_update("Version check failed!", 0xFF0000, true);
+    delay(2000);
+  }
   /***************************************wait for market connected************************************/
+  cnt = 0;
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
   while(!g_nmaxe.market->updated){
-    static uint8_t cnt = 0;
     ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_nmaxe.coin).c_str(), 0xFFFFFF, false);
     if(g_nmaxe.market->timeout){
       ui_loading_str_update("Market update timeout!", 0xFF0000, false);
@@ -1439,8 +1489,8 @@ void ui_thread_entry(void *args){
   if(!g_nmaxe.market->timeout)ui_loading_str_update("Market connected!", 0x00FF00, true);
   delay(500);
   /***************************************wait for pool connected**************************************/
+  cnt = 0;
   while(!g_nmaxe.stratum->is_subscribed()){
-    static uint8_t cnt = 0;
     if(g_nmaxe.stratum->pool->get_last_errormsg().length() > 0){
       uint32_t color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
       ui_loading_str_update(g_nmaxe.stratum->pool->get_last_errormsg().c_str(), color, false);
@@ -1454,8 +1504,8 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Pool connected!", 0x00FF00, true);
   delay(100);
   /******************************************wait pool authorized*************************************/
+  cnt = 0;
   while(!g_nmaxe.stratum->is_authorized()){
-    static uint8_t cnt = 0;
     ui_loading_str_update(pool_auth_str[(cnt++)%4], 0xFFFFFF, false);
     delay(300);
     while (cnt >= 20){
@@ -1469,8 +1519,8 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Pool authorized!", 0x00FF00, true);
   delay(100);
   /******************************************wait first job*******************************************/
+  cnt = 0;
   while(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, 300) == pdFAIL){
-    static uint8_t cnt = 0;
     ui_loading_str_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
     while (cnt >= 3*20){
       ui_loading_str_update("Pool job timeout!", 0xFF0000, false);

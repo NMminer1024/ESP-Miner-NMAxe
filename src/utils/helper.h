@@ -42,6 +42,7 @@ String convert_uptime_to_string(uint32_t timecnt);
 
 double le_hash_to_diff(uint8_t *hash);
 
+int compareVersions(const String& current, const String& release);
 
 
 

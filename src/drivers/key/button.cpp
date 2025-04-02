@@ -23,6 +23,14 @@ static void force_config_cb(void){
   ESP.restart();
 }
 
+static void silence_mode_cb(void){
+  static bool toggle = false;
+  g_nmaxe.preference.screen.brightness = (toggle) ? 0 : g_nmaxe.preference.screen.brightness_last;
+  g_nmaxe.preference.led.sleep         = (toggle) ? true : false;
+  g_nmaxe.preference.led.sleep_last    = g_nmaxe.preference.led.sleep;
+  toggle = !toggle;
+}
+
 void button_thread_entry(void *args){
   char *name = (char*)malloc(20);
   strcpy(name, (char*)args);
@@ -30,8 +38,8 @@ void button_thread_entry(void *args){
   free(name);
   
   // link the boot button functions.
-  boot_btn.attachClick(NULL);
-  boot_btn.attachDoubleClick(ui_switch_next_page_cb);
+  boot_btn.attachClick(ui_switch_next_page_cb);
+  boot_btn.attachDoubleClick(silence_mode_cb);
   boot_btn.attachLongPressStart(NULL);
   boot_btn.attachLongPressStop(NULL);
   boot_btn.attachDuringLongPress(force_config_cb);
@@ -46,6 +54,6 @@ void button_thread_entry(void *args){
   while (true){
     boot_btn.tick();
     user_btn.tick();
-    delay(50);
+    delay(20);
   }
 }

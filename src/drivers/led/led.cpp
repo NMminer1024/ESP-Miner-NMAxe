@@ -23,6 +23,14 @@ static void ledInit(void){
     ledcWrite(pwmChannel, 255);
 }
 
+
+static void led_off(void){
+    digitalWrite(NM_AXE_LED_WIFI_STA_PIN, HIGH);
+    digitalWrite(NM_AXE_LED_POOL_STA_PIN, HIGH);
+    ledcWrite(pwmChannel, 255);
+}
+
+
 void led_thread_entry(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
@@ -34,7 +42,20 @@ void led_thread_entry(void *args){
     ledInit();
     uint64_t led_cnt = 0;
     const uint8_t  dot = 20;
-    while(g_nmaxe.preference.led.indicator){
+    while(true){
+        delay(10);
+
+        if(g_nmaxe.preference.led.sleep) {
+            led_off();
+            continue;
+        }
+
+        if(!g_nmaxe.preference.led.enable){
+            led_off();
+            continue;
+        }
+           
+
         switch (led_cnt % 201){
         case 1 * dot:
                 if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(NM_AXE_LED_WIFI_STA_PIN, LOW);
@@ -119,7 +140,6 @@ void led_thread_entry(void *args){
             ledcWrite(pwmChannel, (uint32_t)((1 + sin(20*led_cnt/100.0f)) * (1<<resolution - 1)));
         }
         led_cnt++;
-        delay(10);
     }
     LOG_I("led thread exit...");
     vTaskDelete(NULL);

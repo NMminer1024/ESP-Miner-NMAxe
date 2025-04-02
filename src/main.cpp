@@ -10,6 +10,7 @@
 #include "market.h"
 #include "http_server.h"
 #include "nvs_config.h"
+#include "github.h"
 
 TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, stratumTask, minerTxTask, minerRxTask;
 
@@ -61,6 +62,21 @@ void setup() {
   while (WL_CONNECTED != g_nmaxe.connection.wifi.status_param.status){
     delay(10);
   }
+  /************************************************************ Version check **********************************************************/
+  ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 
+  g_nmaxe.board.fw_latest_release = releaseChecker->get_latest_release();
+
+  if(0 == compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release)){
+    LOG_I("Firmware up to date: [%s]", g_nmaxe.board.fw_latest_release.c_str());
+  }
+  else if(-2 == compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release)){
+    LOG_W("Get release info failed, please check your network connection.");
+  }
+  else if(-1 == compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release)){
+    LOG_W("New version available: %s", g_nmaxe.board.fw_latest_release.c_str());
+    delay(1000*5);
+  }
+  delete releaseChecker;
   /************************************************************** INIT DAEMON **********************************************************/
   taskName = "(daemon)";
   xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, NULL, 1);

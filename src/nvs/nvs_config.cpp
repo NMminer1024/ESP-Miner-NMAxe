@@ -237,6 +237,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
     g_nmaxe.board.devcie_code                   = gen_device_code();
     g_nmaxe.board.reboot_xsem                   = xSemaphoreCreateCounting(1, 0);
+    g_nmaxe.board.fw_latest_release             = "";
     g_nmaxe.temp.mcu                            = 0.0f;
     g_nmaxe.temp.vcore                          = 0.0f;
     g_nmaxe.temp.asic                           = 0.0f;
@@ -264,9 +265,12 @@ bool load_g_nmaxe(void){
     g_nmaxe.preference.fan.invert_ploarity      = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, true); 
     g_nmaxe.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     g_nmaxe.preference.fan.self_test            = false;
-    g_nmaxe.preference.led.indicator            = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     g_nmaxe.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     g_nmaxe.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 90);
+    g_nmaxe.preference.screen.brightness_last   = g_nmaxe.preference.screen.brightness;
+    g_nmaxe.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
+    g_nmaxe.preference.led.sleep                = false;
+    g_nmaxe.preference.led.sleep_last           = g_nmaxe.preference.led.sleep;
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     g_nmaxe.coin.toUpperCase();

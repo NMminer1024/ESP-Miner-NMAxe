@@ -58,6 +58,7 @@ typedef enum {
 typedef struct{
     String      hostname;
     String      fw_version;
+    String      fw_latest_release;
     String      hw_version;
     String      hw_model;
     String      devcie_code;
@@ -85,10 +86,13 @@ typedef struct{
 typedef struct{
     bool     flip;
     uint16_t brightness;
+    uint16_t brightness_last;
 }screen_info_t;
 
 typedef struct{
-    bool   indicator;
+    bool   enable;
+    bool   sleep;
+    bool   sleep_last;
 }led_info_t;
 
 typedef struct{

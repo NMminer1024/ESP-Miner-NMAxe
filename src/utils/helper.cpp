@@ -277,4 +277,58 @@ double le_hash_to_diff(uint8_t *hash){
 
 
 
+int compareVersions(const String& current, const String& release) {
+    if((release == "") || (release == "None")) return -2; // have no release version get yet
+
+    String v1 = current.substring(1);
+    String v2 = release.substring(1);
+    
+    int major1 = 0, minor1 = 0, patch1 = 0;
+    int major2 = 0, minor2 = 0, patch2 = 0;
+    
+    // parse version1
+    int dotPos1 = v1.indexOf('.');
+    if (dotPos1 != -1) {
+        major1 = v1.substring(0, dotPos1).toInt();
+        int dotPos2 = v1.indexOf('.', dotPos1 + 1);
+        if (dotPos2 != -1) {
+            minor1 = v1.substring(dotPos1 + 1, dotPos2).toInt();
+            patch1 = v1.substring(dotPos2 + 1).toInt();
+        } else {
+            minor1 = v1.substring(dotPos1 + 1).toInt();
+        }
+    } else {
+        major1 = v1.toInt();
+    }
+    
+    // parse version2
+    int dotPos3 = v2.indexOf('.');
+    if (dotPos3 != -1) {
+        major2 = v2.substring(0, dotPos3).toInt();
+        int dotPos4 = v2.indexOf('.', dotPos3 + 1);
+        if (dotPos4 != -1) {
+            minor2 = v2.substring(dotPos3 + 1, dotPos4).toInt();
+            patch2 = v2.substring(dotPos4 + 1).toInt();
+        } else {
+            minor2 = v2.substring(dotPos3 + 1).toInt();
+        }
+    } else {
+        major2 = v2.toInt();
+    }
+    
+    if (major1 < major2) return -1;
+    if (major1 > major2) return 1;
+    
+
+    if (minor1 < minor2) return -1;
+    if (minor1 > minor2) return 1;
+    
+
+    if (patch1 < patch2) return -1;
+    if (patch1 > patch2) return 1;
+    
+
+    return 0;
+}
+
 
