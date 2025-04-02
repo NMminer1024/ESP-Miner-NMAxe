@@ -226,7 +226,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_text_font(lb_version, font, LV_PART_MAIN);
   lv_obj_set_style_text_color(lb_version, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(lb_version, LV_LABEL_LONG_DOT);
-  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 7), SCREEN_HEIGHT - 15);
+  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 8), SCREEN_HEIGHT - 18);
   //////////////////////////////////////config page layout///////////////////////////////////////////////
   //config timeout
   font_color = lv_color_hex(0xFFFFFF);
@@ -241,8 +241,9 @@ static void ui_layout_init(void){
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
     static const lv_font_t *font = &lv_font_montserrat_14;
-    static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL, *lb_ip = NULL, *lb_pool_url = NULL;
+    static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL, *lb_ip_and_slogan = NULL, *lb_pool_url = NULL;
     static uint8_t progress = 0, progress_total = 18;
+    static lv_coord_t width = 0;
 
     lv_color_t font_color = lv_color_hex(color);
 
@@ -255,7 +256,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
 
       //hardward model
       lb_hard_model   = lv_label_create( ui_pages[PAGE_LOADING] );
-      lv_coord_t width = lv_txt_get_width(g_nmaxe.board.hw_model.c_str(), strlen(g_nmaxe.board.hw_model.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
+      width = lv_txt_get_width(g_nmaxe.board.hw_model.c_str(), strlen(g_nmaxe.board.hw_model.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
       lv_obj_set_width(lb_hard_model, width);
       lv_label_set_text( lb_hard_model, g_nmaxe.board.hw_model.c_str());
       lv_obj_set_style_text_font(lb_hard_model, &lv_font_montserrat_24, LV_PART_MAIN);
@@ -280,36 +281,38 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_obj_align(label_progress, LV_ALIGN_LEFT_MID, 0, -20);
     }
 
-    if(lb_ip == NULL){
-      lb_ip   = lv_label_create( ui_pages[PAGE_LOADING] );
-      lv_obj_set_width(lb_ip, SCREEN_WIDTH);
-      lv_label_set_text( lb_ip, "");
-      lv_obj_set_style_text_font(lb_ip, &lv_font_montserrat_20, LV_PART_MAIN);
-      lv_obj_set_style_text_color(lb_ip, lv_color_hex(0x00FF00), LV_PART_MAIN); 
-      lv_label_set_long_mode(lb_ip, LV_LABEL_LONG_SCROLL_CIRCULAR);
-      lv_obj_align( lb_ip, LV_ALIGN_CENTER, 0, 10);
+    if(lb_ip_and_slogan == NULL){
+      lb_ip_and_slogan   = lv_label_create( ui_pages[PAGE_LOADING] );
+      String slogan_str = "Make it better";
+      width = lv_txt_get_width(slogan_str.c_str(), strlen(slogan_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
+      lv_obj_set_width(lb_ip_and_slogan, width);
+      lv_label_set_text( lb_ip_and_slogan, "Make it better");
+      lv_obj_set_style_text_font(lb_ip_and_slogan, &lv_font_montserrat_20, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_ip_and_slogan, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      lv_label_set_long_mode(lb_ip_and_slogan, LV_LABEL_LONG_SCROLL_CIRCULAR);
+      lv_obj_align( lb_ip_and_slogan, LV_ALIGN_CENTER, 0, 10);
     }
 
     if(lb_pool_url == NULL){
       lb_pool_url   = lv_label_create( ui_pages[PAGE_LOADING] );
       lv_obj_set_width(lb_pool_url, SCREEN_WIDTH);
       lv_label_set_text( lb_pool_url, "");
-      lv_obj_set_style_text_font(lb_pool_url, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_set_style_text_font(lb_pool_url, &lv_font_montserrat_16, LV_PART_MAIN);
       lv_obj_set_style_text_color(lb_pool_url, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
       lv_label_set_long_mode(lb_pool_url, LV_LABEL_LONG_SCROLL_CIRCULAR);
-      lv_obj_align( lb_pool_url, LV_ALIGN_CENTER, 0, 40);
+      lv_obj_align( lb_pool_url, LV_ALIGN_CENTER, 0, 35);
     }
 
     if(WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status){
       String ip_str = g_nmaxe.connection.wifi.status_param.ip.toString();
-      lv_coord_t width = lv_txt_get_width(ip_str.c_str(), strlen(ip_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
-
-      lv_obj_set_width(lb_ip, width);
-      lv_label_set_text( lb_ip, g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
+      width = lv_txt_get_width(ip_str.c_str(), strlen(ip_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
+      lv_obj_set_width(lb_ip_and_slogan, width);
+      lv_obj_set_style_text_color(lb_ip_and_slogan, lv_color_hex(0x00FF00), LV_PART_MAIN); 
+      lv_label_set_text( lb_ip_and_slogan, g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
     }
     if(true == g_nmaxe.market->updated){
       String pool_str = (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port);
-      lv_coord_t width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), &lv_font_montserrat_14, 0, LV_TEXT_FLAG_NONE);
+      width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), &lv_font_montserrat_16, 0, LV_TEXT_FLAG_NONE);
       lv_obj_set_width(lb_pool_url, width);
       lv_label_set_text( lb_pool_url, (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port).c_str());
     }
@@ -1458,12 +1461,13 @@ void ui_thread_entry(void *args){
 
   int res = compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release);
   if(res == -1){
-    ui_loading_str_update("Please update to: " + g_nmaxe.board.fw_latest_release, 0xFFFFFF, true);
+    String str = "Update to: " + g_nmaxe.board.fw_latest_release;
+    ui_loading_str_update(str, 0xFFFFFF, true);
     while (cnt++ <= 15){
       delay(250);
-      ui_loading_str_update("Please update to: " + g_nmaxe.board.fw_latest_release, 0xEE7D30, false);
+      ui_loading_str_update(str, 0xEE7D30, false);
       delay(250);
-      ui_loading_str_update("Please update to: " + g_nmaxe.board.fw_latest_release, 0xFFFFFF, false);
+      ui_loading_str_update(str, 0xFFFFFF, false);
     }
   }
   else if(res == 0 || res == 1){
