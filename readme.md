@@ -24,8 +24,8 @@
 <div align="center">
   <table width="100%">
     <tr>
-      <td width="50%" align="center"><img src="image/02.png" alt="Gamma-1"></td>
-      <td width="50%" align="center"><img src="image/09.png" alt="Gamma-2"></td>
+      <td width="50%" align="center"><img src="image/5.jpg" alt="Gamma-1"></td>
+      <td width="50%" align="center"><img src="image/6.jpg" alt="Gamma-2"></td>
     </tr>
   </table>
 </div>
@@ -147,6 +147,18 @@ Batch firmware update on swarm page.
 
 ## Release Log
 ***
+
+### (2025.03.30) - v2.5.50
+- Add:
+  - None.
+- Fixed:
+  - Restart button inactive on AxeOS when QR code appear.
+- Improved:
+  - None.
+- Modify:
+  - ASIC danger temp.
+  - boot button logic: single click -> page switch,  double click -> screen and led sleep.
+
 ### (2025.03.30) - v2.5.41
 - Add:
   - None.
@@ -157,6 +169,7 @@ Batch firmware update on swarm page.
   - None.
 - Modify:
   - None.
+
 ### (2025.03.26) - v2.5.31
 - Add:
   - None.

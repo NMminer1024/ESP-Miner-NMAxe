@@ -56,6 +56,10 @@ void setup() {
   while (g_nmaxe.miner->get_asic_count() == 0){
     delay(10);
   }
+  /************************************************************** INIT DAEMON **********************************************************/
+  taskName = "(daemon)";
+  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, NULL, 1);
+  delay(10);
   /************************************************************** INIT WIFI ************************************************************/
   taskName = "(wifi)";
   xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)&g_nmaxe.connection.wifi.conn_param, TASK_PRIORITY_WIFI, NULL, 1);
@@ -77,10 +81,6 @@ void setup() {
     delay(1000*5);
   }
   delete releaseChecker;
-  /************************************************************** INIT DAEMON **********************************************************/
-  taskName = "(daemon)";
-  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, NULL, 1);
-  delay(10);
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
   xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, NULL, 1);
