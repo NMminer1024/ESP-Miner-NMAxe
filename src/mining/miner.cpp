@@ -263,8 +263,6 @@ void miner_asic_init_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
     
-
-
     if(g_nmaxe.asic.model == "BM1366")      asic_instance = new BM1366(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
     else if(g_nmaxe.asic.model == "BM1370") asic_instance = new BM1370(Serial1, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
     else{
@@ -272,20 +270,18 @@ void miner_asic_init_thread_entry(void *args){
         return;
     }
 
-
     //miner instance
     g_nmaxe.miner = new AsicMinerClass(asic_instance);
 
     LOG_I("ASIC job interval set to %d ms", g_nmaxe.asic.job_frq_ms);
 
     //begin asic hardware
-    if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, ASIC_DIFF_THR)){
+    if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, g_nmaxe.asic.diff_thr)){
         while (true){
             LOG_E("Miner asic init failed!");
             delay(1000);
         }
     }
-    // g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
     vTaskDelete(NULL);
 }
 
@@ -330,8 +326,8 @@ void miner_asic_tx_thread_entry(void *args){
             if(!g_nmaxe.stratum->is_subscribed()) break;
 
             //set asic diff as pool diff if pool diff < initial asic diff
-            if(g_nmaxe.stratum->get_pool_difficulty() <= ASIC_DIFF_THR){
-                static double last_diff = ASIC_DIFF_THR;
+            if(g_nmaxe.stratum->get_pool_difficulty() <= g_nmaxe.asic.diff_thr){
+                static double last_diff = g_nmaxe.asic.diff_thr;
                 if(g_nmaxe.stratum->get_pool_difficulty() != last_diff){
                     LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str());
                     last_diff = g_nmaxe.stratum->get_pool_difficulty();

@@ -97,6 +97,7 @@ typedef struct{
 
 typedef struct{
     String    model;
+    uint16_t  diff_thr;
     uint16_t  frequency_req;//MHz
     uint16_t  vcore_req;//mV
     uint16_t  vcore_measured;//mV
