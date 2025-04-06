@@ -200,7 +200,7 @@ bool load_g_nmaxe(void){
         g_nmaxe.board.hw_model = BOARD_NMAxe;
         g_nmaxe.asic.model     = "BM1366";
         g_nmaxe.asic.job_frq_ms = 2000;
-        g_nmaxe.asic.diff_thr   = 512;
+        g_nmaxe.asic.diff_thr   = 256;
         default_asic_frq        = 575;
         default_asic_vcore      = 1300;
     }

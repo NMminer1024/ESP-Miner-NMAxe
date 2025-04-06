@@ -95,7 +95,7 @@
         <h5>Power</h5>
         <div class="grid text-center">
           <div class="col-4">
-            <p-knob [min]="1" [max]="40" [readonly]="true" [(ngModel)]="info.power"
+            <p-knob [min]="0" [max]="45" [readonly]="true" [(ngModel)]="info.power"
                     valueTemplate="{value}W"></p-knob>
             Power
           </div>
@@ -108,7 +108,7 @@
           </div>
 
           <div class="col-4">
-            <p-knob [min]="0.9" [max]="1.5" [readonly]="true" [(ngModel)]="info.coreVoltage"
+            <p-knob [min]="0.9" [max]="1.35" [readonly]="true" [(ngModel)]="info.coreVoltage"
                     valueTemplate="{value}V"></p-knob>
             Vcore Requested
           </div>
@@ -122,19 +122,19 @@
         <h5>Heat</h5>
         <div class="grid text-center">
           <div class="col-6" *ngIf="info.mcuTemp">
-            <p-knob [min]="0" [max]="80" [readonly]="true" [(ngModel)]="info.mcuTemp"
+            <p-knob [min]="0" [max]="70" [readonly]="true" [(ngModel)]="info.mcuTemp"
                     valueTemplate="{value}C"></p-knob>
             MCU
             <span class="danger" *ngIf="info.mcuTemp >= 60">&nbsp;Danger:High</span>
           </div>
           <div class="col-6">
-            <p-knob [min]="0" [max]="80" [readonly]="true" [(ngModel)]="info.temp"
+            <p-knob [min]="0" [max]="75" [readonly]="true" [(ngModel)]="info.temp"
                     valueTemplate="{value}C"></p-knob>
             ASIC
-            <span class="danger" *ngIf="info.temp >= 65">&nbsp;Danger:High</span>
+            <span class="danger" *ngIf="info.temp >= 70">&nbsp;Danger:High</span>
           </div>
           <div class="col-6" *ngIf="info.vrTemp > 0">
-            <p-knob [min]="0" [max]="120" [readonly]="true" [(ngModel)]="info.vrTemp"
+            <p-knob [min]="0" [max]="90" [readonly]="true" [(ngModel)]="info.vrTemp"
                     valueTemplate="{value}C"></p-knob>
             Vcore
             <span class="danger" *ngIf="info.vrTemp >= 90">&nbsp;Danger:High</span>
@@ -145,7 +145,7 @@
               Fan %
           </div> -->
           <div class="col-6">
-            <p-knob [min]="0" [max]="15000" [readonly]="true" [(ngModel)]="info.fanrpm"
+            <p-knob [min]="0" [max]="10000" [readonly]="true" [(ngModel)]="info.fanrpm"
                     valueTemplate="{value}"></p-knob>
             Fan RPM
           </div>
@@ -159,12 +159,12 @@
         <h5>Performance</h5>
         <div class="grid text-center">
           <div class="col-6">
-            <p-knob [min]="100" [max]="900" [readonly]="true" [(ngModel)]="info.frequency"
+            <p-knob [min]="100" [max]="950" [readonly]="true" [(ngModel)]="info.frequency"
                     valueTemplate="{value}Mhz"></p-knob>
             ASIC Clock
           </div>
           <div class="col-6">
-            <p-knob [min]="0.9" [max]="1.8" [readonly]="true" [(ngModel)]="info.coreVoltageActual"
+            <p-knob [min]="0.9" [max]="1.35" [readonly]="true" [(ngModel)]="info.coreVoltageActual"
                     valueTemplate="{value}V"></p-knob>
             Vcore Measured
           </div>
