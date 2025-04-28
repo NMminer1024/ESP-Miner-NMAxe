@@ -96,7 +96,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     this->_asic_job_map[this->_asic_job_now.id]     = this->_asic_job_now;
     this->_extranonce2_map[this->_asic_job_now.id]  = extranonce2;
 
-    LOG_I("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
+    LOG_D("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
 
     ////////////////////////////////////////send asic job//////////////////////////////////
     this->_asic->send_work_to_asic(&this->_asic_job_now);
@@ -337,10 +337,10 @@ void miner_asic_tx_thread_entry(void *args){
 
             //interval 2000ms every asic job, exit if a new pool job arrived
             if(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, g_nmaxe.asic.job_frq_ms) == pdTRUE) {
+                g_nmaxe.stratum->clear_sub_extranonce2();
                 //avoid some stale share submit, clear job cache if clean job signal received
                 if(xSemaphoreTake(g_nmaxe.stratum->clear_job_xsem, 0) == pdTRUE) {
                     g_nmaxe.miner->clear_asic_job_cache();
-                    g_nmaxe.stratum->clear_sub_extranonce2();
                     LOG_D("Job cache clear...");
                 }
                 xSemaphoreGive(g_nmaxe.stratum->new_job_xsem);//release the semaphore for next pool job
