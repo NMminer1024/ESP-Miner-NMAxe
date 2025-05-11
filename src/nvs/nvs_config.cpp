@@ -209,8 +209,8 @@ bool load_g_nmaxe(void){
         g_nmaxe.asic.model     = "BM1370";
         g_nmaxe.asic.job_frq_ms = 500;
         g_nmaxe.asic.diff_thr   = 512;
-        default_asic_frq        = 625;
-        default_asic_vcore      = 1200;
+        default_asic_frq        = 600;
+        default_asic_vcore      = 1125;
     }
     else{
         LOG_E("Board model not supported!");
