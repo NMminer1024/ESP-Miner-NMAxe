@@ -44,7 +44,7 @@
 
 ## Features
 ***
-- **Hashrate on SHA256d algorithm around 450~550GH/s, maximum power consumption 18W**
+- **SHA256d algorithm**
 - **ESP32S3R8 wifi connection**
 - **Stratum with ssl connection optional**
 - **USB PD power supply support**
@@ -147,6 +147,18 @@ Batch firmware update on swarm page.
 
 ## Release Log
 ***
+
+### (2025.05.11) - v2.5.51
+- `Add`:
+  - None.
+- `Fixed`:
+  - None.
+- `Improved`:
+  - None.
+- `Modify`:
+  - Default Setting 600Mhz/1125mV.
+  - Clear Extra2 every job receive.
+  - Default difficulty for BM1366 set to 256, BM1370 to 512.
 
 ### (2025.04.03) - v2.5.50
 - Add:
