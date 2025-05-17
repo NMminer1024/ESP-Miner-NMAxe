@@ -50,7 +50,7 @@ export class EditComponent implements OnInit {
     { name: '490', value: 490 },
     { name: '550', value: 550 },
     { name: '575', value: 575 },
-    { name: '600 (default)', value: 600 },
+    { name: '595 (default)', value: 595 },
     { name: '625', value: 625 },
     { name: '650', value: 650 },
     { name: '700', value: 700 },

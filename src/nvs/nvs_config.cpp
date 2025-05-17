@@ -209,7 +209,7 @@ bool load_g_nmaxe(void){
         g_nmaxe.asic.model     = "BM1370";
         g_nmaxe.asic.job_frq_ms = 500;
         g_nmaxe.asic.diff_thr   = 512;
-        default_asic_frq        = 600;
+        default_asic_frq        = 595;
         default_asic_vcore      = 1125;
     }
     else{
@@ -263,7 +263,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.mstatus.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, default_asic_frq);
     g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, default_asic_vcore);
-    g_nmaxe.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, false);
+    g_nmaxe.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     g_nmaxe.preference.fan.invert_ploarity      = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, true); 
     g_nmaxe.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     g_nmaxe.preference.fan.self_test            = false;

@@ -90,7 +90,7 @@ void wifi_connect_thread_entry(void *args){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
         LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.softap_param.ssid.c_str());
         WiFi.mode(WIFI_AP);
-        WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid, g_nmaxe.connection.wifi.softap_param.pwd.c_str());
+        WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid);
         WiFi.softAPConfig(g_nmaxe.connection.wifi.softap_param.ip, g_nmaxe.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
         delay(1000);
         xSemaphoreGive(g_nmaxe.connection.wifi.force_cfg_xsem);
@@ -113,7 +113,7 @@ void wifi_connect_thread_entry(void *args){
         if(maxRetries >= 15){
             LOG_I("Set softAP [%s]...", g_nmaxe.board.hostname.c_str());
             WiFi.mode(WIFI_AP);
-            WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid, g_nmaxe.connection.wifi.softap_param.pwd.c_str());
+            WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid);
             WiFi.softAPConfig(g_nmaxe.connection.wifi.softap_param.ip, g_nmaxe.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
             delay(1000);
             xSemaphoreGive(g_nmaxe.connection.wifi.force_cfg_xsem);

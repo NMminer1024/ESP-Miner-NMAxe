@@ -53,10 +53,16 @@ void fan_thread_entry(void *args){
     free(name);
 
     uint32_t start_ms = millis();
-    int16_t now_count = 0, last_count = 0;
+    int16_t now_count = 0, last_count = 0,temp_cnt = 0;
     fan_init();
+
     while(1){
         delay(100);
+        //update board temperature
+        g_nmaxe.temp.mcu    = (temp_cnt % 300 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.temp.mcu;
+        g_nmaxe.temp.vcore  = (temp_cnt % 20 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.temp.vcore;
+        g_nmaxe.temp.asic   = (temp_cnt % 20 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.temp.asic;
+
         // Fan self test flag set only once
         if(!g_nmaxe.preference.fan.self_test){
             g_nmaxe.preference.fan.self_test = (g_nmaxe.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
@@ -79,9 +85,12 @@ void fan_thread_entry(void *args){
 
         if(g_nmaxe.preference.fan.is_auto_speed && g_nmaxe.preference.fan.self_test){
             // Linearly increase fan speed from 40 to 60 degrees
-            g_nmaxe.preference.fan.speed = (g_nmaxe.temp.asic < 20.0f) ? 0.0f :
-                                (g_nmaxe.temp.asic > 40.0f) ? 100.0f :
-                                (g_nmaxe.temp.asic - 20.0f) * (100.0f / (40.0 - 20.0));
+            // g_nmaxe.preference.fan.speed = (g_nmaxe.temp.asic < 20.0f) ? 0.0f :
+            //                     (g_nmaxe.temp.asic > 40.0f) ? 100.0f :
+            //                     (g_nmaxe.temp.asic - 20.0f) * (100.0f / (40.0 - 20.0));
+            if      (g_nmaxe.temp.asic < 20.0f) g_nmaxe.preference.fan.speed = 0.0f;
+            else if (g_nmaxe.temp.asic > 40.0f) g_nmaxe.preference.fan.speed = 100.0f;
+            else    g_nmaxe.preference.fan.speed = (g_nmaxe.temp.asic - 20.0f) * 5.0f; // Linearly increase fan speed from 40 to 60 degreesQ
         }
         fan_set_speed(g_nmaxe.preference.fan.speed / 100.0);
     }

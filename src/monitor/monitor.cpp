@@ -40,10 +40,10 @@ void monitor_thread_entry(void *args){
         g_nmaxe.board.ibus          = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_ibus() : g_nmaxe.board.ibus;
         g_nmaxe.board.efficiency    = ((temp_cnt % 2 == 0) && g_nmaxe.mstatus.hashrate._3m > 0) ? (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1e6) / (g_nmaxe.mstatus.hashrate._3m/1e12) : g_nmaxe.board.efficiency;
         g_nmaxe.asic.vcore_measured = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vcore() : g_nmaxe.asic.vcore_measured;
-        //update board temperature
-        g_nmaxe.temp.mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.temp.mcu;
-        g_nmaxe.temp.vcore  = (temp_cnt % 2 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.temp.vcore;
-        g_nmaxe.temp.asic   = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.temp.asic;
+        // //update board temperature
+        // g_nmaxe.temp.mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.temp.mcu;
+        // g_nmaxe.temp.vcore  = (temp_cnt % 2 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.temp.vcore;
+        // g_nmaxe.temp.asic   = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.temp.asic;
 
         temp_cnt++;
         //update wifi rssi
