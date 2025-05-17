@@ -148,6 +148,18 @@ Batch firmware update on swarm page.
 ## Release Log
 ***
 
+### (2025.05.17) - v2.6.01
+- `Add`:
+  - None.
+- `Fixed`:
+  - Auto fan logic.
+- `Improved`:
+  - None.
+- `Modify`:
+  - NMaxe-Gamma default Setting 595Mhz/1125mV.
+- `Remove`:
+  - softAP password.
+
 ### (2025.05.11) - v2.5.51
 - `Add`:
   - None.
