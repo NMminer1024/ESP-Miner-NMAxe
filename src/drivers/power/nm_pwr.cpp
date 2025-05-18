@@ -137,6 +137,7 @@ void power_thread_entry(void *args){
 
     //detect vbus voltage, if lower than VBUS_MIN_VOLTAGE , wait for power settle or throw error
     g_nmaxe.power->init();
+    delay(500);
     while (g_nmaxe.power->get_vbus() < VBUS_MIN_VOLTAGE){
         LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", g_nmaxe.power->get_vbus()/1000.0, VBUS_MIN_VOLTAGE/1000.0);
         delay(1000);
