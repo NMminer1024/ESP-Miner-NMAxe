@@ -12,7 +12,8 @@ private:
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();
     void _set_version_mask(uint32_t version_mask);
-    void _set_hash_frequency(int id, float target_freq, float max_diff);
+    // void _set_hash_frequency(int id, float target_freq, float max_diff);
+    void _set_hash_frequency(float target_freq);
 public:
     BM1370(HardwareSerial &sport, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst):BMxxx(sport, init_baud, rx, tx, rst) {
         this->_diff_current = 0;
