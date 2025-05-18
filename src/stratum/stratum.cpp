@@ -277,7 +277,15 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
     }
     this->_msg_rsp_map[msgid] = {"mining.submit", false, millis()};
     // log_i("%s", payload.c_str());
-    return true;
+
+    //wait for response from pool
+    uint32_t start = millis();
+    while(true){
+        if(this->_msg_rsp_map[msgid].status) return true;
+        if(millis() - start > 1000*20) return false;
+        delay(1);
+    }
+    return false;
 }
 
 bool StratumClass::is_submit_timeout(){
