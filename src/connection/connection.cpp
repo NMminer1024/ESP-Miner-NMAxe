@@ -74,8 +74,9 @@ static void config_timeout_monitor_thread_entry(void *args){
 void wifi_connect_thread_entry(void *args){
     axe_wifi_conn_param_t *param = (axe_wifi_conn_param_t*)malloc(sizeof(axe_wifi_conn_param_t));
     memcpy(param, args, sizeof(axe_wifi_conn_param_t));
-
-    LOG_I("Initializing WiFi...");
+    uint16_t random_delay = random(0, 1000*10);
+    delay(random_delay);
+    LOG_I("Initializing WiFi, delay: %dms...", random_delay);
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(WIFI_POWER_15dBm);
     WiFi.onEvent(WiFiEvent);
