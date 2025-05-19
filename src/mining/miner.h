@@ -6,7 +6,7 @@
 #include "bm1366.h"
 #include "bm1370.h"
 
-// #define ASIC_DIFF_THR             512
+#define ASIC_DIFF_THR             512
 #define ESP32_TO_BM13xx_INIT_BUAD 115200
 #define ESP32_TO_BM13xx_WORK_BUAD 1000000
 

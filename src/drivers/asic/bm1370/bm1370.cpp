@@ -41,111 +41,55 @@ void BM1370::_set_chip_address(uint8_t address){
     this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), read_address, 2);
 }
 
-void BM1370::_set_hash_frequency(float target_freq){
-// void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
-    // uint8_t freqbuf[6] = {0x00, 0x08, 0x40, 0xA0, 0x02, 0x41};
-    // uint8_t postdiv_min = 255;
-    // uint8_t postdiv2_min = 255;
-    // float best_freq = 0;
-    // uint8_t best_refdiv = 0, best_fbdiv = 0, best_postdiv1 = 0, best_postdiv2 = 0;
+void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
+    uint8_t freqbuf[6] = {0x00, 0x08, 0x40, 0xA0, 0x02, 0x41};
+    uint8_t postdiv_min = 255;
+    uint8_t postdiv2_min = 255;
+    float best_freq = 0;
+    uint8_t best_refdiv = 0, best_fbdiv = 0, best_postdiv1 = 0, best_postdiv2 = 0;
 
-    // for (uint8_t refdiv = 2; refdiv > 0; refdiv--) {
-    //     for (uint8_t postdiv1 = 7; postdiv1 > 0; postdiv1--) {
-    //         for (uint8_t postdiv2 = 7; postdiv2 > 0; postdiv2--) {
-    //             uint16_t fb_divider = round(target_freq / 25.0 * (refdiv * postdiv2 * postdiv1));
-    //             float newf = 25.0 * fb_divider / (refdiv * postdiv2 * postdiv1);
+    for (uint8_t refdiv = 2; refdiv > 0; refdiv--) {
+        for (uint8_t postdiv1 = 7; postdiv1 > 0; postdiv1--) {
+            for (uint8_t postdiv2 = 7; postdiv2 > 0; postdiv2--) {
+                uint16_t fb_divider = round(target_freq / 25.0 * (refdiv * postdiv2 * postdiv1));
+                float newf = 25.0 * fb_divider / (refdiv * postdiv2 * postdiv1);
                 
-    //             if (fb_divider >= 0xa0 && fb_divider <= 0xef &&
-    //                 fabs(target_freq - newf) < max_diff &&
-    //                 postdiv1 >= postdiv2 &&
-    //                 postdiv1 * postdiv2 < postdiv_min &&
-    //                 postdiv2 <= postdiv2_min) {
+                if (fb_divider >= 0xa0 && fb_divider <= 0xef &&
+                    fabs(target_freq - newf) < max_diff &&
+                    postdiv1 >= postdiv2 &&
+                    postdiv1 * postdiv2 < postdiv_min &&
+                    postdiv2 <= postdiv2_min) {
                     
-    //                 postdiv2_min = postdiv2;
-    //                 postdiv_min = postdiv1 * postdiv2;
-    //                 best_freq = newf;
-    //                 best_refdiv = refdiv;
-    //                 best_fbdiv = fb_divider;
-    //                 best_postdiv1 = postdiv1;
-    //                 best_postdiv2 = postdiv2;
-    //             }
-    //         }
-    //     }
-    // }
-
-    // if (best_fbdiv == 0) {
-    //     LOG_E("Failed to find PLL settings for target frequency %.2f", target_freq);
-    //     return;
-    // }
-
-    // freqbuf[2] = (best_fbdiv * 25 / best_refdiv >= 2400) ? 0x50 : 0x40;
-    // freqbuf[3] = best_fbdiv;
-    // freqbuf[4] = best_refdiv;
-    // freqbuf[5] = (((best_postdiv1 - 1) & 0xf) << 4) | ((best_postdiv2 - 1) & 0xf);
-
-    // if (id != -1) {
-    //     freqbuf[0] = id * 2;
-    //     this->_send_bm1370(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, freqbuf, 6);
-    // } else {
-    //     this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
-    // }
-    // LOG_I("Setting Frequency to %.2fMHz (%.2f)", target_freq, best_freq);
-
-
-    // default 200Mhz if it fails
-    unsigned char freqbuf[6] = {0x00, 0x08, 0x40, 0xA0, 0x02, 0x41}; // freqbuf - pll0_parameter
-    float newf = 200.0;
-
-    uint8_t fb_divider = 0;
-    uint8_t post_divider1 = 0, post_divider2 = 0;
-    uint8_t ref_divider = 0;
-    float min_difference = 10;
-    float max_diff = 1.0;
-
-    // refdiver is 2 or 1
-    // postdivider 2 is 1 to 7
-    // postdivider 1 is 1 to 7 and greater than or equal to postdivider 2
-    // fbdiv is 0xa0 to 0xef
-    for (uint8_t refdiv_loop = 2; refdiv_loop > 0 && fb_divider == 0; refdiv_loop--) {
-        for (uint8_t postdiv1_loop = 7; postdiv1_loop > 0 && fb_divider == 0; postdiv1_loop--) {
-            for (uint8_t postdiv2_loop = 7; postdiv2_loop > 0 && fb_divider == 0; postdiv2_loop--) {
-                if (postdiv1_loop >= postdiv2_loop) {
-                    int temp_fb_divider = round(((float) (postdiv1_loop * postdiv2_loop * target_freq * refdiv_loop) / 25.0));
-
-                    if (temp_fb_divider >= 0xa0 && temp_fb_divider <= 0xef) {
-                        float temp_freq = 25.0 * (float) temp_fb_divider / (float) (refdiv_loop * postdiv2_loop * postdiv1_loop);
-                        float freq_diff = fabs(target_freq - temp_freq);
-
-                        if (freq_diff < min_difference && freq_diff < max_diff) {
-                            fb_divider = temp_fb_divider;
-                            post_divider1 = postdiv1_loop;
-                            post_divider2 = postdiv2_loop;
-                            ref_divider = refdiv_loop;
-                            min_difference = freq_diff;
-                            newf = temp_freq;
-                        }
-                    }
+                    postdiv2_min = postdiv2;
+                    postdiv_min = postdiv1 * postdiv2;
+                    best_freq = newf;
+                    best_refdiv = refdiv;
+                    best_fbdiv = fb_divider;
+                    best_postdiv1 = postdiv1;
+                    best_postdiv2 = postdiv2;
                 }
             }
         }
     }
 
-    if (fb_divider == 0) {
+    if (best_fbdiv == 0) {
         LOG_E("Failed to find PLL settings for target frequency %.2f", target_freq);
         return;
     }
 
-    freqbuf[3] = fb_divider;
-    freqbuf[4] = ref_divider;
-    freqbuf[5] = (((post_divider1 - 1) & 0xf) << 4) + ((post_divider2 - 1) & 0xf);
+    freqbuf[2] = (best_fbdiv * 25 / best_refdiv >= 2400) ? 0x50 : 0x40;
+    freqbuf[3] = best_fbdiv;
+    freqbuf[4] = best_refdiv;
+    freqbuf[5] = (((best_postdiv1 - 1) & 0xf) << 4) | ((best_postdiv2 - 1) & 0xf);
 
-    if (fb_divider * 25 / (float) ref_divider >= 2400) {
-        freqbuf[2] = 0x50;
+    if (id != -1) {
+        freqbuf[0] = id * 2;
+        this->_send_bm1370(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, freqbuf, 6);
+    } else {
+        this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
     }
 
-    this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
-
-    LOG_I("Setting Frequency to %.2fMHz (%.2f)", target_freq, newf);
+    // LOG_I("Setting Frequency to %.2fMHz (%.2f)", target_freq, best_freq);
 }
 
 void BM1370::_set_version_mask(uint32_t version_mask) {
@@ -187,63 +131,24 @@ uint32_t BM1370::get_asic_difficulty(){
 }
 
 void BM1370::frequency_ramp_up(float target_frequency){
-    // float current = 56.25;
-    // float step = 6.25;
-
-    // if (target_frequency == 0) {
-    //     LOG_W("Skipping frequency ramp");
-    //     return;
-    // }
-
-    // LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
-
-    // this->_set_hash_frequency(-1, current, 0.001);
-    
-    // while (current < target_frequency) {
-    //     float next_step = fminf(step, target_frequency - current);
-    //     current += next_step;
-    //     this->_set_hash_frequency(-1, current, 0.001);
-    //     // delay(100);
-    // }
-    static float current_frequency = 56.25;
+    float current = 56.25;
     float step = 6.25;
-    float current = current_frequency;
-    float target = target_frequency;
 
-    float direction = (target > current) ? step : -step;
-
-    // If current frequency is not a multiple of step, adjust to the nearest multiple
-    if (fmod(current, step) != 0) {
-        float next_dividable;
-        if (direction > 0) {
-            next_dividable = ceil(current / step) * step;
-        } else {
-            next_dividable = floor(current / step) * step;
-        }
-        current = next_dividable;
-        
-        // Call the provided hash frequency function
-        this->_set_hash_frequency(current);
-        
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+    if (target_frequency == 0) {
+        LOG_W("Skipping frequency ramp");
+        return;
     }
 
-    // Gradually adjust frequency in steps until target is reached
-    while ((direction > 0 && current < target) || (direction < 0 && current > target)) {
-        float next_step = fmin(fabs(direction), fabs(target - current));
-        current += direction > 0 ? next_step : -next_step;
-        
-        // Call the provided hash frequency function
-        this->_set_hash_frequency(current);
-        
-        // vTaskDelay(100 / portTICK_PERIOD_MS);
+    LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
+
+    this->_set_hash_frequency(-1, current, 0.001);
+    
+    while (current < target_frequency) {
+        float next_step = fminf(step, target_frequency - current);
+        current += next_step;
+        this->_set_hash_frequency(-1, current, 0.001);
+        // delay(100);
     }
-    
-    // Set the final target frequency
-    this->_set_hash_frequency(target);
-    current_frequency = target;
-    
-    LOG_D("Successfully transitioned to %.2f MHz", target);
 }
 
 uint8_t BM1370::init(uint64_t freq, int diff){
@@ -279,17 +184,11 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
 
     
-    // uint8_t init4[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA8, 0x00, 0x07, 0x00, 0x00, 0x03};
-    // this->send(init4, 11);
+    uint8_t init4[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA8, 0x00, 0x07, 0x00, 0x00, 0x03};
+    this->send(init4, 11);
 
-    uint8_t init4[6] = {0x00, 0xA8, 0x00, 0x07, 0x00, 0x00}; 
-    this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, init4, 6);
-
-    // uint8_t init5[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x18, 0xF0, 0x00, 0xC1, 0x00, 0x00};//from S21 dump
-    // this->send(init5, 11);   
-
-    uint8_t init5[6] = {0x00, 0x18, 0xF0, 0x00, 0xC1, 0x00}; // from S21 dump
-    this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, init5, 6);
+    uint8_t init5[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x18, 0xFF, 0x0F, 0xC1, 0x00, 0x00};//from S21 dump
+    this->send(init5, 11);                       
 
     this->_set_chain_inactive();
 
@@ -319,6 +218,7 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     uint8_t init173[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03};
     this->send(init173, 11);
 
+
     for (uint8_t i = 0; i < chip_counter; i++) {
         uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
         this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_a8_register, 6);
@@ -331,16 +231,6 @@ uint8_t BM1370::init(uint64_t freq, int diff){
         uint8_t set_3c_register_third[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x82, 0xAA};
         this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_third, 6);
     }
-
-    uint8_t int171[6] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), int171, 6);
-    uint8_t int173[6] = {0x00, 0x54, 0x00, 0x00, 0x00, 0x02};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), int173, 6);
-    uint8_t int174[6] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), int174, 6);
-    uint8_t int175[6] = {0x00, 0x3C, 0x80, 0x00, 0x8D, 0xEE};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), int175, 6);
-
 
     this->frequency_ramp_up((float)freq);//do_frequency_ramp_up();
 

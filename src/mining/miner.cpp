@@ -276,7 +276,7 @@ void miner_asic_init_thread_entry(void *args){
     LOG_I("ASIC job interval set to %d ms", g_nmaxe.asic.job_frq_ms);
 
     //begin asic hardware
-    if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, g_nmaxe.asic.diff_thr)){
+    if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, ASIC_DIFF_THR)){
         while (true){
             LOG_E("Miner asic init failed!");
             delay(1000);
@@ -326,8 +326,8 @@ void miner_asic_tx_thread_entry(void *args){
             if(!g_nmaxe.stratum->is_subscribed()) break;
 
             //set asic diff as pool diff if pool diff < initial asic diff
-            if(g_nmaxe.stratum->get_pool_difficulty() <= g_nmaxe.asic.diff_thr){
-                static double last_diff = g_nmaxe.asic.diff_thr;
+            if(g_nmaxe.stratum->get_pool_difficulty() <= ASIC_DIFF_THR){
+                static double last_diff = ASIC_DIFF_THR;
                 if(g_nmaxe.stratum->get_pool_difficulty() != last_diff){
                     LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str());
                     last_diff = g_nmaxe.stratum->get_pool_difficulty();

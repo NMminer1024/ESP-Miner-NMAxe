@@ -150,6 +150,7 @@ void power_thread_entry(void *args){
     //set vdd_1v8 and pll_0v8 power
     g_nmaxe.power->set_pll_0v8(PWR_ON);
     g_nmaxe.power->set_vdd_1v8(PWR_ON);
+    delay(500);
     //set vcore to default 1.0V, then wait for vcore power settle, and set vcore voltage to required voltage
     g_nmaxe.power->set_vcore_voltage(1000);
     delay(50);
@@ -160,7 +161,7 @@ void power_thread_entry(void *args){
     }
     //set vcore voltage to required voltage
     g_nmaxe.power->set_vcore_voltage(g_nmaxe.asic.vcore_req);
-    delay(500);
+    delay(1000);
     xSemaphoreGive(g_nmaxe.power->good_xsem);
     //exit
     vTaskDelete(NULL);
