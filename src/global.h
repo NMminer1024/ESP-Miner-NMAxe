@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.6.01a"
+#define CURRENT_FW_VERSION  "v2.6.02a"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -97,7 +97,6 @@ typedef struct{
 
 typedef struct{
     String    model;
-    // uint16_t  diff_thr;
     uint16_t  frequency_req;//MHz
     uint16_t  vcore_req;//mV
     uint16_t  vcore_measured;//mV
