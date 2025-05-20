@@ -148,6 +148,20 @@ Batch firmware update on swarm page.
 ## Release Log
 ***
 
+### (2025.05.21) - v2.7.01
+- `Add`:
+  - None.
+- `Fixed`:
+  - Low power issue.
+  - Block hit counter issue.
+- `Improved`:
+  - Random delay for wifi connection when miner startup.
+  - Vcore order.
+- `Modify`:
+  - NMaxe-Gamma default Setting 600Mhz/1125mV.
+- `Remove`:
+  - None.
+
 ### (2025.05.17) - v2.6.01
 - `Add`:
   - None.
