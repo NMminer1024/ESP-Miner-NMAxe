@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.6.02a"
+#define CURRENT_FW_VERSION  "v2.6.02"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
