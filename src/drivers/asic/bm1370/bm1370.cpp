@@ -89,7 +89,7 @@ void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
         this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
     }
 
-    // LOG_I("Setting Frequency to %.2fMHz (%.2f)", target_freq, best_freq);
+    LOG_I("Setting Frequency to %.2fMHz (%.2f)...", target_freq, best_freq);//necessary delay
 }
 
 void BM1370::_set_version_mask(uint32_t version_mask) {
@@ -122,7 +122,7 @@ void BM1370::set_job_difficulty(int difficulty){
         job_difficulty_mask[5 - i] = reverse_bits(value);
     }
     this->_diff_current = diff_mask + 1;
-    LOG_W("Setting ASIC diff mask to %d", diff_mask);
+    LOG_I("Setting ASIC diff mask to %d", diff_mask);
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6);
 }
 
