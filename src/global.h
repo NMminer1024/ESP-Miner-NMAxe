@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.7.01"
+#define CURRENT_FW_VERSION  "v2.7.02"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -17,7 +17,7 @@
 #define VCORE_TEMP_DANGER   (90.0f)
 #define VCORE_TEMP_LOW      (50.0f)
 #define BOARD_MCU_DANGER    (60.0f)
-#define BOARD_LOW_POWER     (6.0f)   //Watt
+#define BOARD_LOW_POWER     (8.0f)   //Watt
 
 #define NVS_SAVE_INTERVAL   (60*60)  //second
 

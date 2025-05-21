@@ -148,7 +148,7 @@ Batch firmware update on swarm page.
 ## Release Log
 ***
 
-### (2025.05.21) - v2.7.01
+### (2025.05.21) - v2.7.02
 - `Add`:
   - None.
 - `Fixed`:
