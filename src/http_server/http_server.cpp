@@ -366,8 +366,8 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
             g_nmaxe.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
         }
         if(root.containsKey("autoscreen")){
-            nvs_config_set_u16(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint16_t>());
-            g_nmaxe.preference.screen.auto_screen = root["autoscreen"].as<uint16_t>();
+            nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
+            g_nmaxe.preference.screen.auto_screen = root["autoscreen"].as<uint8_t>();
         }
         if(root.containsKey("fanspeed")){
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
