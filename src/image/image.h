@@ -5,4 +5,5 @@
 #include "mining_img.h"
 #include "config_img.h"
 #include "status_img.h"
+#include "black_img.h"
 #endif
