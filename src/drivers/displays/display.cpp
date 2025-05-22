@@ -1469,6 +1469,14 @@ void ui_thread_entry(void *args){
     xSemaphoreTake(g_nmaxe.mstatus.update_xsem, portMAX_DELAY);
     tft_bl_ctrl(g_nmaxe.preference.screen.brightness * 2.55);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
+
+      // auto screen scrolling
+      static uint32_t start = millis();
+      if((millis() - start >= 1000*10) && g_nmaxe.preference.screen.auto_screen){
+        ui_switch_next_page_cb();
+        start = millis();
+      }
+
       //update miner page
       ui_miner_page_update();
       //update dashboard page
@@ -1477,9 +1485,6 @@ void ui_thread_entry(void *args){
       ui_hr_healthy_page_update(&g_nmaxe.mstatus);
       //update big digit page
       ui_big_digit_page_update(&g_nmaxe.mstatus, g_nmaxe.market->price);
-
-      // //update hashrate real time page
-      // ui_hr_real_time_page_update(&g_nmaxe.mstatus.hashrate);
 
       //update ota page
       if(g_nmaxe.ota.ota_running){
