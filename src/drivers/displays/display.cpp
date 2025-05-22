@@ -1201,7 +1201,6 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
   
   //price value
   String price_value = (price > 1.0) ? String(price, 1) : String(price, 6);
-  
   lv_color_t font_color;
   static float last_price = price;
   if(last_price != price){
