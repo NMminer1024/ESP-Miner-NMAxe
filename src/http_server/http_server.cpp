@@ -105,6 +105,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["invertscreen"]  = 1;
     root["invertfanpolarity"] = g_nmaxe.preference.fan.invert_ploarity;
     root["autofanspeed"] = g_nmaxe.preference.fan.is_auto_speed;
+    root["autoscreen"]   = g_nmaxe.preference.screen.auto_screen;
     root["fanspeed"] = g_nmaxe.preference.fan.speed;
     root["fanrpm"] = g_nmaxe.preference.fan.rpm;
     root["brightness"] = g_nmaxe.preference.screen.brightness_last;
@@ -363,6 +364,10 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         if(root.containsKey("autofanspeed")){
             nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());
             g_nmaxe.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
+        }
+        if(root.containsKey("autoscreen")){
+            nvs_config_set_u16(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint16_t>());
+            g_nmaxe.preference.screen.auto_screen = root["autoscreen"].as<uint16_t>();
         }
         if(root.containsKey("fanspeed")){
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());

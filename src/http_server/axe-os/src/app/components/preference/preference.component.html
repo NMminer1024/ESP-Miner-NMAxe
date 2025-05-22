@@ -46,6 +46,13 @@
           <label for="autofanspeed">Automatic Fan Control</label>
         </div>
       </div>
+      <div class="col-12 md:col-4" style="flex: 1;">
+        <div class="field-checkbox">
+          <p-checkbox name="autoscreen" formControlName="autoscreen" inputId="autoscreen"
+                      [binary]="true"></p-checkbox>
+          <label for="autoscreen">Auto screen scrolling</label>
+        </div>
+      </div>
     </div>
 
     <div *ngIf="form.controls['autofanspeed'].value != true">

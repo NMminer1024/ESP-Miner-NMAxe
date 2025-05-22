@@ -26,6 +26,7 @@
 #define NVS_CONFIG_LED_INDICATOR "ledindicator"
 #define NVS_CONFIG_INVERT_FAN_POLARITY "invertfanpol"
 #define NVS_CONFIG_AUTO_FAN_SPEED "autofanspeed"
+#define NVS_CONFIG_AUTO_SCREEN "autoscreen"
 #define NVS_CONFIG_FAN_SPEED "fanspeed"
 #define NVS_CONFIG_BEST_EVER "bestever"
 #define NVS_CONFIG_SELF_TEST "selftest"

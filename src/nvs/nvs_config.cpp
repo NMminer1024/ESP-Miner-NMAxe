@@ -266,6 +266,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     g_nmaxe.preference.fan.self_test            = false;
     g_nmaxe.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
+    g_nmaxe.preference.screen.auto_screen       = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
     g_nmaxe.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 90);
     g_nmaxe.preference.screen.brightness_last   = g_nmaxe.preference.screen.brightness;
     g_nmaxe.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);

@@ -9,7 +9,7 @@
 #include "miner.h"
 #include "market.h"
 
-#define CURRENT_FW_VERSION  "v2.7.02b"
+#define CURRENT_FW_VERSION  "v2.7.02c"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -85,6 +85,7 @@ typedef struct{
 
 typedef struct{
     bool     flip;
+    bool     auto_screen;
     uint16_t brightness;
     uint16_t brightness_last;
 }screen_info_t;

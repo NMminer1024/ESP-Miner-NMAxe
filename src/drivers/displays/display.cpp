@@ -1190,13 +1190,18 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
   //hashrate unit
   lv_label_set_text_fmt(lb_hashrate_unit, "%s", hr_unit.c_str());
   //time
-  lv_label_set_text_fmt(lb_time, "%s", datetime.substring(11, datetime.length()).c_str());
+  String char11 = datetime.substring(11, 12);//remove '0' 
+  uint8_t index = (char11 == "0") ? 12:11;
+  lv_label_set_text_fmt(lb_time, "%s", datetime.substring(index, datetime.length()).c_str());
   //date
   lv_label_set_text_fmt(lb_date, "%s", datetime.substring(0, 10).c_str());
   //block hit
   lv_label_set_text_fmt(lb_block_hit, "%s", String(miner_status->block_hits).c_str());
+
+  
   //price value
-  String price_value = String(price, 1);
+  String price_value = (price > 1.0) ? String(price, 1) : String(price, 6);
+  
   lv_color_t font_color;
   static float last_price = price;
   if(last_price != price){
