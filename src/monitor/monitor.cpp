@@ -13,9 +13,7 @@
 
 static WiFiUDP*         udp_client, udpNtpClient;
 static const String     ntpServerUrl= "europe.pool.ntp.org";
-// static const uint32_t   ntpInterval = 1000*60*60*6;//6h update interval
-static const uint32_t   ntpInterval = 1000*60;
-
+static const uint32_t   ntpInterval = 1000*60*60*6;//6h update interval
 static NTPClient        ntpClient(udpNtpClient, ntpServerUrl.c_str());
 
 void monitor_thread_entry(void *args){
@@ -41,12 +39,13 @@ void monitor_thread_entry(void *args){
       // update utc time
       if(ntpClient.update()){
           struct timeval tv;
+          ntpClient.setTimeOffset(g_nmaxe.mstatus.timezone.toFloat() * 3600);
           tv.tv_sec = ntpClient.getEpochTime();
           tv.tv_usec = 0;
           settimeofday(&tv, NULL);
           g_nmaxe.mstatus.utc = tv.tv_sec;
           String time_local = convert_time_to_local(g_nmaxe.mstatus.utc);
-          LOG_W("ntp calibrate time %s, timezone %s", time_local.c_str(), g_nmaxe.mstatus.timezone.c_str());
+          LOG_W("ntp calibrate time [%s], timezone [%s]", time_local.c_str(), g_nmaxe.mstatus.timezone.c_str());
       }
       else{
           // update time now
@@ -54,12 +53,6 @@ void monitor_thread_entry(void *args){
           time(&now);
           g_nmaxe.mstatus.utc = now;
       }
-
-
-
-
-
-
 
       g_nmaxe.mstatus.uptime_ever++;
       g_nmaxe.mstatus.uptime_session++;
