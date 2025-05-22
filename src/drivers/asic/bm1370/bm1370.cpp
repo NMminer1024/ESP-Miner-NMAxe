@@ -90,7 +90,7 @@ void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
     }
 
     if((target_freq == 600) || (target_freq == 800))//have no idea why this is needed, test with 600mhz have to do some delay
-        LOG_I("Setting Frequency to %.2fMHz (%.2f)...", target_freq, best_freq);//necessary delay
+        LOG_I("Setting Frequency to %.2fMHz (%.2f)", target_freq, best_freq);//necessary delay
 }
 
 void BM1370::_set_version_mask(uint32_t version_mask) {

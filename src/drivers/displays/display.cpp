@@ -963,9 +963,9 @@ static void ui_dashboard_page_update(){
   //vbus
   lv_label_set_text_fmt(lb_overclock, "%sM", String(g_nmaxe.asic.frequency_req).c_str());
   //vcore_req
-  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_nmaxe.asic.vcore_req/1000.0, 3).c_str());
+  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_nmaxe.asic.vcore_req/1000.0, 4).c_str());
   //vcore_measure
-  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_nmaxe.asic.vcore_measured/1000.0, 3).c_str());
+  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_nmaxe.asic.vcore_measured/1000.0, 4).c_str());
   //asic temp
   lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_nmaxe.temp.asic, 2).c_str());
 }
