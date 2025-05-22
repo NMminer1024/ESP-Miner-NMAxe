@@ -272,6 +272,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.preference.led.sleep                = false;
     g_nmaxe.preference.led.sleep_last           = g_nmaxe.preference.led.sleep;
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
+    g_nmaxe.mstatus.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     g_nmaxe.coin.toUpperCase();
     g_nmaxe.miner                               = NULL;

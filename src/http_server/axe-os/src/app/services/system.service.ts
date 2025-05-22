@@ -34,6 +34,7 @@ export class SystemService {
           coreVoltage: 1200,
           coreVoltageActual: 1200,
           hostname: "NMAxe",
+          timezone: "8.0",
           ssid: "default",
           wifiPass: "password",
           wifiStatus: "Connected!",

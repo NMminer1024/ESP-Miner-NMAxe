@@ -79,6 +79,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["coreVoltageActual"] = g_nmaxe.asic.vcore_measured;
     root["frequency"] = g_nmaxe.asic.frequency_req;
     root["hostname"] = g_nmaxe.board.hostname;
+    root["timezone"] = g_nmaxe.mstatus.timezone;
     root["ssid"] = g_nmaxe.connection.wifi.conn_param.ssid;
     root["wifiStatus"] = ((g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
     root["sharesAccepted"] = g_nmaxe.mstatus.share_accepted;
@@ -309,6 +310,10 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("stratumPassword2")){
             nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK,root["stratumPassword2"].as<String>().c_str());
+        }
+        if(root.containsKey("timezone")){
+            nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
+            g_nmaxe.mstatus.timezone = root["timezone"].as<String>();
         }
         if(root.containsKey("ssid")){
             nvs_config_set_string(NVS_CONFIG_WIFI_SSID,root["ssid"].as<String>().c_str());

@@ -135,6 +135,7 @@ typedef struct{
 
 typedef struct{
     uint32_t            utc;
+    String              timezone;
     uint32_t            share_rejected;
     uint32_t            share_accepted;
     uint64_t            uptime_ever;
