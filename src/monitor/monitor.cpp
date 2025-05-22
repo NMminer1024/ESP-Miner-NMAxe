@@ -11,7 +11,10 @@
 #define UDP_BOARDCAST_PORT    (12345)
 #define SWARM_OFFLINE_TIMEOUT (3*60*1000) //3min
 
-static WiFiUDP*                udp_client;
+static WiFiUDP*         udp_client, udpNtpClient;
+static const String     ntpServerUrl= "europe.pool.ntp.org";
+static const uint32_t   ntpInterval = 1000*60*60*6;//6h update interval
+static NTPClient        ntpClient(udpNtpClient, ntpServerUrl.c_str());
 
 void monitor_thread_entry(void *args){
   char *name = (char*)malloc(20);
@@ -19,6 +22,11 @@ void monitor_thread_entry(void *args){
   LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
   free(name);
   
+  //ntp client init
+  ntpClient.begin();
+  ntpClient.setTimeOffset(8 * 3600);
+  ntpClient.setUpdateInterval(ntpInterval);
+
   //wait for first job cache ready forever when process start
   xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, portMAX_DELAY);
 
@@ -27,10 +35,32 @@ void monitor_thread_entry(void *args){
   while(true){
       //thread delay 1000ms
       delay(1000);
-      
+
+      // update utc time
+      if(ntpClient.update()){
+          struct timeval tv;
+          tv.tv_sec = ntpClient.getEpochTime();
+          tv.tv_usec = 0;
+          settimeofday(&tv, NULL);
+          g_nmaxe.mstatus.utc = tv.tv_sec;
+          String time_local = convert_time_to_local(g_nmaxe.mstatus.utc);
+          LOG_W("ntp calibrate time %s", time_local.c_str());
+      }
+      else{
+          // update time now
+          time_t now;
+          time(&now);
+          g_nmaxe.mstatus.utc = now;
+      }
+
+
+
+
+
+
+
       g_nmaxe.mstatus.uptime_ever++;
       g_nmaxe.mstatus.uptime_session++;
-
       //update temperature and power status
       if(g_nmaxe.mstatus.uptime_session % 1 == 0){
         static uint8_t temp_cnt = 0;

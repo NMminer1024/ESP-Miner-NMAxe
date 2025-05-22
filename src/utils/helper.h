@@ -36,7 +36,9 @@ unsigned char reverse_bits(unsigned char num);
 
 int largest_power_of_two(int num);
 
-String convert_time_to_local(uint32_t timestamp, int8_t timezone);
+// String convert_time_to_local(uint32_t timestamp, int8_t timezone);
+
+String convert_time_to_local(uint32_t timestamp);
 
 String convert_uptime_to_string(uint32_t timecnt);
 

@@ -134,6 +134,7 @@ typedef struct{
 }diff_info_t;
 
 typedef struct{
+    uint32_t            utc;
     uint32_t            share_rejected;
     uint32_t            share_accepted;
     uint64_t            uptime_ever;

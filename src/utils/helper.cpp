@@ -222,15 +222,31 @@ void swap_endian_words(const char *hex_words, uint8_t *output)
     }
 }
 
-String convert_time_to_local(uint32_t timestamp, int8_t timezone) {
-    time_t localTime = timestamp + timezone * 3600;
+// String convert_time_to_local(uint32_t timestamp, int8_t timezone) {
+//     time_t localTime = timestamp + timezone * 3600;
+
+//     struct tm *timeinfo = localtime(&localTime);
+//     char timeString[30];
+//     strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", timeinfo);
+
+//     return String(timeString);
+// }
+
+
+
+String convert_time_to_local(uint32_t timestamp) {
+    time_t localTime = timestamp;
 
     struct tm *timeinfo = localtime(&localTime);
-    char timeString[30];
-    strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", timeinfo);
+    char timeString[30] = {0,};
+    // 使用 %I 表示 12 小时制，%p 表示 AM/PM
+    strftime(timeString, sizeof(timeString), "%Y-%m-%d %I:%M:%S %p", timeinfo);
 
     return String(timeString);
 }
+
+
+
 
 String convert_uptime_to_string(uint32_t timecnt){
     char uptime[20] = {0,};
