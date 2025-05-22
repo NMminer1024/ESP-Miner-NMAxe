@@ -711,8 +711,8 @@ static void ui_ota_page_update(){
 }
 
 static void ui_dashboard_page_update(){
-  #define VBUS_MIN 5.0f
-  #define VBUS_MAX 15.0f
+  #define FREQ_MIN 400.0f
+  #define FREQ_MAX 900.0f
 
   #define POWER_MIN 0.0f
   #define POWER_MAX 40.0f
@@ -729,10 +729,10 @@ static void ui_dashboard_page_update(){
   #define ASIC_TEMP_MIN 0.0f
   #define ASIC_TEMP_MAX 80.0f
 
-  static lv_obj_t * arc_power = NULL, *arc_vbus = NULL, *arc_vcore_req = NULL, *arc_vcore_measure = NULL, *arc_asci_temp = NULL;
+  static lv_obj_t * arc_power = NULL, *arc_oc = NULL, *arc_vcore_req = NULL, *arc_vcore_measure = NULL, *arc_asci_temp = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
-  static lv_obj_t * lb_pwr = NULL, * lb_vbus = NULL, * lb_vcore_req = NULL, * lb_vcore_measure = NULL, *lb_asic_temp = NULL;
-  static lv_obj_t * lb_pwr_title = NULL, * lb_vbus_title = NULL, * lb_vcore_req_title = NULL, * lb_vcore_measure_title = NULL, *lb_asic_temp_title = NULL;
+  static lv_obj_t * lb_pwr = NULL, * lb_overclock = NULL, * lb_vcore_req = NULL, * lb_vcore_measure = NULL, *lb_asic_temp = NULL;
+  static lv_obj_t * lb_pwr_title = NULL, * lb_oc_title = NULL, * lb_vcore_req_title = NULL, * lb_vcore_measure_title = NULL, *lb_asic_temp_title = NULL;
 
   const lv_font_t *font = &lv_font_montserrat_14;
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
@@ -763,18 +763,18 @@ static void ui_dashboard_page_update(){
 
 
 
-    // Create vbus arc
-    arc_vbus = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
-    lv_obj_set_size(arc_vbus, 2*arc_r, 2*arc_r);
-    lv_arc_set_bg_angles(arc_vbus, 0, arc_angle_full);
-    lv_arc_set_angles(arc_vbus, 0, 0);
-    lv_obj_remove_style(arc_vbus, NULL, LV_PART_KNOB);
-    lv_arc_set_rotation(arc_vbus, 90 + (360 - arc_angle_full) / 2);
-    lv_obj_set_style_arc_width(arc_vbus, arc_line_width, LV_PART_MAIN);
-    lv_obj_set_style_arc_width(arc_vbus, arc_line_width, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_color(arc_vbus, lv_color_hex(0xC0C0C0), LV_PART_MAIN);
+    // Create overclock arc
+    arc_oc = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
+    lv_obj_set_size(arc_oc, 2*arc_r, 2*arc_r);
+    lv_arc_set_bg_angles(arc_oc, 0, arc_angle_full);
+    lv_arc_set_angles(arc_oc, 0, 0);
+    lv_obj_remove_style(arc_oc, NULL, LV_PART_KNOB);
+    lv_arc_set_rotation(arc_oc, 90 + (360 - arc_angle_full) / 2);
+    lv_obj_set_style_arc_width(arc_oc, arc_line_width, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(arc_oc, arc_line_width, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(arc_oc, lv_color_hex(0xC0C0C0), LV_PART_MAIN);
     // lv_obj_set_style_arc_color(arc_vbus, lv_color_hex(0xC0C0C0), LV_PART_INDICATOR);
-    lv_obj_set_pos(arc_vbus, 0, 4); 
+    lv_obj_set_pos(arc_oc, 0, 4); 
     // Create power arc
     arc_power = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
     lv_obj_set_size(arc_power, 2*arc_r, 2*arc_r);
@@ -826,26 +826,26 @@ static void ui_dashboard_page_update(){
 
 
 
-    // Create vbus label
+    // Create overclock label
     const lv_font_t *  font = &lv_font_montserrat_14;
     lv_color_t font_color = lv_color_hex(0xFFFFFF);
-    lb_vbus   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
-    lv_obj_set_width(lb_vbus, 80);
-    lv_label_set_text( lb_vbus, " ");
-    lv_obj_set_style_text_font(lb_vbus, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_vbus, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_vbus, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_vbus, LV_ALIGN_TOP_LEFT, arc_r - 15, arc_r - 2);
-    // Create vbus title label
+    lb_overclock   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_overclock, 80);
+    lv_label_set_text( lb_overclock, " ");
+    lv_obj_set_style_text_font(lb_overclock, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_overclock, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_overclock, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_overclock, LV_ALIGN_TOP_LEFT, arc_r - 19, arc_r - 2);
+    // Create over clock title label
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xD3D3D3);
-    lb_vbus_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
-    lv_obj_set_width(lb_vbus_title, 80);
-    lv_label_set_text( lb_vbus_title, "Vbus");
-    lv_obj_set_style_text_font(lb_vbus_title, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_vbus_title, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_vbus_title, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_vbus_title, LV_ALIGN_TOP_LEFT, arc_r - 18, arc_r + 20);
+    lb_oc_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lv_obj_set_width(lb_oc_title, 80);
+    lv_label_set_text( lb_oc_title, "OC");
+    lv_obj_set_style_text_font(lb_oc_title, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_oc_title, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_oc_title, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_oc_title, LV_ALIGN_TOP_LEFT, arc_r - 12, arc_r + 20);
 
 
     // Create power label
@@ -939,18 +939,16 @@ static void ui_dashboard_page_update(){
   }
 
   String hr_value = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
-  String hr_unit = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
-  String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
-  String vbus = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
-  String asic_temp = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
+  String hr_unit  = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
+  String power    = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
 
-  uint16_t vbus_angle           = arc_angle_full * (g_nmaxe.board.vbus/1000.0 - VBUS_MIN) / (VBUS_MAX - VBUS_MIN); 
+  uint16_t oc_angle             = arc_angle_full * (g_nmaxe.asic.frequency_req - FREQ_MIN) / (FREQ_MAX - FREQ_MIN); 
   uint16_t pwr_angle            = arc_angle_full * (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
   uint16_t vcore_req_angle      = arc_angle_full * (g_nmaxe.asic.vcore_req/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
   uint16_t vcore_measure_angle  = arc_angle_full * (g_nmaxe.asic.vcore_measured /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
   uint16_t asic_temp_angle      = arc_angle_full * (g_nmaxe.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
 
-  lv_arc_set_angles(arc_vbus,  0, vbus_angle);
+  lv_arc_set_angles(arc_oc,  0, oc_angle);
   lv_arc_set_angles(arc_power, 0, pwr_angle);
   lv_arc_set_angles(arc_vcore_req,  0, vcore_req_angle);
   lv_arc_set_angles(arc_vcore_measure, 0, vcore_measure_angle);
@@ -963,7 +961,7 @@ static void ui_dashboard_page_update(){
   //power 
   lv_label_set_text_fmt(lb_pwr, "%sw", power.c_str());
   //vbus
-  lv_label_set_text_fmt(lb_vbus, "%sv", vbus.c_str());
+  lv_label_set_text_fmt(lb_overclock, "%sM", String(g_nmaxe.asic.frequency_req).c_str());
   //vcore_req
   lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_nmaxe.asic.vcore_req/1000.0, 3).c_str());
   //vcore_measure
@@ -1149,7 +1147,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
     lv_obj_set_style_text_font(lb_date, font, LV_PART_MAIN);
     lv_obj_set_style_text_color(lb_date, font_color, LV_PART_MAIN);
     lv_label_set_long_mode(lb_date, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_date, LV_ALIGN_BOTTOM_MID, 60, 0);
+    lv_obj_align( lb_date, LV_ALIGN_BOTTOM_MID, 62, 0);
     // Price
     font = &ds_digib_font_24;
     font_color = lv_color_hex(0x808080);
