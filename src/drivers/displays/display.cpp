@@ -24,7 +24,9 @@ LV_FONT_DECLARE(ds_digib_font_24)
 LV_FONT_DECLARE(ds_digib_font_28)
 LV_FONT_DECLARE(ds_digib_font_36)
 LV_FONT_DECLARE(ds_digib_font_38)
+LV_FONT_DECLARE(ds_digib_font_42)
 LV_FONT_DECLARE(ds_digib_font_50)
+LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(symbol_14)
 
 
@@ -970,7 +972,7 @@ static void ui_dashboard_page_update(){
   lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_nmaxe.temp.asic, 2).c_str());
 }
 
-static void ui_hr_healthy_page_update(double hashrate){
+static void ui_hr_healthy_page_update(miner_status_t *miner_status){
   uint16_t MAX_HASHRATE = 2000;
   uint16_t STEP = 100; // step
   uint16_t NUM_BARS = (MAX_HASHRATE / STEP);
@@ -997,8 +999,8 @@ static void ui_hr_healthy_page_update(double hashrate){
   static bool first_time = true;
 
   static double last_hashrate = 0;
-  if(last_hashrate == hashrate) return;
-  last_hashrate = hashrate;
+  if(last_hashrate == miner_status->hashrate._3m) return;
+  last_hashrate = miner_status->hashrate._3m;
 
   if(first_time){
     first_time = false;
@@ -1098,8 +1100,93 @@ static void ui_hr_healthy_page_update(double hashrate){
   lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String(duration) + "s").c_str());
 }
 
-static void ui_big_digit_page_update(hashrate_t *hashrate, String time, uint8_t block_hit){
+static void ui_big_digit_page_update(miner_status_t *miner_status){
+  static bool first_time = true;
+  static lv_obj_t * lb_hashrate = NULL, * lb_hashrate_unit = NULL;
+  static lv_obj_t * lb_time = NULL, * lb_date = NULL, * lb_block_hit = NULL, *lb_block_hit_unit = NULL;
 
+  if(first_time){
+    first_time = false;
+
+    // Hashrate value
+    const lv_font_t *  font = &ds_digib_font_56;
+    lv_color_t font_color = lv_color_hex(0xFFFFFF);
+    lb_hashrate   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lv_obj_set_width(lb_hashrate, SCREEN_WIDTH/2);
+    lv_label_set_text( lb_hashrate, " ");
+    lv_obj_set_style_text_font(lb_hashrate, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_hashrate, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(lb_hashrate, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_hashrate, LV_ALIGN_TOP_LEFT, 0, 0);
+    // Hashrate unit
+    font = &ds_digib_font_20;
+    font_color = lv_color_hex(0x808080);
+    lb_hashrate_unit   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lv_obj_set_width(lb_hashrate_unit, 50);
+    lv_label_set_text( lb_hashrate_unit, " ");
+    lv_obj_set_style_text_font(lb_hashrate_unit, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_hashrate_unit, font_color, LV_PART_MAIN);
+    lv_label_set_long_mode(lb_hashrate_unit, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_hashrate_unit, LV_ALIGN_TOP_MID, 0, 26);
+    // Time
+    font = &ds_digib_font_42;
+    font_color = lv_color_hex(0xFFFFFF);
+    lb_time   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    String time_text = "00:00:00 AM";
+    lv_coord_t width = lv_txt_get_width(time_text.c_str(), strlen(time_text.c_str()), font, 0, LV_TEXT_FLAG_NONE);
+    lv_obj_set_width(lb_time, width);
+    lv_label_set_text( lb_time, " ");
+    lv_obj_set_style_text_font(lb_time, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_time, font_color, LV_PART_MAIN);
+    lv_label_set_long_mode(lb_time, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_align( lb_time, LV_ALIGN_CENTER, 0, 15);
+    // Date
+    font = &ds_digib_font_24;
+    font_color = lv_color_hex(0x808080);
+    lb_date   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lv_obj_set_width(lb_date, SCREEN_WIDTH/2);
+    lv_label_set_text( lb_date, " ");
+    lv_obj_set_style_text_font(lb_date, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_date, font_color, LV_PART_MAIN);
+    lv_label_set_long_mode(lb_date, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_date, LV_ALIGN_BOTTOM_MID, 60, 0);
+    // Block hit
+    font = &ds_digib_font_56;
+    font_color = lv_color_hex(0xEE7D30);
+    lb_block_hit   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lv_obj_set_width(lb_block_hit, 50);
+    lv_label_set_text( lb_block_hit, " ");
+    lv_obj_set_style_text_font(lb_block_hit, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_block_hit, font_color, LV_PART_MAIN);
+    lv_label_set_long_mode(lb_block_hit, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_block_hit, LV_ALIGN_TOP_RIGHT, -30, 0);
+    // Block hit unit
+    font = &ds_digib_font_20;
+    font_color = lv_color_hex(0x808080);
+    lb_block_hit_unit   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lv_obj_set_width(lb_block_hit_unit, 50);
+    lv_label_set_text( lb_block_hit_unit, "hits");
+    lv_obj_set_style_text_font(lb_block_hit_unit, font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_block_hit_unit, font_color, LV_PART_MAIN);
+    lv_label_set_long_mode(lb_block_hit_unit, LV_LABEL_LONG_DOT);
+    lv_obj_align( lb_block_hit_unit, LV_ALIGN_TOP_RIGHT, 0, 26);
+  }
+
+
+  
+  String hr       = formatNumber(miner_status->hashrate._3m, 3);
+  String datetime = convert_time_to_local(g_nmaxe.mstatus.utc);
+  String hr_unit = (miner_status->hashrate._3m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
+  //hashrate
+  lv_label_set_text_fmt(lb_hashrate, "%s", hr.substring(0, hr.length() - 1).c_str());
+  //hashrate unit
+  lv_label_set_text_fmt(lb_hashrate_unit, "%s", hr_unit.c_str());
+  //time
+  lv_label_set_text_fmt(lb_time, "%s", datetime.substring(11, datetime.length()).c_str());
+  //date
+  lv_label_set_text_fmt(lb_date, "%s", datetime.substring(0, 10).c_str());
+  //block hit
+  lv_label_set_text_fmt(lb_block_hit, "%s", String(miner_status->block_hits).c_str());
 }
 
 // static void ui_hr_real_time_page_update(hashrate_t *hashrate){
@@ -1555,9 +1642,9 @@ void ui_thread_entry(void *args){
       //update dashboard page
       ui_dashboard_page_update();
       //update hashrate healthy page
-      ui_hr_healthy_page_update(g_nmaxe.mstatus.hashrate._3m);
+      ui_hr_healthy_page_update(&g_nmaxe.mstatus);
       //update big digit page
-      ui_big_digit_page_update(&g_nmaxe.mstatus.hashrate, "2025-05-15 02:06:12", g_nmaxe.mstatus.block_hits);
+      ui_big_digit_page_update(&g_nmaxe.mstatus);
 
       // //update hashrate real time page
       // ui_hr_real_time_page_update(&g_nmaxe.mstatus.hashrate);

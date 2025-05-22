@@ -65,10 +65,6 @@ void monitor_thread_entry(void *args){
         g_nmaxe.board.ibus          = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_ibus() : g_nmaxe.board.ibus;
         g_nmaxe.board.efficiency    = ((temp_cnt % 2 == 0) && g_nmaxe.mstatus.hashrate._3m > 0) ? (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1e6) / (g_nmaxe.mstatus.hashrate._3m/1e12) : g_nmaxe.board.efficiency;
         g_nmaxe.asic.vcore_measured = (temp_cnt % 2 == 0) ? g_nmaxe.power->get_vcore() : g_nmaxe.asic.vcore_measured;
-        // //update board temperature
-        // g_nmaxe.temp.mcu    = (temp_cnt % 30 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.temp.mcu;
-        // g_nmaxe.temp.vcore  = (temp_cnt % 2 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.temp.vcore;
-        // g_nmaxe.temp.asic   = (temp_cnt % 2 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.temp.asic;
 
         temp_cnt++;
         //update wifi rssi
@@ -129,7 +125,7 @@ void monitor_thread_entry(void *args){
           }
         }else hr_err_cnt = 0;
       }
-      
+
       //save status to NVS
       static uint64_t last_save_time = g_nmaxe.mstatus.uptime_ever;
       if(g_nmaxe.mstatus.uptime_ever - last_save_time > NVS_SAVE_INTERVAL){
@@ -144,11 +140,7 @@ void monitor_thread_entry(void *args){
           last_save_time = g_nmaxe.mstatus.uptime_ever;
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
-      
-      // //check ota status and reboot
-      // if(xSemaphoreTake(g_nmaxe.board.reboot_xsem, 0) == pdTRUE){
-      //   ESP.restart();
-      // }
+
     }
 }
 
