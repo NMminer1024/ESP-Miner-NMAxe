@@ -148,6 +148,20 @@ Batch firmware update on swarm page.
 ## Release Log
 ***
 
+### (2025.05.23) - v2.7.03
+- `Add`:
+  - Auto screen scrolling option on AxeOS.
+  - TimeZone and ntp service.
+  - Big digital display page on NMAxe and Gamma.
+- `Fixed`:
+  - Low power issue.
+- `Improved`:
+  - Default OverClock settings(600/1125).
+- `Modify`:
+  - OverClock display on dashboard page.
+- `Remove`:
+  - Vbus display from dashboard page.
+
 ### (2025.05.21) - v2.7.02
 - `Add`:
   - None.
