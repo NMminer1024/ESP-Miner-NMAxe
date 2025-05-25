@@ -382,9 +382,6 @@ void miner_asic_rx_thread_entry(void *args){
 
                 //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
                 g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
-                g_nmaxe.mstatus.diff.last            = diff;
-                g_nmaxe.mstatus.diff.best_session    = (diff > g_nmaxe.mstatus.diff.best_session) ? diff : g_nmaxe.mstatus.diff.best_session;
-                g_nmaxe.mstatus.diff.best_ever       = (diff > g_nmaxe.mstatus.diff.best_ever) ? diff : g_nmaxe.mstatus.diff.best_ever;
 
                 //print summary to log
                 static uint32_t summary_start = millis();
@@ -414,6 +411,7 @@ void miner_asic_rx_thread_entry(void *args){
                     LOG_I("| ASIC | Last | Pool | Network |");
                     LOG_I("|------|------|------|---------|");
                 }
+                
                 LOG_I("|%-6s|%-6s|%-6s|%-7s|", 
                     formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), 
                     formatNumber(diff, 4).c_str(), 
@@ -466,6 +464,11 @@ void miner_asic_rx_thread_entry(void *args){
                     LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
                     xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
                 }
+
+                //update miner status
+                g_nmaxe.mstatus.diff.last            = diff;
+                g_nmaxe.mstatus.diff.best_session    = (diff > g_nmaxe.mstatus.diff.best_session) ? diff : g_nmaxe.mstatus.diff.best_session;
+                g_nmaxe.mstatus.diff.best_ever       = (diff > g_nmaxe.mstatus.diff.best_ever) ? diff : g_nmaxe.mstatus.diff.best_ever;
 
                 //update all time best diff
                 if(diff == g_nmaxe.mstatus.diff.best_ever){
