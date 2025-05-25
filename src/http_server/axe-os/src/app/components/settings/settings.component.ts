@@ -73,7 +73,7 @@ export class SettingsComponent {
           stratumUser2: [info.stratumUser2, [Validators.required]],
           stratumPassword1:[info.stratumPassword1],
           stratumPassword2:[info.stratumPassword2],
-          timezone: [info.timezone, [Validators.required]],
+          // timezone: [info.timezone, [Validators.required]],
           ssid: [info.ssid, [Validators.required]],
           wifiPass: ['password'],
           coreVoltage: [info.coreVoltage, [Validators.required]],

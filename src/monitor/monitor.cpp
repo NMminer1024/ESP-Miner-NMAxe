@@ -5,7 +5,7 @@
 #include "logger.h"
 #include "helper.h"
 #include "global.h"
-#include "tmp102.h"
+#include "timezone.h"
 
 #define UDP_BOARDCAST_ADDR    IPAddress(255,255,255,255)
 #define UDP_BOARDCAST_PORT    (12345)
@@ -16,12 +16,24 @@ static const String     ntpServerUrl= "europe.pool.ntp.org";
 static const uint32_t   ntpInterval = 1000*60*60*6;//6h update interval
 static NTPClient        ntpClient(udpNtpClient, ntpServerUrl.c_str());
 
+
 void monitor_thread_entry(void *args){
   char *name = (char*)malloc(20);
   strcpy(name, (char*)args);
   LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
   free(name);
   
+  // fetch timezone from ipapi
+  TimezoneFetcher *tz = new TimezoneFetcher();
+  if(!tz->fetch()){
+      g_nmaxe.mstatus.timezone = "8"; //default timezone
+      LOG_W("Timezone fetch failed, using default timezone: %s", g_nmaxe.mstatus.timezone.c_str()); 
+  }else{
+      g_nmaxe.mstatus.timezone = tz->timezone;
+      LOG_W("Timezone calibrate to : %s", g_nmaxe.mstatus.timezone.c_str());
+  }
+  delete tz;
+
   //ntp client init
   ntpClient.begin();
   ntpClient.setTimeOffset(g_nmaxe.mstatus.timezone.toFloat() * 3600);

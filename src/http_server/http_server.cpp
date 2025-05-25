@@ -79,7 +79,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["coreVoltageActual"] = g_nmaxe.asic.vcore_measured;
     root["frequency"] = g_nmaxe.asic.frequency_req;
     root["hostname"] = g_nmaxe.board.hostname;
-    root["timezone"] = g_nmaxe.mstatus.timezone;
+    // root["timezone"] = g_nmaxe.mstatus.timezone;
     root["ssid"] = g_nmaxe.connection.wifi.conn_param.ssid;
     root["wifiStatus"] = ((g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
     root["sharesAccepted"] = g_nmaxe.mstatus.share_accepted;
