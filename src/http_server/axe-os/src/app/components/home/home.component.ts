@@ -20,7 +20,7 @@ export class HomeComponent {
 
 
   public chartOptions: any;
-  public timeLabel: number[] = [];
+  public timeLabel: String[] = [];
   public hashrateData: number[] = [];
   public asicTempData: number[] = [];
   public vcoreTempData: number[] = [];
@@ -125,8 +125,8 @@ export class HomeComponent {
             display: true,
             text: 'Temperature (°C)'
           },
-          min: 40,
-          max: 80,
+          min: 30,
+          max: 85,
           ticks: {
             color: rgb(211, 211, 211)
           },
@@ -136,11 +136,6 @@ export class HomeComponent {
         }
       }
     };
-
-
-
-
-
     this.info$ = interval(5000).pipe(
       startWith(() => this.systemService.getInfo()),
       switchMap(() => {
@@ -151,7 +146,8 @@ export class HomeComponent {
         this.hashrateData.push(info.hashRate * 1000000000);
         this.asicTempData.push(info.temp);
         this.vcoreTempData.push(info.vrTemp);
-        this.timeLabel.push(new Date().getTime());
+        this.timeLabel.push(new Date().toISOString());
+        this.chartData.labels = this.timeLabel;
 
         if (this.hashrateData.length > 2000) {
           this.hashrateData.shift();
@@ -164,7 +160,6 @@ export class HomeComponent {
         this.chartData.datasets[0].data = this.hashrateData;
         this.chartData.datasets[1].data = this.asicTempData;
         this.chartData.datasets[2].data = this.vcoreTempData;
-
 
         this.chartData = {
           ...this.chartData
