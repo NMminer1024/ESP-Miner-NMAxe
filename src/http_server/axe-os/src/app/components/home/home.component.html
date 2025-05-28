@@ -96,24 +96,22 @@
         <div class="grid text-center">
           <div class="col-4">
             <p-knob [min]="0" [max]="45" [readonly]="true" [(ngModel)]="info.power"
-                    valueTemplate="{value}W"></p-knob>
-            Power
+                    valueTemplate="{value}W" [size]="150"></p-knob>
+            Input Power
           </div>
 
           <div class="col-4">
             <p-knob [min]="5" [max]="15" [readonly]="true" [(ngModel)]="info.voltage"
-                    valueTemplate="{value}V"></p-knob>
+                    valueTemplate="{value}V" [size]="150"></p-knob>
             Input Voltage
-            <span class="danger" *ngIf="info.voltage < 5">&nbsp; Danger:Low</span>
           </div>
 
           <div class="col-4">
-            <p-knob [min]="0.9" [max]="1.35" [readonly]="true" [(ngModel)]="info.coreVoltage"
-                    valueTemplate="{value}V"></p-knob>
-            Vcore Requested
+            <p-knob [min]="0" [max]="5" [readonly]="true" [(ngModel)]="info.current"
+                    valueTemplate="{value}A" [size]="150"></p-knob>
+            Input Current
           </div>
         </div>
-
       </div>
     </div>
 
@@ -159,10 +157,17 @@
         <h5>Performance</h5>
         <div class="grid text-center">
           <div class="col-6">
+            <p-knob [min]="0.9" [max]="1.35" [readonly]="true" [(ngModel)]="info.coreVoltage"
+                    valueTemplate="{value}V"></p-knob>
+            Vcore Requested
+          </div>
+
+          <div class="col-6">
             <p-knob [min]="100" [max]="950" [readonly]="true" [(ngModel)]="info.frequency"
-                    valueTemplate="{value}Mhz"></p-knob>
+                    valueTemplate="{value}M"></p-knob>
             ASIC Clock
           </div>
+
           <div class="col-6">
             <p-knob [min]="0.9" [max]="1.35" [readonly]="true" [(ngModel)]="info.coreVoltageActual"
                     valueTemplate="{value}V"></p-knob>

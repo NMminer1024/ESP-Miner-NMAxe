@@ -102,7 +102,7 @@ export class HomeComponent {
         this.dataData.push(info.hashRate * 1000000000);
         this.dataLabel.push(new Date().getTime());
 
-        if (this.dataData.length >= 1000) {
+        if (this.dataData.length > 1000) {
           this.dataData.shift();
           this.dataLabel.shift();
         }
@@ -114,16 +114,16 @@ export class HomeComponent {
         this.chartData = {
           ...this.chartData
         };
-
       }),
       map(info => {
         info.power = parseFloat(info.power.toFixed(1))
-        info.voltage = parseFloat((info.voltage / 1000).toFixed(1));
-        info.current = parseFloat((info.current / 1000).toFixed(1));
-        info.coreVoltageActual = parseFloat((info.coreVoltageActual / 1000).toFixed(2));
-        info.coreVoltage = parseFloat((info.coreVoltage / 1000).toFixed(2));
+        info.voltage = parseFloat((info.voltage / 1000).toFixed(2));
+        info.current = parseFloat((info.current / 1000).toFixed(3));
+        info.coreVoltageActual = parseFloat((info.coreVoltageActual / 1000).toFixed(3));
+        info.coreVoltage = parseFloat((info.coreVoltage / 1000).toFixed(3));
         info.temp = parseFloat(info.temp.toFixed(1));
-
+        info.vrTemp = parseFloat(info.vrTemp.toFixed(1));
+        info.mcuTemp = info.mcuTemp !== undefined ? parseFloat(info.mcuTemp.toFixed(1)) : undefined;
 
         return info;
       }),

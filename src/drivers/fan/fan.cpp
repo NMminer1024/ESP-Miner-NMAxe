@@ -59,9 +59,14 @@ void fan_thread_entry(void *args){
     while(1){
         delay(100);
         //update board temperature
-        g_nmaxe.temp.mcu    = (temp_cnt % 300 == 0) ? (int8_t)get_mcu_temperature() : g_nmaxe.temp.mcu;
-        g_nmaxe.temp.vcore  = (temp_cnt % 20 == 0) ? (int8_t)get_vcore_temperature() : g_nmaxe.temp.vcore;
-        g_nmaxe.temp.asic   = (temp_cnt % 20 == 0) ? (int8_t)get_asic_temperature() : g_nmaxe.temp.asic;
+        g_nmaxe.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : g_nmaxe.temp.mcu;
+        g_nmaxe.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : g_nmaxe.temp.vcore;
+        g_nmaxe.temp.asic   = (temp_cnt % 20 == 0) ? (float)get_asic_temperature() : g_nmaxe.temp.asic;
+
+        // Round to 1 decimal place
+        g_nmaxe.temp.mcu   = roundf(g_nmaxe.temp.mcu * 10) / 10.0f;
+        g_nmaxe.temp.vcore = roundf(g_nmaxe.temp.vcore * 10) / 10.0f;
+        g_nmaxe.temp.asic  = roundf(g_nmaxe.temp.asic * 10) / 10.0f;
         temp_cnt++;
         
         // Fan self test flag set only once
