@@ -1,9 +1,10 @@
-import {Component} from '@angular/core';
+import {Component, ViewChild} from '@angular/core';
 import {interval, map, Observable, shareReplay, startWith, switchMap, tap} from 'rxjs';
 import {HashSuffixPipe} from 'src/app/pipes/hash-suffix.pipe';
 import {SystemService} from 'src/app/services/system.service';
 import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
+import {UIChart} from "primeng/chart";
 
 @Component({
   selector: 'app-home',
@@ -11,7 +12,7 @@ import {ISystemInfo} from 'src/models/ISystemInfo';
   styleUrls: ['./home.component.scss']
 })
 export class HomeComponent {
-
+  @ViewChild('chart') chart!: UIChart;
 
   public info$: Observable<ISystemInfo>;
 
@@ -50,7 +51,7 @@ export class HomeComponent {
           tension: .4,
           pointRadius: 1,
           borderWidth: 1,
-          yAxisID: 'y_hashrate' 
+          yAxisID: 'y_hashrate'
         },
         {
           type: 'line',
@@ -62,7 +63,7 @@ export class HomeComponent {
           tension: .4,
           pointRadius: 1,
           borderWidth: 1,
-          yAxisID: 'y_temp' 
+          yAxisID: 'y_temp'
         },
         {
           type: 'line',
@@ -74,7 +75,7 @@ export class HomeComponent {
           tension: .4,
           pointRadius: 1,
           borderWidth: 1,
-          yAxisID: 'y_temp' 
+          yAxisID: 'y_temp'
         }
       ]
     };
@@ -104,7 +105,7 @@ export class HomeComponent {
             display: true
           }
         },
-        y_hashrate: { 
+        y_hashrate: {
           position: 'left',
           title: {
             display: true,
@@ -119,7 +120,7 @@ export class HomeComponent {
             drawBorder: false
           }
         },
-        y_temp: { 
+        y_temp: {
           position: 'right',
           title: {
             display: true,
@@ -131,7 +132,7 @@ export class HomeComponent {
             color: rgb(211, 211, 211)
           },
           grid: {
-            drawOnChartArea: false 
+            drawOnChartArea: false
           }
         }
       }
@@ -165,10 +166,15 @@ export class HomeComponent {
         this.chartData.datasets[1].data = this.asicTempData;
         this.chartData.datasets[2].data = this.vcoreTempData;
 
+      // 触发更新
+        if (this.chart && this.chart.chart) {
+          this.chart.chart.update();
+        }else {
+          this.chartData = {
+            ...this.chartData
+          };
+        }
 
-        this.chartData = {
-          ...this.chartData
-        };
       }),
       map(info => {
         info.power = parseFloat(info.power.toFixed(1))
