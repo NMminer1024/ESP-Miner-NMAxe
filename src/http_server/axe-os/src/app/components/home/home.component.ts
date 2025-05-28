@@ -20,8 +20,10 @@ export class HomeComponent {
 
 
   public chartOptions: any;
-  public dataLabel: number[] = [];
-  public dataData: number[] = [];
+  public timeLabel: number[] = [];
+  public hashrateData: number[] = [];
+  public asicTempData: number[] = [];
+  public vcoreTempData: number[] = [];
   public chartData?: any;
 
   constructor(
@@ -43,13 +45,37 @@ export class HomeComponent {
           label: 'Hashrate',
           data: [],
           fill: false,
-          backgroundColor: primaryColor,
-          borderColor: primaryColor,
+          backgroundColor: rgb(248, 4, 4),
+          borderColor: rgb(248, 4, 4),
           tension: .4,
           pointRadius: 1,
-          borderWidth: 1
+          borderWidth: 1,
+          yAxisID: 'y_hashrate' 
         },
-
+        {
+          type: 'line',
+          label: 'ASIC Temp',
+          data: [],
+          fill: false,
+          backgroundColor:rgb(64, 245, 9),
+          borderColor: rgb(64, 245, 9),
+          tension: .4,
+          pointRadius: 1,
+          borderWidth: 1,
+          yAxisID: 'y_temp' 
+        },
+        {
+          type: 'line',
+          label: 'VCore Temp',
+          data: [],
+          fill: false,
+          backgroundColor: rgb(8, 23, 236),
+          borderColor: rgb(8, 23, 236),
+          tension: .4,
+          pointRadius: 1,
+          borderWidth: 1,
+          yAxisID: 'y_temp' 
+        }
       ]
     };
 
@@ -67,7 +93,7 @@ export class HomeComponent {
         x: {
           type: 'time',
           time: {
-            unit: 'hour', // Set the unit to 'minute'
+            unit: 'hour',
           },
           ticks: {
             color: textColorSecondary
@@ -78,18 +104,41 @@ export class HomeComponent {
             display: true
           }
         },
-        y: {
+        y_hashrate: { 
+          position: 'left',
+          title: {
+            display: true,
+            text: 'Hashrate'
+          },
           ticks: {
-            color: textColorSecondary,
+            color: rgb(211, 211, 211),
             callback: (value: number) => HashSuffixPipe.transform(value)
           },
           grid: {
             color: surfaceBorder,
             drawBorder: false
           }
+        },
+        y_temp: { 
+          position: 'right',
+          title: {
+            display: true,
+            text: 'Temperature (°C)'
+          },
+          min: 40,
+          max: 80,
+          ticks: {
+            color: rgb(211, 211, 211)
+          },
+          grid: {
+            drawOnChartArea: false 
+          }
         }
       }
     };
+
+
+
 
 
     this.info$ = interval(5000).pipe(
@@ -99,16 +148,22 @@ export class HomeComponent {
       }),
       tap(info => {
 
-        this.dataData.push(info.hashRate * 1000000000);
-        this.dataLabel.push(new Date().getTime());
+        this.hashrateData.push(info.hashRate * 1000000000);
+        this.asicTempData.push(info.temp);
+        this.vcoreTempData.push(info.vrTemp);
+        this.timeLabel.push(new Date().getTime());
 
-        if (this.dataData.length > 1000) {
-          this.dataData.shift();
-          this.dataLabel.shift();
+        if (this.hashrateData.length > 2000) {
+          this.hashrateData.shift();
+          this.asicTempData.shift();
+          this.vcoreTempData.shift();
+          this.timeLabel.shift();
         }
 
-        this.chartData.labels = this.dataLabel;
-        this.chartData.datasets[0].data = this.dataData;
+        this.chartData.labels = this.timeLabel;
+        this.chartData.datasets[0].data = this.hashrateData;
+        this.chartData.datasets[1].data = this.asicTempData;
+        this.chartData.datasets[2].data = this.vcoreTempData;
 
 
         this.chartData = {
@@ -162,4 +217,6 @@ export class HomeComponent {
     )
   }
 }
-
+function rgb(r: number, g: number, b: number): string {
+  return `rgb(${r}, ${g}, ${b})`;
+}
