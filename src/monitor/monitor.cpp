@@ -109,7 +109,7 @@ void monitor_thread_entry(void *args){
           LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", g_nmaxe.temp.vcore, vcore_now);
         }
         //check fan status
-        static uint8_t fan_err_cnt = 0;
+        static uint16_t fan_err_cnt = 0;
         if(g_nmaxe.preference.fan.rpm <= 1000){
           fan_err_cnt++;
           if(fan_err_cnt > 5){//avoid some noise
@@ -119,19 +119,19 @@ void monitor_thread_entry(void *args){
         }else fan_err_cnt = 0;
 
         //check power status
-        static uint8_t pwr_err_cnt = 0;
+        static uint16_t pwr_err_cnt = 0;
         if((g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0 / 1000.0) < BOARD_LOW_POWER){
           LOG_W("Power %0.1fW is too low...", g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0 / 1000.0);
-          if(++pwr_err_cnt > 20){
+          if(++pwr_err_cnt > 20){//20s
             LOG_W("Power is too low, restart miner...");
             ESP.restart();
           }
         }else pwr_err_cnt = 0;
 
         //check hashrate
-        static uint8_t hr_err_cnt = 0;
+        static uint16_t hr_err_cnt = 0;
         if(g_nmaxe.mstatus.hashrate._3m <= 1){
-          if(++hr_err_cnt > 60*5){
+          if(++hr_err_cnt > 60){//1min
             LOG_W("Hashrate is too low, restart miner...");
             ESP.restart();
           }
