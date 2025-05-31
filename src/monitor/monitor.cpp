@@ -13,7 +13,7 @@
 
 static WiFiUDP*         udp_client, udpNtpClient;
 static const String     ntpServerUrl= "europe.pool.ntp.org";
-static const uint32_t   ntpInterval = 1000*60*60*6;//6h update interval
+static const uint32_t   ntpInterval = 1000*60*60*24;//24h update interval
 static NTPClient        ntpClient(udpNtpClient, ntpServerUrl.c_str());
 
 
