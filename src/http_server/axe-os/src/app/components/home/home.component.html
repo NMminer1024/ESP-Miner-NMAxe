@@ -95,22 +95,23 @@
         <h5>Power</h5>
         <div class="grid text-center">
           <div class="col-4">
-            <p-knob [min]="0" [max]="45" [readonly]="true" [(ngModel)]="info.power"
-                    valueTemplate="{value}W" [size]="150"></p-knob>
-            Input Power
-          </div>
-
-          <div class="col-4">
             <p-knob [min]="5" [max]="15" [readonly]="true" [(ngModel)]="info.voltage"
-                    valueTemplate="{value}V" [size]="150"></p-knob>
+                    valueTemplate="{value}V" [size]="120"></p-knob>
             Input Voltage
           </div>
 
           <div class="col-4">
             <p-knob [min]="0" [max]="5" [readonly]="true" [(ngModel)]="info.current"
-                    valueTemplate="{value}A" [size]="150"></p-knob>
+                    valueTemplate="{value}A" [size]="120"></p-knob>
             Input Current
           </div>
+
+          <div class="col-4">
+            <p-knob [min]="0" [max]="45" [readonly]="true" [(ngModel)]="info.power"
+                    valueTemplate="{value}W" [size]="120"></p-knob>
+            Input Power
+          </div>
+
         </div>
       </div>
     </div>
