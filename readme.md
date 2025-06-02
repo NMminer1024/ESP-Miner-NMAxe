@@ -148,7 +148,7 @@ Batch firmware update on swarm page.
 ## Release Log
 ***
 
-### (2025.05.23) - v2.7.04
+### (2025.06.02) - v2.7.04
 - `Add`:
   - Auto TimeZone fetch base on public IP.
 - `Fixed`:
