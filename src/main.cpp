@@ -12,7 +12,7 @@
 #include "nvs_config.h"
 #include "github.h"
 
-TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, stratumTask, minerTxTask, minerRxTask;
+TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
 
 axe_sal_t  g_nmaxe;
 
@@ -30,17 +30,17 @@ void setup() {
   Wire.begin(NM_AXE_IIC_SDA_PIN, NM_AXE_IIC_SCL_PIN);
   /************************************************************ INIT DISPLAY ************************************************************/
   taskName = "(ui)";
-  xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_UI, &uiTask, 1);
+  xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_UI, &uiTask, 1);
   delay(10);
   /************************************************************* INIT LOGO **************************************************************/
   logo_print();
   /********************************************************** CREATE LED THREAD *********************************************************/
   taskName = "(led)";
-  xTaskCreatePinnedToCore(led_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_LED, &ledTask, 1);
+  xTaskCreatePinnedToCore(led_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_LED, &ledTask, 1);
   delay(10);
   /********************************************************** CREATE BUTTON THREAD *****************************************************/
   taskName = "(button)";
-  xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_BTN, &btnTask,1);
+  xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_BTN, &btnTask,1);
   delay(10);
   /********************************************************* CREATE FAN THREAD *********************************************************/
   taskName = "(fan)";
@@ -58,7 +58,7 @@ void setup() {
   }
   /************************************************************** INIT DAEMON **********************************************************/
   taskName = "(daemon)";
-  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, NULL, 1);
+  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, &daemonTask, 1);
   delay(10);
   /************************************************************** INIT WIFI ************************************************************/
   taskName = "(wifi)";
@@ -83,11 +83,11 @@ void setup() {
   delete releaseChecker;
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
-  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, NULL, 1);
+  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, &swarmTask, 1);
   delay(10);
   /*********************************************************** CREATE MARKET THREAD ****************************************************/
   taskName = "(market)";
-  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*8, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, NULL, 1);
+  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, &marketTask, 1);
   while (!g_nmaxe.market->updated){
     static uint32_t start = millis();
     if(g_nmaxe.market->timeout) {
@@ -98,7 +98,7 @@ void setup() {
   }
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";
-  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*12, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 1);
+  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*11, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 1);
   delay(10);
   /********************************************************** CREATE MONITOR THREAD ***************************************************/
   taskName = "(monitor)";
@@ -106,16 +106,79 @@ void setup() {
   delay(10);
   /********************************************************** CREATE MINER TX THREAD **************************************************/
   taskName = "(asic_tx)";
-  xTaskCreatePinnedToCore(miner_asic_tx_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_MINER_TX, &minerTxTask,1);
+  xTaskCreatePinnedToCore(miner_asic_tx_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_MINER_TX, &minerTxTask,1);
   delay(10);
   /*********************************************************  CREATE MINER RX THREAD **************************************************/
   taskName = "(asic_rx)";
-  xTaskCreatePinnedToCore(miner_asic_rx_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MINER_RX, &minerRxTask,0);
+  xTaskCreatePinnedToCore(miner_asic_rx_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_MINER_RX, &minerRxTask,0);
   delay(10);
 }
 
 
 void loop() {
-  delay(1000);
+  // TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask , stratumTask, minerTxTask, minerRxTask;
+#if 0
+  static uint32_t start = millis();
+  static UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(NULL);
+  static char *taskName = pcTaskGetName(NULL);
+  LOG_W("=======================================");
+  if(fanTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(fanTask);
+      taskName = pcTaskGetName(fanTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(ledTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(ledTask);
+      taskName = pcTaskGetName(ledTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(uiTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(uiTask);
+      taskName = pcTaskGetName(uiTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(btnTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(btnTask);
+      taskName = pcTaskGetName(btnTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(monitorTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(monitorTask);
+      taskName = pcTaskGetName(monitorTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(swarmTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(swarmTask);
+      taskName = pcTaskGetName(swarmTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(marketTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(marketTask);
+      taskName = pcTaskGetName(marketTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(daemonTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(daemonTask);
+      taskName = pcTaskGetName(daemonTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(stratumTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(stratumTask);
+      taskName = pcTaskGetName(stratumTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(minerTxTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(minerTxTask);
+      taskName = pcTaskGetName(minerTxTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+  if(minerRxTask != NULL) {
+      highWaterMark = uxTaskGetStackHighWaterMark(minerRxTask);
+      taskName = pcTaskGetName(minerRxTask);
+      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+  }
+#endif
+
+  delay(2000);
 }
 
