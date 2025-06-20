@@ -246,8 +246,14 @@ static void ui_layout_init(void){
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
     static const lv_font_t *font = &lv_font_montserrat_14;
     static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL, *lb_ip_and_slogan = NULL, *lb_pool_url = NULL;
-    static uint8_t progress = 0, progress_total = 18;
+    static uint8_t progress = 0;
     static lv_coord_t width = 0;
+#if HAS_VERSION_CHECK_FEATURE
+    static uint8_t progress_total = 18;
+#else
+    static uint8_t progress_total = 16;
+#endif
+
 
     lv_color_t font_color = lv_color_hex(color);
 
@@ -627,6 +633,7 @@ static void ui_miner_page_update(){
   }
 
   //version
+#if HAS_VERSION_CHECK_FEATURE
   if(compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release) == -1){
     static uint8_t version_cnt = 0;
     if(version_cnt++ % 2 == 0){
@@ -640,6 +647,12 @@ static void ui_miner_page_update(){
       lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_nmaxe.board.fw_version.substring(1, g_nmaxe.board.fw_version.length()).c_str());
     }
   }
+#else
+  font_color = lv_color_hex(0xFFFFFF);//white
+  lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN);
+  lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_nmaxe.board.fw_version.substring(1, g_nmaxe.board.fw_version.length()).c_str());
+#endif
+
 
   //Diff
   lv_label_set_text_fmt(lb_diff, "%s/%s/%s/%s", last_diff.c_str(), best_session.c_str(), best_ever.c_str(), network_diff.c_str());
@@ -1376,6 +1389,7 @@ void ui_thread_entry(void *args){
   }
   ui_loading_str_update("Wifi connected!", 0x00FF00, true);
   delay(500);
+#if HAS_VERSION_CHECK_FEATURE
   /***************************************wait for version check**************************************/
   cnt = 0;
   ui_loading_str_update(ver_chk_str[0], 0xFFFFFF, true);
@@ -1403,6 +1417,7 @@ void ui_thread_entry(void *args){
     ui_loading_str_update("Version check failed!", 0xFF0000, true);
     delay(2000);
   }
+#endif //HAS_VERSION_CHECK_FEATURE
   /***************************************wait for market connected************************************/
   cnt = 0;
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);

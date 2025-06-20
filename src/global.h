@@ -9,6 +9,9 @@
 #include "miner.h"
 #include "market.h"
 
+
+#define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
+
 #define CURRENT_FW_VERSION  "v2.7.05"
 #define CURRENT_HW_VERSION  "v1.1.1"
 

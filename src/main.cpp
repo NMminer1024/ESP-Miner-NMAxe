@@ -67,6 +67,7 @@ void setup() {
     delay(10);
   }
   /************************************************************ Version check **********************************************************/
+#if HAS_VERSION_CHECK_FEATURE
   ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 
   g_nmaxe.board.fw_latest_release = releaseChecker->get_latest_release();
 
@@ -81,6 +82,7 @@ void setup() {
     delay(1000*5);
   }
   delete releaseChecker;
+#endif
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
   xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, &swarmTask, 1);
