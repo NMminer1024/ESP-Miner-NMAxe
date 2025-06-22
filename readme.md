@@ -136,6 +136,42 @@ Batch firmware update on swarm page.
   <img src="image/nm-flash-tool.jpg" alt="nm-flash-tool">
 </div>
 
+## Recover A Bricked Device or Corrupt Firmware
+
+If your device is inaccessible, you can flash via USB using the commands below
+
+### Prerequisites
+* [esptool.py installed into virtual env (venv) ](https://docs.espressif.com/projects/esptool/en/latest/esp32/installation.html)
+* usb-c cable with data support
+* 5v power supply also connected (flashing requires more power than usb ports provide)
+* download spiffs.bin and/or firmware.bin from website
+* reboot nmaxe by holding "boot" button down and tapping small reboot button next to usb-c port
+
+### Confirm debug port is connected
+```
+esptool --chip esp32s3 --port COM3 flash_id
+```
+
+### Flash spiffs.bin
+
+flash spiffs.bin if your device web admin is corrupt or showing blank pages, but
+the device boots up and operates as expected
+
+```
+esptool --chip esp32s3 --port COM3 write_flash 0x410000 spiffs.bin
+```
+
+
+### Flash firmware.bin
+
+flash firmware.bin & spiffs.bin if the device does not boot when plugged in. 
+
+```
+esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
+```
+
+
+
 
 ## Contact
 - Anything do not work as your expectation, just let us know.
