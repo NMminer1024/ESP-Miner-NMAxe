@@ -324,7 +324,9 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("hostname")){
             nvs_config_set_string(NVS_CONFIG_HOSTNAME,root["hostname"].as<String>().c_str());
-            g_nmaxe.board.hostname = root["hostname"].as<String>();
+            nvs_config_set_string(NVS_CONFIG_AP_SSID, root["hostname"].as<String>().c_str());
+            g_nmaxe.board.hostname                    = root["hostname"].as<String>();
+            g_nmaxe.connection.wifi.softap_param.ssid = root["hostname"].as<String>();
         }
         if(root.containsKey("coreVoltage")){
             uint16_t req_mv = root["coreVoltage"].as<uint16_t>();

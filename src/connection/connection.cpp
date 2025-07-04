@@ -83,7 +83,7 @@ void wifi_connect_thread_entry(void *args){
 
     LOG_I("Try to connect [%s]...", param->ssid.c_str());
     WiFi.setHostname(g_nmaxe.board.hostname.c_str());
-    WiFi.begin(param->ssid.c_str(), param->pwd.c_str());
+    
     //start http server
     start_http_server();
     //force config
@@ -101,11 +101,13 @@ void wifi_connect_thread_entry(void *args){
         while(true){
             g_nmaxe.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
             if (WiFi.softAPgetStationNum() == 0) {
-                LOG_W("Force configuration, timeout: %ds...", g_nmaxe.connection.wifi.status_param.config_timeout);
+                LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_nmaxe.connection.wifi.softap_param.ssid.c_str(), g_nmaxe.connection.wifi.status_param.config_timeout);
             }
             delay(1000);
         }
     }
+    
+    WiFi.begin(param->ssid.c_str(), param->pwd.c_str());
     //wait for connection
     int maxRetries = 0;
     while (WiFi.status() != WL_CONNECTED && maxRetries < 60*5) {
@@ -126,7 +128,7 @@ void wifi_connect_thread_entry(void *args){
             while (true){
                 g_nmaxe.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
                 if (WiFi.softAPgetStationNum() == 0) {
-                    LOG_W("Force configuration, timeout: %ds...", g_nmaxe.connection.wifi.status_param.config_timeout);
+                    LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_nmaxe.connection.wifi.softap_param.ssid.c_str(), g_nmaxe.connection.wifi.status_param.config_timeout);
                 }
                 delay(1000);
             }

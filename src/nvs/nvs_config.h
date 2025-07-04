@@ -4,10 +4,11 @@
 #include <stdint.h>
 
 #define NVS_CONFIG_NAMESPACE "main"
-#define NVS_CONFIG_TIMEZONE "timezone"
+#define NVS_CONFIG_TIMEZONE  "timezone"
 #define NVS_CONFIG_WIFI_SSID "wifissid"
 #define NVS_CONFIG_WIFI_PASS "wifipass"
-#define NVS_CONFIG_HOSTNAME "hostname"
+#define NVS_CONFIG_HOSTNAME  "hostname"
+#define NVS_CONFIG_AP_SSID   "apssid"
 
 #define NVS_CONFIG_STRATUM_USER_PRIMARY "stratumuser"
 #define NVS_CONFIG_STRATUM_URL_PRIMARY "stratumurl1"

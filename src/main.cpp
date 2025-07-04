@@ -40,7 +40,7 @@ void setup() {
   delay(10);
   /********************************************************** CREATE BUTTON THREAD *****************************************************/
   taskName = "(button)";
-  xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_BTN, &btnTask,1);
+  xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_BTN, &btnTask,1);
   delay(10);
   /********************************************************* CREATE FAN THREAD *********************************************************/
   taskName = "(fan)";
