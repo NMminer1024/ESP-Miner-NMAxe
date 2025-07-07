@@ -45,7 +45,7 @@ namespace dbg
     /**
      * @brief Name of the debug section.
      */
-    #define DBG_SECTION_NAME  "Axe"
+    #define DBG_SECTION_NAME  "₿"
 
     /**
      * @brief Macro to print the debug log header with the specified level name and color.
@@ -55,7 +55,7 @@ namespace dbg
         #define _DBG_LOG_HDR(new_line, lvl_name, color_n) \
             do { \
                 if(new_line) { \
-                    Serial.printf("\033["#color_n"m[" lvl_name "/" DBG_SECTION_NAME "] "); \
+                    Serial.printf("\033["#color_n"m" DBG_SECTION_NAME " "); \
                 } else { \
                     Serial.printf("\033["#color_n"m"); \
                 } \
@@ -64,7 +64,7 @@ namespace dbg
         #define _DBG_LOG_HDR(new_line, lvl_name, color_n) \
             do { \
                 if(new_line) { \
-                    Serial.printf("[" lvl_name "/" DBG_SECTION_NAME "] "); \
+                    Serial.printf(DBG_SECTION_NAME " "); \
                 } else { \
                     Serial.printf(""); \
                 } \
