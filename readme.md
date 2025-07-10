@@ -148,6 +148,18 @@ Batch firmware update on swarm page.
 ## Release Log
 ***
 
+### (2025.07.10) - v2.7.05
+- `Add`:
+  - None
+- `Fixed`:
+  - ssl connection issue.
+- `Improved`:
+  - realtime log on AxeOS.
+- `Modify`:
+  - The hostname can be edited and modified by the user.
+- `Remove`:
+  - firmware update reminder.
+
 ### (2025.06.02) - v2.7.04
 - `Add`:
   - Auto TimeZone fetch base on public IP.
