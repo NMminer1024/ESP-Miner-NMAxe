@@ -303,6 +303,7 @@ void daemon_thread_entry(void *args){
       delay(100);
       ESP.restart();
     }
+    //ASIC daemon
     if(millis() - g_nmaxe.mstatus.asic_update > ASIC_ALIVE_TIMEOUT){
       LOG_W("ASIC seems frozen, restarting...");
       delay(100);

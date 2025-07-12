@@ -462,7 +462,6 @@ void stratum_thread_entry(void *args){
         }
 
         while(g_nmaxe.stratum->pool->available()){
-            g_nmaxe.connection.stratum_update = millis();//pool is alive
             stratum_method_data method = g_nmaxe.stratum->listen_methods();
             switch (method.type){
                 case STRATUM_DOWN_PARSE_ERROR:   
@@ -477,6 +476,7 @@ void stratum_thread_entry(void *args){
                             LOG_E("Failed to parse JSON: %s", error.c_str());
                             break;
                         }
+
                         job.id = String((const char*) json["params"][0]);
                         job.prevhash = String((const char*) json["params"][1]);
                         job.coinb1 = String((const char*) json["params"][2]);
@@ -519,6 +519,7 @@ void stratum_thread_entry(void *args){
                             xSemaphoreGive(g_nmaxe.stratum->new_job_xsem);//monitor thread
                             first_job = false;
                         }
+                        g_nmaxe.connection.stratum_update = millis();//pool alive timestamp
                     }         
                     break;
                 case STRATUM_DOWN_SET_DIFFICULTY: {

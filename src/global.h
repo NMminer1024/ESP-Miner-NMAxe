@@ -31,7 +31,7 @@
 
 #define ASIC_ALIVE_TIMEOUT     (1000*60*3)//3 minutes
 
-#define STRATUM_ALIVE_TIMEOUT  (1000*60*5)//5 minutes
+#define STRATUM_ALIVE_TIMEOUT  (1000*60*3)//3 minutes
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
