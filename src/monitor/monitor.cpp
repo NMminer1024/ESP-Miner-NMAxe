@@ -288,6 +288,7 @@ void daemon_thread_entry(void *args){
 
   while (true){
     delay(1000);
+
     //check ota status and reboot
     if(xSemaphoreTake(g_nmaxe.board.reboot_xsem, 0) == pdTRUE){
       ESP.restart();
@@ -297,10 +298,18 @@ void daemon_thread_entry(void *args){
       WiFi.begin(g_nmaxe.connection.wifi.conn_param.ssid.c_str(), g_nmaxe.connection.wifi.conn_param.pwd.c_str());
     }
     //Stratum daemon
-    if(millis() - g_nmaxe.connection.stratum_update > GLOBAL_ALIVE_TIMEOUT){
-      LOG_W("Stratum connection frozen, restarting...");
+    if(millis() - g_nmaxe.connection.stratum_update > STRATUM_ALIVE_TIMEOUT){
+      LOG_W("Stratum connection seems frozen, restarting...");
+      delay(100);
+      ESP.restart();
+    }
+    if(millis() - g_nmaxe.mstatus.asic_update > ASIC_ALIVE_TIMEOUT){
+      LOG_W("ASIC seems frozen, restarting...");
       delay(100);
       ESP.restart();
     }
   }
+  LOG_W("Daemon thread exiting...");
+  delay(1000);       // Give some time for logging
+  vTaskDelete(NULL); // This line is not strictly necessary, but it's good practice to clean up the task when done.
 }

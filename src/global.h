@@ -12,7 +12,7 @@
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define CURRENT_FW_VERSION  "v2.7.05"
+#define CURRENT_FW_VERSION  "v2.7.06"
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
@@ -29,7 +29,9 @@
 #define WIFI_RSSI_STRONG    (-60)
 #define WIFI_RSSI_GOOD      (-70)
 
-#define GLOBAL_ALIVE_TIMEOUT (1000*60*10)//10 minutes
+#define ASIC_ALIVE_TIMEOUT     (1000*60*3)//3 minutes
+
+#define STRATUM_ALIVE_TIMEOUT  (1000*60*5)//5 minutes
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
@@ -147,6 +149,7 @@ typedef struct{
     hashrate_t          hashrate;
     uint16_t            block_hits;
     diff_info_t         diff;
+    uint32_t            asic_update;  // timestamp of asic respond
     SemaphoreHandle_t   nvs_save_xsem;//save status to NVS signal
     SemaphoreHandle_t   update_xsem;  //miner status update signal
 }miner_status_t;
