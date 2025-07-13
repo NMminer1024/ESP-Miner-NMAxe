@@ -429,7 +429,8 @@ void miner_asic_rx_thread_entry(void *args){
                 
                 //update the block hit counter
                 if(diff >= g_nmaxe.mstatus.diff.network){
-                    g_nmaxe.mstatus.block_hits++;
+                    g_nmaxe.mstatus.hits = (g_nmaxe.mstatus.hits >= 99) ? 0 : (g_nmaxe.mstatus.hits);
+                    g_nmaxe.mstatus.hits++;
 
                     uint8_t header[4 + 32 + 32 + 4 + 4 + 4] = {0,};
                     uint8_t hash[32] = {0,};
@@ -462,6 +463,7 @@ void miner_asic_rx_thread_entry(void *args){
 
                     log_i("\r\n");
                     LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
+
                     xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
                 }
 

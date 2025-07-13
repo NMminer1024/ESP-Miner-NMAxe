@@ -39,8 +39,8 @@ static uint8_t   current_page_index = PAGE_MINER;
 
 
 static int blpwmChannel = 0;   
-static void tft_bl_ctrl(int dutyCycle){
-  uint8_t pwm = (TFT_BACKLIGHT_ON == HIGH) ? dutyCycle : (255 - dutyCycle);
+void tft_bl_ctrl(int8_t percent){
+  uint8_t pwm = (TFT_BACKLIGHT_ON == HIGH) ? percent : (255 - percent * 2.55);
   ledcWrite(blpwmChannel, pwm);
 }
 
@@ -57,7 +57,7 @@ static void tft_init(){
   pinMode(NM_AXE_TFT_BL_PIN, OUTPUT);
   ledcSetup(blpwmChannel, freq, resolution);
   ledcAttachPin(NM_AXE_TFT_BL_PIN, blpwmChannel);
-  tft_bl_ctrl(g_nmaxe.preference.screen.brightness * 2.55);
+  tft_bl_ctrl(g_nmaxe.preference.screen.brightness);
 }
 
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
@@ -328,8 +328,6 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_obj_set_width(lb_pool_url, width);
       lv_label_set_text( lb_pool_url, (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port).c_str());
     }
-
-
 
     if(prgress_update){
       lv_coord_t bar_x = lv_obj_get_x(bar);
@@ -626,12 +624,14 @@ static void ui_miner_page_update(){
   //hashrate unit
   lv_label_set_text_fmt(lb_hr_unit, "%s", hashuint.c_str());
   //block hit
-  if(g_nmaxe.mstatus.block_hits <= 9){
-    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
-  }else if (g_nmaxe.mstatus.block_hits <= 99){
+  if(g_nmaxe.mstatus.hits <= 9){
+  lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_50, LV_PART_MAIN);
+  lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 39); 
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.hits);
+  }else if (g_nmaxe.mstatus.hits <= 99){
     lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 50); 
     lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_28, LV_PART_MAIN);
-    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.block_hits);
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.hits);
   }
 
   //version
@@ -679,6 +679,8 @@ static void ui_miner_page_update(){
 }
 
 static void ui_ota_page_update(){
+  if(!g_nmaxe.ota.ota_running)return;
+
   static lv_obj_t * overlay = NULL, *bar = NULL, *label_file = NULL, *label_progress = NULL;
   static char progress_text[10];
   static lv_style_t style;
@@ -1177,7 +1179,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
     font = &ds_digib_font_56;
     font_color = lv_color_hex(0xEE7D30);
     lb_block_hit   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
-    lv_obj_set_width(lb_block_hit, 50);
+    lv_obj_set_width(lb_block_hit, 75);
     lv_label_set_text( lb_block_hit, " ");
     lv_obj_set_style_text_font(lb_block_hit, font, LV_PART_MAIN);
     lv_obj_set_style_text_color(lb_block_hit, font_color, LV_PART_MAIN);
@@ -1211,7 +1213,9 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
   //date
   lv_label_set_text_fmt(lb_date, "%s", datetime.substring(0, 10).c_str());
   //block hit
-  lv_label_set_text_fmt(lb_block_hit, "%s", String(miner_status->block_hits).c_str());
+  if(miner_status->hits < 10) lv_obj_align( lb_block_hit, LV_ALIGN_TOP_RIGHT, -10, 0);
+  else lv_obj_align( lb_block_hit, LV_ALIGN_TOP_RIGHT, -30, 0);
+  lv_label_set_text_fmt(lb_block_hit, "%s", String(miner_status->hits).c_str());
 
   
   //price value
@@ -1231,6 +1235,11 @@ void ui_switch_next_page_cb(){
   g_nmaxe.preference.led.sleep         = (g_nmaxe.preference.led.sleep_last) ? false : g_nmaxe.preference.led.sleep; //switch led sleep mode
 
   g_nmaxe.preference.screen.brightness = g_nmaxe.preference.screen.brightness_last;//restore brightness
+
+  if(g_nmaxe.mstatus.last_hits!= g_nmaxe.mstatus.hits) {
+    g_nmaxe.mstatus.last_hits = g_nmaxe.mstatus.hits;    //save last hits if button pressed
+    return;
+  } 
 
   current_page_index = (current_page_index == PAGE_BIG_DIGIT) ? PAGE_CONFIG : current_page_index;
   current_page_index++;
@@ -1484,9 +1493,7 @@ void ui_thread_entry(void *args){
   while (true){
     //wait for miner status update forever
     xSemaphoreTake(g_nmaxe.mstatus.update_xsem, portMAX_DELAY);
-    tft_bl_ctrl(g_nmaxe.preference.screen.brightness * 2.55);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
-
       // auto screen scrolling
       static uint32_t start = millis();
       if((millis() - start >= 1000*10) && g_nmaxe.preference.screen.auto_screen){
@@ -1502,12 +1509,8 @@ void ui_thread_entry(void *args){
       ui_hr_healthy_page_update(&g_nmaxe.mstatus);
       //update big digit page
       ui_big_digit_page_update(&g_nmaxe.mstatus, g_nmaxe.market->price);
-
       //update ota page
-      if(g_nmaxe.ota.ota_running){
-        ui_ota_page_update();
-      }
-
+      ui_ota_page_update();
       //release mutex
       xSemaphoreGive(lvgl_xMutex); 
     }

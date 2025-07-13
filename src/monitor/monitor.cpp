@@ -6,6 +6,7 @@
 #include "helper.h"
 #include "global.h"
 #include "timezone.h"
+#include "display.h"  
 
 #define UDP_BOARDCAST_ADDR    IPAddress(255,255,255,255)
 #define UDP_BOARDCAST_PORT    (12345)
@@ -46,7 +47,20 @@ void monitor_thread_entry(void *args){
 
   while(true){
       //thread delay 1000ms
-      delay(1000);
+      static uint32_t last = millis();
+      while(millis() - last < 1000*1){
+        static uint16_t brightness = g_nmaxe.preference.screen.brightness;
+        static float    x = 0;
+        if(g_nmaxe.mstatus.last_hits != g_nmaxe.mstatus.hits){//screen blink if block hit
+           brightness = 100*(1 + sin(x))/2;
+           x+=0.1;
+        }else brightness = g_nmaxe.preference.screen.brightness;
+
+        tft_bl_ctrl(brightness);
+        delay(10);
+      }
+      last = millis();
+
 
       // update utc time
       if(ntpClient.update()){
@@ -139,7 +153,7 @@ void monitor_thread_entry(void *args){
       }
 
       //save status to NVS
-      static uint64_t last_save_time = g_nmaxe.mstatus.uptime_ever;
+      static uint64_t last_save_time = g_nmaxe.mstatus.uptime_session;
       if(g_nmaxe.mstatus.uptime_ever - last_save_time > NVS_SAVE_INTERVAL){
         xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
       }
@@ -147,12 +161,11 @@ void monitor_thread_entry(void *args){
       //save some status to NVS
       if(xSemaphoreTake(g_nmaxe.mstatus.nvs_save_xsem, 0) == pdTRUE){
           nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(g_nmaxe.mstatus.diff.best_ever).c_str());
-          nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, g_nmaxe.mstatus.block_hits);
+          nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, g_nmaxe.mstatus.hits);
           nvs_config_set_u64(NVS_CONFIG_UPTIME, g_nmaxe.mstatus.uptime_ever);
           last_save_time = g_nmaxe.mstatus.uptime_ever;
-          LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.block_hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
+          LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
-
     }
 }
 
@@ -250,7 +263,7 @@ void swarm_thread_entry(void *args){
         jsonDoc["PoolDiff"] = formatNumber(g_nmaxe.mstatus.diff.pool,4);
         jsonDoc["LastDiff"] = formatNumber(g_nmaxe.mstatus.diff.last,4);
         jsonDoc["BestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.diff.best_ever,4);
-        jsonDoc["Valid"] = g_nmaxe.mstatus.block_hits;
+        jsonDoc["Valid"] = g_nmaxe.mstatus.hits;
         jsonDoc["Temp"] = g_nmaxe.temp.asic;
         jsonDoc["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
         jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;

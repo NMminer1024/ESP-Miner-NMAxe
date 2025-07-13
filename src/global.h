@@ -147,11 +147,12 @@ typedef struct{
     uint64_t            uptime_ever;
     uint64_t            uptime_session;
     hashrate_t          hashrate;
-    uint16_t            block_hits;
+    uint16_t            hits;
+    uint16_t            last_hits;//record the last hits
     diff_info_t         diff;
     uint32_t            asic_update;  // timestamp of asic respond
-    SemaphoreHandle_t   nvs_save_xsem;//save status to NVS signal
-    SemaphoreHandle_t   update_xsem;  //miner status update signal
+    SemaphoreHandle_t   nvs_save_xsem;// save status to NVS signal
+    SemaphoreHandle_t   update_xsem;  // miner status update signal
 }miner_status_t;
 
 typedef struct{
