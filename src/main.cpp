@@ -118,18 +118,6 @@ void setup() {
 
 
 void loop() {
-  // static uint32_t last = millis();
-  // if(millis() - last > 1000 * 2){
-  //   g_nmaxe.mstatus.hits = (g_nmaxe.mstatus.hits >= 99) ? 0 : (g_nmaxe.mstatus.hits);
-  //   g_nmaxe.mstatus.hits++;
-
-  //   last = millis();
-  // }
-
-
-
-
-
   // TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask , stratumTask, minerTxTask, minerRxTask;
 #if 0
   static uint32_t start = millis();

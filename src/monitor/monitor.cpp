@@ -154,7 +154,7 @@ void monitor_thread_entry(void *args){
 
       //save status to NVS
       static uint64_t last_save_time = g_nmaxe.mstatus.uptime_session;
-      if(g_nmaxe.mstatus.uptime_ever - last_save_time > NVS_SAVE_INTERVAL){
+      if(g_nmaxe.mstatus.uptime_session - last_save_time > NVS_SAVE_INTERVAL){
         xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
       }
       
@@ -163,7 +163,7 @@ void monitor_thread_entry(void *args){
           nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(g_nmaxe.mstatus.diff.best_ever).c_str());
           nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, g_nmaxe.mstatus.hits);
           nvs_config_set_u64(NVS_CONFIG_UPTIME, g_nmaxe.mstatus.uptime_ever);
-          last_save_time = g_nmaxe.mstatus.uptime_ever;
+          last_save_time = g_nmaxe.mstatus.uptime_session;
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
     }
