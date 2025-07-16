@@ -383,6 +383,17 @@ stratum_rsp StratumClass::get_method_rsp_by_id(uint32_t id){
     return rsp;
 }
 
+bool StratumClass::is_primary_pool_available(String url, uint16_t port){
+    WiFiClient client;
+    client.setTimeout(3000);
+    bool connected = client.connect(url.c_str(), port);
+    if (connected) {
+        client.stop();
+        return true;
+    }
+    return false;
+}
+
 void stratum_thread_entry(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
@@ -404,6 +415,29 @@ void stratum_thread_entry(void *args){
             continue;
         } else w_retry = 0;
         
+
+        static uint32_t last = millis();
+        if(g_nmaxe.connection.pool_use.url ==  g_nmaxe.connection.pool_fallback.url){
+            if(millis() - last > 1000 * 10){
+                bool res = g_nmaxe.stratum->is_primary_pool_available(g_nmaxe.connection.pool_primary.url, g_nmaxe.connection.pool_primary.port);
+                if(res){
+                    LOG_I("Primary pool [%s] available now, switching to primary pool...", g_nmaxe.connection.pool_primary.url.c_str());
+                    g_nmaxe.connection.pool_use = g_nmaxe.connection.pool_primary;
+                    g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_primary;
+
+                    g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
+                    g_nmaxe.stratum->pool->begin(g_nmaxe.connection.pool_use.ssl);
+                    g_nmaxe.stratum->pool->connect();
+                    g_nmaxe.mstatus.diff.last = 0;
+                }else{
+                    LOG_W("Primary pool [%s] is not available.", g_nmaxe.connection.pool_primary.url.c_str());
+                }
+                last = millis();
+            }
+        }
+
+
+
         static uint16_t p_retry = 0, p_maxRetries = 5;
         if(!g_nmaxe.stratum->pool->is_connected()){
             static bool    first_connect = true;

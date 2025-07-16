@@ -114,6 +114,7 @@ public:
     bool config_version_rolling();
     bool submit(String pool_job_id, String extranonce2, uint32_t ntime, uint32_t nonce, uint32_t version);
     bool hello_pool(uint32_t hello_interval, uint32_t lost_max_time);
+    bool is_primary_pool_available(String url, uint16_t port);
     stratum_method_data listen_methods();
 
     size_t push_job_cache(pool_job_data_t job);

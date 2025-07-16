@@ -293,22 +293,11 @@ void swarm_thread_entry(void *args){
   }
 }
 
-bool check_pool_available(String url, uint16_t port){
-    WiFiClient client;
-    client.setTimeout(3000);
-    bool connected = client.connect(url.c_str(), port);
-    if (connected) {
-        client.stop();
-        return true;
-    }
-    return false;
-}
-
 void daemon_thread_entry(void *args){
   char *name = (char*)malloc(20);
   strcpy(name, (char*)args);
   LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-  free(name);
+  // free(name);
 
   while (true){
     delay(1000);
@@ -332,25 +321,6 @@ void daemon_thread_entry(void *args){
       LOG_W("ASIC seems frozen, restarting...");
       delay(100);
       ESP.restart();
-    }
-    if(g_nmaxe.connection.pool_use.url ==  g_nmaxe.connection.pool_fallback.url){
-        static uint32_t last = millis();
-        if(millis() - last > 1000 * 30){
-            bool res = check_pool_available(g_nmaxe.connection.pool_primary.url, g_nmaxe.connection.pool_primary.port);
-            if(res){
-                LOG_I("Primary pool [%s] available now, switching to primary pool...", g_nmaxe.connection.pool_primary.url.c_str());
-                g_nmaxe.connection.pool_use = g_nmaxe.connection.pool_primary;
-                g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_primary;
-
-                g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
-                g_nmaxe.stratum->pool->begin(g_nmaxe.connection.pool_use.ssl);
-                g_nmaxe.stratum->pool->connect();
-                g_nmaxe.mstatus.diff.last = 0;
-            }else{
-                LOG_W("Primary pool [%s] is not available.", g_nmaxe.connection.pool_primary.url.c_str());
-            }
-            last = millis();
-        }
     }
   }
   LOG_W("Daemon thread exiting...");
