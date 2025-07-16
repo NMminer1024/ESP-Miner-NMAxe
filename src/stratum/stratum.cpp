@@ -416,6 +416,7 @@ void stratum_thread_entry(void *args){
         } else w_retry = 0;
         
 
+
         if(g_nmaxe.connection.pool_use.url ==  g_nmaxe.connection.pool_fallback.url){
             static uint32_t last = millis();
             if(millis() - last > 1000 * 30){
@@ -437,18 +438,15 @@ void stratum_thread_entry(void *args){
         }
 
 
-
-
         static uint16_t p_retry = 0, p_maxRetries = 5;
         if(!g_nmaxe.stratum->pool->is_connected()){
             static bool    first_connect = true;
-            p_retry++;
             if(first_connect){
                 LOG_I("Pool connecting...");
                 first_connect = false;
             }else LOG_W("Lost connection to pool, reconnecting %d/%d...", p_retry, p_maxRetries);
             
-            if(p_retry % p_maxRetries == 0){
+            if(++p_retry % p_maxRetries == 0){
                 if(g_nmaxe.connection.pool_use.url == g_nmaxe.connection.pool_primary.url){
                     g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_fallback;
                     g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_fallback;

@@ -132,6 +132,9 @@ void monitor_thread_entry(void *args){
           }
         }else fan_err_cnt = 0;
 
+        //avoid restart when ota running
+        if(g_nmaxe.ota.ota_running) continue;
+
         //check power status
         static uint16_t pwr_err_cnt = 0;
         if((g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0 / 1000.0) < BOARD_LOW_POWER){
@@ -289,6 +292,8 @@ void swarm_thread_entry(void *args){
     }
   }
 }
+
+
 
 
 
