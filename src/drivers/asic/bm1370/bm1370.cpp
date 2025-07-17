@@ -181,12 +181,12 @@ uint8_t BM1370::init(uint64_t freq, int diff){
 
     this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
 
-    
-    uint8_t init4[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA8, 0x00, 0x07, 0x00, 0x00, 0x03};
-    this->send(init4, 11);
+    uint8_t init4[] = {0x00, 0xA8, 0x00, 0x07, 0x00, 0x00};
+    this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), init4, 6);
 
-    uint8_t init5[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x18, 0xFF, 0x0F, 0xC1, 0x00, 0x00};//from S21 dump
-    this->send(init5, 11);                       
+    uint8_t init5[] = {0x00, 0x18, 0xF0, 0x00, 0xC1, 0x00}; //from S21 dump
+    this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), init5, 6);
+
 
     this->_set_chain_inactive();
 
@@ -196,25 +196,21 @@ uint8_t BM1370::init(uint64_t freq, int diff){
       this->_set_chip_address(i * address_interval);
     }
                                                          
-    uint8_t init135[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x3C, 0x80, 0x00, 0x85, 0x40, 0x0C};
-    this->send(init135, 11);
+    uint8_t init135[] = {0x00, 0x3C, 0x80, 0x00, 0x8B, 0x00};
+    this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), init135, 6);
 
-    uint8_t init136[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x3C, 0x80, 0x00, 0x80, 0x20, 0x19};
-    this->send(init136, 11);
+    uint8_t init136[] = {0x00, 0x3C, 0x80, 0x00, 0x80, 0x0C}; //from S21 dump
+    this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), init136, 6);
+
 
     this->set_job_difficulty(diff);
 
-    uint8_t init138[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x54, 0x00, 0x00, 0x00, 0x03, 0x1D};
-    this->send(init138, 11);
 
-    uint8_t init139[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x58, 0x02, 0x11, 0x11, 0x11, 0x06};
-    this->send(init139, 11);
+    uint8_t init139[] = {0x00, 0x58, 0x00, 0x01, 0x11, 0x11};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init139, 6);//command all chips, write chip address 00, register 58, data 01 11 11 11 - Set the IO Driver Strength on chip 00
 
-    uint8_t init171[11] = {0x55, 0xAA, 0x41, 0x09, 0x00, 0x2C, 0x00, 0x7C, 0x00, 0x03, 0x03};
-    this->send(init171, 11);
-
-    uint8_t init173[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03};
-    this->send(init173, 11);
+    uint8_t init141[] = {0x00, 0x28, 0x11, 0x30, 0x02, 0x00};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init141, 6);
 
 
     for (uint8_t i = 0; i < chip_counter; i++) {
@@ -229,6 +225,19 @@ uint8_t BM1370::init(uint64_t freq, int diff){
         uint8_t set_3c_register_third[6] = {(uint8_t)(i * address_interval), 0x3C, 0x80, 0x00, 0x82, 0xAA};
         this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_third, 6);
     }
+
+    uint8_t init142[] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init142, 6);
+
+    uint8_t init143[] = {0x00, 0x54, 0x00, 0x00, 0x00, 0x02};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init143, 6);
+
+    uint8_t init144[] = {0x00, 0xB9, 0x00, 0x00, 0x44, 0x80};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init144, 6);
+
+    uint8_t init145[] = {0x00, 0x3C, 0x80, 0x00, 0x8D, 0xEE};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init145, 6);
+
 
     this->frequency_ramp_up((float)freq);//do_frequency_ramp_up();
 
