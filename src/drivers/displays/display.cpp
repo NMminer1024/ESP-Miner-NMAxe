@@ -96,9 +96,36 @@ static void ui_drv_register(void){
 
   static lv_disp_draw_buf_t lvgl_draw_buf;
   static lv_disp_drv_t      disp_drv;
-  static lv_color_t         color_buf[ SCREEN_WIDTH * SCREEN_HEIGHT / 10 ];
+  
+  // Allocate LVGL color buffer in PSRAM for memory optimization
+  static lv_color_t *color_buf = NULL;
+  static const size_t color_buf_size = SCREEN_WIDTH * SCREEN_HEIGHT / 10;
+  
+  if (color_buf == NULL) {
+    // Try to allocate in PSRAM first
+    size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    size_t buffer_bytes = color_buf_size * sizeof(lv_color_t);
+    
+    if (psram_free > buffer_bytes * 2) { // Leave safety margin
+      color_buf = (lv_color_t*)heap_caps_malloc(buffer_bytes, MALLOC_CAP_SPIRAM);
+      if (color_buf != NULL) {
+        LOG_I("✓ LVGL display buffer allocated in PSRAM: %d bytes at 0x%p", buffer_bytes, color_buf);
+      }
+    }
+    
+    // Fallback to internal RAM if PSRAM allocation failed
+    if (color_buf == NULL) {
+      color_buf = (lv_color_t*)heap_caps_malloc(buffer_bytes, MALLOC_CAP_INTERNAL);
+      if (color_buf != NULL) {
+        LOG_W("LVGL display buffer allocated in internal RAM: %d bytes", buffer_bytes);
+      } else {
+        LOG_E("Failed to allocate LVGL display buffer!");
+        return; // Cannot proceed without display buffer
+      }
+    }
+  }
 
-  lv_disp_draw_buf_init( &lvgl_draw_buf, color_buf, NULL, SCREEN_WIDTH * SCREEN_HEIGHT / 10 );
+  lv_disp_draw_buf_init( &lvgl_draw_buf, color_buf, NULL, color_buf_size );
   /*Initialize the display*/
   lv_disp_drv_init( &disp_drv );
   /*Change the following line to your display resolution*/
