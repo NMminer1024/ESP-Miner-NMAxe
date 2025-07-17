@@ -257,7 +257,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_text_font(lb_version, font, LV_PART_MAIN);
   lv_obj_set_style_text_color(lb_version, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(lb_version, LV_LABEL_LONG_DOT);
-  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 8), SCREEN_HEIGHT - 18);
+  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 9), SCREEN_HEIGHT - 18);
   //////////////////////////////////////config page layout///////////////////////////////////////////////
   //config timeout
   font = &lv_font_montserrat_14;

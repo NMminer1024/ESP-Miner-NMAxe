@@ -145,7 +145,7 @@ void BM1370::frequency_ramp_up(float target_frequency){
         float next_step = fminf(step, target_frequency - current);
         current += next_step;
         this->_set_hash_frequency(-1, current, 0.001);
-        LOG_W("Current frequency: %.2f MHz", current);
+        LOG_W("Current frequency: %.2f MHz/ Target frequency: %.2f MHz", current, target_frequency);
     }
 }
 
