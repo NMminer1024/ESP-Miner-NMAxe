@@ -148,6 +148,19 @@ Batch firmware update on swarm page.
 ## Release Log
 ***
 
+### (2025.07.18) - v2.8.01
+- `Add`:
+  - When the primary mining pool active again, miner will switch back to the primary pool within 10s.
+  - Screen brightness will blink from 10%~100% when miner hit a block.
+- `Fixed`:
+  - BM1370 init queeze.
+- `Improved`:
+  - Memory usage.
+- `Modify`:
+  - None.
+- `Remove`:
+  - None.
+
 ### (2025.07.10) - v2.7.05
 - `Add`:
   - None

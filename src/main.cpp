@@ -58,7 +58,7 @@ void setup() {
   }
   /************************************************************** INIT DAEMON **********************************************************/
   taskName = "(daemon)";
-  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, &daemonTask, 1);
+  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, &daemonTask, 1);
   delay(10);
   /************************************************************** INIT WIFI ************************************************************/
   taskName = "(wifi)";
@@ -85,7 +85,7 @@ void setup() {
 #endif
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
-  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, &swarmTask, 1);
+  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, &swarmTask, 1);
   delay(10);
   /*********************************************************** CREATE MARKET THREAD ****************************************************/
   taskName = "(market)";
