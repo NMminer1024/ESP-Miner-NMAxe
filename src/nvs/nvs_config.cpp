@@ -200,8 +200,8 @@ bool load_g_nmaxe(void){
         g_nmaxe.board.hw_model = BOARD_NMAxe;
         g_nmaxe.asic.model     = "BM1366";
         g_nmaxe.asic.job_frq_ms = 2000;
-        default_asic_frq        = 575;
-        default_asic_vcore      = 1300;
+        default_asic_frq        = 550;
+        default_asic_vcore      = 1200;
     }
     else if(NMAXE_GAMMA == model){
         g_nmaxe.board.hw_model = BOARD_NMAxeGamma;
