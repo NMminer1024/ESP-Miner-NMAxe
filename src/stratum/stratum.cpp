@@ -399,6 +399,7 @@ void stratum_thread_entry(void *args){
     strcpy(name, (char*)args);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
+    bool is_primary_pool = true;
 
     g_nmaxe.stratum->set_pool_difficulty(DEFAULT_POOL_DIFFICULTY);
     StaticJsonDocument<1024*4> json;
@@ -417,7 +418,7 @@ void stratum_thread_entry(void *args){
         
 
         static uint32_t last = millis();
-        if(g_nmaxe.connection.pool_use.url ==  g_nmaxe.connection.pool_fallback.url){
+        if(!is_primary_pool){
             if(millis() - last > 1000 * 10){
                 bool res = g_nmaxe.stratum->is_primary_pool_available(g_nmaxe.connection.pool_primary.url, g_nmaxe.connection.pool_primary.port);
                 if(res){
@@ -447,13 +448,15 @@ void stratum_thread_entry(void *args){
             }else LOG_W("Lost connection to pool, reconnecting %d/%d...", p_retry, p_maxRetries);
             
             if(++p_retry % p_maxRetries == 0){
-                if(g_nmaxe.connection.pool_use.url == g_nmaxe.connection.pool_primary.url){
+                if(is_primary_pool){
                     g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_fallback;
                     g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_fallback;
+                    is_primary_pool                = false;
                     LOG_W(">>>> Set pool to fallback [%s:%d] <<<<", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
                 }else{
                     g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_primary;
                     g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_primary;
+                    is_primary_pool                = true;
                     LOG_W(">>>> Set pool to primary [%s:%d] <<<<", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
                 }
             }
