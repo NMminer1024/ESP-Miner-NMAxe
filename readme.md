@@ -148,6 +148,18 @@ Batch firmware update on swarm page.
 ## Release Log
 ***
 
+### (2025.07.22) - v2.8.02
+- `Add`:
+  - None.
+- `Fixed`:
+  - Primary pool switch back logic.
+- `Improved`:
+  - None.
+- `Modify`:
+  - NMAxe default OC 550MHz and 1200mV for summer ambient temperature.
+- `Remove`:
+  - None.
+
 ### (2025.07.18) - v2.8.01
 - `Add`:
   - When the primary mining pool active again, miner will switch back to the primary pool within 10s.
