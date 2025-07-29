@@ -685,89 +685,184 @@ a {
 // Mining card specific styling to support nested components
 .mining-card {
   ::ng-deep {
-    // Mining pool section styling
+    // Mining pool section styling with enhanced visual distinction
     .mining-pool-section {
-      margin: 20px 0;
+      margin: 24px 0;
       padding: 20px;
       border-radius: 12px;
-      border: 2px solid;
       position: relative;
+      background: rgba(255, 255, 255, 0.02) !important;
+      border: 2px dashed transparent;
+      transition: all 0.3s ease;
       
-      .pool-title {
-        font-size: 16px;
-        font-weight: 600;
-        margin: 0 0 16px 0;
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      }
+      
+      // Pool header with icon and description
+      .pool-header {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        
+        .pool-icon {
+          font-size: 28px;
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .pool-title {
+          font-size: 18px;
+          font-weight: 700;
+          margin: 0;
+          flex: 1;
+        }
+        
+        .pool-description {
+          font-size: 12px;
+          font-style: italic;
+          opacity: 0.8;
+          margin-left: auto;
+          padding: 4px 8px;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+        }
       }
       
-      .pool-description {
-        color: #666;
-        font-style: italic;
-        font-size: 12px;
-      }
-      
+      // Primary pool styling - Gold theme
       &.primary-pool {
-        border: 2px dashed #28a745 !important; // Green dashed border
-        background: transparent !important; // Remove background
+        border: 2px dashed #FFD700 !important; // Gold dashed border
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), rgba(255, 215, 0, 0.02)) !important;
+        
+        .pool-icon {
+          background: linear-gradient(135deg, #FFD700, #FFA500);
+          color: #000;
+          box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+        }
         
         .pool-title {
-          color: #28a745;
+          color: #FFD700;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .pool-description {
+          color: #FFD700;
+          background: rgba(255, 215, 0, 0.15);
+        }
+        
+        // Input focus effects for primary pool
+        .p-inputtext:focus {
+          border-color: #FFD700 !important;
+          box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.25) !important;
+        }
+        
+        .p-dropdown:focus {
+          border-color: #FFD700 !important;
+          box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.25) !important;
         }
       }
       
+      // Backup pool styling - Silver theme
       &.backup-pool {
-        border: 2px dashed #ff9417 !important; // Orange dashed border
-        background: transparent !important; // Remove background
+        border: 2px dashed #C0C0C0 !important; // Silver dashed border
+        background: linear-gradient(135deg, rgba(192, 192, 192, 0.05), rgba(192, 192, 192, 0.02)) !important;
+        
+        .pool-icon {
+          background: linear-gradient(135deg, #C0C0C0, #A0A0A0);
+          color: #000;
+          box-shadow: 0 0 20px rgba(192, 192, 192, 0.4);
+        }
         
         .pool-title {
-          color: #ff9417;
+          color: #C0C0C0;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .pool-description {
+          color: #C0C0C0;
+          background: rgba(192, 192, 192, 0.15);
+        }
+        
+        // Input focus effects for backup pool
+        .p-inputtext:focus {
+          border-color: #C0C0C0 !important;
+          box-shadow: 0 0 0 2px rgba(192, 192, 192, 0.25) !important;
+        }
+        
+        .p-dropdown:focus {
+          border-color: #C0C0C0 !important;
+          box-shadow: 0 0 0 2px rgba(192, 192, 192, 0.25) !important;
         }
       }
       
-      // Remove dark styling overrides to restore white labels
+      // Enhanced input styling
       .p-dropdown {
         border-radius: 8px !important;
-        border: 1px solid #e0e0e0 !important;
+        border: 1px solid #404040 !important;
+        background: rgba(255, 255, 255, 0.05) !important;
         font-size: 14px !important;
+        transition: all 0.3s ease !important;
         
         .p-dropdown-label {
           padding: 12px 16px !important;
+          color: #fff !important;
+        }
+        
+        .p-dropdown-trigger {
+          color: #fff !important;
         }
         
         &:hover {
-          border-color: #007bff !important;
-          box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15) !important;
-        }
-        
-        &:focus, &.p-focus {
-          border-color: #007bff !important;
-          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+          border-color: #555 !important;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
         }
       }
       
       .p-inputtext {
         border-radius: 8px !important;
-        border: 1px solid #e0e0e0 !important;
+        border: 1px solid #404040 !important;
+        background: rgba(255, 255, 255, 0.05) !important;
         padding: 12px 16px !important;
         font-size: 14px !important;
+        color: #fff !important;
+        transition: all 0.3s ease !important;
         
         &:hover {
-          border-color: #007bff !important;
+          border-color: #555 !important;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
         }
         
-        &:focus {
-          border-color: #007bff !important;
-          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        &::placeholder {
+          color: #aaa !important;
         }
       }
       
+      // Ensure white labels
       label {
-        color: #fff !important; // Ensure white labels
+        color: #ffffff !important;
         font-weight: 600 !important;
         font-size: 15px !important;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7) !important;
+        margin-bottom: 8px !important;
+      }
+      
+      // Field spacing
+      .field {
+        margin-bottom: 16px !important;
+        
+        &:last-child {
+          margin-bottom: 0 !important;
+        }
       }
     }
   }

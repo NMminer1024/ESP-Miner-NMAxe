@@ -6,65 +6,63 @@
                   optionValue="value" formControlName="coin"></p-dropdown>
     </div>
 
-
-
-
-
-
-
-
-    
-    <div class="field grid p-fluid">
-      <label htmlFor="stratumUser1" class="col-12 mb-2 md:col-2 md:mb-0">Stratum USER ( Primary ):</label>
-      <div class="col-12 md:col-10">
-        <input pInputText id="stratumUser1" formControlName="stratumUser1" type="text" />
+    <!-- Primary Pool Section -->
+    <div class="mining-pool-section primary-pool">
+      <div class="pool-header">
+        <span class="pool-icon">🥇</span>
+        <h4 class="pool-title">Primary Pool</h4>
+        <small class="pool-description">This pool is used on miner bootup</small>
       </div>
-    </div>
+      
+      <div class="field grid p-fluid">
+        <label htmlFor="stratumUser1" class="col-12 mb-2 md:col-2 md:mb-0">Stratum USER:</label>
+        <div class="col-12 md:col-10">
+          <input pInputText id="stratumUser1" formControlName="stratumUser1" type="text" />
+        </div>
+      </div>
 
-    <div class="field grid p-fluid">
-      <label htmlFor="stratumURL1" class="col-12 mb-2 md:col-2 md:mb-0">Stratum URL ( Primary ):</label>
-      <div class="col-12 md:col-10">
-        <input pInputText id="stratumURL1" type="text" formControlName="stratumURL1" formControlName="stratumURL1" />
-        <div>
-          <small class="light-green-text">'This pool is used on miner bootup'</small>
+      <div class="field grid p-fluid">
+        <label htmlFor="stratumURL1" class="col-12 mb-2 md:col-2 md:mb-0">Stratum URL:</label>
+        <div class="col-12 md:col-10">
+          <input pInputText id="stratumURL1" type="text" formControlName="stratumURL1" />
+        </div>
+      </div>
+
+      <div class="field grid p-fluid">
+        <label htmlFor="stratumPassword1" class="col-12 mb-2 md:col-2 md:mb-0">Stratum PWD:</label>
+        <div class="col-12 md:col-10">
+          <input pInputText id="stratumPassword1" formControlName="stratumPassword1" type="text" />
         </div>
       </div>
     </div>
 
-    <div class="field grid p-fluid">
-      <label htmlFor="stratumPassword1" class="col-12 mb-2 md:col-2 md:mb-0">Stratum PWD ( Primary ):</label>
-      <div class="col-12 md:col-10">
-        <input pInputText id="stratumPassword1" formControlName="stratumPassword1" type="text" />
+    <!-- Backup Pool Section -->
+    <div class="mining-pool-section backup-pool">
+      <div class="pool-header">
+        <span class="pool-icon">🥈</span>
+        <h4 class="pool-title">Backup Pool</h4>
+        <small class="pool-description">This pool is used if the primary pool fails</small>
       </div>
-    </div>
-
-
-
-
-
-
-
-    <div class="field grid p-fluid">
-      <label htmlFor="stratumUser2" class="col-12 mb-2 md:col-2 md:mb-0">Stratum USER ( FallBack ):</label>
-      <div class="col-12 md:col-10">
-        <input pInputText id="stratumUser2" formControlName="stratumUser2" type="text" />
-      </div>
-    </div>
-
-    <div class="field grid p-fluid">
-      <label htmlFor="stratumURL2" class="col-12 mb-2 md:col-2 md:mb-0">Stratum URL ( FallBack ):</label>
-      <div class="col-12 md:col-10">
-        <input pInputText id="stratumURL2" type="text" formControlName="stratumURL2" formControlName="stratumURL2" />
-        <div>
-          <small class="light-green-text">'This pool is used if the primary pool fails'</small>
+      
+      <div class="field grid p-fluid">
+        <label htmlFor="stratumUser2" class="col-12 mb-2 md:col-2 md:mb-0">Stratum USER:</label>
+        <div class="col-12 md:col-10">
+          <input pInputText id="stratumUser2" formControlName="stratumUser2" type="text" />
         </div>
       </div>
-    </div>
 
-    <div class="field grid p-fluid">
-      <label htmlFor="stratumPassword2" class="col-12 mb-2 md:col-2 md:mb-0">Stratum PWD ( FallBack ):</label>
-      <div class="col-12 md:col-10">
-        <input pInputText id="stratumPassword2" formControlName="stratumPassword2" type="text" />
+      <div class="field grid p-fluid">
+        <label htmlFor="stratumURL2" class="col-12 mb-2 md:col-2 md:mb-0">Stratum URL:</label>
+        <div class="col-12 md:col-10">
+          <input pInputText id="stratumURL2" type="text" formControlName="stratumURL2" />
+        </div>
+      </div>
+
+      <div class="field grid p-fluid">
+        <label htmlFor="stratumPassword2" class="col-12 mb-2 md:col-2 md:mb-0">Stratum PWD:</label>
+        <div class="col-12 md:col-10">
+          <input pInputText id="stratumPassword2" formControlName="stratumPassword2" type="text" />
+        </div>
       </div>
     </div>
 
