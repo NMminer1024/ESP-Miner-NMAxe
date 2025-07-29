@@ -23,8 +23,10 @@
       <div class="stat-icon">🎯</div>
       <div class="stat-content">
         <div class="stat-label">Best Difficulty</div>
-        <div class="stat-value single-line-diff">
-          {{ getFilteredBestDiffSession() }} / {{ getFilteredBestDiffEver() }}
+        <div class="stat-value difficulty-value">
+          <span class="session-diff">{{ getFilteredBestDiffSession() }}</span>
+          <span class="diff-separator"> / </span>
+          <span class="alltime-diff">{{ getFilteredBestDiffEver() }}</span>
         </div>
         <div class="stat-unit">session / all-time</div>
       </div>

@@ -25,6 +25,7 @@ export class HomeComponent {
   public hashrateData: number[] = [];
   public asicTempData: number[] = [];
   public vcoreTempData: number[] = [];
+  public expectedHashrateData: number[] = [];
   public chartData?: any;
 
   constructor(
@@ -76,6 +77,19 @@ export class HomeComponent {
           pointRadius: 1,
           borderWidth: 1,
           yAxisID: 'y_temp'
+        },
+        {
+          type: 'line',
+          label: 'Expected Hashrate',
+          data: [],
+          fill: false,
+          backgroundColor: 'rgba(255, 165, 0, 0.7)',
+          borderColor: 'rgba(255, 165, 0, 0.7)',
+          borderDash: [5, 5],
+          tension: 0,
+          pointRadius: 0,
+          borderWidth: 2,
+          yAxisID: 'y_hashrate'
         }
       ]
     };
@@ -154,17 +168,27 @@ export class HomeComponent {
         this.vcoreTempData.push(info.vrTemp);
         this.timeLabel.push(new Date().getTime());
 
+        // Add expected hashrate using calculated value
+        const expectedHashrate = Math.floor(info.frequency * ((info.smallCoreCount * info.asicCount) / 1000)) * 1000000000; // Convert GH/s to H/s
+        
+        if (!this.expectedHashrateData) {
+          this.expectedHashrateData = [];
+        }
+        this.expectedHashrateData.push(expectedHashrate);
+
         if (this.hashrateData.length > 2000) {
           this.hashrateData.shift();
           this.asicTempData.shift();
           this.vcoreTempData.shift();
           this.timeLabel.shift();
+          this.expectedHashrateData.shift();
         }
 
         this.chartData.labels = this.timeLabel;
         this.chartData.datasets[0].data = this.hashrateData;
         this.chartData.datasets[1].data = this.asicTempData;
         this.chartData.datasets[2].data = this.vcoreTempData;
+        this.chartData.datasets[3].data = this.expectedHashrateData;
 
       // 触发更新
         if (this.chart && this.chart.chart) {

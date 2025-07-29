@@ -1,8 +1,402 @@
-.danger {
-  color: red;
+// Dashboard Home Styles
+.dashboard-home {
+  color: #fff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  padding: 5px;
+  min-height: 100vh;
+}
+
+// Main Statistics Cards
+.main-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 0 0 20px 0;
+  padding: 0;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+  border-radius: 10px;
+  padding: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+  border: 1px solid #404040;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #4CAF50, #66BB6A);
+  }
+
+  &.hashrate-card::before {
+    background: linear-gradient(90deg, #4CAF50, #66BB6A);
+  }
+
+  &.shares-card::before {
+    background: linear-gradient(90deg, #2196F3, #42A5F5);
+  }
+
+  &.efficiency-card::before {
+    background: linear-gradient(90deg, #FF9800, #FFB74D);
+  }
+
+  &.difficulty-card::before {
+    background: linear-gradient(90deg, #9C27B0, #BA68C8);
+  }
+}
+
+.stat-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+  text-align: center;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.stat-content {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  font-size: 24px;
   font-weight: bold;
+  color: #fff;
+  margin-bottom: 4px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+
+  &.hashrate-value {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 8px;
+    
+    .hashrate-number {
+      font-size: 28px;
+      font-weight: bold;
+      color: #4CAF50;
+      text-shadow: 0 2px 6px rgba(76,175,80,0.3);
+      line-height: 1;
+    }
+    
+    .hashrate-unit {
+      font-size: 12px;
+      color: #aaa;
+      margin-left: 4px;
+      align-self: baseline;
+      line-height: 1;
+    }
+  }
+
+  &.single-line-diff {
+    font-size: 16px;
+    color: #9C27B0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &.difficulty-value {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    font-size: 16px;
+    
+    .session-diff {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    
+    .diff-separator {
+      color: #aaa;
+      margin: 0 4px;
+    }
+    
+    .alltime-diff {
+      color: #FF9800;
+      font-weight: bold;
+    }
+  }
+}
+
+.stat-unit {
+  font-size: 12px;
+  color: #888;
+}
+
+.stat-sub {
+  font-size: 12px;
+  color: #FFC107;
+  margin-top: 4px;
+
+  &.rejected {
+    color: #f44336;
+  }
+}
+
+// Chart Section
+.chart-section {
+  margin: 20px 0;
+}
+
+.chart-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  border: 1px solid #404040;
+
+  h5 {
+    color: #fff;
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    font-weight: 500;
+  }
+}
+
+// Secondary Stats Grid
+.secondary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.power-card, .heat-card, .performance-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  border: 1px solid #404040;
+  transition: all 0.3s ease;
+
+  h5 {
+    color: #fff;
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    font-weight: 500;
+    text-align: center;
+  }
+}
+
+.power-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 15px;
+  text-align: center;
+}
+
+.heat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 15px;
+  text-align: center;
+}
+
+.performance-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+}
+
+.voltage-comparison {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  justify-content: center;
+}
+
+.voltage-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.voltage-vs {
+  font-size: 16px;
+  font-weight: bold;
+  color: #FF9800;
+  text-shadow: 0 2px 4px rgba(255,152,0,0.3);
+}
+
+.voltage-label {
+  font-size: 15px;
+  color: #aaa;
+  text-align: center;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.power-item, .heat-item, .performance-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.power-label, .heat-label, .performance-label {
+  font-size: 14px;
+  color: #aaa;
+  text-align: center;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+// Device Information
+.device-info {
+  margin: 20px 0;
+}
+
+.combined-info {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  border: 1px solid #404040;
+
+  h5 {
+    color: #fff;
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    font-weight: 500;
+    text-align: center;
+  }
+}
+
+.info-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 25px;
+}
+
+.info-section {
+  h6 {
+    color: #4CAF50;
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 8px;
+  }
+}
+
+// Information Tables (Legacy support)
+.info-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.info-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  border: 1px solid #404040;
+
+  h5 {
+    color: #fff;
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    font-weight: 500;
+  }
+}
+
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  tr {
+    border-bottom: 1px dashed #444;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  td {
+    padding: 8px 0;
+    font-size: 14px;
+    line-height: 1.4;
+
+    &.label {
+      color: #aaa;
+      width: 40%;
+      font-weight: 500;
+    }
+
+    &.value {
+      color: #fff;
+      word-break: break-all;
+    }
+  }
+}
+
+.pool-link {
+  color: #4CAF50;
+  text-decoration: underline;
+  transition: color 0.3s ease;
+
+  &:hover {
+    color: #66BB6A;
+  }
+}
+
+// Existing styles
+.danger {
+  color: #f44336;
+  font-weight: bold;
+  font-size: 10px;
+  margin-top: 4px;
 }
 
 .card {
   min-height: 100%;
+}
+
+// Loading state
+ng-template {
+  text-align: center;
+  color: #aaa;
+  padding: 20px;
+}
+
+// Knob rounded line endings
+::ng-deep .p-knob svg {
+  .p-knob-range,
+  .p-knob-value {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+// Disable knob interaction
+::ng-deep .p-knob {
+  pointer-events: none;
+  user-select: none;
 }

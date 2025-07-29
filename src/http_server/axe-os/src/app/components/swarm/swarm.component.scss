@@ -143,6 +143,28 @@ body {
     text-overflow: ellipsis;
   }
 
+  &.difficulty-value {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    font-size: 16px;
+    
+    .session-diff {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    
+    .diff-separator {
+      color: #aaa;
+      margin: 0 4px;
+    }
+    
+    .alltime-diff {
+      color: #FF9800;
+      font-weight: bold;
+    }
+  }
+
   &.hashrate-value {
     display: flex;
     align-items: baseline;
