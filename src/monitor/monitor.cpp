@@ -264,12 +264,12 @@ void swarm_thread_entry(void *args){
         jsonDoc["NetDiff"] = formatNumber(g_nmaxe.mstatus.diff.network,4);
         jsonDoc["PoolDiff"] = formatNumber(g_nmaxe.mstatus.diff.pool,4);
         jsonDoc["LastDiff"] = formatNumber(g_nmaxe.mstatus.diff.last,4);
-        jsonDoc["BestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.diff.best_ever,4);
+        jsonDoc["BestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session,4) + "\n" + formatNumber(g_nmaxe.mstatus.diff.best_ever,4);
         jsonDoc["Valid"] = g_nmaxe.mstatus.hits;
         jsonDoc["Temp"] = g_nmaxe.temp.asic;
         jsonDoc["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
         jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
-        jsonDoc["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
+        jsonDoc["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\n" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);
         jsonDoc["Version"] = g_nmaxe.board.fw_version;
         jsonDoc["BoardType"] = g_nmaxe.board.hw_model;
         jsonDoc["Power"]     = String(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 1) + "W";

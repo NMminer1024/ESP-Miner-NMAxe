@@ -137,6 +137,9 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   public allSelected = false;
 
+  // Filter properties
+  public filterHighPower = false;
+  public filterLowPower = false;
 
   private intervalId: any;
 
@@ -344,6 +347,119 @@ export class SwarmComponent implements OnInit, OnDestroy {
         }
       });
     });
+  }
+
+  // Filter methods
+  public toggleHighPowerFilter() {
+    this.filterHighPower = !this.filterHighPower;
+    if (this.filterHighPower) {
+      this.filterLowPower = false;
+    }
+  }
+
+  public toggleLowPowerFilter() {
+    this.filterLowPower = !this.filterLowPower;
+    if (this.filterLowPower) {
+      this.filterHighPower = false;
+    }
+  }
+
+  public clearFilters() {
+    this.filterHighPower = false;
+    this.filterLowPower = false;
+  }
+
+  public getTempClass(temp: number): string {
+    if (temp === 0) {
+      return 'temp-na';
+    } else if (temp < 60) {
+      return 'temp-good';
+    } else if (temp >= 60 && temp <= 75) {
+      return 'temp-warning';
+    } else {
+      return 'temp-danger';
+    }
+  }
+
+  public formatMultiLineData(data: string): string {
+    if (!data) return '';
+    // 替换 \r 或 \n 为 HTML 换行标签
+    return data.replace(/[\r\n]/g, '\n');
+  }
+
+  public getFilteredData(): NMDevice[] {
+    let filtered = this.swarmData;
+    
+    if (this.filterHighPower) {
+      filtered = filtered.filter(device => this.isHighPower(device));
+    } else if (this.filterLowPower) {
+      filtered = filtered.filter(device => this.isLowPower(device));
+    }
+    
+    return this.sort(filtered);
+  }
+
+  public isHighPower(device: NMDevice): boolean {
+    const hashRate = HashSuffixPipe.revert(device.HashRate);
+    return hashRate >= 1000000000; // >= 1GH/s
+  }
+
+  public isLowPower(device: NMDevice): boolean {
+    const hashRate = HashSuffixPipe.revert(device.HashRate);
+    return hashRate < 1000000000; // < 1GH/s
+  }
+
+  public getHighPowerCount(): number {
+    return this.swarmData.filter(device => this.isHighPower(device)).length;
+  }
+
+  public getLowPowerCount(): number {
+    return this.swarmData.filter(device => this.isLowPower(device)).length;
+  }
+
+  // Methods for filtered statistics
+  public getFilteredHashRate(): string {
+    const filteredData = this.getFilteredData();
+    let totalHashRate = 0;
+    filteredData.forEach(device => {
+      totalHashRate += HashSuffixPipe.revert(device.HashRate);
+    });
+    return HashSuffixPipe.transform(totalHashRate);
+  }
+
+  public getFilteredBestDiffSession(): string {
+    const filteredData = this.getFilteredData();
+    if (filteredData.length === 0) return '0';
+    
+    const sessionDiffs = filteredData.map(device => {
+      // 处理 \r 或 \n 分隔符
+      const parts = device.BestDiff.split(/[\r\n]/);
+      return parts.length > 0 ? parts[0] : device.BestDiff;
+    });
+    return this.getBestDiffFromArray(sessionDiffs);
+  }
+
+  public getFilteredBestDiffEver(): string {
+    const filteredData = this.getFilteredData();
+    if (filteredData.length === 0) return '0';
+    
+    const everDiffs = filteredData.map(device => {
+      // 处理 \r 或 \n 分隔符
+      const parts = device.BestDiff.split(/[\r\n]/);
+      return parts.length > 1 ? parts[1] : '0';
+    });
+    return this.getBestDiffFromArray(everDiffs);
+  }
+
+  private getBestDiffFromArray(diffs: string[]): string {
+    let max = 0;
+    diffs.forEach(item => {
+      const diff = DiffSuffixPipe.revert(item);
+      if (diff > max) {
+        max = diff;
+      }
+    });
+    return DiffSuffixPipe.transform(max);
   }
 
   protected readonly SortIndex = SortIndex;

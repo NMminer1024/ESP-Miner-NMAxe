@@ -1,81 +1,146 @@
-<div class="clock">
-  <p>{{ currentDate }} {{ currentTime }}</p>
+<!-- Header -->
+<div class="header-section">
+  <div class="clock">
+    <!-- 移除升级按钮 -->
+  </div>
+</div>
+
+<!-- Dashboard -->
+@if (swarmSummary) {
+  <div class="dashboard">
+    <div class="stat-card workers-card">
+      <div class="stat-icon">👥</div>
+      <div class="stat-content">
+        <div class="stat-label">Total Workers</div>
+        <div class="stat-value">{{ swarmData.length || 0 }}</div>
+        <div class="stat-unit">miners</div>
+      </div>
+    </div>
+    <div class="stat-card hashrate-card">
+      <div class="stat-icon">⚡</div>
+      <div class="stat-content">
+        <div class="stat-label">Total HashRate</div>
+        <div class="stat-value">{{ getFilteredHashRate() }}</div>
+        <div class="stat-unit">total power</div>
+      </div>
+    </div>
+    <div class="stat-card difficulty-card">
+      <div class="stat-icon">🎯</div>
+      <div class="stat-content">
+        <div class="stat-label">Best Difficulty</div>
+        <div class="stat-value multi-line-card">
+          <div class="session-best">{{ getFilteredBestDiffSession() }}</div>
+          <div class="all-time-best">{{ getFilteredBestDiffEver() }}</div>
+        </div>
+        <div class="stat-unit">session / all-time</div>
+      </div>
+    </div>
+    <div class="stat-card time-card">
+      <div class="stat-icon">🕒</div>
+      <div class="stat-content">
+        <div class="stat-label">Last Update</div>
+        <div class="stat-value">{{ currentTime }}</div>
+        <div class="stat-unit">real-time</div>
+      </div>
+      <div class="pulse-indicator"></div>
+    </div>
+  </div>
+  
+  <!-- Compact Filters -->
+  <div class="compact-filter-section">
+    <div class="compact-filter-buttons">
+      <div class="compact-filter-btn high-power-btn" [class.active]="filterHighPower" (click)="toggleHighPowerFilter()">
+        <span class="filter-icon">🐇</span>
+        <span class="filter-text">High (≥1GH/s) ({{ getHighPowerCount() }})</span>
+      </div>
+      <div class="compact-filter-btn low-power-btn" [class.active]="filterLowPower" (click)="toggleLowPowerFilter()">
+        <span class="filter-icon">🐌</span>
+        <span class="filter-text">Low (<1GH/s) ({{ getLowPowerCount() }})</span>
+      </div>
+    </div>
+  </div>
+}
+
+<div>
+
+<!-- Main Table -->
+<div class="table-section">
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>
+            <input type="checkbox" [(ngModel)]="allSelected" (change)="toggleAll()" />
+          </th>
+          <th class="col-index">#</th>
+          <th class="col-ip sortable" (click)="sortTable(SortIndex.IP)">IP</th>
+          <th class="col-board sortable" (click)="sortTable(SortIndex.BoardType)">Board</th>
+          <th class="col-hash sortable" (click)="sortTable(SortIndex.HashRate)">HashRate</th>
+          <th class="col-share sortable" (click)="sortTable(SortIndex.Share)">Share(R/A)</th>
+          <th class="col-diff sortable" (click)="sortTable(SortIndex.PoolDiff)">PoolDiff</th>
+          <th class="col-diff sortable" (click)="sortTable(SortIndex.NetDiff)">NetDiff</th>
+          <th class="col-diff sortable" (click)="sortTable(SortIndex.LastDiff)">LastDiff</th>
+          <th class="col-diff sortable" (click)="sortTable(SortIndex.BestDiff)">BestDiff</th>
+          <th class="col-valid sortable" (click)="sortTable(SortIndex.Valid)">Hits</th>
+          <th class="col-power sortable" (click)="sortTable(SortIndex.Power)">Power</th>
+          <th class="col-temp sortable" (click)="sortTable(SortIndex.Temp)">Temp</th>
+          <th class="col-rssi sortable" (click)="sortTable(SortIndex.RSSI)">RSSI</th>
+          <th class="col-mem sortable" (click)="sortTable(SortIndex.FreeHeap)">Memory</th>
+          <th class="col-version sortable" (click)="sortTable(SortIndex.Version)">Version</th>
+          <th class="col-uptime sortable" (click)="sortTable(SortIndex.UpTime)">Uptime</th>
+          <th class="col-lastseen sortable" (click)="sortTable(SortIndex.LastSeen)">Lastseen</th>
+          <th class="col-edit">Restart</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let axe of getFilteredData(); let i = index" [class.high-power]="isHighPower(axe)" [class.low-power]="isLowPower(axe)">
+          <td><input type="checkbox" [(ngModel)]="axe.selected" (change)="updateSelection()" /></td>
+          <td>{{ i + 1 }}</td>
+          <td><a class="ip" [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
+          <td class="boardtype-column">{{ axe.BoardType }}</td>
+          <td>{{ axe.HashRate }}</td>
+          <td>{{ axe.Share }}</td>
+          <td>{{ axe.PoolDiff }}</td>
+          <td>{{ axe.NetDiff }}</td>
+          <td>{{ axe.LastDiff }}</td>
+          <td class="multi-line">{{ formatMultiLineData(axe.BestDiff) }}</td>
+          <td>{{ axe.Valid }}</td>
+          <td [class.temp-na]="!axe.Power || axe.Power === '---'">{{ (axe.Power && axe.Power !== '---') ? axe.Power : 'N/A' }}</td>
+          <td class="temp" [ngClass]="getTempClass(axe.Temp)">
+            {{ axe.Temp == 0 ? 'N/A' : (axe.Temp | number: '1.1-1') + ' ℃' }}
+          </td>
+          <td class="common-column">{{ axe.RSSI }} <small>dBm</small></td>
+          <td class="common-column">{{ axe.FreeHeap | number: '1.1-1' }} <small>KB</small></td>
+          <td class="version">{{ axe.Version }}</td>
+          <td class="uptime-column multi-line">{{ formatMultiLineData(axe.Uptime) }}</td>
+          <td class="lastseen-column">{{ axe.Lastseen | dateAgo }}</td>
+          <td>
+            <button class="edit-btn" (click)="restart(axe)">⚡</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- Batch Update Buttons -->
   @if (selectedItems.length > 0) {
-    <p-button severity="danger" (click)="showUpdateFirmware = true" label="Update Firmware"></p-button>
-    <p-button severity="danger" (click)="showUpdateWebsite = true" label="Update Website"></p-button>
+    <div class="table-controls batch-update-controls">
+      <div class="update-controls">
+        <p-button severity="danger" (click)="showUpdateFirmware = true" label="Update Firmware" size="small"></p-button>
+        <p-button severity="danger" (click)="showUpdateWebsite = true" label="Update Website" size="small"></p-button>
+      </div>
+      <div class="table-info">
+        <div class="info-item">
+          <span class="info-icon">✓</span>
+          <span>{{ selectedItems.length }} selected</span>
+        </div>
+      </div>
+    </div>
   }
 </div>
-<div>
-  @if (swarmSummary) {
-    <table cellspacing="0" cellpadding="0">
-      <tr>
-        <th>Total Hash Rate</th>
-        <th>Session best difficulty</th>
-        <th>All time best difficulty</th>
-      </tr>
-      <tr>
-        <td>{{ swarmSummary.HashRate }}</td>
-        <td>{{ swarmSummary.BestDiffSession }}</td>
-        <td>{{ swarmSummary.BestDiffEver }}</td>
-      </tr>
-    </table>
-  }
-
-  <table cellspacing="0" cellpadding="0">
-    <tr>
-      <th>
-        <input type="checkbox" [(ngModel)]="allSelected" (change)="toggleAll()" />
-      </th>
-      <th>#</th>
-      <th (click)="sortTable(SortIndex.IP)" class="sortable">IP</th>
-      <th (click)="sortTable(SortIndex.BoardType)" class="sortable">Board</th>
-      <th (click)="sortTable(SortIndex.HashRate)" class="sortable">Hash Rate</th>
-      <th (click)="sortTable(SortIndex.Share)" class="sortable">Share(R/A)</th>
-      <th (click)="sortTable(SortIndex.PoolDiff)" class="sortable">Pool Diff</th>
-      <th (click)="sortTable(SortIndex.NetDiff)" class="sortable">Net Diff</th>
-      <th (click)="sortTable(SortIndex.LastDiff)" class="sortable">Last Diff</th>
-      <th (click)="sortTable(SortIndex.BestDiff)" class="sortable">Best Diff</th>
-      <th (click)="sortTable(SortIndex.Valid)" class="sortable">Valid</th>
-      <th (click)="sortTable(SortIndex.Power)" class="sortable">Power</th>
-      <th (click)="sortTable(SortIndex.Temp)" class="sortable">Temp</th>
-      <th (click)="sortTable(SortIndex.RSSI)" class="sortable">RSSI</th>
-      <th (click)="sortTable(SortIndex.FreeHeap)" class="sortable">Free Heap</th>
-      <th (click)="sortTable(SortIndex.Version)" class="sortable">Version</th>
-      <th (click)="sortTable(SortIndex.UpTime)" class="sortable">Uptime</th>
-      <th (click)="sortTable(SortIndex.LastSeen)" class="sortable">Last Seen</th>
-      <!-- <th>Edit</th> -->
-      <th>Restart</th>
-      <!-- <th>Remove</th> -->
-    </tr>
-    <!-- <ng-container *ngFor="let axeOs$ of swarm">
-        <tr *ngIf="axeOs$ | async as axe"> -->
-    <!-- <ng-container *ngFor="let axe of swarmData">         -->
-    <tr *ngFor="let axe of swarmData; let i = index">
-      <td><input type="checkbox" [(ngModel)]="axe.selected" (change)="updateSelection()" /></td>
-      <td>{{ i + 1 }}</td>
-      <td><a [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
-      <td class="boardtype-column">{{ axe.BoardType }}</td>
-      <td>{{ axe.HashRate }}</td>
-      <td>{{ axe.Share }}</td>
-      <td>{{ axe.PoolDiff }}</td>
-      <td>{{ axe.NetDiff }}</td>
-      <td>{{ axe.LastDiff }}</td>
-      <td>{{ axe.BestDiff }}</td>
-      <td>{{ axe.Valid }}</td>
-      <td>{{ axe.Power }}</td>
-      <td class="common-column">{{ axe.Temp | number: '1.1-1' }} <small>℃</small></td>
-      <td class="common-column">{{ axe.RSSI }} <small>dBm</small></td>
-      <td class="common-column">{{ axe.FreeHeap | number: '1.1-1' }} <small>KB</small></td>
-      <td>{{ axe.Version }}</td>
-      <td class="uptime-column">{{ axe.Uptime }}</td>
-      <td class="lastseen-column">{{ axe.Lastseen | dateAgo }}</td>
-      <td>
-        <p-button icon="pi pi-sync" pp-button severity="danger" (click)="restart(axe)"></p-button>
-      </td>
-      <!-- <td><p-button icon="pi pi-trash" pp-button severity="secondary" (click)="remove(axe)"></p-button></td> -->
-    </tr>
-    <!-- </ng-container> -->
-  </table>
+<!-- Footer -->
+<div class="footer">
+  <p>&copy; 2024 NMTech | <a href='https://github.com/NMminer1024/ESP-Miner-NMAxe' target='_blank'>GitHub</a></p>
 </div>
 
 <div class="modal-backdrop" *ngIf="showUpdateFirmware" (click)="showUpdateFirmware = false"></div>
