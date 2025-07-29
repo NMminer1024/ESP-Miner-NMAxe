@@ -17,16 +17,23 @@
   </div> -->
 
   <div class="col-12">
-    <div class="card">
-      <h2>Realtime Logs
-        <button pButton (click)="toggleLogs()" style="margin-left: 15px;" class="btn btn-secondary">
-          {{ showLogs ? 'Hide' : 'Show' }} Logs
-        </button>
-        <button pButton style="margin-left: 15px;" class="btn btn-secondary" (click)="stopScroll = !stopScroll"
-                *ngIf="showLogs">
-          {{ stopScroll ? 'Start' : 'Stop' }} Scrolling
-        </button>
-      </h2>
+    <div class="logs-container">
+      <div class="logs-header">
+        <span class="logs-icon">📋</span>
+        <h2>Realtime Logs</h2>
+        <div class="logs-controls">
+          <button pButton (click)="toggleLogs()" 
+                  class="p-button-rounded p-button-outlined" 
+                  [label]="showLogs ? 'Hide Logs' : 'Show Logs'">
+          </button>
+          <button pButton 
+                  *ngIf="showLogs"
+                  (click)="stopScroll = !stopScroll"
+                  class="p-button-rounded p-button-outlined"
+                  [label]="stopScroll ? 'Start Scrolling' : 'Stop Scrolling'">
+          </button>
+        </div>
+      </div>
 
       <div *ngIf="showLogs" id="logs" #scrollContainer>
         <pre *ngFor="let log of logs" class="log-entry">₿ {{ log }}</pre>

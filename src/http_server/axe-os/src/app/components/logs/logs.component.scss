@@ -1,22 +1,69 @@
-// #logs {
-//     height: 500px;
-//     width: 100%;
-//     font-family: monospace;
-//     border: 1px solid #304562;
-//     overflow-y: scroll;
-//     >div {
-//         max-width: 100%;
-//         line-break: anywhere;
+// Modern card styling for logs
+.logs-container {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
+  border: 1px solid #404040 !important;
+  padding: 1.5rem;
+  min-height: 75vh;
+  display: flex;
+  flex-direction: column;
+}
 
-//     }
-// }
+.logs-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  margin-bottom: 20px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 2px solid #404040 !important;
+  letter-spacing: 0.5px !important;
+  
+  .logs-icon {
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #404040, #505050);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  h2 {
+    flex: 1;
+    margin: 0;
+    color: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  .logs-controls {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+  }
+}
 
 #logs {
-  height: 75vh;
+  flex: 1;
   width: 100%;
+  height: calc(100vh - 280px); // 固定高度，减去头部、标题和边距
+  max-height: calc(100vh - 280px); // 确保不会超过可视区域
   font-family: "Courier New", Courier, monospace;
-  border: 1px solid #304562;
-  overflow-y: scroll;
+  background: rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid #555 !important;
+  border-radius: 8px !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem;
+  color: #ffffff !important;
+  font-size: 13px;
+  line-height: 1.4;
 
   > div {
     max-width: 100%;
@@ -26,6 +73,77 @@
   .log-entry {
     font-family: inherit;
     white-space: pre-wrap;
-    margin: 0;
+    margin: 0 0 1px 0; // 减少行间距
+    padding: 0;
+    background: none;
+    border: none;
+    line-height: 1.2; // 紧凑行高
+    
+    &:hover {
+      background: none;
+    }
+    
+    &:last-child {
+      background: none; // 去掉底部加深色
+      animation: newLogEntry 0.3s ease-in-out; // 保留入场动画
+    }
+  }
+
+  // 自定义滚动条
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #555, #666);
+    border-radius: 4px;
+    
+    &:hover {
+      background: linear-gradient(135deg, #666, #777);
+    }
+  }
+}
+
+// 新日志条目的入场动画（轻量版）
+@keyframes newLogEntry {
+  0% {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// Logs control buttons styling
+::ng-deep .logs-controls {
+  .p-button {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    border-radius: 20px !important;
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    transition: all 0.3s ease !important;
+
+    &:hover {
+      background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+      border: 1px solid #4CAF50 !important;
+      color: #ffffff !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+    }
+
+    &:focus {
+      outline: none !important;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3) !important;
+    }
   }
 }
