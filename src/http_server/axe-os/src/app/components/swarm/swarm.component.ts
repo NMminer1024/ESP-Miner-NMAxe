@@ -253,12 +253,14 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 
   public toggleAll() {
-    this.swarmData.forEach(item => item.selected = this.allSelected);
+    const filteredData = this.getFilteredData();
+    filteredData.forEach(item => item.selected = this.allSelected);
     this.updateSelection();
   }
 
   updateSelection() {
-    this.allSelected = this.swarmData.every(item => item.selected);
+    const filteredData = this.getFilteredData();
+    this.allSelected = filteredData.length > 0 && filteredData.every(item => item.selected);
     this.selectedItems = this.swarmData.filter(item => item.selected);
   }
 
@@ -418,13 +420,30 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 
   // Methods for filtered statistics
-  public getFilteredHashRate(): string {
+  public getFilteredHashRate(): number {
     const filteredData = this.getFilteredData();
     let totalHashRate = 0;
     filteredData.forEach(device => {
       totalHashRate += HashSuffixPipe.revert(device.HashRate);
     });
-    return HashSuffixPipe.transform(totalHashRate);
+    return totalHashRate; // 返回原始H/s值
+  }
+
+  // 格式化算力显示
+  public getFormattedHashRate(): { value: number, unit: string } {
+    const hashRateInHS = this.getFilteredHashRate();
+    
+    if (hashRateInHS >= 1000000000000) { // >= 1TH/s
+      return { value: hashRateInHS / 1000000000000, unit: 'TH/s' };
+    } else if (hashRateInHS >= 1000000000) { // >= 1GH/s
+      return { value: hashRateInHS / 1000000000, unit: 'GH/s' };
+    } else if (hashRateInHS >= 1000000) { // >= 1MH/s
+      return { value: hashRateInHS / 1000000, unit: 'MH/s' };
+    } else if (hashRateInHS >= 1000) { // >= 1KH/s
+      return { value: hashRateInHS / 1000, unit: 'KH/s' };
+    } else {
+      return { value: hashRateInHS, unit: 'H/s' };
+    }
   }
 
   public getFilteredBestDiffSession(): string {

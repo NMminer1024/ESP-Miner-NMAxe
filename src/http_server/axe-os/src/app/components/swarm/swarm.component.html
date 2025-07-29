@@ -1,13 +1,16 @@
-<!-- Header -->
-<div class="header-section">
-  <div class="clock">
-    <!-- 移除升级按钮 -->
-  </div>
-</div>
-
 <!-- Dashboard -->
 @if (swarmSummary) {
   <div class="dashboard">
+    <div class="stat-card hashrate-card">
+      <div class="stat-icon">⚡</div>
+      <div class="stat-content">
+        <div class="stat-label">Total HashRate</div>
+        <div class="stat-value hashrate-value">
+          <span class="hashrate-number">{{ getFormattedHashRate().value | number: '1.2-2' }}</span>
+          <span class="hashrate-unit">{{ getFormattedHashRate().unit }}</span>
+        </div>
+      </div>
+    </div>
     <div class="stat-card workers-card">
       <div class="stat-icon">👥</div>
       <div class="stat-content">
@@ -16,21 +19,12 @@
         <div class="stat-unit">miners</div>
       </div>
     </div>
-    <div class="stat-card hashrate-card">
-      <div class="stat-icon">⚡</div>
-      <div class="stat-content">
-        <div class="stat-label">Total HashRate</div>
-        <div class="stat-value">{{ getFilteredHashRate() }}</div>
-        <div class="stat-unit">total power</div>
-      </div>
-    </div>
     <div class="stat-card difficulty-card">
       <div class="stat-icon">🎯</div>
       <div class="stat-content">
         <div class="stat-label">Best Difficulty</div>
-        <div class="stat-value multi-line-card">
-          <div class="session-best">{{ getFilteredBestDiffSession() }}</div>
-          <div class="all-time-best">{{ getFilteredBestDiffEver() }}</div>
+        <div class="stat-value single-line-diff">
+          {{ getFilteredBestDiffSession() }} / {{ getFilteredBestDiffEver() }}
         </div>
         <div class="stat-unit">session / all-time</div>
       </div>

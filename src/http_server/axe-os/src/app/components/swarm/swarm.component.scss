@@ -4,7 +4,7 @@ body {
   color: #fff;
   font-family: 'Segoe UI', Arial, sans-serif;
   margin: 0;
-  padding: 2px;
+  padding: 0;
   font-size: 16px;
   box-sizing: border-box;
 }
@@ -12,11 +12,11 @@ body {
 // Header Section
 .header-section {
   text-align: center;
-  margin-bottom: 10px;
+  margin-bottom: 5px;
   
   h1 {
     color: #fff;
-    margin: 10px 0;
+    margin: 5px 0;
     font-size: 28px;
     font-weight: 300;
   }
@@ -41,18 +41,18 @@ body {
 .dashboard {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-  margin: 10px 0;
-  padding: 0 10px;
+  gap: 12px;
+  margin: 0;
+  padding: 5px;
 }
 
 .stat-card {
   background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
-  border-radius: 12px;
-  padding: 15px;
+  border-radius: 10px;
+  padding: 12px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   transition: all 0.3s ease;
   border: 1px solid #404040;
 
@@ -93,8 +93,8 @@ body {
 }
 
 .stat-icon {
-  font-size: 28px;
-  margin-bottom: 10px;
+  font-size: 24px;
+  margin-bottom: 8px;
   text-align: center;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
 }
@@ -112,10 +112,10 @@ body {
 }
 
 .stat-value {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: bold;
   color: #fff;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
   text-shadow: 0 2px 4px rgba(0,0,0,0.3);
   
   &.multi-line-card {
@@ -124,14 +124,46 @@ body {
     gap: 4px;
     
     .session-best {
-      font-size: 20px;
+      font-size: 18px;
       color: #4CAF50;
     }
     
     .all-time-best {
-      font-size: 18px;
+      font-size: 16px;
       color: #FFC107;
       opacity: 0.9;
+    }
+  }
+
+  &.single-line-diff {
+    font-size: 16px;
+    color: #4CAF50;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &.hashrate-value {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 8px;
+    
+    .hashrate-number {
+      font-size: 32px;
+      font-weight: bold;
+      color: #4CAF50;
+      text-shadow: 0 2px 6px rgba(76,175,80,0.3);
+      line-height: 1;
+    }
+    
+    .hashrate-unit {
+      font-size: 14px;
+      color: #aaa;
+      margin-left: 4px;
+      align-self: baseline;
+      line-height: 1;
     }
   }
 }
@@ -160,8 +192,8 @@ body {
 
 // Compact Filter Section
 .compact-filter-section {
-  margin: 10px 0;
-  padding: 0 10px;
+  margin: 5px 0;
+  padding: 0 5px;
 }
 
 .compact-filter-buttons {
@@ -228,17 +260,17 @@ body {
 
 // Table Styles
 .table-container {
-  width: 98%;
+  width: 100%;
   max-width: none;
-  margin: 20px auto;
+  margin: 15px auto;
   overflow-x: auto;
   box-sizing: border-box;
-  padding: 0 5px;
+  padding: 0 2px;
 }
 
 table {
   width: 100%;
-  min-width: 1400px;
+  min-width: 1200px; // 减少最小宽度
   table-layout: auto;
   border-collapse: separate;
   border-spacing: 0;
@@ -254,19 +286,19 @@ table {
 th {
   background: #2d5a27;
   color: #fff;
-  padding: 12px 8px;
+  padding: 10px 4px;
   text-align: center;
   font-weight: bold;
-  font-size: 16px;
+  font-size: 14px;
   white-space: nowrap;
   box-sizing: border-box;
   min-width: 60px;
 
   &:first-child {
     border-top-left-radius: 10px;
-    padding: 8px 4px; // 复选框列更紧凑
-    width: 35px;
-    max-width: 35px;
+    padding: 6px 2px; // 复选框列更紧凑
+    width: 30px;
+    max-width: 30px;
   }
 
   &:last-child {
@@ -286,23 +318,23 @@ th {
 td {
   background: #444;
   color: #fff;
-  padding: 8px 6px;
+  padding: 6px 4px;
   text-align: center;
   border-bottom: 1px solid #555;
-  font-size: 13px;
+  font-size: 12px;
   box-sizing: border-box;
-  line-height: 1.3;
+  line-height: 1.2;
   white-space: nowrap;
   min-width: 60px;
 
   &:first-child {
-    padding: 8px 4px; // 复选框列更紧凑
-    width: 35px;
-    max-width: 35px;
+    padding: 6px 2px; // 复选框列更紧凑
+    width: 30px;
+    max-width: 30px;
     
     input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       margin: 0;
     }
   }
@@ -326,23 +358,23 @@ tbody tr:last-child td {
 }
 
 // Column specific styles
-th:first-child { min-width: 35px; max-width: 35px; width: 35px; } // Checkbox column
-.col-ip { min-width: 120px; }
-.col-pool { min-width: 120px; }
-.col-uptime { min-width: 100px; }
-.col-lastseen { min-width: 100px; }
-.col-edit { min-width: 80px; }
-.col-index { min-width: 35px; max-width: 35px; width: 35px; }
-.col-board { min-width: 100px; }
-.col-hash { min-width: 120px; }
-.col-share { min-width: 100px; }
-.col-diff { min-width: 100px; }
-.col-valid { min-width: 50px; max-width: 50px; width: 50px; }
-.col-power { min-width: 80px; }
-.col-temp { min-width: 80px; }
-.col-rssi { min-width: 80px; }
-.col-mem { min-width: 90px; }
-.col-version { min-width: 90px; }
+th:first-child { min-width: 30px; max-width: 30px; width: 30px; } // Checkbox column
+.col-ip { min-width: 100px; max-width: 120px; }
+.col-pool { min-width: 100px; }
+.col-uptime { min-width: 80px; }
+.col-lastseen { min-width: 80px; }
+.col-edit { min-width: 60px; max-width: 70px; }
+.col-index { min-width: 30px; max-width: 30px; width: 30px; }
+.col-board { min-width: 70px; max-width: 80px; }
+.col-hash { min-width: 90px; max-width: 100px; }
+.col-share { min-width: 70px; max-width: 80px; }
+.col-diff { min-width: 70px; max-width: 80px; }
+.col-valid { min-width: 40px; max-width: 40px; width: 40px; }
+.col-power { min-width: 60px; max-width: 70px; }
+.col-temp { min-width: 60px; max-width: 70px; }
+.col-rssi { min-width: 60px; max-width: 70px; }
+.col-mem { min-width: 70px; max-width: 80px; }
+.col-version { min-width: 70px; max-width: 80px; }
 
 // Special cell styles
 .ip {
@@ -396,7 +428,7 @@ tr.low-power {
   padding: 6px 10px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 21px; // 增大1.5倍（14px * 1.5 = 21px）
   transition: all 0.3s ease;
   display: inline-flex;
   align-items: center;
