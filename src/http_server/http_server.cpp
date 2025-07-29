@@ -355,6 +355,7 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("coin")){
             nvs_config_set_string(NVS_CONFIG_MINING_COIN,root["coin"].as<String>().c_str());
+            g_nmaxe.coin = root["coin"].as<String>();
         }
         if(root.containsKey("invertscreen")){
 

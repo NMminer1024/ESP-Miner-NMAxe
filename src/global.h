@@ -33,6 +33,11 @@
 
 #define STRATUM_ALIVE_TIMEOUT  (1000*60*3)//3 minutes
 
+#define MARKET_UPDATE_INTERVAL (1000*5)  // ms
+
+#define MARKET_TIMEOUT         (MARKET_UPDATE_INTERVAL * 3) // ms
+
+
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
     TASK_PRIORITY_SWARM    ,

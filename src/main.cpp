@@ -90,13 +90,15 @@ void setup() {
   /*********************************************************** CREATE MARKET THREAD ****************************************************/
   taskName = "(market)";
   xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, &marketTask, 1);
-  while (!g_nmaxe.market->updated){
-    static uint32_t start = millis();
-    if(g_nmaxe.market->timeout) {
-      delay(2000);
+  uint32_t start = millis();
+  while (true){
+    if(millis() - start - g_nmaxe.market->lastUpdate >= MARKET_TIMEOUT){
+      LOG_W("Market data update timeout, exiting...");
+      delay(1000);
       break;
     }
-    delay(10);
+    LOG_I("Waiting for market data update... %ds elapsed", (millis() - start) / 1000);
+    delay(1000);
   }
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";

@@ -27,8 +27,7 @@ void monitor_thread_entry(void *args){
   // fetch timezone from ipapi
   TimezoneFetcher *tz = new TimezoneFetcher();
   if(!tz->fetch()){
-      g_nmaxe.mstatus.timezone = "8"; //default timezone
-      LOG_W("Timezone fetch failed, using default timezone: %s", g_nmaxe.mstatus.timezone.c_str()); 
+      LOG_W("Timezone fetch failed, using user setting timezone: %s", g_nmaxe.mstatus.timezone.c_str()); 
   }else{
       g_nmaxe.mstatus.timezone = tz->timezone;
       LOG_W("Timezone calibrate to : %s", g_nmaxe.mstatus.timezone.c_str());

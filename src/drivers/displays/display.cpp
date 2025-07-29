@@ -348,7 +348,8 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_obj_set_style_text_color(lb_ip_and_slogan, lv_color_hex(0x00FF00), LV_PART_MAIN); 
       lv_label_set_text( lb_ip_and_slogan, g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
     }
-    if(true == g_nmaxe.market->updated){
+
+    if(g_nmaxe.market->lastUpdate != 0){
       String pool_str = (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port);
       width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), &lv_font_montserrat_16, 0, LV_TEXT_FLAG_NONE);
       width = (width > SCREEN_WIDTH) ? SCREEN_WIDTH : width;
@@ -592,7 +593,7 @@ static void ui_miner_page_update(){
   String network_diff = formatNumber(g_nmaxe.mstatus.diff.network, 2);
   String voltage = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
   String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
-  String price = (!g_nmaxe.market->timeout) ? formatNumber(g_nmaxe.market->price, 6) : "";
+  String price = (millis() - g_nmaxe.market->lastUpdate <= MARKET_TIMEOUT) ? formatNumber(g_nmaxe.market->price, 6) : "";
   String fan_and_efficiency = String(g_nmaxe.preference.fan.rpm) + " rpm";
   // String fan_and_efficiency = formatNumber(g_nmaxe.board.efficiency, 4) + "J/TH";
 
@@ -636,7 +637,7 @@ static void ui_miner_page_update(){
   lv_obj_set_style_text_color(lb_fan_symb, font_color, LV_PART_MAIN);
 
   //price color update, blink
-  if(!g_nmaxe.market->timeout){
+  if(millis() - g_nmaxe.market->lastUpdate <= MARKET_TIMEOUT){
     static float last_price = g_nmaxe.market->price;
     if(last_price != g_nmaxe.market->price){
       font_color = lv_color_hex(0x00ff00);//green
@@ -698,7 +699,7 @@ static void ui_miner_page_update(){
   //fan
   lv_label_set_text_fmt(lb_fan_and_efficiency, "%s", fan_and_efficiency.c_str());
   //price
-  if(!g_nmaxe.market->timeout){
+  if(millis() - g_nmaxe.market->lastUpdate <= MARKET_TIMEOUT){
     lv_label_set_text_fmt(lb_price,  "$%s", price.c_str());
   }
   //power
@@ -1459,17 +1460,19 @@ void ui_thread_entry(void *args){
   /***************************************wait for market connected************************************/
   cnt = 0;
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
-  while(!g_nmaxe.market->updated){
+  uint32_t start = millis();
+  while(0 != g_nmaxe.market->lastUpdate){
     ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_nmaxe.coin).c_str(), 0xFFFFFF, false);
-    if(g_nmaxe.market->timeout){
+    if(millis() - start - g_nmaxe.market->lastUpdate >= MARKET_TIMEOUT){
       ui_loading_str_update("Market update timeout!", 0xFF0000, false);
       delay(500);
       break;
     }
     delay(300);
   }
-  if(!g_nmaxe.market->timeout)ui_loading_str_update("Market connected!", 0x00FF00, true);
   delay(500);
+  if(0 != g_nmaxe.market->lastUpdate) ui_loading_str_update("Market connected!", 0x00FF00, true);
+  delay(1000);
   /***************************************wait for pool connected**************************************/
   cnt = 0;
   while(!g_nmaxe.stratum->is_subscribed()){

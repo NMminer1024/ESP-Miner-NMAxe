@@ -274,7 +274,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.preference.led.sleep                = false;
     g_nmaxe.preference.led.sleep_last           = g_nmaxe.preference.led.sleep;
     g_nmaxe.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    // g_nmaxe.mstatus.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
+    g_nmaxe.mstatus.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     g_nmaxe.coin.toUpperCase();
     g_nmaxe.miner                               = NULL;
@@ -286,7 +286,7 @@ bool load_g_nmaxe(void){
         LOG_E("Failed to allocate memory in PSRAM for market, stratum or power class");
         return false;
     }
-    g_nmaxe.market                              = new(market_buf)  MarketClass(MARKET_HOST, MARKET_PORT, MARKET_URL, g_nmaxe.coin + "_USDT");
+    g_nmaxe.market                              = new(market_buf)  MarketClass();
     g_nmaxe.stratum                             = new(stratum_buf) StratumClass(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use, 10);
     g_nmaxe.power                               = new(power_buf)   NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
                                                                       {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},
