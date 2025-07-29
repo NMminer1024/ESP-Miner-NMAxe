@@ -13,8 +13,7 @@ interface ThemeOption {
 @Component({
   selector: 'app-theme-config',
   template: `
-    <div class="">
-      <h2>Theme</h2>
+    <div class="theme-config-container">
       <div class="grid">
         <div class="col-12">
           <h6>Color Scheme</h6>

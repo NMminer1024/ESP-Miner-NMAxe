@@ -1,3 +1,634 @@
+// SUPER STRONG GLOBAL LABEL OVERRIDE - Must be first to override all other styles
+::ng-deep {
+  // Force ALL labels to be bright white with maximum specificity
+  label,
+  .field label,
+  .p-field label,
+  .p-fluid label,
+  .grid label,
+  .col-12 label,
+  .col-2 label,
+  .col-10 label,
+  .mb-2 label,
+  .md\\:col-2 label,
+  .md\\:col-10 label,
+  .md\\:mb-0,
+  .modern-card label,
+  .network-card label,
+  .mining-card label,
+  .preference-card label,
+  .theme-card label,
+  // 添加更具体的选择器来确保标签颜色
+  .modern-card .field label,
+  .modern-card .grid label,
+  .modern-card .col-12.mb-2.md\\:col-2.md\\:mb-0,
+  app-network-edit label,
+  app-edit label,
+  app-preferences label,
+  app-theme-config label {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 16px !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+    background: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+  
+  // Target specific grid column classes that might contain labels
+  .col-12.mb-2.md\\:col-2.md\\:mb-0,
+  .field .col-12.mb-2.md\\:col-2.md\\:mb-0,
+  .grid .col-12.mb-2.md\\:col-2.md\\:mb-0,
+  .p-fluid .col-12.mb-2.md\\:col-2.md\\:mb-0 {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 16px !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+    background: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+  
+  // Force all HTML label elements in all possible contexts
+  html body label,
+  html body .field label,
+  html body .modern-card label,
+  html body app-network-edit label,
+  html body app-edit label,
+  html body app-preferences label {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 16px !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+    background: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+}
+
+// Additional force override for ANY element with htmlFor attribute (Angular labels)
+::ng-deep [htmlFor] {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 16px !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+  background: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+// Force override for form labels with specific class combinations
+::ng-deep {
+  .field.grid.p-fluid label,
+  .field.grid.p-fluid .col-12.mb-2.md\\:col-2.md\\:mb-0,
+  [class*="col-12"][class*="mb-2"][class*="md:col-2"][class*="md:mb-0"] {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 16px !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+  }
+}
+
+// Modern Card Enhancements
+.modern-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
+  border: 1px solid #404040 !important;
+  transition: all 0.3s ease !important;
+  min-height: 200px !important;
+  display: flex !important;
+  flex-direction: column !important;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4) !important;
+  }
+}
+
+// Compact Theme Card - Remove scrollbar
+.compact-theme-card {
+  min-height: 300px !important;
+  
+  .theme-content-wrapper {
+    overflow: visible !important;
+    max-height: none !important;
+    padding-right: 0 !important;
+  }
+  
+  // Global form styling to improve label visibility across all components
+::ng-deep {
+  // Apply to all cards for consistent styling
+  .modern-card {
+    // All form elements styling
+    .p-dropdown {
+      border-radius: 8px !important;
+      border: 1px solid #555 !important;
+      background: rgba(255, 255, 255, 0.05) !important;
+      font-size: 14px !important;
+      
+      .p-dropdown-label {
+        padding: 12px 16px !important;
+        color: #fff !important;
+      }
+      
+      .p-dropdown-trigger {
+        color: #fff !important;
+      }
+      
+      &:hover {
+        border-color: #007bff !important;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15) !important;
+      }
+      
+      &:focus, &.p-focus {
+        border-color: #007bff !important;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+      }
+    }
+    
+    .p-inputtext {
+      border-radius: 8px !important;
+      border: 1px solid #555 !important;
+      background: rgba(255, 255, 255, 0.05) !important;
+      padding: 12px 16px !important;
+      font-size: 14px !important;
+      color: #fff !important;
+      
+      &:hover {
+        border-color: #007bff !important;
+      }
+      
+      &:focus {
+        border-color: #007bff !important;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+      }
+      
+      &::placeholder {
+        color: #aaa !important;
+      }
+    }
+    
+    // Universal label styling for all components - FORCE WHITE COLOR
+    label {
+      font-weight: 600 !important;
+      color: #ffffff !important;
+      font-size: 15px !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      margin-bottom: 8px !important;
+      display: block !important;
+    }
+    
+    // Universal field styling
+    .field {
+      margin-bottom: 16px !important;
+      
+      label {
+        font-weight: 600 !important;
+        color: #ffffff !important;
+        font-size: 15px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+        margin-bottom: 8px !important;
+        display: block !important;
+      }
+    }
+    
+    // PrimeNG specific overrides
+    .p-field {
+      margin-bottom: 16px !important;
+      
+      label {
+        font-weight: 600 !important;
+        color: #ffffff !important;
+        font-size: 15px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      }
+    }
+    
+    // Form groups and flex layouts
+    .p-fluid {
+      label {
+        font-weight: 600 !important;
+        color: #ffffff !important;
+        font-size: 15px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      }
+    }
+    
+    // Grid system labels - FORCE ALL GRID LABELS TO WHITE
+    .grid {
+      label {
+        font-weight: 600 !important;
+        color: #ffffff !important;
+        font-size: 15px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      }
+    }
+    
+    // Column labels within grid system
+    .col-12, .col-6, .col-4, .col-3, .col-2, .col-1 {
+      label {
+        font-weight: 600 !important;
+        color: #ffffff !important;
+        font-size: 15px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      }
+    }
+    
+    // Responsive column labels
+    .md\\:col-2, .md\\:col-10, .lg\\:col-6, .xl\\:col-4 {
+      label {
+        font-weight: 600 !important;
+        color: #ffffff !important;
+        font-size: 15px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      }
+    }
+    
+    // Checkbox and radio button labels
+    .p-checkbox + label,
+    .p-radiobutton + label {
+      color: #ffffff !important;
+      font-weight: 500 !important;
+      margin-left: 8px !important;
+    }
+    
+    // Button styling
+    .p-button {
+      border-radius: 20px !important;
+    }
+    
+    // File upload styling
+    .p-fileupload {
+      .p-button {
+        border-radius: 20px !important;
+      }
+    }
+  }
+  
+  // Additional force overrides for any missed elements
+  .network-card, .preference-card, .mining-card {
+    label {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+    }
+    
+    .p-field label,
+    .field label,
+    .grid label {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+    }
+  }
+}
+}
+
+// Theme card specific overrides
+.theme-card {
+  ::ng-deep {
+    // Hide the first header in theme config to avoid duplication
+    > div > h1:first-child,
+    > div > h2:first-child,
+    > div > h3:first-child,
+    > div > h4:first-child,
+    > div > h5:first-child {
+      display: none !important;
+    }
+    
+    .p-panel {
+      margin-bottom: 12px !important;
+      
+      .p-panel-header {
+        padding: 8px 12px !important;
+        font-size: 14px !important;
+      }
+      
+      .p-panel-content {
+        padding: 12px !important;
+      }
+    }
+    
+    .p-inputtext,
+    .p-dropdown,
+    .p-slider {
+      font-size: 13px !important;
+      padding: 6px 8px !important;
+    }
+    
+    .p-field {
+      margin-bottom: 12px !important;
+    }
+    
+    label {
+      font-size: 13px !important;
+      margin-bottom: 4px !important;
+      color: #fff !important;
+    }
+  }
+}
+
+// Card Titles with Icons
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  margin-bottom: 24px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 2px solid #404040 !important;
+  letter-spacing: 0.5px !important;
+  
+  .card-icon {
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #404040, #505050);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+}
+
+// Progress Badge with Integrated Progress Bar - Expanded
+.progress-badge-with-bar {
+  position: relative;
+  display: inline-block;
+  min-width: 120px;
+  height: 32px;
+  margin-left: auto;
+}
+
+.progress-mini-container {
+  position: relative;
+  width: 120px;
+  height: 32px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.progress-text-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+::ng-deep .mini-progress-bar {
+  height: 32px !important;
+  border-radius: 16px !important;
+  background: transparent !important;
+  
+  .p-progressbar-value {
+    background: linear-gradient(90deg, #4CAF50, #66BB6A) !important;
+    border-radius: 16px !important;
+    transition: width 0.3s ease !important;
+  }
+  
+  .p-progressbar-label {
+    display: none !important;
+  }
+}
+
+// Legacy Progress Badge (kept for compatibility)
+.progress-badge {
+  background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+  color: white !important;
+  padding: 8px 16px !important;
+  border-radius: 20px !important;
+  font-size: 16px !important;
+  font-weight: bold !important;
+  box-shadow: 0 4px 12px rgba(76,175,80,0.4) !important;
+  margin-left: auto;
+  min-width: 60px;
+  text-align: center;
+}
+
+// File Hint
+.file-hint {
+  color: #aaa !important;
+  font-style: italic !important;
+  margin-top: 8px !important;
+}
+
+// Version Information
+.version-info {
+  margin-bottom: 20px;
+  flex: 1;
+}
+
+.version-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed #444;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.version-label {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.version-value {
+  color: #fff;
+  font-weight: 500;
+  
+  &.latest {
+    color: #4CAF50;
+  }
+}
+
+// Ensure grid cards have consistent height
+.grid .col-12 .modern-card {
+  min-height: 250px !important;
+  height: 100% !important;
+}
+
+// Download Section
+.download-section {
+  margin-top: 20px;
+  
+  h5 {
+    color: #fff !important;
+    margin: 0 0 12px 0 !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+  }
+}
+
+.download-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #404040, #505050);
+  border-radius: 8px;
+  color: #fff !important;
+  text-decoration: none !important;
+  transition: all 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+  
+  &:hover {
+    background: linear-gradient(135deg, #505050, #606060);
+    transform: translateY(-2px);
+    color: #fff !important;
+  }
+  
+  .link-icon {
+    font-size: 16px;
+  }
+  
+  .link-text {
+    flex: 1;
+    font-weight: 500;
+    font-size: 13px;
+  }
+  
+  .link-arrow {
+    font-size: 14px;
+    opacity: 0.7;
+  }
+}
+
+.firmware-link {
+  border-left: 4px solid #FF9800;
+}
+
+.spiffs-link {
+  border-left: 4px solid #2196F3;
+}
+
+// Button Styling
+::ng-deep .check-button {
+  .p-button {
+    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    font-size: 12px !important;
+    border-radius: 20px !important;
+    
+    &:hover {
+      background: linear-gradient(135deg, #45a049, #3d8b3d) !important;
+    }
+  }
+}
+
+// File Upload Styling
+::ng-deep .p-fileupload {
+  .p-fileupload-choose {
+    background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+    border: none !important;
+    padding: 12px 24px !important;
+    font-weight: 500 !important;
+    border-radius: 20px !important;
+    
+    &:hover {
+      background: linear-gradient(135deg, #1976D2, #1565C0) !important;
+    }
+  }
+}
+
+// Mining Card Pool Differentiation
+.mining-card {
+  ::ng-deep {
+    // Style for primary pool section
+    .p-panel:first-of-type,
+    .p-fieldset:first-of-type {
+      border-left: 4px solid #4CAF50 !important;
+      background: linear-gradient(135deg, rgba(76,175,80,0.1), rgba(76,175,80,0.05)) !important;
+      
+      .p-panel-header,
+      .p-fieldset-legend {
+        background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+        color: white !important;
+        
+        &::before {
+          content: "🥇 ";
+          font-size: 16px;
+        }
+      }
+    }
+    
+    // Style for backup pool section  
+    .p-panel:nth-of-type(2),
+    .p-fieldset:nth-of-type(2) {
+      border-left: 4px solid #FF9800 !important;
+      background: linear-gradient(135deg, rgba(255,152,0,0.1), rgba(255,152,0,0.05)) !important;
+      
+      .p-panel-header,
+      .p-fieldset-legend {
+        background: linear-gradient(135deg, #FF9800, #F57C00) !important;
+        color: white !important;
+        
+        &::before {
+          content: "🥈 ";
+          font-size: 16px;
+        }
+      }
+    }
+    
+    // General pool styling
+    .p-panel,
+    .p-fieldset {
+      margin-bottom: 16px !important;
+      border-radius: 8px !important;
+      overflow: hidden !important;
+      
+      .p-panel-header,
+      .p-fieldset-legend {
+        font-weight: 600 !important;
+        padding: 12px 16px !important;
+        border-radius: 0 !important;
+      }
+      
+      .p-panel-content,
+      .p-fieldset-content {
+        padding: 16px !important;
+      }
+    }
+    
+    // Input styling for pools
+    .p-inputtext,
+    .p-inputnumber,
+    .p-dropdown {
+      border-radius: 8px !important;
+      border: 1px solid #404040 !important;
+      background: #2a2a2a !important;
+      color: #fff !important;
+      
+      &:focus {
+        border-color: #4CAF50 !important;
+        box-shadow: 0 0 0 2px rgba(76,175,80,0.2) !important;
+      }
+    }
+  }
+}
+
+// General button styling
+::ng-deep .p-button {
+  border-radius: 20px !important;
+}
+
+// Legacy Styles (preserved for compatibility)
 input[type="text"],
 input[type="number"],
 input[type="password"],
@@ -13,11 +644,9 @@ select {
 
 .restart {
   margin-bottom: 1.5rem;
-
 }
 
 @media only screen and (min-width: 900px) {
-
   input[type="text"],
   input[type="password"],
   input[type="number"],
@@ -41,12 +670,207 @@ a {
 .modify-height {
   padding-bottom: 10px;
 }
+
 .assets-container {
   display: flex;
-  gap: 30px;
+  flex-direction: row;
+  gap: 8px;
   padding-bottom: 4px;
 }
 
-.assets-container a {
-  color: #4caf50;
+.download-item {
+  flex: 1;
+}
+
+// Mining card specific styling to support nested components
+.mining-card {
+  ::ng-deep {
+    // Mining pool section styling
+    .mining-pool-section {
+      margin: 20px 0;
+      padding: 20px;
+      border-radius: 12px;
+      border: 2px solid;
+      position: relative;
+      
+      .pool-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0 0 16px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .pool-description {
+        color: #666;
+        font-style: italic;
+        font-size: 12px;
+      }
+      
+      &.primary-pool {
+        border: 2px dashed #28a745 !important; // Green dashed border
+        background: transparent !important; // Remove background
+        
+        .pool-title {
+          color: #28a745;
+        }
+      }
+      
+      &.backup-pool {
+        border: 2px dashed #ff9417 !important; // Orange dashed border
+        background: transparent !important; // Remove background
+        
+        .pool-title {
+          color: #ff9417;
+        }
+      }
+      
+      // Remove dark styling overrides to restore white labels
+      .p-dropdown {
+        border-radius: 8px !important;
+        border: 1px solid #e0e0e0 !important;
+        font-size: 14px !important;
+        
+        .p-dropdown-label {
+          padding: 12px 16px !important;
+        }
+        
+        &:hover {
+          border-color: #007bff !important;
+          box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15) !important;
+        }
+        
+        &:focus, &.p-focus {
+          border-color: #007bff !important;
+          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+      }
+      
+      .p-inputtext {
+        border-radius: 8px !important;
+        border: 1px solid #e0e0e0 !important;
+        padding: 12px 16px !important;
+        font-size: 14px !important;
+        
+        &:hover {
+          border-color: #007bff !important;
+        }
+        
+        &:focus {
+          border-color: #007bff !important;
+          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+        }
+      }
+      
+      label {
+        color: #fff !important; // Ensure white labels
+        font-weight: 600 !important;
+        font-size: 15px !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      }
+    }
+  }
+}
+
+// Progress Bar Styling
+.progress-container {
+  margin: 16px 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.progress-text {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  margin-top: 8px;
+}
+
+::ng-deep .custom-progress-bar {
+  height: 12px !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  
+  .p-progressbar-value {
+    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+    border-radius: 6px !important;
+    transition: width 0.3s ease !important;
+  }
+}
+
+// Fix label visibility issues across all components
+::ng-deep {
+  // Enhanced label styling for better visibility
+  label {
+    color: #e0e0e0 !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    margin-bottom: 8px !important;
+    display: block !important;
+  }
+  
+  // Specific fixes for different card types
+  .network-card, .preference-card {
+    label {
+      color: #ffffff !important;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+    }
+  }
+  
+  // Mining card label improvements
+  .mining-card {
+    label {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+    }
+    
+    .mining-pool-section {
+      label {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+      }
+    }
+  }
+  
+  // Theme card labels
+  .theme-card {
+    label {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+    }
+    
+    h6 {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      font-size: 15px !important;
+      margin-bottom: 12px !important;
+    }
+  }
+  
+  // Form field enhancements
+  .field {
+    margin-bottom: 20px !important;
+    
+    .col-12.mb-2.md\\:col-2.md\\:mb-0 {
+      label {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+      }
+    }
+  }
+  
+  // PrimeNG component label fixes
+  .p-field {
+    label {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+    }
+  }
 }
