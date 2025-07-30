@@ -1386,7 +1386,7 @@ void ui_thread_entry(void *args){
       lv_color_t font_color = lv_color_hex(0xFFFFFF);
       lv_obj_t *lb_cfg = lv_label_create(ui_pages[PAGE_CONFIG]);
       lv_obj_t *lb_version = lv_label_create(ui_pages[PAGE_CONFIG]);
-      String str = "ssid:" + g_nmaxe.connection.wifi.softap_param.ssid + "\r\nlogin:"+ g_nmaxe.connection.wifi.softap_param.ip.toString();
+      String str = g_nmaxe.connection.wifi.softap_param.ssid + "\r\n"+ g_nmaxe.connection.wifi.softap_param.ip.toString();
 
       lv_obj_set_width(lb_cfg, 120);
       lv_label_set_text(lb_cfg, str.c_str());

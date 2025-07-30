@@ -19,13 +19,16 @@
   <div class="col-12">
     <div class="logs-container">
       <div class="logs-header">
-        <span class="logs-icon">📋</span>
-        <h2>Realtime Logs</h2>
-        <div class="logs-controls-right">
+        <div class="logs-title-group">
+          <span class="logs-icon">📋</span>
+          <h2>Realtime Logs</h2>
           <button pButton 
-                  (click)="stopScroll = !stopScroll"
-                  class="p-button-rounded p-button-outlined"
-                  [label]="stopScroll ? 'Start Scrolling' : 'Stop Scrolling'">
+                  (click)="saveLog()"
+                  class="p-button-rounded p-button-outlined save-log-btn">
+            <span class="button-content">
+              <span class="download-icon">💾</span>
+              <span>Download</span>
+            </span>
           </button>
         </div>
       </div>
