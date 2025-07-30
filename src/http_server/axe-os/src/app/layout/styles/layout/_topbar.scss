@@ -97,28 +97,26 @@
         padding: 0;
         list-style: none;
         display: flex;
+        align-items: center;
         gap: 0.5rem;
 
-        .restart-btn {
+        .restart-text-btn {
             background: rgba(255, 107, 107, 0.1) !important;
             border: 1px solid rgba(255, 107, 107, 0.3) !important;
             color: #ff6b6b !important;
-            border-radius: 20px !important;
-            padding: 8px 12px !important;
-            font-size: 13px !important;
-            font-weight: 500 !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
             transition: all 0.3s ease !important;
             display: flex !important;
             align-items: center !important;
-            gap: 6px !important;
+            justify-content: center !important;
             height: 2.5rem !important;
-            min-width: auto !important;
-
-            .restart-icon {
-                font-size: 16px !important;
-                animation: none;
-                transition: transform 0.3s ease;
-            }
+            min-width: 80px !important;
+            margin: 0 !important;
 
             &:hover {
                 background: rgba(255, 107, 107, 0.2) !important;
@@ -126,10 +124,6 @@
                 color: #ff5252 !important;
                 transform: translateY(-1px);
                 box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3) !important;
-
-                .restart-icon {
-                    transform: rotate(180deg);
-                }
             }
 
             &:focus {
@@ -137,14 +131,10 @@
                 box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.3) !important;
             }
 
-            &:active .restart-icon {
-                animation: spin 0.6s ease-in-out;
+            &:active {
+                transform: translateY(0px);
+                box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3) !important;
             }
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
         }
 
         .layout-topbar-button {
@@ -192,16 +182,15 @@
                 display: block
             }
 
-            .restart-btn {
-                width: 100% !important;
-                justify-content: flex-start !important;
-                border-radius: 12px !important;
-                padding: 1rem !important;
-                margin-bottom: 0.5rem;
-
-                .restart-icon {
-                    margin-right: 0.5rem !important;
-                }
+            .restart-text-btn {
+                width: auto !important;
+                justify-content: center !important;
+                border-radius: 6px !important;
+                padding: 6px 12px !important;
+                margin-bottom: 0;
+                font-size: 12px !important;
+                height: 2rem !important;
+                min-width: 60px !important;
             }
 
             .layout-topbar-button {
