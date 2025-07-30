@@ -184,6 +184,18 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 ## Release Log
 ***
 
+### (2025.07.31) - v2.9.01
+- `Add`:
+  - None.
+- `Fixed`:
+  - User cannot save network config when configuring the miner for the first time.
+- `Improved`:
+  - A clean, modern AxeOS UI.
+- `Modify`:
+  - None.
+- `Remove`:
+  - None.
+
 ### (2025.07.22) - v2.8.02
 - `Add`:
   - None.

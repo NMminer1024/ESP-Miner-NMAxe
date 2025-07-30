@@ -124,9 +124,13 @@ button.color-dot {
 /* Progress Bar Theme Override */
 .p-progressbar {
     background: var(--progressbar-bg);
+    box-shadow: none !important;
+    border: none !important;
 
     .p-progressbar-value {
         background: var(--progressbar-value-bg);
+        box-shadow: none !important;
+        border: none !important;
     }
 }
 
