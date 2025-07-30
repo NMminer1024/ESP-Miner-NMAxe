@@ -1,5 +1,5 @@
 import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
-import {Component, ViewChild} from '@angular/core';
+import {Component, OnInit, ViewChild} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
 import {FileUpload, FileUploadHandlerEvent} from 'primeng/fileupload';
 import {map, Observable, shareReplay} from 'rxjs';
@@ -11,17 +11,16 @@ import {SystemService} from 'src/app/services/system.service';
   templateUrl: './update.component.html',
   styleUrls: ['./update.component.scss']
 })
-export class UpdateComponent {
+export class UpdateComponent implements OnInit {
 
   @ViewChild('otaFileUploader') otaFileUploader!: FileUpload;
 
   public firmwareUpdateProgress: number | null = null;
   public websiteUpdateProgress: number | null = null;
 
-  public checkLatestRelease: boolean = false;
   public latestRelease$: Observable<any>;
-
   public info$: Observable<any>;
+  public latestRelease: any = null;
 
   constructor(
     private systemService: SystemService,
@@ -33,6 +32,18 @@ export class UpdateComponent {
     }));
 
     this.info$ = this.systemService.getInfo().pipe(shareReplay({refCount: true, bufferSize: 1}));
+  }
+
+  ngOnInit() {
+    // 自动获取最新版本信息
+    this.latestRelease$.subscribe({
+      next: (release) => {
+        this.latestRelease = release;
+      },
+      error: (err) => {
+        console.error('Failed to fetch latest release:', err);
+      }
+    });
   }
 
   otaUpdate(event: FileUploadHandlerEvent) {

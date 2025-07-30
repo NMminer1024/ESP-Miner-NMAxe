@@ -1,9 +1,11 @@
 <div class="grid">
-  <div class="col-12 lg:col-6 xl:col-4">
+  <div class="col-12 lg:col-6 xl:col-6">
     <div class="card modern-card update-card">
-      <h2 class="card-title">
-        <span class="card-icon">🔧</span>
-        Update Firmware 
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">🔧</span>
+          <h2 class="card-title">Update Firmware</h2>
+        </div>
         <span *ngIf="firmwareUpdateProgress != null" class="progress-badge-with-bar">
           <div class="progress-mini-container">
             <p-progressBar [value]="firmwareUpdateProgress" 
@@ -13,19 +15,45 @@
             <span class="progress-text-overlay">{{ firmwareUpdateProgress }}%</span>
           </div>
         </span>
-      </h2>
+      </div>
       
-      <p-fileUpload #otaFileUploader [customUpload]="true" mode="basic" accept=".bin"
-                    (uploadHandler)="otaUpdate($event)"
-                    [auto]="true" chooseLabel="Browse Firmware"></p-fileUpload>
-      <small class="file-hint">(firmware.bin)</small>
+      <div class="card-content">
+        <p-fileUpload #otaFileUploader [customUpload]="true" mode="basic" accept=".bin"
+                      (uploadHandler)="otaUpdate($event)"
+                      [auto]="true" chooseLabel="Browse Firmware"></p-fileUpload>
+        <small class="file-hint">(firmware.bin)</small>
+        
+        <!-- 版本信息区域 -->
+        <div class="version-info-section" *ngIf="latestRelease && (info$ | async) as info">
+          <div class="version-item">
+            <span class="version-label">Current:</span>
+            <span class="version-value">{{ info.version }}</span>
+          </div>
+          <div class="version-item">
+            <span class="version-label">Latest:</span>
+            <span class="version-value latest">{{ latestRelease.name.slice(6) }}</span>
+          </div>
+          <div class="download-link-container" *ngFor="let asset of latestRelease.assets">
+            <a *ngIf="asset.name == 'firmware.bin'" 
+               class="download-link firmware-link"
+               target="_blank" [href]="asset.browser_download_url">
+              <span class="link-icon">📥</span>
+              <span class="link-text">Download Latest Firmware</span>
+              <span class="link-arrow">↗</span>
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="col-12 lg:col-12 xl:col-4">
+  
+  <div class="col-12 lg:col-6 xl:col-6">
     <div class="card modern-card update-card">
-      <h2 class="card-title">
-        <span class="card-icon">🌐</span>
-        Update Website 
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">🌐</span>
+          <h2 class="card-title">Update Website</h2>
+        </div>
         <span *ngIf="websiteUpdateProgress != null" class="progress-badge-with-bar">
           <div class="progress-mini-container">
             <p-progressBar [value]="websiteUpdateProgress" 
@@ -35,65 +63,43 @@
             <span class="progress-text-overlay">{{ websiteUpdateProgress }}%</span>
           </div>
         </span>
-      </h2>
+      </div>
 
-      <p-fileUpload [customUpload]="true" mode="basic" accept=".bin" (uploadHandler)="otaWWWUpdate($event)"
-                    [auto]="true" chooseLabel="Browse Website"></p-fileUpload>
-
-      <small class="file-hint">(spiffs.bin)</small>
-    </div>
-  </div>
-  <div class="col-12 lg:col-6 xl:col-4">
-    <div class="card modern-card version-card" *ngIf="checkLatestRelease == false">
-      <h2 class="card-title"><span class="card-icon">📦</span>Version Information</h2>
-      <div class="version-info">
-        <div class="version-item">
-          <span class="version-label">Current Version:</span>
-          <span class="version-value">{{ (info$ | async)?.version }}</span>
-        </div>
-        <div class="version-item">
-          <span class="version-label">Latest Release:</span>
-          <p-button (onClick)="checkLatestRelease = true" label="Check Updates" 
-                    class="check-button" icon="pi pi-refresh" size="small"></p-button>
+      <div class="card-content">
+        <p-fileUpload [customUpload]="true" mode="basic" accept=".bin" (uploadHandler)="otaWWWUpdate($event)"
+                      [auto]="true" chooseLabel="Browse Website"></p-fileUpload>
+        <small class="file-hint">(spiffs.bin)</small>
+        
+        <!-- 版本信息区域 -->
+        <div class="version-info-section" *ngIf="latestRelease">
+          <div class="download-link-container" *ngFor="let asset of latestRelease.assets">
+            <a *ngIf="asset.name == 'spiffs.bin'" 
+               class="download-link spiffs-link"
+               target="_blank" [href]="asset.browser_download_url">
+              <span class="link-icon">�</span>
+              <span class="link-text">Download Latest Website</span>
+              <span class="link-arrow">↗</span>
+            </a>
+          </div>
         </div>
       </div>
     </div>
-    <div class="card modern-card version-card" *ngIf="checkLatestRelease == true">
-      <h2 class="card-title"><span class="card-icon">📦</span>Version Information</h2>
-      <ng-container *ngIf="latestRelease$ | async as latestRelease">
-        <div class="version-info">
-          <div class="version-item">
-            <span class="version-label">Current Version:</span>
-            <span class="version-value">{{ (info$ | async)?.version }}</span>
-          </div>
-          <div class="version-item">
-            <span class="version-label">Latest Release:</span>
-            <span class="version-value latest">{{ latestRelease.name.slice(6) }}</span>
-          </div>
-        </div>
+  </div>
+</div>
 
-        <div class="download-section">
-          <h5>Available Downloads:</h5>
-          <div class="assets-container">
-            <div *ngFor="let asset of latestRelease.assets" class="download-item">
-              <a *ngIf="asset.name == 'firmware.bin'" 
-                 class="download-link firmware-link"
-                 target="_blank" [href]="asset.browser_download_url">
-                <span class="link-icon">🔧</span>
-                <span class="link-text">firmware.bin</span>
-                <span class="link-arrow">↗</span>
-              </a>
-              <a *ngIf="asset.name == 'spiffs.bin'" 
-                 class="download-link spiffs-link"
-                 target="_blank" [href]="asset.browser_download_url">
-                <span class="link-icon">🌐</span>
-                <span class="link-text">spiffs.bin</span>
-                <span class="link-arrow">↗</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </ng-container>
+<!-- Release信息区域 -->
+<div class="card modern-card release-info-card" *ngIf="latestRelease">
+  <div class="card-header">
+    <div class="card-title-group">
+      <span class="card-icon">📋</span>
+      <h2 class="card-title">Release Notes - {{ latestRelease.name }}</h2>
     </div>
+  </div>
+  <div class="card-content">
+    <div class="release-meta">
+      <span class="release-date">Released: {{ latestRelease.published_at | date:'medium' }}</span>
+      <span class="release-author">by {{ latestRelease.author.login }}</span>
+    </div>
+    <div class="release-description" [innerHTML]="latestRelease.body | replace:'\n':'<br>'"></div>
   </div>
 </div>
