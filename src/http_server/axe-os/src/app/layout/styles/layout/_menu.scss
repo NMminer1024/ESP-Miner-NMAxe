@@ -13,21 +13,21 @@
     padding: 1rem !important;
     box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.2) !important;
     border: 1px solid #404040 !important;
-    
+
     /* 自定义滚动条 */
     &::-webkit-scrollbar {
         width: 6px;
     }
-    
+
     &::-webkit-scrollbar-track {
         background: rgba(255, 255, 255, 0.05);
         border-radius: 3px;
     }
-    
+
     &::-webkit-scrollbar-thumb {
         background: linear-gradient(135deg, #555, #666);
         border-radius: 3px;
-        
+
         &:hover {
             background: linear-gradient(135deg, #666, #777);
         }
@@ -100,7 +100,7 @@
                 color: #4CAF50;
                 filter: drop-shadow(0 2px 4px rgba(76, 175, 80, 0.3));
             }
-            
+
             .layout-menuitem-text {
                 flex: 1;
                 text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -121,12 +121,12 @@
                 box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4), 0 4px 12px rgba(76, 175, 80, 0.2);
                 border: 1px solid rgba(76, 175, 80, 0.3);
                 transform: translateY(-2px);
-                
+
                 .layout-menuitem-icon {
                     color: #ffffff;
                     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
                 }
-                
+
                 .layout-submenu-toggler {
                     color: #ffffff;
                 }
@@ -137,12 +137,12 @@
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
                 transform: translateY(-1px);
-                
+
                 .layout-menuitem-icon {
                     color: #66BB6A;
                     transform: scale(1.1);
                 }
-                
+
                 &:not(.active-route) {
                     color: #ffffff !important;
                 }
@@ -168,20 +168,20 @@
                     padding: 0.75rem 1rem;
                     font-size: 14px;
                     background: rgba(255, 255, 255, 0.01);
-                    
+
                     .layout-menuitem-icon {
                         font-size: 16px;
                         color: #81C784;
                     }
-                    
+
                     &:hover {
                         background: rgba(255, 255, 255, 0.06);
-                        
+
                         .layout-menuitem-icon {
                             color: #A5D6A7;
                         }
                     }
-                    
+
                     &.active-route {
                         background: linear-gradient(135deg, #66BB6A, #4CAF50) !important;
                     }
@@ -192,7 +192,7 @@
                         margin-left: 2rem;
                         padding: 0.6rem 0.875rem;
                         font-size: 13px;
-                        
+
                         .layout-menuitem-icon {
                             font-size: 14px;
                             color: #A5D6A7;
@@ -204,7 +204,7 @@
                             margin-left: 2.5rem;
                             padding: 0.5rem 0.75rem;
                             font-size: 12px;
-                            
+
                             .layout-menuitem-icon {
                                 font-size: 12px;
                                 color: #C8E6C9;
@@ -214,7 +214,7 @@
                         li {
                             a {
                                 margin-left: 3rem;
-                                
+
                                 .layout-menuitem-icon {
                                     font-size: 11px;
                                 }
@@ -243,8 +243,6 @@
     display: inline-block;
     width: auto !important;
     background: none !important;
-    border: none !important;
-    border-radius: 12px !important;
     padding: 12px 20px !important;
     font-weight: 600 !important;
     font-size: 15px !important;
@@ -256,17 +254,15 @@
     transition: all 0.3s ease !important;
     text-shadow: none !important;
     cursor: pointer !important;
-    
-    &:hover {
-        background: rgba(76, 175, 80, 0.1) !important;
-        color: #66BB6A !important;
-        transform: translateY(-2px) !important;
+
+    button {
+      border-radius: 6px;
     }
-    
+
     &:active {
         transform: translateY(0) !important;
     }
-    
+
     &:focus {
         outline: none !important;
         box-shadow: none !important;
@@ -291,7 +287,7 @@
     letter-spacing: 0.5px !important;
     cursor: pointer !important;
     transition: all 0.3s ease !important;
-    
+
     &:enabled:hover,
     &:hover {
         background: rgba(76, 175, 80, 0.1) !important;
@@ -302,7 +298,7 @@
         transform: translateY(-2px) !important;
         border-radius: 12px !important;
     }
-    
+
     &:enabled:active,
     &:active {
         background: rgba(76, 175, 80, 0.1) !important;
@@ -313,7 +309,7 @@
         transform: translateY(0) !important;
         border-radius: 12px !important;
     }
-    
+
     &:focus,
     &:focus-visible {
         outline: none !important;
@@ -329,14 +325,14 @@
     display: flex;
     justify-content: center; // 水平居中
     padding: 0 0.5rem;
-    
+
     // 添加重启图标
     ::ng-deep .p-button-label {
         position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
-        
+
         &::before {
             content: "⚡ ";
             margin-right: 8px;
@@ -351,7 +347,7 @@
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
     margin: 1rem 0;
     position: relative;
-    
+
     &::before {
         content: "";
         position: absolute;
@@ -375,19 +371,19 @@
             }
         }
     }
-    
+
     // 响应式优化
     @media (max-width: 768px) {
         width: 260px;
-        
+
         .layout-menu ul a {
             padding: 0.875rem 1rem;
-            
+
             .layout-menuitem-icon {
                 margin-right: 0.75rem;
                 font-size: 16px;
             }
-            
+
             .layout-menuitem-text {
                 font-size: 14px;
             }
