@@ -34,12 +34,6 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
 
-  .logs-controls-left {
-    display: flex;
-    gap: 12px;
-    margin-right: 12px;
-  }
-
   .logs-controls-right {
     display: flex;
     gap: 12px;
@@ -52,12 +46,6 @@
     color: inherit;
     font-size: inherit;
     font-weight: inherit;
-  }
-
-  .logs-controls {
-    display: flex;
-    gap: 12px;
-    margin-left: auto;
   }
 }
 
@@ -135,60 +123,6 @@
 
 // Logs control buttons styling
 ::ng-deep .logs-controls-right {
-  .p-button {
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #ffffff !important;
-    border-radius: 20px !important;
-    padding: 8px 16px !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    transition: all 0.3s ease !important;
-
-    &:hover {
-      background: linear-gradient(135deg, #4CAF50, #45a049) !important;
-      border: 1px solid #4CAF50 !important;
-      color: #ffffff !important;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
-    }
-
-    &:focus {
-      outline: none !important;
-      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3) !important;
-    }
-  }
-}
-
-// Logs control buttons styling
-::ng-deep .logs-controls-left {
-  .p-button {
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #ffffff !important;
-    border-radius: 20px !important;
-    padding: 8px 16px !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    transition: all 0.3s ease !important;
-
-    &:hover {
-      background: linear-gradient(135deg, #4CAF50, #45a049) !important;
-      border: 1px solid #4CAF50 !important;
-      color: #ffffff !important;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
-    }
-
-    &:focus {
-      outline: none !important;
-      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3) !important;
-    }
-  }
-}
-
-// Logs control buttons styling
-::ng-deep .logs-controls {
   .p-button {
     background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;

@@ -60,6 +60,13 @@
       </div>
     </div>
 
+    <!-- Mining Coin Selection -->
+    <div class="field grid p-fluid">
+      <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="Coin">Mining Coin:</label>
+      <p-dropdown class="col-12 md:col-10" [options]="Coin" optionLabel="name"
+                  optionValue="value" formControlName="coin"></p-dropdown>
+    </div>
+
     <ng-container *ngIf="!devToolsOpen && ASICModel == eASICModel.BM1366">
       <div class="field grid p-fluid">
         <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="frequency">OverClock(MHz)</label>
@@ -112,13 +119,6 @@
       </div>
 
     </ng-container>
-
-    <!-- Mining Coin Selection -->
-    <div class="field grid p-fluid">
-      <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="Coin">Mining Coin:</label>
-      <p-dropdown class="col-12 md:col-10" [options]="Coin" optionLabel="name"
-                  optionValue="value" formControlName="coin"></p-dropdown>
-    </div>
 
 
     <div class="col-12 md:col-4" *ngIf="form.get('overheat_mode')?.value === 1">

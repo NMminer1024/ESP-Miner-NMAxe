@@ -22,12 +22,7 @@
         <span class="logs-icon">📋</span>
         <h2>Realtime Logs</h2>
         <div class="logs-controls-right">
-          <button pButton (click)="toggleLogs()" 
-                  class="p-button-rounded p-button-outlined" 
-                  [label]="showLogs ? 'Hide Logs' : 'Show Logs'">
-          </button>
           <button pButton 
-                  *ngIf="showLogs"
                   (click)="stopScroll = !stopScroll"
                   class="p-button-rounded p-button-outlined"
                   [label]="stopScroll ? 'Start Scrolling' : 'Stop Scrolling'">
@@ -35,7 +30,7 @@
         </div>
       </div>
 
-      <div *ngIf="showLogs" id="logs" #scrollContainer>
+      <div id="logs" #scrollContainer>
         <pre *ngFor="let log of logs" class="log-entry">₿ {{ log }}</pre>
       </div>
     </div>

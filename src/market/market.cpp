@@ -188,12 +188,12 @@ void market_thread_entry(void *args){
     g_nmaxe.market->lastUpdate = 0;
     
     while(true){
+        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
+            // Fetch the 24hr ticker data for the coin
+            bool res = g_nmaxe.market->get_coin_ticker_24hr(g_nmaxe.coin + "USDT");
+            g_nmaxe.market->lastUpdate = (res) ? millis() : g_nmaxe.market->lastUpdate;
+        }
         delay(MARKET_UPDATE_INTERVAL);
-        if(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED) continue;
-        
-        // Fetch the 24hr ticker data for the coin
-        bool res = g_nmaxe.market->get_coin_ticker_24hr(g_nmaxe.coin + "USDT");
-        g_nmaxe.market->lastUpdate = (res) ? millis() : g_nmaxe.market->lastUpdate;
     }
 
     delete g_nmaxe.market;

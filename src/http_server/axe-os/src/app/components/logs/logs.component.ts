@@ -1,4 +1,4 @@
-import {AfterViewChecked, Component, ElementRef, OnDestroy, ViewChild} from '@angular/core';
+import {AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {interval, map, Observable, shareReplay, startWith, Subscription, switchMap} from 'rxjs';
 import {SystemService} from 'src/app/services/system.service';
 import {WebsocketService} from 'src/app/services/web-socket.service';
@@ -9,7 +9,7 @@ import {ISystemInfo} from 'src/models/ISystemInfo';
   templateUrl: './logs.component.html',
   styleUrl: './logs.component.scss'
 })
-export class LogsComponent implements OnDestroy, AfterViewChecked {
+export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
   public info$: Observable<ISystemInfo>;
@@ -18,7 +18,7 @@ export class LogsComponent implements OnDestroy, AfterViewChecked {
 
   private websocketSubscription?: Subscription;
 
-  public showLogs = false;
+  public showLogs = true; // 默认显示日志
 
   public stopScroll: boolean = false;
 
@@ -45,25 +45,29 @@ export class LogsComponent implements OnDestroy, AfterViewChecked {
     );
   }
 
-  ngOnDestroy(): void {
-    this.websocketSubscription?.unsubscribe();
+  ngOnInit(): void {
+    // 进入页面自动开始日志输出
+    this.startLogs();
   }
 
-  public toggleLogs() {
-    this.showLogs = !this.showLogs;
+  ngOnDestroy(): void {
+    // 离开页面停止日志输出
+    this.stopLogs();
+  }
 
-    if (this.showLogs) {
-      this.websocketSubscription = this.websocketService.ws$.subscribe({
-        next: (val) => {
-          this.logs.push(val);
-          if (this.logs.length > 1000) {
-            this.logs.shift();
-          }
+  private startLogs(): void {
+    this.websocketSubscription = this.websocketService.ws$.subscribe({
+      next: (val) => {
+        this.logs.push(val);
+        if (this.logs.length > 1000) {
+          this.logs.shift();
         }
-      })
-    } else {
-      this.websocketSubscription?.unsubscribe();
-    }
+      }
+    });
+  }
+
+  private stopLogs(): void {
+    this.websocketSubscription?.unsubscribe();
   }
 
   ngAfterViewChecked(): void {
