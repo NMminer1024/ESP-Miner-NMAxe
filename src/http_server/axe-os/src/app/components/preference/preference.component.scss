@@ -1,0 +1,71 @@
+/* Preference Component Styles */
+
+// 复选框容器优化
+.field-checkbox {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 8px !important;
+  
+  // 复选框标签样式优化
+  label {
+    color: #ffffff !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+  }
+  
+  // 复选框样式
+  .p-checkbox {
+    flex-shrink: 0 !important;
+  }
+}
+
+// 复选框网格容器优化
+.col-12[style*="display: flex"] {
+  gap: 8px !important;
+  
+  // 响应式优化
+  @media (max-width: 768px) {
+    gap: 4px !important;
+    
+    .field-checkbox label {
+      font-size: 0.85rem !important;
+    }
+  }
+}
+
+// 滑块容器样式
+.field.grid.p-fluid {
+  margin-bottom: 16px !important;
+  
+  label {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+  }
+}
+
+// 风扇速度滑块样式
+.col-12 label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  
+  b {
+    font-size: 0.9rem !important;
+    margin-left: 8px !important;
+  }
+}
+
+// 保存按钮区域
+.mt-2 {
+  margin-top: 20px !important;
+  
+  b {
+    color: #cccccc !important;
+    font-size: 0.9rem !important;
+  }
+}

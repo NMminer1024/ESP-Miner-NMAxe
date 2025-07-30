@@ -8,12 +8,24 @@
                 <input pInputText id="hostname" type="text" formControlName="hostname" maxlength="8"/>
             </div>
         </div>
-        <!-- <div class="field grid p-fluid">
-            <label htmlFor="timezone" class="col-12 mb-2 md:col-2 md:mb-0">TimeZone:</label>
+        
+        <div class="field grid p-fluid">
+            <label htmlFor="timezone" class="col-12 mb-2 md:col-2 md:mb-0">
+              TimeZone:
+              <span class="timezone-help-icon" 
+                    pTooltip="该时区值，只有在内部的自动时区获取失败时才生效" 
+                    tooltipPosition="top"
+                    style="margin-left: 5px; cursor: help; color: #888; font-size: 14px;">
+                ❓
+              </span>
+            </label>
             <div class="col-12 md:col-10">
-                <input pInputText id="timezone" type="text" formControlName="timezone" />
+                <input pInputText id="timezone" type="number" formControlName="timezone" 
+                       placeholder="Enter timezone offset (e.g., 8 for UTC+8)" 
+                       min="-12" max="14" step="1" />
             </div>
-        </div> -->
+        </div>
+        
         <div class="field grid p-fluid">
             <label htmlFor="ssid" class="col-12 mb-2 md:col-2 md:mb-0">WiFi SSID:</label>
             <div class="col-12 md:col-10">

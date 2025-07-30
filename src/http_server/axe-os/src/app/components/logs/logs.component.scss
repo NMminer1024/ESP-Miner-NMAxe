@@ -34,6 +34,18 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
 
+  .logs-controls-left {
+    display: flex;
+    gap: 12px;
+    margin-right: 12px;
+  }
+
+  .logs-controls-right {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+  }
+
   h2 {
     flex: 1;
     margin: 0;
@@ -52,8 +64,8 @@
 #logs {
   flex: 1;
   width: 100%;
-  height: calc(100vh - 280px); // 固定高度，减去头部、标题和边距
-  max-height: calc(100vh - 280px); // 确保不会超过可视区域
+  height: calc(100vh - 160px); // 调整高度以与菜单栏高度一致
+  max-height: calc(100vh - 160px); // 确保不会超过可视区域
   font-family: "Courier New", Courier, monospace;
   background: rgba(0, 0, 0, 0.4) !important;
   border: 1px solid #555 !important;
@@ -118,6 +130,60 @@
   100% {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+// Logs control buttons styling
+::ng-deep .logs-controls-right {
+  .p-button {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    border-radius: 20px !important;
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    transition: all 0.3s ease !important;
+
+    &:hover {
+      background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+      border: 1px solid #4CAF50 !important;
+      color: #ffffff !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+    }
+
+    &:focus {
+      outline: none !important;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3) !important;
+    }
+  }
+}
+
+// Logs control buttons styling
+::ng-deep .logs-controls-left {
+  .p-button {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    border-radius: 20px !important;
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    transition: all 0.3s ease !important;
+
+    &:hover {
+      background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+      border: 1px solid #4CAF50 !important;
+      color: #ffffff !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+    }
+
+    &:focus {
+      outline: none !important;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3) !important;
+    }
   }
 }
 

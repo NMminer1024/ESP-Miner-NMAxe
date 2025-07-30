@@ -213,6 +213,11 @@
   color: #ffffff !important;
 }
 
+// 升级卡片使用更小的高度
+.update-card.modern-card {
+  min-height: 150px !important;
+}
+
 .modern-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;

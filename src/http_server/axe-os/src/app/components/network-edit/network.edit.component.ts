@@ -33,7 +33,7 @@ export class NetworkEditComponent implements OnInit {
       .subscribe(info => {
         this.form = this.fb.group({
           hostname: [info.hostname, [Validators.required]],
-          // timezone: [info.timezone, [Validators.required]],
+          timezone: [(info as any).timezone || 0, [Validators.required, Validators.min(-12), Validators.max(14)]],
           ssid: [info.ssid, [Validators.required]],
           wifiPass: ['*****'],
         });
