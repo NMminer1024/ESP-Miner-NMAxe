@@ -959,3 +959,28 @@ a {
     }
   }
 }
+
+/* Preference and Theme Grid Layout */
+.preference-theme-grid {
+  margin: 0 !important;
+  
+  .col-12 {
+    padding: 0.5rem !important;
+  }
+  
+  .modern-card {
+    height: 100% !important;
+    margin-bottom: 0 !important;
+  }
+  
+  // 确保在小屏幕上垂直堆叠
+  @media (max-width: 992px) {
+    .col-12 {
+      padding: 0.25rem 0 !important;
+    }
+    
+    .modern-card {
+      margin-bottom: 1rem !important;
+    }
+  }
+}

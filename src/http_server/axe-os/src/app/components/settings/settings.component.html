@@ -8,14 +8,20 @@
   <app-edit></app-edit>
 </div>
 
-<div class="card modern-card preference-card">
-  <h2 class="card-title"><span class="card-icon">⚙️</span>Preference</h2>
-  <app-preferences/>
-</div>
-
-<div class="card modern-card theme-card compact-theme-card">
-  <h2 class="card-title"><span class="card-icon">🎨</span>Theme Configuration</h2>
-  <div class="theme-content-wrapper">
-    <app-theme-config></app-theme-config>
+<div class="grid preference-theme-grid">
+  <div class="col-12 lg:col-6 xl:col-6">
+    <div class="card modern-card preference-card">
+      <h2 class="card-title"><span class="card-icon">⚙️</span>Preference</h2>
+      <app-preferences/>
+    </div>
+  </div>
+  
+  <div class="col-12 lg:col-6 xl:col-6">
+    <div class="card modern-card theme-card compact-theme-card">
+      <h2 class="card-title"><span class="card-icon">🎨</span>Theme Configuration</h2>
+      <div class="theme-content-wrapper">
+        <app-theme-config></app-theme-config>
+      </div>
+    </div>
   </div>
 </div>
