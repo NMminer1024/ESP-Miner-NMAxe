@@ -47,15 +47,12 @@
           <h2 class="card-title-inline">Update Firmware</h2>
         </div>
         <div class="progress-area" *ngIf="firmwareUpdateProgress != null">
-          <span class="progress-badge-with-bar">
-            <div class="progress-mini-container">
-              <p-progressBar [value]="firmwareUpdateProgress" 
-                             [showValue]="false"
-                             styleClass="mini-progress-bar">
-              </p-progressBar>
-              <span class="progress-text-overlay">{{ firmwareUpdateProgress }}%</span>
+          <div class="custom-progress-container">
+            <div class="custom-progress-bar">
+              <div class="custom-progress-fill" [style.width.%]="firmwareUpdateProgress"></div>
             </div>
-          </span>
+            <span class="custom-progress-text">{{ firmwareUpdateProgress }}%</span>
+          </div>
         </div>
       </div>
       
@@ -87,15 +84,12 @@
           <h2 class="card-title-inline">Update Website</h2>
         </div>
         <div class="progress-area" *ngIf="websiteUpdateProgress != null">
-          <span class="progress-badge-with-bar">
-            <div class="progress-mini-container">
-              <p-progressBar [value]="websiteUpdateProgress" 
-                             [showValue]="false"
-                             styleClass="mini-progress-bar">
-              </p-progressBar>
-              <span class="progress-text-overlay">{{ websiteUpdateProgress }}%</span>
+          <div class="custom-progress-container">
+            <div class="custom-progress-bar">
+              <div class="custom-progress-fill" [style.width.%]="websiteUpdateProgress"></div>
             </div>
-          </span>
+            <span class="custom-progress-text">{{ websiteUpdateProgress }}%</span>
+          </div>
         </div>
       </div>
 

@@ -116,11 +116,6 @@ Check the latest **firmware.bin** and **spiffs.bin**.
   <img src="image/firmware-check.jpg" alt="firmware-check">
 </div>
 
-Download the latest **firmware.bin** and **spiffs.bin** file.
-<div align="center">
-  <img src="image/firmware-check-download.jpg" alt="firmware-check-download">
-</div>
-
 Batch firmware update on swarm page.
 <div align="center">
   <img src="image/ota-batch.jpg" alt="ota-batch">
