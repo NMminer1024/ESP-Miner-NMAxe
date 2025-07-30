@@ -596,3 +596,71 @@
     }
   }
 }
+
+/* 新的紧凑型卡片头部样式 - 标题在左上角，进度条占据更多右侧空间 */
+.card-header-compact {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 1rem !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+.card-title-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+  
+  .card-icon {
+    font-size: 20px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .card-title-inline {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+  }
+}
+
+.progress-area {
+  flex: 1 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  margin-left: 16px !important;
+  
+  .progress-badge-with-bar {
+    display: flex !important;
+    align-items: center !important;
+    min-width: 160px !important;
+    justify-content: flex-end !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .progress-mini-container {
+    position: relative !important;
+    width: 150px !important;
+    height: 28px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
+  
+  .progress-text-overlay {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    font-size: 13px !important;
+    font-weight: bold !important;
+    color: white !important;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+    z-index: 10 !important;
+  }
+}
