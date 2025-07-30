@@ -77,17 +77,14 @@ void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
         return;
     }
 
+    freqbuf[0] = (id != -1) ? (id * 2) : freqbuf[0];
+    freqbuf[1] = freqbuf[1];
     freqbuf[2] = (best_fbdiv * 25 / best_refdiv >= 2400) ? 0x50 : 0x40;
     freqbuf[3] = best_fbdiv;
     freqbuf[4] = best_refdiv;
     freqbuf[5] = (((best_postdiv1 - 1) & 0xf) << 4) | ((best_postdiv2 - 1) & 0xf);
 
-    if (id != -1) {
-        freqbuf[0] = id * 2;
-        this->_send_bm1370(TYPE_CMD | GROUP_SINGLE | CMD_WRITE, freqbuf, 6);
-    } else {
-        this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
-    }
+    this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
 }
 
 void BM1370::_set_version_mask(uint32_t version_mask) {
@@ -137,7 +134,7 @@ void BM1370::frequency_ramp_up(float target_frequency){
         return;
     }
 
-    // LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
+    LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
 
     this->_set_hash_frequency(-1, current, 0.001);
     
@@ -145,7 +142,14 @@ void BM1370::frequency_ramp_up(float target_frequency){
         float next_step = fminf(step, target_frequency - current);
         current += next_step;
         this->_set_hash_frequency(-1, current, 0.001);
-        LOG_W("Current frequency: %.2f MHz/ Target frequency: %.2f MHz", current, target_frequency);
+
+        LOG_W("Current: %.2f MHz/ Target: %.2f MHz", current, target_frequency);
+
+
+        // //need some delay for some special frequency, have no idea why, but it works
+        // if((target_frequency != 600) || (target_frequency != 400)){
+        //     LOG_W("Current: %.2f MHz/ Target: %.2f MHz", current, target_frequency);
+        // }
     }
 }
 

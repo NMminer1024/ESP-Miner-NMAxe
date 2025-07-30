@@ -1461,7 +1461,7 @@ void ui_thread_entry(void *args){
   cnt = 0;
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
   uint32_t start = millis();
-  while(0 != g_nmaxe.market->lastUpdate){
+  while(0 == g_nmaxe.market->lastUpdate){
     ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_nmaxe.coin).c_str(), 0xFFFFFF, false);
     if(millis() - start - g_nmaxe.market->lastUpdate >= MARKET_TIMEOUT){
       ui_loading_str_update("Market update timeout!", 0xFF0000, false);
