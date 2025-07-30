@@ -31,11 +31,4 @@ export class AppMenuComponent implements OnInit {
       }
     ];
   }
-
-  public restart() {
-    this.systemService.restart().subscribe(res => {
-
-    });
-    this.toastr.success('Success!', 'NMAxe restarted');
-  }
 }

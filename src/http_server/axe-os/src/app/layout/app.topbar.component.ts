@@ -31,7 +31,7 @@ export class AppTopBarComponent {
             .pipe(this.loadingService.lockUIUntilComplete())
             .subscribe({
                 next: () => {
-                    this.toastr.success('Success!', 'Device restarted');
+                    this.toastr.success('Success!', 'Miner restarted');
                 },
                 error: (err: HttpErrorResponse) => {
                     this.toastr.error('Error', `Could not restart. ${err.message}`);
