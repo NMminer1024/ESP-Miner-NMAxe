@@ -186,6 +186,7 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
   - User cannot save network config when configuring the miner for the first time.
 - `Improved`:
   - A clean, modern AxeOS UI.
+  - Swarm table, filter for high and low hashrate miners.
 - `Modify`:
   - None.
 - `Remove`:
