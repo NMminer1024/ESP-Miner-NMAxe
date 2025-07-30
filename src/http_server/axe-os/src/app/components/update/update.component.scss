@@ -1,0 +1,182 @@
+/* Update Component Styles */
+.grid {
+  margin: 0;
+}
+
+.card {
+  margin-bottom: 1rem;
+}
+
+.modern-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: none;
+  background: #ffffff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modern-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.card-icon {
+  font-size: 1.5rem;
+}
+
+.update-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.update-card .card-title {
+  color: white;
+}
+
+.version-card {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.version-card .card-title {
+  color: white;
+}
+
+.version-info {
+  margin-bottom: 1rem;
+}
+
+.version-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.version-label {
+  font-weight: 500;
+}
+
+.version-value {
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.version-value.latest {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.check-button {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+}
+
+.check-button:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.download-section {
+  margin-top: 1rem;
+}
+
+.download-section h5 {
+  margin-bottom: 0.75rem;
+  color: white;
+  font-weight: 600;
+}
+
+.assets-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.download-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  text-decoration: none;
+  color: white;
+  transition: background-color 0.2s ease;
+}
+
+.download-link:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
+.link-icon {
+  font-size: 1rem;
+}
+
+.link-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+.link-arrow {
+  font-size: 1rem;
+}
+
+.file-hint {
+  display: block;
+  margin-top: 0.5rem;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.progress-badge-with-bar {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+}
+
+.progress-mini-container {
+  position: relative;
+  width: 80px;
+  height: 20px;
+}
+
+.mini-progress-bar {
+  width: 100%;
+  height: 100%;
+}
+
+.progress-text-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+  .modern-card {
+    background: #2d3748;
+    color: white;
+  }
+  
+  .card-title {
+    color: white;
+  }
+}

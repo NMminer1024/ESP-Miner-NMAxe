@@ -1,0 +1,99 @@
+<div class="grid">
+  <div class="col-12 lg:col-6 xl:col-4">
+    <div class="card modern-card update-card">
+      <h2 class="card-title">
+        <span class="card-icon">🔧</span>
+        Update Firmware 
+        <span *ngIf="firmwareUpdateProgress != null" class="progress-badge-with-bar">
+          <div class="progress-mini-container">
+            <p-progressBar [value]="firmwareUpdateProgress" 
+                           [showValue]="false"
+                           styleClass="mini-progress-bar">
+            </p-progressBar>
+            <span class="progress-text-overlay">{{ firmwareUpdateProgress }}%</span>
+          </div>
+        </span>
+      </h2>
+      
+      <p-fileUpload #otaFileUploader [customUpload]="true" mode="basic" accept=".bin"
+                    (uploadHandler)="otaUpdate($event)"
+                    [auto]="true" chooseLabel="Browse Firmware"></p-fileUpload>
+      <small class="file-hint">(firmware.bin)</small>
+    </div>
+  </div>
+  <div class="col-12 lg:col-12 xl:col-4">
+    <div class="card modern-card update-card">
+      <h2 class="card-title">
+        <span class="card-icon">🌐</span>
+        Update Website 
+        <span *ngIf="websiteUpdateProgress != null" class="progress-badge-with-bar">
+          <div class="progress-mini-container">
+            <p-progressBar [value]="websiteUpdateProgress" 
+                           [showValue]="false"
+                           styleClass="mini-progress-bar">
+            </p-progressBar>
+            <span class="progress-text-overlay">{{ websiteUpdateProgress }}%</span>
+          </div>
+        </span>
+      </h2>
+
+      <p-fileUpload [customUpload]="true" mode="basic" accept=".bin" (uploadHandler)="otaWWWUpdate($event)"
+                    [auto]="true" chooseLabel="Browse Website"></p-fileUpload>
+
+      <small class="file-hint">(spiffs.bin)</small>
+    </div>
+  </div>
+  <div class="col-12 lg:col-6 xl:col-4">
+    <div class="card modern-card version-card" *ngIf="checkLatestRelease == false">
+      <h2 class="card-title"><span class="card-icon">📦</span>Version Information</h2>
+      <div class="version-info">
+        <div class="version-item">
+          <span class="version-label">Current Version:</span>
+          <span class="version-value">{{ (info$ | async)?.version }}</span>
+        </div>
+        <div class="version-item">
+          <span class="version-label">Latest Release:</span>
+          <p-button (onClick)="checkLatestRelease = true" label="Check Updates" 
+                    class="check-button" icon="pi pi-refresh" size="small"></p-button>
+        </div>
+      </div>
+    </div>
+    <div class="card modern-card version-card" *ngIf="checkLatestRelease == true">
+      <h2 class="card-title"><span class="card-icon">📦</span>Version Information</h2>
+      <ng-container *ngIf="latestRelease$ | async as latestRelease">
+        <div class="version-info">
+          <div class="version-item">
+            <span class="version-label">Current Version:</span>
+            <span class="version-value">{{ (info$ | async)?.version }}</span>
+          </div>
+          <div class="version-item">
+            <span class="version-label">Latest Release:</span>
+            <span class="version-value latest">{{ latestRelease.name.slice(6) }}</span>
+          </div>
+        </div>
+
+        <div class="download-section">
+          <h5>Available Downloads:</h5>
+          <div class="assets-container">
+            <div *ngFor="let asset of latestRelease.assets" class="download-item">
+              <a *ngIf="asset.name == 'firmware.bin'" 
+                 class="download-link firmware-link"
+                 target="_blank" [href]="asset.browser_download_url">
+                <span class="link-icon">🔧</span>
+                <span class="link-text">firmware.bin</span>
+                <span class="link-arrow">↗</span>
+              </a>
+              <a *ngIf="asset.name == 'spiffs.bin'" 
+                 class="download-link spiffs-link"
+                 target="_blank" [href]="asset.browser_download_url">
+                <span class="link-icon">🌐</span>
+                <span class="link-text">spiffs.bin</span>
+                <span class="link-arrow">↗</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+</div>

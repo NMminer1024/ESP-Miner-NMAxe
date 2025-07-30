@@ -1,10 +1,8 @@
-import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
-import {Component, ViewChild} from '@angular/core';
+import {HttpErrorResponse} from '@angular/common/http';
+import {Component} from '@angular/core';
 import {FormBuilder, FormGroup, Validators} from '@angular/forms';
 import {ToastrService} from 'ngx-toastr';
-import {FileUpload, FileUploadHandlerEvent} from 'primeng/fileupload';
-import {map, Observable, shareReplay, startWith} from 'rxjs';
-import {GithubUpdateService} from 'src/app/services/github-update.service';
+import {Observable, shareReplay, startWith} from 'rxjs';
 import {LoadingService} from 'src/app/services/loading.service';
 import {SystemService} from 'src/app/services/system.service';
 import {eASICModel} from 'src/models/enum/eASICModel';
@@ -16,21 +14,11 @@ import {eASICModel} from 'src/models/enum/eASICModel';
 })
 export class SettingsComponent {
 
-  @ViewChild('otaFileUploader') otaFileUploader!: FileUpload;
-
-
   public form!: FormGroup;
-
-  public firmwareUpdateProgress: number | null = null;
-  public websiteUpdateProgress: number | null = null;
-
 
   public devToolsOpen: boolean = false;
   public eASICModel = eASICModel;
   public ASICModel!: eASICModel;
-
-  public checkLatestRelease: boolean = false;
-  public latestRelease$: Observable<any>;
 
   public info$: Observable<any>;
 
@@ -39,20 +27,13 @@ export class SettingsComponent {
     private systemService: SystemService,
     private toastr: ToastrService,
     private toastrService: ToastrService,
-    private loadingService: LoadingService,
-    private githubUpdateService: GithubUpdateService
+    private loadingService: LoadingService
   ) {
-
 
     window.addEventListener('resize', this.checkDevTools);
     this.checkDevTools();
 
-    this.latestRelease$ = this.githubUpdateService.getReleases().pipe(map(releases => {
-      return releases[0];
-    }));
-
     this.info$ = this.systemService.getInfo().pipe(shareReplay({refCount: true, bufferSize: 1}))
-
 
     this.info$.pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
@@ -127,12 +108,6 @@ export class SettingsComponent {
     if (form.wifiPass === 'password') {
       delete form.wifiPass;
     }
-    // if (form.stratumPassword1 === 'password') {
-    //   delete form.stratumPassword1;
-    // }
-    // if (form.stratumPassword2 === 'password') {
-    //   delete form.stratumPassword2;
-    // }
 
     this.systemService.updateSystem(undefined, form)
       .pipe(this.loadingService.lockUIUntilComplete())
@@ -144,77 +119,6 @@ export class SettingsComponent {
           this.toastr.error('Error.', `Could not save. ${err.message}`);
         }
       });
-  }
-
-  otaUpdate(event: FileUploadHandlerEvent) {
-    const file = event.files[0];
-
-    if (file.name != 'firmware.bin') {
-      this.toastrService.error('Incorrect file, looking for firmware.bin.', 'Error');
-      this.otaFileUploader.clear();
-      return;
-    }
-
-    this.systemService.performOTAUpdate(file)
-      //.pipe(this.loadingService.lockUIUntilComplete())
-      .subscribe({
-        next: (event) => {
-          if (event.type === HttpEventType.UploadProgress) {
-            this.firmwareUpdateProgress = Math.round((event.loaded / (event.total as number)) * 100);
-          } else if (event.type === HttpEventType.Response) {
-            if (event.ok) {
-              this.toastrService.success('Firmware updated', 'Success!');
-            } else {
-              this.toastrService.error(event.statusText, 'Error');
-            }
-          }
-        },
-        error: (err) => {
-          this.toastrService.error('Uploaded Error', 'Error');
-          this.otaFileUploader.clear();
-        },
-        complete: () => {
-          this.firmwareUpdateProgress = null;
-          this.otaFileUploader.clear();
-        }
-      });
-  }
-
-  otaWWWUpdate(event: FileUploadHandlerEvent) {
-    const file = event.files[0];
-    if (file.name != 'spiffs.bin') {
-      this.toastrService.error('Incorrect file, looking for spiffs.bin.', 'Error');
-      this.otaFileUploader.clear();
-      return;
-    }
-
-    this.systemService.performWWWOTAUpdate(file)
-      .pipe(
-        // this.loadingService.lockUIUntilComplete(),
-      ).subscribe({
-      next: (event) => {
-        if (event.type === HttpEventType.UploadProgress) {
-          this.websiteUpdateProgress = Math.round((event.loaded / (event.total as number)) * 100);
-        } else if (event.type === HttpEventType.Response) {
-          if (event.ok) {
-            setTimeout(() => {
-              this.toastrService.success('Website updated', 'Success!');
-              window.location.reload();
-            }, 1000);
-          } else {
-            this.toastrService.error(event.statusText, 'Error');
-          }
-        }
-      },
-      error: (err) => {
-        this.toastrService.error('Upload Error', 'Error');
-        this.otaFileUploader.clear();
-      },
-      complete: () => {
-        this.websiteUpdateProgress = null;
-        this.otaFileUploader.clear();
-      }
-    });
   }
 
   public restart() {

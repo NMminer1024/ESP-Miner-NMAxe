@@ -19,6 +19,7 @@ import {SettingsComponent} from './components/settings/settings.component';
 import {PreferenceComponent} from "./components/preference/preference.component";
 import {SwarmComponent} from './components/swarm/swarm.component';
 import {ThemeConfigComponent} from './components/settings/theme-config.component';
+import {UpdateComponent} from './components/update/update.component';
 import {AppLayoutModule} from './layout/app.layout.module';
 import {ANSIPipe} from './pipes/ansi.pipe';
 import {DateAgoPipe} from './pipes/date-ago.pipe';
@@ -35,7 +36,8 @@ const components = [
   SettingsComponent,
   LogsComponent,
   NetworkEditComponent,
-  PreferenceComponent
+  PreferenceComponent,
+  UpdateComponent
 ];
 
 @NgModule({
