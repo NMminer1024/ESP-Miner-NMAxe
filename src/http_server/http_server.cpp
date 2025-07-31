@@ -118,14 +118,13 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    root["scale"]   = g_nmaxe.mstatus.hr_dist.scale;
-    root["max_x"]   = g_nmaxe.mstatus.hr_dist.max_x;
-    root["cnt"]     = g_nmaxe.mstatus.hr_dist.cnt;
-    root["dura"]    = g_nmaxe.mstatus.hr_dist.dura;
+    root["max_bars"]    = g_nmaxe.mstatus.hr_dist.max_x_bars;
+    root["max_hr"]      = g_nmaxe.mstatus.hr_dist.max_x_hr;
+    root["times"]       = g_nmaxe.mstatus.hr_dist.times;
+    root["dura"]        = g_nmaxe.mstatus.hr_dist.dura;
     JsonObject dist_map = root.createNestedObject("dist");
     for (const auto& pair : g_nmaxe.mstatus.hr_dist.dist_map) {
         dist_map[String(pair.first)] = pair.second; 
-        LOG_I("dist_map key: %d, value: %d", pair.first, pair.second);
     }
 
     String json_str;

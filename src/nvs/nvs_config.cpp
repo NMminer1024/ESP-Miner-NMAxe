@@ -197,8 +197,8 @@ bool load_g_nmaxe(void){
         g_nmaxe.board.hw_model              = BOARD_NMAxe;
         g_nmaxe.asic.model                  = ASIC_1366;
         g_nmaxe.asic.job_frq_ms             = 2000;//send job every 2 seconds
-        g_nmaxe.mstatus.hr_dist.max_x       = 1000;// 1000 GH/s for x axis
-        g_nmaxe.mstatus.hr_dist.scale       = 50;  // 50 GH/s for every step
+        g_nmaxe.mstatus.hr_dist.max_x_hr    = 1000;// 1000 GH/s for x axis
+        g_nmaxe.mstatus.hr_dist.max_x_bars  = 20;  // how many samples for x axis
         g_nmaxe.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    550);
         g_nmaxe.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1200);
     }
@@ -206,8 +206,8 @@ bool load_g_nmaxe(void){
         g_nmaxe.board.hw_model              = BOARD_NMAxeGamma;
         g_nmaxe.asic.model                  = ASIC_1370;
         g_nmaxe.asic.job_frq_ms             = 500; //send job every 0.5 seconds
-        g_nmaxe.mstatus.hr_dist.max_x       = 2000;// 2000 GH/s for x axis
-        g_nmaxe.mstatus.hr_dist.scale       = 100; // 100 GH/s for every step
+        g_nmaxe.mstatus.hr_dist.max_x_hr    = 2000;// 2000 GH/s for x axis
+        g_nmaxe.mstatus.hr_dist.max_x_bars  = 20;  // how many samples for x axis
         g_nmaxe.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    600);
         g_nmaxe.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1125);
     }

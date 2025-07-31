@@ -146,10 +146,10 @@ typedef struct{
 
 
 typedef struct{
-    uint32_t             cnt;     // count of hashrate samples
-    uint32_t             dura;    // duration of hashrate samples
-    uint16_t             max_x;   // max x axis, unit: GH/s
-    uint16_t             scale;   // unit: GH/s
+    uint32_t             times;          // count of hashrate samples
+    uint32_t             dura;           // duration of hashrate samples, seconds
+    uint16_t             max_x_hr;       // max x axis in hashrate distribution
+    uint16_t             max_x_bars;     // count of max x axis
     std::map<uint16_t, uint8_t> dist_map;//<x, y> x:scale_x, y:percentage of hashrate in this scale, range from 0 to 100
 }hash_dist_t;
 

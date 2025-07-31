@@ -1016,8 +1016,7 @@ static void ui_dashboard_page_update(){
 }
 
 static void ui_hr_healthy_page_update(miner_status_t *miner_status){
-  uint16_t NUM_BARS = 10;
-  NUM_BARS = (g_nmaxe.mstatus.hr_dist.max_x / g_nmaxe.mstatus.hr_dist.scale);
+  uint16_t SCALE = (g_nmaxe.mstatus.hr_dist.max_x_hr / g_nmaxe.mstatus.hr_dist.max_x_bars);
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -1054,7 +1053,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
     font_color = lv_color_hex(0xFFA500);
     font = &lv_font_montserrat_12;
     label_scale = lv_label_create(ui_pages[PAGE_HR_HEALTH]);
-    lv_label_set_text(label_scale, ("Scale     : " + String(g_nmaxe.mstatus.hr_dist.scale) + " GH/s").c_str());
+    lv_label_set_text(label_scale, ("Scale     : " + String(SCALE) + " GH/s").c_str());
     lv_obj_set_style_text_font(label_scale, font, LV_PART_MAIN);
     lv_obj_set_style_text_color(label_scale, font_color, LV_PART_MAIN); 
     lv_label_set_long_mode(label_scale, LV_LABEL_LONG_SCROLL_CIRCULAR);
@@ -1075,15 +1074,15 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
     lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
     lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
     lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, NUM_BARS - 1); 
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, g_nmaxe.mstatus.hr_dist.max_x_bars - 1); 
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
     lv_chart_set_div_line_count(chart, 5, 4);
 
     // Add a series to the chart
     series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    lv_chart_set_point_count(chart, NUM_BARS);
+    lv_chart_set_point_count(chart, g_nmaxe.mstatus.hr_dist.max_x_bars);
     lv_chart_set_all_value(chart, series, 0);
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, NUM_BARS, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, g_nmaxe.mstatus.hr_dist.max_x_bars, 1, true, 25);
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
     lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -1101,15 +1100,15 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
 
   static uint64_t *counts = NULL;
   if (counts == NULL) {
-    counts = (uint64_t *)malloc(NUM_BARS * sizeof(uint64_t));
-    memset(counts, 0, NUM_BARS * sizeof(uint64_t));
+    counts = (uint64_t *)malloc(g_nmaxe.mstatus.hr_dist.max_x_bars * sizeof(uint64_t));
+    memset(counts, 0, g_nmaxe.mstatus.hr_dist.max_x_bars * sizeof(uint64_t));
   }
-  int index = last_hashrate/1000/1000/1000 / g_nmaxe.mstatus.hr_dist.scale;
-  index = (index >= NUM_BARS) ? NUM_BARS - 1 : index;
+  int index = last_hashrate/1000/1000/1000 / SCALE; // Convert to GH/s and scale
+  index = (index >= g_nmaxe.mstatus.hr_dist.max_x_bars) ? g_nmaxe.mstatus.hr_dist.max_x_bars - 1 : index;
   counts[index]++;
-  g_nmaxe.mstatus.hr_dist.cnt++;
-  for (int i = 0; i < NUM_BARS; i++) {
-    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)g_nmaxe.mstatus.hr_dist.cnt);
+  g_nmaxe.mstatus.hr_dist.times++;
+  for (int i = 0; i < g_nmaxe.mstatus.hr_dist.max_x_bars; i++) {
+    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)g_nmaxe.mstatus.hr_dist.times);
     lv_chart_set_value_by_id(chart, series, i, y);
     g_nmaxe.mstatus.hr_dist.dist_map[i] = y;// Update the global distribution map
   }
@@ -1124,7 +1123,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
   //hashrate unit
   lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
   //time cost
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(g_nmaxe.mstatus.hr_dist.cnt) + "t/"+ String(g_nmaxe.mstatus.hr_dist.dura) + "s").c_str());
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(g_nmaxe.mstatus.hr_dist.times) + "t/"+ String(g_nmaxe.mstatus.hr_dist.dura) + "s").c_str());
 }
 
 static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
