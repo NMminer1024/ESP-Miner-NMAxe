@@ -178,6 +178,7 @@ static void get_status_history(AsyncWebServerRequest* request){
         dataPoint.add(history.vbus);               // voltage (V)
         dataPoint.add(history.ibus);               // current (A)
         dataPoint.add(history.vcore);              // coreVoltageActual (mV)
+        dataPoint.add(history.fanspeed);           // fanspeed (%)
         dataPoint.add(history.fanrpm);             // fanrpm (RPM)
         dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
         dataPoint.add(history.free_heap);          // freeHeap (bytes)
@@ -229,6 +230,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     labels.add("Vbus");
     labels.add("Ibus");
     labels.add("Vcore");
+    labels.add("fanspeed");
     labels.add("fanrpm");
     labels.add("wifiRSSI");
     labels.add("freeHeap");
@@ -245,6 +247,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
         dataPoint.add(history.vbus);               // voltage (V)
         dataPoint.add(history.ibus);               // current (A)
         dataPoint.add(history.vcore);              // coreVoltageActual (mV)
+        dataPoint.add(history.fanspeed);           // fanspeed (%)
         dataPoint.add(history.fanrpm);             // fanrpm (RPM)
         dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
         dataPoint.add(history.free_heap);          // freeHeap (bytes)

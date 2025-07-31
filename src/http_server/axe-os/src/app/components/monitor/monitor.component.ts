@@ -2,7 +2,8 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } fr
 import { SystemService } from '../../services/system.service';
 import { Subscription, interval } from 'rxjs';
 import { takeWhile } from 'rxjs/operators';
-import { Chart, ChartConfiguration, ChartData, ChartOptions, registerables } from 'chart.js';
+import { Chart, ChartConfiguration, ChartData, ChartOptions, registerables, TimeScale } from 'chart.js';
+import 'chartjs-adapter-moment';
 
 // 注册Chart.js组件
 Chart.register(...registerables);
@@ -47,7 +48,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   
   historyData: HistoryNode[] = [];
   selectedFields: string[] = ['hashrate', 'asic_temp', 'pbus'];
-  selectedTimeRange: string = '60'; // 默认显示60分钟
+  selectedTimeRange: string = 'all'; // 默认显示所有历史数据
   
   chart: Chart | null = null;
   isLoading = false;
@@ -73,15 +74,16 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     { value: 'free_heap', label: 'Free Heap', unit: 'KB', type: 'number', selected: false, color: '#FFC107' }
   ];
   
-  // 时间范围选项
+  // 时间范围选项 - 改为显示模式而非过滤模式
   timeRanges: TimeRange[] = [
-    { value: '10', label: '10 Minutes', minutes: 10 },
-    { value: '30', label: '30 Minutes', minutes: 30 },
-    { value: '60', label: '1 Hour', minutes: 60 },
-    { value: '180', label: '3 Hours', minutes: 180 },
-    { value: '360', label: '6 Hours', minutes: 360 },
-    { value: '720', label: '12 Hours', minutes: 720 },
-    { value: '1440', label: '24 Hours', minutes: 1440 }
+    { value: 'all', label: 'All History', minutes: -1 }, // -1 表示显示所有历史数据
+    { value: '10', label: 'Last 10 Minutes', minutes: 10 },
+    { value: '30', label: 'Last 30 Minutes', minutes: 30 },
+    { value: '60', label: 'Last 1 Hour', minutes: 60 },
+    { value: '180', label: 'Last 3 Hours', minutes: 180 },
+    { value: '360', label: 'Last 6 Hours', minutes: 360 },
+    { value: '720', label: 'Last 12 Hours', minutes: 720 },
+    { value: '1440', label: 'Last 24 Hours', minutes: 1440 }
   ];
 
   constructor(private systemService: SystemService) { }
@@ -198,7 +200,15 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         devicePixelRatio: 1, // 固定像素比例
         scales: {
           x: {
-            type: 'linear', // 改为 linear 而不是 time
+            type: 'time', // 使用时间类型而不是linear
+            time: {
+              unit: 'minute',
+              displayFormats: {
+                minute: 'HH:mm',
+                hour: 'HH:mm'
+              },
+              tooltipFormat: 'YYYY-MM-DD HH:mm:ss'
+            },
             title: {
               display: true,
               text: 'Time',
@@ -206,14 +216,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             },
             ticks: {
               color: '#cccccc',
-              callback: function(value: any) {
-                return new Date(value).toLocaleTimeString();
-              }
+              maxTicksLimit: 10
             },
             grid: {
               color: 'rgba(255, 255, 255, 0.1)'
             }
-            // 移除固定的min/max，让Chart.js自动计算
           },
           y: {
             title: {
@@ -450,13 +457,33 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     console.log('Updating chart with data:', this.historyData.length, 'points');
     console.log('Selected fields:', this.selectedFields);
+    console.log('Selected time range:', this.selectedTimeRange);
 
     // 根据时间范围过滤数据
+    let filteredData: HistoryNode[];
     const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
-    const cutoffTime = Date.now() - (timeRange?.minutes || 60) * 60 * 1000;
-    const filteredData = this.historyData.filter(item => item.epoch >= cutoffTime);
     
-    console.log('Filtered data length:', filteredData.length);
+    if (this.selectedTimeRange === 'all' || (timeRange && timeRange.minutes === -1)) {
+      // 显示所有历史数据
+      filteredData = [...this.historyData];
+      console.log('Showing all historical data');
+    } else {
+      // 根据选择的时间范围过滤
+      const cutoffTime = Date.now() - (timeRange?.minutes || 60) * 60 * 1000;
+      filteredData = this.historyData.filter(item => item.epoch >= cutoffTime);
+      console.log(`Showing last ${timeRange?.minutes} minutes of data`);
+    }
+    
+    console.log('Filtered data:', {
+      total: this.historyData.length,
+      filtered: filteredData.length,
+      timeSpan: filteredData.length > 1 ? (filteredData[filteredData.length - 1].epoch - filteredData[0].epoch) / (1000 * 60) : 0 // 分钟
+    });
+
+    if (filteredData.length === 0) {
+      console.warn('No data available for chart');
+      return;
+    }
 
     // 更新图表数据
     const datasets = this.selectedFields.map(field => {
@@ -466,8 +493,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         y: this.parseValue(item[field as keyof HistoryNode], field)
       }));
       
-      console.log(`Dataset for ${field}:`, data.slice(0, 3)); // 打印前3个数据点
-      console.log(`Sample data point:`, data[0]); // 打印第一个数据点的详细信息
+      if (data.length > 0) {
+        console.log(`Dataset for ${field}: ${data.length} points, range: ${new Date(data[0].x).toLocaleTimeString()} - ${new Date(data[data.length - 1].x).toLocaleTimeString()}`);
+      }
       
       return {
         label: `${fieldOption?.label} (${fieldOption?.unit})`,
@@ -475,7 +503,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         borderColor: fieldOption?.color || '#4CAF50',
         backgroundColor: `${fieldOption?.color || '#4CAF50'}20`,
         tension: 0.1,
-        pointRadius: 3, // 增加点的大小
+        pointRadius: 2,
         pointHoverRadius: 6,
         borderWidth: 2,
         fill: false
@@ -484,36 +512,18 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.chart.data.datasets = datasets;
     
-    // 动态更新X轴范围
-    if (filteredData.length > 0) {
-      const minTime = Math.min(...filteredData.map(item => item.epoch));
-      const maxTime = Math.max(...filteredData.map(item => item.epoch));
-      
-      // 如果时间跨度太小，扩展一下范围
-      let timeSpan = maxTime - minTime;
-      if (timeSpan < 5 * 60 * 1000) { // 如果小于5分钟，扩展到1小时
-        timeSpan = 60 * 60 * 1000; // 1小时
-      }
-      
-      const padding = Math.max(timeSpan * 0.05, 5 * 60 * 1000); // 至少5分钟的padding
-      
-      if (this.chart.options.scales?.['x']) {
-        (this.chart.options.scales['x'] as any).min = minTime - padding;
-        (this.chart.options.scales['x'] as any).max = maxTime + padding;
-      }
-      
-      console.log('X-axis range updated:', {
-        dataPoints: filteredData.length,
-        timeSpan: timeSpan / (1000 * 60), // 分钟
-        min: new Date(minTime - padding).toLocaleString(),
-        max: new Date(maxTime + padding).toLocaleString(),
-        firstData: new Date(minTime).toLocaleString(),
-        lastData: new Date(maxTime).toLocaleString(),
-        current: new Date().toLocaleString()
-      });
-    } else {
-      console.warn('No filtered data available for chart');
-    }
+    // 打印时间轴信息用于调试
+    const minTime = Math.min(...filteredData.map(item => item.epoch));
+    const maxTime = Math.max(...filteredData.map(item => item.epoch));
+    
+    console.log('Chart time range:', {
+      dataPoints: filteredData.length,
+      timeSpan: (maxTime - minTime) / (1000 * 60), // 分钟
+      firstData: new Date(minTime).toLocaleString(),
+      lastData: new Date(maxTime).toLocaleString(),
+      current: new Date().toLocaleString(),
+      timeDiff: (Date.now() - maxTime) / (1000 * 60) // 距离最新数据的分钟数
+    });
     
     console.log('Chart datasets updated:', this.chart.data.datasets.length);
     console.log('Chart data sample:', this.chart.data.datasets[0]?.data?.slice(0, 2));
@@ -632,11 +642,27 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedFields = this.fieldOptions
       .filter(field => field.selected)
       .map(field => field.value);
+    
+    console.log('Field selection changed:', this.selectedFields);
     this.updateChart();
   }
 
   onTimeRangeChange(): void {
-    this.updateChart();
+    console.log('Time range changed to:', this.selectedTimeRange);
+    this.updateChart(); // 重新更新图表显示
+  }
+
+  // 获取选中时间范围的标签
+  getSelectedTimeRangeLabel(): string {
+    const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
+    return timeRange ? timeRange.label : 'Unknown';
+  }
+
+  // 获取状态文本
+  getStatusText(): string {
+    if (this.isLoading) return 'Loading...';
+    if (this.isRealTimeActive) return 'Real-time Active';
+    return 'Static View';
   }
 
   refreshData(): void {
@@ -655,9 +681,15 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.historyData.length) return;
     
     // 根据时间范围过滤数据
+    let filteredData: HistoryNode[];
     const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
-    const cutoffTime = Date.now() - (timeRange?.minutes || 60) * 60 * 1000;
-    const filteredData = this.historyData.filter(item => item.epoch >= cutoffTime);
+    
+    if (this.selectedTimeRange === 'all' || (timeRange && timeRange.minutes === -1)) {
+      filteredData = [...this.historyData];
+    } else {
+      const cutoffTime = Date.now() - (timeRange?.minutes || 60) * 60 * 1000;
+      filteredData = this.historyData.filter(item => item.epoch >= cutoffTime);
+    }
     
     const headers = ['Timestamp', 'Time', 
                     ...this.selectedFields.map(field => this.getFieldLabel(field))];
@@ -689,17 +721,6 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.isLoading) return 'status-loading';
     if (this.isRealTimeActive) return 'status-realtime';
     return 'status-offline';
-  }
-
-  getStatusText(): string {
-    if (this.isLoading) return 'Loading...';
-    if (this.isRealTimeActive) return 'Real-time Active';
-    return 'Offline';
-  }
-
-  getSelectedTimeRangeLabel(): string {
-    const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
-    return timeRange ? timeRange.label : '1 Hour';
   }
 
 }

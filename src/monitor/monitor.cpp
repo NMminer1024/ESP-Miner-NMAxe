@@ -187,6 +187,7 @@ void monitor_thread_entry(void *args){
         node.vbus         = String((g_nmaxe.board.vbus / 1000.0f),1); //V
         node.ibus         = String((g_nmaxe.board.ibus / 1000.0f),3); //A
         node.vcore        = g_nmaxe.asic.vcore_measured;
+        node.fanspeed     = g_nmaxe.preference.fan.speed; //%
         node.fanrpm       = g_nmaxe.preference.fan.rpm;
         node.wifi_rssi    = g_nmaxe.connection.wifi.status_param.rssi;
         node.free_heap    = ESP.getFreeHeap(); //Bytes

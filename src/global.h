@@ -164,6 +164,7 @@ typedef struct{
     String         vbus;          // voltage, V
     String         ibus;          // current, A
     uint16_t       vcore;         // vcore measured, mV
+    uint16_t       fanspeed;      // fan speed, %
     uint16_t       fanrpm;        // fan rpm, RPM
     int8_t         wifi_rssi;     // wifi rssi, dBm
     uint32_t       free_heap;     // free heap, bytes
