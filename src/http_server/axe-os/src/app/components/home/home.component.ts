@@ -123,11 +123,15 @@ export class HomeComponent {
           position: 'left',
           title: {
             display: true,
-            text: 'Hashrate'
+            text: 'Hashrate (GH/s)'
           },
           ticks: {
             color: rgb(211, 211, 211),
-            callback: (value: number) => HashSuffixPipe.transform(value)
+            callback: (value: number) => {
+              // 转换为 GH/s 并显示为整数
+              const ghValue = value / 1000000000;
+              return Math.round(ghValue).toString();
+            }
           },
           grid: {
             color: surfaceBorder,

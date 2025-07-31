@@ -1,0 +1,155 @@
+.hr-dist-chart-container {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  border: 1px solid #404040;
+  color: #ffffff;
+  margin-bottom: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.chart-title {
+  color: #fff;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-stats {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #cccccc;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  min-width: 50px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+}
+
+.chart-wrapper {
+  flex: 1;
+  min-height: 350px;
+}
+
+.chart-footer {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-description {
+  font-size: 0.8rem;
+  color: #cccccc;
+  line-height: 1.4;
+  margin: 0;
+  text-align: center;
+  font-style: italic;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .hr-dist-chart-container {
+    padding: 15px;
+  }
+  
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .chart-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .stat-item {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .stat-value {
+    font-size: 0.8rem;
+    padding: 0.15rem 0.4rem;
+  }
+  
+  .chart-wrapper {
+    min-height: 280px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-title {
+    font-size: 1.1rem;
+  }
+  
+  .chart-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .stat-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .chart-wrapper {
+    height: 250px;
+  }
+}
+
+/* 暗色主题优化 */
+::ng-deep .p-chart {
+  background: transparent !important;
+}
+
+::ng-deep .p-chart canvas {
+  border-radius: 6px;
+}
+
+/* 图表动画效果 */
+.hr-dist-chart-container {
+  transition: all 0.3s ease;
+}
+
+.hr-dist-chart-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}

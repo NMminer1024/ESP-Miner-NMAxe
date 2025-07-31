@@ -153,9 +153,17 @@
   }
 }
 
+// Charts Grid Layout
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 20px 0;
+}
+
 // Chart Section
 .chart-section {
-  margin: 20px 0;
+  margin: 0;
 }
 
 .chart-card {
@@ -164,6 +172,9 @@
   padding: 20px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   border: 1px solid #404040;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 
   h5 {
     color: #fff;
@@ -171,6 +182,25 @@
     font-size: 18px;
     font-weight: 500;
   }
+}
+
+.chart-header {
+  margin-bottom: 15px;
+  
+  .chart-title {
+    color: #fff;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.chart-wrapper {
+  flex: 1;
+  min-height: 350px;
 }
 
 // Secondary Stats Grid
@@ -399,4 +429,63 @@ ng-template {
 ::ng-deep .p-knob {
   pointer-events: none;
   user-select: none;
+}
+
+// Responsive Design for Charts Grid
+@media (max-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .chart-wrapper {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-stats {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  
+  .secondary-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .chart-wrapper {
+    min-height: 250px;
+  }
+  
+  .chart-card {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-home {
+    padding: 3px;
+  }
+  
+  .main-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  
+  .stat-card {
+    padding: 10px;
+  }
+  
+  .stat-value {
+    font-size: 20px;
+    
+    &.hashrate-value .hashrate-number {
+      font-size: 22px;
+    }
+  }
+  
+  .chart-wrapper {
+    min-height: 200px;
+  }
 }

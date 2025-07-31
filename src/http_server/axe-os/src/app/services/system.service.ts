@@ -118,6 +118,10 @@ export class SystemService {
     return this.httpClient.get(`${uri}/api/swarm/info`) as Observable<{ ip: string }[]>;
   }
 
+  public getHashrateDistribution(uri: string = ''): Observable<any> {
+    return this.httpClient.get(`${uri}/api/system/hr/dist`);
+  }
+
   public updateSwarm(uri: string = '', swarmConfig: any) {
     return this.httpClient.patch(`${uri}/api/swarm`, swarmConfig);
   }

@@ -1,0 +1,27 @@
+<div class="hr-dist-chart-container">
+  <div class="chart-header">
+    <h3 class="chart-title">📊 Hashrate Distribution</h3>
+    <div class="chart-stats">
+      <div class="stat-item">
+        <span class="stat-label">Scale</span>
+        <span class="stat-value">{{ scale }} {{ scaleUnit }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Time</span>
+        <span class="stat-value">{{ formattedTime }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Samples</span>
+        <span class="stat-value">{{ samplingCount }}</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="chart-wrapper">
+    <p-chart 
+      #chart 
+      [data]="chartData" 
+      [options]="chartOptions">
+    </p-chart>
+  </div>
+</div>
