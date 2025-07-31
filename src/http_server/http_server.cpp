@@ -52,10 +52,15 @@ static void rest_common_get_handler(AsyncWebServerRequest *request) {
     });
 
 
-    if (!request->url().endsWith("/")) {
-        response->addHeader("Cache-Control", "max-age=86400"); // cache for 24 hour
-    }
+    // if (!request->url().endsWith("/")) {
+    //     response->addHeader("Cache-Control", "max-age=86400"); // cache for 24 hour
+    // }
+    
+    response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    response->addHeader("Pragma", "no-cache");
+    response->addHeader("Expires", "0");
     response->addHeader("Content-Encoding", "gzip");
+
     request->send(response);
     LOG_L("File sending complete: %s, free heap: %d", base_path.c_str(), ESP.getFreeHeap());
 }
