@@ -137,8 +137,6 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     request->send(200, "application/json", json_str);
 }
 static void get_status_history(AsyncWebServerRequest* request){
-    LOG_I("📊 get_status_history API called from %s", request->client()->remoteIP().toString().c_str());
-    
     uint32_t json_size_max = 1024 * 1024; // in bytes
     static DynamicJsonDocument* root = nullptr;
     if(nullptr != root) {
@@ -154,7 +152,8 @@ static void get_status_history(AsyncWebServerRequest* request){
         root = new(buffer) DynamicJsonDocument(json_size_max);
     }
 
-    (*root)["timestamp"] = g_nmaxe.mstatus.utc;
+    uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
+    (*root)["timestamp"] = ms;
     JsonArray labels = (*root).createNestedArray("labels");
     labels.add("hashRate");
     labels.add("asicTemp");
@@ -185,13 +184,19 @@ static void get_status_history(AsyncWebServerRequest* request){
         dataPoint.add(history.epoch);              // timestamp (ms)
     }
     (*root)["size"] = g_nmaxe.mstatus.status_history.size();
+    
+
 
     String json_str;
     serializeJson((*root), json_str);
     request->send(200, "application/json", json_str);
 
-
     if(g_nmaxe.mstatus.status_history.size() > 0){
+        LOG_I("🕐 Last history timestamp: %llu, Current UTC: %llu, Diff: %.1f minutes", 
+            g_nmaxe.mstatus.status_history.back().epoch, 
+            g_nmaxe.mstatus.utc * 1000ULL,
+            (g_nmaxe.mstatus.utc * 1000ULL - g_nmaxe.mstatus.status_history.back().epoch) / (1000.0 * 60.0));
+
         LOG_W("Status history sent, history size: %d, json size: %d, %d bytes every node", 
             g_nmaxe.mstatus.status_history.size(), 
             json_str.length(), 
@@ -199,8 +204,6 @@ static void get_status_history(AsyncWebServerRequest* request){
     }
 }
 static void get_status_realtime(AsyncWebServerRequest* request){
-    LOG_I("📈 get_status_realtime API called from %s", request->client()->remoteIP().toString().c_str());
-    
     uint32_t json_size_max = 512; // in bytes
     static DynamicJsonDocument* root = nullptr;
     if(nullptr != root) {
@@ -216,7 +219,8 @@ static void get_status_realtime(AsyncWebServerRequest* request){
         root = new(buffer) DynamicJsonDocument(json_size_max);
     }
 
-    (*root)["timestamp"] = g_nmaxe.mstatus.utc;
+    uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
+    (*root)["timestamp"] = ms;
     JsonArray labels = (*root).createNestedArray("labels");
     labels.add("hashRate");
     labels.add("asicTemp");

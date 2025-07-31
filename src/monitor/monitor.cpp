@@ -36,7 +36,7 @@ void monitor_thread_entry(void *args){
 
   //ntp client init
   ntpClient.begin();
-  ntpClient.setTimeOffset(g_nmaxe.mstatus.timezone.toFloat() * 3600);
+  ntpClient.setTimeOffset(0); // Get UTC time without timezone offset
   ntpClient.setUpdateInterval(ntpInterval);
 
   //wait for first job cache ready forever when process start
@@ -64,19 +64,26 @@ void monitor_thread_entry(void *args){
       // update utc time
       if(ntpClient.update()){
           struct timeval tv;
-          ntpClient.setTimeOffset(g_nmaxe.mstatus.timezone.toFloat() * 3600);
-          tv.tv_sec = ntpClient.getEpochTime();
+          // 获取真正的UTC时间
+          tv.tv_sec = ntpClient.getEpochTime(); // 真正的UTC时间戳
           tv.tv_usec = 0;
           settimeofday(&tv, NULL);
-          g_nmaxe.mstatus.utc = tv.tv_sec;
+          g_nmaxe.mstatus.utc = tv.tv_sec; // 存储真正的UTC时间
+          
+          // 设置系统时区以便localtime()正确工作
+          String tz_env = "UTC" + g_nmaxe.mstatus.timezone; // e.g. "UTC+8" or "UTC-5"
+          setenv("TZ", tz_env.c_str(), 1);
+          tzset();
+          
           String time_local = convert_time_to_local(g_nmaxe.mstatus.utc);
-          LOG_W("ntp calibrate time [%s], timezone [%s]", time_local.c_str(), g_nmaxe.mstatus.timezone.c_str());
+          LOG_W("ntp calibrate time UTC[%llu], local[%s], timezone[%s]", 
+                g_nmaxe.mstatus.utc, time_local.c_str(), g_nmaxe.mstatus.timezone.c_str());
       }
       else{
           // update time now
           time_t now;
           time(&now);
-          g_nmaxe.mstatus.utc = now;
+          g_nmaxe.mstatus.utc = now; // 这里仍然存储当前系统时间，可能是UTC或本地时间
       }
 
       g_nmaxe.mstatus.uptime_ever++;
@@ -172,7 +179,6 @@ void monitor_thread_entry(void *args){
 
       //update miner status history queue
       if(g_nmaxe.mstatus.uptime_session % 3 == 0){
-        static uint32_t start = millis();
         history_node_t node;
         node.hashrate     = String(g_nmaxe.mstatus.hashrate._3m /1e9, 3); //Ghash/s
         node.asic_temp    = String(g_nmaxe.temp.asic,1);
@@ -184,15 +190,21 @@ void monitor_thread_entry(void *args){
         node.fanrpm       = g_nmaxe.preference.fan.rpm;
         node.wifi_rssi    = g_nmaxe.connection.wifi.status_param.rssi;
         node.free_heap    = ESP.getFreeHeap(); //Bytes
-        node.epoch        = g_nmaxe.mstatus.utc * 1000ULL; // 使用UTC时间戳(秒)转换为毫秒
+        node.epoch        = g_nmaxe.mstatus.utc * 1000ULL; // Convert UTC seconds to milliseconds
 
         g_nmaxe.mstatus.status_history.push_back(node);
 
         //remove old history
-        if(millis() - start > HISTORY_DEEPTH){
-            g_nmaxe.mstatus.status_history.pop_front();
-            LOG_W("Remove old history, current size: %d", g_nmaxe.mstatus.status_history.size());
-            start = g_nmaxe.mstatus.status_history.front().epoch;
+        uint64_t current_time_ms = g_nmaxe.mstatus.utc * 1000ULL; // Convert to milliseconds
+        while (!g_nmaxe.mstatus.status_history.empty()) {
+            uint64_t oldest_time_ms = g_nmaxe.mstatus.status_history.front().epoch; // Already in milliseconds
+            if(current_time_ms - oldest_time_ms > HISTORY_DEEPTH){ 
+                g_nmaxe.mstatus.status_history.pop_front();
+                LOG_W("Remove old history, current size: %d, removed timestamp: %llu", 
+                      g_nmaxe.mstatus.status_history.size(), oldest_time_ms);
+            } else {
+                break;
+            }
         }
       }
 

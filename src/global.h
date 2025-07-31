@@ -38,7 +38,7 @@
 
 #define MARKET_TIMEOUT         (MARKET_UPDATE_INTERVAL * 3) // ms
 
-#define HISTORY_DEEPTH         (1000*3600*12) // history depth, how long to keep the history, in milliseconds
+#define HISTORY_DEEPTH         (1000*3600*12) // history depth, how long to keep the history, in seconds
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
@@ -160,18 +160,18 @@ typedef struct{
     String         hashrate;      // hashrate, GH/s
     String         asic_temp;     // asic temperature, C
     String         vcore_temp;    // vcore temperature, C
-    String         pbus;         // power, W
-    String         vbus;       // voltage, V
-    String         ibus;       // current, A
-    uint16_t       vcore;   // vcore measured, mV
-    uint16_t       fanrpm;       // fan rpm, RPM
+    String         pbus;          // power, W
+    String         vbus;          // voltage, V
+    String         ibus;          // current, A
+    uint16_t       vcore;         // vcore measured, mV
+    uint16_t       fanrpm;        // fan rpm, RPM
     int8_t         wifi_rssi;     // wifi rssi, dBm
     uint32_t       free_heap;     // free heap, bytes
-    uint32_t       epoch;         // timestamp, ms since epoch
+    uint64_t       epoch;         // timestamp, milliseconds since epoch
 }history_node_t;
 
 typedef struct{
-    uint32_t            utc;
+    uint64_t            utc;              // UTC timestamp in seconds since epoch
     String              timezone;
     uint32_t            share_rejected;
     uint32_t            share_accepted;

@@ -228,7 +228,7 @@ String convert_time_to_local(uint32_t timestamp) {
 
     struct tm *timeinfo = localtime(&localTime);
     char timeString[30] = {0,};
-    // 使用 %I 表示 12 小时制，%p 表示 AM/PM
+
     strftime(timeString, sizeof(timeString), "%d-%m-%Y %I:%M:%S %p", timeinfo);
 
     return String(timeString);

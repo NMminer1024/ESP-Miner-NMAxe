@@ -126,6 +126,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedFields = this.fieldOptions
       .filter(field => field.selected)
       .map(field => field.value);
+    
+    console.log('Selected fields initialized:', this.selectedFields);
   }
 
   private initChart(): void {
@@ -210,9 +212,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             },
             grid: {
               color: 'rgba(255, 255, 255, 0.1)'
-            },
-            min: Date.now() - 24 * 60 * 60 * 1000, // 24小时前
-            max: Date.now() + 60 * 60 * 1000 // 1小时后
+            }
+            // 移除固定的min/max，让Chart.js自动计算
           },
           y: {
             title: {
@@ -286,6 +287,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       width: ctx.canvas.width,
       height: ctx.canvas.height
     });
+    
+    console.log('Chart initialization complete');
   }
 
   loadHistoryData(): void {
@@ -318,19 +321,34 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                 epoch: item[11] || Date.now()       // epoch (ms) - 索引11
               };
               
-              if (index === 0) {
-                console.log('First data point raw:', item);
-                console.log('First data point processed:', processed);
-                console.log('Current time:', Date.now());
-                console.log('Epoch from data:', processed.epoch);
-                console.log('Time difference (hours):', (processed.epoch - Date.now()) / (1000 * 60 * 60));
+              if (index < 3 || index === response.statistics.length - 1) {
+                console.log(`Data point ${index}:`, {
+                  raw: item,
+                  processed: processed,
+                  timestamp: new Date(processed.epoch).toLocaleString(),
+                  currentTime: new Date().toLocaleString(),
+                  timeDiff: (Date.now() - processed.epoch) / (1000 * 60) // 分钟差
+                });
               }
               
               return processed;
             });
             
+            // 按时间戳排序，确保数据顺序正确
+            this.historyData.sort((a, b) => a.epoch - b.epoch);
+            
+            console.log('History data time range:', {
+              total: this.historyData.length,
+              first: this.historyData[0] ? new Date(this.historyData[0].epoch).toLocaleString() : 'none',
+              last: this.historyData[this.historyData.length - 1] ? new Date(this.historyData[this.historyData.length - 1].epoch).toLocaleString() : 'none',
+              timeSpan: this.historyData.length > 1 ? (this.historyData[this.historyData.length - 1].epoch - this.historyData[0].epoch) / (1000 * 60 * 60) : 0 // 小时
+            });
+            
             this.dataSize = response.size || this.historyData.length;
             this.lastUpdateTime = new Date().toLocaleString();
+            
+            // 确保图表立即更新显示数据
+            console.log('Triggering initial chart update...');
             this.updateChart();
             
             // 开始实时更新
@@ -470,18 +488,31 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (filteredData.length > 0) {
       const minTime = Math.min(...filteredData.map(item => item.epoch));
       const maxTime = Math.max(...filteredData.map(item => item.epoch));
-      const padding = (maxTime - minTime) * 0.1; // 10%的padding
+      
+      // 如果时间跨度太小，扩展一下范围
+      let timeSpan = maxTime - minTime;
+      if (timeSpan < 5 * 60 * 1000) { // 如果小于5分钟，扩展到1小时
+        timeSpan = 60 * 60 * 1000; // 1小时
+      }
+      
+      const padding = Math.max(timeSpan * 0.05, 5 * 60 * 1000); // 至少5分钟的padding
       
       if (this.chart.options.scales?.['x']) {
         (this.chart.options.scales['x'] as any).min = minTime - padding;
         (this.chart.options.scales['x'] as any).max = maxTime + padding;
       }
       
-      console.log('X-axis range:', {
-        min: new Date(minTime).toLocaleString(),
-        max: new Date(maxTime).toLocaleString(),
+      console.log('X-axis range updated:', {
+        dataPoints: filteredData.length,
+        timeSpan: timeSpan / (1000 * 60), // 分钟
+        min: new Date(minTime - padding).toLocaleString(),
+        max: new Date(maxTime + padding).toLocaleString(),
+        firstData: new Date(minTime).toLocaleString(),
+        lastData: new Date(maxTime).toLocaleString(),
         current: new Date().toLocaleString()
       });
+    } else {
+      console.warn('No filtered data available for chart');
     }
     
     console.log('Chart datasets updated:', this.chart.data.datasets.length);
