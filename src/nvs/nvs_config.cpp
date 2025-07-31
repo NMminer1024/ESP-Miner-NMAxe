@@ -192,23 +192,24 @@ bool load_g_nmaxe(void){
         delay(1000);
     }
 
-    uint16_t default_asic_frq = 550, default_asic_vcore = 1150;
-
-
     board_model_t model = get_board_model();
     if(NMAXE == model){
-        g_nmaxe.board.hw_model = BOARD_NMAxe;
-        g_nmaxe.asic.model     = "BM1366";
-        g_nmaxe.asic.job_frq_ms = 2000;
-        default_asic_frq        = 550;
-        default_asic_vcore      = 1200;
+        g_nmaxe.board.hw_model              = BOARD_NMAxe;
+        g_nmaxe.asic.model                  = ASIC_1366;
+        g_nmaxe.asic.job_frq_ms             = 2000;//send job every 2 seconds
+        g_nmaxe.mstatus.hr_dist.max_x       = 1000;// 1000 GH/s for x axis
+        g_nmaxe.mstatus.hr_dist.scale       = 50;  // 50 GH/s for every step
+        g_nmaxe.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    550);
+        g_nmaxe.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1200);
     }
     else if(NMAXE_GAMMA == model){
-        g_nmaxe.board.hw_model = BOARD_NMAxeGamma;
-        g_nmaxe.asic.model     = "BM1370";
-        g_nmaxe.asic.job_frq_ms = 500;
-        default_asic_frq        = 600;
-        default_asic_vcore      = 1125;
+        g_nmaxe.board.hw_model              = BOARD_NMAxeGamma;
+        g_nmaxe.asic.model                  = ASIC_1370;
+        g_nmaxe.asic.job_frq_ms             = 500; //send job every 0.5 seconds
+        g_nmaxe.mstatus.hr_dist.max_x       = 2000;// 2000 GH/s for x axis
+        g_nmaxe.mstatus.hr_dist.scale       = 100; // 100 GH/s for every step
+        g_nmaxe.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    600);
+        g_nmaxe.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1125);
     }
     else{
         LOG_E("Board model not supported!");
@@ -231,7 +232,6 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + g_nmaxe.board.hw_model).c_str()));
     g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=1024"));
     g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
-
 
     g_nmaxe.board.fw_version                    = CURRENT_FW_VERSION;
     g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
@@ -260,8 +260,6 @@ bool load_g_nmaxe(void){
     g_nmaxe.ota.progress                        = 0;
     g_nmaxe.ota.firmware                        = "";
     g_nmaxe.mstatus.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
-    g_nmaxe.asic.frequency_req                  = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, default_asic_frq);
-    g_nmaxe.asic.vcore_req                      = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, default_asic_vcore);
     g_nmaxe.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     g_nmaxe.preference.fan.invert_ploarity      = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, true); 
     g_nmaxe.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);

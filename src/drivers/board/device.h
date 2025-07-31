@@ -5,6 +5,10 @@
 #define BOARD_NMAxe                                    "NMAxe"
 #define BOARD_NMAxeGamma                               "NMAxeGamma"
 
+#define ASIC_1366                                      "BM1366"
+#define ASIC_1370                                      "BM1370"
+
+
 #define PRIMARY_POOL_URL                               "stratum+tcp://public-pool.io:21496"//btc
 #define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
 

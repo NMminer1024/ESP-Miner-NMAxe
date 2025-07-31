@@ -98,7 +98,6 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["stratumURL2"] = g_nmaxe.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port));
     root["version"] = g_nmaxe.board.fw_version;
     root["boardVersion"] = g_nmaxe.board.hw_model;
-    // root["runningPartition"] = "part1";
     root["flipscreen"] = g_nmaxe.preference.screen.flip;
     root["ledindicator"] = g_nmaxe.preference.led.enable;
     root["overheat_mode"] = 0;
@@ -110,10 +109,22 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["fanrpm"] = g_nmaxe.preference.fan.rpm;
     root["brightness"] = g_nmaxe.preference.screen.brightness_last;
     root["coin"] = g_nmaxe.coin;
+    String sys_info;
+    serializeJson(root, sys_info);
+    request->send(200, "application/json", sys_info);
+}
+static void get_hr_distribution(AsyncWebServerRequest* request){
+    const uint16_t json_size_max  =  512;
+
+    StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
+
+    root.clear();
+    root["power"] = (g_nmaxe.board.ibus /1000.0f) * (g_nmaxe.board.vbus / 1000.0f);
+    root["voltage"] = g_nmaxe.board.vbus;
+    root["current"] = g_nmaxe.board.ibus;
 
     String sys_info;
     serializeJson(root, sys_info);
-
     request->send(200, "application/json", sys_info);
 }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
@@ -505,6 +516,8 @@ void start_http_server(void) {
     xTaskCreatePinnedToCore(websocket_loop, name.c_str(), 1024*5, (void*)name.c_str(), TASK_PRIORITY_WS, NULL, 1);
 
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
+    webServer.on("/api/system/hr/distribution", HTTP_GET, get_hr_distribution);
+    webServer.on("/api/system/hr/history", HTTP_GET, NULL);
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);
     webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
