@@ -151,16 +151,16 @@ static void get_status_history(AsyncWebServerRequest* request){
     JsonArray labels = (*root).createNestedArray("labels");
     labels.add("hashRate");
     labels.add("asicTemp");
-    labels.add("vcTemp");
-    labels.add("power");
-    labels.add("voltage");
-    labels.add("current");
-    labels.add("vcoreActual");
+    labels.add("vcoreTemp");
+    labels.add("Pbus");
+    labels.add("Vbus");
+    labels.add("Ibus");
+    labels.add("Vcore");
     labels.add("fanspeed");
     labels.add("fanrpm");
     labels.add("wifiRSSI");
     labels.add("freeHeap");
-    labels.add("timestamp");
+    labels.add("epoch");
     
     JsonArray data = (*root).createNestedArray("statistics");
     for (const auto& history : g_nmaxe.mstatus.status_history) {
@@ -168,12 +168,11 @@ static void get_status_history(AsyncWebServerRequest* request){
         dataPoint.add(history.hashrate);           // hashRate (GH/s)
         dataPoint.add(history.asic_temp);          // asic_temp (°C)
         dataPoint.add(history.vcore_temp);         // vcore_temp (°C)
-        dataPoint.add(history.power);              // power (W)
-        dataPoint.add(history.voltage);            // voltage (V)
-        dataPoint.add(history.current);            // current (A)
-        dataPoint.add(history.vc_measured);        // coreVoltageActual (mV)
-        dataPoint.add(history.fan_speed);          // fanspeed (%)
-        dataPoint.add(history.fan_rpm);            // fanrpm (RPM)
+        dataPoint.add(history.pbus);               // power (W)
+        dataPoint.add(history.vbus);               // voltage (V)
+        dataPoint.add(history.ibus);               // current (A)
+        dataPoint.add(history.vcore);              // coreVoltageActual (mV)
+        dataPoint.add(history.fanrpm);             // fanrpm (RPM)
         dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
         dataPoint.add(history.free_heap);          // freeHeap (bytes)
         dataPoint.add(history.epoch);              // timestamp (ms)

@@ -177,12 +177,11 @@ void monitor_thread_entry(void *args){
         node.hashrate     = String(g_nmaxe.mstatus.hashrate._3m /1e9, 3); //Ghash/s
         node.asic_temp    = String(g_nmaxe.temp.asic,1);
         node.vcore_temp   = String(g_nmaxe.temp.vcore,1);
-        node.power        = String((g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0f / 1000.0f),2); //W
-        node.voltage      = String((g_nmaxe.board.vbus / 1000.0f),1); //V
-        node.current      = String((g_nmaxe.board.ibus / 1000.0f),3); //A
-        node.vc_measured  = g_nmaxe.asic.vcore_measured;
-        node.fan_speed    = g_nmaxe.preference.fan.speed;
-        node.fan_rpm      = g_nmaxe.preference.fan.rpm;
+        node.pbus         = String((g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0f / 1000.0f),2); //W
+        node.vbus         = String((g_nmaxe.board.vbus / 1000.0f),1); //V
+        node.ibus         = String((g_nmaxe.board.ibus / 1000.0f),3); //A
+        node.vcore        = g_nmaxe.asic.vcore_measured;
+        node.fanrpm       = g_nmaxe.preference.fan.rpm;
         node.wifi_rssi    = g_nmaxe.connection.wifi.status_param.rssi;
         node.free_heap    = ESP.getFreeHeap(); //Bytes
         node.epoch        = millis();

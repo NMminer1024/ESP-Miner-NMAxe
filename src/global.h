@@ -160,12 +160,11 @@ typedef struct{
     String         hashrate;      // hashrate, GH/s
     String         asic_temp;     // asic temperature, C
     String         vcore_temp;    // vcore temperature, C
-    String         power;         // power, W
-    String         voltage;       // voltage, V
-    String         current;       // current, A
-    uint16_t       vc_measured;   // vcore measured, mV
-    uint16_t       fan_speed;     // fan speed, %
-    uint16_t       fan_rpm;       // fan rpm, RPM
+    String         pbus;         // power, W
+    String         vbus;       // voltage, V
+    String         ibus;       // current, A
+    uint16_t       vcore;   // vcore measured, mV
+    uint16_t       fanrpm;       // fan rpm, RPM
     int8_t         wifi_rssi;     // wifi rssi, dBm
     uint32_t       free_heap;     // free heap, bytes
     uint32_t       epoch;         // timestamp, ms since epoch
