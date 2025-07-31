@@ -184,7 +184,7 @@ void monitor_thread_entry(void *args){
         node.fanrpm       = g_nmaxe.preference.fan.rpm;
         node.wifi_rssi    = g_nmaxe.connection.wifi.status_param.rssi;
         node.free_heap    = ESP.getFreeHeap(); //Bytes
-        node.epoch        = millis();
+        node.epoch        = g_nmaxe.mstatus.utc * 1000ULL; // 使用UTC时间戳(秒)转换为毫秒
 
         g_nmaxe.mstatus.status_history.push_back(node);
 

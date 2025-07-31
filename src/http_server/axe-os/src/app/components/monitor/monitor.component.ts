@@ -1,0 +1,674 @@
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { SystemService } from '../../services/system.service';
+import { Subscription, interval } from 'rxjs';
+import { takeWhile } from 'rxjs/operators';
+import { Chart, ChartConfiguration, ChartData, ChartOptions, registerables } from 'chart.js';
+
+// 注册Chart.js组件
+Chart.register(...registerables);
+
+interface HistoryNode {
+  hashrate: string;
+  asic_temp: string;
+  vcore_temp: string;
+  pbus: string;
+  vbus: string;
+  ibus: string;
+  vcore: number;
+  fanrpm: number;
+  wifi_rssi: number;
+  free_heap: number;
+  epoch: number;
+}
+
+interface FieldOption {
+  value: string;
+  label: string;
+  unit: string;
+  type: 'string' | 'number';
+  selected: boolean;
+  color: string;
+}
+
+interface TimeRange {
+  value: string;
+  label: string;
+  minutes: number;
+}
+
+@Component({
+  selector: 'app-monitor',
+  templateUrl: './monitor.component.html',
+  styleUrls: ['./monitor.component.scss']
+})
+export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
+  
+  @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
+  
+  historyData: HistoryNode[] = [];
+  selectedFields: string[] = ['hashrate', 'asic_temp', 'pbus'];
+  selectedTimeRange: string = '60'; // 默认显示60分钟
+  
+  chart: Chart | null = null;
+  isLoading = false;
+  isRealTimeActive = false;
+  lastUpdateTime = '';
+  dataSize = 0;
+  
+  private subscription: Subscription = new Subscription();
+  private realTimeSubscription: Subscription = new Subscription();
+  private isComponentActive = true;
+  
+  // 可选择的字段配置
+  fieldOptions: FieldOption[] = [
+    { value: 'hashrate', label: 'Hash Rate', unit: 'GH/s', type: 'string', selected: true, color: '#4CAF50' },
+    { value: 'asic_temp', label: 'ASIC Temperature', unit: '°C', type: 'string', selected: true, color: '#FF9800' },
+    { value: 'vcore_temp', label: 'VCore Temperature', unit: '°C', type: 'string', selected: false, color: '#FF5722' },
+    { value: 'pbus', label: 'Power', unit: 'W', type: 'string', selected: true, color: '#2196F3' },
+    { value: 'vbus', label: 'Voltage', unit: 'V', type: 'string', selected: false, color: '#9C27B0' },
+    { value: 'ibus', label: 'Current', unit: 'A', type: 'string', selected: false, color: '#795548' },
+    { value: 'vcore', label: 'VCore Measured', unit: 'mV', type: 'number', selected: false, color: '#607D8B' },
+    { value: 'fanrpm', label: 'Fan RPM', unit: 'RPM', type: 'number', selected: false, color: '#00BCD4' },
+    { value: 'wifi_rssi', label: 'WiFi RSSI', unit: 'dBm', type: 'number', selected: false, color: '#CDDC39' },
+    { value: 'free_heap', label: 'Free Heap', unit: 'KB', type: 'number', selected: false, color: '#FFC107' }
+  ];
+  
+  // 时间范围选项
+  timeRanges: TimeRange[] = [
+    { value: '10', label: '10 Minutes', minutes: 10 },
+    { value: '30', label: '30 Minutes', minutes: 30 },
+    { value: '60', label: '1 Hour', minutes: 60 },
+    { value: '180', label: '3 Hours', minutes: 180 },
+    { value: '360', label: '6 Hours', minutes: 360 },
+    { value: '720', label: '12 Hours', minutes: 720 },
+    { value: '1440', label: '24 Hours', minutes: 1440 }
+  ];
+
+  constructor(private systemService: SystemService) { }
+
+  ngOnInit(): void {
+    this.initializeSelectedFields();
+    // 移除图表初始化和数据加载到 ngAfterViewInit
+  }
+
+  ngAfterViewInit(): void {
+    // 确保 DOM 完全渲染后再初始化图表
+    setTimeout(() => {
+      console.log('AfterViewInit - ViewChild status:', !!this.chartCanvas);
+      if (this.chartCanvas) {
+        console.log('Canvas element found:', this.chartCanvas.nativeElement);
+        this.initChart();
+        this.loadHistoryData();
+      } else {
+        console.error('Canvas ViewChild not available in AfterViewInit');
+        // 重试
+        setTimeout(() => {
+          if (this.chartCanvas) {
+            this.initChart();
+            this.loadHistoryData();
+          }
+        }, 500);
+      }
+    }, 100);
+  }
+
+  ngOnDestroy(): void {
+    this.isComponentActive = false;
+    this.subscription.unsubscribe();
+    this.realTimeSubscription.unsubscribe();
+    this.stopRealTimeUpdates();
+    if (this.chart) {
+      this.chart.destroy();
+    }
+  }
+
+  private initializeSelectedFields(): void {
+    this.selectedFields = this.fieldOptions
+      .filter(field => field.selected)
+      .map(field => field.value);
+  }
+
+  private initChart(): void {
+    console.log('initChart called');
+    console.log('chartCanvas ViewChild:', !!this.chartCanvas);
+    
+    if (!this.chartCanvas) {
+      console.error('chartCanvas ViewChild is not available');
+      return;
+    }
+    
+    const canvas = this.chartCanvas.nativeElement;
+    console.log('Canvas element:', canvas);
+    
+    if (!canvas) {
+      console.error('Canvas DOM element not found');
+      return;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.error('Canvas context not available');
+      return;
+    }
+
+    console.log('Initializing chart...');
+    
+    // 获取容器尺寸来设置Canvas
+    const container = canvas.parentElement;
+    const containerWidth = container?.clientWidth || 800;
+    const containerHeight = 400;
+    
+    console.log('Container dimensions:', {
+      width: containerWidth,
+      height: containerHeight,
+      container: container
+    });
+    
+    // 强制设置Canvas尺寸 - 使用多种方法
+    canvas.width = containerWidth;
+    canvas.height = containerHeight;
+    canvas.style.width = containerWidth + 'px';
+    canvas.style.height = containerHeight + 'px';
+    canvas.setAttribute('width', containerWidth.toString());
+    canvas.setAttribute('height', containerHeight.toString());
+    
+    console.log('Canvas size set to:', {
+      width: canvas.width,
+      height: canvas.height,
+      styleWidth: canvas.style.width,
+      styleHeight: canvas.style.height,
+      attributes: {
+        width: canvas.getAttribute('width'),
+        height: canvas.getAttribute('height')
+      }
+    });
+
+    const config: ChartConfiguration = {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: []
+      },
+      options: {
+        responsive: false, // 禁用响应式模式
+        maintainAspectRatio: false,
+        resizeDelay: 0,
+        devicePixelRatio: 1, // 固定像素比例
+        scales: {
+          x: {
+            type: 'linear', // 改为 linear 而不是 time
+            title: {
+              display: true,
+              text: 'Time',
+              color: '#ffffff'
+            },
+            ticks: {
+              color: '#cccccc',
+              callback: function(value: any) {
+                return new Date(value).toLocaleTimeString();
+              }
+            },
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            },
+            min: Date.now() - 24 * 60 * 60 * 1000, // 24小时前
+            max: Date.now() + 60 * 60 * 1000 // 1小时后
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Value',
+              color: '#ffffff'
+            },
+            ticks: {
+              color: '#cccccc'
+            },
+            grid: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              color: '#ffffff',
+              usePointStyle: true,
+              padding: 20
+            }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleColor: '#ffffff',
+            bodyColor: '#ffffff',
+            borderColor: '#4CAF50',
+            borderWidth: 1
+          }
+        },
+        interaction: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
+        },
+        animation: {
+          duration: 0 // 禁用动画以提高性能
+        }
+      }
+    };
+
+    this.chart = new Chart(ctx, config);
+    console.log('Chart initialized successfully:', !!this.chart);
+    
+    // 验证Canvas尺寸是否正确设置
+    console.log('Post-init Canvas dimensions:', {
+      width: ctx.canvas.width,
+      height: ctx.canvas.height,
+      clientWidth: ctx.canvas.clientWidth,
+      clientHeight: ctx.canvas.clientHeight,
+      style: {
+        width: ctx.canvas.style.width,
+        height: ctx.canvas.style.height
+      }
+    });
+    
+    // 如果Canvas尺寸仍然为0，再次强制设置
+    if (ctx.canvas.width === 0 || ctx.canvas.height === 0) {
+      console.warn('Canvas dimensions still 0, forcing resize...');
+      ctx.canvas.width = containerWidth;
+      ctx.canvas.height = containerHeight;
+      this.chart.resize(containerWidth, containerHeight);
+    }
+    
+    console.log('Final Canvas dimensions:', {
+      width: ctx.canvas.width,
+      height: ctx.canvas.height
+    });
+  }
+
+  loadHistoryData(): void {
+    this.isLoading = true;
+    this.stopRealTimeUpdates();
+    
+    console.log('Loading 24h history data...');
+    console.log('API URL will be: /api/system/status/history');
+    
+    this.subscription.add(
+      this.systemService.getStatusHistory().subscribe({
+        next: (response: any) => {
+          console.log('✅ History API called successfully');
+          console.log('History data loaded:', response);
+          
+          if (response && response.statistics && Array.isArray(response.statistics)) {
+            // 将数组数据转换为对象格式
+            this.historyData = response.statistics.map((item: any[], index: number) => {
+              const processed = {
+                hashrate: item[0] || '0',           // hashRate (GH/s) - 索引0
+                asic_temp: item[1] || '0',          // asicTemp (°C) - 索引1  
+                vcore_temp: item[2] || '0',         // vcoreTemp (°C) - 索引2
+                pbus: item[3] || '0',               // Pbus (W) - 索引3
+                vbus: item[4] || '0',               // Vbus (V) - 索引4
+                ibus: item[5] || '0',               // Ibus (A) - 索引5
+                vcore: item[6] || 0,                // Vcore (mV) - 索引6
+                fanrpm: item[8] || 0,               // fanrpm (RPM) - 索引8 (跳过fanspeed)
+                wifi_rssi: item[9] || 0,            // wifiRSSI (dBm) - 索引9
+                free_heap: item[10] || 0,           // freeHeap (bytes) - 索引10
+                epoch: item[11] || Date.now()       // epoch (ms) - 索引11
+              };
+              
+              if (index === 0) {
+                console.log('First data point raw:', item);
+                console.log('First data point processed:', processed);
+                console.log('Current time:', Date.now());
+                console.log('Epoch from data:', processed.epoch);
+                console.log('Time difference (hours):', (processed.epoch - Date.now()) / (1000 * 60 * 60));
+              }
+              
+              return processed;
+            });
+            
+            this.dataSize = response.size || this.historyData.length;
+            this.lastUpdateTime = new Date().toLocaleString();
+            this.updateChart();
+            
+            // 开始实时更新
+            this.startRealTimeUpdates();
+          }
+          
+          this.isLoading = false;
+        },
+        error: (error: any) => {
+          console.error('❌ Failed to load history data:', error);
+          console.error('Error details:', {
+            status: error.status,
+            statusText: error.statusText,
+            url: error.url,
+            message: error.message
+          });
+          this.isLoading = false;
+        }
+      })
+    );
+  }
+
+  private startRealTimeUpdates(): void {
+    if (this.isRealTimeActive) return;
+    
+    this.isRealTimeActive = true;
+    console.log('Starting real-time updates...');
+    
+    // 每5秒获取一次实时数据
+    this.realTimeSubscription = interval(5000)
+      .pipe(takeWhile(() => this.isComponentActive && this.isRealTimeActive))
+      .subscribe(() => {
+        this.getRealTimeData();
+      });
+  }
+
+  private stopRealTimeUpdates(): void {
+    this.isRealTimeActive = false;
+    this.realTimeSubscription.unsubscribe();
+    this.realTimeSubscription = new Subscription();
+    console.log('Real-time updates stopped');
+  }
+
+  private getRealTimeData(): void {
+    console.log('Getting real-time data...');
+    console.log('API URL will be: /api/system/status/realtime');
+    
+    this.systemService.getStatusRealtime().subscribe({
+      next: (response: any) => {
+        console.log('✅ Realtime API called successfully');
+        console.log('Real-time response:', response);
+        if (response && response.statistics && Array.isArray(response.statistics) && response.statistics.length > 0) {
+          const latestData = response.statistics[0];
+          const newNode: HistoryNode = {
+            hashrate: latestData[0] || '0',      // hashRate (GH/s) - 索引0
+            asic_temp: latestData[1] || '0',     // asicTemp (°C) - 索引1
+            vcore_temp: latestData[2] || '0',    // vcoreTemp (°C) - 索引2
+            pbus: latestData[3] || '0',          // Pbus (W) - 索引3
+            vbus: latestData[4] || '0',          // Vbus (V) - 索引4
+            ibus: latestData[5] || '0',          // Ibus (A) - 索引5
+            vcore: latestData[6] || 0,           // Vcore (mV) - 索引6
+            fanrpm: latestData[8] || 0,          // fanrpm (RPM) - 索引8 (跳过fanspeed)
+            wifi_rssi: latestData[9] || 0,       // wifiRSSI (dBm) - 索引9
+            free_heap: latestData[10] || 0,      // freeHeap (bytes) - 索引10
+            epoch: latestData[11] || Date.now()  // epoch (ms) - 索引11
+          };
+          
+          // 添加新数据到历史数据数组
+          this.historyData.push(newNode);
+          
+          // 保持最新的2000条数据，避免内存过载
+          if (this.historyData.length > 2000) {
+            this.historyData = this.historyData.slice(-2000);
+          }
+          
+          this.lastUpdateTime = new Date().toLocaleString();
+          this.updateChart();
+          
+          console.log('Real-time data updated');
+        }
+      },
+      error: (error: any) => {
+        console.error('❌ Failed to get real-time data:', error);
+        console.error('Error details:', {
+          status: error.status,
+          statusText: error.statusText,
+          url: error.url,
+          message: error.message
+        });
+      }
+    });
+  }
+
+  private updateChart(): void {
+    if (!this.chart || !this.historyData.length) {
+      console.log('Chart update skipped - chart:', !!this.chart, 'data length:', this.historyData.length);
+      return;
+    }
+
+    console.log('Updating chart with data:', this.historyData.length, 'points');
+    console.log('Selected fields:', this.selectedFields);
+
+    // 根据时间范围过滤数据
+    const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
+    const cutoffTime = Date.now() - (timeRange?.minutes || 60) * 60 * 1000;
+    const filteredData = this.historyData.filter(item => item.epoch >= cutoffTime);
+    
+    console.log('Filtered data length:', filteredData.length);
+
+    // 更新图表数据
+    const datasets = this.selectedFields.map(field => {
+      const fieldOption = this.fieldOptions.find(f => f.value === field);
+      const data = filteredData.map(item => ({
+        x: item.epoch,
+        y: this.parseValue(item[field as keyof HistoryNode], field)
+      }));
+      
+      console.log(`Dataset for ${field}:`, data.slice(0, 3)); // 打印前3个数据点
+      console.log(`Sample data point:`, data[0]); // 打印第一个数据点的详细信息
+      
+      return {
+        label: `${fieldOption?.label} (${fieldOption?.unit})`,
+        data: data,
+        borderColor: fieldOption?.color || '#4CAF50',
+        backgroundColor: `${fieldOption?.color || '#4CAF50'}20`,
+        tension: 0.1,
+        pointRadius: 3, // 增加点的大小
+        pointHoverRadius: 6,
+        borderWidth: 2,
+        fill: false
+      };
+    });
+
+    this.chart.data.datasets = datasets;
+    
+    // 动态更新X轴范围
+    if (filteredData.length > 0) {
+      const minTime = Math.min(...filteredData.map(item => item.epoch));
+      const maxTime = Math.max(...filteredData.map(item => item.epoch));
+      const padding = (maxTime - minTime) * 0.1; // 10%的padding
+      
+      if (this.chart.options.scales?.['x']) {
+        (this.chart.options.scales['x'] as any).min = minTime - padding;
+        (this.chart.options.scales['x'] as any).max = maxTime + padding;
+      }
+      
+      console.log('X-axis range:', {
+        min: new Date(minTime).toLocaleString(),
+        max: new Date(maxTime).toLocaleString(),
+        current: new Date().toLocaleString()
+      });
+    }
+    
+    console.log('Chart datasets updated:', this.chart.data.datasets.length);
+    console.log('Chart data sample:', this.chart.data.datasets[0]?.data?.slice(0, 2));
+    
+    // 详细检查图表状态
+    console.log('Chart canvas size:', {
+      width: this.chart.canvas.width,
+      height: this.chart.canvas.height,
+      style: {
+        width: this.chart.canvas.style.width,
+        height: this.chart.canvas.style.height
+      }
+    });
+    
+    // 检查图表是否被CSS隐藏
+    const canvas = this.chartCanvas?.nativeElement;
+    if (canvas) {
+      const computedStyle = window.getComputedStyle(canvas);
+      const rect = canvas.getBoundingClientRect();
+      console.log('Canvas computed style and dimensions:', {
+        display: computedStyle.display,
+        visibility: computedStyle.visibility,
+        opacity: computedStyle.opacity,
+        zIndex: computedStyle.zIndex,
+        position: computedStyle.position,
+        width: computedStyle.width,
+        height: computedStyle.height,
+        rect: {
+          width: rect.width,
+          height: rect.height,
+          x: rect.x,
+          y: rect.y
+        },
+        offsetDimensions: {
+          width: canvas.offsetWidth,
+          height: canvas.offsetHeight
+        },
+        clientDimensions: {
+          width: canvas.clientWidth,
+          height: canvas.clientHeight
+        }
+      });
+      
+      // 如果Canvas仍然是0尺寸，尝试强制修复
+      if (this.chart.canvas.width === 0 || this.chart.canvas.height === 0) {
+        console.error('❌ Canvas dimensions are still 0! Attempting emergency fix...');
+        
+        // 获取父容器尺寸
+        const container = canvas.parentElement;
+        if (container) {
+          const containerRect = container.getBoundingClientRect();
+          console.log('Container dimensions:', {
+            width: containerRect.width,
+            height: containerRect.height,
+            clientWidth: container.clientWidth,
+            clientHeight: container.clientHeight,
+            offsetWidth: container.offsetWidth,
+            offsetHeight: container.offsetHeight
+          });
+          
+          // 使用容器尺寸来设置Canvas
+          const newWidth = Math.max(containerRect.width - 40, 600); // 减去padding
+          const newHeight = 400;
+          
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+          canvas.style.width = newWidth + 'px';
+          canvas.style.height = newHeight + 'px';
+          
+          console.log('Emergency Canvas resize applied:', {
+            width: newWidth,
+            height: newHeight
+          });
+          
+          // 重新创建Chart
+          this.chart.destroy();
+          setTimeout(() => {
+            this.initChart();
+          }, 100);
+          return;
+        }
+      }
+    } else {
+      console.error('❌ Canvas element not found in ViewChild!');
+    }
+    
+    this.chart.update('none'); // 无动画更新
+    
+    // 强制重绘
+    setTimeout(() => {
+      if (this.chart) {
+        this.chart.resize();
+        console.log('Chart resized and redrawn');
+      }
+    }, 100);
+  }
+
+  private parseValue(value: any, field: string): number {
+    if (typeof value === 'number') {
+      // 特殊处理某些字段
+      if (field === 'free_heap') {
+        return value / 1024; // 转换为KB
+      }
+      return value;
+    }
+    
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    
+    return 0;
+  }
+
+  onFieldSelectionChange(): void {
+    this.selectedFields = this.fieldOptions
+      .filter(field => field.selected)
+      .map(field => field.value);
+    this.updateChart();
+  }
+
+  onTimeRangeChange(): void {
+    this.updateChart();
+  }
+
+  refreshData(): void {
+    this.loadHistoryData();
+  }
+
+  toggleRealTime(): void {
+    if (this.isRealTimeActive) {
+      this.stopRealTimeUpdates();
+    } else {
+      this.startRealTimeUpdates();
+    }
+  }
+
+  exportData(): void {
+    if (!this.historyData.length) return;
+    
+    // 根据时间范围过滤数据
+    const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
+    const cutoffTime = Date.now() - (timeRange?.minutes || 60) * 60 * 1000;
+    const filteredData = this.historyData.filter(item => item.epoch >= cutoffTime);
+    
+    const headers = ['Timestamp', 'Time', 
+                    ...this.selectedFields.map(field => this.getFieldLabel(field))];
+    
+    const csvContent = [
+      headers.join(','),
+      ...filteredData.map(item => [
+        item.epoch,
+        new Date(item.epoch).toLocaleString(),
+        ...this.selectedFields.map(field => this.parseValue(item[field as keyof HistoryNode], field))
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `monitor-chart-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  getFieldLabel(fieldValue: string): string {
+    const field = this.fieldOptions.find(f => f.value === fieldValue);
+    return field ? `${field.label} (${field.unit})` : fieldValue;
+  }
+
+  getStatusBadgeClass(): string {
+    if (this.isLoading) return 'status-loading';
+    if (this.isRealTimeActive) return 'status-realtime';
+    return 'status-offline';
+  }
+
+  getStatusText(): string {
+    if (this.isLoading) return 'Loading...';
+    if (this.isRealTimeActive) return 'Real-time Active';
+    return 'Offline';
+  }
+
+  getSelectedTimeRangeLabel(): string {
+    const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
+    return timeRange ? timeRange.label : '1 Hour';
+  }
+
+}

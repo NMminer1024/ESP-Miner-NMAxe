@@ -137,6 +137,8 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     request->send(200, "application/json", json_str);
 }
 static void get_status_history(AsyncWebServerRequest* request){
+    LOG_I("📊 get_status_history API called from %s", request->client()->remoteIP().toString().c_str());
+    
     uint32_t json_size_max = 1024 * 1024; // in bytes
     static DynamicJsonDocument* root = nullptr;
     if(nullptr != root) {
@@ -187,12 +189,18 @@ static void get_status_history(AsyncWebServerRequest* request){
     String json_str;
     serializeJson((*root), json_str);
     request->send(200, "application/json", json_str);
-    LOG_W("Status history sent, history size: %d, json size: %d, %d bytes every node", 
-          g_nmaxe.mstatus.status_history.size(), 
-          json_str.length(), 
-          json_str.length() / g_nmaxe.mstatus.status_history.size());
+
+
+    if(g_nmaxe.mstatus.status_history.size() > 0){
+        LOG_W("Status history sent, history size: %d, json size: %d, %d bytes every node", 
+            g_nmaxe.mstatus.status_history.size(), 
+            json_str.length(), 
+            json_str.length() / g_nmaxe.mstatus.status_history.size());
+    }
 }
 static void get_status_realtime(AsyncWebServerRequest* request){
+    LOG_I("📈 get_status_realtime API called from %s", request->client()->remoteIP().toString().c_str());
+    
     uint32_t json_size_max = 512; // in bytes
     static DynamicJsonDocument* root = nullptr;
     if(nullptr != root) {

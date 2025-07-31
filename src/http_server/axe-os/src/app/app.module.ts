@@ -16,6 +16,7 @@ import {NetworkEditComponent} from './components/network-edit/network.edit.compo
 import {HomeComponent} from './components/home/home.component';
 import {LoadingComponent} from './components/loading/loading.component';
 import {LogsComponent} from './components/logs/logs.component';
+import {MonitorComponent} from './components/monitor/monitor.component';
 import {SettingsComponent} from './components/settings/settings.component';
 import {PreferenceComponent} from "./components/preference/preference.component";
 import {SwarmComponent} from './components/swarm/swarm.component';
@@ -38,6 +39,7 @@ const components = [
   LoadingComponent,
   SettingsComponent,
   LogsComponent,
+  MonitorComponent,
   NetworkEditComponent,
   PreferenceComponent,
   UpdateComponent

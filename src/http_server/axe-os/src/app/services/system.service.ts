@@ -125,4 +125,12 @@ export class SystemService {
   public updateSwarm(uri: string = '', swarmConfig: any) {
     return this.httpClient.patch(`${uri}/api/swarm`, swarmConfig);
   }
+
+  public getStatusHistory(uri: string = ''): Observable<any> {
+    return this.httpClient.get(`${uri}/api/system/status/history`);
+  }
+
+  public getStatusRealtime(uri: string = ''): Observable<any> {
+    return this.httpClient.get(`${uri}/api/system/status/realtime`);
+  }
 }

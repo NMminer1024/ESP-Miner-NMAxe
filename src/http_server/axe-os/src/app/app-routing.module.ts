@@ -3,6 +3,7 @@ import {RouterModule, Routes} from '@angular/router';
 
 import {HomeComponent} from './components/home/home.component';
 import {LogsComponent} from './components/logs/logs.component';
+import {MonitorComponent} from './components/monitor/monitor.component';
 import {SettingsComponent} from './components/settings/settings.component';
 import {SwarmComponent} from './components/swarm/swarm.component';
 import {UpdateComponent} from './components/update/update.component';
@@ -32,6 +33,10 @@ const routes: Routes = [
       {
         path: 'swarm',
         component: SwarmComponent
+      },
+      {
+        path: 'monitor',
+        component: MonitorComponent
       }
     ]
   },
