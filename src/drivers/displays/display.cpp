@@ -1382,7 +1382,7 @@ void ui_thread_entry(void *args){
       lv_color_t font_color = lv_color_hex(0xFFFFFF);
       lv_obj_t *lb_cfg = lv_label_create(ui_pages[PAGE_CONFIG]);
       lv_obj_t *lb_version = lv_label_create(ui_pages[PAGE_CONFIG]);
-      String str = "ssid:" + g_nmaxe.connection.wifi.softap_param.ssid + "\r\nlogin:"+ g_nmaxe.connection.wifi.softap_param.ip.toString();
+      String str = g_nmaxe.connection.wifi.softap_param.ssid + "\r\n"+ g_nmaxe.connection.wifi.softap_param.ip.toString();
 
       lv_obj_set_width(lb_cfg, 120);
       lv_label_set_text(lb_cfg, str.c_str());
@@ -1457,7 +1457,7 @@ void ui_thread_entry(void *args){
   cnt = 0;
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
   uint32_t start = millis();
-  while(0 != g_nmaxe.market->lastUpdate){
+  while(0 == g_nmaxe.market->lastUpdate){
     ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_nmaxe.coin).c_str(), 0xFFFFFF, false);
     if(millis() - start - g_nmaxe.market->lastUpdate >= MARKET_TIMEOUT){
       ui_loading_str_update("Market update timeout!", 0xFF0000, false);

@@ -116,11 +116,6 @@ Check the latest **firmware.bin** and **spiffs.bin**.
   <img src="image/firmware-check.jpg" alt="firmware-check">
 </div>
 
-Download the latest **firmware.bin** and **spiffs.bin** file.
-<div align="center">
-  <img src="image/firmware-check-download.jpg" alt="firmware-check-download">
-</div>
-
 Batch firmware update on swarm page.
 <div align="center">
   <img src="image/ota-batch.jpg" alt="ota-batch">
@@ -183,6 +178,19 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 
 ## Release Log
 ***
+
+### (2025.07.31) - v2.9.01
+- `Add`:
+  - None.
+- `Fixed`:
+  - User cannot save network config when configuring the miner for the first time.
+- `Improved`:
+  - A clean, modern AxeOS UI.
+  - Swarm table, filter for high and low hashrate miners.
+- `Modify`:
+  - None.
+- `Remove`:
+  - None.
 
 ### (2025.07.22) - v2.8.02
 - `Add`:

@@ -277,12 +277,6 @@ bool load_g_nmaxe(void){
     g_nmaxe.coin.toUpperCase();
     g_nmaxe.miner                               = NULL;
 
-    LOG_I("Load best ever diff: %llu, uptime ever: %llu, timezone: %s, coin: %s",
-          g_nmaxe.mstatus.diff.best_ever,
-          g_nmaxe.mstatus.uptime_ever,
-          g_nmaxe.mstatus.timezone.c_str(),
-          g_nmaxe.coin.c_str());
-
     void* market_buf                            = psramAllocator(sizeof(MarketClass));
     void* stratum_buf                           = psramAllocator(sizeof(StratumClass));
     void* power_buf                             = psramAllocator(sizeof(NMAxePowerClass));

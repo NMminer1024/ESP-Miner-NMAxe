@@ -172,13 +172,22 @@
   .card-title-group {
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    width: auto !important;
+    
+    .card-icon {
+      font-size: 1.5rem !important;
+      flex-shrink: 0 !important;
+      margin-right: 8px !important;
+    }
     
     .card-title {
       margin: 0 !important;
       font-size: 1.25rem !important;
       font-weight: 600 !important;
       color: #ffffff !important;
+      flex-shrink: 0 !important;
     }
     
     .release-version {
@@ -235,7 +244,8 @@
 .card-title-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .card-title {
@@ -248,6 +258,7 @@
 .card-icon {
   font-size: 1.5rem;
   flex-shrink: 0;
+  margin-right: 8px;
 }
 
 /* 卡片内容区域 */
@@ -289,54 +300,59 @@
   background: linear-gradient(90deg, #4CAF50, #66BB6A);
 }
 
-/* 进度条容器 - 优化布局，充分利用右上角空间 */
-.progress-badge-with-bar {
+/* 自定义进度条样式 - 卡片右上角 */
+.progress-area {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+.custom-progress-container {
   display: flex;
   align-items: center;
-  min-width: 140px;
-  justify-content: flex-end;
-  flex-shrink: 0;
+  gap: 12px;
 }
 
-.progress-mini-container {
-  position: relative;
-  width: 120px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+.custom-progress-bar {
+  width: 280px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
 }
 
-.mini-progress-bar {
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 12px !important;
+.custom-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #66BB6A);
+  border-radius: 4px;
+  transition: width 0.3s ease;
 }
 
-.mini-progress-bar ::ng-deep .p-progressbar {
-  height: 100% !important;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 12px !important;
+.custom-progress-text {
+  font-size: 28px;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-.mini-progress-bar ::ng-deep .p-progressbar-value {
-  background: linear-gradient(90deg, #4CAF50, #66BB6A) !important;
-  border-radius: 12px !important;
-  transition: all 0.3s ease !important;
-}
-
-.progress-text-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 12px;
-  font-weight: bold;
-  color: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-  z-index: 10;
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .progress-area {
+    position: static;
+    margin-top: 10px;
+    text-align: right;
+  }
+  
+  .custom-progress-bar {
+    width: 200px;
+    height: 6px;
+  }
+  
+  .custom-progress-text {
+    font-size: 20px;
+  }
 }
 
 /* 版本信息样式 */
@@ -567,9 +583,9 @@
 .card-title-group {
   display: flex !important;
   align-items: center !important;
-  justify-content: space-between !important;
-  width: 100% !important;
-  flex-wrap: wrap !important;
+  justify-content: flex-start !important;
+  width: auto !important;
+  flex-wrap: nowrap !important;
   gap: 8px !important;
 }
 
@@ -594,5 +610,75 @@
       color: white !important;
       box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4) !important;
     }
+  }
+}
+
+/* 新的紧凑型卡片头部样式 - 标题在左上角，进度条占据更多右侧空间 */
+.card-header-compact {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 1rem !important;
+  padding: 0 !important;
+  width: 100% !important;
+  position: relative !important;
+  min-height: 40px !important;
+}
+
+.card-title-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+  
+  .card-icon {
+    font-size: 20px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .card-title-inline {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+  }
+}
+
+.progress-area {
+  flex: 1 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  margin-left: 16px !important;
+  
+  .progress-badge-with-bar {
+    display: flex !important;
+    align-items: center !important;
+    min-width: 160px !important;
+    justify-content: flex-end !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .progress-mini-container {
+    position: relative !important;
+    width: 150px !important;
+    height: 28px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
+  
+  .progress-text-overlay {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    font-size: 13px !important;
+    font-weight: bold !important;
+    color: white !important;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+    z-index: 10 !important;
   }
 }

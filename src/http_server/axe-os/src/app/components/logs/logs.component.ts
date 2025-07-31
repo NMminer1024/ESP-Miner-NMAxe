@@ -18,10 +18,6 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private websocketSubscription?: Subscription;
 
-  public showLogs = true; // 默认显示日志
-
-  public stopScroll: boolean = false;
-
   constructor(
     private websocketService: WebsocketService,
     private systemService: SystemService
@@ -71,9 +67,7 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngAfterViewChecked(): void {
-    if (this.stopScroll == true) {
-      return;
-    }
+    // 始终自动滚动到底部
     if (this.scrollContainer?.nativeElement != null) {
       this.scrollContainer.nativeElement.scrollTo({
         left: 0,
@@ -81,6 +75,46 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
         behavior: 'smooth'
       });
     }
+  }
+
+  saveLog(): void {
+    // 获取当前日期和时间并格式化为 YYYY-MM-DD HH:mm:ss
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const dateTimeStr = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    
+    // 获取硬件型号
+    this.systemService.getInfo().subscribe(info => {
+      const hardwareModel = info.boardVersion || 'Unknown';
+      
+      // 生成文件名：硬件型号+日期时间.log
+      const filename = `${hardwareModel} ${dateTimeStr}.log`;
+      
+      // 将所有日志内容合并为一个字符串，每行前面加上 ₿ 字符
+      const logContent = this.logs.map(log => `₿ ${log}`).join('\n');
+      
+      // 创建 Blob 对象
+      const blob = new Blob([logContent], { type: 'text/plain' });
+      
+      // 创建下载链接
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      
+      // 触发下载
+      document.body.appendChild(link);
+      link.click();
+      
+      // 清理
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    });
   }
 
 }

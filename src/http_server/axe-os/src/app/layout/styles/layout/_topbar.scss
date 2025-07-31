@@ -97,7 +97,45 @@
         padding: 0;
         list-style: none;
         display: flex;
+        align-items: center;
         gap: 0.5rem;
+
+        .restart-text-btn {
+            background: rgba(255, 107, 107, 0.1) !important;
+            border: 1px solid rgba(255, 107, 107, 0.3) !important;
+            color: #ff6b6b !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            transition: all 0.3s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            height: 2.5rem !important;
+            min-width: 80px !important;
+            margin: 0 !important;
+
+            &:hover {
+                background: rgba(255, 107, 107, 0.2) !important;
+                border: 1px solid rgba(255, 107, 107, 0.5) !important;
+                color: #ff5252 !important;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3) !important;
+            }
+
+            &:focus {
+                outline: none !important;
+                box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.3) !important;
+            }
+
+            &:active {
+                transform: translateY(0px);
+                box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3) !important;
+            }
+        }
 
         .layout-topbar-button {
             margin-left: 0;
@@ -108,10 +146,21 @@
 @media (max-width: 991px) {
     .layout-topbar {
         justify-content: space-between;
+        padding: 0 1rem;
 
         .layout-topbar-logo {
             width: auto;
             order: 2;
+            font-size: 1.5rem;
+            padding: 0.5rem;
+            
+            .header-text span {
+                font-size: 3rem !important;
+            }
+            
+            .header-text .os {
+                font-size: 2.5rem !important;
+            }
         }
 
         .layout-menu-button {
@@ -127,27 +176,34 @@
 
         .layout-topbar-menu {
             margin-left: 0;
-            position: absolute;
-            flex-direction: column;
-            background-color: var(--surface-overlay);
-            box-shadow: 0px 3px 5px rgba(0,0,0,.02), 0px 0px 2px rgba(0,0,0,.05), 0px 1px 4px rgba(0,0,0,.08);
-            border-radius: 12px;
-            padding: 1rem;
-            right: 2rem;
-            top: 5rem;
-            min-width: 15rem;
-            display: none;
-            -webkit-animation: scalein 0.15s linear;
-            animation: scalein 0.15s linear;
+            order: 3;
+            display: flex !important;
+            position: static !important;
+            flex-direction: row !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            right: auto !important;
+            top: auto !important;
+            min-width: auto !important;
 
-            &.layout-topbar-menu-mobile-active {
-                display: block
+            .restart-text-btn {
+                width: auto !important;
+                justify-content: center !important;
+                border-radius: 6px !important;
+                padding: 6px 12px !important;
+                margin-bottom: 0 !important;
+                font-size: 12px !important;
+                height: 2rem !important;
+                min-width: 60px !important;
+                display: flex !important;
             }
 
             .layout-topbar-button {
                 margin-left: 0;
                 display: flex;
-                width: 100%;
+                width: auto;
                 height: auto;
                 justify-content: flex-start;
                 border-radius: 12px;
@@ -162,6 +218,36 @@
                     font-weight: medium;
                     display: block;
                 }
+            }
+        }
+    }
+}
+
+@media (max-width: 576px) {
+    .layout-topbar {
+        height: 4rem;
+        padding: 0 0.5rem;
+
+        .layout-topbar-logo {
+            font-size: 1.2rem;
+            padding: 0.25rem;
+            
+            .header-text span {
+                font-size: 2.5rem !important;
+            }
+            
+            .header-text .os {
+                font-size: 2rem !important;
+            }
+        }
+
+        .layout-topbar-menu {
+            .restart-text-btn {
+                font-size: 10px !important;
+                padding: 4px 8px !important;
+                height: 1.75rem !important;
+                min-width: 50px !important;
+                border-radius: 4px !important;
             }
         }
     }

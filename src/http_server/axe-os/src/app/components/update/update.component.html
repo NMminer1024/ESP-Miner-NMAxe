@@ -1,4 +1,4 @@
-<!-- 顶部版本状态提示 -->
+
 <div class="version-status-banner" *ngIf="latestRelease && (info$ | async) as info">
   <div class="status-container" [ngClass]="{'update-available': hasUpdate, 'up-to-date': !hasUpdate}">
     <div class="status-icon">
@@ -21,12 +21,12 @@
   </div>
 </div>
 
-<!-- Release信息区域 -->
+
 <div class="card modern-card release-info-card" *ngIf="latestRelease">
   <div class="card-header">
     <div class="card-title-group">
       <span class="card-icon">📋</span>
-      <h2 class="card-title">What’s New in {{ latestRelease.name.slice(6) }}?</h2>
+      <h2 class="card-title">What's New in {{ latestRelease.name.slice(6) }}?</h2>
     </div>
   </div>
   <div class="card-content">
@@ -41,20 +41,19 @@
 <div class="grid">
   <div class="col-12 lg:col-6 xl:col-6">
     <div class="card modern-card update-card">
-      <div class="card-header">
-        <div class="card-title-group">
+      <div class="card-header-compact">
+        <div class="card-title-left">
           <span class="card-icon">🔧</span>
-          <h2 class="card-title">Update Firmware</h2>
+          <h2 class="card-title-inline">Update Firmware</h2>
         </div>
-        <span *ngIf="firmwareUpdateProgress != null" class="progress-badge-with-bar">
-          <div class="progress-mini-container">
-            <p-progressBar [value]="firmwareUpdateProgress" 
-                           [showValue]="false"
-                           styleClass="mini-progress-bar">
-            </p-progressBar>
-            <span class="progress-text-overlay">{{ firmwareUpdateProgress }}%</span>
+        <div class="progress-area" *ngIf="firmwareUpdateProgress != null">
+          <div class="custom-progress-container">
+            <div class="custom-progress-bar">
+              <div class="custom-progress-fill" [style.width.%]="firmwareUpdateProgress"></div>
+            </div>
+            <span class="custom-progress-text">{{ firmwareUpdateProgress }}%</span>
           </div>
-        </span>
+        </div>
       </div>
       
       <div class="card-content">
@@ -62,15 +61,13 @@
                       (uploadHandler)="otaUpdate($event)"
                       [auto]="true" chooseLabel="Browse Firmware"></p-fileUpload>
         <small class="file-hint">(firmware.bin)</small>
-        
-        <!-- 只在有更新时显示下载链接 -->
         <div class="download-section" *ngIf="hasUpdate && latestRelease">
           <div class="download-link-container" *ngFor="let asset of latestRelease.assets">
             <a *ngIf="asset.name == 'firmware.bin'" 
                class="download-link firmware-link"
                target="_blank" [href]="asset.browser_download_url">
               <span class="link-icon">📥</span>
-              <span class="link-text">Download Latest Firmware</span>
+              <span class="link-text">Download firmware.bin</span>
               <span class="link-arrow">↗</span>
             </a>
           </div>
@@ -81,20 +78,19 @@
   
   <div class="col-12 lg:col-6 xl:col-6">
     <div class="card modern-card update-card">
-      <div class="card-header">
-        <div class="card-title-group">
+      <div class="card-header-compact">
+        <div class="card-title-left">
           <span class="card-icon">🌐</span>
-          <h2 class="card-title">Update Website</h2>
+          <h2 class="card-title-inline">Update Website</h2>
         </div>
-        <span *ngIf="websiteUpdateProgress != null" class="progress-badge-with-bar">
-          <div class="progress-mini-container">
-            <p-progressBar [value]="websiteUpdateProgress" 
-                           [showValue]="false"
-                           styleClass="mini-progress-bar">
-            </p-progressBar>
-            <span class="progress-text-overlay">{{ websiteUpdateProgress }}%</span>
+        <div class="progress-area" *ngIf="websiteUpdateProgress != null">
+          <div class="custom-progress-container">
+            <div class="custom-progress-bar">
+              <div class="custom-progress-fill" [style.width.%]="websiteUpdateProgress"></div>
+            </div>
+            <span class="custom-progress-text">{{ websiteUpdateProgress }}%</span>
           </div>
-        </span>
+        </div>
       </div>
 
       <div class="card-content">
@@ -102,14 +98,13 @@
                       [auto]="true" chooseLabel="Browse Website"></p-fileUpload>
         <small class="file-hint">(spiffs.bin)</small>
         
-        <!-- 只在有更新时显示下载链接 -->
         <div class="download-section" *ngIf="hasUpdate && latestRelease">
           <div class="download-link-container" *ngFor="let asset of latestRelease.assets">
             <a *ngIf="asset.name == 'spiffs.bin'" 
                class="download-link spiffs-link"
                target="_blank" [href]="asset.browser_download_url">
               <span class="link-icon">🌐</span>
-              <span class="link-text">Download Latest Website</span>
+              <span class="link-text">Download spiffs.bin</span>
               <span class="link-arrow">↗</span>
             </a>
           </div>
