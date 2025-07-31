@@ -288,6 +288,8 @@ body {
   overflow-x: auto;
   box-sizing: border-box;
   padding: 0 2px;
+  -webkit-overflow-scrolling: touch; // 启用iOS平滑滚动
+  overscroll-behavior-x: contain; // 防止过度滚动影响父容器
 }
 
 table {
@@ -298,7 +300,7 @@ table {
   border-spacing: 0;
   background: #333;
   border-radius: 10px;
-  overflow: hidden;
+  // overflow: hidden;
   box-sizing: border-box;
   margin-top: 20px;
   margin-bottom: 20px;
@@ -614,6 +616,37 @@ a:active {
     padding: 20px;
     max-width: none;
   }
+  
+  // 移动端表格滚动优化
+  .table-container {
+    -webkit-overflow-scrolling: touch !important;
+    overflow-x: auto !important;
+    overflow-y: visible;
+    padding-bottom: 15px;
+    transform: translateZ(0);
+    // 添加滚动指示器
+    scrollbar-width: thin;
+    scrollbar-color: #4CAF50 #2a2a2a;
+    
+    &::-webkit-scrollbar {
+      height: 8px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: #2a2a2a;
+      border-radius: 4px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #4CAF50;
+      border-radius: 4px;
+    }
+  }
+  
+  .table-section {
+    overflow: visible !important;
+    margin-top: 10px;
+  }
 }
 
 @media (max-width: 1400px) {
@@ -658,20 +691,44 @@ a:active {
   .stat-value {
     font-size: 16px;
   }
+  
+  // 移动端表格滚动优化
+  .table-container {
+    // 确保移动端能够水平滚动
+    -webkit-overflow-scrolling: touch !important;
+    overflow-x: auto !important;
+    overflow-y: visible;
+    // 增加底部空间，避免滚动条被遮挡
+    padding-bottom: 10px;
+    // 使用 transform 硬件加速
+    transform: translateZ(0);
+  }
+  
+  .table-section {
+    overflow: visible !important;
+  }
+  
+  table {
+    // 确保表格宽度足够触发滚动
+    min-width: 1200px !important;
+  }
 }
 
 // Table container with bottom controls
 .table-section {
   background: transparent;
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible; // 改为visible，允许内部水平滚动
   margin-top: 10px;
 }
 
 .table-container {
   border-radius: 10px;
-  overflow: hidden;
+  overflow-x: auto; // 确保水平滚动
+  overflow-y: visible; // 垂直方向不需要滚动
   background: transparent;
+  -webkit-overflow-scrolling: touch; // iOS平滑滚动
+  overscroll-behavior-x: contain; // 防止过度滚动
 }
 
 .table-controls {
