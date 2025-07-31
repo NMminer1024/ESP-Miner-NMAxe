@@ -297,6 +297,7 @@
 }
 
 /* 响应式设计 */
+/* 移动端响应式设计 */
 @media (max-width: 768px) {
   .monitor-container {
     padding: 10px;
@@ -305,57 +306,148 @@
   .top-controls {
     flex-direction: column;
     gap: 12px;
-    padding: 15px;
+    padding: 12px;
   }
   
   .control-actions {
     width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .time-selector {
+    flex: 1;
+    min-width: 140px;
+  }
+  
+  .export-button {
+    flex: 1;
+    min-width: 120px;
     justify-content: center;
+  }
+  
+  .metrics-selector {
+    padding: 12px;
   }
   
   .metrics-checkboxes {
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 8px;
+    justify-items: stretch;
   }
   
   .metric-checkbox {
-    padding: 6px 10px;
+    padding: 8px 10px;
+    justify-content: center;
+    text-align: center;
   }
   
   .metric-label {
     font-size: 12px;
+    white-space: nowrap;
   }
   
   .chart-container-main {
     padding: 10px;
-    height: calc(100vh - 240px);
+    height: calc(100vh - 250px);
     min-height: 400px;
+  }
+  
+  .loading-container {
+    padding: 20px;
   }
 }
 
 @media (max-width: 480px) {
-  .export-button {
-    padding: 8px 16px;
-    font-size: 13px;
+  .monitor-container {
+    padding: 8px;
+  }
+  
+  .top-controls {
+    padding: 10px;
+  }
+  
+  .control-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
   }
   
   .time-selector {
-    padding: 6px 12px;
+    width: 100%;
+    padding: 8px 12px;
     font-size: 13px;
-    min-width: 120px;
   }
   
-  .chart-container-main {
-    padding: 8px;
-    height: calc(100vh - 220px);
-    min-height: 350px;
+  .export-button {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 13px;
+    justify-content: center;
+  }
+  
+  .metrics-selector {
+    padding: 10px;
   }
   
   .metrics-checkboxes {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 6px;
   }
   
   .metric-checkbox {
-    padding: 4px 8px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  
+  .metric-label {
+    font-size: 11px;
+  }
+  
+  .checkbox-custom {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .chart-container-main {
+    padding: 8px;
+    height: calc(100vh - 240px);
+    min-height: 350px;
+  }
+  
+  .loading-container {
+    padding: 15px;
+    
+    p {
+      font-size: 14px;
+    }
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 360px) {
+  .metrics-checkboxes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .metric-checkbox {
+    padding: 5px 6px;
+    font-size: 10px;
+  }
+  
+  .metric-label {
+    font-size: 10px;
+  }
+  
+  .checkbox-custom {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .chart-container-main {
+    height: calc(100vh - 220px);
+    min-height: 300px;
   }
 }

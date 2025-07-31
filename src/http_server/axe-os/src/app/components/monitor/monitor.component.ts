@@ -48,13 +48,14 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
   
   historyData: HistoryNode[] = [];
-  selectedFields: string[] = ['hashrate', 'vcore_temp', 'asic_temp'];
+  selectedFields: string[] = ['hashrate', 'asic_temp', 'vcore_temp'];
   selectedTimeRange: string = 'all'; // Default to show all history
   
   chart: Chart | null = null;
   isLoading = false;
   lastUpdateTime = '';
   dataSize = 0;
+  boardVersion = 'ESP-Miner'; // Default board version
   
   private subscription: Subscription = new Subscription();
   private realTimeSubscription: Subscription = new Subscription();
@@ -63,7 +64,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   // Field configuration options
   fieldOptions: FieldOption[] = [
     { value: 'hashrate', label: 'Hash Rate', unit: 'GH/s', type: 'string', selected: true, color: '#4CAF50' },
-    { value: 'asic_temp', label: 'ASIC Temp', unit: '°C', type: 'string', selected: false, color: '#FF9800' },
+    { value: 'asic_temp', label: 'ASIC Temp', unit: '°C', type: 'string', selected: true, color: '#FF9800' },
     { value: 'vcore_temp', label: 'VCore Temp', unit: '°C', type: 'string', selected: true, color: '#FF5722' },
     { value: 'pbus', label: 'Power', unit: 'W', type: 'string', selected: false, color: '#2196F3' },
     { value: 'vbus', label: 'Voltage', unit: 'V', type: 'string', selected: false, color: '#9C27B0' },
@@ -92,6 +93,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     console.log('🚀 Monitor component ngOnInit called');
     this.initializeSelectedFields();
+    this.loadSystemInfo();
     // Component will auto-start real-time updates after chart initialization
   }
 
@@ -136,6 +138,21 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       .map(field => field.value);
     
     console.log('Selected fields initialized:', this.selectedFields);
+  }
+
+  private loadSystemInfo(): void {
+    // Load system info to get board version
+    this.systemService.getInfo().subscribe({
+      next: (data: any) => {
+        if (data && data.boardVersion) {
+          this.boardVersion = data.boardVersion;
+          console.log('Board version loaded:', this.boardVersion);
+        }
+      },
+      error: (error: any) => {
+        console.warn('Failed to load system info:', error);
+      }
+    });
   }
 
   private initChart(): void {
@@ -697,11 +714,21 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       ].join(','))
     ].join('\n');
     
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `monitor-chart-${new Date().toISOString().split('T')[0]}.csv`;
+    
+    // Generate filename: boardversion + monitor + datetime.txt
+    const now = new Date();
+    const dateTime = now.getFullYear().toString() +
+                    (now.getMonth() + 1).toString().padStart(2, '0') +
+                    now.getDate().toString().padStart(2, '0') + '_' +
+                    now.getHours().toString().padStart(2, '0') +
+                    now.getMinutes().toString().padStart(2, '0') +
+                    now.getSeconds().toString().padStart(2, '0');
+    
+    link.download = `${this.boardVersion}_monitor_${dateTime}.txt`;
     link.click();
     window.URL.revokeObjectURL(url);
   }
