@@ -1,117 +1,65 @@
 <div class="monitor-container">
   <div class="card modern-card">
-    <!-- 头部信息 -->
-    <div class="card-header">
-      <div class="card-title-group">
-        <span class="card-icon">📊</span>
-        <h2 class="card-title">System Monitor</h2>
+    <!-- 顶部控制栏 -->
+    <div class="top-controls">
+      <div class="status-info">
         <span class="status-badge" [ngClass]="getStatusBadgeClass()">
           {{ getStatusText() }}
         </span>
       </div>
       
-      <div class="header-actions">
-        <button 
-          class="action-btn refresh-btn"
-          (click)="refreshData()"
-          [disabled]="isLoading">
-          <span class="btn-icon">🔄</span>
-          Refresh
-        </button>
+      <div class="control-actions">
+        <select 
+          [(ngModel)]="selectedTimeRange"
+          (change)="onTimeRangeChange()"
+          class="time-selector">
+          <option *ngFor="let range of timeRanges" [value]="range.value">
+            {{ range.label }}
+          </option>
+        </select>
         
         <button 
-          class="action-btn realtime-btn"
-          [ngClass]="{ 'active': isRealTimeActive }"
-          (click)="toggleRealTime()"
-          [disabled]="isLoading">
-          <span class="btn-icon">{{ isRealTimeActive ? '⏸️' : '▶️' }}</span>
-          {{ isRealTimeActive ? 'Pause' : 'Start' }} Real-time
+          class="export-button"
+          (click)="exportData()"
+          [disabled]="!historyData.length || isLoading"
+          title="Export CSV Data">
+          <span class="export-icon">💾</span>
+          <span class="export-text">Export</span>
         </button>
-      </div>
-    </div>
-    
-    <!-- 数据统计信息 -->
-    <div class="stats-panel" *ngIf="!isLoading">
-      <div class="stat-item">
-        <span class="stat-label">Total Records:</span>
-        <span class="stat-value">{{ dataSize }}</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">Time Range:</span>
-        <span class="stat-value">{{ getSelectedTimeRangeLabel() }}</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">Last Update:</span>
-        <span class="stat-value">{{ lastUpdateTime }}</span>
       </div>
     </div>
     
     <div class="card-content">
-      <!-- 控制面板 -->
-      <div class="controls-panel">
-        <div class="control-group">
-          <label>Select Metrics:</label>
-          <div class="field-checkboxes">
-            <div *ngFor="let field of fieldOptions" class="field-checkbox">
-              <input 
-                type="checkbox" 
-                [id]="'field-' + field.value"
-                [(ngModel)]="field.selected"
-                (change)="onFieldSelectionChange()">
-              <label [for]="'field-' + field.value">
-                <span class="color-indicator" [style.background-color]="field.color"></span>
-                {{ field.label }} ({{ field.unit }})
-              </label>
-            </div>
-          </div>
-        </div>
-        
-        <div class="control-group">
-          <label for="timeRangeSelector">Time Range:</label>
-          <select 
-            id="timeRangeSelector"
-            [(ngModel)]="selectedTimeRange"
-            (change)="onTimeRangeChange()"
-            class="time-range-selector">
-            <option *ngFor="let range of timeRanges" [value]="range.value">
-              {{ range.label }}
-            </option>
-          </select>
-        </div>
-        
-        <div class="control-group">
-          <button 
-            class="export-btn"
-            (click)="exportData()"
-            [disabled]="!historyData.length || isLoading">
-            <span class="export-icon">💾</span>
-            Export CSV
-          </button>
+      <!-- 水平字段选择器 -->
+      <div class="metrics-selector">
+        <div class="metrics-checkboxes">
+          <label *ngFor="let field of fieldOptions" class="metric-checkbox">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="field.selected"
+              (change)="onFieldSelectionChange()">
+            <span class="checkbox-custom" [style.--accent-color]="field.color">
+              <span class="checkmark">✓</span>
+            </span>
+            <span class="metric-label">{{ field.label }}</span>
+          </label>
         </div>
       </div>
       
-      <!-- Loading状态 -->
-      <div *ngIf="isLoading" class="loading-container">
-        <div class="loading-spinner"></div>
-        <p>Loading 24h history data...</p>
-      </div>
-      
-      <!-- 图表容器 -->
-      <div class="chart-container" *ngIf="!isLoading">
+      <!-- 图表容器 - 占据主要空间 -->
+      <div class="chart-container-main">
+        <!-- Loading状态 - 在图表区域内显示 -->
+        <div *ngIf="isLoading || historyData.length === 0" class="loading-container">
+          <div class="loading-spinner"></div>
+          <p *ngIf="isLoading">Loading monitoring data...</p>
+          <p *ngIf="!isLoading && historyData.length === 0">Waiting for data...</p>
+        </div>
+        
+        <!-- 图表Canvas - 始终存在但可能隐藏 -->
         <canvas #chartCanvas 
-                class="chart-canvas">
+                class="chart-canvas"
+                [style.display]="isLoading || historyData.length === 0 ? 'none' : 'block'">
         </canvas>
-      </div>
-      
-      <!-- 无数据提示 -->
-      <div *ngIf="!isLoading && historyData.length === 0" class="no-data-message">
-        <div class="no-data-icon">📭</div>
-        <h3>No Data Available</h3>
-        <p>No monitoring data found. Please check your device connection and try refreshing.</p>
-        <button class="retry-btn" (click)="refreshData()">
-          <span class="btn-icon">🔄</span>
-          Retry
-        </button>
       </div>
     </div>
   </div>

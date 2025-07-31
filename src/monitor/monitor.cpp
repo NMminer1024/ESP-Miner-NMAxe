@@ -65,12 +65,11 @@ void monitor_thread_entry(void *args){
       if(ntpClient.update()){
           struct timeval tv;
           // 获取真正的UTC时间
-          tv.tv_sec = ntpClient.getEpochTime(); // 真正的UTC时间戳
+          tv.tv_sec = ntpClient.getEpochTime(); 
           tv.tv_usec = 0;
           settimeofday(&tv, NULL);
-          g_nmaxe.mstatus.utc = tv.tv_sec; // 存储真正的UTC时间
+          g_nmaxe.mstatus.utc = tv.tv_sec; 
           
-          // 设置系统时区以便localtime()正确工作
           String tz_env = "UTC" + g_nmaxe.mstatus.timezone; // e.g. "UTC+8" or "UTC-5"
           setenv("TZ", tz_env.c_str(), 1);
           tzset();
@@ -83,7 +82,7 @@ void monitor_thread_entry(void *args){
           // update time now
           time_t now;
           time(&now);
-          g_nmaxe.mstatus.utc = now; // 这里仍然存储当前系统时间，可能是UTC或本地时间
+          g_nmaxe.mstatus.utc = now; 
       }
 
       g_nmaxe.mstatus.uptime_ever++;

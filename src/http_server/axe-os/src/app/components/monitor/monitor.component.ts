@@ -16,6 +16,7 @@ interface HistoryNode {
   vbus: string;
   ibus: string;
   vcore: number;
+  fanspeed: number;
   fanrpm: number;
   wifi_rssi: number;
   free_heap: number;
@@ -47,12 +48,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
   
   historyData: HistoryNode[] = [];
-  selectedFields: string[] = ['hashrate', 'asic_temp', 'pbus'];
-  selectedTimeRange: string = 'all'; // 默认显示所有历史数据
+  selectedFields: string[] = ['hashrate', 'vcore_temp', 'asic_temp'];
+  selectedTimeRange: string = 'all'; // Default to show all history
   
   chart: Chart | null = null;
   isLoading = false;
-  isRealTimeActive = false;
   lastUpdateTime = '';
   dataSize = 0;
   
@@ -60,41 +60,44 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   private realTimeSubscription: Subscription = new Subscription();
   private isComponentActive = true;
   
-  // 可选择的字段配置
+  // Field configuration options
   fieldOptions: FieldOption[] = [
     { value: 'hashrate', label: 'Hash Rate', unit: 'GH/s', type: 'string', selected: true, color: '#4CAF50' },
-    { value: 'asic_temp', label: 'ASIC Temperature', unit: '°C', type: 'string', selected: true, color: '#FF9800' },
-    { value: 'vcore_temp', label: 'VCore Temperature', unit: '°C', type: 'string', selected: false, color: '#FF5722' },
-    { value: 'pbus', label: 'Power', unit: 'W', type: 'string', selected: true, color: '#2196F3' },
+    { value: 'asic_temp', label: 'ASIC Temp', unit: '°C', type: 'string', selected: false, color: '#FF9800' },
+    { value: 'vcore_temp', label: 'VCore Temp', unit: '°C', type: 'string', selected: true, color: '#FF5722' },
+    { value: 'pbus', label: 'Power', unit: 'W', type: 'string', selected: false, color: '#2196F3' },
     { value: 'vbus', label: 'Voltage', unit: 'V', type: 'string', selected: false, color: '#9C27B0' },
     { value: 'ibus', label: 'Current', unit: 'A', type: 'string', selected: false, color: '#795548' },
-    { value: 'vcore', label: 'VCore Measured', unit: 'mV', type: 'number', selected: false, color: '#607D8B' },
+    { value: 'vcore', label: 'VCore', unit: 'mV', type: 'number', selected: false, color: '#607D8B' },
+    { value: 'fanspeed', label: 'Fan Speed', unit: '%', type: 'number', selected: false, color: '#3F51B5' },
     { value: 'fanrpm', label: 'Fan RPM', unit: 'RPM', type: 'number', selected: false, color: '#00BCD4' },
     { value: 'wifi_rssi', label: 'WiFi RSSI', unit: 'dBm', type: 'number', selected: false, color: '#CDDC39' },
     { value: 'free_heap', label: 'Free Heap', unit: 'KB', type: 'number', selected: false, color: '#FFC107' }
   ];
   
-  // 时间范围选项 - 改为显示模式而非过滤模式
+  // Time range options
   timeRanges: TimeRange[] = [
-    { value: 'all', label: 'All History', minutes: -1 }, // -1 表示显示所有历史数据
-    { value: '10', label: 'Last 10 Minutes', minutes: 10 },
-    { value: '30', label: 'Last 30 Minutes', minutes: 30 },
-    { value: '60', label: 'Last 1 Hour', minutes: 60 },
-    { value: '180', label: 'Last 3 Hours', minutes: 180 },
-    { value: '360', label: 'Last 6 Hours', minutes: 360 },
-    { value: '720', label: 'Last 12 Hours', minutes: 720 },
-    { value: '1440', label: 'Last 24 Hours', minutes: 1440 }
+    { value: 'all', label: 'All History', minutes: -1 },
+    { value: '10', label: 'Last 10m', minutes: 10 },
+    { value: '30', label: 'Last 30m', minutes: 30 },
+    { value: '60', label: 'Last 1h', minutes: 60 },
+    { value: '180', label: 'Last 3h', minutes: 180 },
+    { value: '360', label: 'Last 6h', minutes: 360 },
+    { value: '720', label: 'Last 12h', minutes: 720 },
+    { value: '1440', label: 'Last 24h', minutes: 1440 }
   ];
 
   constructor(private systemService: SystemService) { }
 
   ngOnInit(): void {
+    console.log('🚀 Monitor component ngOnInit called');
     this.initializeSelectedFields();
-    // 移除图表初始化和数据加载到 ngAfterViewInit
+    // Component will auto-start real-time updates after chart initialization
   }
 
   ngAfterViewInit(): void {
-    // 确保 DOM 完全渲染后再初始化图表
+    console.log('🎯 Monitor component ngAfterViewInit called');
+    // Ensure DOM is fully rendered before initializing chart
     setTimeout(() => {
       console.log('AfterViewInit - ViewChild status:', !!this.chartCanvas);
       if (this.chartCanvas) {
@@ -103,11 +106,14 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         this.loadHistoryData();
       } else {
         console.error('Canvas ViewChild not available in AfterViewInit');
-        // 重试
+        // Retry
         setTimeout(() => {
           if (this.chartCanvas) {
+            console.log('Canvas found on retry');
             this.initChart();
             this.loadHistoryData();
+          } else {
+            console.error('Canvas still not found after retry');
           }
         }, 500);
       }
@@ -299,11 +305,13 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadHistoryData(): void {
+    console.log('📊 Starting loadHistoryData method');
     this.isLoading = true;
     this.stopRealTimeUpdates();
     
     console.log('Loading 24h history data...');
     console.log('API URL will be: /api/system/status/history');
+    console.log('SystemService available:', !!this.systemService);
     
     this.subscription.add(
       this.systemService.getStatusHistory().subscribe({
@@ -322,7 +330,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                 vbus: item[4] || '0',               // Vbus (V) - 索引4
                 ibus: item[5] || '0',               // Ibus (A) - 索引5
                 vcore: item[6] || 0,                // Vcore (mV) - 索引6
-                fanrpm: item[8] || 0,               // fanrpm (RPM) - 索引8 (跳过fanspeed)
+                fanspeed: item[7] || 0,             // fanspeed (%) - 索引7
+                fanrpm: item[8] || 0,               // fanrpm (RPM) - 索引8
                 wifi_rssi: item[9] || 0,            // wifiRSSI (dBm) - 索引9
                 free_heap: item[10] || 0,           // freeHeap (bytes) - 索引10
                 epoch: item[11] || Date.now()       // epoch (ms) - 索引11
@@ -378,22 +387,19 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
+  // Auto-start real-time updates after loading history
   private startRealTimeUpdates(): void {
-    if (this.isRealTimeActive) return;
+    console.log('Starting continuous real-time updates...');
     
-    this.isRealTimeActive = true;
-    console.log('Starting real-time updates...');
-    
-    // 每5秒获取一次实时数据
+    // Get real-time data every 5 seconds
     this.realTimeSubscription = interval(5000)
-      .pipe(takeWhile(() => this.isComponentActive && this.isRealTimeActive))
+      .pipe(takeWhile(() => this.isComponentActive))
       .subscribe(() => {
         this.getRealTimeData();
       });
   }
 
   private stopRealTimeUpdates(): void {
-    this.isRealTimeActive = false;
     this.realTimeSubscription.unsubscribe();
     this.realTimeSubscription = new Subscription();
     console.log('Real-time updates stopped');
@@ -417,7 +423,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             vbus: latestData[4] || '0',          // Vbus (V) - 索引4
             ibus: latestData[5] || '0',          // Ibus (A) - 索引5
             vcore: latestData[6] || 0,           // Vcore (mV) - 索引6
-            fanrpm: latestData[8] || 0,          // fanrpm (RPM) - 索引8 (跳过fanspeed)
+            fanspeed: latestData[7] || 0,        // fanspeed (%) - 索引7
+            fanrpm: latestData[8] || 0,          // fanrpm (RPM) - 索引8
             wifi_rssi: latestData[9] || 0,       // wifiRSSI (dBm) - 索引9
             free_heap: latestData[10] || 0,      // freeHeap (bytes) - 索引10
             epoch: latestData[11] || Date.now()  // epoch (ms) - 索引11
@@ -623,9 +630,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private parseValue(value: any, field: string): number {
     if (typeof value === 'number') {
-      // 特殊处理某些字段
+      // Convert bytes to KB for free_heap field
       if (field === 'free_heap') {
-        return value / 1024; // 转换为KB
+        return value / 1024; // Convert to KB
       }
       return value;
     }
@@ -652,35 +659,22 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.updateChart(); // 重新更新图表显示
   }
 
-  // 获取选中时间范围的标签
+  // Get selected time range label
   getSelectedTimeRangeLabel(): string {
     const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
     return timeRange ? timeRange.label : 'Unknown';
   }
 
-  // 获取状态文本
+  // Get status text
   getStatusText(): string {
     if (this.isLoading) return 'Loading...';
-    if (this.isRealTimeActive) return 'Real-time Active';
-    return 'Static View';
-  }
-
-  refreshData(): void {
-    this.loadHistoryData();
-  }
-
-  toggleRealTime(): void {
-    if (this.isRealTimeActive) {
-      this.stopRealTimeUpdates();
-    } else {
-      this.startRealTimeUpdates();
-    }
+    return 'Live Monitor'; // Always live since we removed pause functionality
   }
 
   exportData(): void {
     if (!this.historyData.length) return;
     
-    // 根据时间范围过滤数据
+    // Filter data based on selected time range
     let filteredData: HistoryNode[];
     const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
     
@@ -719,8 +713,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   getStatusBadgeClass(): string {
     if (this.isLoading) return 'status-loading';
-    if (this.isRealTimeActive) return 'status-realtime';
-    return 'status-offline';
+    return 'status-realtime'; // Always real-time now
   }
 
 }
