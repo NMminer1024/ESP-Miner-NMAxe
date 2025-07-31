@@ -168,6 +168,35 @@ void monitor_thread_entry(void *args){
           last_save_time = g_nmaxe.mstatus.uptime_session;
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
+
+
+      //update miner status history queue
+      if(g_nmaxe.mstatus.uptime_session % 3 == 0){
+        static uint32_t start = millis();
+        history_node_t node;
+        node.hashrate     = String(g_nmaxe.mstatus.hashrate._3m /1e9, 3); //Ghash/s
+        node.asic_temp    = String(g_nmaxe.temp.asic,1);
+        node.vcore_temp   = String(g_nmaxe.temp.vcore,1);
+        node.power        = String((g_nmaxe.board.vbus * g_nmaxe.board.ibus / 1000.0f / 1000.0f),2); //W
+        node.voltage      = String((g_nmaxe.board.vbus / 1000.0f),1); //V
+        node.current      = String((g_nmaxe.board.ibus / 1000.0f),3); //A
+        node.vc_measured  = g_nmaxe.asic.vcore_measured;
+        node.fan_speed    = g_nmaxe.preference.fan.speed;
+        node.fan_rpm      = g_nmaxe.preference.fan.rpm;
+        node.wifi_rssi    = g_nmaxe.connection.wifi.status_param.rssi;
+        node.free_heap    = ESP.getFreeHeap(); //Bytes
+        node.epoch        = millis();
+
+        g_nmaxe.mstatus.status_history.push_back(node);
+
+        //remove old history
+        if(millis() - start > HISTORY_DEEPTH){
+            g_nmaxe.mstatus.status_history.pop_front();
+            LOG_W("Remove old history, current size: %d", g_nmaxe.mstatus.status_history.size());
+            start = g_nmaxe.mstatus.status_history.front().epoch;
+        }
+      }
+
     }
 }
 

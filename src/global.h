@@ -8,6 +8,7 @@
 #include "stratum.h"
 #include "miner.h"
 #include "market.h"
+#include <deque>
 #include <map>
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
@@ -37,6 +38,7 @@
 
 #define MARKET_TIMEOUT         (MARKET_UPDATE_INTERVAL * 3) // ms
 
+#define HISTORY_DEEPTH         (1000*60*20) // history depth, how long to keep the history, in milliseconds
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
@@ -153,6 +155,22 @@ typedef struct{
     std::map<uint16_t, uint8_t> dist_map;//<x, y> x:scale_x, y:percentage of hashrate in this scale, range from 0 to 100
 }hash_dist_t;
 
+// ["hashRate","temp","vrTemp","power","voltage","current","coreVoltageActual","fanspeed","fanrpm","wifiRSSI","freeHeap","timestamp"],
+typedef struct{
+    String         hashrate;      // hashrate, GH/s
+    String         asic_temp;     // asic temperature, C
+    String         vcore_temp;    // vcore temperature, C
+    String         power;         // power, W
+    String         voltage;       // voltage, V
+    String         current;       // current, A
+    uint16_t       vc_measured;   // vcore measured, mV
+    uint16_t       fan_speed;     // fan speed, %
+    uint16_t       fan_rpm;       // fan rpm, RPM
+    int8_t         wifi_rssi;     // wifi rssi, dBm
+    uint32_t       free_heap;     // free heap, bytes
+    uint32_t       epoch;         // timestamp, ms since epoch
+}history_node_t;
+
 typedef struct{
     uint32_t            utc;
     String              timezone;
@@ -162,6 +180,7 @@ typedef struct{
     uint64_t            uptime_session;
     hashrate_t          hashrate;
     hash_dist_t         hr_dist;
+    std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
     uint16_t            hits;
     uint16_t            last_hits;//record the last hits
     diff_info_t         diff;

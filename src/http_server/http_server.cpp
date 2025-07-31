@@ -131,16 +131,78 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 }
-static void get_swarm_info_handler(AsyncWebServerRequest* request){
-    uint16_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
-
-    void* buffer = psramAllocator(json_size_max);
-    if (!buffer) {
-        request->send(500, "application/json", "{\"error\":\"Failed to allocate memory in PSRAM\"}");
-        LOG_E("Failed to allocate memory in PSRAM for swarm info");
-        return;
+static void get_status_history(AsyncWebServerRequest* request){
+    uint32_t json_size_max = 1024 * 1024; // in bytes
+    static DynamicJsonDocument* root = nullptr;
+    if(nullptr != root) {
+        root->clear();
+    } else {
+        // Allocate memory in PSRAM for the JSON document
+        void* buffer = psramAllocator(json_size_max);
+        if (!buffer) {
+            request->send(500, "application/json", "{\"error\":\"Failed to allocate memory in PSRAM\"}");
+            LOG_E("Failed to allocate memory in PSRAM for history data");
+            return;
+        }
+        root = new(buffer) DynamicJsonDocument(json_size_max);
     }
-    DynamicJsonDocument* root = new(buffer) DynamicJsonDocument(json_size_max);
+
+    (*root)["timestamp"] = g_nmaxe.mstatus.utc;
+    JsonArray labels = (*root).createNestedArray("labels");
+    labels.add("hashRate");
+    labels.add("asicTemp");
+    labels.add("vcTemp");
+    labels.add("power");
+    labels.add("voltage");
+    labels.add("current");
+    labels.add("vcoreActual");
+    labels.add("fanspeed");
+    labels.add("fanrpm");
+    labels.add("wifiRSSI");
+    labels.add("freeHeap");
+    labels.add("timestamp");
+    
+    JsonArray data = (*root).createNestedArray("statistics");
+    for (const auto& history : g_nmaxe.mstatus.status_history) {
+        JsonArray dataPoint = data.createNestedArray();
+        dataPoint.add(history.hashrate);           // hashRate (GH/s)
+        dataPoint.add(history.asic_temp);          // asic_temp (°C)
+        dataPoint.add(history.vcore_temp);         // vcore_temp (°C)
+        dataPoint.add(history.power);              // power (W)
+        dataPoint.add(history.voltage);            // voltage (V)
+        dataPoint.add(history.current);            // current (A)
+        dataPoint.add(history.vc_measured);        // coreVoltageActual (mV)
+        dataPoint.add(history.fan_speed);          // fanspeed (%)
+        dataPoint.add(history.fan_rpm);            // fanrpm (RPM)
+        dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
+        dataPoint.add(history.free_heap);          // freeHeap (bytes)
+        dataPoint.add(history.epoch);              // timestamp (ms)
+    }
+    (*root)["size"] = g_nmaxe.mstatus.status_history.size();
+
+    String json_str;
+    serializeJson((*root), json_str);
+    request->send(200, "application/json", json_str);
+    LOG_W("Status history sent, history size: %d, json size: %d, %d bytes every node", 
+          g_nmaxe.mstatus.status_history.size(), 
+          json_str.length(), 
+          json_str.length() / g_nmaxe.mstatus.status_history.size());
+}
+static void get_swarm_info_handler(AsyncWebServerRequest* request){
+    uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
+    static DynamicJsonDocument* root = nullptr;
+    if(nullptr != root) {
+        root->clear();
+    } else {
+        // Allocate memory in PSRAM for the JSON document
+        void* buffer = psramAllocator(json_size_max);
+        if (!buffer) {
+            request->send(500, "application/json", "{\"error\":\"Failed to allocate memory in PSRAM\"}");
+            LOG_E("Failed to allocate memory in PSRAM for swarm info");
+            return;
+        }
+        root = new(buffer) DynamicJsonDocument(json_size_max);
+    }
 
     JsonArray devicesArray = root->createNestedArray("devices");
     for (auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end(); it++) {
@@ -173,17 +235,11 @@ static void get_swarm_info_handler(AsyncWebServerRequest* request){
     String swarm_info;
     serializeJson(*root, swarm_info);
 
-    // request->send(200, "application/json", swarm_info);
-
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", swarm_info);
     response->addHeader("Access-Control-Allow-Origin", "*");
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
-
-    //free memory
-    root->~DynamicJsonDocument();
-    psramDeallocator(buffer);
 }
 static void options_theme_handler(AsyncWebServerRequest* request){
     request->send(200, "application/json", "");
@@ -521,7 +577,7 @@ void start_http_server(void) {
 
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
-    // webServer.on("/api/system/hr/history", HTTP_GET, NULL);
+    webServer.on("/api/system/status/history", HTTP_GET, get_status_history);
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);
     webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
