@@ -187,6 +187,58 @@ static void get_status_history(AsyncWebServerRequest* request){
           json_str.length(), 
           json_str.length() / g_nmaxe.mstatus.status_history.size());
 }
+static void get_status_realtime(AsyncWebServerRequest* request){
+    uint32_t json_size_max = 512; // in bytes
+    static DynamicJsonDocument* root = nullptr;
+    if(nullptr != root) {
+        root->clear();
+    } else {
+        // Allocate memory in PSRAM for the JSON document
+        void* buffer = psramAllocator(json_size_max);
+        if (!buffer) {
+            request->send(500, "application/json", "{\"error\":\"Failed to allocate memory in PSRAM\"}");
+            LOG_E("Failed to allocate memory in PSRAM for history data");
+            return;
+        }
+        root = new(buffer) DynamicJsonDocument(json_size_max);
+    }
+
+    (*root)["timestamp"] = g_nmaxe.mstatus.utc;
+    JsonArray labels = (*root).createNestedArray("labels");
+    labels.add("hashRate");
+    labels.add("asicTemp");
+    labels.add("vcoreTemp");
+    labels.add("Pbus");
+    labels.add("Vbus");
+    labels.add("Ibus");
+    labels.add("Vcore");
+    labels.add("fanrpm");
+    labels.add("wifiRSSI");
+    labels.add("freeHeap");
+    labels.add("epoch");
+    
+    JsonArray data = (*root).createNestedArray("statistics");
+    if (!g_nmaxe.mstatus.status_history.empty()) {
+        auto& history = g_nmaxe.mstatus.status_history.back();
+        JsonArray dataPoint = data.createNestedArray();
+        dataPoint.add(history.hashrate);           // hashRate (GH/s)
+        dataPoint.add(history.asic_temp);          // asic_temp (°C)
+        dataPoint.add(history.vcore_temp);         // vcore_temp (°C)
+        dataPoint.add(history.pbus);               // power (W)
+        dataPoint.add(history.vbus);               // voltage (V)
+        dataPoint.add(history.ibus);               // current (A)
+        dataPoint.add(history.vcore);              // coreVoltageActual (mV)
+        dataPoint.add(history.fanrpm);             // fanrpm (RPM)
+        dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
+        dataPoint.add(history.free_heap);          // freeHeap (bytes)
+        dataPoint.add(history.epoch);              // timestamp (ms)
+    }
+    String json_str;
+    serializeJson((*root), json_str);
+    request->send(200, "application/json", json_str);
+    LOG_W("Status realtime sent, json size: %d",
+          json_str.length());
+}
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
     static DynamicJsonDocument* root = nullptr;
@@ -577,6 +629,7 @@ void start_http_server(void) {
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
     webServer.on("/api/system/status/history", HTTP_GET, get_status_history);
+    webServer.on("/api/system/status/realtime", HTTP_GET, get_status_realtime);
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);
     webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);

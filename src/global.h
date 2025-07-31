@@ -38,7 +38,7 @@
 
 #define MARKET_TIMEOUT         (MARKET_UPDATE_INTERVAL * 3) // ms
 
-#define HISTORY_DEEPTH         (1000*60*20) // history depth, how long to keep the history, in milliseconds
+#define HISTORY_DEEPTH         (1000*3600*12) // history depth, how long to keep the history, in milliseconds
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
