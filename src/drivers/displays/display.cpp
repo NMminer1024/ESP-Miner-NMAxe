@@ -1017,24 +1017,11 @@ static void ui_dashboard_page_update(){
 
 static void ui_hr_healthy_page_update(miner_status_t *miner_status){
   uint16_t NUM_BARS = 10;
-  // if(g_nmaxe.board.hw_model == BOARD_NMAxe){
-  //   g_nmaxe.mstatus.hr_samples.max_samples = 1000;
-  //   g_nmaxe.mstatus.hr_samples.scale       = 50;
-  // }
-  // else if(g_nmaxe.board.hw_model == BOARD_NMAxeGamma){
-  //   g_nmaxe.mstatus.hr_samples.max_samples = 2000;
-  //   g_nmaxe.mstatus.hr_samples.scale = 100;
-  // }
-  // else{
-  //   LOG_W("Unknown board model: %s", g_nmaxe.board.hw_model.c_str());
-  //   return;
-  // }
   NUM_BARS = (g_nmaxe.mstatus.hr_dist.max_x / g_nmaxe.mstatus.hr_dist.scale);
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
   static lv_chart_series_t *series;
-  static uint64_t hr_total_cnt = 0;
   static bool first_time = true;
 
   static double last_hashrate = 0;
@@ -1120,14 +1107,15 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
   int index = last_hashrate/1000/1000/1000 / g_nmaxe.mstatus.hr_dist.scale;
   index = (index >= NUM_BARS) ? NUM_BARS - 1 : index;
   counts[index]++;
-  hr_total_cnt++;
+  g_nmaxe.mstatus.hr_dist.cnt++;
   for (int i = 0; i < NUM_BARS; i++) {
-    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)hr_total_cnt);
+    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)g_nmaxe.mstatus.hr_dist.cnt);
     lv_chart_set_value_by_id(chart, series, i, y);
+    g_nmaxe.mstatus.hr_dist.dist_map[i] = y;// Update the global distribution map
   }
   // time cost of this feature
   static uint64_t start = millis();
-  uint64_t duration = (millis() - start) / 1000;
+  g_nmaxe.mstatus.hr_dist.dura = (millis() - start) / 1000;
 
   String hr = formatNumber(last_hashrate, 3);
   String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
@@ -1136,7 +1124,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
   //hashrate unit
   lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
   //time cost
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(hr_total_cnt) + "t/"+ String(duration) + "s").c_str());
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(g_nmaxe.mstatus.hr_dist.cnt) + "t/"+ String(g_nmaxe.mstatus.hr_dist.dura) + "s").c_str());
 }
 
 static void ui_big_digit_page_update(miner_status_t *miner_status, float price){

@@ -145,13 +145,13 @@ typedef struct{
 }diff_info_t;
 
 
-
-
 typedef struct{
+    uint32_t             cnt;     // count of hashrate samples
+    uint32_t             dura;    // duration of hashrate samples
     uint16_t             max_x;   // max x axis, unit: GH/s
     uint16_t             scale;   // unit: GH/s
-    std::map<uint16_t, float> dist_map;//<x, y> x:scale_x, y:hashrate
-}hash_distribution_t;
+    std::map<uint16_t, uint8_t> dist_map;//<x, y> x:scale_x, y:percentage of hashrate in this scale, range from 0 to 100
+}hash_dist_t;
 
 typedef struct{
     uint32_t            utc;
@@ -161,7 +161,7 @@ typedef struct{
     uint64_t            uptime_ever;
     uint64_t            uptime_session;
     hashrate_t          hashrate;
-    hash_distribution_t hr_dist;
+    hash_dist_t         hr_dist;
     uint16_t            hits;
     uint16_t            last_hits;//record the last hits
     diff_info_t         diff;

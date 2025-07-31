@@ -109,23 +109,28 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["fanrpm"] = g_nmaxe.preference.fan.rpm;
     root["brightness"] = g_nmaxe.preference.screen.brightness_last;
     root["coin"] = g_nmaxe.coin;
-    String sys_info;
-    serializeJson(root, sys_info);
-    request->send(200, "application/json", sys_info);
+    String json_str;
+    serializeJson(root, json_str);
+    request->send(200, "application/json", json_str);
 }
 static void get_hr_distribution(AsyncWebServerRequest* request){
     const uint16_t json_size_max  =  512;
-
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    root["power"] = (g_nmaxe.board.ibus /1000.0f) * (g_nmaxe.board.vbus / 1000.0f);
-    root["voltage"] = g_nmaxe.board.vbus;
-    root["current"] = g_nmaxe.board.ibus;
+    root["scale"]   = g_nmaxe.mstatus.hr_dist.scale;
+    root["max_x"]   = g_nmaxe.mstatus.hr_dist.max_x;
+    root["cnt"]     = g_nmaxe.mstatus.hr_dist.cnt;
+    root["dura"]    = g_nmaxe.mstatus.hr_dist.dura;
+    JsonObject dist_map = root.createNestedObject("dist");
+    for (const auto& pair : g_nmaxe.mstatus.hr_dist.dist_map) {
+        dist_map[String(pair.first)] = pair.second; 
+        LOG_I("dist_map key: %d, value: %d", pair.first, pair.second);
+    }
 
-    String sys_info;
-    serializeJson(root, sys_info);
-    request->send(200, "application/json", sys_info);
+    String json_str;
+    serializeJson(root, json_str);
+    request->send(200, "application/json", json_str);
 }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint16_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
@@ -516,8 +521,8 @@ void start_http_server(void) {
     xTaskCreatePinnedToCore(websocket_loop, name.c_str(), 1024*5, (void*)name.c_str(), TASK_PRIORITY_WS, NULL, 1);
 
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
-    webServer.on("/api/system/hr/distribution", HTTP_GET, get_hr_distribution);
-    webServer.on("/api/system/hr/history", HTTP_GET, NULL);
+    webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
+    // webServer.on("/api/system/hr/history", HTTP_GET, NULL);
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);
     webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
