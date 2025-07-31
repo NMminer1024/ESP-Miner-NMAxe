@@ -243,14 +243,14 @@ export class HrDistChartComponent implements OnInit {
           const rangeEnd = (index + 1) * scaleValue;
           
           if (scaleValue >= 1000) {
-            return `算力范围: ${(rangeStart/1000).toFixed(1)}-${(rangeEnd/1000).toFixed(1)} TH/s`;
+            return `Range: ${(rangeStart/1000).toFixed(1)}-${(rangeEnd/1000).toFixed(1)} TH/s`;
           } else {
-            return `算力范围: ${Math.round(rangeStart)}-${Math.round(rangeEnd)} GH/s`;
+            return `Range: ${Math.round(rangeStart)}-${Math.round(rangeEnd)} GH/s`;
           }
         },
         label: function(context: any) {
           const percentage = context.parsed.y;
-          return `占比: ${percentage.toFixed(1)}%`;
+          return `Percentage: ${percentage.toFixed(1)}%`;
         }
       };
     }

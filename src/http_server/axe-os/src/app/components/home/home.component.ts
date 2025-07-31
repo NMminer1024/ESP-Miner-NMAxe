@@ -51,7 +51,12 @@ export class HomeComponent {
           borderColor: rgb(248, 4, 4),
           tension: .4,
           pointRadius: 1,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: rgb(248, 4, 4),
+          pointHoverBorderColor: '#ffffff',
+          pointHoverBorderWidth: 2,
           borderWidth: 1,
+          hoverBorderWidth: 3,
           yAxisID: 'y_hashrate'
         },
         {
@@ -63,7 +68,12 @@ export class HomeComponent {
           borderColor: rgb(64, 245, 9),
           tension: .4,
           pointRadius: 1,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: rgb(64, 245, 9),
+          pointHoverBorderColor: '#ffffff',
+          pointHoverBorderWidth: 2,
           borderWidth: 1,
+          hoverBorderWidth: 3,
           yAxisID: 'y_temp'
         },
         {
@@ -75,7 +85,12 @@ export class HomeComponent {
           borderColor: rgb(8, 23, 236),
           tension: .4,
           pointRadius: 1,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: rgb(8, 23, 236),
+          pointHoverBorderColor: '#ffffff',
+          pointHoverBorderWidth: 2,
           borderWidth: 1,
+          hoverBorderWidth: 3,
           yAxisID: 'y_temp'
         },
         {
@@ -88,7 +103,12 @@ export class HomeComponent {
           borderDash: [5, 5],
           tension: 0,
           pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBackgroundColor: 'rgba(255, 165, 0, 0.9)',
+          pointHoverBorderColor: '#ffffff',
+          pointHoverBorderWidth: 2,
           borderWidth: 2,
+          hoverBorderWidth: 3,
           yAxisID: 'y_hashrate'
         }
       ]
@@ -97,10 +117,46 @@ export class HomeComponent {
     this.chartOptions = {
       animation: false,
       maintainAspectRatio: false,
+      responsive: true,
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
       plugins: {
         legend: {
-          labels: {
-            color: textColor
+          display: false
+        },
+        tooltip: {
+          enabled: true,
+          mode: 'index',
+          intersect: false,
+          backgroundColor: 'rgba(42, 42, 42, 0.9)',
+          titleColor: '#ffffff',
+          bodyColor: '#ffffff',
+          borderColor: '#404040',
+          borderWidth: 1,
+          cornerRadius: 8,
+          displayColors: true,
+          callbacks: {
+            title: (context: any) => {
+              if (context[0]?.label) {
+                return `Time: ${context[0].label}`;
+              }
+              return '';
+            },
+            label: (context: any) => {
+              const datasetLabel = context.dataset.label;
+              let value = context.parsed.y;
+              
+              if (datasetLabel === 'Hashrate' || datasetLabel === 'Expected Hashrate') {
+                // 转换为 GH/s
+                const ghValue = value / 1000000000;
+                return `${datasetLabel}: ${ghValue.toFixed(1)} GH/s`;
+              } else {
+                // 温度数据
+                return `${datasetLabel}: ${value.toFixed(1)}°C`;
+              }
+            }
           }
         }
       },

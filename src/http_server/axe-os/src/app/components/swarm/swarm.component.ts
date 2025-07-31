@@ -84,8 +84,17 @@ function getStorageSwarmSort(): StorageSwarmSort | null {
   return null;
 }
 
+// IP地址排序函数 - 将IP地址转换为数值进行比较
+function ipToNumber(ip: string): number {
+  const parts = ip.split('.').map(part => parseInt(part, 10));
+  if (parts.length !== 4 || parts.some(part => isNaN(part) || part < 0 || part > 255)) {
+    return 0; // 无效IP返回0
+  }
+  return (parts[0] << 24) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
+}
+
 const TableSortFunctions = {
-  [SortIndex.IP]: (a: NMDevice, b: NMDevice) => a.ip.localeCompare(b.ip),
+  [SortIndex.IP]: (a: NMDevice, b: NMDevice) => ipToNumber(a.ip) - ipToNumber(b.ip),
   [SortIndex.BoardType]: (a: NMDevice, b: NMDevice) => a.BoardType.localeCompare(b.BoardType),
   [SortIndex.HashRate]: (a: NMDevice, b: NMDevice) => HashSuffixPipe.revert(a.HashRate) - HashSuffixPipe.revert(b.HashRate),
   [SortIndex.Share]: (a: NMDevice, b: NMDevice) => parseFloat(a.Share.split('/')[1]) - parseFloat(b.Share.split('/')[1]),
