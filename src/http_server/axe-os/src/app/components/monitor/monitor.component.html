@@ -9,24 +9,26 @@
       </div>
       
       <div class="control-actions">
-        <select 
-          [(ngModel)]="selectedTimeRange"
-          (change)="onTimeRangeChange()"
-          class="time-selector">
-          <option *ngFor="let range of timeRanges" [value]="range.value">
-            {{ range.label }}
-          </option>
-        </select>
-        
-        <select 
-          [(ngModel)]="sampleInterval"
-          (change)="onSampleIntervalChange()"
-          class="sample-selector">
-          <option value="1">High detail</option>
-          <option value="5">Normal</option>
-          <option value="10">Fast</option>
-          <option value="20">Low detail</option>
-        </select>
+        <div class="dropdown-container">
+          <select 
+            [(ngModel)]="selectedTimeRange"
+            (change)="onTimeRangeChange()"
+            class="time-selector">
+            <option *ngFor="let range of timeRanges" [value]="range.value">
+              {{ range.label }}
+            </option>
+          </select>
+          
+          <select 
+            [(ngModel)]="sampleInterval"
+            (change)="onSampleIntervalChange()"
+            class="sample-selector">
+            <option value="1">High detail</option>
+            <option value="5">Normal</option>
+            <option value="10">Fast</option>
+            <option value="20">Low detail</option>
+          </select>
+        </div>
         
         <button 
           class="export-button"

@@ -4,6 +4,25 @@
   background: transparent;
 }
 
+/* 现代化卡片样式 - 与其他页面保持一致 */
+.card.modern-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
+  border: 1px solid #404040 !important;
+  transition: all 0.3s ease !important;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4) !important;
+  }
+  
+  .card-content {
+    padding: 0;
+    background: transparent;
+  }
+}
+
 /* 顶部控制栏 */
 .top-controls {
   display: flex;
@@ -11,8 +30,8 @@
   align-items: center;
   padding: 15px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px 8px 0 0;
+  background: transparent;
+  border-radius: 12px 12px 0 0; // 匹配卡片的顶部圆角
 }
 
 .status-info {
@@ -68,18 +87,16 @@
   gap: 15px;
   align-items: center;
   
-  // PC端：所有控件在同一行，尺寸一致
-  .dropdown-row {
-    display: flex;
-    gap: 15px;
-    align-items: center;
+  // PC端：直接显示所有控件
+  .dropdown-container {
+    display: contents; // PC端让容器"透明"，直接显示子元素
   }
   
   .time-selector, .sample-selector, .export-button {
     height: 40px;
     min-width: 140px;
     padding: 8px 16px;
-    font-size: 14px;
+    font-size: 15px; // 增大字体
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background: rgba(255, 255, 255, 0.08);
@@ -112,41 +129,44 @@
     gap: 10px;
     width: 100%;
     
-    // 移动端下拉框分组
+    // 创建下拉框容器，强制同行显示
+    .dropdown-container {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+    
     .time-selector, .sample-selector {
-      width: calc(50% - 4px);
-      min-width: 110px !important;
-      height: 36px !important;
-      font-size: 11px !important;
-      padding: 6px 8px !important;
-    }
-    
-    // 创建虚拟的行布局
-    .time-selector {
-      display: inline-block;
-      margin-right: 8px;
-    }
-    
-    .sample-selector {
-      display: inline-block;
+      flex: 1;
+      height: 36px;
+      font-size: 13px !important; // 增大字体
+      padding: 6px 8px;
+      min-width: 0; // 允许收缩
     }
     
     .export-button {
       width: 100%;
       justify-content: center;
-      margin-top: 2px;
+      margin-top: 8px;
+      height: 36px;
+      font-size: 13px;
     }
   }
   
   @media (max-width: 480px) {
-    .dropdown-row {
+    .dropdown-container {
       gap: 6px;
-      
-      select {
-        min-width: 100px !important;
-        font-size: 10px !important;
-        padding: 5px 6px !important;
-      }
+    }
+    
+    .time-selector, .sample-selector {
+      font-size: 12px !important; // 保持较大字体
+      padding: 5px 6px;
+      height: 34px;
+    }
+    
+    .export-button {
+      font-size: 12px;
+      height: 34px;
     }
   }
 }
@@ -189,7 +209,7 @@
 /* 现代化指标选择器 */
 .metrics-selector {
   padding: 15px 20px;
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -352,9 +372,11 @@
 /* 主图表容器 */
 .chart-container-main {
   padding: 20px;
-  margin-top: 10px;
+  margin-top: 0;
   height: calc(100vh - 280px);
   min-height: 500px;
+  background: transparent;
+  border-radius: 0 0 12px 12px; // 匹配卡片的底部圆角
   
   .chart-canvas {
     width: 100% !important;
