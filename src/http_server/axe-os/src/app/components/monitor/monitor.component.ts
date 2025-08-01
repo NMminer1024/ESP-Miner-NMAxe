@@ -63,6 +63,14 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   private realTimeSubscription: Subscription = new Subscription();
   private isComponentActive = true;
   
+  // 状态持久化键名
+  private readonly STORAGE_KEYS = {
+    SELECTED_FIELDS: 'monitor_selected_fields',
+    TIME_RANGE: 'monitor_time_range',
+    SAMPLE_INTERVAL: 'monitor_sample_interval',
+    FIELD_OPTIONS: 'monitor_field_options'
+  };
+  
   // Field configuration options
   fieldOptions: FieldOption[] = [
     { value: 'hashrate', label: 'Hash Rate', unit: 'GH/s', type: 'string', selected: true, color: '#4CAF50' },
@@ -95,6 +103,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     console.log('🚀 Monitor component ngOnInit called');
+    this.loadSavedState(); // 加载保存的状态
     this.initializeSelectedFields();
     this.loadSystemInfo();
     // Component will auto-start real-time updates after chart initialization
@@ -132,6 +141,79 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.stopRealTimeUpdates();
     if (this.chart) {
       this.chart.destroy();
+    }
+  }
+
+  // 状态持久化管理方法
+  private loadSavedState(): void {
+    try {
+      // 恢复选中的字段
+      const savedFields = localStorage.getItem(this.STORAGE_KEYS.SELECTED_FIELDS);
+      if (savedFields) {
+        this.selectedFields = JSON.parse(savedFields);
+      }
+
+      // 恢复时间范围
+      const savedTimeRange = localStorage.getItem(this.STORAGE_KEYS.TIME_RANGE);
+      if (savedTimeRange) {
+        this.selectedTimeRange = savedTimeRange;
+      }
+
+      // 恢复采样间隔
+      const savedSampleInterval = localStorage.getItem(this.STORAGE_KEYS.SAMPLE_INTERVAL);
+      if (savedSampleInterval) {
+        this.sampleInterval = parseInt(savedSampleInterval, 10);
+      }
+
+      // 恢复字段选项状态
+      const savedFieldOptions = localStorage.getItem(this.STORAGE_KEYS.FIELD_OPTIONS);
+      if (savedFieldOptions) {
+        const savedOptions = JSON.parse(savedFieldOptions);
+        // 合并保存的状态与默认选项
+        this.fieldOptions.forEach(option => {
+          const saved = savedOptions.find((s: any) => s.value === option.value);
+          if (saved) {
+            option.selected = saved.selected;
+          }
+        });
+      }
+
+      console.log('状态已恢复:', {
+        selectedFields: this.selectedFields,
+        selectedTimeRange: this.selectedTimeRange,
+        sampleInterval: this.sampleInterval
+      });
+
+      // 恢复状态后更新显示
+      this.initializeSelectedFields();
+      this.updateChart();
+
+    } catch (error) {
+      console.warn('恢复保存状态时出错:', error);
+    }
+  }
+
+  private saveState(): void {
+    try {
+      // 保存选中的字段
+      localStorage.setItem(this.STORAGE_KEYS.SELECTED_FIELDS, JSON.stringify(this.selectedFields));
+      
+      // 保存时间范围
+      localStorage.setItem(this.STORAGE_KEYS.TIME_RANGE, this.selectedTimeRange);
+      
+      // 保存采样间隔
+      localStorage.setItem(this.STORAGE_KEYS.SAMPLE_INTERVAL, this.sampleInterval.toString());
+      
+      // 保存字段选项状态
+      const fieldOptionsState = this.fieldOptions.map(option => ({
+        value: option.value,
+        selected: option.selected
+      }));
+      localStorage.setItem(this.STORAGE_KEYS.FIELD_OPTIONS, JSON.stringify(fieldOptionsState));
+
+      console.log('状态已保存');
+    } catch (error) {
+      console.warn('保存状态时出错:', error);
     }
   }
 
@@ -670,11 +752,13 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       .map(field => field.value);
     
     console.log('Field selection changed:', this.selectedFields);
+    this.saveState(); // 保存状态
     this.updateChart();
   }
 
   onTimeRangeChange(): void {
     console.log('Time range changed to:', this.selectedTimeRange);
+    this.saveState(); // 保存状态
     this.updateChart(); // 重新更新图表显示
   }
 
@@ -747,6 +831,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onSampleIntervalChange(): void {
     console.log('Sample interval changed to:', this.sampleInterval);
+    this.saveState(); // 保存状态
     this.loadHistoryData();
   }
 
