@@ -71,6 +71,7 @@
           <th class="col-index">#</th>
           <th class="col-ip sortable" (click)="sortTable(SortIndex.IP)">IP</th>
           <th class="col-board sortable" (click)="sortTable(SortIndex.BoardType)">Board</th>
+          <th class="col-pool sortable" (click)="sortTable(SortIndex.PoolInUse)">Pool</th>
           <th class="col-hash sortable" (click)="sortTable(SortIndex.HashRate)">HashRate</th>
           <th class="col-share sortable" (click)="sortTable(SortIndex.Share)">Share(R/A)</th>
           <th class="col-diff sortable" (click)="sortTable(SortIndex.PoolDiff)">PoolDiff</th>
@@ -94,6 +95,7 @@
           <td>{{ i + 1 }}</td>
           <td><a class="ip" [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
           <td class="boardtype-column">{{ axe.BoardType }}</td>
+          <td class="pool-column">{{ axe.PoolInUse }}</td>
           <td>{{ axe.HashRate }}</td>
           <td>{{ axe.Share }}</td>
           <td>{{ axe.PoolDiff }}</td>

@@ -352,13 +352,14 @@ td {
   min-width: 60px;
 
   &:first-child {
-    padding: 6px 2px; // 复选框列更紧凑
-    width: 30px;
-    max-width: 30px;
+    padding: 4px 1px; // 复选框列更紧凑
+    width: 25px;
+    max-width: 25px;
+    text-align: center; // 居中对齐
     
     input[type="checkbox"] {
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       margin: 0;
     }
   }
@@ -382,23 +383,25 @@ tbody tr:last-child td {
 }
 
 // Column specific styles
-th:first-child { min-width: 30px; max-width: 30px; width: 30px; } // Checkbox column
+th:first-child { min-width: 25px; max-width: 25px; width: 25px; } // Checkbox column - 减小宽度
+td:first-child { min-width: 25px; max-width: 25px; width: 25px; } // Checkbox column - 减小宽度
 .col-ip { min-width: 100px; max-width: 120px; }
 .col-pool { min-width: 100px; }
 .col-uptime { min-width: 80px; }
 .col-lastseen { min-width: 80px; }
-.col-edit { min-width: 60px; max-width: 70px; }
-.col-index { min-width: 30px; max-width: 30px; width: 30px; }
-.col-board { min-width: 70px; max-width: 80px; }
-.col-hash { min-width: 90px; max-width: 100px; }
-.col-share { min-width: 70px; max-width: 80px; }
-.col-diff { min-width: 70px; max-width: 80px; }
-.col-valid { min-width: 40px; max-width: 40px; width: 40px; }
-.col-power { min-width: 60px; max-width: 70px; }
-.col-temp { min-width: 60px; max-width: 70px; }
-.col-rssi { min-width: 60px; max-width: 70px; }
-.col-mem { min-width: 70px; max-width: 80px; }
-.col-version { min-width: 70px; max-width: 80px; }
+.col-edit { min-width: 50px; max-width: 60px; }
+.col-index { min-width: 25px; max-width: 25px; width: 25px; } // 行号列减小宽度
+.col-board { min-width: 65px; max-width: 75px; }
+.col-pool { min-width: 140px; max-width: 180px; } // Pool列增加宽度
+.col-hash { min-width: 80px; max-width: 90px; }
+.col-share { min-width: 65px; max-width: 75px; }
+.col-diff { min-width: 65px; max-width: 75px; }
+.col-valid { min-width: 35px; max-width: 35px; width: 35px; }
+.col-power { min-width: 55px; max-width: 65px; }
+.col-temp { min-width: 55px; max-width: 65px; }
+.col-rssi { min-width: 55px; max-width: 65px; }
+.col-mem { min-width: 65px; max-width: 75px; }
+.col-version { min-width: 65px; max-width: 75px; }
 
 // Special cell styles
 .ip {
@@ -557,6 +560,13 @@ a:active {
 
 .boardtype-column {
   width: 130px;
+}
+
+.pool-column {
+  width: 160px;
+  font-size: 13px; // 增大字体，与其他列保持一致
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .lastseen-column {

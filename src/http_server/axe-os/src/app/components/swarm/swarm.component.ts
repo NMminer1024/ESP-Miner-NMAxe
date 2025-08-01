@@ -12,6 +12,7 @@ import {SystemService} from "../../services/system.service";
 interface NMDevice {
   ip: string;
   BoardType: string;
+  PoolInUse: string;
   HashRate: string;
   Share: string;
   PoolDiff: string;
@@ -38,6 +39,7 @@ interface SwarmSummary {
 enum SortIndex {
   IP,
   BoardType,
+  PoolInUse,
   HashRate,
   Share,
   PoolDiff,
@@ -96,6 +98,7 @@ function ipToNumber(ip: string): number {
 const TableSortFunctions = {
   [SortIndex.IP]: (a: NMDevice, b: NMDevice) => ipToNumber(a.ip) - ipToNumber(b.ip),
   [SortIndex.BoardType]: (a: NMDevice, b: NMDevice) => a.BoardType.localeCompare(b.BoardType),
+  [SortIndex.PoolInUse]: (a: NMDevice, b: NMDevice) => a.PoolInUse.localeCompare(b.PoolInUse),
   [SortIndex.HashRate]: (a: NMDevice, b: NMDevice) => HashSuffixPipe.revert(a.HashRate) - HashSuffixPipe.revert(b.HashRate),
   [SortIndex.Share]: (a: NMDevice, b: NMDevice) => parseFloat(a.Share.split('/')[1]) - parseFloat(b.Share.split('/')[1]),
   [SortIndex.PoolDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.PoolDiff) - DiffSuffixPipe.revert(b.PoolDiff),

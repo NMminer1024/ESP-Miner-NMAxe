@@ -309,6 +309,7 @@ static void get_swarm_info_handler(AsyncWebServerRequest* request){
         JsonObject deviceObj = devicesArray.createNestedObject();
         deviceObj["ip"] = ip;
         deviceObj["BoardType"] = deviceDoc["BoardType"].as<std::string>();
+        deviceObj["PoolInUse"] = (deviceDoc.containsKey("PoolInUse")) ? deviceDoc["PoolInUse"].as<std::string>() : "N/A";
         deviceObj["HashRate"] = deviceDoc["HashRate"].as<std::string>();
         deviceObj["Share"] = deviceDoc["Share"].as<std::string>();
         deviceObj["PoolDiff"] = deviceDoc["PoolDiff"].as<std::string>();
