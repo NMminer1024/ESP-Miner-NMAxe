@@ -55,7 +55,7 @@ static void rest_common_get_handler(AsyncWebServerRequest *request) {
     // if (!request->url().endsWith("/")) {
     //     response->addHeader("Cache-Control", "max-age=86400"); // cache for 24 hour
     // }
-    
+
     response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     response->addHeader("Pragma", "no-cache");
     response->addHeader("Expires", "0");
@@ -137,7 +137,7 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     request->send(200, "application/json", json_str);
 }
 static void get_status_history(AsyncWebServerRequest* request){
-    uint32_t json_size_max = 1024 * 1024; // in bytes
+    uint32_t json_size_max = 1024 * 1024 * 2; // in bytes, 2MB for 12h data
     static DynamicJsonDocument* root = nullptr;
     if(nullptr != root) {
         root->clear();
@@ -150,6 +150,15 @@ static void get_status_history(AsyncWebServerRequest* request){
             return;
         }
         root = new(buffer) DynamicJsonDocument(json_size_max);
+    }
+
+    // get sample interval from request, default is 10
+    int sample_interval = 10;
+    if(request->hasParam("interval")) {
+        sample_interval = request->getParam("interval")->value().toInt();
+        if(sample_interval < 1) sample_interval = 1;
+        if(sample_interval > 100) sample_interval = 100;
+        LOG_W("Sample interval set to: %d", sample_interval);
     }
 
     uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
@@ -166,42 +175,49 @@ static void get_status_history(AsyncWebServerRequest* request){
     labels.add("fanrpm");
     labels.add("wifiRSSI");
     labels.add("freeHeap");
+    labels.add("freePsram");
     labels.add("epoch");
     
     JsonArray data = (*root).createNestedArray("statistics");
+    int index = 0;
+    int sampled_count = 0;
     for (const auto& history : g_nmaxe.mstatus.status_history) {
-        JsonArray dataPoint = data.createNestedArray();
-        dataPoint.add(history.hashrate);           // hashRate (GH/s)
-        dataPoint.add(history.asic_temp);          // asic_temp (°C)
-        dataPoint.add(history.vcore_temp);         // vcore_temp (°C)
-        dataPoint.add(history.pbus);               // power (W)
-        dataPoint.add(history.vbus);               // voltage (V)
-        dataPoint.add(history.ibus);               // current (A)
-        dataPoint.add(history.vcore);              // coreVoltageActual (mV)
-        dataPoint.add(history.fanspeed);           // fanspeed (%)
-        dataPoint.add(history.fanrpm);             // fanrpm (RPM)
-        dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
-        dataPoint.add(history.free_heap);          // freeHeap (bytes)
-        dataPoint.add(history.epoch);              // timestamp (ms)
+        if(index % sample_interval == 0) {  
+            JsonArray dataPoint = data.createNestedArray();
+            dataPoint.add(history.hashrate);           // hashRate (GH/s)
+            dataPoint.add(history.asic_temp);          // asic_temp (°C)
+            dataPoint.add(history.vcore_temp);         // vcore_temp (°C)
+            dataPoint.add(history.pbus);               // power (W)
+            dataPoint.add(history.vbus);               // voltage (V)
+            dataPoint.add(history.ibus);               // current (A)
+            dataPoint.add(history.vcore);              // coreVoltageActual (mV)
+            dataPoint.add(history.fanspeed);           // fanspeed (%)
+            dataPoint.add(history.fanrpm);             // fanrpm (RPM)
+            dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
+            dataPoint.add(history.free_ram);           // freeHeap (KB)
+            dataPoint.add(history.free_psram);         // freePsram (KB)
+            dataPoint.add(history.epoch);              // timestamp (ms)
+            sampled_count++;
+        }
+        index++;
     }
+
     (*root)["size"] = g_nmaxe.mstatus.status_history.size();
+    (*root)["sampledSize"] = sampled_count;
+    (*root)["sampleInterval"] = sample_interval;
     
-
-
     String json_str;
     serializeJson((*root), json_str);
     request->send(200, "application/json", json_str);
 
     if(g_nmaxe.mstatus.status_history.size() > 0){
-        LOG_I("🕐 Last history timestamp: %llu, Current UTC: %llu, Diff: %.1f minutes", 
-            g_nmaxe.mstatus.status_history.back().epoch, 
-            g_nmaxe.mstatus.utc * 1000ULL,
-            (g_nmaxe.mstatus.utc * 1000ULL - g_nmaxe.mstatus.status_history.back().epoch) / (1000.0 * 60.0));
-
-        LOG_W("Status history sent, history size: %d, json size: %d, %d bytes every node", 
+        LOG_W("Status history sent, history size: %d, sampled: %d, interval: %d, json size: %d, %d bytes every node", 
             g_nmaxe.mstatus.status_history.size(), 
+            sampled_count,
+            sample_interval,
             json_str.length(), 
-            json_str.length() / g_nmaxe.mstatus.status_history.size());
+            json_str.length() / sampled_count);
+        LOG_W("Psram used: %.3f KB, free %.3f KB", (ESP.getPsramSize() - ESP.getFreePsram()) / 1024.0f, ESP.getFreePsram()/1024.0f);
     }
 }
 static void get_status_realtime(AsyncWebServerRequest* request){
@@ -234,6 +250,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     labels.add("fanrpm");
     labels.add("wifiRSSI");
     labels.add("freeHeap");
+    labels.add("freePsram");
     labels.add("epoch");
     
     JsonArray data = (*root).createNestedArray("statistics");
@@ -250,14 +267,19 @@ static void get_status_realtime(AsyncWebServerRequest* request){
         dataPoint.add(history.fanspeed);           // fanspeed (%)
         dataPoint.add(history.fanrpm);             // fanrpm (RPM)
         dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
-        dataPoint.add(history.free_heap);          // freeHeap (bytes)
+        dataPoint.add(history.free_ram);           // freeHeap (KB)
+        dataPoint.add(history.free_psram);         // freePsram (KB)
         dataPoint.add(history.epoch);              // timestamp (ms)
     }
     String json_str;
     serializeJson((*root), json_str);
     request->send(200, "application/json", json_str);
-    LOG_W("Status realtime sent, json size: %d",
-          json_str.length());
+
+
+    LOG_W("Status realtime sent, json size: %d, psarm used: %.3f KB, free %.3f KB", 
+          json_str.length(), 
+          (ESP.getPsramSize() - ESP.getFreePsram()) / 1024.0f, 
+          ESP.getFreePsram()/ 1024.0f);
 }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices

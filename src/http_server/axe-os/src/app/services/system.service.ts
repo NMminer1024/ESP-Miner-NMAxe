@@ -1,10 +1,19 @@
-import {HttpClient, HttpEvent} from '@angular/common/http';
+import {HttpClient, HttpEvent, HttpParams} from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {delay, Observable, of} from 'rxjs';
 import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 
 import {environment} from '../../environments/environment';
+
+export interface StatusHistoryResponse {
+  timestamp: number;
+  labels: string[];
+  statistics: any[][];
+  size: number;
+  sampledSize?: number;
+  sampleInterval?: number;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -126,11 +135,12 @@ export class SystemService {
     return this.httpClient.patch(`${uri}/api/swarm`, swarmConfig);
   }
 
-  public getStatusHistory(uri: string = ''): Observable<any> {
-    return this.httpClient.get(`${uri}/api/system/status/history`);
+  public getStatusHistory(sampleInterval: number = 10, uri: string = ''): Observable<StatusHistoryResponse> {
+    const params = new HttpParams().set('interval', sampleInterval.toString());
+    return this.httpClient.get(`${uri}/api/system/status/history`, { params }) as Observable<StatusHistoryResponse>;
   }
 
-  public getStatusRealtime(uri: string = ''): Observable<any> {
-    return this.httpClient.get(`${uri}/api/system/status/realtime`);
+  public getStatusRealtime(uri: string = ''): Observable<StatusHistoryResponse> {
+    return this.httpClient.get(`${uri}/api/system/status/realtime`) as Observable<StatusHistoryResponse>;
   }
 }

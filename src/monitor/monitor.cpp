@@ -64,19 +64,23 @@ void monitor_thread_entry(void *args){
       // update utc time
       if(ntpClient.update()){
           struct timeval tv;
-          // 获取真正的UTC时间
+
           tv.tv_sec = ntpClient.getEpochTime(); 
           tv.tv_usec = 0;
           settimeofday(&tv, NULL);
           g_nmaxe.mstatus.utc = tv.tv_sec; 
           
-          String tz_env = "UTC" + g_nmaxe.mstatus.timezone; // e.g. "UTC+8" or "UTC-5"
+    
+          String tz_env;
+          float tz_offset = g_nmaxe.mstatus.timezone.toFloat();
+          if(tz_offset >= 0)  tz_env = "UTC-" + String((int)tz_offset); 
+          else  tz_env = "UTC+" + String((int)(-tz_offset)); 
           setenv("TZ", tz_env.c_str(), 1);
           tzset();
           
           String time_local = convert_time_to_local(g_nmaxe.mstatus.utc);
-          LOG_W("ntp calibrate time UTC[%llu], local[%s], timezone[%s]", 
-                g_nmaxe.mstatus.utc, time_local.c_str(), g_nmaxe.mstatus.timezone.c_str());
+          LOG_W("ntp calibrate time UTC[%llu], local[%s], timezone[%s], tz_env[%s]", 
+                g_nmaxe.mstatus.utc, time_local.c_str(), g_nmaxe.mstatus.timezone.c_str(), tz_env.c_str());
       }
       else{
           // update time now
@@ -177,7 +181,7 @@ void monitor_thread_entry(void *args){
 
 
       //update miner status history queue
-      if(g_nmaxe.mstatus.uptime_session % 3 == 0){
+      if(g_nmaxe.mstatus.uptime_session % HISTORY_SAMPLE_INTERVAL == 0){
         history_node_t node;
         node.hashrate     = String(g_nmaxe.mstatus.hashrate._3m /1e9, 3); //Ghash/s
         node.asic_temp    = String(g_nmaxe.temp.asic,1);
@@ -189,7 +193,8 @@ void monitor_thread_entry(void *args){
         node.fanspeed     = g_nmaxe.preference.fan.speed; //%
         node.fanrpm       = g_nmaxe.preference.fan.rpm;
         node.wifi_rssi    = g_nmaxe.connection.wifi.status_param.rssi;
-        node.free_heap    = ESP.getFreeHeap(); //Bytes
+        node.free_ram     = ESP.getFreeHeap() / 1024;  //free sram in Kbytes
+        node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes
         node.epoch        = g_nmaxe.mstatus.utc * 1000ULL; // Convert UTC seconds to milliseconds
 
         g_nmaxe.mstatus.status_history.push_back(node);

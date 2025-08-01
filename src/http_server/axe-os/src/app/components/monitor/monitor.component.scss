@@ -66,7 +66,7 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   min-width: 140px;
   cursor: pointer;
@@ -81,6 +81,37 @@
     outline: none;
     border-color: #4caf50;
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+  }
+  
+  option {
+    background: #2a2a2a;
+    color: #ffffff;
+    padding: 8px;
+  }
+}
+
+/* 采样间隔选择器 */
+.sample-selector {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 180px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  
+  &:focus {
+    outline: none;
+    border-color: #2196f3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
   }
   
   option {
@@ -216,7 +247,7 @@
 
 .metric-label {
   color: #ffffff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   user-select: none;
 }

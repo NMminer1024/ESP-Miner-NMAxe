@@ -40,6 +40,8 @@
 
 #define HISTORY_DEEPTH         (1000*3600*12) // history depth, how long to keep the history, in seconds
 
+#define HISTORY_SAMPLE_INTERVAL (3) // history sample interval, in seconds
+
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
     TASK_PRIORITY_SWARM    ,
@@ -155,7 +157,7 @@ typedef struct{
     std::map<uint16_t, uint8_t> dist_map;//<x, y> x:scale_x, y:percentage of hashrate in this scale, range from 0 to 100
 }hash_dist_t;
 
-// ["hashRate","temp","vrTemp","power","voltage","current","coreVoltageActual","fanspeed","fanrpm","wifiRSSI","freeHeap","timestamp"],
+// ["hashRate","temp","vrTemp","power","voltage","current","coreVoltageActual","fanspeed","fanrpm","wifiRSSI","freeram","freepsram","timestamp"],
 typedef struct{
     String         hashrate;      // hashrate, GH/s
     String         asic_temp;     // asic temperature, C
@@ -167,7 +169,8 @@ typedef struct{
     uint16_t       fanspeed;      // fan speed, %
     uint16_t       fanrpm;        // fan rpm, RPM
     int8_t         wifi_rssi;     // wifi rssi, dBm
-    uint32_t       free_heap;     // free heap, bytes
+    uint32_t       free_ram;      // free ram, Kbytes
+    uint32_t       free_psram;    // free psram, Kbytes
     uint64_t       epoch;         // timestamp, milliseconds since epoch
 }history_node_t;
 

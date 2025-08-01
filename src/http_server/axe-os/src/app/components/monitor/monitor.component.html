@@ -18,6 +18,16 @@
           </option>
         </select>
         
+        <select 
+          [(ngModel)]="sampleInterval"
+          (change)="onSampleIntervalChange()"
+          class="sample-selector">
+          <option value="1">High detail</option>
+          <option value="5">Normal</option>
+          <option value="10">Fast</option>
+          <option value="20">Low detail</option>
+        </select>
+        
         <button 
           class="export-button"
           (click)="exportData()"

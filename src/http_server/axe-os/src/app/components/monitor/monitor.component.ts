@@ -20,6 +20,7 @@ interface HistoryNode {
   fanrpm: number;
   wifi_rssi: number;
   free_heap: number;
+  free_psram: number;
   epoch: number;
 }
 
@@ -50,6 +51,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   historyData: HistoryNode[] = [];
   selectedFields: string[] = ['hashrate', 'asic_temp', 'vcore_temp'];
   selectedTimeRange: string = 'all'; // Default to show all history
+  sampleInterval = 10; // 添加采样间隔属性
   
   chart: Chart | null = null;
   isLoading = false;
@@ -73,7 +75,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     { value: 'fanspeed', label: 'Fan Speed', unit: '%', type: 'number', selected: false, color: '#3F51B5' },
     { value: 'fanrpm', label: 'Fan RPM', unit: 'RPM', type: 'number', selected: false, color: '#00BCD4' },
     { value: 'wifi_rssi', label: 'WiFi RSSI', unit: 'dBm', type: 'number', selected: false, color: '#CDDC39' },
-    { value: 'free_heap', label: 'Free Heap', unit: 'KB', type: 'number', selected: false, color: '#FFC107' }
+    { value: 'free_heap', label: 'Free Heap', unit: 'KB', type: 'number', selected: false, color: '#FFC107' },
+    { value: 'free_psram', label: 'Free PSRAM', unit: 'KB', type: 'number', selected: false, color: '#E91E63' }
   ];
   
   // Time range options
@@ -331,7 +334,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('SystemService available:', !!this.systemService);
     
     this.subscription.add(
-      this.systemService.getStatusHistory().subscribe({
+      this.systemService.getStatusHistory(this.sampleInterval).subscribe({
         next: (response: any) => {
           console.log('✅ History API called successfully');
           console.log('History data loaded:', response);
@@ -350,8 +353,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                 fanspeed: item[7] || 0,             // fanspeed (%) - 索引7
                 fanrpm: item[8] || 0,               // fanrpm (RPM) - 索引8
                 wifi_rssi: item[9] || 0,            // wifiRSSI (dBm) - 索引9
-                free_heap: item[10] || 0,           // freeHeap (bytes) - 索引10
-                epoch: item[11] || Date.now()       // epoch (ms) - 索引11
+                free_heap: item[10] || 0,           // freeHeap (KB) - 索引10
+                free_psram: item[11] || 0,          // freePsram (KB) - 索引11
+                epoch: item[12] || Date.now()       // epoch (ms) - 索引12
               };
               
               if (index < 3 || index === response.statistics.length - 1) {
@@ -443,8 +447,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             fanspeed: latestData[7] || 0,        // fanspeed (%) - 索引7
             fanrpm: latestData[8] || 0,          // fanrpm (RPM) - 索引8
             wifi_rssi: latestData[9] || 0,       // wifiRSSI (dBm) - 索引9
-            free_heap: latestData[10] || 0,      // freeHeap (bytes) - 索引10
-            epoch: latestData[11] || Date.now()  // epoch (ms) - 索引11
+            free_heap: latestData[10] || 0,      // freeHeap (KB) - 索引10
+            free_psram: latestData[11] || 0,     // freePsram (KB) - 索引11
+            epoch: latestData[12] || Date.now()  // epoch (ms) - 索引12
           };
           
           // 添加新数据到历史数据数组
@@ -647,10 +652,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private parseValue(value: any, field: string): number {
     if (typeof value === 'number') {
-      // Convert bytes to KB for free_heap field
-      if (field === 'free_heap') {
-        return value / 1024; // Convert to KB
-      }
+      // Backend data is already in correct units (KB for memory fields)
       return value;
     }
     
@@ -709,17 +711,17 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       headers.join(','),
       ...filteredData.map(item => [
         item.epoch,
-        new Date(item.epoch).toLocaleString(),
+        `"${new Date(item.epoch).toLocaleString()}"`,
         ...this.selectedFields.map(field => this.parseValue(item[field as keyof HistoryNode], field))
       ].join(','))
     ].join('\n');
     
-    const blob = new Blob([csvContent], { type: 'text/plain' });
+    const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     
-    // Generate filename: boardversion + monitor + datetime.txt
+    // Generate filename: NMAxeGamma_monitor_20250801_112155.csv
     const now = new Date();
     const dateTime = now.getFullYear().toString() +
                     (now.getMonth() + 1).toString().padStart(2, '0') +
@@ -728,7 +730,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                     now.getMinutes().toString().padStart(2, '0') +
                     now.getSeconds().toString().padStart(2, '0');
     
-    link.download = `${this.boardVersion}_monitor_${dateTime}.txt`;
+    link.download = `${this.boardVersion}_monitor_${dateTime}.csv`;
     link.click();
     window.URL.revokeObjectURL(url);
   }
@@ -741,6 +743,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   getStatusBadgeClass(): string {
     if (this.isLoading) return 'status-loading';
     return 'status-realtime'; // Always real-time now
+  }
+
+  onSampleIntervalChange(): void {
+    console.log('Sample interval changed to:', this.sampleInterval);
+    this.loadHistoryData();
   }
 
 }
