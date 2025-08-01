@@ -589,16 +589,28 @@ a:active {
 // Responsive design
 @media (max-width: 768px) {
   .dashboard {
-    grid-template-columns: 1fr;
-    gap: 15px;
+    grid-template-columns: 1fr 1fr; // 改为2x2布局
+    gap: 8px; // 减少间距以适应移动端
   }
 
   .stat-card {
-    padding: 15px;
+    padding: 12px; // 减少内边距
   }
 
   .stat-value {
-    font-size: 24px;
+    font-size: 20px; // 稍微减小字体
+  }
+  
+  .stat-icon {
+    font-size: 20px; // 减小图标尺寸
+  }
+  
+  .stat-label {
+    font-size: 12px; // 减小标签字体
+  }
+  
+  .stat-unit {
+    font-size: 10px; // 减小单位字体
   }
 
   .filter-buttons {

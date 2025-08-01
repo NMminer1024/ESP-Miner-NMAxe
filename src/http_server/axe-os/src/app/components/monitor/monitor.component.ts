@@ -51,7 +51,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   historyData: HistoryNode[] = [];
   selectedFields: string[] = ['hashrate', 'asic_temp', 'vcore_temp'];
   selectedTimeRange: string = 'all'; // Default to show all history
-  sampleInterval = 10; // 添加采样间隔属性
+  sampleInterval = 5; // 默认分辨率改为Normal
   
   chart: Chart | null = null;
   isLoading = false;

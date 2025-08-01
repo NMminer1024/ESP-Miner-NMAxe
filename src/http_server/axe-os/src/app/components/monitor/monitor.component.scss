@@ -49,96 +49,119 @@
 }
 
 @keyframes pulse-green {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%, 100% { 
+    opacity: 1;
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+    background: rgba(76, 175, 80, 0.2);
+    color: #66ff66;
+  }
+  50% { 
+    opacity: 0.7;
+    box-shadow: 0 0 4px rgba(76, 175, 80, 0.3);
+    background: rgba(76, 175, 80, 0.1);
+    color: #4caf50;
+  }
 }
 
 .control-actions {
   display: flex;
   gap: 15px;
   align-items: center;
-}
-
-/* 现代化时间选择器 */
-.time-selector {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 500;
-  min-width: 140px;
-  cursor: pointer;
-  transition: all 0.3s ease;
   
-  &:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.3);
+  // PC端：所有控件在同一行，尺寸一致
+  .dropdown-row {
+    display: flex;
+    gap: 15px;
+    align-items: center;
   }
   
-  &:focus {
-    outline: none;
-    border-color: #4caf50;
-    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+  .time-selector, .sample-selector, .export-button {
+    height: 40px;
+    min-width: 140px;
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    &:focus {
+      outline: none;
+      border-color: #4caf50;
+      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+    }
   }
   
-  option {
+  // 下拉框选项样式
+  .time-selector option, .sample-selector option {
     background: #2a2a2a;
     color: #ffffff;
     padding: 8px;
   }
+  
+  // 移动端优化：调整布局
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    
+    // 移动端下拉框分组
+    .time-selector, .sample-selector {
+      width: calc(50% - 4px);
+      min-width: 110px !important;
+      height: 36px !important;
+      font-size: 11px !important;
+      padding: 6px 8px !important;
+    }
+    
+    // 创建虚拟的行布局
+    .time-selector {
+      display: inline-block;
+      margin-right: 8px;
+    }
+    
+    .sample-selector {
+      display: inline-block;
+    }
+    
+    .export-button {
+      width: 100%;
+      justify-content: center;
+      margin-top: 2px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .dropdown-row {
+      gap: 6px;
+      
+      select {
+        min-width: 100px !important;
+        font-size: 10px !important;
+        padding: 5px 6px !important;
+      }
+    }
+  }
 }
 
-/* 采样间隔选择器 */
-.sample-selector {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 500;
-  min-width: 180px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-  
-  &:focus {
-    outline: none;
-    border-color: #2196f3;
-    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
-  }
-  
-  option {
-    background: #2a2a2a;
-    color: #ffffff;
-    padding: 8px;
-  }
-}
-
-/* 现代化导出按钮 */
+/* 导出按钮额外样式 */
 .export-button {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #4caf50, #45a049);
-  border: none;
-  border-radius: 8px;
-  color: #ffffff;
-  font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #4caf50, #45a049) !important;
   box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
   
   &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #45a049, #4caf50);
+    background: linear-gradient(135deg, #45a049, #4caf50) !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4);
   }
@@ -183,6 +206,19 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  
+  // 移动端优化：复选框网格布局
+  @media (max-width: 768px) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+  
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
 }
 
 .metric-checkbox {
@@ -196,6 +232,29 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
+  
+  // 移动端优化：左对齐布局
+  @media (max-width: 768px) {
+    justify-content: flex-start;
+    align-items: center;
+    padding: 6px 8px;
+    min-height: 36px;
+    width: 100%;
+    
+    // 确保内容左对齐
+    .checkbox-custom {
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    
+    .metric-label {
+      text-align: left;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
   
   &:hover {
     background: rgba(255, 255, 255, 0.08);
@@ -250,6 +309,13 @@
   font-size: 12px;
   font-weight: 500;
   user-select: none;
+  
+  // 移动端优化：文字左对齐
+  @media (max-width: 768px) {
+    font-size: 11px;
+    text-align: left;
+    line-height: 1.2;
+  }
 }
 
 /* Loading 容器 */
@@ -340,24 +406,6 @@
     padding: 12px;
   }
   
-  .control-actions {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  
-  .time-selector {
-    flex: 1;
-    min-width: 140px;
-  }
-  
-  .export-button {
-    flex: 1;
-    min-width: 120px;
-    justify-content: center;
-  }
-  
   .metrics-selector {
     padding: 12px;
   }
@@ -371,8 +419,8 @@
   
   .metric-checkbox {
     padding: 8px 10px;
-    justify-content: center;
-    text-align: center;
+    justify-content: flex-start;
+    text-align: left;
   }
   
   .metric-label {
@@ -398,25 +446,6 @@
   
   .top-controls {
     padding: 10px;
-  }
-  
-  .control-actions {
-    flex-direction: column;
-    width: 100%;
-    gap: 8px;
-  }
-  
-  .time-selector {
-    width: 100%;
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-  
-  .export-button {
-    width: 100%;
-    padding: 10px 16px;
-    font-size: 13px;
-    justify-content: center;
   }
   
   .metrics-selector {
@@ -459,24 +488,6 @@
 
 /* 超小屏幕优化 */
 @media (max-width: 360px) {
-  .metrics-checkboxes {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .metric-checkbox {
-    padding: 5px 6px;
-    font-size: 10px;
-  }
-  
-  .metric-label {
-    font-size: 10px;
-  }
-  
-  .checkbox-custom {
-    width: 14px;
-    height: 14px;
-  }
-  
   .chart-container-main {
     height: calc(100vh - 220px);
     min-height: 300px;
