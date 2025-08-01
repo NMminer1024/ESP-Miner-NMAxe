@@ -88,33 +88,35 @@
   width: 100%;
   height: calc(100vh - 200px); // 从 160px 调整到 200px，减少日志框高度
   max-height: calc(100vh - 200px); // 确保不会超过可视区域
-  font-family: "Courier New", Courier, monospace;
+  font-family: "Consolas", "Monaco", "Lucida Console", "Liberation Mono", "DejaVu Sans Mono", "Bitstream Vera Sans Mono", "Courier New", monospace;
   background: rgba(0, 0, 0, 0.4) !important;
   border: 1px solid #555 !important;
   border-radius: 8px !important;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto; // 改为auto，以便支持横向滚动查看宽表格
   padding: 1rem;
   color: #ffffff !important;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.2; // 更紧凑的行高，适合表格显示
+  letter-spacing: 0; // 确保字符间距一致
 
   > div {
-    max-width: 100%;
-    line-break: anywhere;
+    max-width: none; // 不限制最大宽度，允许表格完整显示
   }
 
   .log-entry {
     font-family: inherit;
-    white-space: pre-wrap;
+    white-space: pre; // 改为pre，保持原始空格和格式
     margin: 0 0 1px 0; // 减少行间距
     padding: 0;
     background: none;
     border: none;
     line-height: 1.2; // 紧凑行高
+    word-break: normal; // 不要打断单词
+    overflow-wrap: normal; // 不要自动换行
     
     &:hover {
-      background: none;
+      background: rgba(255, 255, 255, 0.05); // 轻微高亮
     }
     
     &:last-child {

@@ -34,7 +34,7 @@
       </div>
 
       <div id="logs" #scrollContainer>
-        <pre *ngFor="let log of logs" class="log-entry">₿ {{ log }}</pre>
+        <pre *ngFor="let log of logs" class="log-entry" [innerHTML]="log"></pre>
       </div>
     </div>
   </div>
