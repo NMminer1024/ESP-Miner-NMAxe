@@ -108,6 +108,26 @@ namespace dbg
                                 char log_buffer[1024]; \
                                 snprintf(log_buffer, sizeof(log_buffer), fmt, ##__VA_ARGS__); \
                                 Serial.printf(fmt, ##__VA_ARGS__); \
+                                int content_len = strlen(log_buffer); \
+                                if (content_len > 0 && content_len < 950) \
+                                { \
+                                    if (auto_new_line) \
+                                    { \
+                                        char prefix[] = "\033[" #color_n "m" DBG_SECTION_NAME " "; \
+                                        int prefix_len = strlen(prefix); \
+                                        memmove(log_buffer + prefix_len, log_buffer, content_len + 1); \
+                                        memcpy(log_buffer, prefix, prefix_len); \
+                                        strcpy(log_buffer + prefix_len + content_len, "\033[0m\r\n"); \
+                                    } \
+                                    else \
+                                    { \
+                                        char prefix[] = "\033[" #color_n "m"; \
+                                        int prefix_len = strlen(prefix); \
+                                        memmove(log_buffer + prefix_len, log_buffer, content_len + 1); \
+                                        memcpy(log_buffer, prefix, prefix_len); \
+                                        strcpy(log_buffer + prefix_len + content_len, "\033[0m"); \
+                                    } \
+                                } \
                                 webSocket.broadcastTXT(log_buffer); \
                                 if (auto_new_line) \
                                 { \
