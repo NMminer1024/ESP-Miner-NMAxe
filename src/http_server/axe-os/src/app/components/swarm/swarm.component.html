@@ -153,7 +153,11 @@
       <p class="upload-progress"
          *ngFor="let device of updateFirmwareDevices">
         {{ device.ip + ":" }}
-        <span [ngClass]="{'success': device.result, 'error': !device.result}">{{ device.progress }}</span>
+        <span [ngClass]="{
+          'progress': device.progress && device.progress !== 'Ok' && device.progress !== 'Error',
+          'success': device.progress === 'Ok',
+          'error': device.progress === 'Error'
+        }">{{ device.progress }}</span>
       </p>
     </div>
   </div>
@@ -170,7 +174,11 @@
     <div class="progress-container">
       <p class="upload-progress" *ngFor="let device of updateWebsiteDevices">
         {{ device.ip + ":" }}
-        <span [ngClass]="{'success': device.result, 'error': !device.result}">{{ device.progress }}</span>
+        <span [ngClass]="{
+          'progress': device.progress && device.progress !== 'Ok' && device.progress !== 'Error',
+          'success': device.progress === 'Ok',
+          'error': device.progress === 'Error'
+        }">{{ device.progress }}</span>
       </p>
     </div>
   </div>
