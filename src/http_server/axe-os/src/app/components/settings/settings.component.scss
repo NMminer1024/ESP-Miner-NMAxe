@@ -116,6 +116,15 @@
     padding-right: 0 !important;
   }
 
+  // Ensure theme config component is visible
+  app-theme-config {
+    display: block !important;
+    width: 100% !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+}
+
   // Global form styling to improve label visibility across all components
 ::ng-deep {
   // Apply to all cards for consistent styling
@@ -278,7 +287,6 @@
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
     }
   }
-}
 }
 
 // Theme card specific overrides

@@ -12,6 +12,7 @@ interface ThemeOption {
 
 @Component({
   selector: 'app-theme-config',
+  styleUrls: ['./theme-config.component.scss'],
   template: `
     <div class="theme-config-container">
       <div class="grid">
