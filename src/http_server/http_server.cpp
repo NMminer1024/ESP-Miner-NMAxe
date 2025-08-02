@@ -140,6 +140,12 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
 static void get_status_history(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 1024 * 2; // in bytes, 2MB for 12h data
     
+    // 检查历史数据大小，如果太大则提前预警
+    size_t history_size = g_nmaxe.mstatus.status_history.size();
+    if (history_size > 10000) {
+        LOG_W("Large history dataset detected: %d records. This may take longer to process.", history_size);
+    }
+    
     // get sample interval from request, default is 10
     int sample_interval = 10;
     if(request->hasParam("interval")) {
@@ -147,6 +153,12 @@ static void get_status_history(AsyncWebServerRequest* request){
         if(sample_interval < 1) sample_interval = 1;
         if(sample_interval > 100) sample_interval = 100;
         LOG_W("Sample interval set to: %d", sample_interval);
+    }
+    
+    // 对于大数据集，自动调整采样间隔以避免超时
+    if (history_size > 8000 && sample_interval < 20) {
+        sample_interval = 20;
+        LOG_W("Auto-adjusted sample interval to %d for large dataset", sample_interval);
     }
     
     // 使用流式响应，避免分配大String
@@ -228,8 +240,18 @@ static void get_status_history(AsyncWebServerRequest* request){
                         dataPoint.add(history.free_psram);
                         dataPoint.add(history.epoch);
                         sampled_count++;
+                        
+                        // 每处理100个数据点就yield一次，避免看门狗超时
+                        if (sampled_count % 100 == 0) {
+                            delay(1); // 让其他任务有机会运行
+                        }
                     }
                     idx++;
+                    
+                    // 每处理500个原始数据点就yield一次
+                    if (idx % 500 == 0) {
+                        delay(1);
+                    }
                 }
                 
                 (*root)["size"] = g_nmaxe.mstatus.status_history.size();
@@ -250,7 +272,16 @@ static void get_status_history(AsyncWebServerRequest* request){
                 
                 // 序列化JSON到临时字符串
                 String temp_str;
+                LOG_W("Starting JSON serialization for %d sampled records...", sampled_count);
+                
+                // 为大数据集预留更多时间
+                if (sampled_count > 1000) {
+                    delay(10); // 给其他任务更多时间
+                }
+                
                 serializeJson((*root), temp_str);
+                
+                LOG_W("JSON serialization completed, size: %d bytes", temp_str.length());
                 
                 // 释放JSON document内存
                 root->~DynamicJsonDocument();
@@ -280,12 +311,19 @@ static void get_status_history(AsyncWebServerRequest* request){
                     json_str = nullptr;
                     psramDeallocator(str_buffer_ptr);
                     str_buffer_ptr = nullptr;
+                    LOG_W("JSON transmission completed");
                     return 0; // 结束
                 }
                 
                 size_t to_send = min(maxLen, remaining);
                 memcpy(buffer, json_str->c_str() + str_pos, to_send);
                 str_pos += to_send;
+                
+                // 每发送一定数据量后yield一下，避免阻塞
+                static int chunk_count = 0;
+                if (++chunk_count % 10 == 0) {
+                    delay(1);
+                }
                 
                 return to_send;
             }
