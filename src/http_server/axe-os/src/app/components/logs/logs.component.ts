@@ -93,7 +93,7 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
       if (code === '0') {
         return '</span>';
       } else if (colorMap[code]) {
-        return `<span style="color: ${colorMap[code]}; font-weight: bold;">`;
+        return `<span style="color: ${colorMap[code]}; font-weight: bold;Font-family: inherit">`;
       }
       return '';
     });
