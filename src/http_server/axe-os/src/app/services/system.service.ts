@@ -1,6 +1,6 @@
 import {HttpClient, HttpEvent, HttpParams} from '@angular/common/http';
 import {Injectable} from '@angular/core';
-import {delay, Observable, of} from 'rxjs';
+import {delay, Observable, of, timeout} from 'rxjs';
 import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 
@@ -137,10 +137,23 @@ export class SystemService {
 
   public getStatusHistory(sampleInterval: number = 10, uri: string = ''): Observable<StatusHistoryResponse> {
     const params = new HttpParams().set('interval', sampleInterval.toString());
-    return this.httpClient.get(`${uri}/api/system/status/history`, { params }) as Observable<StatusHistoryResponse>;
+    
+    // 根据采样间隔设置不同的超时时间
+    let timeoutMs = 30000; // 默认30秒
+    if (sampleInterval <= 1) {
+      timeoutMs = 120000; // 高分辨率模式：2分钟
+    } else if (sampleInterval <= 5) {
+      timeoutMs = 60000;  // 中等分辨率：1分钟
+    }
+    
+    console.log(`📡 HTTP timeout set to ${timeoutMs/1000}s for sample interval ${sampleInterval}`);
+    
+    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/status/history`, { params })
+      .pipe(timeout(timeoutMs));
   }
 
   public getStatusRealtime(uri: string = ''): Observable<StatusHistoryResponse> {
-    return this.httpClient.get(`${uri}/api/system/status/realtime`) as Observable<StatusHistoryResponse>;
+    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/status/realtime`)
+      .pipe(timeout(15000)); // 实时数据15秒超时
   }
 }

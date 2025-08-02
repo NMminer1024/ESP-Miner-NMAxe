@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { SystemService } from '../../services/system.service';
-import { Subscription, interval } from 'rxjs';
-import { takeWhile } from 'rxjs/operators';
+import { Subscription, interval, timer, throwError } from 'rxjs';
+import { takeWhile, retryWhen, delay, take, mergeMap, catchError } from 'rxjs/operators';
 import { Chart, ChartConfiguration, ChartData, ChartOptions, registerables, TimeScale } from 'chart.js';
 import 'chartjs-adapter-moment';
 
@@ -58,6 +58,10 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   lastUpdateTime = '';
   dataSize = 0;
   boardVersion = 'ESP-Miner'; // Default board version
+  loadingMessage = 'Loading...';
+  hasLoadingError = false;
+  retryCount = 0;
+  maxRetries = 3;
   
   private subscription: Subscription = new Subscription();
   private realTimeSubscription: Subscription = new Subscription();
@@ -409,85 +413,149 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   loadHistoryData(): void {
     console.log('📊 Starting loadHistoryData method');
     this.isLoading = true;
+    this.hasLoadingError = false;
+    this.retryCount = 0;
     this.stopRealTimeUpdates();
+    
+    // 根据采样间隔设置加载提示信息
+    if (this.sampleInterval === 1) {
+      this.loadingMessage = 'Loading high-detail data... This may take up to 2 minutes';
+    } else if (this.sampleInterval <= 5) {
+      this.loadingMessage = 'Loading detailed data... This may take up to 1 minute';
+    } else {
+      this.loadingMessage = 'Loading data...';
+    }
     
     console.log('Loading 24h history data...');
     console.log('API URL will be: /api/system/status/history');
     console.log('SystemService available:', !!this.systemService);
+    console.log(`Sample interval: ${this.sampleInterval}, Expected timeout: ${this.getExpectedTimeout()}s`);
     
     this.subscription.add(
-      this.systemService.getStatusHistory(this.sampleInterval).subscribe({
-        next: (response: any) => {
-          console.log('✅ History API called successfully');
-          console.log('History data loaded:', response);
-          
-          if (response && response.statistics && Array.isArray(response.statistics)) {
-            // 将数组数据转换为对象格式
-            this.historyData = response.statistics.map((item: any[], index: number) => {
-              const processed = {
-                hashrate: item[0] || '0',           // hashRate (GH/s) - 索引0
-                asic_temp: item[1] || '0',          // asicTemp (°C) - 索引1  
-                vcore_temp: item[2] || '0',         // vcoreTemp (°C) - 索引2
-                pbus: item[3] || '0',               // Pbus (W) - 索引3
-                vbus: item[4] || '0',               // Vbus (V) - 索引4
-                ibus: item[5] || '0',               // Ibus (A) - 索引5
-                vcore: item[6] || 0,                // Vcore (mV) - 索引6
-                fanspeed: item[7] || 0,             // fanspeed (%) - 索引7
-                fanrpm: item[8] || 0,               // fanrpm (RPM) - 索引8
-                wifi_rssi: item[9] || 0,            // wifiRSSI (dBm) - 索引9
-                free_heap: item[10] || 0,           // freeHeap (KB) - 索引10
-                free_psram: item[11] || 0,          // freePsram (KB) - 索引11
-                epoch: item[12] || Date.now()       // epoch (ms) - 索引12
-              };
-              
-              if (index < 3 || index === response.statistics.length - 1) {
-                console.log(`Data point ${index}:`, {
-                  raw: item,
-                  processed: processed,
-                  timestamp: new Date(processed.epoch).toLocaleString(),
-                  currentTime: new Date().toLocaleString(),
-                  timeDiff: (Date.now() - processed.epoch) / (1000 * 60) // 分钟差
-                });
-              }
-              
-              return processed;
-            });
+      this.systemService.getStatusHistory(this.sampleInterval)
+        .pipe(
+          retryWhen(errors =>
+            errors.pipe(
+              mergeMap((error, index) => {
+                this.retryCount = index + 1;
+                console.warn(`❌ History load attempt ${this.retryCount} failed:`, error);
+                
+                // 检查错误类型
+                const isTimeout = error.name === 'TimeoutError' || error.message?.includes('timeout');
+                const isNetworkError = error.status === 0 || error.status >= 500;
+                
+                if (this.retryCount >= this.maxRetries) {
+                  console.error(`🚫 Max retries (${this.maxRetries}) reached, giving up`);
+                  return throwError(error);
+                }
+                
+                // 计算重试延迟，对超时错误使用更长的延迟
+                const retryDelay = isTimeout ? 5000 + (index * 3000) : 2000 + (index * 1000);
+                
+                this.loadingMessage = `${isTimeout ? 'Request timed out' : 'Network error'}, retrying in ${retryDelay/1000}s... (${this.retryCount}/${this.maxRetries})`;
+                
+                console.log(`🔄 Retrying in ${retryDelay}ms...`);
+                return timer(retryDelay);
+              })
+            )
+          ),
+          catchError(error => {
+            console.error('❌ Final error after all retries:', error);
+            this.hasLoadingError = true;
             
-            // 按时间戳排序，确保数据顺序正确
-            this.historyData.sort((a, b) => a.epoch - b.epoch);
+            // 根据错误类型设置不同的错误信息
+            if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
+              this.loadingMessage = `Request timed out after ${this.getExpectedTimeout()}s. Try using a lower detail level or check your connection.`;
+            } else if (error.status === 0) {
+              this.loadingMessage = 'Network connection failed. Please check your connection and try again.';
+            } else {
+              this.loadingMessage = `Error loading data: ${error.message || 'Unknown error'}`;
+            }
             
-            console.log('History data time range:', {
-              total: this.historyData.length,
-              first: this.historyData[0] ? new Date(this.historyData[0].epoch).toLocaleString() : 'none',
-              last: this.historyData[this.historyData.length - 1] ? new Date(this.historyData[this.historyData.length - 1].epoch).toLocaleString() : 'none',
-              timeSpan: this.historyData.length > 1 ? (this.historyData[this.historyData.length - 1].epoch - this.historyData[0].epoch) / (1000 * 60 * 60) : 0 // 小时
-            });
-            
-            this.dataSize = response.size || this.historyData.length;
-            this.lastUpdateTime = new Date().toLocaleString();
-            
-            // 确保图表立即更新显示数据
-            console.log('Triggering initial chart update...');
-            this.updateChart();
-            
-            // 开始实时更新
+            // 即使加载失败，也要重新启动实时更新
+            console.log('🔄 Restarting real-time updates after history load failure');
             this.startRealTimeUpdates();
+            
+            return throwError(error);
+          })
+        )
+        .subscribe({
+          next: (response: any) => {
+            console.log('✅ History API called successfully after', this.retryCount, 'retries');
+            console.log('History data loaded:', response);
+            
+            this.loadingMessage = 'Processing data...';
+            
+            if (response && response.statistics && Array.isArray(response.statistics)) {
+              // 将数组数据转换为对象格式
+              this.historyData = response.statistics.map((item: any[], index: number) => {
+                const processed = {
+                  hashrate: item[0] || '0',           // hashRate (GH/s) - 索引0
+                  asic_temp: item[1] || '0',          // asicTemp (°C) - 索引1  
+                  vcore_temp: item[2] || '0',         // vcoreTemp (°C) - 索引2
+                  pbus: item[3] || '0',               // Pbus (W) - 索引3
+                  vbus: item[4] || '0',               // Vbus (V) - 索引4
+                  ibus: item[5] || '0',               // Ibus (A) - 索引5
+                  vcore: item[6] || 0,                // Vcore (mV) - 索引6
+                  fanspeed: item[7] || 0,             // fanspeed (%) - 索引7
+                  fanrpm: item[8] || 0,               // fanrpm (RPM) - 索引8
+                  wifi_rssi: item[9] || 0,            // wifiRSSI (dBm) - 索引9
+                  free_heap: item[10] || 0,           // freeHeap (KB) - 索引10
+                  free_psram: item[11] || 0,          // freePsram (KB) - 索引11
+                  epoch: item[12] || Date.now()       // epoch (ms) - 索引12
+                };
+                
+                if (index < 3 || index === response.statistics.length - 1) {
+                  console.log(`Data point ${index}:`, {
+                    raw: item,
+                    processed: processed,
+                    timestamp: new Date(processed.epoch).toLocaleString(),
+                    currentTime: new Date().toLocaleString(),
+                    timeDiff: (Date.now() - processed.epoch) / (1000 * 60) // 分钟差
+                  });
+                }
+                
+                return processed;
+              });
+              
+              // 按时间戳排序，确保数据顺序正确
+              this.historyData.sort((a, b) => a.epoch - b.epoch);
+              
+              console.log('History data time range:', {
+                total: this.historyData.length,
+                first: this.historyData[0] ? new Date(this.historyData[0].epoch).toLocaleString() : 'none',
+                last: this.historyData[this.historyData.length - 1] ? new Date(this.historyData[this.historyData.length - 1].epoch).toLocaleString() : 'none',
+                timeSpan: this.historyData.length > 1 ? (this.historyData[this.historyData.length - 1].epoch - this.historyData[0].epoch) / (1000 * 60 * 60) : 0 // 小时
+              });
+              
+              this.dataSize = response.size || this.historyData.length;
+              this.lastUpdateTime = new Date().toLocaleString();
+              
+              // 确保图表立即更新显示数据
+              console.log('Triggering initial chart update...');
+              this.updateChart();
+              
+              // 开始实时更新
+              this.startRealTimeUpdates();
+            }
+            
+            this.isLoading = false;
+            this.hasLoadingError = false;
+            this.loadingMessage = 'Loading...';
+          },
+          error: (error: any) => {
+            console.error('❌ Final subscription error:', error);
+            this.isLoading = false;
+            // Error handling is already done in catchError above
           }
-          
-          this.isLoading = false;
-        },
-        error: (error: any) => {
-          console.error('❌ Failed to load history data:', error);
-          console.error('Error details:', {
-            status: error.status,
-            statusText: error.statusText,
-            url: error.url,
-            message: error.message
-          });
-          this.isLoading = false;
-        }
-      })
+        })
     );
+  }
+
+  private getExpectedTimeout(): number {
+    if (this.sampleInterval <= 1) return 120; // 2 minutes
+    if (this.sampleInterval <= 5) return 60;  // 1 minute
+    return 30; // 30 seconds
   }
 
   // Auto-start real-time updates after loading history
@@ -550,12 +618,22 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('❌ Failed to get real-time data:', error);
-        console.error('Error details:', {
-          status: error.status,
-          statusText: error.statusText,
-          url: error.url,
-          message: error.message
-        });
+        
+        // 检查错误类型并提供更好的日志信息
+        if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
+          console.warn('⏰ Real-time data request timed out - this is usually temporary');
+        } else if (error.status === 0) {
+          console.warn('🌐 Network connection issue for real-time data');
+        } else {
+          console.error('Error details:', {
+            status: error.status,
+            statusText: error.statusText,
+            url: error.url,
+            message: error.message
+          });
+        }
+        
+        // 实时数据获取失败不影响整体功能，继续运行
       }
     });
   }
@@ -770,7 +848,12 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Get status text
   getStatusText(): string {
-    if (this.isLoading) return 'Loading...';
+    if (this.isLoading) {
+      return this.loadingMessage;
+    }
+    if (this.hasLoadingError) {
+      return 'Error - ' + this.loadingMessage;
+    }
     return 'Live Monitor'; // Always live since we removed pause functionality
   }
 
@@ -826,12 +909,26 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   getStatusBadgeClass(): string {
     if (this.isLoading) return 'status-loading';
+    if (this.hasLoadingError) return 'status-error';
     return 'status-realtime'; // Always real-time now
   }
 
   onSampleIntervalChange(): void {
     console.log('Sample interval changed to:', this.sampleInterval);
     this.saveState(); // 保存状态
+    
+    // 对于高分辨率模式，给用户一些提示
+    if (this.sampleInterval === 1) {
+      console.log('⚠️ High detail mode selected - this may take up to 2 minutes to load with large datasets');
+      console.log('💡 If you experience timeouts, try reducing the time range or using Normal detail mode');
+    } else if (this.sampleInterval <= 5) {
+      console.log('⚠️ Medium detail mode selected - this may take up to 1 minute to load');
+    }
+    
+    // 重置错误状态
+    this.hasLoadingError = false;
+    this.retryCount = 0;
+    
     this.loadHistoryData();
   }
 
