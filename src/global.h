@@ -40,7 +40,7 @@
 
 #define HISTORY_DEEPTH         (1000*3600*12) // history depth, how long to keep the history, in seconds
 
-#define HISTORY_SAMPLE_INTERVAL (3) // history sample interval, in seconds
+#define HISTORY_SAMPLE_INTERVAL (1) // history sample interval, in seconds
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
@@ -184,6 +184,8 @@ typedef struct{
     hashrate_t          hashrate;
     hash_dist_t         hr_dist;
     std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
+    SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
+    
     uint16_t            hits;
     uint16_t            last_hits;//record the last hits
     diff_info_t         diff;

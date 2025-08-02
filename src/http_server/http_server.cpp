@@ -140,10 +140,25 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
 static void get_status_history(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 1024 * 2; // in bytes, 2MB for 12h data
     
-    // 检查历史数据大小，如果太大则提前预警
-    size_t history_size = g_nmaxe.mstatus.status_history.size();
+    // 安全地检查历史数据大小
+    size_t history_size = 0;
+    if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        history_size = g_nmaxe.mstatus.status_history.size();
+        xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
+    }
+    
     if (history_size > 10000) {
         LOG_W("Large history dataset detected: %d records. This may take longer to process.", history_size);
+    }
+    
+    // 检查PSRAM可用内存
+    size_t free_psram = ESP.getFreePsram();
+    LOG_W("PSRAM status: free=%.2fMB, required=%.2fMB", free_psram/1024.0f/1024.0f, json_size_max*2/1024.0f/1024.0f);
+    
+    // 如果可用内存不足，减少json_size_max
+    if (free_psram < json_size_max * 2.5) { // 需要2.5倍空间以确保安全
+        json_size_max = free_psram / 3; // 使用1/3的可用内存
+        LOG_W("Reduced json_size_max to %.2fMB due to low PSRAM", json_size_max/1024.0f/1024.0f);
     }
     
     // get sample interval from request, default is 10
@@ -155,26 +170,40 @@ static void get_status_history(AsyncWebServerRequest* request){
         LOG_W("Sample interval set to: %d", sample_interval);
     }
     
-    // 对于大数据集，自动调整采样间隔以避免超时
+    // 对于大数据集，自动调整采样间隔以避免超时和内存不足
     if (history_size > 8000 && sample_interval < 20) {
         sample_interval = 20;
         LOG_W("Auto-adjusted sample interval to %d for large dataset", sample_interval);
+    }
+    
+    // 根据可用内存进一步调整采样间隔
+    size_t estimated_samples = history_size / sample_interval;
+    if (estimated_samples > 2000 && free_psram < 1024*1024*8) { // 如果PSRAM < 8MB且样本>2000
+        sample_interval = history_size / 1500; // 限制在1500个样本以内
+        LOG_W("Memory-based adjustment: sample_interval=%d, estimated_samples=%d", sample_interval, history_size/sample_interval);
     }
     
     // 使用流式响应，避免分配大String
     AsyncWebServerResponse *response = request->beginChunkedResponse("application/json", 
         [json_size_max, sample_interval](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
             
+            // 使用局部静态变量，但增加重置机制
             static DynamicJsonDocument* root = nullptr;
             static bool json_generated = false;
             static String* json_str = nullptr;
             static size_t str_pos = 0;
             static void* json_buffer_ptr = nullptr;
             static void* str_buffer_ptr = nullptr;
+            static uint32_t last_request_id = 0; // 用于检测新请求
             
-            // 第一次调用：清理之前的内存并分配新的PSRAM
-            if (index == 0) {
-                // 清理可能存在的旧内存
+            // 获取当前请求的标识（简单使用时间戳）
+            uint32_t current_request_id = (uint32_t)(esp_timer_get_time() / 1000000);
+            
+            // 第一次调用或检测到新请求：清理之前的内存并分配新的PSRAM
+            if (index == 0 || current_request_id != last_request_id) {
+                last_request_id = current_request_id;
+                
+                // 强制清理之前可能遗留的内存
                 if (root) {
                     root->~DynamicJsonDocument();
                     root = nullptr;
@@ -194,6 +223,9 @@ static void get_status_history(AsyncWebServerRequest* request){
                 
                 json_generated = false;
                 str_pos = 0;
+                
+                LOG_W("Memory status before allocation: PSRAM free=%.2fKB, Heap free=%.2fKB", 
+                      ESP.getFreePsram()/1024.0f, ESP.getFreeHeap()/1024.0f);
                 
                 // 分配PSRAM for JSON document
                 json_buffer_ptr = psramAllocator(json_size_max);
@@ -223,54 +255,52 @@ static void get_status_history(AsyncWebServerRequest* request){
                 JsonArray data = (*root).createNestedArray("statistics");
                 int idx = 0;
                 int sampled_count = 0;
-                for (const auto& history : g_nmaxe.mstatus.status_history) {
-                    if(idx % sample_interval == 0) {  
-                        JsonArray dataPoint = data.createNestedArray();
-                        dataPoint.add(history.hashrate);
-                        dataPoint.add(history.asic_temp);
-                        dataPoint.add(history.vcore_temp);
-                        dataPoint.add(history.pbus);
-                        dataPoint.add(history.vbus);
-                        dataPoint.add(history.ibus);
-                        dataPoint.add(history.vcore);
-                        dataPoint.add(history.fanspeed);
-                        dataPoint.add(history.fanrpm);
-                        dataPoint.add(history.wifi_rssi);
-                        dataPoint.add(history.free_ram);
-                        dataPoint.add(history.free_psram);
-                        dataPoint.add(history.epoch);
-                        sampled_count++;
+                size_t actual_history_size = 0;
+                
+                // 获取互斥锁保护status_history的遍历
+                if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, portMAX_DELAY) == pdTRUE) {
+                    actual_history_size = g_nmaxe.mstatus.status_history.size(); // 在锁内获取size
+                    
+                    for (const auto& history : g_nmaxe.mstatus.status_history) {
+                        if(idx % sample_interval == 0) {  
+                            JsonArray dataPoint = data.createNestedArray();
+                            dataPoint.add(history.hashrate);
+                            dataPoint.add(history.asic_temp);
+                            dataPoint.add(history.vcore_temp);
+                            dataPoint.add(history.pbus);
+                            dataPoint.add(history.vbus);
+                            dataPoint.add(history.ibus);
+                            dataPoint.add(history.vcore);
+                            dataPoint.add(history.fanspeed);
+                            dataPoint.add(history.fanrpm);
+                            dataPoint.add(history.wifi_rssi);
+                            dataPoint.add(history.free_ram);
+                            dataPoint.add(history.free_psram);
+                            dataPoint.add(history.epoch);
+                            sampled_count++;
+                            
+                            // 每处理100个数据点就yield一次，避免看门狗超时
+                            if (sampled_count % 100 == 0) {
+                                delay(1); // 让其他任务有机会运行
+                            }
+                        }
+                        idx++;
                         
-                        // 每处理100个数据点就yield一次，避免看门狗超时
-                        if (sampled_count % 100 == 0) {
-                            delay(1); // 让其他任务有机会运行
+                        // 每处理500个原始数据点就yield一次
+                        if (idx % 500 == 0) {
+                            delay(1);
                         }
                     }
-                    idx++;
                     
-                    // 每处理500个原始数据点就yield一次
-                    if (idx % 500 == 0) {
-                        delay(1);
-                    }
+                    // 释放互斥锁
+                    xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
                 }
                 
-                (*root)["size"] = g_nmaxe.mstatus.status_history.size();
+                (*root)["size"] = actual_history_size;
                 (*root)["sampledSize"] = sampled_count;
                 (*root)["sampleInterval"] = sample_interval;
                 
-                // 分配PSRAM for JSON string 
-                str_buffer_ptr = psramAllocator(json_size_max);
-                if (!str_buffer_ptr) {
-                    // 清理root并返回错误
-                    root->~DynamicJsonDocument();
-                    root = nullptr;
-                    psramDeallocator(json_buffer_ptr);
-                    json_buffer_ptr = nullptr;
-                    LOG_E("Failed to allocate memory in PSRAM for history data (JSON string)");
-                    return 0;
-                }
-                
-                // 序列化JSON到临时字符串
+                // 序列化JSON到临时字符串（直接序列化，不先分配大块内存）
                 String temp_str;
                 LOG_W("Starting JSON serialization for %d sampled records...", sampled_count);
                 
@@ -283,6 +313,19 @@ static void get_status_history(AsyncWebServerRequest* request){
                 
                 LOG_W("JSON serialization completed, size: %d bytes", temp_str.length());
                 
+                // 根据实际序列化后的大小分配PSRAM for JSON string
+                size_t actual_size = temp_str.length() + 1024; // 额外1KB缓冲
+                str_buffer_ptr = psramAllocator(actual_size);
+                if (!str_buffer_ptr) {
+                    // 清理root并返回错误
+                    root->~DynamicJsonDocument();
+                    root = nullptr;
+                    psramDeallocator(json_buffer_ptr);
+                    json_buffer_ptr = nullptr;
+                    LOG_E("Failed to allocate memory in PSRAM for history data (JSON string), required: %.2fKB", actual_size/1024.0f);
+                    return 0;
+                }
+                
                 // 释放JSON document内存
                 root->~DynamicJsonDocument();
                 root = nullptr;
@@ -294,12 +337,13 @@ static void get_status_history(AsyncWebServerRequest* request){
                 json_generated = true;
                 
                 LOG_W("Status history sent, history size: %d, sampled: %d, interval: %d, json size: %d, %d bytes every node", 
-                    g_nmaxe.mstatus.status_history.size(), 
+                    actual_history_size, 
                     sampled_count,
                     sample_interval,
                     json_str->length(), 
                     sampled_count > 0 ? json_str->length() / sampled_count : 0);
-                LOG_W("Psram used: %.3f KB, free %.3f KB", (ESP.getPsramSize() - ESP.getFreePsram()) / 1024.0f, ESP.getFreePsram()/1024.0f);
+                LOG_W("Memory usage: JSON doc=%.2fKB, JSON str=%.2fKB, PSRAM free=%.2fKB", 
+                      json_size_max/1024.0f, actual_size/1024.0f, ESP.getFreePsram()/1024.0f);
             }
             
             // 分块发送JSON字符串
@@ -307,11 +351,14 @@ static void get_status_history(AsyncWebServerRequest* request){
                 size_t remaining = json_str->length() - str_pos;
                 if (remaining == 0) {
                     // 发送完毕，清理内存
+                    LOG_W("JSON transmission completed, cleaning up memory...");
                     json_str->~String();
                     json_str = nullptr;
                     psramDeallocator(str_buffer_ptr);
                     str_buffer_ptr = nullptr;
-                    LOG_W("JSON transmission completed");
+                    json_generated = false; // 重置状态
+                    str_pos = 0;
+                    LOG_W("Memory cleaned, PSRAM free=%.2fKB", ESP.getFreePsram()/1024.0f);
                     return 0; // 结束
                 }
                 
@@ -367,22 +414,27 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     labels.add("epoch");
     
     JsonArray data = (*root).createNestedArray("statistics");
-    if (!g_nmaxe.mstatus.status_history.empty()) {
-        auto& history = g_nmaxe.mstatus.status_history.back();
-        JsonArray dataPoint = data.createNestedArray();
-        dataPoint.add(history.hashrate);           // hashRate (GH/s)
-        dataPoint.add(history.asic_temp);          // asic_temp (°C)
-        dataPoint.add(history.vcore_temp);         // vcore_temp (°C)
-        dataPoint.add(history.pbus);               // power (W)
-        dataPoint.add(history.vbus);               // voltage (V)
-        dataPoint.add(history.ibus);               // current (A)
-        dataPoint.add(history.vcore);              // coreVoltageActual (mV)
-        dataPoint.add(history.fanspeed);           // fanspeed (%)
-        dataPoint.add(history.fanrpm);             // fanrpm (RPM)
-        dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
-        dataPoint.add(history.free_ram);           // freeHeap (KB)
-        dataPoint.add(history.free_psram);         // freePsram (KB)
-        dataPoint.add(history.epoch);              // timestamp (ms)
+    
+    // 保护status_history的访问
+    if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
+        if (!g_nmaxe.mstatus.status_history.empty()) {
+            auto& history = g_nmaxe.mstatus.status_history.back();
+            JsonArray dataPoint = data.createNestedArray();
+            dataPoint.add(history.hashrate);           // hashRate (GH/s)
+            dataPoint.add(history.asic_temp);          // asic_temp (°C)
+            dataPoint.add(history.vcore_temp);         // vcore_temp (°C)
+            dataPoint.add(history.pbus);               // power (W)
+            dataPoint.add(history.vbus);               // voltage (V)
+            dataPoint.add(history.ibus);               // current (A)
+            dataPoint.add(history.vcore);              // coreVoltageActual (mV)
+            dataPoint.add(history.fanspeed);           // fanspeed (%)
+            dataPoint.add(history.fanrpm);             // fanrpm (RPM)
+            dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
+            dataPoint.add(history.free_ram);           // freeHeap (KB)
+            dataPoint.add(history.free_psram);         // freePsram (KB)
+            dataPoint.add(history.epoch);              // timestamp (ms)
+        }
+        xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
     }
     String json_str;
     serializeJson((*root), json_str);

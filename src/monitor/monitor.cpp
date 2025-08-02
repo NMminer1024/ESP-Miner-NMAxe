@@ -197,19 +197,22 @@ void monitor_thread_entry(void *args){
         node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes
         node.epoch        = g_nmaxe.mstatus.utc * 1000ULL; // Convert UTC seconds to milliseconds
 
-        g_nmaxe.mstatus.status_history.push_back(node);
-
-        //remove old history
-        uint64_t current_time_ms = g_nmaxe.mstatus.utc * 1000ULL; // Convert to milliseconds
-        while (!g_nmaxe.mstatus.status_history.empty()) {
-            uint64_t oldest_time_ms = g_nmaxe.mstatus.status_history.front().epoch; // Already in milliseconds
-            if(current_time_ms - oldest_time_ms > HISTORY_DEEPTH){ 
-                g_nmaxe.mstatus.status_history.pop_front();
-                LOG_W("Remove old history, current size: %d, removed timestamp: %llu", 
-                      g_nmaxe.mstatus.status_history.size(), oldest_time_ms);
-            } else {
-                break;
+        // 保护status_history的并发访问
+        if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, portMAX_DELAY) == pdTRUE) {
+            g_nmaxe.mstatus.status_history.push_back(node);
+            //remove old history
+            uint64_t current_time_ms = g_nmaxe.mstatus.utc * 1000ULL; // Convert to milliseconds
+            while (!g_nmaxe.mstatus.status_history.empty()) {
+                uint64_t oldest_time_ms = g_nmaxe.mstatus.status_history.front().epoch; // Already in milliseconds
+                if(current_time_ms - oldest_time_ms > HISTORY_DEEPTH){ 
+                    g_nmaxe.mstatus.status_history.pop_front();
+                    LOG_W("Remove old history, current size: %d, removed timestamp: %llu", 
+                          g_nmaxe.mstatus.status_history.size(), oldest_time_ms);
+                } else {
+                    break;
+                }
             }
+            xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
         }
       }
 
