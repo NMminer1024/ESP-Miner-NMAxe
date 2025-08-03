@@ -105,7 +105,7 @@ export class HrDistChartComponent implements OnInit {
           left: 5,
           right: 5,
           top: 5,
-          bottom: 50  // 再次增加底部内边距确保横轴刻度完全显示
+          bottom: 70  // 大幅增加底部内边距确保横轴刻度完全显示
         }
       },
       scales: {
@@ -127,6 +127,9 @@ export class HrDistChartComponent implements OnInit {
           grid: {
             color: surfaceBorder,
             drawBorder: false
+          },
+          border: {
+            display: false  // 确保不显示横轴边框避免截断刻度
           }
         },
         y: {

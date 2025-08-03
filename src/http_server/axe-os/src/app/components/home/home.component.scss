@@ -486,12 +486,12 @@ ng-template {
   
   // 移动端p-knob尺寸调整 - 缩小环的直径
   ::ng-deep .power-grid .p-knob {
-    width: 100px !important;  // 从90px增加到100px
-    height: 100px !important;
+    width: 110px !important;  // 从100px增加到110px
+    height: 110px !important;
     
     svg {
-      width: 100px !important;
-      height: 100px !important;
+      width: 110px !important;
+      height: 110px !important;
     }
   }
 }
@@ -524,12 +524,12 @@ ng-template {
   
   // 480px断点进一步缩小p-knob尺寸
   ::ng-deep .power-grid .p-knob {
-    width: 85px !important;  // 从75px增加到85px
-    height: 85px !important;
+    width: 95px !important;  // 从85px增加到95px
+    height: 95px !important;
     
     svg {
-      width: 85px !important;
-      height: 85px !important;
+      width: 95px !important;
+      height: 95px !important;
     }
   }
 }

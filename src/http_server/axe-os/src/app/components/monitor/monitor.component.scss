@@ -542,13 +542,13 @@
   
   // 移动端优化图表空间利用
   @media (max-width: 768px) {
-    padding: 8px 10px; // 减少padding释放更多空间
+    padding: 4px 6px; // 进一步减少padding让图表更好填满卡片
     height: calc(40vh - 80px); // 移动端进一步优化高度
     min-height: 200px;
   }
   
   @media (max-width: 480px) {
-    padding: 6px 8px; // 进一步减少padding
+    padding: 2px 4px; // 最小化padding让图表完全填满
     height: calc(35vh - 60px); // 小屏幕优化
     min-height: 180px;
   }
@@ -598,7 +598,7 @@
   .top-controls {
     flex-direction: column;
     gap: 8px;
-    padding: 8px 10px; // 减少padding
+    padding: 4px 6px; // 进一步减少padding让图表有更多空间
   }
   
   .status-info {
@@ -641,7 +641,7 @@
   }
   
   .top-controls {
-    padding: 6px 8px; // 进一步减少padding
+    padding: 3px 4px; // 最小化padding让图表完全填满
     gap: 6px;
   }
   
