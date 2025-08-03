@@ -1,10 +1,16 @@
 <div class="monitor-container">
   <div class="card modern-card">
-    <!-- 顶部控制栏 -->
+    <!-- Top control bar -->
     <div class="top-controls">
       <div class="status-info">
         <span class="status-badge" [ngClass]="getStatusBadgeClass()">
           {{ getStatusText() }}
+        </span>
+        <span class="realtime-info" *ngIf="!isLoading">
+          <app-circular-countdown 
+            [countdown]="realtimeCountdown" 
+            [maxValue]="realtimeInterval">
+          </app-circular-countdown>
         </span>
       </div>
       

@@ -17,6 +17,8 @@ import {HomeComponent} from './components/home/home.component';
 import {LoadingComponent} from './components/loading/loading.component';
 import {LogsComponent} from './components/logs/logs.component';
 import {MonitorComponent} from './components/monitor/monitor.component';
+import {MonitorChartComponent} from './components/monitor-chart/monitor-chart.component';
+import {CircularCountdownComponent} from './components/circular-countdown/circular-countdown.component';
 import {SettingsComponent} from './components/settings/settings.component';
 import {PreferenceComponent} from "./components/preference/preference.component";
 import {SwarmComponent} from './components/swarm/swarm.component';
@@ -40,6 +42,8 @@ const components = [
   SettingsComponent,
   LogsComponent,
   MonitorComponent,
+  MonitorChartComponent,
+  CircularCountdownComponent,
   NetworkEditComponent,
   PreferenceComponent,
   UpdateComponent

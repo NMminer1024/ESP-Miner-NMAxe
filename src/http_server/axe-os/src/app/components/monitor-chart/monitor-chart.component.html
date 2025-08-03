@@ -5,8 +5,8 @@
       <div class="control-group">
         <label for="sampleInterval">Sample Rate:</label>
         <select id="sampleInterval" 
-                [value]="sampleInterval" 
-                (change)="onSampleIntervalChange(+($event.target as HTMLSelectElement).value)"
+                [(ngModel)]="sampleInterval" 
+                (ngModelChange)="onSampleIntervalChange($event)"
                 class="sample-selector">
           <option value="1">Every point (High detail)</option>
           <option value="5">Every 5th point (Normal)</option>
@@ -27,6 +27,12 @@
     <span class="info-item">Total Points: {{ totalDataPoints }}</span>
     <span class="info-item">Showing: {{ dataCount }}</span>
     <span class="info-item">Sample Rate: 1/{{ sampleInterval }}</span>
+    <span class="info-item realtime-info">
+      <app-circular-countdown 
+        [countdown]="realtimeCountdown" 
+        [maxValue]="realtimeInterval">
+      </app-circular-countdown>
+    </span>
   </div>
 
   <div class="chart-wrapper" [class.loading]="loading">

@@ -37,6 +37,26 @@
 .status-info {
   display: flex;
   align-items: center;
+  gap: 1rem;
+}
+
+.realtime-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--primary-color);
+  font-weight: 500;
+  padding: 4px 8px;
+  background: rgba(var(--primary-color-rgb), 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(var(--primary-color-rgb), 0.2);
+}
+
+.realtime-text {
+  font-size: 0.75rem;
+  color: var(--primary-color);
+  font-weight: 500;
 }
 
 .status-badge {

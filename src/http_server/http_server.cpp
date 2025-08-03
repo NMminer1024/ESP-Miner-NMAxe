@@ -693,7 +693,7 @@ static void get_swarm_info_handler(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
     
-    LOG_W("Swarm info sent, json size: %d, devices: %d, heap free: %.3f KB", 
+    LOG_D("Swarm info sent, json size: %d, devices: %d, heap free: %.3f KB", 
           swarm_info.length(), devicesArray.size(), ESP.getFreeHeap() / 1024.0f);
 }
 static void options_theme_handler(AsyncWebServerRequest* request){

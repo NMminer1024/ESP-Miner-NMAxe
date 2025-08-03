@@ -51,7 +51,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   historyData: HistoryNode[] = [];
   selectedFields: string[] = ['hashrate', 'asic_temp', 'vcore_temp'];
   selectedTimeRange: string = 'all'; // Default to show all history
-  sampleInterval = 5; // 默认分辨率改为Normal
+  sampleInterval = 5; // Default sample interval - Normal resolution
+  realtimeInterval = 15; // Current realtime update interval in seconds
+  realtimeCountdown = 15; // Countdown timer for next update (will be initialized properly)
   
   chart: Chart | null = null;
   isLoading = false;
@@ -65,7 +67,16 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   
   private subscription: Subscription = new Subscription();
   private realTimeSubscription: Subscription = new Subscription();
+  private countdownSubscription: Subscription = new Subscription();
   private isComponentActive = true;
+  
+  // Adaptive realtime interval mapping based on sample resolution
+  private realtimeIntervalMap = new Map<number, number>([
+    [1, 5],   // High detail: update every 5 seconds for continuous display
+    [5, 15],  // Normal detail: update every 15 seconds
+    [10, 30], // Fast mode: update every 30 seconds
+    [20, 60]  // Low detail: update every 60 seconds
+  ]);
   
   // 状态持久化键名
   private readonly STORAGE_KEYS = {
@@ -103,7 +114,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     { value: '1440', label: 'Last 24h', minutes: 1440 }
   ];
 
-  constructor(private systemService: SystemService) { }
+  constructor(private systemService: SystemService) { 
+    // Initialize realtime interval and countdown based on default sample interval
+    this.realtimeInterval = this.realtimeIntervalMap.get(this.sampleInterval) || 15;
+    this.realtimeCountdown = this.realtimeInterval;
+  }
 
   ngOnInit(): void {
     console.log('🚀 Monitor component ngOnInit called');
@@ -142,6 +157,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isComponentActive = false;
     this.subscription.unsubscribe();
     this.realTimeSubscription.unsubscribe();
+    this.countdownSubscription.unsubscribe();
     this.stopRealTimeUpdates();
     if (this.chart) {
       this.chart.destroy();
@@ -617,21 +633,55 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     return true; // 假设在线如果无法检测
   }
 
-  // Auto-start real-time updates after loading history
+  // Auto-start real-time updates after loading history with adaptive interval
   private startRealTimeUpdates(): void {
-    console.log('Starting continuous real-time updates...');
+    // Get adaptive interval based on current sample rate
+    this.realtimeInterval = this.realtimeIntervalMap.get(this.sampleInterval) || 15;
+    this.realtimeCountdown = this.realtimeInterval; // Initialize countdown
     
-    // Get real-time data every 5 seconds
-    this.realTimeSubscription = interval(5000)
+    console.log(`🔄 Starting adaptive real-time updates: ${this.realtimeInterval}s interval for sample rate 1/${this.sampleInterval}`);
+    
+    // Stop any existing subscriptions
+    if (this.realTimeSubscription) {
+      this.realTimeSubscription.unsubscribe();
+    }
+    if (this.countdownSubscription) {
+      this.countdownSubscription.unsubscribe();
+    }
+    
+    // Start countdown timer (updates every second)
+    this.startCountdownTimer();
+    
+    // Start main update subscription with adaptive interval
+    this.realTimeSubscription = interval(this.realtimeInterval * 1000)
       .pipe(takeWhile(() => this.isComponentActive))
       .subscribe(() => {
         this.getRealTimeData();
+        this.realtimeCountdown = this.realtimeInterval; // Reset countdown after update
+      });
+  }
+
+  private startCountdownTimer(): void {
+    this.countdownSubscription = interval(1000) // Update every second
+      .pipe(takeWhile(() => this.isComponentActive))
+      .subscribe(() => {
+        if (this.realtimeCountdown > 0) {
+          this.realtimeCountdown--;
+        } else {
+          this.realtimeCountdown = this.realtimeInterval; // Reset if it goes below 0
+        }
       });
   }
 
   private stopRealTimeUpdates(): void {
-    this.realTimeSubscription.unsubscribe();
-    this.realTimeSubscription = new Subscription();
+    if (this.realTimeSubscription) {
+      this.realTimeSubscription.unsubscribe();
+      this.realTimeSubscription = new Subscription();
+    }
+    if (this.countdownSubscription) {
+      this.countdownSubscription.unsubscribe();
+      this.countdownSubscription = new Subscription();
+    }
     console.log('Real-time updates stopped');
   }
 
@@ -973,10 +1023,18 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onSampleIntervalChange(): void {
-    console.log('Sample interval changed to:', this.sampleInterval);
-    this.saveState(); // 保存状态
+    // Ensure sampleInterval is a number (ngModel might bind as string)
+    this.sampleInterval = Number(this.sampleInterval);
     
-    // 对于高分辨率模式，给用户一些提示
+    console.log('Sample interval changed to:', this.sampleInterval, 'type:', typeof this.sampleInterval);
+    this.saveState(); // Save state
+    
+    // Update realtime interval and countdown based on new sample interval
+    this.realtimeInterval = this.realtimeIntervalMap.get(this.sampleInterval) || 15;
+    this.realtimeCountdown = this.realtimeInterval; // Reset countdown to new interval
+    console.log(`📊 Sample interval changed to 1/${this.sampleInterval}, realtime updates now every ${this.realtimeInterval}s`);
+    
+    // Provide user feedback for high detail modes
     if (this.sampleInterval === 1) {
       console.log('⚠️ High detail mode selected - this may take up to 2 minutes to load with large datasets');
       console.log('💡 If you experience timeouts, try reducing the time range or using Normal detail mode');
@@ -984,11 +1042,16 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       console.log('⚠️ Medium detail mode selected - this may take up to 1 minute to load');
     }
     
-    // 重置错误状态
+    // Reset error state
     this.hasLoadingError = false;
     this.retryCount = 0;
     
     this.loadHistoryData();
+    
+    // Restart realtime updates with new adaptive interval and countdown
+    if (this.isComponentActive) {
+      this.startRealTimeUpdates();
+    }
   }
 
 }

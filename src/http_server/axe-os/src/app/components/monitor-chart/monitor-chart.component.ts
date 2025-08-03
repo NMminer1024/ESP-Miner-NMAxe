@@ -8,30 +8,45 @@ import { interval, Subscription } from 'rxjs';
   styleUrls: ['./monitor-chart.component.scss']
 })
 export class MonitorChartComponent implements OnInit, OnDestroy {
-  @ViewChild('chart') chart!: ElementRef;
+  @ViewChild('chart') chart!: any; // PrimeNG Chart component reference
 
   public chartData: any = {};
   public chartOptions: any = {};
   public loading = true;
-  public sampleInterval = 10; // 默认采样间隔
+  public sampleInterval = 10; // Default sampling interval
   public dataCount = 0;
   public totalDataPoints = 0;
+  public realtimeInterval = 30; // Current realtime update interval in seconds
+  public realtimeCountdown = 30; // Countdown timer for next update (will be initialized properly)
 
   private realtimeSubscription?: Subscription;
+  private countdownSubscription?: Subscription;
+  private realtimeIntervalMap = new Map<number, number>([
+    [1, 5],   // High detail: update every 5 seconds for continuous display
+    [5, 15],  // Normal detail: update every 15 seconds
+    [10, 30], // Fast mode: update every 30 seconds (default)
+    [20, 60]  // Low detail: update every 60 seconds
+  ]);
 
   constructor(private systemService: SystemService) {
+    // Initialize realtime interval and countdown based on default sample interval
+    this.realtimeInterval = this.realtimeIntervalMap.get(this.sampleInterval) || 30;
+    this.realtimeCountdown = this.realtimeInterval;
     this.initializeChart();
   }
 
   ngOnInit(): void {
     this.loadHistoryData();
-    // 每30秒更新一次实时数据
-    this.startRealtimeUpdate();
+    // Start adaptive realtime updates based on sample interval
+    this.startAdaptiveRealtimeUpdate();
   }
 
   ngOnDestroy(): void {
     if (this.realtimeSubscription) {
       this.realtimeSubscription.unsubscribe();
+    }
+    if (this.countdownSubscription) {
+      this.countdownSubscription.unsubscribe();
     }
   }
 
@@ -248,15 +263,31 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
       ]
     };
 
-    // 强制更新图表
+    // Force chart update
     if (this.chart && this.chart.chart) {
-      this.chart.chart.update('none'); // 无动画更新
+      this.chart.chart.update('none'); // No animation update
     }
   }
 
-  private startRealtimeUpdate(): void {
-    this.realtimeSubscription = interval(30000).subscribe(() => {
-      // 每30秒获取最新数据点并添加到图表
+  private startAdaptiveRealtimeUpdate(): void {
+    // Get adaptive interval based on current sample rate
+    this.realtimeInterval = this.realtimeIntervalMap.get(this.sampleInterval) || 30;
+    this.realtimeCountdown = this.realtimeInterval; // Initialize countdown
+    
+    console.log(`🔄 Starting adaptive realtime updates: ${this.realtimeInterval}s interval for sample rate 1/${this.sampleInterval}`);
+    
+    if (this.realtimeSubscription) {
+      this.realtimeSubscription.unsubscribe();
+    }
+    if (this.countdownSubscription) {
+      this.countdownSubscription.unsubscribe();
+    }
+    
+    // Start countdown timer (updates every second)
+    this.startCountdownTimer();
+    
+    this.realtimeSubscription = interval(this.realtimeInterval * 1000).subscribe(() => {
+      // Get latest data point and add to chart
       this.systemService.getStatusRealtime().subscribe({
         next: (response: StatusHistoryResponse) => {
           if (response.statistics && response.statistics.length > 0) {
@@ -267,7 +298,25 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
           console.error('Error updating realtime data:', error);
         }
       });
+      
+      // Reset countdown after update
+      this.realtimeCountdown = this.realtimeInterval;
     });
+  }
+
+  private startCountdownTimer(): void {
+    this.countdownSubscription = interval(1000).subscribe(() => {
+      if (this.realtimeCountdown > 0) {
+        this.realtimeCountdown--;
+      } else {
+        this.realtimeCountdown = this.realtimeInterval; // Reset if it goes below 0
+      }
+    });
+  }
+
+  private startRealtimeUpdate(): void {
+    // Legacy method - replaced by startAdaptiveRealtimeUpdate
+    this.startAdaptiveRealtimeUpdate();
   }
 
   private addRealtimeData(dataPoint: any[]): void {
@@ -277,29 +326,43 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
       const asicTemp = typeof dataPoint[1] === 'string' ? parseFloat(dataPoint[1]) : dataPoint[1];
       const vcoreTemp = typeof dataPoint[2] === 'string' ? parseFloat(dataPoint[2]) : dataPoint[2];
 
-      // 添加新数据点
+      // Add new data point
       this.chartData.labels.push(new Date(timestamp).toLocaleTimeString());
       this.chartData.datasets[0].data.push(hashrate);
       this.chartData.datasets[1].data.push(asicTemp);
       this.chartData.datasets[2].data.push(vcoreTemp);
 
-      // 限制显示的数据点数量，保持图表性能
+      // Limit displayed data points to maintain chart performance
+      // Adjust max points based on sample interval for consistent time window
       const maxPoints = Math.floor(14400 / this.sampleInterval);
       if (this.chartData.labels.length > maxPoints) {
         this.chartData.labels.shift();
         this.chartData.datasets.forEach((dataset: any) => dataset.data.shift());
       }
 
-      // 更新图表
+      // Update chart
       if (this.chart && this.chart.chart) {
         this.chart.chart.update('none');
       }
     }
   }
 
-  public onSampleIntervalChange(newInterval: number): void {
-    this.sampleInterval = newInterval;
+  public onSampleIntervalChange(newInterval: any): void {
+    // Ensure newInterval is a number (ngModel might bind as string)
+    this.sampleInterval = Number(newInterval);
+    
+    console.log('Sample interval changed to:', this.sampleInterval, 'type:', typeof this.sampleInterval);
+    
+    // Update realtime interval and countdown based on new sample interval
+    this.realtimeInterval = this.realtimeIntervalMap.get(this.sampleInterval) || 30;
+    this.realtimeCountdown = this.realtimeInterval; // Reset countdown to new interval
+    
     this.loadHistoryData();
+    
+    // Restart realtime updates with new adaptive interval
+    this.startAdaptiveRealtimeUpdate();
+    
+    console.log(`📊 Sample interval changed to 1/${this.sampleInterval}, realtime updates now every ${this.realtimeInterval}s`);
   }
 
   public refreshData(): void {
