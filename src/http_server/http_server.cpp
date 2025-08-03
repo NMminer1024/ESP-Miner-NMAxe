@@ -7,7 +7,7 @@
 #include "global.h"
 #include "http_server.h"
 #include "nvs_config.h"
-// #include "utils/helper.h"
+#include "utils/helper.h"
 
 static AsyncWebServer  webServer(80);
 WebSocketsServer       webSocket(81);
@@ -308,6 +308,7 @@ static void get_status_history(AsyncWebServerRequest* request){
     size_t free_psram = ESP.getFreePsram();
     LOG_W("PSRAM status: free=%.2fMB, estimated_total_memory=%.2fMB", 
           free_psram/1024.0f/1024.0f, estimated_total_memory/1024.0f/1024.0f);
+    LOG_D("🔍 [PSRAM CHECKPOINT 1] Before JSON document creation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     
     // Reduce memory allocation if PSRAM is insufficient
     if (free_psram < estimated_total_memory) {
@@ -340,7 +341,9 @@ static void get_status_history(AsyncWebServerRequest* request){
     
     // Create JSON document with appropriate size
     LOG_W("Creating JSON document with %dKB capacity...", json_size_max/1024);
+    LOG_D("🔍 [PSRAM CHECKPOINT 2] Before DynamicJsonDocument allocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     DynamicJsonDocument root(json_size_max);
+    LOG_D("🔍 [PSRAM CHECKPOINT 3] After DynamicJsonDocument allocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     
     // Build JSON structure
     uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
@@ -475,8 +478,10 @@ static void get_status_history(AsyncWebServerRequest* request){
     LOG_W("Allocating %dKB char buffer for JSON serialization of %d records (adaptive allocation, remaining PSRAM: %.2fMB)", 
           buffer_size/1024, sampled_count, remaining_psram/1024.0f/1024.0f);
     
+    LOG_D("🔍 [PSRAM CHECKPOINT 4] Before temp_buffer allocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     // Allocate char buffer for JSON serialization (avoiding String class limitations)
     char* temp_buffer = (char*)psramAllocator(buffer_size);
+    LOG_D("🔍 [PSRAM CHECKPOINT 5] After temp_buffer allocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     if (!temp_buffer) {
         LOG_E("Failed to allocate %dKB buffer, trying smaller size...", buffer_size/1024);
         
@@ -493,7 +498,9 @@ static void get_status_history(AsyncWebServerRequest* request){
     
     // Serialize JSON to char buffer
     LOG_W("Starting JSON serialization to char buffer...");
+    LOG_D("🔍 [PSRAM CHECKPOINT 6] Before JSON serialization: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     size_t json_size = serializeJson(root, temp_buffer, buffer_size);
+    LOG_D("🔍 [PSRAM CHECKPOINT 7] After JSON serialization: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     if (json_size == 0) {
         LOG_E("JSON serialization to buffer failed - buffer too small or serialization error");
         LOG_E("JSON document usage: %d bytes, buffer size: %d bytes", root.memoryUsage(), buffer_size);
@@ -542,45 +549,37 @@ static void get_status_history(AsyncWebServerRequest* request){
     
     // JSON document will be automatically cleaned up when it goes out of scope
     LOG_W("JSON document will be automatically cleaned up, PSRAM free: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    LOG_D("🔍 [PSRAM CHECKPOINT 8] Before learning data update: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     
-    // Create streaming response to handle large JSON data with safe memory management
-    AsyncWebServerResponse *response = request->beginResponse(
-        "application/json",
-        json_size,
-        [temp_buffer, json_size, actual_history_size, sampled_count, buffer_size](uint8_t *data, size_t len, size_t index) -> size_t {
-            static bool learning_updated = false;
-            
-            if (index >= json_size) {
-                // Transfer complete, cleanup buffer and update learning data
-                psramDeallocator(temp_buffer);
-                LOG_W("JSON streaming transfer completed and buffer cleaned up");
-                
-                if (!learning_updated) {
-                    memory_history.update_learning_data(actual_history_size, sampled_count, buffer_size, json_size);
-                    LOG_W("Memory learning updated: efficiency=%.1f%%, next prediction will be more accurate", 
-                          memory_history.get_allocation_efficiency() * 100);
-                    learning_updated = true;
-                }
-                return 0;
-            }
-            
-            size_t remaining = json_size - index;
-            size_t to_send = (len < remaining) ? len : remaining;
-            
-            memcpy(data, temp_buffer + index, to_send);
-            
-            // Log progress for large transfers
-            if (json_size > 50000 && (index + to_send) % 10000 == 0) {
-                LOG_W("JSON streaming progress: %d/%d bytes (%.1f%%)", 
-                      index + to_send, json_size, (float)(index + to_send) * 100 / json_size);
-            }
-            
-            return to_send;
-        }
-    );
+    // Update learning data immediately after successful serialization
+    memory_history.update_learning_data(actual_history_size, sampled_count, buffer_size, json_size);
+    LOG_W("Memory learning updated: efficiency=%.1f%%, next prediction will be more accurate", 
+          memory_history.get_allocation_efficiency() * 100);
+    LOG_D("🔍 [PSRAM CHECKPOINT 9] After learning data update: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     
-    // Add error handling for streaming failure - ensure buffer cleanup
-    // Note: ESPAsyncWebServer doesn't have onDisconnect, but cleanup happens in lambda
+    // Force JSON document cleanup by creating response in separate scope
+    String json_response;
+    json_response.reserve(json_size + 1);
+    LOG_D("🔍 [PSRAM CHECKPOINT 10] After String reserve: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    json_response = String(temp_buffer);
+    LOG_D("🔍 [PSRAM CHECKPOINT 11] After String copy: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    
+    // Cleanup temp_buffer immediately after copying to String
+    psramDeallocator(temp_buffer);
+    LOG_W("Temp buffer deallocated immediately, PSRAM free: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    LOG_D("🔍 [PSRAM CHECKPOINT 12] After temp_buffer deallocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    
+    // Clear JSON document manually to force immediate cleanup
+    root.clear();
+    LOG_D("🔍 [PSRAM CHECKPOINT 13] After root.clear(): %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    root.shrinkToFit();
+    LOG_W("JSON document cleared and shrunk, PSRAM free: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    LOG_D("🔍 [PSRAM CHECKPOINT 14] After root.shrinkToFit(): %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    
+    // Create simple streaming response using String
+    LOG_D("🔍 [PSRAM CHECKPOINT 15] Before response creation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_response);
+    LOG_D("🔍 [PSRAM CHECKPOINT 16] After response creation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     
     // Set response headers
     response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -589,11 +588,14 @@ static void get_status_history(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Origin", "*");
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    LOG_D("🔍 [PSRAM CHECKPOINT 17] Before request->send(): %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     request->send(response);
+    LOG_D("🔍 [PSRAM CHECKPOINT 18] After request->send(): %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     
-    LOG_W("Streaming response initiated: %d bytes, history=%d, sampled=%d, interval=%d", 
+    LOG_W("Response sent: %d bytes, history=%d, sampled=%d, interval=%d", 
           json_size, actual_history_size, sampled_count, sample_interval);
     LOG_W("Final PSRAM usage: %.2fMB free", ESP.getFreePsram()/1024.0f/1024.0f);
+    LOG_D("🔍 [PSRAM CHECKPOINT 19] Function exit: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
 }
 static void get_status_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 512; // in bytes
