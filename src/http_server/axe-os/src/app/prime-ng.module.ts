@@ -9,6 +9,7 @@ import {InputGroupModule} from 'primeng/inputgroup';
 import {InputGroupAddonModule} from 'primeng/inputgroupaddon';
 import {InputTextModule} from 'primeng/inputtext';
 import {KnobModule} from 'primeng/knob';
+import {MultiSelectModule} from 'primeng/multiselect';
 import {SidebarModule} from 'primeng/sidebar';
 import {SliderModule} from 'primeng/slider';
 
@@ -17,6 +18,7 @@ const primeNgModules = [
   InputTextModule,
   CheckboxModule,
   DropdownModule,
+  MultiSelectModule,
   SliderModule,
   ButtonModule,
   FileUploadModule,

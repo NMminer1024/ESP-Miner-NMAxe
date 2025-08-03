@@ -34,6 +34,23 @@
             <option value="10">Fast</option>
             <option value="20">Low detail</option>
           </select>
+
+          <p-multiSelect 
+            [options]="fieldOptions" 
+            [(ngModel)]="selectedFields"
+            optionLabel="label"
+            optionValue="value"
+            (onChange)="onFieldSelectionChange()"
+            placeholder="Select Metrics"
+            class="metrics-multiselect"
+            [showToggleAll]="false"
+            [maxSelectedLabels]="2"
+            selectedItemsLabel="{0} metrics"
+            [scrollHeight]="'auto'"
+            [virtualScroll]="false"
+            [filter]="false"
+            [showHeader]="false">
+          </p-multiSelect>
         </div>
         
         <button 
@@ -42,28 +59,11 @@
           [disabled]="!historyData.length || isLoading"
           title="Export CSV Data">
           <span class="export-icon">💾</span>
-          <span class="export-text">Export</span>
         </button>
       </div>
     </div>
     
     <div class="card-content">
-      <!-- 水平字段选择器 -->
-      <div class="metrics-selector">
-        <div class="metrics-checkboxes">
-          <label *ngFor="let field of fieldOptions" class="metric-checkbox">
-            <input 
-              type="checkbox" 
-              [(ngModel)]="field.selected"
-              (change)="onFieldSelectionChange()">
-            <span class="checkbox-custom" [style.--accent-color]="field.color">
-              <span class="checkmark">✓</span>
-            </span>
-            <span class="metric-label">{{ field.label }}</span>
-          </label>
-        </div>
-      </div>
-      
       <!-- 图表容器 - 占据主要空间 -->
       <div class="chart-container-main">
         <!-- Loading状态 - 在图表区域内显示 -->

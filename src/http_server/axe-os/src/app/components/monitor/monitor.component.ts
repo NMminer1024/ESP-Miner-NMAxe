@@ -934,9 +934,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onFieldSelectionChange(): void {
-    this.selectedFields = this.fieldOptions
-      .filter(field => field.selected)
-      .map(field => field.value);
+    // selectedFields 现在直接由 p-multiSelect 管理
+    // 更新 fieldOptions 中的 selected 状态以保持一致性
+    this.fieldOptions.forEach(field => {
+      field.selected = this.selectedFields.includes(field.value);
+    });
     
     console.log('Field selection changed:', this.selectedFields);
     this.saveState(); // 保存状态

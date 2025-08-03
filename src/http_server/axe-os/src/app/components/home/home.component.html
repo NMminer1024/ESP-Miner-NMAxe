@@ -56,14 +56,7 @@
     <!-- Charts Section - Side by Side Layout -->
     <div class="charts-grid">
       <div class="chart-section">
-        <div class="chart-card">
-          <div class="chart-header">
-            <h3 class="chart-title">📈 24h history Monitor</h3>
-          </div>
-          <div class="chart-wrapper">
-            <p-chart #chart [data]="chartData" [options]="chartOptions"></p-chart>
-          </div>
-        </div>
+        <app-monitor></app-monitor>
       </div>
 
       <div class="chart-section">
@@ -200,11 +193,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Monitor Section -->
-    <div class="monitor-section">
-      <app-monitor></app-monitor>
     </div>
 
   </div>
