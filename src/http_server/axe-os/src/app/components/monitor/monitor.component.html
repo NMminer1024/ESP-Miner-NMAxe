@@ -3,9 +3,6 @@
     <!-- Top control bar -->
     <div class="top-controls">
       <div class="status-info">
-        <span class="status-badge" [ngClass]="getStatusBadgeClass()">
-          {{ getStatusText() }}
-        </span>
         <span class="realtime-info" *ngIf="!isLoading">
           <app-circular-countdown 
             [countdown]="realtimeCountdown" 

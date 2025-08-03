@@ -366,7 +366,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         plugins: {
           legend: {
-            display: true,
+            display: false, // 隐藏图例以节省空间
             position: 'top',
             labels: {
               color: '#ffffff',
@@ -382,6 +382,14 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             bodyColor: '#ffffff',
             borderColor: '#4CAF50',
             borderWidth: 1
+          }
+        },
+        layout: {
+          padding: {
+            left: 5,
+            right: 5,
+            top: 5,
+            bottom: 5
           }
         },
         interaction: {

@@ -2,6 +2,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  // 添加live monitor的呼吸效果
+  animation: pulse-live 2s infinite;
 }
 
 .countdown-svg {
@@ -25,6 +27,20 @@
   font-weight: 600;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   transition: fill 0.3s ease;
+}
+
+/* Live呼吸动画 - 从monitor组件移植过来 */
+@keyframes pulse-live {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px rgba(76, 175, 80, 0.6));
+  }
+  50% { 
+    opacity: 0.8;
+    transform: scale(1.02);
+    filter: drop-shadow(0 0 4px rgba(76, 175, 80, 0.3));
+  }
 }
 
 /* Pulsing animation when countdown is low */

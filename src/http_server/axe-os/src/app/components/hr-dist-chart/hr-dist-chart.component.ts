@@ -100,6 +100,14 @@ export class HrDistChartComponent implements OnInit {
           }
         }
       },
+      layout: {
+        padding: {
+          left: 5,
+          right: 5,
+          top: 5,
+          bottom: 50  // 再次增加底部内边距确保横轴刻度完全显示
+        }
+      },
       scales: {
         x: {
           title: {

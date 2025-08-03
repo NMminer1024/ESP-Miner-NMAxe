@@ -4,6 +4,7 @@
   font-family: 'Segoe UI', Arial, sans-serif;
   padding: 5px;
   min-height: 100vh;
+  overflow: visible; // 允许子元素溢出，支持hover动画
 }
 
 // Main Statistics Cards
@@ -161,11 +162,13 @@
   margin: 20px 0;
   width: 100%;
   box-sizing: border-box;
+  overflow: visible; // 允许子元素溢出，支持hover动画
   
   // 确保两个卡片始终平分可用空间，无论侧边栏状态
   > * {
     min-width: 0; // 防止内容溢出
     flex-shrink: 1;
+    overflow: visible; // 允许卡片内容溢出
   }
 }
 
@@ -442,7 +445,7 @@ ng-template {
 // Responsive Design for Charts Grid
 @media (max-width: 1024px) {
   .charts-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; // 中等屏幕单列显示
     gap: 15px;
   }
   
@@ -452,9 +455,20 @@ ng-template {
 }
 
 @media (max-width: 768px) {
+  .dashboard-home {
+    padding: 3px; // 减少整体padding
+  }
+  
+  .charts-grid {
+    grid-template-columns: 1fr; // 移动端强制单列显示
+    gap: 10px;
+    margin: 10px 0; // 减少margin
+  }
+  
   .main-stats {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
+    margin-bottom: 15px; // 减少margin
   }
   
   .secondary-stats {
@@ -463,11 +477,22 @@ ng-template {
   }
   
   .chart-wrapper {
-    min-height: 250px;
+    min-height: 200px; // 减少高度
   }
   
   .chart-card {
-    padding: 15px;
+    padding: 12px; // 减少padding
+  }
+  
+  // 移动端p-knob尺寸调整 - 缩小环的直径
+  ::ng-deep .power-grid .p-knob {
+    width: 100px !important;  // 从90px增加到100px
+    height: 100px !important;
+    
+    svg {
+      width: 100px !important;
+      height: 100px !important;
+    }
   }
 }
 
@@ -495,6 +520,17 @@ ng-template {
   
   .chart-wrapper {
     min-height: 200px;
+  }
+  
+  // 480px断点进一步缩小p-knob尺寸
+  ::ng-deep .power-grid .p-knob {
+    width: 85px !important;  // 从75px增加到85px
+    height: 85px !important;
+    
+    svg {
+      width: 85px !important;
+      height: 85px !important;
+    }
   }
 }
 

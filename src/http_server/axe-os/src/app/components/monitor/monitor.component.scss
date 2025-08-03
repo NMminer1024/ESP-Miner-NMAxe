@@ -5,7 +5,7 @@
   background: transparent;
   box-sizing: border-box;
   min-width: 0; // 重要：允许容器收缩
-  overflow: hidden; // 防止内容溢出
+  overflow: visible; // 改为visible允许内容溢出
 }
 
 /* 现代化卡片样式 - 与其他页面保持一致 */
@@ -37,7 +37,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
+  padding: 8px 20px; // 减少上下padding从15px到8px
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: transparent;
   border-radius: 12px 12px 0 0; // 匹配卡片的顶部圆角
@@ -66,71 +66,6 @@
   font-size: 0.75rem;
   color: var(--primary-color);
   font-weight: 500;
-}
-
-.status-badge {
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  
-  &.status-loading {
-    background: rgba(255, 193, 7, 0.15);
-    color: #ffc107;
-    border: 1px solid rgba(255, 193, 7, 0.3);
-  }
-  
-  &.status-realtime {
-    background: rgba(76, 175, 80, 0.15);
-    color: #4caf50;
-    border: 1px solid rgba(76, 175, 80, 0.3);
-    animation: pulse-green 2s infinite;
-  }
-  
-  &.status-error {
-    background: rgba(244, 67, 54, 0.15);
-    color: #f44336;
-    border: 1px solid rgba(244, 67, 54, 0.3);
-    animation: pulse-red 2s infinite;
-  }
-  
-  &.status-offline {
-    background: rgba(158, 158, 158, 0.15);
-    color: #9e9e9e;
-    border: 1px solid rgba(158, 158, 158, 0.3);
-  }
-}
-
-@keyframes pulse-green {
-  0%, 100% { 
-    opacity: 1;
-    box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
-    background: rgba(76, 175, 80, 0.2);
-    color: #66ff66;
-  }
-  50% { 
-    opacity: 0.7;
-    box-shadow: 0 0 4px rgba(76, 175, 80, 0.3);
-    background: rgba(76, 175, 80, 0.1);
-    color: #4caf50;
-  }
-}
-
-@keyframes pulse-red {
-  0%, 100% { 
-    opacity: 1;
-    box-shadow: 0 0 8px rgba(244, 67, 54, 0.6);
-    background: rgba(244, 67, 54, 0.2);
-    color: #ff6666;
-  }
-  50% { 
-    opacity: 0.7;
-    box-shadow: 0 0 4px rgba(244, 67, 54, 0.3);
-    background: rgba(244, 67, 54, 0.1);
-    color: #f44336;
-  }
 }
 
 .control-actions {
@@ -210,10 +145,42 @@
         border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 8px;
         max-height: none !important; // 移除最大高度限制
+        z-index: 10000 !important; // 确保在所有元素之上
+        position: absolute !important; // 使用绝对定位
+        
+        // PC端优化
+        @media (min-width: 769px) {
+          max-height: 400px !important; // PC端限制最大高度
+          overflow-y: auto !important; // PC端添加滚动
+        }
+        
+        // 移动端特殊处理
+        @media (max-width: 768px) {
+          position: fixed !important; // 使用fixed定位
+          top: 50% !important;
+          left: 50% !important;
+          transform: translate(-50%, -50%) !important;
+          width: 90vw !important; // 宽度为视口的90%
+          max-width: 300px !important;
+          max-height: 60vh !important; // 最大高度为视口的60%
+          overflow-y: auto !important; // 添加滚动
+        }
         
         .p-multiselect-items {
           max-height: none !important; // 移除最大高度限制
           overflow: visible !important; // 移除滚动
+          
+          // PC端添加滚动
+          @media (min-width: 769px) {
+            max-height: 350px !important;
+            overflow-y: auto !important;
+          }
+          
+          // 移动端添加滚动
+          @media (max-width: 768px) {
+            max-height: 50vh !important;
+            overflow-y: auto !important;
+          }
           
           .p-multiselect-item {
             background: transparent;
@@ -291,22 +258,24 @@
   
   // 移动端优化：调整布局
   @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 10px;
+    flex-direction: row; // 改为水平布局
+    gap: 6px;
     width: 100%;
+    flex-wrap: wrap; // 允许换行
     
     // 创建下拉框容器，强制同行显示
     .dropdown-container {
       display: flex;
-      gap: 8px;
-      width: 100%;
+      gap: 4px; // 减少间距
+      flex: 1; // 占据剩余空间
+      min-width: 0;
     }
     
     .time-selector, .sample-selector, .metrics-multiselect {
       flex: 1;
-      height: 36px;
-      font-size: 13px !important; // 增大字体
-      padding: 6px 8px;
+      height: 32px; // 减少高度
+      font-size: 11px !important; // 减少字体以节省空间
+      padding: 4px 6px; // 减少padding
       min-width: 0; // 允许收缩
     }
     
@@ -314,35 +283,44 @@
       min-width: 0; // 移动端允许收缩
       
       ::ng-deep .p-multiselect .p-multiselect-label {
-        font-size: 13px;
-        padding: 0 4px;
+        font-size: 11px; // 减少字体
+        padding: 0 2px;
       }
     }
     
     .export-button {
-      width: 36px; // 移动端也保持正方形
-      height: 36px;
-      font-size: 14px;
-      padding: 6px;
-      margin-top: 8px;
-      align-self: flex-end; // 右对齐
+      width: 32px; // 减少尺寸
+      height: 32px;
+      font-size: 12px;
+      padding: 4px;
+      flex-shrink: 0; // 不允许收缩
+      margin-left: 4px; // 左边距
     }
   }
   
   @media (max-width: 480px) {
     .dropdown-container {
-      gap: 6px;
+      gap: 3px; // 进一步减少间距
     }
     
-    .time-selector, .sample-selector {
-      font-size: 12px !important; // 保持较大字体
-      padding: 5px 6px;
-      height: 34px;
+    .time-selector, .sample-selector, .metrics-multiselect {
+      font-size: 10px !important; // 进一步减少字体
+      padding: 3px 4px;
+      height: 30px; // 进一步减少高度
+    }
+    
+    .metrics-multiselect {
+      ::ng-deep .p-multiselect .p-multiselect-label {
+        font-size: 10px;
+        padding: 0 2px;
+      }
     }
     
     .export-button {
-      font-size: 12px;
-      height: 34px;
+      font-size: 10px;
+      height: 30px;
+      width: 30px;
+      padding: 3px;
     }
   }
 }
@@ -547,10 +525,10 @@
 
 /* 主图表容器 */
 .chart-container-main {
-  padding: 20px;
+  padding: 15px 20px; // 减少padding
   margin-top: 0;
-  height: calc(100vh - 280px);
-  min-height: 500px;
+  height: calc(50vh - 140px); // 高度减少一半
+  min-height: 250px; // 最小高度也减少一半
   background: transparent;
   border-radius: 0 0 12px 12px; // 匹配卡片的底部圆角
   
@@ -560,6 +538,19 @@
     max-height: none !important;
     background: transparent;
     border-radius: 8px;
+  }
+  
+  // 移动端优化图表空间利用
+  @media (max-width: 768px) {
+    padding: 8px 10px; // 减少padding释放更多空间
+    height: calc(40vh - 80px); // 移动端进一步优化高度
+    min-height: 200px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 6px 8px; // 进一步减少padding
+    height: calc(35vh - 60px); // 小屏幕优化
+    min-height: 180px;
   }
 }
 
@@ -595,91 +586,87 @@
 /* 移动端响应式设计 */
 @media (max-width: 768px) {
   .monitor-container {
-    padding: 10px;
+    padding: 0; // 移除padding防止溢出
+    margin: 0; // 移除margin防止溢出
+  }
+  
+  .card.modern-card {
+    margin: 0; // 移除卡片margin
+    border-radius: 8px !important; // 稍微减少圆角
   }
   
   .top-controls {
     flex-direction: column;
-    gap: 12px;
-    padding: 12px;
-  }
-  
-  .metrics-selector {
-    padding: 12px;
-  }
-  
-  .metrics-checkboxes {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 8px;
-    justify-items: stretch;
+    padding: 8px 10px; // 减少padding
   }
   
-  .metric-checkbox {
-    padding: 8px 10px;
-    justify-content: flex-start;
-    text-align: left;
+  .status-info {
+    gap: 0.5rem; // 减少间距
   }
   
-  .metric-label {
-    font-size: 12px;
-    white-space: nowrap;
+  .realtime-info {
+    padding: 3px 6px; // 减少padding
+    font-size: 0.7rem; // 减少字体大小
   }
   
   .chart-container-main {
-    padding: 10px;
-    height: calc(100vh - 250px);
-    min-height: 400px;
+    padding: 8px 10px; // 减少padding
+    height: calc(35vh - 80px); // 进一步减少高度
+    min-height: 180px; // 减少最小高度
   }
   
   .loading-container {
-    padding: 20px;
+    padding: 20px 10px;
+    
+    .loading-spinner {
+      width: 24px;
+      height: 24px;
+      margin-bottom: 10px;
+    }
+    
+    p {
+      font-size: 12px;
+    }
   }
 }
 
 @media (max-width: 480px) {
   .monitor-container {
-    padding: 8px;
+    padding: 0;
+  }
+  
+  .card.modern-card {
+    border-radius: 6px !important; // 进一步减少圆角
   }
   
   .top-controls {
-    padding: 10px;
-  }
-  
-  .metrics-selector {
-    padding: 10px;
-  }
-  
-  .metrics-checkboxes {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    padding: 6px 8px; // 进一步减少padding
     gap: 6px;
   }
   
-  .metric-checkbox {
-    padding: 6px 8px;
-    font-size: 11px;
-  }
-  
-  .metric-label {
-    font-size: 11px;
-  }
-  
-  .checkbox-custom {
-    width: 16px;
-    height: 16px;
+  .realtime-info {
+    padding: 2px 4px;
+    font-size: 0.65rem;
   }
   
   .chart-container-main {
-    padding: 8px;
-    height: calc(100vh - 240px);
-    min-height: 350px;
+    padding: 6px 8px; // 进一步减少padding
+    height: calc(30vh - 60px); // 小屏幕进一步减少高度
+    min-height: 150px; // 进一步减少最小高度
   }
   
   .loading-container {
-    padding: 15px;
+    padding: 15px 8px;
+    
+    .loading-spinner {
+      width: 20px;
+      height: 20px;
+      margin-bottom: 8px;
+    }
     
     p {
-      font-size: 14px;
+      font-size: 11px;
     }
   }
 }
