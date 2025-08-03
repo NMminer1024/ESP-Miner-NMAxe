@@ -489,3 +489,32 @@ ng-template {
     min-height: 200px;
   }
 }
+
+// Monitor Section Styles
+.monitor-section {
+  margin-top: 20px;
+  
+  // Ensure the monitor component fits well in the dashboard
+  app-monitor {
+    display: block;
+    width: 100%;
+    
+    // Override monitor component styles for dashboard integration
+    ::ng-deep .monitor-container {
+      margin: 0;
+      padding: 0;
+      
+      .card.modern-card {
+        background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+        border: 1px solid #404040;
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+      }
+    }
+  }
+}

@@ -33,10 +33,6 @@ const routes: Routes = [
       {
         path: 'swarm',
         component: SwarmComponent
-      },
-      {
-        path: 'monitor',
-        component: MonitorComponent
       }
     ]
   },
