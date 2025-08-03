@@ -1,6 +1,6 @@
-import {HttpClient, HttpEvent, HttpParams} from '@angular/common/http';
+import {HttpClient, HttpEvent, HttpParams, HttpHeaders} from '@angular/common/http';
 import {Injectable} from '@angular/core';
-import {delay, Observable, of, timeout} from 'rxjs';
+import {delay, Observable, of, timeout, map, catchError} from 'rxjs';
 import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 
@@ -136,24 +136,95 @@ export class SystemService {
   }
 
   public getStatusHistory(sampleInterval: number = 10, uri: string = ''): Observable<StatusHistoryResponse> {
-    const params = new HttpParams().set('interval', sampleInterval.toString());
+    const params = new HttpParams()
+      .set('interval', sampleInterval.toString())
+      .set('_t', Date.now().toString()); // 避免缓存
     
-    // 根据采样间隔设置不同的超时时间
-    let timeoutMs = 30000; // 默认30秒
+    // 根据采样间隔设置不同的超时时间 - 增加超时时间
+    let timeoutMs = 45000; // 默认45秒
     if (sampleInterval <= 1) {
-      timeoutMs = 120000; // 高分辨率模式：2分钟
+      timeoutMs = 240000; // 高分辨率模式：4分钟
     } else if (sampleInterval <= 5) {
-      timeoutMs = 60000;  // 中等分辨率：1分钟
+      timeoutMs = 120000; // 中等分辨率：2分钟
     }
+    
+    const headers = new HttpHeaders({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
     
     console.log(`📡 HTTP timeout set to ${timeoutMs/1000}s for sample interval ${sampleInterval}`);
     
-    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/status/history`, { params })
-      .pipe(timeout(timeoutMs));
+    return this.httpClient.get(`${uri}/api/system/status/history`, { 
+      params, 
+      headers,
+      responseType: 'text' // 先获取为文本
+    }).pipe(
+      timeout(timeoutMs),
+      map((response: string) => {
+        try {
+          console.log(`📄 Response received, length: ${response.length} bytes`);
+          
+          // 检查响应是否看起来像JSON
+          if (!response.trim().startsWith('{') && !response.trim().startsWith('[')) {
+            throw new Error(`Invalid JSON format. Response starts with: "${response.substring(0, 100)}"`);
+          }
+          
+          const parsed = JSON.parse(response) as StatusHistoryResponse;
+          console.log(`✅ JSON parsed successfully, statistics count: ${parsed.statistics?.length || 0}`);
+          return parsed;
+        } catch (error) {
+          console.error('❌ JSON parsing failed:', error);
+          console.error('Response preview (first 500 chars):', response.substring(0, 500));
+          console.error('Response preview (last 500 chars):', response.substring(Math.max(0, response.length - 500)));
+          
+          // 详细分析 JSON 错误
+          if (error instanceof SyntaxError) {
+            const errorMessage = error.message;
+            const positionMatch = errorMessage.match(/at position (\d+)/);
+            if (positionMatch) {
+              const position = parseInt(positionMatch[1]);
+              const start = Math.max(0, position - 50);
+              const end = Math.min(response.length, position + 50);
+              const context = response.substring(start, end);
+              console.error(`JSON error context around position ${position}:`, context);
+              console.error(`Character at error position: "${response.charAt(position)}" (charCode: ${response.charCodeAt(position)})`);
+              
+              // 检查常见问题
+              if (context.includes('NaN') || context.includes('Infinity')) {
+                console.error('Found NaN or Infinity in JSON - this indicates invalid numeric data');
+              }
+              if (context.includes('undefined')) {
+                console.error('Found undefined in JSON - this indicates missing data');
+              }
+            }
+          }
+          
+          throw new Error(`JSON parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }),
+      catchError(error => {
+        if (error.name === 'TimeoutError') {
+          console.error(`⏰ Request timed out after ${timeoutMs/1000}s for sample interval ${sampleInterval}`);
+          throw new Error(`Request timed out after ${timeoutMs/1000} seconds. Try using a lower detail level.`);
+        } else if (error.status === 0) {
+          console.error('🌐 Network connection failed');
+          throw new Error('Network connection failed. Please check your connection.');
+        } else {
+          console.error('❌ HTTP request failed:', error);
+          throw error;
+        }
+      })
+    );
   }
 
   public getStatusRealtime(uri: string = ''): Observable<StatusHistoryResponse> {
-    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/status/realtime`)
-      .pipe(timeout(15000)); // 实时数据15秒超时
+    const headers = new HttpHeaders({
+      'Cache-Control': 'no-cache'
+    });
+    
+    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/status/realtime`, { headers })
+      .pipe(timeout(20000)); // 实时数据20秒超时
   }
 }

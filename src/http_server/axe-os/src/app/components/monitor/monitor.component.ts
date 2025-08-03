@@ -412,6 +412,16 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   loadHistoryData(): void {
     console.log('📊 Starting loadHistoryData method');
+    
+    // 检查浏览器状态
+    this.checkBrowserMemory();
+    if (!this.checkNetworkStatus()) {
+      this.hasLoadingError = true;
+      this.loadingMessage = 'No network connection detected. Please check your internet connection.';
+      this.isLoading = false;
+      return;
+    }
+    
     this.isLoading = true;
     this.hasLoadingError = false;
     this.retryCount = 0;
@@ -419,9 +429,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // 根据采样间隔设置加载提示信息
     if (this.sampleInterval === 1) {
-      this.loadingMessage = 'Loading high-detail data... This may take up to 2 minutes';
+      this.loadingMessage = 'Loading high-detail data... This may take up to 4 minutes';
     } else if (this.sampleInterval <= 5) {
-      this.loadingMessage = 'Loading detailed data... This may take up to 1 minute';
+      this.loadingMessage = 'Loading detailed data... This may take up to 2 minutes';
     } else {
       this.loadingMessage = 'Loading data...';
     }
@@ -430,6 +440,12 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('API URL will be: /api/system/status/history');
     console.log('SystemService available:', !!this.systemService);
     console.log(`Sample interval: ${this.sampleInterval}, Expected timeout: ${this.getExpectedTimeout()}s`);
+    
+    // 强制垃圾回收（如果浏览器支持）
+    if ('gc' in window && typeof (window as any).gc === 'function') {
+      console.log('🗑️ Triggering garbage collection before large data load');
+      (window as any).gc();
+    }
     
     this.subscription.add(
       this.systemService.getStatusHistory(this.sampleInterval)
@@ -441,20 +457,37 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                 console.warn(`❌ History load attempt ${this.retryCount} failed:`, error);
                 
                 // 检查错误类型
-                const isTimeout = error.name === 'TimeoutError' || error.message?.includes('timeout');
-                const isNetworkError = error.status === 0 || error.status >= 500;
+                const isTimeout = error.message?.includes('timeout') || error.message?.includes('timed out');
+                const isNetworkError = error.message?.includes('Network') || error.message?.includes('connection');
+                const isParsingError = error.message?.includes('JSON parsing') || error.message?.includes('parsing failed');
                 
                 if (this.retryCount >= this.maxRetries) {
                   console.error(`🚫 Max retries (${this.maxRetries}) reached, giving up`);
                   return throwError(error);
                 }
                 
-                // 计算重试延迟，对超时错误使用更长的延迟
-                const retryDelay = isTimeout ? 5000 + (index * 3000) : 2000 + (index * 1000);
+                // 对于解析错误，尝试更短的延迟
+                let retryDelay = 2000 + (index * 1000);
+                if (isTimeout) {
+                  retryDelay = 8000 + (index * 5000); // 超时错误使用更长延迟
+                } else if (isParsingError) {
+                  retryDelay = 3000 + (index * 2000); // 解析错误使用中等延迟
+                }
                 
-                this.loadingMessage = `${isTimeout ? 'Request timed out' : 'Network error'}, retrying in ${retryDelay/1000}s... (${this.retryCount}/${this.maxRetries})`;
+                if (isTimeout) {
+                  this.loadingMessage = `Request timed out, retrying in ${retryDelay/1000}s... (${this.retryCount}/${this.maxRetries})`;
+                } else if (isNetworkError) {
+                  this.loadingMessage = `Network error, retrying in ${retryDelay/1000}s... (${this.retryCount}/${this.maxRetries})`;
+                } else if (isParsingError) {
+                  this.loadingMessage = `Data parsing error, retrying in ${retryDelay/1000}s... (${this.retryCount}/${this.maxRetries})`;
+                } else {
+                  this.loadingMessage = `Error occurred, retrying in ${retryDelay/1000}s... (${this.retryCount}/${this.maxRetries})`;
+                }
                 
                 console.log(`🔄 Retrying in ${retryDelay}ms...`);
+                
+                // 每次重试前检查内存
+                this.checkBrowserMemory();
                 return timer(retryDelay);
               })
             )
@@ -464,12 +497,14 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             this.hasLoadingError = true;
             
             // 根据错误类型设置不同的错误信息
-            if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
-              this.loadingMessage = `Request timed out after ${this.getExpectedTimeout()}s. Try using a lower detail level or check your connection.`;
-            } else if (error.status === 0) {
+            if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+              this.loadingMessage = `Request timed out after ${this.getExpectedTimeout()}s. The high detail mode requires processing large amounts of data. Try using a lower detail level or check your connection.`;
+            } else if (error.message?.includes('JSON parsing') || error.message?.includes('parsing failed')) {
+              this.loadingMessage = `Data format error: ${error.message}. The server may be experiencing issues. Try refreshing the page or using a lower detail level.`;
+            } else if (error.message?.includes('Network') || error.message?.includes('connection')) {
               this.loadingMessage = 'Network connection failed. Please check your connection and try again.';
             } else {
-              this.loadingMessage = `Error loading data: ${error.message || 'Unknown error'}`;
+              this.loadingMessage = `Error loading data: ${error.message || 'Unknown error'}. Try refreshing the page or using a lower detail level.`;
             }
             
             // 即使加载失败，也要重新启动实时更新
@@ -553,9 +588,33 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private getExpectedTimeout(): number {
-    if (this.sampleInterval <= 1) return 120; // 2 minutes
-    if (this.sampleInterval <= 5) return 60;  // 1 minute
-    return 30; // 30 seconds
+    if (this.sampleInterval <= 1) return 240; // 4 minutes
+    if (this.sampleInterval <= 5) return 120; // 2 minutes
+    return 45; // 45 seconds
+  }
+
+  // 添加内存检查方法
+  private checkBrowserMemory(): void {
+    if ('memory' in performance) {
+      const memory = (performance as any).memory;
+      console.log('Browser memory usage:', {
+        used: Math.round(memory.usedJSHeapSize / 1024 / 1024) + 'MB',
+        total: Math.round(memory.totalJSHeapSize / 1024 / 1024) + 'MB',
+        limit: Math.round(memory.jsHeapSizeLimit / 1024 / 1024) + 'MB'
+      });
+    }
+  }
+
+  // 检查网络状态
+  private checkNetworkStatus(): boolean {
+    if ('navigator' in window && 'onLine' in navigator) {
+      const online = navigator.onLine;
+      if (!online) {
+        console.warn('🌐 Browser reports offline status');
+      }
+      return online;
+    }
+    return true; // 假设在线如果无法检测
   }
 
   // Auto-start real-time updates after loading history
