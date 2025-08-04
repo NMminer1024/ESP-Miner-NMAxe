@@ -2,7 +2,7 @@ import 'chartjs-adapter-moment';
 
 import {CommonModule, HashLocationStrategy, LocationStrategy} from '@angular/common';
 import {HttpClientModule} from '@angular/common/http';
-import {NgModule} from '@angular/core';
+import {NgModule, CSP_NONCE} from '@angular/core';
 import {FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {BrowserModule} from '@angular/platform-browser';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
@@ -79,6 +79,7 @@ const components = [
   ],
   providers: [
     {provide: LocationStrategy, useClass: HashLocationStrategy},
+    {provide: CSP_NONCE, useValue: ''},  // 添加 CSP nonce 支持
   ],
   bootstrap: [AppComponent]
 })
