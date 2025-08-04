@@ -443,6 +443,111 @@ ng-template {
 }
 
 // Responsive Design for Charts Grid
+
+// 平板电脑横屏优化 (iPad 横屏: 1024x768px)
+@media (min-width: 1024px) and (max-width: 1024px) and (orientation: landscape),
+       (min-width: 1000px) and (max-width: 1050px) {
+  .main-stats {
+    grid-template-columns: repeat(4, 1fr) !important; // 强制4个卡片在同一行
+    gap: 8px; // 减少间距
+  }
+  
+  .stat-card {
+    padding: 8px; // 减少内边距
+    min-width: 220px; // 设置最小宽度
+  }
+  
+  .stat-value {
+    font-size: 20px; // 调整字体大小
+  }
+  
+  .stat-icon {
+    font-size: 20px; // 调整图标大小
+  }
+  
+  .stat-label {
+    font-size: 12px; // 减小标签字体
+  }
+  
+  .stat-unit {
+    font-size: 10px; // 减小单位字体
+  }
+  
+  .charts-grid {
+    grid-template-columns: 1fr; // 单列显示
+    gap: 15px;
+  }
+  
+  .chart-wrapper {
+    min-height: 300px;
+  }
+}
+
+// 平板电脑通用优化 (iPad等)
+@media (min-width: 769px) and (max-width: 1023px) {
+  .main-stats {
+    grid-template-columns: repeat(4, 1fr) !important; // 强制4个卡片在同一行
+    gap: 10px; // 略微减少间距以适应较小的宽度
+  }
+  
+  .stat-card {
+    padding: 10px; // 略微减少内边距
+  }
+  
+  .stat-value {
+    font-size: 22px; // 适当调整字体大小
+  }
+  
+  .stat-icon {
+    font-size: 22px; // 适当调整图标大小
+  }
+  
+  .stat-label {
+    font-size: 13px; // 略微减小标签字体
+  }
+  
+  .stat-unit {
+    font-size: 11px; // 略微减小单位字体
+  }
+  
+  .charts-grid {
+    grid-template-columns: 1fr; // 中等屏幕单列显示
+    gap: 15px;
+  }
+  
+  .chart-wrapper {
+    min-height: 300px;
+  }
+}
+
+// 小平板电脑优化 (iPad 竖屏等)
+@media (min-width: 769px) and (max-width: 900px) {
+  .main-stats {
+    grid-template-columns: repeat(4, minmax(160px, 1fr)); // 设置最小宽度确保4个卡片能放下
+    gap: 8px; // 进一步减少间距
+  }
+  
+  .stat-card {
+    padding: 8px; // 进一步减少内边距
+  }
+  
+  .stat-value {
+    font-size: 20px; // 进一步调整字体大小
+  }
+  
+  .stat-icon {
+    font-size: 20px; // 进一步调整图标大小
+  }
+  
+  .stat-label {
+    font-size: 12px; // 进一步减小标签字体
+  }
+  
+  .stat-unit {
+    font-size: 10px; // 进一步减小单位字体
+  }
+}
+
 @media (max-width: 1024px) {
   .charts-grid {
     grid-template-columns: 1fr; // 中等屏幕单列显示

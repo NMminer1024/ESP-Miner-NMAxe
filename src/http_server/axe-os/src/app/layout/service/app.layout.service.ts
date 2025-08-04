@@ -154,17 +154,18 @@ export class LayoutService {
     }
 
     onMenuToggle() {
-        if (this.isOverlay()) {
+        if (this.isOverlay() || this.isTabletLandscape()) {
+            // 在 overlay 模式或平板横屏模式下
             this.state.overlayMenuActive = !this.state.overlayMenuActive;
             if (this.state.overlayMenuActive) {
                 this.overlayOpen.next(null);
             }
-        }
-
-        if (this.isDesktop()) {
+        } else if (this.isDesktop() && !this.isTabletLandscape()) {
+            // 桌面模式 (非平板横屏)
             this.state.staticMenuDesktopInactive =
                 !this.state.staticMenuDesktopInactive;
         } else {
+            // 移动设备模式
             this.state.staticMenuMobileActive =
                 !this.state.staticMenuMobileActive;
 
@@ -186,6 +187,10 @@ export class LayoutService {
     }
 
     isOverlay() {
+        // 在平板横屏模式下强制使用 overlay 模式
+        if (this.isTabletLandscape()) {
+            return true;
+        }
         return this.config().menuMode === 'overlay';
     }
 
@@ -195,6 +200,13 @@ export class LayoutService {
 
     isMobile() {
         return !this.isDesktop();
+    }
+
+    isTabletLandscape() {
+        // 检测平板横屏模式 (iPad 横屏等)
+        return window.innerWidth >= 992 && 
+               window.innerWidth <= 1100 && 
+               window.matchMedia('(orientation: landscape)').matches;
     }
 
     onConfigUpdate() {
