@@ -368,7 +368,7 @@
     }
   }
 
-  // 移动端指标选择器按钮
+  // 移动端和平板端指标选择器按钮
   .mobile-metrics-selector {
     height: 40px;
     min-width: 160px;
@@ -385,6 +385,22 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    
+    // 平板竖屏优化（769-1024px）
+    @media (min-width: 769px) and (max-width: 1024px) {
+      height: 36px;
+      min-width: 180px;
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+    
+    // 手机端保持原样
+    @media (max-width: 768px) {
+      height: 32px;
+      min-width: 160px;
+      font-size: 12px;
+      padding: 4px 8px;
+    }
     
     &:hover {
       background: rgba(255, 255, 255, 0.12);
@@ -468,8 +484,8 @@
     padding: 8px;
   }
   
-  // 移动端优化：调整布局
-  @media (max-width: 768px) {
+  // 移动端和平板竖屏优化：调整布局
+  @media (max-width: 1024px) {
     .control-actions {
       flex-direction: row; // 改为水平布局
       gap: 6px;
@@ -512,6 +528,41 @@
         margin-left: 4px; // 左边距
       }
     }
+  }
+
+  // 平板竖屏特定优化（769-1024px）
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .control-actions {
+      gap: 8px; // 平板有更多空间，增加间距
+      
+      .dropdown-container {
+        gap: 6px; // 平板间距稍大
+      }
+      
+      .time-selector, .sample-selector, .metrics-multiselect {
+        height: 36px; // 平板高度稍大
+        font-size: 13px !important; // 平板字体稍大
+        padding: 6px 8px; // 平板padding稍大
+      }
+      
+      .metrics-multiselect {
+        ::ng-deep .p-multiselect .p-multiselect-label {
+          font-size: 13px !important; // 平板字体稍大
+        }
+      }
+      
+      .export-button {
+        width: 36px; // 平板按钮稍大
+        height: 36px;
+        font-size: 14px;
+        padding: 6px;
+      }
+    }
+  }
+
+  // 手机端特定样式保持不变
+  @media (max-width: 768px) {
+    // 保持现有手机端样式
   }
   
   @media (max-width: 480px) {
@@ -809,7 +860,87 @@
 }
 
 /* 响应式设计 */
-/* 移动端响应式设计 */
+/* 移动端和平板端响应式设计 */
+@media (max-width: 1024px) {
+  .monitor-container {
+    padding: 0; // 移除padding防止溢出
+    margin: 0; // 移除margin防止溢出
+  }
+  
+  .card.modern-card {
+    margin: 0; // 移除卡片margin
+    border-radius: 8px !important; // 稍微减少圆角
+  }
+  
+  .top-controls {
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 6px; // 进一步减少padding让图表有更多空间
+  }
+  
+  .status-info {
+    gap: 0.5rem; // 减少间距
+  }
+  
+  .realtime-info {
+    padding: 3px 6px; // 减少padding
+    font-size: 0.7rem; // 减少字体大小
+  }
+  
+  .chart-container-main {
+    padding: 2px 4px; // 最小化 padding 给图表更多空间
+    height: calc(45vh - 70px); // 进一步优化高度，减少控制栏占用空间
+    min-height: 220px; // 确保图表有足够显示空间
+  }
+  
+  .loading-container {
+    padding: 20px 10px;
+    
+    .loading-spinner {
+      width: 24px;
+      height: 24px;
+      margin-bottom: 10px;
+    }
+    
+    p {
+      font-size: 12px;
+    }
+  }
+}
+
+/* 平板竖屏特定样式（769-1024px） */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .top-controls {
+    padding: 6px 8px; // 平板有更多空间
+  }
+  
+  .realtime-info {
+    padding: 4px 8px; // 平板padding稍大
+    font-size: 0.75rem; // 平板字体稍大
+  }
+  
+  .chart-container-main {
+    padding: 4px 6px; // 平板padding稍大
+    height: calc(50vh - 80px); // 平板高度稍大
+    min-height: 250px; // 平板最小高度稍大
+  }
+  
+  .loading-container {
+    padding: 25px 15px;
+    
+    .loading-spinner {
+      width: 28px;
+      height: 28px;
+      margin-bottom: 12px;
+    }
+    
+    p {
+      font-size: 13px;
+    }
+  }
+}
+
+/* 手机端响应式设计 */
 @media (max-width: 768px) {
   .monitor-container {
     padding: 0; // 移除padding防止溢出

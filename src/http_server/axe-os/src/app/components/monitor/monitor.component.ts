@@ -1125,7 +1125,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private detectMobile(): void {
-    this.isMobile = window.innerWidth <= 768;
+    // 将平板竖屏也视为移动端，以使用底部滑出选择器，避免下拉框超出卡片边界
+    // 平板竖屏通常在768-1024px之间，包含在内以提供更好的用户体验
+    this.isMobile = window.innerWidth <= 1024;
     console.log('Mobile detection:', this.isMobile, 'Width:', window.innerWidth);
   }
 
