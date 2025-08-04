@@ -226,6 +226,9 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
 static void get_status_history(AsyncWebServerRequest* request){
     LOG_W("Starting status history request processing...");
     
+    // Maximum data points limit to prevent frontend overload
+    const size_t MAX_DATA_POINTS = 2000;
+    
     // Safely check history data size with mutex protection
     size_t history_size = 0;
     if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
@@ -244,109 +247,47 @@ static void get_status_history(AsyncWebServerRequest* request){
         return;
     }
     
-    if (history_size > 10000) {
-        LOG_W("Large history dataset detected: %d records. This may take longer to process.", history_size);
-    }
-    
-    // Parse sample interval from request parameters
-    int sample_interval = 10;
+    // Parse sample interval from request parameters (user preference)
+    int user_sample_interval = 10;
     if(request->hasParam("interval")) {
-        sample_interval = request->getParam("interval")->value().toInt();
-        if(sample_interval < 1) sample_interval = 1;
-        if(sample_interval > 100) sample_interval = 100;
-        LOG_W("Sample interval set to: %d", sample_interval);
+        user_sample_interval = request->getParam("interval")->value().toInt();
+        if(user_sample_interval < 1) user_sample_interval = 1;
+        if(user_sample_interval > 100) user_sample_interval = 100;
+        LOG_W("User requested sample interval: %d", user_sample_interval);
+    }
+    
+    // Calculate actual sample interval to ensure max 2000 data points
+    int actual_sample_interval = user_sample_interval;
+    size_t estimated_samples = (history_size + actual_sample_interval - 1) / actual_sample_interval;
+    
+    // Adjust sample interval if estimated samples exceed limit
+    if (estimated_samples > MAX_DATA_POINTS) {
+        actual_sample_interval = (history_size + MAX_DATA_POINTS - 1) / MAX_DATA_POINTS;
+        estimated_samples = (history_size + actual_sample_interval - 1) / actual_sample_interval;
+        LOG_W("Adjusted sample interval from %d to %d to limit data points to %d (estimated: %d)", 
+              user_sample_interval, actual_sample_interval, MAX_DATA_POINTS, estimated_samples);
     } else {
-        LOG_W("Using default sample interval: %d", sample_interval);
+        LOG_W("Using requested sample interval %d, estimated samples: %d", actual_sample_interval, estimated_samples);
     }
     
-    // Auto-adjust sampling interval for large datasets to avoid timeout
-    if (history_size > 8000 && sample_interval < 20) {
-        sample_interval = 20;
-        LOG_W("Auto-adjusted sample interval to %d for large dataset", sample_interval);
-    }
+    // Calculate JSON document size based on estimated samples
+    uint32_t base_overhead = 2048;
+    uint32_t per_sample_size = 200;
+    uint32_t json_size_max = base_overhead + (estimated_samples * per_sample_size);
     
-    // Estimate sample count and adjust memory allocation accordingly
-    size_t estimated_samples = (history_size + sample_interval - 1) / sample_interval;
-    LOG_W("Estimated samples: %d from %d history records with interval %d", 
-          estimated_samples, history_size, sample_interval);
-    
-    // Dynamic JSON document size based on calculated size with progressive scaling
-    uint32_t json_size_max;
-    uint32_t base_overhead = 2048; // Base JSON structure overhead (labels, metadata, etc.)
-    uint32_t per_sample_size = 230; // Estimated bytes per data sample (updated based on actual usage)
-    uint32_t calculated_size = base_overhead + (estimated_samples * per_sample_size);
-    
-    // Progressive minimum allocation based on data complexity
-    // Use logarithmic scaling to avoid hard thresholds
-    uint32_t progressive_minimum;
-    if (estimated_samples <= 10) {
-        progressive_minimum = 8 * 1024;   // 8KB for very small datasets
-    } else {
-        // Logarithmic scaling: min_size = 8KB * log2(samples/10 + 1) * 2
-        float log_factor = log2f((float)estimated_samples / 10.0f + 1.0f);
-        progressive_minimum = (uint32_t)(8 * 1024 * log_factor * 2);
-        
-        // Cap the progressive minimum at reasonable limits
-        if (progressive_minimum > 512 * 1024) {
-            progressive_minimum = 512 * 1024; // Cap at 512KB
-        }
-    }
-    
-    // Use the larger of calculated size or progressive minimum
-    json_size_max = (calculated_size > progressive_minimum) ? calculated_size : progressive_minimum;
-    
-    // Add 25% safety margin for JSON formatting overhead
+    // Add 25% safety margin
     json_size_max = json_size_max + (json_size_max / 4);
     
-    LOG_W("Using JSON document size: %dKB for %d estimated samples (calculated: %dKB, progressive_min: %dKB + 25%% safety margin)", 
-          json_size_max/1024, estimated_samples, calculated_size/1024, progressive_minimum/1024);
+    // Ensure minimum size
+    if (json_size_max < 32 * 1024) json_size_max = 32 * 1024;
     
-    // More accurate memory requirement calculation (JSON doc + serialization buffer + safety margin)
-    size_t estimated_total_memory = json_size_max + (estimated_samples * 100) + (128 * 1024); // JSON + estimated serialized size + 128KB safety
+    LOG_W("Creating JSON document with %dKB for %d estimated samples", json_size_max/1024, estimated_samples);
     
-    // Check PSRAM availability
-    size_t free_psram = ESP.getFreePsram();
-    LOG_W("PSRAM status: free=%.2fMB, estimated_total_memory=%.2fMB", 
-          free_psram/1024.0f/1024.0f, estimated_total_memory/1024.0f/1024.0f);
-    LOG_D("🔍 [PSRAM CHECKPOINT 1] Before JSON document creation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    
-    // Reduce memory allocation if PSRAM is insufficient
-    if (free_psram < estimated_total_memory) {
-        // More aggressive reduction for low memory situations
-        json_size_max = free_psram / 4; // Use only 1/4 of available memory for JSON doc
-        if (json_size_max < 64 * 1024) {
-            LOG_E("Insufficient PSRAM memory available: %.2fMB, minimum 64KB required", free_psram/1024.0f/1024.0f);
-            request->send(500, "application/json", "{\"error\":\"Insufficient memory for dataset\"}");
-            return;
-        }
-        LOG_W("Aggressively reduced json_size_max to %.2fMB due to low PSRAM", json_size_max/1024.0f/1024.0f);
-    }
-    
-    // Further adjust sampling interval based on memory constraints
-    if (estimated_samples > 1000 && free_psram < 1024*1024*4) { // If PSRAM < 4MB and samples > 1000
-        sample_interval = history_size / 800; // Limit to 800 samples for low memory
-        estimated_samples = 800;
-        LOG_W("Memory-based adjustment for low PSRAM: sample_interval=%d, estimated_samples=%d", sample_interval, estimated_samples);
-        
-        // Recalculate JSON document size after sample reduction
-        if (estimated_samples < 200) {
-            json_size_max = 256 * 1024; // 256KB
-        } else if (estimated_samples < 500) {
-            json_size_max = 384 * 1024; // 384KB  
-        } else {
-            json_size_max = 512 * 1024; // 512KB
-        }
-        LOG_W("Recalculated JSON document size: %dKB for %d samples", json_size_max/1024, estimated_samples);
-    }
-    
-    // Create JSON document with appropriate size
-    LOG_W("Creating JSON document with %dKB capacity...", json_size_max/1024);
-    LOG_D("🔍 [PSRAM CHECKPOINT 2] Before DynamicJsonDocument allocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    // Create JSON document
     DynamicJsonDocument root(json_size_max);
-    LOG_D("🔍 [PSRAM CHECKPOINT 3] After DynamicJsonDocument allocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     
     // Build JSON structure
-    uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
+    uint64_t ms = g_nmaxe.mstatus.utc * 1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
@@ -364,25 +305,28 @@ static void get_status_history(AsyncWebServerRequest* request){
     labels.add("epoch");
     
     JsonArray data = root.createNestedArray("statistics");
-    LOG_W("JSON structure created, starting data collection...");
-    
-    // Log initial JSON document state
-    LOG_W("JSON document initial memory usage: %d bytes", root.memoryUsage());
     
     int idx = 0;
     int sampled_count = 0;
     size_t actual_history_size = 0;
     
-    // Acquire mutex for history traversal protection
+    // Acquire mutex for history traversal
     if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, portMAX_DELAY) == pdTRUE) {
-        actual_history_size = g_nmaxe.mstatus.status_history.size(); // Get size within lock
-        LOG_W("Starting history traversal: %d total records, sampling every %d", actual_history_size, sample_interval);
+        actual_history_size = g_nmaxe.mstatus.status_history.size();
+        LOG_W("Starting sampling: %d total records, interval: %d, max points: %d", 
+              actual_history_size, actual_sample_interval, MAX_DATA_POINTS);
         
         for (const auto& history : g_nmaxe.mstatus.status_history) {
-            if(idx % sample_interval == 0) {  
+            if(idx % actual_sample_interval == 0) {
+                // Stop if we've reached the maximum data points limit
+                if (sampled_count >= MAX_DATA_POINTS) {
+                    LOG_W("Reached maximum data points limit (%d), stopping sampling", MAX_DATA_POINTS);
+                    break;
+                }
+                
                 JsonArray dataPoint = data.createNestedArray();
                 
-                // Data validation and cleanup
+                // Data validation
                 String hashrate = history.hashrate;
                 String asic_temp = history.asic_temp;
                 String vcore_temp = history.vcore_temp;
@@ -390,7 +334,6 @@ static void get_status_history(AsyncWebServerRequest* request){
                 String vbus = history.vbus;
                 String ibus = history.ibus;
                 
-                // Ensure strings are not empty and are valid numbers
                 if (hashrate.length() == 0 || !isValidNumber(hashrate)) hashrate = "0";
                 if (asic_temp.length() == 0 || !isValidNumber(asic_temp)) asic_temp = "0";
                 if (vcore_temp.length() == 0 || !isValidNumber(vcore_temp)) vcore_temp = "0";
@@ -413,16 +356,9 @@ static void get_status_history(AsyncWebServerRequest* request){
                 dataPoint.add(history.epoch);
                 sampled_count++;
                 
-                // Yield every 100 data points to avoid watchdog timeout
+                // Yield every 100 samples to prevent watchdog timeout
                 if (sampled_count % 100 == 0) {
-                    delay(1); // Let other tasks have a chance to run
-                    LOG_W("Processed %d samples so far...", sampled_count);
-                }
-                
-                // Check if JSON document is approaching capacity (allow up to 95% usage)
-                if (root.memoryUsage() > json_size_max * 0.95) {
-                    LOG_W("JSON document approaching capacity limit, stopping at %d samples", sampled_count);
-                    break;
+                    delay(1);
                 }
             }
             idx++;
@@ -430,172 +366,46 @@ static void get_status_history(AsyncWebServerRequest* request){
             // Yield every 500 raw data points
             if (idx % 500 == 0) {
                 delay(1);
-                LOG_W("Traversed %d records, sampled %d so far...", idx, sampled_count);
             }
         }
         
-        // Release mutex
         xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
-        LOG_W("History traversal completed: %d samples collected from %d total records", sampled_count, actual_history_size);
+        LOG_W("Sampling completed: %d samples from %d total records, interval: %d", 
+              sampled_count, actual_history_size, actual_sample_interval);
     } else {
         LOG_E("Failed to acquire history mutex for data collection");
-        request->send(500, "application/json", "{\"error\":\"Failed to access history data for collection\"}");
+        request->send(500, "application/json", "{\"error\":\"Failed to access history data\"}");
         return;
     }
     
-    // Add metadata to JSON
+    // Add metadata
     root["size"] = actual_history_size;
     root["sampledSize"] = sampled_count;
-    root["sampleInterval"] = sample_interval;
+    root["sampleInterval"] = actual_sample_interval;
+    root["userRequestedInterval"] = user_sample_interval;
+    root["maxDataPoints"] = MAX_DATA_POINTS;
     
-    LOG_W("JSON document prepared: memory usage %d/%d bytes (%.1f%%)", 
-          root.memoryUsage(), json_size_max, (float)root.memoryUsage() * 100 / json_size_max);
+    // Serialize and send response
+    String json_str;
+    size_t json_size = serializeJson(root, json_str);
     
-    // Determine buffer size for serialization using adaptive learning
-    size_t buffer_size;
-    
-    // 使用自适应算法计算缓冲区大小
-    buffer_size = memory_history.calculate_next_buffer_size(sampled_count);
-    
-    LOG_W("Adaptive memory allocation: predicted buffer_size=%dKB for %d samples (bytes_per_sample=%.1f, efficiency=%.1f%%, allocations=%d)", 
-          buffer_size/1024, sampled_count, memory_history.bytes_per_sample, 
-          memory_history.get_allocation_efficiency() * 100, memory_history.allocation_count);
-    
-    // Additional check: ensure buffer size doesn't exceed 1/3 of remaining PSRAM
-    size_t remaining_psram = ESP.getFreePsram();
-    size_t max_buffer_size = remaining_psram / 3;
-    if (buffer_size > max_buffer_size) {
-        LOG_W("Buffer size limited by PSRAM: %dKB -> %dKB", buffer_size/1024, max_buffer_size/1024);
-        buffer_size = max_buffer_size;
-    }
-    
-    // 确保最小缓冲区大小
-    if (buffer_size < 1024) {
-        buffer_size = 1024;
-        LOG_W("Buffer size increased to minimum 1KB");
-    }
-    
-    LOG_W("Allocating %dKB char buffer for JSON serialization of %d records (adaptive allocation, remaining PSRAM: %.2fMB)", 
-          buffer_size/1024, sampled_count, remaining_psram/1024.0f/1024.0f);
-    
-    LOG_D("🔍 [PSRAM CHECKPOINT 4] Before temp_buffer allocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    // Allocate char buffer for JSON serialization (avoiding String class limitations)
-    char* temp_buffer = (char*)psramAllocator(buffer_size);
-    LOG_D("🔍 [PSRAM CHECKPOINT 5] After temp_buffer allocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    if (!temp_buffer) {
-        LOG_E("Failed to allocate %dKB buffer, trying smaller size...", buffer_size/1024);
-        
-        // Try smaller buffer if allocation fails
-        buffer_size = buffer_size / 2;
-        temp_buffer = (char*)psramAllocator(buffer_size);
-        if (!temp_buffer) {
-            LOG_E("Failed to allocate even %dKB buffer, aborting", buffer_size/1024);
-            request->send(500, "application/json", "{\"error\":\"Memory allocation failed for serialization buffer\"}");
-            return;
-        }
-        LOG_W("Successfully allocated smaller %dKB buffer", buffer_size/1024);
-    }
-    
-    // Serialize JSON to char buffer
-    LOG_W("Starting JSON serialization to char buffer...");
-    LOG_D("🔍 [PSRAM CHECKPOINT 6] Before JSON serialization: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    size_t json_size = serializeJson(root, temp_buffer, buffer_size);
-    LOG_D("🔍 [PSRAM CHECKPOINT 7] After JSON serialization: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     if (json_size == 0) {
-        LOG_E("JSON serialization to buffer failed - buffer too small or serialization error");
-        LOG_E("JSON document usage: %d bytes, buffer size: %d bytes", root.memoryUsage(), buffer_size);
-        
-        // Try debug serialization to understand the issue
-        String debug_json;
-        size_t debug_size = serializeJson(root, debug_json);
-        LOG_E("Debug serialization to String: size=%d, preview='%.100s'", debug_size, debug_json.c_str());
-        
-        psramDeallocator(temp_buffer);
-        
-        memory_history.update_learning_data(actual_history_size, sampled_count, buffer_size, 0);
-        
+        LOG_E("JSON serialization failed");
         request->send(500, "application/json", "{\"error\":\"JSON serialization failed\"}");
         return;
     }
     
-    // Check if serialization was truncated
-    if (json_size >= buffer_size - 1) {
-        LOG_W("JSON may be truncated - size %d reached buffer limit %d", json_size, buffer_size);
-    } else {
-        LOG_W("JSON serialization successful: size=%d bytes (%.1f%% of buffer)", 
-              json_size, (float)json_size * 100 / buffer_size);
-    }
-    
-    // Validate JSON format
-    if (json_size < 10 || temp_buffer[0] != '{' || temp_buffer[json_size-1] != '}') {
-        LOG_E("JSON validation failed - invalid format: size=%d, starts='%c', ends='%c'", 
-              json_size, temp_buffer[0], temp_buffer[json_size-1]);
-        
-        // Log first and last few characters for debugging
-        char first_10[11] = {0};
-        char last_10[11] = {0};
-        strncpy(first_10, temp_buffer, min(10, (int)json_size));
-        if (json_size > 10) {
-            strncpy(last_10, temp_buffer + json_size - 10, 10);
-        }
-        LOG_E("JSON first 10 chars: '%s', last 10 chars: '%s'", first_10, last_10);
-        
-        memory_history.update_learning_data(actual_history_size, sampled_count, buffer_size, 0);
-        
-        psramDeallocator(temp_buffer);
-        request->send(500, "application/json", "{\"error\":\"JSON format validation failed\"}");
-        return;
-    }
-    
-    // JSON document will be automatically cleaned up when it goes out of scope
-    LOG_W("JSON document will be automatically cleaned up, PSRAM free: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    LOG_D("🔍 [PSRAM CHECKPOINT 8] Before learning data update: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    
-    // Update learning data immediately after successful serialization
-    memory_history.update_learning_data(actual_history_size, sampled_count, buffer_size, json_size);
-    LOG_W("Memory learning updated: efficiency=%.1f%%, next prediction will be more accurate", 
-          memory_history.get_allocation_efficiency() * 100);
-    LOG_D("🔍 [PSRAM CHECKPOINT 9] After learning data update: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    
-    // Force JSON document cleanup by creating response in separate scope
-    String json_response;
-    json_response.reserve(json_size + 1);
-    LOG_D("🔍 [PSRAM CHECKPOINT 10] After String reserve: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    json_response = String(temp_buffer);
-    LOG_D("🔍 [PSRAM CHECKPOINT 11] After String copy: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    
-    // Cleanup temp_buffer immediately after copying to String
-    psramDeallocator(temp_buffer);
-    LOG_W("Temp buffer deallocated immediately, PSRAM free: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    LOG_D("🔍 [PSRAM CHECKPOINT 12] After temp_buffer deallocation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    
-    // Clear JSON document manually to force immediate cleanup
-    root.clear();
-    LOG_D("🔍 [PSRAM CHECKPOINT 13] After root.clear(): %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    root.shrinkToFit();
-    LOG_W("JSON document cleared and shrunk, PSRAM free: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    LOG_D("🔍 [PSRAM CHECKPOINT 14] After root.shrinkToFit(): %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    
-    // Create simple streaming response using String
-    LOG_D("🔍 [PSRAM CHECKPOINT 15] Before response creation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_response);
-    LOG_D("🔍 [PSRAM CHECKPOINT 16] After response creation: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
-    
-    // Set response headers
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_str);
     response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     response->addHeader("Pragma", "no-cache");
     response->addHeader("Expires", "0");
     response->addHeader("Access-Control-Allow-Origin", "*");
     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-    LOG_D("🔍 [PSRAM CHECKPOINT 17] Before request->send(): %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     request->send(response);
-    LOG_D("🔍 [PSRAM CHECKPOINT 18] After request->send(): %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
     
-    LOG_W("Response sent: %d bytes, history=%d, sampled=%d, interval=%d", 
-          json_size, actual_history_size, sampled_count, sample_interval);
-    LOG_W("Final PSRAM usage: %.2fMB free", ESP.getFreePsram()/1024.0f/1024.0f);
-    LOG_D("🔍 [PSRAM CHECKPOINT 19] Function exit: %.2fMB", ESP.getFreePsram()/1024.0f/1024.0f);
+    LOG_W("Response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d", 
+          json_size, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS);
 }
 static void get_status_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 512; // in bytes
