@@ -41,6 +41,13 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: transparent;
   border-radius: 12px 12px 0 0; // 匹配卡片的顶部圆角
+  overflow: hidden; // 防止内容溢出
+  
+  // 针对浏览器放大的响应式处理
+  @media (min-width: 1200px) and (max-width: 1400px) {
+    padding: 6px 12px; // 减少左右padding
+    gap: 8px; // 减少整体间距
+  }
 }
 
 .status-info {
@@ -70,19 +77,47 @@
 
 .control-actions {
   display: flex;
-  gap: 15px;
+  gap: 12px; // 减少间距以适应放大
   align-items: center;
+  flex: 1; // 占据剩余空间
+  min-width: 0; // 允许收缩
   
   // PC端：直接显示所有控件
   .dropdown-container {
-    display: contents; // PC端让容器"透明"，直接显示子元素
+    display: flex; // 改为flex布局而不是contents
+    gap: 8px; // 减少下拉框之间的间距
+    flex: 1; // 占据剩余空间
+    min-width: 0; // 允许收缩
+    max-width: calc(100% - 60px); // 为导出按钮预留空间
   }
+  
+  // 针对浏览器放大时的特殊处理
+  @media (min-width: 1200px) and (max-width: 1400px) {
+    gap: 8px; // 进一步减少间距
+    
+    .dropdown-container {
+      gap: 6px; // 进一步减少下拉框间距
+      max-width: calc(100% - 50px); // 为导出按钮预留更少空间
+    }
+  }
+  
+  // 更极端放大的处理
+  @media (min-width: 1000px) and (max-width: 1200px) {
+    gap: 6px;
+    
+    .dropdown-container {
+      gap: 4px;
+      max-width: calc(100% - 45px);
+    }
+  }
+}
   
   .time-selector, .sample-selector, .metrics-multiselect {
     height: 40px;
-    min-width: 160px; // 统一最小宽度
-    max-width: 200px; // 统一最大宽度
-    padding: 8px 16px;
+    flex: 1; // 使用flex自动分配宽度
+    min-width: 120px; // 减少最小宽度
+    max-width: 180px; // 减少最大宽度
+    padding: 8px 12px; // 减少左右padding
     font-size: 14px; // 统一字体大小
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -94,6 +129,25 @@
     box-sizing: border-box; // 统一盒模型
     display: flex; // 统一为flex布局
     align-items: center; // 垂直居中
+    white-space: nowrap; // 防止文本换行
+    overflow: hidden; // 隐藏溢出
+    text-overflow: ellipsis; // 文本溢出时显示省略号
+    
+    // 针对浏览器放大时的特殊处理
+    @media (min-width: 1200px) and (max-width: 1400px) {
+      min-width: 100px; // 进一步减少最小宽度
+      max-width: 150px; // 进一步减少最大宽度
+      padding: 6px 10px; // 减少padding
+      font-size: 13px; // 稍微减少字体
+    }
+    
+    // 更极端放大情况的处理
+    @media (min-width: 1000px) and (max-width: 1200px) {
+      min-width: 90px;
+      max-width: 130px;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
     
     &:hover {
       background: rgba(255, 255, 255, 0.12);
@@ -109,8 +163,7 @@
 
   // 多选下拉框特殊样式
   .metrics-multiselect {
-    min-width: 160px; // 与其他下拉框保持一致
-    max-width: 200px; // 与其他下拉框保持一致
+    // 继承flex设置，不需要重复定义尺寸
     
     // 深层覆盖 PrimeNG 多选框样式
     ::ng-deep {
@@ -133,16 +186,41 @@
           font-weight: 400 !important; // 统一字体粗细
           line-height: 1.2 !important; // 统一行高
           
+          // 针对浏览器放大时的响应式字体
+          @media (min-width: 1200px) and (max-width: 1400px) {
+            font-size: 13px !important;
+          }
+          
+          @media (min-width: 1000px) and (max-width: 1200px) {
+            font-size: 12px !important;
+          }
+          
           // 确保多选项显示文本的字体也一致
           .p-multiselect-token {
             font-size: 14px !important;
             font-weight: 400 !important;
+            
+            @media (min-width: 1200px) and (max-width: 1400px) {
+              font-size: 13px !important;
+            }
+            
+            @media (min-width: 1000px) and (max-width: 1200px) {
+              font-size: 12px !important;
+            }
           }
           
           // 确保占位符文本字体也一致  
           &.p-placeholder {
             font-size: 14px !important;
             font-weight: 400 !important;
+            
+            @media (min-width: 1200px) and (max-width: 1400px) {
+              font-size: 13px !important;
+            }
+            
+            @media (min-width: 1000px) and (max-width: 1200px) {
+              font-size: 12px !important;
+            }
           }
         }
         
@@ -167,13 +245,14 @@
         background: #2a2a2a;
         border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 8px;
-        max-height: none !important; // 移除最大高度限制
         z-index: 10000 !important; // 确保在所有元素之上
         position: absolute !important; // 使用绝对定位
+        min-width: 200px !important; // 确保最小宽度
         
-        // PC端优化
+        // PC端优化 - 显示更多选项
         @media (min-width: 769px) {
-          max-height: 400px !important; // PC端限制最大高度
+          max-height: 320px !important; // 增加最大高度显示更多选项
+          min-height: 120px !important; // 设置最小高度确保至少显示几个选项
           overflow-y: auto !important; // PC端添加滚动
         }
         
@@ -190,12 +269,10 @@
         }
         
         .p-multiselect-items {
-          max-height: none !important; // 移除最大高度限制
-          overflow: visible !important; // 移除滚动
-          
-          // PC端添加滚动
+          // PC端显示更多选项
           @media (min-width: 769px) {
-            max-height: 350px !important;
+            max-height: 280px !important; // 增加最大高度
+            min-height: 80px !important; // 确保最小高度
             overflow-y: auto !important;
           }
           
@@ -304,6 +381,7 @@
     height: 40px;
     width: 40px; // 设置为正方形按钮
     min-width: 40px;
+    flex-shrink: 0; // 防止按钮被压缩
     padding: 8px;
     font-size: 16px; // 稍微增大图标
     border-radius: 8px;
@@ -341,45 +419,47 @@
   
   // 移动端优化：调整布局
   @media (max-width: 768px) {
-    flex-direction: row; // 改为水平布局
-    gap: 6px;
-    width: 100%;
-    flex-wrap: wrap; // 允许换行
-    
-    // 创建下拉框容器，强制同行显示
-    .dropdown-container {
-      display: flex;
-      gap: 4px; // 减少间距
-      flex: 1; // 占据剩余空间
-      min-width: 0;
-    }
-    
-    .time-selector, .sample-selector, .metrics-multiselect {
-      flex: 1;
-      height: 32px; // 减少高度
-      font-size: 12px !important; // 统一移动端字体大小
-      font-weight: 400 !important; // 统一字体粗细
-      padding: 4px 6px; // 减少padding
-      min-width: 0; // 允许收缩
-    }
-    
-    .metrics-multiselect {
-      min-width: 0; // 移动端允许收缩
+    .control-actions {
+      flex-direction: row; // 改为水平布局
+      gap: 6px;
+      width: 100%;
+      flex-wrap: wrap; // 允许换行
       
-      ::ng-deep .p-multiselect .p-multiselect-label {
+      // 创建下拉框容器，强制同行显示
+      .dropdown-container {
+        display: flex;
+        gap: 4px; // 减少间距
+        flex: 1; // 占据剩余空间
+        min-width: 0;
+      }
+      
+      .time-selector, .sample-selector, .metrics-multiselect {
+        flex: 1;
+        height: 32px; // 减少高度
         font-size: 12px !important; // 统一移动端字体大小
         font-weight: 400 !important; // 统一字体粗细
-        padding: 0 2px;
+        padding: 4px 6px; // 减少padding
+        min-width: 0; // 允许收缩
       }
-    }
-    
-    .export-button {
-      width: 32px; // 减少尺寸
-      height: 32px;
-      font-size: 12px;
-      padding: 4px;
-      flex-shrink: 0; // 不允许收缩
-      margin-left: 4px; // 左边距
+      
+      .metrics-multiselect {
+        min-width: 0; // 移动端允许收缩
+        
+        ::ng-deep .p-multiselect .p-multiselect-label {
+          font-size: 12px !important; // 统一移动端字体大小
+          font-weight: 400 !important; // 统一字体粗细
+          padding: 0 2px;
+        }
+      }
+      
+      .export-button {
+        width: 32px; // 减少尺寸
+        height: 32px;
+        font-size: 12px;
+        padding: 4px;
+        flex-shrink: 0; // 不允许收缩
+        margin-left: 4px; // 左边距
+      }
     }
   }
   
@@ -410,7 +490,6 @@
       padding: 3px;
     }
   }
-}
 
 /* 导出按钮额外样式 */
 .export-button {
