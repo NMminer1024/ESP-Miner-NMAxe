@@ -385,16 +385,70 @@ static void get_status_history(AsyncWebServerRequest* request){
     root["userRequestedInterval"] = user_sample_interval;
     root["maxDataPoints"] = MAX_DATA_POINTS;
     
-    // Serialize and send response
+    // Serialize and validate JSON response with retry mechanism
     String json_str;
-    size_t json_size = serializeJson(root, json_str);
+    size_t json_size = 0;
+    bool json_valid = false;
+    int validation_attempts = 0;
+    const int MAX_VALIDATION_ATTEMPTS = 10;
     
-    if (json_size == 0) {
-        LOG_E("JSON serialization failed");
-        request->send(500, "application/json", "{\"error\":\"JSON serialization failed\"}");
-        return;
+    while (!json_valid && validation_attempts < MAX_VALIDATION_ATTEMPTS) {
+        validation_attempts++;
+        
+        // Clear previous attempt
+        json_str = "";
+        
+        // Serialize JSON
+        json_size = serializeJson(root, json_str);
+        
+        if (json_size == 0) {
+            LOG_E("JSON serialization failed on attempt %d", validation_attempts);
+            if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
+                request->send(500, "application/json", "{\"error\":\"JSON serialization failed after multiple attempts\"}");
+                return;
+            }
+            delay(10); // Small delay before retry
+            continue;
+        }
+        
+        // Validate by attempting to deserialize
+        DynamicJsonDocument validation_doc(json_size_max);
+        DeserializationError error = deserializeJson(validation_doc, json_str);
+        
+        if (error) {
+            LOG_E("JSON validation failed on attempt %d: %s", validation_attempts, error.c_str());
+            LOG_E("JSON validation failed, json_str length: %d", json_str.length());
+            LOG_E("JSON validation error context (first 200 chars): %.200s", json_str.c_str());
+            
+            if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
+                request->send(500, "application/json", "{\"error\":\"JSON validation failed after multiple attempts\"}");
+                return;
+            }
+            delay(10); // Small delay before retry
+            continue;
+        }
+        
+        // Additional validation: check key fields exist
+        if (!validation_doc.containsKey("timestamp") || 
+            !validation_doc.containsKey("labels") || 
+            !validation_doc.containsKey("statistics") ||
+            !validation_doc.containsKey("size")) {
+            LOG_E("JSON validation failed on attempt %d: missing required fields", validation_attempts);
+            
+            if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
+                request->send(500, "application/json", "{\"error\":\"JSON structure validation failed\"}");
+                return;
+            }
+            delay(10); // Small delay before retry
+            continue;
+        }
+        
+        // Validation successful
+        json_valid = true;
+        LOG_W("JSON validation successful on attempt %d, size: %d bytes", validation_attempts, json_size);
     }
     
+    // Send validated response
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_str);
     response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     response->addHeader("Pragma", "no-cache");
@@ -404,8 +458,8 @@ static void get_status_history(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
     
-    LOG_W("Response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d", 
-          json_size, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS);
+    LOG_W("Validated response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d, attempts=%d", 
+          json_size, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS, validation_attempts);
 }
 static void get_status_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 512; // in bytes
