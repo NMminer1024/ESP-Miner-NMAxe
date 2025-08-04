@@ -54,8 +54,10 @@ export class HrDistChartComponent implements OnInit {
 
     this.chartOptions = {
       animation: false,
-      maintainAspectRatio: false,
-      responsive: true,
+      maintainAspectRatio: false, // 禁用宽高比约束，让图表填满容器
+      responsive: true,           // 启用响应式，适应容器变化
+      aspectRatio: 0,            // 设置为0，完全忽略宽高比
+      resizeDelay: 50,           // 调整大小延迟
       interaction: {
         intersect: false,
         mode: 'index'
@@ -102,10 +104,10 @@ export class HrDistChartComponent implements OnInit {
       },
       layout: {
         padding: {
-          left: 5,
-          right: 5,
-          top: 5,
-          bottom: 70  // 大幅增加底部内边距确保横轴刻度完全显示
+          left: 8,    // 增加左边距确保Y轴标签显示
+          right: 8,   // 增加右边距确保图表平衡
+          top: 10,    // 适当顶部边距
+          bottom: 25  // 大幅减少底部边距，只保留X轴标签所需空间
         }
       },
       scales: {
@@ -115,14 +117,16 @@ export class HrDistChartComponent implements OnInit {
             text: 'Hashrate Range',
             color: textColor,
             font: {
-              size: 12
+              size: 11  // 减少字体大小
             }
           },
           ticks: {
             color: textColorSecondary,
             font: {
-              size: 11
-            }
+              size: 10  // 减少刻度字体大小
+            },
+            maxRotation: 45,  // 允许标签旋转以节省空间
+            minRotation: 0
           },
           grid: {
             color: surfaceBorder,
@@ -138,7 +142,7 @@ export class HrDistChartComponent implements OnInit {
             text: 'Percentage (%)',
             color: textColor,
             font: {
-              size: 12
+              size: 11  // 减少字体大小
             }
           },
           min: 0,
@@ -146,9 +150,10 @@ export class HrDistChartComponent implements OnInit {
           ticks: {
             color: textColorSecondary,
             font: {
-              size: 11
+              size: 10  // 减少刻度字体大小
             },
-            callback: (value: number) => `${value}%`
+            callback: (value: number) => `${value}%`,
+            stepSize: 20  // 设置刻度步长，减少Y轴标签数量
           },
           grid: {
             color: surfaceBorder,

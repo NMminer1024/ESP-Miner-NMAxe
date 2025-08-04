@@ -1,7 +1,7 @@
 .hr-dist-chart-container {
   background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
   border-radius: 10px;
-  padding: 15px; // 减少padding以匹配monitor组件
+  padding: 12px; // 减少padding给图表更多空间
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   border: 1px solid #404040;
   color: #ffffff;
@@ -23,9 +23,10 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 10px; // 减少margin以节省空间
+  margin-bottom: 8px; // 进一步减少margin给图表腾出更多空间
   flex-wrap: wrap;
   gap: 1rem;
+  flex-shrink: 0; // 防止header被压缩
 }
 
 .chart-title {
@@ -71,20 +72,32 @@
 
 .chart-wrapper {
   flex: 1;
-  min-height: 200px; // 减少高度以匹配monitor组件
-  max-height: 300px; // 添加最大高度限制
+  min-height: 280px; // 增加最小高度以更好填充空间
   width: 100%;
   position: relative; // 确保内部元素正确定位
   overflow: hidden; // 防止图表超出容器
+  display: flex; // 添加flex布局
+  flex-direction: column; // 垂直布局
   
-  // 简单的Chart.js继承容器尺寸
+  // PrimeNG Chart组件优化
   ::ng-deep .p-chart {
     width: 100% !important;
     height: 100% !important;
+    flex: 1; // 让图表占满父容器
     
     canvas {
+      width: 100% !important;
+      height: 100% !important;
       max-width: 100% !important;
       max-height: 100% !important;
+      display: block; // 确保Canvas正确显示
+    }
+    
+    // 确保PrimeNG内部div也占满空间
+    > div {
+      height: 100% !important;
+      width: 100% !important;
+      position: relative;
     }
   }
 }
@@ -197,6 +210,26 @@
 /* 暗色主题优化 */
 ::ng-deep .p-chart {
   background: transparent !important;
+  
+  // PC端专用优化
+  @media (min-width: 769px) {
+    min-height: 350px !important; // PC端确保图表有足够高度
+    
+    canvas {
+      min-height: 300px !important; // PC端Canvas最小高度
+    }
+  }
+}
+
+// PC端专用优化样式
+@media (min-width: 769px) {
+  .hr-dist-chart-container {
+    min-height: 400px; // PC端容器最小高度
+  }
+  
+  .chart-wrapper {
+    min-height: 320px; // PC端图表包装器最小高度
+  }
 }
 
 ::ng-deep .p-chart canvas {
