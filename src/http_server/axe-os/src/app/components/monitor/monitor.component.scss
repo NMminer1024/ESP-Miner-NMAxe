@@ -5,7 +5,45 @@
   background: transparent;
   box-sizing: border-box;
   min-width: 0; // 重要：允许容器收缩
-  overflow: visible; // 改为visible允许内容溢出
+  overflow: visible !important; // 改为visible允许内容溢出
+  position: relative; // 为dropdown提供定位上下文
+}
+
+// 全局修复：确保PrimeNG multiselect面板能正确显示
+::ng-deep {
+  .p-multiselect-panel {
+    z-index: 10000 !important;
+    position: absolute !important;
+    
+    // 确保在monitor组件中正确显示
+    &[data-pc-section="panel"] {
+      background: #2a2a2a !important;
+      border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+    }
+  }
+  
+  // 修复monitor卡片中的overflow问题
+  .monitor-container .card.modern-card {
+    overflow: visible !important;
+    
+    .top-controls {
+      overflow: visible !important;
+      
+      .dropdown-container {
+        overflow: visible !important;
+        
+        .metrics-multiselect {
+          overflow: visible !important;
+          
+          .p-multiselect {
+            overflow: visible !important;
+          }
+        }
+      }
+    }
+  }
 }
 
 /* 现代化卡片样式 - 与其他页面保持一致 */
@@ -19,6 +57,8 @@
   max-width: 100%;
   min-width: 0; // 允许卡片收缩
   box-sizing: border-box;
+  overflow: visible !important; // 确保dropdown面板可以显示
+  position: relative; // 为内部定位元素提供上下文
   
   &:hover {
     transform: translateY(-2px);
@@ -29,6 +69,7 @@
     padding: 0;
     background: transparent;
     min-width: 0; // 允许内容收缩
+    overflow: visible !important; // 确保内容可以溢出显示dropdown
   }
 }
 
@@ -41,7 +82,9 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: transparent;
   border-radius: 12px 12px 0 0; // 匹配卡片的顶部圆角
-  overflow: hidden; // 防止内容溢出
+  overflow: visible !important; // 改为visible允许dropdown正常显示
+  position: relative; // 确保作为定位上下文
+  z-index: 1; // 设置基础层级
   
   // 针对浏览器放大的响应式处理
   @media (min-width: 1200px) and (max-width: 1400px) {
@@ -89,6 +132,9 @@
     flex: 1; // 占据剩余空间
     min-width: 0; // 允许收缩
     max-width: calc(100% - 60px); // 为导出按钮预留空间
+    overflow: visible !important; // 确保dropdown面板可以正常显示
+    position: relative; // 为dropdown提供定位上下文
+    z-index: 10; // 设置基础层级，低于dropdown面板
   }
   
   // 针对浏览器放大时的特殊处理
@@ -242,18 +288,23 @@
       }
       
       .p-multiselect-panel {
-        background: #2a2a2a;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 8px;
+        background: #2a2a2a !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 8px !important;
         z-index: 10000 !important; // 确保在所有元素之上
         position: absolute !important; // 使用绝对定位
         min-width: 200px !important; // 确保最小宽度
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important; // 增强阴影效果
         
-        // PC端优化 - 显示更多选项
+        // PC端和平板端优化 - 显示更多选项
         @media (min-width: 769px) {
-          max-height: 320px !important; // 增加最大高度显示更多选项
-          min-height: 120px !important; // 设置最小高度确保至少显示几个选项
-          overflow-y: auto !important; // PC端添加滚动
+          max-height: 400px !important; // 增加最大高度显示更多选项
+          min-height: 150px !important; // 设置最小高度确保至少显示几个选项
+          overflow: visible !important; // 改为visible
+          top: 100% !important; // 确保在下拉框下方显示
+          left: 0 !important; // 左对齐
+          width: 100% !important; // 与父元素同宽
+          margin-top: 2px !important; // 小间距避免重叠
         }
         
         // 移动端特殊处理
