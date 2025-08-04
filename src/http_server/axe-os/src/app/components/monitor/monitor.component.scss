@@ -37,7 +37,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 20px; // 减少上下padding从15px到8px
+  padding: 6px 16px; // 减少上下padding给图表腾出更多空间
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: transparent;
   border-radius: 12px 12px 0 0; // 匹配卡片的顶部圆角
@@ -525,32 +525,41 @@
 
 /* 主图表容器 */
 .chart-container-main {
-  padding: 15px 20px; // 减少padding
+  padding: 8px 12px; // 减少 padding 给图表更多空间
   margin-top: 0;
-  height: calc(50vh - 140px); // 高度减少一半
-  min-height: 250px; // 最小高度也减少一半
+  height: calc(50vh - 120px); // 高度优化
+  min-height: 280px; // 确保足够的图表显示空间
   background: transparent;
   border-radius: 0 0 12px 12px; // 匹配卡片的底部圆角
+  position: relative; // 确保子元素的绝对定位正确
   
   .chart-canvas {
     width: 100% !important;
     height: 100% !important;
     max-height: none !important;
     background: transparent;
-    border-radius: 8px;
+    border-radius: 4px;
+    display: block; // 确保Canvas正确显示
+    
+    // 移动端特殊优化：确保图表完全填充容器
+    @media (max-width: 768px) {
+      border-radius: 2px; // 减少圆角以节省空间
+      margin: 0; // 移除任何可能的margin
+      padding: 0; // 移除任何可能的padding
+    }
   }
   
   // 移动端优化图表空间利用
   @media (max-width: 768px) {
-    padding: 4px 6px; // 进一步减少padding让图表更好填满卡片
-    height: calc(40vh - 80px); // 移动端进一步优化高度
-    min-height: 200px;
+    padding: 2px 4px; // 最小化 padding 让图表完全填满
+    height: calc(45vh - 90px); // 移动端优化高度，给图表更多空间
+    min-height: 220px; // 移动端最小高度
   }
   
   @media (max-width: 480px) {
-    padding: 2px 4px; // 最小化padding让图表完全填满
-    height: calc(35vh - 60px); // 小屏幕优化
-    min-height: 180px;
+    padding: 1px 2px; // 进一步最小化 padding
+    height: calc(40vh - 80px); // 小屏幕高度优化
+    min-height: 200px; // 小屏幕最小高度
   }
 }
 
@@ -611,9 +620,9 @@
   }
   
   .chart-container-main {
-    padding: 8px 10px; // 减少padding
-    height: calc(35vh - 80px); // 进一步减少高度
-    min-height: 180px; // 减少最小高度
+    padding: 2px 4px; // 最小化 padding 给图表更多空间
+    height: calc(45vh - 70px); // 移动端进一步优化高度，减少控制栏占用空间
+    min-height: 220px; // 确保图表有足够显示空间
   }
   
   .loading-container {
@@ -651,9 +660,9 @@
   }
   
   .chart-container-main {
-    padding: 6px 8px; // 进一步减少padding
-    height: calc(30vh - 60px); // 小屏幕进一步减少高度
-    min-height: 150px; // 进一步减少最小高度
+    padding: 1px 2px; // 进一步最小化 padding
+    height: calc(42vh - 60px); // 小屏幕高度优化，给图表更多垂直空间
+    min-height: 200px; // 确保最小可用空间
   }
   
   .loading-container {
@@ -674,7 +683,12 @@
 /* 超小屏幕优化 */
 @media (max-width: 360px) {
   .chart-container-main {
-    height: calc(100vh - 220px);
-    min-height: 300px;
+    height: calc(100vh - 200px); // 给图表更多垂直空间
+    min-height: 320px; // 确保图表有足够空间显示
+    padding: 0px 1px; // 进一步减少边距
+  }
+
+  .top-controls {
+    padding: 2px 4px; // 最小化控制栏空间占用
   }
 }

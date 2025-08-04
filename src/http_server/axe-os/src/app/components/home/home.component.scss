@@ -574,6 +574,33 @@ ng-template {
   // 移动端优化
   @media (max-width: 768px) {
     grid-template-columns: 1fr; // 移动端单列显示
-    gap: 15px;
+    gap: 12px; // 减少间距给图表腾出空间
+    
+    .chart-section {
+      app-monitor {
+        ::ng-deep .monitor-container {
+          .card.modern-card {
+            min-height: 350px; // 移动端适当减少最小高度，留出更多空间给图表
+            margin: 0; // 移除margin
+            padding: 0; // 确保无额外padding
+          }
+        }
+      }
+    }
+  }
+  
+  @media (max-width: 480px) {
+    gap: 8px; // 小屏幕进一步减少间距
+    
+    .chart-section {
+      app-monitor {
+        ::ng-deep .monitor-container {
+          .card.modern-card {
+            min-height: 320px; // 小屏幕进一步优化高度
+            border-radius: 8px; // 减少圆角
+          }
+        }
+      }
+    }
   }
 }

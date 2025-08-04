@@ -392,7 +392,7 @@ static void get_status_history(AsyncWebServerRequest* request){
     int validation_attempts = 0;
     const int MAX_VALIDATION_ATTEMPTS = 10;
     
-    while (!json_valid && validation_attempts < MAX_VALIDATION_ATTEMPTS) {
+    while (!json_valid && (validation_attempts < MAX_VALIDATION_ATTEMPTS)) {
         validation_attempts++;
         
         // Clear previous attempt

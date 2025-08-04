@@ -27,6 +27,58 @@
 
 
 /* You can add global styles to this file, and also import other style files */
+/* Chart.js Canvas 移动端优化 */
+canvas {
+    /* 确保 Canvas 元素在移动端正确渲染 */
+    display: block !important;
+    max-width: 100% !important;
+    height: auto !important;
+}
+
+/* Dashboard 图表卡片移动端特殊优化 */
+@media (max-width: 768px) {
+    .charts-grid {
+        .chart-section {
+            /* 确保图表区域最大化利用空间 */
+            app-monitor, app-hr-dist-chart {
+                display: block;
+                width: 100%;
+                overflow: hidden; /* 防止内容溢出 */
+                
+                /* 图表容器内边距最小化 */
+                .card.modern-card {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                }
+                
+                /* Canvas 特殊处理 */
+                canvas {
+                    width: 100% !important;
+                    height: 100% !important;
+                    object-fit: contain; /* 确保图表内容完整显示 */
+                }
+            }
+        }
+    }
+}
+
+/* 针对小屏幕的额外优化 */
+@media (max-width: 480px) {
+    .charts-grid {
+        margin-bottom: 10px; /* 减少底部间距 */
+        
+        .chart-section {
+            app-monitor, app-hr-dist-chart {
+                /* 进一步优化小屏幕显示 */
+                .card.modern-card {
+                    border-radius: 6px !important;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+                }
+            }
+        }
+    }
+}
+
 p-chart>div {
     position: relative;
     min-height: 40vh;
@@ -35,6 +87,15 @@ p-chart>div {
 .card {
     &.chart {
         padding: 10px;
+        
+        /* 移动端图表卡片padding优化 */
+        @media (max-width: 768px) {
+            padding: 4px;
+        }
+        
+        @media (max-width: 480px) {
+            padding: 2px;
+        }
     }
 }
 

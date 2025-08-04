@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { SystemService } from '../../services/system.service';
-import { Subscription, interval, timer, throwError } from 'rxjs';
-import { takeWhile, retryWhen, delay, take, mergeMap, catchError } from 'rxjs/operators';
+import { Subscription, interval, timer, throwError, fromEvent } from 'rxjs';
+import { takeWhile, retryWhen, delay, take, mergeMap, catchError, debounceTime } from 'rxjs/operators';
 import { Chart, ChartConfiguration, ChartData, ChartOptions, registerables, TimeScale } from 'chart.js';
 import 'chartjs-adapter-moment';
 
@@ -68,6 +68,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   private subscription: Subscription = new Subscription();
   private realTimeSubscription: Subscription = new Subscription();
   private countdownSubscription: Subscription = new Subscription();
+  private resizeSubscription: Subscription = new Subscription();
   private isComponentActive = true;
   
   // Adaptive realtime interval mapping based on sample resolution
@@ -137,6 +138,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         console.log('Canvas element found:', this.chartCanvas.nativeElement);
         this.initChart();
         this.loadHistoryData();
+        this.setupResizeListener(); // 添加窗口大小变化监听
       } else {
         console.error('Canvas ViewChild not available in AfterViewInit');
         // Retry
@@ -145,6 +147,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             console.log('Canvas found on retry');
             this.initChart();
             this.loadHistoryData();
+            this.setupResizeListener();
           } else {
             console.error('Canvas still not found after retry');
           }
@@ -158,6 +161,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subscription.unsubscribe();
     this.realTimeSubscription.unsubscribe();
     this.countdownSubscription.unsubscribe();
+    this.resizeSubscription.unsubscribe();
     this.stopRealTimeUpdates();
     if (this.chart) {
       this.chart.destroy();
@@ -288,7 +292,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     // 获取容器尺寸来设置Canvas
     const container = canvas.parentElement;
     const containerWidth = container?.clientWidth || 800;
-    const containerHeight = 400;
+    const containerHeight = container?.clientHeight || 400;
     
     console.log('Container dimensions:', {
       width: containerWidth,
@@ -296,24 +300,14 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       container: container
     });
     
-    // 强制设置Canvas尺寸 - 使用多种方法
-    canvas.width = containerWidth;
-    canvas.height = containerHeight;
-    canvas.style.width = containerWidth + 'px';
-    canvas.style.height = containerHeight + 'px';
-    canvas.setAttribute('width', containerWidth.toString());
-    canvas.setAttribute('height', containerHeight.toString());
+    // 设置Canvas样式尺寸，让Chart.js的响应式模式接管
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.maxWidth = '100%';
+    canvas.style.maxHeight = '100%';
+    canvas.style.display = 'block';
     
-    console.log('Canvas size set to:', {
-      width: canvas.width,
-      height: canvas.height,
-      styleWidth: canvas.style.width,
-      styleHeight: canvas.style.height,
-      attributes: {
-        width: canvas.getAttribute('width'),
-        height: canvas.getAttribute('height')
-      }
-    });
+    console.log('Canvas styles set for responsive mode');
 
     const config: ChartConfiguration = {
       type: 'line',
@@ -322,10 +316,10 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         datasets: []
       },
       options: {
-        responsive: false, // 禁用响应式模式
-        maintainAspectRatio: false,
-        resizeDelay: 0,
-        devicePixelRatio: 1, // 固定像素比例
+        responsive: true, // 启用响应式模式以适应容器变化
+        maintainAspectRatio: false, // 禁用宽高比约束，让图表填满容器
+        resizeDelay: 50, // 减少调整延迟
+        devicePixelRatio: window.devicePixelRatio || 1, // 使用设备像素比例
         scales: {
           x: {
             type: 'time', // 使用时间类型而不是linear
@@ -386,10 +380,10 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         layout: {
           padding: {
-            left: 5,
-            right: 5,
-            top: 5,
-            bottom: 5
+            left: 2,   // 最小化左边距
+            right: 2,  // 最小化右边距
+            top: 2,    // 最小化上边距
+            bottom: 2  // 最小化下边距
           }
         },
         interaction: {
@@ -432,6 +426,53 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     
     console.log('Chart initialization complete');
+  }
+
+  private setupResizeListener(): void {
+    // 添加窗口大小变化监听，适用于移动端屏幕旋转和桌面端窗口缩放
+    this.resizeSubscription.add(
+      fromEvent(window, 'resize').pipe(
+        debounceTime(200) // 防抖处理，避免频繁触发
+      ).subscribe(() => {
+        this.handleWindowResize();
+      })
+    );
+    
+    // 监听移动端方向变化
+    this.resizeSubscription.add(
+      fromEvent(window, 'orientationchange').subscribe(() => {
+        // 延迟处理，等待浏览器完成方向变化
+        setTimeout(() => {
+          this.handleWindowResize();
+        }, 300);
+      })
+    );
+  }
+
+  private handleWindowResize(): void {
+    if (!this.chart || !this.chartCanvas) {
+      return;
+    }
+
+    const canvas = this.chartCanvas.nativeElement;
+    const container = canvas.parentElement;
+    
+    if (!container) {
+      return;
+    }
+
+    // 强制重新计算容器尺寸
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    
+    console.log('Window resized, new container dimensions:', {
+      width: containerWidth,
+      height: containerHeight
+    });
+
+    // 重新调整图表大小
+    this.chart.resize(containerWidth, containerHeight);
+    this.chart.update('none'); // 立即更新，不使用动画
   }
 
   loadHistoryData(): void {
