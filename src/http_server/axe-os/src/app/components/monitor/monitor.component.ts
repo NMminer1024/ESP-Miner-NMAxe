@@ -1,9 +1,10 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, HostListener } from '@angular/core';
 import { SystemService } from '../../services/system.service';
 import { Subscription, interval, timer, throwError, fromEvent } from 'rxjs';
 import { takeWhile, retryWhen, delay, take, mergeMap, catchError, debounceTime } from 'rxjs/operators';
 import { Chart, ChartConfiguration, ChartData, ChartOptions, registerables, TimeScale } from 'chart.js';
 import 'chartjs-adapter-moment';
+import { SelectorConfig } from '../bottom-sheet-selector/bottom-sheet-selector.component';
 
 // 注册Chart.js组件
 Chart.register(...registerables);
@@ -71,6 +72,16 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   private resizeSubscription: Subscription = new Subscription();
   private isComponentActive = true;
   
+  // 移动端相关属性
+  isMobile = false;
+  showMobileSelector = false;
+  mobileMetricsConfig: SelectorConfig = {
+    title: 'Select Metrics',
+    type: 'multi',
+    options: [],
+    maxSelected: 8
+  };
+  
   // Adaptive realtime interval mapping based on sample resolution
   private realtimeIntervalMap = new Map<number, number>([
     [1, 5],   // High detail: update every 5 seconds for continuous display
@@ -123,6 +134,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     console.log('🚀 Monitor component ngOnInit called');
+    this.detectMobile(); // 检测移动端
+    this.setupMobileMetricsConfig(); // 设置移动端配置
     this.loadSavedState(); // 加载保存的状态
     this.initializeSelectedFields();
     this.loadSystemInfo();
@@ -1103,6 +1116,68 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.isComponentActive) {
       this.startRealTimeUpdates();
     }
+  }
+
+  // 移动端相关方法
+  @HostListener('window:resize', ['$event'])
+  onWindowResize(event: any) {
+    this.detectMobile();
+  }
+
+  private detectMobile(): void {
+    this.isMobile = window.innerWidth <= 768;
+    console.log('Mobile detection:', this.isMobile, 'Width:', window.innerWidth);
+  }
+
+  private setupMobileMetricsConfig(): void {
+    this.mobileMetricsConfig = {
+      title: 'Select Metrics',
+      type: 'multi',
+      options: this.fieldOptions.map(field => ({
+        value: field.value,
+        label: field.label,
+        selected: field.selected
+      })),
+      maxSelected: 8
+    };
+  }
+
+  showMobileMetricsSelector(): void {
+    this.showMobileSelector = true;
+  }
+
+  getMobileDisplayText(): string {
+    const selectedCount = this.selectedFields.length;
+    if (selectedCount === 0) {
+      return 'Select Metrics';
+    } else if (selectedCount === 1) {
+      const field = this.fieldOptions.find(f => f.value === this.selectedFields[0]);
+      return field ? field.label : 'Select Metrics';
+    } else {
+      return `${selectedCount} metrics selected`;
+    }
+  }
+
+  onMobileMetricsChange(selectedValues: string[]): void {
+    this.selectedFields = selectedValues;
+    
+    // 更新 fieldOptions 中的 selected 状态
+    this.fieldOptions.forEach(field => {
+      field.selected = this.selectedFields.includes(field.value);
+    });
+    
+    // 更新移动端配置
+    this.setupMobileMetricsConfig();
+    
+    // 刷新图表
+    this.onFieldSelectionChange();
+    
+    // 保存状态
+    this.saveState();
+  }
+
+  onMobileSelectorClose(): void {
+    this.showMobileSelector = false;
   }
 
 }

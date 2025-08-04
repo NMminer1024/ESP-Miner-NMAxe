@@ -32,7 +32,9 @@
             <option value="20">Low detail</option>
           </select>
 
+          <!-- 桌面端使用 PrimeNG MultiSelect -->
           <p-multiSelect 
+            *ngIf="!isMobile"
             [options]="fieldOptions" 
             [(ngModel)]="selectedFields"
             optionLabel="label"
@@ -48,6 +50,18 @@
             [filter]="false"
             [showHeader]="false">
           </p-multiSelect>
+
+          <!-- 移动端使用底部滑出选择器 -->
+          <button 
+            *ngIf="isMobile"
+            class="mobile-metrics-selector"
+            (click)="showMobileMetricsSelector()"
+            [class.has-selection]="selectedFields.length > 0">
+            <span class="selector-text">
+              {{ getMobileDisplayText() }}
+            </span>
+            <i class="pi pi-angle-down selector-icon"></i>
+          </button>
         </div>
         
         <button 
@@ -78,4 +92,13 @@
       </div>
     </div>
   </div>
+  
+  <!-- 移动端底部滑出指标选择器 -->
+  <app-bottom-sheet-selector
+    [(isVisible)]="showMobileSelector"
+    [config]="mobileMetricsConfig"
+    [selectedValues]="selectedFields"
+    (multiSelectionChange)="onMobileMetricsChange($event)"
+    (close)="onMobileSelectorClose()">
+  </app-bottom-sheet-selector>
 </div>

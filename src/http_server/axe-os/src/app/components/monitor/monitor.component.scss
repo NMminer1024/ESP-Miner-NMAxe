@@ -80,15 +80,20 @@
   
   .time-selector, .sample-selector, .metrics-multiselect {
     height: 40px;
-    min-width: 140px;
+    min-width: 160px; // 统一最小宽度
+    max-width: 200px; // 统一最大宽度
     padding: 8px 16px;
-    font-size: 15px; // 增大字体
+    font-size: 14px; // 统一字体大小
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background: rgba(255, 255, 255, 0.08);
     color: #ffffff;
     cursor: pointer;
     transition: all 0.3s ease;
+    font-weight: 400; // 统一字体粗细
+    box-sizing: border-box; // 统一盒模型
+    display: flex; // 统一为flex布局
+    align-items: center; // 垂直居中
     
     &:hover {
       background: rgba(255, 255, 255, 0.12);
@@ -104,7 +109,8 @@
 
   // 多选下拉框特殊样式
   .metrics-multiselect {
-    min-width: 180px;
+    min-width: 160px; // 与其他下拉框保持一致
+    max-width: 200px; // 与其他下拉框保持一致
     
     // 深层覆盖 PrimeNG 多选框样式
     ::ng-deep {
@@ -112,6 +118,8 @@
         background: transparent;
         border: none;
         height: 100%;
+        width: 100%; // 确保填满容器
+        box-sizing: border-box; // 统一盒模型
         
         .p-multiselect-label {
           background: transparent;
@@ -121,6 +129,21 @@
           height: 100%;
           display: flex;
           align-items: center;
+          font-size: 14px !important; // 强制统一字体大小
+          font-weight: 400 !important; // 统一字体粗细
+          line-height: 1.2 !important; // 统一行高
+          
+          // 确保多选项显示文本的字体也一致
+          .p-multiselect-token {
+            font-size: 14px !important;
+            font-weight: 400 !important;
+          }
+          
+          // 确保占位符文本字体也一致  
+          &.p-placeholder {
+            font-size: 14px !important;
+            font-weight: 400 !important;
+          }
         }
         
         .p-multiselect-trigger {
@@ -217,6 +240,66 @@
     }
   }
 
+  // 移动端指标选择器按钮
+  .mobile-metrics-selector {
+    height: 40px;
+    min-width: 160px;
+    padding: 8px 16px;
+    font-size: 14px; // 统一字体大小
+    font-weight: 400; // 统一字体粗细
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    &.has-selection {
+      border-color: #4caf50;
+      background: rgba(76, 175, 80, 0.1);
+      
+      .selector-text {
+        color: #4caf50;
+        font-weight: 500;
+      }
+    }
+    
+    .selector-text {
+      flex: 1;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .selector-icon {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      transition: transform 0.3s ease;
+    }
+    
+    &:hover .selector-icon {
+      transform: translateY(2px);
+      color: rgba(255, 255, 255, 0.9);
+    }
+  }
+
   .export-button {
     height: 40px;
     width: 40px; // 设置为正方形按钮
@@ -274,7 +357,8 @@
     .time-selector, .sample-selector, .metrics-multiselect {
       flex: 1;
       height: 32px; // 减少高度
-      font-size: 11px !important; // 减少字体以节省空间
+      font-size: 12px !important; // 统一移动端字体大小
+      font-weight: 400 !important; // 统一字体粗细
       padding: 4px 6px; // 减少padding
       min-width: 0; // 允许收缩
     }
@@ -283,7 +367,8 @@
       min-width: 0; // 移动端允许收缩
       
       ::ng-deep .p-multiselect .p-multiselect-label {
-        font-size: 11px; // 减少字体
+        font-size: 12px !important; // 统一移动端字体大小
+        font-weight: 400 !important; // 统一字体粗细
         padding: 0 2px;
       }
     }
@@ -304,14 +389,16 @@
     }
     
     .time-selector, .sample-selector, .metrics-multiselect {
-      font-size: 10px !important; // 进一步减少字体
+      font-size: 11px !important; // 统一超小屏幕字体大小  
+      font-weight: 400 !important; // 统一字体粗细
       padding: 3px 4px;
       height: 30px; // 进一步减少高度
     }
     
     .metrics-multiselect {
       ::ng-deep .p-multiselect .p-multiselect-label {
-        font-size: 10px;
+        font-size: 11px !important; // 统一超小屏幕字体大小
+        font-weight: 400 !important; // 统一字体粗细
         padding: 0 2px;
       }
     }

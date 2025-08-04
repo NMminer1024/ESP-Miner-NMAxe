@@ -1,0 +1,206 @@
+/* 移动端选择器触发按钮样式 */
+.mobile-selector-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  min-height: 44px;
+  min-width: 120px;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+  }
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    
+    &::before {
+      left: 100%;
+    }
+    
+    .trigger-icon {
+      transform: rotate(180deg);
+    }
+  }
+  
+  &:active {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  
+  &.has-selection {
+    border-color: var(--primary-color, #F80421);
+    background: rgba(var(--primary-color-rgb, 248, 4, 33), 0.15);
+    box-shadow: 0 0 0 1px rgba(var(--primary-color-rgb, 248, 4, 33), 0.3);
+  }
+}
+
+.trigger-text {
+  flex: 1;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 8px;
+  line-height: 1.4;
+}
+
+.trigger-icon {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 响应式改进 */
+@media (max-width: 480px) {
+  .mobile-selector-trigger {
+    padding: 10px 12px;
+    min-height: 40px;
+    border-radius: 10px;
+    
+    .trigger-text {
+      font-size: 13px;
+    }
+    
+    .trigger-icon {
+      font-size: 14px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+}
+
+@media (max-width: 360px) {
+  .mobile-selector-trigger {
+    padding: 8px 10px;
+    min-height: 36px;
+    border-radius: 8px;
+  }
+}
+
+/* 暗色主题优化 */
+.dark-theme {
+  .mobile-selector-trigger {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+  }
+}
+
+/* 亮色主题优化 */
+.light-theme {
+  .mobile-selector-trigger {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.15);
+    
+    .trigger-text {
+      color: #333333;
+    }
+    
+    .trigger-icon {
+      color: rgba(0, 0, 0, 0.7);
+    }
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.08);
+      border-color: rgba(0, 0, 0, 0.25);
+    }
+    
+    &.has-selection {
+      border-color: var(--primary-color, #F80421);
+      background: rgba(var(--primary-color-rgb, 248, 4, 33), 0.1);
+    }
+  }
+}
+
+/* 点击时图标旋转效果 */
+.mobile-selector-trigger:active .trigger-icon {
+  transform: rotate(180deg);
+}
+
+/* 适配不同屏幕尺寸 */
+@media (max-width: 480px) {
+  .mobile-selector-trigger {
+    padding: 10px 12px;
+    min-width: 100px;
+    
+    .trigger-text {
+      font-size: 13px;
+    }
+    
+    .trigger-icon {
+      font-size: 12px;
+    }
+  }
+}
+
+/* 适配主题 */
+.light-theme {
+  .mobile-selector-trigger {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.2);
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.08);
+      border-color: rgba(0, 0, 0, 0.3);
+    }
+    
+    &:active {
+      background: rgba(0, 0, 0, 0.12);
+    }
+    
+    .trigger-text {
+      color: #333333;
+    }
+    
+    .trigger-icon {
+      color: rgba(0, 0, 0, 0.7);
+    }
+  }
+}
+
+/* 禁用状态 */
+.mobile-selector-trigger.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 焦点状态 */
+.mobile-selector-trigger:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb, 248, 4, 33), 0.2);
+}

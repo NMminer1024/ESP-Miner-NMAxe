@@ -1,0 +1,96 @@
+<div class="bottom-sheet-overlay" 
+     [class.visible]="isVisible" 
+     [class.animating]="isAnimating"
+     (click)="onBackdropClick()"
+     *ngIf="isVisible"
+     role="dialog"
+     aria-modal="true"
+     [attr.aria-labelledby]="getTitleId()"
+     [style.position]="'fixed'"
+     [style.top]="'0'"
+     [style.left]="'0'"
+     [style.right]="'0'"
+     [style.bottom]="'0'"
+     [style.z-index]="'99999'">>
+  
+  <div class="bottom-sheet-content" 
+       (click)="$event.stopPropagation()"
+       tabindex="-1">
+    
+    <!-- 顶部把手 -->
+    <div class="bottom-sheet-handle" 
+         role="button"
+         aria-label="拖拽关闭选择器"
+         (click)="hide()"></div>
+    
+    <!-- 标题栏 -->
+    <div class="bottom-sheet-header">
+      <h3 class="bottom-sheet-title" 
+          [id]="getTitleId()">
+        {{ config.title }}
+      </h3>
+      <div class="bottom-sheet-info" 
+           *ngIf="config.type === 'multi' && config.maxSelected"
+           role="status"
+           aria-live="polite">
+        {{ selectedCount }}/{{ config.maxSelected }} selected
+      </div>
+    </div>
+    
+    <!-- 选项列表 -->
+    <div class="bottom-sheet-body" role="group" [attr.aria-label]="getAriaLabel()">
+      <div class="option-list">
+        <div class="option-item" 
+             *ngFor="let option of localOptions; trackBy: trackByValue"
+             [class.selected]="option.selected"
+             [class.disabled]="config.type === 'multi' && !option.selected && !canSelectMore"
+             (click)="onOptionClick(option)"
+             role="option"
+             [attr.aria-selected]="option.selected"
+             [attr.aria-disabled]="config.type === 'multi' && !option.selected && !canSelectMore"
+             tabindex="0"
+             (keydown.enter)="onOptionClick(option)"
+             (keydown.space)="onOptionClick(option)">
+          
+          <!-- 单选样式 -->
+          <div class="option-content" *ngIf="config.type === 'single'">
+            <span class="option-label">{{ option.label }}</span>
+            <div class="option-radio" 
+                 [class.checked]="option.selected"
+                 role="radio"
+                 [attr.aria-checked]="option.selected">
+              <div class="radio-dot" *ngIf="option.selected"></div>
+            </div>
+          </div>
+          
+          <!-- 多选样式 -->
+          <div class="option-content" *ngIf="config.type === 'multi'">
+            <span class="option-label">{{ option.label }}</span>
+            <div class="option-checkbox" 
+                 [class.checked]="option.selected"
+                 role="checkbox"
+                 [attr.aria-checked]="option.selected">
+              <i class="pi pi-check" *ngIf="option.selected"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 底部操作栏 (仅多选模式显示) -->
+    <div class="bottom-sheet-footer" *ngIf="config.type === 'multi'">
+      <button class="cancel-btn" 
+              (click)="hide()"
+              type="button"
+              aria-label="取消选择">
+        Cancel
+      </button>
+      <button class="confirm-btn" 
+              (click)="onConfirm()"
+              type="button"
+              aria-label="确认选择">
+        Confirm
+      </button>
+    </div>
+  </div>
+</div>
