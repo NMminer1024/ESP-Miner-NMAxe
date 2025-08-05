@@ -10,11 +10,11 @@
       <!-- 版本链条显示 -->
       <div class="version-chain-container" *ngIf="versionChain.length > 0">
         <div class="version-chain-header">
-          <span class="version-chain-title">Version Timeline</span>
-          <span class="behind-info" *ngIf="versionStatus === 'behind'">
+          <span class="version-chain-title behind-title" *ngIf="versionStatus === 'behind'">
             <i class="pi pi-info-circle"></i>
             {{ getVersionStatusInfo().description }}
           </span>
+          <span class="version-chain-title" *ngIf="versionStatus !== 'behind'">Version Timeline</span>
         </div>
         <div class="version-chain">
           <div *ngFor="let item of versionChain; let i = index" 
