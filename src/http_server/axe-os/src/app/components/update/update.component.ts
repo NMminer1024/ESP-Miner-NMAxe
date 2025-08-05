@@ -26,10 +26,12 @@ export class UpdateComponent implements OnInit {
   public hasUpdate: boolean = false;
   public versionStatus: 'behind' | 'current' | 'ahead' = 'current'; // 新增版本状态
   public recentReleases: any[] = []; // 最近的8个release版本
+  public allReleases: any[] = []; // 所有的release版本
   public versionChain: any[] = []; // 版本链条
   public currentPositionInChain: number = -1; // 当前版本在链条中的位置
   public selectedRelease: any = null; // 当前选中显示的release
   public isLatestSelected: boolean = true; // 是否选中的是最新版本
+  public isDevelopmentVersionSelected: boolean = false; // 是否选中的是开发版本
 
   constructor(
     private systemService: SystemService,
@@ -37,6 +39,8 @@ export class UpdateComponent implements OnInit {
     private githubUpdateService: GithubUpdateService
   ) {
     this.latestRelease$ = this.githubUpdateService.getReleases().pipe(map(releases => {
+      // 存储所有的release版本
+      this.allReleases = releases;
       // 获取最近的8个release版本
       this.recentReleases = releases.slice(0, 8);
       return releases[0];
@@ -242,8 +246,19 @@ export class UpdateComponent implements OnInit {
     // 清理版本号格式
     const cleanVersion = version.replace(/^v?/, '');
     
-    // 查找对应的release
-    const targetRelease = this.recentReleases.find(release => {
+    // 检查是否选择的是开发版本（当前版本且处于超前状态）
+    if (this.versionStatus === 'ahead' && this.currentInfo && cleanVersion === this.currentInfo.version.replace(/^(NMAxe-)?v?/, '')) {
+      this.isDevelopmentVersionSelected = true;
+      this.selectedRelease = null; // 开发版本没有对应的release
+      this.isLatestSelected = false;
+      return;
+    }
+    
+    // 重置开发版本标志
+    this.isDevelopmentVersionSelected = false;
+    
+    // 首先在所有releases中查找对应的release
+    const targetRelease = this.allReleases.find(release => {
       const releaseVersion = release.name.replace(/^(NMAxe-)?v?/, '');
       return releaseVersion === cleanVersion;
     });

@@ -320,6 +320,33 @@
           }
         }
         
+        .latest-current-indicator {
+          position: absolute !important;
+          top: -12px !important;
+          right: -12px !important;
+          background: linear-gradient(135deg, #4caf50, #2196f3) !important;
+          border: 2px solid #fff !important;
+          border-radius: 50% !important;
+          width: 28px !important;
+          height: 28px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          flex-direction: column !important;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+          
+          .pi {
+            font-size: 0.55rem !important;
+            color: white !important;
+            line-height: 1 !important;
+            margin: 0 !important;
+            
+            &:first-child {
+              margin-bottom: 1px !important;
+            }
+          }
+        }
+        
         .current-indicator {
           position: absolute !important;
           top: -8px !important;
@@ -1024,5 +1051,54 @@
     color: white !important;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
     z-index: 10 !important;
+  }
+}
+
+// 开发版本指示器的特殊样式
+.version-node .version-content .current-indicator.dev-version-indicator {
+  background: linear-gradient(135deg, #ff9800, #f57c00) !important;
+  box-shadow: 0 2px 6px rgba(255, 152, 0, 0.4) !important;
+  border: 2px solid #fff !important;
+  width: 24px !important;
+  height: 24px !important;
+  top: -10px !important;
+  right: -10px !important;
+  
+  .pi {
+    display: none !important; // 隐藏原来的地图标记图标
+  }
+  
+  &::before {
+    content: '🚧' !important;
+    position: absolute !important;
+    font-size: 0.8rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+// 开发版本卡片样式
+.development-version-card {
+  .coming-soon-text {
+    font-size: 3rem !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    color: #ff9800 !important;
+    margin: 2rem 0 !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  .development-description {
+    text-align: center !important;
+    color: #666 !important;
+    font-size: 1.1rem !important;
+    line-height: 1.6 !important;
+  }
+  
+  .development-content {
+    padding: 2rem !important;
   }
 }

@@ -40,9 +40,25 @@
             
             <!-- 当前版本 -->
             <div *ngIf="item.type === 'current'" class="version-content current-content" (click)="selectVersionInfo(item.version)">
-              <span class="version-text clickable-version" (click)="downloadVersionFiles(item.version); $event.stopPropagation()">v{{ item.version }}</span>
-              <small class="version-label">You are here now</small>
-              <div class="current-indicator">
+              
+              <!-- 开发版本：不可点击的版本号 -->
+              <span class="version-text" *ngIf="versionStatus === 'ahead'">v{{ item.version }}</span>
+              
+              <!-- 正常版本：可点击的版本号 -->
+              <span class="version-text clickable-version" *ngIf="versionStatus !== 'ahead'" (click)="downloadVersionFiles(item.version); $event.stopPropagation()">v{{ item.version }}</span>
+              
+              <!-- 当前版本为开发版本（超前）时的显示 -->
+              <small class="version-label" *ngIf="versionStatus === 'ahead'">
+                You are here now<br>
+                Under develop
+              </small>
+              
+              <!-- 当前版本为正常版本时的显示 -->
+              <small class="version-label" *ngIf="versionStatus !== 'ahead'">
+                You are here now
+              </small>
+              
+              <div class="current-indicator" [class.dev-version-indicator]="versionStatus === 'ahead'">
                 <i class="pi pi-map-marker"></i>
               </div>
             </div>
@@ -54,20 +70,41 @@
                  [class.current-content]="item.isCurrent"
                  (click)="selectVersionInfo(item.version)">
               <span class="version-text clickable-version" (click)="downloadVersionFiles(item.version); $event.stopPropagation()">v{{ item.version }}</span>
+              
+              <!-- 既是最新版本又是当前版本 -->
+              <small class="version-label" *ngIf="item.isLatest && item.isCurrent">
+                The Latest<br>
+                You are here now
+              </small>
+              
+              <!-- 仅是最新版本（非当前版本） -->
               <small class="version-label" *ngIf="item.isLatest && !item.isCurrent">
                 Latest Release<br>
                 <span class="release-date">{{ item.publishedAt | date:'MMM d, y' }}</span>
               </small>
-              <small class="version-label" *ngIf="item.isCurrent">
+              
+              <!-- 仅是当前版本（非最新版本） -->
+              <small class="version-label" *ngIf="!item.isLatest && item.isCurrent">
                 You are here now
               </small>
+              
+              <!-- 既不是最新版本也不是当前版本 -->
               <small class="version-label" *ngIf="!item.isLatest && !item.isCurrent">
                 {{ item.publishedAt | date:'MMM d, y' }}
               </small>
+              <!-- 既是最新版本又是当前版本的指示器 -->
+              <div *ngIf="item.isLatest && item.isCurrent" class="latest-current-indicator">
+                <i class="pi pi-star"></i>
+                <i class="pi pi-map-marker"></i>
+              </div>
+              
+              <!-- 仅是最新版本的指示器 -->
               <div *ngIf="item.isLatest && !item.isCurrent" class="latest-indicator">
                 <i class="pi pi-star"></i>
               </div>
-              <div *ngIf="item.isCurrent" class="current-indicator">
+              
+              <!-- 仅是当前版本的指示器 -->
+              <div *ngIf="!item.isLatest && item.isCurrent" class="current-indicator">
                 <i class="pi pi-map-marker"></i>
               </div>
             </div>
@@ -93,7 +130,27 @@
 </div>
 
 
-<div class="card modern-card release-info-card" *ngIf="selectedRelease">
+<!-- 开发版本的特殊显示 -->
+<div class="card modern-card release-info-card development-version-card" *ngIf="isDevelopmentVersionSelected">
+  <div class="card-header">
+    <div class="card-title-group">
+      <span class="card-icon">🚧</span>
+      <h2 class="card-title">Development Version</h2>
+    </div>
+  </div>
+  <div class="card-content">
+    <div class="development-content">
+      <div class="coming-soon-text">Coming Soon...</div>
+      <p class="development-description">
+        This is a development version that's ahead of the latest stable release. 
+        Release notes will be available when this version is officially published.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- 正常版本的release notes -->
+<div class="card modern-card release-info-card" *ngIf="selectedRelease && !isDevelopmentVersionSelected">
   <div class="card-header">
     <div class="card-title-group">
       <span class="card-icon">📋</span>
