@@ -189,41 +189,42 @@
       }
       
       &.current-content {
-        background: linear-gradient(135deg, #e8b84d, #d49c2e) !important;
-        border-color: rgba(232, 184, 77, 0.6) !important;
+        // TortoiseGit风格：当前版本使用深红色
+        background: linear-gradient(135deg, #CC0000, #990000) !important;
+        border-color: rgba(204, 0, 0, 0.6) !important;
         transform: scale(1.1) !important;
-        box-shadow: 0 4px 12px rgba(232, 184, 77, 0.25) !important;
+        box-shadow: 0 4px 12px rgba(204, 0, 0, 0.35) !important;
         
         &:hover {
-          background: linear-gradient(135deg, #f0c55d, #e6a63e) !important;
+          background: linear-gradient(135deg, #E60000, #CC0000) !important;
           transform: scale(1.15) translateY(-2px) !important;
-          box-shadow: 0 6px 16px rgba(232, 184, 77, 0.4) !important;
+          box-shadow: 0 6px 16px rgba(204, 0, 0, 0.5) !important;
         }
         
         .version-text {
           color: #fff !important;
           font-weight: 600 !important;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
         }
         
         .version-label {
           color: #fff !important;
           font-weight: 500 !important;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
         }
         
         .current-indicator {
           position: absolute !important;
           top: -8px !important;
           right: -8px !important;
-          background: linear-gradient(135deg, #2196f3, #1976d2) !important;
+          background: linear-gradient(135deg, #FF3333, #CC0000) !important;
           border-radius: 50% !important;
           width: 20px !important;
           height: 20px !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
-          box-shadow: 0 2px 6px rgba(33, 150, 243, 0.3) !important;
+          box-shadow: 0 2px 6px rgba(204, 0, 0, 0.4) !important;
           border: 2px solid #fff !important;
           
           .pi {
@@ -234,8 +235,15 @@
       }
       
       &.release-content {
+        // 普通版本使用灰色系
         background: rgba(200, 200, 200, 0.1) !important;
         border-color: rgba(200, 200, 200, 0.3) !important;
+        
+        &:hover {
+          background: rgba(200, 200, 200, 0.15) !important;
+          transform: translateY(-2px) !important;
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+        }
         
         .version-text {
           color: #ccc !important;
@@ -247,27 +255,28 @@
         
         // 当前版本在release中的特殊样式
         &.current-content {
-          background: linear-gradient(135deg, #e8b84d, #d49c2e) !important;
-          border-color: rgba(232, 184, 77, 0.6) !important;
+          // TortoiseGit风格：当前版本使用深红色
+          background: linear-gradient(135deg, #CC0000, #990000) !important;
+          border-color: rgba(204, 0, 0, 0.6) !important;
           transform: scale(1.1) !important;
-          box-shadow: 0 4px 12px rgba(232, 184, 77, 0.25) !important;
+          box-shadow: 0 4px 12px rgba(204, 0, 0, 0.35) !important;
           
           &:hover {
-            background: linear-gradient(135deg, #f0c55d, #e6a63e) !important;
+            background: linear-gradient(135deg, #E60000, #CC0000) !important;
             transform: scale(1.15) translateY(-2px) !important;
-            box-shadow: 0 6px 16px rgba(232, 184, 77, 0.4) !important;
+            box-shadow: 0 6px 16px rgba(204, 0, 0, 0.5) !important;
           }
           
           .version-text {
             color: #fff !important;
             font-weight: 600 !important;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
           }
           
           .version-label {
             color: #fff !important;
             font-weight: 500 !important;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
           }
         }
         

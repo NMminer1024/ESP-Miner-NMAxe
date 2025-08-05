@@ -158,8 +158,11 @@ export class UpdateComponent implements OnInit {
         // 顺序：省略号 → 当前版本 → 中间版本省略号 → 最近几个版本 → 最新版本
         this.versionChain = [
           { type: 'ellipsis', version: '...', isCurrent: false },
+          { type: 'gap', version: '→', isCurrent: false },
           { type: 'current', version: cleanCurrentVersion, isCurrent: true },
+          { type: 'gap', version: '→', isCurrent: false },
           { type: 'ellipsis', version: '...', isCurrent: false },
+          { type: 'gap', version: '→', isCurrent: false },
           // 显示最近4个版本
           ...this.recentReleases.slice(0, 4).reverse().map((release, index, array) => ({
             type: 'release',
@@ -195,8 +198,11 @@ export class UpdateComponent implements OnInit {
         // 顺序：省略号 → 当前版本 → 中间版本省略号 → 最近几个版本 → 最新版本
         this.versionChain = [
           { type: 'ellipsis', version: '...', isCurrent: false },
+          { type: 'gap', version: '→', isCurrent: false },
           { type: 'current', version: cleanCurrentVersion, isCurrent: true },
+          { type: 'gap', version: '→', isCurrent: false },
           { type: 'ellipsis', version: '...', isCurrent: false },
+          { type: 'gap', version: '→', isCurrent: false },
           // 显示最近4个版本
           ...this.recentReleases.slice(0, 4).reverse().map((release, index, array) => ({
             type: 'release',
