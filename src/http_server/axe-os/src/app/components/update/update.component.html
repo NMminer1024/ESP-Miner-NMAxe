@@ -40,7 +40,7 @@
             
             <!-- 当前版本 -->
             <div *ngIf="item.type === 'current'" class="version-content current-content">
-              <span class="version-text">v{{ item.version }}</span>
+              <span class="version-text clickable-version" (click)="downloadVersionFiles(item.version)">v{{ item.version }}</span>
               <small class="version-label">You are here now</small>
               <div class="current-indicator">
                 <i class="pi pi-map-marker"></i>
@@ -52,7 +52,7 @@
                  class="version-content release-content"
                  [class.latest-release]="item.isLatest"
                  [class.current-content]="item.isCurrent">
-              <span class="version-text">v{{ item.version }}</span>
+              <span class="version-text clickable-version" (click)="downloadVersionFiles(item.version)">v{{ item.version }}</span>
               <small class="version-label" *ngIf="item.isLatest && !item.isCurrent">
                 Latest Release<br>
                 <span class="release-date">{{ item.publishedAt | date:'MMM d, y' }}</span>
@@ -131,17 +131,6 @@
                       (uploadHandler)="otaUpdate($event)"
                       [auto]="true" chooseLabel="Browse Firmware"></p-fileUpload>
         <small class="file-hint">(firmware.bin)</small>
-        <div class="download-section" *ngIf="hasUpdate && latestRelease">
-          <div class="download-link-container" *ngFor="let asset of latestRelease.assets">
-            <a *ngIf="asset.name == 'firmware.bin'" 
-               class="download-link firmware-link"
-               target="_blank" [href]="asset.browser_download_url">
-              <span class="link-icon">📥</span>
-              <span class="link-text">Download firmware.bin</span>
-              <span class="link-arrow">↗</span>
-            </a>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -167,18 +156,6 @@
         <p-fileUpload [customUpload]="true" mode="basic" accept=".bin" (uploadHandler)="otaWWWUpdate($event)"
                       [auto]="true" chooseLabel="Browse Website"></p-fileUpload>
         <small class="file-hint">(spiffs.bin)</small>
-        
-        <div class="download-section" *ngIf="hasUpdate && latestRelease">
-          <div class="download-link-container" *ngFor="let asset of latestRelease.assets">
-            <a *ngIf="asset.name == 'spiffs.bin'" 
-               class="download-link spiffs-link"
-               target="_blank" [href]="asset.browser_download_url">
-              <span class="link-icon">🌐</span>
-              <span class="link-text">Download spiffs.bin</span>
-              <span class="link-arrow">↗</span>
-            </a>
-          </div>
-        </div>
       </div>
     </div>
   </div>

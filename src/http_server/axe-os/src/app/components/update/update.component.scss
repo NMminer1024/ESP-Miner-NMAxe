@@ -130,6 +130,18 @@
         font-weight: 600 !important;
         color: #ffffff !important;
         margin-bottom: 4px !important;
+        
+        &.clickable-version {
+          cursor: pointer !important;
+          transition: all 0.2s ease !important;
+          border-radius: 4px !important;
+          padding: 2px 4px !important;
+          
+          &:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            transform: scale(1.05) !important;
+          }
+        }
       }
       
       .version-label {
@@ -405,13 +417,6 @@
       }
     }
   }
-}
-
-/* 下载区域样式 */
-.download-section {
-  margin-top: 16px !important;
-  padding-top: 16px !important;
-  border-top: 1px solid #404040 !important;
 }
 
 /* Release Notes详细样式 - 使用标准Markdown解析 */
@@ -751,58 +756,6 @@
   border-radius: 6px;
   color: white;
   font-size: 13px;
-}
-
-/* 下载链接容器 */
-.download-link-container {
-  margin-top: 0.5rem;
-}
-
-.download-link {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 10px 12px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.05));
-  border-radius: 8px;
-  text-decoration: none;
-  color: white;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 14px;
-}
-
-.download-link:hover {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.1));
-  color: white;
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.download-link.firmware-link:hover {
-  border-color: #2196F3;
-  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
-}
-
-.download-link.spiffs-link:hover {
-  border-color: #4CAF50;
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
-}
-
-.link-icon {
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
-
-.link-text {
-  flex: 1;
-  font-weight: 500;
-}
-
-.link-arrow {
-  font-size: 1rem;
-  opacity: 0.7;
-  flex-shrink: 0;
 }
 
 /* 文件提示 */

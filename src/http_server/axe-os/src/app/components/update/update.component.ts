@@ -319,4 +319,72 @@ export class UpdateComponent implements OnInit {
         }
       });
   }
+
+  /**
+   * 下载指定版本的固件和网站文件
+   * @param version 版本号
+   */
+  downloadVersionFiles(version: string) {
+    // 清理版本号格式，确保匹配GitHub release格式
+    const cleanVersion = version.replace(/^v?/, '');
+    
+    // 在最近的releases中查找匹配的版本
+    const targetRelease = this.recentReleases.find(release => {
+      const releaseVersion = release.name.replace(/^(NMAxe-)?v?/, '');
+      return releaseVersion === cleanVersion;
+    });
+
+    if (!targetRelease) {
+      this.toastrService.warning(`Release for version ${version} not found`, 'Download Failed');
+      return;
+    }
+
+    // 查找firmware.bin和spiffs.bin文件
+    const firmwareAsset = targetRelease.assets?.find((asset: any) => asset.name === 'firmware.bin');
+    const spiffsAsset = targetRelease.assets?.find((asset: any) => asset.name === 'spiffs.bin');
+
+    let downloadCount = 0;
+    let totalDownloads = 0;
+
+    if (firmwareAsset) totalDownloads++;
+    if (spiffsAsset) totalDownloads++;
+
+    if (totalDownloads === 0) {
+      this.toastrService.error(`No downloadable files found for version ${version}`, 'Download Failed');
+      return;
+    }
+
+    // 下载firmware.bin
+    if (firmwareAsset) {
+      this.downloadFile(firmwareAsset.browser_download_url, firmwareAsset.name);
+      downloadCount++;
+    }
+
+    // 下载spiffs.bin
+    if (spiffsAsset) {
+      this.downloadFile(spiffsAsset.browser_download_url, spiffsAsset.name);
+      downloadCount++;
+    }
+
+    // 显示下载提示
+    this.toastrService.success(
+      `Downloading ${downloadCount} file${downloadCount > 1 ? 's' : ''} for version ${version}`, 
+      'Download Started'
+    );
+  }
+
+  /**
+   * 下载文件的辅助方法
+   * @param url 下载链接
+   * @param filename 文件名
+   */
+  private downloadFile(url: string, filename: string) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 }
