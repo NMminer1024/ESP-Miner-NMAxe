@@ -316,6 +316,19 @@
   padding: 20px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   border: 1px solid #404040;
+  // 确保内容不会溢出，特别是在iPhone Safari中
+  overflow: hidden;
+  box-sizing: border-box;
+  // 严格控制宽度，防止iPhone Safari溢出
+  width: 100%;
+  max-width: 100%;
+  
+  // iPhone Safari特殊处理
+  @supports (-webkit-touch-callout: none) and (not (translate: none)) {
+    padding: 16px; // iPhone上减少padding
+    // 使用contain属性进一步约束布局
+    contain: layout style size;
+  }
 
   h5 {
     color: #fff;
@@ -330,9 +343,35 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 25px;
+  // iPhone Safari网格布局优化
+  @supports (-webkit-touch-callout: none) and (not (translate: none)) {
+    // iPhone上使用更保守的minmax值
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  
+  // 手机端单列布局
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 
 .info-section {
+  // 确保每个信息区域不会溢出
+  overflow: hidden;
+  box-sizing: border-box;
+  // 严格控制宽度
+  width: 100%;
+  max-width: 100%;
+  
+  // iPhone Safari特殊优化
+  @supports (-webkit-touch-callout: none) and (not (translate: none)) {
+    // 使用更严格的约束
+    contain: layout style;
+    min-width: 0; // 允许flex项目收缩到0
+  }
+  
   h6 {
     color: #4CAF50;
     margin: 0 0 12px 0;
@@ -342,6 +381,15 @@
     letter-spacing: 1px;
     border-bottom: 1px solid #444;
     padding-bottom: 8px;
+    // 确保标题分割线不会超出
+    max-width: 100%;
+    box-sizing: border-box;
+    // iPhone Safari标题优化
+    @supports (-webkit-touch-callout: none) and (not (translate: none)) {
+      font-size: 13px;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+    }
   }
 }
 
@@ -371,6 +419,9 @@
 .info-table {
   width: 100%;
   border-collapse: collapse;
+  // 确保表格不会超出父容器，特别是在iPhone Safari中
+  box-sizing: border-box;
+  table-layout: fixed; // 强制固定表格布局，防止内容溢出
 
   tr {
     border-bottom: 1px dashed #444;
@@ -384,16 +435,94 @@
     padding: 8px 0;
     font-size: 14px;
     line-height: 1.4;
+    // 确保单元格内容不会超出
+    box-sizing: border-box;
+    overflow: hidden;
+    vertical-align: top;
 
     &.label {
       color: #aaa;
       width: 40%;
       font-weight: 500;
+      // 限制标签列的宽度，防止在小屏幕上溢出
+      max-width: 40%;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      padding-right: 8px; // 添加右边距防止文字紧贴
     }
 
     &.value {
       color: #fff;
-      word-break: break-all;
+      width: 60%;
+      max-width: 60%;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
+      // iPhone Safari特殊处理
+      word-wrap: break-word;
+      -webkit-hyphens: auto;
+    }
+  }
+  
+  // iPhone Safari 特殊修复 - 更精确的检测
+  @supports (-webkit-touch-callout: none) and (not (translate: none)) {
+    // 这个检测更精确地识别iPhone Safari
+    margin: 0 -2px; // 轻微收缩表格宽度
+    
+    tr {
+      border-bottom: none;
+      position: relative;
+      
+      &:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 2px;
+        right: 2px;
+        height: 1px;
+        background: repeating-linear-gradient(
+          to right,
+          #444 0,
+          #444 4px,
+          transparent 4px,
+          transparent 8px
+        );
+        // 确保伪元素不会超出父容器
+        max-width: calc(100% - 4px);
+        box-sizing: border-box;
+      }
+    }
+    
+    td {
+      padding: 8px 4px; // 减少iPhone上的padding
+      
+      &.label {
+        padding-right: 6px;
+        font-size: 13px; // iPhone上稍微减少字体
+      }
+      
+      &.value {
+        padding-left: 6px;
+        font-size: 13px; // iPhone上稍微减少字体
+      }
+    }
+  }
+  
+  // 手机端通用优化
+  @media (max-width: 480px) {
+    td {
+      padding: 6px 2px;
+      font-size: 12px;
+      
+      &.label {
+        padding-right: 4px;
+        max-width: 35%; // 手机端进一步减少标签列宽度
+      }
+      
+      &.value {
+        padding-left: 4px;
+        max-width: 65%; // 相应增加值列宽度
+      }
     }
   }
 }
