@@ -25,9 +25,11 @@ export class UpdateComponent implements OnInit {
   public currentInfo: any = null;
   public hasUpdate: boolean = false;
   public versionStatus: 'behind' | 'current' | 'ahead' = 'current'; // 新增版本状态
-  public recentReleases: any[] = []; // 最近的5个release版本
+  public recentReleases: any[] = []; // 最近的8个release版本
   public versionChain: any[] = []; // 版本链条
   public currentPositionInChain: number = -1; // 当前版本在链条中的位置
+  public selectedRelease: any = null; // 当前选中显示的release
+  public isLatestSelected: boolean = true; // 是否选中的是最新版本
 
   constructor(
     private systemService: SystemService,
@@ -48,6 +50,7 @@ export class UpdateComponent implements OnInit {
     this.latestRelease$.subscribe({
       next: (release) => {
         this.latestRelease = release;
+        this.selectedRelease = release; // 默认显示最新版本
         this.checkForUpdates();
       },
       error: (err) => {
@@ -159,7 +162,8 @@ export class UpdateComponent implements OnInit {
             version: release.name.replace(/^(NMAxe-)?v?/, ''),
             isCurrent: false,
             isLatest: index === array.length - 1, // 最后一个（最新的）
-            publishedAt: release.published_at
+            publishedAt: release.published_at,
+            releaseData: release
           }))
         ];
       } else if (this.versionStatus === 'ahead') {
@@ -172,7 +176,8 @@ export class UpdateComponent implements OnInit {
             version: release.name.replace(/^(NMAxe-)?v?/, ''),
             isCurrent: false,
             isLatest: index === array.length - 1, // 最后一个（最新的）
-            publishedAt: release.published_at
+            publishedAt: release.published_at,
+            releaseData: release
           })),
           { type: 'gap', version: '→', isCurrent: false },
           { type: 'current', version: cleanCurrentVersion, isCurrent: true },
@@ -188,7 +193,8 @@ export class UpdateComponent implements OnInit {
         isCurrent: index === (array.length - 1 - currentIndex), // 调整索引
         isLatest: index === array.length - 1, // 最后一个是最新版本
         publishedAt: release.published_at,
-        behindCount: currentIndex - (array.length - 1 - index)
+        behindCount: currentIndex - (array.length - 1 - index),
+        releaseData: release
       }));
     }
   }
@@ -229,6 +235,30 @@ export class UpdateComponent implements OnInit {
   }
 
   /**
+   * 选择并显示特定版本的信息
+   * @param version 版本号
+   */
+  public selectVersionInfo(version: string) {
+    // 清理版本号格式
+    const cleanVersion = version.replace(/^v?/, '');
+    
+    // 查找对应的release
+    const targetRelease = this.recentReleases.find(release => {
+      const releaseVersion = release.name.replace(/^(NMAxe-)?v?/, '');
+      return releaseVersion === cleanVersion;
+    });
+
+    if (targetRelease) {
+      this.selectedRelease = targetRelease;
+      this.isLatestSelected = targetRelease === this.latestRelease;
+    } else {
+      // 如果没找到，保持显示最新版本
+      this.selectedRelease = this.latestRelease;
+      this.isLatestSelected = true;
+    }
+  }
+
+  /**
    * 格式化Release Notes
    */
   public formatReleaseNotes(body: string): string {
@@ -250,6 +280,118 @@ export class UpdateComponent implements OnInit {
       .replace(/<h3>/g, '<h3 class="release-title">')
       .replace(/<h2>/g, '<h2 class="release-title">')
       .replace(/<h1>/g, '<h1 class="release-title">');
+  }
+
+  /**
+   * 下载指定版本的固件和网站文件
+   * @param version 版本号
+   */
+  downloadVersionFiles(version: string) {
+    // 清理版本号格式，确保匹配GitHub release格式
+    const cleanVersion = version.replace(/^v?/, '');
+    
+    console.log('Downloading files for version:', cleanVersion);
+    console.log('Available releases:', this.recentReleases.map(r => r.name));
+    
+    // 在最近的releases中查找匹配的版本
+    const targetRelease = this.recentReleases.find(release => {
+      const releaseVersion = release.name.replace(/^(NMAxe-)?v?/, '');
+      console.log(`Comparing ${releaseVersion} with ${cleanVersion}`);
+      return releaseVersion === cleanVersion;
+    });
+
+    if (!targetRelease) {
+      // 如果在最近的releases中没找到，尝试使用当前最新版本（可能是当前版本）
+      console.warn(`Version ${cleanVersion} not found in recent releases, trying latest release`);
+      const fallbackRelease = this.latestRelease;
+      if (fallbackRelease) {
+        this.downloadReleaseFiles(fallbackRelease, version);
+      } else {
+        this.toastrService.warning(`Release for version ${version} not found`, 'Download Failed');
+      }
+      return;
+    }
+
+    this.downloadReleaseFiles(targetRelease, version);
+  }
+
+  /**
+   * 下载指定release的文件
+   * @param release Release对象
+   * @param version 显示用的版本号
+   */
+  private downloadReleaseFiles(release: any, version: string) {
+    console.log('Release assets:', release.assets);
+    
+    // 查找firmware.bin和spiffs.bin文件
+    const firmwareAsset = release.assets?.find((asset: any) => asset.name === 'firmware.bin');
+    const spiffsAsset = release.assets?.find((asset: any) => asset.name === 'spiffs.bin');
+
+    console.log('Firmware asset:', firmwareAsset);
+    console.log('SPIFFS asset:', spiffsAsset);
+
+    let downloadCount = 0;
+    let totalDownloads = 0;
+
+    if (firmwareAsset) totalDownloads++;
+    if (spiffsAsset) totalDownloads++;
+
+    if (totalDownloads === 0) {
+      this.toastrService.error(`No downloadable files found for version ${version}`, 'Download Failed');
+      return;
+    }
+
+    // 下载firmware.bin
+    if (firmwareAsset) {
+      // 使用延迟函数而不是字符串形式避免CSP问题
+      setTimeout(() => {
+        this.downloadFile(firmwareAsset.browser_download_url, firmwareAsset.name);
+        console.log('Started download for firmware.bin');
+      }, 200);
+      downloadCount++;
+    }
+
+    // 下载spiffs.bin - 添加更大延迟确保两个文件都能下载
+    if (spiffsAsset) {
+      setTimeout(() => {
+        this.downloadFile(spiffsAsset.browser_download_url, spiffsAsset.name);
+        console.log('Started download for spiffs.bin');
+      }, 1500); // 增加到1.5秒延迟
+      downloadCount++;
+    }
+
+    // 显示下载提示
+    this.toastrService.success(
+      `Downloading ${downloadCount} file${downloadCount > 1 ? 's' : ''} for version ${version}`, 
+      'Download Started'
+    );
+  }
+
+  /**
+   * 下载文件的辅助方法
+   * @param url 下载链接
+   * @param filename 文件名
+   */
+  private downloadFile(url: string, filename: string) {
+    // 使用更简单直接的下载方法，避免CSP问题
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.target = '_blank';
+    // 添加随机参数避免缓存
+    const downloadUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+    link.href = downloadUrl;
+    
+    // 设置样式确保不可见
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    
+    // 触发下载
+    link.click();
+    
+    // 立即移除链接
+    document.body.removeChild(link);
+    console.log(`Download triggered for ${filename}: ${downloadUrl}`);
   }
 
   otaUpdate(event: FileUploadHandlerEvent) {
@@ -318,73 +460,5 @@ export class UpdateComponent implements OnInit {
           this.otaFileUploader.clear();
         }
       });
-  }
-
-  /**
-   * 下载指定版本的固件和网站文件
-   * @param version 版本号
-   */
-  downloadVersionFiles(version: string) {
-    // 清理版本号格式，确保匹配GitHub release格式
-    const cleanVersion = version.replace(/^v?/, '');
-    
-    // 在最近的releases中查找匹配的版本
-    const targetRelease = this.recentReleases.find(release => {
-      const releaseVersion = release.name.replace(/^(NMAxe-)?v?/, '');
-      return releaseVersion === cleanVersion;
-    });
-
-    if (!targetRelease) {
-      this.toastrService.warning(`Release for version ${version} not found`, 'Download Failed');
-      return;
-    }
-
-    // 查找firmware.bin和spiffs.bin文件
-    const firmwareAsset = targetRelease.assets?.find((asset: any) => asset.name === 'firmware.bin');
-    const spiffsAsset = targetRelease.assets?.find((asset: any) => asset.name === 'spiffs.bin');
-
-    let downloadCount = 0;
-    let totalDownloads = 0;
-
-    if (firmwareAsset) totalDownloads++;
-    if (spiffsAsset) totalDownloads++;
-
-    if (totalDownloads === 0) {
-      this.toastrService.error(`No downloadable files found for version ${version}`, 'Download Failed');
-      return;
-    }
-
-    // 下载firmware.bin
-    if (firmwareAsset) {
-      this.downloadFile(firmwareAsset.browser_download_url, firmwareAsset.name);
-      downloadCount++;
-    }
-
-    // 下载spiffs.bin
-    if (spiffsAsset) {
-      this.downloadFile(spiffsAsset.browser_download_url, spiffsAsset.name);
-      downloadCount++;
-    }
-
-    // 显示下载提示
-    this.toastrService.success(
-      `Downloading ${downloadCount} file${downloadCount > 1 ? 's' : ''} for version ${version}`, 
-      'Download Started'
-    );
-  }
-
-  /**
-   * 下载文件的辅助方法
-   * @param url 下载链接
-   * @param filename 文件名
-   */
-  private downloadFile(url: string, filename: string) {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   }
 }

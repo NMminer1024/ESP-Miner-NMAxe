@@ -39,8 +39,8 @@
             </div>
             
             <!-- 当前版本 -->
-            <div *ngIf="item.type === 'current'" class="version-content current-content">
-              <span class="version-text clickable-version" (click)="downloadVersionFiles(item.version)">v{{ item.version }}</span>
+            <div *ngIf="item.type === 'current'" class="version-content current-content" (click)="selectVersionInfo(item.version)">
+              <span class="version-text clickable-version" (click)="downloadVersionFiles(item.version); $event.stopPropagation()">v{{ item.version }}</span>
               <small class="version-label">You are here now</small>
               <div class="current-indicator">
                 <i class="pi pi-map-marker"></i>
@@ -51,8 +51,9 @@
             <div *ngIf="item.type === 'release'" 
                  class="version-content release-content"
                  [class.latest-release]="item.isLatest"
-                 [class.current-content]="item.isCurrent">
-              <span class="version-text clickable-version" (click)="downloadVersionFiles(item.version)">v{{ item.version }}</span>
+                 [class.current-content]="item.isCurrent"
+                 (click)="selectVersionInfo(item.version)">
+              <span class="version-text clickable-version" (click)="downloadVersionFiles(item.version); $event.stopPropagation()">v{{ item.version }}</span>
               <small class="version-label" *ngIf="item.isLatest && !item.isCurrent">
                 Latest Release<br>
                 <span class="release-date">{{ item.publishedAt | date:'MMM d, y' }}</span>
@@ -92,19 +93,20 @@
 </div>
 
 
-<div class="card modern-card release-info-card" *ngIf="latestRelease">
+<div class="card modern-card release-info-card" *ngIf="selectedRelease">
   <div class="card-header">
     <div class="card-title-group">
       <span class="card-icon">📋</span>
-      <h2 class="card-title">What's New in {{ latestRelease.name.slice(6) }}?</h2>
+      <h2 class="card-title" *ngIf="isLatestSelected">What's New in {{ selectedRelease.name.slice(6) }}?</h2>
+      <h2 class="card-title" *ngIf="!isLatestSelected">What's Changed in {{ selectedRelease.name.slice(6) }}?</h2>
     </div>
   </div>
   <div class="card-content">
     <div class="release-meta">
-      <span class="release-date">Released: {{ latestRelease.published_at | date:'medium' }}</span>
-      <span class="release-author">by {{ latestRelease.author.login }}</span>
+      <span class="release-date">Released: {{ selectedRelease.published_at | date:'medium' }}</span>
+      <span class="release-author">by {{ selectedRelease.author.login }}</span>
     </div>
-    <div class="release-description" [innerHTML]="formatReleaseNotes(latestRelease.body)"></div>
+    <div class="release-description" [innerHTML]="formatReleaseNotes(selectedRelease.body)"></div>
   </div>
 </div>
 

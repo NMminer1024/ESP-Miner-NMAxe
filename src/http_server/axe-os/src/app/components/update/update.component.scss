@@ -56,11 +56,11 @@
       border-radius: 6px !important;
       border-left: 3px solid #ff6b6b !important;
       text-transform: none !important;
-      font-size: 0.8rem !important;
+      font-size: 1.0rem !important; // 从0.8rem增大到1.0rem
       
       .pi {
         color: #ff6b6b !important;
-        font-size: 0.9rem !important;
+        font-size: 1.1rem !important; // 从0.9rem增大到1.1rem
       }
     }
   }
@@ -68,6 +68,8 @@
   // 版本链条样式
   .version-chain-container {
     margin-top: 20px !important;
+    padding: 8px 0 12px 0 !important; // 增加底部padding给阴影效果更多空间
+    overflow: visible !important; // 确保变换效果不被截断
   }
 
   .version-chain-title {
@@ -84,7 +86,8 @@
     align-items: center !important;
     gap: 8px !important;
     overflow-x: auto !important;
-    padding: 8px 0 !important;
+    overflow-y: visible !important; // 允许Y轴溢出，确保阴影和变换效果不被截断
+    padding: 12px 0 24px 0 !important; // 增加底部padding到24px给最大阴影留足够空间
     
     // 滚动条样式
     &::-webkit-scrollbar {
@@ -111,6 +114,7 @@
     display: flex !important;
     align-items: center !important;
     flex-shrink: 0 !important;
+    margin: 4px 2px 8px 2px !important; // 增加底部外边距给阴影更多空间
     
     .version-content {
       display: flex !important;
@@ -124,9 +128,16 @@
       transition: all 0.3s ease !important;
       position: relative !important;
       min-width: 80px !important;
+      cursor: pointer !important;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+      }
       
       .version-text {
-        font-size: 0.9rem !important;
+        font-size: 1.3rem !important; // 从1.1rem增大到1.3rem
         font-weight: 600 !important;
         color: #ffffff !important;
         margin-bottom: 4px !important;
@@ -136,16 +147,20 @@
           transition: all 0.2s ease !important;
           border-radius: 4px !important;
           padding: 2px 4px !important;
+          text-decoration: underline !important;
+          text-decoration-color: rgba(255, 255, 255, 0.5) !important;
+          text-underline-offset: 2px !important;
           
           &:hover {
             background: rgba(255, 255, 255, 0.1) !important;
             transform: scale(1.05) !important;
+            text-decoration-color: rgba(255, 255, 255, 0.8) !important;
           }
         }
       }
       
       .version-label {
-        font-size: 0.7rem !important;
+        font-size: 0.85rem !important; // 从0.8rem增大到0.85rem
         color: #aaa !important;
         font-weight: 400 !important;
       }
@@ -156,7 +171,7 @@
         border-color: rgba(158, 158, 158, 0.3) !important;
         
         .version-text {
-          font-size: 1.2rem !important;
+          font-size: 1.6rem !important; // 从1.4rem增大到1.6rem
           color: #888 !important;
         }
       }
@@ -168,7 +183,7 @@
         min-width: auto !important;
         
         .version-text {
-          font-size: 1rem !important;
+          font-size: 1.4rem !important; // 从1.2rem增大到1.4rem
           color: #666 !important;
         }
       }
@@ -178,6 +193,12 @@
         border-color: rgba(232, 184, 77, 0.6) !important;
         transform: scale(1.1) !important;
         box-shadow: 0 4px 12px rgba(232, 184, 77, 0.25) !important;
+        
+        &:hover {
+          background: linear-gradient(135deg, #f0c55d, #e6a63e) !important;
+          transform: scale(1.15) translateY(-2px) !important;
+          box-shadow: 0 6px 16px rgba(232, 184, 77, 0.4) !important;
+        }
         
         .version-text {
           color: #fff !important;
@@ -231,6 +252,12 @@
           transform: scale(1.1) !important;
           box-shadow: 0 4px 12px rgba(232, 184, 77, 0.25) !important;
           
+          &:hover {
+            background: linear-gradient(135deg, #f0c55d, #e6a63e) !important;
+            transform: scale(1.15) translateY(-2px) !important;
+            box-shadow: 0 6px 16px rgba(232, 184, 77, 0.4) !important;
+          }
+          
           .version-text {
             color: #fff !important;
             font-weight: 600 !important;
@@ -251,6 +278,12 @@
           transform: scale(1.05) !important;
           box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
           
+          &:hover {
+            background: rgba(76, 175, 80, 0.3) !important;
+            transform: scale(1.1) translateY(-2px) !important;
+            box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4) !important;
+          }
+          
           .version-text {
             color: #4caf50 !important;
             font-weight: 700 !important;
@@ -260,7 +293,7 @@
             color: #4caf50 !important;
             
             .release-date {
-              font-size: 0.6rem !important;
+              font-size: 0.65rem !important;
               color: #66bb6a !important;
               font-weight: 400 !important;
               display: block !important;
@@ -371,7 +404,7 @@
       text-align: center !important;
       
       .version-chain-title.behind-title {
-        font-size: 0.75rem !important;
+        font-size: 0.9rem !important; // 从0.75rem增大到0.9rem
         padding: 6px 10px !important;
       }
     }
@@ -409,11 +442,11 @@
       padding: 6px 8px !important;
       
       .version-text {
-        font-size: 0.8rem !important;
+        font-size: 1.15rem !important; // 从1rem增大到1.15rem
       }
       
       .version-label {
-        font-size: 0.65rem !important;
+        font-size: 0.8rem !important; // 从0.75rem增大到0.8rem
       }
     }
   }
