@@ -224,7 +224,7 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     request->send(200, "application/json", json_str);
 }
 static void get_status_history(AsyncWebServerRequest* request){
-    LOG_W("Starting status history request processing...");
+    LOG_D("Starting status history request processing...");
     
     // Maximum data points limit to prevent frontend overload
     const size_t MAX_DATA_POINTS = 2000;
@@ -253,7 +253,7 @@ static void get_status_history(AsyncWebServerRequest* request){
         user_sample_interval = request->getParam("interval")->value().toInt();
         if(user_sample_interval < 1) user_sample_interval = 1;
         if(user_sample_interval > 100) user_sample_interval = 100;
-        LOG_W("User requested sample interval: %d", user_sample_interval);
+        LOG_D("User requested sample interval: %d", user_sample_interval);
     }
     
     // Calculate actual sample interval to ensure max 2000 data points
@@ -264,10 +264,10 @@ static void get_status_history(AsyncWebServerRequest* request){
     if (estimated_samples > MAX_DATA_POINTS) {
         actual_sample_interval = (history_size + MAX_DATA_POINTS - 1) / MAX_DATA_POINTS;
         estimated_samples = (history_size + actual_sample_interval - 1) / actual_sample_interval;
-        LOG_W("Adjusted sample interval from %d to %d to limit data points to %d (estimated: %d)", 
+        LOG_D("Adjusted sample interval from %d to %d to limit data points to %d (estimated: %d)", 
               user_sample_interval, actual_sample_interval, MAX_DATA_POINTS, estimated_samples);
     } else {
-        LOG_W("Using requested sample interval %d, estimated samples: %d", actual_sample_interval, estimated_samples);
+        LOG_D("Using requested sample interval %d, estimated samples: %d", actual_sample_interval, estimated_samples);
     }
     
     // Calculate JSON document size based on estimated samples
@@ -281,7 +281,7 @@ static void get_status_history(AsyncWebServerRequest* request){
     // Ensure minimum size
     if (json_size_max < 32 * 1024) json_size_max = 32 * 1024;
     
-    LOG_W("Creating JSON document with %dKB for %d estimated samples", json_size_max/1024, estimated_samples);
+    LOG_D("Creating JSON document with %dKB for %d estimated samples", json_size_max/1024, estimated_samples);
     
     // Create JSON document
     DynamicJsonDocument root(json_size_max);
@@ -313,14 +313,14 @@ static void get_status_history(AsyncWebServerRequest* request){
     // Acquire mutex for history traversal
     if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, portMAX_DELAY) == pdTRUE) {
         actual_history_size = g_nmaxe.mstatus.status_history.size();
-        LOG_W("Starting sampling: %d total records, interval: %d, max points: %d", 
+        LOG_D("Starting sampling: %d total records, interval: %d, max points: %d", 
               actual_history_size, actual_sample_interval, MAX_DATA_POINTS);
         
         for (const auto& history : g_nmaxe.mstatus.status_history) {
             if(idx % actual_sample_interval == 0) {
                 // Stop if we've reached the maximum data points limit
                 if (sampled_count >= MAX_DATA_POINTS) {
-                    LOG_W("Reached maximum data points limit (%d), stopping sampling", MAX_DATA_POINTS);
+                    LOG_D("Reached maximum data points limit (%d), stopping sampling", MAX_DATA_POINTS);
                     break;
                 }
                 
@@ -370,7 +370,7 @@ static void get_status_history(AsyncWebServerRequest* request){
         }
         
         xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
-        LOG_W("Sampling completed: %d samples from %d total records, interval: %d", 
+        LOG_D("Sampling completed: %d samples from %d total records, interval: %d", 
               sampled_count, actual_history_size, actual_sample_interval);
     } else {
         LOG_E("Failed to acquire history mutex for data collection");
@@ -416,9 +416,9 @@ static void get_status_history(AsyncWebServerRequest* request){
         DeserializationError error = deserializeJson(validation_doc, json_str);
         
         if (error) {
-            LOG_E("JSON validation failed on attempt %d: %s", validation_attempts, error.c_str());
-            LOG_E("JSON validation failed, json_str length: %d", json_str.length());
-            LOG_E("JSON validation error context (first 200 chars): %.200s", json_str.c_str());
+            // LOG_E("JSON validation failed on attempt %d: %s", validation_attempts, error.c_str());
+            // LOG_E("JSON validation failed, json_str length: %d", json_str.length());
+            // LOG_E("JSON validation error context (first 200 chars): %.200s", json_str.c_str());
             
             if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
                 request->send(500, "application/json", "{\"error\":\"JSON validation failed after multiple attempts\"}");
@@ -445,7 +445,7 @@ static void get_status_history(AsyncWebServerRequest* request){
         
         // Validation successful
         json_valid = true;
-        LOG_W("JSON validation successful on attempt %d, size: %d bytes", validation_attempts, json_size);
+        LOG_D("JSON validation successful on attempt %d, size: %d bytes", validation_attempts, json_size);
     }
     
     // Send validated response
@@ -458,7 +458,7 @@ static void get_status_history(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
     
-    LOG_W("Validated response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d, attempts=%d", 
+    LOG_D("Validated response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d, attempts=%d", 
           json_size, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS, validation_attempts);
 }
 static void get_status_realtime(AsyncWebServerRequest* request){
@@ -511,7 +511,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 
-    LOG_W("Status realtime sent, history size: %d...", g_nmaxe.mstatus.status_history.size());
+    LOG_D("Status realtime sent, history size: %d...", g_nmaxe.mstatus.status_history.size());
 }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
