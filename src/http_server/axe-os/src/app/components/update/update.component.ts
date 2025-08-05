@@ -155,13 +155,13 @@ export class UpdateComponent implements OnInit {
       // 当前版本不在最近8个release中
       if (this.versionStatus === 'behind') {
         // 版本落后，可能落后很多版本
-        // 顺序：省略号 → 当前版本 → ... → 最新版本
+        // 顺序：省略号 → 当前版本 → 中间版本省略号 → 最近几个版本 → 最新版本
         this.versionChain = [
           { type: 'ellipsis', version: '...', isCurrent: false },
           { type: 'current', version: cleanCurrentVersion, isCurrent: true },
-          { type: 'gap', version: '→', isCurrent: false },
-          // 反转数组，使最新版本在右侧
-          ...this.recentReleases.slice(0, 5).reverse().map((release, index, array) => ({
+          { type: 'ellipsis', version: '...', isCurrent: false },
+          // 显示最近4个版本
+          ...this.recentReleases.slice(0, 4).reverse().map((release, index, array) => ({
             type: 'release',
             version: release.name.replace(/^(NMAxe-)?v?/, ''),
             isCurrent: false,
@@ -190,16 +190,35 @@ export class UpdateComponent implements OnInit {
       }
     } else {
       // 当前版本在最近8个release中
-      // 反转数组，使版本从低到高排列
-      this.versionChain = this.recentReleases.slice().reverse().map((release, index, array) => ({
-        type: 'release',
-        version: release.name.replace(/^(NMAxe-)?v?/, ''),
-        isCurrent: index === (array.length - 1 - currentIndex), // 调整索引
-        isLatest: index === array.length - 1, // 最后一个是最新版本
-        publishedAt: release.published_at,
-        behindCount: currentIndex - (array.length - 1 - index),
-        releaseData: release
-      }));
+      if (currentIndex > 5) {
+        // 如果当前版本落后超过5个版本，也添加省略号但保留一些中间版本
+        // 顺序：省略号 → 当前版本 → 中间版本省略号 → 最近几个版本 → 最新版本
+        this.versionChain = [
+          { type: 'ellipsis', version: '...', isCurrent: false },
+          { type: 'current', version: cleanCurrentVersion, isCurrent: true },
+          { type: 'ellipsis', version: '...', isCurrent: false },
+          // 显示最近4个版本
+          ...this.recentReleases.slice(0, 4).reverse().map((release, index, array) => ({
+            type: 'release',
+            version: release.name.replace(/^(NMAxe-)?v?/, ''),
+            isCurrent: false,
+            isLatest: index === array.length - 1, // 最后一个（最新的）
+            publishedAt: release.published_at,
+            releaseData: release
+          }))
+        ];
+      } else {
+        // 反转数组，使版本从低到高排列
+        this.versionChain = this.recentReleases.slice().reverse().map((release, index, array) => ({
+          type: 'release',
+          version: release.name.replace(/^(NMAxe-)?v?/, ''),
+          isCurrent: index === (array.length - 1 - currentIndex), // 调整索引
+          isLatest: index === array.length - 1, // 最后一个是最新版本
+          publishedAt: release.published_at,
+          behindCount: currentIndex - (array.length - 1 - index),
+          releaseData: release
+        }));
+      }
     }
   }
 

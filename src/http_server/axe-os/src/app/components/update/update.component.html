@@ -30,7 +30,7 @@
             <!-- 省略号 -->
             <div *ngIf="item.type === 'ellipsis'" class="version-content ellipsis-content">
               <span class="version-text">{{ item.version }}</span>
-              <small class="version-label">Older Versions</small>
+              <small class="version-label" *ngIf="i === 0">Older Versions</small>
             </div>
               
             <!-- 箭头间隔 -->
