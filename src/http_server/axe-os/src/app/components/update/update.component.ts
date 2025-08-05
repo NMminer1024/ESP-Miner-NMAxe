@@ -24,6 +24,10 @@ export class UpdateComponent implements OnInit {
   public latestRelease: any = null;
   public currentInfo: any = null;
   public hasUpdate: boolean = false;
+  public versionStatus: 'behind' | 'current' | 'ahead' = 'current'; // 新增版本状态
+  public recentReleases: any[] = []; // 最近的5个release版本
+  public versionChain: any[] = []; // 版本链条
+  public currentPositionInChain: number = -1; // 当前版本在链条中的位置
 
   constructor(
     private systemService: SystemService,
@@ -31,6 +35,8 @@ export class UpdateComponent implements OnInit {
     private githubUpdateService: GithubUpdateService
   ) {
     this.latestRelease$ = this.githubUpdateService.getReleases().pipe(map(releases => {
+      // 获取最近的5个release版本
+      this.recentReleases = releases.slice(0, 5);
       return releases[0];
     }));
 
@@ -65,10 +71,10 @@ export class UpdateComponent implements OnInit {
    * 比较版本号大小
    * @param current 当前版本号
    * @param latest 最新版本号
-   * @returns true if latest > current
+   * @returns 'behind' | 'current' | 'ahead'
    */
-  private compareVersions(current: string, latest: string): boolean {
-    if (!current || !latest) return false;
+  private compareVersions(current: string, latest: string): 'behind' | 'current' | 'ahead' {
+    if (!current || !latest) return 'current';
     
     // 移除版本号前缀 (如 "v" 或 "NMAxe-v")
     const cleanCurrent = current.replace(/^(NMAxe-)?v?/, '');
@@ -94,23 +100,131 @@ export class UpdateComponent implements OnInit {
     // 逐位比较
     for (let i = 0; i < maxLength; i++) {
       if (latestParts[i] > currentParts[i]) {
-        return true;
+        return 'behind'; // 当前版本落后
       } else if (latestParts[i] < currentParts[i]) {
-        return false;
+        return 'ahead'; // 当前版本超前
       }
     }
     
-    return false; // 版本相同
+    return 'current'; // 版本相同
   }
 
   /**
    * 检查是否有可用更新
    */
   private checkForUpdates() {
-    if (this.latestRelease && this.currentInfo) {
+    if (this.latestRelease && this.currentInfo && this.recentReleases.length > 0) {
       const latestVersion = this.latestRelease.name;
       const currentVersion = this.currentInfo.version;
-      this.hasUpdate = this.compareVersions(currentVersion, latestVersion);
+      this.versionStatus = this.compareVersions(currentVersion, latestVersion);
+      this.hasUpdate = this.versionStatus === 'behind';
+      
+      // 构建版本链条
+      this.buildVersionChain(currentVersion);
+    }
+  }
+
+  /**
+   * 构建版本链条，显示当前版本在release历史中的位置
+   * 版本从低到高排列（左到右），箭头表示升级方向
+   */
+  private buildVersionChain(currentVersion: string) {
+    // 清理当前版本号格式
+    const cleanCurrentVersion = currentVersion.replace(/^(NMAxe-)?v?/, '');
+    
+    // 找到当前版本在release列表中的位置
+    let currentIndex = -1;
+    for (let i = 0; i < this.recentReleases.length; i++) {
+      const releaseVersion = this.recentReleases[i].name.replace(/^(NMAxe-)?v?/, '');
+      if (this.versionsEqual(cleanCurrentVersion, releaseVersion)) {
+        currentIndex = i;
+        break;
+      }
+    }
+    
+    this.currentPositionInChain = currentIndex;
+    
+    if (currentIndex === -1) {
+      // 当前版本不在最近5个release中
+      if (this.versionStatus === 'behind') {
+        // 版本落后，可能落后很多版本
+        // 顺序：省略号 → 当前版本 → ... → 最新版本
+        this.versionChain = [
+          { type: 'ellipsis', version: '...', isCurrent: false },
+          { type: 'current', version: cleanCurrentVersion, isCurrent: true },
+          { type: 'gap', version: '→', isCurrent: false },
+          // 反转数组，使最新版本在右侧
+          ...this.recentReleases.slice(0, 3).reverse().map((release, index, array) => ({
+            type: 'release',
+            version: release.name.replace(/^(NMAxe-)?v?/, ''),
+            isCurrent: false,
+            isLatest: index === array.length - 1, // 最后一个（最新的）
+            publishedAt: release.published_at
+          }))
+        ];
+      } else if (this.versionStatus === 'ahead') {
+        // 开发版本，超前于最新release
+        // 顺序：旧版本 → ... → 最新版本 → 当前版本 → 未来
+        this.versionChain = [
+          // 反转数组，使最新版本在合适位置
+          ...this.recentReleases.slice(0, 3).reverse().map((release, index, array) => ({
+            type: 'release',
+            version: release.name.replace(/^(NMAxe-)?v?/, ''),
+            isCurrent: false,
+            isLatest: index === array.length - 1, // 最后一个（最新的）
+            publishedAt: release.published_at
+          })),
+          { type: 'gap', version: '→', isCurrent: false },
+          { type: 'current', version: cleanCurrentVersion, isCurrent: true },
+          { type: 'future', version: 'dev', isCurrent: false }
+        ];
+      }
+    } else {
+      // 当前版本在最近5个release中
+      // 反转数组，使版本从低到高排列
+      this.versionChain = this.recentReleases.slice().reverse().map((release, index, array) => ({
+        type: 'release',
+        version: release.name.replace(/^(NMAxe-)?v?/, ''),
+        isCurrent: index === (array.length - 1 - currentIndex), // 调整索引
+        isLatest: index === array.length - 1, // 最后一个是最新版本
+        publishedAt: release.published_at,
+        behindCount: currentIndex - (array.length - 1 - index)
+      }));
+    }
+  }
+
+  /**
+   * 检查两个版本号是否相等
+   */
+  private versionsEqual(version1: string, version2: string): boolean {
+    const clean1 = version1.replace(/^(NMAxe-)?v?/, '');
+    const clean2 = version2.replace(/^(NMAxe-)?v?/, '');
+    return clean1 === clean2;
+  }
+
+  /**
+   * 获取版本状态文本和图标
+   */
+  public getVersionStatusInfo(): {title: string, description: string, icon: string} {
+    if (this.versionStatus === 'behind') {
+      const behindCount = this.currentPositionInChain >= 0 ? this.currentPositionInChain : 'several';
+      return {
+        title: 'Update Available',
+        description: `You are ${behindCount === 'several' ? 'several versions' : behindCount + ' version' + (behindCount > 1 ? 's' : '')} behind`,
+        icon: 'pi-exclamation-triangle'
+      };
+    } else if (this.versionStatus === 'current') {
+      return {
+        title: 'You\'re Up to Date',
+        description: 'You have the latest stable release',
+        icon: 'pi-check-circle'
+      };
+    } else {
+      return {
+        title: 'Development Version',
+        description: 'You\'re running a pre-release or development build',
+        icon: 'pi-code'
+      };
     }
   }
 
