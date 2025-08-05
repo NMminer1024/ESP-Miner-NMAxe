@@ -361,50 +361,34 @@ export class UpdateComponent implements OnInit {
    * @param version 显示用的版本号
    */
   private downloadReleaseFiles(release: any, version: string) {
+    console.log('Release data:', release);
     console.log('Release assets:', release.assets);
+    console.log('Release tag name:', release.tag_name);
     
-    // 查找firmware.bin和spiffs.bin文件
-    const firmwareAsset = release.assets?.find((asset: any) => asset.name === 'firmware.bin');
-    const spiffsAsset = release.assets?.find((asset: any) => asset.name === 'spiffs.bin');
+    // 查找以版本号命名的zip压缩包
+    const versionZipName = `${release.tag_name}.zip`;
+    const zipAsset = release.assets?.find((asset: any) => asset.name === versionZipName);
+    
+    console.log('Looking for ZIP file:', versionZipName);
+    console.log('Found ZIP asset:', zipAsset);
 
-    console.log('Firmware asset:', firmwareAsset);
-    console.log('SPIFFS asset:', spiffsAsset);
-
-    let downloadCount = 0;
-    let totalDownloads = 0;
-
-    if (firmwareAsset) totalDownloads++;
-    if (spiffsAsset) totalDownloads++;
-
-    if (totalDownloads === 0) {
-      this.toastrService.error(`No downloadable files found for version ${version}`, 'Download Failed');
+    if (!zipAsset) {
+      this.toastrService.error(`ZIP file ${versionZipName} not found for version ${version}`, 'Download Failed');
       return;
     }
 
-    // 下载firmware.bin
-    if (firmwareAsset) {
-      // 使用延迟函数而不是字符串形式避免CSP问题
-      setTimeout(() => {
-        this.downloadFile(firmwareAsset.browser_download_url, firmwareAsset.name);
-        console.log('Started download for firmware.bin');
-      }, 200);
-      downloadCount++;
-    }
+    // 获取板子版本信息，构建重命名的文件名
+    const boardVersion = this.currentInfo?.boardVersion || 'Unknown';
+    const renamedFileName = `${boardVersion}-${release.tag_name}.zip`;
 
-    // 下载spiffs.bin - 添加更大延迟确保两个文件都能下载
-    if (spiffsAsset) {
-      setTimeout(() => {
-        this.downloadFile(spiffsAsset.browser_download_url, spiffsAsset.name);
-        console.log('Started download for spiffs.bin');
-      }, 1500); // 增加到1.5秒延迟
-      downloadCount++;
-    }
-
-    // 显示下载提示
+    // 显示下载开始提示
     this.toastrService.success(
-      `Downloading ${downloadCount} file${downloadCount > 1 ? 's' : ''} for version ${version}`, 
+      `Downloading ${renamedFileName} for version ${version}`, 
       'Download Started'
     );
+
+    // 下载zip压缩包并重命名
+    this.downloadFile(zipAsset.browser_download_url, renamedFileName);
   }
 
   /**
