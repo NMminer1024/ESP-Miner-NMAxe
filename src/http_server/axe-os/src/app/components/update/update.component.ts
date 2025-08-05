@@ -35,8 +35,8 @@ export class UpdateComponent implements OnInit {
     private githubUpdateService: GithubUpdateService
   ) {
     this.latestRelease$ = this.githubUpdateService.getReleases().pipe(map(releases => {
-      // 获取最近的5个release版本
-      this.recentReleases = releases.slice(0, 5);
+      // 获取最近的8个release版本
+      this.recentReleases = releases.slice(0, 8);
       return releases[0];
     }));
 
@@ -145,7 +145,7 @@ export class UpdateComponent implements OnInit {
     this.currentPositionInChain = currentIndex;
     
     if (currentIndex === -1) {
-      // 当前版本不在最近5个release中
+      // 当前版本不在最近8个release中
       if (this.versionStatus === 'behind') {
         // 版本落后，可能落后很多版本
         // 顺序：省略号 → 当前版本 → ... → 最新版本
@@ -154,7 +154,7 @@ export class UpdateComponent implements OnInit {
           { type: 'current', version: cleanCurrentVersion, isCurrent: true },
           { type: 'gap', version: '→', isCurrent: false },
           // 反转数组，使最新版本在右侧
-          ...this.recentReleases.slice(0, 3).reverse().map((release, index, array) => ({
+          ...this.recentReleases.slice(0, 5).reverse().map((release, index, array) => ({
             type: 'release',
             version: release.name.replace(/^(NMAxe-)?v?/, ''),
             isCurrent: false,
@@ -167,7 +167,7 @@ export class UpdateComponent implements OnInit {
         // 顺序：旧版本 → ... → 最新版本 → 当前版本 → 未来
         this.versionChain = [
           // 反转数组，使最新版本在合适位置
-          ...this.recentReleases.slice(0, 3).reverse().map((release, index, array) => ({
+          ...this.recentReleases.slice(0, 5).reverse().map((release, index, array) => ({
             type: 'release',
             version: release.name.replace(/^(NMAxe-)?v?/, ''),
             isCurrent: false,
@@ -180,7 +180,7 @@ export class UpdateComponent implements OnInit {
         ];
       }
     } else {
-      // 当前版本在最近5个release中
+      // 当前版本在最近8个release中
       // 反转数组，使版本从低到高排列
       this.versionChain = this.recentReleases.slice().reverse().map((release, index, array) => ({
         type: 'release',

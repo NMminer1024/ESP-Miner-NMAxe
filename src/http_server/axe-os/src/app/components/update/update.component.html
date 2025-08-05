@@ -7,17 +7,15 @@
   }">
     
     <div class="status-content-wrapper">
-      <!-- 简化的状态提示，只在有更新时显示落后信息 -->
-      <div class="status-info" *ngIf="versionStatus === 'behind'">
-        <p class="behind-info">
-          <i class="pi pi-info-circle"></i>
-          {{ getVersionStatusInfo().description }}
-        </p>
-      </div>
-      
       <!-- 版本链条显示 -->
       <div class="version-chain-container" *ngIf="versionChain.length > 0">
-        <div class="version-chain-title">Version Timeline</div>
+        <div class="version-chain-header">
+          <span class="version-chain-title">Version Timeline</span>
+          <span class="behind-info" *ngIf="versionStatus === 'behind'">
+            <i class="pi pi-info-circle"></i>
+            {{ getVersionStatusInfo().description }}
+          </span>
+        </div>
         <div class="version-chain">
           <div *ngFor="let item of versionChain; let i = index" 
                class="version-node" 
@@ -52,17 +50,24 @@
             <!-- Release版本 -->
             <div *ngIf="item.type === 'release'" 
                  class="version-content release-content"
-                 [class.latest-release]="item.isLatest">
+                 [class.latest-release]="item.isLatest"
+                 [class.current-content]="item.isCurrent">
               <span class="version-text">v{{ item.version }}</span>
-              <small class="version-label" *ngIf="item.isLatest">
+              <small class="version-label" *ngIf="item.isLatest && !item.isCurrent">
                 Latest Release<br>
                 <span class="release-date">{{ item.publishedAt | date:'MMM d, y' }}</span>
               </small>
-              <small class="version-label" *ngIf="!item.isLatest">
+              <small class="version-label" *ngIf="item.isCurrent">
+                You are here now
+              </small>
+              <small class="version-label" *ngIf="!item.isLatest && !item.isCurrent">
                 {{ item.publishedAt | date:'MMM d, y' }}
               </small>
-              <div *ngIf="item.isLatest" class="latest-indicator">
+              <div *ngIf="item.isLatest && !item.isCurrent" class="latest-indicator">
                 <i class="pi pi-star"></i>
+              </div>
+              <div *ngIf="item.isCurrent" class="current-indicator">
+                <i class="pi pi-map-marker"></i>
               </div>
             </div>
             

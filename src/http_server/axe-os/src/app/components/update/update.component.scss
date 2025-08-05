@@ -10,12 +10,6 @@
     transition: all 0.3s ease !important;
     overflow: hidden !important;
     
-    &.update-available {
-      border-color: #ff6b6b !important;
-      background: linear-gradient(135deg, #3d2a2a, #4a3333) !important;
-      box-shadow: 0 8px 32px rgba(255, 107, 107, 0.25) !important;
-    }
-    
     &.up-to-date {
       border-color: #4caf50 !important;
       background: linear-gradient(135deg, #2a3d2a, #334a33) !important;
@@ -35,26 +29,36 @@
     padding: 20px 24px !important;
     gap: 0 !important;
   }
-  
-  // 简化的状态信息样式
-  .status-info {
+
+  // 版本链条头部样式
+  .version-chain-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
     margin-bottom: 16px !important;
+    
+    .version-chain-title {
+      font-size: 0.85rem !important;
+      font-weight: 500 !important;
+      color: #ccc !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.5px !important;
+    }
     
     .behind-info {
       display: flex !important;
       align-items: center !important;
-      gap: 8px !important;
-      font-size: 0.9rem !important;
+      gap: 6px !important;
+      font-size: 0.8rem !important;
       color: #ff9999 !important;
       background: rgba(255, 107, 107, 0.1) !important;
-      padding: 12px 16px !important;
-      border-radius: 8px !important;
-      border-left: 4px solid #ff6b6b !important;
-      margin: 0 !important;
+      padding: 8px 12px !important;
+      border-radius: 6px !important;
+      border-left: 3px solid #ff6b6b !important;
       
       .pi {
         color: #ff6b6b !important;
-        font-size: 1rem !important;
+        font-size: 0.9rem !important;
       }
     }
   }
@@ -160,35 +164,39 @@
       }
       
       &.current-content {
-        background: rgba(255, 193, 7, 0.2) !important;
-        border-color: rgba(255, 193, 7, 0.5) !important;
-        transform: scale(1.1) !important;
-        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3) !important;
+        background: linear-gradient(135deg, #ffc107, #ffb300) !important;
+        border-color: rgba(255, 193, 7, 0.8) !important;
+        transform: scale(1.15) !important;
+        box-shadow: 0 6px 16px rgba(255, 193, 7, 0.4) !important;
         
         .version-text {
-          color: #ffc107 !important;
+          color: #fff !important;
           font-weight: 700 !important;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
         }
         
         .version-label {
-          color: #ffca28 !important;
-          font-weight: 500 !important;
+          color: #fff !important;
+          font-weight: 600 !important;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
         }
         
         .current-indicator {
           position: absolute !important;
-          top: -8px !important;
-          right: -8px !important;
-          background: #ffc107 !important;
+          top: -10px !important;
+          right: -10px !important;
+          background: linear-gradient(135deg, #ff6b6b, #ff5252) !important;
           border-radius: 50% !important;
-          width: 20px !important;
-          height: 20px !important;
+          width: 24px !important;
+          height: 24px !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
+          box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4) !important;
+          border: 2px solid #fff !important;
           
           .pi {
-            font-size: 0.7rem !important;
+            font-size: 0.8rem !important;
             color: white !important;
           }
         }
@@ -206,8 +214,28 @@
           color: #999 !important;
         }
         
-        // 最新版本特殊样式 - 绿色高亮
-        &.latest-release {
+        // 当前版本在release中的特殊样式
+        &.current-content {
+          background: linear-gradient(135deg, #ffc107, #ffb300) !important;
+          border-color: rgba(255, 193, 7, 0.8) !important;
+          transform: scale(1.15) !important;
+          box-shadow: 0 6px 16px rgba(255, 193, 7, 0.4) !important;
+          
+          .version-text {
+            color: #fff !important;
+            font-weight: 700 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+          }
+          
+          .version-label {
+            color: #fff !important;
+            font-weight: 600 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+          }
+        }
+        
+        // 最新版本特殊样式 - 绿色高亮（只在非当前版本时应用）
+        &.latest-release:not(.current-content) {
           background: rgba(76, 175, 80, 0.2) !important;
           border-color: rgba(76, 175, 80, 0.5) !important;
           transform: scale(1.05) !important;
@@ -245,6 +273,26 @@
           
           .pi {
             font-size: 0.7rem !important;
+            color: white !important;
+          }
+        }
+        
+        .current-indicator {
+          position: absolute !important;
+          top: -10px !important;
+          right: -10px !important;
+          background: linear-gradient(135deg, #ff6b6b, #ff5252) !important;
+          border-radius: 50% !important;
+          width: 24px !important;
+          height: 24px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4) !important;
+          border: 2px solid #fff !important;
+          
+          .pi {
+            font-size: 0.8rem !important;
             color: white !important;
           }
         }
@@ -306,17 +354,15 @@
       padding: 16px !important;
     }
     
-    .status-info {
+    .version-chain-header {
+      flex-direction: column !important;
+      align-items: center !important;
+      gap: 12px !important;
       text-align: center !important;
       
-      .status-title {
-        font-size: 1.3rem !important;
-        
-        .version-highlight {
-          font-size: 1.5rem !important;
-          display: block !important;
-          margin: 8px 0 0 0 !important;
-        }
+      .behind-info {
+        font-size: 0.75rem !important;
+        padding: 6px 10px !important;
       }
     }
     
