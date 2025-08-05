@@ -394,12 +394,19 @@
       font-size: 13px;
     }
     
-    // 手机端保持原样
+    // 手机端与其他下拉框保持一致
     @media (max-width: 768px) {
       height: 32px;
-      min-width: 160px;
+      min-width: 0; // 移除固定最小宽度，使用flex布局
+      flex: 1; // 与其他下拉框使用相同的flex布局
       font-size: 12px;
-      padding: 4px 8px;
+      padding: 4px 6px; // 与其他下拉框保持一致的padding
+    }
+    
+    @media (max-width: 480px) {
+      height: 30px; // 与其他下拉框保持一致
+      font-size: 11px !important; // 与其他下拉框保持一致
+      padding: 3px 4px; // 与其他下拉框保持一致
     }
     
     &:hover {
