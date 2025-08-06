@@ -143,13 +143,12 @@ void BM1370::frequency_ramp_up(float target_frequency){
         current += next_step;
         this->_set_hash_frequency(-1, current, 0.001);
 
-        LOG_W("Current: %.2f MHz/ Target: %.2f MHz", current, target_frequency);
+        // LOG_W("Current: %.2f MHz/ Target: %.2f MHz...", current, target_frequency);
 
-
-        // //need some delay for some special frequency, have no idea why, but it works
-        // if((target_frequency != 600) || (target_frequency != 400)){
-        //     LOG_W("Current: %.2f MHz/ Target: %.2f MHz", current, target_frequency);
-        // }
+        //need some delay for some special frequency, have no idea why, but it works
+        if((target_frequency != 650) || target_frequency != 440){
+            LOG_W("Current: %.2f MHz/ Target: %.2f MHz", current, target_frequency);
+        }
     }
 }
 
