@@ -506,7 +506,7 @@
           position: absolute !important;
           top: 50% !important;
           transform: translateY(-50%) !important; // 确保垂直居中对齐
-          right: -10px !important; // 精确定位到右侧节点边缘
+          right: -8px !important; // 从-10px调整到-8px，稍微往左移
           width: 0 !important;
           height: 0 !important;
           border-left: 4px solid rgba(255, 255, 255, 0.8) !important;
