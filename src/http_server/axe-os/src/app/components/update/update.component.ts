@@ -102,36 +102,45 @@ export class UpdateComponent implements OnInit, AfterViewInit {
 
       // 只在移动端应用换行逻辑
       if (window.innerWidth <= 768) {
+        const rowGroups: HTMLElement[][] = [];
         let currentRowTop = -1;
-        let nodesInCurrentRow: HTMLElement[] = [];
+        let currentRow: HTMLElement[] = [];
 
-        versionNodes.forEach((node: HTMLElement, index: number) => {
+        // 先将节点按行分组
+        versionNodes.forEach((node: HTMLElement) => {
           const rect = node.getBoundingClientRect();
           const nodeTop = Math.round(rect.top);
 
           // 如果是新的一行
           if (currentRowTop === -1 || Math.abs(nodeTop - currentRowTop) > 5) {
-            // 处理上一行的最后一个节点（如果存在）
-            if (nodesInCurrentRow.length > 0) {
-              const lastNodeInPrevRow = nodesInCurrentRow[nodesInCurrentRow.length - 1];
-              if (lastNodeInPrevRow && index < versionNodes.length) {
-                lastNodeInPrevRow.classList.add('line-end');
-              }
+            if (currentRow.length > 0) {
+              rowGroups.push([...currentRow]);
             }
-
-            // 开始新行
             currentRowTop = nodeTop;
-            nodesInCurrentRow = [node];
+            currentRow = [node];
           } else {
             // 同一行
-            nodesInCurrentRow.push(node);
+            currentRow.push(node);
           }
+        });
 
-          // 为同行内的节点（除了最后一个）添加in-line类
-          if (nodesInCurrentRow.length > 1) {
-            const prevNode = nodesInCurrentRow[nodesInCurrentRow.length - 2];
-            prevNode.classList.add('in-line');
-          }
+        // 添加最后一行
+        if (currentRow.length > 0) {
+          rowGroups.push([...currentRow]);
+        }
+
+        // 为每行应用正确的类
+        rowGroups.forEach((row, rowIndex) => {
+          row.forEach((node, nodeIndex) => {
+            // 如果不是行内最后一个节点，添加in-line类
+            if (nodeIndex < row.length - 1) {
+              node.classList.add('in-line');
+            }
+            // 如果是行内最后一个节点，且不是所有节点的最后一个，且下面还有行，则添加line-end类
+            else if (nodeIndex === row.length - 1 && rowIndex < rowGroups.length - 1) {
+              node.classList.add('line-end');
+            }
+          });
         });
       } else {
         // PC端：所有节点（除了最后一个）都用in-line类
