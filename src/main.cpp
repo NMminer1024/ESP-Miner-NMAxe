@@ -101,6 +101,7 @@ void setup() {
     delay(1000);
   }
   if(0 != g_nmaxe.market->lastUpdate) LOG_I("Market data updated successfully, last update: %.2fs ago", (millis() - g_nmaxe.market->lastUpdate) / 1000.0f);
+  delay(500);
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";
   xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*11, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 1);
@@ -108,7 +109,7 @@ void setup() {
   /********************************************************** CREATE MONITOR THREAD ***************************************************/
   taskName = "(monitor)";
   xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_MONITOR, &monitorTask,1);
-  delay(10);
+  delay(500);
   /********************************************************** CREATE MINER TX THREAD **************************************************/
   taskName = "(asic_tx)";
   xTaskCreatePinnedToCore(miner_asic_tx_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_MINER_TX, &minerTxTask,1);

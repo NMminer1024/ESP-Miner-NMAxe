@@ -1,4 +1,5 @@
 
+<!-- 版本时间线Banner -->
 <div class="version-status-banner" *ngIf="latestRelease && (info$ | async) as info">
   <div class="status-container" [ngClass]="{
     'update-available': versionStatus === 'behind', 
@@ -129,51 +130,59 @@
   </div>
 </div>
 
-
 <!-- 开发版本的特殊显示 -->
-<div class="card modern-card release-info-card development-version-card" *ngIf="isDevelopmentVersionSelected">
-  <div class="card-header">
-    <div class="card-title-group">
-      <span class="card-icon">🚧</span>
-      <h2 class="card-title">Development Version</h2>
-    </div>
-  </div>
-  <div class="card-content">
-    <div class="development-content">
-      <div class="coming-soon-text">Coming Soon...</div>
-      <p class="development-description">
-        This is a development version that's ahead of the latest stable release. 
-        Release notes will be available when this version is officially published.
-      </p>
+<div class="grid">
+  <div class="col-12">
+    <div class="card modern-card release-info-card development-version-card" *ngIf="isDevelopmentVersionSelected">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">🚧</span>
+          <h2 class="card-title">Development Version</h2>
+        </div>
+      </div>
+      <div class="card-content">
+        <div class="development-content">
+          <div class="coming-soon-text">Coming Soon...</div>
+          <p class="development-description">
+            This is a development version that's ahead of the latest stable release. 
+            Release notes will be available when this version is officially published.
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- 正常版本的release notes -->
-<div class="card modern-card release-info-card" *ngIf="selectedRelease && !isDevelopmentVersionSelected">
-  <div class="card-header">
-    <div class="card-title-group">
-      <span class="card-icon">📋</span>
-      <h2 class="card-title" *ngIf="isLatestSelected">What's New in {{ selectedRelease.name.slice(6) }}?</h2>
-      <h2 class="card-title" *ngIf="!isLatestSelected">What's Changed in {{ selectedRelease.name.slice(6) }}?</h2>
+<div class="grid">
+  <div class="col-12">
+    <div class="card modern-card release-info-card" *ngIf="selectedRelease && !isDevelopmentVersionSelected">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">📋</span>
+          <h2 class="card-title" *ngIf="isLatestSelected">What's New in {{ selectedRelease.name.slice(6) }}?</h2>
+          <h2 class="card-title" *ngIf="!isLatestSelected">What's Changed in {{ selectedRelease.name.slice(6) }}?</h2>
+        </div>
+      </div>
+      <div class="card-content">
+        <div class="release-meta">
+          <span class="release-date">Released: {{ selectedRelease.published_at | date:'medium' }}</span>
+          <span class="release-author">by {{ selectedRelease.author.login }}</span>
+        </div>
+        <div class="release-description" [innerHTML]="formatReleaseNotes(selectedRelease.body)"></div>
+      </div>
     </div>
-  </div>
-  <div class="card-content">
-    <div class="release-meta">
-      <span class="release-date">Released: {{ selectedRelease.published_at | date:'medium' }}</span>
-      <span class="release-author">by {{ selectedRelease.author.login }}</span>
-    </div>
-    <div class="release-description" [innerHTML]="formatReleaseNotes(selectedRelease.body)"></div>
   </div>
 </div>
 
+<!-- 升级固件卡片 -->
 <div class="grid">
   <div class="col-12 lg:col-6 xl:col-6">
     <div class="card modern-card update-card">
-      <div class="card-header-compact">
-        <div class="card-title-left">
+      <div class="card-header">
+        <div class="card-title-group">
           <span class="card-icon">🔧</span>
-          <h2 class="card-title-inline">Update Firmware</h2>
+          <h2 class="card-title">Update Firmware</h2>
         </div>
         <div class="progress-area" *ngIf="firmwareUpdateProgress != null">
           <div class="custom-progress-container">
@@ -194,12 +203,13 @@
     </div>
   </div>
   
+  <!-- 升级网站卡片 -->
   <div class="col-12 lg:col-6 xl:col-6">
     <div class="card modern-card update-card">
-      <div class="card-header-compact">
-        <div class="card-title-left">
+      <div class="card-header">
+        <div class="card-title-group">
           <span class="card-icon">🌐</span>
-          <h2 class="card-title-inline">Update Website</h2>
+          <h2 class="card-title">Update Website</h2>
         </div>
         <div class="progress-area" *ngIf="websiteUpdateProgress != null">
           <div class="custom-progress-container">

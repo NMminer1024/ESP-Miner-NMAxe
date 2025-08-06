@@ -1,6 +1,7 @@
 /* 顶部版本状态栏样式 */
 .version-status-banner {
   margin-bottom: 1.5rem;
+  padding: 0 16px !important; // 添加左右padding为阴影留出空间
   
   .status-container {
     border-radius: 16px !important;
@@ -8,7 +9,14 @@
     background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
     transition: all 0.3s ease !important;
-    overflow: hidden !important;
+    overflow: visible !important; // 改为visible确保阴影不被截断
+    margin: 16px 0 !important; // 添加上下外边距给阴影留出更多空间
+    
+    &.update-available {
+      border-color: #ff6b6b !important;
+      background: linear-gradient(135deg, #3d2a2a, #4a3333) !important;
+      box-shadow: 0 8px 32px rgba(255, 107, 107, 0.25) !important;
+    }
     
     &.up-to-date {
       border-color: #4caf50 !important;
@@ -26,7 +34,7 @@
   .status-content-wrapper {
     display: flex !important;
     flex-direction: column !important;
-    padding: 20px 24px !important;
+    padding: 16px 32px !important; // 增加左右padding从24px到32px，上下从12px到16px给阴影更多空间
     gap: 0 !important;
   }
 
@@ -35,10 +43,10 @@
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    margin-bottom: 16px !important;
+    margin-bottom: 8px !important; // 从16px减少到8px，压缩底部边距
     
     .version-chain-title {
-      font-size: 0.85rem !important;
+      font-size: 0.85rem !important; // 保持标题字体大小不变
       font-weight: 500 !important;
       text-transform: uppercase !important;
       letter-spacing: 0.5px !important;
@@ -46,6 +54,15 @@
       align-items: center !important;
       gap: 6px !important;
       color: #ccc !important;
+
+      &.behind-title {
+        color: #ff9800 !important;
+        font-weight: 600 !important;
+
+        .pi {
+          color: #ff9800 !important;
+        }
+      }
     }
     
     // 当显示版本落后信息时的特殊样式
@@ -64,11 +81,15 @@
       }
     }
   }
+}
+
+/* 旧版本状态栏样式 - 保留用于兼容 */
+.version-status-banner {
 
   // 版本链条样式
   .version-chain-container {
-    margin-top: 20px !important;
-    padding: 8px 0 12px 0 !important; // 增加底部padding给阴影效果更多空间
+    margin-top: 12px !important; // 从20px减少到12px，压缩上边距
+    padding: 8px 16px 16px 16px !important; // 大幅增加左右padding为16px，上下也增加，确保阴影不被截断
     overflow: visible !important; // 确保变换效果不被截断
   }
 
@@ -84,19 +105,21 @@
   .version-chain {
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 8px !important; // 恢复到8px保持节点间距
     overflow-x: auto !important;
     overflow-y: visible !important; // 允许Y轴溢出，确保阴影和变换效果不被截断
-    padding: 16px 0 32px 0 !important; // 增加上下padding，特别是底部padding到32px给最大阴影留足够空间
+    padding: 16px 16px 40px 16px !important; // 大幅增加padding：上16px，左右16px，下40px给最大阴影留足空间
     
     // 滚动条样式
     &::-webkit-scrollbar {
       height: 4px !important;
+      margin-top: 8px !important; // 给滚动条和内容之间留出空间
     }
     
     &::-webkit-scrollbar-track {
       background: rgba(255, 255, 255, 0.1) !important;
       border-radius: 2px !important;
+      margin: 0 16px !important; // 左右留出空间
     }
     
     &::-webkit-scrollbar-thumb {
@@ -114,14 +137,14 @@
     display: flex !important;
     align-items: center !important;
     flex-shrink: 0 !important;
-    margin: 8px 4px 16px 4px !important; // 增加所有方向的边距，特别是底部边距给阴影更多空间
+    margin: 12px 8px 20px 8px !important; // 大幅增加所有方向的边距：上12px，左右8px，下20px给阴影更多空间
     
     .version-content {
       display: flex !important;
       flex-direction: column !important;
       align-items: center !important;
       text-align: center !important;
-      padding: 8px 12px !important;
+      padding: 6px 12px !important; // 从8px 12px减少到6px 12px，压缩上下内边距
       border-radius: 8px !important;
       background: rgba(255, 255, 255, 0.05) !important;
       border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -423,7 +446,8 @@
     
     &.latest .version-content {
       border-color: rgba(76, 175, 80, 0.5) !important;
-      box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2) !important;
+      box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3) !important; // 增强最新版本的基础阴影
+      z-index: 5 !important; // 确保最新版本有足够的层级显示阴影
     }
   }
 
@@ -965,6 +989,13 @@
     border-left: 4px solid #4caf50 !important;
     box-shadow: 0 4px 16px rgba(76, 175, 80, 0.2) !important;
   }
+
+  // Individual update card styles
+  .file-hint {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
 }
 
 .card-title-group {
@@ -1116,5 +1147,40 @@
   
   .development-content {
     padding: 2rem !important;
+  }
+}
+
+// Ensure consistent widths across all cards
+.version-status-banner,
+.release-info-card,
+.update-card {
+  width: 100%;
+  max-width: none;
+}
+
+// Dark theme adjustments
+body.dark-theme {
+  .version-status-banner {
+    .status-container {
+      background: linear-gradient(135deg, #1a1a1a, #2a2a2a) !important;
+      
+      &.update-available {
+        background: linear-gradient(135deg, #2a1a1a, #3a2a2a) !important;
+      }
+      
+      &.up-to-date {
+        background: linear-gradient(135deg, #1a2a1a, #2a3a2a) !important;
+      }
+
+      &.dev-version {
+        background: linear-gradient(135deg, #1a1a2a, #2a2a3a) !important;
+      }
+    }
+  }
+  
+  .update-card {
+    .file-hint {
+      color: #9e9e9e;
+    }
   }
 }
