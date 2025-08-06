@@ -80,7 +80,7 @@ export class UpdateComponent implements OnInit, AfterViewInit {
     // 使用setTimeout确保DOM渲染完成后再执行
     setTimeout(() => {
       this.updateVersionChainClasses();
-      // 监听窗口大小变化，重新计算换行
+      // 监听窗口大小变化，重新计算
       window.addEventListener('resize', () => {
         setTimeout(() => this.updateVersionChainClasses(), 100);
       });
@@ -88,66 +88,19 @@ export class UpdateComponent implements OnInit, AfterViewInit {
   }
 
   /**
-   * 更新版本链条节点的CSS类来实现智能换行连接
+   * 更新版本链条节点的CSS类 - 现在使用HTML箭头元素，无需CSS类
    */
   private updateVersionChainClasses() {
     try {
       const versionNodes = this.elementRef.nativeElement.querySelectorAll('.version-node');
       if (!versionNodes.length) return;
 
-      // 重置所有节点的类
+      // 清理所有之前可能存在的连接相关类
       versionNodes.forEach((node: HTMLElement) => {
-        node.classList.remove('in-line', 'line-end');
+        node.classList.remove('in-line');
       });
 
-      // 只在移动端应用换行逻辑
-      if (window.innerWidth <= 768) {
-        const rowGroups: HTMLElement[][] = [];
-        let currentRowTop = -1;
-        let currentRow: HTMLElement[] = [];
-
-        // 先将节点按行分组
-        versionNodes.forEach((node: HTMLElement) => {
-          const rect = node.getBoundingClientRect();
-          const nodeTop = Math.round(rect.top);
-
-          // 如果是新的一行
-          if (currentRowTop === -1 || Math.abs(nodeTop - currentRowTop) > 5) {
-            if (currentRow.length > 0) {
-              rowGroups.push([...currentRow]);
-            }
-            currentRowTop = nodeTop;
-            currentRow = [node];
-          } else {
-            // 同一行
-            currentRow.push(node);
-          }
-        });
-
-        // 添加最后一行
-        if (currentRow.length > 0) {
-          rowGroups.push([...currentRow]);
-        }
-
-        // 为每行应用正确的类
-        rowGroups.forEach((row, rowIndex) => {
-          row.forEach((node, nodeIndex) => {
-            // 如果不是行内最后一个节点，添加in-line类
-            if (nodeIndex < row.length - 1) {
-              node.classList.add('in-line');
-            }
-            // 如果是行内最后一个节点，且不是所有节点的最后一个，且下面还有行，则添加line-end类
-            else if (nodeIndex === row.length - 1 && rowIndex < rowGroups.length - 1) {
-              node.classList.add('line-end');
-            }
-          });
-        });
-      } else {
-        // PC端：所有节点（除了最后一个）都用in-line类
-        for (let i = 0; i < versionNodes.length - 1; i++) {
-          versionNodes[i].classList.add('in-line');
-        }
-      }
+      // 现在使用HTML .version-connector 元素，不需要添加任何类
     } catch (error) {
       console.warn('Error updating version chain classes:', error);
     }
