@@ -467,15 +467,15 @@
       
       .version-node {
         .version-content {
-          min-width: 50px !important; // 移动端更小的节点
-          padding: 3px 6px !important;
+          min-width: 45px !important; // 移动端更小的节点
+          padding: 2px 5px !important; // 更紧凑的内边距
           
           .version-text {
-            font-size: 1rem !important; // 移动端较小的字体
+            font-size: 0.85rem !important; // 进一步减小字体
           }
           
           .version-label {
-            font-size: 0.7rem !important;
+            font-size: 0.6rem !important; // 更小的标签字体
           }
         }
         
@@ -485,7 +485,13 @@
           }
           
           .connector-arrow {
-            font-size: 0.65rem !important; // 移动端更小的箭头
+            margin-left: -2px !important; // 参照PC端的位移修复
+            font-size: 0.6rem !important; // 移动端更小的箭头
+            color: rgba(255, 255, 255, 0.8) !important; // 保持与PC端一致的颜色
+            line-height: 1 !important; // 确保垂直居中
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
           }
         }
       }
@@ -499,14 +505,27 @@
     }
     
     .version-node .version-content {
-      padding: 6px 8px !important;
+      padding: 4px 6px !important; // 进一步减小内边距
+      min-width: 40px !important; // 更小的最小宽度
       
       .version-text {
-        font-size: 1.15rem !important; // 从1rem增大到1.15rem
+        font-size: 0.8rem !important; // 进一步减小字体从1.15rem到0.8rem
       }
       
       .version-label {
-        font-size: 0.8rem !important; // 从0.75rem增大到0.8rem
+        font-size: 0.55rem !important; // 进一步减小标签字体从0.8rem到0.55rem
+      }
+    }
+    
+    .version-connector {
+      .connector-line {
+        width: 10px !important; // 更短的连接线
+      }
+      
+      .connector-arrow {
+        margin-left: -2px !important; // 参照PC端的位移修复
+        font-size: 0.55rem !important; // 更小的箭头
+        color: rgba(255, 255, 255, 0.8) !important; // 保持颜色一致
       }
     }
   }
