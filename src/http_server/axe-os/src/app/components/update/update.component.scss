@@ -463,9 +463,11 @@
     
     .version-chain {
       justify-content: center !important; // 移动端居中对齐
-      gap: 3px 6px !important; // 移动端更小的间距
+      gap: 16px 6px !important; // 增加垂直间距到16px为换行连接留出空间，保持水平间距6px
       
       .version-node {
+        position: relative !important; // 为伪元素定位做准备
+        
         .version-content {
           min-width: 45px !important; // 移动端更小的节点
           padding: 2px 5px !important; // 更紧凑的内边距
@@ -480,19 +482,74 @@
         }
         
         .version-connector {
-          .connector-line {
-            width: 12px !important; // 移动端更短的连接线
-          }
-          
-          .connector-arrow {
-            margin-left: -2px !important; // 参照PC端的位移修复
-            font-size: 0.6rem !important; // 移动端更小的箭头
-            color: rgba(255, 255, 255, 0.8) !important; // 保持与PC端一致的颜色
-            line-height: 1 !important; // 确保垂直居中
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-          }
+          // 隐藏原始的水平连接器
+          display: none !important;
+        }
+        
+        // 同行内连接线（普通水平连接）
+        &.in-line::before {
+          content: '' !important;
+          position: absolute !important;
+          top: 50% !important;
+          transform: translateY(-50%) !important;
+          right: -6px !important; // 缩短到节点边缘
+          width: 6px !important; // 大幅缩短长度避免穿透
+          height: 2px !important;
+          background: rgba(255, 255, 255, 0.8) !important;
+          z-index: 5 !important;
+          opacity: 1 !important;
+        }
+        
+        // 同行内连接箭头（普通三角形箭头）
+        &.in-line::after {
+          content: '' !important;
+          position: absolute !important;
+          top: 50% !important;
+          transform: translateY(-50%) !important; // 确保垂直居中对齐
+          right: -10px !important; // 精确定位到右侧节点边缘
+          width: 0 !important;
+          height: 0 !important;
+          border-left: 4px solid rgba(255, 255, 255, 0.8) !important;
+          border-top: 3px solid transparent !important;
+          border-bottom: 3px solid transparent !important;
+          z-index: 10 !important;
+          opacity: 1 !important;
+        }
+        
+        // L型换行连接线（仅用于行末到下一行首的连接）
+        &.line-end::before {
+          content: '' !important;
+          position: absolute !important;
+          top: 50% !important;
+          right: -6px !important; // 从节点右边缘开始
+          width: 50px !important; // 大幅增加右延伸距离，确保到达下一行
+          height: 40px !important; // 增加下延伸距离
+          border-right: 2px solid rgba(255, 255, 255, 0.8) !important;
+          border-bottom: 2px solid rgba(255, 255, 255, 0.8) !important;
+          border-bottom-right-radius: 4px !important; // 圆角转弯
+          z-index: 5 !important;
+          opacity: 1 !important;
+        }
+        
+        // L型连接线末端的向下箭头
+        &.line-end::after {
+          content: '' !important;
+          position: absolute !important;
+          top: calc(50% + 36px) !important; // 调整到L型连接线底部
+          right: calc(-50px + 4px) !important; // 对准下一行第一个节点的左边缘
+          width: 0 !important;
+          height: 0 !important;
+          border-left: 4px solid transparent !important;
+          border-right: 4px solid transparent !important;
+          border-top: 5px solid rgba(255, 255, 255, 0.8) !important;
+          z-index: 10 !important;
+          opacity: 1 !important;
+        }
+        
+        // 对于最后一个节点，不显示任何连接线
+        &:last-child::before,
+        &:last-child::after {
+          display: none !important;
         }
       }
     }
@@ -502,6 +559,10 @@
     .version-chain-container {
       margin: 12px -8px 0 -8px !important;
       padding: 12px !important;
+    }
+    
+    .version-chain {
+      gap: 20px 4px !important; // 增加垂直间距到20px为更复杂的连接线留空间，减少水平间距到4px
     }
     
     .version-node .version-content {
@@ -517,16 +578,32 @@
       }
     }
     
-    .version-connector {
-      .connector-line {
-        width: 10px !important; // 更短的连接线
-      }
-      
-      .connector-arrow {
-        margin-left: -2px !important; // 参照PC端的位移修复
-        font-size: 0.55rem !important; // 更小的箭头
-        color: rgba(255, 255, 255, 0.8) !important; // 保持颜色一致
-      }
+    // 480px下的样式调整
+    .version-node.line-end::before {
+      width: 45px !important; // L型连接线加长，确保到达下一行
+      height: 35px !important; // 适当增加下延伸高度
+      border-width: 1.5px !important; // 稍细的线条
+      right: -4px !important; // 从节点边缘开始
+    }
+    
+    .version-node.line-end::after {
+      top: calc(50% + 31px) !important; // L型箭头位置调整到连接线底部
+      right: calc(-45px + 4px) !important; // 对准下一行第一个节点
+      border-top: 4px solid rgba(255, 255, 255, 0.8) !important; // 稍大的箭头
+      border-left: 3px solid transparent !important;
+      border-right: 3px solid transparent !important;
+    }
+    
+    .version-node.in-line::before {
+      width: 4px !important; // 同行连接线更短，避免穿透
+    }
+    
+    .version-node.in-line::after {
+      right: -8px !important; // 调整箭头位置到右侧节点边缘
+      border-left: 3px solid rgba(255, 255, 255, 0.8) !important; // 适中的三角箭头
+      border-top: 2.5px solid transparent !important;
+      border-bottom: 2.5px solid transparent !important;
+      transform: translateY(-50%) !important; // 确保垂直居中
     }
   }
 }

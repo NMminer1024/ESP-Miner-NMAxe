@@ -1,5 +1,5 @@
 import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
-import {Component, OnInit, ViewChild} from '@angular/core';
+import {Component, OnInit, ViewChild, AfterViewInit, ElementRef, ChangeDetectorRef} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
 import {FileUpload, FileUploadHandlerEvent} from 'primeng/fileupload';
 import {map, Observable, shareReplay} from 'rxjs';
@@ -12,7 +12,7 @@ import { marked } from 'marked';
   templateUrl: './update.component.html',
   styleUrls: ['./update.component.scss']
 })
-export class UpdateComponent implements OnInit {
+export class UpdateComponent implements OnInit, AfterViewInit {
 
   @ViewChild('otaFileUploader') otaFileUploader!: FileUpload;
 
@@ -36,7 +36,9 @@ export class UpdateComponent implements OnInit {
   constructor(
     private systemService: SystemService,
     private toastrService: ToastrService,
-    private githubUpdateService: GithubUpdateService
+    private githubUpdateService: GithubUpdateService,
+    private elementRef: ElementRef,
+    private cdr: ChangeDetectorRef
   ) {
     this.latestRelease$ = this.githubUpdateService.getReleases().pipe(map(releases => {
       // 存储所有的release版本
@@ -72,6 +74,74 @@ export class UpdateComponent implements OnInit {
         console.error('Failed to fetch system info:', err);
       }
     });
+  }
+
+  ngAfterViewInit() {
+    // 使用setTimeout确保DOM渲染完成后再执行
+    setTimeout(() => {
+      this.updateVersionChainClasses();
+      // 监听窗口大小变化，重新计算换行
+      window.addEventListener('resize', () => {
+        setTimeout(() => this.updateVersionChainClasses(), 100);
+      });
+    }, 100);
+  }
+
+  /**
+   * 更新版本链条节点的CSS类来实现智能换行连接
+   */
+  private updateVersionChainClasses() {
+    try {
+      const versionNodes = this.elementRef.nativeElement.querySelectorAll('.version-node');
+      if (!versionNodes.length) return;
+
+      // 重置所有节点的类
+      versionNodes.forEach((node: HTMLElement) => {
+        node.classList.remove('in-line', 'line-end');
+      });
+
+      // 只在移动端应用换行逻辑
+      if (window.innerWidth <= 768) {
+        let currentRowTop = -1;
+        let nodesInCurrentRow: HTMLElement[] = [];
+
+        versionNodes.forEach((node: HTMLElement, index: number) => {
+          const rect = node.getBoundingClientRect();
+          const nodeTop = Math.round(rect.top);
+
+          // 如果是新的一行
+          if (currentRowTop === -1 || Math.abs(nodeTop - currentRowTop) > 5) {
+            // 处理上一行的最后一个节点（如果存在）
+            if (nodesInCurrentRow.length > 0) {
+              const lastNodeInPrevRow = nodesInCurrentRow[nodesInCurrentRow.length - 1];
+              if (lastNodeInPrevRow && index < versionNodes.length) {
+                lastNodeInPrevRow.classList.add('line-end');
+              }
+            }
+
+            // 开始新行
+            currentRowTop = nodeTop;
+            nodesInCurrentRow = [node];
+          } else {
+            // 同一行
+            nodesInCurrentRow.push(node);
+          }
+
+          // 为同行内的节点（除了最后一个）添加in-line类
+          if (nodesInCurrentRow.length > 1) {
+            const prevNode = nodesInCurrentRow[nodesInCurrentRow.length - 2];
+            prevNode.classList.add('in-line');
+          }
+        });
+      } else {
+        // PC端：所有节点（除了最后一个）都用in-line类
+        for (let i = 0; i < versionNodes.length - 1; i++) {
+          versionNodes[i].classList.add('in-line');
+        }
+      }
+    } catch (error) {
+      console.warn('Error updating version chain classes:', error);
+    }
   }
 
   /**
@@ -226,6 +296,12 @@ export class UpdateComponent implements OnInit {
         }));
       }
     }
+    
+    // 版本链条构建完成后，延迟更新CSS类
+    setTimeout(() => {
+      this.updateVersionChainClasses();
+      this.cdr.detectChanges();
+    }, 50);
   }
 
   /**
