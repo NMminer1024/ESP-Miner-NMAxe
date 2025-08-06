@@ -34,7 +34,7 @@
   .status-content-wrapper {
     display: flex !important;
     flex-direction: column !important;
-    padding: 16px 32px !important; // 增加左右padding从24px到32px，上下从12px到16px给阴影更多空间
+    padding: 12px 24px !important; // 从16px减少到12px，降低高度
     gap: 0 !important;
   }
 
@@ -43,10 +43,10 @@
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    margin-bottom: 8px !important; // 从16px减少到8px，压缩底部边距
+    margin-bottom: 6px !important; // 从8px减少到6px，进一步压缩
     
     .version-chain-title {
-      font-size: 0.85rem !important; // 保持标题字体大小不变
+      font-size: 0.8rem !important; // 从0.85rem减少到0.8rem
       font-weight: 500 !important;
       text-transform: uppercase !important;
       letter-spacing: 0.5px !important;
@@ -105,30 +105,15 @@
   .version-chain {
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important; // 恢复到8px保持节点间距
-    overflow-x: auto !important;
-    overflow-y: visible !important; // 允许Y轴溢出，确保阴影和变换效果不被截断
-    padding: 16px 16px 40px 16px !important; // 大幅增加padding：上16px，左右16px，下40px给最大阴影留足空间
+    flex-wrap: wrap !important; // 允许换行
+    gap: 4px 8px !important; // 垂直间距4px，水平间距8px
+    overflow: visible !important; // 移除滚动，允许溢出
+    padding: 12px 8px 20px 8px !important; // 调整padding适应换行布局
+    justify-content: flex-start !important; // 左对齐
+    align-content: flex-start !important; // 多行内容顶部对齐
     
-    // 滚动条样式
-    &::-webkit-scrollbar {
-      height: 4px !important;
-      margin-top: 8px !important; // 给滚动条和内容之间留出空间
-    }
-    
-    &::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.1) !important;
-      border-radius: 2px !important;
-      margin: 0 16px !important; // 左右留出空间
-    }
-    
-    &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.3) !important;
-      border-radius: 2px !important;
-      
-      &:hover {
-        background: rgba(255, 255, 255, 0.5) !important;
-      }
+    .version-node {
+      flex-shrink: 0 !important; // 防止节点被压缩
     }
   }
 
@@ -137,20 +122,20 @@
     display: flex !important;
     align-items: center !important;
     flex-shrink: 0 !important;
-    margin: 12px 8px 20px 8px !important; // 大幅增加所有方向的边距：上12px，左右8px，下20px给阴影更多空间
+    margin: 4px 2px 8px 2px !important; // 大幅减少边距适应换行：上4px，左右2px，下8px留给阴影
     
     .version-content {
       display: flex !important;
       flex-direction: column !important;
       align-items: center !important;
       text-align: center !important;
-      padding: 6px 12px !important; // 从8px 12px减少到6px 12px，压缩上下内边距
-      border-radius: 8px !important;
+      padding: 4px 8px !important; // 进一步减小内边距让节点更紧凑
+      border-radius: 6px !important; // 稍微减小圆角
       background: rgba(255, 255, 255, 0.05) !important;
       border: 1px solid rgba(255, 255, 255, 0.1) !important;
       transition: all 0.3s ease !important;
       position: relative !important;
-      min-width: 80px !important;
+      min-width: 60px !important; // 减小最小宽度
       cursor: pointer !important;
       z-index: 1 !important; // 基础层级
       
@@ -424,18 +409,24 @@
     .version-connector {
       display: flex !important;
       align-items: center !important;
-      margin: 0 4px !important;
+      margin: 0 1px !important; // 进一步减少外边距
+      flex-shrink: 0 !important;
       
       .connector-line {
-        width: 20px !important;
-        height: 1px !important;
-        background: rgba(255, 255, 255, 0.3) !important;
+        width: 16px !important; // 缩短线条长度
+        height: 2px !important;
+        background: rgba(255, 255, 255, 0.4) !important; // 简化为纯色，避免渐变造成的视觉不协调
+        border-radius: 1px !important;
       }
       
       .connector-arrow {
-        margin-left: -8px !important;
-        color: rgba(255, 255, 255, 0.5) !important;
-        font-size: 0.8rem !important;
+        margin-left: -2px !important; // 精确调整重叠位置，消除移位
+        color: rgba(255, 255, 255, 0.8) !important;
+        font-size: 0.75rem !important; // 稍微缩小箭头
+        line-height: 1 !important; // 确保垂直居中
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
     }
     
@@ -458,41 +449,43 @@
   // 响应式设计
   @media (max-width: 768px) {
     .status-content-wrapper {
-      flex-direction: column !important;
-      text-align: center !important;
-      gap: 16px !important;
-      padding: 16px !important;
+      padding: 12px !important; // 移动端减少内边距
     }
     
     .version-chain-header {
-      flex-direction: column !important;
-      align-items: center !important;
-      gap: 12px !important;
       text-align: center !important;
       
       .version-chain-title.behind-title {
-        font-size: 0.9rem !important; // 从0.75rem增大到0.9rem
-        padding: 6px 10px !important;
+        font-size: 0.85rem !important; // 移动端稍小字体
+        padding: 4px 8px !important;
       }
     }
     
     .version-chain {
-      flex-direction: column !important;
-      gap: 12px !important;
+      justify-content: center !important; // 移动端居中对齐
+      gap: 3px 6px !important; // 移动端更小的间距
       
       .version-node {
-        width: 100% !important;
-        
         .version-content {
-          min-width: 100% !important;
+          min-width: 50px !important; // 移动端更小的节点
+          padding: 3px 6px !important;
+          
+          .version-text {
+            font-size: 1rem !important; // 移动端较小的字体
+          }
+          
+          .version-label {
+            font-size: 0.7rem !important;
+          }
         }
         
         .version-connector {
-          transform: rotate(90deg) !important;
-          margin: 8px 0 !important;
-          
           .connector-line {
-            width: 30px !important;
+            width: 12px !important; // 移动端更短的连接线
+          }
+          
+          .connector-arrow {
+            font-size: 0.65rem !important; // 移动端更小的箭头
           }
         }
       }
