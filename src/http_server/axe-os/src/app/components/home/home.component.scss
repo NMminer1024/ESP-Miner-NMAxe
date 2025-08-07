@@ -821,20 +821,29 @@ ng-template {
         min-height: 600px; // PC端与monitor组件保持一致的最小高度
         max-height: 600px; // 确保最大高度一致
         
+        .chart-header {
+          margin-bottom: 2px; // 压缩header空间
+          padding-bottom: 2px;
+        }
+        
         .chart-wrapper {
-          min-height: 560px; // PC端大幅增加图表区域高度，几乎占满整个卡片
+          height: calc(100% - 50px); // 给header留出更少空间，最大化图表区域
+          min-height: 540px; // PC端大幅增加图表区域高度，匹配monitor组件布局
           flex: 1;
           
           // 确保Chart.js在PC端有最大的显示空间
           ::ng-deep .p-chart {
-            min-height: 520px !important; // PC端图表Canvas最小高度
+            min-height: 540px !important; // PC端图表Canvas最小高度，匹配可用空间
+            height: 100% !important;
             
             canvas {
-              min-height: 520px !important; // PC端Canvas最小高度
+              min-height: 540px !important; // PC端Canvas最小高度，完全填充空间
+              height: 100% !important;
             }
             
             > div {
-              min-height: 520px !important; // PC端图表容器最小高度
+              min-height: 540px !important; // PC端图表容器最小高度
+              height: 100% !important;
             }
           }
         }

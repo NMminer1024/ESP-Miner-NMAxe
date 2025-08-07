@@ -73,10 +73,12 @@
 
 .chart-wrapper {
   flex: 1;
-  min-height: 540px; // 进一步增加最小高度，充分铺满卡片底部
+  height: calc(100% - 40px); // 进一步减少减去的高度，给chart-header留出更少空间
+  max-height: 550px; // 添加最大高度限制，与monitor组件类似但稍高一些以充分利用空间
+  min-height: 520px; // 大幅增加最小高度，确保铺满卡片
   width: 100%;
   position: relative; // 确保内部元素正确定位
-  overflow: visible; // 改为visible，防止图表被截断
+  overflow: hidden; // 改为hidden防止图表溢出，与monitor组件保持一致
   display: flex; // 添加flex布局
   flex-direction: column; // 垂直布局
   
@@ -96,6 +98,13 @@
       min-height: 500px !important; // 确保Canvas有足够高度
       display: block; // 确保Canvas正确显示
       object-fit: contain; // 保持图表比例，防止拉伸变形
+      box-sizing: border-box; // 确保尺寸计算正确
+      
+      // 强制移除任何可能的高度限制
+      &[style*="height"] {
+        height: 100% !important;
+        max-height: none !important;
+      }
     }
     
     // 确保PrimeNG内部div也占满空间
@@ -104,12 +113,20 @@
       width: 100% !important;
       min-height: 500px !important; // 确保内部容器有足够高度
       position: relative;
-      overflow: visible; // 确保图表内容不被截断
+      overflow: hidden; // 确保图表内容不被截断，与monitor组件保持一致
+      box-sizing: border-box; // 确保尺寸计算正确
+      
+      // 强制移除任何内联样式的高度限制
+      &[style*="height"] {
+        height: 100% !important;
+        max-height: none !important;
+      }
     }
   }
 }
 
 .chart-footer {
+  display: none; // PC端隐藏footer给图表更多空间
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -297,10 +314,15 @@
   
   // PC端专用优化
   @media (min-width: 769px) {
-    min-height: 350px !important; // PC端确保图表有足够高度
+    min-height: 520px !important; // PC端确保图表有足够高度，与monitor组件图表空间对齐
     
     canvas {
-      min-height: 300px !important; // PC端Canvas最小高度
+      min-height: 500px !important; // PC端Canvas最小高度，充分利用卡片空间
+    }
+    
+    // 确保PC端内部容器也有足够高度
+    > div {
+      min-height: 520px !important;
     }
   }
 }
@@ -308,11 +330,11 @@
 // PC端专用优化样式
 @media (min-width: 769px) {
   .hr-dist-chart-container {
-    min-height: 400px; // PC端容器最小高度
+    min-height: 600px; // PC端容器最小高度与monitor组件保持一致
   }
   
   .chart-wrapper {
-    min-height: 320px; // PC端图表包装器最小高度
+    min-height: 560px; // PC端图表包装器最小高度，充分利用卡片空间
   }
 }
 

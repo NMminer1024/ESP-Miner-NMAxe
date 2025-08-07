@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, AfterViewInit } from '@angular/core';
 import { Observable, interval, startWith, switchMap, tap } from 'rxjs';
 import { SystemService } from 'src/app/services/system.service';
 import { UIChart } from "primeng/chart";
@@ -16,7 +16,7 @@ interface HashrateDistribution {
   templateUrl: './hr-dist-chart.component.html',
   styleUrls: ['./hr-dist-chart.component.scss']
 })
-export class HrDistChartComponent implements OnInit {
+export class HrDistChartComponent implements OnInit, AfterViewInit {
   @ViewChild('chart') chart!: UIChart;
 
   public chartData: any;
@@ -103,30 +103,31 @@ export class HrDistChartComponent implements OnInit {
           }
         }
       },
+      // 使用与monitor组件相同的最小layout padding
       layout: {
         padding: {
-          left: 12,   // 增加左边距确保Y轴标签显示
-          right: 12,  // 增加右边距确保图表平衡
-          top: 15,    // 增加顶部边距
-          bottom: 30  // 增加底部边距，确保X轴标签完整显示
+          top: 2,
+          right: 2,
+          bottom: 2,
+          left: 2
         }
       },
       scales: {
         x: {
           title: {
             display: true,
-            text: 'Hashrate Range',
-            color: textColor,
+            text: 'Hashrate',
+            color: textColorSecondary,
             font: {
-              size: 11  // 减少字体大小
+              size: 11  // 小号字体保留标题
             }
           },
           ticks: {
             color: textColorSecondary,
             font: {
-              size: 10  // 减少刻度字体大小
+              size: 10
             },
-            maxRotation: 45,  // 允许标签旋转以节省空间
+            maxRotation: 45,
             minRotation: 0
           },
           grid: {
@@ -134,27 +135,22 @@ export class HrDistChartComponent implements OnInit {
             drawBorder: false
           },
           border: {
-            display: false  // 确保不显示横轴边框避免截断刻度
+            display: false
           }
         },
         y: {
           title: {
-            display: true,
-            text: 'Percentage (%)',
-            color: textColor,
-            font: {
-              size: 11  // 减少字体大小
-            }
+            display: false  // 移除Y轴标题
           },
           min: 0,
           max: 100,
           ticks: {
             color: textColorSecondary,
             font: {
-              size: 10  // 减少刻度字体大小
+              size: 10
             },
             callback: (value: number) => `${value}%`,
-            stepSize: 20  // 设置刻度步长，减少Y轴标签数量
+            stepSize: 20  // 减少Y轴标签密度
           },
           grid: {
             color: surfaceBorder,
@@ -183,6 +179,32 @@ export class HrDistChartComponent implements OnInit {
   ngOnInit(): void {
     // 组件初始化时启动数据流
     this.distData$.subscribe();
+  }
+
+  ngAfterViewInit(): void {
+    // 等待视图初始化完成后设置Canvas样式
+    setTimeout(() => {
+      this.setupCanvasStyles();
+    }, 100);
+  }
+
+  private setupCanvasStyles(): void {
+    if (this.chart && this.chart.chart) {
+      const canvas = this.chart.chart.canvas;
+      if (canvas) {
+        // 强制设置Canvas样式，确保填满容器
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.maxWidth = '100%';
+        canvas.style.maxHeight = '100%';
+        canvas.style.display = 'block';
+        
+        console.log('HR Chart Canvas styles set for responsive mode');
+        
+        // 强制重新调整图表大小
+        this.chart.chart.resize();
+      }
+    }
   }
 
   private getScaleValue(): number {
