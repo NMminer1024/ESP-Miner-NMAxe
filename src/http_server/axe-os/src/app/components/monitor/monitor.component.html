@@ -71,6 +71,15 @@
           title="Export CSV Data">
           <span class="export-icon">💾</span>
         </button>
+
+        <button 
+          class="toggle-average-button"
+          (click)="toggleAverageLines()"
+          [class.active]="showAverageLines"
+          title="Toggle Average Lines">
+          <span class="average-icon">📊</span>
+          <span class="average-text">Avg</span>
+        </button>
       </div>
     </div>
     

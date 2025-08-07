@@ -61,6 +61,12 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   lastUpdateTime = '';
   dataSize = 0;
   boardVersion = 'ESP-Miner'; // Default board version
+
+  // 均值计算相关属性
+  private fieldAverages: Map<string, number> = new Map(); // 存储各指标的累计均值
+  private fieldSums: Map<string, number> = new Map(); // 存储各指标的累计总和
+  private fieldCounts: Map<string, number> = new Map(); // 存储各指标的数据点计数
+  public showAverageLines = true; // 控制是否显示均值线 - 改为 public
   loadingMessage = 'Loading...';
   hasLoadingError = false;
   retryCount = 0;
@@ -388,7 +394,30 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             titleColor: '#ffffff',
             bodyColor: '#ffffff',
             borderColor: '#4CAF50',
-            borderWidth: 1
+            borderWidth: 1,
+            callbacks: {
+              title: (context: any) => {
+                const dataIndex = context[0].dataIndex;
+                const dataset = context[0].dataset;
+                
+                // 如果是均值线，显示特别的标题
+                if (dataset.label && dataset.label.includes('Avg')) {
+                  return `Average Value`;
+                }
+                
+                return context[0].label;
+              },
+              label: (context: any) => {
+                const dataset = context.dataset;
+                
+                // 如果是均值线，显示均值信息
+                if (dataset.label && dataset.label.includes('Avg')) {
+                  return `${dataset.label}: ${context.parsed.y.toFixed(2)}`;
+                }
+                
+                return `${dataset.label}: ${context.parsed.y.toFixed(2)}`;
+              }
+            }
           }
         },
         layout: {
@@ -776,9 +805,39 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
           // 添加新数据到历史数据数组
           this.historyData.push(newNode);
           
+          // 增量更新均值（仅在显示范围内的数据才计算）
+          const timeRange = this.timeRanges.find(range => range.value === this.selectedTimeRange);
+          let shouldUpdateAverages = false;
+          
+          if (this.selectedTimeRange === 'all' || (timeRange && timeRange.minutes === -1)) {
+            shouldUpdateAverages = true;
+          } else {
+            const cutoffTime = Date.now() - (timeRange?.minutes || 60) * 60 * 1000;
+            shouldUpdateAverages = newNode.epoch >= cutoffTime;
+          }
+          
+          if (shouldUpdateAverages) {
+            this.selectedFields.forEach(field => {
+              const value = this.parseValue(newNode[field as keyof HistoryNode], field);
+              this.updateFieldAverage(field, value);
+            });
+          }
+          
           // 保持最新的2000条数据，避免内存过载
           if (this.historyData.length > 2000) {
             this.historyData = this.historyData.slice(-2000);
+            // 如果删除了数据，需要重新计算均值
+            if (shouldUpdateAverages) {
+              // 获取当前过滤的数据重新计算均值
+              let filteredData: HistoryNode[];
+              if (this.selectedTimeRange === 'all' || (timeRange && timeRange.minutes === -1)) {
+                filteredData = [...this.historyData];
+              } else {
+                const cutoffTime = Date.now() - (timeRange?.minutes || 60) * 60 * 1000;
+                filteredData = this.historyData.filter(item => item.epoch >= cutoffTime);
+              }
+              this.recalculateAverages(filteredData);
+            }
           }
           
           this.lastUpdateTime = new Date().toLocaleString();
@@ -845,6 +904,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // 重新计算当前过滤数据的均值
+    this.recalculateAverages(filteredData);
+
     // 更新图表数据
     const datasets = this.selectedFields.map(field => {
       const fieldOption = this.fieldOptions.find(f => f.value === field);
@@ -869,6 +931,38 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         fill: false
       };
     });
+
+    // 添加均值线数据集
+    if (this.showAverageLines) {
+      this.selectedFields.forEach(field => {
+        const fieldOption = this.fieldOptions.find(f => f.value === field);
+        const average = this.fieldAverages.get(field);
+        
+        if (average !== undefined && filteredData.length > 0) {
+          // 创建均值线数据 - 在时间范围内的水平直线
+          const minTime = filteredData[0].epoch;
+          const maxTime = filteredData[filteredData.length - 1].epoch;
+          
+          const avgDataset: any = {
+            label: `${fieldOption?.label} Avg (${fieldOption?.unit})`,
+            data: [
+              { x: minTime, y: average },
+              { x: maxTime, y: average }
+            ],
+            borderColor: fieldOption?.color || '#4CAF50',
+            backgroundColor: 'transparent',
+            borderWidth: 1,
+            pointRadius: 0, // 不显示数据点
+            pointHoverRadius: 0,
+            fill: false,
+            tension: 0,
+            borderDash: [5, 5] // 虚线样式
+          };
+          
+          datasets.push(avgDataset);
+        }
+      });
+    }
 
     this.chart.data.datasets = datasets;
     
@@ -981,6 +1075,64 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     }, 100);
   }
 
+  /**
+   * 重新计算指定数据集的均值
+   * @param data 要计算均值的数据
+   */
+  private recalculateAverages(data: HistoryNode[]): void {
+    // 清空之前的计算结果
+    this.fieldAverages.clear();
+    this.fieldSums.clear();
+    this.fieldCounts.clear();
+
+    if (data.length === 0) return;
+
+    // 为每个选中的字段计算均值
+    this.selectedFields.forEach(field => {
+      let sum = 0;
+      let count = 0;
+
+      data.forEach(item => {
+        const value = this.parseValue(item[field as keyof HistoryNode], field);
+        if (!isNaN(value) && isFinite(value)) {
+          sum += value;
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        const average = sum / count;
+        this.fieldAverages.set(field, average);
+        this.fieldSums.set(field, sum);
+        this.fieldCounts.set(field, count);
+        
+        console.log(`Field ${field} average calculated: ${average.toFixed(2)} (${count} points)`);
+      }
+    });
+  }
+
+  /**
+   * 增量更新指定字段的均值
+   * @param field 字段名
+   * @param newValue 新值
+   */
+  private updateFieldAverage(field: string, newValue: number): void {
+    if (isNaN(newValue) || !isFinite(newValue)) return;
+
+    const currentSum = this.fieldSums.get(field) || 0;
+    const currentCount = this.fieldCounts.get(field) || 0;
+    
+    const newSum = currentSum + newValue;
+    const newCount = currentCount + 1;
+    const newAverage = newSum / newCount;
+
+    this.fieldSums.set(field, newSum);
+    this.fieldCounts.set(field, newCount);
+    this.fieldAverages.set(field, newAverage);
+
+    console.log(`Field ${field} average updated: ${newAverage.toFixed(2)} (${newCount} points)`);
+  }
+
   private parseValue(value: any, field: string): number {
     if (typeof value === 'number') {
       // Backend data is already in correct units (KB for memory fields)
@@ -1003,14 +1155,32 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     
     console.log('Field selection changed:', this.selectedFields);
+    
+    // 清空之前的均值计算，会在 updateChart 中重新计算
+    this.fieldAverages.clear();
+    this.fieldSums.clear();
+    this.fieldCounts.clear();
+    
     this.saveState(); // 保存状态
     this.updateChart();
   }
 
   onTimeRangeChange(): void {
     console.log('Time range changed to:', this.selectedTimeRange);
+    
+    // 清空之前的均值计算，会在 updateChart 中重新计算
+    this.fieldAverages.clear();
+    this.fieldSums.clear();
+    this.fieldCounts.clear();
+    
     this.saveState(); // 保存状态
     this.updateChart(); // 重新更新图表显示
+  }
+
+  toggleAverageLines(): void {
+    this.showAverageLines = !this.showAverageLines;
+    console.log('Average lines toggled:', this.showAverageLines);
+    this.updateChart(); // 重新绘制图表
   }
 
   // Get selected time range label
