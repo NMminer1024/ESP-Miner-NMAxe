@@ -203,10 +203,23 @@ export class LayoutService {
     }
 
     isTabletLandscape() {
-        // 检测平板横屏模式 (iPad 横屏等)
-        return window.innerWidth >= 992 && 
-               window.innerWidth <= 1100 && 
-               window.matchMedia('(orientation: landscape)').matches;
+        // 更准确的平板横屏检测 (iPad 横屏等)
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+        
+        // 检测 iPad 和其他平板设备的横屏模式
+        // iPad Pro 12.9": 1366x1024, iPad Pro 11": 1194x834, iPad Air/mini: 1180x820等
+        const isTabletWidth = width >= 820 && width <= 1400;
+        const isTabletHeight = height >= 500 && height <= 1100;
+        const isTabletRatio = width / height >= 1.2 && width / height <= 2.5;
+        
+        // 检测是否为平板设备（基于用户代理）
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isTabletDevice = /ipad|tablet|android(?!.*mobile)|kindle|silk|playbook|bb10/i.test(userAgent);
+        
+        return isLandscape && isTabletWidth && isTabletHeight && isTabletRatio && 
+               (isTabletDevice || (width >= 768 && width <= 1400));
     }
 
     onConfigUpdate() {

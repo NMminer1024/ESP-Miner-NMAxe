@@ -4,57 +4,37 @@
 
 }
 
-// 平板电脑横屏优化 - 菜单悬浮模式
-@media (min-width: 992px) and (max-width: 1100px) and (orientation: landscape) {
+// 平板电脑横屏优化 - 菜单完全隐藏，悬浮显示
+@media (min-width: 768px) and (max-width: 1400px) and (orientation: landscape) {
     .layout-wrapper {
-        &.layout-overlay {
-            .layout-main-container {
-                margin-left: 0;
-                padding-left: 2rem;
-            }
-
-            .layout-sidebar {
-                transform: translateX(-100%);
-                left: 0;
-                top: 0;
-                height: 100vh;
-                border-top-left-radius: 0;
-                border-bottom-left-radius: 0;
-                z-index: 999; // 确保悬浮在内容之上
-            }
-
-            &.layout-overlay-active {
-                .layout-sidebar {
-                    transform: translateX(0);
-                }
-            }
-        }
-
-        &.layout-static {
-            // 强制使用 overlay 模式，避免挤压
+        // 强制使用 overlay 模式
+        &.layout-overlay,
+        &.layout-static,
+        &.layout-tablet-landscape {
             .layout-main-container {
                 margin-left: 0 !important;
-                padding-left: 2rem;
+                padding-left: 1rem;
+                transition: padding-left $transitionDuration;
             }
 
             .layout-sidebar {
+                position: fixed !important;
                 transform: translateX(-100%);
                 left: 0;
                 top: 0;
+                width: 280px;
                 height: 100vh;
                 border-top-left-radius: 0;
                 border-bottom-left-radius: 0;
-                z-index: 999; // 悬浮效果
-                position: fixed !important; // 强制固定定位
+                border-top-right-radius: 8px;
+                border-bottom-right-radius: 8px;
+                z-index: 1000; // 确保悬浮在最顶层
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                transition: transform $transitionDuration;
             }
 
-            &.layout-static-inactive {
-                .layout-sidebar {
-                    transform: translateX(-100%);
-                }
-            }
-            
-            // 当菜单激活时，使用 overlay 样式
+            // 当菜单激活时显示
+            &.layout-overlay-active,
             &.layout-mobile-active {
                 .layout-sidebar {
                     transform: translateX(0);
@@ -65,6 +45,17 @@
                     animation: fadein $transitionDuration;
                 }
             }
+            
+            // 确保非激活状态下完全隐藏
+            &:not(.layout-overlay-active):not(.layout-mobile-active) {
+                .layout-sidebar {
+                    transform: translateX(-100%);
+                }
+                
+                .layout-mask {
+                    display: none;
+                }
+            }
         }
 
         .layout-mask {
@@ -72,10 +63,12 @@
             position: fixed;
             top: 0;
             left: 0;
-            z-index: 998;
+            z-index: 999;
             width: 100%;
             height: 100%;
             background-color: var(--maskbg);
+            opacity: 0;
+            transition: opacity $transitionDuration;
         }
         
         // 激活遮罩层
@@ -83,8 +76,36 @@
         &.layout-overlay-active {
             .layout-mask {
                 display: block;
+                opacity: 1;
                 animation: fadein $transitionDuration;
             }
+        }
+        
+        // 菜单按钮确保可见
+        .layout-topbar {
+            .layout-menu-button {
+                display: inline-flex !important;
+                visibility: visible !important;
+            }
+        }
+    }
+    
+    // 专门针对iPad横屏的特殊样式
+    .layout-wrapper.layout-tablet-landscape {
+        .layout-sidebar {
+            // iPad横屏时侧边栏默认完全隐藏
+            transform: translateX(-100%) !important;
+            
+            // 增强视觉效果
+            border-right: 2px solid rgba(76, 175, 80, 0.3);
+            backdrop-filter: blur(10px);
+            background: rgba(42, 42, 42, 0.95) !important;
+        }
+        
+        // 只有在明确激活时才显示
+        &.layout-overlay-active .layout-sidebar,
+        &.layout-mobile-active .layout-sidebar {
+            transform: translateX(0) !important;
         }
     }
 }

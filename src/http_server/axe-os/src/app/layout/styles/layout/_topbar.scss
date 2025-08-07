@@ -223,6 +223,60 @@
     }
 }
 
+// iPad 横屏模式优化 - 确保菜单按钮始终可见
+@media (min-width: 768px) and (max-width: 1400px) and (orientation: landscape) {
+    .layout-topbar {
+        .layout-menu-button {
+            display: inline-flex !important;
+            visibility: visible !important;
+            margin-left: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            
+            &:hover {
+                background: rgba(76, 175, 80, 0.1);
+                border: 1px solid rgba(76, 175, 80, 0.2);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+
+                i {
+                    color: #4CAF50 !important;
+                }
+            }
+            
+            i {
+                font-size: 1.25rem;
+                color: #ffffff !important;
+                transition: all 0.3s ease;
+            }
+        }
+
+        .layout-topbar-logo {
+            width: auto;
+            font-size: 1.6rem;
+            padding: 0.5rem 1rem;
+            margin-right: 0.5rem;
+            
+            .header-text span {
+                font-size: 3.5rem !important;
+            }
+            
+            .header-text .os {
+                font-size: 2.75rem !important;
+            }
+        }
+
+        .layout-topbar-menu {
+            .restart-text-btn {
+                padding: 6px 14px !important;
+                font-size: 13px !important;
+                height: 2.25rem !important;
+                min-width: 70px !important;
+            }
+        }
+    }
+}
+
 @media (max-width: 576px) {
     .layout-topbar {
         height: 4rem;
