@@ -431,7 +431,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                   
                   const timeHeader   = `${' '.repeat(30)}${timeStr}${' '.repeat(rightPadding)}`;
                   // 列标题也要精确对齐：20个字符的空白 + 13个字符的Current + 13个字符的Average
-                  const columnHeader = `     ${' '.repeat(20)}         Current       │        Average`;
+                  const columnHeader = `     ${' '.repeat(20)}         Current                Average`;
                   
                   return [timeHeader, columnHeader];
                 }
