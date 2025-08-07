@@ -82,45 +82,21 @@
   display: flex; // 添加flex布局
   flex-direction: column; // 垂直布局
   
-  // PrimeNG Chart组件优化
-  ::ng-deep .p-chart {
+  // 原生Canvas样式，参考monitor组件
+  .chart-canvas {
     width: 100% !important;
     height: 100% !important;
-    flex: 1; // 让图表占满父容器
-    position: relative; // 确保定位正确
-    min-height: 500px !important; // 确保图表有足够的最小高度
+    max-height: none !important;
+    background: transparent;
+    border-radius: 4px;
+    display: block; // 确保Canvas正确显示
+    flex: 1; // 占据父容器剩余空间
     
-    canvas {
-      width: 100% !important;
-      height: 100% !important;
-      max-width: 100% !important;
-      max-height: 100% !important;
-      min-height: 500px !important; // 确保Canvas有足够高度
-      display: block; // 确保Canvas正确显示
-      object-fit: contain; // 保持图表比例，防止拉伸变形
-      box-sizing: border-box; // 确保尺寸计算正确
-      
-      // 强制移除任何可能的高度限制
-      &[style*="height"] {
-        height: 100% !important;
-        max-height: none !important;
-      }
-    }
-    
-    // 确保PrimeNG内部div也占满空间
-    > div {
-      height: 100% !important;
-      width: 100% !important;
-      min-height: 500px !important; // 确保内部容器有足够高度
-      position: relative;
-      overflow: hidden; // 确保图表内容不被截断，与monitor组件保持一致
-      box-sizing: border-box; // 确保尺寸计算正确
-      
-      // 强制移除任何内联样式的高度限制
-      &[style*="height"] {
-        height: 100% !important;
-        max-height: none !important;
-      }
+    // 移动端特殊优化：确保图表完全填充容器
+    @media (max-width: 768px) {
+      border-radius: 2px; // 减少圆角以节省空间
+      margin: 0; // 移除任何可能的margin
+      padding: 0; // 移除任何可能的padding
     }
   }
 }

@@ -22,7 +22,7 @@ export class HomeComponent {
     private systemService: SystemService
   ) {
     this.info$ = interval(5000).pipe(
-      startWith(() => this.systemService.getInfo()),
+      startWith(0),
       switchMap(() => {
         return this.systemService.getInfo()
       }),

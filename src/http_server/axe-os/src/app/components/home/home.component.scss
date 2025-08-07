@@ -831,20 +831,11 @@ ng-template {
           min-height: 540px; // PC端大幅增加图表区域高度，匹配monitor组件布局
           flex: 1;
           
-          // 确保Chart.js在PC端有最大的显示空间
-          ::ng-deep .p-chart {
-            min-height: 540px !important; // PC端图表Canvas最小高度，匹配可用空间
+          // 原生Canvas样式，与monitor组件保持一致
+          .chart-canvas {
+            min-height: 540px !important; // PC端Canvas最小高度，完全填充空间
             height: 100% !important;
-            
-            canvas {
-              min-height: 540px !important; // PC端Canvas最小高度，完全填充空间
-              height: 100% !important;
-            }
-            
-            > div {
-              min-height: 540px !important; // PC端图表容器最小高度
-              height: 100% !important;
-            }
+            width: 100% !important;
           }
         }
       }

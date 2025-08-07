@@ -18,10 +18,9 @@
   </div>
   
   <div class="chart-wrapper">
-    <p-chart 
-      #chart 
-      [data]="chartData" 
-      [options]="chartOptions">
-    </p-chart>
+    <!-- 原生Canvas实现，参考monitor组件 -->
+    <canvas #chartCanvas 
+            class="chart-canvas">
+    </canvas>
   </div>
 </div>
