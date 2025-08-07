@@ -390,32 +390,97 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
           tooltip: {
             mode: 'index',
             intersect: false,
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
             titleColor: '#ffffff',
             bodyColor: '#ffffff',
             borderColor: '#4CAF50',
             borderWidth: 1,
+            titleFont: {
+              size: 14,
+              weight: 'bold'
+            },
+            bodyFont: {
+              size: 13,
+              family: 'Monaco, Consolas, "Courier New", monospace'  // 使用等宽字体便于对齐
+            },
+            padding: 12,
+            cornerRadius: 6,
+            displayColors: true, // 显示颜色方块
+            usePointStyle: true, // 使用点样式
             callbacks: {
               title: (context: any) => {
-                const dataIndex = context[0].dataIndex;
-                const dataset = context[0].dataset;
-                
-                // 如果是均值线，显示特别的标题
-                if (dataset.label && dataset.label.includes('Avg')) {
-                  return `Average Value`;
+                if (context && context.length > 0) {
+                  const firstContext = context[0];
+                  
+                  // 显示时间
+                  const timestamp = firstContext.parsed.x;
+                  return new Date(timestamp).toLocaleString();
                 }
-                
-                return context[0].label;
+                return '';
               },
               label: (context: any) => {
                 const dataset = context.dataset;
+                const value = context.parsed.y;
                 
-                // 如果是均值线，显示均值信息
+                // 跳过均值线的显示
                 if (dataset.label && dataset.label.includes('Avg')) {
-                  return `${dataset.label}: ${context.parsed.y.toFixed(2)}`;
+                  return ''; // 不显示均值线的悬浮提示
                 }
                 
-                return `${dataset.label}: ${context.parsed.y.toFixed(2)}`;
+                // 获取字段信息
+                const fieldOption = this.fieldOptions.find(f => 
+                  dataset.label.includes(f.label)
+                );
+                
+                if (fieldOption) {
+                  // 获取该字段的平均值
+                  const average = this.fieldAverages.get(fieldOption.value);
+                  
+                  if (average !== undefined) {
+                    // 格式化数值，统一宽度便于对齐
+                    const currentVal = value.toFixed(1);
+                    const avgVal = average.toFixed(1);
+                    const labelWidth = 12;
+                    const valueWidth = 8;
+                    
+                    // 使用表格形式对齐显示，在平均值前添加分隔符以突出显示
+                    const label = fieldOption.label.padEnd(labelWidth);
+                    const current = currentVal.padStart(valueWidth);
+                    const avg = avgVal.padStart(valueWidth);
+                    
+                    return `${label}: ${current} ${fieldOption.unit.padEnd(4)} │ avg: ${avg} ${fieldOption.unit}`;
+                  } else {
+                    // 如果没有平均值，只显示当前值
+                    const currentVal = value.toFixed(1);
+                    const labelWidth = 12;
+                    const valueWidth = 8;
+                    const label = fieldOption.label.padEnd(labelWidth);
+                    const current = currentVal.padStart(valueWidth);
+                    return `${label}: ${current} ${fieldOption.unit}`;
+                  }
+                }
+                
+                // fallback
+                return `${dataset.label.split(' ')[0]}: ${value.toFixed(2)}`;
+              },
+              labelColor: (context: any) => {
+                // 为每个指标返回其对应的颜色
+                const dataset = context.dataset;
+                const fieldOption = this.fieldOptions.find(f => 
+                  dataset.label.includes(f.label)
+                );
+                
+                return {
+                  borderColor: fieldOption?.color || '#4CAF50',
+                  backgroundColor: fieldOption?.color || '#4CAF50'
+                };
+              },
+              afterBody: (context: any) => {
+                // 如果有多个指标，添加分隔线
+                if (context.length > 3) {
+                  return ['', '─'.repeat(50)];
+                }
+                return [];
               }
             }
           }
