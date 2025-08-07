@@ -7,6 +7,7 @@
   min-width: 0; // 重要：允许容器收缩
   overflow: visible !important; // 改为visible允许内容溢出
   position: relative; // 为dropdown提供定位上下文
+  max-height: 600px; // 添加最大高度限制，防止无限增长
 }
 
 // 全局修复：确保PrimeNG multiselect面板能正确显示
@@ -59,6 +60,10 @@
   box-sizing: border-box;
   overflow: visible !important; // 确保dropdown面板可以显示
   position: relative; // 为内部定位元素提供上下文
+  display: flex; // 添加flex布局
+  flex-direction: column; // 垂直方向
+  height: 100%; // 占满父容器高度
+  max-height: 600px; // 添加最大高度限制，防止无限增长
   
   &:hover {
     transform: translateY(-2px);
@@ -70,6 +75,10 @@
     background: transparent;
     min-width: 0; // 允许内容收缩
     overflow: visible !important; // 确保内容可以溢出显示dropdown
+    flex: 1; // 占据剩余空间
+    display: flex; // 添加flex布局
+    flex-direction: column; // 垂直方向
+    max-height: calc(100% - 60px); // 限制内容高度
   }
 }
 
@@ -810,11 +819,14 @@
 .chart-container-main {
   padding: 8px 12px; // 减少 padding 给图表更多空间
   margin-top: 0;
-  height: calc(50vh - 120px); // 高度优化
+  height: calc(100% - 60px); // PC端使用父容器高度减去顶部控制栏高度
+  max-height: 500px; // 添加最大高度限制，防止无限增长
   min-height: 280px; // 确保足够的图表显示空间
   background: transparent;
   border-radius: 0 0 12px 12px; // 匹配卡片的底部圆角
   position: relative; // 确保子元素的绝对定位正确
+  flex: 1; // 占据父容器剩余空间
+  overflow: hidden; // 添加overflow hidden防止内容溢出
   
   .chart-canvas {
     width: 100% !important;

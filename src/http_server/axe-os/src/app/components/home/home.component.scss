@@ -774,6 +774,7 @@ ng-template {
   grid-template-columns: 1fr 1fr; // 确保两列等宽
   gap: 20px;
   margin-bottom: 20px;
+  min-height: 600px; // PC端设置更大的最小高度
   
   .chart-section {
     // Monitor component styling within charts grid
@@ -787,6 +788,7 @@ ng-template {
         margin: 0;
         padding: 0;
         height: 100%;
+        max-height: 600px; // 确保与算力分布卡片高度一致
         
         .card.modern-card {
           background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
@@ -794,7 +796,8 @@ ng-template {
           border-radius: 10px;
           box-shadow: 0 4px 16px rgba(0,0,0,0.3);
           height: 100%;
-          min-height: 400px; // Ensure minimum height for monitor component
+          min-height: 600px; // PC端增加最小高度以更好填充空间
+          max-height: 600px; // 确保最大高度一致
           
           &:hover {
             transform: translateY(-2px);
@@ -813,13 +816,27 @@ ng-template {
       // Override hr-dist-chart component styles for charts grid integration
       ::ng-deep .hr-dist-chart-container {
         margin: 0;
-        padding: 12px; // 适度减少padding给图表更多空间
+        padding: 6px; // 进一步减少padding给图表更多空间
         height: 100%;
-        min-height: 400px; // 与monitor组件保持一致的最小高度
+        min-height: 600px; // PC端与monitor组件保持一致的最小高度
+        max-height: 600px; // 确保最大高度一致
         
         .chart-wrapper {
-          min-height: 300px; // 确保图表有足够的显示空间
+          min-height: 560px; // PC端大幅增加图表区域高度，几乎占满整个卡片
           flex: 1;
+          
+          // 确保Chart.js在PC端有最大的显示空间
+          ::ng-deep .p-chart {
+            min-height: 520px !important; // PC端图表Canvas最小高度
+            
+            canvas {
+              min-height: 520px !important; // PC端Canvas最小高度
+            }
+            
+            > div {
+              min-height: 520px !important; // PC端图表容器最小高度
+            }
+          }
         }
       }
     }
