@@ -767,14 +767,22 @@
   }
 }
 
-/* Loading 容器 */
+/* Loading 容器 - 绝对定位覆盖图表，不占用布局空间 */
 .loading-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
   text-align: center;
+  background: rgba(42, 42, 42, 0.9); // 半透明背景
+  backdrop-filter: blur(2px); // 模糊背景
+  z-index: 10; // 确保在图表上方
+  border-radius: 8px; // 匹配容器圆角
   
   .loading-spinner {
     width: 40px;
@@ -933,7 +941,13 @@
   }
   
   .loading-container {
-    padding: 25px 15px;
+    // 平板端也使用绝对定位覆盖，不占用布局空间
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(42, 42, 42, 0.9); // 平板端背景半透明
     
     .loading-spinner {
       width: 28px;
@@ -981,7 +995,13 @@
   }
   
   .loading-container {
-    padding: 20px 10px;
+    // 移动端也使用绝对定位覆盖，不占用布局空间
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(42, 42, 42, 0.95); // 移动端背景更不透明
     
     .loading-spinner {
       width: 24px;
@@ -1021,7 +1041,13 @@
   }
   
   .loading-container {
-    padding: 15px 8px;
+    // 小屏幕也使用绝对定位覆盖，不占用布局空间
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(42, 42, 42, 0.95); // 小屏幕背景更不透明
     
     .loading-spinner {
       width: 20px;

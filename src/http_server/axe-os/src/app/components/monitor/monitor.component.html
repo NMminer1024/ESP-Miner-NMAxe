@@ -77,17 +77,16 @@
     <div class="card-content">
       <!-- 图表容器 - 占据主要空间 -->
       <div class="chart-container-main">
-        <!-- Loading状态 - 在图表区域内显示 -->
+        <!-- Loading状态 - 绝对定位覆盖在图表上方，不占用布局空间 -->
         <div *ngIf="isLoading || historyData.length === 0" class="loading-container">
           <div class="loading-spinner"></div>
           <p *ngIf="isLoading">Loading monitoring data...</p>
           <p *ngIf="!isLoading && historyData.length === 0">Waiting for data...</p>
         </div>
         
-        <!-- 图表Canvas - 始终存在但可能隐藏 -->
+        <!-- 图表Canvas - 始终存在，加载状态会覆盖在上方 -->
         <canvas #chartCanvas 
-                class="chart-canvas"
-                [style.display]="isLoading || historyData.length === 0 ? 'none' : 'block'">
+                class="chart-canvas">
         </canvas>
       </div>
     </div>
