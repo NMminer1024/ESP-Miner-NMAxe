@@ -396,17 +396,22 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             borderColor: '#4CAF50',
             borderWidth: 1,
             titleFont: {
-              size: 14,
+              size: this.isMobile ? 12 : 14,
               weight: 'bold'
             },
             bodyFont: {
-              size: 13,
+              size: this.isMobile ? 11 : 13,
               family: 'Monaco, Consolas, "Courier New", monospace'  // 使用等宽字体便于对齐
             },
-            padding: 12,
+            padding: this.isMobile ? 8 : 12,
             cornerRadius: 6,
             displayColors: true, // 显示颜色方块
             usePointStyle: true, // 使用点样式
+            // 移动端优化定位，防止超出屏幕
+            position: this.isMobile ? 'average' : 'nearest',
+            xAlign: this.isMobile ? 'center' : undefined,
+            yAlign: this.isMobile ? 'bottom' : undefined,
+            caretPadding: this.isMobile ? 4 : 2,
             callbacks: {
               title: (context: any) => {
                 if (context && context.length > 0) {
@@ -414,7 +419,21 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                   
                   // 显示时间
                   const timestamp = firstContext.parsed.x;
-                  return new Date(timestamp).toLocaleString();
+                  const timeStr = new Date(timestamp).toLocaleString();
+                  
+                  // 精确对齐时间标题，总宽度应该与数据行保持一致
+                  // 数据行格式：|标签10字符 |当前值13字符 │平均值13字符 |
+                  // 总宽度：1 + 10 + 1 + 13 + 1 + 13 + 1 = 40字符
+                  const totalWidth = 40;
+                  const timeLength = timeStr.length;
+                  const padding = Math.max(0, Math.floor((totalWidth - timeLength) / 2));
+                  const rightPadding = totalWidth - timeLength - padding;
+                  
+                  const timeHeader   = `${' '.repeat(30)}${timeStr}${' '.repeat(rightPadding)}`;
+                  // 列标题也要精确对齐：20个字符的空白 + 13个字符的Current + 13个字符的Average
+                  const columnHeader = `     ${' '.repeat(20)}         Current       │        Average`;
+                  
+                  return [timeHeader, columnHeader];
                 }
                 return '';
               },
@@ -437,26 +456,44 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                   const average = this.fieldAverages.get(fieldOption.value);
                   
                   if (average !== undefined) {
-                    // 格式化数值，统一宽度便于对齐
+                    // 使用精确的表格对齐格式
                     const currentVal = value.toFixed(1);
                     const avgVal = average.toFixed(1);
-                    const labelWidth = 12;
-                    const valueWidth = 8;
                     
-                    // 使用表格形式对齐显示，在平均值前添加分隔符以突出显示
-                    const label = fieldOption.label.padEnd(labelWidth);
-                    const current = currentVal.padStart(valueWidth);
-                    const avg = avgVal.padStart(valueWidth);
+                    // 标签列：10个字符，左对齐，确保能显示完整的标签名
+                    const label = fieldOption.label.length > 10 ? 
+                      fieldOption.label.substring(0, 10) : 
+                      fieldOption.label.padEnd(10, ' ');
                     
-                    return `${label}: ${current} ${fieldOption.unit.padEnd(4)} │ avg: ${avg} ${fieldOption.unit}`;
+                    // 当前值列：13个字符，右对齐
+                    const currentWithUnit = `${currentVal} ${fieldOption.unit}`;
+                    const currentFormatted = currentWithUnit.length > 13 ? 
+                      currentWithUnit.substring(0, 13) : 
+                      currentWithUnit.padStart(13, ' ');
+                    
+                    // 平均值列：13个字符，右对齐
+                    const avgWithUnit = `${avgVal} ${fieldOption.unit}`;
+                    const avgFormatted = avgWithUnit.length > 13 ? 
+                      avgWithUnit.substring(0, 13) : 
+                      avgWithUnit.padStart(13, ' ');
+                    
+                    return `|${label} |${currentFormatted} │${avgFormatted} |`;
                   } else {
                     // 如果没有平均值，只显示当前值
                     const currentVal = value.toFixed(1);
-                    const labelWidth = 12;
-                    const valueWidth = 8;
-                    const label = fieldOption.label.padEnd(labelWidth);
-                    const current = currentVal.padStart(valueWidth);
-                    return `${label}: ${current} ${fieldOption.unit}`;
+                    
+                    const label = fieldOption.label.length > 10 ? 
+                      fieldOption.label.substring(0, 10) : 
+                      fieldOption.label.padEnd(10, ' ');
+                    
+                    const currentWithUnit = `${currentVal} ${fieldOption.unit}`;
+                    const currentFormatted = currentWithUnit.length > 13 ? 
+                      currentWithUnit.substring(0, 13) : 
+                      currentWithUnit.padStart(13, ' ');
+                    
+                    const emptyAvg = ' '.repeat(13);
+                    
+                    return `|${label} |${currentFormatted} │${emptyAvg} |`;
                   }
                 }
                 
@@ -476,10 +513,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                 };
               },
               afterBody: (context: any) => {
-                // 如果有多个指标，添加分隔线
-                if (context.length > 3) {
-                  return ['', '─'.repeat(50)];
-                }
+                // 去掉下方分割线
                 return [];
               }
             }
