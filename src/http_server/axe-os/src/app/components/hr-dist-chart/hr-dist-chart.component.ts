@@ -85,6 +85,12 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const textColorSecondary = documentStyle.getPropertyValue('--text-color-secondary') || '#cccccc';
     const surfaceBorder = documentStyle.getPropertyValue('--surface-border') || 'rgba(255, 255, 255, 0.1)';
 
+    // 检测是否为移动端，针对性优化布局
+    const isMobile = window.innerWidth <= 768;
+    const layoutPadding = isMobile ? 
+      { top: 2, right: 4, bottom: 30, left: 4 } : // 移动端：减少顶部边距，增加底部边距防止截断
+      { top: 8, right: 8, bottom: 15, left: 8 };  // PC端正常边距
+
     const chartConfig: ChartConfiguration = {
       type: 'bar',
       data: {
@@ -145,12 +151,7 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         },
         layout: {
-          padding: {
-            top: 2,
-            right: 2,
-            bottom: 2,
-            left: 2
-          }
+          padding: layoutPadding // 使用响应式边距配置
         },
         scales: {
           x: {
@@ -165,9 +166,9 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
             ticks: {
               color: textColorSecondary,
               font: {
-                size: 10
+                size: isMobile ? 8 : 10 // 移动端使用更小字体节省空间
               },
-              maxRotation: 45,
+              maxRotation: isMobile ? 30 : 45, // 移动端减少旋转角度
               minRotation: 0
             },
             grid: {

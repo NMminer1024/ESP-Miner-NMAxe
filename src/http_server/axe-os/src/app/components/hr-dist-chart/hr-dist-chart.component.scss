@@ -120,148 +120,76 @@
 /* 响应式设计 */
 @media (max-width: 768px) {
   .hr-dist-chart-container {
-    padding: 10px; // 减少padding
-    margin-bottom: 0.5rem; // 减少margin
-  }
-  
-  .chart-header {
-    flex-direction: column;
-    align-items: flex-start;
-    margin-bottom: 8px; // 减少margin
-  }
-  
-  .chart-title {
-    font-size: 16px; // 减少字体大小
-  }
-  
-  .chart-wrapper {
-    min-height: 200px; // 与monitor组件768px断点一致
-    height: calc(40vh - 80px); // 与monitor组件一致的计算高度
-    
-    // 移动端Chart.js继承容器
-    ::ng-deep .p-chart {
-      width: 100% !important;
-      height: 100% !important;
-    }
-  }
-  
-  .chart-stats {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .stat-item {
-    flex: 1;
-    min-width: 0;
-  }
-  
-  .stat-value {
-    font-size: 0.8rem;
-    padding: 0.15rem 0.4rem;
-  }
-}
-
-/* 高分辨率移动设备优化 (如 Samsung Galaxy S20+, iPhone Pro Max 等) */
-@media (max-width: 1600px) and (max-height: 4000px) and (orientation: portrait) {
-  .hr-dist-chart-container {
-    padding: 10px;
+    padding: 8px; // 进一步减少padding给图表更多空间
     margin-bottom: 0.5rem;
-    max-height: 450px; // 限制最大高度，防止图表被拉得过长
-    overflow: visible; // 改为visible，防止图表被截断
-    
-    // 添加内部滚动控制
-    &:hover {
-      overflow: visible;
-    }
   }
   
   .chart-header {
     flex-direction: column;
     align-items: flex-start;
-    margin-bottom: 8px;
-    flex-shrink: 0; // 防止头部被压缩
+    margin-bottom: 4px; // 大幅减少margin，让图表有更多空间
   }
   
   .chart-title {
-    font-size: 16px;
+    font-size: 14px; // 进一步减少字体大小节省空间
+    margin-bottom: 2px;
   }
   
   .chart-wrapper {
-    min-height: 280px; // 增加最小高度，确保图表完整显示
-    max-height: 350px; // 限制最大高度
-    height: auto; // 改为自适应高度
-    overflow: visible; // 确保图表不被截断
-    flex: 1; // 占据剩余空间
+    min-height: 240px; // 增加最小高度确保图表充分显示
+    height: calc(100% - 50px); // 减少减去的高度，给图表更多垂直空间
+    padding-bottom: 10px; // 为横轴标签预留底部空间
     
-    ::ng-deep .p-chart {
-      width: 100% !important;
-      height: 100% !important;
-      min-height: 280px !important; // 确保图表最小高度
-      max-height: 350px !important; // 图表最大高度限制
-      
-      // 确保Canvas保持正确的比例
-      canvas {
-        width: 100% !important;
-        height: 100% !important;
-        min-height: 280px !important;
-        max-height: 350px !important;
-        object-fit: contain; // 保持图表比例，防止拉伸
-      }
-      
-      // 确保Chart.js容器正确设置
-      > div {
-        height: 100% !important;
-        width: 100% !important;
-        min-height: 280px !important;
-        max-height: 350px !important;
-      }
+    // 移动端Canvas样式优化
+    .chart-canvas {
+      margin: 0 !important;
+      padding: 0 !important;
     }
   }
   
   .chart-stats {
     width: 100%;
     justify-content: space-between;
-    flex-wrap: wrap; // 允许换行
-    gap: 0.3rem;
-    flex-shrink: 0; // 防止统计信息被压缩
+    margin-bottom: 2px; // 减少底部边距
   }
   
   .stat-item {
     flex: 1;
     min-width: 0;
-    min-width: calc(33.33% - 0.2rem); // 三列布局
   }
   
   .stat-value {
-    font-size: 0.8rem;
-    padding: 0.15rem 0.4rem;
+    font-size: 0.7rem; // 进一步减小字体
+    padding: 0.1rem 0.3rem;
   }
 }
 
 @media (max-width: 480px) {
   .hr-dist-chart-container {
-    padding: 8px; // 进一步减少padding
+    padding: 6px; // 最小化padding
   }
   
   .chart-title {
-    font-size: 14px; // 进一步减少字体
+    font-size: 12px; // 进一步减少字体
   }
   
   .chart-wrapper {
-    min-height: 180px; // 与monitor组件480px断点一致
-    height: calc(35vh - 60px); // 与monitor组件一致的计算高度
+    min-height: 200px; // 增加最小高度确保图表可见
+    height: calc(100% - 40px); // 进一步减少减去的高度
+    padding-bottom: 12px; // 为横轴标签预留空间
     
-    // 小屏幕Chart.js继承容器
-    ::ng-deep .p-chart {
-      width: 100% !important;
-      height: 100% !important;
+    // 小屏幕Canvas样式优化
+    .chart-canvas {
+      margin: 0 !important;
+      padding: 0 !important;
     }
   }
   
   .chart-stats {
     flex-direction: row; // 改为水平布局
-    gap: 0.3rem; // 减少间距
+    gap: 0.2rem; // 进一步减少间距
     justify-content: space-between; // 平均分布
+    margin-bottom: 1px; // 最小化底部边距
   }
   
   .stat-item {
@@ -284,46 +212,13 @@
   }
 }
 
-/* 暗色主题优化 */
-::ng-deep .p-chart {
-  background: transparent !important;
-  
-  // PC端专用优化
-  @media (min-width: 769px) {
-    min-height: 520px !important; // PC端确保图表有足够高度，与monitor组件图表空间对齐
-    
-    canvas {
-      min-height: 500px !important; // PC端Canvas最小高度，充分利用卡片空间
-    }
-    
-    // 确保PC端内部容器也有足够高度
-    > div {
-      min-height: 520px !important;
-    }
-  }
-}
-
-// PC端专用优化样式
+/* PC端专用优化样式 */
 @media (min-width: 769px) {
   .hr-dist-chart-container {
-    min-height: 600px; // PC端容器最小高度与monitor组件保持一致
+    min-height: 600px; // PC端容器最小高度
   }
   
   .chart-wrapper {
-    min-height: 560px; // PC端图表包装器最小高度，充分利用卡片空间
+    min-height: 560px; // PC端图表包装器最小高度
   }
-}
-
-::ng-deep .p-chart canvas {
-  border-radius: 6px;
-}
-
-/* 图表动画效果 */
-.hr-dist-chart-container {
-  transition: all 0.3s ease;
-}
-
-.hr-dist-chart-container:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
