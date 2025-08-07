@@ -837,6 +837,12 @@ ng-template {
             min-height: 350px; // 移动端适当减少最小高度，留出更多空间给图表
             margin: 0; // 移除margin
             padding: 0; // 确保无额外padding
+            overflow: hidden !important; // 移动端也需要防止图表溢出
+            
+            // 移动端图表容器溢出控制
+            .chart-container-main {
+              overflow: hidden !important;
+            }
           }
         }
       }
@@ -863,6 +869,12 @@ ng-template {
           .card.modern-card {
             min-height: 320px; // 小屏幕进一步优化高度
             border-radius: 8px; // 减少圆角
+            overflow: hidden !important; // 小屏幕防止图表溢出
+            
+            // 小屏幕图表容器溢出控制
+            .chart-container-main {
+              overflow: hidden !important;
+            }
           }
         }
       }
@@ -875,6 +887,60 @@ ng-template {
           
           .chart-wrapper {
             min-height: 220px; // 小屏幕图表最小高度
+          }
+        }
+      }
+    }
+  }
+
+  // 高分辨率移动设备优化 (如 Samsung Galaxy S20+, iPhone Pro Max 等)
+  @media (max-width: 1600px) and (max-height: 4000px) and (orientation: portrait) {
+    grid-template-columns: 1fr; // 高分辨率移动设备也使用单列
+    gap: 16px; // 适当增加间距
+    
+    .chart-section {
+      max-height: 500px; // 限制图表卡片最大高度
+      
+      app-monitor {
+        ::ng-deep .monitor-container {
+          .card.modern-card {
+            min-height: 400px; // 高分辨率移动设备的合适高度
+            max-height: 500px; // 限制最大高度
+            margin: 0;
+            padding: 0;
+            overflow: hidden !important;
+            
+            .chart-container-main {
+              overflow: hidden !important;
+              max-height: 400px; // 限制图表容器高度
+            }
+          }
+        }
+      }
+      
+      app-hr-dist-chart {
+        ::ng-deep .hr-dist-chart-container {
+          min-height: 400px; // 与monitor组件保持一致
+          max-height: 500px; // 限制最大高度，防止拉得过长
+          padding: 12px;
+          overflow: visible; // 改为visible，防止图表被截断
+          
+          .chart-wrapper {
+            min-height: 320px; // 增加最小高度，确保图表完整显示
+            max-height: 400px; // 调整最大高度
+            overflow: visible; // 确保图表不被截断
+            
+            // 确保图表内容正确显示
+            ::ng-deep .p-chart {
+              min-height: 320px !important;
+              max-height: 400px !important;
+              
+              canvas {
+                min-height: 320px !important;
+                max-height: 400px !important;
+                object-fit: contain !important; // 防止图表拉伸变形
+              }
+            }
           }
         }
       }

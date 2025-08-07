@@ -58,6 +58,7 @@ export class HrDistChartComponent implements OnInit {
       responsive: true,           // 启用响应式，适应容器变化
       aspectRatio: 0,            // 设置为0，完全忽略宽高比
       resizeDelay: 50,           // 调整大小延迟
+      devicePixelRatio: 1,       // 控制像素比，防止高分辨率设备上的拉伸
       interaction: {
         intersect: false,
         mode: 'index'
@@ -104,10 +105,10 @@ export class HrDistChartComponent implements OnInit {
       },
       layout: {
         padding: {
-          left: 8,    // 增加左边距确保Y轴标签显示
-          right: 8,   // 增加右边距确保图表平衡
-          top: 10,    // 适当顶部边距
-          bottom: 25  // 大幅减少底部边距，只保留X轴标签所需空间
+          left: 12,   // 增加左边距确保Y轴标签显示
+          right: 12,  // 增加右边距确保图表平衡
+          top: 15,    // 增加顶部边距
+          bottom: 30  // 增加底部边距，确保X轴标签完整显示
         }
       },
       scales: {
