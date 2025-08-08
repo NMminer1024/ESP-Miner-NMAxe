@@ -161,7 +161,7 @@ void power_thread_entry(void *args){
     }
     //set vcore voltage to required voltage
     g_nmaxe.power->set_vcore_voltage(g_nmaxe.asic.vcore_req);
-    delay(2000);
+    delay(1000);
     xSemaphoreGive(g_nmaxe.power->good_xsem);
     //exit
     vTaskDelete(NULL);
