@@ -179,6 +179,23 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 ## Release Log
 ***
 
+### (2025.08.08) - v2.9.02
+- `Add`:
+  - API: Hashrate distribution,`IP`/api/system/hr/dist
+  - API: History status, `IP`/api/system/status/history
+  - API: History realtime, `IP`/api/system/status/realtime
+  - UI: Up to 24 hours of historical data storage chart on AxeOS.
+  - UI: Hashrate distribution chart on AxeOS.
+  - UI: Version timeline in `update` menu bar, and release note will sync from github repository.
+- `Fixed`:
+  - Swarm table can't drag on v2.9.01.
+- `Improved`:
+  - ANSI log console support, a colored log console.
+- `Modify`:
+  - When upgrading from v2.9.02 to a newer one, it's no longer necessary to clear the browser cache.
+- `Remove`:
+  - 
+
 ### (2025.07.31) - v2.9.01
 - `Add`:
   - None.
