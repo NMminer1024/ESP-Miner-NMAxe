@@ -194,7 +194,7 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 - `Modify`:
   - When upgrading from v2.9.02 to a newer one, it's no longer necessary to clear the browser cache.
 - `Remove`:
-  - 
+  - None.
 
 ### (2025.07.31) - v2.9.01
 - `Add`:
