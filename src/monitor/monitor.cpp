@@ -70,17 +70,30 @@ void monitor_thread_entry(void *args){
           settimeofday(&tv, NULL);
           g_nmaxe.mstatus.utc = tv.tv_sec; 
           
-    
-          String tz_env;
+          // Convert decimal timezone to UTC±H:MM format
           float tz_offset = g_nmaxe.mstatus.timezone.toFloat();
-          if(tz_offset >= 0)  tz_env = "UTC-" + String((int)tz_offset); 
-          else  tz_env = "UTC+" + String((int)(-tz_offset)); 
-          setenv("TZ", tz_env.c_str(), 1);
+          int tz_hour = (int)tz_offset;
+          int tz_min = (int)((fabs(tz_offset) - abs(tz_hour)) * 60 + 0.5f); // Round to nearest minute
+          
+          char tz_buf[16] = {0};
+          if (tz_offset >= 0) {
+              if (tz_min == 0)
+                  sprintf(tz_buf, "UTC-%d", tz_hour);
+              else
+                  sprintf(tz_buf, "UTC-%d:%02d", tz_hour, tz_min);
+          } else {
+              if (tz_min == 0)
+                  sprintf(tz_buf, "UTC+%d", abs(tz_hour));
+              else
+                  sprintf(tz_buf, "UTC+%d:%02d", abs(tz_hour), tz_min);
+          }
+          
+          setenv("TZ", tz_buf, 1);
           tzset();
           
           String time_local = convert_time_to_local(g_nmaxe.mstatus.utc);
           LOG_W("ntp calibrate time UTC[%llu], local[%s], timezone[%s], tz_env[%s]", 
-                g_nmaxe.mstatus.utc, time_local.c_str(), g_nmaxe.mstatus.timezone.c_str(), tz_env.c_str());
+                g_nmaxe.mstatus.utc, time_local.c_str(), g_nmaxe.mstatus.timezone.c_str(), tz_buf);
       }
       else{
           // update time now
