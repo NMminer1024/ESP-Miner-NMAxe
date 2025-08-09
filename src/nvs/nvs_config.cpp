@@ -227,15 +227,15 @@ bool load_g_nmaxe(void){
     g_nmaxe.connection.pool_fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
     g_nmaxe.connection.pool_use                 = g_nmaxe.connection.pool_primary;
 
-    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + g_nmaxe.board.hw_model).c_str()));
-    g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "x"));
-    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + g_nmaxe.board.hw_model).c_str()));
-    g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=1024"));
-    g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
-
     g_nmaxe.board.fw_version                    = CURRENT_FW_VERSION;
     g_nmaxe.board.hw_version                    = CURRENT_HW_VERSION;
     g_nmaxe.board.devcie_code                   = gen_device_code();
+
+    g_nmaxe.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + g_nmaxe.board.hw_model + "_" + g_nmaxe.board.devcie_code.substring(0, 5)).c_str()));
+    g_nmaxe.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "x"));
+    g_nmaxe.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + g_nmaxe.board.hw_model + "_" + g_nmaxe.board.devcie_code.substring(0, 5)).c_str()));
+    g_nmaxe.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=512"));
+    g_nmaxe.connection.stratum_use              = g_nmaxe.connection.stratum_primary;
     g_nmaxe.board.reboot_xsem                   = xSemaphoreCreateCounting(1, 0);
     g_nmaxe.board.fw_latest_release             = "";
     g_nmaxe.temp.mcu                            = 0.0f;
