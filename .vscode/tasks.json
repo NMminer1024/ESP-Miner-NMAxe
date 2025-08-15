@@ -75,6 +75,23 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "Calculate Web Files Size",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy", "Bypass",
+                "-File", "calculate_web_size.ps1"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
         }
     ]
 }
