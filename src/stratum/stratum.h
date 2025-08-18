@@ -10,7 +10,7 @@
 #include "pool.h"   
 
 #define  DEFAULT_POOL_DIFFICULTY   (512)
-#define  HELLO_POOL_INTERVAL_MS    (1000*30)
+#define  HELLO_POOL_INTERVAL_MS    (1000*60*2)
 #define  LOST_POOL_TIMEOUT_MS      (1000*60*5)
 #define  SUBMIT_TIMEOUT_MS         (1000*60*2)
 
