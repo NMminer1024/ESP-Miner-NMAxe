@@ -99,7 +99,7 @@ static void ui_drv_register(void){
   
   // Allocate LVGL color buffer in PSRAM for memory optimization
   static lv_color_t *color_buf = NULL;
-  static const size_t color_buf_size = SCREEN_WIDTH * SCREEN_HEIGHT / 10;
+  static const size_t color_buf_size = SCREEN_WIDTH * SCREEN_HEIGHT;
   
   if (color_buf == NULL) {
     // Try to allocate in PSRAM first
