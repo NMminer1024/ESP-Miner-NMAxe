@@ -1,6 +1,6 @@
 #pragma once
 #include "uart_hal.h"
-#include "../ch9434/ch9434.h"
+#include "ch9434.h"
 
 /**
  * Adapter class that wraps CH9434 SPI-to-4xUART chip to implement SerialAdapter interface

@@ -263,6 +263,7 @@ void miner_asic_init_thread_entry(void *args){
     strcpy(name, (char*)args);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
+    
     static HwSerialAdapter serial_adapter = HwSerialAdapter(Serial1);
 
     if(g_nmaxe.asic.model == "BM1366")      asic_instance = new BM1366(serial_adapter, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);

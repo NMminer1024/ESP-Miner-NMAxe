@@ -85,7 +85,7 @@ void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
     freqbuf[5] = (((best_postdiv1 - 1) & 0xf) << 4) | ((best_postdiv2 - 1) & 0xf);
 
     this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
-    LOG_W("Setting clock frequency to %.2fMHz (%.2f)", target_freq, best_freq);
+    // LOG_W("Setting clock frequency to %.2fMHz (%.2f)", target_freq, best_freq);
 }
 
 void BM1370::_set_version_mask(uint32_t version_mask) {
@@ -141,7 +141,7 @@ void BM1370::frequency_ramp_up(float target_frequency){
         this->_set_hash_frequency(-1, current, 0.001);
         float next_step = fminf(step, target_frequency - current);
         current += next_step;
-        // LOG_I("Ramping frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
+        LOG_I("Ramping frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
 
         //need some delay for some special frequency, have no idea why, but it works
         // if((target_frequency == 490)){
