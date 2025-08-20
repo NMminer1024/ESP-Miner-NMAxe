@@ -73,7 +73,8 @@
         "lv_draw.h": "c",
         "lv_example_get_started.h": "c",
         "lv_demo_benchmark.h": "c",
-        "lvgl.h": "c"
+        "lvgl.h": "c",
+        "CH9434.C": "cpp"
     },
     "cmake.sourceDirectory": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/libdeps/nm_axe_1366/ArduinoJson/src",
     "idf.flashType": "UART",
