@@ -1,6 +1,7 @@
 #ifndef BM1366_H_
 #define BM1366_H_
 #include "bm_hal.h"
+#include "uart_hal.h"
 
 #define BM1366_CORE_COUNT       112
 #define BM1366_SMALL_CORE_COUNT 894
@@ -14,7 +15,7 @@ private:
     void _set_version_mask(uint32_t version_mask);
     void _set_hash_frequency(float target_freq);
 public:
-    BM1366(HardwareSerial &sport, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst):BMxxx(sport, init_baud, rx, tx, rst) {
+    BM1366(SerialAdapter &sport, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst):BMxxx(sport, init_baud, rx, tx, rst) {
         this->_diff_current = 0;
     }
     uint8_t init(uint64_t freq, int diff);
