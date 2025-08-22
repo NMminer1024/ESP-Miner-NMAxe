@@ -26,6 +26,8 @@
 #define NVS_SAVE_INTERVAL   (60*60)  //second
 
 #define FAN_FULL_RPM_MIN    (4200)
+#define FAN_TARGET_TEMP     (50.0f)
+
 
 #define WIFI_RSSI_STRONG    (-60)
 #define WIFI_RSSI_GOOD      (-70)

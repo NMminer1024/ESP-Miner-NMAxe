@@ -9,6 +9,14 @@
 #define PCNT_H_LIM_VAL 30000
 #define PULSES_PER_REVOLUTION 2  
 
+struct pid{
+    float Kp, Ki, Kd;
+    float prev_error;
+    float integral;
+    float output_min, output_max;
+};
+
+
 static void fan_init(void){
     pinMode(NM_AXE_FAN_PWM_PIN, OUTPUT);
     ledcSetup(FAN_PWM_CHANNEL, FAN_PWM_FREQ, FAN_PWM_RESOLUTION);
@@ -46,14 +54,42 @@ static uint16_t calculate_rpm(int16_t pulse_count, double time_seconds) {
     return (uint16_t)((pulse_count * 60.0) / (time_seconds * PULSES_PER_REVOLUTION));
 }
 
+float pid_compute(pid* pid, float setpoint, float measured, float dt) {
+    float error = measured - setpoint;
+    pid->integral += error * dt;
+
+    if(pid->integral > 100.0f) pid->integral = 100.0f;
+    if(pid->integral < -100.0f) pid->integral = -100.0f;
+
+    float derivative = (error - pid->prev_error) / dt;
+    float output = pid->Kp * error + pid->Ki * pid->integral + pid->Kd * derivative;
+    pid->prev_error = error;
+
+    if (output > pid->output_max) output = pid->output_max;
+    if (output < pid->output_min) output = pid->output_min;
+    LOG_W("target: %.1f, measured: %.1f, output: %.1f, error: %.1f, integral: %.1f, derivative: %.1f, dt: %.1f",
+          setpoint, measured, output, error, pid->integral, derivative, dt);
+
+    return output;
+}
+
 void fan_thread_entry(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
-    uint32_t start_ms = millis();
     int16_t now_count = 0, last_count = 0,temp_cnt = 0;
+    pid fan_pid = {
+        .Kp = 100.0f,
+        .Ki = 0.3f,
+        .Kd = 0.01f,
+        .prev_error = 0,
+        .integral = 0,
+        .output_min = 0.0f,
+        .output_max = 100.0f
+    };
+
     fan_init();
 
     while(1){
@@ -76,6 +112,7 @@ void fan_thread_entry(void *args){
         }
 
         // Calculate fan RPM
+        static uint32_t start_ms = millis();
         if(millis() - start_ms > 1000){
             pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
             uint16_t delta_pcnt = 0;
@@ -90,13 +127,10 @@ void fan_thread_entry(void *args){
         if(!g_nmaxe.preference.fan.self_test)continue;
 
         if(g_nmaxe.preference.fan.is_auto_speed && g_nmaxe.preference.fan.self_test){
-            // Linearly increase fan speed from 40 to 60 degrees
-            // g_nmaxe.preference.fan.speed = (g_nmaxe.temp.asic < 20.0f) ? 0.0f :
-            //                     (g_nmaxe.temp.asic > 40.0f) ? 100.0f :
-            //                     (g_nmaxe.temp.asic - 20.0f) * (100.0f / (40.0 - 20.0));
-            if      (g_nmaxe.temp.asic < 20.0f) g_nmaxe.preference.fan.speed = 0.0f;
-            else if (g_nmaxe.temp.asic > 40.0f) g_nmaxe.preference.fan.speed = 100.0f;
-            else    g_nmaxe.preference.fan.speed = (g_nmaxe.temp.asic - 20.0f) * 5.0f; // Linearly increase fan speed from 40 to 60 degreesQ
+            static uint32_t pid_start = millis();
+            float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
+            g_nmaxe.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, FAN_TARGET_TEMP, g_nmaxe.temp.asic, dt);
+            pid_start = millis();
         }
         fan_set_speed(g_nmaxe.preference.fan.speed / 100.0);
     }
