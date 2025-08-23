@@ -1,9 +1,41 @@
 /* Preference Component Styles */
 
 // 复选框容器优化
-.f// 确保标签不换行
-.white-space-nowrap {
-  white-space: nowrap !important;
+.field-checkbox {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 8px !important;
+  
+  // 复选框标签样式优化 - 缩小字体大小
+  label {
+    color: #ffffff !important;
+    font-size: 0.85rem !important; // 从 0.9rem 缩小到 0.8rem
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+  }
+  
+  // 复选框样式
+  .p-checkbox {
+    flex-shrink: 0 !important;
+  }
+}
+
+// 复选框网格容器优化
+.col-12[style*="display: flex"] {
+  gap: 8px !important;
+  
+  // 响应式优化
+  @media (max-width: 768px) {
+    gap: 4px !important;
+    
+    .field-checkbox label {
+      font-size: 0.7rem !important; // 移动设备上更小的字体
+    }
+  }
 }
 
 // 温度滑动条颜色样式
@@ -44,41 +76,6 @@
   ::ng-deep .p-slider .p-slider-handle {
     background: #FF5722 !important;
     border-color: #FF5722 !important;
-  }
-}-checkbox {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  margin-bottom: 8px !important;
-  
-  // 复选框标签样式优化
-  label {
-    color: #ffffff !important;
-    font-size: 0.9rem !important;
-    font-weight: 500 !important;
-    line-height: 1.2 !important;
-    margin: 0 !important;
-    white-space: nowrap !important;
-    cursor: pointer !important;
-  }
-  
-  // 复选框样式
-  .p-checkbox {
-    flex-shrink: 0 !important;
-  }
-}
-
-// 复选框网格容器优化
-.col-12[style*="display: flex"] {
-  gap: 8px !important;
-  
-  // 响应式优化
-  @media (max-width: 768px) {
-    gap: 4px !important;
-    
-    .field-checkbox label {
-      font-size: 0.85rem !important;
-    }
   }
 }
 
