@@ -71,6 +71,7 @@ export class SystemService {
           invertfanpolarity: 1,
           ledindicator: 0,
           autofanspeed: 1,
+          targetAsicTemp: "55",
           autoscreen: 0,
           fanspeed: 100,
           fanrpm: 0,

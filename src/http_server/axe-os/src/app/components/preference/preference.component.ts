@@ -46,6 +46,7 @@ export class PreferenceComponent implements OnInit {
           ledindicator: [info.ledindicator == 1],
           brightness: [info.brightness, [Validators.required]],
           autofanspeed: [info.autofanspeed == 1, [Validators.required]],
+          targetAsicTemp: [parseFloat(info.targetAsicTemp || '70') || 70, [Validators.required, Validators.min(30), Validators.max(90)]],
           autoscreen: [info.autoscreen == 1],
           invertfanpolarity: [info.invertfanpolarity == 1, [Validators.required]],
           fanspeed: [info.fanspeed, [Validators.required]],

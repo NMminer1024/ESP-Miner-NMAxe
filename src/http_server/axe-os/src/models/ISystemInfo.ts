@@ -40,6 +40,7 @@ export interface ISystemInfo {
   invertfanpolarity: number,
   ledindicator: number,
   autofanspeed: number,
+  targetAsicTemp?: string,
   autoscreen: number,
   fanspeed: number,
   fanrpm: number,
