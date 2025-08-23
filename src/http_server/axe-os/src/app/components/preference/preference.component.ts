@@ -46,7 +46,7 @@ export class PreferenceComponent implements OnInit {
           ledindicator: [info.ledindicator == 1],
           brightness: [info.brightness, [Validators.required]],
           autofanspeed: [info.autofanspeed == 1, [Validators.required]],
-          targetAsicTemp: [parseFloat(info.targetAsicTemp || '70') || 70, [Validators.required, Validators.min(30), Validators.max(90)]],
+          targetAsicTemp: [parseFloat(info.targetAsicTemp || '70') || 70, [Validators.required, Validators.min(20), Validators.max(70)]],
           autoscreen: [info.autoscreen == 1],
           invertfanpolarity: [info.invertfanpolarity == 1, [Validators.required]],
           fanspeed: [info.fanspeed, [Validators.required]],
@@ -75,6 +75,20 @@ export class PreferenceComponent implements OnInit {
       this.devToolsOpen = false;
     }
   };
+
+  public getTemperatureSliderClass(): string {
+    const temp = this.form?.get('targetAsicTemp')?.value || 70;
+    
+    if (temp <= 50) {
+      return 'temp-safe'; // 绿色 - 安全温度
+    } else if (temp <= 60) {
+      return 'temp-normal'; // 黄绿色 - 正常温度
+    } else if (temp <= 65) {
+      return 'temp-warm'; // 黄色 - 温暖温度
+    } else {
+      return 'temp-hot'; // 红色 - 高温警告
+    }
+  }
 
   public updateSystem() {
 

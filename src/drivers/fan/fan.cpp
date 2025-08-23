@@ -86,7 +86,7 @@ void fan_thread_entry(void *args){
         .Kd = 50.0f,
         .prev_error = 0,
         .integral = 0,
-        .output_min = 0.0f,
+        .output_min = 25.0f,
         .output_max = 100.0f
     };
 

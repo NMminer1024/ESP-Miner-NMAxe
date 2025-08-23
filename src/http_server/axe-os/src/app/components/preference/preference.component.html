@@ -4,20 +4,61 @@
 
     </ng-container> -->
 
+    <!-- Screen Brightness -->
     <div class="field grid p-fluid">
-      <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="brightness">Screen Brightness</label>
-      <div class="col-12 md:col-10">
+      <label class="col-12 mb-2 md:col-3 md:mb-0" htmlFor="brightness">Screen Brightness</label>
+      <div class="col-12 md:col-9">
         <div class="p-grid">
-          <div class="p-col-10">
+          <div class="p-col-8">
             <p-slider formControlName="brightness" [(ngModel)]="form.controls['brightness'].value"></p-slider>
           </div>
-          <div class="p-col-2">
+          <div class="p-col-4">
             <label>{{ form.controls['brightness'].value }}%</label>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Target ASIC Temperature (Auto Fan Mode) -->
+    <div *ngIf="form.controls['autofanspeed'].value == true" class="field grid p-fluid">
+      <label class="col-12 mb-2 md:col-3 md:mb-0 white-space-nowrap" htmlFor="targetAsicTemp">Target ASIC Temp(°C)</label>
+      <div class="col-12 md:col-9">
+        <div class="p-grid">
+          <div class="p-col-8">
+            <p-slider 
+              formControlName="targetAsicTemp" 
+              [(ngModel)]="form.controls['targetAsicTemp'].value"
+              [min]="20" 
+              [max]="70"
+              [step]="1"
+              [ngClass]="getTemperatureSliderClass()">
+            </p-slider>
+          </div>
+          <div class="p-col-4">
+            <label>{{ form.controls['targetAsicTemp'].value }}°C</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fan Speed (Manual Mode) -->
+    <div *ngIf="form.controls['autofanspeed'].value != true" class="field grid p-fluid">
+      <label class="col-12 mb-2 md:col-3 md:mb-0" htmlFor="fanspeed">Manual Fan Speed
+        <b *ngIf="form.controls['fanspeed'].value < 33" style="color:red"></b>
+      </label>
+      <div class="col-12 md:col-9">
+        <div class="p-grid">
+          <div class="p-col-8">
+            <p-slider formControlName="fanspeed" [(ngModel)]="form.controls['fanspeed'].value"></p-slider>
+          </div>
+          <div class="p-col-4">
+            <label>{{ form.controls['fanspeed'].value }}%</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checkbox Options -->
     <div class="col-12" style="display: flex; flex-wrap: wrap; gap: 10px;">
       <div class="col-12 md:col-4" style="flex: 1;">
         <div class="field-checkbox">
@@ -55,32 +96,7 @@
       </div>
     </div>
 
-    <div *ngIf="form.controls['autofanspeed'].value == true">
-      <div class="col-12">
-        <label for="targetAsicTemp">Target ASIC Temperature</label>
-        <input 
-          type="number"
-          class="form-control"
-          formControlName="targetAsicTemp"
-          id="targetAsicTemp"
-          min="30" 
-          max="90" 
-          step="0.5"
-          placeholder="70">
-        <small class="block mt-1">Target temperature for PID fan control (recommended: 65-75°C)</small>
-      </div>
-    </div>
-
-    <div *ngIf="form.controls['autofanspeed'].value != true">
-      <div class="col-12" *ngIf="form.controls['autofanspeed'].value != true">
-        <label>Fan Speed {{ form.controls['fanspeed'].value }}%
-          <b *ngIf="form.controls['fanspeed'].value < 33" style="color:red">Danger: Could Cause
-            Overheating</b> <b *ngIf="form.controls['fanspeed'].value == 100" style="color:	#F2A900">S19
-            Simulator</b></label>
-
-        <p-slider formControlName="fanspeed"></p-slider>
-      </div>
-    </div>
+    <!-- Save Button -->
     <div class="mt-2">
       <button pButton [disabled]="form.invalid" (click)="updateSystem()"
               class="btn btn-primary mr-2">Save

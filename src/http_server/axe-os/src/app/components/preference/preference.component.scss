@@ -1,7 +1,51 @@
 /* Preference Component Styles */
 
 // 复选框容器优化
-.field-checkbox {
+.f// 确保标签不换行
+.white-space-nowrap {
+  white-space: nowrap !important;
+}
+
+// 温度滑动条颜色样式
+.temp-safe {
+  ::ng-deep .p-slider .p-slider-range {
+    background: #4CAF50 !important; // 绿色 - 安全温度 (≤50°C)
+  }
+  ::ng-deep .p-slider .p-slider-handle {
+    background: #4CAF50 !important;
+    border-color: #4CAF50 !important;
+  }
+}
+
+.temp-normal {
+  ::ng-deep .p-slider .p-slider-range {
+    background: #8BC34A !important; // 黄绿色 - 正常温度 (51-60°C)
+  }
+  ::ng-deep .p-slider .p-slider-handle {
+    background: #8BC34A !important;
+    border-color: #8BC34A !important;
+  }
+}
+
+.temp-warm {
+  ::ng-deep .p-slider .p-slider-range {
+    background: #FFC107 !important; // 黄色 - 温暖温度 (61-65°C)
+  }
+  ::ng-deep .p-slider .p-slider-handle {
+    background: #FFC107 !important;
+    border-color: #FFC107 !important;
+  }
+}
+
+.temp-hot {
+  ::ng-deep .p-slider .p-slider-range {
+    background: #FF5722 !important; // 红色 - 高温警告 (>65°C)
+  }
+  ::ng-deep .p-slider .p-slider-handle {
+    background: #FF5722 !important;
+    border-color: #FF5722 !important;
+  }
+}-checkbox {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
@@ -47,6 +91,11 @@
     font-weight: 600 !important;
     font-size: 1rem !important;
   }
+}
+
+// 确保标签不换行
+.white-space-nowrap {
+  white-space: nowrap !important;
 }
 
 // 风扇速度滑块样式

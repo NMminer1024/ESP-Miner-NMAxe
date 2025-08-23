@@ -17,7 +17,7 @@
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
-#define ASIC_TEMP_DANGER        (70.0f)
+#define ASIC_TEMP_DANGER        (75.0f)
 #define ASIC_TEMP_NORMAL        (50.0f)
 
 #define VCORE_TEMP_DANGER       (90.0f)
