@@ -44,6 +44,40 @@ static bool get_temperature(uint8_t chipaddr, float *temp){
     return false;
 }
 
+static bool get_config(uint8_t chipaddr, uint16_t *temp){
+    uint8_t data[2] = {0,};
+    uint8_t sta = tmp102_readRegister(chipaddr, TMP102_DEV_CFG_ADDR, data, 2);
+    if(sta == 0){
+        uint16_t tmp = data[0];
+        tmp = tmp<<8;
+        tmp |= data[1];
+        tmp = tmp>>4;
+        *temp = tmp;
+        return true;
+    }
+    return false;
+}
+
+void tmp102_init() {
+    uint16_t config = 0x00;
+    if(get_config(TMP102_IIC_VCORE_ADDR, &config)){
+        LOG_D("VCORE TMP102 config: 0x%04X", config);
+        config |= (0b11 << 6); //CR0 and CR1 set, data update rate to 8Hz
+        tmp102_writeRegister(TMP102_IIC_VCORE_ADDR, TMP102_DEV_CFG_ADDR, config);
+        uint16_t ddd = 0;
+        get_config(TMP102_IIC_VCORE_ADDR, &ddd);
+        LOG_D("VCORE TMP102 config after write: 0x%04X", ddd);
+    }
+    if(get_config(TMP102_IIC_ASIC_ADDR, &config)){
+        LOG_D("ASIC TMP102 config: 0x%04X", config);
+        config |= (0b11 << 6); //CR0 and CR1 set, data update rate to 8Hz
+        tmp102_writeRegister(TMP102_IIC_ASIC_ADDR, TMP102_DEV_CFG_ADDR, config);
+        uint16_t ddd = 0;
+        get_config(TMP102_IIC_ASIC_ADDR, &ddd);
+        LOG_D("ASIC TMP102 config after write: 0x%04X", ddd);
+    }
+}
+
 
 float get_vcore_temperature(){
     float temp;

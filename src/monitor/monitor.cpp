@@ -146,7 +146,7 @@ void monitor_thread_entry(void *args){
         }
         //check fan status
         static uint16_t fan_err_cnt = 0;
-        if(g_nmaxe.preference.fan.rpm <= 1000){
+        if((g_nmaxe.preference.fan.rpm <= 1000) && (g_nmaxe.temp.asic > ASIC_TEMP_NORMAL)){
           fan_err_cnt++;
           if(fan_err_cnt > 20){//avoid some noise
             LOG_W("Fan rpm is too low, restart miner...");
@@ -324,7 +324,7 @@ void swarm_thread_entry(void *args){
       jsonDoc["LastDiff"] = formatNumber(g_nmaxe.mstatus.diff.last,4);
       jsonDoc["BestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session,4) + "\r" + formatNumber(g_nmaxe.mstatus.diff.best_ever,4);
       jsonDoc["Valid"] = g_nmaxe.mstatus.hits;
-      jsonDoc["Temp"] = g_nmaxe.temp.asic;
+      jsonDoc["Temp"] = roundf(g_nmaxe.temp.asic * 100) / 100.0f;
       jsonDoc["RSSI"] = g_nmaxe.connection.wifi.status_param.rssi;
       jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
       jsonDoc["Uptime"] = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session) + "\r" + convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever);

@@ -17,20 +17,21 @@
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
-#define ASIC_TEMP_DANGER    (70.0f)
-#define VCORE_TEMP_DANGER   (90.0f)
-#define VCORE_TEMP_LOW      (50.0f)
-#define BOARD_MCU_DANGER    (60.0f)
-#define BOARD_LOW_POWER     (8.0f)   //Watt
+#define ASIC_TEMP_DANGER        (70.0f)
+#define ASIC_TEMP_NORMAL        (50.0f)
 
-#define NVS_SAVE_INTERVAL   (60*60)  //second
+#define VCORE_TEMP_DANGER       (90.0f)
+#define VCORE_TEMP_LOW          (50.0f)
+#define BOARD_MCU_DANGER        (60.0f)
 
-#define FAN_FULL_RPM_MIN    (4200)
-#define FAN_TARGET_TEMP     (50.0f)
+#define BOARD_LOW_POWER         (8.0f)   //Watt
 
+#define NVS_SAVE_INTERVAL       (60*60)  //second
 
-#define WIFI_RSSI_STRONG    (-60)
-#define WIFI_RSSI_GOOD      (-70)
+#define FAN_FULL_RPM_MIN        (4200)
+
+#define WIFI_RSSI_STRONG        (-60)
+#define WIFI_RSSI_GOOD          (-70)
 
 #define ASIC_ALIVE_TIMEOUT     (1000*60*3)//3 minutes
 
@@ -42,7 +43,7 @@
 
 #define HISTORY_DEEPTH         (1000*3600*24) // history depth, how long to keep the history, in seconds
 
-#define HISTORY_SAMPLE_INTERVAL (2) // history sample interval, in seconds
+#define HISTORY_SAMPLE_INTERVAL (1) // history sample interval, in seconds
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
@@ -97,6 +98,7 @@ typedef struct{
     bool        self_test;
     uint16_t    speed;//%
     uint16_t    rpm;//RPM
+    float       target_temp;//asic temp
 }fan_info_t;
 
 typedef struct{

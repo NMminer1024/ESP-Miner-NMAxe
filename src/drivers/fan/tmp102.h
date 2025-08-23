@@ -12,6 +12,7 @@
 #define TMP102_DEV_TLOW_ADDR            (uint8_t)(0x02 & 0x03)
 #define TMP102_DEV_THIGH_ADDR           (uint8_t)(0x03 & 0x03)
 
+void tmp102_init();
 float get_vcore_temperature();
 float get_asic_temperature();
 float get_mcu_temperature();

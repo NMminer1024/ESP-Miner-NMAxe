@@ -67,7 +67,7 @@ float pid_compute(pid* pid, float setpoint, float measured, float dt) {
 
     if (output > pid->output_max) output = pid->output_max;
     if (output < pid->output_min) output = pid->output_min;
-    LOG_W("target: %.1f, measured: %.1f, output: %.1f, error: %.1f, integral: %.1f, derivative: %.1f, dt: %.1f",
+    LOG_W("target: %.2f, measured: %.2f, output: %.2f, error: %.2f, integral: %.2f, derivative: %.2f, dt: %.2f",
           setpoint, measured, output, error, pid->integral, derivative, dt);
 
     return output;
@@ -81,28 +81,29 @@ void fan_thread_entry(void *args){
 
     int16_t now_count = 0, last_count = 0,temp_cnt = 0;
     pid fan_pid = {
-        .Kp = 100.0f,
-        .Ki = 0.3f,
-        .Kd = 0.01f,
+        .Kp = 300.0f,
+        .Ki = 0.01f,
+        .Kd = 50.0f,
         .prev_error = 0,
         .integral = 0,
         .output_min = 0.0f,
         .output_max = 100.0f
     };
 
+    tmp102_init();
     fan_init();
 
     while(1){
-        delay(100);
+        delay(125);// 8Hz
         //update board temperature
         g_nmaxe.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : g_nmaxe.temp.mcu;
         g_nmaxe.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : g_nmaxe.temp.vcore;
-        g_nmaxe.temp.asic   = (temp_cnt % 20 == 0) ? (float)get_asic_temperature() : g_nmaxe.temp.asic;
+        g_nmaxe.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : g_nmaxe.temp.asic;
 
         // Round to 1 decimal place
         g_nmaxe.temp.mcu   = roundf(g_nmaxe.temp.mcu * 10) / 10.0f;
         g_nmaxe.temp.vcore = roundf(g_nmaxe.temp.vcore * 10) / 10.0f;
-        g_nmaxe.temp.asic  = roundf(g_nmaxe.temp.asic * 10) / 10.0f;
+        g_nmaxe.temp.asic  = roundf(g_nmaxe.temp.asic * 100) / 100.0f;
         temp_cnt++;
         
         // Fan self test flag set only once
@@ -129,7 +130,7 @@ void fan_thread_entry(void *args){
         if(g_nmaxe.preference.fan.is_auto_speed && g_nmaxe.preference.fan.self_test){
             static uint32_t pid_start = millis();
             float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-            g_nmaxe.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, FAN_TARGET_TEMP, g_nmaxe.temp.asic, dt);
+            g_nmaxe.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, g_nmaxe.preference.fan.target_temp, g_nmaxe.temp.asic, dt);
             pid_start = millis();
         }
         fan_set_speed(g_nmaxe.preference.fan.speed / 100.0);
