@@ -187,7 +187,6 @@ bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     if (phr == NULL) return false;
-    uint32_t start = micros();
     static std::deque<std::pair<uint32_t, double>, PsramAllocator<std::pair<uint32_t, double>>> hr_samples_3m, hr_samples_30m, hr_samples_60m;
     const uint32_t duration_3m  = 3 * 60 * 1000, duration_30m = 30 * 60 * 1000, duration_60m = 60 * 60 * 1000;
     static double sum_3m = 0.0, sum_30m = 0.0, sum_60m = 0.0;
@@ -205,7 +204,6 @@ bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     while(!hr_samples_3m.empty() && (hr_samples_3m.front().first + duration_3m < now)) {
         sum_3m -= hr_samples_3m.front().second;
         hr_samples_3m.pop_front();
-        // LOG_W("Removed 3m sample: %d,%d, now - front = %d", now, hr_samples_3m.front().first, now - hr_samples_3m.front().first);
     }
     //remove samples older than 30 minute
     while(!hr_samples_30m.empty() && (hr_samples_30m.front().first + duration_30m < now)) {
@@ -221,9 +219,6 @@ bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     phr->_3m  = sum_3m  * 4294967296.0 / (3 * 60.0);
     phr->_30m = sum_30m * 4294967296.0 / (30 * 60.0);
     phr->_1h  = sum_60m * 4294967296.0 / (60 * 60.0);
-
-    uint32_t end = micros();
-    LOG_W("HR cost %d us", end - start);
     return true;
 }
 
@@ -349,8 +344,6 @@ void miner_asic_rx_thread_entry(void *args){
         }
         esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result, 1000*30);
         if(ESP_OK == err){
-            uint32_t now = micros();
-
             if(!g_nmaxe.stratum->is_subscribed()) continue;
             if(g_nmaxe.miner->find_job_by_asic_job_id(result.job_id, &job)){
                 g_nmaxe.mstatus.asic_update = millis();
@@ -405,9 +398,6 @@ void miner_asic_rx_thread_entry(void *args){
                 //submit sulution
                 uint32_t version_submit = version ^ (*(uint32_t*)job.version);
                 String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);
-                uint32_t end = micros();
-                LOG_W("submit cost %dus", end - now);
-
                 bool res = g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
                 if(!res) continue;
                 
