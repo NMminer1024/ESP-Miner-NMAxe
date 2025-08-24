@@ -247,14 +247,15 @@ void miner_asic_init_thread_entry(void *args){
     //miner instance
     g_nmaxe.miner = new AsicMinerClass(asic_instance);
 
-    LOG_I("ASIC job interval set to %d ms", g_nmaxe.asic.job_frq_ms);
     //begin asic hardware
     if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, ASIC_DIFF_THR)){
         while (true){
-            LOG_E("Miner asic init failed!");
+            LOG_E("Miner low power!");
             delay(1000);
         }
     }
+    
+    LOG_I("ASIC job interval set to %d ms", g_nmaxe.asic.job_frq_ms);
     delay(1000);//wait for asic init stable
     vTaskDelete(NULL);
 }

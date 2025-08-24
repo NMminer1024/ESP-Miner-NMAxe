@@ -16,9 +16,9 @@ BMxxx::~BMxxx(){
 
 void BMxxx::reset(){
     digitalWrite(this->_rst_pin, LOW);
-    delay(100);
+    delay(50);
     digitalWrite(this->_rst_pin, HIGH);
-    delay(100);
+    delay(20);
 }
 
 void BMxxx::change_uart_baud(uint32_t baudrate){

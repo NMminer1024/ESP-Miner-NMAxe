@@ -179,6 +179,21 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 ## Release Log
 ***
 
+### (2025.08.24) - v2.9.03
+- `Add`:
+  - PID controller for auto fan.
+  - Target ASIC temperature setting on AxeOS(The target temperature cannot be locked when the ambient temperature is too high)
+  - The default stratum user will have the hostname appended as a suffix.
+- `Fixed`:
+  - None.
+- `Improved`:
+  - Hashrate for 3m, 30m, 60m, reduce the computation time from 10ms to 70us.
+  - Memory usage, resulting in smoother screen switching.
+- `Modify`:
+  - None.
+- `Remove`:
+  - None.
+
 ### (2025.08.08) - v2.9.02
 - `Add`:
   - API: Hashrate distribution,`IP`/api/system/hr/dist

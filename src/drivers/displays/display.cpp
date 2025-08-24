@@ -57,7 +57,7 @@ static void tft_init(){
   pinMode(NM_AXE_TFT_BL_PIN, OUTPUT);
   ledcSetup(blpwmChannel, freq, resolution);
   ledcAttachPin(NM_AXE_TFT_BL_PIN, blpwmChannel);
-  tft_bl_ctrl(g_nmaxe.preference.screen.brightness);
+  tft_bl_ctrl(0);//sleep when boot up
 }
 
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
@@ -756,7 +756,7 @@ static void ui_ota_page_update(){
 }
 
 static void ui_dashboard_page_update(){
-  #define FREQ_MIN 400.0f
+  #define FREQ_MIN 380.0f
   #define FREQ_MAX 900.0f
 
   #define POWER_MIN 0.0f
@@ -1283,6 +1283,7 @@ void ui_thread_entry(void *args){
   //lvgl tick task
   String taskName = "(lvgl)";
   xTaskCreatePinnedToCore(lvgl_tick_task, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_LVGL_DRV, NULL, 1);
+  delay(100);
 
   //ui layout init
   ui_layout_init();
@@ -1290,7 +1291,11 @@ void ui_thread_entry(void *args){
   //set the first page to loading page
   lv_obj_scroll_to_view(ui_pages[PAGE_LOADING], LV_ANIM_ON); 
 
-
+  //backlight brightness ramp up
+  for(int i = 0; i < g_nmaxe.preference.screen.brightness; i++) {
+    tft_bl_ctrl(i);
+    delay(10);
+  }
 
   uint16_t cnt = 0;
 

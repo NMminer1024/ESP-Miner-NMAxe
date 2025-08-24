@@ -12,70 +12,6 @@
 static AsyncWebServer  webServer(80);
 WebSocketsServer       webSocket(81);
 
-// 自适应内存分配历史记录
-struct MemoryAllocationHistory {
-    size_t last_history_size = 0;          // 上次处理的历史记录数量
-    size_t last_sampled_count = 0;         // 上次实际采样数量
-    size_t last_buffer_size = 1024;        // 上次分配的缓冲区大小 (初始1KB)
-    size_t last_json_size = 0;             // 上次实际JSON序列化大小
-    float bytes_per_sample = 120.0f;       // 每个样本的平均字节数 (动态学习)
-    uint32_t allocation_count = 0;         // 分配次数计数器
-    bool has_learned_data = false;         // 是否已有学习数据
-    
-    // 计算下次建议的缓冲区大小
-    size_t calculate_next_buffer_size(size_t expected_samples) {
-        if (!has_learned_data) {
-            // 首次分配或无历史数据，使用保守估计
-            return 1024 + (expected_samples * 120); // 1KB基础 + 120字节/样本
-        }
-        
-        // 基于历史数据学习的预测
-        size_t predicted_size = 2048 + (size_t)(expected_samples * bytes_per_sample);
-        
-        // 添加20%安全边际
-        predicted_size = predicted_size + (predicted_size / 5);
-        
-        // 确保最小分配
-        if (predicted_size < 1024) predicted_size = 1024;
-        
-        return predicted_size;
-    }
-    
-    // 更新学习数据
-    void update_learning_data(size_t history_size, size_t sampled_count, size_t buffer_size, size_t actual_json_size) {
-        last_history_size = history_size;
-        last_sampled_count = sampled_count;
-        last_buffer_size = buffer_size;
-        last_json_size = actual_json_size;
-        allocation_count++;
-        
-        if (sampled_count > 0 && actual_json_size > 0) {
-            // 计算实际每样本字节数
-            float current_bytes_per_sample = (float)actual_json_size / sampled_count;
-            
-            if (has_learned_data) {
-                // 使用指数移动平均更新学习参数 (权重0.3新数据，0.7历史数据)
-                bytes_per_sample = (bytes_per_sample * 0.7f) + (current_bytes_per_sample * 0.3f);
-            } else {
-                // 首次学习
-                bytes_per_sample = current_bytes_per_sample;
-                has_learned_data = true;
-            }
-            
-            LOG_W("Memory learning update: samples=%d, json_size=%d, bytes_per_sample=%.1f (previous=%.1f)", 
-                  sampled_count, actual_json_size, current_bytes_per_sample, bytes_per_sample);
-        }
-    }
-    
-    // 获取分配效率统计
-    float get_allocation_efficiency() {
-        if (last_buffer_size == 0 || last_json_size == 0) return 0.0f;
-        return (float)last_json_size / last_buffer_size;
-    }
-};
-
-static MemoryAllocationHistory memory_history;
-
 
 static bool isValidNumber(const String& str) {
     if (str.length() == 0) return false;
@@ -97,7 +33,6 @@ static bool isValidNumber(const String& str) {
     }
     return hasDigit;
 }
-
 static void file_system_init() {
     if (!SPIFFS.begin(true, "", 5, NULL)) {
         LOG_E("An Error has occurred while mounting SPIFFS");

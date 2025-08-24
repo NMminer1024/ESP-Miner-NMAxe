@@ -24,7 +24,7 @@
 #define VCORE_TEMP_LOW          (50.0f)
 #define BOARD_MCU_DANGER        (60.0f)
 
-#define BOARD_LOW_POWER         (8.0f)   //Watt
+#define BOARD_LOW_POWER         (10.0f)   //Watt
 
 #define NVS_SAVE_INTERVAL       (60*60)  //second
 

@@ -135,17 +135,17 @@ void BM1370::frequency_ramp_up(float target_frequency){
         return;
     }
 
-    // LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
+    LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
 
     while (current < target_frequency) {
-        this->_set_hash_frequency(-1, current, 0.001);
+        this->_set_hash_frequency(-1, current, 0.002);
         float next_step = fminf(step, target_frequency - current);
         current += next_step;
-        LOG_I("Ramping frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
-
-        //need some delay for some special frequency, have no idea why, but it works
-        // if((target_frequency == 490)){
-        //     LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
+        // LOG_I("Ramping frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
+        
+        // //need some delay for some special frequency, have no idea why, but it works
+        // if((target_frequency == 440) && (target_frequency == 575)){
+        //     LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz...", current, target_frequency, step);
         // }
     }
 }
