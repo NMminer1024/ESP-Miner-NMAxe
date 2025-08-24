@@ -67,7 +67,7 @@ float pid_compute(pid* pid, float setpoint, float measured, float dt) {
 
     if (output > pid->output_max) output = pid->output_max;
     if (output < pid->output_min) output = pid->output_min;
-    LOG_W("target: %.2f, measured: %.2f, output: %.2f, error: %.2f, integral: %.2f, derivative: %.2f, dt: %.2f",
+    LOG_D("target: %.2f, measured: %.2f, output: %.2f, error: %.2f, integral: %.2f, derivative: %.2f, dt: %.2f",
           setpoint, measured, output, error, pid->integral, derivative, dt);
 
     return output;

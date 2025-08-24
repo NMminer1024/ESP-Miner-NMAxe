@@ -187,67 +187,43 @@ bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     if (phr == NULL) return false;
-
-    //acllocate memory in psram
-    static std::deque<std::pair<uint32_t, double>, PsramAllocator<std::pair<uint32_t, double>>> hr_samples;
-
-    double   sum = 0.0;
-    uint32_t now = millis(), duration = 0;
-
+    uint32_t start = micros();
+    static std::deque<std::pair<uint32_t, double>, PsramAllocator<std::pair<uint32_t, double>>> hr_samples_3m, hr_samples_30m, hr_samples_60m;
+    const uint32_t duration_3m  = 3 * 60 * 1000, duration_30m = 30 * 60 * 1000, duration_60m = 60 * 60 * 1000;
+    static double sum_3m = 0.0, sum_30m = 0.0, sum_60m = 0.0;
+    uint32_t now = millis();
+    uint32_t diff = this->_asic->get_asic_difficulty();
     // record hashrate samples
-    hr_samples.push_back({now, this->_asic->get_asic_difficulty()});
-    // remove samples older than 1 hour
-    duration = 1*60*60;
-    while (!hr_samples.empty() && (now - hr_samples.front().first > duration * 1000)) { 
-        hr_samples.pop_front();
+    hr_samples_3m.push_back( {now, diff});
+    hr_samples_30m.push_back({now, diff});
+    hr_samples_60m.push_back({now, diff});
+
+    sum_3m   += diff;
+    sum_30m  += diff;
+    sum_60m  += diff;
+    //remove samples older than 3 minute
+    while(!hr_samples_3m.empty() && (hr_samples_3m.front().first + duration_3m < now)) {
+        sum_3m -= hr_samples_3m.front().second;
+        hr_samples_3m.pop_front();
+        // LOG_W("Removed 3m sample: %d,%d, now - front = %d", now, hr_samples_3m.front().first, now - hr_samples_3m.front().first);
+    }
+    //remove samples older than 30 minute
+    while(!hr_samples_30m.empty() && (hr_samples_30m.front().first + duration_30m < now)) {
+        sum_30m -= hr_samples_30m.front().second;
+        hr_samples_30m.pop_front();
+    }
+    //remove samples older than 60 minute
+    while(!hr_samples_60m.empty() && (hr_samples_60m.front().first + duration_60m < now)) {
+        sum_60m -= hr_samples_60m.front().second;
+        hr_samples_60m.pop_front();
     }
 
-    // // calculate hashrate for 1 minute
-    // duration = 1 * 60.0;
-    // sum = 0.0;
-    // for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
-    //     if((now - it->first) <= duration * 1000) { // 1 minute
-    //         sum += it->second;
-    //     }
-    //     else break;
-    // }
-    // phr->_1m = sum * 4294967296.0 / duration;
+    phr->_3m  = sum_3m  * 4294967296.0 / (3 * 60.0);
+    phr->_30m = sum_30m * 4294967296.0 / (30 * 60.0);
+    phr->_1h  = sum_60m * 4294967296.0 / (60 * 60.0);
 
-    // calculate hashrate for 3 minute
-    duration = 3 * 60.0;
-    sum = 0.0;
-    for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
-        if((now - it->first) <= duration * 1000) { // 3 minute
-            sum += it->second;
-        }
-        else break;
-    }
-    phr->_3m = sum * 4294967296.0 / duration;
-
-
-    // calculate hashrate for 30 minute
-    duration = 30 * 60.0;
-    sum = 0.0;
-    for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
-        if((now - it->first) <= duration * 1000) { // 30 minute
-            sum += it->second;
-        }
-        else break;
-    }
-    phr->_30m = sum * 4294967296.0 / duration;
-
-
-    // calculate hashrate for 1 hour
-    duration = 60 * 60.0;
-    sum = 0.0;
-    for (auto it = hr_samples.rbegin(); it != hr_samples.rend(); ++it) {
-        if((now - it->first) <= duration * 1000) { // 1 hour
-            sum += it->second;
-        }
-        else break;
-    }
-    phr->_1h = sum * 4294967296.0 / duration;
-
+    uint32_t end = micros();
+    LOG_W("HR cost %d us", end - start);
     return true;
 }
 
@@ -373,6 +349,8 @@ void miner_asic_rx_thread_entry(void *args){
         }
         esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result, 1000*30);
         if(ESP_OK == err){
+            uint32_t now = micros();
+
             if(!g_nmaxe.stratum->is_subscribed()) continue;
             if(g_nmaxe.miner->find_job_by_asic_job_id(result.job_id, &job)){
                 g_nmaxe.mstatus.asic_update = millis();
@@ -427,6 +405,9 @@ void miner_asic_rx_thread_entry(void *args){
                 //submit sulution
                 uint32_t version_submit = version ^ (*(uint32_t*)job.version);
                 String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);
+                uint32_t end = micros();
+                LOG_W("submit cost %dus", end - now);
+
                 bool res = g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
                 if(!res) continue;
                 
