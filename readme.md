@@ -179,6 +179,18 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 ## Release Log
 ***
 
+### (2025.08.31) - v2.9.10
+- `Add`:
+  - None.
+- `Fixed`:
+  - The issue of PSRAM usage causes the miner to restart every 17 hours.
+- `Improved`:
+  - None.
+- `Modify`:
+  - None.
+- `Remove`:
+  - None.
+
 ### (2025.08.24) - v2.9.03
 - `Add`:
   - PID controller for auto fan.
