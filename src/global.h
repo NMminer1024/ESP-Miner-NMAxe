@@ -43,7 +43,7 @@
 
 #define HISTORY_DEEPTH         (1000*3600*24) // history depth, how long to keep the history, in seconds
 
-#define HISTORY_SAMPLE_INTERVAL (1) // history sample interval, in seconds
+#define HISTORY_SAMPLE_INTERVAL (2) // history sample interval, in seconds
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
