@@ -44,7 +44,7 @@ void setup() {
   delay(10);
   /********************************************************* CREATE FAN THREAD *********************************************************/
   taskName = "(fan)";
-  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_FAN, &fanTask,1);
+  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_FAN, &fanTask,0);
   delay(10);
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
@@ -58,7 +58,7 @@ void setup() {
   }
   /************************************************************** INIT DAEMON **********************************************************/
   taskName = "(daemon)";
-  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, &daemonTask, 1);
+  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, &daemonTask, 0);
   delay(10);
   /************************************************************** INIT WIFI ************************************************************/
   taskName = "(wifi)";
@@ -85,11 +85,11 @@ void setup() {
 #endif
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
-  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, &swarmTask, 1);
+  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, &swarmTask, 0);
   delay(10);
   /*********************************************************** CREATE MARKET THREAD ****************************************************/
   taskName = "(market)";
-  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, &marketTask, 1);
+  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, &marketTask, 0);
   uint32_t start = millis();
   while (0 == g_nmaxe.market->lastUpdate){
     if(millis() - start - g_nmaxe.market->lastUpdate > MARKET_TIMEOUT){
