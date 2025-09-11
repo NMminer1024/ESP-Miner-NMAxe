@@ -85,7 +85,7 @@ void setup() {
 #endif
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
-  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, &swarmTask, 0);
+  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, &swarmTask, 0);
   delay(10);
   /*********************************************************** CREATE MARKET THREAD ****************************************************/
   taskName = "(market)";

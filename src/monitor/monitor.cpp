@@ -249,29 +249,23 @@ void swarm_thread_entry(void *args){
   udp_client->begin(UDP_BOARDCAST_PORT);
 
   uint64_t swarm_cnt = 0;
-  StaticJsonDocument<1024> jsonDoc;
   char  jsonbuf[1024] = {0,};
+  StaticJsonDocument<1024> jsonDoc;
   while (true){
-    swarm_cnt++;
     delay(100);
     if(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED) continue;
+    swarm_cnt++;
     //listen udp status
     if(swarm_cnt % 1 == 0){
       int packetSize = udp_client->parsePacket();
-      if (packetSize > 0) {
-          char *incomingPacket = (char*)malloc(packetSize + 1 );
-          memset(incomingPacket, '\0', packetSize + 1);
-          int len = udp_client->read(incomingPacket, packetSize);
 
-
-          char *json_str = (char*)malloc(packetSize + 1);
-          memset(json_str, '\0', packetSize + 1);
-          memcpy(json_str, incomingPacket, packetSize);
+      char udpbuf[512] = {0,}, json_udp_str[512] = {0,};
+      if ((packetSize > 0) && (packetSize < sizeof(udpbuf))) {
+          int len = udp_client->read(udpbuf, packetSize);
+          memcpy(json_udp_str, udpbuf, packetSize);
           jsonDoc.clear();
-          DeserializationError error = deserializeJson(jsonDoc, json_str);
+          DeserializationError error = deserializeJson(jsonDoc, json_udp_str);
           if(error) {
-            free(json_str);
-            free(incomingPacket);
             udp_client->flush();
             continue;
           }
@@ -305,9 +299,6 @@ void swarm_thread_entry(void *args){
             size_t n = serializeJson(jsonDoc, jsonbuf);
             it->second = (n>0) ? String(jsonbuf) : "";
           }
-          
-          free(json_str);
-          free(incomingPacket);
           udp_client->flush();
         }
     }
@@ -338,10 +329,18 @@ void swarm_thread_entry(void *args){
 
       memset(jsonbuf, 0, sizeof(jsonbuf));
       size_t n = serializeJson(jsonDoc, jsonbuf);
+      if(n >= sizeof(jsonbuf) || n == 0){
+        LOG_E("Swarm json serialize failed or too long: %d/%d", n, sizeof(jsonbuf));
+        continue;
+      }
       //broadcast status to udp
       udp_client->beginPacket(UDP_BOARDCAST_ADDR, UDP_BOARDCAST_PORT);
       udp_client->write((uint8_t*)jsonbuf, n);
-      udp_client->endPacket();
+      int res = udp_client->endPacket();
+      if(res != 1) {
+        LOG_E("Swarm udp broadcast failed: %d", res);
+        continue;
+      }
 
       //add self to swarm list
       g_nmaxe.swarm[g_nmaxe.connection.wifi.status_param.ip.toString()] = String(jsonbuf);
