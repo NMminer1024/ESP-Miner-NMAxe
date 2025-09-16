@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { SystemService, StatusHistoryResponse } from 'src/app/services/system.service';
 import { interval, Subscription } from 'rxjs';
+import { Chart } from 'chart.js';
 
 @Component({
   selector: 'app-monitor-chart',
@@ -98,6 +99,13 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
       ]
     };
 
+    console.log('🚀 Monitor chart initialized with datasets:', this.chartData.datasets.map((d: any, i: number) => ({
+      index: i,
+      label: d.label,
+      borderColor: d.borderColor,
+      yAxisID: d.yAxisID
+    })));
+
     this.chartOptions = {
       responsive: true,
       maintainAspectRatio: false,
@@ -113,16 +121,34 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
           display: true,
           position: 'top',
           onClick: (event: any, legendItem: any, legend: any) => {
+            console.log('🖱️ Legend clicked:', legendItem);
+            console.log('📊 Dataset index:', legendItem.datasetIndex);
+            console.log('📈 Legend chart:', legend.chart);
+            
             // 获取图表实例
             const chart = legend.chart;
             const index = legendItem.datasetIndex;
             const meta = chart.getDatasetMeta(index);
+            const dataset = chart.data.datasets[index];
             
-            // 切换显示/隐藏状态
-            meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : !meta.hidden;
+            console.log('📋 Dataset meta before:', {
+              hidden: meta.hidden,
+              datasetHidden: dataset.hidden,
+              visible: meta.visible
+            });
+            
+            // 简单的显示/隐藏切换
+            meta.hidden = meta.hidden === null ? !dataset.hidden : !meta.hidden;
+            
+            console.log('📋 Dataset meta after:', {
+              hidden: meta.hidden,
+              datasetHidden: dataset.hidden,
+              visible: meta.visible
+            });
             
             // 更新图表
             chart.update();
+            console.log('🔄 Chart update completed');
           }
         },
         tooltip: {
@@ -211,6 +237,24 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
         }
       }
     };
+
+    // 延迟调试，确保图表已创建
+    setTimeout(() => {
+      if (this.chart) {
+        console.log('🎯 Chart instance created successfully');
+        console.log('📊 Chart datasets after creation:', 
+          this.chart.data.datasets.map((d: any, i: number) => ({
+            index: i,
+            label: d.label,
+            hidden: d.hidden,
+            meta: this.chart.getDatasetMeta(i)
+          }))
+        );
+        console.log('🔧 Chart legend options:', this.chart.options.plugins?.legend);
+      } else {
+        console.error('❌ Chart instance not found after creation');
+      }
+    }, 100);
   }
 
   private loadHistoryData(): void {
@@ -257,6 +301,20 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
   }
 
   private updateChart(timeLabels: number[], hashrateData: number[], asicTempData: number[], vcoreTempData: number[]): void {
+    console.log('📊 updateChart called with data:', {
+      timeLabels: timeLabels.length,
+      hashrateData: hashrateData.length,
+      asicTempData: asicTempData.length,
+      vcoreTempData: vcoreTempData.length
+    });
+    
+    console.log('📈 Current datasets before update:', this.chartData.datasets?.map((d: any, i: number) => ({
+      index: i,
+      label: d.label,
+      dataLength: d.data?.length || 0,
+      hidden: d.hidden
+    })));
+
     this.chartData = {
       labels: timeLabels.map(timestamp => new Date(timestamp).toLocaleTimeString()),
       datasets: [
@@ -275,9 +333,20 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
       ]
     };
 
+    console.log('📈 Updated datasets:', this.chartData.datasets?.map((d: any, i: number) => ({
+      index: i,
+      label: d.label,
+      dataLength: d.data?.length || 0,
+      hidden: d.hidden
+    })));
+
     // Force chart update
     if (this.chart && this.chart.chart) {
+      console.log('🔄 Forcing chart update...');
       this.chart.chart.update('none'); // No animation update
+      console.log('✅ Chart update completed');
+    } else {
+      console.warn('⚠️ Chart reference not found');
     }
   }
 
