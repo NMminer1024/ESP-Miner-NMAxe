@@ -27,6 +27,21 @@ function formatNumber(num: number): string {
   return value.toFixed(decimals) + units[unitIndex];
 }
 
+// 格式化share值，专门用于显示在柱子顶端，固定保留两位小数
+function formatShareValue(num: number): string {
+  const units = ['', 'K', 'M', 'G', 'T', 'P', 'E'];
+  let unitIndex = 0;
+  let value = num;
+  
+  while (value >= 1000 && unitIndex < units.length - 1) {
+    value /= 1000;
+    unitIndex++;
+  }
+  
+  // 固定保留两位小数
+  return value.toFixed(2) + units[unitIndex];
+}
+
 // 格式化时间戳为24小时格式
 function formatTimestamp(timestamp: number): string {
   const date = new Date(timestamp);
@@ -352,8 +367,8 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           
           // 在奖牌下方、柱子顶端上面显示share_diff值
           const shareValue = medal.share_diff || 0;
-          const shareText = formatNumber(shareValue);
-          const shareTextSize = medalSizes.iconSize <= 20 ? 12 : (medalSizes.iconSize <= 26 ? 14 : 16); // 增大字体
+          const shareText = formatShareValue(shareValue); // 使用新的格式化函数，固定保留两位小数
+          const shareTextSize = medalSizes.iconSize <= 20 ? 10 : (medalSizes.iconSize <= 26 ? 12 : 14); // 比原来小2像素
           
           ctx.font = `bold ${shareTextSize}px Arial`;
           ctx.fillStyle = '#FFFFFF'; // 改为白色

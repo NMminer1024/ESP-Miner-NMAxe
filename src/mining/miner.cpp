@@ -461,7 +461,7 @@ void miner_asic_rx_thread_entry(void *args){
                     node.epoch           = g_nmaxe.mstatus.utc * 1000ULL;
                     g_nmaxe.mstatus.block_proximity_history.push_back(node);
                     //keep history size within limit
-                    while(g_nmaxe.mstatus.block_proximity_history.size() > 2000){
+                    while(g_nmaxe.mstatus.block_proximity_history.size() > 10000){
                         g_nmaxe.mstatus.block_proximity_history.pop_front();
                     }
                     xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
