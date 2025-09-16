@@ -179,7 +179,7 @@ typedef struct{
 }history_node_t;
 
 typedef struct{
-    String          block_proximity; // block share, percentage 0-100%
+    float           block_proximity; // block share, percentage 0-100%
     float           share_diff;      // share difficulty
     float           net_diff;        // network difficulty
     uint64_t        epoch;           // timestamp, milliseconds since epoch

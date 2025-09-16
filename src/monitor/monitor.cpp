@@ -234,7 +234,7 @@ void monitor_thread_entry(void *args){
       // }
       if(g_nmaxe.mstatus.block_proximity_history.size() > 0){
         auto node = g_nmaxe.mstatus.block_proximity_history.back();
-        LOG_I("Block proximity history: %f/%f/%s", node.share_diff, node.net_diff, node.block_proximity.c_str());
+        LOG_I("Block proximity history: %f/%f/%.15f", node.share_diff, node.net_diff, node.block_proximity);
       }
     }
 }
