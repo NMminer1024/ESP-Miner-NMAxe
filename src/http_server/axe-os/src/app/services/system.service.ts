@@ -228,4 +228,60 @@ export class SystemService {
     return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/status/realtime`, { headers })
       .pipe(timeout(20000)); // 实时数据20秒超时
   }
+
+  public getLuckyHistory(uri: string = ''): Observable<StatusHistoryResponse> {
+    const headers = new HttpHeaders({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
+    console.log('📡 Requesting lucky history data...');
+    
+    return this.httpClient.get(`${uri}/api/system/luck/history`, { 
+      headers,
+      responseType: 'text' // 先获取为文本
+    }).pipe(
+      timeout(60000), // 60秒超时
+      map((response: string) => {
+        try {
+          console.log(`📄 Lucky history response received, length: ${response.length} bytes`);
+          
+          // 检查响应是否看起来像JSON
+          if (!response.trim().startsWith('{') && !response.trim().startsWith('[')) {
+            throw new Error(`Invalid JSON format. Response starts with: "${response.substring(0, 100)}"`);
+          }
+          
+          const parsed = JSON.parse(response) as StatusHistoryResponse;
+          console.log(`✅ Lucky history JSON parsed successfully, statistics count: ${parsed.statistics?.length || 0}`);
+          return parsed;
+        } catch (error) {
+          console.error('❌ Lucky history JSON parsing failed:', error);
+          console.error('Response preview (first 500 chars):', response.substring(0, 500));
+          throw new Error(`Lucky history JSON parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }),
+      catchError(error => {
+        if (error.name === 'TimeoutError') {
+          console.error('⏰ Lucky history request timed out after 60s');
+          throw new Error('Lucky history request timed out after 60 seconds.');
+        } else if (error.status === 0) {
+          console.error('🌐 Lucky history network connection failed');
+          throw new Error('Network connection failed. Please check your connection.');
+        } else {
+          console.error('❌ Lucky history HTTP request failed:', error);
+          throw error;
+        }
+      })
+    );
+  }
+
+  public getLuckyRealtime(uri: string = ''): Observable<StatusHistoryResponse> {
+    const headers = new HttpHeaders({
+      'Cache-Control': 'no-cache'
+    });
+    
+    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/luck/realtime`, { headers })
+      .pipe(timeout(20000)); // 实时数据20秒超时
+  }
 }

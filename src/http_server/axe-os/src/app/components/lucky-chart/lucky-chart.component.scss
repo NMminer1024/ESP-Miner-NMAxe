@@ -1,0 +1,219 @@
+.lucky-chart-container {
+  width: 100%;
+  background: var(--surface-card);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-top: 1rem;
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: var(--surface-50);
+    border-bottom: 1px solid var(--surface-200);
+
+    .chart-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      .chart-icon {
+        font-size: 1.5rem;
+      }
+    }
+
+    .chart-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+
+      .chart-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.875rem;
+        color: var(--text-color-secondary);
+
+        .data-count {
+          padding: 0.25rem 0.5rem;
+          background: var(--primary-50);
+          color: var(--primary-700);
+          border-radius: 4px;
+          font-weight: 500;
+        }
+
+        .last-update {
+          font-family: monospace;
+        }
+      }
+
+      .loading-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--text-color-secondary);
+
+        .loading-spinner {
+          animation: spin 1s linear infinite;
+        }
+      }
+    }
+  }
+
+  .chart-content {
+    padding: 1rem;
+
+    .chart-wrapper {
+      position: relative;
+      height: 400px;
+      width: 100%;
+      
+      &.loading {
+        opacity: 0.5;
+      }
+
+      canvas {
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+
+        .loading-content {
+          text-align: center;
+          color: var(--text-color-secondary);
+
+          .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--surface-200);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+          }
+
+          p {
+            margin: 0;
+            font-size: 0.875rem;
+          }
+        }
+      }
+    }
+
+    .chart-footer {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--surface-200);
+
+      .legend-info {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 0.5rem;
+
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.875rem;
+
+          .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+
+            &.share-color {
+              background-color: rgba(54, 162, 235, 0.6);
+              border: 1px solid rgba(54, 162, 235, 1);
+            }
+
+            &.net-color {
+              background-color: rgba(255, 99, 132, 0.6);
+              border: 1px solid rgba(255, 99, 132, 1);
+            }
+          }
+
+          .legend-label {
+            color: var(--text-color);
+            font-weight: 500;
+          }
+        }
+      }
+
+      .chart-description {
+        color: var(--text-color-secondary);
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .lucky-chart-container {
+    .chart-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.75rem;
+
+      .chart-controls {
+        width: 100%;
+        justify-content: space-between;
+
+        .chart-info {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.25rem;
+        }
+      }
+    }
+
+    .chart-content {
+      .chart-wrapper {
+        height: 300px; // Smaller height on mobile
+      }
+
+      .chart-footer {
+        .legend-info {
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .lucky-chart-container {
+    .chart-content {
+      padding: 0.75rem;
+
+      .chart-wrapper {
+        height: 250px; // Even smaller height on very small screens
+      }
+    }
+  }
+}

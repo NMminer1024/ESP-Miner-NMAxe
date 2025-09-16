@@ -172,6 +172,19 @@
   }
 }
 
+// Lucky Chart Section - Full Width
+.lucky-chart-section {
+  width: 100%;
+  margin: 20px 0;
+  box-sizing: border-box;
+  
+  // 确保图表跨越整个页面宽度
+  app-lucky-chart {
+    display: block;
+    width: 100%;
+  }
+}
+
 // Chart Section
 .chart-section {
   margin: 0;
@@ -875,6 +888,11 @@ ng-template {
         }
       }
     }
+
+    // Lucky Chart responsive styles for mobile
+    .lucky-chart-section {
+      margin: 12px 0;
+    }
   }
   
   @media (max-width: 480px) {
@@ -907,6 +925,11 @@ ng-template {
           }
         }
       }
+    }
+
+    // Lucky Chart small screen optimization
+    .lucky-chart-section {
+      margin: 8px 0;
     }
   }
 
