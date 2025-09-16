@@ -36,7 +36,7 @@ if isdir(data_dir):
 subprocess.run([npm, "install" ], cwd=web_src_dir, check=True)
 subprocess.run([npm, "run", "build"], cwd=web_src_dir, check=True)
 
-os.makedirs(data_dir)
+os.makedirs(data_dir, exist_ok=True)
 
 exclude_files = ["src/http_server/axe-os/node_modules/tempfile/node_modules/uuid/benchmark/benchmark-native.c"]
 for f in exclude_files:

@@ -47,11 +47,22 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   
   @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
   
-  luckyData: any[] = [];
+  luckyData: any[] = []; // 用于图表显示的数据（可能包含填充的gaps）
+  originalLuckyData: any[] = []; // 原始数据（未填充gaps）
   chart: Chart | null = null;
   isLoading = false;
   lastUpdateTime = '';
   dataSize = 0;
+  
+  // 滑动窗口配置
+  private readonly MAX_VISIBLE_BARS = 30; // 最多显示30根柱子
+  private readonly ENABLE_SCROLL_THRESHOLD = 20; // 超过20根柱子时启用滚动
+  private windowStart = 0; // 窗口起始索引
+  
+  // 拖拽相关属性
+  private isDragging = false;
+  private dragStartX = 0;
+  private dragStartWindowStart = 0;
   
   private subscription: Subscription = new Subscription();
   private realTimeSubscription: Subscription = new Subscription();
@@ -67,6 +78,9 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     console.log('🎯 Lucky Chart ngAfterViewInit called');
     // Chart will be initialized after data is loaded
+    
+    // 添加拖拽事件监听器
+    this.setupDragListeners();
   }
 
   ngOnDestroy(): void {
@@ -74,6 +88,16 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isComponentActive = false;
     this.subscription.unsubscribe();
     this.realTimeSubscription.unsubscribe();
+    
+    // 清理拖拽事件监听器
+    if (this.chartCanvas && this.chartCanvas.nativeElement) {
+      const canvas = this.chartCanvas.nativeElement;
+      canvas.removeEventListener('mousedown', this.onMouseDown);
+      canvas.removeEventListener('mousemove', this.onMouseMove);
+      canvas.removeEventListener('mouseup', this.onMouseUp);
+      canvas.removeEventListener('mouseleave', this.onMouseUp);
+    }
+    
     if (this.chart) {
       this.chart.destroy();
     }
@@ -131,21 +155,25 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private processLuckyData(response: StatusHistoryResponse): void {
-    this.luckyData = response.statistics.map((stat: any[]) => ({
+    this.originalLuckyData = response.statistics.map((stat: any[]) => ({
       proximity: stat[0] || 0,
       share_diff: stat[1] || 0,
       net_diff: stat[2] || 1,
       epoch: stat[3] || 0  // 已经是毫秒时间戳
     }));
     
-    this.dataSize = this.luckyData.length;
-    console.log(`📈 Processed ${this.dataSize} lucky data points`);
+    console.log(`📈 Processed ${this.originalLuckyData.length} lucky data points`);
     
-    // 只显示最近20分钟的数据
-    this.filterLast20Minutes();
+    // 记录总数据数量
+    this.dataSize = this.originalLuckyData.length;
     
-    // Fill gaps in epoch data to ensure continuity
-    this.fillEpochGaps();
+    // 设置初始窗口位置（显示最新数据）
+    this.setInitialWindow();
+    
+    // 应用滑动窗口到显示数据
+    this.applySlidingWindow();
+    
+    console.log(`📊 Window start: ${this.windowStart}, Total data: ${this.originalLuckyData.length}, Display data: ${this.luckyData.length}`);
   }
 
   private filterLast20Minutes(): void {
@@ -154,7 +182,29 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const now = Date.now();
     const twentyMinutesAgo = now - (20 * 60 * 1000); // 20分钟前的时间戳
     
+    // 同时过滤原始数据和显示数据
+    this.originalLuckyData = this.originalLuckyData.filter(item => item.epoch >= twentyMinutesAgo);
     this.luckyData = this.luckyData.filter(item => item.epoch >= twentyMinutesAgo);
+  }
+
+  private setInitialWindow(): void {
+    // 如果数据少于等于最大可见柱子数，显示全部
+    if (this.originalLuckyData.length <= this.MAX_VISIBLE_BARS) {
+      this.windowStart = 0;
+    } else {
+      // 显示最新的数据（从末尾开始）
+      this.windowStart = Math.max(0, this.originalLuckyData.length - this.MAX_VISIBLE_BARS);
+    }
+  }
+
+  private applySlidingWindow(): void {
+    // 计算窗口结束位置
+    const windowEnd = Math.min(this.windowStart + this.MAX_VISIBLE_BARS, this.originalLuckyData.length);
+    
+    // 提取窗口内的数据
+    this.luckyData = this.originalLuckyData.slice(this.windowStart, windowEnd);
+    
+    console.log(`📊 Sliding window: ${this.windowStart} to ${windowEnd}, showing ${this.luckyData.length} items`);
   }
 
   private fillEpochGaps(): void {
@@ -313,6 +363,12 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         }
+      },
+      // 添加拖拽功能（当数据超过阈值时启用）
+      onHover: (event: any, elements: any) => {
+        if (this.originalLuckyData.length > this.ENABLE_SCROLL_THRESHOLD) {
+          event.native.target.style.cursor = 'grab';
+        }
       }
     };
 
@@ -323,6 +379,19 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     this.chart = new Chart(ctx, config);
+    
+    // 添加拖拽事件监听器（如果数据量超过阈值）
+    if (this.originalLuckyData.length > this.ENABLE_SCROLL_THRESHOLD) {
+      const canvas = this.chartCanvas.nativeElement;
+      canvas.addEventListener('mousedown', this.onMouseDown);
+      canvas.addEventListener('mousemove', this.onMouseMove);
+      canvas.addEventListener('mouseup', this.onMouseUp);
+      canvas.addEventListener('mouseleave', this.onMouseUp); // 鼠标离开也停止拖拽
+      
+      // 设置初始光标样式
+      canvas.style.cursor = 'grab';
+    }
+    
     console.log('✅ Lucky chart initialized successfully');
   }
 
@@ -380,9 +449,9 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
         return [];
       })
     ).subscribe((response: StatusHistoryResponse) => {
-      if (response && response.statistics) {
+      if (response && response.statistics && response.statistics.length > 0) {
         console.log('🔄 Lucky data updated silently');
-        this.processLuckyData(response);
+        this.appendRealTimeData(response);
         this.lastUpdateTime = formatTimestamp(Date.now());
         
         if (this.chart) {
@@ -391,4 +460,98 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     });
   }
+
+  private appendRealTimeData(response: StatusHistoryResponse): void {
+    console.log('📊 Appending real-time lucky data...');
+    
+    // 转换新数据
+    const newData = response.statistics.map((stat: any[]) => ({
+      proximity: stat[0] || 0,
+      share_diff: stat[1] || 0,
+      net_diff: stat[2] || 1,
+      epoch: stat[3] || 0  // 已经是毫秒时间戳
+    }));
+
+    if (newData.length === 0) return;
+
+    // 获取原始数据中最新数据的时间戳
+    const lastEpoch = this.originalLuckyData.length > 0 ? this.originalLuckyData[this.originalLuckyData.length - 1].epoch : 0;
+    
+    // 只添加比当前最新数据更新的数据点
+    const newerData = newData.filter(item => item.epoch > lastEpoch);
+    
+    if (newerData.length > 0) {
+      // 追加新数据到原始数据
+      this.originalLuckyData.push(...newerData);
+      console.log(`📈 Appended ${newerData.length} new lucky data points to original data`);
+      
+      // 确保原始数据按epoch排序
+      this.originalLuckyData.sort((a, b) => a.epoch - b.epoch);
+      
+      // 更新数据大小
+      this.dataSize = this.originalLuckyData.length;
+      
+      // 自动滚动到最新数据（如果当前显示的是最后的数据）
+      const wasShowingLatest = (this.windowStart + this.MAX_VISIBLE_BARS) >= (this.originalLuckyData.length - newerData.length);
+      if (wasShowingLatest) {
+        this.setInitialWindow(); // 重新设置窗口到最新位置
+      }
+      
+      // 重新应用滑动窗口
+      this.applySlidingWindow();
+      
+      console.log(`📊 After real-time update, total data: ${this.originalLuckyData.length}, window: ${this.windowStart}-${this.windowStart + this.luckyData.length}`);
+    } else {
+      console.log('📊 No new data to append (duplicate or older timestamp)');
+    }
+  }
+
+  private setupDragListeners(): void {
+    // 鼠标拖拽事件将在图表创建后设置
+    console.log('🖱️ Drag listeners setup completed');
+  }
+
+  private onMouseDown = (event: MouseEvent): void => {
+    if (this.originalLuckyData.length <= this.ENABLE_SCROLL_THRESHOLD) return;
+    
+    this.isDragging = true;
+    this.dragStartX = event.clientX;
+    this.dragStartWindowStart = this.windowStart;
+    
+    if (this.chartCanvas && this.chartCanvas.nativeElement) {
+      this.chartCanvas.nativeElement.style.cursor = 'grabbing';
+    }
+    
+    event.preventDefault();
+  };
+
+  private onMouseMove = (event: MouseEvent): void => {
+    if (!this.isDragging) return;
+    
+    const deltaX = event.clientX - this.dragStartX;
+    const chartWidth = this.chartCanvas?.nativeElement?.width || 600;
+    const pixelsPerBar = chartWidth / this.MAX_VISIBLE_BARS;
+    const barsMoved = Math.round(deltaX / pixelsPerBar);
+    
+    const newWindowStart = Math.max(0, Math.min(
+      this.dragStartWindowStart - barsMoved,
+      this.originalLuckyData.length - this.MAX_VISIBLE_BARS
+    ));
+    
+    if (newWindowStart !== this.windowStart) {
+      this.windowStart = newWindowStart;
+      this.applySlidingWindow();
+      this.updateChart();
+    }
+  };
+
+  private onMouseUp = (): void => {
+    if (!this.isDragging) return;
+    
+    this.isDragging = false;
+    
+    if (this.chartCanvas && this.chartCanvas.nativeElement) {
+      this.chartCanvas.nativeElement.style.cursor = 'grab';
+    }
+  };
 }
