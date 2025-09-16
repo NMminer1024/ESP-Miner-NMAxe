@@ -1,6 +1,6 @@
 .lucky-chart-container {
   width: 100%;
-  background: var(--surface-card);
+  background: var(--surface-ground); // 使用更深的背景色与其他表格保持一致
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -11,8 +11,8 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.25rem;
-    background: var(--surface-50);
-    border-bottom: 1px solid var(--surface-200);
+    background: var(--surface-100); // 稍微调暗头部背景
+    border-bottom: 1px solid var(--surface-300);
 
     .chart-title {
       margin: 0;
@@ -40,16 +40,10 @@
         font-size: 0.875rem;
         color: var(--text-color-secondary);
 
-        .data-count {
-          padding: 0.25rem 0.5rem;
-          background: var(--primary-50);
-          color: var(--primary-700);
-          border-radius: 4px;
+        .shares-count {
+          color: var(--text-color);
           font-weight: 500;
-        }
-
-        .last-update {
-          font-family: monospace;
+          font-size: 0.95rem;
         }
       }
 
@@ -69,11 +63,14 @@
 
   .chart-content {
     padding: 1rem;
+    background: var(--surface-ground); // 使用与容器一致的深色背景
 
     .chart-wrapper {
       position: relative;
       height: 400px;
       width: 100%;
+      background: var(--surface-ground); // 图表区域也使用深色背景
+      border-radius: 6px;
       
       &.loading {
         opacity: 0.5;
@@ -82,6 +79,7 @@
       canvas {
         width: 100% !important;
         height: 100% !important;
+        border-radius: 6px; // 圆角与容器一致
       }
 
       .loading-overlay {
@@ -121,7 +119,7 @@
     .chart-footer {
       margin-top: 1rem;
       padding-top: 1rem;
-      border-top: 1px solid var(--surface-200);
+      border-top: 1px solid var(--surface-300); // 调暗分割线
 
       .legend-info {
         display: flex;

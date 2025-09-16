@@ -55,8 +55,8 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   dataSize = 0;
   
   // 滑动窗口配置
-  private readonly MAX_VISIBLE_BARS = 48; // 最多显示48根柱子
-  private readonly ENABLE_SCROLL_THRESHOLD = 20; // 超过20根柱子时启用滚动
+  private readonly MAX_VISIBLE_BARS = 38; // 最多显示38根柱子
+  private readonly ENABLE_SCROLL_THRESHOLD = 38; // 超过38根柱子时启用滚动
   private windowStart = 0; // 窗口起始索引
   
   // 拖拽相关属性
@@ -70,7 +70,12 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   private updateThrottle = 16; // 更新节流（毫秒），约60fps
   
   // 奖牌相关属性
-  private medalData: { index: number, type: 'gold' | 'silver' | 'bronze' }[] = [];
+  private medalData: { 
+    index: number, 
+    type: 'gold' | 'silver' | 'bronze',
+    globalIndex?: number,
+    share_diff?: number
+  }[] = [];
   
   private subscription: Subscription = new Subscription();
   private realTimeSubscription: Subscription = new Subscription();
@@ -163,6 +168,13 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private processLuckyData(response: StatusHistoryResponse): void {
+    // 安全检查响应数据
+    if (!response || !response.statistics || !Array.isArray(response.statistics)) {
+      console.error('❌ Invalid lucky data response:', response);
+      this.originalLuckyData = [];
+      return;
+    }
+
     this.originalLuckyData = response.statistics.map((stat: any[]) => ({
       proximity: stat[0] || 0,
       share_diff: stat[1] || 0,
@@ -219,49 +231,57 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * 计算当前显示数据中share_diff的前三名，生成奖牌数据
+   * 计算所有数据中share_diff的前三名，如果前三名在当前显示窗口内则生成奖牌数据
    */
   private calculateMedals(): void {
     // 清空之前的奖牌数据
     this.medalData = [];
     
-    if (this.luckyData.length === 0) return;
+    if (this.originalLuckyData.length === 0 || this.luckyData.length === 0) return;
     
-    // 创建索引数组并按share_diff从高到低排序
-    const sortedIndices = this.luckyData
-      .map((item, index) => ({ index, share_diff: item.share_diff }))
+    // 从所有原始数据中找出前三名的索引
+    const globalSortedIndices = this.originalLuckyData
+      .map((item, globalIndex) => ({ globalIndex, share_diff: item.share_diff }))
       .filter(item => item.share_diff > 0) // 过滤掉无效数据
       .sort((a, b) => b.share_diff - a.share_diff); // 从高到低排序
     
-    // 分配奖牌（前三名）
-    if (sortedIndices.length >= 1) {
-      this.medalData.push({ index: sortedIndices[0].index, type: 'gold' });
-    }
-    if (sortedIndices.length >= 2) {
-      this.medalData.push({ index: sortedIndices[1].index, type: 'silver' });
-    }
-    if (sortedIndices.length >= 3) {
-      this.medalData.push({ index: sortedIndices[2].index, type: 'bronze' });
+    const medalTypes: ('gold' | 'silver' | 'bronze')[] = ['gold', 'silver', 'bronze'];
+    
+    // 检查前三名是否在当前显示窗口内
+    for (let i = 0; i < Math.min(3, globalSortedIndices.length); i++) {
+      const globalIndex = globalSortedIndices[i].globalIndex;
+      
+      // 检查这个全局索引是否在当前显示窗口内
+      if (globalIndex >= this.windowStart && globalIndex < this.windowStart + this.luckyData.length) {
+        // 计算在当前显示窗口中的相对索引
+        const localIndex = globalIndex - this.windowStart;
+        this.medalData.push({ 
+          index: localIndex, 
+          type: medalTypes[i],
+          globalIndex: globalIndex,
+          share_diff: globalSortedIndices[i].share_diff
+        });
+      }
     }
     
-    console.log(`🏆 Medals calculated:`, this.medalData.map(m => 
-      `${m.type} at index ${m.index} (share_diff: ${this.luckyData[m.index].share_diff})`
+    console.log(`🏆 Global medals calculated:`, this.medalData.map(m => 
+      `${m.type} at local index ${m.index} (global: ${m.globalIndex}, share_diff: ${m.share_diff})`
     ));
   }
 
   /**
    * 获取奖牌样式信息
    */
-  private getMedalStyle(type: 'gold' | 'silver' | 'bronze'): { icon: string, color: string } {
+  private getMedalStyle(type: 'gold' | 'silver' | 'bronze'): { icon: string, number: string, color: string, bgColor: string } {
     switch (type) {
       case 'gold':
-        return { icon: '🥇', color: '#FFD700' }; // 金色
+        return { icon: '🥇', number: '1', color: '#FFFFFF', bgColor: '#FFD700' }; // 金牌图标+数字
       case 'silver':
-        return { icon: '🥈', color: '#C0C0C0' }; // 银色
+        return { icon: '🥈', number: '2', color: '#FFFFFF', bgColor: '#C0C0C0' }; // 银牌图标+数字
       case 'bronze':
-        return { icon: '🥉', color: '#CD7F32' }; // 铜色
+        return { icon: '🥉', number: '3', color: '#FFFFFF', bgColor: '#CD7F32' }; // 铜牌图标+数字
       default:
-        return { icon: '🏆', color: '#808080' };
+        return { icon: '?', number: '?', color: '#FFFFFF', bgColor: '#808080' };
     }
   }
 
@@ -292,22 +312,22 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           
           // 绘制奖牌图标
           ctx.save();
-          ctx.font = '20px Arial';
+          
+          // 绘制奖牌图标（emoji）
+          ctx.font = '32px Arial'; // 奖牌图标大小
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          
-          // 绘制背景圆圈（可选）
-          ctx.beginPath();
-          ctx.arc(x, y, 15, 0, 2 * Math.PI);
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          ctx.fill();
-          ctx.strokeStyle = medalStyle.color;
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          
-          // 绘制奖牌图标
-          ctx.fillStyle = medalStyle.color;
           ctx.fillText(medalStyle.icon, x, y);
+          
+          // 在奖牌图标上叠加数字
+          ctx.font = 'bold 16px Arial'; // 数字字体更大
+          ctx.fillStyle = '#000000'; // 黑色数字以确保可见性
+          ctx.strokeStyle = '#FFFFFF'; // 白色描边增加对比度
+          ctx.lineWidth = 2;
+          
+          // 先绘制描边，再绘制填充（数字往下移动到奖牌中心）
+          ctx.strokeText(medalStyle.number, x, y + 3); // 向下移动3像素到奖牌中心
+          ctx.fillText(medalStyle.number, x, y + 3);
           
           ctx.restore();
         });
@@ -342,7 +362,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private getBarColors(): string[] {
     const colors: string[] = [];
-    const defaultColor = 'rgba(54, 162, 235, 0.6)'; // 默认蓝色
+    const defaultColor = 'rgba(54, 162, 235, 0.8)'; // 提高默认颜色透明度
     
     // 为每个数据点设置颜色
     for (let i = 0; i < this.luckyData.length; i++) {
@@ -353,13 +373,13 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
       if (medal) {
         switch (medal.type) {
           case 'gold':
-            color = 'rgba(255, 215, 0, 0.8)'; // 金色
+            color = 'rgba(255, 215, 0, 0.9)'; // 增强金色透明度
             break;
           case 'silver':
-            color = 'rgba(192, 192, 192, 0.8)'; // 银色
+            color = 'rgba(192, 192, 192, 0.9)'; // 增强银色透明度
             break;
           case 'bronze':
-            color = 'rgba(205, 127, 50, 0.8)'; // 铜色
+            color = 'rgba(205, 127, 50, 0.9)'; // 增强铜色透明度
             break;
         }
       }
@@ -401,6 +421,101 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     
     return colors;
+  }
+
+  /**
+   * 创建现代化柱子样式插件
+   */
+  private createModernBarPlugin() {
+    const component = this;
+    
+    return {
+      id: 'modernBarPlugin',
+      beforeDraw: function(chart: any) {
+        // 绘制虚线网格
+        const ctx = chart.ctx;
+        const yAxis = chart.scales.y;
+        const xAxis = chart.scales.x;
+        const chartArea = chart.chartArea;
+        
+        if (!yAxis || !chartArea) return;
+        
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]); // 虚线样式：5像素实线，5像素空白
+        
+        // 绘制Y轴网格线
+        yAxis.ticks.forEach((tick: any, index: number) => {
+          const y = yAxis.getPixelForTick(index);
+          ctx.beginPath();
+          ctx.moveTo(chartArea.left, y);
+          ctx.lineTo(chartArea.right, y);
+          ctx.stroke();
+        });
+        
+        ctx.restore();
+      },
+      beforeDatasetDraw: function(chart: any, args: any) {
+        const { ctx, chartArea } = chart;
+        const meta = chart.getDatasetMeta(0); // share_diff柱子数据集
+        
+        // 检查数据集是否可见，如果隐藏则不绘制
+        if (!meta || !meta.data || meta.hidden) return;
+        
+        ctx.save();
+        
+        // 为每个柱子添加圆角和阴影效果
+        meta.data.forEach((element: any, index: number) => {
+          if (!element || element.skip) return;
+          
+          const { x, y, base, width } = element;
+          const barHeight = Math.abs(base - y);
+          
+          if (barHeight <= 0) return;
+          
+          // 获取柱子颜色
+          const medal = component.medalData.find(m => m.index === index);
+          let fillColor = 'rgba(54, 162, 235, 0.8)';
+          
+          if (medal) {
+            switch (medal.type) {
+              case 'gold':
+                fillColor = 'rgba(255, 215, 0, 0.9)';
+                break;
+              case 'silver':
+                fillColor = 'rgba(192, 192, 192, 0.9)';
+                break;
+              case 'bronze':
+                fillColor = 'rgba(205, 127, 50, 0.9)';
+                break;
+            }
+          }
+          
+          // 创建渐变效果
+          const gradient = ctx.createLinearGradient(0, y, 0, base);
+          gradient.addColorStop(0, fillColor);
+          gradient.addColorStop(1, fillColor.replace(/[\d\.]+\)$/g, '0.4)')); // 底部更透明
+          
+          // 绘制圆角矩形
+          const cornerRadius = 4; // 圆角半径
+          const barX = x - width / 2;
+          const barY = Math.min(y, base);
+          
+          ctx.beginPath();
+          ctx.roundRect(barX, barY, width, barHeight, [cornerRadius, cornerRadius, 0, 0]); // 只有顶部圆角
+          ctx.fillStyle = gradient;
+          ctx.fill();
+          
+          // 添加细微的边框
+          ctx.strokeStyle = fillColor.replace(/[\d\.]+\)$/g, '1)');
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+        
+        ctx.restore();
+      }
+    };
   }
 
   private fillEpochGaps(): void {
@@ -453,13 +568,26 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const ctx = this.chartCanvas.nativeElement.getContext('2d');
     if (!ctx) return;
 
+    // 安全检查数据
+    if (!this.originalLuckyData || this.originalLuckyData.length === 0) {
+      console.warn('No lucky data available for chart initialization');
+      return;
+    }
+
     console.log('📊 Initializing lucky chart...');
 
-    // Calculate appropriate log scale range
-    const maxNetDiff = Math.max(...this.luckyData.map(d => d.net_diff));
-    const maxShareDiff = Math.max(...this.luckyData.map(d => d.share_diff));
+    // Calculate appropriate log scale range with safe fallbacks
+    const maxNetDiff = this.luckyData.length > 0 ? Math.max(...this.luckyData.map(d => d.net_diff || 1)) : 1;
+    const maxShareDiff = this.luckyData.length > 0 ? Math.max(...this.luckyData.map(d => d.share_diff || 512)) : 512;
     const logMax = Math.max(maxNetDiff, maxShareDiff);
-    const logMin = Math.min(1, Math.min(...this.luckyData.filter(d => d.share_diff > 0).map(d => d.share_diff)));
+    
+    // 计算实际的最小值，考虑所有有效的share_diff和net_diff
+    const validShareDiffs = this.luckyData.length > 0 ? this.luckyData.filter(d => d.share_diff > 0).map(d => d.share_diff) : [];
+    const validNetDiffs = this.luckyData.length > 0 ? this.luckyData.filter(d => d.net_diff > 0).map(d => d.net_diff) : [];
+    const allValidValues = [...validShareDiffs, ...validNetDiffs];
+    
+    // 使用实际数据最小值，如果没有数据则使用512作为默认最小值
+    const logMin = allValidValues.length > 0 ? Math.min(...allValidValues) : 512;
 
     const chartData: ChartData = {
       labels: this.luckyData.map(d => formatTimestamp(d.epoch)),
@@ -468,8 +596,8 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           type: 'bar' as const,
           label: 'Share Difficulty',
           data: this.luckyData.map(d => d.share_diff > 0 ? d.share_diff : 0.1), // Use 0.1 as minimum for log scale display
-          backgroundColor: this.getBarColors(), // 使用动态颜色数组
-          borderColor: this.getBarBorderColors(), // 使用动态边框颜色数组
+          backgroundColor: this.getBarColors(), // 使用实际颜色而非透明
+          borderColor: this.getBarBorderColors(), // 使用实际边框色
           borderWidth: 1,
           yAxisID: 'y'
         },
@@ -491,7 +619,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const chartOptions: ChartOptions = {
       responsive: true,
       maintainAspectRatio: false,
-      backgroundColor: 'rgba(248, 248, 248, 0.05)', // 淡色背景，提高对比度
+      // 移除硬编码的背景色，使用CSS变量
       interaction: {
         mode: 'index',
         intersect: false,
@@ -567,8 +695,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           },
           grid: {
-            color: 'rgba(255, 255, 255, 0.3)', // 更明亮的Y轴网格线
-            lineWidth: 1
+            display: false // 禁用默认网格，使用自定义插件绘制
           }
         }
       },
@@ -584,7 +711,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
       type: 'bar',
       data: chartData,
       options: chartOptions,
-      plugins: [this.createMedalPlugin()] // 添加奖牌插件
+      plugins: [this.createModernBarPlugin(), this.createMedalPlugin()] // 添加现代化柱子插件和奖牌插件
     };
 
     this.chart = new Chart(ctx, config);
@@ -676,7 +803,8 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
         this.lastUpdateTime = formatTimestamp(Date.now());
         
         if (this.chart) {
-          this.updateChart();
+          // 实时更新时禁用动画，避免柱子从0增长的效果
+          this.updateChart(true);
         }
       }
     });
@@ -716,10 +844,20 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
       const wasShowingLatest = (this.windowStart + this.MAX_VISIBLE_BARS) >= (this.originalLuckyData.length - newerData.length);
       if (wasShowingLatest) {
         this.setInitialWindow(); // 重新设置窗口到最新位置
+        
+        // 重新应用滑动窗口
+        this.applySlidingWindow();
+        
+        // 实时更新时使用滑动动画而非柱子增长动画
+        if (this.chart) {
+          this.updateChart(true); // 禁用默认动画，使用自定义滑动效果
+        }
+        
+        console.log(`📊 Auto-scrolled to latest data with ${newerData.length} new points`);
+      } else {
+        // 如果不在最新位置，只更新数据不改变显示
+        this.applySlidingWindow();
       }
-      
-      // 重新应用滑动窗口
-      this.applySlidingWindow();
       
       console.log(`📊 After real-time update, total data: ${this.originalLuckyData.length}, window: ${this.windowStart}-${this.windowStart + this.luckyData.length}`);
     } else {
@@ -760,8 +898,18 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const deltaX = event.clientX - this.lastMouseX;
     this.lastMouseX = event.clientX;
     
-    // 根据拖拽灵敏度计算移动的柱子数（支持小数）
-    const moveDistance = deltaX / this.dragSensitivity;
+    // 动态计算柱子宽度来设置正确的拖拽灵敏度
+    const chartArea = this.chart?.chartArea;
+    let barWidth = this.dragSensitivity; // 默认值
+    
+    if (chartArea && this.luckyData.length > 0) {
+      const chartWidth = chartArea.right - chartArea.left;
+      const visibleBars = Math.min(this.luckyData.length, this.MAX_VISIBLE_BARS);
+      barWidth = chartWidth / visibleBars; // 实际柱子宽度（包括间距）
+    }
+    
+    // 根据实际柱子宽度计算移动的柱子数（支持小数）
+    const moveDistance = deltaX / barWidth;
     
     // 更新浮点位置（反向移动）
     this.currentPosition = Math.max(0, Math.min(

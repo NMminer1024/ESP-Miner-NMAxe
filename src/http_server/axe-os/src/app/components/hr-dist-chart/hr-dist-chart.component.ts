@@ -98,9 +98,9 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
         datasets: [{
           label: 'Hashrate Distribution (%)',
           data: [],
-          backgroundColor: 'rgba(54, 162, 235, 0.6)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1
+          backgroundColor: 'transparent', // 设为透明，由自定义插件绘制
+          borderColor: 'transparent', // 设为透明，由自定义插件绘制
+          borderWidth: 0
         }]
       },
       options: {
@@ -197,7 +197,8 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         }
-      }
+      },
+      plugins: [this.createModernBarPlugin()] // 添加现代化柱子插件
     };
 
     this.chart = new Chart(ctx, chartConfig);
@@ -320,5 +321,58 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // 更新图表
     this.chart.update('none'); // 使用'none'模式避免动画
+  }
+
+  /**
+   * 创建现代化柱子样式插件
+   */
+  private createModernBarPlugin() {
+    return {
+      id: 'modernBarPlugin',
+      beforeDatasetDraw: function(chart: any, args: any) {
+        const { ctx, chartArea } = chart;
+        const meta = chart.getDatasetMeta(0); // 柱子数据集
+        
+        // 检查数据集是否可见，如果隐藏则不绘制
+        if (!meta || !meta.data || meta.hidden) return;
+        
+        ctx.save();
+        
+        // 为每个柱子添加圆角和渐变效果
+        meta.data.forEach((element: any, index: number) => {
+          if (!element || element.skip) return;
+          
+          const { x, y, base, width } = element;
+          const barHeight = Math.abs(base - y);
+          
+          if (barHeight <= 0) return;
+          
+          // 使用蓝色渐变，与原来的颜色主题保持一致
+          const fillColor = 'rgba(54, 162, 235, 0.8)';
+          
+          // 创建渐变效果
+          const gradient = ctx.createLinearGradient(0, y, 0, base);
+          gradient.addColorStop(0, fillColor);
+          gradient.addColorStop(1, 'rgba(54, 162, 235, 0.4)'); // 底部更透明
+          
+          // 绘制圆角矩形
+          const cornerRadius = 4; // 圆角半径
+          const barX = x - width / 2;
+          const barY = Math.min(y, base);
+          
+          ctx.beginPath();
+          ctx.roundRect(barX, barY, width, barHeight, [cornerRadius, cornerRadius, 0, 0]); // 只有顶部圆角
+          ctx.fillStyle = gradient;
+          ctx.fill();
+          
+          // 添加细微的边框
+          ctx.strokeStyle = 'rgba(54, 162, 235, 1)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+        
+        ctx.restore();
+      }
+    };
   }
 }
