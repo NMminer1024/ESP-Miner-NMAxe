@@ -8,6 +8,36 @@ import 'chartjs-adapter-moment';
 // 注册Chart.js组件
 Chart.register(...registerables);
 
+// 格式化数字为KMGT格式
+function formatNumber(num: number): string {
+  const units = ['', 'K', 'M', 'G', 'T', 'P', 'E'];
+  let unitIndex = 0;
+  let value = num;
+  
+  while (value >= 1000 && unitIndex < units.length - 1) {
+    value /= 1000;
+    unitIndex++;
+  }
+  
+  // 根据数值大小决定小数位数
+  let decimals = 0;
+  if (value < 10) decimals = 2;
+  else if (value < 100) decimals = 1;
+  
+  return value.toFixed(decimals) + units[unitIndex];
+}
+
+// 格式化时间戳为24小时格式
+function formatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString('en-GB', { 
+    hour12: false,
+    hour: '2-digit', 
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
 @Component({
   selector: 'app-lucky-chart',
   templateUrl: './lucky-chart.component.html',
@@ -80,7 +110,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           console.log('✅ Lucky history loaded successfully:', response);
           this.processLuckyData(response);
           this.isLoading = false;
-          this.lastUpdateTime = new Date().toLocaleTimeString();
+          this.lastUpdateTime = formatTimestamp(Date.now());
           
           // Initialize chart after data is loaded
           if (!this.chart) {
@@ -89,7 +119,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
             this.updateChart();
           }
           
-          // Start real-time updates
+          // Start real-time updates every 5 seconds (like status chart)
           this.startRealTimeUpdates();
         },
         error: (error: any) => {
@@ -105,14 +135,26 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
       proximity: stat[0] || 0,
       share_diff: stat[1] || 0,
       net_diff: stat[2] || 1,
-      epoch: stat[3] || 0
+      epoch: stat[3] || 0  // 已经是毫秒时间戳
     }));
     
     this.dataSize = this.luckyData.length;
     console.log(`📈 Processed ${this.dataSize} lucky data points`);
     
+    // 只显示最近20分钟的数据
+    this.filterLast20Minutes();
+    
     // Fill gaps in epoch data to ensure continuity
     this.fillEpochGaps();
+  }
+
+  private filterLast20Minutes(): void {
+    if (this.luckyData.length === 0) return;
+    
+    const now = Date.now();
+    const twentyMinutesAgo = now - (20 * 60 * 1000); // 20分钟前的时间戳
+    
+    this.luckyData = this.luckyData.filter(item => item.epoch >= twentyMinutesAgo);
   }
 
   private fillEpochGaps(): void {
@@ -174,22 +216,27 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const logMin = Math.min(1, Math.min(...this.luckyData.filter(d => d.share_diff > 0).map(d => d.share_diff)));
 
     const chartData: ChartData = {
-      labels: this.luckyData.map(d => new Date(d.epoch * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })),
+      labels: this.luckyData.map(d => formatTimestamp(d.epoch)),
       datasets: [
         {
+          type: 'bar' as const,
           label: 'Share Difficulty',
-          data: this.luckyData.map(d => d.share_diff || 1), // Use 1 as minimum for log scale
+          data: this.luckyData.map(d => d.share_diff > 0 ? d.share_diff : 0.1), // Use 0.1 as minimum for log scale display
           backgroundColor: 'rgba(54, 162, 235, 0.6)',
           borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1,
           yAxisID: 'y'
         },
         {
+          type: 'line' as const,
           label: 'Network Difficulty',
-          data: this.luckyData.map(d => d.net_diff || 1), // Use 1 as minimum for log scale
-          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          data: this.luckyData.map(d => d.net_diff > 0 ? d.net_diff : 1), // Use 1 as minimum for log scale display
+          backgroundColor: 'transparent',
           borderColor: 'rgba(255, 99, 132, 1)',
-          borderWidth: 1,
+          borderWidth: 2,
+          fill: false,
+          pointRadius: 0,
+          pointHoverRadius: 4,
           yAxisID: 'y'
         }
       ]
@@ -220,12 +267,22 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
             title: (context: any) => {
               const index = context[0].dataIndex;
               const epoch = this.luckyData[index].epoch;
-              return new Date(epoch * 1000).toLocaleString();
+              return formatTimestamp(epoch);
             },
             label: (context: any) => {
-              const value = context.parsed.y;
+              const index = context.dataIndex;
               const label = context.dataset.label;
-              return `${label}: ${value.toExponential(2)}`;
+              
+              if (label.includes('Share')) {
+                // 显示真实的share_diff值和百分比
+                const shareDiff = this.luckyData[index].share_diff;
+                const netDiff = this.luckyData[index].net_diff;
+                const percentage = ((shareDiff / netDiff) * 100).toFixed(12);
+                return `${label}: ${formatNumber(shareDiff)} (${percentage}%)`;
+              } else {
+                const netDiff = this.luckyData[index].net_diff;
+                return `${label}: ${formatNumber(netDiff)}`;
+              }
             }
           }
         }
@@ -235,7 +292,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           display: true,
           title: {
             display: true,
-            text: 'Time (Epoch)'
+            text: 'Time'
           },
           ticks: {
             maxTicksLimit: 10
@@ -246,13 +303,13 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           display: true,
           title: {
             display: true,
-            text: 'Difficulty (Log Scale)'
+            text: 'Difficulty'
           },
           min: logMin,
           max: logMax * 10, // Add some padding above max value
           ticks: {
             callback: function(value: any) {
-              return value.toExponential(1);
+              return formatNumber(Number(value));
             }
           }
         }
@@ -275,13 +332,13 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('🔄 Updating lucky chart...');
 
     // Update labels and data
-    this.chart.data.labels = this.luckyData.map(d => new Date(d.epoch * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+    this.chart.data.labels = this.luckyData.map(d => formatTimestamp(d.epoch));
     
     if (this.chart.data.datasets[0]) {
-      this.chart.data.datasets[0].data = this.luckyData.map(d => d.share_diff || 1);
+      this.chart.data.datasets[0].data = this.luckyData.map(d => d.share_diff > 0 ? d.share_diff : 0.1);
     }
     if (this.chart.data.datasets[1]) {
-      this.chart.data.datasets[1].data = this.luckyData.map(d => d.net_diff || 1);
+      this.chart.data.datasets[1].data = this.luckyData.map(d => d.net_diff > 0 ? d.net_diff : 1);
     }
 
     // Update scale ranges
@@ -302,14 +359,36 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   private startRealTimeUpdates(): void {
     if (!this.isComponentActive) return;
 
-    console.log('🔄 Starting real-time updates for lucky chart...');
+    console.log('🔄 Starting real-time updates for lucky chart (every 5 seconds)...');
 
     this.realTimeSubscription.add(
-      interval(30000).pipe( // Update every 30 seconds
+      interval(5000).pipe( // Update every 5 seconds (like status chart)
         takeWhile(() => this.isComponentActive)
       ).subscribe(() => {
-        this.loadLuckyHistory();
+        // Use real-time endpoint without showing loading spinner
+        this.updateLuckyDataSilently();
       })
     );
+  }
+
+  private updateLuckyDataSilently(): void {
+    if (!this.isComponentActive) return;
+
+    this.systemService.getLuckyRealtime().pipe(
+      catchError((error: any) => {
+        console.warn('⚠️ Silent lucky data update failed:', error);
+        return [];
+      })
+    ).subscribe((response: StatusHistoryResponse) => {
+      if (response && response.statistics) {
+        console.log('🔄 Lucky data updated silently');
+        this.processLuckyData(response);
+        this.lastUpdateTime = formatTimestamp(Date.now());
+        
+        if (this.chart) {
+          this.updateChart();
+        }
+      }
+    });
   }
 }

@@ -159,8 +159,13 @@
 
       .chart-description {
         color: var(--text-color-secondary);
-        font-size: 0.75rem;
+        font-size: 1rem;
         line-height: 1.4;
+        
+        p {
+          margin: 0;
+          font-weight: 500;
+        }
       }
     }
   }
