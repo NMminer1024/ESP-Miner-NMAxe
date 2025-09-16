@@ -450,7 +450,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     LOG_D("Status realtime sent, history size: %d...", g_nmaxe.mstatus.status_history.size());
 }
 static void get_lucky_history(AsyncWebServerRequest* request){
-    LOG_W("Starting lucky history request processing...");
+    LOG_D("Starting lucky history request processing...");
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
@@ -554,7 +554,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
 }
 static void get_lucky_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 512; // in bytes
-    LOG_W("Processing lucky realtime request...");
+    LOG_D("Processing lucky realtime request...");
     // Use local document instead of static to prevent memory leaks
     DynamicJsonDocument root(json_size_max);
 
