@@ -464,7 +464,6 @@ void miner_asic_rx_thread_entry(void *args){
                     while(g_nmaxe.mstatus.block_proximity_history.size() > 50){
                         g_nmaxe.mstatus.block_proximity_history.pop_front();
                     }
-                    LOG_W("block_proximity size %d", g_nmaxe.mstatus.block_proximity_history.size());
                     xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
                 }
             }

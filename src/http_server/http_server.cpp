@@ -452,15 +452,12 @@ static void get_status_realtime(AsyncWebServerRequest* request){
 static void get_lucky_history(AsyncWebServerRequest* request){
     LOG_D("Starting lucky history request processing...");
     
-    // Maximum data points limit to prevent frontend overload
-    const size_t MAX_DATA_POINTS = 200;
-    
     // Safely check history data size with mutex protection
     size_t history_size = 0;
     if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_nmaxe.mstatus.status_history.size();
+        history_size = g_nmaxe.mstatus.block_proximity_history.size();
         xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
-        LOG_W("History size retrieved: %d records", history_size);
+        LOG_D("History size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
         request->send(500, "application/json", "{\"error\":\"Failed to access history data\"}");
@@ -469,37 +466,14 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     
     if (history_size == 0) {
         LOG_W("No history data available, returning empty response");
-        request->send(200, "application/json", "{\"statistics\":[],\"size\":0,\"sampledSize\":0}");
+        request->send(200, "application/json", "{\"statistics\":[],\"size\":0}");
         return;
     }
     
-    // Parse sample interval from request parameters (user preference)
-    int user_sample_interval = 10;
-    if(request->hasParam("interval")) {
-        user_sample_interval = request->getParam("interval")->value().toInt();
-        if(user_sample_interval < 1) user_sample_interval = 1;
-        if(user_sample_interval > 100) user_sample_interval = 100;
-        LOG_D("User requested sample interval: %d", user_sample_interval);
-    }
-    
-    // Calculate actual sample interval to ensure max 2000 data points
-    int actual_sample_interval = user_sample_interval;
-    size_t estimated_samples = (history_size + actual_sample_interval - 1) / actual_sample_interval;
-    
-    // Adjust sample interval if estimated samples exceed limit
-    if (estimated_samples > MAX_DATA_POINTS) {
-        actual_sample_interval = (history_size + MAX_DATA_POINTS - 1) / MAX_DATA_POINTS;
-        estimated_samples = (history_size + actual_sample_interval - 1) / actual_sample_interval;
-        LOG_D("Adjusted sample interval from %d to %d to limit data points to %d (estimated: %d)", 
-              user_sample_interval, actual_sample_interval, MAX_DATA_POINTS, estimated_samples);
-    } else {
-        LOG_D("Using requested sample interval %d, estimated samples: %d", actual_sample_interval, estimated_samples);
-    }
-    
-    // Calculate JSON document size based on estimated samples
+    // Calculate JSON document size based on all data (no sampling)
     uint32_t base_overhead = 2048;
     uint32_t per_sample_size = 200;
-    uint32_t json_size_max = base_overhead + (estimated_samples * per_sample_size);
+    uint32_t json_size_max = base_overhead + (history_size * per_sample_size);
     
     // Add 25% safety margin
     json_size_max = json_size_max + (json_size_max / 4);
@@ -507,7 +481,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     // Ensure minimum size
     if (json_size_max < 32 * 1024) json_size_max = 32 * 1024;
     
-    LOG_D("Creating JSON document with %dKB for %d estimated samples", json_size_max/1024, estimated_samples);
+    LOG_D("Creating JSON document with %dKB for %d samples", json_size_max/1024, history_size);
     
     // Create JSON document
     DynamicJsonDocument root(json_size_max);
@@ -523,51 +497,30 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     
     JsonArray data = root.createNestedArray("statistics");
     
-    int idx = 0;
-    int sampled_count = 0;
-    size_t actual_history_size = 0;
+    size_t sampled_count = 0;
     
     // Acquire mutex for history traversal
     if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE) {
-        actual_history_size = g_nmaxe.mstatus.block_proximity_history.size();
-        LOG_D("Starting sampling: %d total records, interval: %d, max points: %d", 
-              actual_history_size, actual_sample_interval, MAX_DATA_POINTS);
+        LOG_D("Starting data collection: %d total records", history_size);
         
         for (const auto& history : g_nmaxe.mstatus.block_proximity_history) {
-            if(idx % actual_sample_interval == 0) {
-                // Stop if we've reached the maximum data points limit
-                if (sampled_count >= MAX_DATA_POINTS) {
-                    LOG_D("Reached maximum data points limit (%d), stopping sampling", MAX_DATA_POINTS);
-                    break;
-                }
-                JsonArray dataPoint = data.createNestedArray();
-                
-                // Data validation
-                String block_proximity = String(history.block_proximity);
-                String share_diff      = String(history.share_diff);
-                String net_diff        = String(history.net_diff);
-
-                dataPoint.add(block_proximity);
-                dataPoint.add(share_diff);
-                dataPoint.add(net_diff);
-                sampled_count++;
-                
-                // Yield every 100 samples to prevent watchdog timeout
-                if (sampled_count % 100 == 0) {
-                    delay(1);
-                }
-            }
-            idx++;
+            JsonArray dataPoint = data.createNestedArray();
             
-            // Yield every 500 raw data points
-            if (idx % 500 == 0) {
+            dataPoint.add(history.block_proximity);
+            dataPoint.add(history.share_diff);
+            dataPoint.add(history.net_diff);
+            dataPoint.add(history.epoch);
+            sampled_count++;
+            
+            // Yield every 100 samples to prevent watchdog timeout
+            if (sampled_count % 100 == 0) {
                 delay(1);
             }
         }
         
-        xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
-        LOG_D("Sampling completed: %d samples from %d total records, interval: %d", 
-              sampled_count, actual_history_size, actual_sample_interval);
+        xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
+        LOG_D("Data collection completed: %d samples from %d total records", 
+              sampled_count, history_size);
     } else {
         LOG_E("Failed to acquire history mutex for data collection");
         request->send(500, "application/json", "{\"error\":\"Failed to access history data\"}");
@@ -575,76 +528,19 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     }
     
     // Add metadata
-    root["size"] = actual_history_size;
-    root["sampledSize"] = sampled_count;
-    root["sampleInterval"] = actual_sample_interval;
-    root["userRequestedInterval"] = user_sample_interval;
-    root["maxDataPoints"] = MAX_DATA_POINTS;
+    root["size"] = sampled_count;
     
-    // Serialize and validate JSON response with retry mechanism
+    // Serialize JSON response
     String json_str;
-    size_t json_size = 0;
-    bool json_valid = false;
-    int validation_attempts = 0;
-    const int MAX_VALIDATION_ATTEMPTS = 10;
+    size_t json_size = serializeJson(root, json_str);
     
-    while (!json_valid && (validation_attempts < MAX_VALIDATION_ATTEMPTS)) {
-        validation_attempts++;
-        
-        // Clear previous attempt
-        json_str = "";
-        
-        // Serialize JSON
-        json_size = serializeJson(root, json_str);
-        
-        if (json_size == 0) {
-            LOG_E("JSON serialization failed on attempt %d", validation_attempts);
-            if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
-                request->send(500, "application/json", "{\"error\":\"JSON serialization failed after multiple attempts\"}");
-                return;
-            }
-            delay(10); // Small delay before retry
-            continue;
-        }
-        
-        // Validate by attempting to deserialize
-        DynamicJsonDocument validation_doc(json_size_max);
-        DeserializationError error = deserializeJson(validation_doc, json_str);
-        
-        if (error) {
-            // LOG_E("JSON validation failed on attempt %d: %s", validation_attempts, error.c_str());
-            // LOG_E("JSON validation failed, json_str length: %d", json_str.length());
-            // LOG_E("JSON validation error context (first 200 chars): %.200s", json_str.c_str());
-            
-            if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
-                request->send(500, "application/json", "{\"error\":\"JSON validation failed after multiple attempts\"}");
-                return;
-            }
-            delay(10); // Small delay before retry
-            continue;
-        }
-        
-        // Additional validation: check key fields exist
-        if (!validation_doc.containsKey("timestamp") || 
-            !validation_doc.containsKey("labels") || 
-            !validation_doc.containsKey("statistics") ||
-            !validation_doc.containsKey("size")) {
-            LOG_E("JSON validation failed on attempt %d: missing required fields", validation_attempts);
-            
-            if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
-                request->send(500, "application/json", "{\"error\":\"JSON structure validation failed\"}");
-                return;
-            }
-            delay(10); // Small delay before retry
-            continue;
-        }
-        
-        // Validation successful
-        json_valid = true;
-        LOG_D("JSON validation successful on attempt %d, size: %d bytes", validation_attempts, json_size);
+    if (json_size == 0) {
+        LOG_E("JSON serialization failed");
+        request->send(500, "application/json", "{\"error\":\"JSON serialization failed\"}");
+        return;
     }
     
-    // Send validated response
+    // Send response
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_str);
     response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     response->addHeader("Pragma", "no-cache");
@@ -654,8 +550,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
     
-    LOG_D("Validated response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d, attempts=%d", 
-          json_size, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS, validation_attempts);
+    LOG_D("Lucky history sent: %d bytes, %d records", json_size, sampled_count);
 }
 static void get_lucky_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 512; // in bytes
@@ -666,48 +561,30 @@ static void get_lucky_realtime(AsyncWebServerRequest* request){
     uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
-    labels.add("hashRate");
-    labels.add("asicTemp");
-    labels.add("vcoreTemp");
-    labels.add("Pbus");
-    labels.add("Vbus");
-    labels.add("Ibus");
-    labels.add("Vcore");
-    labels.add("fanspeed");
-    labels.add("fanrpm");
-    labels.add("wifiRSSI");
-    labels.add("freeHeap");
-    labels.add("freePsram");
+    labels.add("proximity");
+    labels.add("share_diff");
+    labels.add("net_diff");
     labels.add("epoch");
     
     JsonArray data = root.createNestedArray("statistics");
     
-    // Protect status_history access with mutex
-    if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
-        if (!g_nmaxe.mstatus.status_history.empty()) {
-            auto& history = g_nmaxe.mstatus.status_history.back();
+    // Protect block_proximity_history access with mutex
+    if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
+        if (!g_nmaxe.mstatus.block_proximity_history.empty()) {
+            auto& history = g_nmaxe.mstatus.block_proximity_history.back();
             JsonArray dataPoint = data.createNestedArray();
-            dataPoint.add(history.hashrate);           // hashRate (GH/s)
-            dataPoint.add(history.asic_temp);          // asic_temp (°C)
-            dataPoint.add(history.vcore_temp);         // vcore_temp (°C)
-            dataPoint.add(history.pbus);               // power (W)
-            dataPoint.add(history.vbus);               // voltage (V)
-            dataPoint.add(history.ibus);               // current (A)
-            dataPoint.add(history.vcore);              // coreVoltageActual (mV)
-            dataPoint.add(history.fanspeed);           // fanspeed (%)
-            dataPoint.add(history.fanrpm);             // fanrpm (RPM)
-            dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
-            dataPoint.add(history.free_ram);           // freeHeap (KB)
-            dataPoint.add(history.free_psram);         // freePsram (KB)
-            dataPoint.add(history.epoch);              // timestamp (ms)
+            dataPoint.add(history.block_proximity);
+            dataPoint.add(history.share_diff);
+            dataPoint.add(history.net_diff);
+            dataPoint.add(history.epoch);
         }
-        xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
+        xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
     }
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 
-    LOG_D("Status realtime sent, history size: %d...", g_nmaxe.mstatus.status_history.size());
+    LOG_D("Lucky realtime sent, history size: %d...", g_nmaxe.mstatus.block_proximity_history.size());
 }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices

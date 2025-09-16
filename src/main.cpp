@@ -104,7 +104,7 @@ void setup() {
   delay(500);
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";
-  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*11, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 1);
+  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*11, (void*)taskName.c_str(), TASK_PRIORITY_STRATUM, &stratumTask, 0);
   delay(10);
   /********************************************************** CREATE MONITOR THREAD ***************************************************/
   taskName = "(monitor)";
