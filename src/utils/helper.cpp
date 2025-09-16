@@ -222,7 +222,6 @@ void swap_endian_words(const char *hex_words, uint8_t *output)
     }
 }
 
-
 String convert_time_to_local(uint32_t timestamp) {
     time_t localTime = timestamp;
 
@@ -233,7 +232,6 @@ String convert_time_to_local(uint32_t timestamp) {
 
     return String(timeString);
 }
-
 
 String convert_uptime_to_string(uint32_t timecnt){
     char uptime[20] = {0,};
@@ -277,8 +275,6 @@ double le_hash_to_diff(uint8_t *hash){
 
     return result;
 }
-
-
 
 int compareVersions(const String& current, const String& release) {
     if((release == "") || (release == "None")) return -2; // have no release version get yet
@@ -333,4 +329,5 @@ int compareVersions(const String& current, const String& release) {
 
     return 0;
 }
+
 

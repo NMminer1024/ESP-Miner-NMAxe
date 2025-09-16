@@ -326,9 +326,9 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           const element = meta.data[medal.index];
           const medalStyle = component.getMedalStyle(medal.type);
           
-          // 计算奖牌位置（柱子顶部上方，根据屏幕大小调整偏移）
+          // 计算奖牌位置（柱子顶部上方，整体向上移动更多距离避免重叠）
           const x = element.x;
-          const offsetY = medalSizes.iconSize <= 20 ? 15 : (medalSizes.iconSize <= 26 ? 20 : 25);
+          const offsetY = medalSizes.iconSize <= 20 ? 25 : (medalSizes.iconSize <= 26 ? 35 : 45); // 增加向上偏移
           const y = element.y - offsetY;
           
           // 绘制奖牌图标
@@ -346,9 +346,25 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           ctx.strokeStyle = '#FFFFFF'; // 白色描边增加对比度
           ctx.lineWidth = medalSizes.iconSize <= 20 ? 1 : 2; // 小屏幕使用更细的描边
           
-          // 先绘制描边，再绘制填充（数字往下移动到奖牌中心）
-          ctx.strokeText(medalStyle.number, x, y + medalSizes.offset);
-          ctx.fillText(medalStyle.number, x, y + medalSizes.offset);
+          // 先绘制描边，再绘制填充（数字往上移动1像素）
+          ctx.strokeText(medalStyle.number, x, y + medalSizes.offset - 1);
+          ctx.fillText(medalStyle.number, x, y + medalSizes.offset - 1);
+          
+          // 在奖牌下方、柱子顶端上面显示share_diff值
+          const shareValue = medal.share_diff || 0;
+          const shareText = formatNumber(shareValue);
+          const shareTextSize = medalSizes.iconSize <= 20 ? 12 : (medalSizes.iconSize <= 26 ? 14 : 16); // 增大字体
+          
+          ctx.font = `bold ${shareTextSize}px Arial`;
+          ctx.fillStyle = '#FFFFFF'; // 改为白色
+          ctx.strokeStyle = '#000000'; // 黑色描边确保在任何背景下都清晰
+          ctx.lineWidth = 2;
+          
+          // 在奖牌下方显示share值，位置在柱子顶端上面一点点
+          // element.y 是柱子顶端，我们在上面5-10像素显示share值
+          const shareY = element.y - (medalSizes.iconSize <= 20 ? 5 : (medalSizes.iconSize <= 26 ? 8 : 10));
+          ctx.strokeText(shareText, x, shareY);
+          ctx.fillText(shareText, x, shareY);
           
           ctx.restore();
         });
@@ -602,13 +618,8 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const maxShareDiff = this.luckyData.length > 0 ? Math.max(...this.luckyData.map(d => d.share_diff || 512)) : 512;
     const logMax = Math.max(maxNetDiff, maxShareDiff);
     
-    // 计算实际的最小值，考虑所有有效的share_diff和net_diff
-    const validShareDiffs = this.luckyData.length > 0 ? this.luckyData.filter(d => d.share_diff > 0).map(d => d.share_diff) : [];
-    const validNetDiffs = this.luckyData.length > 0 ? this.luckyData.filter(d => d.net_diff > 0).map(d => d.net_diff) : [];
-    const allValidValues = [...validShareDiffs, ...validNetDiffs];
-    
-    // 使用实际数据最小值，如果没有数据则使用512作为默认最小值
-    const logMin = allValidValues.length > 0 ? Math.min(...allValidValues) : 512;
+    // 恢复固定最小值为1，简化逻辑
+    const logMin = 1;
 
     const chartData: ChartData = {
       labels: this.luckyData.map(d => formatTimestamp(d.epoch)),
@@ -773,7 +784,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const maxNetDiff = Math.max(...this.luckyData.map(d => d.net_diff));
     const maxShareDiff = Math.max(...this.luckyData.map(d => d.share_diff));
     const logMax = Math.max(maxNetDiff, maxShareDiff);
-    const logMin = Math.min(1, Math.min(...this.luckyData.filter(d => d.share_diff > 0).map(d => d.share_diff)));
+    const logMin = 1; // 固定最小值为1
 
     if (this.chart.options?.scales?.['y']) {
       this.chart.options.scales['y'].min = logMin;

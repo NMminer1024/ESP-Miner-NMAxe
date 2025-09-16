@@ -111,7 +111,19 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
       plugins: {
         legend: {
           display: true,
-          position: 'top'
+          position: 'top',
+          onClick: (event: any, legendItem: any, legend: any) => {
+            // 获取图表实例
+            const chart = legend.chart;
+            const index = legendItem.datasetIndex;
+            const meta = chart.getDatasetMeta(index);
+            
+            // 切换显示/隐藏状态
+            meta.hidden = meta.hidden === null ? !chart.data.datasets[index].hidden : !meta.hidden;
+            
+            // 更新图表
+            chart.update();
+          }
         },
         tooltip: {
           enabled: true,
