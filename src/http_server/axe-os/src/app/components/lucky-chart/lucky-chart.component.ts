@@ -286,6 +286,23 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * 获取响应式的奖牌尺寸（根据屏幕宽度调整）
+   */
+  private getMedalSizes(): { iconSize: number, numberSize: number, offset: number } {
+    const screenWidth = window.innerWidth;
+    if (screenWidth <= 480) {
+      // 小屏幕：更小的奖牌
+      return { iconSize: 20, numberSize: 10, offset: 4 };
+    } else if (screenWidth <= 768) {
+      // 中等屏幕：中等尺寸奖牌
+      return { iconSize: 26, numberSize: 13, offset: 5 };
+    } else {
+      // 大屏幕：正常尺寸
+      return { iconSize: 32, numberSize: 16, offset: 6 };
+    }
+  }
+
+  /**
    * 创建奖牌绘制插件
    */
   private createMedalPlugin() {
@@ -297,6 +314,9 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
         const ctx = chart.ctx;
         const chartArea = chart.chartArea;
         
+        // 获取响应式奖牌尺寸
+        const medalSizes = component.getMedalSizes();
+        
         // 遍历奖牌数据
         component.medalData.forEach(medal => {
           // 获取数据点的meta信息
@@ -306,28 +326,29 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           const element = meta.data[medal.index];
           const medalStyle = component.getMedalStyle(medal.type);
           
-          // 计算奖牌位置（柱子顶部上方）
+          // 计算奖牌位置（柱子顶部上方，根据屏幕大小调整偏移）
           const x = element.x;
-          const y = element.y - 25; // 柱子顶部上方25像素
+          const offsetY = medalSizes.iconSize <= 20 ? 15 : (medalSizes.iconSize <= 26 ? 20 : 25);
+          const y = element.y - offsetY;
           
           // 绘制奖牌图标
           ctx.save();
           
-          // 绘制奖牌图标（emoji）
-          ctx.font = '32px Arial'; // 奖牌图标大小
+          // 绘制奖牌图标（emoji）- 使用响应式大小
+          ctx.font = `${medalSizes.iconSize}px Arial`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(medalStyle.icon, x, y);
           
-          // 在奖牌图标上叠加数字
-          ctx.font = 'bold 16px Arial'; // 数字字体更大
+          // 在奖牌图标上叠加数字 - 使用响应式大小
+          ctx.font = `bold ${medalSizes.numberSize}px Arial`;
           ctx.fillStyle = '#000000'; // 黑色数字以确保可见性
           ctx.strokeStyle = '#FFFFFF'; // 白色描边增加对比度
-          ctx.lineWidth = 2;
+          ctx.lineWidth = medalSizes.iconSize <= 20 ? 1 : 2; // 小屏幕使用更细的描边
           
           // 先绘制描边，再绘制填充（数字往下移动到奖牌中心）
-          ctx.strokeText(medalStyle.number, x, y + 3); // 向下移动3像素到奖牌中心
-          ctx.fillText(medalStyle.number, x, y + 3);
+          ctx.strokeText(medalStyle.number, x, y + medalSizes.offset);
+          ctx.fillText(medalStyle.number, x, y + medalSizes.offset);
           
           ctx.restore();
         });
@@ -634,8 +655,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         },
         legend: {
-          display: true,
-          position: 'top'
+          display: false // 禁用图例，简化界面操作
         },
         tooltip: {
           callbacks: {
