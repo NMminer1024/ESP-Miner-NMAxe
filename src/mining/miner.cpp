@@ -451,6 +451,22 @@ void miner_asic_rx_thread_entry(void *args){
                 if(diff == g_nmaxe.mstatus.diff.best_ever){
                     xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
                 }
+
+                //add share to History of block proximity
+                if(xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE){
+                    proximity_node_t node;
+                    node.block_proximity = (diff >= g_nmaxe.mstatus.diff.network) ? "100%" : formatNumber(diff / g_nmaxe.mstatus.diff.network * 100.0, 12) + "%";
+                    node.share_diff      = diff;
+                    node.net_diff        = g_nmaxe.mstatus.diff.network;
+                    node.epoch           = g_nmaxe.mstatus.utc * 1000ULL;
+                    g_nmaxe.mstatus.block_proximity_history.push_back(node);
+                    //keep history size within limit
+                    while(g_nmaxe.mstatus.block_proximity_history.size() > 50){
+                        g_nmaxe.mstatus.block_proximity_history.pop_front();
+                    }
+                    LOG_W("block_proximity size %d", g_nmaxe.mstatus.block_proximity_history.size());
+                    xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
+                }
             }
         }
         else if(ESP_ERR_INVALID_SIZE == err) {

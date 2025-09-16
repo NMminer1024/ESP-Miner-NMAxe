@@ -179,7 +179,14 @@ typedef struct{
 }history_node_t;
 
 typedef struct{
-    uint64_t            utc;              // UTC timestamp in seconds since epoch
+    String          block_proximity; // block share, percentage 0-100%
+    float           share_diff;      // share difficulty
+    float           net_diff;        // network difficulty
+    uint64_t        epoch;           // timestamp, milliseconds since epoch
+}proximity_node_t;
+
+typedef struct{
+    uint64_t            utc;        // UTC timestamp in seconds since epoch
     String              timezone;
     uint32_t            share_rejected;
     uint32_t            share_accepted;
@@ -188,7 +195,10 @@ typedef struct{
     hashrate_t          hashrate;
     hash_dist_t         hr_dist;
     std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
+    std::deque<proximity_node_t, PsramAllocator<proximity_node_t>> block_proximity_history;// history of block proximity
+    
     SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
+    SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
     
     uint16_t            hits;
     uint16_t            last_hits;//record the last hits

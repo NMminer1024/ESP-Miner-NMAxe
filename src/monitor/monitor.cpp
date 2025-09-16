@@ -228,6 +228,14 @@ void monitor_thread_entry(void *args){
         }
       }
 
+
+      // for(auto &node : g_nmaxe.mstatus.block_proximity_history){
+      //   LOG_I("Block proximity history: %s/%s", node.block_proximity.c_str(), node.net_diff.c_str());
+      // }
+      if(g_nmaxe.mstatus.block_proximity_history.size() > 0){
+        auto node = g_nmaxe.mstatus.block_proximity_history.back();
+        LOG_I("Block proximity history: %f/%f/%s", node.share_diff, node.net_diff, node.block_proximity.c_str());
+      }
     }
 }
 

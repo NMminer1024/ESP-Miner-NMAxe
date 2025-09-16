@@ -243,6 +243,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.temp.asic                           = 0.0f;
     g_nmaxe.mstatus.nvs_save_xsem               = xSemaphoreCreateCounting(1, 0);
     g_nmaxe.mstatus.history_mutex               = xSemaphoreCreateMutex();
+    g_nmaxe.mstatus.block_proximity_mutex       = xSemaphoreCreateMutex();
     g_nmaxe.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
     g_nmaxe.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
     g_nmaxe.mstatus.update_xsem                 = xSemaphoreCreateCounting(1, 0);

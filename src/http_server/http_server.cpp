@@ -752,7 +752,7 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
         static int lastPercentage = -1;
         g_nmaxe.ota.progress = (int)((index + len) * 100.0 / flen);
         if (g_nmaxe.ota.progress != lastPercentage) {
-            LOG_I("OTA Update: %d%%", g_nmaxe.ota.progress);
+            LOG_I("%s ota: %d%%", filename.c_str(), g_nmaxe.ota.progress);
             lastPercentage = g_nmaxe.ota.progress;
         }
     }
