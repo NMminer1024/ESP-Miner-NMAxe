@@ -10,6 +10,13 @@
 
     <div class="layout-topbar-menu">
         <button pButton 
+                class="clear-hits-btn"
+                (click)="showClearBlockHitsDialog()"
+                pTooltip="Clear Block Hits"
+                tooltipPosition="bottom">
+            Clear Block Hits
+        </button>
+        <button pButton 
                 class="restart-text-btn"
                 (click)="restart()"
                 pTooltip="Restart Device"
@@ -19,3 +26,29 @@
     </div>
 
 </div>
+
+<!-- Clear Block Hits Confirmation Dialog -->
+<p-dialog header="Clear Block Hits" 
+          [(visible)]="clearBlockHitsDialogVisible" 
+          [modal]="true" 
+          [style]="{width: '450px'}" 
+          [closable]="true"
+          [dismissableMask]="true">
+    <p>This will reset the block hit counter on your miner. Your crypto assets are safe. Confirm to continue?</p>
+    <ng-template pTemplate="footer">
+        <button pButton 
+                type="button" 
+                label="No" 
+                icon="pi pi-times" 
+                class="p-button-secondary p-button-outlined" 
+                (click)="clearBlockHitsDialogVisible = false">
+        </button>
+        <button pButton 
+                type="button" 
+                label="Yes" 
+                icon="pi pi-check" 
+                class="p-button-danger" 
+                (click)="clearBlockHits()">
+        </button>
+    </ng-template>
+</p-dialog>

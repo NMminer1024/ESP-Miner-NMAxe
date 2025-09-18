@@ -511,7 +511,7 @@ void miner_asic_rx_thread_entry(void *args){
                     node.share_diff      = diff;
                     node.net_diff        = g_nmaxe.mstatus.diff.network;
                     node.epoch           = g_nmaxe.mstatus.utc * 1000ULL;
-                    add_share_diff_history(g_nmaxe.mstatus.block_proximity_history, node, 2000);
+                    add_share_diff_history(g_nmaxe.mstatus.block_proximity_history, node, 1000);
                     xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
                 }
             }

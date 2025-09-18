@@ -450,7 +450,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     LOG_D("Status realtime sent, history size: %d...", g_nmaxe.mstatus.status_history.size());
 }
 static void get_lucky_history(AsyncWebServerRequest* request){
-    LOG_D("Starting lucky history request processing...");
+    LOG_W("Starting lucky history request processing...");
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
@@ -481,7 +481,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     // Ensure minimum size
     if (json_size_max < 32 * 1024) json_size_max = 32 * 1024;
     
-    LOG_D("Creating JSON document with %dKB for %d samples", json_size_max/1024, history_size);
+    LOG_W("Creating JSON document with %dKB for %d samples", json_size_max/1024, history_size);
     
     // Create JSON document
     DynamicJsonDocument root(json_size_max);
@@ -554,7 +554,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
 }
 static void get_lucky_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 512; // in bytes
-    LOG_D("Processing lucky realtime request...");
+    LOG_W("Processing lucky realtime request...");
     // Use local document instead of static to prevent memory leaks
     DynamicJsonDocument root(json_size_max);
 
@@ -584,7 +584,7 @@ static void get_lucky_realtime(AsyncWebServerRequest* request){
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 
-    LOG_D("Lucky realtime sent, history size: %d...", g_nmaxe.mstatus.block_proximity_history.size());
+    LOG_W("Lucky realtime sent, history size: %d...", g_nmaxe.mstatus.block_proximity_history.size());
 }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
@@ -842,6 +842,11 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         if(root.containsKey("fanspeed")){
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
             g_nmaxe.preference.fan.speed = root["fanspeed"].as<uint16_t>();
+        }
+        if(root.containsKey("blockhits")){
+            nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());
+            g_nmaxe.mstatus.hits = root["blockhits"].as<uint16_t>();
+            g_nmaxe.mstatus.last_hits = g_nmaxe.mstatus.hits;
         }
 
         for (JsonPair kv : root.as<JsonObject>()) {

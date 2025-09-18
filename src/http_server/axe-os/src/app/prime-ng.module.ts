@@ -3,6 +3,7 @@ import {RadioButtonModule} from 'primeng/radiobutton';
 import {ButtonModule} from 'primeng/button';
 import {ChartModule} from 'primeng/chart';
 import {CheckboxModule} from 'primeng/checkbox';
+import {DialogModule} from 'primeng/dialog';
 import {DropdownModule} from 'primeng/dropdown';
 import {FileUploadModule} from 'primeng/fileupload';
 import {InputGroupModule} from 'primeng/inputgroup';
@@ -17,6 +18,7 @@ const primeNgModules = [
   SidebarModule,
   InputTextModule,
   CheckboxModule,
+  DialogModule,
   DropdownModule,
   MultiSelectModule,
   SliderModule,

@@ -55,11 +55,12 @@ static uint16_t calculate_rpm(int16_t pulse_count, double time_seconds) {
 }
 
 float pid_compute(pid* pid, float setpoint, float measured, float dt) {
+    const uint16_t MAX_INTEGRAL = 300.0f;
     float error = measured - setpoint;
     pid->integral += error * dt;
 
-    if(pid->integral > 100.0f) pid->integral = 100.0f;
-    if(pid->integral < -100.0f) pid->integral = -100.0f;
+    if(pid->integral > MAX_INTEGRAL) pid->integral = MAX_INTEGRAL;
+    if(pid->integral < -MAX_INTEGRAL) pid->integral = -MAX_INTEGRAL;
 
     float derivative = (error - pid->prev_error) / dt;
     float output = pid->Kp * error + pid->Ki * pid->integral + pid->Kd * derivative;
@@ -81,8 +82,8 @@ void fan_thread_entry(void *args){
 
     int16_t now_count = 0, last_count = 0,temp_cnt = 0;
     pid fan_pid = {
-        .Kp = 300.0f,
-        .Ki = 0.01f,
+        .Kp = 100.0f,
+        .Ki = 1.0f,
         .Kd = 50.0f,
         .prev_error = 0,
         .integral = 0,
