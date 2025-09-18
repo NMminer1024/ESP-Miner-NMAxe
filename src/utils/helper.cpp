@@ -329,5 +329,3 @@ int compareVersions(const String& current, const String& release) {
 
     return 0;
 }
-
-

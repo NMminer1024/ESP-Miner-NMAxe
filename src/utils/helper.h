@@ -4,7 +4,6 @@
 #include <deque>
 #include <utility> // for std::pair
 
-
 #define IN
 #define OUT
 
@@ -43,8 +42,6 @@ String convert_uptime_to_string(uint32_t timecnt);
 double le_hash_to_diff(uint8_t *hash);
 
 int compareVersions(const String& current, const String& release);
-
-
 
 
 template <typename T>

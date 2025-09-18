@@ -8,6 +8,7 @@
 #include "global.h"
 #include "csha256.h"
 #include "hwserial_adapter.h"
+#include "helper.h"
 
 static BMxxx *asic_instance = NULL;
 
@@ -325,6 +326,57 @@ void miner_asic_tx_thread_entry(void *args){
     }
 }
 
+
+
+
+
+
+
+#include <algorithm>
+#include <numeric>
+#include <vector>
+#include <unordered_set>
+void add_share_diff_history(std::deque<proximity_node_t, PsramAllocator<proximity_node_t>> &hist, const proximity_node_t &node, size_t max_history){
+    hist.push_back(node);
+
+    if (hist.size() <= max_history) return;
+
+    const size_t n = hist.size();
+    const size_t keep = std::min<size_t>(3, n);
+
+    // 索引数组，按 share_diff 降序部分排序
+    std::vector<size_t> idx(n);
+    std::iota(idx.begin(), idx.end(), 0);
+    std::nth_element(idx.begin(), idx.begin() + keep, idx.end(),
+                     [&](size_t a, size_t b) {
+                         return hist[a].share_diff > hist[b].share_diff;});
+
+    std::unordered_set<uint64_t> protected_epochs;
+    for (size_t i = 0; i < keep; ++i) protected_epochs.insert(hist[idx[i]].epoch);
+
+    // 从前向后删除第一个不受保护的元素，直到长度满足
+    while (hist.size() > max_history) {
+        if (protected_epochs.find(hist.front().epoch) == protected_epochs.end()) {
+            hist.pop_front();
+            continue;
+        }
+        auto it = std::find_if(hist.begin(), hist.end(),
+                               [&](const proximity_node_t &p) {
+                                   return protected_epochs.find(p.epoch) == protected_epochs.end();
+                               });
+        if (it == hist.end()) {
+            // 所有元素都受保护（极端情况），退出以避免无限循环
+            break;
+        }
+        hist.erase(it);
+    }
+}
+
+
+
+
+
+
 void miner_asic_rx_thread_entry(void *args){
     char *name = (char*)malloc(20);
     strcpy(name, (char*)args);
@@ -451,7 +503,7 @@ void miner_asic_rx_thread_entry(void *args){
                 if(diff == g_nmaxe.mstatus.diff.best_ever){
                     xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
                 }
-
+                
                 //add share to History of block proximity
                 if(xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE){
                     proximity_node_t node;
@@ -459,11 +511,7 @@ void miner_asic_rx_thread_entry(void *args){
                     node.share_diff      = diff;
                     node.net_diff        = g_nmaxe.mstatus.diff.network;
                     node.epoch           = g_nmaxe.mstatus.utc * 1000ULL;
-                    g_nmaxe.mstatus.block_proximity_history.push_back(node);
-                    //keep history size within limit
-                    while(g_nmaxe.mstatus.block_proximity_history.size() > 10000){
-                        g_nmaxe.mstatus.block_proximity_history.pop_front();
-                    }
+                    add_share_diff_history(g_nmaxe.mstatus.block_proximity_history, node, 2000);
                     xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
                 }
             }
