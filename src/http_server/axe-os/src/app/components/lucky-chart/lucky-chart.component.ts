@@ -348,6 +348,10 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           const meta = chart.getDatasetMeta(0); // share_diff是第一个数据集（bar类型）
           if (!meta.data[medal.index]) return;
           
+          // 检查这个数据点是否share_diff >= net_diff，如果是则不显示奖牌
+          const item = component.luckyData[medal.index];
+          if (item && item.share_diff >= item.net_diff) return;
+          
           const element = meta.data[medal.index];
           const medalStyle = component.getMedalStyle(medal.type);
           
@@ -394,7 +398,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           ctx.restore();
         });
         
-        // 绘制庆祝撒花图标（当share_diff >= net_diff时）
+        // 为share_diff >= net_diff的数据点显示难度值在柱子顶部（不显示奖牌和撒花）
         component.luckyData.forEach((item, index) => {
           if (item.share_diff >= item.net_diff && item.share_diff > 0) {
             const meta = chart.getDatasetMeta(0);
@@ -402,15 +406,23 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
             
             const element = meta.data[index];
             const x = element.x;
-            const y = element.y - 50; // 柱子顶部上方50像素（比奖牌更高）
+            
+            const shareValue = item.share_diff;
+            const shareText = formatShareValue(shareValue);
+            const shareTextSize = 12; // 固定字体大小
             
             ctx.save();
-            ctx.font = '24px Arial';
+            ctx.font = `bold ${shareTextSize}px Arial`;
+            ctx.fillStyle = '#FFFFFF'; // 白色文字
+            ctx.strokeStyle = '#000000'; // 黑色描边
+            ctx.lineWidth = 2;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            // 绘制撒花图标
-            ctx.fillText('🎉', x, y);
+            // 显示在柱子顶端上方10像素
+            const shareY = element.y - 10;
+            ctx.strokeText(shareText, x, shareY);
+            ctx.fillText(shareText, x, shareY);
             
             ctx.restore();
           }
