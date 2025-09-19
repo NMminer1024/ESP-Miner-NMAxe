@@ -71,27 +71,11 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   
   @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
   
-  luckyData: any[] = []; // 用于图表显示的数据（可能包含填充的gaps）
-  originalLuckyData: any[] = []; // 原始数据（未填充gaps）
+  luckyData: any[] = []; // 用于图表显示的数据
   chart: Chart | null = null;
   isLoading = false;
   lastUpdateTime = '';
   dataSize = 0;
-  
-  // 滑动窗口配置
-  private readonly MAX_VISIBLE_BARS = 38; // 最多显示38根柱子
-  private readonly ENABLE_SCROLL_THRESHOLD = 38; // 超过38根柱子时启用滚动
-  private windowStart = 0; // 窗口起始索引
-  
-  // 拖拽相关属性
-  private isDragging = false;
-  private dragStartX = 0;
-  private dragStartWindowStart = 0;
-  private lastMouseX = 0; // 记录上次鼠标位置
-  private dragSensitivity = 6; // 拖拽灵敏度（像素/柱子）
-  private currentPosition = 0; // 当前浮点位置
-  private lastDragUpdateTime = 0; // 上次拖拽更新时间
-  private updateThrottle = 16; // 更新节流（毫秒），约60fps
   
   // 奖牌相关属性
   private medalData: { 
@@ -102,7 +86,6 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   }[] = [];
   
   private subscription: Subscription = new Subscription();
-  private realTimeSubscription: Subscription = new Subscription();
   private isComponentActive = true;
   
   constructor(private systemService: SystemService) {}
@@ -110,30 +93,28 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     console.log('🎯 Lucky Chart component ngOnInit called');
     this.loadLuckyHistory();
+    
+    // 设置每5秒请求一次历史数据
+    this.subscription.add(
+      interval(5000).pipe(
+        takeWhile(() => this.isComponentActive)
+      ).subscribe(() => {
+        if (!this.isLoading) {
+          this.loadLuckyHistory();
+        }
+      })
+    );
   }
 
   ngAfterViewInit(): void {
     console.log('🎯 Lucky Chart ngAfterViewInit called');
     // Chart will be initialized after data is loaded
-    
-    // 添加拖拽事件监听器
-    this.setupDragListeners();
   }
 
   ngOnDestroy(): void {
     console.log('🎯 Lucky Chart component destroyed');
     this.isComponentActive = false;
     this.subscription.unsubscribe();
-    this.realTimeSubscription.unsubscribe();
-    
-    // 清理拖拽事件监听器
-    if (this.chartCanvas && this.chartCanvas.nativeElement) {
-      const canvas = this.chartCanvas.nativeElement;
-      canvas.removeEventListener('mousedown', this.onMouseDown);
-      canvas.removeEventListener('mousemove', this.onMouseMove);
-      canvas.removeEventListener('mouseup', this.onMouseUp);
-      canvas.removeEventListener('mouseleave', this.onMouseUp);
-    }
     
     if (this.chart) {
       this.chart.destroy();
@@ -179,9 +160,6 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           } else {
             this.updateChart();
           }
-          
-          // Start real-time updates every 5 seconds (like status chart)
-          this.startRealTimeUpdates();
         },
         error: (error: any) => {
           console.error('❌ Error loading lucky history:', error);
@@ -195,102 +173,86 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     // 安全检查响应数据
     if (!response || !response.statistics || !Array.isArray(response.statistics)) {
       console.error('❌ Invalid lucky data response:', response);
-      this.originalLuckyData = [];
+      this.luckyData = [];
       return;
     }
 
-    this.originalLuckyData = response.statistics.map((stat: any[]) => ({
-      proximity: stat[0] || 0,
-      share_diff: stat[1] || 0,
-      net_diff: stat[2] || 1,
-      epoch: stat[3] || 0  // 已经是毫秒时间戳
-    }));
+    console.log(`📈 Processing ${response.statistics.length} lucky data points...`);
+
+    // 安全地处理数据，添加更多验证
+    this.luckyData = response.statistics
+      .map((stat: any[]) => {
+        // 确保stat是数组且有足够元素
+        if (!Array.isArray(stat) || stat.length < 4) {
+          console.warn('⚠️ Invalid stat entry:', stat);
+          return null;
+        }
+        
+        const proximity = Number(stat[0]) || 0;
+        const share_diff = Number(stat[1]) || 0;
+        const net_diff = Number(stat[2]) || 1;
+        const epoch = Number(stat[3]) || 0;
+        
+        // 验证数据有效性
+        if (epoch <= 0 || net_diff <= 0) {
+          console.warn('⚠️ Invalid data values:', { proximity, share_diff, net_diff, epoch });
+          return null;
+        }
+        
+        return { proximity, share_diff, net_diff, epoch };
+      })
+      .filter(item => item !== null) // 过滤掉无效数据
+      .sort((a, b) => a!.epoch - b!.epoch); // 按时间排序
     
-    console.log(`📈 Processed ${this.originalLuckyData.length} lucky data points`);
+    console.log(`📈 Processed ${this.luckyData.length} valid lucky data points`);
     
     // 记录总数据数量
-    this.dataSize = this.originalLuckyData.length;
+    this.dataSize = this.luckyData.length;
     
-    // 设置初始窗口位置（显示最新数据）
-    this.setInitialWindow();
-    
-    // 应用滑动窗口到显示数据
-    this.applySlidingWindow();
-    
-    console.log(`📊 Window start: ${this.windowStart}, Total data: ${this.originalLuckyData.length}, Display data: ${this.luckyData.length}`);
-  }
-
-  private filterLast20Minutes(): void {
-    if (this.luckyData.length === 0) return;
-    
-    const now = Date.now();
-    const twentyMinutesAgo = now - (20 * 60 * 1000); // 20分钟前的时间戳
-    
-    // 同时过滤原始数据和显示数据
-    this.originalLuckyData = this.originalLuckyData.filter(item => item.epoch >= twentyMinutesAgo);
-    this.luckyData = this.luckyData.filter(item => item.epoch >= twentyMinutesAgo);
-  }
-
-  private setInitialWindow(): void {
-    // 如果数据少于等于最大可见柱子数，显示全部
-    if (this.originalLuckyData.length <= this.MAX_VISIBLE_BARS) {
-      this.windowStart = 0;
-    } else {
-      // 显示最新的数据（从末尾开始）
-      this.windowStart = Math.max(0, this.originalLuckyData.length - this.MAX_VISIBLE_BARS);
+    // 如果没有有效数据，清空显示
+    if (this.luckyData.length === 0) {
+      console.warn('⚠️ No valid data to display');
+      return;
     }
-  }
-
-  private applySlidingWindow(): void {
-    // 计算窗口结束位置
-    const windowEnd = Math.min(this.windowStart + this.MAX_VISIBLE_BARS, this.originalLuckyData.length);
-    
-    // 提取窗口内的数据
-    this.luckyData = this.originalLuckyData.slice(this.windowStart, windowEnd);
     
     // 计算奖牌数据
     this.calculateMedals();
     
-    console.log(`📊 Sliding window: ${this.windowStart} to ${windowEnd}, showing ${this.luckyData.length} items`);
+    console.log(`📊 Display data: ${this.luckyData.length} points`);
   }
 
   /**
-   * 计算所有数据中share_diff的前三名，如果前三名在当前显示窗口内则生成奖牌数据
+   * 计算所有数据中share_diff的前三名，生成奖牌数据
    */
   private calculateMedals(): void {
     // 清空之前的奖牌数据
     this.medalData = [];
     
-    if (this.originalLuckyData.length === 0 || this.luckyData.length === 0) return;
+    if (this.luckyData.length === 0) return;
     
-    // 从所有原始数据中找出前三名的索引
-    const globalSortedIndices = this.originalLuckyData
-      .map((item, globalIndex) => ({ globalIndex, share_diff: item.share_diff }))
-      .filter(item => item.share_diff > 0) // 过滤掉无效数据
-      .sort((a, b) => b.share_diff - a.share_diff); // 从高到低排序
+    // 从所有数据中找出前三名
+    const sortedIndices = this.luckyData
+      .map((item: any, index: number) => ({ index, share_diff: item.share_diff }))
+      .filter((item: any) => item.share_diff > 0) // 过滤掉无效数据
+      .sort((a: any, b: any) => b.share_diff - a.share_diff); // 从高到低排序
     
     const medalTypes: ('gold' | 'silver' | 'bronze')[] = ['gold', 'silver', 'bronze'];
     
-    // 检查前三名是否在当前显示窗口内
-    for (let i = 0; i < Math.min(3, globalSortedIndices.length); i++) {
-      const globalIndex = globalSortedIndices[i].globalIndex;
-      
-      // 检查这个全局索引是否在当前显示窗口内
-      if (globalIndex >= this.windowStart && globalIndex < this.windowStart + this.luckyData.length) {
-        // 计算在当前显示窗口中的相对索引
-        const localIndex = globalIndex - this.windowStart;
-        this.medalData.push({ 
-          index: localIndex, 
-          type: medalTypes[i],
-          globalIndex: globalIndex,
-          share_diff: globalSortedIndices[i].share_diff
-        });
-      }
+    // 生成前三名的奖牌数据
+    for (let i = 0; i < Math.min(3, sortedIndices.length); i++) {
+      const index = sortedIndices[i].index;
+      this.medalData.push({ 
+        index: index, 
+        type: medalTypes[i],
+        share_diff: sortedIndices[i].share_diff
+      });
     }
     
-    console.log(`🏆 Global medals calculated:`, this.medalData.map(m => 
-      `${m.type} at local index ${m.index} (global: ${m.globalIndex}, share_diff: ${m.share_diff})`
-    ));
+    console.log(`🏆 Generated ${this.medalData.length} medals:`, 
+      this.medalData.map((m: any) => 
+        `${m.type} at index ${m.index} (share_diff: ${m.share_diff})`
+      ).join(', ')
+    );
   }
 
   /**
@@ -630,7 +592,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!ctx) return;
 
     // 安全检查数据
-    if (!this.originalLuckyData || this.originalLuckyData.length === 0) {
+    if (!this.luckyData || this.luckyData.length === 0) {
       console.warn('No lucky data available for chart initialization');
       return;
     }
@@ -754,11 +716,10 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         }
       },
-      // 添加拖拽功能（当数据超过阈值时启用）
+      // 简化的鼠标悬停处理
       onHover: (event: any, elements: any) => {
-        if (this.originalLuckyData.length > this.ENABLE_SCROLL_THRESHOLD) {
-          event.native.target.style.cursor = 'grab';
-        }
+        // 不再需要拖拽功能
+        event.native.target.style.cursor = 'default';
       }
     };
 
@@ -770,18 +731,6 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     this.chart = new Chart(ctx, config);
-    
-    // 添加拖拽事件监听器（如果数据量超过阈值）
-    if (this.originalLuckyData.length > this.ENABLE_SCROLL_THRESHOLD) {
-      const canvas = this.chartCanvas.nativeElement;
-      canvas.addEventListener('mousedown', this.onMouseDown);
-      canvas.addEventListener('mousemove', this.onMouseMove);
-      canvas.addEventListener('mouseup', this.onMouseUp);
-      canvas.addEventListener('mouseleave', this.onMouseUp); // 鼠标离开也停止拖拽
-      
-      // 设置初始光标样式
-      canvas.style.cursor = 'grab';
-    }
     
     console.log('✅ Lucky chart initialized successfully');
   }
@@ -828,186 +777,4 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('✅ Lucky chart updated successfully');
   }
 
-  private startRealTimeUpdates(): void {
-    if (!this.isComponentActive) return;
-
-    console.log('🔄 Starting real-time updates for lucky chart (every 5 seconds)...');
-
-    this.realTimeSubscription.add(
-      interval(5000).pipe( // Update every 5 seconds (like status chart)
-        takeWhile(() => this.isComponentActive)
-      ).subscribe(() => {
-        // Use real-time endpoint without showing loading spinner
-        this.updateLuckyDataSilently();
-      })
-    );
-  }
-
-  private updateLuckyDataSilently(): void {
-    if (!this.isComponentActive) return;
-
-    this.systemService.getLuckyRealtime().pipe(
-      catchError((error: any) => {
-        console.warn('⚠️ Silent lucky data update failed:', error);
-        return [];
-      })
-    ).subscribe((response: StatusHistoryResponse) => {
-      if (response && response.statistics && response.statistics.length > 0) {
-        console.log('🔄 Lucky data updated silently');
-        this.appendRealTimeData(response);
-        this.lastUpdateTime = formatTimestamp(Date.now());
-        
-        if (this.chart) {
-          // 实时更新时禁用动画，避免柱子从0增长的效果
-          this.updateChart(true);
-        }
-      }
-    });
-  }
-
-  private appendRealTimeData(response: StatusHistoryResponse): void {
-    console.log('📊 Appending real-time lucky data...');
-    
-    // 转换新数据
-    const newData = response.statistics.map((stat: any[]) => ({
-      proximity: stat[0] || 0,
-      share_diff: stat[1] || 0,
-      net_diff: stat[2] || 1,
-      epoch: stat[3] || 0  // 已经是毫秒时间戳
-    }));
-
-    if (newData.length === 0) return;
-
-    // 获取原始数据中最新数据的时间戳
-    const lastEpoch = this.originalLuckyData.length > 0 ? this.originalLuckyData[this.originalLuckyData.length - 1].epoch : 0;
-    
-    // 只添加比当前最新数据更新的数据点
-    const newerData = newData.filter(item => item.epoch > lastEpoch);
-    
-    if (newerData.length > 0) {
-      // 追加新数据到原始数据
-      this.originalLuckyData.push(...newerData);
-      console.log(`📈 Appended ${newerData.length} new lucky data points to original data`);
-      
-      // 确保原始数据按epoch排序
-      this.originalLuckyData.sort((a, b) => a.epoch - b.epoch);
-      
-      // 更新数据大小
-      this.dataSize = this.originalLuckyData.length;
-      
-      // 自动滚动到最新数据（如果当前显示的是最后的数据）
-      const wasShowingLatest = (this.windowStart + this.MAX_VISIBLE_BARS) >= (this.originalLuckyData.length - newerData.length);
-      if (wasShowingLatest) {
-        this.setInitialWindow(); // 重新设置窗口到最新位置
-        
-        // 重新应用滑动窗口
-        this.applySlidingWindow();
-        
-        // 实时更新时使用滑动动画而非柱子增长动画
-        if (this.chart) {
-          this.updateChart(true); // 禁用默认动画，使用自定义滑动效果
-        }
-        
-        console.log(`📊 Auto-scrolled to latest data with ${newerData.length} new points`);
-      } else {
-        // 如果不在最新位置，只更新数据不改变显示
-        this.applySlidingWindow();
-      }
-      
-      console.log(`📊 After real-time update, total data: ${this.originalLuckyData.length}, window: ${this.windowStart}-${this.windowStart + this.luckyData.length}`);
-    } else {
-      console.log('📊 No new data to append (duplicate or older timestamp)');
-    }
-  }
-
-  private setupDragListeners(): void {
-    // 鼠标拖拽事件将在图表创建后设置
-    console.log('🖱️ Drag listeners setup completed');
-  }
-
-  private onMouseDown = (event: MouseEvent): void => {
-    if (this.originalLuckyData.length <= this.ENABLE_SCROLL_THRESHOLD) return;
-    
-    this.isDragging = true;
-    this.dragStartX = event.clientX;
-    this.lastMouseX = event.clientX;
-    this.dragStartWindowStart = this.windowStart;
-    this.currentPosition = this.windowStart; // 初始化浮点位置
-    
-    if (this.chartCanvas && this.chartCanvas.nativeElement) {
-      this.chartCanvas.nativeElement.style.cursor = 'grabbing';
-    }
-    
-    // 阻止默认行为，避免选中文本
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  private onMouseMove = (event: MouseEvent): void => {
-    if (!this.isDragging) return;
-    
-    // 节流：避免过度频繁的更新
-    const now = Date.now();
-    
-    // 计算鼠标移动距离
-    const deltaX = event.clientX - this.lastMouseX;
-    this.lastMouseX = event.clientX;
-    
-    // 动态计算柱子宽度来设置正确的拖拽灵敏度
-    const chartArea = this.chart?.chartArea;
-    let barWidth = this.dragSensitivity; // 默认值
-    
-    if (chartArea && this.luckyData.length > 0) {
-      const chartWidth = chartArea.right - chartArea.left;
-      const visibleBars = Math.min(this.luckyData.length, this.MAX_VISIBLE_BARS);
-      barWidth = chartWidth / visibleBars; // 实际柱子宽度（包括间距）
-    }
-    
-    // 根据实际柱子宽度计算移动的柱子数（支持小数）
-    const moveDistance = deltaX / barWidth;
-    
-    // 更新浮点位置（反向移动）
-    this.currentPosition = Math.max(0, Math.min(
-      this.currentPosition - moveDistance,
-      this.originalLuckyData.length - this.MAX_VISIBLE_BARS
-    ));
-    
-    // 节流更新：只有超过一定时间间隔才更新图表
-    if (now - this.lastDragUpdateTime >= this.updateThrottle) {
-      const newWindowStart = Math.round(this.currentPosition);
-      
-      // 只有当整数位置改变时才更新图表
-      if (newWindowStart !== this.windowStart) {
-        this.windowStart = newWindowStart;
-        this.applySlidingWindow();
-        this.updateChart(true); // 拖拽时禁用动画，保持柱子高度
-        
-        console.log(`🖱️ Dragging to position: ${this.windowStart} (float: ${this.currentPosition.toFixed(2)})`);
-      }
-      
-      this.lastDragUpdateTime = now;
-    }
-    
-    event.preventDefault();
-  };
-
-  private onMouseUp = (): void => {
-    if (!this.isDragging) return;
-    
-    this.isDragging = false;
-    
-    // 确保最终位置是正确的整数位置
-    const finalPosition = Math.round(this.currentPosition);
-    if (finalPosition !== this.windowStart) {
-      this.windowStart = finalPosition;
-      this.applySlidingWindow();
-      this.updateChart(true); // 拖拽结束时也禁用动画，确保平滑过渡
-    }
-    
-    if (this.chartCanvas && this.chartCanvas.nativeElement) {
-      this.chartCanvas.nativeElement.style.cursor = 'grab';
-    }
-    
-    console.log(`🖱️ Drag ended at position: ${this.windowStart}`);
-  };
 }
