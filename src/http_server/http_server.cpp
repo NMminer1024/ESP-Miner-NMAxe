@@ -450,7 +450,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     LOG_D("Status realtime sent, history size: %d...", g_nmaxe.mstatus.status_history.size());
 }
 static void get_lucky_history(AsyncWebServerRequest* request){
-    LOG_W("Starting lucky history request processing...");
+    LOG_D("Starting lucky history request processing...");
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
@@ -481,7 +481,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     // Ensure minimum size
     if (json_size_max < 32 * 1024) json_size_max = 32 * 1024;
     
-    LOG_L("Creating lucky JSON document with %dKB for %d samples", json_size_max/1024, history_size);
+    LOG_D("Creating lucky JSON document with %dKB for %d samples", json_size_max/1024, history_size);
     
     // Create JSON document
     DynamicJsonDocument root(json_size_max);
@@ -501,7 +501,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     
     // Acquire mutex for history traversal
     if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE) {
-        LOG_W("Starting data collection: %d total records", history_size);
+        LOG_D("Starting data collection: %d total records", history_size);
         
         for (const auto& history : g_nmaxe.mstatus.block_proximity_history) {
             JsonArray dataPoint = data.createNestedArray();
@@ -580,7 +580,7 @@ static void get_lucky_realtime(AsyncWebServerRequest* request){
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 
-    LOG_W("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_nmaxe.mstatus.block_proximity_history.size());
+    LOG_D("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_nmaxe.mstatus.block_proximity_history.size());
 }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
