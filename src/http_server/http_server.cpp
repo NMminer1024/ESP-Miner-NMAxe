@@ -170,7 +170,7 @@ static void get_status_history(AsyncWebServerRequest* request){
     if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
         history_size = g_nmaxe.mstatus.status_history.size();
         xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
-        LOG_W("History size retrieved: %d records", history_size);
+        LOG_D("History size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
         request->send(500, "application/json", "{\"error\":\"Failed to access history data\"}");
@@ -457,7 +457,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
         history_size = g_nmaxe.mstatus.block_proximity_history.size();
         xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
-        LOG_D("History size retrieved: %d records", history_size);
+        LOG_D("Lucky history size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
         request->send(500, "application/json", "{\"error\":\"Failed to access history data\"}");
@@ -465,7 +465,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     }
     
     if (history_size == 0) {
-        LOG_W("No history data available, returning empty response");
+        LOG_W("No lucky history data available, returning empty response");
         request->send(200, "application/json", "{\"statistics\":[],\"size\":0}");
         return;
     }
@@ -481,7 +481,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     // Ensure minimum size
     if (json_size_max < 32 * 1024) json_size_max = 32 * 1024;
     
-    LOG_W("Creating JSON document with %dKB for %d samples", json_size_max/1024, history_size);
+    LOG_L("Creating lucky JSON document with %dKB for %d samples", json_size_max/1024, history_size);
     
     // Create JSON document
     DynamicJsonDocument root(json_size_max);
@@ -501,7 +501,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     
     // Acquire mutex for history traversal
     if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE) {
-        LOG_D("Starting data collection: %d total records", history_size);
+        LOG_W("Starting data collection: %d total records", history_size);
         
         for (const auto& history : g_nmaxe.mstatus.block_proximity_history) {
             JsonArray dataPoint = data.createNestedArray();
@@ -511,16 +511,12 @@ static void get_lucky_history(AsyncWebServerRequest* request){
             dataPoint.add(history.net_diff);
             dataPoint.add(history.epoch);
             sampled_count++;
-            
             // Yield every 100 samples to prevent watchdog timeout
-            if (sampled_count % 100 == 0) {
-                delay(1);
-            }
+            if (sampled_count % 100 == 0) delay(1);
         }
         
         xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
-        LOG_D("Data collection completed: %d samples from %d total records", 
-              sampled_count, history_size);
+        LOG_W("Data collection completed: %d samples from %d total records", sampled_count, history_size);
     } else {
         LOG_E("Failed to acquire history mutex for data collection");
         request->send(500, "application/json", "{\"error\":\"Failed to access history data\"}");
@@ -554,7 +550,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
 }
 static void get_lucky_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 512; // in bytes
-    LOG_W("Processing lucky realtime request...");
+    LOG_D("Processing lucky realtime request...");
     // Use local document instead of static to prevent memory leaks
     DynamicJsonDocument root(json_size_max);
 
@@ -584,7 +580,7 @@ static void get_lucky_realtime(AsyncWebServerRequest* request){
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 
-    LOG_W("Lucky realtime sent, history size: %d...", g_nmaxe.mstatus.block_proximity_history.size());
+    LOG_W("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_nmaxe.mstatus.block_proximity_history.size());
 }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
