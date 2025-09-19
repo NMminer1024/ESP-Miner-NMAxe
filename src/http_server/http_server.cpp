@@ -548,40 +548,40 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     
     LOG_D("Lucky history sent: %d bytes, %d records", json_size, sampled_count);
 }
-static void get_lucky_realtime(AsyncWebServerRequest* request){
-    uint32_t json_size_max = 512; // in bytes
-    LOG_D("Processing lucky realtime request...");
-    // Use local document instead of static to prevent memory leaks
-    DynamicJsonDocument root(json_size_max);
+// static void get_lucky_realtime(AsyncWebServerRequest* request){
+//     uint32_t json_size_max = 512; // in bytes
+//     LOG_D("Processing lucky realtime request...");
+//     // Use local document instead of static to prevent memory leaks
+//     DynamicJsonDocument root(json_size_max);
 
-    uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
-    root["timestamp"] = ms;
-    JsonArray labels = root.createNestedArray("labels");
-    labels.add("proximity");
-    labels.add("share_diff");
-    labels.add("net_diff");
-    labels.add("epoch");
+//     uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
+//     root["timestamp"] = ms;
+//     JsonArray labels = root.createNestedArray("labels");
+//     labels.add("proximity");
+//     labels.add("share_diff");
+//     labels.add("net_diff");
+//     labels.add("epoch");
     
-    JsonArray data = root.createNestedArray("statistics");
+//     JsonArray data = root.createNestedArray("statistics");
     
-    // Protect block_proximity_history access with mutex
-    if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
-        if (!g_nmaxe.mstatus.block_proximity_history.empty()) {
-            auto& history = g_nmaxe.mstatus.block_proximity_history.back();
-            JsonArray dataPoint = data.createNestedArray();
-            dataPoint.add(history.block_proximity);
-            dataPoint.add(history.share_diff);
-            dataPoint.add(history.net_diff);
-            dataPoint.add(history.epoch);
-        }
-        xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
-    }
-    String json_str;
-    serializeJson(root, json_str);
-    request->send(200, "application/json", json_str);
+//     // Protect block_proximity_history access with mutex
+//     if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
+//         if (!g_nmaxe.mstatus.block_proximity_history.empty()) {
+//             auto& history = g_nmaxe.mstatus.block_proximity_history.back();
+//             JsonArray dataPoint = data.createNestedArray();
+//             dataPoint.add(history.block_proximity);
+//             dataPoint.add(history.share_diff);
+//             dataPoint.add(history.net_diff);
+//             dataPoint.add(history.epoch);
+//         }
+//         xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
+//     }
+//     String json_str;
+//     serializeJson(root, json_str);
+//     request->send(200, "application/json", json_str);
 
-    LOG_D("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_nmaxe.mstatus.block_proximity_history.size());
-}
+//     LOG_D("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_nmaxe.mstatus.block_proximity_history.size());
+// }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
     
@@ -977,7 +977,7 @@ void start_http_server(void) {
     webServer.on("/api/system/status/history", HTTP_GET, get_status_history);
     webServer.on("/api/system/status/realtime", HTTP_GET, get_status_realtime);
     webServer.on("/api/system/luck/history", HTTP_GET, get_lucky_history);
-    webServer.on("/api/system/luck/realtime", HTTP_GET, get_lucky_realtime);
+    // webServer.on("/api/system/luck/realtime", HTTP_GET, get_lucky_realtime);
 
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);

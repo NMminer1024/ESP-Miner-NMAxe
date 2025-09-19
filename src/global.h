@@ -195,8 +195,7 @@ typedef struct{
     hashrate_t          hashrate;
     hash_dist_t         hr_dist;
     std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
-    std::deque<proximity_node_t, PsramAllocator<proximity_node_t>> block_proximity_history;// history of block proximity
-    
+    std::deque<proximity_node_t> block_proximity_history; // history of block proximity (use internal RAM)
     SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
     SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
     

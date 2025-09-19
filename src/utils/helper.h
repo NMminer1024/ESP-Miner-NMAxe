@@ -43,7 +43,6 @@ double le_hash_to_diff(uint8_t *hash);
 
 int compareVersions(const String& current, const String& release);
 
-
 template <typename T>
 struct PsramAllocator {
     using value_type = T;

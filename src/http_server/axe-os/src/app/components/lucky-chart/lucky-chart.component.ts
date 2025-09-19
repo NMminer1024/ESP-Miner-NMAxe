@@ -72,6 +72,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
   
   luckyData: any[] = []; // 用于图表显示的数据
+  private lastDataHash = ''; // 记录上次数据的哈希值，用于判断是否需要更新
   chart: Chart | null = null;
   isLoading = false;
   lastUpdateTime = '';
@@ -100,7 +101,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
         takeWhile(() => this.isComponentActive)
       ).subscribe(() => {
         if (!this.isLoading) {
-          this.loadLuckyHistory();
+          this.loadLuckyHistory(false); // 传入false表示不显示loading状态
         }
       })
     );
@@ -121,10 +122,12 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private loadLuckyHistory(): void {
+  private loadLuckyHistory(showLoading: boolean = true): void {
     if (!this.isComponentActive) return;
 
-    this.isLoading = true;
+    if (showLoading) {
+      this.isLoading = true;
+    }
     console.log('📊 Loading lucky history data...');
 
     this.subscription.add(
@@ -144,26 +147,39 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
         ),
         catchError((error: any) => {
           console.error('❌ Failed to load lucky history after retries:', error);
-          this.isLoading = false;
+          if (showLoading) {
+            this.isLoading = false;
+          }
           throw error;
         })
       ).subscribe({
         next: (response: StatusHistoryResponse) => {
           console.log('✅ Lucky history loaded successfully:', response);
           this.processLuckyData(response);
-          this.isLoading = false;
+          
+          if (showLoading) {
+            this.isLoading = false;
+          }
           this.lastUpdateTime = formatTimestamp(Date.now());
           
-          // Initialize chart after data is loaded
+          // 计算当前数据的简单哈希值来判断数据是否变化
+          const currentDataHash = this.calculateDataHash();
+          const dataChanged = currentDataHash !== this.lastDataHash;
+          this.lastDataHash = currentDataHash;
+          
           if (!this.chart) {
             this.initializeChart();
+          } else if (dataChanged) {
+            this.updateChart(true); // 禁用动画以避免闪烁
           } else {
-            this.updateChart();
+            console.log('📊 No data changes detected, skipping chart update');
           }
         },
         error: (error: any) => {
           console.error('❌ Error loading lucky history:', error);
-          this.isLoading = false;
+          if (showLoading) {
+            this.isLoading = false;
+          }
         }
       })
     );
@@ -219,6 +235,29 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     this.calculateMedals();
     
     console.log(`📊 Display data: ${this.luckyData.length} points`);
+  }
+
+  /**
+   * 计算数据的简单哈希值用于检测数据变化
+   */
+  private calculateDataHash(): string {
+    if (this.luckyData.length === 0) return '';
+    
+    // 使用数据长度、第一个和最后一个元素的关键信息生成简单哈希
+    const firstItem = this.luckyData[0];
+    const lastItem = this.luckyData[this.luckyData.length - 1];
+    
+    const hashString = `${this.luckyData.length}_${firstItem.epoch}_${firstItem.share_diff}_${lastItem.epoch}_${lastItem.share_diff}`;
+    
+    // 简单的字符串哈希函数
+    let hash = 0;
+    for (let i = 0; i < hashString.length; i++) {
+      const char = hashString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // 转换为32位整数
+    }
+    
+    return hash.toString();
   }
 
   /**
@@ -637,6 +676,11 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const chartOptions: ChartOptions = {
       responsive: true,
       maintainAspectRatio: false,
+      // 优化动画配置以减少闪烁
+      animation: {
+        duration: 300, // 减少动画时间
+        easing: 'easeOutQuart'
+      },
       // 移除硬编码的背景色，使用CSS变量
       interaction: {
         mode: 'index',
@@ -740,7 +784,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
 
     console.log('🔄 Updating lucky chart...');
 
-    // Update labels and data
+    // 先更新数据和样式
     this.chart.data.labels = this.luckyData.map(d => formatTimestamp(d.epoch));
     
     if (this.chart.data.datasets[0]) {
@@ -753,25 +797,27 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
       this.chart.data.datasets[1].data = this.luckyData.map(d => d.net_diff > 0 ? d.net_diff : 1);
     }
 
-    // Update scale ranges
-    const maxNetDiff = Math.max(...this.luckyData.map(d => d.net_diff));
-    const maxShareDiff = Math.max(...this.luckyData.map(d => d.share_diff));
-    const logMax = Math.max(maxNetDiff, maxShareDiff);
-    const logMin = 1; // 固定最小值为1
+    // 更新Y轴范围
+    if (this.luckyData.length > 0) {
+      const maxNetDiff = Math.max(...this.luckyData.map(d => d.net_diff));
+      const maxShareDiff = Math.max(...this.luckyData.map(d => d.share_diff));
+      const logMax = Math.max(maxNetDiff, maxShareDiff, 1000); // 至少1000
+      const logMin = 1; // 固定最小值为1
 
-    if (this.chart.options?.scales?.['y']) {
-      this.chart.options.scales['y'].min = logMin;
-      this.chart.options.scales['y'].max = logMax * 10;
+      if (this.chart.options?.scales?.['y']) {
+        this.chart.options.scales['y'].min = logMin;
+        this.chart.options.scales['y'].max = logMax * 2; // 减少范围避免过大
+      }
     }
 
-    // 重新计算奖牌数据（当数据直接更新时，如实时更新）
+    // 重新计算奖牌数据
     this.calculateMedals();
 
-    // 根据是否禁用动画来更新图表
+    // 使用更平滑的更新方式
     if (disableAnimation) {
-      this.chart.update('none'); // 'none'模式禁用所有动画
+      this.chart.update('none'); // 完全禁用动画
     } else {
-      this.chart.update();
+      this.chart.update('active'); // 使用较轻的动画模式
     }
     
     console.log('✅ Lucky chart updated successfully');
