@@ -89,6 +89,10 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
   private subscription: Subscription = new Subscription();
   private isComponentActive = true;
   
+  // 闪烁动画相关属性
+  private animationFrame: number | null = null;
+  private startTime: number = Date.now();
+  
   constructor(private systemService: SystemService) {}
 
   ngOnInit(): void {
@@ -116,6 +120,9 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('🎯 Lucky Chart component destroyed');
     this.isComponentActive = false;
     this.subscription.unsubscribe();
+    
+    // 停止闪烁动画
+    this.stopBlinkAnimation();
     
     if (this.chart) {
       this.chart.destroy();
@@ -438,23 +445,41 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const colors: string[] = [];
     const defaultColor = 'rgba(54, 162, 235, 0.8)'; // 提高默认颜色透明度
     
+    // 计算闪烁效果的颜色因子（1秒周期的正弦波）
+    const currentTime = Date.now();
+    const elapsed = (currentTime - this.startTime) / 1000; // 转换为秒
+    const colorFactor = 0.5 + 0.5 * Math.sin(elapsed * 2 * Math.PI); // 0-1之间变化
+    
     // 为每个数据点设置颜色
     for (let i = 0; i < this.luckyData.length; i++) {
       let color = defaultColor;
+      const item = this.luckyData[i];
       
-      // 检查是否是奖牌得主
-      const medal = this.medalData.find(m => m.index === i);
-      if (medal) {
-        switch (medal.type) {
-          case 'gold':
-            color = 'rgba(255, 215, 0, 0.9)'; // 增强金色透明度
-            break;
-          case 'silver':
-            color = 'rgba(192, 192, 192, 0.9)'; // 增强银色透明度
-            break;
-          case 'bronze':
-            color = 'rgba(205, 127, 50, 0.9)'; // 增强铜色透明度
-            break;
+      // 检查是否share_diff >= net_diff（Lucky状态）
+      if (item && item.share_diff >= item.net_diff && item.share_diff > 0) {
+        // Lucky状态：使用更丰富的彩虹色渐变闪烁
+        // 色相在0度(红色)到300度(紫色)之间循环变化，创造完整的彩虹效果
+        const hue = colorFactor * 300; // 从红色(0)到紫色(300)
+        const saturation = 90 + colorFactor * 10; // 饱和度90%-100%，保持鲜艳
+        const lightness = 55 + Math.sin(elapsed * 4 * Math.PI) * 5; // 亮度50%-60%，有额外的快速闪烁
+        const alpha = 0.85 + colorFactor * 0.15; // 透明度0.85-1.0
+        
+        color = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
+      } else {
+        // 检查是否是奖牌得主（只有非Lucky状态才显示奖牌）
+        const medal = this.medalData.find(m => m.index === i);
+        if (medal) {
+          switch (medal.type) {
+            case 'gold':
+              color = 'rgba(255, 215, 0, 0.9)'; // 增强金色透明度
+              break;
+            case 'silver':
+              color = 'rgba(192, 192, 192, 0.9)'; // 增强银色透明度
+              break;
+            case 'bronze':
+              color = 'rgba(205, 127, 50, 0.9)'; // 增强铜色透明度
+              break;
+          }
         }
       }
       
@@ -471,23 +496,39 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const colors: string[] = [];
     const defaultBorderColor = 'rgba(54, 162, 235, 1)'; // 默认蓝色边框
     
+    // 计算闪烁效果的颜色因子（与填充颜色同步）
+    const currentTime = Date.now();
+    const elapsed = (currentTime - this.startTime) / 1000;
+    const colorFactor = 0.5 + 0.5 * Math.sin(elapsed * 2 * Math.PI);
+    
     // 为每个数据点设置边框颜色
     for (let i = 0; i < this.luckyData.length; i++) {
       let color = defaultBorderColor;
+      const item = this.luckyData[i];
       
-      // 检查是否是奖牌得主
-      const medal = this.medalData.find(m => m.index === i);
-      if (medal) {
-        switch (medal.type) {
-          case 'gold':
-            color = 'rgba(255, 215, 0, 1)'; // 金色边框
-            break;
-          case 'silver':
-            color = 'rgba(192, 192, 192, 1)'; // 银色边框
-            break;
-          case 'bronze':
-            color = 'rgba(205, 127, 50, 1)'; // 铜色边框
-            break;
+      // 检查是否share_diff >= net_diff（Lucky状态）
+      if (item && item.share_diff >= item.net_diff && item.share_diff > 0) {
+        // Lucky状态：使用更丰富的彩虹色渐变边框（与填充色同步但稍暗）
+        const hue = colorFactor * 300; // 从红色(0)到紫色(300)
+        const saturation = 95 + colorFactor * 5; // 饱和度95%-100%，比填充色更鲜艳
+        const lightness = 40 + Math.sin(elapsed * 4 * Math.PI) * 5; // 亮度35%-45%，比填充色暗一些形成对比
+        
+        color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+      } else {
+        // 检查是否是奖牌得主（只有非Lucky状态才显示奖牌）
+        const medal = this.medalData.find(m => m.index === i);
+        if (medal) {
+          switch (medal.type) {
+            case 'gold':
+              color = 'rgba(255, 215, 0, 1)'; // 金色边框
+              break;
+            case 'silver':
+              color = 'rgba(192, 192, 192, 1)'; // 银色边框
+              break;
+            case 'bronze':
+              color = 'rgba(205, 127, 50, 1)'; // 铜色边框
+              break;
+          }
         }
       }
       
@@ -789,6 +830,9 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     this.chart = new Chart(ctx, config);
     
     console.log('✅ Lucky chart initialized successfully');
+    
+    // 启动闪烁动画
+    this.startBlinkAnimation();
   }
 
   private updateChart(disableAnimation: boolean = false): void {
@@ -833,6 +877,46 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     
     console.log('✅ Lucky chart updated successfully');
+  }
+
+  /**
+   * 启动闪烁动画
+   */
+  private startBlinkAnimation(): void {
+    if (!this.isComponentActive) return;
+    
+    const animate = () => {
+      if (!this.isComponentActive || !this.chart) return;
+      
+      // 检查是否有需要闪烁的Lucky柱子
+      const hasLuckyBars = this.luckyData.some(item => 
+        item.share_diff >= item.net_diff && item.share_diff > 0
+      );
+      
+      if (hasLuckyBars) {
+        // 更新柱子颜色（会触发重绘）
+        if (this.chart.data.datasets[0]) {
+          this.chart.data.datasets[0].backgroundColor = this.getBarColors();
+          this.chart.data.datasets[0].borderColor = this.getBarBorderColors();
+          this.chart.update('none'); // 无动画更新以获得流畅的闪烁效果
+        }
+      }
+      
+      // 继续下一帧动画
+      this.animationFrame = requestAnimationFrame(animate);
+    };
+    
+    this.animationFrame = requestAnimationFrame(animate);
+  }
+
+  /**
+   * 停止闪烁动画
+   */
+  private stopBlinkAnimation(): void {
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
+    }
   }
 
 }

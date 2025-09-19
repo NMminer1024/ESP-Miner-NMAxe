@@ -193,9 +193,6 @@ bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32
 #include <cstdio>
 
 static void add_share_diff_history(std::deque<proximity_node_t> &hist, proximity_node_t &node, size_t max_history) {
-
-    if(node.share_diff >=5000.0) node.share_diff = 185.0*1000.0*1000.0*1000.0*1000.0;
-
     hist.push_back(node);
 
     if (hist.size() <= max_history) return;
