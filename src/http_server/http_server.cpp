@@ -516,7 +516,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
         }
         
         xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
-        LOG_W("Data collection completed: %d samples from %d total records", sampled_count, history_size);
+        LOG_D("Data collection completed: %d samples from %d total records", sampled_count, history_size);
     } else {
         LOG_E("Failed to acquire history mutex for data collection");
         request->send(500, "application/json", "{\"error\":\"Failed to access history data\"}");

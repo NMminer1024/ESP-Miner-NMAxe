@@ -278,7 +278,7 @@ bool load_g_nmaxe(void){
     g_nmaxe.mstatus.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     g_nmaxe.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     g_nmaxe.coin.toUpperCase();
-    g_nmaxe.miner                               = NULL;
+    g_nmaxe.miner                               = nullptr;
 
     g_nmaxe.market                              = new MarketClass();
     g_nmaxe.stratum                             = new StratumClass(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use, 10);

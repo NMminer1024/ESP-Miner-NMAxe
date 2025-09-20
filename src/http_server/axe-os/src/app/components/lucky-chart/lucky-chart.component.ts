@@ -27,7 +27,7 @@ function formatNumber(num: number): string {
   return value.toFixed(decimals) + units[unitIndex];
 }
 
-// 格式化share值，专门用于显示在柱子顶端，固定显示4位数字
+// 格式化share值，专门用于显示在柱子顶端，固定显示3位数字
 function formatShareValue(num: number): string {
   const units = ['', 'K', 'M', 'G', 'T', 'P', 'E'];
   let unitIndex = 0;
@@ -38,17 +38,32 @@ function formatShareValue(num: number): string {
     unitIndex++;
   }
   
-  // 根据数值大小决定小数位数，确保总共显示4位数字
+  // 根据数值大小决定小数位数，确保总共显示3位数字
   let decimals = 0;
   if (value >= 100) {
-    decimals = 1; // 123.4K
+    decimals = 0; // 456K
   } else if (value >= 10) {
-    decimals = 2; // 12.34K
+    decimals = 1; // 23.5T
   } else {
-    decimals = 3; // 1.234K
+    decimals = 2; // 1.23K
   }
   
   return value.toFixed(decimals) + units[unitIndex];
+}
+
+// 格式化share值用于详细显示（鼠标悬停），保留6位小数
+function formatShareValueDetailed(num: number): string {
+  const units = ['', 'K', 'M', 'G', 'T', 'P', 'E'];
+  let unitIndex = 0;
+  let value = num;
+  
+  while (value >= 1000 && unitIndex < units.length - 1) {
+    value /= 1000;
+    unitIndex++;
+  }
+  
+  // 固定显示4位小数
+  return value.toFixed(4) + units[unitIndex];
 }
 
 // 格式化时间戳为24小时格式
@@ -763,14 +778,14 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
               const label = context.dataset.label;
               
               if (label.includes('Share')) {
-                // 显示真实的share_diff值和百分比
+                // 显示详细的share_diff值（6位小数）和百分比
                 const shareDiff = this.luckyData[index].share_diff;
                 const netDiff = this.luckyData[index].net_diff;
                 const percentage = ((shareDiff / netDiff) * 100).toFixed(12);
-                return `${label}: ${formatNumber(shareDiff)} (${percentage}%)`;
+                return `${label}: ${formatShareValueDetailed(shareDiff)} (${percentage}%)`;
               } else {
                 const netDiff = this.luckyData[index].net_diff;
-                return `${label}: ${formatNumber(netDiff)}`;
+                return `${label}: ${formatShareValueDetailed(netDiff)}`;
               }
             }
           }

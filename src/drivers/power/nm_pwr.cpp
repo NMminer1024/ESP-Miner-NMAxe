@@ -79,6 +79,7 @@ void NMAxePowerClass::set_vcore_voltage(uint16_t req_mv){
         pwm = 0.14 * (req_mv) - 140; // bias 140, linear 0.14
     } else {
         pwm = 0; //for safety
+        LOG_E("Vcore request %dmV out of range %d-%d mV", req_mv, this->_vcore_min_mv, this->_vcore_max_mv);
     }
     ledcWrite(VCORE_REGULATOR_PWM_CHANNEL, pwm);
 }
@@ -161,8 +162,22 @@ void power_thread_entry(void *args){
     }
     //set vcore voltage to required voltage
     g_nmaxe.power->set_vcore_voltage(g_nmaxe.asic.vcore_req);
-    delay(1000);
-    xSemaphoreGive(g_nmaxe.power->good_xsem);
+    delay(500);
+    while(true){
+        uint32_t vcore_measure = g_nmaxe.power->get_vcore();
+        int32_t err = vcore_measure - g_nmaxe.asic.vcore_req;
+        if(abs(err) <= 5) {
+            xSemaphoreGive(g_nmaxe.power->good_xsem);
+            LOG_D("Vcore %d/%dmV, error %d mV, power ready", vcore_measure, g_nmaxe.asic.vcore_req, err);
+            delay(200);
+            continue;
+        }
+        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore voltage for error correction %d mV", vcore_measure, g_nmaxe.asic.vcore_req, err, err/5);
+        static uint32_t vcore_set = g_nmaxe.asic.vcore_req;
+        vcore_set -= err/5;//half error correction
+        g_nmaxe.power->set_vcore_voltage(vcore_set);//half error correction
+        delay(200);
+    }
     //exit
     vTaskDelete(NULL);
 }

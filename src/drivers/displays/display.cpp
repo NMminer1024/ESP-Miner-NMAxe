@@ -1352,6 +1352,7 @@ void ui_thread_entry(void *args){
   ui_loading_str_update(String("Vcore ") + String(g_nmaxe.power->get_vcore() / 1000.0, 3) + "v.", 0x00FF00, true);
   delay(500);
   /****************************************wait for asic init********************************************/
+  while(g_nmaxe.miner == nullptr) delay(10); //wait miner object created
   cnt = 0;
   while(g_nmaxe.miner->get_asic_count() == 0){
     ui_loading_str_update(String(asci_init_str[cnt++ % 4]), 0xFFFFFF, false);

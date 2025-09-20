@@ -415,25 +415,25 @@ void miner_asic_rx_thread_entry(void *args){
                 static uint32_t summary_start = millis();
                 if(millis() - summary_start >= 1000*60){
                     summary_start = millis();
-                    LOG_I(" ============%s=========== ",g_nmaxe.board.fw_version.c_str());
-                    LOG_I("|            Summary           |");
-                    LOG_I("+------------Uptime------------+");
-                    LOG_I("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
-                    LOG_I("+-----------HashRate-----------+");
-                    LOG_I("|   3m    |    30m   |    1h   |");
-                    LOG_I("|%-4sH/s| %-4sH/s|%-4sH/s|", 
+                    LOG_L(" ============%s=========== ",g_nmaxe.board.fw_version.c_str());
+                    LOG_L("|            Summary           |");
+                    LOG_L("+------------Uptime------------+");
+                    LOG_L("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
+                    LOG_L("+-----------HashRate-----------+");
+                    LOG_L("|   3m    |    30m   |    1h   |");
+                    LOG_L("|%-4sH/s| %-4sH/s|%-4sH/s|", 
                         formatNumber(g_nmaxe.mstatus.hashrate._3m, 4).c_str(), 
                         formatNumber(g_nmaxe.mstatus.hashrate._30m, 4).c_str(),
                         formatNumber(g_nmaxe.mstatus.hashrate._1h, 4).c_str());
-                    LOG_I("+----------Difficulty----------+");
-                    LOG_I("|From boot| Best ever| Network |");
-                    LOG_I("| %-6s |  %-5s | %-7s |", 
+                    LOG_L("+----------Difficulty----------+");
+                    LOG_L("|From boot| Best ever| Network |");
+                    LOG_L("| %-6s |  %-5s | %-7s |", 
                         formatNumber(g_nmaxe.mstatus.diff.best_session, 5).c_str(), 
                         formatNumber(g_nmaxe.mstatus.diff.best_ever, 5).c_str(),
                         formatNumber(g_nmaxe.mstatus.diff.network, 5).c_str());
-                    LOG_I("+---Free heap-----Efficiency---+");
-                    LOG_I("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(g_nmaxe.board.efficiency, 4).c_str());
-                    LOG_I(" ============================== ");
+                    LOG_L("+---Free heap-----Efficiency---+");
+                    LOG_L("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(g_nmaxe.board.efficiency, 4).c_str());
+                    LOG_L(" ============================== ");
                     log_i("\r\n");
                     LOG_I(" ++++++++++ Real Time +++++++++");
                     LOG_I("| ASIC | Last | Pool | Network |");
@@ -512,7 +512,7 @@ void miner_asic_rx_thread_entry(void *args){
                     node.share_diff      = diff;
                     node.net_diff        = g_nmaxe.mstatus.diff.network;
                     node.epoch           = g_nmaxe.mstatus.utc * 1000ULL;
-                    add_share_diff_history(g_nmaxe.mstatus.block_proximity_history, node, 68);
+                    add_share_diff_history(g_nmaxe.mstatus.block_proximity_history, node, 36);
                     xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
                 }
             }
