@@ -416,7 +416,6 @@ void stratum_thread_entry(void *args){
             continue;
         } else w_retry = 0;
         
-
         static uint32_t last = millis();
         if(!is_primary_pool){
             if(millis() - last > 1000 * 10){
@@ -436,8 +435,6 @@ void stratum_thread_entry(void *args){
                 last = millis();
             }
         }
-
-
 
         static uint16_t p_retry = 0, p_maxRetries = 5;
         if(!g_nmaxe.stratum->pool->is_connected()){
@@ -688,8 +685,8 @@ void stratum_thread_entry(void *args){
                     LOG_E("Stratum unknown, id : %d => %s", method.id, method.raw.c_str());
                     break;
             }
-            delay(5);
+            delay(10);
         }
-        delay(50);
+        delay(10);
     }
 }

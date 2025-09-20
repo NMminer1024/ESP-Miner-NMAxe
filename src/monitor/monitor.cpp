@@ -48,18 +48,21 @@ void monitor_thread_entry(void *args){
       //thread delay 1000ms
       static uint32_t last = millis();
       while(millis() - last < 1000*1){
-        static uint16_t brightness = g_nmaxe.preference.screen.brightness;
+        static uint16_t brightness = g_nmaxe.preference.screen.brightness, last_brightness = g_nmaxe.preference.screen.brightness;
         static float    x = 0;
         if(g_nmaxe.mstatus.last_hits != g_nmaxe.mstatus.hits){//screen blink if block hit
            brightness = 100*(1 + sin(x))/2;
            x+=0.1;
         }else brightness = g_nmaxe.preference.screen.brightness;
 
-        tft_bl_ctrl(brightness);
+        //update screen brightness only when changed
+        if(last_brightness != brightness){
+          tft_bl_ctrl(brightness);
+          last_brightness = brightness;
+        }
         delay(10);
       }
       last = millis();
-
 
       // update utc time
       if(ntpClient.update()){
@@ -192,7 +195,6 @@ void monitor_thread_entry(void *args){
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_nmaxe.mstatus.diff.best_ever, 4).c_str(), g_nmaxe.mstatus.hits, convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
       }
 
-
       //update miner status history queue
       if(g_nmaxe.mstatus.uptime_session % HISTORY_SAMPLE_INTERVAL == 0){
         history_node_t node;
@@ -238,13 +240,12 @@ void swarm_thread_entry(void *args){
   free(name);
 
   //malloc udp client
-  void* buffer = psramAllocator(sizeof(WiFiUDP));
-  if (!buffer) {
-      LOG_E("Failed to allocate memory in PSRAM for udp client");
-      return;
+  udp_client = new WiFiUDP();
+  while (udp_client == nullptr){
+    LOG_W("Failed to allocate memory for udp client, retry...");  
+    delay(1000);
   }
-  udp_client = new(buffer) WiFiUDP();
-
+  
   //udp status boardcast begin
   udp_client->begin(UDP_BOARDCAST_PORT);
 
