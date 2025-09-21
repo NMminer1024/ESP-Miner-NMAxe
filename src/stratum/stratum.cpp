@@ -60,7 +60,12 @@ uint32_t StratumClass::_get_msg_id(){
 bool StratumClass::_parse_rsp(){
     DeserializationError error = deserializeJson(this->_rsp_json, this->_rsp_str);
     if (error) {
-        LOG_E("Failed to parse JSON: %s => %s", error.c_str(), this->_rsp_str.c_str());
+        if(error.c_str() != nullptr && this->_rsp_str.c_str() != nullptr){
+            LOG_E("Failed to parse JSON: %s => %s", error.c_str(), this->_rsp_str.c_str());
+        }
+        else{
+            LOG_E("StratumClass::_parse_rsp Failed to parse JSON");
+        }
         return false;
     }
     return true;
@@ -498,7 +503,12 @@ void stratum_thread_entry(void *args){
             stratum_method_data method = g_nmaxe.stratum->listen_methods();
             switch (method.type){
                 case STRATUM_DOWN_PARSE_ERROR:   
-                    LOG_E("Stratum parse error, id : %d, raw : %s", method.id, method.raw.c_str());
+                    if(method.raw != ""){
+                        LOG_E("Stratum parse error, id : %d, raw : %s", method.id, method.raw.c_str());
+                    }
+                    else{
+                        LOG_E("Stratum parse error, id : %d", method.id);
+                    }
                     break;
                 case STRATUM_DOWN_NOTIFY:{
                         LOG_D("Stratum notify, id : %d => %s", method.id, method.raw.c_str());
@@ -506,7 +516,7 @@ void stratum_thread_entry(void *args){
                         json.clear();
                         DeserializationError error = deserializeJson(json, method.raw);
                         if (error) {
-                            LOG_E("Failed to parse JSON: %s", error.c_str());
+                            LOG_E("Failed to parse STRATUM_DOWN_NOTIFY json");
                             break;
                         }
 
@@ -560,7 +570,7 @@ void stratum_thread_entry(void *args){
                     json.clear();
                     DeserializationError error = deserializeJson(json, method.raw);
                     if(error){
-                        LOG_E("Failed to parse JSON: %s", error.c_str());
+                        LOG_E("Failed to parse STRATUM_DOWN_SET_DIFFICULTY json");
                         break;
                     }
                     if(json["method"] == "mining.set_difficulty"){
@@ -579,7 +589,7 @@ void stratum_thread_entry(void *args){
                     json.clear();
                     DeserializationError error = deserializeJson(json, method.raw);
                     if (error) {
-                        LOG_E("Failed to parse JSON: %s", error.c_str());
+                        LOG_E("Failed to parse STRATUM_DOWN_SET_VERSION_MASK json");
                         break;
                     }
                     if(json["method"] == "mining.set_version_mask"){
@@ -602,7 +612,7 @@ void stratum_thread_entry(void *args){
                         json.clear();
                         DeserializationError error = deserializeJson(json, method.raw);
                         if (error) {
-                            LOG_E("Failed to parse JSON: %s", error.c_str());
+                        LOG_E("Failed to parse STRATUM_DOWN_SET_EXTRANONCE json");
                             break;
                         }
                         g_nmaxe.stratum->set_sub_extranonce1(json["params"][0]);
@@ -628,7 +638,7 @@ void stratum_thread_entry(void *args){
                             json.clear();
                             DeserializationError error = deserializeJson(json, method.raw);
                             if (error) {
-                                LOG_E("Failed to parse JSON: %s", error.c_str());
+                                LOG_E("Failed to parse STRATUM_DOWN_SUCCESS json");
                             } else {
                                 g_nmaxe.stratum->set_version_mask(0xffffffff);
                                 if (json["result"]["version-rolling"] == true) {
@@ -646,7 +656,7 @@ void stratum_thread_entry(void *args){
                         else if(rsp.method == "mining.authorize"){
                             DeserializationError error = deserializeJson(json, method.raw);
                             if (error) {
-                                LOG_E("Failed to parse JSON: %s", error.c_str());
+                                LOG_E("Failed to parse STRATUM_DOWN_NOTIFY json");
                             }
                             else{
                                 if(json.containsKey("result")){
@@ -671,18 +681,18 @@ void stratum_thread_entry(void *args){
                         }
                         else if(rsp.method == "mining.authorize"){
                             g_nmaxe.stratum->set_authorize(false);
-                            LOG_E("Authorization failed, id %d => %s", method.id, method.raw.c_str());
+                            LOG_E("Authorization failed.");
                         }
                         else{
-                            LOG_E("Unknown error response, id : %d => %s", method.id, method.raw.c_str());
+                            LOG_E("Unknown error response, id : %d");
                         }
                     }
                     break;
                 case STRATUM_DOWN_UNKNOWN:                   
-                    LOG_E("Stratum unknown, id : %d => %s", method.id, method.raw.c_str());
+                    LOG_E("Stratum unknown, id : %d");
                     break;
                 default :
-                    LOG_E("Stratum unknown, id : %d => %s", method.id, method.raw.c_str());
+                    LOG_E("Stratum unknown, id : %d");
                     break;
             }
             delay(10);

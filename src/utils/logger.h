@@ -107,7 +107,7 @@ namespace dbg
                                 _DBG_LOG_HDR(auto_new_line, lvl, color_n);\
                                 char log_buffer[1024]; \
                                 snprintf(log_buffer, sizeof(log_buffer), fmt, ##__VA_ARGS__); \
-                                Serial.printf(fmt, ##__VA_ARGS__); \
+                                Serial.print(log_buffer); \
                                 int content_len = strlen(log_buffer); \
                                 if (content_len > 0 && content_len < 950) \
                                 { \
