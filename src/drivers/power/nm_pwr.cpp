@@ -91,6 +91,8 @@ void NMAxePowerClass::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
 
 
 
+
+
 uint32_t NMAxePowerClass::get_vbus(void){
     uint32_t vadc = this->get_vbus_adc();
     // LOG_W("Vbus %dmv", (uint32_t)(vadc));
@@ -123,13 +125,15 @@ void power_thread_entry(void *args){
     // set vcore range according to board model
     if(g_nmaxe.board.hw_model == BOARD_NMAxe){
         g_nmaxe.power->set_vcore_range(1100, 1300);
+        LOG_I("Board model '%s', set vcore range to 1100-1300mV", g_nmaxe.board.hw_model.c_str());
     }
     else if(g_nmaxe.board.hw_model == BOARD_NMAxeGamma){
         g_nmaxe.power->set_vcore_range(1000, 1250);
+        LOG_I("Board model '%s', set vcore range to 1000-1250mV", g_nmaxe.board.hw_model.c_str());
     }
     else{
         g_nmaxe.power->set_vcore_range(1000, 1250);
-        LOG_W("Unknown board model %s, set vcore range to 1000-1250mV", g_nmaxe.board.hw_model.c_str());
+        LOG_W("Unknown board model '%s', set vcore range to 1000-1250mV", g_nmaxe.board.hw_model.c_str());
     }
     
     //detect power plug or pd plug
@@ -152,17 +156,14 @@ void power_thread_entry(void *args){
     g_nmaxe.power->set_pll_0v8(PWR_ON);
     g_nmaxe.power->set_vdd_1v8(PWR_ON);
     delay(500);
-    //set vcore to default 1.0V, then wait for vcore power settle, and set vcore voltage to required voltage
-    g_nmaxe.power->set_vcore_voltage(1000);
-    delay(50);
+    //set vcore voltage to required voltage
+    g_nmaxe.power->set_vcore_voltage(g_nmaxe.asic.vcore_req);
+    delay(500);
     g_nmaxe.power->set_vcore(PWR_ON);
     while (!g_nmaxe.power->is_vcore_good()){
         LOG_W("Waiting for vcore power setup...");
         delay(100);
     }
-    //set vcore voltage to required voltage
-    g_nmaxe.power->set_vcore_voltage(g_nmaxe.asic.vcore_req);
-    delay(500);
     while(true){
         uint32_t vcore_measure = g_nmaxe.power->get_vcore();
         int32_t err = vcore_measure - g_nmaxe.asic.vcore_req;
@@ -175,6 +176,8 @@ void power_thread_entry(void *args){
         LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore voltage for error correction %d mV", vcore_measure, g_nmaxe.asic.vcore_req, err, err/5);
         static uint32_t vcore_set = g_nmaxe.asic.vcore_req;
         vcore_set -= err/5;//half error correction
+        vcore_set = (vcore_set < g_nmaxe.power->get_vcore_min()) ? g_nmaxe.power->get_vcore_min() : vcore_set;
+        vcore_set = (vcore_set > g_nmaxe.power->get_vcore_max()) ? g_nmaxe.power->get_vcore_max() : vcore_set;
         g_nmaxe.power->set_vcore_voltage(vcore_set);//half error correction
         delay(200);
     }

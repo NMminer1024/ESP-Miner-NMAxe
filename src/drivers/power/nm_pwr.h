@@ -29,7 +29,8 @@ public:
     void set_vcore(power_state_t state);
     void set_vcore_voltage(uint16_t req_mv);
     void set_vcore_range(uint16_t min_mv, uint16_t max_mv);
-
+    uint16_t get_vcore_min(void){ return this->_vcore_min_mv;};
+    uint16_t get_vcore_max(void){ return this->_vcore_max_mv;};
     uint32_t get_vbus(void);
     uint32_t get_ibus(void);
     uint32_t get_vcore(void);
