@@ -40,7 +40,7 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol) {
         }
     }
     else{
-        LOG_E("Failed to get 24hr ticker data, err = %s", httpclient.responseBody().c_str());
+        LOG_E("Failed to get 24hr ticker data.");
     }
     return false;
 }
