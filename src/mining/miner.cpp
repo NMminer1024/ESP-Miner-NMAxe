@@ -9,8 +9,58 @@
 #include "csha256.h"
 #include "hwserial_adapter.h"
 #include "helper.h"
+#include <deque>
+#include <vector>
+#include <algorithm>
+#include <cstdint>
+#include <cstdio>
 
 static BMxxx *asic_instance = NULL;
+
+static void add_share_diff_history(std::deque<proximity_node_t> &hist, proximity_node_t &node, size_t max_history) {
+    hist.push_back(node);
+
+    if (hist.size() <= max_history) return;
+
+    const size_t n = hist.size();
+    const size_t keep = std::min<size_t>(3, n);
+
+    // find indices of the top 'keep' share_diff values
+    std::vector<size_t> idx(n);
+    for (size_t i = 0; i < n; ++i) idx[i] = i;
+
+    std::partial_sort(idx.begin(), idx.begin() + keep, idx.end(),
+                      [&](size_t a, size_t b) {
+                          return hist[a].share_diff > hist[b].share_diff;
+                      });
+
+    // collect indices of elements that are not among the top 'keep' and not the last element
+    std::vector<size_t> unprotected_indices;
+    for (size_t i = 0; i < n; ++i) {
+        bool is_protected = false;
+        
+        // check if it's among the top 'keep' elements
+        for (size_t j = 0; j < keep; ++j) {
+            if (i == idx[j]) {
+                is_protected = true;
+                break;
+            }
+        }
+        // check if it's the last element
+        if (i == n - 1) {
+            is_protected = true;
+        }
+        if (!is_protected) {
+            unprotected_indices.push_back(i);
+        }
+    }
+
+    // randomly remove one unprotected element
+    if (!unprotected_indices.empty()) {
+        size_t random_index = unprotected_indices[millis() % unprotected_indices.size()];
+        hist.erase(hist.begin() + random_index);
+    }
+}
 
 AsicMinerClass::AsicMinerClass(BMxxx *asic){
     this->_asic = asic;
@@ -185,58 +235,6 @@ String AsicMinerClass::get_extranonce2_by_asic_job_id(uint8_t asic_job_id){
 bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version){
     return g_nmaxe.stratum->submit(this->pool_job_now.id, extranonce2, ntime, nonce, version);
 }
-
-#include <deque>
-#include <vector>
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
-
-static void add_share_diff_history(std::deque<proximity_node_t> &hist, proximity_node_t &node, size_t max_history) {
-    hist.push_back(node);
-
-    if (hist.size() <= max_history) return;
-
-    const size_t n = hist.size();
-    const size_t keep = std::min<size_t>(3, n);
-
-    // find indices of the top 'keep' share_diff values
-    std::vector<size_t> idx(n);
-    for (size_t i = 0; i < n; ++i) idx[i] = i;
-
-    std::partial_sort(idx.begin(), idx.begin() + keep, idx.end(),
-                      [&](size_t a, size_t b) {
-                          return hist[a].share_diff > hist[b].share_diff;
-                      });
-
-    // collect indices of elements that are not among the top 'keep' and not the last element
-    std::vector<size_t> unprotected_indices;
-    for (size_t i = 0; i < n; ++i) {
-        bool is_protected = false;
-        
-        // check if it's among the top 'keep' elements
-        for (size_t j = 0; j < keep; ++j) {
-            if (i == idx[j]) {
-                is_protected = true;
-                break;
-            }
-        }
-        // check if it's the last element
-        if (i == n - 1) {
-            is_protected = true;
-        }
-        if (!is_protected) {
-            unprotected_indices.push_back(i);
-        }
-    }
-
-    // randomly remove one unprotected element
-    if (!unprotected_indices.empty()) {
-        size_t random_index = unprotected_indices[millis() % unprotected_indices.size()];
-        hist.erase(hist.begin() + random_index);
-    }
-}
-
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     if (phr == NULL) return false;

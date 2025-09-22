@@ -155,20 +155,21 @@ void power_thread_entry(void *args){
     //set vdd_1v8 and pll_0v8 power
     g_nmaxe.power->set_pll_0v8(PWR_ON);
     g_nmaxe.power->set_vdd_1v8(PWR_ON);
-    delay(500);
+    delay(50);
     //set vcore voltage to required voltage
     g_nmaxe.power->set_vcore_voltage(g_nmaxe.asic.vcore_req);
-    delay(500);
+    delay(50);
     g_nmaxe.power->set_vcore(PWR_ON);
     while (!g_nmaxe.power->is_vcore_good()){
         LOG_W("Waiting for vcore power setup...");
         delay(100);
     }
+    xSemaphoreGive(g_nmaxe.power->good_xsem);
+    LOG_I("Power is ready.");
     while(true){
         uint32_t vcore_measure = g_nmaxe.power->get_vcore();
         int32_t err = vcore_measure - g_nmaxe.asic.vcore_req;
         if(abs(err) <= 5) {
-            xSemaphoreGive(g_nmaxe.power->good_xsem);
             LOG_D("Vcore %d/%dmV, error %d mV, power ready", vcore_measure, g_nmaxe.asic.vcore_req, err);
             delay(200);
             continue;
