@@ -189,7 +189,7 @@ bool StratumClass::subscribe(){
     this->_is_subscribed = false;
     
     uint32_t id = this->_get_msg_id();
-    String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.subscribe\", \"params\": [\"" +  g_board.info.hw_model + "/" + CURRENT_FW_VERSION +"\"]}\n";
+    String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.subscribe\", \"params\": [\"" +  g_board.info.base.hw_model + "/" + CURRENT_FW_VERSION +"\"]}\n";
     if(this->pool->write(payload) == 0){
         LOG_E("Failed to send mining.subscribe request");
         return false;
@@ -410,12 +410,12 @@ void stratum_thread_entry(void *args){
     StaticJsonDocument<1024*4> json;
     while(true){
         static int w_retry = 0, w_maxRetries = 24;
-        if(g_board.connection.wifi.status_param.status != WL_CONNECTED){
+        if(g_board.info.connection.wifi.status_param.status != WL_CONNECTED){
             w_retry++;
             LOG_W("WiFi reconnecting %d/%d...", w_retry, w_maxRetries);
             if(w_retry >= w_maxRetries) ESP.restart();
 
-            xSemaphoreGive(g_board.connection.wifi.reconnect_xsem);
+            xSemaphoreGive(g_board.info.connection.wifi.reconnect_xsem);
             g_board.stratum->reset();
             delay(5000);
             continue;
@@ -424,18 +424,18 @@ void stratum_thread_entry(void *args){
         static uint32_t last = millis();
         if(!is_primary_pool){
             if(millis() - last > 1000 * 10){
-                bool res = g_board.stratum->is_primary_pool_available(g_board.connection.pool_primary.url, g_board.connection.pool_primary.port);
+                bool res = g_board.stratum->is_primary_pool_available(g_board.info.connection.pool_primary.url, g_board.info.connection.pool_primary.port);
                 if(res){
-                    LOG_I("Primary pool [%s] available now, switching to primary pool...", g_board.connection.pool_primary.url.c_str());
-                    g_board.connection.pool_use = g_board.connection.pool_primary;
-                    g_board.connection.stratum_use = g_board.connection.stratum_primary;
+                    LOG_I("Primary pool [%s] available now, switching to primary pool...", g_board.info.connection.pool_primary.url.c_str());
+                    g_board.info.connection.pool_use = g_board.info.connection.pool_primary;
+                    g_board.info.connection.stratum_use = g_board.info.connection.stratum_primary;
 
-                    g_board.stratum->reset(g_board.connection.pool_use, g_board.connection.stratum_use);
-                    g_board.stratum->pool->begin(g_board.connection.pool_use.ssl);
+                    g_board.stratum->reset(g_board.info.connection.pool_use, g_board.info.connection.stratum_use);
+                    g_board.stratum->pool->begin(g_board.info.connection.pool_use.ssl);
                     g_board.stratum->pool->connect();
                     g_board.status.miner.diff.last = 0;
                 }else{
-                    LOG_W("Primary pool [%s] is not available.", g_board.connection.pool_primary.url.c_str());
+                    LOG_W("Primary pool [%s] is not available.", g_board.info.connection.pool_primary.url.c_str());
                 }
                 last = millis();
             }
@@ -451,19 +451,19 @@ void stratum_thread_entry(void *args){
             
             if(++p_retry % p_maxRetries == 0){
                 if(is_primary_pool){
-                    g_board.connection.pool_use    = g_board.connection.pool_fallback;
-                    g_board.connection.stratum_use = g_board.connection.stratum_fallback;
+                    g_board.info.connection.pool_use    = g_board.info.connection.pool_fallback;
+                    g_board.info.connection.stratum_use = g_board.info.connection.stratum_fallback;
                     is_primary_pool                = false;
-                    LOG_W(">>>> Set pool to fallback [%s:%d] <<<<", g_board.connection.pool_use.url.c_str(), g_board.connection.pool_use.port);
+                    LOG_W(">>>> Set pool to fallback [%s:%d] <<<<", g_board.info.connection.pool_use.url.c_str(), g_board.info.connection.pool_use.port);
                 }else{
-                    g_board.connection.pool_use    = g_board.connection.pool_primary;
-                    g_board.connection.stratum_use = g_board.connection.stratum_primary;
+                    g_board.info.connection.pool_use    = g_board.info.connection.pool_primary;
+                    g_board.info.connection.stratum_use = g_board.info.connection.stratum_primary;
                     is_primary_pool                = true;
-                    LOG_W(">>>> Set pool to primary [%s:%d] <<<<", g_board.connection.pool_use.url.c_str(), g_board.connection.pool_use.port);
+                    LOG_W(">>>> Set pool to primary [%s:%d] <<<<", g_board.info.connection.pool_use.url.c_str(), g_board.info.connection.pool_use.port);
                 }
             }
-            g_board.stratum->reset(g_board.connection.pool_use, g_board.connection.stratum_use);
-            g_board.stratum->pool->begin(g_board.connection.pool_use.ssl);
+            g_board.stratum->reset(g_board.info.connection.pool_use, g_board.info.connection.stratum_use);
+            g_board.stratum->pool->begin(g_board.info.connection.pool_use.ssl);
             g_board.stratum->pool->connect();
             g_board.status.miner.diff.last = 0;
             delay(5000);
@@ -562,7 +562,7 @@ void stratum_thread_entry(void *args){
                             xSemaphoreGive(g_board.stratum->new_job_xsem);//monitor thread
                             first_job = false;
                         }
-                        g_board.connection.stratum_update = millis();//pool alive timestamp
+                        g_board.info.connection.stratum_update = millis();//pool alive timestamp
                     }         
                     break;
                 case STRATUM_DOWN_SET_DIFFICULTY: {

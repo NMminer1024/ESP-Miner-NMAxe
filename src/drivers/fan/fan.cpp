@@ -45,7 +45,7 @@ static void fan_init(void){
 }
 
 static void fan_set_speed(float speed){
-    float spd = (g_board.preference.fan.invert_ploarity) ? (1.0f - speed):speed;
+    float spd = (g_board.info.preference.fan.invert_ploarity) ? (1.0f - speed):speed;
     uint32_t dutyCycle = (uint32_t)(spd * (( 1 << FAN_PWM_RESOLUTION) - 1));
     ledcWrite(FAN_PWM_CHANNEL, dutyCycle);
 }
@@ -108,8 +108,8 @@ void fan_thread_entry(void *args){
         temp_cnt++;
         
         // Fan self test flag set only once
-        if(!g_board.preference.fan.self_test){
-            g_board.preference.fan.self_test = (g_board.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
+        if(!g_board.info.preference.fan.self_test){
+            g_board.info.preference.fan.self_test = (g_board.info.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
             fan_set_speed(100.0 / 100.0);
         }
 
@@ -121,19 +121,19 @@ void fan_thread_entry(void *args){
             if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
             else delta_pcnt = now_count - last_count;
             
-            g_board.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
+            g_board.info.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
             last_count = now_count;
             start_ms = millis();
         }
 
-        if(!g_board.preference.fan.self_test)continue;
+        if(!g_board.info.preference.fan.self_test)continue;
 
-        if(g_board.preference.fan.is_auto_speed && g_board.preference.fan.self_test){
+        if(g_board.info.preference.fan.is_auto_speed && g_board.info.preference.fan.self_test){
             static uint32_t pid_start = millis();
             float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-            g_board.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, g_board.preference.fan.target_temp, g_board.status.temp.asic, dt);
+            g_board.info.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, g_board.info.preference.fan.target_temp, g_board.status.temp.asic, dt);
             pid_start = millis();
         }
-        fan_set_speed(g_board.preference.fan.speed / 100.0);
+        fan_set_speed(g_board.info.preference.fan.speed / 100.0);
     }
 }

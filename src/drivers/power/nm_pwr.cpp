@@ -123,17 +123,17 @@ void power_thread_entry(void *args){
     free(name);
 
     // set vcore range according to board model
-    if(g_board.info.hw_model == BOARD_NMAxe){
+    if(g_board.info.base.hw_model == BOARD_NMAxe){
         g_board.power->set_vcore_range(1100, 1300);
-        LOG_I("Board model '%s', set vcore range to 1100-1300mV", g_board.info.hw_model.c_str());
+        LOG_I("Board model '%s', set vcore range to 1100-1300mV", g_board.info.base.hw_model.c_str());
     }
-    else if(g_board.info.hw_model == BOARD_NMAxeGamma){
+    else if(g_board.info.base.hw_model == BOARD_NMAxeGamma){
         g_board.power->set_vcore_range(1000, 1250);
-        LOG_I("Board model '%s', set vcore range to 1000-1250mV", g_board.info.hw_model.c_str());
+        LOG_I("Board model '%s', set vcore range to 1000-1250mV", g_board.info.base.hw_model.c_str());
     }
     else{
         g_board.power->set_vcore_range(1000, 1250);
-        LOG_W("Unknown board model '%s', set vcore range to 1000-1250mV", g_board.info.hw_model.c_str());
+        LOG_W("Unknown board model '%s', set vcore range to 1000-1250mV", g_board.info.base.hw_model.c_str());
     }
     
     //detect power plug or pd plug
@@ -147,9 +147,9 @@ void power_thread_entry(void *args){
         LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", g_board.power->get_vbus()/1000.0, VBUS_MIN_VOLTAGE/1000.0);
         delay(1000);
     }
-    while (!g_board.preference.fan.self_test){
+    while (!g_board.info.preference.fan.self_test){
         delay(1000);
-        LOG_W("Fan self test %d/%d...", g_board.preference.fan.rpm, FAN_FULL_RPM_MIN);
+        LOG_W("Fan self test %d/%d...", g_board.info.preference.fan.rpm, FAN_FULL_RPM_MIN);
     }
     
     //set vdd_1v8 and pll_0v8 power

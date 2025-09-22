@@ -48,12 +48,12 @@ void monitor_thread_entry(void *args){
       //thread delay 1000ms
       static uint32_t last = millis();
       while(millis() - last < 1000*1){
-        static uint16_t brightness = g_board.preference.screen.brightness, last_brightness = g_board.preference.screen.brightness;
+        static uint16_t brightness = g_board.info.preference.screen.brightness, last_brightness = g_board.info.preference.screen.brightness;
         static float    x = 0;
         if(g_board.status.miner.last_hits != g_board.status.miner.hits){//screen blink if block hit
            brightness = 100*(1 + sin(x))/2;
            x+=0.1;
-        }else brightness = g_board.preference.screen.brightness;
+        }else brightness = g_board.info.preference.screen.brightness;
 
         //update screen brightness only when changed
         if(last_brightness != brightness){
@@ -119,7 +119,7 @@ void monitor_thread_entry(void *args){
 
         temp_cnt++;
         //update wifi rssi
-        g_board.connection.wifi.status_param.rssi = WiFi.RSSI();
+        g_board.info.connection.wifi.status_param.rssi = WiFi.RSSI();
         //give miner update signal
         xSemaphoreGive(g_board.status.miner.update_xsem);
       }
@@ -149,7 +149,7 @@ void monitor_thread_entry(void *args){
         }
         //check fan status
         static uint16_t fan_err_cnt = 0;
-        if((g_board.preference.fan.rpm <= 500) && (g_board.status.temp.asic > ASIC_TEMP_NORMAL)){
+        if((g_board.info.preference.fan.rpm <= 500) && (g_board.status.temp.asic > ASIC_TEMP_NORMAL)){
           fan_err_cnt++;
           if(fan_err_cnt > 20){//avoid some noise
             LOG_W("Fan rpm is too low, restart miner...");
@@ -205,9 +205,9 @@ void monitor_thread_entry(void *args){
         node.vbus         = String((g_board.status.vbus / 1000.0f),1); //V
         node.ibus         = String((g_board.status.ibus / 1000.0f),3); //A
         node.vcore        = g_board.status.asic.vcore_measured;
-        node.fanspeed     = g_board.preference.fan.speed; //%
-        node.fanrpm       = g_board.preference.fan.rpm;
-        node.wifi_rssi    = g_board.connection.wifi.status_param.rssi;
+        node.fanspeed     = g_board.info.preference.fan.speed; //%
+        node.fanrpm       = g_board.info.preference.fan.rpm;
+        node.wifi_rssi    = g_board.info.connection.wifi.status_param.rssi;
         node.free_ram     = ESP.getFreeHeap() / 1024;  //free sram in Kbytes
         node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes
         node.epoch        = g_board.status.miner.utc * 1000ULL; // Convert UTC seconds to milliseconds
@@ -254,7 +254,7 @@ void swarm_thread_entry(void *args){
   StaticJsonDocument<1024> jsonDoc;
   while (true){
     delay(100);
-    if(g_board.connection.wifi.status_param.status != WL_CONNECTED) continue;
+    if(g_board.info.connection.wifi.status_param.status != WL_CONNECTED) continue;
     swarm_cnt++;
     //listen udp status
     if(swarm_cnt % 1 == 0){
@@ -306,7 +306,7 @@ void swarm_thread_entry(void *args){
     //status udp broadcast
     if(swarm_cnt % 20 == 0){
       jsonDoc.clear();
-      jsonDoc["ip"] = g_board.connection.wifi.status_param.ip.toString();
+      jsonDoc["ip"] = g_board.info.connection.wifi.status_param.ip.toString();
       jsonDoc["HashRate"] = formatNumber(g_board.status.miner.hashrate._3m, 5) + "H/s";
       uint32_t share_total = g_board.status.miner.share_accepted + g_board.status.miner.share_rejected;
       float share_accepted = (share_total == 0) ? 0:(float)(g_board.status.miner.share_accepted) / (float)(share_total);
@@ -317,13 +317,13 @@ void swarm_thread_entry(void *args){
       jsonDoc["BestDiff"] = formatNumber(g_board.status.miner.diff.best_session,4) + "\r" + formatNumber(g_board.status.miner.diff.best_ever,4);
       jsonDoc["Valid"] = g_board.status.miner.hits;
       jsonDoc["Temp"] = roundf(g_board.status.temp.asic * 100) / 100.0f;
-      jsonDoc["RSSI"] = g_board.connection.wifi.status_param.rssi;
+      jsonDoc["RSSI"] = g_board.info.connection.wifi.status_param.rssi;
       jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
       jsonDoc["Uptime"] = convert_uptime_to_string(g_board.status.miner.uptime_session) + "\r" + convert_uptime_to_string(g_board.status.miner.uptime_ever);
-      jsonDoc["Version"] = g_board.info.fw_version;
-      jsonDoc["BoardType"] = g_board.info.hw_model;
+      jsonDoc["Version"] = g_board.info.base.fw_version;
+      jsonDoc["BoardType"] = g_board.info.base.hw_model;
       jsonDoc["Power"]     = String(g_board.status.vbus*g_board.status.ibus/1000.0/1000.0, 1) + "W";
-      jsonDoc["PoolInUse"] = String(g_board.connection.pool_use.url) + ":" + String(g_board.connection.pool_use.port);
+      jsonDoc["PoolInUse"] = String(g_board.info.connection.pool_use.url) + ":" + String(g_board.info.connection.pool_use.port);
       static uint32_t last_seen = millis();
       jsonDoc["Lastseen"]  = millis() - last_seen;
       last_seen = millis();
@@ -344,7 +344,7 @@ void swarm_thread_entry(void *args){
       }
 
       //add self to swarm list
-      g_board.swarm[g_board.connection.wifi.status_param.ip.toString()] = String(jsonbuf);
+      g_board.swarm[g_board.info.connection.wifi.status_param.ip.toString()] = String(jsonbuf);
     }
   }
 }
@@ -363,11 +363,11 @@ void daemon_thread_entry(void *args){
       ESP.restart();
     }
     //WiFi daemon
-    if(xSemaphoreTake(g_board.connection.wifi.reconnect_xsem, 0) == pdTRUE){
-      WiFi.begin(g_board.connection.wifi.conn_param.ssid.c_str(), g_board.connection.wifi.conn_param.pwd.c_str());
+    if(xSemaphoreTake(g_board.info.connection.wifi.reconnect_xsem, 0) == pdTRUE){
+      WiFi.begin(g_board.info.connection.wifi.conn_param.ssid.c_str(), g_board.info.connection.wifi.conn_param.pwd.c_str());
     }
     //Stratum daemon
-    if(millis() - g_board.connection.stratum_update > STRATUM_ALIVE_TIMEOUT){
+    if(millis() - g_board.info.connection.stratum_update > STRATUM_ALIVE_TIMEOUT){
       LOG_W("Stratum connection seems frozen, restarting...");
       delay(100);
       ESP.restart();

@@ -72,14 +72,7 @@ typedef enum {
 } board_model_t;
 
 
-typedef struct{
-    String      hostname;
-    String      fw_version;
-    String      fw_latest_release;
-    String      hw_version;
-    String      hw_model;
-    String      devcie_code;
-}board_info_t;
+
 
 
 
@@ -212,6 +205,19 @@ typedef struct{
     led_info_t       led;
 }preference_info_t;
 
+typedef struct{
+    struct{
+        String              coin;//mining coin, BTC, BCH, XEC, DGB, for price display purpose
+        String              hostname;
+        String              fw_version;
+        String              fw_latest_release;
+        String              hw_version;
+        String              hw_model;
+        String              devcie_code;
+    }base;
+    connect_info_t      connection;
+    preference_info_t   preference;
+}board_info_t;
 
 typedef struct{
     uint16_t            vbus;//mV
@@ -236,10 +242,7 @@ typedef std::map<axe_ip_t, axe_info_t> swarm_map_t;
 typedef struct{
     board_info_t        info;
     board_status_t      status;
-    preference_info_t   preference;
-    connect_info_t      connection;
     swarm_map_t         swarm;
-    String              coin;
     MarketClass         *market;
     NMAxePowerClass     *power;
     StratumClass        *stratum;

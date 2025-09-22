@@ -291,7 +291,7 @@ void miner_asic_init_thread_entry(void *args){
     if(g_board.status.asic.model      == "BM1366") asic_instance = new BM1366(serial_adapter, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
     else if(g_board.status.asic.model == "BM1370") asic_instance = new BM1370(serial_adapter, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
     else{
-        LOG_W("Unknown board model %s", g_board.info.hw_model.c_str());
+        LOG_W("Unknown board model %s", g_board.info.base.hw_model.c_str());
         return;
     }
 
@@ -413,7 +413,7 @@ void miner_asic_rx_thread_entry(void *args){
                 static uint32_t summary_start = millis();
                 if(millis() - summary_start >= 1000*60){
                     summary_start = millis();
-                    LOG_L(" ============%s=========== ",g_board.info.fw_version.c_str());
+                    LOG_L(" ============%s=========== ",g_board.info.base.fw_version.c_str());
                     LOG_L("|            Summary           |");
                     LOG_L("+------------Uptime------------+");
                     LOG_L("|%s | %s |", convert_uptime_to_string(g_board.status.miner.uptime_session).c_str(), convert_uptime_to_string(g_board.status.miner.uptime_ever).c_str());

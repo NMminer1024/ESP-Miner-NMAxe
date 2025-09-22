@@ -62,23 +62,23 @@ void setup() {
   delay(10);
   /************************************************************** INIT WIFI ************************************************************/
   taskName = "(wifi)";
-  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)&g_board.connection.wifi.conn_param, TASK_PRIORITY_WIFI, NULL, 1);
-  while (WL_CONNECTED != g_board.connection.wifi.status_param.status){
+  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)&g_board.info.connection.wifi.conn_param, TASK_PRIORITY_WIFI, NULL, 1);
+  while (WL_CONNECTED != g_board.info.connection.wifi.status_param.status){
     delay(10);
   }
   /************************************************************ Version check **********************************************************/
 #if HAS_VERSION_CHECK_FEATURE
   ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 
-  g_board.info.fw_latest_release = releaseChecker->get_latest_release();
+  g_board.info.base.fw_latest_release = releaseChecker->get_latest_release();
 
-  if(0 == compareVersions(g_board.info.fw_version, g_board.info.fw_latest_release)){
-    LOG_I("Firmware up to date: [%s]", g_board.info.fw_latest_release.c_str());
+  if(0 == compareVersions(g_board.info.base.fw_version, g_board.info.base.fw_latest_release)){
+    LOG_I("Firmware up to date: [%s]", g_board.info.base.fw_latest_release.c_str());
   }
-  else if(-2 == compareVersions(g_board.info.fw_version, g_board.info.fw_latest_release)){
+  else if(-2 == compareVersions(g_board.info.base.fw_version, g_board.info.base.fw_latest_release)){
     LOG_W("Get release info failed, please check your network connection.");
   }
-  else if(-1 == compareVersions(g_board.info.fw_version, g_board.info.fw_latest_release)){
-    LOG_W("New version available: %s", g_board.info.fw_latest_release.c_str());
+  else if(-1 == compareVersions(g_board.info.base.fw_version, g_board.info.base.fw_latest_release)){
+    LOG_W("New version available: %s", g_board.info.base.fw_latest_release.c_str());
     delay(1000*5);
   }
   delete releaseChecker;

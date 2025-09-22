@@ -105,38 +105,38 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["coreVoltage"] = g_board.status.asic.vcore_req;
     root["coreVoltageActual"] = g_board.status.asic.vcore_measured;
     root["frequency"] = g_board.status.asic.frequency_req;
-    root["hostname"] = g_board.info.hostname;
+    root["hostname"] = g_board.info.base.hostname;
     root["timezone"] = g_board.status.miner.timezone;
-    root["ssid"] = g_board.connection.wifi.conn_param.ssid;
-    root["wifiStatus"] = ((g_board.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
+    root["ssid"] = g_board.info.connection.wifi.conn_param.ssid;
+    root["wifiStatus"] = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
     root["sharesAccepted"] = g_board.status.miner.share_accepted;
     root["sharesRejected"] = g_board.status.miner.share_rejected;
     root["uptimeSeconds"] = g_board.status.miner.uptime_session;
     root["asicCount"] = g_board.miner->get_asic_count();
     root["smallCoreCount"] = g_board.miner->get_asic_small_cores();
     root["ASICModel"] = g_board.status.asic.model;
-    root["stratumUserUSED"] = g_board.connection.stratum_use.user;
-    root["stratumURLUSED"] = g_board.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.connection.pool_use.url + ":" + String(g_board.connection.pool_use.port)) : ("stratum+tcp://" + g_board.connection.pool_use.url + ":" + String(g_board.connection.pool_use.port));
-    root["stratumUser1"] = g_board.connection.stratum_primary.user;
-    root["stratumPassword1"] = g_board.connection.stratum_primary.pwd;
-    root["stratumUser2"]     = g_board.connection.stratum_fallback.user;
-    root["stratumPassword2"] = g_board.connection.stratum_fallback.pwd;
-    root["stratumURL1"] = g_board.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.connection.pool_primary.url + ":" + String(g_board.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.connection.pool_primary.url + ":" + String(g_board.connection.pool_primary.port));
-    root["stratumURL2"] = g_board.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.connection.pool_fallback.url + ":" + String(g_board.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.connection.pool_fallback.url + ":" + String(g_board.connection.pool_fallback.port));
-    root["version"] = g_board.info.fw_version;
-    root["boardVersion"] = g_board.info.hw_model;
-    root["flipscreen"] = g_board.preference.screen.flip;
-    root["ledindicator"] = g_board.preference.led.enable;
+    root["stratumUserUSED"] = g_board.info.connection.stratum_use.user;
+    root["stratumURLUSED"] = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
+    root["stratumUser1"] = g_board.info.connection.stratum_primary.user;
+    root["stratumPassword1"] = g_board.info.connection.stratum_primary.pwd;
+    root["stratumUser2"]     = g_board.info.connection.stratum_fallback.user;
+    root["stratumPassword2"] = g_board.info.connection.stratum_fallback.pwd;
+    root["stratumURL1"] = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
+    root["stratumURL2"] = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
+    root["version"] = g_board.info.base.fw_version;
+    root["boardVersion"] = g_board.info.base.hw_model;
+    root["flipscreen"] = g_board.info.preference.screen.flip;
+    root["ledindicator"] = g_board.info.preference.led.enable;
     root["overheat_mode"] = 0;
     root["invertscreen"]  = 1;
-    root["invertfanpolarity"] = g_board.preference.fan.invert_ploarity;
-    root["autofanspeed"] = g_board.preference.fan.is_auto_speed;
-    root["autoscreen"]   = g_board.preference.screen.auto_screen;
-    root["fanspeed"] = g_board.preference.fan.speed;
-    root["targetAsicTemp"] = String(g_board.preference.fan.target_temp);
-    root["fanrpm"] = g_board.preference.fan.rpm;
-    root["brightness"] = g_board.preference.screen.brightness_last;
-    root["coin"] = g_board.coin;
+    root["invertfanpolarity"] = g_board.info.preference.fan.invert_ploarity;
+    root["autofanspeed"] = g_board.info.preference.fan.is_auto_speed;
+    root["autoscreen"]   = g_board.info.preference.screen.auto_screen;
+    root["fanspeed"] = g_board.info.preference.fan.speed;
+    root["targetAsicTemp"] = String(g_board.info.preference.fan.target_temp);
+    root["fanrpm"] = g_board.info.preference.fan.rpm;
+    root["brightness"] = g_board.info.preference.screen.brightness_last;
+    root["coin"] = g_board.info.base.coin;
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
@@ -784,8 +784,8 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         if(root.containsKey("hostname")){
             nvs_config_set_string(NVS_CONFIG_HOSTNAME,root["hostname"].as<String>().c_str());
             nvs_config_set_string(NVS_CONFIG_AP_SSID, root["hostname"].as<String>().c_str());
-            g_board.info.hostname                    = root["hostname"].as<String>();
-            g_board.connection.wifi.softap_param.ssid = root["hostname"].as<String>();
+            g_board.info.base.hostname                    = root["hostname"].as<String>();
+            g_board.info.connection.wifi.softap_param.ssid = root["hostname"].as<String>();
         }
         if(root.containsKey("coreVoltage")){
             uint16_t req_mv = root["coreVoltage"].as<uint16_t>();
@@ -794,9 +794,9 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, root["coreVoltage"].as<uint16_t>());
         }
         if(root.containsKey("brightness")){
-            g_board.preference.screen.brightness = root["brightness"].as<uint8_t>();
-            g_board.preference.screen.brightness_last = g_board.preference.screen.brightness;
-            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.preference.screen.brightness);
+            g_board.info.preference.screen.brightness = root["brightness"].as<uint8_t>();
+            g_board.info.preference.screen.brightness_last = g_board.info.preference.screen.brightness;
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.preference.screen.brightness);
         }
         if(root.containsKey("frequency")){
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, root["frequency"].as<uint16_t>());
@@ -805,8 +805,8 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
             nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());
         }
         if(root.containsKey("ledindicator")){
-            g_board.preference.led.enable = root["ledindicator"].as<uint8_t>();
-            g_board.preference.led.sleep  = false;
+            g_board.info.preference.led.enable = root["ledindicator"].as<uint8_t>();
+            g_board.info.preference.led.sleep  = false;
             nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledindicator"].as<uint8_t>());
         }
         if(root.containsKey("overheat_mode")){
@@ -814,30 +814,30 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("coin")){
             nvs_config_set_string(NVS_CONFIG_MINING_COIN,root["coin"].as<String>().c_str());
-            g_board.coin = root["coin"].as<String>();
+            g_board.info.base.coin = root["coin"].as<String>();
         }
         if(root.containsKey("invertscreen")){
 
         }
         if(root.containsKey("invertfanpolarity")){
             nvs_config_set_u16(NVS_CONFIG_INVERT_FAN_POLARITY, root["invertfanpolarity"].as<uint16_t>());
-            g_board.preference.fan.invert_ploarity = root["invertfanpolarity"].as<uint16_t>();
+            g_board.info.preference.fan.invert_ploarity = root["invertfanpolarity"].as<uint16_t>();
         }
         if(root.containsKey("autofanspeed")){
             nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());
-            g_board.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
+            g_board.info.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
         }
         if(root.containsKey("targetAsicTemp")){
             nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, root["targetAsicTemp"].as<String>().c_str());
-            g_board.preference.fan.target_temp = root["targetAsicTemp"].as<String>().toFloat();
+            g_board.info.preference.fan.target_temp = root["targetAsicTemp"].as<String>().toFloat();
         }
         if(root.containsKey("autoscreen")){
             nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
-            g_board.preference.screen.auto_screen = root["autoscreen"].as<uint8_t>();
+            g_board.info.preference.screen.auto_screen = root["autoscreen"].as<uint8_t>();
         }
         if(root.containsKey("fanspeed")){
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
-            g_board.preference.fan.speed = root["fanspeed"].as<uint16_t>();
+            g_board.info.preference.fan.speed = root["fanspeed"].as<uint16_t>();
         }
         if(root.containsKey("blockhits")){
             nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());
@@ -951,7 +951,7 @@ static void websocket_loop(void *args){
     free(name);
 
     while (true){
-        if(g_board.connection.wifi.status_param.status == WL_CONNECTED){
+        if(g_board.info.connection.wifi.status_param.status == WL_CONNECTED){
             webSocket.loop();
         }
         delay(250);
