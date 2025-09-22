@@ -122,20 +122,9 @@ void power_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
-    // set vcore range according to board model
-    if(g_board.info.base.hw_model == BOARD_NMAxe){
-        g_board.power->set_vcore_range(1100, 1300);
-        LOG_I("Board model '%s', set vcore range to 1100-1300mV", g_board.info.base.hw_model.c_str());
-    }
-    else if(g_board.info.base.hw_model == BOARD_NMAxeGamma){
-        g_board.power->set_vcore_range(1000, 1250);
-        LOG_I("Board model '%s', set vcore range to 1000-1250mV", g_board.info.base.hw_model.c_str());
-    }
-    else{
-        g_board.power->set_vcore_range(1000, 1250);
-        LOG_W("Unknown board model '%s', set vcore range to 1000-1250mV", g_board.info.base.hw_model.c_str());
-    }
-    
+    g_board.power->set_vcore_range(ASIC_VCORE_MIN, ASIC_VCORE_MAX);
+    LOG_I("Set vcore range to %d-%d mV", g_board.power->get_vcore_min(), g_board.power->get_vcore_max());
+
     //detect power plug or pd plug
     if(g_board.power->is_dc_pluged()) LOG_I("DC plug detected...");
     else LOG_I("USB plug detected...");

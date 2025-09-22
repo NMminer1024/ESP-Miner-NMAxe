@@ -1,12 +1,11 @@
 #ifndef _NM_AXE_GAMMA_H_
 #define _NM_AXE_GAMMA_H_
 
-#define BOARD_NMAxe                                    "NMAxe"
-#define BOARD_NMAxeGamma                               "NMAxeGamma"
 
-#define ASIC_1366                                      "BM1366"
-#define ASIC_1370                                      "BM1370"
 
+/***************************default parameter define************************/
+#define BOARD_MODEL                                    "NMAxeGamma"
+#define ASIC_MODEL                                     "BM1370"
 
 #define PRIMARY_POOL_URL                               "stratum+tcp://public-pool.io:21496"//btc
 #define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
@@ -17,6 +16,16 @@
 #define SCREEN_WIDTH                                   240
 #define SCREEN_HEIGHT                                  135
 
+#define ASIC_DEFAULT_FREQ                              600 //MHz
+#define ASIC_VCORE_DEFAULT                             1125 //mV
+#define ASIC_VCORE_MIN                                 1000 //mV
+#define ASIC_VCORE_MAX                                 1250 //mV
+#define ASIC_JOB_INTERVAL_MS                           500 //ms
+#define HR_DIST_HEALTH_X_AXIS_MAX_HR                   2000 //GH/s
+#define HR_DIST_HEALTH_X_AXIS_BARS                     20   //how many samples for x axis
+
+
+/*********************************Pin define********************************/
 #define NM_AXE_BUTTON_BOOT_PIN                         0
 #define NM_AXE_BUTTON_USER_PIN                         12
 
@@ -55,6 +64,5 @@
 
 #define NM_AXE_MODEL_SELECT_PIN0                       15
 #define NM_AXE_MODEL_SELECT_PIN1                       46
-
 
 #endif

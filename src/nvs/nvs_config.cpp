@@ -191,33 +191,11 @@ bool load_g_nmaxe(void){
         ret = nvs_flash_init();
         delay(1000);
     }
+    g_board.info.base.hw_model                       = BOARD_MODEL;
+    g_board.status.asic.model                        = ASIC_MODEL;
 
-    board_model_t model = get_board_model();
-    if(NMAXE == model){
-        g_board.info.base.hw_model              = BOARD_NMAxe;
-        g_board.status.asic.model                  = ASIC_1366;
-        g_board.status.asic.job_frq_ms             = 2000;//send job every 2 seconds
-        g_board.status.miner.hr_dist.max_x_hr    = 1000;// 1000 GH/s for x axis
-        g_board.status.miner.hr_dist.max_x_bars  = 20;  // how many samples for x axis
-        g_board.status.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    550);
-        g_board.status.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1200);
-    }
-    else if(NMAXE_GAMMA == model){
-        g_board.info.base.hw_model              = BOARD_NMAxeGamma;
-        g_board.status.asic.model                  = ASIC_1370;
-        g_board.status.asic.job_frq_ms             = 500; //send job every 0.5 seconds
-        g_board.status.miner.hr_dist.max_x_hr    = 2000;// 2000 GH/s for x axis
-        g_board.status.miner.hr_dist.max_x_bars  = 20;  // how many samples for x axis
-        g_board.status.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    600);
-        g_board.status.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1125);
-    }
-    else{
-        LOG_E("Board model not supported!");
-        return false;
-    }
-
-    String stratum_pri                          = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
-    String stratum_fb                           = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
+    String stratum_pri                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
+    String stratum_fb                                = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
     
     g_board.info.connection.pool_primary.ssl         = (stratum_pri.indexOf("ssl") != -1);
     g_board.info.connection.pool_primary.url         = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
@@ -236,12 +214,14 @@ bool load_g_nmaxe(void){
     g_board.info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + g_board.info.base.hw_model + "_" + g_board.info.base.devcie_code.substring(0, 5)).c_str()));
     g_board.info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=512"));
     g_board.info.connection.stratum_use              = g_board.info.connection.stratum_primary;
-    g_board.status.reboot_xsem                   = xSemaphoreCreateCounting(1, 0);
-    g_board.info.base.fw_latest_release             = "";
-    g_board.status.temp.mcu                            = 0.0f;
-    g_board.status.temp.vcore                          = 0.0f;
-    g_board.status.temp.asic                           = 0.0f;
-    g_board.status.nvs_save_xsem               = xSemaphoreCreateCounting(1, 0);
+    g_board.status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
+    g_board.info.base.fw_latest_release              = "";
+    g_board.status.asic.job_frq_ms                   = ASIC_JOB_INTERVAL_MS;
+    g_board.status.miner.hr_dist.max_x_hr            = HR_DIST_HEALTH_X_AXIS_MAX_HR;
+    g_board.status.miner.hr_dist.max_x_bars          = HR_DIST_HEALTH_X_AXIS_BARS;
+    g_board.status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    ASIC_DEFAULT_FREQ);
+    g_board.status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, ASIC_VCORE_DEFAULT);
+    g_board.status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);
     g_board.status.miner.history_mutex               = xSemaphoreCreateMutex();
     g_board.status.miner.block_proximity_mutex       = xSemaphoreCreateMutex();
     g_board.info.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
@@ -256,11 +236,11 @@ bool load_g_nmaxe(void){
     g_board.info.connection.client_connected         = false;
     g_board.info.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
     g_board.info.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
-    g_board.info.base.hostname                      = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_board.info.connection.wifi.softap_param.ssid.c_str()));
+    g_board.info.base.hostname                       = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_board.info.connection.wifi.softap_param.ssid.c_str()));
     g_board.info.connection.stratum_update           = millis();
-    g_board.status.ota.running                     = false;
-    g_board.status.ota.progress                        = 0;
-    g_board.status.ota.firmware                        = "";
+    g_board.status.ota.running                       = false;
+    g_board.status.ota.progress                      = 0;
+    g_board.status.ota.firmware                      = "";
     g_board.status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_board.info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     g_board.info.preference.fan.invert_ploarity      = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, true); 
@@ -276,13 +256,12 @@ bool load_g_nmaxe(void){
     g_board.info.preference.led.sleep_last           = g_board.info.preference.led.sleep;
     g_board.status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     g_board.status.miner.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
-    g_board.info.base.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
+    g_board.info.base.coin                           = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     g_board.info.base.coin.toUpperCase();
-    g_board.miner                               = nullptr;
-
-    g_board.market                              = new MarketClass();
-    g_board.stratum                             = new StratumClass(g_board.info.connection.pool_use, g_board.info.connection.stratum_use, 10);
-    g_board.power                               = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
+    g_board.miner                                    = nullptr;
+    g_board.market                                   = new MarketClass();
+    g_board.stratum                                  = new StratumClass(g_board.info.connection.pool_use, g_board.info.connection.stratum_use, 10);
+    g_board.power                                    = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
                                                                       {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},
                                                                        NM_AXE_POWER_BM13xx_VCORE_REGULATOR_PWM_PIN, NM_AXE_POWER_BM13xx_VCORE_P_GOOD_DET_PIN, NM_AXE_POWER_BM13xx_VBUS_PLUG_SENSE_DET_PIN);
     
