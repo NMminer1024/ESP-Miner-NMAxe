@@ -48,7 +48,7 @@ static void tft_init(){
   pinMode(NM_AXE_TFT_PWER_PIN, OUTPUT);
   digitalWrite(NM_AXE_TFT_PWER_PIN, LOW);
   tft.begin(); 
-  if(g_nmaxe.preference.screen.flip)tft.setRotation(1); 
+  if(g_board.preference.screen.flip)tft.setRotation(1); 
   else tft.setRotation(3); 
 
 
@@ -140,14 +140,14 @@ static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *big_digit_page = NULL;
   const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL;
 
-  if(g_nmaxe.board.hw_model == BOARD_NMAxe){
+  if(g_board.info.hw_model == BOARD_NMAxe){
     p_loading_img = &loading_page_img;
     p_config_img = &config_page_img_nmaxe;
     p_mining_img = &mining_page_img_nmaxe;
     p_status_img = &status_page_img;
     p_black_img = &black_page_img;
   }
-  else if(g_nmaxe.board.hw_model == BOARD_NMAxeGamma){
+  else if(g_board.info.hw_model == BOARD_NMAxeGamma){
     p_loading_img = &loading_page_img;
     p_config_img = &config_page_img_nmaxe_gamma;
     p_mining_img = &mining_page_img_nmaxe_gamma;
@@ -155,7 +155,7 @@ static void ui_layout_init(void){
     p_black_img  = &black_page_img;
   }
   else{
-    LOG_W("layout image not found,unknown board model %s", g_nmaxe.board.hw_model.c_str());
+    LOG_W("layout image not found,unknown board model %s", g_board.info.hw_model.c_str());
     return;
   }
 
@@ -253,11 +253,11 @@ static void ui_layout_init(void){
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
   lv_obj_t *lb_version   = lv_label_create( loading_page );
   lv_obj_set_width(lb_version, SCREEN_WIDTH);
-  lv_label_set_text( lb_version, g_nmaxe.board.fw_version.c_str());
+  lv_label_set_text( lb_version, g_board.info.fw_version.c_str());
   lv_obj_set_style_text_font(lb_version, font, LV_PART_MAIN);
   lv_obj_set_style_text_color(lb_version, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(lb_version, LV_LABEL_LONG_DOT);
-  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 9), SCREEN_HEIGHT - 18);
+  lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_board.info.fw_version.length() * 9), SCREEN_HEIGHT - 18);
   //////////////////////////////////////config page layout///////////////////////////////////////////////
   //config timeout
   font = &lv_font_montserrat_14;
@@ -287,16 +287,16 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
 
     if (lb_loading == NULL){
       lb_loading = lv_label_create(ui_pages[PAGE_LOADING]);
-      lv_obj_set_width(lb_loading, SCREEN_WIDTH - (uint16_t)(g_nmaxe.board.fw_version.length() * 7.2));
+      lv_obj_set_width(lb_loading, SCREEN_WIDTH - (uint16_t)(g_board.info.fw_version.length() * 7.2));
       lv_obj_set_style_text_font(lb_loading, font, LV_PART_MAIN);
       lv_label_set_long_mode(lb_loading, LV_LABEL_LONG_DOT);
       lv_obj_align(lb_loading, LV_ALIGN_BOTTOM_LEFT, 3, 0);
 
       //hardward model
       lb_hard_model   = lv_label_create( ui_pages[PAGE_LOADING] );
-      width = lv_txt_get_width(g_nmaxe.board.hw_model.c_str(), strlen(g_nmaxe.board.hw_model.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
+      width = lv_txt_get_width(g_board.info.hw_model.c_str(), strlen(g_board.info.hw_model.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
       lv_obj_set_width(lb_hard_model, width);
-      lv_label_set_text( lb_hard_model, g_nmaxe.board.hw_model.c_str());
+      lv_label_set_text( lb_hard_model, g_board.info.hw_model.c_str());
       lv_obj_set_style_text_font(lb_hard_model, &lv_font_montserrat_24, LV_PART_MAIN);
       lv_obj_set_style_text_color(lb_hard_model, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
       lv_label_set_long_mode(lb_hard_model, LV_LABEL_LONG_SCROLL_CIRCULAR);
@@ -341,20 +341,20 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_obj_align( lb_pool_url, LV_ALIGN_CENTER, 0, 35);
     }
 
-    if(WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status){
-      String ip_str = g_nmaxe.connection.wifi.status_param.ip.toString();
+    if(WL_CONNECTED == g_board.connection.wifi.status_param.status){
+      String ip_str = g_board.connection.wifi.status_param.ip.toString();
       width = lv_txt_get_width(ip_str.c_str(), strlen(ip_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
       lv_obj_set_width(lb_ip_and_slogan, width);
       lv_obj_set_style_text_color(lb_ip_and_slogan, lv_color_hex(0x00FF00), LV_PART_MAIN); 
-      lv_label_set_text( lb_ip_and_slogan, g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
+      lv_label_set_text( lb_ip_and_slogan, g_board.connection.wifi.status_param.ip.toString().c_str());
     }
 
-    if(g_nmaxe.market->lastUpdate != 0){
-      String pool_str = (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port);
+    if(g_board.market->lastUpdate != 0){
+      String pool_str = (g_board.connection.pool_use.url + ":" + g_board.connection.pool_use.port);
       width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), &lv_font_montserrat_16, 0, LV_TEXT_FLAG_NONE);
       width = (width > SCREEN_WIDTH) ? SCREEN_WIDTH : width;
       lv_obj_set_width(lb_pool_url, width);
-      lv_label_set_text( lb_pool_url, (g_nmaxe.connection.pool_use.url + ":" + g_nmaxe.connection.pool_use.port).c_str());
+      lv_label_set_text( lb_pool_url, (g_board.connection.pool_use.url + ":" + g_board.connection.pool_use.port).c_str());
     }
 
     if(prgress_update){
@@ -414,7 +414,7 @@ static void ui_miner_page_update(){
     font_color = lv_color_hex(0xFFFFFF);
     lb_mine_page_ver   = lv_label_create( ui_pages[PAGE_MINER] );
     lv_obj_set_width(lb_mine_page_ver, SCREEN_WIDTH);
-    lv_label_set_text( lb_mine_page_ver, g_nmaxe.board.fw_version.substring(1, g_nmaxe.board.fw_version.length()).c_str());
+    lv_label_set_text( lb_mine_page_ver, g_board.info.fw_version.substring(1, g_board.info.fw_version.length()).c_str());
     lv_obj_set_style_text_font(lb_mine_page_ver, font, LV_PART_MAIN);
     lv_label_set_long_mode(lb_mine_page_ver, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN); 
@@ -584,64 +584,64 @@ static void ui_miner_page_update(){
     lv_obj_align( lb_fan_symb, LV_ALIGN_TOP_MID, 110, 76);
   }
   
-  String uptime = convert_uptime_to_string(g_nmaxe.mstatus.uptime_session);
-  String hashrate = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
-  String hashuint = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
-  String last_diff = formatNumber(g_nmaxe.mstatus.diff.last, 1);
-  String best_session = formatNumber(g_nmaxe.mstatus.diff.best_session, 1);
-  String best_ever = formatNumber(g_nmaxe.mstatus.diff.best_ever, 1);
-  String network_diff = formatNumber(g_nmaxe.mstatus.diff.network, 2);
-  String voltage = formatNumber(g_nmaxe.board.vbus/1000.0, 3);
-  String power = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
-  String price = (millis() - g_nmaxe.market->lastUpdate <= MARKET_TIMEOUT) ? formatNumber(g_nmaxe.market->price, 6) : "";
-  String fan_and_efficiency = String(g_nmaxe.preference.fan.rpm) + " rpm";
-  // String fan_and_efficiency = formatNumber(g_nmaxe.board.efficiency, 4) + "J/TH";
+  String uptime = convert_uptime_to_string(g_board.mstatus.uptime_session);
+  String hashrate = formatNumber(g_board.mstatus.hashrate._3m, 3);
+  String hashuint = (g_board.mstatus.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
+  String last_diff = formatNumber(g_board.mstatus.diff.last, 1);
+  String best_session = formatNumber(g_board.mstatus.diff.best_session, 1);
+  String best_ever = formatNumber(g_board.mstatus.diff.best_ever, 1);
+  String network_diff = formatNumber(g_board.mstatus.diff.network, 2);
+  String voltage = formatNumber(g_board.status.vbus/1000.0, 3);
+  String power = formatNumber(g_board.status.vbus*g_board.status.ibus/1000.0/1000.0, 3);
+  String price = (millis() - g_board.market->lastUpdate <= MARKET_TIMEOUT) ? formatNumber(g_board.market->price, 6) : "";
+  String fan_and_efficiency = String(g_board.preference.fan.rpm) + " rpm";
+  // String fan_and_efficiency = formatNumber(g_board.info.efficiency, 4) + "J/TH";
 
   //diff symbol color update
-  if(g_nmaxe.mstatus.diff.last != 0){//avoid the first time update
-    if(g_nmaxe.mstatus.diff.last == g_nmaxe.mstatus.diff.best_session) font_color = lv_color_hex(0x00ff00);//green
-    else if(g_nmaxe.mstatus.diff.last == g_nmaxe.mstatus.diff.best_ever) font_color = lv_color_hex(0xffa500);//yellow
+  if(g_board.mstatus.diff.last != 0){//avoid the first time update
+    if(g_board.mstatus.diff.last == g_board.mstatus.diff.best_session) font_color = lv_color_hex(0x00ff00);//green
+    else if(g_board.mstatus.diff.last == g_board.mstatus.diff.best_ever) font_color = lv_color_hex(0xffa500);//yellow
     else font_color = lv_color_hex(0xA9A9A9);//gray
     lv_obj_set_style_text_color(lb_diff_symbol, font_color, LV_PART_MAIN); 
   }
 
   //temp symbol color update
-  if(g_nmaxe.temp.vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
-  else if(g_nmaxe.temp.vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
+  if(g_board.temp.vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
+  else if(g_board.temp.vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
   else font_color = lv_color_hex(0x00ff00);//green
   lv_obj_set_style_text_color(lb_temp_symb, font_color, LV_PART_MAIN); 
 
   //wifi rssi symbol color update
-  if(g_nmaxe.connection.wifi.status_param.rssi >= WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
-  else if(g_nmaxe.connection.wifi.status_param.rssi >= WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
+  if(g_board.connection.wifi.status_param.rssi >= WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
+  else if(g_board.connection.wifi.status_param.rssi >= WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
   else  font_color = lv_color_hex(0xff0000);//red
   lv_obj_set_style_text_color(lb_wifi_symbol, font_color, LV_PART_MAIN); 
 
   //share symbol color update
-  static uint32_t last_share_cnt = g_nmaxe.mstatus.share_accepted;
-  if(last_share_cnt != g_nmaxe.mstatus.share_accepted){
+  static uint32_t last_share_cnt = g_board.mstatus.share_accepted;
+  if(last_share_cnt != g_board.mstatus.share_accepted){
     font_color = lv_color_hex(0x00ff00);//green
-    last_share_cnt = g_nmaxe.mstatus.share_accepted;
+    last_share_cnt = g_board.mstatus.share_accepted;
   }
   else font_color = lv_color_hex(0xA9A9A9);//gray
   lv_obj_set_style_text_color(lb_share_symb, font_color, LV_PART_MAIN);
 
   //fan symbol color update, blink
   static bool fan_color_update = false;
-  if(g_nmaxe.preference.fan.rpm > 0){
+  if(g_board.preference.fan.rpm > 0){
     if(fan_color_update)font_color = lv_color_hex(0xA9A9A9);
     else font_color = lv_color_hex(0x00ff00);
     fan_color_update =!fan_color_update;
   }
-  else if(g_nmaxe.preference.fan.rpm == 0) font_color = lv_color_hex(0xA9A9A9);//gray
+  else if(g_board.preference.fan.rpm == 0) font_color = lv_color_hex(0xA9A9A9);//gray
   lv_obj_set_style_text_color(lb_fan_symb, font_color, LV_PART_MAIN);
 
   //price color update, blink
-  if(millis() - g_nmaxe.market->lastUpdate <= MARKET_TIMEOUT){
-    static float last_price = g_nmaxe.market->price;
-    if(last_price != g_nmaxe.market->price){
+  if(millis() - g_board.market->lastUpdate <= MARKET_TIMEOUT){
+    static float last_price = g_board.market->price;
+    if(last_price != g_board.market->price){
       font_color = lv_color_hex(0x00ff00);//green
-      last_price = g_nmaxe.market->price;
+      last_price = g_board.market->price;
     }
     else font_color = lv_color_hex(0xFFFFFF);//white
     lv_obj_set_style_text_color(lb_price, font_color, LV_PART_MAIN);
@@ -652,54 +652,54 @@ static void ui_miner_page_update(){
   //hashrate unit
   lv_label_set_text_fmt(lb_hr_unit, "%s", hashuint.c_str());
   //block hit
-  if(g_nmaxe.mstatus.hits <= 9){
+  if(g_board.mstatus.hits <= 9){
   lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_50, LV_PART_MAIN);
   lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 39); 
-    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.hits);
-  }else if (g_nmaxe.mstatus.hits <= 99){
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_board.mstatus.hits);
+  }else if (g_board.mstatus.hits <= 99){
     lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 50); 
     lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_28, LV_PART_MAIN);
-    lv_label_set_text_fmt(lb_blk_hit, "%d", g_nmaxe.mstatus.hits);
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_board.mstatus.hits);
   }
 
   //version
 #if HAS_VERSION_CHECK_FEATURE
-  if(compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release) == -1){
+  if(compareVersions(g_board.info.fw_version, g_board.info.fw_latest_release) == -1){
     static uint8_t version_cnt = 0;
     if(version_cnt++ % 2 == 0){
       font_color = lv_color_hex(0x00ff00);//green
       lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN);
-      lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_nmaxe.board.fw_latest_release.substring(1, g_nmaxe.board.fw_latest_release.length()).c_str());
+      lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_board.info.fw_latest_release.substring(1, g_board.info.fw_latest_release.length()).c_str());
     }
     else{
       font_color = lv_color_hex(0xFFFFFF);//white
       lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN);
-      lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_nmaxe.board.fw_version.substring(1, g_nmaxe.board.fw_version.length()).c_str());
+      lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_board.info.fw_version.substring(1, g_board.info.fw_version.length()).c_str());
     }
   }
 #else
   font_color = lv_color_hex(0xFFFFFF);//white
   lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN);
-  lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_nmaxe.board.fw_version.substring(1, g_nmaxe.board.fw_version.length()).c_str());
+  lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_board.info.fw_version.substring(1, g_board.info.fw_version.length()).c_str());
 #endif
 
 
   //Diff
   lv_label_set_text_fmt(lb_diff, "%s/%s/%s/%s", last_diff.c_str(), best_session.c_str(), best_ever.c_str(), network_diff.c_str());
   //Temp
-  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_nmaxe.temp.vcore, 2).c_str(), formatNumber(g_nmaxe.temp.asic, 2).c_str());
+  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_board.temp.vcore, 2).c_str(), formatNumber(g_board.temp.asic, 2).c_str());
   //WiFi
-  lv_label_set_text_fmt(lb_wifi,   "%s", g_nmaxe.connection.wifi.status_param.ip.toString().c_str());
+  lv_label_set_text_fmt(lb_wifi,   "%s", g_board.connection.wifi.status_param.ip.toString().c_str());
   //uptime hms
   lv_label_set_text_fmt(lb_uptime_hms,    "%s", uptime.substring(5, uptime.length()).c_str());
   //uptime day
   lv_label_set_text_fmt(lb_uptime_day,    "%s", uptime.substring(0,3).c_str());
   //share
-  lv_label_set_text_fmt(lb_share,  "%d/%d", g_nmaxe.mstatus.share_rejected, g_nmaxe.mstatus.share_accepted);
+  lv_label_set_text_fmt(lb_share,  "%d/%d", g_board.mstatus.share_rejected, g_board.mstatus.share_accepted);
   //fan
   lv_label_set_text_fmt(lb_fan_and_efficiency, "%s", fan_and_efficiency.c_str());
   //price
-  if(millis() - g_nmaxe.market->lastUpdate <= MARKET_TIMEOUT){
+  if(millis() - g_board.market->lastUpdate <= MARKET_TIMEOUT){
     lv_label_set_text_fmt(lb_price,  "$%s", price.c_str());
   }
   //power
@@ -707,7 +707,7 @@ static void ui_miner_page_update(){
 }
 
 static void ui_ota_page_update(){
-  if(!g_nmaxe.ota.ota_running)return;
+  if(!g_board.ota.ota_running)return;
 
   static lv_obj_t * overlay = NULL, *bar = NULL, *label_file = NULL, *label_progress = NULL;
   static char progress_text[10];
@@ -743,15 +743,15 @@ static void ui_ota_page_update(){
 
   lv_coord_t bar_x = lv_obj_get_x(bar);
   lv_coord_t bar_w = lv_obj_get_width(bar);
-  lv_coord_t label_x = bar_x + (bar_w * g_nmaxe.ota.progress / 100.0f) - lv_obj_get_width(label_progress)/2;
+  lv_coord_t label_x = bar_x + (bar_w * g_board.ota.progress / 100.0f) - lv_obj_get_width(label_progress)/2;
   //update progress label
-  snprintf(progress_text, sizeof(progress_text), "%d%%", g_nmaxe.ota.progress);
+  snprintf(progress_text, sizeof(progress_text), "%d%%", g_board.ota.progress);
   lv_obj_set_pos(label_progress, label_x, 10);
   lv_label_set_text(label_progress, progress_text);
 
   //update bar value
-  lv_bar_set_value(bar, g_nmaxe.ota.progress, LV_ANIM_ON);
-  lv_label_set_text(label_file, g_nmaxe.ota.firmware.c_str());
+  lv_bar_set_value(bar, g_board.ota.progress, LV_ANIM_ON);
+  lv_label_set_text(label_file, g_board.ota.firmware.c_str());
 
 }
 
@@ -983,15 +983,15 @@ static void ui_dashboard_page_update(){
 
   }
 
-  String hr_value = formatNumber(g_nmaxe.mstatus.hashrate._3m, 3);
-  String hr_unit  = (g_nmaxe.mstatus.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
-  String power    = formatNumber(g_nmaxe.board.vbus*g_nmaxe.board.ibus/1000.0/1000.0, 3);
+  String hr_value = formatNumber(g_board.mstatus.hashrate._3m, 3);
+  String hr_unit  = (g_board.mstatus.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
+  String power    = formatNumber(g_board.status.vbus*g_board.status.ibus/1000.0/1000.0, 3);
 
-  uint16_t oc_angle             = arc_angle_full * (g_nmaxe.asic.frequency_req - FREQ_MIN) / (FREQ_MAX - FREQ_MIN); 
-  uint16_t pwr_angle            = arc_angle_full * (g_nmaxe.board.vbus * g_nmaxe.board.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
-  uint16_t vcore_req_angle      = arc_angle_full * (g_nmaxe.asic.vcore_req/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
-  uint16_t vcore_measure_angle  = arc_angle_full * (g_nmaxe.asic.vcore_measured /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
-  uint16_t asic_temp_angle      = arc_angle_full * (g_nmaxe.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
+  uint16_t oc_angle             = arc_angle_full * (g_board.asic.frequency_req - FREQ_MIN) / (FREQ_MAX - FREQ_MIN); 
+  uint16_t pwr_angle            = arc_angle_full * (g_board.status.vbus * g_board.status.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
+  uint16_t vcore_req_angle      = arc_angle_full * (g_board.asic.vcore_req/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
+  uint16_t vcore_measure_angle  = arc_angle_full * (g_board.asic.vcore_measured /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
+  uint16_t asic_temp_angle      = arc_angle_full * (g_board.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
 
   lv_arc_set_angles(arc_oc,  0, oc_angle);
   lv_arc_set_angles(arc_power, 0, pwr_angle);
@@ -1006,17 +1006,17 @@ static void ui_dashboard_page_update(){
   //power 
   lv_label_set_text_fmt(lb_pwr, "%sw", power.c_str());
   //vbus
-  lv_label_set_text_fmt(lb_overclock, "%sM", String(g_nmaxe.asic.frequency_req).c_str());
+  lv_label_set_text_fmt(lb_overclock, "%sM", String(g_board.asic.frequency_req).c_str());
   //vcore_req
-  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_nmaxe.asic.vcore_req/1000.0, 4).c_str());
+  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_board.asic.vcore_req/1000.0, 4).c_str());
   //vcore_measure
-  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_nmaxe.asic.vcore_measured/1000.0, 4).c_str());
+  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_board.asic.vcore_measured/1000.0, 4).c_str());
   //asic temp
-  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_nmaxe.temp.asic, 2).c_str());
+  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_board.temp.asic, 2).c_str());
 }
 
 static void ui_hr_healthy_page_update(miner_status_t *miner_status){
-  uint16_t SCALE = (g_nmaxe.mstatus.hr_dist.max_x_hr / g_nmaxe.mstatus.hr_dist.max_x_bars);
+  uint16_t SCALE = (g_board.mstatus.hr_dist.max_x_hr / g_board.mstatus.hr_dist.max_x_bars);
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -1074,15 +1074,15 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
     lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
     lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
     lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, g_nmaxe.mstatus.hr_dist.max_x_bars - 1); 
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, g_board.mstatus.hr_dist.max_x_bars - 1); 
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
     lv_chart_set_div_line_count(chart, 5, 4);
 
     // Add a series to the chart
     series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    lv_chart_set_point_count(chart, g_nmaxe.mstatus.hr_dist.max_x_bars);
+    lv_chart_set_point_count(chart, g_board.mstatus.hr_dist.max_x_bars);
     lv_chart_set_all_value(chart, series, 0);
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, g_nmaxe.mstatus.hr_dist.max_x_bars, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, g_board.mstatus.hr_dist.max_x_bars, 1, true, 25);
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
     lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -1100,21 +1100,21 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
 
   static uint64_t *counts = NULL;
   if (counts == NULL) {
-    counts = (uint64_t *)malloc(g_nmaxe.mstatus.hr_dist.max_x_bars * sizeof(uint64_t));
-    memset(counts, 0, g_nmaxe.mstatus.hr_dist.max_x_bars * sizeof(uint64_t));
+    counts = (uint64_t *)malloc(g_board.mstatus.hr_dist.max_x_bars * sizeof(uint64_t));
+    memset(counts, 0, g_board.mstatus.hr_dist.max_x_bars * sizeof(uint64_t));
   }
   int index = last_hashrate/1000/1000/1000 / SCALE; // Convert to GH/s and scale
-  index = (index >= g_nmaxe.mstatus.hr_dist.max_x_bars) ? g_nmaxe.mstatus.hr_dist.max_x_bars - 1 : index;
+  index = (index >= g_board.mstatus.hr_dist.max_x_bars) ? g_board.mstatus.hr_dist.max_x_bars - 1 : index;
   counts[index]++;
-  g_nmaxe.mstatus.hr_dist.times++;
-  for (int i = 0; i < g_nmaxe.mstatus.hr_dist.max_x_bars; i++) {
-    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)g_nmaxe.mstatus.hr_dist.times);
+  g_board.mstatus.hr_dist.times++;
+  for (int i = 0; i < g_board.mstatus.hr_dist.max_x_bars; i++) {
+    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)g_board.mstatus.hr_dist.times);
     lv_chart_set_value_by_id(chart, series, i, y);
-    g_nmaxe.mstatus.hr_dist.dist_map[i] = y;// Update the global distribution map
+    g_board.mstatus.hr_dist.dist_map[i] = y;// Update the global distribution map
   }
   // time cost of this feature
   static uint64_t start = millis();
-  g_nmaxe.mstatus.hr_dist.dura = (millis() - start) / 1000;
+  g_board.mstatus.hr_dist.dura = (millis() - start) / 1000;
 
   String hr = formatNumber(last_hashrate, 3);
   String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
@@ -1123,7 +1123,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
   //hashrate unit
   lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
   //time cost
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(g_nmaxe.mstatus.hr_dist.times) + "t/"+ String(g_nmaxe.mstatus.hr_dist.dura) + "s").c_str());
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(g_board.mstatus.hr_dist.times) + "t/"+ String(g_board.mstatus.hr_dist.dura) + "s").c_str());
 }
 
 static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
@@ -1211,7 +1211,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
 
   
   String hr       = formatNumber(miner_status->hashrate._3m, 3);
-  String datetime = convert_time_to_local(g_nmaxe.mstatus.utc);
+  String datetime = convert_time_to_local(g_board.mstatus.utc);
   String hr_unit = (miner_status->hashrate._3m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
   lv_label_set_text_fmt(lb_hashrate, "%s", hr.substring(0, hr.length() - 1).c_str());
@@ -1243,12 +1243,12 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
 }
 
 void ui_switch_next_page_cb(){
-  g_nmaxe.preference.led.sleep         = (g_nmaxe.preference.led.sleep_last) ? false : g_nmaxe.preference.led.sleep; //switch led sleep mode
+  g_board.preference.led.sleep         = (g_board.preference.led.sleep_last) ? false : g_board.preference.led.sleep; //switch led sleep mode
 
-  g_nmaxe.preference.screen.brightness = g_nmaxe.preference.screen.brightness_last;//restore brightness
+  g_board.preference.screen.brightness = g_board.preference.screen.brightness_last;//restore brightness
 
-  if(g_nmaxe.mstatus.last_hits!= g_nmaxe.mstatus.hits) {
-    g_nmaxe.mstatus.last_hits = g_nmaxe.mstatus.hits;    //save last hits if button pressed
+  if(g_board.mstatus.last_hits!= g_board.mstatus.hits) {
+    g_board.mstatus.last_hits = g_board.mstatus.hits;    //save last hits if button pressed
     return;
   } 
 
@@ -1292,7 +1292,7 @@ void ui_thread_entry(void *args){
   lv_obj_scroll_to_view(ui_pages[PAGE_LOADING], LV_ANIM_ON); 
 
   //backlight brightness ramp up
-  for(int i = 0; i < g_nmaxe.preference.screen.brightness; i++) {
+  for(int i = 0; i < g_board.preference.screen.brightness; i++) {
     tft_bl_ctrl(i);
     delay(10);
   }
@@ -1301,47 +1301,47 @@ void ui_thread_entry(void *args){
 
   //Vbus check 
   ui_loading_str_update(vbus_chk_str[0], 0xFFFFFF, true);
-  while (!g_nmaxe.power->is_adc_ready()){
+  while (!g_board.power->is_adc_ready()){
     ui_loading_str_update(vbus_chk_str[(cnt++)%4], 0xFFFFFF, false);
     delay(500);
   }
   
   //Vbus type check, DC or USB 
-  if(g_nmaxe.power->is_dc_pluged()) ui_loading_str_update("DC pluged.", 0x00ff00, true);
+  if(g_board.power->is_dc_pluged()) ui_loading_str_update("DC pluged.", 0x00ff00, true);
   else ui_loading_str_update("USB pluged.", 0x00ff00, true);
   delay(500);
 
   //Vbus type check and voltage check
-  while(g_nmaxe.power->get_vbus() < VBUS_MIN_VOLTAGE){
+  while(g_board.power->get_vbus() < VBUS_MIN_VOLTAGE){
       static bool blink = false;
       uint32_t color = (blink) ? 0xFF0000 : 0xFFFFFF;
-      String vbusString = "Vbus " + String(g_nmaxe.power->get_vbus()/1000.0, 1) + "v(at least" + String(VBUS_MIN_VOLTAGE / 1000.0, 1) + "v)";
+      String vbusString = "Vbus " + String(g_board.power->get_vbus()/1000.0, 1) + "v(at least" + String(VBUS_MIN_VOLTAGE / 1000.0, 1) + "v)";
       ui_loading_str_update(vbusString, color, false);
       blink = !blink;
-      if(!g_nmaxe.power->is_dc_pluged()){
+      if(!g_board.power->is_dc_pluged()){
         disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
         delay(500);
       }
       delay(500);
   }
-  ui_loading_str_update("Vbus " + String(g_nmaxe.power->get_vbus() / 1000.0, 3) + "V.", 0x00FF00, true);
+  ui_loading_str_update("Vbus " + String(g_board.power->get_vbus() / 1000.0, 3) + "V.", 0x00FF00, true);
   delay(500);
 
   /***************************************wait fan self test *******************************************/
   cnt = 0;
   ui_loading_str_update(fan_test_str[0], 0xFFFFFF, true);
-  while(!g_nmaxe.preference.fan.self_test){
-    ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_nmaxe.preference.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + "rpm", 0xFFFFFF, false);
+  while(!g_board.preference.fan.self_test){
+    ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_board.preference.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + "rpm", 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update("Pass! [" + String(g_nmaxe.preference.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + " rpm]", 0x00FF00, true);
+  ui_loading_str_update("Pass! [" + String(g_board.preference.fan.rpm) + "/ " + String(FAN_FULL_RPM_MIN) + " rpm]", 0x00FF00, true);
   delay(2000);
 
   /***************************************wait Vcore self test *****************************************/
   ui_loading_str_update("Vcore check...", 0xFFFFFF, true);
   delay(500);
   //Vcore voltage check
-  while(!g_nmaxe.power->is_vcore_good()){
+  while(!g_board.power->is_vcore_good()){
     static bool blink = false;
     uint32_t color = (blink) ? 0xFF0000 : 0xFFFFFF;
     ui_loading_str_update("Vcore error.", color, false);
@@ -1349,22 +1349,22 @@ void ui_thread_entry(void *args){
     delay(500);
   }
   delay(200);//wait for vcore set to target voltage
-  ui_loading_str_update(String("Vcore ") + String(g_nmaxe.power->get_vcore() / 1000.0, 3) + "v.", 0x00FF00, true);
+  ui_loading_str_update(String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.", 0x00FF00, true);
   delay(500);
   /****************************************wait for asic init********************************************/
-  while(g_nmaxe.miner == nullptr) delay(10); //wait miner object created
+  while(g_board.miner == nullptr) delay(10); //wait miner object created
   cnt = 0;
-  while(g_nmaxe.miner->get_asic_count() == 0){
+  while(g_board.miner->get_asic_count() == 0){
     ui_loading_str_update(String(asci_init_str[cnt++ % 4]), 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update(String("Found " + String(g_nmaxe.miner->get_asic_count())) + " chip", 0x00FF00, true);
+  ui_loading_str_update(String("Found " + String(g_board.miner->get_asic_count())) + " chip", 0x00FF00, true);
   delay(1000);
   /***************************************wait for wifi connected****************************************/
   cnt = 0;
-  while(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED){
-    ui_loading_str_update(wifi_con_str[(cnt++)%4]  + String("[") + g_nmaxe.connection.wifi.conn_param.ssid +  String("]"), 0xFFFFFF, false);
-    if(xSemaphoreTake(g_nmaxe.connection.wifi.force_cfg_xsem, 100) == pdTRUE){
+  while(g_board.connection.wifi.status_param.status != WL_CONNECTED){
+    ui_loading_str_update(wifi_con_str[(cnt++)%4]  + String("[") + g_board.connection.wifi.conn_param.ssid +  String("]"), 0xFFFFFF, false);
+    if(xSemaphoreTake(g_board.connection.wifi.force_cfg_xsem, 100) == pdTRUE){
       ui_loading_str_update(String("Timeout!"), 0xFF0000, false);
       delay(500);
       //config background
@@ -1375,7 +1375,7 @@ void ui_thread_entry(void *args){
       lv_color_t font_color = lv_color_hex(0xFFFFFF);
       lv_obj_t *lb_cfg = lv_label_create(ui_pages[PAGE_CONFIG]);
       lv_obj_t *lb_version = lv_label_create(ui_pages[PAGE_CONFIG]);
-      String str = g_nmaxe.connection.wifi.softap_param.ssid + "\r\n"+ g_nmaxe.connection.wifi.softap_param.ip.toString();
+      String str = g_board.connection.wifi.softap_param.ssid + "\r\n"+ g_board.connection.wifi.softap_param.ip.toString();
 
       lv_obj_set_width(lb_cfg, 120);
       lv_label_set_text(lb_cfg, str.c_str());
@@ -1386,7 +1386,7 @@ void ui_thread_entry(void *args){
       lv_obj_align(lb_cfg, LV_ALIGN_LEFT_MID, 8, 38);
 
       lv_obj_set_width(lb_version, 120);
-      lv_label_set_text(lb_version, g_nmaxe.board.fw_version.c_str());
+      lv_label_set_text(lb_version, g_board.info.fw_version.c_str());
       lv_obj_set_style_text_font(lb_version, font, LV_PART_MAIN);
       lv_obj_set_style_text_color(lb_version, font_color, LV_PART_MAIN);
       lv_label_set_long_mode(lb_version, LV_LABEL_LONG_WRAP);
@@ -1395,20 +1395,20 @@ void ui_thread_entry(void *args){
 
       //QR code
       lv_obj_t *qrcode = lv_qrcode_create(ui_pages[PAGE_CONFIG], SCREEN_HEIGHT - 30, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
-      String qr_str = "WIFI:T:WPA;S:" + g_nmaxe.connection.wifi.softap_param.ssid + ";P:" + g_nmaxe.connection.wifi.softap_param.pwd + ";H:false;";
+      String qr_str = "WIFI:T:WPA;S:" + g_board.connection.wifi.softap_param.ssid + ";P:" + g_board.connection.wifi.softap_param.pwd + ";H:false;";
       lv_qrcode_update(qrcode, (uint8_t*)qr_str.c_str(), qr_str.length());
       lv_obj_align(qrcode, LV_ALIGN_RIGHT_MID, 0, 0);
 
       while (true){
         static uint8_t cnt = 0;
-        String str = (g_nmaxe.connection.client_connected) ? config_str[cnt++%4] : (String(g_nmaxe.connection.wifi.status_param.config_timeout) + "s");
+        String str = (g_board.connection.client_connected) ? config_str[cnt++%4] : (String(g_board.connection.wifi.status_param.config_timeout) + "s");
         //config timeout label location
-        if(g_nmaxe.connection.client_connected) lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 160, 0);
+        if(g_board.connection.client_connected) lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 160, 0);
         else lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 175, 0);
 
         lv_label_set_text(lb_cfg_timeout, str.c_str());
         //update ota page
-        if(g_nmaxe.ota.ota_running){
+        if(g_board.ota.ota_running){
           ui_ota_page_update();
         }
         delay(1000);//wait for configuration and miner will restart after configuration
@@ -1421,14 +1421,14 @@ void ui_thread_entry(void *args){
   /***************************************wait for version check**************************************/
   cnt = 0;
   ui_loading_str_update(ver_chk_str[0], 0xFFFFFF, true);
-  while(g_nmaxe.board.fw_latest_release == ""){
+  while(g_board.info.fw_latest_release == ""){
     ui_loading_str_update(ver_chk_str[cnt++ % 4], 0xFFFFFF, false);
     delay(500);
   }
 
-  int res = compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release);
+  int res = compareVersions(g_board.info.fw_version, g_board.info.fw_latest_release);
   if(res == -1){
-    String str = "Update to: " + g_nmaxe.board.fw_latest_release;
+    String str = "Update to: " + g_board.info.fw_latest_release;
     ui_loading_str_update(str, 0xFFFFFF, true);
     while (cnt++ <= 15){
       delay(250);
@@ -1450,9 +1450,9 @@ void ui_thread_entry(void *args){
   cnt = 0;
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
   uint32_t start = millis();
-  while(0 == g_nmaxe.market->lastUpdate){
-    ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_nmaxe.coin).c_str(), 0xFFFFFF, false);
-    if(millis() - start - g_nmaxe.market->lastUpdate >= MARKET_TIMEOUT){
+  while(0 == g_board.market->lastUpdate){
+    ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_board.coin).c_str(), 0xFFFFFF, false);
+    if(millis() - start - g_board.market->lastUpdate >= MARKET_TIMEOUT){
       ui_loading_str_update("Market update timeout!", 0xFF0000, false);
       delay(500);
       break;
@@ -1460,16 +1460,16 @@ void ui_thread_entry(void *args){
     delay(300);
   }
   delay(500);
-  if(0 != g_nmaxe.market->lastUpdate) ui_loading_str_update("Market connected!", 0x00FF00, true);
+  if(0 != g_board.market->lastUpdate) ui_loading_str_update("Market connected!", 0x00FF00, true);
   delay(1000);
   /***************************************wait for pool connected**************************************/
   cnt = 0;
-  while(!g_nmaxe.stratum->is_subscribed()){
-    if(g_nmaxe.stratum->pool->get_last_errormsg().length() > 0){
+  while(!g_board.stratum->is_subscribed()){
+    if(g_board.stratum->pool->get_last_errormsg().length() > 0){
       uint32_t color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
-      ui_loading_str_update(g_nmaxe.stratum->pool->get_last_errormsg().c_str(), color, false);
+      ui_loading_str_update(g_board.stratum->pool->get_last_errormsg().c_str(), color, false);
     }else{
-      String con_type = g_nmaxe.connection.pool_use.ssl ? "[ssl]" : "[tcp]";
+      String con_type = g_board.connection.pool_use.ssl ? "[ssl]" : "[tcp]";
       ui_loading_str_update(String(pool_con_str[(cnt)%4] + con_type), 0xFFFFFF, false);
     }
     cnt++;
@@ -1479,7 +1479,7 @@ void ui_thread_entry(void *args){
   delay(100);
   /******************************************wait pool authorized*************************************/
   cnt = 0;
-  while(!g_nmaxe.stratum->is_authorized()){
+  while(!g_board.stratum->is_authorized()){
     ui_loading_str_update(pool_auth_str[(cnt++)%4], 0xFFFFFF, false);
     delay(300);
     while (cnt >= 20){
@@ -1487,21 +1487,21 @@ void ui_thread_entry(void *args){
       delay(500);
       ui_loading_str_update("Wrong stratum user!", 0xFFFFFF, false);
       delay(500);
-      if(g_nmaxe.stratum->is_authorized()) break;
+      if(g_board.stratum->is_authorized()) break;
     }
   }
   ui_loading_str_update("Pool authorized!", 0x00FF00, true);
   delay(100);
   /******************************************wait first job*******************************************/
   cnt = 0;
-  while(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, 300) == pdFAIL){
+  while(xSemaphoreTake(g_board.stratum->new_job_xsem, 300) == pdFAIL){
     ui_loading_str_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
     while (cnt >= 3*20){
       ui_loading_str_update("Pool job timeout!", 0xFF0000, false);
       delay(500);
       ui_loading_str_update("Pool job timeout!", 0xFFFFFF, false);
       delay(500);
-      if(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, 0) == pdPASS) break;
+      if(xSemaphoreTake(g_board.stratum->new_job_xsem, 0) == pdPASS) break;
     }
   }
   ui_loading_str_update("Miner ready!", 0x00FF00, true);
@@ -1511,11 +1511,11 @@ void ui_thread_entry(void *args){
 
   while (true){
     //wait for miner status update forever
-    xSemaphoreTake(g_nmaxe.mstatus.update_xsem, portMAX_DELAY);
+    xSemaphoreTake(g_board.mstatus.update_xsem, portMAX_DELAY);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
       // auto screen scrolling
       static uint32_t start = millis();
-      if((millis() - start >= 1000*10) && g_nmaxe.preference.screen.auto_screen){
+      if((millis() - start >= 1000*10) && g_board.preference.screen.auto_screen){
         ui_switch_next_page_cb();
         start = millis();
       }
@@ -1525,9 +1525,9 @@ void ui_thread_entry(void *args){
       //update dashboard page
       ui_dashboard_page_update();
       //update hashrate healthy page
-      ui_hr_healthy_page_update(&g_nmaxe.mstatus);
+      ui_hr_healthy_page_update(&g_board.mstatus);
       //update big digit page
-      ui_big_digit_page_update(&g_nmaxe.mstatus, g_nmaxe.market->price);
+      ui_big_digit_page_update(&g_board.mstatus, g_board.market->price);
       //update ota page
       ui_ota_page_update();
       //release mutex

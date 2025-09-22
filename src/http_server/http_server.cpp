@@ -92,51 +92,51 @@ static void get_system_info(AsyncWebServerRequest* request){
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    root["power"] = (g_nmaxe.board.ibus /1000.0f) * (g_nmaxe.board.vbus / 1000.0f);
-    root["voltage"] = g_nmaxe.board.vbus;
-    root["current"] = g_nmaxe.board.ibus;
-    root["temp"] = g_nmaxe.temp.asic;
-    root["vrTemp"] = g_nmaxe.temp.vcore;
-    root["mcuTemp"] = g_nmaxe.temp.mcu;
-    root["hashRate"] = g_nmaxe.mstatus.hashrate._3m/1000/1000/1000;
-    root["bestDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_ever, 4);
-    root["bestSessionDiff"] = formatNumber(g_nmaxe.mstatus.diff.best_session, 4);
+    root["power"] = (g_board.status.ibus /1000.0f) * (g_board.status.vbus / 1000.0f);
+    root["voltage"] = g_board.status.vbus;
+    root["current"] = g_board.status.ibus;
+    root["temp"] = g_board.temp.asic;
+    root["vrTemp"] = g_board.temp.vcore;
+    root["mcuTemp"] = g_board.temp.mcu;
+    root["hashRate"] = g_board.mstatus.hashrate._3m/1000/1000/1000;
+    root["bestDiff"] = formatNumber(g_board.mstatus.diff.best_ever, 4);
+    root["bestSessionDiff"] = formatNumber(g_board.mstatus.diff.best_session, 4);
     root["freeHeap"] = ESP.getFreeHeap();
-    root["coreVoltage"] = g_nmaxe.asic.vcore_req;
-    root["coreVoltageActual"] = g_nmaxe.asic.vcore_measured;
-    root["frequency"] = g_nmaxe.asic.frequency_req;
-    root["hostname"] = g_nmaxe.board.hostname;
-    root["timezone"] = g_nmaxe.mstatus.timezone;
-    root["ssid"] = g_nmaxe.connection.wifi.conn_param.ssid;
-    root["wifiStatus"] = ((g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
-    root["sharesAccepted"] = g_nmaxe.mstatus.share_accepted;
-    root["sharesRejected"] = g_nmaxe.mstatus.share_rejected;
-    root["uptimeSeconds"] = g_nmaxe.mstatus.uptime_session;
-    root["asicCount"] = g_nmaxe.miner->get_asic_count();
-    root["smallCoreCount"] = g_nmaxe.miner->get_asic_small_cores();
-    root["ASICModel"] = g_nmaxe.asic.model;
-    root["stratumUserUSED"] = g_nmaxe.connection.stratum_use.user;
-    root["stratumURLUSED"] = g_nmaxe.connection.pool_use.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_use.url + ":" + String(g_nmaxe.connection.pool_use.port));
-    root["stratumUser1"] = g_nmaxe.connection.stratum_primary.user;
-    root["stratumPassword1"] = g_nmaxe.connection.stratum_primary.pwd;
-    root["stratumUser2"]     = g_nmaxe.connection.stratum_fallback.user;
-    root["stratumPassword2"] = g_nmaxe.connection.stratum_fallback.pwd;
-    root["stratumURL1"] = g_nmaxe.connection.pool_primary.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_primary.url + ":" + String(g_nmaxe.connection.pool_primary.port));
-    root["stratumURL2"] = g_nmaxe.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port)) : ("stratum+tcp://" + g_nmaxe.connection.pool_fallback.url + ":" + String(g_nmaxe.connection.pool_fallback.port));
-    root["version"] = g_nmaxe.board.fw_version;
-    root["boardVersion"] = g_nmaxe.board.hw_model;
-    root["flipscreen"] = g_nmaxe.preference.screen.flip;
-    root["ledindicator"] = g_nmaxe.preference.led.enable;
+    root["coreVoltage"] = g_board.asic.vcore_req;
+    root["coreVoltageActual"] = g_board.asic.vcore_measured;
+    root["frequency"] = g_board.asic.frequency_req;
+    root["hostname"] = g_board.info.hostname;
+    root["timezone"] = g_board.mstatus.timezone;
+    root["ssid"] = g_board.connection.wifi.conn_param.ssid;
+    root["wifiStatus"] = ((g_board.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
+    root["sharesAccepted"] = g_board.mstatus.share_accepted;
+    root["sharesRejected"] = g_board.mstatus.share_rejected;
+    root["uptimeSeconds"] = g_board.mstatus.uptime_session;
+    root["asicCount"] = g_board.miner->get_asic_count();
+    root["smallCoreCount"] = g_board.miner->get_asic_small_cores();
+    root["ASICModel"] = g_board.asic.model;
+    root["stratumUserUSED"] = g_board.connection.stratum_use.user;
+    root["stratumURLUSED"] = g_board.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.connection.pool_use.url + ":" + String(g_board.connection.pool_use.port)) : ("stratum+tcp://" + g_board.connection.pool_use.url + ":" + String(g_board.connection.pool_use.port));
+    root["stratumUser1"] = g_board.connection.stratum_primary.user;
+    root["stratumPassword1"] = g_board.connection.stratum_primary.pwd;
+    root["stratumUser2"]     = g_board.connection.stratum_fallback.user;
+    root["stratumPassword2"] = g_board.connection.stratum_fallback.pwd;
+    root["stratumURL1"] = g_board.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.connection.pool_primary.url + ":" + String(g_board.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.connection.pool_primary.url + ":" + String(g_board.connection.pool_primary.port));
+    root["stratumURL2"] = g_board.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.connection.pool_fallback.url + ":" + String(g_board.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.connection.pool_fallback.url + ":" + String(g_board.connection.pool_fallback.port));
+    root["version"] = g_board.info.fw_version;
+    root["boardVersion"] = g_board.info.hw_model;
+    root["flipscreen"] = g_board.preference.screen.flip;
+    root["ledindicator"] = g_board.preference.led.enable;
     root["overheat_mode"] = 0;
     root["invertscreen"]  = 1;
-    root["invertfanpolarity"] = g_nmaxe.preference.fan.invert_ploarity;
-    root["autofanspeed"] = g_nmaxe.preference.fan.is_auto_speed;
-    root["autoscreen"]   = g_nmaxe.preference.screen.auto_screen;
-    root["fanspeed"] = g_nmaxe.preference.fan.speed;
-    root["targetAsicTemp"] = String(g_nmaxe.preference.fan.target_temp);
-    root["fanrpm"] = g_nmaxe.preference.fan.rpm;
-    root["brightness"] = g_nmaxe.preference.screen.brightness_last;
-    root["coin"] = g_nmaxe.coin;
+    root["invertfanpolarity"] = g_board.preference.fan.invert_ploarity;
+    root["autofanspeed"] = g_board.preference.fan.is_auto_speed;
+    root["autoscreen"]   = g_board.preference.screen.auto_screen;
+    root["fanspeed"] = g_board.preference.fan.speed;
+    root["targetAsicTemp"] = String(g_board.preference.fan.target_temp);
+    root["fanrpm"] = g_board.preference.fan.rpm;
+    root["brightness"] = g_board.preference.screen.brightness_last;
+    root["coin"] = g_board.coin;
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
@@ -146,12 +146,12 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    root["max_bars"]    = g_nmaxe.mstatus.hr_dist.max_x_bars;
-    root["max_hr"]      = g_nmaxe.mstatus.hr_dist.max_x_hr;
-    root["times"]       = g_nmaxe.mstatus.hr_dist.times;
-    root["dura"]        = g_nmaxe.mstatus.hr_dist.dura;
+    root["max_bars"]    = g_board.mstatus.hr_dist.max_x_bars;
+    root["max_hr"]      = g_board.mstatus.hr_dist.max_x_hr;
+    root["times"]       = g_board.mstatus.hr_dist.times;
+    root["dura"]        = g_board.mstatus.hr_dist.dura;
     JsonObject dist_map = root.createNestedObject("dist");
-    for (const auto& pair : g_nmaxe.mstatus.hr_dist.dist_map) {
+    for (const auto& pair : g_board.mstatus.hr_dist.dist_map) {
         dist_map[String(pair.first)] = pair.second; 
     }
 
@@ -167,9 +167,9 @@ static void get_status_history(AsyncWebServerRequest* request){
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
-    if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_nmaxe.mstatus.status_history.size();
-        xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
+    if (xSemaphoreTake(g_board.mstatus.history_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        history_size = g_board.mstatus.status_history.size();
+        xSemaphoreGive(g_board.mstatus.history_mutex);
         LOG_D("History size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
@@ -223,7 +223,7 @@ static void get_status_history(AsyncWebServerRequest* request){
     DynamicJsonDocument root(json_size_max);
     
     // Build JSON structure
-    uint64_t ms = g_nmaxe.mstatus.utc * 1000ULL;
+    uint64_t ms = g_board.mstatus.utc * 1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
@@ -247,12 +247,12 @@ static void get_status_history(AsyncWebServerRequest* request){
     size_t actual_history_size = 0;
     
     // Acquire mutex for history traversal
-    if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, portMAX_DELAY) == pdTRUE) {
-        actual_history_size = g_nmaxe.mstatus.status_history.size();
+    if (xSemaphoreTake(g_board.mstatus.history_mutex, portMAX_DELAY) == pdTRUE) {
+        actual_history_size = g_board.mstatus.status_history.size();
         LOG_D("Starting sampling: %d total records, interval: %d, max points: %d", 
               actual_history_size, actual_sample_interval, MAX_DATA_POINTS);
         
-        for (const auto& history : g_nmaxe.mstatus.status_history) {
+        for (const auto& history : g_board.mstatus.status_history) {
             if(idx % actual_sample_interval == 0) {
                 // Stop if we've reached the maximum data points limit
                 if (sampled_count >= MAX_DATA_POINTS) {
@@ -305,7 +305,7 @@ static void get_status_history(AsyncWebServerRequest* request){
             }
         }
         
-        xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
+        xSemaphoreGive(g_board.mstatus.history_mutex);
         LOG_D("Sampling completed: %d samples from %d total records, interval: %d", 
               sampled_count, actual_history_size, actual_sample_interval);
     } else {
@@ -403,7 +403,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     // Use local document instead of static to prevent memory leaks
     DynamicJsonDocument root(json_size_max);
 
-    uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
+    uint64_t ms = g_board.mstatus.utc*1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
@@ -423,9 +423,9 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     JsonArray data = root.createNestedArray("statistics");
     
     // Protect status_history access with mutex
-    if (xSemaphoreTake(g_nmaxe.mstatus.history_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
-        if (!g_nmaxe.mstatus.status_history.empty()) {
-            auto& history = g_nmaxe.mstatus.status_history.back();
+    if (xSemaphoreTake(g_board.mstatus.history_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
+        if (!g_board.mstatus.status_history.empty()) {
+            auto& history = g_board.mstatus.status_history.back();
             JsonArray dataPoint = data.createNestedArray();
             dataPoint.add(history.hashrate);           // hashRate (GH/s)
             dataPoint.add(history.asic_temp);          // asic_temp (°C)
@@ -441,22 +441,22 @@ static void get_status_realtime(AsyncWebServerRequest* request){
             dataPoint.add(history.free_psram);         // freePsram (KB)
             dataPoint.add(history.epoch);              // timestamp (ms)
         }
-        xSemaphoreGive(g_nmaxe.mstatus.history_mutex);
+        xSemaphoreGive(g_board.mstatus.history_mutex);
     }
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 
-    LOG_D("Status realtime sent, history size: %d...", g_nmaxe.mstatus.status_history.size());
+    LOG_D("Status realtime sent, history size: %d...", g_board.mstatus.status_history.size());
 }
 static void get_lucky_history(AsyncWebServerRequest* request){
     LOG_D("Starting lucky history request processing...");
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
-    if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_nmaxe.mstatus.block_proximity_history.size();
-        xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
+    if (xSemaphoreTake(g_board.mstatus.block_proximity_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        history_size = g_board.mstatus.block_proximity_history.size();
+        xSemaphoreGive(g_board.mstatus.block_proximity_mutex);
         LOG_D("Lucky history size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
@@ -487,7 +487,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     DynamicJsonDocument root(json_size_max);
     
     // Build JSON structure
-    uint64_t ms = g_nmaxe.mstatus.utc * 1000ULL;
+    uint64_t ms = g_board.mstatus.utc * 1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("proximity");
@@ -500,10 +500,10 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     size_t sampled_count = 0;
     
     // Acquire mutex for history traversal
-    if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE) {
+    if (xSemaphoreTake(g_board.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE) {
         LOG_D("Starting data collection: %d total records", history_size);
         
-        for (const auto& history : g_nmaxe.mstatus.block_proximity_history) {
+        for (const auto& history : g_board.mstatus.block_proximity_history) {
             JsonArray dataPoint = data.createNestedArray();
             
             dataPoint.add(history.block_proximity);
@@ -515,7 +515,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
             if (sampled_count % 100 == 0) delay(1);
         }
         
-        xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
+        xSemaphoreGive(g_board.mstatus.block_proximity_mutex);
         LOG_D("Data collection completed: %d samples from %d total records", sampled_count, history_size);
     } else {
         LOG_E("Failed to acquire history mutex for data collection");
@@ -554,7 +554,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
 //     // Use local document instead of static to prevent memory leaks
 //     DynamicJsonDocument root(json_size_max);
 
-//     uint64_t ms = g_nmaxe.mstatus.utc*1000ULL;
+//     uint64_t ms = g_board.mstatus.utc*1000ULL;
 //     root["timestamp"] = ms;
 //     JsonArray labels = root.createNestedArray("labels");
 //     labels.add("proximity");
@@ -565,22 +565,22 @@ static void get_lucky_history(AsyncWebServerRequest* request){
 //     JsonArray data = root.createNestedArray("statistics");
     
 //     // Protect block_proximity_history access with mutex
-//     if (xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
-//         if (!g_nmaxe.mstatus.block_proximity_history.empty()) {
-//             auto& history = g_nmaxe.mstatus.block_proximity_history.back();
+//     if (xSemaphoreTake(g_board.mstatus.block_proximity_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
+//         if (!g_board.mstatus.block_proximity_history.empty()) {
+//             auto& history = g_board.mstatus.block_proximity_history.back();
 //             JsonArray dataPoint = data.createNestedArray();
 //             dataPoint.add(history.block_proximity);
 //             dataPoint.add(history.share_diff);
 //             dataPoint.add(history.net_diff);
 //             dataPoint.add(history.epoch);
 //         }
-//         xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
+//         xSemaphoreGive(g_board.mstatus.block_proximity_mutex);
 //     }
 //     String json_str;
 //     serializeJson(root, json_str);
 //     request->send(200, "application/json", json_str);
 
-//     LOG_D("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_nmaxe.mstatus.block_proximity_history.size());
+//     LOG_D("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_board.mstatus.block_proximity_history.size());
 // }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
@@ -589,7 +589,7 @@ static void get_swarm_info_handler(AsyncWebServerRequest* request){
     DynamicJsonDocument root(json_size_max);
 
     JsonArray devicesArray = root.createNestedArray("devices");
-    for (auto it = g_nmaxe.swarm.begin(); it != g_nmaxe.swarm.end(); it++) {
+    for (auto it = g_board.swarm.begin(); it != g_board.swarm.end(); it++) {
         String ip        = it->first;
         String swarm_str = it->second;
 
@@ -719,7 +719,7 @@ static void post_restart(AsyncWebServerRequest * request){
     // Send HTTP response before restarting
     request->send(200, "text/plain", "System will restart shortly.");
     delay(500);
-    xSemaphoreGive(g_nmaxe.board.reboot_xsem);
+    xSemaphoreGive(g_board.status.reboot_xsem);
 }
 static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
     static uint16_t SCRATCH_BUFSIZE = 512;
@@ -773,7 +773,7 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("timezone")){
             nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
-            g_nmaxe.mstatus.timezone = root["timezone"].as<String>();
+            g_board.mstatus.timezone = root["timezone"].as<String>();
         }
         if(root.containsKey("ssid")){
             nvs_config_set_string(NVS_CONFIG_WIFI_SSID,root["ssid"].as<String>().c_str());
@@ -784,19 +784,19 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         if(root.containsKey("hostname")){
             nvs_config_set_string(NVS_CONFIG_HOSTNAME,root["hostname"].as<String>().c_str());
             nvs_config_set_string(NVS_CONFIG_AP_SSID, root["hostname"].as<String>().c_str());
-            g_nmaxe.board.hostname                    = root["hostname"].as<String>();
-            g_nmaxe.connection.wifi.softap_param.ssid = root["hostname"].as<String>();
+            g_board.info.hostname                    = root["hostname"].as<String>();
+            g_board.connection.wifi.softap_param.ssid = root["hostname"].as<String>();
         }
         if(root.containsKey("coreVoltage")){
             uint16_t req_mv = root["coreVoltage"].as<uint16_t>();
-            g_nmaxe.asic.vcore_req = req_mv;
-            g_nmaxe.power->set_vcore_voltage(req_mv);
+            g_board.asic.vcore_req = req_mv;
+            g_board.power->set_vcore_voltage(req_mv);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, root["coreVoltage"].as<uint16_t>());
         }
         if(root.containsKey("brightness")){
-            g_nmaxe.preference.screen.brightness = root["brightness"].as<uint8_t>();
-            g_nmaxe.preference.screen.brightness_last = g_nmaxe.preference.screen.brightness;
-            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_nmaxe.preference.screen.brightness);
+            g_board.preference.screen.brightness = root["brightness"].as<uint8_t>();
+            g_board.preference.screen.brightness_last = g_board.preference.screen.brightness;
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.preference.screen.brightness);
         }
         if(root.containsKey("frequency")){
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, root["frequency"].as<uint16_t>());
@@ -805,8 +805,8 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
             nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());
         }
         if(root.containsKey("ledindicator")){
-            g_nmaxe.preference.led.enable = root["ledindicator"].as<uint8_t>();
-            g_nmaxe.preference.led.sleep  = false;
+            g_board.preference.led.enable = root["ledindicator"].as<uint8_t>();
+            g_board.preference.led.sleep  = false;
             nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledindicator"].as<uint8_t>());
         }
         if(root.containsKey("overheat_mode")){
@@ -814,35 +814,35 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("coin")){
             nvs_config_set_string(NVS_CONFIG_MINING_COIN,root["coin"].as<String>().c_str());
-            g_nmaxe.coin = root["coin"].as<String>();
+            g_board.coin = root["coin"].as<String>();
         }
         if(root.containsKey("invertscreen")){
 
         }
         if(root.containsKey("invertfanpolarity")){
             nvs_config_set_u16(NVS_CONFIG_INVERT_FAN_POLARITY, root["invertfanpolarity"].as<uint16_t>());
-            g_nmaxe.preference.fan.invert_ploarity = root["invertfanpolarity"].as<uint16_t>();
+            g_board.preference.fan.invert_ploarity = root["invertfanpolarity"].as<uint16_t>();
         }
         if(root.containsKey("autofanspeed")){
             nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());
-            g_nmaxe.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
+            g_board.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
         }
         if(root.containsKey("targetAsicTemp")){
             nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, root["targetAsicTemp"].as<String>().c_str());
-            g_nmaxe.preference.fan.target_temp = root["targetAsicTemp"].as<String>().toFloat();
+            g_board.preference.fan.target_temp = root["targetAsicTemp"].as<String>().toFloat();
         }
         if(root.containsKey("autoscreen")){
             nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
-            g_nmaxe.preference.screen.auto_screen = root["autoscreen"].as<uint8_t>();
+            g_board.preference.screen.auto_screen = root["autoscreen"].as<uint8_t>();
         }
         if(root.containsKey("fanspeed")){
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
-            g_nmaxe.preference.fan.speed = root["fanspeed"].as<uint16_t>();
+            g_board.preference.fan.speed = root["fanspeed"].as<uint16_t>();
         }
         if(root.containsKey("blockhits")){
             nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());
-            g_nmaxe.mstatus.hits = root["blockhits"].as<uint16_t>();
-            g_nmaxe.mstatus.last_hits = g_nmaxe.mstatus.hits;
+            g_board.mstatus.hits = root["blockhits"].as<uint16_t>();
+            g_board.mstatus.last_hits = g_board.mstatus.hits;
         }
 
         for (JsonPair kv : root.as<JsonObject>()) {
@@ -875,9 +875,9 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
             request->send(500, "text/plain", "OTA Update Failed. Not enough space.");
             return;
         }else{
-            g_nmaxe.ota.ota_running = true;
-            g_nmaxe.ota.progress    = 0;
-            g_nmaxe.ota.firmware    = filename;
+            g_board.ota.ota_running = true;
+            g_board.ota.progress    = 0;
+            g_board.ota.firmware    = filename;
         }
     }
 
@@ -888,17 +888,17 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
     }
     else{
         static int lastPercentage = -1;
-        g_nmaxe.ota.progress = (int)((index + len) * 100.0 / flen);
-        if (g_nmaxe.ota.progress != lastPercentage) {
-            LOG_I("%s ota: %d%%", filename.c_str(), g_nmaxe.ota.progress);
-            lastPercentage = g_nmaxe.ota.progress;
+        g_board.ota.progress = (int)((index + len) * 100.0 / flen);
+        if (g_board.ota.progress != lastPercentage) {
+            LOG_I("%s ota: %d%%", filename.c_str(), g_board.ota.progress);
+            lastPercentage = g_board.ota.progress;
         }
     }
     delay(1);//yield to avoid WDT and UI thread freeze 
     if (final) {
         if (Update.end(true)) {
-            g_nmaxe.ota.ota_running = false;
-            g_nmaxe.ota.progress = 100;
+            g_board.ota.ota_running = false;
+            g_board.ota.progress = 100;
             // request->send(200);
             AsyncWebServerResponse *response = request->beginResponse(200);
             response->addHeader("Access-Control-Allow-Origin", "*");
@@ -908,7 +908,7 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
 
             LOG_I("Update Success: %u bytes, rebooting...", index + len);
             delay(1000);
-            xSemaphoreGive(g_nmaxe.board.reboot_xsem);
+            xSemaphoreGive(g_board.status.reboot_xsem);
         } else {
             Update.printError(Serial);
             request->send(500, "text/plain", "OTA Update Failed. End error.");
@@ -951,7 +951,7 @@ static void websocket_loop(void *args){
     free(name);
 
     while (true){
-        if(g_nmaxe.connection.wifi.status_param.status == WL_CONNECTED){
+        if(g_board.connection.wifi.status_param.status == WL_CONNECTED){
             webSocket.loop();
         }
         delay(250);

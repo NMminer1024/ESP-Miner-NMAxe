@@ -15,20 +15,20 @@ static void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
             LOG_I("WiFi connected to [%s], waiting for IP...", WiFi.SSID().c_str());
             break;
         case SYSTEM_EVENT_STA_GOT_IP:
-            g_nmaxe.connection.wifi.status_param.ip = WiFi.localIP();
-            g_nmaxe.connection.wifi.status_param.gateway = WiFi.gatewayIP();
-            g_nmaxe.connection.wifi.status_param.subnet = WiFi.subnetMask();
-            g_nmaxe.connection.wifi.status_param.dns = WiFi.dnsIP();
-            g_nmaxe.connection.wifi.status_param.status = WL_CONNECTED;
+            g_board.connection.wifi.status_param.ip = WiFi.localIP();
+            g_board.connection.wifi.status_param.gateway = WiFi.gatewayIP();
+            g_board.connection.wifi.status_param.subnet = WiFi.subnetMask();
+            g_board.connection.wifi.status_param.dns = WiFi.dnsIP();
+            g_board.connection.wifi.status_param.status = WL_CONNECTED;
             retry_cnt = 0;
             LOG_I("Got IP : %s", WiFi.localIP().toString().c_str());
             break;
         case SYSTEM_EVENT_STA_DISCONNECTED:
-            g_nmaxe.connection.wifi.status_param.ip = IPAddress(0, 0, 0, 0);
-            g_nmaxe.connection.wifi.status_param.gateway = IPAddress(0, 0, 0, 0);
-            g_nmaxe.connection.wifi.status_param.subnet = IPAddress(0, 0, 0, 0);
-            g_nmaxe.connection.wifi.status_param.dns = IPAddress(0, 0, 0, 0);
-            g_nmaxe.connection.wifi.status_param.status = WL_DISCONNECTED;
+            g_board.connection.wifi.status_param.ip = IPAddress(0, 0, 0, 0);
+            g_board.connection.wifi.status_param.gateway = IPAddress(0, 0, 0, 0);
+            g_board.connection.wifi.status_param.subnet = IPAddress(0, 0, 0, 0);
+            g_board.connection.wifi.status_param.dns = IPAddress(0, 0, 0, 0);
+            g_board.connection.wifi.status_param.status = WL_DISCONNECTED;
             disconnected = info.wifi_sta_disconnected;
             reason = WiFi.disconnectReasonName((wifi_err_reason_t)disconnected.reason);
             retry_cnt++;
@@ -51,19 +51,19 @@ static void config_timeout_monitor_thread_entry(void *args){
     free(name);
     
     uint16_t timeout = 0;
-    g_nmaxe.connection.wifi.status_param.config_timeout = CONFIG_TIMEOUT;
+    g_board.connection.wifi.status_param.config_timeout = CONFIG_TIMEOUT;
     while(true){
-        if (WL_CONNECTED == g_nmaxe.connection.wifi.status_param.status) {
+        if (WL_CONNECTED == g_board.connection.wifi.status_param.status) {
             break;
         }
 
-        if(g_nmaxe.connection.client_connected == false){
+        if(g_board.connection.client_connected == false){
             if(timeout++ >= CONFIG_TIMEOUT){
                 LOG_W("WiFi configuration timeout, rebooting...");
                 delay(1000);
                 ESP.restart();
             }
-            g_nmaxe.connection.wifi.status_param.config_timeout = CONFIG_TIMEOUT - timeout;
+            g_board.connection.wifi.status_param.config_timeout = CONFIG_TIMEOUT - timeout;
         }
         delay(1000);
     }
@@ -82,26 +82,26 @@ void wifi_connect_thread_entry(void *args){
     WiFi.onEvent(WiFiEvent);
 
     LOG_I("Try to connect [%s]...", param->ssid.c_str());
-    WiFi.setHostname(g_nmaxe.board.hostname.c_str());
+    WiFi.setHostname(g_board.info.hostname.c_str());
     
     //start http server
     start_http_server();
     //force config
-    if(g_nmaxe.connection.force_config){
+    if(g_board.connection.force_config){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
-        LOG_I("Set softAP [%s]...", g_nmaxe.connection.wifi.softap_param.ssid.c_str());
+        LOG_I("Set softAP [%s]...", g_board.connection.wifi.softap_param.ssid.c_str());
         WiFi.mode(WIFI_AP);
-        WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid);
-        WiFi.softAPConfig(g_nmaxe.connection.wifi.softap_param.ip, g_nmaxe.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
+        WiFi.softAP(g_board.connection.wifi.softap_param.ssid);
+        WiFi.softAPConfig(g_board.connection.wifi.softap_param.ip, g_board.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
         delay(1000);
-        xSemaphoreGive(g_nmaxe.connection.wifi.force_cfg_xsem);
+        xSemaphoreGive(g_board.connection.wifi.force_cfg_xsem);
         //config time out monitor
         String taskName = "(config_monitor)";
         xTaskCreatePinnedToCore(config_timeout_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
         while(true){
-            g_nmaxe.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
+            g_board.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
             if (WiFi.softAPgetStationNum() == 0) {
-                LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_nmaxe.connection.wifi.softap_param.ssid.c_str(), g_nmaxe.connection.wifi.status_param.config_timeout);
+                LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.connection.wifi.softap_param.ssid.c_str(), g_board.connection.wifi.status_param.config_timeout);
             }
             delay(1000);
         }
@@ -114,21 +114,21 @@ void wifi_connect_thread_entry(void *args){
         maxRetries++;
         LOG_I("Try to connect [%s] %ds...", param->ssid.c_str(), maxRetries);
         if(maxRetries >= 15){
-            LOG_I("Set softAP [%s]...", g_nmaxe.board.hostname.c_str());
+            LOG_I("Set softAP [%s]...", g_board.info.hostname.c_str());
             WiFi.mode(WIFI_AP);
-            WiFi.softAP(g_nmaxe.connection.wifi.softap_param.ssid);
-            WiFi.softAPConfig(g_nmaxe.connection.wifi.softap_param.ip, g_nmaxe.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
+            WiFi.softAP(g_board.connection.wifi.softap_param.ssid);
+            WiFi.softAPConfig(g_board.connection.wifi.softap_param.ip, g_board.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
             delay(1000);
-            xSemaphoreGive(g_nmaxe.connection.wifi.force_cfg_xsem);
+            xSemaphoreGive(g_board.connection.wifi.force_cfg_xsem);
 
             //config time out monitor
             String taskName = "(config_monitor)";
             xTaskCreatePinnedToCore(config_timeout_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)taskName.c_str(), TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
             
             while (true){
-                g_nmaxe.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
+                g_board.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
                 if (WiFi.softAPgetStationNum() == 0) {
-                    LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_nmaxe.connection.wifi.softap_param.ssid.c_str(), g_nmaxe.connection.wifi.status_param.config_timeout);
+                    LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.connection.wifi.softap_param.ssid.c_str(), g_board.connection.wifi.status_param.config_timeout);
                 }
                 delay(1000);
             }

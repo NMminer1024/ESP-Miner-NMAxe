@@ -78,10 +78,10 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
     this->_asic->reset();
     this->_asic_count = this->_asic->init(freq, diff);
     if(0 == this->_asic_count){
-        LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_nmaxe.asic.model);
+        LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.asic.model);
         return false;
     }
-    LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_nmaxe.asic.model, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
+    LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_board.asic.model, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
     this->_asic->change_uart_baud(ESP32_TO_BM13xx_WORK_BUAD);
     this->_asic->clear_port_cache();
     return true;
@@ -98,16 +98,16 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     if(this->_asic == NULL) return false;
     ////////////////////////////////////////construct asic job//////////////////////////////////
     uint8_t step = 8;
-    if(g_nmaxe.asic.model == "BM1366")       step = 8;
-    else if (g_nmaxe.asic.model == "BM1370") step = 24;
+    if(g_board.asic.model == "BM1366")       step = 8;
+    else if (g_board.asic.model == "BM1370") step = 24;
     else LOG_W("Unknown ASIC model, using default step 8");
 
     this->_asic_job_now.id = (this->_asic_job_now.id + step) % 128;
 
     this->pool_job_now.id  = pool_job->id;
-    String  extranonce2    = g_nmaxe.stratum->get_sub_extranonce2();
+    String  extranonce2    = g_board.stratum->get_sub_extranonce2();
     /**************************************** coinhash ****************************************/
-    String coinbaseStr = pool_job->coinb1 + g_nmaxe.stratum->get_sub_extranonce1() + extranonce2 + pool_job->coinb2;
+    String coinbaseStr = pool_job->coinb1 + g_board.stratum->get_sub_extranonce1() + extranonce2 + pool_job->coinb2;
     uint8_t merkle_root[32], coinbase[coinbaseStr.length()/2];
     size_t res = str_to_byte_array(coinbaseStr.c_str(), coinbaseStr.length(), coinbase);
     if(res <= 0){
@@ -233,7 +233,7 @@ String AsicMinerClass::get_extranonce2_by_asic_job_id(uint8_t asic_job_id){
 }
 
 bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version){
-    return g_nmaxe.stratum->submit(this->pool_job_now.id, extranonce2, ntime, nonce, version);
+    return g_board.stratum->submit(this->pool_job_now.id, extranonce2, ntime, nonce, version);
 }
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
@@ -288,25 +288,25 @@ void miner_asic_init_thread_entry(void *args){
     
     static HwSerialAdapter serial_adapter = HwSerialAdapter(Serial1);
 
-    if(g_nmaxe.asic.model == "BM1366")      asic_instance = new BM1366(serial_adapter, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-    else if(g_nmaxe.asic.model == "BM1370") asic_instance = new BM1370(serial_adapter, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+    if(g_board.asic.model      == "BM1366") asic_instance = new BM1366(serial_adapter, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+    else if(g_board.asic.model == "BM1370") asic_instance = new BM1370(serial_adapter, ESP32_TO_BM13xx_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
     else{
-        LOG_W("Unknown board model %s", g_nmaxe.board.hw_model.c_str());
+        LOG_W("Unknown board model %s", g_board.info.hw_model.c_str());
         return;
     }
 
     //miner instance
-    g_nmaxe.miner = new AsicMinerClass(asic_instance);
+    g_board.miner = new AsicMinerClass(asic_instance);
 
     //begin asic hardware
-    if(!g_nmaxe.miner->begin(g_nmaxe.asic.frequency_req, ASIC_DIFF_THR)){
+    if(!g_board.miner->begin(g_board.asic.frequency_req, ASIC_DIFF_THR)){
         while (true){
             LOG_E("Miner low power!");
             delay(1000);
         }
     }
     
-    LOG_I("ASIC job interval set to %d ms", g_nmaxe.asic.job_frq_ms);
+    LOG_I("ASIC job interval set to %d ms", g_board.asic.job_frq_ms);
     delay(1000);//wait for asic init stable
     vTaskDelete(NULL);
 }
@@ -318,58 +318,58 @@ void miner_asic_tx_thread_entry(void *args){
     free(name);
 
     //wait for first job cache ready forever
-    xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, portMAX_DELAY);
+    xSemaphoreTake(g_board.stratum->new_job_xsem, portMAX_DELAY);
     delay(2000);//necessary delay for first job cache ready
 
     //forever loop
     while (true){
         //null loop if not subscribed
-        if(!g_nmaxe.stratum->is_subscribed()){
-            g_nmaxe.miner->end();
-            g_nmaxe.mstatus.hashrate._3m = 0.0;
+        if(!g_board.stratum->is_subscribed()){
+            g_board.miner->end();
+            g_board.mstatus.hashrate._3m = 0.0;
             delay(1000);
             continue;   
         }
         //wait for new job signal 1000ms max
-        if(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, 1000) != pdTRUE) {
+        if(xSemaphoreTake(g_board.stratum->new_job_xsem, 1000) != pdTRUE) {
             continue;
         }
 
         //get job from pool job caches
-        g_nmaxe.miner->pool_job_now = g_nmaxe.stratum->pop_job_cache();
-        if(g_nmaxe.miner->pool_job_now.id == "")continue;
+        g_board.miner->pool_job_now = g_board.stratum->pop_job_cache();
+        if(g_board.miner->pool_job_now.id == "")continue;
         
         //calculate network diff
-        g_nmaxe.mstatus.diff.network = g_nmaxe.miner->calculate_diff(g_nmaxe.miner->pool_job_now.nbits);
+        g_board.mstatus.diff.network = g_board.miner->calculate_diff(g_board.miner->pool_job_now.nbits);
         //update pool diff
-        g_nmaxe.mstatus.diff.pool = g_nmaxe.stratum->get_pool_difficulty();
+        g_board.mstatus.diff.pool = g_board.stratum->get_pool_difficulty();
         
-        LOG_W("Job [%s] from %s:%d", g_nmaxe.miner->pool_job_now.id.c_str(), g_nmaxe.stratum->pool->get_pool_info().url.c_str(), g_nmaxe.stratum->pool->get_pool_info().port);
+        LOG_W("Job [%s] from %s:%d", g_board.miner->pool_job_now.id.c_str(), g_board.stratum->pool->get_pool_info().url.c_str(), g_board.stratum->pool->get_pool_info().port);
         while (true){
             //construct asic job and send to asic every 2s
-            if(!g_nmaxe.miner->mining(&g_nmaxe.miner->pool_job_now)) continue;
+            if(!g_board.miner->mining(&g_board.miner->pool_job_now)) continue;
             //exit if pool disconnected
-            if(!g_nmaxe.stratum->is_subscribed()) break;
+            if(!g_board.stratum->is_subscribed()) break;
 
             //set asic diff as pool diff if pool diff < initial asic diff
-            if(g_nmaxe.stratum->get_pool_difficulty() <= ASIC_DIFF_THR){
+            if(g_board.stratum->get_pool_difficulty() <= ASIC_DIFF_THR){
                 static double last_diff = ASIC_DIFF_THR;
-                if(g_nmaxe.stratum->get_pool_difficulty() != last_diff){
-                    LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str());
-                    last_diff = g_nmaxe.stratum->get_pool_difficulty();
-                    g_nmaxe.miner->set_asic_diff(last_diff);
+                if(g_board.stratum->get_pool_difficulty() != last_diff){
+                    LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_board.miner->get_asic_diff(), 4).c_str(), formatNumber(g_board.stratum->get_pool_difficulty(), 4).c_str());
+                    last_diff = g_board.stratum->get_pool_difficulty();
+                    g_board.miner->set_asic_diff(last_diff);
                 }
             }
 
             //interval 2000ms every asic job, exit if a new pool job arrived
-            if(xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, g_nmaxe.asic.job_frq_ms) == pdTRUE) {
-                g_nmaxe.stratum->clear_sub_extranonce2();
+            if(xSemaphoreTake(g_board.stratum->new_job_xsem, g_board.asic.job_frq_ms) == pdTRUE) {
+                g_board.stratum->clear_sub_extranonce2();
                 //avoid some stale share submit, clear job cache if clean job signal received
-                if(xSemaphoreTake(g_nmaxe.stratum->clear_job_xsem, 0) == pdTRUE) {
-                    g_nmaxe.miner->clear_asic_job_cache();
+                if(xSemaphoreTake(g_board.stratum->clear_job_xsem, 0) == pdTRUE) {
+                    g_board.miner->clear_asic_job_cache();
                     LOG_D("Job cache clear...");
                 }
-                xSemaphoreGive(g_nmaxe.stratum->new_job_xsem);//release the semaphore for next pool job
+                xSemaphoreGive(g_board.stratum->new_job_xsem);//release the semaphore for next pool job
                 break;
             }
         }
@@ -386,51 +386,51 @@ void miner_asic_rx_thread_entry(void *args){
     asic_result result = {0,};
 
     //wait for first job cache ready forever
-    xSemaphoreTake(g_nmaxe.stratum->new_job_xsem, portMAX_DELAY);
+    xSemaphoreTake(g_board.stratum->new_job_xsem, portMAX_DELAY);
 
     //forever loop
     while(true){
-        if(!g_nmaxe.stratum->is_subscribed()){
+        if(!g_board.stratum->is_subscribed()){
             delay(1000);
             continue;
         }
-        esp_err_t err = g_nmaxe.miner->listen_asic_rsp(&result, 1000*30);
+        esp_err_t err = g_board.miner->listen_asic_rsp(&result, 1000*30);
         if(ESP_OK == err){
-            if(!g_nmaxe.stratum->is_subscribed()) continue;
-            if(g_nmaxe.miner->find_job_by_asic_job_id(result.job_id, &job)){
-                g_nmaxe.mstatus.asic_update = millis();
+            if(!g_board.stratum->is_subscribed()) continue;
+            if(g_board.miner->find_job_by_asic_job_id(result.job_id, &job)){
+                g_board.mstatus.asic_update = millis();
                 uint32_t version_bits       = (reverse_uint16(result.version) << 13);  //logic from project bitaxe: https://github.com/skot/bitaxe 
                 uint32_t version            = version_bits | (*(uint32_t*)job.version);//logic from project bitaxe: https://github.com/skot/bitaxe 
-                double diff                 = g_nmaxe.miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
+                double diff                 = g_board.miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
 
                 //skip if diff <= 0.0001 or diff is nan or diff is inf
                 if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff) || (diff < 0.1)) continue;
 
                 //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
-                g_nmaxe.miner->calculate_hashrate(&g_nmaxe.mstatus.hashrate);
+                g_board.miner->calculate_hashrate(&g_board.mstatus.hashrate);
 
                 //print summary to log
                 static uint32_t summary_start = millis();
                 if(millis() - summary_start >= 1000*60){
                     summary_start = millis();
-                    LOG_L(" ============%s=========== ",g_nmaxe.board.fw_version.c_str());
+                    LOG_L(" ============%s=========== ",g_board.info.fw_version.c_str());
                     LOG_L("|            Summary           |");
                     LOG_L("+------------Uptime------------+");
-                    LOG_L("|%s | %s |", convert_uptime_to_string(g_nmaxe.mstatus.uptime_session).c_str(), convert_uptime_to_string(g_nmaxe.mstatus.uptime_ever).c_str());
+                    LOG_L("|%s | %s |", convert_uptime_to_string(g_board.mstatus.uptime_session).c_str(), convert_uptime_to_string(g_board.mstatus.uptime_ever).c_str());
                     LOG_L("+-----------HashRate-----------+");
                     LOG_L("|   3m    |    30m   |    1h   |");
                     LOG_L("|%-4sH/s| %-4sH/s|%-4sH/s|", 
-                        formatNumber(g_nmaxe.mstatus.hashrate._3m, 4).c_str(), 
-                        formatNumber(g_nmaxe.mstatus.hashrate._30m, 4).c_str(),
-                        formatNumber(g_nmaxe.mstatus.hashrate._1h, 4).c_str());
+                        formatNumber(g_board.mstatus.hashrate._3m, 4).c_str(), 
+                        formatNumber(g_board.mstatus.hashrate._30m, 4).c_str(),
+                        formatNumber(g_board.mstatus.hashrate._1h, 4).c_str());
                     LOG_L("+----------Difficulty----------+");
                     LOG_L("|From boot| Best ever| Network |");
                     LOG_L("| %-6s |  %-5s | %-7s |", 
-                        formatNumber(g_nmaxe.mstatus.diff.best_session, 5).c_str(), 
-                        formatNumber(g_nmaxe.mstatus.diff.best_ever, 5).c_str(),
-                        formatNumber(g_nmaxe.mstatus.diff.network, 5).c_str());
+                        formatNumber(g_board.mstatus.diff.best_session, 5).c_str(), 
+                        formatNumber(g_board.mstatus.diff.best_ever, 5).c_str(),
+                        formatNumber(g_board.mstatus.diff.network, 5).c_str());
                     LOG_L("+---Free heap-----Efficiency---+");
-                    LOG_L("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(g_nmaxe.board.efficiency, 4).c_str());
+                    LOG_L("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(g_board.status.efficiency, 4).c_str());
                     LOG_L(" ============================== ");
                     log_i("\r\n");
                     LOG_I(" ++++++++++ Real Time +++++++++");
@@ -439,24 +439,24 @@ void miner_asic_rx_thread_entry(void *args){
                 }
                 
                 LOG_I("|%-6s|%-6s|%-6s|%-7s|", 
-                    formatNumber(g_nmaxe.miner->get_asic_diff(), 4).c_str(), 
+                    formatNumber(g_board.miner->get_asic_diff(), 4).c_str(), 
                     formatNumber(diff, 4).c_str(), 
-                    formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 4).c_str(),
-                    formatNumber(g_nmaxe.mstatus.diff.network, 7).c_str());
+                    formatNumber(g_board.stratum->get_pool_difficulty(), 4).c_str(),
+                    formatNumber(g_board.mstatus.diff.network, 7).c_str());
 
                 //skip if diff < pool diff
-                if(diff < g_nmaxe.stratum->get_pool_difficulty())continue; 
+                if(diff < g_board.stratum->get_pool_difficulty())continue; 
                 
                 //submit sulution
                 uint32_t version_submit = version ^ (*(uint32_t*)job.version);
-                String   extra2_submit = g_nmaxe.miner->get_extranonce2_by_asic_job_id(result.job_id);
-                bool res = g_nmaxe.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
+                String   extra2_submit = g_board.miner->get_extranonce2_by_asic_job_id(result.job_id);
+                bool res = g_board.miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
                 if(!res) continue;
                 
                 //update the block hit counter
-                if(diff >= g_nmaxe.mstatus.diff.network){
-                    g_nmaxe.mstatus.hits = (g_nmaxe.mstatus.hits >= 99) ? 0 : (g_nmaxe.mstatus.hits);
-                    g_nmaxe.mstatus.hits++;
+                if(diff >= g_board.mstatus.diff.network){
+                    g_board.mstatus.hits = (g_board.mstatus.hits >= 99) ? 0 : (g_board.mstatus.hits);
+                    g_board.mstatus.hits++;
 
                     uint8_t header[4 + 32 + 32 + 4 + 4 + 4] = {0,};
                     uint8_t hash[32] = {0,};
@@ -490,28 +490,28 @@ void miner_asic_rx_thread_entry(void *args){
                     log_i("\r\n");
                     LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
 
-                    xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
+                    xSemaphoreGive(g_board.mstatus.nvs_save_xsem);
                 }
 
                 //update miner status
-                g_nmaxe.mstatus.diff.last            = diff;
-                g_nmaxe.mstatus.diff.best_session    = (diff > g_nmaxe.mstatus.diff.best_session) ? diff : g_nmaxe.mstatus.diff.best_session;
-                g_nmaxe.mstatus.diff.best_ever       = (diff > g_nmaxe.mstatus.diff.best_ever) ? diff : g_nmaxe.mstatus.diff.best_ever;
+                g_board.mstatus.diff.last            = diff;
+                g_board.mstatus.diff.best_session    = (diff > g_board.mstatus.diff.best_session) ? diff : g_board.mstatus.diff.best_session;
+                g_board.mstatus.diff.best_ever       = (diff > g_board.mstatus.diff.best_ever) ? diff : g_board.mstatus.diff.best_ever;
 
                 //update all time best diff
-                if(diff == g_nmaxe.mstatus.diff.best_ever){
-                    xSemaphoreGive(g_nmaxe.mstatus.nvs_save_xsem);
+                if(diff == g_board.mstatus.diff.best_ever){
+                    xSemaphoreGive(g_board.mstatus.nvs_save_xsem);
                 }
                 
                 //add share to History of block proximity
-                if(xSemaphoreTake(g_nmaxe.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE){
+                if(xSemaphoreTake(g_board.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE){
                     proximity_node_t node;
-                    node.block_proximity = diff / g_nmaxe.mstatus.diff.network;
+                    node.block_proximity = diff / g_board.mstatus.diff.network;
                     node.share_diff      = diff;
-                    node.net_diff        = g_nmaxe.mstatus.diff.network;
-                    node.epoch           = g_nmaxe.mstatus.utc * 1000ULL;
-                    add_share_diff_history(g_nmaxe.mstatus.block_proximity_history, node, 36);
-                    xSemaphoreGive(g_nmaxe.mstatus.block_proximity_mutex);
+                    node.net_diff        = g_board.mstatus.diff.network;
+                    node.epoch           = g_board.mstatus.utc * 1000ULL;
+                    add_share_diff_history(g_board.mstatus.block_proximity_history, node, 36);
+                    xSemaphoreGive(g_board.mstatus.block_proximity_mutex);
                 }
             }
         }

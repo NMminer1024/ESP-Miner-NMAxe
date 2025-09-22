@@ -45,7 +45,7 @@ static void fan_init(void){
 }
 
 static void fan_set_speed(float speed){
-    float spd = (g_nmaxe.preference.fan.invert_ploarity) ? (1.0f - speed):speed;
+    float spd = (g_board.preference.fan.invert_ploarity) ? (1.0f - speed):speed;
     uint32_t dutyCycle = (uint32_t)(spd * (( 1 << FAN_PWM_RESOLUTION) - 1));
     ledcWrite(FAN_PWM_CHANNEL, dutyCycle);
 }
@@ -97,19 +97,19 @@ void fan_thread_entry(void *args){
     while(1){
         delay(125);// 8Hz
         //update board temperature
-        g_nmaxe.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : g_nmaxe.temp.mcu;
-        g_nmaxe.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : g_nmaxe.temp.vcore;
-        g_nmaxe.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : g_nmaxe.temp.asic;
+        g_board.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : g_board.temp.mcu;
+        g_board.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : g_board.temp.vcore;
+        g_board.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : g_board.temp.asic;
 
         // Round to 1 decimal place
-        g_nmaxe.temp.mcu   = roundf(g_nmaxe.temp.mcu * 10) / 10.0f;
-        g_nmaxe.temp.vcore = roundf(g_nmaxe.temp.vcore * 10) / 10.0f;
-        g_nmaxe.temp.asic  = roundf(g_nmaxe.temp.asic * 100) / 100.0f;
+        g_board.temp.mcu   = roundf(g_board.temp.mcu * 10) / 10.0f;
+        g_board.temp.vcore = roundf(g_board.temp.vcore * 10) / 10.0f;
+        g_board.temp.asic  = roundf(g_board.temp.asic * 100) / 100.0f;
         temp_cnt++;
         
         // Fan self test flag set only once
-        if(!g_nmaxe.preference.fan.self_test){
-            g_nmaxe.preference.fan.self_test = (g_nmaxe.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
+        if(!g_board.preference.fan.self_test){
+            g_board.preference.fan.self_test = (g_board.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
             fan_set_speed(100.0 / 100.0);
         }
 
@@ -121,19 +121,19 @@ void fan_thread_entry(void *args){
             if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
             else delta_pcnt = now_count - last_count;
             
-            g_nmaxe.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
+            g_board.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
             last_count = now_count;
             start_ms = millis();
         }
 
-        if(!g_nmaxe.preference.fan.self_test)continue;
+        if(!g_board.preference.fan.self_test)continue;
 
-        if(g_nmaxe.preference.fan.is_auto_speed && g_nmaxe.preference.fan.self_test){
+        if(g_board.preference.fan.is_auto_speed && g_board.preference.fan.self_test){
             static uint32_t pid_start = millis();
             float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-            g_nmaxe.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, g_nmaxe.preference.fan.target_temp, g_nmaxe.temp.asic, dt);
+            g_board.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, g_board.preference.fan.target_temp, g_board.temp.asic, dt);
             pid_start = millis();
         }
-        fan_set_speed(g_nmaxe.preference.fan.speed / 100.0);
+        fan_set_speed(g_board.preference.fan.speed / 100.0);
     }
 }

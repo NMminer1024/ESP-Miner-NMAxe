@@ -189,7 +189,7 @@ bool StratumClass::subscribe(){
     this->_is_subscribed = false;
     
     uint32_t id = this->_get_msg_id();
-    String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.subscribe\", \"params\": [\"" +  g_nmaxe.board.hw_model + "/" + CURRENT_FW_VERSION +"\"]}\n";
+    String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.subscribe\", \"params\": [\"" +  g_board.info.hw_model + "/" + CURRENT_FW_VERSION +"\"]}\n";
     if(this->pool->write(payload) == 0){
         LOG_E("Failed to send mining.subscribe request");
         return false;
@@ -406,17 +406,17 @@ void stratum_thread_entry(void *args){
     free(name);
     bool is_primary_pool = true;
 
-    g_nmaxe.stratum->set_pool_difficulty(DEFAULT_POOL_DIFFICULTY);
+    g_board.stratum->set_pool_difficulty(DEFAULT_POOL_DIFFICULTY);
     StaticJsonDocument<1024*4> json;
     while(true){
         static int w_retry = 0, w_maxRetries = 24;
-        if(g_nmaxe.connection.wifi.status_param.status != WL_CONNECTED){
+        if(g_board.connection.wifi.status_param.status != WL_CONNECTED){
             w_retry++;
             LOG_W("WiFi reconnecting %d/%d...", w_retry, w_maxRetries);
             if(w_retry >= w_maxRetries) ESP.restart();
 
-            xSemaphoreGive(g_nmaxe.connection.wifi.reconnect_xsem);
-            g_nmaxe.stratum->reset();
+            xSemaphoreGive(g_board.connection.wifi.reconnect_xsem);
+            g_board.stratum->reset();
             delay(5000);
             continue;
         } else w_retry = 0;
@@ -424,25 +424,25 @@ void stratum_thread_entry(void *args){
         static uint32_t last = millis();
         if(!is_primary_pool){
             if(millis() - last > 1000 * 10){
-                bool res = g_nmaxe.stratum->is_primary_pool_available(g_nmaxe.connection.pool_primary.url, g_nmaxe.connection.pool_primary.port);
+                bool res = g_board.stratum->is_primary_pool_available(g_board.connection.pool_primary.url, g_board.connection.pool_primary.port);
                 if(res){
-                    LOG_I("Primary pool [%s] available now, switching to primary pool...", g_nmaxe.connection.pool_primary.url.c_str());
-                    g_nmaxe.connection.pool_use = g_nmaxe.connection.pool_primary;
-                    g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_primary;
+                    LOG_I("Primary pool [%s] available now, switching to primary pool...", g_board.connection.pool_primary.url.c_str());
+                    g_board.connection.pool_use = g_board.connection.pool_primary;
+                    g_board.connection.stratum_use = g_board.connection.stratum_primary;
 
-                    g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
-                    g_nmaxe.stratum->pool->begin(g_nmaxe.connection.pool_use.ssl);
-                    g_nmaxe.stratum->pool->connect();
-                    g_nmaxe.mstatus.diff.last = 0;
+                    g_board.stratum->reset(g_board.connection.pool_use, g_board.connection.stratum_use);
+                    g_board.stratum->pool->begin(g_board.connection.pool_use.ssl);
+                    g_board.stratum->pool->connect();
+                    g_board.mstatus.diff.last = 0;
                 }else{
-                    LOG_W("Primary pool [%s] is not available.", g_nmaxe.connection.pool_primary.url.c_str());
+                    LOG_W("Primary pool [%s] is not available.", g_board.connection.pool_primary.url.c_str());
                 }
                 last = millis();
             }
         }
 
         static uint16_t p_retry = 0, p_maxRetries = 5;
-        if(!g_nmaxe.stratum->pool->is_connected()){
+        if(!g_board.stratum->pool->is_connected()){
             static bool    first_connect = true;
             if(first_connect){
                 LOG_I("Pool connecting...");
@@ -451,56 +451,56 @@ void stratum_thread_entry(void *args){
             
             if(++p_retry % p_maxRetries == 0){
                 if(is_primary_pool){
-                    g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_fallback;
-                    g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_fallback;
+                    g_board.connection.pool_use    = g_board.connection.pool_fallback;
+                    g_board.connection.stratum_use = g_board.connection.stratum_fallback;
                     is_primary_pool                = false;
-                    LOG_W(">>>> Set pool to fallback [%s:%d] <<<<", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+                    LOG_W(">>>> Set pool to fallback [%s:%d] <<<<", g_board.connection.pool_use.url.c_str(), g_board.connection.pool_use.port);
                 }else{
-                    g_nmaxe.connection.pool_use    = g_nmaxe.connection.pool_primary;
-                    g_nmaxe.connection.stratum_use = g_nmaxe.connection.stratum_primary;
+                    g_board.connection.pool_use    = g_board.connection.pool_primary;
+                    g_board.connection.stratum_use = g_board.connection.stratum_primary;
                     is_primary_pool                = true;
-                    LOG_W(">>>> Set pool to primary [%s:%d] <<<<", g_nmaxe.connection.pool_use.url.c_str(), g_nmaxe.connection.pool_use.port);
+                    LOG_W(">>>> Set pool to primary [%s:%d] <<<<", g_board.connection.pool_use.url.c_str(), g_board.connection.pool_use.port);
                 }
             }
-            g_nmaxe.stratum->reset(g_nmaxe.connection.pool_use, g_nmaxe.connection.stratum_use);
-            g_nmaxe.stratum->pool->begin(g_nmaxe.connection.pool_use.ssl);
-            g_nmaxe.stratum->pool->connect();
-            g_nmaxe.mstatus.diff.last = 0;
+            g_board.stratum->reset(g_board.connection.pool_use, g_board.connection.stratum_use);
+            g_board.stratum->pool->begin(g_board.connection.pool_use.ssl);
+            g_board.stratum->pool->connect();
+            g_board.mstatus.diff.last = 0;
             delay(5000);
             continue;
         }else p_retry = 0;
 
-        if(!g_nmaxe.stratum->is_subscribed()){
-            if(!g_nmaxe.stratum->subscribe()){
+        if(!g_board.stratum->is_subscribed()){
+            if(!g_board.stratum->subscribe()){
                 LOG_W("Failed to subscribe to pool, retrying in 5 seconds...");
                 delay(100);
                 continue;
             }
-            if(!g_nmaxe.stratum->authorize()){
+            if(!g_board.stratum->authorize()){
                 LOG_W("Failed to authorize to pool, retrying in 5 seconds...");
                 delay(100);
                 continue;
             }
-            if(!g_nmaxe.stratum->config_version_rolling()){
+            if(!g_board.stratum->config_version_rolling()){
                 LOG_W("Failed to config version rolling, retrying in 5 seconds...");
                 delay(100);
                 continue;
             }
-            if(!g_nmaxe.stratum->suggest_difficulty()){
+            if(!g_board.stratum->suggest_difficulty()){
                 LOG_W("Failed to suggest difficulty to pool, retrying in 5 seconds...");
                 delay(100);
                 continue;
             }
         }
 
-        if(!g_nmaxe.stratum->hello_pool(HELLO_POOL_INTERVAL_MS, POOL_INACTIVITY_TIME_MS)){
+        if(!g_board.stratum->hello_pool(HELLO_POOL_INTERVAL_MS, POOL_INACTIVITY_TIME_MS)){
             LOG_W("Pool is inactive, retrying in 5 seconds...");
             delay(5000);
             continue;
         }
 
-        while(g_nmaxe.stratum->pool->available()){
-            stratum_method_data method = g_nmaxe.stratum->listen_methods();
+        while(g_board.stratum->pool->available()){
+            stratum_method_data method = g_board.stratum->listen_methods();
             switch (method.type){
                 case STRATUM_DOWN_PARSE_ERROR:   
                     if(method.raw != ""){
@@ -542,27 +542,27 @@ void stratum_thread_entry(void *args){
                         LOG_D("Ntime             : %s", job.ntime.c_str());
                         LOG_D("Clean jobs        : %s", job.clean_jobs ? "true" : "false");
                         LOG_D("Stamp             : %lu", job.stamp);
-                        LOG_D("Version mask      : 0x%08x", g_nmaxe.stratum->get_version_mask());
-                        LOG_D("Pool difficulty   : %s", formatNumber(g_nmaxe.stratum->get_pool_difficulty(), 5).c_str());
+                        LOG_D("Version mask      : 0x%08x", g_board.stratum->get_version_mask());
+                        LOG_D("Pool difficulty   : %s", formatNumber(g_board.stratum->get_pool_difficulty(), 5).c_str());
 
                         if(job.clean_jobs){
-                            g_nmaxe.stratum->clear_job_cache();
-                            xSemaphoreGive(g_nmaxe.stratum->clear_job_xsem);
+                            g_board.stratum->clear_job_cache();
+                            xSemaphoreGive(g_board.stratum->clear_job_xsem);
                         }
-                        size_t cached_size = g_nmaxe.stratum->push_job_cache(job);
+                        size_t cached_size = g_board.stratum->push_job_cache(job);
                         
                         //Give the new job semaphore to the other threads
-                        xSemaphoreGive(g_nmaxe.stratum->new_job_xsem);//asic tx thread
+                        xSemaphoreGive(g_board.stratum->new_job_xsem);//asic tx thread
                         static bool first_job = true;
                         if(first_job){
                             //first job will release the asic rx , monitor and ui thread
-                            xSemaphoreGive(g_nmaxe.stratum->new_job_xsem);//asic tx thread
-                            xSemaphoreGive(g_nmaxe.stratum->new_job_xsem);//asic rx thread
-                            xSemaphoreGive(g_nmaxe.stratum->new_job_xsem);//ui thread
-                            xSemaphoreGive(g_nmaxe.stratum->new_job_xsem);//monitor thread
+                            xSemaphoreGive(g_board.stratum->new_job_xsem);//asic tx thread
+                            xSemaphoreGive(g_board.stratum->new_job_xsem);//asic rx thread
+                            xSemaphoreGive(g_board.stratum->new_job_xsem);//ui thread
+                            xSemaphoreGive(g_board.stratum->new_job_xsem);//monitor thread
                             first_job = false;
                         }
-                        g_nmaxe.connection.stratum_update = millis();//pool alive timestamp
+                        g_board.connection.stratum_update = millis();//pool alive timestamp
                     }         
                     break;
                 case STRATUM_DOWN_SET_DIFFICULTY: {
@@ -575,7 +575,7 @@ void stratum_thread_entry(void *args){
                     }
                     if(json["method"] == "mining.set_difficulty"){
                         if(json["params"].size() > 0){
-                            g_nmaxe.stratum->set_pool_difficulty(json["params"][0]);
+                            g_board.stratum->set_pool_difficulty(json["params"][0]);
                             LOG_D("Pool difficulty set : %s", formatNumber(json["params"][0], 5).c_str());
                         }else{
                             LOG_W("Pool difficulty not found in params");
@@ -585,7 +585,7 @@ void stratum_thread_entry(void *args){
                     break;
                 case STRATUM_DOWN_SET_VERSION_MASK:{
                     LOG_D("Stratum set version mask , id : %d => %s", method.id, method.raw.c_str());
-                    g_nmaxe.stratum->set_msg_rsp_map(method.id, true);
+                    g_board.stratum->set_msg_rsp_map(method.id, true);
                     json.clear();
                     DeserializationError error = deserializeJson(json, method.raw);
                     if (error) {
@@ -594,17 +594,17 @@ void stratum_thread_entry(void *args){
                     }
                     if(json["method"] == "mining.set_version_mask"){
                         if(json["params"].size() > 0){
-                            g_nmaxe.stratum->set_version_mask(strtoul(json["params"][0].as<const char*>(), NULL, 16));
+                            g_board.stratum->set_version_mask(strtoul(json["params"][0].as<const char*>(), NULL, 16));
                             LOG_L("Version mask set to %s", json["params"][0].as<const char*>());
                         }else{
-                            g_nmaxe.stratum->set_version_mask(0xffffffff);
+                            g_board.stratum->set_version_mask(0xffffffff);
                             LOG_W("Version mask not found in params");
                         }
                     }else{
-                        g_nmaxe.stratum->set_version_mask(0xffffffff);
+                        g_board.stratum->set_version_mask(0xffffffff);
                         LOG_W("Version rolling key not found in response");
                     }
-                    g_nmaxe.stratum->del_msg_rsp_map(method.id);
+                    g_board.stratum->del_msg_rsp_map(method.id);
                 }
                     break;
                 case STRATUM_DOWN_SET_EXTRANONCE:{
@@ -615,23 +615,23 @@ void stratum_thread_entry(void *args){
                         LOG_E("Failed to parse STRATUM_DOWN_SET_EXTRANONCE json");
                             break;
                         }
-                        g_nmaxe.stratum->set_sub_extranonce1(json["params"][0]);
-                        g_nmaxe.stratum->set_sub_extranonce2_size(json["params"][1]);
+                        g_board.stratum->set_sub_extranonce1(json["params"][0]);
+                        g_board.stratum->set_sub_extranonce2_size(json["params"][1]);
                     }
                     break;
                 case STRATUM_DOWN_SUCCESS: 
                     if(method.id != -1){
-                        g_nmaxe.stratum->set_msg_rsp_map(method.id, true);
-                        stratum_rsp rsp = g_nmaxe.stratum->get_method_rsp_by_id(method.id);
+                        g_board.stratum->set_msg_rsp_map(method.id, true);
+                        stratum_rsp rsp = g_board.stratum->get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
                             uint32_t latency = millis() - rsp.stamp;
                             if (rsp.status == true){
-                                g_nmaxe.mstatus.share_accepted++;
-                                LOG_L("#%d share accepted, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, latency);      
+                                g_board.mstatus.share_accepted++;
+                                LOG_L("#%d share accepted, %ldms", g_board.mstatus.share_accepted + g_board.mstatus.share_rejected, latency);      
                             }
                             else {
-                                g_nmaxe.mstatus.share_rejected++;
-                                LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, latency);
+                                g_board.mstatus.share_rejected++;
+                                LOG_E("#%d share rejected, %ldms", g_board.mstatus.share_accepted + g_board.mstatus.share_rejected, latency);
                             }
                         }
                         else if(rsp.method == "mining.configure"){
@@ -640,10 +640,10 @@ void stratum_thread_entry(void *args){
                             if (error) {
                                 LOG_E("Failed to parse STRATUM_DOWN_SUCCESS json");
                             } else {
-                                g_nmaxe.stratum->set_version_mask(0xffffffff);
+                                g_board.stratum->set_version_mask(0xffffffff);
                                 if (json["result"]["version-rolling"] == true) {
                                     if (json["result"].containsKey("version-rolling.mask")) {
-                                        g_nmaxe.stratum->set_version_mask(strtoul(json["result"]["version-rolling.mask"].as<const char*>(), NULL, 16));
+                                        g_board.stratum->set_version_mask(strtoul(json["result"]["version-rolling.mask"].as<const char*>(), NULL, 16));
                                         LOG_I("Version mask set to %s", json["result"]["version-rolling.mask"].as<const char*>());
                                     } else {
                                         LOG_W("Version mask not found in response");
@@ -660,7 +660,7 @@ void stratum_thread_entry(void *args){
                             }
                             else{
                                 if(json.containsKey("result")){
-                                    g_nmaxe.stratum->set_authorize(json["result"]);
+                                    g_board.stratum->set_authorize(json["result"]);
                                     LOG_W("Authorization %s ", json["result"] ? "success" : "failed");
                                 }
                             }
@@ -672,15 +672,15 @@ void stratum_thread_entry(void *args){
                     break;
                 case STRATUM_DOWN_ERROR: 
                     if(method.id != -1){
-                        g_nmaxe.stratum->set_msg_rsp_map(method.id, true);
-                        stratum_rsp rsp = g_nmaxe.stratum->get_method_rsp_by_id(method.id);
+                        g_board.stratum->set_msg_rsp_map(method.id, true);
+                        stratum_rsp rsp = g_board.stratum->get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
                             uint32_t latency = millis() - rsp.stamp;
-                            g_nmaxe.mstatus.share_rejected++;
-                            LOG_E("#%d share rejected, %ldms", g_nmaxe.mstatus.share_accepted + g_nmaxe.mstatus.share_rejected, latency);
+                            g_board.mstatus.share_rejected++;
+                            LOG_E("#%d share rejected, %ldms", g_board.mstatus.share_accepted + g_board.mstatus.share_rejected, latency);
                         }
                         else if(rsp.method == "mining.authorize"){
-                            g_nmaxe.stratum->set_authorize(false);
+                            g_board.stratum->set_authorize(false);
                             LOG_E("Authorization failed.");
                         }
                         else{

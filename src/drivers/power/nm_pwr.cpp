@@ -123,63 +123,63 @@ void power_thread_entry(void *args){
     free(name);
 
     // set vcore range according to board model
-    if(g_nmaxe.board.hw_model == BOARD_NMAxe){
-        g_nmaxe.power->set_vcore_range(1100, 1300);
-        LOG_I("Board model '%s', set vcore range to 1100-1300mV", g_nmaxe.board.hw_model.c_str());
+    if(g_board.info.hw_model == BOARD_NMAxe){
+        g_board.power->set_vcore_range(1100, 1300);
+        LOG_I("Board model '%s', set vcore range to 1100-1300mV", g_board.info.hw_model.c_str());
     }
-    else if(g_nmaxe.board.hw_model == BOARD_NMAxeGamma){
-        g_nmaxe.power->set_vcore_range(1000, 1250);
-        LOG_I("Board model '%s', set vcore range to 1000-1250mV", g_nmaxe.board.hw_model.c_str());
+    else if(g_board.info.hw_model == BOARD_NMAxeGamma){
+        g_board.power->set_vcore_range(1000, 1250);
+        LOG_I("Board model '%s', set vcore range to 1000-1250mV", g_board.info.hw_model.c_str());
     }
     else{
-        g_nmaxe.power->set_vcore_range(1000, 1250);
-        LOG_W("Unknown board model '%s', set vcore range to 1000-1250mV", g_nmaxe.board.hw_model.c_str());
+        g_board.power->set_vcore_range(1000, 1250);
+        LOG_W("Unknown board model '%s', set vcore range to 1000-1250mV", g_board.info.hw_model.c_str());
     }
     
     //detect power plug or pd plug
-    if(g_nmaxe.power->is_dc_pluged()) LOG_I("DC plug detected...");
+    if(g_board.power->is_dc_pluged()) LOG_I("DC plug detected...");
     else LOG_I("USB plug detected...");
 
     //detect vbus voltage, if lower than VBUS_MIN_VOLTAGE , wait for power settle or throw error
-    g_nmaxe.power->init();
+    g_board.power->init();
     delay(500);
-    while (g_nmaxe.power->get_vbus() < VBUS_MIN_VOLTAGE){
-        LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", g_nmaxe.power->get_vbus()/1000.0, VBUS_MIN_VOLTAGE/1000.0);
+    while (g_board.power->get_vbus() < VBUS_MIN_VOLTAGE){
+        LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", g_board.power->get_vbus()/1000.0, VBUS_MIN_VOLTAGE/1000.0);
         delay(1000);
     }
-    while (!g_nmaxe.preference.fan.self_test){
+    while (!g_board.preference.fan.self_test){
         delay(1000);
-        LOG_W("Fan self test %d/%d...", g_nmaxe.preference.fan.rpm, FAN_FULL_RPM_MIN);
+        LOG_W("Fan self test %d/%d...", g_board.preference.fan.rpm, FAN_FULL_RPM_MIN);
     }
     
     //set vdd_1v8 and pll_0v8 power
-    g_nmaxe.power->set_pll_0v8(PWR_ON);
-    g_nmaxe.power->set_vdd_1v8(PWR_ON);
+    g_board.power->set_pll_0v8(PWR_ON);
+    g_board.power->set_vdd_1v8(PWR_ON);
     delay(50);
     //set vcore voltage to required voltage
-    g_nmaxe.power->set_vcore_voltage(g_nmaxe.asic.vcore_req);
+    g_board.power->set_vcore_voltage(g_board.asic.vcore_req);
     delay(50);
-    g_nmaxe.power->set_vcore(PWR_ON);
-    while (!g_nmaxe.power->is_vcore_good()){
+    g_board.power->set_vcore(PWR_ON);
+    while (!g_board.power->is_vcore_good()){
         LOG_W("Waiting for vcore power setup...");
         delay(100);
     }
-    xSemaphoreGive(g_nmaxe.power->good_xsem);
+    xSemaphoreGive(g_board.power->good_xsem);
     LOG_I("Power is ready.");
     while(true){
-        uint32_t vcore_measure = g_nmaxe.power->get_vcore();
-        int32_t err = vcore_measure - g_nmaxe.asic.vcore_req;
+        uint32_t vcore_measure = g_board.power->get_vcore();
+        int32_t err = vcore_measure - g_board.asic.vcore_req;
         if(abs(err) <= 5) {
-            LOG_D("Vcore %d/%dmV, error %d mV, power ready", vcore_measure, g_nmaxe.asic.vcore_req, err);
+            LOG_D("Vcore %d/%dmV, error %d mV, power ready", vcore_measure, g_board.asic.vcore_req, err);
             delay(200);
             continue;
         }
-        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore voltage for error correction %d mV", vcore_measure, g_nmaxe.asic.vcore_req, err, err/5);
-        static uint32_t vcore_set = g_nmaxe.asic.vcore_req;
+        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore voltage for error correction %d mV", vcore_measure, g_board.asic.vcore_req, err, err/5);
+        static uint32_t vcore_set = g_board.asic.vcore_req;
         vcore_set -= err/5;//half error correction
-        vcore_set = (vcore_set < g_nmaxe.power->get_vcore_min()) ? g_nmaxe.power->get_vcore_min() : vcore_set;
-        vcore_set = (vcore_set > g_nmaxe.power->get_vcore_max()) ? g_nmaxe.power->get_vcore_max() : vcore_set;
-        g_nmaxe.power->set_vcore_voltage(vcore_set);//half error correction
+        vcore_set = (vcore_set < g_board.power->get_vcore_min()) ? g_board.power->get_vcore_min() : vcore_set;
+        vcore_set = (vcore_set > g_board.power->get_vcore_max()) ? g_board.power->get_vcore_max() : vcore_set;
+        g_board.power->set_vcore_voltage(vcore_set);//half error correction
         delay(200);
     }
     //exit

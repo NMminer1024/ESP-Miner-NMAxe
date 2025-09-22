@@ -25,9 +25,9 @@ static void force_config_cb(void){
 
 static void silence_mode_cb(void){
   static bool toggle = false;
-  g_nmaxe.preference.screen.brightness = (toggle) ? 0 : g_nmaxe.preference.screen.brightness_last;
-  g_nmaxe.preference.led.sleep         = (toggle) ? true : false;
-  g_nmaxe.preference.led.sleep_last    = g_nmaxe.preference.led.sleep;
+  g_board.preference.screen.brightness = (toggle) ? 0 : g_board.preference.screen.brightness_last;
+  g_board.preference.led.sleep         = (toggle) ? true : false;
+  g_board.preference.led.sleep_last    = g_board.preference.led.sleep;
   toggle = !toggle;
 }
 

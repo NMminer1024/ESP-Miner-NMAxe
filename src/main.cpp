@@ -14,7 +14,7 @@
 
 TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
 
-axe_sal_t  g_nmaxe;
+board_sal_t  g_board;
 
 void setup() {
   String taskName;
@@ -49,11 +49,11 @@ void setup() {
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
   xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_PWR, NULL,1);
-  xSemaphoreTake(g_nmaxe.power->good_xsem, portMAX_DELAY);
+  xSemaphoreTake(g_board.power->good_xsem, portMAX_DELAY);
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";
   xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_ASIC_INIT, NULL,1);
-  while (g_nmaxe.miner->get_asic_count() == 0){
+  while (g_board.miner->get_asic_count() == 0){
     delay(10);
   }
   /************************************************************** INIT DAEMON **********************************************************/
@@ -62,23 +62,23 @@ void setup() {
   delay(10);
   /************************************************************** INIT WIFI ************************************************************/
   taskName = "(wifi)";
-  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)&g_nmaxe.connection.wifi.conn_param, TASK_PRIORITY_WIFI, NULL, 1);
-  while (WL_CONNECTED != g_nmaxe.connection.wifi.status_param.status){
+  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)&g_board.connection.wifi.conn_param, TASK_PRIORITY_WIFI, NULL, 1);
+  while (WL_CONNECTED != g_board.connection.wifi.status_param.status){
     delay(10);
   }
   /************************************************************ Version check **********************************************************/
 #if HAS_VERSION_CHECK_FEATURE
   ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 
-  g_nmaxe.board.fw_latest_release = releaseChecker->get_latest_release();
+  g_board.info.fw_latest_release = releaseChecker->get_latest_release();
 
-  if(0 == compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release)){
-    LOG_I("Firmware up to date: [%s]", g_nmaxe.board.fw_latest_release.c_str());
+  if(0 == compareVersions(g_board.info.fw_version, g_board.info.fw_latest_release)){
+    LOG_I("Firmware up to date: [%s]", g_board.info.fw_latest_release.c_str());
   }
-  else if(-2 == compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release)){
+  else if(-2 == compareVersions(g_board.info.fw_version, g_board.info.fw_latest_release)){
     LOG_W("Get release info failed, please check your network connection.");
   }
-  else if(-1 == compareVersions(g_nmaxe.board.fw_version, g_nmaxe.board.fw_latest_release)){
-    LOG_W("New version available: %s", g_nmaxe.board.fw_latest_release.c_str());
+  else if(-1 == compareVersions(g_board.info.fw_version, g_board.info.fw_latest_release)){
+    LOG_W("New version available: %s", g_board.info.fw_latest_release.c_str());
     delay(1000*5);
   }
   delete releaseChecker;
@@ -91,8 +91,8 @@ void setup() {
   taskName = "(market)";
   xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, &marketTask, 0);
   uint32_t start = millis();
-  while (0 == g_nmaxe.market->lastUpdate){
-    if(millis() - start - g_nmaxe.market->lastUpdate > MARKET_TIMEOUT){
+  while (0 == g_board.market->lastUpdate){
+    if(millis() - start - g_board.market->lastUpdate > MARKET_TIMEOUT){
       LOG_W("Market data update timeout, exiting...");
       delay(1000);
       break;
@@ -100,7 +100,7 @@ void setup() {
     LOG_I("Waiting for market data update... %ds elapsed", (millis() - start) / 1000);
     delay(1000);
   }
-  if(0 != g_nmaxe.market->lastUpdate) LOG_I("Market data updated successfully, last update: %.2fs ago", (millis() - g_nmaxe.market->lastUpdate) / 1000.0f);
+  if(0 != g_board.market->lastUpdate) LOG_I("Market data updated successfully, last update: %.2fs ago", (millis() - g_board.market->lastUpdate) / 1000.0f);
   delay(500);
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";

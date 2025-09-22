@@ -79,11 +79,10 @@ typedef struct{
     String      hw_version;
     String      hw_model;
     String      devcie_code;
-    uint16_t    vbus;//mV
-    uint16_t    ibus;//mA
-    float       efficiency;
-    SemaphoreHandle_t   reboot_xsem;
 }board_info_t;
+
+
+
 
 typedef struct{
     float       mcu;
@@ -213,6 +212,16 @@ typedef struct{
     led_info_t       led;
 }preference_info_t;
 
+
+typedef struct{
+    uint16_t    vbus;//mV
+    uint16_t    ibus;//mA
+    float       efficiency;
+    SemaphoreHandle_t   reboot_xsem;
+}board_status_t;
+
+
+
 typedef String axe_ip_t;
 
 typedef String axe_info_t;
@@ -221,7 +230,10 @@ typedef std::map<axe_ip_t, axe_info_t> swarm_map_t;
 
 
 typedef struct{
-    board_info_t        board;
+    board_info_t        info;
+    board_status_t      status;
+
+    
     temp_info_t         temp;
     preference_info_t   preference;
     asic_info_t         asic;
@@ -234,8 +246,8 @@ typedef struct{
     NMAxePowerClass     *power;
     StratumClass        *stratum;
     AsicMinerClass      *miner;
-}axe_sal_t;
+}board_sal_t;
 
 
-extern axe_sal_t g_nmaxe;
+extern board_sal_t g_board;
 #endif
