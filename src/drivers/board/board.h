@@ -5,8 +5,8 @@
 #include "NMAxe.h"
 #elif defined(BOARD_MODEL_NMAXE_GAMMA)
 #include "NMAxeGamma.h"
-#elif defined(BOARD_MODEL_NMQAxe_PLUSPLUS)
-#include "NMQAxePlusPlus.h"
+#elif defined(BOARD_MODEL_NMQAxe)
+#include "NMQAxe.h"
 #else
 #error "No board model defined"
 #endif

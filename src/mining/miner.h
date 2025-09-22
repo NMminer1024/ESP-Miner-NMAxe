@@ -8,7 +8,7 @@
 #include "bm1366.h"
 #elif defined(BOARD_MODEL_NMAXE_GAMMA)
 #include "bm1370.h"
-#elif defined(BOARD_MODEL_NMQAxe_PLUSPLUS)
+#elif defined(BOARD_MODEL_NMQAxe)
 #include "bm1370.h"
 #endif
 
