@@ -95,26 +95,26 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["power"] = (g_board.status.ibus /1000.0f) * (g_board.status.vbus / 1000.0f);
     root["voltage"] = g_board.status.vbus;
     root["current"] = g_board.status.ibus;
-    root["temp"] = g_board.temp.asic;
-    root["vrTemp"] = g_board.temp.vcore;
-    root["mcuTemp"] = g_board.temp.mcu;
-    root["hashRate"] = g_board.mstatus.hashrate._3m/1000/1000/1000;
-    root["bestDiff"] = formatNumber(g_board.mstatus.diff.best_ever, 4);
-    root["bestSessionDiff"] = formatNumber(g_board.mstatus.diff.best_session, 4);
+    root["temp"] = g_board.status.temp.asic;
+    root["vrTemp"] = g_board.status.temp.vcore;
+    root["mcuTemp"] = g_board.status.temp.mcu;
+    root["hashRate"] = g_board.status.miner.hashrate._3m/1000/1000/1000;
+    root["bestDiff"] = formatNumber(g_board.status.miner.diff.best_ever, 4);
+    root["bestSessionDiff"] = formatNumber(g_board.status.miner.diff.best_session, 4);
     root["freeHeap"] = ESP.getFreeHeap();
-    root["coreVoltage"] = g_board.asic.vcore_req;
-    root["coreVoltageActual"] = g_board.asic.vcore_measured;
-    root["frequency"] = g_board.asic.frequency_req;
+    root["coreVoltage"] = g_board.status.asic.vcore_req;
+    root["coreVoltageActual"] = g_board.status.asic.vcore_measured;
+    root["frequency"] = g_board.status.asic.frequency_req;
     root["hostname"] = g_board.info.hostname;
-    root["timezone"] = g_board.mstatus.timezone;
+    root["timezone"] = g_board.status.miner.timezone;
     root["ssid"] = g_board.connection.wifi.conn_param.ssid;
     root["wifiStatus"] = ((g_board.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
-    root["sharesAccepted"] = g_board.mstatus.share_accepted;
-    root["sharesRejected"] = g_board.mstatus.share_rejected;
-    root["uptimeSeconds"] = g_board.mstatus.uptime_session;
+    root["sharesAccepted"] = g_board.status.miner.share_accepted;
+    root["sharesRejected"] = g_board.status.miner.share_rejected;
+    root["uptimeSeconds"] = g_board.status.miner.uptime_session;
     root["asicCount"] = g_board.miner->get_asic_count();
     root["smallCoreCount"] = g_board.miner->get_asic_small_cores();
-    root["ASICModel"] = g_board.asic.model;
+    root["ASICModel"] = g_board.status.asic.model;
     root["stratumUserUSED"] = g_board.connection.stratum_use.user;
     root["stratumURLUSED"] = g_board.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.connection.pool_use.url + ":" + String(g_board.connection.pool_use.port)) : ("stratum+tcp://" + g_board.connection.pool_use.url + ":" + String(g_board.connection.pool_use.port));
     root["stratumUser1"] = g_board.connection.stratum_primary.user;
@@ -146,12 +146,12 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    root["max_bars"]    = g_board.mstatus.hr_dist.max_x_bars;
-    root["max_hr"]      = g_board.mstatus.hr_dist.max_x_hr;
-    root["times"]       = g_board.mstatus.hr_dist.times;
-    root["dura"]        = g_board.mstatus.hr_dist.dura;
+    root["max_bars"]    = g_board.status.miner.hr_dist.max_x_bars;
+    root["max_hr"]      = g_board.status.miner.hr_dist.max_x_hr;
+    root["times"]       = g_board.status.miner.hr_dist.times;
+    root["dura"]        = g_board.status.miner.hr_dist.dura;
     JsonObject dist_map = root.createNestedObject("dist");
-    for (const auto& pair : g_board.mstatus.hr_dist.dist_map) {
+    for (const auto& pair : g_board.status.miner.hr_dist.dist_map) {
         dist_map[String(pair.first)] = pair.second; 
     }
 
@@ -167,9 +167,9 @@ static void get_status_history(AsyncWebServerRequest* request){
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
-    if (xSemaphoreTake(g_board.mstatus.history_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_board.mstatus.status_history.size();
-        xSemaphoreGive(g_board.mstatus.history_mutex);
+    if (xSemaphoreTake(g_board.status.miner.history_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        history_size = g_board.status.miner.status_history.size();
+        xSemaphoreGive(g_board.status.miner.history_mutex);
         LOG_D("History size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
@@ -223,7 +223,7 @@ static void get_status_history(AsyncWebServerRequest* request){
     DynamicJsonDocument root(json_size_max);
     
     // Build JSON structure
-    uint64_t ms = g_board.mstatus.utc * 1000ULL;
+    uint64_t ms = g_board.status.miner.utc * 1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
@@ -247,12 +247,12 @@ static void get_status_history(AsyncWebServerRequest* request){
     size_t actual_history_size = 0;
     
     // Acquire mutex for history traversal
-    if (xSemaphoreTake(g_board.mstatus.history_mutex, portMAX_DELAY) == pdTRUE) {
-        actual_history_size = g_board.mstatus.status_history.size();
+    if (xSemaphoreTake(g_board.status.miner.history_mutex, portMAX_DELAY) == pdTRUE) {
+        actual_history_size = g_board.status.miner.status_history.size();
         LOG_D("Starting sampling: %d total records, interval: %d, max points: %d", 
               actual_history_size, actual_sample_interval, MAX_DATA_POINTS);
         
-        for (const auto& history : g_board.mstatus.status_history) {
+        for (const auto& history : g_board.status.miner.status_history) {
             if(idx % actual_sample_interval == 0) {
                 // Stop if we've reached the maximum data points limit
                 if (sampled_count >= MAX_DATA_POINTS) {
@@ -305,7 +305,7 @@ static void get_status_history(AsyncWebServerRequest* request){
             }
         }
         
-        xSemaphoreGive(g_board.mstatus.history_mutex);
+        xSemaphoreGive(g_board.status.miner.history_mutex);
         LOG_D("Sampling completed: %d samples from %d total records, interval: %d", 
               sampled_count, actual_history_size, actual_sample_interval);
     } else {
@@ -403,7 +403,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     // Use local document instead of static to prevent memory leaks
     DynamicJsonDocument root(json_size_max);
 
-    uint64_t ms = g_board.mstatus.utc*1000ULL;
+    uint64_t ms = g_board.status.miner.utc*1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
@@ -423,9 +423,9 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     JsonArray data = root.createNestedArray("statistics");
     
     // Protect status_history access with mutex
-    if (xSemaphoreTake(g_board.mstatus.history_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
-        if (!g_board.mstatus.status_history.empty()) {
-            auto& history = g_board.mstatus.status_history.back();
+    if (xSemaphoreTake(g_board.status.miner.history_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
+        if (!g_board.status.miner.status_history.empty()) {
+            auto& history = g_board.status.miner.status_history.back();
             JsonArray dataPoint = data.createNestedArray();
             dataPoint.add(history.hashrate);           // hashRate (GH/s)
             dataPoint.add(history.asic_temp);          // asic_temp (°C)
@@ -441,22 +441,22 @@ static void get_status_realtime(AsyncWebServerRequest* request){
             dataPoint.add(history.free_psram);         // freePsram (KB)
             dataPoint.add(history.epoch);              // timestamp (ms)
         }
-        xSemaphoreGive(g_board.mstatus.history_mutex);
+        xSemaphoreGive(g_board.status.miner.history_mutex);
     }
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 
-    LOG_D("Status realtime sent, history size: %d...", g_board.mstatus.status_history.size());
+    LOG_D("Status realtime sent, history size: %d...", g_board.status.miner.status_history.size());
 }
 static void get_lucky_history(AsyncWebServerRequest* request){
     LOG_D("Starting lucky history request processing...");
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
-    if (xSemaphoreTake(g_board.mstatus.block_proximity_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_board.mstatus.block_proximity_history.size();
-        xSemaphoreGive(g_board.mstatus.block_proximity_mutex);
+    if (xSemaphoreTake(g_board.status.miner.block_proximity_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        history_size = g_board.status.miner.block_proximity_history.size();
+        xSemaphoreGive(g_board.status.miner.block_proximity_mutex);
         LOG_D("Lucky history size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
@@ -487,7 +487,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     DynamicJsonDocument root(json_size_max);
     
     // Build JSON structure
-    uint64_t ms = g_board.mstatus.utc * 1000ULL;
+    uint64_t ms = g_board.status.miner.utc * 1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("proximity");
@@ -500,10 +500,10 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     size_t sampled_count = 0;
     
     // Acquire mutex for history traversal
-    if (xSemaphoreTake(g_board.mstatus.block_proximity_mutex, portMAX_DELAY) == pdTRUE) {
+    if (xSemaphoreTake(g_board.status.miner.block_proximity_mutex, portMAX_DELAY) == pdTRUE) {
         LOG_D("Starting data collection: %d total records", history_size);
         
-        for (const auto& history : g_board.mstatus.block_proximity_history) {
+        for (const auto& history : g_board.status.miner.block_proximity_history) {
             JsonArray dataPoint = data.createNestedArray();
             
             dataPoint.add(history.block_proximity);
@@ -515,7 +515,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
             if (sampled_count % 100 == 0) delay(1);
         }
         
-        xSemaphoreGive(g_board.mstatus.block_proximity_mutex);
+        xSemaphoreGive(g_board.status.miner.block_proximity_mutex);
         LOG_D("Data collection completed: %d samples from %d total records", sampled_count, history_size);
     } else {
         LOG_E("Failed to acquire history mutex for data collection");
@@ -554,7 +554,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
 //     // Use local document instead of static to prevent memory leaks
 //     DynamicJsonDocument root(json_size_max);
 
-//     uint64_t ms = g_board.mstatus.utc*1000ULL;
+//     uint64_t ms = g_board.status.miner.utc*1000ULL;
 //     root["timestamp"] = ms;
 //     JsonArray labels = root.createNestedArray("labels");
 //     labels.add("proximity");
@@ -565,22 +565,22 @@ static void get_lucky_history(AsyncWebServerRequest* request){
 //     JsonArray data = root.createNestedArray("statistics");
     
 //     // Protect block_proximity_history access with mutex
-//     if (xSemaphoreTake(g_board.mstatus.block_proximity_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
-//         if (!g_board.mstatus.block_proximity_history.empty()) {
-//             auto& history = g_board.mstatus.block_proximity_history.back();
+//     if (xSemaphoreTake(g_board.status.miner.block_proximity_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
+//         if (!g_board.status.miner.block_proximity_history.empty()) {
+//             auto& history = g_board.status.miner.block_proximity_history.back();
 //             JsonArray dataPoint = data.createNestedArray();
 //             dataPoint.add(history.block_proximity);
 //             dataPoint.add(history.share_diff);
 //             dataPoint.add(history.net_diff);
 //             dataPoint.add(history.epoch);
 //         }
-//         xSemaphoreGive(g_board.mstatus.block_proximity_mutex);
+//         xSemaphoreGive(g_board.status.miner.block_proximity_mutex);
 //     }
 //     String json_str;
 //     serializeJson(root, json_str);
 //     request->send(200, "application/json", json_str);
 
-//     LOG_D("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_board.mstatus.block_proximity_history.size());
+//     LOG_D("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_board.status.miner.block_proximity_history.size());
 // }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
@@ -773,7 +773,7 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("timezone")){
             nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
-            g_board.mstatus.timezone = root["timezone"].as<String>();
+            g_board.status.miner.timezone = root["timezone"].as<String>();
         }
         if(root.containsKey("ssid")){
             nvs_config_set_string(NVS_CONFIG_WIFI_SSID,root["ssid"].as<String>().c_str());
@@ -789,7 +789,7 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("coreVoltage")){
             uint16_t req_mv = root["coreVoltage"].as<uint16_t>();
-            g_board.asic.vcore_req = req_mv;
+            g_board.status.asic.vcore_req = req_mv;
             g_board.power->set_vcore_voltage(req_mv);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, root["coreVoltage"].as<uint16_t>());
         }
@@ -841,8 +841,8 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("blockhits")){
             nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());
-            g_board.mstatus.hits = root["blockhits"].as<uint16_t>();
-            g_board.mstatus.last_hits = g_board.mstatus.hits;
+            g_board.status.miner.hits = root["blockhits"].as<uint16_t>();
+            g_board.status.miner.last_hits = g_board.status.miner.hits;
         }
 
         for (JsonPair kv : root.as<JsonObject>()) {
@@ -875,9 +875,9 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
             request->send(500, "text/plain", "OTA Update Failed. Not enough space.");
             return;
         }else{
-            g_board.ota.ota_running = true;
-            g_board.ota.progress    = 0;
-            g_board.ota.firmware    = filename;
+            g_board.status.ota.running = true;
+            g_board.status.ota.progress    = 0;
+            g_board.status.ota.firmware    = filename;
         }
     }
 
@@ -888,17 +888,17 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
     }
     else{
         static int lastPercentage = -1;
-        g_board.ota.progress = (int)((index + len) * 100.0 / flen);
-        if (g_board.ota.progress != lastPercentage) {
-            LOG_I("%s ota: %d%%", filename.c_str(), g_board.ota.progress);
-            lastPercentage = g_board.ota.progress;
+        g_board.status.ota.progress = (int)((index + len) * 100.0 / flen);
+        if (g_board.status.ota.progress != lastPercentage) {
+            LOG_I("%s ota: %d%%", filename.c_str(), g_board.status.ota.progress);
+            lastPercentage = g_board.status.ota.progress;
         }
     }
     delay(1);//yield to avoid WDT and UI thread freeze 
     if (final) {
         if (Update.end(true)) {
-            g_board.ota.ota_running = false;
-            g_board.ota.progress = 100;
+            g_board.status.ota.running = false;
+            g_board.status.ota.progress = 100;
             // request->send(200);
             AsyncWebServerResponse *response = request->beginResponse(200);
             response->addHeader("Access-Control-Allow-Origin", "*");

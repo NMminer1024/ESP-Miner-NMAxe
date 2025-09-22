@@ -433,7 +433,7 @@ void stratum_thread_entry(void *args){
                     g_board.stratum->reset(g_board.connection.pool_use, g_board.connection.stratum_use);
                     g_board.stratum->pool->begin(g_board.connection.pool_use.ssl);
                     g_board.stratum->pool->connect();
-                    g_board.mstatus.diff.last = 0;
+                    g_board.status.miner.diff.last = 0;
                 }else{
                     LOG_W("Primary pool [%s] is not available.", g_board.connection.pool_primary.url.c_str());
                 }
@@ -465,7 +465,7 @@ void stratum_thread_entry(void *args){
             g_board.stratum->reset(g_board.connection.pool_use, g_board.connection.stratum_use);
             g_board.stratum->pool->begin(g_board.connection.pool_use.ssl);
             g_board.stratum->pool->connect();
-            g_board.mstatus.diff.last = 0;
+            g_board.status.miner.diff.last = 0;
             delay(5000);
             continue;
         }else p_retry = 0;
@@ -626,12 +626,12 @@ void stratum_thread_entry(void *args){
                         if(rsp.method == "mining.submit"){
                             uint32_t latency = millis() - rsp.stamp;
                             if (rsp.status == true){
-                                g_board.mstatus.share_accepted++;
-                                LOG_L("#%d share accepted, %ldms", g_board.mstatus.share_accepted + g_board.mstatus.share_rejected, latency);      
+                                g_board.status.miner.share_accepted++;
+                                LOG_L("#%d share accepted, %ldms", g_board.status.miner.share_accepted + g_board.status.miner.share_rejected, latency);      
                             }
                             else {
-                                g_board.mstatus.share_rejected++;
-                                LOG_E("#%d share rejected, %ldms", g_board.mstatus.share_accepted + g_board.mstatus.share_rejected, latency);
+                                g_board.status.miner.share_rejected++;
+                                LOG_E("#%d share rejected, %ldms", g_board.status.miner.share_accepted + g_board.status.miner.share_rejected, latency);
                             }
                         }
                         else if(rsp.method == "mining.configure"){
@@ -676,8 +676,8 @@ void stratum_thread_entry(void *args){
                         stratum_rsp rsp = g_board.stratum->get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
                             uint32_t latency = millis() - rsp.stamp;
-                            g_board.mstatus.share_rejected++;
-                            LOG_E("#%d share rejected, %ldms", g_board.mstatus.share_accepted + g_board.mstatus.share_rejected, latency);
+                            g_board.status.miner.share_rejected++;
+                            LOG_E("#%d share rejected, %ldms", g_board.status.miner.share_accepted + g_board.status.miner.share_rejected, latency);
                         }
                         else if(rsp.method == "mining.authorize"){
                             g_board.stratum->set_authorize(false);

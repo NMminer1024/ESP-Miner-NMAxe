@@ -584,13 +584,13 @@ static void ui_miner_page_update(){
     lv_obj_align( lb_fan_symb, LV_ALIGN_TOP_MID, 110, 76);
   }
   
-  String uptime = convert_uptime_to_string(g_board.mstatus.uptime_session);
-  String hashrate = formatNumber(g_board.mstatus.hashrate._3m, 3);
-  String hashuint = (g_board.mstatus.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
-  String last_diff = formatNumber(g_board.mstatus.diff.last, 1);
-  String best_session = formatNumber(g_board.mstatus.diff.best_session, 1);
-  String best_ever = formatNumber(g_board.mstatus.diff.best_ever, 1);
-  String network_diff = formatNumber(g_board.mstatus.diff.network, 2);
+  String uptime = convert_uptime_to_string(g_board.status.miner.uptime_session);
+  String hashrate = formatNumber(g_board.status.miner.hashrate._3m, 3);
+  String hashuint = (g_board.status.miner.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
+  String last_diff = formatNumber(g_board.status.miner.diff.last, 1);
+  String best_session = formatNumber(g_board.status.miner.diff.best_session, 1);
+  String best_ever = formatNumber(g_board.status.miner.diff.best_ever, 1);
+  String network_diff = formatNumber(g_board.status.miner.diff.network, 2);
   String voltage = formatNumber(g_board.status.vbus/1000.0, 3);
   String power = formatNumber(g_board.status.vbus*g_board.status.ibus/1000.0/1000.0, 3);
   String price = (millis() - g_board.market->lastUpdate <= MARKET_TIMEOUT) ? formatNumber(g_board.market->price, 6) : "";
@@ -598,16 +598,16 @@ static void ui_miner_page_update(){
   // String fan_and_efficiency = formatNumber(g_board.info.efficiency, 4) + "J/TH";
 
   //diff symbol color update
-  if(g_board.mstatus.diff.last != 0){//avoid the first time update
-    if(g_board.mstatus.diff.last == g_board.mstatus.diff.best_session) font_color = lv_color_hex(0x00ff00);//green
-    else if(g_board.mstatus.diff.last == g_board.mstatus.diff.best_ever) font_color = lv_color_hex(0xffa500);//yellow
+  if(g_board.status.miner.diff.last != 0){//avoid the first time update
+    if(g_board.status.miner.diff.last == g_board.status.miner.diff.best_session) font_color = lv_color_hex(0x00ff00);//green
+    else if(g_board.status.miner.diff.last == g_board.status.miner.diff.best_ever) font_color = lv_color_hex(0xffa500);//yellow
     else font_color = lv_color_hex(0xA9A9A9);//gray
     lv_obj_set_style_text_color(lb_diff_symbol, font_color, LV_PART_MAIN); 
   }
 
   //temp symbol color update
-  if(g_board.temp.vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
-  else if(g_board.temp.vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
+  if(g_board.status.temp.vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
+  else if(g_board.status.temp.vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
   else font_color = lv_color_hex(0x00ff00);//green
   lv_obj_set_style_text_color(lb_temp_symb, font_color, LV_PART_MAIN); 
 
@@ -618,10 +618,10 @@ static void ui_miner_page_update(){
   lv_obj_set_style_text_color(lb_wifi_symbol, font_color, LV_PART_MAIN); 
 
   //share symbol color update
-  static uint32_t last_share_cnt = g_board.mstatus.share_accepted;
-  if(last_share_cnt != g_board.mstatus.share_accepted){
+  static uint32_t last_share_cnt = g_board.status.miner.share_accepted;
+  if(last_share_cnt != g_board.status.miner.share_accepted){
     font_color = lv_color_hex(0x00ff00);//green
-    last_share_cnt = g_board.mstatus.share_accepted;
+    last_share_cnt = g_board.status.miner.share_accepted;
   }
   else font_color = lv_color_hex(0xA9A9A9);//gray
   lv_obj_set_style_text_color(lb_share_symb, font_color, LV_PART_MAIN);
@@ -652,14 +652,14 @@ static void ui_miner_page_update(){
   //hashrate unit
   lv_label_set_text_fmt(lb_hr_unit, "%s", hashuint.c_str());
   //block hit
-  if(g_board.mstatus.hits <= 9){
+  if(g_board.status.miner.hits <= 9){
   lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_50, LV_PART_MAIN);
   lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 39); 
-    lv_label_set_text_fmt(lb_blk_hit, "%d", g_board.mstatus.hits);
-  }else if (g_board.mstatus.hits <= 99){
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_board.status.miner.hits);
+  }else if (g_board.status.miner.hits <= 99){
     lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 50); 
     lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_28, LV_PART_MAIN);
-    lv_label_set_text_fmt(lb_blk_hit, "%d", g_board.mstatus.hits);
+    lv_label_set_text_fmt(lb_blk_hit, "%d", g_board.status.miner.hits);
   }
 
   //version
@@ -687,7 +687,7 @@ static void ui_miner_page_update(){
   //Diff
   lv_label_set_text_fmt(lb_diff, "%s/%s/%s/%s", last_diff.c_str(), best_session.c_str(), best_ever.c_str(), network_diff.c_str());
   //Temp
-  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_board.temp.vcore, 2).c_str(), formatNumber(g_board.temp.asic, 2).c_str());
+  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_board.status.temp.vcore, 2).c_str(), formatNumber(g_board.status.temp.asic, 2).c_str());
   //WiFi
   lv_label_set_text_fmt(lb_wifi,   "%s", g_board.connection.wifi.status_param.ip.toString().c_str());
   //uptime hms
@@ -695,7 +695,7 @@ static void ui_miner_page_update(){
   //uptime day
   lv_label_set_text_fmt(lb_uptime_day,    "%s", uptime.substring(0,3).c_str());
   //share
-  lv_label_set_text_fmt(lb_share,  "%d/%d", g_board.mstatus.share_rejected, g_board.mstatus.share_accepted);
+  lv_label_set_text_fmt(lb_share,  "%d/%d", g_board.status.miner.share_rejected, g_board.status.miner.share_accepted);
   //fan
   lv_label_set_text_fmt(lb_fan_and_efficiency, "%s", fan_and_efficiency.c_str());
   //price
@@ -707,7 +707,7 @@ static void ui_miner_page_update(){
 }
 
 static void ui_ota_page_update(){
-  if(!g_board.ota.ota_running)return;
+  if(!g_board.status.ota.running)return;
 
   static lv_obj_t * overlay = NULL, *bar = NULL, *label_file = NULL, *label_progress = NULL;
   static char progress_text[10];
@@ -743,15 +743,15 @@ static void ui_ota_page_update(){
 
   lv_coord_t bar_x = lv_obj_get_x(bar);
   lv_coord_t bar_w = lv_obj_get_width(bar);
-  lv_coord_t label_x = bar_x + (bar_w * g_board.ota.progress / 100.0f) - lv_obj_get_width(label_progress)/2;
+  lv_coord_t label_x = bar_x + (bar_w * g_board.status.ota.progress / 100.0f) - lv_obj_get_width(label_progress)/2;
   //update progress label
-  snprintf(progress_text, sizeof(progress_text), "%d%%", g_board.ota.progress);
+  snprintf(progress_text, sizeof(progress_text), "%d%%", g_board.status.ota.progress);
   lv_obj_set_pos(label_progress, label_x, 10);
   lv_label_set_text(label_progress, progress_text);
 
   //update bar value
-  lv_bar_set_value(bar, g_board.ota.progress, LV_ANIM_ON);
-  lv_label_set_text(label_file, g_board.ota.firmware.c_str());
+  lv_bar_set_value(bar, g_board.status.ota.progress, LV_ANIM_ON);
+  lv_label_set_text(label_file, g_board.status.ota.firmware.c_str());
 
 }
 
@@ -983,15 +983,15 @@ static void ui_dashboard_page_update(){
 
   }
 
-  String hr_value = formatNumber(g_board.mstatus.hashrate._3m, 3);
-  String hr_unit  = (g_board.mstatus.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
+  String hr_value = formatNumber(g_board.status.miner.hashrate._3m, 3);
+  String hr_unit  = (g_board.status.miner.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
   String power    = formatNumber(g_board.status.vbus*g_board.status.ibus/1000.0/1000.0, 3);
 
-  uint16_t oc_angle             = arc_angle_full * (g_board.asic.frequency_req - FREQ_MIN) / (FREQ_MAX - FREQ_MIN); 
+  uint16_t oc_angle             = arc_angle_full * (g_board.status.asic.frequency_req - FREQ_MIN) / (FREQ_MAX - FREQ_MIN); 
   uint16_t pwr_angle            = arc_angle_full * (g_board.status.vbus * g_board.status.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
-  uint16_t vcore_req_angle      = arc_angle_full * (g_board.asic.vcore_req/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
-  uint16_t vcore_measure_angle  = arc_angle_full * (g_board.asic.vcore_measured /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
-  uint16_t asic_temp_angle      = arc_angle_full * (g_board.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
+  uint16_t vcore_req_angle      = arc_angle_full * (g_board.status.asic.vcore_req/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
+  uint16_t vcore_measure_angle  = arc_angle_full * (g_board.status.asic.vcore_measured /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
+  uint16_t asic_temp_angle      = arc_angle_full * (g_board.status.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
 
   lv_arc_set_angles(arc_oc,  0, oc_angle);
   lv_arc_set_angles(arc_power, 0, pwr_angle);
@@ -1006,17 +1006,17 @@ static void ui_dashboard_page_update(){
   //power 
   lv_label_set_text_fmt(lb_pwr, "%sw", power.c_str());
   //vbus
-  lv_label_set_text_fmt(lb_overclock, "%sM", String(g_board.asic.frequency_req).c_str());
+  lv_label_set_text_fmt(lb_overclock, "%sM", String(g_board.status.asic.frequency_req).c_str());
   //vcore_req
-  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_board.asic.vcore_req/1000.0, 4).c_str());
+  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_board.status.asic.vcore_req/1000.0, 4).c_str());
   //vcore_measure
-  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_board.asic.vcore_measured/1000.0, 4).c_str());
+  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_board.status.asic.vcore_measured/1000.0, 4).c_str());
   //asic temp
-  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_board.temp.asic, 2).c_str());
+  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_board.status.temp.asic, 2).c_str());
 }
 
 static void ui_hr_healthy_page_update(miner_status_t *miner_status){
-  uint16_t SCALE = (g_board.mstatus.hr_dist.max_x_hr / g_board.mstatus.hr_dist.max_x_bars);
+  uint16_t SCALE = (g_board.status.miner.hr_dist.max_x_hr / g_board.status.miner.hr_dist.max_x_bars);
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -1074,15 +1074,15 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
     lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
     lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
     lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, g_board.mstatus.hr_dist.max_x_bars - 1); 
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, g_board.status.miner.hr_dist.max_x_bars - 1); 
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
     lv_chart_set_div_line_count(chart, 5, 4);
 
     // Add a series to the chart
     series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    lv_chart_set_point_count(chart, g_board.mstatus.hr_dist.max_x_bars);
+    lv_chart_set_point_count(chart, g_board.status.miner.hr_dist.max_x_bars);
     lv_chart_set_all_value(chart, series, 0);
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, g_board.mstatus.hr_dist.max_x_bars, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, g_board.status.miner.hr_dist.max_x_bars, 1, true, 25);
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
     lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -1100,21 +1100,21 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
 
   static uint64_t *counts = NULL;
   if (counts == NULL) {
-    counts = (uint64_t *)malloc(g_board.mstatus.hr_dist.max_x_bars * sizeof(uint64_t));
-    memset(counts, 0, g_board.mstatus.hr_dist.max_x_bars * sizeof(uint64_t));
+    counts = (uint64_t *)malloc(g_board.status.miner.hr_dist.max_x_bars * sizeof(uint64_t));
+    memset(counts, 0, g_board.status.miner.hr_dist.max_x_bars * sizeof(uint64_t));
   }
   int index = last_hashrate/1000/1000/1000 / SCALE; // Convert to GH/s and scale
-  index = (index >= g_board.mstatus.hr_dist.max_x_bars) ? g_board.mstatus.hr_dist.max_x_bars - 1 : index;
+  index = (index >= g_board.status.miner.hr_dist.max_x_bars) ? g_board.status.miner.hr_dist.max_x_bars - 1 : index;
   counts[index]++;
-  g_board.mstatus.hr_dist.times++;
-  for (int i = 0; i < g_board.mstatus.hr_dist.max_x_bars; i++) {
-    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)g_board.mstatus.hr_dist.times);
+  g_board.status.miner.hr_dist.times++;
+  for (int i = 0; i < g_board.status.miner.hr_dist.max_x_bars; i++) {
+    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)g_board.status.miner.hr_dist.times);
     lv_chart_set_value_by_id(chart, series, i, y);
-    g_board.mstatus.hr_dist.dist_map[i] = y;// Update the global distribution map
+    g_board.status.miner.hr_dist.dist_map[i] = y;// Update the global distribution map
   }
   // time cost of this feature
   static uint64_t start = millis();
-  g_board.mstatus.hr_dist.dura = (millis() - start) / 1000;
+  g_board.status.miner.hr_dist.dura = (millis() - start) / 1000;
 
   String hr = formatNumber(last_hashrate, 3);
   String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
@@ -1123,7 +1123,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
   //hashrate unit
   lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
   //time cost
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(g_board.mstatus.hr_dist.times) + "t/"+ String(g_board.mstatus.hr_dist.dura) + "s").c_str());
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(g_board.status.miner.hr_dist.times) + "t/"+ String(g_board.status.miner.hr_dist.dura) + "s").c_str());
 }
 
 static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
@@ -1211,7 +1211,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
 
   
   String hr       = formatNumber(miner_status->hashrate._3m, 3);
-  String datetime = convert_time_to_local(g_board.mstatus.utc);
+  String datetime = convert_time_to_local(g_board.status.miner.utc);
   String hr_unit = (miner_status->hashrate._3m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
   lv_label_set_text_fmt(lb_hashrate, "%s", hr.substring(0, hr.length() - 1).c_str());
@@ -1247,8 +1247,8 @@ void ui_switch_next_page_cb(){
 
   g_board.preference.screen.brightness = g_board.preference.screen.brightness_last;//restore brightness
 
-  if(g_board.mstatus.last_hits!= g_board.mstatus.hits) {
-    g_board.mstatus.last_hits = g_board.mstatus.hits;    //save last hits if button pressed
+  if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
+    g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
     return;
   } 
 
@@ -1408,7 +1408,7 @@ void ui_thread_entry(void *args){
 
         lv_label_set_text(lb_cfg_timeout, str.c_str());
         //update ota page
-        if(g_board.ota.ota_running){
+        if(g_board.status.ota.running){
           ui_ota_page_update();
         }
         delay(1000);//wait for configuration and miner will restart after configuration
@@ -1511,7 +1511,7 @@ void ui_thread_entry(void *args){
 
   while (true){
     //wait for miner status update forever
-    xSemaphoreTake(g_board.mstatus.update_xsem, portMAX_DELAY);
+    xSemaphoreTake(g_board.status.miner.update_xsem, portMAX_DELAY);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
       // auto screen scrolling
       static uint32_t start = millis();
@@ -1525,9 +1525,9 @@ void ui_thread_entry(void *args){
       //update dashboard page
       ui_dashboard_page_update();
       //update hashrate healthy page
-      ui_hr_healthy_page_update(&g_board.mstatus);
+      ui_hr_healthy_page_update(&g_board.status.miner);
       //update big digit page
-      ui_big_digit_page_update(&g_board.mstatus, g_board.market->price);
+      ui_big_digit_page_update(&g_board.status.miner, g_board.market->price);
       //update ota page
       ui_ota_page_update();
       //release mutex

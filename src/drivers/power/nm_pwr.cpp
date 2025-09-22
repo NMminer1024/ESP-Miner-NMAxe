@@ -157,7 +157,7 @@ void power_thread_entry(void *args){
     g_board.power->set_vdd_1v8(PWR_ON);
     delay(50);
     //set vcore voltage to required voltage
-    g_board.power->set_vcore_voltage(g_board.asic.vcore_req);
+    g_board.power->set_vcore_voltage(g_board.status.asic.vcore_req);
     delay(50);
     g_board.power->set_vcore(PWR_ON);
     while (!g_board.power->is_vcore_good()){
@@ -168,14 +168,14 @@ void power_thread_entry(void *args){
     LOG_I("Power is ready.");
     while(true){
         uint32_t vcore_measure = g_board.power->get_vcore();
-        int32_t err = vcore_measure - g_board.asic.vcore_req;
+        int32_t err = vcore_measure - g_board.status.asic.vcore_req;
         if(abs(err) <= 5) {
-            LOG_D("Vcore %d/%dmV, error %d mV, power ready", vcore_measure, g_board.asic.vcore_req, err);
+            LOG_D("Vcore %d/%dmV, error %d mV, power ready", vcore_measure, g_board.status.asic.vcore_req, err);
             delay(200);
             continue;
         }
-        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore voltage for error correction %d mV", vcore_measure, g_board.asic.vcore_req, err, err/5);
-        static uint32_t vcore_set = g_board.asic.vcore_req;
+        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore voltage for error correction %d mV", vcore_measure, g_board.status.asic.vcore_req, err, err/5);
+        static uint32_t vcore_set = g_board.status.asic.vcore_req;
         vcore_set -= err/5;//half error correction
         vcore_set = (vcore_set < g_board.power->get_vcore_min()) ? g_board.power->get_vcore_min() : vcore_set;
         vcore_set = (vcore_set > g_board.power->get_vcore_max()) ? g_board.power->get_vcore_max() : vcore_set;

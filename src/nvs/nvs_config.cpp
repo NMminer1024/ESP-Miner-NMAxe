@@ -195,21 +195,21 @@ bool load_g_nmaxe(void){
     board_model_t model = get_board_model();
     if(NMAXE == model){
         g_board.info.hw_model              = BOARD_NMAxe;
-        g_board.asic.model                  = ASIC_1366;
-        g_board.asic.job_frq_ms             = 2000;//send job every 2 seconds
-        g_board.mstatus.hr_dist.max_x_hr    = 1000;// 1000 GH/s for x axis
-        g_board.mstatus.hr_dist.max_x_bars  = 20;  // how many samples for x axis
-        g_board.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    550);
-        g_board.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1200);
+        g_board.status.asic.model                  = ASIC_1366;
+        g_board.status.asic.job_frq_ms             = 2000;//send job every 2 seconds
+        g_board.status.miner.hr_dist.max_x_hr    = 1000;// 1000 GH/s for x axis
+        g_board.status.miner.hr_dist.max_x_bars  = 20;  // how many samples for x axis
+        g_board.status.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    550);
+        g_board.status.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1200);
     }
     else if(NMAXE_GAMMA == model){
         g_board.info.hw_model              = BOARD_NMAxeGamma;
-        g_board.asic.model                  = ASIC_1370;
-        g_board.asic.job_frq_ms             = 500; //send job every 0.5 seconds
-        g_board.mstatus.hr_dist.max_x_hr    = 2000;// 2000 GH/s for x axis
-        g_board.mstatus.hr_dist.max_x_bars  = 20;  // how many samples for x axis
-        g_board.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    600);
-        g_board.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1125);
+        g_board.status.asic.model                  = ASIC_1370;
+        g_board.status.asic.job_frq_ms             = 500; //send job every 0.5 seconds
+        g_board.status.miner.hr_dist.max_x_hr    = 2000;// 2000 GH/s for x axis
+        g_board.status.miner.hr_dist.max_x_bars  = 20;  // how many samples for x axis
+        g_board.status.asic.frequency_req          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    600);
+        g_board.status.asic.vcore_req              = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1125);
     }
     else{
         LOG_E("Board model not supported!");
@@ -238,30 +238,30 @@ bool load_g_nmaxe(void){
     g_board.connection.stratum_use              = g_board.connection.stratum_primary;
     g_board.status.reboot_xsem                   = xSemaphoreCreateCounting(1, 0);
     g_board.info.fw_latest_release             = "";
-    g_board.temp.mcu                            = 0.0f;
-    g_board.temp.vcore                          = 0.0f;
-    g_board.temp.asic                           = 0.0f;
-    g_board.mstatus.nvs_save_xsem               = xSemaphoreCreateCounting(1, 0);
-    g_board.mstatus.history_mutex               = xSemaphoreCreateMutex();
-    g_board.mstatus.block_proximity_mutex       = xSemaphoreCreateMutex();
+    g_board.status.temp.mcu                            = 0.0f;
+    g_board.status.temp.vcore                          = 0.0f;
+    g_board.status.temp.asic                           = 0.0f;
+    g_board.status.nvs_save_xsem               = xSemaphoreCreateCounting(1, 0);
+    g_board.status.miner.history_mutex               = xSemaphoreCreateMutex();
+    g_board.status.miner.block_proximity_mutex       = xSemaphoreCreateMutex();
     g_board.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
     g_board.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
-    g_board.mstatus.update_xsem                 = xSemaphoreCreateCounting(1, 0);
+    g_board.status.miner.update_xsem                 = xSemaphoreCreateCounting(1, 0);
     g_board.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
     g_board.connection.wifi.softap_param.pwd    = "12345678";
     g_board.connection.wifi.softap_param.ssid   = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, ("NMAxe_" + g_board.info.devcie_code.substring(0, 5)).c_str())); 
-    g_board.mstatus.hits                        = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
-    g_board.mstatus.last_hits                   = g_board.mstatus.hits;
+    g_board.status.miner.hits                        = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
+    g_board.status.miner.last_hits                   = g_board.status.miner.hits;
     g_board.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     g_board.connection.client_connected         = false;
     g_board.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
     g_board.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     g_board.info.hostname                      = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_board.connection.wifi.softap_param.ssid.c_str()));
     g_board.connection.stratum_update           = millis();
-    g_board.ota.ota_running                     = false;
-    g_board.ota.progress                        = 0;
-    g_board.ota.firmware                        = "";
-    g_board.mstatus.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
+    g_board.status.ota.running                     = false;
+    g_board.status.ota.progress                        = 0;
+    g_board.status.ota.firmware                        = "";
+    g_board.status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_board.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     g_board.preference.fan.invert_ploarity      = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, true); 
     g_board.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
@@ -274,8 +274,8 @@ bool load_g_nmaxe(void){
     g_board.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     g_board.preference.led.sleep                = false;
     g_board.preference.led.sleep_last           = g_board.preference.led.sleep;
-    g_board.mstatus.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    g_board.mstatus.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
+    g_board.status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
+    g_board.status.miner.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     g_board.coin                                = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     g_board.coin.toUpperCase();
     g_board.miner                               = nullptr;

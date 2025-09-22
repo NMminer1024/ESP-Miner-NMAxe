@@ -139,7 +139,7 @@ typedef struct{
 
 typedef struct{
     String              firmware;//name
-    bool                ota_running;
+    bool                running;
     int                 progress;
 }ota_info_t;
 
@@ -193,6 +193,7 @@ typedef struct{
     uint64_t            uptime_session;
     hashrate_t          hashrate;
     hash_dist_t         hr_dist;
+    float               efficiency; // J/TH
     std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
     std::deque<proximity_node_t> block_proximity_history; // history of block proximity (use internal RAM)
     SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
@@ -202,7 +203,6 @@ typedef struct{
     uint16_t            last_hits;//record the last hits
     diff_info_t         diff;
     uint32_t            asic_update;  // timestamp of asic respond
-    SemaphoreHandle_t   nvs_save_xsem;// save status to NVS signal
     SemaphoreHandle_t   update_xsem;  // miner status update signal
 }miner_status_t;
 
@@ -214,10 +214,14 @@ typedef struct{
 
 
 typedef struct{
-    uint16_t    vbus;//mV
-    uint16_t    ibus;//mA
-    float       efficiency;
+    uint16_t            vbus;//mV
+    uint16_t            ibus;//mA
+    temp_info_t         temp;
+    asic_info_t         asic;
+    miner_status_t      miner;
+    ota_info_t          ota;
     SemaphoreHandle_t   reboot_xsem;
+    SemaphoreHandle_t   nvs_save_xsem;// save status to NVS signal
 }board_status_t;
 
 
@@ -232,14 +236,8 @@ typedef std::map<axe_ip_t, axe_info_t> swarm_map_t;
 typedef struct{
     board_info_t        info;
     board_status_t      status;
-
-    
-    temp_info_t         temp;
     preference_info_t   preference;
-    asic_info_t         asic;
     connect_info_t      connection;
-    miner_status_t      mstatus;
-    ota_info_t          ota;
     swarm_map_t         swarm;
     String              coin;
     MarketClass         *market;

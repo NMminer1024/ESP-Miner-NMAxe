@@ -133,7 +133,7 @@ void led_thread_entry(void *args){
         }
 
         // sys led, indicate hashrate
-        if(g_board.mstatus.hashrate._3m > 0){
+        if(g_board.status.miner.hashrate._3m > 0){
             ledcWrite(pwmChannel, (uint32_t)((1 + sin(led_cnt/100.0f)) * (1<<resolution - 1)));
         }
         else{

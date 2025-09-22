@@ -97,14 +97,14 @@ void fan_thread_entry(void *args){
     while(1){
         delay(125);// 8Hz
         //update board temperature
-        g_board.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : g_board.temp.mcu;
-        g_board.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : g_board.temp.vcore;
-        g_board.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : g_board.temp.asic;
+        g_board.status.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : g_board.status.temp.mcu;
+        g_board.status.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : g_board.status.temp.vcore;
+        g_board.status.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : g_board.status.temp.asic;
 
         // Round to 1 decimal place
-        g_board.temp.mcu   = roundf(g_board.temp.mcu * 10) / 10.0f;
-        g_board.temp.vcore = roundf(g_board.temp.vcore * 10) / 10.0f;
-        g_board.temp.asic  = roundf(g_board.temp.asic * 100) / 100.0f;
+        g_board.status.temp.mcu   = roundf(g_board.status.temp.mcu * 10) / 10.0f;
+        g_board.status.temp.vcore = roundf(g_board.status.temp.vcore * 10) / 10.0f;
+        g_board.status.temp.asic  = roundf(g_board.status.temp.asic * 100) / 100.0f;
         temp_cnt++;
         
         // Fan self test flag set only once
@@ -131,7 +131,7 @@ void fan_thread_entry(void *args){
         if(g_board.preference.fan.is_auto_speed && g_board.preference.fan.self_test){
             static uint32_t pid_start = millis();
             float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-            g_board.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, g_board.preference.fan.target_temp, g_board.temp.asic, dt);
+            g_board.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, g_board.preference.fan.target_temp, g_board.status.temp.asic, dt);
             pid_start = millis();
         }
         fan_set_speed(g_board.preference.fan.speed / 100.0);
