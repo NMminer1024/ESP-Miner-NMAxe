@@ -61,7 +61,7 @@ typedef struct{
 
 typedef struct{
     bool        is_auto_speed;
-    bool        invert_ploarity;
+    // bool        invert_ploarity;
     bool        self_test;
     uint16_t    speed;//%
     uint16_t    rpm;//RPM

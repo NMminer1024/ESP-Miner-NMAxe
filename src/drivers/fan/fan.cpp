@@ -16,7 +16,6 @@ struct pid{
     float output_min, output_max;
 };
 
-
 static void fan_init(void){
     pinMode(NM_AXE_FAN_PWM_PIN, OUTPUT);
     ledcSetup(FAN_PWM_CHANNEL, FAN_PWM_FREQ, FAN_PWM_RESOLUTION);
@@ -44,8 +43,8 @@ static void fan_init(void){
     pcnt_counter_resume(PCNT_UNIT_0);
 }
 
-static void fan_set_speed(float speed){
-    float spd = (g_board.info.preference.fan.invert_ploarity) ? (1.0f - speed):speed;
+static void fan_set_speed(float speed, bool invert = false){
+    float spd = (invert) ? (1.0f - speed):speed;
     uint32_t dutyCycle = (uint32_t)(spd * (( 1 << FAN_PWM_RESOLUTION) - 1));
     ledcWrite(FAN_PWM_CHANNEL, dutyCycle);
 }
@@ -74,63 +73,49 @@ static float pid_compute(pid* pid, float setpoint, float measured, float dt) {
     return output;
 }
 
-static bool guess_fan_ploarity(void){
-    bool invert = false;
-    int16_t now_count = 0, last_count = 0,temp_cnt = 0;
-    uint32_t sum_rpm = 0, max = 500;
-    LOG_I("Guessing fan polarity, please wait...");
-    fan_set_speed(0.5);
-    for(uint16_t i=0; i<max; i++){
-        // Calculate fan RPM
-        static uint32_t start_ms = millis();
-        if(millis() - start_ms > 500){
+static void measure_fan_rpm_for_duration(float speed, uint32_t duration_ms, uint16_t &measured_rpm, bool invert = false) {
+    int16_t now_count = 0, last_count = 0;
+    uint32_t start_time = millis();
+    uint32_t last_measure_time = start_time;
+
+    fan_set_speed(speed, invert);
+
+    while (millis() - start_time < duration_ms) {
+        if (millis() - last_measure_time >= 100) {
             pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
             uint16_t delta_pcnt = 0;
-            if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
-            else delta_pcnt = now_count - last_count;
+            if (now_count < last_count) {
+                delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
+            } else {
+                delta_pcnt = now_count - last_count;
+            }
             
-            sum_rpm += calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
+            measured_rpm = calculate_rpm(delta_pcnt, (millis() - last_measure_time) / 1000.0);
             last_count = now_count;
-            start_ms = millis();
+            last_measure_time = millis();
         }
         delay(10);
     }
-    uint16_t first = sum_rpm / max;
-    LOG_I("Fan RPM at 50%% speed: %d", first);
-
-
-
-    sum_rpm = 0;
-    last_count = 0;
-    now_count = 0;
-    fan_set_speed(1.0);
-    for(uint16_t i=0; i<max; i++){
-        // Calculate fan RPM
-        static uint32_t start_ms = millis();
-        if(millis() - start_ms > 500){
-            pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
-            uint16_t delta_pcnt = 0;
-            if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
-            else delta_pcnt = now_count - last_count;
-            
-            sum_rpm += calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
-            last_count = now_count;
-            start_ms = millis();
-        }
-        delay(10);
-    }
-    LOG_I("Fan RPM at 100%% speed: %d", sum_rpm / max);
-    invert = ((0.9 * (sum_rpm / max)) < first) ? true : false;//avoid some noise, 90% of 100% speed should be > 50% speed
-
-
-
-
-
-    LOG_W("Fan polarity %s", (invert) ? "inverted" : "normal");
-    return invert;
 }
 
+static bool guess_fan_polarity(void) {
+    LOG_I("Guessing fan polarity, please wait...");
+    uint16_t rpm_50 = 0, rpm_100 = 0;
 
+    // test at 50% speed
+    measure_fan_rpm_for_duration(0.5, 2000, rpm_50);
+    LOG_I("Fan RPM at 50%% speed: %d", rpm_50);
+
+    // test at 100% speed
+    measure_fan_rpm_for_duration(1.0, 2000, rpm_100);
+    LOG_I("Fan RPM at 100%% speed: %d", rpm_100);
+    
+    // Determine polarity
+    bool invert = (0.9 * rpm_100) <= rpm_50;
+    
+    LOG_W("Fan polarity %s", invert ? "inverted" : "normal");
+    return invert;
+}
 
 void fan_thread_entry(void *args){
     char *name = (char*)malloc(20);
@@ -138,7 +123,8 @@ void fan_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
-    int16_t now_count = 0, last_count = 0,temp_cnt = 0;
+    int16_t now_count = 0, last_count = 0, temp_cnt = 0;
+    uint32_t start_ms = millis();
     pid fan_pid = {
         .Kp = 100.0f,
         .Ki = 1.0f,
@@ -150,8 +136,15 @@ void fan_thread_entry(void *args){
     };
 
     tmp102_init();
+
     fan_init();
-    guess_fan_ploarity();
+
+    // polarity detection
+    bool fan_invert = guess_fan_polarity();
+
+    // fan self test
+    measure_fan_rpm_for_duration(1.0, 5000, g_board.info.preference.fan.rpm , fan_invert);
+    g_board.info.preference.fan.self_test = (g_board.info.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
 
     while(1){
         delay(125);// 8Hz
@@ -166,33 +159,22 @@ void fan_thread_entry(void *args){
         g_board.status.temp.asic  = roundf(g_board.status.temp.asic * 100) / 100.0f;
         temp_cnt++;
         
-        // Fan self test flag set only once
-        if(!g_board.info.preference.fan.self_test){
-            g_board.info.preference.fan.self_test = (g_board.info.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
-            fan_set_speed(100.0 / 100.0);
-        }
-
         // Calculate fan RPM
-        static uint32_t start_ms = millis();
-        if(millis() - start_ms > 1000){
-            pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
-            uint16_t delta_pcnt = 0;
-            if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
-            else delta_pcnt = now_count - last_count;
-            
-            g_board.info.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
-            last_count = now_count;
-            start_ms = millis();
-        }
+        pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
+        uint16_t delta_pcnt = 0;
+        if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
+        else delta_pcnt = now_count - last_count;
+        g_board.info.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
+        last_count = now_count;
+        start_ms = millis();
 
-        if(!g_board.info.preference.fan.self_test)continue;
-
+        // Adjust fan speed
         if(g_board.info.preference.fan.is_auto_speed && g_board.info.preference.fan.self_test){
             static uint32_t pid_start = millis();
             float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
             g_board.info.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, g_board.info.preference.fan.target_temp, g_board.status.temp.asic, dt);
             pid_start = millis();
         }
-        fan_set_speed(g_board.info.preference.fan.speed / 100.0);
+        fan_set_speed(g_board.info.preference.fan.speed / 100.0, fan_invert);
     }
 }

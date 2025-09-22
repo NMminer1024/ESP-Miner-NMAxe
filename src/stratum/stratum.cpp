@@ -697,6 +697,6 @@ void stratum_thread_entry(void *args){
             }
             delay(10);
         }
-        delay(10);
+        delay(50);
     }
 }

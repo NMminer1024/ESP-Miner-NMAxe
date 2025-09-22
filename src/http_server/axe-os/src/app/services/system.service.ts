@@ -68,7 +68,6 @@ export class SystemService {
           boardVersion: "204",
           flipscreen: 1,
           invertscreen: 0,
-          invertfanpolarity: 1,
           ledindicator: 0,
           autofanspeed: 1,
           targetAsicTemp: "55",

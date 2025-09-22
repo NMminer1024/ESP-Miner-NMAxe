@@ -37,7 +37,6 @@ export interface ISystemInfo {
   brightness: number,
   version: string,
   boardVersion: string,
-  invertfanpolarity: number,
   ledindicator: number,
   autofanspeed: number,
   targetAsicTemp?: string,

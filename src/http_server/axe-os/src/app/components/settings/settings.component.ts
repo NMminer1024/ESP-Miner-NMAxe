@@ -62,7 +62,6 @@ export class SettingsComponent {
           brightness: [info.brightness, [Validators.required]],
           autofanspeed: [info.autofanspeed == 1, [Validators.required]],
           autoscreen: [info.autoscreen == 1],
-          invertfanpolarity: [info.invertfanpolarity == 1, [Validators.required]],
           fanspeed: [info.fanspeed, [Validators.required]],
         });
 
@@ -100,7 +99,6 @@ export class SettingsComponent {
     // bools to ints
     form.flipscreen = form.flipscreen == true ? 1 : 0;
     form.invertscreen = form.invertscreen == true ? 1 : 0;
-    form.invertfanpolarity = form.invertfanpolarity == true ? 1 : 0;
     form.autofanspeed = form.autofanspeed == true ? 1 : 0;
     form.ledindicator = form.ledindicator == true ? 1 : 0;
     form.autoscreen = form.autoscreen == true ? 1 : 0;

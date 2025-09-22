@@ -48,7 +48,6 @@ export class PreferenceComponent implements OnInit {
           autofanspeed: [info.autofanspeed == 1, [Validators.required]],
           targetAsicTemp: [parseFloat(info.targetAsicTemp || '70') || 70, [Validators.required, Validators.min(20), Validators.max(70)]],
           autoscreen: [info.autoscreen == 1],
-          invertfanpolarity: [info.invertfanpolarity == 1, [Validators.required]],
           fanspeed: [info.fanspeed, [Validators.required]],
         });
 

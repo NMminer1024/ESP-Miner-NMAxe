@@ -129,7 +129,6 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["ledindicator"] = g_board.info.preference.led.enable;
     root["overheat_mode"] = 0;
     root["invertscreen"]  = 1;
-    root["invertfanpolarity"] = g_board.info.preference.fan.invert_ploarity;
     root["autofanspeed"] = g_board.info.preference.fan.is_auto_speed;
     root["autoscreen"]   = g_board.info.preference.screen.auto_screen;
     root["fanspeed"] = g_board.info.preference.fan.speed;
@@ -548,40 +547,6 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     
     LOG_D("Lucky history sent: %d bytes, %d records", json_size, sampled_count);
 }
-// static void get_lucky_realtime(AsyncWebServerRequest* request){
-//     uint32_t json_size_max = 512; // in bytes
-//     LOG_D("Processing lucky realtime request...");
-//     // Use local document instead of static to prevent memory leaks
-//     DynamicJsonDocument root(json_size_max);
-
-//     uint64_t ms = g_board.status.miner.utc*1000ULL;
-//     root["timestamp"] = ms;
-//     JsonArray labels = root.createNestedArray("labels");
-//     labels.add("proximity");
-//     labels.add("share_diff");
-//     labels.add("net_diff");
-//     labels.add("epoch");
-    
-//     JsonArray data = root.createNestedArray("statistics");
-    
-//     // Protect block_proximity_history access with mutex
-//     if (xSemaphoreTake(g_board.status.miner.block_proximity_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
-//         if (!g_board.status.miner.block_proximity_history.empty()) {
-//             auto& history = g_board.status.miner.block_proximity_history.back();
-//             JsonArray dataPoint = data.createNestedArray();
-//             dataPoint.add(history.block_proximity);
-//             dataPoint.add(history.share_diff);
-//             dataPoint.add(history.net_diff);
-//             dataPoint.add(history.epoch);
-//         }
-//         xSemaphoreGive(g_board.status.miner.block_proximity_mutex);
-//     }
-//     String json_str;
-//     serializeJson(root, json_str);
-//     request->send(200, "application/json", json_str);
-
-//     LOG_D("Lucky realtime sent %d Bytes, history size: %d...", json_str.length(), g_board.status.miner.block_proximity_history.size());
-// }
 static void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
     
@@ -818,10 +783,6 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("invertscreen")){
 
-        }
-        if(root.containsKey("invertfanpolarity")){
-            nvs_config_set_u16(NVS_CONFIG_INVERT_FAN_POLARITY, root["invertfanpolarity"].as<uint16_t>());
-            g_board.info.preference.fan.invert_ploarity = root["invertfanpolarity"].as<uint16_t>();
         }
         if(root.containsKey("autofanspeed")){
             nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());
