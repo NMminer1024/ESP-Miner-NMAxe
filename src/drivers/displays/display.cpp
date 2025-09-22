@@ -144,8 +144,8 @@ static void ui_layout_init(void){
     p_config_img = &config_page_img_nmaxe;
     p_mining_img = &mining_page_img_nmaxe;
 #elif defined(BOARD_MODEL_NMAXE_GAMMA)
-    p_config_img = &config_page_img_nmaxe;
-    p_mining_img = &mining_page_img_nmaxe;
+    p_config_img = &config_page_img_nmaxe_gamma;
+    p_mining_img = &mining_page_img_nmaxe_gamma;
 #endif
     p_loading_img = &loading_page_img;
     p_status_img  = &status_page_img;

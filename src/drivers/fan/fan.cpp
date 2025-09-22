@@ -1,5 +1,5 @@
 #include "logger.h"
-#include "device.h"
+#include "board.h"
 #include <driver/pcnt.h>
 #include "global.h"
 

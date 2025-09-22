@@ -1,5 +1,5 @@
 #include "led.h"
-#include "device.h"
+#include "board.h"
 #include "Arduino.h"
 #include "logger.h"
 #include "global.h"

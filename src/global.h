@@ -1,7 +1,7 @@
 #ifndef _GLOBAL_H
 #define _GLOBAL_H
 #include <Arduino.h>
-#include "device.h"
+#include "board.h"
 #include "nm_pwr.h"
 #include "connection.h"
 #include "tmp102.h"
@@ -17,33 +17,20 @@
 #define CURRENT_HW_VERSION  "v1.1.1"
 
 
-#define ASIC_TEMP_DANGER        (75.0f)
-#define ASIC_TEMP_NORMAL        (50.0f)
-
-#define VCORE_TEMP_DANGER       (90.0f)
-#define VCORE_TEMP_LOW          (50.0f)
-#define BOARD_MCU_DANGER        (60.0f)
-
-#define BOARD_LOW_POWER         (10.0f)   //Watt
-
 #define NVS_SAVE_INTERVAL       (60*60)  //second
 
-#define FAN_FULL_RPM_MIN        (4200)
-
 #define WIFI_RSSI_STRONG        (-60)
+
 #define WIFI_RSSI_GOOD          (-70)
 
-#define ASIC_ALIVE_TIMEOUT     (1000*60*3)//3 minutes
+#define ASIC_ALIVE_TIMEOUT      (1000*60*3)//3 minutes
 
-#define STRATUM_ALIVE_TIMEOUT  (1000*60*3)//3 minutes
+#define STRATUM_ALIVE_TIMEOUT   (1000*60*3)//3 minutes
 
-#define MARKET_UPDATE_INTERVAL (1000*5)  // ms
+#define MARKET_UPDATE_INTERVAL  (1000*5)  // ms
 
-#define MARKET_TIMEOUT         (MARKET_UPDATE_INTERVAL * 3) // ms
+#define MARKET_TIMEOUT          (MARKET_UPDATE_INTERVAL * 3) // ms
 
-#define HISTORY_DEEPTH         (1000*3600*24) // history depth, how long to keep the history, in seconds
-
-#define HISTORY_SAMPLE_INTERVAL (2) // history sample interval, in seconds
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
@@ -64,18 +51,6 @@ enum{
     TASK_PRIORITY_MINER_TX ,
     TASK_PRIORITY_MINER_RX     //highest priority
 };
-
-typedef enum {
-    NMAXE         = 0xa0,
-    NMAXE_GAMMA ,
-    BOARD_UNKNOWN = 0xff,
-} board_model_t;
-
-
-
-
-
-
 
 typedef struct{
     float       mcu;
@@ -187,15 +162,14 @@ typedef struct{
     hashrate_t          hashrate;
     hash_dist_t         hr_dist;
     float               efficiency; // J/TH
-    std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
-    std::deque<proximity_node_t> block_proximity_history; // history of block proximity (use internal RAM)
-    SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
-    SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
-    
     uint16_t            hits;
     uint16_t            last_hits;//record the last hits
     diff_info_t         diff;
     uint32_t            asic_update;  // timestamp of asic respond
+    std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
+    std::deque<proximity_node_t> block_proximity_history; // history of block proximity (use internal RAM)
+    SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
+    SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
     SemaphoreHandle_t   update_xsem;  // miner status update signal
 }miner_status_t;
 

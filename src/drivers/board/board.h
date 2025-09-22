@@ -1,5 +1,5 @@
-#ifndef __NM_DEVICE_H_
-#define __NM_DEVICE_H_
+#ifndef __NM_BOARD_H_
+#define __NM_BOARD_H_
 
 #if defined(BOARD_MODEL_NMAXE)
 #include "NMAxe.h"

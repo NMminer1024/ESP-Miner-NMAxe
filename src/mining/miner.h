@@ -1,14 +1,16 @@
 #ifndef MINER_H_
 #define MINER_H_
 #include <Arduino.h>
-#include "stratum.h"
 #include <map>
+#include "stratum.h"
+#include "board.h"
+#if defined(BOARD_MODEL_NMAXE)
 #include "bm1366.h"
+#elif defined(BOARD_MODEL_NMAXE_GAMMA)
 #include "bm1370.h"
-
-#define ASIC_DIFF_THR             512
-#define ESP32_TO_BM13xx_INIT_BUAD 115200
-#define ESP32_TO_BM13xx_WORK_BUAD 1000000
+#elif defined(BOARD_MODEL_NMQAxe_PLUSPLUS)
+#include "bm1370.h"
+#endif
 
 typedef struct{
     double   _3m;

@@ -164,21 +164,21 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
     return;
 }
 
-board_model_t get_board_model(){
-    board_model_t model = BOARD_UNKNOWN;
-    pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
-    pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
-    delay(100);
+// board_model_t get_board_model(){
+//     board_model_t model = BOARD_UNKNOWN;
+//     pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
+//     pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
+//     delay(100);
     
-    uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
-    uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
+//     uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
+//     uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
   
-    if(sel0 == HIGH && sel1 == HIGH) model = NMAXE;//0b11
-    else if(sel0 == LOW && sel1 == HIGH) model = NMAXE_GAMMA;//0b01
-    else model = BOARD_UNKNOWN;// 0b10 or 0b00
+//     if(sel0 == HIGH && sel1 == HIGH) model = NMAXE;//0b11
+//     else if(sel0 == LOW && sel1 == HIGH) model = NMAXE_GAMMA;//0b01
+//     else model = BOARD_UNKNOWN;// 0b10 or 0b00
   
-    return model;
-}
+//     return model;
+// }
 
 bool load_g_nmaxe(void){
     esp_err_t ret = nvs_flash_init();
@@ -210,9 +210,9 @@ bool load_g_nmaxe(void){
     g_board.info.base.devcie_code                   = gen_device_code();
 
     g_board.info.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + g_board.info.base.hw_model + "_" + g_board.info.base.devcie_code.substring(0, 5)).c_str()));
-    g_board.info.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, "x"));
+    g_board.info.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, PRIMARY_POOL_PWD));
     g_board.info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + g_board.info.base.hw_model + "_" + g_board.info.base.devcie_code.substring(0, 5)).c_str()));
-    g_board.info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, "d=512"));
+    g_board.info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
     g_board.info.connection.stratum_use              = g_board.info.connection.stratum_primary;
     g_board.status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
     g_board.info.base.fw_latest_release              = "";
@@ -264,9 +264,7 @@ bool load_g_nmaxe(void){
     g_board.power                                    = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
                                                                       {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},
                                                                        NM_AXE_POWER_BM13xx_VCORE_REGULATOR_PWM_PIN, NM_AXE_POWER_BM13xx_VCORE_P_GOOD_DET_PIN, NM_AXE_POWER_BM13xx_VBUS_PLUG_SENSE_DET_PIN);
-    
-    
-    
+
     return true;
 }
 
