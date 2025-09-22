@@ -200,8 +200,7 @@ String get_last_reboot_reason(){
   }
 }
 
-void swap_endian_words(const char *hex_words, uint8_t *output)
-{
+void swap_endian_words(const char *hex_words, uint8_t *output){
     size_t hex_length = strlen(hex_words);
     if (hex_length % 8 != 0)
     {

@@ -54,7 +54,7 @@ static uint16_t calculate_rpm(int16_t pulse_count, double time_seconds) {
     return (uint16_t)((pulse_count * 60.0) / (time_seconds * PULSES_PER_REVOLUTION));
 }
 
-float pid_compute(pid* pid, float setpoint, float measured, float dt) {
+static float pid_compute(pid* pid, float setpoint, float measured, float dt) {
     const uint16_t MAX_INTEGRAL = 300.0f;
     float error = measured - setpoint;
     pid->integral += error * dt;
@@ -73,6 +73,64 @@ float pid_compute(pid* pid, float setpoint, float measured, float dt) {
 
     return output;
 }
+
+static bool guess_fan_ploarity(void){
+    bool invert = false;
+    int16_t now_count = 0, last_count = 0,temp_cnt = 0;
+    uint32_t sum_rpm = 0, max = 500;
+    LOG_I("Guessing fan polarity, please wait...");
+    fan_set_speed(0.5);
+    for(uint16_t i=0; i<max; i++){
+        // Calculate fan RPM
+        static uint32_t start_ms = millis();
+        if(millis() - start_ms > 500){
+            pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
+            uint16_t delta_pcnt = 0;
+            if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
+            else delta_pcnt = now_count - last_count;
+            
+            sum_rpm += calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
+            last_count = now_count;
+            start_ms = millis();
+        }
+        delay(10);
+    }
+    uint16_t first = sum_rpm / max;
+    LOG_I("Fan RPM at 50%% speed: %d", first);
+
+
+
+    sum_rpm = 0;
+    last_count = 0;
+    now_count = 0;
+    fan_set_speed(1.0);
+    for(uint16_t i=0; i<max; i++){
+        // Calculate fan RPM
+        static uint32_t start_ms = millis();
+        if(millis() - start_ms > 500){
+            pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
+            uint16_t delta_pcnt = 0;
+            if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
+            else delta_pcnt = now_count - last_count;
+            
+            sum_rpm += calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
+            last_count = now_count;
+            start_ms = millis();
+        }
+        delay(10);
+    }
+    LOG_I("Fan RPM at 100%% speed: %d", sum_rpm / max);
+    invert = ((0.9 * (sum_rpm / max)) < first) ? true : false;//avoid some noise, 90% of 100% speed should be > 50% speed
+
+
+
+
+
+    LOG_W("Fan polarity %s", (invert) ? "inverted" : "normal");
+    return invert;
+}
+
+
 
 void fan_thread_entry(void *args){
     char *name = (char*)malloc(20);
@@ -93,6 +151,7 @@ void fan_thread_entry(void *args){
 
     tmp102_init();
     fan_init();
+    guess_fan_ploarity();
 
     while(1){
         delay(125);// 8Hz
