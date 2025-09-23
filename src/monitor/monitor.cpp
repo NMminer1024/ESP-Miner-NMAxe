@@ -93,7 +93,7 @@ void monitor_thread_entry(void *args){
           
           setenv("TZ", tz_buf, 1);
           tzset();
-          
+           
           String time_local = convert_time_to_local(g_board.status.miner.utc);
           LOG_W("ntp calibrate time UTC[%llu], local[%s], timezone[%s], tz_env[%s]", 
                 g_board.status.miner.utc, time_local.c_str(), g_board.status.miner.timezone.c_str(), tz_buf);

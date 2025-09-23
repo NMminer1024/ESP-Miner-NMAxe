@@ -4,24 +4,22 @@
 #include <stdint.h>
 
 #define NVS_CONFIG_NAMESPACE "main"
+
+
 #define NVS_CONFIG_TIMEZONE  "timezone"
 #define NVS_CONFIG_WIFI_SSID "wifissid"
 #define NVS_CONFIG_WIFI_PASS "wifipass"
 #define NVS_CONFIG_HOSTNAME  "hostname"
 #define NVS_CONFIG_AP_SSID   "apssid"
-
 #define NVS_CONFIG_STRATUM_USER_PRIMARY "stratumuser"
 #define NVS_CONFIG_STRATUM_URL_PRIMARY "stratumurl1"
 #define NVS_CONFIG_STRATUM_PASS_PRIMARY "stratumpass1"
-
 #define NVS_CONFIG_STRATUM_USER_FALLBACK "stratumuser2"
 #define NVS_CONFIG_STRATUM_URL_FALLBACK "stratumurl2"
 #define NVS_CONFIG_STRATUM_PASS_FALLBACK "stratumpass2"
-
 #define NVS_CONFIG_ASIC_FREQ "asicfrequency"
 #define NVS_CONFIG_ASIC_VOLTAGE "asicvoltage"
 #define NVS_CONFIG_SCREEN_BRIGHTNESS "brightness"
-// #define NVS_CONFIG_ASIC_MODEL "asicmodel"
 #define NVS_CONFIG_DEVICE_MODEL "devicemodel"
 #define NVS_CONFIG_FLIP_SCREEN "flipscreen"
 #define NVS_CONFIG_LED_INDICATOR "ledindicator"

@@ -284,23 +284,14 @@ void miner_asic_init_thread_entry(void *args){
     strcpy(name, (char*)args);
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
-    
-//     static HwSerialAdapter serial_adapter = HwSerialAdapter(Serial1);
 
-// #if defined (BOARD_MODEL_NMAXE)
-//     asic_instance = new BM1366(serial_adapter, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-// #elif defined (BOARD_MODEL_NMAXE_GAMMA)
-//     asic_instance = new BM1370(serial_adapter, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-// #endif
-//     //miner instance
-//     g_board.miner = new AsicMinerClass(asic_instance);
-//     while (g_board.miner == NULL){
-//         LOG_W("Waiting for miner instance...");
-//         delay(1000);
-//     }
+    while(g_board.miner == nullptr){
+        LOG_W("Waiting for miner instance ready...");
+        delay(1000);
+    }
     
     //begin asic hardware
-    if(!g_board.miner->begin(g_board.status.asic.frequency_req, ASIC_JOB_DIFF_DEFAULT_THR)){
+    if(!g_board.miner->begin(g_board.status.asic.frequency_req, g_board.status.asic.diff_thr_init)){
         while (true){
             LOG_E("Miner low power!");
             delay(1000);
@@ -353,8 +344,8 @@ void miner_asic_tx_thread_entry(void *args){
             if(!g_board.stratum->is_subscribed()) break;
 
             //set asic diff as pool diff if pool diff < initial asic diff
-            if(g_board.stratum->get_pool_difficulty() <= ASIC_JOB_DIFF_DEFAULT_THR){
-                static double last_diff = ASIC_JOB_DIFF_DEFAULT_THR;
+            if(g_board.stratum->get_pool_difficulty() <= g_board.status.asic.diff_thr_init){
+                static double last_diff = g_board.status.asic.diff_thr_init;
                 if(g_board.stratum->get_pool_difficulty() != last_diff){
                     LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_board.miner->get_asic_diff(), 4).c_str(), formatNumber(g_board.stratum->get_pool_difficulty(), 4).c_str());
                     last_diff = g_board.stratum->get_pool_difficulty();

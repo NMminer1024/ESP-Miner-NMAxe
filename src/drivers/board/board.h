@@ -1,20 +1,10 @@
 #ifndef __NM_BOARD_H_
 #define __NM_BOARD_H_
-
-// #if defined(BOARD_MODEL_NMAXE)
-// #include "NMAxe.h"
-// #elif defined(BOARD_MODEL_NMAXE_GAMMA)
-// #include "NMAxeGamma.h"
-// #elif defined(BOARD_MODEL_NMQAxe)
-// #include "NMQAxe.h"
-// #else
-// #error "No board model defined"
-// #endif
-
-
-
-
-
+#include <Arduino.h>
+#include "bm_hal.h"
+#include "BM1366.h"
+#include "BM1370.h"
+#include "axe_pwr_hal.h"
 
 /******************default parameter define for NMAxe***********************/
 #define BOARD_MODEL                                    "NMAxe"
@@ -32,30 +22,9 @@
 #define SCREEN_WIDTH                                   240
 #define SCREEN_HEIGHT                                  135
 
-#define ASIC_DEFAULT_FREQ                              550  //MHz
-#define ASIC_VCORE_DEFAULT                             1200 //mV
-#define ASIC_VCORE_MIN                                 1100 //mV
-#define ASIC_VCORE_MAX                                 1300 //mV
-#define ASIC_JOB_INTERVAL_MS                           2000 //ms
-#define ASIC_JOB_DIFF_DEFAULT_THR                      512  //Default ASIC diff threshold to set as initial asic diff
+// #define ASIC_JOB_DIFF_DEFAULT_THR                      512  //Default ASIC diff threshold to set as initial asic diff
 #define ESP32_TO_ASIC_INIT_BUAD                        115200
 #define ESP32_TO_ASIC_WORK_BUAD                        1000000
-
-
-#define HR_DIST_HEALTH_X_AXIS_MAX_HR                   1000 //GH/s
-#define HR_DIST_HEALTH_X_AXIS_BARS                     20   //how many samples for x axis
-
-
-#define FAN_FULL_RPM_MIN                               (4200)
-#define BOARD_LOW_POWER                                (10.0f)   //Watt
-#define ASIC_TEMP_DANGER                               (75.0f)
-#define ASIC_TEMP_NORMAL                               (50.0f)
-#define VCORE_TEMP_DANGER                              (90.0f)
-#define VCORE_TEMP_LOW                                 (50.0f)
-#define BOARD_MCU_DANGER                               (60.0f)
-#define HISTORY_DEEPTH                                 (1000*3600*24) // history depth, how long to keep the history, in seconds
-#define HISTORY_SAMPLE_INTERVAL                        (2) // history sample interval, in seconds
-
 
 /*********************************Pin define********************************/
 #define NM_AXE_BUTTON_BOOT_PIN                         0
@@ -97,5 +66,56 @@
 #define NM_AXE_MODEL_SELECT_PIN0                       15
 #define NM_AXE_MODEL_SELECT_PIN1                       46
 
+typedef enum {
+    NMAXE         = 0b11,
+    NMAXE_GAMMA   = 0b01,
+    NMQAXE        = 0b10,
+    BOARD_UNKNOWN = 0b00
+} board_model_t;
 
+// board config struct
+struct BoardConfig {
+    String   name;
+    uint32_t max_x_hr;
+    uint32_t max_x_bars;
+
+    struct {
+        String   name;
+        uint32_t job_interval_ms;
+
+        uint16_t req_frq;
+        uint16_t default_frq;
+
+        uint16_t req_vcore;
+        uint16_t default_vcore;
+
+        uint16_t min_vcore;
+        uint16_t max_vcore;
+
+        uint16_t diff_thr_init;
+    } asic_spec;
+
+    struct {
+        uint8_t rx_pin;
+        uint8_t tx_pin;
+        uint8_t rst_pin;
+    } asic_pins;
+
+    struct {
+        axe_pwr_enable_pin_t enable_pins;
+        axe_pwr_adc_pin_t    adc_pins;
+        uint8_t              vcore_regulator_pin;    
+        uint8_t              pgood_pin;
+        uint8_t              dc_plug_pin;
+    } pwr_pins;
+
+    // creator function pointer
+    BMxxx* (*create_asic_instance)(HardwareSerial&, uint32_t, uint8_t, uint8_t, uint8_t);
+};
+
+
+// BMxxx* create_bm1366_instance(HardwareSerial& serial, uint32_t baud, uint8_t rx, uint8_t tx, uint8_t rst);
+// BMxxx* create_bm1370_instance(HardwareSerial& serial, uint32_t baud, uint8_t rx, uint8_t tx, uint8_t rst);
+board_model_t get_board_model();
+BoardConfig get_board_config(board_model_t model);
 #endif

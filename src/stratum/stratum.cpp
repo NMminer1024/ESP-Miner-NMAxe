@@ -60,12 +60,7 @@ uint32_t StratumClass::_get_msg_id(){
 bool StratumClass::_parse_rsp(){
     DeserializationError error = deserializeJson(this->_rsp_json, this->_rsp_str);
     if (error) {
-        if(error.c_str() != nullptr && this->_rsp_str.c_str() != nullptr){
-            LOG_E("Failed to parse JSON: %s => %s", error.c_str(), this->_rsp_str.c_str());
-        }
-        else{
-            LOG_E("StratumClass::_parse_rsp Failed to parse JSON");
-        }
+        LOG_E("StratumClass::_parse_rsp Failed to parse JSON");
         return false;
     }
     return true;

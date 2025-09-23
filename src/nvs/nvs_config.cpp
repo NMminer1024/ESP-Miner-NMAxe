@@ -164,21 +164,6 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
     return;
 }
 
-board_model_t get_board_model(){
-    board_model_t model = BOARD_UNKNOWN;
-    pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
-    pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
-    delay(100); //wait for pin stable
-    uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
-    uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
-    // 0b11 NMAXE
-    // 0b01 NMAXE_GAMMA
-    // 0b10 NMQAXE
-    // 0b00 BOARD_UNKNOWN
-    model = static_cast<board_model_t>((sel0 << 1) | sel1);
-    return model;
-}
-
 bool load_g_board(void){
     esp_err_t ret = nvs_flash_init();
     while (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -192,55 +177,30 @@ bool load_g_board(void){
     }
 
     /*************************************************** Specific Parameters among different board ***************************************/
-    board_model_t model = get_board_model();
-    BMxxx *asic_instance = nullptr;
-    switch(model){
-        case NMAXE:{
-            g_board.info.base.hw_model                       = "NMAxe";
-            g_board.status.asic.model                        = "BM1366";
-            g_board.status.asic.job_frq_ms                   = 2000; // ms
-            g_board.status.miner.hr_dist.max_x_hr            = 1000; // GH/s
-            g_board.status.miner.hr_dist.max_x_bars          = 20; 
-            asic_instance                                    = new BM1366(Serial1, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-            if(asic_instance == nullptr){
-                LOG_E("BM1366 instance create failed");
-                return false;
-            }
-            g_board.miner                                    = new AsicMinerClass(asic_instance);
-            if (g_board.miner == nullptr){
-                LOG_E("AsicMinerClass instance create failed");
-                return false;
-            }
-                                                        
-            LOG_I("Board model: NMAXE");
-            break;
-        }
-        case NMAXE_GAMMA:
-            g_board.info.base.hw_model                       = "NMAxeGamma";
-            g_board.status.asic.model                        = "BM1370";
-            g_board.status.asic.job_frq_ms                   = 500;  // ms
-            g_board.status.miner.hr_dist.max_x_hr            = 2000; // GH/s
-            g_board.status.miner.hr_dist.max_x_bars          = 20; 
-            asic_instance                                    = new BM1370(Serial1, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-            if(asic_instance == nullptr){
-                LOG_E("BM1370 instance create failed");
-                return false;
-            }
-            g_board.miner                                    = new AsicMinerClass(asic_instance);     
-            if (g_board.miner == nullptr){
-                LOG_E("AsicMinerClass instance create failed");
-                return false;
-            }
-            LOG_I("Board model: NMAXE GAMMA");
-            break;
-        case NMQAXE:
+    board_model_t model                              = get_board_model();
+    BoardConfig config                               = get_board_config(model);
 
-            LOG_I("Board model: NMQAXE");
-            break;
-        default:
-            LOG_W("Board model: UNKNOWN");
-            break;
-    }
+    g_board.info.base.hw_model                       = config.name;
+    g_board.status.asic.model                        = config.asic_spec.name;
+    g_board.status.asic.job_frq_ms                   = config.asic_spec.job_interval_ms; // ms
+    g_board.status.miner.hr_dist.max_x_hr            = config.max_x_hr;   // GH/s
+    g_board.status.miner.hr_dist.max_x_bars          = config.max_x_bars; 
+    g_board.status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic_spec.default_frq);
+    g_board.status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic_spec.default_vcore);
+    g_board.status.asic.vcore_min                    = config.asic_spec.min_vcore;
+    g_board.status.asic.vcore_max                    = config.asic_spec.max_vcore;
+    g_board.status.asic.diff_thr_init                = config.asic_spec.diff_thr_init;
+    g_board.miner                                    = new AsicMinerClass(config.create_asic_instance(Serial1, 
+                                                                          ESP32_TO_ASIC_INIT_BUAD, 
+                                                                          config.asic_pins.rx_pin, 
+                                                                          config.asic_pins.tx_pin, 
+                                                                          config.asic_pins.rst_pin));
+                                                                          
+    g_board.power                                    = new NMAxePowerClass( config.pwr_pins.enable_pins, 
+                                                                            config.pwr_pins.adc_pins, 
+                                                                            config.pwr_pins.vcore_regulator_pin, 
+                                                                            config.pwr_pins.pgood_pin, 
+                                                                            config.pwr_pins.dc_plug_pin);
 
     /*************************************************** Same Parameters among different board ***************************************/
     String stratum_pri                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
@@ -254,9 +214,9 @@ bool load_g_board(void){
     g_board.info.connection.pool_fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
     g_board.info.connection.pool_use                 = g_board.info.connection.pool_primary;
 
-    g_board.info.base.fw_version                    = CURRENT_FW_VERSION;
-    g_board.info.base.hw_version                    = CURRENT_HW_VERSION;
-    g_board.info.base.devcie_code                   = gen_device_code();
+    g_board.info.base.fw_version                     = CURRENT_FW_VERSION;
+    g_board.info.base.hw_version                     = CURRENT_HW_VERSION;
+    g_board.info.base.devcie_code                    = gen_device_code();
 
     g_board.info.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + g_board.info.base.hw_model + "_" + g_board.info.base.devcie_code.substring(0, 5)).c_str()));
     g_board.info.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, PRIMARY_POOL_PWD));
@@ -265,9 +225,6 @@ bool load_g_board(void){
     g_board.info.connection.stratum_use              = g_board.info.connection.stratum_primary;
     g_board.status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
     g_board.info.base.fw_latest_release              = "";
-
-    g_board.status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    ASIC_DEFAULT_FREQ);
-    g_board.status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, ASIC_VCORE_DEFAULT);
     g_board.status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);
     g_board.status.miner.history_mutex               = xSemaphoreCreateMutex();
     g_board.status.miner.block_proximity_mutex       = xSemaphoreCreateMutex();
@@ -307,9 +264,6 @@ bool load_g_board(void){
     g_board.info.base.coin.toUpperCase();
     g_board.market                                   = new MarketClass();
     g_board.stratum                                  = new StratumClass(g_board.info.connection.pool_use, g_board.info.connection.stratum_use, 10);
-    g_board.power                                    = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
-                                                                      {NM_AXE_POWER_BM13xx_VBUS_ADC_PIN, NM_AXE_POWER_BM13xx_IBUS_ADC_PIN, NM_AXE_POWER_BM13xx_VCORE_ADC_PIN},
-                                                                       NM_AXE_POWER_BM13xx_VCORE_REGULATOR_PWM_PIN, NM_AXE_POWER_BM13xx_VCORE_P_GOOD_DET_PIN, NM_AXE_POWER_BM13xx_VBUS_PLUG_SENSE_DET_PIN);
 
     return true;
 }

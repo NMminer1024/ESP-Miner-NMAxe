@@ -13,9 +13,9 @@
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define CURRENT_FW_VERSION  "v2.9.11"
-#define CURRENT_HW_VERSION  "v1.1.1"
+#define CURRENT_FW_VERSION      "v2.9.11"
 
+#define CURRENT_HW_VERSION      "v1.1.1"
 
 #define NVS_SAVE_INTERVAL       (60*60)  //second
 
@@ -30,6 +30,24 @@
 #define MARKET_UPDATE_INTERVAL  (1000*5)  // ms
 
 #define MARKET_TIMEOUT          (MARKET_UPDATE_INTERVAL * 3) // ms
+
+#define FAN_FULL_RPM_MIN        (4000) // RPM, minimum RPM to be considered as "full speed"
+
+#define BOARD_LOW_POWER         (10.0f)   //Watt
+
+#define ASIC_TEMP_DANGER        (75.0f)
+
+#define ASIC_TEMP_NORMAL        (50.0f)
+
+#define VCORE_TEMP_DANGER       (90.0f)
+
+#define VCORE_TEMP_LOW          (50.0f)
+
+#define BOARD_MCU_DANGER        (60.0f)
+
+#define HISTORY_DEEPTH          (1000*3600*24) // history depth, how long to keep the history, in seconds
+
+#define HISTORY_SAMPLE_INTERVAL (2) // history sample interval, in seconds
 
 
 enum{
@@ -51,14 +69,6 @@ enum{
     TASK_PRIORITY_MINER_TX ,
     TASK_PRIORITY_MINER_RX     //highest priority
 };
-
-
-typedef enum {
-    NMAXE         = 0b11,
-    NMAXE_GAMMA   = 0b01,
-    NMQAXE        = 0b10,
-    BOARD_UNKNOWN = 0b00
-} board_model_t;
 
 typedef struct{
     float       mcu;
@@ -95,6 +105,9 @@ typedef struct{
     uint16_t  vcore_req;//mV
     uint16_t  vcore_measured;//mV
     uint16_t  job_frq_ms;//ms
+    uint16_t  vcore_min;//mV
+    uint16_t  vcore_max;//mV
+    uint16_t  diff_thr_init; //difficulty threshold
 }asic_info_t;
 
 typedef struct{

@@ -143,9 +143,13 @@ void fan_thread_entry(void *args){
     bool fan_invert = guess_fan_polarity();
 
     // fan self test
-    measure_fan_rpm_for_duration(1.0, 5000, g_board.info.preference.fan.rpm , fan_invert);
-    g_board.info.preference.fan.self_test = (g_board.info.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
-
+    while (true){
+        measure_fan_rpm_for_duration(1.0, 5000, g_board.info.preference.fan.rpm , fan_invert);
+        g_board.info.preference.fan.self_test = (g_board.info.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
+        if(g_board.info.preference.fan.self_test) break;
+        LOG_W("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
+    }
+    
     while(1){
         delay(125);// 8Hz
         //update board temperature

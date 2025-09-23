@@ -122,7 +122,7 @@ void power_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
 
-    g_board.power->set_vcore_range(ASIC_VCORE_MIN, ASIC_VCORE_MAX);
+    g_board.power->set_vcore_range(g_board.status.asic.vcore_min, g_board.status.asic.vcore_max);
     LOG_I("Set vcore range to %d-%d mV", g_board.power->get_vcore_min(), g_board.power->get_vcore_max());
 
     //detect power plug or pd plug
