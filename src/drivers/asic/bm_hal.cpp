@@ -1,7 +1,7 @@
 #include "bm_hal.h"
 #include "logger.h"
 
-BMxxx::BMxxx(SerialAdapter &port, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst): _serial(port){
+BMxxx::BMxxx(HardwareSerial &port, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst): _serial(port){
     this->_rst_pin = rst;
     this->_rx_pin = rx;
     this->_tx_pin = tx;

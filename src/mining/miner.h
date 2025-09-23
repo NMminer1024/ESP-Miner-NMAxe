@@ -4,13 +4,9 @@
 #include <map>
 #include "stratum.h"
 #include "board.h"
-#if defined(BOARD_MODEL_NMAXE)
 #include "bm1366.h"
-#elif defined(BOARD_MODEL_NMAXE_GAMMA)
 #include "bm1370.h"
-#elif defined(BOARD_MODEL_NMQAxe)
-#include "bm1370.h"
-#endif
+
 
 typedef struct{
     double   _3m;

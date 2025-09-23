@@ -11,7 +11,7 @@ OneButton user_btn(NM_AXE_BUTTON_USER_PIN, true);
 
 static void recover_factory_cb(void){
   LOG_W("Recover factory settings...");
-  clear_g_nmaxe();
+  clear_g_board();
   delay(500);
   ESP.restart();
 }

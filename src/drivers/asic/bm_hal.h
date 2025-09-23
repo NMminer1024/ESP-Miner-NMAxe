@@ -1,7 +1,6 @@
 #ifndef BM_HAL_H_
 #define BM_HAL_H_
 #include <Arduino.h>
-#include "uart_hal.h"
 
 #define ASIC_DEFAULT_VSERSION_MASK  (0x1fffe000)
 
@@ -62,12 +61,12 @@ typedef struct __attribute__((__packed__)){
 
 class BMxxx{
 private:
-    SerialAdapter&  _serial;
+    HardwareSerial& _serial;
     uint8_t         _rst_pin;
     uint8_t         _rx_pin;
     uint8_t         _tx_pin;
 public:
-    BMxxx(SerialAdapter &port, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst);
+    BMxxx(HardwareSerial &port, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst);
     ~BMxxx();
 
     void reset();

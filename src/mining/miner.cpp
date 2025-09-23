@@ -7,7 +7,6 @@
 #include <limits> 
 #include "global.h"
 #include "csha256.h"
-#include "hwserial_adapter.h"
 #include "helper.h"
 #include <deque>
 #include <vector>
@@ -286,19 +285,19 @@ void miner_asic_init_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
     free(name);
     
-    static HwSerialAdapter serial_adapter = HwSerialAdapter(Serial1);
+//     static HwSerialAdapter serial_adapter = HwSerialAdapter(Serial1);
 
-#if defined (BOARD_MODEL_NMAXE)
-    asic_instance = new BM1366(serial_adapter, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-#elif defined (BOARD_MODEL_NMAXE_GAMMA)
-    asic_instance = new BM1370(serial_adapter, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
-#endif
-    //miner instance
-    g_board.miner = new AsicMinerClass(asic_instance);
-    while (g_board.miner == NULL){
-        LOG_W("Waiting for miner instance...");
-        delay(1000);
-    }
+// #if defined (BOARD_MODEL_NMAXE)
+//     asic_instance = new BM1366(serial_adapter, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+// #elif defined (BOARD_MODEL_NMAXE_GAMMA)
+//     asic_instance = new BM1370(serial_adapter, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+// #endif
+//     //miner instance
+//     g_board.miner = new AsicMinerClass(asic_instance);
+//     while (g_board.miner == NULL){
+//         LOG_W("Waiting for miner instance...");
+//         delay(1000);
+//     }
     
     //begin asic hardware
     if(!g_board.miner->begin(g_board.status.asic.frequency_req, ASIC_JOB_DIFF_DEFAULT_THR)){

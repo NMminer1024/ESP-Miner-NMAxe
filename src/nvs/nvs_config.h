@@ -54,7 +54,7 @@ void nvs_config_set_u16(const char * key, const uint16_t value);
 uint64_t nvs_config_get_u64(const char * key, const uint64_t default_value);
 void nvs_config_set_u64(const char * key, const uint64_t value);
 
-bool load_g_nmaxe(void);
-void clear_g_nmaxe(void);
+bool load_g_board(void);
+void clear_g_board(void);
 
 #endif // MAIN_NVS_CONFIG_H

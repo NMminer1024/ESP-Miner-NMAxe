@@ -52,6 +52,14 @@ enum{
     TASK_PRIORITY_MINER_RX     //highest priority
 };
 
+
+typedef enum {
+    NMAXE         = 0b11,
+    NMAXE_GAMMA   = 0b01,
+    NMQAXE        = 0b10,
+    BOARD_UNKNOWN = 0b00
+} board_model_t;
+
 typedef struct{
     float       mcu;
     float       vcore;

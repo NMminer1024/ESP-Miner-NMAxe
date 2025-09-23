@@ -164,23 +164,22 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
     return;
 }
 
-// board_model_t get_board_model(){
-//     board_model_t model = BOARD_UNKNOWN;
-//     pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
-//     pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
-//     delay(100);
-    
-//     uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
-//     uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
-  
-//     if(sel0 == HIGH && sel1 == HIGH) model = NMAXE;//0b11
-//     else if(sel0 == LOW && sel1 == HIGH) model = NMAXE_GAMMA;//0b01
-//     else model = BOARD_UNKNOWN;// 0b10 or 0b00
-  
-//     return model;
-// }
+board_model_t get_board_model(){
+    board_model_t model = BOARD_UNKNOWN;
+    pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
+    pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
+    delay(100); //wait for pin stable
+    uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
+    uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
+    // 0b11 NMAXE
+    // 0b01 NMAXE_GAMMA
+    // 0b10 NMQAXE
+    // 0b00 BOARD_UNKNOWN
+    model = static_cast<board_model_t>((sel0 << 1) | sel1);
+    return model;
+}
 
-bool load_g_nmaxe(void){
+bool load_g_board(void){
     esp_err_t ret = nvs_flash_init();
     while (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         LOG_W("NVS partition is full or has invalid version, erasing...");
@@ -191,9 +190,59 @@ bool load_g_nmaxe(void){
         ret = nvs_flash_init();
         delay(1000);
     }
-    g_board.info.base.hw_model                       = BOARD_MODEL;
-    g_board.status.asic.model                        = ASIC_MODEL;
 
+    /*************************************************** Specific Parameters among different board ***************************************/
+    board_model_t model = get_board_model();
+    BMxxx *asic_instance = nullptr;
+    switch(model){
+        case NMAXE:{
+            g_board.info.base.hw_model                       = "NMAxe";
+            g_board.status.asic.model                        = "BM1366";
+            g_board.status.asic.job_frq_ms                   = 2000; // ms
+            g_board.status.miner.hr_dist.max_x_hr            = 1000; // GH/s
+            g_board.status.miner.hr_dist.max_x_bars          = 20; 
+            asic_instance                                    = new BM1366(Serial1, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+            if(asic_instance == nullptr){
+                LOG_E("BM1366 instance create failed");
+                return false;
+            }
+            g_board.miner                                    = new AsicMinerClass(asic_instance);
+            if (g_board.miner == nullptr){
+                LOG_E("AsicMinerClass instance create failed");
+                return false;
+            }
+                                                        
+            LOG_I("Board model: NMAXE");
+            break;
+        }
+        case NMAXE_GAMMA:
+            g_board.info.base.hw_model                       = "NMAxeGamma";
+            g_board.status.asic.model                        = "BM1370";
+            g_board.status.asic.job_frq_ms                   = 500;  // ms
+            g_board.status.miner.hr_dist.max_x_hr            = 2000; // GH/s
+            g_board.status.miner.hr_dist.max_x_bars          = 20; 
+            asic_instance                                    = new BM1370(Serial1, ESP32_TO_ASIC_INIT_BUAD, NM_AXE_ESP32_RX_TO_BM13xx, NM_AXE_ESP32_TX_TO_BM13xx, NM_AXE_ESP32_RST_TO_BM13xx);
+            if(asic_instance == nullptr){
+                LOG_E("BM1370 instance create failed");
+                return false;
+            }
+            g_board.miner                                    = new AsicMinerClass(asic_instance);     
+            if (g_board.miner == nullptr){
+                LOG_E("AsicMinerClass instance create failed");
+                return false;
+            }
+            LOG_I("Board model: NMAXE GAMMA");
+            break;
+        case NMQAXE:
+
+            LOG_I("Board model: NMQAXE");
+            break;
+        default:
+            LOG_W("Board model: UNKNOWN");
+            break;
+    }
+
+    /*************************************************** Same Parameters among different board ***************************************/
     String stratum_pri                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb                                = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
     
@@ -216,9 +265,7 @@ bool load_g_nmaxe(void){
     g_board.info.connection.stratum_use              = g_board.info.connection.stratum_primary;
     g_board.status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
     g_board.info.base.fw_latest_release              = "";
-    g_board.status.asic.job_frq_ms                   = ASIC_JOB_INTERVAL_MS;
-    g_board.status.miner.hr_dist.max_x_hr            = HR_DIST_HEALTH_X_AXIS_MAX_HR;
-    g_board.status.miner.hr_dist.max_x_bars          = HR_DIST_HEALTH_X_AXIS_BARS;
+
     g_board.status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    ASIC_DEFAULT_FREQ);
     g_board.status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, ASIC_VCORE_DEFAULT);
     g_board.status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);
@@ -243,7 +290,7 @@ bool load_g_nmaxe(void){
     g_board.status.ota.firmware                      = "";
     g_board.status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_board.info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
-    // g_board.info.preference.fan.invert_ploarity      = nvs_config_get_u16(NVS_CONFIG_INVERT_FAN_POLARITY, true); 
+
     g_board.info.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     g_board.info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
     g_board.info.preference.fan.self_test            = false;
@@ -258,7 +305,6 @@ bool load_g_nmaxe(void){
     g_board.status.miner.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     g_board.info.base.coin                           = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     g_board.info.base.coin.toUpperCase();
-    g_board.miner                                    = nullptr;
     g_board.market                                   = new MarketClass();
     g_board.stratum                                  = new StratumClass(g_board.info.connection.pool_use, g_board.info.connection.stratum_use, 10);
     g_board.power                                    = new NMAxePowerClass({NM_AXE_POWER_BM13xx_VPLL_ENABLE_PIN, NM_AXE_POWER_BM13xx_VDD_ENABLE_PIN, NM_AXE_POWER_BM13xx_VCORE_ENABLE_PIN},
@@ -268,7 +314,7 @@ bool load_g_nmaxe(void){
     return true;
 }
 
-void clear_g_nmaxe(void){
+void clear_g_board(void){
     esp_err_t err;
     err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {

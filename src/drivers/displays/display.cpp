@@ -140,16 +140,17 @@ static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *big_digit_page = NULL;
   const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL;
 
-#if defined(BOARD_MODEL_NMAXE)
-    p_config_img = &config_page_img_nmaxe;
-    p_mining_img = &mining_page_img_nmaxe;
-#elif defined(BOARD_MODEL_NMAXE_GAMMA)
-    p_config_img = &config_page_img_nmaxe_gamma;
-    p_mining_img = &mining_page_img_nmaxe_gamma;
-#endif
-    p_loading_img = &loading_page_img;
-    p_status_img  = &status_page_img;
-    p_black_img   = &black_page_img;
+  if(g_board.info.base.hw_model == "NMAxe"){
+      p_config_img = &config_page_img_nmaxe;
+      p_mining_img = &mining_page_img_nmaxe;
+  }
+  else if(g_board.info.base.hw_model == "NMAxeGamma"){
+      p_config_img = &config_page_img_nmaxe_gamma;
+      p_mining_img = &mining_page_img_nmaxe_gamma;
+  }
+  p_loading_img = &loading_page_img;
+  p_status_img  = &status_page_img;
+  p_black_img   = &black_page_img;
 
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
