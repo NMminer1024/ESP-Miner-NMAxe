@@ -6,6 +6,7 @@
 #include "global.h"
 #include "logger.h"
 #include "helper.h"
+#include "Wire.h"
 
 char * nvs_config_get_string(const char * key, const char * default_value)
 {
@@ -176,33 +177,37 @@ bool load_g_board(void){
         delay(1000);
     }
 
-    /*************************************************** Specific Parameters among different board ***************************************/
-    board_model_t model                              = get_board_model();
-    BoardConfig config                               = get_board_config(model);
+    /*************************************************** Specific parameters among different board ***************************************/
+    BoardModelType model                             = get_board_model();      // detect board model via 2 GPIOs
+    BoardSpecConfig config                           = get_board_config(model);// get board configuration structure according to board model
+    Wire.begin(config.iic_pins.sda_pin, config.iic_pins.scl_pin);              // set I2C pins and start I2C
 
     g_board.info.base.hw_model                       = config.name;
     g_board.status.asic.model                        = config.asic_spec.name;
     g_board.status.asic.job_frq_ms                   = config.asic_spec.job_interval_ms; // ms
-    g_board.status.miner.hr_dist.max_x_hr            = config.max_x_hr;   // GH/s
-    g_board.status.miner.hr_dist.max_x_bars          = config.max_x_bars; 
+    g_board.ui.hr_dist_page.max_x_hr                 = config.ui_spec.hr_dist_max_x_hr;  // GH/s
+    g_board.ui.hr_dist_page.max_x_bars               = config.ui_spec.hr_dist_max_x_bars; 
     g_board.status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic_spec.default_frq);
     g_board.status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic_spec.default_vcore);
     g_board.status.asic.vcore_min                    = config.asic_spec.min_vcore;
     g_board.status.asic.vcore_max                    = config.asic_spec.max_vcore;
     g_board.status.asic.diff_thr_init                = config.asic_spec.diff_thr_init;
-    g_board.miner                                    = new AsicMinerClass(config.create_asic_instance(Serial1, 
-                                                                          ESP32_TO_ASIC_INIT_BUAD, 
-                                                                          config.asic_pins.rx_pin, 
-                                                                          config.asic_pins.tx_pin, 
-                                                                          config.asic_pins.rst_pin));
-                                                                          
-    g_board.power                                    = new NMAxePowerClass( config.pwr_pins.enable_pins, 
-                                                                            config.pwr_pins.adc_pins, 
+    g_board.info.fan_spec.self_test_rpm_thr          = config.fan_spec.self_test_rpm_thr;
+    g_board.info.fan_spec.pwm_pin                    = config.fan_spec.pwm_pin;
+    g_board.info.fan_spec.torch_pin                  = config.fan_spec.torch_pin;
+    g_board.info.btn_spec.boot_pin                   = config.btn_spec.boot_pin;
+    g_board.info.btn_spec.user_pin                   = config.btn_spec.user_pin;
+    g_board.miner                                    = new AsicMinerClass(config.create_asic_instance(Serial1, ESP32_TO_ASIC_INIT_BUAD, 
+                                                                          config.asic_spec.rx_pin, 
+                                                                          config.asic_spec.tx_pin, 
+                                                                          config.asic_spec.rst_pin));
+
+    g_board.power                                    = new NMAxePowerClass( config.pwr_pins.enable_pins, config.pwr_pins.adc_pins, 
                                                                             config.pwr_pins.vcore_regulator_pin, 
                                                                             config.pwr_pins.pgood_pin, 
                                                                             config.pwr_pins.dc_plug_pin);
 
-    /*************************************************** Same Parameters among different board ***************************************/
+    /*************************************************** Same parameters among different board ***************************************/
     String stratum_pri                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb                                = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
     
@@ -213,11 +218,9 @@ bool load_g_board(void){
     g_board.info.connection.pool_fallback.url        = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
     g_board.info.connection.pool_fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
     g_board.info.connection.pool_use                 = g_board.info.connection.pool_primary;
-
     g_board.info.base.fw_version                     = CURRENT_FW_VERSION;
     g_board.info.base.hw_version                     = CURRENT_HW_VERSION;
     g_board.info.base.devcie_code                    = gen_device_code();
-
     g_board.info.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + g_board.info.base.hw_model + "_" + g_board.info.base.devcie_code.substring(0, 5)).c_str()));
     g_board.info.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, PRIMARY_POOL_PWD));
     g_board.info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + g_board.info.base.hw_model + "_" + g_board.info.base.devcie_code.substring(0, 5)).c_str()));
@@ -244,10 +247,9 @@ bool load_g_board(void){
     g_board.info.connection.stratum_update           = millis();
     g_board.status.ota.running                       = false;
     g_board.status.ota.progress                      = 0;
-    g_board.status.ota.firmware                      = "";
+    g_board.status.ota.filename                      = "";
     g_board.status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_board.info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
-
     g_board.info.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     g_board.info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
     g_board.info.preference.fan.self_test            = false;

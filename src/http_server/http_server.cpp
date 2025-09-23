@@ -145,12 +145,12 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    root["max_bars"]    = g_board.status.miner.hr_dist.max_x_bars;
-    root["max_hr"]      = g_board.status.miner.hr_dist.max_x_hr;
-    root["times"]       = g_board.status.miner.hr_dist.times;
-    root["dura"]        = g_board.status.miner.hr_dist.dura;
+    root["max_bars"]    = g_board.ui.hr_dist_page.max_x_bars;
+    root["max_hr"]      = g_board.ui.hr_dist_page.max_x_hr;
+    root["times"]       = g_board.ui.hr_dist_page.times;
+    root["dura"]        = g_board.ui.hr_dist_page.dura;
     JsonObject dist_map = root.createNestedObject("dist");
-    for (const auto& pair : g_board.status.miner.hr_dist.dist_map) {
+    for (const auto& pair : g_board.ui.hr_dist_page.dist_map) {
         dist_map[String(pair.first)] = pair.second; 
     }
 
@@ -838,7 +838,7 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
         }else{
             g_board.status.ota.running = true;
             g_board.status.ota.progress    = 0;
-            g_board.status.ota.firmware    = filename;
+            g_board.status.ota.filename    = filename;
         }
     }
 

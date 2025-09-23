@@ -17,12 +17,12 @@ struct pid{
 };
 
 static void fan_init(void){
-    pinMode(NM_AXE_FAN_PWM_PIN, OUTPUT);
+    pinMode(g_board.info.fan_spec.pwm_pin, OUTPUT);
     ledcSetup(FAN_PWM_CHANNEL, FAN_PWM_FREQ, FAN_PWM_RESOLUTION);
-    ledcAttachPin(NM_AXE_FAN_PWM_PIN, FAN_PWM_CHANNEL);
+    ledcAttachPin(g_board.info.fan_spec.pwm_pin, FAN_PWM_CHANNEL);
 
     pcnt_config_t pcnt_config = {
-        .pulse_gpio_num = NM_AXE_FAN_PWM_RPM_MEASURE_PIN,
+        .pulse_gpio_num = g_board.info.fan_spec.torch_pin,
         .ctrl_gpio_num = PCNT_PIN_NOT_USED,
         .lctrl_mode = PCNT_MODE_KEEP,
         .hctrl_mode = PCNT_MODE_KEEP,
@@ -145,7 +145,7 @@ void fan_thread_entry(void *args){
     // fan self test
     while (true){
         measure_fan_rpm_for_duration(1.0, 5000, g_board.info.preference.fan.rpm , fan_invert);
-        g_board.info.preference.fan.self_test = (g_board.info.preference.fan.rpm > FAN_FULL_RPM_MIN) ? true : false;
+        g_board.info.preference.fan.self_test = (g_board.info.preference.fan.rpm > g_board.info.fan_spec.self_test_rpm_thr) ? true : false;
         if(g_board.info.preference.fan.self_test) break;
         LOG_W("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
     }

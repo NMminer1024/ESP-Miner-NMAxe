@@ -5,7 +5,7 @@
 #include "monitor.h"
 #include "button.h"
 #include "fan.h"
-#include "Wire.h"
+
 #include "led.h"
 #include "market.h"
 #include "http_server.h"
@@ -26,8 +26,6 @@ void setup() {
     LOG_E("Load global parameters failed!");
     delay(100);
   }
-  /************************************************************* INIT I2C ***************************************************************/
-  Wire.begin(NM_AXE_IIC_SDA_PIN, NM_AXE_IIC_SCL_PIN);
   /************************************************************ INIT DISPLAY ************************************************************/
   taskName = "(ui)";
   xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_UI, &uiTask, 1);
@@ -40,7 +38,7 @@ void setup() {
   delay(10);
   /********************************************************** CREATE BUTTON THREAD *****************************************************/
   taskName = "(button)";
-  xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_BTN, &btnTask,1);
+  xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_BTN, &btnTask,1);
   delay(10);
   /********************************************************* CREATE FAN THREAD *********************************************************/
   taskName = "(fan)";

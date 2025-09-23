@@ -31,7 +31,7 @@
 
 #define MARKET_TIMEOUT          (MARKET_UPDATE_INTERVAL * 3) // ms
 
-#define FAN_FULL_RPM_MIN        (4000) // RPM, minimum RPM to be considered as "full speed"
+// #define g_board.info.preference.fan.self_test_rpm_thr        (4000) // RPM, minimum RPM to be considered as "full speed"
 
 #define BOARD_LOW_POWER         (10.0f)   //Watt
 
@@ -79,11 +79,10 @@ typedef struct{
 
 typedef struct{
     bool        is_auto_speed;
-    // bool        invert_ploarity;
     bool        self_test;
     uint16_t    speed;//%
     uint16_t    rpm;//RPM
-    float       target_temp;//asic temp
+    float       target_temp;  //asic temp
 }fan_info_t;
 
 typedef struct{
@@ -127,7 +126,7 @@ typedef struct{
 }connect_info_t;
 
 typedef struct{
-    String              firmware;//name
+    String              filename;//name
     bool                running;
     int                 progress;
 }ota_info_t;
@@ -181,7 +180,6 @@ typedef struct{
     uint64_t            uptime_ever;
     uint64_t            uptime_session;
     hashrate_t          hashrate;
-    hash_dist_t         hr_dist;
     float               efficiency; // J/TH
     uint16_t            hits;
     uint16_t            last_hits;//record the last hits
@@ -210,6 +208,18 @@ typedef struct{
         String              hw_model;
         String              devcie_code;
     }base;
+
+    struct{
+        uint8_t             torch_pin; // fan tachometer pin
+        uint8_t             pwm_pin;   // fan pwm control pin
+        uint16_t            self_test_rpm_thr; // RPM, minimum RPM when fan is at full speed in self-test
+    }fan_spec;
+
+    struct{
+        uint8_t             user_pin; // user button as recover to factory default
+        uint8_t             boot_pin; // boot button as UI page switch
+    }btn_spec;
+
     connect_info_t      connection;
     preference_info_t   preference;
 }board_info_t;
@@ -225,6 +235,9 @@ typedef struct{
     SemaphoreHandle_t   nvs_save_xsem;// save status to NVS signal
 }board_status_t;
 
+typedef struct{
+    hash_dist_t         hr_dist_page;
+}board_ui_spec_t;
 
 
 typedef String axe_ip_t;
@@ -237,6 +250,7 @@ typedef std::map<axe_ip_t, axe_info_t> swarm_map_t;
 typedef struct{
     board_info_t        info;
     board_status_t      status;
+    board_ui_spec_t     ui;
     swarm_map_t         swarm;
     MarketClass         *market;
     NMAxePowerClass     *power;

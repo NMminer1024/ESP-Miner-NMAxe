@@ -5,10 +5,6 @@
 #include "display.h"
 #include "nvs_config.h"
 
-OneButton boot_btn(NM_AXE_BUTTON_BOOT_PIN, true);
-OneButton user_btn(NM_AXE_BUTTON_USER_PIN, true);
-
-
 static void recover_factory_cb(void){
   LOG_W("Recover factory settings...");
   clear_g_board();
@@ -37,6 +33,9 @@ void button_thread_entry(void *args){
   LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
   free(name);
   
+  OneButton boot_btn(g_board.info.btn_spec.boot_pin, true);
+  OneButton user_btn(g_board.info.btn_spec.user_pin, true);
+
   // link the boot button functions.
   boot_btn.attachClick(ui_switch_next_page_cb);
   boot_btn.attachDoubleClick(silence_mode_cb);
