@@ -31,8 +31,6 @@
 
 #define MARKET_TIMEOUT          (MARKET_UPDATE_INTERVAL * 3) // ms
 
-// #define g_board.info.preference.fan.self_test_rpm_thr        (4000) // RPM, minimum RPM to be considered as "full speed"
-
 #define BOARD_LOW_POWER         (10.0f)   //Watt
 
 #define ASIC_TEMP_DANGER        (75.0f)
