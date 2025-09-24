@@ -126,13 +126,13 @@ void fan_thread_entry(void *args){
     int16_t now_count = 0, last_count = 0, temp_cnt = 0;
     uint32_t start_ms = millis();
     pid fan_pid = {
-        .Kp = 100.0f,
+        .Kp = 50.0f,
         .Ki = 1.0f,
-        .Kd = 50.0f,
+        .Kd = 0.0f,
         .prev_error = 0,
         .integral = 0,
         .output_min = 25.0f,
-        .output_max = 100.0f
+        .output_max = 99.5f
     };
 
     tmp102_init();
