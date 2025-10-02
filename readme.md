@@ -107,6 +107,12 @@
   <img src="image/swarm.jpg" alt="swarm">
 </div>
 
+- *Lucky statistics*
+<div align="center">
+  <img src="image/Lucky.png" alt="png">
+</div>
+
+
 ## Firmware update
 - *Via AxeOS ota*
 
@@ -178,6 +184,22 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 
 ## Release Log
 ***
+
+### (2025.10.02) - v2.9.20
+- `Add`:
+  - AxeOS: Lucky statistics chart in dashboard page.
+  - AxeOS: `clear Block hit` button.
+- `Fixed`:
+  - The issue of random restart.
+- `Improved`:
+  - Memory usage.
+  - Algorithm of fan control, reduced fan noise.
+  - Algorithm of Vcore control.
+  - Fan polarity auto detect.
+- `Modify`:
+  - None.
+- `Remove`:
+  - AxeOS: fan polarity option.
 
 ### (2025.08.31) - v2.9.10
 - `Add`:
