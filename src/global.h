@@ -13,7 +13,7 @@
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define CURRENT_FW_VERSION      "v2.9.20"
+#define CURRENT_FW_VERSION      "v2.9.21"
 
 #define CURRENT_HW_VERSION      "v1.1.1"
 
@@ -198,7 +198,7 @@ typedef struct{
 
 typedef struct{
     struct{
-        String              coin;//mining coin, BTC, BCH, XEC, DGB, for price display purpose
+        String              coin_price;//  BTC, BCH, XEC, DGB, for price display purpose
         String              hostname;
         String              fw_version;
         String              fw_latest_release;

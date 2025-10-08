@@ -262,8 +262,8 @@ bool load_g_board(void){
     g_board.info.preference.led.sleep_last           = g_board.info.preference.led.sleep;
     g_board.status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     g_board.status.miner.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
-    g_board.info.base.coin                           = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
-    g_board.info.base.coin.toUpperCase();
+    g_board.info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
+    g_board.info.base.coin_price.toUpperCase();
     g_board.market                                   = new MarketClass();
     g_board.stratum                                  = new StratumClass(g_board.info.connection.pool_use, g_board.info.connection.stratum_use, 10);
 

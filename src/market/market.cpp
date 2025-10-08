@@ -64,7 +64,7 @@ void market_thread_entry(void *args){
     while(true){
         if(g_board.info.connection.wifi.status_param.status == WL_CONNECTED){
             // Fetch the 24hr ticker data for the coin
-            bool res = g_board.market->get_coin_ticker_24hr(g_board.info.base.coin + "USDT");
+            bool res = g_board.market->get_coin_ticker_24hr(g_board.info.base.coin_price + "USDT");
             g_board.market->lastUpdate = (res) ? millis() : g_board.market->lastUpdate;
         }
         delay(MARKET_UPDATE_INTERVAL);

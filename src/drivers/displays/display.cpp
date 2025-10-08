@@ -1444,7 +1444,7 @@ void ui_thread_entry(void *args){
   ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
   uint32_t start = millis();
   while(0 == g_board.market->lastUpdate){
-    ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_board.info.base.coin).c_str(), 0xFFFFFF, false);
+    ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_board.info.base.coin_price).c_str(), 0xFFFFFF, false);
     if(millis() - start - g_board.market->lastUpdate >= MARKET_TIMEOUT){
       ui_loading_str_update("Market update timeout!", 0xFF0000, false);
       delay(500);

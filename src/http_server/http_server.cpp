@@ -135,7 +135,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["targetAsicTemp"] = String(g_board.info.preference.fan.target_temp);
     root["fanrpm"] = g_board.info.preference.fan.rpm;
     root["brightness"] = g_board.info.preference.screen.brightness_last;
-    root["coin"] = g_board.info.base.coin;
+    root["coin"] = g_board.info.base.coin_price;
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
@@ -779,7 +779,7 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("coin")){
             nvs_config_set_string(NVS_CONFIG_MINING_COIN,root["coin"].as<String>().c_str());
-            g_board.info.base.coin = root["coin"].as<String>();
+            g_board.info.base.coin_price = root["coin"].as<String>();
         }
         if(root.containsKey("invertscreen")){
 

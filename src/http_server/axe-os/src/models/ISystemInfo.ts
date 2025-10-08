@@ -33,7 +33,7 @@ export interface ISystemInfo {
   stratumUser2: string,
   stratumPassword2: string,
   frequency: number,
-  coin: string,
+  coin: string, // Price display currency (BTC, BCH, DGB, XEC)
   brightness: number,
   version: string,
   boardVersion: string,

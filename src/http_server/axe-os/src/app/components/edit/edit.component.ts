@@ -68,7 +68,7 @@ export class EditComponent implements OnInit {
   ];
 
 
-  public Coin = [
+  public PriceDisplay = [
     {name: 'BTC', value: 'BTC'},
     {name: 'BCH', value: 'BCH'},
     {name: 'DGB', value: 'DGB'},
