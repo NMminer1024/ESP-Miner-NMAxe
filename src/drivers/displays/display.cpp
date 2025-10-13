@@ -8,15 +8,6 @@
 #include "nm_pwr.h"
 
 
-enum{
-    PAGE_LOADING = 0,
-    PAGE_CONFIG,
-    PAGE_MINER,
-    PAGE_DASHBOARD,
-    PAGE_HR_HEALTH,
-    PAGE_BIG_DIGIT,
-};
-
 LV_FONT_DECLARE(ds_digib_font_16)
 LV_FONT_DECLARE(ds_digib_font_18)
 LV_FONT_DECLARE(ds_digib_font_20)
@@ -35,7 +26,7 @@ static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
 static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
 static lv_obj_t *lb_cfg_timeout = NULL;
-static uint8_t   current_page_index = PAGE_MINER;
+static uint8_t   current_page_index = UI_PAGE_MINER;
 
 
 static int blpwmChannel = 0;   
@@ -279,14 +270,14 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
     lv_color_t font_color = lv_color_hex(color);
 
     if (lb_loading == NULL){
-      lb_loading = lv_label_create(ui_pages[PAGE_LOADING]);
+      lb_loading = lv_label_create(ui_pages[UI_PAGE_LOADING]);
       lv_obj_set_width(lb_loading, SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 7.2));
       lv_obj_set_style_text_font(lb_loading, font, LV_PART_MAIN);
       lv_label_set_long_mode(lb_loading, LV_LABEL_LONG_DOT);
       lv_obj_align(lb_loading, LV_ALIGN_BOTTOM_LEFT, 3, 0);
 
       //hardward model
-      lb_hard_model   = lv_label_create( ui_pages[PAGE_LOADING] );
+      lb_hard_model   = lv_label_create( ui_pages[UI_PAGE_LOADING] );
       width = lv_txt_get_width(g_board.info.base.hw_model.c_str(), strlen(g_board.info.base.hw_model.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
       lv_obj_set_width(lb_hard_model, width);
       lv_label_set_text( lb_hard_model, g_board.info.base.hw_model.c_str());
@@ -296,7 +287,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_obj_align( lb_hard_model, LV_ALIGN_TOP_MID, 0, 5);
 
       //bar 
-      bar = lv_bar_create(ui_pages[PAGE_LOADING]);
+      bar = lv_bar_create(ui_pages[UI_PAGE_LOADING]);
       lv_bar_set_range(bar, 0, progress_total);
       lv_bar_set_value(bar, progress, LV_ANIM_ON);
       lv_obj_set_style_bg_opa(bar, LV_OPA_50, LV_PART_MAIN);
@@ -306,14 +297,14 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_INDICATOR);
 
       //progress label
-      label_progress = lv_label_create(ui_pages[PAGE_LOADING]);
+      label_progress = lv_label_create(ui_pages[UI_PAGE_LOADING]);
       lv_label_set_text(label_progress, "");
       lv_obj_set_style_text_color(label_progress, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
       lv_obj_align(label_progress, LV_ALIGN_LEFT_MID, 0, -20);
     }
 
     if(lb_ip_and_slogan == NULL){
-      lb_ip_and_slogan   = lv_label_create( ui_pages[PAGE_LOADING] );
+      lb_ip_and_slogan   = lv_label_create( ui_pages[UI_PAGE_LOADING] );
       String slogan_str = "Make it better";
       width = lv_txt_get_width(slogan_str.c_str(), strlen(slogan_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
       lv_obj_set_width(lb_ip_and_slogan, width);
@@ -325,7 +316,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
     }
 
     if(lb_pool_url == NULL){
-      lb_pool_url   = lv_label_create( ui_pages[PAGE_LOADING] );
+      lb_pool_url   = lv_label_create( ui_pages[UI_PAGE_LOADING] );
 
       lv_label_set_text( lb_pool_url, "");
       lv_obj_set_style_text_font(lb_pool_url, &lv_font_montserrat_16, LV_PART_MAIN);
@@ -375,7 +366,7 @@ static void ui_miner_page_update(){
     //Hashrate value
     const lv_font_t *font = &ds_digib_font_38;
     font_color = lv_color_hex(0xEE7D30);
-    lb_hashrate   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_hashrate   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_hashrate, 80);
     lv_label_set_text( lb_hashrate, " ");
     lv_obj_set_style_text_font(lb_hashrate, font, LV_PART_MAIN);
@@ -385,7 +376,7 @@ static void ui_miner_page_update(){
     //Hit value
     font = &ds_digib_font_50;
     font_color = lv_color_hex(0xEE7D30);
-    lb_blk_hit   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_blk_hit   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_blk_hit, SCREEN_WIDTH);
     lv_label_set_text( lb_blk_hit, " ");
     lv_obj_set_style_text_font(lb_blk_hit, font, LV_PART_MAIN);
@@ -395,7 +386,7 @@ static void ui_miner_page_update(){
     //price value
     font = &ds_digib_font_20;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_price   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_price   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_price, SCREEN_WIDTH);
     lv_label_set_text( lb_price, "");
     lv_obj_set_style_text_font(lb_price, font, LV_PART_MAIN);
@@ -405,7 +396,7 @@ static void ui_miner_page_update(){
     //version value
     font = &ds_digib_font_16;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_mine_page_ver   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_mine_page_ver   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_mine_page_ver, SCREEN_WIDTH);
     lv_label_set_text( lb_mine_page_ver, g_board.info.base.fw_version.substring(1, g_board.info.base.fw_version.length()).c_str());
     lv_obj_set_style_text_font(lb_mine_page_ver, font, LV_PART_MAIN);
@@ -415,7 +406,7 @@ static void ui_miner_page_update(){
     //power value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_power   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_power   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_power, 95);
     lv_label_set_text( lb_power, " ");
     lv_obj_set_style_text_font(lb_power, font, LV_PART_MAIN);
@@ -425,7 +416,7 @@ static void ui_miner_page_update(){
     //wifi value
     font = &ds_digib_font_16;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_wifi    = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_wifi    = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_wifi, 98);
     lv_label_set_text( lb_wifi, " ");
     lv_obj_set_style_text_font(lb_wifi, font, LV_PART_MAIN);
@@ -436,7 +427,7 @@ static void ui_miner_page_update(){
     //uptime value, hour , minute, second
     font = &ds_digib_font_16;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_uptime_hms    = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_uptime_hms    = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_uptime_hms, 88);
     lv_label_set_text( lb_uptime_hms, " ");
     lv_obj_set_style_text_font(lb_uptime_hms, font, LV_PART_MAIN);
@@ -446,7 +437,7 @@ static void ui_miner_page_update(){
     //uptime value, day
     font = &ds_digib_font_16;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_uptime_day    = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_uptime_day    = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_uptime_day, 88);
     lv_label_set_text( lb_uptime_day, " ");
     lv_obj_set_style_text_font(lb_uptime_day, font, LV_PART_MAIN);
@@ -456,7 +447,7 @@ static void ui_miner_page_update(){
     //uptime day unit  
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xFFA500);
-    lb_uptime_day_unit    = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_uptime_day_unit    = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_uptime_day_unit, 20);
     lv_label_set_text( lb_uptime_day_unit, "d");
     lv_obj_set_style_text_font(lb_uptime_day_unit, font, LV_PART_MAIN);
@@ -467,7 +458,7 @@ static void ui_miner_page_update(){
     //Diff value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_diff    = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_diff    = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_diff, 100);
     lv_label_set_text( lb_diff, " ");
     lv_obj_set_style_text_font(lb_diff, font, LV_PART_MAIN);
@@ -477,7 +468,7 @@ static void ui_miner_page_update(){
     //share value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_share   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_share   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_share, SCREEN_WIDTH);
     lv_label_set_text( lb_share, " ");
     lv_obj_set_style_text_font(lb_share, font, LV_PART_MAIN);
@@ -487,7 +478,7 @@ static void ui_miner_page_update(){
     //temp value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_temp   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_temp   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_temp, SCREEN_WIDTH);
     lv_label_set_text( lb_temp, " ");
     lv_obj_set_style_text_font(lb_temp, font, LV_PART_MAIN);
@@ -497,7 +488,7 @@ static void ui_miner_page_update(){
     //Fan value
     font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_fan_and_efficiency   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_fan_and_efficiency   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_fan_and_efficiency, SCREEN_WIDTH);
     lv_label_set_text( lb_fan_and_efficiency, " ");
     lv_obj_set_style_text_font(lb_fan_and_efficiency, font, LV_PART_MAIN);
@@ -507,7 +498,7 @@ static void ui_miner_page_update(){
     //Hashrate uint
     font = &ds_digib_font_28;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_hr_unit   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_hr_unit   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_hr_unit, SCREEN_WIDTH);
     lv_label_set_text( lb_hr_unit, " ");
     lv_obj_set_style_text_font(lb_hr_unit, font, LV_PART_MAIN);
@@ -517,7 +508,7 @@ static void ui_miner_page_update(){
     // symbol uptime
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xFFA500);
-    lb_uptime_symbol   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_uptime_symbol   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_uptime_symbol, SCREEN_WIDTH);
     lv_label_set_text( lb_uptime_symbol, LV_SYMBOL_BELL); 
     lv_obj_set_style_text_font(lb_uptime_symbol, font, LV_PART_MAIN);
@@ -527,7 +518,7 @@ static void ui_miner_page_update(){
     // symbol wifi
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xFFA500);
-    lb_wifi_symbol   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_wifi_symbol   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_wifi_symbol, SCREEN_WIDTH);
     lv_label_set_text( lb_wifi_symbol, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_font(lb_wifi_symbol, font, LV_PART_MAIN);
@@ -538,7 +529,7 @@ static void ui_miner_page_update(){
     //diff symbol
     font = &symbol_14;
     font_color = lv_color_hex(0xA9A9A9);
-    lb_diff_symbol   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_diff_symbol   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_diff_symbol, SCREEN_WIDTH);
     lv_label_set_text( lb_diff_symbol, "\xEF\x82\x80");
     lv_obj_set_style_text_font(lb_diff_symbol, font, LV_PART_MAIN);
@@ -548,7 +539,7 @@ static void ui_miner_page_update(){
     // share symbol
     font = &symbol_14;
     font_color = lv_color_hex(0xA9A9A9);
-    lb_share_symb   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_share_symb   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_share_symb, SCREEN_WIDTH);
     lv_label_set_text( lb_share_symb, "\xEF\x8E\x82");
     lv_obj_set_style_text_font(lb_share_symb, font, LV_PART_MAIN);
@@ -558,7 +549,7 @@ static void ui_miner_page_update(){
     //temp symbol
     font = &symbol_14;
     font_color = lv_color_hex(0xA9A9A9);
-    lb_temp_symb   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_temp_symb   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_temp_symb, SCREEN_WIDTH);
     lv_label_set_text( lb_temp_symb, "\xEF\x8B\x88");
     lv_obj_set_style_text_font(lb_temp_symb, font, LV_PART_MAIN);
@@ -568,7 +559,7 @@ static void ui_miner_page_update(){
     //fan symbol
     font = &symbol_14;
     font_color = lv_color_hex(0xA9A9A9);
-    lb_fan_symb   = lv_label_create( ui_pages[PAGE_MINER] );
+    lb_fan_symb   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_fan_symb, SCREEN_WIDTH);
     lv_label_set_text( lb_fan_symb, "\xEF\xA1\xA3");
     lv_obj_set_style_text_font(lb_fan_symb, font, LV_PART_MAIN);
@@ -777,11 +768,11 @@ static void ui_dashboard_page_update(){
 
   uint8_t arc_r = 30, arc_line_width = 8;
   uint16_t arc_angle_full = 230;
-  if((ui_pages[PAGE_DASHBOARD] != NULL) && (arc_power == NULL)) {
+  if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (arc_power == NULL)) {
     // Hashrate label
     font = &ds_digib_font_36;
     font_color = lv_color_hex(0x000000);
-    lb_ds_hr   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_ds_hr   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_ds_hr, 80);
     lv_label_set_text( lb_ds_hr, " ");
     lv_obj_set_style_text_font(lb_ds_hr, font, LV_PART_MAIN);
@@ -791,7 +782,7 @@ static void ui_dashboard_page_update(){
     //Hashrate uint
     font = &ds_digib_font_20;
     font_color = lv_color_hex(0x808080);
-    lb_ds_hr_unit   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_ds_hr_unit   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_ds_hr_unit, 50);
     lv_label_set_text( lb_ds_hr_unit, " ");
     lv_obj_set_style_text_font(lb_ds_hr_unit, font, LV_PART_MAIN);
@@ -802,7 +793,7 @@ static void ui_dashboard_page_update(){
 
 
     // Create overclock arc
-    arc_oc = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
+    arc_oc = lv_arc_create(ui_pages[UI_PAGE_DASHBOARD]);
     lv_obj_set_size(arc_oc, 2*arc_r, 2*arc_r);
     lv_arc_set_bg_angles(arc_oc, 0, arc_angle_full);
     lv_arc_set_angles(arc_oc, 0, 0);
@@ -814,7 +805,7 @@ static void ui_dashboard_page_update(){
     // lv_obj_set_style_arc_color(arc_vbus, lv_color_hex(0xC0C0C0), LV_PART_INDICATOR);
     lv_obj_set_pos(arc_oc, 0, 4); 
     // Create power arc
-    arc_power = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
+    arc_power = lv_arc_create(ui_pages[UI_PAGE_DASHBOARD]);
     lv_obj_set_size(arc_power, 2*arc_r, 2*arc_r);
     lv_arc_set_bg_angles(arc_power, 0, arc_angle_full); 
     lv_arc_set_angles(arc_power, 0, 0); 
@@ -826,7 +817,7 @@ static void ui_dashboard_page_update(){
     // lv_obj_set_style_arc_color(arc_power, lv_color_hex(0xC0C0C0), LV_PART_INDICATOR);
     lv_obj_set_pos(arc_power, 2*arc_r + 10, 4);
     // Create vcore_req arc
-    arc_vcore_req = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
+    arc_vcore_req = lv_arc_create(ui_pages[UI_PAGE_DASHBOARD]);
     lv_obj_set_size(arc_vcore_req, 2*arc_r, 2*arc_r);
     lv_arc_set_bg_angles(arc_vcore_req, 0, arc_angle_full);
     lv_arc_set_angles(arc_vcore_req, 0, 0);
@@ -838,7 +829,7 @@ static void ui_dashboard_page_update(){
     // lv_obj_set_style_arc_color(arc_vcore_req, lv_color_hex(0xC0C0C0), LV_PART_INDICATOR);
     lv_obj_set_pos(arc_vcore_req, 0, 4 + 2*arc_r + 8);
     // Create arc_vcore_measure arc
-    arc_vcore_measure = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
+    arc_vcore_measure = lv_arc_create(ui_pages[UI_PAGE_DASHBOARD]);
     lv_obj_set_size(arc_vcore_measure, 2*arc_r, 2*arc_r);
     lv_arc_set_bg_angles(arc_vcore_measure, 0, arc_angle_full);
     lv_arc_set_angles(arc_vcore_measure, 0, 0);
@@ -850,7 +841,7 @@ static void ui_dashboard_page_update(){
     // lv_obj_set_style_arc_color(arc_vcore_measure, lv_color_hex(0xC0C0C0), LV_PART_INDICATOR);
     lv_obj_set_pos(arc_vcore_measure, 2*arc_r + 10, 4 + 2*arc_r + 8);
     // Create arc_asci_temp arc
-    arc_asci_temp = lv_arc_create(ui_pages[PAGE_DASHBOARD]);
+    arc_asci_temp = lv_arc_create(ui_pages[UI_PAGE_DASHBOARD]);
     lv_obj_set_size(arc_asci_temp, 3*arc_r, 3*arc_r);
     lv_arc_set_bg_angles(arc_asci_temp, 0, arc_angle_full);
     lv_arc_set_angles(arc_asci_temp, 0, 0);
@@ -867,7 +858,7 @@ static void ui_dashboard_page_update(){
     // Create overclock label
     const lv_font_t *  font = &lv_font_montserrat_14;
     lv_color_t font_color = lv_color_hex(0xFFFFFF);
-    lb_overclock   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_overclock   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_overclock, 80);
     lv_label_set_text( lb_overclock, " ");
     lv_obj_set_style_text_font(lb_overclock, font, LV_PART_MAIN);
@@ -877,7 +868,7 @@ static void ui_dashboard_page_update(){
     // Create over clock title label
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xD3D3D3);
-    lb_oc_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_oc_title   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_oc_title, 80);
     lv_label_set_text( lb_oc_title, "OC");
     lv_obj_set_style_text_font(lb_oc_title, font, LV_PART_MAIN);
@@ -889,7 +880,7 @@ static void ui_dashboard_page_update(){
     // Create power label
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_pwr   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_pwr   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_pwr, 80);
     lv_label_set_text( lb_pwr, " ");
     lv_obj_set_style_text_font(lb_pwr, font, LV_PART_MAIN);
@@ -899,7 +890,7 @@ static void ui_dashboard_page_update(){
     // Create power title label
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xD3D3D3);
-    lb_pwr_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_pwr_title   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_pwr_title, 80);
     lv_label_set_text( lb_pwr_title, "Power");
     lv_obj_set_style_text_font(lb_pwr_title, font, LV_PART_MAIN);
@@ -912,7 +903,7 @@ static void ui_dashboard_page_update(){
     // Create vcroe_req label
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_vcore_req   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_vcore_req   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_vcore_req, 80);
     lv_label_set_text( lb_vcore_req, " ");
     lv_obj_set_style_text_font(lb_vcore_req, font, LV_PART_MAIN);
@@ -922,7 +913,7 @@ static void ui_dashboard_page_update(){
     // Create vcroe_req title label
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xD3D3D3);
-    lb_vcore_req_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_vcore_req_title   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_vcore_req_title, 80);
     lv_label_set_text( lb_vcore_req_title, "Vc req");
     lv_obj_set_style_text_font(lb_vcore_req_title, font, LV_PART_MAIN);
@@ -934,7 +925,7 @@ static void ui_dashboard_page_update(){
     // Create vcroe_measure label
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_vcore_measure   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_vcore_measure   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_vcore_measure, 80);
     lv_label_set_text( lb_vcore_measure, " ");
     lv_obj_set_style_text_font(lb_vcore_measure, font, LV_PART_MAIN);
@@ -944,7 +935,7 @@ static void ui_dashboard_page_update(){
     // Create vcroe_measure title label
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xD3D3D3);
-    lb_vcore_measure_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_vcore_measure_title   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_vcore_measure_title, 80);
     lv_label_set_text( lb_vcore_measure_title, "Vc real");
     lv_obj_set_style_text_font(lb_vcore_measure_title, font, LV_PART_MAIN);
@@ -956,7 +947,7 @@ static void ui_dashboard_page_update(){
     // Create lb_asic_temp label
     font = &lv_font_montserrat_20;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_asic_temp   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_asic_temp   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_asic_temp, 80);
     lv_label_set_text( lb_asic_temp, " ");
     lv_obj_set_style_text_font(lb_asic_temp, font, LV_PART_MAIN);
@@ -966,7 +957,7 @@ static void ui_dashboard_page_update(){
     // Create lb_asic_temp_title label
     font = &lv_font_montserrat_14;
     font_color = lv_color_hex(0xD3D3D3);
-    lb_asic_temp_title   = lv_label_create( ui_pages[PAGE_DASHBOARD] );
+    lb_asic_temp_title   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     lv_obj_set_width(lb_asic_temp_title, 80);
     lv_label_set_text( lb_asic_temp_title, "ASIC Temp");
     lv_obj_set_style_text_font(lb_asic_temp_title, font, LV_PART_MAIN);
@@ -1025,7 +1016,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
     // Hashrate label
     const lv_font_t *  font = &ds_digib_font_36;
     lv_color_t font_color = lv_color_hex(0x000000);
-    lb_ds_hr   = lv_label_create( ui_pages[PAGE_HR_HEALTH] );
+    lb_ds_hr   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
     lv_obj_set_width(lb_ds_hr, 80);
     lv_label_set_text( lb_ds_hr, " ");
     lv_obj_set_style_text_font(lb_ds_hr, font, LV_PART_MAIN);
@@ -1035,7 +1026,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
     //Hashrate uint
     font = &ds_digib_font_20;
     font_color = lv_color_hex(0x808080);
-    lb_ds_hr_unit   = lv_label_create( ui_pages[PAGE_HR_HEALTH] );
+    lb_ds_hr_unit   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
     lv_obj_set_width(lb_ds_hr_unit, 50);
     lv_label_set_text( lb_ds_hr_unit, " ");
     lv_obj_set_style_text_font(lb_ds_hr_unit, font, LV_PART_MAIN);
@@ -1045,7 +1036,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
     //scale
     font_color = lv_color_hex(0xFFA500);
     font = &lv_font_montserrat_12;
-    label_scale = lv_label_create(ui_pages[PAGE_HR_HEALTH]);
+    label_scale = lv_label_create(ui_pages[UI_PAGE_HR_HEALTH]);
     lv_label_set_text(label_scale, ("Scale     : " + String(SCALE) + " GH/s").c_str());
     lv_obj_set_style_text_font(label_scale, font, LV_PART_MAIN);
     lv_obj_set_style_text_color(label_scale, font_color, LV_PART_MAIN); 
@@ -1054,7 +1045,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
     //time cost
     font_color = lv_color_hex(0xFFA500);
     font = &lv_font_montserrat_12;
-    lb_hr_health_duration   = lv_label_create( ui_pages[PAGE_HR_HEALTH] );
+    lb_hr_health_duration   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
     lv_obj_set_width(lb_hr_health_duration, 120);
     lv_label_set_text( lb_hr_health_duration, " ");
     lv_obj_set_style_text_font(lb_hr_health_duration, font, LV_PART_MAIN);
@@ -1063,7 +1054,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
     lv_obj_align( lb_hr_health_duration, LV_ALIGN_TOP_LEFT, 1, 18);
 
     // Create a chart
-    chart = lv_chart_create(ui_pages[PAGE_HR_HEALTH]);
+    chart = lv_chart_create(ui_pages[UI_PAGE_HR_HEALTH]);
     lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
     lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
     lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
@@ -1130,7 +1121,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
     // Hashrate value
     const lv_font_t *  font = &ds_digib_font_56;
     lv_color_t font_color = lv_color_hex(0xFFFFFF);
-    lb_hashrate   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lb_hashrate   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
     lv_obj_set_width(lb_hashrate, SCREEN_WIDTH/2);
     lv_label_set_text( lb_hashrate, " ");
     lv_obj_set_style_text_font(lb_hashrate, font, LV_PART_MAIN);
@@ -1140,7 +1131,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
     // Hashrate unit
     font = &ds_digib_font_20;
     font_color = lv_color_hex(0x808080);
-    lb_hashrate_unit   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lb_hashrate_unit   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
     lv_obj_set_width(lb_hashrate_unit, 50);
     lv_label_set_text( lb_hashrate_unit, " ");
     lv_obj_set_style_text_font(lb_hashrate_unit, font, LV_PART_MAIN);
@@ -1150,7 +1141,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
     // Time
     font = &ds_digib_font_42;
     font_color = lv_color_hex(0xFFFFFF);
-    lb_time   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lb_time   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
     String time_text = "00:00:00 AM";
     lv_coord_t width = lv_txt_get_width(time_text.c_str(), strlen(time_text.c_str()), font, 0, LV_TEXT_FLAG_NONE);
     lv_obj_set_width(lb_time, width);
@@ -1162,7 +1153,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
     // Date
     font = &ds_digib_font_24;
     font_color = lv_color_hex(0x808080);
-    lb_date   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lb_date   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
     lv_obj_set_width(lb_date, SCREEN_WIDTH/2);
     lv_label_set_text( lb_date, " ");
     lv_obj_set_style_text_font(lb_date, font, LV_PART_MAIN);
@@ -1172,7 +1163,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
     // Price
     font = &ds_digib_font_24;
     font_color = lv_color_hex(0x808080);
-    lb_price   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lb_price   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
     lv_obj_set_width(lb_date, SCREEN_WIDTH/2);
     lv_label_set_text( lb_price, " ");
     lv_obj_set_style_text_font(lb_price, font, LV_PART_MAIN);
@@ -1182,7 +1173,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
     // Block hit
     font = &ds_digib_font_56;
     font_color = lv_color_hex(0xEE7D30);
-    lb_block_hit   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lb_block_hit   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
     lv_obj_set_width(lb_block_hit, 75);
     lv_label_set_text( lb_block_hit, " ");
     lv_obj_set_style_text_font(lb_block_hit, font, LV_PART_MAIN);
@@ -1192,7 +1183,7 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
     // Block hit unit
     font = &ds_digib_font_20;
     font_color = lv_color_hex(0x808080);
-    lb_block_hit_unit   = lv_label_create( ui_pages[PAGE_BIG_DIGIT] );
+    lb_block_hit_unit   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
     lv_obj_set_width(lb_block_hit_unit, 50);
     lv_label_set_text( lb_block_hit_unit, "hits");
     lv_obj_set_style_text_font(lb_block_hit_unit, font, LV_PART_MAIN);
@@ -1237,17 +1228,17 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
 
 void ui_switch_next_page_cb(){
   g_board.info.preference.led.sleep         = (g_board.info.preference.led.sleep_last) ? false : g_board.info.preference.led.sleep; //switch led sleep mode
-
   g_board.info.preference.screen.brightness = g_board.info.preference.screen.brightness_last;//restore brightness
-
   if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
     g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
     return;
   } 
 
-  current_page_index = (current_page_index == PAGE_BIG_DIGIT) ? PAGE_CONFIG : current_page_index;
+  current_page_index = (current_page_index == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : current_page_index;
   current_page_index++;
   lv_obj_scroll_to_view(ui_pages[current_page_index], LV_ANIM_ON);
+  g_board.status.last_ui_page = current_page_index;
+  xSemaphoreGive(g_board.status.page_save_xsem);
 }
 
 void ui_thread_entry(void *args){
@@ -1282,7 +1273,7 @@ void ui_thread_entry(void *args){
   ui_layout_init();
 
   //set the first page to loading page
-  lv_obj_scroll_to_view(ui_pages[PAGE_LOADING], LV_ANIM_ON); 
+  lv_obj_scroll_to_view(ui_pages[UI_PAGE_LOADING], LV_ANIM_ON); 
 
   //backlight brightness ramp up
   for(int i = 0; i < g_board.info.preference.screen.brightness; i++) {
@@ -1361,13 +1352,13 @@ void ui_thread_entry(void *args){
       ui_loading_str_update(String("Timeout!"), 0xFF0000, false);
       delay(500);
       //config background
-      lv_obj_scroll_to_view(ui_pages[PAGE_CONFIG], LV_ANIM_ON);
+      lv_obj_scroll_to_view(ui_pages[UI_PAGE_CONFIG], LV_ANIM_ON);
 
       //config label
       const lv_font_t *font = &lv_font_montserrat_14;
       lv_color_t font_color = lv_color_hex(0xFFFFFF);
-      lv_obj_t *lb_cfg = lv_label_create(ui_pages[PAGE_CONFIG]);
-      lv_obj_t *lb_version = lv_label_create(ui_pages[PAGE_CONFIG]);
+      lv_obj_t *lb_cfg = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
+      lv_obj_t *lb_version = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
       String str = g_board.info.connection.wifi.softap_param.ssid + "\r\n"+ g_board.info.connection.wifi.softap_param.ip.toString();
 
       lv_obj_set_width(lb_cfg, 120);
@@ -1387,7 +1378,7 @@ void ui_thread_entry(void *args){
       lv_obj_align(lb_version, LV_ALIGN_TOP_MID, 105, 1);
 
       //QR code
-      lv_obj_t *qrcode = lv_qrcode_create(ui_pages[PAGE_CONFIG], SCREEN_HEIGHT - 30, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
+      lv_obj_t *qrcode = lv_qrcode_create(ui_pages[UI_PAGE_CONFIG], SCREEN_HEIGHT - 30, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
       String qr_str = "WIFI:T:WPA;S:" + g_board.info.connection.wifi.softap_param.ssid + ";P:" + g_board.info.connection.wifi.softap_param.pwd + ";H:false;";
       lv_qrcode_update(qrcode, (uint8_t*)qr_str.c_str(), qr_str.length());
       lv_obj_align(qrcode, LV_ALIGN_RIGHT_MID, 0, 0);
@@ -1500,7 +1491,7 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Miner ready!", 0x00FF00, true);
   delay(500);
   /***************************************scroll to miner page***************************************/
-  lv_obj_scroll_to_view(ui_pages[PAGE_MINER], LV_ANIM_ON); 
+  lv_obj_scroll_to_view(ui_pages[g_board.status.last_ui_page], LV_ANIM_ON); 
 
   while (true){
     //wait for miner status update forever

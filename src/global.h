@@ -229,6 +229,8 @@ typedef struct{
     asic_info_t         asic;
     miner_status_t      miner;
     ota_info_t          ota;
+    uint8_t             last_ui_page;//last ui page index,restored on next boot
+    SemaphoreHandle_t   page_save_xsem; // save current page index
     SemaphoreHandle_t   reboot_xsem;
     SemaphoreHandle_t   nvs_save_xsem;// save status to NVS signal
 }board_status_t;
