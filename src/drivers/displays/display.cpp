@@ -1492,7 +1492,8 @@ void ui_thread_entry(void *args){
   delay(500);
   /***************************************scroll to miner page***************************************/
   lv_obj_scroll_to_view(ui_pages[g_board.status.last_ui_page], LV_ANIM_ON); 
-
+  current_page_index = g_board.status.last_ui_page;
+  
   while (true){
     //wait for miner status update forever
     xSemaphoreTake(g_board.status.miner.update_xsem, portMAX_DELAY);
