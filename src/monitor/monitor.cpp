@@ -195,6 +195,12 @@ void monitor_thread_entry(void *args){
           LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(g_board.status.miner.diff.best_ever, 4).c_str(), g_board.status.miner.hits, convert_uptime_to_string(g_board.status.miner.uptime_ever).c_str());
       }
 
+      //save last ui page to NVS
+      if(g_board.status.page_save_xsem != NULL && xSemaphoreTake(g_board.status.page_save_xsem, 0) == pdTRUE){
+          nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, g_board.status.last_ui_page);
+          LOG_D("Last page %d saved to NVS", g_board.status.last_ui_page);
+      }
+
       //update miner status history queue
       if(g_board.status.miner.uptime_session % HISTORY_SAMPLE_INTERVAL == 0){
         history_node_t node;

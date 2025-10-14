@@ -35,6 +35,7 @@
 #define NVS_CONFIG_UPTIME     "uptime"
 #define NVS_CONFIG_FORCE_CONFIG "forceconfig"
 #define NVS_CONFIG_MINING_COIN "minecoin"
+#define NVS_CONFIG_UI_LAST_PAGE "lastPage"
 // Theme configuration
 #define NVS_CONFIG_THEME_SCHEME "themescheme"
 #define NVS_CONFIG_THEME_NAME "themename"

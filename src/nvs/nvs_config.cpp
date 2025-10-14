@@ -7,6 +7,7 @@
 #include "logger.h"
 #include "helper.h"
 #include "Wire.h"
+#include "display.h"
 
 char * nvs_config_get_string(const char * key, const char * default_value)
 {
@@ -249,6 +250,8 @@ bool load_g_board(void){
     g_board.status.ota.progress                      = 0;
     g_board.status.ota.filename                      = "";
     g_board.status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
+    g_board.status.last_ui_page                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+    g_board.status.page_save_xsem                    = xSemaphoreCreateCounting(1, 0);
     g_board.info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     g_board.info.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     g_board.info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
