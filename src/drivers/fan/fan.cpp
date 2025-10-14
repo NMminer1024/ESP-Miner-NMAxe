@@ -132,7 +132,7 @@ void fan_thread_entry(void *args){
         .prev_error = 0,
         .integral = 0,
         .output_min = 25.0f,
-        .output_max = 99.5f
+        .output_max = 99.999f
     };
 
     tmp102_init();
@@ -164,13 +164,15 @@ void fan_thread_entry(void *args){
         temp_cnt++;
         
         // Calculate fan RPM
-        pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
-        uint16_t delta_pcnt = 0;
-        if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
-        else delta_pcnt = now_count - last_count;
-        g_board.info.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
-        last_count = now_count;
-        start_ms = millis();
+        if(millis() - start_ms >= 1000) {
+            pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
+            uint16_t delta_pcnt = 0;
+            if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
+            else delta_pcnt = now_count - last_count;
+            g_board.info.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
+            last_count = now_count;
+            start_ms = millis();
+        }
 
         // Adjust fan speed
         if(g_board.info.preference.fan.is_auto_speed && g_board.info.preference.fan.self_test){
