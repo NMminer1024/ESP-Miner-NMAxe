@@ -33,11 +33,11 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic_spec.job_interval_ms      = 2000;
             config.ui_spec.hr_dist_max_x_hr       = 1000;
             config.ui_spec.hr_dist_max_x_bars     = 20;
-            config.asic_spec.default_frq          = 550;
-            config.asic_spec.default_vcore        = 1200;
+            config.asic_spec.default_frq          = 575;
+            config.asic_spec.default_vcore        = 1250;
             config.asic_spec.min_vcore            = 1100;
             config.asic_spec.max_vcore            = 1300;
-            config.asic_spec.diff_thr_init        = 512;
+            config.asic_spec.diff_thr_init        = 256;
             config.fan_spec.pwm_pin               = 41;
             config.fan_spec.torch_pin             = 42;
             config.fan_spec.self_test_rpm_thr     = 4000; 

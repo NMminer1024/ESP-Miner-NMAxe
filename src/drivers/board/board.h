@@ -10,7 +10,7 @@
 #define BOARD_MODEL                                    "NMAxe"
 #define ASIC_MODEL                                     "BM1366"
 
-#define PRIMARY_POOL_URL                               "stratum+tcp://public-pool.io:21496"//btc
+#define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
 #define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
 
 #define PRIMARY_USER                                   "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"//btc

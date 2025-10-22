@@ -418,7 +418,7 @@ void stratum_thread_entry(void *args){
         
         static uint32_t last = millis();
         if(!is_primary_pool){
-            if(millis() - last > 1000 * 10){
+            if(millis() - last > 1000 * 60){ // check every 60 seconds
                 bool res = g_board.stratum->is_primary_pool_available(g_board.info.connection.pool_primary.url, g_board.info.connection.pool_primary.port);
                 if(res){
                     LOG_I("Primary pool [%s] available now, switching to primary pool...", g_board.info.connection.pool_primary.url.c_str());
