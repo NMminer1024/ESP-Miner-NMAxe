@@ -197,7 +197,7 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
   - Default setting : Change primary pool `public-pool.io:21496` to `solo.ckpool.org:3333`.
   - Default setting ：Change Overclock from `550`MHz to `575`MHz and Vcore from `1200`mV to `1250`mV for NMAxe.
 - `Remove`:
-  - AxeOS: fan polarity option.
+  - None.
 
 ### (2025.10.02) - v2.9.20
 - `Add`:
