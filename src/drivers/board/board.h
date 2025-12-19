@@ -5,6 +5,7 @@
 #include "BM1366.h"
 #include "BM1370.h"
 #include "axe_pwr_hal.h"
+#include <map>
 
 /******************default parameter define for NMAxe***********************/
 #define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
@@ -41,8 +42,19 @@ typedef enum {
 struct BoardSpecConfig {
     String   name;
     struct{
-        uint32_t hr_dist_max_x_hr;
-        uint32_t hr_dist_max_x_bars;
+        struct{
+            uint32_t                    max_x_hr;       // max x axis in hashrate distribution
+            uint32_t                    max_x_bars;     // count of max x axis
+            uint32_t                    times;          // count of hashrate samples
+            uint32_t                    dura;           // duration of hashrate samples, seconds
+            std::map<uint16_t, uint8_t> dist_map;//<x, y> x:scale_x, y:percentage of hashrate in this scale, range from 0 to 100
+        }hr_dist_page;
+        //  struct{
+            
+        // }mienr_page;
+        // struct{
+            
+        // }clock_page;
     }ui;
 
     struct{

@@ -35,8 +35,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.name                      = "NMAxe";
             config.asic.name                 = "BM1366";
             config.asic.job_interval_ms      = 2000;
-            config.ui.hr_dist_max_x_hr       = 1000;
-            config.ui.hr_dist_max_x_bars     = 20;
+            config.ui.hr_dist_page.max_x_hr  = 1000;
+            config.ui.hr_dist_page.max_x_bars= 20;
             config.asic.default_frq          = 575;
             config.asic.default_vcore        = 1250;
             config.asic.min_vcore            = 1100;
@@ -71,8 +71,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.name                      = "NMAxeGamma";
             config.asic.name                 = "BM1370";
             config.asic.job_interval_ms      = 500;
-            config.ui.hr_dist_max_x_hr       = 2000;
-            config.ui.hr_dist_max_x_bars     = 20;
+            config.ui.hr_dist_page.max_x_hr  = 2000;
+            config.ui.hr_dist_page.max_x_bars= 20;
             config.asic.default_frq          = 600;
             config.asic.default_vcore        = 1125;
             config.asic.min_vcore            = 1000;

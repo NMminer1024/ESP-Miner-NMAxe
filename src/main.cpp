@@ -26,8 +26,8 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
     board->info.base.hw_model                       = cfg.name;
     board->status.asic.model                        = cfg.asic.name;
     board->status.asic.job_frq_ms                   = cfg.asic.job_interval_ms; // ms
-    board->ui.hr_dist_page.max_x_hr                 = cfg.ui.hr_dist_max_x_hr;  // GH/s
-    board->ui.hr_dist_page.max_x_bars               = cfg.ui.hr_dist_max_x_bars; 
+    board->info.spec.ui.hr_dist_page.max_x_hr       = cfg.ui.hr_dist_page.max_x_hr;  // GH/s
+    board->info.spec.ui.hr_dist_page.max_x_bars     = cfg.ui.hr_dist_page.max_x_bars; 
     board->status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    cfg.asic.default_frq);
     board->status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, cfg.asic.default_vcore);
     board->status.asic.vcore_min                    = cfg.asic.min_vcore;
@@ -133,6 +133,7 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
     log_w("\r\n           |::/  /       /:/  /      ");
     log_w("\r\n           /:/  /       /:/  /       ");
     log_w("\r\n           \\/__/        \\/__/      \r\n");
+    log_w("         %s - %s\r\n", board->info.base.hw_model.c_str(), board->info.base.fw_version.c_str());
     return true;
 }
 
