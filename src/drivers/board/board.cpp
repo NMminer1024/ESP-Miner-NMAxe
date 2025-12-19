@@ -1,4 +1,8 @@
 #include "board.h"
+#include "nvs_config.h"
+#include "esp_log.h"
+#include <nvs_flash.h>
+#include "logger.h"
 
 BoardModelType get_board_model(){
     BoardModelType model = BOARD_UNKNOWN;
@@ -28,7 +32,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
     
     switch(model) {
         case NMAXE:
-            config.name                           = "NMAxe";
+            config.name                      = "NMAxe";
             config.asic.name                 = "BM1366";
             config.asic.job_interval_ms      = 2000;
             config.ui.hr_dist_max_x_hr       = 1000;
@@ -60,10 +64,11 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.wifi_pin              = 6;
             config.led.pool_pin              = 4;
             config.led.sys_pin               = 5;
-            config.create_asic_instance           = create_bm1366_instance;
+            config.asic.com_port             = &Serial1;
+            config.create_asic_instance      = create_bm1366_instance;
             break;
         case NMAXE_GAMMA:
-            config.name                           = "NMAxeGamma";
+            config.name                      = "NMAxeGamma";
             config.asic.name                 = "BM1370";
             config.asic.job_interval_ms      = 500;
             config.ui.hr_dist_max_x_hr       = 2000;
@@ -95,12 +100,15 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.wifi_pin              = 6;
             config.led.pool_pin              = 4;
             config.led.sys_pin               = 5;
-            config.create_asic_instance           = create_bm1370_instance;
+            config.asic.com_port             = &Serial1;
+            config.create_asic_instance      = create_bm1370_instance;
             break;
         case NMQAXE_PLUS_PLUS:
-            config.name                           = "NMQAxe++";
+            config.name                      = "NMQAxe++";
             config.asic.name                 = "BM1370";
             config.asic.job_interval_ms      = 500;
+
+            config.asic.com_port             = &Serial1;
             break;
         default:
             config.name                           = "Unknown";
@@ -112,6 +120,21 @@ BoardSpecConfig get_board_config(BoardModelType model) {
     return config;
 }
 
+void hardware_pre_init(void){
+    Serial.setTimeout(20);
+    Serial.begin(115200);
+    delay(100);
 
+    esp_err_t ret = nvs_flash_init();
+    while (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        LOG_W("NVS partition is full or has invalid version, erasing...");
+        if(nvs_flash_erase() != ESP_OK){
+            LOG_E("NVS partition erase failed");
+        }
+        LOG_I("Reinitializing NVS...");
+        ret = nvs_flash_init();
+        delay(1000);
+    }
+}
 
 

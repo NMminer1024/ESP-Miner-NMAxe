@@ -7,7 +7,7 @@
 #define IN
 #define OUT
 
-void logo_print() ;
+// void logo_print() ;
 
 bool psram_init();
 

@@ -5,33 +5,153 @@
 #include "monitor.h"
 #include "button.h"
 #include "fan.h"
-
 #include "led.h"
 #include "market.h"
 #include "http_server.h"
 #include "nvs_config.h"
 #include "github.h"
+#include "Wire.h"
 
 TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
-
 board_sal_t  g_board;
+
+bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
+    /*************************************************** Specific parameters among different board ***************************************/
+    bool iic = Wire.begin(cfg.iic.sda_pin, cfg.iic.scl_pin);              // set I2C pins and start I2C
+    if(!iic){
+        LOG_E("I2C init failed on pins SDA:%d, SCL:%d", cfg.iic.sda_pin, cfg.iic.scl_pin);
+        return false;
+    }
+
+    board->info.base.hw_model                       = cfg.name;
+    board->status.asic.model                        = cfg.asic.name;
+    board->status.asic.job_frq_ms                   = cfg.asic.job_interval_ms; // ms
+    board->ui.hr_dist_page.max_x_hr                 = cfg.ui.hr_dist_max_x_hr;  // GH/s
+    board->ui.hr_dist_page.max_x_bars               = cfg.ui.hr_dist_max_x_bars; 
+    board->status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    cfg.asic.default_frq);
+    board->status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, cfg.asic.default_vcore);
+    board->status.asic.vcore_min                    = cfg.asic.min_vcore;
+    board->status.asic.vcore_max                    = cfg.asic.max_vcore;
+    board->status.asic.diff_thr_init                = cfg.asic.diff_thr_init;
+    board->info.spec.fan.self_test_rpm_thr          = cfg.fan.self_test_rpm_thr;
+    board->info.spec.fan.pwm_pin                    = cfg.fan.pwm_pin;
+    board->info.spec.fan.torch_pin                  = cfg.fan.torch_pin;
+    board->info.spec.btn.boot_pin                   = cfg.btn.boot_pin;
+    board->info.spec.btn.user_pin                   = cfg.btn.user_pin;
+    board->miner                                    = new AsicMinerClass(cfg.create_asic_instance(*cfg.asic.com_port, ESP32_TO_ASIC_INIT_BUAD, cfg.asic.rx_pin, cfg.asic.tx_pin, cfg.asic.rst_pin));
+    if(board->miner == NULL){
+        LOG_E("AsicMinerClass instance creation failed");
+        return false;
+    }
+    board->power                                    = new NMAxePowerClass( cfg.pwr.enable_pins, cfg.pwr.adc_pins, cfg.pwr.vcore_regulator_pin, cfg.pwr.pgood_pin, cfg.pwr.dc_plug_pin);
+    if(board->power == NULL){
+        LOG_E("NMAxePowerClass instance creation failed");
+        return false;
+    }
+    /*************************************************** Same parameters among different board ***************************************/
+    String stratum_pri                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
+    String stratum_fb                                = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
+    
+    board->info.connection.pool_primary.ssl         = (stratum_pri.indexOf("ssl") != -1);
+    board->info.connection.pool_primary.url         = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
+    board->info.connection.pool_primary.port        = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1, stratum_pri.length()).toInt();
+    board->info.connection.pool_fallback.ssl        = (stratum_fb.indexOf("ssl") != -1);
+    board->info.connection.pool_fallback.url        = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
+    board->info.connection.pool_fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
+    board->info.connection.pool_use                 = board->info.connection.pool_primary;
+    board->info.base.fw_version                     = CURRENT_FW_VERSION;
+    board->info.base.hw_version                     = CURRENT_HW_VERSION;
+    board->info.base.devcie_code                    = gen_device_code();
+    board->info.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + board->info.base.hw_model + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
+    board->info.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, PRIMARY_POOL_PWD));
+    board->info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + board->info.base.hw_model + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
+    board->info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
+    board->info.connection.stratum_use              = board->info.connection.stratum_primary;
+    board->info.spec.led.wifi_pin                   = cfg.led.wifi_pin;
+    board->info.spec.led.pool_pin                   = cfg.led.pool_pin;
+    board->info.spec.led.sys_pin                    = cfg.led.sys_pin;
+    board->status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
+    board->info.base.fw_latest_release              = "";
+    board->status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);
+    board->status.miner.history_mutex               = xSemaphoreCreateMutex();
+    board->status.miner.block_proximity_mutex       = xSemaphoreCreateMutex();
+    board->info.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
+    board->info.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
+    board->status.miner.update_xsem                 = xSemaphoreCreateCounting(1, 0);
+    board->info.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
+    board->info.connection.wifi.softap_param.pwd    = "12345678";
+    board->info.connection.wifi.softap_param.ssid   = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, ("NMAxe_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
+    board->status.miner.hits                        = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
+    board->status.miner.last_hits                   = board->status.miner.hits;
+    board->info.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
+    board->info.connection.client_connected         = false;
+    board->info.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
+    board->info.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
+    board->info.base.hostname                       = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, board->info.connection.wifi.softap_param.ssid.c_str()));
+    board->info.connection.stratum_update           = millis();
+    board->status.ota.running                       = false;
+    board->status.ota.progress                      = 0;
+    board->status.ota.filename                      = "";
+    board->status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
+    board->status.last_ui_page                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+    board->status.page_save_xsem                    = xSemaphoreCreateCounting(1, 0);
+    board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
+    board->info.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
+    board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
+    board->info.preference.fan.self_test            = false;
+    board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
+    board->info.preference.screen.auto_screen       = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
+    board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 90);
+    board->info.preference.screen.brightness_last   = board->info.preference.screen.brightness;
+    board->info.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
+    board->info.preference.led.sleep                = false;
+    board->info.preference.led.sleep_last           = board->info.preference.led.sleep;
+    board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
+    board->status.miner.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
+    board->info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
+    board->info.base.coin_price.toUpperCase();
+    board->market                                   = new MarketClass();
+    if(board->market == NULL){
+        LOG_E("MarketClass instance creation failed");
+        return false;
+    }
+    board->stratum                                  = new StratumClass(board->info.connection.pool_use, board->info.connection.stratum_use, 10);
+    if(board->stratum == NULL){
+        LOG_E("StratumClass instance creation failed");
+        return false;
+    }
+
+    delay(2000);
+    log_w("\r\n            ___          ___         ");
+    log_w("\r\n           /\\__\\        /\\__\\    ");
+    log_w("\r\n          /::|  |      /::|  |       ");
+    log_w("\r\n         /:|:|  |     /:|:|  |       ");
+    log_w("\r\n        /:/|:|  |__  /:/|:|__|__     ");
+    log_w("\r\n       /:/ |:| /\\__\\/:/ |::::\\__\\");
+    log_w("\r\n       \\/__|:|/:/  /\\/__/~~/:/  /  ");
+    log_w("\r\n           |:/:/  /       /:/  /     ");
+    log_w("\r\n           |::/  /       /:/  /      ");
+    log_w("\r\n           /:/  /       /:/  /       ");
+    log_w("\r\n           \\/__/        \\/__/      \r\n");
+    return true;
+}
 
 void setup() {
   String taskName;
-  /************************************************************ INIT SERIAL *************************************************************/
-  Serial.setTimeout(20);
-  Serial.begin(115200);
-  /************************************************************** INIT NVS  *************************************************************/
-  while(!load_g_board()){
-    LOG_E("Load global parameters failed!");
-    delay(100);
+  BoardSpecConfig config;
+  /************************************************************ INIT SERIAL AND NVS ****************************************************/
+  hardware_pre_init();
+  /************************************************************ GET BOARD CONFIG *******************************************************/
+  config = get_board_config(get_board_model());
+  /******************************************************* INIT BOARD BASED ON CONFIG  *************************************************/
+  while(!board_init(config, &g_board)){
+    LOG_E("Board initialization failed, retrying in 1s...");
+    delay(1000);
   }
   /************************************************************ INIT DISPLAY ************************************************************/
   taskName = "(ui)";
   xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_UI, &uiTask, 1);
   delay(10);
-  /************************************************************* INIT LOGO **************************************************************/
-  logo_print();
   /********************************************************** CREATE LED THREAD *********************************************************/
   taskName = "(led)";
   xTaskCreatePinnedToCore(led_thread_entry, taskName.c_str(), 1024*3, (void*)(&g_board), TASK_PRIORITY_LED, &ledTask, 1);
@@ -46,7 +166,7 @@ void setup() {
   delay(10);
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
-  xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_PWR, NULL,1);
+  xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_PWR, NULL,1);
   xSemaphoreTake(g_board.power->good_xsem, portMAX_DELAY);
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";

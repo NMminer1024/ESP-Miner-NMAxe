@@ -65,6 +65,7 @@ struct BoardSpecConfig {
         uint8_t rx_pin;           // ESP32 rx pin to asic tx pin
         uint8_t tx_pin;           // ESP32 tx pin to asic rx pin
         uint8_t rst_pin;          // ESP32 rst pin to asic rst pin
+        HardwareSerial *com_port; // HardwareSerial port instance
     }asic;
 
     struct {
@@ -102,6 +103,7 @@ struct BoardSpecConfig {
     // Power HAL instance pointer
 };
 
+void hardware_pre_init(void);
 BoardModelType get_board_model();
 BoardSpecConfig get_board_config(BoardModelType model);
 #endif
