@@ -138,7 +138,7 @@ void power_thread_entry(void *args){
     }
     while (!g_board.info.preference.fan.self_test){
         delay(1000);
-        LOG_W("Fan self test %d/%d...", g_board.info.preference.fan.rpm, g_board.info.fan_spec.self_test_rpm_thr);
+        LOG_W("Fan self test %d/%d...", g_board.info.preference.fan.rpm, g_board.info.spec.fan.self_test_rpm_thr);
     }
     
     //set vdd_1v8 and pll_0v8 power

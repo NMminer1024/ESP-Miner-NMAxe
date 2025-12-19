@@ -28,13 +28,13 @@ static void silence_mode_cb(void){
 }
 
 void button_thread_entry(void *args){
-  char *name = (char*)malloc(20);
-  strcpy(name, (char*)args);
-  LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-  free(name);
-  
-  OneButton boot_btn(g_board.info.btn_spec.boot_pin, true);
-  OneButton user_btn(g_board.info.btn_spec.user_pin, true);
+  board_sal_t *baord = (board_sal_t*)args;
+  String taskName = "(button)";
+  LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+  LOG_I("Initializing buttons...");
+
+  OneButton boot_btn(baord->info.spec.btn.boot_pin, true);
+  OneButton user_btn(baord->info.spec.btn.user_pin, true);
 
   // link the boot button functions.
   boot_btn.attachClick(ui_switch_next_page_cb);

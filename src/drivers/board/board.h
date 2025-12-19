@@ -7,9 +7,6 @@
 #include "axe_pwr_hal.h"
 
 /******************default parameter define for NMAxe***********************/
-#define BOARD_MODEL                                    "NMAxe"
-#define ASIC_MODEL                                     "BM1366"
-
 #define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
 #define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
 
@@ -40,21 +37,20 @@ typedef enum {
     BOARD_UNKNOWN    = 0b00
 } BoardModelType;
 
-
-
-
-
-
-
-
-
 // board config struct
 struct BoardSpecConfig {
     String   name;
     struct{
         uint32_t hr_dist_max_x_hr;
         uint32_t hr_dist_max_x_bars;
-    }ui_spec;
+    }ui;
+
+    struct{
+        uint8_t   pwr_pin;
+        uint8_t   bl_pin;
+        uint32_t  width;
+        uint32_t  height;
+    }tft;
 
     struct {
         String   name;            // asic model name
@@ -69,7 +65,7 @@ struct BoardSpecConfig {
         uint8_t rx_pin;           // ESP32 rx pin to asic tx pin
         uint8_t tx_pin;           // ESP32 tx pin to asic rx pin
         uint8_t rst_pin;          // ESP32 rst pin to asic rst pin
-    } asic_spec;
+    }asic;
 
     struct {
         axe_pwr_enable_pin_t enable_pins;
@@ -77,38 +73,34 @@ struct BoardSpecConfig {
         uint8_t              vcore_regulator_pin;    
         uint8_t              pgood_pin;
         uint8_t              dc_plug_pin;
-    } pwr_pins;
+    }pwr;
 
     struct{
         uint8_t              sda_pin;
         uint8_t              scl_pin;
-    }iic_pins;
-
-    struct{
-        uint8_t              torch_pin;
-        uint8_t              pwm_pin;
-        uint16_t             self_test_rpm_thr; // RPM, minimum RPM when fan is at full speed in self-test
-    }fan_spec;
+    }iic;
 
     struct{
         uint8_t             user_pin; // user button as recover to factory default
         uint8_t             boot_pin; // boot button as UI page switch
-    }btn_spec;
+    }btn;
 
     struct{
         uint8_t             wifi_pin; // wifi status led
         uint8_t             pool_pin; // pool status led
         uint8_t             sys_pin;  // system status led
-    }led_spec;
+    }led;
+
+    struct{
+        uint8_t              torch_pin;
+        uint8_t              pwm_pin;
+        uint16_t             self_test_rpm_thr; // RPM, minimum RPM when fan is at full speed in self-test
+    }fan;
 
     // creator function pointer
     BMxxx* (*create_asic_instance)(HardwareSerial&, uint32_t, uint8_t, uint8_t, uint8_t);
     // Power HAL instance pointer
-
 };
-
-
-
 
 BoardModelType get_board_model();
 BoardSpecConfig get_board_config(BoardModelType model);

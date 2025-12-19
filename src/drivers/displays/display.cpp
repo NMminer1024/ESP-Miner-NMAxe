@@ -1315,10 +1315,10 @@ void ui_thread_entry(void *args){
   cnt = 0;
   ui_loading_str_update(fan_test_str[0], 0xFFFFFF, true);
   while(!g_board.info.preference.fan.self_test){
-    ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_board.info.preference.fan.rpm) + "/ " + String(g_board.info.fan_spec.self_test_rpm_thr) + "rpm", 0xFFFFFF, false);
+    ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_board.info.preference.fan.rpm) + "/ " + String(g_board.info.spec.fan.self_test_rpm_thr) + "rpm", 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update("Pass! [" + String(g_board.info.preference.fan.rpm) + "/ " + String(g_board.info.fan_spec.self_test_rpm_thr) + " rpm]", 0x00FF00, true);
+  ui_loading_str_update("Pass! [" + String(g_board.info.preference.fan.rpm) + "/ " + String(g_board.info.spec.fan.self_test_rpm_thr) + " rpm]", 0x00FF00, true);
   delay(2000);
 
   /***************************************wait Vcore self test *****************************************/

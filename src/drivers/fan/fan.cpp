@@ -16,32 +16,6 @@ struct pid{
     float output_min, output_max;
 };
 
-static void fan_init(void){
-    pinMode(g_board.info.fan_spec.pwm_pin, OUTPUT);
-    ledcSetup(FAN_PWM_CHANNEL, FAN_PWM_FREQ, FAN_PWM_RESOLUTION);
-    ledcAttachPin(g_board.info.fan_spec.pwm_pin, FAN_PWM_CHANNEL);
-
-    pcnt_config_t pcnt_config = {
-        .pulse_gpio_num = g_board.info.fan_spec.torch_pin,
-        .ctrl_gpio_num = PCNT_PIN_NOT_USED,
-        .lctrl_mode = PCNT_MODE_KEEP,
-        .hctrl_mode = PCNT_MODE_KEEP,
-        .pos_mode = PCNT_COUNT_INC,   
-        .neg_mode = PCNT_COUNT_DIS,   
-        .counter_h_lim = PCNT_H_LIM_VAL,
-        .counter_l_lim = 0,           
-        .unit = PCNT_UNIT_0,
-        .channel = PCNT_CHANNEL_0
-    };
-
-    pcnt_unit_config(&pcnt_config);
-    pcnt_set_filter_value(PCNT_UNIT_0, 100);
-    pcnt_filter_enable(PCNT_UNIT_0);
-
-    pcnt_counter_pause(PCNT_UNIT_0);
-    pcnt_counter_clear(PCNT_UNIT_0);
-    pcnt_counter_resume(PCNT_UNIT_0);
-}
 
 static void fan_set_speed(float speed, bool invert = false){
     float spd = (invert) ? (1.0f - speed):speed;
@@ -118,10 +92,10 @@ static bool guess_fan_polarity(void) {
 }
 
 void fan_thread_entry(void *args){
-    char *name = (char*)malloc(20);
-    strcpy(name, (char*)args);
-    LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-    free(name);
+    board_sal_t *baord = (board_sal_t*)args;
+    String taskName = "(fan)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing fan...");
 
     int16_t now_count = 0, last_count = 0, temp_cnt = 0;
     uint32_t start_ms = millis();
@@ -135,32 +109,56 @@ void fan_thread_entry(void *args){
         .output_max = 99.999f
     };
 
+    // Initialize TMP102 temperature sensor
     tmp102_init();
 
-    fan_init();
+    // Setup PWM and PCNT for fan control and RPM measurement
+    pinMode(baord->info.spec.fan.pwm_pin, OUTPUT);
+    ledcSetup(FAN_PWM_CHANNEL, FAN_PWM_FREQ, FAN_PWM_RESOLUTION);
+    ledcAttachPin(baord->info.spec.fan.pwm_pin, FAN_PWM_CHANNEL);
+
+    pcnt_config_t pcnt_config = {
+        .pulse_gpio_num = baord->info.spec.fan.torch_pin,
+        .ctrl_gpio_num = PCNT_PIN_NOT_USED,
+        .lctrl_mode = PCNT_MODE_KEEP,
+        .hctrl_mode = PCNT_MODE_KEEP,
+        .pos_mode = PCNT_COUNT_INC,   
+        .neg_mode = PCNT_COUNT_DIS,   
+        .counter_h_lim = PCNT_H_LIM_VAL,
+        .counter_l_lim = 0,           
+        .unit = PCNT_UNIT_0,
+        .channel = PCNT_CHANNEL_0
+    };
+
+    pcnt_unit_config(&pcnt_config);
+    pcnt_set_filter_value(PCNT_UNIT_0, 100);
+    pcnt_filter_enable(PCNT_UNIT_0);
+    pcnt_counter_pause(PCNT_UNIT_0);
+    pcnt_counter_clear(PCNT_UNIT_0);
+    pcnt_counter_resume(PCNT_UNIT_0);
 
     // polarity detection
     bool fan_invert = guess_fan_polarity();
 
     // fan self test
     while (true){
-        measure_fan_rpm_for_duration(1.0, 5000, g_board.info.preference.fan.rpm , fan_invert);
-        g_board.info.preference.fan.self_test = (g_board.info.preference.fan.rpm > g_board.info.fan_spec.self_test_rpm_thr) ? true : false;
-        if(g_board.info.preference.fan.self_test) break;
+        measure_fan_rpm_for_duration(1.0, 5000, baord->info.preference.fan.rpm , fan_invert);
+        baord->info.preference.fan.self_test = (baord->info.preference.fan.rpm > baord->info.spec.fan.self_test_rpm_thr) ? true : false;
+        if(baord->info.preference.fan.self_test) break;
         LOG_W("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
     }
     
     while(1){
         delay(125);// 8Hz
         //update board temperature
-        g_board.status.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : g_board.status.temp.mcu;
-        g_board.status.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : g_board.status.temp.vcore;
-        g_board.status.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : g_board.status.temp.asic;
+        baord->status.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : baord->status.temp.mcu;
+        baord->status.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : baord->status.temp.vcore;
+        baord->status.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : baord->status.temp.asic;
 
         // Round to 1 decimal place
-        g_board.status.temp.mcu   = roundf(g_board.status.temp.mcu * 10) / 10.0f;
-        g_board.status.temp.vcore = roundf(g_board.status.temp.vcore * 10) / 10.0f;
-        g_board.status.temp.asic  = roundf(g_board.status.temp.asic * 100) / 100.0f;
+        baord->status.temp.mcu   = roundf(baord->status.temp.mcu * 10) / 10.0f;
+        baord->status.temp.vcore = roundf(baord->status.temp.vcore * 10) / 10.0f;
+        baord->status.temp.asic  = roundf(baord->status.temp.asic * 100) / 100.0f;
         temp_cnt++;
         
         // Calculate fan RPM
@@ -169,18 +167,18 @@ void fan_thread_entry(void *args){
             uint16_t delta_pcnt = 0;
             if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
             else delta_pcnt = now_count - last_count;
-            g_board.info.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
+            baord->info.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
             last_count = now_count;
             start_ms = millis();
         }
 
         // Adjust fan speed
-        if(g_board.info.preference.fan.is_auto_speed && g_board.info.preference.fan.self_test){
+        if(baord->info.preference.fan.is_auto_speed && baord->info.preference.fan.self_test){
             static uint32_t pid_start = millis();
             float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-            g_board.info.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, g_board.info.preference.fan.target_temp, g_board.status.temp.asic, dt);
+            baord->info.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, baord->info.preference.fan.target_temp, baord->status.temp.asic, dt);
             pid_start = millis();
         }
-        fan_set_speed(g_board.info.preference.fan.speed / 100.0, fan_invert);
+        fan_set_speed(baord->info.preference.fan.speed / 100.0, fan_invert);
     }
 }

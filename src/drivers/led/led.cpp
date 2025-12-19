@@ -17,15 +17,15 @@ void led_thread_entry(void *args){
     const int pwmChannel = 3;   
     const int freq = 5*1000;    
     const int resolution = 8;   
-    pinMode(baord->info.led_spec.wifi_pin, OUTPUT);
-    digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
+    pinMode(baord->info.spec.led.wifi_pin, OUTPUT);
+    digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
 
-    pinMode(baord->info.led_spec.pool_pin, OUTPUT);
-    digitalWrite(baord->info.led_spec.pool_pin, HIGH);
+    pinMode(baord->info.spec.led.pool_pin, OUTPUT);
+    digitalWrite(baord->info.spec.led.pool_pin, HIGH);
 
-    pinMode(baord->info.led_spec.sys_pin, OUTPUT);
+    pinMode(baord->info.spec.led.sys_pin, OUTPUT);
     ledcSetup(pwmChannel, freq, resolution);
-    ledcAttachPin(baord->info.led_spec.sys_pin, pwmChannel);
+    ledcAttachPin(baord->info.spec.led.sys_pin, pwmChannel);
     ledcWrite(pwmChannel, 255);// off
 
     uint64_t led_cnt = 0;
@@ -35,16 +35,16 @@ void led_thread_entry(void *args){
 
         if(baord->info.preference.led.sleep) {
             // led_off();
-            digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-            digitalWrite(baord->info.led_spec.pool_pin, HIGH);
+            digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+            digitalWrite(baord->info.spec.led.pool_pin, HIGH);
             ledcWrite(pwmChannel, 255);
             continue;
         }
 
         if(!baord->info.preference.led.enable){
             // led_off();
-            digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-            digitalWrite(baord->info.led_spec.pool_pin, HIGH);
+            digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+            digitalWrite(baord->info.spec.led.pool_pin, HIGH);
             ledcWrite(pwmChannel, 255);
             continue;
         }
@@ -52,77 +52,77 @@ void led_thread_entry(void *args){
 
         switch (led_cnt % 201){
         case 1 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, LOW);
-                else digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, LOW);
+                else digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, LOW);
-                else digitalWrite(baord->info.led_spec.pool_pin, HIGH);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, LOW);
+                else digitalWrite(baord->info.spec.led.pool_pin, HIGH);
 
             break;
         case 2 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.wifi_pin, LOW);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.wifi_pin, LOW);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.pool_pin, LOW);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.pool_pin, LOW);
 
             break;
         case 3 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.pool_pin, HIGH);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.pool_pin, HIGH);
             break;
         case 4 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.wifi_pin, LOW);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.wifi_pin, LOW);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.pool_pin, LOW);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.pool_pin, LOW);
 
             break;
         case 5 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.pool_pin, HIGH);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.pool_pin, HIGH);
             break;
         case 6 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.wifi_pin, LOW);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.wifi_pin, LOW);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.pool_pin, LOW);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.pool_pin, LOW);
             break;
         case 7 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.pool_pin, HIGH);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.pool_pin, HIGH);
             break;
         case 8 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.wifi_pin, LOW);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.wifi_pin, LOW);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.pool_pin, LOW);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.pool_pin, LOW);
             break;
         case 9 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.pool_pin, HIGH);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.pool_pin, HIGH);
             break;
         case 10 * dot:
-                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.led_spec.wifi_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.wifi_pin, LOW);
+                if(baord->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(baord->info.spec.led.wifi_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.wifi_pin, LOW);
 
-                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.led_spec.pool_pin, HIGH);
-                else digitalWrite(baord->info.led_spec.pool_pin, LOW);
+                if(baord->stratum->is_subscribed()) digitalWrite(baord->info.spec.led.pool_pin, HIGH);
+                else digitalWrite(baord->info.spec.led.pool_pin, LOW);
             break;
         }
 

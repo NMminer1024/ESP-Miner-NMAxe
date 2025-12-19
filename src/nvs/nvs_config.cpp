@@ -181,32 +181,32 @@ bool load_g_board(void){
     /*************************************************** Specific parameters among different board ***************************************/
     BoardModelType model                             = get_board_model();      // detect board model via 2 GPIOs
     BoardSpecConfig config                           = get_board_config(model);// get board configuration structure according to board model
-    Wire.begin(config.iic_pins.sda_pin, config.iic_pins.scl_pin);              // set I2C pins and start I2C
+    Wire.begin(config.iic.sda_pin, config.iic.scl_pin);              // set I2C pins and start I2C
 
     g_board.info.base.hw_model                       = config.name;
-    g_board.status.asic.model                        = config.asic_spec.name;
-    g_board.status.asic.job_frq_ms                   = config.asic_spec.job_interval_ms; // ms
-    g_board.ui.hr_dist_page.max_x_hr                 = config.ui_spec.hr_dist_max_x_hr;  // GH/s
-    g_board.ui.hr_dist_page.max_x_bars               = config.ui_spec.hr_dist_max_x_bars; 
-    g_board.status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic_spec.default_frq);
-    g_board.status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic_spec.default_vcore);
-    g_board.status.asic.vcore_min                    = config.asic_spec.min_vcore;
-    g_board.status.asic.vcore_max                    = config.asic_spec.max_vcore;
-    g_board.status.asic.diff_thr_init                = config.asic_spec.diff_thr_init;
-    g_board.info.fan_spec.self_test_rpm_thr          = config.fan_spec.self_test_rpm_thr;
-    g_board.info.fan_spec.pwm_pin                    = config.fan_spec.pwm_pin;
-    g_board.info.fan_spec.torch_pin                  = config.fan_spec.torch_pin;
-    g_board.info.btn_spec.boot_pin                   = config.btn_spec.boot_pin;
-    g_board.info.btn_spec.user_pin                   = config.btn_spec.user_pin;
+    g_board.status.asic.model                        = config.asic.name;
+    g_board.status.asic.job_frq_ms                   = config.asic.job_interval_ms; // ms
+    g_board.ui.hr_dist_page.max_x_hr                 = config.ui.hr_dist_max_x_hr;  // GH/s
+    g_board.ui.hr_dist_page.max_x_bars               = config.ui.hr_dist_max_x_bars; 
+    g_board.status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic.default_frq);
+    g_board.status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
+    g_board.status.asic.vcore_min                    = config.asic.min_vcore;
+    g_board.status.asic.vcore_max                    = config.asic.max_vcore;
+    g_board.status.asic.diff_thr_init                = config.asic.diff_thr_init;
+    g_board.info.spec.fan.self_test_rpm_thr          = config.fan.self_test_rpm_thr;
+    g_board.info.spec.fan.pwm_pin                    = config.fan.pwm_pin;
+    g_board.info.spec.fan.torch_pin                  = config.fan.torch_pin;
+    g_board.info.spec.btn.boot_pin                   = config.btn.boot_pin;
+    g_board.info.spec.btn.user_pin                   = config.btn.user_pin;
     g_board.miner                                    = new AsicMinerClass(config.create_asic_instance(Serial1, ESP32_TO_ASIC_INIT_BUAD, 
-                                                                          config.asic_spec.rx_pin, 
-                                                                          config.asic_spec.tx_pin, 
-                                                                          config.asic_spec.rst_pin));
+                                                                          config.asic.rx_pin, 
+                                                                          config.asic.tx_pin, 
+                                                                          config.asic.rst_pin));
 
-    g_board.power                                    = new NMAxePowerClass( config.pwr_pins.enable_pins, config.pwr_pins.adc_pins, 
-                                                                            config.pwr_pins.vcore_regulator_pin, 
-                                                                            config.pwr_pins.pgood_pin, 
-                                                                            config.pwr_pins.dc_plug_pin);
+    g_board.power                                    = new NMAxePowerClass( config.pwr.enable_pins, config.pwr.adc_pins, 
+                                                                            config.pwr.vcore_regulator_pin, 
+                                                                            config.pwr.pgood_pin, 
+                                                                            config.pwr.dc_plug_pin);
 
     /*************************************************** Same parameters among different board ***************************************/
     String stratum_pri                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
@@ -227,9 +227,9 @@ bool load_g_board(void){
     g_board.info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + g_board.info.base.hw_model + "_" + g_board.info.base.devcie_code.substring(0, 5)).c_str()));
     g_board.info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
     g_board.info.connection.stratum_use              = g_board.info.connection.stratum_primary;
-    g_board.info.led_spec.wifi_pin                   = config.led_spec.wifi_pin;
-    g_board.info.led_spec.pool_pin                   = config.led_spec.pool_pin;
-    g_board.info.led_spec.sys_pin                    = config.led_spec.sys_pin;
+    g_board.info.spec.led.wifi_pin                   = config.led.wifi_pin;
+    g_board.info.spec.led.pool_pin                   = config.led.pool_pin;
+    g_board.info.spec.led.sys_pin                    = config.led.sys_pin;
 
     g_board.status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
     g_board.info.base.fw_latest_release              = "";
