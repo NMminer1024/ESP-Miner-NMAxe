@@ -57,9 +57,11 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr_pins.dc_plug_pin           = 11;
             config.iic_pins.scl_pin               = 8;   
             config.iic_pins.sda_pin               = 9;
+            config.led_spec.wifi_pin              = 6;
+            config.led_spec.pool_pin              = 4;
+            config.led_spec.sys_pin               = 5;
             config.create_asic_instance           = create_bm1366_instance;
             break;
-            
         case NMAXE_GAMMA:
             config.name                           = "NMAxeGamma";
             config.asic_spec.name                 = "BM1370";
@@ -90,6 +92,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr_pins.dc_plug_pin           = 11;
             config.iic_pins.scl_pin               = 8;   
             config.iic_pins.sda_pin               = 9;
+            config.led_spec.wifi_pin              = 6;
+            config.led_spec.pool_pin              = 4;
+            config.led_spec.sys_pin               = 5;
             config.create_asic_instance           = create_bm1370_instance;
             break;
         default:

@@ -227,6 +227,10 @@ bool load_g_board(void){
     g_board.info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + g_board.info.base.hw_model + "_" + g_board.info.base.devcie_code.substring(0, 5)).c_str()));
     g_board.info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
     g_board.info.connection.stratum_use              = g_board.info.connection.stratum_primary;
+    g_board.info.led_spec.wifi_pin                   = config.led_spec.wifi_pin;
+    g_board.info.led_spec.pool_pin                   = config.led_spec.pool_pin;
+    g_board.info.led_spec.sys_pin                    = config.led_spec.sys_pin;
+
     g_board.status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
     g_board.info.base.fw_latest_release              = "";
     g_board.status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);

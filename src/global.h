@@ -218,6 +218,12 @@ typedef struct{
         uint8_t             boot_pin; // boot button as UI page switch
     }btn_spec;
 
+    struct{
+        uint8_t             wifi_pin; // wifi status led
+        uint8_t             pool_pin; // pool status led
+        uint8_t             sys_pin;  // system status led
+    }led_spec;
+
     connect_info_t      connection;
     preference_info_t   preference;
 }board_info_t;

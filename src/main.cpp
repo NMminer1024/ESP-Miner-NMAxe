@@ -34,7 +34,7 @@ void setup() {
   logo_print();
   /********************************************************** CREATE LED THREAD *********************************************************/
   taskName = "(led)";
-  xTaskCreatePinnedToCore(led_thread_entry, taskName.c_str(), 1024*3, (void*)taskName.c_str(), TASK_PRIORITY_LED, &ledTask, 1);
+  xTaskCreatePinnedToCore(led_thread_entry, taskName.c_str(), 1024*3, (void*)(&g_board), TASK_PRIORITY_LED, &ledTask, 1);
   delay(10);
   /********************************************************** CREATE BUTTON THREAD *****************************************************/
   taskName = "(button)";
