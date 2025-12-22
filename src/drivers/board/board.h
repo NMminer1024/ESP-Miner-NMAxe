@@ -107,6 +107,10 @@ struct BoardSpecConfig {
     struct{
         uint8_t              torch_pin;
         uint8_t              pwm_pin;
+        uint8_t              pwm_channel;
+        uint32_t             pwm_freq;       // Hz
+        uint8_t              pwm_resolution; // bits
+        uint16_t             p_cnt_h_limt;   // PCNT high limit value
         uint16_t             self_test_rpm_thr; // RPM, minimum RPM when fan is at full speed in self-test
     }fan;
 

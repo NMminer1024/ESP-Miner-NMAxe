@@ -576,7 +576,7 @@ static void ui_miner_page_update(){
   String voltage = formatNumber(g_board.status.power.vbus/1000.0, 3);
   String power = formatNumber(g_board.status.power.vbus*g_board.status.power.ibus/1000.0/1000.0, 3);
   String price = (millis() - g_board.market->lastUpdate <= MARKET_TIMEOUT) ? formatNumber(g_board.market->price, 6) : "";
-  String fan_and_efficiency = String(g_board.info.preference.fan.rpm) + " rpm";
+  String fan_and_efficiency = String(g_board.status.fan.rpm) + " rpm";
   // String fan_and_efficiency = formatNumber(g_board.info.efficiency, 4) + "J/TH";
 
   //diff symbol color update
@@ -610,12 +610,12 @@ static void ui_miner_page_update(){
 
   //fan symbol color update, blink
   static bool fan_color_update = false;
-  if(g_board.info.preference.fan.rpm > 0){
+  if(g_board.status.fan.rpm > 0){
     if(fan_color_update)font_color = lv_color_hex(0xA9A9A9);
     else font_color = lv_color_hex(0x00ff00);
     fan_color_update =!fan_color_update;
   }
-  else if(g_board.info.preference.fan.rpm == 0) font_color = lv_color_hex(0xA9A9A9);//gray
+  else if(g_board.status.fan.rpm == 0) font_color = lv_color_hex(0xA9A9A9);//gray
   lv_obj_set_style_text_color(lb_fan_symb, font_color, LV_PART_MAIN);
 
   //price color update, blink
@@ -1312,11 +1312,11 @@ void ui_thread_entry(void *args){
   /***************************************wait fan self test *******************************************/
   cnt = 0;
   ui_loading_str_update(fan_test_str[0], 0xFFFFFF, true);
-  while(!g_board.info.preference.fan.self_test){
-    ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_board.info.preference.fan.rpm) + "/ " + String(g_board.info.spec.fan.self_test_rpm_thr) + "rpm", 0xFFFFFF, false);
+  while(!g_board.status.fan.self_test){
+    ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.rpm) + "/ " + String(g_board.info.spec.fan.self_test_rpm_thr) + "rpm", 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update("Pass! [" + String(g_board.info.preference.fan.rpm) + "/ " + String(g_board.info.spec.fan.self_test_rpm_thr) + " rpm]", 0x00FF00, true);
+  ui_loading_str_update("Pass! [" + String(g_board.status.fan.rpm) + "/ " + String(g_board.info.spec.fan.self_test_rpm_thr) + " rpm]", 0x00FF00, true);
   delay(2000);
 
   /***************************************wait Vcore self test *****************************************/

@@ -149,7 +149,7 @@ void monitor_thread_entry(void *args){
         }
         //check fan status
         static uint16_t fan_err_cnt = 0;
-        if((g_board.info.preference.fan.rpm <= 500) && (g_board.status.temp.asic > ASIC_TEMP_NORMAL)){
+        if((g_board.status.fan.rpm <= 500) && (g_board.status.temp.asic > ASIC_TEMP_NORMAL)){
           fan_err_cnt++;
           if(fan_err_cnt > 20){//avoid some noise
             LOG_W("Fan rpm is too low, restart miner...");
@@ -211,8 +211,8 @@ void monitor_thread_entry(void *args){
         node.vbus         = String((g_board.status.power.vbus / 1000.0f),1); //V
         node.ibus         = String((g_board.status.power.ibus / 1000.0f),3); //A
         node.vcore        = g_board.status.power.vcore;//mV
-        node.fanspeed     = g_board.info.preference.fan.speed; //%
-        node.fanrpm       = g_board.info.preference.fan.rpm;
+        node.fanspeed     = g_board.status.fan.speed; //%
+        node.fanrpm       = g_board.status.fan.rpm;
         node.wifi_rssi    = g_board.info.connection.wifi.status_param.rssi;
         node.free_ram     = ESP.getFreeHeap() / 1024;  //free sram in Kbytes
         node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes
@@ -355,37 +355,37 @@ void swarm_thread_entry(void *args){
   }
 }
 
-void daemon_thread_entry(void *args){
-  char *name = (char*)malloc(20);
-  strcpy(name, (char*)args);
-  LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-  // free(name);
+// void daemon_thread_entry(void *args){
+//   char *name = (char*)malloc(20);
+//   strcpy(name, (char*)args);
+//   LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
+//   // free(name);
 
-  while (true){
-    delay(1000);
+//   while (true){
+//     delay(1000);
 
-    //check ota status and reboot
-    if(xSemaphoreTake(g_board.status.reboot_xsem, 0) == pdTRUE){
-      ESP.restart();
-    }
-    //WiFi daemon
-    if(xSemaphoreTake(g_board.info.connection.wifi.reconnect_xsem, 0) == pdTRUE){
-      WiFi.begin(g_board.info.connection.wifi.conn_param.ssid.c_str(), g_board.info.connection.wifi.conn_param.pwd.c_str());
-    }
-    //Stratum daemon
-    if(millis() - g_board.info.connection.stratum_update > STRATUM_ALIVE_TIMEOUT){
-      LOG_W("Stratum connection seems frozen, restarting...");
-      delay(100);
-      ESP.restart();
-    }
-    //ASIC daemon
-    if(millis() - g_board.status.miner.asic_update > ASIC_ALIVE_TIMEOUT){
-      LOG_W("ASIC seems frozen, restarting...");
-      delay(100);
-      ESP.restart();
-    }
-  }
-  LOG_W("Daemon thread exiting...");
-  delay(1000);       // Give some time for logging
-  vTaskDelete(NULL); // This line is not strictly necessary, but it's good practice to clean up the task when done.
-}
+//     //check ota status and reboot
+//     if(xSemaphoreTake(g_board.status.reboot_xsem, 0) == pdTRUE){
+//       ESP.restart();
+//     }
+//     //WiFi daemon
+//     if(xSemaphoreTake(g_board.info.connection.wifi.reconnect_xsem, 0) == pdTRUE){
+//       WiFi.begin(g_board.info.connection.wifi.conn_param.ssid.c_str(), g_board.info.connection.wifi.conn_param.pwd.c_str());
+//     }
+//     //Stratum daemon
+//     if(millis() - g_board.info.connection.stratum_update > STRATUM_ALIVE_TIMEOUT){
+//       LOG_W("Stratum connection seems frozen, restarting...");
+//       delay(100);
+//       ESP.restart();
+//     }
+//     //ASIC daemon
+//     if(millis() - g_board.status.miner.asic_update > ASIC_ALIVE_TIMEOUT){
+//       LOG_W("ASIC seems frozen, restarting...");
+//       delay(100);
+//       ESP.restart();
+//     }
+//   }
+//   LOG_W("Daemon thread exiting...");
+//   delay(1000);       // Give some time for logging
+//   vTaskDelete(NULL); // This line is not strictly necessary, but it's good practice to clean up the task when done.
+// }

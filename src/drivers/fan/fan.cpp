@@ -1,33 +1,52 @@
 #include "logger.h"
 #include "board.h"
-#include <driver/pcnt.h>
 #include "global.h"
+#include "fan.h"
 
-#define FAN_PWM_CHANNEL 2
-#define FAN_PWM_FREQ 1000*100
-#define FAN_PWM_RESOLUTION 8
-#define PCNT_H_LIM_VAL 30000
-#define PULSES_PER_REVOLUTION 2  
+#define PULSES_PER_REVOLUTION 2        // Number of pulses per fan revolution
 
-struct pid{
-    float Kp, Ki, Kd;
-    float prev_error;
-    float integral;
-    float output_min, output_max;
-};
+static fan_init_param_t fan_init_params;
 
 
-static void fan_set_speed(float speed, bool invert = false){
-    float spd = (invert) ? (1.0f - speed):speed;
-    uint32_t dutyCycle = (uint32_t)(spd * (( 1 << FAN_PWM_RESOLUTION) - 1));
-    ledcWrite(FAN_PWM_CHANNEL, dutyCycle);
+void fan_init(fan_init_param_t init_param){
+    fan_init_params = init_param;
+    pinMode(init_param.pwm_pin, OUTPUT);
+    ledcSetup(init_param.pwm_ch, init_param.pwm_freq, init_param.pwm_revolution);
+    ledcAttachPin(init_param.pwm_pin, init_param.pwm_ch);
+
+    pcnt_config_t pcnt_config = {
+        .pulse_gpio_num = init_param.torch_pin,
+        .ctrl_gpio_num = PCNT_PIN_NOT_USED,
+        .lctrl_mode = PCNT_MODE_KEEP,
+        .hctrl_mode = PCNT_MODE_KEEP,
+        .pos_mode = PCNT_COUNT_INC,   
+        .neg_mode = PCNT_COUNT_DIS,   
+        .counter_h_lim = init_param.p_cnt_h_limt,
+        .counter_l_lim = 0,           
+        .unit = PCNT_UNIT_0,
+        .channel = PCNT_CHANNEL_0
+    };
+
+    pcnt_unit_config(&pcnt_config);
+    pcnt_set_filter_value(PCNT_UNIT_0, 100);
+    pcnt_filter_enable(PCNT_UNIT_0);
+    pcnt_counter_pause(PCNT_UNIT_0);
+    pcnt_counter_clear(PCNT_UNIT_0);
+    pcnt_counter_resume(PCNT_UNIT_0);
 }
 
-static uint16_t calculate_rpm(int16_t pulse_count, double time_seconds) {
+
+void fan_set_speed(float speed, bool invert = false){
+    float spd = (invert) ? (1.0f - speed):speed;
+    uint32_t dutyCycle = (uint32_t)(spd * (( 1 << fan_init_params.pwm_revolution) - 1));
+    ledcWrite(fan_init_params.pwm_ch, dutyCycle);
+}
+
+uint16_t calculate_rpm(int16_t pulse_count, double time_seconds) {
     return (uint16_t)((pulse_count * 60.0) / (time_seconds * PULSES_PER_REVOLUTION));
 }
 
-static float pid_compute(pid* pid, float setpoint, float measured, float dt) {
+float pid_compute(fan_pid_t* pid, float setpoint, float measured, float dt) {
     const uint16_t MAX_INTEGRAL = 300.0f;
     float error = measured - setpoint;
     pid->integral += error * dt;
@@ -47,7 +66,7 @@ static float pid_compute(pid* pid, float setpoint, float measured, float dt) {
     return output;
 }
 
-static void measure_fan_rpm_for_duration(float speed, uint32_t duration_ms, uint16_t &measured_rpm, bool invert = false) {
+void measure_fan_rpm_for_duration(float speed, uint32_t duration_ms, uint16_t &measured_rpm, bool invert = false) {
     int16_t now_count = 0, last_count = 0;
     uint32_t start_time = millis();
     uint32_t last_measure_time = start_time;
@@ -59,7 +78,7 @@ static void measure_fan_rpm_for_duration(float speed, uint32_t duration_ms, uint
             pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
             uint16_t delta_pcnt = 0;
             if (now_count < last_count) {
-                delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
+                delta_pcnt = (fan_init_params.p_cnt_h_limt - last_count) + now_count;
             } else {
                 delta_pcnt = now_count - last_count;
             }
@@ -72,7 +91,7 @@ static void measure_fan_rpm_for_duration(float speed, uint32_t duration_ms, uint
     }
 }
 
-static bool guess_fan_polarity(void) {
+bool guess_fan_polarity(void) {
     LOG_I("Guessing fan polarity, please wait...");
     uint16_t rpm_50 = 0, rpm_100 = 0;
 
@@ -89,96 +108,4 @@ static bool guess_fan_polarity(void) {
     
     LOG_W("Fan polarity %s", invert ? "inverted" : "normal");
     return invert;
-}
-
-void fan_thread_entry(void *args){
-    board_sal_t *baord = (board_sal_t*)args;
-    String taskName = "(fan)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing fan...");
-
-    int16_t now_count = 0, last_count = 0, temp_cnt = 0;
-    uint32_t start_ms = millis();
-    pid fan_pid = {
-        .Kp = 50.0f,
-        .Ki = 1.0f,
-        .Kd = 0.0f,
-        .prev_error = 0,
-        .integral = 0,
-        .output_min = 25.0f,
-        .output_max = 99.999f
-    };
-
-    // Initialize TMP102 temperature sensor
-    tmp102_init();
-
-    // Setup PWM and PCNT for fan control and RPM measurement
-    pinMode(baord->info.spec.fan.pwm_pin, OUTPUT);
-    ledcSetup(FAN_PWM_CHANNEL, FAN_PWM_FREQ, FAN_PWM_RESOLUTION);
-    ledcAttachPin(baord->info.spec.fan.pwm_pin, FAN_PWM_CHANNEL);
-
-    pcnt_config_t pcnt_config = {
-        .pulse_gpio_num = baord->info.spec.fan.torch_pin,
-        .ctrl_gpio_num = PCNT_PIN_NOT_USED,
-        .lctrl_mode = PCNT_MODE_KEEP,
-        .hctrl_mode = PCNT_MODE_KEEP,
-        .pos_mode = PCNT_COUNT_INC,   
-        .neg_mode = PCNT_COUNT_DIS,   
-        .counter_h_lim = PCNT_H_LIM_VAL,
-        .counter_l_lim = 0,           
-        .unit = PCNT_UNIT_0,
-        .channel = PCNT_CHANNEL_0
-    };
-
-    pcnt_unit_config(&pcnt_config);
-    pcnt_set_filter_value(PCNT_UNIT_0, 100);
-    pcnt_filter_enable(PCNT_UNIT_0);
-    pcnt_counter_pause(PCNT_UNIT_0);
-    pcnt_counter_clear(PCNT_UNIT_0);
-    pcnt_counter_resume(PCNT_UNIT_0);
-
-    // polarity detection
-    bool fan_invert = guess_fan_polarity();
-
-    // fan self test
-    while (true){
-        measure_fan_rpm_for_duration(1.0, 5000, baord->info.preference.fan.rpm , fan_invert);
-        baord->info.preference.fan.self_test = (baord->info.preference.fan.rpm > baord->info.spec.fan.self_test_rpm_thr) ? true : false;
-        if(baord->info.preference.fan.self_test) break;
-        LOG_W("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
-    }
-    
-    while(1){
-        delay(125);// 8Hz
-        //update board temperature
-        baord->status.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : baord->status.temp.mcu;
-        baord->status.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : baord->status.temp.vcore;
-        baord->status.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : baord->status.temp.asic;
-
-        // Round to 1 decimal place
-        baord->status.temp.mcu   = roundf(baord->status.temp.mcu * 10) / 10.0f;
-        baord->status.temp.vcore = roundf(baord->status.temp.vcore * 10) / 10.0f;
-        baord->status.temp.asic  = roundf(baord->status.temp.asic * 100) / 100.0f;
-        temp_cnt++;
-        
-        // Calculate fan RPM
-        if(millis() - start_ms >= 1000) {
-            pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
-            uint16_t delta_pcnt = 0;
-            if (now_count < last_count) delta_pcnt = (PCNT_H_LIM_VAL - last_count) + now_count;
-            else delta_pcnt = now_count - last_count;
-            baord->info.preference.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
-            last_count = now_count;
-            start_ms = millis();
-        }
-
-        // Adjust fan speed
-        if(baord->info.preference.fan.is_auto_speed && baord->info.preference.fan.self_test){
-            static uint32_t pid_start = millis();
-            float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-            baord->info.preference.fan.speed = (uint16_t)pid_compute(&fan_pid, baord->info.preference.fan.target_temp, baord->status.temp.asic, dt);
-            pid_start = millis();
-        }
-        fan_set_speed(baord->info.preference.fan.speed / 100.0, fan_invert);
-    }
 }

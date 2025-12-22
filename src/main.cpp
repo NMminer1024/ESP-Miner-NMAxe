@@ -3,9 +3,6 @@
 #include "logger.h"
 #include "display.h"
 #include "monitor.h"
-#include "button.h"
-#include "fan.h"
-#include "led.h"
 #include "market.h"
 #include "http_server.h"
 #include "nvs_config.h"
@@ -16,19 +13,19 @@
 TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
 board_sal_t  g_board;
 
-bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
+bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     /*************************************************** Specific parameters among different board ***************************************/
-    board->info.base.hw_model                       = cfg.name;
-    board->info.spec.asic                           = cfg.asic;
-    board->info.spec.ui                             = cfg.ui;
-    board->info.spec.fan                            = cfg.fan;
-    board->info.spec.btn                            = cfg.btn;  
-    board->info.spec.pwr                            = cfg.pwr;
-    board->info.spec.led                            = cfg.led;
-    board->info.spec.iic                            = cfg.iic;
+    board->info.base.hw_model                       = config.name;
+    board->info.spec.asic                           = config.asic;
+    board->info.spec.ui                             = config.ui;
+    board->info.spec.fan                            = config.fan;
+    board->info.spec.btn                            = config.btn;  
+    board->info.spec.pwr                            = config.pwr;
+    board->info.spec.led                            = config.led;
+    board->info.spec.iic                            = config.iic;
     /*************************************************** Same parameters among different board ***************************************/
-    String stratum_pri                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
-    String stratum_fb                                = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
+    String stratum_pri                              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
+    String stratum_fb                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
     
     board->info.connection.pool_primary.ssl         = ((stratum_pri.indexOf("ssl") != -1) || (stratum_pri.indexOf("tls") != -1));
     board->info.connection.pool_primary.url         = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
@@ -71,9 +68,9 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
 
     board->status.page_save_xsem                    = xSemaphoreCreateCounting(1, 0);
     board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
-    board->info.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
+    board->status.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
     board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
-    board->info.preference.fan.self_test            = false;
+    board->status.fan.self_test            = false;
     board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     board->info.preference.screen.auto_screen       = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
     board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 90);
@@ -94,7 +91,7 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
         return false;
     }
     // create ASIC instance
-    BMxxx* asic                                     = cfg.create_asic_instance(*cfg.asic.com_port, cfg.asic.com_baud_init, cfg.asic.rx_pin, cfg.asic.tx_pin, cfg.asic.rst_pin);
+    BMxxx* asic                                     = config.create_asic_instance(*config.asic.com_port, config.asic.com_baud_init, config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin);
     if(asic == NULL){
         LOG_E("BMxxx instance creation failed");
         return false;
@@ -106,7 +103,7 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
         return false;
     }
     // create Power HAL instance
-    board->power                                    = new NMAxePowerClass( cfg.pwr.enable_pins, cfg.pwr.adc_pins, cfg.pwr.vcore_regulator_pin, cfg.pwr.pgood_pin, cfg.pwr.dc_plug_pin);
+    board->power                                    = new NMAxePowerClass( config.pwr.enable_pins, config.pwr.adc_pins, config.pwr.vcore_regulator_pin, config.pwr.pgood_pin, config.pwr.dc_plug_pin);
     if(board->power == NULL){
         LOG_E("NMAxePowerClass instance creation failed");
         return false;

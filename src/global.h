@@ -70,9 +70,6 @@ enum{
 
 typedef struct{
     bool        is_auto_speed;
-    bool        self_test;
-    uint16_t    speed;//%
-    uint16_t    rpm;//RPM
     float       target_temp;  //asic temp
 }fan_info_t;
 
@@ -104,12 +101,6 @@ typedef struct{
     pool_info_t    pool_use;
     stratum_info_t stratum_use;
 }connect_info_t;
-
-// typedef struct{
-//     String              filename;//name
-//     bool                running;
-//     int                 progress;
-// }ota_status_t;
 
 typedef struct{
     double              best_session;
@@ -202,6 +193,12 @@ typedef struct{
         bool        running;
         int         progress;
     }ota;
+
+    struct{
+        bool        self_test;
+        uint16_t    speed;//%
+        uint16_t    rpm;//RPM
+    }fan;
 
     miner_status_t      miner;
     SemaphoreHandle_t   page_save_xsem; // save current page index
