@@ -5,8 +5,6 @@
 #include "global.h"
 #include "helper.h" 
 #include "image.h"
-// #include "nm_pwr.h"
-
 
 LV_FONT_DECLARE(ds_digib_font_16)
 LV_FONT_DECLARE(ds_digib_font_18)
@@ -575,8 +573,8 @@ static void ui_miner_page_update(){
   String best_session = formatNumber(g_board.status.miner.diff.best_session, 1);
   String best_ever = formatNumber(g_board.status.miner.diff.best_ever, 1);
   String network_diff = formatNumber(g_board.status.miner.diff.network, 2);
-  String voltage = formatNumber(g_board.status.vbus/1000.0, 3);
-  String power = formatNumber(g_board.status.vbus*g_board.status.ibus/1000.0/1000.0, 3);
+  String voltage = formatNumber(g_board.status.power.vbus/1000.0, 3);
+  String power = formatNumber(g_board.status.power.vbus*g_board.status.power.ibus/1000.0/1000.0, 3);
   String price = (millis() - g_board.market->lastUpdate <= MARKET_TIMEOUT) ? formatNumber(g_board.market->price, 6) : "";
   String fan_and_efficiency = String(g_board.info.preference.fan.rpm) + " rpm";
   // String fan_and_efficiency = formatNumber(g_board.info.efficiency, 4) + "J/TH";
@@ -969,12 +967,12 @@ static void ui_dashboard_page_update(){
 
   String hr_value = formatNumber(g_board.status.miner.hashrate._3m, 3);
   String hr_unit  = (g_board.status.miner.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
-  String power    = formatNumber(g_board.status.vbus*g_board.status.ibus/1000.0/1000.0, 3);
+  String power    = formatNumber(g_board.status.power.vbus*g_board.status.power.ibus/1000.0/1000.0, 3);
 
-  uint16_t oc_angle             = arc_angle_full * (g_board.status.asic.frequency_req - FREQ_MIN) / (FREQ_MAX - FREQ_MIN); 
-  uint16_t pwr_angle            = arc_angle_full * (g_board.status.vbus * g_board.status.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
-  uint16_t vcore_req_angle      = arc_angle_full * (g_board.status.asic.vcore_req/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
-  uint16_t vcore_measure_angle  = arc_angle_full * (g_board.status.asic.vcore_measured /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
+  uint16_t oc_angle             = arc_angle_full * (g_board.info.spec.asic.req_frq - FREQ_MIN) / (FREQ_MAX - FREQ_MIN); 
+  uint16_t pwr_angle            = arc_angle_full * (g_board.status.power.vbus * g_board.status.power.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
+  uint16_t vcore_req_angle      = arc_angle_full * (g_board.info.spec.asic.req_vcore/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
+  uint16_t vcore_measure_angle  = arc_angle_full * (g_board.status.power.vcore /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
   uint16_t asic_temp_angle      = arc_angle_full * (g_board.status.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
 
   lv_arc_set_angles(arc_oc,  0, oc_angle);
@@ -990,11 +988,11 @@ static void ui_dashboard_page_update(){
   //power 
   lv_label_set_text_fmt(lb_pwr, "%sw", power.c_str());
   //vbus
-  lv_label_set_text_fmt(lb_overclock, "%sM", String(g_board.status.asic.frequency_req).c_str());
+  lv_label_set_text_fmt(lb_overclock, "%sM", String(g_board.info.spec.asic.req_frq).c_str());
   //vcore_req
-  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_board.status.asic.vcore_req/1000.0, 4).c_str());
+  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_board.info.spec.asic.req_vcore/1000.0, 4).c_str());
   //vcore_measure
-  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_board.status.asic.vcore_measured/1000.0, 4).c_str());
+  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_board.status.power.vcore/1000.0, 4).c_str());
   //asic temp
   lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_board.status.temp.asic, 2).c_str());
 }
@@ -1237,7 +1235,7 @@ void ui_switch_next_page_cb(){
   current_page_index = (current_page_index == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : current_page_index;
   current_page_index++;
   lv_obj_scroll_to_view(ui_pages[current_page_index], LV_ANIM_ON);
-  g_board.status.last_ui_page = current_page_index;
+  g_board.info.spec.ui.last_page = current_page_index;
   xSemaphoreGive(g_board.status.page_save_xsem);
 }
 
@@ -1491,8 +1489,8 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Miner ready!", 0x00FF00, true);
   delay(500);
   /***************************************scroll to miner page***************************************/
-  lv_obj_scroll_to_view(ui_pages[g_board.status.last_ui_page], LV_ANIM_ON); 
-  current_page_index = g_board.status.last_ui_page;
+  lv_obj_scroll_to_view(ui_pages[g_board.info.spec.ui.last_page], LV_ANIM_ON); 
+  current_page_index = g_board.info.spec.ui.last_page;
   
   while (true){
     //wait for miner status update forever

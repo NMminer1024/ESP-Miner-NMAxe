@@ -69,13 +69,6 @@ enum{
 };
 
 typedef struct{
-    float       mcu;
-    float       vcore;
-    float       asic;
-}temp_info_t;
-
-
-typedef struct{
     bool        is_auto_speed;
     bool        self_test;
     uint16_t    speed;//%
@@ -97,17 +90,6 @@ typedef struct{
 }led_info_t;
 
 typedef struct{
-    String    model;
-    uint16_t  frequency_req;//MHz
-    uint16_t  vcore_req;//mV
-    uint16_t  vcore_measured;//mV
-    uint16_t  job_frq_ms;//ms
-    uint16_t  vcore_min;//mV
-    uint16_t  vcore_max;//mV
-    uint16_t  diff_thr_init; //difficulty threshold
-}asic_info_t;
-
-typedef struct{
     bool           force_config;
     bool           client_connected;
     uint32_t       stratum_update;//ms
@@ -123,11 +105,11 @@ typedef struct{
     stratum_info_t stratum_use;
 }connect_info_t;
 
-typedef struct{
-    String              filename;//name
-    bool                running;
-    int                 progress;
-}ota_info_t;
+// typedef struct{
+//     String              filename;//name
+//     bool                running;
+//     int                 progress;
+// }ota_status_t;
 
 typedef struct{
     double              best_session;
@@ -203,13 +185,26 @@ typedef struct{
 }board_info_t;
 
 typedef struct{
-    uint16_t            vbus;//mV
-    uint16_t            ibus;//mA
-    temp_info_t         temp;
-    asic_info_t         asic;
+    struct{
+        uint16_t    vbus;//mV
+        uint16_t    ibus;//mA
+        uint16_t    vcore;//mV
+    }power;
+
+    struct{
+        float       mcu;
+        float       vcore;
+        float       asic;
+    }temp;
+
+    struct{
+        String      filename;//name
+        bool        running;
+        int         progress;
+    }ota;
+
     miner_status_t      miner;
-    ota_info_t          ota;
-    uint8_t             last_ui_page;//last ui page index,restored on next boot
+    // uint8_t             last_ui_page;//last ui page index,restored on next boot
     SemaphoreHandle_t   page_save_xsem; // save current page index
     SemaphoreHandle_t   reboot_xsem;
     SemaphoreHandle_t   nvs_save_xsem;// save status to NVS signal

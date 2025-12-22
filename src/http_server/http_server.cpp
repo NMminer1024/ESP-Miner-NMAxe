@@ -92,9 +92,9 @@ static void get_system_info(AsyncWebServerRequest* request){
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    root["power"] = (g_board.status.ibus /1000.0f) * (g_board.status.vbus / 1000.0f);
-    root["voltage"] = g_board.status.vbus;
-    root["current"] = g_board.status.ibus;
+    root["power"] = (g_board.status.power.ibus /1000.0f) * (g_board.status.power.vbus / 1000.0f);
+    root["voltage"] = g_board.status.power.vbus;
+    root["current"] = g_board.status.power.ibus;
     root["temp"] = g_board.status.temp.asic;
     root["vrTemp"] = g_board.status.temp.vcore;
     root["mcuTemp"] = g_board.status.temp.mcu;
@@ -102,9 +102,9 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["bestDiff"] = formatNumber(g_board.status.miner.diff.best_ever, 4);
     root["bestSessionDiff"] = formatNumber(g_board.status.miner.diff.best_session, 4);
     root["freeHeap"] = ESP.getFreeHeap();
-    root["coreVoltage"] = g_board.status.asic.vcore_req;
-    root["coreVoltageActual"] = g_board.status.asic.vcore_measured;
-    root["frequency"] = g_board.status.asic.frequency_req;
+    root["coreVoltage"] = g_board.info.spec.asic.req_vcore;
+    root["coreVoltageActual"] = g_board.status.power.vcore;
+    root["frequency"] = g_board.info.spec.asic.req_frq;
     root["hostname"] = g_board.info.base.hostname;
     root["timezone"] = g_board.status.miner.timezone;
     root["ssid"] = g_board.info.connection.wifi.conn_param.ssid;
@@ -114,7 +114,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["uptimeSeconds"] = g_board.status.miner.uptime_session;
     root["asicCount"] = g_board.miner->get_asic_count();
     root["smallCoreCount"] = g_board.miner->get_asic_small_cores();
-    root["ASICModel"] = g_board.status.asic.model;
+    root["ASICModel"] = g_board.info.spec.asic.name;
     root["stratumUserUSED"] = g_board.info.connection.stratum_use.user;
     root["stratumURLUSED"] = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
     root["stratumUser1"] = g_board.info.connection.stratum_primary.user;
@@ -754,7 +754,7 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("coreVoltage")){
             uint16_t req_mv = root["coreVoltage"].as<uint16_t>();
-            g_board.status.asic.vcore_req = req_mv;
+            g_board.info.spec.asic.req_vcore = req_mv;
             g_board.power->set_vcore_voltage(req_mv);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, root["coreVoltage"].as<uint16_t>());
         }

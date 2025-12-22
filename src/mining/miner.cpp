@@ -77,10 +77,10 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
     this->_asic->reset();
     this->_asic_count = this->_asic->init(freq, diff);
     if(0 == this->_asic_count){
-        LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.status.asic.model);
+        LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.info.spec.asic.name);
         return false;
     }
-    LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_board.status.asic.model, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
+    LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_board.info.spec.asic.name, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
     this->_asic->change_uart_baud(ESP32_TO_ASIC_WORK_BUAD);
     this->_asic->clear_port_cache();
     return true;
@@ -97,8 +97,8 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     if(this->_asic == NULL) return false;
     ////////////////////////////////////////construct asic job//////////////////////////////////
     uint8_t step = 8;
-    if(g_board.status.asic.model == "BM1366")       step = 8;
-    else if (g_board.status.asic.model == "BM1370") step = 24;
+    if(g_board.info.spec.asic.name == "BM1366")       step = 8;
+    else if (g_board.info.spec.asic.name == "BM1370") step = 24;
     else LOG_W("Unknown ASIC model, using default step 8");
 
     this->_asic_job_now.id = (this->_asic_job_now.id + step) % 128;
@@ -291,14 +291,14 @@ void miner_asic_init_thread_entry(void *args){
     }
     
     //begin asic hardware
-    if(!g_board.miner->begin(g_board.status.asic.frequency_req, g_board.status.asic.diff_thr_init)){
+    if(!g_board.miner->begin(g_board.info.spec.asic.req_frq, g_board.info.spec.asic.diff_thr_init)){
         while (true){
             LOG_E("Miner low power!");
             delay(1000);
         }
     }
     
-    LOG_I("ASIC job interval set to %d ms", g_board.status.asic.job_frq_ms);
+    LOG_I("ASIC job interval set to %d ms", g_board.info.spec.asic.job_interval_ms);
     delay(1000);//wait for asic init stable
     vTaskDelete(NULL);
 }
@@ -344,8 +344,8 @@ void miner_asic_tx_thread_entry(void *args){
             if(!g_board.stratum->is_subscribed()) break;
 
             //set asic diff as pool diff if pool diff < initial asic diff
-            if(g_board.stratum->get_pool_difficulty() <= g_board.status.asic.diff_thr_init){
-                static double last_diff = g_board.status.asic.diff_thr_init;
+            if(g_board.stratum->get_pool_difficulty() <= g_board.info.spec.asic.diff_thr_init){
+                static double last_diff = g_board.info.spec.asic.diff_thr_init;
                 if(g_board.stratum->get_pool_difficulty() != last_diff){
                     LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(g_board.miner->get_asic_diff(), 4).c_str(), formatNumber(g_board.stratum->get_pool_difficulty(), 4).c_str());
                     last_diff = g_board.stratum->get_pool_difficulty();
@@ -354,7 +354,7 @@ void miner_asic_tx_thread_entry(void *args){
             }
 
             //interval 2000ms every asic job, exit if a new pool job arrived
-            if(xSemaphoreTake(g_board.stratum->new_job_xsem, g_board.status.asic.job_frq_ms) == pdTRUE) {
+            if(xSemaphoreTake(g_board.stratum->new_job_xsem, g_board.info.spec.asic.job_interval_ms) == pdTRUE) {
                 g_board.stratum->clear_sub_extranonce2();
                 //avoid some stale share submit, clear job cache if clean job signal received
                 if(xSemaphoreTake(g_board.stratum->clear_job_xsem, 0) == pdTRUE) {

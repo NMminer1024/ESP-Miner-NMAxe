@@ -9,7 +9,7 @@ void power_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
     LOG_I("Initializing power...");
 
-    baord->power->set_vcore_range(baord->status.asic.vcore_min, baord->status.asic.vcore_max);
+    baord->power->set_vcore_range(baord->info.spec.asic.min_vcore, baord->info.spec.asic.max_vcore);
     LOG_I("Set vcore range to %d-%d mV", baord->power->get_vcore_min(), baord->power->get_vcore_max());
 
     //detect power plug or pd plug
@@ -33,7 +33,7 @@ void power_thread_entry(void *args){
     baord->power->set_vdd_1v8(PWR_ON);
     delay(50);
     //set vcore voltage to required voltage
-    baord->power->set_vcore_voltage(baord->status.asic.vcore_req);
+    baord->power->set_vcore_voltage(baord->info.spec.asic.req_vcore);
     delay(50);
     baord->power->set_vcore_status(PWR_ON);
     while (!baord->power->is_vcore_good()){
@@ -44,14 +44,14 @@ void power_thread_entry(void *args){
     LOG_I("Power is ready.");
     while(true){
         uint32_t vcore_measure = baord->power->get_vcore();
-        int32_t err = vcore_measure - baord->status.asic.vcore_req;
+        int32_t err = vcore_measure - baord->info.spec.asic.req_vcore;
         if(abs(err) <= 5) {
-            LOG_D("Vcore %d/%dmV, error %d mV, power ready", vcore_measure, baord->status.asic.vcore_req, err);
+            LOG_D("Vcore %d/%dmV, error %d mV, power ready", vcore_measure, baord->info.spec.asic.req_vcore, err);
             delay(200);
             continue;
         }
-        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore voltage for error correction %d mV", vcore_measure, baord->status.asic.vcore_req, err, err/5);
-        static uint32_t vcore_set = baord->status.asic.vcore_req;
+        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore voltage for error correction %d mV", vcore_measure, baord->info.spec.asic.req_vcore, err, err/5);
+        static uint32_t vcore_set = baord->info.spec.asic.req_vcore;
         vcore_set -= err/5;//half error correction
         vcore_set = (vcore_set < baord->power->get_vcore_min()) ? baord->power->get_vcore_min() : vcore_set;
         vcore_set = (vcore_set > baord->power->get_vcore_max()) ? baord->power->get_vcore_max() : vcore_set;

@@ -19,37 +19,13 @@ board_sal_t  g_board;
 bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
     /*************************************************** Specific parameters among different board ***************************************/
     board->info.base.hw_model                       = cfg.name;
-    board->status.asic.model                        = cfg.asic.name;
-    board->status.asic.job_frq_ms                   = cfg.asic.job_interval_ms; // ms
-    board->status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    cfg.asic.default_frq);
-    board->status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, cfg.asic.default_vcore);
-    board->status.asic.vcore_min                    = cfg.asic.min_vcore;
-    board->status.asic.vcore_max                    = cfg.asic.max_vcore;
-    board->status.asic.diff_thr_init                = cfg.asic.diff_thr_init;
+    board->info.spec.asic                           = cfg.asic;
     board->info.spec.ui                             = cfg.ui;
     board->info.spec.fan                            = cfg.fan;
     board->info.spec.btn                            = cfg.btn;  
     board->info.spec.pwr                            = cfg.pwr;
     board->info.spec.led                            = cfg.led;
     board->info.spec.iic                            = cfg.iic;
-    // set I2C pins and start I2C
-    bool iic = Wire.begin(board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);              
-    if(!iic){
-        LOG_E("I2C init failed on pins SDA:%d, SCL:%d", board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);
-        return false;
-    }
-    // create AsicMinerClass instance
-    board->miner                                    = new AsicMinerClass(cfg.create_asic_instance(*cfg.asic.com_port, ESP32_TO_ASIC_INIT_BUAD, cfg.asic.rx_pin, cfg.asic.tx_pin, cfg.asic.rst_pin));
-    if(board->miner == NULL){
-        LOG_E("AsicMinerClass instance creation failed");
-        return false;
-    }
-    // create Power HAL instance
-    board->power                                    = new NMAxePowerClass( cfg.pwr.enable_pins, cfg.pwr.adc_pins, cfg.pwr.vcore_regulator_pin, cfg.pwr.pgood_pin, cfg.pwr.dc_plug_pin);
-    if(board->power == NULL){
-        LOG_E("NMAxePowerClass instance creation failed");
-        return false;
-    }
     /*************************************************** Same parameters among different board ***************************************/
     String stratum_pri                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb                                = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
@@ -92,7 +68,7 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
     board->status.ota.progress                      = 0;
     board->status.ota.filename                      = "";
     board->status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
-    board->status.last_ui_page                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+
     board->status.page_save_xsem                    = xSemaphoreCreateCounting(1, 0);
     board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     board->info.preference.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
@@ -109,6 +85,27 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
     board->status.miner.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     board->info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     board->info.base.coin_price.toUpperCase();
+
+
+    // set I2C pins and start I2C
+    bool iic = Wire.begin(board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);              
+    if(!iic){
+        LOG_E("I2C init failed on pins SDA:%d, SCL:%d", board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);
+        return false;
+    }
+    // create AsicMinerClass instance
+    board->miner                                    = new AsicMinerClass(cfg.create_asic_instance(*cfg.asic.com_port, ESP32_TO_ASIC_INIT_BUAD, cfg.asic.rx_pin, cfg.asic.tx_pin, cfg.asic.rst_pin));
+    if(board->miner == NULL){
+        LOG_E("AsicMinerClass instance creation failed");
+        return false;
+    }
+    // create Power HAL instance
+    board->power                                    = new NMAxePowerClass( cfg.pwr.enable_pins, cfg.pwr.adc_pins, cfg.pwr.vcore_regulator_pin, cfg.pwr.pgood_pin, cfg.pwr.dc_plug_pin);
+    if(board->power == NULL){
+        LOG_E("NMAxePowerClass instance creation failed");
+        return false;
+    }
+
     board->market                                   = new MarketClass();
     if(board->market == NULL){
         LOG_E("MarketClass instance creation failed");

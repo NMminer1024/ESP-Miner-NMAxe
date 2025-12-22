@@ -112,10 +112,10 @@ void monitor_thread_entry(void *args){
         static uint8_t temp_cnt = 0;
 
         //update power status
-        g_board.status.vbus          = (temp_cnt % 2 == 0) ? g_board.power->get_vbus() : g_board.status.vbus;
-        g_board.status.ibus          = (temp_cnt % 2 == 0) ? g_board.power->get_ibus() : g_board.status.ibus;
-        g_board.status.miner.efficiency = ((temp_cnt % 2 == 0) && g_board.status.miner.hashrate._3m > 0) ? (g_board.status.vbus * g_board.status.ibus/1e6) / (g_board.status.miner.hashrate._3m/1e12) : g_board.status.miner.efficiency; //J/TH
-        g_board.status.asic.vcore_measured = (temp_cnt % 2 == 0) ? g_board.power->get_vcore() : g_board.status.asic.vcore_measured;
+        g_board.status.power.vbus          = (temp_cnt % 2 == 0) ? g_board.power->get_vbus() : g_board.status.power.vbus;
+        g_board.status.power.ibus          = (temp_cnt % 2 == 0) ? g_board.power->get_ibus() : g_board.status.power.ibus;
+        g_board.status.miner.efficiency    = ((temp_cnt % 2 == 0) && g_board.status.miner.hashrate._3m > 0) ? (g_board.status.power.vbus * g_board.status.power.ibus/1e6) / (g_board.status.miner.hashrate._3m/1e12) : g_board.status.miner.efficiency; //J/TH
+        g_board.status.power.vcore         = (temp_cnt % 2 == 0) ? g_board.power->get_vcore() : g_board.status.power.vcore;
 
         temp_cnt++;
         //update wifi rssi
@@ -162,8 +162,8 @@ void monitor_thread_entry(void *args){
 
         //check power status
         static uint16_t pwr_err_cnt = 0;
-        if((g_board.status.vbus * g_board.status.ibus / 1000.0 / 1000.0) < BOARD_LOW_POWER){
-          LOG_W("Power %0.1fW is too low...", g_board.status.vbus * g_board.status.ibus / 1000.0 / 1000.0);
+        if((g_board.status.power.vbus * g_board.status.power.ibus / 1000.0 / 1000.0) < BOARD_LOW_POWER){
+          LOG_W("Power %0.1fW is too low...", g_board.status.power.vbus * g_board.status.power.ibus / 1000.0 / 1000.0);
           if(++pwr_err_cnt > 30){//30s
             LOG_W("Power is too low, restart miner...");
             ESP.restart();
@@ -197,8 +197,8 @@ void monitor_thread_entry(void *args){
 
       //save last ui page to NVS
       if(g_board.status.page_save_xsem != NULL && xSemaphoreTake(g_board.status.page_save_xsem, 0) == pdTRUE){
-          nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, g_board.status.last_ui_page);
-          LOG_D("Last page %d saved to NVS", g_board.status.last_ui_page);
+          nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, g_board.info.spec.ui.last_page);
+          LOG_D("Last page %d saved to NVS", g_board.info.spec.ui.last_page);
       }
 
       //update miner status history queue
@@ -207,10 +207,10 @@ void monitor_thread_entry(void *args){
         node.hashrate     = String(g_board.status.miner.hashrate._3m /1e9, 3); //Ghash/s
         node.asic_temp    = String(g_board.status.temp.asic,1);
         node.vcore_temp   = String(g_board.status.temp.vcore,1);
-        node.pbus         = String((g_board.status.vbus * g_board.status.ibus / 1000.0f / 1000.0f),2); //W
-        node.vbus         = String((g_board.status.vbus / 1000.0f),1); //V
-        node.ibus         = String((g_board.status.ibus / 1000.0f),3); //A
-        node.vcore        = g_board.status.asic.vcore_measured;
+        node.pbus         = String((g_board.status.power.vbus * g_board.status.power.ibus / 1000.0f / 1000.0f),2); //W
+        node.vbus         = String((g_board.status.power.vbus / 1000.0f),1); //V
+        node.ibus         = String((g_board.status.power.ibus / 1000.0f),3); //A
+        node.vcore        = g_board.status.power.vcore;//mV
         node.fanspeed     = g_board.info.preference.fan.speed; //%
         node.fanrpm       = g_board.info.preference.fan.rpm;
         node.wifi_rssi    = g_board.info.connection.wifi.status_param.rssi;
@@ -328,7 +328,7 @@ void swarm_thread_entry(void *args){
       jsonDoc["Uptime"] = convert_uptime_to_string(g_board.status.miner.uptime_session) + "\r" + convert_uptime_to_string(g_board.status.miner.uptime_ever);
       jsonDoc["Version"] = g_board.info.base.fw_version;
       jsonDoc["BoardType"] = g_board.info.base.hw_model;
-      jsonDoc["Power"]     = String(g_board.status.vbus*g_board.status.ibus/1000.0/1000.0, 1) + "W";
+      jsonDoc["Power"]     = String(g_board.status.power.vbus*g_board.status.power.ibus/1000.0/1000.0, 1) + "W";
       jsonDoc["PoolInUse"] = String(g_board.info.connection.pool_use.url) + ":" + String(g_board.info.connection.pool_use.port);
       static uint32_t last_seen = millis();
       jsonDoc["Lastseen"]  = millis() - last_seen;

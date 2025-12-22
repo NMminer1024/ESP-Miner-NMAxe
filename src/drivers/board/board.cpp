@@ -1,8 +1,8 @@
-#include "board.h"
-#include "nvs_config.h"
-#include "esp_log.h"
 #include <nvs_flash.h>
+#include "nvs_config.h"
 #include "logger.h"
+#include "display.h"
+#include "board.h"
 
 BoardModelType get_board_model(){
     BoardModelType model = BOARD_UNKNOWN;
@@ -34,22 +34,14 @@ BoardSpecConfig get_board_config(BoardModelType model) {
         case NMAXE:
             config.name                      = "NMAxe";
             config.asic.name                 = "BM1366";
-            config.asic.job_interval_ms      = 2000;
             config.ui.hr_dist_page.max_x_hr  = 1000;
             config.ui.hr_dist_page.max_x_bars= 20;
-            config.asic.default_frq          = 575;
-            config.asic.default_vcore        = 1250;
-            config.asic.min_vcore            = 1100;
-            config.asic.max_vcore            = 1300;
-            config.asic.diff_thr_init        = 256;
+            config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
             config.fan.pwm_pin               = 41;
             config.fan.torch_pin             = 42;
             config.fan.self_test_rpm_thr     = 4000; 
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
-            config.asic.rx_pin               = 44;
-            config.asic.tx_pin               = 43;
-            config.asic.rst_pin              = 45;
             config.pwr.enable_pins.pwr_0v8   = 13;
             config.pwr.enable_pins.pwr_1v8   = 14;
             config.pwr.enable_pins.pwr_vcore = 10;
@@ -65,6 +57,15 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.wifi_pin              = 6;
             config.led.pool_pin              = 4;
             config.led.sys_pin               = 5;
+            config.asic.rx_pin               = 44;
+            config.asic.tx_pin               = 43;
+            config.asic.rst_pin              = 45;
+            config.asic.job_interval_ms      = 2000;
+            config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 575);
+            config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1250);
+            config.asic.min_vcore            = 1100;
+            config.asic.max_vcore            = 1300;
+            config.asic.diff_thr_init        = 256;
             config.asic.com_port             = &Serial1;
             config.create_asic_instance      = create_bm1366_instance;
             break;
@@ -74,19 +75,12 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.job_interval_ms      = 500;
             config.ui.hr_dist_page.max_x_hr  = 2000;
             config.ui.hr_dist_page.max_x_bars= 20;
-            config.asic.default_frq          = 600;
-            config.asic.default_vcore        = 1125;
-            config.asic.min_vcore            = 1000;
-            config.asic.max_vcore            = 1250;
-            config.asic.diff_thr_init        = 512;
+            config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
             config.fan.pwm_pin               = 41;
             config.fan.torch_pin             = 42;
             config.fan.self_test_rpm_thr     = 4000; 
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
-            config.asic.rx_pin               = 44;
-            config.asic.tx_pin               = 43;
-            config.asic.rst_pin              = 45;
             config.pwr.enable_pins.pwr_0v8   = 13;
             config.pwr.enable_pins.pwr_1v8   = 14;
             config.pwr.enable_pins.pwr_vcore = 10;
@@ -102,6 +96,14 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.wifi_pin              = 6;
             config.led.pool_pin              = 4;
             config.led.sys_pin               = 5;
+            config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 600);
+            config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1125);
+            config.asic.min_vcore            = 1000;
+            config.asic.max_vcore            = 1250;
+            config.asic.diff_thr_init        = 512;
+            config.asic.rx_pin               = 44;
+            config.asic.tx_pin               = 43;
+            config.asic.rst_pin              = 45;
             config.asic.com_port             = &Serial1;
             config.create_asic_instance      = create_bm1370_instance;
             break;

@@ -41,6 +41,7 @@ typedef enum {
 // board config struct
 struct BoardSpecConfig {
     String   name;
+
     struct{
         struct{
             uint32_t                    max_x_hr;       // max x axis in hashrate distribution
@@ -49,12 +50,7 @@ struct BoardSpecConfig {
             uint32_t                    dura;           // duration of hashrate samples, seconds
             std::map<uint16_t, uint8_t> dist_map;//<x, y> x:scale_x, y:percentage of hashrate in this scale, range from 0 to 100
         }hr_dist_page;
-        //  struct{
-            
-        // }mienr_page;
-        // struct{
-            
-        // }clock_page;
+        uint8_t             last_page;//last ui page index, restored on next boot
     }ui;
 
     struct{
