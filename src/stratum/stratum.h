@@ -162,5 +162,5 @@ public:
     }
 };
 
-void stratum_thread_entry(void *args);
+// void stratum_thread_entry(void *args);
 #endif

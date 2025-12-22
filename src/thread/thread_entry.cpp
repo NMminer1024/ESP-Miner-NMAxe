@@ -961,3 +961,306 @@ void miner_asic_rx_thread_entry(void *args){
         }
     }
 }
+
+void stratum_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(stratum)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing stratum...");
+
+    bool is_primary_pool = true;
+
+    board->stratum->set_pool_difficulty(DEFAULT_POOL_DIFFICULTY);
+    StaticJsonDocument<1024*4> json;
+    while(true){
+        static int w_retry = 0, w_maxRetries = 24;
+        if(board->info.connection.wifi.status_param.status != WL_CONNECTED){
+            w_retry++;
+            LOG_W("WiFi reconnecting %d/%d...", w_retry, w_maxRetries);
+            if(w_retry >= w_maxRetries) ESP.restart();
+
+            xSemaphoreGive(board->info.connection.wifi.reconnect_xsem);
+            board->stratum->reset();
+            delay(5000);
+            continue;
+        } else w_retry = 0;
+        
+        static uint32_t last = millis();
+        if(!is_primary_pool){
+            if(millis() - last > 1000 * 60){ // check every 60 seconds
+                bool res = board->stratum->is_primary_pool_available(board->info.connection.pool_primary.url, board->info.connection.pool_primary.port);
+                if(res){
+                    LOG_I("Primary pool [%s] available now, switching to primary pool...", board->info.connection.pool_primary.url.c_str());
+                    board->info.connection.pool_use = board->info.connection.pool_primary;
+                    board->info.connection.stratum_use = board->info.connection.stratum_primary;
+
+                    board->stratum->reset(board->info.connection.pool_use, board->info.connection.stratum_use);
+                    board->stratum->pool->begin(board->info.connection.pool_use.ssl);
+                    board->stratum->pool->connect();
+                    board->status.miner.diff.last = 0;
+                }else{
+                    LOG_W("Primary pool [%s] is not available.", board->info.connection.pool_primary.url.c_str());
+                }
+                last = millis();
+            }
+        }
+
+        static uint16_t p_retry = 0, p_maxRetries = 5;
+        if(!board->stratum->pool->is_connected()){
+            static bool    first_connect = true;
+            if(first_connect){
+                LOG_I("Pool connecting...");
+                first_connect = false;
+            }else LOG_W("Lost connection to pool, reconnecting %d/%d...", p_retry, p_maxRetries);
+            
+            if(++p_retry % p_maxRetries == 0){
+                if(is_primary_pool){
+                    board->info.connection.pool_use    = board->info.connection.pool_fallback;
+                    board->info.connection.stratum_use = board->info.connection.stratum_fallback;
+                    is_primary_pool                = false;
+                    LOG_W(">>>> Set pool to fallback [%s:%d] <<<<", board->info.connection.pool_use.url.c_str(), board->info.connection.pool_use.port);
+                }else{
+                    board->info.connection.pool_use    = board->info.connection.pool_primary;
+                    board->info.connection.stratum_use = board->info.connection.stratum_primary;
+                    is_primary_pool                = true;
+                    LOG_W(">>>> Set pool to primary [%s:%d] <<<<", board->info.connection.pool_use.url.c_str(), board->info.connection.pool_use.port);
+                }
+            }
+            board->stratum->reset(board->info.connection.pool_use, board->info.connection.stratum_use);
+            board->stratum->pool->begin(board->info.connection.pool_use.ssl);
+            board->stratum->pool->connect();
+            board->status.miner.diff.last = 0;
+            delay(5000);
+            continue;
+        }else p_retry = 0;
+
+        if(!board->stratum->is_subscribed()){
+            if(!board->stratum->subscribe()){
+                LOG_W("Failed to subscribe to pool, retrying in 5 seconds...");
+                delay(100);
+                continue;
+            }
+            if(!board->stratum->authorize()){
+                LOG_W("Failed to authorize to pool, retrying in 5 seconds...");
+                delay(100);
+                continue;
+            }
+            if(!board->stratum->config_version_rolling()){
+                LOG_W("Failed to config version rolling, retrying in 5 seconds...");
+                delay(100);
+                continue;
+            }
+            if(!board->stratum->suggest_difficulty()){
+                LOG_W("Failed to suggest difficulty to pool, retrying in 5 seconds...");
+                delay(100);
+                continue;
+            }
+        }
+
+        if(!board->stratum->hello_pool(HELLO_POOL_INTERVAL_MS, POOL_INACTIVITY_TIME_MS)){
+            LOG_W("Pool is inactive, retrying in 5 seconds...");
+            delay(5000);
+            continue;
+        }
+
+        while(board->stratum->pool->available()){
+            stratum_method_data method = board->stratum->listen_methods();
+            switch (method.type){
+                case STRATUM_DOWN_PARSE_ERROR:   
+                    if(method.raw != ""){
+                        LOG_E("Stratum parse error, id : %d, raw : %s", method.id, method.raw.c_str());
+                    }
+                    else{
+                        LOG_E("Stratum parse error, id : %d", method.id);
+                    }
+                    break;
+                case STRATUM_DOWN_NOTIFY:{
+                        LOG_D("Stratum notify, id : %d => %s", method.id, method.raw.c_str());
+                        pool_job_data_t job;
+                        json.clear();
+                        DeserializationError error = deserializeJson(json, method.raw);
+                        if (error) {
+                            LOG_E("Failed to parse STRATUM_DOWN_NOTIFY json");
+                            break;
+                        }
+
+                        job.id = String((const char*) json["params"][0]);
+                        job.prevhash = String((const char*) json["params"][1]);
+                        job.coinb1 = String((const char*) json["params"][2]);
+                        job.coinb2 = String((const char*) json["params"][3]);
+                        job.merkle_branch = json["params"][4];
+                        job.version = String((const char*) json["params"][5]);
+                        job.nbits = String((const char*) json["params"][6]);
+                        job.ntime = String((const char*) json["params"][7]);
+                        job.clean_jobs = json["params"][8]; 
+
+                        LOG_D("Job ID            : %s", job.id.c_str());
+                        LOG_D("Prevhash          : %s", job.prevhash.c_str());
+                        LOG_D("Coinb1            : %s", job.coinb1.c_str());
+                        LOG_D("Coinb2            : %s", job.coinb2.c_str());
+                        for(int i = 0; i < job.merkle_branch.size(); i++){
+                            LOG_D("Merkle branch[%02d] : %s", i, job.merkle_branch[i].as<String>().c_str());
+                        }
+                        LOG_D("Version           : %s", job.version.c_str());
+                        LOG_D("Nbits             : %s", job.nbits.c_str());
+                        LOG_D("Ntime             : %s", job.ntime.c_str());
+                        LOG_D("Clean jobs        : %s", job.clean_jobs ? "true" : "false");
+                        LOG_D("Stamp             : %lu", job.stamp);
+                        LOG_D("Version mask      : 0x%08x", board->stratum->get_version_mask());
+                        LOG_D("Pool difficulty   : %s", formatNumber(board->stratum->get_pool_difficulty(), 5).c_str());
+
+                        if(job.clean_jobs){
+                            board->stratum->clear_job_cache();
+                            xSemaphoreGive(board->stratum->clear_job_xsem);
+                        }
+                        size_t cached_size = board->stratum->push_job_cache(job);
+                        
+                        //Give the new job semaphore to the other threads
+                        xSemaphoreGive(board->stratum->new_job_xsem);//asic tx thread
+                        static bool first_job = true;
+                        if(first_job){
+                            //first job will release the asic rx , monitor and ui thread
+                            xSemaphoreGive(board->stratum->new_job_xsem);//asic tx thread
+                            xSemaphoreGive(board->stratum->new_job_xsem);//asic rx thread
+                            xSemaphoreGive(board->stratum->new_job_xsem);//ui thread
+                            xSemaphoreGive(board->stratum->new_job_xsem);//monitor thread
+                            first_job = false;
+                        }
+                        board->info.connection.stratum_update = millis();//pool alive timestamp
+                    }         
+                    break;
+                case STRATUM_DOWN_SET_DIFFICULTY: {
+                    LOG_D("Stratum set difficulty, id : %d => %s", method.id, method.raw.c_str());
+                    json.clear();
+                    DeserializationError error = deserializeJson(json, method.raw);
+                    if(error){
+                        LOG_E("Failed to parse STRATUM_DOWN_SET_DIFFICULTY json");
+                        break;
+                    }
+                    if(json["method"] == "mining.set_difficulty"){
+                        if(json["params"].size() > 0){
+                            board->stratum->set_pool_difficulty(json["params"][0]);
+                            LOG_D("Pool difficulty set : %s", formatNumber(json["params"][0], 5).c_str());
+                        }else{
+                            LOG_W("Pool difficulty not found in params");
+                        }
+                    }
+                }
+                    break;
+                case STRATUM_DOWN_SET_VERSION_MASK:{
+                    LOG_D("Stratum set version mask , id : %d => %s", method.id, method.raw.c_str());
+                    board->stratum->set_msg_rsp_map(method.id, true);
+                    json.clear();
+                    DeserializationError error = deserializeJson(json, method.raw);
+                    if (error) {
+                        LOG_E("Failed to parse STRATUM_DOWN_SET_VERSION_MASK json");
+                        break;
+                    }
+                    if(json["method"] == "mining.set_version_mask"){
+                        if(json["params"].size() > 0){
+                            board->stratum->set_version_mask(strtoul(json["params"][0].as<const char*>(), NULL, 16));
+                            LOG_L("Version mask set to %s", json["params"][0].as<const char*>());
+                        }else{
+                            board->stratum->set_version_mask(0xffffffff);
+                            LOG_W("Version mask not found in params");
+                        }
+                    }else{
+                        board->stratum->set_version_mask(0xffffffff);
+                        LOG_W("Version rolling key not found in response");
+                    }
+                    board->stratum->del_msg_rsp_map(method.id);
+                }
+                    break;
+                case STRATUM_DOWN_SET_EXTRANONCE:{
+                        LOG_L("Stratum set extranonce => %s", method.id, method.raw.c_str());
+                        json.clear();
+                        DeserializationError error = deserializeJson(json, method.raw);
+                        if (error) {
+                        LOG_E("Failed to parse STRATUM_DOWN_SET_EXTRANONCE json");
+                            break;
+                        }
+                        board->stratum->set_sub_extranonce1(json["params"][0]);
+                        board->stratum->set_sub_extranonce2_size(json["params"][1]);
+                    }
+                    break;
+                case STRATUM_DOWN_SUCCESS: 
+                    if(method.id != -1){
+                        board->stratum->set_msg_rsp_map(method.id, true);
+                        stratum_rsp rsp = board->stratum->get_method_rsp_by_id(method.id);
+                        if(rsp.method == "mining.submit"){
+                            uint32_t latency = millis() - rsp.stamp;
+                            if (rsp.status == true){
+                                board->status.miner.share_accepted++;
+                                LOG_L("#%d share accepted, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, latency);      
+                            }
+                            else {
+                                board->status.miner.share_rejected++;
+                                LOG_E("#%d share rejected, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, latency);
+                            }
+                        }
+                        else if(rsp.method == "mining.configure"){
+                            json.clear();
+                            DeserializationError error = deserializeJson(json, method.raw);
+                            if (error) {
+                                LOG_E("Failed to parse STRATUM_DOWN_SUCCESS json");
+                            } else {
+                                board->stratum->set_version_mask(0xffffffff);
+                                if (json["result"]["version-rolling"] == true) {
+                                    if (json["result"].containsKey("version-rolling.mask")) {
+                                        board->stratum->set_version_mask(strtoul(json["result"]["version-rolling.mask"].as<const char*>(), NULL, 16));
+                                        LOG_I("Version mask set to %s", json["result"]["version-rolling.mask"].as<const char*>());
+                                    } else {
+                                        LOG_W("Version mask not found in response");
+                                    }
+                                } else {
+                                    LOG_W("Version rolling not supported");
+                                }
+                            }
+                        }
+                        else if(rsp.method == "mining.authorize"){
+                            DeserializationError error = deserializeJson(json, method.raw);
+                            if (error) {
+                                LOG_E("Failed to parse STRATUM_DOWN_NOTIFY json");
+                            }
+                            else{
+                                if(json.containsKey("result")){
+                                    board->stratum->set_authorize(json["result"]);
+                                    LOG_W("Authorization %s ", json["result"] ? "success" : "failed");
+                                }
+                            }
+                        }
+                        else{
+                            LOG_D("Stratum success, id : %d => %s", method.id, method.raw.c_str());
+                        }
+                    }
+                    break;
+                case STRATUM_DOWN_ERROR: 
+                    if(method.id != -1){
+                        board->stratum->set_msg_rsp_map(method.id, true);
+                        stratum_rsp rsp = board->stratum->get_method_rsp_by_id(method.id);
+                        if(rsp.method == "mining.submit"){
+                            uint32_t latency = millis() - rsp.stamp;
+                            board->status.miner.share_rejected++;
+                            LOG_E("#%d share rejected, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, latency);
+                        }
+                        else if(rsp.method == "mining.authorize"){
+                            board->stratum->set_authorize(false);
+                            LOG_E("Authorization failed.");
+                        }
+                        else{
+                            LOG_E("Unknown error response, id : %d");
+                        }
+                    }
+                    break;
+                case STRATUM_DOWN_UNKNOWN:                   
+                    LOG_E("Stratum unknown, id : %d");
+                    break;
+                default :
+                    LOG_E("Stratum unknown, id : %d");
+                    break;
+            }
+            delay(10);
+        }
+        delay(50);
+    }
+}
