@@ -2,9 +2,10 @@
 #define __NM_BOARD_H_
 #include <Arduino.h>
 #include "bm_hal.h"
-#include "BM1366.h"
-#include "BM1370.h"
-#include "axe_pwr_hal.h"
+#include "nmaxe.h"
+#include "nmaxegamma.h"
+#include "nmqaxepp.h"
+#include "power_hal.h"
 #include <map>
 
 /******************default parameter define for NMAxe***********************/
@@ -20,9 +21,9 @@
 #define SCREEN_WIDTH                                   240
 #define SCREEN_HEIGHT                                  135
 
-// #define ASIC_JOB_DIFF_DEFAULT_THR                      512  //Default ASIC diff threshold to set as initial asic diff
-#define ESP32_TO_ASIC_INIT_BUAD                        115200
-#define ESP32_TO_ASIC_WORK_BUAD                        1000000
+// // #define ASIC_JOB_DIFF_DEFAULT_THR                      512  //Default ASIC diff threshold to set as initial asic diff
+// #define ESP32_TO_ASIC_INIT_BUAD                        115200
+// #define ESP32_TO_ASIC_WORK_BUAD                        1000000
 
 /*********************************Pin define********************************/
 #define NM_AXE_TFT_PWER_PIN                            18
@@ -70,9 +71,11 @@ struct BoardSpecConfig {
         uint16_t min_vcore;       // mV, minimum core voltage
         uint16_t max_vcore;       // mV, maximum core voltage
         uint16_t diff_thr_init;   // initial difficulty threshold
-        uint8_t rx_pin;           // ESP32 rx pin to asic tx pin
-        uint8_t tx_pin;           // ESP32 tx pin to asic rx pin
-        uint8_t rst_pin;          // ESP32 rst pin to asic rst pin
+        uint8_t  rx_pin;           // ESP32 rx pin to asic tx pin
+        uint8_t  tx_pin;           // ESP32 tx pin to asic rx pin
+        uint8_t  rst_pin;          // ESP32 rst pin to asic rst pin
+        uint32_t com_baud_init;   // initial communication baudrate 
+        uint32_t com_baud_work;   // working communication baudrate
         HardwareSerial *com_port; // HardwareSerial port instance
     }asic;
 
@@ -108,8 +111,9 @@ struct BoardSpecConfig {
     }fan;
 
     // creator function pointer
-    BMxxx* (*create_asic_instance)(HardwareSerial&, uint32_t, uint8_t, uint8_t, uint8_t);
+    BMxxx*       (*create_asic_instance)(HardwareSerial&, uint32_t, uint8_t, uint8_t, uint8_t);
     // Power HAL instance pointer
+    AxePowerHal* (*create_power_instance)(axe_pwr_enable_pin_t, axe_pwr_adc_pin_t, uint8_t, uint8_t, uint8_t);
 };
 
 void hardware_pre_init(void);

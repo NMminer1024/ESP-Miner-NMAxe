@@ -26,7 +26,7 @@ public:
     pool_job_data_t             pool_job_now;
     AsicMinerClass(BMxxx *asic);
     ~AsicMinerClass();
-    bool begin(uint16_t freq, uint16_t diff);
+    bool begin(uint16_t freq, uint16_t diff, uint32_t baudrate);
     bool mining(pool_job_data_t *pool_job);
     bool set_asic_diff(uint64_t diff);
     uint8_t get_asic_count();

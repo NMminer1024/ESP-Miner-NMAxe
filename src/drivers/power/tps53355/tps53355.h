@@ -1,7 +1,7 @@
 #ifndef _NMAXE_PWR_H_
 #define _NMAXE_PWR_H_
 #include <Arduino.h>
-#include "axe_pwr_hal.h"
+#include "power_hal.h"
 
 
 // #define VBUS_MIN_VOLTAGE    (8000)

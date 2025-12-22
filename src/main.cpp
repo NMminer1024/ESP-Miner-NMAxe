@@ -30,23 +30,23 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
     String stratum_pri                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb                                = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
     
-    board->info.connection.pool_primary.ssl         = (stratum_pri.indexOf("ssl") != -1);
+    board->info.connection.pool_primary.ssl         = ((stratum_pri.indexOf("ssl") != -1) || (stratum_pri.indexOf("tls") != -1));
     board->info.connection.pool_primary.url         = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
     board->info.connection.pool_primary.port        = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1, stratum_pri.length()).toInt();
-    board->info.connection.pool_fallback.ssl        = (stratum_fb.indexOf("ssl") != -1);
+    board->info.connection.pool_fallback.ssl        = ((stratum_fb.indexOf("ssl") != -1) || (stratum_fb.indexOf("tls") != -1));
     board->info.connection.pool_fallback.url        = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
     board->info.connection.pool_fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
     board->info.connection.pool_use                 = board->info.connection.pool_primary;
     board->info.base.fw_version                     = CURRENT_FW_VERSION;
     board->info.base.hw_version                     = CURRENT_HW_VERSION;
     board->info.base.devcie_code                    = gen_device_code();
+    board->info.base.fw_latest_release              = "";
     board->info.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + board->info.base.hw_model + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
     board->info.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, PRIMARY_POOL_PWD));
     board->info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + board->info.base.hw_model + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
     board->info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
     board->info.connection.stratum_use              = board->info.connection.stratum_primary;
     board->status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
-    board->info.base.fw_latest_release              = "";
     board->status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);
     board->status.miner.history_mutex               = xSemaphoreCreateMutex();
     board->status.miner.block_proximity_mutex       = xSemaphoreCreateMutex();
@@ -93,8 +93,14 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
         LOG_E("I2C init failed on pins SDA:%d, SCL:%d", board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);
         return false;
     }
+    // create ASIC instance
+    BMxxx* asic                                     = cfg.create_asic_instance(*cfg.asic.com_port, cfg.asic.com_baud_init, cfg.asic.rx_pin, cfg.asic.tx_pin, cfg.asic.rst_pin);
+    if(asic == NULL){
+        LOG_E("BMxxx instance creation failed");
+        return false;
+    }
     // create AsicMinerClass instance
-    board->miner                                    = new AsicMinerClass(cfg.create_asic_instance(*cfg.asic.com_port, ESP32_TO_ASIC_INIT_BUAD, cfg.asic.rx_pin, cfg.asic.tx_pin, cfg.asic.rst_pin));
+    board->miner                                    = new AsicMinerClass(asic);
     if(board->miner == NULL){
         LOG_E("AsicMinerClass instance creation failed");
         return false;

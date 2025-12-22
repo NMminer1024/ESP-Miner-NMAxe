@@ -1,7 +1,7 @@
 #ifndef _GLOBAL_H_
 #define _GLOBAL_H_
 #include <Arduino.h>
-#include "board.h"
+// #include "board.h"
 #include "tps53355.h"
 #include "connection.h"
 #include "tmp102.h"
@@ -204,7 +204,6 @@ typedef struct{
     }ota;
 
     miner_status_t      miner;
-    // uint8_t             last_ui_page;//last ui page index,restored on next boot
     SemaphoreHandle_t   page_save_xsem; // save current page index
     SemaphoreHandle_t   reboot_xsem;
     SemaphoreHandle_t   nvs_save_xsem;// save status to NVS signal

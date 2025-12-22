@@ -3,6 +3,9 @@
 #include "logger.h"
 #include "display.h"
 #include "board.h"
+#include "nmaxe.h"
+#include "nmaxegamma.h"
+#include "nmqaxepp.h"
 
 BoardModelType get_board_model(){
     BoardModelType model = BOARD_UNKNOWN;
@@ -17,14 +20,6 @@ BoardModelType get_board_model(){
     // 0b00 BOARD_UNKNOWN
     model = static_cast<BoardModelType>((sel0 << 1) | sel1);
     return model;
-}
-
-BMxxx* create_bm1366_instance(HardwareSerial& serial, uint32_t baud, uint8_t rx, uint8_t tx, uint8_t rst) {
-    return new BM1366(serial, baud, rx, tx, rst);
-}
-
-BMxxx* create_bm1370_instance(HardwareSerial& serial, uint32_t baud, uint8_t rx, uint8_t tx, uint8_t rst) {
-    return new BM1370(serial, baud, rx, tx, rst);
 }
 
 BoardSpecConfig get_board_config(BoardModelType model) {
@@ -68,8 +63,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.min_vcore            = 1100;
             config.asic.max_vcore            = 1300;
             config.asic.diff_thr_init        = 256;
+            config.asic.com_baud_init        = 115200;
+            config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
-            config.create_asic_instance      = create_bm1366_instance;
+            config.create_asic_instance      = create_axe_asic_instance;
             break;
         case NMAXE_GAMMA:
             config.name                      = "NMAxeGamma";
@@ -108,8 +105,11 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.rx_pin               = 44;
             config.asic.tx_pin               = 43;
             config.asic.rst_pin              = 45;
+            config.asic.com_baud_init        = 115200;
+            config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
-            config.create_asic_instance      = create_bm1370_instance;
+
+            config.create_asic_instance      = create_gamma_asic_instance;
             break;
         case NMQAXE_PLUS_PLUS:
             config.name                      = "NMQAxe++";
@@ -119,7 +119,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_port             = &Serial1;
             break;
         default:
-            config.name                           = "Unknown";
+            config.name                      = "Unknown";
             config.asic.name                 = "Unknown";
             config.asic.job_interval_ms      = 0;
             break;

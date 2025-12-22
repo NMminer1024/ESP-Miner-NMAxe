@@ -73,7 +73,7 @@ AsicMinerClass::~AsicMinerClass(){
 
 }
 
-bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
+bool AsicMinerClass::begin(uint16_t freq, uint16_t diff, uint32_t baudrate){
     this->_asic->reset();
     this->_asic_count = this->_asic->init(freq, diff);
     if(0 == this->_asic_count){
@@ -81,7 +81,7 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff){
         return false;
     }
     LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_board.info.spec.asic.name, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
-    this->_asic->change_uart_baud(ESP32_TO_ASIC_WORK_BUAD);
+    this->_asic->change_uart_baud(baudrate);
     this->_asic->clear_port_cache();
     return true;
 }
@@ -291,7 +291,7 @@ void miner_asic_init_thread_entry(void *args){
     }
     
     //begin asic hardware
-    if(!g_board.miner->begin(g_board.info.spec.asic.req_frq, g_board.info.spec.asic.diff_thr_init)){
+    if(!g_board.miner->begin(g_board.info.spec.asic.req_frq, g_board.info.spec.asic.diff_thr_init, g_board.info.spec.asic.com_baud_work)){
         while (true){
             LOG_E("Miner low power!");
             delay(1000);
