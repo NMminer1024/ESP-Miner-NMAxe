@@ -63,6 +63,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.job_interval_ms      = 2000;
             config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 575);
             config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1250);
+            config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
+            config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1100;
             config.asic.max_vcore            = 1300;
             config.asic.diff_thr_init        = 256;
@@ -98,6 +100,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.sys_pin               = 5;
             config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 600);
             config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1125);
+            config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
+            config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1000;
             config.asic.max_vcore            = 1250;
             config.asic.diff_thr_init        = 512;
