@@ -36,6 +36,7 @@ void tft_bl_ctrl(int8_t percent){
 static void tft_init(){
   pinMode(NM_AXE_TFT_PWER_PIN, OUTPUT);
   digitalWrite(NM_AXE_TFT_PWER_PIN, LOW);
+
   tft.begin(); 
   if(g_board.info.preference.screen.flip)tft.setRotation(1); 
   else tft.setRotation(3); 

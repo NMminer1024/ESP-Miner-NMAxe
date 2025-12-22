@@ -107,12 +107,13 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
         LOG_E("NMAxePowerClass instance creation failed");
         return false;
     }
-
+    // create market instance
     board->market                                   = new MarketClass();
     if(board->market == NULL){
         LOG_E("MarketClass instance creation failed");
         return false;
     }
+    // create Stratum instance
     board->stratum                                  = new StratumClass(board->info.connection.pool_use, board->info.connection.stratum_use, 10);
     if(board->stratum == NULL){
         LOG_E("StratumClass instance creation failed");

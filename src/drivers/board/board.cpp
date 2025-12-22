@@ -16,7 +16,7 @@ BoardModelType get_board_model(){
     uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
     // 0b11 NMAXE
     // 0b01 NMAXE_GAMMA
-    // 0b10 NMQAXE
+    // 0b10 NMQAXE++
     // 0b00 BOARD_UNKNOWN
     model = static_cast<BoardModelType>((sel0 << 1) | sel1);
     return model;
@@ -37,8 +37,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.fan.self_test_rpm_thr     = 4000; 
             config.fan.pwm_channel           = 2;
             config.fan.pwm_freq              = 1000*100; // Hz
-            config.fan.pwm_resolution        = 8;      // bits
-            config.fan.p_cnt_h_limt          = 30000;   // PCNT high limit value
+            config.fan.pwm_resolution        = 8;        // bits
+            config.fan.p_cnt_h_limt          = 30000;    // PCNT high limit value
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.enable_pins.pwr_0v8   = 13;
@@ -84,8 +84,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.fan.self_test_rpm_thr     = 4000; 
             config.fan.pwm_channel           = 2;
             config.fan.pwm_freq              = 1000*100; // Hz
-            config.fan.pwm_resolution        = 8;      // bits
-            config.fan.p_cnt_h_limt          = 30000;   // PCNT high limit value
+            config.fan.pwm_resolution        = 8;        // bits
+            config.fan.p_cnt_h_limt          = 30000;    // PCNT high limit value
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.enable_pins.pwr_0v8   = 13;
@@ -116,7 +116,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_baud_init        = 115200;
             config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
-
             config.create_asic_instance      = create_gamma_asic_instance;
             break;
         case NMQAXE_PLUS_PLUS:
