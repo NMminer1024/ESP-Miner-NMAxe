@@ -3,6 +3,16 @@
 #include "button.h"
 #include "display.h"
 #include "fan.h"
+#include "csha256.h"
+#include "nvs_config.h"
+#include "timezone.h"
+#include <NTPClient.h>
+
+#define UDP_BOARDCAST_ADDR    IPAddress(255,255,255,255)
+#define UDP_BOARDCAST_PORT    (12345)
+#define SWARM_OFFLINE_TIMEOUT (3*60*1000) //3min
+
+
 
 void power_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
@@ -227,31 +237,373 @@ void button_thread_entry(void *args){
   }
 }
 
+void swarm_thread_entry(void *args){
+  board_sal_t *board = (board_sal_t*)args;
+  String taskName = "(swarm)";
+  LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+  LOG_I("Initializing swarm...");
+
+  //malloc udp client
+  WiFiUDP* udp_client = new WiFiUDP();
+  while (udp_client == nullptr){
+    LOG_W("Failed to allocate memory for udp client, retry...");  
+    delay(1000);
+  }
+  
+  //udp status boardcast begin
+  udp_client->begin(UDP_BOARDCAST_PORT);
+
+  uint64_t swarm_cnt = 0;
+  char  jsonbuf[1024] = {0,};
+  StaticJsonDocument<1024> jsonDoc;
+  while (true){
+    delay(100);
+    if(board->info.connection.wifi.status_param.status != WL_CONNECTED) continue;
+    swarm_cnt++;
+    //listen udp status
+    if(swarm_cnt % 1 == 0){
+      int packetSize = udp_client->parsePacket();
+
+      char udpbuf[512] = {0,}, json_udp_str[512] = {0,};
+      if ((packetSize > 0) && (packetSize < sizeof(udpbuf))) {
+          int len = udp_client->read(udpbuf, packetSize);
+          memcpy(json_udp_str, udpbuf, packetSize);
+          jsonDoc.clear();
+          DeserializationError error = deserializeJson(jsonDoc, json_udp_str);
+          if(error) {
+            udp_client->flush();
+            continue;
+          }
+          jsonDoc["Lastseen"] = millis();
+
+          memset(jsonbuf, 0, sizeof(jsonbuf));
+          size_t n = serializeJson(jsonDoc, jsonbuf);
+
+          //update swarm list if has this ip
+          static std::map<String, uint32_t> last_seen_map;
+          if(jsonDoc.containsKey("ip")){
+            board->status.swarm[jsonDoc["ip"].as<String>()] = String(jsonbuf);
+            last_seen_map[jsonDoc["ip"].as<String>()] = jsonDoc["Lastseen"];
+          }
+
+          //update json string
+          for(auto it = board->status.swarm.begin(); it != board->status.swarm.end();it++){
+            //self status not in last seen map
+            if(last_seen_map.find(it->first) == last_seen_map.end()) continue;
+
+            if(deserializeJson(jsonDoc, it->second)) continue;
+
+            jsonDoc["Lastseen"] = millis() - last_seen_map[it->first];
+            //remove offline device
+            if(jsonDoc["Lastseen"].as<uint32_t>() > SWARM_OFFLINE_TIMEOUT){
+              board->status.swarm.erase(it->first);
+              continue;
+            }
+
+            memset(jsonbuf, 0, sizeof(jsonbuf));
+            size_t n = serializeJson(jsonDoc, jsonbuf);
+            it->second = (n>0) ? String(jsonbuf) : "";
+          }
+          udp_client->flush();
+        }
+    }
+    //status udp broadcast
+    if(swarm_cnt % 20 == 0){
+      jsonDoc.clear();
+      jsonDoc["ip"] = board->info.connection.wifi.status_param.ip.toString();
+      jsonDoc["HashRate"] = formatNumber(board->status.miner.hashrate._3m, 5) + "H/s";
+      uint32_t share_total = board->status.miner.share_accepted + board->status.miner.share_rejected;
+      float share_accepted = (share_total == 0) ? 0:(float)(board->status.miner.share_accepted) / (float)(share_total);
+      jsonDoc["Share"] = String(board->status.miner.share_rejected) + "/"+ String(board->status.miner.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
+      jsonDoc["NetDiff"] = formatNumber(board->status.miner.diff.network,4);
+      jsonDoc["PoolDiff"] = formatNumber(board->status.miner.diff.pool,4);
+      jsonDoc["LastDiff"] = formatNumber(board->status.miner.diff.last,4);
+      jsonDoc["BestDiff"] = formatNumber(board->status.miner.diff.best_session,4) + "\r" + formatNumber(board->status.miner.diff.best_ever,4);
+      jsonDoc["Valid"] = board->status.miner.hits;
+      jsonDoc["Temp"] = roundf(board->status.temp.asic * 100) / 100.0f;
+      jsonDoc["RSSI"] = board->info.connection.wifi.status_param.rssi;
+      jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
+      jsonDoc["Uptime"] = convert_uptime_to_string(board->status.miner.uptime_session) + "\r" + convert_uptime_to_string(board->status.miner.uptime_ever);
+      jsonDoc["Version"] = board->info.base.fw_version;
+      jsonDoc["BoardType"] = board->info.base.hw_model;
+      jsonDoc["Power"]     = String(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 1) + "W";
+      jsonDoc["PoolInUse"] = String(board->info.connection.pool_use.url) + ":" + String(board->info.connection.pool_use.port);
+      static uint32_t last_seen = millis();
+      jsonDoc["Lastseen"]  = millis() - last_seen;
+      last_seen = millis();
+
+      memset(jsonbuf, 0, sizeof(jsonbuf));
+      size_t n = serializeJson(jsonDoc, jsonbuf);
+      if(n >= sizeof(jsonbuf) || n == 0){
+        LOG_E("Swarm json serialize failed or too long: %d/%d", n, sizeof(jsonbuf));
+        continue;
+      }
+      //broadcast status to udp
+      udp_client->beginPacket(UDP_BOARDCAST_ADDR, UDP_BOARDCAST_PORT);
+      udp_client->write((uint8_t*)jsonbuf, n);
+      int res = udp_client->endPacket();
+      if(res != 1) {
+        LOG_E("Swarm udp broadcast failed: %d", res);
+        continue;
+      }
+
+      //add self to swarm list
+      board->status.swarm[board->info.connection.wifi.status_param.ip.toString()] = String(jsonbuf);
+    }
+  }
+}
+
+
+void monitor_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(monitor)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing monitor...");
+    
+    // fetch timezone from ipapi
+    TimezoneFetcher *tz = new TimezoneFetcher();
+    if(!tz->fetch()){
+        LOG_W("Timezone fetch failed, using user setting timezone: %s", board->status.time.tz.c_str()); 
+    }else{
+        board->status.time.tz = tz->timezone;
+        LOG_W("Timezone calibrate to : %s", board->status.time.tz.c_str());
+    }
+    delete tz;
+
+    //ntp client init
+    WiFiUDP          udpNtpClient;
+    const String     ntpServerUrl= "europe.pool.ntp.org";
+    const uint32_t   ntpInterval = 1000*60*60*24;//24h update interval
+    NTPClient        ntpClient(udpNtpClient, ntpServerUrl.c_str());
+
+    ntpClient.begin();
+    ntpClient.setTimeOffset(0); // Get UTC time without timezone offset
+    ntpClient.setUpdateInterval(ntpInterval);
+
+    //wait for first job cache ready forever when process start
+    xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
+
+    delay(500);//necessary delay for first job cache ready
+
+    while(true){
+        //thread delay 1000ms
+        static uint32_t last = millis();
+        while(millis() - last < 1000*1){
+            static uint16_t brightness = board->info.preference.screen.brightness, last_brightness = board->info.preference.screen.brightness;
+            static float    x = 0;
+            if(board->status.miner.last_hits != board->status.miner.hits){//screen blink if block hit
+            brightness = 100*(1 + sin(x))/2;
+            x+=0.1;
+            }else brightness = board->info.preference.screen.brightness;
+
+            //update screen brightness only when changed
+            if(last_brightness != brightness){
+            tft_bl_ctrl(brightness);
+            last_brightness = brightness;
+            }
+            delay(10);
+        }
+        last = millis();
+
+        // update utc time
+        if(ntpClient.update()){
+            struct timeval tv;
+
+            tv.tv_sec = ntpClient.getEpochTime(); 
+            tv.tv_usec = 0;
+            settimeofday(&tv, NULL);
+            board->status.time.utc = tv.tv_sec; 
+            
+            // Convert decimal timezone to UTC±H:MM format
+            float tz_offset = board->status.time.tz.toFloat();
+            int tz_hour = (int)tz_offset;
+            int tz_min = (int)((fabs(tz_offset) - abs(tz_hour)) * 60 + 0.5f); // Round to nearest minute
+            
+            char tz_buf[16] = {0};
+            if (tz_offset >= 0) {
+                if (tz_min == 0)
+                    sprintf(tz_buf, "UTC-%d", tz_hour);
+                else
+                    sprintf(tz_buf, "UTC-%d:%02d", tz_hour, tz_min);
+            } else {
+                if (tz_min == 0)
+                    sprintf(tz_buf, "UTC+%d", abs(tz_hour));
+                else
+                    sprintf(tz_buf, "UTC+%d:%02d", abs(tz_hour), tz_min);
+            }
+            
+            setenv("TZ", tz_buf, 1);
+            tzset();
+            
+            String time_local = convert_time_to_local(board->status.time.utc);
+            LOG_W("ntp calibrate time UTC[%llu], local[%s], timezone[%s], tz_env[%s]", 
+                    board->status.time.utc, time_local.c_str(), board->status.time.tz.c_str(), tz_buf);
+        }
+        else{
+            // update time now
+            time_t now;
+            time(&now);
+            board->status.time.utc = now; 
+        }
+
+        board->status.miner.uptime_ever++;
+        board->status.miner.uptime_session++;
+        //update temperature and power status
+        if(board->status.miner.uptime_session % 1 == 0){
+            static uint8_t temp_cnt = 0;
+
+            //update power status
+            board->status.power.vbus          = (temp_cnt % 2 == 0) ? board->power->get_vbus() : board->status.power.vbus;
+            board->status.power.ibus          = (temp_cnt % 2 == 0) ? board->power->get_ibus() : board->status.power.ibus;
+            board->status.miner.efficiency    = ((temp_cnt % 2 == 0) && board->status.miner.hashrate._3m > 0) ? (board->status.power.vbus * board->status.power.ibus/1e6) / (board->status.miner.hashrate._3m/1e12) : board->status.miner.efficiency; //J/TH
+            board->status.power.vcore         = (temp_cnt % 2 == 0) ? board->power->get_vcore() : board->status.power.vcore;
+
+            temp_cnt++;
+            //update wifi rssi
+            board->info.connection.wifi.status_param.rssi = WiFi.RSSI();
+            //give miner update signal
+            xSemaphoreGive(board->status.miner.update_xsem);
+        }
+        
+        //status check
+        if(board->status.miner.uptime_session % 2 == 0){
+            //check mcu temperature status
+            if(board->status.temp.mcu > BOARD_MCU_DANGER){
+            LOG_W("MCU temp is too high, restart...");
+            delay(1000);
+            ESP.restart();
+            }
+            //check vcore temperature status
+            if(board->status.temp.vcore > VCORE_TEMP_DANGER || board->status.temp.asic > ASIC_TEMP_DANGER){
+            uint16_t vcore_now = board->power->get_vcore();
+            if(vcore_now >= 1200)vcore_now -= 100;
+            else{
+                static uint8_t cnt = 0;
+                if(++cnt > 5){
+                LOG_W("Vcore temp reach danger for 5 seconds, restart...");
+                delay(1000);
+                ESP.restart();
+                }
+            }
+            board->power->set_vcore_voltage(vcore_now);
+            LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", board->status.temp.vcore, vcore_now);
+            }
+            //check fan status
+            static uint16_t fan_err_cnt = 0;
+            if((board->status.fan.rpm <= 500) && (board->status.temp.asic > ASIC_TEMP_NORMAL)){
+            fan_err_cnt++;
+            if(fan_err_cnt > 20){//avoid some noise
+                LOG_W("Fan rpm is too low, restart miner...");
+                ESP.restart();
+            }
+            }else fan_err_cnt = 0;
+
+            //avoid restart when ota running
+            if(board->status.ota.running) continue;
+
+            //check power status
+            static uint16_t pwr_err_cnt = 0;
+            if((board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0) < BOARD_LOW_POWER){
+            LOG_W("Power %0.1fW is too low...", board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0);
+            if(++pwr_err_cnt > 30){//30s
+                LOG_W("Power is too low, restart miner...");
+                ESP.restart();
+            }
+            }else pwr_err_cnt = 0;
+
+            //check hashrate
+            static uint16_t hr_err_cnt = 0;
+            if(board->status.miner.hashrate._3m <= 1){
+            if(++hr_err_cnt > 60){//1min
+                LOG_W("Hashrate is too low, restart miner...");
+                ESP.restart();
+            }
+            }else hr_err_cnt = 0;
+        }
+
+        //save status to NVS
+        static uint64_t last_save_time = board->status.miner.uptime_session;
+        if(board->status.miner.uptime_session - last_save_time > NVS_SAVE_INTERVAL){
+            xSemaphoreGive(board->status.nvs_save_xsem);
+        }
+        
+        //save some status to NVS
+        if(xSemaphoreTake(board->status.nvs_save_xsem, 0) == pdTRUE){
+            nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(board->status.miner.diff.best_ever).c_str());
+            nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, board->status.miner.hits);
+            nvs_config_set_u64(NVS_CONFIG_UPTIME, board->status.miner.uptime_ever);
+            last_save_time = board->status.miner.uptime_session;
+            LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(board->status.miner.diff.best_ever, 4).c_str(), board->status.miner.hits, convert_uptime_to_string(board->status.miner.uptime_ever).c_str());
+        }
+
+        //save last ui page to NVS
+        if(board->status.page_save_xsem != NULL && xSemaphoreTake(board->status.page_save_xsem, 0) == pdTRUE){
+            nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, board->info.spec.ui.last_page);
+            LOG_D("Last page %d saved to NVS", board->info.spec.ui.last_page);
+        }
+
+        //update miner status history queue
+        if(board->status.miner.uptime_session % HISTORY_SAMPLE_INTERVAL == 0){
+            history_node_t node;
+            node.hashrate     = String(board->status.miner.hashrate._3m /1e9, 3); //Ghash/s
+            node.asic_temp    = String(board->status.temp.asic,1);
+            node.vcore_temp   = String(board->status.temp.vcore,1);
+            node.pbus         = String((board->status.power.vbus * board->status.power.ibus / 1000.0f / 1000.0f),2); //W
+            node.vbus         = String((board->status.power.vbus / 1000.0f),1); //V
+            node.ibus         = String((board->status.power.ibus / 1000.0f),3); //A
+            node.vcore        = board->status.power.vcore;//mV
+            node.fanspeed     = board->status.fan.speed; //%
+            node.fanrpm       = board->status.fan.rpm;
+            node.wifi_rssi    = board->info.connection.wifi.status_param.rssi;
+            node.free_ram     = ESP.getFreeHeap() / 1024;  //free sram in Kbytes
+            node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes
+            node.epoch        = board->status.time.utc * 1000ULL; // Convert UTC seconds to milliseconds
+
+            // add node to history queue and protect concurrent access
+            if (xSemaphoreTake(board->status.miner.history_mutex, portMAX_DELAY) == pdTRUE) {
+                board->status.miner.status_history.push_back(node);
+                //remove old history
+                uint64_t current_time_ms = board->status.time.utc * 1000ULL; // Convert to milliseconds
+                while (!board->status.miner.status_history.empty()) {
+                    uint64_t oldest_time_ms = board->status.miner.status_history.front().epoch; // Already in milliseconds
+                    if(current_time_ms - oldest_time_ms > HISTORY_DEEPTH){ 
+                        board->status.miner.status_history.pop_front();
+                        LOG_D("Remove old history, current size: %d, removed timestamp: %llu", board->status.miner.status_history.size(), oldest_time_ms);
+                    } else {
+                        break;
+                    }
+                }
+                xSemaphoreGive(board->status.miner.history_mutex);
+            }
+        }
+    }
+}
+
 void daemon_thread_entry(void *args){
-  char *name = (char*)malloc(20);
-  strcpy(name, (char*)args);
-  LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-  // free(name);
+  board_sal_t *board = (board_sal_t*)args;
+  String taskName = "(button)";
+  LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+  LOG_I("Initializing buttons...");
 
   while (true){
     delay(1000);
 
     //check ota status and reboot
-    if(xSemaphoreTake(g_board.status.reboot_xsem, 0) == pdTRUE){
+    if(xSemaphoreTake(board->status.reboot_xsem, 0) == pdTRUE){
       ESP.restart();
     }
     //WiFi daemon
-    if(xSemaphoreTake(g_board.info.connection.wifi.reconnect_xsem, 0) == pdTRUE){
-      WiFi.begin(g_board.info.connection.wifi.conn_param.ssid.c_str(), g_board.info.connection.wifi.conn_param.pwd.c_str());
+    if(xSemaphoreTake(board->info.connection.wifi.reconnect_xsem, 0) == pdTRUE){
+      WiFi.begin(board->info.connection.wifi.conn_param.ssid.c_str(), board->info.connection.wifi.conn_param.pwd.c_str());
     }
     //Stratum daemon
-    if(millis() - g_board.info.connection.stratum_update > STRATUM_ALIVE_TIMEOUT){
+    if(millis() - board->info.connection.stratum_update > STRATUM_ALIVE_TIMEOUT){
       LOG_W("Stratum connection seems frozen, restarting...");
       delay(100);
       ESP.restart();
     }
     //ASIC daemon
-    if(millis() - g_board.status.miner.asic_update > ASIC_ALIVE_TIMEOUT){
+    if(millis() - board->status.miner.asic_update > ASIC_ALIVE_TIMEOUT){
       LOG_W("ASIC seems frozen, restarting...");
       delay(100);
       ESP.restart();
@@ -336,5 +688,276 @@ void fan_thread_entry(void *args){
             pid_start = millis();
         }
         fan_set_speed(board->status.fan.speed / 100.0, fan_invert);
+    }
+}
+
+void market_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(market)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing market...");
+
+    while (board->market == NULL){
+        LOG_W("MarketClass instance is NULL, waiting...");
+        delay(1000);
+    }   
+
+    board->market->lastUpdate = 0;
+    
+    while(true){
+        if(board->info.connection.wifi.status_param.status == WL_CONNECTED){
+            // Fetch the 24hr ticker data for the coin
+            bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT");
+            board->market->lastUpdate = (res) ? millis() : board->market->lastUpdate;
+        }
+        delay(MARKET_UPDATE_INTERVAL);
+    }
+
+    delete board->market;
+    board->market = nullptr;
+    LOG_W("Market thread exit.");
+    vTaskDelete(NULL);
+}
+
+void miner_asic_init_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(asic_init)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing asic_init...");
+
+    while(board->miner == nullptr){
+        LOG_W("Waiting for miner instance ready...");
+        delay(1000);
+    }
+    
+    //begin asic hardware
+    if(!board->miner->begin(board->info.spec.asic.req_frq, board->info.spec.asic.diff_thr_init, board->info.spec.asic.com_baud_work)){
+        while (true){
+            LOG_E("Miner low power!");
+            delay(1000);
+        }
+    }
+    
+    LOG_I("ASIC job interval set to %d ms", board->info.spec.asic.job_interval_ms);
+    delay(1000);//wait for asic init stable
+    vTaskDelete(NULL);
+}
+
+void miner_asic_tx_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(asic_tx)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing asic_tx...");
+
+    //wait for first job cache ready forever
+    xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
+    delay(2000);//necessary delay for first job cache ready
+
+    //forever loop
+    while (true){
+        //null loop if not subscribed
+        if(!board->stratum->is_subscribed()){
+            board->miner->end();
+            board->status.miner.hashrate._3m = 0.0;
+            delay(1000);
+            continue;   
+        }
+        //wait for new job signal 1000ms max
+        if(xSemaphoreTake(board->stratum->new_job_xsem, 1000) != pdTRUE) {
+            continue;
+        }
+
+        //get job from pool job caches
+        board->miner->pool_job_now = board->stratum->pop_job_cache();
+        if(board->miner->pool_job_now.id == "")continue;
+        
+        //calculate network diff
+        board->status.miner.diff.network = board->miner->calculate_diff(board->miner->pool_job_now.nbits);
+        //update pool diff
+        board->status.miner.diff.pool = board->stratum->get_pool_difficulty();
+        
+        LOG_W("Job [%s] from %s:%d", board->miner->pool_job_now.id.c_str(), board->stratum->pool->get_pool_info().url.c_str(), board->stratum->pool->get_pool_info().port);
+        while (true){
+            //construct asic job and send to asic every 2s
+            if(!board->miner->mining(&board->miner->pool_job_now)) continue;
+            //exit if pool disconnected
+            if(!board->stratum->is_subscribed()) break;
+
+            //set asic diff as pool diff if pool diff < initial asic diff
+            if(board->stratum->get_pool_difficulty() <= board->info.spec.asic.diff_thr_init){
+                static double last_diff = board->info.spec.asic.diff_thr_init;
+                if(board->stratum->get_pool_difficulty() != last_diff){
+                    LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(board->miner->get_asic_diff(), 4).c_str(), formatNumber(board->stratum->get_pool_difficulty(), 4).c_str());
+                    last_diff = board->stratum->get_pool_difficulty();
+                    board->miner->set_asic_diff(last_diff);
+                }
+            }
+
+            //interval 2000ms every asic job, exit if a new pool job arrived
+            if(xSemaphoreTake(board->stratum->new_job_xsem, board->info.spec.asic.job_interval_ms) == pdTRUE) {
+                board->stratum->clear_sub_extranonce2();
+                //avoid some stale share submit, clear job cache if clean job signal received
+                if(xSemaphoreTake(board->stratum->clear_job_xsem, 0) == pdTRUE) {
+                    board->miner->clear_asic_job_cache();
+                    LOG_D("Job cache clear...");
+                }
+                xSemaphoreGive(board->stratum->new_job_xsem);//release the semaphore for next pool job
+                break;
+            }
+        }
+    }
+}
+
+void miner_asic_rx_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(asic_rx)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing asic_rx...");
+
+    asic_job job = {0,};
+    asic_result result = {0,};
+
+    //wait for first job cache ready forever
+    xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
+
+    //forever loop
+    while(true){
+        if(!board->stratum->is_subscribed()){
+            delay(1000);
+            continue;
+        }
+        esp_err_t err = board->miner->listen_asic_rsp(&result, 1000*30);
+        if(ESP_OK == err){
+            if(!board->stratum->is_subscribed()) continue;
+            if(board->miner->find_job_by_asic_job_id(result.job_id, &job)){
+                board->status.miner.asic_update = millis();
+                uint32_t version_bits       = (reverse_uint16(result.version) << 13);  //logic from project bitaxe: https://github.com/skot/bitaxe 
+                uint32_t version            = version_bits | (*(uint32_t*)job.version);//logic from project bitaxe: https://github.com/skot/bitaxe 
+                double diff                 = board->miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
+
+                //skip if diff <= 0.0001 or diff is nan or diff is inf
+                if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff) || (diff < 0.1)) continue;
+
+                //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
+                board->miner->calculate_hashrate(&board->status.miner.hashrate);
+
+                //print summary to log
+                static uint32_t summary_start = millis();
+                if(millis() - summary_start >= 1000*60){
+                    summary_start = millis();
+                    LOG_L(" ============%s=========== ",board->info.base.fw_version.c_str());
+                    LOG_L("|            Summary           |");
+                    LOG_L("+------------Uptime------------+");
+                    LOG_L("|%s | %s |", convert_uptime_to_string(board->status.miner.uptime_session).c_str(), convert_uptime_to_string(board->status.miner.uptime_ever).c_str());
+                    LOG_L("+-----------HashRate-----------+");
+                    LOG_L("|   3m    |    30m   |    1h   |");
+                    LOG_L("|%-4sH/s| %-4sH/s|%-4sH/s|", 
+                        formatNumber(board->status.miner.hashrate._3m, 4).c_str(), 
+                        formatNumber(board->status.miner.hashrate._30m, 4).c_str(),
+                        formatNumber(board->status.miner.hashrate._1h, 4).c_str());
+                    LOG_L("+----------Difficulty----------+");
+                    LOG_L("|From boot| Best ever| Network |");
+                    LOG_L("| %-6s |  %-5s | %-7s |", 
+                        formatNumber(board->status.miner.diff.best_session, 5).c_str(), 
+                        formatNumber(board->status.miner.diff.best_ever, 5).c_str(),
+                        formatNumber(board->status.miner.diff.network, 5).c_str());
+                    LOG_L("+---Free heap-----Efficiency---+");
+                    LOG_L("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(board->status.miner.efficiency, 4).c_str());
+                    LOG_L(" ============================== ");
+                    log_i("\r\n");
+                    LOG_I(" ++++++++++ Real Time +++++++++");
+                    LOG_I("| ASIC | Last | Pool | Network |");
+                    LOG_I("|------|------|------|---------|");
+                }
+                
+                LOG_I("|%-6s|%-6s|%-6s|%-7s|", 
+                    formatNumber(board->miner->get_asic_diff(), 4).c_str(), 
+                    formatNumber(diff, 4).c_str(), 
+                    formatNumber(board->stratum->get_pool_difficulty(), 4).c_str(),
+                    formatNumber(board->status.miner.diff.network, 7).c_str());
+
+                //skip if diff < pool diff
+                if(diff < board->stratum->get_pool_difficulty())continue; 
+                
+                //submit sulution
+                uint32_t version_submit = version ^ (*(uint32_t*)job.version);
+                String   extra2_submit = board->miner->get_extranonce2_by_asic_job_id(result.job_id);
+                bool res = board->miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
+                if(!res) continue;
+                
+                //update the block hit counter
+                if(diff >= board->status.miner.diff.network){
+                    board->status.miner.hits = (board->status.miner.hits >= 99) ? 0 : (board->status.miner.hits);
+                    board->status.miner.hits++;
+
+                    uint8_t header[4 + 32 + 32 + 4 + 4 + 4] = {0,};
+                    uint8_t hash[32] = {0,};
+                    uint8_t prev_block_hash_t[32] = {0}, merkle_root_t[32] = {0};
+                    memcpy(prev_block_hash_t, job.prev_block_hash, 32);
+                    memcpy(merkle_root_t, job.merkle_root, 32);
+                    reverse_words(prev_block_hash_t, 32);
+                    reverse_words(merkle_root_t, 32);
+                    memcpy(header, (uint8_t*)&version, 4);
+                    memcpy(header + 4, prev_block_hash_t, 32);
+                    memcpy(header + 36, merkle_root_t, 32);
+                    memcpy(header + 68, (uint8_t*)&job.ntime, 4);
+                    memcpy(header + 72, (uint8_t*)&job.nbits, 4);
+                    memcpy(header + 76, (uint8_t*)&result.nonce, 4);
+                    //caculate hash
+                    csha256d(header, sizeof(header), hash);
+
+                    LOG_W("******************************* Your Are The Chosen One ********************************");
+                    LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BLOCK FOUND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                    log_i("Nonce       : %08x", result.nonce);
+                    log_i("\r\nVersion     : %08x", version);
+
+                    log_i("\r\nBlock header: ");
+                    for(int i = 0; i < 40; i++)log_i("%02x", header[i]);
+                    log_i("\r\n              ");
+                    for(int i = 40; i < 80; i++)log_i("%02x", header[i]);
+
+                    log_i("\r\nBlock hash  : ");
+                    for(int i = 0; i < sizeof(hash); i++)log_i("%02x", hash[i]);
+
+                    log_i("\r\n");
+                    LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
+
+                    xSemaphoreGive(board->status.nvs_save_xsem);
+                }
+
+                //update miner status
+                board->status.miner.diff.last            = diff;
+                board->status.miner.diff.best_session    = (diff > board->status.miner.diff.best_session) ? diff : board->status.miner.diff.best_session;
+                board->status.miner.diff.best_ever       = (diff > board->status.miner.diff.best_ever) ? diff : board->status.miner.diff.best_ever;
+
+                //update all time best diff
+                if(diff == board->status.miner.diff.best_ever){
+                    xSemaphoreGive(board->status.nvs_save_xsem);
+                }
+                
+                //add share to History of block proximity
+                if(xSemaphoreTake(board->status.miner.block_proximity_mutex, portMAX_DELAY) == pdTRUE){
+                    proximity_node_t node;
+                    node.block_proximity = diff / board->status.miner.diff.network;
+                    node.share_diff      = diff;
+                    node.net_diff        = board->status.miner.diff.network;
+                    node.epoch           = board->status.time.utc * 1000ULL;
+                    add_share_diff_history(board->status.miner.block_proximity_history, node, 36);
+                    xSemaphoreGive(board->status.miner.block_proximity_mutex);
+                }
+            }
+        }
+        else if(ESP_ERR_INVALID_SIZE == err) {
+            LOG_W("Asic response size error.");
+        }
+        else if(ESP_ERR_TIMEOUT == err) {
+            LOG_W("Asic response timeout.");
+        }
+        else if(ESP_ERR_INVALID_RESPONSE == err) {
+            LOG_W("Asic response header error.");
+        }
+        else{
+            LOG_W("Asic response error: %s", esp_err_to_name(err));
+        }
     }
 }

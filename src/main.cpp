@@ -2,7 +2,6 @@
 #include "global.h"
 #include "logger.h"
 #include "display.h"
-#include "monitor.h"
 #include "market.h"
 #include "http_server.h"
 #include "nvs_config.h"
@@ -68,9 +67,9 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
 
     board->status.page_save_xsem                    = xSemaphoreCreateCounting(1, 0);
     board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
-    board->status.fan.speed                = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
+    board->status.fan.speed                         = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
+    board->status.fan.self_test                     = false;
     board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
-    board->status.fan.self_test            = false;
     board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     board->info.preference.screen.auto_screen       = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
     board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 90);
@@ -79,7 +78,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.preference.led.sleep                = false;
     board->info.preference.led.sleep_last           = board->info.preference.led.sleep;
     board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    board->status.miner.timezone                    = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
+    board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     board->info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     board->info.base.coin_price.toUpperCase();
 
@@ -170,13 +169,13 @@ void setup() {
   xSemaphoreTake(g_board.power->good_xsem, portMAX_DELAY);
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";
-  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_ASIC_INIT, NULL,1);
+  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
   while (g_board.miner->get_asic_count() == 0){
     delay(10);
   }
   /************************************************************** INIT DAEMON **********************************************************/
   taskName = "(daemon)";
-  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)taskName.c_str(), TASK_PRIORITY_DAEMON, &daemonTask, 0);
+  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)(&g_board), TASK_PRIORITY_DAEMON, &daemonTask, 0);
   delay(10);
   /************************************************************** INIT WIFI ************************************************************/
   taskName = "(wifi)";
@@ -203,11 +202,11 @@ void setup() {
 #endif
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
-  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_SWARM, &swarmTask, 0);
+  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_SWARM, &swarmTask, 0);
   delay(10);
   /*********************************************************** CREATE MARKET THREAD ****************************************************/
   taskName = "(market)";
-  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MARKET, &marketTask, 0);
+  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_MARKET, &marketTask, 0);
   uint32_t start = millis();
   while (0 == g_board.market->lastUpdate){
     if(millis() - start - g_board.market->lastUpdate > MARKET_TIMEOUT){
@@ -226,15 +225,15 @@ void setup() {
   delay(10);
   /********************************************************** CREATE MONITOR THREAD ***************************************************/
   taskName = "(monitor)";
-  xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*7, (void*)taskName.c_str(), TASK_PRIORITY_MONITOR, &monitorTask,1);
+  xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_MONITOR, &monitorTask,1);
   delay(500);
   /********************************************************** CREATE MINER TX THREAD **************************************************/
   taskName = "(asic_tx)";
-  xTaskCreatePinnedToCore(miner_asic_tx_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_MINER_TX, &minerTxTask,1);
+  xTaskCreatePinnedToCore(miner_asic_tx_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_MINER_TX, &minerTxTask,1);
   delay(10);
   /*********************************************************  CREATE MINER RX THREAD **************************************************/
   taskName = "(asic_rx)";
-  xTaskCreatePinnedToCore(miner_asic_rx_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_MINER_RX, &minerRxTask,0);
+  xTaskCreatePinnedToCore(miner_asic_rx_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_MINER_RX, &minerRxTask,0);
   delay(10);
 }
 

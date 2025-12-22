@@ -110,50 +110,6 @@ typedef struct{
     double              network;
 }diff_info_t;
 
-// ["hashRate","temp","vrTemp","power","voltage","current","coreVoltageActual","fanspeed","fanrpm","wifiRSSI","freeram","freepsram","timestamp"],
-typedef struct{
-    String         hashrate;      // hashrate, GH/s
-    String         asic_temp;     // asic temperature, C
-    String         vcore_temp;    // vcore temperature, C
-    String         pbus;          // power, W
-    String         vbus;          // voltage, V
-    String         ibus;          // current, A
-    uint16_t       vcore;         // vcore measured, mV
-    uint16_t       fanspeed;      // fan speed, %
-    uint16_t       fanrpm;        // fan rpm, RPM
-    int8_t         wifi_rssi;     // wifi rssi, dBm
-    uint32_t       free_ram;      // free ram, Kbytes
-    uint32_t       free_psram;    // free psram, Kbytes
-    uint64_t       epoch;         // timestamp, milliseconds since epoch
-}history_node_t;
-
-typedef struct{
-    float           block_proximity; // block share, percentage 0-100%
-    float           share_diff;      // share difficulty
-    float           net_diff;        // network difficulty
-    uint64_t        epoch;           // timestamp, milliseconds since epoch
-}proximity_node_t;
-
-typedef struct{
-    uint64_t            utc;        // UTC timestamp in seconds since epoch
-    String              timezone;
-    uint32_t            share_rejected;
-    uint32_t            share_accepted;
-    uint64_t            uptime_ever;
-    uint64_t            uptime_session;
-    hashrate_t          hashrate;
-    float               efficiency; // J/TH
-    uint16_t            hits;
-    uint16_t            last_hits;//record the last hits
-    diff_info_t         diff;
-    uint32_t            asic_update;  // timestamp of asic respond
-    std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
-    std::deque<proximity_node_t> block_proximity_history; // history of block proximity (use internal RAM)
-    SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
-    SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
-    SemaphoreHandle_t   update_xsem;  // miner status update signal
-}miner_status_t;
-
 typedef struct{
     fan_info_t       fan;
     screen_info_t    screen;
@@ -165,9 +121,9 @@ typedef struct{
         String              coin_price;//  BTC, BCH, XEC, DGB, for price display purpose
         String              hostname;
         String              fw_version;
-        String              fw_latest_release;
         String              hw_version;
         String              hw_model;
+        String              fw_latest_release;
         String              devcie_code;
     }base;
     BoardSpecConfig         spec;// board spec config
@@ -175,6 +131,10 @@ typedef struct{
     preference_info_t       preference;
 }board_info_t;
 
+
+
+typedef String miner_ip_t;
+typedef String miner_info_t;
 typedef struct{
     struct{
         uint16_t    vbus;//mV
@@ -200,22 +160,40 @@ typedef struct{
         uint16_t    rpm;//RPM
     }fan;
 
-    miner_status_t      miner;
-    SemaphoreHandle_t   page_save_xsem; // save current page index
-    SemaphoreHandle_t   reboot_xsem;
-    SemaphoreHandle_t   nvs_save_xsem;// save status to NVS signal
+    struct{
+        uint64_t    utc; // UTC timestamp in seconds since epoch
+        String      tz;  // timezone string, e.g. "8.0" for UTC+8
+    }time;
+
+    struct{
+        uint32_t            share_rejected;
+        uint32_t            share_accepted;
+        uint64_t            uptime_ever;
+        uint64_t            uptime_session;
+        hashrate_t          hashrate;
+        float               efficiency; // J/TH
+        uint16_t            hits;
+        uint16_t            last_hits;//record the last hits
+        diff_info_t         diff;
+        uint32_t            asic_update;  // timestamp of asic respond
+        std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
+        std::deque<proximity_node_t> block_proximity_history; // history of block proximity (use internal RAM)
+        SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
+        SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
+        SemaphoreHandle_t   update_xsem;  // miner status update signal
+    }miner;
+
+    std::map<miner_ip_t, miner_info_t> swarm;
+    SemaphoreHandle_t                  page_save_xsem; // save current page index
+    SemaphoreHandle_t                  reboot_xsem;
+    SemaphoreHandle_t                  nvs_save_xsem;// save status to NVS signal
 }board_status_t;
 
-typedef String axe_ip_t;
 
-typedef String axe_info_t;
-
-typedef std::map<axe_ip_t, axe_info_t> swarm_map_t;
 
 typedef struct{
     board_info_t        info;
     board_status_t      status;
-    swarm_map_t         swarm;
     MarketClass         *market;
     NMAxePowerClass     *power;
     StratumClass        *stratum;

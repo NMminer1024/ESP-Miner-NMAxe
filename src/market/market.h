@@ -27,7 +27,7 @@ public:
     bool get_coin_ticker_24hr(const String &symbol = "BTCUSDT");
 };
 
-void market_thread_entry(void *args);
+// void market_thread_entry(void *args);
 #endif
 
 

@@ -352,7 +352,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
     lv_label_set_text(lb_loading, str.c_str());
 }
 
-static void ui_miner_page_update(){
+static void ui_miner_page_update(board_sal_t* board){
   static lv_obj_t *lb_share = NULL, *lb_fan_and_efficiency = NULL, *lb_hr_unit = NULL, *lb_uptime_day_unit = NULL;
   static lv_obj_t *lb_hashrate = NULL, *lb_blk_hit = NULL, *lb_temp = NULL, *lb_power = NULL, *lb_wifi = NULL, *lb_uptime_day = NULL, *lb_uptime_hms = NULL, *lb_diff = NULL;
   static lv_obj_t *lb_uptime_symbol = NULL, *lb_wifi_symbol = NULL, *lb_diff_symbol = NULL, *lb_share_symb = NULL, *lb_temp_symb = NULL, *lb_fan_symb = NULL;
@@ -396,7 +396,7 @@ static void ui_miner_page_update(){
     font_color = lv_color_hex(0xFFFFFF);
     lb_mine_page_ver   = lv_label_create( ui_pages[UI_PAGE_MINER] );
     lv_obj_set_width(lb_mine_page_ver, SCREEN_WIDTH);
-    lv_label_set_text( lb_mine_page_ver, g_board.info.base.fw_version.substring(1, g_board.info.base.fw_version.length()).c_str());
+    lv_label_set_text( lb_mine_page_ver, board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
     lv_obj_set_style_text_font(lb_mine_page_ver, font, LV_PART_MAIN);
     lv_label_set_long_mode(lb_mine_page_ver, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN); 
@@ -566,64 +566,64 @@ static void ui_miner_page_update(){
     lv_obj_align( lb_fan_symb, LV_ALIGN_TOP_MID, 110, 76);
   }
   
-  String uptime = convert_uptime_to_string(g_board.status.miner.uptime_session);
-  String hashrate = formatNumber(g_board.status.miner.hashrate._3m, 3);
-  String hashuint = (g_board.status.miner.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
-  String last_diff = formatNumber(g_board.status.miner.diff.last, 1);
-  String best_session = formatNumber(g_board.status.miner.diff.best_session, 1);
-  String best_ever = formatNumber(g_board.status.miner.diff.best_ever, 1);
-  String network_diff = formatNumber(g_board.status.miner.diff.network, 2);
-  String voltage = formatNumber(g_board.status.power.vbus/1000.0, 3);
-  String power = formatNumber(g_board.status.power.vbus*g_board.status.power.ibus/1000.0/1000.0, 3);
-  String price = (millis() - g_board.market->lastUpdate <= MARKET_TIMEOUT) ? formatNumber(g_board.market->price, 6) : "";
-  String fan_and_efficiency = String(g_board.status.fan.rpm) + " rpm";
-  // String fan_and_efficiency = formatNumber(g_board.info.efficiency, 4) + "J/TH";
+  String uptime = convert_uptime_to_string(board->status.miner.uptime_session);
+  String hashrate = formatNumber(board->status.miner.hashrate._3m, 3);
+  String hashuint = (board->status.miner.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
+  String last_diff = formatNumber(board->status.miner.diff.last, 1);
+  String best_session = formatNumber(board->status.miner.diff.best_session, 1);
+  String best_ever = formatNumber(board->status.miner.diff.best_ever, 1);
+  String network_diff = formatNumber(board->status.miner.diff.network, 2);
+  String voltage = formatNumber(board->status.power.vbus/1000.0, 3);
+  String power = formatNumber(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 3);
+  String price = (millis() - board->market->lastUpdate <= MARKET_TIMEOUT) ? formatNumber(board->market->price, 6) : "";
+  String fan_and_efficiency = String(board->status.fan.rpm) + " rpm";
+  // String fan_and_efficiency = formatNumber(board->info.efficiency, 4) + "J/TH";
 
   //diff symbol color update
-  if(g_board.status.miner.diff.last != 0){//avoid the first time update
-    if(g_board.status.miner.diff.last == g_board.status.miner.diff.best_session) font_color = lv_color_hex(0x00ff00);//green
-    else if(g_board.status.miner.diff.last == g_board.status.miner.diff.best_ever) font_color = lv_color_hex(0xffa500);//yellow
+  if(board->status.miner.diff.last != 0){//avoid the first time update
+    if(board->status.miner.diff.last == board->status.miner.diff.best_session) font_color = lv_color_hex(0x00ff00);//green
+    else if(board->status.miner.diff.last == board->status.miner.diff.best_ever) font_color = lv_color_hex(0xffa500);//yellow
     else font_color = lv_color_hex(0xA9A9A9);//gray
     lv_obj_set_style_text_color(lb_diff_symbol, font_color, LV_PART_MAIN); 
   }
 
   //temp symbol color update
-  if(g_board.status.temp.vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
-  else if(g_board.status.temp.vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
+  if(board->status.temp.vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
+  else if(board->status.temp.vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
   else font_color = lv_color_hex(0x00ff00);//green
   lv_obj_set_style_text_color(lb_temp_symb, font_color, LV_PART_MAIN); 
 
   //wifi rssi symbol color update
-  if(g_board.info.connection.wifi.status_param.rssi >= WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
-  else if(g_board.info.connection.wifi.status_param.rssi >= WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
+  if(board->info.connection.wifi.status_param.rssi >= WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
+  else if(board->info.connection.wifi.status_param.rssi >= WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
   else  font_color = lv_color_hex(0xff0000);//red
   lv_obj_set_style_text_color(lb_wifi_symbol, font_color, LV_PART_MAIN); 
 
   //share symbol color update
-  static uint32_t last_share_cnt = g_board.status.miner.share_accepted;
-  if(last_share_cnt != g_board.status.miner.share_accepted){
+  static uint32_t last_share_cnt = board->status.miner.share_accepted;
+  if(last_share_cnt != board->status.miner.share_accepted){
     font_color = lv_color_hex(0x00ff00);//green
-    last_share_cnt = g_board.status.miner.share_accepted;
+    last_share_cnt = board->status.miner.share_accepted;
   }
   else font_color = lv_color_hex(0xA9A9A9);//gray
   lv_obj_set_style_text_color(lb_share_symb, font_color, LV_PART_MAIN);
 
   //fan symbol color update, blink
   static bool fan_color_update = false;
-  if(g_board.status.fan.rpm > 0){
+  if(board->status.fan.rpm > 0){
     if(fan_color_update)font_color = lv_color_hex(0xA9A9A9);
     else font_color = lv_color_hex(0x00ff00);
     fan_color_update =!fan_color_update;
   }
-  else if(g_board.status.fan.rpm == 0) font_color = lv_color_hex(0xA9A9A9);//gray
+  else if(board->status.fan.rpm == 0) font_color = lv_color_hex(0xA9A9A9);//gray
   lv_obj_set_style_text_color(lb_fan_symb, font_color, LV_PART_MAIN);
 
   //price color update, blink
-  if(millis() - g_board.market->lastUpdate <= MARKET_TIMEOUT){
-    static float last_price = g_board.market->price;
-    if(last_price != g_board.market->price){
+  if(millis() - board->market->lastUpdate <= MARKET_TIMEOUT){
+    static float last_price = board->market->price;
+    if(last_price != board->market->price){
       font_color = lv_color_hex(0x00ff00);//green
-      last_price = g_board.market->price;
+      last_price = board->market->price;
     }
     else font_color = lv_color_hex(0xFFFFFF);//white
     lv_obj_set_style_text_color(lb_price, font_color, LV_PART_MAIN);
@@ -634,62 +634,62 @@ static void ui_miner_page_update(){
   //hashrate unit
   lv_label_set_text_fmt(lb_hr_unit, "%s", hashuint.c_str());
   //block hit
-  if(g_board.status.miner.hits <= 9){
+  if(board->status.miner.hits <= 9){
   lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_50, LV_PART_MAIN);
   lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 39); 
-    lv_label_set_text_fmt(lb_blk_hit, "%d", g_board.status.miner.hits);
-  }else if (g_board.status.miner.hits <= 99){
+    lv_label_set_text_fmt(lb_blk_hit, "%d", board->status.miner.hits);
+  }else if (board->status.miner.hits <= 99){
     lv_obj_align( lb_blk_hit, LV_ALIGN_TOP_MID, 7, 50); 
     lv_obj_set_style_text_font(lb_blk_hit, &ds_digib_font_28, LV_PART_MAIN);
-    lv_label_set_text_fmt(lb_blk_hit, "%d", g_board.status.miner.hits);
+    lv_label_set_text_fmt(lb_blk_hit, "%d", board->status.miner.hits);
   }
 
   //version
 #if HAS_VERSION_CHECK_FEATURE
-  if(compareVersions(g_board.info.base.fw_version, g_board.info.base.fw_latest_release) == -1){
+  if(compareVersions(board->info.base.fw_version, board->info.base.fw_latest_release) == -1){
     static uint8_t version_cnt = 0;
     if(version_cnt++ % 2 == 0){
       font_color = lv_color_hex(0x00ff00);//green
       lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN);
-      lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_board.info.base.fw_latest_release.substring(1, g_board.info.base.fw_latest_release.length()).c_str());
+      lv_label_set_text_fmt(lb_mine_page_ver, "%s", board->info.base.fw_latest_release.substring(1, board->info.base.fw_latest_release.length()).c_str());
     }
     else{
       font_color = lv_color_hex(0xFFFFFF);//white
       lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN);
-      lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_board.info.base.fw_version.substring(1, g_board.info.base.fw_version.length()).c_str());
+      lv_label_set_text_fmt(lb_mine_page_ver, "%s", board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
     }
   }
 #else
   font_color = lv_color_hex(0xFFFFFF);//white
   lv_obj_set_style_text_color(lb_mine_page_ver, font_color, LV_PART_MAIN);
-  lv_label_set_text_fmt(lb_mine_page_ver, "%s", g_board.info.base.fw_version.substring(1, g_board.info.base.fw_version.length()).c_str());
+  lv_label_set_text_fmt(lb_mine_page_ver, "%s", board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
 #endif
 
 
   //Diff
   lv_label_set_text_fmt(lb_diff, "%s/%s/%s/%s", last_diff.c_str(), best_session.c_str(), best_ever.c_str(), network_diff.c_str());
   //Temp
-  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(g_board.status.temp.vcore, 2).c_str(), formatNumber(g_board.status.temp.asic, 2).c_str());
+  lv_label_set_text_fmt(lb_temp,   "%s'C/%s'C", formatNumber(board->status.temp.vcore, 2).c_str(), formatNumber(board->status.temp.asic, 2).c_str());
   //WiFi
-  lv_label_set_text_fmt(lb_wifi,   "%s", g_board.info.connection.wifi.status_param.ip.toString().c_str());
+  lv_label_set_text_fmt(lb_wifi,   "%s", board->info.connection.wifi.status_param.ip.toString().c_str());
   //uptime hms
   lv_label_set_text_fmt(lb_uptime_hms,    "%s", uptime.substring(5, uptime.length()).c_str());
   //uptime day
   lv_label_set_text_fmt(lb_uptime_day,    "%s", uptime.substring(0,3).c_str());
   //share
-  lv_label_set_text_fmt(lb_share,  "%d/%d", g_board.status.miner.share_rejected, g_board.status.miner.share_accepted);
+  lv_label_set_text_fmt(lb_share,  "%d/%d", board->status.miner.share_rejected, board->status.miner.share_accepted);
   //fan
   lv_label_set_text_fmt(lb_fan_and_efficiency, "%s", fan_and_efficiency.c_str());
   //price
-  if(millis() - g_board.market->lastUpdate <= MARKET_TIMEOUT){
+  if(millis() - board->market->lastUpdate <= MARKET_TIMEOUT){
     lv_label_set_text_fmt(lb_price,  "$%s", price.c_str());
   }
   //power
   lv_label_set_text_fmt(lb_power,  "%sV/%sW", voltage.c_str(), power.c_str()); 
 }
 
-static void ui_ota_page_update(){
-  if(!g_board.status.ota.running)return;
+static void ui_ota_page_update(board_sal_t* board){
+  if(!board->status.ota.running)return;
 
   static lv_obj_t * overlay = NULL, *bar = NULL, *label_file = NULL, *label_progress = NULL;
   static char progress_text[10];
@@ -725,19 +725,18 @@ static void ui_ota_page_update(){
 
   lv_coord_t bar_x = lv_obj_get_x(bar);
   lv_coord_t bar_w = lv_obj_get_width(bar);
-  lv_coord_t label_x = bar_x + (bar_w * g_board.status.ota.progress / 100.0f) - lv_obj_get_width(label_progress)/2;
+  lv_coord_t label_x = bar_x + (bar_w * board->status.ota.progress / 100.0f) - lv_obj_get_width(label_progress)/2;
   //update progress label
-  snprintf(progress_text, sizeof(progress_text), "%d%%", g_board.status.ota.progress);
+  snprintf(progress_text, sizeof(progress_text), "%d%%", board->status.ota.progress);
   lv_obj_set_pos(label_progress, label_x, 10);
   lv_label_set_text(label_progress, progress_text);
 
   //update bar value
-  lv_bar_set_value(bar, g_board.status.ota.progress, LV_ANIM_ON);
-  lv_label_set_text(label_file, g_board.status.ota.filename.c_str());
-
+  lv_bar_set_value(bar, board->status.ota.progress, LV_ANIM_ON);
+  lv_label_set_text(label_file, board->status.ota.filename.c_str());
 }
 
-static void ui_dashboard_page_update(){
+static void ui_dashboard_page_update(board_sal_t* board){
   #define FREQ_MIN 380.0f
   #define FREQ_MAX 900.0f
 
@@ -965,15 +964,15 @@ static void ui_dashboard_page_update(){
 
   }
 
-  String hr_value = formatNumber(g_board.status.miner.hashrate._3m, 3);
-  String hr_unit  = (g_board.status.miner.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
-  String power    = formatNumber(g_board.status.power.vbus*g_board.status.power.ibus/1000.0/1000.0, 3);
+  String hr_value = formatNumber(board->status.miner.hashrate._3m, 3);
+  String hr_unit  = (board->status.miner.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
+  String power    = formatNumber(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 3);
 
-  uint16_t oc_angle             = arc_angle_full * (g_board.info.spec.asic.req_frq - FREQ_MIN) / (FREQ_MAX - FREQ_MIN); 
-  uint16_t pwr_angle            = arc_angle_full * (g_board.status.power.vbus * g_board.status.power.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
-  uint16_t vcore_req_angle      = arc_angle_full * (g_board.info.spec.asic.req_vcore/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
-  uint16_t vcore_measure_angle  = arc_angle_full * (g_board.status.power.vcore /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
-  uint16_t asic_temp_angle      = arc_angle_full * (g_board.status.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
+  uint16_t oc_angle             = arc_angle_full * (board->info.spec.asic.req_frq - FREQ_MIN) / (FREQ_MAX - FREQ_MIN); 
+  uint16_t pwr_angle            = arc_angle_full * (board->status.power.vbus * board->status.power.ibus/1000.0/1000.0 - POWER_MIN) / (POWER_MAX - POWER_MIN);
+  uint16_t vcore_req_angle      = arc_angle_full * (board->info.spec.asic.req_vcore/1000.0 - VCORE_REQ_MIN) / (VCORE_REQ_MAX - VCORE_REQ_MIN); 
+  uint16_t vcore_measure_angle  = arc_angle_full * (board->status.power.vcore /1000.0 - VCORE_MEASURE_MIN) / (VCORE_MEASURE_MAX - VCORE_MEASURE_MIN);
+  uint16_t asic_temp_angle      = arc_angle_full * (board->status.temp.asic - ASIC_TEMP_MIN) / (ASIC_TEMP_MAX - ASIC_TEMP_MIN);
 
   lv_arc_set_angles(arc_oc,  0, oc_angle);
   lv_arc_set_angles(arc_power, 0, pwr_angle);
@@ -988,16 +987,16 @@ static void ui_dashboard_page_update(){
   //power 
   lv_label_set_text_fmt(lb_pwr, "%sw", power.c_str());
   //vbus
-  lv_label_set_text_fmt(lb_overclock, "%sM", String(g_board.info.spec.asic.req_frq).c_str());
+  lv_label_set_text_fmt(lb_overclock, "%sM", String(board->info.spec.asic.req_frq).c_str());
   //vcore_req
-  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(g_board.info.spec.asic.req_vcore/1000.0, 4).c_str());
+  lv_label_set_text_fmt(lb_vcore_req, "%sv", formatNumber(board->info.spec.asic.req_vcore/1000.0, 4).c_str());
   //vcore_measure
-  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(g_board.status.power.vcore/1000.0, 4).c_str());
+  lv_label_set_text_fmt(lb_vcore_measure, "%sv", formatNumber(board->status.power.vcore/1000.0, 4).c_str());
   //asic temp
-  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(g_board.status.temp.asic, 2).c_str());
+  lv_label_set_text_fmt(lb_asic_temp, "%s'C",   formatNumber(board->status.temp.asic, 2).c_str());
 }
 
-static void ui_hr_healthy_page_update(miner_status_t *miner_status){
+static void ui_hr_healthy_page_update(board_sal_t* board){
   uint16_t SCALE = (g_board.info.spec.ui.hr_dist_page.max_x_hr / g_board.info.spec.ui.hr_dist_page.max_x_bars);
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
@@ -1006,8 +1005,8 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
   static bool first_time = true;
 
   static double last_hashrate = 0;
-  if(last_hashrate == miner_status->hashrate._3m) return;
-  last_hashrate = miner_status->hashrate._3m;
+  if(last_hashrate == board->status.miner.hashrate._3m) return;
+  last_hashrate = board->status.miner.hashrate._3m;
 
   if(first_time){
     first_time = false;
@@ -1108,7 +1107,7 @@ static void ui_hr_healthy_page_update(miner_status_t *miner_status){
   lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(g_board.info.spec.ui.hr_dist_page.times) + "t/"+ String(g_board.info.spec.ui.hr_dist_page.dura) + "s").c_str());
 }
 
-static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
+static void ui_big_digit_page_update(board_sal_t* board){
   static bool first_time = true;
   static lv_obj_t * lb_hashrate = NULL, * lb_hashrate_unit = NULL,* lb_price = NULL;
   static lv_obj_t * lb_time = NULL, * lb_date = NULL, * lb_block_hit = NULL, *lb_block_hit_unit = NULL;
@@ -1192,9 +1191,9 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
 
 
   
-  String hr       = formatNumber(miner_status->hashrate._3m, 3);
-  String datetime = convert_time_to_local(g_board.status.miner.utc);
-  String hr_unit = (miner_status->hashrate._3m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
+  String hr       = formatNumber(board->status.miner.hashrate._3m, 3);
+  String datetime = convert_time_to_local(g_board.status.time.utc);
+  String hr_unit = (board->status.miner.hashrate._3m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
   lv_label_set_text_fmt(lb_hashrate, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
@@ -1206,18 +1205,18 @@ static void ui_big_digit_page_update(miner_status_t *miner_status, float price){
   //date
   lv_label_set_text_fmt(lb_date, "%s", datetime.substring(0, 10).c_str());
   //block hit
-  if(miner_status->hits < 10) lv_obj_align( lb_block_hit, LV_ALIGN_TOP_RIGHT, -10, 0);
+  if(board->status.miner.hits < 10) lv_obj_align( lb_block_hit, LV_ALIGN_TOP_RIGHT, -10, 0);
   else lv_obj_align( lb_block_hit, LV_ALIGN_TOP_RIGHT, -30, 0);
-  lv_label_set_text_fmt(lb_block_hit, "%s", String(miner_status->hits).c_str());
+  lv_label_set_text_fmt(lb_block_hit, "%s", String(board->status.miner.hits).c_str());
 
   
-  //price value
-  String price_value = (price > 1.0) ? String(price, 1) : String(price, 6);
+  //price value 
+  String price_value = (board->market->price > 1.0) ? String(board->market->price, 1) : String(board->market->price, 6);
   lv_color_t font_color;
-  static float last_price = price;
-  if(last_price != price){
+  static float last_price = board->market->price;
+  if(last_price != board->market->price){
     font_color = lv_color_hex(0x00ff00);//green
-    last_price = price;
+    last_price = board->market->price;
   }
   else font_color = lv_color_hex(0x808080);//white
   lv_obj_set_style_text_color(lb_price, font_color, LV_PART_MAIN);
@@ -1391,7 +1390,7 @@ void ui_thread_entry(void *args){
         lv_label_set_text(lb_cfg_timeout, str.c_str());
         //update ota page
         if(g_board.status.ota.running){
-          ui_ota_page_update();
+          ui_ota_page_update(&g_board);
         }
         delay(1000);//wait for configuration and miner will restart after configuration
       }
@@ -1504,15 +1503,15 @@ void ui_thread_entry(void *args){
       }
 
       //update miner page
-      ui_miner_page_update();
+      ui_miner_page_update(&g_board);
       //update dashboard page
-      ui_dashboard_page_update();
+      ui_dashboard_page_update(&g_board);
       //update hashrate healthy page
-      ui_hr_healthy_page_update(&g_board.status.miner);
+      ui_hr_healthy_page_update(&g_board);
       //update big digit page
-      ui_big_digit_page_update(&g_board.status.miner, g_board.market->price);
+      ui_big_digit_page_update(&g_board);
       //update ota page
-      ui_ota_page_update();
+      ui_ota_page_update(&g_board);
       //release mutex
       xSemaphoreGive(lvgl_xMutex); 
     }

@@ -15,8 +15,8 @@ typedef struct{
     uint8_t  torch_pin;
     uint8_t  pwm_ch;
     uint32_t pwm_freq; // Hz
-    uint8_t  pwm_revolution;      // bits
-    uint32_t p_cnt_h_limt;   // PCNT high limit value
+    uint8_t  pwm_revolution; // bits
+    int16_t  p_cnt_h_limt;   // PCNT high limit value
 }fan_init_param_t;
 
 

@@ -6,13 +6,40 @@
 #include "board.h"
 #include "bm1366.h"
 #include "bm1370.h"
-
+#include <deque>
 
 typedef struct{
     double   _3m;
     double   _30m;
     double   _1h;
 }hashrate_t;
+
+// ["hashRate","temp","vrTemp","power","voltage","current","coreVoltageActual","fanspeed","fanrpm","wifiRSSI","freeram","freepsram","timestamp"],
+typedef struct{
+    String         hashrate;      // hashrate, GH/s
+    String         asic_temp;     // asic temperature, C
+    String         vcore_temp;    // vcore temperature, C
+    String         pbus;          // power, W
+    String         vbus;          // voltage, V
+    String         ibus;          // current, A
+    uint16_t       vcore;         // vcore measured, mV
+    uint16_t       fanspeed;      // fan speed, %
+    uint16_t       fanrpm;        // fan rpm, RPM
+    int8_t         wifi_rssi;     // wifi rssi, dBm
+    uint32_t       free_ram;      // free ram, Kbytes
+    uint32_t       free_psram;    // free psram, Kbytes
+    uint64_t       epoch;         // timestamp, milliseconds since epoch
+}history_node_t;
+
+typedef struct{
+    float           block_proximity; // block share, percentage 0-100%
+    float           share_diff;      // share difficulty
+    float           net_diff;        // network difficulty
+    uint64_t        epoch;           // timestamp, milliseconds since epoch
+}proximity_node_t;
+
+
+
 
 class AsicMinerClass{
 private:
@@ -43,8 +70,6 @@ public:
     bool end();
 };
 
-void miner_asic_init_thread_entry(void *args);
-void miner_asic_tx_thread_entry(void *args);
-void miner_asic_rx_thread_entry(void *args);
+void add_share_diff_history(std::deque<proximity_node_t> &hist, proximity_node_t &node, size_t max_history);
 
 #endif

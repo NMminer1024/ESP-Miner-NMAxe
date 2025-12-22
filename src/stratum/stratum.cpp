@@ -3,7 +3,6 @@
 #include "logger.h"
 #include "csha256.h"
 #include <cfloat>
-#include "monitor.h"
 #include "helper.h"
 #include "esp_log.h"
 #include "global.h"

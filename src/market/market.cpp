@@ -48,33 +48,33 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol) {
 
 
 
-void market_thread_entry(void *args){
-    char *name = (char*)malloc(20);
-    strcpy(name, (char*)args);
-    LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-    // free(name);
+// void market_thread_entry(void *args){
+//     char *name = (char*)malloc(20);
+//     strcpy(name, (char*)args);
+//     LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
+//     // free(name);
 
-    while (g_board.market == NULL){
-        LOG_W("MarketClass instance is NULL, waiting...");
-        delay(1000);
-    }   
+//     while (g_board.market == NULL){
+//         LOG_W("MarketClass instance is NULL, waiting...");
+//         delay(1000);
+//     }   
 
-    g_board.market->lastUpdate = 0;
+//     g_board.market->lastUpdate = 0;
     
-    while(true){
-        if(g_board.info.connection.wifi.status_param.status == WL_CONNECTED){
-            // Fetch the 24hr ticker data for the coin
-            bool res = g_board.market->get_coin_ticker_24hr(g_board.info.base.coin_price + "USDT");
-            g_board.market->lastUpdate = (res) ? millis() : g_board.market->lastUpdate;
-        }
-        delay(MARKET_UPDATE_INTERVAL);
-    }
+//     while(true){
+//         if(g_board.info.connection.wifi.status_param.status == WL_CONNECTED){
+//             // Fetch the 24hr ticker data for the coin
+//             bool res = g_board.market->get_coin_ticker_24hr(g_board.info.base.coin_price + "USDT");
+//             g_board.market->lastUpdate = (res) ? millis() : g_board.market->lastUpdate;
+//         }
+//         delay(MARKET_UPDATE_INTERVAL);
+//     }
 
-    delete g_board.market;
-    g_board.market = nullptr;
-    LOG_W("Market thread exit.");
-    vTaskDelete(NULL);
-}
+//     delete g_board.market;
+//     g_board.market = nullptr;
+//     LOG_W("Market thread exit.");
+//     vTaskDelete(NULL);
+// }
 
 
 

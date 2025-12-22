@@ -106,7 +106,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     root["coreVoltageActual"] = g_board.status.power.vcore;
     root["frequency"] = g_board.info.spec.asic.req_frq;
     root["hostname"] = g_board.info.base.hostname;
-    root["timezone"] = g_board.status.miner.timezone;
+    root["timezone"] = g_board.status.time.tz;
     root["ssid"] = g_board.info.connection.wifi.conn_param.ssid;
     root["wifiStatus"] = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
     root["sharesAccepted"] = g_board.status.miner.share_accepted;
@@ -222,7 +222,7 @@ static void get_status_history(AsyncWebServerRequest* request){
     DynamicJsonDocument root(json_size_max);
     
     // Build JSON structure
-    uint64_t ms = g_board.status.miner.utc * 1000ULL;
+    uint64_t ms = g_board.status.time.utc * 1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
@@ -402,7 +402,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
     // Use local document instead of static to prevent memory leaks
     DynamicJsonDocument root(json_size_max);
 
-    uint64_t ms = g_board.status.miner.utc*1000ULL;
+    uint64_t ms = g_board.status.time.utc*1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
@@ -486,7 +486,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     DynamicJsonDocument root(json_size_max);
     
     // Build JSON structure
-    uint64_t ms = g_board.status.miner.utc * 1000ULL;
+    uint64_t ms = g_board.status.time.utc * 1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("proximity");
@@ -554,7 +554,7 @@ static void get_swarm_info_handler(AsyncWebServerRequest* request){
     DynamicJsonDocument root(json_size_max);
 
     JsonArray devicesArray = root.createNestedArray("devices");
-    for (auto it = g_board.swarm.begin(); it != g_board.swarm.end(); it++) {
+    for (auto it = g_board.status.swarm.begin(); it != g_board.status.swarm.end(); it++) {
         String ip        = it->first;
         String swarm_str = it->second;
 
@@ -738,7 +738,7 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
         }
         if(root.containsKey("timezone")){
             nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
-            g_board.status.miner.timezone = root["timezone"].as<String>();
+            g_board.status.time.tz = root["timezone"].as<String>();
         }
         if(root.containsKey("ssid")){
             nvs_config_set_string(NVS_CONFIG_WIFI_SSID,root["ssid"].as<String>().c_str());
