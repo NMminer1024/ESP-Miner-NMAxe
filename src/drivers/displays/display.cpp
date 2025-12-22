@@ -5,7 +5,7 @@
 #include "global.h"
 #include "helper.h" 
 #include "image.h"
-#include "nm_pwr.h"
+// #include "nm_pwr.h"
 
 
 LV_FONT_DECLARE(ds_digib_font_16)
@@ -1296,10 +1296,10 @@ void ui_thread_entry(void *args){
   delay(500);
 
   //Vbus type check and voltage check
-  while(g_board.power->get_vbus() < VBUS_MIN_VOLTAGE){
+  while(g_board.power->get_vbus() < g_board.info.spec.pwr.vbus_min_required){
       static bool blink = false;
       uint32_t color = (blink) ? 0xFF0000 : 0xFFFFFF;
-      String vbusString = "Vbus " + String(g_board.power->get_vbus()/1000.0, 1) + "v(at least" + String(VBUS_MIN_VOLTAGE / 1000.0, 1) + "v)";
+      String vbusString = "Vbus " + String(g_board.power->get_vbus()/1000.0, 1) + "v(at least" + String(g_board.info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
       ui_loading_str_update(vbusString, color, false);
       blink = !blink;
       if(!g_board.power->is_dc_pluged()){

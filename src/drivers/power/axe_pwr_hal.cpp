@@ -65,7 +65,7 @@ bool AxePowerHal::init(){
 
     this->set_pll_0v8(PWR_OFF);
     this->set_vdd_1v8(PWR_OFF);
-    this->set_vcore(PWR_OFF);
+    this->set_vcore_status(PWR_OFF);
 
     //config adc
     adc1_config_width(ADC_WIDTH_BIT_12);

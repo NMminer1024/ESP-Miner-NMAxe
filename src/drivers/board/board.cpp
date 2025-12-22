@@ -59,6 +59,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.vcore_regulator_pin   = 16;    
             config.pwr.pgood_pin             = 21;
             config.pwr.dc_plug_pin           = 11;
+            config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
             config.iic.scl_pin               = 8;   
             config.iic.sda_pin               = 9;
             config.led.wifi_pin              = 6;
@@ -95,6 +96,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.vcore_regulator_pin   = 16;    
             config.pwr.pgood_pin             = 21;
             config.pwr.dc_plug_pin           = 11;
+            config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
             config.iic.scl_pin               = 8;   
             config.iic.sda_pin               = 9;
             config.led.wifi_pin              = 6;

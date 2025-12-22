@@ -4,7 +4,7 @@
 #include "axe_pwr_hal.h"
 
 
-#define VBUS_MIN_VOLTAGE    (8000)
+// #define VBUS_MIN_VOLTAGE    (8000)
 
 class NMAxePowerClass: public AxePowerHal{
 private:
@@ -26,7 +26,7 @@ public:
     bool init(void);
     void set_vdd_1v8(power_state_t state);
     void set_pll_0v8(power_state_t state);
-    void set_vcore(power_state_t state);
+    void set_vcore_status(power_state_t state);
     void set_vcore_voltage(uint16_t req_mv);
     void set_vcore_range(uint16_t min_mv, uint16_t max_mv);
     uint16_t get_vcore_min(void){ return this->_vcore_min_mv;};
@@ -38,10 +38,5 @@ public:
     bool is_dc_pluged(void);
     bool is_adc_ready(void);
 };
-
-
-
-
-void power_thread_entry(void *args);
 
 #endif 

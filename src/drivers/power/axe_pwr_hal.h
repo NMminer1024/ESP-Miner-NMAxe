@@ -34,23 +34,11 @@ public:
     virtual bool init(void) = 0;
     virtual void set_vdd_1v8(power_state_t state) = 0;
     virtual void set_pll_0v8(power_state_t state) = 0;
-    virtual void set_vcore(power_state_t state) = 0;
+    virtual void set_vcore_status(power_state_t state) = 0;
     virtual void set_vcore_voltage(uint16_t voltage_mv) = 0;
 
     uint32_t get_vbus_adc(void);
     uint32_t get_ibus_adc(void);
     uint32_t get_vcore_adc(void);
 };
-
-
-
-
-
-
-// void power_init(void);
-// void set_vdd_1v8(power_state_t state);
-// void set_vdd_0v8(power_state_t state);
-// void set_vcore_pwr(power_state_t state);
-
-
 #endif 

@@ -11,38 +11,40 @@
 #include "nvs_config.h"
 #include "github.h"
 #include "Wire.h"
+#include "thread_entry.h"
 
 TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
 board_sal_t  g_board;
 
 bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
     /*************************************************** Specific parameters among different board ***************************************/
-    bool iic = Wire.begin(cfg.iic.sda_pin, cfg.iic.scl_pin);              // set I2C pins and start I2C
-    if(!iic){
-        LOG_E("I2C init failed on pins SDA:%d, SCL:%d", cfg.iic.sda_pin, cfg.iic.scl_pin);
-        return false;
-    }
-
     board->info.base.hw_model                       = cfg.name;
     board->status.asic.model                        = cfg.asic.name;
     board->status.asic.job_frq_ms                   = cfg.asic.job_interval_ms; // ms
-    board->info.spec.ui.hr_dist_page.max_x_hr       = cfg.ui.hr_dist_page.max_x_hr;  // GH/s
-    board->info.spec.ui.hr_dist_page.max_x_bars     = cfg.ui.hr_dist_page.max_x_bars; 
     board->status.asic.frequency_req                = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    cfg.asic.default_frq);
     board->status.asic.vcore_req                    = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, cfg.asic.default_vcore);
     board->status.asic.vcore_min                    = cfg.asic.min_vcore;
     board->status.asic.vcore_max                    = cfg.asic.max_vcore;
     board->status.asic.diff_thr_init                = cfg.asic.diff_thr_init;
-    board->info.spec.fan.self_test_rpm_thr          = cfg.fan.self_test_rpm_thr;
-    board->info.spec.fan.pwm_pin                    = cfg.fan.pwm_pin;
-    board->info.spec.fan.torch_pin                  = cfg.fan.torch_pin;
-    board->info.spec.btn.boot_pin                   = cfg.btn.boot_pin;
-    board->info.spec.btn.user_pin                   = cfg.btn.user_pin;
+    board->info.spec.ui                             = cfg.ui;
+    board->info.spec.fan                            = cfg.fan;
+    board->info.spec.btn                            = cfg.btn;  
+    board->info.spec.pwr                            = cfg.pwr;
+    board->info.spec.led                            = cfg.led;
+    board->info.spec.iic                            = cfg.iic;
+    // set I2C pins and start I2C
+    bool iic = Wire.begin(board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);              
+    if(!iic){
+        LOG_E("I2C init failed on pins SDA:%d, SCL:%d", board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);
+        return false;
+    }
+    // create AsicMinerClass instance
     board->miner                                    = new AsicMinerClass(cfg.create_asic_instance(*cfg.asic.com_port, ESP32_TO_ASIC_INIT_BUAD, cfg.asic.rx_pin, cfg.asic.tx_pin, cfg.asic.rst_pin));
     if(board->miner == NULL){
         LOG_E("AsicMinerClass instance creation failed");
         return false;
     }
+    // create Power HAL instance
     board->power                                    = new NMAxePowerClass( cfg.pwr.enable_pins, cfg.pwr.adc_pins, cfg.pwr.vcore_regulator_pin, cfg.pwr.pgood_pin, cfg.pwr.dc_plug_pin);
     if(board->power == NULL){
         LOG_E("NMAxePowerClass instance creation failed");
@@ -67,9 +69,6 @@ bool board_init(IN BoardSpecConfig cfg, OUT board_sal_t *board){
     board->info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + board->info.base.hw_model + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
     board->info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
     board->info.connection.stratum_use              = board->info.connection.stratum_primary;
-    board->info.spec.led.wifi_pin                   = cfg.led.wifi_pin;
-    board->info.spec.led.pool_pin                   = cfg.led.pool_pin;
-    board->info.spec.led.sys_pin                    = cfg.led.sys_pin;
     board->status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
     board->info.base.fw_latest_release              = "";
     board->status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);

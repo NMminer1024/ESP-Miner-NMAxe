@@ -86,6 +86,7 @@ struct BoardSpecConfig {
         uint8_t              vcore_regulator_pin;    
         uint8_t              pgood_pin;
         uint8_t              dc_plug_pin;
+        uint16_t             vbus_min_required; // mV, minimum vbus voltage to start mining
     }pwr;
 
     struct{
