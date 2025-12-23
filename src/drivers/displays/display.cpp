@@ -1105,7 +1105,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   //hashrate unit
   lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
   //time cost
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(board->info.spec.ui.hr_dist_page.times) + "t/"+ String(board->info.spec.ui.hr_dist_page.dura) + "s").c_str());
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(board->info.spec.ui.hr_dist_page.dura) + "s").c_str());
 }
 
 static void ui_big_digit_page_update(board_sal_t* board){

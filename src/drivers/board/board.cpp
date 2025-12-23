@@ -40,6 +40,13 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.fan.pwm_freq              = 1000*100; // Hz
             config.fan.pwm_resolution        = 8;        // bits
             config.fan.p_cnt_h_limt          = 30000;    // PCNT high limit value
+            config.fan.pid.Kp                = 50.0f;
+            config.fan.pid.Ki                = 1.0f;
+            config.fan.pid.Kd                = 0.0f;
+            config.fan.pid.prev_error        = 0;
+            config.fan.pid.integral          = 0;
+            config.fan.pid.output_min        = 25.0f;
+            config.fan.pid.output_max        = 99.999f;
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.enable_pins.pwr_0v8   = 13;
@@ -88,6 +95,13 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.fan.pwm_freq              = 1000*100; // Hz
             config.fan.pwm_resolution        = 8;        // bits
             config.fan.p_cnt_h_limt          = 30000;    // PCNT high limit value
+            config.fan.pid.Kp                = 50.0f;
+            config.fan.pid.Ki                = 1.0f;
+            config.fan.pid.Kd                = 0.0f;
+            config.fan.pid.prev_error        = 0;
+            config.fan.pid.integral          = 0;
+            config.fan.pid.output_min        = 25.0f;
+            config.fan.pid.output_max        = 99.999f;
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.enable_pins.pwr_0v8   = 13;

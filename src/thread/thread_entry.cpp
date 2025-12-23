@@ -766,15 +766,6 @@ void fan_thread_entry(void *args){
 
     int16_t now_count = 0, last_count = 0, temp_cnt = 0;
     uint32_t start_ms = millis();
-    fan_pid_t fan_pid ={
-        .Kp = 50.0f,
-        .Ki = 1.0f,
-        .Kd = 0.0f,
-        .prev_error = 0,
-        .integral = 0,
-        .output_min = 25.0f,
-        .output_max = 99.999f
-    };
 
     // Initialize TMP102 temperature sensor
     tmp102_init();
@@ -828,7 +819,7 @@ void fan_thread_entry(void *args){
         if(board->info.preference.fan.is_auto_speed && board->status.fan.self_test){
             static uint32_t pid_start = millis();
             float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-            board->status.fan.speed = (uint16_t)pid_compute(&fan_pid, board->info.preference.fan.target_temp, board->status.temp.asic, dt);
+            board->status.fan.speed = (uint16_t)pid_compute(&board->info.spec.fan.pid, board->info.preference.fan.target_temp, board->status.temp.asic, dt);
             pid_start = millis();
         }
         fan_set_speed(board->status.fan.speed / 100.0, fan_invert);

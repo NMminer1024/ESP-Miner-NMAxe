@@ -98,12 +98,12 @@ export class EditComponent implements OnInit {
         this.form = this.fb.group({
           stratumURL1: [info.stratumURL1 || 'stratum+tcp://', [
             Validators.required,
-            Validators.pattern(/^(stratum\+(tcp|ssl):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
+            Validators.pattern(/^(stratum\+(tcp|ssl|tls):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
           ]],
 
           stratumURL2: [info.stratumURL2 || 'stratum+tcp://', [
             Validators.required,
-            Validators.pattern(/^(stratum\+(tcp|ssl):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
+            Validators.pattern(/^(stratum\+(tcp|ssl|tls):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
           ]],
           
           stratumUser1: [info.stratumUser1, [Validators.required]],

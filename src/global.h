@@ -1,7 +1,6 @@
 #ifndef _GLOBAL_H_
 #define _GLOBAL_H_
 #include <Arduino.h>
-// #include "board.h"
 #include "tps53355.h"
 #include "connection.h"
 #include "tmp102.h"
@@ -10,6 +9,7 @@
 #include "market.h"
 #include <deque>
 #include <map>
+
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 

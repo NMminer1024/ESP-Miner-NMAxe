@@ -7,6 +7,7 @@
 #include "nmqaxepp.h"
 #include "power_hal.h"
 #include <map>
+#include "fan.h"
 
 /******************default parameter define for NMAxe***********************/
 #define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
@@ -112,6 +113,7 @@ struct BoardSpecConfig {
         uint8_t              pwm_resolution; // bits
         uint16_t             p_cnt_h_limt;   // PCNT high limit value
         uint16_t             self_test_rpm_thr; // RPM, minimum RPM when fan is at full speed in self-test
+        fan_pid_t            pid;
     }fan;
 
     // creator function pointer
