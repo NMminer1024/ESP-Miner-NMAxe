@@ -13,5 +13,7 @@ void miner_asic_tx_thread_entry(void *args);
 void miner_asic_rx_thread_entry(void *args);
 void swarm_thread_entry(void *args);
 void monitor_thread_entry(void *args);
+void wifi_connect_thread_entry(void *args);
 void stratum_thread_entry(void *args);
+void webserver_thread_entry(void *args);
 #endif 

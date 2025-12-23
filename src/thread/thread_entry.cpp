@@ -7,12 +7,8 @@
 #include "nvs_config.h"
 #include "timezone.h"
 #include <NTPClient.h>
-
-#define UDP_BOARDCAST_ADDR    IPAddress(255,255,255,255)
-#define UDP_BOARDCAST_PORT    (12345)
-#define SWARM_OFFLINE_TIMEOUT (3*60*1000) //3min
-
-
+#include "http_server.h"
+#include "connection.h"
 
 void power_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
@@ -75,10 +71,8 @@ void power_thread_entry(void *args){
 
 void led_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-
     String taskName = "(led)";
     LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-
     LOG_I("Initializing led...");
 
     // LED pins setup
@@ -207,6 +201,113 @@ void led_thread_entry(void *args){
     vTaskDelete(NULL);
 }
 
+void config_monitor_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(wifi)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing wifi...");
+    
+    uint16_t timeout = 0;
+    board->info.connection.wifi.status_param.config_timeout = WIFI_CONFIG_MODE_TIMEOUT;
+    while(true){
+        if (WL_CONNECTED == board->info.connection.wifi.status_param.status) {
+            break;
+        }
+
+        if(board->info.connection.client_connected == false){
+            if(timeout++ >= WIFI_CONFIG_MODE_TIMEOUT){
+                LOG_W("WiFi configuration timeout, rebooting...");
+                delay(1000);
+                ESP.restart();
+            }
+            board->info.connection.wifi.status_param.config_timeout = WIFI_CONFIG_MODE_TIMEOUT - timeout;
+        }
+        delay(1000);
+    }
+    LOG_I("WiFi configuration monitor exit...");
+    vTaskDelete(NULL);
+}
+
+void wifi_connect_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(wifi)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing wifi...");
+    
+    uint16_t random_delay = random(0, 1000*10);
+    delay(random_delay);
+    LOG_I("Initializing WiFi, delay: %dms...", random_delay);
+    WiFi.mode(WIFI_STA);
+    WiFi.setTxPower(WIFI_POWER_15dBm);
+    WiFi.onEvent(WiFiEvent);
+
+    LOG_I("Try to connect [%s]...", board->info.connection.wifi.conn_param.ssid.c_str());
+    WiFi.setHostname(board->info.base.hostname.c_str());
+    //force config
+    if(g_board.info.connection.force_config){
+        nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
+        LOG_I("Set softAP [%s]...", g_board.info.connection.wifi.softap_param.ssid.c_str());
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP(g_board.info.connection.wifi.softap_param.ssid);
+        WiFi.softAPConfig(g_board.info.connection.wifi.softap_param.ip, g_board.info.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
+        delay(1000);
+        xSemaphoreGive(g_board.info.connection.wifi.force_cfg_xsem);
+        //config time out monitor
+        String taskName = "(config_monitor)";
+        xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
+        while(true){
+            g_board.info.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
+            if (WiFi.softAPgetStationNum() == 0) {
+                LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.info.connection.wifi.softap_param.ssid.c_str(), g_board.info.connection.wifi.status_param.config_timeout);
+            }
+            delay(1000);
+        }
+    }
+    
+    WiFi.begin(board->info.connection.wifi.conn_param.ssid.c_str(), board->info.connection.wifi.conn_param.pwd.c_str());
+    //wait for connection
+    int maxRetries = 0;
+    while (WiFi.status() != WL_CONNECTED && maxRetries < 60*5) {
+        maxRetries++;
+        LOG_I("Try to connect [%s] %ds...", board->info.connection.wifi.conn_param.ssid.c_str(), maxRetries);
+        if(maxRetries >= 15){
+            LOG_I("Set softAP [%s]...", g_board.info.base.hostname.c_str());
+            WiFi.mode(WIFI_AP);
+            WiFi.softAP(g_board.info.connection.wifi.softap_param.ssid);
+            WiFi.softAPConfig(g_board.info.connection.wifi.softap_param.ip, g_board.info.connection.wifi.softap_param.ip, IPAddress(255, 255, 255, 0));
+            delay(1000);
+            xSemaphoreGive(g_board.info.connection.wifi.force_cfg_xsem);
+
+            //config time out monitor
+            String taskName = "(config_monitor)";
+            xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
+            
+            while (true){
+                g_board.info.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
+                if (WiFi.softAPgetStationNum() == 0) {
+                    LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.info.connection.wifi.softap_param.ssid.c_str(), g_board.info.connection.wifi.status_param.config_timeout);
+                }
+                delay(1000);
+            }
+        }
+        delay(1000);
+    }
+    
+    LOG_I("------------------------------------");
+    LOG_I("SSID     : %s ", WiFi.SSID().c_str());
+    LOG_I("IP       : %s ", WiFi.localIP().toString().c_str());
+    LOG_I("RSSI     : %d dBm", WiFi.RSSI());
+    LOG_I("Channel  : %d", WiFi.channel());
+    LOG_I("DNS      : %s, %s", WiFi.dnsIP(0).toString().c_str(), WiFi.dnsIP(1).toString().c_str());
+    LOG_I("Gateway  : %s", WiFi.gatewayIP().toString().c_str());
+    LOG_I("Subnet   : %s", WiFi.subnetMask().toString().c_str());
+    LOG_I("MAC      : %s", WiFi.macAddress().c_str());
+    LOG_I("Hostname : %s", WiFi.getHostname());
+    LOG_I("------------------------------------");
+
+    vTaskDelete(NULL);
+}
+
 void button_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
   String taskName = "(button)";
@@ -251,7 +352,7 @@ void swarm_thread_entry(void *args){
   }
   
   //udp status boardcast begin
-  udp_client->begin(UDP_BOARDCAST_PORT);
+  udp_client->begin(SWARM_UDP_BOARDCAST_PORT);
 
   uint64_t swarm_cnt = 0;
   char  jsonbuf[1024] = {0,};
@@ -339,7 +440,7 @@ void swarm_thread_entry(void *args){
         continue;
       }
       //broadcast status to udp
-      udp_client->beginPacket(UDP_BOARDCAST_ADDR, UDP_BOARDCAST_PORT);
+      udp_client->beginPacket(SWARM_UDP_BOARDCAST_ADDR, SWARM_UDP_BOARDCAST_PORT);
       udp_client->write((uint8_t*)jsonbuf, n);
       int res = udp_client->endPacket();
       if(res != 1) {
@@ -353,6 +454,49 @@ void swarm_thread_entry(void *args){
   }
 }
 
+void webserver_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(webserver)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing webserver...");
+
+    file_system_init();
+    webSocket.begin();
+    webSocket.onEvent(webSocketEvent);
+
+    webServer.on("/api/system/info", HTTP_GET, get_system_info);
+    webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
+    webServer.on("/api/system/status/history", HTTP_GET, get_status_history);
+    webServer.on("/api/system/status/realtime", HTTP_GET, get_status_realtime);
+    webServer.on("/api/system/luck/history", HTTP_GET, get_lucky_history);
+    // webServer.on("/api/system/luck/realtime", HTTP_GET, get_lucky_realtime);
+
+    webServer.on("/api/ws", HTTP_GET, echo_handler);
+    webServer.on("/api/system/restart", HTTP_POST, post_restart);
+    webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+    webServer.on("/api/system/OTAWWW", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+    webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_update_settings_handler);
+    webServer.on("/api/theme", HTTP_GET, get_theme_handler);
+    webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
+    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
+    webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
+    webServer.on("/*", HTTP_GET, rest_common_get_handler);
+    webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
+        AsyncWebServerResponse *response = request->beginResponse(200);
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
+        response->addHeader("Access-Control-Allow-Headers", "Accept,Content-Type");
+        request->send(response);
+    });
+    webServer.begin();
+
+    while (true){
+        if(g_board.info.connection.wifi.status_param.status == WL_CONNECTED){
+            webSocket.loop();
+        }
+        delay(250);
+    }
+}
 
 void monitor_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;

@@ -180,10 +180,13 @@ void setup() {
   delay(10);
   /************************************************************** INIT WIFI ************************************************************/
   taskName = "(wifi)";
-  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)&g_board.info.connection.wifi.conn_param, TASK_PRIORITY_WIFI, NULL, 1);
+  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_WIFI, NULL, 1);
   while (WL_CONNECTED != g_board.info.connection.wifi.status_param.status){
     delay(10);
   }
+  /************************************************************ START HTTP SERVER *******************************************************/
+  taskName = "(webserver)";
+  xTaskCreatePinnedToCore(webserver_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_WEB_SERVER, NULL, 1);
   /************************************************************ Version check **********************************************************/
 #if HAS_VERSION_CHECK_FEATURE
   ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 

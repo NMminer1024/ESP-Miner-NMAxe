@@ -1,4 +1,4 @@
-#include <ESPAsyncWebServer.h>
+
 #include <Arduino.h>
 #include <Update.h>
 #include <SPIFFS.h>
@@ -9,11 +9,11 @@
 #include "nvs_config.h"
 #include "utils/helper.h"
 
-static AsyncWebServer  webServer(80);
-WebSocketsServer       webSocket(81);
+AsyncWebServer    webServer(80);
+WebSocketsServer  webSocket(81);
 
 
-static bool isValidNumber(const String& str) {
+bool isValidNumber(const String& str) {
     if (str.length() == 0) return false;
     bool hasDot = false;
     bool hasDigit = false;
@@ -33,7 +33,7 @@ static bool isValidNumber(const String& str) {
     }
     return hasDigit;
 }
-static void file_system_init() {
+void file_system_init() {
     if (!SPIFFS.begin(true, "", 5, NULL)) {
         LOG_E("An Error has occurred while mounting SPIFFS");
         return;
@@ -42,7 +42,7 @@ static void file_system_init() {
     size_t usedBytes = SPIFFS.usedBytes();
     LOG_I("File system totalBytes: %d, usedBytes: %d", totalBytes, usedBytes);
 }
-static String get_content_type_from_file(String filepath) {
+ String get_content_type_from_file(String filepath) {
     if(filepath.endsWith(".html")) return "text/html";
     else if(filepath.endsWith(".css")) return "text/css";
     else if(filepath.endsWith(".js")) return "application/javascript";
@@ -50,7 +50,7 @@ static String get_content_type_from_file(String filepath) {
     else if(filepath.endsWith(".ico")) return "image/x-icon";
     else return "text/plain";
 }
-static void rest_common_get_handler(AsyncWebServerRequest *request) {
+void rest_common_get_handler(AsyncWebServerRequest *request) {
    String base_path = "";
     if (request->url().endsWith("/")) base_path = "/index.html";
     else base_path = request->url();
@@ -86,7 +86,7 @@ static void rest_common_get_handler(AsyncWebServerRequest *request) {
     request->send(response);
     LOG_L("File sending complete: %s, free heap: %d", base_path.c_str(), ESP.getFreeHeap());
 }
-static void get_system_info(AsyncWebServerRequest* request){
+void get_system_info(AsyncWebServerRequest* request){
     const uint16_t json_size_max  =  1024;
 
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
@@ -140,7 +140,7 @@ static void get_system_info(AsyncWebServerRequest* request){
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 }
-static void get_hr_distribution(AsyncWebServerRequest* request){
+void get_hr_distribution(AsyncWebServerRequest* request){
     const uint16_t json_size_max  =  512;
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
@@ -158,7 +158,7 @@ static void get_hr_distribution(AsyncWebServerRequest* request){
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 }
-static void get_status_history(AsyncWebServerRequest* request){
+void get_status_history(AsyncWebServerRequest* request){
     LOG_D("Starting status history request processing...");
     
     // Maximum data points limit to prevent frontend overload
@@ -396,7 +396,7 @@ static void get_status_history(AsyncWebServerRequest* request){
     LOG_D("Validated response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d, attempts=%d", 
           json_size, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS, validation_attempts);
 }
-static void get_status_realtime(AsyncWebServerRequest* request){
+void get_status_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 512; // in bytes
     
     // Use local document instead of static to prevent memory leaks
@@ -448,7 +448,7 @@ static void get_status_realtime(AsyncWebServerRequest* request){
 
     LOG_D("Status realtime sent, history size: %d...", g_board.status.miner.status_history.size());
 }
-static void get_lucky_history(AsyncWebServerRequest* request){
+void get_lucky_history(AsyncWebServerRequest* request){
     LOG_D("Starting lucky history request processing...");
     
     // Safely check history data size with mutex protection
@@ -547,7 +547,7 @@ static void get_lucky_history(AsyncWebServerRequest* request){
     
     LOG_D("Lucky history sent: %d bytes, %d records", json_size, sampled_count);
 }
-static void get_swarm_info_handler(AsyncWebServerRequest* request){
+void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
     
     // Use local document instead of static to prevent memory leaks
@@ -594,10 +594,10 @@ static void get_swarm_info_handler(AsyncWebServerRequest* request){
     LOG_D("Swarm info sent, json size: %d, devices: %d, heap free: %.3f KB", 
           swarm_info.length(), devicesArray.size(), ESP.getFreeHeap() / 1024.0f);
 }
-static void options_theme_handler(AsyncWebServerRequest* request){
+void options_theme_handler(AsyncWebServerRequest* request){
     request->send(200, "application/json", "");
 }
-static void get_theme_handler(AsyncWebServerRequest* request){
+void get_theme_handler(AsyncWebServerRequest* request){
     char *scheme = nvs_config_get_string(NVS_CONFIG_THEME_SCHEME, "dark");
     char *name = nvs_config_get_string(NVS_CONFIG_THEME_NAME, "dark");
     char *colors = nvs_config_get_string(NVS_CONFIG_THEME_COLORS, 
@@ -645,7 +645,7 @@ static void get_theme_handler(AsyncWebServerRequest* request){
     free(name);
     free(colors);
 }
-static void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
     if (!data) {
         request->send(500, "application/json", "{\"error\":\"Failed to allocate memory\"}");
         LOG_E("Failed to allocate memory for theme update request.");
@@ -676,17 +676,17 @@ static void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, si
     }
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
-static void echo_handler(AsyncWebServerRequest* request){
+void echo_handler(AsyncWebServerRequest* request){
     LOG_I("Echo Request...");
 }
-static void post_restart(AsyncWebServerRequest * request){
+void post_restart(AsyncWebServerRequest * request){
     LOG_I("Restarting System because of API Request");
     // Send HTTP response before restarting
     request->send(200, "text/plain", "System will restart shortly.");
     delay(500);
     xSemaphoreGive(g_board.status.reboot_xsem);
 }
-static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
+void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
     static uint16_t SCRATCH_BUFSIZE = 512;
     
     LOG_W("Update Settings Request, request contentLength: %d, index: %d, total: %d", request->contentLength(), index, total);
@@ -815,7 +815,7 @@ static void patch_update_settings_handler(AsyncWebServerRequest * request, uint8
     }
     free(buffer);
 }
-static void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
     uint64_t flen = request->contentLength();
     if (index == 0) {
         LOG_I("OTA Update Started, File name: %s, Index: %d, contentLength: %d, len: %d, Final: %d", filename.c_str(), index, flen, len, final);
@@ -876,7 +876,7 @@ static void file_upload_handler(AsyncWebServerRequest *request, const String& fi
         }
     }
 }
-static void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     switch (type) {
         case WStype_DISCONNECTED:
             LOG_W("[%u] webSocket disconnected!", num);
@@ -904,60 +904,3 @@ static void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t 
             break;
     }
 }
-static void websocket_loop(void *args){
-    char *name = (char*)malloc(20);
-    strcpy(name, (char*)args);
-    delay(100);
-    LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-    free(name);
-
-    while (true){
-        if(g_board.info.connection.wifi.status_param.status == WL_CONNECTED){
-            webSocket.loop();
-        }
-        delay(250);
-        
-        // static uint32_t cnt = 0;
-        // if(cnt++ % 20 == 0){
-        //     UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(NULL);
-        //     LOG_D("%s free stack: %d", name, highWaterMark);
-        // }
-    }
-}
-
-void start_http_server(void) {
-    file_system_init();
-    webSocket.begin();
-    webSocket.onEvent(webSocketEvent);
-
-    String name = "(websocket)";
-    xTaskCreatePinnedToCore(websocket_loop, name.c_str(), 1024*5, (void*)name.c_str(), TASK_PRIORITY_WS, NULL, 1);
-
-    webServer.on("/api/system/info", HTTP_GET, get_system_info);
-    webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
-    webServer.on("/api/system/status/history", HTTP_GET, get_status_history);
-    webServer.on("/api/system/status/realtime", HTTP_GET, get_status_realtime);
-    webServer.on("/api/system/luck/history", HTTP_GET, get_lucky_history);
-    // webServer.on("/api/system/luck/realtime", HTTP_GET, get_lucky_realtime);
-
-    webServer.on("/api/ws", HTTP_GET, echo_handler);
-    webServer.on("/api/system/restart", HTTP_POST, post_restart);
-    webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
-    webServer.on("/api/system/OTAWWW", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
-    webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_update_settings_handler);
-    webServer.on("/api/theme", HTTP_GET, get_theme_handler);
-    webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
-    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
-    webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
-    webServer.on("/*", HTTP_GET, rest_common_get_handler);
-    webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
-        AsyncWebServerResponse *response = request->beginResponse(200);
-        response->addHeader("Access-Control-Allow-Origin", "*");
-        response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
-        response->addHeader("Access-Control-Allow-Headers", "Accept,Content-Type");
-        request->send(response);
-    });
-    webServer.begin();
-}
-
-

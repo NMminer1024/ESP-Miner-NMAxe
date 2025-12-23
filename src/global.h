@@ -47,6 +47,13 @@
 
 #define HISTORY_SAMPLE_INTERVAL (2) // history sample interval, in seconds
 
+#define SWARM_UDP_BOARDCAST_ADDR    IPAddress(255,255,255,255)
+
+#define SWARM_UDP_BOARDCAST_PORT    (12345)
+
+#define SWARM_OFFLINE_TIMEOUT       (3*60*1000) //3min
+
+#define WIFI_CONFIG_MODE_TIMEOUT    (60*5) //seconds
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
@@ -61,6 +68,7 @@ enum{
     TASK_PRIORITY_WS       ,
     TASK_PRIORITY_MONITOR  ,
     TASK_PRIORITY_WIFI     ,
+    TASK_PRIORITY_WEB_SERVER,
     TASK_PRIORITY_MARKET   ,
     TASK_PRIORITY_CONFIG_MONITOR,
     TASK_PRIORITY_STRATUM  ,

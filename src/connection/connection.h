@@ -36,6 +36,6 @@ typedef struct{
 }wifi_info_t;
 
 
-void wifi_connect_thread_entry(void *args);
+void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info);
 
 #endif // _WMANAGER_H
