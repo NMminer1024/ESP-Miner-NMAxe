@@ -31,6 +31,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.name                 = "BM1366";
             config.ui.hr_dist_page.max_x_hr  = 1000;
             config.ui.hr_dist_page.max_x_bars= 20;
+            config.ui.hr_dist_page.times     = 0;
             config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
             config.fan.pwm_pin               = 41;
             config.fan.torch_pin             = 42;
@@ -78,6 +79,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.job_interval_ms      = 500;
             config.ui.hr_dist_page.max_x_hr  = 2000;
             config.ui.hr_dist_page.max_x_bars= 20;
+            config.ui.hr_dist_page.times     = 0;
             config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
             config.fan.pwm_pin               = 41;
             config.fan.torch_pin             = 42;

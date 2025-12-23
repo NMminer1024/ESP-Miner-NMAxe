@@ -998,7 +998,7 @@ static void ui_dashboard_page_update(board_sal_t* board){
 }
 
 static void ui_hr_healthy_page_update(board_sal_t* board){
-  uint16_t SCALE = (g_board.info.spec.ui.hr_dist_page.max_x_hr / g_board.info.spec.ui.hr_dist_page.max_x_bars);
+  uint16_t SCALE = (board->info.spec.ui.hr_dist_page.max_x_hr / board->info.spec.ui.hr_dist_page.max_x_bars);
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -1056,15 +1056,15 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
     lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
     lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, g_board.info.spec.ui.hr_dist_page.max_x_bars - 1); 
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, board->info.spec.ui.hr_dist_page.max_x_bars - 1); 
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
     lv_chart_set_div_line_count(chart, 5, 4);
 
     // Add a series to the chart
     series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    lv_chart_set_point_count(chart, g_board.info.spec.ui.hr_dist_page.max_x_bars);
+    lv_chart_set_point_count(chart, board->info.spec.ui.hr_dist_page.max_x_bars);
     lv_chart_set_all_value(chart, series, 0);
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, g_board.info.spec.ui.hr_dist_page.max_x_bars, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, board->info.spec.ui.hr_dist_page.max_x_bars, 1, true, 25);
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
     lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -1082,21 +1082,21 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
 
   static uint64_t *counts = NULL;
   if (counts == NULL) {
-    counts = (uint64_t *)malloc(g_board.info.spec.ui.hr_dist_page.max_x_bars * sizeof(uint64_t));
-    memset(counts, 0, g_board.info.spec.ui.hr_dist_page.max_x_bars * sizeof(uint64_t));
+    counts = (uint64_t *)malloc(board->info.spec.ui.hr_dist_page.max_x_bars * sizeof(uint64_t));
+    memset(counts, 0, board->info.spec.ui.hr_dist_page.max_x_bars * sizeof(uint64_t));
   }
   int index = last_hashrate/1000/1000/1000 / SCALE; // Convert to GH/s and scale
-  index = (index >= g_board.info.spec.ui.hr_dist_page.max_x_bars) ? g_board.info.spec.ui.hr_dist_page.max_x_bars - 1 : index;
+  index = (index >= board->info.spec.ui.hr_dist_page.max_x_bars) ? board->info.spec.ui.hr_dist_page.max_x_bars - 1 : index;
   counts[index]++;
-  g_board.info.spec.ui.hr_dist_page.times++;
-  for (int i = 0; i < g_board.info.spec.ui.hr_dist_page.max_x_bars; i++) {
-    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)g_board.info.spec.ui.hr_dist_page.times);
+  board->info.spec.ui.hr_dist_page.times++;
+  for (int i = 0; i < board->info.spec.ui.hr_dist_page.max_x_bars; i++) {
+    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hr_dist_page.times);
     lv_chart_set_value_by_id(chart, series, i, y);
-    g_board.info.spec.ui.hr_dist_page.dist_map[i] = y;// Update the global distribution map
+    board->info.spec.ui.hr_dist_page.dist_map[i] = y;// Update the global distribution map
   }
   // time cost of this feature
   static uint64_t start = millis();
-  g_board.info.spec.ui.hr_dist_page.dura = (millis() - start) / 1000;
+  board->info.spec.ui.hr_dist_page.dura = (millis() - start) / 1000;
 
   String hr = formatNumber(last_hashrate, 3);
   String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
@@ -1105,7 +1105,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   //hashrate unit
   lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
   //time cost
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(g_board.info.spec.ui.hr_dist_page.times) + "t/"+ String(g_board.info.spec.ui.hr_dist_page.dura) + "s").c_str());
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(board->info.spec.ui.hr_dist_page.times) + "t/"+ String(board->info.spec.ui.hr_dist_page.dura) + "s").c_str());
 }
 
 static void ui_big_digit_page_update(board_sal_t* board){
