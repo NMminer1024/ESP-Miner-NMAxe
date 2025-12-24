@@ -40,7 +40,7 @@ static adc2_channel_t get_adc2_channel_from_gpio(int gpio_num) {
 }
 
 AxePowerHal::AxePowerHal(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins){
-    this->_asic_pwr_enable_pins = en_pins;
+    this->_asic_pwr_en_pins = en_pins;
     this->_asic_pwr_adc_pins    = adc_pins;
 }
 
@@ -57,9 +57,9 @@ AxePowerHal::~AxePowerHal(){
 }
 
 bool AxePowerHal::init(){
-    pinMode(this->_asic_pwr_enable_pins.pwr_0v8, OUTPUT);
-    pinMode(this->_asic_pwr_enable_pins.pwr_1v8, OUTPUT);
-    pinMode(this->_asic_pwr_enable_pins.pwr_vcore, OUTPUT);
+    if(-1 != this->_asic_pwr_en_pins.pwr_pll_0v8) pinMode(this->_asic_pwr_en_pins.pwr_pll_0v8, OUTPUT);
+    if(-1 != this->_asic_pwr_en_pins.pwr_vdd_1v8) pinMode(this->_asic_pwr_en_pins.pwr_vdd_1v8, OUTPUT);
+    if(-1 != this->_asic_pwr_en_pins.pwr_vcore)   pinMode(this->_asic_pwr_en_pins.pwr_vcore, OUTPUT);
 
     this->set_pll_0v8(PWR_OFF);
     this->set_vdd_1v8(PWR_OFF);

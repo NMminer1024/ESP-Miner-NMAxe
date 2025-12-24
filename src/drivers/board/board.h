@@ -81,7 +81,7 @@ struct BoardSpecConfig {
     }asic;
 
     struct {
-        axe_pwr_enable_pin_t enable_pins;
+        axe_pwr_enable_pin_t en_pins;
         axe_pwr_adc_pin_t    adc_pins;
         uint8_t              vcore_regulator_pin;    
         uint8_t              pgood_pin;

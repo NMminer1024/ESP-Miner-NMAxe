@@ -48,26 +48,30 @@ bool TPS53355Class::is_dc_pluged(void){
 }
 
 void TPS53355Class::set_vdd_1v8(power_state_t state){
+    if(-1 == this->_asic_pwr_en_pins.pwr_vdd_1v8) return;
     if(state == PWR_OFF){
-        digitalWrite(this->_asic_pwr_enable_pins.pwr_1v8, LOW);
+        digitalWrite(this->_asic_pwr_en_pins.pwr_vdd_1v8, LOW);
     } else {
-        digitalWrite(this->_asic_pwr_enable_pins.pwr_1v8, HIGH);
+        digitalWrite(this->_asic_pwr_en_pins.pwr_vdd_1v8, HIGH);
     }
 }
 
 void TPS53355Class::set_pll_0v8(power_state_t state){
+    if(-1 == this->_asic_pwr_en_pins.pwr_pll_0v8) return;
+
     if(state == PWR_OFF){
-        digitalWrite(this->_asic_pwr_enable_pins.pwr_0v8, LOW);
+        digitalWrite(this->_asic_pwr_en_pins.pwr_pll_0v8, LOW);
     } else {
-        digitalWrite(this->_asic_pwr_enable_pins.pwr_0v8, HIGH);
+        digitalWrite(this->_asic_pwr_en_pins.pwr_pll_0v8, HIGH);
     }
 }
 
 void TPS53355Class::set_vcore_status(power_state_t state){
+    if(-1 == this->_asic_pwr_en_pins.pwr_vcore) return;
     if(state == PWR_OFF){
-        digitalWrite(this->_asic_pwr_enable_pins.pwr_vcore, HIGH);
+        digitalWrite(this->_asic_pwr_en_pins.pwr_vcore, HIGH);
     } else {
-        digitalWrite(this->_asic_pwr_enable_pins.pwr_vcore, LOW);
+        digitalWrite(this->_asic_pwr_en_pins.pwr_vcore, LOW);
     }
 }
 

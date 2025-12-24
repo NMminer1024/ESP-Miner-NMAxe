@@ -9,8 +9,8 @@ typedef enum{
 } power_state_t;
 
 typedef struct{
-    uint8_t pwr_0v8;
-    uint8_t pwr_1v8;
+    uint8_t pwr_pll_0v8;
+    uint8_t pwr_vdd_1v8;
     uint8_t pwr_vcore;
 } axe_pwr_enable_pin_t;
 
@@ -26,7 +26,7 @@ private:
     esp_adc_cal_characteristics_t *_ibus_adc_chars;
     esp_adc_cal_characteristics_t *_vcore_adc_chars;
 protected:
-    axe_pwr_enable_pin_t _asic_pwr_enable_pins;
+    axe_pwr_enable_pin_t _asic_pwr_en_pins;
     axe_pwr_adc_pin_t    _asic_pwr_adc_pins;
 public:
     AxePowerHal(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins);

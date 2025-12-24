@@ -79,16 +79,23 @@ void led_thread_entry(void *args){
     const int pwmChannel = 3;   
     const int freq = 5*1000;    
     const int resolution = 8;   
-    pinMode(board->info.spec.led.wifi_pin, OUTPUT);
-    digitalWrite(board->info.spec.led.wifi_pin, HIGH);
+    
+    if(board->info.spec.led.wifi_pin != -1){
+        pinMode(board->info.spec.led.wifi_pin, OUTPUT);
+        digitalWrite(board->info.spec.led.wifi_pin, HIGH);
+    }
 
-    pinMode(board->info.spec.led.pool_pin, OUTPUT);
-    digitalWrite(board->info.spec.led.pool_pin, HIGH);
+    if(board->info.spec.led.pool_pin != -1){
+        pinMode(board->info.spec.led.pool_pin, OUTPUT);
+        digitalWrite(board->info.spec.led.pool_pin, HIGH);
+    }
 
-    pinMode(board->info.spec.led.sys_pin, OUTPUT);
-    ledcSetup(pwmChannel, freq, resolution);
-    ledcAttachPin(board->info.spec.led.sys_pin, pwmChannel);
-    ledcWrite(pwmChannel, 255);// off
+    if(board->info.spec.led.sys_pin != -1){
+        pinMode(board->info.spec.led.sys_pin, OUTPUT);
+        ledcSetup(pwmChannel, freq, resolution);
+        ledcAttachPin(board->info.spec.led.sys_pin, pwmChannel);
+        ledcWrite(pwmChannel, 255);// off
+    }
 
     uint64_t led_cnt = 0;
     const uint8_t  dot = 20;

@@ -102,7 +102,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
         return false;
     }
     // create Power HAL instance
-    AxePowerHal* power_instance                     = config.create_power_instance( config.pwr.enable_pins, config.pwr.adc_pins, config.pwr.vcore_regulator_pin, config.pwr.pgood_pin, config.pwr.dc_plug_pin);
+    AxePowerHal* power_instance                     = config.create_power_instance( config.pwr.en_pins, config.pwr.adc_pins, config.pwr.vcore_regulator_pin, config.pwr.pgood_pin, config.pwr.dc_plug_pin);
     board->power                                    = new AxePowerClass(power_instance);
     if(board->power == NULL){
         LOG_E("AxePower instance creation failed");
