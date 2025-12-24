@@ -3,9 +3,9 @@
 
 
 /** For NMQAxe++ **/
-#define VCORE_REGULATOR_PWM_CHANNEL     1
-#define VCORE_REGULATOR_PWM_RESOLUTION  8
-#define VCORE_REGULATOR_PWM_FREQ        (1000*100)
+// #define VCORE_REGULATOR_PWM_CHANNEL     1
+// #define VCORE_REGULATOR_PWM_RESOLUTION  8
+// #define VCORE_REGULATOR_PWM_FREQ        (1000*100)
 
 #define REG_IBUS_SAMPLE                 (0.01f)
 #define GAIN_IBUS_SAMPLE                (50.0f)
@@ -19,13 +19,13 @@ TPS53467Class::~TPS53467Class(){
 
 bool TPS53467Class::init(void){
     this->_adc_ready = AxePowerHal::init();
-    pinMode(this->_vcore_regulator_pwm_pin, OUTPUT);
+    // pinMode(this->_vcore_regulator_pwm_pin, OUTPUT);
     pinMode(this->_vcore_pgood_pin, INPUT_PULLUP);
     pinMode(this->_dc_plug_pin, INPUT_PULLUP);
 
-    ledcSetup(VCORE_REGULATOR_PWM_CHANNEL, VCORE_REGULATOR_PWM_FREQ, VCORE_REGULATOR_PWM_RESOLUTION);
-    ledcAttachPin(this->_vcore_regulator_pwm_pin, VCORE_REGULATOR_PWM_CHANNEL);
-    ledcWrite(VCORE_REGULATOR_PWM_CHANNEL, 0);
+    // ledcSetup(VCORE_REGULATOR_PWM_CHANNEL, VCORE_REGULATOR_PWM_FREQ, VCORE_REGULATOR_PWM_RESOLUTION);
+    // ledcAttachPin(this->_vcore_regulator_pwm_pin, VCORE_REGULATOR_PWM_CHANNEL);
+    // ledcWrite(VCORE_REGULATOR_PWM_CHANNEL, 0);
     return this->_adc_ready;
 }
 
@@ -78,13 +78,13 @@ void TPS53467Class::set_vcore_status(power_state_t state){
 void TPS53467Class::set_vcore_voltage(uint16_t req_mv){
     uint16_t pwm = 0;
     //pwm = 0.14*req_mv - 140
-    if (req_mv >= this->_vcore_min_mv && req_mv <= this->_vcore_max_mv) {
-        pwm = 0.14 * (req_mv) - 140; // bias 140, linear 0.14
-    } else {
-        pwm = 0; //for safety
-        LOG_E("Vcore request %dmV out of range %d-%d mV", req_mv, this->_vcore_min_mv, this->_vcore_max_mv);
-    }
-    ledcWrite(VCORE_REGULATOR_PWM_CHANNEL, pwm);
+    // if (req_mv >= this->_vcore_min_mv && req_mv <= this->_vcore_max_mv) {
+    //     pwm = 0.14 * (req_mv) - 140; // bias 140, linear 0.14
+    // } else {
+    //     pwm = 0; //for safety
+    //     LOG_E("Vcore request %dmV out of range %d-%d mV", req_mv, this->_vcore_min_mv, this->_vcore_max_mv);
+    // }
+    // ledcWrite(VCORE_REGULATOR_PWM_CHANNEL, pwm);
 }
 
 void TPS53467Class::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
