@@ -44,7 +44,6 @@ AxePowerHal::AxePowerHal(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pin
     this->_asic_pwr_adc_pins    = adc_pins;
 }
 
-
 AxePowerHal::~AxePowerHal(){
     if (this->_vbus_adc_chars != NULL) {
         free(this->_vbus_adc_chars);
@@ -56,7 +55,6 @@ AxePowerHal::~AxePowerHal(){
         free(this->_vcore_adc_chars);
     }
 }
-
 
 bool AxePowerHal::init(){
     pinMode(this->_asic_pwr_enable_pins.pwr_0v8, OUTPUT);

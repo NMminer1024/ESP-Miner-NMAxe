@@ -43,11 +43,11 @@ void power_thread_entry(void *args){
     board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
     delay(50);
     board->power->set_vcore_status(PWR_ON);
-    while (!board->power->is_vcore_good()){
+    while (!board->power->is_vcore_ready()){
         LOG_W("Waiting for vcore power setup...");
         delay(100);
     }
-    xSemaphoreGive(board->power->good_xsem);
+    xSemaphoreGive(board->power->ready_xsem);
     LOG_I("Power is ready.");
     while(true){
         uint32_t vcore_measure = board->power->get_vcore();

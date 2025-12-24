@@ -90,21 +90,22 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
         return false;
     }
     // create ASIC instance
-    BMxxx* asic                                     = config.create_asic_instance(*config.asic.com_port, config.asic.com_baud_init, config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin);
-    if(asic == NULL){
+    BMxxx* asic_instance                            = config.create_asic_instance(*config.asic.com_port, config.asic.com_baud_init, config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin);
+    if(asic_instance == NULL){
         LOG_E("BMxxx instance creation failed");
         return false;
     }
     // create AsicMinerClass instance
-    board->miner                                    = new AsicMinerClass(asic);
+    board->miner                                    = new AsicMinerClass(asic_instance);
     if(board->miner == NULL){
         LOG_E("AsicMinerClass instance creation failed");
         return false;
     }
     // create Power HAL instance
-    board->power                                    = new NMAxePowerClass( config.pwr.enable_pins, config.pwr.adc_pins, config.pwr.vcore_regulator_pin, config.pwr.pgood_pin, config.pwr.dc_plug_pin);
+    AxePowerHal* power_instance                     = config.create_power_instance( config.pwr.enable_pins, config.pwr.adc_pins, config.pwr.vcore_regulator_pin, config.pwr.pgood_pin, config.pwr.dc_plug_pin);
+    board->power                                    = new AxePowerClass(power_instance);
     if(board->power == NULL){
-        LOG_E("NMAxePowerClass instance creation failed");
+        LOG_E("AxePower instance creation failed");
         return false;
     }
     // create market instance
@@ -167,7 +168,7 @@ void setup() {
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
   xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_PWR, NULL,1);
-  xSemaphoreTake(g_board.power->good_xsem, portMAX_DELAY);
+  xSemaphoreTake(g_board.power->ready_xsem, portMAX_DELAY);
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";
   xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);

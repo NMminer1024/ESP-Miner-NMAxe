@@ -1,9 +1,9 @@
-#ifndef __TPS53355_H__
-#define __TPS53355_H__
+#ifndef __TPS53467_H__
+#define __TPS53467_H__
 #include <Arduino.h>
 #include "power_hal.h"
 
-class TPS53355Class: public AxePowerHal{
+class TPS53467Class: public AxePowerHal{
 private:
     uint8_t _vcore_regulator_pwm_pin;
     uint8_t _vcore_pgood_pin;
@@ -12,13 +12,13 @@ private:
     uint16_t _vcore_min_mv;
     uint16_t _vcore_max_mv;
 public:
-    TPS53355Class(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t vcore_regulator_pwm_pin, uint8_t pgood,  uint8_t plug):AxePowerHal(en_pins, adc_pins){
+    TPS53467Class(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t vcore_regulator_pwm_pin, uint8_t pgood,  uint8_t plug):AxePowerHal(en_pins, adc_pins){
         this->_vcore_regulator_pwm_pin = vcore_regulator_pwm_pin;
         this->_vcore_pgood_pin = pgood;
         this->_dc_plug_pin = plug;
         this->_adc_ready = false;
     }
-    ~TPS53355Class();
+    ~TPS53467Class();
     /** Implementations of pure virtual functions from AxePowerHal */
     bool init(void);
     void set_vdd_1v8(power_state_t state);
@@ -29,11 +29,12 @@ public:
     bool is_vcore_ready(void);
     bool is_dc_pluged(void);
     bool is_adc_ready(void);
+    uint16_t get_vcore_min(void){ return this->_vcore_min_mv;};
+    uint16_t get_vcore_max(void){ return this->_vcore_max_mv;};
+    /** TPS53467Class specific functions */
     uint32_t get_vbus(void);
     uint32_t get_ibus(void);
     uint32_t get_vcore(void);
-    uint16_t get_vcore_min(void){ return this->_vcore_min_mv;};
-    uint16_t get_vcore_max(void){ return this->_vcore_max_mv;};
 };
 
 #endif 

@@ -79,6 +79,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
             config.create_asic_instance      = create_axe_asic_instance;
+            config.create_power_instance     = create_axe_power_instance;
             break;
         case NMAXE_GAMMA:
             config.name                      = "NMAxeGamma";
@@ -133,6 +134,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
             config.create_asic_instance      = create_gamma_asic_instance;
+            config.create_power_instance     = create_gamma_power_instance;
             break;
         case NMQAXE_PLUS_PLUS:
             config.name                      = "NMQAxe++";

@@ -1323,7 +1323,7 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Vcore check...", 0xFFFFFF, true);
   delay(500);
   //Vcore voltage check
-  while(!g_board.power->is_vcore_good()){
+  while(!g_board.power->is_vcore_ready()){
     static bool blink = false;
     uint32_t color = (blink) ? 0xFF0000 : 0xFFFFFF;
     ui_loading_str_update("Vcore error.", color, false);
