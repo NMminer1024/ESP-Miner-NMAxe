@@ -40,8 +40,8 @@ static adc2_channel_t get_adc2_channel_from_gpio(int gpio_num) {
 }
 
 AxePowerHal::AxePowerHal(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins){
-    this->_asic_pwr_en_pins = en_pins;
-    this->_asic_pwr_adc_pins    = adc_pins;
+    this->_asic_pwr_en_pins  = en_pins;
+    this->_asic_pwr_adc_pins = adc_pins;
 }
 
 AxePowerHal::~AxePowerHal(){

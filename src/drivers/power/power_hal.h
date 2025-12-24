@@ -2,7 +2,7 @@
 #define _AXE_POWER_HAL_H_
 #include <Arduino.h>
 #include <esp_adc_cal.h>
-
+#include "Wire.h"
 typedef enum{
     PWR_OFF = 0,
     PWR_ON  = 1,
@@ -25,6 +25,7 @@ private:
     esp_adc_cal_characteristics_t *_vbus_adc_chars;
     esp_adc_cal_characteristics_t *_ibus_adc_chars;
     esp_adc_cal_characteristics_t *_vcore_adc_chars;
+    TwoWire *_iic_wire;
 protected:
     axe_pwr_enable_pin_t _asic_pwr_en_pins;
     axe_pwr_adc_pin_t    _asic_pwr_adc_pins;

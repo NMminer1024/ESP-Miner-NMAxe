@@ -22,6 +22,8 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.spec.pwr                            = config.pwr;
     board->info.spec.led                            = config.led;
     board->info.spec.iic                            = config.iic;
+    board->info.spec.create_asic_instance           = config.create_asic_instance;
+    board->info.spec.create_power_instance          = config.create_power_instance;
     /*************************************************** Same parameters among different board ***************************************/
     String stratum_pri                              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
@@ -90,7 +92,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
         return false;
     }
     // create ASIC instance
-    BMxxx* asic_instance                            = config.create_asic_instance(*config.asic.com_port, config.asic.com_baud_init, config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin);
+    BMxxx* asic_instance                            = board->info.spec.create_asic_instance(*config.asic.com_port, config.asic.com_baud_init, config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin);
     if(asic_instance == NULL){
         LOG_E("BMxxx instance creation failed");
         return false;
@@ -102,7 +104,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
         return false;
     }
     // create Power HAL instance
-    AxePowerHal* power_instance                     = config.create_power_instance( config.pwr.en_pins, config.pwr.adc_pins, config.pwr.vcore_regulator_pin, config.pwr.pgood_pin, config.pwr.dc_plug_pin);
+    AxePowerHal* power_instance                     = board->info.spec.create_power_instance(config.pwr.en_pins, config.pwr.adc_pins, config.pwr.vcore_regulator_pin, config.pwr.pgood_pin, config.pwr.dc_plug_pin);
     board->power                                    = new AxePowerClass(power_instance);
     if(board->power == NULL){
         LOG_E("AxePower instance creation failed");
