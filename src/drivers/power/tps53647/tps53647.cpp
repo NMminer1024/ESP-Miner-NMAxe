@@ -1,9 +1,9 @@
 #include "tps53647.h"
 #include "logger.h"
-
+#include <Wire.h>
 
 /** For NMQAxe++ **/
-#define TPS53647_I2C_ADDRESS            0x71//todo 
+#define TPS53647_I2C_ADDRESS            (0x71)//todo 
 
 #define REG_IBUS_SAMPLE                 (0.01f)
 #define GAIN_IBUS_SAMPLE                (50.0f)
@@ -15,14 +15,14 @@ TPS53647Class::~TPS53647Class(){
 
 }
 
-uint8_t TPS53647Class::_read_reg(uint8_t registerAddress, uint8_t *data, uint8_t length) {
+uint8_t TPS53647Class::_read_reg(uint8_t  regaddr, uint8_t *data, uint8_t length) {
     Wire.beginTransmission(TPS53647_I2C_ADDRESS); 
-    Wire.write(registerAddress); 
+    Wire.write(regaddr); 
     if (Wire.endTransmission() != 0) { 
         return 1; 
     }
 
-    Wire.requestFrom(TPS53647_I2C_ADDRESS, length); 
+    Wire.requestFrom(static_cast<uint8_t>(TPS53647_I2C_ADDRESS), (uint8_t)length); 
     uint8_t index = 0;
     while (Wire.available() && index < length) {
         data[index++] = Wire.read(); 
@@ -34,9 +34,9 @@ uint8_t TPS53647Class::_read_reg(uint8_t registerAddress, uint8_t *data, uint8_t
     return 0; 
 }
 
-void TPS53647Class::_write_reg(uint8_t registerAddress, uint8_t data) {
+void TPS53647Class::_write_reg(uint8_t regaddr, uint8_t data) {
     Wire.beginTransmission(TPS53647_I2C_ADDRESS); 
-    Wire.write(registerAddress); 
+    Wire.write(regaddr); 
     Wire.write(data); 
     Wire.endTransmission(); 
 }
@@ -45,7 +45,7 @@ void TPS53647Class::_write_reg(uint8_t registerAddress, uint8_t data) {
 bool TPS53647Class::init(void){
     this->_adc_ready = AxePowerHal::init();
     pinMode(this->_vcore_pgood_pin, INPUT_PULLUP);
-    pinMode(this->_dc_plug_pin, INPUT_PULLUP);
+    // pinMode(this->_dc_plug_pin, INPUT_PULLUP);
     return this->_adc_ready;
 }
 
@@ -64,7 +64,9 @@ bool TPS53647Class::is_vcore_ready(void){
 
 bool TPS53647Class::is_dc_pluged(void){
     //if not, that might be usb pd plug
-    return (digitalRead(this->_dc_plug_pin) == HIGH);
+    // return (digitalRead(this->_dc_plug_pin) == HIGH);
+
+    return true;    
 }
 
 void TPS53647Class::set_vdd_1v8(power_state_t state){

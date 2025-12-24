@@ -142,10 +142,12 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
 void setup() {
   String taskName;
   BoardSpecConfig config;
+  BoardModelType  model;
   /************************************************************ INIT SERIAL AND NVS ****************************************************/
   hardware_pre_init();
   /************************************************************ GET BOARD CONFIG *******************************************************/
-  config = get_board_config(get_board_model());
+  model  = get_board_model();
+  config = get_board_config(model);
   /******************************************************* INIT BOARD BASED ON CONFIG  *************************************************/
   while(!board_init(config, &g_board)){
     LOG_E("Board initialization failed, retrying in 1s...");

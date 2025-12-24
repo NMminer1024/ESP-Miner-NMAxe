@@ -3,6 +3,9 @@
 #include "BM1370.h"
 #include "tps53647.h"
 
+
+
+
 inline BMxxx* create_qaxepp_asic_instance(HardwareSerial& serial, uint32_t baud, uint8_t rx, uint8_t tx, uint8_t rst) {
     return new BM1370(serial, baud, rx, tx, rst);
 }
