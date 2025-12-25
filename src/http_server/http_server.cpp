@@ -135,17 +135,10 @@ void get_system_info(AsyncWebServerRequest* request){
     // root["brightness"] = g_board.info.preference.screen.brightness_last;
     // root["coin"] = g_board.info.base.coin_price;
     // root["fanCount"] = g_board.info.spec.fans.size();
-    // // root["fanspeed"] = g_board.status.fan.speed;
-    // // root["fanrpm"] = g_board.status.fan.rpm;
+    // root["fanspeed"] = g_board.status.fan.speed;
+    // root["fanrpm"] = g_board.status.fan.rpm;
 
-    // // adjust multiple fans status
-    // JsonArray fansArray = root.createNestedArray("fans");
-    // for(auto & fan : g_board.status.fans){
-    //     JsonObject fanObj = fansArray.createNestedObject();
-    //     fanObj["id"]    = fan.id;        
-    //     fanObj["speed"] = fan.speed;  
-    //     fanObj["rpm"]   = fan.rpm;     
-    // }
+
 
     root[HTTP_API_SYS_JSON_KEY_MINER_POWER]             = (g_board.status.power.ibus /1000.0f) * (g_board.status.power.vbus / 1000.0f);
     root[HTTP_API_SYS_JSON_KEY_MINER_VOLT]              = g_board.status.power.vbus;

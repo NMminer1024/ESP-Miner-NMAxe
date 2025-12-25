@@ -222,6 +222,7 @@ void setup() {
   /*********************************************************** CREATE MARKET THREAD ****************************************************/
   taskName = "(market)";
   xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_MARKET, &marketTask, 0);
+  delay(10);
   uint32_t start = millis();
   while (0 == g_board.market->lastUpdate){
     if(millis() - start - g_board.market->lastUpdate > MARKET_TIMEOUT){

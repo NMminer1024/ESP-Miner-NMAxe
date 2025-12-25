@@ -27,13 +27,50 @@ export class HomeComponent {
         return this.systemService.getInfo()
       }),
       map(info => {
+        // Map new field names to legacy names for backward compatibility
+        info.temp = info.asicTemp;
+        info.vrTemp = info.vcoreTemp;
+        info.coreVoltage = info.vcoreReq;
+        info.coreVoltageActual = info.vcoreActual;
+        info.frequency = info.freqReq;
+        info.hostname = info.hostName;
+        info.ssid = info.wifiSSID;
+        info.stratumURLUSED = info.usedUrl;
+        info.stratumUserUSED = info.usedUser;
+        info.stratumURL1 = info.primaryUrl;
+        info.stratumUser1 = info.primaryUser;
+        info.stratumPassword1 = info.primaryPassword;
+        info.stratumURL2 = info.fallBackUrl;
+        info.stratumUser2 = info.fallBackUser;
+        info.stratumPassword2 = info.fallBackPassword;
+        info.version = info.fwVersion;
+        info.boardVersion = info.hwModel;
+        info.coin = info.coinPriceDisplay;
+        info.brightness = info.Brightness;
+        info.ASICModel = info.asic;
+        info.bestDiff = info.bestDiffEver;
+        info.bestSessionDiff = info.bestDiffSession;
+        info.smallCoreCount = info.smallCoreCnt;
+        info.flipscreen = info.screenFlip;
+        info.autoscreen = info.screenAutoRoll;
+        info.ledindicator = info.ledIndicator;
+        info.autofanspeed = info.fanAutoSpeed;
+        
+        // Extract fan data from fans array (use fan id=0 as default)
+        if (info.fans && info.fans.length > 0) {
+          const defaultFan = info.fans.find((f: any) => f.id === 0) || info.fans[0];
+          info.fanspeed = defaultFan.speed;
+          info.fanrpm = defaultFan.rpm;
+        }
+
+        // Process numeric values
         info.power = parseFloat(info.power.toFixed(1))
         info.voltage = parseFloat((info.voltage / 1000).toFixed(2));
         info.current = parseFloat((info.current / 1000).toFixed(3));
-        info.coreVoltageActual = parseFloat((info.coreVoltageActual / 1000).toFixed(3));
-        info.coreVoltage = parseFloat((info.coreVoltage / 1000).toFixed(3));
-        info.temp = parseFloat(info.temp.toFixed(1));
-        info.vrTemp = parseFloat(info.vrTemp.toFixed(1));
+        info.coreVoltageActual = parseFloat((info.vcoreActual / 1000).toFixed(3));
+        info.coreVoltage = parseFloat((info.vcoreReq / 1000).toFixed(3));
+        info.temp = parseFloat(info.asicTemp.toFixed(1));
+        info.vrTemp = parseFloat(info.vcoreTemp.toFixed(1));
         info.mcuTemp = info.mcuTemp !== undefined ? parseFloat(info.mcuTemp.toFixed(1)) : undefined;
 
         return info;
@@ -42,29 +79,32 @@ export class HomeComponent {
     );
 
     this.expectedHashRate$ = this.info$.pipe(map(info => {
-      return Math.floor(info.frequency * ((info.smallCoreCount * info.asicCount) / 1000))
+      return Math.floor((info.frequency || info.freqReq) * ((info.smallCoreCount || info.smallCoreCnt) * info.asicCount) / 1000)
     }))
 
     this.quickLink$ = this.info$.pipe(
       map(info => {
-        if (info.stratumURLUSED.includes('public-pool.io')) {
-          const address = info.stratumUserUSED.split('.')[0]
+        const poolUrl = info.stratumURLUSED || info.usedUrl || '';
+        const poolUser = info.stratumUserUSED || info.usedUser || '';
+        const coin = info.coin || info.coinPriceDisplay || '';
+        
+        if (poolUrl.includes('public-pool.io')) {
+          const address = poolUser.split('.')[0]
           return `https://web.public-pool.io/#/app/${address}`;
-        } else if (info.stratumURLUSED.includes('ocean.xyz')) {
-          const address = info.stratumUserUSED.split('.')[0]
+        } else if (poolUrl.includes('ocean.xyz')) {
+          const address = poolUser.split('.')[0]
           return `https://ocean.xyz/stats/${address}`;
-        } else if (info.stratumURLUSED.includes('solo.d-central.tech')) {
-          const address = info.stratumUserUSED.split('.')[0]
+        } else if (poolUrl.includes('solo.d-central.tech')) {
+          const address = poolUser.split('.')[0]
           return `https://solo.d-central.tech/#/app/${address}`;
-        } else if (info.stratumURLUSED.includes('solo.ckpool.org:3333')) {
-          const address = info.stratumUserUSED.split('.')[0]
+        } else if (poolUrl.includes('solo.ckpool.org:3333')) {
+          const address = poolUser.split('.')[0]
           return `https://solostats.ckpool.org/users/${address}`;
-        } else if (info.stratumURLUSED.includes('pool.nmminer.com')) {
-          const address = info.stratumUserUSED.split('.')[0]
+        } else if (poolUrl.includes('pool.nmminer.com')) {
+          const address = poolUser.split('.')[0]
           return `https://pool.nmminer.com/user?workername=${address}`;
-        } else if (info.stratumURLUSED.includes('molepool.com')) {
-          const address = info.stratumUserUSED.split('.')[0]
-          const coin    = info.coin;
+        } else if (poolUrl.includes('molepool.com')) {
+          const address = poolUser.split('.')[0]
           return `https://${coin}.molepool.com/account/${address}`;
         } else {
           return undefined;

@@ -1,50 +1,104 @@
 import {eASICModel} from './enum/eASICModel';
 
+export interface IFan {
+  id: number;
+  speed: number;
+  rpm: number;
+}
+
 export interface ISystemInfo {
 
-  flipscreen: number;
-  invertscreen: number;
+  // Performance preferences
+  screenFlip: number;
+  screenAutoRoll: number;
+  Brightness: number;
+  asicTargetTemp?: string;
+  fanAutoSpeed: number;
+  ledIndicator: number;
+
+  // Power info
   power: number,
   voltage: number,
   current: number,
-  temp: number,
-  vrTemp: number,
+
+  // Temperature info
+  asicTemp: number,
+  vcoreTemp: number,
+  mcuTemp?: number,
+
+  // ASIC info
+  asicCount: number,
+  vcoreReq: number,
+  vcoreActual: number,
+  freqReq: number,
+  smallCoreCnt: number,
+  asic: eASICModel,
+
+  // Fan info
+  fanCount: number,
+  fans: IFan[],
+
+  // Miner status
   hashRate: number,
-  bestDiff: string,
-  bestSessionDiff: string,
+  bestDiffEver: string,
+  bestDiffSession: string,
   freeHeap: number,
-  coreVoltage: number,
-  hostname: string,
-  // timezone: string,
-  ssid: string,
-  wifiStatus: string,
   sharesAccepted: number,
   sharesRejected: number,
   uptimeSeconds: number,
-  asicCount: number,
-  smallCoreCount: number,
-  ASICModel: eASICModel,
-  stratumURLUSED: string,
-  stratumURL1: string,
-  stratumURL2: string,
-  stratumUserUSED: string,
-  stratumUser1: string,
-  stratumPassword1: string,
-  stratumUser2: string,
-  stratumPassword2: string,
-  frequency: number,
-  coin: string, // Price display currency (BTC, BCH, DGB, XEC)
-  brightness: number,
-  version: string,
-  boardVersion: string,
-  ledindicator: number,
-  autofanspeed: number,
+
+  // Miner info
+  fwVersion: string,
+  hwModel: string,
+  hostName: string,
+  timeZone: string,
+  wifiSSID: string,
+  wifiStatus: string,
+
+  // Pool info
+  usedUrl: string,
+  usedUser: string,
+  primaryUrl: string,
+  primaryUser: string,
+  primaryPassword: string,
+  fallBackUrl: string,
+  fallBackUser: string,
+  fallBackPassword: string,
+
+  coinPriceDisplay: string, // Price display currency (BTC, BCH, DGB, XEC)
+
+  // Legacy field names for backward compatibility (can be removed after full migration)
+  temp?: number,
+  vrTemp?: number,
+  coreVoltage?: number,
+  coreVoltageActual?: number,
+  frequency?: number,
+  hostname?: string,
+  ssid?: string,
+  stratumURLUSED?: string,
+  stratumURL1?: string,
+  stratumURL2?: string,
+  stratumUserUSED?: string,
+  stratumUser1?: string,
+  stratumPassword1?: string,
+  stratumUser2?: string,
+  stratumPassword2?: string,
+  version?: string,
+  boardVersion?: string,
+  coin?: string,
+  brightness?: number,
+  ASICModel?: eASICModel,
+  bestDiff?: string,
+  bestSessionDiff?: string,
+  smallCoreCount?: number,
+  flipscreen?: number,
+  invertscreen?: number,
+  ledindicator?: number,
+  autofanspeed?: number,
   targetAsicTemp?: string,
-  autoscreen: number,
-  fanspeed: number,
-  fanrpm: number,
-  coreVoltageActual: number,
-  mcuTemp?: number,
+  autoscreen?: number,
+  fanspeed?: number,
+  fanrpm?: number,
   boardtemp2?: number,
-  overheat_mode: number
+  overheat_mode?: number
 }

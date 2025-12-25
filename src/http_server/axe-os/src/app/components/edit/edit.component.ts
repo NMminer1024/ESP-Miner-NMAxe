@@ -94,6 +94,18 @@ export class EditComponent implements OnInit {
     this.systemService.getInfo(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
+        // Map new field names to legacy names for backward compatibility
+        info.ASICModel = info.asic || info.ASICModel;
+        info.stratumURL1 = info.primaryUrl || info.stratumURL1;
+        info.stratumURL2 = info.fallBackUrl || info.stratumURL2;
+        info.stratumUser1 = info.primaryUser || info.stratumUser1;
+        info.stratumUser2 = info.fallBackUser || info.stratumUser2;
+        info.stratumPassword1 = info.primaryPassword || info.stratumPassword1;
+        info.stratumPassword2 = info.fallBackPassword || info.stratumPassword2;
+        info.coreVoltage = info.vcoreReq || info.coreVoltage;
+        info.frequency = info.freqReq || info.frequency;
+        info.coin = info.coinPriceDisplay || info.coin;
+        
         this.ASICModel = info.ASICModel;
         this.form = this.fb.group({
           stratumURL1: [info.stratumURL1 || 'stratum+tcp://', [

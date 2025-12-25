@@ -37,6 +37,27 @@ export class SettingsComponent {
 
     this.info$.pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
+        // Map new field names to legacy names for backward compatibility
+        info.ASICModel = info.asic || info.ASICModel;
+        info.flipscreen = info.screenFlip ?? info.flipscreen;
+        info.ledindicator = info.ledIndicator ?? info.ledindicator;
+        info.stratumURL1 = info.primaryUrl || info.stratumURL1;
+        info.stratumURL2 = info.fallBackUrl || info.stratumURL2;
+        info.stratumUser1 = info.primaryUser || info.stratumUser1;
+        info.stratumUser2 = info.fallBackUser || info.stratumUser2;
+        info.stratumPassword1 = info.primaryPassword || info.stratumPassword1;
+        info.stratumPassword2 = info.fallBackPassword || info.stratumPassword2;
+        info.ssid = info.wifiSSID || info.ssid;
+        info.coreVoltage = info.vcoreReq || info.coreVoltage;
+        info.frequency = info.freqReq || info.frequency;
+        info.brightness = info.Brightness ?? info.brightness;
+        info.autofanspeed = info.fanAutoSpeed ?? info.autofanspeed;
+        info.autoscreen = info.screenAutoRoll ?? info.autoscreen;
+        if (info.fans && info.fans.length > 0) {
+          const defaultFan = info.fans.find((f: any) => f.id === 0) || info.fans[0];
+          info.fanspeed = defaultFan.speed;
+        }
+        
         this.ASICModel = info.ASICModel;
         this.form = this.fb.group({
           flipscreen: [info.flipscreen == 1],

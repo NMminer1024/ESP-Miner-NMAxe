@@ -39,6 +39,20 @@ export class PreferenceComponent implements OnInit {
     this.systemService.getInfo(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
+        // Map new field names to legacy names for backward compatibility
+        info.ASICModel = info.asic || info.ASICModel;
+        info.flipscreen = info.screenFlip ?? info.flipscreen;
+        info.invertscreen = info.invertscreen ?? 0;
+        info.ledindicator = info.ledIndicator ?? info.ledindicator;
+        info.brightness = info.Brightness ?? info.brightness;
+        info.autofanspeed = info.fanAutoSpeed ?? info.autofanspeed;
+        info.autoscreen = info.screenAutoRoll ?? info.autoscreen;
+        if (info.fans && info.fans.length > 0) {
+          const defaultFan = info.fans.find((f: any) => f.id === 0) || info.fans[0];
+          info.fanspeed = defaultFan.speed;
+          info.fanrpm = defaultFan.rpm;
+        }
+        
         this.ASICModel = info.ASICModel;
         this.form = this.fb.group({
           flipscreen: [info.flipscreen == 1],

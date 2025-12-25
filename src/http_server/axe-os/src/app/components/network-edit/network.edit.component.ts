@@ -32,9 +32,14 @@ export class NetworkEditComponent implements OnInit {
     this.systemService.getInfo(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
+        // Map new field names to legacy names for backward compatibility
+        info.hostname = info.hostName || info.hostname;
+        info.ssid = info.wifiSSID || info.ssid;
+        const timezone = info.timeZone || (info as any).timezone;
+        
         this.form = this.fb.group({
           hostname: [info.hostname, [Validators.required, Validators.maxLength(11)]],
-          timezone: [(info as any).timezone || 0, [Validators.required, Validators.min(-12), Validators.max(14)]],
+          timezone: [timezone || 0, [Validators.required, Validators.min(-12), Validators.max(14)]],
           ssid: [info.ssid, [Validators.required]],
           wifiPass: ['*****'],
         });
@@ -42,7 +47,7 @@ export class NetworkEditComponent implements OnInit {
         // 保存原始值用于比较
         this.originalFormValues = {
           hostname: info.hostname,
-          timezone: (info as any).timezone || 0,
+          timezone: timezone || 0,
           ssid: info.ssid,
           wifiPass: '*****'
         };

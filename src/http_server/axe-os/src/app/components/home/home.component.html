@@ -105,13 +105,13 @@
             <p-knob [min]="0" [max]="75" [readonly]="true" [(ngModel)]="info.temp"
                     valueTemplate="{value}°C" [size]="120" strokeWidth="12"></p-knob>
             <div class="heat-label">ASIC</div>
-            <span class="danger" *ngIf="info.temp >= 70">⚠️ High</span>
+            <span class="danger" *ngIf="info.temp && info.temp >= 70">⚠️ High</span>
           </div>
-          <div class="heat-item" *ngIf="info.vrTemp > 0">
+          <div class="heat-item" *ngIf="info.vrTemp && info.vrTemp > 0">
             <p-knob [min]="0" [max]="90" [readonly]="true" [(ngModel)]="info.vrTemp"
                     valueTemplate="{value}°C" [size]="120" strokeWidth="12"></p-knob>
             <div class="heat-label">Vcore</div>
-            <span class="danger" *ngIf="info.vrTemp >= 90">⚠️ High</span>
+            <span class="danger" *ngIf="info.vrTemp && info.vrTemp >= 90">⚠️ High</span>
           </div>
           <div class="heat-item">
             <p-knob [min]="0" [max]="10000" [readonly]="true" [(ngModel)]="info.fanrpm"
