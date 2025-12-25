@@ -67,6 +67,10 @@ export class UpdateComponent implements OnInit, AfterViewInit {
     // 获取当前系统信息
     this.info$.subscribe({
       next: (info) => {
+        // Map new field names to legacy names for backward compatibility
+        info.version = info.fwVersion || info.version;
+        info.boardVersion = info.hwModel || info.boardVersion;
+        
         this.currentInfo = info;
         this.checkForUpdates();
       },
