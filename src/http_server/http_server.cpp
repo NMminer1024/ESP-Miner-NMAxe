@@ -808,8 +808,8 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             g_board.info.preference.screen.auto_screen = root["autoscreen"].as<uint8_t>();
         }
         if(root.containsKey("fanspeed")){
-            // nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
-            // g_board.status.fan.speed = root["fanspeed"].as<uint16_t>();
+            nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
+            g_board.status.fans[0].speed = root["fanspeed"].as<uint16_t>();
         }
         if(root.containsKey("blockhits")){
             nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());
