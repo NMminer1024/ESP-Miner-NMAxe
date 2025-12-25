@@ -192,6 +192,8 @@ typedef struct{
     SemaphoreHandle_t                  page_save_xsem; // save current page index
     SemaphoreHandle_t                  reboot_xsem;
     SemaphoreHandle_t                  nvs_save_xsem;// save status to NVS signal
+    // SemaphoreHandle_t                  http_server_ready_xsem;// save status to NVS signal
+    
 }board_status_t;
 
 

@@ -37,5 +37,5 @@ typedef struct{
 
 
 void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info);
-
+void webserver_thread_entry(void *args);
 #endif // _WMANAGER_H

@@ -254,9 +254,13 @@ void wifi_connect_thread_entry(void *args){
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(WIFI_POWER_15dBm);
     WiFi.onEvent(WiFiEvent);
-
     LOG_I("Try to connect [%s]...", board->info.connection.wifi.conn_param.ssid.c_str());
     WiFi.setHostname(board->info.base.hostname.c_str());
+
+    /************************************************************ START HTTP SERVER *******************************************************/
+    taskName = "(webserver)";
+    xTaskCreatePinnedToCore(webserver_thread_entry, taskName.c_str(), 1024*5, (void*)(board), TASK_PRIORITY_WEB_SERVER, NULL, 1);
+    delay(10);
     //force config
     if(g_board.info.connection.force_config){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
@@ -466,50 +470,6 @@ void swarm_thread_entry(void *args){
       board->status.swarm[board->info.connection.wifi.status_param.ip.toString()] = String(jsonbuf);
     }
   }
-}
-
-void webserver_thread_entry(void *args){
-    board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(webserver)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing webserver...");
-
-    file_system_init();
-    webSocket.begin();
-    webSocket.onEvent(webSocketEvent);
-
-    webServer.on("/api/system/info", HTTP_GET, get_system_info);
-    webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
-    webServer.on("/api/system/status/history", HTTP_GET, get_status_history);
-    webServer.on("/api/system/status/realtime", HTTP_GET, get_status_realtime);
-    webServer.on("/api/system/luck/history", HTTP_GET, get_lucky_history);
-    // webServer.on("/api/system/luck/realtime", HTTP_GET, get_lucky_realtime);
-
-    webServer.on("/api/ws", HTTP_GET, echo_handler);
-    webServer.on("/api/system/restart", HTTP_POST, post_restart);
-    webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
-    webServer.on("/api/system/OTAWWW", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
-    webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_update_settings_handler);
-    webServer.on("/api/theme", HTTP_GET, get_theme_handler);
-    webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
-    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
-    webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
-    webServer.on("/*", HTTP_GET, rest_common_get_handler);
-    webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
-        AsyncWebServerResponse *response = request->beginResponse(200);
-        response->addHeader("Access-Control-Allow-Origin", "*");
-        response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
-        response->addHeader("Access-Control-Allow-Headers", "Accept,Content-Type");
-        request->send(response);
-    });
-    webServer.begin();
-
-    while (true){
-        if(g_board.info.connection.wifi.status_param.status == WL_CONNECTED){
-            webSocket.loop();
-        }
-        delay(250);
-    }
 }
 
 void monitor_thread_entry(void *args){
@@ -759,6 +719,10 @@ void daemon_thread_entry(void *args){
     if(xSemaphoreTake(board->info.connection.wifi.reconnect_xsem, 0) == pdTRUE){
       WiFi.begin(board->info.connection.wifi.conn_param.ssid.c_str(), board->info.connection.wifi.conn_param.pwd.c_str());
     }
+
+    // skip further checks if wifi not connected
+    if(board->info.connection.wifi.status_param.status != WL_CONNECTED) continue;
+
     //Stratum daemon
     if(millis() - board->info.connection.stratum_update > STRATUM_ALIVE_TIMEOUT){
       LOG_W("Stratum connection seems frozen, restarting...");

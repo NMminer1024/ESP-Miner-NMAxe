@@ -195,9 +195,6 @@ void setup() {
   while (WL_CONNECTED != g_board.info.connection.wifi.status_param.status){
     delay(10);
   }
-  /************************************************************ START HTTP SERVER *******************************************************/
-  taskName = "(webserver)";
-  xTaskCreatePinnedToCore(webserver_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_WEB_SERVER, NULL, 1);
   /************************************************************ Version check **********************************************************/
 #if HAS_VERSION_CHECK_FEATURE
   ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 
