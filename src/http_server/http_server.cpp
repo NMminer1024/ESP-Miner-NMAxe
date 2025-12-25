@@ -92,51 +92,112 @@ void get_system_info(AsyncWebServerRequest* request){
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    root["power"] = (g_board.status.power.ibus /1000.0f) * (g_board.status.power.vbus / 1000.0f);
-    root["voltage"] = g_board.status.power.vbus;
-    root["current"] = g_board.status.power.ibus;
-    root["temp"] = g_board.status.temp.asic;
-    root["vrTemp"] = g_board.status.temp.vcore;
-    root["mcuTemp"] = g_board.status.temp.mcu;
-    root["hashRate"] = g_board.status.miner.hashrate._3m/1000/1000/1000;
-    root["bestDiff"] = formatNumber(g_board.status.miner.diff.best_ever, 4);
-    root["bestSessionDiff"] = formatNumber(g_board.status.miner.diff.best_session, 4);
-    root["freeHeap"] = ESP.getFreeHeap();
-    root["coreVoltage"] = g_board.info.spec.asic.req_vcore;
-    root["coreVoltageActual"] = g_board.status.power.vcore;
-    root["frequency"] = g_board.info.spec.asic.req_frq;
-    root["hostname"] = g_board.info.base.hostname;
-    root["timezone"] = g_board.status.time.tz;
-    root["ssid"] = g_board.info.connection.wifi.conn_param.ssid;
-    root["wifiStatus"] = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
-    root["sharesAccepted"] = g_board.status.miner.share_accepted;
-    root["sharesRejected"] = g_board.status.miner.share_rejected;
-    root["uptimeSeconds"] = g_board.status.miner.uptime_session;
-    root["asicCount"] = g_board.miner->get_asic_count();
-    root["smallCoreCount"] = g_board.miner->get_asic_small_cores();
-    root["ASICModel"] = g_board.info.spec.asic.name;
-    root["stratumUserUSED"] = g_board.info.connection.stratum_use.user;
-    root["stratumURLUSED"] = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
-    root["stratumUser1"] = g_board.info.connection.stratum_primary.user;
-    root["stratumPassword1"] = g_board.info.connection.stratum_primary.pwd;
-    root["stratumUser2"]     = g_board.info.connection.stratum_fallback.user;
-    root["stratumPassword2"] = g_board.info.connection.stratum_fallback.pwd;
-    root["stratumURL1"] = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
-    root["stratumURL2"] = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
-    root["version"] = g_board.info.base.fw_version;
-    root["boardVersion"] = g_board.info.base.hw_model;
-    root["flipscreen"] = g_board.info.preference.screen.flip;
-    root["ledindicator"] = g_board.info.preference.led.enable;
-    root["overheat_mode"] = 0;
-    root["invertscreen"]  = 1;
-    root["autofanspeed"] = g_board.info.preference.fan.is_auto_speed;
-    root["autoscreen"]   = g_board.info.preference.screen.auto_screen;
-    root["targetAsicTemp"] = String(g_board.info.preference.fan.target_temp);
-    root["brightness"] = g_board.info.preference.screen.brightness_last;
-    root["coin"] = g_board.info.base.coin_price;
-    root["fanCount"] = g_board.info.spec.fans.size();
-    // root["fanspeed"] = g_board.status.fan.speed;
-    // root["fanrpm"] = g_board.status.fan.rpm;
+    // root["power"] = (g_board.status.power.ibus /1000.0f) * (g_board.status.power.vbus / 1000.0f);
+    // root["voltage"] = g_board.status.power.vbus;
+    // root["current"] = g_board.status.power.ibus;
+    // root["temp"] = g_board.status.temp.asic;
+    // root["vrTemp"] = g_board.status.temp.vcore;
+    // root["mcuTemp"] = g_board.status.temp.mcu;
+    // root["hashRate"] = g_board.status.miner.hashrate._3m/1000/1000/1000;
+    // root["bestDiff"] = formatNumber(g_board.status.miner.diff.best_ever, 4);
+    // root["bestSessionDiff"] = formatNumber(g_board.status.miner.diff.best_session, 4);
+    // root["freeHeap"] = ESP.getFreeHeap();
+    // root["coreVoltage"] = g_board.info.spec.asic.req_vcore;
+    // root["coreVoltageActual"] = g_board.status.power.vcore;
+    // root["frequency"] = g_board.info.spec.asic.req_frq;
+    // root["hostname"] = g_board.info.base.hostname;
+    // root["timezone"] = g_board.status.time.tz;
+    // root["ssid"] = g_board.info.connection.wifi.conn_param.ssid;
+    // root["wifiStatus"] = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
+    // root["sharesAccepted"] = g_board.status.miner.share_accepted;
+    // root["sharesRejected"] = g_board.status.miner.share_rejected;
+    // root["uptimeSeconds"] = g_board.status.miner.uptime_session;
+    // root["asicCount"] = g_board.miner->get_asic_count();
+    // root["smallCoreCount"] = g_board.miner->get_asic_small_cores();
+    // root["ASICModel"] = g_board.info.spec.asic.name;
+    // root["stratumUserUSED"] = g_board.info.connection.stratum_use.user;
+    // root["stratumURLUSED"] = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
+    // root["stratumUser1"] = g_board.info.connection.stratum_primary.user;
+    // root["stratumPassword1"] = g_board.info.connection.stratum_primary.pwd;
+    // root["stratumUser2"]     = g_board.info.connection.stratum_fallback.user;
+    // root["stratumPassword2"] = g_board.info.connection.stratum_fallback.pwd;
+    // root["stratumURL1"] = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
+    // root["stratumURL2"] = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
+    // root["version"] = g_board.info.base.fw_version;
+    // root["boardVersion"] = g_board.info.base.hw_model;
+    // root["flipscreen"] = g_board.info.preference.screen.flip;
+    // root["ledindicator"] = g_board.info.preference.led.enable;
+    // root["overheat_mode"] = 0;
+    // root["invertscreen"]  = 1;
+    // root["autofanspeed"] = g_board.info.preference.fan.is_auto_speed;
+    // root["autoscreen"]   = g_board.info.preference.screen.auto_rolling;
+    // root["targetAsicTemp"] = String(g_board.info.preference.fan.target_temp);
+    // root["brightness"] = g_board.info.preference.screen.brightness_last;
+    // root["coin"] = g_board.info.base.coin_price;
+    // root["fanCount"] = g_board.info.spec.fans.size();
+    // // root["fanspeed"] = g_board.status.fan.speed;
+    // // root["fanrpm"] = g_board.status.fan.rpm;
+
+    // // adjust multiple fans status
+    // JsonArray fansArray = root.createNestedArray("fans");
+    // for(auto & fan : g_board.status.fans){
+    //     JsonObject fanObj = fansArray.createNestedObject();
+    //     fanObj["id"]    = fan.id;        
+    //     fanObj["speed"] = fan.speed;  
+    //     fanObj["rpm"]   = fan.rpm;     
+    // }
+
+    root[HTTP_API_SYS_JSON_KEY_MINER_POWER]             = (g_board.status.power.ibus /1000.0f) * (g_board.status.power.vbus / 1000.0f);
+    root[HTTP_API_SYS_JSON_KEY_MINER_VOLT]              = g_board.status.power.vbus;
+    root[HTTP_API_SYS_JSON_KEY_MINER_CURRENT]           = g_board.status.power.ibus;
+    root[HTTP_API_SYS_JSON_KEY_VCORE_TEMP]              = g_board.status.temp.vcore;
+    root[HTTP_API_SYS_JSON_KEY_MCU_TEMP]                = g_board.status.temp.mcu;
+
+    root[HTTP_API_SYS_JSON_KEY_ASIC_CNT]                = g_board.miner->get_asic_count();
+    root[HTTP_API_SYS_JSON_KEY_ASIC_TEMP]               = g_board.status.temp.asic;
+    root[HTTP_API_SYS_JSON_KEY_ASIC_VCORE_REQ]          = g_board.info.spec.asic.req_vcore;
+    root[HTTP_API_SYS_JSON_KEY_ASIC_VCORE_ACTUAL]       = g_board.status.power.vcore;
+    root[HTTP_API_SYS_JSON_KEY_ASIC_SMALL_CORE_CNT]     = g_board.miner->get_asic_small_cores();
+    root[HTTP_API_SYS_JSON_KEY_ASIC_MODEL_NAME]         = g_board.info.spec.asic.name;
+    root[HTTP_API_SYS_JSON_KEY_ASIC_FREQ_REQ]           = g_board.info.spec.asic.req_frq;
+
+
+    root[HTTP_API_SYS_JSON_KEY_MINER_HR_REALTIME]       = g_board.status.miner.hashrate._3m/1000/1000/1000;
+    root[HTTP_API_SYS_JSON_KEY_MINER_BEST_DIFF_EVER]    = formatNumber(g_board.status.miner.diff.best_ever, 4);
+    root[HTTP_API_SYS_JSON_KEY_MINER_BEST_DIFF_SESSION] = formatNumber(g_board.status.miner.diff.best_session, 4);
+    root[HTTP_API_SYS_JSON_KEY_MINER_FREE_HEAP]         = ESP.getFreeHeap();
+    root[HTTP_API_SYS_JSON_KEY_MINER_SHARES_ACCEPTED]   = g_board.status.miner.share_accepted;
+    root[HTTP_API_SYS_JSON_KEY_MINER_SHARES_REJECTED]   = g_board.status.miner.share_rejected;
+    root[HTTP_API_SYS_JSON_KEY_MINER_UPTIME_SECONDS]    = g_board.status.miner.uptime_session;
+    
+    root[HTTP_API_SYS_JSON_KEY_MINER_FW_VERSION]        = g_board.info.base.fw_version;
+    root[HTTP_API_SYS_JSON_KEY_MINER_HW_MODEL]          = g_board.info.base.hw_model;
+    root[HTTP_API_SYS_JSON_KEY_MINER_HOSTNAME]          = g_board.info.base.hostname;
+    root[HTTP_API_SYS_JSON_KEY_MINER_TIMEZONE]          = g_board.status.time.tz;
+    root[HTTP_API_SYS_JSON_KEY_MINER_WIFI_SSID]         = g_board.info.connection.wifi.conn_param.ssid;
+    root[HTTP_API_SYS_JSON_KEY_MINER_WIFI_STATUS]       = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
+
+    root[HTTP_API_SYS_JSON_KEY_POOL_USER_USED]          = g_board.info.connection.stratum_use.user;
+    root[HTTP_API_SYS_JSON_KEY_POOL_URL_USED]           = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
+    
+    root[HTTP_API_SYS_JSON_KEY_POOL_USER_PRIMARY]       = g_board.info.connection.stratum_primary.user;
+    root[HTTP_API_SYS_JSON_KEY_POOL_USER_PASSWORD]      = g_board.info.connection.stratum_primary.pwd;
+    root[HTTP_API_SYS_JSON_KEY_POOL_USER_FALLBACK]      = g_board.info.connection.stratum_fallback.user;
+    root[HTTP_API_SYS_JSON_KEY_POOL_PASSWORD_FALLBACK]  = g_board.info.connection.stratum_fallback.pwd;
+    root[HTTP_API_SYS_JSON_KEY_POOL_URL_PRIMARY]        = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
+    root[HTTP_API_SYS_JSON_KEY_POOL_URL_FALLBACK]       = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
+
+
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_FLIP]         = g_board.info.preference.screen.flip;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_LED_INDICATOR]       = g_board.info.preference.led.enable;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_FAN_AUTO_SPEED]      = g_board.info.preference.fan.is_auto_speed;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_AUTO_ROLL]    = g_board.info.preference.screen.auto_rolling;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_ASIC_TARGET_TEMP]    = String(g_board.info.preference.fan.target_temp);
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_BRIGHTNESS]   = g_board.info.preference.screen.brightness_last;
+
+
+    root[HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY]              = g_board.info.base.coin_price;
+    root[HTTP_API_SYS_JSON_KEY_FAN_CNT]                         = g_board.info.spec.fans.size();
 
     // adjust multiple fans status
     JsonArray fansArray = root.createNestedArray("fans");
@@ -146,6 +207,8 @@ void get_system_info(AsyncWebServerRequest* request){
         fanObj["speed"] = fan.speed;  
         fanObj["rpm"]   = fan.rpm;     
     }
+
+
 
     String json_str;
     serializeJson(root, json_str);
@@ -805,7 +868,7 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
         }
         if(root.containsKey("autoscreen")){
             nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
-            g_board.info.preference.screen.auto_screen = root["autoscreen"].as<uint8_t>();
+            g_board.info.preference.screen.auto_rolling = root["autoscreen"].as<uint8_t>();
         }
         if(root.containsKey("fanspeed")){
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());

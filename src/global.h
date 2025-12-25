@@ -83,7 +83,7 @@ typedef struct{
 
 typedef struct{
     bool     flip;
-    bool     auto_screen;
+    bool     auto_rolling;// auto rolling screen
     uint16_t brightness;
     uint16_t brightness_last;
 }screen_info_t;

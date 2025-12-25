@@ -1498,7 +1498,7 @@ void ui_thread_entry(void *args){
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
       // auto screen scrolling
       static uint32_t start = millis();
-      if((millis() - start >= 1000*10) && g_board.info.preference.screen.auto_screen){
+      if((millis() - start >= 1000*10) && g_board.info.preference.screen.auto_rolling){
         ui_switch_next_page_cb();
         start = millis();
       }
