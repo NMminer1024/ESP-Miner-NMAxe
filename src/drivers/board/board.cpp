@@ -24,7 +24,7 @@ BoardModelType get_board_model(){
 
 BoardSpecConfig get_board_config(BoardModelType model) {
     BoardSpecConfig config;
-    
+    fan_config_t fan_cfg;
     switch(model) {
         case NMAXE:
             config.name                      = "NMAxe";
@@ -33,20 +33,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
             config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
-            config.fan.pwm_pin               = 41;
-            config.fan.torch_pin             = 42;
-            config.fan.self_test_rpm_thr     = 4000; 
-            config.fan.pwm_channel           = 2;
-            config.fan.pwm_freq              = 1000*100; // Hz
-            config.fan.pwm_resolution        = 8;        // bits
-            config.fan.p_cnt_h_limt          = 30000;    // PCNT high limit value
-            config.fan.pid.Kp                = 50.0f;
-            config.fan.pid.Ki                = 1.0f;
-            config.fan.pid.Kd                = 0.0f;
-            config.fan.pid.prev_error        = 0;
-            config.fan.pid.integral          = 0;
-            config.fan.pid.output_min        = 25.0f;
-            config.fan.pid.output_max        = 99.999f;
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.en_pins.pwr_pll_0v8   = 13;
@@ -80,6 +66,25 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_port             = &Serial1;
             config.create_asic_instance      = create_axe_asic_instance;
             config.create_power_instance     = create_axe_power_instance;
+
+            fan_cfg.id                       = 0;
+            fan_cfg.init.pwm_pin             = 41;
+            fan_cfg.init.torch_pin           = 42;
+            fan_cfg.init.self_test_rpm_thr   = 4000;
+            fan_cfg.init.danger_rpm_thr      = 500;
+            fan_cfg.init.pwm_ch              = 2;
+            fan_cfg.init.pwm_freq            = 1000*100; // Hz
+            fan_cfg.init.pwm_resolution      = 8;        // bits
+            fan_cfg.init.p_cnt_h_limt        = 30000;    // PCNT high limit value
+            fan_cfg.pid.Kp                   = 50.0f;
+            fan_cfg.pid.Ki                   = 1.0f;
+            fan_cfg.pid.Kd                   = 0.0f;
+            fan_cfg.pid.prev_error           = 0;
+            fan_cfg.pid.integral             = 0;
+            fan_cfg.pid.output_min           = 25.0f;
+            fan_cfg.pid.output_max           = 99.999f;
+            config.fans.clear();
+            config.fans.push_back(fan_cfg); // single fan
             break;
         case NMAXE_GAMMA:
             config.name                      = "NMAxeGamma";
@@ -89,20 +94,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
             config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
-            config.fan.pwm_pin               = 41;
-            config.fan.torch_pin             = 42;
-            config.fan.self_test_rpm_thr     = 4000; 
-            config.fan.pwm_channel           = 2;
-            config.fan.pwm_freq              = 1000*100; // Hz
-            config.fan.pwm_resolution        = 8;        // bits
-            config.fan.p_cnt_h_limt          = 30000;    // PCNT high limit value
-            config.fan.pid.Kp                = 50.0f;
-            config.fan.pid.Ki                = 1.0f;
-            config.fan.pid.Kd                = 0.0f;
-            config.fan.pid.prev_error        = 0;
-            config.fan.pid.integral          = 0;
-            config.fan.pid.output_min        = 25.0f;
-            config.fan.pid.output_max        = 99.999f;
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.en_pins.pwr_pll_0v8   = 13;
@@ -135,6 +126,25 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_port             = &Serial1;
             config.create_asic_instance      = create_gamma_asic_instance;
             config.create_power_instance     = create_gamma_power_instance;
+
+            fan_cfg.id                       = 0;
+            fan_cfg.init.pwm_pin             = 41;
+            fan_cfg.init.torch_pin           = 42;
+            fan_cfg.init.self_test_rpm_thr   = 4000;
+            fan_cfg.init.danger_rpm_thr      = 500;
+            fan_cfg.init.pwm_ch              = 2;
+            fan_cfg.init.pwm_freq            = 1000*100; // Hz
+            fan_cfg.init.pwm_resolution      = 8;        // bits
+            fan_cfg.init.p_cnt_h_limt        = 30000;    // PCNT high limit value
+            fan_cfg.pid.Kp                   = 50.0f;
+            fan_cfg.pid.Ki                   = 1.0f;
+            fan_cfg.pid.Kd                   = 0.0f;
+            fan_cfg.pid.prev_error           = 0;
+            fan_cfg.pid.integral             = 0;
+            fan_cfg.pid.output_min           = 25.0f;
+            fan_cfg.pid.output_max           = 99.999f;
+            config.fans.clear();
+            config.fans.push_back(fan_cfg); // single fan
             break;
         case NMQAXE_PLUS_PLUS:
             config.name                      = "NMQAxe++";
@@ -144,23 +154,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
             config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
-            config.fan.pwm_pin               = 10;
-            config.fan.torch_pin             = 47;
-            config.fan.self_test_rpm_thr     = 4000; 
-            config.fan.pwm_channel           = 2;
-            config.fan.pwm_freq              = 1000*100; // Hz
-            config.fan.pwm_resolution        = 8;        // bits
-            config.fan.p_cnt_h_limt          = 30000;    // PCNT high limit value
-            config.fan.pid.Kp                = 50.0f;
-            config.fan.pid.Ki                = 1.0f;
-            config.fan.pid.Kd                = 0.0f;
-            config.fan.pid.prev_error        = 0;
-            config.fan.pid.integral          = 0;
-            config.fan.pid.output_min        = 25.0f;
-            config.fan.pid.output_max        = 99.999f;
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
-
             config.pwr.en_pins.pwr_pll_0v8   = 39;
             config.pwr.en_pins.pwr_vdd_1v8   = 40;
             config.pwr.en_pins.pwr_vcore     = 38;
@@ -171,7 +166,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.pgood_pin             = 21;
             config.pwr.dc_plug_pin           = -1;  // Not used
             config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
-
             config.iic.scl_pin               = 7;   
             config.iic.sda_pin               = 8;
             config.led.wifi_pin              = -1; // Not used
@@ -192,6 +186,43 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_port             = &Serial1;
             config.create_asic_instance      = create_gamma_asic_instance;
             config.create_power_instance     = create_qaxepp_power_instance;
+            
+            config.fans.clear();
+            fan_cfg.id                       = 0;
+            fan_cfg.init.pwm_pin             = 41;
+            fan_cfg.init.torch_pin           = 42;
+            fan_cfg.init.self_test_rpm_thr   = 4000;
+            fan_cfg.init.danger_rpm_thr      = 300;
+            fan_cfg.init.pwm_ch              = 2;
+            fan_cfg.init.pwm_freq            = 1000*100; // Hz
+            fan_cfg.init.pwm_resolution      = 8;        // bits
+            fan_cfg.init.p_cnt_h_limt        = 30000;    // PCNT high limit value
+            fan_cfg.pid.Kp                   = 50.0f;
+            fan_cfg.pid.Ki                   = 1.0f;
+            fan_cfg.pid.Kd                   = 0.0f;
+            fan_cfg.pid.prev_error           = 0;
+            fan_cfg.pid.integral             = 0;
+            fan_cfg.pid.output_min           = 25.0f;
+            fan_cfg.pid.output_max           = 99.999f;
+            config.fans.push_back(fan_cfg); // fan1 
+
+            fan_cfg.id                       = 1;
+            fan_cfg.init.pwm_pin             = 41;
+            fan_cfg.init.torch_pin           = 42;
+            fan_cfg.init.self_test_rpm_thr   = 4000;
+            fan_cfg.init.danger_rpm_thr      = 300;
+            fan_cfg.init.pwm_ch              = 2;
+            fan_cfg.init.pwm_freq            = 1000*100; // Hz
+            fan_cfg.init.pwm_resolution      = 8;        // bits
+            fan_cfg.init.p_cnt_h_limt        = 30000;    // PCNT high limit value
+            fan_cfg.pid.Kp                   = 50.0f;
+            fan_cfg.pid.Ki                   = 1.0f;
+            fan_cfg.pid.Kd                   = 0.0f;
+            fan_cfg.pid.prev_error           = 0;
+            fan_cfg.pid.integral             = 0;
+            fan_cfg.pid.output_min           = 25.0f;
+            fan_cfg.pid.output_max           = 99.999f;
+            config.fans.push_back(fan_cfg); // fan2
             break;
         default:
             config.name                      = "Unknown";

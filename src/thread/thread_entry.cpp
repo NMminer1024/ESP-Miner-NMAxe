@@ -30,11 +30,18 @@ void power_thread_entry(void *args){
         LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", board->power->get_vbus()/1000.0, board->info.spec.pwr.vbus_min_required/1000.0);
         delay(1000);
     }
-    while (!board->status.fan.self_test){
-        delay(1000);
-        LOG_W("Fan self test %d/%d...", board->status.fan.rpm, board->info.spec.fan.self_test_rpm_thr);
+
+    while (true){
+        bool all_fan_ok = true;
+        for(auto &fan : board->status.fans){
+            all_fan_ok = all_fan_ok && fan.self_test;
+            LOG_W("Waiting for fan%d self test %d/%d rpm...", fan.id, fan.rpm, board->info.spec.fans[fan.id].init.self_test_rpm_thr);
+            delay(1000);
+        }
+        if(all_fan_ok && (board->info.spec.fans.size() > 0)) break;
+        delay(10);
     }
-    
+
     //set vdd_1v8 and pll_0v8 power
     board->power->set_pll_0v8(PWR_ON);
     board->power->set_vdd_1v8(PWR_ON);
@@ -641,13 +648,18 @@ void monitor_thread_entry(void *args){
             }
             //check fan status
             static uint16_t fan_err_cnt = 0;
-            if((board->status.fan.rpm <= 500) && (board->status.temp.asic > ASIC_TEMP_NORMAL)){
-            fan_err_cnt++;
-            if(fan_err_cnt > 20){//avoid some noise
-                LOG_W("Fan rpm is too low, restart miner...");
-                ESP.restart();
+            if(board->status.temp.asic > ASIC_TEMP_NORMAL){
+                for(auto &fan : board->status.fans){
+                    if(fan.rpm < board->info.spec.fans[fan.id].init.danger_rpm_thr){
+                        fan_err_cnt++;
+                        if(fan_err_cnt > 20){//avoid some noise
+                            LOG_W("Fan rpm is too low, restart miner...");
+                            ESP.restart();
+                        }
+                    }
+                    else fan_err_cnt = 0;
+                }
             }
-            }else fan_err_cnt = 0;
 
             //avoid restart when ota running
             if(board->status.ota.running) continue;
@@ -703,8 +715,8 @@ void monitor_thread_entry(void *args){
             node.vbus         = String((board->status.power.vbus / 1000.0f),1); //V
             node.ibus         = String((board->status.power.ibus / 1000.0f),3); //A
             node.vcore        = board->status.power.vcore;//mV
-            node.fanspeed     = board->status.fan.speed; //%
-            node.fanrpm       = board->status.fan.rpm;
+            // node.fanspeed     = board->status.fan.speed; //%
+            // node.fanrpm       = board->status.fan.rpm;
             node.wifi_rssi    = board->info.connection.wifi.status_param.rssi;
             node.free_ram     = ESP.getFreeHeap() / 1024;  //free sram in Kbytes
             node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes
@@ -778,58 +790,65 @@ void fan_thread_entry(void *args){
     tmp102_init();
 
     //fan init
-    fan_init_param_t init_param;
-    init_param.pwm_pin         = board->info.spec.fan.pwm_pin;
-    init_param.torch_pin       = board->info.spec.fan.torch_pin;
-    init_param.pwm_ch          = board->info.spec.fan.pwm_channel;
-    init_param.pwm_freq        = board->info.spec.fan.pwm_freq;
-    init_param.pwm_revolution  = board->info.spec.fan.pwm_resolution;
-    init_param.p_cnt_h_limt    = board->info.spec.fan.p_cnt_h_limt;
+    fan_init_t init_param;
+    init_param.pwm_pin         = board->info.spec.fans[0].init.pwm_pin;
+    init_param.torch_pin       = board->info.spec.fans[0].init.torch_pin;
+    init_param.pwm_ch          = board->info.spec.fans[0].init.pwm_ch;
+    init_param.pwm_freq        = board->info.spec.fans[0].init.pwm_freq;
+    init_param.pwm_resolution  = board->info.spec.fans[0].init.pwm_resolution;
+    init_param.p_cnt_h_limt    = board->info.spec.fans[0].init.p_cnt_h_limt;
     fan_init(init_param);
 
     // polarity detection
     bool fan_invert = guess_fan_polarity();
 
     // fan self test
-    while (true){
-        measure_fan_rpm_for_duration(1.0, 5000, board->status.fan.rpm , fan_invert);
-        board->status.fan.self_test = (board->status.fan.rpm > board->info.spec.fan.self_test_rpm_thr) ? true : false;
-        if(board->status.fan.self_test) break;
+    while(true){
+        bool all_fan_ok = true;
+        for(auto &fan : board->status.fans){
+            measure_fan_rpm_for_duration(1.0, 5000, fan.rpm , fan_invert);
+            fan.self_test = (fan.rpm > board->info.spec.fans[fan.id].init.self_test_rpm_thr) ? true : false;
+            all_fan_ok = all_fan_ok && fan.self_test;
+        }
+        if(all_fan_ok && (board->status.fans.size() > 0)) break;
         LOG_W("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
+        delay(10);
     }
-    
-    while(1){
-        delay(125);// 8Hz
-        //update board temperature
-        board->status.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : board->status.temp.mcu;
-        board->status.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : board->status.temp.vcore;
-        board->status.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : board->status.temp.asic;
 
-        // Round to 1 decimal place
-        board->status.temp.mcu   = roundf(board->status.temp.mcu * 10) / 10.0f;
-        board->status.temp.vcore = roundf(board->status.temp.vcore * 10) / 10.0f;
-        board->status.temp.asic  = roundf(board->status.temp.asic * 100) / 100.0f;
-        temp_cnt++;
-        
-        // Calculate fan RPM
-        if(millis() - start_ms >= 1000) {
-            pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
-            uint16_t delta_pcnt = 0;
-            if (now_count < last_count) delta_pcnt = (init_param.p_cnt_h_limt - last_count) + now_count;
-            else delta_pcnt = now_count - last_count;
-            board->status.fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
-            last_count = now_count;
-            start_ms = millis();
-        }
+    while(true){
+        for(auto &fan : board->status.fans){
+            delay(125);// 8Hz
+            //update board temperature
+            board->status.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : board->status.temp.mcu;
+            board->status.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : board->status.temp.vcore;
+            board->status.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : board->status.temp.asic;
 
-        // Adjust fan speed
-        if(board->info.preference.fan.is_auto_speed && board->status.fan.self_test){
-            static uint32_t pid_start = millis();
-            float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-            board->status.fan.speed = (uint16_t)pid_compute(&board->info.spec.fan.pid, board->info.preference.fan.target_temp, board->status.temp.asic, dt);
-            pid_start = millis();
+            // Round to 1 decimal place
+            board->status.temp.mcu   = roundf(board->status.temp.mcu * 10) / 10.0f;
+            board->status.temp.vcore = roundf(board->status.temp.vcore * 10) / 10.0f;
+            board->status.temp.asic  = roundf(board->status.temp.asic * 100) / 100.0f;
+            temp_cnt++;
+            
+            // Calculate fan RPM
+            if(millis() - start_ms >= 1000) {
+                pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
+                uint16_t delta_pcnt = 0;
+                if (now_count < last_count) delta_pcnt = (init_param.p_cnt_h_limt - last_count) + now_count;
+                else delta_pcnt = now_count - last_count;
+                fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
+                last_count = now_count;
+                start_ms = millis();
+            }
+
+            // Adjust fan speed
+            if(board->info.preference.fan.is_auto_speed && fan.self_test){
+                static uint32_t pid_start = millis();
+                float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
+                fan.speed = (uint16_t)pid_compute(&board->info.spec.fans[fan.id].pid, board->info.preference.fan.target_temp, board->status.temp.asic, dt);
+                pid_start = millis();
+            }
+            fan_set_speed(fan.speed / 100.0, fan_invert);
         }
-        fan_set_speed(board->status.fan.speed / 100.0, fan_invert);
     }
 }
 

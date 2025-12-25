@@ -131,11 +131,22 @@ void get_system_info(AsyncWebServerRequest* request){
     root["invertscreen"]  = 1;
     root["autofanspeed"] = g_board.info.preference.fan.is_auto_speed;
     root["autoscreen"]   = g_board.info.preference.screen.auto_screen;
-    root["fanspeed"] = g_board.status.fan.speed;
     root["targetAsicTemp"] = String(g_board.info.preference.fan.target_temp);
-    root["fanrpm"] = g_board.status.fan.rpm;
     root["brightness"] = g_board.info.preference.screen.brightness_last;
     root["coin"] = g_board.info.base.coin_price;
+    root["fanCount"] = g_board.info.spec.fans.size();
+    // root["fanspeed"] = g_board.status.fan.speed;
+    // root["fanrpm"] = g_board.status.fan.rpm;
+
+    // adjust multiple fans status
+    JsonArray fansArray = root.createNestedArray("fans");
+    for(auto & fan : g_board.status.fans){
+        JsonObject fanObj = fansArray.createNestedObject();
+        fanObj["id"]    = fan.id;        
+        fanObj["speed"] = fan.speed;  
+        fanObj["rpm"]   = fan.rpm;     
+    }
+
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
@@ -797,8 +808,8 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             g_board.info.preference.screen.auto_screen = root["autoscreen"].as<uint8_t>();
         }
         if(root.containsKey("fanspeed")){
-            nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
-            g_board.status.fan.speed = root["fanspeed"].as<uint16_t>();
+            // nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
+            // g_board.status.fan.speed = root["fanspeed"].as<uint16_t>();
         }
         if(root.containsKey("blockhits")){
             nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());

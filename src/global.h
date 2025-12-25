@@ -9,7 +9,7 @@
 #include "market.h"
 #include <deque>
 #include <map>
-
+#include <vector>
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
@@ -163,12 +163,6 @@ typedef struct{
     }ota;
 
     struct{
-        bool        self_test;
-        uint16_t    speed;//%
-        uint16_t    rpm;//RPM
-    }fan;
-
-    struct{
         uint64_t    utc; // UTC timestamp in seconds since epoch
         String      tz;  // timezone string, e.g. "8.0" for UTC+8
     }time;
@@ -190,6 +184,9 @@ typedef struct{
         SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
         SemaphoreHandle_t   update_xsem;  // miner status update signal
     }miner;
+    
+    std::vector<fan_status_t> fans;  // support multiple fans
+
 
     std::map<miner_ip_t, miner_info_t> swarm;
     SemaphoreHandle_t                  page_save_xsem; // save current page index

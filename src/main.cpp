@@ -17,7 +17,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.base.hw_model                       = config.name;
     board->info.spec.asic                           = config.asic;
     board->info.spec.ui                             = config.ui;
-    board->info.spec.fan                            = config.fan;
+    board->info.spec.fans                           = config.fans;
     board->info.spec.btn                            = config.btn;  
     board->info.spec.pwr                            = config.pwr;
     board->info.spec.led                            = config.led;
@@ -69,8 +69,6 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
 
     board->status.page_save_xsem                    = xSemaphoreCreateCounting(1, 0);
     board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
-    board->status.fan.speed                         = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
-    board->status.fan.self_test                     = false;
     board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
     board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     board->info.preference.screen.auto_screen       = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
@@ -83,7 +81,15 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     board->info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
     board->info.base.coin_price.toUpperCase();
-
+    // initialize fan statuses
+    for(uint8_t i = 0; i < board->info.spec.fans.size(); i++){
+        fan_status_t    state;
+        state.id        = i;
+        state.self_test = false;
+        state.speed     = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
+        state.rpm       = 0;
+        board->status.fans.push_back(state);
+    }
 
     // set I2C pins and start I2C
     bool iic = Wire.begin(board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);              

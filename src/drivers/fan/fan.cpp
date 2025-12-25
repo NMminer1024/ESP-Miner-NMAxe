@@ -5,13 +5,12 @@
 
 #define PULSES_PER_REVOLUTION 2        // Number of pulses per fan revolution
 
-static fan_init_param_t fan_init_params;
+static fan_init_t fan_init_params;
 
-
-void fan_init(fan_init_param_t init_param){
+void fan_init(fan_init_t init_param){
     fan_init_params = init_param;
     pinMode(init_param.pwm_pin, OUTPUT);
-    ledcSetup(init_param.pwm_ch, init_param.pwm_freq, init_param.pwm_revolution);
+    ledcSetup(init_param.pwm_ch, init_param.pwm_freq, init_param.pwm_resolution);
     ledcAttachPin(init_param.pwm_pin, init_param.pwm_ch);
 
     pcnt_config_t pcnt_config = {
@@ -38,7 +37,7 @@ void fan_init(fan_init_param_t init_param){
 
 void fan_set_speed(float speed, bool invert = false){
     float spd = (invert) ? (1.0f - speed):speed;
-    uint32_t dutyCycle = (uint32_t)(spd * (( 1 << fan_init_params.pwm_revolution) - 1));
+    uint32_t dutyCycle = (uint32_t)(spd * (( 1 << fan_init_params.pwm_resolution) - 1));
     ledcWrite(fan_init_params.pwm_ch, dutyCycle);
 }
 
