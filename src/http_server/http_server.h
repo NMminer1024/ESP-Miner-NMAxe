@@ -15,11 +15,7 @@
 #define HTTP_API_SYS_JSON_KEY_ASIC_SMALL_CORE_CNT           "smallCoreCnt"
 #define HTTP_API_SYS_JSON_KEY_ASIC_MODEL_NAME               "asic"
 
-
 #define HTTP_API_SYS_JSON_KEY_FAN_CNT                       "fanCount"
-
-
-
 
 #define HTTP_API_SYS_JSON_KEY_MINER_HR_REALTIME             "hashRate"
 #define HTTP_API_SYS_JSON_KEY_MINER_BEST_DIFF_EVER          "bestDiffEver"
@@ -54,26 +50,6 @@
 #define HTTP_API_SYS_JSON_KEY_PERFORMANCE_ASIC_TARGET_TEMP          "asicTargetTemp"
 #define HTTP_API_SYS_JSON_KEY_PERFORMANCE_FAN_AUTO_SPEED            "fanAutoSpeed"
 #define HTTP_API_SYS_JSON_KEY_PERFORMANCE_LED_INDICATOR             "ledIndicator"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 void file_system_init();
 void get_system_info(AsyncWebServerRequest *request);

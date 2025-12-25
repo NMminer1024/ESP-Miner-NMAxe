@@ -841,15 +841,9 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             g_board.info.preference.led.sleep  = false;
             nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledindicator"].as<uint8_t>());
         }
-        if(root.containsKey("overheat_mode")){
-
-        }
         if(root.containsKey("coin")){
             nvs_config_set_string(NVS_CONFIG_MINING_COIN,root["coin"].as<String>().c_str());
             g_board.info.base.coin_price = root["coin"].as<String>();
-        }
-        if(root.containsKey("invertscreen")){
-
         }
         if(root.containsKey("autofanspeed")){
             nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());

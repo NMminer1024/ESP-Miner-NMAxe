@@ -272,6 +272,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     // Load system info to get board version
     this.systemService.getInfo().subscribe({
       next: (data: any) => {
+        // Map new field names to legacy names for backward compatibility
+        data.boardVersion = data.hwModel || data.boardVersion;
+        
         if (data && data.boardVersion) {
           this.boardVersion = data.boardVersion;
           console.log('Board version loaded:', this.boardVersion);

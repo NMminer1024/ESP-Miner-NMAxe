@@ -121,13 +121,13 @@
     </ng-container>
 
 
-    <div class="col-12 md:col-4" *ngIf="form.get('overheat_mode')?.value === 1">
+    <!-- <div class="col-12 md:col-4" *ngIf="form.get('overheat_mode')?.value === 1">
       <div class="field-checkbox">
         <p-checkbox name="overheat_mode" formControlName="overheat_mode" inputId="overheat_mode"
                     [binary]="true"></p-checkbox>
         <label for="overheat_mode">Disable Overheat Mode. Make sure to reset Frequency and Voltage</label>
       </div>
-    </div>
+    </div> -->
 
     <div class="mt-2">
       <button pButton [disabled]="form.invalid" (click)="updateSystem()"

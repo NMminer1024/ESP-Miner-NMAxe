@@ -47,6 +47,7 @@ export class PreferenceComponent implements OnInit {
         info.brightness = info.Brightness ?? info.brightness;
         info.autofanspeed = info.fanAutoSpeed ?? info.autofanspeed;
         info.autoscreen = info.screenAutoRoll ?? info.autoscreen;
+        info.targetAsicTemp = info.asicTargetTemp ?? info.targetAsicTemp;
         if (info.fans && info.fans.length > 0) {
           const defaultFan = info.fans.find((f: any) => f.id === 0) || info.fans[0];
           info.fanspeed = defaultFan.speed;
@@ -114,7 +115,7 @@ export class PreferenceComponent implements OnInit {
     //   delete form.stratumPassword2;
     // }
 
-    form.overheat_mode = form.overheat_mode ? 1 : 0;
+    // form.overheat_mode = form.overheat_mode ? 1 : 0;
 
     this.systemService.updateSystem(this.uri, form)
       .pipe(this.loadingService.lockUIUntilComplete())

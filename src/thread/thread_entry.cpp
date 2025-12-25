@@ -715,8 +715,8 @@ void monitor_thread_entry(void *args){
             node.vbus         = String((board->status.power.vbus / 1000.0f),1); //V
             node.ibus         = String((board->status.power.ibus / 1000.0f),3); //A
             node.vcore        = board->status.power.vcore;//mV
-            // node.fanspeed     = board->status.fan.speed; //%
-            // node.fanrpm       = board->status.fan.rpm;
+            node.fanspeed     = board->status.fans[0].speed; //%
+            node.fanrpm       = board->status.fans[0].rpm;
             node.wifi_rssi    = board->info.connection.wifi.status_param.rssi;
             node.free_ram     = ESP.getFreeHeap() / 1024;  //free sram in Kbytes
             node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes

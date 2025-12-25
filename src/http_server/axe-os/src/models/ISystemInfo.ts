@@ -100,5 +100,5 @@ export interface ISystemInfo {
   fanspeed?: number,
   fanrpm?: number,
   boardtemp2?: number,
-  overheat_mode?: number
+  // overheat_mode?: number
 }

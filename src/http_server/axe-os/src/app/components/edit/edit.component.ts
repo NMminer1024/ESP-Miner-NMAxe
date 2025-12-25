@@ -125,18 +125,11 @@ export class EditComponent implements OnInit {
           coreVoltage: [info.coreVoltage, [Validators.required]],
           frequency: [info.frequency, [Validators.required]],
           coin: [info.coin, [Validators.required]],
-          overheat_mode: [info.overheat_mode, [Validators.required]]
+          // overheat_mode: [info.overheat_mode, [Validators.required]]
         });
 
-        this.form.controls['autofanspeed'].valueChanges.pipe(
-          startWith(this.form.controls['autofanspeed'].value)
-        ).subscribe(autofanspeed => {
-          if (autofanspeed) {
-            this.form.controls['fanspeed'].disable();
-          } else {
-            this.form.controls['fanspeed'].enable();
-          }
-        });
+        // Remove the autofanspeed/fanspeed logic as these fields don't exist in this form
+        // This logic belongs to the preference component, not the mining settings
       });
   }
 
@@ -163,7 +156,7 @@ export class EditComponent implements OnInit {
     //   delete form.stratumPassword2;
     // }
 
-    form.overheat_mode = form.overheat_mode ? 1 : 0;
+    // form.overheat_mode = form.overheat_mode ? 1 : 0;
 
     this.systemService.updateSystem(this.uri, form)
       .pipe(this.loadingService.lockUIUntilComplete())

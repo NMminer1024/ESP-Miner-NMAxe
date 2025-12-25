@@ -110,7 +110,7 @@ export class SystemService {
           fanspeed: 100,
           fanrpm: 4500,
           boardtemp2: 40,
-          overheat_mode: 0
+          // overheat_mode: 0
         }
       ).pipe(delay(1000));
     }
