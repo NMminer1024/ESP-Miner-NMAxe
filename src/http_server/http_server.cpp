@@ -87,7 +87,7 @@ void rest_common_get_handler(AsyncWebServerRequest *request) {
     LOG_L("File sending complete: %s, free heap: %d", base_path.c_str(), ESP.getFreeHeap());
 }
 void get_system_info(AsyncWebServerRequest* request){
-    const uint16_t json_size_max  =  1024;
+    const uint16_t json_size_max  =  2048;
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
     root.clear();
     root[HTTP_API_SYS_JSON_KEY_MINER_POWER]             = (g_board.status.power.ibus /1000.0f) * (g_board.status.power.vbus / 1000.0f);
@@ -97,11 +97,11 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_MCU_TEMP]                = g_board.status.temp.mcu;
 
     root[HTTP_API_SYS_JSON_KEY_ASIC_CNT]                = g_board.miner->get_asic_count();
+    root[HTTP_API_SYS_JSON_KEY_ASIC_MODEL_NAME]         = g_board.info.spec.asic.name;
     root[HTTP_API_SYS_JSON_KEY_ASIC_TEMP]               = g_board.status.temp.asic;
     root[HTTP_API_SYS_JSON_KEY_ASIC_VCORE_REQ]          = g_board.info.spec.asic.req_vcore;
     root[HTTP_API_SYS_JSON_KEY_ASIC_VCORE_ACTUAL]       = g_board.status.power.vcore;
     root[HTTP_API_SYS_JSON_KEY_ASIC_SMALL_CORE_CNT]     = g_board.miner->get_asic_small_cores();
-    root[HTTP_API_SYS_JSON_KEY_ASIC_MODEL_NAME]         = g_board.info.spec.asic.name;
     root[HTTP_API_SYS_JSON_KEY_ASIC_FREQ_REQ]           = g_board.info.spec.asic.req_frq;
 
 
@@ -113,22 +113,12 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_MINER_SHARES_REJECTED]   = g_board.status.miner.share_rejected;
     root[HTTP_API_SYS_JSON_KEY_MINER_UPTIME_SECONDS]    = g_board.status.miner.uptime_session;
     
-    root[HTTP_API_SYS_JSON_KEY_MINER_FW_VERSION]        = g_board.info.base.fw_version;
-    root[HTTP_API_SYS_JSON_KEY_MINER_HW_MODEL]          = g_board.info.base.hw_model;
-    root[HTTP_API_SYS_JSON_KEY_MINER_HOSTNAME]          = g_board.info.base.hostname;
-    root[HTTP_API_SYS_JSON_KEY_MINER_TIMEZONE]          = g_board.status.time.tz;
-    root[HTTP_API_SYS_JSON_KEY_MINER_WIFI_SSID]         = g_board.info.connection.wifi.conn_param.ssid;
-    root[HTTP_API_SYS_JSON_KEY_MINER_WIFI_STATUS]       = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
-
-
-    root[HTTP_API_SYS_JSON_KEY_POOL_URL_USED]           = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
-    root[HTTP_API_SYS_JSON_KEY_POOL_USER_USED]          = g_board.info.connection.stratum_use.user;
-    root[HTTP_API_SYS_JSON_KEY_POOL_URL_PRIMARY]        = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
-    root[HTTP_API_SYS_JSON_KEY_POOL_USER_PRIMARY]       = g_board.info.connection.stratum_primary.user;
-    root[HTTP_API_SYS_JSON_KEY_POOL_PWD_PRIMARY]        = g_board.info.connection.stratum_primary.pwd;
-    root[HTTP_API_SYS_JSON_KEY_POOL_URL_FALLBACK]       = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
-    root[HTTP_API_SYS_JSON_KEY_POOL_USER_FALLBACK]      = g_board.info.connection.stratum_fallback.user;
-    root[HTTP_API_SYS_JSON_KEY_POOL_PWD_FALLBACK]       = g_board.info.connection.stratum_fallback.pwd;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_FW_VERSION]        = g_board.info.base.fw_version;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_HW_MODEL]          = g_board.info.base.hw_model;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_HOSTNAME]          = g_board.info.base.hostname;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_TIMEZONE]          = g_board.status.time.tz;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_SSID]         = g_board.info.connection.wifi.conn_param.ssid;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_STATUS]       = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
 
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_FLIP]         = g_board.info.preference.screen.flip;
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_LED_INDICATOR]       = g_board.info.preference.led.enable;
@@ -138,9 +128,23 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_BRIGHTNESS]   = g_board.info.preference.screen.brightness_last;
 
     root[HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY]              = g_board.info.base.coin_price;
-    root[HTTP_API_SYS_JSON_KEY_FAN_CNT]                         = g_board.info.spec.fans.size();
+
+    JsonObject stratumObj = root.createNestedObject("stratum");
+    JsonObject usedObj = stratumObj.createNestedObject("used");
+    usedObj["url"]                = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
+    usedObj["user"]               = g_board.info.connection.stratum_use.user;
+    usedObj["pwd"]                = g_board.info.connection.stratum_use.pwd;
+    JsonObject primaryObj = stratumObj.createNestedObject("primary");
+    primaryObj["url"]             = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
+    primaryObj["user"]            = g_board.info.connection.stratum_primary.user;
+    primaryObj["pwd"]             = g_board.info.connection.stratum_primary.pwd;
+    JsonObject fallbackObj = stratumObj.createNestedObject("fallback");
+    fallbackObj["url"]            = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
+    fallbackObj["user"]           = g_board.info.connection.stratum_fallback.user;
+    fallbackObj["pwd"]            = g_board.info.connection.stratum_fallback.pwd;
 
     // adjust multiple fans status
+    root[HTTP_API_SYS_JSON_KEY_FAN_CNT]    = g_board.info.spec.fans.size();
     JsonArray fansArray = root.createNestedArray("fans");
     for(auto & fan : g_board.status.fans){
         JsonObject fanObj = fansArray.createNestedObject();
@@ -700,7 +704,7 @@ void post_restart(AsyncWebServerRequest * request){
     xSemaphoreGive(g_board.status.reboot_xsem);
 }
 void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
-    static uint16_t SCRATCH_BUFSIZE = 512;
+    static uint16_t SCRATCH_BUFSIZE = 1024;
     
     LOG_W("Update Settings Request, request contentLength: %d, index: %d, total: %d", request->contentLength(), index, total);
     if (total >= SCRATCH_BUFSIZE) {
@@ -713,6 +717,13 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
     if (index + len <= SCRATCH_BUFSIZE) {
         memcpy(buffer + index, data, len);
     }
+
+
+
+    LOG_W("Update Settings Payload: %s", buffer);
+
+
+
 
     if (index + len == total) {
         buffer[total] = '\0'; 
@@ -749,6 +760,8 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
         if(root.containsKey("stratumPassword2")){
             nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK,root["stratumPassword2"].as<String>().c_str());
         }
+
+
         if(root.containsKey("timezone")){
             nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
             g_board.status.time.tz = root["timezone"].as<String>();

@@ -6,6 +6,18 @@ export interface IFan {
   rpm: number;
 }
 
+export interface IStratumPool {
+  url?: string;
+  user?: string;
+  pwd?: string;
+}
+
+export interface IStratum {
+  used?: IStratumPool;
+  primary?: IStratumPool;
+  fallback?: IStratumPool;
+}
+
 export interface ISystemInfo {
 
   // Performance preferences
@@ -55,7 +67,10 @@ export interface ISystemInfo {
   wifiSSID: string,
   wifiStatus: string,
 
-  // Pool info
+  // Pool info (new nested structure)
+  stratum?: IStratum,
+  
+  // Pool info (legacy flat structure for backward compatibility)
   usedUrl: string,
   usedUser: string,
   primaryUrl: string,

@@ -85,6 +85,23 @@ export class SystemService {
           frequency: 485,
           hostname: "NMAxe",
           ssid: "default",
+          stratum: {
+            used: {
+              url: "stratum+tcp://solo.ckpool.org:3333",
+              user: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
+              pwd: "x"
+            },
+            primary: {
+              url: "stratum+tcp://solo.ckpool.org:3333",
+              user: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
+              pwd: "x"
+            },
+            fallback: {
+              url: "stratum+tcp://solo.ckpool.org:3333",
+              user: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
+              pwd: "x"
+            }
+          },
           stratumURLUSED: "stratum+tcp://solo.ckpool.org:3333",
           stratumURL1: "stratum+tcp://solo.ckpool.org:3333",
           stratumURL2: "stratum+tcp://solo.ckpool.org:3333",

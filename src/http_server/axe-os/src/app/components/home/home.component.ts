@@ -84,8 +84,9 @@ export class HomeComponent {
 
     this.quickLink$ = this.info$.pipe(
       map(info => {
-        const poolUrl = info.stratumURLUSED || info.usedUrl || '';
-        const poolUser = info.stratumUserUSED || info.usedUser || '';
+        // Parse new stratum nested structure or fallback to legacy flat structure
+        const poolUrl = info.stratum?.used?.url || info.stratumURLUSED || info.usedUrl || '';
+        const poolUser = info.stratum?.used?.user || info.stratumUserUSED || info.usedUser || '';
         const coin = info.coin || info.coinPriceDisplay || '';
         
         if (poolUrl.includes('public-pool.io')) {
