@@ -88,58 +88,8 @@ void rest_common_get_handler(AsyncWebServerRequest *request) {
 }
 void get_system_info(AsyncWebServerRequest* request){
     const uint16_t json_size_max  =  1024;
-
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
-
     root.clear();
-    // root["power"] = (g_board.status.power.ibus /1000.0f) * (g_board.status.power.vbus / 1000.0f);
-    // root["voltage"] = g_board.status.power.vbus;
-    // root["current"] = g_board.status.power.ibus;
-    // root["temp"] = g_board.status.temp.asic;
-    // root["vrTemp"] = g_board.status.temp.vcore;
-    // root["mcuTemp"] = g_board.status.temp.mcu;
-    // root["hashRate"] = g_board.status.miner.hashrate._3m/1000/1000/1000;
-    // root["bestDiff"] = formatNumber(g_board.status.miner.diff.best_ever, 4);
-    // root["bestSessionDiff"] = formatNumber(g_board.status.miner.diff.best_session, 4);
-    // root["freeHeap"] = ESP.getFreeHeap();
-    // root["coreVoltage"] = g_board.info.spec.asic.req_vcore;
-    // root["coreVoltageActual"] = g_board.status.power.vcore;
-    // root["frequency"] = g_board.info.spec.asic.req_frq;
-    // root["hostname"] = g_board.info.base.hostname;
-    // root["timezone"] = g_board.status.time.tz;
-    // root["ssid"] = g_board.info.connection.wifi.conn_param.ssid;
-    // root["wifiStatus"] = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
-    // root["sharesAccepted"] = g_board.status.miner.share_accepted;
-    // root["sharesRejected"] = g_board.status.miner.share_rejected;
-    // root["uptimeSeconds"] = g_board.status.miner.uptime_session;
-    // root["asicCount"] = g_board.miner->get_asic_count();
-    // root["smallCoreCount"] = g_board.miner->get_asic_small_cores();
-    // root["ASICModel"] = g_board.info.spec.asic.name;
-    // root["stratumUserUSED"] = g_board.info.connection.stratum_use.user;
-    // root["stratumURLUSED"] = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
-    // root["stratumUser1"] = g_board.info.connection.stratum_primary.user;
-    // root["stratumPassword1"] = g_board.info.connection.stratum_primary.pwd;
-    // root["stratumUser2"]     = g_board.info.connection.stratum_fallback.user;
-    // root["stratumPassword2"] = g_board.info.connection.stratum_fallback.pwd;
-    // root["stratumURL1"] = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
-    // root["stratumURL2"] = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
-    // root["version"] = g_board.info.base.fw_version;
-    // root["boardVersion"] = g_board.info.base.hw_model;
-    // root["flipscreen"] = g_board.info.preference.screen.flip;
-    // root["ledindicator"] = g_board.info.preference.led.enable;
-    // root["overheat_mode"] = 0;
-    // root["invertscreen"]  = 1;
-    // root["autofanspeed"] = g_board.info.preference.fan.is_auto_speed;
-    // root["autoscreen"]   = g_board.info.preference.screen.auto_rolling;
-    // root["targetAsicTemp"] = String(g_board.info.preference.fan.target_temp);
-    // root["brightness"] = g_board.info.preference.screen.brightness_last;
-    // root["coin"] = g_board.info.base.coin_price;
-    // root["fanCount"] = g_board.info.spec.fans.size();
-    // root["fanspeed"] = g_board.status.fan.speed;
-    // root["fanrpm"] = g_board.status.fan.rpm;
-
-
-
     root[HTTP_API_SYS_JSON_KEY_MINER_POWER]             = (g_board.status.power.ibus /1000.0f) * (g_board.status.power.vbus / 1000.0f);
     root[HTTP_API_SYS_JSON_KEY_MINER_VOLT]              = g_board.status.power.vbus;
     root[HTTP_API_SYS_JSON_KEY_MINER_CURRENT]           = g_board.status.power.ibus;
@@ -170,16 +120,15 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_MINER_WIFI_SSID]         = g_board.info.connection.wifi.conn_param.ssid;
     root[HTTP_API_SYS_JSON_KEY_MINER_WIFI_STATUS]       = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
 
-    root[HTTP_API_SYS_JSON_KEY_POOL_USER_USED]          = g_board.info.connection.stratum_use.user;
-    root[HTTP_API_SYS_JSON_KEY_POOL_URL_USED]           = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
-    
-    root[HTTP_API_SYS_JSON_KEY_POOL_USER_PRIMARY]       = g_board.info.connection.stratum_primary.user;
-    root[HTTP_API_SYS_JSON_KEY_POOL_USER_PASSWORD]      = g_board.info.connection.stratum_primary.pwd;
-    root[HTTP_API_SYS_JSON_KEY_POOL_USER_FALLBACK]      = g_board.info.connection.stratum_fallback.user;
-    root[HTTP_API_SYS_JSON_KEY_POOL_PASSWORD_FALLBACK]  = g_board.info.connection.stratum_fallback.pwd;
-    root[HTTP_API_SYS_JSON_KEY_POOL_URL_PRIMARY]        = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
-    root[HTTP_API_SYS_JSON_KEY_POOL_URL_FALLBACK]       = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
 
+    root[HTTP_API_SYS_JSON_KEY_POOL_URL_USED]           = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
+    root[HTTP_API_SYS_JSON_KEY_POOL_USER_USED]          = g_board.info.connection.stratum_use.user;
+    root[HTTP_API_SYS_JSON_KEY_POOL_URL_PRIMARY]        = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
+    root[HTTP_API_SYS_JSON_KEY_POOL_USER_PRIMARY]       = g_board.info.connection.stratum_primary.user;
+    root[HTTP_API_SYS_JSON_KEY_POOL_PWD_PRIMARY]        = g_board.info.connection.stratum_primary.pwd;
+    root[HTTP_API_SYS_JSON_KEY_POOL_URL_FALLBACK]       = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
+    root[HTTP_API_SYS_JSON_KEY_POOL_USER_FALLBACK]      = g_board.info.connection.stratum_fallback.user;
+    root[HTTP_API_SYS_JSON_KEY_POOL_PWD_FALLBACK]       = g_board.info.connection.stratum_fallback.pwd;
 
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_FLIP]         = g_board.info.preference.screen.flip;
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_LED_INDICATOR]       = g_board.info.preference.led.enable;
@@ -187,7 +136,6 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_AUTO_ROLL]    = g_board.info.preference.screen.auto_rolling;
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_ASIC_TARGET_TEMP]    = String(g_board.info.preference.fan.target_temp);
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_BRIGHTNESS]   = g_board.info.preference.screen.brightness_last;
-
 
     root[HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY]              = g_board.info.base.coin_price;
     root[HTTP_API_SYS_JSON_KEY_FAN_CNT]                         = g_board.info.spec.fans.size();
@@ -200,8 +148,6 @@ void get_system_info(AsyncWebServerRequest* request){
         fanObj["speed"] = fan.speed;  
         fanObj["rpm"]   = fan.rpm;     
     }
-
-
 
     String json_str;
     serializeJson(root, json_str);

@@ -37,10 +37,10 @@
 #define HTTP_API_SYS_JSON_KEY_POOL_PASSWORD_USED            "usedPassword"
 #define HTTP_API_SYS_JSON_KEY_POOL_URL_PRIMARY              "primaryUrl"
 #define HTTP_API_SYS_JSON_KEY_POOL_USER_PRIMARY             "primaryUser"
-#define HTTP_API_SYS_JSON_KEY_POOL_USER_PASSWORD            "primaryPassword"
+#define HTTP_API_SYS_JSON_KEY_POOL_PWD_PRIMARY            "primaryPassword"
 #define HTTP_API_SYS_JSON_KEY_POOL_URL_FALLBACK             "fallBackUrl"
 #define HTTP_API_SYS_JSON_KEY_POOL_USER_FALLBACK            "fallBackUser"
-#define HTTP_API_SYS_JSON_KEY_POOL_PASSWORD_FALLBACK        "fallBackPassword"
+#define HTTP_API_SYS_JSON_KEY_POOL_PWD_FALLBACK        "fallBackPassword"
 #define HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY            "coinPriceDisplay"
 
 
