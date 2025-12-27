@@ -44,21 +44,13 @@ export class SettingsComponent {
         
         // Parse new stratum nested structure
         if (info.stratum) {
-          console.log('Parsing stratum nested structure:', info.stratum);
           info.stratumURL1 = info.stratum.primary?.url || info.primaryUrl || info.stratumURL1 || '';
           info.stratumURL2 = info.stratum.fallback?.url || info.fallBackUrl || info.stratumURL2 || '';
           info.stratumUser1 = info.stratum.primary?.user || info.primaryUser || info.stratumUser1 || '';
           info.stratumUser2 = info.stratum.fallback?.user || info.fallBackUser || info.stratumUser2 || '';
           info.stratumPassword1 = info.stratum.primary?.pwd || info.primaryPassword || info.stratumPassword1 || '';
           info.stratumPassword2 = info.stratum.fallback?.pwd || info.fallBackPassword || info.stratumPassword2 || '';
-          console.log('Parsed values:', {
-            stratumURL1: info.stratumURL1,
-            stratumURL2: info.stratumURL2,
-            stratumUser1: info.stratumUser1,
-            stratumUser2: info.stratumUser2
-          });
         } else {
-          console.log('Using legacy flat structure');
           // Fallback to old flat structure
           info.stratumURL1 = info.primaryUrl || info.stratumURL1 || '';
           info.stratumURL2 = info.fallBackUrl || info.stratumURL2 || '';
@@ -79,15 +71,6 @@ export class SettingsComponent {
         }
         
         this.ASICModel = info.ASICModel;
-        
-        console.log('Creating form with values:', {
-          stratumURL1: info.stratumURL1,
-          stratumURL2: info.stratumURL2,
-          stratumUser1: info.stratumUser1,
-          stratumUser2: info.stratumUser2,
-          stratumPassword1: info.stratumPassword1,
-          stratumPassword2: info.stratumPassword2
-        });
         
         this.form = this.fb.group({
           flipscreen: [info.flipscreen == 1],

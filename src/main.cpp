@@ -79,7 +79,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.preference.led.sleep_last           = board->info.preference.led.sleep;
     board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
-    board->info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_MINING_COIN, "BTC"));
+    board->info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC"));
     board->info.base.coin_price.toUpperCase();
     // initialize fan statuses
     for(uint8_t i = 0; i < board->info.spec.fans.size(); i++){

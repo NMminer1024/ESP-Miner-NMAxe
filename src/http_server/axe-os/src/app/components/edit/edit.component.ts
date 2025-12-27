@@ -99,21 +99,13 @@ export class EditComponent implements OnInit {
         
         // Parse new stratum nested structure
         if (info.stratum) {
-          console.log('[edit.component] Parsing stratum nested structure:', info.stratum);
           info.stratumURL1 = info.stratum.primary?.url || info.primaryUrl || info.stratumURL1 || '';
           info.stratumURL2 = info.stratum.fallback?.url || info.fallBackUrl || info.stratumURL2 || '';
           info.stratumUser1 = info.stratum.primary?.user || info.primaryUser || info.stratumUser1 || '';
           info.stratumUser2 = info.stratum.fallback?.user || info.fallBackUser || info.stratumUser2 || '';
           info.stratumPassword1 = info.stratum.primary?.pwd || info.primaryPassword || info.stratumPassword1 || '';
           info.stratumPassword2 = info.stratum.fallback?.pwd || info.fallBackPassword || info.stratumPassword2 || '';
-          console.log('[edit.component] Parsed values:', {
-            stratumURL1: info.stratumURL1,
-            stratumURL2: info.stratumURL2,
-            stratumUser1: info.stratumUser1,
-            stratumUser2: info.stratumUser2
-          });
         } else {
-          console.log('[edit.component] Using legacy flat structure');
           // Fallback to old flat structure
           info.stratumURL1 = info.primaryUrl || info.stratumURL1 || '';
           info.stratumURL2 = info.fallBackUrl || info.stratumURL2 || '';
@@ -168,16 +160,26 @@ export class EditComponent implements OnInit {
 
   public updateSystem() {
 
-    const form = this.form.getRawValue();
+    const formValue = this.form.getRawValue();
 
-    // if (form.stratumPassword1 === 'password') {
-    //   delete form.stratumPassword1;
-    // }
-    // if (form.stratumPassword2 === 'password') {
-    //   delete form.stratumPassword2;
-    // }
-
-    // form.overheat_mode = form.overheat_mode ? 1 : 0;
+    // Transform flat form data to nested stratum structure
+    const form = {
+      stratum: {
+        primary: {
+          url: formValue.stratumURL1,
+          user: formValue.stratumUser1,
+          pwd: formValue.stratumPassword1 || 'x'
+        },
+        fallback: {
+          url: formValue.stratumURL2,
+          user: formValue.stratumUser2,
+          pwd: formValue.stratumPassword2 || 'x'
+        }
+      },
+      asicVcoreReq: formValue.coreVoltage,
+      asicFreqReq: formValue.frequency,
+      coinDisplay: formValue.coin
+    };
 
     this.systemService.updateSystem(this.uri, form)
       .pipe(this.loadingService.lockUIUntilComplete())

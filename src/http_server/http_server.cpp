@@ -717,14 +717,9 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
     if (index + len <= SCRATCH_BUFSIZE) {
         memcpy(buffer + index, data, len);
     }
+    LOG_D("Update Settings Payload: %s", buffer);
 
-
-
-    LOG_W("Update Settings Payload: %s", buffer);
-
-
-
-
+    
     if (index + len == total) {
         buffer[total] = '\0'; 
         StaticJsonDocument<1024> root;
@@ -740,28 +735,52 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             return;
         }
 
-        //primary pool
-        if(root.containsKey("stratumUser1")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_USER_PRIMARY,root["stratumUser1"].as<String>().c_str());
+        /************************************** settings->mining config ***************************************************************/
+        if(root.containsKey("stratum") && root["stratum"].is<JsonObject>()) {
+            JsonObject stratum = root["stratum"].as<JsonObject>();
+            // Primary pool
+            if(stratum.containsKey("primary") && stratum["primary"].is<JsonObject>()) {
+                JsonObject primary = stratum["primary"].as<JsonObject>();
+                if(primary.containsKey("url")) {
+                    nvs_config_set_string(NVS_CONFIG_STRATUM_URL_PRIMARY, primary["url"].as<String>().c_str());
+                }
+                if(primary.containsKey("user")) {
+                    nvs_config_set_string(NVS_CONFIG_STRATUM_USER_PRIMARY, primary["user"].as<String>().c_str());
+                }
+                if(primary.containsKey("pwd")) {
+                    nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, primary["pwd"].as<String>().c_str());
+                }
+            }
+            // Fallback pool
+            if(stratum.containsKey("fallback") && stratum["fallback"].is<JsonObject>()) {
+                JsonObject fallback = stratum["fallback"].as<JsonObject>();
+                if(fallback.containsKey("url")) {
+                    nvs_config_set_string(NVS_CONFIG_STRATUM_URL_FALLBACK, fallback["url"].as<String>().c_str());
+                }
+                if(fallback.containsKey("user")) {
+                    nvs_config_set_string(NVS_CONFIG_STRATUM_USER_FALLBACK, fallback["user"].as<String>().c_str());
+                }
+                if(fallback.containsKey("pwd")) {
+                    nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, fallback["pwd"].as<String>().c_str());
+                }
+            }
         }
-        if(root.containsKey("stratumURL1")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_URL_PRIMARY, root["stratumURL1"].as<String>().c_str());
+        if(root.containsKey("asicVcoreReq")){
+            uint16_t req_mv = root["asicVcoreReq"].as<uint16_t>();
+            g_board.info.spec.asic.req_vcore = req_mv;
+            g_board.power->set_vcore_voltage(req_mv);
+            nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, req_mv);
         }
-        if(root.containsKey("stratumPassword1")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_PRIMARY,root["stratumPassword1"].as<String>().c_str());
+        if(root.containsKey("asicFreqReq")){
+            nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, root["asicFreqReq"].as<uint16_t>());
         }
-        //fallback pool
-        if(root.containsKey("stratumUser2")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_USER_FALLBACK,root["stratumUser2"].as<String>().c_str());
+        if(root.containsKey("coinDisplay")){
+            nvs_config_set_string(NVS_CONFIG_PRICE_DISPLAY_COIN, root["coinDisplay"].as<String>().c_str());
+            g_board.info.base.coin_price = root["coinDisplay"].as<String>();
+            g_board.info.base.coin_price.toUpperCase();
         }
-        if(root.containsKey("stratumURL2")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_URL_FALLBACK, root["stratumURL2"].as<String>().c_str());
-        }
-        if(root.containsKey("stratumPassword2")){
-            nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK,root["stratumPassword2"].as<String>().c_str());
-        }
-
-
+        
+        /************************************** settings->network config ***************************************************************/
         if(root.containsKey("timezone")){
             nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
             g_board.status.time.tz = root["timezone"].as<String>();
@@ -778,19 +797,12 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             g_board.info.base.hostname                    = root["hostname"].as<String>();
             g_board.info.connection.wifi.softap_param.ssid = root["hostname"].as<String>();
         }
-        if(root.containsKey("coreVoltage")){
-            uint16_t req_mv = root["coreVoltage"].as<uint16_t>();
-            g_board.info.spec.asic.req_vcore = req_mv;
-            g_board.power->set_vcore_voltage(req_mv);
-            nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, root["coreVoltage"].as<uint16_t>());
-        }
+
+        /************************************** settings->preference config ***************************************************************/
         if(root.containsKey("brightness")){
             g_board.info.preference.screen.brightness = root["brightness"].as<uint8_t>();
             g_board.info.preference.screen.brightness_last = g_board.info.preference.screen.brightness;
             nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.preference.screen.brightness);
-        }
-        if(root.containsKey("frequency")){
-            nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, root["frequency"].as<uint16_t>());
         }
         if(root.containsKey("flipscreen")){
             nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());
@@ -800,10 +812,7 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             g_board.info.preference.led.sleep  = false;
             nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledindicator"].as<uint8_t>());
         }
-        if(root.containsKey("coin")){
-            nvs_config_set_string(NVS_CONFIG_MINING_COIN,root["coin"].as<String>().c_str());
-            g_board.info.base.coin_price = root["coin"].as<String>();
-        }
+
         if(root.containsKey("autofanspeed")){
             nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());
             g_board.info.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();

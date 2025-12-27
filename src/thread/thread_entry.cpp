@@ -832,6 +832,7 @@ void market_thread_entry(void *args){
     while(true){
         if(board->info.connection.wifi.status_param.status == WL_CONNECTED){
             // Fetch the 24hr ticker data for the coin
+            // LOG_W("Fetching 24hr ticker data for %sUSDT...", board->info.base.coin_price.c_str());
             bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT");
             board->market->lastUpdate = (res) ? millis() : board->market->lastUpdate;
         }
