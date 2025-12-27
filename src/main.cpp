@@ -51,6 +51,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
     board->status.miner.update_xsem                 = xSemaphoreCreateCounting(1, 0);
+    board->status.brightness_xsem                   = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
     board->info.connection.wifi.softap_param.pwd    = "12345678";
     board->info.connection.wifi.softap_param.ssid   = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, ("NMAxe_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
@@ -73,7 +74,6 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     board->info.preference.screen.auto_rolling       = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
     board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 90);
-    board->info.preference.screen.brightness_last   = board->info.preference.screen.brightness;
     board->info.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     board->info.preference.led.sleep                = false;
     board->info.preference.led.sleep_last           = board->info.preference.led.sleep;
@@ -253,6 +253,25 @@ void setup() {
 
 void loop() {
   // TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask , stratumTask, minerTxTask, minerRxTask;
+
+  // for testing only: simulate block hits every 20s
+  // static uint32_t cnt = 1;
+  // if(cnt++ % 20 == 0){
+  //   g_board.status.miner.hits++;
+  // }
+
+  uint32_t last = millis();
+  while(millis() - last < 1000*1){
+      static uint16_t brightness      = g_board.info.preference.screen.brightness, last_brightness = brightness;   
+      static float    x = 0;
+      if(g_board.status.miner.last_hits != g_board.status.miner.hits){//screen blink if block hit
+          brightness = 100*(1 + sin(x))/2;
+          x+=0.1;
+          tft_bl_ctrl(brightness);
+      } else brightness = g_board.info.preference.screen.brightness;
+      delay(10);
+  }
+
 #if 0
   static uint32_t start = millis();
   static UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(NULL);
@@ -314,7 +333,5 @@ void loop() {
       LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
   }
 #endif
-
-  delay(1000);
 }
 

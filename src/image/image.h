@@ -6,4 +6,5 @@
 #include "config_img.h"
 #include "status_img.h"
 #include "black_img.h"
+#include "blockhit_img.h"
 #endif

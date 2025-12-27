@@ -504,25 +504,8 @@ void monitor_thread_entry(void *args){
     delay(500);//necessary delay for first job cache ready
 
     while(true){
-        //thread delay 1000ms
-        static uint32_t last = millis();
-        while(millis() - last < 1000*1){
-            static uint16_t brightness = board->info.preference.screen.brightness, last_brightness = board->info.preference.screen.brightness;
-            static float    x = 0;
-            if(board->status.miner.last_hits != board->status.miner.hits){//screen blink if block hit
-            brightness = 100*(1 + sin(x))/2;
-            x+=0.1;
-            }else brightness = board->info.preference.screen.brightness;
-
-            //update screen brightness only when changed
-            if(last_brightness != brightness){
-            tft_bl_ctrl(brightness);
-            last_brightness = brightness;
-            }
-            delay(10);
-        }
-        last = millis();
-
+        // thread delay 1000ms
+        delay(1000);
         // update utc time
         if(ntpClient.update()){
             struct timeval tv;
@@ -587,9 +570,9 @@ void monitor_thread_entry(void *args){
         if(board->status.miner.uptime_session % 2 == 0){
             //check mcu temperature status
             if(board->status.temp.mcu > BOARD_MCU_DANGER){
-            LOG_W("MCU temp is too high, restart...");
-            delay(1000);
-            ESP.restart();
+                LOG_W("MCU temp is too high, restart...");
+                delay(1000);
+                ESP.restart();
             }
             //check vcore temperature status
             if(board->status.temp.vcore > VCORE_TEMP_DANGER || board->status.temp.asic > ASIC_TEMP_DANGER){
@@ -598,9 +581,9 @@ void monitor_thread_entry(void *args){
             else{
                 static uint8_t cnt = 0;
                 if(++cnt > 5){
-                LOG_W("Vcore temp reach danger for 5 seconds, restart...");
-                delay(1000);
-                ESP.restart();
+                    LOG_W("Vcore temp reach danger for 5 seconds, restart...");
+                    delay(1000);
+                    ESP.restart();
                 }
             }
             board->power->set_vcore_voltage(vcore_now);
@@ -660,9 +643,15 @@ void monitor_thread_entry(void *args){
         }
 
         //save last ui page to NVS
-        if(board->status.page_save_xsem != NULL && xSemaphoreTake(board->status.page_save_xsem, 0) == pdTRUE){
+        if(board->status.page_save_xsem != nullptr && xSemaphoreTake(board->status.page_save_xsem, 0) == pdTRUE){
             nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, board->info.spec.ui.last_page);
             LOG_D("Last page %d saved to NVS", board->info.spec.ui.last_page);
+        }
+
+        // update bringhtnes
+        if(xSemaphoreTake(board->status.brightness_xsem, 0) == pdTRUE){
+            tft_bl_ctrl(board->info.preference.screen.brightness);
+            LOG_D("Update screen brightness to %d", board->info.preference.screen.brightness);
         }
 
         //update miner status history queue

@@ -85,7 +85,6 @@ typedef struct{
     bool     flip;
     bool     auto_rolling;// auto rolling screen
     uint16_t brightness;
-    uint16_t brightness_last;
 }screen_info_t;
 
 typedef struct{
@@ -192,7 +191,7 @@ typedef struct{
     SemaphoreHandle_t                  page_save_xsem; // save current page index
     SemaphoreHandle_t                  reboot_xsem;
     SemaphoreHandle_t                  nvs_save_xsem;// save status to NVS signal
-    // SemaphoreHandle_t                  http_server_ready_xsem;// save status to NVS signal
+    SemaphoreHandle_t                  brightness_xsem;// screen brightness update signal
     
 }board_status_t;
 

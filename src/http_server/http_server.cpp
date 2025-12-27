@@ -125,7 +125,7 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_FAN_AUTO_SPEED]      = g_board.info.preference.fan.is_auto_speed;
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_AUTO_ROLL]    = g_board.info.preference.screen.auto_rolling;
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_ASIC_TARGET_TEMP]    = String(g_board.info.preference.fan.target_temp);
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_BRIGHTNESS]   = g_board.info.preference.screen.brightness_last;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_BRIGHTNESS]   = g_board.info.preference.screen.brightness;
 
     root[HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY]              = g_board.info.base.coin_price;
 
@@ -706,7 +706,7 @@ void post_restart(AsyncWebServerRequest * request){
 void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
     static uint16_t SCRATCH_BUFSIZE = 1024;
     
-    LOG_W("Update Settings Request, request contentLength: %d, index: %d, total: %d", request->contentLength(), index, total);
+    LOG_D("Update Settings Request, request contentLength: %d, index: %d, total: %d", request->contentLength(), index, total);
     if (total >= SCRATCH_BUFSIZE) {
         request->send(500, "text/plain", "Content too long");
         LOG_E("request %s too long", request->url().c_str());
@@ -719,7 +719,7 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
     }
     LOG_D("Update Settings Payload: %s", buffer);
 
-    
+
     if (index + len == total) {
         buffer[total] = '\0'; 
         StaticJsonDocument<1024> root;
@@ -801,8 +801,9 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
         /************************************** settings->preference config ***************************************************************/
         if(root.containsKey("brightness")){
             g_board.info.preference.screen.brightness = root["brightness"].as<uint8_t>();
-            g_board.info.preference.screen.brightness_last = g_board.info.preference.screen.brightness;
             nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.preference.screen.brightness);
+            xSemaphoreGive(g_board.status.brightness_xsem);
+            LOG_D("Screen brightness set to %d", g_board.info.preference.screen.brightness);
         }
         if(root.containsKey("flipscreen")){
             nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());

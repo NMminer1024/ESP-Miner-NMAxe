@@ -138,10 +138,9 @@ static void ui_layout_init(void){
       p_config_img = &config_page_img_nmaxe_gamma;
       p_mining_img = &mining_page_img_nmaxe_gamma;
   }
-  p_loading_img = &loading_page_img;
-  p_status_img  = &status_page_img;
-  p_black_img   = &black_page_img;
-
+  p_loading_img  = &loading_page_img;
+  p_status_img   = &status_page_img;
+  p_black_img    = &black_page_img;
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
   //create parent object
@@ -354,6 +353,10 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
 }
 
 static void ui_miner_page_update(board_sal_t* board){
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
   static lv_obj_t *lb_share = NULL, *lb_fan_and_efficiency = NULL, *lb_hr_unit = NULL, *lb_uptime_day_unit = NULL;
   static lv_obj_t *lb_hashrate = NULL, *lb_blk_hit = NULL, *lb_temp = NULL, *lb_power = NULL, *lb_wifi = NULL, *lb_uptime_day = NULL, *lb_uptime_hms = NULL, *lb_diff = NULL;
   static lv_obj_t *lb_uptime_symbol = NULL, *lb_wifi_symbol = NULL, *lb_diff_symbol = NULL, *lb_share_symb = NULL, *lb_temp_symb = NULL, *lb_fan_symb = NULL;
@@ -690,6 +693,10 @@ static void ui_miner_page_update(board_sal_t* board){
 }
 
 static void ui_ota_page_update(board_sal_t* board){
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
   if(!board->status.ota.running)return;
 
   static lv_obj_t * overlay = NULL, *bar = NULL, *label_file = NULL, *label_progress = NULL;
@@ -722,6 +729,8 @@ static void ui_ota_page_update(board_sal_t* board){
       label_progress = lv_label_create(overlay);
       lv_obj_set_style_text_color(label_progress, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
       lv_obj_align(label_progress, LV_ALIGN_LEFT_MID, 0, 0); 
+
+      lv_obj_move_foreground(overlay);  // bring to front
   }
 
   lv_coord_t bar_x = lv_obj_get_x(bar);
@@ -735,6 +744,69 @@ static void ui_ota_page_update(board_sal_t* board){
   //update bar value
   lv_bar_set_value(bar, board->status.ota.progress, LV_ANIM_ON);
   lv_label_set_text(label_file, board->status.ota.filename.c_str());
+}
+
+static void ui_hits_page_update(board_sal_t* board){
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
+  static lv_obj_t *hits_page = nullptr, *hits_img_obj = nullptr;
+  static lv_style_t style_overlay;
+  if(board->status.miner.hits == board->status.miner.last_hits) {
+    if(hits_img_obj != nullptr){
+      lv_obj_del(hits_img_obj);
+      hits_img_obj = nullptr;
+    }
+    if(hits_page != nullptr){
+      lv_obj_del(hits_page);
+      hits_page = nullptr;
+    }
+    return;
+  }
+  //create parent object
+  if(hits_page == nullptr){
+    // create hits page
+    hits_page = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(hits_page, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(hits_page, LV_ALIGN_CENTER, 0, 0);  // center align
+    lv_obj_set_style_pad_all(hits_page, 0, 0);
+    lv_obj_set_style_border_width(hits_page, 0, 0);
+    lv_obj_set_scrollbar_mode(hits_page, LV_SCROLLBAR_MODE_OFF);
+    
+    // create and configure style
+    lv_style_init(&style_overlay);
+    lv_style_set_bg_color(&style_overlay, lv_color_black());
+    // lv_style_set_bg_opa(&style_overlay, LV_OPA_70);  // 70% opacity black background
+    lv_style_set_border_width(&style_overlay, 0);
+    lv_style_set_border_opa(&style_overlay, LV_OPA_TRANSP);
+    
+    // connect style to hits_page
+    lv_obj_add_style(hits_page, &style_overlay, LV_PART_MAIN);
+    
+    // create and configure image object
+    hits_img_obj = lv_img_create(hits_page);
+    lv_img_set_src(hits_img_obj, &block_hits_page_img);
+    lv_obj_set_size(hits_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(hits_img_obj, LV_ALIGN_CENTER, 0, 0);
+    
+    // set image opacity
+    lv_obj_set_style_img_opa(hits_img_obj, LV_OPA_COVER, LV_PART_MAIN);
+
+    // show overlay
+    lv_obj_clear_flag(hits_page, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(hits_page);  // bring to front
+  }
+  else{
+    // uint8_t opa_lsit[] = {LV_OPA_100, LV_OPA_90, LV_OPA_80, LV_OPA_70, LV_OPA_60, LV_OPA_50, LV_OPA_40, LV_OPA_30, LV_OPA_20, LV_OPA_10, LV_OPA_TRANSP};
+    // static uint8_t opa_index = 0;
+    // //fade out effect
+    // lv_obj_set_style_bg_opa(hits_page, opa_lsit[opa_index % sizeof(opa_lsit)/sizeof(opa_lsit[0])], LV_PART_MAIN);
+    // // update image opacity
+    // lv_obj_set_style_img_opa(hits_img_obj, opa_lsit[opa_index % sizeof(opa_lsit)/sizeof(opa_lsit[0])], LV_PART_MAIN);
+    // LOG_D("Hits page opa index: %d, opacity: %d\r\n", opa_index, opa_lsit[opa_index]);
+    // opa_index++;  
+  }
 }
 
 static void ui_dashboard_page_update(board_sal_t* board){
@@ -755,6 +827,12 @@ static void ui_dashboard_page_update(board_sal_t* board){
 
   #define ASIC_TEMP_MIN 0.0f
   #define ASIC_TEMP_MAX 80.0f
+
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
+
 
   static lv_obj_t * arc_power = NULL, *arc_oc = NULL, *arc_vcore_req = NULL, *arc_vcore_measure = NULL, *arc_asci_temp = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -998,6 +1076,10 @@ static void ui_dashboard_page_update(board_sal_t* board){
 }
 
 static void ui_hr_healthy_page_update(board_sal_t* board){
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
   uint16_t SCALE = (board->info.spec.ui.hr_dist_page.max_x_hr / board->info.spec.ui.hr_dist_page.max_x_bars);
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
@@ -1109,6 +1191,13 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
 }
 
 static void ui_big_digit_page_update(board_sal_t* board){
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
+
+
+
   static bool first_time = true;
   static lv_obj_t * lb_hashrate = NULL, * lb_hashrate_unit = NULL,* lb_price = NULL;
   static lv_obj_t * lb_time = NULL, * lb_date = NULL, * lb_block_hit = NULL, *lb_block_hit_unit = NULL;
@@ -1226,8 +1315,9 @@ static void ui_big_digit_page_update(board_sal_t* board){
 
 void ui_switch_next_page_cb(){
   g_board.info.preference.led.sleep         = (g_board.info.preference.led.sleep_last) ? false : g_board.info.preference.led.sleep; //switch led sleep mode
-  g_board.info.preference.screen.brightness = g_board.info.preference.screen.brightness_last;//restore brightness
+  // g_board.info.preference.screen.brightness = g_board.info.preference.screen.brightness_last;//restore brightness
   if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
+    xSemaphoreGive(g_board.status.brightness_xsem); //wake up brightness thread to set brightness
     g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
     return;
   } 
@@ -1493,14 +1583,13 @@ void ui_thread_entry(void *args){
   current_page_index = g_board.info.spec.ui.last_page;
   
   while (true){
-    //wait for miner status update forever
     xSemaphoreTake(g_board.status.miner.update_xsem, portMAX_DELAY);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
       // auto screen scrolling
-      static uint32_t start = millis();
-      if((millis() - start >= 1000*10) && g_board.info.preference.screen.auto_rolling){
+      static uint32_t last = 0;
+      if((millis() - last >= 1000*10) && g_board.info.preference.screen.auto_rolling){
         ui_switch_next_page_cb();
-        start = millis();
+        last = millis();
       }
 
       //update miner page
@@ -1513,6 +1602,9 @@ void ui_thread_entry(void *args){
       ui_big_digit_page_update(&g_board);
       //update ota page
       ui_ota_page_update(&g_board);
+      //update hits page
+      ui_hits_page_update(&g_board);
+
       //release mutex
       xSemaphoreGive(lvgl_xMutex); 
     }
