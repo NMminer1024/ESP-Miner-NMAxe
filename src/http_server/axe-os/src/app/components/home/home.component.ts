@@ -35,14 +35,17 @@ export class HomeComponent {
         info.frequency = info.freqReq;
         info.hostname = info.hostName;
         info.ssid = info.wifiSSID;
-        info.stratumURLUSED = info.usedUrl;
-        info.stratumUserUSED = info.usedUser;
-        info.stratumURL1 = info.primaryUrl;
-        info.stratumUser1 = info.primaryUser;
-        info.stratumPassword1 = info.primaryPassword;
-        info.stratumURL2 = info.fallBackUrl;
-        info.stratumUser2 = info.fallBackUser;
-        info.stratumPassword2 = info.fallBackPassword;
+        
+        // Map nested stratum structure to legacy flat structure
+        info.stratumURLUSED = info.stratum?.used?.url || info.usedUrl || '';
+        info.stratumUserUSED = info.stratum?.used?.user || info.usedUser || '';
+        info.stratumURL1 = info.stratum?.primary?.url || info.primaryUrl || '';
+        info.stratumUser1 = info.stratum?.primary?.user || info.primaryUser || '';
+        info.stratumPassword1 = info.stratum?.primary?.pwd || info.primaryPassword || '';
+        info.stratumURL2 = info.stratum?.fallback?.url || info.fallBackUrl || '';
+        info.stratumUser2 = info.stratum?.fallback?.user || info.fallBackUser || '';
+        info.stratumPassword2 = info.stratum?.fallback?.pwd || info.fallBackPassword || '';
+        
         info.version = info.fwVersion;
         info.boardVersion = info.hwModel;
         info.coin = info.coinPriceDisplay;
