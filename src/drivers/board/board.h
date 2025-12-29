@@ -50,10 +50,10 @@ struct BoardSpecConfig {
     struct {
         uint16_t width;   // in pixels
         uint16_t height;  // in pixels
-        uint8_t dc_pin;   // data/command pin
-        uint8_t rst_pin;  // reset pin
-        uint8_t bl_pin;   // backlight pin
-        uint8_t pwr_pin;  // power pin
+        int8_t dc_pin;   // data/command pin
+        int8_t rst_pin;  // reset pin
+        int8_t bl_pin;   // backlight pin
+        int8_t pwr_pin;  // power pin
     }tft;
 
     struct {
@@ -66,9 +66,9 @@ struct BoardSpecConfig {
         uint16_t min_vcore;       // mV, minimum core voltage
         uint16_t max_vcore;       // mV, maximum core voltage
         uint16_t diff_thr_init;   // initial difficulty threshold
-        uint8_t  rx_pin;           // ESP32 rx pin to asic tx pin
-        uint8_t  tx_pin;           // ESP32 tx pin to asic rx pin
-        uint8_t  rst_pin;          // ESP32 rst pin to asic rst pin
+        int8_t  rx_pin;           // ESP32 rx pin to asic tx pin
+        int8_t  tx_pin;           // ESP32 tx pin to asic rx pin
+        int8_t  rst_pin;          // ESP32 rst pin to asic rst pin
         uint32_t com_baud_init;   // initial communication baudrate 
         uint32_t com_baud_work;   // working communication baudrate
         HardwareSerial *com_port; // HardwareSerial port instance
@@ -77,15 +77,15 @@ struct BoardSpecConfig {
     struct {
         axe_pwr_enable_pin_t en_pins;
         axe_pwr_adc_pin_t    adc_pins;
-        uint8_t              vcore_regulator_pin;    
-        uint8_t              pgood_pin;
-        uint8_t              dc_plug_pin;
+        int8_t               vcore_regulator_pin;    
+        int8_t               pgood_pin;
+        int8_t               dc_plug_pin;
         uint16_t             vbus_min_required; // mV, minimum vbus voltage to start mining
     }pwr;
 
     struct{
-        uint8_t              sda_pin;
-        uint8_t              scl_pin;
+        int8_t              sda_pin;
+        int8_t              scl_pin;
     }iic;
 
     struct{
@@ -96,14 +96,14 @@ struct BoardSpecConfig {
     }spi;
 
     struct{
-        uint8_t             user_pin; // user button as recover to factory default
-        uint8_t             boot_pin; // boot button as UI page switch
+        int8_t             user_pin; // user button as recover to factory default
+        int8_t             boot_pin; // boot button as UI page switch
     }btn;
 
     struct{
-        uint8_t             wifi_pin; // wifi status led
-        uint8_t             pool_pin; // pool status led
-        uint8_t             sys_pin;  // system status led
+        int8_t             wifi_pin; // wifi status led
+        int8_t             pool_pin; // pool status led
+        int8_t             sys_pin;  // system status led
     }led;
 
     std::vector<fan_config_t> fans;  // support multiple fans
