@@ -1,7 +1,7 @@
 #ifndef __BLOCK_HIT_IMG__H_
 #define __BLOCK_HIT_IMG__H_
 #include "lvgl.h"
-#include "global.h"
+#include <User_Setup_Select.h>
 
 
 const LV_ATTRIBUTE_MEM_ALIGN uint16_t block_hit_page_img_array[32400] = {
@@ -148,10 +148,10 @@ const lv_img_dsc_t block_hits_page_img = {
         .cf = LV_IMG_CF_TRUE_COLOR,  
         .always_zero = 0,
         .reserved = 0,
-        .w = SCREEN_WIDTH,  
-        .h = SCREEN_HEIGHT, 
+        .w = TFT_HEIGHT ,  
+        .h = TFT_WIDTH, 
     },
-    .data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8,
+    .data_size = TFT_WIDTH * TFT_HEIGHT * LV_COLOR_SIZE / 8,
     .data = (const uint8_t *)block_hit_page_img_array,
 };
 

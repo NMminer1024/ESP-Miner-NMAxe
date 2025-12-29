@@ -20,13 +20,6 @@
 #define PRIMARY_POOL_PWD                               "x"
 #define FALLBACK_POOL_PWD                              "x"
 
-#define SCREEN_WIDTH                                   240
-#define SCREEN_HEIGHT                                  135
-
-// // #define ASIC_JOB_DIFF_DEFAULT_THR                      512  //Default ASIC diff threshold to set as initial asic diff
-// #define ESP32_TO_ASIC_INIT_BUAD                        115200
-// #define ESP32_TO_ASIC_WORK_BUAD                        1000000
-
 /*********************************Pin define********************************/
 #define NM_AXE_TFT_PWER_PIN                            18
 #define NM_AXE_TFT_BL_PIN                              17
@@ -55,13 +48,6 @@ struct BoardSpecConfig {
         }hr_dist_page;
         uint8_t             last_page;//last ui page index, restored on next boot
     }ui;
-
-    struct{
-        uint8_t   pwr_pin;
-        uint8_t   bl_pin;
-        uint32_t  width;
-        uint32_t  height;
-    }tft;
 
     struct {
         String   name;            // asic model name
