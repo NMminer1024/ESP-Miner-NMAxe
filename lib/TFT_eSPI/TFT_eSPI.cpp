@@ -530,7 +530,7 @@ TFT_eSPI::TFT_eSPI(int16_t w, int16_t h)
 ** Function name:           initBus
 ** Description:             initialise the SPI or parallel bus
 ***************************************************************************************/
-void TFT_eSPI::initBus(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin)
+void TFT_eSPI::initBus(int8_t csPin, int8_t dcPin, int8_t rstPin)
 {
 
 // #ifdef TFT_CS
@@ -612,28 +612,25 @@ void TFT_eSPI::initBus(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin)
       pinMode(this->_rstPin, OUTPUT);
       digitalWrite(this->_rstPin, HIGH); // Set high, do not share pin with another SPI device
   }
-  if(blPin >= 0) {
-      this->_blPin = blPin;
-  }
 }
 
 /***************************************************************************************
 ** Function name:           begin
 ** Description:             Included for backwards compatibility
 ***************************************************************************************/
-void TFT_eSPI::begin(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc){
-  init(csPin, dcPin, blPin, rstPin, spiclk, spimiso, spimosi, tc);
+void TFT_eSPI::begin(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc){
+  init(csPin, dcPin, rstPin, spiclk, spimiso, spimosi, tc);
 }
 
 /***************************************************************************************
 ** Function name:           init (tc is tab colour for ST7735 displays only)
 ** Description:             Reset, then initialise the TFT display registers
 ***************************************************************************************/
-void TFT_eSPI::init(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc)
+void TFT_eSPI::init(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc)
 {
   if (_booted)
   {
-    initBus(csPin, dcPin, blPin, rstPin);
+    initBus(csPin, dcPin, rstPin);
 
 // #if !defined (ESP32) && !defined(TFT_PARALLEL_8_BIT) && !defined(ARDUINO_ARCH_RP2040) && !defined (ARDUINO_ARCH_MBED)
 //   // Legacy bitmasks for GPIO

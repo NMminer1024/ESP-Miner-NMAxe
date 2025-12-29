@@ -433,8 +433,8 @@ class TFT_eSPI : public Print { friend class TFT_eSprite; // Sprite class has ac
 
   // init() and begin() are equivalent, begin() included for backwards compatibility
   // Sketch defined tab colour option is for ST7735 displays only
-  void     init(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc = TAB_COLOUR);
-  void     begin(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc = TAB_COLOUR);
+  void     init(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc = TAB_COLOUR);
+  void     begin(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc = TAB_COLOUR);
 
   // These are virtual so the TFT_eSprite class can override them with sprite specific functions
   virtual void     drawPixel(int32_t x, int32_t y, uint32_t color),
@@ -857,7 +857,7 @@ class TFT_eSPI : public Print { friend class TFT_eSprite; // Sprite class has ac
   inline void end_tft_read()    __attribute__((always_inline));
 
            // Initialise the data bus GPIO and hardware interfaces
-  void     initBus(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin);
+  void     initBus(int8_t csPin, int8_t dcPin, int8_t rstPin);
 
            // Temporary  library development function  TODO: remove need for this
   void     pushSwapBytePixels(const void* data_in, uint32_t len);

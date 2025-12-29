@@ -41,10 +41,9 @@ static void tft_init(){
     digitalWrite(g_board.info.spec.tft.pwr_pin, LOW);
     delay(10); //wait for tft power stable
   }
-  
+
   tftDriver.begin(g_board.info.spec.spi.cs_pin, 
-                  g_board.info.spec.tft.dc_pin, 
-                  g_board.info.spec.tft.bl_pin,
+                  g_board.info.spec.tft.dc_pin,
                   g_board.info.spec.tft.rst_pin, 
                   g_board.info.spec.spi.sclk_pin,
                   g_board.info.spec.spi.miso_pin,
