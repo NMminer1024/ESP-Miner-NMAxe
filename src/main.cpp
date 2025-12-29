@@ -16,6 +16,8 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     /*************************************************** Specific parameters among different board ***************************************/
     board->info.base.hw_model                       = config.name;
     board->info.spec.asic                           = config.asic;
+    board->info.spec.tft                            = config.tft;
+    board->info.spec.spi                            = config.spi;
     board->info.spec.ui                             = config.ui;
     board->info.spec.fans                           = config.fans;
     board->info.spec.btn                            = config.btn;  

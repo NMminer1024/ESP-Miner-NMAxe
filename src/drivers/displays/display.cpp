@@ -18,19 +18,15 @@ LV_FONT_DECLARE(ds_digib_font_50)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(symbol_14)
 
-
-
 #define SCREEN_WIDTH  TFT_HEIGHT
 #define SCREEN_HEIGHT TFT_WIDTH 
 
-
-static TFT_eSPI tft = TFT_eSPI();
+static TFT_eSPI tftDriver = TFT_eSPI();
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
 static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
 static lv_obj_t *lb_cfg_timeout = NULL;
 static uint8_t   current_page_index = UI_PAGE_MINER;
-
 
 static int blpwmChannel = 0;   
 void tft_bl_ctrl(int8_t percent){
@@ -39,19 +35,31 @@ void tft_bl_ctrl(int8_t percent){
 }
 
 static void tft_init(){
-  pinMode(NM_AXE_TFT_PWER_PIN, OUTPUT);
-  digitalWrite(NM_AXE_TFT_PWER_PIN, LOW);
+  // Power on TFT
+  if(g_board.info.spec.tft.pwr_pin >= 0){
+    pinMode(g_board.info.spec.tft.pwr_pin, OUTPUT);
+    digitalWrite(g_board.info.spec.tft.pwr_pin, LOW);
+    delay(10); //wait for tft power stable
+  }
+  
+  tftDriver.begin(g_board.info.spec.spi.cs_pin, 
+                  g_board.info.spec.tft.dc_pin, 
+                  g_board.info.spec.tft.bl_pin,
+                  g_board.info.spec.tft.rst_pin, 
+                  g_board.info.spec.spi.sclk_pin,
+                  g_board.info.spec.spi.miso_pin,
+                  g_board.info.spec.spi.mosi_pin
+                );
 
-  tft.begin(); 
-  if(g_board.info.preference.screen.flip)tft.setRotation(1); 
-  else tft.setRotation(3); 
+  if(g_board.info.preference.screen.flip)tftDriver.setRotation(1); 
+  else tftDriver.setRotation(3); 
 
 
   int freq = 5*1000;    
   int resolution = 8;   
-  pinMode(NM_AXE_TFT_BL_PIN, OUTPUT);
+  pinMode(g_board.info.spec.tft.bl_pin, OUTPUT);
   ledcSetup(blpwmChannel, freq, resolution);
-  ledcAttachPin(NM_AXE_TFT_BL_PIN, blpwmChannel);
+  ledcAttachPin(g_board.info.spec.tft.bl_pin, blpwmChannel);
   tft_bl_ctrl(0);//sleep when boot up
 }
 
@@ -59,10 +67,10 @@ static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color
     uint32_t w = ( area->x2 - area->x1 + 1 );
     uint32_t h = ( area->y2 - area->y1 + 1 );
 
-    tft.startWrite();
-    tft.setAddrWindow( area->x1, area->y1, w, h );
-    tft.pushColors( ( uint16_t * )&color_p->full, w * h, true );
-    tft.endWrite();
+    tftDriver.startWrite();
+    tftDriver.setAddrWindow( area->x1, area->y1, w, h );
+    tftDriver.pushColors( ( uint16_t * )&color_p->full, w * h, true );
+    tftDriver.endWrite();
 
     lv_disp_flush_ready(disp_drv);
 }
@@ -1352,9 +1360,7 @@ void ui_thread_entry(void *args){
   const char* config_str[] = {"Config   ","Config.  ","Config.. ","Config..."};
 
   tft_init();
-
   lv_init();
-
   ui_drv_register();
 
   //lvgl tick task

@@ -21,9 +21,6 @@
 #define FALLBACK_POOL_PWD                              "x"
 
 /*********************************Pin define********************************/
-#define NM_AXE_TFT_PWER_PIN                            18
-#define NM_AXE_TFT_BL_PIN                              17
-
 #define NM_AXE_MODEL_SELECT_PIN0                       15
 #define NM_AXE_MODEL_SELECT_PIN1                       46
 
@@ -48,6 +45,16 @@ struct BoardSpecConfig {
         }hr_dist_page;
         uint8_t             last_page;//last ui page index, restored on next boot
     }ui;
+
+
+    struct {
+        uint16_t width;   // in pixels
+        uint16_t height;  // in pixels
+        uint8_t dc_pin;   // data/command pin
+        uint8_t rst_pin;  // reset pin
+        uint8_t bl_pin;   // backlight pin
+        uint8_t pwr_pin;  // power pin
+    }tft;
 
     struct {
         String   name;            // asic model name
@@ -80,6 +87,13 @@ struct BoardSpecConfig {
         uint8_t              sda_pin;
         uint8_t              scl_pin;
     }iic;
+
+    struct{
+        int8_t               miso_pin;
+        int8_t               mosi_pin;
+        int8_t               sclk_pin;
+        int8_t               cs_pin;  // chip select pin
+    }spi;
 
     struct{
         uint8_t             user_pin; // user button as recover to factory default

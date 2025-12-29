@@ -11,15 +11,15 @@ typedef enum{
 } power_state_t;
 
 typedef struct{
-    uint8_t pwr_pll_0v8;
-    uint8_t pwr_vdd_1v8;
-    uint8_t pwr_vcore;
+    int8_t pwr_pll_0v8;
+    int8_t pwr_vdd_1v8;
+    int8_t pwr_vcore;
 } axe_pwr_enable_pin_t;
 
 typedef struct{
-    uint8_t vbus;
-    uint8_t ibus;
-    uint8_t vcore;
+    int8_t vbus;
+    int8_t ibus;
+    int8_t vcore;
 } axe_pwr_adc_pin_t;
 
 class AxePowerHal{

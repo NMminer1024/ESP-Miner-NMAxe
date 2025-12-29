@@ -144,8 +144,6 @@ const LV_ATTRIBUTE_MEM_ALIGN uint16_t black_page_img_array[32400] = {
 };
 
 
-
-
 const lv_img_dsc_t black_page_img = {
     .header = {
         .cf = LV_IMG_CF_TRUE_COLOR,  

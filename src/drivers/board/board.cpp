@@ -29,6 +29,18 @@ BoardSpecConfig get_board_config(BoardModelType model) {
         case NMAXE:
             config.name                      = "NMAxe";
             config.asic.name                 = "BM1366";
+
+            config.tft.width                 = 135;
+            config.tft.height                = 240;
+            config.tft.dc_pin                = 47;
+            config.tft.bl_pin                = 17;
+            config.tft.rst_pin               = 40;
+            config.tft.pwr_pin               = 18;
+            config.spi.cs_pin                = 39;
+            config.spi.miso_pin              = -1;
+            config.spi.mosi_pin              = 48;
+            config.spi.sclk_pin              = 38;
+
             config.ui.hr_dist_page.max_x_hr  = 1000;
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
@@ -89,6 +101,18 @@ BoardSpecConfig get_board_config(BoardModelType model) {
         case NMAXE_GAMMA:
             config.name                      = "NMAxeGamma";
             config.asic.name                 = "BM1370";
+
+            config.tft.width                 = 135;
+            config.tft.height                = 240;
+            config.tft.dc_pin                = 47;
+            config.tft.bl_pin                = 17;
+            config.tft.rst_pin               = 40;
+            config.tft.pwr_pin               = 18;
+            config.spi.cs_pin                = 39;
+            config.spi.miso_pin              = -1;
+            config.spi.mosi_pin              = 48;
+            config.spi.sclk_pin              = 38;
+
             config.asic.job_interval_ms      = 500;
             config.ui.hr_dist_page.max_x_hr  = 2000;
             config.ui.hr_dist_page.max_x_bars= 20;
@@ -150,6 +174,18 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.name                      = "NMQAxe++";
             config.asic.name                 = "BM1370";
             config.asic.job_interval_ms      = 500;
+            
+            config.tft.width                 = 135;
+            config.tft.height                = 240;
+            config.tft.dc_pin                = 47;
+            config.tft.bl_pin                = 17;
+            config.tft.rst_pin               = 40;
+            config.tft.pwr_pin               = 18;
+            config.spi.cs_pin                = 39;
+            config.spi.miso_pin              = -1;
+            config.spi.mosi_pin              = 48;
+            config.spi.sclk_pin              = 38;
+
             config.ui.hr_dist_page.max_x_hr  = 2000;
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;

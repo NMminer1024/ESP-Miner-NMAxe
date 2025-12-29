@@ -530,126 +530,151 @@ TFT_eSPI::TFT_eSPI(int16_t w, int16_t h)
 ** Function name:           initBus
 ** Description:             initialise the SPI or parallel bus
 ***************************************************************************************/
-void TFT_eSPI::initBus(void) {
+void TFT_eSPI::initBus(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin)
+{
 
-#ifdef TFT_CS
-  if (TFT_CS >= 0) {
-    pinMode(TFT_CS, OUTPUT);
-    digitalWrite(TFT_CS, HIGH); // Chip select high (inactive)
+// #ifdef TFT_CS
+//   if (TFT_CS >= 0) {
+//     pinMode(TFT_CS, OUTPUT);
+//     digitalWrite(TFT_CS, HIGH); // Chip select high (inactive)
+//   }
+// #endif
+
+// // Configure chip select for touchscreen controller if present
+// #ifdef TOUCH_CS
+//   if (TOUCH_CS >= 0) {
+//     pinMode(TOUCH_CS, OUTPUT);
+//     digitalWrite(TOUCH_CS, HIGH); // Chip select high (inactive)
+//   }
+// #endif
+
+// // In parallel mode and with the RP2040 processor, the TFT_WR line is handled in the  PIO
+// #if defined (TFT_WR) && !defined (ARDUINO_ARCH_RP2040) && !defined (ARDUINO_ARCH_MBED)
+//   if (TFT_WR >= 0) {
+//     pinMode(TFT_WR, OUTPUT);
+//     digitalWrite(TFT_WR, HIGH); // Set write strobe high (inactive)
+//   }
+// #endif
+
+// #ifdef TFT_DC
+//   if (TFT_DC >= 0) {
+//     pinMode(TFT_DC, OUTPUT);
+//     digitalWrite(TFT_DC, HIGH); // Data/Command high = data mode
+//   }
+// #endif
+
+// #ifdef TFT_RST
+//   if (TFT_RST >= 0) {
+//     pinMode(TFT_RST, OUTPUT);
+//     digitalWrite(TFT_RST, HIGH); // Set high, do not share pin with another SPI device
+//   }
+// #endif
+
+// #if defined (TFT_PARALLEL_8_BIT)
+
+//   // Make sure read is high before we set the bus to output
+//   if (TFT_RD >= 0) {
+//     pinMode(TFT_RD, OUTPUT);
+//     digitalWrite(TFT_RD, HIGH);
+//   }
+
+//   #if  !defined (ARDUINO_ARCH_RP2040)  && !defined (ARDUINO_ARCH_MBED)// PIO manages pins
+//     // Set TFT data bus lines to output
+//     pinMode(TFT_D0, OUTPUT); digitalWrite(TFT_D0, HIGH);
+//     pinMode(TFT_D1, OUTPUT); digitalWrite(TFT_D1, HIGH);
+//     pinMode(TFT_D2, OUTPUT); digitalWrite(TFT_D2, HIGH);
+//     pinMode(TFT_D3, OUTPUT); digitalWrite(TFT_D3, HIGH);
+//     pinMode(TFT_D4, OUTPUT); digitalWrite(TFT_D4, HIGH);
+//     pinMode(TFT_D5, OUTPUT); digitalWrite(TFT_D5, HIGH);
+//     pinMode(TFT_D6, OUTPUT); digitalWrite(TFT_D6, HIGH);
+//     pinMode(TFT_D7, OUTPUT); digitalWrite(TFT_D7, HIGH);
+//   #endif
+
+//   PARALLEL_INIT_TFT_DATA_BUS;
+
+// #endif
+
+  // Set to output once again in case MISO is used for CS
+  if(csPin >= 0) {
+      this->_csPin = csPin;
+      pinMode(this->_csPin, OUTPUT);
+      digitalWrite(this->_csPin, HIGH); // Chip select high (inactive)
   }
-#endif
-
-// Configure chip select for touchscreen controller if present
-#ifdef TOUCH_CS
-  if (TOUCH_CS >= 0) {
-    pinMode(TOUCH_CS, OUTPUT);
-    digitalWrite(TOUCH_CS, HIGH); // Chip select high (inactive)
+  // Set to output once again in case MISO is used for DC
+  if(dcPin >= 0) {
+      this->_dcPin = dcPin;
+      pinMode(this->_dcPin, OUTPUT);
+      digitalWrite(this->_dcPin, HIGH); // Data/Command high = data mode
   }
-#endif
-
-// In parallel mode and with the RP2040 processor, the TFT_WR line is handled in the  PIO
-#if defined (TFT_WR) && !defined (ARDUINO_ARCH_RP2040) && !defined (ARDUINO_ARCH_MBED)
-  if (TFT_WR >= 0) {
-    pinMode(TFT_WR, OUTPUT);
-    digitalWrite(TFT_WR, HIGH); // Set write strobe high (inactive)
+  // Set to output once again in case MISO is used for TFT_RST
+  if(rstPin >= 0) {
+      this->_rstPin = rstPin;
+      pinMode(this->_rstPin, OUTPUT);
+      digitalWrite(this->_rstPin, HIGH); // Set high, do not share pin with another SPI device
   }
-#endif
-
-#ifdef TFT_DC
-  if (TFT_DC >= 0) {
-    pinMode(TFT_DC, OUTPUT);
-    digitalWrite(TFT_DC, HIGH); // Data/Command high = data mode
+  if(blPin >= 0) {
+      this->_blPin = blPin;
   }
-#endif
-
-#ifdef TFT_RST
-  if (TFT_RST >= 0) {
-    pinMode(TFT_RST, OUTPUT);
-    digitalWrite(TFT_RST, HIGH); // Set high, do not share pin with another SPI device
-  }
-#endif
-
-#if defined (TFT_PARALLEL_8_BIT)
-
-  // Make sure read is high before we set the bus to output
-  if (TFT_RD >= 0) {
-    pinMode(TFT_RD, OUTPUT);
-    digitalWrite(TFT_RD, HIGH);
-  }
-
-  #if  !defined (ARDUINO_ARCH_RP2040)  && !defined (ARDUINO_ARCH_MBED)// PIO manages pins
-    // Set TFT data bus lines to output
-    pinMode(TFT_D0, OUTPUT); digitalWrite(TFT_D0, HIGH);
-    pinMode(TFT_D1, OUTPUT); digitalWrite(TFT_D1, HIGH);
-    pinMode(TFT_D2, OUTPUT); digitalWrite(TFT_D2, HIGH);
-    pinMode(TFT_D3, OUTPUT); digitalWrite(TFT_D3, HIGH);
-    pinMode(TFT_D4, OUTPUT); digitalWrite(TFT_D4, HIGH);
-    pinMode(TFT_D5, OUTPUT); digitalWrite(TFT_D5, HIGH);
-    pinMode(TFT_D6, OUTPUT); digitalWrite(TFT_D6, HIGH);
-    pinMode(TFT_D7, OUTPUT); digitalWrite(TFT_D7, HIGH);
-  #endif
-
-  PARALLEL_INIT_TFT_DATA_BUS;
-
-#endif
 }
 
 /***************************************************************************************
 ** Function name:           begin
 ** Description:             Included for backwards compatibility
 ***************************************************************************************/
-void TFT_eSPI::begin(uint8_t tc)
-{
- init(tc);
+void TFT_eSPI::begin(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc){
+  init(csPin, dcPin, blPin, rstPin, spiclk, spimiso, spimosi, tc);
 }
-
 
 /***************************************************************************************
 ** Function name:           init (tc is tab colour for ST7735 displays only)
 ** Description:             Reset, then initialise the TFT display registers
 ***************************************************************************************/
-void TFT_eSPI::init(uint8_t tc)
+void TFT_eSPI::init(int8_t csPin, int8_t dcPin, int8_t blPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc)
 {
   if (_booted)
   {
-    initBus();
+    initBus(csPin, dcPin, blPin, rstPin);
 
-#if !defined (ESP32) && !defined(TFT_PARALLEL_8_BIT) && !defined(ARDUINO_ARCH_RP2040) && !defined (ARDUINO_ARCH_MBED)
-  // Legacy bitmasks for GPIO
-  #if defined (TFT_CS) && (TFT_CS >= 0)
-    cspinmask = (uint32_t) digitalPinToBitMask(TFT_CS);
-  #endif
+// #if !defined (ESP32) && !defined(TFT_PARALLEL_8_BIT) && !defined(ARDUINO_ARCH_RP2040) && !defined (ARDUINO_ARCH_MBED)
+//   // Legacy bitmasks for GPIO
+//   #if defined (TFT_CS) && (TFT_CS >= 0)
+//     cspinmask = (uint32_t) digitalPinToBitMask(TFT_CS);
+//   #endif
 
-  #if defined (TFT_DC) && (TFT_DC >= 0)
-    dcpinmask = (uint32_t) digitalPinToBitMask(TFT_DC);
-  #endif
+//   #if defined (TFT_DC) && (TFT_DC >= 0)
+//     dcpinmask = (uint32_t) digitalPinToBitMask(TFT_DC);
+//   #endif
 
-  #if defined (TFT_WR) && (TFT_WR >= 0)
-    wrpinmask = (uint32_t) digitalPinToBitMask(TFT_WR);
-  #endif
+//   #if defined (TFT_WR) && (TFT_WR >= 0)
+//     wrpinmask = (uint32_t) digitalPinToBitMask(TFT_WR);
+//   #endif
 
-  #if defined (TFT_SCLK) && (TFT_SCLK >= 0)
-    sclkpinmask = (uint32_t) digitalPinToBitMask(TFT_SCLK);
-  #endif
+//   #if defined (TFT_SCLK) && (TFT_SCLK >= 0)
+//     sclkpinmask = (uint32_t) digitalPinToBitMask(TFT_SCLK);
+//   #endif
 
-  #if defined (TFT_SPI_OVERLAP) && defined (ARDUINO_ARCH_ESP8266)
-    // Overlap mode SD0=MISO, SD1=MOSI, CLK=SCLK must use D3 as CS
-    //    pins(int8_t sck, int8_t miso, int8_t mosi, int8_t ss);
-    //spi.pins(        6,          7,           8,          0);
-    spi.pins(6, 7, 8, 0);
-  #endif
+//   #if defined (TFT_SPI_OVERLAP) && defined (ARDUINO_ARCH_ESP8266)
+//     // Overlap mode SD0=MISO, SD1=MOSI, CLK=SCLK must use D3 as CS
+//     //    pins(int8_t sck, int8_t miso, int8_t mosi, int8_t ss);
+//     //spi.pins(        6,          7,           8,          0);
+//     spi.pins(6, 7, 8, 0);
+//   #endif
 
-  spi.begin(); // This will set HMISO to input
+//   spi.begin(); // This will set HMISO to input
 
-#else
-  #if !defined(TFT_PARALLEL_8_BIT) && !defined(RP2040_PIO_INTERFACE)
-    #if defined (TFT_MOSI) && !defined (TFT_SPI_OVERLAP) && !defined(ARDUINO_ARCH_RP2040) && !defined (ARDUINO_ARCH_MBED)
-      spi.begin(TFT_SCLK, TFT_MISO, TFT_MOSI, -1); // This will set MISO to input
-    #else
-      spi.begin(); // This will set MISO to input
-    #endif
-  #endif
-#endif
+// #else
+//   #if !defined(TFT_PARALLEL_8_BIT) && !defined(RP2040_PIO_INTERFACE)
+//     #if defined (TFT_MOSI) && !defined (TFT_SPI_OVERLAP) && !defined(ARDUINO_ARCH_RP2040) && !defined (ARDUINO_ARCH_MBED)
+//       spi.begin(TFT_SCLK, TFT_MISO, TFT_MOSI, -1); // This will set MISO to input
+//     #else
+//       spi.begin(); // This will set MISO to input
+//     #endif
+//   #endif
+// #endif
+
+    // spi.begin(TFT_SCLK, TFT_MISO, TFT_MOSI, -1); // This will set MISO to input
+    spi.begin(spiclk, spimiso, spimosi, -1); // This will set MISO to input
+
     lockTransaction = false;
     inTransaction = false;
     locked = true;
@@ -657,49 +682,75 @@ void TFT_eSPI::init(uint8_t tc)
     INIT_TFT_DATA_BUS;
 
 
-#if defined (TFT_CS) && !defined(RP2040_PIO_INTERFACE)
-  // Set to output once again in case MISO is used for CS
-  if (TFT_CS >= 0) {
-    pinMode(TFT_CS, OUTPUT);
-    digitalWrite(TFT_CS, HIGH); // Chip select high (inactive)
-  }
-#elif defined (ARDUINO_ARCH_ESP8266) && !defined (TFT_PARALLEL_8_BIT) && !defined (RP2040_PIO_SPI)
-  spi.setHwCs(1); // Use hardware SS toggling
-#endif
+// #if defined (TFT_CS) && !defined(RP2040_PIO_INTERFACE)
+//   // Set to output once again in case MISO is used for CS
+//   if (TFT_CS >= 0) {
+//     pinMode(TFT_CS, OUTPUT);
+//     digitalWrite(TFT_CS, HIGH); // Chip select high (inactive)
+//   }
+// #elif defined (ARDUINO_ARCH_ESP8266) && !defined (TFT_PARALLEL_8_BIT) && !defined (RP2040_PIO_SPI)
+//   spi.setHwCs(1); // Use hardware SS toggling
+// #endif
+
+    if(this->_csPin >= 0) {
+      pinMode(this->_csPin, OUTPUT);
+      digitalWrite(this->_csPin, HIGH); // Chip select high (inactive)
+    }
 
 
-  // Set to output once again in case MISO is used for DC
-#if defined (TFT_DC) && !defined(RP2040_PIO_INTERFACE)
-  if (TFT_DC >= 0) {
-    pinMode(TFT_DC, OUTPUT);
-    digitalWrite(TFT_DC, HIGH); // Data/Command high = data mode
-  }
-#endif
+//   // Set to output once again in case MISO is used for DC
+// #if defined (TFT_DC) && !defined(RP2040_PIO_INTERFACE)
+//   if (TFT_DC >= 0) {
+//     pinMode(TFT_DC, OUTPUT);
+//     digitalWrite(TFT_DC, HIGH); // Data/Command high = data mode
+//   }
+// #endif
+
+    if(this->_dcPin >= 0) {
+      pinMode(this->_dcPin, OUTPUT);
+      digitalWrite(this->_dcPin, HIGH); // Data/Command high = data mode
+    }
 
     _booted = false;
     end_tft_write();
   } // end of: if just _booted
 
+//   // Toggle RST low to reset
+// #ifdef TFT_RST
+//   #if !defined(RP2040_PIO_INTERFACE)
+//     // Set to output once again in case MISO is used for TFT_RST
+//     if (TFT_RST >= 0) {
+//       pinMode(TFT_RST, OUTPUT);
+//     }
+//   #endif
+//   if (                       >= 0) {
+//     writecommand(0x00); // Put SPI bus in known state for TFT with CS tied low
+//     digitalWrite(TFT_RST, HIGH);
+//     delay(5);
+//     digitalWrite(TFT_RST, LOW);
+//     delay(20);
+//     digitalWrite(TFT_RST, HIGH);
+//   }
+//   else writecommand(TFT_SWRST); // Software reset
+// #else
+//   writecommand(TFT_SWRST); // Software reset
+// #endif
+
+
   // Toggle RST low to reset
-#ifdef TFT_RST
-  #if !defined(RP2040_PIO_INTERFACE)
-    // Set to output once again in case MISO is used for TFT_RST
-    if (TFT_RST >= 0) {
-      pinMode(TFT_RST, OUTPUT);
-    }
-  #endif
-  if (TFT_RST >= 0) {
+  if(this->_rstPin >= 0) {
     writecommand(0x00); // Put SPI bus in known state for TFT with CS tied low
-    digitalWrite(TFT_RST, HIGH);
+    digitalWrite(this->_rstPin, HIGH);
     delay(5);
-    digitalWrite(TFT_RST, LOW);
+    digitalWrite(this->_rstPin, LOW);
     delay(20);
-    digitalWrite(TFT_RST, HIGH);
+    digitalWrite(this->_rstPin, HIGH);
   }
-  else writecommand(TFT_SWRST); // Software reset
-#else
-  writecommand(TFT_SWRST); // Software reset
-#endif
+  else {
+      writecommand(TFT_SWRST); // Software reset
+  }
+
+
 
   delay(150); // Wait for reset to complete
 
@@ -783,20 +834,25 @@ void TFT_eSPI::init(uint8_t tc)
 
   setRotation(rotation);
 
-#if defined (TFT_BL) && defined (TFT_BACKLIGHT_ON)
-  if (TFT_BL >= 0) {
-    pinMode(TFT_BL, OUTPUT);
-    digitalWrite(TFT_BL, TFT_BACKLIGHT_ON);
-  }
-#else
-  #if defined (TFT_BL) && defined (M5STACK)
-    // Turn on the back-light LED
-    if (TFT_BL >= 0) {
-      pinMode(TFT_BL, OUTPUT);
-      digitalWrite(TFT_BL, HIGH);
-    }
-  #endif
-#endif
+// #if defined (TFT_BL) && defined (TFT_BACKLIGHT_ON)
+//   if (TFT_BL >= 0) {
+//     pinMode(TFT_BL, OUTPUT);
+//     digitalWrite(TFT_BL, TFT_BACKLIGHT_ON);
+//   }
+// #else
+//   #if defined (TFT_BL) && defined (M5STACK)
+//     // Turn on the back-light LED
+//     if (TFT_BL >= 0) {
+//       pinMode(TFT_BL, OUTPUT);
+//       digitalWrite(TFT_BL, HIGH);
+//     }
+//   #endif
+// #endif
+
+// if(this->_blPin >= 0) {
+//     pinMode(this->_blPin, OUTPUT);
+//     digitalWrite(this->_blPin, TFT_BACKLIGHT_ON); // Turn backlight on
+// }
 }
 
 
