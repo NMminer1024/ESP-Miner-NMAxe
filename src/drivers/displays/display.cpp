@@ -44,7 +44,7 @@ static void tft_init(){
     delay(10); //wait for tft power stable
   }
 
-  tftDriver = new TFT_eSPI();
+  tftDriver = new TFT_eSPI(SCREEN_HEIGHT, SCREEN_WIDTH);
   if(!tftDriver){
     LOG_E("Failed to create TFT_eSPI instance!");
     return;
@@ -61,8 +61,20 @@ static void tft_init(){
                   g_board.info.spec.spi.mosi_pin
                 );
 
+
+  setup_t setup;
+  tftDriver->getSetup(setup);
+  LOG_I("TFT_eSPI setup: tft_width =%d, tft_height=%d", setup.tft_width, setup.tft_height);
+  LOG_I("TFT_eSPI setup: r0_x_offset =%d, r0_y_offset=%d", setup.r0_x_offset, setup.r0_y_offset);
+
   if(g_board.info.preference.screen.flip)tftDriver->setRotation(1); 
   else tftDriver->setRotation(3); 
+
+  LOG_L("TFT_eSPI setup: r0_x_offset =%d, r0_y_offset=%d", setup.r0_x_offset, setup.r0_y_offset);
+
+
+
+
 
   pinMode(g_board.info.spec.tft.bl.pin, OUTPUT);
   ledcSetup(g_board.info.spec.tft.bl.pwm_ch, g_board.info.spec.tft.bl.pwm_freq, g_board.info.spec.tft.bl.pwm_resolution);
