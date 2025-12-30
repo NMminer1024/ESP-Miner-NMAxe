@@ -18,8 +18,8 @@ LV_FONT_DECLARE(ds_digib_font_50)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(symbol_14)
 
-#define SCREEN_WIDTH  TFT_HEIGHT
-#define SCREEN_HEIGHT TFT_WIDTH 
+static uint16_t SCREEN_WIDTH = TFT_HEIGHT;
+static uint16_t SCREEN_HEIGHT = TFT_WIDTH;
 
 static TFT_eSPI tftDriver = TFT_eSPI();
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
@@ -28,10 +28,11 @@ static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
 static lv_obj_t *lb_cfg_timeout = NULL;
 static uint8_t   current_page_index = UI_PAGE_MINER;
 
-static int blpwmChannel = 0;   
+
+
 void tft_bl_ctrl(int8_t percent){
   uint8_t pwm = (TFT_BACKLIGHT_ON == HIGH) ? percent : (255 - percent * 2.55);
-  ledcWrite(blpwmChannel, pwm);
+  ledcWrite(g_board.info.spec.tft.bl.pwm_ch, pwm);
 }
 
 static void tft_init(){
@@ -53,12 +54,9 @@ static void tft_init(){
   if(g_board.info.preference.screen.flip)tftDriver.setRotation(1); 
   else tftDriver.setRotation(3); 
 
-
-  int freq = 5*1000;    
-  int resolution = 8;   
-  pinMode(g_board.info.spec.tft.bl_pin, OUTPUT);
-  ledcSetup(blpwmChannel, freq, resolution);
-  ledcAttachPin(g_board.info.spec.tft.bl_pin, blpwmChannel);
+  pinMode(g_board.info.spec.tft.bl.pin, OUTPUT);
+  ledcSetup(g_board.info.spec.tft.bl.pwm_ch, g_board.info.spec.tft.bl.pwm_freq, g_board.info.spec.tft.bl.pwm_resolution);
+  ledcAttachPin(g_board.info.spec.tft.bl.pin, g_board.info.spec.tft.bl.pwm_ch);
   tft_bl_ctrl(0);//sleep when boot up
 }
 

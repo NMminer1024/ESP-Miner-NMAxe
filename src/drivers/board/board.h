@@ -52,8 +52,13 @@ struct BoardSpecConfig {
         uint16_t height;  // in pixels
         int8_t dc_pin;   // data/command pin
         int8_t rst_pin;  // reset pin
-        int8_t bl_pin;   // backlight pin
         int8_t pwr_pin;  // power pin
+        struct {
+            int8_t   pin;   // backlight pin
+            int8_t   pwm_ch; // backlight pwm channel
+            uint32_t pwm_freq; // backlight pwm frequency
+            uint8_t  pwm_resolution; // backlight pwm resolution in bits
+        }bl;
     }tft;
 
     struct {

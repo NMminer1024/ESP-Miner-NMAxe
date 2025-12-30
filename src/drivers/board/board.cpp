@@ -33,7 +33,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.tft.width                 = 135;
             config.tft.height                = 240;
             config.tft.dc_pin                = 47;
-            config.tft.bl_pin                = 17;
+            config.tft.bl.pin                = 17;
+            config.tft.bl.pwm_ch             = 0;
+            config.tft.bl.pwm_freq           = 1000*100; // Hz
+            config.tft.bl.pwm_resolution     = 8;        // bits
             config.tft.rst_pin               = 40;
             config.tft.pwr_pin               = 18;
             config.spi.cs_pin                = 39;
@@ -105,7 +108,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.tft.width                 = 135;
             config.tft.height                = 240;
             config.tft.dc_pin                = 47;
-            config.tft.bl_pin                = 17;
+            config.tft.bl.pin                = 17;
+            config.tft.bl.pwm_ch             = 0;
+            config.tft.bl.pwm_freq           = 1000*100; // Hz
+            config.tft.bl.pwm_resolution     = 8;        // bits
             config.tft.rst_pin               = 40;
             config.tft.pwr_pin               = 18;
             config.spi.cs_pin                = 39;
@@ -175,16 +181,19 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.name                 = "BM1370";
             config.asic.job_interval_ms      = 500;
             
-            config.tft.width                 = 135;
-            config.tft.height                = 240;
-            config.tft.dc_pin                = 47;
-            config.tft.bl_pin                = 17;
-            config.tft.rst_pin               = 40;
-            config.tft.pwr_pin               = 18;
-            config.spi.cs_pin                = 39;
-            config.spi.miso_pin              = -1;
-            config.spi.mosi_pin              = 48;
-            config.spi.sclk_pin              = 38;
+            config.tft.width                 = 240;
+            config.tft.height                = 320;
+            config.tft.dc_pin                = 3;
+            config.tft.bl.pin                = 6;
+            config.tft.bl.pwm_ch             = 0;
+            config.tft.bl.pwm_freq           = 1000*100; // Hz
+            config.tft.bl.pwm_resolution     = 8;        // bits
+            config.tft.rst_pin               = -1;
+            config.tft.pwr_pin               = -1;
+            config.spi.cs_pin                = -1;
+            config.spi.miso_pin              = 2;
+            config.spi.mosi_pin              = 1;
+            config.spi.sclk_pin              = 5;
 
             config.ui.hr_dist_page.max_x_hr  = 2000;
             config.ui.hr_dist_page.max_x_bars= 20;
