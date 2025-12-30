@@ -18,17 +18,16 @@ LV_FONT_DECLARE(ds_digib_font_50)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(symbol_14)
 
-static uint16_t SCREEN_WIDTH = TFT_HEIGHT;
+static uint16_t SCREEN_WIDTH  = TFT_HEIGHT;
 static uint16_t SCREEN_HEIGHT = TFT_WIDTH;
 
-static TFT_eSPI tftDriver = TFT_eSPI();
+static TFT_eSPI *tftDriver = nullptr;
+// static TFT_eSPI tftDriver = TFT_eSPI();
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
 static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
 static lv_obj_t *lb_cfg_timeout = NULL;
 static uint8_t   current_page_index = UI_PAGE_MINER;
-
-
 
 void tft_bl_ctrl(int8_t percent){
   uint8_t pwm = (TFT_BACKLIGHT_ON == HIGH) ? percent : (255 - percent * 2.55);
@@ -36,6 +35,8 @@ void tft_bl_ctrl(int8_t percent){
 }
 
 static void tft_init(){
+  SCREEN_WIDTH  = g_board.info.spec.tft.height;
+  SCREEN_HEIGHT = g_board.info.spec.tft.width;
   // Power on TFT
   if(g_board.info.spec.tft.pwr_pin >= 0){
     pinMode(g_board.info.spec.tft.pwr_pin, OUTPUT);
@@ -43,7 +44,16 @@ static void tft_init(){
     delay(10); //wait for tft power stable
   }
 
-  tftDriver.begin(g_board.info.spec.spi.cs_pin, 
+  tftDriver = new TFT_eSPI();
+  if(!tftDriver){
+    LOG_E("Failed to create TFT_eSPI instance!");
+    return;
+  }
+  else{
+    LOG_I("TFT_eSPI instance created, screen size: %dx%d", SCREEN_WIDTH, SCREEN_HEIGHT);
+  }
+
+  tftDriver->begin(g_board.info.spec.spi.cs_pin, 
                   g_board.info.spec.tft.dc_pin,
                   g_board.info.spec.tft.rst_pin, 
                   g_board.info.spec.spi.sclk_pin,
@@ -51,8 +61,8 @@ static void tft_init(){
                   g_board.info.spec.spi.mosi_pin
                 );
 
-  if(g_board.info.preference.screen.flip)tftDriver.setRotation(1); 
-  else tftDriver.setRotation(3); 
+  if(g_board.info.preference.screen.flip)tftDriver->setRotation(1); 
+  else tftDriver->setRotation(3); 
 
   pinMode(g_board.info.spec.tft.bl.pin, OUTPUT);
   ledcSetup(g_board.info.spec.tft.bl.pwm_ch, g_board.info.spec.tft.bl.pwm_freq, g_board.info.spec.tft.bl.pwm_resolution);
@@ -64,10 +74,16 @@ static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color
     uint32_t w = ( area->x2 - area->x1 + 1 );
     uint32_t h = ( area->y2 - area->y1 + 1 );
 
-    tftDriver.startWrite();
-    tftDriver.setAddrWindow( area->x1, area->y1, w, h );
-    tftDriver.pushColors( ( uint16_t * )&color_p->full, w * h, true );
-    tftDriver.endWrite();
+    // tftDriver.startWrite();
+    // tftDriver.setAddrWindow( area->x1, area->y1, w, h );
+    // tftDriver.pushColors( ( uint16_t * )&color_p->full, w * h, true );
+    // tftDriver.endWrite();
+
+    tftDriver->startWrite();
+    tftDriver->setAddrWindow( area->x1, area->y1, w, h );
+    tftDriver->pushColors( ( uint16_t * )&color_p->full, w * h, true );
+    tftDriver->endWrite();
+
 
     lv_disp_flush_ready(disp_drv);
 }
@@ -139,6 +155,47 @@ static void ui_drv_register(void){
 static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *big_digit_page = NULL;
   const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL;
+
+  // image buffer init
+  black_page_img.header.w = SCREEN_WIDTH;
+  black_page_img.header.h = SCREEN_HEIGHT;
+  black_page_img.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  black_page_img.data = (const uint8_t *)black_page_img_array;
+
+  block_hits_page_img.header.w = SCREEN_WIDTH;
+  block_hits_page_img.header.h = SCREEN_HEIGHT;
+  block_hits_page_img.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  block_hits_page_img.data = (const uint8_t *)block_hit_page_img_array;
+
+  config_page_img_nmaxe.header.w = SCREEN_WIDTH;
+  config_page_img_nmaxe.header.h = SCREEN_HEIGHT;
+  config_page_img_nmaxe.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  config_page_img_nmaxe.data = (const uint8_t *)config_img_array_nmaxe;
+
+  config_page_img_nmaxe_gamma.header.w = SCREEN_WIDTH;
+  config_page_img_nmaxe_gamma.header.h = SCREEN_HEIGHT;
+  config_page_img_nmaxe_gamma.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  config_page_img_nmaxe_gamma.data = (const uint8_t *)config_img_array_nmaxe_gamma;
+
+  loading_page_img.header.w = SCREEN_WIDTH;
+  loading_page_img.header.h = SCREEN_HEIGHT;
+  loading_page_img.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  loading_page_img.data = (const uint8_t *)loading_img_array;
+
+  mining_page_img_nmaxe.header.w = SCREEN_WIDTH;
+  mining_page_img_nmaxe.header.h = SCREEN_HEIGHT;
+  mining_page_img_nmaxe.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  mining_page_img_nmaxe.data = (const uint8_t *)main_page_img_array_nmaxe;
+
+  mining_page_img_nmaxe_gamma.header.w = SCREEN_WIDTH;
+  mining_page_img_nmaxe_gamma.header.h = SCREEN_HEIGHT;
+  mining_page_img_nmaxe_gamma.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  mining_page_img_nmaxe_gamma.data = (const uint8_t *)main_page_img_array_nmaxe_gamma;
+
+  status_page_img.header.w = SCREEN_WIDTH;
+  status_page_img.header.h = SCREEN_HEIGHT;
+  status_page_img.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  status_page_img.data = (const uint8_t *)status_page_img_array;
 
   if(g_board.info.base.hw_model == "NMAxe"){
       p_config_img = &config_page_img_nmaxe;

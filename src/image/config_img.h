@@ -285,28 +285,28 @@ const LV_ATTRIBUTE_MEM_ALIGN uint16_t config_img_array_nmaxe_gamma[32400] = {
 
 };
 
-const lv_img_dsc_t config_page_img_nmaxe = {
-    .header = {
-        .cf = LV_IMG_CF_TRUE_COLOR,  
-        .always_zero = 0,
-        .reserved = 0,
-        .w = TFT_HEIGHT ,  
-        .h = TFT_WIDTH, 
-    },
-    .data_size = TFT_WIDTH * TFT_HEIGHT * LV_COLOR_SIZE / 8,
-    .data = (const uint8_t *)config_img_array_nmaxe,
-};
+// const lv_img_dsc_t config_page_img_nmaxe = {
+//     .header = {
+//         .cf = LV_IMG_CF_TRUE_COLOR,  
+//         .always_zero = 0,
+//         .reserved = 0,
+//         .w = TFT_HEIGHT ,  
+//         .h = TFT_WIDTH, 
+//     },
+//     .data_size = TFT_WIDTH * TFT_HEIGHT * LV_COLOR_SIZE / 8,
+//     .data = (const uint8_t *)config_img_array_nmaxe,
+// };
 
-const lv_img_dsc_t config_page_img_nmaxe_gamma = {
-    .header = {
-        .cf = LV_IMG_CF_TRUE_COLOR,  
-        .always_zero = 0,
-        .reserved = 0,
-        .w = TFT_HEIGHT ,  
-        .h = TFT_WIDTH, 
-    },
-    .data_size = TFT_WIDTH * TFT_HEIGHT * LV_COLOR_SIZE / 8,
-    .data = (const uint8_t *)config_img_array_nmaxe,
-};
+// const lv_img_dsc_t config_page_img_nmaxe_gamma = {
+//     .header = {
+//         .cf = LV_IMG_CF_TRUE_COLOR,  
+//         .always_zero = 0,
+//         .reserved = 0,
+//         .w = TFT_HEIGHT ,  
+//         .h = TFT_WIDTH, 
+//     },
+//     .data_size = TFT_WIDTH * TFT_HEIGHT * LV_COLOR_SIZE / 8,
+//     .data = (const uint8_t *)config_img_array_nmaxe,
+// };
 
 #endif /* MINER_IMG__H_ */
