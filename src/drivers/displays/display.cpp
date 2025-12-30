@@ -22,7 +22,6 @@ static uint16_t SCREEN_WIDTH  = TFT_HEIGHT;
 static uint16_t SCREEN_HEIGHT = TFT_WIDTH;
 
 static TFT_eSPI *tftDriver = nullptr;
-// static TFT_eSPI tftDriver = TFT_eSPI();
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
 static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
