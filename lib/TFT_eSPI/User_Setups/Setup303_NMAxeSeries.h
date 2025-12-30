@@ -17,8 +17,8 @@
 // #define TFT_MISO   -1 // Not connected
 // #define TFT_MOSI   48
 // #define TFT_SCLK   38
-#define TFT_CS     39 
-#define TFT_DC     47
+// #define TFT_CS     39 
+// #define TFT_DC     47
 // #define TFT_RST    40 // Connect reset to ensure display initialises
 
 

@@ -845,6 +845,11 @@ class TFT_eSPI : public Print { friend class TFT_eSprite; // Sprite class has ac
   void     spi_begin_read();
   void     spi_end_read();
 
+  void     cs_high();
+  void     cs_low();
+  void     dc_high();
+  void     dc_low();
+
            // New begin and end prototypes
            // begin/end a TFT write transaction
            // For SPI bus the transmit clock rate is set

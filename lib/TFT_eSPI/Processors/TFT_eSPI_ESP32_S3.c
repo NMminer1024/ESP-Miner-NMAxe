@@ -853,7 +853,7 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
   };
 
   int8_t pin = -1;
-  if (ctrl_cs) pin = TFT_CS;
+  if (ctrl_cs) pin = this->_csPin;
 
   spi_device_interface_config_t devcfg = {
     .command_bits = 0,
