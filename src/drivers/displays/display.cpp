@@ -60,21 +60,9 @@ static void tft_init(){
                   g_board.info.spec.spi.miso_pin,
                   g_board.info.spec.spi.mosi_pin
                 );
-
-
-  setup_t setup;
-  tftDriver->getSetup(setup);
-  LOG_I("TFT_eSPI setup: tft_width =%d, tft_height=%d", setup.tft_width, setup.tft_height);
-  LOG_I("TFT_eSPI setup: r0_x_offset =%d, r0_y_offset=%d", setup.r0_x_offset, setup.r0_y_offset);
-
+                
   if(g_board.info.preference.screen.flip)tftDriver->setRotation(1); 
   else tftDriver->setRotation(3); 
-
-  LOG_L("TFT_eSPI setup: r0_x_offset =%d, r0_y_offset=%d", setup.r0_x_offset, setup.r0_y_offset);
-
-
-
-
 
   pinMode(g_board.info.spec.tft.bl.pin, OUTPUT);
   ledcSetup(g_board.info.spec.tft.bl.pwm_ch, g_board.info.spec.tft.bl.pwm_freq, g_board.info.spec.tft.bl.pwm_resolution);
@@ -86,16 +74,10 @@ static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color
     uint32_t w = ( area->x2 - area->x1 + 1 );
     uint32_t h = ( area->y2 - area->y1 + 1 );
 
-    // tftDriver.startWrite();
-    // tftDriver.setAddrWindow( area->x1, area->y1, w, h );
-    // tftDriver.pushColors( ( uint16_t * )&color_p->full, w * h, true );
-    // tftDriver.endWrite();
-
     tftDriver->startWrite();
     tftDriver->setAddrWindow( area->x1, area->y1, w, h );
     tftDriver->pushColors( ( uint16_t * )&color_p->full, w * h, true );
     tftDriver->endWrite();
-
 
     lv_disp_flush_ready(disp_drv);
 }

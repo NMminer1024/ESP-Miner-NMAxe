@@ -948,7 +948,8 @@ class TFT_eSPI : public Print { friend class TFT_eSprite; // Sprite class has ac
 
   bool     _fillbg;    // Fill background flag (just for for smooth fonts at the moment)
 
-  int8_t  _csPin, _dcPin, _blPin, _rstPin; // Control bus pins
+  int8_t  _dcPin, _blPin, _rstPin; // Control bus pins
+  int8_t  _csPin, _mosiPin, _misoPin, _sclkPin; // SPI bus pins
 
 #if defined (SSD1963_DRIVER)
   uint16_t Cswap;      // Swap buffer for SSD1963

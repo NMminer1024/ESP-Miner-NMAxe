@@ -619,6 +619,9 @@ void TFT_eSPI::initBus(int8_t csPin, int8_t dcPin, int8_t rstPin)
 ** Description:             Included for backwards compatibility
 ***************************************************************************************/
 void TFT_eSPI::begin(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc){
+  this->_mosiPin = spimosi;
+  this->_misoPin = spimiso;
+  this->_sclkPin = spiclk;
   init(csPin, dcPin, rstPin, spiclk, spimiso, spimosi, tc);
 }
 
@@ -670,7 +673,7 @@ void TFT_eSPI::init(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, in
 // #endif
 
     // spi.begin(TFT_SCLK, TFT_MISO, TFT_MOSI, -1); // This will set MISO to input
-    spi.begin(spiclk, spimiso, spimosi, -1); // This will set MISO to input
+    spi.begin(this->_sclkPin, this->_misoPin, this->_mosiPin, -1); // This will set MISO to input
 
     lockTransaction = false;
     inTransaction = false;
@@ -6099,35 +6102,46 @@ void TFT_eSPI::getSetup(setup_t &tft_settings)
   tft_settings.r3_y_offset = 0;
 #endif
 
-#if defined (TFT_MOSI)
-  tft_settings.pin_tft_mosi = TFT_MOSI;
-#else
-  tft_settings.pin_tft_mosi = -1;
-#endif
 
-#if defined (TFT_MISO)
-  tft_settings.pin_tft_miso = TFT_MISO;
-#else
-  tft_settings.pin_tft_miso = -1;
-#endif
+  tft_settings.pin_tft_mosi = this->_mosiPin;
+  tft_settings.pin_tft_miso = this->_misoPin;
+  tft_settings.pin_tft_clk  = this->_sclkPin;
+  tft_settings.pin_tft_cs   = this->_csPin;
+  tft_settings.pin_tft_dc   = this->_dcPin;
+  tft_settings.pin_tft_rst  = this->_rstPin;
 
-#if defined (TFT_SCLK)
-  tft_settings.pin_tft_clk  = TFT_SCLK;
-#else
-  tft_settings.pin_tft_clk  = -1;
-#endif
 
-#if defined (TFT_CS)
-  tft_settings.pin_tft_cs   = TFT_CS;
-#else
-  tft_settings.pin_tft_cs   = -1;
-#endif
 
-#if defined (TFT_DC)
-  tft_settings.pin_tft_dc  = TFT_DC;
-#else
-  tft_settings.pin_tft_dc  = -1;
-#endif
+// #if defined (TFT_MOSI)
+//   tft_settings.pin_tft_mosi = TFT_MOSI;
+// #else
+//   tft_settings.pin_tft_mosi = -1;
+// #endif
+
+// #if defined (TFT_MISO)
+//   tft_settings.pin_tft_miso = TFT_MISO;
+// #else
+//   tft_settings.pin_tft_miso = -1;
+// #endif
+
+// #if defined (TFT_SCLK)
+//   tft_settings.pin_tft_clk  = TFT_SCLK;
+// #else
+//   tft_settings.pin_tft_clk  = -1;
+// #endif
+
+// #if defined (TFT_CS)
+//   tft_settings.pin_tft_cs   = TFT_CS;
+// #else
+//   tft_settings.pin_tft_cs   = -1;
+// #endif
+
+// #if defined (TFT_DC)
+//   tft_settings.pin_tft_dc  = TFT_DC;
+// #else
+//   tft_settings.pin_tft_dc  = -1;
+// #endif
+
 
 #if defined (TFT_RD)
   tft_settings.pin_tft_rd  = TFT_RD;
@@ -6141,11 +6155,11 @@ void TFT_eSPI::getSetup(setup_t &tft_settings)
   tft_settings.pin_tft_wr  = -1;
 #endif
 
-#if defined (TFT_RST)
-  tft_settings.pin_tft_rst = TFT_RST;
-#else
-  tft_settings.pin_tft_rst = -1;
-#endif
+// #if defined (TFT_RST)
+//   tft_settings.pin_tft_rst = TFT_RST;
+// #else
+//   tft_settings.pin_tft_rst = -1;
+// #endif
 
 #if defined (TFT_PARALLEL_8_BIT) || defined(TFT_PARALLEL_16_BIT)
   tft_settings.pin_tft_d0 = TFT_D0;
