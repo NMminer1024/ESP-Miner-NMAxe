@@ -838,9 +838,9 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
 
   esp_err_t ret;
   spi_bus_config_t buscfg = {
-    .mosi_io_num = TFT_MOSI,
-    .miso_io_num = TFT_MISO,
-    .sclk_io_num = TFT_SCLK,
+    .mosi_io_num = this->_mosiPin,
+    .miso_io_num = this->_misoPin,
+    .sclk_io_num = this->_sclkPin,
     .quadwp_io_num = -1,
     .quadhd_io_num = -1,
     .data4_io_num = -1,
