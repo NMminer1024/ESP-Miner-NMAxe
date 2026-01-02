@@ -18,8 +18,8 @@ LV_FONT_DECLARE(ds_digib_font_50)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(symbol_14)
 
-static uint16_t SCREEN_WIDTH  = TFT_HEIGHT;
-static uint16_t SCREEN_HEIGHT = TFT_WIDTH;
+static uint16_t SCREEN_WIDTH  = 0;
+static uint16_t SCREEN_HEIGHT = 0;
 
 static TFT_eSPI *tftDriver = nullptr;
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
