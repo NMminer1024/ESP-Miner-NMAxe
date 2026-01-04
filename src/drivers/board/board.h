@@ -63,6 +63,7 @@ struct BoardSpecConfig {
 
     struct {
         String   name;            // asic model name
+        uint16_t num_req;         // required asic number
         uint32_t job_interval_ms; // ms, time interval between two asic jobs
         uint16_t req_frq;         // MHz, required frequency
         uint16_t default_frq;     // MHz, default frequency

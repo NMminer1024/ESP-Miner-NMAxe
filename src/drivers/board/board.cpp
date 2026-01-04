@@ -29,7 +29,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
         case NMAXE:
             config.name                      = "NMAxe";
             config.asic.name                 = "BM1366";
-
+            config.asic.num_req              = 1;
             config.tft.width                 = 135;
             config.tft.height                = 240;
             config.tft.dc_pin                = 47;
@@ -104,7 +104,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
         case NMAXE_GAMMA:
             config.name                      = "NMAxeGamma";
             config.asic.name                 = "BM1370";
-
+            config.asic.num_req              = 1;
             config.tft.width                 = 135;
             config.tft.height                = 240;
             config.tft.dc_pin                = 47;
@@ -179,6 +179,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
         case NMQAXE_PLUS_PLUS:
             config.name                      = "NMQAxe++";
             config.asic.name                 = "BM1370";
+            config.asic.num_req              = 4;
             config.asic.job_interval_ms      = 500;
             
             config.tft.width                 = 240;

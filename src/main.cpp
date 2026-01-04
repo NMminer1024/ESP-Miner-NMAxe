@@ -187,6 +187,9 @@ void setup() {
   while (g_board.miner->get_asic_count() == 0){
     delay(10);
   }
+  if(g_board.miner->get_asic_count() != g_board.info.spec.asic.num_req){
+    LOG_W("Detected ASIC count (%d) does not match required count (%d)", g_board.miner->get_asic_count(), g_board.info.spec.asic.num_req);
+  }
   /************************************************************** INIT DAEMON **********************************************************/
   taskName = "(daemon)";
   xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)(&g_board), TASK_PRIORITY_DAEMON, &daemonTask, 0);
