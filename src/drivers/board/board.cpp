@@ -20,6 +20,8 @@ BoardModelType get_board_model(){
     // 0b00 BOARD_UNKNOWN
     model = static_cast<BoardModelType>((sel0 << 1) | sel1);
     return model;
+
+    // return NMQAXE_PLUS_PLUS;
 }
 
 BoardSpecConfig get_board_config(BoardModelType model) {
@@ -27,7 +29,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
     fan_config_t fan_cfg;
     switch(model) {
         case NMAXE:
-            config.name                      = "NMAxe";
+            config.name                      = BOARD_NMAXE_NAME;
             config.asic.name                 = "BM1366";
             config.asic.num_req              = 1;
             config.asic.temp_limit.high      = 75.0f;
@@ -107,7 +109,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.fans.push_back(fan_cfg); // single fan
             break;
         case NMAXE_GAMMA:
-            config.name                      = "NMAxeGamma";
+            config.name                      = BOARD_NMAXE_GAMMA_NAME;
             config.asic.name                 = "BM1370";
             config.asic.num_req              = 1;
             config.asic.temp_limit.high      = 70.0f;
@@ -187,7 +189,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.fans.push_back(fan_cfg); // single fan
             break;
         case NMQAXE_PLUS_PLUS:
-            config.name                      = "NMQAxe++";
+            config.name                      = BOARD_NMQAXE_PLUS_PLUS_NAME;
             config.asic.name                 = "BM1370";
             config.asic.num_req              = 4;
             config.asic.temp_limit.high      = 75.0f;

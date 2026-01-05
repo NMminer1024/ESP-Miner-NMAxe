@@ -109,35 +109,40 @@ void led_thread_entry(void *args){
     while(true){
         delay(10);
 
-        if(board->info.preference.led.sleep || !board->info.preference.led.enable) {
-            digitalWrite(board->info.spec.led.wifi_pin, HIGH); // off
-            digitalWrite(board->info.spec.led.pool_pin, HIGH); // off
-            ledcWrite(pwmChannel, 255); // off
-            continue;
-        }
+        if(board->info.spec.name == BOARD_NMAXE_NAME || board->info.spec.name == BOARD_NMAXE_GAMMA_NAME){
+            if(board->info.preference.led.sleep || !board->info.preference.led.enable) {
+                digitalWrite(board->info.spec.led.wifi_pin, HIGH); // off
+                digitalWrite(board->info.spec.led.pool_pin, HIGH); // off
+                ledcWrite(pwmChannel, 255); // off
+                continue;
+            }
 
-        // Calculate current pattern index (0-9)
-        uint8_t pattern_idx = (led_cnt % 201) / dot;
-        
-        if(pattern_idx > 0 && pattern_idx <= 10) {
-            pattern_idx--; // Adjust to 0-based index (0-9)
+            // Calculate current pattern index (0-9)
+            uint8_t pattern_idx = (led_cnt % 201) / dot;
             
-            bool wifi_connected = (board->info.connection.wifi.status_param.status == WL_CONNECTED);
-            bool pool_connected = board->stratum->is_subscribed();
-            
-            // WiFi LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
-            bool wifi_state = wifi_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
-            digitalWrite(board->info.spec.led.wifi_pin, wifi_state ? LOW : HIGH);
-            
-            // Pool LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
-            bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
-            digitalWrite(board->info.spec.led.pool_pin, pool_state ? LOW : HIGH);
-        }
+            if(pattern_idx > 0 && pattern_idx <= 10) {
+                pattern_idx--; // Adjust to 0-based index (0-9)
+                
+                bool wifi_connected = (board->info.connection.wifi.status_param.status == WL_CONNECTED);
+                bool pool_connected = board->stratum->is_subscribed();
+                
+                // WiFi LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
+                bool wifi_state = wifi_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+                digitalWrite(board->info.spec.led.wifi_pin, wifi_state ? LOW : HIGH);
+                
+                // Pool LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
+                bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+                digitalWrite(board->info.spec.led.pool_pin, pool_state ? LOW : HIGH);
+            }
 
-        // SYS LED, slow breathing means hashrate > 0, fast breathing means hashrate == 0
-        uint8_t speed = (board->status.miner.hashrate._3m > 0) ? 1 : 20;
-        ledcWrite(pwmChannel, (uint32_t)((1 + sin(speed * led_cnt/100.0f)) * (1<<resolution - 1)));
-        led_cnt++;
+            // SYS LED, slow breathing means hashrate > 0, fast breathing means hashrate == 0
+            uint8_t speed = (board->status.miner.hashrate._3m > 0) ? 1 : 20;
+            ledcWrite(pwmChannel, (uint32_t)((1 + sin(speed * led_cnt/100.0f)) * (1<<resolution - 1)));
+            led_cnt++;
+        }
+        else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+            ;
+        }
     }
     LOG_I("led thread exit...");
     vTaskDelete(NULL);
@@ -255,33 +260,52 @@ void wifi_connect_thread_entry(void *args){
 }
 
 void button_thread_entry(void *args){
-  board_sal_t *board = (board_sal_t*)args;
-  String taskName = "(button)";
-  LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-  LOG_I("Initializing buttons...");
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(button)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing buttons...");
 
-  OneButton boot_btn(board->info.spec.btn.boot_pin, true);
-  OneButton user_btn(board->info.spec.btn.user_pin, true);
+    OneButton *boot_btn = nullptr;
+    OneButton *user_btn = nullptr;
 
-  // link the boot button functions.
-  boot_btn.attachClick(ui_switch_next_page_cb);
-  boot_btn.attachDoubleClick(silence_mode_cb);
-  boot_btn.attachLongPressStart(NULL);
-  boot_btn.attachLongPressStop(NULL);
-  boot_btn.attachDuringLongPress(force_config_cb);
+    if(board->info.spec.btn.boot_pin != -1){
+        // OneButton boot_btn(board->info.spec.btn.boot_pin, true);
+        boot_btn = new OneButton(board->info.spec.btn.boot_pin, true);
+    }
+    if(board->info.spec.btn.user_pin != -1){
+        // OneButton user_btn(board->info.spec.btn.user_pin, true);
+        user_btn = new OneButton(board->info.spec.btn.user_pin, true);
+    }
 
-  // link the user button functions.
-  user_btn.attachClick(NULL);
-  user_btn.attachDoubleClick(NULL);
-  user_btn.attachLongPressStart(NULL);
-  user_btn.attachLongPressStop(NULL);
-  user_btn.attachDuringLongPress(recover_factory_cb);
 
-  while (true){
-    boot_btn.tick();
-    user_btn.tick();
-    delay(20);
-  }
+
+    // link the boot button functions.
+    if(boot_btn != nullptr){
+        boot_btn->attachClick(ui_switch_next_page_cb);
+        boot_btn->attachDoubleClick(silence_mode_cb);
+        boot_btn->attachLongPressStart(NULL);
+        boot_btn->attachLongPressStop(NULL);
+        boot_btn->attachDuringLongPress(force_config_cb);
+    }
+    // link the user button functions.
+    if(user_btn != nullptr){
+        user_btn->attachClick(NULL);
+        user_btn->attachDoubleClick(NULL);
+        user_btn->attachLongPressStart(NULL);
+        user_btn->attachLongPressStop(NULL);
+        user_btn->attachDuringLongPress(recover_factory_cb);
+    }
+
+    while (true){
+        if(boot_btn != nullptr){
+            boot_btn->tick();
+        }
+
+        if(user_btn != nullptr){
+            user_btn->tick();
+        }
+        delay(20);
+    }
 }
 
 void swarm_thread_entry(void *args){

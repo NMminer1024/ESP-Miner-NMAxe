@@ -11,6 +11,10 @@
 #include <vector>
 
 /******************default parameter define for NMAxe***********************/
+#define BOARD_NMAXE_NAME                                "NMAxe"
+#define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"
+#define BOARD_NMQAXE_PLUS_PLUS_NAME                     "NMQAxe++"
+
 #define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
 #define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
 
