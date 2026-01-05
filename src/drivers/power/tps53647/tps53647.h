@@ -98,6 +98,8 @@ private:
     uint16_t _vcore_max_mv;
     uint8_t  _read_reg(uint8_t registerAddress, uint8_t *data, uint8_t length);
     void     _write_reg(uint8_t registerAddress, uint8_t data);
+    uint8_t  _mv_to_vid(uint16_t mv);
+    float    _vid_to_mv(uint8_t reg);
 public:
     TPS53647Class(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t pgood,  uint8_t plug):AxePowerHal(en_pins, adc_pins){
         this->_vcore_pgood_pin = pgood;

@@ -41,6 +41,28 @@ void TPS53647Class::_write_reg(uint8_t regaddr, uint8_t data) {
     Wire.endTransmission(); 
 }
 
+uint8_t TPS53647Class::_mv_to_vid(uint16_t mv){
+    if (mv == 0.0f) return 0x00;
+
+    int reg = (int) ((mv - 0.25) / 0.005f) + 1;
+
+    // Ensure the register value is within the valid range (0x01 to 0xFF)
+    if (reg > 0xFF) {
+        LOG_E("Requested voltage %dmV is out of range", mv);
+        reg = 0;
+    }
+    LOG_W("Converted %dmV to VID 0x%02X", mv, reg);
+    return reg;
+}
+
+float TPS53647Class::_vid_to_mv(uint8_t reg){
+    if (reg == 0x00) return 0.0f;
+    float mv = (reg - 1) * 0.005 + 0.25;
+    LOG_W("Converted VID 0x%02X to %dmV", reg, (uint16_t)mv);
+    return mv;
+}
+
+
 bool TPS53647Class::init(void){
     this->_adc_ready = AxePowerHal::init();
     pinMode(this->_vcore_pgood_pin, INPUT_PULLUP);
@@ -94,15 +116,18 @@ void TPS53647Class::set_vcore_status(power_state_t state){
 }
 
 void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
-    uint16_t pwm = 0;
-    //pwm = 0.14*req_mv - 140
-    // if (req_mv >= this->_vcore_min_mv && req_mv <= this->_vcore_max_mv) {
-    //     pwm = 0.14 * (req_mv) - 140; // bias 140, linear 0.14
-    // } else {
-    //     pwm = 0; //for safety
-    //     LOG_E("Vcore request %dmV out of range %d-%d mV", req_mv, this->_vcore_min_mv, this->_vcore_max_mv);
-    // }
-    // ledcWrite(VCORE_REGULATOR_PWM_CHANNEL, pwm);
+    if(req_mv == 0) {
+        this->set_vcore_status(PWR_OFF);
+        return;
+    }
+
+    this->set_vcore_status(PWR_ON);
+    uint16_t vlot_mv = (req_mv <= this->_vcore_min_mv) ? this->_vcore_min_mv : ((req_mv >= this->_vcore_max_mv) ? this->_vcore_max_mv : req_mv);
+
+    uint8_t reg = this->_mv_to_vid(vlot_mv);
+
+    this->_write_reg(PMBUS_VOUT_COMMAND, reg); //VCORE Voltage Set Register   
+    
 }
 
 void TPS53647Class::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
