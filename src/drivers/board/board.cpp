@@ -113,6 +113,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.temp_limit.high      = 70.0f;
             config.asic.temp_limit.medium    = 60.0f;
             config.asic.temp_limit.low       = 50.0f;
+            config.asic.job_interval_ms      = 500;
             config.tft.width                 = 135;
             config.tft.height                = 240;
             config.tft.dc_pin                = 47;
@@ -126,7 +127,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.spi.miso_pin              = -1;
             config.spi.mosi_pin              = 48;
             config.spi.sclk_pin              = 38;
-            config.asic.job_interval_ms      = 500;
             config.ui.hr_dist_page.max_x_hr  = 2000;
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;

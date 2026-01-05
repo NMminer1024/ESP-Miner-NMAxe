@@ -250,8 +250,8 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     // unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x0F, 0x00, 0x00}; //supposedly the "full" 32bit nonce range
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), set_10_hash_counting, 6);
 
-    uint8_t init157[6] = {0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF}; 
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init157, 6);
+    // uint8_t init157[6] = {0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF}; 
+    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init157, 6);
 
     return chip_counter;
 }
