@@ -41,7 +41,6 @@ void TPS53647Class::_write_reg(uint8_t regaddr, uint8_t data) {
     Wire.endTransmission(); 
 }
 
-
 bool TPS53647Class::init(void){
     this->_adc_ready = AxePowerHal::init();
     pinMode(this->_vcore_pgood_pin, INPUT_PULLUP);
@@ -53,7 +52,6 @@ bool TPS53647Class::is_adc_ready(void){
     return this->_adc_ready;
 }
 
-
 bool TPS53647Class::is_vcore_ready(void){
     if(digitalRead(this->_vcore_pgood_pin) == HIGH){
         delay(1);
@@ -63,9 +61,7 @@ bool TPS53647Class::is_vcore_ready(void){
 }
 
 bool TPS53647Class::is_dc_pluged(void){
-    //if not, that might be usb pd plug
-    // return (digitalRead(this->_dc_plug_pin) == HIGH);
-
+    // always return true, only dc input supported
     return true;    
 }
 
@@ -113,7 +109,6 @@ void TPS53647Class::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
     this->_vcore_min_mv = min_mv;
     this->_vcore_max_mv = max_mv;
 }
-
 
 uint32_t TPS53647Class::get_vbus(void){
     uint32_t vadc = this->get_vbus_adc();

@@ -115,7 +115,7 @@ void led_thread_entry(void *args){
             ledcWrite(pwmChannel, 255); // off
             continue;
         }
-        
+
         // Calculate current pattern index (0-9)
         uint8_t pattern_idx = (led_cnt % 201) / dot;
         
@@ -125,16 +125,16 @@ void led_thread_entry(void *args){
             bool wifi_connected = (board->info.connection.wifi.status_param.status == WL_CONNECTED);
             bool pool_connected = board->stratum->is_subscribed();
             
-            // WiFi LED: solid ON when connected (only at pattern_idx 0), blinks when disconnected (odd indices)
+            // WiFi LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
             bool wifi_state = wifi_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
             digitalWrite(board->info.spec.led.wifi_pin, wifi_state ? LOW : HIGH);
             
-            // Pool LED: solid ON when connected (only at pattern_idx 0), blinks when disconnected (odd indices)
+            // Pool LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
             bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
             digitalWrite(board->info.spec.led.pool_pin, pool_state ? LOW : HIGH);
         }
 
-        // SYS led, indicate hashrate
+        // SYS LED, slow breathing means hashrate > 0, fast breathing means hashrate == 0
         uint8_t speed = (board->status.miner.hashrate._3m > 0) ? 1 : 20;
         ledcWrite(pwmChannel, (uint32_t)((1 + sin(speed * led_cnt/100.0f)) * (1<<resolution - 1)));
         led_cnt++;
