@@ -109,100 +109,32 @@ void led_thread_entry(void *args){
     while(true){
         delay(10);
 
-        if(board->info.preference.led.sleep) {
-            // led_off();
-            digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-            digitalWrite(board->info.spec.led.pool_pin, HIGH);
-            ledcWrite(pwmChannel, 255);
+        if(board->info.preference.led.sleep || !board->info.preference.led.enable) {
+            digitalWrite(board->info.spec.led.wifi_pin, HIGH); // off
+            digitalWrite(board->info.spec.led.pool_pin, HIGH); // off
+            ledcWrite(pwmChannel, 255); // off
             continue;
         }
-
-        if(!board->info.preference.led.enable){
-            // led_off();
-            digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-            digitalWrite(board->info.spec.led.pool_pin, HIGH);
-            ledcWrite(pwmChannel, 255);
-            continue;
-        }
-           
-
-        switch (led_cnt % 201){
-        case 1 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, LOW);
-                else digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, LOW);
-                else digitalWrite(board->info.spec.led.pool_pin, HIGH);
-
-            break;
-        case 2 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-                else digitalWrite(board->info.spec.led.wifi_pin, LOW);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, HIGH);
-                else digitalWrite(board->info.spec.led.pool_pin, LOW);
-
-            break;
-        case 3 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-                else digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, HIGH);
-                else digitalWrite(board->info.spec.led.pool_pin, HIGH);
-            break;
-        case 4 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-                else digitalWrite(board->info.spec.led.wifi_pin, LOW);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, HIGH);
-                else digitalWrite(board->info.spec.led.pool_pin, LOW);
-
-            break;
-        case 5 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-                else digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, HIGH);
-                else digitalWrite(board->info.spec.led.pool_pin, HIGH);
-            break;
-        case 6 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-                else digitalWrite(board->info.spec.led.wifi_pin, LOW);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, HIGH);
-                else digitalWrite(board->info.spec.led.pool_pin, LOW);
-            break;
-        case 7 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-                else digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, HIGH);
-                else digitalWrite(board->info.spec.led.pool_pin, HIGH);
-            break;
-        case 8 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-                else digitalWrite(board->info.spec.led.wifi_pin, LOW);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, HIGH);
-                else digitalWrite(board->info.spec.led.pool_pin, LOW);
-            break;
-        case 9 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-                else digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, HIGH);
-                else digitalWrite(board->info.spec.led.pool_pin, HIGH);
-            break;
-        case 10 * dot:
-                if(board->info.connection.wifi.status_param.status == WL_CONNECTED) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
-                else digitalWrite(board->info.spec.led.wifi_pin, LOW);
-
-                if(board->stratum->is_subscribed()) digitalWrite(board->info.spec.led.pool_pin, HIGH);
-                else digitalWrite(board->info.spec.led.pool_pin, LOW);
-            break;
+        
+        // Calculate current pattern index (0-9)
+        uint8_t pattern_idx = (led_cnt % 201) / dot;
+        
+        if(pattern_idx > 0 && pattern_idx <= 10) {
+            pattern_idx--; // Adjust to 0-based index (0-9)
+            
+            bool wifi_connected = (board->info.connection.wifi.status_param.status == WL_CONNECTED);
+            bool pool_connected = board->stratum->is_subscribed();
+            
+            // WiFi LED: solid ON when connected (only at pattern_idx 0), blinks when disconnected (odd indices)
+            bool wifi_state = wifi_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+            digitalWrite(board->info.spec.led.wifi_pin, wifi_state ? LOW : HIGH);
+            
+            // Pool LED: solid ON when connected (only at pattern_idx 0), blinks when disconnected (odd indices)
+            bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+            digitalWrite(board->info.spec.led.pool_pin, pool_state ? LOW : HIGH);
         }
 
-        // sys led, indicate hashrate
+        // SYS led, indicate hashrate
         uint8_t speed = (board->status.miner.hashrate._3m > 0) ? 1 : 20;
         ledcWrite(pwmChannel, (uint32_t)((1 + sin(speed * led_cnt/100.0f)) * (1<<resolution - 1)));
         led_cnt++;
