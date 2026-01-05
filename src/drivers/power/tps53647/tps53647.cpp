@@ -44,7 +44,7 @@ void TPS53647Class::_write_reg(uint8_t regaddr, uint8_t data) {
 uint8_t TPS53647Class::_mv_to_vid(uint16_t mv){
     if (mv == 0.0f) return 0x00;
 
-    int reg = (int) ((mv - 0.25) / 0.005f) + 1;
+    int reg = (int) ((mv - this->_chip_min_output_vlot_mv) / 5.0f) + 1;
 
     // Ensure the register value is within the valid range (0x01 to 0xFF)
     if (reg > 0xFF) {
@@ -57,7 +57,7 @@ uint8_t TPS53647Class::_mv_to_vid(uint16_t mv){
 
 float TPS53647Class::_vid_to_mv(uint8_t reg){
     if (reg == 0x00) return 0.0f;
-    float mv = (reg - 1) * 0.005 + 0.25;
+    float mv = (reg - 1) * 5.0f + this->_chip_min_output_vlot_mv;
     LOG_W("Converted VID 0x%02X to %dmV", reg, (uint16_t)mv);
     return mv;
 }
@@ -127,7 +127,7 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
     uint8_t reg = this->_mv_to_vid(vlot_mv);
 
     this->_write_reg(PMBUS_VOUT_COMMAND, reg); //VCORE Voltage Set Register   
-    
+
 }
 
 void TPS53647Class::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
