@@ -150,57 +150,60 @@ static void ui_layout_init(void){
   const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL;
 
   // image buffer init
-  black_page_img.header.w = SCREEN_WIDTH;
-  black_page_img.header.h = SCREEN_HEIGHT;
-  black_page_img.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-  black_page_img.data = (const uint8_t *)black_page_img_array;
+  black_page_img_135_240.header.w = SCREEN_WIDTH;
+  black_page_img_135_240.header.h = SCREEN_HEIGHT;
+  black_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  block_hits_page_img.header.w = SCREEN_WIDTH;
-  block_hits_page_img.header.h = SCREEN_HEIGHT;
-  block_hits_page_img.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-  block_hits_page_img.data = (const uint8_t *)block_hit_page_img_array;
+  block_hits_page_img_135_240.header.w = SCREEN_WIDTH;
+  block_hits_page_img_135_240.header.h = SCREEN_HEIGHT;
+  block_hits_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  config_page_img_nmaxe.header.w = SCREEN_WIDTH;
-  config_page_img_nmaxe.header.h = SCREEN_HEIGHT;
-  config_page_img_nmaxe.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-  config_page_img_nmaxe.data = (const uint8_t *)config_img_array_nmaxe;
+  config_page_nmaxe_img_135_240.header.w = SCREEN_WIDTH;
+  config_page_nmaxe_img_135_240.header.h = SCREEN_HEIGHT;
+  config_page_nmaxe_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  config_page_img_nmaxe_gamma.header.w = SCREEN_WIDTH;
-  config_page_img_nmaxe_gamma.header.h = SCREEN_HEIGHT;
-  config_page_img_nmaxe_gamma.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-  config_page_img_nmaxe_gamma.data = (const uint8_t *)config_img_array_nmaxe_gamma;
+  config_page_gamma_img_135_240.header.w = SCREEN_WIDTH;
+  config_page_gamma_img_135_240.header.h = SCREEN_HEIGHT;
+  config_page_gamma_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  loading_page_img.header.w = SCREEN_WIDTH;
-  loading_page_img.header.h = SCREEN_HEIGHT;
-  loading_page_img.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-  loading_page_img.data = (const uint8_t *)loading_img_array;
+  loading_page_img_135_240.header.w = SCREEN_WIDTH;
+  loading_page_img_135_240.header.h = SCREEN_HEIGHT;
+  loading_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  mining_page_img_nmaxe.header.w = SCREEN_WIDTH;
-  mining_page_img_nmaxe.header.h = SCREEN_HEIGHT;
-  mining_page_img_nmaxe.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-  mining_page_img_nmaxe.data = (const uint8_t *)main_page_img_array_nmaxe;
+  loading_page_img_240_320.header.w = SCREEN_WIDTH;
+  loading_page_img_240_320.header.h = SCREEN_HEIGHT;
+  loading_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  mining_page_img_nmaxe_gamma.header.w = SCREEN_WIDTH;
-  mining_page_img_nmaxe_gamma.header.h = SCREEN_HEIGHT;
-  mining_page_img_nmaxe_gamma.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-  mining_page_img_nmaxe_gamma.data = (const uint8_t *)main_page_img_array_nmaxe_gamma;
+  mining_page_nmaxe_img_135_240.header.w = SCREEN_WIDTH;
+  mining_page_nmaxe_img_135_240.header.h = SCREEN_HEIGHT;
+  mining_page_nmaxe_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  status_page_img.header.w = SCREEN_WIDTH;
-  status_page_img.header.h = SCREEN_HEIGHT;
-  status_page_img.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-  status_page_img.data = (const uint8_t *)status_page_img_array;
+  mining_page_gamma_img_135_240.header.w = SCREEN_WIDTH;
+  mining_page_gamma_img_135_240.header.h = SCREEN_HEIGHT;
+  mining_page_gamma_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  if(g_board.info.base.hw_model == "NMAxe"){
-      p_config_img = &config_page_img_nmaxe;
-      p_mining_img = &mining_page_img_nmaxe;
+  status_page_img_135_240.header.w = SCREEN_WIDTH;
+  status_page_img_135_240.header.h = SCREEN_HEIGHT;
+  status_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  // status_page_img_135_240.data = (const uint8_t *)status_page_img_array;
+
+  if((g_board.info.base.hw_model == BOARD_NMAXE_NAME) || (g_board.info.base.hw_model == BOARD_NMAXE_GAMMA_NAME)){
+      p_loading_img  = &loading_page_img_135_240;
+      p_config_img   = &config_page_nmaxe_img_135_240;
+      p_mining_img   = &mining_page_nmaxe_img_135_240;
+      p_status_img   = &status_page_img_135_240;
+      p_black_img    = &black_page_img_135_240;
   }
-  else if(g_board.info.base.hw_model == "NMAxeGamma"){
-      p_config_img = &config_page_img_nmaxe_gamma;
-      p_mining_img = &mining_page_img_nmaxe_gamma;
+  else if(g_board.info.base.hw_model == BOARD_NMQAXE_PLUS_PLUS_NAME){
+      p_loading_img  = &loading_page_img_240_320;
+      p_config_img   = &config_page_nmaxe_img_135_240;
+      p_mining_img   = &mining_page_nmaxe_img_135_240;
+      p_status_img   = &status_page_img_135_240;
+      p_black_img    = &black_page_img_135_240;
   }
-  p_loading_img  = &loading_page_img;
-  p_status_img   = &status_page_img;
-  p_black_img    = &black_page_img;
+  else{
+
+  }
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
   //create parent object
@@ -846,7 +849,7 @@ static void ui_hits_page_update(board_sal_t* board){
     
     // create and configure image object
     hits_img_obj = lv_img_create(hits_page);
-    lv_img_set_src(hits_img_obj, &block_hits_page_img);
+    lv_img_set_src(hits_img_obj, &block_hits_page_img_135_240);
     lv_obj_set_size(hits_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
     lv_obj_align(hits_img_obj, LV_ALIGN_CENTER, 0, 0);
     
