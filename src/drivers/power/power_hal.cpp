@@ -69,51 +69,141 @@ bool AxePowerHal::init(){
     adc1_config_width(ADC_WIDTH_BIT_12);
     esp_adc_cal_value_t ret = ESP_ADC_CAL_VAL_NOT_SUPPORTED;
 
-    //vbus
-    adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vbus), ADC_ATTEN_DB_11); 
-    this->_vbus_adc_chars = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vbus_adc_chars);
-    //ibus
-    adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.ibus), ADC_ATTEN_DB_11); 
-    this->_ibus_adc_chars = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_ibus_adc_chars);
-    //vcore
-    adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_ATTEN_DB_6); 
+    this->_vbus_adc_chars  = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
+    this->_ibus_adc_chars  = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
     this->_vcore_adc_chars = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vcore_adc_chars);
 
+    //vbus
+    if(this->_asic_pwr_adc_pins.vbus >= 1 && this->_asic_pwr_adc_pins.vbus <= 10){
+        adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vbus), ADC_ATTEN_DB_11); 
+        ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vbus_adc_chars);
+    }
+    else if(this->_asic_pwr_adc_pins.vbus >= 11 && this->_asic_pwr_adc_pins.vbus <= 20){
+        adc2_config_channel_atten(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vbus), ADC_ATTEN_DB_11); 
+        ret = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vbus_adc_chars);
+    }
+    else{
+        LOG_E("Vbus ADC pin invalid!");
+    }
+
+    //ibus
+    if(this->_asic_pwr_adc_pins.ibus >= 1 && this->_asic_pwr_adc_pins.ibus <= 10){
+        adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.ibus), ADC_ATTEN_DB_11); 
+        ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_ibus_adc_chars);
+    }
+    else if(this->_asic_pwr_adc_pins.ibus >= 11 && this->_asic_pwr_adc_pins.ibus <= 20){
+        adc2_config_channel_atten(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.ibus), ADC_ATTEN_DB_11); 
+        ret = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_ibus_adc_chars);
+    }
+    else{
+        LOG_E("Ibus ADC pin invalid!");
+    }
+
+    //vcore
+    if(this->_asic_pwr_adc_pins.vcore >= 1 && this->_asic_pwr_adc_pins.vcore <= 10){
+        adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_ATTEN_DB_6); 
+        ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vcore_adc_chars);
+    }
+    else if(this->_asic_pwr_adc_pins.vcore >= 11 && this->_asic_pwr_adc_pins.vcore <= 20){
+        adc2_config_channel_atten(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_ATTEN_DB_6); 
+        ret = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vcore_adc_chars);
+    }
+    else{
+        LOG_E("Vcore ADC pin invalid!");
+    }
     return true;
 }
 
 uint32_t AxePowerHal::get_vbus_adc(void){
-   uint32_t adc = 0;
-    for (int i = 0; i < SAMPLES_N; i++) {
-        adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vbus));
+    uint32_t adc = 0, voltage = 0;
+    if(this->_asic_pwr_adc_pins.vbus >= 1 && this->_asic_pwr_adc_pins.vbus <= 10){
+        for (int i = 0; i < SAMPLES_N; i++) {
+            adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vbus));
+        }
     }
-    adc /= SAMPLES_N;
+    else if(this->_asic_pwr_adc_pins.vbus >= 11 && this->_asic_pwr_adc_pins.vbus <= 20){
+        for (int i = 0; i < SAMPLES_N; i++) {
+            int tmp = 0;
+            adc2_get_raw(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vbus), ADC_WIDTH_BIT_12, &tmp);
+            adc += tmp;
+        }
+    }
+    else{
+        LOG_E("Vbus ADC pin invalid!");
+        return 0;
+    }
 
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc, this->_vbus_adc_chars);
+    adc /= SAMPLES_N;
+    voltage = esp_adc_cal_raw_to_voltage(adc, this->_vbus_adc_chars);
     return voltage;
 }
 
 uint32_t AxePowerHal::get_ibus_adc(void){
-    uint32_t adc = 0;
-    for (int i = 0; i < SAMPLES_N; i++) {
-        adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.ibus));
-    }
-    adc /= SAMPLES_N;
+    // uint32_t adc = 0;
+    // for (int i = 0; i < SAMPLES_N; i++) {
+    //     adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.ibus));
+    // }
+    // adc /= SAMPLES_N;
 
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc, this->_ibus_adc_chars);
+    // uint32_t voltage = esp_adc_cal_raw_to_voltage(adc, this->_ibus_adc_chars);
+    // return voltage;
+
+    uint32_t adc = 0, voltage = 0;
+    if(this->_asic_pwr_adc_pins.ibus >= 1 && this->_asic_pwr_adc_pins.ibus <= 10){
+        for (int i = 0; i < SAMPLES_N; i++) {
+            adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.ibus));
+        }
+    }
+    else if(this->_asic_pwr_adc_pins.ibus >= 11 && this->_asic_pwr_adc_pins.ibus <= 20){
+        for (int i = 0; i < SAMPLES_N; i++) {
+            int tmp = 0;
+            adc2_get_raw(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.ibus), ADC_WIDTH_BIT_12, &tmp);
+            adc += tmp;
+        }
+    }
+    else{
+        LOG_E("Vbus ADC pin invalid!");
+        return 0;
+    }
+
+    adc /= SAMPLES_N;
+    voltage = esp_adc_cal_raw_to_voltage(adc, this->_ibus_adc_chars);
     return voltage;
 }
 
 uint32_t AxePowerHal::get_vcore_adc(void){
-    uint32_t adc = 0;
-    for (int i = 0; i < SAMPLES_N; i++) {
-        adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore));
-    }
-    adc /= SAMPLES_N;
+    // uint32_t adc = 0;
+    // for (int i = 0; i < SAMPLES_N; i++) {
+    //     adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore));
+    // }
+    // adc /= SAMPLES_N;
 
-    uint32_t voltage = esp_adc_cal_raw_to_voltage(adc, this->_vcore_adc_chars);
+    // uint32_t voltage = esp_adc_cal_raw_to_voltage(adc, this->_vcore_adc_chars);
+    // return voltage;
+
+    uint32_t adc = 0, voltage = 0;
+    if(this->_asic_pwr_adc_pins.vcore >= 1 && this->_asic_pwr_adc_pins.vcore <= 10){
+        for (int i = 0; i < SAMPLES_N; i++) {
+            adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore));
+        }
+    }
+    else if(this->_asic_pwr_adc_pins.vcore >= 11 && this->_asic_pwr_adc_pins.vcore <= 20){
+        for (int i = 0; i < SAMPLES_N; i++) {
+            int tmp = 0;
+            adc2_get_raw(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_WIDTH_BIT_12, &tmp);
+            adc += tmp;
+        }
+    }
+    else{
+        LOG_E("Vbus ADC pin invalid!");
+        return 0;
+    }
+
+    adc /= SAMPLES_N;
+    voltage = esp_adc_cal_raw_to_voltage(adc, this->_vcore_adc_chars);
     return voltage;
+
+
+
+
 }
