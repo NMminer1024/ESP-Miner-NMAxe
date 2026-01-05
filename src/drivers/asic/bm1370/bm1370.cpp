@@ -151,20 +151,18 @@ void BM1370::frequency_ramp_up(float target_frequency){
 }
 
 uint8_t BM1370::init(uint64_t freq, int diff){
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
     }
 
-    // read register 00 on all chips
+
+    // read chip responses
     uint8_t init3[7] = {0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A};
     this->send(init3, 7);
-
-    uint8_t chip_counter = 0, rsp[100] = {0,};
+    uint8_t chip_counter = 0, rsp[32] = {0,};
     while (true) {
         uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
         if(len == 0) break;
-
-        // dbg::hex_print(rsp, len, "init3");
         uint8_t *rsp_ptr = rsp;
         while (rsp_ptr <= rsp + len - 11) {
             if(memcmp(rsp_ptr, "\xaa\x55\x13\x70\x00\x00", 6) == 0){
@@ -192,7 +190,8 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     this->_set_chain_inactive();
 
     // split the chip address space evenly
-    uint8_t address_interval = (uint8_t) (256 / chip_counter);
+    // uint8_t address_interval = (uint8_t) (256 / chip_counter);
+    uint8_t address_interval = 4;
     for (uint8_t i = 0; i < chip_counter; i++) {
       this->_set_chip_address(i * address_interval);
     }
@@ -212,7 +211,6 @@ uint8_t BM1370::init(uint64_t freq, int diff){
 
     uint8_t init141[] = {0x00, 0x28, 0x11, 0x30, 0x02, 0x00};
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init141, 6);
-
 
     for (uint8_t i = 0; i < chip_counter; i++) {
         uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
@@ -248,9 +246,12 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     // unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x14, 0x46}; //S19XP-Luxos Default
     // unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x15, 0x1C}; //S19XP-Stock Default
     //unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x15, 0xA4}; //S21-Stock Default
-    unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x1E, 0xB5}; //S21 Pro-Stock Default
+    uint8_t set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x00, 0x1E, 0xB5}; //S21 Pro-Stock Default
     // unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x0F, 0x00, 0x00}; //supposedly the "full" 32bit nonce range
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), set_10_hash_counting, 6);
+
+    uint8_t init157[6] = {0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF}; 
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init157, 6);
 
     return chip_counter;
 }

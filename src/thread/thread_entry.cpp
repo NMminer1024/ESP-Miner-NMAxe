@@ -499,8 +499,7 @@ void monitor_thread_entry(void *args){
             //check mcu temperature status
             if(board->status.temp.mcu > BOARD_MCU_DANGER){
                 LOG_W("MCU temp is too high, restart...");
-                delay(1000);
-                ESP.restart();
+                xSemaphoreGive(board->status.reboot_xsem);
             }
 
             //check vcore temperature status
@@ -519,8 +518,7 @@ void monitor_thread_entry(void *args){
                 
                 if(++vcore_err_cnt > 10){//avoid some noise
                     LOG_W("Vcore part temp keep danger, restart miner...");
-                    delay(1000);
-                    ESP.restart();
+                    xSemaphoreGive(board->status.reboot_xsem);
                 }
             }else vcore_err_cnt = 0;
 
@@ -538,8 +536,7 @@ void monitor_thread_entry(void *args){
                 LOG_W("ASIC temp reach danger (asic: %.1fC), decrease vcore from %d to %d mV", board->status.temp.asic, vcore_req_last, board->info.spec.asic.req_vcore);
                 if(++asic_err_cnt > 10){//avoid some noise
                     LOG_W("ASIC temp keep danger, restart miner...");
-                    delay(1000);
-                    ESP.restart();
+                    xSemaphoreGive(board->status.reboot_xsem);
                 }
             }else asic_err_cnt = 0;
 
@@ -551,7 +548,7 @@ void monitor_thread_entry(void *args){
                         fan_err_cnt++;
                         if(fan_err_cnt > 20){//avoid some noise
                             LOG_W("Fan rpm is too low, restart miner...");
-                            ESP.restart();
+                            xSemaphoreGive(board->status.reboot_xsem);
                         }
                     }
                     else fan_err_cnt = 0;
@@ -567,7 +564,7 @@ void monitor_thread_entry(void *args){
             LOG_W("Power %0.1fW is too low...", board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0);
             if(++pwr_err_cnt > 30){//30s
                 LOG_W("Power is too low, restart miner...");
-                ESP.restart();
+                xSemaphoreGive(board->status.reboot_xsem);
             }
             }else pwr_err_cnt = 0;
 
@@ -576,7 +573,7 @@ void monitor_thread_entry(void *args){
             if(board->status.miner.hashrate._3m <= 1){
             if(++hr_err_cnt > 60){//1min
                 LOG_W("Hashrate is too low, restart miner...");
-                ESP.restart();
+                xSemaphoreGive(board->status.reboot_xsem);
             }
             }else hr_err_cnt = 0;
         }
@@ -658,6 +655,10 @@ void daemon_thread_entry(void *args){
     if(xSemaphoreTake(board->status.reboot_xsem, 0) == pdTRUE){
       ESP.restart();
     }
+
+    //avoid restart when ota running
+    if(board->status.ota.running) continue;
+
     //WiFi daemon
     if(xSemaphoreTake(board->info.connection.wifi.reconnect_xsem, 0) == pdTRUE){
       WiFi.begin(board->info.connection.wifi.conn_param.ssid.c_str(), board->info.connection.wifi.conn_param.pwd.c_str());
@@ -669,14 +670,12 @@ void daemon_thread_entry(void *args){
     //Stratum daemon
     if(millis() - board->info.connection.stratum_update > STRATUM_ALIVE_TIMEOUT){
       LOG_W("Stratum connection seems frozen, restarting...");
-      delay(100);
-      ESP.restart();
+      xSemaphoreGive(board->status.reboot_xsem);
     }
     //ASIC daemon
     if(millis() - board->status.miner.asic_update > ASIC_ALIVE_TIMEOUT){
       LOG_W("ASIC seems frozen, restarting...");
-      delay(100);
-      ESP.restart();
+      xSemaphoreGive(board->status.reboot_xsem);
     }
   }
   LOG_W("Daemon thread exiting...");
