@@ -33,14 +33,6 @@
 
 #define BOARD_LOW_POWER         (10.0f)   //Watt
 
-#define ASIC_TEMP_DANGER        (75.0f)
-
-#define ASIC_TEMP_NORMAL        (50.0f)
-
-#define VCORE_TEMP_DANGER       (90.0f)
-
-#define VCORE_TEMP_LOW          (50.0f)
-
 #define BOARD_MCU_DANGER        (60.0f)
 
 #define HISTORY_DEEPTH          (1000*3600*24) // history depth, how long to keep the history, in seconds
@@ -133,7 +125,7 @@ typedef struct{
         String              fw_latest_release;
         String              devcie_code;
     }base;
-    BoardSpecConfig         spec;// board spec config
+    BoardSpecConfig         spec;// board spec config, including asic , pinout, display, power etc.
     connect_info_t          connection;
     preference_info_t       preference;
 }board_info_t;

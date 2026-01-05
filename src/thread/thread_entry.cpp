@@ -203,12 +203,8 @@ void led_thread_entry(void *args){
         }
 
         // sys led, indicate hashrate
-        if(board->status.miner.hashrate._3m > 0){
-            ledcWrite(pwmChannel, (uint32_t)((1 + sin(led_cnt/100.0f)) * (1<<resolution - 1)));
-        }
-        else{
-            ledcWrite(pwmChannel, (uint32_t)((1 + sin(20*led_cnt/100.0f)) * (1<<resolution - 1)));
-        }
+        uint8_t speed = (board->status.miner.hashrate._3m > 0) ? 1 : 20;
+        ledcWrite(pwmChannel, (uint32_t)((1 + sin(speed * led_cnt/100.0f)) * (1<<resolution - 1)));
         led_cnt++;
     }
     LOG_I("led thread exit...");
@@ -574,24 +570,50 @@ void monitor_thread_entry(void *args){
                 delay(1000);
                 ESP.restart();
             }
+
             //check vcore temperature status
-            if(board->status.temp.vcore > VCORE_TEMP_DANGER || board->status.temp.asic > ASIC_TEMP_DANGER){
-            uint16_t vcore_now = board->power->get_vcore();
-            if(vcore_now >= 1200)vcore_now -= 100;
-            else{
-                static uint8_t cnt = 0;
-                if(++cnt > 5){
-                    LOG_W("Vcore temp reach danger for 5 seconds, restart...");
+            static uint8_t vcore_err_cnt = 0;
+            if(board->status.temp.vcore > board->info.spec.pwr.temp_limit.high){
+                uint16_t vcore_req_last = board->info.spec.asic.req_vcore;
+                uint8_t step = 5;
+
+                if(board->info.spec.asic.req_vcore >= board->info.spec.asic.min_vcore + step)
+                    board->info.spec.asic.req_vcore -= step;
+                else 
+                    board->info.spec.asic.req_vcore = board->info.spec.asic.min_vcore;
+
+
+                LOG_W("Vcore part temp reach danger (vcore: %.1fC), decrease vcore from %d to %d mV", board->status.temp.vcore, vcore_req_last, board->info.spec.asic.req_vcore);
+                
+                if(++vcore_err_cnt > 10){//avoid some noise
+                    LOG_W("Vcore part temp keep danger, restart miner...");
                     delay(1000);
                     ESP.restart();
                 }
-            }
-            board->power->set_vcore_voltage(vcore_now);
-            LOG_W("Vcore temp reach danger %.1fC, decrease vcore to %d", board->status.temp.vcore, vcore_now);
-            }
+            }else vcore_err_cnt = 0;
+
+            //check asic temperature status
+            static uint8_t asic_err_cnt = 0;
+            if(board->status.temp.asic > board->info.spec.asic.temp_limit.high){
+                uint16_t vcore_req_last = board->info.spec.asic.req_vcore;
+                uint8_t step = 5;
+
+                if(board->info.spec.asic.req_vcore >= board->info.spec.asic.min_vcore + step)
+                    board->info.spec.asic.req_vcore -= step;
+                else 
+                    board->info.spec.asic.req_vcore = board->info.spec.asic.min_vcore;
+
+                LOG_W("ASIC temp reach danger (asic: %.1fC), decrease vcore from %d to %d mV", board->status.temp.asic, vcore_req_last, board->info.spec.asic.req_vcore);
+                if(++asic_err_cnt > 10){//avoid some noise
+                    LOG_W("ASIC temp keep danger, restart miner...");
+                    delay(1000);
+                    ESP.restart();
+                }
+            }else asic_err_cnt = 0;
+
             //check fan status
             static uint16_t fan_err_cnt = 0;
-            if(board->status.temp.asic > ASIC_TEMP_NORMAL){
+            if(board->status.temp.asic > board->info.spec.asic.temp_limit.low){
                 for(auto &fan : board->status.fans){
                     if(fan.rpm < board->info.spec.fans[fan.id].init.danger_rpm_thr){
                         fan_err_cnt++;

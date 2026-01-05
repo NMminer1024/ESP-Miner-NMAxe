@@ -46,7 +46,6 @@ struct BoardSpecConfig {
         uint8_t             last_page;//last ui page index, restored on next boot
     }ui;
 
-
     struct {
         uint16_t width;   // in pixels
         uint16_t height;  // in pixels
@@ -77,6 +76,11 @@ struct BoardSpecConfig {
         int8_t  rst_pin;          // ESP32 rst pin to asic rst pin
         uint32_t com_baud_init;   // initial communication baudrate 
         uint32_t com_baud_work;   // working communication baudrate
+        struct {
+            float high;      // high temperature limit
+            float medium;    // medium temperature limit
+            float low;       // low temperature limit
+        }temp_limit;
         HardwareSerial *com_port; // HardwareSerial port instance
     }asic;
 
@@ -87,6 +91,11 @@ struct BoardSpecConfig {
         int8_t               pgood_pin;
         int8_t               dc_plug_pin;
         uint16_t             vbus_min_required; // mV, minimum vbus voltage to start mining
+        struct {
+            float high;      // high temperature limit
+            float medium;    // medium temperature limit
+            float low;       // low temperature limit
+        }temp_limit;
     }pwr;
 
     struct{

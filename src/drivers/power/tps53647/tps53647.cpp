@@ -91,9 +91,9 @@ void TPS53647Class::set_pll_0v8(power_state_t state){
 void TPS53647Class::set_vcore_status(power_state_t state){
     if(-1 == this->_asic_pwr_en_pins.pwr_vcore) return;
     if(state == PWR_OFF){
-        digitalWrite(this->_asic_pwr_en_pins.pwr_vcore, HIGH);
-    } else {
         digitalWrite(this->_asic_pwr_en_pins.pwr_vcore, LOW);
+    } else {
+        digitalWrite(this->_asic_pwr_en_pins.pwr_vcore, HIGH);
     }
 }
 

@@ -30,6 +30,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.name                      = "NMAxe";
             config.asic.name                 = "BM1366";
             config.asic.num_req              = 1;
+            config.asic.temp_limit.high      = 75.0f;
+            config.asic.temp_limit.medium    = 65.0f;
+            config.asic.temp_limit.low       = 50.0f;
             config.tft.width                 = 135;
             config.tft.height                = 240;
             config.tft.dc_pin                = 47;
@@ -43,7 +46,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.spi.miso_pin              = -1;
             config.spi.mosi_pin              = 48;
             config.spi.sclk_pin              = 38;
-
             config.ui.hr_dist_page.max_x_hr  = 1000;
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
@@ -60,6 +62,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.pgood_pin             = 21;
             config.pwr.dc_plug_pin           = 11;
             config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
+            config.pwr.temp_limit.high       = 85.0f;
+            config.pwr.temp_limit.medium     = 75.0f;
+            config.pwr.temp_limit.low        = 50.0f;
             config.iic.scl_pin               = 8;   
             config.iic.sda_pin               = 9;
             config.led.wifi_pin              = 6;
@@ -105,6 +110,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.name                      = "NMAxeGamma";
             config.asic.name                 = "BM1370";
             config.asic.num_req              = 1;
+            config.asic.temp_limit.high      = 70.0f;
+            config.asic.temp_limit.medium    = 60.0f;
+            config.asic.temp_limit.low       = 50.0f;
             config.tft.width                 = 135;
             config.tft.height                = 240;
             config.tft.dc_pin                = 47;
@@ -118,7 +126,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.spi.miso_pin              = -1;
             config.spi.mosi_pin              = 48;
             config.spi.sclk_pin              = 38;
-
             config.asic.job_interval_ms      = 500;
             config.ui.hr_dist_page.max_x_hr  = 2000;
             config.ui.hr_dist_page.max_x_bars= 20;
@@ -136,6 +143,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.pgood_pin             = 21;
             config.pwr.dc_plug_pin           = 11;
             config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
+            config.pwr.temp_limit.high       = 85.0f;
+            config.pwr.temp_limit.medium     = 75.0f;
+            config.pwr.temp_limit.low        = 50.0f;
             config.iic.scl_pin               = 8;   
             config.iic.sda_pin               = 9;
             config.led.wifi_pin              = 6;
@@ -180,8 +190,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.name                      = "NMQAxe++";
             config.asic.name                 = "BM1370";
             config.asic.num_req              = 4;
+            config.asic.temp_limit.high      = 75.0f;
+            config.asic.temp_limit.medium    = 65.0f;
+            config.asic.temp_limit.low       = 50.0f;
             config.asic.job_interval_ms      = 500;
-            
             config.tft.width                 = 240;
             config.tft.height                = 320;
             config.tft.dc_pin                = 3;
@@ -212,6 +224,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.pgood_pin             = 21;
             config.pwr.dc_plug_pin           = -1;  // Not used
             config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
+            config.pwr.temp_limit.high    = 95.0f;
+            config.pwr.temp_limit.medium  = 75.0f;
+            config.pwr.temp_limit.low     = 50.0f;
             config.iic.scl_pin               = 7;   
             config.iic.sda_pin               = 8;
             config.led.wifi_pin              = -1; // Not used

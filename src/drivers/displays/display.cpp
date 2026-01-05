@@ -652,8 +652,8 @@ static void ui_miner_page_update(board_sal_t* board){
   }
 
   //temp symbol color update
-  if(board->status.temp.vcore >= VCORE_TEMP_DANGER) font_color = lv_color_hex(0xff0000);//red
-  else if(board->status.temp.vcore >= (VCORE_TEMP_DANGER - 20)) font_color = lv_color_hex(0xffa500);//yellow
+  if(board->status.temp.vcore >= board->info.spec.pwr.temp_limit.high) font_color = lv_color_hex(0xff0000);//red
+  else if(board->status.temp.vcore >= board->info.spec.pwr.temp_limit.medium) font_color = lv_color_hex(0xffa500);//yellow
   else font_color = lv_color_hex(0x00ff00);//green
   lv_obj_set_style_text_color(lb_temp_symb, font_color, LV_PART_MAIN); 
 
