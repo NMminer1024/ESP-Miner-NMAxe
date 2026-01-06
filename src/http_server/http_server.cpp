@@ -802,7 +802,7 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
         if(root.containsKey("brightness")){
             g_board.info.preference.screen.brightness = root["brightness"].as<uint8_t>();
             nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.preference.screen.brightness);
-            xSemaphoreGive(g_board.status.brightness_xsem);
+            xSemaphoreGive(g_board.status.brightness_update_xsem);
             LOG_D("Screen brightness set to %d", g_board.info.preference.screen.brightness);
         }
         if(root.containsKey("flipscreen")){

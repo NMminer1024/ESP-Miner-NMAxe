@@ -618,13 +618,13 @@ void monitor_thread_entry(void *args){
         }
 
         //save last ui page to NVS
-        if(board->status.page_save_xsem != nullptr && xSemaphoreTake(board->status.page_save_xsem, 0) == pdTRUE){
-            nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, board->info.spec.ui.last_page);
-            LOG_D("Last page %d saved to NVS", board->info.spec.ui.last_page);
+        if(board->status.ui.page_save_xsem != nullptr && xSemaphoreTake(board->status.ui.page_save_xsem, 0) == pdTRUE){
+            nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, board->status.ui.last_page);
+            LOG_D("Last page %d saved to NVS", board->status.ui.last_page);
         }
 
         // update bringhtnes
-        if(xSemaphoreTake(board->status.brightness_xsem, 0) == pdTRUE){
+        if(xSemaphoreTake(board->status.brightness_update_xsem, 0) == pdTRUE){
             tft_bl_ctrl(board->info.preference.screen.brightness);
             LOG_D("Update screen brightness to %d", board->info.preference.screen.brightness);
         }

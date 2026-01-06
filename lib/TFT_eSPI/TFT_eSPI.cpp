@@ -622,18 +622,18 @@ void TFT_eSPI::initBus(int8_t csPin, int8_t dcPin, int8_t rstPin)
 ** Function name:           begin
 ** Description:             Included for backwards compatibility
 ***************************************************************************************/
-void TFT_eSPI::begin(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc){
+void TFT_eSPI::begin(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, bool color_invert){
   this->_mosiPin = spimosi;
   this->_misoPin = spimiso;
   this->_sclkPin = spiclk;
-  init(csPin, dcPin, rstPin, spiclk, spimiso, spimosi, tc);
+  init(csPin, dcPin, rstPin, spiclk, spimiso, spimosi, color_invert);
 }
 
 /***************************************************************************************
 ** Function name:           init (tc is tab colour for ST7735 displays only)
 ** Description:             Reset, then initialise the TFT display registers
 ***************************************************************************************/
-void TFT_eSPI::init(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, uint8_t tc)
+void TFT_eSPI::init(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, int8_t spimiso, int8_t spimosi, bool color_invert, uint8_t tc)
 {
   if (_booted)
   {
@@ -826,13 +826,18 @@ void TFT_eSPI::init(int8_t csPin, int8_t dcPin, int8_t rstPin, int8_t spiclk, in
 
 #endif
 
-#ifdef TFT_INVERSION_ON
-  writecommand(TFT_INVON);
-#endif
+// #ifdef TFT_INVERSION_ON
+//   writecommand(TFT_INVON);
+// #endif
+// #ifdef TFT_INVERSION_OFF
+//   writecommand(TFT_INVOFF);
+// #endif
 
-#ifdef TFT_INVERSION_OFF
-  writecommand(TFT_INVOFF);
-#endif
+  if(color_invert) {
+    writecommand(TFT_INVON);
+  } else {
+    writecommand(TFT_INVOFF);
+  }
 
   end_tft_write();
 

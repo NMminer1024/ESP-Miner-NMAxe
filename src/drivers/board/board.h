@@ -35,6 +35,7 @@ typedef enum {
     BOARD_UNKNOWN    = 0b00
 } BoardModelType;
 
+
 // board config struct
 struct BoardSpecConfig {
     String   name;
@@ -47,7 +48,26 @@ struct BoardSpecConfig {
             uint32_t                    dura;           // duration of hashrate samples, seconds
             std::map<uint16_t, uint8_t> dist_map;//<x, y> x:scale_x, y:percentage of hashrate in this scale, range from 0 to 100
         }hr_dist_page;
-        uint8_t             last_page;//last ui page index, restored on next boot
+
+        struct{
+            float freq_min;
+            float freq_max;
+
+            float power_min;
+            float power_max;
+
+            float vcore_req_min;
+            float vcore_req_max;
+
+            float vcore_measure_min;
+            float vcore_measure_max;
+
+            float vcore_temp_min;
+            float vcore_temp_max;
+
+            float asic_temp_min;
+            float asic_temp_max;
+        }dashboard_page;
     }ui;
 
     struct {
@@ -56,6 +76,7 @@ struct BoardSpecConfig {
         int8_t dc_pin;   // data/command pin
         int8_t rst_pin;  // reset pin
         int8_t pwr_pin;  // power pin
+        bool   color_invert; // true: invert color, false: normal
         struct {
             int8_t   pin;   // backlight pin
             int8_t   pwm_ch; // backlight pwm channel

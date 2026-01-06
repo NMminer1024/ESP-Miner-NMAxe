@@ -175,18 +175,18 @@ typedef struct{
         SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
         SemaphoreHandle_t   update_xsem;  // miner status update signal
     }miner;
-    
-    std::vector<fan_status_t> fans;  // support multiple fans
 
-
-    std::map<miner_ip_t, miner_info_t> swarm;
-    SemaphoreHandle_t                  page_save_xsem; // save current page index
-    SemaphoreHandle_t                  reboot_xsem;
-    SemaphoreHandle_t                  nvs_save_xsem;// save status to NVS signal
-    SemaphoreHandle_t                  brightness_xsem;// screen brightness update signal
+    struct{
+        SemaphoreHandle_t   page_save_xsem; // save current page index
+        uint8_t             last_page;      //last ui page index, restored on next boot
+    }ui;
     
+    std::vector<fan_status_t>          fans;            // support multiple fans
+    std::map<miner_ip_t, miner_info_t> swarm;           // swarm miners info map
+    SemaphoreHandle_t                  reboot_xsem;     // reboot signal
+    SemaphoreHandle_t                  nvs_save_xsem;   // save status to NVS signal
+    SemaphoreHandle_t                  brightness_update_xsem; // screen brightness update signal
 }board_status_t;
-
 
 
 typedef struct{

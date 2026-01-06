@@ -11,7 +11,7 @@
 //#define TFT_RGB_ORDER TFT_RGB  // Colour order Red-Green-Blue
 //#define TFT_RGB_ORDER TFT_BGR  // Colour order Blue-Green-Red
 
-#define TFT_INVERSION_ON
+// #define TFT_INVERSION_ON
 //#define TFT_INVERSION_OFF
 #define TFT_BACKLIGHT_ON LOW
 

@@ -1,7 +1,6 @@
 #include <nvs_flash.h>
 #include "nvs_config.h"
 #include "logger.h"
-#include "display.h"
 #include "board.h"
 #include "nmaxe.h"
 #include "nmaxegamma.h"
@@ -37,6 +36,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.temp_limit.low       = 50.0f;
             config.tft.width                 = 135;
             config.tft.height                = 240;
+            config.tft.color_invert          = true;
             config.tft.dc_pin                = 47;
             config.tft.bl.pin                = 17;
             config.tft.bl.pwm_ch             = 0;
@@ -51,7 +51,20 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hr_dist_page.max_x_hr  = 1000;
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
-            config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+
+            config.ui.dashboard_page.freq_min          = 380.0f;
+            config.ui.dashboard_page.freq_max          = 700.0f;
+            config.ui.dashboard_page.power_min         = 0.0f;
+            config.ui.dashboard_page.power_max         = 30.0f;
+            config.ui.dashboard_page.vcore_req_min     = 1.0f;
+            config.ui.dashboard_page.vcore_req_max     = 1.45f;
+            config.ui.dashboard_page.vcore_measure_min = 1.0f;
+            config.ui.dashboard_page.vcore_measure_max = 1.45f;
+            config.ui.dashboard_page.vcore_temp_min    = 0.0f;
+            config.ui.dashboard_page.vcore_temp_max    = 100.0f;
+            config.ui.dashboard_page.asic_temp_min     = 0.0f;
+            config.ui.dashboard_page.asic_temp_max     = 80.0f;
+
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.en_pins.pwr_pll_0v8   = 13;
@@ -125,6 +138,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.tft.bl.pwm_resolution     = 8;        // bits
             config.tft.rst_pin               = 40;
             config.tft.pwr_pin               = 18;
+            config.tft.color_invert          = true;
             config.spi.cs_pin                = 39;
             config.spi.miso_pin              = -1;
             config.spi.mosi_pin              = 48;
@@ -132,7 +146,20 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hr_dist_page.max_x_hr  = 2000;
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
-            config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+
+            config.ui.dashboard_page.freq_min          = 380.0f;
+            config.ui.dashboard_page.freq_max          = 900.0f;
+            config.ui.dashboard_page.power_min         = 0.0f;
+            config.ui.dashboard_page.power_max         = 40.0f;
+            config.ui.dashboard_page.vcore_req_min     = 0.9f;
+            config.ui.dashboard_page.vcore_req_max     = 1.35f;
+            config.ui.dashboard_page.vcore_measure_min = 0.9f;
+            config.ui.dashboard_page.vcore_measure_max = 1.35f;
+            config.ui.dashboard_page.vcore_temp_min    = 0.0f;
+            config.ui.dashboard_page.vcore_temp_max    = 100.0f;
+            config.ui.dashboard_page.asic_temp_min     = 0.0f;
+            config.ui.dashboard_page.asic_temp_max     = 80.0f;
+
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.en_pins.pwr_pll_0v8   = 13;
@@ -205,15 +232,28 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.tft.bl.pwm_resolution     = 8;        // bits
             config.tft.rst_pin               = -1;
             config.tft.pwr_pin               = -1;
+            config.tft.color_invert          = false;
             config.spi.cs_pin                = -1;
             config.spi.miso_pin              = 2;
             config.spi.mosi_pin              = 1;
             config.spi.sclk_pin              = 5;
-
             config.ui.hr_dist_page.max_x_hr  = 2000;
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
-            config.ui.last_page              = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+
+            config.ui.dashboard_page.freq_min          = 380.0f;
+            config.ui.dashboard_page.freq_max          = 900.0f;
+            config.ui.dashboard_page.power_min         = 0.0f;
+            config.ui.dashboard_page.power_max         = 40.0f;
+            config.ui.dashboard_page.vcore_req_min     = 0.9f;
+            config.ui.dashboard_page.vcore_req_max     = 1.35f;
+            config.ui.dashboard_page.vcore_measure_min = 0.9f;
+            config.ui.dashboard_page.vcore_measure_max = 1.35f;
+            config.ui.dashboard_page.vcore_temp_min    = 0.0f;
+            config.ui.dashboard_page.vcore_temp_max    = 100.0f;
+            config.ui.dashboard_page.asic_temp_min     = 0.0f;
+            config.ui.dashboard_page.asic_temp_max     = 80.0f;
+
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.en_pins.pwr_pll_0v8   = 39;

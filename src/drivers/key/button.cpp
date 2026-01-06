@@ -26,5 +26,5 @@ void silence_mode_cb(void){
   g_board.info.preference.led.sleep_last    = g_board.info.preference.led.sleep;
   toggle = !toggle;
   last_brightness = (g_board.info.preference.screen.brightness == 0) ? last_brightness : g_board.info.preference.screen.brightness;
-  xSemaphoreGive(g_board.status.brightness_xsem);
+  xSemaphoreGive(g_board.status.brightness_update_xsem);
 }

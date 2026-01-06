@@ -57,7 +57,8 @@ static void tft_init(){
                   g_board.info.spec.tft.rst_pin, 
                   g_board.info.spec.spi.sclk_pin,
                   g_board.info.spec.spi.miso_pin,
-                  g_board.info.spec.spi.mosi_pin
+                  g_board.info.spec.spi.mosi_pin,
+                  g_board.info.spec.tft.color_invert
                 );
                 
   if(g_board.info.preference.screen.flip)tftDriver->setRotation(1); 
@@ -873,29 +874,23 @@ static void ui_hits_page_update(board_sal_t* board){
 }
 
 static void ui_dashboard_page_update(board_sal_t* board){
-  #define FREQ_MIN 380.0f
-  #define FREQ_MAX 900.0f
-
-  #define POWER_MIN 0.0f
-  #define POWER_MAX 40.0f
-
-  #define VCORE_REQ_MIN 1.0f
-  #define VCORE_REQ_MAX 1.5f
-
-  #define VCORE_MEASURE_MIN 1.0f
-  #define VCORE_MEASURE_MAX 1.5f
-
-  #define VCORE_TEMP_MIN 0.0f
-  #define VCORE_TEMP_MAX 120.0f
-
-  #define ASIC_TEMP_MIN 0.0f
-  #define ASIC_TEMP_MAX 80.0f
+  const float FREQ_MIN          = board->info.spec.ui.dashboard_page.freq_min;
+  const float FREQ_MAX          = board->info.spec.ui.dashboard_page.freq_max;
+  const float POWER_MIN         = board->info.spec.ui.dashboard_page.power_min;
+  const float POWER_MAX         = board->info.spec.ui.dashboard_page.power_max;
+  const float VCORE_REQ_MIN     = board->info.spec.ui.dashboard_page.vcore_req_min;
+  const float VCORE_REQ_MAX     = board->info.spec.ui.dashboard_page.vcore_req_max;
+  const float VCORE_MEASURE_MIN = board->info.spec.ui.dashboard_page.vcore_measure_min;
+  const float VCORE_MEASURE_MAX = board->info.spec.ui.dashboard_page.vcore_measure_max;
+  const float VCORE_TEMP_MIN    = board->info.spec.ui.dashboard_page.vcore_temp_min;
+  const float VCORE_TEMP_MAX    = board->info.spec.ui.dashboard_page.vcore_temp_max;
+  const float ASIC_TEMP_MIN     = board->info.spec.ui.dashboard_page.asic_temp_min;
+  const float ASIC_TEMP_MAX     = board->info.spec.ui.dashboard_page.asic_temp_max;
 
   if(!board){
     LOG_E("board is null\r\n");
     return;
   }
-
 
   static lv_obj_t * arc_power = NULL, *arc_oc = NULL, *arc_vcore_req = NULL, *arc_vcore_measure = NULL, *arc_asci_temp = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -1380,7 +1375,7 @@ void ui_switch_next_page_cb(){
   g_board.info.preference.led.sleep         = (g_board.info.preference.led.sleep_last) ? false : g_board.info.preference.led.sleep; //switch led sleep mode
   // g_board.info.preference.screen.brightness = g_board.info.preference.screen.brightness_last;//restore brightness
   if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
-    xSemaphoreGive(g_board.status.brightness_xsem); //wake up brightness thread to set brightness
+    xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
     g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
     return;
   } 
@@ -1388,8 +1383,8 @@ void ui_switch_next_page_cb(){
   current_page_index = (current_page_index == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : current_page_index;
   current_page_index++;
   lv_obj_scroll_to_view(ui_pages[current_page_index], LV_ANIM_ON);
-  g_board.info.spec.ui.last_page = current_page_index;
-  xSemaphoreGive(g_board.status.page_save_xsem);
+  g_board.status.ui.last_page = current_page_index;
+  xSemaphoreGive(g_board.status.ui.page_save_xsem);
 }
 
 void ui_thread_entry(void *args){
@@ -1640,8 +1635,8 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Miner ready!", 0x00FF00, true);
   delay(500);
   /***************************************scroll to miner page***************************************/
-  lv_obj_scroll_to_view(ui_pages[g_board.info.spec.ui.last_page], LV_ANIM_ON); 
-  current_page_index = g_board.info.spec.ui.last_page;
+  lv_obj_scroll_to_view(ui_pages[g_board.status.ui.last_page], LV_ANIM_ON); 
+  current_page_index = g_board.status.ui.last_page;
   
   while (true){
     xSemaphoreTake(g_board.status.miner.update_xsem, portMAX_DELAY);

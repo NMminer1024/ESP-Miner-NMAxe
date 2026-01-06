@@ -53,7 +53,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
     board->status.miner.update_xsem                 = xSemaphoreCreateCounting(1, 0);
-    board->status.brightness_xsem                   = xSemaphoreCreateCounting(1, 0);
+    board->status.brightness_update_xsem                   = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
     board->info.connection.wifi.softap_param.pwd    = "12345678";
     board->info.connection.wifi.softap_param.ssid   = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, ("NMAxe_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
@@ -69,8 +69,8 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.ota.progress                      = 0;
     board->status.ota.filename                      = "";
     board->status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
-
-    board->status.page_save_xsem                    = xSemaphoreCreateCounting(1, 0);
+    board->status.ui.last_page                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+    board->status.ui.page_save_xsem                 = xSemaphoreCreateCounting(1, 0);
     board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
     board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
