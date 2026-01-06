@@ -75,7 +75,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
     board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
     board->info.preference.screen.auto_rolling       = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
-    board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 90);
+    board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 100);
     board->info.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     board->info.preference.led.sleep                = false;
     board->info.preference.led.sleep_last           = board->info.preference.led.sleep;
