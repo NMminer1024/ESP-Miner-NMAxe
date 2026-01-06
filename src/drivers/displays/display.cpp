@@ -29,7 +29,16 @@ static lv_obj_t *lb_cfg_timeout = NULL;
 static uint8_t   current_page_index = UI_PAGE_MINER;
 
 void tft_bl_ctrl(int8_t percent){
-  uint8_t pwm = (TFT_BACKLIGHT_ON == HIGH) ? percent : (255 - percent * 2.55);
+  // uint8_t pwm = (TFT_BACKLIGHT_ON == HIGH) ? percent : (255 - percent * 2.55);
+  uint8_t pwm = 0;
+  if((g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME) || (g_board.info.spec.name == BOARD_NMAXE_NAME)){
+    pwm = 255 * (1 - percent / 100.0f);
+  } 
+  else if(g_board.info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    pwm = percent * 2.55;
+  }
+  else pwm = 128; //default mid brightness
+  
   ledcWrite(g_board.info.spec.tft.bl.pwm_ch, pwm);
 }
 
