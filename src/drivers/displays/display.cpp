@@ -157,12 +157,34 @@ static void ui_drv_register(void){
 
 static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *big_digit_page = NULL;
-  const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL;
+  const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL, *p_logo_txt_img = NULL, *p_logo_worker_img = NULL;
 
+  // logo txt image buffer init
+  logo_txt_nmaxe.header.w = 150;
+  logo_txt_nmaxe.header.h = 38;
+  logo_txt_nmaxe.data_size = logo_txt_nmaxe.header.w * logo_txt_nmaxe.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
 
-  logo_nmqaxepp.header.w = 150;
-  logo_nmqaxepp.header.h = 38;
-  logo_nmqaxepp.data_size = logo_nmqaxepp.header.w * logo_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+  logo_txt_nmaxegamma.header.w = 150;
+  logo_txt_nmaxegamma.header.h = 38;
+  logo_txt_nmaxegamma.data_size = logo_txt_nmaxegamma.header.w * logo_txt_nmaxegamma.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
+  logo_txt_nmqaxepp.header.w = 150;
+  logo_txt_nmqaxepp.header.h = 38;
+  logo_txt_nmqaxepp.data_size = logo_txt_nmqaxepp.header.w * logo_txt_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
+  // logo worker image buffer init
+  logo_worker_nmaxe.header.w = 60;
+  logo_worker_nmaxe.header.h = 68;
+  logo_worker_nmaxe.data_size = logo_worker_nmaxe.header.w * logo_worker_nmaxe.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
+  logo_worker_nmaxegamma.header.w = 60;
+  logo_worker_nmaxegamma.header.h = 68;
+  logo_worker_nmaxegamma.data_size = logo_worker_nmaxegamma.header.w * logo_worker_nmaxegamma.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
+  logo_worker_nmqaxepp.header.w = 60;
+  logo_worker_nmqaxepp.header.h = 68;
+  logo_worker_nmqaxepp.data_size = logo_worker_nmqaxepp.header.w * logo_worker_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
 
 
   // image buffer init
@@ -204,25 +226,31 @@ static void ui_layout_init(void){
 
   
   if(g_board.info.base.hw_model == BOARD_NMAXE_NAME){
-      p_loading_img  = &loading_page_img_135_240;
-      p_config_img   = &config_page_nmaxe_img_135_240;
-      p_mining_img   = &mining_page_nmaxe_img_135_240;
-      p_status_img   = &status_page_img_135_240;
-      p_black_img    = &black_page_img_135_240;
+      p_loading_img     = &loading_page_img_135_240;
+      p_config_img      = &config_page_nmaxe_img_135_240;
+      p_mining_img      = &mining_page_nmaxe_img_135_240;
+      p_status_img      = &status_page_img_135_240;
+      p_black_img       = &black_page_img_135_240;
+      p_logo_txt_img    = &logo_txt_nmaxe;
+      p_logo_worker_img = &logo_worker_nmaxe;
   }
   else if(g_board.info.base.hw_model == BOARD_NMAXE_GAMMA_NAME){
-      p_loading_img  = &loading_page_img_135_240;
-      p_config_img   = &config_page_gamma_img_135_240;
-      p_mining_img   = &mining_page_gamma_img_135_240;
-      p_status_img   = &status_page_img_135_240;
-      p_black_img    = &black_page_img_135_240;
+      p_loading_img     = &loading_page_img_135_240;
+      p_config_img      = &config_page_gamma_img_135_240;
+      p_mining_img      = &mining_page_gamma_img_135_240;
+      p_status_img      = &status_page_img_135_240;
+      p_black_img       = &black_page_img_135_240;
+      p_logo_txt_img    = &logo_txt_nmaxegamma;
+      p_logo_worker_img = &logo_worker_nmaxegamma;
   }
   else if(g_board.info.base.hw_model == BOARD_NMQAXE_PLUS_PLUS_NAME){
-      p_loading_img  = &loading_page_img_240_320;
-      p_config_img   = &config_page_nmaxe_img_135_240;
-      p_mining_img   = &mining_page_nmaxe_img_135_240;
-      p_status_img   = &status_page_img_135_240;
-      p_black_img    = &black_page_img_135_240;
+      p_loading_img     = &loading_page_img_240_320;
+      p_config_img      = &config_page_nmaxe_img_135_240;
+      p_mining_img      = &mining_page_nmaxe_img_135_240;
+      p_status_img      = &status_page_img_135_240;
+      p_black_img       = &black_page_img_135_240;
+      p_logo_txt_img    = &logo_txt_nmqaxepp;
+      p_logo_worker_img = &logo_worker_nmqaxepp;
   }
   else{
 
@@ -253,11 +281,9 @@ static void ui_layout_init(void){
   lv_img_set_src(loading_img_obj, p_loading_img);
   lv_obj_set_size(loading_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(loading_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-
-  lv_obj_t *logo_img_obj = lv_img_create(loading_page);
-  lv_img_set_src(logo_img_obj, &logo_nmqaxepp); 
-  lv_obj_align(logo_img_obj, LV_ALIGN_TOP_MID, 0, 10);
-
+  lv_obj_t *logo_txt_img_obj = lv_img_create(loading_page);//logo txt on loading page
+  lv_img_set_src(logo_txt_img_obj, p_logo_txt_img); 
+  lv_obj_align(logo_txt_img_obj, LV_ALIGN_TOP_MID, 0, 5);
   // Create config page
   config_page = lv_obj_create(parent_docker);
   lv_obj_set_size(config_page, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -265,7 +291,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_pad_all(config_page, 0, 0);
   lv_obj_set_style_border_width(config_page, 0, 0);
   lv_obj_set_scrollbar_mode(config_page, LV_SCROLLBAR_MODE_OFF); 
-  lv_obj_t *config_img_obj = lv_img_create(config_page);
+  lv_obj_t *config_img_obj = lv_img_create(config_page);//
   lv_img_set_src(config_img_obj, p_config_img);
   lv_obj_set_size(config_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(config_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
@@ -280,6 +306,9 @@ static void ui_layout_init(void){
   lv_img_set_src(miner_img_obj, p_mining_img);
   lv_obj_set_size(miner_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(miner_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  lv_obj_t *logo_worker_img_obj = lv_img_create(miner_page);//worker logo
+  lv_img_set_src(logo_worker_img_obj, p_logo_worker_img); 
+  lv_obj_align(logo_worker_img_obj, LV_ALIGN_TOP_LEFT, 45, 20);
   // Create dashboard page  
   dashboard_page = lv_obj_create(parent_docker);
   lv_obj_set_size(dashboard_page, SCREEN_WIDTH, SCREEN_HEIGHT);

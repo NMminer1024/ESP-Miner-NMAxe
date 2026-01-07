@@ -10,7 +10,33 @@
 #include "logo_img.h"
 
 
-lv_img_dsc_t logo_nmqaxepp = {
+
+/****************************** txt logo****************************/
+lv_img_dsc_t logo_txt_nmaxe = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR_ALPHA,  //transparent color, alpha channel included
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)nmaxe_txt_logo_img_array,
+};
+
+lv_img_dsc_t logo_txt_nmaxegamma = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR_ALPHA,  //transparent color, alpha channel included
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)nmaxegamma_txt_logo_img_array,
+};
+
+lv_img_dsc_t logo_txt_nmqaxepp = {
     .header = {
         .cf = LV_IMG_CF_TRUE_COLOR_ALPHA,  //transparent color, alpha channel included
         .always_zero = 0,
@@ -21,6 +47,50 @@ lv_img_dsc_t logo_nmqaxepp = {
     .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
     .data = (const uint8_t *)nmqaxepp_txt_logo_img_array,
 };
+
+
+/****************************** worker logo****************************/
+
+lv_img_dsc_t logo_worker_nmaxe = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR_ALPHA,  //transparent color, alpha channel included
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)nmaxe_worker_logo_img_array,
+};
+
+lv_img_dsc_t logo_worker_nmaxegamma = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR_ALPHA,  //transparent color, alpha channel included
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)nmaxegamma_worker_logo_img_array,
+};
+
+lv_img_dsc_t logo_worker_nmqaxepp = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR_ALPHA,  //transparent color, alpha channel included
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)nmqaxepp_worker_logo_img_array,
+};
+
+
+
+
+
 
 lv_img_dsc_t black_page_img_135_240 = {
     .header = {

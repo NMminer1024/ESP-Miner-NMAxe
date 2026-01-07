@@ -7,20 +7,20 @@
 #include "nmqaxepp.h"
 
 BoardModelType get_board_model(){
-    // BoardModelType model = BOARD_UNKNOWN;
-    // pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
-    // pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
-    // delay(100); //wait for pin stable
-    // uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
-    // uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
-    // // 0b11 NMAXE
-    // // 0b01 NMAXE_GAMMA
-    // // 0b10 NMQAXE++
-    // // 0b00 BOARD_UNKNOWN
-    // model = static_cast<BoardModelType>((sel0 << 1) | sel1);
-    // return model;
+    BoardModelType model = BOARD_UNKNOWN;
+    pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
+    pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
+    delay(100); //wait for pin stable
+    uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
+    uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
+    // 0b11 NMAXE
+    // 0b01 NMAXE_GAMMA
+    // 0b10 NMQAXE++
+    // 0b00 BOARD_UNKNOWN
+    model = static_cast<BoardModelType>((sel0 << 1) | sel1);
+    return model;
 
-    return NMQAXE_PLUS_PLUS;
+    // return NMQAXE_PLUS_PLUS;
 }
 
 BoardSpecConfig get_board_config(BoardModelType model) {
