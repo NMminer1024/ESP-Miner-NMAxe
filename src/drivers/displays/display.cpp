@@ -159,6 +159,12 @@ static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *big_digit_page = NULL;
   const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL;
 
+
+  logo_nmqaxepp.header.w = 150;
+  logo_nmqaxepp.header.h = 38;
+  logo_nmqaxepp.data_size = logo_nmqaxepp.header.w * logo_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
+
   // image buffer init
   loading_page_img_135_240.header.w = SCREEN_WIDTH;
   loading_page_img_135_240.header.h = SCREEN_HEIGHT;
@@ -195,8 +201,8 @@ static void ui_layout_init(void){
   status_page_img_135_240.header.w = SCREEN_WIDTH;
   status_page_img_135_240.header.h = SCREEN_HEIGHT;
   status_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-  // status_page_img_135_240.data = (const uint8_t *)status_page_img_array;
 
+  
   if(g_board.info.base.hw_model == BOARD_NMAXE_NAME){
       p_loading_img  = &loading_page_img_135_240;
       p_config_img   = &config_page_nmaxe_img_135_240;
@@ -247,6 +253,11 @@ static void ui_layout_init(void){
   lv_img_set_src(loading_img_obj, p_loading_img);
   lv_obj_set_size(loading_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(loading_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+
+  lv_obj_t *logo_img_obj = lv_img_create(loading_page);
+  lv_img_set_src(logo_img_obj, &logo_nmqaxepp); 
+  lv_obj_align(logo_img_obj, LV_ALIGN_TOP_MID, 0, 10);
+
   // Create config page
   config_page = lv_obj_create(parent_docker);
   lv_obj_set_size(config_page, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -355,14 +366,14 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_obj_align(lb_loading, LV_ALIGN_BOTTOM_LEFT, 3, 0);
 
       //hardward model
-      lb_hard_model   = lv_label_create( ui_pages[UI_PAGE_LOADING] );
-      width = lv_txt_get_width(g_board.info.base.hw_model.c_str(), strlen(g_board.info.base.hw_model.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
-      lv_obj_set_width(lb_hard_model, width);
-      lv_label_set_text( lb_hard_model, g_board.info.base.hw_model.c_str());
-      lv_obj_set_style_text_font(lb_hard_model, &lv_font_montserrat_24, LV_PART_MAIN);
-      lv_obj_set_style_text_color(lb_hard_model, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
-      lv_label_set_long_mode(lb_hard_model, LV_LABEL_LONG_SCROLL_CIRCULAR);
-      lv_obj_align( lb_hard_model, LV_ALIGN_TOP_MID, 0, 5);
+      // lb_hard_model   = lv_label_create( ui_pages[UI_PAGE_LOADING] );
+      // width = lv_txt_get_width(g_board.info.base.hw_model.c_str(), strlen(g_board.info.base.hw_model.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
+      // lv_obj_set_width(lb_hard_model, width);
+      // lv_label_set_text( lb_hard_model, g_board.info.base.hw_model.c_str());
+      // lv_obj_set_style_text_font(lb_hard_model, &lv_font_montserrat_24, LV_PART_MAIN);
+      // lv_obj_set_style_text_color(lb_hard_model, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      // lv_label_set_long_mode(lb_hard_model, LV_LABEL_LONG_SCROLL_CIRCULAR);
+      // lv_obj_align( lb_hard_model, LV_ALIGN_TOP_MID, 0, 5);
 
       //bar 
       bar = lv_bar_create(ui_pages[UI_PAGE_LOADING]);
