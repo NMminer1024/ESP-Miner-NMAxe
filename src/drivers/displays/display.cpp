@@ -157,20 +157,7 @@ static void ui_drv_register(void){
 
 static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *big_digit_page = NULL;
-  const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL, *p_logo_txt_img = NULL, *p_logo_worker_img = NULL;
-
-  // logo txt image buffer init
-  logo_txt_nmaxe.header.w = 150;
-  logo_txt_nmaxe.header.h = 38;
-  logo_txt_nmaxe.data_size = logo_txt_nmaxe.header.w * logo_txt_nmaxe.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
-
-  logo_txt_nmaxegamma.header.w = 150;
-  logo_txt_nmaxegamma.header.h = 38;
-  logo_txt_nmaxegamma.data_size = logo_txt_nmaxegamma.header.w * logo_txt_nmaxegamma.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
-
-  logo_txt_nmqaxepp.header.w = 150;
-  logo_txt_nmqaxepp.header.h = 38;
-  logo_txt_nmqaxepp.data_size = logo_txt_nmqaxepp.header.w * logo_txt_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+  const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL, *p_logo_worker_img = NULL;
 
   // logo worker image buffer init
   logo_worker_nmaxe.header.w = 60;
@@ -224,7 +211,6 @@ static void ui_layout_init(void){
       p_mining_img      = &mining_page_img_135_240;
       p_status_img      = &status_page_img_135_240;
       p_black_img       = &black_page_img_135_240;
-      p_logo_txt_img    = &logo_txt_nmaxe;
       p_logo_worker_img = &logo_worker_nmaxe;
   }
   else if(g_board.info.base.hw_model == BOARD_NMAXE_GAMMA_NAME){
@@ -233,7 +219,6 @@ static void ui_layout_init(void){
       p_mining_img      = &mining_page_img_135_240;
       p_status_img      = &status_page_img_135_240;
       p_black_img       = &black_page_img_135_240;
-      p_logo_txt_img    = &logo_txt_nmaxegamma;
       p_logo_worker_img = &logo_worker_nmaxegamma;
   }
   else if(g_board.info.base.hw_model == BOARD_NMQAXE_PLUS_PLUS_NAME){
@@ -242,7 +227,6 @@ static void ui_layout_init(void){
       p_mining_img      = &mining_page_img_135_240;
       p_status_img      = &status_page_img_135_240;
       p_black_img       = &black_page_img_135_240;
-      p_logo_txt_img    = &logo_txt_nmqaxepp;
       p_logo_worker_img = &logo_worker_nmqaxepp;
   }
   else{
@@ -274,9 +258,6 @@ static void ui_layout_init(void){
   lv_img_set_src(loading_img_obj, p_loading_img);
   lv_obj_set_size(loading_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(loading_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  lv_obj_t *logo_txt_img_obj = lv_img_create(loading_page);//logo txt on loading page
-  lv_img_set_src(logo_txt_img_obj, p_logo_txt_img); 
-  lv_obj_align(logo_txt_img_obj, LV_ALIGN_TOP_MID, 0, 5);
   // Create config page
   config_page = lv_obj_create(parent_docker);
   lv_obj_set_size(config_page, SCREEN_WIDTH, SCREEN_HEIGHT);
