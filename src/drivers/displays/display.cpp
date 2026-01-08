@@ -186,19 +186,18 @@ static void ui_layout_init(void){
   logo_worker_nmqaxepp.data_size = logo_worker_nmqaxepp.header.w * logo_worker_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
 
 
-
-  // image buffer init
+  /*********************************** 135x240 image **************************************/
   loading_page_img_135_240.header.w = SCREEN_WIDTH;
   loading_page_img_135_240.header.h = SCREEN_HEIGHT;
   loading_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  config_page_nmaxe_img_135_240.header.w = SCREEN_WIDTH;
-  config_page_nmaxe_img_135_240.header.h = SCREEN_HEIGHT;
-  config_page_nmaxe_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  config_page_img_135_240.header.w = SCREEN_WIDTH;
+  config_page_img_135_240.header.h = SCREEN_HEIGHT;
+  config_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  mining_page_nmaxe_img_135_240.header.w = SCREEN_WIDTH;
-  mining_page_nmaxe_img_135_240.header.h = SCREEN_HEIGHT;
-  mining_page_nmaxe_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+  mining_page_img_135_240.header.w = SCREEN_WIDTH;
+  mining_page_img_135_240.header.h = SCREEN_HEIGHT;
+  mining_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
   black_page_img_135_240.header.w = SCREEN_WIDTH;
   black_page_img_135_240.header.h = SCREEN_HEIGHT;
@@ -208,27 +207,21 @@ static void ui_layout_init(void){
   block_hits_page_img_135_240.header.h = SCREEN_HEIGHT;
   block_hits_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
-  config_page_gamma_img_135_240.header.w = SCREEN_WIDTH;
-  config_page_gamma_img_135_240.header.h = SCREEN_HEIGHT;
-  config_page_gamma_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  loading_page_img_240_320.header.w = SCREEN_WIDTH;
-  loading_page_img_240_320.header.h = SCREEN_HEIGHT;
-  loading_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  mining_page_gamma_img_135_240.header.w = SCREEN_WIDTH;
-  mining_page_gamma_img_135_240.header.h = SCREEN_HEIGHT;
-  mining_page_gamma_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
   status_page_img_135_240.header.w = SCREEN_WIDTH;
   status_page_img_135_240.header.h = SCREEN_HEIGHT;
   status_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
+  /*********************************** 240x320 image **************************************/
+  loading_page_img_240_320.header.w = SCREEN_WIDTH;
+  loading_page_img_240_320.header.h = SCREEN_HEIGHT;
+  loading_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+
   
   if(g_board.info.base.hw_model == BOARD_NMAXE_NAME){
       p_loading_img     = &loading_page_img_135_240;
-      p_config_img      = &config_page_nmaxe_img_135_240;
-      p_mining_img      = &mining_page_nmaxe_img_135_240;
+      p_config_img      = &config_page_img_135_240;
+      p_mining_img      = &mining_page_img_135_240;
       p_status_img      = &status_page_img_135_240;
       p_black_img       = &black_page_img_135_240;
       p_logo_txt_img    = &logo_txt_nmaxe;
@@ -236,8 +229,8 @@ static void ui_layout_init(void){
   }
   else if(g_board.info.base.hw_model == BOARD_NMAXE_GAMMA_NAME){
       p_loading_img     = &loading_page_img_135_240;
-      p_config_img      = &config_page_gamma_img_135_240;
-      p_mining_img      = &mining_page_gamma_img_135_240;
+      p_config_img      = &config_page_img_135_240;
+      p_mining_img      = &mining_page_img_135_240;
       p_status_img      = &status_page_img_135_240;
       p_black_img       = &black_page_img_135_240;
       p_logo_txt_img    = &logo_txt_nmaxegamma;
@@ -245,8 +238,8 @@ static void ui_layout_init(void){
   }
   else if(g_board.info.base.hw_model == BOARD_NMQAXE_PLUS_PLUS_NAME){
       p_loading_img     = &loading_page_img_240_320;
-      p_config_img      = &config_page_nmaxe_img_135_240;
-      p_mining_img      = &mining_page_nmaxe_img_135_240;
+      p_config_img      = &config_page_img_135_240;
+      p_mining_img      = &mining_page_img_135_240;
       p_status_img      = &status_page_img_135_240;
       p_black_img       = &black_page_img_135_240;
       p_logo_txt_img    = &logo_txt_nmqaxepp;
@@ -295,6 +288,9 @@ static void ui_layout_init(void){
   lv_img_set_src(config_img_obj, p_config_img);
   lv_obj_set_size(config_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(config_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  lv_obj_t *config_page_logo_worker_img_obj = lv_img_create(config_page);//worker logo
+  lv_img_set_src(config_page_logo_worker_img_obj, p_logo_worker_img); 
+  lv_obj_align(config_page_logo_worker_img_obj, LV_ALIGN_TOP_LEFT, 20, 1);
   // Create miner page  
   miner_page = lv_obj_create(parent_docker);
   lv_obj_set_size(miner_page, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -306,9 +302,9 @@ static void ui_layout_init(void){
   lv_img_set_src(miner_img_obj, p_mining_img);
   lv_obj_set_size(miner_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(miner_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  lv_obj_t *logo_worker_img_obj = lv_img_create(miner_page);//worker logo
-  lv_img_set_src(logo_worker_img_obj, p_logo_worker_img); 
-  lv_obj_align(logo_worker_img_obj, LV_ALIGN_TOP_LEFT, 45, 20);
+  lv_obj_t *miner_page_logo_worker_img_obj = lv_img_create(miner_page);//worker logo
+  lv_img_set_src(miner_page_logo_worker_img_obj, p_logo_worker_img); 
+  lv_obj_align(miner_page_logo_worker_img_obj, LV_ALIGN_TOP_LEFT, 45, 20);
   // Create dashboard page  
   dashboard_page = lv_obj_create(parent_docker);
   lv_obj_set_size(dashboard_page, SCREEN_WIDTH, SCREEN_HEIGHT);
