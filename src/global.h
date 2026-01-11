@@ -121,7 +121,6 @@ typedef struct{
         String              hostname;
         String              fw_version;
         String              hw_version;
-        String              hw_model;
         String              fw_latest_release;
         String              devcie_code;
     }base;

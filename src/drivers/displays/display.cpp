@@ -32,13 +32,14 @@ void tft_bl_ctrl(int8_t percent){
   // uint8_t pwm = (TFT_BACKLIGHT_ON == HIGH) ? percent : (255 - percent * 2.55);
   uint8_t pwm = 0;
   if((g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME) || (g_board.info.spec.name == BOARD_NMAXE_NAME)){
-    pwm = 255 * (1 - percent / 100.0f);
+    pwm = 255 * (1 - percent * 0.01f);
   } 
   else if(g_board.info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     pwm = percent * 2.55;
   }
   else pwm = 128; //default mid brightness
   
+  LOG_D("Set brightness %d%%, PWM=%d", percent, pwm);
   ledcWrite(g_board.info.spec.tft.bl.pwm_ch, pwm);
 }
 
@@ -50,6 +51,13 @@ static void tft_init(){
     pinMode(g_board.info.spec.tft.pwr_pin, OUTPUT);
     digitalWrite(g_board.info.spec.tft.pwr_pin, LOW);
     delay(10); //wait for tft power stable
+  }
+  // Initialize backlight PWM
+  if(g_board.info.spec.tft.bl.pin >= 0){
+    pinMode(g_board.info.spec.tft.bl.pin, OUTPUT);
+    ledcSetup(g_board.info.spec.tft.bl.pwm_ch, g_board.info.spec.tft.bl.pwm_freq, g_board.info.spec.tft.bl.pwm_resolution);
+    ledcAttachPin(g_board.info.spec.tft.bl.pin, g_board.info.spec.tft.bl.pwm_ch);
+    tft_bl_ctrl(0);//sleep when boot up
   }
 
   tftDriver = new TFT_eSPI(SCREEN_HEIGHT, SCREEN_WIDTH);
@@ -72,11 +80,6 @@ static void tft_init(){
                 
   if(g_board.info.preference.screen.flip)tftDriver->setRotation(1); 
   else tftDriver->setRotation(3); 
-
-  pinMode(g_board.info.spec.tft.bl.pin, OUTPUT);
-  ledcSetup(g_board.info.spec.tft.bl.pwm_ch, g_board.info.spec.tft.bl.pwm_freq, g_board.info.spec.tft.bl.pwm_resolution);
-  ledcAttachPin(g_board.info.spec.tft.bl.pin, g_board.info.spec.tft.bl.pwm_ch);
-  tft_bl_ctrl(0);//sleep when boot up
 }
 
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
@@ -205,7 +208,7 @@ static void ui_layout_init(void){
 
 
   
-  if(g_board.info.base.hw_model == BOARD_NMAXE_NAME){
+  if(g_board.info.spec.name == BOARD_NMAXE_NAME){
       p_loading_img     = &loading_page_img_135_240;
       p_config_img      = &config_page_img_135_240;
       p_mining_img      = &mining_page_img_135_240;
@@ -213,7 +216,7 @@ static void ui_layout_init(void){
       p_black_img       = &black_page_img_135_240;
       p_logo_worker_img = &logo_worker_nmaxe;
   }
-  else if(g_board.info.base.hw_model == BOARD_NMAXE_GAMMA_NAME){
+  else if(g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME){
       p_loading_img     = &loading_page_img_135_240;
       p_config_img      = &config_page_img_135_240;
       p_mining_img      = &mining_page_img_135_240;
@@ -221,7 +224,7 @@ static void ui_layout_init(void){
       p_black_img       = &black_page_img_135_240;
       p_logo_worker_img = &logo_worker_nmaxegamma;
   }
-  else if(g_board.info.base.hw_model == BOARD_NMQAXE_PLUS_PLUS_NAME){
+  else if(g_board.info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
       p_loading_img     = &loading_page_img_240_320;
       p_config_img      = &config_page_img_135_240;
       p_mining_img      = &mining_page_img_135_240;
@@ -373,9 +376,9 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
 
       //hardward model
       // lb_hard_model   = lv_label_create( ui_pages[UI_PAGE_LOADING] );
-      // width = lv_txt_get_width(g_board.info.base.hw_model.c_str(), strlen(g_board.info.base.hw_model.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
+      // width = lv_txt_get_width(g_board.info.spec.name.c_str(), strlen(g_board.info.spec.name.c_str()), &lv_font_montserrat_24, 0, LV_TEXT_FLAG_NONE);
       // lv_obj_set_width(lb_hard_model, width);
-      // lv_label_set_text( lb_hard_model, g_board.info.base.hw_model.c_str());
+      // lv_label_set_text( lb_hard_model, g_board.info.spec.name.c_str());
       // lv_obj_set_style_text_font(lb_hard_model, &lv_font_montserrat_24, LV_PART_MAIN);
       // lv_obj_set_style_text_color(lb_hard_model, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
       // lv_label_set_long_mode(lb_hard_model, LV_LABEL_LONG_SCROLL_CIRCULAR);

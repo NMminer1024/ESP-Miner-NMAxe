@@ -14,7 +14,7 @@ board_sal_t  g_board;
 
 bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     /*************************************************** Specific parameters among different board ***************************************/
-    board->info.base.hw_model                       = config.name;
+    board->info.spec.name                           = config.name;
     board->info.spec.asic                           = config.asic;
     board->info.spec.tft                            = config.tft;
     board->info.spec.spi                            = config.spi;
@@ -41,9 +41,9 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.base.hw_version                     = CURRENT_HW_VERSION;
     board->info.base.devcie_code                    = gen_device_code();
     board->info.base.fw_latest_release              = "";
-    board->info.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + board->info.base.hw_model + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
+    board->info.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
     board->info.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, PRIMARY_POOL_PWD));
-    board->info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + board->info.base.hw_model + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
+    board->info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
     board->info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
     board->info.connection.stratum_use              = board->info.connection.stratum_primary;
     board->status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
@@ -53,10 +53,10 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
     board->status.miner.update_xsem                 = xSemaphoreCreateCounting(1, 0);
-    board->status.brightness_update_xsem                   = xSemaphoreCreateCounting(1, 0);
+    board->status.brightness_update_xsem            = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
     board->info.connection.wifi.softap_param.pwd    = "12345678";
-    board->info.connection.wifi.softap_param.ssid   = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, ("NMAxe_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
+    board->info.connection.wifi.softap_param.ssid   = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, (board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
     board->status.miner.hits                        = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     board->status.miner.last_hits                   = board->status.miner.hits;
     board->info.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
@@ -74,7 +74,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
     board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
-    board->info.preference.screen.auto_rolling       = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
+    board->info.preference.screen.auto_rolling      = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
     board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 100);
     board->info.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     board->info.preference.led.sleep                = false;
@@ -143,7 +143,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     log_w("\r\n           |::/  /       /:/  /      ");
     log_w("\r\n           /:/  /       /:/  /       ");
     log_w("\r\n           \\/__/        \\/__/      \r\n");
-    log_w("         %s - %s\r\n", board->info.base.hw_model.c_str(), board->info.base.fw_version.c_str());
+    log_w("         %s - %s\r\n", board->info.spec.name.c_str(), board->info.base.fw_version.c_str());
     return true;
 }
 

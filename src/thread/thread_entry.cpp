@@ -396,7 +396,7 @@ void swarm_thread_entry(void *args){
       jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
       jsonDoc["Uptime"] = convert_uptime_to_string(board->status.miner.uptime_session) + "\r" + convert_uptime_to_string(board->status.miner.uptime_ever);
       jsonDoc["Version"] = board->info.base.fw_version;
-      jsonDoc["BoardType"] = board->info.base.hw_model;
+      jsonDoc["BoardType"] = board->info.spec.name;
       jsonDoc["Power"]     = String(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 1) + "W";
       jsonDoc["PoolInUse"] = String(board->info.connection.pool_use.url) + ":" + String(board->info.connection.pool_use.port);
       static uint32_t last_seen = millis();

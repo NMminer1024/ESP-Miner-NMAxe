@@ -114,7 +114,7 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_MINER_UPTIME_SECONDS]    = g_board.status.miner.uptime_session;
     
     root[HTTP_API_SYS_JSON_KEY_BOARD_FW_VERSION]        = g_board.info.base.fw_version;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_HW_MODEL]          = g_board.info.base.hw_model;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_HW_MODEL]          = g_board.info.spec.name;
     root[HTTP_API_SYS_JSON_KEY_BOARD_HOSTNAME]          = g_board.info.base.hostname;
     root[HTTP_API_SYS_JSON_KEY_BOARD_TIMEZONE]          = g_board.status.time.tz;
     root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_SSID]         = g_board.info.connection.wifi.conn_param.ssid;
