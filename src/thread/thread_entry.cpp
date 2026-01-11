@@ -522,7 +522,7 @@ void monitor_thread_entry(void *args){
         if(board->status.miner.uptime_session % 2 == 0){
             //check mcu temperature status
             if(board->status.temp.mcu > BOARD_MCU_DANGER){
-                LOG_W("MCU temp is too high, restart...");
+                LOG_W("MCU temp reach danger (mcu: %.1fC), restart miner...", board->status.temp.mcu);
                 xSemaphoreGive(board->status.reboot_xsem);
             }
 

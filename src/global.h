@@ -33,7 +33,7 @@
 
 #define BOARD_LOW_POWER         (10.0f)   //Watt
 
-#define BOARD_MCU_DANGER        (60.0f)
+#define BOARD_MCU_DANGER        (70.0f)
 
 #define HISTORY_DEEPTH          (1000*3600*24) // history depth, how long to keep the history, in seconds
 

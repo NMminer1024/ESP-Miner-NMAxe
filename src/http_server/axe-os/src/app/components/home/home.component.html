@@ -99,7 +99,7 @@
             <p-knob [min]="0" [max]="70" [readonly]="true" [(ngModel)]="info.mcuTemp"
                     valueTemplate="{value}°C" [size]="120" strokeWidth="12"></p-knob>
             <div class="heat-label">MCU</div>
-            <span class="danger" *ngIf="info.mcuTemp >= 60">⚠️ High</span>
+            <span class="danger" *ngIf="info.mcuTemp > 70">⚠️ High</span>
           </div>
           <div class="heat-item">
             <p-knob [min]="0" [max]="75" [readonly]="true" [(ngModel)]="info.temp"
