@@ -6,7 +6,6 @@
 #include "http_server.h"
 #include "nvs_config.h"
 #include "github.h"
-#include "Wire.h"
 #include "thread_entry.h"
 
 TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
@@ -94,12 +93,12 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
         board->status.fans.push_back(state);
     }
 
-    // set I2C pins and start I2C
-    bool iic = Wire.begin(board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);              
-    if(!iic){
-        LOG_E("I2C init failed on pins SDA:%d, SCL:%d", board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);
-        return false;
-    }
+    // // set I2C pins and start I2C
+    // bool iic = Wire.begin(board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);              
+    // if(!iic){
+    //     LOG_E("I2C init failed on pins SDA:%d, SCL:%d", board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);
+    //     return false;
+    // }
     // create ASIC instance
     BMxxx* asic_instance                            = board->info.spec.create_asic_instance(*config.asic.com_port, config.asic.com_baud_init, config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin);
     if(asic_instance == NULL){
@@ -152,11 +151,11 @@ void setup() {
   String taskName;
   BoardSpecConfig config;
   BoardModelType  model;
-  /************************************************************ INIT SERIAL AND NVS ****************************************************/
-  hardware_pre_init();
   /************************************************************ GET BOARD CONFIG *******************************************************/
   model  = get_board_model();
   config = get_board_config(model);
+  /************************************************************ INIT SERIAL AND NVS ****************************************************/
+  hardware_pre_init(config);
   /******************************************************* INIT BOARD BASED ON CONFIG  *************************************************/
   while(!board_init(config, &g_board)){
     LOG_E("Board initialization failed, retrying in 1s...");

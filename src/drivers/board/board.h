@@ -159,7 +159,7 @@ struct BoardSpecConfig {
     AxePowerHal* (*create_power_instance)(axe_pwr_enable_pin_t, axe_pwr_adc_pin_t, uint8_t, uint8_t, uint8_t);
 };
 
-void hardware_pre_init(void);
+void hardware_pre_init(BoardSpecConfig config);
 BoardModelType get_board_model();
 BoardSpecConfig get_board_config(BoardModelType model);
 #endif

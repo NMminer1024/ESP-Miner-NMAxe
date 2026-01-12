@@ -252,7 +252,32 @@ static void ui_page_element_init(String board){
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
   }
   else if(board == BOARD_NMQAXE_PLUS_PLUS_NAME){
-      
+    loading_page.back_img_dsc           = &loading_page_img_240_320;
+    config_page.back_img_dsc            = &config_page_img_135_240;
+    miner_page.back_img_dsc             = &mining_page_img_135_240;
+    dashboard_page.back_img_dsc         = &status_page_img_135_240;
+    hr_health_page.back_img_dsc         = &black_page_img_135_240;
+    big_digit_page.back_img_dsc         = &black_page_img_135_240;
+    miner_page.logo_img_obj             = nullptr;
+    miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
+    config_page.logo_img_obj            = nullptr;
+    config_page.logo_img_dsc            = &logo_worker_nmqaxepp;
+
+    loading_page.lb_details.font        = &lv_font_montserrat_14;
+    loading_page.lb_details.coord       = {3, 0};
+    loading_page.lb_version.font        = &lv_font_montserrat_16;
+    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
+    loading_page.lb_progress.font       = &lv_font_montserrat_16;
+    loading_page.lb_progress.coord      = {0, -20};
+    loading_page.bar_progress.font      = &lv_font_montserrat_20;
+    loading_page.bar_progress.coord     = {0, -20};
+    loading_page.lb_ip_and_slogan.font  = &lv_font_montserrat_20;
+    loading_page.lb_ip_and_slogan.coord = {0, 10};
+    loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
+    loading_page.lb_pool_url.coord      = {0, 35};
+
+    config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
+    config_page.lb_cfg_timeout.coord    = {175, 0 }; 
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board.c_str());

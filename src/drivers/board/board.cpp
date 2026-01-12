@@ -5,6 +5,7 @@
 #include "nmaxe.h"
 #include "nmaxegamma.h"
 #include "nmqaxepp.h"
+#include "Wire.h"
 
 BoardModelType get_board_model(){
     BoardModelType model = BOARD_UNKNOWN;
@@ -230,7 +231,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.tft.bl.pwm_ch             = 0;
             config.tft.bl.pwm_freq           = 1000*100; // Hz
             config.tft.bl.pwm_resolution     = 8;        // bits
-            config.tft.rst_pin               = -1;
+            config.tft.rst_pin               = -1;       
             config.tft.pwr_pin               = -1;
             config.tft.color_invert          = false;
             config.spi.cs_pin                = -1;
@@ -266,9 +267,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.pgood_pin             = 21;
             config.pwr.dc_plug_pin           = -1;  // Not used
             config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
-            config.pwr.temp_limit.high    = 95.0f;
-            config.pwr.temp_limit.medium  = 75.0f;
-            config.pwr.temp_limit.low     = 50.0f;
+            config.pwr.temp_limit.high       = 95.0f;
+            config.pwr.temp_limit.medium     = 75.0f;
+            config.pwr.temp_limit.low        = 50.0f;
             config.iic.scl_pin               = 7;   
             config.iic.sda_pin               = 8;
             config.led.wifi_pin              = -1; // Not used
@@ -294,7 +295,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.id                       = 0;
             fan_cfg.init.pwm_pin             = 41;
             fan_cfg.init.torch_pin           = 42;
-            fan_cfg.init.self_test_rpm_thr   = 4000;
+            fan_cfg.init.self_test_rpm_thr   = 1800;
             fan_cfg.init.danger_rpm_thr      = 300;
             fan_cfg.init.pwm_ch              = 2;
             fan_cfg.init.pwm_freq            = 1000*100; // Hz
@@ -309,23 +310,23 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.output_max           = 99.999f;
             config.fans.push_back(fan_cfg); // fan1 
 
-            fan_cfg.id                       = 1;
-            fan_cfg.init.pwm_pin             = 41;
-            fan_cfg.init.torch_pin           = 42;
-            fan_cfg.init.self_test_rpm_thr   = 4000;
-            fan_cfg.init.danger_rpm_thr      = 300;
-            fan_cfg.init.pwm_ch              = 2;
-            fan_cfg.init.pwm_freq            = 1000*100; // Hz
-            fan_cfg.init.pwm_resolution      = 8;        // bits
-            fan_cfg.init.p_cnt_h_limt        = 30000;    // PCNT high limit value
-            fan_cfg.pid.Kp                   = 50.0f;
-            fan_cfg.pid.Ki                   = 1.0f;
-            fan_cfg.pid.Kd                   = 0.0f;
-            fan_cfg.pid.prev_error           = 0;
-            fan_cfg.pid.integral             = 0;
-            fan_cfg.pid.output_min           = 25.0f;
-            fan_cfg.pid.output_max           = 99.999f;
-            config.fans.push_back(fan_cfg); // fan2
+            // fan_cfg.id                       = 1;
+            // fan_cfg.init.pwm_pin             = 41;
+            // fan_cfg.init.torch_pin           = 42;
+            // fan_cfg.init.self_test_rpm_thr   = 4000;
+            // fan_cfg.init.danger_rpm_thr      = 300;
+            // fan_cfg.init.pwm_ch              = 2;
+            // fan_cfg.init.pwm_freq            = 1000*100; // Hz
+            // fan_cfg.init.pwm_resolution      = 8;        // bits
+            // fan_cfg.init.p_cnt_h_limt        = 30000;    // PCNT high limit value
+            // fan_cfg.pid.Kp                   = 50.0f;
+            // fan_cfg.pid.Ki                   = 1.0f;
+            // fan_cfg.pid.Kd                   = 0.0f;
+            // fan_cfg.pid.prev_error           = 0;
+            // fan_cfg.pid.integral             = 0;
+            // fan_cfg.pid.output_min           = 25.0f;
+            // fan_cfg.pid.output_max           = 99.999f;
+            // config.fans.push_back(fan_cfg); // fan2
             break;
         default:
             config.name                      = "Unknown";
@@ -337,10 +338,18 @@ BoardSpecConfig get_board_config(BoardModelType model) {
     return config;
 }
 
-void hardware_pre_init(void){
+void hardware_pre_init(BoardSpecConfig config){
     Serial.setTimeout(20);
     Serial.begin(115200);
     delay(100);
+
+    // set I2C pins and start I2C
+    bool iic = Wire.begin(config.iic.sda_pin, config.iic.scl_pin);        
+    if(!iic){
+        LOG_E("I2C init failed on pins SDA:%d, SCL:%d", config.iic.sda_pin, config.iic.scl_pin);
+        return;
+    }
+    LOG_I("I2C initialized on pins SDA:%d, SCL:%d", config.iic.sda_pin, config.iic.scl_pin);
 
     esp_err_t ret = nvs_flash_init();
     while (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
