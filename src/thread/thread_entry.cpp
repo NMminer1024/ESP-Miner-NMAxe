@@ -17,7 +17,7 @@ void power_thread_entry(void *args){
     LOG_I("Initializing power...");
 
     board->power->set_vcore_range(board->info.spec.asic.min_vcore, board->info.spec.asic.max_vcore);
-    LOG_I("Set vcore range to %d-%d mV", board->power->get_vcore_min(), board->power->get_vcore_max());
+    LOG_I("Set vcore range to (%d~%d mV)", board->power->get_vcore_min(), board->power->get_vcore_max());
 
     //detect power plug or pd plug
     if(board->power->is_dc_pluged()) LOG_I("DC plug detected...");
@@ -55,16 +55,17 @@ void power_thread_entry(void *args){
         delay(100);
     }
     xSemaphoreGive(board->power->ready_xsem);
-    LOG_I("Power is ready.");
+    delay(100);
+    LOG_I("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
     while(true){
         uint32_t vcore_measure = board->power->get_vcore();
         int32_t err = vcore_measure - board->info.spec.asic.req_vcore;
         if(abs(err) <= 5) {
-            LOG_D("Vcore %d/%dmV, error %d mV, power ready", vcore_measure, board->info.spec.asic.req_vcore, err);
+            LOG_D("Vcore %d/%dmV, error %d mV, Vocre within acceptable range", vcore_measure, board->info.spec.asic.req_vcore, err);
             delay(200);
             continue;
         }
-        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore voltage for error correction %d mV", vcore_measure, board->info.spec.asic.req_vcore, err, err/5);
+        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV", vcore_measure, board->info.spec.asic.req_vcore, err, err/5);
         static uint32_t vcore_set = board->info.spec.asic.req_vcore;
         vcore_set -= err/5;//half error correction
         vcore_set = (vcore_set < board->power->get_vcore_min()) ? board->power->get_vcore_min() : vcore_set;

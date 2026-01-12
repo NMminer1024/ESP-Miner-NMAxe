@@ -697,7 +697,7 @@ void echo_handler(AsyncWebServerRequest* request){
     LOG_I("Echo Request...");
 }
 void post_restart(AsyncWebServerRequest * request){
-    LOG_I("Restarting System because of API Request");
+    LOG_W("************** Restarting System because of API Request ***************");
     // Send HTTP response before restarting
     request->send(200, "text/plain", "System will restart shortly.");
     delay(500);
