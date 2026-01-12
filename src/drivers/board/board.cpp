@@ -231,7 +231,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.tft.bl.pwm_ch             = 0;
             config.tft.bl.pwm_freq           = 1000*100; // Hz
             config.tft.bl.pwm_resolution     = 8;        // bits
-            config.tft.rst_pin               = -1;       
+            config.tft.rst_pin               = 47;       // for test propose **********************************
             config.tft.pwr_pin               = -1;
             config.tft.color_invert          = false;
             config.spi.cs_pin                = -1;
@@ -295,7 +295,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.id                       = 0;
             fan_cfg.init.pwm_pin             = 41;
             fan_cfg.init.torch_pin           = 42;
-            fan_cfg.init.self_test_rpm_thr   = 1800;
+            fan_cfg.init.self_test_rpm_thr   = 2000;
             fan_cfg.init.danger_rpm_thr      = 300;
             fan_cfg.init.pwm_ch              = 2;
             fan_cfg.init.pwm_freq            = 1000*100; // Hz

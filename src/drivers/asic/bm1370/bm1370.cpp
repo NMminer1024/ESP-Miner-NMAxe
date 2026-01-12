@@ -166,7 +166,7 @@ uint8_t BM1370::init(uint64_t freq, int diff){
         uint8_t *rsp_ptr = rsp;
         while (rsp_ptr <= rsp + len - 11) {
             if(memcmp(rsp_ptr, "\xaa\x55\x13\x70\x00\x00", 6) == 0){
-                // dbg::hex_print(rsp_ptr, 11, "found chip");
+                dbg::hex_print(rsp_ptr, 11, "found chip");
                 chip_counter++;
                 break;
             }

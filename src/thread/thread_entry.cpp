@@ -65,7 +65,7 @@ void power_thread_entry(void *args){
             delay(200);
             continue;
         }
-        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV", vcore_measure, board->info.spec.asic.req_vcore, err, err/5);
+        LOG_W("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV", vcore_measure, board->info.spec.asic.req_vcore, err, err/5);
         static uint32_t vcore_set = board->info.spec.asic.req_vcore;
         vcore_set -= err/5;//half error correction
         vcore_set = (vcore_set < board->power->get_vcore_min()) ? board->power->get_vcore_min() : vcore_set;
@@ -587,7 +587,7 @@ void monitor_thread_entry(void *args){
             static uint16_t pwr_err_cnt = 0;
             if((board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0) < BOARD_LOW_POWER){
             LOG_W("Power %0.1fW is too low...", board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0);
-            if(++pwr_err_cnt > 30){//30s
+            if(++pwr_err_cnt > 120){//120s
                 LOG_W("Power is too low, restart miner...");
                 xSemaphoreGive(board->status.reboot_xsem);
             }

@@ -64,10 +64,26 @@ float TPS53647Class::_vid_to_mv(uint8_t reg){
 
 
 bool TPS53647Class::init(void){
-    this->_adc_ready = AxePowerHal::init();
     pinMode(this->_vcore_pgood_pin, INPUT_PULLUP);
-    // pinMode(this->_dc_plug_pin, INPUT_PULLUP);
-    return this->_adc_ready;
+
+    this->_adc_ready = AxePowerHal::init();
+    this->set_vcore_status(PWR_OFF);
+    delay(10);
+    this->set_vcore_status(PWR_ON);
+    delay(10);
+    
+    // Establish communication with regulator
+    uint16_t device_code = 0x0000;
+    this->_read_reg(PMBUS_MFR_SPECIFIC_44, (uint8_t*)&device_code, 2);
+    LOG_I("TPS53647 Device ID: 0x%04X", device_code);
+
+    if (device_code != 0x01f0) {
+        LOG_E("ERROR- cannot find TPS53647 buck controller");
+        return false;
+    }
+    LOG_I("TPS53647 buck controller initialized");
+
+    return true;
 }
 
 bool TPS53647Class::is_adc_ready(void){
