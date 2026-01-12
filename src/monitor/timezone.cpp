@@ -24,7 +24,7 @@ bool TimezoneFetcher::fetch() {
 
     int statusCode = _httpClient->responseStatusCode();
     if (statusCode != 200) {
-        LOG_E("ipapi.co connection failed, status code: %d", statusCode);
+        LOG_D("ipapi.co connection failed, status code: %d", statusCode);
         return false;
     }
 

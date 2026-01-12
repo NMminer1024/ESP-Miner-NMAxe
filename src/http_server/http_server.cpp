@@ -895,9 +895,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             response->addHeader("Access-Control-Allow-Origin", "*");
             request->send(response);
 
-
-
-            LOG_I("Update Success: %u bytes, rebooting...", index + len);
+            LOG_W("*************** Update Success: %u bytes, rebooting... *************** ", index + len);
             delay(1000);
             xSemaphoreGive(g_board.status.reboot_xsem);
         } else {
