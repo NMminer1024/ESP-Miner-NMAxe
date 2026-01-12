@@ -15,6 +15,11 @@
 #define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"
 #define BOARD_NMQAXE_PLUS_PLUS_NAME                     "NMQAxe++"
 
+#define CHIP_NMAXE_NAME                                 "BM1366"
+#define CHIP_NMAXE_GAMMA_NAME                           "BM1370"
+#define CHIP_NMQAXE_PLUS_PLUS_NAME                      "BM1370"
+
+
 #define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
 #define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
 

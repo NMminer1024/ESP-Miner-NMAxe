@@ -176,8 +176,9 @@ typedef struct{
     }miner;
 
     struct{
-        SemaphoreHandle_t   page_save_xsem; // save current page index
-        uint8_t             last_page;      //last ui page index, restored on next boot
+        uint8_t             current_page;     // current ui page index
+        uint8_t             last_page;        //last ui page index, restored on next boot
+        SemaphoreHandle_t   page_save_xsem;   // save current page index
     }ui;
     
     std::vector<fan_status_t>          fans;            // support multiple fans

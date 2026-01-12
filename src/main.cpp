@@ -70,6 +70,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.ota.filename                      = "";
     board->status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     board->status.ui.last_page                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+    board->status.ui.current_page                   = board->status.ui.last_page;
     board->status.ui.page_save_xsem                 = xSemaphoreCreateCounting(1, 0);
     board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();

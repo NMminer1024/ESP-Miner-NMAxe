@@ -877,16 +877,16 @@ void miner_asic_tx_thread_entry(void *args){
             if(!board->stratum->is_subscribed()) break;
 
             //set asic diff as pool diff if pool diff < initial asic diff
-            if(board->stratum->get_pool_difficulty() <= board->info.spec.asic.diff_thr_init){
-                static double last_diff = board->info.spec.asic.diff_thr_init;
-                if(board->stratum->get_pool_difficulty() != last_diff){
-                    LOG_W("Try to change asic diff from [%s] to [%s]", formatNumber(board->miner->get_asic_diff(), 4).c_str(), formatNumber(board->stratum->get_pool_difficulty(), 4).c_str());
-                    last_diff = board->stratum->get_pool_difficulty();
-                    board->miner->set_asic_diff(last_diff);
-                }
+            double target_diff = min(board->stratum->get_pool_difficulty(), (double)board->info.spec.asic.diff_thr_init);
+            static double last_diff = 0.0; // initialize to 0 to ensure the first update occurs
+            if(target_diff != last_diff){
+                last_diff = target_diff;
+                bool res = board->miner->set_asic_diff(target_diff);
+                if(res) LOG_W("Change asic diff from [%.1f] to [%.1f] successfully", board->miner->get_asic_diff(), target_diff);
+                else LOG_E("Failed to change asic diff to [%.1f]", target_diff);
             }
 
-            //interval 2000ms every asic job, exit if a new pool job arrived
+            //interval 'job_interval_ms' every asic job, exit if a new pool job arrived
             if(xSemaphoreTake(board->stratum->new_job_xsem, board->info.spec.asic.job_interval_ms) == pdTRUE) {
                 board->stratum->clear_sub_extranonce2();
                 //avoid some stale share submit, clear job cache if clean job signal received

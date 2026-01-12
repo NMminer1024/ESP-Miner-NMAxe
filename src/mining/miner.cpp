@@ -96,8 +96,9 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     if(this->_asic == NULL) return false;
     ////////////////////////////////////////construct asic job//////////////////////////////////
     uint8_t step = 8;
-    if(g_board.info.spec.asic.name == "BM1366")       step = 8;
-    else if (g_board.info.spec.asic.name == "BM1370") step = 24;
+    if(g_board.info.spec.asic.name == CHIP_NMAXE_NAME)                  step = 8;
+    else if (g_board.info.spec.asic.name == CHIP_NMAXE_GAMMA_NAME)      step = 24;
+    else if (g_board.info.spec.asic.name == CHIP_NMQAXE_PLUS_PLUS_NAME) step = 24;
     else LOG_W("Unknown ASIC model, using default step 8");
 
     this->_asic_job_now.id = (this->_asic_job_now.id + step) % 128;

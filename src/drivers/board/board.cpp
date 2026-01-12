@@ -29,7 +29,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
     switch(model) {
         case NMAXE:
             config.name                      = BOARD_NMAXE_NAME;
-            config.asic.name                 = "BM1366";
+            config.asic.name                 = CHIP_NMAXE_NAME;
             config.asic.num_req              = 1;
             config.asic.temp_limit.high      = 75.0f;
             config.asic.temp_limit.medium    = 65.0f;
@@ -123,7 +123,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             break;
         case NMAXE_GAMMA:
             config.name                      = BOARD_NMAXE_GAMMA_NAME;
-            config.asic.name                 = "BM1370";
+            config.asic.name                 = CHIP_NMAXE_GAMMA_NAME;
             config.asic.num_req              = 1;
             config.asic.temp_limit.high      = 70.0f;
             config.asic.temp_limit.medium    = 60.0f;
@@ -217,7 +217,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             break;
         case NMQAXE_PLUS_PLUS:
             config.name                      = BOARD_NMQAXE_PLUS_PLUS_NAME;
-            config.asic.name                 = "BM1370";
+            config.asic.name                 = CHIP_NMQAXE_PLUS_PLUS_NAME;
             config.asic.num_req              = 4;
             config.asic.temp_limit.high      = 75.0f;
             config.asic.temp_limit.medium    = 65.0f;

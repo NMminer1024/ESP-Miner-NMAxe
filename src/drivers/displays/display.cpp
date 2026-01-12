@@ -1,10 +1,17 @@
 #include "display.h"
-#include "lvgl.h"
 #include "logger.h"
 #include <TFT_eSPI.h>
 #include "global.h"
 #include "helper.h" 
 #include "image.h"
+
+/******************************************************************* global state variables ******************************************************************/
+static uint16_t SCREEN_WIDTH  = 0;
+static uint16_t SCREEN_HEIGHT = 0;
+static TFT_eSPI *tftDriver = nullptr;
+
+static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
+static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
 LV_FONT_DECLARE(ds_digib_font_16)
 LV_FONT_DECLARE(ds_digib_font_18)
@@ -17,19 +24,61 @@ LV_FONT_DECLARE(ds_digib_font_42)
 LV_FONT_DECLARE(ds_digib_font_50)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(symbol_14)
+/********************************************************************* global UI elements ********************************************************************/
+// loading page elements
+struct{
+  lv_obj_t      *container;
+  lv_obj_t      *back_img_obj;
+  lv_img_dsc_t  *back_img_dsc;
+  ui_element_t   bar_progress;
+}loading_page;
 
-static uint16_t SCREEN_WIDTH  = 0;
-static uint16_t SCREEN_HEIGHT = 0;
+// config page elements
+struct{
+  lv_obj_t      *container;
 
-static TFT_eSPI *tftDriver = nullptr;
-static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
+  lv_obj_t      *back_img_obj;
+  lv_img_dsc_t  *back_img_dsc;
 
-static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
-static lv_obj_t *lb_cfg_timeout = NULL;
-static uint8_t   current_page_index = UI_PAGE_MINER;
+  lv_obj_t      *logo_img_obj;
+  lv_img_dsc_t  *logo_img_dsc;
+
+  ui_element_t  lb_cfg_timeout;
+}config_page;
+
+// miner page elements
+struct{
+  lv_obj_t      *container;
+  lv_obj_t      *back_img_obj;
+  lv_img_dsc_t  *back_img_dsc;
+
+  lv_obj_t      *logo_img_obj;
+  lv_img_dsc_t  *logo_img_dsc;
+}miner_page;
+
+// dashboard page elements
+struct{
+  lv_obj_t      *container;
+  lv_obj_t      *back_img_obj;
+  lv_img_dsc_t  *back_img_dsc;
+}dashboard_page;
+
+// hashrate health page elements
+struct{
+  lv_obj_t      *container;
+  lv_obj_t      *back_img_obj;
+  lv_img_dsc_t  *back_img_dsc;
+}hr_health_page;
+
+// big digit page elements
+struct{
+  lv_obj_t      *container;
+  lv_obj_t      *back_img_obj;
+  lv_img_dsc_t  *back_img_dsc;
+}big_digit_page;
+
 
 void tft_bl_ctrl(int8_t percent){
-  // uint8_t pwm = (TFT_BACKLIGHT_ON == HIGH) ? percent : (255 - percent * 2.55);
   uint8_t pwm = 0;
   if((g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME) || (g_board.info.spec.name == BOARD_NMAXE_NAME)){
     pwm = 255 * (1 - percent * 0.01f);
@@ -94,25 +143,6 @@ static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color
     lv_disp_flush_ready(disp_drv);
 }
 
-static void lvgl_tick_task(void *args){
-  char *name = (char*)malloc(20);
-  uint16_t tick_interval = 100;
-  strcpy(name, (char*)args);
-  LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-  free(name);
-
-  uint32_t last_tick = millis();
-  while(true){
-    if (xSemaphoreTake(lvgl_xMutex, tick_interval/2) == pdTRUE){
-      lv_tick_inc(millis() - last_tick);
-      lv_timer_handler(); /* let the GUI do its work */
-      xSemaphoreGive(lvgl_xMutex); 
-      last_tick = millis();
-    }
-    delay(tick_interval/2);
-  }
-}
-
 static void ui_drv_register(void){
   LOG_I("lvgl version: %s", (String('V') + lv_version_major() + "." + lv_version_minor() + "." + lv_version_patch()).c_str());
 
@@ -158,9 +188,50 @@ static void ui_drv_register(void){
   lv_disp_drv_register( &disp_drv );
 }
 
+static void ui_page_element_init(String board){
+  if(board == BOARD_NMAXE_NAME){
+    loading_page.back_img_dsc           = &loading_page_img_135_240;
+    config_page.back_img_dsc            = &config_page_img_135_240;
+    miner_page.back_img_dsc             = &mining_page_img_135_240;
+    dashboard_page.back_img_dsc         = &status_page_img_135_240;
+    hr_health_page.back_img_dsc         = &black_page_img_135_240;
+    big_digit_page.back_img_dsc         = &black_page_img_135_240;
+    miner_page.logo_img_obj             = nullptr;
+    miner_page.logo_img_dsc             = &logo_worker_nmaxe;
+    config_page.logo_img_obj            = nullptr;
+    config_page.logo_img_dsc            = &logo_worker_nmaxe;
+
+
+    config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
+    config_page.lb_cfg_timeout.coord    = {175, 0 }; 
+
+  }
+  else if(board == BOARD_NMAXE_GAMMA_NAME){
+    loading_page.back_img_dsc           = &loading_page_img_135_240;
+    config_page.back_img_dsc            = &config_page_img_135_240;
+    miner_page.back_img_dsc             = &mining_page_img_135_240;
+    dashboard_page.back_img_dsc         = &status_page_img_135_240;
+    hr_health_page.back_img_dsc         = &black_page_img_135_240;
+    big_digit_page.back_img_dsc         = &black_page_img_135_240;
+    miner_page.logo_img_obj             = nullptr;
+    miner_page.logo_img_dsc             = &logo_worker_nmaxegamma;
+    config_page.logo_img_obj            = nullptr;
+    config_page.logo_img_dsc            = &logo_worker_nmaxegamma;
+
+
+    config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
+    config_page.lb_cfg_timeout.coord    = {175, 0 }; 
+  }
+  else if(board == BOARD_NMQAXE_PLUS_PLUS_NAME){
+      
+  }
+  else{
+      LOG_E("Unknown board type for UI layout init: %s", board.c_str());
+  }
+}
+
 static void ui_layout_init(void){
-  static lv_obj_t *parent_docker = NULL, *loading_page = NULL, *config_page = NULL ,*miner_page = NULL, *dashboard_page = NULL, *health_page = NULL, *big_digit_page = NULL;
-  const lv_img_dsc_t *p_loading_img = NULL, *p_config_img = NULL, *p_mining_img = NULL, *p_status_img = NULL, *p_black_img = NULL, *p_logo_worker_img = NULL;
+  static lv_obj_t *parent_docker = NULL;
 
   // logo worker image buffer init
   logo_worker_nmaxe.header.w = 60;
@@ -207,34 +278,8 @@ static void ui_layout_init(void){
   loading_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
 
-  
-  if(g_board.info.spec.name == BOARD_NMAXE_NAME){
-      p_loading_img     = &loading_page_img_135_240;
-      p_config_img      = &config_page_img_135_240;
-      p_mining_img      = &mining_page_img_135_240;
-      p_status_img      = &status_page_img_135_240;
-      p_black_img       = &black_page_img_135_240;
-      p_logo_worker_img = &logo_worker_nmaxe;
-  }
-  else if(g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME){
-      p_loading_img     = &loading_page_img_135_240;
-      p_config_img      = &config_page_img_135_240;
-      p_mining_img      = &mining_page_img_135_240;
-      p_status_img      = &status_page_img_135_240;
-      p_black_img       = &black_page_img_135_240;
-      p_logo_worker_img = &logo_worker_nmaxegamma;
-  }
-  else if(g_board.info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-      p_loading_img     = &loading_page_img_240_320;
-      p_config_img      = &config_page_img_135_240;
-      p_mining_img      = &mining_page_img_135_240;
-      p_status_img      = &status_page_img_135_240;
-      p_black_img       = &black_page_img_135_240;
-      p_logo_worker_img = &logo_worker_nmqaxepp;
-  }
-  else{
+  ui_page_element_init(g_board.info.spec.name);
 
-  }
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
   //create parent object
@@ -251,89 +296,89 @@ static void ui_layout_init(void){
   lv_obj_set_style_bg_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
   lv_obj_set_style_border_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
   // Create loading page
-  loading_page = lv_obj_create(parent_docker);
-  lv_obj_set_size(loading_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(loading_page, 0 * SCREEN_WIDTH, 0);
-  lv_obj_set_style_pad_all(loading_page, 0, 0);
-  lv_obj_set_style_border_width(loading_page, 0, 0);
-  lv_obj_set_scrollbar_mode(loading_page, LV_SCROLLBAR_MODE_OFF); 
-  lv_obj_t *loading_img_obj = lv_img_create(loading_page);
-  lv_img_set_src(loading_img_obj, p_loading_img);
-  lv_obj_set_size(loading_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(loading_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  loading_page.container = lv_obj_create(parent_docker);
+  lv_obj_set_size(loading_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(loading_page.container, 0 * SCREEN_WIDTH, 0);
+  lv_obj_set_style_pad_all(loading_page.container, 0, 0);
+  lv_obj_set_style_border_width(loading_page.container, 0, 0);
+  lv_obj_set_scrollbar_mode(loading_page.container, LV_SCROLLBAR_MODE_OFF); 
+  loading_page.back_img_obj = lv_img_create(loading_page.container);
+  lv_img_set_src(loading_page.back_img_obj, loading_page.back_img_dsc);
+  lv_obj_set_size(loading_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(loading_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create config page
-  config_page = lv_obj_create(parent_docker);
-  lv_obj_set_size(config_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(config_page, 0, SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(config_page, 0, 0);
-  lv_obj_set_style_border_width(config_page, 0, 0);
-  lv_obj_set_scrollbar_mode(config_page, LV_SCROLLBAR_MODE_OFF); 
-  lv_obj_t *config_img_obj = lv_img_create(config_page);//
-  lv_img_set_src(config_img_obj, p_config_img);
-  lv_obj_set_size(config_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(config_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  lv_obj_t *config_page_logo_worker_img_obj = lv_img_create(config_page);//worker logo
-  lv_img_set_src(config_page_logo_worker_img_obj, p_logo_worker_img); 
-  lv_obj_align(config_page_logo_worker_img_obj, LV_ALIGN_TOP_LEFT, 20, 1);
+  config_page.container = lv_obj_create(parent_docker);
+  lv_obj_set_size(config_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(config_page.container, 0, SCREEN_HEIGHT);
+  lv_obj_set_style_pad_all(config_page.container, 0, 0);
+  lv_obj_set_style_border_width(config_page.container, 0, 0);
+  lv_obj_set_scrollbar_mode(config_page.container, LV_SCROLLBAR_MODE_OFF); 
+  config_page.back_img_obj = lv_img_create(config_page.container);//
+  lv_img_set_src(config_page.back_img_obj, config_page.back_img_dsc);
+  lv_obj_set_size(config_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(config_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  config_page.logo_img_obj = lv_img_create(config_page.container);//worker logo
+  lv_img_set_src(config_page.logo_img_obj, config_page.logo_img_dsc); 
+  lv_obj_align(config_page.logo_img_obj, LV_ALIGN_TOP_LEFT, 20, 1);
   // Create miner page  
-  miner_page = lv_obj_create(parent_docker);
-  lv_obj_set_size(miner_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(miner_page, 1 * SCREEN_WIDTH, 0);
-  lv_obj_set_style_pad_all(miner_page, 0, 0);
-  lv_obj_set_style_border_width(miner_page, 0, 0);
-  lv_obj_set_scrollbar_mode(miner_page, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_t *miner_img_obj = lv_img_create(miner_page);
-  lv_img_set_src(miner_img_obj, p_mining_img);
-  lv_obj_set_size(miner_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(miner_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  lv_obj_t *miner_page_logo_worker_img_obj = lv_img_create(miner_page);//worker logo
-  lv_img_set_src(miner_page_logo_worker_img_obj, p_logo_worker_img); 
-  lv_obj_align(miner_page_logo_worker_img_obj, LV_ALIGN_TOP_LEFT, 45, 20);
+  miner_page.container = lv_obj_create(parent_docker);
+  lv_obj_set_size(miner_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(miner_page.container, 1 * SCREEN_WIDTH, 0);
+  lv_obj_set_style_pad_all(miner_page.container, 0, 0);
+  lv_obj_set_style_border_width(miner_page.container, 0, 0);
+  lv_obj_set_scrollbar_mode(miner_page.container, LV_SCROLLBAR_MODE_OFF);
+  miner_page.back_img_obj = lv_img_create(miner_page.container);
+  lv_img_set_src(miner_page.back_img_obj, miner_page.back_img_dsc);
+  lv_obj_set_size(miner_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(miner_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  miner_page.logo_img_obj = lv_img_create(miner_page.container);//worker logo
+  lv_img_set_src(miner_page.logo_img_obj, miner_page.logo_img_dsc); 
+  lv_obj_align(miner_page.logo_img_obj, LV_ALIGN_TOP_LEFT, 45, 20);
   // Create dashboard page  
-  dashboard_page = lv_obj_create(parent_docker);
-  lv_obj_set_size(dashboard_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(dashboard_page, 1 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(dashboard_page, 0, 0);
-  lv_obj_set_style_border_width(dashboard_page, 0, 0);
-  lv_obj_set_scrollbar_mode(dashboard_page, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_t *dashboard_img_obj = lv_img_create(dashboard_page);
-  lv_img_set_src(dashboard_img_obj, p_status_img);
-  lv_obj_set_size(dashboard_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(dashboard_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  dashboard_page.container = lv_obj_create(parent_docker);
+  lv_obj_set_size(dashboard_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(dashboard_page.container, 1 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
+  lv_obj_set_style_pad_all(dashboard_page.container, 0, 0);
+  lv_obj_set_style_border_width(dashboard_page.container, 0, 0);
+  lv_obj_set_scrollbar_mode(dashboard_page.container, LV_SCROLLBAR_MODE_OFF);
+  dashboard_page.back_img_obj = lv_img_create(dashboard_page.container);
+  lv_img_set_src(dashboard_page.back_img_obj, dashboard_page.back_img_dsc);
+  lv_obj_set_size(dashboard_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(dashboard_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create health page  
-  health_page = lv_obj_create(parent_docker);
-  lv_obj_set_size(health_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(health_page, 2 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(health_page, 0, 0);
-  lv_obj_set_style_border_width(health_page, 0, 0);
-  lv_obj_set_scrollbar_mode(health_page, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_t *hr_healthy_img_obj = lv_img_create(health_page);
-  lv_img_set_src(hr_healthy_img_obj, p_status_img);
-  lv_obj_set_size(hr_healthy_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(hr_healthy_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  hr_health_page.container = lv_obj_create(parent_docker);
+  lv_obj_set_size(hr_health_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(hr_health_page.container, 2 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
+  lv_obj_set_style_pad_all(hr_health_page.container, 0, 0);
+  lv_obj_set_style_border_width(hr_health_page.container, 0, 0);
+  lv_obj_set_scrollbar_mode(hr_health_page.container, LV_SCROLLBAR_MODE_OFF);
+  hr_health_page.back_img_obj = lv_img_create(hr_health_page.container);
+  lv_img_set_src(hr_health_page.back_img_obj, hr_health_page.back_img_dsc);
+  lv_obj_set_size(hr_health_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(hr_health_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create big digit page
-  big_digit_page = lv_obj_create(parent_docker);
-  lv_obj_set_size(big_digit_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(big_digit_page, 2 * SCREEN_WIDTH, 0 * SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(big_digit_page, 0, 0);
-  lv_obj_set_style_border_width(big_digit_page, 0, 0);
-  lv_obj_set_scrollbar_mode(big_digit_page, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_t *big_digit_img_obj = lv_img_create(big_digit_page);
-  lv_img_set_src(big_digit_img_obj, p_black_img);
-  lv_obj_set_size(big_digit_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(big_digit_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+  big_digit_page.container = lv_obj_create(parent_docker);
+  lv_obj_set_size(big_digit_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_set_pos(big_digit_page.container, 2 * SCREEN_WIDTH, 0 * SCREEN_HEIGHT);
+  lv_obj_set_style_pad_all(big_digit_page.container, 0, 0);
+  lv_obj_set_style_border_width(big_digit_page.container, 0, 0);
+  lv_obj_set_scrollbar_mode(big_digit_page.container, LV_SCROLLBAR_MODE_OFF);
+  big_digit_page.back_img_obj = lv_img_create(big_digit_page.container);
+  lv_img_set_src(big_digit_page.back_img_obj, hr_health_page.back_img_dsc);
+  lv_obj_set_size(big_digit_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+  lv_obj_align(big_digit_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create ui_pages array
-  ui_pages[0] = loading_page;
-  ui_pages[1] = config_page;
-  ui_pages[2] = miner_page;
-  ui_pages[3] = dashboard_page;
-  ui_pages[4] = health_page ;
-  ui_pages[5] = big_digit_page;
+  ui_pages[0] = loading_page.container;
+  ui_pages[1] = config_page.container;
+  ui_pages[2] = miner_page.container;
+  ui_pages[3] = dashboard_page.container;
+  ui_pages[4] = hr_health_page.container;
+  ui_pages[5] = big_digit_page.container;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version
   const lv_font_t *font = &lv_font_montserrat_16;
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
-  lv_obj_t *lb_version   = lv_label_create( loading_page );
+  lv_obj_t *lb_version   = lv_label_create( loading_page.container );
   lv_obj_set_width(lb_version, SCREEN_WIDTH);
   lv_label_set_text( lb_version, g_board.info.base.fw_version.c_str());
   lv_obj_set_style_text_font(lb_version, font, LV_PART_MAIN);
@@ -342,15 +387,14 @@ static void ui_layout_init(void){
   lv_obj_align( lb_version, LV_ALIGN_TOP_MID, SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 9), SCREEN_HEIGHT - 18);
   //////////////////////////////////////config page layout///////////////////////////////////////////////
   //config timeout
-  font = &lv_font_montserrat_14;
   font_color = lv_color_hex(0xFFFFFF);
-  lb_cfg_timeout   = lv_label_create( config_page );
-  lv_obj_set_width(lb_cfg_timeout, SCREEN_WIDTH);
-  lv_label_set_text( lb_cfg_timeout, "");
-  lv_obj_set_style_text_font(lb_cfg_timeout, font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(lb_cfg_timeout, font_color, LV_PART_MAIN); 
-  lv_label_set_long_mode(lb_cfg_timeout, LV_LABEL_LONG_DOT);
-  lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 175, 0);
+  config_page.lb_cfg_timeout.obj   = lv_label_create( config_page.container );
+  lv_obj_set_width(config_page.lb_cfg_timeout.obj, SCREEN_WIDTH);
+  lv_label_set_text( config_page.lb_cfg_timeout.obj, "");
+  lv_obj_set_style_text_font(config_page.lb_cfg_timeout.obj, config_page.lb_cfg_timeout.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(config_page.lb_cfg_timeout.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(config_page.lb_cfg_timeout.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
 }
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
@@ -1416,11 +1460,30 @@ void ui_switch_next_page_cb(){
     return;
   } 
 
-  current_page_index = (current_page_index == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : current_page_index;
-  current_page_index++;
-  lv_obj_scroll_to_view(ui_pages[current_page_index], LV_ANIM_ON);
-  g_board.status.ui.last_page = current_page_index;
+  g_board.status.ui.current_page = (g_board.status.ui.current_page == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : g_board.status.ui.current_page;
+  g_board.status.ui.current_page++;
+  lv_obj_scroll_to_view(ui_pages[g_board.status.ui.current_page], LV_ANIM_ON);
+  g_board.status.ui.last_page = g_board.status.ui.current_page;
   xSemaphoreGive(g_board.status.ui.page_save_xsem);
+}
+
+static void lvgl_tick_task(void *args){
+  char *name = (char*)malloc(20);
+  uint16_t tick_interval = 100;
+  strcpy(name, (char*)args);
+  LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
+  free(name);
+
+  uint32_t last_tick = millis();
+  while(true){
+    if (xSemaphoreTake(lvgl_xMutex, tick_interval/2) == pdTRUE){
+      lv_tick_inc(millis() - last_tick);
+      lv_timer_handler(); /* let the GUI do its work */
+      xSemaphoreGive(lvgl_xMutex); 
+      last_tick = millis();
+    }
+    delay(tick_interval/2);
+  }
 }
 
 void ui_thread_entry(void *args){
@@ -1567,10 +1630,10 @@ void ui_thread_entry(void *args){
         static uint8_t cnt = 0;
         String str = (g_board.info.connection.client_connected) ? config_str[cnt++%4] : (String(g_board.info.connection.wifi.status_param.config_timeout) + "s");
         //config timeout label location
-        if(g_board.info.connection.client_connected) lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 160, 0);
-        else lv_obj_align( lb_cfg_timeout, LV_ALIGN_BOTTOM_MID, 175, 0);
+        if(g_board.info.connection.client_connected) lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, 160, 0);
+        else lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, 175, 0);
 
-        lv_label_set_text(lb_cfg_timeout, str.c_str());
+        lv_label_set_text(config_page.lb_cfg_timeout.obj, str.c_str());
         //update ota page
         if(g_board.status.ota.running){
           ui_ota_page_update(&g_board);
@@ -1672,7 +1735,7 @@ void ui_thread_entry(void *args){
   delay(500);
   /***************************************scroll to miner page***************************************/
   lv_obj_scroll_to_view(ui_pages[g_board.status.ui.last_page], LV_ANIM_ON); 
-  current_page_index = g_board.status.ui.last_page;
+  g_board.status.ui.current_page = g_board.status.ui.last_page;
   
   while (true){
     xSemaphoreTake(g_board.status.miner.update_xsem, portMAX_DELAY);
