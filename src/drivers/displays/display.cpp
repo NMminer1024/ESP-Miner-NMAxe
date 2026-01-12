@@ -207,10 +207,21 @@ static void ui_page_element_init(String board){
     config_page.logo_img_obj            = nullptr;
     config_page.logo_img_dsc            = &logo_worker_nmaxe;
 
+    loading_page.lb_details.font        = &lv_font_montserrat_14;
+    loading_page.lb_details.coord       = {3, 0};
+    loading_page.lb_version.font        = &lv_font_montserrat_16;
+    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
+    loading_page.lb_progress.font       = &lv_font_montserrat_16;
+    loading_page.lb_progress.coord      = {0, -20};
+    loading_page.bar_progress.font      = &lv_font_montserrat_20;
+    loading_page.bar_progress.coord     = {0, -20};
+    loading_page.lb_ip_and_slogan.font  = &lv_font_montserrat_20;
+    loading_page.lb_ip_and_slogan.coord = {0, 10};
+    loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
+    loading_page.lb_pool_url.coord      = {0, 35};
 
     config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
-
   }
   else if(board == BOARD_NMAXE_GAMMA_NAME){
     loading_page.back_img_dsc           = &loading_page_img_135_240;
