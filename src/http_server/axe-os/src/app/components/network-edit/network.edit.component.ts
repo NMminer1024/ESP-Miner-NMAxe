@@ -38,7 +38,7 @@ export class NetworkEditComponent implements OnInit {
         const timezone = info.timeZone || (info as any).timezone;
         
         this.form = this.fb.group({
-          hostname: [info.hostname, [Validators.required, Validators.maxLength(11)]],
+          hostname: [info.hostname, [Validators.required, Validators.maxLength(20)]],
           timezone: [timezone || 0, [Validators.required, Validators.min(-12), Validators.max(14)]],
           ssid: [info.ssid, [Validators.required]],
           wifiPass: ['*****'],
