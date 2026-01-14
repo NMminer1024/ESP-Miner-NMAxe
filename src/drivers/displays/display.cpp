@@ -61,7 +61,7 @@ struct{
   lv_img_dsc_t  *logo_img_dsc;
   ui_element_t  img_logo;
   ui_element_t  lb_share, lb_fan, lb_hr_unit, lb_uptime_day_unit;
-  ui_element_t  lb_hashrate, lb_blk_hit, lb_temp ,lb_power,lb_wifi ,lb_uptime_day, lb_uptime_hms, lb_diff;
+  ui_element_t  lb_hashrate, lb_blk_hit, lb_temp ,lb_power,lb_ip ,lb_uptime_day, lb_uptime_hms, lb_diff;
   ui_element_t  lb_uptime_symbol ,lb_wifi_symbol ,lb_diff_symbol ,lb_share_symb ,lb_temp_symb ,lb_fan_symb;
   ui_element_t  lb_price, lb_ver;
 }miner_page;
@@ -199,6 +199,71 @@ static void ui_drv_register(void){
 }
 
 static void ui_page_element_init(String board){
+  // logo worker image buffer init
+  logo_worker_nmaxe.header.w = 60;
+  logo_worker_nmaxe.header.h = 68;
+  logo_worker_nmaxe.data_size = logo_worker_nmaxe.header.w * logo_worker_nmaxe.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
+  logo_worker_nmaxegamma.header.w = 60;
+  logo_worker_nmaxegamma.header.h = 68;
+  logo_worker_nmaxegamma.data_size = logo_worker_nmaxegamma.header.w * logo_worker_nmaxegamma.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
+  logo_worker_nmqaxepp.header.w = 60;
+  logo_worker_nmqaxepp.header.h = 68;
+  logo_worker_nmqaxepp.data_size = logo_worker_nmqaxepp.header.w * logo_worker_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
+  /*********************************** 135x240 image **************************************/
+  loading_page_img_135_240.header.w = SCREEN_WIDTH;
+  loading_page_img_135_240.header.h = SCREEN_HEIGHT;
+  loading_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  config_page_img_135_240.header.w = SCREEN_WIDTH;
+  config_page_img_135_240.header.h = SCREEN_HEIGHT;
+  config_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  mining_page_img_135_240.header.w = SCREEN_WIDTH;
+  mining_page_img_135_240.header.h = SCREEN_HEIGHT;
+  mining_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  black_page_img_135_240.header.w = SCREEN_WIDTH;
+  black_page_img_135_240.header.h = SCREEN_HEIGHT;
+  black_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  block_hits_page_img_135_240.header.w = SCREEN_WIDTH;
+  block_hits_page_img_135_240.header.h = SCREEN_HEIGHT;
+  block_hits_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  status_page_img_135_240.header.w = SCREEN_WIDTH;
+  status_page_img_135_240.header.h = SCREEN_HEIGHT;
+  status_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  /*********************************** 240x320 image **************************************/
+  loading_page_img_240_320.header.w = SCREEN_WIDTH;
+  loading_page_img_240_320.header.h = SCREEN_HEIGHT;
+  loading_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  config_page_img_240_320.header.w = SCREEN_WIDTH;
+  config_page_img_240_320.header.h = SCREEN_HEIGHT;
+  config_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  mining_page_img_240_320.header.w = SCREEN_WIDTH;
+  mining_page_img_240_320.header.h = SCREEN_HEIGHT;
+  mining_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  black_page_img_240_320.header.w = SCREEN_WIDTH;
+  black_page_img_240_320.header.h = SCREEN_HEIGHT;
+  black_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  block_hits_page_img_240_320.header.w = SCREEN_WIDTH;
+  block_hits_page_img_240_320.header.h = SCREEN_HEIGHT;
+  block_hits_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  status_page_img_240_320.header.w = SCREEN_WIDTH;
+  status_page_img_240_320.header.h = SCREEN_HEIGHT;
+  status_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+
+
   if((board == BOARD_NMAXE_NAME) || (board == BOARD_NMAXE_GAMMA_NAME)){
     loading_page.back_img_dsc           = &loading_page_img_135_240;
     config_page.back_img_dsc            = &config_page_img_135_240;
@@ -259,8 +324,8 @@ static void ui_page_element_init(String board){
     miner_page.lb_ver.coord             = {2, 22};
     miner_page.lb_power.font            = &ds_digib_font_18;
     miner_page.lb_power.coord           = {10, 114};
-    miner_page.lb_wifi.font             = &ds_digib_font_16;
-    miner_page.lb_wifi.coord            = {140, 2};
+    miner_page.lb_ip.font               = &ds_digib_font_16;
+    miner_page.lb_ip.coord              = {140, 2};
     miner_page.lb_uptime_hms.font       = &ds_digib_font_16;
     miner_page.lb_uptime_hms.coord      = {65, 2};
     miner_page.lb_uptime_day.font       = &ds_digib_font_16;
@@ -337,18 +402,18 @@ static void ui_page_element_init(String board){
     miner_page.lb_ver.coord             = {15, 35};
     miner_page.lb_power.font            = &ds_digib_font_24;
     miner_page.lb_power.coord           = {30, 168};
-    miner_page.lb_wifi.font             = &ds_digib_font_16;
-    miner_page.lb_wifi.coord            = {140, 2};
-    miner_page.lb_uptime_hms.font       = &ds_digib_font_16;
-    miner_page.lb_uptime_hms.coord      = {65, 2};
-    miner_page.lb_uptime_day.font       = &ds_digib_font_16;
-    miner_page.lb_uptime_day.coord      = {32, 2};
-    miner_page.lb_uptime_day_unit.font  = &lv_font_montserrat_14;
-    miner_page.lb_uptime_day_unit.coord = {56, 2};
-    miner_page.lb_uptime_symbol.font    = &lv_font_montserrat_14;
-    miner_page.lb_uptime_symbol.coord   = {18, 1};
-    miner_page.lb_wifi_symbol.font      = &lv_font_montserrat_14;
-    miner_page.lb_wifi_symbol.coord     = {123, 1};
+    miner_page.lb_ip.font               = &ds_digib_font_18;
+    miner_page.lb_ip.coord              = {148+ 60, 2};
+    miner_page.lb_uptime_hms.font       = &ds_digib_font_18;
+    miner_page.lb_uptime_hms.coord      = {65+ 58, 2};
+    miner_page.lb_uptime_day.font       = &ds_digib_font_18;
+    miner_page.lb_uptime_day.coord      = {32+ 55, 2};
+    miner_page.lb_uptime_day_unit.font  = &lv_font_montserrat_16;
+    miner_page.lb_uptime_day_unit.coord = {56+ 57, 2};
+    miner_page.lb_uptime_symbol.font    = &lv_font_montserrat_16;
+    miner_page.lb_uptime_symbol.coord   = {18 + 55, 1};
+    miner_page.lb_wifi_symbol.font      = &lv_font_montserrat_16;
+    miner_page.lb_wifi_symbol.coord     = {128+ 59, 1};
 
 
     miner_page.lb_diff.font             = &ds_digib_font_20;
@@ -364,7 +429,7 @@ static void ui_page_element_init(String board){
     miner_page.lb_diff_symbol.font      = &symbol_20;
     miner_page.lb_diff_symbol.coord     = {108 + 45, 30};
     miner_page.lb_share_symb.font       = &symbol_20;
-    miner_page.lb_share_symb.coord      = {108 + 45, 55};
+    miner_page.lb_share_symb.coord      = {108 + 43, 55};
     miner_page.lb_temp_symb.font        = &symbol_20;
     miner_page.lb_temp_symb.coord       = {113 + 47, 83};
     miner_page.lb_fan_symb.font         = &symbol_20;
@@ -378,69 +443,6 @@ static void ui_page_element_init(String board){
 
 static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL;
-
-  // logo worker image buffer init
-  logo_worker_nmaxe.header.w = 60;
-  logo_worker_nmaxe.header.h = 68;
-  logo_worker_nmaxe.data_size = logo_worker_nmaxe.header.w * logo_worker_nmaxe.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
-
-  logo_worker_nmaxegamma.header.w = 60;
-  logo_worker_nmaxegamma.header.h = 68;
-  logo_worker_nmaxegamma.data_size = logo_worker_nmaxegamma.header.w * logo_worker_nmaxegamma.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
-
-  logo_worker_nmqaxepp.header.w = 60;
-  logo_worker_nmqaxepp.header.h = 68;
-  logo_worker_nmqaxepp.data_size = logo_worker_nmqaxepp.header.w * logo_worker_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
-
-  /*********************************** 135x240 image **************************************/
-  loading_page_img_135_240.header.w = SCREEN_WIDTH;
-  loading_page_img_135_240.header.h = SCREEN_HEIGHT;
-  loading_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  config_page_img_135_240.header.w = SCREEN_WIDTH;
-  config_page_img_135_240.header.h = SCREEN_HEIGHT;
-  config_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  mining_page_img_135_240.header.w = SCREEN_WIDTH;
-  mining_page_img_135_240.header.h = SCREEN_HEIGHT;
-  mining_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  black_page_img_135_240.header.w = SCREEN_WIDTH;
-  black_page_img_135_240.header.h = SCREEN_HEIGHT;
-  black_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  block_hits_page_img_135_240.header.w = SCREEN_WIDTH;
-  block_hits_page_img_135_240.header.h = SCREEN_HEIGHT;
-  block_hits_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  status_page_img_135_240.header.w = SCREEN_WIDTH;
-  status_page_img_135_240.header.h = SCREEN_HEIGHT;
-  status_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  /*********************************** 240x320 image **************************************/
-  loading_page_img_240_320.header.w = SCREEN_WIDTH;
-  loading_page_img_240_320.header.h = SCREEN_HEIGHT;
-  loading_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  config_page_img_240_320.header.w = SCREEN_WIDTH;
-  config_page_img_240_320.header.h = SCREEN_HEIGHT;
-  config_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  mining_page_img_240_320.header.w = SCREEN_WIDTH;
-  mining_page_img_240_320.header.h = SCREEN_HEIGHT;
-  mining_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  black_page_img_240_320.header.w = SCREEN_WIDTH;
-  black_page_img_240_320.header.h = SCREEN_HEIGHT;
-  black_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  block_hits_page_img_240_320.header.w = SCREEN_WIDTH;
-  block_hits_page_img_240_320.header.h = SCREEN_HEIGHT;
-  block_hits_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
-  status_page_img_240_320.header.w = SCREEN_WIDTH;
-  status_page_img_240_320.header.h = SCREEN_HEIGHT;
-  status_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
   ui_page_element_init(g_board.info.spec.name);
 
@@ -710,13 +712,13 @@ static void ui_miner_page_update(board_sal_t* board){
     //wifi value
     // font = &ds_digib_font_16;
     font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_wifi.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_wifi.obj, 98);
-    lv_label_set_text( miner_page.lb_wifi.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_wifi.obj, miner_page.lb_wifi.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_wifi.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_style_text_color(miner_page.lb_wifi.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_wifi.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_wifi.coord.x, miner_page.lb_wifi.coord.y );
+    miner_page.lb_ip.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+    lv_obj_set_width(miner_page.lb_ip.obj, 98);
+    lv_label_set_text( miner_page.lb_ip.obj, " ");
+    lv_obj_set_style_text_font(miner_page.lb_ip.obj, miner_page.lb_ip.font, LV_PART_MAIN);
+    lv_label_set_long_mode(miner_page.lb_ip.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_set_style_text_color(miner_page.lb_ip.obj, font_color, LV_PART_MAIN); 
+    lv_obj_align( miner_page.lb_ip.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_ip.coord.x, miner_page.lb_ip.coord.y );
 
     //uptime value, hour , minute, second
     // font = &ds_digib_font_16;
@@ -968,7 +970,7 @@ static void ui_miner_page_update(board_sal_t* board){
   //Temp
   lv_label_set_text_fmt(miner_page.lb_temp.obj,   "%s'C/%s'C", formatNumber(board->status.temp.vcore, 2).c_str(), formatNumber(board->status.temp.asic, 2).c_str());
   //WiFi
-  lv_label_set_text_fmt(miner_page.lb_wifi.obj,   "%s", board->info.connection.wifi.status_param.ip.toString().c_str());
+  lv_label_set_text_fmt(miner_page.lb_ip.obj,   "%s", board->info.connection.wifi.status_param.ip.toString().c_str());
   //uptime hms
   lv_label_set_text_fmt(miner_page.lb_uptime_hms.obj,    "%s", uptime.substring(5, uptime.length()).c_str());
   //uptime day
