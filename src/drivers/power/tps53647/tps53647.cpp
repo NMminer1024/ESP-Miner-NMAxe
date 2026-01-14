@@ -3,7 +3,7 @@
 #include <Wire.h>
 
 /** For NMQAxe++ **/
-#define TPS53647_I2C_ADDRESS            (0x71)//todo 
+#define TPS53647_I2C_ADDRESS            (0x72)//todo 
 
 #define REG_IBUS_SAMPLE                 (0.01f)
 #define GAIN_IBUS_SAMPLE                (50.0f)
