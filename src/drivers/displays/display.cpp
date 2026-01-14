@@ -205,7 +205,7 @@ static void ui_page_element_init(String board){
     config_page.back_img_dsc            = &config_page_img_135_240;
     miner_page.back_img_dsc             = &mining_page_img_135_240;
     dashboard_page.back_img_dsc         = &status_page_img_135_240;
-    hr_health_page.back_img_dsc         = &black_page_img_135_240;
+    hr_health_page.back_img_dsc         = &status_page_img_135_240;
     big_digit_page.back_img_dsc         = &black_page_img_135_240;
     miner_page.logo_img_obj             = nullptr;
     miner_page.logo_img_dsc             = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
@@ -299,12 +299,12 @@ static void ui_page_element_init(String board){
     miner_page.lb_share_symb.coord      = {108, 42};
   }
   else if(board == BOARD_NMQAXE_PLUS_PLUS_NAME){
-    loading_page.back_img_dsc           = &loading_page_img_135_240;
-    config_page.back_img_dsc            = &config_page_img_135_240;
-    miner_page.back_img_dsc             = &mining_page_img_135_240;
-    dashboard_page.back_img_dsc         = &status_page_img_135_240;
-    hr_health_page.back_img_dsc         = &black_page_img_135_240;
-    big_digit_page.back_img_dsc         = &black_page_img_135_240;
+    loading_page.back_img_dsc           = &loading_page_img_240_320;
+    config_page.back_img_dsc            = &config_page_img_240_320;
+    miner_page.back_img_dsc             = &mining_page_img_240_320;
+    dashboard_page.back_img_dsc         = &status_page_img_240_320;
+    hr_health_page.back_img_dsc         = &status_page_img_240_320;
+    big_digit_page.back_img_dsc         = &black_page_img_240_320;
     miner_page.logo_img_obj             = nullptr;
     miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
     config_page.logo_img_obj            = nullptr;
@@ -326,12 +326,12 @@ static void ui_page_element_init(String board){
     config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
 
-    loading_page.back_img_dsc           = &loading_page_img_135_240;
-    config_page.back_img_dsc            = &config_page_img_135_240;
-    miner_page.back_img_dsc             = &mining_page_img_135_240;
-    dashboard_page.back_img_dsc         = &status_page_img_135_240;
-    hr_health_page.back_img_dsc         = &black_page_img_135_240;
-    big_digit_page.back_img_dsc         = &black_page_img_135_240;
+    loading_page.back_img_dsc           = &loading_page_img_240_320;
+    config_page.back_img_dsc            = &config_page_img_240_320;
+    miner_page.back_img_dsc             = &mining_page_img_240_320;
+    dashboard_page.back_img_dsc         = &status_page_img_240_320;
+    hr_health_page.back_img_dsc         = &black_page_img_240_320;
+    big_digit_page.back_img_dsc         = &black_page_img_240_320;
     miner_page.logo_img_obj             = nullptr;
     miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
     config_page.logo_img_obj            = nullptr;
