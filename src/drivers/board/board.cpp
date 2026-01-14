@@ -6,6 +6,7 @@
 #include "nmaxegamma.h"
 #include "nmqaxepp.h"
 #include "Wire.h"
+#include "tca9554.h"
 
 BoardModelType get_board_model(){
     BoardModelType model = BOARD_UNKNOWN;
@@ -231,7 +232,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.tft.bl.pwm_ch             = 0;
             config.tft.bl.pwm_freq           = 1000*100; // Hz
             config.tft.bl.pwm_resolution     = 8;        // bits
-            config.tft.rst_pin               = 47;       // for test propose **********************************
+            config.tft.rst_pin               = -1;       // for test propose **********************************
             config.tft.pwr_pin               = -1;
             config.tft.color_invert          = false;
             config.spi.cs_pin                = -1;
@@ -343,6 +344,7 @@ void hardware_pre_init(BoardSpecConfig config){
     Serial.begin(115200);
     delay(100);
 
+
     // set I2C pins and start I2C
     bool iic = Wire.begin(config.iic.sda_pin, config.iic.scl_pin);        
     if(!iic){
@@ -351,6 +353,7 @@ void hardware_pre_init(BoardSpecConfig config){
     }
     LOG_I("I2C initialized on pins SDA:%d, SCL:%d", config.iic.sda_pin, config.iic.scl_pin);
 
+    // nvs init
     esp_err_t ret = nvs_flash_init();
     while (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         LOG_W("NVS partition is full or has invalid version, erasing...");
@@ -360,6 +363,12 @@ void hardware_pre_init(BoardSpecConfig config){
         LOG_I("Reinitializing NVS...");
         ret = nvs_flash_init();
         delay(1000);
+    }
+
+    if(config.name = BOARD_NMQAXE_PLUS_PLUS_NAME){
+        // init extio chip tca9554
+        // reset lcd via extio_1
+        tca9554_init();
     }
 }
 
