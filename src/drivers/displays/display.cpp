@@ -24,6 +24,7 @@ LV_FONT_DECLARE(ds_digib_font_42)
 LV_FONT_DECLARE(ds_digib_font_50)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(symbol_14)
+LV_FONT_DECLARE(symbol_20)
 /********************************************************************* global UI elements ********************************************************************/
 // loading page elements
 struct{
@@ -327,24 +328,18 @@ static void ui_page_element_init(String board){
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
 
     /*********************************** mining page *********************************/
-    miner_page.lb_share.font            = &ds_digib_font_18;
-    miner_page.lb_share.coord           = {132, 41};
     miner_page.lb_hr_unit.font          = &ds_digib_font_28;
     miner_page.lb_hr_unit.coord         = {182, 110};
-    miner_page.lb_blk_hit.font          = &ds_digib_font_50;
-    miner_page.lb_blk_hit.coord         = {7, 39};
-    miner_page.lb_fan_symb.font         = &symbol_14;
-    miner_page.lb_fan_symb.coord        = {110, 76};
-    miner_page.lb_hashrate.font         = &ds_digib_font_38;
-    miner_page.lb_hashrate.coord        = {40, 0};
+    miner_page.lb_blk_hit.font          = &ds_digib_font_56;
+    miner_page.lb_blk_hit.coord         = {20, 65};
+    miner_page.lb_hashrate.font         = &ds_digib_font_42;
+    miner_page.lb_hashrate.coord        = {60, -50};
     miner_page.lb_price.font            = &ds_digib_font_20;
-    miner_page.lb_price.coord           = {33, 29};
-    miner_page.lb_diff.font             = &ds_digib_font_18;
-    miner_page.lb_diff.coord            = {132, 25};
+    miner_page.lb_price.coord           = {33, 25};
     miner_page.lb_ver.font              = &ds_digib_font_16;
-    miner_page.lb_ver.coord             = {2, 22};
-    miner_page.lb_power.font            = &ds_digib_font_18;
-    miner_page.lb_power.coord           = {10, 114};
+    miner_page.lb_ver.coord             = {15, 35};
+    miner_page.lb_power.font            = &ds_digib_font_24;
+    miner_page.lb_power.coord           = {30, 168};
     miner_page.lb_wifi.font             = &ds_digib_font_16;
     miner_page.lb_wifi.coord            = {140, 2};
     miner_page.lb_uptime_hms.font       = &ds_digib_font_16;
@@ -353,20 +348,31 @@ static void ui_page_element_init(String board){
     miner_page.lb_uptime_day.coord      = {32, 2};
     miner_page.lb_uptime_day_unit.font  = &lv_font_montserrat_14;
     miner_page.lb_uptime_day_unit.coord = {56, 2};
-    miner_page.lb_temp.font             = &ds_digib_font_18;
-    miner_page.lb_temp.coord            = {132, 58};
     miner_page.lb_uptime_symbol.font    = &lv_font_montserrat_14;
     miner_page.lb_uptime_symbol.coord   = {18, 1};
     miner_page.lb_wifi_symbol.font      = &lv_font_montserrat_14;
     miner_page.lb_wifi_symbol.coord     = {123, 1};
-    miner_page.lb_fan.font              = &ds_digib_font_18;
-    miner_page.lb_fan.coord             = {132, 75};
-    miner_page.lb_temp_symb.font        = &symbol_14;
-    miner_page.lb_temp_symb.coord       = {113, 59};
-    miner_page.lb_diff_symbol.font      = &symbol_14;
-    miner_page.lb_diff_symbol.coord     = {108, 26};
-    miner_page.lb_share_symb.font       = &symbol_14;
-    miner_page.lb_share_symb.coord      = {108, 42};
+
+
+    miner_page.lb_diff.font             = &ds_digib_font_20;
+    miner_page.lb_diff.coord            = {132+ 55, 30};
+    miner_page.lb_share.font            = &ds_digib_font_20;
+    miner_page.lb_share.coord           = {132+ 55, 55};
+    miner_page.lb_temp.font             = &ds_digib_font_20;
+    miner_page.lb_temp.coord            = {132+ 55, 83};
+    miner_page.lb_fan.font              = &ds_digib_font_20;
+    miner_page.lb_fan.coord             = {132+ 55, 110};
+
+
+    miner_page.lb_diff_symbol.font      = &symbol_20;
+    miner_page.lb_diff_symbol.coord     = {108 + 45, 30};
+    miner_page.lb_share_symb.font       = &symbol_20;
+    miner_page.lb_share_symb.coord      = {108 + 45, 55};
+    miner_page.lb_temp_symb.font        = &symbol_20;
+    miner_page.lb_temp_symb.coord       = {113 + 47, 83};
+    miner_page.lb_fan_symb.font         = &symbol_20;
+    miner_page.lb_fan_symb.coord        = {110 + 45, 110};
+
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board.c_str());
@@ -693,12 +699,12 @@ static void ui_miner_page_update(board_sal_t* board){
     lv_obj_set_style_text_font(miner_page.lb_ver.obj, miner_page.lb_ver.font, LV_PART_MAIN);
     lv_label_set_long_mode(miner_page.lb_ver.obj, LV_LABEL_LONG_DOT);
     lv_obj_set_style_text_color(miner_page.lb_ver.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_ver.obj, LV_ALIGN_TOP_LEFT, 2, 22 ); 
+    lv_obj_align( miner_page.lb_ver.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_ver.coord.x, miner_page.lb_ver.coord.y );
     //power value
     // font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
     miner_page.lb_power.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_power.obj, 95);
+    lv_obj_set_width(miner_page.lb_power.obj, SCREEN_WIDTH/2.5);
     lv_label_set_text( miner_page.lb_power.obj, " ");
     lv_obj_set_style_text_font(miner_page.lb_power.obj, miner_page.lb_power.font, LV_PART_MAIN);
     lv_label_set_long_mode(miner_page.lb_power.obj, LV_LABEL_LONG_DOT);
@@ -750,12 +756,12 @@ static void ui_miner_page_update(board_sal_t* board){
     // font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
     miner_page.lb_diff.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_diff.obj, 100);
+    lv_obj_set_width(miner_page.lb_diff.obj, SCREEN_WIDTH/2.4);
     lv_label_set_text( miner_page.lb_diff.obj, " ");
     lv_obj_set_style_text_font(miner_page.lb_diff.obj, miner_page.lb_diff.font, LV_PART_MAIN);
     lv_label_set_long_mode(miner_page.lb_diff.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_style_text_color(miner_page.lb_diff.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_diff.obj, LV_ALIGN_TOP_LEFT, 132, 25 );
+    lv_obj_align( miner_page.lb_diff.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_diff.coord.x, miner_page.lb_diff.coord.y );
     //share value
     // font = &ds_digib_font_18;
     font_color = lv_color_hex(0xFFFFFF);
@@ -930,10 +936,10 @@ static void ui_miner_page_update(board_sal_t* board){
   //block hit
   if(board->status.miner.hits <= 9){
   lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, &ds_digib_font_50, LV_PART_MAIN);
-  lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, 7, 39); 
+  lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x, miner_page.lb_blk_hit.coord.y);
     lv_label_set_text_fmt(miner_page.lb_blk_hit.obj, "%d", board->status.miner.hits);
   }else if (board->status.miner.hits <= 99){
-    lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, 7, 50); 
+    lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x -10, miner_page.lb_blk_hit.coord.y + 11);
     lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, &ds_digib_font_28, LV_PART_MAIN);
     lv_label_set_text_fmt(miner_page.lb_blk_hit.obj, "%d", board->status.miner.hits);
   }
@@ -1731,7 +1737,7 @@ void ui_thread_entry(void *args){
     ui_loading_str_update(String(asci_init_str[cnt++ % 4]), 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update(String("Found " + String(g_board.miner->get_asic_count())) + " chip", 0x00FF00, true);
+  ui_loading_str_update(String("Found " + String(g_board.miner->get_asic_count())) + (g_board.miner->get_asic_count() > 1 ? " chips" : " chip"), 0x00FF00, true);
   delay(1000);
   /***************************************wait for wifi connected****************************************/
   cnt = 0;
