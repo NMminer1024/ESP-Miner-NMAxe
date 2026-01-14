@@ -207,6 +207,7 @@ static void ui_page_element_init(String board){
     dashboard_page.back_img_dsc         = &status_page_img_135_240;
     hr_health_page.back_img_dsc         = &status_page_img_135_240;
     big_digit_page.back_img_dsc         = &black_page_img_135_240;
+
     miner_page.logo_img_obj             = nullptr;
     miner_page.logo_img_dsc             = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
     config_page.logo_img_obj            = nullptr;
@@ -224,21 +225,6 @@ static void ui_page_element_init(String board){
     loading_page.lb_ip_and_slogan.coord = {0, 10};
     loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
     loading_page.lb_pool_url.coord      = {0, 35};
-
-    config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
-    config_page.lb_cfg_timeout.coord    = {175, 0 }; 
-
-    loading_page.back_img_dsc           = &loading_page_img_135_240;
-    config_page.back_img_dsc            = &config_page_img_135_240;
-    miner_page.back_img_dsc             = &mining_page_img_135_240;
-    dashboard_page.back_img_dsc         = &status_page_img_135_240;
-    hr_health_page.back_img_dsc         = &black_page_img_135_240;
-    big_digit_page.back_img_dsc         = &black_page_img_135_240;
-    miner_page.logo_img_obj             = nullptr;
-    miner_page.logo_img_dsc             = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
-    config_page.logo_img_obj            = nullptr;
-    config_page.logo_img_dsc            = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
-
     /*********************************** Loading page *********************************/
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
@@ -252,7 +238,7 @@ static void ui_page_element_init(String board){
     loading_page.lb_ip_and_slogan.coord = {0, 10};
     loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
     loading_page.lb_pool_url.coord      = {0, 35};
-    /*********************************** Loading page *********************************/
+    /*********************************** Config page *********************************/
     config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
 
@@ -299,16 +285,17 @@ static void ui_page_element_init(String board){
     miner_page.lb_share_symb.coord      = {108, 42};
   }
   else if(board == BOARD_NMQAXE_PLUS_PLUS_NAME){
-    loading_page.back_img_dsc           = &loading_page_img_240_320;
-    config_page.back_img_dsc            = &config_page_img_240_320;
-    miner_page.back_img_dsc             = &mining_page_img_240_320;
-    dashboard_page.back_img_dsc         = &status_page_img_240_320;
-    hr_health_page.back_img_dsc         = &status_page_img_240_320;
-    big_digit_page.back_img_dsc         = &black_page_img_240_320;
+    loading_page.back_img_dsc           = &loading_page_img_135_240;
+    config_page.back_img_dsc            = &config_page_img_135_240;
+    miner_page.back_img_dsc             = &mining_page_img_135_240;
+    dashboard_page.back_img_dsc         = &status_page_img_135_240;
+    hr_health_page.back_img_dsc         = &status_page_img_135_240;
+    big_digit_page.back_img_dsc         = &black_page_img_135_240;
+
     miner_page.logo_img_obj             = nullptr;
-    miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
+    miner_page.logo_img_dsc             = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
     config_page.logo_img_obj            = nullptr;
-    config_page.logo_img_dsc            = &logo_worker_nmqaxepp;
+    config_page.logo_img_dsc            = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
 
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
@@ -322,21 +309,6 @@ static void ui_page_element_init(String board){
     loading_page.lb_ip_and_slogan.coord = {0, 10};
     loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
     loading_page.lb_pool_url.coord      = {0, 35};
-
-    config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
-    config_page.lb_cfg_timeout.coord    = {175, 0 }; 
-
-    loading_page.back_img_dsc           = &loading_page_img_240_320;
-    config_page.back_img_dsc            = &config_page_img_240_320;
-    miner_page.back_img_dsc             = &mining_page_img_240_320;
-    dashboard_page.back_img_dsc         = &status_page_img_240_320;
-    hr_health_page.back_img_dsc         = &black_page_img_240_320;
-    big_digit_page.back_img_dsc         = &black_page_img_240_320;
-    miner_page.logo_img_obj             = nullptr;
-    miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
-    config_page.logo_img_obj            = nullptr;
-    config_page.logo_img_dsc            = &logo_worker_nmqaxepp;
-
     /*********************************** Loading page *********************************/
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
@@ -350,7 +322,7 @@ static void ui_page_element_init(String board){
     loading_page.lb_ip_and_slogan.coord = {0, 10};
     loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
     loading_page.lb_pool_url.coord      = {0, 35};
-    /*********************************** Loading page *********************************/
+    /*********************************** Config page *********************************/
     config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
 
@@ -553,7 +525,7 @@ static void ui_layout_init(void){
   lv_obj_set_style_border_width(big_digit_page.container, 0, 0);
   lv_obj_set_scrollbar_mode(big_digit_page.container, LV_SCROLLBAR_MODE_OFF);
   big_digit_page.back_img_obj = lv_img_create(big_digit_page.container);
-  lv_img_set_src(big_digit_page.back_img_obj, hr_health_page.back_img_dsc);
+  lv_img_set_src(big_digit_page.back_img_obj, big_digit_page.back_img_dsc);
   lv_obj_set_size(big_digit_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(big_digit_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create ui_pages array
