@@ -82,7 +82,7 @@ lv_img_dsc_t mining_page_img_135_240 = {
         .h = 0, 
     },
     .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
-    .data = (const uint8_t *)main_page_img_array_135_240,
+    .data = (const uint8_t *)mining_page_img_array_135_240,
 };
 
 lv_img_dsc_t black_page_img_135_240 = {
@@ -138,4 +138,79 @@ lv_img_dsc_t loading_page_img_240_320 = {
     .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
     .data = (const uint8_t *)loading_img_array_240_320, 
 };
+
+
+
+lv_img_dsc_t config_page_img_240_320 = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR,  
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)config_img_array_240_320,
+};
+
+
+lv_img_dsc_t mining_page_img_240_320 = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR,  
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)mining_page_img_array_240_320, 
+};
+
+
+
+lv_img_dsc_t black_page_img_240_320 = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR,  
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)black_page_img_array_240_320,
+};
+
+lv_img_dsc_t status_page_img_240_320 = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR,  
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)status_page_img_array_240_320,
+};
+
+lv_img_dsc_t block_hits_page_img_240_320 = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR,  
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)block_hit_page_img_array_240_320,
+};
+
+
+
+
+
+
+
+
+
+
 #endif

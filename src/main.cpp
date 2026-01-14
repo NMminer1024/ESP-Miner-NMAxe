@@ -173,15 +173,12 @@ void setup() {
   taskName = "(button)";
   xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_BTN, &btnTask,1);
   delay(10);
-  // /********************************************************* CREATE FAN THREAD *********************************************************/
-  // taskName = "(fan)";
-  // xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
-  // delay(10);
-  g_board.status.fans[0].self_test = true; // for testing, set first fan to self test mode
-  g_board.status.fans[0].rpm       = 3000; // for testing, set first fan rpm to 1200
-
-
-
+  /********************************************************* CREATE FAN THREAD *********************************************************/
+  taskName = "(fan)";
+  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
+  delay(10);
+  // g_board.status.fans[0].self_test = true; // for testing, set first fan to self test mode
+  // g_board.status.fans[0].rpm       = 3000; // for testing, set first fan rpm to 1200
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
   xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_PWR, NULL,1);
