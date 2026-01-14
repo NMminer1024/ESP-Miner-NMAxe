@@ -159,20 +159,19 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     // read chip responses
     uint8_t init3[7] = {0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A};
     this->send(init3, 7);
-    uint8_t chip_counter = 0, rsp[32] = {0,};
+    uint8_t chip_counter = 0, rsp[128] = {0,};
     while (true) {
+        memset(rsp, 0, sizeof(rsp));
         uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
         if(len == 0) break;
+        // dbg::hex_print(rsp, len, "asic rsp");
         uint8_t *rsp_ptr = rsp;
         while (rsp_ptr <= rsp + len - 11) {
-            if(memcmp(rsp_ptr, "\xaa\x55\x13\x70\x00\x00", 6) == 0){
-                dbg::hex_print(rsp_ptr, 11, "found chip");
+            if(memcmp(rsp_ptr, "\xaa\x55\x13\x70\x00\x00\x00\x00\x00\x00\x10", 11) == 0){
+                // dbg::hex_print(rsp_ptr, 11, "found chip");
                 chip_counter++;
-                break;
             }
-            else{
-                rsp_ptr++;
-            }
+            rsp_ptr++;
         }
     }
 

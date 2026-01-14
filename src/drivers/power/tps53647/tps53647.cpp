@@ -51,7 +51,7 @@ uint8_t TPS53647Class::_mv_to_vid(uint16_t mv){
         LOG_E("Requested voltage %dmV is out of range", mv);
         reg = 0;
     }
-    LOG_W("Converted %dmV to VID 0x%02X", mv, reg);
+    LOG_D("Converted %dmV to VID 0x%02X", mv, reg);
     return reg;
 }
 
