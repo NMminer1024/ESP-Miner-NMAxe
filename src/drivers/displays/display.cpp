@@ -47,7 +47,7 @@ struct{
   lv_obj_t      *back_img_obj;
   lv_img_dsc_t  *back_img_dsc;
 
-  lv_obj_t      *logo_img_obj;
+  ui_element_t  img_logo;
   lv_img_dsc_t  *logo_img_dsc;
 
   ui_element_t  lb_cfg_timeout;
@@ -58,10 +58,8 @@ struct{
   lv_obj_t      *container;
   lv_obj_t      *back_img_obj;
   lv_img_dsc_t  *back_img_dsc;
-
-  lv_obj_t      *logo_img_obj;
   lv_img_dsc_t  *logo_img_dsc;
-
+  ui_element_t  img_logo;
   ui_element_t  lb_share, lb_fan, lb_hr_unit, lb_uptime_day_unit;
   ui_element_t  lb_hashrate, lb_blk_hit, lb_temp ,lb_power,lb_wifi ,lb_uptime_day, lb_uptime_hms, lb_diff;
   ui_element_t  lb_uptime_symbol ,lb_wifi_symbol ,lb_diff_symbol ,lb_share_symb ,lb_temp_symb ,lb_fan_symb;
@@ -208,10 +206,7 @@ static void ui_page_element_init(String board){
     dashboard_page.back_img_dsc         = &status_page_img_135_240;
     hr_health_page.back_img_dsc         = &status_page_img_135_240;
     big_digit_page.back_img_dsc         = &black_page_img_135_240;
-
-    miner_page.logo_img_obj             = nullptr;
     miner_page.logo_img_dsc             = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
-    config_page.logo_img_obj            = nullptr;
     config_page.logo_img_dsc            = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
 
     loading_page.lb_details.font        = &lv_font_montserrat_14;
@@ -240,10 +235,12 @@ static void ui_page_element_init(String board){
     loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
     loading_page.lb_pool_url.coord      = {0, 35};
     /*********************************** Config page *********************************/
+    config_page.img_logo.coord          = {20, 1};
     config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
 
     /*********************************** mining page *********************************/
+    miner_page.img_logo.coord           = {45, 20};
     miner_page.lb_share.font            = &ds_digib_font_18;
     miner_page.lb_share.coord           = {132, 41};
     miner_page.lb_hr_unit.font          = &ds_digib_font_28;
@@ -293,9 +290,7 @@ static void ui_page_element_init(String board){
     hr_health_page.back_img_dsc         = &status_page_img_240_320;
     big_digit_page.back_img_dsc         = &black_page_img_240_320;
 
-    miner_page.logo_img_obj             = nullptr;
     miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
-    config_page.logo_img_obj            = nullptr;
     config_page.logo_img_dsc            = &logo_worker_nmqaxepp;
 
     loading_page.lb_details.font        = &lv_font_montserrat_14;
@@ -324,10 +319,12 @@ static void ui_page_element_init(String board){
     loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
     loading_page.lb_pool_url.coord      = {0, 35};
     /*********************************** Config page *********************************/
+    config_page.img_logo.coord          = {20, 1};
     config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
 
     /*********************************** mining page *********************************/
+    miner_page.img_logo.coord           = {80, 50};
     miner_page.lb_hr_unit.font          = &ds_digib_font_28;
     miner_page.lb_hr_unit.coord         = {182, 110};
     miner_page.lb_blk_hit.font          = &ds_digib_font_56;
@@ -484,9 +481,9 @@ static void ui_layout_init(void){
   lv_img_set_src(config_page.back_img_obj, config_page.back_img_dsc);
   lv_obj_set_size(config_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(config_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  config_page.logo_img_obj = lv_img_create(config_page.container);//worker logo
-  lv_img_set_src(config_page.logo_img_obj, config_page.logo_img_dsc); 
-  lv_obj_align(config_page.logo_img_obj, LV_ALIGN_TOP_LEFT, 20, 1);
+  config_page.img_logo.obj = lv_img_create(config_page.container);//worker logo
+  lv_img_set_src(config_page.img_logo.obj, config_page.logo_img_dsc); 
+  lv_obj_align(config_page.img_logo.obj, LV_ALIGN_TOP_LEFT, config_page.img_logo.coord.x, config_page.img_logo.coord.y);
   // Create miner page  
   miner_page.container = lv_obj_create(parent_docker);
   lv_obj_set_size(miner_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -498,9 +495,9 @@ static void ui_layout_init(void){
   lv_img_set_src(miner_page.back_img_obj, miner_page.back_img_dsc);
   lv_obj_set_size(miner_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(miner_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  miner_page.logo_img_obj = lv_img_create(miner_page.container);//worker logo
-  lv_img_set_src(miner_page.logo_img_obj, miner_page.logo_img_dsc); 
-  lv_obj_align(miner_page.logo_img_obj, LV_ALIGN_TOP_LEFT, 45, 20);
+  miner_page.img_logo.obj = lv_img_create(miner_page.container);//worker logo
+  lv_img_set_src(miner_page.img_logo.obj, miner_page.logo_img_dsc); 
+  lv_obj_align(miner_page.img_logo.obj, LV_ALIGN_TOP_LEFT, miner_page.img_logo.coord.x, miner_page.img_logo.coord.y);
   // Create dashboard page  
   dashboard_page.container = lv_obj_create(parent_docker);
   lv_obj_set_size(dashboard_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -935,8 +932,8 @@ static void ui_miner_page_update(board_sal_t* board){
   lv_label_set_text_fmt(miner_page.lb_hr_unit.obj, "%s", hashuint.c_str());
   //block hit
   if(board->status.miner.hits <= 9){
-  lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, &ds_digib_font_50, LV_PART_MAIN);
-  lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x, miner_page.lb_blk_hit.coord.y);
+    lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, miner_page.lb_blk_hit.font, LV_PART_MAIN);
+    lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x, miner_page.lb_blk_hit.coord.y);
     lv_label_set_text_fmt(miner_page.lb_blk_hit.obj, "%d", board->status.miner.hits);
   }else if (board->status.miner.hits <= 99){
     lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x -10, miner_page.lb_blk_hit.coord.y + 11);
