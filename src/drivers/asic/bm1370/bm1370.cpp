@@ -37,8 +37,8 @@ void BM1370::_set_chain_inactive(){
 }
 
 void BM1370::_set_chip_address(uint8_t address){
-    uint8_t read_address[] = {address,0x00};
-    this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), read_address, 2);
+    uint8_t chip_addr[] = {address,0x00};
+    this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), chip_addr, 2);
 }
 
 void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
@@ -199,7 +199,6 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     this->_set_chain_inactive();
 
     // split the chip address space evenly
-    // uint8_t address_interval = (uint8_t) (256 / chip_counter);
     uint8_t address_interval = 4;
     for (uint8_t i = 0; i < chip_counter; i++) {
       this->_set_chip_address(i * address_interval);
@@ -280,8 +279,8 @@ esp_err_t BM1370::wait_for_result(asic_result *result, uint32_t timeout_ms){
     uint8_t rsp[11] = {0,};
     uint16_t len = this->receive(rsp, sizeof(rsp), timeout_ms);
     if(len == 0) return ESP_ERR_TIMEOUT;
-    // dbg::hex_print(rsp, len, "asic result");
 
+    dbg::hex_print(rsp, len, "asic rsp");
 
     if(len != 11){
         this->clear_port_cache();
