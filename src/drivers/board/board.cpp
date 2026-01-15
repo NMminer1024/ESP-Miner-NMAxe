@@ -269,8 +269,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.pgood_pin             = 21;
             config.pwr.dc_plug_pin           = -1;  // Not used
             config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
-            config.pwr.temp_limit.high       = 95.0f;
-            config.pwr.temp_limit.medium     = 75.0f;
+            config.pwr.temp_limit.high       = 120.0f;
+            config.pwr.temp_limit.medium     = 80.0f;
             config.pwr.temp_limit.low        = 50.0f;
             config.iic.scl_pin               = 7;   
             config.iic.sda_pin               = 8;
@@ -345,16 +345,7 @@ void hardware_pre_init(BoardSpecConfig config){
     Serial.begin(115200);
     delay(100);
 
-    // bool iic = Wire.begin(config.iic.sda_pin, config.iic.scl_pin);        
-    // if(!iic){
-    //     LOG_E("I2C init failed on pins SDA:%d, SCL:%d", config.iic.sda_pin, config.iic.scl_pin);
-    //     return;
-    // }
-    // // set I2C pins and start I2C
-    // Wire.setTimeOut(1000); // 1000ms
-    // Wire.setClock(400000); // 400kHz
-    // LOG_I("I2C initialized on pins SDA:%d, SCL:%d, Clock:%dHz, Timeout:%dms", 
-    //     config.iic.sda_pin, config.iic.scl_pin, Wire.getClock(), Wire.getTimeOut());
+    // i2c init
     i2c_master_init(config.iic.sda_pin, config.iic.scl_pin, 400000);
 
     // nvs init

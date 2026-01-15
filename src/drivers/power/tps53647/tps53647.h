@@ -88,14 +88,19 @@ private:
     bool     _adc_ready;
     uint16_t _vcore_min_mv;// Vcore voltage range min in mV, ASIC related
     uint16_t _vcore_max_mv;// Vcore voltage range max in mV, ASIC related
-    uint8_t  _read_reg(uint8_t registerAddress, uint8_t *data, uint8_t length);
-    void     _write_reg(uint8_t registerAddress, uint8_t data);
+    uint8_t  _read_reg(uint8_t regaddr, uint8_t *data, uint8_t length);
+    void     _write_byte(uint8_t regaddr, uint8_t data);
+    void     _write_word(uint8_t regaddr, uint16_t data);
+    void     _write_cmd(uint8_t cmd);
     uint8_t  _mv_to_vid(uint16_t mv);
-    float    _vid_to_mv(uint8_t reg);
+    uint16_t _vid_to_mv(uint8_t reg);
+    float    _slinear11_to_float(uint16_t value);
+    uint16_t _float_to_slinear11(float x);
+    void     _set_phases(int num_phases);
 public:
     TPS53647Class(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t pgood,  uint8_t plug):AxePowerHal(en_pins, adc_pins){
         this->_vcore_pgood_pin          = pgood;
-        this->_chip_min_output_vlot_mv  = 250.0f; // TPS53647 minimum output voltage is 0.25V
+        this->_chip_min_output_vlot_mv  = 0.25; // TPS53647 minimum output voltage is 0.25V
         this->_adc_ready = false;
     }
     ~TPS53647Class();
