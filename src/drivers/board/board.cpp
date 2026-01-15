@@ -5,7 +5,8 @@
 #include "nmaxe.h"
 #include "nmaxegamma.h"
 #include "nmqaxepp.h"
-#include "Wire.h"
+// #include "Wire.h"
+#include "i2c_master.h"
 #include "tca9554.h"
 
 BoardModelType get_board_model(){
@@ -344,19 +345,17 @@ void hardware_pre_init(BoardSpecConfig config){
     Serial.begin(115200);
     delay(100);
 
-
-
-
-    bool iic = Wire.begin(config.iic.sda_pin, config.iic.scl_pin);        
-    if(!iic){
-        LOG_E("I2C init failed on pins SDA:%d, SCL:%d", config.iic.sda_pin, config.iic.scl_pin);
-        return;
-    }
-    // set I2C pins and start I2C
-    Wire.setTimeOut(1000); // 1000ms
-    Wire.setClock(400000); // 400kHz
-    LOG_I("I2C initialized on pins SDA:%d, SCL:%d, Clock:%dHz, Timeout:%dms", 
-        config.iic.sda_pin, config.iic.scl_pin, Wire.getClock(), Wire.getTimeOut());
+    // bool iic = Wire.begin(config.iic.sda_pin, config.iic.scl_pin);        
+    // if(!iic){
+    //     LOG_E("I2C init failed on pins SDA:%d, SCL:%d", config.iic.sda_pin, config.iic.scl_pin);
+    //     return;
+    // }
+    // // set I2C pins and start I2C
+    // Wire.setTimeOut(1000); // 1000ms
+    // Wire.setClock(400000); // 400kHz
+    // LOG_I("I2C initialized on pins SDA:%d, SCL:%d, Clock:%dHz, Timeout:%dms", 
+    //     config.iic.sda_pin, config.iic.scl_pin, Wire.getClock(), Wire.getTimeOut());
+    i2c_master_init(config.iic.sda_pin, config.iic.scl_pin, 400000);
 
     // nvs init
     esp_err_t ret = nvs_flash_init();

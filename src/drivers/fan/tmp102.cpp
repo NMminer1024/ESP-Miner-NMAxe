@@ -1,33 +1,24 @@
-#include "Wire.h"
+// #include "Wire.h"
+#include "i2c_master.h"
 #include "logger.h"
 #include "tmp102.h"
 #include "global.h"
 #include <cmath>
 
 static uint8_t tmp102_readRegister(uint8_t chipaddr, uint8_t registerAddress, uint8_t *data, uint8_t length) {
-    Wire.beginTransmission(chipaddr); 
-    Wire.write(registerAddress); 
-    if (Wire.endTransmission() != 0) { 
-        return 1; 
+    esp_err_t ret = i2c_master_register_read(chipaddr, registerAddress, data, length);
+    if (ret != ESP_OK) {
+        LOG_E("TMP102 read register 0x%02X failed: %d", registerAddress, ret);
+        return 1;
     }
-
-    Wire.requestFrom(chipaddr, length); 
-    uint8_t index = 0;
-    while (Wire.available() && index < length) {
-        data[index++] = Wire.read(); 
-    }
-
-    if (index != length) {
-        return 2; 
-    }
-    return 0; 
+    return 0;
 }
 
 static void tmp102_writeRegister(uint8_t chipaddr, uint8_t registerAddress, uint8_t data) {
-    Wire.beginTransmission(chipaddr); 
-    Wire.write(registerAddress); 
-    Wire.write(data); 
-    Wire.endTransmission(); 
+    esp_err_t ret = i2c_master_register_write_byte(chipaddr, registerAddress, data);
+    if (ret != ESP_OK) {
+        LOG_E("TMP102 write register 0x%02X failed: %d", registerAddress, ret);
+    }
 }
 
 static bool get_temperature(uint8_t chipaddr, float *temp){
