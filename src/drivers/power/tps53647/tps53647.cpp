@@ -3,7 +3,7 @@
 #include <Wire.h>
 
 /** For NMQAxe++ **/
-#define TPS53647_I2C_ADDRESS            (0x72)//todo 
+#define TPS53647_I2C_ADDRESS            (0x71)
 
 #define REG_IBUS_SAMPLE                 (0.01f)
 #define GAIN_IBUS_SAMPLE                (50.0f)
@@ -19,6 +19,7 @@ uint8_t TPS53647Class::_read_reg(uint8_t  regaddr, uint8_t *data, uint8_t length
     Wire.beginTransmission(TPS53647_I2C_ADDRESS); 
     Wire.write(regaddr); 
     if (Wire.endTransmission() != 0) { 
+        LOG_W("I2C transmission to TPS53647 failed at reg 0x%02X", regaddr);
         return 1; 
     }
 
@@ -26,9 +27,11 @@ uint8_t TPS53647Class::_read_reg(uint8_t  regaddr, uint8_t *data, uint8_t length
     uint8_t index = 0;
     while (Wire.available() && index < length) {
         data[index++] = Wire.read(); 
+        LOG_W("Read 0x%02X from reg 0x%02X", data[index-1], regaddr + index - 1);
     }
 
     if (index != length) {
+        LOG_W("I2C read from TPS53647 incomplete at reg 0x%02X", regaddr);
         return 2; 
     }
     return 0; 
@@ -62,26 +65,44 @@ float TPS53647Class::_vid_to_mv(uint8_t reg){
     return mv;
 }
 
+void reset_tps53647_power_chip(){
+
+    uint8_t reset_pin = 47; // fixed reset pin for TPS53647 power chip
+
+    pinMode(reset_pin, OUTPUT);
+
+    digitalWrite(reset_pin, HIGH);
+    delay(50);
+
+    digitalWrite(reset_pin, LOW);
+    delay(50);
+
+    digitalWrite(reset_pin, HIGH);
+    delay(50);
+}
 
 bool TPS53647Class::init(void){
     pinMode(this->_vcore_pgood_pin, INPUT_PULLUP);
 
     this->_adc_ready = AxePowerHal::init();
+
+    reset_tps53647_power_chip();
+
     this->set_vcore_status(PWR_OFF);
     delay(10);
     this->set_vcore_status(PWR_ON);
-    delay(10);
+    delay(100);
     
     // Establish communication with regulator
-    uint16_t device_code = 0x0000;
+    uint16_t device_code = 0x3334;
     this->_read_reg(PMBUS_MFR_SPECIFIC_44, (uint8_t*)&device_code, 2);
     LOG_I("TPS53647 Device ID: 0x%04X", device_code);
 
     if (device_code != 0x01f0) {
-        LOG_E("ERROR- cannot find TPS53647 buck controller");
+        LOG_E("xxxxxxxxxxxxxxxx ERROR- cannot find TPS53647 buck controller xxxxxxxxxxxxxxxx");
         return false;
     }
-    LOG_I("TPS53647 buck controller initialized");
+    LOG_I("vvvvvvvvvvvvvv TPS53647 buck controller initialized vvvvvvvvvvvvvv");
 
     return true;
 }

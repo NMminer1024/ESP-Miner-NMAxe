@@ -345,13 +345,18 @@ void hardware_pre_init(BoardSpecConfig config){
     delay(100);
 
 
-    // set I2C pins and start I2C
+
+
     bool iic = Wire.begin(config.iic.sda_pin, config.iic.scl_pin);        
     if(!iic){
         LOG_E("I2C init failed on pins SDA:%d, SCL:%d", config.iic.sda_pin, config.iic.scl_pin);
         return;
     }
-    LOG_I("I2C initialized on pins SDA:%d, SCL:%d", config.iic.sda_pin, config.iic.scl_pin);
+    // set I2C pins and start I2C
+    Wire.setTimeOut(1000); // 1000ms
+    Wire.setClock(400000); // 400kHz
+    LOG_I("I2C initialized on pins SDA:%d, SCL:%d, Clock:%dHz, Timeout:%dms", 
+        config.iic.sda_pin, config.iic.scl_pin, Wire.getClock(), Wire.getTimeOut());
 
     // nvs init
     esp_err_t ret = nvs_flash_init();
