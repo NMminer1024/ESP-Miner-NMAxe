@@ -391,11 +391,11 @@ static void ui_page_element_init(String board){
     /*********************************** mining page *********************************/
     miner_page.img_logo.coord           = {80, 50};
     miner_page.lb_hr_unit.font          = &ds_digib_font_28;
-    miner_page.lb_hr_unit.coord         = {182, 110};
+    miner_page.lb_hr_unit.coord         = {255 , 165};
     miner_page.lb_blk_hit.font          = &ds_digib_font_56;
     miner_page.lb_blk_hit.coord         = {20, 65};
     miner_page.lb_hashrate.font         = &ds_digib_font_42;
-    miner_page.lb_hashrate.coord        = {60, -50};
+    miner_page.lb_hashrate.coord        = {50, -50};
     miner_page.lb_price.font            = &ds_digib_font_20;
     miner_page.lb_price.coord           = {33, 25};
     miner_page.lb_ver.font              = &ds_digib_font_16;

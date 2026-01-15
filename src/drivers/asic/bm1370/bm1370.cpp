@@ -92,7 +92,8 @@ void BM1370::_set_version_mask(uint32_t version_mask) {
     int versions_to_roll = version_mask >> 13;
     uint8_t version_byte0 = (versions_to_roll >> 8);
     uint8_t version_byte1 = (versions_to_roll & 0xFF); 
-    uint8_t version_cmd[] = {0x00, 0xA4, 0x90, 0x00, version_byte0, version_byte1};
+    // uint8_t version_cmd[] = {0x00, 0xA4, 0x90, 0x00, version_byte0, version_byte1};
+    uint8_t version_cmd[] = {0x00, 0xA4, 0x90, 0x00, 0xff, 0xff};// set to max to accept all version
     this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, version_cmd, 6);
 }
 
@@ -164,8 +165,7 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     for (int i = 0; i < 4; i++) {
         this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
     }
-
-
+    
     // read chip responses
     uint8_t init3[7] = {0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A};
     this->send(init3, 7);
