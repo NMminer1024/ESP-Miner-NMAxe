@@ -232,7 +232,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.tft.bl.pwm_ch             = 0;
             config.tft.bl.pwm_freq           = 1000*100; // Hz
             config.tft.bl.pwm_resolution     = 8;        // bits
-            config.tft.rst_pin               = -1;       // for test propose **********************************
+            config.tft.rst_pin               = -1;       
             config.tft.pwr_pin               = -1;
             config.tft.color_invert          = false;
             config.spi.cs_pin                = -1;
@@ -282,14 +282,14 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1000;
             config.asic.max_vcore            = 1250;
-            config.asic.diff_thr_init        = 2048;
+            config.asic.diff_thr_init        = 512;
             config.asic.rx_pin               = 44;
             config.asic.tx_pin               = 43;
             config.asic.rst_pin              = 45;
             config.asic.com_baud_init        = 115200;
             config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
-            config.create_asic_instance      = create_gamma_asic_instance;
+            config.create_asic_instance      = create_qaxepp_asic_instance;
             config.create_power_instance     = create_qaxepp_power_instance;
             
             config.fans.clear();
