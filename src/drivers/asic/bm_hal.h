@@ -70,7 +70,7 @@ public:
     ~BMxxx();
 
     void reset();
-    void change_uart_baud(uint32_t baudrate);
+    virtual void change_uart_baud(uint32_t baudrate); // added virtual, so derived classes can override
     size_t send(uint8_t *cmd, uint16_t len);
     size_t receive(uint8_t *buf, uint16_t len, uint32_t timeout_ms);
     bool clear_port_cache();

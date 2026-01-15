@@ -18,6 +18,7 @@ public:
         this->_diff_current = 0;
     }
     uint8_t init(uint64_t freq, int diff);
+    void change_uart_baud(uint32_t baudrate);
     void frequency_ramp_up(float target_frequency);
     void set_job_difficulty(int difficulty);
     uint32_t get_asic_difficulty();

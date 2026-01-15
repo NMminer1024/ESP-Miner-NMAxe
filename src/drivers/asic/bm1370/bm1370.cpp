@@ -150,6 +150,16 @@ void BM1370::frequency_ramp_up(float target_frequency){
     }
 }
 
+void BM1370::change_uart_baud(uint32_t baudrate){
+    // set baud rate 
+    uint8_t init141[] = {0x00, 0x28, 0x11, 0x30, 0x02, 0x00};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init141, 6);
+    LOG_D("set ASIC baudrate to %d, wait 500ms...", baudrate);
+    delay(500);
+    BMxxx::change_uart_baud(baudrate);
+
+}
+
 uint8_t BM1370::init(uint64_t freq, int diff){
     for (int i = 0; i < 4; i++) {
         this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
@@ -205,11 +215,17 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     this->set_job_difficulty(diff);
 
 
+    //command all chips, write chip address 00, register 58, data 01 11 11 11 - Set the IO Driver Strength on chip 00
     uint8_t init139[] = {0x00, 0x58, 0x00, 0x01, 0x11, 0x11};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init139, 6);//command all chips, write chip address 00, register 58, data 01 11 11 11 - Set the IO Driver Strength on chip 00
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init139, 6);
 
-    uint8_t init141[] = {0x00, 0x28, 0x11, 0x30, 0x02, 0x00};
-    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init141, 6);
+    // no idea what this register is
+    uint8_t init1213[] = {0x00, 0x68, 0x5A, 0xA5, 0x5A, 0xA5};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init1213, 6);
+
+    // // set baud rate
+    // uint8_t init141[] = {0x00, 0x28, 0x11, 0x30, 0x02, 0x00};
+    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init141, 6);
 
     for (uint8_t i = 0; i < chip_counter; i++) {
         uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
@@ -249,8 +265,8 @@ uint8_t BM1370::init(uint64_t freq, int diff){
     // unsigned char set_10_hash_counting[6] = {0x00, 0x10, 0x00, 0x0F, 0x00, 0x00}; //supposedly the "full" 32bit nonce range
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), set_10_hash_counting, 6);
 
-    // uint8_t init157[6] = {0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF}; 
-    // this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init157, 6);
+    uint8_t init157[6] = {0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF}; 
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init157, 6);
 
     return chip_counter;
 }

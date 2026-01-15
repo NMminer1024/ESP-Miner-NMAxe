@@ -22,6 +22,7 @@ void BMxxx::reset(){
 }
 
 void BMxxx::change_uart_baud(uint32_t baudrate){
+    LOG_D("Changing UART baudrate to %d...", baudrate);
     this->_serial.updateBaudRate(baudrate);
 }
 
