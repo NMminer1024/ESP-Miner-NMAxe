@@ -283,7 +283,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1000;
             config.asic.max_vcore            = 1500;
-            config.asic.diff_thr_init        = 1024;
+            config.asic.diff_thr_init        = 2048;
             config.asic.rx_pin               = 44;
             config.asic.tx_pin               = 43;
             config.asic.rst_pin              = 45;
