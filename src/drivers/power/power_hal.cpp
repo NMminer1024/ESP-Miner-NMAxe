@@ -135,19 +135,11 @@ uint32_t AxePowerHal::get_vbus_adc(void){
 
     adc /= SAMPLES_N;
     voltage = esp_adc_cal_raw_to_voltage(adc, this->_vbus_adc_chars);
+    LOG_D("Vbus ADC raw: %d, voltage: %d mV", adc, voltage);
     return voltage;
 }
 
 uint32_t AxePowerHal::get_ibus_adc(void){
-    // uint32_t adc = 0;
-    // for (int i = 0; i < SAMPLES_N; i++) {
-    //     adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.ibus));
-    // }
-    // adc /= SAMPLES_N;
-
-    // uint32_t voltage = esp_adc_cal_raw_to_voltage(adc, this->_ibus_adc_chars);
-    // return voltage;
-
     uint32_t adc = 0, voltage = 0;
     if(this->_asic_pwr_adc_pins.ibus >= 1 && this->_asic_pwr_adc_pins.ibus <= 10){
         for (int i = 0; i < SAMPLES_N; i++) {
@@ -168,19 +160,13 @@ uint32_t AxePowerHal::get_ibus_adc(void){
 
     adc /= SAMPLES_N;
     voltage = esp_adc_cal_raw_to_voltage(adc, this->_ibus_adc_chars);
+
+    LOG_D("Ibus ADC raw: %d, voltage: %d mV", adc, voltage);
+
     return voltage;
 }
 
 uint32_t AxePowerHal::get_vcore_adc(void){
-    // uint32_t adc = 0;
-    // for (int i = 0; i < SAMPLES_N; i++) {
-    //     adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore));
-    // }
-    // adc /= SAMPLES_N;
-
-    // uint32_t voltage = esp_adc_cal_raw_to_voltage(adc, this->_vcore_adc_chars);
-    // return voltage;
-
     uint32_t adc = 0, voltage = 0;
     if(this->_asic_pwr_adc_pins.vcore >= 1 && this->_asic_pwr_adc_pins.vcore <= 10){
         for (int i = 0; i < SAMPLES_N; i++) {
@@ -202,8 +188,4 @@ uint32_t AxePowerHal::get_vcore_adc(void){
     adc /= SAMPLES_N;
     voltage = esp_adc_cal_raw_to_voltage(adc, this->_vcore_adc_chars);
     return voltage;
-
-
-
-
 }

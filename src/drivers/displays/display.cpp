@@ -713,7 +713,7 @@ static void ui_miner_page_update(board_sal_t* board){
     // font = &ds_digib_font_16;
     font_color = lv_color_hex(0xFFFFFF);
     miner_page.lb_ip.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_ip.obj, SCREEN_WIDTH/2.9);
+    lv_obj_set_width(miner_page.lb_ip.obj, SCREEN_WIDTH/2.5);
     lv_label_set_text( miner_page.lb_ip.obj, " ");
     lv_obj_set_style_text_font(miner_page.lb_ip.obj, miner_page.lb_ip.font, LV_PART_MAIN);
     lv_label_set_long_mode(miner_page.lb_ip.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);

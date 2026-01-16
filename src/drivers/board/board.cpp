@@ -240,7 +240,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.spi.miso_pin              = 2;
             config.spi.mosi_pin              = 1;
             config.spi.sclk_pin              = 5;
-            config.ui.hr_dist_page.max_x_hr  = 2000;
+            config.ui.hr_dist_page.max_x_hr  = 8000;
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
 
@@ -269,8 +269,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.pgood_pin             = 21;
             config.pwr.dc_plug_pin           = -1;  // Not used
             config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
-            config.pwr.temp_limit.high       = 120.0f;
-            config.pwr.temp_limit.medium     = 80.0f;
+            config.pwr.temp_limit.high       = 130.0f;
+            config.pwr.temp_limit.medium     = 90.0f;
             config.pwr.temp_limit.low        = 50.0f;
             config.iic.scl_pin               = 7;   
             config.iic.sda_pin               = 8;
@@ -282,7 +282,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
             config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1000;
-            config.asic.max_vcore            = 1250;
+            config.asic.max_vcore            = 1500;
             config.asic.diff_thr_init        = 512;
             config.asic.rx_pin               = 44;
             config.asic.tx_pin               = 43;
@@ -308,7 +308,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.Kd                   = 0.0f;
             fan_cfg.pid.prev_error           = 0;
             fan_cfg.pid.integral             = 0;
-            fan_cfg.pid.output_min           = 25.0f;
+            fan_cfg.pid.output_min           = 1.0f;
             fan_cfg.pid.output_max           = 99.999f;
             config.fans.push_back(fan_cfg); // fan1 
 

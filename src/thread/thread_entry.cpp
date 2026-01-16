@@ -880,10 +880,10 @@ void miner_asic_tx_thread_entry(void *args){
             double target_diff = min(board->stratum->get_pool_difficulty(), (double)board->info.spec.asic.diff_thr_init);
             static double last_diff = 0.0; // initialize to 0 to ensure the first update occurs
             if(target_diff != last_diff){
-                last_diff = target_diff;
                 bool res = board->miner->set_asic_diff(target_diff);
-                if(res) LOG_W("Change asic diff from [%.1f] to [%.1f] successfully", board->miner->get_asic_diff(), target_diff);
+                if(res) LOG_W("Change asic diff from [%.1f] to [%.1f] successfully", last_diff, target_diff);
                 else LOG_E("Failed to change asic diff to [%.1f]", target_diff);
+                last_diff = target_diff;
             }
 
             //interval 'job_interval_ms' every asic job, exit if a new pool job arrived
@@ -912,6 +912,11 @@ void miner_asic_rx_thread_entry(void *args){
 
     //wait for first job cache ready forever
     xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
+
+
+    std::map<uint8_t, uint64_t> asic_id_map;
+
+
 
     //forever loop
     while(true){
@@ -961,13 +966,34 @@ void miner_asic_rx_thread_entry(void *args){
                     LOG_I(" ++++++++++ Real Time +++++++++");
                     LOG_I("| ASIC | Last | Pool | Network |");
                     LOG_I("|------|------|------|---------|");
+
+
+                    uint64_t total = 0;
+                    for(auto &pair : asic_id_map){
+                        total += pair.second;
+                    }
+
+                    for(auto &pair : asic_id_map){
+                        LOG_W("ASIC ID [%d] contribute [%llu] %.1f%%", 
+                            pair.first, 
+                            pair.second,
+                            (total > 0) ? (pair.second * 100.0 / total) : 0.0);
+                    }
                 }
                 
-                LOG_I("|%-6s|%-6s|%-6s|%-7s|", 
+                LOG_I("|%-6s|%-6s|%-6s|%-7s|%-3s|", 
                     formatNumber(board->miner->get_asic_diff(), 4).c_str(), 
                     formatNumber(diff, 4).c_str(), 
                     formatNumber(board->stratum->get_pool_difficulty(), 4).c_str(),
-                    formatNumber(board->status.miner.diff.network, 7).c_str());
+                    formatNumber(board->status.miner.diff.network, 7).c_str(),
+                    String(result.asic_id).c_str()
+                );
+
+                asic_id_map[result.asic_id] = asic_id_map[result.asic_id] + 1;
+  
+
+
+
 
                 //skip if diff < pool diff
                 if(diff < board->stratum->get_pool_difficulty())continue; 

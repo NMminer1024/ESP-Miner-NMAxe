@@ -300,7 +300,7 @@ esp_err_t BM1370::wait_for_result(miner_result *result, uint32_t timeout_ms){
     result->asic      = asic;
     result->asic_id   = asic_id;
 
-    LOG_I("ASIC[%d] found nonce: 0x%08X (job id: %d, version: 0x%04X)", 
+    LOG_D("ASIC[%d] found nonce: 0x%08X (job id: %d, version: 0x%04X)", 
           result->asic_id, 
           result->asic.nonce, 
           result->asic.job_id, 

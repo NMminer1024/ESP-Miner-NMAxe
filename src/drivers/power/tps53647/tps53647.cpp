@@ -10,7 +10,7 @@
 #define ACK_VAL                         0x0
 #define NACK_VAL                        0x1
 
-#define REG_IBUS_SAMPLE                 (0.01f)
+#define REG_IBUS_SAMPLE                 (0.005f)
 #define GAIN_IBUS_SAMPLE                (50.0f)
 #define GAIN_VBUS_SAMPLE                (6.1f)
 #define GAIN_VCORE_SAMPLE               (2.0f)
@@ -129,9 +129,6 @@ uint16_t TPS53647Class::_vid_to_mv(uint8_t reg){
     return (uint16_t)(vlot*1000.0f);
 }
 
-/**
- * @brief Convert a float value into an SLINEAR11
- */
 uint16_t TPS53647Class::_float_to_slinear11(float x){
     if (x <= 0.0f) {
         LOG_W("No negative numbers at this time");
@@ -158,9 +155,6 @@ uint16_t TPS53647Class::_float_to_slinear11(float x){
     return value;
 }
 
-/**
- * @brief Convert an SLINEAR11 value into an int
- */
 float TPS53647Class::_slinear11_to_float(uint16_t value){
     // 5 bits exponent in two's complement
     int32_t exponent = value >> 11;
@@ -302,11 +296,6 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
 
     this->_write_word(PMBUS_VOUT_COMMAND, reg); //VCORE Voltage Set Register   
 
-
-
-
-
-
     // uint16_t u16_value;
     // float f_value;
     // LOG_I("-----------VOLTAGE---------------------");
@@ -320,14 +309,9 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
     // f_value = this->_vid_to_mv(u16_value);
     // LOG_I("Vout read back : 0x%02X (%f V)", u16_value, f_value);
 
-
     // uint8_t reg_1;
     // this->_read_reg(PMBUS_MFR_SPECIFIC_12, (uint8_t*)&reg_1, 1);
     // LOG_I("Switching Frequency Reg: 0x%02X", reg_1);
-
-
-
-
 }
 
 void TPS53647Class::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
