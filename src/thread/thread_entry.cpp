@@ -913,10 +913,7 @@ void miner_asic_rx_thread_entry(void *args){
     //wait for first job cache ready forever
     xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
 
-
     std::map<uint8_t, uint64_t> asic_id_map;
-
-
 
     //forever loop
     while(true){
@@ -991,9 +988,6 @@ void miner_asic_rx_thread_entry(void *args){
 
                 asic_id_map[result.asic_id] = asic_id_map[result.asic_id] + 1;
   
-
-
-
 
                 //skip if diff < pool diff
                 if(diff < board->stratum->get_pool_difficulty())continue; 
