@@ -24,6 +24,6 @@ public:
     void send_work_to_asic(asic_job *job);
     uint16_t get_cores();
     uint16_t get_small_cores();
-    esp_err_t wait_for_result(asic_result *result, uint32_t timeout_ms = 60*1000);
+    esp_err_t wait_for_result(miner_result *result, uint32_t timeout_ms = 60*1000);
 };
 #endif

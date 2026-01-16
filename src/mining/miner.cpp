@@ -85,7 +85,7 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff, uint32_t baudrate){
     return true;
 }
 
-esp_err_t AsicMinerClass::listen_asic_rsp(asic_result *result, uint32_t timeout_ms){
+esp_err_t AsicMinerClass::listen_asic_rsp(miner_result *result, uint32_t timeout_ms){
     /* logic from project bitaxe: https://github.com/skot/bitaxe */
     /* Thanks for their efforts on this project */
     esp_err_t err = this->_asic->wait_for_result(result, timeout_ms);

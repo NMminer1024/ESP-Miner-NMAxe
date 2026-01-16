@@ -275,31 +275,46 @@ void BM1370::send_work_to_asic(asic_job *job){
     this->_send_bm1370((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*)job, sizeof(asic_job));
 }
 
-esp_err_t BM1370::wait_for_result(asic_result *result, uint32_t timeout_ms){
+esp_err_t BM1370::wait_for_result(miner_result *result, uint32_t timeout_ms){
     uint8_t rsp[11] = {0,};
     uint16_t len = this->receive(rsp, sizeof(rsp), timeout_ms);
     if(len == 0) return ESP_ERR_TIMEOUT;
 
-    dbg::hex_print(rsp, len, "asic rsp");
+    // dbg::hex_print(rsp, len, "asic rsp");
 
     if(len != 11){
+        LOG_W("Invalid asic response length: %d", len);
         this->clear_port_cache();
         return ESP_ERR_INVALID_SIZE;
     }
-    if(rsp[0] != 0xAA && rsp[1] != 0x55){
+    if(rsp[0] != 0xAA || rsp[1] != 0x55){
+        LOG_W("Invalid asic response preamble: %02X %02X", rsp[0], rsp[1]);
         this->clear_port_cache();
         return ESP_ERR_INVALID_RESPONSE;
     }
-    *result            = *(asic_result*)(rsp);
+
+    asic_result asic  = *(asic_result*)(rsp);
+    asic.job_id       = (asic.job_id & 0xf0) >> 1; // upper 4 bits are job id for BM1370
+    int asic_id       = (uint8_t) ((asic.nonce & 0x0000fc00) >> 11);
+
+    result->asic      = asic;
+    result->asic_id   = asic_id;
+
+    LOG_I("ASIC[%d] found nonce: 0x%08X (job id: %d, version: 0x%04X)", 
+          result->asic_id, 
+          result->asic.nonce, 
+          result->asic.job_id, 
+          result->asic.version);
+
     // /* logic from project bitaxe: https://github.com/skot/bitaxe */
     // /* Thanks for their efforts on this project */
-    // uint32_t core_id   =    ((result->nonce >> 24) & 0xff) |       // Move byte 3 to byte 0
-    //                         ((result->nonce  << 8) & 0xff0000) |   // Move byte 1 to byte 2
-    //                         ((result->nonce  >> 8) & 0xff00) |     // Move byte 2 to byte 1
-    //                         ((result->nonce  << 24)& 0xff000000);  // Move byte 0 to byte 3
+    // uint32_t core_id   =    ((asic.nonce >> 24) & 0xff) |       // Move byte 3 to byte 0
+    //                         ((asic.nonce  << 8) & 0xff0000) |   // Move byte 1 to byte 2
+    //                         ((asic.nonce  >> 8) & 0xff00) |     // Move byte 2 to byte 1
+    //                         ((asic.nonce  << 24)& 0xff000000);  // Move byte 0 to byte 3
     // core_id = (uint8_t)((core_id >> 25) & 0x7f);
-    // uint8_t small_core = result->job_id & 0x07;
-    result->job_id     = (result->job_id & 0xf0) >> 1; 
+    // uint8_t small_core = asic.job_id & 0x07;
+
     return ESP_OK;
 }
 

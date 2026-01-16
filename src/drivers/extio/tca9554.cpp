@@ -12,32 +12,6 @@
 #define TCA9554_REG_POLARITY_ADDR       (uint8_t)(0x02)
 #define TCA9554_REG_CONFIG_ADDR         (uint8_t)(0x03)
 
-// static uint8_t tca9554_readRegister(uint8_t regaddr, uint8_t *data, uint8_t length) {
-//     Wire.beginTransmission(TCA9554_IIC_ADDR); 
-//     Wire.write(regaddr); 
-//     if (Wire.endTransmission() != 0) { 
-//         return 1; 
-//     }
-
-//     Wire.requestFrom(TCA9554_IIC_ADDR, length); 
-//     uint8_t index = 0;
-//     while (Wire.available() && index < length) {
-//         data[index++] = Wire.read(); 
-//     }
-
-//     if (index != length) {
-//         return 2; 
-//     }
-//     return 0; 
-// }
-
-// static void tca9554_writeRegister(uint8_t regaddr, uint8_t data) {
-//     Wire.beginTransmission(TCA9554_IIC_ADDR); 
-//     Wire.write(regaddr); 
-//     Wire.write(data); 
-//     Wire.endTransmission(); 
-// }
-
 static uint8_t tca9554_readRegister(uint8_t regaddr, uint8_t *data, uint8_t length) {
     esp_err_t ret = i2c_master_register_read(TCA9554_IIC_ADDR, regaddr, data, length);
     if (ret != ESP_OK) {

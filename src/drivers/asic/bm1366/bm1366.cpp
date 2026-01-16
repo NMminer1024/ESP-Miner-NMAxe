@@ -265,7 +265,7 @@ void BM1366::send_work_to_asic(asic_job *job){
     this->_send_bm1366((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*)job, sizeof(asic_job));
 }
 
-esp_err_t BM1366::wait_for_result(asic_result *result, uint32_t timeout_ms){
+esp_err_t BM1366::wait_for_result(miner_result *result, uint32_t timeout_ms){
     uint8_t rsp[11] = {0,};
     uint16_t len = this->receive(rsp, sizeof(rsp), timeout_ms);
     if(len == 0) return ESP_ERR_TIMEOUT;
@@ -278,7 +278,19 @@ esp_err_t BM1366::wait_for_result(asic_result *result, uint32_t timeout_ms){
         this->clear_port_cache();
         return ESP_ERR_INVALID_RESPONSE;
     }
-    *result = *(asic_result*)(rsp);
+
+    asic_result asic;
+    asic = *(asic_result*)(rsp);
+    asic.job_id     = asic.job_id & 0xf8;// upper 5 bits are job id for BM1366
+
+    result->asic    = asic;
+    result->asic_id = (uint8_t) ((asic.nonce & 0x0000fc00) >> 10);
+
+    LOG_I("ASIC[%d] found nonce: 0x%08X (job id: %d, version: 0x%04X)", 
+          result->asic_id, 
+          result->asic.nonce, 
+          result->asic.job_id, 
+          result->asic.version);
 
     // /* logic from project bitaxe: https://github.com/skot/bitaxe */
     // /* Thanks for their efforts on this project */
@@ -289,7 +301,7 @@ esp_err_t BM1366::wait_for_result(asic_result *result, uint32_t timeout_ms){
     // core_id = (uint8_t)((core_id >> 25) & 0x7f);
     // uint8_t small_core = result->job_id & 0x07;
 
-    result->job_id     = result->job_id & 0xf8;
+
     return ESP_OK;
 }
 

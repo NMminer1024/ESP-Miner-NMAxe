@@ -60,7 +60,7 @@ public:
     uint16_t get_asic_small_cores();
     double get_asic_diff();
     String get_extranonce2_by_asic_job_id(uint8_t asic_job_id);
-    esp_err_t listen_asic_rsp(asic_result *result, uint32_t timeout_ms = 1000*60);
+    esp_err_t listen_asic_rsp(miner_result *result, uint32_t timeout_ms = 1000*60);
     bool submit_job_share(String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version);
     bool find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job);
     bool clear_asic_job_cache();

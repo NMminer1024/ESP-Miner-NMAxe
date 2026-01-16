@@ -908,7 +908,7 @@ void miner_asic_rx_thread_entry(void *args){
     LOG_I("Initializing asic_rx...");
 
     asic_job job = {0,};
-    asic_result result = {0,};
+    miner_result result = {0,};
 
     //wait for first job cache ready forever
     xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
@@ -922,11 +922,11 @@ void miner_asic_rx_thread_entry(void *args){
         esp_err_t err = board->miner->listen_asic_rsp(&result, 1000*30);
         if(ESP_OK == err){
             if(!board->stratum->is_subscribed()) continue;
-            if(board->miner->find_job_by_asic_job_id(result.job_id, &job)){
+            if(board->miner->find_job_by_asic_job_id(result.asic.job_id, &job)){
                 board->status.miner.asic_update = millis();
-                uint32_t version_bits       = (reverse_uint16(result.version) << 13);  //logic from project bitaxe: https://github.com/skot/bitaxe 
+                uint32_t version_bits       = (reverse_uint16(result.asic.version) << 13);  //logic from project bitaxe: https://github.com/skot/bitaxe 
                 uint32_t version            = version_bits | (*(uint32_t*)job.version);//logic from project bitaxe: https://github.com/skot/bitaxe 
-                double diff                 = board->miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.nonce);
+                double diff                 = board->miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.asic.nonce);
 
                 //skip if diff <= 0.0001 or diff is nan or diff is inf
                 if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff) || (diff < 0.1)) continue;
@@ -974,8 +974,8 @@ void miner_asic_rx_thread_entry(void *args){
                 
                 //submit sulution
                 uint32_t version_submit = version ^ (*(uint32_t*)job.version);
-                String   extra2_submit = board->miner->get_extranonce2_by_asic_job_id(result.job_id);
-                bool res = board->miner->submit_job_share(extra2_submit, result.nonce, *(uint32_t*)job.ntime, version_submit);
+                String   extra2_submit = board->miner->get_extranonce2_by_asic_job_id(result.asic.job_id);
+                bool res = board->miner->submit_job_share(extra2_submit, result.asic.nonce, *(uint32_t*)job.ntime, version_submit);
                 if(!res) continue;
                 
                 //update the block hit counter
@@ -995,13 +995,13 @@ void miner_asic_rx_thread_entry(void *args){
                     memcpy(header + 36, merkle_root_t, 32);
                     memcpy(header + 68, (uint8_t*)&job.ntime, 4);
                     memcpy(header + 72, (uint8_t*)&job.nbits, 4);
-                    memcpy(header + 76, (uint8_t*)&result.nonce, 4);
+                    memcpy(header + 76, (uint8_t*)&result.asic.nonce, 4);
                     //caculate hash
                     csha256d(header, sizeof(header), hash);
 
                     LOG_W("******************************* Your Are The Chosen One ********************************");
                     LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BLOCK FOUND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                    log_i("Nonce       : %08x", result.nonce);
+                    log_i("Nonce       : %08x", result.asic.nonce);
                     log_i("\r\nVersion     : %08x", version);
 
                     log_i("\r\nBlock header: ");

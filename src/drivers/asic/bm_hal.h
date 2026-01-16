@@ -58,6 +58,10 @@ typedef struct __attribute__((__packed__)){
     uint8_t     crc;
 } asic_result;
 
+typedef struct __attribute__((__packed__)){
+    asic_result asic;
+    uint8_t     asic_id;
+} miner_result;
 
 class BMxxx{
 private:
@@ -79,7 +83,7 @@ public:
     virtual void set_job_difficulty(int difficulty) = 0;
     virtual uint32_t get_asic_difficulty() = 0;
     virtual void send_work_to_asic(asic_job *job) = 0;
-    virtual esp_err_t wait_for_result(asic_result *result, uint32_t timeout_ms) = 0;
+    virtual esp_err_t wait_for_result(miner_result *result, uint32_t timeout_ms) = 0;
     virtual uint16_t get_cores() = 0;
     virtual uint16_t get_small_cores() = 0;
 };
