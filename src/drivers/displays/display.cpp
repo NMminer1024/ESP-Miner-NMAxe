@@ -198,7 +198,7 @@ static void ui_drv_register(void){
   lv_disp_drv_register( &disp_drv );
 }
 
-static void ui_page_element_init(String board){
+static void ui_page_element_init(board_sal_t* board){
   // logo worker image buffer init
   logo_worker_nmaxe.header.w = 60;
   logo_worker_nmaxe.header.h = 68;
@@ -263,21 +263,20 @@ static void ui_page_element_init(String board){
   status_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
 
-
-  if((board == BOARD_NMAXE_NAME) || (board == BOARD_NMAXE_GAMMA_NAME)){
+  if((board->info.spec.name == BOARD_NMAXE_NAME) || (board->info.spec.name  == BOARD_NMAXE_GAMMA_NAME)){
     loading_page.back_img_dsc           = &loading_page_img_135_240;
     config_page.back_img_dsc            = &config_page_img_135_240;
     miner_page.back_img_dsc             = &mining_page_img_135_240;
     dashboard_page.back_img_dsc         = &status_page_img_135_240;
     hr_health_page.back_img_dsc         = &status_page_img_135_240;
     big_digit_page.back_img_dsc         = &black_page_img_135_240;
-    miner_page.logo_img_dsc             = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
-    config_page.logo_img_dsc            = (board == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
+    miner_page.logo_img_dsc             = (board->info.spec.name == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
+    config_page.logo_img_dsc            = (board->info.spec.name == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
 
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
     loading_page.lb_version.font        = &lv_font_montserrat_16;
-    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
+    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(board->info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
     loading_page.lb_progress.font       = &lv_font_montserrat_16;
     loading_page.lb_progress.coord      = {0, -20};
     loading_page.bar_progress.font      = &lv_font_montserrat_20;
@@ -290,7 +289,7 @@ static void ui_page_element_init(String board){
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
     loading_page.lb_version.font        = &lv_font_montserrat_16;
-    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
+    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(board->info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
     loading_page.lb_progress.font       = &lv_font_montserrat_16;
     loading_page.lb_progress.coord      = {0, -20};
     loading_page.bar_progress.font      = &lv_font_montserrat_20;
@@ -347,7 +346,7 @@ static void ui_page_element_init(String board){
     miner_page.lb_share_symb.font       = &symbol_14;
     miner_page.lb_share_symb.coord      = {108, 42};
   }
-  else if(board == BOARD_NMQAXE_PLUS_PLUS_NAME){
+  else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     loading_page.back_img_dsc           = &loading_page_img_240_320;
     config_page.back_img_dsc            = &config_page_img_240_320;
     miner_page.back_img_dsc             = &mining_page_img_240_320;
@@ -361,7 +360,7 @@ static void ui_page_element_init(String board){
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
     loading_page.lb_version.font        = &lv_font_montserrat_16;
-    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
+    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(board->info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
     loading_page.lb_progress.font       = &lv_font_montserrat_16;
     loading_page.lb_progress.coord      = {0, -20};
     loading_page.bar_progress.font      = &lv_font_montserrat_20;
@@ -374,7 +373,7 @@ static void ui_page_element_init(String board){
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
     loading_page.lb_version.font        = &lv_font_montserrat_16;
-    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
+    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(board->info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
     loading_page.lb_progress.font       = &lv_font_montserrat_16;
     loading_page.lb_progress.coord      = {0, -20};
     loading_page.bar_progress.font      = &lv_font_montserrat_20;
@@ -437,14 +436,12 @@ static void ui_page_element_init(String board){
 
   }
   else{
-      LOG_E("Unknown board type for UI layout init: %s", board.c_str());
+      LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
   }
 }
 
 static void ui_layout_init(void){
   static lv_obj_t *parent_docker = NULL;
-
-  ui_page_element_init(g_board.info.spec.name);
 
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
@@ -541,7 +538,7 @@ static void ui_layout_init(void){
   ui_pages[4] = hr_health_page.container;
   ui_pages[5] = big_digit_page.container;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
-  //Version
+  //Version label
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
   loading_page.lb_version.obj   = lv_label_create( loading_page.container );
   lv_obj_set_width(loading_page.lb_version.obj, SCREEN_WIDTH);
@@ -550,8 +547,50 @@ static void ui_layout_init(void){
   lv_obj_set_style_text_color(loading_page.lb_version.obj, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(loading_page.lb_version.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( loading_page.lb_version.obj, LV_ALIGN_TOP_MID, loading_page.lb_version.coord.x, loading_page.lb_version.coord.y);
+
+  //details label
+  loading_page.lb_details.obj = lv_label_create(loading_page.container);
+  lv_obj_set_width(loading_page.lb_details.obj, SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 7.2));
+  lv_obj_set_style_text_font(loading_page.lb_details.obj, loading_page.lb_details.font, LV_PART_MAIN);
+  lv_label_set_long_mode(loading_page.lb_details.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align(loading_page.lb_details.obj, LV_ALIGN_BOTTOM_LEFT, loading_page.lb_details.coord.x, loading_page.lb_details.coord.y);
+
+  //bar progress
+  loading_page.bar_progress.obj = lv_bar_create(loading_page.container);
+  lv_bar_set_range(loading_page.bar_progress.obj, 0, 16);
+  lv_bar_set_value(loading_page.bar_progress.obj, 0, LV_ANIM_ON);
+  lv_obj_set_style_bg_opa(loading_page.bar_progress.obj, LV_OPA_50, LV_PART_MAIN);
+  lv_obj_set_size(loading_page.bar_progress.obj, SCREEN_WIDTH * 0.9, 5);
+  lv_obj_align(loading_page.bar_progress.obj, LV_ALIGN_CENTER, loading_page.bar_progress.coord.x, loading_page.bar_progress.coord.y);
+  lv_obj_set_style_bg_color(loading_page.bar_progress.obj, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR);
+  lv_obj_set_style_bg_opa(loading_page.bar_progress.obj, LV_OPA_COVER, LV_PART_INDICATOR);
+
+  //progress label
+  loading_page.lb_progress.obj = lv_label_create(loading_page.container);
+  lv_label_set_text(loading_page.lb_progress.obj, "");
+  lv_obj_set_style_text_color(loading_page.lb_progress.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+  lv_obj_align(loading_page.lb_progress.obj, LV_ALIGN_LEFT_MID, loading_page.lb_progress.coord.x, loading_page.lb_progress.coord.y);
+
+  //slogan label
+  loading_page.lb_ip_and_slogan.obj   = lv_label_create(loading_page.container);
+  String slogan_str = "Make it better";
+  lv_coord_t width = lv_txt_get_width(slogan_str.c_str(), strlen(slogan_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
+  lv_obj_set_width(loading_page.lb_ip_and_slogan.obj, width);
+  lv_label_set_text( loading_page.lb_ip_and_slogan.obj, slogan_str.c_str());
+  lv_obj_set_style_text_font(loading_page.lb_ip_and_slogan.obj, loading_page.lb_ip_and_slogan.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(loading_page.lb_ip_and_slogan.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+  lv_label_set_long_mode(loading_page.lb_ip_and_slogan.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
+  lv_obj_align( loading_page.lb_ip_and_slogan.obj, LV_ALIGN_CENTER, loading_page.lb_ip_and_slogan.coord.x, loading_page.lb_ip_and_slogan.coord.y);
+
+  //pool url label
+  loading_page.lb_pool_url.obj   = lv_label_create(loading_page.container);
+  lv_label_set_text( loading_page.lb_pool_url.obj, "");
+  lv_obj_set_style_text_font(loading_page.lb_pool_url.obj, loading_page.lb_pool_url.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(loading_page.lb_pool_url.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+  lv_label_set_long_mode(loading_page.lb_pool_url.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
+  lv_obj_align( loading_page.lb_pool_url.obj, LV_ALIGN_CENTER, loading_page.lb_pool_url.coord.x, loading_page.lb_pool_url.coord.y);
   //////////////////////////////////////config page layout///////////////////////////////////////////////
-  //config timeout
+  //config timeout label
   font_color = lv_color_hex(0xFFFFFF);
   config_page.lb_cfg_timeout.obj   = lv_label_create( config_page.container );
   lv_obj_set_width(config_page.lb_cfg_timeout.obj, SCREEN_WIDTH);
@@ -560,68 +599,201 @@ static void ui_layout_init(void){
   lv_obj_set_style_text_color(config_page.lb_cfg_timeout.obj, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(config_page.lb_cfg_timeout.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
+
+
+
+  //////////////////////////////////////miner page layout///////////////////////////////////////////////
+  //Hashrate value
+  font_color = lv_color_hex(0xEE7D30);
+  miner_page.lb_hashrate.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_hashrate.obj, 80);
+  lv_label_set_text( miner_page.lb_hashrate.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_hashrate.obj, miner_page.lb_hashrate.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(miner_page.lb_hashrate.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(miner_page.lb_hashrate.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
+  lv_obj_align( miner_page.lb_hashrate.obj, LV_ALIGN_BOTTOM_MID, miner_page.lb_hashrate.coord.x, miner_page.lb_hashrate.coord.y);
+  //Hit value
+  font_color = lv_color_hex(0xEE7D30);
+  miner_page.lb_blk_hit.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_blk_hit.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_blk_hit.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, miner_page.lb_blk_hit.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(miner_page.lb_blk_hit.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(miner_page.lb_blk_hit.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
+  lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x, miner_page.lb_blk_hit.coord.y); 
+  //price value
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_price.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_price.obj , SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_price.obj , "");
+  lv_obj_set_style_text_font(miner_page.lb_price.obj , miner_page.lb_price.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_price.obj , LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_color(miner_page.lb_price.obj , font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_price.obj , LV_ALIGN_LEFT_MID, miner_page.lb_price.coord.x, miner_page.lb_price.coord.y ); 
+  //version value
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_ver.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_ver.obj, SCREEN_WIDTH);
+  // lv_label_set_text( miner_page.lb_ver.obj, board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
+  lv_obj_set_style_text_font(miner_page.lb_ver.obj, miner_page.lb_ver.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_ver.obj, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_color(miner_page.lb_ver.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_ver.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_ver.coord.x, miner_page.lb_ver.coord.y );
+  //power value
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_power.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_power.obj, SCREEN_WIDTH/2.5);
+  lv_label_set_text( miner_page.lb_power.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_power.obj, miner_page.lb_power.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_power.obj, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_color(miner_page.lb_power.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_power.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_power.coord.x, miner_page.lb_power.coord.y ); 
+  //wifi value
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_ip.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_ip.obj, SCREEN_WIDTH/2.5);
+  lv_label_set_text( miner_page.lb_ip.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_ip.obj, miner_page.lb_ip.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_ip.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
+  lv_obj_set_style_text_color(miner_page.lb_ip.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_ip.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_ip.coord.x, miner_page.lb_ip.coord.y );
+
+  //uptime value, hour , minute, second
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_uptime_hms.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_uptime_hms.obj, 88);
+  lv_label_set_text( miner_page.lb_uptime_hms.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_uptime_hms.obj, miner_page.lb_uptime_hms.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_uptime_hms.obj, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_color(miner_page.lb_uptime_hms.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_uptime_hms.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_uptime_hms.coord.x, miner_page.lb_uptime_hms.coord.y);
+  //uptime value, day
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_uptime_day.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_uptime_day.obj, 88);
+  lv_label_set_text( miner_page.lb_uptime_day.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_uptime_day.obj, miner_page.lb_uptime_day.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_uptime_day.obj, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_color(miner_page.lb_uptime_day.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_uptime_day.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_uptime_day.coord.x, miner_page.lb_uptime_day.coord.y );
+  //uptime day unit  
+  font_color = lv_color_hex(0xFFA500);
+  miner_page.lb_uptime_day_unit.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_uptime_day_unit.obj, 20);
+  lv_label_set_text( miner_page.lb_uptime_day_unit.obj, "d");
+  lv_obj_set_style_text_font(miner_page.lb_uptime_day_unit.obj, miner_page.lb_uptime_day_unit.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_uptime_day_unit.obj, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_color(miner_page.lb_uptime_day_unit.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_uptime_day_unit.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_uptime_day_unit.coord.x, miner_page.lb_uptime_day_unit.coord.y );
+
+  //Diff value
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_diff.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_diff.obj, SCREEN_WIDTH/2.4);
+  lv_label_set_text( miner_page.lb_diff.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_diff.obj, miner_page.lb_diff.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_diff.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
+  lv_obj_set_style_text_color(miner_page.lb_diff.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_diff.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_diff.coord.x, miner_page.lb_diff.coord.y );
+  //share value
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_share.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_share.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_share.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_share.obj, miner_page.lb_share.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_share.obj, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_color(miner_page.lb_share.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_share.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_share.coord.x, miner_page.lb_share.coord.y);
+  //temp value
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_temp.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_temp.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_temp.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_temp.obj, miner_page.lb_temp.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_temp.obj, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_color(miner_page.lb_temp.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_temp.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_temp.coord.x, miner_page.lb_temp.coord.y );
+  //Fan value
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_fan.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_fan.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_fan.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_fan.obj, miner_page.lb_fan.font, LV_PART_MAIN);
+  lv_label_set_long_mode(miner_page.lb_fan.obj, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_color(miner_page.lb_fan.obj, font_color, LV_PART_MAIN); 
+  lv_obj_align( miner_page.lb_fan.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_fan.coord.x, miner_page.lb_fan.coord.y); 
+  //Hashrate uint
+  font_color = lv_color_hex(0xFFFFFF);
+  miner_page.lb_hr_unit.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_hr_unit.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_hr_unit.obj, " ");
+  lv_obj_set_style_text_font(miner_page.lb_hr_unit.obj, miner_page.lb_hr_unit.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(miner_page.lb_hr_unit.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(miner_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( miner_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, miner_page.lb_hr_unit.coord.x, miner_page.lb_hr_unit.coord.y); 
+  // symbol uptime
+  font_color = lv_color_hex(0xFFA500);
+  miner_page.lb_uptime_symbol.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_uptime_symbol.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_uptime_symbol.obj, LV_SYMBOL_BELL); 
+  lv_obj_set_style_text_font(miner_page.lb_uptime_symbol.obj, miner_page.lb_uptime_symbol.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(miner_page.lb_uptime_symbol.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(miner_page.lb_uptime_symbol.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( miner_page.lb_uptime_symbol.obj, LV_ALIGN_TOP_MID, miner_page.lb_uptime_symbol.coord.x, miner_page.lb_uptime_symbol.coord.y); 
+  // symbol wifi
+  font_color = lv_color_hex(0xFFA500);
+  miner_page.lb_wifi_symbol.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_wifi_symbol.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_wifi_symbol.obj, LV_SYMBOL_WIFI);
+  lv_obj_set_style_text_font(miner_page.lb_wifi_symbol.obj, miner_page.lb_wifi_symbol.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(miner_page.lb_wifi_symbol.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(miner_page.lb_wifi_symbol.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( miner_page.lb_wifi_symbol.obj, LV_ALIGN_TOP_MID, miner_page.lb_wifi_symbol.coord.x, miner_page.lb_wifi_symbol.coord.y); 
+
+  //diff symbol
+  font_color = lv_color_hex(0xA9A9A9);
+  miner_page.lb_diff_symbol.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_diff_symbol.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_diff_symbol.obj, "\xEF\x82\x80");
+  lv_obj_set_style_text_font(miner_page.lb_diff_symbol.obj, miner_page.lb_diff_symbol.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(miner_page.lb_diff_symbol.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(miner_page.lb_diff_symbol.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( miner_page.lb_diff_symbol.obj, LV_ALIGN_TOP_MID, miner_page.lb_diff_symbol.coord.x, miner_page.lb_diff_symbol.coord.y); 
+  // share symbol
+  font_color = lv_color_hex(0xA9A9A9);
+  miner_page.lb_share_symb.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_share_symb.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_share_symb.obj, "\xEF\x8E\x82");
+  lv_obj_set_style_text_font(miner_page.lb_share_symb.obj, miner_page.lb_share_symb.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(miner_page.lb_share_symb.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(miner_page.lb_share_symb.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( miner_page.lb_share_symb.obj, LV_ALIGN_TOP_MID, miner_page.lb_share_symb.coord.x, miner_page.lb_share_symb.coord.y); 
+  //temp symbol
+  font_color = lv_color_hex(0xA9A9A9);
+  miner_page.lb_temp_symb.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_temp_symb.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_temp_symb.obj, "\xEF\x8B\x88");
+  lv_obj_set_style_text_font(miner_page.lb_temp_symb.obj, miner_page.lb_temp_symb.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(miner_page.lb_temp_symb.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(miner_page.lb_temp_symb.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( miner_page.lb_temp_symb.obj, LV_ALIGN_TOP_MID, miner_page.lb_temp_symb.coord.x , miner_page.lb_temp_symb.coord.y); 
+  //fan symbol
+  font_color = lv_color_hex(0xA9A9A9);
+  miner_page.lb_fan_symb.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  lv_obj_set_width(miner_page.lb_fan_symb.obj, SCREEN_WIDTH);
+  lv_label_set_text( miner_page.lb_fan_symb.obj, "\xEF\xA1\xA3");
+  lv_obj_set_style_text_font(miner_page.lb_fan_symb.obj, miner_page.lb_fan_symb.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(miner_page.lb_fan_symb.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(miner_page.lb_fan_symb.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( miner_page.lb_fan_symb.obj, LV_ALIGN_TOP_MID, miner_page.lb_fan_symb.coord.x, miner_page.lb_fan_symb.coord.y);
 }
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
-    // static const lv_font_t *font = &lv_font_montserrat_14;
-    // static lv_obj_t *lb_loading = NULL, * bar = NULL , *label_progress = NULL, *lb_hard_model = NULL, *lb_ip_and_slogan = NULL, *lb_pool_url = NULL;
-    static uint8_t progress = 0;
+    static uint8_t progress = 0 , progress_total = 16;
     static lv_coord_t width = 0;
-#if HAS_VERSION_CHECK_FEATURE
-    static uint8_t progress_total = 18;
-#else
-    static uint8_t progress_total = 16;
-#endif
-
     lv_color_t font_color = lv_color_hex(color);
 
-    if (loading_page.lb_details.obj == NULL){
-      //details label
-      loading_page.lb_details.obj = lv_label_create(loading_page.container);
-      lv_obj_set_width(loading_page.lb_details.obj, SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 7.2));
-      lv_obj_set_style_text_font(loading_page.lb_details.obj, loading_page.lb_details.font, LV_PART_MAIN);
-      lv_label_set_long_mode(loading_page.lb_details.obj, LV_LABEL_LONG_DOT);
-      lv_obj_align(loading_page.lb_details.obj, LV_ALIGN_BOTTOM_LEFT, loading_page.lb_details.coord.x, loading_page.lb_details.coord.y);
-
-      //bar progress
-      loading_page.bar_progress.obj = lv_bar_create(loading_page.container);
-      lv_bar_set_range(loading_page.bar_progress.obj, 0, progress_total);
-      lv_bar_set_value(loading_page.bar_progress.obj, progress, LV_ANIM_ON);
-      lv_obj_set_style_bg_opa(loading_page.bar_progress.obj, LV_OPA_50, LV_PART_MAIN);
-      lv_obj_set_size(loading_page.bar_progress.obj, SCREEN_WIDTH * 0.9, 5);
-      lv_obj_align(loading_page.bar_progress.obj, LV_ALIGN_CENTER, loading_page.bar_progress.coord.x, loading_page.bar_progress.coord.y);
-      lv_obj_set_style_bg_color(loading_page.bar_progress.obj, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR);
-      lv_obj_set_style_bg_opa(loading_page.bar_progress.obj, LV_OPA_COVER, LV_PART_INDICATOR);
-
-      //progress label
-      loading_page.lb_progress.obj = lv_label_create(loading_page.container);
-      lv_label_set_text(loading_page.lb_progress.obj, "");
-      lv_obj_set_style_text_color(loading_page.lb_progress.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-      lv_obj_align(loading_page.lb_progress.obj, LV_ALIGN_LEFT_MID, loading_page.lb_progress.coord.x, loading_page.lb_progress.coord.y);
-    }
-
-    if(loading_page.lb_ip_and_slogan.obj == NULL){
-      loading_page.lb_ip_and_slogan.obj   = lv_label_create(loading_page.container);
-      String slogan_str = "Make it better";
-      width = lv_txt_get_width(slogan_str.c_str(), strlen(slogan_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
-      lv_obj_set_width(loading_page.lb_ip_and_slogan.obj, width);
-      lv_label_set_text( loading_page.lb_ip_and_slogan.obj, slogan_str.c_str());
-      lv_obj_set_style_text_font(loading_page.lb_ip_and_slogan.obj, loading_page.lb_ip_and_slogan.font, LV_PART_MAIN);
-      lv_obj_set_style_text_color(loading_page.lb_ip_and_slogan.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
-      lv_label_set_long_mode(loading_page.lb_ip_and_slogan.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
-      lv_obj_align( loading_page.lb_ip_and_slogan.obj, LV_ALIGN_CENTER, loading_page.lb_ip_and_slogan.coord.x, loading_page.lb_ip_and_slogan.coord.y);
-    }
-
-    if(loading_page.lb_pool_url.obj == NULL){
-      loading_page.lb_pool_url.obj   = lv_label_create(loading_page.container);
-      lv_label_set_text( loading_page.lb_pool_url.obj, "");
-      lv_obj_set_style_text_font(loading_page.lb_pool_url.obj, loading_page.lb_pool_url.font, LV_PART_MAIN);
-      lv_obj_set_style_text_color(loading_page.lb_pool_url.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
-      lv_label_set_long_mode(loading_page.lb_pool_url.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
-      lv_obj_align( loading_page.lb_pool_url.obj, LV_ALIGN_CENTER, loading_page.lb_pool_url.coord.x, loading_page.lb_pool_url.coord.y);
-    }
-
-    if(WL_CONNECTED == g_board.info.connection.wifi.status_param.status){
+    if((WL_CONNECTED == g_board.info.connection.wifi.status_param.status) && (loading_page.lb_ip_and_slogan.obj != NULL)){
       String ip_str = g_board.info.connection.wifi.status_param.ip.toString();
       width = lv_txt_get_width(ip_str.c_str(), strlen(ip_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
       lv_obj_set_width(loading_page.lb_ip_and_slogan.obj, width);
@@ -629,7 +801,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_label_set_text(loading_page.lb_ip_and_slogan.obj, g_board.info.connection.wifi.status_param.ip.toString().c_str());
     }
 
-    if(g_board.market->lastUpdate != 0){
+    if((g_board.market->lastUpdate != 0) && (loading_page.lb_pool_url.obj != NULL)){
       String pool_str = (g_board.info.connection.pool_use.url + ":" + g_board.info.connection.pool_use.port);
       width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), &lv_font_montserrat_16, 0, LV_TEXT_FLAG_NONE);
       width = (width > SCREEN_WIDTH) ? SCREEN_WIDTH : width;
@@ -637,7 +809,7 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_label_set_text(loading_page.lb_pool_url.obj, (g_board.info.connection.pool_use.url + ":" + g_board.info.connection.pool_use.port).c_str());
     }
 
-    if(prgress_update){
+    if(prgress_update && (loading_page.bar_progress.obj != NULL) && (loading_page.lb_progress.obj != NULL)){
       lv_coord_t bar_x = lv_obj_get_x(loading_page.bar_progress.obj);
       lv_coord_t bar_w = lv_obj_get_width(loading_page.bar_progress.obj);
       lv_coord_t label_x = bar_x + (bar_w * progress / progress_total) - lv_obj_get_width(loading_page.lb_progress.obj) / 2;
@@ -646,8 +818,11 @@ static void ui_loading_str_update(String str, uint32_t color, bool prgress_updat
       lv_bar_set_value(loading_page.bar_progress.obj, progress, LV_ANIM_ON);
       progress++;
     }
-    lv_obj_set_style_text_color(loading_page.lb_details.obj, font_color, LV_PART_MAIN);
-    lv_label_set_text(loading_page.lb_details.obj, str.c_str());
+
+    if(loading_page.lb_details.obj != NULL){
+      lv_obj_set_style_text_color(loading_page.lb_details.obj, font_color, LV_PART_MAIN);
+      lv_label_set_text(loading_page.lb_details.obj, str.c_str());
+    }
 }
 
 static void ui_miner_page_update(board_sal_t* board){
@@ -655,215 +830,9 @@ static void ui_miner_page_update(board_sal_t* board){
     LOG_E("board is null\r\n");
     return;
   }
-  static bool first_time = true;
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
-  if(first_time){
-    first_time = false;
-    //Hashrate value
-    // const lv_font_t *font = &ds_digib_font_38;
-    font_color = lv_color_hex(0xEE7D30);
-    miner_page.lb_hashrate.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_hashrate.obj, 80);
-    lv_label_set_text( miner_page.lb_hashrate.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_hashrate.obj, miner_page.lb_hashrate.font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(miner_page.lb_hashrate.obj, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(miner_page.lb_hashrate.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align( miner_page.lb_hashrate.obj, LV_ALIGN_BOTTOM_MID, miner_page.lb_hashrate.coord.x, miner_page.lb_hashrate.coord.y);
-    //Hit value
-    // font = &ds_digib_font_50;
-    font_color = lv_color_hex(0xEE7D30);
-    miner_page.lb_blk_hit.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_blk_hit.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_blk_hit.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, miner_page.lb_blk_hit.font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(miner_page.lb_blk_hit.obj, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(miner_page.lb_blk_hit.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x, miner_page.lb_blk_hit.coord.y); 
-    //price value
-    // font = &ds_digib_font_20;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_price.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_price.obj , SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_price.obj , "");
-    lv_obj_set_style_text_font(miner_page.lb_price.obj , miner_page.lb_price.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_price.obj , LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(miner_page.lb_price.obj , font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_price.obj , LV_ALIGN_LEFT_MID, miner_page.lb_price.coord.x, miner_page.lb_price.coord.y ); 
-    //version value
-    // font = &ds_digib_font_16;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_ver.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_ver.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_ver.obj, board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
-    lv_obj_set_style_text_font(miner_page.lb_ver.obj, miner_page.lb_ver.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_ver.obj, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(miner_page.lb_ver.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_ver.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_ver.coord.x, miner_page.lb_ver.coord.y );
-    //power value
-    // font = &ds_digib_font_18;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_power.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_power.obj, SCREEN_WIDTH/2.5);
-    lv_label_set_text( miner_page.lb_power.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_power.obj, miner_page.lb_power.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_power.obj, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(miner_page.lb_power.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_power.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_power.coord.x, miner_page.lb_power.coord.y ); 
-    //wifi value
-    // font = &ds_digib_font_16;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_ip.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_ip.obj, SCREEN_WIDTH/2.5);
-    lv_label_set_text( miner_page.lb_ip.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_ip.obj, miner_page.lb_ip.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_ip.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_style_text_color(miner_page.lb_ip.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_ip.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_ip.coord.x, miner_page.lb_ip.coord.y );
 
-    //uptime value, hour , minute, second
-    // font = &ds_digib_font_16;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_uptime_hms.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_uptime_hms.obj, 88);
-    lv_label_set_text( miner_page.lb_uptime_hms.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_uptime_hms.obj, miner_page.lb_uptime_hms.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_uptime_hms.obj, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(miner_page.lb_uptime_hms.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_uptime_hms.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_uptime_hms.coord.x, miner_page.lb_uptime_hms.coord.y);
-    //uptime value, day
-    // font = &ds_digib_font_16;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_uptime_day.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_uptime_day.obj, 88);
-    lv_label_set_text( miner_page.lb_uptime_day.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_uptime_day.obj, miner_page.lb_uptime_day.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_uptime_day.obj, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(miner_page.lb_uptime_day.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_uptime_day.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_uptime_day.coord.x, miner_page.lb_uptime_day.coord.y );
-    //uptime day unit  
-    // font = &lv_font_montserrat_14;
-    font_color = lv_color_hex(0xFFA500);
-    miner_page.lb_uptime_day_unit.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_uptime_day_unit.obj, 20);
-    lv_label_set_text( miner_page.lb_uptime_day_unit.obj, "d");
-    lv_obj_set_style_text_font(miner_page.lb_uptime_day_unit.obj, miner_page.lb_uptime_day_unit.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_uptime_day_unit.obj, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(miner_page.lb_uptime_day_unit.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_uptime_day_unit.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_uptime_day_unit.coord.x, miner_page.lb_uptime_day_unit.coord.y );
 
-    //Diff value
-    // font = &ds_digib_font_18;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_diff.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_diff.obj, SCREEN_WIDTH/2.4);
-    lv_label_set_text( miner_page.lb_diff.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_diff.obj, miner_page.lb_diff.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_diff.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_style_text_color(miner_page.lb_diff.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_diff.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_diff.coord.x, miner_page.lb_diff.coord.y );
-    //share value
-    // font = &ds_digib_font_18;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_share.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_share.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_share.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_share.obj, miner_page.lb_share.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_share.obj, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(miner_page.lb_share.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_share.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_share.coord.x, miner_page.lb_share.coord.y);
-    //temp value
-    // font = &ds_digib_font_18;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_temp.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_temp.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_temp.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_temp.obj, miner_page.lb_temp.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_temp.obj, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(miner_page.lb_temp.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_temp.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_temp.coord.x, miner_page.lb_temp.coord.y );
-    //Fan value
-    // font = &ds_digib_font_18;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_fan.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_fan.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_fan.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_fan.obj, miner_page.lb_fan.font, LV_PART_MAIN);
-    lv_label_set_long_mode(miner_page.lb_fan.obj, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(miner_page.lb_fan.obj, font_color, LV_PART_MAIN); 
-    lv_obj_align( miner_page.lb_fan.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_fan.coord.x, miner_page.lb_fan.coord.y); 
-    //Hashrate uint
-    // font = &ds_digib_font_28;
-    font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_hr_unit.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_hr_unit.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_hr_unit.obj, " ");
-    lv_obj_set_style_text_font(miner_page.lb_hr_unit.obj, miner_page.lb_hr_unit.font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(miner_page.lb_hr_unit.obj, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(miner_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
-    lv_obj_align( miner_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, miner_page.lb_hr_unit.coord.x, miner_page.lb_hr_unit.coord.y); 
-    // symbol uptime
-    // font = &lv_font_montserrat_14;
-    font_color = lv_color_hex(0xFFA500);
-    miner_page.lb_uptime_symbol.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_uptime_symbol.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_uptime_symbol.obj, LV_SYMBOL_BELL); 
-    lv_obj_set_style_text_font(miner_page.lb_uptime_symbol.obj, miner_page.lb_uptime_symbol.font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(miner_page.lb_uptime_symbol.obj, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(miner_page.lb_uptime_symbol.obj, LV_LABEL_LONG_DOT);
-    lv_obj_align( miner_page.lb_uptime_symbol.obj, LV_ALIGN_TOP_MID, miner_page.lb_uptime_symbol.coord.x, miner_page.lb_uptime_symbol.coord.y); 
-    // symbol wifi
-    // font = &lv_font_montserrat_14;
-    font_color = lv_color_hex(0xFFA500);
-    miner_page.lb_wifi_symbol.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_wifi_symbol.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_wifi_symbol.obj, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_font(miner_page.lb_wifi_symbol.obj, miner_page.lb_wifi_symbol.font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(miner_page.lb_wifi_symbol.obj, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(miner_page.lb_wifi_symbol.obj, LV_LABEL_LONG_DOT);
-    lv_obj_align( miner_page.lb_wifi_symbol.obj, LV_ALIGN_TOP_MID, miner_page.lb_wifi_symbol.coord.x, miner_page.lb_wifi_symbol.coord.y); 
-
-    //diff symbol
-    // font = &symbol_14;
-    font_color = lv_color_hex(0xA9A9A9);
-    miner_page.lb_diff_symbol.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_diff_symbol.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_diff_symbol.obj, "\xEF\x82\x80");
-    lv_obj_set_style_text_font(miner_page.lb_diff_symbol.obj, miner_page.lb_diff_symbol.font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(miner_page.lb_diff_symbol.obj, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(miner_page.lb_diff_symbol.obj, LV_LABEL_LONG_DOT);
-    lv_obj_align( miner_page.lb_diff_symbol.obj, LV_ALIGN_TOP_MID, miner_page.lb_diff_symbol.coord.x, miner_page.lb_diff_symbol.coord.y); 
-    // share symbol
-    // font = &symbol_14;
-    font_color = lv_color_hex(0xA9A9A9);
-    miner_page.lb_share_symb.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_share_symb.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_share_symb.obj, "\xEF\x8E\x82");
-    lv_obj_set_style_text_font(miner_page.lb_share_symb.obj, miner_page.lb_share_symb.font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(miner_page.lb_share_symb.obj, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(miner_page.lb_share_symb.obj, LV_LABEL_LONG_DOT);
-    lv_obj_align( miner_page.lb_share_symb.obj, LV_ALIGN_TOP_MID, miner_page.lb_share_symb.coord.x, miner_page.lb_share_symb.coord.y); 
-    //temp symbol
-    // font = &symbol_14;
-    font_color = lv_color_hex(0xA9A9A9);
-    miner_page.lb_temp_symb.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_temp_symb.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_temp_symb.obj, "\xEF\x8B\x88");
-    lv_obj_set_style_text_font(miner_page.lb_temp_symb.obj, miner_page.lb_temp_symb.font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(miner_page.lb_temp_symb.obj, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(miner_page.lb_temp_symb.obj, LV_LABEL_LONG_DOT);
-    lv_obj_align( miner_page.lb_temp_symb.obj, LV_ALIGN_TOP_MID, miner_page.lb_temp_symb.coord.x , miner_page.lb_temp_symb.coord.y); 
-    //fan symbol
-    // font = &symbol_14;
-    font_color = lv_color_hex(0xA9A9A9);
-    miner_page.lb_fan_symb.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-    lv_obj_set_width(miner_page.lb_fan_symb.obj, SCREEN_WIDTH);
-    lv_label_set_text( miner_page.lb_fan_symb.obj, "\xEF\xA1\xA3");
-    lv_obj_set_style_text_font(miner_page.lb_fan_symb.obj, miner_page.lb_fan_symb.font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(miner_page.lb_fan_symb.obj, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(miner_page.lb_fan_symb.obj, LV_LABEL_LONG_DOT);
-    lv_obj_align( miner_page.lb_fan_symb.obj, LV_ALIGN_TOP_MID, miner_page.lb_fan_symb.coord.x, miner_page.lb_fan_symb.coord.y);
-  }
-  
   String uptime = convert_uptime_to_string(board->status.miner.uptime_session);
   String hashrate = formatNumber(board->status.miner.hashrate._3m, 3);
   String hashuint = (board->status.miner.hashrate._3m > 0) ? (String(hashrate.charAt(hashrate.length() - 1)) + "H/s") : "";
@@ -951,17 +920,20 @@ static void ui_miner_page_update(board_sal_t* board){
       font_color = lv_color_hex(0x00ff00);//green
       lv_obj_set_style_text_color(miner_page.lb_ver.obj, font_color, LV_PART_MAIN);
       lv_label_set_text_fmt(miner_page.lb_ver.obj, "%s", board->info.base.fw_latest_release.substring(1, board->info.base.fw_latest_release.length()).c_str());
+      lv_label_set_text( miner_page.lb_ver.obj, board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
     }
     else{
       font_color = lv_color_hex(0xFFFFFF);//white
       lv_obj_set_style_text_color(miner_page.lb_ver.obj, font_color, LV_PART_MAIN);
       lv_label_set_text_fmt(miner_page.lb_ver.obj, "%s", board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
+      lv_label_set_text( miner_page.lb_ver.obj, board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
     }
   }
 #else
   font_color = lv_color_hex(0xFFFFFF);//white
   lv_obj_set_style_text_color(miner_page.lb_ver.obj, font_color, LV_PART_MAIN);
   lv_label_set_text_fmt(miner_page.lb_ver.obj, "%s", board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
+  lv_label_set_text(miner_page.lb_ver.obj, board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
 #endif
 
 
@@ -1662,6 +1634,8 @@ void ui_thread_entry(void *args){
   String taskName = "(lvgl)";
   xTaskCreatePinnedToCore(lvgl_tick_task, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_LVGL_DRV, NULL, 1);
   delay(100);
+
+  ui_page_element_init(&g_board);
 
   //ui layout init
   ui_layout_init();
