@@ -97,7 +97,7 @@ void BM1370::_set_version_mask(uint32_t version_mask) {
     this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, version_cmd, 6);
 }
 
-void BM1370::set_job_difficulty(int difficulty){
+uint32_t BM1370::set_job_difficulty(int difficulty){
     // Default mask of 256 diff
     uint8_t job_difficulty_mask[9] = {0x00, TICKET_MASK, 0b00000000, 0b00000000, 0b00000000, 0b11111111};
 
@@ -121,6 +121,7 @@ void BM1370::set_job_difficulty(int difficulty){
     this->_diff_current = diff_mask + 1;
     LOG_I("Setting ASIC diff mask to %d", diff_mask);
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), job_difficulty_mask, 6);
+    return this->_diff_current;
 }
 
 uint32_t BM1370::get_asic_difficulty(){

@@ -360,7 +360,7 @@ void hardware_pre_init(BoardSpecConfig config){
         delay(1000);
     }
 
-    if(config.name = BOARD_NMQAXE_PLUS_PLUS_NAME){
+    if(config.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
         // init extio chip tca9554
         // reset lcd via extio_1
         tca9554_init();

@@ -154,9 +154,8 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     return true;
 }
 
-bool AsicMinerClass::set_asic_diff(uint64_t diff){
-    this->_asic->set_job_difficulty(diff);
-    return true;
+uint32_t AsicMinerClass::set_asic_diff(uint64_t diff){
+    return this->_asic->set_job_difficulty(diff);
 }
 
 double AsicMinerClass::get_asic_diff(){

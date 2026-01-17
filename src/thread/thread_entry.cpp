@@ -452,7 +452,7 @@ void monitor_thread_entry(void *args){
     ntpClient.setUpdateInterval(ntpInterval);
 
     //wait for first job cache ready forever when process start
-    xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
+    // xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
 
     delay(500);//necessary delay for first job cache ready
 
@@ -843,7 +843,7 @@ void miner_asic_tx_thread_entry(void *args){
     LOG_I("Initializing asic_tx...");
 
     //wait for first job cache ready forever
-    xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
+    // xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
     delay(2000);//necessary delay for first job cache ready
 
     //forever loop
@@ -880,9 +880,8 @@ void miner_asic_tx_thread_entry(void *args){
             double target_diff = min(board->stratum->get_pool_difficulty(), (double)board->info.spec.asic.diff_thr_init);
             static double last_diff = 0.0; // initialize to 0 to ensure the first update occurs
             if(target_diff != last_diff){
-                bool res = board->miner->set_asic_diff(target_diff);
-                if(res) LOG_W("Change asic diff from [%.1f] to [%.1f] successfully", last_diff, target_diff);
-                else LOG_E("Failed to change asic diff to [%.1f]", target_diff);
+                uint32_t diff = board->miner->set_asic_diff(target_diff);
+                LOG_W("Change asic diff from [%.1f] to [%.1f/%.1f] successfully", last_diff, diff, target_diff);
                 last_diff = target_diff;
             }
 
@@ -911,7 +910,7 @@ void miner_asic_rx_thread_entry(void *args){
     miner_result result = {0,};
 
     //wait for first job cache ready forever
-    xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
+    // xSemaphoreTake(board->stratum->new_job_xsem, portMAX_DELAY);
 
     std::map<uint8_t, uint64_t> asic_id_map;
 
@@ -1230,15 +1229,7 @@ void stratum_thread_entry(void *args){
                         
                         //Give the new job semaphore to the other threads
                         xSemaphoreGive(board->stratum->new_job_xsem);//asic tx thread
-                        static bool first_job = true;
-                        if(first_job){
-                            //first job will release the asic rx , monitor and ui thread
-                            xSemaphoreGive(board->stratum->new_job_xsem);//asic tx thread
-                            xSemaphoreGive(board->stratum->new_job_xsem);//asic rx thread
-                            xSemaphoreGive(board->stratum->new_job_xsem);//ui thread
-                            xSemaphoreGive(board->stratum->new_job_xsem);//monitor thread
-                            first_job = false;
-                        }
+                        board->stratum->job_counter_inc();
                         board->info.connection.stratum_update = millis();//pool alive timestamp
                     }         
                     break;

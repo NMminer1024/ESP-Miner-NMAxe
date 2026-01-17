@@ -79,6 +79,7 @@ private:
     StaticJsonDocument<4096>                        _rsp_json;
     stratum_subscribe_info_t                        _sub_info;
     uint32_t                                        _max_rsp_id_cache;
+    uint32_t                                        _job_counter;
     uint8_t                                         _pool_job_cache_size;
     std::deque<pool_job_data_t>                     _pool_job_cache;
     std::map<stratum_msg_rsp_id_t, stratum_rsp>     _msg_rsp_map;
@@ -91,6 +92,7 @@ public:
      _stratum_info(sConfig), _pool_job_cache_size(job_cached_max){
         this->pool = new PoolClass(pConfig);
         this->_max_rsp_id_cache = 20;
+        this->_job_counter = 0;
         this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
         this->_gid = 1;
         this->_rsp_str = "";
@@ -101,7 +103,7 @@ public:
         this->_suggest_diff_support = true;
         this->_is_subscribed = false;
         this->_is_authorized = false;
-        this->new_job_xsem   = xSemaphoreCreateCounting(5,0);
+        this->new_job_xsem   = xSemaphoreCreateCounting(1,0);
         this->clear_job_xsem = xSemaphoreCreateCounting(1,0);
     };
     ~StratumClass();
@@ -134,7 +136,13 @@ public:
     String get_sub_extranonce2();
     bool   clear_sub_extranonce2();
 
+    void   job_counter_inc(){
+        this->_job_counter++;
+    }
 
+    uint32_t get_job_counter(){
+        return this->_job_counter;
+    }
 
     bool is_subscribed(){
         return this->_is_subscribed;

@@ -1846,14 +1846,14 @@ void ui_thread_entry(void *args){
   delay(100);
   /******************************************wait first job*******************************************/
   cnt = 0;
-  while(xSemaphoreTake(g_board.stratum->new_job_xsem, 300) == pdFAIL){
+  while(g_board.stratum->get_job_counter() == 0){
     ui_loading_str_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
     while (cnt >= 3*20){
       ui_loading_str_update("Pool job timeout!", 0xFF0000, false);
       delay(500);
       ui_loading_str_update("Pool job timeout!", 0xFFFFFF, false);
       delay(500);
-      if(xSemaphoreTake(g_board.stratum->new_job_xsem, 0) == pdPASS) break;
+      if(g_board.stratum->get_job_counter() > 0) break;
     }
   }
   ui_loading_str_update("Miner ready!", 0x00FF00, true);

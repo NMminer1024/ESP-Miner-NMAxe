@@ -15,6 +15,7 @@ StratumClass::~StratumClass(){
 }
 
 void StratumClass::reset(){
+    this->_job_counter = 0;
     this->_rsp_str = "";
     this->_rsp_json.clear();
     this->_msg_rsp_map.clear();
@@ -36,6 +37,7 @@ void StratumClass::reset(pool_info_t pConfig, stratum_info_t sConfig){
     
     this->pool = new PoolClass(pConfig);
 
+    this->_job_counter = 0;
     this->_stratum_info = sConfig;
     this->_rsp_str = "";
     this->_rsp_json.clear();
