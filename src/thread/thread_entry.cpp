@@ -5,7 +5,7 @@
 #include "fan.h"
 #include "csha256.h"
 #include "nvs_config.h"
-#include "timezone.h"
+// #include "timezone.h"
 #include <NTPClient.h>
 #include "http_server.h"
 #include "connection.h"
@@ -431,15 +431,15 @@ void monitor_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
     LOG_I("Initializing monitor...");
     
-    // fetch timezone from ipapi
-    TimezoneFetcher *tz = new TimezoneFetcher();
-    if(!tz->fetch()){
-        LOG_W("Timezone fetch failed, using user setting timezone: %s", board->status.time.tz.c_str()); 
-    }else{
-        board->status.time.tz = tz->timezone;
-        LOG_W("Timezone calibrate to : %s", board->status.time.tz.c_str());
-    }
-    delete tz;
+    // // fetch timezone from ipapi
+    // TimezoneFetcher *tz = new TimezoneFetcher();
+    // if(!tz->fetch()){
+    //     LOG_W("Timezone fetch failed, using user setting timezone: %s", board->status.time.tz.c_str()); 
+    // }else{
+    //     board->status.time.tz = tz->timezone;
+    //     LOG_W("Timezone calibrate to : %s", board->status.time.tz.c_str());
+    // }
+    // delete tz;
 
     //ntp client init
     WiFiUDP          udpNtpClient;

@@ -45,32 +45,18 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
     board->info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
     board->info.connection.stratum_use              = board->info.connection.stratum_primary;
-    board->status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
-    board->status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);
-    board->status.miner.history_mutex               = xSemaphoreCreateMutex();
-    board->status.miner.block_proximity_mutex       = xSemaphoreCreateMutex();
     board->info.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
-    board->status.miner.update_xsem                 = xSemaphoreCreateCounting(1, 0);
-    board->status.brightness_update_xsem            = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
     board->info.connection.wifi.softap_param.pwd    = "12345678";
     board->info.connection.wifi.softap_param.ssid   = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, (board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
-    board->status.miner.hits                        = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
-    board->status.miner.last_hits                   = board->status.miner.hits;
+
     board->info.connection.force_config             = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     board->info.connection.client_connected         = false;
     board->info.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
     board->info.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     board->info.base.hostname                       = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, board->info.connection.wifi.softap_param.ssid.c_str()));
     board->info.connection.stratum_update           = millis();
-    board->status.ota.running                       = false;
-    board->status.ota.progress                      = 0;
-    board->status.ota.filename                      = "";
-    board->status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
-    board->status.ui.last_page                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
-    board->status.ui.current_page                   = board->status.ui.last_page;
-    board->status.ui.page_save_xsem                 = xSemaphoreCreateCounting(1, 0);
     board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
     board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
     board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, true);
@@ -79,10 +65,27 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
     board->info.preference.led.sleep                = false;
     board->info.preference.led.sleep_last           = board->info.preference.led.sleep;
-    board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     board->info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC"));
     board->info.base.coin_price.toUpperCase();
+    
+    board->status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
+    board->status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);
+    board->status.miner.history_mutex               = xSemaphoreCreateMutex();
+    board->status.miner.block_proximity_mutex       = xSemaphoreCreateMutex();
+    board->status.miner.update_xsem                 = xSemaphoreCreateCounting(1, 0);
+    board->status.brightness_update_xsem            = xSemaphoreCreateCounting(1, 0);
+    board->status.miner.hits                        = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
+    board->status.miner.last_hits                   = board->status.miner.hits;
+    board->status.ota.running                       = false;
+    board->status.ota.progress                      = 0;
+    board->status.ota.filename                      = "";
+    board->status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
+    board->status.ui.last_page                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+    board->status.ui.current_page                   = board->status.ui.last_page;
+    board->status.ui.page_save_xsem                 = xSemaphoreCreateCounting(1, 0);
+    board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
+    board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
+    
     // initialize fan statuses
     for(uint8_t i = 0; i < board->info.spec.fans.size(); i++){
         fan_status_t    state;
@@ -93,12 +96,6 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
         board->status.fans.push_back(state);
     }
 
-    // // set I2C pins and start I2C
-    // bool iic = Wire.begin(board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);              
-    // if(!iic){
-    //     LOG_E("I2C init failed on pins SDA:%d, SCL:%d", board->info.spec.iic.sda_pin, board->info.spec.iic.scl_pin);
-    //     return false;
-    // }
     // create ASIC instance
     BMxxx* asic_instance                            = board->info.spec.create_asic_instance(*config.asic.com_port, config.asic.com_baud_init, config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin);
     if(asic_instance == NULL){
