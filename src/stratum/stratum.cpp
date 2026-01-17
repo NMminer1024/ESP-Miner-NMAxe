@@ -208,8 +208,31 @@ bool StratumClass::subscribe(){
     
     if(!this->_parse_rsp()){
         LOG_E("Failed to parse mining.subscribe response");
+        this->_rsp_json.clear();
         return false;
     }
+
+
+    if(!this->_rsp_json.containsKey("result")) {
+        LOG_E("Response missing 'result' field");
+        this->_rsp_json.clear();
+        return false;
+    }
+    
+    if(!this->_rsp_json["result"].is<JsonArray>()) {
+        LOG_E("'result' is not an array");
+        this->_rsp_json.clear();
+        return false;
+    }
+    
+    JsonArray result = this->_rsp_json["result"].as<JsonArray>();
+    if(result.size() < 3) {
+        LOG_E("'result' array size < 3, size: %d", result.size());
+        this->_rsp_json.clear();
+        return false;
+    }
+
+
     this->_sub_info.extranonce1 = String((const char*)this->_rsp_json["result"][1]);
     this->_sub_info.extranonce2_size = this->_rsp_json["result"][2];
     this->_is_subscribed = true;
