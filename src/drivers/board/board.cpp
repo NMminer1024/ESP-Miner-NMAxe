@@ -277,7 +277,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.power.ibus.min        = 0.0f;
             config.ui.dashboard_page.power.ibus.max        = 12.0f;
             config.ui.dashboard_page.power.power.min       = 0.0f;
-            config.ui.dashboard_page.power.power.max       = 120.0f;
+            config.ui.dashboard_page.power.power.max       = 130.0f;
             config.ui.dashboard_page.heat.mcu.min          = 0.0f;
             config.ui.dashboard_page.heat.mcu.max          = 75.0f;
             config.ui.dashboard_page.heat.asic.min         = 0.0f;

@@ -44,6 +44,7 @@
 void file_system_init();
 void get_system_info(AsyncWebServerRequest *request);
 void get_hr_distribution(AsyncWebServerRequest *request);
+void get_gauge_limits(AsyncWebServerRequest* request);
 void get_status_history(AsyncWebServerRequest *request);
 void get_status_realtime(AsyncWebServerRequest *request);
 void get_lucky_history(AsyncWebServerRequest *request);

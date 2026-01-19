@@ -175,6 +175,62 @@ void get_hr_distribution(AsyncWebServerRequest* request){
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 }
+void get_gauge_limits(AsyncWebServerRequest* request){
+    const uint16_t json_size_max  =  1024;
+    StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
+
+    root.clear();
+    
+    // Power limits
+    JsonObject power = root.createNestedObject("power");
+    JsonObject power_vbus = power.createNestedObject("vbus");
+    power_vbus["min"] = g_board.info.spec.ui.dashboard_page.power.vbus.min;
+    power_vbus["max"] = g_board.info.spec.ui.dashboard_page.power.vbus.max;
+    
+    JsonObject power_ibus = power.createNestedObject("ibus");
+    power_ibus["min"] = g_board.info.spec.ui.dashboard_page.power.ibus.min;
+    power_ibus["max"] = g_board.info.spec.ui.dashboard_page.power.ibus.max;
+    
+    JsonObject power_power = power.createNestedObject("power");
+    power_power["min"] = g_board.info.spec.ui.dashboard_page.power.power.min;
+    power_power["max"] = g_board.info.spec.ui.dashboard_page.power.power.max;
+    
+    // Heat limits
+    JsonObject heat = root.createNestedObject("heat");
+    JsonObject heat_mcu = heat.createNestedObject("mcu");
+    heat_mcu["min"] = g_board.info.spec.ui.dashboard_page.heat.mcu.min;
+    heat_mcu["max"] = g_board.info.spec.ui.dashboard_page.heat.mcu.max;
+    
+    JsonObject heat_asic = heat.createNestedObject("asic");
+    heat_asic["min"] = g_board.info.spec.ui.dashboard_page.heat.asic.min;
+    heat_asic["max"] = g_board.info.spec.ui.dashboard_page.heat.asic.max;
+    
+    JsonObject heat_vcore = heat.createNestedObject("vcore");
+    heat_vcore["min"] = g_board.info.spec.ui.dashboard_page.heat.vcore.min;
+    heat_vcore["max"] = g_board.info.spec.ui.dashboard_page.heat.vcore.max;
+    
+    JsonObject heat_fan = heat.createNestedObject("fan");
+    heat_fan["min"] = g_board.info.spec.ui.dashboard_page.heat.fan.min;
+    heat_fan["max"] = g_board.info.spec.ui.dashboard_page.heat.fan.max;
+    
+    // Performance limits
+    JsonObject performance = root.createNestedObject("performance");
+    JsonObject perf_asic_freq = performance.createNestedObject("asic_freq_req");
+    perf_asic_freq["min"] = g_board.info.spec.ui.dashboard_page.performance.asic_freq_req.min;
+    perf_asic_freq["max"] = g_board.info.spec.ui.dashboard_page.performance.asic_freq_req.max;
+    
+    JsonObject perf_vcore_req = performance.createNestedObject("vcore_req");
+    perf_vcore_req["min"] = g_board.info.spec.ui.dashboard_page.performance.vcore_req.min;
+    perf_vcore_req["max"] = g_board.info.spec.ui.dashboard_page.performance.vcore_req.max;
+    
+    JsonObject perf_vcore_measure = performance.createNestedObject("vcore_measure");
+    perf_vcore_measure["min"] = g_board.info.spec.ui.dashboard_page.performance.vcore_measure.min;
+    perf_vcore_measure["max"] = g_board.info.spec.ui.dashboard_page.performance.vcore_measure.max;
+
+    String json_str;
+    serializeJsonPretty(root, json_str);
+    request->send(200, "application/json", json_str);
+}
 void get_status_history(AsyncWebServerRequest* request){
     LOG_D("Starting status history request processing...");
     

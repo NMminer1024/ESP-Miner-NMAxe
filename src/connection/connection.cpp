@@ -54,6 +54,7 @@ void webserver_thread_entry(void *args){
 
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
+    webServer.on("/api/system/gauge/limits", HTTP_GET, get_gauge_limits);
     webServer.on("/api/system/status/history", HTTP_GET, get_status_history);
     webServer.on("/api/system/status/realtime", HTTP_GET, get_status_realtime);
     webServer.on("/api/system/luck/history", HTTP_GET, get_lucky_history);
