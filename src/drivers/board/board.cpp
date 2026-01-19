@@ -71,10 +71,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.heat.fan.max          = 9000.0f;
             config.ui.dashboard_page.performance.asic_freq_req.min    = 400.0f;
             config.ui.dashboard_page.performance.asic_freq_req.max    = 900.0f;
-            config.ui.dashboard_page.performance.vcore_req.min        = 1000.0f;
-            config.ui.dashboard_page.performance.vcore_req.max        = 1500.0f;
-            config.ui.dashboard_page.performance.vcore_measure.min    = 1000.0f;
-            config.ui.dashboard_page.performance.vcore_measure.max    = 1500.0f;
+            config.ui.dashboard_page.performance.vcore_req.min        = 1.000f;
+            config.ui.dashboard_page.performance.vcore_req.max        = 1.500f;
+            config.ui.dashboard_page.performance.vcore_measure.min    = 1.000f;
+            config.ui.dashboard_page.performance.vcore_measure.max    = 1.500f;
 
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
@@ -180,10 +180,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.heat.fan.max          = 9000.0f;
             config.ui.dashboard_page.performance.asic_freq_req.min    = 400.0f;
             config.ui.dashboard_page.performance.asic_freq_req.max    = 900.0f;
-            config.ui.dashboard_page.performance.vcore_req.min        = 900.0f;
-            config.ui.dashboard_page.performance.vcore_req.max        = 1500.0f;
-            config.ui.dashboard_page.performance.vcore_measure.min    = 900.0f;
-            config.ui.dashboard_page.performance.vcore_measure.max    = 1500.0f;
+            config.ui.dashboard_page.performance.vcore_req.min        = 0.900f;
+            config.ui.dashboard_page.performance.vcore_req.max        = 1.500f;
+            config.ui.dashboard_page.performance.vcore_measure.min    = 0.900f;
+            config.ui.dashboard_page.performance.vcore_measure.max    = 1.500f;
 
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
@@ -288,10 +288,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.heat.fan.max          = 4000.0f;
             config.ui.dashboard_page.performance.asic_freq_req.min    = 400.0f;
             config.ui.dashboard_page.performance.asic_freq_req.max    = 900.0f;
-            config.ui.dashboard_page.performance.vcore_req.min        = 900.0f;
-            config.ui.dashboard_page.performance.vcore_req.max        = 1500.0f;
-            config.ui.dashboard_page.performance.vcore_measure.min    = 900.0f;
-            config.ui.dashboard_page.performance.vcore_measure.max    = 1500.0f;
+            config.ui.dashboard_page.performance.vcore_req.min        = 0.900f;
+            config.ui.dashboard_page.performance.vcore_req.max        = 1.500f;
+            config.ui.dashboard_page.performance.vcore_measure.min    = 0.900f;
+            config.ui.dashboard_page.performance.vcore_measure.max    = 1.500f;
 
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
