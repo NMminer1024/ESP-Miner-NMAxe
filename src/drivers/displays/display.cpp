@@ -467,11 +467,11 @@ static void ui_page_element_init(board_sal_t* board){
     dashboard_page.lb_hr_unit.font      = &ds_digib_font_20;
     dashboard_page.lb_hr_unit.coord     = {100 + 95, 23};
     /******************************** hashrate healthy page *****************************/
-    dashboard_page.lb_hr.font          = &ds_digib_font_56;
-    dashboard_page.lb_hr.coord         = {55 + 40, -4};
+    hr_health_page.lb_hr.font          = &ds_digib_font_56;
+    hr_health_page.lb_hr.coord         = {55 + 40, -4};
 
-    dashboard_page.lb_hr_unit.font      = &ds_digib_font_20;
-    dashboard_page.lb_hr_unit.coord     = {100 + 95, 23};
+    hr_health_page.lb_hr_unit.font      = &ds_digib_font_20;
+    hr_health_page.lb_hr_unit.coord     = {100 + 95, 23};
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
