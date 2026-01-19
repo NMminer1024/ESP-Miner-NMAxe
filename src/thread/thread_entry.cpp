@@ -981,8 +981,9 @@ void miner_asic_rx_thread_entry(void *args){
                         uint64_t total = 0;
                         for(auto &pair : board->status.miner.asic_rsp_counter)  total += pair.second;
                         for(auto &pair : board->status.miner.asic_rsp_counter){
-                            double hr = (double)board->status.miner.hashrate._3m * ((double)pair.second / (double)total);
-                            LOG_L("|  ASIC[%d] HashRate: %sH/s |", pair.first, formatNumber(hr, 4).c_str());
+                            // double hr = (double)board->status.miner.hashrate._3m * ((double)pair.second / (double)total);
+                            float health = (total > 0) ? ((float)pair.second / (float)total) * 100.0f : 0.0f;
+                            LOG_L("|  ASIC[%d] : %.1f%%    |", pair.first, health);
                         }
                     }
                     LOG_L(" ============================== ");
