@@ -73,49 +73,87 @@
     <div class="secondary-stats">
       <div class="power-card">
         <h5>⚡ Power</h5>
-        <div class="power-grid">
+        <div class="power-grid" *ngIf="gaugeLimits">
           <div class="power-item">
-            <p-knob [min]="5" [max]="15" [readonly]="true" [(ngModel)]="info.voltage"
-                    valueTemplate="{value}V" [size]="130" strokeWidth="14"></p-knob>
+            <p-knob [min]="gaugeLimits.power.vbus.min" 
+                    [max]="gaugeLimits.power.vbus.max" 
+                    [readonly]="true" 
+                    [(ngModel)]="info.voltage"
+                    valueTemplate="{value}V" 
+                    [size]="130" 
+                    strokeWidth="14"></p-knob>
             <div class="power-label">Voltage</div>
+            <span class="danger" *ngIf="isWarning(info.voltage, gaugeLimits.power.vbus.max)">⚠️ High</span>
           </div>
           <div class="power-item">
-            <p-knob [min]="0" [max]="5" [readonly]="true" [(ngModel)]="info.current"
-                    valueTemplate="{value}A" [size]="130" strokeWidth="14"></p-knob>
+            <p-knob [min]="gaugeLimits.power.ibus.min" 
+                    [max]="gaugeLimits.power.ibus.max" 
+                    [readonly]="true" 
+                    [(ngModel)]="info.current"
+                    valueTemplate="{value}A" 
+                    [size]="130" 
+                    strokeWidth="14"></p-knob>
             <div class="power-label">Current</div>
+            <span class="danger" *ngIf="isWarning(info.current, gaugeLimits.power.ibus.max)">⚠️ High</span>
           </div>
           <div class="power-item">
-            <p-knob [min]="0" [max]="45" [readonly]="true" [(ngModel)]="info.power"
-                    valueTemplate="{value}W" [size]="130" strokeWidth="14"></p-knob>
+            <p-knob [min]="gaugeLimits.power.power.min" 
+                    [max]="gaugeLimits.power.power.max" 
+                    [readonly]="true" 
+                    [(ngModel)]="info.power"
+                    valueTemplate="{value}W" 
+                    [size]="130" 
+                    strokeWidth="14"></p-knob>
             <div class="power-label">Power</div>
+            <span class="danger" *ngIf="isWarning(info.power, gaugeLimits.power.power.max)">⚠️ High</span>
           </div>
         </div>
       </div>
 
       <div class="heat-card">
         <h5>🌡️ Heat</h5>
-        <div class="heat-grid">
+        <div class="heat-grid" *ngIf="gaugeLimits">
           <div class="heat-item" *ngIf="info.mcuTemp">
-            <p-knob [min]="0" [max]="70" [readonly]="true" [(ngModel)]="info.mcuTemp"
-                    valueTemplate="{value}°C" [size]="120" strokeWidth="12"></p-knob>
+            <p-knob [min]="gaugeLimits.heat.mcu.min" 
+                    [max]="gaugeLimits.heat.mcu.max" 
+                    [readonly]="true" 
+                    [(ngModel)]="info.mcuTemp"
+                    valueTemplate="{value}°C" 
+                    [size]="120" 
+                    strokeWidth="12"></p-knob>
             <div class="heat-label">MCU</div>
-            <span class="danger" *ngIf="info.mcuTemp > 70">⚠️ High</span>
+            <span class="danger" *ngIf="isWarning(info.mcuTemp, gaugeLimits.heat.mcu.max)">⚠️ High</span>
           </div>
           <div class="heat-item">
-            <p-knob [min]="0" [max]="75" [readonly]="true" [(ngModel)]="info.temp"
-                    valueTemplate="{value}°C" [size]="120" strokeWidth="12"></p-knob>
+            <p-knob [min]="gaugeLimits.heat.asic.min" 
+                    [max]="gaugeLimits.heat.asic.max" 
+                    [readonly]="true" 
+                    [(ngModel)]="info.temp"
+                    valueTemplate="{value}°C" 
+                    [size]="120" 
+                    strokeWidth="12"></p-knob>
             <div class="heat-label">ASIC</div>
-            <span class="danger" *ngIf="info.temp && info.temp >= 70">⚠️ High</span>
+            <span class="danger" *ngIf="info.temp && isWarning(info.temp, gaugeLimits.heat.asic.max)">⚠️ High</span>
           </div>
           <div class="heat-item" *ngIf="info.vrTemp && info.vrTemp > 0">
-            <p-knob [min]="0" [max]="90" [readonly]="true" [(ngModel)]="info.vrTemp"
-                    valueTemplate="{value}°C" [size]="120" strokeWidth="12"></p-knob>
+            <p-knob [min]="gaugeLimits.heat.vcore.min" 
+                    [max]="gaugeLimits.heat.vcore.max" 
+                    [readonly]="true" 
+                    [(ngModel)]="info.vrTemp"
+                    valueTemplate="{value}°C" 
+                    [size]="120" 
+                    strokeWidth="12"></p-knob>
             <div class="heat-label">Vcore</div>
-            <span class="danger" *ngIf="info.vrTemp && info.vrTemp >= 90">⚠️ High</span>
+            <span class="danger" *ngIf="info.vrTemp && isWarning(info.vrTemp, gaugeLimits.heat.vcore.max)">⚠️ High</span>
           </div>
           <div class="heat-item">
-            <p-knob [min]="0" [max]="10000" [readonly]="true" [(ngModel)]="info.fanrpm"
-                    valueTemplate="{value}" [size]="120" strokeWidth="12"></p-knob>
+            <p-knob [min]="gaugeLimits.heat.fan.min" 
+                    [max]="gaugeLimits.heat.fan.max" 
+                    [readonly]="true" 
+                    [(ngModel)]="info.fanrpm"
+                    valueTemplate="{value}" 
+                    [size]="120" 
+                    strokeWidth="12"></p-knob>
             <div class="heat-label">Fan RPM</div>
           </div>
         </div>
@@ -123,23 +161,41 @@
 
       <div class="performance-card">
         <h5>🚀 Performance</h5>
-        <div class="performance-grid">
+        <div class="performance-grid" *ngIf="gaugeLimits">
           <div class="performance-item">
-            <p-knob [min]="100" [max]="950" [readonly]="true" [(ngModel)]="info.frequency"
-                    valueTemplate="{value}M" [size]="120" strokeWidth="12"></p-knob>
+            <p-knob [min]="gaugeLimits.performance.asic_freq_req.min" 
+                    [max]="gaugeLimits.performance.asic_freq_req.max" 
+                    [readonly]="true" 
+                    [(ngModel)]="info.frequency"
+                    valueTemplate="{value}M" 
+                    [size]="120" 
+                    strokeWidth="12"></p-knob>
             <div class="performance-label">ASIC Clock</div>
+            <span class="danger" *ngIf="isWarning(info.frequency, gaugeLimits.performance.asic_freq_req.max)">⚠️ High</span>
           </div>
           <div class="voltage-comparison">
             <div class="voltage-item">
-              <p-knob [min]="0.9" [max]="1.35" [readonly]="true" [(ngModel)]="info.coreVoltage"
-                      valueTemplate="{value}V" [size]="100" strokeWidth="14"></p-knob>
+              <p-knob [min]="gaugeLimits.performance.vcore_req.min" 
+                      [max]="gaugeLimits.performance.vcore_req.max" 
+                      [readonly]="true" 
+                      [(ngModel)]="info.coreVoltage"
+                      valueTemplate="{value}V" 
+                      [size]="100" 
+                      strokeWidth="14"></p-knob>
               <div class="voltage-label">Requested</div>
+              <span class="danger" *ngIf="isWarning(info.coreVoltage, gaugeLimits.performance.vcore_req.max)">⚠️ High</span>
             </div>
             <div class="voltage-vs">VS</div>
             <div class="voltage-item">
-              <p-knob [min]="0.9" [max]="1.35" [readonly]="true" [(ngModel)]="info.coreVoltageActual"
-                      valueTemplate="{value}V" [size]="100" strokeWidth="14"></p-knob>
+              <p-knob [min]="gaugeLimits.performance.vcore_measure.min" 
+                      [max]="gaugeLimits.performance.vcore_measure.max" 
+                      [readonly]="true" 
+                      [(ngModel)]="info.coreVoltageActual"
+                      valueTemplate="{value}V" 
+                      [size]="100" 
+                      strokeWidth="14"></p-knob>
               <div class="voltage-label">Measured</div>
+              <span class="danger" *ngIf="isWarning(info.coreVoltageActual, gaugeLimits.performance.vcore_measure.max)">⚠️ High</span>
             </div>
           </div>
         </div>

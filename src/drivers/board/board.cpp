@@ -56,7 +56,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.times     = 0;
 
             config.ui.dashboard_page.power.vbus.min        = 0.0f;
-            config.ui.dashboard_page.power.vbus.max        = 18.0f;
+            config.ui.dashboard_page.power.vbus.max        = 15.0f;
             config.ui.dashboard_page.power.ibus.min        = 0.0f;
             config.ui.dashboard_page.power.ibus.max        = 4.0f;
             config.ui.dashboard_page.power.power.min       = 0.0f;
@@ -165,7 +165,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.times     = 0;
 
             config.ui.dashboard_page.power.vbus.min        = 0.0f;
-            config.ui.dashboard_page.power.vbus.max        = 18.0f;
+            config.ui.dashboard_page.power.vbus.max        = 15.0f;
             config.ui.dashboard_page.power.ibus.min        = 0.0f;
             config.ui.dashboard_page.power.ibus.max        = 5.0f;
             config.ui.dashboard_page.power.power.min       = 0.0f;
@@ -273,9 +273,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.times     = 0;
 
             config.ui.dashboard_page.power.vbus.min        = 0.0f;
-            config.ui.dashboard_page.power.vbus.max        = 18.0f;
+            config.ui.dashboard_page.power.vbus.max        = 15.0f;
             config.ui.dashboard_page.power.ibus.min        = 0.0f;
-            config.ui.dashboard_page.power.ibus.max        = 12.0f;
+            config.ui.dashboard_page.power.ibus.max        = 8.0f;
             config.ui.dashboard_page.power.power.min       = 0.0f;
             config.ui.dashboard_page.power.power.max       = 130.0f;
             config.ui.dashboard_page.heat.mcu.min          = 0.0f;
@@ -314,7 +314,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.pool_pin              = -1; // Not used
             config.led.sys_pin               = -1; // Not used
             config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 600);
-            config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1150);
+            config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1200);
             config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
             config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1000;

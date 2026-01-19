@@ -1,22 +1,26 @@
-import {Component} from '@angular/core';
+import {Component, OnInit} from '@angular/core';
 import {interval, map, Observable, shareReplay, startWith, switchMap, tap} from 'rxjs';
 import {HashSuffixPipe} from 'src/app/pipes/hash-suffix.pipe';
 import {SystemService} from 'src/app/services/system.service';
 import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
+import {IGaugeLimits} from 'src/models/IGaugeLimits';
 
 @Component({
   selector: 'app-home',
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.scss']
 })
-export class HomeComponent {
+export class HomeComponent implements OnInit {
 
   public info$: Observable<ISystemInfo>;
 
   public quickLink$: Observable<string | undefined>;
   public expectedHashRate$: Observable<number | undefined>;
   public chartData?: any;
+
+  // Gauge limits
+  public gaugeLimits?: IGaugeLimits;
 
   constructor(
     private systemService: SystemService
@@ -115,5 +119,30 @@ export class HomeComponent {
         }
       })
     )
+  }
+
+  ngOnInit(): void {
+    // Load gauge limits once when component initializes
+    this.systemService.getGaugeLimits().subscribe({
+      next: (limits) => {
+        this.gaugeLimits = limits;
+        console.log('Gauge limits loaded:', limits);
+      },
+      error: (err) => {
+        console.error('Failed to load gauge limits:', err);
+      }
+    });
+  }
+
+  // Helper methods for gauge configuration
+  getWarningThreshold(max: number): number {
+    return max * 0.9;
+  }
+
+  isWarning(value: number | undefined, max: number): boolean {
+    if (value === undefined || value === null) {
+      return false;
+    }
+    return value >= this.getWarningThreshold(max);
   }
 }

@@ -3,6 +3,7 @@ import {Injectable} from '@angular/core';
 import {delay, Observable, of, timeout, map, catchError} from 'rxjs';
 import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
+import {IGaugeLimits} from 'src/models/IGaugeLimits';
 
 import {environment} from '../../environments/environment';
 
@@ -333,5 +334,31 @@ export class SystemService {
     
     return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/luck/realtime`, { headers })
       .pipe(timeout(20000)); // 实时数据20秒超时
+  }
+
+  public getGaugeLimits(uri: string = ''): Observable<IGaugeLimits> {
+    if (environment.production) {
+      return this.httpClient.get<IGaugeLimits>(`${uri}/api/system/gauge/limits`);
+    } else {
+      // Mock data for development
+      return of({
+        power: {
+          vbus: { min: 0.0, max: 18.0 },
+          ibus: { min: 0.0, max: 4.0 },
+          power: { min: 0.0, max: 30.0 }
+        },
+        heat: {
+          mcu: { min: 0.0, max: 75.0 },
+          asic: { min: 0.0, max: 80.0 },
+          vcore: { min: 0.0, max: 100.0 },
+          fan: { min: 0.0, max: 9000.0 }
+        },
+        performance: {
+          asic_freq_req: { min: 400.0, max: 900.0 },
+          vcore_req: { min: 1.0, max: 1.5 },
+          vcore_measure: { min: 1.0, max: 1.5 }
+        }
+      });
+    }
   }
 }
