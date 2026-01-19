@@ -979,12 +979,12 @@ void miner_asic_rx_thread_entry(void *args){
 
                     // per asic hashrate display if more than 1 asic on board
                     if(board->miner->get_asic_count() > 1){
-                        LOG_L("+-------ASIC Healthy-------+");
+                        LOG_L("+---------ASIC Healthy---------+");
                         uint64_t total = 0;
                         for(auto &pair : asic_id_map)  total += pair.second;
                         for(auto &pair : asic_id_map){
                             double hr = (double)board->status.miner.hashrate._3m * ((double)pair.second / (double)total);
-                            LOG_L(" ASIC[%d] HashRate: %sH/s", pair.first, formatNumber(hr, 4).c_str());
+                            LOG_L("|  ASIC[%d] HashRate: %sH/s |", pair.first, formatNumber(hr, 4).c_str());
                         }
                     }
                     LOG_L(" ============================== ");
