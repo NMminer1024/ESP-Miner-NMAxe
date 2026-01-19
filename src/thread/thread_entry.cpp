@@ -927,8 +927,6 @@ void miner_asic_rx_thread_entry(void *args){
     asic_job job = {0,};
     miner_result result = {0,};
 
-    std::map<uint8_t, uint64_t> asic_id_map;
-
     //forever loop
     while(true){
         if(!board->stratum->is_subscribed()){
@@ -951,7 +949,7 @@ void miner_asic_rx_thread_entry(void *args){
                 board->miner->calculate_hashrate(&board->status.miner.hashrate);
 
                 // update specific asic share count, based on asic id
-                asic_id_map[result.asic_id]++;
+                board->status.miner.asic_rsp_counter[result.asic_id]++;
 
                 //print summary to log
                 static uint32_t summary_start = millis();
@@ -981,8 +979,8 @@ void miner_asic_rx_thread_entry(void *args){
                     if(board->miner->get_asic_count() > 1){
                         LOG_L("+---------ASIC Healthy---------+");
                         uint64_t total = 0;
-                        for(auto &pair : asic_id_map)  total += pair.second;
-                        for(auto &pair : asic_id_map){
+                        for(auto &pair : board->status.miner.asic_rsp_counter)  total += pair.second;
+                        for(auto &pair : board->status.miner.asic_rsp_counter){
                             double hr = (double)board->status.miner.hashrate._3m * ((double)pair.second / (double)total);
                             LOG_L("|  ASIC[%d] HashRate: %sH/s |", pair.first, formatNumber(hr, 4).c_str());
                         }

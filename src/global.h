@@ -111,6 +111,7 @@ typedef struct{
 
 typedef String miner_ip_t;
 typedef String miner_info_t;
+typedef uint16_t asic_id_t;
 typedef struct{
     struct{
         uint16_t    vbus;//mV
@@ -141,6 +142,7 @@ typedef struct{
         uint64_t            uptime_ever;
         uint64_t            uptime_session;
         hashrate_t          hashrate;
+
         float               efficiency; // J/TH
         uint16_t            hits;
         uint16_t            last_hits;//record the last hits
@@ -148,6 +150,7 @@ typedef struct{
         uint32_t            asic_update;  // timestamp of asic respond
         std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
         std::deque<proximity_node_t> block_proximity_history; // history of block proximity (use internal RAM)
+        std::map<asic_id_t, uint64_t> asic_rsp_counter; // asic respond counter map
         SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
         SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
         SemaphoreHandle_t   update_xsem;  // miner status update signal

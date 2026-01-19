@@ -589,6 +589,7 @@ static void ui_layout_init(board_sal_t* board){
   //details label
   loading_page.lb_details.obj = lv_label_create(loading_page.container);
   lv_obj_set_width(loading_page.lb_details.obj, SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 7.2));
+  lv_obj_set_style_text_color(loading_page.lb_details.obj, font_color, LV_PART_MAIN);
   lv_label_set_text(loading_page.lb_details.obj, "Initializing...");
   lv_obj_set_style_text_font(loading_page.lb_details.obj, loading_page.lb_details.font, LV_PART_MAIN);
   lv_label_set_long_mode(loading_page.lb_details.obj, LV_LABEL_LONG_DOT);
