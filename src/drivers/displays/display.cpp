@@ -64,6 +64,8 @@ struct{
   ui_element_t  lb_hashrate, lb_blk_hit, lb_temp ,lb_power,lb_ip ,lb_uptime_day, lb_uptime_hms, lb_diff;
   ui_element_t  lb_uptime_symbol ,lb_wifi_symbol ,lb_diff_symbol ,lb_share_symb ,lb_temp_symb ,lb_fan_symb;
   ui_element_t  lb_price, lb_ver;
+  ui_element_t  lb_swarm_best_diff, lb_swarm_workers, lb_swarm_total_hashrate;
+  ui_element_t  lb_utc_time;
 }miner_page;
 
 // dashboard page elements
@@ -388,7 +390,7 @@ static void ui_page_element_init(board_sal_t* board){
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
 
     /*********************************** mining page *********************************/
-    miner_page.img_logo.coord           = {70, 45};
+    miner_page.img_logo.coord           = {70, 44};
     miner_page.lb_hr_unit.font          = &ds_digib_font_28;
     miner_page.lb_hr_unit.coord         = {255 , 165};
     miner_page.lb_blk_hit.font          = &ds_digib_font_56;
@@ -414,7 +416,6 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_wifi_symbol.font      = &lv_font_montserrat_16;
     miner_page.lb_wifi_symbol.coord     = {128+ 59, 1};
 
-
     miner_page.lb_diff.font             = &ds_digib_font_20;
     miner_page.lb_diff.coord            = {132+ 55, 30};
     miner_page.lb_share.font            = &ds_digib_font_20;
@@ -423,7 +424,6 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_temp.coord            = {132+ 55, 83};
     miner_page.lb_fan.font              = &ds_digib_font_20;
     miner_page.lb_fan.coord             = {132+ 55, 110};
-
 
     miner_page.lb_diff_symbol.font      = &symbol_20;
     miner_page.lb_diff_symbol.coord     = {108 + 45, 30};
@@ -434,13 +434,22 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_fan_symb.font         = &symbol_20;
     miner_page.lb_fan_symb.coord        = {110 + 45, 110};
 
+    miner_page.lb_utc_time.font          = &ds_digib_font_18;
+    miner_page.lb_utc_time.coord         = {3, 3};
+
+    miner_page.lb_swarm_best_diff.font      = &ds_digib_font_24;
+    miner_page.lb_swarm_best_diff.coord     = {3, 210};
+    miner_page.lb_swarm_workers.font        = &ds_digib_font_24;
+    miner_page.lb_swarm_workers.coord       = {145, 210};
+    miner_page.lb_swarm_total_hashrate.font = &ds_digib_font_24;
+    miner_page.lb_swarm_total_hashrate.coord= {237, 210}; 
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
   }
 }
 
-static void ui_layout_init(void){
+static void ui_layout_init(board_sal_t* board){
   static lv_obj_t *parent_docker = NULL;
 
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
@@ -600,8 +609,6 @@ static void ui_layout_init(void){
   lv_label_set_long_mode(config_page.lb_cfg_timeout.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
 
-
-
   //////////////////////////////////////miner page layout///////////////////////////////////////////////
   //Hashrate value
   font_color = lv_color_hex(0xEE7D30);
@@ -634,7 +641,7 @@ static void ui_layout_init(void){
   font_color = lv_color_hex(0xFFFFFF);
   miner_page.lb_ver.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_ver.obj, SCREEN_WIDTH);
-  // lv_label_set_text( miner_page.lb_ver.obj, board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
+  lv_label_set_text( miner_page.lb_ver.obj, board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
   lv_obj_set_style_text_font(miner_page.lb_ver.obj, miner_page.lb_ver.font, LV_PART_MAIN);
   lv_label_set_long_mode(miner_page.lb_ver.obj, LV_LABEL_LONG_DOT);
   lv_obj_set_style_text_color(miner_page.lb_ver.obj, font_color, LV_PART_MAIN); 
@@ -786,6 +793,47 @@ static void ui_layout_init(void){
   lv_obj_set_style_text_color(miner_page.lb_fan_symb.obj, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(miner_page.lb_fan_symb.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( miner_page.lb_fan_symb.obj, LV_ALIGN_TOP_MID, miner_page.lb_fan_symb.coord.x, miner_page.lb_fan_symb.coord.y);
+
+  // only for NMQAxe++ board
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    // swarm best diff
+    font_color = lv_color_hex(0xEE7D30);
+    miner_page.lb_swarm_best_diff.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+    lv_obj_set_width(miner_page.lb_swarm_best_diff.obj, SCREEN_WIDTH);
+    lv_label_set_text( miner_page.lb_swarm_best_diff.obj, " ");
+    lv_obj_set_style_text_font(miner_page.lb_swarm_best_diff.obj, miner_page.lb_swarm_best_diff.font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(miner_page.lb_swarm_best_diff.obj, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(miner_page.lb_swarm_best_diff.obj, LV_LABEL_LONG_DOT);
+    lv_obj_align( miner_page.lb_swarm_best_diff.obj, LV_ALIGN_TOP_MID, miner_page.lb_swarm_best_diff.coord.x, miner_page.lb_swarm_best_diff.coord.y);
+    // swarm workers
+    font_color = lv_color_hex(0xEE7D30);
+    miner_page.lb_swarm_workers.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+    lv_obj_set_width(miner_page.lb_swarm_workers.obj, SCREEN_WIDTH);
+    lv_label_set_text( miner_page.lb_swarm_workers.obj, " ");
+    lv_obj_set_style_text_font(miner_page.lb_swarm_workers.obj, miner_page.lb_swarm_workers.font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(miner_page.lb_swarm_workers.obj, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(miner_page.lb_swarm_workers.obj, LV_LABEL_LONG_DOT);
+    lv_obj_align( miner_page.lb_swarm_workers.obj, LV_ALIGN_TOP_MID, miner_page.lb_swarm_workers.coord.x, miner_page.lb_swarm_workers.coord.y);
+    // swarm total hashrate
+    font_color = lv_color_hex(0xEE7D30);
+    miner_page.lb_swarm_total_hashrate.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+    lv_obj_set_width(miner_page.lb_swarm_total_hashrate.obj, SCREEN_WIDTH);
+    lv_label_set_text( miner_page.lb_swarm_total_hashrate.obj, " ");
+    lv_obj_set_style_text_font(miner_page.lb_swarm_total_hashrate.obj, miner_page.lb_swarm_total_hashrate.font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(miner_page.lb_swarm_total_hashrate.obj, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(miner_page.lb_swarm_total_hashrate.obj, LV_LABEL_LONG_DOT);
+    lv_obj_align( miner_page.lb_swarm_total_hashrate.obj, LV_ALIGN_TOP_MID, miner_page.lb_swarm_total_hashrate.coord.x, miner_page.lb_swarm_total_hashrate.coord.y);
+
+    // utc time label
+    font_color = lv_color_hex(0xFFFFFF);
+    miner_page.lb_utc_time.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+    lv_obj_set_width(miner_page.lb_utc_time.obj, SCREEN_WIDTH);
+    lv_label_set_text( miner_page.lb_utc_time.obj, " ");
+    lv_obj_set_style_text_font(miner_page.lb_utc_time.obj, miner_page.lb_utc_time.font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(miner_page.lb_utc_time.obj, font_color, LV_PART_MAIN); 
+    lv_label_set_long_mode(miner_page.lb_utc_time.obj, LV_LABEL_LONG_DOT);
+    lv_obj_align( miner_page.lb_utc_time.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_utc_time.coord.x, miner_page.lb_utc_time.coord.y);
+  }
 }
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
@@ -957,6 +1005,25 @@ static void ui_miner_page_update(board_sal_t* board){
   }
   //power
   lv_label_set_text_fmt(miner_page.lb_power.obj,  "%sV/%sW", voltage.c_str(), power.c_str()); 
+
+
+  // only for NMQ AXE ++
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    if(miner_page.lb_swarm_best_diff.obj != NULL){
+      lv_label_set_text_fmt(miner_page.lb_swarm_best_diff.obj, "%s", formatNumber(board->status.swarm.best_diff, 4).c_str());
+    }
+    if(miner_page.lb_swarm_workers.obj != NULL){
+      lv_label_set_text_fmt(miner_page.lb_swarm_workers.obj, "%d", board->status.swarm.total_workers);
+    }
+    if(miner_page.lb_swarm_total_hashrate.obj != NULL){
+      lv_label_set_text_fmt(miner_page.lb_swarm_total_hashrate.obj, "%sH/s", formatNumber(board->status.swarm.total_hr, 2).c_str());
+    }
+    if(miner_page.lb_utc_time.obj != NULL){
+      String utc_time = "";
+      utc_time = convert_time_to_local_12h(board->status.time.utc).substring(11, 11 + 5);
+      lv_label_set_text_fmt(miner_page.lb_utc_time.obj, "%s", utc_time.c_str());
+    }
+  }
 }
 
 static void ui_ota_page_update(board_sal_t* board){
@@ -1638,7 +1705,7 @@ void ui_thread_entry(void *args){
   ui_page_element_init(&g_board);
 
   //ui layout init
-  ui_layout_init();
+  ui_layout_init(&g_board);
 
   //set the first page to loading page
   lv_obj_scroll_to_view(ui_pages[UI_PAGE_LOADING], LV_ANIM_ON); 

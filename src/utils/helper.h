@@ -43,6 +43,15 @@ double le_hash_to_diff(uint8_t *hash);
 
 int compareVersions(const String& current, const String& release);
 
+float parseHashRateStr(const String& hashRateStr);
+
+float parseDiffStr(const String& diffStr);
+
+String convert_time_to_local_12h(uint32_t timestamp, String date_format = "YYYY/MM/DD");
+
+String convert_time_to_local_24h(uint32_t timestamp, String date_format = "YYYY/MM/DD");
+
+
 template <typename T>
 struct PsramAllocator {
     using value_type = T;

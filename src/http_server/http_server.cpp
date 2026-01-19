@@ -571,7 +571,7 @@ void get_swarm_info_handler(AsyncWebServerRequest* request){
     DynamicJsonDocument root(json_size_max);
 
     JsonArray devicesArray = root.createNestedArray("devices");
-    for (auto it = g_board.status.swarm.begin(); it != g_board.status.swarm.end(); it++) {
+    for (auto it = g_board.status.swarm.map.begin(); it != g_board.status.swarm.map.end(); it++) {
         String ip        = it->first;
         String swarm_str = it->second;
 

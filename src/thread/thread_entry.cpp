@@ -354,12 +354,12 @@ void swarm_thread_entry(void *args){
           //update swarm list if has this ip
           static std::map<String, uint32_t> last_seen_map;
           if(jsonDoc.containsKey("ip")){
-            board->status.swarm[jsonDoc["ip"].as<String>()] = String(jsonbuf);
+            board->status.swarm.map[jsonDoc["ip"].as<String>()] = String(jsonbuf);
             last_seen_map[jsonDoc["ip"].as<String>()] = jsonDoc["Lastseen"];
           }
 
           //update json string
-          for(auto it = board->status.swarm.begin(); it != board->status.swarm.end();it++){
+          for(auto it = board->status.swarm.map.begin(); it != board->status.swarm.map.end();it++){
             //self status not in last seen map
             if(last_seen_map.find(it->first) == last_seen_map.end()) continue;
 
@@ -368,7 +368,7 @@ void swarm_thread_entry(void *args){
             jsonDoc["Lastseen"] = millis() - last_seen_map[it->first];
             //remove offline device
             if(jsonDoc["Lastseen"].as<uint32_t>() > SWARM_OFFLINE_TIMEOUT){
-              board->status.swarm.erase(it->first);
+              board->status.swarm.map.erase(it->first);
               continue;
             }
 
@@ -420,7 +420,34 @@ void swarm_thread_entry(void *args){
       }
 
       //add self to swarm list
-      board->status.swarm[board->info.connection.wifi.status_param.ip.toString()] = String(jsonbuf);
+      board->status.swarm.map[board->info.connection.wifi.status_param.ip.toString()] = String(jsonbuf);
+    }
+
+    // parse swarm list and update best diff and total hashrate
+    if(swarm_cnt % 40 == 0){
+        board->status.swarm.map[board->info.connection.wifi.status_param.ip.toString()] = String(jsonbuf);
+        //calculate total hash rate and best diff of swarm list
+        board->status.swarm.total_workers = board->status.swarm.map.size();
+        board->status.swarm.total_hr = 0;
+        board->status.swarm.best_diff = 0;
+        for(auto it = board->status.swarm.map.begin(); it != board->status.swarm.map.end();it++){
+            jsonDoc.clear();
+            if(deserializeJson(jsonDoc, it->second)) continue;
+            if(jsonDoc.containsKey("HashRate")){
+                board->status.swarm.total_hr += parseHashRateStr(jsonDoc["HashRate"].as<String>());
+            }
+            if(jsonDoc.containsKey("BestDiff")){
+                int newlineIndex = jsonDoc["BestDiff"].as<String>().indexOf('\r');
+                String best_diff_str = "";
+                if (newlineIndex != -1) {
+                    best_diff_str = jsonDoc["BestDiff"].as<String>().substring(0, newlineIndex);
+                    best_diff_str.trim();
+                }else continue;
+            
+                float best_diff = parseDiffStr(best_diff_str);
+                board->status.swarm.best_diff = (board->status.swarm.best_diff < best_diff) ? best_diff : board->status.swarm.best_diff;
+            }
+        }
     }
   }
 }

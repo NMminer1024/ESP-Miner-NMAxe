@@ -328,3 +328,141 @@ int compareVersions(const String& current, const String& release) {
 
     return 0;
 }
+
+
+
+float parseHashRateStr(const String& hashRateStr) {
+    float hashRate = 0.0;
+    int len = hashRateStr.length();
+
+    int unitPos = hashRateStr.indexOf("H/s");
+    if (unitPos == -1) {
+        return hashRate; 
+    }
+
+
+    String valueStr = ""; 
+    String unitStr = ""; 
+    if(isDigit(hashRateStr.substring(unitPos-1, unitPos).c_str()[0])){
+        valueStr = hashRateStr.substring(0, unitPos);
+        valueStr.trim(); 
+
+        unitStr = hashRateStr.substring(unitPos, len);
+        unitStr.trim();
+    }else{
+        valueStr = hashRateStr.substring(0, unitPos - 1);
+        valueStr.trim(); 
+        unitStr = hashRateStr.substring(unitPos-1, len);
+        unitStr.trim(); 
+    }
+
+    float value = valueStr.toFloat();
+
+    if (unitStr == "TH/s" || unitStr == "tH/s" || unitStr == "th/s" || unitStr == "Th/s") {
+        hashRate = value * 1e12;
+    }else if (unitStr == "GH/s" || unitStr == "gH/s" || unitStr == "gh/s" || unitStr == "Gh/s") {
+        hashRate = value * 1e9;
+    } else if (unitStr == "MH/s" || unitStr == "mH/s" || unitStr == "mh/s" || unitStr == "Mh/s") {
+        hashRate = value * 1e6;
+    } else if (unitStr == "KH/s" || unitStr == "kH/s" || unitStr == "Kh/s" || unitStr == "kh/s") {
+        hashRate = value * 1e3;
+    } else if (unitStr == "H/s" || unitStr == "h/s") {
+        hashRate = value;
+    } else{
+        return 0.0; 
+    }
+
+    return hashRate;
+}
+
+float parseDiffStr(const String& diffStr) {
+    float diff = 0.0;
+    int len = diffStr.length();
+
+    // 查找单位的位置
+    String unitStr = String(diffStr.charAt(len-1)); // 单位部分
+    if(isdigit(unitStr.c_str()[0])){ // 如果最后一个字符是数字，则没有单位部分
+        diff = diffStr.toFloat(); // 直接转换为浮点数
+        return diff;
+    }
+
+    // 提取数值部分
+    String valueStr = diffStr.substring(0, len - 1); // 去除最后一个字符（单位）
+    valueStr.trim(); // 去除前后的空格
+
+    // 将数值部分转换为浮点数
+    diff = valueStr.toFloat();
+
+    if(unitStr == "K"){ // 单位为K，则乘以1000
+        diff *= 1e3;
+    }else if(unitStr == "M"){ // 单位为M，则乘以1000000
+        diff *= 1e6;
+    }else if(unitStr == "G"){ // 单位为G，则乘以1000000000
+        diff *= 1e9;
+    }else if(unitStr == "T"){ // 单位为T，则乘以1000000000000
+        diff *= 1e12;
+    }else if(unitStr == "P"){ // 单位为P，则乘以1000000000000000
+        diff *= 1e15;
+    }else {
+        return 0.0; // 无效的单位
+    }
+
+    return diff;
+}
+
+
+
+
+String convert_time_to_local_12h(uint32_t timestamp, String date_format) {
+    time_t localTime = timestamp;
+
+    struct tm *timeinfo = localtime(&localTime);
+    char timeString[30] = {0,};
+    if(date_format == "MM-DD-YYYY")
+        strftime(timeString, sizeof(timeString), "%m-%d-%Y %I:%M %p", timeinfo);
+    else if(date_format == "YYYY-MM-DD")
+        strftime(timeString, sizeof(timeString), "%Y-%m-%d %I:%M %p", timeinfo);
+    else if(date_format == "YYYY-DD-MM")
+        strftime(timeString, sizeof(timeString), "%Y-%d-%m %I:%M %p", timeinfo);
+    else if(date_format == "DD-MM-YYYY")
+        strftime(timeString, sizeof(timeString), "%d-%m-%Y %I:%M %p", timeinfo);
+    else if(date_format == "DD/MM/YYYY")
+        strftime(timeString, sizeof(timeString), "%d/%m/%Y %I:%M %p", timeinfo);
+    else if(date_format == "MM/DD/YYYY")
+        strftime(timeString, sizeof(timeString), "%m/%d/%Y %I:%M %p", timeinfo);
+    else if(date_format == "YYYY/MM/DD")
+        strftime(timeString, sizeof(timeString), "%Y/%m/%d %I:%M %p", timeinfo);
+    else if(date_format == "YYYY/DD/MM")
+        strftime(timeString, sizeof(timeString), "%Y/%d/%m %I:%M %p", timeinfo);
+    else // default DD-MM-YYYY
+        strftime(timeString, sizeof(timeString), "%d-%m-%Y %I:%M %p", timeinfo);
+
+    return String(timeString);
+}
+
+String convert_time_to_local_24h(uint32_t timestamp, String date_format) {
+    time_t localTime = timestamp;
+
+    struct tm *timeinfo = localtime(&localTime);
+    char timeString[30] = {0,};
+    if(date_format == "MM-DD-YYYY")
+        strftime(timeString, sizeof(timeString), "%m-%d-%Y %H:%M:", timeinfo);
+    else if(date_format == "YYYY-MM-DD")
+        strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M", timeinfo);
+    else if(date_format == "YYYY-DD-MM")
+        strftime(timeString, sizeof(timeString), "%Y-%d-%m %H:%M", timeinfo);
+    else if(date_format == "DD-MM-YYYY")
+        strftime(timeString, sizeof(timeString), "%d-%m-%Y %H:%M", timeinfo);
+    else if(date_format == "DD/MM/YYYY")
+        strftime(timeString, sizeof(timeString), "%d/%m/%Y %H:%M", timeinfo);
+    else if(date_format == "MM/DD/YYYY")
+        strftime(timeString, sizeof(timeString), "%m/%d/%Y %H:%M", timeinfo);
+    else if(date_format == "YYYY/MM/DD")
+        strftime(timeString, sizeof(timeString), "%Y/%m/%d %H:%M", timeinfo);
+    else if(date_format == "YYYY/DD/MM")
+        strftime(timeString, sizeof(timeString), "%Y/%d/%m %H:%M", timeinfo);
+    else // default DD-MM-YYYY
+        strftime(timeString, sizeof(timeString), "%d-%m-%Y %H:%M", timeinfo);
+        
+    return String(timeString);
+}

@@ -180,9 +180,15 @@ typedef struct{
         uint8_t             last_page;        //last ui page index, restored on next boot
         SemaphoreHandle_t   page_save_xsem;   // save current page index
     }ui;
-    
+
+    struct{
+        std::map<miner_ip_t, miner_info_t> map;           // swarm miners info map
+        uint16_t                           total_workers; // total workers in swarm
+        float                              total_hr;      // total hash rate in swarm
+        float                              best_diff;     // best diff in swarm
+    }swarm;
+
     std::vector<fan_status_t>          fans;            // support multiple fans
-    std::map<miner_ip_t, miner_info_t> swarm;           // swarm miners info map
     SemaphoreHandle_t                  reboot_xsem;     // reboot signal
     SemaphoreHandle_t                  nvs_save_xsem;   // save status to NVS signal
     SemaphoreHandle_t                  brightness_update_xsem; // screen brightness update signal
