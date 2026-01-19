@@ -73,6 +73,8 @@ struct{
   lv_obj_t      *container;
   lv_obj_t      *back_img_obj;
   lv_img_dsc_t  *back_img_dsc;
+  ui_element_t  lb_hr;
+  ui_element_t  lb_hr_unit;
 }dashboard_page;
 
 // hashrate health page elements
@@ -80,6 +82,8 @@ struct{
   lv_obj_t      *container;
   lv_obj_t      *back_img_obj;
   lv_img_dsc_t  *back_img_dsc;
+  ui_element_t  lb_hr;
+  ui_element_t  lb_hr_unit;
 }hr_health_page;
 
 // big digit page elements
@@ -347,6 +351,19 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_diff_symbol.coord     = {108, 26};
     miner_page.lb_share_symb.font       = &symbol_14;
     miner_page.lb_share_symb.coord      = {108, 42};
+    /*********************************** dashboard page *********************************/
+    dashboard_page.lb_hr.font           = &ds_digib_font_36;
+    dashboard_page.lb_hr.coord          = {75, -4};
+
+    dashboard_page.lb_hr_unit.font      = &ds_digib_font_20;
+    dashboard_page.lb_hr_unit.coord     = {138, 8};
+    /******************************** hashrate healthy page *****************************/
+    hr_health_page.lb_hr.font           = &ds_digib_font_36;
+    hr_health_page.lb_hr.coord          = {75, -4};
+
+    hr_health_page.lb_hr_unit.font      = &ds_digib_font_20;
+    hr_health_page.lb_hr_unit.coord     = {138, 8};
+
   }
   else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     loading_page.back_img_dsc           = &loading_page_img_240_320;
@@ -443,6 +460,18 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_swarm_workers.coord       = {145, 210};
     miner_page.lb_swarm_total_hashrate.font = &ds_digib_font_24;
     miner_page.lb_swarm_total_hashrate.coord= {237, 210}; 
+    /*********************************** dashboard page *********************************/
+    dashboard_page.lb_hr.font          = &ds_digib_font_56;
+    dashboard_page.lb_hr.coord         = {55 + 40, -4};
+
+    dashboard_page.lb_hr_unit.font      = &ds_digib_font_20;
+    dashboard_page.lb_hr_unit.coord     = {100 + 95, 23};
+    /******************************** hashrate healthy page *****************************/
+    dashboard_page.lb_hr.font          = &ds_digib_font_56;
+    dashboard_page.lb_hr.coord         = {55 + 40, -4};
+
+    dashboard_page.lb_hr_unit.font      = &ds_digib_font_20;
+    dashboard_page.lb_hr_unit.coord     = {100 + 95, 23};
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
@@ -560,6 +589,7 @@ static void ui_layout_init(board_sal_t* board){
   //details label
   loading_page.lb_details.obj = lv_label_create(loading_page.container);
   lv_obj_set_width(loading_page.lb_details.obj, SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 7.2));
+  lv_label_set_text(loading_page.lb_details.obj, "Initializing...");
   lv_obj_set_style_text_font(loading_page.lb_details.obj, loading_page.lb_details.font, LV_PART_MAIN);
   lv_label_set_long_mode(loading_page.lb_details.obj, LV_LABEL_LONG_DOT);
   lv_obj_align(loading_page.lb_details.obj, LV_ALIGN_BOTTOM_LEFT, loading_page.lb_details.coord.x, loading_page.lb_details.coord.y);
@@ -834,6 +864,45 @@ static void ui_layout_init(board_sal_t* board){
     lv_label_set_long_mode(miner_page.lb_utc_time.obj, LV_LABEL_LONG_DOT);
     lv_obj_align( miner_page.lb_utc_time.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_utc_time.coord.x, miner_page.lb_utc_time.coord.y);
   }
+
+  //////////////////////////////////////dashboard page layout///////////////////////////////////////////////
+  // Hashrate label
+  font_color = lv_color_hex(0x000000);
+  dashboard_page.lb_hr.obj   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
+  lv_obj_set_width(dashboard_page.lb_hr.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( dashboard_page.lb_hr.obj, " ");
+  lv_obj_set_style_text_font(dashboard_page.lb_hr.obj, dashboard_page.lb_hr.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(dashboard_page.lb_hr.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(dashboard_page.lb_hr.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( dashboard_page.lb_hr.obj, LV_ALIGN_TOP_MID, dashboard_page.lb_hr.coord.x, dashboard_page.lb_hr.coord.y);
+  // hashrate unit label
+  font_color = lv_color_hex(0x808080);
+  dashboard_page.lb_hr_unit.obj   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
+  lv_obj_set_width(dashboard_page.lb_hr_unit.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( dashboard_page.lb_hr_unit.obj, " ");
+  lv_obj_set_style_text_font(dashboard_page.lb_hr_unit.obj, dashboard_page.lb_hr_unit.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(dashboard_page.lb_hr_unit.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(dashboard_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( dashboard_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, dashboard_page.lb_hr_unit.coord.x, dashboard_page.lb_hr_unit.coord.y);
+  //////////////////////////////////////hashrate healthy page layout///////////////////////////////////////////////
+  // Hashrate label
+  font_color = lv_color_hex(0x000000);
+  hr_health_page.lb_hr.obj   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
+  lv_obj_set_width(hr_health_page.lb_hr.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( hr_health_page.lb_hr.obj, " ");
+  lv_obj_set_style_text_font(hr_health_page.lb_hr.obj, hr_health_page.lb_hr.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(hr_health_page.lb_hr.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(hr_health_page.lb_hr.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( hr_health_page.lb_hr.obj, LV_ALIGN_TOP_MID, hr_health_page.lb_hr.coord.x, hr_health_page.lb_hr.coord.y);
+  // hashrate unit label
+  font_color = lv_color_hex(0x808080);
+  hr_health_page.lb_hr_unit.obj   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
+  lv_obj_set_width(hr_health_page.lb_hr_unit.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( hr_health_page.lb_hr_unit.obj, " ");
+  lv_obj_set_style_text_font(hr_health_page.lb_hr_unit.obj, hr_health_page.lb_hr_unit.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(hr_health_page.lb_hr_unit.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(hr_health_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( hr_health_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, hr_health_page.lb_hr_unit.coord.x, hr_health_page.lb_hr_unit.coord.y);
 }
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
@@ -1163,7 +1232,6 @@ static void ui_dashboard_page_update(board_sal_t* board){
   }
 
   static lv_obj_t * arc_power = NULL, *arc_oc = NULL, *arc_vcore_req = NULL, *arc_vcore_measure = NULL, *arc_asci_temp = NULL;
-  static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
   static lv_obj_t * lb_pwr = NULL, * lb_overclock = NULL, * lb_vcore_req = NULL, * lb_vcore_measure = NULL, *lb_asic_temp = NULL;
   static lv_obj_t * lb_pwr_title = NULL, * lb_oc_title = NULL, * lb_vcore_req_title = NULL, * lb_vcore_measure_title = NULL, *lb_asic_temp_title = NULL;
 
@@ -1173,29 +1241,6 @@ static void ui_dashboard_page_update(board_sal_t* board){
   uint8_t arc_r = 30, arc_line_width = 8;
   uint16_t arc_angle_full = 230;
   if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (arc_power == NULL)) {
-    // Hashrate label
-    font = &ds_digib_font_36;
-    font_color = lv_color_hex(0x000000);
-    lb_ds_hr   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
-    lv_obj_set_width(lb_ds_hr, 80);
-    lv_label_set_text( lb_ds_hr, " ");
-    lv_obj_set_style_text_font(lb_ds_hr, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_ds_hr, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_ds_hr, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_ds_hr, LV_ALIGN_TOP_MID, 55, -4);
-    //Hashrate uint
-    font = &ds_digib_font_20;
-    font_color = lv_color_hex(0x808080);
-    lb_ds_hr_unit   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
-    lv_obj_set_width(lb_ds_hr_unit, 50);
-    lv_label_set_text( lb_ds_hr_unit, " ");
-    lv_obj_set_style_text_font(lb_ds_hr_unit, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_ds_hr_unit, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_ds_hr_unit, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_ds_hr_unit, LV_ALIGN_TOP_MID, 100, 8); 
-
-
-
     // Create overclock arc
     arc_oc = lv_arc_create(ui_pages[UI_PAGE_DASHBOARD]);
     lv_obj_set_size(arc_oc, 2*arc_r, 2*arc_r);
@@ -1388,9 +1433,9 @@ static void ui_dashboard_page_update(board_sal_t* board){
   lv_arc_set_angles(arc_asci_temp, 0, asic_temp_angle);
 
   //hashrate
-  lv_label_set_text_fmt(lb_ds_hr, "%s", hr_value.substring(0, hr_value.length() - 1).c_str());
+  lv_label_set_text_fmt(dashboard_page.lb_hr.obj, "%s", hr_value.substring(0, hr_value.length() - 1).c_str());
   //hashrate unit
-  lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
+  lv_label_set_text_fmt(dashboard_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
   //power 
   lv_label_set_text_fmt(lb_pwr, "%sw", power.c_str());
   //vbus
@@ -1411,7 +1456,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
-  static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
+  // static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
   static lv_chart_series_t *series;
   static bool first_time = true;
 
@@ -1421,29 +1466,29 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
 
   if(first_time){
     first_time = false;
-    // Hashrate label
-    const lv_font_t *  font = &ds_digib_font_36;
-    lv_color_t font_color = lv_color_hex(0x000000);
-    lb_ds_hr   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
-    lv_obj_set_width(lb_ds_hr, 80);
-    lv_label_set_text( lb_ds_hr, " ");
-    lv_obj_set_style_text_font(lb_ds_hr, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_ds_hr, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_ds_hr, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_ds_hr, LV_ALIGN_TOP_MID, 55, -4);
-    //Hashrate uint
-    font = &ds_digib_font_20;
-    font_color = lv_color_hex(0x808080);
-    lb_ds_hr_unit   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
-    lv_obj_set_width(lb_ds_hr_unit, 50);
-    lv_label_set_text( lb_ds_hr_unit, " ");
-    lv_obj_set_style_text_font(lb_ds_hr_unit, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_ds_hr_unit, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_ds_hr_unit, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_ds_hr_unit, LV_ALIGN_TOP_MID, 100, 8); 
+    // // Hashrate label
+    // const lv_font_t *  font = &ds_digib_font_36;
+    // lv_color_t font_color = lv_color_hex(0x000000);
+    // lb_ds_hr   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
+    // lv_obj_set_width(lb_ds_hr, 80);
+    // lv_label_set_text( lb_ds_hr, " ");
+    // lv_obj_set_style_text_font(lb_ds_hr, font, LV_PART_MAIN);
+    // lv_obj_set_style_text_color(lb_ds_hr, font_color, LV_PART_MAIN); 
+    // lv_label_set_long_mode(lb_ds_hr, LV_LABEL_LONG_DOT);
+    // lv_obj_align( lb_ds_hr, LV_ALIGN_TOP_MID, 55, -4);
+    // //Hashrate uint
+    // font = &ds_digib_font_20;
+    // font_color = lv_color_hex(0x808080);
+    // lb_ds_hr_unit   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
+    // lv_obj_set_width(lb_ds_hr_unit, 50);
+    // lv_label_set_text( lb_ds_hr_unit, " ");
+    // lv_obj_set_style_text_font(lb_ds_hr_unit, font, LV_PART_MAIN);
+    // lv_obj_set_style_text_color(lb_ds_hr_unit, font_color, LV_PART_MAIN); 
+    // lv_label_set_long_mode(lb_ds_hr_unit, LV_LABEL_LONG_DOT);
+    // lv_obj_align( lb_ds_hr_unit, LV_ALIGN_TOP_MID, 100, 8); 
     //scale
-    font_color = lv_color_hex(0xFFA500);
-    font = &lv_font_montserrat_12;
+    lv_color_t font_color = lv_color_hex(0xFFA500);
+    const lv_font_t *font = &lv_font_montserrat_12;
     label_scale = lv_label_create(ui_pages[UI_PAGE_HR_HEALTH]);
     lv_label_set_text(label_scale, ("Scale     : " + String(SCALE) + " GH/s").c_str());
     lv_obj_set_style_text_font(label_scale, font, LV_PART_MAIN);
@@ -1511,9 +1556,9 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   String hr = formatNumber(last_hashrate, 3);
   String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
-  lv_label_set_text_fmt(lb_ds_hr, "%s", hr.substring(0, hr.length() - 1).c_str());
+  lv_label_set_text_fmt(hr_health_page.lb_hr.obj, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
-  lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
+  lv_label_set_text_fmt(hr_health_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
   //time cost
   lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(board->info.spec.ui.hashrate_dist_page.dura) + "s").c_str());
 }
