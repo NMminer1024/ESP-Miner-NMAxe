@@ -275,7 +275,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.power.vbus.min        = 0.0f;
             config.ui.dashboard_page.power.vbus.max        = 15.0f;
             config.ui.dashboard_page.power.ibus.min        = 0.0f;
-            config.ui.dashboard_page.power.ibus.max        = 8.0f;
+            config.ui.dashboard_page.power.ibus.max        = 11.0f;
             config.ui.dashboard_page.power.power.min       = 0.0f;
             config.ui.dashboard_page.power.power.max       = 130.0f;
             config.ui.dashboard_page.heat.mcu.min          = 0.0f;
@@ -283,7 +283,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.heat.asic.min         = 0.0f;
             config.ui.dashboard_page.heat.asic.max         = 80.0f;
             config.ui.dashboard_page.heat.vcore.min        = 0.0f;
-            config.ui.dashboard_page.heat.vcore.max        = 140.0f;
+            config.ui.dashboard_page.heat.vcore.max        = 130.0f;
             config.ui.dashboard_page.heat.fan.min          = 0.0f;
             config.ui.dashboard_page.heat.fan.max          = 4000.0f;
             config.ui.dashboard_page.performance.asic_freq_req.min    = 400.0f;
