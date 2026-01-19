@@ -4,11 +4,13 @@
 #include "global.h"
 #include "helper.h" 
 #include "image.h"
+#include <Adafruit_FT6206.h>
 
 /******************************************************************* global state variables ******************************************************************/
 static uint16_t SCREEN_WIDTH  = 0;
 static uint16_t SCREEN_HEIGHT = 0;
 static TFT_eSPI *tftDriver = nullptr;
+static Adafruit_FT6206 touch = Adafruit_FT6206();
 
 static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
