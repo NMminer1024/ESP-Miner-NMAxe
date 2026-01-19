@@ -25,6 +25,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.spec.iic                            = config.iic;
     board->info.spec.create_asic_instance           = config.create_asic_instance;
     board->info.spec.create_power_instance          = config.create_power_instance;
+    board->info.spec.preference                     = config.preference;
     /*************************************************** Same parameters among different board ***************************************/
     String stratum_pri                              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
@@ -57,12 +58,12 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     board->info.base.hostname                       = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, board->info.connection.wifi.softap_param.ssid.c_str()));
     board->info.connection.stratum_update           = millis();
-    board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, true);
-    board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "45.0")).toFloat();
-    board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, board->info.spec.tft.flip_default);
-    board->info.preference.screen.auto_rolling      = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, false);
-    board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, 100);
-    board->info.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, true);
+    board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, board->info.spec.preference.fan.is_auto_speed);
+    board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, String(board->info.spec.preference.asic.target_temp).c_str())).toFloat();
+    board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, board->info.spec.preference.screen.flip);
+    board->info.preference.screen.auto_rolling      = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, board->info.spec.preference.screen.auto_rolling);
+    board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness);
+    board->info.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, board->info.spec.preference.led.enable);
     board->info.preference.led.sleep                = false;
     board->info.preference.led.sleep_last           = board->info.preference.led.sleep;
     board->info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC"));

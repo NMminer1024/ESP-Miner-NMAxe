@@ -975,10 +975,11 @@ void miner_asic_rx_thread_entry(void *args){
                         formatNumber(board->status.miner.diff.network, 5).c_str());
                     LOG_L("+---Free heap-----Efficiency---+");
                     LOG_L("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(board->status.miner.efficiency, 4).c_str());
-                    LOG_L(" ============================== ");
+
 
                     // per asic hashrate display if more than 1 asic on board
                     if(board->miner->get_asic_count() > 1){
+                        LOG_L("+-------ASIC Healthy-------+");
                         uint64_t total = 0;
                         for(auto &pair : asic_id_map)  total += pair.second;
                         for(auto &pair : asic_id_map){
@@ -986,7 +987,7 @@ void miner_asic_rx_thread_entry(void *args){
                             LOG_L(" ASIC[%d] HashRate: %sH/s", pair.first, formatNumber(hr, 4).c_str());
                         }
                     }
-
+                    LOG_L(" ============================== ");
                     log_i("\r\n");
                     LOG_I(" ++++++++++ Real Time +++++++++");
                     LOG_I("| ASIC | Last | Pool | Network |");

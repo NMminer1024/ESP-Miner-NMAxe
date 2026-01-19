@@ -39,7 +39,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.temp_limit.low       = 50.0f;
             config.tft.width                 = 135;
             config.tft.height                = 240;
-            config.tft.flip_default          = true;
             config.tft.color_invert          = true;
             config.tft.dc_pin                = 47;
             config.tft.bl.pin                = 17;
@@ -103,6 +102,12 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_baud_init        = 115200;
             config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
+            config.preference.screen.brightness    = 100;
+            config.preference.screen.auto_rolling  = false;
+            config.preference.screen.flip          = true;
+            config.preference.fan.is_auto_speed    = true;
+            config.preference.led.enable           = true;
+            config.preference.asic.target_temp     = 45;
             config.create_asic_instance      = create_axe_asic_instance;
             config.create_power_instance     = create_axe_power_instance;
 
@@ -135,7 +140,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.job_interval_ms      = 500;
             config.tft.width                 = 135;
             config.tft.height                = 240;
-            config.tft.flip_default          = true;
             config.tft.dc_pin                = 47;
             config.tft.bl.pin                = 17;
             config.tft.bl.pwm_ch             = 0;
@@ -198,6 +202,12 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_baud_init        = 115200;
             config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
+            config.preference.screen.brightness    = 100;
+            config.preference.screen.auto_rolling  = false;
+            config.preference.screen.flip          = true;
+            config.preference.fan.is_auto_speed    = true;
+            config.preference.led.enable           = true;
+            config.preference.asic.target_temp     = 45;
             config.create_asic_instance      = create_gamma_asic_instance;
             config.create_power_instance     = create_gamma_power_instance;
 
@@ -230,7 +240,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.job_interval_ms      = 500;
             config.tft.width                 = 240;
             config.tft.height                = 320;
-            config.tft.flip_default          = false;
             config.tft.dc_pin                = 3;
             config.tft.bl.pin                = 6;
             config.tft.bl.pwm_ch             = 0;
@@ -293,6 +302,12 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_baud_init        = 115200;
             config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
+            config.preference.screen.brightness    = 100;
+            config.preference.screen.auto_rolling  = false;
+            config.preference.screen.flip          = false;
+            config.preference.fan.is_auto_speed    = true;
+            config.preference.led.enable           = true;
+            config.preference.asic.target_temp     = 30;
             config.create_asic_instance      = create_qaxepp_asic_instance;
             config.create_power_instance     = create_qaxepp_power_instance;
             

@@ -82,7 +82,6 @@ struct BoardSpecConfig {
         int8_t rst_pin;  // reset pin
         int8_t pwr_pin;  // power pin
         bool   color_invert; // true: invert color, false: normal
-        bool   flip_default; // true: flip display, false: normal
         struct {
             int8_t   pin;   // backlight pin
             int8_t   pwm_ch; // backlight pwm channel
@@ -151,6 +150,23 @@ struct BoardSpecConfig {
         int8_t             pool_pin; // pool status led
         int8_t             sys_pin;  // system status led
     }led;
+
+    struct{
+        struct{
+            bool    flip;           // true: flip display, false: normal
+            bool    auto_rolling;   // true: auto rolling screen, false: static screen
+            uint8_t brightness;    // 0-100 percentage
+        }screen;
+        struct{
+            uint8_t  target_temp;    // target asic temperature in celsius degree
+        }asic;
+        struct{
+            bool     is_auto_speed;   // true: automatic fan speed control, false: manual speed control
+        }fan;
+        struct{
+            uint8_t  enable;        // true: enable led indicator, false: disable led indicator
+        }led;
+    }preference;
 
     std::vector<fan_config_t> fans;  // support multiple fans
 
