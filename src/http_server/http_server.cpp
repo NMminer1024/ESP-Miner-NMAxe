@@ -144,9 +144,9 @@ void get_system_info(AsyncWebServerRequest* request){
     fallbackObj["pwd"]            = g_board.info.connection.stratum_fallback.pwd;
 
     // adjust multiple fans status
-    root[HTTP_API_SYS_JSON_KEY_FAN_CNT]    = g_board.info.spec.fans.size();
+    root[HTTP_API_SYS_JSON_KEY_FAN_CNT]    = g_board.status.fan.count;
     JsonArray fansArray = root.createNestedArray("fans");
-    for(auto & fan : g_board.status.fans){
+    for(auto & fan : g_board.status.fan.list){
         JsonObject fanObj = fansArray.createNestedObject();
         fanObj["id"]    = fan.id;        
         fanObj["speed"] = fan.speed;  
@@ -828,7 +828,7 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
         }
         if(root.containsKey("fanspeed")){
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
-            g_board.status.fans[0].speed = root["fanspeed"].as<uint16_t>();
+            g_board.status.fan.list[0].speed = root["fanspeed"].as<uint16_t>();
         }
         if(root.containsKey("blockhits")){
             nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());

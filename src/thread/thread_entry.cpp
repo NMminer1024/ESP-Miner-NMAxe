@@ -33,12 +33,12 @@ void power_thread_entry(void *args){
 
     while (true){
         bool all_fan_ok = true;
-        for(auto &fan : board->status.fans){
+        for(auto &fan : board->status.fan.list){
             all_fan_ok = all_fan_ok && fan.self_test;
             LOG_W("Waiting for fan%d self test %d/%d rpm...", fan.id, fan.rpm, board->info.spec.fans[fan.id].init.self_test_rpm_thr);
             delay(1000);
         }
-        if(all_fan_ok && (board->info.spec.fans.size() > 0)) break;
+        if(all_fan_ok && (board->status.fan.count > 0)) break;
         delay(10);
     }
 
@@ -590,7 +590,7 @@ void monitor_thread_entry(void *args){
             //check fan status
             static uint16_t fan_err_cnt = 0;
             if(board->status.temp.asic > board->info.spec.asic.temp_limit.low){
-                for(auto &fan : board->status.fans){
+                for(auto &fan : board->status.fan.list){
                     if(fan.rpm < board->info.spec.fans[fan.id].init.danger_rpm_thr){
                         fan_err_cnt++;
                         if(fan_err_cnt > 20){//avoid some noise
@@ -662,8 +662,8 @@ void monitor_thread_entry(void *args){
             node.vbus         = String((board->status.power.vbus / 1000.0f),1); //V
             node.ibus         = String((board->status.power.ibus / 1000.0f),3); //A
             node.vcore        = board->status.power.vcore;//mV
-            node.fanspeed     = board->status.fans[0].speed; //%
-            node.fanrpm       = board->status.fans[0].rpm;
+            node.fanspeed     = board->status.fan.list[0].speed; //%
+            node.fanrpm       = board->status.fan.list[0].rpm;
             node.wifi_rssi    = board->info.connection.wifi.status_param.rssi;
             node.free_ram     = ESP.getFreeHeap() / 1024;  //free sram in Kbytes
             node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes
@@ -758,18 +758,18 @@ void fan_thread_entry(void *args){
     // fan self test
     while(true){
         bool all_fan_ok = true;
-        for(auto &fan : board->status.fans){
+        for(auto &fan : board->status.fan.list){
             measure_fan_rpm_for_duration(1.0, 5000, fan.rpm , fan_invert);
             fan.self_test = (fan.rpm > board->info.spec.fans[fan.id].init.self_test_rpm_thr) ? true : false;
             all_fan_ok = all_fan_ok && fan.self_test;
         }
-        if(all_fan_ok && (board->status.fans.size() > 0)) break;
+        if(all_fan_ok && (board->status.fan.list.size() > 0)) break;
         LOG_W("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
         delay(10);
     }
 
     while(true){
-        for(auto &fan : board->status.fans){
+        for(auto &fan : board->status.fan.list){
             delay(125);// 8Hz
             //update board temperature
             board->status.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : board->status.temp.mcu;

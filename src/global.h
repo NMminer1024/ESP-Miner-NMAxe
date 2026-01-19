@@ -165,13 +165,17 @@ typedef struct{
     }swarm;
 
     struct{
+        std::vector<fan_status_t>          list;   // support multiple fans
+        uint8_t                            count;  // number of fans      
+    }fan;
+
+    struct{
         fan_preference_info_t       fan;
         screen_preference_info_t    screen;
         led_preference_info_t       led;
         asic_preference_info_t      asic;
     }preference;
 
-    std::vector<fan_status_t>          fans;            // support multiple fans
     SemaphoreHandle_t                  reboot_xsem;     // reboot signal
     SemaphoreHandle_t                  nvs_save_xsem;   // save status to NVS signal
     SemaphoreHandle_t                  brightness_update_xsem; // screen brightness update signal

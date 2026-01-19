@@ -94,8 +94,10 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
         state.self_test = false;
         state.speed     = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
         state.rpm       = 0;
-        board->status.fans.push_back(state);
+        board->status.fan.list.push_back(state);
     }
+    board->status.fan.count = board->info.spec.fans.size();
+
 
     // create ASIC instance
     BMxxx* asic_instance                            = board->info.spec.create_asic_instance(*config.asic.com_port, config.asic.com_baud_init, config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin);
