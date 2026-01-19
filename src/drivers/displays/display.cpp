@@ -140,7 +140,7 @@ static void tft_init(){
                 );
                 
   if(g_board.info.preference.screen.flip)tftDriver->setRotation(1); 
-  else tftDriver->setRotation(3); 
+  else tftDriver->setRotation(g_board.info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME ? 4 : 3); // NMQAxe++ use rotation 4, NMaxE use rotation 3
 }
 
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){

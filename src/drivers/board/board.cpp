@@ -39,6 +39,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.temp_limit.low       = 50.0f;
             config.tft.width                 = 135;
             config.tft.height                = 240;
+            config.tft.flip_default          = true;
             config.tft.color_invert          = true;
             config.tft.dc_pin                = 47;
             config.tft.bl.pin                = 17;
@@ -134,6 +135,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.job_interval_ms      = 500;
             config.tft.width                 = 135;
             config.tft.height                = 240;
+            config.tft.flip_default          = true;
             config.tft.dc_pin                = 47;
             config.tft.bl.pin                = 17;
             config.tft.bl.pwm_ch             = 0;
@@ -228,6 +230,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.job_interval_ms      = 500;
             config.tft.width                 = 240;
             config.tft.height                = 320;
+            config.tft.flip_default          = false;
             config.tft.dc_pin                = 3;
             config.tft.bl.pin                = 6;
             config.tft.bl.pwm_ch             = 0;

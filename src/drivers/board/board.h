@@ -82,6 +82,7 @@ struct BoardSpecConfig {
         int8_t rst_pin;  // reset pin
         int8_t pwr_pin;  // power pin
         bool   color_invert; // true: invert color, false: normal
+        bool   flip_default; // true: flip display, false: normal
         struct {
             int8_t   pin;   // backlight pin
             int8_t   pwm_ch; // backlight pwm channel
