@@ -41,6 +41,28 @@ typedef enum {
 } BoardModelType;
 
 
+
+typedef struct{
+    bool        is_auto_speed;
+    float       target_temp;  //asic temp
+}fan_preference_info_t;
+
+typedef struct{
+    bool     flip;
+    bool     auto_rolling;// auto rolling screen
+    uint16_t brightness;
+}screen_preference_info_t;
+
+typedef struct{
+    bool   enable;
+    bool   sleep;
+    bool   sleep_last;
+}led_preference_info_t;
+
+typedef struct{
+    uint8_t   target_temp;    // target asic temperature in celsius degree
+}asic_preference_info_t;
+
 // board config struct
 struct BoardSpecConfig {
     String   name;
@@ -152,20 +174,10 @@ struct BoardSpecConfig {
     }led;
 
     struct{
-        struct{
-            bool    flip;           // true: flip display, false: normal
-            bool    auto_rolling;   // true: auto rolling screen, false: static screen
-            uint8_t brightness;    // 0-100 percentage
-        }screen;
-        struct{
-            uint8_t  target_temp;    // target asic temperature in celsius degree
-        }asic;
-        struct{
-            bool     is_auto_speed;   // true: automatic fan speed control, false: manual speed control
-        }fan;
-        struct{
-            uint8_t  enable;        // true: enable led indicator, false: disable led indicator
-        }led;
+        screen_preference_info_t screen;
+        asic_preference_info_t   asic;
+        fan_preference_info_t    fan;
+        led_preference_info_t    led;
     }preference;
 
     std::vector<fan_config_t> fans;  // support multiple fans

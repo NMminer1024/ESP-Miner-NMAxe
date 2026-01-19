@@ -139,7 +139,7 @@ static void tft_init(){
                   g_board.info.spec.tft.color_invert
                 );
                 
-  if(g_board.info.preference.screen.flip)tftDriver->setRotation(1); 
+  if(g_board.status.preference.screen.flip)tftDriver->setRotation(1); 
   else tftDriver->setRotation(g_board.info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME ? 4 : 3); // NMQAxe++ use rotation 4, NMaxE use rotation 3
 }
 
@@ -1642,8 +1642,8 @@ static void ui_big_digit_page_update(board_sal_t* board){
 }
 
 void ui_switch_next_page_cb(){
-  g_board.info.preference.led.sleep         = (g_board.info.preference.led.sleep_last) ? false : g_board.info.preference.led.sleep; //switch led sleep mode
-  // g_board.info.preference.screen.brightness = g_board.info.preference.screen.brightness_last;//restore brightness
+  g_board.status.preference.led.sleep         = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
+  // g_board.status.preference.screen.brightness = g_board.status.preference.screen.brightness_last;//restore brightness
   if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
     xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
     g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
@@ -1711,7 +1711,7 @@ void ui_thread_entry(void *args){
   lv_obj_scroll_to_view(ui_pages[UI_PAGE_LOADING], LV_ANIM_ON); 
 
   //backlight brightness ramp up
-  for(int i = 0; i < g_board.info.preference.screen.brightness; i++) {
+  for(int i = 0; i < g_board.status.preference.screen.brightness; i++) {
     tft_bl_ctrl(i);
     delay(10);
   }
@@ -1934,7 +1934,7 @@ void ui_thread_entry(void *args){
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
       // auto screen scrolling
       static uint32_t last = 0;
-      if((millis() - last >= 1000*10) && g_board.info.preference.screen.auto_rolling){
+      if((millis() - last >= 1000*10) && g_board.status.preference.screen.auto_rolling){
         ui_switch_next_page_cb();
         last = millis();
       }

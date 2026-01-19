@@ -111,7 +111,7 @@ void led_thread_entry(void *args){
         delay(10);
 
         if(board->info.spec.name == BOARD_NMAXE_NAME || board->info.spec.name == BOARD_NMAXE_GAMMA_NAME){
-            if(board->info.preference.led.sleep || !board->info.preference.led.enable) {
+            if(board->status.preference.led.sleep || !board->status.preference.led.enable) {
                 digitalWrite(board->info.spec.led.wifi_pin, HIGH); // off
                 digitalWrite(board->info.spec.led.pool_pin, HIGH); // off
                 ledcWrite(pwmChannel, 255); // off
@@ -648,7 +648,7 @@ void monitor_thread_entry(void *args){
 
         // update bringhtnes
         if(xSemaphoreTake(board->status.brightness_update_xsem, 0) == pdTRUE){
-            tft_bl_ctrl(board->info.preference.screen.brightness);
+            tft_bl_ctrl(board->status.preference.screen.brightness);
             LOG_D("Update screen brightness to %d", board->info.preference.screen.brightness);
         }
 
@@ -794,10 +794,10 @@ void fan_thread_entry(void *args){
             }
 
             // Adjust fan speed
-            if(board->info.preference.fan.is_auto_speed && fan.self_test){
+            if(board->status.preference.fan.is_auto_speed && fan.self_test){
                 static uint32_t pid_start = millis();
                 float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-                fan.speed = (uint16_t)pid_compute(&board->info.spec.fans[fan.id].pid, board->info.preference.fan.target_temp, board->status.temp.asic, dt);
+                fan.speed = (uint16_t)pid_compute(&board->info.spec.fans[fan.id].pid, board->status.preference.fan.target_temp, board->status.temp.asic, dt);
                 pid_start = millis();
             }
             fan_set_speed(fan.speed / 100.0, fan_invert);

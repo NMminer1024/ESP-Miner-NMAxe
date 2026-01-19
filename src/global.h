@@ -69,23 +69,6 @@ enum{
 };
 
 typedef struct{
-    bool        is_auto_speed;
-    float       target_temp;  //asic temp
-}fan_info_t;
-
-typedef struct{
-    bool     flip;
-    bool     auto_rolling;// auto rolling screen
-    uint16_t brightness;
-}screen_info_t;
-
-typedef struct{
-    bool   enable;
-    bool   sleep;
-    bool   sleep_last;
-}led_info_t;
-
-typedef struct{
     bool           force_config;
     bool           client_connected;
     uint32_t       stratum_update;//ms
@@ -110,12 +93,6 @@ typedef struct{
 }diff_info_t;
 
 typedef struct{
-    fan_info_t       fan;
-    screen_info_t    screen;
-    led_info_t       led;
-}preference_info_t;
-
-typedef struct{
     struct{
         String              coin_price;//  BTC, BCH, XEC, DGB, for price display purpose
         String              hostname;
@@ -126,7 +103,6 @@ typedef struct{
     }base;
     BoardSpecConfig         spec;// board spec config, including asic , pinout, display, power etc.
     connect_info_t          connection;
-    preference_info_t       preference;
 }board_info_t;
 
 
@@ -187,6 +163,13 @@ typedef struct{
         float                              total_hr;      // total hash rate in swarm
         float                              best_diff;     // best diff in swarm
     }swarm;
+
+    struct{
+        fan_preference_info_t       fan;
+        screen_preference_info_t    screen;
+        led_preference_info_t       led;
+        asic_preference_info_t      asic;
+    }preference;
 
     std::vector<fan_status_t>          fans;            // support multiple fans
     SemaphoreHandle_t                  reboot_xsem;     // reboot signal

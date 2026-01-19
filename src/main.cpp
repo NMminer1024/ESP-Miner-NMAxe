@@ -58,14 +58,14 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     board->info.base.hostname                       = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, board->info.connection.wifi.softap_param.ssid.c_str()));
     board->info.connection.stratum_update           = millis();
-    board->info.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, board->info.spec.preference.fan.is_auto_speed);
-    board->info.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, String(board->info.spec.preference.asic.target_temp).c_str())).toFloat();
-    board->info.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, board->info.spec.preference.screen.flip);
-    board->info.preference.screen.auto_rolling      = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, board->info.spec.preference.screen.auto_rolling);
-    board->info.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness);
-    board->info.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, board->info.spec.preference.led.enable);
-    board->info.preference.led.sleep                = false;
-    board->info.preference.led.sleep_last           = board->info.preference.led.sleep;
+    board->status.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, board->info.spec.preference.fan.is_auto_speed);
+    board->status.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, String(board->info.spec.preference.asic.target_temp).c_str())).toFloat();
+    board->status.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, board->info.spec.preference.screen.flip);
+    board->status.preference.screen.auto_rolling      = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, board->info.spec.preference.screen.auto_rolling);
+    board->status.preference.screen.brightness        = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness);
+    board->status.preference.led.enable               = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, board->info.spec.preference.led.enable);
+    board->status.preference.led.sleep                = false;
+    board->status.preference.led.sleep_last           = board->status.preference.led.sleep;
     board->info.base.coin_price                     = String(nvs_config_get_string(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC"));
     board->info.base.coin_price.toUpperCase();
     
@@ -265,13 +265,13 @@ void loop() {
 
   uint32_t last = millis();
   while(millis() - last < 1000*1){
-      static uint16_t brightness      = g_board.info.preference.screen.brightness, last_brightness = brightness;   
+      static uint16_t brightness      = g_board.status.preference.screen.brightness, last_brightness = brightness;   
       static float    x = 0;
       if(g_board.status.miner.last_hits != g_board.status.miner.hits){//screen blink if block hit
           brightness = 100*(1 + sin(x))/2;
           x+=0.1;
           tft_bl_ctrl(brightness);
-      } else brightness = g_board.info.preference.screen.brightness;
+      } else brightness = g_board.status.preference.screen.brightness;
       delay(10);
   }
 

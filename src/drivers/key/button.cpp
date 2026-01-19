@@ -20,11 +20,11 @@ void force_config_cb(void){
 
 void silence_mode_cb(void){
   static bool toggle = false;
-  static uint16_t last_brightness = g_board.info.preference.screen.brightness;
-  g_board.info.preference.screen.brightness = (toggle) ? 0 : last_brightness;
-  g_board.info.preference.led.sleep         = (toggle) ? true : false;
-  g_board.info.preference.led.sleep_last    = g_board.info.preference.led.sleep;
+  static uint16_t last_brightness = g_board.status.preference.screen.brightness;
+  g_board.status.preference.screen.brightness = (toggle) ? 0 : last_brightness;
+  g_board.status.preference.led.sleep         = (toggle) ? true : false;
+  g_board.status.preference.led.sleep_last    = g_board.status.preference.led.sleep;
   toggle = !toggle;
-  last_brightness = (g_board.info.preference.screen.brightness == 0) ? last_brightness : g_board.info.preference.screen.brightness;
+  last_brightness = (g_board.status.preference.screen.brightness == 0) ? last_brightness : g_board.status.preference.screen.brightness;
   xSemaphoreGive(g_board.status.brightness_update_xsem);
 }

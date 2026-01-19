@@ -120,12 +120,12 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_SSID]         = g_board.info.connection.wifi.conn_param.ssid;
     root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_STATUS]       = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
 
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_FLIP]         = g_board.info.preference.screen.flip;
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_LED_INDICATOR]       = g_board.info.preference.led.enable;
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_FAN_AUTO_SPEED]      = g_board.info.preference.fan.is_auto_speed;
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_AUTO_ROLL]    = g_board.info.preference.screen.auto_rolling;
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_ASIC_TARGET_TEMP]    = String(g_board.info.preference.fan.target_temp);
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_BRIGHTNESS]   = g_board.info.preference.screen.brightness;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_FLIP]         = g_board.status.preference.screen.flip;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_LED_INDICATOR]       = g_board.status.preference.led.enable;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_FAN_AUTO_SPEED]      = g_board.status.preference.fan.is_auto_speed;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_AUTO_ROLL]    = g_board.status.preference.screen.auto_rolling;
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_ASIC_TARGET_TEMP]    = String(g_board.status.preference.fan.target_temp);
+    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_BRIGHTNESS]   = g_board.status.preference.screen.brightness;
 
     root[HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY]              = g_board.info.base.coin_price;
 
@@ -800,31 +800,31 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
 
         /************************************** settings->preference config ***************************************************************/
         if(root.containsKey("brightness")){
-            g_board.info.preference.screen.brightness = root["brightness"].as<uint8_t>();
-            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.preference.screen.brightness);
+            g_board.status.preference.screen.brightness = root["brightness"].as<uint8_t>();
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.status.preference.screen.brightness);
             xSemaphoreGive(g_board.status.brightness_update_xsem);
-            LOG_D("Screen brightness set to %d", g_board.info.preference.screen.brightness);
+            LOG_D("Screen brightness set to %d", g_board.status.preference.screen.brightness);
         }
         if(root.containsKey("flipscreen")){
             nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());
         }
         if(root.containsKey("ledindicator")){
-            g_board.info.preference.led.enable = root["ledindicator"].as<uint8_t>();
-            g_board.info.preference.led.sleep  = false;
+            g_board.status.preference.led.enable = root["ledindicator"].as<uint8_t>();
+            g_board.status.preference.led.sleep  = false;
             nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledindicator"].as<uint8_t>());
         }
 
         if(root.containsKey("autofanspeed")){
             nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());
-            g_board.info.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
+            g_board.status.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
         }
         if(root.containsKey("targetAsicTemp")){
             nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, root["targetAsicTemp"].as<String>().c_str());
-            g_board.info.preference.fan.target_temp = root["targetAsicTemp"].as<String>().toFloat();
+            g_board.status.preference.fan.target_temp = root["targetAsicTemp"].as<String>().toFloat();
         }
         if(root.containsKey("autoscreen")){
             nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
-            g_board.info.preference.screen.auto_rolling = root["autoscreen"].as<uint8_t>();
+            g_board.status.preference.screen.auto_rolling = root["autoscreen"].as<uint8_t>();
         }
         if(root.containsKey("fanspeed")){
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
