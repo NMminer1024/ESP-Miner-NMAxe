@@ -1393,7 +1393,7 @@ void touch_thread_entry(void *args){
         delay(1000);
     }
 
-    if(board->touch->begin(20)){
+    if(board->touch->begin(40)){
         LOG_I("FT6206 touch controller initialized.");
     } else {
         LOG_W("No touch controller detected.");
@@ -1407,6 +1407,10 @@ void touch_thread_entry(void *args){
     }
 
     while(true){
+        delay(200);
+        // only respond to touch if mining is active
+        if(board->stratum->get_job_counter() == 0) continue;
+
         if(board->touch->touched()){
             TS_Point point = board->touch->getPoint();
             LOG_D("Touch detected at x: %d, y: %d", point.x, point.y);
@@ -1416,6 +1420,6 @@ void touch_thread_entry(void *args){
                 delay(100);
             }
         }
-        delay(200);
+
     }
 }
