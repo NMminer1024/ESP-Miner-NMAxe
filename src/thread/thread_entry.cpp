@@ -1381,3 +1381,41 @@ void stratum_thread_entry(void *args){
         delay(50);
     }
 }
+
+void touch_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(touch)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing touch...");
+
+    while(board->touch == nullptr){
+        LOG_W("Waiting for touch instance ready...");
+        delay(1000);
+    }
+
+    if(board->touch->begin(20)){
+        LOG_I("FT6206 touch controller initialized.");
+    } else {
+        LOG_W("No touch controller detected.");
+        delay(100);
+        if(board->touch != nullptr) {
+            delete board->touch;
+            board->touch = nullptr;
+        }
+        vTaskDelete(NULL);
+        return;
+    }
+
+    while(true){
+        if(board->touch->touched()){
+            TS_Point point = board->touch->getPoint();
+            LOG_D("Touch detected at x: %d, y: %d", point.x, point.y);
+            ui_switch_next_page_cb();
+            while (board->touch->touched()){
+                LOG_D("Waiting for touch release...");
+                delay(100);
+            }
+        }
+        delay(200);
+    }
+}

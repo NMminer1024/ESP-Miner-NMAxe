@@ -8,7 +8,7 @@
 #include "github.h"
 #include "thread_entry.h"
 
-TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
+TaskHandle_t fanTask, ledTask, btnTask, uiTask, touchTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
 board_sal_t  g_board;
 
 bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
@@ -98,7 +98,12 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     }
     board->status.fan.count = board->info.spec.fans.size();
 
-
+    // create touch instance
+    board->touch                                   = new FT6206Class();
+    if(board->touch == NULL){
+        LOG_E("FT6206Class instance creation failed");
+        return false;
+    }
     // create ASIC instance
     BMxxx* asic_instance                            = board->info.spec.create_asic_instance(*config.asic.com_port, config.asic.com_baud_init, config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin);
     if(asic_instance == NULL){
@@ -164,6 +169,9 @@ void setup() {
   /************************************************************ INIT DISPLAY ************************************************************/
   taskName = "(ui)";
   xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_UI, &uiTask, 1);
+  delay(10);
+  taskName = "(touch)";
+  xTaskCreatePinnedToCore(touch_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_TOUCH, &touchTask, 0);
   delay(10);
   /********************************************************** CREATE LED THREAD *********************************************************/
   taskName = "(led)";

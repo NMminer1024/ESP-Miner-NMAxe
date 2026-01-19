@@ -10,6 +10,7 @@
 #include <deque>
 #include <map>
 #include <vector>
+#include "ft6206.h"
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
@@ -54,6 +55,7 @@ enum{
     TASK_PRIORITY_ASIC_INIT,
     TASK_PRIORITY_BTN      ,
     TASK_PRIORITY_LED      ,
+    TASK_PRIORITY_TOUCH    ,   
     TASK_PRIORITY_UI       ,
     TASK_PRIORITY_LVGL_DRV ,
     TASK_PRIORITY_DAEMON   ,
@@ -185,6 +187,7 @@ typedef struct{
 typedef struct{
     board_info_t        info;
     board_status_t      status;
+    FT6206Class         *touch;
     MarketClass         *market;
     AxePowerClass       *power;
     StratumClass        *stratum;

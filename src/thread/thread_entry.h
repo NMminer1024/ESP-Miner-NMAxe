@@ -16,4 +16,5 @@ void monitor_thread_entry(void *args);
 void wifi_connect_thread_entry(void *args);
 void stratum_thread_entry(void *args);
 void webserver_thread_entry(void *args);
+void touch_thread_entry(void *args);
 #endif 
