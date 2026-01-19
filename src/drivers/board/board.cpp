@@ -240,7 +240,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.spi.miso_pin              = 2;
             config.spi.mosi_pin              = 1;
             config.spi.sclk_pin              = 5;
-            config.ui.hr_dist_page.max_x_hr  = 8000;
+            config.ui.hr_dist_page.max_x_hr  = 10000;
             config.ui.hr_dist_page.max_x_bars= 20;
             config.ui.hr_dist_page.times     = 0;
 

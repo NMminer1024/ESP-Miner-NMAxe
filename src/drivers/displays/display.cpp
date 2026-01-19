@@ -208,8 +208,8 @@ static void ui_page_element_init(board_sal_t* board){
   logo_worker_nmaxegamma.header.h = 68;
   logo_worker_nmaxegamma.data_size = logo_worker_nmaxegamma.header.w * logo_worker_nmaxegamma.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
 
-  logo_worker_nmqaxepp.header.w = 60;
-  logo_worker_nmqaxepp.header.h = 68;
+  logo_worker_nmqaxepp.header.w = 70;
+  logo_worker_nmqaxepp.header.h = 79;
   logo_worker_nmqaxepp.data_size = logo_worker_nmqaxepp.header.w * logo_worker_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
 
   /*********************************** 135x240 image **************************************/
@@ -388,7 +388,7 @@ static void ui_page_element_init(board_sal_t* board){
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
 
     /*********************************** mining page *********************************/
-    miner_page.img_logo.coord           = {80, 50};
+    miner_page.img_logo.coord           = {70, 45};
     miner_page.lb_hr_unit.font          = &ds_digib_font_28;
     miner_page.lb_hr_unit.coord         = {255 , 165};
     miner_page.lb_blk_hit.font          = &ds_digib_font_56;
