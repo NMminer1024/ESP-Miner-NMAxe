@@ -40,7 +40,15 @@ typedef enum {
     BOARD_UNKNOWN    = 0b00
 } BoardModelType;
 
+typedef struct{
+    float       min;      // high temperature limit
+    float       max;      // low temperature limit
+}limited_data_f;
 
+typedef struct{
+    uint16_t    min;      // high temperature limit
+    uint16_t    max;      // low temperature limit
+}limited_data_u16;
 
 typedef struct{
     bool        is_auto_speed;
@@ -74,26 +82,25 @@ struct BoardSpecConfig {
             uint32_t                    times;          // count of hashrate samples
             uint32_t                    dura;           // duration of hashrate samples, seconds
             std::map<uint16_t, uint8_t> dist_map;//<x, y> x:scale_x, y:percentage of hashrate in this scale, range from 0 to 100
-        }hr_dist_page;
+        }hashrate_dist_page;
 
         struct{
-            float freq_min;
-            float freq_max;
-
-            float power_min;
-            float power_max;
-
-            float vcore_req_min;
-            float vcore_req_max;
-
-            float vcore_measure_min;
-            float vcore_measure_max;
-
-            float vcore_temp_min;
-            float vcore_temp_max;
-
-            float asic_temp_min;
-            float asic_temp_max;
+            struct{
+                limited_data_f vbus;
+                limited_data_f ibus;
+                limited_data_f power;
+            }power;
+            struct{
+                limited_data_f mcu;
+                limited_data_f asic;
+                limited_data_f vcore;
+                limited_data_f fan;
+            }heat; 
+            struct{
+                limited_data_f asic_freq_req;
+                limited_data_f vcore_req;
+                limited_data_f vcore_measure;
+            }performance; 
         }dashboard_page;
     }ui;
 

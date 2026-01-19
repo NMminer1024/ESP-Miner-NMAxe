@@ -1144,18 +1144,18 @@ static void ui_hits_page_update(board_sal_t* board){
 }
 
 static void ui_dashboard_page_update(board_sal_t* board){
-  const float FREQ_MIN          = board->info.spec.ui.dashboard_page.freq_min;
-  const float FREQ_MAX          = board->info.spec.ui.dashboard_page.freq_max;
-  const float POWER_MIN         = board->info.spec.ui.dashboard_page.power_min;
-  const float POWER_MAX         = board->info.spec.ui.dashboard_page.power_max;
-  const float VCORE_REQ_MIN     = board->info.spec.ui.dashboard_page.vcore_req_min;
-  const float VCORE_REQ_MAX     = board->info.spec.ui.dashboard_page.vcore_req_max;
-  const float VCORE_MEASURE_MIN = board->info.spec.ui.dashboard_page.vcore_measure_min;
-  const float VCORE_MEASURE_MAX = board->info.spec.ui.dashboard_page.vcore_measure_max;
-  const float VCORE_TEMP_MIN    = board->info.spec.ui.dashboard_page.vcore_temp_min;
-  const float VCORE_TEMP_MAX    = board->info.spec.ui.dashboard_page.vcore_temp_max;
-  const float ASIC_TEMP_MIN     = board->info.spec.ui.dashboard_page.asic_temp_min;
-  const float ASIC_TEMP_MAX     = board->info.spec.ui.dashboard_page.asic_temp_max;
+  const float FREQ_MIN          = board->info.spec.ui.dashboard_page.performance.asic_freq_req.min;
+  const float FREQ_MAX          = board->info.spec.ui.dashboard_page.performance.asic_freq_req.max;
+  const float POWER_MIN         = board->info.spec.ui.dashboard_page.power.power.min;
+  const float POWER_MAX         = board->info.spec.ui.dashboard_page.power.power.max;
+  const float VCORE_REQ_MIN     = board->info.spec.ui.dashboard_page.performance.vcore_req.min;
+  const float VCORE_REQ_MAX     = board->info.spec.ui.dashboard_page.performance.vcore_req.max;
+  const float VCORE_MEASURE_MIN = board->info.spec.ui.dashboard_page.performance.vcore_measure.min;
+  const float VCORE_MEASURE_MAX = board->info.spec.ui.dashboard_page.performance.vcore_measure.max;
+  const float VCORE_TEMP_MIN    = board->info.spec.ui.dashboard_page.heat.vcore.min;
+  const float VCORE_TEMP_MAX    = board->info.spec.ui.dashboard_page.heat.vcore.max;
+  const float ASIC_TEMP_MIN     = board->info.spec.ui.dashboard_page.heat.asic.min;
+  const float ASIC_TEMP_MAX     = board->info.spec.ui.dashboard_page.heat.asic.max;
 
   if(!board){
     LOG_E("board is null\r\n");
@@ -1408,7 +1408,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     LOG_E("board is null\r\n");
     return;
   }
-  uint16_t SCALE = (board->info.spec.ui.hr_dist_page.max_x_hr / board->info.spec.ui.hr_dist_page.max_x_bars);
+  uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
 
   static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
   static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
@@ -1466,15 +1466,15 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
     lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
     lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, board->info.spec.ui.hr_dist_page.max_x_bars - 1); 
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars - 1); 
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
     lv_chart_set_div_line_count(chart, 5, 4);
 
     // Add a series to the chart
     series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    lv_chart_set_point_count(chart, board->info.spec.ui.hr_dist_page.max_x_bars);
+    lv_chart_set_point_count(chart, board->info.spec.ui.hashrate_dist_page.max_x_bars);
     lv_chart_set_all_value(chart, series, 0);
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, board->info.spec.ui.hr_dist_page.max_x_bars, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, board->info.spec.ui.hashrate_dist_page.max_x_bars, 1, true, 25);
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
     lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -1492,21 +1492,21 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
 
   static uint64_t *counts = NULL;
   if (counts == NULL) {
-    counts = (uint64_t *)malloc(board->info.spec.ui.hr_dist_page.max_x_bars * sizeof(uint64_t));
-    memset(counts, 0, board->info.spec.ui.hr_dist_page.max_x_bars * sizeof(uint64_t));
+    counts = (uint64_t *)malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+    memset(counts, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
   }
   int index = last_hashrate/1000/1000/1000 / SCALE; // Convert to GH/s and scale
-  index = (index >= board->info.spec.ui.hr_dist_page.max_x_bars) ? board->info.spec.ui.hr_dist_page.max_x_bars - 1 : index;
+  index = (index >= board->info.spec.ui.hashrate_dist_page.max_x_bars) ? board->info.spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
   counts[index]++;
-  board->info.spec.ui.hr_dist_page.times++;
-  for (int i = 0; i < board->info.spec.ui.hr_dist_page.max_x_bars; i++) {
-    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hr_dist_page.times);
+  board->info.spec.ui.hashrate_dist_page.times++;
+  for (int i = 0; i < board->info.spec.ui.hashrate_dist_page.max_x_bars; i++) {
+    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hashrate_dist_page.times);
     lv_chart_set_value_by_id(chart, series, i, y);
-    board->info.spec.ui.hr_dist_page.dist_map[i] = y;// Update the global distribution map
+    board->info.spec.ui.hashrate_dist_page.dist_map[i] = y;// Update the global distribution map
   }
   // time cost of this feature
   static uint64_t start = millis();
-  board->info.spec.ui.hr_dist_page.dura = (millis() - start) / 1000;
+  board->info.spec.ui.hashrate_dist_page.dura = (millis() - start) / 1000;
 
   String hr = formatNumber(last_hashrate, 3);
   String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
@@ -1515,7 +1515,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   //hashrate unit
   lv_label_set_text_fmt(lb_ds_hr_unit, "%s", hr_unit.c_str());
   //time cost
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(board->info.spec.ui.hr_dist_page.dura) + "s").c_str());
+  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(board->info.spec.ui.hashrate_dist_page.dura) + "s").c_str());
 }
 
 static void ui_big_digit_page_update(board_sal_t* board){
