@@ -91,6 +91,8 @@ struct{
   lv_obj_t      *container;
   lv_obj_t      *back_img_obj;
   lv_img_dsc_t  *back_img_dsc;
+  ui_element_t  lb_hr;
+  ui_element_t  lb_hr_unit;
 }big_digit_page;
 
 
@@ -363,7 +365,12 @@ static void ui_page_element_init(board_sal_t* board){
 
     hr_health_page.lb_hr_unit.font      = &ds_digib_font_20;
     hr_health_page.lb_hr_unit.coord     = {138, 8};
+    /******************************** big digit healthy page *****************************/
+    big_digit_page.lb_hr.font           = &ds_digib_font_56;
+    big_digit_page.lb_hr.coord          = {0, 0};
 
+    big_digit_page.lb_hr_unit.font      = &ds_digib_font_20;
+    big_digit_page.lb_hr_unit.coord     = {100, 26};
   }
   else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     loading_page.back_img_dsc           = &loading_page_img_240_320;
@@ -472,6 +479,12 @@ static void ui_page_element_init(board_sal_t* board){
 
     hr_health_page.lb_hr_unit.font      = &ds_digib_font_20;
     hr_health_page.lb_hr_unit.coord     = {100 + 95, 23};
+    /******************************** big digit healthy page *****************************/
+    big_digit_page.lb_hr.font           = &ds_digib_font_56;
+    big_digit_page.lb_hr.coord          = {0, 0};
+
+    big_digit_page.lb_hr_unit.font      = &ds_digib_font_20;
+    big_digit_page.lb_hr_unit.coord     = {100, 26};
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
@@ -904,6 +917,25 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_set_style_text_color(hr_health_page.lb_hr_unit.obj, font_color, LV_PART_MAIN);
   lv_label_set_long_mode(hr_health_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( hr_health_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, hr_health_page.lb_hr_unit.coord.x, hr_health_page.lb_hr_unit.coord.y);
+  ////////////////////////////////////////////big digit  page layout///////////////////////////////////////////////
+  // Hashrate label
+  font_color = lv_color_hex(0xFFFFFF);
+  big_digit_page.lb_hr.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  lv_obj_set_width(big_digit_page.lb_hr.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( big_digit_page.lb_hr.obj, " ");
+  lv_obj_set_style_text_font(big_digit_page.lb_hr.obj, big_digit_page.lb_hr.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(big_digit_page.lb_hr.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(big_digit_page.lb_hr.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( big_digit_page.lb_hr.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hr.coord.x, big_digit_page.lb_hr.coord.y);
+  // hashrate unit label
+  font_color = lv_color_hex(0x808080);
+  big_digit_page.lb_hr_unit.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  lv_obj_set_width(big_digit_page.lb_hr_unit.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( big_digit_page.lb_hr_unit.obj, " ");
+  lv_obj_set_style_text_font(big_digit_page.lb_hr_unit.obj, big_digit_page.lb_hr_unit.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(big_digit_page.lb_hr_unit.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(big_digit_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( big_digit_page.lb_hr_unit.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hr_unit.coord.x, big_digit_page.lb_hr_unit.coord.y);
 }
 
 static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
@@ -1573,7 +1605,7 @@ static void ui_big_digit_page_update(board_sal_t* board){
 
 
   static bool first_time = true;
-  static lv_obj_t * lb_hashrate = NULL, * lb_hashrate_unit = NULL,* lb_price = NULL;
+  static lv_obj_t * lb_price = NULL;
   static lv_obj_t * lb_time = NULL, * lb_date = NULL, * lb_block_hit = NULL, *lb_block_hit_unit = NULL;
 
   if(first_time){
@@ -1582,23 +1614,23 @@ static void ui_big_digit_page_update(board_sal_t* board){
     // Hashrate value
     const lv_font_t *  font = &ds_digib_font_56;
     lv_color_t font_color = lv_color_hex(0xFFFFFF);
-    lb_hashrate   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
-    lv_obj_set_width(lb_hashrate, SCREEN_WIDTH/2);
-    lv_label_set_text( lb_hashrate, " ");
-    lv_obj_set_style_text_font(lb_hashrate, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_hashrate, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_hashrate, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_hashrate, LV_ALIGN_TOP_LEFT, 0, 0);
-    // Hashrate unit
-    font = &ds_digib_font_20;
-    font_color = lv_color_hex(0x808080);
-    lb_hashrate_unit   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
-    lv_obj_set_width(lb_hashrate_unit, 50);
-    lv_label_set_text( lb_hashrate_unit, " ");
-    lv_obj_set_style_text_font(lb_hashrate_unit, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_hashrate_unit, font_color, LV_PART_MAIN);
-    lv_label_set_long_mode(lb_hashrate_unit, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_hashrate_unit, LV_ALIGN_TOP_MID, 0, 26);
+    // lb_hashrate   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+    // lv_obj_set_width(lb_hashrate, SCREEN_WIDTH/2);
+    // lv_label_set_text( lb_hashrate, " ");
+    // lv_obj_set_style_text_font(lb_hashrate, font, LV_PART_MAIN);
+    // lv_obj_set_style_text_color(lb_hashrate, font_color, LV_PART_MAIN); 
+    // lv_label_set_long_mode(lb_hashrate, LV_LABEL_LONG_DOT);
+    // lv_obj_align( lb_hashrate, LV_ALIGN_TOP_LEFT, 0, 0);
+    // // Hashrate unit
+    // font = &ds_digib_font_20;
+    // font_color = lv_color_hex(0x808080);
+    // lb_hashrate_unit   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+    // lv_obj_set_width(lb_hashrate_unit, 50);
+    // lv_label_set_text( lb_hashrate_unit, " ");
+    // lv_obj_set_style_text_font(lb_hashrate_unit, font, LV_PART_MAIN);
+    // lv_obj_set_style_text_color(lb_hashrate_unit, font_color, LV_PART_MAIN);
+    // lv_label_set_long_mode(lb_hashrate_unit, LV_LABEL_LONG_DOT);
+    // lv_obj_align( lb_hashrate_unit, LV_ALIGN_TOP_MID, 0, 26);
     // Time
     font = &ds_digib_font_42;
     font_color = lv_color_hex(0xFFFFFF);
@@ -1659,9 +1691,9 @@ static void ui_big_digit_page_update(board_sal_t* board){
   String datetime = convert_time_to_local(g_board.status.time.utc);
   String hr_unit = (board->status.miner.hashrate._3m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
-  lv_label_set_text_fmt(lb_hashrate, "%s", hr.substring(0, hr.length() - 1).c_str());
+  lv_label_set_text_fmt(big_digit_page.lb_hr.obj, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
-  lv_label_set_text_fmt(lb_hashrate_unit, "%s", hr_unit.c_str());
+  lv_label_set_text_fmt(big_digit_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
   //time
   String char11 = datetime.substring(11, 12);//remove '0' 
   uint8_t index = (char11 == "0") ? 12:11;
