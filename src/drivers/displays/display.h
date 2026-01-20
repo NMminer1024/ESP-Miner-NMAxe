@@ -50,5 +50,6 @@ typedef struct {
 
 void tft_bl_ctrl(int8_t percent);
 void ui_switch_next_page_cb();
+void ui_switch_next_page_cb(uint8_t tp_evt);
 void ui_thread_entry(void *args);
 #endif // DISPLAY_H

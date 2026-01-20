@@ -1771,19 +1771,56 @@ static void ui_big_digit_page_update(board_sal_t* board){
 
 void ui_switch_next_page_cb(){
   g_board.status.preference.led.sleep         = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
-  // g_board.status.preference.screen.brightness = g_board.status.preference.screen.brightness_last;//restore brightness
   if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
     xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
     g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
     return;
   } 
 
-  g_board.status.ui.current_page = (g_board.status.ui.current_page == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : g_board.status.ui.current_page;
-  g_board.status.ui.current_page++;
-  lv_obj_scroll_to_view(ui_pages[g_board.status.ui.current_page], LV_ANIM_ON);
-  g_board.status.ui.last_page = g_board.status.ui.current_page;
-  xSemaphoreGive(g_board.status.ui.page_save_xsem);
+  g_board.status.ui.page.current = (g_board.status.ui.page.current == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
+  g_board.status.ui.page.current++;
+  lv_obj_scroll_to_view(ui_pages[g_board.status.ui.page.current], LV_ANIM_ON);
+  g_board.status.ui.page.last = g_board.status.ui.page.current;
+  xSemaphoreGive(g_board.status.ui.page.save_xsem);
 }
+
+void ui_switch_next_page_cb(uint8_t tp_evt){
+  uint8_t current_index = g_board.status.ui.page.current;
+  uint8_t next_index    = current_index;
+
+  // tap event
+  if(TOUCH_TAP_EVT == tp_evt){
+    ui_switch_next_page_cb();
+    return;
+  }
+
+  // swipe event
+  switch(current_index){
+    case UI_PAGE_MINER :
+        if(tp_evt == TOUCH_SWIPE_UP_EVT)          next_index = UI_PAGE_DASHBOARD;
+        else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_BIG_DIGIT;
+    break;
+    case UI_PAGE_DASHBOARD :
+        if(tp_evt == TOUCH_SWIPE_DOWN_EVT)        next_index = UI_PAGE_MINER;
+        else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_HR_HEALTH;
+    break;
+    case UI_PAGE_HR_HEALTH :
+        if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_BIG_DIGIT;
+        else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_DASHBOARD;
+    break;
+    case UI_PAGE_BIG_DIGIT :
+        if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_HR_HEALTH;
+        else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_MINER;
+    break;
+    default:
+      break;
+  }
+  lv_obj_scroll_to_view(ui_pages[next_index], LV_ANIM_ON);
+  g_board.status.ui.page.current = next_index;
+  g_board.status.ui.page.last    = g_board.status.ui.page.current;
+  xSemaphoreGive(g_board.status.ui.page.save_xsem);
+}
+
 
 static void lvgl_tick_task(void *args){
   char *name = (char*)malloc(20);
@@ -2054,8 +2091,8 @@ void ui_thread_entry(void *args){
   ui_loading_str_update("Miner ready!", 0x00FF00, true);
   delay(500);
   /***************************************scroll to miner page***************************************/
-  lv_obj_scroll_to_view(ui_pages[g_board.status.ui.last_page], LV_ANIM_ON); 
-  g_board.status.ui.current_page = g_board.status.ui.last_page;
+  lv_obj_scroll_to_view(ui_pages[g_board.status.ui.page.last], LV_ANIM_ON); 
+  g_board.status.ui.page.current = g_board.status.ui.page.last;
   
   while (true){
     xSemaphoreTake(g_board.status.miner.update_xsem, portMAX_DELAY);

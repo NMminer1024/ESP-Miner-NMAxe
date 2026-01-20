@@ -81,12 +81,13 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.ota.progress                      = 0;
     board->status.ota.filename                      = "";
     board->status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
-    board->status.ui.last_page                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
-    board->status.ui.current_page                   = board->status.ui.last_page;
-    board->status.ui.page_save_xsem                 = xSemaphoreCreateCounting(1, 0);
+    board->status.ui.page.last                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
+    board->status.ui.page.current                   = board->status.ui.page.last;
+    board->status.ui.page.save_xsem                 = xSemaphoreCreateCounting(1, 0);
+    board->status.ui.touch.xsem                     = xSemaphoreCreateCounting(1, 0);
+    board->status.ui.touch.evt                      = TOUCH_NONE_EVT;
     board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
-    
     // initialize fan statuses
     for(uint8_t i = 0; i < board->info.spec.fans.size(); i++){
         fan_status_t    state;

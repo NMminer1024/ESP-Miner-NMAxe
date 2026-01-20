@@ -157,9 +157,16 @@ typedef struct{
     }miner;
 
     struct{
-        uint8_t             current_page;     // current ui page index
-        uint8_t             last_page;        //last ui page index, restored on next boot
-        SemaphoreHandle_t   page_save_xsem;   // save current page index
+        struct{
+            uint8_t             current;     // current ui page index
+            uint8_t             last;        //last ui page index, restored on next boot
+            SemaphoreHandle_t   save_xsem;   // save current page index
+        }page;
+        
+        struct{
+            SemaphoreHandle_t   xsem; // touch event signal
+            uint8_t             evt;  // touch event type
+        }touch;
     }ui;
 
     struct{

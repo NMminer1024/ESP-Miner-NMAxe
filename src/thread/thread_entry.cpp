@@ -641,9 +641,9 @@ void monitor_thread_entry(void *args){
         }
 
         //save last ui page to NVS
-        if(board->status.ui.page_save_xsem != nullptr && xSemaphoreTake(board->status.ui.page_save_xsem, 0) == pdTRUE){
-            nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, board->status.ui.last_page);
-            LOG_D("Last page %d saved to NVS", board->status.ui.last_page);
+        if(board->status.ui.page.save_xsem != nullptr && xSemaphoreTake(board->status.ui.page.save_xsem, 0) == pdTRUE){
+            nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, board->status.ui.page.last);
+            LOG_D("Last page %d saved to NVS", board->status.ui.page.last);
         }
 
         // update bringhtnes
@@ -1429,25 +1429,7 @@ void touch_thread_entry(void *args){
             
             // Detect gesture
             uint8_t evt = guess_touch_gesture(dx, dy);
-            switch(evt){
-                case TOUCH_SWIPE_UP_EVT:
-                    LOG_W("Swipe Up Detected");
-                    break;
-                case TOUCH_SWIPE_DOWN_EVT:
-                    LOG_W("Swipe Down Detected");
-                    break;
-                case TOUCH_SWIPE_LEFT_EVT:
-                    LOG_W("Swipe Left Detected");
-                    break;
-                case TOUCH_SWIPE_RIGHT_EVT:
-                    LOG_W("Swipe Right Detected");
-                    break;
-                case TOUCH_TAP_EVT:
-                    ui_switch_next_page_cb();
-                    break;
-                default:
-                    break;
-            }
+            ui_switch_next_page_cb(evt);
             // 等待触摸完全释放
             delay(100);
         }
