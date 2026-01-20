@@ -983,7 +983,7 @@ void miner_asic_rx_thread_entry(void *args){
                         for(auto &pair : board->status.miner.asic_rsp_counter){
                             // double hr = (double)board->status.miner.hashrate._3m * ((double)pair.second / (double)total);
                             float health = (total > 0) ? ((float)pair.second / (float)total) * 100.0f : 0.0f;
-                            LOG_L("|  ASIC[%d] : %.1f%%    |", pair.first, health);
+                            LOG_L("|       ASIC[%d] : %.1f%%        |", pair.first, health);
                         }
                     }
                     LOG_L(" ============================== ");
