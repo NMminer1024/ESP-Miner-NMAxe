@@ -1588,26 +1588,6 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
 
   if(first_time){
     first_time = false;
-    // // Hashrate label
-    // const lv_font_t *  font = &ds_digib_font_36;
-    // lv_color_t font_color = lv_color_hex(0x000000);
-    // lb_ds_hr   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
-    // lv_obj_set_width(lb_ds_hr, 80);
-    // lv_label_set_text( lb_ds_hr, " ");
-    // lv_obj_set_style_text_font(lb_ds_hr, font, LV_PART_MAIN);
-    // lv_obj_set_style_text_color(lb_ds_hr, font_color, LV_PART_MAIN); 
-    // lv_label_set_long_mode(lb_ds_hr, LV_LABEL_LONG_DOT);
-    // lv_obj_align( lb_ds_hr, LV_ALIGN_TOP_MID, 55, -4);
-    // //Hashrate uint
-    // font = &ds_digib_font_20;
-    // font_color = lv_color_hex(0x808080);
-    // lb_ds_hr_unit   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
-    // lv_obj_set_width(lb_ds_hr_unit, 50);
-    // lv_label_set_text( lb_ds_hr_unit, " ");
-    // lv_obj_set_style_text_font(lb_ds_hr_unit, font, LV_PART_MAIN);
-    // lv_obj_set_style_text_color(lb_ds_hr_unit, font_color, LV_PART_MAIN); 
-    // lv_label_set_long_mode(lb_ds_hr_unit, LV_LABEL_LONG_DOT);
-    // lv_obj_align( lb_ds_hr_unit, LV_ALIGN_TOP_MID, 100, 8); 
     //scale
     lv_color_t font_color = lv_color_hex(0xFFA500);
     const lv_font_t *font = &lv_font_montserrat_12;
@@ -1703,23 +1683,6 @@ static void ui_big_digit_page_update(board_sal_t* board){
     // Hashrate value
     const lv_font_t *  font = &ds_digib_font_56;
     lv_color_t font_color = lv_color_hex(0xFFFFFF);
-    // lb_hashrate   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
-    // lv_obj_set_width(lb_hashrate, SCREEN_WIDTH/2);
-    // lv_label_set_text( lb_hashrate, " ");
-    // lv_obj_set_style_text_font(lb_hashrate, font, LV_PART_MAIN);
-    // lv_obj_set_style_text_color(lb_hashrate, font_color, LV_PART_MAIN); 
-    // lv_label_set_long_mode(lb_hashrate, LV_LABEL_LONG_DOT);
-    // lv_obj_align( lb_hashrate, LV_ALIGN_TOP_LEFT, 0, 0);
-    // // Hashrate unit
-    // font = &ds_digib_font_20;
-    // font_color = lv_color_hex(0x808080);
-    // lb_hashrate_unit   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
-    // lv_obj_set_width(lb_hashrate_unit, 50);
-    // lv_label_set_text( lb_hashrate_unit, " ");
-    // lv_obj_set_style_text_font(lb_hashrate_unit, font, LV_PART_MAIN);
-    // lv_obj_set_style_text_color(lb_hashrate_unit, font_color, LV_PART_MAIN);
-    // lv_label_set_long_mode(lb_hashrate_unit, LV_LABEL_LONG_DOT);
-    // lv_obj_align( lb_hashrate_unit, LV_ALIGN_TOP_MID, 0, 26);
     // Time
     font = &ds_digib_font_42;
     font_color = lv_color_hex(0xFFFFFF);
@@ -1773,8 +1736,6 @@ static void ui_big_digit_page_update(board_sal_t* board){
     lv_label_set_long_mode(lb_block_hit_unit, LV_LABEL_LONG_DOT);
     lv_obj_align( lb_block_hit_unit, LV_ALIGN_TOP_RIGHT, 0, 26);
   }
-
-
   
   String hr       = formatNumber(board->status.miner.hashrate._3m, 3);
   String datetime = convert_time_to_local(g_board.status.time.utc);
