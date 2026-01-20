@@ -466,3 +466,18 @@ String convert_time_to_local_24h(uint32_t timestamp, String date_format) {
         
     return String(timeString);
 }
+
+
+uint8_t guess_touch_gesture(int dx, int dy){
+    const int SWIPE_THRESHOLD = 30; // Minimum distance for a swipe gesture
+
+    if(abs(dx) > SWIPE_THRESHOLD || abs(dy) > SWIPE_THRESHOLD){
+        if(abs(dx) > abs(dy)){
+            return (dx > 0) ? TOUCH_SWIPE_UP_EVT :TOUCH_SWIPE_DOWN_EVT;
+        } else {
+            return (dy > 0) ? TOUCH_SWIPE_RIGHT_EVT : TOUCH_SWIPE_LEFT_EVT;
+        }
+    } else {
+        return TOUCH_TAP_EVT;
+    }
+}

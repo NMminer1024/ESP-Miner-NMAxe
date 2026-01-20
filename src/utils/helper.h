@@ -7,7 +7,14 @@
 #define IN
 #define OUT
 
-// void logo_print() ;
+enum {
+    TOUCH_NONE_EVT = 0,
+    TOUCH_TAP_EVT,
+    TOUCH_SWIPE_LEFT_EVT,
+    TOUCH_SWIPE_RIGHT_EVT,
+    TOUCH_SWIPE_UP_EVT,
+    TOUCH_SWIPE_DOWN_EVT,
+};
 
 bool psram_init();
 
@@ -51,6 +58,7 @@ String convert_time_to_local_12h(uint32_t timestamp, String date_format = "YYYY/
 
 String convert_time_to_local_24h(uint32_t timestamp, String date_format = "YYYY/MM/DD");
 
+uint8_t guess_touch_gesture(int dx, int dy);
 
 template <typename T>
 struct PsramAllocator {

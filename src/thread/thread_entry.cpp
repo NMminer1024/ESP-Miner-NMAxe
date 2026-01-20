@@ -1405,20 +1405,51 @@ void touch_thread_entry(void *args){
         return;
     }
 
+    const int SWIPE_THRESHOLD = 30;  // 最小滑动距离阈值
+    
     while(true){
-        delay(200);
+        delay(50);
         // only respond to touch if mining is active
         if(board->stratum->get_job_counter() == 0) continue;
 
         if(board->touch->touched()){
-            TS_Point point = board->touch->getPoint();
-            LOG_D("Touch detected at x: %d, y: %d", point.x, point.y);
-            ui_switch_next_page_cb();
+            TS_Point start_point = board->touch->getPoint();
+            TS_Point last_point = start_point;
+            // wait for touch release
             while (board->touch->touched()){
-                LOG_D("Waiting for touch release...");
-                delay(100);
+                last_point = board->touch->getPoint();
+                delay(10);
             }
-        }
+            // calculate movement deltas
+            int dx = last_point.x - start_point.x;
+            int dy = last_point.y - start_point.y;
 
+            LOG_D("Touch started at x: %d, y: %d", start_point.x, start_point.y);
+            LOG_D("Touch ended at x: %d, y: %d (dx: %d, dy: %d)", last_point.x, last_point.y, dx, dy);
+            
+            // Detect gesture
+            uint8_t evt = guess_touch_gesture(dx, dy);
+            switch(evt){
+                case TOUCH_SWIPE_UP_EVT:
+                    LOG_W("Swipe Up Detected");
+                    break;
+                case TOUCH_SWIPE_DOWN_EVT:
+                    LOG_W("Swipe Down Detected");
+                    break;
+                case TOUCH_SWIPE_LEFT_EVT:
+                    LOG_W("Swipe Left Detected");
+                    break;
+                case TOUCH_SWIPE_RIGHT_EVT:
+                    LOG_W("Swipe Right Detected");
+                    break;
+                case TOUCH_TAP_EVT:
+                    ui_switch_next_page_cb();
+                    break;
+                default:
+                    break;
+            }
+            // 等待触摸完全释放
+            delay(100);
+        }
     }
 }
