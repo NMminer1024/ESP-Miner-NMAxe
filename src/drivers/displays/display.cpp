@@ -1821,37 +1821,43 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
   uint8_t current_index = g_board.status.ui.page.current;
   uint8_t next_index    = current_index;
 
-  // tap event
-  if(TOUCH_TAP_EVT == tp_evt){
-    ui_switch_next_page_cb();
-    return;
-  }
+  if(xSemaphoreTake(lvgl_xMutex, 100) == pdTRUE){
+    // tap event
+    if(TOUCH_TAP_EVT == tp_evt){
+      ui_switch_next_page_cb();
+      //release mutex
+      xSemaphoreGive(lvgl_xMutex); 
+      return;
+    }
 
-  // swipe event
-  switch(current_index){
-    case UI_PAGE_MINER :
-        if(tp_evt == TOUCH_SWIPE_UP_EVT)          next_index = UI_PAGE_DASHBOARD;
-        else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_BIG_DIGIT;
-    break;
-    case UI_PAGE_DASHBOARD :
-        if(tp_evt == TOUCH_SWIPE_DOWN_EVT)        next_index = UI_PAGE_MINER;
-        else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_HR_HEALTH;
-    break;
-    case UI_PAGE_HR_HEALTH :
-        if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_BIG_DIGIT;
-        else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_DASHBOARD;
-    break;
-    case UI_PAGE_BIG_DIGIT :
-        if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_HR_HEALTH;
-        else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_MINER;
-    break;
-    default:
+    // swipe event
+    switch(current_index){
+      case UI_PAGE_MINER :
+          if(tp_evt == TOUCH_SWIPE_UP_EVT)          next_index = UI_PAGE_DASHBOARD;
+          else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_BIG_DIGIT;
       break;
+      case UI_PAGE_DASHBOARD :
+          if(tp_evt == TOUCH_SWIPE_DOWN_EVT)        next_index = UI_PAGE_MINER;
+          else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_HR_HEALTH;
+      break;
+      case UI_PAGE_HR_HEALTH :
+          if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_BIG_DIGIT;
+          else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_DASHBOARD;
+      break;
+      case UI_PAGE_BIG_DIGIT :
+          if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_HR_HEALTH;
+          else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_MINER;
+      break;
+      default:
+        break;
+    }
+    lv_obj_scroll_to_view(ui_pages[next_index], LV_ANIM_ON);
+    g_board.status.ui.page.current = next_index;
+    g_board.status.ui.page.last    = g_board.status.ui.page.current;
+    xSemaphoreGive(g_board.status.ui.page.save_xsem);
+    //release mutex
+    xSemaphoreGive(lvgl_xMutex); 
   }
-  lv_obj_scroll_to_view(ui_pages[next_index], LV_ANIM_ON);
-  g_board.status.ui.page.current = next_index;
-  g_board.status.ui.page.last    = g_board.status.ui.page.current;
-  xSemaphoreGive(g_board.status.ui.page.save_xsem);
 }
 
 static void lvgl_tick_task(void *args){
