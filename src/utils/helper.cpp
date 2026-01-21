@@ -232,6 +232,65 @@ String convert_time_to_local(uint32_t timestamp) {
     return String(timeString);
 }
 
+
+String convert_time_to_local_12h(uint32_t timestamp, String date_format) {
+    time_t localTime = timestamp;
+
+    struct tm *timeinfo = localtime(&localTime);
+    char timeString[30] = {0,};
+    if(date_format == "MM-DD-YYYY")
+        strftime(timeString, sizeof(timeString), "%m-%d-%Y %I:%M %p", timeinfo);
+    else if(date_format == "YYYY-MM-DD")
+        strftime(timeString, sizeof(timeString), "%Y-%m-%d %I:%M %p", timeinfo);
+    else if(date_format == "YYYY-DD-MM")
+        strftime(timeString, sizeof(timeString), "%Y-%d-%m %I:%M %p", timeinfo);
+    else if(date_format == "DD-MM-YYYY")
+        strftime(timeString, sizeof(timeString), "%d-%m-%Y %I:%M %p", timeinfo);
+    else if(date_format == "DD/MM/YYYY")
+        strftime(timeString, sizeof(timeString), "%d/%m/%Y %I:%M %p", timeinfo);
+    else if(date_format == "MM/DD/YYYY")
+        strftime(timeString, sizeof(timeString), "%m/%d/%Y %I:%M %p", timeinfo);
+    else if(date_format == "YYYY/MM/DD")
+        strftime(timeString, sizeof(timeString), "%Y/%m/%d %I:%M %p", timeinfo);
+    else if(date_format == "YYYY/DD/MM")
+        strftime(timeString, sizeof(timeString), "%Y/%d/%m %I:%M %p", timeinfo);
+    else // default DD-MM-YYYY
+        strftime(timeString, sizeof(timeString), "%d-%m-%Y %I:%M %p", timeinfo);
+
+    return String(timeString);
+}
+
+String convert_time_to_local_24h(uint32_t timestamp, String date_format) {
+    time_t localTime = timestamp;
+
+    struct tm *timeinfo = localtime(&localTime);
+    char timeString[30] = {0,};
+    if(date_format == "MM-DD-YYYY")
+        strftime(timeString, sizeof(timeString), "%m-%d-%Y %H:%M:", timeinfo);
+    else if(date_format == "YYYY-MM-DD")
+        strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M", timeinfo);
+    else if(date_format == "YYYY-DD-MM")
+        strftime(timeString, sizeof(timeString), "%Y-%d-%m %H:%M", timeinfo);
+    else if(date_format == "DD-MM-YYYY")
+        strftime(timeString, sizeof(timeString), "%d-%m-%Y %H:%M", timeinfo);
+    else if(date_format == "DD/MM/YYYY")
+        strftime(timeString, sizeof(timeString), "%d/%m/%Y %H:%M", timeinfo);
+    else if(date_format == "MM/DD/YYYY")
+        strftime(timeString, sizeof(timeString), "%m/%d/%Y %H:%M", timeinfo);
+    else if(date_format == "YYYY/MM/DD")
+        strftime(timeString, sizeof(timeString), "%Y/%m/%d %H:%M", timeinfo);
+    else if(date_format == "YYYY/DD/MM")
+        strftime(timeString, sizeof(timeString), "%Y/%d/%m %H:%M", timeinfo);
+    else // default DD-MM-YYYY
+        strftime(timeString, sizeof(timeString), "%d-%m-%Y %H:%M", timeinfo);
+        
+    return String(timeString);
+}
+
+
+
+
+
 String convert_uptime_to_string(uint32_t timecnt){
     char uptime[20] = {0,};
 
@@ -410,68 +469,8 @@ float parseDiffStr(const String& diffStr) {
     return diff;
 }
 
-
-
-
-String convert_time_to_local_12h(uint32_t timestamp, String date_format) {
-    time_t localTime = timestamp;
-
-    struct tm *timeinfo = localtime(&localTime);
-    char timeString[30] = {0,};
-    if(date_format == "MM-DD-YYYY")
-        strftime(timeString, sizeof(timeString), "%m-%d-%Y %I:%M %p", timeinfo);
-    else if(date_format == "YYYY-MM-DD")
-        strftime(timeString, sizeof(timeString), "%Y-%m-%d %I:%M %p", timeinfo);
-    else if(date_format == "YYYY-DD-MM")
-        strftime(timeString, sizeof(timeString), "%Y-%d-%m %I:%M %p", timeinfo);
-    else if(date_format == "DD-MM-YYYY")
-        strftime(timeString, sizeof(timeString), "%d-%m-%Y %I:%M %p", timeinfo);
-    else if(date_format == "DD/MM/YYYY")
-        strftime(timeString, sizeof(timeString), "%d/%m/%Y %I:%M %p", timeinfo);
-    else if(date_format == "MM/DD/YYYY")
-        strftime(timeString, sizeof(timeString), "%m/%d/%Y %I:%M %p", timeinfo);
-    else if(date_format == "YYYY/MM/DD")
-        strftime(timeString, sizeof(timeString), "%Y/%m/%d %I:%M %p", timeinfo);
-    else if(date_format == "YYYY/DD/MM")
-        strftime(timeString, sizeof(timeString), "%Y/%d/%m %I:%M %p", timeinfo);
-    else // default DD-MM-YYYY
-        strftime(timeString, sizeof(timeString), "%d-%m-%Y %I:%M %p", timeinfo);
-
-    return String(timeString);
-}
-
-String convert_time_to_local_24h(uint32_t timestamp, String date_format) {
-    time_t localTime = timestamp;
-
-    struct tm *timeinfo = localtime(&localTime);
-    char timeString[30] = {0,};
-    if(date_format == "MM-DD-YYYY")
-        strftime(timeString, sizeof(timeString), "%m-%d-%Y %H:%M:", timeinfo);
-    else if(date_format == "YYYY-MM-DD")
-        strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M", timeinfo);
-    else if(date_format == "YYYY-DD-MM")
-        strftime(timeString, sizeof(timeString), "%Y-%d-%m %H:%M", timeinfo);
-    else if(date_format == "DD-MM-YYYY")
-        strftime(timeString, sizeof(timeString), "%d-%m-%Y %H:%M", timeinfo);
-    else if(date_format == "DD/MM/YYYY")
-        strftime(timeString, sizeof(timeString), "%d/%m/%Y %H:%M", timeinfo);
-    else if(date_format == "MM/DD/YYYY")
-        strftime(timeString, sizeof(timeString), "%m/%d/%Y %H:%M", timeinfo);
-    else if(date_format == "YYYY/MM/DD")
-        strftime(timeString, sizeof(timeString), "%Y/%m/%d %H:%M", timeinfo);
-    else if(date_format == "YYYY/DD/MM")
-        strftime(timeString, sizeof(timeString), "%Y/%d/%m %H:%M", timeinfo);
-    else // default DD-MM-YYYY
-        strftime(timeString, sizeof(timeString), "%d-%m-%Y %H:%M", timeinfo);
-        
-    return String(timeString);
-}
-
-
-uint8_t guess_touch_gesture(int dx, int dy){
-    const int SWIPE_THRESHOLD = 30; // Minimum distance for a swipe gesture
-
-    if(abs(dx) > SWIPE_THRESHOLD || abs(dy) > SWIPE_THRESHOLD){
+uint8_t guess_touch_gesture(int dx, int dy, int threshold){
+    if(abs(dx) > threshold || abs(dy) > threshold){
         if(abs(dx) > abs(dy)){
             return (dx > 0) ? TOUCH_SWIPE_UP_EVT :TOUCH_SWIPE_DOWN_EVT;
         } else {

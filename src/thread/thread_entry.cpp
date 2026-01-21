@@ -1392,23 +1392,21 @@ void touch_thread_entry(void *args){
         delay(1000);
     }
 
-    if(board->touch->begin(40)){
-        LOG_I("FT6206 touch controller initialized.");
-    } else {
-        LOG_W("No touch controller detected.");
+    if(!board->touch->begin(40)){
+        LOG_W("No touch controller detected, disabling touch support.");
         delay(100);
         if(board->touch != nullptr) {
             delete board->touch;
             board->touch = nullptr;
         }
+        LOG_I("Touch thread exiting...");
         vTaskDelete(NULL);
         return;
     }
-
-    const int SWIPE_THRESHOLD = 30;  // 最小滑动距离阈值
-    
+    LOG_I("FT6206 touch controller initialized.");
     while(true){
         delay(50);
+        
         // only respond to touch if mining is active
         if(board->stratum->get_job_counter() == 0) continue;
 
@@ -1416,10 +1414,19 @@ void touch_thread_entry(void *args){
             TS_Point start_point = board->touch->getPoint();
             TS_Point last_point = start_point;
             // wait for touch release
-            while (board->touch->touched()){
+            while (board->touch != nullptr && board->touch->touched()){
                 last_point = board->touch->getPoint();
                 delay(10);
             }
+            
+            // Check again before accessing touch
+            if(board->touch == nullptr) {
+                LOG_E("Touch instance became null during gesture detection");
+                delay(100);
+                vTaskDelete(NULL);
+                return;
+            }
+            
             // calculate movement deltas
             int dx = last_point.x - start_point.x;
             int dy = last_point.y - start_point.y;
@@ -1430,7 +1437,6 @@ void touch_thread_entry(void *args){
             // Detect gesture
             uint8_t evt = guess_touch_gesture(dx, dy);
             ui_switch_next_page_cb(evt);
-            // 等待触摸完全释放
             delay(100);
         }
     }

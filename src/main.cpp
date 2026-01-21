@@ -88,6 +88,9 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.ui.touch.evt                      = TOUCH_NONE_EVT;
     board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
+    board->status.time.format.time                  = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 24);
+    board->status.time.format.date                  = nvs_config_get_string(NVS_CONFIG_DATE_FORMAT, "YYYY/MM/DD");
+    
     // initialize fan statuses
     for(uint8_t i = 0; i < board->info.spec.fans.size(); i++){
         fan_status_t    state;

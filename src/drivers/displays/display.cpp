@@ -23,6 +23,7 @@ LV_FONT_DECLARE(ds_digib_font_38)
 LV_FONT_DECLARE(ds_digib_font_42)
 LV_FONT_DECLARE(ds_digib_font_50)
 LV_FONT_DECLARE(ds_digib_font_56)
+LV_FONT_DECLARE(ds_digib_font_120)
 LV_FONT_DECLARE(symbol_14)
 LV_FONT_DECLARE(symbol_20)
 /********************************************************************* global UI elements ********************************************************************/
@@ -114,6 +115,11 @@ struct{
   lv_img_dsc_t  *back_img_dsc;
   ui_element_t  lb_hr;
   ui_element_t  lb_hr_unit;
+  ui_element_t  lb_hits;
+  ui_element_t  lb_hits_unit;
+  ui_element_t  lb_date;
+  ui_element_t  lb_time;
+  ui_element_t  lb_price;
 }big_digit_page;
 
 
@@ -290,7 +296,6 @@ static void ui_page_element_init(board_sal_t* board){
   status_page_img_240_320.header.w = SCREEN_WIDTH;
   status_page_img_240_320.header.h = SCREEN_HEIGHT;
   status_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
-
 
   if((board->info.spec.name == BOARD_NMAXE_NAME) || (board->info.spec.name  == BOARD_NMAXE_GAMMA_NAME)){
     loading_page.back_img_dsc           = &loading_page_img_135_240;
@@ -483,7 +488,22 @@ static void ui_page_element_init(board_sal_t* board){
     big_digit_page.lb_hr.coord          = {0, 0};
 
     big_digit_page.lb_hr_unit.font      = &ds_digib_font_20;
-    big_digit_page.lb_hr_unit.coord     = {100, 26};
+    big_digit_page.lb_hr_unit.coord     = {95, 26};
+
+    big_digit_page.lb_hits.font         = &ds_digib_font_56;
+    big_digit_page.lb_hits.coord        = {-30, 0};
+
+    big_digit_page.lb_hits_unit.font    = &ds_digib_font_20;
+    big_digit_page.lb_hits_unit.coord   = {190, 26};
+
+    big_digit_page.lb_date.font         = &ds_digib_font_24;
+    big_digit_page.lb_date.coord        = {0, 0};
+
+    big_digit_page.lb_time.font         = &ds_digib_font_56;
+    big_digit_page.lb_time.coord        = {0, 15};
+
+    big_digit_page.lb_price.font        = &ds_digib_font_24;
+    big_digit_page.lb_price.coord       = {0, 0};
   }
   else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     loading_page.back_img_dsc           = &loading_page_img_240_320;
@@ -690,6 +710,21 @@ static void ui_page_element_init(board_sal_t* board){
 
     big_digit_page.lb_hr_unit.font      = &ds_digib_font_20;
     big_digit_page.lb_hr_unit.coord     = {100, 26};
+
+    big_digit_page.lb_hits.font         = &ds_digib_font_56;
+    big_digit_page.lb_hits.coord        = {-30, 0};
+
+    big_digit_page.lb_hits_unit.font    = &ds_digib_font_20;
+    big_digit_page.lb_hits_unit.coord   = {280, 26};
+
+    big_digit_page.lb_date.font         = &ds_digib_font_24;
+    big_digit_page.lb_date.coord        = {0, 0};
+
+    big_digit_page.lb_time.font         = &ds_digib_font_120;
+    big_digit_page.lb_time.coord        = {0, 0};
+
+    big_digit_page.lb_price.font        = &ds_digib_font_24;
+    big_digit_page.lb_price.coord       = {0, 0};
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
@@ -1124,7 +1159,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( hr_health_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, hr_health_page.lb_hr_unit.coord.x, hr_health_page.lb_hr_unit.coord.y);
   ////////////////////////////////////////////big digit  page layout///////////////////////////////////////////////
   // Hashrate label
-  font_color = lv_color_hex(0xFFFFFF);
+  font_color = lv_color_hex(0xEE7D30);
   big_digit_page.lb_hr.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
   lv_obj_set_width(big_digit_page.lb_hr.obj, SCREEN_WIDTH / 2);
   lv_label_set_text( big_digit_page.lb_hr.obj, " ");
@@ -1141,6 +1176,51 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_set_style_text_color(big_digit_page.lb_hr_unit.obj, font_color, LV_PART_MAIN);
   lv_label_set_long_mode(big_digit_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( big_digit_page.lb_hr_unit.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hr_unit.coord.x, big_digit_page.lb_hr_unit.coord.y);
+  // block hit label
+  font_color = lv_color_hex(0xEE7D30);
+  big_digit_page.lb_hits.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  lv_obj_set_width(big_digit_page.lb_hits.obj, 75);
+  lv_label_set_text( big_digit_page.lb_hits.obj, " ");
+  lv_obj_set_style_text_font(big_digit_page.lb_hits.obj, big_digit_page.lb_hits.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(big_digit_page.lb_hits.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(big_digit_page.lb_hits.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( big_digit_page.lb_hits.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hits.coord.x, big_digit_page.lb_hits.coord.y);
+  // block hit unit label
+  font_color = lv_color_hex(0x808080);
+  big_digit_page.lb_hits_unit.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  lv_obj_set_width(big_digit_page.lb_hits_unit.obj, 50);
+  lv_label_set_text( big_digit_page.lb_hits_unit.obj, "hits");
+  lv_obj_set_style_text_font(big_digit_page.lb_hits_unit.obj, big_digit_page.lb_hits_unit.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(big_digit_page.lb_hits_unit.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(big_digit_page.lb_hits_unit.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( big_digit_page.lb_hits_unit.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hits_unit.coord.x, big_digit_page.lb_hits_unit.coord.y);
+  // time label
+  font_color = lv_color_hex(0xFFFFFF);
+  big_digit_page.lb_time.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  lv_obj_set_width(big_digit_page.lb_time.obj, SCREEN_WIDTH);
+  lv_label_set_text( big_digit_page.lb_time.obj, " ");
+  lv_obj_set_style_text_font(big_digit_page.lb_time.obj, big_digit_page.lb_time.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(big_digit_page.lb_time.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(big_digit_page.lb_time.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( big_digit_page.lb_time.obj, LV_ALIGN_CENTER, big_digit_page.lb_time.coord.x, big_digit_page.lb_time.coord.y);
+  // date label
+  font_color = lv_color_hex(0x808080);
+  big_digit_page.lb_date.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  lv_obj_set_width(big_digit_page.lb_date.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( big_digit_page.lb_date.obj, " ");
+  lv_obj_set_style_text_font(big_digit_page.lb_date.obj, big_digit_page.lb_date.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(big_digit_page.lb_date.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(big_digit_page.lb_date.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( big_digit_page.lb_date.obj, LV_ALIGN_BOTTOM_RIGHT, big_digit_page.lb_date.coord.x, big_digit_page.lb_date.coord.y);
+  // price label
+  font_color = lv_color_hex(0x808080);
+  big_digit_page.lb_price.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  lv_obj_set_width(big_digit_page.lb_price.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( big_digit_page.lb_price.obj, " ");
+  lv_obj_set_style_text_font(big_digit_page.lb_price.obj, big_digit_page.lb_price.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(big_digit_page.lb_price.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(big_digit_page.lb_price.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( big_digit_page.lb_price.obj, LV_ALIGN_BOTTOM_LEFT, big_digit_page.lb_price.coord.x, big_digit_page.lb_price.coord.y);
 }
 
 static ui_ring_obj_t ui_draw_ring(lv_obj_t* parent, const ui_ring_config_t* config) {
@@ -1671,91 +1751,44 @@ static void ui_big_digit_page_update(board_sal_t* board){
     return;
   }
 
-
-
-  static bool first_time = true;
-  static lv_obj_t * lb_price = NULL;
-  static lv_obj_t * lb_time = NULL, * lb_date = NULL, * lb_block_hit = NULL, *lb_block_hit_unit = NULL;
-
-  if(first_time){
-    first_time = false;
-
-    // Hashrate value
-    const lv_font_t *  font = &ds_digib_font_56;
-    lv_color_t font_color = lv_color_hex(0xFFFFFF);
-    // Time
-    font = &ds_digib_font_42;
-    font_color = lv_color_hex(0xFFFFFF);
-    lb_time   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
-    String time_text = "00:00:00 AM";
-    lv_coord_t width = lv_txt_get_width(time_text.c_str(), strlen(time_text.c_str()), font, 0, LV_TEXT_FLAG_NONE);
-    lv_obj_set_width(lb_time, width);
-    lv_label_set_text( lb_time, " ");
-    lv_obj_set_style_text_font(lb_time, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_time, font_color, LV_PART_MAIN);
-    lv_label_set_long_mode(lb_time, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align( lb_time, LV_ALIGN_CENTER, 0, 15);
-    // Date
-    font = &ds_digib_font_24;
-    font_color = lv_color_hex(0x808080);
-    lb_date   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
-    lv_obj_set_width(lb_date, SCREEN_WIDTH/2);
-    lv_label_set_text( lb_date, " ");
-    lv_obj_set_style_text_font(lb_date, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_date, font_color, LV_PART_MAIN);
-    lv_label_set_long_mode(lb_date, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_date, LV_ALIGN_BOTTOM_MID, 62, 0);
-    // Price
-    font = &ds_digib_font_24;
-    font_color = lv_color_hex(0x808080);
-    lb_price   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
-    lv_obj_set_width(lb_date, SCREEN_WIDTH/2);
-    lv_label_set_text( lb_price, " ");
-    lv_obj_set_style_text_font(lb_price, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_price, font_color, LV_PART_MAIN);
-    lv_label_set_long_mode(lb_price, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_price, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-    // Block hit
-    font = &ds_digib_font_56;
-    font_color = lv_color_hex(0xEE7D30);
-    lb_block_hit   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
-    lv_obj_set_width(lb_block_hit, 75);
-    lv_label_set_text( lb_block_hit, " ");
-    lv_obj_set_style_text_font(lb_block_hit, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_block_hit, font_color, LV_PART_MAIN);
-    lv_label_set_long_mode(lb_block_hit, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_block_hit, LV_ALIGN_TOP_RIGHT, -30, 0);
-    // Block hit unit
-    font = &ds_digib_font_20;
-    font_color = lv_color_hex(0x808080);
-    lb_block_hit_unit   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
-    lv_obj_set_width(lb_block_hit_unit, 50);
-    lv_label_set_text( lb_block_hit_unit, "hits");
-    lv_obj_set_style_text_font(lb_block_hit_unit, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_block_hit_unit, font_color, LV_PART_MAIN);
-    lv_label_set_long_mode(lb_block_hit_unit, LV_LABEL_LONG_DOT);
-    lv_obj_align( lb_block_hit_unit, LV_ALIGN_TOP_RIGHT, 0, 26);
-  }
-  
   String hr       = formatNumber(board->status.miner.hashrate._3m, 3);
-  String datetime = convert_time_to_local(g_board.status.time.utc);
   String hr_unit = (board->status.miner.hashrate._3m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
   lv_label_set_text_fmt(big_digit_page.lb_hr.obj, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
   lv_label_set_text_fmt(big_digit_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
-  //time
-  String char11 = datetime.substring(11, 12);//remove '0' 
-  uint8_t index = (char11 == "0") ? 12:11;
-  lv_label_set_text_fmt(lb_time, "%s", datetime.substring(index, datetime.length()).c_str());
-  //date
-  lv_label_set_text_fmt(lb_date, "%s", datetime.substring(0, 10).c_str());
-  //block hit
-  if(board->status.miner.hits < 10) lv_obj_align( lb_block_hit, LV_ALIGN_TOP_RIGHT, -10, 0);
-  else lv_obj_align( lb_block_hit, LV_ALIGN_TOP_RIGHT, -30, 0);
-  lv_label_set_text_fmt(lb_block_hit, "%s", String(board->status.miner.hits).c_str());
 
-  
+  String datetime, char11, day, hms, am_pm = "";
+  uint8_t index;
+  // utc += 60*60; //add 24 hours every refresh to reduce time conversion calls
+  if(board->status.time.format.time == 12) {
+    datetime = convert_time_to_local_12h(board->status.time.utc, board->status.time.format.date);
+    char11 = datetime.substring(11, 12);//remove '0' for hour < 10
+    index = (char11 == "0") ? 12:11;
+    am_pm = datetime.substring(index + 5, index + 8); //include AM/PM
+  }
+  else if(board->status.time.format.time == 24) {
+    datetime = convert_time_to_local_24h(board->status.time.utc, board->status.time.format.date);
+    index = 11;//always 11 for 24h format
+  } 
+  hms = datetime.substring(index, index + 5); //only HH:MM
+  day = datetime.substring(0, 10);            //only YYYY-MM-DD
+
+  // time
+  lv_coord_t width = lv_txt_get_width(hms.c_str(), strlen(hms.c_str()), big_digit_page.lb_time.font, 0, LV_TEXT_FLAG_NONE);
+  lv_obj_set_width(big_digit_page.lb_time.obj, width);
+  lv_label_set_text_fmt(big_digit_page.lb_time.obj, "%s", hms.c_str());
+
+  // date
+  width = lv_txt_get_width(day.c_str(), strlen(day.c_str()), big_digit_page.lb_date.font, 0, LV_TEXT_FLAG_NONE);
+  lv_obj_set_width(big_digit_page.lb_date.obj, width);
+  lv_label_set_text_fmt(big_digit_page.lb_date.obj, "%s", day.c_str());
+
+  //block hit
+  if(board->status.miner.hits < 10) lv_obj_align( big_digit_page.lb_hits.obj, LV_ALIGN_TOP_RIGHT, -10, 0);
+  else lv_obj_align( big_digit_page.lb_hits.obj, LV_ALIGN_TOP_RIGHT, -30, 0);
+  lv_label_set_text_fmt(big_digit_page.lb_hits.obj, "%s", String(board->status.miner.hits).c_str());
+
   //price value 
   String price_value = (board->market->price > 1.0) ? String(board->market->price, 1) : String(board->market->price, 6);
   lv_color_t font_color;
@@ -1765,8 +1798,8 @@ static void ui_big_digit_page_update(board_sal_t* board){
     last_price = board->market->price;
   }
   else font_color = lv_color_hex(0x808080);//white
-  lv_obj_set_style_text_color(lb_price, font_color, LV_PART_MAIN);
-  lv_label_set_text_fmt(lb_price, "$%s", price_value.c_str());
+  lv_obj_set_style_text_color(big_digit_page.lb_price.obj, font_color, LV_PART_MAIN);
+  lv_label_set_text_fmt(big_digit_page.lb_price.obj, "$%s", price_value.c_str());
 }
 
 void ui_switch_next_page_cb(){

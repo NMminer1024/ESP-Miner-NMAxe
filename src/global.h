@@ -132,8 +132,12 @@ typedef struct{
     }ota;
 
     struct{
-        uint64_t    utc; // UTC timestamp in seconds since epoch
-        String      tz;  // timezone string, e.g. "8.0" for UTC+8
+        struct{
+            uint16_t    time;
+            String      date;
+        }format;
+        uint64_t    utc;    // UTC timestamp in seconds since epoch
+        String      tz;     // timezone string, e.g. "8.0" for UTC+8
     }time;
 
     struct{
