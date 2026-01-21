@@ -180,11 +180,11 @@ void setup() {
   delay(10);
   /********************************************************** CREATE BUTTON THREAD *****************************************************/
   taskName = "(button)";
-  xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_BTN, &btnTask,1);
+  xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_BTN, &btnTask,1);
   delay(10);
   /********************************************************* CREATE FAN THREAD *********************************************************/
   taskName = "(fan)";
-  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
+  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*4, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
   delay(10);
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
@@ -252,7 +252,7 @@ void setup() {
   delay(10);
   /********************************************************** CREATE MONITOR THREAD ***************************************************/
   taskName = "(monitor)";
-  xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_MONITOR, &monitorTask,1);
+  xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*4, (void*)(&g_board), TASK_PRIORITY_MONITOR, &monitorTask,1);
   delay(500);
   /********************************************************** CREATE MINER TX THREAD **************************************************/
   taskName = "(asic_tx)";
@@ -260,7 +260,7 @@ void setup() {
   delay(10);
   /*********************************************************  CREATE MINER RX THREAD **************************************************/
   taskName = "(asic_rx)";
-  xTaskCreatePinnedToCore(miner_asic_rx_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_MINER_RX, &minerRxTask,0);
+  xTaskCreatePinnedToCore(miner_asic_rx_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_MINER_RX, &minerRxTask,0);
   delay(10);
 }
 

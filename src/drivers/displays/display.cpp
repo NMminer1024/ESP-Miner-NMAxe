@@ -200,7 +200,7 @@ static void ui_drv_register(void){
     if (psram_free > buffer_bytes * 2) { // Leave safety margin
       color_buf = (lv_color_t*)heap_caps_malloc(buffer_bytes, MALLOC_CAP_SPIRAM);
       if (color_buf != NULL) {
-        LOG_I("✓ LVGL display buffer allocated in PSRAM: %d bytes at 0x%p", buffer_bytes, color_buf);
+        LOG_I("LVGL display buffer allocated in PSRAM: %d bytes at 0x%p", buffer_bytes, color_buf);
       }
     }
     
@@ -1820,7 +1820,6 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
   g_board.status.ui.page.last    = g_board.status.ui.page.current;
   xSemaphoreGive(g_board.status.ui.page.save_xsem);
 }
-
 
 static void lvgl_tick_task(void *args){
   char *name = (char*)malloc(20);
