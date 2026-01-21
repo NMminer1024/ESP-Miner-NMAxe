@@ -469,12 +469,19 @@ float parseDiffStr(const String& diffStr) {
     return diff;
 }
 
-uint8_t guess_touch_gesture(int dx, int dy, int threshold){
+uint8_t guess_touch_gesture(int dx, int dy, bool flip, int threshold){
     if(abs(dx) > threshold || abs(dy) > threshold){
         if(abs(dx) > abs(dy)){
-            return (dx > 0) ? TOUCH_SWIPE_UP_EVT :TOUCH_SWIPE_DOWN_EVT;
+            if(flip) 
+                return (dx > 0) ? TOUCH_SWIPE_UP_EVT : TOUCH_SWIPE_DOWN_EVT;
+            else 
+                return (dx > 0) ? TOUCH_SWIPE_DOWN_EVT : TOUCH_SWIPE_UP_EVT;    // rotate 180 degrees
+            
         } else {
-            return (dy > 0) ? TOUCH_SWIPE_RIGHT_EVT : TOUCH_SWIPE_LEFT_EVT;
+            if(flip) 
+                return (dy > 0) ? TOUCH_SWIPE_RIGHT_EVT : TOUCH_SWIPE_LEFT_EVT;
+            else 
+                return (dy > 0) ? TOUCH_SWIPE_LEFT_EVT : TOUCH_SWIPE_RIGHT_EVT;  // rotate 180 degrees
         }
     } else {
         return TOUCH_TAP_EVT;

@@ -1404,6 +1404,7 @@ void touch_thread_entry(void *args){
         return;
     }
     LOG_I("FT6206 touch controller initialized.");
+    LOG_I("Screen flip status: %d", board->status.preference.screen.flip);
     while(true){
         delay(100);
 
@@ -1427,7 +1428,7 @@ void touch_thread_entry(void *args){
             LOG_D("Touch ended at x: %d, y: %d (dx: %d, dy: %d)", last_point.x, last_point.y, dx, dy);
             
             // Detect gesture
-            uint8_t evt = guess_touch_gesture(dx, dy);
+            uint8_t evt = guess_touch_gesture(dx, dy, board->status.preference.screen.flip);
             ui_switch_next_page_cb(evt);
             delay(100);
         }

@@ -58,7 +58,7 @@ String convert_time_to_local_12h(uint32_t timestamp, String date_format = "YYYY/
 
 String convert_time_to_local_24h(uint32_t timestamp, String date_format = "YYYY/MM/DD");
 
-uint8_t guess_touch_gesture(int dx, int dy, int threshold = 30);
+uint8_t guess_touch_gesture(int dx, int dy, bool flip, int threshold = 30);
 
 template <typename T>
 struct PsramAllocator {

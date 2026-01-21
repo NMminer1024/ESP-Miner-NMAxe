@@ -331,7 +331,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.flip          = false;
             config.preference.fan.is_auto_speed    = true;
             config.preference.led.enable           = true;
-            config.preference.asic.target_temp     = 45;
+            config.preference.asic.target_temp     = 30;
             config.create_asic_instance      = create_qaxepp_asic_instance;
             config.create_power_instance     = create_qaxepp_power_instance;
             
