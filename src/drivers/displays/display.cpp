@@ -557,7 +557,7 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_price.font            = &ds_digib_font_20;
     miner_page.lb_price.coord           = {33, 25};
     miner_page.lb_ver.font              = &ds_digib_font_16;
-    miner_page.lb_ver.coord             = {15, 35};
+    miner_page.lb_ver.coord             = {16, 38};
     miner_page.lb_power.font            = &ds_digib_font_24;
     miner_page.lb_power.coord           = {30, 168};
     miner_page.lb_ip.font               = &ds_digib_font_18;

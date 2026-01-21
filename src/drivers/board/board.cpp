@@ -314,7 +314,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.pool_pin              = -1; // Not used
             config.led.sys_pin               = -1; // Not used
             config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 600);
-            config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1200);
+            config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1225);
             config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
             config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1000;

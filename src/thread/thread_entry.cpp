@@ -1405,8 +1405,8 @@ void touch_thread_entry(void *args){
     }
     LOG_I("FT6206 touch controller initialized.");
     while(true){
-        delay(50);
-        
+        delay(100);
+
         // only respond to touch if mining is active
         if(board->stratum->get_job_counter() == 0) continue;
 
@@ -1418,15 +1418,7 @@ void touch_thread_entry(void *args){
                 last_point = board->touch->getPoint();
                 delay(10);
             }
-            
-            // Check again before accessing touch
-            if(board->touch == nullptr) {
-                LOG_E("Touch instance became null during gesture detection");
-                delay(100);
-                vTaskDelete(NULL);
-                return;
-            }
-            
+
             // calculate movement deltas
             int dx = last_point.x - start_point.x;
             int dy = last_point.y - start_point.y;
