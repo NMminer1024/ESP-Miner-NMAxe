@@ -1324,15 +1324,13 @@ static ui_ring_obj_t ui_draw_ring(lv_obj_t* parent, const ui_ring_config_t* conf
 
     // 创建中心文本标签
     if(config->center_text && config->center_font) {
-        ring_obj.label_center = lv_label_create(parent);
-        lv_obj_set_width(ring_obj.label_center, 80);
+        ring_obj.label_center = lv_label_create(ring_obj.arc);
         lv_label_set_text(ring_obj.label_center, config->center_text);
         lv_obj_set_style_text_font(ring_obj.label_center, config->center_font, LV_PART_MAIN);
         lv_obj_set_style_text_color(ring_obj.label_center, config->center_text_color, LV_PART_MAIN);
-        lv_label_set_long_mode(ring_obj.label_center, LV_LABEL_LONG_DOT);
-        lv_obj_align(ring_obj.label_center, LV_ALIGN_TOP_LEFT, 
-                    config->x + config->radius - 19, 
-                    config->y + config->radius - 8);
+        lv_obj_set_style_text_align(ring_obj.label_center, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+        lv_label_set_long_mode(ring_obj.label_center, LV_LABEL_LONG_CLIP);
+        lv_obj_center(ring_obj.label_center);
     } else {
         ring_obj.label_center = NULL;
     }
