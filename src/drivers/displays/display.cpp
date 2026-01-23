@@ -51,7 +51,11 @@ struct{
   ui_element_t  img_logo;
   lv_img_dsc_t  *logo_img_dsc;
 
+  ui_element_t  lb_config_txt;
+  ui_element_t  lb_version;
   ui_element_t  lb_cfg_timeout;
+
+  ui_element_t  qr_code;
 }config_page;
 
 // miner page elements
@@ -333,10 +337,19 @@ static void ui_page_element_init(board_sal_t* board){
     loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
     loading_page.lb_pool_url.coord      = {0, 35};
     /*********************************** Config page *********************************/
-    config_page.img_logo.coord          = {20, 1};
+    config_page.img_logo.coord          = {35, 0};
+
+    config_page.lb_config_txt.font      = &lv_font_montserrat_14;
+    config_page.lb_config_txt.coord     = {10, 40 };
+
+    config_page.lb_version.font         = &lv_font_montserrat_16;
+    config_page.lb_version.coord        = {70, 0};
+
     config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
 
+    config_page.qr_code.coord           = {0, 0};
+    config_page.qr_code.font            = &lv_font_montserrat_14;
     /*********************************** mining page *********************************/
     miner_page.img_logo.coord           = {45, 20};
     miner_page.lb_share.font            = &ds_digib_font_18;
@@ -542,10 +555,19 @@ static void ui_page_element_init(board_sal_t* board){
     loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
     loading_page.lb_pool_url.coord      = {0, 35};
     /*********************************** Config page *********************************/
-    config_page.img_logo.coord          = {20, 1};
-    config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
-    config_page.lb_cfg_timeout.coord    = {175, 0 }; 
+    config_page.img_logo.coord          = {50, 50};
 
+    config_page.lb_config_txt.font     = &lv_font_montserrat_16;
+    config_page.lb_config_txt.coord    = {15, 87 };
+
+    config_page.lb_version.font         = &lv_font_montserrat_20;
+    config_page.lb_version.coord        = {88, 10};
+
+    config_page.lb_cfg_timeout.font     = &lv_font_montserrat_20;
+    config_page.lb_cfg_timeout.coord    = {225, -15 }; 
+
+    config_page.qr_code.coord           = {0, 0};
+    config_page.qr_code.font            = &lv_font_montserrat_14;
     /*********************************** mining page *********************************/
     miner_page.img_logo.coord           = {70, 44};
     miner_page.lb_hr_unit.font          = &ds_digib_font_28;
@@ -883,6 +905,17 @@ static void ui_layout_init(board_sal_t* board){
   lv_label_set_long_mode(loading_page.lb_pool_url.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
   lv_obj_align( loading_page.lb_pool_url.obj, LV_ALIGN_CENTER, loading_page.lb_pool_url.coord.x, loading_page.lb_pool_url.coord.y);
   //////////////////////////////////////config page layout///////////////////////////////////////////////
+  // version label
+  font_color = lv_color_hex(0xFFFFFF);
+  width = lv_txt_get_width(board->info.base.fw_version.c_str(), strlen(board->info.base.fw_version.c_str()), config_page.lb_version.font, 0, LV_TEXT_FLAG_NONE);
+  config_page.lb_version.obj   = lv_label_create( config_page.container );
+  lv_obj_set_width(config_page.lb_version.obj, width);
+  lv_label_set_text( config_page.lb_version.obj, board->info.base.fw_version.c_str());
+  lv_obj_set_style_text_font(config_page.lb_version.obj, config_page.lb_version.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(config_page.lb_version.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(config_page.lb_version.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( config_page.lb_version.obj, LV_ALIGN_TOP_MID, config_page.lb_version.coord.x, config_page.lb_version.coord.y);
+
   //config timeout label
   font_color = lv_color_hex(0xFFFFFF);
   config_page.lb_cfg_timeout.obj   = lv_label_create( config_page.container );
@@ -892,6 +925,29 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_set_style_text_color(config_page.lb_cfg_timeout.obj, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(config_page.lb_cfg_timeout.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
+
+  //QR code
+  lv_coord_t qr_size = SCREEN_HEIGHT - 32;
+  if((board->info.spec.name == BOARD_NMAXE_NAME) || (board->info.spec.name == BOARD_NMAXE_GAMMA_NAME)){
+    qr_size = SCREEN_HEIGHT - 32;
+  } else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    qr_size = SCREEN_HEIGHT - 95;
+  }
+  config_page.qr_code.obj = lv_qrcode_create(ui_pages[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
+  String qr_str = "WIFI:T:WPA;S:" + g_board.info.connection.wifi.softap_param.ssid + ";P:" + g_board.info.connection.wifi.softap_param.pwd + ";H:false;";
+  lv_qrcode_update(config_page.qr_code.obj, (uint8_t*)qr_str.c_str(), qr_str.length());
+  lv_obj_align(config_page.qr_code.obj, LV_ALIGN_RIGHT_MID, config_page.qr_code.coord.x, config_page.qr_code.coord.y);
+
+  // config text label
+  String config = g_board.info.connection.wifi.softap_param.ssid + "\r\n"+ g_board.info.connection.wifi.softap_param.ip.toString();
+  config_page.lb_config_txt.obj  = lv_label_create( config_page.container );
+  lv_obj_set_width(config_page.lb_config_txt.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text(config_page.lb_config_txt.obj, config.c_str());
+  lv_obj_set_style_text_font(config_page.lb_config_txt.obj, config_page.lb_config_txt.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(config_page.lb_config_txt.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(config_page.lb_config_txt.obj, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_line_space(config_page.lb_config_txt.obj, 0, LV_PART_MAIN); 
+  lv_obj_align(config_page.lb_config_txt.obj, LV_ALIGN_LEFT_MID, config_page.lb_config_txt.coord.x, config_page.lb_config_txt.coord.y);
 
   //////////////////////////////////////miner page layout///////////////////////////////////////////////
   //Hashrate value
@@ -1992,43 +2048,14 @@ void ui_thread_entry(void *args){
       //config background
       lv_obj_scroll_to_view(ui_pages[UI_PAGE_CONFIG], LV_ANIM_ON);
 
-      //config label
-      const lv_font_t *font = &lv_font_montserrat_14;
-      lv_color_t font_color = lv_color_hex(0xFFFFFF);
-      lv_obj_t *lb_cfg = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
-      lv_obj_t *lb_version = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
-      String str = g_board.info.connection.wifi.softap_param.ssid + "\r\n"+ g_board.info.connection.wifi.softap_param.ip.toString();
-
-      lv_obj_set_width(lb_cfg, 120);
-      lv_label_set_text(lb_cfg, str.c_str());
-      lv_obj_set_style_text_font(lb_cfg, font, LV_PART_MAIN);
-      lv_obj_set_style_text_color(lb_cfg, font_color, LV_PART_MAIN);
-      lv_label_set_long_mode(lb_cfg, LV_LABEL_LONG_WRAP);
-      lv_obj_set_style_text_line_space(lb_cfg, 0, LV_PART_MAIN); 
-      lv_obj_align(lb_cfg, LV_ALIGN_LEFT_MID, 8, 38);
-
-      lv_obj_set_width(lb_version, 120);
-      lv_label_set_text(lb_version, g_board.info.base.fw_version.c_str());
-      lv_obj_set_style_text_font(lb_version, font, LV_PART_MAIN);
-      lv_obj_set_style_text_color(lb_version, font_color, LV_PART_MAIN);
-      lv_label_set_long_mode(lb_version, LV_LABEL_LONG_WRAP);
-      lv_obj_set_style_text_line_space(lb_version, 0, LV_PART_MAIN); 
-      lv_obj_align(lb_version, LV_ALIGN_TOP_MID, 105, 1);
-
-      //QR code
-      lv_obj_t *qrcode = lv_qrcode_create(ui_pages[UI_PAGE_CONFIG], SCREEN_HEIGHT - 30, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
-      String qr_str = "WIFI:T:WPA;S:" + g_board.info.connection.wifi.softap_param.ssid + ";P:" + g_board.info.connection.wifi.softap_param.pwd + ";H:false;";
-      lv_qrcode_update(qrcode, (uint8_t*)qr_str.c_str(), qr_str.length());
-      lv_obj_align(qrcode, LV_ALIGN_RIGHT_MID, 0, 0);
-
       while (true){
         static uint8_t cnt = 0;
-        String str = (g_board.info.connection.client_connected) ? config_str[cnt++%4] : (String(g_board.info.connection.wifi.status_param.config_timeout) + "s");
+        String timeout = (g_board.info.connection.client_connected) ? config_str[cnt++%4] : (String(g_board.info.connection.wifi.status_param.config_timeout) + "s");
         //config timeout label location
-        if(g_board.info.connection.client_connected) lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, 160, 0);
-        else lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, 175, 0);
+        if(g_board.info.connection.client_connected) lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x - 10, config_page.lb_cfg_timeout.coord.y);
+        else lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
 
-        lv_label_set_text(config_page.lb_cfg_timeout.obj, str.c_str());
+        lv_label_set_text(config_page.lb_cfg_timeout.obj, timeout.c_str());
         //update ota page
         if(g_board.status.ota.running){
           ui_ota_page_update(&g_board);

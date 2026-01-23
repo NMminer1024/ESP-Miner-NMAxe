@@ -9,7 +9,7 @@ uint8_t FT6206Class::readRegister8(uint8_t reg) {
     uint8_t data = 0;
     esp_err_t ret = i2c_master_register_read(FT62XX_DEFAULT_ADDR, reg, &data, 1);
     if (ret != ESP_OK) {
-        LOG_E("FT6206: Failed to read reg 0x%02x, error 0x%x", reg, ret);
+        // LOG_E("FT6206: Failed to read reg 0x%02x, error 0x%x", reg, ret);
         return 0;
     }
     return data;
@@ -18,7 +18,7 @@ uint8_t FT6206Class::readRegister8(uint8_t reg) {
 void FT6206Class::writeRegister8(uint8_t reg, uint8_t val) {
     esp_err_t ret = i2c_master_register_write_byte(FT62XX_DEFAULT_ADDR, reg, val);
     if (ret != ESP_OK) {
-        LOG_E("FT6206: Failed to write reg 0x%02x = 0x%02x, error 0x%x", reg, val, ret);
+        // LOG_E("FT6206: Failed to write reg 0x%02x = 0x%02x, error 0x%x", reg, val, ret);
     }
 }
 
@@ -28,14 +28,14 @@ bool FT6206Class::begin(uint8_t threshold) {
     // Try to read vendor ID register (0xA8) - should return 0x11 for FT6206
     uint8_t vendorID = readRegister8(0xA8);
     if (vendorID != 0x11) {
-        LOG_E("FT6206: Invalid vendor ID 0x%02x (expected 0x11)", vendorID);
+        // LOG_E("FT6206: Invalid vendor ID 0x%02x (expected 0x11)", vendorID);
         return false;
     }
     
     // Read chip ID register (0xA3) - should return 0x06 for FT6206
     uint8_t chipID = readRegister8(0xA3);
     if (chipID != 0x06 && chipID != 0x64) {  // 0x64 for some variants
-        LOG_E("FT6206: Invalid chip ID 0x%02x (expected 0x06 or 0x64)", chipID);
+        // LOG_E("FT6206: Invalid chip ID 0x%02x (expected 0x06 or 0x64)", chipID);
         return false;
     }
     
@@ -70,7 +70,7 @@ TS_Point FT6206Class::getPoint(uint8_t n) {
     
     esp_err_t ret = i2c_master_register_read(FT62XX_DEFAULT_ADDR, startReg, data, 6);
     if (ret != ESP_OK) {
-        LOG_E("FT6206: Failed to read touch point %d", n);
+        // LOG_E("FT6206: Failed to read touch point %d", n);
         return point;
     }
     
