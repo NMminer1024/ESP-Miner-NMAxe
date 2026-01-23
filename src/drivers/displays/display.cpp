@@ -106,8 +106,11 @@ struct{
     ui_ring_config_t cfg;
   }ring_vcore_temp;
   struct{
-    ui_pie_chart_t   obj;
-    pie_sector_t     cfg[4];
+    lv_coord_t      center_x;                             
+    lv_coord_t      center_y;  
+    lv_coord_t      radius;                              
+    ui_pie_chart_t  obj;
+    pie_sector_t    cfg[PIE_CHART_MAX_SECTORS];
   }asic_hr_chart;
 }dashboard_page;
 
@@ -746,6 +749,25 @@ static void ui_page_element_init(board_sal_t* board){
         .title_text_color = lv_color_hex(0xD3D3D3)
     };
 
+    dashboard_page.asic_hr_chart.center_x = 80;
+    dashboard_page.asic_hr_chart.center_y = 85;
+    dashboard_page.asic_hr_chart.radius   = 50;
+
+    dashboard_page.asic_hr_chart.cfg[0].angle = 90;
+    dashboard_page.asic_hr_chart.cfg[0].color = lv_color_hex(0x009900);
+    dashboard_page.asic_hr_chart.cfg[0].label = "A4";
+    
+    dashboard_page.asic_hr_chart.cfg[1].angle = 90;
+    dashboard_page.asic_hr_chart.cfg[1].color = lv_color_hex(0x660000);
+    dashboard_page.asic_hr_chart.cfg[1].label = "A3";
+    
+    dashboard_page.asic_hr_chart.cfg[2].angle = 90;
+    dashboard_page.asic_hr_chart.cfg[2].color = lv_color_hex(0x00FF00);
+    dashboard_page.asic_hr_chart.cfg[2].label = "A2";
+    
+    dashboard_page.asic_hr_chart.cfg[3].angle = 90;
+    dashboard_page.asic_hr_chart.cfg[3].color = lv_color_hex(0x0000FF);
+    dashboard_page.asic_hr_chart.cfg[3].label = "A1";
 
     /******************************** hashrate healthy page *****************************/
     hr_health_page.lb_hr.font          = &ds_digib_font_56;
@@ -1713,28 +1735,6 @@ static void ui_dashboard_page_update(board_sal_t* board){
     if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
       dashboard_page.ring_vcore_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
     }
-    if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.asic_hr_chart.obj.arcs[0] == NULL)) {
-      // Initialize sectors configuration
-      dashboard_page.asic_hr_chart.cfg[0].angle = 90;
-      dashboard_page.asic_hr_chart.cfg[0].color = lv_color_hex(0xFFFF00);
-      dashboard_page.asic_hr_chart.cfg[0].label = "A0";
-      
-      dashboard_page.asic_hr_chart.cfg[1].angle = 90;
-      dashboard_page.asic_hr_chart.cfg[1].color = lv_color_hex(0xFF0000);
-      dashboard_page.asic_hr_chart.cfg[1].label = "A1";
-      
-      dashboard_page.asic_hr_chart.cfg[2].angle = 90;
-      dashboard_page.asic_hr_chart.cfg[2].color = lv_color_hex(0x00FF00);
-      dashboard_page.asic_hr_chart.cfg[2].label = "A2";
-      
-      dashboard_page.asic_hr_chart.cfg[3].angle = 90;
-      dashboard_page.asic_hr_chart.cfg[3].color = lv_color_hex(0x0000FF);
-      dashboard_page.asic_hr_chart.cfg[3].label = "A3";
-      
-      dashboard_page.asic_hr_chart.obj = ui_draw_pie_chart(ui_pages[UI_PAGE_DASHBOARD], 
-                                                            150, 190, 50, 
-                                                            dashboard_page.asic_hr_chart.cfg, 4);
-    }
   }
   // update angles
   uint16_t arc_angle_full = dashboard_page.ring_oc.cfg.angle_full;
@@ -1758,27 +1758,6 @@ static void ui_dashboard_page_update(board_sal_t* board){
   String hr_unit  = (board->status.miner.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
   lv_label_set_text_fmt(dashboard_page.lb_hr.obj, "%s", hr_value.substring(0, hr_value.length() - 1).c_str());
   lv_label_set_text_fmt(dashboard_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
-
-  // update pie chart for NMQ AXE++
-  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-    if((dashboard_page.asic_hr_chart.obj.arcs[0] != NULL) && (board->status.miner.asic_rsp_counter.size() ==  board->miner->get_asic_count())){
-      // Calculate new angles based on ASIC response counters
-      uint64_t total = 0;
-      for(auto &pair : board->status.miner.asic_rsp_counter) {
-        total += pair.second;
-      }
-      
-      uint16_t new_angles[4] = {0};
-      for(auto &pair : board->status.miner.asic_rsp_counter){
-        if(pair.first < 4) {
-          float per = (total == 0) ? 0.25f : (float)pair.second / (float)total;
-          new_angles[pair.first] = (uint16_t)(per * 360.0f);
-        }
-      }
-      // Update pie chart with new angles
-      ui_update_pie_chart(&dashboard_page.asic_hr_chart.obj, new_angles);
-    }
-  }
 }
 
 static void ui_hr_healthy_page_update(board_sal_t* board){
@@ -1796,6 +1775,18 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   static double last_hashrate = 0;
   if(last_hashrate == board->status.miner.hashrate._3m) return;
   last_hashrate = board->status.miner.hashrate._3m;
+
+  // draw pie chart if not created
+  // only for NMQ AXE ++
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    if((ui_pages[UI_PAGE_HR_HEALTH] != NULL) && (dashboard_page.asic_hr_chart.obj.arcs[0] == NULL)) {
+      dashboard_page.asic_hr_chart.obj = ui_draw_pie_chart(ui_pages[UI_PAGE_HR_HEALTH], 
+                                                            dashboard_page.asic_hr_chart.center_x, 
+                                                            dashboard_page.asic_hr_chart.center_y, 
+                                                            dashboard_page.asic_hr_chart.radius, 
+                                                            dashboard_page.asic_hr_chart.cfg, board->miner->get_asic_count());
+    }
+  }
 
   if(first_time){
     first_time = false;
@@ -1874,6 +1865,33 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   lv_label_set_text_fmt(hr_health_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
   //time cost
   lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(board->info.spec.ui.hashrate_dist_page.dura) + "s").c_str());
+
+  // update pie chart for NMQ AXE++
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    if((dashboard_page.asic_hr_chart.obj.arcs[0] != NULL) && (board->status.miner.asic_rsp_counter.size() ==  board->miner->get_asic_count())){
+      // Calculate new angles based on ASIC response counters
+      uint64_t total = 0;
+      for(auto &pair : board->status.miner.asic_rsp_counter) {
+        total += pair.second;
+      }
+      
+      uint16_t new_angles[board->miner->get_asic_count()] = {0};
+      for(auto &pair : board->status.miner.asic_rsp_counter){
+        float per = (total == 0) ? 0.25f : ((float)pair.second / (float)total);
+        new_angles[pair.first] = (uint16_t)(per * 360.0f);
+      }
+      
+      // Adjust the last angle to ensure the sum is exactly 360 degrees
+      uint32_t total_angle = 0;
+      for(uint8_t i = 0; i < board->miner->get_asic_count() - 1; i++){
+        total_angle += new_angles[i];
+      }
+      new_angles[board->miner->get_asic_count() - 1] = (360 - total_angle) > 0 ? (360 - total_angle) : 0;
+
+      // Update pie chart with new angles
+      ui_update_pie_chart(&dashboard_page.asic_hr_chart.obj, new_angles);
+    }
+  }
 }
 
 static void ui_big_digit_page_update(board_sal_t* board){
