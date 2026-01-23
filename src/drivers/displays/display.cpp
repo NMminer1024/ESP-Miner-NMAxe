@@ -101,6 +101,11 @@ struct{
     ui_ring_obj_t    obj;
     ui_ring_config_t cfg;
   }ring_asic_temp;
+  struct{
+    ui_ring_obj_t    obj;
+    ui_ring_config_t cfg;
+  }ring_vcore_temp;
+
 }dashboard_page;
 
 // hashrate health page elements
@@ -632,7 +637,7 @@ static void ui_page_element_init(board_sal_t* board){
     
     dashboard_page.ring_oc.cfg = {
         .x = 0,
-        .y = 4,
+        .y = 6,
         .radius = arc_r,
         .line_width = arc_line_width,
         .angle_start = 0,
@@ -650,7 +655,7 @@ static void ui_page_element_init(board_sal_t* board){
     
     dashboard_page.ring_pwr.cfg = {
         .x = (lv_coord_t)(2 * arc_r + 10),
-        .y = 4,
+        .y = 6,
         .radius = arc_r,
         .line_width = arc_line_width,
         .angle_start = 0,
@@ -703,7 +708,7 @@ static void ui_page_element_init(board_sal_t* board){
     };
     
     dashboard_page.ring_asic_temp.cfg = {
-        .x = 140,
+        .x = 227,
         .y = 50,
         .radius = (lv_coord_t)(3 * arc_r / 2),
         .line_width = (lv_coord_t)(arc_line_width * 2),
@@ -720,6 +725,23 @@ static void ui_page_element_init(board_sal_t* board){
         .title_text_color = lv_color_hex(0xD3D3D3)
     };
 
+    dashboard_page.ring_vcore_temp.cfg = {
+        .x = 135,
+        .y = 50,
+        .radius = (lv_coord_t)(3 * arc_r / 2),
+        .line_width = (lv_coord_t)(arc_line_width * 2),
+        .angle_start = 0,
+        .angle_end = 0,
+        .angle_full = arc_angle_full,
+        .bg_color = lv_color_hex(0xC0C0C0),
+        .indicator_color = lv_color_hex(0x0080FF),
+        .center_text = " ",
+        .center_font = &lv_font_montserrat_20,
+        .center_text_color = lv_color_hex(0xFFFFFF),
+        .title_text = "Vc Temp",
+        .title_font = &lv_font_montserrat_14,
+        .title_text_color = lv_color_hex(0xD3D3D3)
+    };
     /******************************** hashrate healthy page *****************************/
     hr_health_page.lb_hr.font          = &ds_digib_font_56;
     hr_health_page.lb_hr.coord         = {55 + 40, -4};
@@ -1683,7 +1705,12 @@ static void ui_dashboard_page_update(board_sal_t* board){
   if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_asic_temp.obj.arc == NULL)) {
     dashboard_page.ring_asic_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_asic_temp.cfg);
   }
-
+  // only for NMQ AXE ++
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
+      dashboard_page.ring_vcore_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
+    }
+  }
   // 计算角度
   uint16_t arc_angle_full = dashboard_page.ring_oc.cfg.angle_full;
   uint16_t oc_angle            = arc_angle_full * (board->info.spec.asic.req_frq - limited_freq_req.min) / (limited_freq_req.max - limited_freq_req.min); 
@@ -1691,6 +1718,7 @@ static void ui_dashboard_page_update(board_sal_t* board){
   uint16_t vcore_req_angle     = arc_angle_full * (board->info.spec.asic.req_vcore/1000.0 - limited_vcore_req.min) / (limited_vcore_req.max - limited_vcore_req.min); 
   uint16_t vcore_measure_angle = arc_angle_full * (board->status.power.vcore /1000.0 - limited_vcore_measure.min) / (limited_vcore_measure.max - limited_vcore_measure.min);
   uint16_t asic_temp_angle     = arc_angle_full * (board->status.temp.asic - limited_asic_temp.min) / (limited_asic_temp.max - limited_asic_temp.min);
+  uint16_t vcore_temp_angle    = arc_angle_full * (board->status.temp.vcore - limited_vcore_temp.min) / (limited_vcore_temp.max - limited_vcore_temp.min);
 
   // 更新圆环
   ui_update_ring(&dashboard_page.ring_oc.obj, oc_angle, String(board->info.spec.asic.req_frq) + "M");
@@ -1698,6 +1726,7 @@ static void ui_dashboard_page_update(board_sal_t* board){
   ui_update_ring(&dashboard_page.ring_vc_req.obj, vcore_req_angle, formatNumber(board->info.spec.asic.req_vcore/1000.0, 4) + "v");
   ui_update_ring(&dashboard_page.ring_vc_real.obj, vcore_measure_angle, formatNumber(board->status.power.vcore/1000.0, 4) + "v");
   ui_update_ring(&dashboard_page.ring_asic_temp.obj, asic_temp_angle, formatNumber(board->status.temp.asic, 2) + "'C");
+  ui_update_ring(&dashboard_page.ring_vcore_temp.obj, vcore_temp_angle, formatNumber(board->status.temp.vcore, 2) + "'C");
 
   // 更新主显示区域的hashrate
   String hr_value = formatNumber(board->status.miner.hashrate._3m, 3);
