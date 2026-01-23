@@ -105,12 +105,10 @@ struct{
     ui_ring_obj_t    obj;
     ui_ring_config_t cfg;
   }ring_vcore_temp;
-
-
-  
-
-
-
+  struct{
+    ui_pie_chart_t   obj;
+    pie_sector_t     cfg[4];
+  }asic_hr_chart;
 }dashboard_page;
 
 // hashrate health page elements
@@ -747,6 +745,8 @@ static void ui_page_element_init(board_sal_t* board){
         .title_font = &lv_font_montserrat_14,
         .title_text_color = lv_color_hex(0xD3D3D3)
     };
+
+
     /******************************** hashrate healthy page *****************************/
     hr_health_page.lb_hr.font          = &ds_digib_font_56;
     hr_health_page.lb_hr.coord         = {55 + 40, -4};
@@ -1713,6 +1713,28 @@ static void ui_dashboard_page_update(board_sal_t* board){
     if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
       dashboard_page.ring_vcore_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
     }
+    if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.asic_hr_chart.obj.arcs[0] == NULL)) {
+      // Initialize sectors configuration
+      dashboard_page.asic_hr_chart.cfg[0].angle = 90;
+      dashboard_page.asic_hr_chart.cfg[0].color = lv_color_hex(0xFFFF00);
+      dashboard_page.asic_hr_chart.cfg[0].label = "A0";
+      
+      dashboard_page.asic_hr_chart.cfg[1].angle = 90;
+      dashboard_page.asic_hr_chart.cfg[1].color = lv_color_hex(0xFF0000);
+      dashboard_page.asic_hr_chart.cfg[1].label = "A1";
+      
+      dashboard_page.asic_hr_chart.cfg[2].angle = 90;
+      dashboard_page.asic_hr_chart.cfg[2].color = lv_color_hex(0x00FF00);
+      dashboard_page.asic_hr_chart.cfg[2].label = "A2";
+      
+      dashboard_page.asic_hr_chart.cfg[3].angle = 90;
+      dashboard_page.asic_hr_chart.cfg[3].color = lv_color_hex(0x0000FF);
+      dashboard_page.asic_hr_chart.cfg[3].label = "A3";
+      
+      dashboard_page.asic_hr_chart.obj = ui_draw_pie_chart(ui_pages[UI_PAGE_DASHBOARD], 
+                                                            150, 190, 50, 
+                                                            dashboard_page.asic_hr_chart.cfg, 4);
+    }
   }
   // update angles
   uint16_t arc_angle_full = dashboard_page.ring_oc.cfg.angle_full;
@@ -1737,28 +1759,25 @@ static void ui_dashboard_page_update(board_sal_t* board){
   lv_label_set_text_fmt(dashboard_page.lb_hr.obj, "%s", hr_value.substring(0, hr_value.length() - 1).c_str());
   lv_label_set_text_fmt(dashboard_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
 
-
-
-
   // update pie chart for NMQ AXE++
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-    static pie_sector_t sectors[] = {
-        {90, lv_color_hex(0xFF0000), "A0"},   
-        {90, lv_color_hex(0x00FF00), "A1"},   
-        {90, lv_color_hex(0x0000FF), "A2"},   
-        {90, lv_color_hex(0xFFFF00), "A3"}    
-    };
-    uint64_t total = 0;
-    for(auto &pair : board->status.miner.asic_rsp_counter)  total += pair.second;
-    for(auto &pair : board->status.miner.asic_rsp_counter){
-      float per = (total == 0) ? 0 : (float)pair.second / (float)total;
-      sectors[pair.first].angle = (uint16_t)(per * 360.0f);
+    if((dashboard_page.asic_hr_chart.obj.arcs[0] != NULL) && (board->status.miner.asic_rsp_counter.size() ==  board->miner->get_asic_count())){
+      // Calculate new angles based on ASIC response counters
+      uint64_t total = 0;
+      for(auto &pair : board->status.miner.asic_rsp_counter) {
+        total += pair.second;
+      }
+      
+      uint16_t new_angles[4] = {0};
+      for(auto &pair : board->status.miner.asic_rsp_counter){
+        if(pair.first < 4) {
+          float per = (total == 0) ? 0.25f : (float)pair.second / (float)total;
+          new_angles[pair.first] = (uint16_t)(per * 360.0f);
+        }
+      }
+      // Update pie chart with new angles
+      ui_update_pie_chart(&dashboard_page.asic_hr_chart.obj, new_angles);
     }
-    ui_draw_circle(ui_pages[UI_PAGE_DASHBOARD], 150, 180, 60, sectors, 4);
-
-
-
-
   }
 }
 
@@ -2245,13 +2264,14 @@ void ui_thread_entry(void *args){
 }
 
 /**
- * @brief Draw a pie chart with filled sectors
+ * @brief Create a pie chart with filled sectors (only call once to create)
  * @param parent Parent object
  * @param center_x Center X coordinate
  * @param center_y Center Y coordinate
  * @param radius Pie chart radius
  * @param sectors Sector configuration array
- * @param sector_count Number of sectors
+ * @param sector_count Number of sectors (max 8)
+ * @return ui_pie_chart_t Pie chart object structure
  * 
  * Example usage:
  * pie_sector_t sectors[] = {
@@ -2260,15 +2280,25 @@ void ui_thread_entry(void *args){
  *   {120, lv_color_hex(0x00FF00), "Sector3"},  // Green, 120 degrees
  *   {90, lv_color_hex(0x0000FF), "Sector4"}    // Blue, 90 degrees
  * };
- * ui_draw_circle(parent, 120, 120, 80, sectors, 4);
+ * ui_pie_chart_t pie = ui_draw_pie_chart(parent, 120, 120, 80, sectors, 4);
+ * // Later update angles:
+ * uint16_t new_angles[] = {100, 50, 130, 80};
+ * ui_update_pie_chart(&pie, new_angles);
  */
-void ui_draw_circle(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius,
-                   const pie_sector_t* sectors, uint8_t sector_count) {
-    if (!parent || !sectors || sector_count == 0) {
-        LOG_E("Invalid parameters for ui_draw_circle");
-        return;
+ui_pie_chart_t ui_draw_pie_chart(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius,
+                                  const pie_sector_t* sectors, uint8_t sector_count) {
+    ui_pie_chart_t pie_chart = {0};
+    
+    if (!parent || !sectors || sector_count == 0 || sector_count > PIE_CHART_MAX_SECTORS) {
+        LOG_E("Invalid parameters for ui_draw_pie_chart");
+        return pie_chart;
     }
 
+    // Store configuration
+    pie_chart.sector_count = sector_count;
+    pie_chart.center_x = center_x;
+    pie_chart.center_y = center_y;
+    pie_chart.radius = radius;
     // Calculate starting angle (from top, clockwise)
     uint16_t current_angle = 0;
     
@@ -2277,7 +2307,8 @@ void ui_draw_circle(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, 
         uint16_t end_angle = current_angle + sectors[i].angle;
         
         // Create arc object for this sector
-        lv_obj_t* arc = lv_arc_create(parent);
+        pie_chart.arcs[i] = lv_arc_create(parent);
+        lv_obj_t* arc = pie_chart.arcs[i];
         lv_obj_set_size(arc, radius * 2, radius * 2);
         lv_obj_set_pos(arc, center_x - radius, center_y - radius);
         
@@ -2314,12 +2345,55 @@ void ui_draw_circle(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, 
             lv_coord_t label_x = center_x + (lv_coord_t)(label_radius * cos(angle_rad));
             lv_coord_t label_y = center_y + (lv_coord_t)(label_radius * sin(angle_rad));
             
-            lv_obj_t* label = lv_label_create(parent);
-            lv_label_set_text(label, sectors[i].label);
-            lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);
-            lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0);
-            lv_obj_align(label, LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
+            pie_chart.labels[i] = lv_label_create(parent);
+            lv_label_set_text(pie_chart.labels[i], sectors[i].label);
+            lv_obj_set_style_text_color(pie_chart.labels[i], lv_color_hex(0xFFFFFF), 0);
+            lv_obj_set_style_text_font(pie_chart.labels[i], &lv_font_montserrat_14, 0);
+            lv_obj_align(pie_chart.labels[i], LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
+        } else {
+            pie_chart.labels[i] = NULL;
         }
         current_angle = end_angle;
+    }
+    return pie_chart;
+}
+
+/**
+ * @brief Update pie chart sector angles (efficient update without recreating objects)
+ * @param pie_chart Pointer to pie chart object structure
+ * @param angles Array of new angles for each sector
+ * 
+ * Example:
+ * uint16_t new_angles[] = {100, 50, 130, 80};
+ * ui_update_pie_chart(&pie_chart, new_angles);
+ */
+void ui_update_pie_chart(ui_pie_chart_t* pie_chart, const uint16_t* angles) {
+    if (!pie_chart || !angles || pie_chart->sector_count == 0) {
+        LOG_E("Invalid parameters for ui_update_pie_chart");
+        return;
+    }
+    
+    uint16_t current_angle = 0;
+    
+    // Update each sector's angles
+    for (uint8_t i = 0; i < pie_chart->sector_count; i++) {
+        if (pie_chart->arcs[i]) {
+            uint16_t end_angle = current_angle + angles[i];
+            lv_arc_set_angles(pie_chart->arcs[i], current_angle, end_angle);
+            
+            // Update label position if label exists
+            if (pie_chart->labels[i]) {
+                float mid_angle = current_angle + angles[i] / 2.0f;
+                float label_radius = pie_chart->radius * 0.6f;
+                float angle_rad = (mid_angle - 90.0f) * M_PI / 180.0f;
+                
+                lv_coord_t label_x = pie_chart->center_x + (lv_coord_t)(label_radius * cos(angle_rad));
+                lv_coord_t label_y = pie_chart->center_y + (lv_coord_t)(label_radius * sin(angle_rad));
+                
+                lv_obj_align(pie_chart->labels[i], LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
+            }
+            
+            current_angle = end_angle;
+        }
     }
 }

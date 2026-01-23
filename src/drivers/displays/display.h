@@ -53,15 +53,28 @@ void ui_switch_next_page_cb();
 void ui_switch_next_page_cb(uint8_t tp_evt);
 void ui_thread_entry(void *args);
 
-// 饼图扇区配置
+// Pie chart sector configuration
 typedef struct {
-    uint16_t angle;          // 扇区角度（0-360）
-    lv_color_t color;        // 扇区颜色
-    const char* label;       // 扇区标签（可选）
+    uint16_t angle;          // Sector angle (0-360)
+    lv_color_t color;        // Sector color
+    const char* label;       // Sector label (optional)
 } pie_sector_t;
 
-// 饼图绘制函数
-void ui_draw_circle(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius, 
-                   const pie_sector_t* sectors, uint8_t sector_count);
+// Pie chart object structure (max 8 sectors)
+#define PIE_CHART_MAX_SECTORS 8
+typedef struct {
+    lv_obj_t* arcs[PIE_CHART_MAX_SECTORS];           // Arc objects for each sector
+    lv_obj_t* labels[PIE_CHART_MAX_SECTORS];         // Label objects for each sector
+    lv_obj_t* center_circle;                         // Center circle object
+    uint8_t sector_count;                            // Number of sectors
+    lv_coord_t center_x;                             // Center X coordinate
+    lv_coord_t center_y;                             // Center Y coordinate
+    lv_coord_t radius;                               // Pie chart radius
+} ui_pie_chart_t;
+
+// Pie chart functions
+ui_pie_chart_t ui_draw_pie_chart(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius, 
+                                 const pie_sector_t* sectors, uint8_t sector_count);
+void ui_update_pie_chart(ui_pie_chart_t* pie_chart, const uint16_t* angles);
 
 #endif // DISPLAY_H
