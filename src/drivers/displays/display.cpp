@@ -726,7 +726,7 @@ static void ui_page_element_init(board_sal_t* board){
     };
 
     dashboard_page.ring_vcore_temp.cfg = {
-        .x = 135,
+        .x = 132,
         .y = 50,
         .radius = (lv_coord_t)(3 * arc_r / 2),
         .line_width = (lv_coord_t)(arc_line_width * 2),
