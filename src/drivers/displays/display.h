@@ -52,4 +52,16 @@ void tft_bl_ctrl(int8_t percent);
 void ui_switch_next_page_cb();
 void ui_switch_next_page_cb(uint8_t tp_evt);
 void ui_thread_entry(void *args);
+
+// 饼图扇区配置
+typedef struct {
+    uint16_t angle;          // 扇区角度（0-360）
+    lv_color_t color;        // 扇区颜色
+    const char* label;       // 扇区标签（可选）
+} pie_sector_t;
+
+// 饼图绘制函数
+void ui_draw_circle(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius, 
+                   const pie_sector_t* sectors, uint8_t sector_count);
+
 #endif // DISPLAY_H

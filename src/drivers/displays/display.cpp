@@ -1707,6 +1707,23 @@ static void ui_dashboard_page_update(board_sal_t* board){
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
       dashboard_page.ring_vcore_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
+
+
+
+
+
+
+      pie_sector_t sectors[] = {
+          {90,  lv_color_hex(0x0080FF), "A1"},   
+          {60,  lv_color_hex(0x0080FF), "A2"},   
+          {120, lv_color_hex(0x0080FF), "A3"},   
+          {90,  lv_color_hex(0x0080FF), "A4"}    
+      };
+      ui_draw_circle(ui_pages[UI_PAGE_DASHBOARD], 150, 170, 60, sectors, 4);
+
+
+
+
     }
   }
   // 计算角度
@@ -2213,4 +2230,85 @@ void ui_thread_entry(void *args){
       xSemaphoreGive(lvgl_xMutex); 
     }
   }
+}
+
+/**
+ * @brief Draw a pie chart with filled sectors
+ * @param parent Parent object
+ * @param center_x Center X coordinate
+ * @param center_y Center Y coordinate
+ * @param radius Pie chart radius
+ * @param sectors Sector configuration array
+ * @param sector_count Number of sectors
+ * 
+ * Example usage:
+ * pie_sector_t sectors[] = {
+ *   {90, lv_color_hex(0xFFFF00), "Sector1"},   // Yellow, 90 degrees
+ *   {60, lv_color_hex(0xFF0000), "Sector2"},   // Red, 60 degrees
+ *   {120, lv_color_hex(0x00FF00), "Sector3"},  // Green, 120 degrees
+ *   {90, lv_color_hex(0x0000FF), "Sector4"}    // Blue, 90 degrees
+ * };
+ * ui_draw_circle(parent, 120, 120, 80, sectors, 4);
+ */
+void ui_draw_circle(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius,
+                   const pie_sector_t* sectors, uint8_t sector_count) {
+    if (!parent || !sectors || sector_count == 0) {
+        LOG_E("Invalid parameters for ui_draw_circle");
+        return;
+    }
+
+    // Calculate starting angle (from top, clockwise)
+    uint16_t current_angle = 0;
+    
+    // Draw each sector as a thick arc (like the ring implementation)
+    for (uint8_t i = 0; i < sector_count; i++) {
+        uint16_t end_angle = current_angle + sectors[i].angle;
+        
+        // Create arc object for this sector
+        lv_obj_t* arc = lv_arc_create(parent);
+        lv_obj_set_size(arc, radius * 2, radius * 2);
+        lv_obj_set_pos(arc, center_x - radius, center_y - radius);
+        
+        // Set angles for this sector
+        lv_arc_set_bg_angles(arc, 0, 360);
+        lv_arc_set_angles(arc, current_angle, end_angle);
+        
+        // Remove knob (make it display only)
+        lv_obj_remove_style(arc, NULL, LV_PART_KNOB);
+        lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICKABLE);
+        
+        // Rotate to start from top (12 o'clock position)
+        lv_arc_set_rotation(arc, 270);
+        
+        // Hide background arc (make it transparent)
+        lv_obj_set_style_arc_width(arc, 0, LV_PART_MAIN);
+        lv_obj_set_style_arc_opa(arc, LV_OPA_TRANSP, LV_PART_MAIN);
+        
+        // Set indicator (sector) to fill from center to edge
+        lv_obj_set_style_arc_width(arc, radius, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(arc, sectors[i].color, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_opa(arc, LV_OPA_COVER, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_rounded(arc, false, LV_PART_INDICATOR); // Flat end caps for perfect pie chart
+        
+        // Draw sector label if provided
+        if (sectors[i].label != NULL && strlen(sectors[i].label) > 0) {
+            // Calculate label position (midpoint of sector angle)
+            float mid_angle = current_angle + sectors[i].angle / 2.0f;
+            float label_radius = radius * 0.6f;
+            
+            // Convert to radians (accounting for rotation)
+            float angle_rad = (mid_angle - 90.0f) * M_PI / 180.0f;
+            
+            lv_coord_t label_x = center_x + (lv_coord_t)(label_radius * cos(angle_rad));
+            lv_coord_t label_y = center_y + (lv_coord_t)(label_radius * sin(angle_rad));
+            
+            lv_obj_t* label = lv_label_create(parent);
+            lv_label_set_text(label, sectors[i].label);
+            lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);
+            lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0);
+            lv_obj_align(label, LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
+        }
+        
+        current_angle = end_angle;
+    }
 }
