@@ -322,23 +322,11 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.logo_img_dsc             = (board->info.spec.name == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
     config_page.logo_img_dsc            = (board->info.spec.name == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
 
-    loading_page.lb_details.font        = &lv_font_montserrat_14;
-    loading_page.lb_details.coord       = {3, 0};
-    loading_page.lb_version.font        = &lv_font_montserrat_16;
-    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(board->info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
-    loading_page.lb_progress.font       = &lv_font_montserrat_16;
-    loading_page.lb_progress.coord      = {0, -20};
-    loading_page.bar_progress.font      = &lv_font_montserrat_20;
-    loading_page.bar_progress.coord     = {0, -20};
-    loading_page.lb_ip_and_slogan.font  = &lv_font_montserrat_20;
-    loading_page.lb_ip_and_slogan.coord = {0, 10};
-    loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
-    loading_page.lb_pool_url.coord      = {0, 35};
     /*********************************** Loading page *********************************/
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
     loading_page.lb_version.font        = &lv_font_montserrat_16;
-    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(board->info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
+    loading_page.lb_version.coord       = {0, 0};
     loading_page.lb_progress.font       = &lv_font_montserrat_16;
     loading_page.lb_progress.coord      = {0, -20};
     loading_page.bar_progress.font      = &lv_font_montserrat_20;
@@ -539,24 +527,11 @@ static void ui_page_element_init(board_sal_t* board){
 
     miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
     config_page.logo_img_dsc            = &logo_worker_nmqaxepp;
-
-    loading_page.lb_details.font        = &lv_font_montserrat_14;
-    loading_page.lb_details.coord       = {3, 0};
-    loading_page.lb_version.font        = &lv_font_montserrat_16;
-    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(board->info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
-    loading_page.lb_progress.font       = &lv_font_montserrat_16;
-    loading_page.lb_progress.coord      = {0, -20};
-    loading_page.bar_progress.font      = &lv_font_montserrat_20;
-    loading_page.bar_progress.coord     = {0, -20};
-    loading_page.lb_ip_and_slogan.font  = &lv_font_montserrat_20;
-    loading_page.lb_ip_and_slogan.coord = {0, 10};
-    loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
-    loading_page.lb_pool_url.coord      = {0, 35};
     /*********************************** Loading page *********************************/
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
     loading_page.lb_version.font        = &lv_font_montserrat_16;
-    loading_page.lb_version.coord       = {(lv_coord_t)(SCREEN_WIDTH - (uint16_t)(board->info.base.fw_version.length() * 9)), (lv_coord_t)(SCREEN_HEIGHT - 18) };
+    loading_page.lb_version.coord       = {0, 0};
     loading_page.lb_progress.font       = &lv_font_montserrat_16;
     loading_page.lb_progress.coord      = {0, -20};
     loading_page.bar_progress.font      = &lv_font_montserrat_20;
@@ -893,26 +868,27 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_set_size(big_digit_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(big_digit_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
   // Create ui_pages array
-  ui_pages[0] = loading_page.container;
-  ui_pages[1] = config_page.container;
-  ui_pages[2] = miner_page.container;
-  ui_pages[3] = dashboard_page.container;
-  ui_pages[4] = hr_health_page.container;
-  ui_pages[5] = big_digit_page.container;
+  ui_pages[UI_PAGE_LOADING]   = loading_page.container;
+  ui_pages[UI_PAGE_CONFIG]    = config_page.container;
+  ui_pages[UI_PAGE_MINER]     = miner_page.container;
+  ui_pages[UI_PAGE_DASHBOARD] = dashboard_page.container;
+  ui_pages[UI_PAGE_HR_HEALTH] = hr_health_page.container;
+  ui_pages[UI_PAGE_BIG_DIGIT] = big_digit_page.container;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version label
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
-  loading_page.lb_version.obj   = lv_label_create( loading_page.container );
-  lv_obj_set_width(loading_page.lb_version.obj, SCREEN_WIDTH);
+  lv_coord_t width = lv_txt_get_width(g_board.info.base.fw_version.c_str(), strlen(g_board.info.base.fw_version.c_str()), loading_page.lb_version.font, 0, LV_TEXT_FLAG_NONE);
+  loading_page.lb_version.obj   = lv_label_create( ui_pages[UI_PAGE_LOADING] );
+  lv_obj_set_width(loading_page.lb_version.obj, width);
   lv_label_set_text( loading_page.lb_version.obj, g_board.info.base.fw_version.c_str());
   lv_obj_set_style_text_font(loading_page.lb_version.obj, loading_page.lb_version.font, LV_PART_MAIN);
   lv_obj_set_style_text_color(loading_page.lb_version.obj, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(loading_page.lb_version.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( loading_page.lb_version.obj, LV_ALIGN_TOP_MID, loading_page.lb_version.coord.x, loading_page.lb_version.coord.y);
+  lv_obj_align( loading_page.lb_version.obj, LV_ALIGN_BOTTOM_RIGHT, loading_page.lb_version.coord.x, loading_page.lb_version.coord.y);
 
   //details label
-  loading_page.lb_details.obj = lv_label_create(loading_page.container);
-  lv_obj_set_width(loading_page.lb_details.obj, SCREEN_WIDTH - (uint16_t)(g_board.info.base.fw_version.length() * 7.2));
+  loading_page.lb_details.obj = lv_label_create(ui_pages[UI_PAGE_LOADING]);
+  lv_obj_set_width(loading_page.lb_details.obj, SCREEN_WIDTH - width); // make sure it won't overflow, leave space for version label
   lv_obj_set_style_text_color(loading_page.lb_details.obj, font_color, LV_PART_MAIN);
   lv_label_set_text(loading_page.lb_details.obj, "Initializing...");
   lv_obj_set_style_text_font(loading_page.lb_details.obj, loading_page.lb_details.font, LV_PART_MAIN);
@@ -920,7 +896,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align(loading_page.lb_details.obj, LV_ALIGN_BOTTOM_LEFT, loading_page.lb_details.coord.x, loading_page.lb_details.coord.y);
 
   //bar progress
-  loading_page.bar_progress.obj = lv_bar_create(loading_page.container);
+  loading_page.bar_progress.obj = lv_bar_create(ui_pages[UI_PAGE_LOADING]);
   lv_bar_set_range(loading_page.bar_progress.obj, 0, 16);
   lv_bar_set_value(loading_page.bar_progress.obj, 0, LV_ANIM_ON);
   lv_obj_set_style_bg_opa(loading_page.bar_progress.obj, LV_OPA_50, LV_PART_MAIN);
@@ -930,15 +906,15 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_set_style_bg_opa(loading_page.bar_progress.obj, LV_OPA_COVER, LV_PART_INDICATOR);
 
   //progress label
-  loading_page.lb_progress.obj = lv_label_create(loading_page.container);
+  loading_page.lb_progress.obj = lv_label_create(ui_pages[UI_PAGE_LOADING]);
   lv_label_set_text(loading_page.lb_progress.obj, "");
   lv_obj_set_style_text_color(loading_page.lb_progress.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
   lv_obj_align(loading_page.lb_progress.obj, LV_ALIGN_LEFT_MID, loading_page.lb_progress.coord.x, loading_page.lb_progress.coord.y);
 
   //slogan label
-  loading_page.lb_ip_and_slogan.obj   = lv_label_create(loading_page.container);
+  loading_page.lb_ip_and_slogan.obj   = lv_label_create(ui_pages[UI_PAGE_LOADING]);
   String slogan_str = "Make it better";
-  lv_coord_t width = lv_txt_get_width(slogan_str.c_str(), strlen(slogan_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
+  width = lv_txt_get_width(slogan_str.c_str(), strlen(slogan_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
   lv_obj_set_width(loading_page.lb_ip_and_slogan.obj, width);
   lv_label_set_text( loading_page.lb_ip_and_slogan.obj, slogan_str.c_str());
   lv_obj_set_style_text_font(loading_page.lb_ip_and_slogan.obj, loading_page.lb_ip_and_slogan.font, LV_PART_MAIN);
@@ -947,7 +923,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( loading_page.lb_ip_and_slogan.obj, LV_ALIGN_CENTER, loading_page.lb_ip_and_slogan.coord.x, loading_page.lb_ip_and_slogan.coord.y);
 
   //pool url label
-  loading_page.lb_pool_url.obj   = lv_label_create(loading_page.container);
+  loading_page.lb_pool_url.obj   = lv_label_create(ui_pages[UI_PAGE_LOADING]);
   lv_label_set_text( loading_page.lb_pool_url.obj, "");
   lv_obj_set_style_text_font(loading_page.lb_pool_url.obj, loading_page.lb_pool_url.font, LV_PART_MAIN);
   lv_obj_set_style_text_color(loading_page.lb_pool_url.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
@@ -957,7 +933,7 @@ static void ui_layout_init(board_sal_t* board){
   // version label
   font_color = lv_color_hex(0xFFFFFF);
   width = lv_txt_get_width(board->info.base.fw_version.c_str(), strlen(board->info.base.fw_version.c_str()), config_page.lb_version.font, 0, LV_TEXT_FLAG_NONE);
-  config_page.lb_version.obj   = lv_label_create( config_page.container );
+  config_page.lb_version.obj   = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
   lv_obj_set_width(config_page.lb_version.obj, width);
   lv_label_set_text( config_page.lb_version.obj, board->info.base.fw_version.c_str());
   lv_obj_set_style_text_font(config_page.lb_version.obj, config_page.lb_version.font, LV_PART_MAIN);
@@ -967,7 +943,7 @@ static void ui_layout_init(board_sal_t* board){
 
   //config timeout label
   font_color = lv_color_hex(0xFFFFFF);
-  config_page.lb_cfg_timeout.obj   = lv_label_create( config_page.container );
+  config_page.lb_cfg_timeout.obj   = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
   lv_obj_set_width(config_page.lb_cfg_timeout.obj, SCREEN_WIDTH);
   lv_label_set_text( config_page.lb_cfg_timeout.obj, "");
   lv_obj_set_style_text_font(config_page.lb_cfg_timeout.obj, config_page.lb_cfg_timeout.font, LV_PART_MAIN);
@@ -989,7 +965,7 @@ static void ui_layout_init(board_sal_t* board){
 
   // config text label
   String config = g_board.info.connection.wifi.softap_param.ssid + "\r\n"+ g_board.info.connection.wifi.softap_param.ip.toString();
-  config_page.lb_config_txt.obj  = lv_label_create( config_page.container );
+  config_page.lb_config_txt.obj  = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
   lv_obj_set_width(config_page.lb_config_txt.obj, SCREEN_WIDTH / 2);
   lv_label_set_text(config_page.lb_config_txt.obj, config.c_str());
   lv_obj_set_style_text_font(config_page.lb_config_txt.obj, config_page.lb_config_txt.font, LV_PART_MAIN);
