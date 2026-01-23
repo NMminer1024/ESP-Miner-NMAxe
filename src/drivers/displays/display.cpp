@@ -106,6 +106,11 @@ struct{
     ui_ring_config_t cfg;
   }ring_vcore_temp;
 
+
+  
+
+
+
 }dashboard_page;
 
 // hashrate health page elements
@@ -1687,7 +1692,7 @@ static void ui_dashboard_page_update(board_sal_t* board){
     return;
   }
 
-  // 第一次调用时绘制圆环
+  // draw rings if not created
   if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_oc.obj.arc == NULL)) {
     dashboard_page.ring_oc.obj        = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_oc.cfg);
   }
@@ -1707,26 +1712,9 @@ static void ui_dashboard_page_update(board_sal_t* board){
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
       dashboard_page.ring_vcore_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
-
-
-
-
-
-
-      pie_sector_t sectors[] = {
-          {90,  lv_color_hex(0x0080FF), "A1"},   
-          {60,  lv_color_hex(0x0080FF), "A2"},   
-          {120, lv_color_hex(0x0080FF), "A3"},   
-          {90,  lv_color_hex(0x0080FF), "A4"}    
-      };
-      ui_draw_circle(ui_pages[UI_PAGE_DASHBOARD], 150, 170, 60, sectors, 4);
-
-
-
-
     }
   }
-  // 计算角度
+  // update angles
   uint16_t arc_angle_full = dashboard_page.ring_oc.cfg.angle_full;
   uint16_t oc_angle            = arc_angle_full * (board->info.spec.asic.req_frq - limited_freq_req.min) / (limited_freq_req.max - limited_freq_req.min); 
   uint16_t pwr_angle           = arc_angle_full * (board->status.power.vbus * board->status.power.ibus/1000.0/1000.0 - limited_power.min) / (limited_power.max - limited_power.min);
@@ -1735,7 +1723,7 @@ static void ui_dashboard_page_update(board_sal_t* board){
   uint16_t asic_temp_angle     = arc_angle_full * (board->status.temp.asic - limited_asic_temp.min) / (limited_asic_temp.max - limited_asic_temp.min);
   uint16_t vcore_temp_angle    = arc_angle_full * (board->status.temp.vcore - limited_vcore_temp.min) / (limited_vcore_temp.max - limited_vcore_temp.min);
 
-  // 更新圆环
+  // update rings
   ui_update_ring(&dashboard_page.ring_oc.obj, oc_angle, String(board->info.spec.asic.req_frq) + "M");
   ui_update_ring(&dashboard_page.ring_pwr.obj, pwr_angle, formatNumber(board->status.power.vbus * board->status.power.ibus/1000.0/1000.0, 3) + "w");
   ui_update_ring(&dashboard_page.ring_vc_req.obj, vcore_req_angle, formatNumber(board->info.spec.asic.req_vcore/1000.0, 4) + "v");
@@ -1743,11 +1731,35 @@ static void ui_dashboard_page_update(board_sal_t* board){
   ui_update_ring(&dashboard_page.ring_asic_temp.obj, asic_temp_angle, formatNumber(board->status.temp.asic, 2) + "'C");
   ui_update_ring(&dashboard_page.ring_vcore_temp.obj, vcore_temp_angle, formatNumber(board->status.temp.vcore, 2) + "'C");
 
-  // 更新主显示区域的hashrate
+  // update hashrate
   String hr_value = formatNumber(board->status.miner.hashrate._3m, 3);
   String hr_unit  = (board->status.miner.hashrate._3m > 0) ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s") : "";
   lv_label_set_text_fmt(dashboard_page.lb_hr.obj, "%s", hr_value.substring(0, hr_value.length() - 1).c_str());
   lv_label_set_text_fmt(dashboard_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
+
+
+
+
+  // update pie chart for NMQ AXE++
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    static pie_sector_t sectors[] = {
+        {90, lv_color_hex(0xFF0000), "A0"},   
+        {90, lv_color_hex(0x00FF00), "A1"},   
+        {90, lv_color_hex(0x0000FF), "A2"},   
+        {90, lv_color_hex(0xFFFF00), "A3"}    
+    };
+    uint64_t total = 0;
+    for(auto &pair : board->status.miner.asic_rsp_counter)  total += pair.second;
+    for(auto &pair : board->status.miner.asic_rsp_counter){
+      float per = (total == 0) ? 0 : (float)pair.second / (float)total;
+      sectors[pair.first].angle = (uint16_t)(per * 360.0f);
+    }
+    ui_draw_circle(ui_pages[UI_PAGE_DASHBOARD], 150, 180, 60, sectors, 4);
+
+
+
+
+  }
 }
 
 static void ui_hr_healthy_page_update(board_sal_t* board){
@@ -2308,7 +2320,6 @@ void ui_draw_circle(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, 
             lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0);
             lv_obj_align(label, LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
         }
-        
         current_angle = end_angle;
     }
 }
