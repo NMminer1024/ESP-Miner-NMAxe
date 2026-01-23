@@ -754,20 +754,20 @@ static void ui_page_element_init(board_sal_t* board){
     dashboard_page.asic_hr_chart.radius   = 50;
 
     dashboard_page.asic_hr_chart.cfg[0].angle = 90;
-    dashboard_page.asic_hr_chart.cfg[0].color = lv_color_hex(0x009900);
-    dashboard_page.asic_hr_chart.cfg[0].label = "A4";
+    dashboard_page.asic_hr_chart.cfg[0].color = lv_color_hex(0xA7A9AC);
+    dashboard_page.asic_hr_chart.cfg[0].label = "A1";
     
     dashboard_page.asic_hr_chart.cfg[1].angle = 90;
-    dashboard_page.asic_hr_chart.cfg[1].color = lv_color_hex(0x660000);
-    dashboard_page.asic_hr_chart.cfg[1].label = "A3";
+    dashboard_page.asic_hr_chart.cfg[1].color = lv_color_hex(0xF05A28);
+    dashboard_page.asic_hr_chart.cfg[1].label = "A2";
     
     dashboard_page.asic_hr_chart.cfg[2].angle = 90;
-    dashboard_page.asic_hr_chart.cfg[2].color = lv_color_hex(0x00FF00);
-    dashboard_page.asic_hr_chart.cfg[2].label = "A2";
+    dashboard_page.asic_hr_chart.cfg[2].color = lv_color_hex(0x00ADEF);
+    dashboard_page.asic_hr_chart.cfg[2].label = "A3";
     
     dashboard_page.asic_hr_chart.cfg[3].angle = 90;
-    dashboard_page.asic_hr_chart.cfg[3].color = lv_color_hex(0x0000FF);
-    dashboard_page.asic_hr_chart.cfg[3].label = "A1";
+    dashboard_page.asic_hr_chart.cfg[3].color = lv_color_hex(0x2E3192);
+    dashboard_page.asic_hr_chart.cfg[3].label = "A4";
 
     /******************************** hashrate healthy page *****************************/
     hr_health_page.lb_hr.font          = &ds_digib_font_56;
@@ -2345,10 +2345,10 @@ ui_pie_chart_t ui_draw_pie_chart(lv_obj_t* parent, lv_coord_t center_x, lv_coord
         lv_obj_set_style_arc_width(arc, 0, LV_PART_MAIN);
         lv_obj_set_style_arc_opa(arc, LV_OPA_TRANSP, LV_PART_MAIN);
         
-        // Set indicator (sector) to fill from center to edge
+        // Set indicator (sector) to fill from center to edge with 70% opacity
         lv_obj_set_style_arc_width(arc, radius, LV_PART_INDICATOR);
         lv_obj_set_style_arc_color(arc, sectors[i].color, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_opa(arc, LV_OPA_COVER, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_opa(arc, LV_OPA_50, LV_PART_INDICATOR);
         lv_obj_set_style_arc_rounded(arc, false, LV_PART_INDICATOR); // Flat end caps for perfect pie chart
         
         // Draw sector label if provided
