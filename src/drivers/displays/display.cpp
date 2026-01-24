@@ -1762,7 +1762,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     lv_obj_set_style_text_font(label_scale, font, LV_PART_MAIN);
     lv_obj_set_style_text_color(label_scale, font_color, LV_PART_MAIN); 
     lv_label_set_long_mode(label_scale, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align(label_scale, LV_ALIGN_TOP_LEFT, 1, 3); 
+    lv_obj_align(label_scale, LV_ALIGN_TOP_LEFT, 1, 8); 
     //time cost
     font_color = lv_color_hex(0xFFA500);
     font = &lv_font_montserrat_12;
@@ -1772,7 +1772,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     lv_obj_set_style_text_font(lb_hr_health_duration, font, LV_PART_MAIN);
     lv_obj_set_style_text_color(lb_hr_health_duration, font_color, LV_PART_MAIN); 
     lv_label_set_long_mode(lb_hr_health_duration, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align( lb_hr_health_duration, LV_ALIGN_TOP_LEFT, 1, 18);
+    lv_obj_align( lb_hr_health_duration, LV_ALIGN_TOP_LEFT, 1, 20);
 
     // Create a chart
     chart = lv_chart_create(ui_pages[UI_PAGE_HR_HEALTH]);
@@ -1781,7 +1781,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars - 1); 
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
-    lv_chart_set_div_line_count(chart, 5, 4);
+    lv_chart_set_div_line_count(chart, 5, 5);
 
     // Add a series to the chart
     series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
