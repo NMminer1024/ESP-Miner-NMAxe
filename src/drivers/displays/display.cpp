@@ -105,13 +105,6 @@ struct{
     ui_ring_obj_t    obj;
     ui_ring_config_t cfg;
   }ring_vcore_temp;
-  struct{
-    lv_coord_t      center_x;                             
-    lv_coord_t      center_y;  
-    lv_coord_t      radius;                              
-    ui_pie_chart_t  obj;
-    pie_sector_t    cfg[PIE_CHART_MAX_SECTORS];
-  }asic_hr_chart;
 }dashboard_page;
 
 // hashrate health page elements
@@ -121,6 +114,15 @@ struct{
   lv_img_dsc_t  *back_img_dsc;
   ui_element_t  lb_hr;
   ui_element_t  lb_hr_unit;
+  ui_element_t  lb_scale;
+  struct{
+    lv_coord_t      center_x;                             
+    lv_coord_t      center_y;  
+    lv_coord_t      radius;                              
+    ui_pie_chart_t  obj;
+    pie_sector_t    cfg[PIE_CHART_MAX_SECTORS];
+  }asic_hr_chart;
+  ui_element_t  chart_hr_dist;
 }hr_health_page;
 
 // big digit page elements
@@ -495,6 +497,11 @@ static void ui_page_element_init(board_sal_t* board){
 
     hr_health_page.lb_hr_unit.font      = &ds_digib_font_20;
     hr_health_page.lb_hr_unit.coord     = {138, 8};
+
+    hr_health_page.lb_scale.font        = &lv_font_montserrat_14;
+    hr_health_page.lb_scale.coord       = {-125, 5};
+
+    hr_health_page.chart_hr_dist.coord  = {15, 8};
     /******************************** big digit healthy page *****************************/
     big_digit_page.lb_hr.font           = &ds_digib_font_56;
     big_digit_page.lb_hr.coord          = {0, 0};
@@ -724,32 +731,39 @@ static void ui_page_element_init(board_sal_t* board){
         .title_text_color = lv_color_hex(0xD3D3D3)
     };
 
-    dashboard_page.asic_hr_chart.center_x = 80;
-    dashboard_page.asic_hr_chart.center_y = 85;
-    dashboard_page.asic_hr_chart.radius   = 50;
-
-    dashboard_page.asic_hr_chart.cfg[0].angle = 90;
-    dashboard_page.asic_hr_chart.cfg[0].color = lv_color_hex(0xA7A9AC);
-    dashboard_page.asic_hr_chart.cfg[0].label = "A1";
-    
-    dashboard_page.asic_hr_chart.cfg[1].angle = 90;
-    dashboard_page.asic_hr_chart.cfg[1].color = lv_color_hex(0xF05A28);
-    dashboard_page.asic_hr_chart.cfg[1].label = "A2";
-    
-    dashboard_page.asic_hr_chart.cfg[2].angle = 90;
-    dashboard_page.asic_hr_chart.cfg[2].color = lv_color_hex(0x00ADEF);
-    dashboard_page.asic_hr_chart.cfg[2].label = "A3";
-    
-    dashboard_page.asic_hr_chart.cfg[3].angle = 90;
-    dashboard_page.asic_hr_chart.cfg[3].color = lv_color_hex(0x2E3192);
-    dashboard_page.asic_hr_chart.cfg[3].label = "A4";
-
     /******************************** hashrate healthy page *****************************/
     hr_health_page.lb_hr.font          = &ds_digib_font_56;
     hr_health_page.lb_hr.coord         = {55 + 40, -4};
 
     hr_health_page.lb_hr_unit.font      = &ds_digib_font_20;
     hr_health_page.lb_hr_unit.coord     = {100 + 95, 23};
+
+    hr_health_page.lb_scale.font        = &lv_font_montserrat_18;
+    hr_health_page.lb_scale.coord       = {0, 45};
+
+    hr_health_page.chart_hr_dist.coord  = {15, 8};
+
+    hr_health_page.asic_hr_chart.center_x = 90;
+    hr_health_page.asic_hr_chart.center_y = 65;
+    hr_health_page.asic_hr_chart.radius   = 50;
+
+    hr_health_page.asic_hr_chart.cfg[0].angle = 90;
+    hr_health_page.asic_hr_chart.cfg[0].color = lv_color_hex(0xA7A9AC);
+    hr_health_page.asic_hr_chart.cfg[0].label = "A1";
+    
+    hr_health_page.asic_hr_chart.cfg[1].angle = 90;
+    hr_health_page.asic_hr_chart.cfg[1].color = lv_color_hex(0xF05A28);
+    hr_health_page.asic_hr_chart.cfg[1].label = "A2";
+    
+    hr_health_page.asic_hr_chart.cfg[2].angle = 90;
+    hr_health_page.asic_hr_chart.cfg[2].color = lv_color_hex(0x00ADEF);
+    hr_health_page.asic_hr_chart.cfg[2].label = "A3";
+    
+    hr_health_page.asic_hr_chart.cfg[3].angle = 90;
+    hr_health_page.asic_hr_chart.cfg[3].color = lv_color_hex(0x2E3192);
+    hr_health_page.asic_hr_chart.cfg[3].label = "A4";
+
+
     /******************************** big digit healthy page *****************************/
     big_digit_page.lb_hr.font           = &ds_digib_font_56;
     big_digit_page.lb_hr.coord          = {0, 0};
@@ -1238,6 +1252,26 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_set_style_text_color(hr_health_page.lb_hr_unit.obj, font_color, LV_PART_MAIN);
   lv_label_set_long_mode(hr_health_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( hr_health_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, hr_health_page.lb_hr_unit.coord.x, hr_health_page.lb_hr_unit.coord.y);
+  // scale label
+  font_color = lv_color_hex(0xFFA500);
+  uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
+  String scale_str = "Scale : " + String(SCALE) + " GH/s";
+  width = lv_txt_get_width(scale_str.c_str(), strlen(scale_str.c_str()), hr_health_page.lb_scale.font, 0, LV_TEXT_FLAG_NONE);
+  hr_health_page.lb_scale.obj   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
+  lv_obj_set_width(hr_health_page.lb_scale.obj, width);
+  lv_label_set_text(hr_health_page.lb_scale.obj, scale_str.c_str());
+  lv_obj_set_style_text_font(hr_health_page.lb_scale.obj, hr_health_page.lb_scale.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(hr_health_page.lb_scale.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(hr_health_page.lb_scale.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( hr_health_page.lb_scale.obj, LV_ALIGN_TOP_RIGHT, hr_health_page.lb_scale.coord.x, hr_health_page.lb_scale.coord.y);
+  // Create a chart
+  hr_health_page.chart_hr_dist.obj = lv_chart_create(ui_pages[UI_PAGE_HR_HEALTH]);
+  lv_obj_set_size(hr_health_page.chart_hr_dist.obj, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
+  lv_obj_align(hr_health_page.chart_hr_dist.obj, LV_ALIGN_CENTER, hr_health_page.chart_hr_dist.coord.x, hr_health_page.chart_hr_dist.coord.y);
+  lv_chart_set_type(hr_health_page.chart_hr_dist.obj, LV_CHART_TYPE_BAR);
+  lv_chart_set_range(hr_health_page.chart_hr_dist.obj, LV_CHART_AXIS_PRIMARY_X, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars - 1); 
+  lv_chart_set_range(hr_health_page.chart_hr_dist.obj, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
+  lv_chart_set_div_line_count(hr_health_page.chart_hr_dist.obj, 5, 4);
   ////////////////////////////////////////////big digit  page layout///////////////////////////////////////////////
   // Hashrate label
   font_color = lv_color_hex(0xEE7D30);
@@ -1741,56 +1775,24 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     LOG_E("board is null\r\n");
     return;
   }
-  uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
-
-  static lv_obj_t *chart = NULL, *label_scale = NULL, *lb_hr_health_duration = NULL, *lb_hr_health_title = NULL;
-  // static lv_obj_t * lb_ds_hr = NULL, * lb_ds_hr_unit = NULL;
   static lv_chart_series_t *series;
-  static bool first_time = true;
-
   static double last_hashrate = 0;
+  static bool first = true;
   if(last_hashrate == board->status.miner.hashrate._3m) return;
   last_hashrate = board->status.miner.hashrate._3m;
 
-  if(first_time){
-    first_time = false;
-    //scale
-    lv_color_t font_color = lv_color_hex(0xFFA500);
-    const lv_font_t *font = &lv_font_montserrat_12;
-    label_scale = lv_label_create(ui_pages[UI_PAGE_HR_HEALTH]);
-    lv_label_set_text(label_scale, ("Scale     : " + String(SCALE) + " GH/s").c_str());
-    lv_obj_set_style_text_font(label_scale, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(label_scale, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(label_scale, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align(label_scale, LV_ALIGN_TOP_LEFT, 1, 8); 
-    //time cost
-    font_color = lv_color_hex(0xFFA500);
-    font = &lv_font_montserrat_12;
-    lb_hr_health_duration   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
-    lv_obj_set_width(lb_hr_health_duration, 120);
-    lv_label_set_text( lb_hr_health_duration, " ");
-    lv_obj_set_style_text_font(lb_hr_health_duration, font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(lb_hr_health_duration, font_color, LV_PART_MAIN); 
-    lv_label_set_long_mode(lb_hr_health_duration, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_align( lb_hr_health_duration, LV_ALIGN_TOP_LEFT, 1, 20);
+  uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
 
-    // Create a chart
-    chart = lv_chart_create(ui_pages[UI_PAGE_HR_HEALTH]);
-    lv_obj_set_size(chart, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
-    lv_obj_align(chart, LV_ALIGN_CENTER, 14, 8);
-    lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars - 1); 
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100); 
-    lv_chart_set_div_line_count(chart, 5, 5);
-
+  if(first){
+    first = false;
     // Add a series to the chart
-    series = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    lv_chart_set_point_count(chart, board->info.spec.ui.hashrate_dist_page.max_x_bars);
-    lv_chart_set_all_value(chart, series, 0);
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, board->info.spec.ui.hashrate_dist_page.max_x_bars, 1, true, 25);
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
-    lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
+    series = lv_chart_add_series(hr_health_page.chart_hr_dist.obj, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    lv_chart_set_point_count(hr_health_page.chart_hr_dist.obj, board->info.spec.ui.hashrate_dist_page.max_x_bars);
+    lv_chart_set_all_value(hr_health_page.chart_hr_dist.obj, series, 0);
+    lv_chart_set_axis_tick(hr_health_page.chart_hr_dist.obj, LV_CHART_AXIS_PRIMARY_X, 1, 1, board->info.spec.ui.hashrate_dist_page.max_x_bars, 1, true, 25);
+    lv_chart_set_axis_tick(hr_health_page.chart_hr_dist.obj, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
+    lv_obj_set_style_bg_opa(hr_health_page.chart_hr_dist.obj, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(hr_health_page.chart_hr_dist.obj, LV_OPA_TRANSP, LV_PART_MAIN);
 
     // set grid style
     static lv_style_t style_grid;
@@ -1798,10 +1800,11 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     lv_style_set_line_dash_width(&style_grid, 2); 
     lv_style_set_line_dash_gap(&style_grid, 4); 
     lv_style_set_line_opa(&style_grid, LV_OPA_50); 
-    lv_obj_add_style(chart, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_add_style(hr_health_page.chart_hr_dist.obj, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
     // set font for ticks
-    lv_obj_set_style_text_font(chart, &lv_font_montserrat_10, LV_PART_TICKS); 
+    lv_obj_set_style_text_font(hr_health_page.chart_hr_dist.obj, &lv_font_montserrat_10, LV_PART_TICKS); 
   }
+
 
   static uint64_t *counts = NULL;
   if (counts == NULL) {
@@ -1814,7 +1817,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   board->info.spec.ui.hashrate_dist_page.times++;
   for (int i = 0; i < board->info.spec.ui.hashrate_dist_page.max_x_bars; i++) {
     uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hashrate_dist_page.times);
-    lv_chart_set_value_by_id(chart, series, i, y);
+    lv_chart_set_value_by_id(hr_health_page.chart_hr_dist.obj, series, i, y);
     board->info.spec.ui.hashrate_dist_page.dist_map[i] = y;// Update the global distribution map
   }
   // time cost of this feature
@@ -1827,21 +1830,19 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   lv_label_set_text_fmt(hr_health_page.lb_hr.obj, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
   lv_label_set_text_fmt(hr_health_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
-  //time cost
-  lv_label_set_text_fmt(lb_hr_health_duration,"Sample: %s", String(String(board->info.spec.ui.hashrate_dist_page.dura) + "s").c_str());
 
   // update pie chart for NMQ AXE++
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     // draw pie chart if not created
-    if((ui_pages[UI_PAGE_HR_HEALTH] != NULL) && (dashboard_page.asic_hr_chart.obj.arcs[0] == NULL)) {
-      dashboard_page.asic_hr_chart.obj = ui_draw_pie_chart(ui_pages[UI_PAGE_HR_HEALTH], 
-                                                            dashboard_page.asic_hr_chart.center_x, 
-                                                            dashboard_page.asic_hr_chart.center_y, 
-                                                            dashboard_page.asic_hr_chart.radius, 
-                                                            dashboard_page.asic_hr_chart.cfg, board->miner->get_asic_count());
+    if((ui_pages[UI_PAGE_HR_HEALTH] != NULL) && (hr_health_page.asic_hr_chart.obj.arcs[0] == NULL)) {
+      hr_health_page.asic_hr_chart.obj = ui_draw_pie_chart(ui_pages[UI_PAGE_HR_HEALTH], 
+                                                            hr_health_page.asic_hr_chart.center_x, 
+                                                            hr_health_page.asic_hr_chart.center_y, 
+                                                            hr_health_page.asic_hr_chart.radius, 
+                                                            hr_health_page.asic_hr_chart.cfg, board->miner->get_asic_count());
     }
     // update pie chart angles
-    if((dashboard_page.asic_hr_chart.obj.arcs[0] != NULL) && (board->status.miner.asic_rsp_counter.size() ==  board->miner->get_asic_count())){
+    if((hr_health_page.asic_hr_chart.obj.arcs[0] != NULL) && (board->status.miner.asic_rsp_counter.size() ==  board->miner->get_asic_count())){
       // Calculate new angles based on ASIC response counters
       uint64_t total = 0;
       for(auto &pair : board->status.miner.asic_rsp_counter) {
@@ -1862,7 +1863,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
       new_angles[board->miner->get_asic_count() - 1] = (360 - total_angle) > 0 ? (360 - total_angle) : 0;
 
       // Update pie chart with new angles
-      ui_update_pie_chart(&dashboard_page.asic_hr_chart.obj, new_angles);
+      ui_update_pie_chart(&hr_health_page.asic_hr_chart.obj, new_angles);
     }
   }
 }
