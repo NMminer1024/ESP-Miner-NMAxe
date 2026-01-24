@@ -271,7 +271,7 @@ void setup() {
 void loop() {
   // TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask , stratumTask, minerTxTask, minerRxTask;
 
-  // for testing only: simulate block hits every 20s
+  // // for testing only: simulate block hits every 20s
   // static uint32_t cnt = 1;
   // if(cnt++ % 20 == 0){
   //   g_board.status.miner.hits++;

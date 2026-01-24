@@ -10,7 +10,7 @@ static uint16_t SCREEN_WIDTH  = 0;
 static uint16_t SCREEN_HEIGHT = 0;
 static TFT_eSPI *tftDriver = nullptr;
 
-static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL};
+static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
 LV_FONT_DECLARE(ds_digib_font_16)
@@ -138,6 +138,13 @@ struct{
   ui_element_t  lb_time;
   ui_element_t  lb_price;
 }big_digit_page;
+
+// block hits page elements
+struct{
+  lv_obj_t      *container;
+  lv_obj_t      *back_img_obj;
+  lv_img_dsc_t  *back_img_dsc;
+}block_hits_page;
 
 
 void tft_bl_ctrl(int8_t percent){
@@ -321,6 +328,7 @@ static void ui_page_element_init(board_sal_t* board){
     dashboard_page.back_img_dsc         = &status_page_img_135_240;
     hr_health_page.back_img_dsc         = &status_page_img_135_240;
     big_digit_page.back_img_dsc         = &black_page_img_135_240;
+    block_hits_page.back_img_dsc        = &block_hits_page_img_135_240;
     miner_page.logo_img_dsc             = (board->info.spec.name == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
     config_page.logo_img_dsc            = (board->info.spec.name == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
 
@@ -531,7 +539,7 @@ static void ui_page_element_init(board_sal_t* board){
     dashboard_page.back_img_dsc         = &status_page_img_240_320;
     hr_health_page.back_img_dsc         = &status_page_img_240_320;
     big_digit_page.back_img_dsc         = &black_page_img_240_320;
-
+    block_hits_page.back_img_dsc        = &block_hits_page_img_240_320;
     miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
     config_page.logo_img_dsc            = &logo_worker_nmqaxepp;
     /*********************************** Loading page *********************************/
@@ -888,6 +896,7 @@ static void ui_layout_init(board_sal_t* board){
   ui_pages[UI_PAGE_DASHBOARD] = dashboard_page.container;
   ui_pages[UI_PAGE_HR_HEALTH] = hr_health_page.container;
   ui_pages[UI_PAGE_BIG_DIGIT] = big_digit_page.container;
+  ui_pages[UI_PAGE_HITS]      = miner_page.container; //hits page uses the mining page container
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version label
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
@@ -1653,28 +1662,27 @@ static void ui_hits_page_update(board_sal_t* board){
     LOG_E("board is null\r\n");
     return;
   }
-  static lv_obj_t *hits_page = nullptr, *hits_img_obj = nullptr;
   static lv_style_t style_overlay;
   if(board->status.miner.hits == board->status.miner.last_hits) {
-    if(hits_img_obj != nullptr){
-      lv_obj_del(hits_img_obj);
-      hits_img_obj = nullptr;
+    if(block_hits_page.back_img_obj != nullptr){
+      lv_obj_del(block_hits_page.back_img_obj);
+      block_hits_page.back_img_obj = nullptr;
     }
-    if(hits_page != nullptr){
-      lv_obj_del(hits_page);
-      hits_page = nullptr;
+    if(block_hits_page.container != nullptr){
+      lv_obj_del(block_hits_page.container);
+      block_hits_page.container = nullptr;
     }
     return;
   }
   //create parent object
-  if(hits_page == nullptr){
+  if(block_hits_page.container == nullptr){
     // create hits page
-    hits_page = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(hits_page, SCREEN_WIDTH, SCREEN_HEIGHT);
-    lv_obj_align(hits_page, LV_ALIGN_CENTER, 0, 0);  // center align
-    lv_obj_set_style_pad_all(hits_page, 0, 0);
-    lv_obj_set_style_border_width(hits_page, 0, 0);
-    lv_obj_set_scrollbar_mode(hits_page, LV_SCROLLBAR_MODE_OFF);
+    block_hits_page.container = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(block_hits_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(block_hits_page.container, LV_ALIGN_CENTER, 0, 0);  // center align
+    lv_obj_set_style_pad_all(block_hits_page.container, 0, 0);
+    lv_obj_set_style_border_width(block_hits_page.container, 0, 0);
+    lv_obj_set_scrollbar_mode(block_hits_page.container, LV_SCROLLBAR_MODE_OFF);
     
     // create and configure style
     lv_style_init(&style_overlay);
@@ -1684,30 +1692,19 @@ static void ui_hits_page_update(board_sal_t* board){
     lv_style_set_border_opa(&style_overlay, LV_OPA_TRANSP);
     
     // connect style to hits_page
-    lv_obj_add_style(hits_page, &style_overlay, LV_PART_MAIN);
+    lv_obj_add_style(block_hits_page.container, &style_overlay, LV_PART_MAIN);
     
     // create and configure image object
-    hits_img_obj = lv_img_create(hits_page);
-    lv_img_set_src(hits_img_obj, &block_hits_page_img_135_240);
-    lv_obj_set_size(hits_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-    lv_obj_align(hits_img_obj, LV_ALIGN_CENTER, 0, 0);
+    block_hits_page.back_img_obj = lv_img_create(block_hits_page.container);
+    lv_img_set_src(block_hits_page.back_img_obj, block_hits_page.back_img_dsc);
+    lv_obj_set_size(block_hits_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(block_hits_page.back_img_obj, LV_ALIGN_CENTER, 0, 0);
     
     // set image opacity
-    lv_obj_set_style_img_opa(hits_img_obj, LV_OPA_COVER, LV_PART_MAIN);
-
+    lv_obj_set_style_img_opa(block_hits_page.back_img_obj, LV_OPA_COVER, LV_PART_MAIN);
     // show overlay
-    lv_obj_clear_flag(hits_page, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(hits_page);  // bring to front
-  }
-  else{
-    // uint8_t opa_lsit[] = {LV_OPA_100, LV_OPA_90, LV_OPA_80, LV_OPA_70, LV_OPA_60, LV_OPA_50, LV_OPA_40, LV_OPA_30, LV_OPA_20, LV_OPA_10, LV_OPA_TRANSP};
-    // static uint8_t opa_index = 0;
-    // //fade out effect
-    // lv_obj_set_style_bg_opa(hits_page, opa_lsit[opa_index % sizeof(opa_lsit)/sizeof(opa_lsit[0])], LV_PART_MAIN);
-    // // update image opacity
-    // lv_obj_set_style_img_opa(hits_img_obj, opa_lsit[opa_index % sizeof(opa_lsit)/sizeof(opa_lsit[0])], LV_PART_MAIN);
-    // LOG_D("Hits page opa index: %d, opacity: %d\r\n", opa_index, opa_lsit[opa_index]);
-    // opa_index++;  
+    lv_obj_clear_flag(block_hits_page.container, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(block_hits_page.container);  // bring to front
   }
 }
 

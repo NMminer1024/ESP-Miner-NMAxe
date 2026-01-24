@@ -9,6 +9,7 @@ enum{
     UI_PAGE_DASHBOARD,
     UI_PAGE_HR_HEALTH,
     UI_PAGE_BIG_DIGIT,
+    UI_PAGE_HITS
 };
 
 typedef struct{
