@@ -1752,18 +1752,6 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   if(last_hashrate == board->status.miner.hashrate._3m) return;
   last_hashrate = board->status.miner.hashrate._3m;
 
-  // draw pie chart if not created
-  // only for NMQ AXE ++
-  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-    if((ui_pages[UI_PAGE_HR_HEALTH] != NULL) && (dashboard_page.asic_hr_chart.obj.arcs[0] == NULL)) {
-      dashboard_page.asic_hr_chart.obj = ui_draw_pie_chart(ui_pages[UI_PAGE_HR_HEALTH], 
-                                                            dashboard_page.asic_hr_chart.center_x, 
-                                                            dashboard_page.asic_hr_chart.center_y, 
-                                                            dashboard_page.asic_hr_chart.radius, 
-                                                            dashboard_page.asic_hr_chart.cfg, board->miner->get_asic_count());
-    }
-  }
-
   if(first_time){
     first_time = false;
     //scale
@@ -1844,6 +1832,15 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
 
   // update pie chart for NMQ AXE++
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    // draw pie chart if not created
+    if((ui_pages[UI_PAGE_HR_HEALTH] != NULL) && (dashboard_page.asic_hr_chart.obj.arcs[0] == NULL)) {
+      dashboard_page.asic_hr_chart.obj = ui_draw_pie_chart(ui_pages[UI_PAGE_HR_HEALTH], 
+                                                            dashboard_page.asic_hr_chart.center_x, 
+                                                            dashboard_page.asic_hr_chart.center_y, 
+                                                            dashboard_page.asic_hr_chart.radius, 
+                                                            dashboard_page.asic_hr_chart.cfg, board->miner->get_asic_count());
+    }
+    // update pie chart angles
     if((dashboard_page.asic_hr_chart.obj.arcs[0] != NULL) && (board->status.miner.asic_rsp_counter.size() ==  board->miner->get_asic_count())){
       // Calculate new angles based on ASIC response counters
       uint64_t total = 0;
