@@ -147,6 +147,179 @@ struct{
 }block_hits_page;
 
 
+/*********************************** some helper func *******************************************/
+static ui_ring_obj_t ui_draw_ring(lv_obj_t* parent, const ui_ring_config_t* config) {
+    ui_ring_obj_t ring_obj = {NULL, NULL, NULL};
+    
+    if(!parent || !config) {
+        LOG_E("Invalid parameters for ui_draw_ring");
+        return ring_obj;
+    }
+
+    // 创建圆弧
+    ring_obj.arc = lv_arc_create(parent);
+    lv_obj_set_size(ring_obj.arc, 2 * config->radius, 2 * config->radius);
+    lv_arc_set_bg_angles(ring_obj.arc, 0, config->angle_full);
+    lv_arc_set_angles(ring_obj.arc, config->angle_start, config->angle_end);
+    lv_obj_remove_style(ring_obj.arc, NULL, LV_PART_KNOB);
+    lv_arc_set_rotation(ring_obj.arc, 90 + (360 - config->angle_full) / 2);
+    lv_obj_set_style_arc_width(ring_obj.arc, config->line_width, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(ring_obj.arc, config->line_width, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(ring_obj.arc, config->bg_color, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(ring_obj.arc, config->indicator_color, LV_PART_INDICATOR);
+    lv_obj_set_pos(ring_obj.arc, config->x, config->y);
+
+    // 创建中心文本标签
+    if(config->center_text && config->center_font) {
+        ring_obj.label_center = lv_label_create(ring_obj.arc);
+        lv_label_set_text(ring_obj.label_center, config->center_text);
+        lv_obj_set_style_text_font(ring_obj.label_center, config->center_font, LV_PART_MAIN);
+        lv_obj_set_style_text_color(ring_obj.label_center, config->center_text_color, LV_PART_MAIN);
+        lv_obj_set_style_text_align(ring_obj.label_center, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+        lv_label_set_long_mode(ring_obj.label_center, LV_LABEL_LONG_CLIP);
+        lv_obj_center(ring_obj.label_center);
+    } else {
+        ring_obj.label_center = NULL;
+    }
+
+    // 创建标题标签（根据圆弧半径、线宽和字体高度自适应位置）
+    if(config->title_text && config->title_font) {
+        ring_obj.label_title = lv_label_create(parent);
+        lv_obj_set_width(ring_obj.label_title, 2 * config->radius);
+        lv_label_set_text(ring_obj.label_title, config->title_text);
+        lv_obj_set_style_text_font(ring_obj.label_title, config->title_font, LV_PART_MAIN);
+        lv_obj_set_style_text_color(ring_obj.label_title, config->title_text_color, LV_PART_MAIN);
+        lv_obj_set_style_text_align(ring_obj.label_title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+        lv_label_set_long_mode(ring_obj.label_title, LV_LABEL_LONG_DOT);
+        // 获取字体高度
+        lv_coord_t font_height = lv_font_get_line_height(config->title_font);
+        // 标题位置 = 圆心Y + 半径 + 线宽 + 字体高度 / 2（让文字基线对齐圆弧底部）
+        lv_obj_align(ring_obj.label_title, LV_ALIGN_TOP_LEFT, 
+                    config->x,  
+                    config->y + config->radius + config->line_width + font_height / 2);
+    } else {
+        ring_obj.label_title = NULL;
+    }
+    
+    return ring_obj;
+}
+
+static void ui_update_ring(ui_ring_obj_t* ring_obj, uint16_t angle, String center_text) {
+    if(!ring_obj || !ring_obj->arc) return;
+    
+    lv_arc_set_angles(ring_obj->arc, 0, angle);
+    
+    if(ring_obj->label_center && center_text.length() > 0) {
+        lv_label_set_text(ring_obj->label_center, center_text.c_str());
+    }
+}
+
+static ui_pie_chart_t ui_draw_pie_chart(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius,
+                                  const pie_sector_t* sectors, uint8_t sector_count) {
+    ui_pie_chart_t pie_chart = {0};
+    
+    if (!parent || !sectors || sector_count == 0 || sector_count > PIE_CHART_MAX_SECTORS) {
+        LOG_E("Invalid parameters for ui_draw_pie_chart");
+        return pie_chart;
+    }
+
+    // Store configuration
+    pie_chart.sector_count = sector_count;
+    pie_chart.center_x = center_x;
+    pie_chart.center_y = center_y;
+    pie_chart.radius = radius;
+    // Calculate starting angle (from top, clockwise)
+    uint16_t current_angle = 0;
+    
+    // Draw each sector as a thick arc (like the ring implementation)
+    for (uint8_t i = 0; i < sector_count; i++) {
+        uint16_t end_angle = current_angle + sectors[i].angle;
+        
+        // Create arc object for this sector
+        pie_chart.arcs[i] = lv_arc_create(parent);
+        lv_obj_t* arc = pie_chart.arcs[i];
+        lv_obj_set_size(arc, radius * 2, radius * 2);
+        lv_obj_set_pos(arc, center_x - radius, center_y - radius);
+        
+        // Set angles for this sector
+        lv_arc_set_bg_angles(arc, 0, 360);
+        lv_arc_set_angles(arc, current_angle, end_angle);
+        
+        // Remove knob (make it display only)
+        lv_obj_remove_style(arc, NULL, LV_PART_KNOB);
+        lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICKABLE);
+        
+        // Rotate to start from top (12 o'clock position)
+        lv_arc_set_rotation(arc, 270);
+        
+        // Hide background arc (make it transparent)
+        lv_obj_set_style_arc_width(arc, 0, LV_PART_MAIN);
+        lv_obj_set_style_arc_opa(arc, LV_OPA_TRANSP, LV_PART_MAIN);
+        
+        // Set indicator (sector) to fill from center to edge with 70% opacity
+        lv_obj_set_style_arc_width(arc, radius, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(arc, sectors[i].color, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_opa(arc, LV_OPA_50, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_rounded(arc, false, LV_PART_INDICATOR); // Flat end caps for perfect pie chart
+        
+        // Draw sector label if provided
+        if (sectors[i].label != NULL && strlen(sectors[i].label) > 0) {
+            // Calculate label position (midpoint of sector angle)
+            float mid_angle = current_angle + sectors[i].angle / 2.0f;
+            float label_radius = radius * 0.6f;
+            
+            // Convert to radians (accounting for rotation)
+            float angle_rad = (mid_angle - 90.0f) * M_PI / 180.0f;
+            
+            lv_coord_t label_x = center_x + (lv_coord_t)(label_radius * cos(angle_rad));
+            lv_coord_t label_y = center_y + (lv_coord_t)(label_radius * sin(angle_rad));
+            
+            pie_chart.labels[i] = lv_label_create(parent);
+            lv_label_set_text(pie_chart.labels[i], sectors[i].label);
+            lv_obj_set_style_text_color(pie_chart.labels[i], lv_color_hex(0xFFFFFF), 0);
+            lv_obj_set_style_text_font(pie_chart.labels[i], &lv_font_montserrat_14, 0);
+            lv_obj_align(pie_chart.labels[i], LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
+        } else {
+            pie_chart.labels[i] = NULL;
+        }
+        current_angle = end_angle;
+    }
+    return pie_chart;
+}
+
+static void ui_update_pie_chart(ui_pie_chart_t* pie_chart, const uint16_t* angles) {
+    if (!pie_chart || !angles || pie_chart->sector_count == 0) {
+        LOG_E("Invalid parameters for ui_update_pie_chart");
+        return;
+    }
+    
+    uint16_t current_angle = 0;
+    
+    // Update each sector's angles
+    for (uint8_t i = 0; i < pie_chart->sector_count; i++) {
+        if (pie_chart->arcs[i]) {
+            uint16_t end_angle = current_angle + angles[i];
+            lv_arc_set_angles(pie_chart->arcs[i], current_angle, end_angle);
+            
+            // Update label position if label exists
+            if (pie_chart->labels[i]) {
+                float mid_angle = current_angle + angles[i] / 2.0f;
+                float label_radius = pie_chart->radius * 0.6f;
+                float angle_rad = (mid_angle - 90.0f) * M_PI / 180.0f;
+                
+                lv_coord_t label_x = pie_chart->center_x + (lv_coord_t)(label_radius * cos(angle_rad));
+                lv_coord_t label_y = pie_chart->center_y + (lv_coord_t)(label_radius * sin(angle_rad));
+                
+                lv_obj_align(pie_chart->labels[i], LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
+            }
+            
+            current_angle = end_angle;
+        }
+    }
+}
+
+
+/*********************************** display  func *******************************************/
 void tft_bl_ctrl(int8_t percent){
   uint8_t pwm = 0;
   if((g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME) || (g_board.info.spec.name == BOARD_NMAXE_NAME)){
@@ -1347,73 +1520,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( big_digit_page.lb_price.obj, LV_ALIGN_BOTTOM_LEFT, big_digit_page.lb_price.coord.x, big_digit_page.lb_price.coord.y);
 }
 
-static ui_ring_obj_t ui_draw_ring(lv_obj_t* parent, const ui_ring_config_t* config) {
-    ui_ring_obj_t ring_obj = {NULL, NULL, NULL};
-    
-    if(!parent || !config) {
-        LOG_E("Invalid parameters for ui_draw_ring");
-        return ring_obj;
-    }
-
-    // 创建圆弧
-    ring_obj.arc = lv_arc_create(parent);
-    lv_obj_set_size(ring_obj.arc, 2 * config->radius, 2 * config->radius);
-    lv_arc_set_bg_angles(ring_obj.arc, 0, config->angle_full);
-    lv_arc_set_angles(ring_obj.arc, config->angle_start, config->angle_end);
-    lv_obj_remove_style(ring_obj.arc, NULL, LV_PART_KNOB);
-    lv_arc_set_rotation(ring_obj.arc, 90 + (360 - config->angle_full) / 2);
-    lv_obj_set_style_arc_width(ring_obj.arc, config->line_width, LV_PART_MAIN);
-    lv_obj_set_style_arc_width(ring_obj.arc, config->line_width, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_color(ring_obj.arc, config->bg_color, LV_PART_MAIN);
-    lv_obj_set_style_arc_color(ring_obj.arc, config->indicator_color, LV_PART_INDICATOR);
-    lv_obj_set_pos(ring_obj.arc, config->x, config->y);
-
-    // 创建中心文本标签
-    if(config->center_text && config->center_font) {
-        ring_obj.label_center = lv_label_create(ring_obj.arc);
-        lv_label_set_text(ring_obj.label_center, config->center_text);
-        lv_obj_set_style_text_font(ring_obj.label_center, config->center_font, LV_PART_MAIN);
-        lv_obj_set_style_text_color(ring_obj.label_center, config->center_text_color, LV_PART_MAIN);
-        lv_obj_set_style_text_align(ring_obj.label_center, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-        lv_label_set_long_mode(ring_obj.label_center, LV_LABEL_LONG_CLIP);
-        lv_obj_center(ring_obj.label_center);
-    } else {
-        ring_obj.label_center = NULL;
-    }
-
-    // 创建标题标签（根据圆弧半径、线宽和字体高度自适应位置）
-    if(config->title_text && config->title_font) {
-        ring_obj.label_title = lv_label_create(parent);
-        lv_obj_set_width(ring_obj.label_title, 2 * config->radius);
-        lv_label_set_text(ring_obj.label_title, config->title_text);
-        lv_obj_set_style_text_font(ring_obj.label_title, config->title_font, LV_PART_MAIN);
-        lv_obj_set_style_text_color(ring_obj.label_title, config->title_text_color, LV_PART_MAIN);
-        lv_obj_set_style_text_align(ring_obj.label_title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-        lv_label_set_long_mode(ring_obj.label_title, LV_LABEL_LONG_DOT);
-        // 获取字体高度
-        lv_coord_t font_height = lv_font_get_line_height(config->title_font);
-        // 标题位置 = 圆心Y + 半径 + 线宽 + 字体高度 / 2（让文字基线对齐圆弧底部）
-        lv_obj_align(ring_obj.label_title, LV_ALIGN_TOP_LEFT, 
-                    config->x,  
-                    config->y + config->radius + config->line_width + font_height / 2);
-    } else {
-        ring_obj.label_title = NULL;
-    }
-    
-    return ring_obj;
-}
-
-static void ui_update_ring(ui_ring_obj_t* ring_obj, uint16_t angle, String center_text) {
-    if(!ring_obj || !ring_obj->arc) return;
-    
-    lv_arc_set_angles(ring_obj->arc, 0, angle);
-    
-    if(ring_obj->label_center && center_text.length() > 0) {
-        lv_label_set_text(ring_obj->label_center, center_text.c_str());
-    }
-}
-
-static void ui_loading_str_update(String str, uint32_t color, bool prgress_update) {
+static void ui_loading_page_update(String str, uint32_t color, bool prgress_update) {
     static uint8_t progress = 0 , progress_total = 16;
     static lv_coord_t width = 0;
     lv_color_t font_color = lv_color_hex(color);
@@ -2016,19 +2123,25 @@ void ui_thread_entry(void *args){
   const char* wait_job_str[] = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
   const char* config_str[] = {"Config   ","Config.  ","Config.. ","Config..."};
 
+  // tft hardware init
   tft_init();
+
+  // lvgl core init
   lv_init();
+
+  // ui driver register
   ui_drv_register();
+
+  // ui page element init
+  ui_page_element_init(&g_board);
+  
+  // ui layout init
+  ui_layout_init(&g_board);
 
   //lvgl tick task
   String taskName = "(lvgl)";
   xTaskCreatePinnedToCore(lvgl_tick_task, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_LVGL_DRV, NULL, 1);
   delay(100);
-
-  ui_page_element_init(&g_board);
-
-  //ui layout init
-  ui_layout_init(&g_board);
 
   //set the first page to loading page
   lv_obj_scroll_to_view(ui_pages[UI_PAGE_LOADING], LV_ANIM_ON); 
@@ -2042,15 +2155,15 @@ void ui_thread_entry(void *args){
   uint16_t cnt = 0;
 
   //Vbus check 
-  ui_loading_str_update(vbus_chk_str[0], 0xFFFFFF, true);
+  ui_loading_page_update(vbus_chk_str[0], 0xFFFFFF, true);
   while (!g_board.power->is_adc_ready()){
-    ui_loading_str_update(vbus_chk_str[(cnt++)%4], 0xFFFFFF, false);
+    ui_loading_page_update(vbus_chk_str[(cnt++)%4], 0xFFFFFF, false);
     delay(500);
   }
   
   //Vbus type check, DC or USB 
-  if(g_board.power->is_dc_pluged()) ui_loading_str_update("DC pluged.", 0x00ff00, true);
-  else ui_loading_str_update("USB pluged.", 0x00ff00, true);
+  if(g_board.power->is_dc_pluged()) ui_loading_page_update("DC pluged.", 0x00ff00, true);
+  else ui_loading_page_update("USB pluged.", 0x00ff00, true);
   delay(500);
 
   //Vbus type check and voltage check
@@ -2058,7 +2171,7 @@ void ui_thread_entry(void *args){
       static bool blink = false;
       uint32_t color = (blink) ? 0xFF0000 : 0xFFFFFF;
       String vbusString = "Vbus " + String(g_board.power->get_vbus()/1000.0, 1) + "v(at least" + String(g_board.info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
-      ui_loading_str_update(vbusString, color, false);
+      ui_loading_page_update(vbusString, color, false);
       blink = !blink;
       if(!g_board.power->is_dc_pluged()){
         disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
@@ -2066,48 +2179,48 @@ void ui_thread_entry(void *args){
       }
       delay(500);
   }
-  ui_loading_str_update("Vbus " + String(g_board.power->get_vbus() / 1000.0, 3) + "V.", 0x00FF00, true);
+  ui_loading_page_update("Vbus " + String(g_board.power->get_vbus() / 1000.0, 3) + "V.", 0x00FF00, true);
   delay(500);
 
   /***************************************wait fan self test *******************************************/
   cnt = 0;
-  ui_loading_str_update(fan_test_str[0], 0xFFFFFF, true);
+  ui_loading_page_update(fan_test_str[0], 0xFFFFFF, true);
   while(!g_board.status.fan.list[0].self_test){
-    ui_loading_str_update(String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.list[0].rpm) + "/ " + String(g_board.info.spec.fans[0].init.self_test_rpm_thr) + "rpm", 0xFFFFFF, false);
+    ui_loading_page_update(String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.list[0].rpm) + "/ " + String(g_board.info.spec.fans[0].init.self_test_rpm_thr) + "rpm", 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update("Pass! [" + String(g_board.status.fan.list[0].rpm) + "/ " + String(g_board.info.spec.fans[0].init.self_test_rpm_thr) + " rpm]", 0x00FF00, true);
+  ui_loading_page_update("Pass! [" + String(g_board.status.fan.list[0].rpm) + "/ " + String(g_board.info.spec.fans[0].init.self_test_rpm_thr) + " rpm]", 0x00FF00, true);
   delay(2000);
 
   /***************************************wait Vcore self test *****************************************/
-  ui_loading_str_update("Vcore check...", 0xFFFFFF, true);
+  ui_loading_page_update("Vcore check...", 0xFFFFFF, true);
   delay(500);
   //Vcore voltage check
   while(!g_board.power->is_vcore_ready()){
     static bool blink = false;
     uint32_t color = (blink) ? 0xFF0000 : 0xFFFFFF;
-    ui_loading_str_update("Vcore error.", color, false);
+    ui_loading_page_update("Vcore error.", color, false);
     blink = !blink;
     delay(500);
   }
   delay(200);//wait for vcore set to target voltage
-  ui_loading_str_update(String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.", 0x00FF00, true);
+  ui_loading_page_update(String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.", 0x00FF00, true);
   delay(500);
   /****************************************wait for asic init********************************************/
   while(g_board.miner == nullptr) delay(10); //wait miner object created
   cnt = 0;
   while(g_board.miner->get_asic_count() == 0){
-    ui_loading_str_update(String(asci_init_str[cnt++ % 4]), 0xFFFFFF, false);
+    ui_loading_page_update(String(asci_init_str[cnt++ % 4]), 0xFFFFFF, false);
     delay(300);
   }
-  ui_loading_str_update(String("Found " + String(g_board.miner->get_asic_count())) + (g_board.miner->get_asic_count() > 1 ? " chips" : " chip"), 0x00FF00, true);
+  ui_loading_page_update(String("Found " + String(g_board.miner->get_asic_count())) + (g_board.miner->get_asic_count() > 1 ? " chips" : " chip"), 0x00FF00, true);
   delay(1000);
   /***************************************wait for wifi connected****************************************/
   cnt = 0;
   while(g_board.info.connection.wifi.status_param.status != WL_CONNECTED){
-    ui_loading_str_update(wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.conn_param.ssid +  String("]"), 0xFFFFFF, false);
+    ui_loading_page_update(wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.conn_param.ssid +  String("]"), 0xFFFFFF, false);
     if(xSemaphoreTake(g_board.info.connection.wifi.force_cfg_xsem, 100) == pdTRUE){
-      ui_loading_str_update(String("Timeout!"), 0xFF0000, false);
+      ui_loading_page_update(String("Timeout!"), 0xFF0000, false);
       delay(500);
       //config background
       lv_obj_scroll_to_view(ui_pages[UI_PAGE_CONFIG], LV_ANIM_ON);
@@ -2128,96 +2241,96 @@ void ui_thread_entry(void *args){
       }
     }
   }
-  ui_loading_str_update("Wifi connected!", 0x00FF00, true);
+  ui_loading_page_update("Wifi connected!", 0x00FF00, true);
   delay(500);
 #if HAS_VERSION_CHECK_FEATURE
   /***************************************wait for version check**************************************/
   cnt = 0;
-  ui_loading_str_update(ver_chk_str[0], 0xFFFFFF, true);
+  ui_loading_page_update(ver_chk_str[0], 0xFFFFFF, true);
   while(g_board.info.base.fw_latest_release == ""){
-    ui_loading_str_update(ver_chk_str[cnt++ % 4], 0xFFFFFF, false);
+    ui_loading_page_update(ver_chk_str[cnt++ % 4], 0xFFFFFF, false);
     delay(500);
   }
 
   int res = compareVersions(g_board.info.base.fw_version, g_board.info.base.fw_latest_release);
   if(res == -1){
     String str = "Update to: " + g_board.info.base.fw_latest_release;
-    ui_loading_str_update(str, 0xFFFFFF, true);
+    ui_loading_page_update(str, 0xFFFFFF, true);
     while (cnt++ <= 15){
       delay(250);
-      ui_loading_str_update(str, 0xEE7D30, false);
+      ui_loading_page_update(str, 0xEE7D30, false);
       delay(250);
-      ui_loading_str_update(str, 0xFFFFFF, false);
+      ui_loading_page_update(str, 0xFFFFFF, false);
     }
   }
   else if(res == 0 || res == 1){
-    ui_loading_str_update("Up to date!", 0x00FF00, true);
+    ui_loading_page_update("Up to date!", 0x00FF00, true);
     delay(2000);
   }
   else{
-    ui_loading_str_update("Version check failed!", 0xFF0000, true);
+    ui_loading_page_update("Version check failed!", 0xFF0000, true);
     delay(2000);
   }
 #endif //HAS_VERSION_CHECK_FEATURE
   /***************************************wait for market connected************************************/
   cnt = 0;
-  ui_loading_str_update(market_con_str[0], 0xFFFFFF, true);
+  ui_loading_page_update(market_con_str[0], 0xFFFFFF, true);
   uint32_t start = millis();
   while(0 == g_board.market->lastUpdate){
-    ui_loading_str_update(String(market_con_str[cnt++ % 4] + g_board.info.base.coin_price).c_str(), 0xFFFFFF, false);
+    ui_loading_page_update(String(market_con_str[cnt++ % 4] + g_board.info.base.coin_price).c_str(), 0xFFFFFF, false);
     if(millis() - start - g_board.market->lastUpdate >= MARKET_TIMEOUT){
-      ui_loading_str_update("Market update timeout!", 0xFF0000, false);
+      ui_loading_page_update("Market update timeout!", 0xFF0000, false);
       delay(500);
       break;
     }
     delay(300);
   }
   delay(500);
-  if(0 != g_board.market->lastUpdate) ui_loading_str_update("Market connected!", 0x00FF00, true);
+  if(0 != g_board.market->lastUpdate) ui_loading_page_update("Market connected!", 0x00FF00, true);
   delay(1000);
   /***************************************wait for pool connected**************************************/
   cnt = 0;
   while(!g_board.stratum->is_subscribed()){
     if(g_board.stratum->pool->get_last_errormsg().length() > 0){
       uint32_t color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
-      ui_loading_str_update(g_board.stratum->pool->get_last_errormsg().c_str(), color, false);
+      ui_loading_page_update(g_board.stratum->pool->get_last_errormsg().c_str(), color, false);
     }else{
       String con_type = g_board.info.connection.pool_use.ssl ? "[ssl]" : "[tcp]";
-      ui_loading_str_update(String(pool_con_str[(cnt)%4] + con_type), 0xFFFFFF, false);
+      ui_loading_page_update(String(pool_con_str[(cnt)%4] + con_type), 0xFFFFFF, false);
     }
     cnt++;
     delay(300);
   }
-  ui_loading_str_update("Pool connected!", 0x00FF00, true);
+  ui_loading_page_update("Pool connected!", 0x00FF00, true);
   delay(100);
   /******************************************wait pool authorized*************************************/
   cnt = 0;
   while(!g_board.stratum->is_authorized()){
-    ui_loading_str_update(pool_auth_str[(cnt++)%4], 0xFFFFFF, false);
+    ui_loading_page_update(pool_auth_str[(cnt++)%4], 0xFFFFFF, false);
     delay(300);
     while (cnt >= 20){
-      ui_loading_str_update("Wrong stratum user!", 0xFF0000, false);
+      ui_loading_page_update("Wrong stratum user!", 0xFF0000, false);
       delay(500);
-      ui_loading_str_update("Wrong stratum user!", 0xFFFFFF, false);
+      ui_loading_page_update("Wrong stratum user!", 0xFFFFFF, false);
       delay(500);
       if(g_board.stratum->is_authorized()) break;
     }
   }
-  ui_loading_str_update("Pool authorized!", 0x00FF00, true);
+  ui_loading_page_update("Pool authorized!", 0x00FF00, true);
   delay(100);
   /******************************************wait first job*******************************************/
   cnt = 0;
   while(g_board.stratum->get_job_counter() == 0){
-    ui_loading_str_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
+    ui_loading_page_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
     delay(100);
     while ((cnt >= 60*10) && (g_board.stratum->get_job_counter() == 0)){
-      ui_loading_str_update("Pool job timeout!", 0xFF0000, false);
+      ui_loading_page_update("Pool job timeout!", 0xFF0000, false);
       delay(500);
-      ui_loading_str_update("Pool job timeout!", 0xFFFFFF, false);
+      ui_loading_page_update("Pool job timeout!", 0xFFFFFF, false);
       delay(500);
     }
   }
-  ui_loading_str_update("Miner ready!", 0x00FF00, true);
+  ui_loading_page_update("Miner ready!", 0x00FF00, true);
   delay(500);
   /***************************************scroll to miner page***************************************/
   lv_obj_scroll_to_view(ui_pages[g_board.status.ui.page.last], LV_ANIM_ON); 
@@ -2242,139 +2355,4 @@ void ui_thread_entry(void *args){
       xSemaphoreGive(lvgl_xMutex); 
     }
   }
-}
-
-/**
- * @brief Create a pie chart with filled sectors (only call once to create)
- * @param parent Parent object
- * @param center_x Center X coordinate
- * @param center_y Center Y coordinate
- * @param radius Pie chart radius
- * @param sectors Sector configuration array
- * @param sector_count Number of sectors (max 8)
- * @return ui_pie_chart_t Pie chart object structure
- * 
- * Example usage:
- * pie_sector_t sectors[] = {
- *   {90, lv_color_hex(0xFFFF00), "Sector1"},   // Yellow, 90 degrees
- *   {60, lv_color_hex(0xFF0000), "Sector2"},   // Red, 60 degrees
- *   {120, lv_color_hex(0x00FF00), "Sector3"},  // Green, 120 degrees
- *   {90, lv_color_hex(0x0000FF), "Sector4"}    // Blue, 90 degrees
- * };
- * ui_pie_chart_t pie = ui_draw_pie_chart(parent, 120, 120, 80, sectors, 4);
- * // Later update angles:
- * uint16_t new_angles[] = {100, 50, 130, 80};
- * ui_update_pie_chart(&pie, new_angles);
- */
-ui_pie_chart_t ui_draw_pie_chart(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius,
-                                  const pie_sector_t* sectors, uint8_t sector_count) {
-    ui_pie_chart_t pie_chart = {0};
-    
-    if (!parent || !sectors || sector_count == 0 || sector_count > PIE_CHART_MAX_SECTORS) {
-        LOG_E("Invalid parameters for ui_draw_pie_chart");
-        return pie_chart;
-    }
-
-    // Store configuration
-    pie_chart.sector_count = sector_count;
-    pie_chart.center_x = center_x;
-    pie_chart.center_y = center_y;
-    pie_chart.radius = radius;
-    // Calculate starting angle (from top, clockwise)
-    uint16_t current_angle = 0;
-    
-    // Draw each sector as a thick arc (like the ring implementation)
-    for (uint8_t i = 0; i < sector_count; i++) {
-        uint16_t end_angle = current_angle + sectors[i].angle;
-        
-        // Create arc object for this sector
-        pie_chart.arcs[i] = lv_arc_create(parent);
-        lv_obj_t* arc = pie_chart.arcs[i];
-        lv_obj_set_size(arc, radius * 2, radius * 2);
-        lv_obj_set_pos(arc, center_x - radius, center_y - radius);
-        
-        // Set angles for this sector
-        lv_arc_set_bg_angles(arc, 0, 360);
-        lv_arc_set_angles(arc, current_angle, end_angle);
-        
-        // Remove knob (make it display only)
-        lv_obj_remove_style(arc, NULL, LV_PART_KNOB);
-        lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICKABLE);
-        
-        // Rotate to start from top (12 o'clock position)
-        lv_arc_set_rotation(arc, 270);
-        
-        // Hide background arc (make it transparent)
-        lv_obj_set_style_arc_width(arc, 0, LV_PART_MAIN);
-        lv_obj_set_style_arc_opa(arc, LV_OPA_TRANSP, LV_PART_MAIN);
-        
-        // Set indicator (sector) to fill from center to edge with 70% opacity
-        lv_obj_set_style_arc_width(arc, radius, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_color(arc, sectors[i].color, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_opa(arc, LV_OPA_50, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_rounded(arc, false, LV_PART_INDICATOR); // Flat end caps for perfect pie chart
-        
-        // Draw sector label if provided
-        if (sectors[i].label != NULL && strlen(sectors[i].label) > 0) {
-            // Calculate label position (midpoint of sector angle)
-            float mid_angle = current_angle + sectors[i].angle / 2.0f;
-            float label_radius = radius * 0.6f;
-            
-            // Convert to radians (accounting for rotation)
-            float angle_rad = (mid_angle - 90.0f) * M_PI / 180.0f;
-            
-            lv_coord_t label_x = center_x + (lv_coord_t)(label_radius * cos(angle_rad));
-            lv_coord_t label_y = center_y + (lv_coord_t)(label_radius * sin(angle_rad));
-            
-            pie_chart.labels[i] = lv_label_create(parent);
-            lv_label_set_text(pie_chart.labels[i], sectors[i].label);
-            lv_obj_set_style_text_color(pie_chart.labels[i], lv_color_hex(0xFFFFFF), 0);
-            lv_obj_set_style_text_font(pie_chart.labels[i], &lv_font_montserrat_14, 0);
-            lv_obj_align(pie_chart.labels[i], LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
-        } else {
-            pie_chart.labels[i] = NULL;
-        }
-        current_angle = end_angle;
-    }
-    return pie_chart;
-}
-
-/**
- * @brief Update pie chart sector angles (efficient update without recreating objects)
- * @param pie_chart Pointer to pie chart object structure
- * @param angles Array of new angles for each sector
- * 
- * Example:
- * uint16_t new_angles[] = {100, 50, 130, 80};
- * ui_update_pie_chart(&pie_chart, new_angles);
- */
-void ui_update_pie_chart(ui_pie_chart_t* pie_chart, const uint16_t* angles) {
-    if (!pie_chart || !angles || pie_chart->sector_count == 0) {
-        LOG_E("Invalid parameters for ui_update_pie_chart");
-        return;
-    }
-    
-    uint16_t current_angle = 0;
-    
-    // Update each sector's angles
-    for (uint8_t i = 0; i < pie_chart->sector_count; i++) {
-        if (pie_chart->arcs[i]) {
-            uint16_t end_angle = current_angle + angles[i];
-            lv_arc_set_angles(pie_chart->arcs[i], current_angle, end_angle);
-            
-            // Update label position if label exists
-            if (pie_chart->labels[i]) {
-                float mid_angle = current_angle + angles[i] / 2.0f;
-                float label_radius = pie_chart->radius * 0.6f;
-                float angle_rad = (mid_angle - 90.0f) * M_PI / 180.0f;
-                
-                lv_coord_t label_x = pie_chart->center_x + (lv_coord_t)(label_radius * cos(angle_rad));
-                lv_coord_t label_y = pie_chart->center_y + (lv_coord_t)(label_radius * sin(angle_rad));
-                
-                lv_obj_align(pie_chart->labels[i], LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
-            }
-            
-            current_angle = end_angle;
-        }
-    }
 }

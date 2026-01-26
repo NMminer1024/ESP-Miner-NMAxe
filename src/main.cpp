@@ -172,7 +172,7 @@ void setup() {
   }
   /************************************************************ INIT DISPLAY ************************************************************/
   taskName = "(ui)";
-  xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_UI, &uiTask, 1);
+  xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_UI, &uiTask, 1);
   delay(10);
   taskName = "(touch)";
   xTaskCreatePinnedToCore(touch_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_TOUCH, &touchTask, 0);

@@ -48,12 +48,6 @@ typedef struct {
     lv_obj_t* label_title;           // 标题标签
 } ui_ring_obj_t;
 
-
-void tft_bl_ctrl(int8_t percent);
-void ui_switch_next_page_cb();
-void ui_switch_next_page_cb(uint8_t tp_evt);
-void ui_thread_entry(void *args);
-
 // Pie chart sector configuration
 typedef struct {
     uint16_t angle;          // Sector angle (0-360)
@@ -73,9 +67,11 @@ typedef struct {
     lv_coord_t radius;                               // Pie chart radius
 } ui_pie_chart_t;
 
-// Pie chart functions
-ui_pie_chart_t ui_draw_pie_chart(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius, 
-                                 const pie_sector_t* sectors, uint8_t sector_count);
-void ui_update_pie_chart(ui_pie_chart_t* pie_chart, const uint16_t* angles);
+
+
+void tft_bl_ctrl(int8_t percent);
+void ui_switch_next_page_cb();
+void ui_switch_next_page_cb(uint8_t tp_evt);
+void ui_thread_entry(void *args);
 
 #endif // DISPLAY_H
