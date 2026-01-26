@@ -691,6 +691,24 @@ void monitor_thread_entry(void *args){
                 xSemaphoreGive(board->status.miner.history_mutex);
             }
         }
+
+        //sample the hashrate for hashrate chart on ui every second
+        if(board->status.miner.uptime_session % 1 == 0){
+            static uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
+            static uint64_t *counts = NULL;
+            if (counts == NULL) {
+                counts = (uint64_t *)malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+                memset(counts, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+            }
+            int index = board->status.miner.hashrate._3m/1000/1000/1000 / SCALE; // Convert to GH/s and scale
+            index = (index >= board->info.spec.ui.hashrate_dist_page.max_x_bars) ? board->info.spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
+            counts[index]++;
+            board->info.spec.ui.hashrate_dist_page.times++;
+            for (int i = 0; i < board->info.spec.ui.hashrate_dist_page.max_x_bars; i++) {
+                uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hashrate_dist_page.times);
+                board->info.spec.ui.hashrate_dist_page.dist_map[i] = y;// Update the global distribution map
+            }
+        }
     }
 }
 

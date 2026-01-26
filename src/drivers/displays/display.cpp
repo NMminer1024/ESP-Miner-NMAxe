@@ -1907,17 +1907,14 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     LOG_E("board is null\r\n");
     return;
   }
-
-  static uint32_t last_update = millis();
-  if(millis() - last_update < 1000) return;
-
   static lv_chart_series_t *series;
   static double last_hashrate = 0;
-  static bool first = true;
+  static bool first = true; 
+  static uint32_t last_update = millis();
+
+  if(millis() - last_update < 1000) return;
   if(last_hashrate == board->status.miner.hashrate._3m) return;
   last_hashrate = board->status.miner.hashrate._3m;
-
-  uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
 
   if(first){
     first = false;
@@ -1941,21 +1938,12 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
     lv_obj_set_style_text_font(hr_health_page.chart_hr_dist.obj, &lv_font_montserrat_10, LV_PART_TICKS); 
   }
 
-
-  static uint64_t *counts = NULL;
-  if (counts == NULL) {
-    counts = (uint64_t *)malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
-    memset(counts, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
-  }
-  int index = last_hashrate/1000/1000/1000 / SCALE; // Convert to GH/s and scale
-  index = (index >= board->info.spec.ui.hashrate_dist_page.max_x_bars) ? board->info.spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
-  counts[index]++;
-  board->info.spec.ui.hashrate_dist_page.times++;
+  // update hashrate distribution map
   for (int i = 0; i < board->info.spec.ui.hashrate_dist_page.max_x_bars; i++) {
-    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hashrate_dist_page.times);
+    uint8_t y = board->info.spec.ui.hashrate_dist_page.dist_map[i];
     lv_chart_set_value_by_id(hr_health_page.chart_hr_dist.obj, series, i, y);
-    board->info.spec.ui.hashrate_dist_page.dist_map[i] = y;// Update the global distribution map
   }
+
   // time cost of this feature
   static uint64_t start = millis();
   board->info.spec.ui.hashrate_dist_page.dura = (millis() - start) / 1000;
@@ -2226,7 +2214,6 @@ void display_thread_entry(void *args){
 
   taskName = "(ui)";
   xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_UI, NULL, 1);
-  delay(100);
 
   //set the first page to loading page
   g_board.status.ui.page.current = UI_PAGE_LOADING;

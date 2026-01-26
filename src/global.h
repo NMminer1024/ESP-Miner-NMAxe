@@ -14,7 +14,7 @@
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define CURRENT_FW_VERSION      "v3.0.10a"
+#define CURRENT_FW_VERSION      "v3.0.10"
 
 #define CURRENT_HW_VERSION      "v1.1.1"
 
