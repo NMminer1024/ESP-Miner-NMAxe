@@ -69,8 +69,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.heat.vcore.max        = 100.0f;
             config.ui.dashboard_page.heat.fan.min          = 0.0f;
             config.ui.dashboard_page.heat.fan.max          = 9000.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.min    = 400.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.max    = 900.0f;
+            config.ui.dashboard_page.performance.asic_freq_req.min    = 390.0f;
+            config.ui.dashboard_page.performance.asic_freq_req.max    = 650.0f;
             config.ui.dashboard_page.performance.vcore_req.min        = 1.000f;
             config.ui.dashboard_page.performance.vcore_req.max        = 1.500f;
             config.ui.dashboard_page.performance.vcore_measure.min    = 1.000f;
@@ -178,8 +178,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.heat.vcore.max        = 100.0f;
             config.ui.dashboard_page.heat.fan.min          = 0.0f;
             config.ui.dashboard_page.heat.fan.max          = 9000.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.min    = 400.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.max    = 900.0f;
+            config.ui.dashboard_page.performance.asic_freq_req.min    = 390.0f;
+            config.ui.dashboard_page.performance.asic_freq_req.max    = 800.0f;
             config.ui.dashboard_page.performance.vcore_req.min        = 0.900f;
             config.ui.dashboard_page.performance.vcore_req.max        = 1.500f;
             config.ui.dashboard_page.performance.vcore_measure.min    = 0.900f;
@@ -286,15 +286,15 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.heat.vcore.max        = 130.0f;
             config.ui.dashboard_page.heat.fan.min          = 0.0f;
             config.ui.dashboard_page.heat.fan.max          = 4000.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.min    = 400.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.max    = 900.0f;
+            config.ui.dashboard_page.performance.asic_freq_req.min    = 390.0f;
+            config.ui.dashboard_page.performance.asic_freq_req.max    = 800.0f;
             config.ui.dashboard_page.performance.vcore_req.min        = 0.900f;
             config.ui.dashboard_page.performance.vcore_req.max        = 1.500f;
             config.ui.dashboard_page.performance.vcore_measure.min    = 0.900f;
             config.ui.dashboard_page.performance.vcore_measure.max    = 1.500f;
 
             config.btn.boot_pin              = 0;
-            config.btn.user_pin              = 12;
+            config.btn.user_pin              = -1; // Not used
             config.pwr.en_pins.pwr_pll_0v8   = 39;
             config.pwr.en_pins.pwr_vdd_1v8   = 40;
             config.pwr.en_pins.pwr_vcore     = 38;
@@ -351,7 +351,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.prev_error           = 0;
             fan_cfg.pid.integral             = 0;
             fan_cfg.pid.output_min           = 1.0f;
-            fan_cfg.pid.output_max           = 99.999f;
+            fan_cfg.pid.output_max           = 100.0f;
             config.fans.push_back(fan_cfg); // fan1 
 
             // fan_cfg.id                       = 1;

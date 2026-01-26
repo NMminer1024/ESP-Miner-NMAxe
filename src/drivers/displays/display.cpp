@@ -1741,6 +1741,8 @@ static void ui_ota_page_update(board_sal_t* board){
     return;
   }
 
+  if(!g_board.status.ota.running) return; // skip update when OTA is running
+
   static lv_obj_t * overlay = NULL, *bar = NULL, *label_file = NULL, *label_progress = NULL;
   static char progress_text[10];
   static lv_style_t style;
@@ -2156,18 +2158,14 @@ static void ui_thread_entry(void *args){
         case UI_PAGE_BIG_DIGIT:
           ui_big_digit_page_update(&g_board);
           break;
-        case UI_PAGE_HITS:
-          ui_hits_page_update(&g_board);
-          break;
         default:
           break;
       }
 
+      // block hits page popup, if hit, cover current page
+      ui_hits_page_update(&g_board);
       // OTA page update, if running, cover current page
-      if(g_board.status.ota.running){
-        ui_ota_page_update(&g_board);
-      }
-
+      ui_ota_page_update(&g_board);
       //release mutex
       xSemaphoreGive(lvgl_xMutex); 
     }
