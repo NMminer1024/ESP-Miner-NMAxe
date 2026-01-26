@@ -479,7 +479,7 @@ void monitor_thread_entry(void *args){
     ntpClient.setUpdateInterval(ntpInterval);
 
     while(true){
-        // thread delay 1000ms
+        // thread base interval 1000ms
         delay(1000);
         // update utc time
         if(ntpClient.update()){
@@ -623,6 +623,11 @@ void monitor_thread_entry(void *args){
                 xSemaphoreGive(board->status.reboot_xsem);
             }
             }else hr_err_cnt = 0;
+        }
+
+        // auto screen page scrolling
+        if((board->status.miner.uptime_session % 10 == 0) && (true == board->status.preference.screen.auto_rolling)){
+            ui_switch_next_page_cb();
         }
 
         //save status to NVS

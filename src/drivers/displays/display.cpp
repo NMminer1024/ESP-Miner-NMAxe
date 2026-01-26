@@ -2226,13 +2226,6 @@ void ui_thread_entry(void *args){
   while (true){
     xSemaphoreTake(g_board.status.miner.update_xsem, portMAX_DELAY);
     if(xSemaphoreTake(lvgl_xMutex, 0) == pdTRUE){
-      // auto screen scrolling
-      static uint32_t last = 0;
-      if((millis() - last >= 1000*10) && g_board.status.preference.screen.auto_rolling){
-        ui_switch_next_page_cb();
-        last = millis();
-      }
-
       //update miner page
       ui_miner_page_update(&g_board);
       //update dashboard page
@@ -2245,7 +2238,6 @@ void ui_thread_entry(void *args){
       ui_ota_page_update(&g_board);
       //update hits page
       ui_hits_page_update(&g_board);
-
       //release mutex
       xSemaphoreGive(lvgl_xMutex); 
     }
