@@ -2209,12 +2209,12 @@ void ui_thread_entry(void *args){
   cnt = 0;
   while(g_board.stratum->get_job_counter() == 0){
     ui_loading_str_update(wait_job_str[(cnt++)%4], 0xFFFFFF, false);
-    while (cnt >= 3*20){
+    delay(100);
+    while ((cnt >= 60*10) && (g_board.stratum->get_job_counter() == 0)){
       ui_loading_str_update("Pool job timeout!", 0xFF0000, false);
       delay(500);
       ui_loading_str_update("Pool job timeout!", 0xFFFFFF, false);
       delay(500);
-      if(g_board.stratum->get_job_counter() > 0) break;
     }
   }
   ui_loading_str_update("Miner ready!", 0x00FF00, true);

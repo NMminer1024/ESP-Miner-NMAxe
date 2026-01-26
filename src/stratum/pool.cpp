@@ -42,13 +42,10 @@ bool PoolClass::connect(){
     }
 
     LOG_I("Resolving pool address [%s] to  [%s]", this->_pool_cfg.url.c_str(), this->_pool_ip.toString().c_str());
-    static uint16_t err_cnt = 0;
-    if(!this->_pwclient->connect(this->_pool_ip, this->_pool_cfg.port, 5000)){
-        err_cnt++;
+    if(!this->_pwclient->connect(this->_pool_ip, this->_pool_cfg.port, 1000*10)){
         this->_last_err_str = "Wrong pool port!!!";
         return false;
     }
-    else  err_cnt = 0;
     LOG_I("Connected to pool %s:%d", this->_pool_cfg.url.c_str(), this->_pool_cfg.port);
     return true;
 }
