@@ -14,7 +14,7 @@
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define CURRENT_FW_VERSION      "v3.0.10"
+#define CURRENT_FW_VERSION      "v3.0.10a"
 
 #define CURRENT_HW_VERSION      "v1.1.1"
 
@@ -56,6 +56,7 @@ enum{
     TASK_PRIORITY_BTN      ,
     TASK_PRIORITY_LED      ,
     TASK_PRIORITY_TOUCH    ,   
+    TASK_PRIORITY_DISPLAY  ,
     TASK_PRIORITY_UI       ,
     TASK_PRIORITY_LVGL_DRV ,
     TASK_PRIORITY_DAEMON   ,
@@ -114,6 +115,19 @@ typedef String miner_info_t;
 typedef uint16_t asic_id_t;
 typedef struct{
     struct{
+        float       percent; // loading percent
+        struct{
+            String   msg;    // loading message
+            uint32_t color;  // message color, RGB format
+        }details;
+    }loading; // loading page status
+
+    struct{
+        uint16_t    timeout; // in seconds
+        String      message; // connection info message
+    }config; // wifi/config page status
+
+    struct{
         uint16_t    vbus;//mV
         uint16_t    ibus;//mA
         uint16_t    vcore;//mV
@@ -171,6 +185,7 @@ typedef struct{
             SemaphoreHandle_t   xsem; // touch event signal
             uint8_t             evt;  // touch event type
         }touch;
+
     }ui;
 
     struct{
