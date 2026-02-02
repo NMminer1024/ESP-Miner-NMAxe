@@ -757,7 +757,7 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_hashrate.font         = &ds_digib_font_42;
     miner_page.lb_hashrate.coord        = {50, -50};
     miner_page.lb_price.font            = &ds_digib_font_20;
-    miner_page.lb_price.coord           = {33, 25};
+    miner_page.lb_price.coord           = {65, 25};
     miner_page.lb_ver.font              = &ds_digib_font_16;
     miner_page.lb_ver.coord             = {16, 38};
     miner_page.lb_power.font            = &ds_digib_font_24;
@@ -1671,9 +1671,12 @@ static void ui_miner_page_update(board_sal_t* board){
       last_price = board->market->price;
     }
     else font_color = lv_color_hex(0xFFFFFF);//white
-    lv_obj_set_style_text_color(miner_page.lb_price.obj, font_color, LV_PART_MAIN);
-  }
 
+    lv_coord_t width = lv_txt_get_width(("$" + price).c_str(), strlen(("$" + price).c_str()), miner_page.lb_price.font, 0, LV_TEXT_FLAG_NONE);
+    lv_obj_set_width(miner_page.lb_price.obj, width);
+    lv_obj_set_style_text_color(miner_page.lb_price.obj, font_color, LV_PART_MAIN);
+    lv_label_set_text_fmt(miner_page.lb_price.obj,  "$%s", price.c_str());
+  }
   //hashrate
   lv_label_set_text_fmt(miner_page.lb_hashrate.obj, "%s", hashrate.substring(0, hashrate.length() - 1).c_str());
   //hashrate unit
@@ -1728,10 +1731,6 @@ static void ui_miner_page_update(board_sal_t* board){
   lv_label_set_text_fmt(miner_page.lb_share.obj,  "%d/%d", board->status.miner.share_rejected, board->status.miner.share_accepted);
   //fan
   lv_label_set_text_fmt(miner_page.lb_fan.obj, "%s", fan_and_efficiency.c_str());
-  //price
-  if(millis() - board->market->lastUpdate <= MARKET_TIMEOUT){
-    lv_label_set_text_fmt(miner_page.lb_price.obj,  "$%s", price.c_str());
-  }
   //power
   lv_label_set_text_fmt(miner_page.lb_power.obj,  "%sV/%sW", voltage.c_str(), power.c_str()); 
 

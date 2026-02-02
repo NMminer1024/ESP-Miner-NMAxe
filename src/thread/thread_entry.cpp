@@ -1131,26 +1131,35 @@ void stratum_thread_entry(void *args){
             delay(5000);
             continue;
         } else w_retry = 0;
-        
-        static uint32_t last = millis();
-        if(!is_primary_pool){
-            if(millis() - last > 1000 * 60){ // check every 60 seconds
-                bool res = board->stratum->is_primary_pool_available(board->info.connection.pool_primary.url, board->info.connection.pool_primary.port);
-                if(res){
-                    LOG_I("Primary pool [%s] available now, switching to primary pool...", board->info.connection.pool_primary.url.c_str());
-                    board->info.connection.pool_use = board->info.connection.pool_primary;
-                    board->info.connection.stratum_use = board->info.connection.stratum_primary;
 
-                    board->stratum->reset(board->info.connection.pool_use, board->info.connection.stratum_use);
-                    board->stratum->pool->begin(board->info.connection.pool_use.ssl);
-                    board->stratum->pool->connect();
-                    board->status.miner.diff.last = 0;
-                }else{
-                    LOG_W("Primary pool [%s] is not available.", board->info.connection.pool_primary.url.c_str());
-                }
-                last = millis();
-            }
+
+        // check pool status 
+        if((board->info.connection.pool_use == board->info.connection.pool_primary) && (board->stratum->pool->is_connected())){
+            is_primary_pool = true;   
         }
+        else if((board->info.connection.pool_use == board->info.connection.pool_fallback) && (board->stratum->pool->is_connected())){
+            is_primary_pool = false;   
+        }
+
+
+        static uint32_t last = millis();
+        if((millis() - last > 1000 * 60) && !is_primary_pool){ // check every 60 seconds
+            bool res = board->stratum->is_primary_pool_available(board->info.connection.pool_primary.url, board->info.connection.pool_primary.port);
+            if(res){
+                LOG_I("Primary pool [%s] available now, switching to primary pool...", board->info.connection.pool_primary.url.c_str());
+                board->info.connection.pool_use = board->info.connection.pool_primary;
+                board->info.connection.stratum_use = board->info.connection.stratum_primary;
+
+                board->stratum->reset(board->info.connection.pool_use, board->info.connection.stratum_use);
+                board->stratum->pool->begin(board->info.connection.pool_use.ssl);
+                board->stratum->pool->connect();
+                board->status.miner.diff.last = 0;
+            }else{
+                LOG_W("Primary pool [%s] is not available.", board->info.connection.pool_primary.url.c_str());
+            }
+            last = millis();
+        }
+        
 
         static uint16_t p_retry = 0, p_maxRetries = 5;
         if(!board->stratum->pool->is_connected()){
@@ -1164,12 +1173,10 @@ void stratum_thread_entry(void *args){
                 if(is_primary_pool){
                     board->info.connection.pool_use    = board->info.connection.pool_fallback;
                     board->info.connection.stratum_use = board->info.connection.stratum_fallback;
-                    is_primary_pool                = false;
                     LOG_W(">>>> Set pool to fallback [%s:%d] <<<<", board->info.connection.pool_use.url.c_str(), board->info.connection.pool_use.port);
                 }else{
                     board->info.connection.pool_use    = board->info.connection.pool_primary;
                     board->info.connection.stratum_use = board->info.connection.stratum_primary;
-                    is_primary_pool                = true;
                     LOG_W(">>>> Set pool to primary [%s:%d] <<<<", board->info.connection.pool_use.url.c_str(), board->info.connection.pool_use.port);
                 }
             }

@@ -6,11 +6,21 @@
 #define  POOL_KEEP_ALIVE_TIME_MS        1000*30
 #define  POOL_INACTIVITY_TIME_MS        1000*60*5
 
-typedef struct{
+typedef struct pool_info_s {
     String      url;
     uint16_t    port;
     bool        ssl;
-}pool_info_t; 
+    
+    bool operator==(const pool_info_s& other) const {
+        return url == other.url && 
+               port == other.port && 
+               ssl == other.ssl;
+    }
+    
+    bool operator!=(const pool_info_s& other) const {
+        return !(*this == other);
+    }
+} pool_info_t;
 
 class PoolClass{
 private:

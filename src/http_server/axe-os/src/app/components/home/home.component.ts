@@ -111,10 +111,20 @@ export class HomeComponent implements OnInit {
         } else if (poolUrl.includes('pool.nmminer.com')) {
           const address = poolUser.split('.')[0]
           return `https://pool.nmminer.com/user?workername=${address}`;
+        } else if (poolUrl.includes('au.solobtc.nmminer.com')) {
+          const address = poolUser.split('.')[0]
+          return `https://au.solobtc.nmminer.com/#/app/${address}`;
+        } else if (poolUrl.includes('solobtc.nmminer.com')) {
+          const address = poolUser.split('.')[0]
+          return `https://solobtc.nmminer.com/#/app/${address}`;
         } else if (poolUrl.includes('molepool.com')) {
           const address = poolUser.split('.')[0]
           return `https://${coin}.molepool.com/account/${address}`;
-        } else {
+        } else if (poolUrl.includes('dgb-stratum.solominer.net')) {
+          const address = poolUser.split('.')[0]
+          return `https://digibyte.solominer.net/#/app/${address}`;
+        } 
+        else {
           return undefined;
         }
       })
