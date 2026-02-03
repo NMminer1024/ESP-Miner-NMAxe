@@ -1837,14 +1837,14 @@ static void ui_countdown_page_update(board_sal_t* board){
     } 
   }
 
-  static uint32_t last = millis();
+  static uint32_t last = 0;
   if(millis() - last < 1000) return;
   last = millis();
 
   //update countdown label
-  countdown--;
   countdown = (countdown > 0) ? countdown : 0;
   lv_label_set_text(lb_countdown, String(countdown).c_str());
+  countdown--;
 }
 
 static void ui_ota_page_update(board_sal_t* board){
