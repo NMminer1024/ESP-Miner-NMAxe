@@ -14,39 +14,27 @@
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define CURRENT_FW_VERSION      "v3.0.10"
 
-#define CURRENT_HW_VERSION      "v1.1.1"
 
-#define NVS_SAVE_INTERVAL       (60*60)  //second
+#define BOARD_CURRENT_FW_VERSION        "v3.0.10"
+#define BOARD_CURRENT_HW_VERSION        "v1.1.1"
+#define BOARD_NVS_SAVE_INTERVAL         (60*60)  //second
+#define BOARD_MCU_TEMP_DANGER           (70.0f)
+#define BOARD_TOUCH_LONG_PRESS_TO_CFG   (5)     //seconds, long press duration to enter config mode
 
-#define WIFI_RSSI_STRONG        (-60)
-
-#define WIFI_RSSI_GOOD          (-70)
-
-#define ASIC_ALIVE_TIMEOUT      (1000*60*3)//3 minutes
-
-#define STRATUM_ALIVE_TIMEOUT   (1000*60*3)//3 minutes
-
-#define MARKET_UPDATE_INTERVAL  (1000*5)  // ms
-
-#define MARKET_TIMEOUT          (MARKET_UPDATE_INTERVAL * 3) // ms
-
-#define BOARD_LOW_POWER         (10.0f)   //Watt
-
-#define BOARD_MCU_DANGER        (70.0f)
-
-#define HISTORY_DEEPTH          (1000*3600*24) // history depth, how long to keep the history, in seconds
-
-#define HISTORY_SAMPLE_INTERVAL (2) // history sample interval, in seconds
-
-#define SWARM_UDP_BOARDCAST_ADDR    IPAddress(255,255,255,255)
-
-#define SWARM_UDP_BOARDCAST_PORT    (12345)
-
-#define SWARM_OFFLINE_TIMEOUT       (3*60*1000) //3min
-
-#define WIFI_CONFIG_MODE_TIMEOUT    (60*5) //seconds
+#define MINER_WIFI_RSSI_STRONG          (-60)
+#define MINER_WIFI_RSSI_GOOD            (-70)
+#define MINER_ASIC_ALIVE_TIMEOUT        (1000*60*3)//3 minutes
+#define MINER_STRATUM_ALIVE_TIMEOUT     (1000*60*3)//3 minutes
+#define MINER_MARKET_UPDATE_INTERVAL    (1000*5)  // ms
+#define MINER_MARKET_CONNECT_TIMEOUT    (MINER_MARKET_UPDATE_INTERVAL * 3) // ms
+#define MINER_HISTORY_SAMPLE_DEEPTH     (1000*3600*24)  // history depth, how long to keep the history, in seconds
+#define MINER_HISTORY_SAMPLE_INTERVAL   (2)             // history sample interval, in seconds
+#define MINER_SWARM_UDP_BOARDCAST_ADDR  IPAddress(255,255,255,255)
+#define MINER_SWARM_UDP_BOARDCAST_PORT  (12345)
+#define MINER_SWARM_OFFLINE_TIMEOUT     (3*60*1000) // 3min
+#define MINER_WIFI_CONFIG_TIMEOUT       (60*5)      // seconds
+#define MINER_LOG_SUMMARY_INTERVAL      (1000*60*1) // 1 minutes
 
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
@@ -113,6 +101,7 @@ typedef struct{
     BoardSpecConfig         spec;// board spec config, including asic , pinout, display, power etc.
     connect_info_t          connection;
 }board_info_t;
+
 
 
 
@@ -187,12 +176,12 @@ typedef struct{
             uint8_t             last;        //last ui page index, restored on next boot
             SemaphoreHandle_t   save_xsem;   // save current page index
         }page;
-        
-        struct{
-            SemaphoreHandle_t   xsem; // touch event signal
-            uint8_t             evt;  // touch event type
-        }touch;
     }ui;
+
+    struct{
+        // SemaphoreHandle_t   xsem; // touch event signal
+        uint8_t             evt;  // touch event type
+    }touch;
 
     struct{
         std::map<miner_ip_t, miner_info_t> map;           // swarm miners info map

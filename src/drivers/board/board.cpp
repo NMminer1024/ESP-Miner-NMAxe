@@ -91,6 +91,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.temp_limit.high       = 85.0f;
             config.pwr.temp_limit.medium     = 75.0f;
             config.pwr.temp_limit.low        = 50.0f;
+            config.pwr.power_low_threshold   = 10.0f; // Watt
             config.iic.scl_pin               = 8;   
             config.iic.sda_pin               = 9;
             config.led.wifi_pin              = 6;
@@ -200,6 +201,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.temp_limit.high       = 85.0f;
             config.pwr.temp_limit.medium     = 75.0f;
             config.pwr.temp_limit.low        = 50.0f;
+            config.pwr.power_low_threshold   = 10.0f; // Watt
             config.iic.scl_pin               = 8;   
             config.iic.sda_pin               = 9;
             config.led.wifi_pin              = 6;
@@ -308,6 +310,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.pwr.temp_limit.high       = 130.0f;
             config.pwr.temp_limit.medium     = 110.0f;
             config.pwr.temp_limit.low        = 80.0f;
+            config.pwr.power_low_threshold   = 20.0f; // Watt
             config.iic.scl_pin               = 7;   
             config.iic.sda_pin               = 8;
             config.led.wifi_pin              = -1; // Not used

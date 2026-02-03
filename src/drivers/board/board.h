@@ -144,12 +144,13 @@ struct BoardSpecConfig {
     }asic;
 
     struct {
-        axe_pwr_enable_pin_t en_pins;
-        axe_pwr_adc_pin_t    adc_pins;
-        int8_t               vcore_regulator_pin;    
-        int8_t               pgood_pin;
-        int8_t               dc_plug_pin;
-        uint16_t             vbus_min_required; // mV, minimum vbus voltage to start mining
+        axe_pwr_enable_pin_t en_pins;             // power enable pins to control asic power rails, such as pll 0.8v, vdd 1.8v and vcore
+        axe_pwr_adc_pin_t    adc_pins;            // adc pins to monitor vbus, ibus and vcore
+        int8_t               vcore_regulator_pin; // pin to control vcore regulator, for some board with vcore regulator control
+        int8_t               pgood_pin;           // pin to detect if Vcore is good
+        int8_t               dc_plug_pin;         // pin to detect if DC is plugged in
+        uint16_t             vbus_min_required;   // mV, minimum vbus voltage to start mining
+        uint16_t             power_low_threshold; // Watt, power low warning threshold
         struct {
             float high;      // high temperature limit
             float medium;    // medium temperature limit

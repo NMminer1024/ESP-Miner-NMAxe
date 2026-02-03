@@ -37,8 +37,8 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.pool.fallback.url        = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
     board->info.connection.pool.fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
     board->info.connection.pool.use                 = board->info.connection.pool.primary;
-    board->info.base.fw_version                     = CURRENT_FW_VERSION;
-    board->info.base.hw_version                     = CURRENT_HW_VERSION;
+    board->info.base.fw_version                     = BOARD_CURRENT_FW_VERSION;
+    board->info.base.hw_version                     = BOARD_CURRENT_HW_VERSION;
     board->info.base.devcie_code                    = gen_device_code();
     board->info.base.fw_latest_release              = "";
     board->info.connection.stratum.primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
@@ -84,8 +84,8 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.ui.page.last                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
     board->status.ui.page.current                   = board->status.ui.page.last;
     board->status.ui.page.save_xsem                 = xSemaphoreCreateCounting(1, 0);
-    board->status.ui.touch.xsem                     = xSemaphoreCreateCounting(1, 0);
-    board->status.ui.touch.evt                      = TOUCH_NONE_EVT;
+    // board->status.ui.touch.xsem                     = xSemaphoreCreateCounting(1, 0);
+    board->status.touch.evt                         = TOUCH_NONE_EVT;
     board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     board->status.time.format.time                  = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 24);
@@ -239,7 +239,7 @@ void setup() {
   delay(10);
   uint32_t start = millis();
   while (0 == g_board.market->lastUpdate){
-    if(millis() - start - g_board.market->lastUpdate > MARKET_TIMEOUT){
+    if(millis() - start - g_board.market->lastUpdate > MINER_MARKET_CONNECT_TIMEOUT){
       LOG_W("Market data update timeout, exiting...");
       delay(1000);
       break;

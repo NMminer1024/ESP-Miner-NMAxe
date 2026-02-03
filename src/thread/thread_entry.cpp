@@ -156,19 +156,19 @@ void config_monitor_thread_entry(void *args){
     LOG_I("Initializing wifi...");
     
     uint16_t timeout = 0;
-    board->status.wifi.config_timeout = WIFI_CONFIG_MODE_TIMEOUT;
+    board->status.wifi.config_timeout = MINER_WIFI_CONFIG_TIMEOUT;
     while(true){
         if (WL_CONNECTED == board->status.wifi.status) {
             break;
         }
 
         if(board->status.wifi.client_connected == false){
-            if(timeout++ >= WIFI_CONFIG_MODE_TIMEOUT){
+            if(timeout++ >= MINER_WIFI_CONFIG_TIMEOUT){
                 LOG_W("WiFi configuration timeout, rebooting...");
                 delay(1000);
                 ESP.restart();
             }
-            board->status.wifi.config_timeout = WIFI_CONFIG_MODE_TIMEOUT - timeout;
+            board->status.wifi.config_timeout = MINER_WIFI_CONFIG_TIMEOUT - timeout;
         }
         delay(1000);
     }
@@ -323,7 +323,7 @@ void swarm_thread_entry(void *args){
   }
   
   //udp status boardcast begin
-  udp_client->begin(SWARM_UDP_BOARDCAST_PORT);
+  udp_client->begin(MINER_SWARM_UDP_BOARDCAST_PORT);
 
   uint64_t swarm_cnt = 0;
   char  jsonbuf[1024] = {0,};
@@ -367,7 +367,7 @@ void swarm_thread_entry(void *args){
 
             jsonDoc["Lastseen"] = millis() - last_seen_map[it->first];
             //remove offline device
-            if(jsonDoc["Lastseen"].as<uint32_t>() > SWARM_OFFLINE_TIMEOUT){
+            if(jsonDoc["Lastseen"].as<uint32_t>() > MINER_SWARM_OFFLINE_TIMEOUT){
               board->status.swarm.map.erase(it->first);
               continue;
             }
@@ -411,7 +411,7 @@ void swarm_thread_entry(void *args){
         continue;
       }
       //broadcast status to udp
-      udp_client->beginPacket(SWARM_UDP_BOARDCAST_ADDR, SWARM_UDP_BOARDCAST_PORT);
+      udp_client->beginPacket(MINER_SWARM_UDP_BOARDCAST_ADDR, MINER_SWARM_UDP_BOARDCAST_PORT);
       udp_client->write((uint8_t*)jsonbuf, n);
       int res = udp_client->endPacket();
       if(res != 1) {
@@ -544,7 +544,7 @@ void monitor_thread_entry(void *args){
         //status check
         if(board->status.miner.uptime_session % 2 == 0){
             //check mcu temperature status
-            if(board->status.temp.mcu > BOARD_MCU_DANGER){
+            if(board->status.temp.mcu > BOARD_MCU_TEMP_DANGER){
                 LOG_W("MCU temp reach danger (mcu: %.1fC), restart miner...", board->status.temp.mcu);
                 xSemaphoreGive(board->status.reboot_xsem);
             }
@@ -607,7 +607,7 @@ void monitor_thread_entry(void *args){
 
             //check power status
             static uint16_t pwr_err_cnt = 0;
-            if((board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0) < BOARD_LOW_POWER){
+            if((board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0) < board->info.spec.pwr.power_low_threshold){
             LOG_W("Power %0.1fW is too low...", board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0);
             if(++pwr_err_cnt > 120){//120s
                 LOG_W("Power is too low, restart miner...");
@@ -632,7 +632,7 @@ void monitor_thread_entry(void *args){
 
         //save status to NVS
         static uint64_t last_save_time = board->status.miner.uptime_session;
-        if(board->status.miner.uptime_session - last_save_time > NVS_SAVE_INTERVAL){
+        if(board->status.miner.uptime_session - last_save_time > BOARD_NVS_SAVE_INTERVAL){
             xSemaphoreGive(board->status.nvs_save_xsem);
         }
         
@@ -658,7 +658,7 @@ void monitor_thread_entry(void *args){
         }
 
         //update miner status history queue
-        if(board->status.miner.uptime_session % HISTORY_SAMPLE_INTERVAL == 0){
+        if(board->status.miner.uptime_session % MINER_HISTORY_SAMPLE_INTERVAL == 0){
             history_node_t node;
             node.hashrate     = String(board->status.miner.hashrate._3m /1e9, 3); //Ghash/s
             node.asic_temp    = String(board->status.temp.asic,1);
@@ -681,7 +681,7 @@ void monitor_thread_entry(void *args){
                 uint64_t current_time_ms = board->status.time.utc * 1000ULL; // Convert to milliseconds
                 while (!board->status.miner.status_history.empty()) {
                     uint64_t oldest_time_ms = board->status.miner.status_history.front().epoch; // Already in milliseconds
-                    if(current_time_ms - oldest_time_ms > HISTORY_DEEPTH){ 
+                    if(current_time_ms - oldest_time_ms > MINER_HISTORY_SAMPLE_DEEPTH){ 
                         board->status.miner.status_history.pop_front();
                         LOG_D("Remove old history, current size: %d, removed timestamp: %llu", board->status.miner.status_history.size(), oldest_time_ms);
                     } else {
@@ -738,12 +738,12 @@ void daemon_thread_entry(void *args){
     if(board->status.wifi.status != WL_CONNECTED) continue;
 
     //Stratum daemon
-    if(millis() - board->status.miner.stratum_update > STRATUM_ALIVE_TIMEOUT){
+    if(millis() - board->status.miner.stratum_update > MINER_STRATUM_ALIVE_TIMEOUT){
       LOG_W("Stratum connection seems frozen, restarting...");
       xSemaphoreGive(board->status.reboot_xsem);
     }
     //ASIC daemon
-    if(millis() - board->status.miner.asic_update > ASIC_ALIVE_TIMEOUT){
+    if(millis() - board->status.miner.asic_update > MINER_ASIC_ALIVE_TIMEOUT){
       LOG_W("ASIC seems frozen, restarting...");
       xSemaphoreGive(board->status.reboot_xsem);
     }
@@ -848,7 +848,7 @@ void market_thread_entry(void *args){
             bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT");
             board->market->lastUpdate = (res) ? millis() : board->market->lastUpdate;
         }
-        delay(MARKET_UPDATE_INTERVAL);
+        delay(MINER_MARKET_UPDATE_INTERVAL);
     }
 
     delete board->market;
@@ -965,8 +965,11 @@ void miner_asic_rx_thread_entry(void *args){
                 uint32_t version            = version_bits | (*(uint32_t*)job.version);//logic from project bitaxe: https://github.com/skot/bitaxe 
                 double diff                 = board->miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.asic.nonce);
 
-                //skip if diff <= 0.0001 or diff is nan or diff is inf
-                if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff) || (diff < 0.1)) continue;
+                //continue if diff is nan or diff is inf
+                if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff)) continue;
+
+                //continue if diff < asic diff threshold 
+                if(diff < board->miner->get_asic_diff()) continue;
 
                 //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
                 board->miner->calculate_hashrate(&board->status.miner.hashrate);
@@ -975,9 +978,8 @@ void miner_asic_rx_thread_entry(void *args){
                 board->status.miner.asic_rsp_counter[result.asic_id]++;
 
                 //print summary to log
-                static uint32_t summary_start = millis();
-                if(millis() - summary_start >= 1000*60){
-                    summary_start = millis();
+                static uint32_t last = millis();
+                if(millis() - last >= MINER_LOG_SUMMARY_INTERVAL){
                     LOG_L(" ============%s=========== ",board->info.base.fw_version.c_str());
                     LOG_L("|            Summary           |");
                     LOG_L("+------------Uptime------------+");
@@ -996,24 +998,12 @@ void miner_asic_rx_thread_entry(void *args){
                         formatNumber(board->status.miner.diff.network, 5).c_str());
                     LOG_L("+---Free heap-----Efficiency---+");
                     LOG_L("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(board->status.miner.efficiency, 4).c_str());
-
-
-                    // // per asic hashrate display if more than 1 asic on board
-                    // if(board->miner->get_asic_count() > 1){
-                    //     LOG_L("+---------ASIC Healthy---------+");
-                    //     uint64_t total = 0;
-                    //     for(auto &pair : board->status.miner.asic_rsp_counter)  total += pair.second;
-                    //     for(auto &pair : board->status.miner.asic_rsp_counter){
-                    //         // double hr = (double)board->status.miner.hashrate._3m * ((double)pair.second / (double)total);
-                    //         float health = (total > 0) ? ((float)pair.second / (float)total) * 100.0f : 0.0f;
-                    //         LOG_L("|       ASIC[%d] : %.1f%%        |", pair.first, health);
-                    //     }
-                    // }
                     LOG_L(" ============================== ");
                     log_i("\r\n");
                     LOG_I(" ++++++++++ Real Time +++++++++");
                     LOG_I("| ASIC | Last | Pool | Network |");
                     LOG_I("|------|------|------|---------|");
+                    last = millis();
                 }
                 
                 LOG_I("|%-6s|%-6s|%-6s|%-7s|", 
@@ -1023,7 +1013,7 @@ void miner_asic_rx_thread_entry(void *args){
                     formatNumber(board->status.miner.diff.network, 7).c_str()
                 );
 
-                //skip if diff < pool diff
+                //continue if diff < pool diff threshold
                 if(diff < board->stratum->get_pool_difficulty())continue; 
                 
                 //submit sulution
@@ -1444,25 +1434,36 @@ void touch_thread_entry(void *args){
         // only respond to touch if mining is active
         if(board->stratum->get_job_counter() == 0) continue;
 
+        // reset touch event
+        board->status.touch.evt = TOUCH_NONE_EVT; 
+
         if(board->touch->touched()){
             TS_Point start_point = board->touch->getPoint();
             TS_Point last_point = start_point;
-            // wait for touch release
+
+            uint32_t long_press_start = millis(), config_check_start = millis();
             while (board->touch != nullptr && board->touch->touched()){
                 last_point = board->touch->getPoint();
                 delay(10);
+                if(millis() - long_press_start > 500){
+                    board->status.touch.evt = TOUCH_LONGPRESS_EVT;
+                    if(millis() - config_check_start > 1000 * BOARD_TOUCH_LONG_PRESS_TO_CFG){
+                        LOG_W("Forcing configuration mode via screen long press...");
+                        force_config_cb();
+                    }
+                    long_press_start = millis();
+                }
             }
 
+            if(board->status.touch.evt == TOUCH_LONGPRESS_EVT) continue;
+            
             // calculate movement deltas
             int dx = last_point.x - start_point.x;
             int dy = last_point.y - start_point.y;
 
-            LOG_D("Touch started at x: %d, y: %d", start_point.x, start_point.y);
-            LOG_D("Touch ended at x: %d, y: %d (dx: %d, dy: %d)", last_point.x, last_point.y, dx, dy);
-            
             // Detect gesture
-            uint8_t evt = guess_touch_gesture(dx, dy, board->status.preference.screen.flip);
-            ui_switch_next_page_cb(evt);
+            board->status.touch.evt = guess_touch_gesture(dx, dy, board->status.preference.screen.flip);
+            ui_switch_next_page_cb(board->status.touch.evt);
             delay(100);
         }
     }

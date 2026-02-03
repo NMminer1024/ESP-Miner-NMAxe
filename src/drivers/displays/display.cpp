@@ -1623,7 +1623,7 @@ static void ui_miner_page_update(board_sal_t* board){
   String network_diff = formatNumber(board->status.miner.diff.network, 2);
   String voltage = formatNumber(board->status.power.vbus/1000.0, 3);
   String power = formatNumber(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 3);
-  String price = (millis() - board->market->lastUpdate <= MARKET_TIMEOUT) ? formatNumber(board->market->price, 6) : "";
+  String price = (millis() - board->market->lastUpdate <= MINER_MARKET_CONNECT_TIMEOUT) ? formatNumber(board->market->price, 6) : "";
   String fan_and_efficiency = String(board->status.fan.list[0].rpm) + " rpm";
   // String fan_and_efficiency = formatNumber(board->info.efficiency, 4) + "J/TH";
 
@@ -1643,8 +1643,8 @@ static void ui_miner_page_update(board_sal_t* board){
   lv_obj_set_style_text_color(miner_page.lb_temp_symb.obj, font_color, LV_PART_MAIN); 
 
   //wifi rssi symbol color update
-  if(board->status.wifi.rssi >= WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
-  else if(board->status.wifi.rssi >= WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
+  if(board->status.wifi.rssi >= MINER_WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
+  else if(board->status.wifi.rssi >= MINER_WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
   else  font_color = lv_color_hex(0xff0000);//red
   lv_obj_set_style_text_color(miner_page.lb_wifi_symbol.obj, font_color, LV_PART_MAIN); 
 
@@ -1668,7 +1668,7 @@ static void ui_miner_page_update(board_sal_t* board){
   lv_obj_set_style_text_color(miner_page.lb_fan_symb.obj, font_color, LV_PART_MAIN);
 
   //price color update, blink
-  if(millis() - board->market->lastUpdate <= MARKET_TIMEOUT){
+  if(millis() - board->market->lastUpdate <= MINER_MARKET_CONNECT_TIMEOUT){
     static float last_price = board->market->price;
     if(last_price != board->market->price){
       font_color = lv_color_hex(0x00ff00);//green
@@ -1758,6 +1758,93 @@ static void ui_miner_page_update(board_sal_t* board){
   }
 
   last_update = millis();
+}
+
+static void ui_countdown_page_update(board_sal_t* board){
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
+
+  static lv_obj_t * overlay = NULL, *lb_countdown = NULL, *lb_reminder = NULL;
+  static lv_style_t style;
+  static bool style_inited = false;
+  static uint8_t countdown = BOARD_TOUCH_LONG_PRESS_TO_CFG;
+
+  if(TOUCH_LONGPRESS_EVT ==  board->status.touch.evt){
+    //create style one time
+    if(!style_inited) {
+            lv_style_init(&style);
+            lv_style_set_bg_color(&style, lv_color_black());
+            lv_style_set_bg_opa(&style, LV_OPA_80); 
+            lv_style_set_border_width(&style, 0); 
+            lv_style_set_border_opa(&style, LV_OPA_TRANSP);
+            style_inited = true;
+    }
+    if(overlay == NULL){
+        //create overlay
+        overlay = lv_obj_create(lv_scr_act());
+        lv_obj_set_size(overlay, LV_HOR_RES, LV_VER_RES);
+        lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+        //apply style
+        lv_obj_add_style(overlay, &style, LV_PART_MAIN);
+    }
+    if(lb_countdown == NULL && overlay != NULL){
+        //reset countdown
+        countdown = BOARD_TOUCH_LONG_PRESS_TO_CFG;
+        //create countdown label
+        lb_countdown = lv_label_create(overlay);
+        lv_obj_set_style_text_font(lb_countdown, &ds_digib_font_120, LV_PART_MAIN);
+        lv_obj_set_style_text_color(lb_countdown, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+        lv_obj_align(lb_countdown, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_move_foreground(overlay);  // bring to front
+    }
+    if(lb_reminder == NULL && overlay != NULL){
+        //create reminder label
+        String reminder_str = "Entering setup mode...";
+        const lv_font_t *font = &lv_font_montserrat_20;
+        lv_coord_t width = lv_txt_get_width(reminder_str.c_str(), strlen(reminder_str.c_str()), font, 0, LV_TEXT_FLAG_NONE);
+        lb_reminder = lv_label_create(overlay);
+        lv_obj_set_width(lb_reminder, width > SCREEN_WIDTH ? SCREEN_WIDTH : width);
+        lv_label_set_long_mode(lb_reminder, LV_LABEL_LONG_SCROLL);
+        lv_obj_set_style_text_font(lb_reminder, font, LV_PART_MAIN);
+        lv_obj_set_style_text_color(lb_reminder, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+        lv_label_set_text(lb_reminder, reminder_str.c_str());
+        lv_obj_align(lb_reminder, LV_ALIGN_TOP_MID, 0, 10);
+        lv_obj_move_foreground(overlay);  // bring to front
+
+
+        // initial countdown label update
+        lv_label_set_text(lb_countdown, String(countdown).c_str());
+    }
+  }
+  else{
+    if(lb_countdown != NULL){
+      lv_obj_del(lb_countdown);
+      lb_countdown = NULL;
+    }
+    if(lb_reminder != NULL){
+      lv_obj_del(lb_reminder);
+      lb_reminder = NULL;
+    }
+    if(overlay != NULL){
+      lv_obj_del(overlay);
+      overlay = NULL;
+    }
+
+    if((overlay == NULL) && (lb_countdown == NULL) && (lb_reminder == NULL)){
+      return;
+    } 
+  }
+
+  static uint32_t last = millis();
+  if(millis() - last < 1000) return;
+  last = millis();
+
+  //update countdown label
+  countdown--;
+  countdown = (countdown > 0) ? countdown : 0;
+  lv_label_set_text(lb_countdown, String(countdown).c_str());
 }
 
 static void ui_ota_page_update(board_sal_t* board){
@@ -2163,6 +2250,8 @@ static void ui_thread_entry(void *args){
           break;
       }
 
+      // countdown page update, if running, cover current page
+      ui_countdown_page_update(&g_board);
       // block hits page popup, if hit, cover current page
       ui_hits_page_update(&g_board);
       // OTA page update, if running, cover current page
@@ -2315,7 +2404,7 @@ void display_thread_entry(void *args){
   while(0 == g_board.market->lastUpdate){
     g_board.status.ui.page.loading.details.color = 0xFFFFFF;
     g_board.status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + g_board.info.base.coin_price + "]";
-    if(millis() - start - g_board.market->lastUpdate >= MARKET_TIMEOUT){
+    if(millis() - start - g_board.market->lastUpdate >= MINER_MARKET_CONNECT_TIMEOUT){
       g_board.status.ui.page.loading.details.color = 0xFF0000;
       g_board.status.ui.page.loading.details.msg   = "Market update timeout!";
       delay(500);
