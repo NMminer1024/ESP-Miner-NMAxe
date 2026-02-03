@@ -1161,12 +1161,12 @@ static void ui_layout_init(board_sal_t* board){
     qr_size = SCREEN_HEIGHT - 95;
   }
   config_page.qr_code.obj = lv_qrcode_create(ui_pages[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
-  String qr_str = "WIFI:T:WPA;S:" + g_board.info.connection.wifi.softap_param.ssid + ";P:" + g_board.info.connection.wifi.softap_param.pwd + ";H:false;";
+  String qr_str = "WIFI:T:WPA;S:" + g_board.info.connection.wifi.ap.ssid + ";P:" + g_board.info.connection.wifi.ap.pwd + ";H:false;";
   lv_qrcode_update(config_page.qr_code.obj, (uint8_t*)qr_str.c_str(), qr_str.length());
   lv_obj_align(config_page.qr_code.obj, LV_ALIGN_RIGHT_MID, config_page.qr_code.coord.x, config_page.qr_code.coord.y);
 
   // config text label
-  String config = g_board.info.connection.wifi.softap_param.ssid + "\r\n"+ g_board.info.connection.wifi.softap_param.ip.toString();
+  String config = g_board.info.connection.wifi.ap.ssid + "\r\n"+ g_board.info.connection.wifi.ap.ip.toString();
   config_page.lb_config_txt.obj  = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
   lv_obj_set_width(config_page.lb_config_txt.obj, SCREEN_WIDTH / 2);
   lv_label_set_text(config_page.lb_config_txt.obj, config.c_str());
@@ -1549,12 +1549,12 @@ static void ui_loading_page_update(board_sal_t* board) {
   }
   static lv_coord_t width = 0;
   // ip address display instead of slogan after wifi connected
-  if((WL_CONNECTED == board->info.connection.wifi.status_param.status) && (loading_page.lb_ip_and_slogan.obj != NULL)){
-    String ip_str = g_board.info.connection.wifi.status_param.ip.toString();
+  if((WL_CONNECTED == board->info.connection.wifi.status.status) && (loading_page.lb_ip_and_slogan.obj != NULL)){
+    String ip_str = g_board.info.connection.wifi.status.ip.toString();
     width = lv_txt_get_width(ip_str.c_str(), strlen(ip_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
     lv_obj_set_width(loading_page.lb_ip_and_slogan.obj, width);
     lv_obj_set_style_text_color(loading_page.lb_ip_and_slogan.obj, lv_color_hex(0x00FF00), LV_PART_MAIN); 
-    lv_label_set_text(loading_page.lb_ip_and_slogan.obj, g_board.info.connection.wifi.status_param.ip.toString().c_str());
+    lv_label_set_text(loading_page.lb_ip_and_slogan.obj, g_board.info.connection.wifi.status.ip.toString().c_str());
   }
 
   // pool url update
@@ -1591,7 +1591,7 @@ static void ui_config_page_update(board_sal_t* board) {
   if(millis() - last_update < 1000) return;
 
   String config_str[4] = {"config   ","config.  ","config.. ","config..."};
-  String timeout = (board->info.connection.client_connected) ? config_str[cnt++%4] : (String(board->info.connection.wifi.status_param.config_timeout) + "s");
+  String timeout = (board->info.connection.client_connected) ? config_str[cnt++%4] : (String(board->info.connection.wifi.status.config_timeout) + "s");
   //config timeout label location
   if(board->info.connection.client_connected) lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x - 10, config_page.lb_cfg_timeout.coord.y);
   else lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
@@ -1639,8 +1639,8 @@ static void ui_miner_page_update(board_sal_t* board){
   lv_obj_set_style_text_color(miner_page.lb_temp_symb.obj, font_color, LV_PART_MAIN); 
 
   //wifi rssi symbol color update
-  if(board->info.connection.wifi.status_param.rssi >= WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
-  else if(board->info.connection.wifi.status_param.rssi >= WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
+  if(board->info.connection.wifi.status.rssi >= WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
+  else if(board->info.connection.wifi.status.rssi >= WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
   else  font_color = lv_color_hex(0xff0000);//red
   lv_obj_set_style_text_color(miner_page.lb_wifi_symbol.obj, font_color, LV_PART_MAIN); 
 
@@ -1722,7 +1722,7 @@ static void ui_miner_page_update(board_sal_t* board){
   //Temp
   lv_label_set_text_fmt(miner_page.lb_temp.obj,   "%s'C/%s'C", formatNumber(board->status.temp.vcore, 2).c_str(), formatNumber(board->status.temp.asic, 2).c_str());
   //WiFi
-  lv_label_set_text_fmt(miner_page.lb_ip.obj,   "%s", board->info.connection.wifi.status_param.ip.toString().c_str());
+  lv_label_set_text_fmt(miner_page.lb_ip.obj,   "%s", board->info.connection.wifi.status.ip.toString().c_str());
   //uptime hms
   lv_label_set_text_fmt(miner_page.lb_uptime_hms.obj,    "%s", uptime.substring(5, uptime.length()).c_str());
   //uptime day
@@ -2289,9 +2289,9 @@ void display_thread_entry(void *args){
   /****************************************wait for wifi connected***************************************/
   cnt = 0;
   g_board.status.loading.percent = 0.6;
-  while(g_board.info.connection.wifi.status_param.status != WL_CONNECTED){
+  while(g_board.info.connection.wifi.status.status != WL_CONNECTED){
     g_board.status.loading.details.color = 0xFFFFFF;
-    g_board.status.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.conn_param.ssid +  String("]");
+    g_board.status.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.sta.ssid +  String("]");
     delay(300);
     if(xSemaphoreTake(g_board.info.connection.wifi.force_cfg_xsem, 100)){
       g_board.status.loading.details.color = 0xFF0000;

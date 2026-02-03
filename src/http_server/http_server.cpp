@@ -117,8 +117,8 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_BOARD_HW_MODEL]          = g_board.info.spec.name;
     root[HTTP_API_SYS_JSON_KEY_BOARD_HOSTNAME]          = g_board.info.base.hostname;
     root[HTTP_API_SYS_JSON_KEY_BOARD_TIMEZONE]          = g_board.status.time.tz;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_SSID]         = g_board.info.connection.wifi.conn_param.ssid;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_STATUS]       = ((g_board.info.connection.wifi.status_param.status == WL_CONNECTED) ? "connected" : "disconnected");
+    root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_SSID]         = g_board.info.connection.wifi.sta.ssid;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_STATUS]       = ((g_board.info.connection.wifi.status.status == WL_CONNECTED) ? "connected" : "disconnected");
 
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_FLIP]         = g_board.status.preference.screen.flip;
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_LED_INDICATOR]       = g_board.status.preference.led.enable;
@@ -851,7 +851,7 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             nvs_config_set_string(NVS_CONFIG_HOSTNAME,root["hostname"].as<String>().c_str());
             nvs_config_set_string(NVS_CONFIG_AP_SSID, root["hostname"].as<String>().c_str());
             g_board.info.base.hostname                    = root["hostname"].as<String>();
-            g_board.info.connection.wifi.softap_param.ssid = root["hostname"].as<String>();
+            g_board.info.connection.wifi.ap.ssid = root["hostname"].as<String>();
         }
 
         /************************************** settings->preference config ***************************************************************/

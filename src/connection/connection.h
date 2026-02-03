@@ -6,7 +6,7 @@
 typedef struct{
     String ssid;
     String pwd;
-} wifi_conn_info_t;
+} sta_conn_info_t;
 
 typedef struct{
     IPAddress ip;
@@ -15,23 +15,14 @@ typedef struct{
 } ap_conn_info_t;
 
 typedef struct{
-    IPAddress ip;
-    IPAddress gateway;
-    IPAddress subnet;
-    IPAddress dns;
-    int       rssi;
+    IPAddress   ip;
+    IPAddress   gateway;
+    IPAddress   subnet;
+    IPAddress   dns;
+    int         rssi;
     wl_status_t status;
-    uint16_t  config_timeout;
-} wifi_status_t;
-
-typedef struct{
-    ap_conn_info_t   softap_param;
-    wifi_conn_info_t conn_param;
-    wifi_status_t      status_param;
-    SemaphoreHandle_t     reconnect_xsem;
-    SemaphoreHandle_t     force_cfg_xsem;
-}wifi_info_t;
-
+    uint16_t    config_timeout;
+} sta_status_t;
 
 void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info);
 void webserver_thread_entry(void *args);

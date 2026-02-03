@@ -74,8 +74,15 @@ enum{
 typedef struct{
     bool           force_config;
     bool           client_connected;
-    wifi_info_t    wifi; 
-    
+
+    struct{
+        ap_conn_info_t        ap;
+        sta_conn_info_t       sta;
+        sta_status_t          status;
+        SemaphoreHandle_t     reconnect_xsem;
+        SemaphoreHandle_t     force_cfg_xsem;
+    }wifi;
+
     struct{
         pool_info_t use;
         pool_info_t primary;
