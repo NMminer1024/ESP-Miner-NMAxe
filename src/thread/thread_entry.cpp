@@ -1445,7 +1445,7 @@ void touch_thread_entry(void *args){
             while (board->touch != nullptr && board->touch->touched()){
                 last_point = board->touch->getPoint();
                 delay(10);
-                if(millis() - long_press_start > 500){
+                if(millis() - long_press_start > 1000){
                     board->status.touch.evt = TOUCH_LONGPRESS_EVT;
                     if(millis() - config_check_start > 1000 * BOARD_TOUCH_LONG_PRESS_TO_CFG){
                         LOG_W("Forcing configuration mode via screen long press...");
