@@ -72,15 +72,12 @@ enum{
 };
 
 typedef struct{
-    bool           force_config;
-    bool           client_connected;
-
     struct{
-        ap_conn_info_t        ap;
-        sta_conn_info_t       sta;
-        sta_status_t          status;
-        SemaphoreHandle_t     reconnect_xsem;
-        SemaphoreHandle_t     force_cfg_xsem;
+        struct{
+            IPAddress          ip;   // softAP ip
+            wifi_conn_info_t   info; // softAP wifi info
+        }ap;
+        wifi_conn_info_t       sta;  // station wifi info
     }wifi;
 
     struct{
@@ -123,19 +120,6 @@ typedef String miner_ip_t;
 typedef String miner_info_t;
 typedef uint16_t asic_id_t;
 typedef struct{
-    struct{
-        float       percent; // loading percent
-        struct{
-            String   msg;    // loading message
-            uint32_t color;  // message color, RGB format
-        }details;
-    }loading; // loading page status
-
-    struct{
-        uint16_t    timeout; // in seconds
-        String      message; // connection info message
-    }config; // wifi/config page status
-
     struct{
         uint16_t    vbus;//mV
         uint16_t    ibus;//mA
@@ -186,6 +170,19 @@ typedef struct{
 
     struct{
         struct{
+            struct{  // loading page status
+                float       percent; // loading percent
+                struct{
+                    String   msg;    // loading message
+                    uint32_t color;  // message color, RGB format
+                }details;
+            }loading; 
+
+            struct{     // wifi/config page status
+                uint16_t    timeout; // in seconds
+                String      message; // connection info message
+            }config;           
+
             uint8_t             current;     // current ui page index
             uint8_t             last;        //last ui page index, restored on next boot
             SemaphoreHandle_t   save_xsem;   // save current page index
@@ -195,7 +192,6 @@ typedef struct{
             SemaphoreHandle_t   xsem; // touch event signal
             uint8_t             evt;  // touch event type
         }touch;
-
     }ui;
 
     struct{
@@ -204,6 +200,21 @@ typedef struct{
         float                              total_hr;      // total hash rate in swarm
         float                              best_diff;     // best diff in swarm
     }swarm;
+
+    struct{
+        IPAddress   ip;
+        IPAddress   gateway;
+        IPAddress   subnet;
+        IPAddress   dns;
+        int         rssi;
+        wl_status_t status;
+        uint16_t    config_timeout;
+
+        bool                  force_config;
+        bool                  client_connected;
+        SemaphoreHandle_t     reconnect_xsem;
+        SemaphoreHandle_t     force_cfg_xsem;
+    }wifi;
 
     struct{
         std::vector<fan_status_t>          list;   // support multiple fans
@@ -217,9 +228,9 @@ typedef struct{
         asic_preference_info_t      asic;
     }preference;
 
-    SemaphoreHandle_t                  reboot_xsem;     // reboot signal
-    SemaphoreHandle_t                  nvs_save_xsem;   // save status to NVS signal
-    SemaphoreHandle_t                  brightness_update_xsem; // screen brightness update signal
+    SemaphoreHandle_t                  reboot_xsem;             // reboot signal
+    SemaphoreHandle_t                  nvs_save_xsem;           // save status to NVS signal
+    SemaphoreHandle_t                  brightness_update_xsem;  // screen brightness update signal
 }board_status_t;
 
 

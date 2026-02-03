@@ -124,7 +124,7 @@ void led_thread_entry(void *args){
             if(pattern_idx > 0 && pattern_idx <= 10) {
                 pattern_idx--; // Adjust to 0-based index (0-9)
                 
-                bool wifi_connected = (board->info.connection.wifi.status.status == WL_CONNECTED);
+                bool wifi_connected = (board->status.wifi.status == WL_CONNECTED);
                 bool pool_connected = board->stratum->is_subscribed();
                 
                 // WiFi LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
@@ -156,19 +156,19 @@ void config_monitor_thread_entry(void *args){
     LOG_I("Initializing wifi...");
     
     uint16_t timeout = 0;
-    board->info.connection.wifi.status.config_timeout = WIFI_CONFIG_MODE_TIMEOUT;
+    board->status.wifi.config_timeout = WIFI_CONFIG_MODE_TIMEOUT;
     while(true){
-        if (WL_CONNECTED == board->info.connection.wifi.status.status) {
+        if (WL_CONNECTED == board->status.wifi.status) {
             break;
         }
 
-        if(board->info.connection.client_connected == false){
+        if(board->status.wifi.client_connected == false){
             if(timeout++ >= WIFI_CONFIG_MODE_TIMEOUT){
                 LOG_W("WiFi configuration timeout, rebooting...");
                 delay(1000);
                 ESP.restart();
             }
-            board->info.connection.wifi.status.config_timeout = WIFI_CONFIG_MODE_TIMEOUT - timeout;
+            board->status.wifi.config_timeout = WIFI_CONFIG_MODE_TIMEOUT - timeout;
         }
         delay(1000);
     }
@@ -196,21 +196,21 @@ void wifi_connect_thread_entry(void *args){
     xTaskCreatePinnedToCore(webserver_thread_entry, taskName.c_str(), 1024*5, (void*)(board), TASK_PRIORITY_WEB_SERVER, NULL, 1);
     delay(10);
     //force config
-    if(g_board.info.connection.force_config){
+    if(g_board.status.wifi.force_config){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
-        LOG_I("Set softAP [%s]...", g_board.info.connection.wifi.ap.ssid.c_str());
+        LOG_I("Set softAP [%s]...", g_board.info.connection.wifi.ap.info.ssid.c_str());
         WiFi.mode(WIFI_AP);
-        WiFi.softAP(g_board.info.connection.wifi.ap.ssid);
+        WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
         WiFi.softAPConfig(g_board.info.connection.wifi.ap.ip, g_board.info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
         delay(1000);
-        xSemaphoreGive(g_board.info.connection.wifi.force_cfg_xsem);
+        xSemaphoreGive(g_board.status.wifi.force_cfg_xsem);
         //config time out monitor
         String taskName = "(config_monitor)";
         xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
         while(true){
-            g_board.info.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
+            g_board.status.wifi.client_connected = (WiFi.softAPgetStationNum() > 0);
             if (WiFi.softAPgetStationNum() == 0) {
-                LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.info.connection.wifi.ap.ssid.c_str(), g_board.info.connection.wifi.status.config_timeout);
+                LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.info.connection.wifi.ap.info.ssid.c_str(), g_board.status.wifi.config_timeout);
             }
             delay(1000);
         }
@@ -225,19 +225,19 @@ void wifi_connect_thread_entry(void *args){
         if(maxRetries >= 15){
             LOG_I("Set softAP [%s]...", g_board.info.base.hostname.c_str());
             WiFi.mode(WIFI_AP);
-            WiFi.softAP(g_board.info.connection.wifi.ap.ssid);
-            WiFi.softAPConfig(g_board.info.connection.wifi.ap.ip, g_board.info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
+            WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
+            WiFi.softAPConfig(board->info.connection.wifi.ap.ip, board->info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
             delay(1000);
-            xSemaphoreGive(g_board.info.connection.wifi.force_cfg_xsem);
+            xSemaphoreGive(g_board.status.wifi.force_cfg_xsem);
 
             //config time out monitor
             String taskName = "(config_monitor)";
             xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
             
             while (true){
-                g_board.info.connection.client_connected = (WiFi.softAPgetStationNum() > 0);
+                g_board.status.wifi.client_connected = (WiFi.softAPgetStationNum() > 0);
                 if (WiFi.softAPgetStationNum() == 0) {
-                    LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.info.connection.wifi.ap.ssid.c_str(), g_board.info.connection.wifi.status.config_timeout);
+                    LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.info.connection.wifi.ap.info.ssid.c_str(), g_board.status.wifi.config_timeout);
                 }
                 delay(1000);
             }
@@ -330,7 +330,7 @@ void swarm_thread_entry(void *args){
   StaticJsonDocument<1024> jsonDoc;
   while (true){
     delay(100);
-    if(board->info.connection.wifi.status.status != WL_CONNECTED) continue;
+    if(board->status.wifi.status != WL_CONNECTED) continue;
     swarm_cnt++;
     //listen udp status
     if(swarm_cnt % 1 == 0){
@@ -382,7 +382,7 @@ void swarm_thread_entry(void *args){
     //status udp broadcast
     if(swarm_cnt % 20 == 0){
       jsonDoc.clear();
-      jsonDoc["ip"] = board->info.connection.wifi.status.ip.toString();
+      jsonDoc["ip"] = board->status.wifi.ip.toString();
       jsonDoc["HashRate"] = formatNumber(board->status.miner.hashrate._3m, 5) + "H/s";
       uint32_t share_total = board->status.miner.share_accepted + board->status.miner.share_rejected;
       float share_accepted = (share_total == 0) ? 0:(float)(board->status.miner.share_accepted) / (float)(share_total);
@@ -393,7 +393,7 @@ void swarm_thread_entry(void *args){
       jsonDoc["BestDiff"] = formatNumber(board->status.miner.diff.best_session,4) + "\r" + formatNumber(board->status.miner.diff.best_ever,4);
       jsonDoc["Valid"] = board->status.miner.hits;
       jsonDoc["Temp"] = roundf(board->status.temp.asic * 100) / 100.0f;
-      jsonDoc["RSSI"] = board->info.connection.wifi.status.rssi;
+      jsonDoc["RSSI"] = board->status.wifi.rssi;
       jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
       jsonDoc["Uptime"] = convert_uptime_to_string(board->status.miner.uptime_session) + "\r" + convert_uptime_to_string(board->status.miner.uptime_ever);
       jsonDoc["Version"] = board->info.base.fw_version;
@@ -420,12 +420,12 @@ void swarm_thread_entry(void *args){
       }
 
       //add self to swarm list
-      board->status.swarm.map[board->info.connection.wifi.status.ip.toString()] = String(jsonbuf);
+      board->status.swarm.map[board->status.wifi.ip.toString()] = String(jsonbuf);
     }
 
     // parse swarm list and update best diff and total hashrate
     if(swarm_cnt % 40 == 0){
-        board->status.swarm.map[board->info.connection.wifi.status.ip.toString()] = String(jsonbuf);
+        board->status.swarm.map[board->status.wifi.ip.toString()] = String(jsonbuf);
         //calculate total hash rate and best diff of swarm list
         board->status.swarm.total_workers = board->status.swarm.map.size();
         board->status.swarm.total_hr = 0;
@@ -536,7 +536,7 @@ void monitor_thread_entry(void *args){
 
             temp_cnt++;
             //update wifi rssi
-            board->info.connection.wifi.status.rssi = WiFi.RSSI();
+            board->status.wifi.rssi = WiFi.RSSI();
             //give miner update signal
             xSemaphoreGive(board->status.miner.update_xsem);
         }
@@ -669,7 +669,7 @@ void monitor_thread_entry(void *args){
             node.vcore        = board->status.power.vcore;//mV
             node.fanspeed     = board->status.fan.list[0].speed; //%
             node.fanrpm       = board->status.fan.list[0].rpm;
-            node.wifi_rssi    = board->info.connection.wifi.status.rssi;
+            node.wifi_rssi    = board->status.wifi.rssi;
             node.free_ram     = ESP.getFreeHeap() / 1024;  //free sram in Kbytes
             node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes
             node.epoch        = board->status.time.utc * 1000ULL; // Convert UTC seconds to milliseconds
@@ -730,12 +730,12 @@ void daemon_thread_entry(void *args){
     if(board->status.ota.running) continue;
 
     //WiFi daemon
-    if(xSemaphoreTake(board->info.connection.wifi.reconnect_xsem, 0) == pdTRUE){
+    if(xSemaphoreTake(board->status.wifi.reconnect_xsem, 0) == pdTRUE){
       WiFi.begin(board->info.connection.wifi.sta.ssid.c_str(), board->info.connection.wifi.sta.pwd.c_str());
     }
 
     // skip further checks if wifi not connected
-    if(board->info.connection.wifi.status.status != WL_CONNECTED) continue;
+    if(board->status.wifi.status != WL_CONNECTED) continue;
 
     //Stratum daemon
     if(millis() - board->status.miner.stratum_update > STRATUM_ALIVE_TIMEOUT){
@@ -842,7 +842,7 @@ void market_thread_entry(void *args){
     board->market->lastUpdate = 0;
     
     while(true){
-        if(board->info.connection.wifi.status.status == WL_CONNECTED){
+        if(board->status.wifi.status == WL_CONNECTED){
             // Fetch the 24hr ticker data for the coin
             // LOG_W("Fetching 24hr ticker data for %sUSDT...", board->info.base.coin_price.c_str());
             bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT");
@@ -1121,12 +1121,12 @@ void stratum_thread_entry(void *args){
     board->stratum->set_pool_difficulty(pool_init_diff);
     while(true){
         static int w_retry = 0, w_maxRetries = 24;
-        if(board->info.connection.wifi.status.status != WL_CONNECTED){
+        if(board->status.wifi.status != WL_CONNECTED){
             w_retry++;
             LOG_W("WiFi reconnecting %d/%d...", w_retry, w_maxRetries);
             if(w_retry >= w_maxRetries) ESP.restart();
 
-            xSemaphoreGive(board->info.connection.wifi.reconnect_xsem);
+            xSemaphoreGive(board->status.wifi.reconnect_xsem);
             board->stratum->reset();
             board->stratum->set_pool_difficulty(pool_init_diff);
             delay(5000);

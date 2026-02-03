@@ -46,17 +46,17 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.stratum.fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
     board->info.connection.stratum.fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
     board->info.connection.stratum.use              = board->info.connection.stratum.primary;
-    board->info.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
-    board->info.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
-    board->info.connection.wifi.ap.ip     = IPAddress(192, 168, 4, 1);
-    board->info.connection.wifi.ap.pwd    = "12345678";
-    board->info.connection.wifi.ap.ssid   = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, (board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
+    board->status.wifi.reconnect_xsem               = xSemaphoreCreateCounting(1, 0);
+    board->status.wifi.force_cfg_xsem               = xSemaphoreCreateCounting(1, 0);
+    board->info.connection.wifi.ap.ip               = IPAddress(192, 168, 4, 1);
+    board->info.connection.wifi.ap.info.pwd         = "12345678";
+    board->info.connection.wifi.ap.info.ssid        = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, (board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
 
-    board->info.connection.force_config               = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
-    board->info.connection.client_connected           = false;
+    board->status.wifi.force_config                   = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
+    board->status.wifi.client_connected               = false;
     board->info.connection.wifi.sta.ssid              = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
     board->info.connection.wifi.sta.pwd               = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
-    board->info.base.hostname                         = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, board->info.connection.wifi.ap.ssid.c_str()));
+    board->info.base.hostname                         = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, board->info.connection.wifi.ap.info.ssid.c_str()));
     board->status.miner.stratum_update                = millis();
     board->status.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, board->info.spec.preference.fan.is_auto_speed);
     board->status.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, String(board->info.spec.preference.asic.target_temp).c_str())).toFloat();
@@ -209,7 +209,7 @@ void setup() {
   /************************************************************** INIT WIFI ************************************************************/
   taskName = "(wifi)";
   xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_WIFI, NULL, 1);
-  while (WL_CONNECTED != g_board.info.connection.wifi.status.status){
+  while (WL_CONNECTED != g_board.status.wifi.status){
     delay(10);
   }
   /************************************************************ Version check **********************************************************/

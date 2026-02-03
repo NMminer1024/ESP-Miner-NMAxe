@@ -13,20 +13,20 @@ void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
             LOG_I("WiFi connected to [%s], waiting for IP...", WiFi.SSID().c_str());
             break;
         case SYSTEM_EVENT_STA_GOT_IP:
-            g_board.info.connection.wifi.status.ip = WiFi.localIP();
-            g_board.info.connection.wifi.status.gateway = WiFi.gatewayIP();
-            g_board.info.connection.wifi.status.subnet = WiFi.subnetMask();
-            g_board.info.connection.wifi.status.dns = WiFi.dnsIP();
-            g_board.info.connection.wifi.status.status = WL_CONNECTED;
+            g_board.status.wifi.ip = WiFi.localIP();
+            g_board.status.wifi.gateway = WiFi.gatewayIP();
+            g_board.status.wifi.subnet = WiFi.subnetMask();
+            g_board.status.wifi.dns = WiFi.dnsIP();
+            g_board.status.wifi.status = WL_CONNECTED;
             retry_cnt = 0;
             LOG_I("Got IP : %s", WiFi.localIP().toString().c_str());
             break;
         case SYSTEM_EVENT_STA_DISCONNECTED:
-            g_board.info.connection.wifi.status.ip = IPAddress(0, 0, 0, 0);
-            g_board.info.connection.wifi.status.gateway = IPAddress(0, 0, 0, 0);
-            g_board.info.connection.wifi.status.subnet = IPAddress(0, 0, 0, 0);
-            g_board.info.connection.wifi.status.dns = IPAddress(0, 0, 0, 0);
-            g_board.info.connection.wifi.status.status = WL_DISCONNECTED;
+            g_board.status.wifi.ip = IPAddress(0, 0, 0, 0);
+            g_board.status.wifi.gateway = IPAddress(0, 0, 0, 0);
+            g_board.status.wifi.subnet = IPAddress(0, 0, 0, 0);
+            g_board.status.wifi.dns = IPAddress(0, 0, 0, 0);
+            g_board.status.wifi.status = WL_DISCONNECTED;
             disconnected = info.wifi_sta_disconnected;
             reason = WiFi.disconnectReasonName((wifi_err_reason_t)disconnected.reason);
             retry_cnt++;
@@ -79,7 +79,7 @@ void webserver_thread_entry(void *args){
     });
     webServer.begin();
     while (true){
-        if(g_board.info.connection.wifi.status.status == WL_CONNECTED){
+        if(g_board.status.wifi.status == WL_CONNECTED){
             webSocket.loop();
         }
         delay(250);

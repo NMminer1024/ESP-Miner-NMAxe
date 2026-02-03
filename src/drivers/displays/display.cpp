@@ -1161,12 +1161,12 @@ static void ui_layout_init(board_sal_t* board){
     qr_size = SCREEN_HEIGHT - 95;
   }
   config_page.qr_code.obj = lv_qrcode_create(ui_pages[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
-  String qr_str = "WIFI:T:WPA;S:" + g_board.info.connection.wifi.ap.ssid + ";P:" + g_board.info.connection.wifi.ap.pwd + ";H:false;";
+  String qr_str = "WIFI:T:WPA;S:" + g_board.info.connection.wifi.ap.info.ssid + ";P:" + g_board.info.connection.wifi.ap.info.pwd + ";H:false;";
   lv_qrcode_update(config_page.qr_code.obj, (uint8_t*)qr_str.c_str(), qr_str.length());
   lv_obj_align(config_page.qr_code.obj, LV_ALIGN_RIGHT_MID, config_page.qr_code.coord.x, config_page.qr_code.coord.y);
 
   // config text label
-  String config = g_board.info.connection.wifi.ap.ssid + "\r\n"+ g_board.info.connection.wifi.ap.ip.toString();
+  String config = g_board.info.connection.wifi.ap.info.ssid + "\r\n"+ g_board.info.connection.wifi.ap.ip.toString();
   config_page.lb_config_txt.obj  = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
   lv_obj_set_width(config_page.lb_config_txt.obj, SCREEN_WIDTH / 2);
   lv_label_set_text(config_page.lb_config_txt.obj, config.c_str());
@@ -1549,12 +1549,12 @@ static void ui_loading_page_update(board_sal_t* board) {
   }
   static lv_coord_t width = 0;
   // ip address display instead of slogan after wifi connected
-  if((WL_CONNECTED == board->info.connection.wifi.status.status) && (loading_page.lb_ip_and_slogan.obj != NULL)){
-    String ip_str = g_board.info.connection.wifi.status.ip.toString();
+  if((WL_CONNECTED == board->status.wifi.status) && (loading_page.lb_ip_and_slogan.obj != NULL)){
+    String ip_str = g_board.status.wifi.ip.toString();
     width = lv_txt_get_width(ip_str.c_str(), strlen(ip_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
     lv_obj_set_width(loading_page.lb_ip_and_slogan.obj, width);
     lv_obj_set_style_text_color(loading_page.lb_ip_and_slogan.obj, lv_color_hex(0x00FF00), LV_PART_MAIN); 
-    lv_label_set_text(loading_page.lb_ip_and_slogan.obj, g_board.info.connection.wifi.status.ip.toString().c_str());
+    lv_label_set_text(loading_page.lb_ip_and_slogan.obj, g_board.status.wifi.ip.toString().c_str());
   }
 
   // pool url update
@@ -1571,17 +1571,17 @@ static void ui_loading_page_update(board_sal_t* board) {
     int32_t max_value = lv_bar_get_max_value(loading_page.bar_progress.obj); // max value of the bar
     lv_coord_t bar_x = lv_obj_get_x(loading_page.bar_progress.obj);
     lv_coord_t bar_w = lv_obj_get_width(loading_page.bar_progress.obj);
-    lv_coord_t label_x = bar_x + (bar_w * board->status.loading.percent) - lv_obj_get_width(loading_page.lb_progress.obj) / 2;
+    lv_coord_t label_x = bar_x + (bar_w * board->status.ui.page.loading.percent) - lv_obj_get_width(loading_page.lb_progress.obj) / 2;
     lv_obj_set_pos(loading_page.lb_progress.obj, label_x, -10);
-    lv_label_set_text(loading_page.lb_progress.obj, (String(100 * board->status.loading.percent, 0) + "%").c_str());
-    lv_bar_set_value(loading_page.bar_progress.obj, max_value * board->status.loading.percent, LV_ANIM_ON);
+    lv_label_set_text(loading_page.lb_progress.obj, (String(100 * board->status.ui.page.loading.percent, 0) + "%").c_str());
+    lv_bar_set_value(loading_page.bar_progress.obj, max_value * board->status.ui.page.loading.percent, LV_ANIM_ON);
   }
 
   // loading details update
   if(loading_page.lb_details.obj != NULL){
-    lv_color_t color = lv_color_hex(board->status.loading.details.color);
+    lv_color_t color = lv_color_hex(board->status.ui.page.loading.details.color);
     lv_obj_set_style_text_color(loading_page.lb_details.obj, color, LV_PART_MAIN);
-    lv_label_set_text(loading_page.lb_details.obj, board->status.loading.details.msg.c_str());
+    lv_label_set_text(loading_page.lb_details.obj, board->status.ui.page.loading.details.msg.c_str());
   }
 }
 
@@ -1591,9 +1591,9 @@ static void ui_config_page_update(board_sal_t* board) {
   if(millis() - last_update < 1000) return;
 
   String config_str[4] = {"config   ","config.  ","config.. ","config..."};
-  String timeout = (board->info.connection.client_connected) ? config_str[cnt++%4] : (String(board->info.connection.wifi.status.config_timeout) + "s");
+  String timeout = (board->status.wifi.client_connected) ? config_str[cnt++%4] : (String(board->status.wifi.config_timeout) + "s");
   //config timeout label location
-  if(board->info.connection.client_connected) lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x - 10, config_page.lb_cfg_timeout.coord.y);
+  if(board->status.wifi.client_connected) lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x - 10, config_page.lb_cfg_timeout.coord.y);
   else lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
 
   lv_label_set_text(config_page.lb_cfg_timeout.obj, timeout.c_str());
@@ -1639,8 +1639,8 @@ static void ui_miner_page_update(board_sal_t* board){
   lv_obj_set_style_text_color(miner_page.lb_temp_symb.obj, font_color, LV_PART_MAIN); 
 
   //wifi rssi symbol color update
-  if(board->info.connection.wifi.status.rssi >= WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
-  else if(board->info.connection.wifi.status.rssi >= WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
+  if(board->status.wifi.rssi >= WIFI_RSSI_STRONG) font_color = lv_color_hex(0x00ff00);//green
+  else if(board->status.wifi.rssi >= WIFI_RSSI_GOOD) font_color = lv_color_hex(0xffa500);//yellow
   else  font_color = lv_color_hex(0xff0000);//red
   lv_obj_set_style_text_color(miner_page.lb_wifi_symbol.obj, font_color, LV_PART_MAIN); 
 
@@ -1722,7 +1722,7 @@ static void ui_miner_page_update(board_sal_t* board){
   //Temp
   lv_label_set_text_fmt(miner_page.lb_temp.obj,   "%s'C/%s'C", formatNumber(board->status.temp.vcore, 2).c_str(), formatNumber(board->status.temp.asic, 2).c_str());
   //WiFi
-  lv_label_set_text_fmt(miner_page.lb_ip.obj,   "%s", board->info.connection.wifi.status.ip.toString().c_str());
+  lv_label_set_text_fmt(miner_page.lb_ip.obj,   "%s", board->status.wifi.ip.toString().c_str());
   //uptime hms
   lv_label_set_text_fmt(miner_page.lb_uptime_hms.obj,    "%s", uptime.substring(5, uptime.length()).c_str());
   //uptime day
@@ -2222,23 +2222,23 @@ void display_thread_entry(void *args){
 
   uint16_t cnt = 0;
   /****************************************wait for Vbus ready*******************************************/
-  g_board.status.loading.percent = 0.1;
+  g_board.status.ui.page.loading.percent = 0.1;
   while (!g_board.power->is_adc_ready()){
-    g_board.status.loading.details.color = 0xFFFFFF;
-    g_board.status.loading.details.msg   = vbus_chk_str[(cnt++)%4];
+    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+    g_board.status.ui.page.loading.details.msg   = vbus_chk_str[(cnt++)%4];
     delay(500);
   }
   /********************************Vbus type check and voltage check*************************************/
-  g_board.status.loading.percent = 0.2;
-  g_board.status.loading.details.color = 0x00ff00;
-  if(g_board.power->is_dc_pluged()) g_board.status.loading.details.msg   = "DC pluged.";
-  else g_board.status.loading.details.msg   = "USB pluged.";
+  g_board.status.ui.page.loading.percent = 0.2;
+  g_board.status.ui.page.loading.details.color = 0x00ff00;
+  if(g_board.power->is_dc_pluged()) g_board.status.ui.page.loading.details.msg   = "DC pluged.";
+  else g_board.status.ui.page.loading.details.msg   = "USB pluged.";
   delay(500);
   while(g_board.power->get_vbus() < g_board.info.spec.pwr.vbus_min_required){
       static bool blink = false;
-      g_board.status.loading.details.color = (blink) ? 0xFF0000 : 0xFFFFFF;
+      g_board.status.ui.page.loading.details.color = (blink) ? 0xFF0000 : 0xFFFFFF;
       String vbusString = "Vbus " + String(g_board.power->get_vbus()/1000.0, 1) + "v(at least" + String(g_board.info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
-      g_board.status.loading.details.msg   = vbusString;
+      g_board.status.ui.page.loading.details.msg   = vbusString;
       blink = !blink;
       if(!g_board.power->is_dc_pluged()){
         disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
@@ -2246,74 +2246,74 @@ void display_thread_entry(void *args){
       }
       delay(500);
   }
-  g_board.status.loading.details.color = 0x00FF00;
-  g_board.status.loading.details.msg   = "Vbus " + String(g_board.power->get_vbus() / 1000.0, 3) + "V.";
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = "Vbus " + String(g_board.power->get_vbus() / 1000.0, 3) + "V.";
   delay(500);
   /********************************************wait fan self test ****************************************/
   cnt = 0;
-  g_board.status.loading.percent = 0.3;
+  g_board.status.ui.page.loading.percent = 0.3;
   while(!g_board.status.fan.list[0].self_test){
-    g_board.status.loading.details.color = 0xFFFFFF;
-    g_board.status.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.list[0].rpm) + "/ " + String(g_board.info.spec.fans[0].init.self_test_rpm_thr) + "rpm";
+    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+    g_board.status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.list[0].rpm) + "/ " + String(g_board.info.spec.fans[0].init.self_test_rpm_thr) + "rpm";
     delay(300);
   }
-  g_board.status.loading.details.color = 0x00FF00;
-  g_board.status.loading.details.msg   = "Pass! [" + String(g_board.status.fan.list[0].rpm) + "/ " + String(g_board.info.spec.fans[0].init.self_test_rpm_thr) + " rpm]";
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = "Pass! [" + String(g_board.status.fan.list[0].rpm) + "/ " + String(g_board.info.spec.fans[0].init.self_test_rpm_thr) + " rpm]";
   delay(2000);
   /******************************************wait Vcore self test ****************************************/
   cnt = 0;
-  g_board.status.loading.details.color = 0xFFFFFF;
-  g_board.status.loading.percent = 0.4;
-  g_board.status.loading.details.msg   = vcore_chk_str[0];
+  g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+  g_board.status.ui.page.loading.percent = 0.4;
+  g_board.status.ui.page.loading.details.msg   = vcore_chk_str[0];
   delay(500);
   while(!g_board.power->is_vcore_ready()){
-    g_board.status.loading.details.msg   = vcore_chk_str[(cnt++)%4];
+    g_board.status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
     delay(100);
   }
   delay(200);//wait for vcore set to target voltage
-  g_board.status.loading.details.color = 0x00FF00;
-  g_board.status.loading.details.msg   = String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.";
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.";
   delay(500);
   /****************************************wait for asic init********************************************/
   cnt = 0;
-  g_board.status.loading.percent = 0.5;
+  g_board.status.ui.page.loading.percent = 0.5;
   while(g_board.miner == nullptr) delay(1); //wait miner object created
   while(g_board.miner->get_asic_count() == 0){
-    g_board.status.loading.details.color = 0xFFFFFF;
-    g_board.status.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
+    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+    g_board.status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
     delay(300);
   }
-  g_board.status.loading.details.color = 0x00FF00;
-  g_board.status.loading.details.msg   = String("Found " + String(g_board.miner->get_asic_count())) + (g_board.miner->get_asic_count() > 1 ? " chips" : " chip");
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = String("Found " + String(g_board.miner->get_asic_count())) + (g_board.miner->get_asic_count() > 1 ? " chips" : " chip");
   delay(1000);
   /****************************************wait for wifi connected***************************************/
   cnt = 0;
-  g_board.status.loading.percent = 0.6;
-  while(g_board.info.connection.wifi.status.status != WL_CONNECTED){
-    g_board.status.loading.details.color = 0xFFFFFF;
-    g_board.status.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.sta.ssid +  String("]");
+  g_board.status.ui.page.loading.percent = 0.6;
+  while(g_board.status.wifi.status != WL_CONNECTED){
+    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+    g_board.status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.sta.ssid +  String("]");
     delay(300);
-    if(xSemaphoreTake(g_board.info.connection.wifi.force_cfg_xsem, 100)){
-      g_board.status.loading.details.color = 0xFF0000;
-      g_board.status.loading.details.msg   = String("Timeout!");
+    if(xSemaphoreTake(g_board.status.wifi.force_cfg_xsem, 100)){
+      g_board.status.ui.page.loading.details.color = 0xFF0000;
+      g_board.status.ui.page.loading.details.msg   = String("Timeout!");
       delay(1000);
       g_board.status.ui.page.current = UI_PAGE_CONFIG;
       lv_obj_scroll_to_view(ui_pages[UI_PAGE_CONFIG], LV_ANIM_ON);
     }
   }
-  g_board.status.loading.details.color = 0x00FF00;
-  g_board.status.loading.details.msg   = "Wifi Connected!";
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = "Wifi Connected!";
   delay(500);
   /****************************************wait for market connected*************************************/
   cnt = 0;
-  g_board.status.loading.percent = 0.7;
+  g_board.status.ui.page.loading.percent = 0.7;
   uint32_t start = millis();
   while(0 == g_board.market->lastUpdate){
-    g_board.status.loading.details.color = 0xFFFFFF;
-    g_board.status.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + g_board.info.base.coin_price + "]";
+    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+    g_board.status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + g_board.info.base.coin_price + "]";
     if(millis() - start - g_board.market->lastUpdate >= MARKET_TIMEOUT){
-      g_board.status.loading.details.color = 0xFF0000;
-      g_board.status.loading.details.msg   = "Market update timeout!";
+      g_board.status.ui.page.loading.details.color = 0xFF0000;
+      g_board.status.ui.page.loading.details.msg   = "Market update timeout!";
       delay(500);
       break;
     }
@@ -2321,62 +2321,62 @@ void display_thread_entry(void *args){
   }
   delay(500);
   if(0 != g_board.market->lastUpdate) {
-    g_board.status.loading.details.color = 0x00FF00;
-    g_board.status.loading.details.msg   = "Market connected!";
+    g_board.status.ui.page.loading.details.color = 0x00FF00;
+    g_board.status.ui.page.loading.details.msg   = "Market connected!";
   }
   delay(1000);
   /****************************************wait for pool connected**************************************/
   cnt = 0;
-  g_board.status.loading.percent = 0.8;
+  g_board.status.ui.page.loading.percent = 0.8;
   while(!g_board.stratum->is_subscribed()){
     if(g_board.stratum->pool->get_last_errormsg().length() > 0){
-      g_board.status.loading.details.color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
-      g_board.status.loading.details.msg   = g_board.stratum->pool->get_last_errormsg().c_str();
+      g_board.status.ui.page.loading.details.color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
+      g_board.status.ui.page.loading.details.msg   = g_board.stratum->pool->get_last_errormsg().c_str();
     }else{
       String con_type = g_board.info.connection.pool.use.ssl ? "[ssl]" : "[tcp]";
-      g_board.status.loading.details.color = 0xFFFFFF;
-      g_board.status.loading.details.msg   = String(pool_con_str[(cnt)%4] + con_type);
+      g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+      g_board.status.ui.page.loading.details.msg   = String(pool_con_str[(cnt)%4] + con_type);
     }
     cnt++;
     delay(300);
   }
-  g_board.status.loading.details.color = 0x00FF00;
-  g_board.status.loading.details.msg   = "Pool connected!";
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = "Pool connected!";
   delay(100);
   /*******************************************wait for pool auth****************************************/
   cnt = 0;
-  g_board.status.loading.percent = 0.9;
+  g_board.status.ui.page.loading.percent = 0.9;
   while(!g_board.stratum->is_authorized()){
-    g_board.status.loading.details.color = 0xFFFFFF;
-    g_board.status.loading.details.msg   = pool_auth_str[(cnt++)%4];
+    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+    g_board.status.ui.page.loading.details.msg   = pool_auth_str[(cnt++)%4];
     bool blink = false;
     while (cnt >= 20){
-      g_board.status.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
-      g_board.status.loading.details.msg   = "Wrong stratum user!";
+      g_board.status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
+      g_board.status.ui.page.loading.details.msg   = "Wrong stratum user!";
       delay(500);
       if(g_board.stratum->is_authorized()) break;
     }
     delay(300);
   }
-  g_board.status.loading.details.color = 0x00FF00;
-  g_board.status.loading.details.msg   = "Pool authorized!";
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = "Pool authorized!";
   delay(100);
   /****************************************wait for pool job******************************************/
   cnt = 0;
-  g_board.status.loading.percent = 1.0;
+  g_board.status.ui.page.loading.percent = 1.0;
   while(g_board.stratum->get_job_counter() == 0){
-    g_board.status.loading.details.color = 0xFFFFFF;
-    g_board.status.loading.details.msg   = wait_job_str[(cnt++)%4];
+    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+    g_board.status.ui.page.loading.details.msg   = wait_job_str[(cnt++)%4];
     delay(100);
     bool blink = false;
     while ((cnt >= 60*10) && (g_board.stratum->get_job_counter() == 0)){
-      g_board.status.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
-      g_board.status.loading.details.msg   = "Pool job timeout!";
+      g_board.status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
+      g_board.status.ui.page.loading.details.msg   = "Pool job timeout!";
       delay(500);
     }
   }
-  g_board.status.loading.details.color = 0x00FF00;
-  g_board.status.loading.details.msg   = "Miner ready!";
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = "Miner ready!";
   delay(500);
 
   /***************************************scroll to last page******************************************/
