@@ -283,7 +283,7 @@ static ui_pie_chart_t ui_draw_pie_chart(lv_obj_t* parent, lv_coord_t center_x, l
             pie_chart.labels[i] = lv_label_create(parent);
             lv_label_set_text(pie_chart.labels[i], sectors[i].label);
             lv_obj_set_style_text_color(pie_chart.labels[i], lv_color_hex(0xFFFFFF), 0);
-            lv_obj_set_style_text_font(pie_chart.labels[i], &lv_font_montserrat_14, 0);
+            lv_obj_set_style_text_font(pie_chart.labels[i], &lv_font_montserrat_12, 0);
             lv_obj_align(pie_chart.labels[i], LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
         } else {
             pie_chart.labels[i] = NULL;
@@ -312,10 +312,14 @@ static void ui_update_pie_chart(ui_pie_chart_t* pie_chart, const uint16_t* angle
                 float mid_angle = current_angle + angles[i] / 2.0f;
                 float label_radius = pie_chart->radius * 0.6f;
                 float angle_rad = (mid_angle - 90.0f) * M_PI / 180.0f;
-                
+
                 lv_coord_t label_x = pie_chart->center_x + (lv_coord_t)(label_radius * cos(angle_rad));
                 lv_coord_t label_y = pie_chart->center_y + (lv_coord_t)(label_radius * sin(angle_rad));
-                
+
+                // Update label text with percentage (without decimal)
+                uint8_t percentage = (uint8_t)((angles[i] * 100) / 360);
+                String label_text = "A" + String(i + 1) + "\r" + String(percentage) + "%";
+                lv_label_set_text(pie_chart->labels[i], label_text.c_str());
                 lv_obj_align(pie_chart->labels[i], LV_ALIGN_TOP_LEFT, label_x - 10, label_y - 10);
             }
             
@@ -930,25 +934,25 @@ static void ui_page_element_init(board_sal_t* board){
 
     hr_health_page.total_hr_chart.coord = {15, 8};
 
-    hr_health_page.asic_hr_chart.center_x = 90;
+    hr_health_page.asic_hr_chart.center_x = 100;
     hr_health_page.asic_hr_chart.center_y = 65;
-    hr_health_page.asic_hr_chart.radius   = 50;
+    hr_health_page.asic_hr_chart.radius   = 53;
 
     hr_health_page.asic_hr_chart.cfg[0].angle = 90;
     hr_health_page.asic_hr_chart.cfg[0].color = lv_color_hex(0xA7A9AC);
-    hr_health_page.asic_hr_chart.cfg[0].label = "A1";
+    hr_health_page.asic_hr_chart.cfg[0].label = "A1\r25%";
     
     hr_health_page.asic_hr_chart.cfg[1].angle = 90;
     hr_health_page.asic_hr_chart.cfg[1].color = lv_color_hex(0xF05A28);
-    hr_health_page.asic_hr_chart.cfg[1].label = "A2";
+    hr_health_page.asic_hr_chart.cfg[1].label = "A2\r25%";
     
     hr_health_page.asic_hr_chart.cfg[2].angle = 90;
     hr_health_page.asic_hr_chart.cfg[2].color = lv_color_hex(0x00ADEF);
-    hr_health_page.asic_hr_chart.cfg[2].label = "A3";
+    hr_health_page.asic_hr_chart.cfg[2].label = "A3\r25%";
     
     hr_health_page.asic_hr_chart.cfg[3].angle = 90;
     hr_health_page.asic_hr_chart.cfg[3].color = lv_color_hex(0x2E3192);
-    hr_health_page.asic_hr_chart.cfg[3].label = "A4";
+    hr_health_page.asic_hr_chart.cfg[3].label = "A4\r25%";
 
 
     /******************************** big digit healthy page *****************************/
