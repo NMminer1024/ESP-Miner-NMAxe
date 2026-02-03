@@ -1559,11 +1559,11 @@ static void ui_loading_page_update(board_sal_t* board) {
 
   // pool url update
   if((loading_page.lb_pool_url.obj != NULL) && (board->market->lastUpdate != 0)){
-    String pool_str = (g_board.info.connection.pool_use.url + ":" + g_board.info.connection.pool_use.port);
+    String pool_str = (g_board.info.connection.pool.use.url + ":" + g_board.info.connection.pool.use.port);
     width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), &lv_font_montserrat_16, 0, LV_TEXT_FLAG_NONE);
     width = (width > SCREEN_WIDTH) ? SCREEN_WIDTH : width;
     lv_obj_set_width(loading_page.lb_pool_url.obj, width);
-    lv_label_set_text(loading_page.lb_pool_url.obj, (g_board.info.connection.pool_use.url + ":" + g_board.info.connection.pool_use.port).c_str());
+    lv_label_set_text(loading_page.lb_pool_url.obj, (g_board.info.connection.pool.use.url + ":" + g_board.info.connection.pool.use.port).c_str());
   }
 
   // loading progress update
@@ -2333,7 +2333,7 @@ void display_thread_entry(void *args){
       g_board.status.loading.details.color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
       g_board.status.loading.details.msg   = g_board.stratum->pool->get_last_errormsg().c_str();
     }else{
-      String con_type = g_board.info.connection.pool_use.ssl ? "[ssl]" : "[tcp]";
+      String con_type = g_board.info.connection.pool.use.ssl ? "[ssl]" : "[tcp]";
       g_board.status.loading.details.color = 0xFFFFFF;
       g_board.status.loading.details.msg   = String(pool_con_str[(cnt)%4] + con_type);
     }

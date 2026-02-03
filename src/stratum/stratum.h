@@ -9,7 +9,7 @@
 #include "helper.h"
 #include "pool.h"   
 
-#define  DEFAULT_POOL_DIFFICULTY   (512)
+// #define  DEFAULT_POOL_DIFFICULTY   (512)
 #define  HELLO_POOL_INTERVAL_MS    (1000*60*2)
 #define  LOST_POOL_TIMEOUT_MS      (1000*60*5)
 #define  SUBMIT_TIMEOUT_MS         (1000*60*2)
@@ -93,7 +93,7 @@ public:
         this->pool = new PoolClass(pConfig);
         this->_max_rsp_id_cache = 20;
         this->_job_counter = 0;
-        this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
+        // this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
         this->_gid = 1;
         this->_rsp_str = "";
         this->_vr_mask = 0xffffffff;

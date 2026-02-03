@@ -74,17 +74,19 @@ enum{
 typedef struct{
     bool           force_config;
     bool           client_connected;
-    uint32_t       stratum_update;//ms
     wifi_info_t    wifi; 
+    
+    struct{
+        pool_info_t use;
+        pool_info_t primary;
+        pool_info_t fallback;
+    }pool;
 
-    pool_info_t    pool_primary;
-    stratum_info_t stratum_primary;
-
-    pool_info_t    pool_fallback;
-    stratum_info_t stratum_fallback;
-
-    pool_info_t    pool_use;
-    stratum_info_t stratum_use;
+    struct{
+        stratum_info_t  use;
+        stratum_info_t  primary;
+        stratum_info_t  fallback;
+    }stratum;
 }connect_info_t;
 
 typedef struct{
@@ -166,6 +168,7 @@ typedef struct{
         uint16_t            last_hits;//record the last hits
         diff_info_t         diff;
         uint32_t            asic_update;  // timestamp of asic respond
+        uint32_t            stratum_update;//ms timestamp of last stratum data received
         std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
         std::deque<proximity_node_t> block_proximity_history; // history of block proximity (use internal RAM)
         std::map<asic_id_t, uint64_t> asic_rsp_counter; // asic respond counter map

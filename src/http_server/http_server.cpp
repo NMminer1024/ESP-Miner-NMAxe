@@ -131,17 +131,17 @@ void get_system_info(AsyncWebServerRequest* request){
 
     JsonObject stratumObj = root.createNestedObject("stratum");
     JsonObject usedObj = stratumObj.createNestedObject("used");
-    usedObj["url"]                = g_board.info.connection.pool_use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port)) : ("stratum+tcp://" + g_board.info.connection.pool_use.url + ":" + String(g_board.info.connection.pool_use.port));
-    usedObj["user"]               = g_board.info.connection.stratum_use.user;
-    usedObj["pwd"]                = g_board.info.connection.stratum_use.pwd;
+    usedObj["url"]                = g_board.info.connection.pool.use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port)) : ("stratum+tcp://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port));
+    usedObj["user"]               = g_board.info.connection.stratum.use.user;
+    usedObj["pwd"]                = g_board.info.connection.stratum.use.pwd;
     JsonObject primaryObj = stratumObj.createNestedObject("primary");
-    primaryObj["url"]             = g_board.info.connection.pool_primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool_primary.url + ":" + String(g_board.info.connection.pool_primary.port));
-    primaryObj["user"]            = g_board.info.connection.stratum_primary.user;
-    primaryObj["pwd"]             = g_board.info.connection.stratum_primary.pwd;
+    primaryObj["url"]             = g_board.info.connection.pool.primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool.primary.url + ":" + String(g_board.info.connection.pool.primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool.primary.url + ":" + String(g_board.info.connection.pool.primary.port));
+    primaryObj["user"]            = g_board.info.connection.stratum.primary.user;
+    primaryObj["pwd"]             = g_board.info.connection.stratum.primary.pwd;
     JsonObject fallbackObj = stratumObj.createNestedObject("fallback");
-    fallbackObj["url"]            = g_board.info.connection.pool_fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool_fallback.url + ":" + String(g_board.info.connection.pool_fallback.port));
-    fallbackObj["user"]           = g_board.info.connection.stratum_fallback.user;
-    fallbackObj["pwd"]            = g_board.info.connection.stratum_fallback.pwd;
+    fallbackObj["url"]            = g_board.info.connection.pool.fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool.fallback.url + ":" + String(g_board.info.connection.pool.fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool.fallback.url + ":" + String(g_board.info.connection.pool.fallback.port));
+    fallbackObj["user"]           = g_board.info.connection.stratum.fallback.user;
+    fallbackObj["pwd"]            = g_board.info.connection.stratum.fallback.pwd;
 
     // adjust multiple fans status
     root[HTTP_API_SYS_JSON_KEY_FAN_CNT]    = g_board.status.fan.count;

@@ -30,22 +30,22 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     String stratum_pri                              = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb                               = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
     
-    board->info.connection.pool_primary.ssl         = ((stratum_pri.indexOf("ssl") != -1) || (stratum_pri.indexOf("tls") != -1));
-    board->info.connection.pool_primary.url         = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
-    board->info.connection.pool_primary.port        = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1, stratum_pri.length()).toInt();
-    board->info.connection.pool_fallback.ssl        = ((stratum_fb.indexOf("ssl") != -1) || (stratum_fb.indexOf("tls") != -1));
-    board->info.connection.pool_fallback.url        = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
-    board->info.connection.pool_fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
-    board->info.connection.pool_use                 = board->info.connection.pool_primary;
+    board->info.connection.pool.primary.ssl         = ((stratum_pri.indexOf("ssl") != -1) || (stratum_pri.indexOf("tls") != -1));
+    board->info.connection.pool.primary.url         = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
+    board->info.connection.pool.primary.port        = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1, stratum_pri.length()).toInt();
+    board->info.connection.pool.fallback.ssl        = ((stratum_fb.indexOf("ssl") != -1) || (stratum_fb.indexOf("tls") != -1));
+    board->info.connection.pool.fallback.url        = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
+    board->info.connection.pool.fallback.port       = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1, stratum_fb.length()).toInt();
+    board->info.connection.pool.use                 = board->info.connection.pool.primary;
     board->info.base.fw_version                     = CURRENT_FW_VERSION;
     board->info.base.hw_version                     = CURRENT_HW_VERSION;
     board->info.base.devcie_code                    = gen_device_code();
     board->info.base.fw_latest_release              = "";
-    board->info.connection.stratum_primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
-    board->info.connection.stratum_primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, PRIMARY_POOL_PWD));
-    board->info.connection.stratum_fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
-    board->info.connection.stratum_fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
-    board->info.connection.stratum_use              = board->info.connection.stratum_primary;
+    board->info.connection.stratum.primary.user     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY, (String(PRIMARY_USER) + "." + board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
+    board->info.connection.stratum.primary.pwd      = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, PRIMARY_POOL_PWD));
+    board->info.connection.stratum.fallback.user    = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, (String(FALLBACK_USER) + "." + board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str()));
+    board->info.connection.stratum.fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
+    board->info.connection.stratum.use              = board->info.connection.stratum.primary;
     board->info.connection.wifi.reconnect_xsem      = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.force_cfg_xsem      = xSemaphoreCreateCounting(1, 0);
     board->info.connection.wifi.softap_param.ip     = IPAddress(192, 168, 4, 1);
@@ -57,7 +57,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.wifi.conn_param.ssid     = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
     board->info.connection.wifi.conn_param.pwd      = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
     board->info.base.hostname                       = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, board->info.connection.wifi.softap_param.ssid.c_str()));
-    board->info.connection.stratum_update           = millis();
+    board->status.miner.stratum_update              = millis();
     board->status.preference.fan.is_auto_speed        = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED, board->info.spec.preference.fan.is_auto_speed);
     board->status.preference.fan.target_temp          = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, String(board->info.spec.preference.asic.target_temp).c_str())).toFloat();
     board->status.preference.screen.flip              = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, board->info.spec.preference.screen.flip);
@@ -134,7 +134,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
         return false;
     }
     // create Stratum instance
-    board->stratum                                  = new StratumClass(board->info.connection.pool_use, board->info.connection.stratum_use, 10);
+    board->stratum                                  = new StratumClass(board->info.connection.pool.use, board->info.connection.stratum.use, 10);
     if(board->stratum == NULL){
         LOG_E("StratumClass instance creation failed");
         return false;
