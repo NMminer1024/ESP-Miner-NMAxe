@@ -80,7 +80,8 @@ struct{
   lv_img_dsc_t  *back_img_dsc;
   ui_element_t  lb_hr;
   ui_element_t  lb_hr_unit;
-
+  lv_img_dsc_t  *miner_img_dsc;
+  ui_element_t  img_miner;
   struct{
     ui_ring_obj_t    obj;
     ui_ring_config_t cfg;
@@ -587,9 +588,10 @@ static void ui_page_element_init(board_sal_t* board){
     /*********************************** dashboard page *********************************/
     dashboard_page.lb_hr.font           = &ds_digib_font_36;
     dashboard_page.lb_hr.coord          = {75, -4};
-
     dashboard_page.lb_hr_unit.font      = &ds_digib_font_20;
     dashboard_page.lb_hr_unit.coord     = {138, 8};
+    dashboard_page.img_miner.coord      = {0, 60};
+    dashboard_page.miner_img_dsc        = &logo_worker_nmaxe;
 
     uint8_t arc_r = 30, arc_line_width = 8, arc_angle_full = 230;
 
@@ -809,8 +811,10 @@ static void ui_page_element_init(board_sal_t* board){
     /*********************************** dashboard page *********************************/
     dashboard_page.lb_hr.font          = &ds_digib_font_56;
     dashboard_page.lb_hr.coord         = {55 + 40, -4};
-    dashboard_page.lb_hr_unit.font      = &ds_digib_font_20;
-    dashboard_page.lb_hr_unit.coord     = {100 + 95, 23};
+    dashboard_page.lb_hr_unit.font     = &ds_digib_font_20;
+    dashboard_page.lb_hr_unit.coord    = {100 + 95, 23};
+    dashboard_page.img_miner.coord     = {0, 60};
+    dashboard_page.miner_img_dsc       = &logo_worker_nmqaxepp;
 
     uint8_t arc_r = 30, arc_line_width = 8, arc_angle_full = 230;
     
@@ -1425,6 +1429,12 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_set_style_text_color(dashboard_page.lb_hr_unit.obj, font_color, LV_PART_MAIN);
   lv_label_set_long_mode(dashboard_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( dashboard_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, dashboard_page.lb_hr_unit.coord.x, dashboard_page.lb_hr_unit.coord.y);
+  // miner img
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    dashboard_page.img_miner.obj = lv_img_create(ui_pages[UI_PAGE_DASHBOARD]);
+    lv_img_set_src(dashboard_page.img_miner.obj, dashboard_page.miner_img_dsc);
+    lv_obj_align(dashboard_page.img_miner.obj, LV_ALIGN_CENTER, dashboard_page.img_miner.coord.x, dashboard_page.img_miner.coord.y);
+  }
   //////////////////////////////////////hashrate healthy page layout///////////////////////////////////////////////
   // Hashrate label
   font_color = lv_color_hex(0x000000);
@@ -1955,7 +1965,7 @@ static void ui_hits_page_update(board_sal_t* board){
 
 static void ui_dashboard_page_update(board_sal_t* board){
   static uint32_t last_update = millis();
-  if(millis() - last_update < 1000) return;
+  // if(millis() - last_update < 1000) return;
   limited_data_f limited_freq_req       = {board->info.spec.ui.dashboard_page.performance.asic_freq_req.min, board->info.spec.ui.dashboard_page.performance.asic_freq_req.max};
   limited_data_f limited_power          = {board->info.spec.ui.dashboard_page.power.power.min, board->info.spec.ui.dashboard_page.power.power.max};
   limited_data_f limited_vcore_req      = {board->info.spec.ui.dashboard_page.performance.vcore_req.min, board->info.spec.ui.dashboard_page.performance.vcore_req.max};
@@ -1988,6 +1998,14 @@ static void ui_dashboard_page_update(board_sal_t* board){
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
       dashboard_page.ring_vcore_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
+    }
+    // miner pos update
+    if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.img_miner.obj != NULL)) {
+      static lv_coord_t last_x = dashboard_page.img_miner.coord.x;
+      static float step = 0.0f;
+      step += 0.05f;
+      last_x = sin(step) * (SCREEN_WIDTH / 2 - 35);
+      lv_obj_set_x(dashboard_page.img_miner.obj, last_x);
     }
   }
   // update angles
@@ -2225,7 +2243,7 @@ static void ui_thread_entry(void *args){
   delay(100);
   while (true){
     // xSemaphoreTake(g_board.status.miner.update_xsem, 1000);
-    delay(200);
+    delay(50);
     if(xSemaphoreTake(lvgl_xMutex, 5) == pdTRUE){
       switch (g_board.status.ui.page.current){
         case UI_PAGE_LOADING:
