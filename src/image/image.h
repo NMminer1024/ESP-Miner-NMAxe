@@ -47,6 +47,17 @@ lv_img_dsc_t logo_worker_nmqaxepp = {
     .data = (const uint8_t *)nmqaxepp_worker_logo_img_array,
 };
 
+lv_img_dsc_t logo_miner_nmqaxepp_70_70 = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR_ALPHA,  //transparent color, alpha channel included
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)logo_miner_nmqaxepp_70_70_img_array,
+};
 
 /****************************** 135x240 page images****************************/
 lv_img_dsc_t loading_page_img_135_240 = {

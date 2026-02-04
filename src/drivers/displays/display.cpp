@@ -80,6 +80,7 @@ struct{
   ui_element_t  lb_hr_unit;
   lv_img_dsc_t  *miner_img_dsc;
   ui_element_t  img_miner;
+  ui_element_t  lb_diff;
   struct{
     ui_ring_obj_t    obj;
     ui_ring_config_t cfg;
@@ -453,6 +454,10 @@ static void ui_page_element_init(board_sal_t* board){
   logo_worker_nmqaxepp.header.h = 79;
   logo_worker_nmqaxepp.data_size = logo_worker_nmqaxepp.header.w * logo_worker_nmqaxepp.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
 
+  logo_miner_nmqaxepp_70_70.header.w = 70;
+  logo_miner_nmqaxepp_70_70.header.h = 70;
+  logo_miner_nmqaxepp_70_70.data_size = logo_miner_nmqaxepp_70_70.header.w * logo_miner_nmqaxepp_70_70.header.h * LV_IMG_PX_SIZE_ALPHA_BYTE;
+
   /*********************************** 135x240 image **************************************/
   loading_page_img_135_240.header.w = SCREEN_WIDTH;
   loading_page_img_135_240.header.h = SCREEN_HEIGHT;
@@ -803,14 +808,16 @@ static void ui_page_element_init(board_sal_t* board){
     dashboard_page.lb_hr.coord         = {55 + 40, -4};
     dashboard_page.lb_hr_unit.font     = &ds_digib_font_20;
     dashboard_page.lb_hr_unit.coord    = {100 + 95, 23};
-    dashboard_page.img_miner.coord     = {0, 60};
-    dashboard_page.miner_img_dsc       = &logo_worker_nmqaxepp;
+    dashboard_page.img_miner.coord     = {0, 55};
+    dashboard_page.lb_diff.font        = &lv_font_montserrat_16;
+    dashboard_page.lb_diff.coord       = {0, 0};
+    dashboard_page.miner_img_dsc       = &logo_miner_nmqaxepp_70_70;
 
     uint8_t arc_r = 30, arc_line_width = 8, arc_angle_full = 230;
     
     dashboard_page.ring_oc.cfg = {
         .x = 0,
-        .y = 6,
+        .y = 8,
         .radius = arc_r,
         .line_width = arc_line_width,
         .angle_start = 0,
@@ -828,7 +835,7 @@ static void ui_page_element_init(board_sal_t* board){
     
     dashboard_page.ring_pwr.cfg = {
         .x = (lv_coord_t)(2 * arc_r + 10),
-        .y = 6,
+        .y = 8,
         .radius = arc_r,
         .line_width = arc_line_width,
         .angle_start = 0,
@@ -1423,9 +1430,21 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( dashboard_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, dashboard_page.lb_hr_unit.coord.x, dashboard_page.lb_hr_unit.coord.y);
   // miner img
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    // miner image
     dashboard_page.img_miner.obj = lv_img_create(ui_pages[UI_PAGE_DASHBOARD]);
     lv_img_set_src(dashboard_page.img_miner.obj, dashboard_page.miner_img_dsc);
     lv_obj_align(dashboard_page.img_miner.obj, LV_ALIGN_CENTER, dashboard_page.img_miner.coord.x, dashboard_page.img_miner.coord.y);
+
+    // diff label
+    dashboard_page.lb_diff.obj   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
+    font_color = lv_color_hex(0xFFFFFF);
+    lv_obj_set_width(dashboard_page.lb_diff.obj, dashboard_page.miner_img_dsc->header.w);
+    lv_label_set_text( dashboard_page.lb_diff.obj, " ");
+    lv_obj_set_style_text_font(dashboard_page.lb_diff.obj, dashboard_page.lb_diff.font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(dashboard_page.lb_diff.obj, font_color, LV_PART_MAIN);
+    lv_label_set_long_mode(dashboard_page.lb_diff.obj, LV_LABEL_LONG_CLIP);
+    lv_obj_align( dashboard_page.lb_diff.obj, LV_ALIGN_CENTER,  dashboard_page.img_miner.coord.x + dashboard_page.miner_img_dsc->header.w, 
+                                                                dashboard_page.img_miner.coord.y +  dashboard_page.miner_img_dsc->header.h / 2 + 10);
   }
   //////////////////////////////////////hashrate healthy page layout///////////////////////////////////////////////
   // Hashrate label
@@ -1991,12 +2010,19 @@ static void ui_dashboard_page_update(board_sal_t* board){
     if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
       dashboard_page.ring_vcore_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
     }
+
+    static float step = 0.0f;
+    step += 0.05f;
+    lv_coord_t last_x = sin(step) * (SCREEN_WIDTH / 2 - dashboard_page.miner_img_dsc->header.w / 2);
     // miner pos update
     if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.img_miner.obj != NULL)) {
-      static float step = 0.0f;
-      step += 0.08f;
-      lv_coord_t last_x = sin(step) * (SCREEN_WIDTH / 2 - 35);
       lv_obj_set_x(dashboard_page.img_miner.obj, last_x);
+    }
+    // diff pos update
+    if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.lb_diff.obj != NULL)) {
+      String diff = formatNumber(board->status.miner.diff.last, 4) + "\r" + formatNumber(board->status.miner.diff.best_session, 4);
+      lv_label_set_text_fmt(dashboard_page.lb_diff.obj, "%s", diff.c_str());
+      lv_obj_set_x(dashboard_page.lb_diff.obj, last_x + 15);
     }
   }
   // update angles
