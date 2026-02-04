@@ -22,6 +22,7 @@ LV_FONT_DECLARE(ds_digib_font_38)
 LV_FONT_DECLARE(ds_digib_font_52)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(ds_digib_font_120)
+LV_FONT_DECLARE(Inconsolata_16)
 LV_FONT_DECLARE(symbol_14)
 LV_FONT_DECLARE(symbol_20)
 /********************************************************************* global UI elements ********************************************************************/
@@ -738,7 +739,7 @@ static void ui_page_element_init(board_sal_t* board){
     loading_page.lb_ip_and_slogan.font  = &lv_font_montserrat_20;
     loading_page.lb_ip_and_slogan.coord = {0, 25};
     loading_page.lb_pool_url.font       = &lv_font_montserrat_20;
-    loading_page.lb_pool_url.coord      = {0, 55};
+    loading_page.lb_pool_url.coord      = {0, 65};
     /*********************************** Config page *********************************/
     config_page.img_logo.coord          = {50, 50};
     config_page.lb_config_txt.font      = &lv_font_montserrat_16;
@@ -809,7 +810,7 @@ static void ui_page_element_init(board_sal_t* board){
     dashboard_page.lb_hr_unit.font     = &ds_digib_font_20;
     dashboard_page.lb_hr_unit.coord    = {100 + 95, 23};
     dashboard_page.img_miner.coord     = {0, 55};
-    dashboard_page.lb_diff.font        = &lv_font_montserrat_16;
+    dashboard_page.lb_diff.font        = &Inconsolata_16;
     dashboard_page.lb_diff.coord       = {0, 0};
     dashboard_page.miner_img_dsc       = &logo_miner_nmqaxepp_70_70;
 
@@ -1439,10 +1440,11 @@ static void ui_layout_init(board_sal_t* board){
     dashboard_page.lb_diff.obj   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
     font_color = lv_color_hex(0xFFFFFF);
     lv_obj_set_width(dashboard_page.lb_diff.obj, dashboard_page.miner_img_dsc->header.w);
-    lv_label_set_text( dashboard_page.lb_diff.obj, " ");
+    lv_label_set_text( dashboard_page.lb_diff.obj, "0.000");
     lv_obj_set_style_text_font(dashboard_page.lb_diff.obj, dashboard_page.lb_diff.font, LV_PART_MAIN);
+    lv_obj_set_style_text_align(dashboard_page.lb_diff.obj, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN);
     lv_obj_set_style_text_color(dashboard_page.lb_diff.obj, font_color, LV_PART_MAIN);
-    lv_label_set_long_mode(dashboard_page.lb_diff.obj, LV_LABEL_LONG_CLIP);
+    lv_label_set_long_mode(dashboard_page.lb_diff.obj, LV_LABEL_LONG_WRAP);
     lv_obj_align( dashboard_page.lb_diff.obj, LV_ALIGN_CENTER,  dashboard_page.img_miner.coord.x + dashboard_page.miner_img_dsc->header.w, 
                                                                 dashboard_page.img_miner.coord.y +  dashboard_page.miner_img_dsc->header.h / 2 + 10);
   }
