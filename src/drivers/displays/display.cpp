@@ -9,7 +9,6 @@
 static uint16_t SCREEN_WIDTH  = 0;
 static uint16_t SCREEN_HEIGHT = 0;
 static TFT_eSPI *tftDriver = nullptr;
-
 static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
@@ -20,8 +19,7 @@ LV_FONT_DECLARE(ds_digib_font_24)
 LV_FONT_DECLARE(ds_digib_font_28)
 LV_FONT_DECLARE(ds_digib_font_36)
 LV_FONT_DECLARE(ds_digib_font_38)
-LV_FONT_DECLARE(ds_digib_font_42)
-LV_FONT_DECLARE(ds_digib_font_50)
+LV_FONT_DECLARE(ds_digib_font_52)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(ds_digib_font_120)
 LV_FONT_DECLARE(symbol_14)
@@ -526,21 +524,17 @@ static void ui_page_element_init(board_sal_t* board){
     loading_page.bar_progress.font      = &lv_font_montserrat_20;
     loading_page.bar_progress.coord     = {0, -20};
     loading_page.lb_ip_and_slogan.font  = &lv_font_montserrat_20;
-    loading_page.lb_ip_and_slogan.coord = {0, 10};
+    loading_page.lb_ip_and_slogan.coord = {0, 13};
     loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
     loading_page.lb_pool_url.coord      = {0, 35};
     /*********************************** Config page *********************************/
     config_page.img_logo.coord          = {35, 0};
-
     config_page.lb_config_txt.font      = &lv_font_montserrat_14;
     config_page.lb_config_txt.coord     = {10, 40 };
-
     config_page.lb_version.font         = &lv_font_montserrat_16;
     config_page.lb_version.coord        = {70, 0};
-
     config_page.lb_cfg_timeout.font     = &lv_font_montserrat_14;
     config_page.lb_cfg_timeout.coord    = {175, 0 }; 
-
     config_page.qr_code.coord           = {0, 0};
     config_page.qr_code.font            = &lv_font_montserrat_14;
     /*********************************** mining page *********************************/
@@ -549,12 +543,12 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_share.coord           = {132, 41};
     miner_page.lb_hr_unit.font          = &ds_digib_font_28;
     miner_page.lb_hr_unit.coord         = {182, 110};
-    miner_page.lb_blk_hit.font          = &ds_digib_font_50;
-    miner_page.lb_blk_hit.coord         = {7, 39};
+    miner_page.lb_blk_hit.font          = &ds_digib_font_56;
+    miner_page.lb_blk_hit.coord         = {6, 36};
     miner_page.lb_fan_symb.font         = &symbol_14;
     miner_page.lb_fan_symb.coord        = {110, 76};
     miner_page.lb_hashrate.font         = &ds_digib_font_38;
-    miner_page.lb_hashrate.coord        = {40, 0};
+    miner_page.lb_hashrate.coord        = {50, 0};
     miner_page.lb_price.font            = &ds_digib_font_20;
     miner_page.lb_price.coord           = {33, 29};
     miner_page.lb_diff.font             = &ds_digib_font_18;
@@ -737,31 +731,27 @@ static void ui_page_element_init(board_sal_t* board){
     loading_page.bar_progress.font      = &lv_font_montserrat_20;
     loading_page.bar_progress.coord     = {0, -20};
     loading_page.lb_ip_and_slogan.font  = &lv_font_montserrat_20;
-    loading_page.lb_ip_and_slogan.coord = {0, 10};
-    loading_page.lb_pool_url.font       = &lv_font_montserrat_16;
-    loading_page.lb_pool_url.coord      = {0, 35};
+    loading_page.lb_ip_and_slogan.coord = {0, 25};
+    loading_page.lb_pool_url.font       = &lv_font_montserrat_20;
+    loading_page.lb_pool_url.coord      = {0, 55};
     /*********************************** Config page *********************************/
     config_page.img_logo.coord          = {50, 50};
-
-    config_page.lb_config_txt.font     = &lv_font_montserrat_16;
-    config_page.lb_config_txt.coord    = {15, 87 };
-
+    config_page.lb_config_txt.font      = &lv_font_montserrat_16;
+    config_page.lb_config_txt.coord     = {15, 87 };
     config_page.lb_version.font         = &lv_font_montserrat_20;
     config_page.lb_version.coord        = {88, 10};
-
     config_page.lb_cfg_timeout.font     = &lv_font_montserrat_20;
     config_page.lb_cfg_timeout.coord    = {225, -15 }; 
-
     config_page.qr_code.coord           = {0, 0};
     config_page.qr_code.font            = &lv_font_montserrat_14;
     /*********************************** mining page *********************************/
     miner_page.img_logo.coord           = {70, 44};
-    miner_page.lb_hr_unit.font          = &ds_digib_font_28;
-    miner_page.lb_hr_unit.coord         = {255 , 165};
+    miner_page.lb_hr_unit.font          = &ds_digib_font_24;
+    miner_page.lb_hr_unit.coord         = {268 , 172};
     miner_page.lb_blk_hit.font          = &ds_digib_font_56;
     miner_page.lb_blk_hit.coord         = {20, 65};
-    miner_page.lb_hashrate.font         = &ds_digib_font_42;
-    miner_page.lb_hashrate.coord        = {50, -50};
+    miner_page.lb_hashrate.font         = &ds_digib_font_52;
+    miner_page.lb_hashrate.coord        = {62, -44};
     miner_page.lb_price.font            = &ds_digib_font_20;
     miner_page.lb_price.coord           = {65, 25};
     miner_page.lb_ver.font              = &ds_digib_font_16;
@@ -781,13 +771,13 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_wifi_symbol.font      = &lv_font_montserrat_16;
     miner_page.lb_wifi_symbol.coord     = {128+ 59, 1};
 
-    miner_page.lb_diff.font             = &ds_digib_font_20;
+    miner_page.lb_diff.font             = &ds_digib_font_24;
     miner_page.lb_diff.coord            = {132+ 55, 30};
-    miner_page.lb_share.font            = &ds_digib_font_20;
+    miner_page.lb_share.font            = &ds_digib_font_24;
     miner_page.lb_share.coord           = {132+ 55, 55};
-    miner_page.lb_temp.font             = &ds_digib_font_20;
+    miner_page.lb_temp.font             = &ds_digib_font_24;
     miner_page.lb_temp.coord            = {132+ 55, 83};
-    miner_page.lb_fan.font              = &ds_digib_font_20;
+    miner_page.lb_fan.font              = &ds_digib_font_24;
     miner_page.lb_fan.coord             = {132+ 55, 110};
 
     miner_page.lb_diff_symbol.font      = &symbol_20;
@@ -933,7 +923,7 @@ static void ui_page_element_init(board_sal_t* board){
     hr_health_page.lb_hr_unit.font      = &ds_digib_font_20;
     hr_health_page.lb_hr_unit.coord     = {100 + 95, 23};
 
-    hr_health_page.lb_scale.font        = &lv_font_montserrat_18;
+    hr_health_page.lb_scale.font        = &lv_font_montserrat_16;
     hr_health_page.lb_scale.coord       = {0, 45};
 
     hr_health_page.total_hr_chart.coord = {15, 8};
@@ -1124,7 +1114,7 @@ static void ui_layout_init(board_sal_t* board){
   //slogan label
   loading_page.lb_ip_and_slogan.obj   = lv_label_create(ui_pages[UI_PAGE_LOADING]);
   String slogan_str = "Make it better";
-  width = lv_txt_get_width(slogan_str.c_str(), strlen(slogan_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
+  width = lv_txt_get_width(slogan_str.c_str(), strlen(slogan_str.c_str()), loading_page.lb_ip_and_slogan.font, 0, LV_TEXT_FLAG_NONE);
   lv_obj_set_width(loading_page.lb_ip_and_slogan.obj, width);
   lv_label_set_text( loading_page.lb_ip_and_slogan.obj, slogan_str.c_str());
   lv_obj_set_style_text_font(loading_page.lb_ip_and_slogan.obj, loading_page.lb_ip_and_slogan.font, LV_PART_MAIN);
@@ -1188,7 +1178,7 @@ static void ui_layout_init(board_sal_t* board){
   //Hashrate value
   font_color = lv_color_hex(0xEE7D30);
   miner_page.lb_hashrate.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-  lv_obj_set_width(miner_page.lb_hashrate.obj, 80);
+  lv_obj_set_width(miner_page.lb_hashrate.obj, 100);
   lv_label_set_text( miner_page.lb_hashrate.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_hashrate.obj, miner_page.lb_hashrate.font, LV_PART_MAIN);
   lv_obj_set_style_text_color(miner_page.lb_hashrate.obj, font_color, LV_PART_MAIN); 
@@ -1271,7 +1261,9 @@ static void ui_layout_init(board_sal_t* board){
   //Diff value
   font_color = lv_color_hex(0xFFFFFF);
   miner_page.lb_diff.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
-  lv_obj_set_width(miner_page.lb_diff.obj, SCREEN_WIDTH/2.4);
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) width = SCREEN_WIDTH/2.6;
+  else   width = SCREEN_WIDTH/2.4;
+  lv_obj_set_width(miner_page.lb_diff.obj, width);
   lv_label_set_text( miner_page.lb_diff.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_diff.obj, miner_page.lb_diff.font, LV_PART_MAIN);
   lv_label_set_long_mode(miner_page.lb_diff.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
@@ -1489,7 +1481,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_style_set_line_dash_gap(&style_grid, 4); 
   lv_style_set_line_opa(&style_grid, LV_OPA_50); 
   lv_obj_add_style(hr_health_page.total_hr_chart.obj, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_text_font(hr_health_page.total_hr_chart.obj, &lv_font_montserrat_10, LV_PART_TICKS); 
+  lv_obj_set_style_text_font(hr_health_page.total_hr_chart.obj, &lv_font_montserrat_12, LV_PART_TICKS); 
   ////////////////////////////////////////////big digit  page layout///////////////////////////////////////////////
   // Hashrate label
   font_color = lv_color_hex(0xEE7D30);
@@ -1564,20 +1556,20 @@ static void ui_loading_page_update(board_sal_t* board) {
   static lv_coord_t width = 0;
   // ip address display instead of slogan after wifi connected
   if((WL_CONNECTED == board->status.wifi.status) && (loading_page.lb_ip_and_slogan.obj != NULL)){
-    String ip_str = g_board.status.wifi.ip.toString();
+    String ip_str = board->status.wifi.ip.toString();
     width = lv_txt_get_width(ip_str.c_str(), strlen(ip_str.c_str()), &lv_font_montserrat_20, 0, LV_TEXT_FLAG_NONE);
     lv_obj_set_width(loading_page.lb_ip_and_slogan.obj, width);
     lv_obj_set_style_text_color(loading_page.lb_ip_and_slogan.obj, lv_color_hex(0x00FF00), LV_PART_MAIN); 
-    lv_label_set_text(loading_page.lb_ip_and_slogan.obj, g_board.status.wifi.ip.toString().c_str());
+    lv_label_set_text(loading_page.lb_ip_and_slogan.obj, board->status.wifi.ip.toString().c_str());
   }
 
   // pool url update
   if((loading_page.lb_pool_url.obj != NULL) && (board->market->lastUpdate != 0)){
-    String pool_str = (g_board.info.connection.pool.use.url + ":" + g_board.info.connection.pool.use.port);
-    width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), &lv_font_montserrat_16, 0, LV_TEXT_FLAG_NONE);
+    String pool_str = (board->info.connection.pool.use.url + ":" + board->info.connection.pool.use.port);
+    width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), loading_page.lb_pool_url.font, 0, LV_TEXT_FLAG_NONE);
     width = (width > SCREEN_WIDTH) ? SCREEN_WIDTH : width;
     lv_obj_set_width(loading_page.lb_pool_url.obj, width);
-    lv_label_set_text(loading_page.lb_pool_url.obj, (g_board.info.connection.pool.use.url + ":" + g_board.info.connection.pool.use.port).c_str());
+    lv_label_set_text(loading_page.lb_pool_url.obj, (board->info.connection.pool.use.url + ":" + board->info.connection.pool.use.port).c_str());
   }
 
   // loading progress update
@@ -2001,10 +1993,9 @@ static void ui_dashboard_page_update(board_sal_t* board){
     }
     // miner pos update
     if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.img_miner.obj != NULL)) {
-      static lv_coord_t last_x = dashboard_page.img_miner.coord.x;
       static float step = 0.0f;
-      step += 0.05f;
-      last_x = sin(step) * (SCREEN_WIDTH / 2 - 35);
+      step += 0.08f;
+      lv_coord_t last_x = sin(step) * (SCREEN_WIDTH / 2 - 35);
       lv_obj_set_x(dashboard_page.img_miner.obj, last_x);
     }
   }
