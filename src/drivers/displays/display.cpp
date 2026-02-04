@@ -23,6 +23,7 @@ LV_FONT_DECLARE(ds_digib_font_52)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(ds_digib_font_120)
 LV_FONT_DECLARE(Inconsolata_16)
+LV_FONT_DECLARE(Inconsolata_26)
 LV_FONT_DECLARE(symbol_14)
 LV_FONT_DECLARE(symbol_20)
 /********************************************************************* global UI elements ********************************************************************/
@@ -561,8 +562,8 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_diff.coord            = {132, 25};
     miner_page.lb_ver.font              = &ds_digib_font_16;
     miner_page.lb_ver.coord             = {2, 22};
-    miner_page.lb_power.font            = &ds_digib_font_18;
-    miner_page.lb_power.coord           = {10, 114};
+    miner_page.lb_power.font            = &Inconsolata_16;
+    miner_page.lb_power.coord           = {13, 114};
     miner_page.lb_ip.font               = &ds_digib_font_16;
     miner_page.lb_ip.coord              = {140, 2};
     miner_page.lb_uptime_hms.font       = &ds_digib_font_16;
@@ -762,8 +763,8 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_price.coord           = {65, 25};
     miner_page.lb_ver.font              = &ds_digib_font_16;
     miner_page.lb_ver.coord             = {16, 38};
-    miner_page.lb_power.font            = &ds_digib_font_24;
-    miner_page.lb_power.coord           = {30, 168};
+    miner_page.lb_power.font            = &Inconsolata_26;
+    miner_page.lb_power.coord           = {20, 167};
     miner_page.lb_ip.font               = &ds_digib_font_18;
     miner_page.lb_ip.coord              = {148+ 60, 2};
     miner_page.lb_uptime_hms.font       = &ds_digib_font_18;
@@ -1222,7 +1223,9 @@ static void ui_layout_init(board_sal_t* board){
   //power value
   font_color = lv_color_hex(0xFFFFFF);
   miner_page.lb_power.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-  lv_obj_set_width(miner_page.lb_power.obj, SCREEN_WIDTH/2.5);
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) width = SCREEN_WIDTH/2.3;
+  else   width = SCREEN_WIDTH/2.5;
+  lv_obj_set_width(miner_page.lb_power.obj, width);
   lv_label_set_text( miner_page.lb_power.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_power.obj, miner_page.lb_power.font, LV_PART_MAIN);
   lv_label_set_long_mode(miner_page.lb_power.obj, LV_LABEL_LONG_DOT);
@@ -2041,8 +2044,8 @@ static void ui_dashboard_page_update(board_sal_t* board){
   ui_update_ring(&dashboard_page.ring_pwr.obj, pwr_angle, formatNumber(board->status.power.vbus * board->status.power.ibus/1000.0/1000.0, 3) + "w");
   ui_update_ring(&dashboard_page.ring_vc_req.obj, vcore_req_angle, formatNumber(board->info.spec.asic.req_vcore/1000.0, 4) + "v");
   ui_update_ring(&dashboard_page.ring_vc_real.obj, vcore_measure_angle, formatNumber(board->status.power.vcore/1000.0, 4) + "v");
-  ui_update_ring(&dashboard_page.ring_asic_temp.obj, asic_temp_angle, formatNumber(board->status.temp.asic, 2) + "'C");
-  ui_update_ring(&dashboard_page.ring_vcore_temp.obj, vcore_temp_angle, formatNumber(board->status.temp.vcore, 2) + "'C");
+  ui_update_ring(&dashboard_page.ring_asic_temp.obj, asic_temp_angle, formatNumber(board->status.temp.asic, 2) + "°C");
+  ui_update_ring(&dashboard_page.ring_vcore_temp.obj, vcore_temp_angle, formatNumber(board->status.temp.vcore, 2) + "°C");
 
   // update hashrate
   String hr_value = formatNumber(board->status.miner.hashrate._3m, 3);
