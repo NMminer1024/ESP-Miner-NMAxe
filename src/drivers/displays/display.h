@@ -55,8 +55,8 @@ typedef struct {
     const char* label;       // Sector label (optional)
 } pie_sector_t;
 
-// Pie chart object structure (max 8 sectors)
-#define PIE_CHART_MAX_SECTORS 8
+// Pie chart object structure (max 4 sectors)
+#define PIE_CHART_MAX_SECTORS 4
 typedef struct {
     lv_obj_t* arcs[PIE_CHART_MAX_SECTORS];           // Arc objects for each sector
     lv_obj_t* labels[PIE_CHART_MAX_SECTORS];         // Label objects for each sector

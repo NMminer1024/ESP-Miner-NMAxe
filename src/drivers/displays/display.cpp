@@ -127,6 +127,7 @@ struct{
   struct{
     lv_chart_series_t *series;
     lv_obj_t          *obj;
+    const lv_font_t   *font;
     struct {
         lv_coord_t x, y;
     } coord;
@@ -695,7 +696,8 @@ static void ui_page_element_init(board_sal_t* board){
     hr_health_page.lb_scale.font        = &lv_font_montserrat_14;
     hr_health_page.lb_scale.coord       = {-125, 5};
 
-    hr_health_page.total_hr_chart.coord  = {15, 8};
+    hr_health_page.total_hr_chart.coord = {15, 8};
+    hr_health_page.total_hr_chart.font  = &lv_font_montserrat_10;
     /******************************** big digit healthy page *****************************/
     big_digit_page.lb_hr.font           = &ds_digib_font_56;
     big_digit_page.lb_hr.coord          = {0, 0};
@@ -935,6 +937,7 @@ static void ui_page_element_init(board_sal_t* board){
     hr_health_page.lb_scale.font        = &lv_font_montserrat_16;
     hr_health_page.lb_scale.coord       = {0, 45};
 
+    hr_health_page.total_hr_chart.font  = &lv_font_montserrat_12;
     hr_health_page.total_hr_chart.coord = {15, 8};
 
     hr_health_page.asic_hr_chart.center_x = 100;
@@ -1505,7 +1508,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_style_set_line_dash_gap(&style_grid, 4); 
   lv_style_set_line_opa(&style_grid, LV_OPA_50); 
   lv_obj_add_style(hr_health_page.total_hr_chart.obj, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_text_font(hr_health_page.total_hr_chart.obj, &lv_font_montserrat_12, LV_PART_TICKS); 
+  lv_obj_set_style_text_font(hr_health_page.total_hr_chart.obj, hr_health_page.total_hr_chart.font, LV_PART_TICKS); 
   ////////////////////////////////////////////big digit  page layout///////////////////////////////////////////////
   // Hashrate label
   font_color = lv_color_hex(0xEE7D30);
