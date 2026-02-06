@@ -344,7 +344,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.init.torch_pin           = 42;
             fan_cfg.init.self_test_rpm_thr   = 2000;
             fan_cfg.init.danger_rpm_thr      = 100;
-            fan_cfg.init.pwm_ch              = 2;
+            fan_cfg.init.pwm_ch              = 1;
             fan_cfg.init.pwm_freq            = 1000*100; // Hz
             fan_cfg.init.pwm_resolution      = 8;        // bits
             fan_cfg.init.p_cnt_h_limt        = 30000;    // PCNT high limit value
@@ -353,15 +353,15 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.Kd                   = 0.0f;
             fan_cfg.pid.prev_error           = 0;
             fan_cfg.pid.integral             = 0;
-            fan_cfg.pid.output_min           = 0.05f;
+            fan_cfg.pid.output_min           = 0.01f;
             fan_cfg.pid.output_max           = 100.0f;
-            config.fans.push_back(fan_cfg); // fan1 
+            config.fans.push_back(fan_cfg); // fan0 for asic cooling(required)
 
             // fan_cfg.id                       = 1;
-            // fan_cfg.init.pwm_pin             = 41;
-            // fan_cfg.init.torch_pin           = 42;
+            // fan_cfg.init.pwm_pin             = 10;
+            // fan_cfg.init.torch_pin           = 47;
             // fan_cfg.init.self_test_rpm_thr   = 4000;
-            // fan_cfg.init.danger_rpm_thr      = 300;
+            // fan_cfg.init.danger_rpm_thr      = 100;
             // fan_cfg.init.pwm_ch              = 2;
             // fan_cfg.init.pwm_freq            = 1000*100; // Hz
             // fan_cfg.init.pwm_resolution      = 8;        // bits
@@ -371,9 +371,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             // fan_cfg.pid.Kd                   = 0.0f;
             // fan_cfg.pid.prev_error           = 0;
             // fan_cfg.pid.integral             = 0;
-            // fan_cfg.pid.output_min           = 25.0f;
-            // fan_cfg.pid.output_max           = 99.999f;
-            // config.fans.push_back(fan_cfg); // fan2
+            // fan_cfg.pid.output_min           = 0.01f;
+            // fan_cfg.pid.output_max           = 100.0f;
+            // config.fans.push_back(fan_cfg); // fan1 for power cooling(optional)
             break;
         default:
             config.name                      = "Unknown";

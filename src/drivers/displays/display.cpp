@@ -766,7 +766,7 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_ver.font              = &ds_digib_font_16;
     miner_page.lb_ver.coord             = {16, 38};
     miner_page.lb_power.font            = &Inconsolata_26;
-    miner_page.lb_power.coord           = {20, 167};
+    miner_page.lb_power.coord           = {20, 169};
     miner_page.lb_ip.font               = &ds_digib_font_18;
     miner_page.lb_ip.coord              = {148+ 60, 2};
     miner_page.lb_uptime_hms.font       = &ds_digib_font_18;
@@ -799,7 +799,7 @@ static void ui_page_element_init(board_sal_t* board){
     miner_page.lb_fan_symb.coord        = {110 + 45, 110};
 
     miner_page.lb_utc_time.font          = &ds_digib_font_18;
-    miner_page.lb_utc_time.coord         = {3, 3};
+    miner_page.lb_utc_time.coord         = {1, 3};
 
     miner_page.lb_swarm_best_diff.font      = &ds_digib_font_24;
     miner_page.lb_swarm_best_diff.coord     = {3, 210};
@@ -1226,7 +1226,7 @@ static void ui_layout_init(board_sal_t* board){
   //power value
   font_color = lv_color_hex(0xFFFFFF);
   miner_page.lb_power.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
-  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) width = SCREEN_WIDTH/2.3;
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) width = SCREEN_WIDTH/2.2;
   else   width = SCREEN_WIDTH/2.5;
   lv_obj_set_width(miner_page.lb_power.obj, width);
   lv_label_set_text( miner_page.lb_power.obj, " ");
@@ -1651,7 +1651,7 @@ static void ui_miner_page_update(board_sal_t* board){
   String best_ever = formatNumber(board->status.miner.diff.best_ever, 1);
   String network_diff = formatNumber(board->status.miner.diff.network, 2);
   String voltage = formatNumber(board->status.power.vbus/1000.0, 3);
-  String power = formatNumber(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 3);
+  String power = formatNumber(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 2);
   String price = (millis() - board->market->lastUpdate <= MINER_MARKET_CONNECT_TIMEOUT) ? formatNumber(board->market->price, 6) : "";
   String fan_and_efficiency = String(board->status.fan.list[0].rpm) + " rpm";
   // String fan_and_efficiency = formatNumber(board->info.efficiency, 4) + "J/TH";
