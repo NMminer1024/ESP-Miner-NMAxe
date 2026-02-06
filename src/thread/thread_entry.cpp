@@ -766,33 +766,66 @@ void fan_thread_entry(void *args){
     tmp102_init();
 
     //fan init
-    fan_init_t init_param;
-    init_param.pwm_pin         = board->info.spec.fans[0].init.pwm_pin;
-    init_param.torch_pin       = board->info.spec.fans[0].init.torch_pin;
-    init_param.pwm_ch          = board->info.spec.fans[0].init.pwm_ch;
-    init_param.pwm_freq        = board->info.spec.fans[0].init.pwm_freq;
-    init_param.pwm_resolution  = board->info.spec.fans[0].init.pwm_resolution;
-    init_param.p_cnt_h_limt    = board->info.spec.fans[0].init.p_cnt_h_limt;
-    fan_init(init_param);
+    for(auto &fan : board->info.spec.fans){
+        // fan initialize with defined parameters
+        fan_drv_init(fan.init);
+        LOG_I("Fan[%d] initialized with torch pin %d, pwm pin %d", fan.id, fan.init.torch.pulse_gpio_num, fan.init.pwm.pin);
+    }
 
-    // polarity detection
-    bool fan_invert = guess_fan_polarity();
+    for(auto &fan : board->info.spec.fans){
+        // polarity detection
+        fan.polarity = guess_fan_polarity(fan.init);
+        LOG_W("Guess fan[%d] polarity %s", fan.id, fan.polarity ? "inverted" : "normal");
+    }
+
+    // Helper function to find fan config by id
+    auto get_fan_config = [&](uint8_t fan_id) -> fan_config_t* {
+        for(auto &fan_cfg : board->info.spec.fans){
+            if(fan_cfg.id == fan_id){
+                return &fan_cfg;
+            }
+        }
+        return nullptr;
+    };
+
 
     // fan self test
     while(true){
-        bool all_fan_ok = true;
+        bool self_test_result[board->status.fan.count] = {false,}; // initialize all to false
+        bool all_fan_ok = true; // assume all fans are okay until we find one that isn't
+
         for(auto &fan : board->status.fan.list){
-            measure_fan_rpm_for_duration(1.0, 5000, fan.rpm , fan_invert);
-            fan.self_test = (fan.rpm > board->info.spec.fans[fan.id].init.self_test_rpm_thr) ? true : false;
-            all_fan_ok = all_fan_ok && fan.self_test;
+            if(self_test_result[fan.id])  continue;
+            
+            fan_config_t* fan_cfg = get_fan_config(fan.id);
+            if(fan_cfg == nullptr) continue; // skip if fan config not found
+            
+            bool fan_invert = fan_cfg->polarity;  // find fan polarity by id from config
+            fan_init_t init_param = fan_cfg->init;// find fan init config by id from config
+
+            measure_fan_rpm_for_duration(init_param, 1.0, 5000, fan.rpm , fan_invert);
+            fan.self_test = (fan.rpm > fan_cfg->init.self_test_rpm_thr) ? true : false;
+            self_test_result[fan.id] = fan.self_test;
         }
+
+        for(auto &fan : board->status.fan.list){
+            // if any fan self test result is false, set all_fan_ok to false
+            all_fan_ok = all_fan_ok && self_test_result[fan.id];
+        }
+
         if(all_fan_ok && (board->status.fan.list.size() > 0)) break;
-        LOG_W("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
+        LOG_E("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
         delay(10);
     }
 
     while(true){
         for(auto &fan : board->status.fan.list){
+            fan_config_t* fan_cfg = get_fan_config(fan.id);
+            if(fan_cfg == nullptr) continue; // skip if fan config not found
+            
+            bool fan_invert = fan_cfg->polarity;  // find fan polarity by id from config
+            fan_init_t init_param = fan_cfg->init;// find fan init config by id from config
+
             delay(125);// 8Hz
             //update board temperature
             board->status.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : board->status.temp.mcu;
@@ -809,7 +842,7 @@ void fan_thread_entry(void *args){
             if(millis() - start_ms >= 1000) {
                 pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
                 uint16_t delta_pcnt = 0;
-                if (now_count < last_count) delta_pcnt = (init_param.p_cnt_h_limt - last_count) + now_count;
+                if (now_count < last_count) delta_pcnt = (init_param.torch.counter_h_lim - last_count) + now_count;
                 else delta_pcnt = now_count - last_count;
                 fan.rpm = calculate_rpm(delta_pcnt, (millis() - start_ms) / 1000.0);
                 last_count = now_count;
@@ -820,10 +853,10 @@ void fan_thread_entry(void *args){
             if(board->status.preference.fan.is_auto_speed && fan.self_test){
                 static uint32_t pid_start = millis();
                 float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-                fan.speed = (uint16_t)pid_compute(&board->info.spec.fans[fan.id].pid, board->status.preference.fan.target_temp, board->status.temp.asic, dt);
+                fan.speed = (uint16_t)pid_compute(&fan_cfg->pid, board->status.preference.fan.target_temp, board->status.temp.asic, dt);
                 pid_start = millis();
             }
-            fan_set_speed(fan.speed / 100.0, fan_invert);
+            fan_set_speed(init_param, fan.speed / 100.0, fan_invert);
         }
     }
 }

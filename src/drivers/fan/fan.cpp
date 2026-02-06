@@ -5,40 +5,23 @@
 
 #define PULSES_PER_REVOLUTION 2        // Number of pulses per fan revolution
 
-static fan_init_t fan_init_params;
+void fan_drv_init(fan_init_t init_param){
+    pinMode(init_param.pwm.pin, OUTPUT);
+    ledcSetup(init_param.pwm.ch, init_param.pwm.freq, init_param.pwm.resolution);
+    ledcAttachPin(init_param.pwm.pin, init_param.pwm.ch);
 
-void fan_init(fan_init_t init_param){
-    fan_init_params = init_param;
-    pinMode(init_param.pwm_pin, OUTPUT);
-    ledcSetup(init_param.pwm_ch, init_param.pwm_freq, init_param.pwm_resolution);
-    ledcAttachPin(init_param.pwm_pin, init_param.pwm_ch);
-
-    pcnt_config_t pcnt_config = {
-        .pulse_gpio_num = init_param.torch_pin,
-        .ctrl_gpio_num = PCNT_PIN_NOT_USED,
-        .lctrl_mode = PCNT_MODE_KEEP,
-        .hctrl_mode = PCNT_MODE_KEEP,
-        .pos_mode = PCNT_COUNT_INC,   
-        .neg_mode = PCNT_COUNT_DIS,   
-        .counter_h_lim = init_param.p_cnt_h_limt,
-        .counter_l_lim = 0,           
-        .unit = PCNT_UNIT_0,
-        .channel = PCNT_CHANNEL_0
-    };
-
-    pcnt_unit_config(&pcnt_config);
-    pcnt_set_filter_value(PCNT_UNIT_0, 100);
-    pcnt_filter_enable(PCNT_UNIT_0);
-    pcnt_counter_pause(PCNT_UNIT_0);
-    pcnt_counter_clear(PCNT_UNIT_0);
-    pcnt_counter_resume(PCNT_UNIT_0);
+    pcnt_unit_config(&init_param.torch);
+    pcnt_set_filter_value(init_param.torch.unit, 100);
+    pcnt_filter_enable(init_param.torch.unit);
+    pcnt_counter_pause(init_param.torch.unit);
+    pcnt_counter_clear(init_param.torch.unit);
+    pcnt_counter_resume(init_param.torch.unit);
 }
 
-
-void fan_set_speed(float speed, bool invert = false){
+void fan_set_speed(fan_init_t init_param, float speed, bool invert = false){
     float spd = (invert) ? (1.0f - speed):speed;
-    uint32_t dutyCycle = (uint32_t)(spd * (( 1 << fan_init_params.pwm_resolution) - 1));
-    ledcWrite(fan_init_params.pwm_ch, dutyCycle);
+    uint32_t dutyCycle = (uint32_t)(spd * (( 1 << init_param.pwm.resolution) - 1));
+    ledcWrite(init_param.pwm.ch, dutyCycle);
 }
 
 uint16_t calculate_rpm(int16_t pulse_count, double time_seconds) {
@@ -65,19 +48,19 @@ float pid_compute(fan_pid_t* pid, float setpoint, float measured, float dt) {
     return output;
 }
 
-void measure_fan_rpm_for_duration(float speed, uint32_t duration_ms, uint16_t &measured_rpm, bool invert = false) {
+void measure_fan_rpm_for_duration(fan_init_t init_param, float speed, uint32_t duration_ms, uint16_t &measured_rpm, bool invert = false) {
     int16_t now_count = 0, last_count = 0;
     uint32_t start_time = millis();
     uint32_t last_measure_time = start_time;
 
-    fan_set_speed(speed, invert);
+    fan_set_speed(init_param, speed, invert);
 
     while (millis() - start_time < duration_ms) {
         if (millis() - last_measure_time >= 100) {
             pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
             uint16_t delta_pcnt = 0;
             if (now_count < last_count) {
-                delta_pcnt = (fan_init_params.p_cnt_h_limt - last_count) + now_count;
+                delta_pcnt = (init_param.torch.counter_h_lim - last_count) + now_count;
             } else {
                 delta_pcnt = now_count - last_count;
             }
@@ -90,21 +73,21 @@ void measure_fan_rpm_for_duration(float speed, uint32_t duration_ms, uint16_t &m
     }
 }
 
-bool guess_fan_polarity(void) {
+bool guess_fan_polarity(fan_init_t init_param) {
     LOG_I("Guessing fan polarity, please wait...");
     uint16_t rpm_50 = 0, rpm_100 = 0;
 
     // test at 50% speed
-    measure_fan_rpm_for_duration(0.5, 2000, rpm_50);
+    measure_fan_rpm_for_duration(init_param, 0.5, 2000, rpm_50);
     LOG_I("Fan RPM at 50%% speed: %d", rpm_50);
 
     // test at 100% speed
-    measure_fan_rpm_for_duration(1.0, 2000, rpm_100);
+    measure_fan_rpm_for_duration(init_param, 1.0, 2000, rpm_100);
     LOG_I("Fan RPM at 100%% speed: %d", rpm_100);
     
     // Determine polarity
     bool invert = (0.9 * rpm_100) <= rpm_50;
     
-    LOG_W("Fan polarity %s", invert ? "inverted" : "normal");
+    // LOG_W("Fan polarity %s", invert ? "inverted" : "normal");
     return invert;
 }

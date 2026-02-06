@@ -1654,7 +1654,6 @@ static void ui_miner_page_update(board_sal_t* board){
   String power = formatNumber(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 2);
   String price = (millis() - board->market->lastUpdate <= MINER_MARKET_CONNECT_TIMEOUT) ? formatNumber(board->market->price, 6) : "";
   String fan_and_efficiency = String(board->status.fan.list[0].rpm) + " rpm";
-  // String fan_and_efficiency = formatNumber(board->info.efficiency, 4) + "J/TH";
 
   //diff symbol color update
   if(board->status.miner.diff.last != 0){//avoid the first time update
