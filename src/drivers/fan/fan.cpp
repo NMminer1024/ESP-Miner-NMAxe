@@ -74,7 +74,6 @@ void measure_fan_rpm_for_duration(fan_init_t init_param, float speed, uint32_t d
 }
 
 bool guess_fan_polarity(fan_init_t init_param) {
-    LOG_I("Guessing fan polarity, please wait...");
     uint16_t rpm_50 = 0, rpm_100 = 0;
 
     // test at 50% speed
@@ -87,7 +86,6 @@ bool guess_fan_polarity(fan_init_t init_param) {
     
     // Determine polarity
     bool invert = (0.9 * rpm_100) <= rpm_50;
-    
-    // LOG_W("Fan polarity %s", invert ? "inverted" : "normal");
+
     return invert;
 }

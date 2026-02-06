@@ -772,10 +772,10 @@ void fan_thread_entry(void *args){
         LOG_I("Fan[%d] initialized with torch pin %d, pwm pin %d", fan.id, fan.init.torch.pulse_gpio_num, fan.init.pwm.pin);
     }
 
+    // polarity detection
     for(auto &fan : board->info.spec.fans){
-        // polarity detection
         fan.polarity = guess_fan_polarity(fan.init);
-        LOG_W("Guess fan[%d] polarity %s", fan.id, fan.polarity ? "inverted" : "normal");
+        LOG_W("Guess fan[%d] polarity :[%s]", fan.id, fan.polarity ? "inverted" : "normal");
     }
 
     // Helper function to find fan config by id
