@@ -1713,16 +1713,22 @@ static void ui_miner_page_update(board_sal_t* board){
   lv_label_set_text_fmt(miner_page.lb_hashrate.obj, "%s", hashrate.substring(0, hashrate.length() - 1).c_str());
   //hashrate unit
   lv_label_set_text_fmt(miner_page.lb_hr_unit.obj, "%s", hashuint.c_str());
+
   //block hit
   if(board->status.miner.hits <= 9){
     lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, miner_page.lb_blk_hit.font, LV_PART_MAIN);
     lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x, miner_page.lb_blk_hit.coord.y);
-    lv_label_set_text_fmt(miner_page.lb_blk_hit.obj, "%d", board->status.miner.hits);
   }else if (board->status.miner.hits <= 99){
-    lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x -10, miner_page.lb_blk_hit.coord.y + 11);
-    lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, &ds_digib_font_28, LV_PART_MAIN);
-    lv_label_set_text_fmt(miner_page.lb_blk_hit.obj, "%d", board->status.miner.hits);
+    if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
+      lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x - 2, miner_page.lb_blk_hit.coord.y + 8);
+      lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, &ds_digib_font_38, LV_PART_MAIN);
+    }
+    else {
+      lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x -10, miner_page.lb_blk_hit.coord.y + 11);
+      lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, &ds_digib_font_28, LV_PART_MAIN);
+    }
   }
+  lv_label_set_text_fmt(miner_page.lb_blk_hit.obj, "%d", board->status.miner.hits);
 
   //version
 #if HAS_VERSION_CHECK_FEATURE
