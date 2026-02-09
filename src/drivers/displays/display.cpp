@@ -2390,36 +2390,9 @@ void display_thread_entry(void *args){
   g_board.status.ui.page.loading.details.color = 0x00FF00;
   g_board.status.ui.page.loading.details.msg   = "Vbus " + String(g_board.power->get_vbus() / 1000.0, 3) + "V.";
   delay(500);
-  /********************************************wait fan self test ****************************************/
-  cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.3;
-  for(uint8_t i = 0; i < g_board.status.fan.count; i++){
-    while(!g_board.status.fan.list[i].self_test){
-      g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-      g_board.status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
-      delay(300);
-    }
-    g_board.status.ui.page.loading.details.color = 0x00FF00;
-    g_board.status.ui.page.loading.details.msg   = "Fan" + ((g_board.status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
-    delay(2000);
-  }
-  /******************************************wait Vcore self test ****************************************/
-  cnt = 0;
-  g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-  g_board.status.ui.page.loading.percent = 0.4;
-  g_board.status.ui.page.loading.details.msg   = vcore_chk_str[0];
-  delay(500);
-  while(!g_board.power->is_vcore_ready()){
-    g_board.status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
-    delay(100);
-  }
-  delay(200);//wait for vcore set to target voltage
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.";
-  delay(500);
   /****************************************wait for wifi connected***************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.5;
+  g_board.status.ui.page.loading.percent = 0.3;
   while(g_board.status.wifi.status != WL_CONNECTED){
     g_board.status.ui.page.loading.details.color = 0xFFFFFF;
     g_board.status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.sta.ssid +  String("]");
@@ -2435,6 +2408,33 @@ void display_thread_entry(void *args){
   g_board.status.ui.page.loading.details.color = 0x00FF00;
   g_board.status.ui.page.loading.details.msg   = "Wifi Connected!";
   delay(500);
+  /********************************************wait fan self test ****************************************/
+  cnt = 0;
+  g_board.status.ui.page.loading.percent = 0.4;
+  for(uint8_t i = 0; i < g_board.status.fan.count; i++){
+    while(!g_board.status.fan.list[i].self_test){
+      g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+      g_board.status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
+      delay(300);
+    }
+    g_board.status.ui.page.loading.details.color = 0x00FF00;
+    g_board.status.ui.page.loading.details.msg   = "Fan" + ((g_board.status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
+    delay(2000);
+  }
+  /******************************************wait Vcore self test ****************************************/
+  cnt = 0;
+  g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+  g_board.status.ui.page.loading.percent = 0.5;
+  g_board.status.ui.page.loading.details.msg   = vcore_chk_str[0];
+  delay(500);
+  while(!g_board.power->is_vcore_ready()){
+    g_board.status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
+    delay(100);
+  }
+  delay(200);//wait for vcore set to target voltage
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.";
+  delay(500);
   /****************************************wait for asic init********************************************/
   cnt = 0;
   g_board.status.ui.page.loading.percent = 0.6;
@@ -2447,24 +2447,6 @@ void display_thread_entry(void *args){
   g_board.status.ui.page.loading.details.color = 0x00FF00;
   g_board.status.ui.page.loading.details.msg   = String("Found " + String(g_board.miner->get_asic_count())) + (g_board.miner->get_asic_count() > 1 ? " chips" : " chip");
   delay(1000);
-  // /****************************************wait for wifi connected***************************************/
-  // cnt = 0;
-  // g_board.status.ui.page.loading.percent = 0.6;
-  // while(g_board.status.wifi.status != WL_CONNECTED){
-  //   g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-  //   g_board.status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.sta.ssid +  String("]");
-  //   delay(300);
-  //   if(xSemaphoreTake(g_board.status.wifi.force_cfg_xsem, 100)){
-  //     g_board.status.ui.page.loading.details.color = 0xFF0000;
-  //     g_board.status.ui.page.loading.details.msg   = String("Timeout!");
-  //     delay(1000);
-  //     g_board.status.ui.page.current = UI_PAGE_CONFIG;
-  //     lv_obj_scroll_to_view(ui_pages[UI_PAGE_CONFIG], LV_ANIM_ON);
-  //   }
-  // }
-  // g_board.status.ui.page.loading.details.color = 0x00FF00;
-  // g_board.status.ui.page.loading.details.msg   = "Wifi Connected!";
-  // delay(500);
   /****************************************wait for market connected*************************************/
   cnt = 0;
   g_board.status.ui.page.loading.percent = 0.7;
