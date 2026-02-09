@@ -188,6 +188,10 @@ void setup() {
   taskName = "(wifi)";
   xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_WIFI, NULL, 1);
   delay(10);
+  /************************************************************** INIT DAEMON **********************************************************/
+  taskName = "(daemon)";
+  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)(&g_board), TASK_PRIORITY_DAEMON, &daemonTask, 0);
+  delay(10);
   /********************************************************* CREATE FAN THREAD *********************************************************/
   taskName = "(fan)";
   xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*4, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
@@ -199,10 +203,6 @@ void setup() {
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";
   xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
-  delay(10);
-  /************************************************************** INIT DAEMON **********************************************************/
-  taskName = "(daemon)";
-  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)(&g_board), TASK_PRIORITY_DAEMON, &daemonTask, 0);
   delay(10);
   /************************************************************** BLOCK HERE **********************************************************/
   // block here until asic initialization is done to avoid long timeout in later network operations due to asic non-response

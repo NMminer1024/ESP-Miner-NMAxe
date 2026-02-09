@@ -46,6 +46,13 @@ void power_thread_entry(void *args){
     board->power->set_pll_0v8(PWR_ON);
     board->power->set_vdd_1v8(PWR_ON);
     delay(50);
+
+    // // blcok here until asic initialization 
+    // while(board->miner->get_asic_count() == 0){
+    //     LOG_W("Waiting for ASIC detection before setting up vcore...");
+    //     delay(1000);
+    // }
+
     //set vcore voltage to required voltage
     board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
     delay(50);
