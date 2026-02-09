@@ -24,7 +24,6 @@ void power_thread_entry(void *args){
 
     //detect vbus voltage, if lower than VBUS_MIN_VOLTAGE , wait for power settle or throw error
     board->power->init();
-    delay(500);
     while ((board->power->get_vbus() < board->info.spec.pwr.vbus_min_required) && (board->info.spec.name != BOARD_NMQAXE_PLUS_PLUS_NAME)){
         LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", board->power->get_vbus()/1000.0, board->info.spec.pwr.vbus_min_required/1000.0);
         delay(1000);
@@ -33,11 +32,8 @@ void power_thread_entry(void *args){
     //set vdd_1v8 and pll_0v8 power
     board->power->set_pll_0v8(PWR_ON);
     board->power->set_vdd_1v8(PWR_ON);
-    delay(50);
-
     //set vcore voltage to required voltage
     board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
-    delay(50);
     board->power->set_vcore_status(PWR_ON);
     while (!board->power->is_vcore_ready()){
         LOG_W("Waiting for vcore power setup...");

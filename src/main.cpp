@@ -195,6 +195,7 @@ void setup() {
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
   xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_PWR, NULL,1);
+  delay(10);
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";
   xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
