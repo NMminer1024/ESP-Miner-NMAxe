@@ -2438,14 +2438,20 @@ void display_thread_entry(void *args){
   /****************************************wait for asic init********************************************/
   cnt = 0;
   g_board.status.ui.page.loading.percent = 0.6;
-  while(g_board.miner == nullptr) delay(1); //wait miner object created
+  while(g_board.miner == nullptr) {
+    LOG_W("Miner object not created yet\r\n");
+    delay(1000); //wait miner object created
+  }
   while(g_board.miner->get_asic_count() == 0){
     g_board.status.ui.page.loading.details.color = 0xFFFFFF;
     g_board.status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
-    delay(300);
+    delay(100);
   }
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = String("Found " + String(g_board.miner->get_asic_count())) + (g_board.miner->get_asic_count() > 1 ? " chips" : " chip");
+  uint8_t asic_cnt     = g_board.miner->get_asic_count();
+  String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(g_board.info.spec.asic.num_req) + " chips") : "1 chip";
+
+  g_board.status.ui.page.loading.details.color = (asic_cnt != g_board.info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
   delay(1000);
   /****************************************wait for market connected*************************************/
   cnt = 0;
