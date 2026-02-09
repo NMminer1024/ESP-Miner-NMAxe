@@ -42,6 +42,58 @@ static adc2_channel_t get_adc2_channel_from_gpio(int gpio_num) {
 AxePowerHal::AxePowerHal(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins){
     this->_asic_pwr_en_pins  = en_pins;
     this->_asic_pwr_adc_pins = adc_pins;
+
+    if(-1 != this->_asic_pwr_en_pins.pwr_pll_0v8) pinMode(this->_asic_pwr_en_pins.pwr_pll_0v8, OUTPUT);
+    if(-1 != this->_asic_pwr_en_pins.pwr_vdd_1v8) pinMode(this->_asic_pwr_en_pins.pwr_vdd_1v8, OUTPUT);
+    if(-1 != this->_asic_pwr_en_pins.pwr_vcore)   pinMode(this->_asic_pwr_en_pins.pwr_vcore, OUTPUT);
+
+    // //config adc
+    // adc1_config_width(ADC_WIDTH_BIT_12);
+    // esp_adc_cal_value_t ret = ESP_ADC_CAL_VAL_NOT_SUPPORTED;
+
+    // this->_vbus_adc_chars  = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
+    // this->_ibus_adc_chars  = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
+    // this->_vcore_adc_chars = (esp_adc_cal_characteristics_t *)calloc(1, sizeof(esp_adc_cal_characteristics_t));
+
+    // //vbus
+    // if(this->_asic_pwr_adc_pins.vbus >= 1 && this->_asic_pwr_adc_pins.vbus <= 10){
+    //     adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vbus), ADC_ATTEN_DB_11); 
+    //     ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vbus_adc_chars);
+    // }
+    // else if(this->_asic_pwr_adc_pins.vbus >= 11 && this->_asic_pwr_adc_pins.vbus <= 20){
+    //     adc2_config_channel_atten(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vbus), ADC_ATTEN_DB_11); 
+    //     ret = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vbus_adc_chars);
+    // }
+    // else{
+    //     LOG_E("Vbus ADC pin invalid!");
+    // }
+
+    // //ibus
+    // if(this->_asic_pwr_adc_pins.ibus >= 1 && this->_asic_pwr_adc_pins.ibus <= 10){
+    //     adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.ibus), ADC_ATTEN_DB_11); 
+    //     ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_ibus_adc_chars);
+    // }
+    // else if(this->_asic_pwr_adc_pins.ibus >= 11 && this->_asic_pwr_adc_pins.ibus <= 20){
+    //     adc2_config_channel_atten(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.ibus), ADC_ATTEN_DB_11); 
+    //     ret = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_ibus_adc_chars);
+    // }
+    // else{
+    //     LOG_E("Ibus ADC pin invalid!");
+    // }
+
+    // //vcore
+    // if(this->_asic_pwr_adc_pins.vcore >= 1 && this->_asic_pwr_adc_pins.vcore <= 10){
+    //     adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_ATTEN_DB_6); 
+    //     ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vcore_adc_chars);
+    // }
+    // else if(this->_asic_pwr_adc_pins.vcore >= 11 && this->_asic_pwr_adc_pins.vcore <= 20){
+    //     adc2_config_channel_atten(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_ATTEN_DB_6); 
+    //     ret = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vcore_adc_chars);
+    // }
+    // else{
+    //     LOG_E("Vcore ADC pin invalid!");
+    // }
+
 }
 
 AxePowerHal::~AxePowerHal(){
@@ -57,14 +109,6 @@ AxePowerHal::~AxePowerHal(){
 }
 
 bool AxePowerHal::init(){
-    if(-1 != this->_asic_pwr_en_pins.pwr_pll_0v8) pinMode(this->_asic_pwr_en_pins.pwr_pll_0v8, OUTPUT);
-    if(-1 != this->_asic_pwr_en_pins.pwr_vdd_1v8) pinMode(this->_asic_pwr_en_pins.pwr_vdd_1v8, OUTPUT);
-    if(-1 != this->_asic_pwr_en_pins.pwr_vcore)   pinMode(this->_asic_pwr_en_pins.pwr_vcore, OUTPUT);
-
-    this->set_pll_0v8(PWR_OFF);
-    this->set_vdd_1v8(PWR_OFF);
-    this->set_vcore_status(PWR_OFF);
-
     //config adc
     adc1_config_width(ADC_WIDTH_BIT_12);
     esp_adc_cal_value_t ret = ESP_ADC_CAL_VAL_NOT_SUPPORTED;
@@ -111,6 +155,7 @@ bool AxePowerHal::init(){
     else{
         LOG_E("Vcore ADC pin invalid!");
     }
+
     return true;
 }
 

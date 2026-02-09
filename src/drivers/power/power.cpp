@@ -15,6 +15,9 @@ AxePowerClass::~AxePowerClass(){
 }
 
 bool AxePowerClass::init(void){
+    this->set_pll_0v8(PWR_OFF);
+    this->set_vdd_1v8(PWR_OFF);
+    this->set_vcore_status(PWR_OFF);
     return this->_power_instance->init();
 }
 
