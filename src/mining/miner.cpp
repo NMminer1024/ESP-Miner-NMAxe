@@ -75,7 +75,7 @@ AsicMinerClass::~AsicMinerClass(){
 bool AsicMinerClass::begin(uint16_t freq, uint16_t diff, uint32_t baudrate){
     this->_asic->reset();
     this->_asic_count = this->_asic->get_asic_count();
-    this->_asic->init(freq, diff);
+    this->_asic->init(freq, diff, this->_asic_count);
     if(0 == this->_asic_count){
         LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.info.spec.asic.name);
         return false;
