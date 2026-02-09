@@ -287,7 +287,7 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
         return;
     }
 
-    this->set_vcore_status(PWR_ON);
+    // this->set_vcore_status(PWR_ON);
     uint16_t vlot_mv = (req_mv <= this->_vcore_min_mv) ? this->_vcore_min_mv : ((req_mv >= this->_vcore_max_mv) ? this->_vcore_max_mv : req_mv);
 
     uint8_t reg = this->_mv_to_vid(vlot_mv);

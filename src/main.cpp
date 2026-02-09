@@ -194,7 +194,7 @@ void setup() {
   delay(10);
   /********************************************************* CREATE FAN THREAD *********************************************************/
   taskName = "(fan)";
-  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*4, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
+  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
   delay(10);
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
