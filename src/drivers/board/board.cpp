@@ -347,7 +347,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.com_port             = &Serial1;
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
-            config.preference.screen.flip          = false;
+            config.preference.screen.flip          = true;
             config.preference.fan.is_auto_speed    = true;
             config.preference.led.enable           = true;
             config.preference.asic.target_temp     = 30;
