@@ -4,7 +4,7 @@
 
 AxePowerClass::AxePowerClass(AxePowerHal *instance){
     this->_power_instance = instance;
-    this->ready_xsem = xSemaphoreCreateCounting(1, 0);
+    this->vcore_ready_xsem = xSemaphoreCreateCounting(1, 0);
 }
 
 AxePowerClass::~AxePowerClass(){

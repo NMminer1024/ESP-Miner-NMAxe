@@ -5,7 +5,6 @@
 #include "fan.h"
 #include "csha256.h"
 #include "nvs_config.h"
-// #include "timezone.h"
 #include <NTPClient.h>
 #include "http_server.h"
 #include "connection.h"
@@ -26,20 +25,9 @@ void power_thread_entry(void *args){
     //detect vbus voltage, if lower than VBUS_MIN_VOLTAGE , wait for power settle or throw error
     board->power->init();
     delay(500);
-    while (board->power->get_vbus() < board->info.spec.pwr.vbus_min_required){
+    while ((board->power->get_vbus() < board->info.spec.pwr.vbus_min_required) && (board->info.spec.name != BOARD_NMQAXE_PLUS_PLUS_NAME)){
         LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", board->power->get_vbus()/1000.0, board->info.spec.pwr.vbus_min_required/1000.0);
         delay(1000);
-    }
-
-    while (true){
-        bool all_fan_ok = true;
-        for(auto &fan : board->status.fan.list){
-            all_fan_ok = all_fan_ok && fan.self_test;
-            LOG_W("Waiting for fan%d self test %d/%d rpm...", fan.id, fan.rpm, board->info.spec.fans[fan.id].init.self_test_rpm_thr);
-            delay(1000);
-        }
-        if(all_fan_ok && (board->status.fan.count > 0)) break;
-        delay(10);
     }
 
     //set vdd_1v8 and pll_0v8 power
@@ -55,7 +43,8 @@ void power_thread_entry(void *args){
         LOG_W("Waiting for vcore power setup...");
         delay(100);
     }
-    xSemaphoreGive(board->power->ready_xsem);
+    xSemaphoreGive(board->power->vcore_ready_xsem);
+
     delay(100);
     LOG_I("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
     while(true){
@@ -903,10 +892,16 @@ void miner_asic_init_thread_entry(void *args){
         delay(1000);
     }
     
+    // wait for asic detected, avoid some usb-sata bridge not ready issue
+    while(board->miner->connect_chip() == 0) delay(1);
+
+    // wait for vcore ready, avoid some power supply not ready issue
+    xSemaphoreTake(g_board.power->vcore_ready_xsem, portMAX_DELAY);
+
     //begin asic hardware
     if(!board->miner->begin(board->info.spec.asic.req_frq, board->info.spec.asic.diff_thr_init, board->info.spec.asic.com_baud_work)){
         while (true){
-            LOG_E("Miner low power!");
+            LOG_E("Miner ASIC init failed, retrying...");
             delay(1000);
         }
     }

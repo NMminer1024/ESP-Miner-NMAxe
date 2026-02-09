@@ -73,16 +73,7 @@ AsicMinerClass::~AsicMinerClass(){
 }
 
 bool AsicMinerClass::begin(uint16_t freq, uint16_t diff, uint32_t baudrate){
-    this->_asic->reset();
-    this->_asic_count = this->_asic->get_asic_count();
-    if(0 == this->_asic_count){
-        LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.info.spec.asic.name);
-        return false;
-    }
-    // delay(1000);//wait for asic reset complete
     this->_asic->init(freq, diff, this->_asic_count);
-
-    LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_board.info.spec.asic.name, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
     this->_asic->change_uart_baud(baudrate);
     this->_asic->clear_port_cache();
     return true;
@@ -163,6 +154,14 @@ uint32_t AsicMinerClass::set_asic_diff(uint64_t diff){
 
 double AsicMinerClass::get_asic_diff(){
     return this->_asic->get_asic_difficulty();
+}
+
+uint8_t AsicMinerClass::connect_chip(){
+    this->_asic->reset();
+    this->_asic_count = this->_asic->get_asic_count();
+    LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.info.spec.asic.name);
+    LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_board.info.spec.asic.name, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
+    return this->_asic_count;
 }
 
 uint8_t AsicMinerClass::get_asic_count(){

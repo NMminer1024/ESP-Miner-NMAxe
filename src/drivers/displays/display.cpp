@@ -2386,6 +2386,9 @@ void display_thread_entry(void *args){
         delay(500);
       }
       delay(500);
+
+      // no PD support for NMQ AXE ++ due to hardware design, skip voltage check and just show Vbus voltage when USB plugged in
+      if(g_board.info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) break;
   }
   g_board.status.ui.page.loading.details.color = 0x00FF00;
   g_board.status.ui.page.loading.details.msg   = "Vbus " + String(g_board.power->get_vbus() / 1000.0, 3) + "V.";
@@ -2408,36 +2411,9 @@ void display_thread_entry(void *args){
   g_board.status.ui.page.loading.details.color = 0x00FF00;
   g_board.status.ui.page.loading.details.msg   = "Wifi Connected!";
   delay(500);
-  /********************************************wait fan self test ****************************************/
-  cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.4;
-  for(uint8_t i = 0; i < g_board.status.fan.count; i++){
-    while(!g_board.status.fan.list[i].self_test){
-      g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-      g_board.status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
-      delay(300);
-    }
-    g_board.status.ui.page.loading.details.color = 0x00FF00;
-    g_board.status.ui.page.loading.details.msg   = "Fan" + ((g_board.status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
-    delay(2000);
-  }
-  /******************************************wait Vcore self test ****************************************/
-  cnt = 0;
-  g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-  g_board.status.ui.page.loading.percent = 0.5;
-  g_board.status.ui.page.loading.details.msg   = vcore_chk_str[0];
-  delay(500);
-  while(!g_board.power->is_vcore_ready()){
-    g_board.status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
-    delay(100);
-  }
-  delay(200);//wait for vcore set to target voltage
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.";
-  delay(500);
   /****************************************wait for asic init********************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.6;
+  g_board.status.ui.page.loading.percent = 0.4;
   while(g_board.miner == nullptr) {
     LOG_W("Miner object not created yet\r\n");
     delay(1000); //wait miner object created
@@ -2452,7 +2428,52 @@ void display_thread_entry(void *args){
 
   g_board.status.ui.page.loading.details.color = (asic_cnt != g_board.info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
   g_board.status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
-  delay(1000);
+  delay(3000);
+  /********************************************wait fan self test ****************************************/
+  cnt = 0;
+  g_board.status.ui.page.loading.percent = 0.5;
+  for(uint8_t i = 0; i < g_board.status.fan.count; i++){
+    while(!g_board.status.fan.list[i].self_test){
+      g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+      g_board.status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
+      delay(300);
+    }
+    g_board.status.ui.page.loading.details.color = 0x00FF00;
+    g_board.status.ui.page.loading.details.msg   = "Fan" + ((g_board.status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
+    delay(2000);
+  }
+  /******************************************wait Vcore self test ****************************************/
+  cnt = 0;
+  g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+  g_board.status.ui.page.loading.percent = 0.6;
+  g_board.status.ui.page.loading.details.msg   = vcore_chk_str[0];
+  delay(500);
+  while(!g_board.power->is_vcore_ready()){
+    g_board.status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
+    delay(100);
+  }
+  delay(200);//wait for vcore set to target voltage
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.";
+  delay(500);
+  // /****************************************wait for asic init********************************************/
+  // cnt = 0;
+  // g_board.status.ui.page.loading.percent = 0.6;
+  // while(g_board.miner == nullptr) {
+  //   LOG_W("Miner object not created yet\r\n");
+  //   delay(1000); //wait miner object created
+  // }
+  // while(g_board.miner->get_asic_count() == 0){
+  //   g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+  //   g_board.status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
+  //   delay(100);
+  // }
+  // uint8_t asic_cnt     = g_board.miner->get_asic_count();
+  // String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(g_board.info.spec.asic.num_req) + " chips") : "1 chip";
+
+  // g_board.status.ui.page.loading.details.color = (asic_cnt != g_board.info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
+  // g_board.status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
+  // delay(3000);
   /****************************************wait for market connected*************************************/
   cnt = 0;
   g_board.status.ui.page.loading.percent = 0.7;

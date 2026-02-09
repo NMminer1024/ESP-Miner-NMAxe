@@ -192,26 +192,23 @@ void setup() {
   taskName = "(daemon)";
   xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)(&g_board), TASK_PRIORITY_DAEMON, &daemonTask, 0);
   delay(10);
-  /********************************************************* CREATE FAN THREAD *********************************************************/
-  taskName = "(fan)";
-  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
-  delay(10);
   /************************************************************* INIT POWER *************************************************************/
   taskName = "(power)";
   xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_PWR, NULL,1);
-  xSemaphoreTake(g_board.power->ready_xsem, portMAX_DELAY);
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";
   xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
   delay(10);
+  /********************************************************* CREATE FAN THREAD *********************************************************/
+  taskName = "(fan)";
+  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
+  delay(10);
   /************************************************************** BLOCK HERE **********************************************************/
   // block here until asic initialization is done to avoid long timeout in later network operations due to asic non-response
   while(g_board.miner->get_asic_count() == 0) delay(10);
-  // allow asic mismatch but log a warning since some boards may have optional asic slots
   if(g_board.miner->get_asic_count() != g_board.info.spec.asic.num_req){
     LOG_E("Detected ASIC count (%d/%d) does not match required ASIC count!!!!", g_board.miner->get_asic_count(), g_board.info.spec.asic.num_req);
   }
-
   //wait for wifi connected before proceeding to avoid long timeout in later network operations
   while(g_board.status.wifi.status != WL_CONNECTED) {
     delay(10);
