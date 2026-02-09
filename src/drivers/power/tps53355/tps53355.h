@@ -8,7 +8,6 @@ private:
     uint8_t _vcore_regulator_pwm_pin;
     uint8_t _vcore_pgood_pin;
     uint8_t _dc_plug_pin;
-    bool _adc_ready;
     uint16_t _vcore_min_mv;
     uint16_t _vcore_max_mv;
 public:
@@ -16,11 +15,10 @@ public:
         this->_vcore_regulator_pwm_pin = vcore_regulator_pwm_pin;
         this->_vcore_pgood_pin = pgood;
         this->_dc_plug_pin = plug;
-        this->_adc_ready = false;
     }
     ~TPS53355Class();
     /** Implementations of pure virtual functions from AxePowerHal */
-    bool init(void);
+    void init(void);
     void set_vdd_1v8(power_state_t state);
     void set_pll_0v8(power_state_t state);
     void set_vcore_status(power_state_t state);

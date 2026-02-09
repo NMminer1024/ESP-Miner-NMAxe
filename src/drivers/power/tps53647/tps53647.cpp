@@ -179,10 +179,10 @@ void TPS53647Class::_set_phases(int num_phases){
     this->_write_byte(PMBUS_MFR_SPECIFIC_20, (uint8_t) (num_phases - 1));
 }
 
-bool TPS53647Class::init(void){
+void TPS53647Class::init(void){
     pinMode(this->_vcore_pgood_pin, INPUT_PULLUP);
 
-    this->_adc_ready = AxePowerHal::init();
+    AxePowerHal::init();
 
     // Establish communication with regulator
     uint16_t device_code = 0x00;
@@ -191,7 +191,7 @@ bool TPS53647Class::init(void){
 
     if (device_code != 0x01f0) {
         LOG_E("Cannot find TPS53647 buck controller");
-        return false;
+        return;
     }
     LOG_I("Found TPS53647 controller !!!");
 
@@ -234,12 +234,10 @@ bool TPS53647Class::init(void){
     // set warn and fault to the same value
     this->_write_word(PMBUS_IOUT_OC_WARN_LIMIT, this->_float_to_slinear11(IFAULT));
     this->_write_word(PMBUS_IOUT_OC_FAULT_LIMIT, this->_float_to_slinear11(IFAULT));
-
-    return true;
 }
 
 bool TPS53647Class::is_adc_ready(void){
-    return this->_adc_ready;
+    return AxePowerHal::is_adc_ready();
 }
 
 bool TPS53647Class::is_vcore_ready(void){

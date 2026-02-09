@@ -2417,21 +2417,9 @@ void display_thread_entry(void *args){
   g_board.status.ui.page.loading.details.color = 0x00FF00;
   g_board.status.ui.page.loading.details.msg   = String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.";
   delay(500);
-  /****************************************wait for asic init********************************************/
-  cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.5;
-  while(g_board.miner == nullptr) delay(1); //wait miner object created
-  while(g_board.miner->get_asic_count() == 0){
-    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-    g_board.status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
-    delay(300);
-  }
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = String("Found " + String(g_board.miner->get_asic_count())) + (g_board.miner->get_asic_count() > 1 ? " chips" : " chip");
-  delay(1000);
   /****************************************wait for wifi connected***************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.6;
+  g_board.status.ui.page.loading.percent = 0.5;
   while(g_board.status.wifi.status != WL_CONNECTED){
     g_board.status.ui.page.loading.details.color = 0xFFFFFF;
     g_board.status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.sta.ssid +  String("]");
@@ -2447,6 +2435,36 @@ void display_thread_entry(void *args){
   g_board.status.ui.page.loading.details.color = 0x00FF00;
   g_board.status.ui.page.loading.details.msg   = "Wifi Connected!";
   delay(500);
+  /****************************************wait for asic init********************************************/
+  cnt = 0;
+  g_board.status.ui.page.loading.percent = 0.6;
+  while(g_board.miner == nullptr) delay(1); //wait miner object created
+  while(g_board.miner->get_asic_count() == 0){
+    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+    g_board.status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
+    delay(300);
+  }
+  g_board.status.ui.page.loading.details.color = 0x00FF00;
+  g_board.status.ui.page.loading.details.msg   = String("Found " + String(g_board.miner->get_asic_count())) + (g_board.miner->get_asic_count() > 1 ? " chips" : " chip");
+  delay(1000);
+  // /****************************************wait for wifi connected***************************************/
+  // cnt = 0;
+  // g_board.status.ui.page.loading.percent = 0.6;
+  // while(g_board.status.wifi.status != WL_CONNECTED){
+  //   g_board.status.ui.page.loading.details.color = 0xFFFFFF;
+  //   g_board.status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.sta.ssid +  String("]");
+  //   delay(300);
+  //   if(xSemaphoreTake(g_board.status.wifi.force_cfg_xsem, 100)){
+  //     g_board.status.ui.page.loading.details.color = 0xFF0000;
+  //     g_board.status.ui.page.loading.details.msg   = String("Timeout!");
+  //     delay(1000);
+  //     g_board.status.ui.page.current = UI_PAGE_CONFIG;
+  //     lv_obj_scroll_to_view(ui_pages[UI_PAGE_CONFIG], LV_ANIM_ON);
+  //   }
+  // }
+  // g_board.status.ui.page.loading.details.color = 0x00FF00;
+  // g_board.status.ui.page.loading.details.msg   = "Wifi Connected!";
+  // delay(500);
   /****************************************wait for market connected*************************************/
   cnt = 0;
   g_board.status.ui.page.loading.percent = 0.7;

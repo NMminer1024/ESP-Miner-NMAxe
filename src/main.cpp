@@ -192,6 +192,12 @@ void setup() {
   taskName = "(power)";
   xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_PWR, NULL,1);
   xSemaphoreTake(g_board.power->ready_xsem, portMAX_DELAY);
+  /************************************************************** INIT WIFI ************************************************************/
+  taskName = "(wifi)";
+  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_WIFI, NULL, 1);
+  while (WL_CONNECTED != g_board.status.wifi.status){
+    delay(10);
+  }
   /************************************************************* INIT ASIC *************************************************************/
   taskName = "(asic_init)";
   xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
@@ -205,12 +211,12 @@ void setup() {
   taskName = "(daemon)";
   xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)(&g_board), TASK_PRIORITY_DAEMON, &daemonTask, 0);
   delay(10);
-  /************************************************************** INIT WIFI ************************************************************/
-  taskName = "(wifi)";
-  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_WIFI, NULL, 1);
-  while (WL_CONNECTED != g_board.status.wifi.status){
-    delay(10);
-  }
+  // /************************************************************** INIT WIFI ************************************************************/
+  // taskName = "(wifi)";
+  // xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_WIFI, NULL, 1);
+  // while (WL_CONNECTED != g_board.status.wifi.status){
+  //   delay(10);
+  // }
   /************************************************************ Version check **********************************************************/
 #if HAS_VERSION_CHECK_FEATURE
   ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 

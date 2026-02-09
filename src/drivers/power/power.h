@@ -14,7 +14,7 @@ public:
     SemaphoreHandle_t  ready_xsem;//vcore power and vbus are ready
 
     /** standard power functions **/
-    bool init(void);
+    void init(void);
     void set_vdd_1v8(power_state_t state);
     void set_pll_0v8(power_state_t state);
     void set_vcore_status(power_state_t state);

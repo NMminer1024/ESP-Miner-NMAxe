@@ -85,7 +85,6 @@ class TPS53647Class: public AxePowerHal{
 private:
     uint8_t  _vcore_pgood_pin;
     float    _chip_min_output_vlot_mv;    // Hardware minimum Vcore voltage in mV, TPS53647 related
-    bool     _adc_ready;
     uint16_t _vcore_min_mv;// Vcore voltage range min in mV, ASIC related
     uint16_t _vcore_max_mv;// Vcore voltage range max in mV, ASIC related
     uint8_t  _read_reg(uint8_t regaddr, uint8_t *data, uint8_t length);
@@ -101,11 +100,10 @@ public:
     TPS53647Class(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t pgood,  uint8_t plug):AxePowerHal(en_pins, adc_pins){
         this->_vcore_pgood_pin          = pgood;
         this->_chip_min_output_vlot_mv  = 0.25; // TPS53647 minimum output voltage is 0.25V
-        this->_adc_ready = false;
     }
     ~TPS53647Class();
     /** Implementations of pure virtual functions from AxePowerHal */
-    bool init(void);
+    void init(void);
     void set_vdd_1v8(power_state_t state);
     void set_pll_0v8(power_state_t state);
     void set_vcore_status(power_state_t state);
