@@ -137,6 +137,37 @@ uint32_t BM1366::get_asic_difficulty(){
     return this->_diff_current;
 }
 
+
+uint8_t BM1366::get_asic_count(){
+    for (int i = 0; i < 3; i++) {
+        this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
+    }
+    
+    // read chip responses
+    uint8_t init3[7] = {0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A};
+    this->send(init3, 7);
+    uint8_t chip_counter = 0, rsp[100] = {0,};
+    while (true) {
+        uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
+        if(len == 0) break;
+        // dbg::hex_print(rsp, len, "asic rsp");
+        uint8_t *rsp_ptr = rsp;
+        while (rsp_ptr <= rsp + len - 11) {
+            if(memcmp(rsp_ptr, "\xaa\x55\x13\x66\x00\x00", 6) == 0){
+                // dbg::hex_print(rsp_ptr, 11, "found chip");
+                chip_counter++;
+                break;
+            }
+            else{
+                rsp_ptr++;
+            }
+        }
+    }
+
+    return chip_counter;
+}
+
+
 void BM1366::frequency_ramp_up(float target_frequency){
     float current_frequency = 56.25;
     float step = 6.25;
@@ -166,35 +197,7 @@ void BM1366::frequency_ramp_up(float target_frequency){
     return;
 }
 
-uint8_t BM1366::init(uint64_t freq, int diff){
-    for (int i = 0; i < 3; i++) {
-        this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
-    }
-
-    // read register 00 on all chips
-    uint8_t init3[7] = {0x55, 0xAA, 0x52, 0x05, 0x00, 0x00, 0x0A};
-    this->send(init3, 7);
-
-    uint8_t chip_counter = 0, rsp[100] = {0,};
-    while (true) {
-        uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
-        if(len == 0) break;
-
-        // dbg::hex_print(rsp, len, "init3");
-        uint8_t *rsp_ptr = rsp;
-        while (rsp_ptr <= rsp + len - 11) {
-            if(memcmp(rsp_ptr, "\xaa\x55\x13\x66\x00\x00", 6) == 0){
-                // dbg::hex_print(rsp_ptr, 11, "found chip");
-                chip_counter++;
-                break;
-            }
-            else{
-                rsp_ptr++;
-            }
-        }
-    }
-
-    if(chip_counter == 0)  return 0;
+void BM1366::init(uint64_t freq, int diff, uint8_t asic_count){
 
     uint8_t init4[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA8, 0x00, 0x07, 0x00, 0x00, 0x03};
     this->send(init4, 11);
@@ -205,8 +208,8 @@ uint8_t BM1366::init(uint64_t freq, int diff){
     this->_set_chain_inactive();
 
     // split the chip address space evenly
-    uint8_t address_interval = (uint8_t) (256 / chip_counter);
-    for (uint8_t i = 0; i < chip_counter; i++) {
+    uint8_t address_interval = (uint8_t) (256 / asic_count);
+    for (uint8_t i = 0; i < asic_count; i++) {
       this->_set_chip_address(i * address_interval);
     }
 
@@ -230,7 +233,7 @@ uint8_t BM1366::init(uint64_t freq, int diff){
     uint8_t init173[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03};
     this->send(init173, 11);
 
-    for (uint8_t i = 0; i < chip_counter; i++) {
+    for (uint8_t i = 0; i < asic_count; i++) {
         uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};
         this->_send_bm1366((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_a8_register, 6);
         uint8_t set_18_register[6] = {(uint8_t)(i * address_interval), 0x18, 0xF0, 0x00, 0xC1, 0x00};
@@ -257,8 +260,6 @@ uint8_t BM1366::init(uint64_t freq, int diff){
 
     uint8_t init795[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF, 0x1C};
     this->send(init795, 11);
-
-    return chip_counter;
 }
 
 void BM1366::send_work_to_asic(asic_job *job){

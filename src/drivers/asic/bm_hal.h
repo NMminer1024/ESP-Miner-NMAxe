@@ -78,9 +78,10 @@ public:
     size_t send(uint8_t *cmd, uint16_t len);
     size_t receive(uint8_t *buf, uint16_t len, uint32_t timeout_ms);
     bool clear_port_cache();
-    virtual uint8_t init(uint64_t freq, int diff) = 0;
+    virtual void init(uint64_t freq, int diff, uint8_t asic_count) = 0;
     virtual void frequency_ramp_up(float target_frequency) = 0;
     virtual uint32_t set_job_difficulty(int difficulty) = 0;
+    virtual uint8_t get_asic_count() = 0;
     virtual uint32_t get_asic_difficulty() = 0;
     virtual void send_work_to_asic(asic_job *job) = 0;
     virtual esp_err_t wait_for_result(miner_result *result, uint32_t timeout_ms) = 0;

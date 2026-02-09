@@ -17,9 +17,10 @@ public:
     BM1366(HardwareSerial &sport, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst):BMxxx(sport, init_baud, rx, tx, rst) {
         this->_diff_current = 0;
     }
-    uint8_t init(uint64_t freq, int diff);
+    void init(uint64_t freq, int diff, uint8_t asic_count);
     void frequency_ramp_up(float target_frequency);
     uint32_t set_job_difficulty(int difficulty);
+    uint8_t get_asic_count();
     uint32_t get_asic_difficulty();
     void send_work_to_asic(asic_job *job);
     uint16_t get_cores();
