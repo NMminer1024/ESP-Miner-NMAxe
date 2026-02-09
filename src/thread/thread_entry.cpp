@@ -818,6 +818,7 @@ void fan_thread_entry(void *args){
         delay(10);
     }
 
+    // fan control loop
     while(true){
         for(auto &fan : board->status.fan.list){
             fan_config_t* fan_cfg = get_fan_config(fan.id);

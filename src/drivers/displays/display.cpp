@@ -1720,11 +1720,11 @@ static void ui_miner_page_update(board_sal_t* board){
     lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x, miner_page.lb_blk_hit.coord.y);
   }else if (board->status.miner.hits <= 99){
     if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
-      lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x - 2, miner_page.lb_blk_hit.coord.y + 8);
+      lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x + 2, miner_page.lb_blk_hit.coord.y + 8);
       lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, &ds_digib_font_38, LV_PART_MAIN);
     }
     else {
-      lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x -10, miner_page.lb_blk_hit.coord.y + 11);
+      lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x + 5, miner_page.lb_blk_hit.coord.y + 11);
       lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, &ds_digib_font_28, LV_PART_MAIN);
     }
   }
