@@ -8,7 +8,7 @@
 #include "github.h"
 #include "thread_entry.h"
 
-TaskHandle_t fanTask, ledTask, btnTask, uiTask, touchTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
+TaskHandle_t fanTask, ledTask, btnTask, displayTask, touchTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
 board_sal_t  g_board;
 
 bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
@@ -171,7 +171,7 @@ void setup() {
   }
   /************************************************************ INIT DISPLAY ************************************************************/
   taskName = "(display)";
-  xTaskCreatePinnedToCore(display_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_DISPLAY, &uiTask, 1);
+  xTaskCreatePinnedToCore(display_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_DISPLAY, &displayTask, 1);
   delay(10);
   taskName = "(touch)";
   xTaskCreatePinnedToCore(touch_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_TOUCH, &touchTask, 0);
@@ -210,10 +210,19 @@ void setup() {
   if(g_board.miner->get_asic_count() != g_board.info.spec.asic.num_req){
     LOG_E("Detected ASIC count (%d/%d) does not match required ASIC count!!!!", g_board.miner->get_asic_count(), g_board.info.spec.asic.num_req);
   }
+
   //wait for wifi connected before proceeding to avoid long timeout in later network operations
   while(g_board.status.wifi.status != WL_CONNECTED) {
     delay(10);
   } 
+
+  // wait fan self-test
+  for(uint8_t i = 0; i < g_board.status.fan.count; i++){
+    while(!g_board.status.fan.list[i].self_test){
+        LOG_I("Fan%d self-test %d/%d...", i, g_board.status.fan.list[i].rpm, g_board.info.spec.fans[i].init.self_test_rpm_thr);
+        delay(1000);
+    }
+  }
   /************************************************************ Version check **********************************************************/
 #if HAS_VERSION_CHECK_FEATURE
   ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 

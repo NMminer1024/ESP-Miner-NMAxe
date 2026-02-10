@@ -377,7 +377,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.Kd                   = 0.0f;
             fan_cfg.pid.prev_error           = 0;
             fan_cfg.pid.integral             = 0;
-            fan_cfg.pid.output_min           = 0.01f;
+            fan_cfg.pid.output_min           = 0.00f;
             fan_cfg.pid.output_max           = 100.0f;
             config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
 
@@ -403,7 +403,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.Kd                   = 0.0f;
             fan_cfg.pid.prev_error           = 0;
             fan_cfg.pid.integral             = 0;
-            fan_cfg.pid.output_min           = 0.01f;
+            fan_cfg.pid.output_min           = 0.00f;
             fan_cfg.pid.output_max           = 100.0f;
             config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
             break;

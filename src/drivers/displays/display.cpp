@@ -354,14 +354,13 @@ static void tft_init(board_sal_t* board){
   if(board->info.spec.tft.pwr_pin >= 0){
     pinMode(board->info.spec.tft.pwr_pin, OUTPUT);
     digitalWrite(board->info.spec.tft.pwr_pin, LOW);
-    delay(10); //wait for tft power stable
   }
   // Initialize backlight PWM
   if(board->info.spec.tft.bl.pin >= 0){
     pinMode(board->info.spec.tft.bl.pin, OUTPUT);
     ledcSetup(board->info.spec.tft.bl.pwm_ch, board->info.spec.tft.bl.pwm_freq, board->info.spec.tft.bl.pwm_resolution);
     ledcAttachPin(board->info.spec.tft.bl.pin, board->info.spec.tft.bl.pwm_ch);
-    tft_bl_ctrl(0);//sleep when boot up
+    tft_bl_ctrl(0);//sleep when boot up 
   }
 
   tftDriver = new TFT_eSPI(SCREEN_HEIGHT, SCREEN_WIDTH);
@@ -381,7 +380,6 @@ static void tft_init(board_sal_t* board){
                   board->info.spec.spi.mosi_pin,
                   board->info.spec.tft.color_invert
                 );
-                
   if(board->status.preference.screen.flip)tftDriver->setRotation(1); 
   else tftDriver->setRotation(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME ? 4 : 3); // NMQAxe++ use rotation 4, NMaxE use rotation 3
 }

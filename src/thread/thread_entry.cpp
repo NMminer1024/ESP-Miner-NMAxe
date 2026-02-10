@@ -98,9 +98,9 @@ void led_thread_entry(void *args){
 
         if(board->info.spec.name == BOARD_NMAXE_NAME || board->info.spec.name == BOARD_NMAXE_GAMMA_NAME){
             if(board->status.preference.led.sleep || !board->status.preference.led.enable) {
-                digitalWrite(board->info.spec.led.wifi_pin, HIGH); // off
-                digitalWrite(board->info.spec.led.pool_pin, HIGH); // off
-                ledcWrite(pwmChannel, 255); // off
+                if(board->info.spec.led.wifi_pin != -1) digitalWrite(board->info.spec.led.wifi_pin, HIGH); // off
+                if(board->info.spec.led.pool_pin != -1) digitalWrite(board->info.spec.led.pool_pin, HIGH); // off
+                if(board->info.spec.led.sys_pin != -1) ledcWrite(pwmChannel, 255); // off
                 continue;
             }
 
@@ -114,12 +114,16 @@ void led_thread_entry(void *args){
                 bool pool_connected = board->stratum->is_subscribed();
                 
                 // WiFi LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
-                bool wifi_state = wifi_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
-                digitalWrite(board->info.spec.led.wifi_pin, wifi_state ? LOW : HIGH);
+                if(board->info.spec.led.wifi_pin != -1) {
+                    bool wifi_state = wifi_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+                    digitalWrite(board->info.spec.led.wifi_pin, wifi_state ? LOW : HIGH);
+                }
                 
                 // Pool LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
-                bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
-                digitalWrite(board->info.spec.led.pool_pin, pool_state ? LOW : HIGH);
+                if(board->info.spec.led.pool_pin != -1) {
+                    bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+                    digitalWrite(board->info.spec.led.pool_pin, pool_state ? LOW : HIGH);
+                }
             }
 
             // SYS LED, slow breathing means hashrate > 0, fast breathing means hashrate == 0
@@ -128,7 +132,7 @@ void led_thread_entry(void *args){
             led_cnt++;
         }
         else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-            ;
+            break; // no led on NMQAXE++
         }
     }
     LOG_I("led thread exit...");
@@ -221,7 +225,7 @@ void wifi_connect_thread_entry(void *args){
     /************************************************************ START HTTP SERVER *******************************************************/
     taskName = "(webserver)";
     xTaskCreatePinnedToCore(webserver_thread_entry, taskName.c_str(), 1024*5, (void*)(board), TASK_PRIORITY_WEB_SERVER, NULL, 1);
-    delay(100);
+    delay(50);
     //force config
     if(g_board.status.wifi.force_config){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
@@ -792,6 +796,7 @@ void fan_thread_entry(void *args){
 
     int16_t now_count = 0, last_count = 0, temp_cnt = 0;
     uint32_t start_ms = millis();
+    delay(100);
 
     // Initialize TMP102 temperature sensor
     tmp102_init();
@@ -800,13 +805,13 @@ void fan_thread_entry(void *args){
     for(auto &fan : board->info.spec.fans){
         // fan initialize with defined parameters
         fan_drv_init(fan.init);
-        LOG_I("Fan[%d] initialized with torch pin %d, pwm pin %d", fan.id, fan.init.torch.pulse_gpio_num, fan.init.pwm.pin);
+        LOG_D("Fan[%d] initialized with torch pin %d, pwm pin %d", fan.id, fan.init.torch.pulse_gpio_num, fan.init.pwm.pin);
     }
 
     // polarity detection
     for(auto &fan : board->info.spec.fans){
         fan.polarity = guess_fan_polarity(fan.init);
-        LOG_W("Guess fan[%d] polarity :[%s]", fan.id, fan.polarity ? "inverted" : "normal");
+        LOG_I("Guess fan[%d] polarity :[%s]", fan.id, fan.polarity ? "inverted" : "normal");
     }
 
     // Helper function to find fan config by id
