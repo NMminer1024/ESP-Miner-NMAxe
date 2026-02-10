@@ -159,10 +159,10 @@ double AsicMinerClass::get_asic_diff(){
 uint8_t AsicMinerClass::connect_chip(){
     this->_asic->reset();
     this->_asic_count = this->_asic->get_asic_count();
-    LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.info.spec.asic.name);
-
-    if(0 == this->_asic_count) return 0;
-
+    if(0 == this->_asic_count) {
+        LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.info.spec.asic.name);
+        return 0;
+    }
     LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_board.info.spec.asic.name, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
     return this->_asic_count;
 }

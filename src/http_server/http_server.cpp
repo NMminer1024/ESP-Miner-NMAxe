@@ -12,7 +12,6 @@
 AsyncWebServer    webServer(80);
 WebSocketsServer  webSocket(81);
 
-
 bool isValidNumber(const String& str) {
     if (str.length() == 0) return false;
     bool hasDot = false;
