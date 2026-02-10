@@ -913,6 +913,23 @@ void miner_asic_tx_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
     LOG_I("Initializing asic_tx...");
 
+    auto calculate_diff = [](String nBits) -> double{
+        static const uint8_t  TARGET_BUFFER_SIZE = 64;
+        uint8_t netdiff_array[TARGET_BUFFER_SIZE/2];
+
+        char str[TARGET_BUFFER_SIZE + 1];
+        memset(str, '0', TARGET_BUFFER_SIZE);
+        int k = (int) strtol(nBits.substring(0, 2).c_str(), 0, 16) - 3; 
+        uint8_t index = 58 - 2 * k; 
+        memcpy(str + index, nBits.substring(2).c_str(), nBits.length() - 2);
+        str[TARGET_BUFFER_SIZE] = 0;
+        
+        str_to_byte_array(str, TARGET_BUFFER_SIZE/2, netdiff_array);
+        reverse_bytes(netdiff_array, TARGET_BUFFER_SIZE/2);
+
+        return le_hash_to_diff(netdiff_array);
+    };
+
     //forever loop
     while (true){
         //null loop if not subscribed
@@ -932,7 +949,7 @@ void miner_asic_tx_thread_entry(void *args){
         if(board->miner->pool_job_now.id == "")continue;
         
         //calculate network diff
-        board->status.miner.diff.network = board->miner->calculate_diff(board->miner->pool_job_now.nbits);
+        board->status.miner.diff.network = calculate_diff(board->miner->pool_job_now.nbits);
         //update pool diff
         board->status.miner.diff.pool = board->stratum->get_pool_difficulty();
         
@@ -976,6 +993,28 @@ void miner_asic_rx_thread_entry(void *args){
     asic_job job = {0,};
     miner_result result = {0,};
 
+    auto calculate_diff = [](uint32_t version, uint8_t* prev_block_hash, uint8_t* merkle_root, uint32_t ntime, uint32_t nbits, uint32_t nonce) -> double{
+            uint8_t header[4 + 32 + 32 + 4 + 4 + 4] = {0,};
+            uint8_t hash[32] = {0,};
+            uint8_t prev_block_hash_t[32] = {0}, merkle_root_t[32] = {0};
+
+            memcpy(prev_block_hash_t, prev_block_hash, 32);
+            memcpy(merkle_root_t, merkle_root, 32);
+
+            reverse_words(prev_block_hash_t, 32);
+            reverse_words(merkle_root_t, 32);
+
+            memcpy(header, (uint8_t*)&version, 4);
+            memcpy(header + 4, prev_block_hash_t, 32);
+            memcpy(header + 36, merkle_root_t, 32);
+            memcpy(header + 68, (uint8_t*)&ntime, 4);
+            memcpy(header + 72, (uint8_t*)&nbits, 4);
+            memcpy(header + 76, (uint8_t*)&nonce, 4);
+            //caculate hash
+            csha256d(header, sizeof(header), hash);
+            return le_hash_to_diff(hash);
+    };
+
     //forever loop
     while(true){
         if(!board->stratum->is_subscribed()){
@@ -989,7 +1028,7 @@ void miner_asic_rx_thread_entry(void *args){
                 board->status.miner.asic_update = millis();
                 uint32_t version_bits       = (reverse_uint16(result.asic.version) << 13);  //logic from project bitaxe: https://github.com/skot/bitaxe 
                 uint32_t version            = version_bits | (*(uint32_t*)job.version);//logic from project bitaxe: https://github.com/skot/bitaxe 
-                double diff                 = board->miner->calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.asic.nonce);
+                double diff                 = calculate_diff(version, job.prev_block_hash, job.merkle_root, *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.asic.nonce);
 
                 //continue if diff is nan or diff is inf
                 if((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff)) continue;

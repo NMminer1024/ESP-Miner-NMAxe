@@ -49,7 +49,9 @@ void webserver_thread_entry(void *args){
     LOG_I("Initializing webserver...");
 
     file_system_init();
+    delay(50); // small delay to ensure file system is ready
     webSocket.begin();
+    delay(50); // small delay to ensure webSocket is ready
     webSocket.onEvent(webSocketEvent);
 
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
@@ -58,8 +60,6 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/system/status/history", HTTP_GET, get_status_history);
     webServer.on("/api/system/status/realtime", HTTP_GET, get_status_realtime);
     webServer.on("/api/system/luck/history", HTTP_GET, get_lucky_history);
-    // webServer.on("/api/system/luck/realtime", HTTP_GET, get_lucky_realtime);
-
     webServer.on("/api/ws", HTTP_GET, echo_handler);
     webServer.on("/api/system/restart", HTTP_POST, post_restart);
     webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);

@@ -65,8 +65,6 @@ public:
     bool submit_job_share(String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version);
     bool find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job);
     bool clear_asic_job_cache();
-    double calculate_diff(uint32_t version, uint8_t *prev_block_hash, uint8_t *merkle_root, uint32_t ntime, uint32_t nbits, uint32_t nonce);
-    double calculate_diff(String nBits);
     bool calculate_hashrate(hashrate_t *phr);
     bool end();
 };

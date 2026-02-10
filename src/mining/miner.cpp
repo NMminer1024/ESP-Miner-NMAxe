@@ -160,6 +160,9 @@ uint8_t AsicMinerClass::connect_chip(){
     this->_asic->reset();
     this->_asic_count = this->_asic->get_asic_count();
     LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.info.spec.asic.name);
+
+    if(0 == this->_asic_count) return 0;
+
     LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_board.info.spec.asic.name, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
     return this->_asic_count;
 }
@@ -184,45 +187,6 @@ bool AsicMinerClass::find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job)
 bool AsicMinerClass::clear_asic_job_cache(){
     this->_asic_job_map.clear();
     return true;
-}
-
-double AsicMinerClass::calculate_diff(uint32_t version, uint8_t *prev_block_hash, uint8_t *merkle_root, uint32_t ntime, uint32_t nbits, uint32_t nonce){
-    uint8_t header[4 + 32 + 32 + 4 + 4 + 4] = {0,};
-    uint8_t hash[32] = {0,};
-    uint8_t prev_block_hash_t[32] = {0}, merkle_root_t[32] = {0};
-
-    memcpy(prev_block_hash_t, prev_block_hash, 32);
-    memcpy(merkle_root_t, merkle_root, 32);
-
-    reverse_words(prev_block_hash_t, 32);
-    reverse_words(merkle_root_t, 32);
-
-    memcpy(header, (uint8_t*)&version, 4);
-    memcpy(header + 4, prev_block_hash_t, 32);
-    memcpy(header + 36, merkle_root_t, 32);
-    memcpy(header + 68, (uint8_t*)&ntime, 4);
-    memcpy(header + 72, (uint8_t*)&nbits, 4);
-    memcpy(header + 76, (uint8_t*)&nonce, 4);
-    //caculate hash
-    csha256d(header, sizeof(header), hash);
-    return le_hash_to_diff(hash);
-}
-
-double AsicMinerClass::calculate_diff(String nBits){
-    static const uint8_t  TARGET_BUFFER_SIZE = 64;
-    uint8_t netdiff_array[TARGET_BUFFER_SIZE/2];
-
-    char str[TARGET_BUFFER_SIZE + 1];
-    memset(str, '0', TARGET_BUFFER_SIZE);
-    int k = (int) strtol(nBits.substring(0, 2).c_str(), 0, 16) - 3; 
-    uint8_t index = 58 - 2 * k; 
-    memcpy(str + index, nBits.substring(2).c_str(), nBits.length() - 2);
-    str[TARGET_BUFFER_SIZE] = 0;
-
-    str_to_byte_array(str, TARGET_BUFFER_SIZE/2, netdiff_array);
-    reverse_bytes(netdiff_array, TARGET_BUFFER_SIZE/2);
-
-    return le_hash_to_diff(netdiff_array);
 }
 
 String AsicMinerClass::get_extranonce2_by_asic_job_id(uint8_t asic_job_id){
