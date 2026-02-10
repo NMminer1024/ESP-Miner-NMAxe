@@ -215,13 +215,10 @@ void setup() {
   while(g_board.status.wifi.status != WL_CONNECTED) {
     delay(10);
   } 
-
+  
   // wait fan self-test
   for(uint8_t i = 0; i < g_board.status.fan.count; i++){
-    while(!g_board.status.fan.list[i].self_test){
-        LOG_I("Fan%d self-test %d/%d...", i, g_board.status.fan.list[i].rpm, g_board.info.spec.fans[i].init.self_test_rpm_thr);
-        delay(1000);
-    }
+    while(!g_board.status.fan.list[i].self_test) delay(100);
   }
   /************************************************************ Version check **********************************************************/
 #if HAS_VERSION_CHECK_FEATURE

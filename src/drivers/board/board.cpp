@@ -351,8 +351,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.fan.is_auto_speed    = true;
             config.preference.led.enable           = true;
             config.preference.asic.target_temp     = 30;
-            config.create_asic_instance      = create_qaxepp_asic_instance;
-            config.create_power_instance     = create_qaxepp_power_instance;
+            config.create_asic_instance            = create_qaxepp_asic_instance;
+            config.create_power_instance           = create_qaxepp_power_instance;
             
             config.fans.clear();
             fan_cfg.id                        = 0;
@@ -381,31 +381,31 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.output_max           = 100.0f;
             config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
 
-            fan_cfg.id                        = 1;
-            fan_cfg.init.pwm.pin              = 10;
-            fan_cfg.init.pwm.ch               = 2;
-            fan_cfg.init.pwm.freq             = 1000*100; // Hz
-            fan_cfg.init.pwm.resolution       = 8;        // bits
-            fan_cfg.init.torch.pulse_gpio_num = 47;
-            fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED; // Not used
-            fan_cfg.init.torch.lctrl_mode     = PCNT_MODE_KEEP;
-            fan_cfg.init.torch.hctrl_mode     = PCNT_MODE_KEEP;
-            fan_cfg.init.torch.pos_mode       = PCNT_COUNT_INC;
-            fan_cfg.init.torch.neg_mode       = PCNT_COUNT_DIS;
-            fan_cfg.init.torch.counter_h_lim  = 30000;
-            fan_cfg.init.torch.counter_l_lim  = 0;
-            fan_cfg.init.torch.unit           = PCNT_UNIT_0;
-            fan_cfg.init.torch.channel        = PCNT_CHANNEL_1;
-            fan_cfg.init.self_test_rpm_thr   = 2000;
-            fan_cfg.init.danger_rpm_thr      = 100;
-            fan_cfg.pid.Kp                   = 50.0f;
-            fan_cfg.pid.Ki                   = 1.0f;
-            fan_cfg.pid.Kd                   = 0.0f;
-            fan_cfg.pid.prev_error           = 0;
-            fan_cfg.pid.integral             = 0;
-            fan_cfg.pid.output_min           = 0.00f;
-            fan_cfg.pid.output_max           = 100.0f;
-            config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
+            // fan_cfg.id                        = 1;
+            // fan_cfg.init.pwm.pin              = 10;
+            // fan_cfg.init.pwm.ch               = 2;
+            // fan_cfg.init.pwm.freq             = 1000*100; // Hz
+            // fan_cfg.init.pwm.resolution       = 8;        // bits
+            // fan_cfg.init.torch.pulse_gpio_num = 47;
+            // fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED; // Not used
+            // fan_cfg.init.torch.lctrl_mode     = PCNT_MODE_KEEP;
+            // fan_cfg.init.torch.hctrl_mode     = PCNT_MODE_KEEP;
+            // fan_cfg.init.torch.pos_mode       = PCNT_COUNT_INC;
+            // fan_cfg.init.torch.neg_mode       = PCNT_COUNT_DIS;
+            // fan_cfg.init.torch.counter_h_lim  = 30000;
+            // fan_cfg.init.torch.counter_l_lim  = 0;
+            // fan_cfg.init.torch.unit           = PCNT_UNIT_1;
+            // fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
+            // fan_cfg.init.self_test_rpm_thr   = 2000;
+            // fan_cfg.init.danger_rpm_thr      = 100;
+            // fan_cfg.pid.Kp                   = 50.0f;
+            // fan_cfg.pid.Ki                   = 1.0f;
+            // fan_cfg.pid.Kd                   = 0.0f;
+            // fan_cfg.pid.prev_error           = 0;
+            // fan_cfg.pid.integral             = 0;
+            // fan_cfg.pid.output_min           = 0.00f;
+            // fan_cfg.pid.output_max           = 100.0f;
+            // config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
             break;
         default:
             config.name                      = "Unknown";

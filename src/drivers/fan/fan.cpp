@@ -57,7 +57,7 @@ void measure_fan_rpm_for_duration(fan_init_t init_param, float speed, uint32_t d
 
     while (millis() - start_time < duration_ms) {
         if (millis() - last_measure_time >= 100) {
-            pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
+            pcnt_get_counter_value(init_param.torch.unit, &now_count);
             uint16_t delta_pcnt = 0;
             if (now_count < last_count) {
                 delta_pcnt = (init_param.torch.counter_h_lim - last_count) + now_count;
@@ -78,11 +78,11 @@ bool guess_fan_polarity(fan_init_t init_param) {
 
     // test at 50% speed
     measure_fan_rpm_for_duration(init_param, 0.5, 2000, rpm_50);
-    LOG_I("Fan RPM at 50%% speed: %d", rpm_50);
+    LOG_W("Fan RPM at 50%% speed: %d", rpm_50);
 
     // test at 100% speed
     measure_fan_rpm_for_duration(init_param, 1.0, 2000, rpm_100);
-    LOG_I("Fan RPM at 100%% speed: %d", rpm_100);
+    LOG_W("Fan RPM at 100%% speed: %d", rpm_100);
     
     // Determine polarity
     bool invert = (0.9 * rpm_100) <= rpm_50;

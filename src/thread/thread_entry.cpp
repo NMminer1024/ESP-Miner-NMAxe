@@ -824,7 +824,6 @@ void fan_thread_entry(void *args){
         return nullptr;
     };
 
-
     // fan self test
     while(true){
         bool self_test_result[board->status.fan.count] = {false,}; // initialize all to false
@@ -839,9 +838,10 @@ void fan_thread_entry(void *args){
             bool fan_invert = fan_cfg->polarity;  // find fan polarity by id from config
             fan_init_t init_param = fan_cfg->init;// find fan init config by id from config
 
-            measure_fan_rpm_for_duration(init_param, 1.0, 5000, fan.rpm , fan_invert);
+            measure_fan_rpm_for_duration(init_param, 1.0, 4000, fan.rpm , fan_invert);
             fan.self_test = (fan.rpm > fan_cfg->init.self_test_rpm_thr) ? true : false;
             self_test_result[fan.id] = fan.self_test;
+            LOG_W("Fan[%d] self test result: %s, measured rpm: %d, threshold rpm: %d", fan.id, fan.self_test ? "OK" : "FAIL", fan.rpm, fan_cfg->init.self_test_rpm_thr);
         }
 
         for(auto &fan : board->status.fan.list){
@@ -877,7 +877,7 @@ void fan_thread_entry(void *args){
             
             // Calculate fan RPM
             if(millis() - start_ms >= 1000) {
-                pcnt_get_counter_value(PCNT_UNIT_0, &now_count);
+                pcnt_get_counter_value(init_param.torch.unit, &now_count);
                 uint16_t delta_pcnt = 0;
                 if (now_count < last_count) delta_pcnt = (init_param.torch.counter_h_lim - last_count) + now_count;
                 else delta_pcnt = now_count - last_count;
