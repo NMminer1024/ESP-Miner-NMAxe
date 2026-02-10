@@ -347,20 +347,20 @@ void tft_bl_ctrl(int8_t percent){
   ledcWrite(g_board.info.spec.tft.bl.pwm_ch, pwm);
 }
 
-static void tft_init(){
-  SCREEN_WIDTH  = g_board.info.spec.tft.height;
-  SCREEN_HEIGHT = g_board.info.spec.tft.width;
+static void tft_init(board_sal_t* board){
+  SCREEN_WIDTH  = board->info.spec.tft.height;
+  SCREEN_HEIGHT = board->info.spec.tft.width;
   // Power on TFT
-  if(g_board.info.spec.tft.pwr_pin >= 0){
-    pinMode(g_board.info.spec.tft.pwr_pin, OUTPUT);
-    digitalWrite(g_board.info.spec.tft.pwr_pin, LOW);
+  if(board->info.spec.tft.pwr_pin >= 0){
+    pinMode(board->info.spec.tft.pwr_pin, OUTPUT);
+    digitalWrite(board->info.spec.tft.pwr_pin, LOW);
     delay(10); //wait for tft power stable
   }
   // Initialize backlight PWM
-  if(g_board.info.spec.tft.bl.pin >= 0){
-    pinMode(g_board.info.spec.tft.bl.pin, OUTPUT);
-    ledcSetup(g_board.info.spec.tft.bl.pwm_ch, g_board.info.spec.tft.bl.pwm_freq, g_board.info.spec.tft.bl.pwm_resolution);
-    ledcAttachPin(g_board.info.spec.tft.bl.pin, g_board.info.spec.tft.bl.pwm_ch);
+  if(board->info.spec.tft.bl.pin >= 0){
+    pinMode(board->info.spec.tft.bl.pin, OUTPUT);
+    ledcSetup(board->info.spec.tft.bl.pwm_ch, board->info.spec.tft.bl.pwm_freq, board->info.spec.tft.bl.pwm_resolution);
+    ledcAttachPin(board->info.spec.tft.bl.pin, board->info.spec.tft.bl.pwm_ch);
     tft_bl_ctrl(0);//sleep when boot up
   }
 
@@ -373,17 +373,17 @@ static void tft_init(){
     LOG_I("TFT_eSPI instance created, screen size: %dx%d", SCREEN_WIDTH, SCREEN_HEIGHT);
   }
 
-  tftDriver->begin(g_board.info.spec.spi.cs_pin, 
-                  g_board.info.spec.tft.dc_pin,
-                  g_board.info.spec.tft.rst_pin, 
-                  g_board.info.spec.spi.sclk_pin,
-                  g_board.info.spec.spi.miso_pin,
-                  g_board.info.spec.spi.mosi_pin,
-                  g_board.info.spec.tft.color_invert
+  tftDriver->begin(board->info.spec.spi.cs_pin, 
+                  board->info.spec.tft.dc_pin,
+                  board->info.spec.tft.rst_pin, 
+                  board->info.spec.spi.sclk_pin,
+                  board->info.spec.spi.miso_pin,
+                  board->info.spec.spi.mosi_pin,
+                  board->info.spec.tft.color_invert
                 );
                 
-  if(g_board.status.preference.screen.flip)tftDriver->setRotation(1); 
-  else tftDriver->setRotation(g_board.info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME ? 4 : 3); // NMQAxe++ use rotation 4, NMaxE use rotation 3
+  if(board->status.preference.screen.flip)tftDriver->setRotation(1); 
+  else tftDriver->setRotation(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME ? 4 : 3); // NMQAxe++ use rotation 4, NMaxE use rotation 3
 }
 
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
@@ -1089,10 +1089,10 @@ static void ui_layout_init(board_sal_t* board){
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version label
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
-  lv_coord_t width = lv_txt_get_width(g_board.info.base.fw_version.c_str(), strlen(g_board.info.base.fw_version.c_str()), loading_page.lb_version.font, 0, LV_TEXT_FLAG_NONE);
+  lv_coord_t width = lv_txt_get_width(board->info.base.fw_version.c_str(), strlen(board->info.base.fw_version.c_str()), loading_page.lb_version.font, 0, LV_TEXT_FLAG_NONE);
   loading_page.lb_version.obj   = lv_label_create( ui_pages[UI_PAGE_LOADING] );
   lv_obj_set_width(loading_page.lb_version.obj, width);
-  lv_label_set_text( loading_page.lb_version.obj, g_board.info.base.fw_version.c_str());
+  lv_label_set_text( loading_page.lb_version.obj, board->info.base.fw_version.c_str());
   lv_obj_set_style_text_font(loading_page.lb_version.obj, loading_page.lb_version.font, LV_PART_MAIN);
   lv_obj_set_style_text_color(loading_page.lb_version.obj, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(loading_page.lb_version.obj, LV_LABEL_LONG_DOT);
@@ -1171,12 +1171,12 @@ static void ui_layout_init(board_sal_t* board){
     qr_size = SCREEN_HEIGHT - 95;
   }
   config_page.qr_code.obj = lv_qrcode_create(ui_pages[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
-  String qr_str = "WIFI:T:WPA;S:" + g_board.info.connection.wifi.ap.info.ssid + ";P:" + g_board.info.connection.wifi.ap.info.pwd + ";H:false;";
+  String qr_str = "WIFI:T:WPA;S:" + board->info.connection.wifi.ap.info.ssid + ";P:" + board->info.connection.wifi.ap.info.pwd + ";H:false;";
   lv_qrcode_update(config_page.qr_code.obj, (uint8_t*)qr_str.c_str(), qr_str.length());
   lv_obj_align(config_page.qr_code.obj, LV_ALIGN_RIGHT_MID, config_page.qr_code.coord.x, config_page.qr_code.coord.y);
 
   // config text label
-  String config = g_board.info.connection.wifi.ap.info.ssid + "\r\n"+ g_board.info.connection.wifi.ap.ip.toString();
+  String config = board->info.connection.wifi.ap.info.ssid + "\r\n"+ board->info.connection.wifi.ap.ip.toString();
   config_page.lb_config_txt.obj  = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
   lv_obj_set_width(config_page.lb_config_txt.obj, SCREEN_WIDTH / 2);
   lv_label_set_text(config_page.lb_config_txt.obj, config.c_str());
@@ -1887,7 +1887,7 @@ static void ui_ota_page_update(board_sal_t* board){
     return;
   }
 
-  if(!g_board.status.ota.running) return; // skip update when OTA is running
+  if(!board->status.ota.running) return; // skip update when OTA is running
 
   static lv_obj_t * overlay = NULL, *bar = NULL, *label_file = NULL, *label_progress = NULL;
   static char progress_text[10];
@@ -2269,41 +2269,42 @@ static void lvgl_tick_task(void *args){
 }
 
 static void ui_thread_entry(void *args){
+  board_sal_t *board = (board_sal_t*)args;
   LOG_I("(ui) thread started on core %d...", xPortGetCoreID());
   delay(100);
   while (true){
-    // xSemaphoreTake(g_board.status.miner.update_xsem, 1000);
+    // xSemaphoreTake(board->status.miner.update_xsem, 1000);
     delay(50);
     if(xSemaphoreTake(lvgl_xMutex, 5) == pdTRUE){
-      switch (g_board.status.ui.page.current){
+      switch (board->status.ui.page.current){
         case UI_PAGE_LOADING:
-          ui_loading_page_update(&g_board);
+          ui_loading_page_update(board);
           break;
         case UI_PAGE_CONFIG:
-          ui_config_page_update(&g_board);
+          ui_config_page_update(board);
           break;
         case UI_PAGE_MINER:
-          ui_miner_page_update(&g_board);
+          ui_miner_page_update(board);
           break;
         case UI_PAGE_DASHBOARD:
-          ui_dashboard_page_update(&g_board);
+          ui_dashboard_page_update(board);
           break;
         case UI_PAGE_HR_HEALTH:
-          ui_hr_healthy_page_update(&g_board);
+          ui_hr_healthy_page_update(board);
           break;
         case UI_PAGE_BIG_DIGIT:
-          ui_big_digit_page_update(&g_board);
+          ui_big_digit_page_update(board);
           break;
         default:
           break;
       }
 
       // countdown page update, if running, cover current page
-      ui_countdown_page_update(&g_board);
+      ui_countdown_page_update(board);
       // block hits page popup, if hit, cover current page
-      ui_hits_page_update(&g_board);
+      ui_hits_page_update(board);
       // OTA page update, if running, cover current page
-      ui_ota_page_update(&g_board);
+      ui_ota_page_update(board);
       //release mutex
       xSemaphoreGive(lvgl_xMutex); 
     }
@@ -2311,10 +2312,10 @@ static void ui_thread_entry(void *args){
 }
 
 void display_thread_entry(void *args){
-  char *name = (char*)malloc(20);
-  strcpy(name, (char*)args);
-  LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-  free(name);
+  board_sal_t *board = (board_sal_t*)args;
+  String taskName = "(display)";
+  LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+  LOG_I("Initializing display...");
 
   String vbus_chk_str[]   = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
   String vcore_chk_str[]  = {"Vcore check   ","Vcore check.  ","Vcore check.. ","Vcore check..."};
@@ -2329,7 +2330,7 @@ void display_thread_entry(void *args){
   String config_str[]     = {"Config   ","Config.  ","Config.. ","Config..."};
 
   // tft hardware init
-  tft_init();
+  tft_init(board);
 
   // lvgl core init
   lv_init();
@@ -2338,18 +2339,18 @@ void display_thread_entry(void *args){
   ui_drv_register();
 
   // ui page element init
-  ui_page_element_init(&g_board);
+  ui_page_element_init(board);
 
   // ui layout init
-  ui_layout_init(&g_board);
+  ui_layout_init(board);
 
   //lvgl tick task
-  String taskName = "(lvgl)";
+  taskName = "(lvgl)";
   xTaskCreatePinnedToCore(lvgl_tick_task, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_LVGL_DRV, NULL, 1);
   delay(100);
 
   taskName = "(ui)";
-  xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*6, (void*)taskName.c_str(), TASK_PRIORITY_UI, NULL, 1);
+  xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*6, (void*)board, TASK_PRIORITY_UI, NULL, 1);
 
   //set the first page to loading page
   g_board.status.ui.page.current = UI_PAGE_LOADING;
