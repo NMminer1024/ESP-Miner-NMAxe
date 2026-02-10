@@ -168,19 +168,15 @@ void wifi_connect_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
     LOG_I("Initializing wifi...");
     
-    uint16_t random_delay = random(0, 1000*10);
-    delay(random_delay);
-    LOG_I("Initializing WiFi, delay: %dms...", random_delay);
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(WIFI_POWER_15dBm);
     WiFi.onEvent(WiFiEvent);
-    LOG_I("Try to connect [%s]...", board->info.connection.wifi.sta.ssid.c_str());
     WiFi.setHostname(board->info.base.hostname.c_str());
 
     /************************************************************ START HTTP SERVER *******************************************************/
     taskName = "(webserver)";
     xTaskCreatePinnedToCore(webserver_thread_entry, taskName.c_str(), 1024*5, (void*)(board), TASK_PRIORITY_WEB_SERVER, NULL, 1);
-    delay(10);
+    delay(100);
     //force config
     if(g_board.status.wifi.force_config){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
@@ -188,7 +184,7 @@ void wifi_connect_thread_entry(void *args){
         WiFi.mode(WIFI_AP);
         WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
         WiFi.softAPConfig(g_board.info.connection.wifi.ap.ip, g_board.info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
-        delay(1000);
+        // delay(1000);
         xSemaphoreGive(g_board.status.wifi.force_cfg_xsem);
         //config time out monitor
         String taskName = "(config_monitor)";
@@ -201,7 +197,11 @@ void wifi_connect_thread_entry(void *args){
             delay(1000);
         }
     }
-    
+
+    uint16_t random_delay = random(0, 1000*10);
+    LOG_I("Initializing WiFi, delay: %dms...", random_delay);
+    delay(random_delay);
+    LOG_I("Try to connect [%s]...", board->info.connection.wifi.sta.ssid.c_str());
     WiFi.begin(board->info.connection.wifi.sta.ssid.c_str(), board->info.connection.wifi.sta.pwd.c_str());
     //wait for connection
     int maxRetries = 0;
@@ -887,7 +887,7 @@ void miner_asic_init_thread_entry(void *args){
         LOG_W("Waiting for miner instance ready...");
         delay(1000);
     }
-    
+
     // wait for asic detected, avoid some usb-sata bridge not ready issue
     while(board->miner->connect_chip() == 0) delay(1);
 
