@@ -212,13 +212,9 @@ void setup() {
   delay(10);
   /************************************************************** BLOCK HERE **********************************************************/
   // wait asic count done
-  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
-
-  //wait for wifi connected event
-  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_WIFI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-
+  // wait for wifi connected event
   // wait fan self-test event
-  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_READY | INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
   xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_SWARM, &swarmTask, 0);

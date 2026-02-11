@@ -33,6 +33,17 @@ void power_thread_entry(void *args){
     //set vdd_1v8 and pll_0v8 power
     board->power->set_pll_0v8(PWR_ON);
     board->power->set_vdd_1v8(PWR_ON);
+    delay(20);
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VDD_VPLL_READY);  
+
+
+    // have no idea why the power sequence of BM1366 is different from other asic???
+    if(board->info.spec.asic.name == CHIP_NMAXE_NAME) ;// skip if board is NMAXE, which uses different power sequence 
+    // wait fan self-test event
+    else xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    
+
+
     //set vcore voltage to required voltage
     board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
     board->power->set_vcore_status(PWR_ON);
@@ -40,6 +51,7 @@ void power_thread_entry(void *args){
         LOG_W("Waiting for vcore power setup...");
         delay(500);
     }
+    delay(20);
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VCORE_READY);  
 
     delay(100);
@@ -840,7 +852,7 @@ void fan_thread_entry(void *args){
             bool fan_invert = fan_cfg->polarity;  // find fan polarity by id from config
             fan_init_t init_param = fan_cfg->init;// find fan init config by id from config
 
-            for(uint8_t i = 0; i < 5; i++){
+            for(uint8_t i = 0; i < 3; i++){
                 fan.rpm = measure_fan_rpm_for_duration(init_param, 1.0, 1000, fan_invert); 
             }
 
@@ -943,6 +955,9 @@ void miner_asic_count_thread_entry(void *args){
         delay(1000);
     }
 
+    // wait for vdd and vpll ready, avoid some asic chip not detected issue
+    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VDD_VPLL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+
     // wait for asic detected, avoid some usb-sata bridge not ready issue
     while(board->miner->connect_chip() == 0) {
         LOG_W("Waiting for asic chip detected...");
@@ -971,11 +986,16 @@ void miner_asic_init_thread_entry(void *args){
         delay(1000);
     }
 
-    // wait for vcore ready, avoid some power supply not ready issue
-    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
-
+    // wait asic count done
+    // wait for vcore ready
+    // wait fan self-test event
+    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_VCORE_READY | INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    
     //begin asic hardware
-    if(!board->miner->begin(board->info.spec.asic.req_frq, board->info.spec.asic.diff_thr_init, board->info.spec.asic.com_baud_work)){
+    uint16_t asic_frq  = board->info.spec.asic.req_frq;
+    uint16_t asic_diff = board->info.spec.asic.diff_thr_init;
+    uint32_t baud      = board->info.spec.asic.com_baud_work;
+    if(!board->miner->begin(asic_frq, asic_diff, baud)){
         while (true){
             LOG_E("Miner ASIC init failed, retrying...");
             delay(1000);

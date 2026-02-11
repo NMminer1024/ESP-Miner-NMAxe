@@ -65,6 +65,8 @@ enum{
     INIT_EVENT_WIFI_READY            = (1 << 1),   // wifi initialized and connected
     INIT_EVENT_ASIC_COUNTED          = (1 << 2),   // asic counting done
     INIT_EVENT_VBUS_READY            = (1 << 3),   // vbus ready
+    
+    INIT_EVENT_VDD_VPLL_READY        = (1 << 4),   // vdd and pll ready
     INIT_EVENT_VCORE_READY           = (1 << 6),   // vcore ready
 };
 
