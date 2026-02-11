@@ -196,9 +196,9 @@ void setup() {
   taskName = "(power)";
   xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_PWR, NULL,1);
   delay(10);
-  /************************************************************* INIT ASIC *************************************************************/
-  taskName = "(asic_init)";
-  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
+  /************************************************************* COUNT ASIC *************************************************************/
+  taskName = "(asic_cnt)";
+  xTaskCreatePinnedToCore(miner_asic_count_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
   delay(10);
   /********************************************************* CREATE FAN THREAD *********************************************************/
   taskName = "(fan)";
@@ -220,6 +220,10 @@ void setup() {
   for(uint8_t i = 0; i < g_board.status.fan.count; i++){
     while(!g_board.status.fan.list[i].self_test) delay(100);
   }
+  /************************************************************* INIT ASIC *************************************************************/
+  taskName = "(asic_init)";
+  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
+  delay(10);
   /************************************************************ Version check **********************************************************/
 #if HAS_VERSION_CHECK_FEATURE
   ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 

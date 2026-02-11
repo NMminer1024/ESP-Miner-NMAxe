@@ -931,6 +931,27 @@ void market_thread_entry(void *args){
     vTaskDelete(NULL);
 }
 
+void miner_asic_count_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+    String taskName = "(asic_cnt)";
+    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
+    LOG_I("Initializing asic_cnt...");
+
+    while(board->miner == nullptr){
+        LOG_W("Waiting for miner instance ready...");
+        delay(1000);
+    }
+
+    // wait for asic detected, avoid some usb-sata bridge not ready issue
+    while(board->miner->connect_chip() == 0) {
+        LOG_W("Waiting for asic chip detected...");
+        delay(1000);
+    }
+
+    delay(100);//wait for asic init stable
+    vTaskDelete(NULL);
+}
+
 void miner_asic_init_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
     String taskName = "(asic_init)";
@@ -942,9 +963,6 @@ void miner_asic_init_thread_entry(void *args){
         delay(1000);
     }
 
-    // wait for asic detected, avoid some usb-sata bridge not ready issue
-    while(board->miner->connect_chip() == 0) delay(1);
-
     // wait for vcore ready, avoid some power supply not ready issue
     xSemaphoreTake(g_board.power->vcore_ready_xsem, portMAX_DELAY);
 
@@ -955,9 +973,8 @@ void miner_asic_init_thread_entry(void *args){
             delay(1000);
         }
     }
-    
-    LOG_I("ASIC job interval set to %d ms", board->info.spec.asic.job_interval_ms);
-    delay(1000);//wait for asic init stable
+    LOG_I("%s init completed, job interval set to %d ms", taskName.c_str(), board->info.spec.asic.job_interval_ms);
+    delay(100);//wait for asic init stable
     vTaskDelete(NULL);
 }
 
