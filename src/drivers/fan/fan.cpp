@@ -48,41 +48,49 @@ float pid_compute(fan_pid_t* pid, float setpoint, float measured, float dt) {
     return output;
 }
 
-void measure_fan_rpm_for_duration(fan_init_t init_param, float speed, uint32_t duration_ms, uint16_t &measured_rpm, bool invert = false) {
+uint16_t measure_fan_rpm_for_duration(fan_init_t init_param, float speed, uint32_t duration_ms) {
     int16_t now_count = 0, last_count = 0;
-    uint32_t start_time = millis();
-    uint32_t last_measure_time = start_time;
+    uint32_t sum = 0, count = 0;
+    uint32_t start_time = 0, last_measure_time = 0;
 
-    fan_set_speed(init_param, speed, invert);
+    fan_set_speed(init_param, speed); // set fan speed to target speed
+    delay(500);                       // wait for fan speed to stabilize
 
+    pcnt_counter_clear(init_param.torch.unit);
+
+    start_time        = millis();
+    last_measure_time = start_time;
     while (millis() - start_time < duration_ms) {
         if (millis() - last_measure_time >= 100) {
-            pcnt_get_counter_value(init_param.torch.unit, &now_count);
             uint16_t delta_pcnt = 0;
+            uint32_t delta_time = millis() - last_measure_time;
+
+            pcnt_get_counter_value(init_param.torch.unit, &now_count);
             if (now_count < last_count) {
                 delta_pcnt = (init_param.torch.counter_h_lim - last_count) + now_count;
             } else {
                 delta_pcnt = now_count - last_count;
             }
-            
-            measured_rpm = calculate_rpm(delta_pcnt, (millis() - last_measure_time) / 1000.0);
+            sum += calculate_rpm(delta_pcnt, delta_time / 1000.0);
             last_count = now_count;
             last_measure_time = millis();
+            count++;
         }
         delay(10);
     }
+    return (count > 0) ? (sum / count) : 0;
 }
 
 bool guess_fan_polarity(fan_init_t init_param) {
     uint16_t rpm_50 = 0, rpm_100 = 0;
 
     // test at 50% speed
-    measure_fan_rpm_for_duration(init_param, 0.5, 2000, rpm_50);
-    LOG_W("Fan RPM at 50%% speed: %d", rpm_50);
+    rpm_50 = measure_fan_rpm_for_duration(init_param, 0.5, 5000);
+    LOG_W("Fan speed at 50%% -> %d rpm", rpm_50);
 
     // test at 100% speed
-    measure_fan_rpm_for_duration(init_param, 1.0, 2000, rpm_100);
-    LOG_W("Fan RPM at 100%% speed: %d", rpm_100);
+    rpm_100 = measure_fan_rpm_for_duration(init_param, 1.0, 5000);
+    LOG_W("Fan speed at 100%% -> %d rpm", rpm_100);
     
     // Determine polarity
     bool invert = (0.9 * rpm_100) <= rpm_50;
