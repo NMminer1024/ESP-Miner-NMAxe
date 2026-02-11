@@ -839,7 +839,7 @@ void fan_thread_entry(void *args){
             fan_init_t init_param = fan_cfg->init;// find fan init config by id from config
 
             for(uint8_t i = 0; i < 5; i++){
-                fan.rpm = measure_fan_rpm_for_duration(init_param, 1.0, 1000); 
+                fan.rpm = measure_fan_rpm_for_duration(init_param, 1.0, 1000, fan_invert); 
             }
 
             fan.self_test = (fan.rpm > fan_cfg->init.self_test_rpm_thr) ? true : false;

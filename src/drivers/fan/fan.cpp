@@ -48,12 +48,12 @@ float pid_compute(fan_pid_t* pid, float setpoint, float measured, float dt) {
     return output;
 }
 
-uint16_t measure_fan_rpm_for_duration(fan_init_t init_param, float speed, uint32_t duration_ms) {
+uint16_t measure_fan_rpm_for_duration(fan_init_t init_param, float speed, uint32_t duration_ms, bool invert = false) {
     int16_t now_count = 0, last_count = 0;
     uint32_t sum = 0, count = 0;
     uint32_t start_time = 0, last_measure_time = 0;
 
-    fan_set_speed(init_param, speed); // set fan speed to target speed
+    fan_set_speed(init_param, speed, invert); // set fan speed to target speed
     delay(500);                       // wait for fan speed to stabilize
 
     pcnt_counter_clear(init_param.torch.unit);

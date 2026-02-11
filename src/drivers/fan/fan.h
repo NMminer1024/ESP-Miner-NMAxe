@@ -40,7 +40,7 @@ typedef struct{
 
 
 void fan_drv_init(fan_init_t init_param);
-uint16_t measure_fan_rpm_for_duration(fan_init_t init_param, float speed, uint32_t duration_ms);
+uint16_t measure_fan_rpm_for_duration(fan_init_t init_param, float speed, uint32_t duration_ms, bool invert);
 bool guess_fan_polarity(fan_init_t init_param);
 void fan_set_speed(fan_init_t init_param, float speed, bool invert);
 uint16_t calculate_rpm(int16_t pulse_count, double time_seconds);
