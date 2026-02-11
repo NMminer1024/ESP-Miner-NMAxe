@@ -11,9 +11,6 @@
 
 void power_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(power)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing power...");
 
     board->power->set_vcore_range(board->info.spec.asic.min_vcore, board->info.spec.asic.max_vcore);
     LOG_I("Set vcore range to (%d~%d mV)", board->power->get_vcore_min(), board->power->get_vcore_max());
@@ -21,7 +18,8 @@ void power_thread_entry(void *args){
     //detect power plug or pd plug
     if(board->power->is_dc_pluged()) LOG_I("DC plug detected...");
     else LOG_I("USB plug detected...");
-
+    delay(100);
+    
     //detect vbus voltage, if lower than VBUS_MIN_VOLTAGE , wait for power settle or throw error
     board->power->init();
     while ((board->power->get_vbus() < board->info.spec.pwr.vbus_min_required) && (board->info.spec.name != BOARD_NMQAXE_PLUS_PLUS_NAME)){
@@ -78,9 +76,6 @@ void power_thread_entry(void *args){
 
 void led_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(led)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing led...");
 
     // LED pins setup
     const int pwmChannel = 3;   
@@ -181,17 +176,11 @@ void config_monitor_thread_entry(void *args){
 
 void webserver_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(webserver)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing webserver...");
-    
-    delay(100);
-    file_system_init();
+
+    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     delay(100); 
     webSocket.begin();
-    delay(100); 
     webSocket.onEvent(webSocketEvent);
-
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
     webServer.on("/api/system/gauge/limits", HTTP_GET, get_gauge_limits);
@@ -226,19 +215,12 @@ void webserver_thread_entry(void *args){
 
 void wifi_connect_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(wifi)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing wifi...");
-    
+
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(WIFI_POWER_15dBm);
     WiFi.onEvent(WiFiEvent);
     WiFi.setHostname(board->info.base.hostname.c_str());
 
-    /************************************************************ START HTTP SERVER *******************************************************/
-    taskName = "(webserver)";
-    xTaskCreatePinnedToCore(webserver_thread_entry, taskName.c_str(), 1024*5, (void*)(board), TASK_PRIORITY_WEB_SERVER, NULL, 1);
-    delay(50);
     //////////////////////////////// force config mode ////////////////////////////////
     if(g_board.status.wifi.force_config){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
@@ -311,9 +293,6 @@ void wifi_connect_thread_entry(void *args){
 
 void button_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(button)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing buttons...");
 
     OneButton *boot_btn = nullptr;
     OneButton *user_btn = nullptr;
@@ -360,9 +339,6 @@ void button_thread_entry(void *args){
 
 void swarm_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
-  String taskName = "(swarm)";
-  LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-  LOG_I("Initializing swarm...");
 
   //malloc udp client
   WiFiUDP* udp_client = new WiFiUDP();
@@ -503,10 +479,7 @@ void swarm_thread_entry(void *args){
 
 void monitor_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(monitor)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing monitor...");
-    
+
     // // fetch timezone from ipapi
     // TimezoneFetcher *tz = new TimezoneFetcher();
     // if(!tz->fetch()){
@@ -763,9 +736,6 @@ void monitor_thread_entry(void *args){
 
 void daemon_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
-  String taskName = "(button)";
-  LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-  LOG_I("Initializing buttons...");
 
   while (true){
     delay(1000);
@@ -804,9 +774,7 @@ void daemon_thread_entry(void *args){
 
 void fan_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(fan)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing fan...");
+
 
     int16_t now_count = 0, last_count = 0, temp_cnt = 0;
     uint32_t start_ms = millis();
@@ -919,9 +887,6 @@ void fan_thread_entry(void *args){
 
 void market_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(market)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing market...");
 
     while (board->market == NULL){
         LOG_W("MarketClass instance is NULL, waiting...");
@@ -946,9 +911,7 @@ void market_thread_entry(void *args){
 
 void miner_asic_count_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(asic_cnt)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing asic_cnt...");
+
 
     while(board->miner == nullptr){
         LOG_W("Waiting for miner instance ready...");
@@ -977,9 +940,6 @@ void miner_asic_count_thread_entry(void *args){
 
 void miner_asic_init_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(asic_init)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing asic_init...");
 
     while(board->miner == nullptr){
         LOG_W("Waiting for miner instance ready...");
@@ -1001,16 +961,14 @@ void miner_asic_init_thread_entry(void *args){
             delay(1000);
         }
     }
-    LOG_I("%s init completed, job interval set to %d ms", taskName.c_str(), board->info.spec.asic.job_interval_ms);
+    LOG_I("%s init completed, job interval set to %d ms", board->info.spec.asic.name.c_str(), board->info.spec.asic.job_interval_ms);
     delay(100);//wait for asic init stable
     vTaskDelete(NULL);
 }
 
 void miner_asic_tx_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(asic_tx)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing asic_tx...");
+
 
     auto calculate_diff = [](String nBits) -> double{
         static const uint8_t  TARGET_BUFFER_SIZE = 64;
@@ -1085,9 +1043,7 @@ void miner_asic_tx_thread_entry(void *args){
 
 void miner_asic_rx_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(asic_rx)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing asic_rx...");
+
 
     asic_job job = {0,};
     miner_result result = {0,};
@@ -1265,9 +1221,7 @@ void miner_asic_rx_thread_entry(void *args){
 
 void stratum_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(stratum)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing stratum...");
+
     StaticJsonDocument<1024*4> json;
     bool is_primary_pool = true;
 
@@ -1570,10 +1524,7 @@ void stratum_thread_entry(void *args){
 
 void touch_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-    String taskName = "(touch)";
-    LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-    LOG_I("Initializing touch...");
-
+    
     while(board->touch == nullptr){
         LOG_W("Waiting for touch instance ready...");
         delay(1000);

@@ -8,7 +8,7 @@
 #include "github.h"
 #include "thread_entry.h"
 
-TaskHandle_t fanTask, ledTask, btnTask, displayTask, touchTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
+TaskHandle_t fanTask, ledTask, btnTask, displayTask, touchTask, wsTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
 board_sal_t  g_board;
 
 bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
@@ -157,8 +157,28 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     return true;
 }
 
+static const thread_config_t thread_configs[] = {
+    {"(display)",   display_thread_entry,           1024*9,   TASK_PRIORITY_DISPLAY,    1, &displayTask,  10,  0},
+    {"(touch)",     touch_thread_entry,             1024*5,   TASK_PRIORITY_TOUCH,      0, &touchTask,    10,  0},
+    {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,        1, &ledTask,      10,  0},
+    {"(button)",    button_thread_entry,            1024*5,   TASK_PRIORITY_BTN,        1, &btnTask,      10,  0},
+    {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WEB_SERVER, 1, &wsTask,       10,  0},
+    {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,       1, NULL,          10,  0},
+    {"(daemon)",    daemon_thread_entry,            1024*4,   TASK_PRIORITY_DAEMON,     0, &daemonTask,   10,  0},
+    {"(power)",     power_thread_entry,             1024*6,   TASK_PRIORITY_PWR,        1, NULL,          10,  0},
+    {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*7,   TASK_PRIORITY_ASIC_CNT,   1, NULL,          10,  0},
+    {"(asic_init)", miner_asic_init_thread_entry,   1024*7,   TASK_PRIORITY_ASIC_INIT,  1, NULL,          10,  0},
+    {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,        0, &fanTask,      10,  0},
+    {"",            NULL,                           0,        0,                        0, NULL,          0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_READY | INIT_EVENT_FAN_READY},
+    {"(swarm)",     swarm_thread_entry,             1024*7,   TASK_PRIORITY_SWARM,      0, &swarmTask,    10,  0},
+    {"(market)",    market_thread_entry,            1024*6,   TASK_PRIORITY_MARKET,     0, &marketTask,   10,  0},
+    {"(stratum)",   stratum_thread_entry,           1024*11,  TASK_PRIORITY_STRATUM,    1, &stratumTask,  10,  0},
+    {"(monitor)",   monitor_thread_entry,           1024*4,   TASK_PRIORITY_MONITOR,    1, &monitorTask,  10,  0},
+    {"(asic_tx)",   miner_asic_tx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_TX,   1, &minerTxTask,  10,  0},
+    {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_RX,   0, &minerRxTask,  10,  0},
+};
+
 void setup() {
-  String taskName;
   BoardSpecConfig config;
   BoardModelType  model;
   /************************************************************ GET BOARD CONFIG *******************************************************/
@@ -171,79 +191,37 @@ void setup() {
     LOG_E("Board initialization failed, retrying in 1s...");
     delay(1000);
   }
-  /************************************************************ INIT DISPLAY ************************************************************/
-  taskName = "(display)";
-  xTaskCreatePinnedToCore(display_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_DISPLAY, &displayTask, 1);
-  delay(10);
-  taskName = "(touch)";
-  xTaskCreatePinnedToCore(touch_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_TOUCH, &touchTask, 0);
-  delay(10);
-  /********************************************************** CREATE LED THREAD *********************************************************/
-  taskName = "(led)";
-  xTaskCreatePinnedToCore(led_thread_entry, taskName.c_str(), 1024*3, (void*)(&g_board), TASK_PRIORITY_LED, &ledTask, 1);
-  delay(10);
-  /********************************************************** CREATE BUTTON THREAD *****************************************************/
-  taskName = "(button)";
-  xTaskCreatePinnedToCore(button_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_BTN, &btnTask,1);
-  delay(10);
-  /************************************************************** INIT WIFI ************************************************************/
-  taskName = "(wifi)";
-  xTaskCreatePinnedToCore(wifi_connect_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_WIFI, NULL, 1);
-  delay(10);
-  /************************************************************** INIT DAEMON **********************************************************/
-  taskName = "(daemon)";
-  xTaskCreatePinnedToCore(daemon_thread_entry, taskName.c_str(), 1024*3.5, (void*)(&g_board), TASK_PRIORITY_DAEMON, &daemonTask, 0);
-  delay(10);
-  /************************************************************* INIT POWER *************************************************************/
-  taskName = "(power)";
-  xTaskCreatePinnedToCore(power_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_PWR, NULL,1);
-  delay(10);
-  /************************************************************* COUNT ASIC *************************************************************/
-  taskName = "(asic_cnt)";
-  xTaskCreatePinnedToCore(miner_asic_count_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
-  delay(10);
-  /************************************************************* INIT ASIC *************************************************************/
-  taskName = "(asic_init)";
-  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
-  delay(10);
-  /********************************************************* CREATE FAN THREAD *********************************************************/
-  taskName = "(fan)";
-  xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
-  delay(10);
-  /************************************************************** BLOCK HERE **********************************************************/
-  // wait asic count done
-  // wait for wifi connected event
-  // wait fan self-test event
-  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_READY | INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-  /************************************************************* INIT SWARM ************************************************************/
-  taskName = "(swarm)";
-  xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_SWARM, &swarmTask, 0);
-  delay(10);
-  /*********************************************************** CREATE MARKET THREAD ****************************************************/
-  taskName = "(market)";
-  xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_MARKET, &marketTask, 0);
-  delay(10);
-  /********************************************************** CREATE STRATUM THREAD ***************************************************/
-  taskName = "(stratum)";
-  xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*11, (void*)(&g_board), TASK_PRIORITY_STRATUM, &stratumTask, 1);
-  delay(10);
-  /********************************************************** CREATE MONITOR THREAD ***************************************************/
-  taskName = "(monitor)";
-  xTaskCreatePinnedToCore(monitor_thread_entry, taskName.c_str(), 1024*4, (void*)(&g_board), TASK_PRIORITY_MONITOR, &monitorTask,1);
-  delay(500);
-  /********************************************************** CREATE MINER TX THREAD **************************************************/
-  taskName = "(asic_tx)";
-  xTaskCreatePinnedToCore(miner_asic_tx_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_MINER_TX, &minerTxTask,1);
-  delay(10);
-  /*********************************************************  CREATE MINER RX THREAD **************************************************/
-  taskName = "(asic_rx)";
-  xTaskCreatePinnedToCore(miner_asic_rx_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_MINER_RX, &minerRxTask,0);
-  delay(10);
+  /********************************************************* CREATE ALL THREADS ********************************************************/
+  for(auto &cfg : thread_configs){
+    if(cfg.entry != NULL){
+        // create thread if entry function is defined
+        BaseType_t ret = xTaskCreatePinnedToCore(cfg.entry, cfg.name, cfg.stack_size, (void*)(&g_board), cfg.priority, cfg.handle, cfg.core_id);
+
+        if(ret == pdPASS)  LOG_I("Thread %s created on core %d", cfg.name, cfg.core_id);
+        else LOG_E("Failed to create thread %s", cfg.name);
+        delay(cfg.delay_ms);
+    }else {
+      // if entry function is NULL, treat this config as a synchronization point and wait for specified events before next proceeding
+      xEventGroupWaitBits(g_board.status.init_evt, cfg.wait_events, pdFALSE, pdTRUE, portMAX_DELAY);
+      continue;
+    }
+  }
 }
 
 
 void loop() {
-  // TaskHandle_t fanTask, ledTask, btnTask, uiTask, monitorTask, swarmTask, marketTask, daemonTask , stratumTask, minerTxTask, minerRxTask;
+  uint32_t last = millis();
+  while(millis() - last < 1000*1){
+      static uint16_t brightness      = g_board.status.preference.screen.brightness, last_brightness = brightness;   
+      static float    x = 0;
+      if(g_board.status.miner.last_hits != g_board.status.miner.hits){//screen blink if block hit
+          brightness = 100*(1 + sin(x))/2;
+          x+=0.1;
+          tft_bl_ctrl(brightness);
+      } else brightness = g_board.status.preference.screen.brightness;
+      delay(10);
+  }
+  delay(100);
 
 
 #if 0
@@ -256,77 +234,19 @@ void loop() {
 
 
 
-  uint32_t last = millis();
-  while(millis() - last < 1000*1){
-      static uint16_t brightness      = g_board.status.preference.screen.brightness, last_brightness = brightness;   
-      static float    x = 0;
-      if(g_board.status.miner.last_hits != g_board.status.miner.hits){//screen blink if block hit
-          brightness = 100*(1 + sin(x))/2;
-          x+=0.1;
-          tft_bl_ctrl(brightness);
-      } else brightness = g_board.status.preference.screen.brightness;
-      delay(10);
-  }
-
 #if 0
   static uint32_t start = millis();
-  static UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(NULL);
-  static char *taskName = pcTaskGetName(NULL);
-  LOG_W("=======================================");
-  if(fanTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(fanTask);
-      taskName = pcTaskGetName(fanTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(ledTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(ledTask);
-      taskName = pcTaskGetName(ledTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(uiTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(uiTask);
-      taskName = pcTaskGetName(uiTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(btnTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(btnTask);
-      taskName = pcTaskGetName(btnTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(monitorTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(monitorTask);
-      taskName = pcTaskGetName(monitorTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(swarmTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(swarmTask);
-      taskName = pcTaskGetName(swarmTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(marketTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(marketTask);
-      taskName = pcTaskGetName(marketTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(daemonTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(daemonTask);
-      taskName = pcTaskGetName(daemonTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(stratumTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(stratumTask);
-      taskName = pcTaskGetName(stratumTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(minerTxTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(minerTxTask);
-      taskName = pcTaskGetName(minerTxTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-  }
-  if(minerRxTask != NULL) {
-      highWaterMark = uxTaskGetStackHighWaterMark(minerRxTask);
-      taskName = pcTaskGetName(minerRxTask);
-      LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+
+  if(millis() - start > 1000*2){ // print stack high water mark for all threads every 30s
+    start = millis();
+    LOG_W("=========== Stack High Water Mark (in bytes) ===========");
+    for(auto &cfg : thread_configs){
+      if(cfg.handle != NULL && *cfg.handle != NULL){
+          UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(*cfg.handle);
+          char *taskName = pcTaskGetName(*cfg.handle);
+          LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
+      }
+    }
   }
 #endif
 }

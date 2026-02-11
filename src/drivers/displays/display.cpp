@@ -2311,9 +2311,6 @@ static void ui_thread_entry(void *args){
 
 void display_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
-  String taskName = "(display)";
-  LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
-  LOG_I("Initializing display...");
 
   String vbus_chk_str[]   = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
   String vcore_chk_str[]  = {"Vcore check   ","Vcore check.  ","Vcore check.. ","Vcore check..."};
@@ -2343,7 +2340,7 @@ void display_thread_entry(void *args){
   ui_layout_init(board);
 
   //lvgl tick task
-  taskName = "(lvgl)";
+  String taskName = "(lvgl)";
   xTaskCreatePinnedToCore(lvgl_tick_task, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_LVGL_DRV, NULL, 1);
   delay(100);
 

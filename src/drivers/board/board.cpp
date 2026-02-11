@@ -5,7 +5,6 @@
 #include "nmaxe.h"
 #include "nmaxegamma.h"
 #include "nmqaxepp.h"
-// #include "Wire.h"
 #include "i2c_master.h"
 #include "tca9554.h"
 
@@ -442,6 +441,8 @@ void hardware_pre_init(BoardSpecConfig config){
         // reset lcd via extio_1
         tca9554_init();
     }
+
+    file_system_init();
 }
 
 

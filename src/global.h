@@ -40,6 +40,7 @@ enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
     TASK_PRIORITY_SWARM    ,
     TASK_PRIORITY_PWR      ,
+    TASK_PRIORITY_ASIC_CNT ,
     TASK_PRIORITY_ASIC_INIT,
     TASK_PRIORITY_BTN      ,
     TASK_PRIORITY_LED      ,
@@ -75,6 +76,16 @@ enum{
     
 };
 
+typedef struct {
+    const char*     name;           // thread name
+    TaskFunction_t  entry;          // thread entry function
+    uint32_t        stack_size;     // stack size in bytes
+    UBaseType_t     priority;       // thread priority
+    BaseType_t      core_id;        // core to run the thread on (0 or 1)
+    TaskHandle_t*   handle;         // pointer to store the created task handle (can be NULL if not needed)
+    uint32_t        delay_ms;       // delay after thread creation in milliseconds
+    EventBits_t     wait_events;    // event bits to wait for before creating this thread (0 if no waiting needed)
+} thread_config_t;
 
 
 typedef struct{
