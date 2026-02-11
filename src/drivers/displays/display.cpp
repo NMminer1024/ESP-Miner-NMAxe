@@ -2351,206 +2351,206 @@ void display_thread_entry(void *args){
   xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*6, (void*)board, TASK_PRIORITY_UI, NULL, 1);
 
   //set the first page to loading page
-  g_board.status.ui.page.current = UI_PAGE_LOADING;
+  board->status.ui.page.current = UI_PAGE_LOADING;
   lv_obj_scroll_to_view(ui_pages[UI_PAGE_LOADING], LV_ANIM_ON); 
 
   //backlight brightness ramp up
-  for(int i = 0; i < g_board.status.preference.screen.brightness; i++) {
+  for(int i = 0; i < board->status.preference.screen.brightness; i++) {
     tft_bl_ctrl(i);
     delay(10);
   }
 
   uint16_t cnt = 0;
   /****************************************wait for Vbus ready*******************************************/
-  g_board.status.ui.page.loading.percent = 0.1;
-  while (!g_board.power->is_adc_ready()){
-    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-    g_board.status.ui.page.loading.details.msg   = vbus_chk_str[(cnt++)%4];
+  board->status.ui.page.loading.percent = 0.1;
+  while (!board->power->is_adc_ready()){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = vbus_chk_str[(cnt++)%4];
     delay(500);
   }
   /********************************Vbus type check and voltage check*************************************/
-  g_board.status.ui.page.loading.percent = 0.2;
-  g_board.status.ui.page.loading.details.color = 0x00ff00;
-  if(g_board.power->is_dc_pluged()) g_board.status.ui.page.loading.details.msg   = "DC pluged.";
-  else g_board.status.ui.page.loading.details.msg   = "USB pluged.";
+  board->status.ui.page.loading.percent = 0.2;
+  board->status.ui.page.loading.details.color = 0x00ff00;
+  if(board->power->is_dc_pluged()) board->status.ui.page.loading.details.msg   = "DC pluged.";
+  else board->status.ui.page.loading.details.msg   = "USB pluged.";
   delay(500);
-  while(g_board.power->get_vbus() < g_board.info.spec.pwr.vbus_min_required){
+  while(board->power->get_vbus() < board->info.spec.pwr.vbus_min_required){
       static bool blink = false;
-      g_board.status.ui.page.loading.details.color = (blink) ? 0xFF0000 : 0xFFFFFF;
-      String vbusString = "Vbus " + String(g_board.power->get_vbus()/1000.0, 1) + "v(at least" + String(g_board.info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
-      g_board.status.ui.page.loading.details.msg   = vbusString;
+      board->status.ui.page.loading.details.color = (blink) ? 0xFF0000 : 0xFFFFFF;
+      String vbusString = "Vbus " + String(board->power->get_vbus()/1000.0, 1) + "v(at least" + String(board->info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
+      board->status.ui.page.loading.details.msg   = vbusString;
       blink = !blink;
-      if(!g_board.power->is_dc_pluged()){
+      if(!board->power->is_dc_pluged()){
         disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
         delay(500);
       }
       delay(500);
 
       // no PD support for NMQ AXE ++ due to hardware design, skip voltage check and just show Vbus voltage when USB plugged in
-      if(g_board.info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) break;
+      if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) break;
   }
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = "Vbus " + String(g_board.power->get_vbus() / 1000.0, 3) + "V.";
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Vbus " + String(board->power->get_vbus() / 1000.0, 3) + "V.";
   delay(500);
   /****************************************wait for wifi connected***************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.3;
-  while(g_board.status.wifi.status != WL_CONNECTED){
-    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-    g_board.status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + g_board.info.connection.wifi.sta.ssid +  String("]");
+  board->status.ui.page.loading.percent = 0.3;
+  while(board->status.wifi.status != WL_CONNECTED){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + board->info.connection.wifi.sta.ssid +  String("]");
     delay(300);
-    if(xSemaphoreTake(g_board.status.wifi.force_cfg_xsem, 100)){
-      g_board.status.ui.page.loading.details.color = 0xFF0000;
-      g_board.status.ui.page.loading.details.msg   = String("Timeout!");
+    if(xSemaphoreTake(board->status.wifi.force_cfg_xsem, 100)){
+      board->status.ui.page.loading.details.color = 0xFF0000;
+      board->status.ui.page.loading.details.msg   = String("Timeout!");
       delay(1000);
-      g_board.status.ui.page.current = UI_PAGE_CONFIG;
+      board->status.ui.page.current = UI_PAGE_CONFIG;
       lv_obj_scroll_to_view(ui_pages[UI_PAGE_CONFIG], LV_ANIM_ON);
     }
   }
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = "Wifi Connected!";
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Wifi Connected!";
   delay(500);
   /****************************************wait for asic init********************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.4;
-  while(g_board.miner == nullptr) {
+  board->status.ui.page.loading.percent = 0.4;
+  while(board->miner == nullptr) {
     LOG_W("Miner object not created yet\r\n");
     delay(1000); //wait miner object created
   }
-  while(g_board.miner->get_asic_count() == 0){
-    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-    g_board.status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
+  while(board->miner->get_asic_count() == 0){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
     delay(100);
   }
-  uint8_t asic_cnt     = g_board.miner->get_asic_count();
-  String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(g_board.info.spec.asic.num_req) + " chips") : "1 chip";
+  uint8_t asic_cnt     = board->miner->get_asic_count();
+  String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(board->info.spec.asic.num_req) + " chips") : "1 chip";
 
-  g_board.status.ui.page.loading.details.color = (asic_cnt != g_board.info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
+  board->status.ui.page.loading.details.color = (asic_cnt != board->info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
   delay(3000);
   /********************************************wait fan self test ****************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.5;
-  for(uint8_t i = 0; i < g_board.status.fan.count; i++){
-    while(!g_board.status.fan.list[i].self_test){
-      g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-      g_board.status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
-      delay(300);
+  board->status.ui.page.loading.percent = 0.5;
+  for(uint8_t i = 0; i < board->status.fan.count; i++){
+    while(!board->status.fan.list[i].self_test){
+      board->status.ui.page.loading.details.color = 0xFFFFFF;
+      board->status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
+      delay(100);
     }
-    g_board.status.ui.page.loading.details.color = 0x00FF00;
-    g_board.status.ui.page.loading.details.msg   = "Fan" + ((g_board.status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(g_board.status.fan.list[i].rpm) + "/ " + String(g_board.info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
+    board->status.ui.page.loading.details.color = 0x00FF00;
+    board->status.ui.page.loading.details.msg   = "Fan" + ((board->status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
     delay(2000);
   }
   /******************************************wait Vcore self test ****************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-  g_board.status.ui.page.loading.percent = 0.6;
-  g_board.status.ui.page.loading.details.msg   = vcore_chk_str[0];
+  board->status.ui.page.loading.details.color = 0xFFFFFF;
+  board->status.ui.page.loading.percent = 0.6;
+  board->status.ui.page.loading.details.msg   = vcore_chk_str[0];
   delay(500);
-  while(!g_board.power->is_vcore_ready()){
-    g_board.status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
+  while(!board->power->is_vcore_ready()){
+    board->status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
     delay(100);
   }
   delay(200);//wait for vcore set to target voltage
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = String("Vcore ") + String(g_board.power->get_vcore() / 1000.0, 3) + "v.";
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = String("Vcore ") + String(board->power->get_vcore() / 1000.0, 3) + "v.";
   delay(500);
   // /****************************************wait for asic init********************************************/
   // cnt = 0;
-  // g_board.status.ui.page.loading.percent = 0.6;
-  // while(g_board.miner == nullptr) {
+  // board->status.ui.page.loading.percent = 0.6;
+  // while(board->miner == nullptr) {
   //   LOG_W("Miner object not created yet\r\n");
   //   delay(1000); //wait miner object created
   // }
-  // while(g_board.miner->get_asic_count() == 0){
-  //   g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-  //   g_board.status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
+  // while(board->miner->get_asic_count() == 0){
+  //   board->status.ui.page.loading.details.color = 0xFFFFFF;
+  //   board->status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
   //   delay(100);
   // }
-  // uint8_t asic_cnt     = g_board.miner->get_asic_count();
-  // String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(g_board.info.spec.asic.num_req) + " chips") : "1 chip";
+  // uint8_t asic_cnt     = board->miner->get_asic_count();
+  // String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(board->info.spec.asic.num_req) + " chips") : "1 chip";
 
-  // g_board.status.ui.page.loading.details.color = (asic_cnt != g_board.info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
-  // g_board.status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
+  // board->status.ui.page.loading.details.color = (asic_cnt != board->info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
+  // board->status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
   // delay(3000);
   /****************************************wait for market connected*************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.7;
+  board->status.ui.page.loading.percent = 0.7;
   uint32_t start = millis();
-  while(0 == g_board.market->lastUpdate){
-    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-    g_board.status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + g_board.info.base.coin_price + "]";
-    if(millis() - start - g_board.market->lastUpdate >= MINER_MARKET_CONNECT_TIMEOUT){
-      g_board.status.ui.page.loading.details.color = 0xFF0000;
-      g_board.status.ui.page.loading.details.msg   = "Market update timeout!";
+  while(0 == board->market->lastUpdate){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + board->info.base.coin_price + "]";
+    if(millis() - start - board->market->lastUpdate >= MINER_MARKET_CONNECT_TIMEOUT){
+      board->status.ui.page.loading.details.color = 0xFF0000;
+      board->status.ui.page.loading.details.msg   = "Market update timeout!";
       delay(500);
       break;
     }
     delay(300);
   }
   delay(500);
-  if(0 != g_board.market->lastUpdate) {
-    g_board.status.ui.page.loading.details.color = 0x00FF00;
-    g_board.status.ui.page.loading.details.msg   = "Market connected!";
+  if(0 != board->market->lastUpdate) {
+    board->status.ui.page.loading.details.color = 0x00FF00;
+    board->status.ui.page.loading.details.msg   = "Market connected!";
   }
   delay(1000);
   /****************************************wait for pool connected**************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.8;
-  while(!g_board.stratum->is_subscribed()){
-    if(g_board.stratum->pool->get_last_errormsg().length() > 0){
-      g_board.status.ui.page.loading.details.color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
-      g_board.status.ui.page.loading.details.msg   = g_board.stratum->pool->get_last_errormsg().c_str();
+  board->status.ui.page.loading.percent = 0.8;
+  while(!board->stratum->is_subscribed()){
+    if(board->stratum->pool->get_last_errormsg().length() > 0){
+      board->status.ui.page.loading.details.color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
+      board->status.ui.page.loading.details.msg   = board->stratum->pool->get_last_errormsg().c_str();
     }else{
-      String con_type = g_board.info.connection.pool.use.ssl ? "[ssl]" : "[tcp]";
-      g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-      g_board.status.ui.page.loading.details.msg   = String(pool_con_str[(cnt)%4] + con_type);
+      String con_type = board->info.connection.pool.use.ssl ? "[ssl]" : "[tcp]";
+      board->status.ui.page.loading.details.color = 0xFFFFFF;
+      board->status.ui.page.loading.details.msg   = String(pool_con_str[(cnt)%4] + con_type);
     }
     cnt++;
     delay(300);
   }
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = "Pool connected!";
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Pool connected!";
   delay(100);
   /*******************************************wait for pool auth****************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 0.9;
-  while(!g_board.stratum->is_authorized()){
-    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-    g_board.status.ui.page.loading.details.msg   = pool_auth_str[(cnt++)%4];
+  board->status.ui.page.loading.percent = 0.9;
+  while(!board->stratum->is_authorized()){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = pool_auth_str[(cnt++)%4];
     bool blink = false;
     while (cnt >= 20){
-      g_board.status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
-      g_board.status.ui.page.loading.details.msg   = "Wrong stratum user!";
+      board->status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
+      board->status.ui.page.loading.details.msg   = "Wrong stratum user!";
       delay(500);
-      if(g_board.stratum->is_authorized()) break;
+      if(board->stratum->is_authorized()) break;
     }
     delay(300);
   }
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = "Pool authorized!";
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Pool authorized!";
   delay(100);
   /****************************************wait for pool job******************************************/
   cnt = 0;
-  g_board.status.ui.page.loading.percent = 1.0;
-  while(g_board.stratum->get_job_counter() == 0){
-    g_board.status.ui.page.loading.details.color = 0xFFFFFF;
-    g_board.status.ui.page.loading.details.msg   = wait_job_str[(cnt++)%4];
+  board->status.ui.page.loading.percent = 1.0;
+  while(board->stratum->get_job_counter() == 0){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = wait_job_str[(cnt++)%4];
     delay(100);
     bool blink = false;
-    while ((cnt >= 60*10) && (g_board.stratum->get_job_counter() == 0)){
-      g_board.status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
-      g_board.status.ui.page.loading.details.msg   = "Pool job timeout!";
+    while ((cnt >= 60*10) && (board->stratum->get_job_counter() == 0)){
+      board->status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
+      board->status.ui.page.loading.details.msg   = "Pool job timeout!";
       delay(500);
     }
   }
-  g_board.status.ui.page.loading.details.color = 0x00FF00;
-  g_board.status.ui.page.loading.details.msg   = "Miner ready!";
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Miner ready!";
   delay(500);
 
   /***************************************scroll to last page******************************************/
-  g_board.status.ui.page.current = g_board.status.ui.page.last; // restore last page
-  lv_obj_scroll_to_view(ui_pages[g_board.status.ui.page.current], LV_ANIM_ON); 
+  board->status.ui.page.current = board->status.ui.page.last; // restore last page
+  lv_obj_scroll_to_view(ui_pages[board->status.ui.page.current], LV_ANIM_ON); 
   //exit this thread
   vTaskDelete(NULL);
 }
