@@ -59,6 +59,22 @@ enum{
     TASK_PRIORITY_MINER_RX     //highest priority
 };
 
+// init event flags
+enum{
+    INIT_EVENT_FAN_READY             = (1 << 0),   // fan initialized and self-test done
+    INIT_EVENT_WIFI_READY            = (1 << 1),   // wifi initialized and connected
+    INIT_EVENT_ASIC_COUNTED          = (1 << 2),   // asic counting done
+    INIT_EVENT_VBUS_READY            = (1 << 3),   // vbus ready
+    INIT_EVENT_VCORE_READY           = (1 << 6),   // vcore ready
+};
+
+// system event flags
+enum{
+    
+};
+
+
+
 typedef struct{
     struct{
         struct{
@@ -220,6 +236,8 @@ typedef struct{
     SemaphoreHandle_t                  reboot_xsem;             // reboot signal
     SemaphoreHandle_t                  nvs_save_xsem;           // save status to NVS signal
     SemaphoreHandle_t                  brightness_update_xsem;  // screen brightness update signal
+    EventGroupHandle_t                 init_evt;                // system initialization event group
+    EventGroupHandle_t                 sys_evt;                 // system event group
 }board_status_t;
 
 

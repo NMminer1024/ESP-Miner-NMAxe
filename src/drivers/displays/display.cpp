@@ -2392,6 +2392,7 @@ void display_thread_entry(void *args){
   board->status.ui.page.loading.details.color = 0x00FF00;
   board->status.ui.page.loading.details.msg   = "Vbus " + String(board->power->get_vbus() / 1000.0, 3) + "V.";
   delay(500);
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   /****************************************wait for wifi connected***************************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.3;
@@ -2410,6 +2411,7 @@ void display_thread_entry(void *args){
   board->status.ui.page.loading.details.color = 0x00FF00;
   board->status.ui.page.loading.details.msg   = "Wifi Connected!";
   delay(500);
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   /****************************************wait for asic init********************************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.4;
@@ -2428,51 +2430,36 @@ void display_thread_entry(void *args){
   board->status.ui.page.loading.details.color = (asic_cnt != board->info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
   board->status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
   delay(3000);
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
   /********************************************wait fan self test ****************************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.5;
   for(uint8_t i = 0; i < board->status.fan.count; i++){
-    while(!board->status.fan.list[i].self_test){
+    while(true){
       board->status.ui.page.loading.details.color = 0xFFFFFF;
       board->status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
-      delay(100);
+      if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_FAN_READY)  == INIT_EVENT_FAN_READY) break;
     }
     board->status.ui.page.loading.details.color = 0x00FF00;
     board->status.ui.page.loading.details.msg   = "Fan" + ((board->status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
     delay(2000);
   }
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   /******************************************wait Vcore self test ****************************************/
   cnt = 0;
   board->status.ui.page.loading.details.color = 0xFFFFFF;
   board->status.ui.page.loading.percent = 0.6;
   board->status.ui.page.loading.details.msg   = vcore_chk_str[0];
   delay(500);
-  while(!board->power->is_vcore_ready()){
+  while(true){
     board->status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
-    delay(100);
+    if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_VCORE_READY)  == INIT_EVENT_VCORE_READY) break;
   }
   delay(200);//wait for vcore set to target voltage
   board->status.ui.page.loading.details.color = 0x00FF00;
   board->status.ui.page.loading.details.msg   = String("Vcore ") + String(board->power->get_vcore() / 1000.0, 3) + "v.";
   delay(500);
-  // /****************************************wait for asic init********************************************/
-  // cnt = 0;
-  // board->status.ui.page.loading.percent = 0.6;
-  // while(board->miner == nullptr) {
-  //   LOG_W("Miner object not created yet\r\n");
-  //   delay(1000); //wait miner object created
-  // }
-  // while(board->miner->get_asic_count() == 0){
-  //   board->status.ui.page.loading.details.color = 0xFFFFFF;
-  //   board->status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
-  //   delay(100);
-  // }
-  // uint8_t asic_cnt     = board->miner->get_asic_count();
-  // String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(board->info.spec.asic.num_req) + " chips") : "1 chip";
-
-  // board->status.ui.page.loading.details.color = (asic_cnt != board->info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
-  // board->status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
-  // delay(3000);
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   /****************************************wait for market connected*************************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.7;

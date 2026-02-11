@@ -75,6 +75,8 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.miner.block_proximity_mutex       = xSemaphoreCreateMutex();
     board->status.miner.update_xsem                 = xSemaphoreCreateCounting(1, 0);
     board->status.brightness_update_xsem            = xSemaphoreCreateCounting(1, 0);
+    board->status.init_evt                          = xEventGroupCreate();
+    board->status.sys_evt                           = xEventGroupCreate();
     board->status.miner.hits                        = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     board->status.miner.last_hits                   = board->status.miner.hits;
     board->status.ota.running                       = false;
@@ -200,47 +202,23 @@ void setup() {
   taskName = "(asic_cnt)";
   xTaskCreatePinnedToCore(miner_asic_count_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
   delay(10);
+  /************************************************************* INIT ASIC *************************************************************/
+  taskName = "(asic_init)";
+  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
+  delay(10);
   /********************************************************* CREATE FAN THREAD *********************************************************/
   taskName = "(fan)";
   xTaskCreatePinnedToCore(fan_thread_entry, taskName.c_str(), 1024*5, (void*)(&g_board), TASK_PRIORITY_FAN, &fanTask,0);
   delay(10);
   /************************************************************** BLOCK HERE **********************************************************/
-  // block here until asic initialization is done to avoid long timeout in later network operations due to asic non-response
-  while(g_board.miner->get_asic_count() == 0) delay(10);
-  if(g_board.miner->get_asic_count() != g_board.info.spec.asic.num_req){
-    LOG_E("Detected ASIC count (%d/%d) does not match required ASIC count!!!!", g_board.miner->get_asic_count(), g_board.info.spec.asic.num_req);
-  }
+  // wait asic count done
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
 
-  //wait for wifi connected before proceeding to avoid long timeout in later network operations
-  while(g_board.status.wifi.status != WL_CONNECTED) {
-    delay(10);
-  } 
-  
-  // wait fan self-test
-  for(uint8_t i = 0; i < g_board.status.fan.count; i++){
-    while(!g_board.status.fan.list[i].self_test) delay(100);
-  }
-  /************************************************************* INIT ASIC *************************************************************/
-  taskName = "(asic_init)";
-  xTaskCreatePinnedToCore(miner_asic_init_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_ASIC_INIT, NULL,1);
-  delay(10);
-  /************************************************************ Version check **********************************************************/
-#if HAS_VERSION_CHECK_FEATURE
-  ReleaseCheckerClass *releaseChecker = new ReleaseCheckerClass(); 
-  g_board.info.base.fw_latest_release = releaseChecker->get_latest_release();
+  //wait for wifi connected event
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_WIFI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
 
-  if(0 == compareVersions(g_board.info.base.fw_version, g_board.info.base.fw_latest_release)){
-    LOG_I("Firmware up to date: [%s]", g_board.info.base.fw_latest_release.c_str());
-  }
-  else if(-2 == compareVersions(g_board.info.base.fw_version, g_board.info.base.fw_latest_release)){
-    LOG_W("Get release info failed, please check your network connection.");
-  }
-  else if(-1 == compareVersions(g_board.info.base.fw_version, g_board.info.base.fw_latest_release)){
-    LOG_W("New version available: %s", g_board.info.base.fw_latest_release.c_str());
-    delay(1000*5);
-  }
-  delete releaseChecker;
-#endif
+  // wait fan self-test event
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   /************************************************************* INIT SWARM ************************************************************/
   taskName = "(swarm)";
   xTaskCreatePinnedToCore(swarm_thread_entry, taskName.c_str(), 1024*7, (void*)(&g_board), TASK_PRIORITY_SWARM, &swarmTask, 0);
@@ -249,18 +227,6 @@ void setup() {
   taskName = "(market)";
   xTaskCreatePinnedToCore(market_thread_entry, taskName.c_str(), 1024*6, (void*)(&g_board), TASK_PRIORITY_MARKET, &marketTask, 0);
   delay(10);
-  uint32_t start = millis();
-  while (0 == g_board.market->lastUpdate){
-    if(millis() - start - g_board.market->lastUpdate > MINER_MARKET_CONNECT_TIMEOUT){
-      LOG_W("Market data update timeout, exiting...");
-      delay(1000);
-      break;
-    }
-    LOG_I("Waiting for market data update... %ds elapsed", (millis() - start) / 1000);
-    delay(1000);
-  }
-  if(0 != g_board.market->lastUpdate) LOG_I("Market data updated successfully, last update: %.2fs ago", (millis() - g_board.market->lastUpdate) / 1000.0f);
-  delay(500);
   /********************************************************** CREATE STRATUM THREAD ***************************************************/
   taskName = "(stratum)";
   xTaskCreatePinnedToCore(stratum_thread_entry, taskName.c_str(), 1024*11, (void*)(&g_board), TASK_PRIORITY_STRATUM, &stratumTask, 1);

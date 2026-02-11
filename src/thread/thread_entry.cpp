@@ -28,7 +28,8 @@ void power_thread_entry(void *args){
         LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", board->power->get_vbus()/1000.0, board->info.spec.pwr.vbus_min_required/1000.0);
         delay(1000);
     }
-
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VBUS_READY);  
+    
     //set vdd_1v8 and pll_0v8 power
     board->power->set_pll_0v8(PWR_ON);
     board->power->set_vdd_1v8(PWR_ON);
@@ -37,9 +38,9 @@ void power_thread_entry(void *args){
     board->power->set_vcore_status(PWR_ON);
     while (!board->power->is_vcore_ready()){
         LOG_W("Waiting for vcore power setup...");
-        delay(100);
+        delay(500);
     }
-    xSemaphoreGive(board->power->vcore_ready_xsem);
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VCORE_READY);  
 
     delay(100);
     LOG_I("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
@@ -226,7 +227,7 @@ void wifi_connect_thread_entry(void *args){
     taskName = "(webserver)";
     xTaskCreatePinnedToCore(webserver_thread_entry, taskName.c_str(), 1024*5, (void*)(board), TASK_PRIORITY_WEB_SERVER, NULL, 1);
     delay(50);
-    //force config
+    //////////////////////////////// force config mode ////////////////////////////////
     if(g_board.status.wifi.force_config){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
         LOG_I("Set softAP [%s]...", g_board.info.connection.wifi.ap.info.ssid.c_str());
@@ -292,6 +293,7 @@ void wifi_connect_thread_entry(void *args){
     LOG_I("Hostname : %s", WiFi.getHostname());
     LOG_I("------------------------------------");
 
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_READY);
     vTaskDelete(NULL);
 }
 
@@ -856,6 +858,7 @@ void fan_thread_entry(void *args){
         LOG_E("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
         delay(10);
     }
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_FAN_READY);
 
     // fan control loop
     while(true){
@@ -917,8 +920,6 @@ void market_thread_entry(void *args){
     
     while(true){
         if(board->status.wifi.status == WL_CONNECTED){
-            // Fetch the 24hr ticker data for the coin
-            // LOG_W("Fetching 24hr ticker data for %sUSDT...", board->info.base.coin_price.c_str());
             bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT");
             board->market->lastUpdate = (res) ? millis() : board->market->lastUpdate;
         }
@@ -948,6 +949,13 @@ void miner_asic_count_thread_entry(void *args){
         delay(1000);
     }
 
+    if(board->miner->get_asic_count() != board->info.spec.asic.num_req){
+        LOG_E("Detected ASIC count (%d/%d) does not match required ASIC count!!!!", board->miner->get_asic_count(), board->info.spec.asic.num_req);
+    }
+
+    // set asic counted event
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED);
+
     delay(100);//wait for asic init stable
     vTaskDelete(NULL);
 }
@@ -964,7 +972,7 @@ void miner_asic_init_thread_entry(void *args){
     }
 
     // wait for vcore ready, avoid some power supply not ready issue
-    xSemaphoreTake(g_board.power->vcore_ready_xsem, portMAX_DELAY);
+    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
 
     //begin asic hardware
     if(!board->miner->begin(board->info.spec.asic.req_frq, board->info.spec.asic.diff_thr_init, board->info.spec.asic.com_baud_work)){

@@ -11,7 +11,6 @@ protected:
 public:
     AxePowerClass(AxePowerHal *instance);
     ~AxePowerClass();
-    SemaphoreHandle_t  vcore_ready_xsem;//vcore power and vbus are ready
 
     /** standard power functions **/
     void init(void);
