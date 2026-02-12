@@ -192,6 +192,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
     webServer.on("/api/system/OTAWWW", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
     webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_update_settings_handler);
+    webServer.on("/api/system/settings/mining", HTTP_GET, get_oc_vc_list);
     webServer.on("/api/theme", HTTP_GET, get_theme_handler);
     webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
     webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
