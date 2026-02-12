@@ -295,8 +295,8 @@ void get_oc_vc_list(AsyncWebServerRequest* request){
         ADD_OC("490", 490);
         ADD_OC("550", 550);
         ADD_OC("575", 575);
-        ADD_OC("600", 600);
-        ADD_OC("650 (default)", 650);
+        ADD_OC("600 (default)", 600);
+        ADD_OC("650", 650);
         ADD_OC("700", 700);
         
         ADD_VC("1000", 1000);
