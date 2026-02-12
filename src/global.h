@@ -63,11 +63,11 @@ enum{
 // init event flags
 enum{
     INIT_EVENT_FAN_READY             = (1 << 0),   // fan initialized and self-test done
-    INIT_EVENT_WIFI_READY            = (1 << 1),   // wifi initialized and connected
-    INIT_EVENT_ASIC_COUNTED          = (1 << 2),   // asic counting done
-    INIT_EVENT_VBUS_READY            = (1 << 3),   // vbus ready
-    
-    INIT_EVENT_VDD_VPLL_READY        = (1 << 4),   // vdd and pll ready
+    INIT_EVENT_WIFI_STA_CONNECTED    = (1 << 1),   // wifi sta mode initialized and connected
+    INIT_EVENT_WIFI_AP_READY         = (1 << 2),   // wifi ap mode initialized and ready for client connection
+    INIT_EVENT_ASIC_COUNTED          = (1 << 3),   // asic counting done
+    INIT_EVENT_VBUS_READY            = (1 << 4),   // vbus ready
+    INIT_EVENT_VDD_VPLL_READY        = (1 << 5),   // vdd and pll ready
     INIT_EVENT_VCORE_READY           = (1 << 6),   // vcore ready
 };
 

@@ -156,9 +156,7 @@ void config_monitor_thread_entry(void *args){
     uint16_t timeout = 0;
     board->status.wifi.config_timeout = MINER_WIFI_CONFIG_TIMEOUT;
     while(true){
-        if (WL_CONNECTED == board->status.wifi.status) {
-            break;
-        }
+        if (WL_CONNECTED == board->status.wifi.status) break;
 
         if(board->status.wifi.client_connected == false){
             if(timeout++ >= MINER_WIFI_CONFIG_TIMEOUT){
@@ -177,7 +175,8 @@ void config_monitor_thread_entry(void *args){
 void webserver_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
-    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    // wait for sta or ap ready
+    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_WIFI_AP_READY, pdFALSE, pdFALSE, portMAX_DELAY);
     delay(100); 
     webSocket.begin();
     webSocket.onEvent(webSocketEvent);
@@ -229,8 +228,9 @@ void wifi_connect_thread_entry(void *args){
         WiFi.mode(WIFI_AP);
         WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
         WiFi.softAPConfig(g_board.info.connection.wifi.ap.ip, g_board.info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
-        // delay(1000);
         xSemaphoreGive(g_board.status.wifi.force_cfg_xsem);
+        delay(500);
+        xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY);
         //config time out monitor
         String taskName = "(config_monitor)";
         xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
@@ -258,8 +258,9 @@ void wifi_connect_thread_entry(void *args){
             WiFi.mode(WIFI_AP);
             WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
             WiFi.softAPConfig(board->info.connection.wifi.ap.ip, board->info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
-            delay(1000);
             xSemaphoreGive(g_board.status.wifi.force_cfg_xsem);
+            delay(500);
+            xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY);
 
             //config time out monitor
             String taskName = "(config_monitor)";
@@ -288,7 +289,7 @@ void wifi_connect_thread_entry(void *args){
     LOG_I("Hostname : %s", WiFi.getHostname());
     LOG_I("------------------------------------");
 
-    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_READY);
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_STA_CONNECTED);
     vTaskDelete(NULL);
 }
 
@@ -951,7 +952,7 @@ void miner_asic_init_thread_entry(void *args){
     // wait for vcore ready
     // wait fan self-test event
     // wait wifi connect
-    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_VCORE_READY | INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_VCORE_READY | INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
     
     //begin asic hardware
     uint16_t asic_frq  = board->info.spec.asic.req_frq;

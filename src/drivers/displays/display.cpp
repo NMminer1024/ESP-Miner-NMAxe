@@ -2408,7 +2408,7 @@ void display_thread_entry(void *args){
   board->status.ui.page.loading.details.color = 0x00FF00;
   board->status.ui.page.loading.details.msg   = "Wifi Connected!";
   delay(500);
-  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
   /****************************************wait for asic init********************************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.4;

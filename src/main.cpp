@@ -169,7 +169,7 @@ static const thread_config_t thread_configs[] = {
     {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*7,   TASK_PRIORITY_ASIC_CNT,   1, NULL,          10,  0},
     {"(asic_init)", miner_asic_init_thread_entry,   1024*7,   TASK_PRIORITY_ASIC_INIT,  1, NULL,          10,  0},
     {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,        0, &fanTask,      10,  0},
-    {"",            NULL,                           0,        0,                        0, NULL,          0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_READY | INIT_EVENT_FAN_READY},
+    {"",            NULL,                           0,        0,                        0, NULL,          0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_FAN_READY},
     {"(swarm)",     swarm_thread_entry,             1024*7,   TASK_PRIORITY_SWARM,      0, &swarmTask,    10,  0},
     {"(market)",    market_thread_entry,            1024*6,   TASK_PRIORITY_MARKET,     0, &marketTask,   10,  0},
     {"(stratum)",   stratum_thread_entry,           1024*11,  TASK_PRIORITY_STRATUM,    1, &stratumTask,  10,  0},
