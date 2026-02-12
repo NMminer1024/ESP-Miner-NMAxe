@@ -3,8 +3,9 @@
 #include "global.h"
 #include <driver/adc.h>
 
-#define DEFAULT_VREF    1100
-#define SAMPLES_N       8  
+#define DEFAULT_VREF            1100
+#define SAMPLES_N               5  
+#define SAMPLES_INTERVAL        10
 
 
 static adc1_channel_t get_adc1_channel_from_gpio(int gpio_num) {
@@ -132,6 +133,7 @@ uint32_t AxePowerHal::get_vbus_adc(void){
     if(this->_asic_pwr_adc_pins.vbus >= 1 && this->_asic_pwr_adc_pins.vbus <= 10){
         for (int i = 0; i < SAMPLES_N; i++) {
             adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vbus));
+            delay(SAMPLES_INTERVAL);
         }
     }
     else if(this->_asic_pwr_adc_pins.vbus >= 11 && this->_asic_pwr_adc_pins.vbus <= 20){
@@ -139,6 +141,7 @@ uint32_t AxePowerHal::get_vbus_adc(void){
             int tmp = 0;
             adc2_get_raw(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vbus), ADC_WIDTH_BIT_12, &tmp);
             adc += tmp;
+            delay(SAMPLES_INTERVAL);
         }
     }
     else{
@@ -157,6 +160,7 @@ uint32_t AxePowerHal::get_ibus_adc(void){
     if(this->_asic_pwr_adc_pins.ibus >= 1 && this->_asic_pwr_adc_pins.ibus <= 10){
         for (int i = 0; i < SAMPLES_N; i++) {
             adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.ibus));
+            delay(SAMPLES_INTERVAL);
         }
     }
     else if(this->_asic_pwr_adc_pins.ibus >= 11 && this->_asic_pwr_adc_pins.ibus <= 20){
@@ -164,6 +168,7 @@ uint32_t AxePowerHal::get_ibus_adc(void){
             int tmp = 0;
             adc2_get_raw(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.ibus), ADC_WIDTH_BIT_12, &tmp);
             adc += tmp;
+            delay(SAMPLES_INTERVAL);
         }
     }
     else{
@@ -184,6 +189,7 @@ uint32_t AxePowerHal::get_vcore_adc(void){
     if(this->_asic_pwr_adc_pins.vcore >= 1 && this->_asic_pwr_adc_pins.vcore <= 10){
         for (int i = 0; i < SAMPLES_N; i++) {
             adc += adc1_get_raw(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore));
+            delay(SAMPLES_INTERVAL);
         }
     }
     else if(this->_asic_pwr_adc_pins.vcore >= 11 && this->_asic_pwr_adc_pins.vcore <= 20){
@@ -191,6 +197,7 @@ uint32_t AxePowerHal::get_vcore_adc(void){
             int tmp = 0;
             adc2_get_raw(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_WIDTH_BIT_12, &tmp);
             adc += tmp;
+            delay(SAMPLES_INTERVAL);
         }
     }
     else{

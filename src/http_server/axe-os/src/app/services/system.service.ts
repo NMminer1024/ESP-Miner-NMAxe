@@ -361,4 +361,8 @@ export class SystemService {
       });
     }
   }
+
+  public getMiningSettings(uri: string = ''): Observable<{overclock: {options: Array<{name: string, value: number}>}, vcore: {options: Array<{name: string, value: number}>}}> {
+    return this.httpClient.get<{overclock: {options: Array<{name: string, value: number}>}, vcore: {options: Array<{name: string, value: number}>}}>(`${uri}/api/system/settings/mining`);
+  }
 }

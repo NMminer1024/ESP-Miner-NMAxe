@@ -26,46 +26,8 @@ export class EditComponent implements OnInit {
 
   @Input() uri = '';
 
-  public BM1366DropdownFrequency = [
-    {name: '400', value: 400},
-    {name: '425', value: 425},
-    {name: '475', value: 475},
-    {name: '485', value: 485},
-    {name: '500', value: 500},
-    {name: '550', value: 550},
-    {name: '575 (default)', value: 575},
-  ];
-  public BM1366CoreVoltage = [
-    {name: '1100', value: 1100},
-    {name: '1150', value: 1150},
-    {name: '1200', value: 1200},
-    {name: '1250 (default)', value: 1250},
-    {name: '1300', value: 1300},
-  ];
-
-
-  public BM1370DropdownFrequency = [
-    { name: '400', value: 400 },
-    { name: '440', value: 440 },
-    { name: '490', value: 490 },
-    { name: '550', value: 550 },
-    { name: '575', value: 575 },
-    { name: '600 (default)', value: 600 },
-    { name: '650', value: 650 },
-    { name: '700', value: 700 },
-  ];
-  public BM1370CoreVoltage = [
-    { name: '1000', value: 1000 },
-    { name: '1025', value: 1025 },
-    { name: '1050', value: 1050 },
-    { name: '1100', value: 1100 },
-    { name: '1125 (default)', value: 1125 },
-    { name: '1150', value: 1150 },
-    { name: '1175', value: 1175 },
-    { name: '1200', value: 1200 },
-    { name: '1225', value: 1225 },
-    { name: '1250', value: 1250 },
-  ];
+  public DropdownFrequency: Array<{name: string, value: number}> = [];
+  public CoreVoltage: Array<{name: string, value: number}> = [];
 
 
   public PriceDisplay = [
@@ -91,6 +53,16 @@ export class EditComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // First, get mining settings to populate dropdown options
+    this.systemService.getMiningSettings(this.uri)
+      .pipe(this.loadingService.lockUIUntilComplete())
+      .subscribe(settings => {
+        // Populate dropdown options from API
+        this.DropdownFrequency = settings.overclock.options;
+        this.CoreVoltage = settings.vcore.options;
+      });
+
+    // Then get system info to populate form values
     this.systemService.getInfo(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
