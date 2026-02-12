@@ -330,7 +330,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.iic.sda_pin               = 8;
             config.led.wifi_pin              = -1; // Not used
             config.led.pool_pin              = -1; // Not used
-            config.led.sys_pin               = -1; // Not used
+            config.led.sys_pin               = 9; 
             config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 600);
             config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1225);
             config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
@@ -369,7 +369,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.init.torch.counter_l_lim  = 0;
             fan_cfg.init.torch.unit           = PCNT_UNIT_0;
             fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
-            fan_cfg.init.self_test_rpm_thr   = 2000;
+            fan_cfg.init.self_test_rpm_thr   = 1500;
             fan_cfg.init.danger_rpm_thr      = 100;
             fan_cfg.pid.Kp                   = 50.0f;
             fan_cfg.pid.Ki                   = 1.0f;

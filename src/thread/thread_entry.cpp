@@ -8,6 +8,7 @@
 #include <NTPClient.h>
 #include "http_server.h"
 #include "connection.h"
+#include <Adafruit_NeoPixel.h>
 
 void power_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
@@ -37,11 +38,9 @@ void power_thread_entry(void *args){
 
     // have no idea why the power sequence of BM1366 is different from other asic???
     if(board->info.spec.asic.name == CHIP_NMAXE_NAME) ;// skip if board is NMAXE, which uses different power sequence 
-    // wait fan self-test event
-    else xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    // wait fan self-test and wifi connect event
+    else xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
     
-
-
     //set vcore voltage to required voltage
     board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
     board->power->set_vcore_status(PWR_ON);
@@ -81,7 +80,9 @@ void led_thread_entry(void *args){
     const int pwmChannel = 3;   
     const int freq = 5*1000;    
     const int resolution = 8;   
-    
+
+    Adafruit_NeoPixel *strip = nullptr;
+
     if(board->info.spec.led.wifi_pin != -1){
         pinMode(board->info.spec.led.wifi_pin, OUTPUT);
         digitalWrite(board->info.spec.led.wifi_pin, HIGH);
@@ -93,17 +94,31 @@ void led_thread_entry(void *args){
     }
 
     if(board->info.spec.led.sys_pin != -1){
-        pinMode(board->info.spec.led.sys_pin, OUTPUT);
-        ledcSetup(pwmChannel, freq, resolution);
-        ledcAttachPin(board->info.spec.led.sys_pin, pwmChannel);
-        ledcWrite(pwmChannel, 255);// off
+        if(board->info.spec.name == BOARD_NMAXE_NAME || board->info.spec.name == BOARD_NMAXE_GAMMA_NAME){
+            pinMode(board->info.spec.led.sys_pin, OUTPUT);
+            ledcSetup(pwmChannel, freq, resolution);
+            ledcAttachPin(board->info.spec.led.sys_pin, pwmChannel);
+            ledcWrite(pwmChannel, 255);// off
+        }
+        else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+            strip = new Adafruit_NeoPixel(1, board->info.spec.led.sys_pin, NEO_GRB + NEO_KHZ800);
+            while(!strip) {
+                LOG_E("Failed to create NeoPixel instance for SYS LED");
+                delay(1000);
+            }
+            strip->begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+            strip->show();            // Turn OFF all pixels ASAP
+            strip->setBrightness(100);
+        }
+        else{
+            LOG_W("Unsupported board type for SYS LED control");
+        }
     }
 
     uint64_t led_cnt = 0;
     const uint8_t  dot = 20;
     while(true){
         delay(10);
-
         if(board->info.spec.name == BOARD_NMAXE_NAME || board->info.spec.name == BOARD_NMAXE_GAMMA_NAME){
             if(board->status.preference.led.sleep || !board->status.preference.led.enable) {
                 if(board->info.spec.led.wifi_pin != -1) digitalWrite(board->info.spec.led.wifi_pin, HIGH); // off
@@ -122,16 +137,12 @@ void led_thread_entry(void *args){
                 bool pool_connected = board->stratum->is_subscribed();
                 
                 // WiFi LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
-                if(board->info.spec.led.wifi_pin != -1) {
-                    bool wifi_state = wifi_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
-                    digitalWrite(board->info.spec.led.wifi_pin, wifi_state ? LOW : HIGH);
-                }
-                
+                bool wifi_state = wifi_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+                digitalWrite(board->info.spec.led.wifi_pin, wifi_state ? LOW : HIGH);
+
                 // Pool LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
-                if(board->info.spec.led.pool_pin != -1) {
-                    bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
-                    digitalWrite(board->info.spec.led.pool_pin, pool_state ? LOW : HIGH);
-                }
+                bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+                digitalWrite(board->info.spec.led.pool_pin, pool_state ? LOW : HIGH);
             }
 
             // SYS LED, slow breathing means hashrate > 0, fast breathing means hashrate == 0
@@ -140,7 +151,50 @@ void led_thread_entry(void *args){
             led_cnt++;
         }
         else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-            break; // no led on NMQAXE++
+            static float b_sin_x[] = {
+                0.5000, 0.5499, 0.5993, 0.6478, 0.6947, 0.7397, 0.7823, 0.8221, 0.8587, 0.8917, 0.9207, 0.9456, 
+                0.9660, 0.9818, 0.9927, 0.9987, 0.9998, 0.9958, 0.9869, 0.9732, 0.9546, 0.9316, 0.9042, 0.8729, 
+                0.8377, 0.7992, 0.7578, 0.7137, 0.6675, 0.6196, 0.5706, 0.5208, 0.4708, 0.4211, 0.3722, 0.3246, 
+                0.2787, 0.2351, 0.1941, 0.1561, 0.1216, 0.0909, 0.0642, 0.0419, 0.0242, 0.0112, 0.0032, 0.0000, 
+                0.0019, 0.0088, 0.0205, 0.0371, 0.0583, 0.0839, 0.1136, 0.1472, 0.1844, 0.2247, 0.2677, 0.3131, 
+                0.3603, 0.4089, 0.4585
+            };
+            static float g_sin_x[] = {
+                0.5000, 0.4501, 0.4007, 0.3522, 0.3053, 0.2603, 0.2177, 0.1779, 0.1413, 0.1083, 0.0793, 0.0544, 
+                0.0340, 0.0182, 0.0073, 0.0013, 0.0002, 0.0042, 0.0131, 0.0268, 0.0454, 0.0684, 0.0958, 0.1271, 
+                0.1623, 0.2008, 0.2422, 0.2863, 0.3325, 0.3804, 0.4294, 0.4792, 0.5292, 0.5789, 0.6278, 0.6754, 
+                0.7213, 0.7649, 0.8059, 0.8439, 0.8784, 0.9091, 0.9358, 0.9581, 0.9758, 0.9888, 0.9968, 1.0000, 
+                0.9981, 0.9912, 0.9795, 0.9629, 0.9417, 0.9161, 0.8864, 0.8528, 0.8156, 0.7753, 0.7323, 0.6869, 
+                0.6397, 0.5911, 0.5415
+            };
+            static float r_sin_x[] = {
+                1.0000, 0.9975, 0.9900, 0.9777, 0.9605, 0.9388, 0.9127, 0.8824, 0.8484, 0.8108, 0.7702, 0.7268, 
+                0.6812, 0.6337, 0.5850, 0.5354, 0.4854, 0.4356, 0.3864, 0.3384, 0.2919, 0.2476, 0.2057, 0.1669, 
+                0.1313, 0.0994, 0.0716, 0.0480, 0.0289, 0.0145, 0.0050, 0.0004, 0.0009, 0.0063, 0.0166, 0.0318, 
+                0.0516, 0.0759, 0.1045, 0.1370, 0.1732, 0.2126, 0.2549, 0.2996, 0.3463, 0.3946, 0.4439, 0.4938, 
+                0.5437, 0.5933, 0.6418, 0.6890, 0.7343, 0.7772, 0.8173, 0.8543, 0.8878, 0.9174, 0.9428, 0.9637, 
+                0.9801, 0.9916, 0.9983
+            };
+
+            static uint16_t step = 0;
+            static uint16_t sin_len = sizeof(b_sin_x)/sizeof(b_sin_x[0]);
+            if(board->status.preference.led.sleep || !board->status.preference.led.enable) {
+                for(int i=0; i<strip->numPixels(); i++) {           
+                    strip->setPixelColor(i, strip->Color(0, 0, 0)); 
+                    strip->show();                                  
+                    delay(10);                                     
+                }
+                continue;
+            }
+            uint32_t r = (uint32_t)(r_sin_x[step % sin_len] * 0xFF * 1);
+            uint32_t g = (uint32_t)(g_sin_x[step % sin_len] * 0xFF * 1);
+            uint32_t b = (uint32_t)(b_sin_x[step % sin_len] * 0xFF * 1);
+            for(int i=0; i<strip->numPixels(); i++) {           // For each pixel in strip...
+                strip->setPixelColor(i, strip->Color(r, g, b));  //  Set pixel's color (in RAM)
+                strip->show();                                  //  Update strip to match
+                delay(10);                                     //  Pause for a moment
+            }
+            step+=1;
         }
     }
     LOG_I("led thread exit...");
