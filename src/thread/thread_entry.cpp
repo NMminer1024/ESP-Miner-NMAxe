@@ -949,7 +949,8 @@ void miner_asic_init_thread_entry(void *args){
     // wait asic count done
     // wait for vcore ready
     // wait fan self-test event
-    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_VCORE_READY | INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    // wait wifi connect
+    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_VCORE_READY | INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     
     //begin asic hardware
     uint16_t asic_frq  = board->info.spec.asic.req_frq;
