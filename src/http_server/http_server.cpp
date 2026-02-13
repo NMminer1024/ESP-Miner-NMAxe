@@ -919,6 +919,8 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, req_mv);
         }
         if(root.containsKey("asicFreqReq")){
+            uint16_t req_mhz = root["asicFreqReq"].as<uint16_t>();
+            g_board.info.spec.asic.req_frq = req_mhz;
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, root["asicFreqReq"].as<uint16_t>());
         }
         if(root.containsKey("coinDisplay")){
