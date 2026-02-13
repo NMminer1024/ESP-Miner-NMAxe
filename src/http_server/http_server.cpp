@@ -39,7 +39,7 @@ void file_system_init() {
     }
     size_t totalBytes = SPIFFS.totalBytes();
     size_t usedBytes = SPIFFS.usedBytes();
-    LOG_I("File system totalBytes: %d, usedBytes: %d", totalBytes, usedBytes);
+    LOG_I("File system totalBytes: %d KB, usedBytes: %d KB", totalBytes / 1024, usedBytes / 1024);
 }
  String get_content_type_from_file(String filepath) {
     if(filepath.endsWith(".html")) return "text/html";
@@ -1042,7 +1042,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             response->addHeader("Access-Control-Allow-Origin", "*");
             request->send(response);
 
-            LOG_W("*************** Update Success: %u bytes, rebooting... *************** ", index + len);
+            LOG_W("*************** Update Success: %u bytes, rebooting *************** ", index + len);
             delay(1000);
             xSemaphoreGive(g_board.status.reboot_xsem);
         } else {

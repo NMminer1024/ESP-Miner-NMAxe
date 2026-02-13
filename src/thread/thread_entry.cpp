@@ -1577,7 +1577,7 @@ void touch_thread_entry(void *args){
         vTaskDelete(NULL);
         return;
     }
-    LOG_I("FT6206 touch controller initialized.");
+    LOG_D("FT6206 touch controller initialized.");
     while(true){
         delay(100);
 

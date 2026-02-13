@@ -42,8 +42,7 @@ bool FT6206Class::begin(uint8_t threshold) {
     // Set threshold
     writeRegister8(FT62XX_REG_THRESHHOLD, _threshold);
     
-    LOG_I("FT6206: Initialized successfully (vendor=0x%02x, chip=0x%02x, threshold=%d)", 
-          vendorID, chipID, _threshold);
+    LOG_D("FT6206: Initialized successfully (vendor=0x%02x, chip=0x%02x, threshold=%d)", vendorID, chipID, _threshold);
     return true;
 }
 

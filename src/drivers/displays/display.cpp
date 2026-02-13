@@ -369,7 +369,7 @@ static void tft_init(board_sal_t* board){
     return;
   }
   else{
-    LOG_I("TFT_eSPI instance created, screen size: %dx%d", SCREEN_WIDTH, SCREEN_HEIGHT);
+    LOG_D("Screen size: %dx%d", SCREEN_WIDTH, SCREEN_HEIGHT);
   }
 
   tftDriver->begin(board->info.spec.spi.cs_pin, 

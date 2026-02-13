@@ -8,7 +8,7 @@
 #include "github.h"
 #include "thread_entry.h"
 
-TaskHandle_t fanTask, ledTask, btnTask, displayTask, touchTask, wsTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask;
+TaskHandle_t fanTask, ledTask, btnTask, touchTask, wsTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask, powerTask;
 board_sal_t  g_board;
 
 bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
@@ -158,14 +158,14 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
 }
 
 static const thread_config_t thread_configs[] = {
-    {"(display)",   display_thread_entry,           1024*9,   TASK_PRIORITY_DISPLAY,    1, &displayTask,  10,  0},
-    {"(touch)",     touch_thread_entry,             1024*5,   TASK_PRIORITY_TOUCH,      0, &touchTask,    10,  0},
+    {"(display)",   display_thread_entry,           1024*7,   TASK_PRIORITY_DISPLAY,    1, NULL,          10,  0},
+    {"(touch)",     touch_thread_entry,             1024*4,   TASK_PRIORITY_TOUCH,      0, &touchTask,    10,  0},
     {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,        1, &ledTask,      10,  0},
     {"(button)",    button_thread_entry,            1024*5,   TASK_PRIORITY_BTN,        1, &btnTask,      10,  0},
-    {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WEB_SERVER, 1, &wsTask,       10,  0},
+    {"(webserver)", webserver_thread_entry,         1024*4,   TASK_PRIORITY_WEB_SERVER, 1, &wsTask,       10,  0},
     {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,       1, NULL,          10,  0},
-    {"(daemon)",    daemon_thread_entry,            1024*4,   TASK_PRIORITY_DAEMON,     0, &daemonTask,   10,  0},
-    {"(power)",     power_thread_entry,             1024*6,   TASK_PRIORITY_PWR,        1, NULL,          10,  0},
+    {"(daemon)",    daemon_thread_entry,            1024*3,   TASK_PRIORITY_DAEMON,     0, &daemonTask,   10,  0},
+    {"(power)",     power_thread_entry,             1024*6,   TASK_PRIORITY_PWR,        1, &powerTask,    10,  0},
     {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*7,   TASK_PRIORITY_ASIC_CNT,   1, NULL,          10,  0},
     {"(asic_init)", miner_asic_init_thread_entry,   1024*7,   TASK_PRIORITY_ASIC_INIT,  1, NULL,          10,  0},
     {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,        0, &fanTask,      10,  0},
@@ -235,19 +235,32 @@ void loop() {
 
 
 #if 0
-  static uint32_t start = millis();
+static uint32_t start = millis();
 
-  if(millis() - start > 1000*2){ // print stack high water mark for all threads every 30s
+if(millis() - start > 1000*2){ 
     start = millis();
     LOG_W("=========== Stack High Water Mark (in bytes) ===========");
+    LOG_I("+-----------------+----------+------------+------------+");
+    LOG_I("| Task Name       | HWM      | Total Stack| Optimizable|");
+    LOG_I("+-----------------+----------+------------+------------+");
+    
     for(auto &cfg : thread_configs){
-      if(cfg.handle != NULL && *cfg.handle != NULL){
-          UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(*cfg.handle);
-          char *taskName = pcTaskGetName(*cfg.handle);
-          LOG_I("%s Stack High Water Mark: %u", taskName, highWaterMark);
-      }
+        if(cfg.handle != NULL && *cfg.handle != NULL){
+            char *taskName = pcTaskGetName(*cfg.handle);
+            if(taskName != NULL && taskName[0] != '\0'){
+                UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(*cfg.handle);
+                uint32_t totalStack = cfg.stack_size; // get total stack size from config
+                uint32_t used = totalStack - highWaterMark;
+                uint32_t optimizable = highWaterMark > 512 ? highWaterMark - 512 : 0; // keep 512 bytes safety buffer
+                
+                LOG_I("| %-15s | %8u | %10u | %10u |", 
+                      taskName, highWaterMark, totalStack, optimizable);
+            }
+        }
     }
-  }
+    LOG_I("+-----------------+----------+------------+------------+");
+    LOG_W("Note: Optimizable = HWM - 512 (keeping 512 bytes safety buffer)");
+}
 #endif
 }
 
