@@ -78,13 +78,13 @@ void AxePowerHal::init(){
         adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vbus), ADC_ATTEN_DB_11); 
         ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vbus_adc_chars);
         this->_is_vbus_adc_configured = (ret != ESP_ADC_CAL_VAL_NOT_SUPPORTED);
-        LOG_I("Vbus ADC characterization: %s, type: %d", this->_is_vbus_adc_configured ? "success" : "not supported", ret);
+        LOG_D("Vbus ADC characterization: %s, type: %d", this->_is_vbus_adc_configured ? "success" : "not supported", ret);
     }
     else if(this->_asic_pwr_adc_pins.vbus >= 11 && this->_asic_pwr_adc_pins.vbus <= 20){
         adc2_config_channel_atten(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vbus), ADC_ATTEN_DB_11); 
         ret = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vbus_adc_chars);
         this->_is_vbus_adc_configured = (ret != ESP_ADC_CAL_VAL_NOT_SUPPORTED);
-        LOG_I("Vbus ADC characterization: %s, type: %d", this->_is_vbus_adc_configured ? "success" : "not supported", ret);
+        LOG_D("Vbus ADC characterization: %s, type: %d", this->_is_vbus_adc_configured ? "success" : "not supported", ret);
     }
     else{
         this->_is_vbus_adc_configured = false;
@@ -96,13 +96,13 @@ void AxePowerHal::init(){
         adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.ibus), ADC_ATTEN_DB_11); 
         ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_ibus_adc_chars);
         this->_is_ibus_adc_configured = (ret != ESP_ADC_CAL_VAL_NOT_SUPPORTED);
-        LOG_I("Ibus ADC characterization: %s, type: %d", this->_is_ibus_adc_configured ? "success" : "not supported", ret);
+        LOG_D("Ibus ADC characterization: %s, type: %d", this->_is_ibus_adc_configured ? "success" : "not supported", ret);
     }
     else if(this->_asic_pwr_adc_pins.ibus >= 11 && this->_asic_pwr_adc_pins.ibus <= 20){
         adc2_config_channel_atten(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.ibus), ADC_ATTEN_DB_11); 
         ret = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_ibus_adc_chars);
         this->_is_ibus_adc_configured = (ret != ESP_ADC_CAL_VAL_NOT_SUPPORTED);
-        LOG_I("Ibus ADC characterization: %s, type: %d", this->_is_ibus_adc_configured ? "success" : "not supported", ret);
+        LOG_D("Ibus ADC characterization: %s, type: %d", this->_is_ibus_adc_configured ? "success" : "not supported", ret);
     }
     else{
         this->_is_ibus_adc_configured = false;
@@ -114,13 +114,13 @@ void AxePowerHal::init(){
         adc1_config_channel_atten(get_adc1_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_ATTEN_DB_6); 
         ret = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vcore_adc_chars);
         this->_is_vcore_adc_configured = (ret != ESP_ADC_CAL_VAL_NOT_SUPPORTED);
-        LOG_I("Vcore ADC characterization: %s, type: %d", this->_is_vcore_adc_configured ? "success" : "not supported", ret);
+        LOG_D("Vcore ADC characterization: %s, type: %d", this->_is_vcore_adc_configured ? "success" : "not supported", ret);
     }
     else if(this->_asic_pwr_adc_pins.vcore >= 11 && this->_asic_pwr_adc_pins.vcore <= 20){
         adc2_config_channel_atten(get_adc2_channel_from_gpio(this->_asic_pwr_adc_pins.vcore), ADC_ATTEN_DB_6); 
         ret = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, this->_vcore_adc_chars);
         this->_is_vcore_adc_configured = (ret != ESP_ADC_CAL_VAL_NOT_SUPPORTED);
-        LOG_I("Vcore ADC characterization: %s, type: %d", this->_is_vcore_adc_configured ? "success" : "not supported", ret);
+        LOG_D("Vcore ADC characterization: %s, type: %d", this->_is_vcore_adc_configured ? "success" : "not supported", ret);
     }
     else{
         this->_is_vcore_adc_configured = false;

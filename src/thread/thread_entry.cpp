@@ -161,7 +161,7 @@ void led_thread_entry(void *args){
                 continue;
             }
             for(int i=0; i<strip->numPixels(); i++) {     
-                uint16_t brightness = 255 ;
+                uint16_t brightness = 127 ;
                 uint8_t r = (uint8_t)(brightness * (sin(x) + 1) / 2);
                 uint8_t g = (uint8_t)(brightness * (sin(x + M_PI_2) + 1) / 2);
                 uint8_t b = (uint8_t)(brightness * (sin(x + M_PI) + 1) / 2);
@@ -206,6 +206,8 @@ void config_monitor_thread_entry(void *args){
 void webserver_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
+    file_system_init();
+    
     // wait for sta or ap ready
     xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_WIFI_AP_READY, pdFALSE, pdFALSE, portMAX_DELAY);
     delay(100); 
@@ -1576,7 +1578,6 @@ void touch_thread_entry(void *args){
         return;
     }
     LOG_I("FT6206 touch controller initialized.");
-    LOG_I("Screen flip status: %d", board->status.preference.screen.flip);
     while(true){
         delay(100);
 

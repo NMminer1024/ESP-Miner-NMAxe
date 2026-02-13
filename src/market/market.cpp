@@ -29,7 +29,8 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol) {
     String url = "/api/v3/ticker/24hr?symbol=" + symbol;
     httpclient.get(url);
 
-    if (httpclient.responseStatusCode() == 200) {
+    int err = httpclient.responseStatusCode();
+    if (200 == err) {
         StaticJsonDocument<800> doc;
         DeserializationError error = deserializeJson(doc, httpclient.responseBody());
         if (!error) {
@@ -40,7 +41,7 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol) {
         }
     }
     else{
-        LOG_E("Failed to get 24hr ticker data.");
+        LOG_E("Failed to get 24hr ticker data. HTTP error code: %d", err);
     }
     return false;
 }

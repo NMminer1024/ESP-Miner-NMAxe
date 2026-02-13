@@ -441,8 +441,6 @@ void hardware_pre_init(BoardSpecConfig config){
         // reset lcd via extio_1
         tca9554_init();
     }
-
-    file_system_init();
 }
 
 
