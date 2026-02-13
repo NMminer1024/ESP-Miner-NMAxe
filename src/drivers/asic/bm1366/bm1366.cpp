@@ -197,6 +197,16 @@ void BM1366::frequency_ramp_up(float target_frequency){
     return;
 }
 
+
+void BM1366::change_uart_baud(uint32_t baudrate){
+    // set baud rate 
+    uint8_t init173[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03};
+    this->send(init173, 11);
+    LOG_D("set ASIC baudrate to %d, wait 500ms...", baudrate);
+    delay(500);
+    BMxxx::change_uart_baud(baudrate);
+}
+
 void BM1366::init(uint64_t freq, int diff, uint8_t asic_count){
 
     uint8_t init4[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0xA8, 0x00, 0x07, 0x00, 0x00, 0x03};
@@ -230,8 +240,9 @@ void BM1366::init(uint64_t freq, int diff, uint8_t asic_count){
     uint8_t init171[11] = {0x55, 0xAA, 0x41, 0x09, 0x00, 0x2C, 0x00, 0x7C, 0x00, 0x03, 0x03};
     this->send(init171, 11);
 
-    uint8_t init173[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03};
-    this->send(init173, 11);
+    // //set BM1366 baudrate 
+    // uint8_t init173[11] = {0x55, 0xAA, 0x51, 0x09, 0x00, 0x28, 0x11, 0x30, 0x02, 0x00, 0x03};
+    // this->send(init173, 11);
 
     for (uint8_t i = 0; i < asic_count; i++) {
         uint8_t set_a8_register[6] = {(uint8_t)(i * address_interval), 0xA8, 0x00, 0x07, 0x01, 0xF0};

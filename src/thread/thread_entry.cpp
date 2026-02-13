@@ -32,25 +32,21 @@ void power_thread_entry(void *args){
     //set vdd_1v8 and pll_0v8 power
     board->power->set_pll_0v8(PWR_ON);
     board->power->set_vdd_1v8(PWR_ON);
-    delay(20);
+    delay(100);//wait for power stable
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VDD_VPLL_READY);  
 
-    // have no idea why the power sequence of BM1366 is different from other asic???
-    if(board->info.spec.asic.name == CHIP_NMAXE_NAME) ;// skip if board is NMAXE, which uses different power sequence 
-    // wait fan self-test and wifi connect event
-    else xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
-
+    // wait for fan ready and wifi connected before setting vcore voltage, to avoid too high temperature without proper cooling or network connection for error reporting
+    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
     //set vcore voltage to required voltage
     board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
     board->power->set_vcore_status(PWR_ON);
     while (!board->power->is_vcore_ready()){
-        LOG_W("Waiting for vcore power setup...");
         delay(500);
+        LOG_W("Waiting for vcore power setup...");
     }
-    delay(20);
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VCORE_READY);  
+    delay(20);
 
-    delay(100);
     LOG_I("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
     while(true){
         uint32_t vcore_measure = board->power->get_vcore();
@@ -276,7 +272,7 @@ void wifi_connect_thread_entry(void *args){
         }
     }
 
-    uint16_t random_delay = random(0, 1000*10);
+    uint16_t random_delay = random(0, 1000*5);
     LOG_I("Initializing WiFi, delay: %dms...", random_delay);
     delay(random_delay);
     LOG_I("Try to connect [%s]...", board->info.connection.wifi.sta.ssid.c_str());
@@ -947,7 +943,6 @@ void market_thread_entry(void *args){
 void miner_asic_count_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
-
     while(board->miner == nullptr){
         LOG_W("Waiting for miner instance ready...");
         delay(1000);
@@ -962,14 +957,13 @@ void miner_asic_count_thread_entry(void *args){
         delay(1000);
     }
 
+    // set asic counted event
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED);
+
     if(board->miner->get_asic_count() != board->info.spec.asic.num_req){
         LOG_E("Detected ASIC count (%d/%d) does not match required ASIC count!!!!", board->miner->get_asic_count(), board->info.spec.asic.num_req);
     }
 
-    // set asic counted event
-    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED);
-
-    delay(100);//wait for asic init stable
     vTaskDelete(NULL);
 }
 
@@ -986,19 +980,15 @@ void miner_asic_init_thread_entry(void *args){
     // wait fan self-test event
     // wait wifi connect
     xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_VCORE_READY | INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
-    
+
     //begin asic hardware
-    uint16_t asic_frq  = board->info.spec.asic.req_frq;
-    uint16_t asic_diff = board->info.spec.asic.diff_thr_init;
-    uint32_t baud      = board->info.spec.asic.com_baud_work;
-    if(!board->miner->begin(asic_frq, asic_diff, baud)){
+    if(!board->miner->begin(board->info.spec.asic.req_frq, board->info.spec.asic.diff_thr_init, board->info.spec.asic.com_baud_work)){
         while (true){
             LOG_E("Miner ASIC init failed, retrying...");
             delay(1000);
         }
     }
     LOG_I("%s init completed, job interval set to %d ms", board->info.spec.asic.name.c_str(), board->info.spec.asic.job_interval_ms);
-    delay(100);//wait for asic init stable
     vTaskDelete(NULL);
 }
 
