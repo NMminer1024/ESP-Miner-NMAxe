@@ -48,6 +48,7 @@ void power_thread_entry(void *args){
     delay(20);
 
     LOG_I("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
+    delay(100);
     while(true){
         uint32_t vcore_measure = board->power->get_vcore();
         int32_t err = vcore_measure - board->info.spec.asic.req_vcore;
@@ -157,17 +158,19 @@ void led_thread_entry(void *args){
                 continue;
             }
             for(int i=0; i<strip->numPixels(); i++) {     
-                uint16_t brightness = 127 ;
+                uint16_t brightness = 255 ;
                 uint8_t r = (uint8_t)(brightness * (sin(x) + 1) / 2);
                 uint8_t g = (uint8_t)(brightness * (sin(x + M_PI_2) + 1) / 2);
                 uint8_t b = (uint8_t)(brightness * (sin(x + M_PI) + 1) / 2);
 
                 strip->setPixelColor(step % strip->numPixels(), strip->Color(r, g, b));  //  Set pixel's color (in RAM)
+                // strip->setPixelColor(i, strip->Color(r, g, b));  //  Set pixel's color (in RAM)
+               
                 strip->show();                                   //  Update strip to match
                 delay(10);                                       //  Pause for a moment
             }
             step+=1;
-            x += 0.02f;
+            x += 0.08f;
         }
     }
     LOG_I("led thread exit...");
@@ -262,7 +265,7 @@ void wifi_connect_thread_entry(void *args){
         xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY);
         //config time out monitor
         String taskName = "(config_monitor)";
-        xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
+        xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG, NULL, 1);
         while(true){
             g_board.status.wifi.client_connected = (WiFi.softAPgetStationNum() > 0);
             if (WiFi.softAPgetStationNum() == 0) {
@@ -293,7 +296,7 @@ void wifi_connect_thread_entry(void *args){
 
             //config time out monitor
             String taskName = "(config_monitor)";
-            xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG_MONITOR, NULL, 1);
+            xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG, NULL, 1);
             
             while (true){
                 g_board.status.wifi.client_connected = (WiFi.softAPgetStationNum() > 0);
