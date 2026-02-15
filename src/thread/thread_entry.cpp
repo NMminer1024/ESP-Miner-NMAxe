@@ -45,7 +45,7 @@ void power_thread_entry(void *args){
         LOG_W("Waiting for vcore power setup...");
     }
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VCORE_READY);  
-    delay(20);
+    delay(100);
 
     LOG_I("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
     delay(100);
