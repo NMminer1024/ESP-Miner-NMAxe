@@ -159,14 +159,16 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     return true;
 }
 
-static const thread_config_t thread_configs[] = {
+
+/**********************************************************Thread Pool ***************************************************************/
+static const thread_config_t thread_pool[] = {
     {"(display)",   display_thread_entry,           1024*7,   TASK_PRIORITY_DISPLAY,    1, NULL,          10,  0},
-    {"(lvgl)",      lvgl_tick_thread_entry,                 1024*5,   TASK_PRIORITY_LVGL_DRV,   1, &lvglTask,     10,  0},
+    {"(lvgl)",      lvgl_tick_thread_entry,         1024*5,   TASK_PRIORITY_LVGL_DRV,   1, &lvglTask,     10,  0},
     {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,         1, &uiTask,       10,  0},
     {"(touch)",     touch_thread_entry,             1024*4,   TASK_PRIORITY_TOUCH,      0, &touchTask,    10,  0},
     {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,        1, &ledTask,      10,  0},
     {"(button)",    button_thread_entry,            1024*5,   TASK_PRIORITY_BTN,        1, &btnTask,      10,  0},
-    {"(webserver)", webserver_thread_entry,         1024*4,   TASK_PRIORITY_WS,         1, &wsTask,       10,  0},
+    {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,         1, &wsTask,       10,  0},
     {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,       1, NULL,          10,  0},
     {"(daemon)",    daemon_thread_entry,            1024*3,   TASK_PRIORITY_DAEMON,     0, &daemonTask,   10,  0},
     {"(power)",     power_thread_entry,             1024*6,   TASK_PRIORITY_PWR,        1, &powerTask,    10,  0},
@@ -182,34 +184,35 @@ static const thread_config_t thread_configs[] = {
     {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_RX,   0, &minerRxTask,  10,  0},
 };
 
-void setup() {
-  BoardSpecConfig config;
-  BoardModelType  model;
-  /************************************************************ GET BOARD CONFIG *******************************************************/
-  model  = get_board_model();
-  config = get_board_config(model);
-  /************************************************************ INIT SERIAL AND NVS ****************************************************/
-  hardware_pre_init(config);
-  /******************************************************* INIT BOARD BASED ON CONFIG  *************************************************/
-  while(!board_init(config, &g_board)){
-    LOG_E("Board initialization failed, retrying in 1s...");
-    delay(1000);
-  }
-  /********************************************************* CREATE ALL THREADS ********************************************************/
-  for(auto &cfg : thread_configs){
-    if(cfg.entry != NULL){
-        // create thread if entry function is defined
-        BaseType_t ret = xTaskCreatePinnedToCore(cfg.entry, cfg.name, cfg.stack_size, (void*)(&g_board), cfg.priority, cfg.handle, cfg.core_id);
 
-        if(ret == pdPASS)  LOG_I("Thread %s created on core %d", cfg.name, cfg.core_id);
-        else LOG_E("Failed to create thread %s", cfg.name);
-        delay(cfg.delay_ms);
-    }else {
-      // if entry function is NULL, treat this config as a synchronization point and wait for specified events before next proceeding
-      xEventGroupWaitBits(g_board.status.init_evt, cfg.wait_events, pdFALSE, pdTRUE, portMAX_DELAY);
-      continue;
+void setup() {
+    BoardSpecConfig config;
+    BoardModelType  model;
+    /************************************************************ GET BOARD CONFIG *******************************************************/
+    model  = get_board_model();
+    config = get_board_config(model);
+    /************************************************************ INIT SERIAL AND NVS ****************************************************/
+    hardware_pre_init(config);
+    /******************************************************* INIT BOARD BASED ON CONFIG  *************************************************/
+    while(!board_init(config, &g_board)){
+        LOG_E("Board initialization failed, retrying in 1s...");
+        delay(1000);
     }
-  }
+    /********************************************************* CREATE ALL THREADS ********************************************************/
+    for(auto &thread : thread_pool){
+        if(thread.entry != NULL){
+            // create thread if entry function is defined
+            BaseType_t ret = xTaskCreatePinnedToCore(thread.entry, thread.name, thread.stack_size, (void*)(&g_board), thread.priority, thread.handle, thread.core_id);
+
+            if(ret == pdPASS)  LOG_I("Thread %s created on core %d", thread.name, thread.core_id);
+            else LOG_E("Failed to create thread %s", thread.name);
+            delay(thread.delay_ms);
+        }else {
+        // if entry function is NULL, treat this config as a synchronization point and wait for specified events before next proceeding
+        xEventGroupWaitBits(g_board.status.init_evt, thread.wait_events, pdFALSE, pdTRUE, portMAX_DELAY);
+        continue;
+        }
+    }
 }
 
 
@@ -240,7 +243,6 @@ void loop() {
 
 #if 0
 static uint32_t start = millis();
-
 if(millis() - start > 1000*3){ 
     start = millis();
     LOG_W("=========== Stack High Water Mark (in bytes) ===========");
@@ -248,12 +250,12 @@ if(millis() - start > 1000*3){
     LOG_I("| Task Name       | HWM      | Total Stack| Optimizable|");
     LOG_I("+-----------------+----------+------------+------------+");
     
-    for(auto &cfg : thread_configs){
-        if(cfg.handle != NULL && *cfg.handle != NULL){
-            char *taskName = pcTaskGetName(*cfg.handle);
+    for(auto &thread : thread_pool){
+        if(thread.handle != NULL && *thread.handle != NULL){
+            char *taskName = pcTaskGetName(*thread.handle);
             if(taskName != NULL && taskName[0] != '\0'){
-                UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(*cfg.handle);
-                uint32_t totalStack = cfg.stack_size; // get total stack size from config
+                UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(*thread.handle);
+                uint32_t totalStack = thread.stack_size; // get total stack size from config
                 uint32_t used = totalStack - highWaterMark;
                 uint32_t optimizable = highWaterMark > 512 ? highWaterMark - 512 : 0; // keep 512 bytes safety buffer
                 

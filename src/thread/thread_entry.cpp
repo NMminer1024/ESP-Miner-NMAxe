@@ -1614,7 +1614,7 @@ void touch_thread_entry(void *args){
 
 void lvgl_tick_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
-  uint16_t tick_interval = 50;
+  uint16_t tick_interval = 25;
   uint32_t last_tick = millis();
 
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
