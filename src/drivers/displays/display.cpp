@@ -9,8 +9,6 @@
 static uint16_t SCREEN_WIDTH  = 0;
 static uint16_t SCREEN_HEIGHT = 0;
 static TFT_eSPI *tftDriver = nullptr;
-static lv_obj_t *ui_pages[] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-static SemaphoreHandle_t lvgl_xMutex = xSemaphoreCreateMutex();
 
 LV_FONT_DECLARE(ds_digib_font_16)
 LV_FONT_DECLARE(ds_digib_font_18)
@@ -347,7 +345,7 @@ void tft_bl_ctrl(int8_t percent){
   ledcWrite(g_board.info.spec.tft.bl.pwm_ch, pwm);
 }
 
-static void tft_init(board_sal_t* board){
+void tft_init(board_sal_t* board){
   SCREEN_WIDTH  = board->info.spec.tft.height;
   SCREEN_HEIGHT = board->info.spec.tft.width;
   // Power on TFT
@@ -396,7 +394,7 @@ static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color
     lv_disp_flush_ready(disp_drv);
 }
 
-static void ui_drv_register(void){
+void ui_drv_register(void){
   LOG_I("lvgl version: %s", (String('V') + lv_version_major() + "." + lv_version_minor() + "." + lv_version_patch()).c_str());
 
   static lv_disp_draw_buf_t lvgl_draw_buf;
@@ -441,7 +439,7 @@ static void ui_drv_register(void){
   lv_disp_drv_register( &disp_drv );
 }
 
-static void ui_page_element_init(board_sal_t* board){
+void ui_page_element_init(board_sal_t* board){
   // logo worker image buffer init
   logo_worker_nmaxe.header.w = 60;
   logo_worker_nmaxe.header.h = 68;
@@ -986,7 +984,7 @@ static void ui_page_element_init(board_sal_t* board){
   }
 }
 
-static void ui_layout_init(board_sal_t* board){
+void ui_layout_init(board_sal_t* board){
   static lv_obj_t *parent_docker = NULL;
 
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
@@ -1076,19 +1074,19 @@ static void ui_layout_init(board_sal_t* board){
   lv_img_set_src(big_digit_page.back_img_obj, big_digit_page.back_img_dsc);
   lv_obj_set_size(big_digit_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
   lv_obj_align(big_digit_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  // Create ui_pages array
-  ui_pages[UI_PAGE_LOADING]   = loading_page.container;
-  ui_pages[UI_PAGE_CONFIG]    = config_page.container;
-  ui_pages[UI_PAGE_MINER]     = miner_page.container;
-  ui_pages[UI_PAGE_DASHBOARD] = dashboard_page.container;
-  ui_pages[UI_PAGE_HR_HEALTH] = hr_health_page.container;
-  ui_pages[UI_PAGE_BIG_DIGIT] = big_digit_page.container;
-  ui_pages[UI_PAGE_HITS]      = miner_page.container; //hits page uses the mining page container
+  // Create ui array
+  board->status.ui.page.list[UI_PAGE_LOADING]     = loading_page.container;
+  board->status.ui.page.list[UI_PAGE_CONFIG]      = config_page.container;
+  board->status.ui.page.list[UI_PAGE_MINER]       = miner_page.container;
+  board->status.ui.page.list[UI_PAGE_DASHBOARD]   = dashboard_page.container;
+  board->status.ui.page.list[UI_PAGE_HR_HEALTH]   = hr_health_page.container;
+  board->status.ui.page.list[UI_PAGE_BIG_DIGIT]   = big_digit_page.container;
+  board->status.ui.page.list[UI_PAGE_HITS]        = block_hits_page.container;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version label
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
   lv_coord_t width = lv_txt_get_width(board->info.base.fw_version.c_str(), strlen(board->info.base.fw_version.c_str()), loading_page.lb_version.font, 0, LV_TEXT_FLAG_NONE);
-  loading_page.lb_version.obj   = lv_label_create( ui_pages[UI_PAGE_LOADING] );
+  loading_page.lb_version.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_LOADING] );
   lv_obj_set_width(loading_page.lb_version.obj, width);
   lv_label_set_text( loading_page.lb_version.obj, board->info.base.fw_version.c_str());
   lv_obj_set_style_text_font(loading_page.lb_version.obj, loading_page.lb_version.font, LV_PART_MAIN);
@@ -1097,7 +1095,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( loading_page.lb_version.obj, LV_ALIGN_BOTTOM_RIGHT, loading_page.lb_version.coord.x, loading_page.lb_version.coord.y);
 
   //details label
-  loading_page.lb_details.obj = lv_label_create(ui_pages[UI_PAGE_LOADING]);
+  loading_page.lb_details.obj = lv_label_create(board->status.ui.page.list[UI_PAGE_LOADING]);
   lv_obj_set_width(loading_page.lb_details.obj, SCREEN_WIDTH - width); // make sure it won't overflow, leave space for version label
   lv_obj_set_style_text_color(loading_page.lb_details.obj, font_color, LV_PART_MAIN);
   lv_label_set_text(loading_page.lb_details.obj, "Initializing...");
@@ -1106,7 +1104,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align(loading_page.lb_details.obj, LV_ALIGN_BOTTOM_LEFT, loading_page.lb_details.coord.x, loading_page.lb_details.coord.y);
 
   //bar progress
-  loading_page.bar_progress.obj = lv_bar_create(ui_pages[UI_PAGE_LOADING]);
+  loading_page.bar_progress.obj = lv_bar_create(board->status.ui.page.list[UI_PAGE_LOADING]);
   lv_bar_set_range(loading_page.bar_progress.obj, 0, 16);
   lv_bar_set_value(loading_page.bar_progress.obj, 0, LV_ANIM_ON);
   lv_obj_set_style_bg_opa(loading_page.bar_progress.obj, LV_OPA_50, LV_PART_MAIN);
@@ -1116,13 +1114,13 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_set_style_bg_opa(loading_page.bar_progress.obj, LV_OPA_COVER, LV_PART_INDICATOR);
 
   //progress label
-  loading_page.lb_progress.obj = lv_label_create(ui_pages[UI_PAGE_LOADING]);
+  loading_page.lb_progress.obj = lv_label_create(board->status.ui.page.list[UI_PAGE_LOADING]);
   lv_label_set_text(loading_page.lb_progress.obj, "");
   lv_obj_set_style_text_color(loading_page.lb_progress.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
   lv_obj_align(loading_page.lb_progress.obj, LV_ALIGN_LEFT_MID, loading_page.lb_progress.coord.x, loading_page.lb_progress.coord.y);
 
   //slogan label
-  loading_page.lb_ip_and_slogan.obj   = lv_label_create(ui_pages[UI_PAGE_LOADING]);
+  loading_page.lb_ip_and_slogan.obj   = lv_label_create(board->status.ui.page.list[UI_PAGE_LOADING]);
   String slogan_str = "Make it better";
   width = lv_txt_get_width(slogan_str.c_str(), strlen(slogan_str.c_str()), loading_page.lb_ip_and_slogan.font, 0, LV_TEXT_FLAG_NONE);
   lv_obj_set_width(loading_page.lb_ip_and_slogan.obj, width);
@@ -1133,7 +1131,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( loading_page.lb_ip_and_slogan.obj, LV_ALIGN_CENTER, loading_page.lb_ip_and_slogan.coord.x, loading_page.lb_ip_and_slogan.coord.y);
 
   //pool url label
-  loading_page.lb_pool_url.obj   = lv_label_create(ui_pages[UI_PAGE_LOADING]);
+  loading_page.lb_pool_url.obj   = lv_label_create(board->status.ui.page.list[UI_PAGE_LOADING]);
   lv_label_set_text( loading_page.lb_pool_url.obj, "");
   lv_obj_set_style_text_font(loading_page.lb_pool_url.obj, loading_page.lb_pool_url.font, LV_PART_MAIN);
   lv_obj_set_style_text_color(loading_page.lb_pool_url.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
@@ -1143,7 +1141,7 @@ static void ui_layout_init(board_sal_t* board){
   // version label
   font_color = lv_color_hex(0xFFFFFF);
   width = lv_txt_get_width(board->info.base.fw_version.c_str(), strlen(board->info.base.fw_version.c_str()), config_page.lb_version.font, 0, LV_TEXT_FLAG_NONE);
-  config_page.lb_version.obj   = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
+  config_page.lb_version.obj   = lv_label_create(board->status.ui.page.list[UI_PAGE_CONFIG]);
   lv_obj_set_width(config_page.lb_version.obj, width);
   lv_label_set_text( config_page.lb_version.obj, board->info.base.fw_version.c_str());
   lv_obj_set_style_text_font(config_page.lb_version.obj, config_page.lb_version.font, LV_PART_MAIN);
@@ -1153,7 +1151,7 @@ static void ui_layout_init(board_sal_t* board){
 
   //config timeout label
   font_color = lv_color_hex(0xFFFFFF);
-  config_page.lb_cfg_timeout.obj   = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
+  config_page.lb_cfg_timeout.obj   = lv_label_create(board->status.ui.page.list[UI_PAGE_CONFIG]);
   lv_obj_set_width(config_page.lb_cfg_timeout.obj, SCREEN_WIDTH);
   lv_label_set_text( config_page.lb_cfg_timeout.obj, "");
   lv_obj_set_style_text_font(config_page.lb_cfg_timeout.obj, config_page.lb_cfg_timeout.font, LV_PART_MAIN);
@@ -1168,14 +1166,14 @@ static void ui_layout_init(board_sal_t* board){
   } else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     qr_size = SCREEN_HEIGHT - 95;
   }
-  config_page.qr_code.obj = lv_qrcode_create(ui_pages[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
+  config_page.qr_code.obj = lv_qrcode_create(board->status.ui.page.list[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
   String qr_str = "WIFI:T:WPA;S:" + board->info.connection.wifi.ap.info.ssid + ";P:" + board->info.connection.wifi.ap.info.pwd + ";H:false;";
   lv_qrcode_update(config_page.qr_code.obj, (uint8_t*)qr_str.c_str(), qr_str.length());
   lv_obj_align(config_page.qr_code.obj, LV_ALIGN_RIGHT_MID, config_page.qr_code.coord.x, config_page.qr_code.coord.y);
 
   // config text label
   String config = board->info.connection.wifi.ap.info.ssid + "\r\n"+ board->info.connection.wifi.ap.ip.toString();
-  config_page.lb_config_txt.obj  = lv_label_create(ui_pages[UI_PAGE_CONFIG]);
+  config_page.lb_config_txt.obj  = lv_label_create(board->status.ui.page.list[UI_PAGE_CONFIG]);
   lv_obj_set_width(config_page.lb_config_txt.obj, SCREEN_WIDTH / 2);
   lv_label_set_text(config_page.lb_config_txt.obj, config.c_str());
   lv_obj_set_style_text_font(config_page.lb_config_txt.obj, config_page.lb_config_txt.font, LV_PART_MAIN);
@@ -1187,7 +1185,7 @@ static void ui_layout_init(board_sal_t* board){
   //////////////////////////////////////miner page layout///////////////////////////////////////////////
   //Hashrate value
   font_color = lv_color_hex(0xEE7D30);
-  miner_page.lb_hashrate.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_hashrate.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_hashrate.obj, 100);
   lv_label_set_text( miner_page.lb_hashrate.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_hashrate.obj, miner_page.lb_hashrate.font, LV_PART_MAIN);
@@ -1196,7 +1194,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_hashrate.obj, LV_ALIGN_BOTTOM_MID, miner_page.lb_hashrate.coord.x, miner_page.lb_hashrate.coord.y);
   //Hit value
   font_color = lv_color_hex(0xEE7D30);
-  miner_page.lb_blk_hit.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_blk_hit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_blk_hit.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_blk_hit.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_blk_hit.obj, miner_page.lb_blk_hit.font, LV_PART_MAIN);
@@ -1205,7 +1203,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_blk_hit.obj, LV_ALIGN_TOP_MID, miner_page.lb_blk_hit.coord.x, miner_page.lb_blk_hit.coord.y); 
   //price value
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_price.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_price.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_price.obj , SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_price.obj , "");
   lv_obj_set_style_text_font(miner_page.lb_price.obj , miner_page.lb_price.font, LV_PART_MAIN);
@@ -1214,7 +1212,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_price.obj , LV_ALIGN_LEFT_MID, miner_page.lb_price.coord.x, miner_page.lb_price.coord.y ); 
   //version value
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_ver.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_ver.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_ver.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_ver.obj, board->info.base.fw_version.substring(1, board->info.base.fw_version.length()).c_str());
   lv_obj_set_style_text_font(miner_page.lb_ver.obj, miner_page.lb_ver.font, LV_PART_MAIN);
@@ -1223,7 +1221,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_ver.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_ver.coord.x, miner_page.lb_ver.coord.y );
   //power value
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_power.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_power.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) width = SCREEN_WIDTH/2.2;
   else   width = SCREEN_WIDTH/2.5;
   lv_obj_set_width(miner_page.lb_power.obj, width);
@@ -1234,7 +1232,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_power.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_power.coord.x, miner_page.lb_power.coord.y ); 
   //wifi value
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_ip.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_ip.obj    = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_ip.obj, SCREEN_WIDTH/2.5);
   lv_label_set_text( miner_page.lb_ip.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_ip.obj, miner_page.lb_ip.font, LV_PART_MAIN);
@@ -1244,7 +1242,7 @@ static void ui_layout_init(board_sal_t* board){
 
   //uptime value, hour , minute, second
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_uptime_hms.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_uptime_hms.obj    = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_uptime_hms.obj, 88);
   lv_label_set_text( miner_page.lb_uptime_hms.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_uptime_hms.obj, miner_page.lb_uptime_hms.font, LV_PART_MAIN);
@@ -1253,7 +1251,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_uptime_hms.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_uptime_hms.coord.x, miner_page.lb_uptime_hms.coord.y);
   //uptime value, day
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_uptime_day.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_uptime_day.obj    = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_uptime_day.obj, 88);
   lv_label_set_text( miner_page.lb_uptime_day.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_uptime_day.obj, miner_page.lb_uptime_day.font, LV_PART_MAIN);
@@ -1262,7 +1260,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_uptime_day.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_uptime_day.coord.x, miner_page.lb_uptime_day.coord.y );
   //uptime day unit  
   font_color = lv_color_hex(0xFFA500);
-  miner_page.lb_uptime_day_unit.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_uptime_day_unit.obj    = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_uptime_day_unit.obj, 20);
   lv_label_set_text( miner_page.lb_uptime_day_unit.obj, "d");
   lv_obj_set_style_text_font(miner_page.lb_uptime_day_unit.obj, miner_page.lb_uptime_day_unit.font, LV_PART_MAIN);
@@ -1272,7 +1270,7 @@ static void ui_layout_init(board_sal_t* board){
 
   //Diff value
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_diff.obj    = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_diff.obj    = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) width = SCREEN_WIDTH/2.6;
   else   width = SCREEN_WIDTH/2.4;
   lv_obj_set_width(miner_page.lb_diff.obj, width);
@@ -1283,7 +1281,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_diff.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_diff.coord.x, miner_page.lb_diff.coord.y );
   //share value
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_share.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_share.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_share.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_share.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_share.obj, miner_page.lb_share.font, LV_PART_MAIN);
@@ -1292,7 +1290,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_share.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_share.coord.x, miner_page.lb_share.coord.y);
   //temp value
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_temp.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_temp.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_temp.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_temp.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_temp.obj, miner_page.lb_temp.font, LV_PART_MAIN);
@@ -1301,7 +1299,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_temp.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_temp.coord.x, miner_page.lb_temp.coord.y );
   //Fan value
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_fan.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_fan.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_fan.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_fan.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_fan.obj, miner_page.lb_fan.font, LV_PART_MAIN);
@@ -1310,7 +1308,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_fan.obj, LV_ALIGN_TOP_LEFT, miner_page.lb_fan.coord.x, miner_page.lb_fan.coord.y); 
   //Hashrate uint
   font_color = lv_color_hex(0xFFFFFF);
-  miner_page.lb_hr_unit.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_hr_unit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_hr_unit.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_hr_unit.obj, " ");
   lv_obj_set_style_text_font(miner_page.lb_hr_unit.obj, miner_page.lb_hr_unit.font, LV_PART_MAIN);
@@ -1319,7 +1317,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_hr_unit.obj, LV_ALIGN_TOP_MID, miner_page.lb_hr_unit.coord.x, miner_page.lb_hr_unit.coord.y); 
   // symbol uptime
   font_color = lv_color_hex(0xFFA500);
-  miner_page.lb_uptime_symbol.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_uptime_symbol.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_uptime_symbol.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_uptime_symbol.obj, LV_SYMBOL_BELL); 
   lv_obj_set_style_text_font(miner_page.lb_uptime_symbol.obj, miner_page.lb_uptime_symbol.font, LV_PART_MAIN);
@@ -1328,7 +1326,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_uptime_symbol.obj, LV_ALIGN_TOP_MID, miner_page.lb_uptime_symbol.coord.x, miner_page.lb_uptime_symbol.coord.y); 
   // symbol wifi
   font_color = lv_color_hex(0xFFA500);
-  miner_page.lb_wifi_symbol.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_wifi_symbol.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_wifi_symbol.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_wifi_symbol.obj, LV_SYMBOL_WIFI);
   lv_obj_set_style_text_font(miner_page.lb_wifi_symbol.obj, miner_page.lb_wifi_symbol.font, LV_PART_MAIN);
@@ -1338,7 +1336,7 @@ static void ui_layout_init(board_sal_t* board){
 
   //diff symbol
   font_color = lv_color_hex(0xA9A9A9);
-  miner_page.lb_diff_symbol.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_diff_symbol.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_diff_symbol.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_diff_symbol.obj, "\xEF\x82\x80");
   lv_obj_set_style_text_font(miner_page.lb_diff_symbol.obj, miner_page.lb_diff_symbol.font, LV_PART_MAIN);
@@ -1347,7 +1345,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_diff_symbol.obj, LV_ALIGN_TOP_MID, miner_page.lb_diff_symbol.coord.x, miner_page.lb_diff_symbol.coord.y); 
   // share symbol
   font_color = lv_color_hex(0xA9A9A9);
-  miner_page.lb_share_symb.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_share_symb.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_share_symb.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_share_symb.obj, "\xEF\x8E\x82");
   lv_obj_set_style_text_font(miner_page.lb_share_symb.obj, miner_page.lb_share_symb.font, LV_PART_MAIN);
@@ -1356,7 +1354,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_share_symb.obj, LV_ALIGN_TOP_MID, miner_page.lb_share_symb.coord.x, miner_page.lb_share_symb.coord.y); 
   //temp symbol
   font_color = lv_color_hex(0xA9A9A9);
-  miner_page.lb_temp_symb.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_temp_symb.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_temp_symb.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_temp_symb.obj, "\xEF\x8B\x88");
   lv_obj_set_style_text_font(miner_page.lb_temp_symb.obj, miner_page.lb_temp_symb.font, LV_PART_MAIN);
@@ -1365,7 +1363,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( miner_page.lb_temp_symb.obj, LV_ALIGN_TOP_MID, miner_page.lb_temp_symb.coord.x , miner_page.lb_temp_symb.coord.y); 
   //fan symbol
   font_color = lv_color_hex(0xA9A9A9);
-  miner_page.lb_fan_symb.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+  miner_page.lb_fan_symb.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
   lv_obj_set_width(miner_page.lb_fan_symb.obj, SCREEN_WIDTH);
   lv_label_set_text( miner_page.lb_fan_symb.obj, "\xEF\xA1\xA3");
   lv_obj_set_style_text_font(miner_page.lb_fan_symb.obj, miner_page.lb_fan_symb.font, LV_PART_MAIN);
@@ -1377,7 +1375,7 @@ static void ui_layout_init(board_sal_t* board){
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     // swarm best diff
     font_color = lv_color_hex(0xEE7D30);
-    miner_page.lb_swarm_best_diff.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+    miner_page.lb_swarm_best_diff.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
     lv_obj_set_width(miner_page.lb_swarm_best_diff.obj, SCREEN_WIDTH);
     lv_label_set_text( miner_page.lb_swarm_best_diff.obj, " ");
     lv_obj_set_style_text_font(miner_page.lb_swarm_best_diff.obj, miner_page.lb_swarm_best_diff.font, LV_PART_MAIN);
@@ -1386,7 +1384,7 @@ static void ui_layout_init(board_sal_t* board){
     lv_obj_align( miner_page.lb_swarm_best_diff.obj, LV_ALIGN_TOP_MID, miner_page.lb_swarm_best_diff.coord.x, miner_page.lb_swarm_best_diff.coord.y);
     // swarm workers
     font_color = lv_color_hex(0xEE7D30);
-    miner_page.lb_swarm_workers.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+    miner_page.lb_swarm_workers.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
     lv_obj_set_width(miner_page.lb_swarm_workers.obj, SCREEN_WIDTH);
     lv_label_set_text( miner_page.lb_swarm_workers.obj, " ");
     lv_obj_set_style_text_font(miner_page.lb_swarm_workers.obj, miner_page.lb_swarm_workers.font, LV_PART_MAIN);
@@ -1395,7 +1393,7 @@ static void ui_layout_init(board_sal_t* board){
     lv_obj_align( miner_page.lb_swarm_workers.obj, LV_ALIGN_TOP_MID, miner_page.lb_swarm_workers.coord.x, miner_page.lb_swarm_workers.coord.y);
     // swarm total hashrate
     font_color = lv_color_hex(0xEE7D30);
-    miner_page.lb_swarm_total_hashrate.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+    miner_page.lb_swarm_total_hashrate.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
     lv_obj_set_width(miner_page.lb_swarm_total_hashrate.obj, SCREEN_WIDTH);
     lv_label_set_text( miner_page.lb_swarm_total_hashrate.obj, " ");
     lv_obj_set_style_text_font(miner_page.lb_swarm_total_hashrate.obj, miner_page.lb_swarm_total_hashrate.font, LV_PART_MAIN);
@@ -1405,7 +1403,7 @@ static void ui_layout_init(board_sal_t* board){
 
     // utc time label
     font_color = lv_color_hex(0xFFFFFF);
-    miner_page.lb_utc_time.obj   = lv_label_create( ui_pages[UI_PAGE_MINER] );
+    miner_page.lb_utc_time.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_MINER] );
     lv_obj_set_width(miner_page.lb_utc_time.obj, SCREEN_WIDTH);
     lv_label_set_text( miner_page.lb_utc_time.obj, " ");
     lv_obj_set_style_text_font(miner_page.lb_utc_time.obj, miner_page.lb_utc_time.font, LV_PART_MAIN);
@@ -1417,7 +1415,7 @@ static void ui_layout_init(board_sal_t* board){
   //////////////////////////////////////dashboard page layout///////////////////////////////////////////////
   // Hashrate label
   font_color = lv_color_hex(0x000000);
-  dashboard_page.lb_hr.obj   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
+  dashboard_page.lb_hr.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_DASHBOARD] );
   lv_obj_set_width(dashboard_page.lb_hr.obj, SCREEN_WIDTH / 2);
   lv_label_set_text( dashboard_page.lb_hr.obj, " ");
   lv_obj_set_style_text_font(dashboard_page.lb_hr.obj, dashboard_page.lb_hr.font, LV_PART_MAIN);
@@ -1426,7 +1424,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( dashboard_page.lb_hr.obj, LV_ALIGN_TOP_MID, dashboard_page.lb_hr.coord.x, dashboard_page.lb_hr.coord.y);
   // hashrate unit label
   font_color = lv_color_hex(0x808080);
-  dashboard_page.lb_hr_unit.obj   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
+  dashboard_page.lb_hr_unit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_DASHBOARD] );
   lv_obj_set_width(dashboard_page.lb_hr_unit.obj, SCREEN_WIDTH / 2);
   lv_label_set_text( dashboard_page.lb_hr_unit.obj, " ");
   lv_obj_set_style_text_font(dashboard_page.lb_hr_unit.obj, dashboard_page.lb_hr_unit.font, LV_PART_MAIN);
@@ -1436,12 +1434,12 @@ static void ui_layout_init(board_sal_t* board){
   // miner img
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     // miner image
-    dashboard_page.img_miner.obj = lv_img_create(ui_pages[UI_PAGE_DASHBOARD]);
+    dashboard_page.img_miner.obj = lv_img_create(board->status.ui.page.list[UI_PAGE_DASHBOARD]);
     lv_img_set_src(dashboard_page.img_miner.obj, dashboard_page.miner_img_dsc);
     lv_obj_align(dashboard_page.img_miner.obj, LV_ALIGN_CENTER, dashboard_page.img_miner.coord.x, dashboard_page.img_miner.coord.y);
 
     // diff label
-    dashboard_page.lb_diff.obj   = lv_label_create( ui_pages[UI_PAGE_DASHBOARD] );
+    dashboard_page.lb_diff.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_DASHBOARD] );
     font_color = lv_color_hex(0xFFFFFF);
     lv_obj_set_width(dashboard_page.lb_diff.obj, dashboard_page.miner_img_dsc->header.w);
     lv_label_set_text( dashboard_page.lb_diff.obj, "0.000");
@@ -1455,7 +1453,7 @@ static void ui_layout_init(board_sal_t* board){
   //////////////////////////////////////hashrate healthy page layout///////////////////////////////////////////////
   // Hashrate label
   font_color = lv_color_hex(0x000000);
-  hr_health_page.lb_hr.obj   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
+  hr_health_page.lb_hr.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_HR_HEALTH] );
   lv_obj_set_width(hr_health_page.lb_hr.obj, SCREEN_WIDTH / 2);
   lv_label_set_text( hr_health_page.lb_hr.obj, " ");
   lv_obj_set_style_text_font(hr_health_page.lb_hr.obj, hr_health_page.lb_hr.font, LV_PART_MAIN);
@@ -1464,7 +1462,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( hr_health_page.lb_hr.obj, LV_ALIGN_TOP_MID, hr_health_page.lb_hr.coord.x, hr_health_page.lb_hr.coord.y);
   // hashrate unit label
   font_color = lv_color_hex(0x808080);
-  hr_health_page.lb_hr_unit.obj   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
+  hr_health_page.lb_hr_unit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_HR_HEALTH] );
   lv_obj_set_width(hr_health_page.lb_hr_unit.obj, SCREEN_WIDTH / 2);
   lv_label_set_text( hr_health_page.lb_hr_unit.obj, " ");
   lv_obj_set_style_text_font(hr_health_page.lb_hr_unit.obj, hr_health_page.lb_hr_unit.font, LV_PART_MAIN);
@@ -1476,7 +1474,7 @@ static void ui_layout_init(board_sal_t* board){
   uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
   String scale_str = "Scale : " + String(SCALE) + " GH/s";
   width = lv_txt_get_width(scale_str.c_str(), strlen(scale_str.c_str()), hr_health_page.lb_scale.font, 0, LV_TEXT_FLAG_NONE);
-  hr_health_page.lb_scale.obj   = lv_label_create( ui_pages[UI_PAGE_HR_HEALTH] );
+  hr_health_page.lb_scale.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_HR_HEALTH] );
   lv_obj_set_width(hr_health_page.lb_scale.obj, width);
   lv_label_set_text(hr_health_page.lb_scale.obj, scale_str.c_str());
   lv_obj_set_style_text_font(hr_health_page.lb_scale.obj, hr_health_page.lb_scale.font, LV_PART_MAIN);
@@ -1484,7 +1482,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_label_set_long_mode(hr_health_page.lb_scale.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( hr_health_page.lb_scale.obj, LV_ALIGN_TOP_RIGHT, hr_health_page.lb_scale.coord.x, hr_health_page.lb_scale.coord.y);
   // Create a chart
-  hr_health_page.total_hr_chart.obj = lv_chart_create(ui_pages[UI_PAGE_HR_HEALTH]);
+  hr_health_page.total_hr_chart.obj = lv_chart_create(board->status.ui.page.list[UI_PAGE_HR_HEALTH]);
   lv_obj_set_size(hr_health_page.total_hr_chart.obj, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
   lv_obj_align(hr_health_page.total_hr_chart.obj, LV_ALIGN_CENTER, hr_health_page.total_hr_chart.coord.x, hr_health_page.total_hr_chart.coord.y);
   lv_chart_set_type(hr_health_page.total_hr_chart.obj, LV_CHART_TYPE_BAR);
@@ -1510,7 +1508,7 @@ static void ui_layout_init(board_sal_t* board){
   ////////////////////////////////////////////big digit  page layout///////////////////////////////////////////////
   // Hashrate label
   font_color = lv_color_hex(0xEE7D30);
-  big_digit_page.lb_hr.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  big_digit_page.lb_hr.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
   lv_obj_set_width(big_digit_page.lb_hr.obj, SCREEN_WIDTH / 2);
   lv_label_set_text( big_digit_page.lb_hr.obj, " ");
   lv_obj_set_style_text_font(big_digit_page.lb_hr.obj, big_digit_page.lb_hr.font, LV_PART_MAIN);
@@ -1519,7 +1517,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( big_digit_page.lb_hr.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hr.coord.x, big_digit_page.lb_hr.coord.y);
   // hashrate unit label
   font_color = lv_color_hex(0x808080);
-  big_digit_page.lb_hr_unit.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  big_digit_page.lb_hr_unit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
   lv_obj_set_width(big_digit_page.lb_hr_unit.obj, SCREEN_WIDTH / 2);
   lv_label_set_text( big_digit_page.lb_hr_unit.obj, " ");
   lv_obj_set_style_text_font(big_digit_page.lb_hr_unit.obj, big_digit_page.lb_hr_unit.font, LV_PART_MAIN);
@@ -1528,7 +1526,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( big_digit_page.lb_hr_unit.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hr_unit.coord.x, big_digit_page.lb_hr_unit.coord.y);
   // block hit label
   font_color = lv_color_hex(0xEE7D30);
-  big_digit_page.lb_hits.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  big_digit_page.lb_hits.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
   lv_obj_set_width(big_digit_page.lb_hits.obj, 75);
   lv_label_set_text( big_digit_page.lb_hits.obj, " ");
   lv_obj_set_style_text_font(big_digit_page.lb_hits.obj, big_digit_page.lb_hits.font, LV_PART_MAIN);
@@ -1537,7 +1535,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( big_digit_page.lb_hits.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hits.coord.x, big_digit_page.lb_hits.coord.y);
   // block hit unit label
   font_color = lv_color_hex(0x808080);
-  big_digit_page.lb_hits_unit.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  big_digit_page.lb_hits_unit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
   lv_obj_set_width(big_digit_page.lb_hits_unit.obj, 50);
   lv_label_set_text( big_digit_page.lb_hits_unit.obj, "hits");
   lv_obj_set_style_text_font(big_digit_page.lb_hits_unit.obj, big_digit_page.lb_hits_unit.font, LV_PART_MAIN);
@@ -1546,7 +1544,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( big_digit_page.lb_hits_unit.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hits_unit.coord.x, big_digit_page.lb_hits_unit.coord.y);
   // time label
   font_color = lv_color_hex(0xFFFFFF);
-  big_digit_page.lb_time.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  big_digit_page.lb_time.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
   lv_obj_set_width(big_digit_page.lb_time.obj, SCREEN_WIDTH);
   lv_label_set_text( big_digit_page.lb_time.obj, " ");
   lv_obj_set_style_text_font(big_digit_page.lb_time.obj, big_digit_page.lb_time.font, LV_PART_MAIN);
@@ -1555,7 +1553,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( big_digit_page.lb_time.obj, LV_ALIGN_CENTER, big_digit_page.lb_time.coord.x, big_digit_page.lb_time.coord.y);
   // date label
   font_color = lv_color_hex(0x808080);
-  big_digit_page.lb_date.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  big_digit_page.lb_date.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
   lv_obj_set_width(big_digit_page.lb_date.obj, SCREEN_WIDTH / 2);
   lv_label_set_text( big_digit_page.lb_date.obj, " ");
   lv_obj_set_style_text_font(big_digit_page.lb_date.obj, big_digit_page.lb_date.font, LV_PART_MAIN);
@@ -1564,7 +1562,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( big_digit_page.lb_date.obj, LV_ALIGN_BOTTOM_RIGHT, big_digit_page.lb_date.coord.x, big_digit_page.lb_date.coord.y);
   // price label
   font_color = lv_color_hex(0x808080);
-  big_digit_page.lb_price.obj   = lv_label_create( ui_pages[UI_PAGE_BIG_DIGIT] );
+  big_digit_page.lb_price.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
   lv_obj_set_width(big_digit_page.lb_price.obj, SCREEN_WIDTH / 2);
   lv_label_set_text( big_digit_page.lb_price.obj, " ");
   lv_obj_set_style_text_font(big_digit_page.lb_price.obj, big_digit_page.lb_price.font, LV_PART_MAIN);
@@ -1573,7 +1571,7 @@ static void ui_layout_init(board_sal_t* board){
   lv_obj_align( big_digit_page.lb_price.obj, LV_ALIGN_BOTTOM_LEFT, big_digit_page.lb_price.coord.x, big_digit_page.lb_price.coord.y);
 }
 
-static void ui_loading_page_update(board_sal_t* board) {
+void ui_loading_page_update(board_sal_t* board) {
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1616,7 +1614,7 @@ static void ui_loading_page_update(board_sal_t* board) {
   }
 }
 
-static void ui_config_page_update(board_sal_t* board) {
+void ui_config_page_update(board_sal_t* board) {
   static uint8_t cnt = 0;
   static uint32_t last_update = millis();
   if(millis() - last_update < 1000) return;
@@ -1632,7 +1630,7 @@ static void ui_config_page_update(board_sal_t* board) {
   last_update = millis();
 }
 
-static void ui_miner_page_update(board_sal_t* board){
+void ui_miner_page_update(board_sal_t* board){
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1792,7 +1790,7 @@ static void ui_miner_page_update(board_sal_t* board){
   last_update = millis();
 }
 
-static void ui_countdown_page_update(board_sal_t* board){
+void ui_countdown_page_update(board_sal_t* board){
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1879,7 +1877,7 @@ static void ui_countdown_page_update(board_sal_t* board){
   countdown--;
 }
 
-static void ui_ota_page_update(board_sal_t* board){
+void ui_ota_page_update(board_sal_t* board){
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1934,7 +1932,7 @@ static void ui_ota_page_update(board_sal_t* board){
   lv_label_set_text(label_file, board->status.ota.filename.c_str());
 }
 
-static void ui_hits_page_update(board_sal_t* board){
+void ui_hits_page_update(board_sal_t* board){
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1985,7 +1983,7 @@ static void ui_hits_page_update(board_sal_t* board){
   }
 }
 
-static void ui_dashboard_page_update(board_sal_t* board){
+void ui_dashboard_page_update(board_sal_t* board){
   static uint32_t last_update = millis();
   // if(millis() - last_update < 1000) return;
   limited_data_f limited_freq_req       = {board->info.spec.ui.dashboard_page.performance.asic_freq_req.min, board->info.spec.ui.dashboard_page.performance.asic_freq_req.max};
@@ -2001,36 +1999,36 @@ static void ui_dashboard_page_update(board_sal_t* board){
   }
 
   // draw rings if not created
-  if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_oc.obj.arc == NULL)) {
-    dashboard_page.ring_oc.obj        = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_oc.cfg);
+  if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_oc.obj.arc == NULL)) {
+    dashboard_page.ring_oc.obj        = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_oc.cfg);
   }
-  if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_pwr.obj.arc == NULL)) {
-    dashboard_page.ring_pwr.obj       = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_pwr.cfg);
+  if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_pwr.obj.arc == NULL)) {
+    dashboard_page.ring_pwr.obj       = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_pwr.cfg);
   }
-  if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vc_req.obj.arc == NULL)) {
-    dashboard_page.ring_vc_req.obj    = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vc_req.cfg);
+  if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vc_req.obj.arc == NULL)) {
+    dashboard_page.ring_vc_req.obj    = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_vc_req.cfg);
   }
-  if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vc_real.obj.arc == NULL)) {
-    dashboard_page.ring_vc_real.obj   = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vc_real.cfg);
+  if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vc_real.obj.arc == NULL)) {
+    dashboard_page.ring_vc_real.obj   = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_vc_real.cfg);
   }
-  if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_asic_temp.obj.arc == NULL)) {
-    dashboard_page.ring_asic_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_asic_temp.cfg);
+  if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_asic_temp.obj.arc == NULL)) {
+    dashboard_page.ring_asic_temp.obj = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_asic_temp.cfg);
   }
   // only for NMQ AXE ++
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-    if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
-      dashboard_page.ring_vcore_temp.obj = ui_draw_ring(ui_pages[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
+    if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
+      dashboard_page.ring_vcore_temp.obj = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
     }
 
     static float step = 0.0f;
     step += 0.05f;
     lv_coord_t last_x = sin(step) * (SCREEN_WIDTH / 2 - dashboard_page.miner_img_dsc->header.w / 2);
     // miner pos update
-    if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.img_miner.obj != NULL)) {
+    if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.img_miner.obj != NULL)) {
       lv_obj_set_x(dashboard_page.img_miner.obj, last_x);
     }
     // diff pos update
-    if((ui_pages[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.lb_diff.obj != NULL)) {
+    if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.lb_diff.obj != NULL)) {
       String diff = formatNumber(board->status.miner.diff.last, 4) + "\r" + formatNumber(board->status.miner.diff.best_session, 4);
       lv_label_set_text_fmt(dashboard_page.lb_diff.obj, "%s", diff.c_str());
       lv_obj_set_x(dashboard_page.lb_diff.obj, last_x + 15);
@@ -2062,7 +2060,7 @@ static void ui_dashboard_page_update(board_sal_t* board){
   last_update = millis();
 }
 
-static void ui_hr_healthy_page_update(board_sal_t* board){
+void ui_hr_healthy_page_update(board_sal_t* board){
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -2094,8 +2092,8 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   // update pie chart for NMQ AXE++
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     // draw pie chart if not created
-    if((ui_pages[UI_PAGE_HR_HEALTH] != NULL) && (hr_health_page.asic_hr_chart.obj.arcs[0] == NULL)) {
-      hr_health_page.asic_hr_chart.obj = ui_draw_pie_chart(ui_pages[UI_PAGE_HR_HEALTH], 
+    if((board->status.ui.page.list[UI_PAGE_HR_HEALTH] != NULL) && (hr_health_page.asic_hr_chart.obj.arcs[0] == NULL)) {
+      hr_health_page.asic_hr_chart.obj = ui_draw_pie_chart(board->status.ui.page.list[UI_PAGE_HR_HEALTH], 
                                                             hr_health_page.asic_hr_chart.center_x, 
                                                             hr_health_page.asic_hr_chart.center_y, 
                                                             hr_health_page.asic_hr_chart.radius, 
@@ -2129,7 +2127,7 @@ static void ui_hr_healthy_page_update(board_sal_t* board){
   last_update = millis();
 }
 
-static void ui_big_digit_page_update(board_sal_t* board){
+void ui_big_digit_page_update(board_sal_t* board){
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -2199,21 +2197,21 @@ void ui_switch_next_page_cb(){
 
   g_board.status.ui.page.current = (g_board.status.ui.page.current == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
   g_board.status.ui.page.current++;
-  lv_obj_scroll_to_view(ui_pages[g_board.status.ui.page.current], LV_ANIM_ON);
+  lv_obj_scroll_to_view(g_board.status.ui.page.list[g_board.status.ui.page.current], LV_ANIM_ON);
   g_board.status.ui.page.last = g_board.status.ui.page.current;
   xSemaphoreGive(g_board.status.ui.page.save_xsem);
 }
-
+  
 void ui_switch_next_page_cb(uint8_t tp_evt){
   uint8_t current_index = g_board.status.ui.page.current;
   uint8_t next_index    = current_index;
 
-  if(xSemaphoreTake(lvgl_xMutex, 100) == pdTRUE){
+  if(xSemaphoreTake(g_board.status.ui.lvgl.drv_xMutex, 100) == pdTRUE){
     // tap event
     if(TOUCH_TAP_EVT == tp_evt){
       ui_switch_next_page_cb();
       //release mutex
-      xSemaphoreGive(lvgl_xMutex); 
+      xSemaphoreGive(g_board.status.ui.lvgl.drv_xMutex); 
       return;
     }
 
@@ -2238,303 +2236,301 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
       default:
         break;
     }
-    lv_obj_scroll_to_view(ui_pages[next_index], LV_ANIM_ON);
+    lv_obj_scroll_to_view(g_board.status.ui.page.list[next_index], LV_ANIM_ON);
     g_board.status.ui.page.current = next_index;
     g_board.status.ui.page.last    = g_board.status.ui.page.current;
     xSemaphoreGive(g_board.status.ui.page.save_xsem);
     //release mutex
-    xSemaphoreGive(lvgl_xMutex); 
+    xSemaphoreGive(g_board.status.ui.lvgl.drv_xMutex); 
   }
 }
 
-static void lvgl_tick_task(void *args){
-  char *name = (char*)malloc(20);
-  uint16_t tick_interval = 100;
-  strcpy(name, (char*)args);
-  LOG_I("%s thread started on core %d...", name, xPortGetCoreID());
-  free(name);
 
-  uint32_t last_tick = millis();
-  while(true){
-    if (xSemaphoreTake(lvgl_xMutex, tick_interval/2) == pdTRUE){
-      lv_tick_inc(millis() - last_tick);
-      lv_timer_handler(); /* let the GUI do its work */
-      xSemaphoreGive(lvgl_xMutex); 
-      last_tick = millis();
-    }
-    delay(tick_interval/2);
-  }
-}
 
-static void ui_thread_entry(void *args){
-  board_sal_t *board = (board_sal_t*)args;
-  LOG_I("(ui) thread started on core %d...", xPortGetCoreID());
-  delay(100);
-  while (true){
-    // xSemaphoreTake(board->status.miner.update_xsem, 1000);
-    delay(50);
-    if(xSemaphoreTake(lvgl_xMutex, 5) == pdTRUE){
-      switch (board->status.ui.page.current){
-        case UI_PAGE_LOADING:
-          ui_loading_page_update(board);
-          break;
-        case UI_PAGE_CONFIG:
-          ui_config_page_update(board);
-          break;
-        case UI_PAGE_MINER:
-          ui_miner_page_update(board);
-          break;
-        case UI_PAGE_DASHBOARD:
-          ui_dashboard_page_update(board);
-          break;
-        case UI_PAGE_HR_HEALTH:
-          ui_hr_healthy_page_update(board);
-          break;
-        case UI_PAGE_BIG_DIGIT:
-          ui_big_digit_page_update(board);
-          break;
-        default:
-          break;
-      }
 
-      // countdown page update, if running, cover current page
-      ui_countdown_page_update(board);
-      // block hits page popup, if hit, cover current page
-      ui_hits_page_update(board);
-      // OTA page update, if running, cover current page
-      ui_ota_page_update(board);
-      //release mutex
-      xSemaphoreGive(lvgl_xMutex); 
-    }
-  }
-}
 
-void display_thread_entry(void *args){
-  board_sal_t *board = (board_sal_t*)args;
+// void lvgl_tick_thread_entry(void *args){
+//   board_sal_t *board = (board_sal_t*)args;
+//   uint16_t tick_interval = 50;
+//   uint32_t last_tick = millis();
 
-  String vbus_chk_str[]   = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
-  String vcore_chk_str[]  = {"Vcore check   ","Vcore check.  ","Vcore check.. ","Vcore check..."};
-  String asci_init_str[]  = {"ASIC init  ","ASIC init.  ","ASIC init.. ","ASIC init..."};
-  String wifi_con_str[]   = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
-  String fan_test_str[]   = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
-  String market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
-  String ver_chk_str[]    = {"Version check ","Version check.","Version check..","Version check..."};
-  String pool_con_str[]   = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
-  String pool_auth_str[]  = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
-  String wait_job_str[]   = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
-  String config_str[]     = {"Config   ","Config.  ","Config.. ","Config..."};
+//   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+//   // lvgl core init
+//   lv_init();
+//   // ui driver register
+//   ui_drv_register();
+//   // notify lvgl ready
+//   xEventGroupSetBits(board->status.init_evt, INIT_EVENT_LVGL_READY);  
+//   // wait ui thread ready
+//   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_UI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+//   while(true){
+//     if (xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, tick_interval) == pdTRUE){
+//       lv_tick_inc(millis() - last_tick);
+//       lv_timer_handler(); /* let the GUI do its work */
+//       xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
+//       last_tick = millis();
+//     }
+//     delay(tick_interval);
+//   }
+// }
 
-  // tft hardware init
-  tft_init(board);
+// void ui_thread_entry(void *args){
+//   board_sal_t *board = (board_sal_t*)args;
 
-  // lvgl core init
-  lv_init();
+//   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+//   // ui page element init
+//   ui_page_element_init(board);
+//   // ui layout init
+//   ui_layout_init(board);
+//   // notify ui ready
+//   xEventGroupSetBits(board->status.init_evt, INIT_EVENT_UI_READY);  
+//   while (true){
+//     delay(50);
+//     if(xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, 5) == pdTRUE){
+//       switch (board->status.ui.page.current){
+//         case UI_PAGE_LOADING:
+//           ui_loading_page_update(board);
+//           break;
+//         case UI_PAGE_CONFIG:
+//           ui_config_page_update(board);
+//           break;
+//         case UI_PAGE_MINER:
+//           ui_miner_page_update(board);
+//           break;
+//         case UI_PAGE_DASHBOARD:
+//           ui_dashboard_page_update(board);
+//           break;
+//         case UI_PAGE_HR_HEALTH:
+//           ui_hr_healthy_page_update(board);
+//           break;
+//         case UI_PAGE_BIG_DIGIT:
+//           ui_big_digit_page_update(board);
+//           break;
+//         default:
+//           break;
+//       }
 
-  // ui driver register
-  ui_drv_register();
+//       // countdown page update, if running, cover current page
+//       ui_countdown_page_update(board);
+//       // block hits page popup, if hit, cover current page
+//       ui_hits_page_update(board);
+//       // OTA page update, if running, cover current page
+//       ui_ota_page_update(board);
+//       //release mutex
+//       xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
+//     }
+//   }
+// }
 
-  // ui page element init
-  ui_page_element_init(board);
+// void display_thread_entry(void *args){
+//   board_sal_t *board = (board_sal_t*)args;
 
-  // ui layout init
-  ui_layout_init(board);
+//   String vbus_chk_str[]   = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
+//   String vcore_chk_str[]  = {"Vcore check   ","Vcore check.  ","Vcore check.. ","Vcore check..."};
+//   String asci_init_str[]  = {"ASIC init  ","ASIC init.  ","ASIC init.. ","ASIC init..."};
+//   String wifi_con_str[]   = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
+//   String fan_test_str[]   = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
+//   String market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
+//   String ver_chk_str[]    = {"Version check ","Version check.","Version check..","Version check..."};
+//   String pool_con_str[]   = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
+//   String pool_auth_str[]  = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
+//   String wait_job_str[]   = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
+//   String config_str[]     = {"Config   ","Config.  ","Config.. ","Config..."};
 
-  //lvgl tick task
-  String taskName = "(lvgl)";
-  xTaskCreatePinnedToCore(lvgl_tick_task, taskName.c_str(), 1024*5, (void*)taskName.c_str(), TASK_PRIORITY_LVGL_DRV, NULL, 1);
-  delay(100);
+//   // tft hardware init
+//   tft_init(board);
+//   // notify screen ready
+//   xEventGroupSetBits(board->status.init_evt, INIT_EVENT_SCREEN_READY);  
+//   // wait lvgl and ui thread ready
+//   xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_UI_READY | INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+//   //set the first page to loading page
+//   board->status.ui.page.current = UI_PAGE_LOADING;
+//   lv_obj_scroll_to_view(board->status.ui.page.list[UI_PAGE_LOADING], LV_ANIM_ON); 
 
-  taskName = "(ui)";
-  xTaskCreatePinnedToCore(ui_thread_entry, taskName.c_str(), 1024*6, (void*)board, TASK_PRIORITY_UI, NULL, 1);
+//   //backlight brightness ramp up
+//   for(int i = 0; i < board->status.preference.screen.brightness; i++) {
+//     tft_bl_ctrl(i);
+//     delay(10);
+//   }
 
-  //set the first page to loading page
-  board->status.ui.page.current = UI_PAGE_LOADING;
-  lv_obj_scroll_to_view(ui_pages[UI_PAGE_LOADING], LV_ANIM_ON); 
+//   uint16_t cnt = 0;
+//   /****************************************wait for Vbus ready*******************************************/
+//   board->status.ui.page.loading.percent = 0.1;
+//   while (!board->power->is_adc_ready()){
+//     board->status.ui.page.loading.details.color = 0xFFFFFF;
+//     board->status.ui.page.loading.details.msg   = vbus_chk_str[(cnt++)%4];
+//     delay(500);
+//   }
+//   /********************************Vbus type check and voltage check*************************************/
+//   board->status.ui.page.loading.percent = 0.2;
+//   board->status.ui.page.loading.details.color = 0x00ff00;
+//   if(board->power->is_dc_pluged()) board->status.ui.page.loading.details.msg   = "DC pluged.";
+//   else board->status.ui.page.loading.details.msg   = "USB pluged.";
+//   delay(500);
+//   while(board->power->get_vbus() < board->info.spec.pwr.vbus_min_required){
+//       static bool blink = false;
+//       board->status.ui.page.loading.details.color = (blink) ? 0xFF0000 : 0xFFFFFF;
+//       String vbusString = "Vbus " + String(board->power->get_vbus()/1000.0, 1) + "v(at least" + String(board->info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
+//       board->status.ui.page.loading.details.msg   = vbusString;
+//       blink = !blink;
+//       if(!board->power->is_dc_pluged()){
+//         disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
+//         delay(500);
+//       }
+//       delay(500);
 
-  //backlight brightness ramp up
-  for(int i = 0; i < board->status.preference.screen.brightness; i++) {
-    tft_bl_ctrl(i);
-    delay(10);
-  }
+//       // no PD support for NMQ AXE ++ due to hardware design, skip voltage check and just show Vbus voltage when USB plugged in
+//       if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) break;
+//   }
+//   board->status.ui.page.loading.details.color = 0x00FF00;
+//   board->status.ui.page.loading.details.msg   = "Vbus " + String(board->power->get_vbus() / 1000.0, 3) + "V.";
+//   delay(500);
+//   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+//   /****************************************wait for wifi connected***************************************/
+//   cnt = 0;
+//   board->status.ui.page.loading.percent = 0.3;
+//   while(board->status.wifi.status != WL_CONNECTED){
+//     board->status.ui.page.loading.details.color = 0xFFFFFF;
+//     board->status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + board->info.connection.wifi.sta.ssid +  String("]");
+//     delay(300);
+//     if(xSemaphoreTake(board->status.wifi.force_cfg_xsem, 100)){
+//       board->status.ui.page.loading.details.color = 0xFF0000;
+//       board->status.ui.page.loading.details.msg   = String("Timeout!");
+//       delay(1000);
+//       board->status.ui.page.current = UI_PAGE_CONFIG;
+//       lv_obj_scroll_to_view(board->status.ui.page.list[UI_PAGE_CONFIG], LV_ANIM_ON);
+//     }
+//   }
+//   board->status.ui.page.loading.details.color = 0x00FF00;
+//   board->status.ui.page.loading.details.msg   = "Wifi Connected!";
+//   delay(500);
+//   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
+//   /****************************************wait for asic init********************************************/
+//   cnt = 0;
+//   board->status.ui.page.loading.percent = 0.4;
+//   while(board->miner == nullptr) {
+//     LOG_W("Miner object not created yet\r\n");
+//     delay(1000); //wait miner object created
+//   }
+//   while(board->miner->get_asic_count() == 0){
+//     board->status.ui.page.loading.details.color = 0xFFFFFF;
+//     board->status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
+//     delay(100);
+//   }
+//   uint8_t asic_cnt     = board->miner->get_asic_count();
+//   String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(board->info.spec.asic.num_req) + " chips") : "1 chip";
 
-  uint16_t cnt = 0;
-  /****************************************wait for Vbus ready*******************************************/
-  board->status.ui.page.loading.percent = 0.1;
-  while (!board->power->is_adc_ready()){
-    board->status.ui.page.loading.details.color = 0xFFFFFF;
-    board->status.ui.page.loading.details.msg   = vbus_chk_str[(cnt++)%4];
-    delay(500);
-  }
-  /********************************Vbus type check and voltage check*************************************/
-  board->status.ui.page.loading.percent = 0.2;
-  board->status.ui.page.loading.details.color = 0x00ff00;
-  if(board->power->is_dc_pluged()) board->status.ui.page.loading.details.msg   = "DC pluged.";
-  else board->status.ui.page.loading.details.msg   = "USB pluged.";
-  delay(500);
-  while(board->power->get_vbus() < board->info.spec.pwr.vbus_min_required){
-      static bool blink = false;
-      board->status.ui.page.loading.details.color = (blink) ? 0xFF0000 : 0xFFFFFF;
-      String vbusString = "Vbus " + String(board->power->get_vbus()/1000.0, 1) + "v(at least" + String(board->info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
-      board->status.ui.page.loading.details.msg   = vbusString;
-      blink = !blink;
-      if(!board->power->is_dc_pluged()){
-        disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
-        delay(500);
-      }
-      delay(500);
+//   board->status.ui.page.loading.details.color = (asic_cnt != board->info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
+//   board->status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
+//   delay(3000);
+//   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
+//   /********************************************wait fan self test ****************************************/
+//   cnt = 0;
+//   board->status.ui.page.loading.percent = 0.5;
+//   for(uint8_t i = 0; i < board->status.fan.count; i++){
+//     while(true){
+//       board->status.ui.page.loading.details.color = 0xFFFFFF;
+//       board->status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
+//       if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_FAN_READY)  == INIT_EVENT_FAN_READY) break;
+//     }
+//     board->status.ui.page.loading.details.color = 0x00FF00;
+//     board->status.ui.page.loading.details.msg   = "Fan" + ((board->status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
+//     delay(2000);
+//   }
+//   xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+//   /******************************************wait Vcore self test ****************************************/
+//   cnt = 0;
+//   board->status.ui.page.loading.details.color = 0xFFFFFF;
+//   board->status.ui.page.loading.percent = 0.6;
+//   board->status.ui.page.loading.details.msg   = vcore_chk_str[0];
+//   delay(500);
+//   while(true){
+//     board->status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
+//     if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_VCORE_READY)  == INIT_EVENT_VCORE_READY) break;
+//   }
+//   delay(200);//wait for vcore set to target voltage
+//   board->status.ui.page.loading.details.color = 0x00FF00;
+//   board->status.ui.page.loading.details.msg   = String("Vcore ") + String(board->power->get_vcore() / 1000.0, 3) + "v.";
+//   delay(500);
+//   xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+//   /****************************************wait for market connected*************************************/
+//   cnt = 0;
+//   board->status.ui.page.loading.percent = 0.7;
+//   uint32_t start = millis();
+//   while(0 == board->market->lastUpdate){
+//     board->status.ui.page.loading.details.color = 0xFFFFFF;
+//     board->status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + board->info.base.coin_price + "]";
+//     if(millis() - start - board->market->lastUpdate >= MINER_MARKET_CONNECT_TIMEOUT){
+//       board->status.ui.page.loading.details.color = 0xFF0000;
+//       board->status.ui.page.loading.details.msg   = "Market update timeout!";
+//       delay(500);
+//       break;
+//     }
+//     delay(300);
+//   }
+//   delay(500);
+//   if(0 != board->market->lastUpdate) {
+//     board->status.ui.page.loading.details.color = 0x00FF00;
+//     board->status.ui.page.loading.details.msg   = "Market connected!";
+//   }
+//   delay(1000);
+//   /****************************************wait for pool connected**************************************/
+//   cnt = 0;
+//   board->status.ui.page.loading.percent = 0.8;
+//   while(!board->stratum->is_subscribed()){
+//     if(board->stratum->pool->get_last_errormsg().length() > 0){
+//       board->status.ui.page.loading.details.color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
+//       board->status.ui.page.loading.details.msg   = board->stratum->pool->get_last_errormsg().c_str();
+//     }else{
+//       String con_type = board->info.connection.pool.use.ssl ? "[ssl]" : "[tcp]";
+//       board->status.ui.page.loading.details.color = 0xFFFFFF;
+//       board->status.ui.page.loading.details.msg   = String(pool_con_str[(cnt)%4] + con_type);
+//     }
+//     cnt++;
+//     delay(300);
+//   }
+//   board->status.ui.page.loading.details.color = 0x00FF00;
+//   board->status.ui.page.loading.details.msg   = "Pool connected!";
+//   delay(100);
+//   /*******************************************wait for pool auth****************************************/
+//   cnt = 0;
+//   board->status.ui.page.loading.percent = 0.9;
+//   while(!board->stratum->is_authorized()){
+//     board->status.ui.page.loading.details.color = 0xFFFFFF;
+//     board->status.ui.page.loading.details.msg   = pool_auth_str[(cnt++)%4];
+//     bool blink = false;
+//     while (cnt >= 20){
+//       board->status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
+//       board->status.ui.page.loading.details.msg   = "Wrong stratum user!";
+//       delay(500);
+//       if(board->stratum->is_authorized()) break;
+//     }
+//     delay(300);
+//   }
+//   board->status.ui.page.loading.details.color = 0x00FF00;
+//   board->status.ui.page.loading.details.msg   = "Pool authorized!";
+//   delay(100);
+//   /****************************************wait for pool job******************************************/
+//   cnt = 0;
+//   board->status.ui.page.loading.percent = 1.0;
+//   while(board->stratum->get_job_counter() == 0){
+//     board->status.ui.page.loading.details.color = 0xFFFFFF;
+//     board->status.ui.page.loading.details.msg   = wait_job_str[(cnt++)%4];
+//     delay(100);
+//     bool blink = false;
+//     while ((cnt >= 60*10) && (board->stratum->get_job_counter() == 0)){
+//       board->status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
+//       board->status.ui.page.loading.details.msg   = "Pool job timeout!";
+//       delay(500);
+//     }
+//   }
+//   board->status.ui.page.loading.details.color = 0x00FF00;
+//   board->status.ui.page.loading.details.msg   = "Miner ready!";
+//   delay(500);
 
-      // no PD support for NMQ AXE ++ due to hardware design, skip voltage check and just show Vbus voltage when USB plugged in
-      if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) break;
-  }
-  board->status.ui.page.loading.details.color = 0x00FF00;
-  board->status.ui.page.loading.details.msg   = "Vbus " + String(board->power->get_vbus() / 1000.0, 3) + "V.";
-  delay(500);
-  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-  /****************************************wait for wifi connected***************************************/
-  cnt = 0;
-  board->status.ui.page.loading.percent = 0.3;
-  while(board->status.wifi.status != WL_CONNECTED){
-    board->status.ui.page.loading.details.color = 0xFFFFFF;
-    board->status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + board->info.connection.wifi.sta.ssid +  String("]");
-    delay(300);
-    if(xSemaphoreTake(board->status.wifi.force_cfg_xsem, 100)){
-      board->status.ui.page.loading.details.color = 0xFF0000;
-      board->status.ui.page.loading.details.msg   = String("Timeout!");
-      delay(1000);
-      board->status.ui.page.current = UI_PAGE_CONFIG;
-      lv_obj_scroll_to_view(ui_pages[UI_PAGE_CONFIG], LV_ANIM_ON);
-    }
-  }
-  board->status.ui.page.loading.details.color = 0x00FF00;
-  board->status.ui.page.loading.details.msg   = "Wifi Connected!";
-  delay(500);
-  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
-  /****************************************wait for asic init********************************************/
-  cnt = 0;
-  board->status.ui.page.loading.percent = 0.4;
-  while(board->miner == nullptr) {
-    LOG_W("Miner object not created yet\r\n");
-    delay(1000); //wait miner object created
-  }
-  while(board->miner->get_asic_count() == 0){
-    board->status.ui.page.loading.details.color = 0xFFFFFF;
-    board->status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
-    delay(100);
-  }
-  uint8_t asic_cnt     = board->miner->get_asic_count();
-  String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(board->info.spec.asic.num_req) + " chips") : "1 chip";
-
-  board->status.ui.page.loading.details.color = (asic_cnt != board->info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
-  board->status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
-  delay(3000);
-  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
-  /********************************************wait fan self test ****************************************/
-  cnt = 0;
-  board->status.ui.page.loading.percent = 0.5;
-  for(uint8_t i = 0; i < board->status.fan.count; i++){
-    while(true){
-      board->status.ui.page.loading.details.color = 0xFFFFFF;
-      board->status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
-      if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_FAN_READY)  == INIT_EVENT_FAN_READY) break;
-    }
-    board->status.ui.page.loading.details.color = 0x00FF00;
-    board->status.ui.page.loading.details.msg   = "Fan" + ((board->status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
-    delay(2000);
-  }
-  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-  /******************************************wait Vcore self test ****************************************/
-  cnt = 0;
-  board->status.ui.page.loading.details.color = 0xFFFFFF;
-  board->status.ui.page.loading.percent = 0.6;
-  board->status.ui.page.loading.details.msg   = vcore_chk_str[0];
-  delay(500);
-  while(true){
-    board->status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
-    if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_VCORE_READY)  == INIT_EVENT_VCORE_READY) break;
-  }
-  delay(200);//wait for vcore set to target voltage
-  board->status.ui.page.loading.details.color = 0x00FF00;
-  board->status.ui.page.loading.details.msg   = String("Vcore ") + String(board->power->get_vcore() / 1000.0, 3) + "v.";
-  delay(500);
-  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-  /****************************************wait for market connected*************************************/
-  cnt = 0;
-  board->status.ui.page.loading.percent = 0.7;
-  uint32_t start = millis();
-  while(0 == board->market->lastUpdate){
-    board->status.ui.page.loading.details.color = 0xFFFFFF;
-    board->status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + board->info.base.coin_price + "]";
-    if(millis() - start - board->market->lastUpdate >= MINER_MARKET_CONNECT_TIMEOUT){
-      board->status.ui.page.loading.details.color = 0xFF0000;
-      board->status.ui.page.loading.details.msg   = "Market update timeout!";
-      delay(500);
-      break;
-    }
-    delay(300);
-  }
-  delay(500);
-  if(0 != board->market->lastUpdate) {
-    board->status.ui.page.loading.details.color = 0x00FF00;
-    board->status.ui.page.loading.details.msg   = "Market connected!";
-  }
-  delay(1000);
-  /****************************************wait for pool connected**************************************/
-  cnt = 0;
-  board->status.ui.page.loading.percent = 0.8;
-  while(!board->stratum->is_subscribed()){
-    if(board->stratum->pool->get_last_errormsg().length() > 0){
-      board->status.ui.page.loading.details.color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
-      board->status.ui.page.loading.details.msg   = board->stratum->pool->get_last_errormsg().c_str();
-    }else{
-      String con_type = board->info.connection.pool.use.ssl ? "[ssl]" : "[tcp]";
-      board->status.ui.page.loading.details.color = 0xFFFFFF;
-      board->status.ui.page.loading.details.msg   = String(pool_con_str[(cnt)%4] + con_type);
-    }
-    cnt++;
-    delay(300);
-  }
-  board->status.ui.page.loading.details.color = 0x00FF00;
-  board->status.ui.page.loading.details.msg   = "Pool connected!";
-  delay(100);
-  /*******************************************wait for pool auth****************************************/
-  cnt = 0;
-  board->status.ui.page.loading.percent = 0.9;
-  while(!board->stratum->is_authorized()){
-    board->status.ui.page.loading.details.color = 0xFFFFFF;
-    board->status.ui.page.loading.details.msg   = pool_auth_str[(cnt++)%4];
-    bool blink = false;
-    while (cnt >= 20){
-      board->status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
-      board->status.ui.page.loading.details.msg   = "Wrong stratum user!";
-      delay(500);
-      if(board->stratum->is_authorized()) break;
-    }
-    delay(300);
-  }
-  board->status.ui.page.loading.details.color = 0x00FF00;
-  board->status.ui.page.loading.details.msg   = "Pool authorized!";
-  delay(100);
-  /****************************************wait for pool job******************************************/
-  cnt = 0;
-  board->status.ui.page.loading.percent = 1.0;
-  while(board->stratum->get_job_counter() == 0){
-    board->status.ui.page.loading.details.color = 0xFFFFFF;
-    board->status.ui.page.loading.details.msg   = wait_job_str[(cnt++)%4];
-    delay(100);
-    bool blink = false;
-    while ((cnt >= 60*10) && (board->stratum->get_job_counter() == 0)){
-      board->status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
-      board->status.ui.page.loading.details.msg   = "Pool job timeout!";
-      delay(500);
-    }
-  }
-  board->status.ui.page.loading.details.color = 0x00FF00;
-  board->status.ui.page.loading.details.msg   = "Miner ready!";
-  delay(500);
-
-  /***************************************scroll to last page******************************************/
-  board->status.ui.page.current = board->status.ui.page.last; // restore last page
-  lv_obj_scroll_to_view(ui_pages[board->status.ui.page.current], LV_ANIM_ON); 
-  //exit this thread
-  vTaskDelete(NULL);
-}
+//   /***************************************scroll to last page******************************************/
+//   board->status.ui.page.current = board->status.ui.page.last; // restore last page
+//   lv_obj_scroll_to_view(board->status.ui.page.list[board->status.ui.page.current], LV_ANIM_ON); 
+//   //exit this thread
+//   vTaskDelete(NULL);
+// }

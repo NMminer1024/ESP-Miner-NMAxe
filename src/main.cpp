@@ -8,7 +8,7 @@
 #include "github.h"
 #include "thread_entry.h"
 
-TaskHandle_t fanTask, ledTask, btnTask, touchTask, wsTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask, powerTask;
+TaskHandle_t fanTask, ledTask, btnTask, touchTask, wsTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask, powerTask, lvglTask, uiTask;
 board_sal_t  g_board;
 
 bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
@@ -86,6 +86,8 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.ui.page.last                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
     board->status.ui.page.current                   = board->status.ui.page.last;
     board->status.ui.page.save_xsem                 = xSemaphoreCreateCounting(1, 0);
+    board->status.ui.lvgl.drv_xMutex                = xSemaphoreCreateMutex();
+    board->status.ui.page.list                      = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
     board->status.touch.evt                         = TOUCH_NONE_EVT;
     board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
@@ -159,10 +161,12 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
 
 static const thread_config_t thread_configs[] = {
     {"(display)",   display_thread_entry,           1024*7,   TASK_PRIORITY_DISPLAY,    1, NULL,          10,  0},
+    {"(lvgl)",      lvgl_tick_thread_entry,                 1024*5,   TASK_PRIORITY_LVGL_DRV,   1, &lvglTask,     10,  0},
+    {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,         1, &uiTask,       10,  0},
     {"(touch)",     touch_thread_entry,             1024*4,   TASK_PRIORITY_TOUCH,      0, &touchTask,    10,  0},
     {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,        1, &ledTask,      10,  0},
     {"(button)",    button_thread_entry,            1024*5,   TASK_PRIORITY_BTN,        1, &btnTask,      10,  0},
-    {"(webserver)", webserver_thread_entry,         1024*4,   TASK_PRIORITY_WS, 1, &wsTask,       10,  0},
+    {"(webserver)", webserver_thread_entry,         1024*4,   TASK_PRIORITY_WS,         1, &wsTask,       10,  0},
     {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,       1, NULL,          10,  0},
     {"(daemon)",    daemon_thread_entry,            1024*3,   TASK_PRIORITY_DAEMON,     0, &daemonTask,   10,  0},
     {"(power)",     power_thread_entry,             1024*6,   TASK_PRIORITY_PWR,        1, &powerTask,    10,  0},
@@ -237,7 +241,7 @@ void loop() {
 #if 0
 static uint32_t start = millis();
 
-if(millis() - start > 1000*2){ 
+if(millis() - start > 1000*3){ 
     start = millis();
     LOG_W("=========== Stack High Water Mark (in bytes) ===========");
     LOG_I("+-----------------+----------+------------+------------+");

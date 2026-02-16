@@ -1,4 +1,4 @@
-#include "global.h"
+#include "display.h"
 #include "logger.h"
 #include "button.h"
 #include "display.h"
@@ -1611,3 +1611,290 @@ void touch_thread_entry(void *args){
         }
     }
 }
+
+void lvgl_tick_thread_entry(void *args){
+  board_sal_t *board = (board_sal_t*)args;
+  uint16_t tick_interval = 50;
+  uint32_t last_tick = millis();
+
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  // lvgl core init
+  lv_init();
+  // ui driver register
+  ui_drv_register();
+  // notify lvgl ready
+  xEventGroupSetBits(board->status.init_evt, INIT_EVENT_LVGL_READY);  
+  // wait ui thread ready
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_UI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  while(true){
+    if (xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, tick_interval) == pdTRUE){
+      lv_tick_inc(millis() - last_tick);
+      lv_timer_handler(); /* let the GUI do its work */
+      xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
+      last_tick = millis();
+    }
+    delay(tick_interval);
+  }
+}
+
+void ui_thread_entry(void *args){
+  board_sal_t *board = (board_sal_t*)args;
+
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  // ui page element init
+  ui_page_element_init(board);
+  // ui layout init
+  ui_layout_init(board);
+  // notify ui ready
+  xEventGroupSetBits(board->status.init_evt, INIT_EVENT_UI_READY);  
+  while (true){
+    delay(50);
+    if(xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, 5) == pdTRUE){
+      switch (board->status.ui.page.current){
+        case UI_PAGE_LOADING:
+          ui_loading_page_update(board);
+          break;
+        case UI_PAGE_CONFIG:
+          ui_config_page_update(board);
+          break;
+        case UI_PAGE_MINER:
+          ui_miner_page_update(board);
+          break;
+        case UI_PAGE_DASHBOARD:
+          ui_dashboard_page_update(board);
+          break;
+        case UI_PAGE_HR_HEALTH:
+          ui_hr_healthy_page_update(board);
+          break;
+        case UI_PAGE_BIG_DIGIT:
+          ui_big_digit_page_update(board);
+          break;
+        default:
+          break;
+      }
+
+      // countdown page update, if running, cover current page
+      ui_countdown_page_update(board);
+      // block hits page popup, if hit, cover current page
+      ui_hits_page_update(board);
+      // OTA page update, if running, cover current page
+      ui_ota_page_update(board);
+      //release mutex
+      xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
+    }
+  }
+}
+
+void display_thread_entry(void *args){
+  board_sal_t *board = (board_sal_t*)args;
+
+  String vbus_chk_str[]   = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
+  String vcore_chk_str[]  = {"Vcore check   ","Vcore check.  ","Vcore check.. ","Vcore check..."};
+  String asci_init_str[]  = {"ASIC init  ","ASIC init.  ","ASIC init.. ","ASIC init..."};
+  String wifi_con_str[]   = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
+  String fan_test_str[]   = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
+  String market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
+  String ver_chk_str[]    = {"Version check ","Version check.","Version check..","Version check..."};
+  String pool_con_str[]   = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
+  String pool_auth_str[]  = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
+  String wait_job_str[]   = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
+  String config_str[]     = {"Config   ","Config.  ","Config.. ","Config..."};
+
+  // tft hardware init
+  tft_init(board);
+  // notify screen ready
+  xEventGroupSetBits(board->status.init_evt, INIT_EVENT_SCREEN_READY);  
+  // wait lvgl and ui thread ready
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_UI_READY | INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  //set the first page to loading page
+  board->status.ui.page.current = UI_PAGE_LOADING;
+  lv_obj_scroll_to_view(board->status.ui.page.list[UI_PAGE_LOADING], LV_ANIM_ON); 
+
+  //backlight brightness ramp up
+  for(int i = 0; i < board->status.preference.screen.brightness; i++) {
+    tft_bl_ctrl(i);
+    delay(10);
+  }
+
+  uint16_t cnt = 0;
+  /****************************************wait for Vbus ready*******************************************/
+  board->status.ui.page.loading.percent = 0.1;
+  while (!board->power->is_adc_ready()){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = vbus_chk_str[(cnt++)%4];
+    delay(500);
+  }
+  /********************************Vbus type check and voltage check*************************************/
+  board->status.ui.page.loading.percent = 0.2;
+  board->status.ui.page.loading.details.color = 0x00ff00;
+  if(board->power->is_dc_pluged()) board->status.ui.page.loading.details.msg   = "DC pluged.";
+  else board->status.ui.page.loading.details.msg   = "USB pluged.";
+  delay(500);
+  while(board->power->get_vbus() < board->info.spec.pwr.vbus_min_required){
+      static bool blink = false;
+      board->status.ui.page.loading.details.color = (blink) ? 0xFF0000 : 0xFFFFFF;
+      String vbusString = "Vbus " + String(board->power->get_vbus()/1000.0, 1) + "v(at least" + String(board->info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
+      board->status.ui.page.loading.details.msg   = vbusString;
+      blink = !blink;
+      if(!board->power->is_dc_pluged()){
+        disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
+        delay(500);
+      }
+      delay(500);
+
+      // no PD support for NMQ AXE ++ due to hardware design, skip voltage check and just show Vbus voltage when USB plugged in
+      if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) break;
+  }
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Vbus " + String(board->power->get_vbus() / 1000.0, 3) + "V.";
+  delay(500);
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  /****************************************wait for wifi connected***************************************/
+  cnt = 0;
+  board->status.ui.page.loading.percent = 0.3;
+  while(board->status.wifi.status != WL_CONNECTED){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + board->info.connection.wifi.sta.ssid +  String("]");
+    delay(300);
+    if(xSemaphoreTake(board->status.wifi.force_cfg_xsem, 100)){
+      board->status.ui.page.loading.details.color = 0xFF0000;
+      board->status.ui.page.loading.details.msg   = String("Timeout!");
+      delay(1000);
+      board->status.ui.page.current = UI_PAGE_CONFIG;
+      lv_obj_scroll_to_view(board->status.ui.page.list[UI_PAGE_CONFIG], LV_ANIM_ON);
+    }
+  }
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Wifi Connected!";
+  delay(500);
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
+  /****************************************wait for asic init********************************************/
+  cnt = 0;
+  board->status.ui.page.loading.percent = 0.4;
+  while(board->miner == nullptr) {
+    LOG_W("Miner object not created yet\r\n");
+    delay(1000); //wait miner object created
+  }
+  while(board->miner->get_asic_count() == 0){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = String(asci_init_str[cnt++ % 4]);
+    delay(100);
+  }
+  uint8_t asic_cnt     = board->miner->get_asic_count();
+  String  asic_cnt_str = (asic_cnt > 1) ? (String(asic_cnt) + "/" + String(board->info.spec.asic.num_req) + " chips") : "1 chip";
+
+  board->status.ui.page.loading.details.color = (asic_cnt != board->info.spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
+  delay(3000);
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
+  /********************************************wait fan self test ****************************************/
+  cnt = 0;
+  board->status.ui.page.loading.percent = 0.5;
+  for(uint8_t i = 0; i < board->status.fan.count; i++){
+    while(true){
+      board->status.ui.page.loading.details.color = 0xFFFFFF;
+      board->status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
+      if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_FAN_READY)  == INIT_EVENT_FAN_READY) break;
+    }
+    board->status.ui.page.loading.details.color = 0x00FF00;
+    board->status.ui.page.loading.details.msg   = "Fan" + ((board->status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
+    delay(2000);
+  }
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  /******************************************wait Vcore self test ****************************************/
+  cnt = 0;
+  board->status.ui.page.loading.details.color = 0xFFFFFF;
+  board->status.ui.page.loading.percent = 0.6;
+  board->status.ui.page.loading.details.msg   = vcore_chk_str[0];
+  delay(500);
+  while(true){
+    board->status.ui.page.loading.details.msg   = vcore_chk_str[(cnt++)%4];
+    if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_VCORE_READY)  == INIT_EVENT_VCORE_READY) break;
+  }
+  delay(200);//wait for vcore set to target voltage
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = String("Vcore ") + String(board->power->get_vcore() / 1000.0, 3) + "v.";
+  delay(500);
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  /****************************************wait for market connected*************************************/
+  cnt = 0;
+  board->status.ui.page.loading.percent = 0.7;
+  uint32_t start = millis();
+  while(0 == board->market->lastUpdate){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + board->info.base.coin_price + "]";
+    if(millis() - start - board->market->lastUpdate >= MINER_MARKET_CONNECT_TIMEOUT){
+      board->status.ui.page.loading.details.color = 0xFF0000;
+      board->status.ui.page.loading.details.msg   = "Market update timeout!";
+      delay(500);
+      break;
+    }
+    delay(300);
+  }
+  delay(500);
+  if(0 != board->market->lastUpdate) {
+    board->status.ui.page.loading.details.color = 0x00FF00;
+    board->status.ui.page.loading.details.msg   = "Market connected!";
+  }
+  delay(1000);
+  /****************************************wait for pool connected**************************************/
+  cnt = 0;
+  board->status.ui.page.loading.percent = 0.8;
+  while(!board->stratum->is_subscribed()){
+    if(board->stratum->pool->get_last_errormsg().length() > 0){
+      board->status.ui.page.loading.details.color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
+      board->status.ui.page.loading.details.msg   = board->stratum->pool->get_last_errormsg().c_str();
+    }else{
+      String con_type = board->info.connection.pool.use.ssl ? "[ssl]" : "[tcp]";
+      board->status.ui.page.loading.details.color = 0xFFFFFF;
+      board->status.ui.page.loading.details.msg   = String(pool_con_str[(cnt)%4] + con_type);
+    }
+    cnt++;
+    delay(300);
+  }
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Pool connected!";
+  delay(100);
+  /*******************************************wait for pool auth****************************************/
+  cnt = 0;
+  board->status.ui.page.loading.percent = 0.9;
+  while(!board->stratum->is_authorized()){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = pool_auth_str[(cnt++)%4];
+    bool blink = false;
+    while (cnt >= 20){
+      board->status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
+      board->status.ui.page.loading.details.msg   = "Wrong stratum user!";
+      delay(500);
+      if(board->stratum->is_authorized()) break;
+    }
+    delay(300);
+  }
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Pool authorized!";
+  delay(100);
+  /****************************************wait for pool job******************************************/
+  cnt = 0;
+  board->status.ui.page.loading.percent = 1.0;
+  while(board->stratum->get_job_counter() == 0){
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = wait_job_str[(cnt++)%4];
+    delay(100);
+    bool blink = false;
+    while ((cnt >= 60*10) && (board->stratum->get_job_counter() == 0)){
+      board->status.ui.page.loading.details.color = (blink) ? 0xFFFFFF : 0xFF0000;
+      board->status.ui.page.loading.details.msg   = "Pool job timeout!";
+      delay(500);
+    }
+  }
+  board->status.ui.page.loading.details.color = 0x00FF00;
+  board->status.ui.page.loading.details.msg   = "Miner ready!";
+  delay(500);
+
+  /***************************************scroll to last page******************************************/
+  board->status.ui.page.current = board->status.ui.page.last; // restore last page
+  lv_obj_scroll_to_view(board->status.ui.page.list[board->status.ui.page.current], LV_ANIM_ON); 
+  //exit this thread
+  vTaskDelete(NULL);
+}
+

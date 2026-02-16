@@ -11,6 +11,7 @@
 #include <map>
 #include <vector>
 #include "ft6206.h"
+#include "lvgl.h"
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
@@ -68,6 +69,9 @@ enum{
     INIT_EVENT_VBUS_READY            = (1 << 4),   // vbus ready
     INIT_EVENT_VDD_VPLL_READY        = (1 << 5),   // vdd and pll ready
     INIT_EVENT_VCORE_READY           = (1 << 6),   // vcore ready
+    INIT_EVENT_SCREEN_READY          = (1 << 7),   // screen initialized and ready
+    INIT_EVENT_LVGL_READY            = (1 << 8),   // lvgl display driver ready
+    INIT_EVENT_UI_READY              = (1 << 9),   // UI initialized and ready
 };
 
 // system event flags
@@ -200,10 +204,15 @@ typedef struct{
                 String      message; // connection info message
             }config;           
 
-            uint8_t             current;     // current ui page index
-            uint8_t             last;        //last ui page index, restored on next boot
-            SemaphoreHandle_t   save_xsem;   // save current page index
+            std::vector<lv_obj_t*>  list;
+            uint8_t                 current;     // current ui page index
+            uint8_t                 last;        //last ui page index, restored on next boot
+            SemaphoreHandle_t       save_xsem;   // save current page index
         }page;
+
+        struct {
+            SemaphoreHandle_t   drv_xMutex;
+        }lvgl;
     }ui;
 
     struct{

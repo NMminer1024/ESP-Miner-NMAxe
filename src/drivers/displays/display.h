@@ -2,6 +2,8 @@
 #define DISPLAY_H
 #include <Arduino.h>
 #include "lvgl.h"
+#include "global.h"
+
 enum{
     UI_PAGE_LOADING = 0,
     UI_PAGE_CONFIG,
@@ -72,5 +74,19 @@ void tft_bl_ctrl(int8_t percent);
 void ui_switch_next_page_cb();
 void ui_switch_next_page_cb(uint8_t tp_evt);
 void display_thread_entry(void *args);
-
+void lvgl_tick_thread_entry(void *args);
+void ui_thread_entry(void *args);
+void tft_init(board_sal_t* board);
+void ui_drv_register(void);
+void ui_page_element_init(board_sal_t* board);
+void ui_layout_init(board_sal_t* board);
+void ui_loading_page_update(board_sal_t* board);
+void ui_config_page_update(board_sal_t* board);
+void ui_miner_page_update(board_sal_t* board);
+void ui_countdown_page_update(board_sal_t* board);
+void ui_ota_page_update(board_sal_t* board);
+void ui_hits_page_update(board_sal_t* board);
+void ui_dashboard_page_update(board_sal_t* board);
+void ui_hr_healthy_page_update(board_sal_t* board);
+void ui_big_digit_page_update(board_sal_t* board);
 #endif // DISPLAY_H
