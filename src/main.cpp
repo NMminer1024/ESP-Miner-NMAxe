@@ -244,7 +244,7 @@ void loop() {
 
 
 
-#if 1
+#if 0
 static uint32_t start = millis();
 if(millis() - start > 1000*1){ 
     start = millis();
