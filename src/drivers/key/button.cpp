@@ -12,10 +12,10 @@ void recover_factory_cb(void){
 }
 
 void force_config_cb(void){
-  LOG_W("Force config...");
-  nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, true);
-  delay(500);
-  ESP.restart();
+  static bool first = true;
+  if(!first) return;
+  xSemaphoreGive(g_board.status.force_config_xsem);
+  first = false;
 }
 
 void silence_mode_cb(void){

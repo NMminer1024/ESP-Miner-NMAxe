@@ -162,7 +162,7 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
     return;
 }
 
-bool clear_g_board(void){
+bool erase_all_nvs(void){
     esp_err_t err;
     err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {

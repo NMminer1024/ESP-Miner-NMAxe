@@ -254,13 +254,12 @@ void wifi_connect_thread_entry(void *args){
     WiFi.setHostname(board->info.base.hostname.c_str());
 
     //////////////////////////////// force config mode ////////////////////////////////
-    if(g_board.status.wifi.force_config){
+    if(g_board.status.wifi.force_config_required){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
         LOG_I("Set softAP [%s]...", g_board.info.connection.wifi.ap.info.ssid.c_str());
         WiFi.mode(WIFI_AP);
         WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
         WiFi.softAPConfig(g_board.info.connection.wifi.ap.ip, g_board.info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
-        xSemaphoreGive(g_board.status.force_cfg_xsem);
         delay(500);
         xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY);
         //config time out monitor
@@ -275,6 +274,7 @@ void wifi_connect_thread_entry(void *args){
         }
     }
 
+    //////////////////////////////// normal wifi connection //////////////////////////
     uint16_t random_delay = random(0, 1000*5);
     LOG_I("Initializing WiFi, delay: %dms...", random_delay);
     delay(random_delay);
@@ -290,14 +290,11 @@ void wifi_connect_thread_entry(void *args){
             WiFi.mode(WIFI_AP);
             WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
             WiFi.softAPConfig(board->info.connection.wifi.ap.ip, board->info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
-            xSemaphoreGive(g_board.status.force_cfg_xsem);
             delay(500);
             xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY);
-
             //config time out monitor
             String taskName = "(config_monitor)";
             xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG, NULL, 1);
-            
             while (true){
                 g_board.status.wifi.client_connected = (WiFi.softAPgetStationNum() > 0);
                 if (WiFi.softAPgetStationNum() == 0) {
@@ -787,11 +784,20 @@ void daemon_thread_entry(void *args){
     if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
       LOG_W("Factory reset triggered, erasing config and restart...");
       delay(100);
-      if(clear_g_board()){
+      if(erase_all_nvs()){
         ESP.restart();
       }else{
         LOG_E("Factory reset failed!");
       }
+    }
+
+    // force config if user long press boot button
+    if(xSemaphoreTake(board->status.force_config_xsem, 0) == pdTRUE){
+        LOG_W("Force configuration triggered, starting wifi in AP mode when next reboot...");
+        delay(100);
+        nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, true);
+        delay(100);
+        ESP.restart();
     }
 
 
@@ -1769,7 +1775,7 @@ void display_thread_entry(void *args){
     board->status.ui.page.loading.details.color = 0xFFFFFF;
     board->status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + board->info.connection.wifi.sta.ssid +  String("]");
     delay(300);
-    if(xSemaphoreTake(board->status.force_cfg_xsem, 100)){
+    if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_WIFI_AP_READY)  == INIT_EVENT_WIFI_AP_READY){
       board->status.ui.page.loading.details.color = 0xFF0000;
       board->status.ui.page.loading.details.msg   = String("Timeout!");
       delay(1000);

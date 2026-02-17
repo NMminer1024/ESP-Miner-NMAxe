@@ -52,7 +52,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.wifi.ap.info.pwd         = "12345678";
     board->info.connection.wifi.ap.info.ssid        = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, (board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
 
-    board->status.wifi.force_config                   = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
+    board->status.wifi.force_config_required                   = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     board->status.wifi.client_connected               = false;
     board->info.connection.wifi.sta.ssid              = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
     board->info.connection.wifi.sta.pwd               = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
@@ -73,7 +73,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);
     board->status.brightness_update_xsem            = xSemaphoreCreateCounting(1, 0);
     board->status.recover_factory_xsem              = xSemaphoreCreateCounting(1, 0);
-    board->status.force_cfg_xsem                    = xSemaphoreCreateCounting(1, 0);
+    board->status.force_config_xsem                 = xSemaphoreCreateCounting(1, 0);
     board->status.init_evt                          = xEventGroupCreate();
     board->status.sys_evt                           = xEventGroupCreate();
 

@@ -236,7 +236,7 @@ typedef struct{
         wl_status_t status;
         uint16_t    config_timeout;
 
-        bool                  force_config;
+        bool                  force_config_required;
         bool                  client_connected;
         SemaphoreHandle_t     reconnect_xsem;
     }wifi;
@@ -257,7 +257,7 @@ typedef struct{
     SemaphoreHandle_t                  nvs_save_xsem;           // save status to NVS signal
     SemaphoreHandle_t                  brightness_update_xsem;  // screen brightness update signal
     SemaphoreHandle_t                  recover_factory_xsem;    // recover factory settings signal
-    SemaphoreHandle_t                  force_cfg_xsem;          // force enter config mode signal
+    SemaphoreHandle_t                  force_config_xsem;       // force enter config mode signal
     EventGroupHandle_t                 init_evt;                // system initialization event group
     EventGroupHandle_t                 sys_evt;                 // system event group
 }board_status_t;
