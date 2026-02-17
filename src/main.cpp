@@ -47,7 +47,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->info.connection.stratum.fallback.pwd     = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
     board->info.connection.stratum.use              = board->info.connection.stratum.primary;
     board->status.wifi.reconnect_xsem               = xSemaphoreCreateCounting(1, 0);
-    board->status.wifi.force_cfg_xsem               = xSemaphoreCreateCounting(1, 0);
+
     board->info.connection.wifi.ap.ip               = IPAddress(192, 168, 4, 1);
     board->info.connection.wifi.ap.info.pwd         = "12345678";
     board->info.connection.wifi.ap.info.ssid        = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, (board->info.spec.name + "_" + board->info.base.devcie_code.substring(0, 5)).c_str())); 
@@ -71,12 +71,15 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     
     board->status.reboot_xsem                       = xSemaphoreCreateCounting(1, 0);
     board->status.nvs_save_xsem                     = xSemaphoreCreateCounting(1, 0);
+    board->status.brightness_update_xsem            = xSemaphoreCreateCounting(1, 0);
+    board->status.recover_factory_xsem              = xSemaphoreCreateCounting(1, 0);
+    board->status.force_cfg_xsem                    = xSemaphoreCreateCounting(1, 0);
+    board->status.init_evt                          = xEventGroupCreate();
+    board->status.sys_evt                           = xEventGroupCreate();
+
     board->status.miner.history_mutex               = xSemaphoreCreateMutex();
     board->status.miner.block_proximity_mutex       = xSemaphoreCreateMutex();
     board->status.miner.update_xsem                 = xSemaphoreCreateCounting(1, 0);
-    board->status.brightness_update_xsem            = xSemaphoreCreateCounting(1, 0);
-    board->status.init_evt                          = xEventGroupCreate();
-    board->status.sys_evt                           = xEventGroupCreate();
     board->status.miner.hits                        = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     board->status.miner.last_hits                   = board->status.miner.hits;
     board->status.ota.running                       = false;
@@ -241,9 +244,9 @@ void loop() {
 
 
 
-#if 0
+#if 1
 static uint32_t start = millis();
-if(millis() - start > 1000*3){ 
+if(millis() - start > 1000*1){ 
     start = millis();
     LOG_W("=========== Stack High Water Mark (in bytes) ===========");
     LOG_I("+-----------------+----------+------------+------------+");

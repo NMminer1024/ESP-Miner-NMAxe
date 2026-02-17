@@ -5,10 +5,10 @@
 #include "nvs_config.h"
 
 void recover_factory_cb(void){
-  LOG_W("Recover factory settings...");
-  clear_g_board();
-  delay(500);
-  ESP.restart();
+  static bool first = true;
+  if(!first) return;
+  xSemaphoreGive(g_board.status.recover_factory_xsem);
+  first = false;
 }
 
 void force_config_cb(void){

@@ -260,7 +260,7 @@ void wifi_connect_thread_entry(void *args){
         WiFi.mode(WIFI_AP);
         WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
         WiFi.softAPConfig(g_board.info.connection.wifi.ap.ip, g_board.info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
-        xSemaphoreGive(g_board.status.wifi.force_cfg_xsem);
+        xSemaphoreGive(g_board.status.force_cfg_xsem);
         delay(500);
         xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY);
         //config time out monitor
@@ -290,7 +290,7 @@ void wifi_connect_thread_entry(void *args){
             WiFi.mode(WIFI_AP);
             WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
             WiFi.softAPConfig(board->info.connection.wifi.ap.ip, board->info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
-            xSemaphoreGive(g_board.status.wifi.force_cfg_xsem);
+            xSemaphoreGive(g_board.status.force_cfg_xsem);
             delay(500);
             xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY);
 
@@ -781,6 +781,19 @@ void daemon_thread_entry(void *args){
 
     //avoid restart when ota running
     if(board->status.ota.running) continue;
+
+
+    // recover factory if user long press user button
+    if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
+      LOG_W("Factory reset triggered, erasing config and restart...");
+      delay(100);
+      if(clear_g_board()){
+        ESP.restart();
+      }else{
+        LOG_E("Factory reset failed!");
+      }
+    }
+
 
     //WiFi daemon
     if(xSemaphoreTake(board->status.wifi.reconnect_xsem, 0) == pdTRUE){
@@ -1756,7 +1769,7 @@ void display_thread_entry(void *args){
     board->status.ui.page.loading.details.color = 0xFFFFFF;
     board->status.ui.page.loading.details.msg   = wifi_con_str[(cnt++)%4]  + String("[") + board->info.connection.wifi.sta.ssid +  String("]");
     delay(300);
-    if(xSemaphoreTake(board->status.wifi.force_cfg_xsem, 100)){
+    if(xSemaphoreTake(board->status.force_cfg_xsem, 100)){
       board->status.ui.page.loading.details.color = 0xFF0000;
       board->status.ui.page.loading.details.msg   = String("Timeout!");
       delay(1000);

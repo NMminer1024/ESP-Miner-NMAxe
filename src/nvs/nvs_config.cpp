@@ -162,7 +162,7 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
     return;
 }
 
-void clear_g_board(void){
+bool clear_g_board(void){
     esp_err_t err;
     err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -170,27 +170,31 @@ void clear_g_board(void){
         err = nvs_flash_erase();
         if (err != ESP_OK) {
             LOG_E("Failed to erase NVS partition: %s", esp_err_to_name(err));
-            return;
+            return false;
         }
         err = nvs_flash_init();
         if (err != ESP_OK) {
             LOG_E("Failed to initialize NVS after erase: %s", esp_err_to_name(err));
-            return;
+            return false;
         }
     } else if (err != ESP_OK) {
         LOG_E("Failed to initialize NVS: %s", esp_err_to_name(err));
-        return;
+        return false;
     }
+
+
+
     err = nvs_flash_erase();
     if (err != ESP_OK) {
         LOG_E("Failed to erase NVS partition: %s", esp_err_to_name(err));
-        return;
+        return false;
     }
 
     err = nvs_flash_init();
     if (err != ESP_OK) {
         LOG_E("Failed to initialize NVS after erase: %s", esp_err_to_name(err));
-        return;
+        return false;
     }
     LOG_I("NVS partition erased and reinitialized successfully");
+    return true;
 }
