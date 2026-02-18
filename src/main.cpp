@@ -88,7 +88,7 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     board->status.ui.page.countdown.timeout         = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
     board->status.ui.page.last                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
-    board->status.ui.page.current                   = board->status.ui.page.last;
+    board->status.ui.page.current                   = UI_PAGE_LOADING;
     board->status.ui.page.save_xsem                 = xSemaphoreCreateCounting(1, 0);
     board->status.ui.page.list                      = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
     board->status.ui.lvgl.drv_xMutex                = xSemaphoreCreateMutex();

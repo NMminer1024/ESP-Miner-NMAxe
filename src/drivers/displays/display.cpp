@@ -1876,7 +1876,7 @@ void ui_countdown_page_update(void* args){
   }
 
   static uint32_t last = 0;
-  if(millis() - last < 500) return;
+  if(millis() - last < 1000) return;
   last = millis();
 
   //update countdown label

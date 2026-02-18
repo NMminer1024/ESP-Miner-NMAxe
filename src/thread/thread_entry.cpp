@@ -1676,10 +1676,8 @@ void ui_thread_entry(void *args){
     ui_layout_init(board);
     // notify ui ready
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_UI_READY);  
-    //  set the first page to loading page
-    board->status.ui.page.current = UI_PAGE_LOADING;
     // make sure the loading page is visible when screen on, in case some critical info like power status is needed during boot
-    lv_obj_scroll_to_view(board->status.ui.page.list[UI_PAGE_LOADING], LV_ANIM_ON); 
+    lv_obj_scroll_to_view(board->status.ui.page.list[board->status.ui.page.current], LV_ANIM_ON); 
 
     while (true){
         delay(50);
