@@ -2,7 +2,6 @@
 #define DISPLAY_H
 #include <Arduino.h>
 #include "lvgl.h"
-#include "global.h"
 
 enum{
     UI_PAGE_LOADING = 0,
@@ -70,7 +69,7 @@ typedef struct {
 } ui_pie_chart_t;
 
 // page update function pointer type
-typedef void (*ui_page_update_func_t)(board_sal_t*);
+typedef void (*ui_page_update_func_t)(void *);
 
 void tft_bl_ctrl(int8_t percent);
 void ui_switch_next_page_cb();
@@ -78,17 +77,17 @@ void ui_switch_next_page_cb(uint8_t tp_evt);
 void display_thread_entry(void *args);
 void lvgl_tick_thread_entry(void *args);
 void ui_thread_entry(void *args);
-void tft_init(board_sal_t* board);
+void tft_init(void* args);
 void ui_drv_register(void);
-void ui_page_element_init(board_sal_t* board);
-void ui_layout_init(board_sal_t* board);
-void ui_loading_page_update(board_sal_t* board);
-void ui_config_page_update(board_sal_t* board);
-void ui_miner_page_update(board_sal_t* board);
-void ui_countdown_page_update(board_sal_t* board);
-void ui_ota_page_update(board_sal_t* board);
-void ui_hits_page_update(board_sal_t* board);
-void ui_dashboard_page_update(board_sal_t* board);
-void ui_hr_healthy_page_update(board_sal_t* board);
-void ui_big_digit_page_update(board_sal_t* board);
+void ui_page_element_init(void* args);
+void ui_layout_init(void* args);
+void ui_loading_page_update(void* args);
+void ui_config_page_update(void* args);
+void ui_miner_page_update(void* args);
+void ui_countdown_page_update(void* args);
+void ui_ota_page_update(void* args);
+void ui_hits_page_update(void* args);
+void ui_dashboard_page_update(void* args);
+void ui_hr_healthy_page_update(void* args);
+void ui_big_digit_page_update(void* args);
 #endif // DISPLAY_H

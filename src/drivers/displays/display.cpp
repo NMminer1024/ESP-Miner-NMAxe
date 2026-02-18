@@ -345,7 +345,8 @@ void tft_bl_ctrl(int8_t percent){
   ledcWrite(g_board.info.spec.tft.bl.pwm_ch, pwm);
 }
 
-void tft_init(board_sal_t* board){
+void tft_init(void* args){
+  board_sal_t *board = (board_sal_t*)args;
   SCREEN_WIDTH  = board->info.spec.tft.height;
   SCREEN_HEIGHT = board->info.spec.tft.width;
   // Power on TFT
@@ -439,7 +440,9 @@ void ui_drv_register(void){
   lv_disp_drv_register( &disp_drv );
 }
 
-void ui_page_element_init(board_sal_t* board){
+void ui_page_element_init(void* args){
+  board_sal_t *board = (board_sal_t*)args;
+
   // logo worker image buffer init
   logo_worker_nmaxe.header.w = 60;
   logo_worker_nmaxe.header.h = 68;
@@ -757,9 +760,9 @@ void ui_page_element_init(board_sal_t* board){
     miner_page.lb_blk_hit.coord         = {20, 65};
     miner_page.lb_hashrate.font         = &ds_digib_font_52;
     miner_page.lb_hashrate.coord        = {62, -44};
-    miner_page.lb_price.font            = &ds_digib_font_20;
-    miner_page.lb_price.coord           = {65, 25};
-    miner_page.lb_ver.font              = &ds_digib_font_16;
+    miner_page.lb_price.font            = &ds_digib_font_24;
+    miner_page.lb_price.coord           = {60, 25};
+    miner_page.lb_ver.font              = &ds_digib_font_18;
     miner_page.lb_ver.coord             = {16, 38};
     miner_page.lb_power.font            = &Inconsolata_26;
     miner_page.lb_power.coord           = {20, 169};
@@ -984,7 +987,10 @@ void ui_page_element_init(board_sal_t* board){
   }
 }
 
-void ui_layout_init(board_sal_t* board){
+void ui_layout_init(void* args){
+
+  board_sal_t *board = (board_sal_t*)args;
+
   static lv_obj_t *parent_docker = NULL;
 
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
@@ -1571,7 +1577,10 @@ void ui_layout_init(board_sal_t* board){
   lv_obj_align( big_digit_page.lb_price.obj, LV_ALIGN_BOTTOM_LEFT, big_digit_page.lb_price.coord.x, big_digit_page.lb_price.coord.y);
 }
 
-void ui_loading_page_update(board_sal_t* board) {
+void ui_loading_page_update(void* args) {
+
+  board_sal_t *board = (board_sal_t*)args;
+
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1614,7 +1623,9 @@ void ui_loading_page_update(board_sal_t* board) {
   }
 }
 
-void ui_config_page_update(board_sal_t* board) {
+void ui_config_page_update(void* args) {
+  board_sal_t *board = (board_sal_t*)args;
+
   static uint8_t cnt = 0;
   static uint32_t last_update = millis();
   if(millis() - last_update < 1000) return;
@@ -1630,7 +1641,8 @@ void ui_config_page_update(board_sal_t* board) {
   last_update = millis();
 }
 
-void ui_miner_page_update(board_sal_t* board){
+void ui_miner_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1790,7 +1802,8 @@ void ui_miner_page_update(board_sal_t* board){
   last_update = millis();
 }
 
-void ui_countdown_page_update(board_sal_t* board){
+void ui_countdown_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1877,7 +1890,8 @@ void ui_countdown_page_update(board_sal_t* board){
   countdown--;
 }
 
-void ui_ota_page_update(board_sal_t* board){
+void ui_ota_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1932,7 +1946,8 @@ void ui_ota_page_update(board_sal_t* board){
   lv_label_set_text(label_file, board->status.ota.filename.c_str());
 }
 
-void ui_hits_page_update(board_sal_t* board){
+void ui_hits_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -1983,7 +1998,8 @@ void ui_hits_page_update(board_sal_t* board){
   }
 }
 
-void ui_dashboard_page_update(board_sal_t* board){
+void ui_dashboard_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
   static uint32_t last_update = millis();
   // if(millis() - last_update < 1000) return;
   limited_data_f limited_freq_req       = {board->info.spec.ui.dashboard_page.performance.asic_freq_req.min, board->info.spec.ui.dashboard_page.performance.asic_freq_req.max};
@@ -2060,7 +2076,8 @@ void ui_dashboard_page_update(board_sal_t* board){
   last_update = millis();
 }
 
-void ui_hr_healthy_page_update(board_sal_t* board){
+void ui_hr_healthy_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");
     return;
@@ -2127,7 +2144,8 @@ void ui_hr_healthy_page_update(board_sal_t* board){
   last_update = millis();
 }
 
-void ui_big_digit_page_update(board_sal_t* board){
+void ui_big_digit_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");
     return;

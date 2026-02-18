@@ -1,7 +1,7 @@
 #include "display.h"
 #include "logger.h"
 #include "button.h"
-#include "display.h"
+#include "global.h"
 #include "fan.h"
 #include "csha256.h"
 #include "nvs_config.h"
@@ -1658,7 +1658,16 @@ void lvgl_tick_thread_entry(void *args){
 
 void ui_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
-
+    // define a map of page update functions, the key is page enum, the value is the corresponding update function
+    const std::map<uint8_t, ui_page_update_func_t> ui_page_update_cbs = {
+        {UI_PAGE_LOADING,   ui_loading_page_update},
+        {UI_PAGE_CONFIG,    ui_config_page_update},
+        {UI_PAGE_MINER,     ui_miner_page_update},
+        {UI_PAGE_DASHBOARD, ui_dashboard_page_update},
+        {UI_PAGE_HR_HEALTH, ui_hr_healthy_page_update},
+        {UI_PAGE_BIG_DIGIT, ui_big_digit_page_update},
+    };
+    // wait lvgl ready is necessary, otherwise may cause some lvgl api call fail due to lvgl not ready, such as lv_obj_create, which is widely used in ui element init and page update
     xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     // ui page element init
     ui_page_element_init(board);
@@ -1666,36 +1675,29 @@ void ui_thread_entry(void *args){
     ui_layout_init(board);
     // notify ui ready
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_UI_READY);  
+    //  set the first page to loading page
+    board->status.ui.page.current = UI_PAGE_LOADING;
+    // make sure the loading page is visible when screen on, in case some critical info like power status is needed during boot
+    lv_obj_scroll_to_view(board->status.ui.page.list[UI_PAGE_LOADING], LV_ANIM_ON); 
 
-    // function pointer array for different page update, index must be same as ui_page_t enum
-    const ui_page_update_func_t ui_page_update_cbs[] = {
-        ui_loading_page_update,      // UI_PAGE_LOADING
-        ui_config_page_update,       // UI_PAGE_CONFIG
-        ui_miner_page_update,        // UI_PAGE_MINER
-        ui_dashboard_page_update,    // UI_PAGE_DASHBOARD
-        ui_hr_healthy_page_update,   // UI_PAGE_HR_HEALTH
-        ui_big_digit_page_update,    // UI_PAGE_BIG_DIGIT
-    };
-
-  while (true){
-    delay(50);
-    if(xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, 5) == pdTRUE){
-        // update current page, if current page index is valid, otherwise skip page update to save some CPU
-        uint8_t page_index = board->status.ui.page.current;
-        if(page_index < sizeof(ui_page_update_cbs) / sizeof(ui_page_update_cbs[0])){
-            ui_page_update_cbs[page_index](board);
+    while (true){
+        delay(50);
+        if(xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, 5) == pdTRUE){
+            // find the update function based on current page and call it, if not found, just skip page update
+            auto it = ui_page_update_cbs.find(board->status.ui.page.current);
+            if(it != ui_page_update_cbs.end()){
+                it->second((void*)board);  
+            }
+            // countdown page update, if running, cover current page
+            ui_countdown_page_update((void*)board);
+            // block hits page popup, if hit, cover current page
+            ui_hits_page_update((void*)board);
+            // OTA page update, if running, cover current page
+            ui_ota_page_update((void*)board);
+            //release mutex
+            xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
         }
-
-        // countdown page update, if running, cover current page
-        ui_countdown_page_update(board);
-        // block hits page popup, if hit, cover current page
-        ui_hits_page_update(board);
-        // OTA page update, if running, cover current page
-        ui_ota_page_update(board);
-        //release mutex
-        xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
     }
-  }
 }
 
 void display_thread_entry(void *args){
@@ -1718,10 +1720,7 @@ void display_thread_entry(void *args){
   // notify screen ready
   xEventGroupSetBits(board->status.init_evt, INIT_EVENT_SCREEN_READY);  
   // wait lvgl and ui thread ready
-  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_UI_READY | INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-  //set the first page to loading page
-  board->status.ui.page.current = UI_PAGE_LOADING;
-  lv_obj_scroll_to_view(board->status.ui.page.list[UI_PAGE_LOADING], LV_ANIM_ON); 
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_UI_READY | INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
 
   //backlight brightness ramp up
   for(int i = 0; i < board->status.preference.screen.brightness; i++) {
