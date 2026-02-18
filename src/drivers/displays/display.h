@@ -69,6 +69,8 @@ typedef struct {
     lv_coord_t radius;                               // Pie chart radius
 } ui_pie_chart_t;
 
+// page update function pointer type
+typedef void (*ui_page_update_func_t)(board_sal_t*);
 
 void tft_bl_ctrl(int8_t percent);
 void ui_switch_next_page_cb();

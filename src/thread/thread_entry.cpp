@@ -1657,49 +1657,43 @@ void lvgl_tick_thread_entry(void *args){
 }
 
 void ui_thread_entry(void *args){
-  board_sal_t *board = (board_sal_t*)args;
+    board_sal_t *board = (board_sal_t*)args;
 
-  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-  // ui page element init
-  ui_page_element_init(board);
-  // ui layout init
-  ui_layout_init(board);
-  // notify ui ready
-  xEventGroupSetBits(board->status.init_evt, INIT_EVENT_UI_READY);  
+    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    // ui page element init
+    ui_page_element_init(board);
+    // ui layout init
+    ui_layout_init(board);
+    // notify ui ready
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_UI_READY);  
+
+    // function pointer array for different page update, index must be same as ui_page_t enum
+    const ui_page_update_func_t ui_page_update_cbs[] = {
+        ui_loading_page_update,      // UI_PAGE_LOADING
+        ui_config_page_update,       // UI_PAGE_CONFIG
+        ui_miner_page_update,        // UI_PAGE_MINER
+        ui_dashboard_page_update,    // UI_PAGE_DASHBOARD
+        ui_hr_healthy_page_update,   // UI_PAGE_HR_HEALTH
+        ui_big_digit_page_update,    // UI_PAGE_BIG_DIGIT
+    };
+
   while (true){
     delay(50);
     if(xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, 5) == pdTRUE){
-      switch (board->status.ui.page.current){
-        case UI_PAGE_LOADING:
-          ui_loading_page_update(board);
-          break;
-        case UI_PAGE_CONFIG:
-          ui_config_page_update(board);
-          break;
-        case UI_PAGE_MINER:
-          ui_miner_page_update(board);
-          break;
-        case UI_PAGE_DASHBOARD:
-          ui_dashboard_page_update(board);
-          break;
-        case UI_PAGE_HR_HEALTH:
-          ui_hr_healthy_page_update(board);
-          break;
-        case UI_PAGE_BIG_DIGIT:
-          ui_big_digit_page_update(board);
-          break;
-        default:
-          break;
-      }
+        // update current page, if current page index is valid, otherwise skip page update to save some CPU
+        uint8_t page_index = board->status.ui.page.current;
+        if(page_index < sizeof(ui_page_update_cbs) / sizeof(ui_page_update_cbs[0])){
+            ui_page_update_cbs[page_index](board);
+        }
 
-      // countdown page update, if running, cover current page
-      ui_countdown_page_update(board);
-      // block hits page popup, if hit, cover current page
-      ui_hits_page_update(board);
-      // OTA page update, if running, cover current page
-      ui_ota_page_update(board);
-      //release mutex
-      xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
+        // countdown page update, if running, cover current page
+        ui_countdown_page_update(board);
+        // block hits page popup, if hit, cover current page
+        ui_hits_page_update(board);
+        // OTA page update, if running, cover current page
+        ui_ota_page_update(board);
+        //release mutex
+        xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
     }
   }
 }
