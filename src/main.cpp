@@ -86,11 +86,12 @@ bool board_init(IN BoardSpecConfig config, OUT board_sal_t *board){
     board->status.ota.progress                      = 0;
     board->status.ota.filename                      = "";
     board->status.miner.diff.best_ever              = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
+    board->status.ui.page.countdown.timeout         = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
     board->status.ui.page.last                      = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
     board->status.ui.page.current                   = board->status.ui.page.last;
     board->status.ui.page.save_xsem                 = xSemaphoreCreateCounting(1, 0);
-    board->status.ui.lvgl.drv_xMutex                = xSemaphoreCreateMutex();
     board->status.ui.page.list                      = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+    board->status.ui.lvgl.drv_xMutex                = xSemaphoreCreateMutex();
     board->status.touch.evt                         = TOUCH_NONE_EVT;
     board->status.miner.uptime_ever                 = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     board->status.time.tz                           = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
@@ -170,10 +171,10 @@ static const thread_config_t thread_pool[] = {
     {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,         1, &uiTask,       10,  0},
     {"(touch)",     touch_thread_entry,             1024*4,   TASK_PRIORITY_TOUCH,      0, &touchTask,    10,  0},
     {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,        1, &ledTask,      10,  0},
-    {"(button)",    button_thread_entry,            1024*5,   TASK_PRIORITY_BTN,        1, &btnTask,      10,  0},
+    {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,        1, &btnTask,      10,  0},
     {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,         1, &wsTask,       10,  0},
     {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,       1, NULL,          10,  0},
-    {"(daemon)",    daemon_thread_entry,            1024*3,   TASK_PRIORITY_DAEMON,     0, &daemonTask,   10,  0},
+    {"(daemon)",    daemon_thread_entry,            1024*5,   TASK_PRIORITY_DAEMON,     0, &daemonTask,   10,  0},
     {"(power)",     power_thread_entry,             1024*6,   TASK_PRIORITY_PWR,        1, &powerTask,    10,  0},
     {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*7,   TASK_PRIORITY_ASIC_CNT,   1, NULL,          10,  0},
     {"(asic_init)", miner_asic_init_thread_entry,   1024*7,   TASK_PRIORITY_ASIC_INIT,  1, NULL,          10,  0},
@@ -211,9 +212,9 @@ void setup() {
             else LOG_E("Failed to create thread %s", thread.name);
             delay(thread.delay_ms);
         }else {
-        // if entry function is NULL, treat this config as a synchronization point and wait for specified events before next proceeding
-        xEventGroupWaitBits(g_board.status.init_evt, thread.wait_events, pdFALSE, pdTRUE, portMAX_DELAY);
-        continue;
+            // if entry function is NULL, treat this config as a synchronization point and wait for specified events before next proceeding
+            xEventGroupWaitBits(g_board.status.init_evt, thread.wait_events, pdFALSE, pdTRUE, portMAX_DELAY);
+            continue;
         }
     }
 }
@@ -246,7 +247,7 @@ void loop() {
 
 #if 0
 static uint32_t start = millis();
-if(millis() - start > 1000*1){ 
+if(millis() - start > 1000*2){ 
     start = millis();
     LOG_W("=========== Stack High Water Mark (in bytes) ===========");
     LOG_I("+-----------------+----------+------------+------------+");
@@ -255,6 +256,9 @@ if(millis() - start > 1000*1){
     
     for(auto &thread : thread_pool){
         if(thread.handle != NULL && *thread.handle != NULL){
+            eTaskState taskState = eTaskGetState(*thread.handle);
+            if(taskState == eDeleted) continue;
+
             char *taskName = pcTaskGetName(*thread.handle);
             if(taskName != NULL && taskName[0] != '\0'){
                 UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark(*thread.handle);

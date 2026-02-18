@@ -329,15 +329,11 @@ void button_thread_entry(void *args){
     OneButton *user_btn = nullptr;
 
     if(board->info.spec.btn.boot_pin != -1){
-        // OneButton boot_btn(board->info.spec.btn.boot_pin, true);
         boot_btn = new OneButton(board->info.spec.btn.boot_pin, true);
     }
     if(board->info.spec.btn.user_pin != -1){
-        // OneButton user_btn(board->info.spec.btn.user_pin, true);
         user_btn = new OneButton(board->info.spec.btn.user_pin, true);
     }
-
-
 
     // link the boot button functions.
     if(boot_btn != nullptr){
@@ -1603,16 +1599,17 @@ void touch_thread_entry(void *args){
             TS_Point start_point = board->touch->getPoint();
             TS_Point last_point = start_point;
 
-            uint32_t long_press_start = millis(), config_check_start = millis();
-            while (board->touch != nullptr && board->touch->touched()){
+            uint32_t long_press_start = millis();
+            while (board->touch->touched()){
                 last_point = board->touch->getPoint();
                 delay(10);
                 if(millis() - long_press_start > 1000){
-                    board->status.touch.evt = TOUCH_LONGPRESS_EVT;
-                    if(millis() - config_check_start > 1000 * BOARD_TOUCH_LONG_PRESS_TO_CFG){
-                        LOG_W("Forcing configuration mode via screen long press...");
-                        force_config_cb();
+                    if(board->status.ui.page.countdown.timeout <= 0){
+                        LOG_W("Long press detected, recovering factory config...");
+                        xSemaphoreGive(g_board.status.recover_factory_xsem);
                     }
+                    board->status.touch.evt = TOUCH_LONGPRESS_EVT;
+                    board->status.ui.page.countdown.timeout = (board->status.ui.page.countdown.timeout > 0) ? (board->status.ui.page.countdown.timeout - 1) : 0;
                     long_press_start = millis();
                 }
             }
@@ -1627,6 +1624,10 @@ void touch_thread_entry(void *args){
             board->status.touch.evt = guess_touch_gesture(dx, dy, board->status.preference.screen.flip);
             ui_switch_next_page_cb(board->status.touch.evt);
             delay(100);
+        }
+        else{
+            // reset countdown if no touch, to avoid accidental long press recovery
+            board->status.ui.page.countdown.timeout = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
         }
     }
 }

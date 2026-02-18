@@ -1812,7 +1812,6 @@ void ui_countdown_page_update(void* args){
   static lv_obj_t * overlay = NULL, *lb_countdown = NULL, *lb_reminder = NULL;
   static lv_style_t style;
   static bool style_inited = false;
-  static uint8_t countdown = BOARD_TOUCH_LONG_PRESS_TO_CFG;
 
   if(TOUCH_LONGPRESS_EVT ==  board->status.touch.evt){
     //create style one time
@@ -1833,8 +1832,6 @@ void ui_countdown_page_update(void* args){
         lv_obj_add_style(overlay, &style, LV_PART_MAIN);
     }
     if(lb_countdown == NULL && overlay != NULL){
-        //reset countdown
-        countdown = BOARD_TOUCH_LONG_PRESS_TO_CFG;
         //create countdown label
         lb_countdown = lv_label_create(overlay);
         lv_obj_set_style_text_font(lb_countdown, &ds_digib_font_120, LV_PART_MAIN);
@@ -1844,7 +1841,7 @@ void ui_countdown_page_update(void* args){
     }
     if(lb_reminder == NULL && overlay != NULL){
         //create reminder label
-        String reminder_str = "Entering setup mode...";
+        String reminder_str = "Recover to factory settings...";
         const lv_font_t *font = &lv_font_montserrat_20;
         lv_coord_t width = lv_txt_get_width(reminder_str.c_str(), strlen(reminder_str.c_str()), font, 0, LV_TEXT_FLAG_NONE);
         lb_reminder = lv_label_create(overlay);
@@ -1855,10 +1852,8 @@ void ui_countdown_page_update(void* args){
         lv_label_set_text(lb_reminder, reminder_str.c_str());
         lv_obj_align(lb_reminder, LV_ALIGN_TOP_MID, 0, 10);
         lv_obj_move_foreground(overlay);  // bring to front
-
-
         // initial countdown label update
-        lv_label_set_text(lb_countdown, String(countdown).c_str());
+        lv_label_set_text(lb_countdown, String(board->status.ui.page.countdown.timeout).c_str());
     }
   }
   else{
@@ -1881,13 +1876,11 @@ void ui_countdown_page_update(void* args){
   }
 
   static uint32_t last = 0;
-  if(millis() - last < 1000) return;
+  if(millis() - last < 500) return;
   last = millis();
 
   //update countdown label
-  countdown = (countdown > 0) ? countdown : 0;
-  lv_label_set_text(lb_countdown, String(countdown).c_str());
-  countdown--;
+  lv_label_set_text(lb_countdown, String(board->status.ui.page.countdown.timeout).c_str());
 }
 
 void ui_ota_page_update(void* args){

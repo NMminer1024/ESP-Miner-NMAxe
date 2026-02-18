@@ -21,7 +21,7 @@
 #define BOARD_CURRENT_HW_VERSION        "v1.1.1"
 #define BOARD_NVS_SAVE_INTERVAL         (60*60)  //second
 #define BOARD_MCU_TEMP_DANGER           (70.0f)
-#define BOARD_TOUCH_LONG_PRESS_TO_CFG   (5)     //seconds, long press duration to enter config mode
+#define BOARD_TOUCH_LONG_PRESS_TO_RECOVER   (10)     //seconds, long press duration to enter recover mode
 
 #define MINER_WIFI_RSSI_STRONG          (-60)
 #define MINER_WIFI_RSSI_GOOD            (-70)
@@ -202,7 +202,11 @@ typedef struct{
             struct{     // wifi/config page status
                 uint16_t    timeout; // in seconds
                 String      message; // connection info message
-            }config;           
+            }config; 
+
+            struct{     // counterdown page status
+                uint8_t    timeout; // in seconds
+            }countdown; 
 
             std::vector<lv_obj_t*>  list;
             uint8_t                 current;     // current ui page index
