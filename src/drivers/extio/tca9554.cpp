@@ -28,26 +28,21 @@ static void tca9554_writeRegister(uint8_t regaddr, uint8_t data) {
     }
 }
 
-
-
-
-
-
 void tca9554_set_io_low(uint8_t iobit) {
-    // todo 
-    // tca9554_writeRegister(TCA9554_REG_OUTPUT_PORT_ADDR, iobit); // set extio2 to low
+    uint8_t current_state = 0;
+    tca9554_readRegister(TCA9554_REG_OUTPUT_PORT_ADDR, &current_state, 1); // read current output state
+
+    current_state &= ~iobit; // clear the bit to set it low
+    tca9554_writeRegister(TCA9554_REG_OUTPUT_PORT_ADDR, current_state);
 }
 void tca9554_set_io_high(uint8_t iobit) {
-    // todo
-    // tca9554_writeRegister(TCA9554_REG_OUTPUT_PORT_ADDR, iobit); // set extio2 to high
+    uint8_t current_state = 0;
+    tca9554_readRegister(TCA9554_REG_OUTPUT_PORT_ADDR, &current_state, 1); // read current output state
+
+    current_state |= iobit; // set the bit to set it high
+    tca9554_writeRegister(TCA9554_REG_OUTPUT_PORT_ADDR, current_state);
 }
-
-
 
 void tca9554_init() {
     tca9554_writeRegister(TCA9554_REG_CONFIG_ADDR, 0b11111101);// extio1 set to OUTPUT
-    // lcd reset
-    tca9554_writeRegister(TCA9554_REG_OUTPUT_PORT_ADDR, 0b00000000); // set extio2 to low
-    delay(50);
-    tca9554_writeRegister(TCA9554_REG_OUTPUT_PORT_ADDR, 0b00000010); // set extio2 to high 
 }
