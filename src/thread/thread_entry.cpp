@@ -1072,11 +1072,11 @@ void miner_asic_tx_thread_entry(void *args){
 
             //interval 'job_interval_ms' every asic job, exit if a new pool job arrived
             if(xSemaphoreTake(board->stratum->new_job_xsem, board->info.spec.asic.job_interval_ms) == pdTRUE) {
-                board->stratum->clear_sub_extranonce2();
                 //avoid some stale share submit, clear job cache if clean job signal received
                 if(xSemaphoreTake(board->stratum->clear_job_xsem, 0) == pdTRUE) {
                     board->miner->clear_asic_job_cache();
-                    LOG_D("Job cache clear...");
+                    board->stratum->clear_sub_extranonce2();
+                    LOG_D("Stratum job cache clear...");
                 }
                 xSemaphoreGive(board->stratum->new_job_xsem);//release the semaphore for next pool job
                 break;
