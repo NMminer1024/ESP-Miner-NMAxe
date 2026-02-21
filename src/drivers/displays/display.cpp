@@ -20,7 +20,7 @@ LV_FONT_DECLARE(ds_digib_font_38)
 LV_FONT_DECLARE(ds_digib_font_52)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(ds_digib_font_120)
-LV_FONT_DECLARE(Inconsolata_16)
+LV_FONT_DECLARE(Inconsolata_18)
 LV_FONT_DECLARE(Inconsolata_26)
 LV_FONT_DECLARE(symbol_14)
 LV_FONT_DECLARE(symbol_20)
@@ -562,8 +562,8 @@ void ui_page_element_init(void* args){
     miner_page.lb_diff.coord            = {132, 25};
     miner_page.lb_ver.font              = &ds_digib_font_16;
     miner_page.lb_ver.coord             = {2, 22};
-    miner_page.lb_power.font            = &Inconsolata_16;
-    miner_page.lb_power.coord           = {18, 116};
+    miner_page.lb_power.font            = &Inconsolata_18;
+    miner_page.lb_power.coord           = {16, 114};
     miner_page.lb_ip.font               = &ds_digib_font_16;
     miner_page.lb_ip.coord              = {140, 2};
     miner_page.lb_uptime_hms.font       = &ds_digib_font_16;
@@ -812,7 +812,7 @@ void ui_page_element_init(void* args){
     dashboard_page.lb_hr_unit.font     = &ds_digib_font_20;
     dashboard_page.lb_hr_unit.coord    = {100 + 95, 23};
     dashboard_page.img_miner.coord     = {0, 55};
-    dashboard_page.lb_diff.font        = &Inconsolata_16;
+    dashboard_page.lb_diff.font        = &Inconsolata_18;
     dashboard_page.lb_diff.coord       = {0, 0};
     dashboard_page.miner_img_dsc       = &logo_miner_nmqaxepp_70_70;
 
