@@ -506,21 +506,13 @@ void swarm_thread_entry(void *args){
 void monitor_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
-    // // fetch timezone from ipapi
-    // TimezoneFetcher *tz = new TimezoneFetcher();
-    // if(!tz->fetch()){
-    //     LOG_W("Timezone fetch failed, using user setting timezone: %s", board->status.time.tz.c_str()); 
-    // }else{
-    //     board->status.time.tz = tz->timezone;
-    //     LOG_W("Timezone calibrate to : %s", board->status.time.tz.c_str());
-    // }
-    // delete tz;
-
     //ntp client init
     WiFiUDP          udpNtpClient;
     const String     ntpServerUrl= "europe.pool.ntp.org";
     const uint32_t   ntpInterval = 1000*60*60*24;//24h update interval
     NTPClient        ntpClient(udpNtpClient, ntpServerUrl.c_str());
+    uint64_t         last_nvs_save_time = board->status.miner.uptime_session;
+
 
     ntpClient.begin();
     ntpClient.setTimeOffset(0); // Get UTC time without timezone offset
@@ -679,32 +671,10 @@ void monitor_thread_entry(void *args){
         }
 
         //save status to NVS
-        static uint64_t last_save_time = board->status.miner.uptime_session;
-        if(board->status.miner.uptime_session - last_save_time > BOARD_NVS_SAVE_INTERVAL){
+        if(board->status.miner.uptime_session - last_nvs_save_time > BOARD_NVS_SAVE_INTERVAL){
             xSemaphoreGive(board->status.nvs_save_xsem);
         }
         
-        //save some status to NVS
-        if(xSemaphoreTake(board->status.nvs_save_xsem, 0) == pdTRUE){
-            nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(board->status.miner.diff.best_ever).c_str());
-            nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, board->status.miner.hits);
-            nvs_config_set_u64(NVS_CONFIG_UPTIME, board->status.miner.uptime_ever);
-            last_save_time = board->status.miner.uptime_session;
-            LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(board->status.miner.diff.best_ever, 4).c_str(), board->status.miner.hits, convert_uptime_to_string(board->status.miner.uptime_ever).c_str());
-        }
-
-        //save last ui page to NVS
-        if(board->status.ui.page.save_xsem != nullptr && xSemaphoreTake(board->status.ui.page.save_xsem, 0) == pdTRUE){
-            nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, board->status.ui.page.last);
-            LOG_D("Last page %d saved to NVS", board->status.ui.page.last);
-        }
-
-        // update bringhtnes
-        if(xSemaphoreTake(board->status.brightness_update_xsem, 0) == pdTRUE){
-            tft_bl_ctrl(board->status.preference.screen.brightness);
-            LOG_D("Update screen brightness to %d", board->info.preference.screen.brightness);
-        }
-
         //update miner status history queue
         if(board->status.miner.uptime_session % MINER_HISTORY_SAMPLE_INTERVAL == 0){
             history_node_t node;
@@ -757,6 +727,44 @@ void monitor_thread_entry(void *args){
                 board->info.spec.ui.hashrate_dist_page.dist_map[i] = y;// Update the global distribution map
             }
         }
+    
+        // recover factory if user long press user button
+        if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
+            LOG_W("Factory reset triggered, erasing config and restart...");
+            if(erase_all_nvs()){
+                xSemaphoreGive(board->status.reboot_xsem);
+            }else{
+                LOG_E("Factory reset failed!");
+            }
+        }
+
+        // force config if user long press boot button
+        if(xSemaphoreTake(board->status.force_config_xsem, 0) == pdTRUE){
+            LOG_W("Force configuration triggered, starting wifi in AP mode when next reboot...");
+            nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, true);
+            xSemaphoreGive(board->status.reboot_xsem);
+        }
+
+        //save some status to NVS
+        if(xSemaphoreTake(board->status.nvs_save_xsem, 0) == pdTRUE){
+            nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(board->status.miner.diff.best_ever).c_str());
+            nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, board->status.miner.hits);
+            nvs_config_set_u64(NVS_CONFIG_UPTIME, board->status.miner.uptime_ever);
+            last_nvs_save_time = board->status.miner.uptime_session;
+            LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]", formatNumber(board->status.miner.diff.best_ever, 4).c_str(), board->status.miner.hits, convert_uptime_to_string(board->status.miner.uptime_ever).c_str());
+        }
+
+        //save last ui page to NVS
+        if(xSemaphoreTake(board->status.ui.page.save_xsem, 0) == pdTRUE){
+            nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, board->status.ui.page.last);
+            LOG_D("Last page %d saved to NVS", board->status.ui.page.last);
+        }
+
+        // update bringhtnes
+        if(xSemaphoreTake(board->status.brightness_update_xsem, 0) == pdTRUE){
+            tft_bl_ctrl(board->status.preference.screen.brightness);
+            LOG_D("Update screen brightness to %d", board->info.preference.screen.brightness);
+        }
     }
 }
 
@@ -773,28 +781,6 @@ void daemon_thread_entry(void *args){
 
     //avoid restart when ota running
     if(board->status.ota.running) continue;
-
-
-    // recover factory if user long press user button
-    if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
-      LOG_W("Factory reset triggered, erasing config and restart...");
-      delay(100);
-      if(erase_all_nvs()){
-        ESP.restart();
-      }else{
-        LOG_E("Factory reset failed!");
-      }
-    }
-
-    // force config if user long press boot button
-    if(xSemaphoreTake(board->status.force_config_xsem, 0) == pdTRUE){
-        LOG_W("Force configuration triggered, starting wifi in AP mode when next reboot...");
-        delay(100);
-        nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, true);
-        delay(100);
-        ESP.restart();
-    }
-
 
     //WiFi daemon
     if(xSemaphoreTake(board->status.wifi.reconnect_xsem, 0) == pdTRUE){
