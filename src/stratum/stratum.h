@@ -74,7 +74,7 @@ private:
     bool                                            _parse_rsp();
     bool                                            _clear_rsp_id_cache();
     bool                                            _suggest_diff_support;
-    uint32_t                                        _vr_mask;//version rolling mask
+    uint32_t                                        _vr_mask;
     double                                          _pool_difficulty;
     StaticJsonDocument<4096>                        _rsp_json;
     stratum_subscribe_info_t                        _sub_info;
@@ -93,7 +93,7 @@ public:
         this->pool = new PoolClass(pConfig);
         this->_max_rsp_id_cache = 20;
         this->_job_counter = 0;
-        // this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
+        this->_pool_difficulty = 0.0;
         this->_gid = 1;
         this->_rsp_str = "";
         this->_vr_mask = 0xffffffff;

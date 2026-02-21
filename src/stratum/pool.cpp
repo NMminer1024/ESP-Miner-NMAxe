@@ -12,8 +12,10 @@ PoolClass::PoolClass(pool_info_t config){
 }
 
 PoolClass::~PoolClass(){
-    delete this->_wificlientSecure;
-    delete this->_wificlient;
+    if(this->_wificlient != nullptr)       delete this->_wificlient;
+    if(this->_wificlientSecure != nullptr) delete this->_wificlientSecure;
+    if(this->_pwclient != nullptr)         this->_pwclient->stop();
+    
     this->_pwclient->stop();
 }
 
@@ -21,12 +23,20 @@ bool PoolClass::begin(bool ssl){
     if(ssl){
         this->_wificlientSecure->setInsecure();
         this->_pwclient  = this->_wificlientSecure;
+        if(this->_wificlient != nullptr) {
+            delete this->_wificlient;
+            this->_wificlient = nullptr;
+        }
         LOG_I("ssl enabled.");
     }else{
         this->_pwclient  = this->_wificlient;
+        if(this->_wificlientSecure != nullptr) {
+            delete this->_wificlientSecure;
+            this->_wificlientSecure = nullptr;
+        }
         LOG_I("tcp enabled.");
     }
-    return true;
+    return (this->_pwclient != nullptr);
 }
 
 bool PoolClass::connect(){

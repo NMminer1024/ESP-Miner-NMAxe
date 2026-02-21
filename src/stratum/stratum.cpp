@@ -25,7 +25,7 @@ void StratumClass::reset(){
     this->_sub_info = {"", "", 0};
     this->_is_subscribed = false;
     this->_is_authorized = false;
-    // this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
+    this->_pool_difficulty = 0.0;
     this->_vr_mask = 0xffffffff;
     this->_suggest_diff_support = true;
     this->_gid = 1;
@@ -48,7 +48,7 @@ void StratumClass::reset(pool_info_t pConfig, stratum_info_t sConfig){
     this->_sub_info = {"", "", 0};
     this->_is_subscribed = false;
     this->_is_authorized = false;
-    // this->_pool_difficulty = DEFAULT_POOL_DIFFICULTY;
+    this->_pool_difficulty = 0.0;
     this->_vr_mask = 0xffffffff;
     this->_suggest_diff_support = true;
     this->_gid = 1;

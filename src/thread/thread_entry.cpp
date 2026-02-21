@@ -47,8 +47,7 @@ void power_thread_entry(void *args){
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VCORE_READY);  
     delay(100);
 
-    LOG_I("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
-    delay(100);
+    LOG_D("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
     while(true){
         uint32_t vcore_measure = board->power->get_vcore();
         int32_t err = vcore_measure - board->info.spec.asic.req_vcore;
