@@ -1657,7 +1657,7 @@ void ui_miner_page_update(void* args){
   String last_diff = formatNumber(board->status.miner.diff.last, 1);
   String best_session = formatNumber(board->status.miner.diff.best_session, 3);
   String best_ever = formatNumber(board->status.miner.diff.best_ever, 1);
-  String network_diff = formatNumber(board->status.miner.diff.network, 4);
+  String network_diff = formatNumber(board->status.miner.diff.network, 3);
   String voltage = formatNumber(board->status.power.vbus/1000.0, 3);
   String power = formatNumber(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 2);
   String price = (millis() - board->market->lastUpdate <= MINER_MARKET_CONNECT_TIMEOUT) ? formatNumber(board->market->price, 6) : "";
