@@ -441,9 +441,9 @@ void hardware_pre_init(BoardSpecConfig config){
         tca9554_init();
 
         // LCD reset
-        tca9554_set_io_low(TCA9554_IO_1); 
+        tca9554_set_io_level(TCA9554_IO_1, 0); 
         delay(10);
-        tca9554_set_io_high(TCA9554_IO_1); 
+        tca9554_set_io_level(TCA9554_IO_1, 1); 
     }
 }
 

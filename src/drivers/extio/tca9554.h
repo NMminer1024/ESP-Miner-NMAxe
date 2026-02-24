@@ -12,8 +12,7 @@
 #define TCA9554_IO_7                    (uint8_t)(1<<7)
 
 
-void tca9554_set_io_low(uint8_t iobit);
-void tca9554_set_io_high(uint8_t iobit);
+void tca9554_set_io_level(uint8_t iobit, uint8_t level);
 void tca9554_init();
 
 #endif // __TCA9554__H__

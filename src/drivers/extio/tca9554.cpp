@@ -28,18 +28,15 @@ static void tca9554_writeRegister(uint8_t regaddr, uint8_t data) {
     }
 }
 
-void tca9554_set_io_low(uint8_t iobit) {
+void tca9554_set_io_level(uint8_t iobit, uint8_t level) {
     uint8_t current_state = 0;
     tca9554_readRegister(TCA9554_REG_OUTPUT_PORT_ADDR, &current_state, 1); // read current output state
 
-    current_state &= ~iobit; // clear the bit to set it low
-    tca9554_writeRegister(TCA9554_REG_OUTPUT_PORT_ADDR, current_state);
-}
-void tca9554_set_io_high(uint8_t iobit) {
-    uint8_t current_state = 0;
-    tca9554_readRegister(TCA9554_REG_OUTPUT_PORT_ADDR, &current_state, 1); // read current output state
-
-    current_state |= iobit; // set the bit to set it high
+    if (level) {
+        current_state |= iobit;  // set the bit high
+    } else {
+        current_state &= ~iobit; // clear the bit low
+    }
     tca9554_writeRegister(TCA9554_REG_OUTPUT_PORT_ADDR, current_state);
 }
 
