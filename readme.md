@@ -184,6 +184,22 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 
 ## Release Log
 ***
+### (2026.02.25) - v2.9.30
+- `Add`:
+  - Firmware : 'All in one' for NMAxe, NMAxeGamma, NMQAxe++(Hardware Coming soon).
+  - Firmware : Support multi-fan on NMQAxe++.
+  - API:  http://{ip}/api/system/gauge/limits
+  - API:  http://{ip}/api/system/settings/mining
+- `Fixed`:
+  - Init queen issue, Optimized boot process.
+  - Low Power startup issue full Fixed – Upgrade Recommended if your NMAxeGamma ever fails.
+  - Screen randomly goes blank.
+- `Improved`:
+  - Memory usage.
+- `Modify`:
+  - http://{ip}/api/system/info
+- `Remove`:
+  - None.
 
 ### (2025.10.24) - v2.9.21
 - `Add`:
