@@ -4,7 +4,8 @@
 #include <Arduino.h>
 #include <WebSocketsServer.h>
 #include <cstring>
-#include "http_server.h"
+
+extern WebSocketsServer webSocket;
 
 #define LOG_COLOR_ENABLE
 

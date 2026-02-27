@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <string.h>
 #include "crc.h"
 
 
