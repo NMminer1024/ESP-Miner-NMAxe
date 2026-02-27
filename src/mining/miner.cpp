@@ -13,8 +13,6 @@
 #include <cstdint>
 #include <cstdio>
 
-static BMxxx *asic_instance = NULL;
-
 void add_share_diff_history(std::deque<proximity_node_t> &hist, proximity_node_t &node, size_t max_history) {
     hist.push_back(node);
 

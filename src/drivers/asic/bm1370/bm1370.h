@@ -17,15 +17,15 @@ public:
     BM1370(HardwareSerial &sport, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst):BMxxx(sport, init_baud, rx, tx, rst) {
         this->_diff_current = 0;
     }
-    void init(uint64_t freq, int diff, uint8_t asic_count);
-    void change_uart_baud(uint32_t baudrate);
-    void frequency_ramp_up(float target_frequency);
-    uint32_t set_job_difficulty(int difficulty);
-    uint8_t get_asic_count();
-    uint32_t get_asic_difficulty();
-    void send_work_to_asic(asic_job *job);
-    uint16_t get_cores();
-    uint16_t get_small_cores();
-    esp_err_t wait_for_result(miner_result *result, uint32_t timeout_ms = 60*1000);
+    void init(uint64_t freq, int diff, uint8_t asic_count) override;
+    void change_uart_baud(uint32_t baudrate) override;
+    void frequency_ramp_up(float target_frequency) override;
+    uint32_t set_job_difficulty(int difficulty) override;
+    uint8_t get_asic_count() override;
+    uint32_t get_asic_difficulty() override;
+    void send_work_to_asic(asic_job *job) override;
+    uint16_t get_cores() override;
+    uint16_t get_small_cores() override;
+    esp_err_t wait_for_result(miner_result *result, uint32_t timeout_ms = 60*1000) override;
 };
 #endif
