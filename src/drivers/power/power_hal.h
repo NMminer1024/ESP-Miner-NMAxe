@@ -32,7 +32,8 @@ protected:
 public:
     AxePowerHal(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins);
     ~AxePowerHal();
-    virtual void init(void) = 0;
+    virtual void init(void);
+    virtual void hw_init(void) = 0;
     virtual void set_vdd_1v8(power_state_t state) = 0;
     virtual void set_pll_0v8(power_state_t state) = 0;
     virtual void set_vcore_status(power_state_t state) = 0;

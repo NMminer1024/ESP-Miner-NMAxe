@@ -65,6 +65,11 @@ AxePowerHal::~AxePowerHal(){
 }
 
 void AxePowerHal::init(){
+    // ensure all power rails are off before ADC and hardware init
+    this->set_pll_0v8(PWR_OFF);
+    this->set_vdd_1v8(PWR_OFF);
+    this->set_vcore_status(PWR_OFF);
+
     //config adc
     adc1_config_width(ADC_WIDTH_BIT_12);
     esp_adc_cal_value_t ret = ESP_ADC_CAL_VAL_NOT_SUPPORTED;
@@ -126,6 +131,9 @@ void AxePowerHal::init(){
         this->_is_vcore_adc_configured = false;
         LOG_E("Vcore ADC pin invalid!");
     }
+
+    // call hardware-specific initialization
+    this->hw_init();
 }
 
 uint32_t AxePowerHal::get_vbus_adc(void){

@@ -1,7 +1,7 @@
 #ifndef _GLOBAL_H_
 #define _GLOBAL_H_
 #include <Arduino.h>
-#include "power.h"
+#include "power_hal.h"
 #include "connection.h"
 #include "tmp102.h"
 #include "stratum.h"
@@ -272,7 +272,7 @@ typedef struct{
     board_status_t      status;
     FT6206Class         *touch;
     MarketClass         *market;
-    AxePowerClass       *power;
+    AxePowerHal         *power;
     StratumClass        *stratum;
     AsicMinerClass      *miner;
 }board_sal_t;

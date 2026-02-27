@@ -17,8 +17,7 @@ TPS53355Class::~TPS53355Class(){
 
 }
 
-void TPS53355Class::init(void){
-    AxePowerHal::init();
+void TPS53355Class::hw_init(void){
     pinMode(this->_vcore_regulator_pwm_pin, OUTPUT);
     pinMode(this->_vcore_pgood_pin, INPUT_PULLUP);
     pinMode(this->_dc_plug_pin, INPUT_PULLUP);
@@ -27,11 +26,6 @@ void TPS53355Class::init(void){
     ledcAttachPin(this->_vcore_regulator_pwm_pin, VCORE_REGULATOR_PWM_CHANNEL);
     ledcWrite(VCORE_REGULATOR_PWM_CHANNEL, 0);
 }
-
-bool TPS53355Class::is_adc_ready(void){
-    return AxePowerHal::is_adc_ready();
-}
-
 
 bool TPS53355Class::is_vcore_ready(void){
     if(digitalRead(this->_vcore_pgood_pin) == HIGH){
