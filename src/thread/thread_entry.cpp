@@ -373,7 +373,9 @@ void button_thread_entry(void *args){
 
     // link the boot button functions.
     if(boot_btn != nullptr){
-        boot_btn->attachClick(ui_switch_next_page_cb);
+        static auto click_wrapper = [](void *param){ ui_switch_next_page_cb(*(uint8_t*)param); };
+        static uint8_t click_evt = TOUCH_TAP_EVT;
+        boot_btn->attachClick(click_wrapper, &click_evt);
         boot_btn->attachDoubleClick(silence_mode_cb);
         boot_btn->attachLongPressStart(NULL);
         boot_btn->attachLongPressStop(NULL);
@@ -705,7 +707,7 @@ void monitor_thread_entry(void *args){
 
         // auto screen page scrolling
         if((board->status.miner.uptime_session % 10 == 0) && (true == board->status.preference.screen.auto_rolling)){
-            ui_switch_next_page_cb();
+            ui_switch_next_page_cb(TOUCH_TAP_EVT);
         }
 
         //save status to NVS

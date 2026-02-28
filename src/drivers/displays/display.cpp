@@ -2225,21 +2225,6 @@ void ui_big_digit_page_update(void* args){
   lv_label_set_text_fmt(big_digit_page.lb_price.obj, "$%s", price_value.c_str());
   last_update = millis();
 }
-
-void ui_switch_next_page_cb(){
-  g_board.status.preference.led.sleep         = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
-  if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
-    xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
-    g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
-    return;
-  } 
-
-  g_board.status.ui.page.current = (g_board.status.ui.page.current == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
-  g_board.status.ui.page.current++;
-  lv_obj_scroll_to_view(g_board.status.ui.page.list[g_board.status.ui.page.current], LV_ANIM_ON);
-  g_board.status.ui.page.last = g_board.status.ui.page.current;
-  xSemaphoreGive(g_board.status.ui.page.save_xsem);
-}
   
 void ui_switch_next_page_cb(uint8_t tp_evt){
   uint8_t current_index = g_board.status.ui.page.current;
@@ -2248,10 +2233,17 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
   if(xSemaphoreTake(g_board.status.ui.lvgl.drv_xMutex, 100) == pdTRUE){
     // tap event
     if(TOUCH_TAP_EVT == tp_evt){
-      ui_switch_next_page_cb();
-      //release mutex
-      xSemaphoreGive(g_board.status.ui.lvgl.drv_xMutex); 
-      return;
+        g_board.status.preference.led.sleep = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
+        if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
+          xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
+          g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
+          //release mutex
+          xSemaphoreGive(g_board.status.ui.lvgl.drv_xMutex); 
+          return;
+        } 
+
+        next_index = (g_board.status.ui.page.current == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
+        next_index++;
     }
 
     // swipe event
