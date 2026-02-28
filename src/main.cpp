@@ -176,7 +176,7 @@ static const thread_config_t thread_pool[] = {
     {"(daemon)",    daemon_thread_entry,            1024*3,   TASK_PRIORITY_DAEMON,     0, &daemonTask,   10,  0},
     {"(power)",     power_thread_entry,             1024*7,   TASK_PRIORITY_PWR,        1, &powerTask,    10,  0},
     {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*5,   TASK_PRIORITY_ASIC_CNT,   1, NULL,          10,  0},
-    {"(asic_init)", miner_asic_init_thread_entry,   1024*5,   TASK_PRIORITY_ASIC_INIT,  1, NULL,          10,  0},
+    {"(asic_init)", miner_asic_init_thread_entry,   1024*6,   TASK_PRIORITY_ASIC_INIT,  1, NULL,          10,  0},
     {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,        0, &fanTask,      10,  0},
     {"",            NULL,                           0,        0,                        0, NULL,          0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_FAN_READY},
     {"(swarm)",     swarm_thread_entry,             1024*7,   TASK_PRIORITY_SWARM,      0, &swarmTask,    10,  0},

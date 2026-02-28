@@ -12,11 +12,13 @@ PoolClass::PoolClass(pool_info_t config){
 }
 
 PoolClass::~PoolClass(){
-    if(this->_wificlient != nullptr)       delete this->_wificlient;
-    if(this->_wificlientSecure != nullptr) delete this->_wificlientSecure;
-    if(this->_pwclient != nullptr)         this->_pwclient->stop();
-    
-    this->_pwclient->stop();
+    // stop connection first, before any delete (pwclient points to one of the two below)
+    if(this->_pwclient != nullptr) {
+        this->_pwclient->stop();
+        this->_pwclient = nullptr;
+    }
+    if(this->_wificlient != nullptr)       { delete this->_wificlient;       this->_wificlient = nullptr; }
+    if(this->_wificlientSecure != nullptr) { delete this->_wificlientSecure; this->_wificlientSecure = nullptr; }
 }
 
 bool PoolClass::begin(bool ssl){
