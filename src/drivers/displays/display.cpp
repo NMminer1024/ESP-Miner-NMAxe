@@ -717,7 +717,7 @@ void ui_page_element_init(void* args){
     big_digit_page.lb_time.font         = &ds_digib_font_56;
     big_digit_page.lb_time.coord        = {0, 15};
 
-    big_digit_page.lb_ampm.font         = &ds_digib_font_24;
+    big_digit_page.lb_ampm.font         = &lv_font_montserrat_14;
     big_digit_page.lb_ampm.coord        = {0, 15};
 
     big_digit_page.lb_price.font        = &ds_digib_font_24;
@@ -2187,12 +2187,6 @@ void ui_big_digit_page_update(void* args){
   hms = datetime.substring(index, index + 5); //only HH:MM
   day = datetime.substring(0, 10);            //only YYYY-MM-DD
 
-
-
-  LOG_W("Date format %s time format %d\r\n", board->status.time.format.date, board->status.time.format.time);
-  LOG_W("datetime: %s, day: %s, hms: %s, am_pm: %s\r\n", datetime.c_str(), day.c_str(), hms.c_str(), am_pm.c_str());
-
-
   // time
   lv_coord_t width = lv_txt_get_width(hms.c_str(), strlen(hms.c_str()), big_digit_page.lb_time.font, 0, LV_TEXT_FLAG_NONE);
   lv_obj_set_width(big_digit_page.lb_time.obj, width);
@@ -2202,10 +2196,12 @@ void ui_big_digit_page_update(void* args){
   width = lv_txt_get_width(am_pm.c_str(), strlen(am_pm.c_str()), big_digit_page.lb_ampm.font, 0, LV_TEXT_FLAG_NONE);
   lv_obj_set_width(big_digit_page.lb_ampm.obj, width);
   lv_label_set_text_fmt(big_digit_page.lb_ampm.obj, "%s", am_pm.c_str());
-  width = lv_obj_get_width(big_digit_page.lb_time.obj) / 2 + 20; // 20 is the gap between time and am/pm
-  lv_obj_align(big_digit_page.lb_ampm.obj, LV_ALIGN_CENTER, width, -30);
+  width = lv_txt_get_width(hms.c_str(), strlen(hms.c_str()), big_digit_page.lb_time.font, 0, LV_TEXT_FLAG_NONE);
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME)
+    lv_obj_align(big_digit_page.lb_ampm.obj, LV_ALIGN_CENTER, width / 1.7, -32);
+  else 
+    lv_obj_align(big_digit_page.lb_ampm.obj, LV_ALIGN_CENTER, width / 1.5, 2);
   
-
   // date
   width = lv_txt_get_width(day.c_str(), strlen(day.c_str()), big_digit_page.lb_date.font, 0, LV_TEXT_FLAG_NONE);
   lv_obj_set_width(big_digit_page.lb_date.obj, width);

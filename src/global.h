@@ -17,7 +17,7 @@
 
 
 
-#define BOARD_CURRENT_FW_VERSION        "v2.9.30"
+#define BOARD_CURRENT_FW_VERSION        "v2.9.31"
 #define BOARD_CURRENT_HW_VERSION        "v1.1.1"
 #define BOARD_NVS_SAVE_INTERVAL         (60*60)  //second
 #define BOARD_MCU_TEMP_DANGER           (70.0f)

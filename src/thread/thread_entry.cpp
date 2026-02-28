@@ -253,21 +253,21 @@ void wifi_connect_thread_entry(void *args){
     WiFi.setHostname(board->info.base.hostname.c_str());
 
     //////////////////////////////// force config mode ////////////////////////////////
-    if(g_board.status.wifi.force_config_required){
+    if(board->status.wifi.force_config_required){
         nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
-        LOG_I("Set softAP [%s]...", g_board.info.connection.wifi.ap.info.ssid.c_str());
+        LOG_W("Set softAP [%s]...", board->info.connection.wifi.ap.info.ssid.c_str());
         WiFi.mode(WIFI_AP);
-        WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
-        WiFi.softAPConfig(g_board.info.connection.wifi.ap.ip, g_board.info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
+        WiFi.softAP(board->info.connection.wifi.ap.info.ssid);
+        WiFi.softAPConfig(board->info.connection.wifi.ap.ip, board->info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
         delay(500);
         xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY);
         //config time out monitor
         String taskName = "(config_monitor)";
         xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG, NULL, 1);
         while(true){
-            g_board.status.wifi.client_connected = (WiFi.softAPgetStationNum() > 0);
+            board->status.wifi.client_connected = (WiFi.softAPgetStationNum() > 0);
             if (WiFi.softAPgetStationNum() == 0) {
-                LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.info.connection.wifi.ap.info.ssid.c_str(), g_board.status.wifi.config_timeout);
+                LOG_W("Force configuration, ssid[%s], timeout: %ds...", board->info.connection.wifi.ap.info.ssid.c_str(), board->status.wifi.config_timeout);
             }
             delay(1000);
         }
@@ -285,9 +285,9 @@ void wifi_connect_thread_entry(void *args){
         maxRetries++;
         LOG_I("Try to connect [%s] %ds...", board->info.connection.wifi.sta.ssid.c_str(), maxRetries);
         if(maxRetries >= 15){
-            LOG_I("Set softAP [%s]...", g_board.info.base.hostname.c_str());
+            LOG_I("Set softAP [%s]...", board->info.base.hostname.c_str());
             WiFi.mode(WIFI_AP);
-            WiFi.softAP(g_board.info.connection.wifi.ap.info.ssid);
+            WiFi.softAP(board->info.connection.wifi.ap.info.ssid);
             WiFi.softAPConfig(board->info.connection.wifi.ap.ip, board->info.connection.wifi.ap.ip, IPAddress(255, 255, 255, 0));
             delay(500);
             xEventGroupSetBits(board->status.init_evt, INIT_EVENT_WIFI_AP_READY);
@@ -295,9 +295,9 @@ void wifi_connect_thread_entry(void *args){
             String taskName = "(config_monitor)";
             xTaskCreatePinnedToCore(config_monitor_thread_entry, taskName.c_str(), 1024*4, (void*)board, TASK_PRIORITY_CONFIG, NULL, 1);
             while (true){
-                g_board.status.wifi.client_connected = (WiFi.softAPgetStationNum() > 0);
+                board->status.wifi.client_connected = (WiFi.softAPgetStationNum() > 0);
                 if (WiFi.softAPgetStationNum() == 0) {
-                    LOG_W("Force configuration, ssid[%s], timeout: %ds...", g_board.info.connection.wifi.ap.info.ssid.c_str(), g_board.status.wifi.config_timeout);
+                    LOG_W("Force configuration, ssid[%s], timeout: %ds...", board->info.connection.wifi.ap.info.ssid.c_str(), board->status.wifi.config_timeout);
                 }
                 delay(1000);
             }
@@ -433,6 +433,7 @@ void swarm_thread_entry(void *args){
     //status udp broadcast
     if(swarm_cnt % 20 == 0){
       jsonDoc.clear();
+      jsonDoc["Hostname"] = board->info.base.hostname;
       jsonDoc["ip"] = board->status.wifi.ip.toString();
       jsonDoc["HashRate"] = formatNumber(board->status.miner.hashrate._3m, 5) + "H/s";
       uint32_t share_total = board->status.miner.share_accepted + board->status.miner.share_rejected;
