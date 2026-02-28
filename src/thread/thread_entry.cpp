@@ -549,7 +549,7 @@ void monitor_thread_entry(void *args){
     //ntp client init
     WiFiUDP          udpNtpClient;
     const String     ntpServerUrl= "europe.pool.ntp.org";
-    const uint32_t   ntpInterval = 1000*60*60*24;//24h update interval
+    const uint32_t   ntpInterval = 1000*60*60*1;  //24h update interval
     NTPClient        ntpClient(udpNtpClient, ntpServerUrl.c_str());
     uint64_t         last_nvs_save_time = board->status.miner.uptime_session;
 
@@ -1617,7 +1617,7 @@ void touch_thread_entry(void *args){
     }
     LOG_D("FT6206 touch controller initialized.");
     while(true){
-        delay(100);
+        delay(150);
 
         // only respond to touch if mining is active
         if(board->stratum->get_job_counter() == 0) continue;
@@ -1653,7 +1653,6 @@ void touch_thread_entry(void *args){
             // Detect gesture
             board->status.touch.evt = guess_touch_gesture(dx, dy, board->status.preference.screen.flip);
             ui_switch_next_page_cb(board->status.touch.evt);
-            delay(100);
         }
         else{
             // reset countdown if no touch, to avoid accidental long press recovery

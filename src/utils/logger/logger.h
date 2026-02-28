@@ -27,7 +27,7 @@ extern WebSocketsServer webSocket;
 
 namespace dbg
 {
-    extern char log_buffer[1024]; // 在 logger.cpp 中定义
+    extern char log_buffer[1024]; 
 
     /**
      * @brief Prints the hexadecimal representation of an array of bytes.

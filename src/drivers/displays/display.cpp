@@ -9,6 +9,7 @@
 static uint16_t SCREEN_WIDTH  = 0;
 static uint16_t SCREEN_HEIGHT = 0;
 static TFT_eSPI *tftDriver = nullptr;
+static lv_obj_t *parent_docker = nullptr;
 
 LV_FONT_DECLARE(ds_digib_font_16)
 LV_FONT_DECLARE(ds_digib_font_18)
@@ -997,8 +998,6 @@ void ui_page_element_init(void* args){
 void ui_layout_init(void* args){
 
   board_sal_t *board = (board_sal_t*)args;
-
-  static lv_obj_t *parent_docker = NULL;
 
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
@@ -2226,6 +2225,21 @@ void ui_big_digit_page_update(void* args){
   last_update = millis();
 }
   
+void ui_bounce_effect(lv_obj_t *current_page, uint8_t tp_evt) {
+    if(parent_docker == nullptr || current_page == nullptr) return;
+    const int16_t BOUNCE_PX = 25;
+    int16_t dx = 0, dy = 0;
+    switch(tp_evt) {
+        case TOUCH_SWIPE_LEFT_EVT:  dx = -BOUNCE_PX; break;
+        case TOUCH_SWIPE_RIGHT_EVT: dx = +BOUNCE_PX; break;
+        case TOUCH_SWIPE_UP_EVT:    dy = -BOUNCE_PX; break;
+        case TOUCH_SWIPE_DOWN_EVT:  dy = +BOUNCE_PX; break;
+        default: return;
+    }
+    lv_obj_scroll_by(parent_docker, dx, dy, LV_ANIM_OFF); // instant offset
+    lv_obj_scroll_to_view(current_page, LV_ANIM_ON);       // animate back
+}
+
 void ui_switch_next_page_cb(uint8_t tp_evt){
   uint8_t current_index = g_board.status.ui.page.current;
   uint8_t next_index    = current_index;
@@ -2266,6 +2280,12 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
       break;
       default:
         break;
+    }
+    // if no page available in that direction, show bounce effect
+    if(next_index == current_index && tp_evt != TOUCH_TAP_EVT) {
+      ui_bounce_effect(g_board.status.ui.page.list[current_index], tp_evt);
+      xSemaphoreGive(g_board.status.ui.lvgl.drv_xMutex);
+      return;
     }
     lv_obj_scroll_to_view(g_board.status.ui.page.list[next_index], LV_ANIM_ON);
     g_board.status.ui.page.current = next_index;
