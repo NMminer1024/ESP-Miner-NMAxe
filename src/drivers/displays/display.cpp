@@ -2094,10 +2094,6 @@ void ui_hr_healthy_page_update(void* args){
     lv_chart_set_value_by_id(hr_health_page.total_hr_chart.obj, hr_health_page.total_hr_chart.series, i, y);
   }
 
-  // time cost of this feature
-  static uint64_t start = millis();
-  board->info.spec.ui.hashrate_dist_page.dura = (millis() - start) / 1000;
-
   String hr = formatNumber(last_hashrate, 3);
   String hr_unit = (last_hashrate > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate

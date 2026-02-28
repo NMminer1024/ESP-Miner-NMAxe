@@ -52,7 +52,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.spi.sclk_pin              = 38;
             config.ui.hashrate_dist_page.max_x_hr  = 1000;
             config.ui.hashrate_dist_page.max_x_bars= 20;
-            config.ui.hashrate_dist_page.times     = 0;
+            config.ui.hashrate_dist_page.count     = 0;
 
             config.ui.dashboard_page.power.vbus.min        = 0.0f;
             config.ui.dashboard_page.power.vbus.max        = 15.0f;
@@ -170,7 +170,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.spi.sclk_pin              = 38;
             config.ui.hashrate_dist_page.max_x_hr  = 2000;
             config.ui.hashrate_dist_page.max_x_bars= 20;
-            config.ui.hashrate_dist_page.times     = 0;
+            config.ui.hashrate_dist_page.count     = 0;
 
             config.ui.dashboard_page.power.vbus.min        = 0.0f;
             config.ui.dashboard_page.power.vbus.max        = 15.0f;
@@ -287,7 +287,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.spi.sclk_pin              = 5;
             config.ui.hashrate_dist_page.max_x_hr  = 10000;
             config.ui.hashrate_dist_page.max_x_bars= 20;
-            config.ui.hashrate_dist_page.times     = 0;
+            config.ui.hashrate_dist_page.count     = 0;
 
             config.ui.dashboard_page.power.vbus.min        = 0.0f;
             config.ui.dashboard_page.power.vbus.max        = 15.0f;

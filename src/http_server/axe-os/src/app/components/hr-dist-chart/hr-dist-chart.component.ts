@@ -9,8 +9,8 @@ Chart.register(...registerables);
 interface HashrateDistribution {
   max_bars: number;
   max_hr: number;
-  times: number;
-  dura: number;
+  count: number;
+  time: number;
   dist: { [key: string]: number };
 }
 
@@ -48,9 +48,9 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
         this.updateScaleAndUnit(data.max_hr, data.max_bars);
         this.currentMaxHr = data.max_hr;
         this.currentMaxBars = data.max_bars;
-        this.samplingTime = data.dura;
-        this.samplingCount = data.times;
-        this.formattedTime = this.formatTime(data.dura);
+        this.samplingTime = data.time;
+        this.samplingCount = data.count;
+        this.formattedTime = this.formatTime(data.time);
       })
     );
   }
@@ -214,9 +214,9 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
         this.updateScaleAndUnit(data.max_hr, data.max_bars);
         this.currentMaxHr = data.max_hr;
         this.currentMaxBars = data.max_bars;
-        this.samplingTime = data.dura;
-        this.samplingCount = data.times;
-        this.formattedTime = this.formatTime(data.dura);
+        this.samplingTime = data.time;
+        this.samplingCount = data.count;
+        this.formattedTime = this.formatTime(data.time);
         console.log('✅ Initial hashrate distribution data loaded');
       },
       error: (error) => {

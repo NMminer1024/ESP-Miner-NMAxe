@@ -79,8 +79,8 @@ struct BoardSpecConfig {
         struct{
             uint32_t                    max_x_hr;       // max x axis in hashrate distribution
             uint32_t                    max_x_bars;     // count of max x axis
-            uint32_t                    times;          // count of hashrate samples
-            uint32_t                    dura;           // duration of hashrate samples, seconds
+            uint32_t                    count;          // count of hashrate samples
+            uint32_t                    time;           // duration of hashrate samples, seconds
             std::map<uint16_t, uint8_t> dist_map;       //<x, y> x:scale_x, y:percentage of hashrate in this scale, range from 0 to 100
         }hashrate_dist_page;
 

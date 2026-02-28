@@ -163,8 +163,8 @@ void get_hr_distribution(AsyncWebServerRequest* request){
     root.clear();
     root["max_bars"]    = g_board.info.spec.ui.hashrate_dist_page.max_x_bars;
     root["max_hr"]      = g_board.info.spec.ui.hashrate_dist_page.max_x_hr;
-    root["times"]       = g_board.info.spec.ui.hashrate_dist_page.times;
-    root["dura"]        = g_board.info.spec.ui.hashrate_dist_page.dura;
+    root["count"]       = g_board.info.spec.ui.hashrate_dist_page.count;
+    root["time"]        = g_board.info.spec.ui.hashrate_dist_page.time;
     JsonObject dist_map = root.createNestedObject("dist");
     for (const auto& pair : g_board.info.spec.ui.hashrate_dist_page.dist_map) {
         dist_map[String(pair.first)] = pair.second; 
