@@ -7,7 +7,6 @@
 #include "nvs_config.h"
 #include <NTPClient.h>
 #include "http_server.h"
-#include "connection.h"
 #include <Adafruit_NeoPixel.h>
 
 void power_thread_entry(void *args){
@@ -247,9 +246,47 @@ void webserver_thread_entry(void *args){
 void wifi_connect_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
+    auto wifiEvent = [board](WiFiEvent_t event, WiFiEventInfo_t info) {
+        const char* reason = NULL;
+        static uint8_t retry_cnt = 0, max_retries = 120;
+        wifi_event_sta_disconnected_t disconnected;
+        switch (event) {
+            case SYSTEM_EVENT_STA_CONNECTED:
+                LOG_I("WiFi connected to [%s], waiting for IP...", WiFi.SSID().c_str());
+                break;
+            case SYSTEM_EVENT_STA_GOT_IP:
+                board->status.wifi.ip = WiFi.localIP();
+                board->status.wifi.gateway = WiFi.gatewayIP();
+                board->status.wifi.subnet = WiFi.subnetMask();
+                board->status.wifi.dns = WiFi.dnsIP();
+                board->status.wifi.status = WL_CONNECTED;
+                retry_cnt = 0;
+                LOG_I("Got IP : %s", WiFi.localIP().toString().c_str());
+                break;
+            case SYSTEM_EVENT_STA_DISCONNECTED:
+                board->status.wifi.ip = IPAddress(0, 0, 0, 0);
+                board->status.wifi.gateway = IPAddress(0, 0, 0, 0);
+                board->status.wifi.subnet = IPAddress(0, 0, 0, 0);
+                board->status.wifi.dns = IPAddress(0, 0, 0, 0);
+                board->status.wifi.status = WL_DISCONNECTED;
+                disconnected = info.wifi_sta_disconnected;
+                reason = WiFi.disconnectReasonName((wifi_err_reason_t)disconnected.reason);
+                retry_cnt++;
+                LOG_W("WiFi disconnected, reason: %s", reason);
+                break;
+            default:
+                break;
+        }
+        if(retry_cnt >= max_retries){
+            LOG_W("WiFi connection retry limit reached, rebooting...");
+            delay(1000);
+            ESP.restart();
+        }
+    };
+
     WiFi.mode(WIFI_STA);
     WiFi.setTxPower(WIFI_POWER_15dBm);
-    WiFi.onEvent(WiFiEvent);
+    WiFi.onEvent(wifiEvent);
     WiFi.setHostname(board->info.base.hostname.c_str());
 
     //////////////////////////////// force config mode ////////////////////////////////

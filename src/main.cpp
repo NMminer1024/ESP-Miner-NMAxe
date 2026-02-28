@@ -222,7 +222,7 @@ void setup() {
 void loop() {
   uint32_t last = millis();
   while(millis() - last < 1000*1){
-      static uint16_t brightness      = g_board.status.preference.screen.brightness, last_brightness = brightness;   
+      static uint16_t brightness = g_board.status.preference.screen.brightness;   
       static float    x = 0;
       if(g_board.status.miner.last_hits != g_board.status.miner.hits){//screen blink if block hit
           brightness = 100*(1 + sin(x))/2;

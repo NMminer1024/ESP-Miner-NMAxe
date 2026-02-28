@@ -2,7 +2,6 @@
 #define _GLOBAL_H_
 #include <Arduino.h>
 #include "power_hal.h"
-#include "connection.h"
 #include "tmp102.h"
 #include "stratum.h"
 #include "miner.h"
@@ -90,6 +89,12 @@ typedef struct {
     EventBits_t     wait_events;    // event bits to wait for before creating this thread (0 if no waiting needed)
 } thread_config_t;
 
+
+
+typedef struct{
+    String ssid;
+    String pwd;
+}wifi_conn_info_t;
 
 typedef struct{
     struct{
