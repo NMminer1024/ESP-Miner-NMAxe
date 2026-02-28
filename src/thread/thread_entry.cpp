@@ -13,29 +13,30 @@ void power_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
     board->power->set_vcore_range(board->info.spec.asic.min_vcore, board->info.spec.asic.max_vcore);
-    LOG_I("Set vcore range to (%d~%d mV)", board->power->get_vcore_min(), board->power->get_vcore_max());
+    LOG_D("Set vcore range to (%d~%d mV)", board->power->get_vcore_min(), board->power->get_vcore_max());
 
     //detect power plug or pd plug
     if(board->power->is_dc_pluged()) LOG_I("DC plug detected...");
-    else LOG_I("USB plug detected...");
+    else LOG_D("USB plug detected...");
     delay(100);
-    
-    //detect vbus voltage, if lower than VBUS_MIN_VOLTAGE , wait for power settle or throw error
     board->power->init();
-    while ((board->power->get_vbus() < board->info.spec.pwr.vbus_min_required) && (board->info.spec.name != BOARD_NMQAXE_PLUS_PLUS_NAME)){
-        LOG_W("Vbus is %.2fV , at least %.2fV required, waiting for power setup...", board->power->get_vbus()/1000.0, board->info.spec.pwr.vbus_min_required/1000.0);
-        delay(1000);
-    }
-    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VBUS_READY);  
-    
+
     //set vdd_1v8 and pll_0v8 power
     board->power->set_pll_0v8(PWR_ON);
     board->power->set_vdd_1v8(PWR_ON);
     delay(100);//wait for power stable
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VDD_VPLL_READY);  
 
+
+    while ((board->power->get_vbus() < board->info.spec.pwr.vbus_min_required)){
+        LOG_W("Vbus is %.2fV , at least %.2fV required...", board->power->get_vbus()/1000.0, board->info.spec.pwr.vbus_min_required/1000.0);
+        delay(1000);
+    }
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VBUS_READY);  
+
+
     // wait for fan ready and wifi connected before setting vcore voltage, to avoid too high temperature without proper cooling or network connection for error reporting
-    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
+    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     //set vcore voltage to required voltage
     board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
     board->power->set_vcore_status(PWR_ON);
@@ -1770,25 +1771,22 @@ void display_thread_entry(void *args){
   if(board->power->is_dc_pluged()) board->status.ui.page.loading.details.msg   = "DC pluged.";
   else board->status.ui.page.loading.details.msg   = "USB pluged.";
   delay(500);
-  while(board->power->get_vbus() < board->info.spec.pwr.vbus_min_required){
+  if(board->power->get_vbus() < board->info.spec.pwr.vbus_min_required){
       static bool blink = false;
       board->status.ui.page.loading.details.color = (blink) ? 0xFF0000 : 0xFFFFFF;
       String vbusString = "Vbus " + String(board->power->get_vbus()/1000.0, 1) + "v(at least" + String(board->info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
       board->status.ui.page.loading.details.msg   = vbusString;
       blink = !blink;
-      if(!board->power->is_dc_pluged()){
-        disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
-        delay(500);
-      }
-      delay(500);
-
-      // no PD support for NMQ AXE ++ due to hardware design, skip voltage check and just show Vbus voltage when USB plugged in
-      if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) break;
+    //   if(!board->power->is_dc_pluged()){
+    //     disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
+    //     delay(500);
+    //   }
+      delay(1000);
   }
   board->status.ui.page.loading.details.color = 0x00FF00;
   board->status.ui.page.loading.details.msg   = "Vbus " + String(board->power->get_vbus() / 1000.0, 3) + "V.";
   delay(500);
-  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+//   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   /****************************************wait for wifi connected***************************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.3;

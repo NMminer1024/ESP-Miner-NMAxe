@@ -201,6 +201,8 @@ void setup() {
         LOG_E("Board initialization failed, retrying in 1s...");
         delay(1000);
     }
+    //disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
+    if(!g_board.power->is_dc_pluged()) disable_usb_uart();
     /********************************************************* CREATE ALL THREADS ********************************************************/
     for(auto &thread : thread_pool){
         if(thread.entry != NULL){
