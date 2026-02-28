@@ -35,11 +35,8 @@ export class NetworkEditComponent implements OnInit {
         // Map new field names to legacy names for backward compatibility
         info.hostname = info.hostName || info.hostname;
         info.ssid = info.wifiSSID || info.ssid;
-        const timezone = info.timeZone || (info as any).timezone;
-        
         this.form = this.fb.group({
           hostname: [info.hostname, [Validators.required, Validators.maxLength(20)]],
-          timezone: [timezone || 0, [Validators.required, Validators.min(-12), Validators.max(14)]],
           ssid: [info.ssid, [Validators.required]],
           wifiPass: ['*****'],
         });
@@ -47,7 +44,6 @@ export class NetworkEditComponent implements OnInit {
         // 保存原始值用于比较
         this.originalFormValues = {
           hostname: info.hostname,
-          timezone: timezone || 0,
           ssid: info.ssid,
           wifiPass: '*****'
         };
@@ -72,7 +68,7 @@ export class NetworkEditComponent implements OnInit {
     const currentValues = this.form.getRawValue();
     
     // 检查除了 wifiPass 之外的字段
-    const fieldsToCheck = ['hostname', 'timezone', 'ssid'];
+    const fieldsToCheck = ['hostname', 'ssid'];
     for (const field of fieldsToCheck) {
       if (currentValues[field] !== this.originalFormValues[field]) {
         return true;

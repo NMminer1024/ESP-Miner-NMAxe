@@ -143,6 +143,7 @@ struct{
   ui_element_t  lb_hits_unit;
   ui_element_t  lb_date;
   ui_element_t  lb_time;
+  ui_element_t  lb_ampm;
   ui_element_t  lb_price;
 }big_digit_page;
 
@@ -716,6 +717,9 @@ void ui_page_element_init(void* args){
     big_digit_page.lb_time.font         = &ds_digib_font_56;
     big_digit_page.lb_time.coord        = {0, 15};
 
+    big_digit_page.lb_ampm.font         = &ds_digib_font_24;
+    big_digit_page.lb_ampm.coord        = {0, 15};
+
     big_digit_page.lb_price.font        = &ds_digib_font_24;
     big_digit_page.lb_price.coord       = {0, 0};
   }
@@ -978,6 +982,9 @@ void ui_page_element_init(void* args){
 
     big_digit_page.lb_time.font         = &ds_digib_font_120;
     big_digit_page.lb_time.coord        = {0, 0};
+
+    big_digit_page.lb_ampm.font         = &lv_font_montserrat_20;
+    big_digit_page.lb_ampm.coord        = {0, 15};
 
     big_digit_page.lb_price.font        = &ds_digib_font_24;
     big_digit_page.lb_price.coord       = {0, 0};
@@ -1566,6 +1573,15 @@ void ui_layout_init(void* args){
   lv_obj_set_style_text_color(big_digit_page.lb_date.obj, font_color, LV_PART_MAIN);
   lv_label_set_long_mode(big_digit_page.lb_date.obj, LV_LABEL_LONG_DOT);
   lv_obj_align( big_digit_page.lb_date.obj, LV_ALIGN_BOTTOM_RIGHT, big_digit_page.lb_date.coord.x, big_digit_page.lb_date.coord.y);
+  // AM PM 
+  font_color = lv_color_hex(0x808080);
+  big_digit_page.lb_ampm.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
+  lv_obj_set_width(big_digit_page.lb_ampm.obj, 50);
+  lv_label_set_text( big_digit_page.lb_ampm.obj, " ");
+  lv_obj_set_style_text_font(big_digit_page.lb_ampm.obj, big_digit_page.lb_ampm.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(big_digit_page.lb_ampm.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(big_digit_page.lb_ampm.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( big_digit_page.lb_ampm.obj, LV_ALIGN_CENTER, big_digit_page.lb_ampm.coord.x, big_digit_page.lb_ampm.coord.y);
   // price label
   font_color = lv_color_hex(0x808080);
   big_digit_page.lb_price.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
@@ -2158,23 +2174,37 @@ void ui_big_digit_page_update(void* args){
   String datetime, char11, day, hms, am_pm = "";
   uint8_t index;
   // utc += 60*60; //add 24 hours every refresh to reduce time conversion calls
-  if(board->status.time.format.time == 12) {
+  if(12 == board->status.time.format.time) {
     datetime = convert_time_to_local_12h(board->status.time.utc, board->status.time.format.date);
     char11 = datetime.substring(11, 12);//remove '0' for hour < 10
     index = (char11 == "0") ? 12:11;
     am_pm = datetime.substring(index + 5, index + 8); //include AM/PM
   }
-  else if(board->status.time.format.time == 24) {
+  else if(24 == board->status.time.format.time) {
     datetime = convert_time_to_local_24h(board->status.time.utc, board->status.time.format.date);
     index = 11;//always 11 for 24h format
   } 
   hms = datetime.substring(index, index + 5); //only HH:MM
   day = datetime.substring(0, 10);            //only YYYY-MM-DD
 
+
+
+  LOG_W("Date format %s time format %d\r\n", board->status.time.format.date, board->status.time.format.time);
+  LOG_W("datetime: %s, day: %s, hms: %s, am_pm: %s\r\n", datetime.c_str(), day.c_str(), hms.c_str(), am_pm.c_str());
+
+
   // time
   lv_coord_t width = lv_txt_get_width(hms.c_str(), strlen(hms.c_str()), big_digit_page.lb_time.font, 0, LV_TEXT_FLAG_NONE);
   lv_obj_set_width(big_digit_page.lb_time.obj, width);
   lv_label_set_text_fmt(big_digit_page.lb_time.obj, "%s", hms.c_str());
+
+  // AM PM
+  width = lv_txt_get_width(am_pm.c_str(), strlen(am_pm.c_str()), big_digit_page.lb_ampm.font, 0, LV_TEXT_FLAG_NONE);
+  lv_obj_set_width(big_digit_page.lb_ampm.obj, width);
+  lv_label_set_text_fmt(big_digit_page.lb_ampm.obj, "%s", am_pm.c_str());
+  width = lv_obj_get_width(big_digit_page.lb_time.obj) / 2 + 20; // 20 is the gap between time and am/pm
+  lv_obj_align(big_digit_page.lb_ampm.obj, LV_ALIGN_CENTER, width, -30);
+  
 
   // date
   width = lv_txt_get_width(day.c_str(), strlen(day.c_str()), big_digit_page.lb_date.font, 0, LV_TEXT_FLAG_NONE);

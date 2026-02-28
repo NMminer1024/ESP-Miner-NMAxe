@@ -29,6 +29,8 @@
 #define HTTP_API_SYS_JSON_KEY_BOARD_HW_MODEL                "hwModel"
 #define HTTP_API_SYS_JSON_KEY_BOARD_HOSTNAME                "hostName"
 #define HTTP_API_SYS_JSON_KEY_BOARD_TIMEZONE                "timeZone"
+#define HTTP_API_SYS_JSON_KEY_BOARD_TIME_FORMAT             "timeFormat"
+#define HTTP_API_SYS_JSON_KEY_BOARD_DATE_FORMAT             "dateFormat"
 #define HTTP_API_SYS_JSON_KEY_BOARD_WIFI_SSID               "wifiSSID"
 #define HTTP_API_SYS_JSON_KEY_BOARD_WIFI_STATUS             "wifiStatus"
 

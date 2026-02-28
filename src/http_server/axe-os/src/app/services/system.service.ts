@@ -60,6 +60,8 @@ export class SystemService {
           hwModel: "204",
           hostName: "NMAxe",
           timeZone: "8.0",
+          timeFormat: 24,
+          dateFormat: "YYYY/MM/DD",
           wifiSSID: "default",
           wifiStatus: "Connected!",
           usedUrl: "stratum+tcp://solo.ckpool.org:3333",

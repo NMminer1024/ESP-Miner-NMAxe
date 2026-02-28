@@ -7,7 +7,7 @@
 
 #define NVS_CONFIG_TIMEZONE     "timezone"
 #define NVS_CONFIG_TIME_FORMAT  "timeformat"
-#define NVS_CONFIG_DATE_FORMAT  "timeformat"
+#define NVS_CONFIG_DATE_FORMAT  "dateformat"
 #define NVS_CONFIG_WIFI_SSID    "wifissid"
 #define NVS_CONFIG_WIFI_PASS    "wifipass"
 #define NVS_CONFIG_HOSTNAME     "hostname"

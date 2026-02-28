@@ -14,6 +14,7 @@ import {EditComponent} from './components/edit/edit.component';
 import {HrDistChartComponent} from './components/hr-dist-chart/hr-dist-chart.component';
 import {LuckyChartComponent} from './components/lucky-chart/lucky-chart.component';
 import {NetworkEditComponent} from './components/network-edit/network.edit.component';
+import {TimeEditComponent} from './components/time-edit/time.edit.component';
 import {HomeComponent} from './components/home/home.component';
 import {LoadingComponent} from './components/loading/loading.component';
 import {LogsComponent} from './components/logs/logs.component';
@@ -49,6 +50,7 @@ const components = [
   CircularCountdownComponent,
   BottomSheetSelectorComponent,
   NetworkEditComponent,
+  TimeEditComponent,
   PreferenceComponent,
   UpdateComponent
 ];

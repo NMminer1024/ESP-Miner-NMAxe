@@ -64,6 +64,8 @@ export interface ISystemInfo {
   hwModel: string,
   hostName: string,
   timeZone: string,
+  timeFormat?: number,
+  dateFormat?: string,
   wifiSSID: string,
   wifiStatus: string,
 

@@ -116,6 +116,8 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_BOARD_HW_MODEL]          = g_board.info.spec.name;
     root[HTTP_API_SYS_JSON_KEY_BOARD_HOSTNAME]          = g_board.info.base.hostname;
     root[HTTP_API_SYS_JSON_KEY_BOARD_TIMEZONE]          = g_board.status.time.tz;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_TIME_FORMAT]       = g_board.status.time.format.time;
+    root[HTTP_API_SYS_JSON_KEY_BOARD_DATE_FORMAT]       = g_board.status.time.format.date;
     root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_SSID]         = g_board.info.connection.wifi.sta.ssid;
     root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_STATUS]       = ((g_board.status.wifi.status == WL_CONNECTED) ? "connected" : "disconnected");
 
@@ -929,11 +931,20 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             g_board.info.base.coin_price.toUpperCase();
         }
         
-        /************************************** settings->network config ***************************************************************/
+        /************************************** settings->time config ***************************************************************/
         if(root.containsKey("timezone")){
             nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
             g_board.status.time.tz = root["timezone"].as<String>();
         }
+        if(root.containsKey("timeFormat")){
+            nvs_config_set_u8(NVS_CONFIG_TIME_FORMAT, root["timeFormat"].as<uint8_t>());
+            g_board.status.time.format.time = root["timeFormat"].as<uint8_t>();
+        }
+        if(root.containsKey("dateFormat")){
+            nvs_config_set_string(NVS_CONFIG_DATE_FORMAT, root["dateFormat"].as<String>().c_str());
+            g_board.status.time.format.date = root["dateFormat"].as<String>();
+        }
+        /************************************** settings->network config ***************************************************************/
         if(root.containsKey("ssid")){
             nvs_config_set_string(NVS_CONFIG_WIFI_SSID,root["ssid"].as<String>().c_str());
         }
