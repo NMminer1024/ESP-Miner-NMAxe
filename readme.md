@@ -184,6 +184,20 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 
 ## Release Log
 ***
+
+### (2026.03.02) - v2.9.31
+- `Add`:
+  - Feature: Time and Date format settings in AxeOS.
+- `Fixed`:
+  - Issues on hashrate distribute page in AxeOS.
+  - Issues of pool class.
+- `Improved`:
+  - None.
+- `Modify`:
+  - None.
+- `Remove`:
+  - None.
+
 ### (2026.02.25) - v2.9.30
 - `Add`:
   - Firmware : 'All in one' for NMAxe, NMAxeGamma, NMQAxe++(Hardware Coming soon).
