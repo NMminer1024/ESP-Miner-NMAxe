@@ -1,7 +1,7 @@
 # 检查多个可能的路径
 $possiblePaths = @(
     "data",                          # 编译后的数据目录
-    "src\http_server\axe-os\dist",   # Angular dist 目录
+    "src\web\axe-os\dist",   # Angular dist 目录
     "www",                           # 可能的web目录
     "web"                            # 可能的web目录
 )
@@ -16,7 +16,7 @@ foreach ($path in $possiblePaths) {
 
 # 如果没找到编译后的目录，检查附件中提到的压缩包位置
 if (-not $webDir) {
-    $webDir = "src\http_server\axe-os"
+    $webDir = "src\web\axe-os"
     Write-Host "Warning: Using source directory, this may include development files" -ForegroundColor Yellow
 }
 
@@ -87,9 +87,9 @@ if (Test-Path $webDir) {
     
 } else {
     Write-Host "Directory not found: $webDir" -ForegroundColor Red
-    Write-Host "Available directories in src\http_server:" -ForegroundColor Yellow
-    if (Test-Path "src\http_server") {
-        Get-ChildItem "src\http_server" -Directory | ForEach-Object {
+    Write-Host "Available directories in src\web:" -ForegroundColor Yellow
+    if (Test-Path "src\web") {
+        Get-ChildItem "src\web" -Directory | ForEach-Object {
             Write-Host "  $($_.Name)" -ForegroundColor Gray
         }
     }
@@ -98,7 +98,7 @@ if (Test-Path $webDir) {
     Write-Host ""
     Write-Host "Checking other possible locations:" -ForegroundColor Yellow
     $possiblePaths = @(
-        "src\http_server\http_server\axe-os",
+        "src\web\axe-os",
         "data",
         "www",
         "web"

@@ -21,7 +21,7 @@ if env.IsCleanTarget():
             shutil.rmtree(abs_path)
     Return()
 
-web_src_dir = join(project_dir, "src", "http_server", "axe-os")
+web_src_dir = join(project_dir, "src", "web", "axe-os")
 dist_dir = join(web_src_dir, "dist", "axe-os")
 data_dir = join(project_dir, "data")
 
@@ -38,7 +38,7 @@ subprocess.run([npm, "run", "build"], cwd=web_src_dir, check=True)
 
 os.makedirs(data_dir, exist_ok=True)
 
-exclude_files = ["src/http_server/axe-os/node_modules/tempfile/node_modules/uuid/benchmark/benchmark-native.c"]
+exclude_files = ["src/web/axe-os/node_modules/tempfile/node_modules/uuid/benchmark/benchmark-native.c"]
 for f in exclude_files:
     if isfile(f):
         os.remove(f)

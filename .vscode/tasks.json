@@ -10,7 +10,7 @@
                 "build"
             ],
             "options": {
-                "cwd": "${workspaceFolder}/src/http_server/axe-os"
+                "cwd": "${workspaceFolder}/src/web/axe-os"
             },
             "problemMatcher": [
                 "$tsc"
