@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <map>
 #include "stratum/stratum.h"
-#include "drivers/board/board.h"
+#include "board/board.h"
 #include "drivers/asic/bm1366/bm1366.h"
 #include "drivers/asic/bm1370/bm1370.h"
 #include <deque>

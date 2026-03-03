@@ -1,8 +1,9 @@
 #pragma once
 #include "global.h"
 #include "drivers/displays/display.h"
-#include "drivers/board/board.h"
+#include "board/board.h"
 #include "thread/thread_entry.h"
+#include <vector>
 
 class MinerApp {
 public:
@@ -20,6 +21,13 @@ public:
      *        Call only after init() succeeds.
      */
     void begin();
+
+    /**
+     * @brief Print FreeRTOS stack high-water mark for every managed thread.
+     *        Call periodically from loop() for stack tuning.
+     *        Wrap with #if 0 / #endif to disable in production.
+     */
+    void print_stack_hwm() const;
 
 private:
     MinerApp()                          = default;
@@ -44,4 +52,11 @@ private:
     TaskHandle_t _powerTask    = NULL;
     TaskHandle_t _lvglTask     = NULL;
     TaskHandle_t _uiTask       = NULL;
+
+    // Thread pool config kept after begin() for debug introspection
+    std::vector<thread_config_t> _thread_pool;
+
+    // MinerApp-private tick thread
+    TaskHandle_t _tickTask = NULL;
+    static void  _tick_thread_entry(void* args);
 };

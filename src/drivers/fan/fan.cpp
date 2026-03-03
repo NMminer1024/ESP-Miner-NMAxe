@@ -1,5 +1,5 @@
 #include "utils/logger/logger.h"
-#include "drivers/board/board.h"
+#include "board/board.h"
 #include "global.h"
 #include "fan.h"
 

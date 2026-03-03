@@ -1777,10 +1777,6 @@ void display_thread_entry(void *args){
       String vbusString = "Vbus " + String(board->power->get_vbus()/1000.0, 1) + "v(at least" + String(board->info.spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
       board->status.ui.page.loading.details.msg   = vbusString;
       blink = !blink;
-    //   if(!board->power->is_dc_pluged()){
-    //     disable_usb_uart();//disable usb uart to fit for typeA port PD , such as Apple divider 3/BC1.2 SDP/CDP/DCP protocol
-    //     delay(500);
-    //   }
       delay(1000);
   }
   board->status.ui.page.loading.details.color = 0x00FF00;

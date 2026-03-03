@@ -39,6 +39,7 @@
 enum{
     TASK_PRIORITY_FAN      = 1, // lowest priority
     TASK_PRIORITY_CONFIG   ,
+    TASK_PRIORITY_APP_TICK ,
     TASK_PRIORITY_DISPLAY  ,
     TASK_PRIORITY_MARKET   ,
     TASK_PRIORITY_SWARM    ,

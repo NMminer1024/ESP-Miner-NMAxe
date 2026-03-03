@@ -42,7 +42,7 @@ bool MinerApp::init() {
   begin()  –  create and start all threads
 ──────────────────────────────────────────────*/
 void MinerApp::begin() {
-    const thread_config_t pool[] = {
+    _thread_pool = {
         {"(display)",   display_thread_entry,           1024*5,   TASK_PRIORITY_DISPLAY,     1, NULL,             10,  0},
         {"(lvgl)",      lvgl_tick_thread_entry,         1024*5,   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
         {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
@@ -66,7 +66,8 @@ void MinerApp::begin() {
         {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_RX,    0, &_minerRxTask,    10,  0},
     };
 
-    for (const auto& t : pool) {
+    // start threads in order, with optional synchronisation barriers
+    for (const auto& t : _thread_pool) {
         if (t.entry != NULL) {
             BaseType_t ret = xTaskCreatePinnedToCore(
                 t.entry, t.name, t.stack_size,
@@ -79,6 +80,66 @@ void MinerApp::begin() {
             // synchronisation barrier: wait for specified init events before proceeding
             xEventGroupWaitBits(g_board.status.init_evt, t.wait_events, pdFALSE, pdTRUE, portMAX_DELAY);
         }
+    }
+
+    // Start the MinerApp tick thread
+    BaseType_t ret = xTaskCreatePinnedToCore(_tick_thread_entry, "(app_tick)", 1024 * 3, (void*)(&g_board), TASK_PRIORITY_APP_TICK, &_tickTask, 1);
+    
+    if (ret == pdPASS) LOG_I("Thread (app_tick) created on core 1");
+    else               LOG_E("Failed to create thread (app_tick)");
+}
+
+/*──────────────────────────────────────────────
+  print_stack_hwm()  –  debug: stack usage table
+──────────────────────────────────────────────*/
+void MinerApp::print_stack_hwm() const {
+    LOG_W("=========== Stack High Water Mark (in bytes) ===========");
+    LOG_I("+-----------------+----------+------------+------------+");
+    LOG_I("| Task Name       | HWM      | Total Stack| Optimizable|");
+    LOG_I("+-----------------+----------+------------+------------+");
+
+    for (const auto& t : _thread_pool) {
+        if (t.handle == NULL || *t.handle == NULL) continue;
+
+        eTaskState state = eTaskGetState(*t.handle);
+        if (state == eDeleted) continue;
+
+        char* taskName = pcTaskGetName(*t.handle);
+        if (taskName == NULL || taskName[0] == '\0') continue;
+
+        UBaseType_t hwm        = uxTaskGetStackHighWaterMark(*t.handle);
+        uint32_t    total      = t.stack_size;
+        uint32_t    optimizable = (hwm > 512) ? (hwm - 512) : 0; // keep 512 B safety margin
+
+        LOG_I("| %-15s | %8u | %10u | %10u |",
+              taskName, (unsigned)hwm, (unsigned)total, (unsigned)optimizable);
+    }
+
+    LOG_I("+-----------------+----------+------------+------------+");
+    LOG_W("Note: Optimizable = HWM - 512 (keeping 512 bytes safety buffer)");
+}
+
+/*──────────────────────────────────────────────
+  _tick_thread_entry()  –  MinerApp private tick
+──────────────────────────────────────────────*/
+void MinerApp::_tick_thread_entry(void* args) {
+    board_sal_t* board = static_cast<board_sal_t*>(args);
+    for (;;) {
+        // screen brightness blink on block hit
+        uint32_t t0 = millis();
+        while (millis() - t0 < 1000) {
+            static uint16_t brightness = board->status.preference.screen.brightness;
+            static float    x = 0.0f;
+            if (board->status.miner.last_hits != board->status.miner.hits) {
+                brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
+                x += 0.1f;
+                tft_bl_ctrl(brightness);
+            } else {
+                brightness = board->status.preference.screen.brightness;
+            }
+            delay(10);
+        }
+        delay(100);
     }
 }
 
