@@ -312,7 +312,7 @@ void wifi_connect_thread_entry(void *args){
     }
 
     //////////////////////////////// normal wifi connection //////////////////////////
-    uint16_t random_delay = random(0, 1000*5);
+    uint16_t random_delay = random(0, 1000*8);
     LOG_I("Initializing WiFi, delay: %dms...", random_delay);
     delay(random_delay);
     LOG_I("Try to connect [%s]...", board->info.connection.wifi.sta.ssid.c_str());
