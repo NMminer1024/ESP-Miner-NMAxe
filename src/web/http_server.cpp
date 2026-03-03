@@ -3,10 +3,10 @@
 #include <Update.h>
 #include <SPIFFS.h>
 #include "ArduinoJson.h"
-#include "logger.h"
+#include "utils/logger/logger.h"
 #include "global.h"
 #include "http_server.h"
-#include "nvs_config.h"
+#include "nvs/nvs_config.h"
 #include "utils/helper.h"
 
 AsyncWebServer    webServer(80);

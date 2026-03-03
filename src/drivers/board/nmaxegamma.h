@@ -1,7 +1,7 @@
 #ifndef __NMAXEGAMMA_BOARD_H_
 #define __NMAXEGAMMA_BOARD_H_
-#include "BM1370.h"
-#include "tps53355.h"
+#include "drivers/asic/bm1370/bm1370.h"
+#include "drivers/power/tps53355/tps53355.h"
 
 inline BMxxx* create_gamma_asic_instance(HardwareSerial& serial, uint32_t baud, uint8_t rx, uint8_t tx, uint8_t rst) {
     return new BM1370(serial, baud, rx, tx, rst);

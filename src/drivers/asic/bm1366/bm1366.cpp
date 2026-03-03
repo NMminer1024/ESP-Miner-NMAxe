@@ -1,7 +1,7 @@
 #include "bm1366.h"
-#include "logger.h"
-#include "crc.h"
-#include "helper.h"
+#include "utils/logger/logger.h"
+#include "utils/crc/crc.h"
+#include "utils/helper.h"
 
 
 void BM1366::_send_bm1366(uint8_t header, uint8_t * data, uint8_t len){

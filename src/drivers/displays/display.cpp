@@ -1,9 +1,9 @@
 #include "display.h"
-#include "logger.h"
+#include "utils/logger/logger.h"
 #include <TFT_eSPI.h>
 #include "global.h"
-#include "helper.h" 
-#include "image.h"
+#include "utils/helper.h" 
+#include "image/image.h"
 
 /******************************************************************* global state variables ******************************************************************/
 static uint16_t SCREEN_WIDTH  = 0;

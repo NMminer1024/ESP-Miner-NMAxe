@@ -1,5 +1,5 @@
 #include "ft6206.h"
-#include "logger.h"
+#include "utils/logger/logger.h"
 
 FT6206Class::FT6206Class() {
     _threshold = 20;

@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <vector>
-#include "logger.h"
+#include "utils/logger/logger.h"
 #include "addr.h"
-#include "csha256.h"
+#include "utils/sha/csha256.h"
 
 #define SHA256_SIZE 32
 static const char* BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";

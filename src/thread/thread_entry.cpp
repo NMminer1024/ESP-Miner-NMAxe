@@ -1,12 +1,12 @@
-#include "display.h"
-#include "logger.h"
-#include "button.h"
+#include "drivers/displays/display.h"
+#include "utils/logger/logger.h"
+#include "drivers/button/button.h"
 #include "global.h"
-#include "fan.h"
-#include "csha256.h"
-#include "nvs_config.h"
+#include "drivers/fan/fan.h"
+#include "utils/sha/csha256.h"
+#include "nvs/nvs_config.h"
 #include <NTPClient.h>
-#include "http_server.h"
+#include "web/http_server.h"
 #include <Adafruit_NeoPixel.h>
 
 void power_thread_entry(void *args){

@@ -6,7 +6,7 @@
 #include <map>
 #include <vector>
 #include <deque>
-#include "helper.h"
+#include "utils/helper.h"
 #include "pool.h"   
 
 // #define  DEFAULT_POOL_DIFFICULTY   (512)

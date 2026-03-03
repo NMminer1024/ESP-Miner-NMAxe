@@ -1,6 +1,6 @@
 #ifndef BM1370_H_
 #define BM1370_H_
-#include "bm_hal.h"
+#include "drivers/asic/bm_hal.h"
 
 #define BM1370_CORE_COUNT       128
 #define BM1370_SMALL_CORE_COUNT 2040

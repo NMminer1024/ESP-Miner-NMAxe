@@ -1,15 +1,15 @@
 #ifndef _GLOBAL_H_
 #define _GLOBAL_H_
 #include <Arduino.h>
-#include "power_hal.h"
-#include "tmp102.h"
-#include "stratum.h"
-#include "miner.h"
-#include "market.h"
+#include "drivers/power/power_hal.h"
+#include "drivers/fan/tmp102.h"
+#include "stratum/stratum.h"
+#include "mining/miner.h"
+#include "market/market.h"
 #include <deque>
 #include <map>
 #include <vector>
-#include "ft6206.h"
+#include "drivers/touch/ft6206.h"
 #include "lvgl.h"
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature

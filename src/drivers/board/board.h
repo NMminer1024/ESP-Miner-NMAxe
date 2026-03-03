@@ -1,13 +1,13 @@
 #ifndef __NM_BOARD_H_
 #define __NM_BOARD_H_
 #include <Arduino.h>
-#include "bm_hal.h"
+#include "drivers/asic/bm_hal.h"
 #include "nmaxe.h"
 #include "nmaxegamma.h"
 #include "nmqaxepp.h"
-#include "power_hal.h"
+#include "drivers/power/power_hal.h"
 #include <map>
-#include "fan.h"
+#include "drivers/fan/fan.h"
 #include <vector>
 
 /******************default parameter define for NMAxe***********************/

@@ -1,6 +1,6 @@
 #include "pool.h"
-#include "logger.h"
-#include "helper.h"
+#include "utils/logger/logger.h"
+#include "utils/helper.h"
 
 PoolClass::PoolClass(pool_info_t config){
     this->_pool_cfg         = config;

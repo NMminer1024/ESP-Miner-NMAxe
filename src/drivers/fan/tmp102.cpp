@@ -1,6 +1,6 @@
 // #include "Wire.h"
-#include "i2c_master.h"
-#include "logger.h"
+#include "drivers/iic/i2c_master.h"
+#include "utils/logger/logger.h"
 #include "tmp102.h"
 #include "global.h"
 #include <cmath>

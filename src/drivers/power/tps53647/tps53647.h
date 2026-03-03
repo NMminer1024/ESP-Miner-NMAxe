@@ -1,7 +1,7 @@
 #ifndef __TPS53647_H__
 #define __TPS53647_H__
 #include <Arduino.h>
-#include "power_hal.h"
+#include "drivers/power/power_hal.h"
 
 
 /* Standard Core PMBus commands */

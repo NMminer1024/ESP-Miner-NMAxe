@@ -1,12 +1,12 @@
-#include <WiFi.h>
+﻿#include <WiFi.h>
 #include "global.h"
-#include "logger.h"
-#include "display.h"
-#include "market.h"
-#include "http_server.h"
-#include "nvs_config.h"
-#include "github.h"
-#include "thread_entry.h"
+#include "utils/logger/logger.h"
+#include "drivers/displays/display.h"
+#include "market/market.h"
+#include "web/http_server.h"
+#include "nvs/nvs_config.h"
+#include "monitor/github.h"
+#include "thread/thread_entry.h"
 
 TaskHandle_t fanTask, ledTask, btnTask, touchTask, wsTask, monitorTask, swarmTask, marketTask, daemonTask, stratumTask, minerTxTask, minerRxTask, powerTask, lvglTask, uiTask;
 board_sal_t  g_board;

@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "i2c_master.h"
+#include "drivers/iic/i2c_master.h"
 
 // // FT6206 I2C address
 // #define FT6206_ADDR           0x38

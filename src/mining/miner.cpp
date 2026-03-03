@@ -1,12 +1,11 @@
-#include "stratum.h"
-#include "logger.h"
+#include "stratum/stratum.h"
+#include "utils/logger/logger.h"
 #include "miner.h"
 #include <esp_task_wdt.h>
-#include "helper.h"
+#include "utils/helper.h"
 #include <limits> 
 #include "global.h"
-#include "csha256.h"
-#include "helper.h"
+#include "utils/sha/csha256.h"
 #include <deque>
 #include <vector>
 #include <algorithm>

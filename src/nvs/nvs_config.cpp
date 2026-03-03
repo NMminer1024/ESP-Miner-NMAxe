@@ -2,8 +2,8 @@
 #include <nvs_flash.h>
 #include <nvs.h>
 #include <string.h>
-#include "logger.h"
-#include "helper.h"
+#include "utils/logger/logger.h"
+#include "utils/helper.h"
 
 char * nvs_config_get_string(const char * key, const char * default_value)
 {

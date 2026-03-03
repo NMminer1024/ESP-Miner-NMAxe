@@ -1,8 +1,8 @@
 
 #include "global.h"
-#include "logger.h"
-#include "display.h"
-#include "nvs_config.h"
+#include "utils/logger/logger.h"
+#include "drivers/displays/display.h"
+#include "nvs/nvs_config.h"
 
 void recover_factory_cb(void){
   static bool first = true;

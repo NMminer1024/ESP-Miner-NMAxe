@@ -1,5 +1,5 @@
 #include "power_hal.h"
-#include "logger.h"
+#include "utils/logger/logger.h"
 #include "global.h"
 #include <driver/adc.h>
 

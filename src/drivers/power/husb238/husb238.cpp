@@ -1,6 +1,6 @@
 #include "husb238.h"
 #include "Wire.h"
-#include "logger.h"
+#include "utils/logger/logger.h"
 
 uint8_t husb238_readRegister(uint8_t deviceAddress, uint8_t registerAddress, uint8_t *data, uint8_t length) {
     Wire.beginTransmission(deviceAddress); 

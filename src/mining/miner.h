@@ -2,10 +2,10 @@
 #define MINER_H_
 #include <Arduino.h>
 #include <map>
-#include "stratum.h"
-#include "board.h"
-#include "bm1366.h"
-#include "bm1370.h"
+#include "stratum/stratum.h"
+#include "drivers/board/board.h"
+#include "drivers/asic/bm1366/bm1366.h"
+#include "drivers/asic/bm1370/bm1370.h"
 #include <deque>
 
 typedef struct{

@@ -1,12 +1,12 @@
 #include <nvs_flash.h>
-#include "nvs_config.h"
-#include "logger.h"
+#include "nvs/nvs_config.h"
+#include "utils/logger/logger.h"
 #include "board.h"
 #include "nmaxe.h"
 #include "nmaxegamma.h"
 #include "nmqaxepp.h"
-#include "i2c_master.h"
-#include "tca9554.h"
+#include "drivers/iic/i2c_master.h"
+#include "drivers/extio/tca9554.h"
 
 BoardModelType get_board_model(){
     BoardModelType model = BOARD_UNKNOWN;

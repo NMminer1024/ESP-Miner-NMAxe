@@ -1,7 +1,7 @@
 #ifndef __TPS53355_H__
 #define __TPS53355_H__
 #include <Arduino.h>
-#include "power_hal.h"
+#include "drivers/power/power_hal.h"
 
 class TPS53355Class: public AxePowerHal{
 private:

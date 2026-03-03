@@ -1,5 +1,5 @@
 #include "github.h"
-#include "logger.h"
+#include "utils/logger/logger.h"
 
 ReleaseCheckerClass::ReleaseCheckerClass() {
     String path = "/repos/NMminer1024/NMMiner/releases/latest";

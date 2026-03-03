@@ -1,7 +1,7 @@
 #ifndef __NMQAXEPP_BOARD_H_
 #define __NMQAXEPP_BOARD_H_
-#include "BM1370.h"
-#include "tps53647.h"
+#include "drivers/asic/bm1370/bm1370.h"
+#include "drivers/power/tps53647/tps53647.h"
 
 
 

@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include "stratum.h"
-#include "logger.h"
-#include "csha256.h"
+#include "utils/logger/logger.h"
+#include "utils/sha/csha256.h"
 #include <cfloat>
-#include "helper.h"
+#include "utils/helper.h"
 #include "esp_log.h"
 #include "global.h"
 #include <sstream>

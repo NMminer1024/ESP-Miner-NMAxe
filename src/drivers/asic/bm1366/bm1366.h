@@ -1,6 +1,6 @@
 #ifndef BM1366_H_
 #define BM1366_H_
-#include "bm_hal.h"
+#include "drivers/asic/bm_hal.h"
 
 #define BM1366_CORE_COUNT       112
 #define BM1366_SMALL_CORE_COUNT 894
