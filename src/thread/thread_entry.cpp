@@ -58,7 +58,7 @@ void power_thread_entry(void *args){
         }
         LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV", vcore_measure, board->info.spec.asic.req_vcore, err, err/5);
         static uint32_t vcore_set = board->info.spec.asic.req_vcore;
-        vcore_set -= err/5;//half error correction
+        vcore_set -= err/2;//half error correction
         vcore_set = (vcore_set < board->power->get_vcore_min()) ? board->power->get_vcore_min() : vcore_set;
         vcore_set = (vcore_set > board->power->get_vcore_max()) ? board->power->get_vcore_max() : vcore_set;
         board->power->set_vcore_voltage(vcore_set);//half error correction
