@@ -2069,9 +2069,10 @@ void ui_dashboard_page_update(void* args){
   uint16_t oc_angle            = arc_angle_full * (board->info.spec.asic.req_frq - limited_freq_req.min) / (limited_freq_req.max - limited_freq_req.min); 
   uint16_t pwr_angle           = arc_angle_full * (board->status.power.vbus * board->status.power.ibus/1000.0/1000.0 - limited_power.min) / (limited_power.max - limited_power.min);
   uint16_t vcore_req_angle     = arc_angle_full * (board->info.spec.asic.req_vcore/1000.0 - limited_vcore_req.min) / (limited_vcore_req.max - limited_vcore_req.min); 
-  uint16_t vcore_measure_angle = arc_angle_full * (board->status.power.vcore /1000.0 - limited_vcore_measure.min) / (limited_vcore_measure.max - limited_vcore_measure.min);
   uint16_t asic_temp_angle     = arc_angle_full * (board->status.temp.asic - limited_asic_temp.min) / (limited_asic_temp.max - limited_asic_temp.min);
   uint16_t vcore_temp_angle    = arc_angle_full * (board->status.temp.vcore - limited_vcore_temp.min) / (limited_vcore_temp.max - limited_vcore_temp.min);
+  float limit = max((float)board->status.power.vcore / 1000.0f, limited_vcore_measure.min);
+  uint16_t vcore_measure_angle = arc_angle_full * (limit - limited_vcore_measure.min) / (limited_vcore_measure.max - limited_vcore_measure.min);
 
   // update rings
   ui_update_ring(&dashboard_page.ring_oc.obj, oc_angle, String(board->info.spec.asic.req_frq) + "M");
