@@ -165,7 +165,7 @@ static ui_ring_obj_t ui_draw_ring(lv_obj_t* parent, const ui_ring_config_t* conf
         return ring_obj;
     }
 
-    // 创建圆弧
+    // Create arc
     ring_obj.arc = lv_arc_create(parent);
     lv_obj_set_size(ring_obj.arc, 2 * config->radius, 2 * config->radius);
     lv_arc_set_bg_angles(ring_obj.arc, 0, config->angle_full);
@@ -178,7 +178,7 @@ static ui_ring_obj_t ui_draw_ring(lv_obj_t* parent, const ui_ring_config_t* conf
     lv_obj_set_style_arc_color(ring_obj.arc, config->indicator_color, LV_PART_INDICATOR);
     lv_obj_set_pos(ring_obj.arc, config->x, config->y);
 
-    // 创建中心文本标签
+    // Create center text label
     if(config->center_text && config->center_font) {
         ring_obj.label_center = lv_label_create(ring_obj.arc);
         lv_label_set_text(ring_obj.label_center, config->center_text);
@@ -191,7 +191,7 @@ static ui_ring_obj_t ui_draw_ring(lv_obj_t* parent, const ui_ring_config_t* conf
         ring_obj.label_center = NULL;
     }
 
-    // 创建标题标签（根据圆弧半径、线宽和字体高度自适应位置）
+    // Create title label (position adapts based on arc radius, line width, and font height)
     if(config->title_text && config->title_font) {
         ring_obj.label_title = lv_label_create(parent);
         lv_obj_set_width(ring_obj.label_title, 2 * config->radius);
@@ -200,9 +200,9 @@ static ui_ring_obj_t ui_draw_ring(lv_obj_t* parent, const ui_ring_config_t* conf
         lv_obj_set_style_text_color(ring_obj.label_title, config->title_text_color, LV_PART_MAIN);
         lv_obj_set_style_text_align(ring_obj.label_title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
         lv_label_set_long_mode(ring_obj.label_title, LV_LABEL_LONG_DOT);
-        // 获取字体高度
+        // Get font height
         lv_coord_t font_height = lv_font_get_line_height(config->title_font);
-        // 标题位置 = 圆心Y + 半径 + 线宽 + 字体高度 / 2（让文字基线对齐圆弧底部）
+        // Title Y = center_Y + radius + line_width + font_height/2 (aligns text baseline to bottom of arc)
         lv_obj_align(ring_obj.label_title, LV_ALIGN_TOP_LEFT, 
                     config->x,  
                     config->y + config->radius + config->line_width + font_height / 2);

@@ -185,7 +185,7 @@ void led_thread_entry(void *args){
             switch(cur_effect) {
 
                 // ── Effect 0: Rainbow Flow ─────────────────────────────────
-                // 彩虹色整体平移流动，offset每tick+2，颜色对每个像素错开均匀
+                // Rainbow hue shifts globally; offset increments by 2 each tick, colors staggered evenly per pixel
                 case 0: {
                     uint8_t offset = (uint8_t)(tick * 2);
                     for(int i = 0; i < n; i++)
@@ -195,7 +195,7 @@ void led_thread_entry(void *args){
                 }
 
                 // ── Effect 1: Breathing Pulse ──────────────────────────────
-                // 全部像素同步呼吸；有算力→绿色，无算力→红色
+                // All pixels breathe in sync; green when hashrate > 0, red otherwise
                 case 1: {
                     float bri = (sinf(tick * 0.05f) + 1.0f) / 2.0f;
                     bool  has_hr = (board->status.miner.hashrate._3m > 0);
@@ -209,7 +209,7 @@ void led_thread_entry(void *args){
                 }
 
                 // ── Effect 2: Theater Chase ────────────────────────────────
-                // 每隔3像素同时亮，整体向前追逐，颜色随时间换
+                // Every 3rd pixel lit simultaneously, chasing forward, color cycles over time
                 case 2: {
                     for(int i = 0; i < n; i++) strip->setPixelColor(i, strip->Color(0, 0, 0));
                     uint8_t phase = (tick / 5) % 3;
@@ -221,7 +221,7 @@ void led_thread_entry(void *args){
                 }
 
                 // ── Effect 3: Meteor Rain ──────────────────────────────────
-                // 白色流星头 + 拖尾衰减，到头后重新从头划过
+                // White meteor head + fading trail, restarts from the beginning after reaching the end
                 case 3: {
                     const uint8_t  METEOR_SIZE  = 3;
                     const float    TRAIL_DECAY  = 0.75f;
@@ -247,7 +247,7 @@ void led_thread_entry(void *args){
                 }
 
                 // ── Effect 4: Sparkle / Twinkle ───────────────────────────
-                // 随机像素亮起随机彩色，其余像素逐渐衰减熄灭
+                // Random pixels light up with random colors, others gradually fade out
                 case 4: {
                     // fade all pixels
                     for(int i = 0; i < n; i++) {
@@ -267,7 +267,7 @@ void led_thread_entry(void *args){
                 }
 
                 // ── Effect 5: Color Wipe Fill ──────────────────────────────
-                // 依次用单色填满灯带，再清空，每次换一种颜色
+                // Fill the strip with one solid color at a time then clear, cycling through each color
                 case 5: {
                     static const uint32_t WIPE_COLORS[] = {
                         0xFF0000UL, // red
