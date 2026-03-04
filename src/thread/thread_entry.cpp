@@ -153,6 +153,44 @@ void led_thread_entry(void *args){
                 continue;
             }
 
+            const uint8_t n = strip->numPixels(); // 8
+
+            // ---- OTA progress bar effect (overrides normal effects while OTA is running) ----
+            if(board->status.ota.running) {
+                static uint32_t ota_tick = 0;
+                // Progress: 0-100 mapped to 0-n pixels lit
+                // Color transition: Blue(0%) → Cyan(50%) → Green(100%)
+                int   progress  = board->status.ota.progress;
+                progress = (progress < 0) ? 0 : (progress > 100 ? 100 : progress);
+                int   lit       = (progress * n + 99) / 100; // ceil, at least 1 pixel when started
+
+                // Pulsing brightness so the bar visually "breathes" during OTA
+                float pulse = (sinf(ota_tick * 0.08f) + 1.0f) / 2.0f * 0.4f + 0.6f; // 0.6 ~ 1.0
+
+                // Color: lerp Blue→Cyan for first half, Cyan→Green for second half
+                uint8_t r = 0;
+                uint8_t g, b;
+                if(progress <= 50) {
+                    float t = progress / 50.0f;         // 0.0 → 1.0
+                    g = (uint8_t)(255 * t * pulse);     // 0 → 255
+                    b = (uint8_t)(255 * (1.0f - t * 0.5f) * pulse); // 255 → 128
+                } else {
+                    float t = (progress - 50) / 50.0f;
+                    g = (uint8_t)(255 * pulse);
+                    b = (uint8_t)(128 * (1.0f - t) * pulse); // 128 → 0
+                }
+
+                for(int i = 0; i < n; i++) {
+                    if(i < lit)
+                        strip->setPixelColor(i, strip->Color(r, g, b));
+                    else
+                        strip->setPixelColor(i, strip->Color(0, 0, 0));
+                }
+                strip->show();
+                ota_tick++;
+                continue;
+            }
+
             // ---- effect scheduler: 6 effects × 30 s each, then cycle ----
             const uint8_t  NUM_EFFECTS        = 6;
             const uint32_t EFFECT_DURATION_MS = 30000UL; // 30 s per effect
@@ -171,8 +209,6 @@ void led_thread_entry(void *args){
                     strip->setPixelColor(i, strip->Color(0, 0, 0));
                 strip->show();
             }
-
-            const uint8_t n = strip->numPixels(); // 8
 
             // Helper: map 0-255 to a rainbow colour
             auto wheel = [&](uint8_t pos) -> uint32_t {
@@ -195,13 +231,25 @@ void led_thread_entry(void *args){
                 }
 
                 // ── Effect 1: Breathing Pulse ──────────────────────────────
-                // All pixels breathe in sync; green when hashrate > 0, red otherwise
+                // All pixels breathe in sync; cycles R → G → B.
+                // Color switches only when brightness dips near zero (sine trough),
+                // so there is no visible hard cut between colors.
                 case 1: {
                     float bri = (sinf(tick * 0.05f) + 1.0f) / 2.0f;
-                    bool  has_hr = (board->status.miner.hashrate._3m > 0);
-                    uint8_t r = has_hr ? 0                       : (uint8_t)(255 * bri);
-                    uint8_t g = has_hr ? (uint8_t)(255 * bri)    : 0;
-                    uint8_t b = 0;
+                    static uint8_t color_idx = 0;
+                    static bool    was_dark   = false;
+                    // Advance to next color only at the dark trough (bri < 2%)
+                    if(bri < 0.02f) {
+                        if(!was_dark) {
+                            color_idx = (color_idx + 1) % 3;
+                            was_dark  = true;
+                        }
+                    } else {
+                        was_dark = false;
+                    }
+                    uint8_t r = (color_idx == 0) ? (uint8_t)(255 * bri) : 0;
+                    uint8_t g = (color_idx == 1) ? (uint8_t)(255 * bri) : 0;
+                    uint8_t b = (color_idx == 2) ? (uint8_t)(255 * bri) : 0;
                     for(int i = 0; i < n; i++)
                         strip->setPixelColor(i, strip->Color(r, g, b));
                     strip->show();
