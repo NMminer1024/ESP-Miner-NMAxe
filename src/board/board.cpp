@@ -280,7 +280,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.tft.bl.pwm_resolution     = 8;        // bits
             config.tft.rst_pin               = -1;       
             config.tft.pwr_pin               = -1;
-            config.tft.color_invert          = false;
+            config.tft.color_invert          = true;
             config.spi.cs_pin                = -1;
             config.spi.miso_pin              = 2;
             config.spi.mosi_pin              = 1;
