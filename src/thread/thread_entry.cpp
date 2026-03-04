@@ -145,30 +145,164 @@ void led_thread_entry(void *args){
             led_cnt++;
         }
         else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-            static uint16_t step = 0;
-            static float x = 0.0f;
+            // --- sleep / disable: turn off all pixels ---
             if(board->status.preference.led.sleep || !board->status.preference.led.enable) {
-                for(int i=0; i<strip->numPixels(); i++) {           
-                    strip->setPixelColor(i, strip->Color(0, 0, 0)); 
-                    strip->show();                                  
-                    delay(10);                                     
-                }
+                for(int i = 0; i < strip->numPixels(); i++)
+                    strip->setPixelColor(i, strip->Color(0, 0, 0));
+                strip->show();
                 continue;
             }
-            for(int i=0; i<strip->numPixels(); i++) {     
-                uint16_t brightness = 255 ;
-                uint8_t r = (uint8_t)(brightness * (sin(x) + 1) / 2);
-                uint8_t g = (uint8_t)(brightness * (sin(x + M_PI_2) + 1) / 2);
-                uint8_t b = (uint8_t)(brightness * (sin(x + M_PI) + 1) / 2);
 
-                strip->setPixelColor(step % strip->numPixels(), strip->Color(r, g, b));  //  Set pixel's color (in RAM)
-                // strip->setPixelColor(i, strip->Color(r, g, b));  //  Set pixel's color (in RAM)
-               
-                strip->show();                                   //  Update strip to match
-                delay(10);                                       //  Pause for a moment
+            // ---- effect scheduler: 6 effects × 30 s each, then cycle ----
+            const uint8_t  NUM_EFFECTS        = 6;
+            const uint32_t EFFECT_DURATION_MS = 30000UL; // 30 s per effect
+            static uint8_t  cur_effect     = 0;
+            static uint32_t eff_start_ms   = 0;
+            static uint32_t tick           = 0;
+
+            uint32_t now_ms = millis();
+            if(eff_start_ms == 0) eff_start_ms = now_ms; // first-time init
+
+            if(now_ms - eff_start_ms >= EFFECT_DURATION_MS) {
+                cur_effect   = (cur_effect + 1) % NUM_EFFECTS;
+                eff_start_ms = now_ms;
+                tick         = 0;
+                for(int i = 0; i < strip->numPixels(); i++)
+                    strip->setPixelColor(i, strip->Color(0, 0, 0));
+                strip->show();
             }
-            step+=1;
-            x += 0.08f;
+
+            const uint8_t n = strip->numPixels(); // 8
+
+            // Helper: map 0-255 to a rainbow colour
+            auto wheel = [&](uint8_t pos) -> uint32_t {
+                pos = 255 - pos;
+                if(pos < 85)  return strip->Color(255 - pos * 3, 0,           pos * 3);
+                if(pos < 170) { pos -= 85;  return strip->Color(0, pos * 3,   255 - pos * 3); }
+                pos -= 170;   return strip->Color(pos * 3,  255 - pos * 3,    0);
+            };
+
+            switch(cur_effect) {
+
+                // ── Effect 0: Rainbow Flow ─────────────────────────────────
+                // 彩虹色整体平移流动，offset每tick+2，颜色对每个像素错开均匀
+                case 0: {
+                    uint8_t offset = (uint8_t)(tick * 2);
+                    for(int i = 0; i < n; i++)
+                        strip->setPixelColor(i, wheel((i * 256 / n + offset) & 0xFF));
+                    strip->show();
+                    break;
+                }
+
+                // ── Effect 1: Breathing Pulse ──────────────────────────────
+                // 全部像素同步呼吸；有算力→绿色，无算力→红色
+                case 1: {
+                    float bri = (sinf(tick * 0.05f) + 1.0f) / 2.0f;
+                    bool  has_hr = (board->status.miner.hashrate._3m > 0);
+                    uint8_t r = has_hr ? 0                       : (uint8_t)(255 * bri);
+                    uint8_t g = has_hr ? (uint8_t)(255 * bri)    : 0;
+                    uint8_t b = 0;
+                    for(int i = 0; i < n; i++)
+                        strip->setPixelColor(i, strip->Color(r, g, b));
+                    strip->show();
+                    break;
+                }
+
+                // ── Effect 2: Theater Chase ────────────────────────────────
+                // 每隔3像素同时亮，整体向前追逐，颜色随时间换
+                case 2: {
+                    for(int i = 0; i < n; i++) strip->setPixelColor(i, strip->Color(0, 0, 0));
+                    uint8_t phase = (tick / 5) % 3;
+                    uint32_t chase_color = wheel((uint8_t)(tick * 3));
+                    for(int i = phase; i < n; i += 3)
+                        strip->setPixelColor(i, chase_color);
+                    strip->show();
+                    break;
+                }
+
+                // ── Effect 3: Meteor Rain ──────────────────────────────────
+                // 白色流星头 + 拖尾衰减，到头后重新从头划过
+                case 3: {
+                    const uint8_t  METEOR_SIZE  = 3;
+                    const float    TRAIL_DECAY  = 0.75f;
+                    // decay existing colours
+                    for(int i = 0; i < n; i++) {
+                        uint32_t c = strip->getPixelColor(i);
+                        uint8_t r2 = (uint8_t)(((c >> 16) & 0xFF) * TRAIL_DECAY);
+                        uint8_t g2 = (uint8_t)(((c >>  8) & 0xFF) * TRAIL_DECAY);
+                        uint8_t b2 = (uint8_t)(((c      ) & 0xFF) * TRAIL_DECAY);
+                        strip->setPixelColor(i, strip->Color(r2, g2, b2));
+                    }
+                    // draw meteor head at current position
+                    int meteor_pos = (tick / 2) % (n + METEOR_SIZE);
+                    for(int j = 0; j < METEOR_SIZE; j++) {
+                        int pos = meteor_pos - j;
+                        if(pos >= 0 && pos < n) {
+                            uint8_t bright = (j == 0) ? 255 : (j == 1 ? 160 : 80);
+                            strip->setPixelColor(pos, strip->Color(bright, bright, bright));
+                        }
+                    }
+                    strip->show();
+                    break;
+                }
+
+                // ── Effect 4: Sparkle / Twinkle ───────────────────────────
+                // 随机像素亮起随机彩色，其余像素逐渐衰减熄灭
+                case 4: {
+                    // fade all pixels
+                    for(int i = 0; i < n; i++) {
+                        uint32_t c = strip->getPixelColor(i);
+                        uint8_t r2 = (uint8_t)(((c >> 16) & 0xFF) * 0.80f);
+                        uint8_t g2 = (uint8_t)(((c >>  8) & 0xFF) * 0.80f);
+                        uint8_t b2 = (uint8_t)(((c      ) & 0xFF) * 0.80f);
+                        strip->setPixelColor(i, strip->Color(r2, g2, b2));
+                    }
+                    // randomly light one pixel every 3 ticks
+                    if(tick % 3 == 0) {
+                        int pos = random(0, n);
+                        strip->setPixelColor(pos, wheel((uint8_t)random(0, 256)));
+                    }
+                    strip->show();
+                    break;
+                }
+
+                // ── Effect 5: Color Wipe Fill ──────────────────────────────
+                // 依次用单色填满灯带，再清空，每次换一种颜色
+                case 5: {
+                    static const uint32_t WIPE_COLORS[] = {
+                        0xFF0000UL, // red
+                        0x00FF00UL, // green
+                        0x0000FFUL, // blue
+                        0xFF8800UL, // orange
+                    };
+                    const uint8_t NUM_WIPE = 4;
+                    // Each wipe phase = n*5 ticks (fill) + n*5 ticks (clear) = n*10 ticks total
+                    uint32_t phase_len = (uint32_t)n * 10;
+                    uint32_t color_idx = (tick / phase_len) % NUM_WIPE;
+                    uint32_t phase_tick = tick % phase_len;
+                    uint32_t col = WIPE_COLORS[color_idx];
+                    uint8_t wr = (col >> 16) & 0xFF;
+                    uint8_t wg = (col >>  8) & 0xFF;
+                    uint8_t wb = (col      ) & 0xFF;
+                    if(phase_tick < (uint32_t)n * 5) {
+                        // fill stage
+                        int fill_to = (int)(phase_tick / 5);
+                        for(int i = 0; i < n; i++)
+                            strip->setPixelColor(i, i <= fill_to ? strip->Color(wr, wg, wb) : strip->Color(0, 0, 0));
+                    } else {
+                        // clear stage
+                        int clear_to = (int)((phase_tick - (uint32_t)n * 5) / 5);
+                        for(int i = 0; i < n; i++)
+                            strip->setPixelColor(i, i <= clear_to ? strip->Color(0, 0, 0) : strip->Color(wr, wg, wb));
+                    }
+                    strip->show();
+                    break;
+                }
+
+                default: break;
+            }
+
+            tick++;
         }
     }
     LOG_I("led thread exit...");
