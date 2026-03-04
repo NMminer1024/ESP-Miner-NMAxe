@@ -82,7 +82,8 @@
 ### Solo
 | Url               | Type               | Port               | Description       | Minimum required difficulty|
 | :---------------  | :-----------------:| :-----------------:|:-----------------:| :----------------------:   |
-|public-pool.io     | tcp                |    21496           |        BTC        | 1M initial, Minimum 0.001  |
+|solobtc.nmminer.com| tcp                |    3333           |         BTC        |  Minimum 0.001  |
+|au.solobtc.nmminer.com| tcp             |    3333           |         BTC        |  Minimum 0.001  |
 |solo.ckpool.org    | tcp                |    3333            |        BTC        | 10K initial, dynamically adjusted based on hashrate|
 |pool.nmminer.com   | tcp                |    3333            |        XEC        | 1K initial, dynamically adjusted based on hashrate |
 |eu.molepool.com    | tcp                |    7450            |        DGB        | Minimum 32.768K constantly         |
@@ -185,12 +186,12 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 ## Release Log
 ***
 
-### (2026.03.02) - v2.9.31
+### (2026.03.04) - v2.9.31
 - `Add`:
   - Feature: Time and Date format settings in AxeOS.
 - `Fixed`:
   - Issues on hashrate distribute page in AxeOS.
-  - Issues of pool class.
+  - The pool class has issues that lead to random restarts.
 - `Improved`:
   - None.
 - `Modify`:
