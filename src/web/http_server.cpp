@@ -1022,7 +1022,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
         } 
 
         if (!Update.begin(bin_size, update_type)) { //start with max available size for firmware
-            Update.printError(Serial);
+            LOG_E("OTA Update error: %s", Update.errorString());
             request->send(500, "text/plain", "OTA Update Failed. Not enough space.");
             return;
         }else{
@@ -1033,7 +1033,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
     }
 
     if (Update.write(data, len) != len) {
-        Update.printError(Serial);
+        LOG_E("OTA Update error: %s", Update.errorString());
         request->send(500, "text/plain", "OTA Update Failed. Write error.");
         return;
     }
@@ -1050,7 +1050,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
         if (Update.end(true)) {
             g_board.status.ota.running = false;
             g_board.status.ota.progress = 100;
-            // request->send(200);
+            LOG_I("%s ota: %d%%", filename.c_str(), g_board.status.ota.progress);
             AsyncWebServerResponse *response = request->beginResponse(200);
             response->addHeader("Access-Control-Allow-Origin", "*");
             request->send(response);
@@ -1059,7 +1059,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             delay(1000);
             xSemaphoreGive(g_board.status.reboot_xsem);
         } else {
-            Update.printError(Serial);
+            LOG_E("OTA Update error: %s", Update.errorString());
             request->send(500, "text/plain", "OTA Update Failed. End error.");
         }
     }
