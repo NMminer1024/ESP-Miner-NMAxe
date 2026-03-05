@@ -121,6 +121,14 @@ void led_thread_entry(void *args){
                 continue;
             }
 
+            // Turn off all LEDs during OTA to avoid unexpected flashes
+            if(board->status.ota.running) {
+                if(board->info.spec.led.wifi_pin != -1) digitalWrite(board->info.spec.led.wifi_pin, HIGH); // off
+                if(board->info.spec.led.pool_pin != -1) digitalWrite(board->info.spec.led.pool_pin, HIGH); // off
+                if(board->info.spec.led.sys_pin != -1) ledcWrite(pwmChannel, 255); // off
+                continue;
+            }
+
             // Calculate current pattern index (0-9)
             uint8_t pattern_idx = (led_cnt % 201) / dot;
             
@@ -137,6 +145,10 @@ void led_thread_entry(void *args){
                 // Pool LED: slow blink when connected (only at pattern_idx 0), fast blink when disconnected (odd indices)
                 bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
                 digitalWrite(board->info.spec.led.pool_pin, pool_state ? LOW : HIGH);
+            } else {
+                // pattern_idx == 0: gap phase, explicitly hold LEDs off to avoid residual state
+                if(board->info.spec.led.wifi_pin != -1) digitalWrite(board->info.spec.led.wifi_pin, HIGH);
+                if(board->info.spec.led.pool_pin != -1) digitalWrite(board->info.spec.led.pool_pin, HIGH);
             }
 
             // SYS LED, slow breathing means hashrate > 0, fast breathing means hashrate == 0
@@ -155,9 +167,25 @@ void led_thread_entry(void *args){
 
             const uint8_t n = strip->numPixels(); // 8
 
+            // Track OTA active state to detect start/end transitions
+            static bool ota_was_active = false;
+
             // ---- OTA progress bar effect (overrides normal effects while OTA is running) ----
             if(board->status.ota.running) {
                 static uint32_t ota_tick = 0;
+
+                // On OTA start transition: send an explicit all-off frame to clear any residual
+                // state from the previous LED effect. This prevents the RMT mid-frame glitch
+                // (flash cache pause during spi_flash_write can cut WS2812 transmission, causing
+                // the strip to latch a partial frame with leftover colors from the prior effect).
+                if(!ota_was_active) {
+                    for(int i = 0; i < n; i++)
+                        strip->setPixelColor(i, strip->Color(0, 0, 0));
+                    strip->show();
+                    ota_tick = 0;
+                    ota_was_active = true;
+                    delay(2); // Let the strip latch the blank frame before entering progress loop
+                }
                 // Progress: 0-100 mapped to 0-n pixels lit
                 // Color transition: Blue(0%) → Cyan(50%) → Green(100%)
                 int   progress  = board->status.ota.progress;
@@ -191,6 +219,16 @@ void led_thread_entry(void *args){
                 continue;
             }
 
+            // OTA just ended: set flag so effect scheduler resets on next iteration
+            static bool post_ota_reset = false;
+            if(ota_was_active && !board->status.ota.running) {
+                ota_was_active = false;
+                post_ota_reset = true;
+                for(int i = 0; i < n; i++)
+                    strip->setPixelColor(i, strip->Color(0, 0, 0));
+                strip->show();
+            }
+
             // ---- effect scheduler: 6 effects × 30 s each, then cycle ----
             const uint8_t  NUM_EFFECTS        = 6;
             const uint32_t EFFECT_DURATION_MS = 30000UL; // 30 s per effect
@@ -199,7 +237,13 @@ void led_thread_entry(void *args){
             static uint32_t tick           = 0;
 
             uint32_t now_ms = millis();
-            if(eff_start_ms == 0) eff_start_ms = now_ms; // first-time init
+            // Reset effect state on first run or after OTA ends
+            if(eff_start_ms == 0 || post_ota_reset) {
+                eff_start_ms   = now_ms;
+                tick           = 0;
+                cur_effect     = 0;
+                post_ota_reset = false;
+            }
 
             if(now_ms - eff_start_ms >= EFFECT_DURATION_MS) {
                 cur_effect   = (cur_effect + 1) % NUM_EFFECTS;
@@ -728,60 +772,131 @@ void swarm_thread_entry(void *args){
 void monitor_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
-    //ntp client init
-    WiFiUDP          udpNtpClient;
-    const String     ntpServerUrl= "europe.pool.ntp.org";
-    const uint32_t   ntpInterval = 1000*60*60*1;  //24h update interval
-    NTPClient        ntpClient(udpNtpClient, ntpServerUrl.c_str());
-    uint64_t         last_nvs_save_time = board->status.miner.uptime_session;
+    // NTP server list — rotated on consecutive failures
+    // Covers all 7 continents; includes China-accessible servers (Alibaba/Tencent/NTSC)
+    // to handle regions where Google/Cloudflare may be blocked.
+    static const char* const NTP_SERVERS[] = {
+        // ── Global anycast (most reliable, work almost everywhere) ──────────
+        "pool.ntp.org",             // Global pool, anycast
+        "time.cloudflare.com",      // Cloudflare, global anycast
+        "time.apple.com",           // Apple, global, accessible in China
+        "time.windows.com",         // Microsoft, global
+        // ── Asia / China (no Google dependency) ────────────────────────────
+        "ntp.aliyun.com",           // Alibaba Cloud, China mainland
+        "ntp.tencent.com",          // Tencent Cloud, China mainland
+        "ntp.ntsc.ac.cn",           // National Time Service Center of China
+        "cn.pool.ntp.org",          // China NTP pool
+        "asia.pool.ntp.org",        // Asia-Pacific pool
+        // ── Europe ──────────────────────────────────────────────────────────
+        "europe.pool.ntp.org",      // Europe pool
+        "ntp.ubuntu.com",           // Canonical/Ubuntu, EU hosted
+        // ── North America ───────────────────────────────────────────────────
+        "north-america.pool.ntp.org",
+        "time.google.com",          // Google (blocked in CN, fallback for others)
+        // ── South America ───────────────────────────────────────────────────
+        "south-america.pool.ntp.org",
+        "a.ntp.br",                 // Brazil NTP (NIC.br)
+        // ── Africa ──────────────────────────────────────────────────────────
+        "africa.pool.ntp.org",
+        // ── Oceania ─────────────────────────────────────────────────────────
+        "oceania.pool.ntp.org",
+        "au.pool.ntp.org",          // Australia
+    };
+    static const uint8_t  NTP_SERVER_COUNT   = sizeof(NTP_SERVERS) / sizeof(NTP_SERVERS[0]);
+    static const uint8_t  NTP_MAX_FAIL       = 3;      // switch server after N consecutive failures
+    static const uint32_t NTP_SYNC_INTERVAL  = 3600;   // sync every 3600 s (1 h), unit: uptime_session seconds
 
+    uint8_t  ntp_server_idx  = 0;
+    uint8_t  ntp_fail_cnt    = 0;
+    bool     ntp_ever_synced = false;
+    uint64_t last_ntp_sync   = 0;    // uptime_session value at last successful sync
 
-    ntpClient.begin();
-    ntpClient.setTimeOffset(0); // Get UTC time without timezone offset
-    ntpClient.setUpdateInterval(ntpInterval);
+    WiFiUDP   udpNtpClient;
+    NTPClient *ntpClient = new NTPClient(udpNtpClient, NTP_SERVERS[ntp_server_idx]);
+    uint64_t  last_nvs_save_time = board->status.miner.uptime_session;
+
+    ntpClient->begin();
+    ntpClient->setTimeOffset(0); // Get UTC time without timezone offset
+    LOG_I("NTP client started, primary server: %s", NTP_SERVERS[ntp_server_idx]);
 
     while(true){
         // thread base interval 1000ms
         delay(1000);
-        // update utc time
-        if(ntpClient.update()){
-            struct timeval tv;
 
-            tv.tv_sec = ntpClient.getEpochTime(); 
-            tv.tv_usec = 0;
-            settimeofday(&tv, NULL);
-            board->status.time.utc = tv.tv_sec; 
-            
-            // Convert decimal timezone to UTC±H:MM format
-            float tz_offset = board->status.time.tz.toFloat();
-            int tz_hour = (int)tz_offset;
-            int tz_min = (int)((fabs(tz_offset) - abs(tz_hour)) * 60 + 0.5f); // Round to nearest minute
-            
-            char tz_buf[16] = {0};
-            if (tz_offset >= 0) {
-                if (tz_min == 0)
-                    sprintf(tz_buf, "UTC-%d", tz_hour);
-                else
-                    sprintf(tz_buf, "UTC-%d:%02d", tz_hour, tz_min);
+        // --- NTP sync logic ---
+        // Attempt a real sync:
+        //   - immediately on first run once wifi is up
+        //   - then every NTP_SYNC_INTERVAL seconds thereafter
+        bool wifi_up     = (WL_CONNECTED == board->status.wifi.status);
+        bool first_sync  = (!ntp_ever_synced && wifi_up);
+        bool interval_ok = (board->status.miner.uptime_session - last_ntp_sync >= NTP_SYNC_INTERVAL);
+
+        if(wifi_up && (first_sync || interval_ok)){
+            LOG_I("NTP sync attempt [%d/%d] using server: %s ...", ntp_fail_cnt + 1, NTP_MAX_FAIL, NTP_SERVERS[ntp_server_idx]);
+            bool sync_ok = ntpClient->forceUpdate();
+
+            if(sync_ok){
+                struct timeval tv;
+                tv.tv_sec  = ntpClient->getEpochTime();
+                tv.tv_usec = 0;
+                settimeofday(&tv, NULL);
+                board->status.time.utc = tv.tv_sec;
+
+                // Convert decimal timezone to UTC±H:MM format
+                float tz_offset = board->status.time.tz.toFloat();
+                int tz_hour = (int)tz_offset;
+                int tz_min  = (int)((fabs(tz_offset) - abs(tz_hour)) * 60 + 0.5f);
+
+                char tz_buf[16] = {0};
+                if(tz_offset >= 0){
+                    if(tz_min == 0) sprintf(tz_buf, "UTC-%d",       tz_hour);
+                    else            sprintf(tz_buf, "UTC-%d:%02d",   tz_hour, tz_min);
+                } else {
+                    if(tz_min == 0) sprintf(tz_buf, "UTC+%d",       abs(tz_hour));
+                    else            sprintf(tz_buf, "UTC+%d:%02d",   abs(tz_hour), tz_min);
+                }
+                setenv("TZ", tz_buf, 1);
+                tzset();
+
+                String time_local = convert_time_to_local(board->status.time.utc);
+                LOG_W("NTP sync OK  [server: %s] UTC[%llu] local[%s] tz[%s] env[%s]",
+                        NTP_SERVERS[ntp_server_idx],
+                        board->status.time.utc, time_local.c_str(),
+                        board->status.time.tz.c_str(), tz_buf);
+
+                ntp_fail_cnt    = 0;
+                ntp_ever_synced = true;
+                last_ntp_sync   = board->status.miner.uptime_session;
             } else {
-                if (tz_min == 0)
-                    sprintf(tz_buf, "UTC+%d", abs(tz_hour));
-                else
-                    sprintf(tz_buf, "UTC+%d:%02d", abs(tz_hour), tz_min);
+                ntp_fail_cnt++;
+                LOG_W("NTP sync FAIL [server: %s] consecutive_fail=%d/%d  ever_synced=%s  last_sync=%llus ago",
+                        NTP_SERVERS[ntp_server_idx],
+                        ntp_fail_cnt, NTP_MAX_FAIL,
+                        ntp_ever_synced ? "yes" : "no",
+                        ntp_ever_synced ? (board->status.miner.uptime_session - last_ntp_sync) : 0);
+
+                if(ntp_fail_cnt >= NTP_MAX_FAIL){
+                    uint8_t old_idx   = ntp_server_idx;
+                    ntp_server_idx    = (ntp_server_idx + 1) % NTP_SERVER_COUNT;
+                    ntp_fail_cnt      = 0;
+                    ntpClient->end();
+                    delete ntpClient;
+                    ntpClient = new NTPClient(udpNtpClient, NTP_SERVERS[ntp_server_idx]);
+                    ntpClient->begin();
+                    ntpClient->setTimeOffset(0);
+                    LOG_W("NTP server rotated: [%s] -> [%s]", NTP_SERVERS[old_idx], NTP_SERVERS[ntp_server_idx]);
+                }
+
+                // Fall back to system RTC
+                time_t now;
+                time(&now);
+                board->status.time.utc = now;
             }
-            
-            setenv("TZ", tz_buf, 1);
-            tzset();
-            
-            String time_local = convert_time_to_local(board->status.time.utc);
-            LOG_W("ntp calibrate time UTC[%llu], local[%s], timezone[%s], tz_env[%s]", 
-                    board->status.time.utc, time_local.c_str(), board->status.time.tz.c_str(), tz_buf);
-        }
-        else{
-            // update time now
+        } else {
+            // Between sync intervals: keep board time updated from system RTC
             time_t now;
             time(&now);
-            board->status.time.utc = now; 
+            board->status.time.utc = now;
         }
 
         board->status.miner.uptime_ever++;
