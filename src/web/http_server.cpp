@@ -9,8 +9,9 @@
 #include "nvs/nvs_config.h"
 #include "utils/helper.h"
 
-AsyncWebServer    webServer(80);
-WebSocketsServer  webSocket(81);
+AsyncWebServer  webServer(80);
+// AsyncWebSocket runs on the same port 80 at path /ws, no separate port needed.
+AsyncWebSocket  webSocket("/ws");
 
 bool isValidNumber(const String& str) {
     if (str.length() == 0) return false;
@@ -1069,31 +1070,28 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
         }
     }
 }
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
+void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    // NOTE: Do NOT use LOG_W/LOG_E etc. here — those macros call webSocket.textAll(),
+    //       which is re-entrant inside a WebSocket event callback. Use Serial.printf directly.
     switch (type) {
-        case WStype_DISCONNECTED:
-            LOG_W("[%u] webSocket disconnected!", num);
+        case WS_EVT_CONNECT:
+            Serial.printf("₿ [WS] client #%u connected from %s\r\n",
+                          client->id(), client->remoteIP().toString().c_str());
             break;
-        case WStype_CONNECTED: {
-            IPAddress ip = webSocket.remoteIP(num);
-            LOG_W("[%u] webSocket connected from %s", num, ip.toString().c_str());
+        case WS_EVT_DISCONNECT:
+            Serial.printf("₿ [WS] client #%u disconnected\r\n", client->id());
             break;
-        }
-        case WStype_TEXT:
-            LOG_W("[%u] webSocket get Text: %s", num, payload);
-            webSocket.sendTXT(num, payload, length);
+        case WS_EVT_DATA:
+            // Echo text back (mirrors previous behaviour)
+            if (len > 0 && data != nullptr) {
+                client->text(data, len);
+            }
             break;
-        case WStype_BIN:
-            LOG_W("[%u] webSocket get binary length: %u", num, length);
+        case WS_EVT_PONG:
+            Serial.printf("₿ [WS] client #%u pong\r\n", client->id());
             break;
-        case WStype_PING:
-            LOG_W("[%u] webSocket get ping", num);
-            break;
-        case WStype_PONG:
-            LOG_W("[%u] webSocket get pong", num);
-            break;
-        case WStype_ERROR:
-            LOG_W("[%u] webSocket get error", num);
+        case WS_EVT_ERROR:
+            Serial.printf("₿ [WS] client #%u error\r\n", client->id());
             break;
     }
 }

@@ -60,8 +60,9 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
 void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final);
 void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total);
 void rest_common_get_handler(AsyncWebServerRequest *request);
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
+// AsyncWebSocket event handler (part of ESPAsyncWebServer, no extra library needed)
+void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
-extern WebSocketsServer webSocket;
+extern AsyncWebSocket   webSocket;
 extern AsyncWebServer   webServer;
 #endif

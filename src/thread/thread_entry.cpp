@@ -433,9 +433,10 @@ void webserver_thread_entry(void *args){
     
     // wait for sta or ap ready
     xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_WIFI_AP_READY, pdFALSE, pdFALSE, portMAX_DELAY);
-    delay(100); 
-    webSocket.begin();
+    delay(100);
+    // Register AsyncWebSocket handler on webServer (same port 80, path /ws)
     webSocket.onEvent(webSocketEvent);
+    webServer.addHandler(&webSocket);
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
     webServer.on("/api/system/gauge/limits", HTTP_GET, get_gauge_limits);
@@ -461,11 +462,11 @@ void webserver_thread_entry(void *args){
         request->send(response);
     });
     webServer.begin();
-    while (true){
-        delay(250);
-        if(board->status.wifi.status != WL_CONNECTED) continue;
-        webSocket.loop();
-
+    // cleanupClients() must be called periodically so AsyncWebSocket can detect
+    // dropped connections and fire WS_EVT_DISCONNECT for stale clients.
+    while (true) {
+        delay(1000);
+        webSocket.cleanupClients();
     }
 }
 

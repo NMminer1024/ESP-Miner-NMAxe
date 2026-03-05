@@ -2,10 +2,10 @@
 #define _LOGGER_H_
 
 #include <Arduino.h>
-#include <WebSocketsServer.h>
+#include <AsyncWebSocket.h>   // part of ESPAsyncWebServer, no extra lib needed
 #include <cstring>
 
-extern WebSocketsServer webSocket;
+extern AsyncWebSocket webSocket;
 
 #define LOG_COLOR_ENABLE
 
@@ -129,7 +129,7 @@ namespace dbg
                                         strcpy(log_buffer + prefix_len + content_len, "\033[0m"); \
                                     } \
                                 } \
-                                webSocket.broadcastTXT(log_buffer); \
+                                webSocket.textAll(log_buffer); \
                                 if (auto_new_line) \
                                 { \
                                     _DBG_LOG_X_END_NEWLINE; \

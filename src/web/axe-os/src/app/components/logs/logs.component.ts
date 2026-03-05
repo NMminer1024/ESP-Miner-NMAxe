@@ -62,7 +62,8 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   private startLogs(): void {
-    this.websocketSubscription = this.websocketService.ws$.subscribe({
+    // connect() creates a fresh WebSocketSubject and opens the connection
+    this.websocketSubscription = this.websocketService.connect().subscribe({
       next: (val) => {
         // 移除ANSI控制符用于下载
         const cleanText = this.removeAnsiCodes(val);
@@ -108,6 +109,8 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   private stopLogs(): void {
     this.websocketSubscription?.unsubscribe();
+    // complete() closes the underlying WebSocket — triggers WS_EVT_DISCONNECT on device
+    this.websocketService.disconnect();
   }
 
   ngAfterViewChecked(): void {
