@@ -1,12 +1,12 @@
 #ifndef _MARKET_H_
 #define _MARKET_H_
-#include <ArduinoHttpClient.h> 
-#include <WiFiClient.h>
+// Using ESP32 built-in HTTPClient instead of ArduinoHttpClient for better stability.
+// HTTPClient has explicit timeout support and avoids indefinite blocking on slow servers.
+#include <Arduino.h>
 
-
-
-#define MARKET_HOST "data-api.binance.vision"
-#define MARKET_PORT 80
+#define MARKET_HOST            "data-api.binance.vision"
+#define MARKET_PORT            "80"
+#define MARKET_HTTP_TIMEOUT_MS 8000   // 8 s connection + read timeout
 
 
 class MarketClass{

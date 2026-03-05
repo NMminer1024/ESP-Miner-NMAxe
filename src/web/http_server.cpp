@@ -412,7 +412,9 @@ void get_status_history(AsyncWebServerRequest* request){
     size_t actual_history_size = 0;
     
     // Acquire mutex for history traversal
-    if (xSemaphoreTake(g_board.status.miner.history_mutex, portMAX_DELAY) == pdTRUE) {
+    // NOTE: portMAX_DELAY in async_tcp context can deadlock the entire TCP stack.
+    //       Use a bounded timeout; if the mutex is unavailable, return 503.
+    if (xSemaphoreTake(g_board.status.miner.history_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
         actual_history_size = g_board.status.miner.status_history.size();
         LOG_D("Starting sampling: %d total records, interval: %d, max points: %d", 
               actual_history_size, actual_sample_interval, MAX_DATA_POINTS);
@@ -458,15 +460,16 @@ void get_status_history(AsyncWebServerRequest* request){
                 sampled_count++;
                 
                 // Yield every 100 samples to prevent watchdog timeout
+                // NOTE: taskYIELD() is safe in async_tcp context; delay() is not
                 if (sampled_count % 100 == 0) {
-                    delay(1);
+                    taskYIELD();
                 }
             }
             idx++;
             
             // Yield every 500 raw data points
             if (idx % 500 == 0) {
-                delay(1);
+                taskYIELD();
             }
         }
         
@@ -508,7 +511,7 @@ void get_status_history(AsyncWebServerRequest* request){
                 request->send(500, "application/json", "{\"error\":\"JSON serialization failed after multiple attempts\"}");
                 return;
             }
-            delay(10); // Small delay before retry
+            taskYIELD(); // Small yield before retry; delay() must not be used in async_tcp context
             continue;
         }
         
@@ -525,7 +528,7 @@ void get_status_history(AsyncWebServerRequest* request){
                 request->send(500, "application/json", "{\"error\":\"JSON validation failed after multiple attempts\"}");
                 return;
             }
-            delay(10); // Small delay before retry
+            taskYIELD(); // Small yield before retry
             continue;
         }
         
@@ -540,7 +543,7 @@ void get_status_history(AsyncWebServerRequest* request){
                 request->send(500, "application/json", "{\"error\":\"JSON structure validation failed\"}");
                 return;
             }
-            delay(10); // Small delay before retry
+            taskYIELD(); // Small yield before retry
             continue;
         }
         
@@ -588,7 +591,7 @@ void get_status_realtime(AsyncWebServerRequest* request){
     JsonArray data = root.createNestedArray("statistics");
     
     // Protect status_history access with mutex
-    if (xSemaphoreTake(g_board.status.miner.history_mutex, pdMS_TO_TICKS(portMAX_DELAY)) == pdTRUE) {
+    if (xSemaphoreTake(g_board.status.miner.history_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
         if (!g_board.status.miner.status_history.empty()) {
             auto& history = g_board.status.miner.status_history.back();
             JsonArray dataPoint = data.createNestedArray();
@@ -665,7 +668,7 @@ void get_lucky_history(AsyncWebServerRequest* request){
     size_t sampled_count = 0;
     
     // Acquire mutex for history traversal
-    if (xSemaphoreTake(g_board.status.miner.block_proximity_mutex, portMAX_DELAY) == pdTRUE) {
+    if (xSemaphoreTake(g_board.status.miner.block_proximity_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
         LOG_D("Starting data collection: %d total records", history_size);
         
         for (const auto& history : g_board.status.miner.block_proximity_history) {
@@ -677,7 +680,7 @@ void get_lucky_history(AsyncWebServerRequest* request){
             dataPoint.add(history.epoch);
             sampled_count++;
             // Yield every 100 samples to prevent watchdog timeout
-            if (sampled_count % 100 == 0) delay(1);
+            if (sampled_count % 100 == 0) taskYIELD();
         }
         
         xSemaphoreGive(g_board.status.miner.block_proximity_mutex);
@@ -847,9 +850,10 @@ void echo_handler(AsyncWebServerRequest* request){
 }
 void post_restart(AsyncWebServerRequest * request){
     LOG_W("************** Restarting System because of API Request ***************");
-    // Send HTTP response before restarting
+    // Send HTTP response before restarting.
+    // NOTE: delay() must not be called in async_tcp context.
+    //       daemon_thread_entry already waits ~1s before acting on reboot_xsem.
     request->send(200, "text/plain", "System will restart shortly.");
-    delay(500);
     xSemaphoreGive(g_board.status.reboot_xsem);
 }
 void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
@@ -1045,7 +1049,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             lastPercentage = g_board.status.ota.progress;
         }
     }
-    delay(1);//yield to avoid WDT and UI thread freeze 
+    taskYIELD(); // yield to avoid WDT; delay() must not be used in async_tcp context
     if (final) {
         if (Update.end(true)) {
             g_board.status.ota.running = false;
@@ -1056,7 +1060,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             request->send(response);
 
             LOG_W("*************** Update Success: %u bytes, rebooting *************** ", index + len);
-            delay(1000);
+            // NOTE: delay() in async_tcp context blocks the TCP stack.
+            //       daemon_thread_entry waits ~1s before restarting, giving time for the HTTP response to be sent.
             xSemaphoreGive(g_board.status.reboot_xsem);
         } else {
             LOG_E("OTA Update error: %s", Update.errorString());
