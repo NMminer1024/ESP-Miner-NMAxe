@@ -462,10 +462,10 @@ void webserver_thread_entry(void *args){
     });
     webServer.begin();
     while (true){
-        if(g_board.status.wifi.status == WL_CONNECTED){
-            webSocket.loop();
-        }
         delay(250);
+        if(board->status.wifi.status != WL_CONNECTED) continue;
+        webSocket.loop();
+
     }
 }
 
