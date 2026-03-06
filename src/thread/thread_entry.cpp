@@ -981,26 +981,26 @@ void monitor_thread_entry(void *args){
             }
 
             //avoid restart when ota running
-            if(board->status.ota.running) continue;
+            if(!board->status.ota.running) {
+                //check power status
+                static uint16_t pwr_err_cnt = 0;
+                if((board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0) < board->info.spec.pwr.power_low_threshold){
+                    LOG_W("Power %0.1fW is too low...", board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0);
+                    if(++pwr_err_cnt > 120){//120s
+                        LOG_W("Power is too low, restart miner...");
+                        xSemaphoreGive(board->status.reboot_xsem);
+                    }
+                }else pwr_err_cnt = 0;
 
-            //check power status
-            static uint16_t pwr_err_cnt = 0;
-            if((board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0) < board->info.spec.pwr.power_low_threshold){
-            LOG_W("Power %0.1fW is too low...", board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0);
-            if(++pwr_err_cnt > 120){//120s
-                LOG_W("Power is too low, restart miner...");
-                xSemaphoreGive(board->status.reboot_xsem);
+                //check hashrate
+                static uint16_t hr_err_cnt = 0;
+                if(board->status.miner.hashrate._3m <= 1){
+                    if(++hr_err_cnt > 60){//1min
+                        LOG_W("Hashrate is too low, restart miner...");
+                        xSemaphoreGive(board->status.reboot_xsem);
+                    }
+                }else hr_err_cnt = 0;
             }
-            }else pwr_err_cnt = 0;
-
-            //check hashrate
-            static uint16_t hr_err_cnt = 0;
-            if(board->status.miner.hashrate._3m <= 1){
-            if(++hr_err_cnt > 60){//1min
-                LOG_W("Hashrate is too low, restart miner...");
-                xSemaphoreGive(board->status.reboot_xsem);
-            }
-            }else hr_err_cnt = 0;
         }
 
         // auto screen page scrolling
@@ -1052,22 +1052,22 @@ void monitor_thread_entry(void *args){
         if(board->status.miner.uptime_session % 1 == 0){
             static double last_hr_3m = 0;
             board->info.spec.ui.hashrate_dist_page.time = board->status.miner.uptime_session;
-            if(board->status.miner.hashrate._3m == last_hr_3m) continue;//skip if hashrate not change
-            last_hr_3m = board->status.miner.hashrate._3m;
-
-            static uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
-            static uint64_t *counts = NULL;
-            if (counts == NULL) {
-                counts = (uint64_t *)malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
-                memset(counts, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
-            }
-            int index = last_hr_3m/1000/1000/1000 / SCALE; // Convert to GH/s and scale
-            index = (index >= board->info.spec.ui.hashrate_dist_page.max_x_bars) ? board->info.spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
-            counts[index]++;
-            board->info.spec.ui.hashrate_dist_page.count++;
-            for (int i = 0; i < board->info.spec.ui.hashrate_dist_page.max_x_bars; i++) {
-                uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hashrate_dist_page.count);
-                board->info.spec.ui.hashrate_dist_page.dist_map[i] = y;// Update the global distribution map
+            if(board->status.miner.hashrate._3m != last_hr_3m) { // only update when hashrate changed to save some resource
+                last_hr_3m = board->status.miner.hashrate._3m;
+                static uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
+                static uint64_t *counts = NULL;
+                if (counts == NULL) {
+                    counts = (uint64_t *)malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+                    memset(counts, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+                }
+                int index = last_hr_3m/1000/1000/1000 / SCALE; // Convert to GH/s and scale
+                index = (index >= board->info.spec.ui.hashrate_dist_page.max_x_bars) ? board->info.spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
+                counts[index]++;
+                board->info.spec.ui.hashrate_dist_page.count++;
+                for (int i = 0; i < board->info.spec.ui.hashrate_dist_page.max_x_bars; i++) {
+                    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hashrate_dist_page.count);
+                    board->info.spec.ui.hashrate_dist_page.dist_map[i] = y;// Update the global distribution map
+                }
             }
         }
     
@@ -1116,7 +1116,6 @@ void daemon_thread_entry(void *args){
 
   while (true){
     delay(1000);
-
     //check ota status and reboot
     if(xSemaphoreTake(board->status.reboot_xsem, 0) == pdTRUE){
       ESP.restart();
