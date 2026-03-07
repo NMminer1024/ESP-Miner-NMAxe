@@ -1,4 +1,4 @@
-#include "display.h"
+﻿#include "display.h"
 #include "utils/logger/logger.h"
 #include <TFT_eSPI.h>
 #include "global.h"
@@ -133,7 +133,7 @@ struct{
   }total_hr_chart;
 }hr_health_page;
 
-// big digit page elements
+// clock page elements
 struct{
   lv_obj_t      *container;
   lv_obj_t      *back_img_obj;
@@ -146,14 +146,21 @@ struct{
   ui_element_t  lb_time;
   ui_element_t  lb_ampm;
   ui_element_t  lb_price;
-}big_digit_page;
+}clock_page;
 
-// block hits page elements
+// Market page elements
 struct{
   lv_obj_t      *container;
   lv_obj_t      *back_img_obj;
   lv_img_dsc_t  *back_img_dsc;
-}block_hits_page;
+}market_page;
+
+// setting page elements
+struct{
+  lv_obj_t      *container;
+  lv_obj_t      *back_img_obj;
+  lv_img_dsc_t  *back_img_dsc;
+}setting_page;
 
 
 /*********************************** some helper func *******************************************/
@@ -518,8 +525,8 @@ void ui_page_element_init(void* args){
     miner_page.back_img_dsc             = &mining_page_img_135_240;
     dashboard_page.back_img_dsc         = &status_page_img_135_240;
     hr_health_page.back_img_dsc         = &status_page_img_135_240;
-    big_digit_page.back_img_dsc         = &black_page_img_135_240;
-    block_hits_page.back_img_dsc        = &block_hits_page_img_135_240;
+    clock_page.back_img_dsc         = &black_page_img_135_240;
+    // block_hits_page.back_img_dsc        = &block_hits_page_img_135_240;
     miner_page.logo_img_dsc             = (board->info.spec.name == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
     config_page.logo_img_dsc            = (board->info.spec.name == BOARD_NMAXE_NAME) ? &logo_worker_nmaxe : &logo_worker_nmaxegamma;
 
@@ -700,29 +707,29 @@ void ui_page_element_init(void* args){
     hr_health_page.total_hr_chart.coord = {15, 8};
     hr_health_page.total_hr_chart.font  = &lv_font_montserrat_10;
     /******************************** big digit healthy page *****************************/
-    big_digit_page.lb_hr.font           = &ds_digib_font_56;
-    big_digit_page.lb_hr.coord          = {0, 0};
+    clock_page.lb_hr.font           = &ds_digib_font_56;
+    clock_page.lb_hr.coord          = {0, 0};
 
-    big_digit_page.lb_hr_unit.font      = &ds_digib_font_20;
-    big_digit_page.lb_hr_unit.coord     = {95, 26};
+    clock_page.lb_hr_unit.font      = &ds_digib_font_20;
+    clock_page.lb_hr_unit.coord     = {95, 26};
 
-    big_digit_page.lb_hits.font         = &ds_digib_font_56;
-    big_digit_page.lb_hits.coord        = {-30, 0};
+    clock_page.lb_hits.font         = &ds_digib_font_56;
+    clock_page.lb_hits.coord        = {-30, 0};
 
-    big_digit_page.lb_hits_unit.font    = &ds_digib_font_20;
-    big_digit_page.lb_hits_unit.coord   = {190, 26};
+    clock_page.lb_hits_unit.font    = &ds_digib_font_20;
+    clock_page.lb_hits_unit.coord   = {190, 26};
 
-    big_digit_page.lb_date.font         = &ds_digib_font_24;
-    big_digit_page.lb_date.coord        = {0, 0};
+    clock_page.lb_date.font         = &ds_digib_font_24;
+    clock_page.lb_date.coord        = {0, 0};
 
-    big_digit_page.lb_time.font         = &ds_digib_font_56;
-    big_digit_page.lb_time.coord        = {0, 15};
+    clock_page.lb_time.font         = &ds_digib_font_56;
+    clock_page.lb_time.coord        = {0, 15};
 
-    big_digit_page.lb_ampm.font         = &lv_font_montserrat_14;
-    big_digit_page.lb_ampm.coord        = {0, 15};
+    clock_page.lb_ampm.font         = &lv_font_montserrat_14;
+    clock_page.lb_ampm.coord        = {0, 15};
 
-    big_digit_page.lb_price.font        = &ds_digib_font_24;
-    big_digit_page.lb_price.coord       = {0, 0};
+    clock_page.lb_price.font        = &ds_digib_font_24;
+    clock_page.lb_price.coord       = {0, 0};
   }
   else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     loading_page.back_img_dsc           = &loading_page_img_240_320;
@@ -730,10 +737,12 @@ void ui_page_element_init(void* args){
     miner_page.back_img_dsc             = &mining_page_img_240_320;
     dashboard_page.back_img_dsc         = &status_page_img_240_320;
     hr_health_page.back_img_dsc         = &status_page_img_240_320;
-    big_digit_page.back_img_dsc         = &black_page_img_240_320;
-    block_hits_page.back_img_dsc        = &block_hits_page_img_240_320;
+    clock_page.back_img_dsc         = &black_page_img_240_320;
+    // block_hits_page.back_img_dsc        = &block_hits_page_img_240_320;
     miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
     config_page.logo_img_dsc            = &logo_worker_nmqaxepp;
+    setting_page.back_img_dsc           = &black_page_img_240_320;// only for NMQAxe++ since it has more settings items and need bigger screen to display
+    market_page.back_img_dsc            = &black_page_img_240_320;// only for NMQAxe++ since it has more market info and need bigger screen to display
     /*********************************** Loading page *********************************/
     loading_page.lb_details.font        = &lv_font_montserrat_14;
     loading_page.lb_details.coord       = {3, 0};
@@ -966,29 +975,29 @@ void ui_page_element_init(void* args){
 
 
     /******************************** big digit healthy page *****************************/
-    big_digit_page.lb_hr.font           = &ds_digib_font_56;
-    big_digit_page.lb_hr.coord          = {0, 0};
+    clock_page.lb_hr.font           = &ds_digib_font_56;
+    clock_page.lb_hr.coord          = {0, 0};
 
-    big_digit_page.lb_hr_unit.font      = &ds_digib_font_20;
-    big_digit_page.lb_hr_unit.coord     = {100, 26};
+    clock_page.lb_hr_unit.font      = &ds_digib_font_20;
+    clock_page.lb_hr_unit.coord     = {100, 26};
 
-    big_digit_page.lb_hits.font         = &ds_digib_font_56;
-    big_digit_page.lb_hits.coord        = {-30, 0};
+    clock_page.lb_hits.font         = &ds_digib_font_56;
+    clock_page.lb_hits.coord        = {-30, 0};
 
-    big_digit_page.lb_hits_unit.font    = &ds_digib_font_20;
-    big_digit_page.lb_hits_unit.coord   = {280, 26};
+    clock_page.lb_hits_unit.font    = &ds_digib_font_20;
+    clock_page.lb_hits_unit.coord   = {280, 26};
 
-    big_digit_page.lb_date.font         = &ds_digib_font_24;
-    big_digit_page.lb_date.coord        = {0, 0};
+    clock_page.lb_date.font         = &ds_digib_font_24;
+    clock_page.lb_date.coord        = {0, 0};
 
-    big_digit_page.lb_time.font         = &ds_digib_font_120;
-    big_digit_page.lb_time.coord        = {0, 0};
+    clock_page.lb_time.font         = &ds_digib_font_120;
+    clock_page.lb_time.coord        = {0, 0};
 
-    big_digit_page.lb_ampm.font         = &lv_font_montserrat_20;
-    big_digit_page.lb_ampm.coord        = {0, 15};
+    clock_page.lb_ampm.font         = &lv_font_montserrat_20;
+    clock_page.lb_ampm.coord        = {0, 15};
 
-    big_digit_page.lb_price.font        = &ds_digib_font_24;
-    big_digit_page.lb_price.coord       = {0, 0};
+    clock_page.lb_price.font        = &ds_digib_font_24;
+    clock_page.lb_price.coord       = {0, 0};
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
@@ -999,11 +1008,46 @@ void ui_layout_init(void* args){
 
   board_sal_t *board = (board_sal_t*)args;
 
+  // =====================================================================
+  // PAGE GRID LAYOUT TABLE
+  // To add a new page, simply append a row here with:
+  //   container ptr, back_img_obj ptr, back_img_dsc ptr, col, row, page enum index
+  // parent_docker size is auto-calculated from the max col/row; no manual change needed.
+  // =====================================================================
+  struct page_grid_t {
+    lv_obj_t     **container;
+    lv_obj_t     **back_img_obj;
+    lv_img_dsc_t **back_img_dsc;
+    int            col;
+    int            row;
+    int            page_idx;
+  };
+  const page_grid_t page_grid[] = {
+    // container                       back_img_obj                       back_img_dsc                       col  row  page_idx
+    { &loading_page.container,    &loading_page.back_img_obj,    &loading_page.back_img_dsc,    0,   0,   UI_PAGE_LOADING   },
+    { &config_page.container,     &config_page.back_img_obj,     &config_page.back_img_dsc,     0,   1,   UI_PAGE_CONFIG    },
+    { &miner_page.container,      &miner_page.back_img_obj,      &miner_page.back_img_dsc,      1,   0,   UI_PAGE_MINER     },
+    { &dashboard_page.container,  &dashboard_page.back_img_obj,  &dashboard_page.back_img_dsc,  1,   1,   UI_PAGE_DASHBOARD },
+    { &hr_health_page.container,  &hr_health_page.back_img_obj,  &hr_health_page.back_img_dsc,  1,   2,   UI_PAGE_HR_HEALTH },
+    { &clock_page.container,      &clock_page.back_img_obj,      &clock_page.back_img_dsc,      2,   2,   UI_PAGE_CLOCK },
+    { &market_page.container,     &market_page.back_img_obj,     &market_page.back_img_dsc,     2,   1,   UI_PAGE_MARKET    },
+    { &setting_page.container,    &setting_page.back_img_obj,    &setting_page.back_img_dsc,    2,   0,   UI_PAGE_SETTING },
+  };
+  // =====================================================================
+
   //wait a bit for lvgl tick task to start, necessary for lvgl to work properly
   delay(10);
+
+  // Auto-calculate the grid dimensions for parent_docker from the table
+  int grid_cols = 0, grid_rows = 0;
+  for(const auto& p : page_grid) {
+    if(p.col >= grid_cols) grid_cols = p.col + 1;
+    if(p.row >= grid_rows) grid_rows = p.row + 1;
+  }
+
   //create parent object
   parent_docker = lv_obj_create(lv_scr_act());
-  lv_obj_set_size(parent_docker, SCREEN_WIDTH * 3, SCREEN_HEIGHT * 2); 
+  lv_obj_set_size(parent_docker, SCREEN_WIDTH * grid_cols, SCREEN_HEIGHT * grid_rows); 
   lv_obj_set_pos(parent_docker, 0, 0);
   lv_obj_set_scrollbar_mode(lv_scr_act(), LV_SCROLLBAR_MODE_OFF); 
   lv_obj_set_scroll_dir(parent_docker, LV_DIR_ALL); 
@@ -1014,86 +1058,30 @@ void ui_layout_init(void* args){
   lv_obj_align(parent_docker, LV_ALIGN_TOP_LEFT, 0, 0);
   lv_obj_set_style_bg_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
   lv_obj_set_style_border_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
-  // Create loading page
-  loading_page.container = lv_obj_create(parent_docker);
-  lv_obj_set_size(loading_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(loading_page.container, 0 * SCREEN_WIDTH, 0);
-  lv_obj_set_style_pad_all(loading_page.container, 0, 0);
-  lv_obj_set_style_border_width(loading_page.container, 0, 0);
-  lv_obj_set_scrollbar_mode(loading_page.container, LV_SCROLLBAR_MODE_OFF); 
-  loading_page.back_img_obj = lv_img_create(loading_page.container);
-  lv_img_set_src(loading_page.back_img_obj, loading_page.back_img_dsc);
-  lv_obj_set_size(loading_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(loading_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  // Create config page
-  config_page.container = lv_obj_create(parent_docker);
-  lv_obj_set_size(config_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(config_page.container, 0, SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(config_page.container, 0, 0);
-  lv_obj_set_style_border_width(config_page.container, 0, 0);
-  lv_obj_set_scrollbar_mode(config_page.container, LV_SCROLLBAR_MODE_OFF); 
-  config_page.back_img_obj = lv_img_create(config_page.container);//
-  lv_img_set_src(config_page.back_img_obj, config_page.back_img_dsc);
-  lv_obj_set_size(config_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(config_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  config_page.img_logo.obj = lv_img_create(config_page.container);//worker logo
+
+  // Create all page containers and background images from the table, then register each in page.list
+  for(const auto& p : page_grid) {
+    *p.container = lv_obj_create(parent_docker);
+    lv_obj_set_size(*p.container, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_set_pos(*p.container, p.col * SCREEN_WIDTH, p.row * SCREEN_HEIGHT);
+    lv_obj_set_style_pad_all(*p.container, 0, 0);
+    lv_obj_set_style_border_width(*p.container, 0, 0);
+    lv_obj_set_scrollbar_mode(*p.container, LV_SCROLLBAR_MODE_OFF);
+    *p.back_img_obj = lv_img_create(*p.container);
+    lv_img_set_src(*p.back_img_obj, *p.back_img_dsc);
+    lv_obj_set_size(*p.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(*p.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+    board->status.ui.page.list[p.page_idx] = *p.container;
+  }
+
+  // Some pages have an extra logo image; set them individually after all containers are created
+  config_page.img_logo.obj = lv_img_create(config_page.container); //worker logo
   lv_img_set_src(config_page.img_logo.obj, config_page.logo_img_dsc); 
   lv_obj_align(config_page.img_logo.obj, LV_ALIGN_TOP_LEFT, config_page.img_logo.coord.x, config_page.img_logo.coord.y);
-  // Create miner page  
-  miner_page.container = lv_obj_create(parent_docker);
-  lv_obj_set_size(miner_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(miner_page.container, 1 * SCREEN_WIDTH, 0);
-  lv_obj_set_style_pad_all(miner_page.container, 0, 0);
-  lv_obj_set_style_border_width(miner_page.container, 0, 0);
-  lv_obj_set_scrollbar_mode(miner_page.container, LV_SCROLLBAR_MODE_OFF);
-  miner_page.back_img_obj = lv_img_create(miner_page.container);
-  lv_img_set_src(miner_page.back_img_obj, miner_page.back_img_dsc);
-  lv_obj_set_size(miner_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(miner_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  miner_page.img_logo.obj = lv_img_create(miner_page.container);//worker logo
+
+  miner_page.img_logo.obj = lv_img_create(miner_page.container); //worker logo
   lv_img_set_src(miner_page.img_logo.obj, miner_page.logo_img_dsc); 
   lv_obj_align(miner_page.img_logo.obj, LV_ALIGN_TOP_LEFT, miner_page.img_logo.coord.x, miner_page.img_logo.coord.y);
-  // Create dashboard page  
-  dashboard_page.container = lv_obj_create(parent_docker);
-  lv_obj_set_size(dashboard_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(dashboard_page.container, 1 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(dashboard_page.container, 0, 0);
-  lv_obj_set_style_border_width(dashboard_page.container, 0, 0);
-  lv_obj_set_scrollbar_mode(dashboard_page.container, LV_SCROLLBAR_MODE_OFF);
-  dashboard_page.back_img_obj = lv_img_create(dashboard_page.container);
-  lv_img_set_src(dashboard_page.back_img_obj, dashboard_page.back_img_dsc);
-  lv_obj_set_size(dashboard_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(dashboard_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  // Create health page  
-  hr_health_page.container = lv_obj_create(parent_docker);
-  lv_obj_set_size(hr_health_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(hr_health_page.container, 2 * SCREEN_WIDTH, 1 * SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(hr_health_page.container, 0, 0);
-  lv_obj_set_style_border_width(hr_health_page.container, 0, 0);
-  lv_obj_set_scrollbar_mode(hr_health_page.container, LV_SCROLLBAR_MODE_OFF);
-  hr_health_page.back_img_obj = lv_img_create(hr_health_page.container);
-  lv_img_set_src(hr_health_page.back_img_obj, hr_health_page.back_img_dsc);
-  lv_obj_set_size(hr_health_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(hr_health_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  // Create big digit page
-  big_digit_page.container = lv_obj_create(parent_docker);
-  lv_obj_set_size(big_digit_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(big_digit_page.container, 2 * SCREEN_WIDTH, 0 * SCREEN_HEIGHT);
-  lv_obj_set_style_pad_all(big_digit_page.container, 0, 0);
-  lv_obj_set_style_border_width(big_digit_page.container, 0, 0);
-  lv_obj_set_scrollbar_mode(big_digit_page.container, LV_SCROLLBAR_MODE_OFF);
-  big_digit_page.back_img_obj = lv_img_create(big_digit_page.container);
-  lv_img_set_src(big_digit_page.back_img_obj, big_digit_page.back_img_dsc);
-  lv_obj_set_size(big_digit_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_align(big_digit_page.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
-  // Create ui array
-  board->status.ui.page.list[UI_PAGE_LOADING]     = loading_page.container;
-  board->status.ui.page.list[UI_PAGE_CONFIG]      = config_page.container;
-  board->status.ui.page.list[UI_PAGE_MINER]       = miner_page.container;
-  board->status.ui.page.list[UI_PAGE_DASHBOARD]   = dashboard_page.container;
-  board->status.ui.page.list[UI_PAGE_HR_HEALTH]   = hr_health_page.container;
-  board->status.ui.page.list[UI_PAGE_BIG_DIGIT]   = big_digit_page.container;
-  board->status.ui.page.list[UI_PAGE_HITS]        = block_hits_page.container;
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version label
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
@@ -1520,76 +1508,76 @@ void ui_layout_init(void* args){
   ////////////////////////////////////////////big digit  page layout///////////////////////////////////////////////
   // Hashrate label
   font_color = lv_color_hex(0xEE7D30);
-  big_digit_page.lb_hr.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
-  lv_obj_set_width(big_digit_page.lb_hr.obj, SCREEN_WIDTH / 2);
-  lv_label_set_text( big_digit_page.lb_hr.obj, " ");
-  lv_obj_set_style_text_font(big_digit_page.lb_hr.obj, big_digit_page.lb_hr.font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(big_digit_page.lb_hr.obj, font_color, LV_PART_MAIN); 
-  lv_label_set_long_mode(big_digit_page.lb_hr.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( big_digit_page.lb_hr.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hr.coord.x, big_digit_page.lb_hr.coord.y);
+  clock_page.lb_hr.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_CLOCK] );
+  lv_obj_set_width(clock_page.lb_hr.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( clock_page.lb_hr.obj, " ");
+  lv_obj_set_style_text_font(clock_page.lb_hr.obj, clock_page.lb_hr.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(clock_page.lb_hr.obj, font_color, LV_PART_MAIN); 
+  lv_label_set_long_mode(clock_page.lb_hr.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( clock_page.lb_hr.obj, LV_ALIGN_TOP_LEFT, clock_page.lb_hr.coord.x, clock_page.lb_hr.coord.y);
   // hashrate unit label
   font_color = lv_color_hex(0x808080);
-  big_digit_page.lb_hr_unit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
-  lv_obj_set_width(big_digit_page.lb_hr_unit.obj, SCREEN_WIDTH / 2);
-  lv_label_set_text( big_digit_page.lb_hr_unit.obj, " ");
-  lv_obj_set_style_text_font(big_digit_page.lb_hr_unit.obj, big_digit_page.lb_hr_unit.font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(big_digit_page.lb_hr_unit.obj, font_color, LV_PART_MAIN);
-  lv_label_set_long_mode(big_digit_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( big_digit_page.lb_hr_unit.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hr_unit.coord.x, big_digit_page.lb_hr_unit.coord.y);
+  clock_page.lb_hr_unit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_CLOCK] );
+  lv_obj_set_width(clock_page.lb_hr_unit.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( clock_page.lb_hr_unit.obj, " ");
+  lv_obj_set_style_text_font(clock_page.lb_hr_unit.obj, clock_page.lb_hr_unit.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(clock_page.lb_hr_unit.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(clock_page.lb_hr_unit.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( clock_page.lb_hr_unit.obj, LV_ALIGN_TOP_LEFT, clock_page.lb_hr_unit.coord.x, clock_page.lb_hr_unit.coord.y);
   // block hit label
   font_color = lv_color_hex(0xEE7D30);
-  big_digit_page.lb_hits.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
-  lv_obj_set_width(big_digit_page.lb_hits.obj, 75);
-  lv_label_set_text( big_digit_page.lb_hits.obj, " ");
-  lv_obj_set_style_text_font(big_digit_page.lb_hits.obj, big_digit_page.lb_hits.font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(big_digit_page.lb_hits.obj, font_color, LV_PART_MAIN);
-  lv_label_set_long_mode(big_digit_page.lb_hits.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( big_digit_page.lb_hits.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hits.coord.x, big_digit_page.lb_hits.coord.y);
+  clock_page.lb_hits.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_CLOCK] );
+  lv_obj_set_width(clock_page.lb_hits.obj, 75);
+  lv_label_set_text( clock_page.lb_hits.obj, " ");
+  lv_obj_set_style_text_font(clock_page.lb_hits.obj, clock_page.lb_hits.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(clock_page.lb_hits.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(clock_page.lb_hits.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( clock_page.lb_hits.obj, LV_ALIGN_TOP_LEFT, clock_page.lb_hits.coord.x, clock_page.lb_hits.coord.y);
   // block hit unit label
   font_color = lv_color_hex(0x808080);
-  big_digit_page.lb_hits_unit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
-  lv_obj_set_width(big_digit_page.lb_hits_unit.obj, 50);
-  lv_label_set_text( big_digit_page.lb_hits_unit.obj, "hits");
-  lv_obj_set_style_text_font(big_digit_page.lb_hits_unit.obj, big_digit_page.lb_hits_unit.font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(big_digit_page.lb_hits_unit.obj, font_color, LV_PART_MAIN);
-  lv_label_set_long_mode(big_digit_page.lb_hits_unit.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( big_digit_page.lb_hits_unit.obj, LV_ALIGN_TOP_LEFT, big_digit_page.lb_hits_unit.coord.x, big_digit_page.lb_hits_unit.coord.y);
+  clock_page.lb_hits_unit.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_CLOCK] );
+  lv_obj_set_width(clock_page.lb_hits_unit.obj, 50);
+  lv_label_set_text( clock_page.lb_hits_unit.obj, "hits");
+  lv_obj_set_style_text_font(clock_page.lb_hits_unit.obj, clock_page.lb_hits_unit.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(clock_page.lb_hits_unit.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(clock_page.lb_hits_unit.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( clock_page.lb_hits_unit.obj, LV_ALIGN_TOP_LEFT, clock_page.lb_hits_unit.coord.x, clock_page.lb_hits_unit.coord.y);
   // time label
   font_color = lv_color_hex(0xFFFFFF);
-  big_digit_page.lb_time.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
-  lv_obj_set_width(big_digit_page.lb_time.obj, SCREEN_WIDTH);
-  lv_label_set_text( big_digit_page.lb_time.obj, " ");
-  lv_obj_set_style_text_font(big_digit_page.lb_time.obj, big_digit_page.lb_time.font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(big_digit_page.lb_time.obj, font_color, LV_PART_MAIN);
-  lv_label_set_long_mode(big_digit_page.lb_time.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( big_digit_page.lb_time.obj, LV_ALIGN_CENTER, big_digit_page.lb_time.coord.x, big_digit_page.lb_time.coord.y);
+  clock_page.lb_time.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_CLOCK] );
+  lv_obj_set_width(clock_page.lb_time.obj, SCREEN_WIDTH);
+  lv_label_set_text( clock_page.lb_time.obj, " ");
+  lv_obj_set_style_text_font(clock_page.lb_time.obj, clock_page.lb_time.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(clock_page.lb_time.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(clock_page.lb_time.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( clock_page.lb_time.obj, LV_ALIGN_CENTER, clock_page.lb_time.coord.x, clock_page.lb_time.coord.y);
   // date label
   font_color = lv_color_hex(0x808080);
-  big_digit_page.lb_date.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
-  lv_obj_set_width(big_digit_page.lb_date.obj, SCREEN_WIDTH / 2);
-  lv_label_set_text( big_digit_page.lb_date.obj, " ");
-  lv_obj_set_style_text_font(big_digit_page.lb_date.obj, big_digit_page.lb_date.font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(big_digit_page.lb_date.obj, font_color, LV_PART_MAIN);
-  lv_label_set_long_mode(big_digit_page.lb_date.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( big_digit_page.lb_date.obj, LV_ALIGN_BOTTOM_RIGHT, big_digit_page.lb_date.coord.x, big_digit_page.lb_date.coord.y);
+  clock_page.lb_date.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_CLOCK] );
+  lv_obj_set_width(clock_page.lb_date.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( clock_page.lb_date.obj, " ");
+  lv_obj_set_style_text_font(clock_page.lb_date.obj, clock_page.lb_date.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(clock_page.lb_date.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(clock_page.lb_date.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( clock_page.lb_date.obj, LV_ALIGN_BOTTOM_RIGHT, clock_page.lb_date.coord.x, clock_page.lb_date.coord.y);
   // AM PM 
   font_color = lv_color_hex(0x808080);
-  big_digit_page.lb_ampm.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
-  lv_obj_set_width(big_digit_page.lb_ampm.obj, 50);
-  lv_label_set_text( big_digit_page.lb_ampm.obj, " ");
-  lv_obj_set_style_text_font(big_digit_page.lb_ampm.obj, big_digit_page.lb_ampm.font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(big_digit_page.lb_ampm.obj, font_color, LV_PART_MAIN);
-  lv_label_set_long_mode(big_digit_page.lb_ampm.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( big_digit_page.lb_ampm.obj, LV_ALIGN_CENTER, big_digit_page.lb_ampm.coord.x, big_digit_page.lb_ampm.coord.y);
+  clock_page.lb_ampm.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_CLOCK] );
+  lv_obj_set_width(clock_page.lb_ampm.obj, 50);
+  lv_label_set_text( clock_page.lb_ampm.obj, " ");
+  lv_obj_set_style_text_font(clock_page.lb_ampm.obj, clock_page.lb_ampm.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(clock_page.lb_ampm.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(clock_page.lb_ampm.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( clock_page.lb_ampm.obj, LV_ALIGN_CENTER, clock_page.lb_ampm.coord.x, clock_page.lb_ampm.coord.y);
   // price label
   font_color = lv_color_hex(0x808080);
-  big_digit_page.lb_price.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_BIG_DIGIT] );
-  lv_obj_set_width(big_digit_page.lb_price.obj, SCREEN_WIDTH / 2);
-  lv_label_set_text( big_digit_page.lb_price.obj, " ");
-  lv_obj_set_style_text_font(big_digit_page.lb_price.obj, big_digit_page.lb_price.font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(big_digit_page.lb_price.obj, font_color, LV_PART_MAIN);
-  lv_label_set_long_mode(big_digit_page.lb_price.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( big_digit_page.lb_price.obj, LV_ALIGN_BOTTOM_LEFT, big_digit_page.lb_price.coord.x, big_digit_page.lb_price.coord.y);
+  clock_page.lb_price.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_CLOCK] );
+  lv_obj_set_width(clock_page.lb_price.obj, SCREEN_WIDTH / 2);
+  lv_label_set_text( clock_page.lb_price.obj, " ");
+  lv_obj_set_style_text_font(clock_page.lb_price.obj, clock_page.lb_price.font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(clock_page.lb_price.obj, font_color, LV_PART_MAIN);
+  lv_label_set_long_mode(clock_page.lb_price.obj, LV_LABEL_LONG_DOT);
+  lv_obj_align( clock_page.lb_price.obj, LV_ALIGN_BOTTOM_LEFT, clock_page.lb_price.coord.x, clock_page.lb_price.coord.y);
 }
 
 void ui_loading_page_update(void* args) {
@@ -1967,26 +1955,28 @@ void ui_hits_page_update(void* args){
     return;
   }
   static lv_style_t style_overlay;
+  static lv_obj_t *container = NULL, *back_img_obj = NULL;
+  static lv_img_dsc_t *back_img_dsc = &block_hits_page_img_240_320;
   if(board->status.miner.hits == board->status.miner.last_hits) {
-    if(block_hits_page.back_img_obj != nullptr){
-      lv_obj_del(block_hits_page.back_img_obj);
-      block_hits_page.back_img_obj = nullptr;
+    if(back_img_obj != nullptr){
+      lv_obj_del(back_img_obj);
+      back_img_obj = nullptr;
     }
-    if(block_hits_page.container != nullptr){
-      lv_obj_del(block_hits_page.container);
-      block_hits_page.container = nullptr;
+    if(container != nullptr){
+      lv_obj_del(container);
+      container = nullptr;
     }
     return;
   }
   //create parent object
-  if(block_hits_page.container == nullptr){
+  if(container == nullptr){
     // create hits page
-    block_hits_page.container = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(block_hits_page.container, SCREEN_WIDTH, SCREEN_HEIGHT);
-    lv_obj_align(block_hits_page.container, LV_ALIGN_CENTER, 0, 0);  // center align
-    lv_obj_set_style_pad_all(block_hits_page.container, 0, 0);
-    lv_obj_set_style_border_width(block_hits_page.container, 0, 0);
-    lv_obj_set_scrollbar_mode(block_hits_page.container, LV_SCROLLBAR_MODE_OFF);
+    container = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(container, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(container, LV_ALIGN_CENTER, 0, 0);  // center align
+    lv_obj_set_style_pad_all(container, 0, 0);  
+    lv_obj_set_style_border_width(container, 0, 0);
+    lv_obj_set_scrollbar_mode(container, LV_SCROLLBAR_MODE_OFF);
     
     // create and configure style
     lv_style_init(&style_overlay);
@@ -1996,19 +1986,19 @@ void ui_hits_page_update(void* args){
     lv_style_set_border_opa(&style_overlay, LV_OPA_TRANSP);
     
     // connect style to hits_page
-    lv_obj_add_style(block_hits_page.container, &style_overlay, LV_PART_MAIN);
+    lv_obj_add_style(container, &style_overlay, LV_PART_MAIN);
     
     // create and configure image object
-    block_hits_page.back_img_obj = lv_img_create(block_hits_page.container);
-    lv_img_set_src(block_hits_page.back_img_obj, block_hits_page.back_img_dsc);
-    lv_obj_set_size(block_hits_page.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
-    lv_obj_align(block_hits_page.back_img_obj, LV_ALIGN_CENTER, 0, 0);
+    back_img_obj = lv_img_create(container);
+    lv_img_set_src(back_img_obj, back_img_dsc);
+    lv_obj_set_size(back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(back_img_obj, LV_ALIGN_CENTER, 0, 0);
     
     // set image opacity
-    lv_obj_set_style_img_opa(block_hits_page.back_img_obj, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_img_opa(back_img_obj, LV_OPA_COVER, LV_PART_MAIN);
     // show overlay
-    lv_obj_clear_flag(block_hits_page.container, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(block_hits_page.container);  // bring to front
+    lv_obj_clear_flag(container, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(container);  // bring to front
   }
 }
 
@@ -2155,7 +2145,7 @@ void ui_hr_healthy_page_update(void* args){
   last_update = millis();
 }
 
-void ui_big_digit_page_update(void* args){
+void ui_clock_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");
@@ -2167,9 +2157,9 @@ void ui_big_digit_page_update(void* args){
   String hr       = formatNumber(board->status.miner.hashrate._3m, 3);
   String hr_unit = (board->status.miner.hashrate._3m > 0) ? (String(hr.charAt(hr.length() - 1)) + "H/s") : "";
   //hashrate
-  lv_label_set_text_fmt(big_digit_page.lb_hr.obj, "%s", hr.substring(0, hr.length() - 1).c_str());
+  lv_label_set_text_fmt(clock_page.lb_hr.obj, "%s", hr.substring(0, hr.length() - 1).c_str());
   //hashrate unit
-  lv_label_set_text_fmt(big_digit_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
+  lv_label_set_text_fmt(clock_page.lb_hr_unit.obj, "%s", hr_unit.c_str());
 
   String datetime, char11, day, hms, am_pm = "";
   uint8_t index;
@@ -2188,29 +2178,29 @@ void ui_big_digit_page_update(void* args){
   day = datetime.substring(0, 10);            //only YYYY-MM-DD
 
   // time
-  lv_coord_t width = lv_txt_get_width(hms.c_str(), strlen(hms.c_str()), big_digit_page.lb_time.font, 0, LV_TEXT_FLAG_NONE);
-  lv_obj_set_width(big_digit_page.lb_time.obj, width);
-  lv_label_set_text_fmt(big_digit_page.lb_time.obj, "%s", hms.c_str());
+  lv_coord_t width = lv_txt_get_width(hms.c_str(), strlen(hms.c_str()), clock_page.lb_time.font, 0, LV_TEXT_FLAG_NONE);
+  lv_obj_set_width(clock_page.lb_time.obj, width);
+  lv_label_set_text_fmt(clock_page.lb_time.obj, "%s", hms.c_str());
 
   // AM PM
-  width = lv_txt_get_width(am_pm.c_str(), strlen(am_pm.c_str()), big_digit_page.lb_ampm.font, 0, LV_TEXT_FLAG_NONE);
-  lv_obj_set_width(big_digit_page.lb_ampm.obj, width);
-  lv_label_set_text_fmt(big_digit_page.lb_ampm.obj, "%s", am_pm.c_str());
-  width = lv_txt_get_width(hms.c_str(), strlen(hms.c_str()), big_digit_page.lb_time.font, 0, LV_TEXT_FLAG_NONE);
+  width = lv_txt_get_width(am_pm.c_str(), strlen(am_pm.c_str()), clock_page.lb_ampm.font, 0, LV_TEXT_FLAG_NONE);
+  lv_obj_set_width(clock_page.lb_ampm.obj, width);
+  lv_label_set_text_fmt(clock_page.lb_ampm.obj, "%s", am_pm.c_str());
+  width = lv_txt_get_width(hms.c_str(), strlen(hms.c_str()), clock_page.lb_time.font, 0, LV_TEXT_FLAG_NONE);
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME)
-    lv_obj_align(big_digit_page.lb_ampm.obj, LV_ALIGN_CENTER, width / 1.7, -32);
+    lv_obj_align(clock_page.lb_ampm.obj, LV_ALIGN_CENTER, width / 1.7, -32);
   else 
-    lv_obj_align(big_digit_page.lb_ampm.obj, LV_ALIGN_CENTER, width / 1.5, 2);
+    lv_obj_align(clock_page.lb_ampm.obj, LV_ALIGN_CENTER, width / 1.5, 2);
   
   // date
-  width = lv_txt_get_width(day.c_str(), strlen(day.c_str()), big_digit_page.lb_date.font, 0, LV_TEXT_FLAG_NONE);
-  lv_obj_set_width(big_digit_page.lb_date.obj, width);
-  lv_label_set_text_fmt(big_digit_page.lb_date.obj, "%s", day.c_str());
+  width = lv_txt_get_width(day.c_str(), strlen(day.c_str()), clock_page.lb_date.font, 0, LV_TEXT_FLAG_NONE);
+  lv_obj_set_width(clock_page.lb_date.obj, width);
+  lv_label_set_text_fmt(clock_page.lb_date.obj, "%s", day.c_str());
 
   //block hit
-  if(board->status.miner.hits < 10) lv_obj_align( big_digit_page.lb_hits.obj, LV_ALIGN_TOP_RIGHT, -10, 0);
-  else lv_obj_align( big_digit_page.lb_hits.obj, LV_ALIGN_TOP_RIGHT, -30, 0);
-  lv_label_set_text_fmt(big_digit_page.lb_hits.obj, "%s", String(board->status.miner.hits).c_str());
+  if(board->status.miner.hits < 10) lv_obj_align( clock_page.lb_hits.obj, LV_ALIGN_TOP_RIGHT, -10, 0);
+  else lv_obj_align( clock_page.lb_hits.obj, LV_ALIGN_TOP_RIGHT, -30, 0);
+  lv_label_set_text_fmt(clock_page.lb_hits.obj, "%s", String(board->status.miner.hits).c_str());
 
   //price value 
   String price_value = (board->market->price > 1.0) ? String(board->market->price, 1) : String(board->market->price, 6);
@@ -2221,11 +2211,15 @@ void ui_big_digit_page_update(void* args){
     last_price = board->market->price;
   }
   else font_color = lv_color_hex(0x808080);//white
-  lv_obj_set_style_text_color(big_digit_page.lb_price.obj, font_color, LV_PART_MAIN);
-  lv_label_set_text_fmt(big_digit_page.lb_price.obj, "$%s", price_value.c_str());
+  lv_obj_set_style_text_color(clock_page.lb_price.obj, font_color, LV_PART_MAIN);
+  lv_label_set_text_fmt(clock_page.lb_price.obj, "$%s", price_value.c_str());
   last_update = millis();
 }
-  
+
+void ui_big_setting_page_update(void* args){
+
+}
+
 void ui_bounce_effect(lv_obj_t *current_page, uint8_t tp_evt) {
     if(parent_docker == nullptr || current_page == nullptr) return;
     const int16_t BOUNCE_PX = 25;
@@ -2257,7 +2251,7 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
           return;
         } 
 
-        next_index = (g_board.status.ui.page.current == UI_PAGE_BIG_DIGIT) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
+        next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
         next_index++;
     }
 
@@ -2265,18 +2259,28 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
     switch(current_index){
       case UI_PAGE_MINER :
           if(tp_evt == TOUCH_SWIPE_UP_EVT)          next_index = UI_PAGE_DASHBOARD;
-          else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_BIG_DIGIT;
+          else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_SETTING;
       break;
       case UI_PAGE_DASHBOARD :
           if(tp_evt == TOUCH_SWIPE_DOWN_EVT)        next_index = UI_PAGE_MINER;
-          else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_HR_HEALTH;
+          else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_MARKET;
+          else if(tp_evt == TOUCH_SWIPE_UP_EVT)     next_index = UI_PAGE_HR_HEALTH;
       break;
       case UI_PAGE_HR_HEALTH :
-          if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_BIG_DIGIT;
+          if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_DASHBOARD;
+          else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)    next_index = UI_PAGE_CLOCK;
+      break;
+      case UI_PAGE_CLOCK :
+          if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_MARKET;
+          else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_HR_HEALTH;
+      break;
+      case UI_PAGE_MARKET :
+          if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_CLOCK;
+          else if(tp_evt == TOUCH_SWIPE_DOWN_EVT)    next_index = UI_PAGE_SETTING;
           else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_DASHBOARD;
       break;
-      case UI_PAGE_BIG_DIGIT :
-          if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_HR_HEALTH;
+      case UI_PAGE_SETTING :
+          if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_MARKET;
           else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_MINER;
       break;
       default:

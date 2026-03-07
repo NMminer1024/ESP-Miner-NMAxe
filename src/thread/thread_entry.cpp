@@ -1,4 +1,4 @@
-#include "drivers/displays/display.h"
+﻿#include "drivers/displays/display.h"
 #include "utils/logger/logger.h"
 #include "drivers/button/button.h"
 #include "global.h"
@@ -1994,7 +1994,8 @@ void ui_thread_entry(void *args){
         {UI_PAGE_MINER,     ui_miner_page_update},
         {UI_PAGE_DASHBOARD, ui_dashboard_page_update},
         {UI_PAGE_HR_HEALTH, ui_hr_healthy_page_update},
-        {UI_PAGE_BIG_DIGIT, ui_big_digit_page_update},
+        {UI_PAGE_CLOCK, ui_clock_page_update},
+        {UI_PAGE_SETTING, ui_big_setting_page_update}
     };
     // wait lvgl ready is necessary, otherwise may cause some lvgl api call fail due to lvgl not ready, such as lv_obj_create, which is widely used in ui element init and page update
     xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);

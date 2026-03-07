@@ -1,4 +1,4 @@
-#ifndef DISPLAY_H
+﻿#ifndef DISPLAY_H
 #define DISPLAY_H
 #include <Arduino.h>
 #include "lvgl.h"
@@ -9,8 +9,9 @@ enum{
     UI_PAGE_MINER,
     UI_PAGE_DASHBOARD,
     UI_PAGE_HR_HEALTH,
-    UI_PAGE_BIG_DIGIT,
-    UI_PAGE_HITS
+    UI_PAGE_CLOCK,
+    UI_PAGE_MARKET,
+    UI_PAGE_SETTING
 };
 
 typedef struct{
@@ -88,5 +89,6 @@ void ui_ota_page_update(void* args);
 void ui_hits_page_update(void* args);
 void ui_dashboard_page_update(void* args);
 void ui_hr_healthy_page_update(void* args);
-void ui_big_digit_page_update(void* args);
+void ui_clock_page_update(void* args);
+void ui_big_setting_page_update(void* args);
 #endif // DISPLAY_H
