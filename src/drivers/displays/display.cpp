@@ -2216,8 +2216,25 @@ void ui_clock_page_update(void* args){
   last_update = millis();
 }
 
-void ui_big_setting_page_update(void* args){
+void ui_market_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
 
+
+
+}
+
+void ui_setting_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
+
+  
 }
 
 void ui_bounce_effect(lv_obj_t *current_page, uint8_t tp_evt) {

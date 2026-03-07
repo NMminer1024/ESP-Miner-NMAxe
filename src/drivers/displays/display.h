@@ -90,5 +90,6 @@ void ui_hits_page_update(void* args);
 void ui_dashboard_page_update(void* args);
 void ui_hr_healthy_page_update(void* args);
 void ui_clock_page_update(void* args);
-void ui_big_setting_page_update(void* args);
+void ui_market_page_update(void* args);
+void ui_setting_page_update(void* args);
 #endif // DISPLAY_H
