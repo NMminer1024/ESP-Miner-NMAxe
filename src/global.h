@@ -227,7 +227,6 @@ typedef struct{
     }ui;
 
     struct{
-        // SemaphoreHandle_t   xsem; // touch event signal
         uint8_t             evt;  // touch event type
     }touch;
 

@@ -78,6 +78,7 @@ void display_thread_entry(void *args);
 void lvgl_tick_thread_entry(void *args);
 void ui_thread_entry(void *args);
 void tft_init(void* args);
+void touch_init(void* args);
 void ui_drv_register(void);
 void ui_page_element_init(void* args);
 void ui_layout_init(void* args);

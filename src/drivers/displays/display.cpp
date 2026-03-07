@@ -402,19 +402,15 @@ void tft_init(void* args){
 
 void touch_init(void* args){
   board_sal_t *board = (board_sal_t*)args;
-  // Touch initialization logic goes here
-  // This may involve setting up the touch controller, calibrating it, and preparing it for use with LVGL
-  // The specific implementation will depend on the touch controller hardware and library you are using
-    while(board->touch == nullptr){
-        LOG_W("Waiting for touch instance ready...");
-        delay(1000);
+  if(!board->touch->begin(20)){
+    LOG_W("No touch controller detected, disabling touch support.");
+    delay(10);
+    if(board->touch != nullptr) {
+        delete board->touch;
+        board->touch = nullptr;
     }
-
-    if(!board->touch->begin(40)){
-        LOG_W("No touch controller detected, disabling touch support.");
-        return;
-    }
-    LOG_D("FT6206 touch controller initialized.");
+  }
+  LOG_I("FT6206 touch controller initialized.");
 }
 
 static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) {
@@ -434,7 +430,6 @@ static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) {
         // last_pressed = false;
     }
 }
-
 
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
     uint32_t w = ( area->x2 - area->x1 + 1 );
@@ -497,7 +492,7 @@ void ui_drv_register(void){
   indev_drv.type = LV_INDEV_TYPE_POINTER; 
   indev_drv.read_cb = touchpad_read;   
   indev_drv.scroll_limit = UINT8_MAX;     // disable scroll detection, click events only
-  indev_drv.long_press_time = 400;        // long press time in milliseconds
+  indev_drv.long_press_time = 500;        // long press time in milliseconds
   indev_drv.long_press_repeat_time = 100; // long press repeat time in milliseconds
   lv_indev_t *indev = lv_indev_drv_register(&indev_drv);
 }
@@ -1056,7 +1051,7 @@ void ui_page_element_init(void* args){
   }
 }
 
-static void swipe_event_cb(lv_event_t *e) {
+static void pressed_event_cb(lv_event_t *e) {
     static lv_point_t press_pt = {0, 0};
     const int16_t     SWIPE_THRESHOLD = 20;
 
@@ -1069,7 +1064,6 @@ static void swipe_event_cb(lv_event_t *e) {
 
     if (code == LV_EVENT_PRESSED) {
         press_pt = pt;
-        LOG_D("[Touch] Pressed: x=%d, y=%d", (int)pt.x, (int)pt.y);
     }else if (code == LV_EVENT_RELEASED) {
         lv_coord_t dx = pt.x - press_pt.x;
         lv_coord_t dy = pt.y - press_pt.y;
@@ -1087,7 +1081,14 @@ static void swipe_event_cb(lv_event_t *e) {
     }
 }
 
-
+static void long_press_event_cb(lv_event_t *e) {
+    lv_event_code_t code  = lv_event_get_code(e);
+    if (code == LV_EVENT_LONG_PRESSED) {
+        LOG_W("[Touch] Long Press Detected");
+    }else if(code == LV_EVENT_LONG_PRESSED_REPEAT) {
+        LOG_W("[Touch] Long Press Repeat Detected");
+    }
+}
 
 void ui_layout_init(void* args){
 
@@ -1143,8 +1144,10 @@ void ui_layout_init(void* args){
   lv_obj_align(parent_docker, LV_ALIGN_TOP_LEFT, 0, 0);
   lv_obj_set_style_bg_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
   lv_obj_set_style_border_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
-  lv_obj_add_event_cb(parent_docker, swipe_event_cb, LV_EVENT_PRESSED, NULL);
-  lv_obj_add_event_cb(parent_docker, swipe_event_cb, LV_EVENT_RELEASED, NULL);
+  lv_obj_add_event_cb(parent_docker, pressed_event_cb, LV_EVENT_PRESSED, NULL);
+  lv_obj_add_event_cb(parent_docker, pressed_event_cb, LV_EVENT_RELEASED, NULL);
+  lv_obj_add_event_cb(parent_docker, long_press_event_cb, LV_EVENT_LONG_PRESSED, NULL);
+  lv_obj_add_event_cb(parent_docker, long_press_event_cb, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
   
   // Create all page containers and background images from the table, then register each in page.list
   for(const auto& p : page_grid) {
