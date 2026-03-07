@@ -175,7 +175,7 @@ struct{
   ui_element_t list_asic_vcore;
   ui_element_t list_asic_freq;
   ui_element_t checkbox_led_on;
-  ui_element_t checkbox_fan_auto;
+  ui_element_t checkbox_screen_flip;
 }setting_page;
 
 
@@ -363,27 +363,20 @@ static void keyboard_event_cb(lv_event_t *e) {
 }
 
 static void slider_event_cb(lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t *cb     = lv_event_get_target(e);
-    if (code == LV_EVENT_VALUE_CHANGED) {
-      if(cb == setting_page.bar_brightness.obj) {
-        int32_t val = lv_slider_get_value(cb);
-        tft_bl_ctrl(val);
-      }
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED &&
+        lv_event_get_target(e) == setting_page.bar_brightness.obj) {
+        tft_bl_ctrl(lv_slider_get_value(lv_event_get_target(e)));
     }
 }
 
 static void checkbox_event_cb(lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    if (code == LV_EVENT_VALUE_CHANGED) {
-        lv_obj_t *cb = lv_event_get_target(e);
-        bool checked = lv_obj_has_state(cb, LV_STATE_CHECKED);
-        if (cb == setting_page.checkbox_led_on.obj) {
-            LOG_W("LED On: %d", checked);
-            // TODO: apply LED on/off
-        } else if (cb == setting_page.checkbox_fan_auto.obj) {
-            LOG_W("Screen Flip: %d", checked);
-            // TODO: apply screen flip
+    if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+        lv_obj_t *checkbox = lv_event_get_target(e);
+        if(checkbox == setting_page.checkbox_led_on.obj) {
+            g_board.status.preference.led.enable = lv_obj_has_state(checkbox, LV_STATE_CHECKED) ? true : false;
+        }
+        else if(checkbox == setting_page.checkbox_screen_flip.obj) {
+            // take effect after reboot, save to NVS when user click "Save" button
         }
     }
 }
@@ -417,13 +410,47 @@ static void textarea_event_cb(lv_event_t *e) {
     }
 }
 
+static void toast_timer_cb(lv_timer_t *t) {
+    lv_obj_t *toast = (lv_obj_t *)t->user_data;
+    if(toast) lv_obj_del(toast);
+    lv_timer_del(t);
+}
+
+static void show_toast(const char *msg, uint32_t duration_ms = 2000) {
+    lv_obj_t *toast = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(toast, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_color(toast, lv_color_hex(0x009900), 0);
+    lv_obj_set_style_bg_opa(toast, LV_OPA_90, 0);
+    lv_obj_set_style_radius(toast, 6, 0);
+    lv_obj_set_style_pad_all(toast, 6, 0);
+    lv_obj_set_style_border_width(toast, 0, 0);
+    lv_obj_clear_flag(toast, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *lbl = lv_label_create(toast);
+    lv_label_set_text(lbl, msg);
+    lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
+    lv_obj_align(toast, LV_ALIGN_BOTTOM_RIGHT, -8, -8);
+    lv_timer_create(toast_timer_cb, duration_ms, toast);
+}
+
 static void button_event_cb(lv_event_t *e) {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t *btn        = lv_event_get_target(e);
     
     if(setting_page.btn_save.obj == btn){
       if (code == LV_EVENT_CLICKED) { 
-          LOG_W("Save settings.");
+          // 亮度
+          uint8_t brightness = (uint8_t)lv_slider_get_value(setting_page.bar_brightness.obj);
+          nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, brightness);
+          // LED 指示灯
+          bool led_on = lv_obj_has_state(setting_page.checkbox_led_on.obj, LV_STATE_CHECKED);
+          nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, led_on ? 1 : 0);
+          // 屏幕翻转
+          bool flip = lv_obj_has_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
+          nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
+
+          LOG_W("Settings saved: brightness=%d led=%d flip=%d", brightness, led_on, flip);
+          show_toast("Settings saved!");
       }
     }
     else if(setting_page.btn_restart.obj == btn){
@@ -460,6 +487,13 @@ static void pressed_event_cb(lv_event_t *e) {
         if(g_board.status.touch.evt != TOUCH_TAP_EVT) {
           ui_switch_next_page_cb(g_board.status.touch.evt);
         }
+
+        String dir  = "Tap";
+        if(g_board.status.touch.evt == TOUCH_SWIPE_UP_EVT) dir = "Swipe Up";
+        else if(g_board.status.touch.evt == TOUCH_SWIPE_DOWN_EVT) dir = "Swipe Down";
+        else if(g_board.status.touch.evt == TOUCH_SWIPE_LEFT_EVT) dir = "Swipe Left";
+        else if(g_board.status.touch.evt == TOUCH_SWIPE_RIGHT_EVT) dir = "Swipe Right";
+        LOG_W("[Touch] start=(%d,%d), end=(%d,%d), gesture=%s", press_pt.x, press_pt.y, pt.x, pt.y, dir.c_str());
     }
 }
 
@@ -484,20 +518,14 @@ static void long_press_event_cb(lv_event_t *e) {
 }
 
 static void touchpad_read_cb(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) {
-    // static bool last_pressed = false;
-
     if (g_board.touch->touched()) {
         TS_Point raw_p = g_board.touch->getPoint();
         bool flip = g_board.status.preference.screen.flip;
         data->point.x = flip ? raw_p.y                 : SCREEN_WIDTH  - raw_p.y;
         data->point.y = flip ? SCREEN_HEIGHT - raw_p.x : raw_p.x;
         data->state = LV_INDEV_STATE_PRESSED;
-        // if (!last_pressed)
-        //     LOG_I("[Touch] Pressed: x=%d, y=%d", (int)data->point.x, (int)data->point.y);
-        // last_pressed = true;
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
-        // last_pressed = false;
     }
 }
 
@@ -2468,7 +2496,7 @@ void ui_setting_page_update(void* args){
     lv_obj_set_size(setting_page.bar_brightness.obj, W - lbl_w - pad * 4, 14);
     lv_obj_set_pos(setting_page.bar_brightness.obj, lbl_w + pad * 2, y + 7);
     lv_slider_set_range(setting_page.bar_brightness.obj, 1, 100);
-    lv_slider_set_value(setting_page.bar_brightness.obj, board->info.spec.preference.screen.brightness, LV_ANIM_OFF);
+    lv_slider_set_value(setting_page.bar_brightness.obj, nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness), LV_ANIM_OFF);
     lv_obj_add_event_cb(setting_page.bar_brightness.obj, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     y += row_h + pad;
 
@@ -2544,20 +2572,20 @@ void ui_setting_page_update(void* args){
     lv_obj_set_style_text_font(setting_page.checkbox_led_on.obj, font, 0);
     lv_obj_set_style_text_color(setting_page.checkbox_led_on.obj, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_pos(setting_page.checkbox_led_on.obj, pad, y + 4);
-    if(board->info.spec.preference.led.enable) {
+    if(nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, 1)) {
       lv_obj_add_state(setting_page.checkbox_led_on.obj, LV_STATE_CHECKED);
     }
     lv_obj_add_event_cb(setting_page.checkbox_led_on.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
-    setting_page.checkbox_fan_auto.obj = lv_checkbox_create(setting_page.container);
-    lv_checkbox_set_text(setting_page.checkbox_fan_auto.obj, "Scrn Flip");
-    lv_obj_set_style_text_font(setting_page.checkbox_fan_auto.obj, font, 0);
-    lv_obj_set_style_text_color(setting_page.checkbox_fan_auto.obj, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(setting_page.checkbox_fan_auto.obj, W / 2, y + 4);
-    if(board->info.spec.preference.screen.flip) {
-      lv_obj_add_state(setting_page.checkbox_fan_auto.obj, LV_STATE_CHECKED);
+    setting_page.checkbox_screen_flip.obj = lv_checkbox_create(setting_page.container);
+    lv_checkbox_set_text(setting_page.checkbox_screen_flip.obj, "Screen Flip");
+    lv_obj_set_style_text_font(setting_page.checkbox_screen_flip.obj, font, 0);
+    lv_obj_set_style_text_color(setting_page.checkbox_screen_flip.obj, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_pos(setting_page.checkbox_screen_flip.obj, W / 2, y + 4);
+    if(nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, 0)) {
+      lv_obj_add_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
     }
-    lv_obj_add_event_cb(setting_page.checkbox_fan_auto.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(setting_page.checkbox_screen_flip.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     y += row_h + pad;
 
     // ---- Row 4: Save | Restart 两个等宽按钮 ----

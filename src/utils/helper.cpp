@@ -472,7 +472,7 @@ float parseDiffStr(const String& diffStr) {
 uint8_t guess_touch_gesture(int dx, int dy, int threshold){
     if(abs(dx) > threshold || abs(dy) > threshold){
         if(abs(dx) > abs(dy)){
-            return (dy > 0) ? TOUCH_SWIPE_RIGHT_EVT : TOUCH_SWIPE_LEFT_EVT;
+            return (dx > 0) ? TOUCH_SWIPE_RIGHT_EVT : TOUCH_SWIPE_LEFT_EVT;
         } else {
             return (dy > 0) ? TOUCH_SWIPE_DOWN_EVT : TOUCH_SWIPE_UP_EVT;
         }
