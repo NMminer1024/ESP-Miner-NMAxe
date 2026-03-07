@@ -1029,6 +1029,7 @@ void monitor_thread_entry(void *args){
             node.free_ram     = ESP.getFreeHeap() / 1024;  //free sram in Kbytes
             node.free_psram   = ESP.getFreePsram() / 1024; //free psram in Kbytes
             node.epoch        = board->status.time.utc * 1000ULL; // Convert UTC seconds to milliseconds
+            node.latency      = board->status.miner.latency; // ms
 
             // add node to history queue and protect concurrent access
             if (xSemaphoreTake(board->status.miner.history_mutex, portMAX_DELAY) == pdTRUE) {
@@ -1816,14 +1817,14 @@ void stratum_thread_entry(void *args){
                         board->stratum->set_msg_rsp_map(method.id, true);
                         stratum_rsp rsp = board->stratum->get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
-                            uint32_t latency = millis() - rsp.stamp;
+                            board->status.miner.latency = millis() - rsp.stamp;
                             if (rsp.status == true){
                                 board->status.miner.share_accepted++;
-                                LOG_L("#%d share accepted, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, latency);      
+                                LOG_L("#%d share accepted, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, board->status.miner.latency);      
                             }
                             else {
                                 board->status.miner.share_rejected++;
-                                LOG_E("#%d share rejected, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, latency);
+                                LOG_E("#%d share rejected, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, board->status.miner.latency);
                             }
                         }
                         else if(rsp.method == "mining.configure"){
@@ -1867,9 +1868,9 @@ void stratum_thread_entry(void *args){
                         board->stratum->set_msg_rsp_map(method.id, true);
                         stratum_rsp rsp = board->stratum->get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
-                            uint32_t latency = millis() - rsp.stamp;
+                            board->status.miner.latency = millis() - rsp.stamp;
                             board->status.miner.share_rejected++;
-                            LOG_E("#%d share rejected, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, latency);
+                            LOG_E("#%d share rejected, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, board->status.miner.latency);
                         }
                         else if(rsp.method == "mining.authorize"){
                             board->stratum->set_authorize(false);

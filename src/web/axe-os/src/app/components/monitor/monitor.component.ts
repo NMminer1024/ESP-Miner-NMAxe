@@ -22,6 +22,7 @@ interface HistoryNode {
   wifi_rssi: number;
   free_heap: number;
   free_psram: number;
+  latency: number;
   epoch: number;
 }
 
@@ -117,7 +118,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     { value: 'fanrpm', label: 'Fan RPM', unit: 'RPM', type: 'number', selected: false, color: '#00BCD4' },
     { value: 'wifi_rssi', label: 'WiFi RSSI', unit: 'dBm', type: 'number', selected: false, color: '#CDDC39' },
     { value: 'free_heap', label: 'Free Heap', unit: 'KB', type: 'number', selected: false, color: '#FFC107' },
-    { value: 'free_psram', label: 'Free PSRAM', unit: 'KB', type: 'number', selected: false, color: '#E91E63' }
+    { value: 'free_psram', label: 'Free PSRAM', unit: 'KB', type: 'number', selected: false, color: '#E91E63' },
+    { value: 'latency', label: 'Latency', unit: 'ms', type: 'number', selected: false, color: '#FF6B6B' }
   ];
   
   // Time range options
@@ -746,7 +748,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                   wifi_rssi: item[9] || 0,            // wifiRSSI (dBm) - 索引9
                   free_heap: item[10] || 0,           // freeHeap (KB) - 索引10
                   free_psram: item[11] || 0,          // freePsram (KB) - 索引11
-                  epoch: item[12] || Date.now()       // epoch (ms) - 索引12
+                  latency: item[12] || 0,             // latency (ms) - 索引12
+                  epoch: item[13] || Date.now()       // epoch (ms) - 索引13
                 };
                 
                 if (index < 3 || index === response.statistics.length - 1) {
@@ -901,7 +904,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             wifi_rssi: latestData[9] || 0,       // wifiRSSI (dBm) - 索引9
             free_heap: latestData[10] || 0,      // freeHeap (KB) - 索引10
             free_psram: latestData[11] || 0,     // freePsram (KB) - 索引11
-            epoch: latestData[12] || Date.now()  // epoch (ms) - 索引12
+            latency: latestData[12] || 0,        // latency (ms) - 索引12
+            epoch: latestData[13] || Date.now()  // epoch (ms) - 索引13
           };
           
           // 添加新数据到历史数据数组
@@ -1012,10 +1016,15 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     // 更新图表数据
     const datasets = this.selectedFields.map(field => {
       const fieldOption = this.fieldOptions.find(f => f.value === field);
-      const data = filteredData.map(item => ({
-        x: item.epoch,
-        y: this.parseValue(item[field as keyof HistoryNode], field)
-      }));
+      const data = filteredData.map(item => {
+        const y = this.parseValue(item[field as keyof HistoryNode], field);
+        // latency=0 means "no measurement yet" (physically impossible round-trip);
+        // render as NaN so Chart.js shows a gap rather than a misleading flat zero line.
+        return {
+          x: item.epoch,
+          y: (field === 'latency' && y === 0) ? NaN : y
+        };
+      });
       
       if (data.length > 0) {
         console.log(`Dataset for ${field}: ${data.length} points, range: ${new Date(data[0].x).toLocaleTimeString()} - ${new Date(data[data.length - 1].x).toLocaleTimeString()}`);

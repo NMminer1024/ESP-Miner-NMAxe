@@ -28,6 +28,7 @@ typedef struct{
     int8_t         wifi_rssi;     // wifi rssi, dBm
     uint32_t       free_ram;      // free ram, Kbytes
     uint32_t       free_psram;    // free psram, Kbytes
+    uint32_t       latency;       // latency, ms
     uint64_t       epoch;         // timestamp, milliseconds since epoch
 }history_node_t;
 

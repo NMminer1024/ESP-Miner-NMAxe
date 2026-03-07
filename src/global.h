@@ -187,6 +187,7 @@ typedef struct{
         diff_info_t         diff;
         uint32_t            asic_update;  // timestamp of asic respond
         uint32_t            stratum_update;//ms timestamp of last stratum data received
+        uint32_t            latency;        // ms, latency to pool
         std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
         std::deque<proximity_node_t> block_proximity_history; // history of block proximity (use internal RAM)
         std::map<asic_id_t, uint64_t> asic_rsp_counter; // asic respond counter map

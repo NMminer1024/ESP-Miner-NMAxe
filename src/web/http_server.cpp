@@ -404,6 +404,7 @@ void get_status_history(AsyncWebServerRequest* request){
     labels.add("wifiRSSI");
     labels.add("freeHeap");
     labels.add("freePsram");
+    labels.add("latency");
     labels.add("epoch");
     
     JsonArray data = root.createNestedArray("statistics");
@@ -457,6 +458,7 @@ void get_status_history(AsyncWebServerRequest* request){
                 dataPoint.add(history.wifi_rssi);
                 dataPoint.add(history.free_ram);
                 dataPoint.add(history.free_psram);
+                dataPoint.add(history.latency);
                 dataPoint.add(history.epoch);
                 sampled_count++;
                 
@@ -567,7 +569,7 @@ void get_status_history(AsyncWebServerRequest* request){
           json_size, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS, validation_attempts);
 }
 void get_status_realtime(AsyncWebServerRequest* request){
-    uint32_t json_size_max = 512; // in bytes
+    uint32_t json_size_max = 1024; // in bytes 
     
     // Use local document instead of static to prevent memory leaks
     DynamicJsonDocument root(json_size_max);
@@ -587,6 +589,7 @@ void get_status_realtime(AsyncWebServerRequest* request){
     labels.add("wifiRSSI");
     labels.add("freeHeap");
     labels.add("freePsram");
+    labels.add("latency");
     labels.add("epoch");
     
     JsonArray data = root.createNestedArray("statistics");
@@ -608,6 +611,7 @@ void get_status_realtime(AsyncWebServerRequest* request){
             dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
             dataPoint.add(history.free_ram);           // freeHeap (KB)
             dataPoint.add(history.free_psram);         // freePsram (KB)
+            dataPoint.add(history.latency);            // latency (ms)
             dataPoint.add(history.epoch);              // timestamp (ms)
         }
         xSemaphoreGive(g_board.status.miner.history_mutex);
@@ -1011,6 +1015,18 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
     free(buffer);
 }
 void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+    // Accumulate TCP segments into a larger write buffer before calling Update.write().
+    // AsyncWebServer calls this handler once per TCP segment (~1460 bytes). Writing each
+    // segment individually is inefficient because:
+    //   1. Update.write() is most efficient at multiples of the flash sector size (4096 bytes).
+    //   2. Every Update.write() call is followed by vTaskDelay(1) to feed the IDLE watchdog;
+    //      fewer calls means less artificial delay.
+    // OTA_WRITE_BUFFER_SIZE = 8192 bytes = 2 flash sectors per write call.
+    static const size_t OTA_WRITE_BUFFER_SIZE = 8192;
+    static uint8_t  ota_buf[OTA_WRITE_BUFFER_SIZE];
+    static size_t   ota_buf_len = 0;
+    static int      lastPercentage = -1;
+
     uint64_t flen = request->contentLength();
     if (index == 0) {
         LOG_I("OTA Update Started, File name: %s, Index: %d, contentLength: %d, len: %d, Final: %d", filename.c_str(), index, flen, len, final);
@@ -1022,7 +1038,13 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             update_type = U_FLASH;
         }
         if(filename == "spiffs.bin"){
-            bin_size = SPIFFS.totalBytes();
+            // Must use UPDATE_SIZE_UNKNOWN here. SPIFFS.totalBytes() returns the usable
+            // filesystem capacity (after metadata overhead), which is smaller than the
+            // actual partition size (0x380000 = 3.5MB). The generated spiffs.bin is sized
+            // to the full partition, so using totalBytes() as the limit causes "Not Enough
+            // Space" at ~91%. UPDATE_SIZE_UNKNOWN lets the Update library read the true
+            // partition size from the partition table.
+            bin_size = UPDATE_SIZE_UNKNOWN;
             update_type = U_SPIFFS;
         } 
 
@@ -1034,26 +1056,44 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             g_board.status.ota.running = true;
             g_board.status.ota.progress    = 0;
             g_board.status.ota.filename    = filename;
+            ota_buf_len = 0;
+            lastPercentage = -1;
         }
     }
 
-    if (Update.write(data, len) != len) {
-        LOG_E("OTA Update error: %s", Update.errorString());
-        request->send(500, "text/plain", "OTA Update Failed. Write error.");
-        return;
-    }
-    else{
-        static int lastPercentage = -1;
-        g_board.status.ota.progress = (int)((index + len) * 100.0 / flen);
-        if (g_board.status.ota.progress != lastPercentage) {
-            LOG_I("%s ota: %d%%", filename.c_str(), g_board.status.ota.progress);
-            lastPercentage = g_board.status.ota.progress;
+    // Accumulate incoming data into ota_buf, flush when buffer is full or this is the last chunk.
+    size_t offset = 0;
+    while (offset < len) {
+        size_t copy_len = min(len - offset, OTA_WRITE_BUFFER_SIZE - ota_buf_len);
+        memcpy(ota_buf + ota_buf_len, data + offset, copy_len);
+        ota_buf_len += copy_len;
+        offset      += copy_len;
+
+        bool flush = (ota_buf_len == OTA_WRITE_BUFFER_SIZE) || (final && offset == len);
+        if (flush) {
+            if (Update.write(ota_buf, ota_buf_len) != ota_buf_len) {
+                LOG_E("OTA Update error: %s", Update.errorString());
+                request->send(500, "text/plain", "OTA Update Failed. Write error.");
+                ota_buf_len = 0;
+                return;
+            }
+            ota_buf_len = 0;
+
+            // vTaskDelay(1): block async_tcp for 1ms so IDLE task can reset the task watchdog.
+            // taskYIELD() is insufficient — it only yields to equal/higher-priority tasks,
+            // and IDLE (priority 0) would never run.
+            vTaskDelay(pdMS_TO_TICKS(1));
+
+            // Update progress after each flush
+            int progress = (int)((index + offset) * 100.0 / flen);
+            if (progress != lastPercentage) {
+                g_board.status.ota.progress = progress;
+                LOG_I("%s ota: %d%%", filename.c_str(), progress);
+                lastPercentage = progress;
+            }
         }
     }
-    // vTaskDelay(1) blocks async_tcp for one tick (1ms), allowing the lower-priority IDLE task
-    // to run and reset the task watchdog. taskYIELD() is insufficient here because it only
-    // switches to tasks of equal-or-higher priority, so IDLE (priority 0) would never run.
-    delay(1);
+
     if (final) {
         if (Update.end(true)) {
             g_board.status.ota.running = false;
