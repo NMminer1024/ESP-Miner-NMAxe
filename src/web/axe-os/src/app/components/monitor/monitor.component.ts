@@ -1205,7 +1205,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
       data.forEach(item => {
         const value = this.parseValue(item[field as keyof HistoryNode], field);
-        if (!isNaN(value) && isFinite(value)) {
+        // latency=0 means "no measurement yet" (physically impossible round-trip); exclude from average
+        if (!isNaN(value) && isFinite(value) && !(field === 'latency' && value === 0)) {
           sum += value;
           count++;
         }
@@ -1229,6 +1230,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private updateFieldAverage(field: string, newValue: number): void {
     if (isNaN(newValue) || !isFinite(newValue)) return;
+    // latency=0 means "no measurement yet" (physically impossible round-trip); exclude from average
+    if (field === 'latency' && newValue === 0) return;
 
     const currentSum = this.fieldSums.get(field) || 0;
     const currentCount = this.fieldCounts.get(field) || 0;
