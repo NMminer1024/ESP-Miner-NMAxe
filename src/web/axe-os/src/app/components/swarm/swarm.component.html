@@ -70,6 +70,7 @@
           </th>
           <th class="col-index">#</th>
           <th class="col-ip sortable" (click)="sortTable(SortIndex.IP)">IP</th>
+          <th class="col-hostname sortable" (click)="sortTable(SortIndex.Hostname)">Hostname</th>
           <th class="col-board sortable" (click)="sortTable(SortIndex.BoardType)">Board</th>
           <th class="col-pool sortable" (click)="sortTable(SortIndex.PoolInUse)">Pool</th>
           <th class="col-hash sortable" (click)="sortTable(SortIndex.HashRate)">HashRate</th>
@@ -94,6 +95,7 @@
           <td><input type="checkbox" [(ngModel)]="axe.selected" (change)="updateSelection()" /></td>
           <td>{{ i + 1 }}</td>
           <td><a class="ip" [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
+          <td class="hostname-column">{{ axe.Hostname }}</td>
           <td class="boardtype-column">{{ axe.BoardType }}</td>
           <td class="pool-column">{{ axe.PoolInUse }}</td>
           <td>{{ axe.HashRate }}</td>

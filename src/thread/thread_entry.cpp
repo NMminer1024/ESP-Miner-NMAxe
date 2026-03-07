@@ -653,7 +653,7 @@ void swarm_thread_entry(void *args){
     if(swarm_cnt % 1 == 0){
       int packetSize = udp_client->parsePacket();
 
-      char udpbuf[512] = {0,}, json_udp_str[512] = {0,};
+      char udpbuf[1152] = {0,}, json_udp_str[1152] = {0,};
       if ((packetSize > 0) && (packetSize < sizeof(udpbuf))) {
           int len = udp_client->read(udpbuf, packetSize);
           memcpy(json_udp_str, udpbuf, packetSize);

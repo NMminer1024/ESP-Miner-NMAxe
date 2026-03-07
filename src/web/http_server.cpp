@@ -732,12 +732,13 @@ void get_swarm_info_handler(AsyncWebServerRequest* request){
         String ip        = it->first;
         String swarm_str = it->second;
 
-        DynamicJsonDocument deviceDoc(1024);
+        DynamicJsonDocument deviceDoc(2048);
         DeserializationError error = deserializeJson(deviceDoc, swarm_str);
         if (error) continue;
         
         JsonObject deviceObj = devicesArray.createNestedObject();
         deviceObj["ip"] = ip;
+        deviceObj["Hostname"] = (deviceDoc.containsKey("Hostname")) ? deviceDoc["Hostname"].as<std::string>() : "";
         deviceObj["BoardType"] = deviceDoc["BoardType"].as<std::string>();
         deviceObj["PoolInUse"] = (deviceDoc.containsKey("PoolInUse")) ? deviceDoc["PoolInUse"].as<std::string>() : "N/A";
         deviceObj["HashRate"] = deviceDoc["HashRate"].as<std::string>();

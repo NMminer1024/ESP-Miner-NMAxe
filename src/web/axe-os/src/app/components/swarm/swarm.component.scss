@@ -386,6 +386,7 @@ tbody tr:last-child td {
 th:first-child { min-width: 25px; max-width: 25px; width: 25px; } // Checkbox column - 减小宽度
 td:first-child { min-width: 25px; max-width: 25px; width: 25px; } // Checkbox column - 减小宽度
 .col-ip { min-width: 100px; max-width: 120px; }
+.col-hostname { min-width: 100px; max-width: 150px; }
 .col-pool { min-width: 100px; }
 .col-uptime { min-width: 80px; }
 .col-lastseen { min-width: 80px; }
@@ -560,6 +561,12 @@ a:active {
 
 .boardtype-column {
   width: 130px;
+}
+
+.hostname-column {
+  width: 130px;
+  font-size: 13px;
+  word-break: break-all;
 }
 
 .pool-column {
