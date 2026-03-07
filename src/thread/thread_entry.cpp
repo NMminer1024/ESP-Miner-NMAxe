@@ -669,7 +669,7 @@ void swarm_thread_entry(void *args){
           size_t n = serializeJson(jsonDoc, jsonbuf);
 
           //update swarm list if has this ip
-          static std::map<String, uint32_t> last_seen_map;
+          static std::map<String, uint32_t, std::less<String>, PsramAllocator<std::pair<const String, uint32_t>>> last_seen_map; // PSRAM
           if(jsonDoc.containsKey("ip")){
             board->status.swarm.map[jsonDoc["ip"].as<String>()] = String(jsonbuf);
             last_seen_map[jsonDoc["ip"].as<String>()] = jsonDoc["Lastseen"];

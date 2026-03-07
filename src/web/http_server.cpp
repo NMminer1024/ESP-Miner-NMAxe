@@ -870,7 +870,7 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
         LOG_E("request %s too long", request->url().c_str());
         return;
     }
-    char *buffer = (char*)malloc(SCRATCH_BUFSIZE);
+    char *buffer = (char*)heap_caps_malloc(SCRATCH_BUFSIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     memset(buffer, 0, SCRATCH_BUFSIZE);
     if (index + len <= SCRATCH_BUFSIZE) {
         memcpy(buffer + index, data, len);

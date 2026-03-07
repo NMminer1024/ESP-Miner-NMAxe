@@ -81,8 +81,8 @@ private:
     uint32_t                                        _max_rsp_id_cache;
     uint32_t                                        _job_counter;
     uint8_t                                         _pool_job_cache_size;
-    std::deque<pool_job_data_t>                     _pool_job_cache;
-    std::map<stratum_msg_rsp_id_t, stratum_rsp>     _msg_rsp_map;
+    std::deque<pool_job_data_t, PsramAllocator<pool_job_data_t>>                                                                      _pool_job_cache;   // PSRAM
+    std::map<stratum_msg_rsp_id_t, stratum_rsp, std::less<stratum_msg_rsp_id_t>, PsramAllocator<std::pair<const stratum_msg_rsp_id_t, stratum_rsp>>> _msg_rsp_map; // PSRAM
 public:
     PoolClass  *pool;
     SemaphoreHandle_t new_job_xsem, clear_job_xsem;
