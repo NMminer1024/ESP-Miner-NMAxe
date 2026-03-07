@@ -192,7 +192,7 @@ static ui_ring_obj_t ui_draw_ring(lv_obj_t* parent, const ui_ring_config_t* conf
     lv_obj_set_style_arc_color(ring_obj.arc, config->bg_color, LV_PART_MAIN);
     lv_obj_set_style_arc_color(ring_obj.arc, config->indicator_color, LV_PART_INDICATOR);
     lv_obj_set_pos(ring_obj.arc, config->x, config->y);
-
+    lv_obj_clear_flag(ring_obj.arc, LV_OBJ_FLAG_CLICKABLE); // make arc non-interactive, let events pass through to parent container
     // Create center text label
     if(config->center_text && config->center_font) {
         ring_obj.label_center = lv_label_create(ring_obj.arc);
@@ -492,15 +492,14 @@ void ui_drv_register(void){
   disp_drv.draw_buf = &lvgl_draw_buf;
   lv_disp_drv_register( &disp_drv );
 
-  // /* Register input device (touch) */
-  // lv_indev_drv_init(&indev_drv);
-  // indev_drv.type = LV_INDEV_TYPE_POINTER; 
-  // indev_drv.read_cb = touchpad_read;   
-  // indev_drv.scroll_limit = 40;        // scroll threshold in pixels, adjust based on your needs
-  // indev_drv.scroll_throw = 10;        // scroll throw speed, adjust for faster/slower scrolling
-  // indev_drv.long_press_time = 400;    // long press time in milliseconds
-  // indev_drv.long_press_repeat_time = 100; // long press repeat time in milliseconds
-  // lv_indev_t *indev = lv_indev_drv_register(&indev_drv);
+  /* Register input device (touch) */
+  lv_indev_drv_init(&indev_drv);
+  indev_drv.type = LV_INDEV_TYPE_POINTER; 
+  indev_drv.read_cb = touchpad_read;   
+  indev_drv.scroll_limit = UINT8_MAX;     // disable scroll detection, click events only
+  indev_drv.long_press_time = 400;        // long press time in milliseconds
+  indev_drv.long_press_repeat_time = 100; // long press repeat time in milliseconds
+  lv_indev_t *indev = lv_indev_drv_register(&indev_drv);
 }
 
 void ui_page_element_init(void* args){
@@ -1153,7 +1152,9 @@ void ui_layout_init(void* args){
   lv_obj_align(parent_docker, LV_ALIGN_TOP_LEFT, 0, 0);
   lv_obj_set_style_bg_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
   lv_obj_set_style_border_opa(parent_docker, LV_OPA_TRANSP, LV_PART_INDICATOR);
-
+  lv_obj_add_event_cb(parent_docker, swipe_event_cb, LV_EVENT_PRESSED, NULL);
+  lv_obj_add_event_cb(parent_docker, swipe_event_cb, LV_EVENT_RELEASED, NULL);
+  
   // Create all page containers and background images from the table, then register each in page.list
   for(const auto& p : page_grid) {
     *p.container = lv_obj_create(parent_docker);
@@ -1162,10 +1163,12 @@ void ui_layout_init(void* args){
     lv_obj_set_style_pad_all(*p.container, 0, 0);
     lv_obj_set_style_border_width(*p.container, 0, 0);
     lv_obj_set_scrollbar_mode(*p.container, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_add_flag(*p.container, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble PRESSED/RELEASED up to parent_docker for swipe detection
     *p.back_img_obj = lv_img_create(*p.container);
     lv_img_set_src(*p.back_img_obj, *p.back_img_dsc);
     lv_obj_set_size(*p.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
     lv_obj_align(*p.back_img_obj, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_clear_flag(*p.back_img_obj, LV_OBJ_FLAG_CLICKABLE); // click-transparent, let events fall through to container
     board->status.ui.page.list[p.page_idx] = *p.container;
   }
 
@@ -2446,7 +2449,7 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
   uint8_t current_index = g_board.status.ui.page.current;
   uint8_t next_index    = current_index;
 
-  if(xSemaphoreTake(g_board.status.ui.lvgl.drv_xMutex, 100) == pdTRUE){
+  // if(xSemaphoreTake(g_board.status.ui.lvgl.drv_xMutex, 100) == pdTRUE){
     // tap event
     if(TOUCH_TAP_EVT == tp_evt){
         g_board.status.preference.led.sleep = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
@@ -2503,7 +2506,7 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
     g_board.status.ui.page.current = next_index;
     g_board.status.ui.page.last    = g_board.status.ui.page.current;
     xSemaphoreGive(g_board.status.ui.page.save_xsem);
-    //release mutex
-    xSemaphoreGive(g_board.status.ui.lvgl.drv_xMutex); 
-  }
+  //   //release mutex
+  //   xSemaphoreGive(g_board.status.ui.lvgl.drv_xMutex); 
+  // }
 }

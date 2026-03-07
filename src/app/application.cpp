@@ -46,7 +46,7 @@ void MinerApp::begin() {
         {"(display)",   display_thread_entry,           1024*5,   TASK_PRIORITY_DISPLAY,     1, NULL,             10,  0},
         {"(lvgl)",      lvgl_tick_thread_entry,         1024*5,   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
         {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
-        {"(touch)",     touch_thread_entry,             1024*4,   TASK_PRIORITY_TOUCH,       0, &_touchTask,      10,  0},
+        // {"(touch)",     touch_thread_entry,             1024*4,   TASK_PRIORITY_TOUCH,       0, &_touchTask,      10,  0},
         {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
         {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,         1, &_btnTask,        10,  0},
         {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,          1, &_wsTask,         10,  0},
