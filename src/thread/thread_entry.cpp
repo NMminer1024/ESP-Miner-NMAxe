@@ -1887,9 +1887,10 @@ void stratum_thread_entry(void *args){
                     LOG_E("Stratum unknown, id : %d");
                     break;
             }
-            delay(10);
+            delay(1);
         }
-        delay(50);
+        // responsive idle: poll available() every 1ms (up to 50ms) to minimize latency measurement error
+        for (uint8_t i = 0; i < 50 && !board->stratum->pool->available(); i++) { delay(1); }
     }
 }
 

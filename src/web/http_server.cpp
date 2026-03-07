@@ -1050,7 +1050,10 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             lastPercentage = g_board.status.ota.progress;
         }
     }
-    taskYIELD(); // yield to avoid WDT; delay() must not be used in async_tcp context
+    // vTaskDelay(1) blocks async_tcp for one tick (1ms), allowing the lower-priority IDLE task
+    // to run and reset the task watchdog. taskYIELD() is insufficient here because it only
+    // switches to tasks of equal-or-higher priority, so IDLE (priority 0) would never run.
+    delay(1);
     if (final) {
         if (Update.end(true)) {
             g_board.status.ota.running = false;
