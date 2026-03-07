@@ -449,7 +449,6 @@ static void button_event_cb(lv_event_t *e) {
           bool flip = lv_obj_has_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
           nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
 
-          LOG_W("Settings saved: brightness=%d led=%d flip=%d", brightness, led_on, flip);
           show_toast("Settings saved!");
       }
     }
@@ -457,7 +456,7 @@ static void button_event_cb(lv_event_t *e) {
       if (code == LV_EVENT_CLICKED) { 
           static const char * btns[] = {"Yes", "No", ""};
           lv_obj_t *mbox = lv_msgbox_create(NULL, "",
-                                            "Restart Device?",
+                                            "Restart Miner?",
                                             btns, false);
           lv_obj_add_event_cb(mbox, msgbox_restart_cb, LV_EVENT_VALUE_CHANGED, NULL);
           lv_obj_center(mbox);
@@ -2495,7 +2494,7 @@ void ui_setting_page_update(void* args){
     setting_page.bar_brightness.obj = lv_slider_create(setting_page.container);
     lv_obj_set_size(setting_page.bar_brightness.obj, W - lbl_w - pad * 4, 14);
     lv_obj_set_pos(setting_page.bar_brightness.obj, lbl_w + pad * 2, y + 7);
-    lv_slider_set_range(setting_page.bar_brightness.obj, 1, 100);
+    lv_slider_set_range(setting_page.bar_brightness.obj, 2, 100);
     lv_slider_set_value(setting_page.bar_brightness.obj, nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness), LV_ANIM_OFF);
     lv_obj_add_event_cb(setting_page.bar_brightness.obj, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     y += row_h + pad;
@@ -2568,7 +2567,7 @@ void ui_setting_page_update(void* args){
 
     // ---- Row 3: LED On checkbox + Screen Flip checkbox (同行) ----
     setting_page.checkbox_led_on.obj = lv_checkbox_create(setting_page.container);
-    lv_checkbox_set_text(setting_page.checkbox_led_on.obj, "LED On");
+    lv_checkbox_set_text(setting_page.checkbox_led_on.obj, "LED Indicator");
     lv_obj_set_style_text_font(setting_page.checkbox_led_on.obj, font, 0);
     lv_obj_set_style_text_color(setting_page.checkbox_led_on.obj, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_pos(setting_page.checkbox_led_on.obj, pad, y + 4);
@@ -2578,7 +2577,7 @@ void ui_setting_page_update(void* args){
     lv_obj_add_event_cb(setting_page.checkbox_led_on.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
     setting_page.checkbox_screen_flip.obj = lv_checkbox_create(setting_page.container);
-    lv_checkbox_set_text(setting_page.checkbox_screen_flip.obj, "Screen Flip");
+    lv_checkbox_set_text(setting_page.checkbox_screen_flip.obj, "Flip Screen");
     lv_obj_set_style_text_font(setting_page.checkbox_screen_flip.obj, font, 0);
     lv_obj_set_style_text_color(setting_page.checkbox_screen_flip.obj, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_pos(setting_page.checkbox_screen_flip.obj, W / 2, y + 4);
