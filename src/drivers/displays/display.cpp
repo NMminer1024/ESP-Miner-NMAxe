@@ -4,6 +4,12 @@
 #include "global.h"
 #include "utils/helper.h" 
 #include "image/image.h"
+#include "nvs/nvs_config.h"
+
+// Forward-declare qrcodegen C API (compiled as part of lvgl, no header modify needed)
+extern "C" {
+    int qrcodegen_getMinFitVersion(int ecl, size_t dataLen);
+}
 
 /******************************************************************* global state variables ******************************************************************/
 static uint16_t SCREEN_WIDTH  = 0;
@@ -161,13 +167,15 @@ struct{
   lv_obj_t      *back_img_obj;
   lv_img_dsc_t  *back_img_dsc;
 
-  ui_element_t txt_wifi_ssid;
-  ui_element_t txt_wifi_passwd;
+  ui_element_t bar_brightness;
+  ui_element_t lb_brightness;
   ui_element_t kb_input;
   ui_element_t btn_save;
-  ui_element_t btn_tp_calib;
-  ui_element_t lb_ver;
-  ui_element_t lb_timeout;
+  ui_element_t btn_restart;
+  ui_element_t list_asic_vcore;
+  ui_element_t list_asic_freq;
+  ui_element_t checkbox_led_on;
+  ui_element_t checkbox_fan_auto;
 }setting_page;
 
 
@@ -238,8 +246,7 @@ static void ui_update_ring(ui_ring_obj_t* ring_obj, uint16_t angle, String cente
     }
 }
 
-static ui_pie_chart_t ui_draw_pie_chart(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius,
-                                  const pie_sector_t* sectors, uint8_t sector_count) {
+static ui_pie_chart_t ui_draw_pie_chart(lv_obj_t* parent, lv_coord_t center_x, lv_coord_t center_y, lv_coord_t radius, const pie_sector_t* sectors, uint8_t sector_count) {
     ui_pie_chart_t pie_chart = {0};
     
     if (!parent || !sectors || sector_count == 0 || sector_count > PIE_CHART_MAX_SECTORS) {
@@ -346,6 +353,165 @@ static void ui_update_pie_chart(ui_pie_chart_t* pie_chart, const uint16_t* angle
     }
 }
 
+/*********************************** some callback func *******************************************/
+static void keyboard_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *keyboard = lv_event_get_target(e);
+    if (code == LV_EVENT_CANCEL || code == LV_EVENT_READY) {  
+        lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);  
+    }
+}
+
+static void slider_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *cb     = lv_event_get_target(e);
+    if (code == LV_EVENT_VALUE_CHANGED) {
+      if(cb == setting_page.bar_brightness.obj) {
+        int32_t val = lv_slider_get_value(cb);
+        tft_bl_ctrl(val);
+      }
+    }
+}
+
+static void checkbox_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_VALUE_CHANGED) {
+        lv_obj_t *cb = lv_event_get_target(e);
+        bool checked = lv_obj_has_state(cb, LV_STATE_CHECKED);
+        if (cb == setting_page.checkbox_led_on.obj) {
+            LOG_W("LED On: %d", checked);
+            // TODO: apply LED on/off
+        } else if (cb == setting_page.checkbox_fan_auto.obj) {
+            LOG_W("Screen Flip: %d", checked);
+            // TODO: apply screen flip
+        }
+    }
+}
+
+static void dropdown_open_cb(lv_event_t *e) {
+    // 每次展开时重新限制列表高度，保证滚动生效
+    lv_obj_t *list = lv_dropdown_get_list(lv_event_get_target(e));
+    if(list) {
+        lv_obj_set_height(list, 100);
+        lv_obj_set_scroll_dir(list, LV_DIR_VER);
+        lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE);
+    }
+}
+
+static void msgbox_restart_cb(lv_event_t *e) {
+    lv_obj_t *mbox = lv_event_get_current_target(e);
+    uint16_t  btn  = lv_msgbox_get_active_btn(mbox);
+    if(btn == 0) { // "Yes"
+        LOG_W("Restart confirmed.");
+        xSemaphoreGive(g_board.status.reboot_xsem);
+    }
+    lv_msgbox_close(mbox);
+}
+
+static void textarea_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *textarea   = lv_event_get_target(e);
+    if (code == LV_EVENT_CLICKED) {  
+      lv_obj_clear_flag(setting_page.kb_input.obj, LV_OBJ_FLAG_HIDDEN);  
+      lv_keyboard_set_textarea(setting_page.kb_input.obj, textarea);    
+    }
+}
+
+static void button_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *btn        = lv_event_get_target(e);
+    
+    if(setting_page.btn_save.obj == btn){
+      if (code == LV_EVENT_CLICKED) { 
+          LOG_W("Save settings.");
+      }
+    }
+    else if(setting_page.btn_restart.obj == btn){
+      if (code == LV_EVENT_CLICKED) { 
+          static const char * btns[] = {"Yes", "No", ""};
+          lv_obj_t *mbox = lv_msgbox_create(NULL, "",
+                                            "Restart Device?",
+                                            btns, false);
+          lv_obj_add_event_cb(mbox, msgbox_restart_cb, LV_EVENT_VALUE_CHANGED, NULL);
+          lv_obj_center(mbox);
+      }
+    }
+}
+
+static void pressed_event_cb(lv_event_t *e) {
+    static lv_point_t press_pt = {0, 0};
+    const int16_t     SWIPE_THRESHOLD = 20;
+
+    lv_event_code_t code  = lv_event_get_code(e);
+    lv_indev_t     *indev = lv_event_get_indev(e);
+    if (indev == NULL) return;
+
+    lv_point_t pt;
+    lv_indev_get_point(indev, &pt);
+
+    if (code == LV_EVENT_PRESSED) {
+        press_pt = pt;
+    }else if (code == LV_EVENT_RELEASED) {
+        lv_coord_t dx = pt.x - press_pt.x;
+        lv_coord_t dy = pt.y - press_pt.y;
+
+        // handle swipe gesture and page switch
+        g_board.status.touch.evt = guess_touch_gesture(dx, dy, SWIPE_THRESHOLD);
+        if(g_board.status.touch.evt != TOUCH_TAP_EVT) {
+          ui_switch_next_page_cb(g_board.status.touch.evt);
+        }
+    }
+}
+
+static void long_press_event_cb(lv_event_t *e) {
+    lv_event_code_t code  = lv_event_get_code(e);
+    if (code == LV_EVENT_LONG_PRESSED) {
+        g_board.status.touch.evt = TOUCH_LONGPRESS_EVT;
+        g_board.status.ui.page.countdown.timeout = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
+    }else if(code == LV_EVENT_LONG_PRESSED_REPEAT) {
+      static uint32_t start = millis();
+      if(millis() - start > 1000) {
+        g_board.status.ui.page.countdown.timeout = (g_board.status.ui.page.countdown.timeout > 0) ? (g_board.status.ui.page.countdown.timeout - 1) : 0;
+        start = millis();
+      }
+
+      if(g_board.status.ui.page.countdown.timeout <= 0) {
+        xSemaphoreGive(g_board.status.recover_factory_xsem);
+      } 
+
+      LOG_D("[Touch] Long Press Repeat Detected");
+    }
+}
+
+static void touchpad_read_cb(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) {
+    // static bool last_pressed = false;
+
+    if (g_board.touch->touched()) {
+        TS_Point raw_p = g_board.touch->getPoint();
+        bool flip = g_board.status.preference.screen.flip;
+        data->point.x = flip ? raw_p.y                 : SCREEN_WIDTH  - raw_p.y;
+        data->point.y = flip ? SCREEN_HEIGHT - raw_p.x : raw_p.x;
+        data->state = LV_INDEV_STATE_PRESSED;
+        // if (!last_pressed)
+        //     LOG_I("[Touch] Pressed: x=%d, y=%d", (int)data->point.x, (int)data->point.y);
+        // last_pressed = true;
+    } else {
+        data->state = LV_INDEV_STATE_RELEASED;
+        // last_pressed = false;
+    }
+}
+
+static void tft_flush_cb( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
+    uint32_t w = ( area->x2 - area->x1 + 1 );
+    uint32_t h = ( area->y2 - area->y1 + 1 );
+
+    tftDriver->startWrite();
+    tftDriver->setAddrWindow( area->x1, area->y1, w, h );
+    tftDriver->pushColors( ( uint16_t * )&color_p->full, w * h, true );
+    tftDriver->endWrite();
+
+    lv_disp_flush_ready(disp_drv);
+}
 
 /*********************************** display  func *******************************************/
 void tft_bl_ctrl(int8_t percent){
@@ -413,36 +579,6 @@ void touch_init(void* args){
   LOG_I("FT6206 touch controller initialized.");
 }
 
-static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) {
-    // static bool last_pressed = false;
-
-    if (g_board.touch->touched()) {
-        TS_Point raw_p = g_board.touch->getPoint();
-        bool flip = g_board.status.preference.screen.flip;
-        data->point.x = flip ? raw_p.y                 : SCREEN_WIDTH  - raw_p.y;
-        data->point.y = flip ? SCREEN_HEIGHT - raw_p.x : raw_p.x;
-        data->state = LV_INDEV_STATE_PRESSED;
-        // if (!last_pressed)
-        //     LOG_I("[Touch] Pressed: x=%d, y=%d", (int)data->point.x, (int)data->point.y);
-        // last_pressed = true;
-    } else {
-        data->state = LV_INDEV_STATE_RELEASED;
-        // last_pressed = false;
-    }
-}
-
-static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
-    uint32_t w = ( area->x2 - area->x1 + 1 );
-    uint32_t h = ( area->y2 - area->y1 + 1 );
-
-    tftDriver->startWrite();
-    tftDriver->setAddrWindow( area->x1, area->y1, w, h );
-    tftDriver->pushColors( ( uint16_t * )&color_p->full, w * h, true );
-    tftDriver->endWrite();
-
-    lv_disp_flush_ready(disp_drv);
-}
-
 void ui_drv_register(void){
   LOG_I("lvgl version: %s", (String('V') + lv_version_major() + "." + lv_version_minor() + "." + lv_version_patch()).c_str());
 
@@ -483,14 +619,14 @@ void ui_drv_register(void){
   /*Change the following line to your display resolution*/
   disp_drv.hor_res = SCREEN_WIDTH;
   disp_drv.ver_res = SCREEN_HEIGHT;
-  disp_drv.flush_cb = disp_flush;
+  disp_drv.flush_cb = tft_flush_cb;
   disp_drv.draw_buf = &lvgl_draw_buf;
   lv_disp_drv_register( &disp_drv );
 
   /* Register input device (touch) */
   lv_indev_drv_init(&indev_drv);
   indev_drv.type = LV_INDEV_TYPE_POINTER; 
-  indev_drv.read_cb = touchpad_read;   
+  indev_drv.read_cb = touchpad_read_cb;   
   indev_drv.scroll_limit = UINT8_MAX;     // disable scroll detection, click events only
   indev_drv.long_press_time = 500;        // long press time in milliseconds
   indev_drv.long_press_repeat_time = 100; // long press repeat time in milliseconds
@@ -1051,51 +1187,6 @@ void ui_page_element_init(void* args){
   }
 }
 
-static void pressed_event_cb(lv_event_t *e) {
-    static lv_point_t press_pt = {0, 0};
-    const int16_t     SWIPE_THRESHOLD = 20;
-
-    lv_event_code_t code  = lv_event_get_code(e);
-    lv_indev_t     *indev = lv_event_get_indev(e);
-    if (indev == NULL) return;
-
-    lv_point_t pt;
-    lv_indev_get_point(indev, &pt);
-
-    if (code == LV_EVENT_PRESSED) {
-        press_pt = pt;
-    }else if (code == LV_EVENT_RELEASED) {
-        lv_coord_t dx = pt.x - press_pt.x;
-        lv_coord_t dy = pt.y - press_pt.y;
-
-        // handle swipe gesture and page switch
-        g_board.status.touch.evt = guess_touch_gesture(dx, dy, SWIPE_THRESHOLD);
-        if(g_board.status.touch.evt != TOUCH_TAP_EVT) {
-          ui_switch_next_page_cb(g_board.status.touch.evt);
-        }
-    }
-}
-
-static void long_press_event_cb(lv_event_t *e) {
-    lv_event_code_t code  = lv_event_get_code(e);
-    if (code == LV_EVENT_LONG_PRESSED) {
-        g_board.status.touch.evt = TOUCH_LONGPRESS_EVT;
-        g_board.status.ui.page.countdown.timeout = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
-    }else if(code == LV_EVENT_LONG_PRESSED_REPEAT) {
-      static uint32_t start = millis();
-      if(millis() - start > 1000) {
-        g_board.status.ui.page.countdown.timeout--;
-        start = millis();
-      }
-
-      if(g_board.status.ui.page.countdown.timeout <= 0) {
-        xSemaphoreGive(g_board.status.recover_factory_xsem);
-      } 
-
-      LOG_D("[Touch] Long Press Repeat Detected");
-    }
-}
-
 void ui_layout_init(void* args){
 
   board_sal_t *board = (board_sal_t*)args;
@@ -1267,8 +1358,25 @@ void ui_layout_init(void* args){
   } else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     qr_size = SCREEN_HEIGHT - 95;
   }
-  config_page.qr_code.obj = lv_qrcode_create(board->status.ui.page.list[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
+  // Build QR string first so we can compute the exact QR version and
+  // adjust canvas size to guarantee a visible quiet-zone border (>= 4 px).
+  // qrcodegen_Ecc_MEDIUM == 1; qrcodegen_version2size(v) == 4*v+17 (QR spec).
   String qr_str = "WIFI:T:WPA;S:" + board->info.connection.wifi.ap.info.ssid + ";P:" + board->info.connection.wifi.ap.info.pwd + ";H:false;";
+  {
+    const int MIN_MARGIN_PX = 4;
+    int32_t version = qrcodegen_getMinFitVersion(1 /*Ecc_MEDIUM*/, qr_str.length());
+    if (version > 0) {
+      int32_t modules = 4 * version + 17;  // qrcodegen_version2size formula
+      int32_t scale   = qr_size / modules;
+      if (scale > 0) {
+        int32_t margin  = (qr_size - modules * scale) / 2;
+        if (margin < MIN_MARGIN_PX) {
+          qr_size = modules * scale + 2 * MIN_MARGIN_PX;
+        }
+      }
+    }
+  }
+  config_page.qr_code.obj = lv_qrcode_create(board->status.ui.page.list[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
   lv_qrcode_update(config_page.qr_code.obj, (uint8_t*)qr_str.c_str(), qr_str.length());
   lv_obj_align(config_page.qr_code.obj, LV_ALIGN_RIGHT_MID, config_page.qr_code.coord.x, config_page.qr_code.coord.y);
   lv_obj_add_flag(config_page.qr_code.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_docker
@@ -2331,104 +2439,159 @@ void ui_market_page_update(void* args){
 
 }
 
-
-// 键盘事件回调函数
-void keyboard_event_cb(lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t *keyboard = lv_event_get_target(e);
-    if (code == LV_EVENT_CANCEL || code == LV_EVENT_READY) { // 点击“关闭”, "确认"时
-        lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN); // 隐藏键盘
-    }
-}
-// 文本框事件回调函数
-void textarea_event_cb(lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t *textarea   = lv_event_get_target(e);
-    if (code == LV_EVENT_CLICKED) { // 当文本框被点击时
-      lv_obj_clear_flag(setting_page.kb_input.obj, LV_OBJ_FLAG_HIDDEN); // 显示键盘
-      lv_keyboard_set_textarea(setting_page.kb_input.obj, textarea);   // 将键盘与当前文本框关联
-    }
-}
-// 按键框事件回调函数
-void button_event_cb(lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t *btn        = lv_event_get_target(e);
-    //配置页面的 保存 按钮
-    if(setting_page.btn_save.obj == btn){
-      if (code == LV_EVENT_CLICKED) { 
-          // 获取 SSID 和密码框的字符串
-          const char *ssid     = lv_textarea_get_text(setting_page.txt_wifi_ssid.obj);
-          const char *password = lv_textarea_get_text(setting_page.txt_wifi_passwd.obj);
-          if(strlen(ssid) == 0){
-            LOG_E("SSID is empty, please input a valid SSID.");
-            return;
-          }
-          LOG_W("Save SSID: %s, Password: %s", ssid, password);
-      }
-    }
-    //配置页面的 触摸屏校准 按钮
-    else if(setting_page.btn_tp_calib.obj == btn){
-      if (code == LV_EVENT_CLICKED) { 
-          LOG_W("Touch screen calibration started.");
-      }
-    }
-}
-
 void ui_setting_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
+  if(board == nullptr || setting_page.container == nullptr) return;
 
   static bool inited = false;
   if(!inited){
-    // WiFi SSID 文本框
-    setting_page.txt_wifi_ssid.obj = lv_textarea_create(setting_page.container);
-    lv_textarea_set_placeholder_text(setting_page.txt_wifi_ssid.obj, "WiFi SSID");
-    lv_obj_set_size(setting_page.txt_wifi_ssid.obj, 150, 15);
-    lv_obj_align(setting_page.txt_wifi_ssid.obj, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_set_pos(setting_page.txt_wifi_ssid.obj, setting_page.txt_wifi_ssid.coord.x, setting_page.txt_wifi_ssid.coord.y);
-    lv_obj_set_style_radius(setting_page.txt_wifi_ssid.obj, 0, 0);                      // 去除圆角
-    lv_obj_set_scrollbar_mode(setting_page.txt_wifi_ssid.obj, LV_SCROLLBAR_MODE_OFF);   // 去除滚动条
-    lv_textarea_set_one_line(setting_page.txt_wifi_ssid.obj, true);                     // 设置为单行模式
-    lv_obj_add_event_cb(setting_page.txt_wifi_ssid.obj, textarea_event_cb, LV_EVENT_CLICKED, NULL);
+    // 允许纵向滚动，方便小屏展示所有设置项
+    lv_obj_set_scroll_dir(setting_page.container, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(setting_page.container, LV_SCROLLBAR_MODE_AUTO);
 
-    // WiFi Password 文本框  
-    setting_page.txt_wifi_passwd.obj = lv_textarea_create(setting_page.container);
-    lv_textarea_set_placeholder_text(setting_page.txt_wifi_passwd.obj, "WiFi Password");
-    lv_obj_set_size(setting_page.txt_wifi_passwd.obj, 150, 15);
-    lv_obj_align(setting_page.txt_wifi_passwd.obj, LV_ALIGN_TOP_RIGHT, 0, 0);
-    lv_obj_set_pos(setting_page.txt_wifi_passwd.obj, setting_page.txt_wifi_passwd.coord.x, setting_page.txt_wifi_passwd.coord.y);
-    lv_obj_set_style_radius(setting_page.txt_wifi_passwd.obj, 0, 0);                      // 去除圆角
-    lv_obj_set_scrollbar_mode(setting_page.txt_wifi_passwd.obj, LV_SCROLLBAR_MODE_OFF);   // 去除滚动条
-    lv_textarea_set_one_line(setting_page.txt_wifi_passwd.obj, true);                     // 设置为单行模式
-    lv_textarea_set_password_mode(setting_page.txt_wifi_passwd.obj, true);                // 设置为密码模式（可选）
-    lv_obj_add_event_cb(setting_page.txt_wifi_passwd.obj, textarea_event_cb, LV_EVENT_CLICKED, NULL);
+    const lv_coord_t W     = lv_disp_get_hor_res(NULL);
+    const lv_coord_t pad   = 4;
+    const lv_coord_t lbl_w = 55;   // 标签列宽
+    const lv_coord_t ctrl_w = W - lbl_w - pad * 3; // 控件列宽
+    const lv_coord_t row_h = 28;   // 行高
+    const lv_font_t *font  = &lv_font_montserrat_14;
+    lv_coord_t y = pad;
 
-    // 确认按钮
+    // ---- Row 1: 屏幕亮度 (标签 + 滑条) ----
+    setting_page.lb_brightness.obj = lv_label_create(setting_page.container);
+    lv_label_set_text(setting_page.lb_brightness.obj, "Bright");
+    lv_obj_set_style_text_font(setting_page.lb_brightness.obj, font, 0);
+    lv_obj_set_style_text_color(setting_page.lb_brightness.obj, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_pos(setting_page.lb_brightness.obj, pad, y + 9);
+
+    setting_page.bar_brightness.obj = lv_slider_create(setting_page.container);
+    lv_obj_set_size(setting_page.bar_brightness.obj, W - lbl_w - pad * 4, 14);
+    lv_obj_set_pos(setting_page.bar_brightness.obj, lbl_w + pad * 2, y + 7);
+    lv_slider_set_range(setting_page.bar_brightness.obj, 1, 100);
+    lv_slider_set_value(setting_page.bar_brightness.obj, board->info.spec.preference.screen.brightness, LV_ANIM_OFF);
+    lv_obj_add_event_cb(setting_page.bar_brightness.obj, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    y += row_h + pad;
+
+    // ---- Row 2: Vcore + Freq 同行，各占一半 ----
+    // 每半列布局：短标签(lbl_s) + 下拉框，左右各占 W/2
+    const lv_coord_t half   = W / 2;
+    const lv_coord_t lbl_s  = 38;  // 短标签宽，足够显示"Vcore"/"Freq"
+    const lv_coord_t drop_w = half - lbl_s - pad * 2 - pad; // 右侧额外留一个pad边距
+
+    lv_obj_t *lb_vcore = lv_label_create(setting_page.container);
+    lv_label_set_text(lb_vcore, "Vcore");
+    lv_obj_set_style_text_font(lb_vcore, font, 0);
+    lv_obj_set_style_text_color(lb_vcore, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_pos(lb_vcore, pad, y + 6);
+
+    setting_page.list_asic_vcore.obj = lv_dropdown_create(setting_page.container);
+    lv_obj_set_size(setting_page.list_asic_vcore.obj, drop_w, row_h);
+    lv_obj_set_pos(setting_page.list_asic_vcore.obj, lbl_s + pad * 2, y);
+    lv_obj_set_style_text_font(setting_page.list_asic_vcore.obj, &lv_font_montserrat_16, 0);
+    {
+      String opts = "";
+      uint16_t sel_idx = 0, idx = 0;
+      uint16_t cur = board->info.spec.asic.req_vcore;
+      for(uint16_t v = board->info.spec.asic.min_vcore; v <= board->info.spec.asic.max_vcore; v += 25) {
+        if(opts.length() > 0) opts += "\n";
+        opts += String(v) + "mV";
+        if(v <= cur) sel_idx = idx;
+        idx++;
+      }
+      lv_dropdown_set_options(setting_page.list_asic_vcore.obj, opts.c_str());
+      lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, sel_idx);
+    }
+    lv_obj_add_event_cb(setting_page.list_asic_vcore.obj, dropdown_open_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    // 初始化就限高，防止列表默认满高无滚动
+    {
+      lv_obj_t *list = lv_dropdown_get_list(setting_page.list_asic_vcore.obj);
+      if(list) { lv_obj_set_height(list, 100); lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE); lv_obj_set_style_text_font(list, &lv_font_montserrat_16, 0); }
+    }
+
+    lv_obj_t *lb_freq = lv_label_create(setting_page.container);
+    lv_label_set_text(lb_freq, "Freq");
+    lv_obj_set_style_text_font(lb_freq, font, 0);
+    lv_obj_set_style_text_color(lb_freq, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_pos(lb_freq, half + pad, y + 6);
+
+    setting_page.list_asic_freq.obj = lv_dropdown_create(setting_page.container);
+    lv_obj_set_size(setting_page.list_asic_freq.obj, drop_w, row_h);
+    lv_obj_set_pos(setting_page.list_asic_freq.obj, half + lbl_s + pad * 2, y);
+    lv_obj_set_style_text_font(setting_page.list_asic_freq.obj, &lv_font_montserrat_16, 0);
+    {
+      String opts = "";
+      uint16_t sel_idx = 0, idx = 0;
+      uint16_t cur = board->info.spec.asic.req_frq;
+      for(uint16_t f = 400; f <= 650; f += 25) {
+        if(opts.length() > 0) opts += "\n";
+        opts += String(f) + "MHz";
+        if(f <= cur) sel_idx = idx;
+        idx++;
+      }
+      lv_dropdown_set_options(setting_page.list_asic_freq.obj, opts.c_str());
+      lv_dropdown_set_selected(setting_page.list_asic_freq.obj, sel_idx);
+    }
+    lv_obj_add_event_cb(setting_page.list_asic_freq.obj, dropdown_open_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    {
+      lv_obj_t *list = lv_dropdown_get_list(setting_page.list_asic_freq.obj);
+      if(list) { lv_obj_set_height(list, 100); lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE); lv_obj_set_style_text_font(list, &lv_font_montserrat_16, 0); }
+    }
+    y += row_h + pad;
+
+    // ---- Row 3: LED On checkbox + Screen Flip checkbox (同行) ----
+    setting_page.checkbox_led_on.obj = lv_checkbox_create(setting_page.container);
+    lv_checkbox_set_text(setting_page.checkbox_led_on.obj, "LED On");
+    lv_obj_set_style_text_font(setting_page.checkbox_led_on.obj, font, 0);
+    lv_obj_set_style_text_color(setting_page.checkbox_led_on.obj, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_pos(setting_page.checkbox_led_on.obj, pad, y + 4);
+    if(board->info.spec.preference.led.enable) {
+      lv_obj_add_state(setting_page.checkbox_led_on.obj, LV_STATE_CHECKED);
+    }
+    lv_obj_add_event_cb(setting_page.checkbox_led_on.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    setting_page.checkbox_fan_auto.obj = lv_checkbox_create(setting_page.container);
+    lv_checkbox_set_text(setting_page.checkbox_fan_auto.obj, "Scrn Flip");
+    lv_obj_set_style_text_font(setting_page.checkbox_fan_auto.obj, font, 0);
+    lv_obj_set_style_text_color(setting_page.checkbox_fan_auto.obj, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_pos(setting_page.checkbox_fan_auto.obj, W / 2, y + 4);
+    if(board->info.spec.preference.screen.flip) {
+      lv_obj_add_state(setting_page.checkbox_fan_auto.obj, LV_STATE_CHECKED);
+    }
+    lv_obj_add_event_cb(setting_page.checkbox_fan_auto.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    y += row_h + pad;
+
+    // ---- Row 4: Save | Restart 两个等宽按钮 ----
+    lv_coord_t btn_w = (W - pad * 3) / 2;
+    lv_coord_t btn_h = 28;
+
     setting_page.btn_save.obj = lv_btn_create(setting_page.container);
-    lv_obj_set_size(setting_page.btn_save.obj, 80, 40);             // 设置按钮大小
-    lv_obj_align(setting_page.btn_save.obj, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
-    lv_obj_set_pos(setting_page.btn_save.obj, setting_page.btn_save.coord.x, setting_page.btn_save.coord.y); // 设置按钮位置
-    lv_obj_t *btn_label = lv_label_create(setting_page.btn_save.obj);
-    lv_label_set_text(btn_label, "Save"); // 设置按钮显示的文字
-    lv_obj_set_style_text_font(btn_label, &lv_font_montserrat_20, 0); // 设置字体为更大的字体
-    lv_obj_center(btn_label);             // 将文字居中
+    lv_obj_set_size(setting_page.btn_save.obj, btn_w, btn_h);
+    lv_obj_set_pos(setting_page.btn_save.obj, pad, y);
+    {
+      lv_obj_t *lbl = lv_label_create(setting_page.btn_save.obj);
+      lv_label_set_text(lbl, "Save");
+      lv_obj_set_style_text_font(lbl, font, 0);
+      lv_obj_center(lbl);
+    }
     lv_obj_add_event_cb(setting_page.btn_save.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
 
-    // 触摸屏校准按钮
-    setting_page.btn_tp_calib.obj = lv_btn_create(setting_page.container);
-    lv_obj_set_size(setting_page.btn_tp_calib.obj, 90, 40);
-    lv_obj_align(setting_page.btn_tp_calib.obj, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-    lv_obj_set_pos(setting_page.btn_tp_calib.obj, setting_page.btn_tp_calib.coord.x, setting_page.btn_tp_calib.coord.y);
-    btn_label = lv_label_create(setting_page.btn_tp_calib.obj);
-    lv_label_set_text(btn_label, "TP Calib");
-    lv_obj_set_style_text_font(btn_label, &lv_font_montserrat_20, 0);
-    lv_obj_center(btn_label);
-    lv_obj_add_event_cb(setting_page.btn_tp_calib.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
+    setting_page.btn_restart.obj = lv_btn_create(setting_page.container);
+    lv_obj_set_size(setting_page.btn_restart.obj, btn_w, btn_h);
+    lv_obj_set_pos(setting_page.btn_restart.obj, pad * 2 + btn_w, y);
+    {
+      lv_obj_t *lbl = lv_label_create(setting_page.btn_restart.obj);
+      lv_label_set_text(lbl, "Restart");
+      lv_obj_set_style_text_font(lbl, font, 0);
+      lv_obj_center(lbl);
+    }
+    lv_obj_add_event_cb(setting_page.btn_restart.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
+    y += btn_h + pad;
 
-    // 输入键盘
+    // ---- 输入键盘（默认隐藏，悬浮于底部）----
     setting_page.kb_input.obj = lv_keyboard_create(setting_page.container);
-    lv_obj_set_size(setting_page.kb_input.obj, lv_disp_get_hor_res(NULL), 120);
+    lv_obj_set_size(setting_page.kb_input.obj, W, 120);
     lv_obj_align(setting_page.kb_input.obj, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_add_flag(setting_page.kb_input.obj, LV_OBJ_FLAG_HIDDEN); // 默认隐藏键盘
+    lv_obj_add_flag(setting_page.kb_input.obj, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_event_cb(setting_page.kb_input.obj, keyboard_event_cb, LV_EVENT_CANCEL, NULL);
     lv_obj_add_event_cb(setting_page.kb_input.obj, keyboard_event_cb, LV_EVENT_READY, NULL);
 
