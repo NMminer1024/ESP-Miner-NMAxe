@@ -1067,26 +1067,32 @@ static void pressed_event_cb(lv_event_t *e) {
     }else if (code == LV_EVENT_RELEASED) {
         lv_coord_t dx = pt.x - press_pt.x;
         lv_coord_t dy = pt.y - press_pt.y;
-        if (abs(dx) < SWIPE_THRESHOLD && abs(dy) < SWIPE_THRESHOLD) return;
 
-        uint8_t tp_evt;
-        if (abs(dx) >= abs(dy)) {
-            if (dx > 0) { tp_evt = TOUCH_SWIPE_RIGHT_EVT;  }
-            else         { tp_evt = TOUCH_SWIPE_LEFT_EVT;    }
-        } else {
-            if (dy > 0) { tp_evt = TOUCH_SWIPE_DOWN_EVT;   }
-            else         { tp_evt = TOUCH_SWIPE_UP_EVT;       }
+        // handle swipe gesture and page switch
+        g_board.status.touch.evt = guess_touch_gesture(dx, dy, SWIPE_THRESHOLD);
+        if(g_board.status.touch.evt != TOUCH_TAP_EVT) {
+          ui_switch_next_page_cb(g_board.status.touch.evt);
         }
-        ui_switch_next_page_cb(tp_evt);
     }
 }
 
 static void long_press_event_cb(lv_event_t *e) {
     lv_event_code_t code  = lv_event_get_code(e);
     if (code == LV_EVENT_LONG_PRESSED) {
-        LOG_W("[Touch] Long Press Detected");
+        g_board.status.touch.evt = TOUCH_LONGPRESS_EVT;
+        g_board.status.ui.page.countdown.timeout = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
     }else if(code == LV_EVENT_LONG_PRESSED_REPEAT) {
-        LOG_W("[Touch] Long Press Repeat Detected");
+      static uint32_t start = millis();
+      if(millis() - start > 1000) {
+        g_board.status.ui.page.countdown.timeout--;
+        start = millis();
+      }
+
+      if(g_board.status.ui.page.countdown.timeout <= 0) {
+        xSemaphoreGive(g_board.status.recover_factory_xsem);
+      } 
+
+      LOG_D("[Touch] Long Press Repeat Detected");
     }
 }
 
@@ -1923,12 +1929,12 @@ void ui_countdown_page_update(void* args){
   if(TOUCH_LONGPRESS_EVT ==  board->status.touch.evt){
     //create style one time
     if(!style_inited) {
-            lv_style_init(&style);
-            lv_style_set_bg_color(&style, lv_color_black());
-            lv_style_set_bg_opa(&style, LV_OPA_80); 
-            lv_style_set_border_width(&style, 0); 
-            lv_style_set_border_opa(&style, LV_OPA_TRANSP);
-            style_inited = true;
+      lv_style_init(&style);
+      lv_style_set_bg_color(&style, lv_color_black());
+      lv_style_set_bg_opa(&style, LV_OPA_80); 
+      lv_style_set_border_width(&style, 0); 
+      lv_style_set_border_opa(&style, LV_OPA_TRANSP);
+      style_inited = true;
     }
     if(overlay == NULL){
         //create overlay
