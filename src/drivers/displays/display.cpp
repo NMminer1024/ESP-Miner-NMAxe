@@ -160,6 +160,14 @@ struct{
   lv_obj_t      *container;
   lv_obj_t      *back_img_obj;
   lv_img_dsc_t  *back_img_dsc;
+
+  ui_element_t txt_wifi_ssid;
+  ui_element_t txt_wifi_passwd;
+  ui_element_t kb_input;
+  ui_element_t btn_save;
+  ui_element_t btn_tp_calib;
+  ui_element_t lb_ver;
+  ui_element_t lb_timeout;
 }setting_page;
 
 
@@ -392,6 +400,42 @@ void tft_init(void* args){
   else tftDriver->setRotation(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME ? 4 : 3); // NMQAxe++ use rotation 4, NMaxE use rotation 3
 }
 
+void touch_init(void* args){
+  board_sal_t *board = (board_sal_t*)args;
+  // Touch initialization logic goes here
+  // This may involve setting up the touch controller, calibrating it, and preparing it for use with LVGL
+  // The specific implementation will depend on the touch controller hardware and library you are using
+    while(board->touch == nullptr){
+        LOG_W("Waiting for touch instance ready...");
+        delay(1000);
+    }
+
+    if(!board->touch->begin(40)){
+        LOG_W("No touch controller detected, disabling touch support.");
+        return;
+    }
+    LOG_D("FT6206 touch controller initialized.");
+}
+
+static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) {
+    // static bool last_pressed = false;
+
+    if (g_board.touch->touched()) {
+        TS_Point raw_p = g_board.touch->getPoint();
+        bool flip = g_board.status.preference.screen.flip;
+        data->point.x = flip ? raw_p.y                 : SCREEN_WIDTH  - raw_p.y;
+        data->point.y = flip ? SCREEN_HEIGHT - raw_p.x : raw_p.x;
+        data->state = LV_INDEV_STATE_PRESSED;
+        // if (!last_pressed)
+        //     LOG_I("[Touch] Pressed: x=%d, y=%d", (int)data->point.x, (int)data->point.y);
+        // last_pressed = true;
+    } else {
+        data->state = LV_INDEV_STATE_RELEASED;
+        // last_pressed = false;
+    }
+}
+
+
 static void disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p ){
     uint32_t w = ( area->x2 - area->x1 + 1 );
     uint32_t h = ( area->y2 - area->y1 + 1 );
@@ -409,7 +453,7 @@ void ui_drv_register(void){
 
   static lv_disp_draw_buf_t lvgl_draw_buf;
   static lv_disp_drv_t      disp_drv;
-  
+  static lv_indev_drv_t     indev_drv; 
   // Allocate LVGL color buffer in PSRAM for memory optimization
   static lv_color_t *color_buf = NULL;
   static const size_t color_buf_size = SCREEN_WIDTH * SCREEN_HEIGHT;
@@ -447,6 +491,16 @@ void ui_drv_register(void){
   disp_drv.flush_cb = disp_flush;
   disp_drv.draw_buf = &lvgl_draw_buf;
   lv_disp_drv_register( &disp_drv );
+
+  // /* Register input device (touch) */
+  // lv_indev_drv_init(&indev_drv);
+  // indev_drv.type = LV_INDEV_TYPE_POINTER; 
+  // indev_drv.read_cb = touchpad_read;   
+  // indev_drv.scroll_limit = 40;        // scroll threshold in pixels, adjust based on your needs
+  // indev_drv.scroll_throw = 10;        // scroll throw speed, adjust for faster/slower scrolling
+  // indev_drv.long_press_time = 400;    // long press time in milliseconds
+  // indev_drv.long_press_repeat_time = 100; // long press repeat time in milliseconds
+  // lv_indev_t *indev = lv_indev_drv_register(&indev_drv);
 }
 
 void ui_page_element_init(void* args){
@@ -1003,6 +1057,47 @@ void ui_page_element_init(void* args){
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
   }
 }
+
+
+// Detect swipe by comparing press/release coordinates from LVGL indev events.
+// LV_OBJ_FLAG_EVENT_BUBBLE must be set on page containers so events bubble up to parent_docker.
+static void swipe_event_cb(lv_event_t *e) {
+    static lv_point_t press_pt = {0, 0};
+    const int16_t     SWIPE_THRESHOLD = 30;
+
+    lv_event_code_t code  = lv_event_get_code(e);
+    lv_indev_t     *indev = lv_event_get_indev(e);
+    if (indev == NULL) return;
+
+    lv_point_t pt;
+    lv_indev_get_point(indev, &pt);
+
+    if (code == LV_EVENT_PRESSED) {
+        press_pt = pt;
+        LOG_I("[Touch] Pressed: x=%d, y=%d", (int)pt.x, (int)pt.y);
+        return;
+    }
+
+    if (code == LV_EVENT_RELEASED) {
+        lv_coord_t dx = pt.x - press_pt.x;
+        lv_coord_t dy = pt.y - press_pt.y;
+        if (abs(dx) < SWIPE_THRESHOLD && abs(dy) < SWIPE_THRESHOLD) return;
+
+        uint8_t tp_evt;
+        const char *dir_str;
+        if (abs(dx) >= abs(dy)) {
+            if (dx > 0) { tp_evt = TOUCH_SWIPE_RIGHT_EVT; dir_str = "RIGHT"; }
+            else         { tp_evt = TOUCH_SWIPE_LEFT_EVT;  dir_str = "LEFT";  }
+        } else {
+            if (dy > 0) { tp_evt = TOUCH_SWIPE_DOWN_EVT;  dir_str = "DOWN";  }
+            else         { tp_evt = TOUCH_SWIPE_UP_EVT;    dir_str = "UP";    }
+        }
+        LOG_W("[Swipe] detected: %s (dx=%d, dy=%d)", dir_str, (int)dx, (int)dy);
+        ui_switch_next_page_cb(tp_evt);
+    }
+}
+
+
 
 void ui_layout_init(void* args){
 
@@ -2227,14 +2322,109 @@ void ui_market_page_update(void* args){
 
 }
 
+
+// 键盘事件回调函数
+void keyboard_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *keyboard = lv_event_get_target(e);
+    if (code == LV_EVENT_CANCEL || code == LV_EVENT_READY) { // 点击“关闭”, "确认"时
+        lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN); // 隐藏键盘
+    }
+}
+// 文本框事件回调函数
+void textarea_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *textarea   = lv_event_get_target(e);
+    if (code == LV_EVENT_CLICKED) { // 当文本框被点击时
+      lv_obj_clear_flag(setting_page.kb_input.obj, LV_OBJ_FLAG_HIDDEN); // 显示键盘
+      lv_keyboard_set_textarea(setting_page.kb_input.obj, textarea);   // 将键盘与当前文本框关联
+    }
+}
+// 按键框事件回调函数
+void button_event_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *btn        = lv_event_get_target(e);
+    //配置页面的 保存 按钮
+    if(setting_page.btn_save.obj == btn){
+      if (code == LV_EVENT_CLICKED) { 
+          // 获取 SSID 和密码框的字符串
+          const char *ssid     = lv_textarea_get_text(setting_page.txt_wifi_ssid.obj);
+          const char *password = lv_textarea_get_text(setting_page.txt_wifi_passwd.obj);
+          if(strlen(ssid) == 0){
+            LOG_E("SSID is empty, please input a valid SSID.");
+            return;
+          }
+          LOG_W("Save SSID: %s, Password: %s", ssid, password);
+      }
+    }
+    //配置页面的 触摸屏校准 按钮
+    else if(setting_page.btn_tp_calib.obj == btn){
+      if (code == LV_EVENT_CLICKED) { 
+          LOG_W("Touch screen calibration started.");
+      }
+    }
+}
+
 void ui_setting_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
-  if(!board){
-    LOG_E("board is null\r\n");
-    return;
-  }
 
-  
+  static bool inited = false;
+  if(!inited){
+    // WiFi SSID 文本框
+    setting_page.txt_wifi_ssid.obj = lv_textarea_create(setting_page.container);
+    lv_textarea_set_placeholder_text(setting_page.txt_wifi_ssid.obj, "WiFi SSID");
+    lv_obj_set_size(setting_page.txt_wifi_ssid.obj, 150, 15);
+    lv_obj_align(setting_page.txt_wifi_ssid.obj, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_set_pos(setting_page.txt_wifi_ssid.obj, setting_page.txt_wifi_ssid.coord.x, setting_page.txt_wifi_ssid.coord.y);
+    lv_obj_set_style_radius(setting_page.txt_wifi_ssid.obj, 0, 0);                      // 去除圆角
+    lv_obj_set_scrollbar_mode(setting_page.txt_wifi_ssid.obj, LV_SCROLLBAR_MODE_OFF);   // 去除滚动条
+    lv_textarea_set_one_line(setting_page.txt_wifi_ssid.obj, true);                     // 设置为单行模式
+    lv_obj_add_event_cb(setting_page.txt_wifi_ssid.obj, textarea_event_cb, LV_EVENT_CLICKED, NULL);
+
+    // WiFi Password 文本框  
+    setting_page.txt_wifi_passwd.obj = lv_textarea_create(setting_page.container);
+    lv_textarea_set_placeholder_text(setting_page.txt_wifi_passwd.obj, "WiFi Password");
+    lv_obj_set_size(setting_page.txt_wifi_passwd.obj, 150, 15);
+    lv_obj_align(setting_page.txt_wifi_passwd.obj, LV_ALIGN_TOP_RIGHT, 0, 0);
+    lv_obj_set_pos(setting_page.txt_wifi_passwd.obj, setting_page.txt_wifi_passwd.coord.x, setting_page.txt_wifi_passwd.coord.y);
+    lv_obj_set_style_radius(setting_page.txt_wifi_passwd.obj, 0, 0);                      // 去除圆角
+    lv_obj_set_scrollbar_mode(setting_page.txt_wifi_passwd.obj, LV_SCROLLBAR_MODE_OFF);   // 去除滚动条
+    lv_textarea_set_one_line(setting_page.txt_wifi_passwd.obj, true);                     // 设置为单行模式
+    lv_textarea_set_password_mode(setting_page.txt_wifi_passwd.obj, true);                // 设置为密码模式（可选）
+    lv_obj_add_event_cb(setting_page.txt_wifi_passwd.obj, textarea_event_cb, LV_EVENT_CLICKED, NULL);
+
+    // 确认按钮
+    setting_page.btn_save.obj = lv_btn_create(setting_page.container);
+    lv_obj_set_size(setting_page.btn_save.obj, 80, 40);             // 设置按钮大小
+    lv_obj_align(setting_page.btn_save.obj, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+    lv_obj_set_pos(setting_page.btn_save.obj, setting_page.btn_save.coord.x, setting_page.btn_save.coord.y); // 设置按钮位置
+    lv_obj_t *btn_label = lv_label_create(setting_page.btn_save.obj);
+    lv_label_set_text(btn_label, "Save"); // 设置按钮显示的文字
+    lv_obj_set_style_text_font(btn_label, &lv_font_montserrat_20, 0); // 设置字体为更大的字体
+    lv_obj_center(btn_label);             // 将文字居中
+    lv_obj_add_event_cb(setting_page.btn_save.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
+
+    // 触摸屏校准按钮
+    setting_page.btn_tp_calib.obj = lv_btn_create(setting_page.container);
+    lv_obj_set_size(setting_page.btn_tp_calib.obj, 90, 40);
+    lv_obj_align(setting_page.btn_tp_calib.obj, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    lv_obj_set_pos(setting_page.btn_tp_calib.obj, setting_page.btn_tp_calib.coord.x, setting_page.btn_tp_calib.coord.y);
+    btn_label = lv_label_create(setting_page.btn_tp_calib.obj);
+    lv_label_set_text(btn_label, "TP Calib");
+    lv_obj_set_style_text_font(btn_label, &lv_font_montserrat_20, 0);
+    lv_obj_center(btn_label);
+    lv_obj_add_event_cb(setting_page.btn_tp_calib.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
+
+    // 输入键盘
+    setting_page.kb_input.obj = lv_keyboard_create(setting_page.container);
+    lv_obj_set_size(setting_page.kb_input.obj, lv_disp_get_hor_res(NULL), 120);
+    lv_obj_align(setting_page.kb_input.obj, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_add_flag(setting_page.kb_input.obj, LV_OBJ_FLAG_HIDDEN); // 默认隐藏键盘
+    lv_obj_add_event_cb(setting_page.kb_input.obj, keyboard_event_cb, LV_EVENT_CANCEL, NULL);
+    lv_obj_add_event_cb(setting_page.kb_input.obj, keyboard_event_cb, LV_EVENT_READY, NULL);
+
+    inited = true;
+  }
 }
 
 void ui_bounce_effect(lv_obj_t *current_page, uint8_t tp_evt) {
