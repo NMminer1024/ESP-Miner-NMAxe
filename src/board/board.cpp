@@ -325,9 +325,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 {"515 MHz",           515},
                 {"550 MHz",           550},
                 {"575 MHz",           575},
-                {"600 MHz (default)", 600},
+                {"600 MHz",           600},
                 {"625 MHz",           625},
-                {"650 MHz",           650},
+                {"650 MHz (default)", 650},
                 {"675 MHz",           675},
                 {"700 MHz",           700},
             };
