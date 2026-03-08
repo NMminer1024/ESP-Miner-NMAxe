@@ -319,16 +319,22 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.dashboard_page.performance.vcore_req      = {0.900f, 1.500f};
             config.ui.dashboard_page.performance.vcore_measure  = {0.900f, 1.500f};
             config.ui.setting_page.oc = {
-                {"400 MHz",           400},
                 {"440 MHz",           440},
+                {"465 MHz",           465},
                 {"490 MHz",           490},
+                {"515 MHz",           515},
                 {"550 MHz",           550},
                 {"575 MHz",           575},
                 {"600 MHz (default)", 600},
+                {"625 MHz",           625},
                 {"650 MHz",           650},
+                {"675 MHz",           675},
                 {"700 MHz",           700},
             };
             config.ui.setting_page.vc = {
+                {"1000 mV",           1000},
+                {"1025 mV",           1025},
+                {"1050 mV",           1050},
                 {"1100 mV",           1100},
                 {"1125 mV",           1125},
                 {"1150 mV",           1150},

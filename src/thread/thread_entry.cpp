@@ -2166,9 +2166,7 @@ void display_thread_entry(void *args){
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   
   /***************************************scroll to last page******************************************/
-  ui_goto_page(UI_PAGE_MINER, LV_ANIM_ON);
-//   ui_goto_page(board->status.ui.page.last, LV_ANIM_ON);
-
+  ui_goto_page(board->status.ui.page.last, LV_ANIM_ON);
   //exit this thread
   vTaskDelete(NULL);
 }
