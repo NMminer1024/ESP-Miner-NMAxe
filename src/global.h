@@ -72,6 +72,7 @@ enum{
     INIT_EVENT_SCREEN_READY          = (1 << 7),   // screen initialized and ready
     INIT_EVENT_LVGL_READY            = (1 << 8),   // lvgl display driver ready
     INIT_EVENT_UI_READY              = (1 << 9),   // UI initialized and ready
+    INIT_EVENT_MINER_READY           = (1 << 10),  // miner initialized and ready
 };
 
 // system event flags

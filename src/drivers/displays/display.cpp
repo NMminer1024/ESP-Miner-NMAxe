@@ -1848,13 +1848,28 @@ void ui_loading_page_update(void* args) {
 
   // loading progress update
   if((loading_page.bar_progress.obj != NULL) && (loading_page.lb_progress.obj != NULL)){
+    // Smooth lerp toward target percent (UI thread runs at ~50ms, lerp factor 0.4 ≈ 0.1~0.3s transition)
+    static float display_percent = 0.0f;
+    float target = board->status.ui.page.loading.percent;
+    float delta  = target - display_percent;
+    if (fabsf(delta) > 0.001f) {
+      display_percent += delta * 0.4f;
+    } else {
+      display_percent = target;
+    }
+
     int32_t max_value = lv_bar_get_max_value(loading_page.bar_progress.obj); // max value of the bar
     lv_coord_t bar_x = lv_obj_get_x(loading_page.bar_progress.obj);
     lv_coord_t bar_w = lv_obj_get_width(loading_page.bar_progress.obj);
-    lv_coord_t label_x = bar_x + (bar_w * board->status.ui.page.loading.percent) - lv_obj_get_width(loading_page.lb_progress.obj) / 2;
+    lv_coord_t label_x = bar_x + (bar_w * display_percent) - lv_obj_get_width(loading_page.lb_progress.obj) / 2;
     lv_obj_set_pos(loading_page.lb_progress.obj, label_x, -10);
-    lv_label_set_text(loading_page.lb_progress.obj, (String(100 * board->status.ui.page.loading.percent, 0) + "%").c_str());
-    lv_bar_set_value(loading_page.bar_progress.obj, max_value * board->status.ui.page.loading.percent, LV_ANIM_ON);
+    lv_label_set_text(loading_page.lb_progress.obj, (String(100 * display_percent, 0) + "%").c_str());
+    lv_bar_set_value(loading_page.bar_progress.obj, (int32_t)(max_value * display_percent), LV_ANIM_OFF);
+
+    if(display_percent >= 1.0f){
+      delay(5); // keep 100% for a while to let user see the completed progress
+      xEventGroupSetBits(board->status.init_evt, INIT_EVENT_MINER_READY);   
+    }
   }
 
   // loading details update
@@ -2280,7 +2295,7 @@ void ui_dashboard_page_update(void* args){
     }
 
     static float step = 0.0f;
-    step += 0.05f;
+    step += 0.04f;
     lv_coord_t last_x = sin(step) * (SCREEN_WIDTH / 2 - dashboard_page.miner_img_dsc->header.w / 2);
     // miner pos update
     if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.img_miner.obj != NULL)) {

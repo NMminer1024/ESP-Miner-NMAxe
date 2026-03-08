@@ -1895,71 +1895,6 @@ void stratum_thread_entry(void *args){
     }
 }
 
-// void touch_thread_entry(void *args){
-//     board_sal_t *board = (board_sal_t*)args;
-    
-//     while(board->touch == nullptr){
-//         LOG_W("Waiting for touch instance ready...");
-//         delay(1000);
-//     }
-
-//     if(!board->touch->begin(40)){
-//         LOG_W("No touch controller detected, disabling touch support.");
-//         delay(100);
-//         if(board->touch != nullptr) {
-//             delete board->touch;
-//             board->touch = nullptr;
-//         }
-//         LOG_I("Touch thread exiting...");
-//         vTaskDelete(NULL);
-//         return;
-//     }
-//     LOG_D("FT6206 touch controller initialized.");
-//     while(true){
-//         delay(150);
-
-//         // only respond to touch if mining is active
-//         if(board->stratum->get_job_counter() == 0) continue;
-
-//         // reset touch event
-//         board->status.touch.evt = TOUCH_NONE_EVT; 
-
-//         if(board->touch->touched()){
-//             TS_Point start_point = board->touch->getPoint();
-//             TS_Point last_point = start_point;
-
-//             uint32_t long_press_start = millis();
-//             while (board->touch->touched()){
-//                 last_point = board->touch->getPoint();
-//                 delay(10);
-//                 if(millis() - long_press_start > 1000){
-//                     if(board->status.ui.page.countdown.timeout <= 0){
-//                         LOG_W("Long press detected, recovering factory config...");
-//                         xSemaphoreGive(g_board.status.recover_factory_xsem);
-//                     }
-//                     board->status.touch.evt = TOUCH_LONGPRESS_EVT;
-//                     board->status.ui.page.countdown.timeout = (board->status.ui.page.countdown.timeout > 0) ? (board->status.ui.page.countdown.timeout - 1) : 0;
-//                     long_press_start = millis();
-//                 }
-//             }
-
-//             if(board->status.touch.evt == TOUCH_LONGPRESS_EVT) continue;
-            
-//             // calculate movement deltas
-//             int dx = last_point.x - start_point.x;
-//             int dy = last_point.y - start_point.y;
-
-//             // Detect gesture
-//             board->status.touch.evt = guess_touch_gesture(dx, dy, board->status.preference.screen.flip);
-//             ui_switch_next_page_cb(board->status.touch.evt);
-//         }
-//         else{
-//             // reset countdown if no touch, to avoid accidental long press recovery
-//             board->status.ui.page.countdown.timeout = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
-//         }
-//     }
-// }
-
 void lvgl_tick_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
   uint16_t tick_interval = 25;
@@ -1975,13 +1910,13 @@ void lvgl_tick_thread_entry(void *args){
   // wait ui thread ready
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_UI_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   while(true){
+    delay(tick_interval);
     if (xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, tick_interval) == pdTRUE){
       lv_tick_inc(millis() - last_tick);
       lv_timer_handler(); /* let the GUI do its work */
       xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
       last_tick = millis();
     }
-    delay(tick_interval);
   }
 }
 
@@ -2225,8 +2160,8 @@ void display_thread_entry(void *args){
   }
   board->status.ui.page.loading.details.color = 0x00FF00;
   board->status.ui.page.loading.details.msg   = "Miner ready!";
-  delay(500);
-
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  
   /***************************************scroll to last page******************************************/
   board->status.ui.page.current = board->status.ui.page.last; // restore last page
   lv_obj_scroll_to_view(board->status.ui.page.list[board->status.ui.page.current], LV_ANIM_ON); 
