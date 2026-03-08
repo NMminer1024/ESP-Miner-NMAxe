@@ -487,6 +487,10 @@ static void ui_bounce_effect(lv_obj_t *current_page, uint8_t tp_evt) {
 }
 
 static void tileview_changed_cb(lv_event_t *e) {
+    // Block tileview transitions until miner is ready to prevent UI glitch.
+    // Must mask with INIT_EVENT_MINER_READY: return value is the full event group bits, not a bool.
+    if (!(xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, 0) & INIT_EVENT_MINER_READY)) return;
+    
     if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
     lv_obj_t *tv = (lv_obj_t *)lv_event_get_target(e);
     // If tileview is still animating/scrolling, this is the start-of-scroll event; ignore it.
@@ -1339,6 +1343,25 @@ void ui_layout_init(void* args){
     board->status.ui.page.list[p.page_idx] = *p.container;
   }
 
+  // // Loading page: block swipe/scroll at init time via a full-screen absorbing overlay,
+  // // but still forward long-press events to long_press_event_cb.
+  // //   - LV_OBJ_FLAG_CLICKABLE is ON by default  → absorbs all touch/press/scroll gestures
+  // //   - LV_OBJ_FLAG_EVENT_BUBBLE is OFF (default) → swipe/press never reach parent_wall
+  // //   - LV_OBJ_FLAG_SCROLLABLE cleared          → no rubber-band, no scroll propagation
+  // //   - long_press_event_cb registered directly  → long-press still works on loading page
+  // lv_obj_t *loading_input_block = lv_obj_create(loading_page.container);
+  // lv_obj_set_size(loading_input_block, SCREEN_WIDTH, SCREEN_HEIGHT);
+  // lv_obj_set_pos(loading_input_block, 0, 0);
+  // lv_obj_set_style_bg_opa(loading_input_block, LV_OPA_TRANSP, LV_PART_MAIN);
+  // lv_obj_set_style_border_width(loading_input_block, 0, LV_PART_MAIN);
+  // lv_obj_set_style_pad_all(loading_input_block, 0, LV_PART_MAIN);
+  // lv_obj_clear_flag(loading_input_block, LV_OBJ_FLAG_SCROLLABLE);
+  // lv_obj_add_event_cb(loading_input_block, long_press_event_cb, LV_EVENT_LONG_PRESSED,        NULL);
+  // lv_obj_add_event_cb(loading_input_block, long_press_event_cb, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
+  // lv_obj_add_event_cb(loading_input_block, pressed_event_cb, LV_EVENT_RELEASED, NULL);
+
+
+  
   // Some pages have an extra logo image; set them individually after all containers are created
   config_page.img_logo.obj = lv_img_create(config_page.container); //worker logo
   lv_img_set_src(config_page.img_logo.obj, config_page.logo_img_dsc); 
