@@ -8,6 +8,7 @@
 #include "http_server.h"
 #include "nvs/nvs_config.h"
 #include "utils/helper.h"
+#include "board/board.h"
 
 AsyncWebServer  webServer(80);
 // AsyncWebSocket runs on the same port 80 at path /ws, no separate port needed.
@@ -234,92 +235,29 @@ void get_gauge_limits(AsyncWebServerRequest* request){
     request->send(200, "application/json", json_str);
 }
 void get_oc_vc_list(AsyncWebServerRequest* request){
-    const uint16_t json_size_max  =  1024;
+    const uint16_t json_size_max  =  1024*2;
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    
-    // Get current board name to determine configuration
-    String board_name = g_board.info.spec.name;
-    
-    // Overclock frequency list
+
+    const std::vector<work_option_t>& oc_opts = g_board.info.spec.ui.setting_page.oc;
+    const std::vector<work_option_t>& vc_opts = g_board.info.spec.ui.setting_page.vc;
+
     JsonObject overclock = root.createNestedObject("overclock");
     JsonArray oc_options = overclock.createNestedArray("options");
-    
-    // Vcore voltage list
+    for (const auto& o : oc_opts) {
+        JsonObject item = oc_options.createNestedObject();
+        item["name"]  = o.name;
+        item["value"] = o.value;
+    }
+
     JsonObject vcore = root.createNestedObject("vcore");
     JsonArray vc_options = vcore.createNestedArray("options");
-    
-    // Helper macros for clean data definition
-    #define ADD_OC(name, value) {JsonObject o = oc_options.createNestedObject(); o["name"] = name; o["value"] = value;}
-    #define ADD_VC(name, value) {JsonObject o = vc_options.createNestedObject(); o["name"] = name; o["value"] = value;}
-    
-    if (board_name == BOARD_NMAXE_NAME) {
-        // NMAxe (BM1366) Configuration
-        ADD_OC("400", 400);
-        ADD_OC("425", 425);
-        ADD_OC("475", 475);
-        ADD_OC("485", 485);
-        ADD_OC("500", 500);
-        ADD_OC("550", 550);
-        ADD_OC("575 (default)", 575);
-        
-        ADD_VC("1100", 1100);
-        ADD_VC("1150", 1150);
-        ADD_VC("1200", 1200);
-        ADD_VC("1250 (default)", 1250);
-        ADD_VC("1300", 1300);
-        
-    } else if (board_name == BOARD_NMAXE_GAMMA_NAME) {
-        // NMAxeGamma (BM1370) Configuration
-        ADD_OC("400", 400);
-        ADD_OC("440", 440);
-        ADD_OC("490", 490);
-        ADD_OC("550", 550);
-        ADD_OC("575", 575);
-        ADD_OC("600 (default)", 600);
-        ADD_OC("650", 650);
-        ADD_OC("700", 700);
-        
-        ADD_VC("1000", 1000);
-        ADD_VC("1025", 1025);
-        ADD_VC("1050", 1050);
-        ADD_VC("1100", 1100);
-        ADD_VC("1125 (default)", 1125);
-        ADD_VC("1150", 1150);
-        ADD_VC("1175", 1175);
-        ADD_VC("1200", 1200);
-        ADD_VC("1225", 1225);
-        ADD_VC("1250", 1250);
-    } else if (board_name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
-        // NMQAxe++ (BM1370) Configuration
-        ADD_OC("400", 400);
-        ADD_OC("440", 440);
-        ADD_OC("490", 490);
-        ADD_OC("550", 550);
-        ADD_OC("575", 575);
-        ADD_OC("600 (default)", 600);
-        ADD_OC("650", 650);
-        ADD_OC("700", 700);
-        
-        ADD_VC("1000", 1000);
-        ADD_VC("1025", 1025);
-        ADD_VC("1050", 1050);
-        ADD_VC("1100", 1100);
-        ADD_VC("1125", 1125);
-        ADD_VC("1150", 1150);
-        ADD_VC("1175", 1175);
-        ADD_VC("1200", 1200);
-        ADD_VC("1225 (default)", 1225);
-        ADD_VC("1250", 1250);
-    } else {
-        // Default/Unknown board configuration
-        ADD_OC("485", 485);
-        ADD_VC("1200", 1200);
+    for (const auto& v : vc_opts) {
+        JsonObject item = vc_options.createNestedObject();
+        item["name"]  = v.name;
+        item["value"] = v.value;
     }
-    
-    #undef ADD_OC
-    #undef ADD_VC
 
     String json_str;
     serializeJsonPretty(root, json_str);

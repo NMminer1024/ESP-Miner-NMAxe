@@ -5,6 +5,7 @@
 #include "utils/helper.h" 
 #include "image/image.h"
 #include "nvs/nvs_config.h"
+#include "board/board.h"
 
 // Forward-declare qrcodegen C API (compiled as part of lvgl, no header modify needed)
 extern "C" {
@@ -381,16 +382,6 @@ static void checkbox_event_cb(lv_event_t *e) {
     }
 }
 
-static void dropdown_open_cb(lv_event_t *e) {
-    // 每次展开时重新限制列表高度，保证滚动生效
-    lv_obj_t *list = lv_dropdown_get_list(lv_event_get_target(e));
-    if(list) {
-        lv_obj_set_height(list, 100);
-        lv_obj_set_scroll_dir(list, LV_DIR_VER);
-        lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE);
-    }
-}
-
 static void msgbox_restart_cb(lv_event_t *e) {
     lv_obj_t *mbox = lv_event_get_current_target(e);
     uint16_t  btn  = lv_msgbox_get_active_btn(mbox);
@@ -439,16 +430,32 @@ static void button_event_cb(lv_event_t *e) {
     
     if(setting_page.btn_save.obj == btn){
       if (code == LV_EVENT_CLICKED) { 
-          // 亮度
+          // brightness
           uint8_t brightness = (uint8_t)lv_slider_get_value(setting_page.bar_brightness.obj);
           nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, brightness);
-          // LED 指示灯
+          // LED enable
           bool led_on = lv_obj_has_state(setting_page.checkbox_led_on.obj, LV_STATE_CHECKED);
           nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, led_on ? 1 : 0);
-          // 屏幕翻转
+          // screen flip
           bool flip = lv_obj_has_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
           nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
-
+          // overclock
+          if (setting_page.list_asic_freq.obj) {
+              uint16_t idx = lv_dropdown_get_selected(setting_page.list_asic_freq.obj);
+              uint16_t frq = g_board.info.spec.ui.setting_page.oc[idx].value;
+              nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
+          } else {
+              nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, g_board.info.spec.asic.default_frq);
+          }
+          // vcore
+          if (setting_page.list_asic_vcore.obj) {
+              uint16_t idx   = lv_dropdown_get_selected(setting_page.list_asic_vcore.obj);
+              uint16_t vcore = g_board.info.spec.ui.setting_page.vc[idx].value;
+              nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
+          } else {
+              nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, g_board.info.spec.asic.default_vcore);
+          }
+          
           show_toast("Settings saved!");
       }
     }
@@ -2534,23 +2541,19 @@ void ui_setting_page_update(void* args){
     lv_obj_set_pos(setting_page.list_asic_vcore.obj, lbl_s + pad * 2, y);
     lv_obj_set_style_text_font(setting_page.list_asic_vcore.obj, &lv_font_montserrat_16, 0);
     {
+      const std::vector<work_option_t>& vc_opts = board->info.spec.ui.setting_page.vc;
       String opts = "";
       uint16_t sel_idx = 0, idx = 0;
-      uint16_t cur = board->info.spec.asic.req_vcore;
-      for(uint16_t v = board->info.spec.asic.min_vcore; v <= board->info.spec.asic.max_vcore; v += 25) {
-        if(opts.length() > 0) opts += "\n";
-        opts += String(v) + "mV";
-        if(v <= cur) sel_idx = idx;
+      uint16_t cur =   board->info.spec.asic.req_vcore;
+      bool found = false;
+      for (const auto& item : vc_opts) {
+        if (opts.length() > 0) opts += "\n";
+        opts += item.name;
+        if (!found && item.value == cur) { sel_idx = idx; found = true; }
         idx++;
       }
       lv_dropdown_set_options(setting_page.list_asic_vcore.obj, opts.c_str());
       lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, sel_idx);
-    }
-    lv_obj_add_event_cb(setting_page.list_asic_vcore.obj, dropdown_open_cb, LV_EVENT_VALUE_CHANGED, NULL);
-    // 初始化就限高，防止列表默认满高无滚动
-    {
-      lv_obj_t *list = lv_dropdown_get_list(setting_page.list_asic_vcore.obj);
-      if(list) { lv_obj_set_height(list, 100); lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE); lv_obj_set_style_text_font(list, &lv_font_montserrat_16, 0); }
     }
 
     lv_obj_t *lb_freq = lv_label_create(setting_page.container);
@@ -2564,22 +2567,19 @@ void ui_setting_page_update(void* args){
     lv_obj_set_pos(setting_page.list_asic_freq.obj, half + lbl_s + pad * 2, y);
     lv_obj_set_style_text_font(setting_page.list_asic_freq.obj, &lv_font_montserrat_16, 0);
     {
+      const std::vector<work_option_t>& oc_opts = board->info.spec.ui.setting_page.oc;
       String opts = "";
       uint16_t sel_idx = 0, idx = 0;
-      uint16_t cur = board->info.spec.asic.req_frq;
-      for(uint16_t f = 400; f <= 650; f += 25) {
-        if(opts.length() > 0) opts += "\n";
-        opts += String(f) + "MHz";
-        if(f <= cur) sel_idx = idx;
+      uint16_t cur =   board->info.spec.asic.req_frq;
+      bool found = false;
+      for (const auto& item : oc_opts) {
+        if (opts.length() > 0) opts += "\n";
+        opts += item.name;
+        if (!found && item.value == cur) { sel_idx = idx; found = true; }
         idx++;
       }
       lv_dropdown_set_options(setting_page.list_asic_freq.obj, opts.c_str());
       lv_dropdown_set_selected(setting_page.list_asic_freq.obj, sel_idx);
-    }
-    lv_obj_add_event_cb(setting_page.list_asic_freq.obj, dropdown_open_cb, LV_EVENT_VALUE_CHANGED, NULL);
-    {
-      lv_obj_t *list = lv_dropdown_get_list(setting_page.list_asic_freq.obj);
-      if(list) { lv_obj_set_height(list, 100); lv_obj_add_flag(list, LV_OBJ_FLAG_SCROLLABLE); lv_obj_set_style_text_font(list, &lv_font_montserrat_16, 0); }
     }
     y += row_h + pad;
 

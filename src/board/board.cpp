@@ -54,27 +54,33 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.max_x_bars= 20;
             config.ui.hashrate_dist_page.count     = 0;
 
-            config.ui.dashboard_page.power.vbus.min        = 0.0f;
-            config.ui.dashboard_page.power.vbus.max        = 15.0f;
-            config.ui.dashboard_page.power.ibus.min        = 0.0f;
-            config.ui.dashboard_page.power.ibus.max        = 4.0f;
-            config.ui.dashboard_page.power.power.min       = 0.0f;
-            config.ui.dashboard_page.power.power.max       = 30.0f;
-            config.ui.dashboard_page.heat.mcu.min          = 0.0f;
-            config.ui.dashboard_page.heat.mcu.max          = 75.0f;
-            config.ui.dashboard_page.heat.asic.min         = 0.0f;
-            config.ui.dashboard_page.heat.asic.max         = 80.0f;
-            config.ui.dashboard_page.heat.vcore.min        = 0.0f;
-            config.ui.dashboard_page.heat.vcore.max        = 100.0f;
-            config.ui.dashboard_page.heat.fan.min          = 0.0f;
-            config.ui.dashboard_page.heat.fan.max          = 9000.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.min    = 390.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.max    = 650.0f;
-            config.ui.dashboard_page.performance.vcore_req.min        = 1.000f;
-            config.ui.dashboard_page.performance.vcore_req.max        = 1.500f;
-            config.ui.dashboard_page.performance.vcore_measure.min    = 1.000f;
-            config.ui.dashboard_page.performance.vcore_measure.max    = 1.500f;
-
+            config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
+            config.ui.dashboard_page.power.ibus          = {0.0f, 4.0f};
+            config.ui.dashboard_page.power.power         = {0.0f, 30.0f};
+            config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
+            config.ui.dashboard_page.heat.asic           = {0.0f, 80.0f};
+            config.ui.dashboard_page.heat.vcore          = {0.0f, 100.0f};
+            config.ui.dashboard_page.heat.fan            = {0.0f, 9000.0f};
+            config.ui.dashboard_page.performance.asic_freq_req  = {390.0f, 650.0f};
+            config.ui.dashboard_page.performance.vcore_req      = {1.000f, 1.500f};
+            config.ui.dashboard_page.performance.vcore_measure  = {1.000f, 1.500f};
+            config.ui.setting_page.oc = {
+                {"400 MHz",           400},
+                {"425 MHz",           425},
+                {"475 MHz",           475},
+                {"485 MHz",           485},
+                {"500 MHz",           500},
+                {"550 MHz",           550},
+                {"575 MHz (default)", 575},
+            };
+            config.ui.setting_page.vc = {
+                {"1100 mV",           1100},
+                {"1150 mV",           1150},
+                {"1200 mV",           1200},
+                {"1250 mV (default)", 1250},
+                {"1300 mV",           1300},
+            };
+            
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.en_pins.pwr_pll_0v8   = 13;
@@ -172,27 +178,38 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.max_x_bars= 20;
             config.ui.hashrate_dist_page.count     = 0;
 
-            config.ui.dashboard_page.power.vbus.min        = 0.0f;
-            config.ui.dashboard_page.power.vbus.max        = 15.0f;
-            config.ui.dashboard_page.power.ibus.min        = 0.0f;
-            config.ui.dashboard_page.power.ibus.max        = 5.0f;
-            config.ui.dashboard_page.power.power.min       = 0.0f;
-            config.ui.dashboard_page.power.power.max       = 50.0f;
-            config.ui.dashboard_page.heat.mcu.min          = 0.0f;
-            config.ui.dashboard_page.heat.mcu.max          = 75.0f;
-            config.ui.dashboard_page.heat.asic.min         = 0.0f;
-            config.ui.dashboard_page.heat.asic.max         = 80.0f;
-            config.ui.dashboard_page.heat.vcore.min        = 0.0f;
-            config.ui.dashboard_page.heat.vcore.max        = 100.0f;
-            config.ui.dashboard_page.heat.fan.min          = 0.0f;
-            config.ui.dashboard_page.heat.fan.max          = 9000.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.min    = 390.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.max    = 800.0f;
-            config.ui.dashboard_page.performance.vcore_req.min        = 0.900f;
-            config.ui.dashboard_page.performance.vcore_req.max        = 1.500f;
-            config.ui.dashboard_page.performance.vcore_measure.min    = 0.900f;
-            config.ui.dashboard_page.performance.vcore_measure.max    = 1.500f;
-
+            config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
+            config.ui.dashboard_page.power.ibus          = {0.0f, 5.0f};
+            config.ui.dashboard_page.power.power         = {0.0f, 50.0f};
+            config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
+            config.ui.dashboard_page.heat.asic           = {0.0f, 80.0f};
+            config.ui.dashboard_page.heat.vcore          = {0.0f, 100.0f};
+            config.ui.dashboard_page.heat.fan            = {0.0f, 9000.0f};
+            config.ui.dashboard_page.performance.asic_freq_req  = {390.0f, 800.0f};
+            config.ui.dashboard_page.performance.vcore_req      = {0.900f, 1.500f};
+            config.ui.dashboard_page.performance.vcore_measure  = {0.900f, 1.500f};
+            config.ui.setting_page.oc = {
+                {"400 MHz",           400},
+                {"440 MHz",           440},
+                {"490 MHz",           490},
+                {"550 MHz",           550},
+                {"575 MHz",           575},
+                {"600 MHz (default)", 600},
+                {"650 MHz",           650},
+                {"700 MHz",           700},
+            };
+            config.ui.setting_page.vc = {
+                {"1000 mV",           1000},
+                {"1025 mV",           1025},
+                {"1050 mV",           1050},
+                {"1100 mV",           1100},
+                {"1125 mV (default)", 1125},
+                {"1150 mV",           1150},
+                {"1175 mV",           1175},
+                {"1200 mV",           1200},
+                {"1225 mV",           1225},
+                {"1250 mV",           1250},
+            };
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = 12;
             config.pwr.en_pins.pwr_pll_0v8   = 13;
@@ -262,6 +279,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.output_max            = 99.999f;
             config.fans.clear();
             config.fans.push_back(fan_cfg); // single fan
+
+
             break;
         case NMQAXE_PLUS_PLUS:
             config.name                      = BOARD_NMQAXE_PLUS_PLUS_NAME;
@@ -289,27 +308,36 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.max_x_bars= 20;
             config.ui.hashrate_dist_page.count     = 0;
 
-            config.ui.dashboard_page.power.vbus.min        = 0.0f;
-            config.ui.dashboard_page.power.vbus.max        = 15.0f;
-            config.ui.dashboard_page.power.ibus.min        = 0.0f;
-            config.ui.dashboard_page.power.ibus.max        = 11.0f;
-            config.ui.dashboard_page.power.power.min       = 0.0f;
-            config.ui.dashboard_page.power.power.max       = 130.0f;
-            config.ui.dashboard_page.heat.mcu.min          = 0.0f;
-            config.ui.dashboard_page.heat.mcu.max          = 75.0f;
-            config.ui.dashboard_page.heat.asic.min         = 0.0f;
-            config.ui.dashboard_page.heat.asic.max         = 80.0f;
-            config.ui.dashboard_page.heat.vcore.min        = 0.0f;
-            config.ui.dashboard_page.heat.vcore.max        = 130.0f;
-            config.ui.dashboard_page.heat.fan.min          = 0.0f;
-            config.ui.dashboard_page.heat.fan.max          = 4000.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.min    = 390.0f;
-            config.ui.dashboard_page.performance.asic_freq_req.max    = 800.0f;
-            config.ui.dashboard_page.performance.vcore_req.min        = 0.900f;
-            config.ui.dashboard_page.performance.vcore_req.max        = 1.500f;
-            config.ui.dashboard_page.performance.vcore_measure.min    = 0.900f;
-            config.ui.dashboard_page.performance.vcore_measure.max    = 1.500f;
-
+            config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
+            config.ui.dashboard_page.power.ibus          = {0.0f, 11.0f};
+            config.ui.dashboard_page.power.power         = {0.0f, 130.0f};
+            config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
+            config.ui.dashboard_page.heat.asic           = {0.0f, 80.0f};
+            config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
+            config.ui.dashboard_page.heat.fan            = {0.0f, 4000.0f};
+            config.ui.dashboard_page.performance.asic_freq_req  = {390.0f, 800.0f};
+            config.ui.dashboard_page.performance.vcore_req      = {0.900f, 1.500f};
+            config.ui.dashboard_page.performance.vcore_measure  = {0.900f, 1.500f};
+            config.ui.setting_page.oc = {
+                {"400 MHz",           400},
+                {"440 MHz",           440},
+                {"490 MHz",           490},
+                {"550 MHz",           550},
+                {"575 MHz",           575},
+                {"600 MHz (default)", 600},
+                {"650 MHz",           650},
+                {"700 MHz",           700},
+            };
+            config.ui.setting_page.vc = {
+                {"1100 mV",           1100},
+                {"1125 mV",           1125},
+                {"1150 mV",           1150},
+                {"1175 mV",           1175},
+                {"1200 mV",           1200},
+                {"1225 mV (default)", 1225},
+                {"1250 mV",           1250},
+            };
+            
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = -1; // Not used
             config.pwr.en_pins.pwr_pll_0v8   = 39;
@@ -380,6 +408,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.output_max           = 100.0f;
             config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
 
+            
             // fan_cfg.id                        = 1;
             // fan_cfg.init.pwm.pin              = 10;
             // fan_cfg.init.pwm.ch               = 2;

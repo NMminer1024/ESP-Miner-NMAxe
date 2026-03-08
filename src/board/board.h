@@ -71,6 +71,13 @@ typedef struct{
     uint8_t   target_temp;    // target asic temperature in celsius degree
 }asic_preference_info_t;
 
+// ---- OC / VC option lists (defined before BoardSpecConfig so it can be used as a field) ----
+struct work_option_t {
+    String   name;   // display label
+    uint16_t value;  // numeric value (MHz for OC, mV for VC)
+};
+// --------------------------------------------------------------------------------------------
+
 // board config struct
 struct BoardSpecConfig {
     String   name;
@@ -102,6 +109,11 @@ struct BoardSpecConfig {
                 limited_data_f vcore_measure;
             }performance; 
         }dashboard_page;
+
+        struct{
+            std::vector<work_option_t> oc;  // overclock frequency options
+            std::vector<work_option_t> vc;  // vcore voltage options
+        }setting_page;
     }ui;
 
     struct {
@@ -199,4 +211,5 @@ struct BoardSpecConfig {
 void hardware_pre_init(BoardSpecConfig config);
 BoardModelType get_board_model();
 BoardSpecConfig get_board_config(BoardModelType model);
+
 #endif
