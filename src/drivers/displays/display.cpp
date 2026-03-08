@@ -16,7 +16,7 @@ extern "C" {
 static uint16_t SCREEN_WIDTH  = 0;
 static uint16_t SCREEN_HEIGHT = 0;
 static TFT_eSPI *tftDriver = nullptr;
-static lv_obj_t *parent_docker = nullptr;
+static lv_obj_t *parent_wall = nullptr;
 
 LV_FONT_DECLARE(ds_digib_font_16)
 LV_FONT_DECLARE(ds_digib_font_18)
@@ -471,6 +471,22 @@ static void button_event_cb(lv_event_t *e) {
     }
 }
 
+// Called by LVGL native tileview when the active tile changes (snaps to a new tile).
+// Keeps g_board.status.ui.page.current in sync with the tileview's scroll position.
+static void tileview_changed_cb(lv_event_t *e) {
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    lv_obj_t *active_tile = lv_tileview_get_tile_act((lv_obj_t *)lv_event_get_target(e));
+    for (int i = 0; i <= UI_PAGE_SETTING; i++) {
+        if (g_board.status.ui.page.list[i] == active_tile) {
+            g_board.status.ui.page.current = i;
+            g_board.status.ui.page.last    = i;
+            xSemaphoreGive(g_board.status.ui.page.save_xsem);
+            LOG_W("Page changed to %d", i);
+            break;
+        }
+    }
+}
+
 static void pressed_event_cb(lv_event_t *e) {
     static lv_point_t press_pt = {0, 0};
     const int16_t     SWIPE_THRESHOLD = 20;
@@ -490,16 +506,6 @@ static void pressed_event_cb(lv_event_t *e) {
 
         // handle swipe gesture and page switch
         g_board.status.touch.evt = guess_touch_gesture(dx, dy, SWIPE_THRESHOLD);
-        if(g_board.status.touch.evt != TOUCH_TAP_EVT) {
-          ui_switch_next_page_cb(g_board.status.touch.evt);
-        }
-
-        // String dir  = "Tap";
-        // if(g_board.status.touch.evt == TOUCH_SWIPE_UP_EVT) dir = "Swipe Up";
-        // else if(g_board.status.touch.evt == TOUCH_SWIPE_DOWN_EVT) dir = "Swipe Down";
-        // else if(g_board.status.touch.evt == TOUCH_SWIPE_LEFT_EVT) dir = "Swipe Left";
-        // else if(g_board.status.touch.evt == TOUCH_SWIPE_RIGHT_EVT) dir = "Swipe Right";
-        // LOG_W("[Touch] start=(%d,%d), end=(%d,%d), gesture=%s", press_pt.x, press_pt.y, pt.x, pt.y, dir.c_str());
     }
 }
 
@@ -661,7 +667,7 @@ void ui_drv_register(void){
   lv_indev_drv_init(&indev_drv);
   indev_drv.type = LV_INDEV_TYPE_POINTER; 
   indev_drv.read_cb = touchpad_read_cb;   
-  indev_drv.scroll_limit = 20;            // scroll limit in pixels
+  indev_drv.scroll_limit    = 20;     
   indev_drv.long_press_time = 500;        // long press time in milliseconds
   indev_drv.long_press_repeat_time = 100; // long press repeat time in milliseconds
   lv_indev_t *indev = lv_indev_drv_register(&indev_drv);
@@ -1228,12 +1234,13 @@ void ui_layout_init(void* args){
   // =====================================================================
   // PAGE GRID LAYOUT TABLE (lv_tileview based)
   // col=0: loading/config tiles (LV_DIR_NONE, not user-accessible)
-  // col=1,2: user-navigable tiles; dir controls allowed swipe directions from each tile.
-  // Direction mapping (lv_tileview v8):
-  //   LV_DIR_LEFT  = swipe left  → show tile at col+1
-  //   LV_DIR_RIGHT = swipe right → show tile at col-1
-  //   LV_DIR_TOP   = swipe up    → show tile at row+1
-  //   LV_DIR_BOTTOM= swipe down  → show tile at row-1
+  // col=1,2: user-navigable tiles; dir = physical scroll directions allowed.
+  // Direction mapping (lv_tileview v8) — physical scroll direction:
+  //   LV_DIR_RIGHT  = scroll right → col+1
+  //   LV_DIR_LEFT   = scroll left  → col-1
+  //   LV_DIR_BOTTOM = scroll down  → row+1
+  //   LV_DIR_TOP    = scroll up    → row-1
+  // Only set directions where a real tile exists at the target position.
   // =====================================================================
   struct page_grid_t {
     lv_obj_t     **container;
@@ -1245,46 +1252,54 @@ void ui_layout_init(void* args){
     lv_dir_t       dir;
   };
   const page_grid_t page_grid[] = {
-    // container                       back_img_obj                       back_img_dsc                       col  row  page_idx           dir
-    { &loading_page.container,    &loading_page.back_img_obj,    &loading_page.back_img_dsc,    0,   0,   UI_PAGE_LOADING,   (lv_dir_t)(LV_DIR_ALL)                            },
-    { &config_page.container,     &config_page.back_img_obj,     &config_page.back_img_dsc,     0,   1,   UI_PAGE_CONFIG,    (lv_dir_t)(LV_DIR_ALL )            },
-    { &miner_page.container,      &miner_page.back_img_obj,      &miner_page.back_img_dsc,      1,   0,   UI_PAGE_MINER,     (lv_dir_t)(LV_DIR_ALL )               },
-    { &dashboard_page.container,  &dashboard_page.back_img_obj,  &dashboard_page.back_img_dsc,  1,   1,   UI_PAGE_DASHBOARD, (lv_dir_t)(LV_DIR_ALL )},
-    { &hr_health_page.container,  &hr_health_page.back_img_obj,  &hr_health_page.back_img_dsc,  1,   2,   UI_PAGE_HR_HEALTH, (lv_dir_t)(LV_DIR_ALL )            },
-    { &clock_page.container,      &clock_page.back_img_obj,      &clock_page.back_img_dsc,      2,   2,   UI_PAGE_CLOCK,     (lv_dir_t)(LV_DIR_ALL )           },
-    { &market_page.container,     &market_page.back_img_obj,     &market_page.back_img_dsc,     2,   1,   UI_PAGE_MARKET,    (lv_dir_t)(LV_DIR_ALL )},
-    { &setting_page.container,    &setting_page.back_img_obj,    &setting_page.back_img_dsc,    2,   0,   UI_PAGE_SETTING,   (lv_dir_t)(LV_DIR_ALL )              },
+    // container                       back_img_obj                       back_img_dsc         col  row      page_idx           dir
+    { &loading_page.container,    &loading_page.back_img_obj,    &loading_page.back_img_dsc,    0,   0,   UI_PAGE_LOADING,   LV_DIR_NONE},
+    { &config_page.container,     &config_page.back_img_obj,     &config_page.back_img_dsc,     0,   1,   UI_PAGE_CONFIG,    LV_DIR_NONE },
+    { &miner_page.container,      &miner_page.back_img_obj,      &miner_page.back_img_dsc,      1,   0,   UI_PAGE_MINER,     (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_BOTTOM)              }, // →setting(2,0), ↓dashboard(1,1)
+    { &dashboard_page.container,  &dashboard_page.back_img_obj,  &dashboard_page.back_img_dsc,  1,   1,   UI_PAGE_DASHBOARD, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP | LV_DIR_BOTTOM) }, // right→market(2,1), up→miner(1,0), down→hr_health(1,2)
+    { &hr_health_page.container,  &hr_health_page.back_img_obj,  &hr_health_page.back_img_dsc,  1,   2,   UI_PAGE_HR_HEALTH, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP)                 }, // right→clock(2,2), up→dashboard(1,1)
+    { &clock_page.container,      &clock_page.back_img_obj,      &clock_page.back_img_dsc,      2,   2,   UI_PAGE_CLOCK,     (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP)                 }, // left→hr_health(1,2), up→market(2,1)
+    { &market_page.container,     &market_page.back_img_obj,     &market_page.back_img_dsc,     2,   1,   UI_PAGE_MARKET,    (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP | LV_DIR_BOTTOM) }, // left→dashboard(1,1), up→setting(2,0), down→clock(2,2)
+    { &setting_page.container,    &setting_page.back_img_obj,    &setting_page.back_img_dsc,    2,   0,   UI_PAGE_SETTING,   (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM)              }, // left→miner(1,0), down→market(2,1)
   };
+  // const page_grid_t page_grid[] = {
+  //   // container                       back_img_obj                       back_img_dsc                       col  row  page_idx           dir
+  //   { &loading_page.container,    &loading_page.back_img_obj,    &loading_page.back_img_dsc,    0,   0,   UI_PAGE_LOADING,   LV_DIR_NONE },
+  //   { &config_page.container,     &config_page.back_img_obj,     &config_page.back_img_dsc,     0,   1,   UI_PAGE_CONFIG,    LV_DIR_NONE },
+  //   { &miner_page.container,      &miner_page.back_img_obj,      &miner_page.back_img_dsc,      0,   2,   UI_PAGE_MINER,     LV_DIR_NONE },
+  //   { &dashboard_page.container,  &dashboard_page.back_img_obj,  &dashboard_page.back_img_dsc,  0,   3,   UI_PAGE_DASHBOARD, LV_DIR_NONE },
+  //   { &hr_health_page.container,  &hr_health_page.back_img_obj,  &hr_health_page.back_img_dsc,  0,   4,   UI_PAGE_HR_HEALTH, LV_DIR_NONE },
+  //   { &clock_page.container,      &clock_page.back_img_obj,      &clock_page.back_img_dsc,      0,   5,   UI_PAGE_CLOCK,     LV_DIR_NONE },
+  //   { &market_page.container,     &market_page.back_img_obj,     &market_page.back_img_dsc,     0,   6,   UI_PAGE_MARKET,    LV_DIR_NONE },
+  //   { &setting_page.container,    &setting_page.back_img_obj,    &setting_page.back_img_dsc,    0,   7,   UI_PAGE_SETTING,   LV_DIR_NONE },
+  // };
+
+
+
   // =====================================================================
-  // Create lv_tileview as the root page container.
-  // Tiles are sized to SCREEN_WIDTH × SCREEN_HEIGHT automatically by lv_tileview.
-  // loading/config tiles use LV_DIR_NONE so native swipe cannot reach them.
-  // All gesture routing is done programmatically via lv_obj_set_tile() in
-  // ui_switch_next_page_cb(); the indev scroll_limit is UINT8_MAX so native tile
-  // swiping is fully disabled – dir only acts as a secondary safety guard.
-  parent_docker = lv_tileview_create(lv_scr_act());
-  lv_obj_set_size(parent_docker, SCREEN_WIDTH, SCREEN_HEIGHT);
-  lv_obj_set_pos(parent_docker, 0, 0);
+  parent_wall = lv_tileview_create(lv_scr_act());
+  lv_obj_set_pos(parent_wall, 0, 0);
   lv_obj_set_scrollbar_mode(lv_scr_act(), LV_SCROLLBAR_MODE_OFF);
-  lv_obj_set_scrollbar_mode(parent_docker, LV_SCROLLBAR_MODE_OFF);
-  lv_obj_set_style_pad_all(parent_docker, 0, 0);
-  lv_obj_set_style_border_width(parent_docker, 0, 0);
-  lv_obj_set_style_bg_opa(parent_docker, LV_OPA_TRANSP, LV_PART_MAIN);
-  lv_obj_add_event_cb(parent_docker, pressed_event_cb, LV_EVENT_PRESSED, NULL);
-  lv_obj_add_event_cb(parent_docker, pressed_event_cb, LV_EVENT_RELEASED, NULL);
-  lv_obj_add_event_cb(parent_docker, long_press_event_cb, LV_EVENT_LONG_PRESSED, NULL);
-  lv_obj_add_event_cb(parent_docker, long_press_event_cb, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
+  lv_obj_set_scrollbar_mode(parent_wall, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_set_style_pad_all(parent_wall, 0, 0);
+  lv_obj_set_style_border_width(parent_wall, 0, 0);
+  lv_obj_set_style_bg_opa(parent_wall, LV_OPA_TRANSP, LV_PART_MAIN);
+  // lv_obj_add_event_cb(parent_wall, pressed_event_cb, LV_EVENT_PRESSED, NULL);
+  lv_obj_add_event_cb(parent_wall, pressed_event_cb, LV_EVENT_RELEASED, NULL);
+  lv_obj_add_event_cb(parent_wall, long_press_event_cb, LV_EVENT_LONG_PRESSED, NULL);
+  lv_obj_add_event_cb(parent_wall, long_press_event_cb, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
+  lv_obj_add_event_cb(parent_wall, tileview_changed_cb, LV_EVENT_VALUE_CHANGED, NULL); // sync page.current on native tileview scroll
   
   // Create all page tiles via lv_tileview_add_tile. Each tile is auto-sized to
   // SCREEN_WIDTH × SCREEN_HEIGHT and positioned at (col*W, row*H) by the tileview.
   // loading/config tiles (col=0) have LV_DIR_NONE so the tileview's native scroll
   // cannot transition into them; user pages control their own allowed directions.
   for(const auto& p : page_grid) {
-    *p.container = lv_tileview_add_tile(parent_docker, p.col, p.row, p.dir);
+    *p.container = lv_tileview_add_tile(parent_wall, p.col, p.row, p.dir);
     lv_obj_set_style_pad_all(*p.container, 0, 0);
     lv_obj_set_style_border_width(*p.container, 0, 0);
     lv_obj_set_scrollbar_mode(*p.container, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_add_flag(*p.container, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble PRESSED/RELEASED up to parent_docker for swipe detection
+    lv_obj_add_flag(*p.container, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble PRESSED/RELEASED up to parent_wall for swipe detection
     *p.back_img_obj = lv_img_create(*p.container);
     lv_img_set_src(*p.back_img_obj, *p.back_img_dsc);
     lv_obj_set_size(*p.back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -1297,12 +1312,12 @@ void ui_layout_init(void* args){
   config_page.img_logo.obj = lv_img_create(config_page.container); //worker logo
   lv_img_set_src(config_page.img_logo.obj, config_page.logo_img_dsc); 
   lv_obj_align(config_page.img_logo.obj, LV_ALIGN_TOP_LEFT, config_page.img_logo.coord.x, config_page.img_logo.coord.y);
-  lv_obj_add_flag(config_page.img_logo.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_docker
+  lv_obj_add_flag(config_page.img_logo.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_wall
 
   miner_page.img_logo.obj = lv_img_create(miner_page.container); //worker logo
   lv_img_set_src(miner_page.img_logo.obj, miner_page.logo_img_dsc); 
   lv_obj_align(miner_page.img_logo.obj, LV_ALIGN_TOP_LEFT, miner_page.img_logo.coord.x, miner_page.img_logo.coord.y);
-  lv_obj_add_flag(miner_page.img_logo.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_docker
+  lv_obj_add_flag(miner_page.img_logo.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_wall
   //////////////////////////////////////loading page layout///////////////////////////////////////////////
   //Version label
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
@@ -1326,7 +1341,7 @@ void ui_layout_init(void* args){
 
   //bar progress
   loading_page.bar_progress.obj = lv_bar_create(board->status.ui.page.list[UI_PAGE_LOADING]);
-  lv_obj_add_flag(loading_page.bar_progress.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_docker
+  lv_obj_add_flag(loading_page.bar_progress.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_wall
   lv_bar_set_range(loading_page.bar_progress.obj, 0, 16);
   lv_bar_set_value(loading_page.bar_progress.obj, 0, LV_ANIM_ON);
   lv_obj_set_style_bg_opa(loading_page.bar_progress.obj, LV_OPA_50, LV_PART_MAIN);
@@ -1409,7 +1424,7 @@ void ui_layout_init(void* args){
   config_page.qr_code.obj = lv_qrcode_create(board->status.ui.page.list[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
   lv_qrcode_update(config_page.qr_code.obj, (uint8_t*)qr_str.c_str(), qr_str.length());
   lv_obj_align(config_page.qr_code.obj, LV_ALIGN_RIGHT_MID, config_page.qr_code.coord.x, config_page.qr_code.coord.y);
-  lv_obj_add_flag(config_page.qr_code.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_docker
+  lv_obj_add_flag(config_page.qr_code.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_wall
 
   // config text label
   String config = board->info.connection.wifi.ap.info.ssid + "\r\n"+ board->info.connection.wifi.ap.ip.toString();
@@ -1677,7 +1692,7 @@ void ui_layout_init(void* args){
     dashboard_page.img_miner.obj = lv_img_create(board->status.ui.page.list[UI_PAGE_DASHBOARD]);
     lv_img_set_src(dashboard_page.img_miner.obj, dashboard_page.miner_img_dsc);
     lv_obj_align(dashboard_page.img_miner.obj, LV_ALIGN_CENTER, dashboard_page.img_miner.coord.x, dashboard_page.img_miner.coord.y);
-    lv_obj_add_flag(dashboard_page.img_miner.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_docker
+    lv_obj_add_flag(dashboard_page.img_miner.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_wall
 
     // diff label
     dashboard_page.lb_diff.obj   = lv_label_create( board->status.ui.page.list[UI_PAGE_DASHBOARD] );
@@ -1724,7 +1739,7 @@ void ui_layout_init(void* args){
   lv_obj_align( hr_health_page.lb_scale.obj, LV_ALIGN_TOP_RIGHT, hr_health_page.lb_scale.coord.x, hr_health_page.lb_scale.coord.y);
   // Create a chart
   hr_health_page.total_hr_chart.obj = lv_chart_create(board->status.ui.page.list[UI_PAGE_HR_HEALTH]);
-  lv_obj_add_flag(hr_health_page.total_hr_chart.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_docker
+  lv_obj_add_flag(hr_health_page.total_hr_chart.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_wall
   lv_obj_set_size(hr_health_page.total_hr_chart.obj, SCREEN_WIDTH - 14, SCREEN_HEIGHT - 48); 
   lv_obj_align(hr_health_page.total_hr_chart.obj, LV_ALIGN_CENTER, hr_health_page.total_hr_chart.coord.x, hr_health_page.total_hr_chart.coord.y);
   lv_chart_set_type(hr_health_page.total_hr_chart.obj, LV_CHART_TYPE_BAR);
@@ -2641,10 +2656,10 @@ void ui_setting_page_update(void* args){
 }
 
 void ui_goto_page(int8_t page, lv_anim_enable_t anim) {
-    if(parent_docker && page >= 0 && page <= UI_PAGE_SETTING) {
+    if(parent_wall && page >= 0 && page <= UI_PAGE_SETTING) {
         g_board.status.ui.page.current = page;
         g_board.status.ui.page.last    = page;
-        lv_obj_set_tile(parent_docker, g_board.status.ui.page.list[page], anim);
+        lv_obj_set_tile(parent_wall, g_board.status.ui.page.list[page], anim);
         // xSemaphoreGive(g_board.status.ui.page.save_xsem);
         LOG_W("goto page %d +++++++++++++++++++++++++\r\n", page);
     }else{
@@ -2653,7 +2668,7 @@ void ui_goto_page(int8_t page, lv_anim_enable_t anim) {
 }
 
 void ui_bounce_effect(lv_obj_t *current_page, uint8_t tp_evt) {
-    if(parent_docker == nullptr || current_page == nullptr) return;
+    if(parent_wall == nullptr || current_page == nullptr) return;
     const int16_t BOUNCE_PX = 25;
     int16_t dx = 0, dy = 0;
     switch(tp_evt) {
@@ -2663,64 +2678,64 @@ void ui_bounce_effect(lv_obj_t *current_page, uint8_t tp_evt) {
         case TOUCH_SWIPE_DOWN_EVT:  dy = +BOUNCE_PX; break;
         default: return;
     }
-    lv_obj_scroll_by(parent_docker, dx, dy, LV_ANIM_OFF); // instant offset
-    lv_obj_set_tile(parent_docker, current_page, LV_ANIM_ON); // animate back to current tile
+    lv_obj_scroll_by(parent_wall, dx, dy, LV_ANIM_OFF); // instant offset
+    lv_obj_set_tile(parent_wall, current_page, LV_ANIM_ON); // animate back to current tile
 }
 
 void ui_switch_next_page_cb(uint8_t tp_evt){
   uint8_t current_index = g_board.status.ui.page.current;
   uint8_t next_index    = current_index;
 
-  // tap event
-  if(TOUCH_TAP_EVT == tp_evt){
-      g_board.status.preference.led.sleep = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
-      if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
-        xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
-        g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
-        return;
-      } 
-      next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
-      next_index++;
-  }
+  // // tap event
+  // if(TOUCH_TAP_EVT == tp_evt){
+  //     g_board.status.preference.led.sleep = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
+  //     if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
+  //       xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
+  //       g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
+  //       return;
+  //     } 
+  //     next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
+  //     next_index++;
+  // }
 
-  // swipe event
-  switch(current_index){
-    case UI_PAGE_MINER :
-        if(tp_evt == TOUCH_SWIPE_UP_EVT)          next_index = UI_PAGE_DASHBOARD;
-        else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_SETTING;
-    break;
-    case UI_PAGE_DASHBOARD :
-        if(tp_evt == TOUCH_SWIPE_DOWN_EVT)        next_index = UI_PAGE_MINER;
-        else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_MARKET;
-        else if(tp_evt == TOUCH_SWIPE_UP_EVT)     next_index = UI_PAGE_HR_HEALTH;
-    break;
-    case UI_PAGE_HR_HEALTH :
-        if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_DASHBOARD;
-        else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)    next_index = UI_PAGE_CLOCK;
-    break;
-    case UI_PAGE_CLOCK :
-        if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_MARKET;
-        else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_HR_HEALTH;
-    break;
-    case UI_PAGE_MARKET :
-        if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_CLOCK;
-        else if(tp_evt == TOUCH_SWIPE_DOWN_EVT)    next_index = UI_PAGE_SETTING;
-        else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_DASHBOARD;
-    break;
-    case UI_PAGE_SETTING :
-        if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_MARKET;
-        else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_MINER;
-    break;
-    default:
-      break;
-  }
-  // if no page available in that direction, show bounce effect
-  if(next_index == current_index && tp_evt != TOUCH_TAP_EVT) {
-    ui_bounce_effect(g_board.status.ui.page.list[current_index], tp_evt);
-    return;
-  }
-  lv_obj_set_tile(parent_docker, g_board.status.ui.page.list[next_index], LV_ANIM_ON);
-  g_board.status.ui.page.current = next_index;
-  g_board.status.ui.page.last    = g_board.status.ui.page.current;
-  xSemaphoreGive(g_board.status.ui.page.save_xsem);
+  // // swipe event
+  // switch(current_index){
+  //   case UI_PAGE_MINER :
+  //       if(tp_evt == TOUCH_SWIPE_UP_EVT)          next_index = UI_PAGE_DASHBOARD;
+  //       else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_SETTING;
+  //   break;
+  //   case UI_PAGE_DASHBOARD :
+  //       if(tp_evt == TOUCH_SWIPE_DOWN_EVT)        next_index = UI_PAGE_MINER;
+  //       else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_MARKET;
+  //       else if(tp_evt == TOUCH_SWIPE_UP_EVT)     next_index = UI_PAGE_HR_HEALTH;
+  //   break;
+  //   case UI_PAGE_HR_HEALTH :
+  //       if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_DASHBOARD;
+  //       else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)    next_index = UI_PAGE_CLOCK;
+  //   break;
+  //   case UI_PAGE_CLOCK :
+  //       if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_MARKET;
+  //       else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_HR_HEALTH;
+  //   break;
+  //   case UI_PAGE_MARKET :
+  //       if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_CLOCK;
+  //       else if(tp_evt == TOUCH_SWIPE_DOWN_EVT)    next_index = UI_PAGE_SETTING;
+  //       else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_DASHBOARD;
+  //   break;
+  //   case UI_PAGE_SETTING :
+  //       if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_MARKET;
+  //       else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_MINER;
+  //   break;
+  //   default:
+  //     break;
+  // }
+  // // if no page available in that direction, show bounce effect
+  // if(next_index == current_index && tp_evt != TOUCH_TAP_EVT) {
+  //   ui_bounce_effect(g_board.status.ui.page.list[current_index], tp_evt);
+  //   return;
+  // }
+  // lv_obj_set_tile(parent_wall, g_board.status.ui.page.list[next_index], LV_ANIM_ON);
+  // g_board.status.ui.page.current = next_index;
+  // g_board.status.ui.page.last    = g_board.status.ui.page.current;
+  // xSemaphoreGive(g_board.status.ui.page.save_xsem);
 }

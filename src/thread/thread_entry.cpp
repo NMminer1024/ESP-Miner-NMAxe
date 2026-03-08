@@ -1948,13 +1948,13 @@ void ui_thread_entry(void *args){
         delay(50);
         if(xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, 5) == pdTRUE){
             // find the update function based on current page and call it, if not found, just skip page update
-            // auto it = ui_page_update_cbs.find(board->status.ui.page.current);
-            // if(it != ui_page_update_cbs.end()){
-            //     it->second((void*)board);  
-            // }
-            for(auto& cb : ui_page_update_cbs){
-                cb.second((void*)board);
+            auto it = ui_page_update_cbs.find(board->status.ui.page.current);
+            if(it != ui_page_update_cbs.end()){
+                it->second((void*)board);  
             }
+            // for(auto& cb : ui_page_update_cbs){
+            //     cb.second((void*)board);
+            // }
 
             // countdown page update, if running, cover current page
             ui_countdown_page_update((void*)board);
