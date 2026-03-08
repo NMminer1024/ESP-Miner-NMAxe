@@ -497,6 +497,7 @@ static void tileview_changed_cb(lv_event_t *e) {
             g_board.status.ui.page.current = i;
             g_board.status.ui.page.last    = g_board.status.ui.page.current;
             xSemaphoreGive(g_board.status.ui.page.save_xsem);
+            LOG_W("Page changed to %d", g_board.status.ui.page.current);
             break;
         }
     }
@@ -2684,68 +2685,26 @@ void ui_setting_page_update(void* args){
 
 void ui_goto_page(int8_t page, lv_anim_enable_t anim) {
     if(parent_wall && page >= 0 && page <= UI_PAGE_SETTING) {
-        g_board.status.ui.page.current = page;
         lv_obj_set_tile(parent_wall, g_board.status.ui.page.list[page], anim);
     }else{
       LOG_E("invalid page index or parent docker is null!!!");
     }
 }
 
-
 void ui_switch_next_page_cb(uint8_t tp_evt){
   uint8_t current_index = g_board.status.ui.page.current;
   uint8_t next_index    = current_index;
 
-  // // tap event
-  // if(TOUCH_TAP_EVT == tp_evt){
-  //     g_board.status.preference.led.sleep = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
-  //     if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
-  //       xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
-  //       g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
-  //       return;
-  //     } 
-  //     next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
-  //     next_index++;
-  // }
-
-  // // swipe event
-  // switch(current_index){
-  //   case UI_PAGE_MINER :
-  //       if(tp_evt == TOUCH_SWIPE_UP_EVT)          next_index = UI_PAGE_DASHBOARD;
-  //       else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_SETTING;
-  //   break;
-  //   case UI_PAGE_DASHBOARD :
-  //       if(tp_evt == TOUCH_SWIPE_DOWN_EVT)        next_index = UI_PAGE_MINER;
-  //       else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)   next_index = UI_PAGE_MARKET;
-  //       else if(tp_evt == TOUCH_SWIPE_UP_EVT)     next_index = UI_PAGE_HR_HEALTH;
-  //   break;
-  //   case UI_PAGE_HR_HEALTH :
-  //       if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_DASHBOARD;
-  //       else if(tp_evt == TOUCH_SWIPE_LEFT_EVT)    next_index = UI_PAGE_CLOCK;
-  //   break;
-  //   case UI_PAGE_CLOCK :
-  //       if(tp_evt == TOUCH_SWIPE_DOWN_EVT)         next_index = UI_PAGE_MARKET;
-  //       else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_HR_HEALTH;
-  //   break;
-  //   case UI_PAGE_MARKET :
-  //       if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_CLOCK;
-  //       else if(tp_evt == TOUCH_SWIPE_DOWN_EVT)    next_index = UI_PAGE_SETTING;
-  //       else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_DASHBOARD;
-  //   break;
-  //   case UI_PAGE_SETTING :
-  //       if(tp_evt == TOUCH_SWIPE_UP_EVT)           next_index = UI_PAGE_MARKET;
-  //       else if(tp_evt == TOUCH_SWIPE_RIGHT_EVT)   next_index = UI_PAGE_MINER;
-  //   break;
-  //   default:
-  //     break;
-  // }
-  // // if no page available in that direction, show bounce effect
-  // if(next_index == current_index && tp_evt != TOUCH_TAP_EVT) {
-  //   ui_bounce_effect(g_board.status.ui.page.list[current_index], tp_evt);
-  //   return;
-  // }
-  // lv_obj_set_tile(parent_wall, g_board.status.ui.page.list[next_index], LV_ANIM_ON);
-  // g_board.status.ui.page.current = next_index;
-  // g_board.status.ui.page.last    = g_board.status.ui.page.current;
-  // xSemaphoreGive(g_board.status.ui.page.save_xsem);
+  // tap event
+  if(TOUCH_TAP_EVT == tp_evt){
+      g_board.status.preference.led.sleep = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
+      if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
+        xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
+        g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
+        return;
+      } 
+      next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
+      next_index++;
+  }
+  ui_goto_page(next_index, LV_ANIM_ON);
 }
