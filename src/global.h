@@ -217,8 +217,8 @@ typedef struct{
             }countdown; 
 
             std::vector<lv_obj_t*>  list;
-            uint8_t                 current;     // current ui page index
-            uint8_t                 last;        //last ui page index, restored on next boot
+            int8_t                  current;     // current ui page index
+            int8_t                  last;        //last ui page index, restored on next boot
             SemaphoreHandle_t       save_xsem;   // save current page index
         }page;
 

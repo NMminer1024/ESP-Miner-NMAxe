@@ -1942,7 +1942,7 @@ void ui_thread_entry(void *args){
     // notify ui ready
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_UI_READY);  
     // make sure the loading page is visible when screen on, in case some critical info like power status is needed during boot
-    lv_obj_scroll_to_view(board->status.ui.page.list[board->status.ui.page.current], LV_ANIM_ON); 
+    ui_goto_page(board->status.ui.page.current, LV_ANIM_ON);
 
     while (true){
         delay(50);
@@ -2031,8 +2031,7 @@ void display_thread_entry(void *args){
       board->status.ui.page.loading.details.color = 0xFF0000;
       board->status.ui.page.loading.details.msg   = String("Timeout!");
       delay(1000);
-      board->status.ui.page.current = UI_PAGE_CONFIG;
-      lv_obj_scroll_to_view(board->status.ui.page.list[UI_PAGE_CONFIG], LV_ANIM_ON);
+      ui_goto_page(UI_PAGE_CONFIG, LV_ANIM_ON);
     }
   }
   board->status.ui.page.loading.details.color = 0x00FF00;
@@ -2163,8 +2162,9 @@ void display_thread_entry(void *args){
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   
   /***************************************scroll to last page******************************************/
-  board->status.ui.page.current = board->status.ui.page.last; // restore last page
-  lv_obj_scroll_to_view(board->status.ui.page.list[board->status.ui.page.current], LV_ANIM_ON); 
+  ui_goto_page(UI_PAGE_MINER, LV_ANIM_ON);
+//   ui_goto_page(board->status.ui.page.last, LV_ANIM_ON);
+
   //exit this thread
   vTaskDelete(NULL);
 }
