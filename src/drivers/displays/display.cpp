@@ -490,7 +490,7 @@ static void tileview_changed_cb(lv_event_t *e) {
     // Block tileview transitions until miner is ready to prevent UI glitch.
     // Must mask with INIT_EVENT_MINER_READY: return value is the full event group bits, not a bool.
     if (!(xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, 0) & INIT_EVENT_MINER_READY)) return;
-    
+
     if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
     lv_obj_t *tv = (lv_obj_t *)lv_event_get_target(e);
     // If tileview is still animating/scrolling, this is the start-of-scroll event; ignore it.
@@ -501,7 +501,7 @@ static void tileview_changed_cb(lv_event_t *e) {
             g_board.status.ui.page.current = i;
             g_board.status.ui.page.last    = g_board.status.ui.page.current;
             xSemaphoreGive(g_board.status.ui.page.save_xsem);
-            LOG_W("Page changed to %d", g_board.status.ui.page.current);
+            LOG_D("Page changed to %d", g_board.status.ui.page.current);
             break;
         }
     }
@@ -540,13 +540,14 @@ static void pressed_event_cb(lv_event_t *e) {
                 case UI_PAGE_SETTING:   allowed = (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM);               break;
                 default: break;
             }
-            // map gesture to lv_dir (finger direction == scroll direction)
+            // map gesture to tileview dir (finger direction is OPPOSITE to content scroll direction)
+            // e.g. finger LEFT → content scrolls left → reveals RIGHT column → LV_DIR_RIGHT
             lv_dir_t gesture_dir = LV_DIR_NONE;
             switch (g_board.status.touch.evt) {
-                case TOUCH_SWIPE_LEFT_EVT:  gesture_dir = LV_DIR_LEFT;   break;
-                case TOUCH_SWIPE_RIGHT_EVT: gesture_dir = LV_DIR_RIGHT;  break;
-                case TOUCH_SWIPE_UP_EVT:    gesture_dir = LV_DIR_TOP;    break;
-                case TOUCH_SWIPE_DOWN_EVT:  gesture_dir = LV_DIR_BOTTOM; break;
+                case TOUCH_SWIPE_LEFT_EVT:  gesture_dir = LV_DIR_RIGHT;  break; // finger left  → right tile
+                case TOUCH_SWIPE_RIGHT_EVT: gesture_dir = LV_DIR_LEFT;   break; // finger right → left tile
+                case TOUCH_SWIPE_UP_EVT:    gesture_dir = LV_DIR_BOTTOM; break; // finger up    → bottom tile
+                case TOUCH_SWIPE_DOWN_EVT:  gesture_dir = LV_DIR_TOP;    break; // finger down  → top tile
                 default: break;
             }
             if (gesture_dir != LV_DIR_NONE && !(allowed & gesture_dir)) {
@@ -1343,25 +1344,6 @@ void ui_layout_init(void* args){
     board->status.ui.page.list[p.page_idx] = *p.container;
   }
 
-  // // Loading page: block swipe/scroll at init time via a full-screen absorbing overlay,
-  // // but still forward long-press events to long_press_event_cb.
-  // //   - LV_OBJ_FLAG_CLICKABLE is ON by default  → absorbs all touch/press/scroll gestures
-  // //   - LV_OBJ_FLAG_EVENT_BUBBLE is OFF (default) → swipe/press never reach parent_wall
-  // //   - LV_OBJ_FLAG_SCROLLABLE cleared          → no rubber-band, no scroll propagation
-  // //   - long_press_event_cb registered directly  → long-press still works on loading page
-  // lv_obj_t *loading_input_block = lv_obj_create(loading_page.container);
-  // lv_obj_set_size(loading_input_block, SCREEN_WIDTH, SCREEN_HEIGHT);
-  // lv_obj_set_pos(loading_input_block, 0, 0);
-  // lv_obj_set_style_bg_opa(loading_input_block, LV_OPA_TRANSP, LV_PART_MAIN);
-  // lv_obj_set_style_border_width(loading_input_block, 0, LV_PART_MAIN);
-  // lv_obj_set_style_pad_all(loading_input_block, 0, LV_PART_MAIN);
-  // lv_obj_clear_flag(loading_input_block, LV_OBJ_FLAG_SCROLLABLE);
-  // lv_obj_add_event_cb(loading_input_block, long_press_event_cb, LV_EVENT_LONG_PRESSED,        NULL);
-  // lv_obj_add_event_cb(loading_input_block, long_press_event_cb, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
-  // lv_obj_add_event_cb(loading_input_block, pressed_event_cb, LV_EVENT_RELEASED, NULL);
-
-
-  
   // Some pages have an extra logo image; set them individually after all containers are created
   config_page.img_logo.obj = lv_img_create(config_page.container); //worker logo
   lv_img_set_src(config_page.img_logo.obj, config_page.logo_img_dsc); 
