@@ -496,6 +496,19 @@ export class SwarmComponent implements OnInit, OnDestroy {
     return DiffSuffixPipe.transform(max);
   }
 
+  public getTotalPower(): string {
+    let total = 0;
+    this.getFilteredData().forEach(device => {
+      if (device.Power && device.Power !== '---') {
+        const num = parseFloat(device.Power.replace(/[^0-9.]/g, ''));
+        if (!isNaN(num)) {
+          total += num;
+        }
+      }
+    });
+    return total.toFixed(1);
+  }
+
   protected readonly SortIndex = SortIndex;
 }
 

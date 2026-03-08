@@ -2468,7 +2468,10 @@ void ui_market_page_update(void* args){
 
 void ui_setting_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
-  if(board == nullptr || setting_page.container == nullptr) return;
+  if(board->info.spec.name != BOARD_NMQAXE_PLUS_PLUS_NAME){
+    LOG_W("board does not support setting page\r\n");
+    return;
+  }
 
   static bool inited = false;
   if(!inited){
