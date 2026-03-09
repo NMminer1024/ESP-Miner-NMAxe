@@ -2690,6 +2690,7 @@ void ui_setting_page_update(void* args){
 
 void ui_goto_page(int8_t page, lv_anim_enable_t anim) {
     if(parent_wall && page >= 0 && page <= UI_PAGE_SETTING) {
+        g_board.status.ui.page.current = page;
         lv_obj_set_tile(parent_wall, g_board.status.ui.page.list[page], anim);
     }else{
       LOG_E("invalid page index or parent docker is null!!!");
