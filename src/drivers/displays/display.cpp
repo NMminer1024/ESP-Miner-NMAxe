@@ -558,10 +558,9 @@ static void pressed_event_cb(lv_event_t *e) {
     }
 }
 
-static uint32_t s_lp_last_tick = 0;
-
 static void long_press_event_cb(lv_event_t *e) {
     lv_event_code_t code = lv_event_get_code(e);
+    static uint32_t s_lp_last_tick = 0; // track last tick for long-press repeat logic
     if (code == LV_EVENT_LONG_PRESSED) {
         g_board.status.touch.evt = TOUCH_LONGPRESS_EVT;
         g_board.status.ui.page.countdown.timeout = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
