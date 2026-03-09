@@ -558,23 +558,30 @@ static void pressed_event_cb(lv_event_t *e) {
     }
 }
 
+static uint32_t s_lp_last_tick = 0;
+
 static void long_press_event_cb(lv_event_t *e) {
-    lv_event_code_t code  = lv_event_get_code(e);
+    lv_event_code_t code = lv_event_get_code(e);
     if (code == LV_EVENT_LONG_PRESSED) {
         g_board.status.touch.evt = TOUCH_LONGPRESS_EVT;
         g_board.status.ui.page.countdown.timeout = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
-    }else if(code == LV_EVENT_LONG_PRESSED_REPEAT) {
-      static uint32_t start = millis();
-      if(millis() - start > 1000) {
-        g_board.status.ui.page.countdown.timeout = (g_board.status.ui.page.countdown.timeout > 0) ? (g_board.status.ui.page.countdown.timeout - 1) : 0;
-        start = millis();
-      }
-
-      if(g_board.status.ui.page.countdown.timeout <= 0) {
-        xSemaphoreGive(g_board.status.recover_factory_xsem);
-      } 
-
-      LOG_D("[Touch] Long Press Repeat Detected");
+        s_lp_last_tick = millis();
+        // disable tileview scrolling to prevent user from swiping to other pages during long-press countdown, which can cause confusion and potential bugs if user switch page and trigger other events before countdown ends
+        lv_obj_clear_flag(parent_wall, LV_OBJ_FLAG_SCROLLABLE);
+    } else if (code == LV_EVENT_LONG_PRESSED_REPEAT) {
+        if (millis() - s_lp_last_tick >= 1000) {
+            s_lp_last_tick = millis();
+            g_board.status.ui.page.countdown.timeout =
+                (g_board.status.ui.page.countdown.timeout > 0)
+                ? (g_board.status.ui.page.countdown.timeout - 1) : 0;
+            if (g_board.status.ui.page.countdown.timeout <= 0) {
+                xSemaphoreGive(g_board.status.recover_factory_xsem);
+            }
+            LOG_D("[Touch] Long Press Repeat, remain=%d", g_board.status.ui.page.countdown.timeout);
+        }
+    } else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
+        lv_obj_add_flag(parent_wall, LV_OBJ_FLAG_SCROLLABLE); // re-enable scrolling when user releases long-press (either by lifting finger or system interrupt like incoming call that causes press lost), to restore normal UI behavior
+        g_board.status.ui.page.countdown.timeout = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
     }
 }
 
@@ -1321,8 +1328,10 @@ void ui_layout_init(void* args){
   lv_obj_set_style_bg_opa(parent_wall, LV_OPA_TRANSP, LV_PART_MAIN);
   lv_obj_add_event_cb(parent_wall, pressed_event_cb,   LV_EVENT_PRESSED,  NULL); // record press origin for bounce detection
   lv_obj_add_event_cb(parent_wall, pressed_event_cb,   LV_EVENT_RELEASED, NULL); // bounce on blocked-direction swipes
-  lv_obj_add_event_cb(parent_wall, long_press_event_cb, LV_EVENT_LONG_PRESSED, NULL);
+  lv_obj_add_event_cb(parent_wall, long_press_event_cb, LV_EVENT_LONG_PRESSED,        NULL);
   lv_obj_add_event_cb(parent_wall, long_press_event_cb, LV_EVENT_LONG_PRESSED_REPEAT, NULL);
+  lv_obj_add_event_cb(parent_wall, long_press_event_cb, LV_EVENT_RELEASED,            NULL);
+  lv_obj_add_event_cb(parent_wall, long_press_event_cb, LV_EVENT_PRESS_LOST,          NULL);
   lv_obj_add_event_cb(parent_wall, tileview_changed_cb, LV_EVENT_VALUE_CHANGED, NULL); // sync page.current on native tileview scroll
   
   // Create all page tiles via lv_tileview_add_tile. Each tile is auto-sized to
