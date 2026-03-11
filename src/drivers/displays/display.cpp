@@ -471,6 +471,99 @@ static void button_event_cb(lv_event_t *e) {
     }
 }
 
+static void scroll_begin_cb(lv_event_t *e) {
+    // lv_obj_scroll_by (the snap path) computes time via lv_anim_speed_to_time clamped to [200,400]ms.
+    // SCROLL_BEGIN passes the in-flight lv_anim_t* as param, so we can override time before it starts.
+    lv_anim_t *a = (lv_anim_t *)lv_event_get_param(e);
+    if (a) {
+        lv_anim_set_time(a, 80); // override to 80ms for smoother transition (reduced from 120ms)
+        // Set path to ease-out for natural deceleration feel
+        lv_anim_set_path_cb(a, lv_anim_path_ease_out);
+    }
+}
+
+static void scroll_end_cb(lv_event_t *e) {
+    // Lower threshold for page switching: if scroll > 20% of screen, force switch to target page
+    // This callback is triggered when scrolling stops (finger lifted or inertia ended)
+    if (!parent_wall) return;
+    
+    lv_obj_t *tv = (lv_obj_t *)lv_event_get_target(e);
+    
+    // Get current scroll position
+    lv_coord_t scroll_x = lv_obj_get_scroll_x(tv);
+    lv_coord_t scroll_y = lv_obj_get_scroll_y(tv);
+    
+    // Get expected position for current page
+    lv_obj_t *current_tile = g_board.status.ui.page.list[g_board.status.ui.page.current];
+    if (!current_tile) return;
+    
+    lv_coord_t current_x = lv_obj_get_x(current_tile);
+    lv_coord_t current_y = lv_obj_get_y(current_tile);
+    
+    // Calculate how far we've scrolled from current page center
+    lv_coord_t drift_x = scroll_x - current_x;
+    lv_coord_t drift_y = scroll_y - current_y;
+    
+    // Threshold: 20% of screen size (reduced from default 50%)
+    const lv_coord_t THRESHOLD_X = SCREEN_WIDTH * 0.01;
+    const lv_coord_t THRESHOLD_Y = SCREEN_HEIGHT * 0.01;
+    
+    // Determine if we should switch pages based on drift direction and magnitude
+    lv_obj_t *target_tile = nullptr;
+    
+    // Prioritize the axis with larger movement (using absolute values)
+    if (LV_ABS(drift_x) > LV_ABS(drift_y)) {
+        // Horizontal movement is dominant
+        if (LV_ABS(drift_x) > THRESHOLD_X) {
+            if (drift_x > 0) {
+                // Scrolled left (content moved right), so switch to page on right
+                switch (g_board.status.ui.page.current) {
+                    case UI_PAGE_MINER:     target_tile = g_board.status.ui.page.list[UI_PAGE_SETTING];   break;
+                    case UI_PAGE_DASHBOARD: target_tile = g_board.status.ui.page.list[UI_PAGE_MARKET];    break;
+                    case UI_PAGE_HR_HEALTH: target_tile = g_board.status.ui.page.list[UI_PAGE_CLOCK];     break;
+                    default: break;
+                }
+            } else {
+                // Scrolled right (content moved left), so switch to page on left
+                switch (g_board.status.ui.page.current) {
+                    case UI_PAGE_SETTING: target_tile = g_board.status.ui.page.list[UI_PAGE_MINER];     break;
+                    case UI_PAGE_MARKET:  target_tile = g_board.status.ui.page.list[UI_PAGE_DASHBOARD]; break;
+                    case UI_PAGE_CLOCK:   target_tile = g_board.status.ui.page.list[UI_PAGE_HR_HEALTH]; break;
+                    default: break;
+                }
+            }
+        }
+    } else {
+        // Vertical movement is dominant
+        if (LV_ABS(drift_y) > THRESHOLD_Y) {
+            if (drift_y > 0) {
+                // Scrolled up (content moved down), so switch to page below
+                switch (g_board.status.ui.page.current) {
+                    case UI_PAGE_MINER:     target_tile = g_board.status.ui.page.list[UI_PAGE_DASHBOARD]; break;
+                    case UI_PAGE_DASHBOARD: target_tile = g_board.status.ui.page.list[UI_PAGE_HR_HEALTH]; break;
+                    case UI_PAGE_MARKET:    target_tile = g_board.status.ui.page.list[UI_PAGE_CLOCK];     break;
+                    case UI_PAGE_SETTING:   target_tile = g_board.status.ui.page.list[UI_PAGE_MARKET];    break;
+                    default: break;
+                }
+            } else {
+                // Scrolled down (content moved up), so switch to page above
+                switch (g_board.status.ui.page.current) {
+                    case UI_PAGE_DASHBOARD: target_tile = g_board.status.ui.page.list[UI_PAGE_MINER];     break;
+                    case UI_PAGE_HR_HEALTH: target_tile = g_board.status.ui.page.list[UI_PAGE_DASHBOARD]; break;
+                    case UI_PAGE_CLOCK:     target_tile = g_board.status.ui.page.list[UI_PAGE_MARKET];    break;
+                    case UI_PAGE_MARKET:    target_tile = g_board.status.ui.page.list[UI_PAGE_SETTING];  break;
+                    default: break;
+                }
+            }
+        }
+    }
+    
+    // If threshold exceeded and target is valid, force the switch
+    if (target_tile && target_tile != current_tile) {
+        lv_obj_set_tile(parent_wall, target_tile, LV_ANIM_ON);
+    }
+}
+
 static void ui_bounce_effect(lv_obj_t *current_page, uint8_t tp_evt) {
     if(parent_wall == nullptr || current_page == nullptr) return;
     const int16_t BOUNCE_PX = 25;
@@ -722,7 +815,8 @@ void ui_drv_register(void){
   lv_indev_drv_init(&indev_drv);
   indev_drv.type = LV_INDEV_TYPE_POINTER; 
   indev_drv.read_cb = touchpad_read_cb;   
-  indev_drv.scroll_limit    = 20;     
+  indev_drv.scroll_limit    = 6;      /* reduced from 8; smaller = scroll recognized sooner */
+  indev_drv.scroll_throw    = 10;     /* reduced from 80; lower = more inertia, smoother feel after finger lifts */
   indev_drv.long_press_time = 500;        // long press time in milliseconds
   indev_drv.long_press_repeat_time = 100; // long press repeat time in milliseconds
   lv_indev_t *indev = lv_indev_drv_register(&indev_drv);
@@ -1332,6 +1426,8 @@ void ui_layout_init(void* args){
   lv_obj_add_event_cb(parent_wall, long_press_event_cb, LV_EVENT_RELEASED,            NULL);
   lv_obj_add_event_cb(parent_wall, long_press_event_cb, LV_EVENT_PRESS_LOST,          NULL);
   lv_obj_add_event_cb(parent_wall, tileview_changed_cb, LV_EVENT_VALUE_CHANGED, NULL); // sync page.current on native tileview scroll
+  lv_obj_add_event_cb(parent_wall, scroll_begin_cb,     LV_EVENT_SCROLL_BEGIN,   NULL); // override snap animation time to 80ms with ease-out
+  lv_obj_add_event_cb(parent_wall, scroll_end_cb,       LV_EVENT_SCROLL_END,     NULL); // lower threshold: force switch at 20% scroll
   
   // Create all page tiles via lv_tileview_add_tile. Each tile is auto-sized to
   // SCREEN_WIDTH × SCREEN_HEIGHT and positioned at (col*W, row*H) by the tileview.
