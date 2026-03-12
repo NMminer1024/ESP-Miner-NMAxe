@@ -1265,17 +1265,41 @@ void fan_thread_entry(void *args){
 void market_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
+    // Wait until the MarketClass instance has been allocated
     while (board->market == NULL){
         LOG_W("MarketClass instance is NULL, waiting...");
         delay(1000);
-    }   
+    }
 
     board->market->lastUpdate = 0;
-    
+
+    // Number of consecutive retry attempts before giving up for this cycle
+    const uint8_t  MARKET_MAX_RETRIES    = 3;
+    // Short pause between retries to avoid hammering the server
+    const uint32_t MARKET_RETRY_DELAY_MS = 2000;
+
     while(true){
         if(board->status.wifi.status == WL_CONNECTED){
-            bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT");
-            board->market->lastUpdate = (res) ? millis() : board->market->lastUpdate;
+            bool fetched = false;
+            for(uint8_t attempt = 1; attempt <= MARKET_MAX_RETRIES; attempt++){
+                bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT");
+                if(res){
+                    board->market->lastUpdate = millis();
+                    fetched = true;
+                    break;
+                }
+                LOG_D("Market data fetch failed (attempt %d/%d) for symbol [%sUSDT]",
+                      attempt, MARKET_MAX_RETRIES, board->info.base.coin_price.c_str());
+                if(attempt < MARKET_MAX_RETRIES){
+                    delay(MARKET_RETRY_DELAY_MS);
+                }
+            }
+            if(!fetched){
+                LOG_E("Market data fetch failed after %d attempts. Please verify that the Binance API is accessible in your country.",
+                      MARKET_MAX_RETRIES);
+            }
+        } else {
+            LOG_D("Market update skipped: WiFi not connected.");
         }
         delay(MINER_MARKET_UPDATE_INTERVAL);
     }
