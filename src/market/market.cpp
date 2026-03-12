@@ -88,7 +88,7 @@ bool MarketClass::fetch_available_usdt_pairs() {
     return true;
 }
 
-bool MarketClass::get_coin_ticker_24hr(const String &symbol) {
+bool MarketClass::get_coin_ticker_24hr(const String &symbol, CoinPrice &out) {
     // Use ESP32 built-in HTTPClient: has explicit timeout, auto connection cleanup,
     // and does not block indefinitely on a slow server like ArduinoHttpClient can.
     HTTPClient http;
@@ -108,10 +108,10 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol) {
         StaticJsonDocument<800> doc;
         DeserializationError error = deserializeJson(doc, payload);
         if (!error) {
-            this->price          = doc["lastPrice"].as<String>().toFloat();
-            this->change_percent = doc["priceChangePercent"].as<String>().toFloat();
+            out.price      = doc["lastPrice"].as<String>().toFloat();
+            out.change_pct = doc["priceChangePercent"].as<String>().toFloat();
             LOG_D("24hr ticker for %s: Price = %.2f, Change Percent = %.2f%%",
-                  symbol.c_str(), this->price, this->change_percent);
+                  symbol.c_str(), out.price, out.change_pct);
             return true;
         } else {
             LOG_E("Failed to parse ticker JSON: %s", error.c_str());

@@ -1,6 +1,6 @@
 import {HttpErrorResponse} from '@angular/common/http';
 import {Component} from '@angular/core';
-import {FormBuilder, FormGroup, Validators} from '@angular/forms';
+import {AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators} from '@angular/forms';
 import {ToastrService} from 'ngx-toastr';
 import {Observable, shareReplay, startWith} from 'rxjs';
 import {LoadingService} from 'src/app/services/loading.service';
@@ -114,8 +114,13 @@ export class SettingsComponent {
           autoscreen: [info.autoscreen == 1],
           fanspeed: [info.fanspeed, [Validators.required]],
           // Market settings
-          coinDisplay: [info.coinPriceDisplay || info.coin || 'BTC'],
-          coinWatchlist: [watchlistArr],
+          mainprice: [info.mainprice || info.coinPriceDisplay || info.coin || 'BTC'],
+          coinWatchlist: [watchlistArr, [(c: AbstractControl): ValidationErrors | null =>
+            Array.isArray(c.value) && c.value.length > 50
+              ? { maxWatchlist: true }
+              : null
+          ]],
+
         });
 
         this.form.controls['autofanspeed'].valueChanges.pipe(
@@ -179,11 +184,14 @@ export class SettingsComponent {
 
   public saveMarket() {
     const raw = this.form.getRawValue();
+    const watchlist: string[] = Array.isArray(raw.coinWatchlist) ? raw.coinWatchlist : [];
+    if (watchlist.length > 50) {
+      this.toastr.warning('Please select no more than 50 coins.', 'Watchlist too long');
+      return;
+    }
     const payload: any = {
-      coinDisplay: raw.coinDisplay,
-      coinWatchlist: Array.isArray(raw.coinWatchlist)
-        ? raw.coinWatchlist.join(',')
-        : (raw.coinWatchlist || ''),
+      mainprice: raw.mainprice,
+      coinWatchlist: watchlist.join(','),
     };
     this.systemService.updateSystem(undefined, payload)
       .pipe(this.loadingService.lockUIUntilComplete())

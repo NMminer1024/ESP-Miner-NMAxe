@@ -34,7 +34,7 @@
 #define NVS_CONFIG_BLOCK_HITS "blockhits"
 #define NVS_CONFIG_UPTIME     "uptime"
 #define NVS_CONFIG_FORCE_CONFIG "forceconfig"
-#define NVS_CONFIG_PRICE_DISPLAY_COIN "coindisplay"
+#define NVS_CONFIG_PRICE_DISPLAY_COIN "maincoindisplay"
 #define NVS_CONFIG_COIN_WATCHLIST     "coinwatchlist"
 #define NVS_CONFIG_UI_LAST_PAGE "lastPage"
 // Theme configuration

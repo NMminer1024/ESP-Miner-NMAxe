@@ -895,9 +895,10 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             g_board.info.spec.asic.req_frq = req_mhz;
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, root["asicFreqReq"].as<uint16_t>());
         }
-        if(root.containsKey("coinDisplay")){
-            nvs_config_set_string(NVS_CONFIG_PRICE_DISPLAY_COIN, root["coinDisplay"].as<String>().c_str());
-            g_board.info.base.coin_price = root["coinDisplay"].as<String>();
+        /************************************** settings->market config ***************************************************************/
+        if(root.containsKey("mainprice")){
+            nvs_config_set_string(NVS_CONFIG_PRICE_DISPLAY_COIN, root["mainprice"].as<String>().c_str());
+            g_board.info.base.coin_price = root["mainprice"].as<String>();
             g_board.info.base.coin_price.toUpperCase();
         }
         if(root.containsKey("coinWatchlist")){

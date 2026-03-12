@@ -73,6 +73,7 @@ export class SystemService {
           fallBackUser: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
           fallBackPassword: "x",
           coinPriceDisplay: "btc",
+          mainprice: "BTC",
           screenFlip: 1,
           screenAutoRoll: 0,
           Brightness: 100,

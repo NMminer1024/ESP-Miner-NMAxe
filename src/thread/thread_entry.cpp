@@ -1289,9 +1289,13 @@ void market_thread_entry(void *args){
         if(board->status.wifi.status == WL_CONNECTED){
             bool fetched = false;
             for(uint8_t attempt = 1; attempt <= MARKET_MAX_RETRIES; attempt++){
-                bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT");
+                CoinPrice mp;
+                bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT", mp);
                 if(res){
-                    board->market->lastUpdate = millis();
+                    board->market->main_pair   = mp;
+                    board->market->lastUpdate  = millis();
+                    LOG_I("[Market] %sUSDT  price=%.4f  change=%.2f%%",
+                          board->info.base.coin_price.c_str(), mp.price, mp.change_pct);
                     fetched = true;
                     break;
                 }
@@ -1304,6 +1308,28 @@ void market_thread_entry(void *args){
             if(!fetched){
                 LOG_E("Market data fetch failed after %d attempts. Please verify that the Binance API is accessible in your country.",
                       MARKET_MAX_RETRIES);
+            }
+
+            // Fetch watchlist pairs
+            if(board->info.base.coin_watchlist.length() > 0){
+                String wl = board->info.base.coin_watchlist;
+                board->market->watchlist_pairs.clear();
+                int start = 0;
+                while(true){
+                    int comma  = wl.indexOf(',', start);
+                    String sym = (comma < 0) ? wl.substring(start) : wl.substring(start, comma);
+                    sym.trim();
+                    if(sym.length() > 0){
+                        CoinPrice cp;
+                        if(board->market->get_coin_ticker_24hr(sym + "USDT", cp)){
+                            board->market->watchlist_pairs[sym + "USDT"] = cp;
+                            LOG_I("[Watchlist] %sUSDT  price=%.4f  change=%.2f%%",
+                                  sym.c_str(), cp.price, cp.change_pct);
+                        }
+                    }
+                    if(comma < 0) break;
+                    start = comma + 1;
+                }
             }
         } else {
             LOG_D("Market update skipped: WiFi not connected.");

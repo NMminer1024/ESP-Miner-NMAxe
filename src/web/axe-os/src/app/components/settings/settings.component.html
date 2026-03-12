@@ -18,13 +18,18 @@
 
   <!-- Primary Display Coin -->
   <div class="field grid p-fluid">
-    <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coinDisplay">Main Price:</label>
+    <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="mainprice">
+      Main Price:
+      <span pTooltip="The coin whose price is shown on the main screen. Only one coin can be selected."
+            tooltipPosition="top"
+            style="margin-left: 5px; cursor: help; color: #888; font-size: 14px;">❓</span>
+    </label>
     <div class="col-12 md:col-10">
-      <p-dropdown id="coinDisplay"
+      <p-dropdown id="mainprice"
                   [options]="pairOptions"
                   optionLabel="label"
                   optionValue="value"
-                  formControlName="coinDisplay"
+                  formControlName="mainprice"
                   [filter]="true"
                   filterBy="label"
                   placeholder="Select coin"
@@ -36,7 +41,12 @@
 
   <!-- Watchlist Coins -->
   <div class="field grid p-fluid">
-    <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coinWatchlist">Watchlist:</label>
+    <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coinWatchlist">
+      Watchlist:
+      <span pTooltip="Coins that continuously cycle on the price wall screen. Maximum 50 pairs."
+            tooltipPosition="top"
+            style="margin-left: 5px; cursor: help; color: #888; font-size: 14px;">❓</span>
+    </label>
     <div class="col-12 md:col-10">
       <p-multiSelect id="coinWatchlist"
                      [options]="pairOptions"
@@ -47,12 +57,15 @@
                      filterBy="label"
                      placeholder="Select coins to watch"
                      display="chip"
-                     [maxSelectedLabels]="100"
+                     [maxSelectedLabels]="50"
                      selectedItemsLabel="{0} coins selected"
                      [showToggleAll]="false"
                      appendTo="body"
                      styleClass="w-full">
       </p-multiSelect>
+      <small *ngIf="form.get('coinWatchlist')?.errors?.['maxWatchlist']" style="color: #ff6b6b;">
+        Too many coins selected — maximum 50 allowed.
+      </small>
     </div>
   </div>
 

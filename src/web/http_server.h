@@ -34,7 +34,7 @@
 #define HTTP_API_SYS_JSON_KEY_BOARD_WIFI_SSID               "wifiSSID"
 #define HTTP_API_SYS_JSON_KEY_BOARD_WIFI_STATUS             "wifiStatus"
 
-#define HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY             "coinPriceDisplay"
+#define HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY             "mainprice"
 #define HTTP_API_SYS_JSON_KEY_COIN_WATCHLIST                 "coinWatchlist"
 
 #define HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_FLIP               "screenFlip"
