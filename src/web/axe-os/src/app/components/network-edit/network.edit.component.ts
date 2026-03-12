@@ -29,33 +29,30 @@ export class NetworkEditComponent implements OnInit {
 
   }
   ngOnInit(): void {
-    this.systemService.getInfo(this.uri)
+    this.systemService.getSettingNetwork(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
-        // Map new field names to legacy names for backward compatibility
-        info.hostname = info.hostName || info.hostname;
-        info.ssid = info.wifiSSID || info.ssid;
+        const hostname = info.hostName || info.hostname || '';
+        const ssid     = info.wifiSSID || info.ssid || '';
         this.form = this.fb.group({
-          hostname: [info.hostname, [Validators.required, Validators.maxLength(20)]],
-          ssid: [info.ssid, [Validators.required]],
+          hostname: [hostname, [Validators.required, Validators.maxLength(20)]],
+          ssid: [ssid, [Validators.required]],
           wifiPass: ['*****'],
         });
 
         // 保存原始值用于比较
         this.originalFormValues = {
-          hostname: info.hostname,
-          ssid: info.ssid,
+          hostname,
+          ssid,
           wifiPass: '*****'
         };
 
         // 监听表单变化，确保 dirty 状态正确更新
         this.form.valueChanges.subscribe(() => {
-          // 当任何字段发生变化时，确保表单被标记为 dirty
           if (!this.form.dirty) {
             this.form.markAsDirty();
           }
         });
-
       });
   }
 
@@ -112,7 +109,7 @@ export class NetworkEditComponent implements OnInit {
       delete form.wifiPass;
     }
 
-    this.systemService.updateSystem(this.uri, form)
+    this.systemService.patchSettingNetwork(this.uri, form)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
         next: () => {

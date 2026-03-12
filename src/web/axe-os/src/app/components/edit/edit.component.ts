@@ -43,66 +43,41 @@ export class EditComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // First, get mining settings to populate dropdown options
-    this.systemService.getMiningSettings(this.uri)
-      .pipe(this.loadingService.lockUIUntilComplete())
-      .subscribe(settings => {
-        // Populate dropdown options from API
-        this.DropdownFrequency = settings.overclock.options;
-        this.CoreVoltage = settings.vcore.options;
-      });
-
-    // Then get system info to populate form values
-    this.systemService.getInfo(this.uri)
+    // Single call to /api/setting/mining returns OC/VC options + stratum config + current freq/vcore
+    this.systemService.getSettingMining(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
-        // Map new field names to legacy names for backward compatibility
-        info.ASICModel = info.asic || info.ASICModel;
-        
-        // Parse new stratum nested structure
-        if (info.stratum) {
-          info.stratumURL1 = info.stratum.primary?.url || info.primaryUrl || info.stratumURL1 || '';
-          info.stratumURL2 = info.stratum.fallback?.url || info.fallBackUrl || info.stratumURL2 || '';
-          info.stratumUser1 = info.stratum.primary?.user || info.primaryUser || info.stratumUser1 || '';
-          info.stratumUser2 = info.stratum.fallback?.user || info.fallBackUser || info.stratumUser2 || '';
-          info.stratumPassword1 = info.stratum.primary?.pwd || info.primaryPassword || info.stratumPassword1 || '';
-          info.stratumPassword2 = info.stratum.fallback?.pwd || info.fallBackPassword || info.stratumPassword2 || '';
-        } else {
-          // Fallback to old flat structure
-          info.stratumURL1 = info.primaryUrl || info.stratumURL1 || '';
-          info.stratumURL2 = info.fallBackUrl || info.stratumURL2 || '';
-          info.stratumUser1 = info.primaryUser || info.stratumUser1 || '';
-          info.stratumUser2 = info.fallBackUser || info.stratumUser2 || '';
-          info.stratumPassword1 = info.primaryPassword || info.stratumPassword1 || '';
-          info.stratumPassword2 = info.fallBackPassword || info.stratumPassword2 || '';
-        }
-        
-        info.coreVoltage = info.vcoreReq || info.coreVoltage;
-        info.frequency = info.freqReq || info.frequency;
-        
-        this.ASICModel = info.ASICModel;
+        // Populate dropdown options
+        if (info.overclock?.options) this.DropdownFrequency = info.overclock.options;
+        if (info.vcore?.options)     this.CoreVoltage       = info.vcore.options;
+
+        // Map ASIC model
+        this.ASICModel = info.asic || info.ASICModel;
+
+        // Parse stratum URLs
+        const stratumURL1 = info.stratum?.primary?.url  || '';
+        const stratumURL2 = info.stratum?.fallback?.url || '';
+        const stratumUser1 = info.stratum?.primary?.user  || '';
+        const stratumUser2 = info.stratum?.fallback?.user || '';
+        const stratumPwd1  = info.stratum?.primary?.pwd   || '';
+        const stratumPwd2  = info.stratum?.fallback?.pwd  || '';
+
         this.form = this.fb.group({
-          stratumURL1: [info.stratumURL1 || 'stratum+tcp://', [
+          stratumURL1: [stratumURL1 || 'stratum+tcp://', [
             Validators.required,
             Validators.pattern(/^(stratum\+(tcp|ssl|tls):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
           ]],
-
-          stratumURL2: [info.stratumURL2 || 'stratum+tcp://', [
+          stratumURL2: [stratumURL2 || 'stratum+tcp://', [
             Validators.required,
             Validators.pattern(/^(stratum\+(tcp|ssl|tls):\/\/[a-zA-Z0-9.-]+:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))$/)
           ]],
-          
-          stratumUser1: [info.stratumUser1, [Validators.required]],
-          stratumUser2: [info.stratumUser2, [Validators.required]],
-          stratumPassword1: [info.stratumPassword1],
-          stratumPassword2: [info.stratumPassword2],
-          coreVoltage: [info.coreVoltage, [Validators.required]],
-          frequency: [info.frequency, [Validators.required]],
-          // overheat_mode: [info.overheat_mode, [Validators.required]]
+          stratumUser1: [stratumUser1, [Validators.required]],
+          stratumUser2: [stratumUser2, [Validators.required]],
+          stratumPassword1: [stratumPwd1],
+          stratumPassword2: [stratumPwd2],
+          coreVoltage: [info.vcoreReq, [Validators.required]],
+          frequency:   [info.freqReq,  [Validators.required]],
         });
-
-        // Remove the autofanspeed/fanspeed logic as these fields don't exist in this form
-        // This logic belongs to the preference component, not the mining settings
       });
   }
 
@@ -140,7 +115,7 @@ export class EditComponent implements OnInit {
       asicFreqReq: formValue.frequency
     };
 
-    this.systemService.updateSystem(this.uri, form)
+    this.systemService.patchSettingMining(this.uri, form)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
         next: () => {

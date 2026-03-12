@@ -36,34 +36,32 @@ export class PreferenceComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.systemService.getInfo(this.uri)
+    this.systemService.getSettingPreference(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
-        // Map new field names to legacy names for backward compatibility
-        info.ASICModel = info.asic || info.ASICModel;
-        info.flipscreen = info.screenFlip ?? info.flipscreen;
-        info.invertscreen = info.invertscreen ?? 0;
-        info.ledindicator = info.ledIndicator ?? info.ledindicator;
-        info.brightness = info.Brightness ?? info.brightness;
-        info.autofanspeed = info.fanAutoSpeed ?? info.autofanspeed;
-        info.autoscreen = info.screenAutoRoll ?? info.autoscreen;
-        info.targetAsicTemp = info.asicTargetTemp ?? info.targetAsicTemp;
+        const flipscreen    = info.screenFlip    ?? info.flipscreen    ?? 0;
+        const invertscreen  = info.invertscreen  ?? 0;
+        const ledindicator  = info.ledIndicator  ?? info.ledindicator  ?? 0;
+        const brightness    = info.Brightness    ?? info.brightness    ?? 100;
+        const autofanspeed  = info.fanAutoSpeed  ?? info.autofanspeed  ?? 1;
+        const autoscreen    = info.screenAutoRoll ?? info.autoscreen   ?? 0;
+        const targetAsicTemp = info.asicTargetTemp ?? info.targetAsicTemp ?? '70';
+
         if (info.fans && info.fans.length > 0) {
           const defaultFan = info.fans.find((f: any) => f.id === 0) || info.fans[0];
           info.fanspeed = defaultFan.speed;
-          info.fanrpm = defaultFan.rpm;
         }
-        
-        this.ASICModel = info.ASICModel;
+
+        this.ASICModel = info.asic || info.ASICModel;
         this.form = this.fb.group({
-          flipscreen: [info.flipscreen == 1],
-          invertscreen: [info.invertscreen == 1],
-          ledindicator: [info.ledindicator == 1],
-          brightness: [info.brightness, [Validators.required]],
-          autofanspeed: [info.autofanspeed == 1, [Validators.required]],
-          targetAsicTemp: [parseFloat(info.targetAsicTemp || '70') || 70, [Validators.required, Validators.min(20), Validators.max(70)]],
-          autoscreen: [info.autoscreen == 1],
-          fanspeed: [info.fanspeed, [Validators.required]],
+          flipscreen:      [flipscreen == 1],
+          invertscreen:    [invertscreen == 1],
+          ledindicator:    [ledindicator == 1],
+          brightness:      [brightness, [Validators.required]],
+          autofanspeed:    [autofanspeed == 1, [Validators.required]],
+          targetAsicTemp:  [parseFloat(targetAsicTemp as string) || 70, [Validators.required, Validators.min(20), Validators.max(70)]],
+          autoscreen:      [autoscreen == 1],
+          fanspeed:        [info.fanspeed, [Validators.required]],
         });
 
         this.form.controls['autofanspeed'].valueChanges.pipe(
@@ -105,19 +103,19 @@ export class PreferenceComponent implements OnInit {
   }
 
   public updateSystem() {
+    const raw = this.form.getRawValue();
 
-    const form = this.form.getRawValue();
+    // Convert booleans to ints for backend
+    const form: any = {
+      ...raw,
+      flipscreen:   raw.flipscreen   ? 1 : 0,
+      invertscreen: raw.invertscreen ? 1 : 0,
+      ledindicator: raw.ledindicator ? 1 : 0,
+      autofanspeed: raw.autofanspeed ? 1 : 0,
+      autoscreen:   raw.autoscreen   ? 1 : 0,
+    };
 
-    // if (form.stratumPassword1 === 'password') {
-    //   delete form.stratumPassword1;
-    // }
-    // if (form.stratumPassword2 === 'password') {
-    //   delete form.stratumPassword2;
-    // }
-
-    // form.overheat_mode = form.overheat_mode ? 1 : 0;
-
-    this.systemService.updateSystem(this.uri, form)
+    this.systemService.patchSettingPreference(this.uri, form)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
         next: () => {

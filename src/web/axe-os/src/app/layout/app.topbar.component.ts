@@ -93,9 +93,7 @@ export class AppTopBarComponent {
     public clearBlockHits() {
         this.clearBlockHitsDialogVisible = false;
         
-        const clearData = { blockhits: 0 };
-        
-        this.systemService.updateSystem('', clearData)
+        this.systemService.resetMinerStats('')
             .pipe(this.loadingService.lockUIUntilComplete())
             .subscribe({
                 next: () => {

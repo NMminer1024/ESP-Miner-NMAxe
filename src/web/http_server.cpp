@@ -1,4 +1,4 @@
-
+﻿
 #include <Arduino.h>
 #include <Update.h>
 #include <SPIFFS.h>
@@ -34,6 +34,8 @@ bool isValidNumber(const String& str) {
     }
     return hasDigit;
 }
+
+// Initialize SPIFFS; log total/used capacity. Called once at boot.
 void file_system_init() {
     if (!SPIFFS.begin(true, "", 5, NULL)) {
         LOG_E("An Error has occurred while mounting SPIFFS");
@@ -43,6 +45,8 @@ void file_system_init() {
     size_t usedBytes = SPIFFS.usedBytes();
     LOG_I("File system totalBytes: %d KB, usedBytes: %d KB", totalBytes / 1024, usedBytes / 1024);
 }
+
+// Derive MIME type from file extension for SPIFFS serving.
  String get_content_type_from_file(String filepath) {
     if(filepath.endsWith(".html")) return "text/html";
     else if(filepath.endsWith(".css")) return "text/css";
@@ -51,6 +55,8 @@ void file_system_init() {
     else if(filepath.endsWith(".ico")) return "image/x-icon";
     else return "text/plain";
 }
+
+// Serve gzip-compressed static files from SPIFFS; redirects unknown paths to /.
 void rest_common_get_handler(AsyncWebServerRequest *request) {
    String base_path = "";
     if (request->url().endsWith("/")) base_path = "/index.html";
@@ -87,80 +93,387 @@ void rest_common_get_handler(AsyncWebServerRequest *request) {
     request->send(response);
     LOG_L("File sending complete: %s, free heap: %d", base_path.c_str(), ESP.getFreeHeap());
 }
+
+// GET /api/system/info -- dashboard summary: power, temps, ASIC, mining stats, board identity.
 void get_system_info(AsyncWebServerRequest* request){
-    const uint16_t json_size_max  =  2048;
-    StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
+    const uint16_t json_size_max = 1024;
+    StaticJsonDocument<json_size_max> root;
     root.clear();
-    root[HTTP_API_SYS_JSON_KEY_MINER_POWER]             = (g_board.status.power.ibus /1000.0f) * (g_board.status.power.vbus / 1000.0f);
-    root[HTTP_API_SYS_JSON_KEY_MINER_VOLT]              = g_board.status.power.vbus;
-    root[HTTP_API_SYS_JSON_KEY_MINER_CURRENT]           = g_board.status.power.ibus;
-    root[HTTP_API_SYS_JSON_KEY_VCORE_TEMP]              = g_board.status.temp.vcore;
-    root[HTTP_API_SYS_JSON_KEY_MCU_TEMP]                = g_board.status.temp.mcu;
 
-    root[HTTP_API_SYS_JSON_KEY_ASIC_CNT]                = g_board.miner->get_asic_count();
-    root[HTTP_API_SYS_JSON_KEY_ASIC_MODEL_NAME]         = g_board.info.spec.asic.name;
-    root[HTTP_API_SYS_JSON_KEY_ASIC_TEMP]               = g_board.status.temp.asic;
-    root[HTTP_API_SYS_JSON_KEY_ASIC_VCORE_REQ]          = g_board.info.spec.asic.req_vcore;
-    root[HTTP_API_SYS_JSON_KEY_ASIC_VCORE_ACTUAL]       = g_board.status.power.vcore;
-    root[HTTP_API_SYS_JSON_KEY_ASIC_SMALL_CORE_CNT]     = g_board.miner->get_asic_small_cores();
-    root[HTTP_API_SYS_JSON_KEY_ASIC_FREQ_REQ]           = g_board.info.spec.asic.req_frq;
+    // Power & electrical
+    root["power"]       = (g_board.status.power.ibus / 1000.0f) * (g_board.status.power.vbus / 1000.0f);
+    root["voltage"]     = g_board.status.power.vbus;
+    root["current"]     = g_board.status.power.ibus;
 
+    // Temperatures
+    root["vcoreTemp"]   = g_board.status.temp.vcore;
+    root["mcuTemp"]     = g_board.status.temp.mcu;
+    root["asicTemp"]    = g_board.status.temp.asic;
 
-    root[HTTP_API_SYS_JSON_KEY_MINER_HR_REALTIME]       = g_board.status.miner.hashrate._3m/1000/1000/1000;
-    root[HTTP_API_SYS_JSON_KEY_MINER_BEST_DIFF_EVER]    = formatNumber(g_board.status.miner.diff.best_ever, 4);
-    root[HTTP_API_SYS_JSON_KEY_MINER_BEST_DIFF_SESSION] = formatNumber(g_board.status.miner.diff.best_session, 4);
-    root[HTTP_API_SYS_JSON_KEY_MINER_FREE_HEAP]         = ESP.getFreeHeap();
-    root[HTTP_API_SYS_JSON_KEY_MINER_SHARES_ACCEPTED]   = g_board.status.miner.share_accepted;
-    root[HTTP_API_SYS_JSON_KEY_MINER_SHARES_REJECTED]   = g_board.status.miner.share_rejected;
-    root[HTTP_API_SYS_JSON_KEY_MINER_UPTIME_SECONDS]    = g_board.status.miner.uptime_session;
-    
-    root[HTTP_API_SYS_JSON_KEY_BOARD_FW_VERSION]        = g_board.info.base.fw_version;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_HW_MODEL]          = g_board.info.spec.name;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_HOSTNAME]          = g_board.info.base.hostname;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_TIMEZONE]          = g_board.status.time.tz;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_TIME_FORMAT]       = g_board.status.time.format.time;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_DATE_FORMAT]       = g_board.status.time.format.date;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_SSID]         = g_board.info.connection.wifi.sta.ssid;
-    root[HTTP_API_SYS_JSON_KEY_BOARD_WIFI_STATUS]       = ((g_board.status.wifi.status == WL_CONNECTED) ? "connected" : "disconnected");
+    // ASIC status
+    root["asicCount"]   = g_board.miner->get_asic_count();
+    root["asic"]        = g_board.info.spec.asic.name;
+    root["vcoreReq"]    = g_board.info.spec.asic.req_vcore;
+    root["vcoreActual"] = g_board.status.power.vcore;
+    root["freqReq"]     = g_board.info.spec.asic.req_frq;
+    root["smallCoreCnt"]= g_board.miner->get_asic_small_cores();
 
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_FLIP]         = g_board.status.preference.screen.flip;
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_LED_INDICATOR]       = g_board.status.preference.led.enable;
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_FAN_AUTO_SPEED]      = g_board.status.preference.fan.is_auto_speed;
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_AUTO_ROLL]    = g_board.status.preference.screen.auto_rolling;
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_ASIC_TARGET_TEMP]    = String(g_board.status.preference.fan.target_temp);
-    root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_BRIGHTNESS]   = g_board.status.preference.screen.brightness;
+    // Mining stats
+    root["hashRate"]        = g_board.status.miner.hashrate._3m / 1000 / 1000 / 1000;
+    root["bestDiffEver"]    = formatNumber(g_board.status.miner.diff.best_ever, 4);
+    root["bestDiffSession"] = formatNumber(g_board.status.miner.diff.best_session, 4);
+    root["freeHeap"]        = ESP.getFreeHeap();
+    root["sharesAccepted"]  = g_board.status.miner.share_accepted;
+    root["sharesRejected"]  = g_board.status.miner.share_rejected;
+    root["uptimeSeconds"]   = g_board.status.miner.uptime_session;
 
-    root[HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY]              = g_board.info.base.coin_price;
-    root[HTTP_API_SYS_JSON_KEY_COIN_WATCHLIST]                  = g_board.info.base.coin_watchlist;
+    // Board identity
+    root["fwVersion"]   = g_board.info.base.fw_version;
+    root["hwModel"]     = g_board.info.spec.name;
+    root["hostName"]    = g_board.info.base.hostname;
+    root["wifiSSID"]    = g_board.info.connection.wifi.sta.ssid;
+    root["wifiStatus"]  = (g_board.status.wifi.status == WL_CONNECTED) ? "connected" : "disconnected";
 
+    // Currently-active pool (read-only status)
     JsonObject stratumObj = root.createNestedObject("stratum");
-    JsonObject usedObj = stratumObj.createNestedObject("used");
-    usedObj["url"]                = g_board.info.connection.pool.use.ssl ? ("stratum+ssl://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port)) : ("stratum+tcp://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port));
-    usedObj["user"]               = g_board.info.connection.stratum.use.user;
-    usedObj["pwd"]                = g_board.info.connection.stratum.use.pwd;
-    JsonObject primaryObj = stratumObj.createNestedObject("primary");
-    primaryObj["url"]             = g_board.info.connection.pool.primary.ssl ? ("stratum+ssl://" + g_board.info.connection.pool.primary.url + ":" + String(g_board.info.connection.pool.primary.port)) : ("stratum+tcp://" + g_board.info.connection.pool.primary.url + ":" + String(g_board.info.connection.pool.primary.port));
-    primaryObj["user"]            = g_board.info.connection.stratum.primary.user;
-    primaryObj["pwd"]             = g_board.info.connection.stratum.primary.pwd;
-    JsonObject fallbackObj = stratumObj.createNestedObject("fallback");
-    fallbackObj["url"]            = g_board.info.connection.pool.fallback.ssl ? ("stratum+ssl://" + g_board.info.connection.pool.fallback.url + ":" + String(g_board.info.connection.pool.fallback.port)) : ("stratum+tcp://" + g_board.info.connection.pool.fallback.url + ":" + String(g_board.info.connection.pool.fallback.port));
-    fallbackObj["user"]           = g_board.info.connection.stratum.fallback.user;
-    fallbackObj["pwd"]            = g_board.info.connection.stratum.fallback.pwd;
+    JsonObject usedObj    = stratumObj.createNestedObject("used");
+    usedObj["url"]  = g_board.info.connection.pool.use.ssl
+        ? ("stratum+ssl://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port))
+        : ("stratum+tcp://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port));
+    usedObj["user"] = g_board.info.connection.stratum.use.user;
+    usedObj["pwd"]  = g_board.info.connection.stratum.use.pwd;
 
-    // adjust multiple fans status
-    root[HTTP_API_SYS_JSON_KEY_FAN_CNT]    = g_board.status.fan.count;
+    // Fan status
+    root["fanCount"] = g_board.status.fan.count;
     JsonArray fansArray = root.createNestedArray("fans");
-    for(auto & fan : g_board.status.fan.list){
+    for (auto & fan : g_board.status.fan.list) {
         JsonObject fanObj = fansArray.createNestedObject();
-        fanObj["id"]    = fan.id;        
-        fanObj["speed"] = fan.speed;  
-        fanObj["rpm"]   = fan.rpm;     
+        fanObj["id"]    = fan.id;
+        fanObj["speed"] = fan.speed;
+        fanObj["rpm"]   = fan.rpm;
     }
 
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 }
+
+// GET /api/setting/network -- hostname, SSID, WiFi status and IP.
+void get_setting_network(AsyncWebServerRequest* request){
+    StaticJsonDocument<256> root;
+    root.clear();
+    root["hostName"]   = g_board.info.base.hostname;
+    root["wifiSSID"]   = g_board.info.connection.wifi.sta.ssid;
+    root["wifiStatus"] = (g_board.status.wifi.status == WL_CONNECTED) ? "connected" : "disconnected";
+    root["wifiIP"]     = g_board.status.wifi.ip.toString();
+    String json_str;
+    serializeJson(root, json_str);
+    request->send(200, "application/json", json_str);
+}
+
+// GET /api/setting/network -- PATCH: save hostname, SSID, password to NVS.
+void patch_setting_network(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+    static const uint16_t BUF_SIZE = 512;
+    if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
+    char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
+    memset(buf, 0, BUF_SIZE);
+    if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
+    if (index + len == total) {
+        buf[total] = '\0';
+        StaticJsonDocument<512> root;
+        if (deserializeJson(root, buf) || !root.is<JsonObject>()) {
+            request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+            free(buf); return;
+        }
+        if (root.containsKey("ssid"))     nvs_config_set_string(NVS_CONFIG_WIFI_SSID, root["ssid"].as<String>().c_str());
+        if (root.containsKey("wifiPass")) nvs_config_set_string(NVS_CONFIG_WIFI_PASS, root["wifiPass"].as<String>().c_str());
+        if (root.containsKey("hostname")) {
+            nvs_config_set_string(NVS_CONFIG_HOSTNAME, root["hostname"].as<String>().c_str());
+            nvs_config_set_string(NVS_CONFIG_AP_SSID,  root["hostname"].as<String>().c_str());
+            g_board.info.base.hostname                = root["hostname"].as<String>();
+            g_board.info.connection.wifi.ap.info.ssid = root["hostname"].as<String>();
+        }
+        request->send(200, "application/json", "{\"status\":\"ok\"}");
+    }
+    free(buf);
+}
+
+// GET /api/setting/time -- timezone, time/date format.
+void get_setting_time(AsyncWebServerRequest* request){
+    StaticJsonDocument<256> root;
+    root.clear();
+    root["timeZone"]   = g_board.status.time.tz;
+    root["timeFormat"] = g_board.status.time.format.time;
+    root["dateFormat"] = g_board.status.time.format.date;
+    String json_str;
+    serializeJson(root, json_str);
+    request->send(200, "application/json", json_str);
+}
+
+// PATCH /api/setting/time -- save timezone and date/time format to NVS.
+void patch_setting_time(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+    static const uint16_t BUF_SIZE = 256;
+    if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
+    char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
+    memset(buf, 0, BUF_SIZE);
+    if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
+    if (index + len == total) {
+        buf[total] = '\0';
+        StaticJsonDocument<256> root;
+        if (deserializeJson(root, buf) || !root.is<JsonObject>()) {
+            request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+            free(buf); return;
+        }
+        if (root.containsKey("timezone")) {
+            nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
+            g_board.status.time.tz = root["timezone"].as<String>();
+        }
+        if (root.containsKey("timeFormat")) {
+            nvs_config_set_u8(NVS_CONFIG_TIME_FORMAT, root["timeFormat"].as<uint8_t>());
+            g_board.status.time.format.time = root["timeFormat"].as<uint8_t>();
+        }
+        if (root.containsKey("dateFormat")) {
+            nvs_config_set_string(NVS_CONFIG_DATE_FORMAT, root["dateFormat"].as<String>().c_str());
+            g_board.status.time.format.date = root["dateFormat"].as<String>();
+        }
+        request->send(200, "application/json", "{\"status\":\"ok\"}");
+    }
+    free(buf);
+}
+
+// -- /api/setting/mining -- GET -----------------------------------------------
+// Returns stratum config, current asic freq/vcore, and OC/VC dropdown options.
+void get_setting_mining(AsyncWebServerRequest* request){
+    const uint16_t json_size_max = 2048;
+    StaticJsonDocument<json_size_max> root;
+    root.clear();
+
+    root["vcoreReq"] = g_board.info.spec.asic.req_vcore;
+    root["freqReq"]  = g_board.info.spec.asic.req_frq;
+    root["asic"]     = g_board.info.spec.asic.name;
+
+    JsonObject stratumObj    = root.createNestedObject("stratum");
+    JsonObject usedObj       = stratumObj.createNestedObject("used");
+    usedObj["url"]  = g_board.info.connection.pool.use.ssl
+        ? ("stratum+ssl://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port))
+        : ("stratum+tcp://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port));
+    usedObj["user"] = g_board.info.connection.stratum.use.user;
+    usedObj["pwd"]  = g_board.info.connection.stratum.use.pwd;
+
+    JsonObject primaryObj    = stratumObj.createNestedObject("primary");
+    primaryObj["url"]  = g_board.info.connection.pool.primary.ssl
+        ? ("stratum+ssl://" + g_board.info.connection.pool.primary.url + ":" + String(g_board.info.connection.pool.primary.port))
+        : ("stratum+tcp://" + g_board.info.connection.pool.primary.url + ":" + String(g_board.info.connection.pool.primary.port));
+    primaryObj["user"] = g_board.info.connection.stratum.primary.user;
+    primaryObj["pwd"]  = g_board.info.connection.stratum.primary.pwd;
+
+    JsonObject fallbackObj   = stratumObj.createNestedObject("fallback");
+    fallbackObj["url"]  = g_board.info.connection.pool.fallback.ssl
+        ? ("stratum+ssl://" + g_board.info.connection.pool.fallback.url + ":" + String(g_board.info.connection.pool.fallback.port))
+        : ("stratum+tcp://" + g_board.info.connection.pool.fallback.url + ":" + String(g_board.info.connection.pool.fallback.port));
+    fallbackObj["user"] = g_board.info.connection.stratum.fallback.user;
+    fallbackObj["pwd"]  = g_board.info.connection.stratum.fallback.pwd;
+
+    const std::vector<work_option_t>& oc_opts = g_board.info.spec.ui.setting_page.oc;
+    const std::vector<work_option_t>& vc_opts = g_board.info.spec.ui.setting_page.vc;
+
+    JsonObject overclock    = root.createNestedObject("overclock");
+    JsonArray  oc_options   = overclock.createNestedArray("options");
+    for (const auto& o : oc_opts) {
+        JsonObject item = oc_options.createNestedObject();
+        item["name"]  = o.name;
+        item["value"] = o.value;
+    }
+
+    JsonObject vcore        = root.createNestedObject("vcore");
+    JsonArray  vc_options   = vcore.createNestedArray("options");
+    for (const auto& v : vc_opts) {
+        JsonObject item = vc_options.createNestedObject();
+        item["name"]  = v.name;
+        item["value"] = v.value;
+    }
+
+    String json_str;
+    serializeJson(root, json_str);
+    request->send(200, "application/json", json_str);
+}
+
+// PATCH /api/setting/mining -- save stratum URLs/users/passwords and ASIC freq/vcore to NVS.
+void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+    static const uint16_t BUF_SIZE = 1024;
+    if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
+    char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
+    memset(buf, 0, BUF_SIZE);
+    if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
+    if (index + len == total) {
+        buf[total] = '\0';
+        StaticJsonDocument<1024> root;
+        if (deserializeJson(root, buf) || !root.is<JsonObject>()) {
+            request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+            free(buf); return;
+        }
+        if (root.containsKey("stratum") && root["stratum"].is<JsonObject>()) {
+            JsonObject stratum = root["stratum"].as<JsonObject>();
+            if (stratum.containsKey("primary") && stratum["primary"].is<JsonObject>()) {
+                JsonObject primary = stratum["primary"].as<JsonObject>();
+                if (primary.containsKey("url"))  nvs_config_set_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  primary["url"].as<String>().c_str());
+                if (primary.containsKey("user")) nvs_config_set_string(NVS_CONFIG_STRATUM_USER_PRIMARY, primary["user"].as<String>().c_str());
+                if (primary.containsKey("pwd"))  nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, primary["pwd"].as<String>().c_str());
+            }
+            if (stratum.containsKey("fallback") && stratum["fallback"].is<JsonObject>()) {
+                JsonObject fallback = stratum["fallback"].as<JsonObject>();
+                if (fallback.containsKey("url"))  nvs_config_set_string(NVS_CONFIG_STRATUM_URL_FALLBACK,  fallback["url"].as<String>().c_str());
+                if (fallback.containsKey("user")) nvs_config_set_string(NVS_CONFIG_STRATUM_USER_FALLBACK, fallback["user"].as<String>().c_str());
+                if (fallback.containsKey("pwd"))  nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, fallback["pwd"].as<String>().c_str());
+            }
+        }
+        if (root.containsKey("asicVcoreReq")) {
+            uint16_t req_mv = root["asicVcoreReq"].as<uint16_t>();
+            g_board.info.spec.asic.req_vcore = req_mv;
+            g_board.power->set_vcore_voltage(req_mv);
+            nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, req_mv);
+        }
+        if (root.containsKey("asicFreqReq")) {
+            uint16_t req_mhz = root["asicFreqReq"].as<uint16_t>();
+            g_board.info.spec.asic.req_frq = req_mhz;
+            nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, req_mhz);
+        }
+        request->send(200, "application/json", "{\"status\":\"ok\"}");
+    }
+    free(buf);
+}
+
+// -- /api/setting/market -- GET -----------------------------------------------
+void get_setting_market(AsyncWebServerRequest* request){
+    // Build response manually: settings fields + large pairs array (can be ~10 KB)
+    String json;
+    json.reserve(10800);
+    json  = "{\"mainprice\":\"";
+    json += g_board.info.base.coin_price;
+    json += "\",\"coinWatchlist\":\"";
+    json += g_board.info.base.coin_watchlist;
+    json += "\",\"pairs\":[";
+    if (g_board.market) {
+        const std::vector<String>& pairs = g_board.market->availablePairs;
+        for (size_t i = 0; i < pairs.size(); i++) {
+            json += "\"";
+            json += pairs[i];
+            json += "\"";
+            if (i + 1 < pairs.size()) json += ",";
+        }
+    }
+    json += "]}";
+    request->send(200, "application/json", json);
+}
+
+// PATCH /api/setting/market -- save main price coin and watchlist to NVS.
+void patch_setting_market(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+    static const uint16_t BUF_SIZE = 1024;
+    if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
+    char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
+    memset(buf, 0, BUF_SIZE);
+    if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
+    if (index + len == total) {
+        buf[total] = '\0';
+        StaticJsonDocument<1024> root;
+        if (deserializeJson(root, buf) || !root.is<JsonObject>()) {
+            request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+            free(buf); return;
+        }
+        if (root.containsKey("mainprice")) {
+            nvs_config_set_string(NVS_CONFIG_PRICE_DISPLAY_COIN, root["mainprice"].as<String>().c_str());
+            g_board.info.base.coin_price = root["mainprice"].as<String>();
+            g_board.info.base.coin_price.toUpperCase();
+        }
+        if (root.containsKey("coinWatchlist")) {
+            nvs_config_set_string(NVS_CONFIG_COIN_WATCHLIST, root["coinWatchlist"].as<String>().c_str());
+            g_board.info.base.coin_watchlist = root["coinWatchlist"].as<String>();
+        }
+        request->send(200, "application/json", "{\"status\":\"ok\"}");
+    }
+    free(buf);
+}
+
+// GET /api/setting/preference -- screen flip/brightness/auto-roll, fan speed, LED indicator.
+void get_setting_preference(AsyncWebServerRequest* request){
+    StaticJsonDocument<512> root;
+    root.clear();
+    root["screenFlip"]     = g_board.status.preference.screen.flip;
+    root["ledIndicator"]   = g_board.status.preference.led.enable;
+    root["fanAutoSpeed"]   = g_board.status.preference.fan.is_auto_speed;
+    root["screenAutoRoll"] = g_board.status.preference.screen.auto_rolling;
+    root["asicTargetTemp"] = String(g_board.status.preference.fan.target_temp);
+    root["Brightness"]     = g_board.status.preference.screen.brightness;
+    root["fanCount"]       = g_board.status.fan.count;
+    JsonArray fansArray    = root.createNestedArray("fans");
+    for (auto & fan : g_board.status.fan.list) {
+        JsonObject fanObj = fansArray.createNestedObject();
+        fanObj["id"]    = fan.id;
+        fanObj["speed"] = fan.speed;
+        fanObj["rpm"]   = fan.rpm;
+    }
+    String json_str;
+    serializeJson(root, json_str);
+    request->send(200, "application/json", json_str);
+}
+
+// PATCH /api/setting/preference -- save display/fan/LED preferences to NVS.
+void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+    static const uint16_t BUF_SIZE = 512;
+    if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
+    char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
+    memset(buf, 0, BUF_SIZE);
+    if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
+    if (index + len == total) {
+        buf[total] = '\0';
+        StaticJsonDocument<512> root;
+        if (deserializeJson(root, buf) || !root.is<JsonObject>()) {
+            request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+            free(buf); return;
+        }
+        if (root.containsKey("brightness")) {
+            g_board.status.preference.screen.brightness = root["brightness"].as<uint8_t>();
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.status.preference.screen.brightness);
+            xSemaphoreGive(g_board.status.brightness_update_xsem);
+        }
+        if (root.containsKey("flipscreen"))  nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());
+        if (root.containsKey("ledindicator")) {
+            g_board.status.preference.led.enable = root["ledindicator"].as<uint8_t>();
+            g_board.status.preference.led.sleep  = false;
+            nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledindicator"].as<uint8_t>());
+        }
+        if (root.containsKey("autofanspeed")) {
+            nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());
+            g_board.status.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
+        }
+        if (root.containsKey("targetAsicTemp")) {
+            nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, root["targetAsicTemp"].as<String>().c_str());
+            g_board.status.preference.fan.target_temp = root["targetAsicTemp"].as<String>().toFloat();
+        }
+        if (root.containsKey("autoscreen")) {
+            nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
+            g_board.status.preference.screen.auto_rolling = root["autoscreen"].as<uint8_t>();
+        }
+        if (root.containsKey("fanspeed")) {
+            nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
+            g_board.status.fan.list[0].speed = root["fanspeed"].as<uint16_t>();
+        }
+        if (root.containsKey("blockhits")) {
+            nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());
+            g_board.status.miner.hits      = root["blockhits"].as<uint16_t>();
+            g_board.status.miner.last_hits = g_board.status.miner.hits;
+        }
+        request->send(200, "application/json", "{\"status\":\"ok\"}");
+    }
+    free(buf);
+}
+
+// GET /api/dashboard/hr/dist -- hashrate distribution bar config and sample counts.
 void get_hr_distribution(AsyncWebServerRequest* request){
     const uint16_t json_size_max  =  512;
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
@@ -179,6 +492,8 @@ void get_hr_distribution(AsyncWebServerRequest* request){
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 }
+
+// GET /api/dashboard/gauge/limits -- min/max ranges for dashboard power/heat/performance gauges.
 void get_gauge_limits(AsyncWebServerRequest* request){
     const uint16_t json_size_max  =  1024;
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
@@ -235,35 +550,8 @@ void get_gauge_limits(AsyncWebServerRequest* request){
     serializeJsonPretty(root, json_str);
     request->send(200, "application/json", json_str);
 }
-void get_oc_vc_list(AsyncWebServerRequest* request){
-    const uint16_t json_size_max  =  1024*2;
-    StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
-    root.clear();
-
-    const std::vector<work_option_t>& oc_opts = g_board.info.spec.ui.setting_page.oc;
-    const std::vector<work_option_t>& vc_opts = g_board.info.spec.ui.setting_page.vc;
-
-    JsonObject overclock = root.createNestedObject("overclock");
-    JsonArray oc_options = overclock.createNestedArray("options");
-    for (const auto& o : oc_opts) {
-        JsonObject item = oc_options.createNestedObject();
-        item["name"]  = o.name;
-        item["value"] = o.value;
-    }
-
-    JsonObject vcore = root.createNestedObject("vcore");
-    JsonArray vc_options = vcore.createNestedArray("options");
-    for (const auto& v : vc_opts) {
-        JsonObject item = vc_options.createNestedObject();
-        item["name"]  = v.name;
-        item["value"] = v.value;
-    }
-
-    String json_str;
-    serializeJsonPretty(root, json_str);
-    request->send(200, "application/json", json_str);
-}
+// GET /api/dashboard/chart/history -- full miner status time-series (up to MAX_DATA_POINTS records).
 void get_status_history(AsyncWebServerRequest* request){
     LOG_D("Starting status history request processing...");
     
@@ -507,6 +795,8 @@ void get_status_history(AsyncWebServerRequest* request){
     LOG_D("Validated response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d, attempts=%d", 
           json_size, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS, validation_attempts);
 }
+
+// GET /api/dashboard/chart/realtime -- single latest data point for live chart update.
 void get_status_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024; // in bytes 
     
@@ -561,6 +851,8 @@ void get_status_realtime(AsyncWebServerRequest* request){
 
     LOG_D("Status realtime sent, history size: %d...", g_board.status.miner.status_history.size());
 }
+
+// GET /api/dashboard/luck/history -- block-proximity history for luck/difficulty chart.
 void get_lucky_history(AsyncWebServerRequest* request){
     LOG_D("Starting lucky history request processing...");
     
@@ -660,6 +952,8 @@ void get_lucky_history(AsyncWebServerRequest* request){
     
     LOG_D("Lucky history sent: %d bytes, %d records", json_size, sampled_count);
 }
+
+// GET /api/swarm -- list all discovered swarm devices with their status JSON.
 void get_swarm_info_handler(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
     
@@ -708,9 +1002,12 @@ void get_swarm_info_handler(AsyncWebServerRequest* request){
     LOG_D("Swarm info sent, json size: %d, devices: %d, heap free: %.3f KB", 
           swarm_info.length(), devicesArray.size(), ESP.getFreeHeap() / 1024.0f);
 }
+
+// OPTIONS /api/theme -- CORS preflight (actual CORS headers set by wildcard handler).
 void options_theme_handler(AsyncWebServerRequest* request){
     request->send(200, "application/json", "");
 }
+// GET /api/theme -- current color scheme name and accent color map.
 void get_theme_handler(AsyncWebServerRequest* request){
     char *scheme = nvs_config_get_string(NVS_CONFIG_THEME_SCHEME, "dark");
     char *name = nvs_config_get_string(NVS_CONFIG_THEME_NAME, "dark");
@@ -759,6 +1056,8 @@ void get_theme_handler(AsyncWebServerRequest* request){
     free(name);
     free(colors);
 }
+
+// POST /api/theme -- persist colorScheme, theme name and accentColors to NVS.
 void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
     if (!data) {
         request->send(500, "application/json", "{\"error\":\"Failed to allocate memory\"}");
@@ -790,9 +1089,13 @@ void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t le
     }
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
+
+// GET /api/log -- WebSocket log stream endpoint (logs echoed via WebSocket).
 void echo_handler(AsyncWebServerRequest* request){
     LOG_I("Echo Request...");
 }
+
+// POST /api/system/restart -- trigger a graceful soft reboot via semaphore.
 void post_restart(AsyncWebServerRequest * request){
     LOG_W("************** Restarting System because of API Request ***************");
     // Send HTTP response before restarting.
@@ -801,185 +1104,17 @@ void post_restart(AsyncWebServerRequest * request){
     request->send(200, "text/plain", "System will restart shortly.");
     xSemaphoreGive(g_board.status.reboot_xsem);
 }
-void get_market_available_pairs_handler(AsyncWebServerRequest *request) {
-    // Return all USDT pairs discovered from Binance (populated at startup).
-    // Format: {"pairs":["BTCUSDT","ETHUSDT",...]}
-    // Returns an empty array if fetch hasn't completed yet (WiFi not connected at boot).
-    String json;
-    json.reserve(10240);  // ~600 pairs × ~15 chars each
-    json = "{\"pairs\":[";
-    if (g_board.market) {
-        const std::vector<String>& pairs = g_board.market->availablePairs;
-        for (size_t i = 0; i < pairs.size(); i++) {
-            json += "\"";
-            json += pairs[i];
-            json += "\"";
-            if (i + 1 < pairs.size()) json += ",";
-        }
-    }
-    json += "]}";
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
-    response->addHeader("Access-Control-Allow-Origin", "*");
-    request->send(response);
+
+// POST /api/system/clearhits -- reset block-hit counter to zero in RAM and NVS.
+void post_reset_block_hits(AsyncWebServerRequest * request){
+    g_board.status.miner.hits      = 0;
+    g_board.status.miner.last_hits = 0;
+    nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, 0);
+    LOG_I("Miner stats reset: block hits cleared");
+    request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
-void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
-    static uint16_t SCRATCH_BUFSIZE = 2048;
-    
-    LOG_D("Update Settings Request, request contentLength: %d, index: %d, total: %d", request->contentLength(), index, total);
-    if (total >= SCRATCH_BUFSIZE) {
-        request->send(500, "text/plain", "Content too long");
-        LOG_E("request %s too long", request->url().c_str());
-        return;
-    }
-    char *buffer = (char*)heap_caps_malloc(SCRATCH_BUFSIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    memset(buffer, 0, SCRATCH_BUFSIZE);
-    if (index + len <= SCRATCH_BUFSIZE) {
-        memcpy(buffer + index, data, len);
-    }
-    LOG_D("Update Settings Payload: %s", buffer);
 
-
-    if (index + len == total) {
-        buffer[total] = '\0'; 
-        StaticJsonDocument<2048> root;
-        DeserializationError error = deserializeJson(root, buffer);
-        if(error){
-            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
-            free(buffer);
-            return;
-        }
-        if(!root.is<JsonObject>()){
-            request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
-            free(buffer);
-            return;
-        }
-
-        /************************************** settings->mining config ***************************************************************/
-        if(root.containsKey("stratum") && root["stratum"].is<JsonObject>()) {
-            JsonObject stratum = root["stratum"].as<JsonObject>();
-            // Primary pool
-            if(stratum.containsKey("primary") && stratum["primary"].is<JsonObject>()) {
-                JsonObject primary = stratum["primary"].as<JsonObject>();
-                if(primary.containsKey("url")) {
-                    nvs_config_set_string(NVS_CONFIG_STRATUM_URL_PRIMARY, primary["url"].as<String>().c_str());
-                }
-                if(primary.containsKey("user")) {
-                    nvs_config_set_string(NVS_CONFIG_STRATUM_USER_PRIMARY, primary["user"].as<String>().c_str());
-                }
-                if(primary.containsKey("pwd")) {
-                    nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, primary["pwd"].as<String>().c_str());
-                }
-            }
-            // Fallback pool
-            if(stratum.containsKey("fallback") && stratum["fallback"].is<JsonObject>()) {
-                JsonObject fallback = stratum["fallback"].as<JsonObject>();
-                if(fallback.containsKey("url")) {
-                    nvs_config_set_string(NVS_CONFIG_STRATUM_URL_FALLBACK, fallback["url"].as<String>().c_str());
-                }
-                if(fallback.containsKey("user")) {
-                    nvs_config_set_string(NVS_CONFIG_STRATUM_USER_FALLBACK, fallback["user"].as<String>().c_str());
-                }
-                if(fallback.containsKey("pwd")) {
-                    nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, fallback["pwd"].as<String>().c_str());
-                }
-            }
-        }
-        if(root.containsKey("asicVcoreReq")){
-            uint16_t req_mv = root["asicVcoreReq"].as<uint16_t>();
-            g_board.info.spec.asic.req_vcore = req_mv;
-            g_board.power->set_vcore_voltage(req_mv);
-            nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, req_mv);
-        }
-        if(root.containsKey("asicFreqReq")){
-            uint16_t req_mhz = root["asicFreqReq"].as<uint16_t>();
-            g_board.info.spec.asic.req_frq = req_mhz;
-            nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, root["asicFreqReq"].as<uint16_t>());
-        }
-        /************************************** settings->market config ***************************************************************/
-        if(root.containsKey("mainprice")){
-            nvs_config_set_string(NVS_CONFIG_PRICE_DISPLAY_COIN, root["mainprice"].as<String>().c_str());
-            g_board.info.base.coin_price = root["mainprice"].as<String>();
-            g_board.info.base.coin_price.toUpperCase();
-        }
-        if(root.containsKey("coinWatchlist")){
-            nvs_config_set_string(NVS_CONFIG_COIN_WATCHLIST, root["coinWatchlist"].as<String>().c_str());
-            g_board.info.base.coin_watchlist = root["coinWatchlist"].as<String>();
-        }
-        
-        /************************************** settings->time config ***************************************************************/
-        if(root.containsKey("timezone")){
-            nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
-            g_board.status.time.tz = root["timezone"].as<String>();
-        }
-        if(root.containsKey("timeFormat")){
-            nvs_config_set_u8(NVS_CONFIG_TIME_FORMAT, root["timeFormat"].as<uint8_t>());
-            g_board.status.time.format.time = root["timeFormat"].as<uint8_t>();
-        }
-        if(root.containsKey("dateFormat")){
-            nvs_config_set_string(NVS_CONFIG_DATE_FORMAT, root["dateFormat"].as<String>().c_str());
-            g_board.status.time.format.date = root["dateFormat"].as<String>();
-        }
-        /************************************** settings->network config ***************************************************************/
-        if(root.containsKey("ssid")){
-            nvs_config_set_string(NVS_CONFIG_WIFI_SSID,root["ssid"].as<String>().c_str());
-        }
-        if(root.containsKey("wifiPass")){
-            nvs_config_set_string(NVS_CONFIG_WIFI_PASS,root["wifiPass"].as<String>().c_str());
-        }
-        if(root.containsKey("hostname")){
-            nvs_config_set_string(NVS_CONFIG_HOSTNAME,root["hostname"].as<String>().c_str());
-            nvs_config_set_string(NVS_CONFIG_AP_SSID, root["hostname"].as<String>().c_str());
-            g_board.info.base.hostname                    = root["hostname"].as<String>();
-            g_board.info.connection.wifi.ap.info.ssid = root["hostname"].as<String>();
-        }
-
-        /************************************** settings->preference config ***************************************************************/
-        if(root.containsKey("brightness")){
-            g_board.status.preference.screen.brightness = root["brightness"].as<uint8_t>();
-            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.status.preference.screen.brightness);
-            xSemaphoreGive(g_board.status.brightness_update_xsem);
-            LOG_D("Screen brightness set to %d", g_board.status.preference.screen.brightness);
-        }
-        if(root.containsKey("flipscreen")){
-            nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());
-        }
-        if(root.containsKey("ledindicator")){
-            g_board.status.preference.led.enable = root["ledindicator"].as<uint8_t>();
-            g_board.status.preference.led.sleep  = false;
-            nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledindicator"].as<uint8_t>());
-        }
-
-        if(root.containsKey("autofanspeed")){
-            nvs_config_set_u16(NVS_CONFIG_AUTO_FAN_SPEED, root["autofanspeed"].as<uint16_t>());
-            g_board.status.preference.fan.is_auto_speed = root["autofanspeed"].as<uint16_t>();
-        }
-        if(root.containsKey("targetAsicTemp")){
-            nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, root["targetAsicTemp"].as<String>().c_str());
-            g_board.status.preference.fan.target_temp = root["targetAsicTemp"].as<String>().toFloat();
-        }
-        if(root.containsKey("autoscreen")){
-            nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
-            g_board.status.preference.screen.auto_rolling = root["autoscreen"].as<uint8_t>();
-        }
-        if(root.containsKey("fanspeed")){
-            nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
-            g_board.status.fan.list[0].speed = root["fanspeed"].as<uint16_t>();
-        }
-        if(root.containsKey("blockhits")){
-            nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());
-            g_board.status.miner.hits = root["blockhits"].as<uint16_t>();
-            g_board.status.miner.last_hits = g_board.status.miner.hits;
-        }
-
-        for (JsonPair kv : root.as<JsonObject>()) {
-            String key = kv.key().c_str();
-            String value = kv.value().as<String>();
-            LOG_I("Key: %s, Value: %s", key.c_str(), value.c_str());
-        }
-        request->send(200, "application/json", "{\"status\":\"success\"}");
-    }
-    free(buffer);
-}
+// POST /api/update/{firmware,spiffs} -- OTA file upload handler; buffers chunks and calls Update.write().
 void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
     // Accumulate TCP segments into a larger write buffer before calling Update.write().
     // AsyncWebServer calls this handler once per TCP segment (~1460 bytes). Writing each
@@ -1046,7 +1181,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             ota_buf_len = 0;
 
             // vTaskDelay(1): block async_tcp for 1ms so IDLE task can reset the task watchdog.
-            // taskYIELD() is insufficient — it only yields to equal/higher-priority tasks,
+            // taskYIELD() is insufficient  - it only yields to equal/higher-priority tasks,
             // and IDLE (priority 0) would never run.
             vTaskDelay(pdMS_TO_TICKS(1));
 
@@ -1079,16 +1214,19 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
         }
     }
 }
+
+// WebSocket event dispatcher. Runs inside async_tcp task -- never call LOG macros here
+// (they invoke webSocket.textAll() which would re-enter the callback).
 void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-    // NOTE: Do NOT use LOG_W/LOG_E etc. here — those macros call webSocket.textAll(),
+    // NOTE: Do NOT use LOG_W/LOG_E etc. here  - those macros call webSocket.textAll(),
     //       which is re-entrant inside a WebSocket event callback. Use Serial.printf directly.
     switch (type) {
         case WS_EVT_CONNECT:
-            Serial.printf("₿ [WS] client #%u connected from %s\r\n",
+            Serial.printf("> [WS] client #%u connected from %s\r\n",
                           client->id(), client->remoteIP().toString().c_str());
             break;
         case WS_EVT_DISCONNECT:
-            Serial.printf("₿ [WS] client #%u disconnected\r\n", client->id());
+            Serial.printf("> [WS] client #%u disconnected\r\n", client->id());
             break;
         case WS_EVT_DATA:
             // Echo text back (mirrors previous behaviour)
@@ -1097,10 +1235,10 @@ void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEve
             }
             break;
         case WS_EVT_PONG:
-            Serial.printf("₿ [WS] client #%u pong\r\n", client->id());
+            Serial.printf("> [WS] client #%u pong\r\n", client->id());
             break;
         case WS_EVT_ERROR:
-            Serial.printf("₿ [WS] client #%u error\r\n", client->id());
+            Serial.printf("> [WS] client #%u error\r\n", client->id());
             break;
     }
 }

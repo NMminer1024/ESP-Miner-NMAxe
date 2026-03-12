@@ -437,23 +437,38 @@ void webserver_thread_entry(void *args){
     // Register AsyncWebSocket handler on webServer (same port 80, path /ws)
     webSocket.onEvent(webSocketEvent);
     webServer.addHandler(&webSocket);
-    webServer.on("/api/system/info", HTTP_GET, get_system_info);
-    webServer.on("/api/system/hr/dist", HTTP_GET, get_hr_distribution);
-    webServer.on("/api/system/gauge/limits", HTTP_GET, get_gauge_limits);
-    webServer.on("/api/system/status/history", HTTP_GET, get_status_history);
-    webServer.on("/api/system/status/realtime", HTTP_GET, get_status_realtime);
-    webServer.on("/api/system/luck/history", HTTP_GET, get_lucky_history);
-    webServer.on("/api/ws", HTTP_GET, echo_handler);
-    webServer.on("/api/system/restart", HTTP_POST, post_restart);
-    webServer.on("/api/system/OTA", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
-    webServer.on("/api/system/OTAWWW", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
-    webServer.on("/api/system", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_update_settings_handler);
-    webServer.on("/api/system/settings/mining", HTTP_GET, get_oc_vc_list);
-    webServer.on("/api/theme", HTTP_GET, get_theme_handler);
-    webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
-    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
+    webServer.on("/api/system/info",  HTTP_GET, get_system_info);
+    webServer.on("/api/system/restart",HTTP_POST, post_restart);
+    webServer.on("/api/system/clearhits", HTTP_POST, post_reset_block_hits);
+    // ── Dashboard data endpoints ──────────────────────────────────────────────
+    webServer.on("/api/dashboard/hr/dist",       HTTP_GET, get_hr_distribution);
+    webServer.on("/api/dashboard/gauge/limits",   HTTP_GET, get_gauge_limits);
+    webServer.on("/api/dashboard/chart/history",  HTTP_GET, get_status_history);
+    webServer.on("/api/dashboard/chart/realtime", HTTP_GET, get_status_realtime);
+    webServer.on("/api/dashboard/luck/history",   HTTP_GET, get_lucky_history);
+    // ── Swarm endpoints ───────────────────────────────────────────────────────
     webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
-    webServer.on("/api/market/available-pairs", HTTP_GET, get_market_available_pairs_handler);
+    // ── Logging and echo endpoints ───────────────────────────────────────────────
+    webServer.on("/api/log", HTTP_GET, echo_handler);
+    // ── OTA update endpoints ──────────────────────────────────────────────────
+    webServer.on("/api/update/firmware", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
+    webServer.on("/api/update/spiffs",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
+    webServer.on("/api/system/OTA",      HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // compat alias
+    webServer.on("/api/system/OTAWWW",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // compat alias
+    // ── Theme endpoints (OPTIONS covered by wildcard handler below) ───────────
+    webServer.on("/api/theme", HTTP_GET,  get_theme_handler);
+    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
+    // ── Settings per-card endpoints ───────────────────────────────────────────
+    webServer.on("/api/setting/network",    HTTP_GET,   get_setting_network);
+    webServer.on("/api/setting/network",    HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_network);
+    webServer.on("/api/setting/time",       HTTP_GET,   get_setting_time);
+    webServer.on("/api/setting/time",       HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_time);
+    webServer.on("/api/setting/mining",     HTTP_GET,   get_setting_mining);
+    webServer.on("/api/setting/mining",     HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_mining);
+    webServer.on("/api/setting/market",     HTTP_GET,   get_setting_market);
+    webServer.on("/api/setting/market",     HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_market);
+    webServer.on("/api/setting/preference", HTTP_GET,   get_setting_preference);
+    webServer.on("/api/setting/preference", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_preference);
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
     webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
         AsyncWebServerResponse *response = request->beginResponse(200);

@@ -141,27 +141,8 @@ export class SystemService {
     return this.httpClient.post(`${uri}/api/system/restart`, {}, {responseType: 'text'});
   }
 
-  public updateSystem(uri: string = '', update: any) {
-    return this.httpClient.patch(`${uri}/api/system`, update);
-  }
-
-  public getAvailablePairs(uri: string = ''): Observable<string[]> {
-    if (environment.production) {
-      return (this.httpClient.get(`${uri}/api/market/available-pairs`) as Observable<{pairs: string[]}>).pipe(
-        map(res => res.pairs)
-      );
-    } else {
-      return of(['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','ADAUSDT','DOGEUSDT',
-                 'AVAXUSDT','DOTUSDT','MATICUSDT','KASUSDT','LTCUSDT','BCHUSDT','XECUSDT',
-                 'TRXUSDT','TONUSDT','ATOMUSDT','LINKUSDT','UNIUSDT','SHIBUSDT',
-                 'NEARUSDT','ARBUSDT','OPUSDT','INJUSDT','SUIUSDT','APTUSDT',
-                 'PEPEUSDT','WIFUSDT','BONKUSDT','FLOKIUSDT',
-                 'AAVEUSDT','MKRUSDT','CRVUSDT','DYDXUSDT','GMXUSDT',
-                 'FILUSDT','ARUSDT','GRTUSDT','RENDERUSDT','TAOUSDT',
-                 'RUNEUSDT','STXUSDT','APEUSDT','SANDUSDT','MANAUSDT',
-                 'XMRUSDT','ZECUSDT','RVNUSDT','DASHUSDT','DCRUSDT',
-                 'DRBUSDT','XLMUSDT','ICPUSDT','VETUSDT','HBARUSDT']).pipe(delay(500));
-    }
+  public resetMinerStats(uri: string = '') {
+    return this.httpClient.post(`${uri}/api/system/clearhits`, {});
   }
 
 
@@ -190,11 +171,11 @@ export class SystemService {
   }
 
   public performOTAUpdate(file: File | Blob, host = '') {
-    return this.otaUpdate(file, `${host}/api/system/OTA`);
+    return this.otaUpdate(file, `${host}/api/update/firmware`);
   }
 
   public performWWWOTAUpdate(file: File | Blob, host = '') {
-    return this.otaUpdate(file, `${host}/api/system/OTAWWW`);
+    return this.otaUpdate(file, `${host}/api/update/spiffs`);
   }
 
   public getSwarmInfo(uri: string = ''): Observable<{ ip: string }[]> {
@@ -202,7 +183,7 @@ export class SystemService {
   }
 
   public getHashrateDistribution(uri: string = ''): Observable<any> {
-    return this.httpClient.get(`${uri}/api/system/hr/dist`);
+    return this.httpClient.get(`${uri}/api/dashboard/hr/dist`);
   }
 
   public updateSwarm(uri: string = '', swarmConfig: any) {
@@ -230,7 +211,7 @@ export class SystemService {
     
     console.log(`📡 HTTP timeout set to ${timeoutMs/1000}s for sample interval ${sampleInterval}`);
     
-    return this.httpClient.get(`${uri}/api/system/status/history`, { 
+    return this.httpClient.get(`${uri}/api/dashboard/chart/history`, { 
       params, 
       headers,
       responseType: 'text' // 先获取为文本
@@ -298,7 +279,7 @@ export class SystemService {
       'Cache-Control': 'no-cache'
     });
     
-    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/status/realtime`, { headers })
+    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/dashboard/chart/realtime`, { headers })
       .pipe(timeout(20000)); // 实时数据20秒超时
   }
 
@@ -311,7 +292,7 @@ export class SystemService {
     
     console.log('📡 Requesting lucky history data...');
     
-    return this.httpClient.get(`${uri}/api/system/luck/history`, { 
+    return this.httpClient.get(`${uri}/api/dashboard/luck/history`, { 
       headers,
       responseType: 'text' // 先获取为文本
     }).pipe(
@@ -354,13 +335,13 @@ export class SystemService {
       'Cache-Control': 'no-cache'
     });
     
-    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/system/luck/realtime`, { headers })
+    return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/dashboard/luck/realtime`, { headers })
       .pipe(timeout(20000)); // 实时数据20秒超时
   }
 
   public getGaugeLimits(uri: string = ''): Observable<IGaugeLimits> {
     if (environment.production) {
-      return this.httpClient.get<IGaugeLimits>(`${uri}/api/system/gauge/limits`);
+      return this.httpClient.get<IGaugeLimits>(`${uri}/api/dashboard/gauge/limits`);
     } else {
       // Mock data for development
       return of({
@@ -384,7 +365,90 @@ export class SystemService {
     }
   }
 
-  public getMiningSettings(uri: string = ''): Observable<{overclock: {options: Array<{name: string, value: number}>}, vcore: {options: Array<{name: string, value: number}>}}> {
-    return this.httpClient.get<{overclock: {options: Array<{name: string, value: number}>}, vcore: {options: Array<{name: string, value: number}>}}>(`${uri}/api/system/settings/mining`);
+  // ── Settings per-card APIs ────────────────────────────────────────────────
+
+  public getSettingNetwork(uri: string = ''): Observable<any> {
+    if (environment.production) {
+      return this.httpClient.get(`${uri}/api/setting/network`);
+    } else {
+      return of({ hostName: 'NMAxe', wifiSSID: 'default', wifiStatus: 'connected', wifiIP: '192.168.1.100' }).pipe(delay(300));
+    }
+  }
+
+  public patchSettingNetwork(uri: string = '', data: any): Observable<any> {
+    return this.httpClient.patch(`${uri}/api/setting/network`, data);
+  }
+
+  public getSettingTime(uri: string = ''): Observable<any> {
+    if (environment.production) {
+      return this.httpClient.get(`${uri}/api/setting/time`);
+    } else {
+      return of({ timeZone: '8.0', timeFormat: 24, dateFormat: 'YYYY/MM/DD' }).pipe(delay(300));
+    }
+  }
+
+  public patchSettingTime(uri: string = '', data: any): Observable<any> {
+    return this.httpClient.patch(`${uri}/api/setting/time`, data);
+  }
+
+  public getSettingMining(uri: string = ''): Observable<any> {
+    if (environment.production) {
+      return this.httpClient.get(`${uri}/api/setting/mining`);
+    } else {
+      return of({
+        vcoreReq: 1200,
+        freqReq: 485,
+        asic: eASICModel.BM1366,
+        stratum: {
+          used:     { url: 'stratum+tcp://solo.ckpool.org:3333', user: '18dK8EfyepKuS74fs27iuDJWoGUT4rPto1', pwd: 'x' },
+          primary:  { url: 'stratum+tcp://solo.ckpool.org:3333', user: '18dK8EfyepKuS74fs27iuDJWoGUT4rPto1', pwd: 'x' },
+          fallback: { url: 'stratum+tcp://solo.ckpool.org:3333', user: '18dK8EfyepKuS74fs27iuDJWoGUT4rPto1', pwd: 'x' },
+        },
+        overclock: { options: [{ name: '485 MHz', value: 485 }, { name: '500 MHz', value: 500 }, { name: '525 MHz', value: 525 }] },
+        vcore:     { options: [{ name: '1200 mV', value: 1200 }, { name: '1210 mV', value: 1210 }, { name: '1220 mV', value: 1220 }] },
+      }).pipe(delay(300));
+    }
+  }
+
+  public patchSettingMining(uri: string = '', data: any): Observable<any> {
+    return this.httpClient.patch(`${uri}/api/setting/mining`, data);
+  }
+
+  public getSettingMarket(uri: string = ''): Observable<any> {
+    if (environment.production) {
+      return this.httpClient.get(`${uri}/api/setting/market`);
+    } else {
+      return of({ mainprice: 'BTC', coinWatchlist: 'BTC,ETH,SOL',
+                  pairs: ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','ADAUSDT','DOGEUSDT',
+                          'AVAXUSDT','DOTUSDT','MATICUSDT','KASUSDT','LTCUSDT','BCHUSDT','XECUSDT',
+                          'TRXUSDT','TONUSDT','ATOMUSDT','LINKUSDT','UNIUSDT','SHIBUSDT',
+                          'NEARUSDT','ARBUSDT','OPUSDT','INJUSDT','SUIUSDT','APTUSDT',
+                          'PEPEUSDT','WIFUSDT','BONKUSDT','FLOKIUSDT',
+                          'AAVEUSDT','MKRUSDT','CRVUSDT','DYDXUSDT','GMXUSDT',
+                          'FILUSDT','ARUSDT','GRTUSDT','RENDERUSDT','TAOUSDT',
+                          'RUNEUSDT','STXUSDT','APEUSDT','SANDUSDT','MANAUSDT',
+                          'XMRUSDT','ZECUSDT','RVNUSDT','DASHUSDT','DCRUSDT',
+                          'DRBUSDT','XLMUSDT','ICPUSDT','VETUSDT','HBARUSDT'] }).pipe(delay(300));
+    }
+  }
+
+  public patchSettingMarket(uri: string = '', data: any): Observable<any> {
+    return this.httpClient.patch(`${uri}/api/setting/market`, data);
+  }
+
+  public getSettingPreference(uri: string = ''): Observable<any> {
+    if (environment.production) {
+      return this.httpClient.get(`${uri}/api/setting/preference`);
+    } else {
+      return of({
+        screenFlip: 0, ledIndicator: 1, fanAutoSpeed: 1, screenAutoRoll: 0,
+        asicTargetTemp: '55', Brightness: 100, fanCount: 1,
+        fans: [{ id: 0, speed: 100, rpm: 4500 }],
+      }).pipe(delay(300));
+    }
+  }
+
+  public patchSettingPreference(uri: string = '', data: any): Observable<any> {
+    return this.httpClient.patch(`${uri}/api/setting/preference`, data);
   }
 }

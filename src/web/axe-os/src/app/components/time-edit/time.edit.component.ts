@@ -41,12 +41,12 @@ export class TimeEditComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.systemService.getInfo(this.uri)
+    this.systemService.getSettingTime(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
-        const timezone   = info.timeZone   || (info as any).timezone  || 8;
-        const timeFormat = info.timeFormat  ?? (info as any).timeformat ?? 24;
-        const dateFormat = info.dateFormat  || (info as any).dateformat || 'YYYY/MM/DD';
+        const timezone   = info.timeZone   ?? 8;
+        const timeFormat = info.timeFormat  ?? 24;
+        const dateFormat = info.dateFormat  || 'YYYY/MM/DD';
 
         this.form = this.fb.group({
           timezone:   [timezone,   [Validators.required, Validators.min(-12), Validators.max(14)]],
@@ -84,7 +84,7 @@ export class TimeEditComponent implements OnInit {
   public updateSystem() {
     const form = this.form.getRawValue();
 
-    this.systemService.updateSystem(this.uri, form)
+    this.systemService.patchSettingTime(this.uri, form)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
         next: () => {

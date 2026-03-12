@@ -119,3 +119,46 @@ export interface ISystemInfo {
   boardtemp2?: number,
   // overheat_mode?: number
 }
+
+// ── /api/setting/network ─────────────────────────────────────────────────────
+export interface ISettingNetwork {
+  hostName: string;
+  wifiSSID: string;
+  wifiStatus: string;
+  wifiIP: string;
+}
+
+// ── /api/setting/time ────────────────────────────────────────────────────────
+export interface ISettingTime {
+  timeZone: string;
+  timeFormat: number;
+  dateFormat: string;
+}
+
+// ── /api/setting/mining ──────────────────────────────────────────────────────
+export interface ISettingMining {
+  vcoreReq: number;
+  freqReq: number;
+  asic: eASICModel;
+  stratum: IStratum;
+  overclock: { options: Array<{ name: string; value: number }> };
+  vcore:     { options: Array<{ name: string; value: number }> };
+}
+
+// ── /api/setting/market ──────────────────────────────────────────────────────
+export interface ISettingMarket {
+  mainprice: string;
+  coinWatchlist: string;
+}
+
+// ── /api/setting/preference ──────────────────────────────────────────────────
+export interface ISettingPreference {
+  screenFlip: number;
+  ledIndicator: number;
+  fanAutoSpeed: number;
+  screenAutoRoll: number;
+  asicTargetTemp: string;
+  Brightness: number;
+  fanCount: number;
+  fans: IFan[];
+}
