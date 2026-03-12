@@ -136,12 +136,11 @@ void get_system_info(AsyncWebServerRequest* request){
 
     // Currently-active pool (read-only status)
     JsonObject stratumObj = root.createNestedObject("stratum");
-    JsonObject usedObj    = stratumObj.createNestedObject("used");
-    usedObj["url"]  = g_board.info.connection.pool.use.ssl
+    stratumObj["url"]  = g_board.info.connection.pool.use.ssl
         ? ("stratum+ssl://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port))
         : ("stratum+tcp://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port));
-    usedObj["user"] = g_board.info.connection.stratum.use.user;
-    usedObj["pwd"]  = g_board.info.connection.stratum.use.pwd;
+    stratumObj["user"] = g_board.info.connection.stratum.use.user;
+    stratumObj["pwd"]  = g_board.info.connection.stratum.use.pwd;
 
     // Fan status
     root["fanCount"] = g_board.status.fan.count;

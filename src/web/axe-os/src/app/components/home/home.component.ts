@@ -41,8 +41,8 @@ export class HomeComponent implements OnInit {
         info.ssid = info.wifiSSID;
         
         // Map nested stratum structure to legacy flat structure
-        info.stratumURLUSED = info.stratum?.used?.url || info.usedUrl || '';
-        info.stratumUserUSED = info.stratum?.used?.user || info.usedUser || '';
+        info.stratumURLUSED = info.stratum?.url || info.usedUrl || '';
+        info.stratumUserUSED = info.stratum?.user || info.usedUser || '';
         info.stratumURL1 = info.stratum?.primary?.url || info.primaryUrl || '';
         info.stratumUser1 = info.stratum?.primary?.user || info.primaryUser || '';
         info.stratumPassword1 = info.stratum?.primary?.pwd || info.primaryPassword || '';
@@ -92,8 +92,8 @@ export class HomeComponent implements OnInit {
     this.quickLink$ = this.info$.pipe(
       map(info => {
         // Parse new stratum nested structure or fallback to legacy flat structure
-        const poolUrl = info.stratum?.used?.url || info.stratumURLUSED || info.usedUrl || '';
-        const poolUser = info.stratum?.used?.user || info.stratumUserUSED || info.usedUser || '';
+        const poolUrl = info.stratum?.url || info.stratumURLUSED || info.usedUrl || '';
+        const poolUser = info.stratum?.user || info.stratumUserUSED || info.usedUser || '';
         const coin = info.coin || info.coinPriceDisplay || '';
         
         if (poolUrl.includes('public-pool.io')) {

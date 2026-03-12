@@ -175,6 +175,268 @@ esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
 
 
 
+## API Reference
+***
+
+<details>
+<summary><b>Click to expand API documentation</b></summary>
+
+Base URL: `http://{ip}`
+
+All endpoints return JSON. PATCH/POST body must be `application/json`.
+
+---
+
+### System
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET  | `/api/system/info` | Dashboard summary: power, temperatures, ASIC status, mining stats, board identity |
+| POST | `/api/system/restart` | Trigger a graceful soft reboot |
+| POST | `/api/system/clearhits` | Reset block-hit counter to zero (RAM + NVS) |
+
+#### `GET /api/system/info` — Response Fields
+
+**Power & Electrical**
+
+| Field | Type | Unit | Description |
+|-------|------|------|-------------|
+| `power` | float | W | Real-time power consumption (vbus × ibus) |
+| `voltage` | int | mV | Input voltage |
+| `current` | int | mA | Input current |
+
+**Temperatures**
+
+| Field | Type | Unit | Description |
+|-------|------|------|-------------|
+| `vcoreTemp` | float | °C | VCORE regulator temperature |
+| `mcuTemp` | float | °C | MCU (ESP32) temperature |
+| `asicTemp` | float | °C | ASIC die temperature |
+
+**ASIC Status**
+
+| Field | Type | Unit | Description |
+|-------|------|------|-------------|
+| `asicCount` | int | — | Number of active ASICs |
+| `asic` | string | — | ASIC model name (e.g. `"BM1368"`) |
+| `vcoreReq` | int | mV | ASIC rated core voltage |
+| `vcoreActual` | int | mV | ASIC actual core voltage |
+| `freqReq` | int | MHz | ASIC target frequency |
+| `smallCoreCnt` | int | — | Total small-core count across all ASICs |
+
+**Mining Stats**
+
+| Field | Type | Unit | Description |
+|-------|------|------|-------------|
+| `hashRate` | float | GH/s | 3-minute average hashrate |
+| `bestDiffEver` | string | — | All-time best share difficulty (e.g. `"1.23M"`) |
+| `bestDiffSession` | string | — | Session best share difficulty |
+| `sharesAccepted` | int | — | Cumulative accepted shares |
+| `sharesRejected` | int | — | Cumulative rejected shares |
+| `uptimeSeconds` | int | s | Session uptime |
+| `freeHeap` | int | bytes | ESP32 free heap memory |
+
+**Board Identity**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fwVersion` | string | Firmware version (e.g. `"v2.9.31"`) |
+| `hwModel` | string | Hardware model (e.g. `"NMAxe"`) |
+| `hostName` | string | Device hostname |
+| `wifiSSID` | string | Connected Wi-Fi SSID |
+| `wifiStatus` | string | `"connected"` or `"disconnected"` |
+
+**Stratum (active pool, read-only)**
+
+```json
+"stratum": {
+  "url":  "stratum+tcp://pool.example.com:3333",
+  "user": "bc1q...xyz.worker1",
+  "pwd":  "x"
+}
+```
+
+**Fans**
+
+```json
+"fanCount": 1,
+"fans": [
+  { "id": 0, "speed": 60, "rpm": 2800 }
+]
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fanCount` | int | Number of fans |
+| `fans[].id` | int | Fan index (0-based) |
+| `fans[].speed` | int | Speed percentage (0–100) |
+| `fans[].rpm` | int | Actual RPM |
+
+**Full Example Response**
+
+```json
+{
+  "power": 12.5,
+  "voltage": 5000,
+  "current": 2500,
+  "vcoreTemp": 45.2,
+  "mcuTemp": 38.1,
+  "asicTemp": 62.7,
+  "asicCount": 1,
+  "asic": "BM1368",
+  "vcoreReq": 1200,
+  "vcoreActual": 1198,
+  "freqReq": 490,
+  "smallCoreCnt": 672,
+  "hashRate": 720.5,
+  "bestDiffEver": "1.23M",
+  "bestDiffSession": "456.7K",
+  "freeHeap": 187320,
+  "sharesAccepted": 1024,
+  "sharesRejected": 3,
+  "uptimeSeconds": 86400,
+  "fwVersion": "v2.9.31",
+  "hwModel": "NMAxe",
+  "hostName": "nmaxe-001",
+  "wifiSSID": "MyNetwork",
+  "wifiStatus": "connected",
+  "fanCount": 1,
+  "fans": [{ "id": 0, "speed": 60, "rpm": 2800 }],
+  "stratum": {
+    "url": "stratum+tcp://pool.example.com:3333",
+    "user": "bc1q...xyz.worker1",
+    "pwd": "x"
+  }
+}
+```
+
+---
+
+### Dashboard Data
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET | `/api/dashboard/hr/dist` | Hashrate distribution bar config and sample counts |
+| GET | `/api/dashboard/gauge/limits` | Min/max ranges for power, heat, and performance gauges |
+| GET | `/api/dashboard/chart/history` | Full miner status time-series (up to 2000 records, ~24h) |
+| GET | `/api/dashboard/chart/realtime` | Single latest data point for live chart update |
+| GET | `/api/dashboard/luck/history` | Block-proximity history for luck/difficulty chart |
+
+---
+
+### Settings
+
+Each card supports `GET` (read current values) and `PATCH` (save changes to NVS).
+
+#### `GET /api/setting/network`
+```json
+{ "hostName": "NMAxe", "wifiSSID": "MyWifi", "wifiStatus": "connected", "wifiIP": "192.168.1.100" }
+```
+#### `PATCH /api/setting/network`
+```json
+{ "ssid": "...", "wifiPass": "...", "hostname": "..." }
+```
+
+#### `GET /api/setting/time`
+```json
+{ "timeZone": "8.0", "timeFormat": 24, "dateFormat": "YYYY/MM/DD" }
+```
+#### `PATCH /api/setting/time`
+```json
+{ "timezone": "8.0", "timeFormat": 24, "dateFormat": "YYYY/MM/DD" }
+```
+
+#### `GET /api/setting/mining`
+Returns current stratum config (primary/fallback/used), ASIC freq/vcore, and OC/VC dropdown options.
+```json
+{
+  "vcoreReq": 1200, "freqReq": 550, "asic": "BM1366",
+  "stratum": {
+    "used":     { "url": "stratum+tcp://...", "user": "...", "pwd": "..." },
+    "primary":  { "url": "...", "user": "...", "pwd": "..." },
+    "fallback": { "url": "...", "user": "...", "pwd": "..." }
+  },
+  "overclock": { "options": [{ "name": "550MHz", "value": 550 }, ...] },
+  "vcore":     { "options": [{ "name": "1200mV", "value": 1200 }, ...] }
+}
+```
+#### `PATCH /api/setting/mining`
+```json
+{
+  "stratum": {
+    "primary":  { "url": "...", "user": "...", "pwd": "..." },
+    "fallback": { "url": "...", "user": "...", "pwd": "..." }
+  },
+  "asicVcoreReq": 1200,
+  "asicFreqReq": 550
+}
+```
+
+#### `GET /api/setting/market`
+Returns current coin settings and available USDT trading pairs (fetched from Binance at startup).
+```json
+{ "mainprice": "BTC", "coinWatchlist": "BTC,ETH,SOL", "pairs": ["BTCUSDT", "ETHUSDT", ...] }
+```
+#### `PATCH /api/setting/market`
+```json
+{ "mainprice": "BTC", "coinWatchlist": "BTC,ETH,SOL" }
+```
+
+#### `GET /api/setting/preference`
+```json
+{
+  "screenFlip": 0, "Brightness": 80, "screenAutoRoll": 1,
+  "ledIndicator": 1, "fanAutoSpeed": 1, "asicTargetTemp": "65.0",
+  "fanCount": 1, "fans": [{ "id": 0, "speed": 60, "rpm": 3600 }]
+}
+```
+#### `PATCH /api/setting/preference`
+```json
+{
+  "brightness": 80, "flipscreen": 0, "ledindicator": 1,
+  "autofanspeed": 1, "targetAsicTemp": "65.0",
+  "autoscreen": 1, "fanspeed": 60
+}
+```
+
+---
+
+### OTA Update
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| POST | `/api/update/firmware` | Upload `firmware.bin` (multipart/form-data) |
+| POST | `/api/update/spiffs`   | Upload `spiffs.bin` (multipart/form-data) |
+
+Legacy aliases (kept for compatibility): `/api/system/OTA`, `/api/system/OTAWWW`
+
+---
+
+### Swarm
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET | `/api/swarm` | List all discovered swarm devices with status |
+
+---
+
+### Theme
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET  | `/api/theme` | Current color scheme name and accent color map |
+| POST | `/api/theme` | Save `colorScheme`, `theme` name and `accentColors` to NVS |
+
+---
+
+### Log
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET | `/api/log` | Real-time log stream via WebSocket at `ws://{ip}/ws` |
+
+</details>
+
 ## Contact
 - Anything do not work as your expectation, just let us know.
 

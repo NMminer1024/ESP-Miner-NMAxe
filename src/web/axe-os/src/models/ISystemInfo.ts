@@ -13,7 +13,11 @@ export interface IStratumPool {
 }
 
 export interface IStratum {
-  used?: IStratumPool;
+  // Flat fields from GET /api/system/info (active pool, read-only)
+  url?: string;
+  user?: string;
+  pwd?: string;
+  // Nested fields from GET /api/setting/mining
   primary?: IStratumPool;
   fallback?: IStratumPool;
 }
