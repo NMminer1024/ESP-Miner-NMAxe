@@ -6,54 +6,8 @@
 #include <WiFiClient.h>
 #include <string.h>
 
-// Mainstream coins whitelist — ~100 well-known tokens (base names, no USDT suffix).
-// Covers: top-cap L1/L2, major DeFi, GameFi/NFT, Meme, Storage, AI, RWA, and
-// exchange tokens.  Obscure / low-cap tokens are intentionally excluded.
-static const char* const MAINSTREAM[] = {
-    // ── Proof-of-Work coins ──────────────────────────────────────────────────
-    // Bitcoin family
-    "BTC",   "LTC",   "BCH",   "ETC",   "XEC",   "BTG",
-    // Ethereum-derived PoW (pre-merge classic / forks)
-    "ETH",   "ETC",
-    // Privacy PoW
-    "XMR",   "ZEC",   "ZEN",   "BEAM",  "GRIN",
-    // ASIC-resistant / GPU mining
-    "RVN",   "FLUX",  "ERG",
-    // Merged-mining / hybrid
-    "DOGE",  "DGB",   "SYS",   "CKB",
-    // ASIC mining (alt algorithms)
-    "KAS",   "DASH",  "DCR",   "SC",    "BTM",
-    // ── Major L1 (PoS / other) ───────────────────────────────────────────────
-    "BNB",   "SOL",   "XRP",   "ADA",   "AVAX",  "TRX",   "TON",   "DOT",
-    "ATOM",  "NEAR",  "ALGO",  "FTM",   "ONE",   "EGLD",  "HBAR",  "VET",
-    "XLM",   "ICP",   "XTZ",   "EOS",
-    // ── Layer-2 / Scaling ────────────────────────────────────────────────────
-    "MATIC", "ARB",   "OP",    "IMX",   "STRK",  "METIS", "MANTA",
-    // ── DeFi Blue-chips ──────────────────────────────────────────────────────
-    "AAVE",  "MKR",   "UNI",   "LINK",  "CRV",   "SNX",   "COMP",  "SUSHI",
-    "1INCH", "BAL",   "YFI",   "DYDX",  "GMX",   "LDO",   "RPL",   "SSV",
-    "PENDLE","EIGEN",
-    // ── NFT / GameFi / Metaverse ─────────────────────────────────────────────
-    "SAND",  "MANA",  "AXS",   "GALA",  "ENJ",   "CHZ",   "FLOW",  "THETA",
-    "BLUR",  "LOOKS", "APE",   "IMX",
-    // ── Meme coins ───────────────────────────────────────────────────────────
-    "SHIB",  "PEPE",  "FLOKI", "BONK",  "WIF",   "BOME",
-    // ── Storage / Infra / Oracle ─────────────────────────────────────────────
-    "FIL",   "AR",    "GRT",   "ANKR",  "STORJ", "BAND",
-    // ── AI / Data ────────────────────────────────────────────────────────────
-    "WLD",   "FET",   "RENDER","TAO",   "AGIX",  "OCEAN",
-    // ── Cross-chain / Interop ────────────────────────────────────────────────
-    "RUNE",  "STX",   "ZRO",   "W",     "OMNI",
-    // ── Newer high-cap L1 ────────────────────────────────────────────────────
-    "APT",   "SUI",   "SEI",   "INJ",   "TIA",   "PYTH",  "JTO",   "JUP",
-    // ── Exchange / CEX tokens ────────────────────────────────────────────────
-    "OKB",   "CRO",   "GT",    "HT",    "KCS",
-    // ── Staking / Liquid ─────────────────────────────────────────────────────
-    "CBETH", "STETH", "WBETH",
-};
-
 // https://developers.binance.com/docs/zh-CN/binance-spot-api-docs/rest-api/market-data-endpoints
-bool MarketClass::print_available_usdt_pairs() {
+bool MarketClass::fetch_available_usdt_pairs() {
     // GET /api/v3/ticker/price returns a JSON array of ALL symbols (~100 KB).
     // We stream-parse it character by character so we never need to buffer the
     // full response — only a tiny symbol-name buffer is kept on the stack.
@@ -74,7 +28,7 @@ bool MarketClass::print_available_usdt_pairs() {
         return false;
     }
 
-    static const uint8_t MAINSTREAM_COUNT = sizeof(MAINSTREAM) / sizeof(MAINSTREAM[0]);
+    this->availablePairs.clear();
 
     WiFiClient *stream   = http.getStreamPtr();
     int32_t    remaining = http.getSize();       // -1 if chunked/unknown
@@ -118,21 +72,10 @@ bool MarketClass::print_available_usdt_pairs() {
                 if (c == '"') {
                     capturing = false;
                     uint8_t len = (uint8_t)strlen(sym_buf);
-                    // Only process USDT pairs.
-                    if (len < 4 || strcmp(sym_buf + len - 4, "USDT") != 0) continue;
-
-                    // Extract base coin and check against mainstream whitelist.
-                    char base[16] = {0};
-                    uint8_t base_len = len - 4;
-                    if (base_len >= sizeof(base)) continue;
-                    memcpy(base, sym_buf, base_len);
-
-                    for (uint8_t j = 0; j < MAINSTREAM_COUNT; j++) {
-                        if (strcmp(base, MAINSTREAM[j]) == 0) {
-                            LOG_I("  [%2d] %s", ++found, sym_buf);
-                            break;
-                        }
-                    }
+                    // Only store USDT pairs.
+                    if (len < 5 || strcmp(sym_buf + len - 4, "USDT") != 0) continue;
+                    this->availablePairs.push_back(String(sym_buf));
+                    LOG_D("  [%3d] %s", ++found, sym_buf);
                 } else if (sym_pos < (uint8_t)(sizeof(sym_buf) - 1)) {
                     sym_buf[sym_pos++] = c;
                 }
@@ -141,7 +84,7 @@ bool MarketClass::print_available_usdt_pairs() {
     }
 
     http.end();
-    LOG_I("Available mainstream USDT pairs on Binance: %d", found);
+    LOG_I("Available USDT pairs on Binance: %d", found);
     return true;
 }
 

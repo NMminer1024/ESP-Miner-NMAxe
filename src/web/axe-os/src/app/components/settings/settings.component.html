@@ -13,6 +13,54 @@
   <app-edit></app-edit>
 </div>
 
+<div class="card modern-card market-card" *ngIf="form" [formGroup]="form">
+  <h2 class="card-title"><span class="card-icon">📈</span>Market</h2>
+
+  <!-- Primary Display Coin -->
+  <div class="field grid p-fluid">
+    <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coinDisplay">Main Price:</label>
+    <div class="col-12 md:col-10">
+      <p-dropdown id="coinDisplay"
+                  [options]="pairOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  formControlName="coinDisplay"
+                  [filter]="true"
+                  filterBy="label"
+                  placeholder="Select coin"
+                  appendTo="body"
+                  styleClass="w-full">
+      </p-dropdown>
+    </div>
+  </div>
+
+  <!-- Watchlist Coins -->
+  <div class="field grid p-fluid">
+    <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coinWatchlist">Watchlist:</label>
+    <div class="col-12 md:col-10">
+      <p-multiSelect id="coinWatchlist"
+                     [options]="pairOptions"
+                     optionLabel="label"
+                     optionValue="value"
+                     formControlName="coinWatchlist"
+                     [filter]="true"
+                     filterBy="label"
+                     placeholder="Select coins to watch"
+                     display="chip"
+                     [maxSelectedLabels]="100"
+                     selectedItemsLabel="{0} coins selected"
+                     [showToggleAll]="false"
+                     appendTo="body"
+                     styleClass="w-full">
+      </p-multiSelect>
+    </div>
+  </div>
+
+  <div class="flex justify-content-start mt-3">
+    <button pButton label="Save" (click)="saveMarket()"></button>
+  </div>
+</div>
+
 <div class="grid preference-theme-grid">
   <div class="col-12 lg:col-6 xl:col-6">
     <div class="card modern-card preference-card">

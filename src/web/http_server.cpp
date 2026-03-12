@@ -131,6 +131,7 @@ void get_system_info(AsyncWebServerRequest* request){
     root[HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_BRIGHTNESS]   = g_board.status.preference.screen.brightness;
 
     root[HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY]              = g_board.info.base.coin_price;
+    root[HTTP_API_SYS_JSON_KEY_COIN_WATCHLIST]                  = g_board.info.base.coin_watchlist;
 
     JsonObject stratumObj = root.createNestedObject("stratum");
     JsonObject usedObj = stratumObj.createNestedObject("used");
@@ -800,8 +801,29 @@ void post_restart(AsyncWebServerRequest * request){
     request->send(200, "text/plain", "System will restart shortly.");
     xSemaphoreGive(g_board.status.reboot_xsem);
 }
+void get_market_available_pairs_handler(AsyncWebServerRequest *request) {
+    // Return all USDT pairs discovered from Binance (populated at startup).
+    // Format: {"pairs":["BTCUSDT","ETHUSDT",...]}
+    // Returns an empty array if fetch hasn't completed yet (WiFi not connected at boot).
+    String json;
+    json.reserve(10240);  // ~600 pairs × ~15 chars each
+    json = "{\"pairs\":[";
+    if (g_board.market) {
+        const std::vector<String>& pairs = g_board.market->availablePairs;
+        for (size_t i = 0; i < pairs.size(); i++) {
+            json += "\"";
+            json += pairs[i];
+            json += "\"";
+            if (i + 1 < pairs.size()) json += ",";
+        }
+    }
+    json += "]}";
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
+}
 void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total){
-    static uint16_t SCRATCH_BUFSIZE = 1024;
+    static uint16_t SCRATCH_BUFSIZE = 2048;
     
     LOG_D("Update Settings Request, request contentLength: %d, index: %d, total: %d", request->contentLength(), index, total);
     if (total >= SCRATCH_BUFSIZE) {
@@ -819,7 +841,7 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
 
     if (index + len == total) {
         buffer[total] = '\0'; 
-        StaticJsonDocument<1024> root;
+        StaticJsonDocument<2048> root;
         DeserializationError error = deserializeJson(root, buffer);
         if(error){
             request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
@@ -877,6 +899,10 @@ void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *dat
             nvs_config_set_string(NVS_CONFIG_PRICE_DISPLAY_COIN, root["coinDisplay"].as<String>().c_str());
             g_board.info.base.coin_price = root["coinDisplay"].as<String>();
             g_board.info.base.coin_price.toUpperCase();
+        }
+        if(root.containsKey("coinWatchlist")){
+            nvs_config_set_string(NVS_CONFIG_COIN_WATCHLIST, root["coinWatchlist"].as<String>().c_str());
+            g_board.info.base.coin_watchlist = root["coinWatchlist"].as<String>();
         }
         
         /************************************** settings->time config ***************************************************************/

@@ -60,13 +60,6 @@
       </div>
     </div>
 
-    <!-- Price Display Selection -->
-    <div class="field grid p-fluid">
-      <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="Coin">Price Display:</label>
-      <p-dropdown class="col-12 md:col-10" [options]="PriceDisplay" optionLabel="name"
-                  optionValue="value" formControlName="coin"></p-dropdown>
-    </div>
-
     <ng-container *ngIf="!devToolsOpen && (ASICModel == eASICModel.BM1366 || ASICModel == eASICModel.BM1370)">
       <div class="field grid p-fluid">
         <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="frequency">OverClock(MHz)</label>

@@ -144,6 +144,25 @@ export class SystemService {
     return this.httpClient.patch(`${uri}/api/system`, update);
   }
 
+  public getAvailablePairs(uri: string = ''): Observable<string[]> {
+    if (environment.production) {
+      return (this.httpClient.get(`${uri}/api/market/available-pairs`) as Observable<{pairs: string[]}>).pipe(
+        map(res => res.pairs)
+      );
+    } else {
+      return of(['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','ADAUSDT','DOGEUSDT',
+                 'AVAXUSDT','DOTUSDT','MATICUSDT','KASUSDT','LTCUSDT','BCHUSDT','XECUSDT',
+                 'TRXUSDT','TONUSDT','ATOMUSDT','LINKUSDT','UNIUSDT','SHIBUSDT',
+                 'NEARUSDT','ARBUSDT','OPUSDT','INJUSDT','SUIUSDT','APTUSDT',
+                 'PEPEUSDT','WIFUSDT','BONKUSDT','FLOKIUSDT',
+                 'AAVEUSDT','MKRUSDT','CRVUSDT','DYDXUSDT','GMXUSDT',
+                 'FILUSDT','ARUSDT','GRTUSDT','RENDERUSDT','TAOUSDT',
+                 'RUNEUSDT','STXUSDT','APEUSDT','SANDUSDT','MANAUSDT',
+                 'XMRUSDT','ZECUSDT','RVNUSDT','DASHUSDT','DCRUSDT',
+                 'DRBUSDT','XLMUSDT','ICPUSDT','VETUSDT','HBARUSDT']).pipe(delay(500));
+    }
+  }
+
 
   private otaUpdate(file: File | Blob, url: string) {
     return new Observable<HttpEvent<Object>>((subscriber) => {

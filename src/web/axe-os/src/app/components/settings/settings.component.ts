@@ -21,6 +21,9 @@ export class SettingsComponent {
   public ASICModel!: eASICModel;
 
   public info$: Observable<any>;
+  // Available USDT pairs from Binance, as selectable options {label, value}.
+  // label = base symbol (e.g. "BTC"), value = base symbol.
+  public pairOptions: {label: string, value: string}[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -34,6 +37,14 @@ export class SettingsComponent {
     this.checkDevTools();
 
     this.info$ = this.systemService.getInfo().pipe(shareReplay({refCount: true, bufferSize: 1}))
+
+    // Load available pairs from Binance to populate Market dropdowns.
+    this.systemService.getAvailablePairs().subscribe(pairs => {
+      this.pairOptions = pairs.map(p => {
+        const base = p.endsWith('USDT') ? p.slice(0, -4) : p;
+        return {label: base, value: base};
+      });
+    });
 
     this.info$.pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
@@ -72,6 +83,11 @@ export class SettingsComponent {
         
         this.ASICModel = info.ASICModel;
         
+        // Parse saved watchlist (comma-separated string → string[])
+        const watchlistArr: string[] = info.coinWatchlist
+          ? (info.coinWatchlist as string).split(',').map((s: string) => s.trim()).filter(Boolean)
+          : [];
+        
         this.form = this.fb.group({
           flipscreen: [info.flipscreen == 1],
           invertscreen: [info.invertscreen == 1],
@@ -97,6 +113,9 @@ export class SettingsComponent {
           autofanspeed: [info.autofanspeed == 1, [Validators.required]],
           autoscreen: [info.autoscreen == 1],
           fanspeed: [info.fanspeed, [Validators.required]],
+          // Market settings
+          coinDisplay: [info.coinPriceDisplay || info.coin || 'BTC'],
+          coinWatchlist: [watchlistArr],
         });
 
         this.form.controls['autofanspeed'].valueChanges.pipe(
@@ -137,6 +156,11 @@ export class SettingsComponent {
     form.ledindicator = form.ledindicator == true ? 1 : 0;
     form.autoscreen = form.autoscreen == true ? 1 : 0;
 
+    // Convert watchlist array to comma-separated string for backend
+    if (Array.isArray(form.coinWatchlist)) {
+      form.coinWatchlist = form.coinWatchlist.join(',');
+    }
+
     if (form.wifiPass === 'password') {
       delete form.wifiPass;
     }
@@ -147,6 +171,24 @@ export class SettingsComponent {
         next: () => {
           this.toastr.success('Success!', 'Saved.');
         },
+        error: (err: HttpErrorResponse) => {
+          this.toastr.error('Error.', `Could not save. ${err.message}`);
+        }
+      });
+  }
+
+  public saveMarket() {
+    const raw = this.form.getRawValue();
+    const payload: any = {
+      coinDisplay: raw.coinDisplay,
+      coinWatchlist: Array.isArray(raw.coinWatchlist)
+        ? raw.coinWatchlist.join(',')
+        : (raw.coinWatchlist || ''),
+    };
+    this.systemService.updateSystem(undefined, payload)
+      .pipe(this.loadingService.lockUIUntilComplete())
+      .subscribe({
+        next: () => { this.toastr.success('Success!', 'Saved.'); },
         error: (err: HttpErrorResponse) => {
           this.toastr.error('Error.', `Could not save. ${err.message}`);
         }

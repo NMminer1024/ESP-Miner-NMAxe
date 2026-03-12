@@ -453,6 +453,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/theme", HTTP_OPTIONS, options_theme_handler);
     webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
     webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
+    webServer.on("/api/market/available-pairs", HTTP_GET, get_market_available_pairs_handler);
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
     webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
         AsyncWebServerResponse *response = request->beginResponse(200);
@@ -1277,7 +1278,7 @@ void market_thread_entry(void *args){
     // This helps users discover which symbols are supported before configuring one.
     while (board->status.wifi.status != WL_CONNECTED) delay(1000);
     LOG_I("Fetching available USDT trading pairs from Binance...");
-    board->market->print_available_usdt_pairs();
+    board->market->fetch_available_usdt_pairs();
 
     // Number of consecutive retry attempts before giving up for this cycle
     const uint8_t  MARKET_MAX_RETRIES    = 3;

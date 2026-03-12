@@ -35,6 +35,7 @@
 #define HTTP_API_SYS_JSON_KEY_BOARD_WIFI_STATUS             "wifiStatus"
 
 #define HTTP_API_SYS_JSON_KEY_COIN_PRICE_DISPLAY             "coinPriceDisplay"
+#define HTTP_API_SYS_JSON_KEY_COIN_WATCHLIST                 "coinWatchlist"
 
 #define HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_FLIP               "screenFlip"
 #define HTTP_API_SYS_JSON_KEY_PERFORMANCE_SCREEN_AUTO_ROLL          "screenAutoRoll"
@@ -56,6 +57,7 @@ void post_restart(AsyncWebServerRequest * request);
 void get_theme_handler(AsyncWebServerRequest * request);
 void options_theme_handler(AsyncWebServerRequest * request);
 void get_swarm_info_handler(AsyncWebServerRequest * request);
+void get_market_available_pairs_handler(AsyncWebServerRequest *request);
 void patch_update_settings_handler(AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total);
 void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final);
 void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total);

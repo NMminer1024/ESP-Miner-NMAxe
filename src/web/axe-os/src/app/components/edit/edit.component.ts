@@ -29,16 +29,6 @@ export class EditComponent implements OnInit {
   public DropdownFrequency: Array<{name: string, value: number}> = [];
   public CoreVoltage: Array<{name: string, value: number}> = [];
 
-
-  public PriceDisplay = [
-    {name: 'BTC', value: 'BTC'},
-    {name: 'BCH', value: 'BCH'},
-    {name: 'DGB', value: 'DGB'},
-    {name: 'XEC', value: 'XEC'},
-  ];
-
-
-
   constructor(
     private fb: FormBuilder,
     private systemService: SystemService,
@@ -89,7 +79,6 @@ export class EditComponent implements OnInit {
         
         info.coreVoltage = info.vcoreReq || info.coreVoltage;
         info.frequency = info.freqReq || info.frequency;
-        info.coin = info.coinPriceDisplay || info.coin;
         
         this.ASICModel = info.ASICModel;
         this.form = this.fb.group({
@@ -109,7 +98,6 @@ export class EditComponent implements OnInit {
           stratumPassword2: [info.stratumPassword2],
           coreVoltage: [info.coreVoltage, [Validators.required]],
           frequency: [info.frequency, [Validators.required]],
-          coin: [info.coin, [Validators.required]],
           // overheat_mode: [info.overheat_mode, [Validators.required]]
         });
 
@@ -149,8 +137,7 @@ export class EditComponent implements OnInit {
         }
       },
       asicVcoreReq: formValue.coreVoltage,
-      asicFreqReq: formValue.frequency,
-      coinDisplay: formValue.coin
+      asicFreqReq: formValue.frequency
     };
 
     this.systemService.updateSystem(this.uri, form)

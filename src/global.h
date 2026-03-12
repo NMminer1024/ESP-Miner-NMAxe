@@ -130,7 +130,8 @@ typedef struct{
 
 typedef struct{
     struct{
-        String              coin_price;//  BTC, BCH, XEC, DGB, for price display purpose
+        String              coin_price;     // BTC, BCH, XEC, DGB, for price display purpose
+        String              coin_watchlist; // comma-separated watchlist e.g. "BTC,ETH,SOL"
         String              hostname;
         String              fw_version;
         String              hw_version;
