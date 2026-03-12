@@ -1273,6 +1273,12 @@ void market_thread_entry(void *args){
 
     board->market->lastUpdate = 0;
 
+    // Wait for WiFi, then print all available USDT trading pairs once at startup.
+    // This helps users discover which symbols are supported before configuring one.
+    while (board->status.wifi.status != WL_CONNECTED) delay(1000);
+    LOG_I("Fetching available USDT trading pairs from Binance...");
+    board->market->print_available_usdt_pairs();
+
     // Number of consecutive retry attempts before giving up for this cycle
     const uint8_t  MARKET_MAX_RETRIES    = 3;
     // Short pause between retries to avoid hammering the server

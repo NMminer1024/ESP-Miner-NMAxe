@@ -25,6 +25,10 @@ public:
     }
     // String get_coin_price(const String &symbol = "BTCUSDT");
     bool get_coin_ticker_24hr(const String &symbol = "BTCUSDT");
+
+    // Fetch all available USDT trading pairs from Binance and print them to the log.
+    // Uses HTTP streaming to avoid loading the full ~100 KB response into RAM.
+    bool print_available_usdt_pairs();
 };
 
 // void market_thread_entry(void *args);
