@@ -162,14 +162,16 @@ struct{
   lv_img_dsc_t  *back_img_dsc;
   // Coin row label vectors (created once in ui_market_page_update !inited block)
   std::vector<lv_obj_t*> lb_names;
-  std::vector<lv_obj_t*> lb_prices;
+  std::vector<lv_obj_t*> lb_dollar_signs;  // fixed "$" per row, left-aligned
+  std::vector<lv_obj_t*> lb_prices;        // price number, right-aligned
   std::vector<lv_obj_t*> lb_changes;
   // Bottom hashrate display
   ui_element_t  lb_hr;       // .font set in ui_page_element_init
   ui_element_t  lb_hr_unit;  // .font set in ui_page_element_init
   // Per-board column layout (set in ui_page_element_init)
   const lv_font_t *coin_font;    // font for coin row text
-  lv_coord_t      col_price_x;   // X start of price column
+  lv_coord_t      col_dollar_x;  // X start of "$" column
+  lv_coord_t      col_price_x;   // X start of price number column (right-aligned)
   lv_coord_t      col_change_x;  // X start of change% column
 }market_page;
 
@@ -605,7 +607,7 @@ static void tileview_changed_cb(lv_event_t *e) {
             g_board.status.ui.page.current = i;
             g_board.status.ui.page.last    = g_board.status.ui.page.current;
             xSemaphoreGive(g_board.status.ui.page.save_xsem);
-            LOG_D("Page changed to %d", g_board.status.ui.page.current);
+            LOG_W("Page changed to %d", g_board.status.ui.page.current);
             break;
         }
     }
@@ -1115,11 +1117,12 @@ void ui_page_element_init(void* args){
     clock_page.lb_price.font        = &ds_digib_font_24;
     clock_page.lb_price.coord       = {0, 0};
     /*********************************** Market page (NMAxe / NMAxe Gamma, ~240x135) *********************************/
-    market_page.coin_font       = &lv_font_montserrat_14;
-    market_page.col_price_x     = 43;
+    market_page.coin_font       = &lv_font_montserrat_16;
+    market_page.col_dollar_x    = 73;
+    market_page.col_price_x     = 86;
     market_page.col_change_x    = 185;
-    market_page.lb_hr.font      = &ds_digib_font_20;
-    market_page.lb_hr_unit.font = &lv_font_montserrat_14;
+    market_page.lb_hr.font      = &ds_digib_font_24;
+    market_page.lb_hr_unit.font = &lv_font_montserrat_16;
   }
   else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     loading_page.back_img_dsc           = &loading_page_img_240_320;
@@ -1388,11 +1391,12 @@ void ui_page_element_init(void* args){
     clock_page.lb_price.font        = &ds_digib_font_24;
     clock_page.lb_price.coord       = {0, 0};
     /*********************************** Market page (NMQAxe++, ~320x240) *********************************/
-    market_page.coin_font       = &lv_font_montserrat_16;
-    market_page.col_price_x     = 58;
-    market_page.col_change_x    = 263;
-    market_page.lb_hr.font      = &ds_digib_font_24;
-    market_page.lb_hr_unit.font = &lv_font_montserrat_14;
+    market_page.coin_font       = &lv_font_montserrat_20;
+    market_page.col_dollar_x    = 87;
+    market_page.col_price_x     = 103;
+    market_page.col_change_x    = 242;
+    market_page.lb_hr.font      = &ds_digib_font_28;
+    market_page.lb_hr_unit.font = &lv_font_montserrat_16;
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
@@ -2665,12 +2669,13 @@ void ui_market_page_update(void* args){
 
   if(!inited){
     market_page.lb_names.clear();
+    market_page.lb_dollar_signs.clear();
     market_page.lb_prices.clear();
     market_page.lb_changes.clear();
 
-    const lv_font_t *font   = market_page.coin_font ? market_page.coin_font : &lv_font_montserrat_14;
-    const lv_font_t *hr_f   = market_page.lb_hr.font      ? market_page.lb_hr.font      : &ds_digib_font_20;
-    const lv_font_t *unit_f = market_page.lb_hr_unit.font ? market_page.lb_hr_unit.font : &lv_font_montserrat_14;
+    const lv_font_t *font   = market_page.coin_font        ? market_page.coin_font        : &lv_font_montserrat_16;
+    const lv_font_t *hr_f   = market_page.lb_hr.font       ? market_page.lb_hr.font       : &ds_digib_font_20;
+    const lv_font_t *unit_f = market_page.lb_hr_unit.font  ? market_page.lb_hr_unit.font  : &lv_font_montserrat_16;
 
     lv_coord_t font_h  = lv_font_get_line_height(font);
     lv_coord_t hr_h    = lv_font_get_line_height(hr_f);
@@ -2678,8 +2683,9 @@ void ui_market_page_update(void* args){
     max_per_page       = (avail_h / font_h);
     if(max_per_page == 0) max_per_page = 1;
 
-    lv_coord_t price_x  = market_page.col_price_x  ? market_page.col_price_x  : 43;
-    lv_coord_t change_x = market_page.col_change_x ? market_page.col_change_x : 185;
+    lv_coord_t dollar_x = market_page.col_dollar_x ? market_page.col_dollar_x : 48;
+    lv_coord_t price_x  = market_page.col_price_x  ? market_page.col_price_x  : 60;
+    lv_coord_t change_x = market_page.col_change_x ? market_page.col_change_x : 195;
 
     for(uint16_t i = 0; i < max_per_page; i++){
       lv_coord_t y = 2 + (lv_coord_t)(i * font_h);
@@ -2689,22 +2695,33 @@ void ui_market_page_update(void* args){
       lv_obj_set_style_text_font(ln, font, 0);
       lv_obj_set_style_text_color(ln, lv_color_hex(0x00D7FF), 0);
       lv_obj_set_pos(ln, 3, y);
-      lv_obj_set_width(ln, price_x - 6);
+      lv_obj_set_width(ln, dollar_x - 6);
       lv_label_set_long_mode(ln, LV_LABEL_LONG_DOT);
       lv_label_set_text(ln, "");
       market_page.lb_names.push_back(ln);
 
-      // Column 2: price (green / red based on direction)
+      // Column 2: $ sign (left-aligned, color follows price direction)
+      lv_obj_t *ld = lv_label_create(market_page.container);
+      lv_obj_set_style_text_font(ld, font, 0);
+      lv_obj_set_style_text_color(ld, lv_color_hex(0x00FF7F), 0);
+      lv_obj_set_pos(ld, dollar_x, y);
+      lv_obj_set_width(ld, price_x - dollar_x - 1);
+      lv_label_set_long_mode(ld, LV_LABEL_LONG_DOT);
+      lv_label_set_text(ld, "$");
+      market_page.lb_dollar_signs.push_back(ld);
+
+      // Column 3: price number (right-aligned)
       lv_obj_t *lp = lv_label_create(market_page.container);
       lv_obj_set_style_text_font(lp, font, 0);
       lv_obj_set_style_text_color(lp, lv_color_hex(0x00FF7F), 0);
       lv_obj_set_pos(lp, price_x, y);
       lv_obj_set_width(lp, change_x - price_x - 2);
+      lv_obj_set_style_text_align(lp, LV_TEXT_ALIGN_RIGHT, 0);
       lv_label_set_long_mode(lp, LV_LABEL_LONG_DOT);
       lv_label_set_text(lp, "");
       market_page.lb_prices.push_back(lp);
 
-      // Column 3: change % (right-aligned, green / red)
+      // Column 4: change % (right-aligned)
       lv_obj_t *lc = lv_label_create(market_page.container);
       lv_obj_set_style_text_font(lc, font, 0);
       lv_obj_set_style_text_color(lc, lv_color_hex(0x00FF7F), 0);
@@ -2716,33 +2733,34 @@ void ui_market_page_update(void* args){
       market_page.lb_changes.push_back(lc);
     }
 
-    // Bottom-right: hashrate digits
-    String hr_sample = "10000";
-    lv_coord_t hr_w = lv_txt_get_width(hr_sample.c_str(), hr_sample.length(), hr_f, 0, LV_TEXT_FLAG_NONE);
-    String unit_str = "kH/s";
-    lv_coord_t unit_w = lv_txt_get_width(unit_str.c_str(), unit_str.length(), unit_f, 0, LV_TEXT_FLAG_NONE);
-
+    // Bottom-right: hashrate unit label
     market_page.lb_hr_unit.obj = lv_label_create(market_page.container);
     lv_obj_set_style_text_font(market_page.lb_hr_unit.obj, unit_f, 0);
     lv_obj_set_style_text_color(market_page.lb_hr_unit.obj, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_width(market_page.lb_hr_unit.obj, unit_w);
-    lv_label_set_text(market_page.lb_hr_unit.obj, unit_str.c_str());
-    lv_obj_align(market_page.lb_hr_unit.obj, LV_ALIGN_BOTTOM_RIGHT, -2, -3);
+    lv_coord_t width = lv_txt_get_width("kH/s", strlen("kH/s"), unit_f, 0, LV_TEXT_FLAG_NONE);
+    lv_obj_set_width(market_page.lb_hr_unit.obj, width + 5); // add some padding
+    lv_label_set_text(market_page.lb_hr_unit.obj, "---");
+    lv_obj_align(market_page.lb_hr_unit.obj, LV_ALIGN_BOTTOM_RIGHT, 0, -3);
 
+    // Bottom-right: hashrate value label (right-aligned, sits just left of unit)
     market_page.lb_hr.obj = lv_label_create(market_page.container);
     lv_obj_set_style_text_font(market_page.lb_hr.obj, hr_f, 0);
     lv_obj_set_style_text_color(market_page.lb_hr.obj, lv_color_hex(0xEE7D30), 0);
-    lv_obj_set_width(market_page.lb_hr.obj, hr_w);
+    lv_obj_set_width(market_page.lb_hr.obj, 110);
+    lv_obj_set_style_text_align(market_page.lb_hr.obj, LV_TEXT_ALIGN_RIGHT, 0);
     lv_label_set_text(market_page.lb_hr.obj, "--");
-    lv_obj_align(market_page.lb_hr.obj, LV_ALIGN_BOTTOM_RIGHT, -(unit_w + 4), -3);
+    lv_obj_align(market_page.lb_hr.obj, LV_ALIGN_BOTTOM_RIGHT, -width - 5, 0); // 5 px gap from unit label
 
     inited = true;
     last_switch = millis();
   }
 
-  // Always refresh hashrate
-  lv_label_set_text(market_page.lb_hr.obj,
-    String(board->status.miner.hashrate._3m / 1000.0f, 0).c_str());
+  // Always refresh hashrate with unit conversion (3 significant figures)
+  String hr_val  = formatNumber(board->status.miner.hashrate._3m, 3);
+  String hr_unit = (board->status.miner.hashrate._3m > 0)
+                   ? (String(hr_val.charAt(hr_val.length() - 1)) + "H/s") : "";
+  lv_label_set_text(market_page.lb_hr.obj,      hr_val.substring(0, hr_val.length() - 1).c_str());
+  lv_label_set_text(market_page.lb_hr_unit.obj, hr_unit.c_str());
 
   if(wl.empty()) return;
 
@@ -2758,10 +2776,10 @@ void ui_market_page_update(void* args){
 
   for(uint16_t i = 0; i < max_per_page; i++){
     if(it == wl.cend()){
-      // Hide unused rows on this page
-      if(i < market_page.lb_names.size())   lv_label_set_text(market_page.lb_names[i],   "");
-      if(i < market_page.lb_prices.size())  lv_label_set_text(market_page.lb_prices[i],  "");
-      if(i < market_page.lb_changes.size()) lv_label_set_text(market_page.lb_changes[i], "");
+      if(i < market_page.lb_names.size())        lv_label_set_text(market_page.lb_names[i],        "");
+      if(i < market_page.lb_dollar_signs.size()) lv_label_set_text(market_page.lb_dollar_signs[i], "");
+      if(i < market_page.lb_prices.size())       lv_label_set_text(market_page.lb_prices[i],       "");
+      if(i < market_page.lb_changes.size())      lv_label_set_text(market_page.lb_changes[i],      "");
       continue;
     }
     const String    &sym = it->first;   // e.g. "BTCUSDT"
@@ -2771,7 +2789,7 @@ void ui_market_page_update(void* args){
     // Strip "USDT" suffix for display
     String name = sym.endsWith("USDT") ? sym.substring(0, sym.length() - 4) : sym;
 
-    // Format price with thousand separator
+    // Format price number (no $ prefix) with thousand separator
     String price_str;
     int decimals = (cp.price < 0.01f) ? 7 : (cp.price < 1.0f) ? 5 : 2;
     if(cp.price >= 1000.0f){
@@ -2784,9 +2802,9 @@ void ui_market_page_update(void* args){
         if(j > 0 && (len - j) % 3 == 0) fmt_int += ",";
         fmt_int += int_str.charAt(j);
       }
-      price_str = "$ " + fmt_int + String(dec_part, decimals).substring(1);
+      price_str = fmt_int + String(dec_part, decimals).substring(1);
     } else {
-      price_str = "$ " + String(cp.price, decimals);
+      price_str = String(cp.price, decimals);
     }
 
     uint32_t color      = (cp.change_pct >= 0.0f) ? 0x00FF7F : 0xFF4444;
@@ -2795,6 +2813,10 @@ void ui_market_page_update(void* args){
     if(i < market_page.lb_names.size())
       lv_label_set_text(market_page.lb_names[i], name.c_str());
 
+    if(i < market_page.lb_dollar_signs.size()){
+      lv_obj_set_style_text_color(market_page.lb_dollar_signs[i], lv_color_hex(color), 0);
+      lv_label_set_text(market_page.lb_dollar_signs[i], "$");
+    }
     if(i < market_page.lb_prices.size()){
       lv_obj_set_style_text_color(market_page.lb_prices[i], lv_color_hex(color), 0);
       lv_label_set_text(market_page.lb_prices[i], price_str.c_str());
@@ -2969,7 +2991,7 @@ void ui_setting_page_update(void* args){
 }
 
 void ui_goto_page(int8_t page, lv_anim_enable_t anim) {
-    if(parent_wall && page >= 0 && page <= UI_PAGE_SETTING) {
+    if(parent_wall && page >= UI_PAGE_LOADING && page <= UI_PAGE_SETTING) {
         g_board.status.ui.page.current = page;
         lv_obj_set_tile(parent_wall, g_board.status.ui.page.list[page], anim);
     }else{

@@ -150,8 +150,7 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
             CoinPrice cp;
             if (this->get_coin_ticker_24hr(sym + "USDT", cp)) {
                 this->_watchlist_pairs[sym + "USDT"] = cp;
-                LOG_W("[Watchlist] %sUSDT  price=%.4f  change=%.2f%%",
-                      sym.c_str(), cp.price, cp.change_pct);
+                LOG_W("[Watchlist] %sUSDT  price=%.4f  change=%.2f%%", sym.c_str(), cp.price, cp.change_pct);
             }
         }
         if (comma < 0) break;
