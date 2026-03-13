@@ -31,54 +31,89 @@ export class HomeComponent implements OnInit {
         return this.systemService.getInfo()
       }),
       map(info => {
-        // Map new field names to legacy names for backward compatibility
-        info.temp = info.asicTemp;
-        info.vrTemp = info.vcoreTemp;
-        info.coreVoltage = info.vcoreReq;
-        info.coreVoltageActual = info.vcoreActual;
-        info.frequency = info.freqReq;
-        info.hostname = info.hostName;
-        info.ssid = info.wifiSSID;
-        
-        // Map nested stratum structure to legacy flat structure
-        info.stratumURLUSED = info.stratum?.url || info.usedUrl || '';
-        info.stratumUserUSED = info.stratum?.user || info.usedUser || '';
-        info.stratumURL1 = info.stratum?.primary?.url || info.primaryUrl || '';
-        info.stratumUser1 = info.stratum?.primary?.user || info.primaryUser || '';
-        info.stratumPassword1 = info.stratum?.primary?.pwd || info.primaryPassword || '';
-        info.stratumURL2 = info.stratum?.fallback?.url || info.fallBackUrl || '';
-        info.stratumUser2 = info.stratum?.fallback?.user || info.fallBackUser || '';
-        info.stratumPassword2 = info.stratum?.fallback?.pwd || info.fallBackPassword || '';
-        
-        info.version = info.fwVersion;
-        info.boardVersion = info.hwModel;
-        info.coin = info.coinPriceDisplay;
-        info.brightness = info.Brightness;
-        info.ASICModel = info.asic;
-        info.bestDiff = info.bestDiffEver;
-        info.bestSessionDiff = info.bestDiffSession;
+        // Hoist nested sub-objects into local aliases
+        const pw  = (info as any).power    as any;
+        const tmp = (info as any).temps as any;
+        const asc = (info as any).asic     as any;
+        const mnr = (info as any).miner    as any;
+        const idn = (info as any).identity as any;
+
+        // --- power ---
+        const rawPower   = pw?.power ?? 0;
+        const rawVbus    = pw?.vbus  ?? 0;
+        const rawIbus    = pw?.ibus  ?? 0;
+        info.power_w = parseFloat(rawPower.toFixed(1));
+        info.voltage = parseFloat((rawVbus / 1000).toFixed(2));
+        info.current = parseFloat((rawIbus / 1000).toFixed(3));
+
+        // --- temp ---
+        info.asicTemp  = tmp?.asic  ?? info.asicTemp;
+        info.vcoreTemp = tmp?.vcore ?? info.vcoreTemp;
+        info.mcuTemp   = tmp?.mcu   ?? info.mcuTemp;
+        info.temp   = parseFloat(((info.asicTemp  ?? 0) as number).toFixed(1));
+        info.vrTemp = parseFloat(((info.vcoreTemp ?? 0) as number).toFixed(1));
+        if (info.mcuTemp !== undefined) {
+          info.mcuTemp = parseFloat((info.mcuTemp as number).toFixed(1));
+        }
+
+        // --- asic ---
+        info.vcoreReq    = asc?.vcoreReq    ?? info.vcoreReq;
+        info.vcoreActual = asc?.vcoreReal   ?? info.vcoreActual;
+        info.freqReq     = asc?.freqReq     ?? info.freqReq;
+        info.smallCoreCnt = asc?.smallCoreCnt ?? info.smallCoreCnt;
+        info.asicCount   = asc?.count       ?? info.asicCount;
+        info.coreVoltage       = parseFloat(((info.vcoreReq    ?? 0) as number / 1000).toFixed(3));
+        info.coreVoltageActual = parseFloat(((info.vcoreActual ?? 0) as number / 1000).toFixed(3));
+        info.frequency   = info.freqReq;
+        info.ASICModel   = asc?.model ?? info.ASICModel;
         info.smallCoreCount = info.smallCoreCnt;
+
+        // --- miner ---
+        info.hashRate        = mnr?.hashRate        ?? info.hashRate;
+        info.bestDiffEver    = mnr?.bestDiffEver    ?? info.bestDiffEver;
+        info.bestDiffSession = mnr?.bestDiffSession ?? info.bestDiffSession;
+        info.freeHeap        = mnr?.freeHeap        ?? info.freeHeap;
+        info.sharesAccepted  = mnr?.sAccepted       ?? info.sharesAccepted;
+        info.sharesRejected  = mnr?.sRejected       ?? info.sharesRejected;
+        info.uptimeSeconds   = mnr?.uptimeSeconds   ?? info.uptimeSeconds;
+        info.bestDiff        = info.bestDiffEver;
+        info.bestSessionDiff = info.bestDiffSession;
+
+        // --- identity ---
+        info.fwVersion  = idn?.fwVersion ?? info.fwVersion;
+        info.hwModel    = idn?.hwModel   ?? info.hwModel;
+        info.hostName   = idn?.hostName  ?? info.hostName;
+        info.wifiSSID   = idn?.ssid      ?? info.wifiSSID;
+        info.wifiRSSI   = idn?.rssi      ?? info.wifiRSSI;
+        info.hostname   = info.hostName;
+        info.ssid       = info.wifiSSID;
+        info.version    = info.fwVersion;
+        info.boardVersion = info.hwModel;
+
+        // --- stratum (nested → legacy flat) ---
+        info.stratumURLUSED  = info.stratum?.url  || info.usedUrl  || '';
+        info.stratumUserUSED = info.stratum?.user || info.usedUser || '';
+        info.stratumURL1     = info.stratum?.primary?.url  || info.primaryUrl  || '';
+        info.stratumUser1    = info.stratum?.primary?.user || info.primaryUser || '';
+        info.stratumPassword1 = info.stratum?.primary?.pwd || info.primaryPassword || '';
+        info.stratumURL2     = info.stratum?.fallback?.url  || info.fallBackUrl  || '';
+        info.stratumUser2    = info.stratum?.fallback?.user || info.fallBackUser || '';
+        info.stratumPassword2 = info.stratum?.fallback?.pwd || info.fallBackPassword || '';
+
+        // --- misc ---
+        info.coin       = info.coinPriceDisplay;
+        info.brightness = info.Brightness;
         info.flipscreen = info.screenFlip;
         info.autoscreen = info.screenAutoRoll;
         info.ledindicator = info.ledIndicator;
         info.autofanspeed = info.fanAutoSpeed;
-        
+
         // Extract fan data from fans array (use fan id=0 as default)
         if (info.fans && info.fans.length > 0) {
           const defaultFan = info.fans.find((f: any) => f.id === 0) || info.fans[0];
           info.fanspeed = defaultFan.speed;
-          info.fanrpm = defaultFan.rpm;
+          info.fanrpm   = defaultFan.rpm;
         }
-
-        // Process numeric values
-        info.power = parseFloat(info.power.toFixed(1))
-        info.voltage = parseFloat((info.voltage / 1000).toFixed(2));
-        info.current = parseFloat((info.current / 1000).toFixed(3));
-        info.coreVoltageActual = parseFloat((info.vcoreActual / 1000).toFixed(3));
-        info.coreVoltage = parseFloat((info.vcoreReq / 1000).toFixed(3));
-        info.temp = parseFloat(info.asicTemp.toFixed(1));
-        info.vrTemp = parseFloat(info.vcoreTemp.toFixed(1));
-        info.mcuTemp = info.mcuTemp !== undefined ? parseFloat(info.mcuTemp.toFixed(1)) : undefined;
 
         return info;
       }),
@@ -86,7 +121,7 @@ export class HomeComponent implements OnInit {
     );
 
     this.expectedHashRate$ = this.info$.pipe(map(info => {
-      return Math.floor((info.frequency || info.freqReq) * ((info.smallCoreCount || info.smallCoreCnt) * info.asicCount) / 1000)
+      return Math.floor((info.frequency || info.freqReq || 0) * ((info.smallCoreCount || info.smallCoreCnt || 0) * (info.asicCount || 0)) / 1000)
     }))
 
     this.quickLink$ = this.info$.pipe(

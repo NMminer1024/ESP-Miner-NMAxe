@@ -275,7 +275,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.systemService.getInfo().subscribe({
       next: (data: any) => {
         // Map new field names to legacy names for backward compatibility
-        data.boardVersion = data.hwModel || data.boardVersion;
+        data.boardVersion = (data.identity as any)?.hwModel ?? data.hwModel ?? data.boardVersion;
         
         if (data && data.boardVersion) {
           this.boardVersion = data.boardVersion;

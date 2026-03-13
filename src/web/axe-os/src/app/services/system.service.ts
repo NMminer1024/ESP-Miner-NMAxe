@@ -32,37 +32,74 @@ export class SystemService {
     } else {
       return of(
         {
-          // New field names (match backend macros)
-          power: 11.670000076293945,
-          voltage: 5208.75,
-          current: 2237.5,
-          asicTemp: 60,
-          vcoreTemp: 45,
-          mcuTemp: 35,
-          asicCount: 1,
-          vcoreReq: 1200,
-          vcoreActual: 1200,
-          freqReq: 485,
-          smallCoreCnt: 672,
-          asic: eASICModel.BM1366,
+          // ── Nested structured fields (new API) ──────────────────────────
+          power: {
+            power: 11.67,
+            vbus:  5208,
+            ibus:  2237,
+          },
+          temps: {
+            vcore: 45,
+            mcu:   35,
+            asic:  60,
+          },
+          asic: {
+            count:        1,
+            model:        eASICModel.BM1366,
+            vcoreReq:     1200,
+            vcoreReal:    1200,
+            freqReq:      485,
+            smallCoreCnt: 672,
+          },
+          miner: {
+            hashRate:        475,
+            bestDiffEver:    "0",
+            bestDiffSession: "0",
+            freeHeap:        200504,
+            sAccepted:       1,
+            sRejected:       0,
+            uptimeSeconds:   38,
+          },
+          identity: {
+            fwVersion: "2.0",
+            hwModel:   "204",
+            hostName:  "NMAxe",
+            ssid:      "default",
+            rssi:      -55,
+          },
+          // ── Fan ────────────────────────────────────────────────────────
           fans: [
             { id: 0, speed: 100, rpm: 4500 }
           ],
-          hashRate: 475,
-          bestDiffEver: "0",
-          bestDiffSession: "0",
-          freeHeap: 200504,
-          sharesAccepted: 1,
-          sharesRejected: 0,
-          uptimeSeconds: 38,
-          fwVersion: "2.0",
-          hwModel: "204",
-          hostName: "NMAxe",
+          // ── Stratum ────────────────────────────────────────────────────
+          stratum: {
+            url:  "stratum+tcp://solo.ckpool.org:3333",
+            user: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
+            pwd:  "x",
+            primary: {
+              url:  "stratum+tcp://solo.ckpool.org:3333",
+              user: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
+              pwd:  "x"
+            },
+            fallback: {
+              url:  "stratum+tcp://solo.ckpool.org:3333",
+              user: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
+              pwd:  "x"
+            }
+          },
+          // ── Misc ───────────────────────────────────────────────────────
+          coinPriceDisplay: "btc",
+          mainprice: "BTC",
           timeZone: "8.0",
           timeFormat: 24,
           dateFormat: "YYYY/MM/DD",
-          wifiSSID: "default",
-          wifiStatus: "Connected!",
+          screenFlip: 1,
+          screenAutoRoll: 0,
+          Brightness: 100,
+          asicTargetTemp: "55",
+          fanAutoSpeed: 1,
+          ledIndicator: 0,
+          // ── Legacy flat names (backward compat) ────────────────────────
           usedUrl: "stratum+tcp://solo.ckpool.org:3333",
           usedUser: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
           primaryUrl: "stratum+tcp://solo.ckpool.org:3333",
@@ -71,40 +108,6 @@ export class SystemService {
           fallBackUrl: "stratum+tcp://solo.ckpool.org:3333",
           fallBackUser: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
           fallBackPassword: "x",
-          coinPriceDisplay: "btc",
-          mainprice: "BTC",
-          screenFlip: 1,
-          screenAutoRoll: 0,
-          Brightness: 100,
-          asicTargetTemp: "55",
-          fanAutoSpeed: 1,
-          ledIndicator: 0,
-          
-          // Legacy field names for backward compatibility
-          temp: 60,
-          vrTemp: 45,
-          coreVoltage: 1200,
-          coreVoltageActual: 1200,
-          frequency: 485,
-          hostname: "NMAxe",
-          ssid: "default",
-          stratum: {
-            used: {
-              url: "stratum+tcp://solo.ckpool.org:3333",
-              user: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
-              pwd: "x"
-            },
-            primary: {
-              url: "stratum+tcp://solo.ckpool.org:3333",
-              user: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
-              pwd: "x"
-            },
-            fallback: {
-              url: "stratum+tcp://solo.ckpool.org:3333",
-              user: "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1",
-              pwd: "x"
-            }
-          },
           stratumURLUSED: "stratum+tcp://solo.ckpool.org:3333",
           stratumURL1: "stratum+tcp://solo.ckpool.org:3333",
           stratumURL2: "stratum+tcp://solo.ckpool.org:3333",
@@ -130,9 +133,8 @@ export class SystemService {
           fanspeed: 100,
           fanrpm: 4500,
           boardtemp2: 40,
-          // overheat_mode: 0
         }
-      ).pipe(delay(1000));
+      ) as Observable<ISystemInfo>;
     }
   }
 
@@ -370,7 +372,7 @@ export class SystemService {
     if (environment.production) {
       return this.httpClient.get(`${uri}/api/setting/network`);
     } else {
-      return of({ hostName: 'NMAxe', wifiSSID: 'default', wifiStatus: 'connected', wifiIP: '192.168.1.100' }).pipe(delay(300));
+      return of({ hostName: 'NMAxe', ssid: 'default', status: 'connected', ip: '192.168.1.100' }).pipe(delay(300));
     }
   }
 

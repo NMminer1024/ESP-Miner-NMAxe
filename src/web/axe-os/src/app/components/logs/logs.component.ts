@@ -33,18 +33,30 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
         return this.systemService.getInfo()
       }),
       map(info => {
-        // Map new field names to legacy names for backward compatibility
-        info.temp = info.asicTemp;
+        // Hoist nested sub-objects for backward compatibility
+        const pw  = (info as any).power as any;
+        const tmp = (info as any).temps as any;
+        const asc = (info as any).asic  as any;
+
+        // power
+        const rawPower = pw?.power ?? 0;
+        const rawVbus  = pw?.vbus  ?? 0;
+        const rawIbus  = pw?.ibus  ?? 0;
+        info.power_w = parseFloat(rawPower.toFixed(1));
+        info.voltage = parseFloat((rawVbus / 1000).toFixed(1));
+        info.current = parseFloat((rawIbus / 1000).toFixed(1));
+
+        // temp
+        info.asicTemp  = tmp?.asic  ?? info.asicTemp;
+        info.vcoreTemp = tmp?.vcore ?? info.vcoreTemp;
+        info.temp   = info.asicTemp;
         info.vrTemp = info.vcoreTemp;
-        info.coreVoltage = info.vcoreReq;
-        info.coreVoltageActual = info.vcoreActual;
-        
-        // Process numeric values
-        info.power = parseFloat(info.power.toFixed(1))
-        info.voltage = parseFloat((info.voltage / 1000).toFixed(1));
-        info.current = parseFloat((info.current / 1000).toFixed(1));
-        info.coreVoltageActual = parseFloat((info.vcoreActual / 1000).toFixed(2));
-        info.coreVoltage = parseFloat((info.vcoreReq / 1000).toFixed(2));
+
+        // asic
+        info.vcoreReq    = asc?.vcoreReq  ?? info.vcoreReq;
+        info.vcoreActual = asc?.vcoreReal ?? info.vcoreActual;
+        info.coreVoltageActual = parseFloat(((info.vcoreActual ?? 0) as number / 1000).toFixed(2));
+        info.coreVoltage       = parseFloat(((info.vcoreReq    ?? 0) as number / 1000).toFixed(2));
         return info;
       }),
       shareReplay({refCount: true, bufferSize: 1})
@@ -138,7 +150,7 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
     // 获取硬件型号
     this.systemService.getInfo().subscribe(info => {
       // Map new field names to legacy names for backward compatibility
-      info.boardVersion = info.hwModel || info.boardVersion;
+      info.boardVersion = (info.identity as any)?.hwModel ?? info.hwModel ?? info.boardVersion;
       
       const hardwareModel = info.boardVersion || 'Unknown';
       

@@ -52,7 +52,7 @@ export class EditComponent implements OnInit {
         if (info.vcore?.options)     this.CoreVoltage       = info.vcore.options;
 
         // Map ASIC model
-        this.ASICModel = info.asic || info.ASICModel;
+        this.ASICModel = (info.asic as any)?.model ?? info.ASICModel;
 
         // Parse stratum URLs
         const stratumURL1 = info.stratum?.primary?.url  || '';
@@ -75,8 +75,8 @@ export class EditComponent implements OnInit {
           stratumUser2: [stratumUser2, [Validators.required]],
           stratumPassword1: [stratumPwd1],
           stratumPassword2: [stratumPwd2],
-          coreVoltage: [info.vcoreReq, [Validators.required]],
-          frequency:   [info.freqReq,  [Validators.required]],
+          coreVoltage: [(info.asic as any)?.vcoreReq ?? info.vcoreReq, [Validators.required]],
+          frequency:   [(info.asic as any)?.freqReq  ?? info.freqReq,  [Validators.required]],
         });
       });
   }

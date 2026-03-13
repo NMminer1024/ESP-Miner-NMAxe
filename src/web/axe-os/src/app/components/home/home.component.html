@@ -33,7 +33,7 @@
         <div class="stat-icon">⚙️</div>
         <div class="stat-content">
           <div class="stat-label">Efficiency</div>
-          <div class="stat-value">{{ info.power / (info.hashRate / 1000) | number: '1.2-2' }}</div>
+          <div class="stat-value">{{ (info.power_w || 0) / ((info.hashRate || 0.001) / 1000) | number: '1.2-2' }}</div>
           <div class="stat-unit">J/TH</div>
         </div>
       </div>
@@ -100,12 +100,12 @@
             <p-knob [min]="gaugeLimits.power.power.min" 
                     [max]="gaugeLimits.power.power.max" 
                     [readonly]="true" 
-                    [(ngModel)]="info.power"
+                    [(ngModel)]="info.power_w"
                     valueTemplate="{value}W" 
                     [size]="130" 
                     strokeWidth="14"></p-knob>
             <div class="power-label">Power</div>
-            <span class="danger" *ngIf="isWarning(info.power, gaugeLimits.power.power.max)">⚠️ High</span>
+            <span class="danger" *ngIf="isWarning(info.power_w, gaugeLimits.power.power.max)">⚠️ High</span>
           </div>
         </div>
       </div>
@@ -240,7 +240,7 @@
               </tr>
               <tr>
                 <td class="label">Free Memory:</td>
-                <td class="value">{{ (info.freeHeap / 1024) | number: '1.0-0' }} KB</td>
+                <td class="value">{{ ((info.freeHeap || 0) / 1024) | number: '1.0-0' }} KB</td>
               </tr>
               <tr>
                 <td class="label">Firmware Version:</td>

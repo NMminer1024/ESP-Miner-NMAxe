@@ -68,8 +68,8 @@ export class UpdateComponent implements OnInit, AfterViewInit {
     this.info$.subscribe({
       next: (info) => {
         // Map new field names to legacy names for backward compatibility
-        info.version = info.fwVersion || info.version;
-        info.boardVersion = info.hwModel || info.boardVersion;
+        info.version      = (info.identity as any)?.fwVersion ?? info.fwVersion ?? info.version;
+        info.boardVersion = (info.identity as any)?.hwModel   ?? info.hwModel   ?? info.boardVersion;
         
         this.currentInfo = info;
         this.checkForUpdates();

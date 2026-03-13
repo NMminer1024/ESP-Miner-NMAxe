@@ -197,54 +197,56 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
 
 #### `GET /api/system/info` — Response Fields
 
-##### ⚡ Power & Electrical
+The response is structured into nested sub-objects.
+
+##### ⚡ Power — `power`
 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
-| `power` | float | W | Real-time power consumption (vbus × ibus) |
-| `voltage` | int | mV | Input voltage |
-| `current` | int | mA | Input current |
+| `power.power` | float | W | Real-time power consumption (vbus × ibus) |
+| `power.vbus` | int | mV | Input voltage |
+| `power.ibus` | int | mA | Input current |
 
-##### 🌡 Temperatures
-
-| Field | Type | Unit | Description |
-|-------|------|------|-------------|
-| `vcoreTemp` | float | °C | VCORE regulator temperature |
-| `mcuTemp` | float | °C | MCU (ESP32) temperature |
-| `asicTemp` | float | °C | ASIC die temperature |
-
-##### 🔧 ASIC Status
+##### 🌡 Temperatures — `temps`
 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
-| `asicCount` | int | — | Number of active ASICs |
-| `asic` | string | — | ASIC model name (e.g. `"BM1368"`) |
-| `vcoreReq` | int | mV | ASIC rated core voltage |
-| `vcoreActual` | int | mV | ASIC actual core voltage |
-| `freqReq` | int | MHz | ASIC target frequency |
-| `smallCoreCnt` | int | — | Total small-core count across all ASICs |
+| `temps.vcore` | float | °C | VCORE regulator temperature |
+| `temps.mcu` | float | °C | MCU (ESP32) temperature |
+| `temps.asic` | float | °C | ASIC die temperature |
 
-##### ⛏ Mining Stats
+##### 🔧 ASIC Status — `asic`
 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
-| `hashRate` | float | GH/s | 3-minute average hashrate |
-| `bestDiffEver` | string | — | All-time best share difficulty (e.g. `"1.23M"`) |
-| `bestDiffSession` | string | — | Session best share difficulty |
-| `sharesAccepted` | int | — | Cumulative accepted shares |
-| `sharesRejected` | int | — | Cumulative rejected shares |
-| `uptimeSeconds` | int | s | Session uptime |
-| `freeHeap` | int | bytes | ESP32 free heap memory |
+| `asic.count` | int | — | Number of active ASICs |
+| `asic.model` | string | — | ASIC model name (e.g. `"BM1368"`) |
+| `asic.vcoreReq` | int | mV | ASIC rated core voltage |
+| `asic.vcoreReal` | int | mV | ASIC actual core voltage |
+| `asic.freqReq` | int | MHz | ASIC target frequency |
+| `asic.smallCoreCnt` | int | — | Total small-core count across all ASICs |
 
-##### 🪪 Board Identity
+##### ⛏ Mining Stats — `miner`
+
+| Field | Type | Unit | Description |
+|-------|------|------|-------------|
+| `miner.hashRate` | float | GH/s | 3-minute average hashrate |
+| `miner.bestDiffEver` | string | — | All-time best share difficulty (e.g. `"1.23M"`) |
+| `miner.bestDiffSession` | string | — | Session best share difficulty |
+| `miner.sAccepted` | int | — | Cumulative accepted shares |
+| `miner.sRejected` | int | — | Cumulative rejected shares |
+| `miner.uptimeSeconds` | int | s | Session uptime |
+| `miner.freeHeap` | int | bytes | ESP32 free heap memory |
+
+##### 🪪 Board Identity — `identity`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `fwVersion` | string | Firmware version (e.g. `"v2.9.31"`) |
-| `hwModel` | string | Hardware model (e.g. `"NMAxe"`) |
-| `hostName` | string | Device hostname |
-| `wifiSSID` | string | Connected Wi-Fi SSID |
-| `wifiStatus` | string | `"connected"` or `"disconnected"` |
+| `identity.fwVersion` | string | Firmware version (e.g. `"v2.9.31"`) |
+| `identity.hwModel` | string | Hardware model (e.g. `"NMAxe"`) |
+| `identity.hostName` | string | Device hostname |
+| `identity.ssid` | string | Connected Wi-Fi SSID |
+| `identity.rssi` | int | Wi-Fi signal strength (dBm) |
 
 ##### 🌐 Stratum
 
@@ -269,30 +271,40 @@ Active pool connection — read-only snapshot.
 
 ```json
 {
-  "power": 12.5,
-  "voltage": 5000,
-  "current": 2500,
-  "vcoreTemp": 45.2,
-  "mcuTemp": 38.1,
-  "asicTemp": 62.7,
-  "asicCount": 1,
-  "asic": "BM1368",
-  "vcoreReq": 1200,
-  "vcoreActual": 1198,
-  "freqReq": 490,
-  "smallCoreCnt": 672,
-  "hashRate": 720.5,
-  "bestDiffEver": "1.23M",
-  "bestDiffSession": "456.7K",
-  "freeHeap": 187320,
-  "sharesAccepted": 1024,
-  "sharesRejected": 3,
-  "uptimeSeconds": 86400,
-  "fwVersion": "v2.9.31",
-  "hwModel": "NMAxe",
-  "hostName": "nmaxe-001",
-  "wifiSSID": "MyNetwork",
-  "wifiStatus": "connected",
+  "power": {
+    "power": 12.5,
+    "vbus": 5000,
+    "ibus": 2500
+  },
+  "temps": {
+    "vcore": 45.2,
+    "mcu": 38.1,
+    "asic": 62.7
+  },
+  "asic": {
+    "count": 1,
+    "model": "BM1368",
+    "vcoreReq": 1200,
+    "vcoreReal": 1198,
+    "freqReq": 490,
+    "smallCoreCnt": 672
+  },
+  "miner": {
+    "hashRate": 720.5,
+    "bestDiffEver": "1.23M",
+    "bestDiffSession": "456.7K",
+    "freeHeap": 187320,
+    "sAccepted": 1024,
+    "sRejected": 3,
+    "uptimeSeconds": 86400
+  },
+  "identity": {
+    "fwVersion": "v2.9.31",
+    "hwModel": "NMAxe",
+    "hostName": "nmaxe-001",
+    "ssid": "MyNetwork",
+    "rssi": -55
+  },
   "fans": [{ "id": 0, "speed": 60, "rpm": 2800 }],
   "stratum": {
     "url": "stratum+tcp://pool.example.com:3333",
@@ -328,18 +340,18 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 ```json
 { 
   "hostName": "NMAxe", 
-  "wifiSSID": "MyWifi", 
-  "wifiStatus": "connected", 
-  "wifiIP": "192.168.1.100"
+  "ssid": "MyWifi", 
+  "status": "connected", 
+  "ip": "192.168.1.100"
 }
 ```
 
 **PATCH** — update credentials / hostname
 ```json
 {
-  "hostname": "..." 
+  "hostname": "...",
   "ssid": "...", 
-  "wifiPass": "...", 
+  "wifiPass": "..."
 }
 ```
 

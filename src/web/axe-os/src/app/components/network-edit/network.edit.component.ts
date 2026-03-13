@@ -33,7 +33,7 @@ export class NetworkEditComponent implements OnInit {
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
         const hostname = info.hostName || info.hostname || '';
-        const ssid     = info.wifiSSID || info.ssid || '';
+        const ssid     = info.ssid || '';
         this.form = this.fb.group({
           hostname: [hostname, [Validators.required, Validators.maxLength(20)]],
           ssid: [ssid, [Validators.required]],

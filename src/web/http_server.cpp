@@ -101,38 +101,43 @@ void get_system_info(AsyncWebServerRequest* request){
     root.clear();
 
     // Power & electrical
-    root["power"]       = (g_board.status.power.ibus / 1000.0f) * (g_board.status.power.vbus / 1000.0f);
-    root["voltage"]     = g_board.status.power.vbus;
-    root["current"]     = g_board.status.power.ibus;
+    JsonObject powerObj = root.createNestedObject("power");
+    powerObj["power"]   = (g_board.status.power.ibus / 1000.0f) * (g_board.status.power.vbus / 1000.0f);
+    powerObj["vbus"]    = g_board.status.power.vbus;
+    powerObj["ibus"]    = g_board.status.power.ibus;
 
     // Temperatures
-    root["vcoreTemp"]   = g_board.status.temp.vcore;
-    root["mcuTemp"]     = g_board.status.temp.mcu;
-    root["asicTemp"]    = g_board.status.temp.asic;
+    JsonObject tempObj  = root.createNestedObject("temps");
+    tempObj["vcore"]    = g_board.status.temp.vcore;
+    tempObj["mcu"]      = g_board.status.temp.mcu;
+    tempObj["asic"]     = g_board.status.temp.asic;
 
     // ASIC status
-    root["asicCount"]   = g_board.miner->get_asic_count();
-    root["asic"]        = g_board.info.spec.asic.name;
-    root["vcoreReq"]    = g_board.info.spec.asic.req_vcore;
-    root["vcoreActual"] = g_board.status.power.vcore;
-    root["freqReq"]     = g_board.info.spec.asic.req_frq;
-    root["smallCoreCnt"]= g_board.miner->get_asic_small_cores();
+    JsonObject asicObj      = root.createNestedObject("asic");
+    asicObj["count"]        = g_board.miner->get_asic_count();
+    asicObj["model"]        = g_board.info.spec.asic.name;
+    asicObj["vcoreReq"]     = g_board.info.spec.asic.req_vcore;
+    asicObj["vcoreReal"]    = g_board.status.power.vcore;
+    asicObj["freqReq"]      = g_board.info.spec.asic.req_frq;
+    asicObj["smallCoreCnt"] = g_board.miner->get_asic_small_cores();
 
     // Mining stats
-    root["hashRate"]        = g_board.status.miner.hashrate._3m / 1000 / 1000 / 1000;
-    root["bestDiffEver"]    = formatNumber(g_board.status.miner.diff.best_ever, 4);
-    root["bestDiffSession"] = formatNumber(g_board.status.miner.diff.best_session, 4);
-    root["freeHeap"]        = ESP.getFreeHeap();
-    root["sharesAccepted"]  = g_board.status.miner.share_accepted;
-    root["sharesRejected"]  = g_board.status.miner.share_rejected;
-    root["uptimeSeconds"]   = g_board.status.miner.uptime_session;
+    JsonObject minerObj         = root.createNestedObject("miner");
+    minerObj["hashRate"]        = g_board.status.miner.hashrate._3m / 1000 / 1000 / 1000;
+    minerObj["bestDiffEver"]    = formatNumber(g_board.status.miner.diff.best_ever, 4);
+    minerObj["bestDiffSession"] = formatNumber(g_board.status.miner.diff.best_session, 4);
+    minerObj["freeHeap"]        = ESP.getFreeHeap();
+    minerObj["sAccepted"]       = g_board.status.miner.share_accepted;
+    minerObj["sRejected"]       = g_board.status.miner.share_rejected;
+    minerObj["uptimeSeconds"]   = g_board.status.miner.uptime_session;
 
     // Board identity
-    root["fwVersion"]   = g_board.info.base.fw_version;
-    root["hwModel"]     = g_board.info.spec.name;
-    root["hostName"]    = g_board.info.base.hostname;
-    root["wifiSSID"]    = g_board.info.connection.wifi.sta.ssid;
-    root["wifiRSSI"]    = g_board.status.wifi.rssi;
+    JsonObject identityObj    = root.createNestedObject("identity");
+    identityObj["fwVersion"]  = g_board.info.base.fw_version;
+    identityObj["hwModel"]    = g_board.info.spec.name;
+    identityObj["hostName"]   = g_board.info.base.hostname;
+    identityObj["ssid"]       = g_board.info.connection.wifi.sta.ssid;
+    identityObj["rssi"]       = g_board.status.wifi.rssi;
 
     // Currently-active pool (read-only status)
     JsonObject stratumObj = root.createNestedObject("stratum");
@@ -160,10 +165,10 @@ void get_system_info(AsyncWebServerRequest* request){
 void get_setting_network(AsyncWebServerRequest* request){
     StaticJsonDocument<256> root;
     root.clear();
-    root["hostName"]   = g_board.info.base.hostname;
-    root["wifiSSID"]   = g_board.info.connection.wifi.sta.ssid;
-    root["wifiStatus"] = (g_board.status.wifi.status == WL_CONNECTED) ? "connected" : "disconnected";
-    root["wifiIP"]     = g_board.status.wifi.ip.toString();
+    root["hostName"] = g_board.info.base.hostname;
+    root["ssid"]     = g_board.info.connection.wifi.sta.ssid;
+    root["status"]   = (g_board.status.wifi.status == WL_CONNECTED) ? "connected" : "disconnected";
+    root["ip"]       = g_board.status.wifi.ip.toString();
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);

@@ -22,6 +22,48 @@ export interface IStratum {
   fallback?: IStratumPool;
 }
 
+// ── /api/system/info nested sub-objects ──────────────────────────────────────
+
+export interface IInfoPower {
+  power: number;   // W
+  vbus:  number;   // mV
+  ibus:  number;   // mA
+}
+
+export interface IInfoTemp {
+  vcore: number;    // °C
+  mcu:   number;    // °C
+  asic:  number;    // °C
+}
+
+export interface IInfoAsic {
+  count:       number;
+  model:       eASICModel;
+  vcoreReq:    number;   // mV
+  vcoreReal:   number;   // mV
+  freqReq:     number;   // MHz
+  smallCoreCnt: number;
+}
+
+export interface IInfoMiner {
+  hashRate:        number;
+  bestDiffEver:    string;
+  bestDiffSession: string;
+  freeHeap:        number;
+  sAccepted:       number;
+  sRejected:       number;
+  uptimeSeconds:   number;
+}
+
+export interface IInfoIdentity {
+  fwVersion: string;
+  hwModel:   string;
+  hostName:  string;
+  ssid:      string;
+  rssi:      number;
+}
+
+// ── /api/system/info ─────────────────────────────────────────────────────────
 export interface ISystemInfo {
 
   // Performance preferences
@@ -32,47 +74,17 @@ export interface ISystemInfo {
   fanAutoSpeed: number;
   ledIndicator: number;
 
-  // Power info
-  power: number,
-  voltage: number,
-  current: number,
-
-  // Temperature info
-  asicTemp: number,
-  vcoreTemp: number,
-  mcuTemp?: number,
-
-  // ASIC info
-  asicCount: number,
-  vcoreReq: number,
-  vcoreActual: number,
-  freqReq: number,
-  smallCoreCnt: number,
-  asic: eASICModel,
+  // Nested structured fields (new API)
+  power?:    IInfoPower;
+  temps?:    IInfoTemp;
+  asic?:     IInfoAsic;
+  miner?:    IInfoMiner;
+  identity?: IInfoIdentity;
 
   // Fan info
   fans: IFan[],
 
-  // Miner status
-  hashRate: number,
-  bestDiffEver: string,
-  bestDiffSession: string,
-  freeHeap: number,
-  sharesAccepted: number,
-  sharesRejected: number,
-  uptimeSeconds: number,
-
-  // Miner info
-  fwVersion: string,
-  hwModel: string,
-  hostName: string,
-  timeZone: string,
-  timeFormat?: number,
-  dateFormat?: string,
-  wifiSSID: string,
-  wifiStatus: string,
-
-  // Pool info (new nested structure)
+  // Pool info (nested structure)
   stratum?: IStratum,
   
   // Pool info (legacy flat structure for backward compatibility)
@@ -86,8 +98,36 @@ export interface ISystemInfo {
   fallBackPassword: string,
 
   coinPriceDisplay: string, // Price display currency (BTC, BCH, DGB, XEC)
+  timeZone: string,
+  timeFormat?: number,
+  dateFormat?: string,
 
-  // Legacy field names for backward compatibility (can be removed after full migration)
+  // Legacy flat field names (populated by home.component.ts for backward compat)
+  power_w?: number,
+  voltage?: number,
+  current?: number,
+  asicTemp?: number,
+  vcoreTemp?: number,
+  mcuTemp?: number,
+  asicCount?: number,
+  vcoreReq?: number,
+  vcoreActual?: number,
+  freqReq?: number,
+  smallCoreCnt?: number,
+  ASICModel?: eASICModel,
+  hashRate?: number,
+  bestDiffEver?: string,
+  bestDiffSession?: string,
+  freeHeap?: number,
+  sharesAccepted?: number,
+  sharesRejected?: number,
+  uptimeSeconds?: number,
+  fwVersion?: string,
+  hwModel?: string,
+  hostName?: string,
+  wifiSSID?: string,
+  wifiRSSI?: number,
+  // older legacy names
   temp?: number,
   vrTemp?: number,
   coreVoltage?: number,
@@ -107,7 +147,6 @@ export interface ISystemInfo {
   boardVersion?: string,
   coin?: string,
   brightness?: number,
-  ASICModel?: eASICModel,
   bestDiff?: string,
   bestSessionDiff?: string,
   smallCoreCount?: number,
@@ -120,15 +159,14 @@ export interface ISystemInfo {
   fanspeed?: number,
   fanrpm?: number,
   boardtemp2?: number,
-  // overheat_mode?: number
 }
 
 // ── /api/setting/network ─────────────────────────────────────────────────────
 export interface ISettingNetwork {
   hostName: string;
-  wifiSSID: string;
-  wifiStatus: string;
-  wifiIP: string;
+  ssid:     string;
+  status:   string;
+  ip:       string;
 }
 
 // ── /api/setting/time ────────────────────────────────────────────────────────
