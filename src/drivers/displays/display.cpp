@@ -23,6 +23,7 @@ LV_FONT_DECLARE(ds_digib_font_18)
 LV_FONT_DECLARE(ds_digib_font_20)
 LV_FONT_DECLARE(ds_digib_font_24)
 LV_FONT_DECLARE(ds_digib_font_28)
+LV_FONT_DECLARE(ds_digib_font_32)
 LV_FONT_DECLARE(ds_digib_font_36)
 LV_FONT_DECLARE(ds_digib_font_38)
 LV_FONT_DECLARE(ds_digib_font_52)
@@ -495,50 +496,54 @@ static void scroll_begin_cb(lv_event_t *e) {
     }
 }
 
+// Scroll state captured at finger RELEASE (before LVGL snap animation).
+// LV_EVENT_SCROLL_END fires AFTER snap completes — by then scroll offset is already
+// at the snapped tile center so drift = 0 and we can't detect the user swipe distance.
+// Capturing at RELEASED preserves the actual finger-lift position for use in scroll_end_cb.
+static lv_coord_t s_release_scroll_x = 0;
+static lv_coord_t s_release_scroll_y = 0;
+static lv_obj_t  *s_release_tile     = nullptr;
+
 static void scroll_end_cb(lv_event_t *e) {
-    // Lower threshold for page switching: if scroll > 20% of screen, force switch to target page
-    // This callback is triggered when scrolling stops (finger lifted or inertia ended)
-    if (!parent_wall) return;
-    
+    // Override LVGL snap using the scroll position captured at finger RELEASE.
+    // s_release_scroll_x/y reflects where the user let go; we use that to decide
+    // the intended destination page regardless of LVGL's own snap decision.
+    if (!parent_wall || !s_release_tile) return;
+
     lv_obj_t *tv = (lv_obj_t *)lv_event_get_target(e);
-    
-    // Get current scroll position
-    lv_coord_t scroll_x = lv_obj_get_scroll_x(tv);
-    lv_coord_t scroll_y = lv_obj_get_scroll_y(tv);
-    
-    // Get expected position for current page
-    lv_obj_t *current_tile = g_board.status.ui.page.list[g_board.status.ui.page.current];
-    if (!current_tile) return;
-    
-    lv_coord_t current_x = lv_obj_get_x(current_tile);
-    lv_coord_t current_y = lv_obj_get_y(current_tile);
-    
-    // Calculate how far we've scrolled from current page center
-    lv_coord_t drift_x = scroll_x - current_x;
-    lv_coord_t drift_y = scroll_y - current_y;
-    
-    // Threshold: 20% of screen size (reduced from default 50%)
-    const lv_coord_t THRESHOLD_X = SCREEN_WIDTH * 0.01;
-    const lv_coord_t THRESHOLD_Y = SCREEN_HEIGHT * 0.01;
-    
-    // Determine if we should switch pages based on drift direction and magnitude
+
+    // Resolve the departure page (page user was on when they started the swipe)
+    int departure_page = -1;
+    for (int i = 0; i <= UI_PAGE_SETTING; i++) {
+        if (g_board.status.ui.page.list[i] == s_release_tile) { departure_page = i; break; }
+    }
+    if (departure_page < 0) return;
+
+    // Drift = distance from departure tile center to where the finger released
+    lv_coord_t ref_x   = lv_obj_get_x(s_release_tile);
+    lv_coord_t ref_y   = lv_obj_get_y(s_release_tile);
+    lv_coord_t drift_x = s_release_scroll_x - ref_x;
+    lv_coord_t drift_y = s_release_scroll_y - ref_y;
+
+    // Threshold: 20% of screen size
+    const lv_coord_t THRESHOLD_X = SCREEN_WIDTH * 0.20;
+    const lv_coord_t THRESHOLD_Y = SCREEN_HEIGHT * 0.20;
+
     lv_obj_t *target_tile = nullptr;
-    
-    // Prioritize the axis with larger movement (using absolute values)
+
     if (LV_ABS(drift_x) > LV_ABS(drift_y)) {
-        // Horizontal movement is dominant
         if (LV_ABS(drift_x) > THRESHOLD_X) {
             if (drift_x > 0) {
-                // Scrolled left (content moved right), so switch to page on right
-                switch (g_board.status.ui.page.current) {
+                // Finger moved left → show right neighbour
+                switch (departure_page) {
                     case UI_PAGE_MINER:     target_tile = g_board.status.ui.page.list[UI_PAGE_SETTING];   break;
                     case UI_PAGE_DASHBOARD: target_tile = g_board.status.ui.page.list[UI_PAGE_MARKET];    break;
                     case UI_PAGE_HR_HEALTH: target_tile = g_board.status.ui.page.list[UI_PAGE_CLOCK];     break;
                     default: break;
                 }
             } else {
-                // Scrolled right (content moved left), so switch to page on left
-                switch (g_board.status.ui.page.current) {
+                // Finger moved right → show left neighbour
+                switch (departure_page) {
                     case UI_PAGE_SETTING: target_tile = g_board.status.ui.page.list[UI_PAGE_MINER];     break;
                     case UI_PAGE_MARKET:  target_tile = g_board.status.ui.page.list[UI_PAGE_DASHBOARD]; break;
                     case UI_PAGE_CLOCK:   target_tile = g_board.status.ui.page.list[UI_PAGE_HR_HEALTH]; break;
@@ -547,11 +552,10 @@ static void scroll_end_cb(lv_event_t *e) {
             }
         }
     } else {
-        // Vertical movement is dominant
         if (LV_ABS(drift_y) > THRESHOLD_Y) {
             if (drift_y > 0) {
-                // Scrolled up (content moved down), so switch to page below
-                switch (g_board.status.ui.page.current) {
+                // Finger moved up → show lower neighbour
+                switch (departure_page) {
                     case UI_PAGE_MINER:     target_tile = g_board.status.ui.page.list[UI_PAGE_DASHBOARD]; break;
                     case UI_PAGE_DASHBOARD: target_tile = g_board.status.ui.page.list[UI_PAGE_HR_HEALTH]; break;
                     case UI_PAGE_MARKET:    target_tile = g_board.status.ui.page.list[UI_PAGE_CLOCK];     break;
@@ -559,20 +563,24 @@ static void scroll_end_cb(lv_event_t *e) {
                     default: break;
                 }
             } else {
-                // Scrolled down (content moved up), so switch to page above
-                switch (g_board.status.ui.page.current) {
+                // Finger moved down → show upper neighbour
+                switch (departure_page) {
                     case UI_PAGE_DASHBOARD: target_tile = g_board.status.ui.page.list[UI_PAGE_MINER];     break;
                     case UI_PAGE_HR_HEALTH: target_tile = g_board.status.ui.page.list[UI_PAGE_DASHBOARD]; break;
                     case UI_PAGE_CLOCK:     target_tile = g_board.status.ui.page.list[UI_PAGE_MARKET];    break;
-                    case UI_PAGE_MARKET:    target_tile = g_board.status.ui.page.list[UI_PAGE_SETTING];  break;
+                    case UI_PAGE_MARKET:    target_tile = g_board.status.ui.page.list[UI_PAGE_SETTING];   break;
                     default: break;
                 }
             }
         }
     }
-    
-    // If threshold exceeded and target is valid, force the switch
-    if (target_tile && target_tile != current_tile) {
+
+    if (!target_tile) return;  // drift < threshold, let LVGL's snap stand
+
+    // Where did LVGL actually snap to after release?
+    lv_obj_t *snapped_tile = lv_tileview_get_tile_act(tv);
+    // Only override if LVGL snapped to the wrong tile
+    if (target_tile != snapped_tile) {
         lv_obj_set_tile(parent_wall, target_tile, LV_ANIM_ON);
     }
 }
@@ -627,6 +635,14 @@ static void pressed_event_cb(lv_event_t *e) {
     if (code == LV_EVENT_PRESSED) {
         press_pt = pt;
     }else if (code == LV_EVENT_RELEASED) {
+        // Capture scroll offset right now (before LVGL's snap animation starts).
+        // scroll_end_cb uses these to measure the user's actual swipe distance.
+        if (parent_wall) {
+            s_release_scroll_x = lv_obj_get_scroll_x(parent_wall);
+            s_release_scroll_y = lv_obj_get_scroll_y(parent_wall);
+            s_release_tile     = lv_tileview_get_tile_act(parent_wall);
+        }
+
         lv_coord_t dx = pt.x - press_pt.x;
         lv_coord_t dy = pt.y - press_pt.y;
 
@@ -1395,8 +1411,8 @@ void ui_page_element_init(void* args){
     market_page.col_dollar_x    = 87;
     market_page.col_price_x     = 103;
     market_page.col_change_x    = 242;
-    market_page.lb_hr.font      = &ds_digib_font_28;
-    market_page.lb_hr_unit.font = &lv_font_montserrat_16;
+    market_page.lb_hr.font      = &ds_digib_font_32;
+    market_page.lb_hr_unit.font = &lv_font_montserrat_14;
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);

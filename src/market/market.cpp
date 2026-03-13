@@ -129,7 +129,7 @@ bool MarketClass::refresh_main_pair(const String &coin_symbol) {
     if (this->get_coin_ticker_24hr(coin_symbol + "USDT", mp)) {
         this->_main_pair  = mp;
         this->_lastUpdate = millis();
-        LOG_W("[Market] %sUSDT  price=%.4f  change=%.2f%%",
+        LOG_D("[Market] %sUSDT  price=%.4f  change=%.2f%%",
               coin_symbol.c_str(), mp.price, mp.change_pct);
         return true;
     }
