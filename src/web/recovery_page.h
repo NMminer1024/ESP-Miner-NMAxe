@@ -274,7 +274,7 @@ const char recovery_page[] =
 "      var zipName=rel.tag_name+'.zip';"
 "      var asset=(rel.assets||[]).find(function(a){return a.name===zipName;});"
 "      if(!asset){throw new Error('ZIP asset '+zipName+' not found in release.');}"
-"      info.textContent='Downloading '+asset.name+' (v'+rel.tag_name+')';"
+"      info.textContent='Downloading '+asset.name+' ('+rel.tag_name+')';"
 "      var a=document.createElement('a');"
 "      a.href=asset.browser_download_url;"
 "      a.download=asset.name;"

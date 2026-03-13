@@ -39,8 +39,12 @@ bool isValidNumber(const String& str) {
 // Returns true only when SPIFFS mounts AND all essential web files are present.
 //
 // Failure scenarios that return false (triggering recovery mode):
-//   1. SPIFFS partition is unformatted / structurally corrupt → begin() fails.
-//   2. Partition mounts but files are missing — e.g. upload was interrupted
+//   1. A previous SPIFFS OTA upload was interrupted — NVS_CONFIG_SPIFFS_UPDATING is
+//      still set, meaning the partition was being overwritten and may be partially valid.
+//      Even if SPIFFS can mount afterwards, some Angular chunks may be missing, causing
+//      the app to silently fail. We force recovery mode unconditionally in this case.
+//   2. SPIFFS partition is unformatted / structurally corrupt → begin() fails.
+//   3. Partition mounts but files are missing — e.g. upload was interrupted
 //      mid-transfer, leaving an empty or partially-populated SPIFFS.
 //
 // We check the four fixed-name core files every Angular build produces.
@@ -55,6 +59,13 @@ bool isValidNumber(const String& str) {
 // would silently erase the partition and re-mount it empty, causing begin() to
 // return true even though there are no web files, bypassing recovery entirely.
 bool file_system_init() {
+    // If a SPIFFS OTA was interrupted last boot, the partition is in an unknown
+    // state — force recovery mode regardless of what SPIFFS.begin() would return.
+    if (nvs_config_get_u8(NVS_CONFIG_SPIFFS_UPDATING, 0)) {
+        LOG_E("SPIFFS update was interrupted — forcing recovery mode (NVS flag set)");
+        return false;
+    }
+
     if (!SPIFFS.begin(false, "", 5, NULL)) {
         LOG_E("SPIFFS mount failed (partition corrupt or unformatted)");
         return false;
@@ -1182,6 +1193,10 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             // partition size from the partition table.
             bin_size = UPDATE_SIZE_UNKNOWN;
             update_type = U_SPIFFS;
+            // Mark SPIFFS as being updated. Cleared only on successful completion.
+            // If the device reboots before that, file_system_init() will detect the
+            // flag and force recovery mode — even if SPIFFS partially mounted.
+            nvs_config_set_u8(NVS_CONFIG_SPIFFS_UPDATING, 1);
         } 
 
         if (!Update.begin(bin_size, update_type)) { //start with max available size for firmware
@@ -1235,6 +1250,11 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             g_board.status.ota.running = false;
             g_board.status.ota.progress = 100;
             LOG_I("%s ota: %d%%", filename.c_str(), g_board.status.ota.progress);
+            // SPIFFS update completed successfully — clear the "in-progress" guard flag
+            // so the next boot proceeds to normal mode instead of recovery mode.
+            if (filename == "spiffs.bin") {
+                nvs_config_set_u8(NVS_CONFIG_SPIFFS_UPDATING, 0);
+            }
             AsyncWebServerResponse *response = request->beginResponse(200);
             response->addHeader("Access-Control-Allow-Origin", "*");
             request->send(response);
