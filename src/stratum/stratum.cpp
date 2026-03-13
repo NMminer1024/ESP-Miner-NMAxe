@@ -62,6 +62,7 @@ bool StratumClass::_parse_rsp(){
     DeserializationError error = deserializeJson(this->_rsp_json, this->_rsp_str);
     if (error) {
         LOG_E("StratumClass::_parse_rsp Failed to parse JSON, error: %s", error.c_str());
+        LOG_E("  Raw string len=%d : [%s]", this->_rsp_str.length(), this->_rsp_str.c_str());
         return false;
     }
     return true;

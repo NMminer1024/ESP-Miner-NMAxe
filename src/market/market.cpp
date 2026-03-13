@@ -28,7 +28,7 @@ bool MarketClass::fetch_available_usdt_pairs() {
         return false;
     }
 
-    this->availablePairs.clear();
+    this->_availablePairs.clear();
 
     WiFiClient *stream   = http.getStreamPtr();
     int32_t    remaining = http.getSize();       // -1 if chunked/unknown
@@ -74,7 +74,7 @@ bool MarketClass::fetch_available_usdt_pairs() {
                     uint8_t len = (uint8_t)strlen(sym_buf);
                     // Only store USDT pairs.
                     if (len < 5 || strcmp(sym_buf + len - 4, "USDT") != 0) continue;
-                    this->availablePairs.push_back(String(sym_buf));
+                    this->_availablePairs.push_back(String(sym_buf));
                     LOG_D("  [%3d] %s", ++found, sym_buf);
                 } else if (sym_pos < (uint8_t)(sizeof(sym_buf) - 1)) {
                     sym_buf[sym_pos++] = c;
@@ -122,4 +122,39 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol, CoinPrice &out) {
         http.end();
     }
     return false;
+}
+
+bool MarketClass::refresh_main_pair(const String &coin_symbol) {
+    CoinPrice mp;
+    if (this->get_coin_ticker_24hr(coin_symbol + "USDT", mp)) {
+        this->_main_pair  = mp;
+        this->_lastUpdate = millis();
+        LOG_I("[Market] %sUSDT  price=%.4f  change=%.2f%%",
+              coin_symbol.c_str(), mp.price, mp.change_pct);
+        return true;
+    }
+    return false;
+}
+
+void MarketClass::refresh_watchlist(const String &coin_watchlist) {
+    if (coin_watchlist.length() == 0) return;
+
+    this->_watchlist_pairs.clear();
+    int start = 0;
+    while (true) {
+        int    comma = coin_watchlist.indexOf(',', start);
+        String sym   = (comma < 0) ? coin_watchlist.substring(start)
+                                   : coin_watchlist.substring(start, comma);
+        sym.trim();
+        if (sym.length() > 0) {
+            CoinPrice cp;
+            if (this->get_coin_ticker_24hr(sym + "USDT", cp)) {
+                this->_watchlist_pairs[sym + "USDT"] = cp;
+                LOG_I("[Watchlist] %sUSDT  price=%.4f  change=%.2f%%",
+                      sym.c_str(), cp.price, cp.change_pct);
+            }
+        }
+        if (comma < 0) break;
+        start = comma + 1;
+    }
 }

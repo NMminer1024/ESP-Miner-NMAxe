@@ -1340,8 +1340,6 @@ void market_thread_entry(void *args){
         delay(1000);
     }
 
-    board->market->lastUpdate = 0;
-
     // Wait for WiFi, then print all available USDT trading pairs once at startup.
     // This helps users discover which symbols are supported before configuring one.
     while (board->status.wifi.status != WL_CONNECTED) delay(1000);
@@ -1357,13 +1355,7 @@ void market_thread_entry(void *args){
         if(board->status.wifi.status == WL_CONNECTED){
             bool fetched = false;
             for(uint8_t attempt = 1; attempt <= MARKET_MAX_RETRIES; attempt++){
-                CoinPrice mp;
-                bool res = board->market->get_coin_ticker_24hr(board->info.base.coin_price + "USDT", mp);
-                if(res){
-                    board->market->main_pair   = mp;
-                    board->market->lastUpdate  = millis();
-                    LOG_I("[Market] %sUSDT  price=%.4f  change=%.2f%%",
-                          board->info.base.coin_price.c_str(), mp.price, mp.change_pct);
+                if(board->market->refresh_main_pair(board->info.base.coin_price)){
                     fetched = true;
                     break;
                 }
@@ -1379,26 +1371,7 @@ void market_thread_entry(void *args){
             }
 
             // Fetch watchlist pairs
-            if(board->info.base.coin_watchlist.length() > 0){
-                String wl = board->info.base.coin_watchlist;
-                board->market->watchlist_pairs.clear();
-                int start = 0;
-                while(true){
-                    int comma  = wl.indexOf(',', start);
-                    String sym = (comma < 0) ? wl.substring(start) : wl.substring(start, comma);
-                    sym.trim();
-                    if(sym.length() > 0){
-                        CoinPrice cp;
-                        if(board->market->get_coin_ticker_24hr(sym + "USDT", cp)){
-                            board->market->watchlist_pairs[sym + "USDT"] = cp;
-                            LOG_I("[Watchlist] %sUSDT  price=%.4f  change=%.2f%%",
-                                  sym.c_str(), cp.price, cp.change_pct);
-                        }
-                    }
-                    if(comma < 0) break;
-                    start = comma + 1;
-                }
-            }
+            board->market->refresh_watchlist(board->info.base.coin_watchlist);
         } else {
             LOG_D("Market update skipped: WiFi not connected.");
         }
@@ -2220,10 +2193,10 @@ void display_thread_entry(void *args){
   cnt = 0;
   board->status.ui.page.loading.percent = 0.7;
   uint32_t start = millis();
-  while(0 == board->market->lastUpdate){
+  while(0 == board->market->get_last_update()){
     board->status.ui.page.loading.details.color = 0xFFFFFF;
     board->status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + board->info.base.coin_price + "]";
-    if(millis() - start - board->market->lastUpdate >= MINER_MARKET_CONNECT_TIMEOUT){
+    if(millis() - start - board->market->get_last_update() >= MINER_MARKET_CONNECT_TIMEOUT){
       board->status.ui.page.loading.details.color = 0xFF0000;
       board->status.ui.page.loading.details.msg   = "Market update timeout!";
       delay(500);
@@ -2232,7 +2205,7 @@ void display_thread_entry(void *args){
     delay(300);
   }
   delay(500);
-  if(0 != board->market->lastUpdate) {
+  if(0 != board->market->get_last_update()) {
     board->status.ui.page.loading.details.color = 0x00FF00;
     board->status.ui.page.loading.details.msg   = "Market connected!";
   }

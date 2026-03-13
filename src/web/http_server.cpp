@@ -404,7 +404,7 @@ void get_setting_market(AsyncWebServerRequest* request){
     json += g_board.info.base.coin_watchlist;
     json += "\",\"pairs\":[";
     if (g_board.market) {
-        const std::vector<String>& pairs = g_board.market->availablePairs;
+        const std::vector<String>& pairs = g_board.market->get_available_pairs();
         for (size_t i = 0; i < pairs.size(); i++) {
             json += "\"";
             json += pairs[i];

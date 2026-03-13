@@ -1996,7 +1996,7 @@ void ui_loading_page_update(void* args) {
   }
 
   // pool url update
-  if((loading_page.lb_pool_url.obj != NULL) && (board->market->lastUpdate != 0)){
+  if((loading_page.lb_pool_url.obj != NULL) && (board->market->get_last_update() != 0)){
     String pool_str = (board->info.connection.pool.use.url + ":" + board->info.connection.pool.use.port);
     width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), loading_page.lb_pool_url.font, 0, LV_TEXT_FLAG_NONE);
     width = (width > SCREEN_WIDTH) ? SCREEN_WIDTH : width;
@@ -2075,7 +2075,7 @@ void ui_miner_page_update(void* args){
   String network_diff = formatNumber(board->status.miner.diff.network, 3);
   String voltage = formatNumber(board->status.power.vbus/1000.0, 3);
   String power = formatNumber(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 2);
-  String price = (millis() - board->market->lastUpdate <= MINER_MARKET_CONNECT_TIMEOUT) ? formatNumber(board->market->main_pair.price, 6) : "";
+  String price = (millis() - board->market->get_last_update() <= MINER_MARKET_CONNECT_TIMEOUT) ? formatNumber(board->market->get_main_pair().price, 6) : "";
   String fan_and_efficiency = String(board->status.fan.list[0].rpm) + " rpm";
 
   //diff symbol color update
@@ -2119,11 +2119,11 @@ void ui_miner_page_update(void* args){
   lv_obj_set_style_text_color(miner_page.lb_fan_symb.obj, font_color, LV_PART_MAIN);
 
   //price color update, blink
-  if(millis() - board->market->lastUpdate <= MINER_MARKET_CONNECT_TIMEOUT){
-    static float last_price = board->market->main_pair.price;
-    if(last_price != board->market->main_pair.price){
+  if(millis() - board->market->get_last_update() <= MINER_MARKET_CONNECT_TIMEOUT){
+    static float last_price = board->market->get_main_pair().price;
+    if(last_price != board->market->get_main_pair().price){
       font_color = lv_color_hex(0x00ff00);//green
-      last_price = board->market->main_pair.price;
+      last_price = board->market->get_main_pair().price;
     }
     else font_color = lv_color_hex(0xFFFFFF);//white
 
@@ -2615,12 +2615,12 @@ void ui_clock_page_update(void* args){
   lv_label_set_text_fmt(clock_page.lb_hits.obj, "%s", String(board->status.miner.hits).c_str());
 
   //price value 
-  String price_value = (board->market->main_pair.price > 1.0) ? String(board->market->main_pair.price, 1) : String(board->market->main_pair.price, 6);
+  String price_value = (board->market->get_main_pair().price > 1.0) ? String(board->market->get_main_pair().price, 1) : String(board->market->get_main_pair().price, 6);
   lv_color_t font_color;
-  static float last_price = board->market->main_pair.price;
-  if(last_price != board->market->main_pair.price){
+  static float last_price = board->market->get_main_pair().price;
+  if(last_price != board->market->get_main_pair().price){
     font_color = lv_color_hex(0x00ff00);//green
-    last_price = board->market->main_pair.price;
+    last_price = board->market->get_main_pair().price;
   }
   else font_color = lv_color_hex(0x808080);//white
   lv_obj_set_style_text_color(clock_page.lb_price.obj, font_color, LV_PART_MAIN);

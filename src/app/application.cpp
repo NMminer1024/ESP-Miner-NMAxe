@@ -58,7 +58,7 @@ void MinerApp::begin() {
         // synchronisation point: wait for these events before starting the next batch
         {"",            NULL,                           0,        0,                         0, NULL,             0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_FAN_READY},
         {"(swarm)",     swarm_thread_entry,             1024*9,   TASK_PRIORITY_SWARM,       0, &_swarmTask,      10,  0},
-        {"(market)",    market_thread_entry,            1024*6,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
+        {"(market)",    market_thread_entry,            1024*8,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
         {"(stratum)",   stratum_thread_entry,           1024*11,  TASK_PRIORITY_STRATUM,     1, &_stratumTask,    10,  0},
         {"(monitor)",   monitor_thread_entry,           1024*4,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
         {"(asic_tx)",   miner_asic_tx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_TX,    1, &_minerTxTask,    10,  0},
