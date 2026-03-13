@@ -139,7 +139,8 @@ bool MarketClass::refresh_main_pair(const String &coin_symbol) {
 void MarketClass::refresh_watchlist(const String &coin_watchlist) {
     if (coin_watchlist.length() == 0) return;
 
-    this->_watchlist_pairs.clear();
+    // Parse comma-separated list into full symbol names
+    std::vector<String> symbols;
     int start = 0;
     while (true) {
         int    comma = coin_watchlist.indexOf(',', start);
@@ -147,13 +148,63 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
                                    : coin_watchlist.substring(start, comma);
         sym.trim();
         if (sym.length() > 0) {
-            CoinPrice cp;
-            if (this->get_coin_ticker_24hr(sym + "USDT", cp)) {
-                this->_watchlist_pairs[sym + "USDT"] = cp;
-                LOG_W("[Watchlist] %sUSDT  price=%.4f  change=%.2f%%", sym.c_str(), cp.price, cp.change_pct);
-            }
+            symbols.push_back(sym + "USDT");
         }
         if (comma < 0) break;
         start = comma + 1;
+    }
+    if (symbols.empty()) return;
+
+    // Build URL-encoded symbols array: ["BTCUSDT","ETHUSDT"] → %5B%22BTCUSDT%22%2C%22ETHUSDT%22%5D
+    String params = "%5B";
+    for (size_t i = 0; i < symbols.size(); i++) {
+        if (i > 0) params += "%2C";
+        params += "%22" + symbols[i] + "%22";
+    }
+    params += "%5D";
+
+    // Single batch request for all watchlist symbols
+    String url = "http://" MARKET_HOST ":" MARKET_PORT "/api/v3/ticker/24hr?symbols=" + params;
+    HTTPClient http;
+    WiFiClient client;
+    http.begin(client, url);
+    http.setTimeout(MARKET_HTTP_TIMEOUT_MS);
+    http.setConnectTimeout(MARKET_HTTP_TIMEOUT_MS);
+    http.addHeader("Connection", "close");
+
+    int httpCode = http.GET();
+    if (httpCode != HTTP_CODE_OK) {
+        LOG_E("[Watchlist] Batch fetch failed. HTTP code: %d, error: %s",
+              httpCode, http.errorToString(httpCode).c_str());
+        http.end();
+        return;
+    }
+
+    // Filter: only keep symbol / lastPrice / priceChangePercent to save RAM
+    StaticJsonDocument<128> filter;
+    filter[0]["symbol"]             = true;
+    filter[0]["lastPrice"]          = true;
+    filter[0]["priceChangePercent"] = true;
+
+    // DynamicJsonDocument sized for the filtered result (~150 bytes per entry)
+    DynamicJsonDocument doc(150 * symbols.size() + 256);
+    DeserializationError error = deserializeJson(doc, http.getStream(),
+                                                 DeserializationOption::Filter(filter));
+    http.end();
+
+    if (error) {
+        LOG_E("[Watchlist] Failed to parse batch JSON: %s", error.c_str());
+        return;
+    }
+
+    this->_watchlist_pairs.clear();
+    for (JsonObject item : doc.as<JsonArray>()) {
+        String sym = item["symbol"].as<String>();
+        if (sym.isEmpty()) continue;
+        CoinPrice cp;
+        cp.price      = item["lastPrice"].as<String>().toFloat();
+        cp.change_pct = item["priceChangePercent"].as<String>().toFloat();
+        this->_watchlist_pairs[sym] = cp;
+        LOG_D("[Watchlist] %s  price=%.4f  change=%.2f%%", sym.c_str(), cp.price, cp.change_pct);
     }
 }

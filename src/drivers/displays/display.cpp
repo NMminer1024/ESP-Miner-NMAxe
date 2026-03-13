@@ -2752,7 +2752,7 @@ void ui_market_page_update(void* args){
     lv_obj_set_width(market_page.lb_hr.obj, 110);
     lv_obj_set_style_text_align(market_page.lb_hr.obj, LV_TEXT_ALIGN_RIGHT, 0);
     lv_label_set_text(market_page.lb_hr.obj, "--");
-    lv_obj_align(market_page.lb_hr.obj, LV_ALIGN_BOTTOM_RIGHT, -width - 5, 0); // 5 px gap from unit label
+    lv_obj_align(market_page.lb_hr.obj, LV_ALIGN_BOTTOM_RIGHT, -width - 8, 0); // 8 px gap from unit label
 
     inited = true;
     last_switch = millis();
