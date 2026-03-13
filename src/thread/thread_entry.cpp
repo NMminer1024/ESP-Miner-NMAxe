@@ -2054,10 +2054,6 @@ void ui_thread_entry(void *args){
             if(it != ui_page_update_cbs.end()){
                 it->second((void*)board);  
             }
-            // for(auto& cb : ui_page_update_cbs){
-            //     cb.second((void*)board);
-            // }
-
             // countdown page update, if running, cover current page
             ui_countdown_page_update((void*)board);
             // block hits page popup, if hit, cover current page

@@ -2659,6 +2659,9 @@ void ui_market_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
   if(!board || !board->market) return;
 
+  static uint32_t last_update = millis();
+  if(millis() - last_update < 1000) return;
+
   const auto& wl = board->market->get_watchlist_pairs();
 
   static bool     inited       = false;
@@ -2832,6 +2835,8 @@ void ui_market_page_update(void* args){
     cur_page    = (cur_page + 1) % total_pages;
     last_switch = millis();
   }
+
+  last_update = millis();
 }
 
 void ui_setting_page_update(void* args){
