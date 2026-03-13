@@ -18,6 +18,7 @@ export class HomeComponent implements OnInit {
   public quickLink$: Observable<string | undefined>;
   public expectedHashRate$: Observable<number | undefined>;
   public chartData?: any;
+  public latency$: Observable<number>;
 
   // Gauge limits
   public gaugeLimits?: IGaugeLimits;
@@ -164,6 +165,18 @@ export class HomeComponent implements OnInit {
         }
       })
     )
+
+    this.latency$ = interval(5000).pipe(
+      startWith(0),
+      switchMap(() => this.systemService.getStatusRealtime()),
+      map(response => {
+        if (response?.statistics?.length && response.statistics[0]?.length >= 13) {
+          return Number(response.statistics[0][12]) || 0;
+        }
+        return 0;
+      }),
+      shareReplay({ refCount: true, bufferSize: 1 })
+    );
   }
 
   ngOnInit(): void {

@@ -283,7 +283,7 @@ Active pool connection — read-only snapshot.
   },
   "asic": {
     "count": 1,
-    "model": "BM1368",
+    "model": "BM1370",
     "vcoreReq": 1200,
     "vcoreReal": 1198,
     "freqReq": 490,
@@ -302,7 +302,7 @@ Active pool connection — read-only snapshot.
     "fwVersion": "v2.9.31",
     "hwModel": "NMAxe",
     "hostName": "nmaxe-001",
-    "ssid": "MyNetwork",
+    "ssid": "MyHomeWifi",
     "rssi": -55
   },
   "fans": [{ "id": 0, "speed": 60, "rpm": 2800 }],

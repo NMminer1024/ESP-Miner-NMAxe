@@ -8,6 +8,27 @@
     </button>
 
 
+    <div class="topbar-pool-info" *ngIf="poolDisplay$ | async as pool">
+        <span class="info-item pool-url-item" pTooltip="Active Pool" tooltipPosition="bottom">
+            <i class="pi pi-server"></i>
+            <span>{{ pool.url }}</span>
+        </span>
+        <span class="info-divider">|</span>
+        <span class="info-item wallet-item" pTooltip="Wallet Address" tooltipPosition="bottom">
+            <i class="pi pi-wallet"></i>
+            <span>{{ pool.wallet }}</span>
+        </span>
+        <span class="info-divider">|</span>
+        <span class="info-item rssi-item"
+              [class.rssi-good]="pool.rssi >= -65"
+              [class.rssi-fair]="pool.rssi < -65 && pool.rssi >= -75"
+              [class.rssi-poor]="pool.rssi < -75"
+              pTooltip="WiFi Signal" tooltipPosition="bottom">
+            <i class="pi pi-wifi"></i>
+            <span>{{ pool.rssi }} dBm</span>
+        </span>
+    </div>
+
     <div class="layout-topbar-menu">
         <button pButton 
                 class="clear-hits-btn"

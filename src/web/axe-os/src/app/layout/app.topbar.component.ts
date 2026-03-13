@@ -1,4 +1,5 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
+import { interval, map, Observable, shareReplay, startWith, switchMap } from 'rxjs';
 import { MenuItem } from 'primeng/api';
 import { ToastrService } from 'ngx-toastr';
 import { LoadingService } from '../services/loading.service';
@@ -60,6 +61,7 @@ export class AppTopBarComponent {
 
     items!: MenuItem[];
     clearBlockHitsDialogVisible: boolean = false;
+    poolDisplay$: Observable<{ url: string; wallet: string; rssi: number }>;
 
     @ViewChild('menubutton') menuButton!: ElementRef;
 
@@ -71,7 +73,33 @@ export class AppTopBarComponent {
                 private systemService: SystemService,
                 private toastr: ToastrService,
                 private loadingService: LoadingService
-    ) { }
+    ) {
+        this.poolDisplay$ = interval(10000).pipe(
+            startWith(0),
+            switchMap(() => this.systemService.getInfo()),
+            map(info => {
+                const url  = info.stratum?.url  || info.stratumURLUSED || info.usedUrl  || '';
+                const user = info.stratum?.user || info.stratumUserUSED || info.usedUser || '';
+                const rssi = info.identity?.rssi ?? info.wifiRSSI ?? 0;
+                return {
+                    url:    this.stripStratumPrefix(url),
+                    wallet: this.abbreviateAddress(user),
+                    rssi:   rssi as number
+                };
+            }),
+            shareReplay({ refCount: true, bufferSize: 1 })
+        );
+    }
+
+    private stripStratumPrefix(url: string): string {
+        return url.replace(/^stratum\+(tcp|ssl):\/\//i, '');
+    }
+
+    private abbreviateAddress(user: string): string {
+        const address = user.split('.')[0];
+        if (address.length <= 16) return address;
+        return address.substring(0, 8) + '......' + address.substring(address.length - 8);
+    }
 
     public restart() {
         this.systemService.restart()

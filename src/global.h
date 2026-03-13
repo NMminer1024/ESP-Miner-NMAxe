@@ -26,7 +26,7 @@
 #define MINER_WIFI_RSSI_GOOD            (-70)
 #define MINER_ASIC_ALIVE_TIMEOUT        (1000*60*3)//3 minutes
 #define MINER_STRATUM_ALIVE_TIMEOUT     (1000*60*3)//3 minutes
-#define MINER_MARKET_UPDATE_INTERVAL    (1000*5)  // ms
+#define MINER_MARKET_UPDATE_INTERVAL    (1000*20)  // ms
 #define MINER_MARKET_CONNECT_TIMEOUT    (MINER_MARKET_UPDATE_INTERVAL * 3) // ms
 #define MINER_HISTORY_SAMPLE_DEEPTH     (1000*3600*24)  // history depth, how long to keep the history, in seconds
 #define MINER_HISTORY_SAMPLE_INTERVAL   (2)             // history sample interval, in seconds

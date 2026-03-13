@@ -21,14 +21,14 @@
         padding: 7rem 1.5rem 2rem 296px; // 保持14px最小间距
     }
 
-    // 平板屏幕 - 最小间距
+    // 平板屏幕 - 最小间距 (顶栏含第二行信息时高约7rem)
     @media (min-width: 769px) and (max-width: 991px) {
-        padding: 7rem 1rem 2rem 1rem; // 减少到12px间距
+        padding: 8.5rem 1rem 2rem 1rem;
     }
 
     // 移动端 - 菜单隐藏，恢复正常布局
     @media (max-width: 768px) {
-        padding: 7rem 1rem 1rem 1rem;
+        padding: 8.5rem 1rem 1rem 1rem;
     }
 }
 

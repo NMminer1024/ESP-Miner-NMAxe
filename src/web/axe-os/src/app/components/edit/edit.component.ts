@@ -51,8 +51,8 @@ export class EditComponent implements OnInit {
         if (info.overclock?.options) this.DropdownFrequency = info.overclock.options;
         if (info.vcore?.options)     this.CoreVoltage       = info.vcore.options;
 
-        // Map ASIC model
-        this.ASICModel = (info.asic as any)?.model ?? info.ASICModel;
+        // Map ASIC model: /api/setting/mining returns asic as a plain string (e.g. "BM1366")
+        this.ASICModel = (info.asic as any)?.model ?? info.asic ?? info.ASICModel;
 
         // Parse stratum URLs
         const stratumURL1 = info.stratum?.primary?.url  || '';

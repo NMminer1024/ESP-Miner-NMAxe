@@ -21,6 +21,11 @@
       </div>
 
       <div class="stat-card shares-card">
+        <div class="latency-badge"
+             *ngIf="latency$ | async as lat"
+             [class.latency-good]="lat < 100"
+             [class.latency-fair]="lat >= 100 && lat < 200"
+             [class.latency-poor]="lat >= 200">{{ lat }} ms</div>
         <div class="stat-icon">📊</div>
         <div class="stat-content">
           <div class="stat-label">Shares</div>

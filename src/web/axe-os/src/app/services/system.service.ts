@@ -1,6 +1,6 @@
 import {HttpClient, HttpEvent, HttpParams, HttpHeaders} from '@angular/common/http';
 import {Injectable} from '@angular/core';
-import {delay, Observable, of, timeout, map, catchError} from 'rxjs';
+import {delay, Observable, of, timeout, map, catchError, switchMap} from 'rxjs';
 import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 import {IGaugeLimits} from 'src/models/IGaugeLimits';
@@ -171,12 +171,31 @@ export class SystemService {
     });
   }
 
+  // Cache: key = host string, value = whether the device runs new-API firmware.
+  // Probes /api/setting/time which only exists on new firmware;
+  // falls back gracefully so old firmware (which only knows /api/system/OTA*) still works.
+  private _newApiCache = new Map<string, boolean>();
+
+  private checkNewApiSupport(host: string): Observable<boolean> {
+    const cached = this._newApiCache.get(host);
+    if (cached !== undefined) return of(cached);
+    return this.httpClient.get(`${host}/api/setting/time`).pipe(
+      timeout(5000),
+      map(() => { this._newApiCache.set(host, true);  return true; }),
+      catchError(() => { this._newApiCache.set(host, false); return of(false); })
+    );
+  }
+
   public performOTAUpdate(file: File | Blob, host = '') {
-    return this.otaUpdate(file, `${host}/api/update/firmware`);
+    return this.checkNewApiSupport(host).pipe(
+      switchMap(isNew => this.otaUpdate(file, isNew ? `${host}/api/update/firmware` : `${host}/api/system/OTA`))
+    );
   }
 
   public performWWWOTAUpdate(file: File | Blob, host = '') {
-    return this.otaUpdate(file, `${host}/api/update/spiffs`);
+    return this.checkNewApiSupport(host).pipe(
+      switchMap(isNew => this.otaUpdate(file, isNew ? `${host}/api/update/spiffs` : `${host}/api/system/OTAWWW`))
+    );
   }
 
   public getSwarmInfo(uri: string = ''): Observable<{ ip: string }[]> {

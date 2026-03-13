@@ -92,6 +92,50 @@
         }
     }
 
+    // Pool / wallet / RSSI info — absolutely centered in the topbar
+    .topbar-pool-info {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        pointer-events: none;
+
+        .info-item {
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.55);
+            cursor: default;
+            white-space: nowrap;
+            transition: color 0.2s ease;
+
+            i {
+                font-size: 11px;
+                opacity: 0.7;
+            }
+
+            &:hover {
+                color: rgba(255, 255, 255, 0.85);
+            }
+        }
+
+        .info-divider {
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 12px;
+            user-select: none;
+        }
+
+        .rssi-item {
+            &.rssi-good  { color: rgba(76, 175, 80, 0.75); }
+            &.rssi-fair  { color: rgba(255, 193, 7, 0.75); }
+            &.rssi-poor  { color: rgba(255, 107, 107, 0.75); }
+        }
+    }
+
     .layout-topbar-menu {
         margin: 0 0 0 auto;
         padding: 0;
@@ -182,8 +226,32 @@
 
 @media (max-width: 991px) {
     .layout-topbar {
-        justify-content: space-between;
-        padding: 0 1rem;
+        height: auto;
+        min-height: 5rem;
+        flex-wrap: wrap;
+        align-content: center;
+        padding: 0 1rem 0.4rem;
+
+        .topbar-pool-info {
+            position: static !important;
+            transform: none !important;
+            order: 10;
+            width: 100%;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: 0.15rem;
+            pointer-events: all;
+
+            .info-item {
+                font-size: 11px !important;
+            }
+
+            .info-divider {
+                font-size: 11px !important;
+            }
+        }
 
         .layout-topbar-logo {
             width: auto;
@@ -212,13 +280,8 @@
         }
 
         .layout-topbar-menu {
-            margin-left: 0;
+            margin-left: auto;
             order: 3;
-            display: flex !important;
-            position: static !important;
-            flex-direction: row !important;
-            background: transparent !important;
-            box-shadow: none !important;
             border-radius: 0 !important;
             padding: 0 !important;
             right: auto !important;
