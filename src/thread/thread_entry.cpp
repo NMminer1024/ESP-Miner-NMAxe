@@ -1749,7 +1749,8 @@ void stratum_thread_entry(void *args){
 
 
         static uint32_t last = millis();
-        if((millis() - last > 1000 * 60) && !is_primary_pool){ // check every 60 seconds
+        static uint16_t random_seconds = 60 + esp_random() % (9 * 60 + 1); // randomize 1~10 minutes to avoid all miners check primary pool at the same time
+        if((millis() - last > 1000UL * random_seconds) && !is_primary_pool){ // check every 1~10 minutes if primary pool is back, only when currently using fallback pool
             bool res = board->stratum->is_primary_pool_available(board->info.connection.pool.primary.url, board->info.connection.pool.primary.port);
             if(res){
                 LOG_I("Primary pool [%s] available now, switching to primary pool...", board->info.connection.pool.primary.url.c_str());
