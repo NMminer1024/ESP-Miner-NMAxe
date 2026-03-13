@@ -164,7 +164,7 @@ const char recovery_page[] =
 "<div class='logo-sub'>&#x25cf;&nbsp;&nbsp;Recovery Mode&nbsp;&nbsp;&#x25cf;</div>"
 "</div>"
 
-"<h2>SPIFFS Recovery Mode</h2>"
+// "<h2>SPIFFS Recovery Mode</h2>"
 
 "<div class='warning'>"
 "Web filesystem is missing or corrupt.<br>"
