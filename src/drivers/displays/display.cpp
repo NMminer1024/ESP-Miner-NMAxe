@@ -170,6 +170,8 @@ struct{
   // Bottom hashrate display
   ui_element_t  lb_hr;       // .font set in ui_page_element_init
   ui_element_t  lb_hr_unit;  // .font set in ui_page_element_init
+  // Bottom-left firmware version label (.font / .coord set in ui_page_element_init)
+  ui_element_t  lb_version;
   // Per-board column layout (set in ui_page_element_init)
   const lv_font_t *coin_font;    // font for coin row text
   lv_coord_t      col_dollar_x;  // X start of "$" column
@@ -1134,12 +1136,14 @@ void ui_page_element_init(void* args){
     clock_page.lb_price.font        = &ds_digib_font_24;
     clock_page.lb_price.coord       = {0, 0};
     /*********************************** Market page (NMAxe / NMAxe Gamma, ~240x135) *********************************/
-    market_page.coin_font       = &Inconsolata_18;
-    market_page.col_dollar_x    = 73;
-    market_page.col_price_x     = 86;
-    market_page.col_change_x    = 185;
-    market_page.lb_hr.font      = &ds_digib_font_32;
-    market_page.lb_hr_unit.font = &lv_font_montserrat_16;
+    market_page.coin_font           = &Inconsolata_18;
+    market_page.col_dollar_x        = 73;
+    market_page.col_price_x         = 86;
+    market_page.col_change_x        = 185;
+    market_page.lb_hr.font          = &ds_digib_font_32;
+    market_page.lb_hr_unit.font     = &Inconsolata_16;
+    market_page.lb_version.font     = &lv_font_montserrat_14;
+    market_page.lb_version.coord    = {2, -3};  // offset from BOTTOM_LEFT
   }
   else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     loading_page.back_img_dsc           = &loading_page_img_240_320;
@@ -1408,12 +1412,14 @@ void ui_page_element_init(void* args){
     clock_page.lb_price.font        = &ds_digib_font_24;
     clock_page.lb_price.coord       = {0, 0};
     /*********************************** Market page (NMQAxe++, ~320x240) *********************************/
-    market_page.coin_font       = &Inconsolata_26;
-    market_page.col_dollar_x    = 87;
-    market_page.col_price_x     = 103;
-    market_page.col_change_x    = 242;
-    market_page.lb_hr.font      = &ds_digib_font_32;
-    market_page.lb_hr_unit.font = &lv_font_montserrat_14;
+    market_page.coin_font           = &Inconsolata_26;
+    market_page.col_dollar_x        = 87;
+    market_page.col_price_x         = 103;
+    market_page.col_change_x        = 242;
+    market_page.lb_hr.font          = &ds_digib_font_38;
+    market_page.lb_hr_unit.font     = &Inconsolata_16;
+    market_page.lb_version.font     = &lv_font_montserrat_16;
+    market_page.lb_version.coord    = {2, -3};  // offset from BOTTOM_LEFT
   }
   else{
       LOG_E("Unknown board type for UI layout init: %s", board->info.spec.name);
@@ -2773,6 +2779,15 @@ void ui_market_page_update(void* args){
 
     inited = true;
     last_switch = millis();
+
+    // Bottom-left: firmware version label
+    const lv_font_t *ver_f = market_page.lb_version.font ? market_page.lb_version.font : &lv_font_montserrat_10;
+    market_page.lb_version.obj = lv_label_create(market_page.container);
+    lv_obj_set_style_text_font(market_page.lb_version.obj, ver_f, 0);
+    lv_obj_set_style_text_color(market_page.lb_version.obj, lv_color_hex(0x888888), 0);
+    lv_label_set_text(market_page.lb_version.obj, "");
+    lv_obj_align(market_page.lb_version.obj, LV_ALIGN_BOTTOM_LEFT,
+                 market_page.lb_version.coord.x, market_page.lb_version.coord.y);
   }
 
   // Always refresh hashrate with unit conversion (3 significant figures)
@@ -2781,6 +2796,7 @@ void ui_market_page_update(void* args){
                    ? (String(hr_val.charAt(hr_val.length() - 1)) + "H/s") : "";
   lv_label_set_text(market_page.lb_hr.obj,      hr_val.substring(0, hr_val.length() - 1).c_str());
   lv_label_set_text(market_page.lb_hr_unit.obj, hr_unit.c_str());
+  lv_label_set_text(market_page.lb_version.obj, board->info.base.fw_version.c_str());
 
   if(wl.empty()) return;
 
