@@ -1201,7 +1201,7 @@ void fan_thread_entry(void *args){
 
     // fan self test
     while(true){
-        bool self_test_result[board->status.fan.count] = {false,}; // initialize all to false
+        bool self_test_result[board->info.spec.fans.size()] = {false,}; // initialize all to false
         bool all_fan_ok = true; // assume all fans are okay until we find one that isn't
 
         for(auto &fan : board->status.fan.list){
@@ -2136,14 +2136,14 @@ void display_thread_entry(void *args){
   /********************************************wait fan self test ****************************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.5;
-  for(uint8_t i = 0; i < board->status.fan.count; i++){
+  for(uint8_t i = 0; i < board->info.spec.fans.size(); i++){
     while(true){
       board->status.ui.page.loading.details.color = 0xFFFFFF;
       board->status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
       if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_FAN_READY)  == INIT_EVENT_FAN_READY) break;
     }
     board->status.ui.page.loading.details.color = 0x00FF00;
-    board->status.ui.page.loading.details.msg   = "Fan" + ((board->status.fan.count > 1) ? String(i + 1) : "") + " Pass! [" + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
+    board->status.ui.page.loading.details.msg   = "Fan" + ((board->info.spec.fans.size() > 1) ? String(i + 1) : "") + " Pass! [" + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
     delay(2000);
   }
   xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);

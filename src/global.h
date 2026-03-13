@@ -255,7 +255,6 @@ typedef struct{
 
     struct{
         std::vector<fan_status_t>          list;   // support multiple fans
-        uint8_t                            count;  // number of fans      
     }fan;
 
     struct{

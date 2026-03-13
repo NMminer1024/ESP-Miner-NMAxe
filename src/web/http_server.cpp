@@ -132,7 +132,7 @@ void get_system_info(AsyncWebServerRequest* request){
     root["hwModel"]     = g_board.info.spec.name;
     root["hostName"]    = g_board.info.base.hostname;
     root["wifiSSID"]    = g_board.info.connection.wifi.sta.ssid;
-    root["wifiStatus"]  = (g_board.status.wifi.status == WL_CONNECTED) ? "connected" : "disconnected";
+    root["wifiRSSI"]    = g_board.status.wifi.rssi;
 
     // Currently-active pool (read-only status)
     JsonObject stratumObj = root.createNestedObject("stratum");
@@ -143,7 +143,6 @@ void get_system_info(AsyncWebServerRequest* request){
     stratumObj["pwd"]  = g_board.info.connection.stratum.use.pwd;
 
     // Fan status
-    root["fanCount"] = g_board.status.fan.count;
     JsonArray fansArray = root.createNestedArray("fans");
     for (auto & fan : g_board.status.fan.list) {
         JsonObject fanObj = fansArray.createNestedObject();
@@ -407,7 +406,6 @@ void get_setting_preference(AsyncWebServerRequest* request){
     root["screenAutoRoll"] = g_board.status.preference.screen.auto_rolling;
     root["asicTargetTemp"] = String(g_board.status.preference.fan.target_temp);
     root["Brightness"]     = g_board.status.preference.screen.brightness;
-    root["fanCount"]       = g_board.status.fan.count;
     JsonArray fansArray    = root.createNestedArray("fans");
     for (auto & fan : g_board.status.fan.list) {
         JsonObject fanObj = fansArray.createNestedObject();

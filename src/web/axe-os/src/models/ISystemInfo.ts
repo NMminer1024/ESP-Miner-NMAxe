@@ -51,7 +51,6 @@ export interface ISystemInfo {
   asic: eASICModel,
 
   // Fan info
-  fanCount: number,
   fans: IFan[],
 
   // Miner status
@@ -163,6 +162,5 @@ export interface ISettingPreference {
   screenAutoRoll: number;
   asicTargetTemp: string;
   Brightness: number;
-  fanCount: number;
   fans: IFan[];
 }

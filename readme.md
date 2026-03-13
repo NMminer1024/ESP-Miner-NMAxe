@@ -197,7 +197,7 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
 
 #### `GET /api/system/info` — Response Fields
 
-**Power & Electrical**
+##### ⚡ Power & Electrical
 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
@@ -205,7 +205,7 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
 | `voltage` | int | mV | Input voltage |
 | `current` | int | mA | Input current |
 
-**Temperatures**
+##### 🌡 Temperatures
 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
@@ -213,7 +213,7 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
 | `mcuTemp` | float | °C | MCU (ESP32) temperature |
 | `asicTemp` | float | °C | ASIC die temperature |
 
-**ASIC Status**
+##### 🔧 ASIC Status
 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
@@ -224,7 +224,7 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
 | `freqReq` | int | MHz | ASIC target frequency |
 | `smallCoreCnt` | int | — | Total small-core count across all ASICs |
 
-**Mining Stats**
+##### ⛏ Mining Stats
 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
@@ -236,7 +236,7 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
 | `uptimeSeconds` | int | s | Session uptime |
 | `freeHeap` | int | bytes | ESP32 free heap memory |
 
-**Board Identity**
+##### 🪪 Board Identity
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -246,33 +246,26 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
 | `wifiSSID` | string | Connected Wi-Fi SSID |
 | `wifiStatus` | string | `"connected"` or `"disconnected"` |
 
-**Stratum (active pool, read-only)**
+##### 🌐 Stratum
 
-```json
-"stratum": {
-  "url":  "stratum+tcp://pool.example.com:3333",
-  "user": "bc1q...xyz.worker1",
-  "pwd":  "x"
-}
-```
-
-**Fans**
-
-```json
-"fanCount": 1,
-"fans": [
-  { "id": 0, "speed": 60, "rpm": 2800 }
-]
-```
+Active pool connection — read-only snapshot.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `fanCount` | int | Number of fans |
+| `stratum.url` | string | Pool URL (e.g. `"stratum+tcp://pool.example.com:3333"`) |
+| `stratum.user` | string | Worker username |
+| `stratum.pwd` | string | Worker password |
+
+##### 🌀 Fans
+
+| Field | Type | Description |
+|-------|------|-------------|
 | `fans[].id` | int | Fan index (0-based) |
 | `fans[].speed` | int | Speed percentage (0–100) |
 | `fans[].rpm` | int | Actual RPM |
 
-**Full Example Response**
+<details>
+<summary>Full Example Response</summary>
 
 ```json
 {
@@ -300,7 +293,6 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
   "hostName": "nmaxe-001",
   "wifiSSID": "MyNetwork",
   "wifiStatus": "connected",
-  "fanCount": 1,
   "fans": [{ "id": 0, "speed": 60, "rpm": 2800 }],
   "stratum": {
     "url": "stratum+tcp://pool.example.com:3333",
@@ -309,6 +301,8 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
   }
 }
 ```
+
+</details>
 
 ---
 
@@ -326,28 +320,52 @@ All endpoints return JSON. PATCH/POST body must be `application/json`.
 
 ### Settings
 
-Each card supports `GET` (read current values) and `PATCH` (save changes to NVS).
+Each endpoint supports `GET` (read current values) and `PATCH` (save changes to NVS).
 
-#### `GET /api/setting/network`
-```json
-{ "hostName": "NMAxe", "wifiSSID": "MyWifi", "wifiStatus": "connected", "wifiIP": "192.168.1.100" }
-```
-#### `PATCH /api/setting/network`
-```json
-{ "ssid": "...", "wifiPass": "...", "hostname": "..." }
-```
+#### Network — `/api/setting/network`
 
-#### `GET /api/setting/time`
+**GET** — current network status
 ```json
-{ "timeZone": "8.0", "timeFormat": 24, "dateFormat": "YYYY/MM/DD" }
-```
-#### `PATCH /api/setting/time`
-```json
-{ "timezone": "8.0", "timeFormat": 24, "dateFormat": "YYYY/MM/DD" }
+{ 
+  "hostName": "NMAxe", 
+  "wifiSSID": "MyWifi", 
+  "wifiStatus": "connected", 
+  "wifiIP": "192.168.1.100"
+}
 ```
 
-#### `GET /api/setting/mining`
-Returns current stratum config (primary/fallback/used), ASIC freq/vcore, and OC/VC dropdown options.
+**PATCH** — update credentials / hostname
+```json
+{
+  "hostname": "..." 
+  "ssid": "...", 
+  "wifiPass": "...", 
+}
+```
+
+#### Time — `/api/setting/time`
+
+**GET**
+```json
+{
+  "timeZone": "8.0", 
+  "timeFormat": 24, 
+  "dateFormat": "YYYY/MM/DD" 
+}
+```
+
+**PATCH**
+```json
+{ 
+  "timezone": "8.0", 
+  "timeFormat": 24, 
+  "dateFormat": "YYYY/MM/DD" 
+}
+```
+
+#### Mining — `/api/setting/mining`
+
+**GET** — stratum config (primary / fallback / in-use), ASIC freq/vcore, and dropdown options
 ```json
 {
   "vcoreReq": 1200, "freqReq": 550, "asic": "BM1366",
@@ -360,7 +378,8 @@ Returns current stratum config (primary/fallback/used), ASIC freq/vcore, and OC/
   "vcore":     { "options": [{ "name": "1200mV", "value": 1200 }, ...] }
 }
 ```
-#### `PATCH /api/setting/mining`
+
+**PATCH**
 ```json
 {
   "stratum": {
@@ -372,25 +391,37 @@ Returns current stratum config (primary/fallback/used), ASIC freq/vcore, and OC/
 }
 ```
 
-#### `GET /api/setting/market`
-Returns current coin settings and available USDT trading pairs (fetched from Binance at startup).
+#### Market — `/api/setting/market`
+
+**GET** — coin display settings and all available USDT pairs (fetched from Binance at startup)
 ```json
-{ "mainprice": "BTC", "coinWatchlist": "BTC,ETH,SOL", "pairs": ["BTCUSDT", "ETHUSDT", ...] }
-```
-#### `PATCH /api/setting/market`
-```json
-{ "mainprice": "BTC", "coinWatchlist": "BTC,ETH,SOL" }
+{ 
+  "mainprice": "BTC", 
+  "coinWatchlist": "BTC,ETH,SOL", 
+  "pairs": ["BTCUSDT", "ETHUSDT", ...] 
+}
 ```
 
-#### `GET /api/setting/preference`
+**PATCH**
+```json
+{ 
+  "mainprice": "BTC", 
+  "coinWatchlist": "BTC,ETH,SOL" 
+}
+```
+
+#### Preference — `/api/setting/preference`
+
+**GET**
 ```json
 {
   "screenFlip": 0, "Brightness": 80, "screenAutoRoll": 1,
   "ledIndicator": 1, "fanAutoSpeed": 1, "asicTargetTemp": "65.0",
-  "fanCount": 1, "fans": [{ "id": 0, "speed": 60, "rpm": 3600 }]
+  "fans": [{ "id": 0, "speed": 60, "rpm": 3600 }]
 }
 ```
-#### `PATCH /api/setting/preference`
+
+**PATCH**
 ```json
 {
   "brightness": 80, "flipscreen": 0, "ledindicator": 1,
@@ -408,7 +439,7 @@ Returns current coin settings and available USDT trading pairs (fetched from Bin
 | POST | `/api/update/firmware` | Upload `firmware.bin` (multipart/form-data) |
 | POST | `/api/update/spiffs`   | Upload `spiffs.bin` (multipart/form-data) |
 
-Legacy aliases (kept for compatibility): `/api/system/OTA`, `/api/system/OTAWWW`
+> Legacy aliases (kept for compatibility): `/api/system/OTA`, `/api/system/OTAWWW`
 
 ---
 

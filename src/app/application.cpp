@@ -249,7 +249,6 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
         state.rpm       = 0;
         g_board.status.fan.list.push_back(state);
     }
-    g_board.status.fan.count = g_board.info.spec.fans.size();
 
     // touch controller
     g_board.touch = new FT6206Class();

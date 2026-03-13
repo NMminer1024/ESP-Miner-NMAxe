@@ -45,7 +45,6 @@ export class SystemService {
           freqReq: 485,
           smallCoreCnt: 672,
           asic: eASICModel.BM1366,
-          fanCount: 1,
           fans: [
             { id: 0, speed: 100, rpm: 4500 }
           ],
@@ -442,7 +441,7 @@ export class SystemService {
     } else {
       return of({
         screenFlip: 0, ledIndicator: 1, fanAutoSpeed: 1, screenAutoRoll: 0,
-        asicTargetTemp: '55', Brightness: 100, fanCount: 1,
+        asicTargetTemp: '55', Brightness: 100,
         fans: [{ id: 0, speed: 100, rpm: 4500 }],
       }).pipe(delay(300));
     }
