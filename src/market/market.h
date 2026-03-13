@@ -24,10 +24,21 @@ private:
     // All USDT pairs discovered from Binance (populated by fetch_available_usdt_pairs).
     // Each entry is the full symbol e.g. "BTCUSDT", "ETHUSDT".
     std::vector<String>         _availablePairs;
+    volatile bool               _needs_refresh;
 
 public:
     MarketClass(){
-        this->_lastUpdate = 0;
+        this->_lastUpdate     = 0;
+        this->_needs_refresh  = false;
+    }
+
+    // Signal the market thread to refresh immediately (call after NVS coin settings change).
+    void request_refresh() { _needs_refresh = true; }
+    // Returns true and clears the flag if a refresh was requested.
+    bool consume_refresh_request() {
+        if (!_needs_refresh) return false;
+        _needs_refresh = false;
+        return true;
     }
     ~MarketClass(){
 

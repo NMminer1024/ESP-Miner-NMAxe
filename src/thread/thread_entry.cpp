@@ -1366,8 +1366,7 @@ void market_thread_entry(void *args){
                 }
             }
             if(!fetched){
-                LOG_E("Market data fetch failed after %d attempts. Please verify that the Binance API is accessible in your country.",
-                      MARKET_MAX_RETRIES);
+                LOG_E("Market data fetch failed after %d attempts. Please verify that the Binance API is accessible in your country.", MARKET_MAX_RETRIES);
             }
 
             // Fetch watchlist pairs
@@ -1375,7 +1374,11 @@ void market_thread_entry(void *args){
         } else {
             LOG_D("Market update skipped: WiFi not connected.");
         }
-        delay(MINER_MARKET_UPDATE_INTERVAL);
+        // Interruptible sleep: wake up immediately when NVS coin settings change.
+        for (uint32_t _end = millis() + MINER_MARKET_UPDATE_INTERVAL; millis() < _end; ) {
+            if (board->market->consume_refresh_request()) break;
+            delay(100);
+        }
     }
 
     delete board->market;

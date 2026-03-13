@@ -440,6 +440,8 @@ void patch_setting_market(AsyncWebServerRequest* request, uint8_t *data, size_t 
             nvs_config_set_string(NVS_CONFIG_COIN_WATCHLIST, root["coinWatchlist"].as<String>().c_str());
             g_board.info.base.coin_watchlist = root["coinWatchlist"].as<String>();
         }
+        // Trigger an immediate market refresh so the new coin settings take effect at once.
+        if (g_board.market) g_board.market->request_refresh();
         request->send(200, "application/json", "{\"status\":\"ok\"}");
     }
     free(buf);
