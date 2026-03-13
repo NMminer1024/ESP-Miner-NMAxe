@@ -616,7 +616,7 @@ static void tileview_changed_cb(lv_event_t *e) {
             g_board.status.ui.page.current = i;
             g_board.status.ui.page.last    = g_board.status.ui.page.current;
             xSemaphoreGive(g_board.status.ui.page.save_xsem);
-            LOG_W("Page changed to %d", g_board.status.ui.page.current);
+            LOG_D("Page changed to %d", g_board.status.ui.page.current);
             break;
         }
     }
@@ -2679,7 +2679,7 @@ void ui_market_page_update(void* args){
   static uint32_t last_update = millis();
   if(millis() - last_update < 1000) return;
 
-  const auto& wl = board->market->get_watchlist_pairs();
+  const auto& wl = board->market->get_sorted_watchlist();
 
   static bool     inited       = false;
   static uint16_t max_per_page = 0;

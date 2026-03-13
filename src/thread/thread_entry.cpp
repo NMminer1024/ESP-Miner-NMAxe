@@ -1352,16 +1352,13 @@ void market_thread_entry(void *args){
     const uint32_t MARKET_RETRY_DELAY_MS = 2000;
 
     while(true){
-        // Interruptible sleep: wake up immediately when NVS coin settings change.
-        for (uint32_t _end = millis() + MINER_MARKET_UPDATE_INTERVAL; millis() < _end; ) {
-            if (board->market->consume_refresh_request()) break;
-            delay(100);
-        }
+        delay(50);
         // Skip market update if OTA is running to avoid potential instability during critical updates.
         if(board->status.ota.running) {
             LOG_D("Market update skipped: OTA in progress.");
             continue;
         }
+
         // Only attempt to fetch market data if WiFi is connected. If not, log and skip this cycle.
         if(board->status.wifi.status == WL_CONNECTED){
             bool fetched = false;
@@ -1380,10 +1377,17 @@ void market_thread_entry(void *args){
                 LOG_E("Market data fetch failed after %d attempts. Please verify that the Binance API is accessible in your country.", MARKET_MAX_RETRIES);
             }
 
-            // Fetch watchlist pairs
+            // Fetch watchlist pairs, then sort by price descending for display
             board->market->refresh_watchlist(board->info.base.coin_watchlist);
+            board->market->sort_watchlist_by_price();
         } else {
             LOG_D("Market update skipped: WiFi not connected.");
+        }
+
+        // Interruptible sleep: wake up immediately when NVS coin settings change.
+        for (uint32_t _end = millis() + MINER_MARKET_UPDATE_INTERVAL; millis() < _end; ) {
+            if (board->market->consume_refresh_request()) break;
+            delay(100);
         }
     }
     delete board->market;
