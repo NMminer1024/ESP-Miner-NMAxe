@@ -2474,15 +2474,6 @@ void ui_dashboard_page_update(void* args){
     return;
   }
 
-
-  LOG_W("dashboard update: freq_req=%d, power=%d, vcore_req=%d, vcore_measure=%d, vcore_temp=%d, asic_temp=%d\r\n", 
-    board->info.spec.asic.req_frq, 
-    board->status.power.vbus * board->status.power.ibus/1000/1000, 
-    board->info.spec.asic.req_vcore, 
-    board->status.power.vcore, 
-    board->status.temp.vcore, 
-    board->status.temp.asic);
-
   // draw rings if not created
   if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_oc.obj.arc == NULL)) {
     dashboard_page.ring_oc.obj        = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_oc.cfg);
