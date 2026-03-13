@@ -209,7 +209,7 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.preference.led.sleep_last          = g_board.status.preference.led.sleep;
     g_board.info.base.coin_price                      = String(nvs_config_get_string(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC"));
     g_board.info.base.coin_price.toUpperCase();
-    g_board.info.base.coin_watchlist                  = String(nvs_config_get_string(NVS_CONFIG_COIN_WATCHLIST, ""));
+    g_board.info.base.coin_watchlist                  = String(nvs_config_get_string(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC"));
 
     g_board.status.reboot_xsem                    = xSemaphoreCreateCounting(1, 0);
     g_board.status.nvs_save_xsem                  = xSemaphoreCreateCounting(1, 0);

@@ -29,6 +29,7 @@ LV_FONT_DECLARE(ds_digib_font_38)
 LV_FONT_DECLARE(ds_digib_font_52)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(ds_digib_font_120)
+LV_FONT_DECLARE(Inconsolata_16)
 LV_FONT_DECLARE(Inconsolata_18)
 LV_FONT_DECLARE(Inconsolata_26)
 LV_FONT_DECLARE(symbol_14)
@@ -1133,11 +1134,11 @@ void ui_page_element_init(void* args){
     clock_page.lb_price.font        = &ds_digib_font_24;
     clock_page.lb_price.coord       = {0, 0};
     /*********************************** Market page (NMAxe / NMAxe Gamma, ~240x135) *********************************/
-    market_page.coin_font       = &lv_font_montserrat_16;
+    market_page.coin_font       = &Inconsolata_18;
     market_page.col_dollar_x    = 73;
     market_page.col_price_x     = 86;
     market_page.col_change_x    = 185;
-    market_page.lb_hr.font      = &ds_digib_font_24;
+    market_page.lb_hr.font      = &ds_digib_font_32;
     market_page.lb_hr_unit.font = &lv_font_montserrat_16;
   }
   else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
@@ -1234,7 +1235,7 @@ void ui_page_element_init(void* args){
     dashboard_page.lb_hr_unit.font     = &ds_digib_font_20;
     dashboard_page.lb_hr_unit.coord    = {100 + 95, 23};
     dashboard_page.img_miner.coord     = {0, 55};
-    dashboard_page.lb_diff.font        = &Inconsolata_18;
+    dashboard_page.lb_diff.font        = &Inconsolata_16;
     dashboard_page.lb_diff.coord       = {0, 0};
     dashboard_page.miner_img_dsc       = &logo_miner_nmqaxepp_70_70;
 
@@ -1407,7 +1408,7 @@ void ui_page_element_init(void* args){
     clock_page.lb_price.font        = &ds_digib_font_24;
     clock_page.lb_price.coord       = {0, 0};
     /*********************************** Market page (NMQAxe++, ~320x240) *********************************/
-    market_page.coin_font       = &lv_font_montserrat_20;
+    market_page.coin_font       = &Inconsolata_26;
     market_page.col_dollar_x    = 87;
     market_page.col_price_x     = 103;
     market_page.col_change_x    = 242;
@@ -2692,7 +2693,7 @@ void ui_market_page_update(void* args){
     market_page.lb_prices.clear();
     market_page.lb_changes.clear();
 
-    const lv_font_t *font   = market_page.coin_font        ? market_page.coin_font        : &lv_font_montserrat_16;
+    const lv_font_t *font   = market_page.coin_font        ? market_page.coin_font        : &Inconsolata_16;
     const lv_font_t *hr_f   = market_page.lb_hr.font       ? market_page.lb_hr.font       : &ds_digib_font_20;
     const lv_font_t *unit_f = market_page.lb_hr_unit.font  ? market_page.lb_hr_unit.font  : &lv_font_montserrat_16;
 
