@@ -1147,7 +1147,7 @@ void ui_page_element_init(void* args){
     miner_page.back_img_dsc             = &mining_page_img_240_320;
     dashboard_page.back_img_dsc         = &status_page_img_240_320;
     hr_health_page.back_img_dsc         = &status_page_img_240_320;
-    clock_page.back_img_dsc         = &black_page_img_240_320;
+    clock_page.back_img_dsc             = &black_page_img_240_320;
     miner_page.logo_img_dsc             = &logo_worker_nmqaxepp;
     config_page.logo_img_dsc            = &logo_worker_nmqaxepp;
     setting_page.back_img_dsc           = &black_page_img_240_320;// only for NMQAxe++ since it has more settings items and need bigger screen to display
@@ -2473,6 +2473,15 @@ void ui_dashboard_page_update(void* args){
     LOG_E("board is null\r\n");
     return;
   }
+
+
+  LOG_W("dashboard update: freq_req=%d, power=%d, vcore_req=%d, vcore_measure=%d, vcore_temp=%d, asic_temp=%d\r\n", 
+    board->info.spec.asic.req_frq, 
+    board->status.power.vbus * board->status.power.ibus/1000/1000, 
+    board->info.spec.asic.req_vcore, 
+    board->status.power.vcore, 
+    board->status.temp.vcore, 
+    board->status.temp.asic);
 
   // draw rings if not created
   if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_oc.obj.arc == NULL)) {

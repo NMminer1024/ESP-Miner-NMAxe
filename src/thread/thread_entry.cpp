@@ -2193,30 +2193,30 @@ void display_thread_entry(void *args){
   board->status.ui.page.loading.details.msg   = String("Vcore ") + String(board->power->get_vcore() / 1000.0, 3) + "v.";
   delay(500);
   xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-  /****************************************wait for market connected*************************************/
-  cnt = 0;
-  board->status.ui.page.loading.percent = 0.7;
-  uint32_t start = millis();
-  while(0 == board->market->get_last_update()){
-    board->status.ui.page.loading.details.color = 0xFFFFFF;
-    board->status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + board->info.base.coin_price + "]";
-    if(millis() - start - board->market->get_last_update() >= MINER_MARKET_CONNECT_TIMEOUT){
-      board->status.ui.page.loading.details.color = 0xFF0000;
-      board->status.ui.page.loading.details.msg   = "Market update timeout!";
-      delay(500);
-      break;
-    }
-    delay(300);
-  }
-  delay(500);
-  if(0 != board->market->get_last_update()) {
-    board->status.ui.page.loading.details.color = 0x00FF00;
-    board->status.ui.page.loading.details.msg   = "Market connected!";
-  }
-  delay(1000);
+//   /****************************************wait for market connected*************************************/
+//   cnt = 0;
+//   board->status.ui.page.loading.percent = 0.7;
+//   uint32_t start = millis();
+//   while(0 == board->market->get_last_update()){
+//     board->status.ui.page.loading.details.color = 0xFFFFFF;
+//     board->status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + board->info.base.coin_price + "]";
+//     if(millis() - start - board->market->get_last_update() >= MINER_MARKET_CONNECT_TIMEOUT){
+//       board->status.ui.page.loading.details.color = 0xFF0000;
+//       board->status.ui.page.loading.details.msg   = "Market update timeout!";
+//       delay(500);
+//       break;
+//     }
+//     delay(300);
+//   }
+//   delay(500);
+//   if(0 != board->market->get_last_update()) {
+//     board->status.ui.page.loading.details.color = 0x00FF00;
+//     board->status.ui.page.loading.details.msg   = "Market connected!";
+//   }
+//   delay(1000);
   /****************************************wait for pool connected**************************************/
   cnt = 0;
-  board->status.ui.page.loading.percent = 0.8;
+  board->status.ui.page.loading.percent = 0.75;
   while(!board->stratum->is_subscribed()){
     if(board->stratum->pool->get_last_errormsg().length() > 0){
       board->status.ui.page.loading.details.color = (cnt % 2 == 0) ? 0xFFFFFF : 0xFF0000;
@@ -2234,7 +2234,7 @@ void display_thread_entry(void *args){
   delay(100);
   /*******************************************wait for pool auth****************************************/
   cnt = 0;
-  board->status.ui.page.loading.percent = 0.9;
+  board->status.ui.page.loading.percent = 0.85;
   while(!board->stratum->is_authorized()){
     board->status.ui.page.loading.details.color = 0xFFFFFF;
     board->status.ui.page.loading.details.msg   = pool_auth_str[(cnt++)%4];
