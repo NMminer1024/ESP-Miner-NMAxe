@@ -36,14 +36,47 @@ bool isValidNumber(const String& str) {
 }
 
 // Initialize SPIFFS; log total/used capacity. Called once at boot.
-void file_system_init() {
-    if (!SPIFFS.begin(true, "", 5, NULL)) {
-        LOG_E("An Error has occurred while mounting SPIFFS");
-        return;
+// Returns true only when SPIFFS mounts AND all essential web files are present.
+//
+// Failure scenarios that return false (triggering recovery mode):
+//   1. SPIFFS partition is unformatted / structurally corrupt → begin() fails.
+//   2. Partition mounts but files are missing — e.g. upload was interrupted
+//      mid-transfer, leaving an empty or partially-populated SPIFFS.
+//
+// We check the four fixed-name core files every Angular build produces.
+// Hash-suffixed chunk files are not checked because their names change per build,
+// but these four are always present and necessary for the app to start:
+//   index.html.gz  — HTML entry point
+//   runtime.js.gz  — Angular module loader (tiny, loaded first)
+//   main.js.gz     — main application bundle
+//   styles.css.gz  — global stylesheet
+//
+// formatOnFail=false: never auto-format. With formatOnFail=true the library
+// would silently erase the partition and re-mount it empty, causing begin() to
+// return true even though there are no web files, bypassing recovery entirely.
+bool file_system_init() {
+    if (!SPIFFS.begin(false, "", 5, NULL)) {
+        LOG_E("SPIFFS mount failed (partition corrupt or unformatted)");
+        return false;
     }
     size_t totalBytes = SPIFFS.totalBytes();
     size_t usedBytes = SPIFFS.usedBytes();
     LOG_I("File system totalBytes: %d KB, usedBytes: %d KB", totalBytes / 1024, usedBytes / 1024);
+
+    // Verify that all essential web files are present.
+    static const char* const REQUIRED_FILES[] = {
+        "/index.html.gz",
+        "/runtime.js.gz",
+        "/main.js.gz",
+        "/styles.css.gz",
+    };
+    for (const char* f : REQUIRED_FILES) {
+        if (!SPIFFS.exists(f)) {
+            LOG_E("SPIFFS incomplete: required file missing: %s — entering recovery mode", f);
+            return false;
+        }
+    }
+    return true;
 }
 
 // Derive MIME type from file extension for SPIFFS serving.

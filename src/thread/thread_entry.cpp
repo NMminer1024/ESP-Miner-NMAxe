@@ -7,6 +7,7 @@
 #include "nvs/nvs_config.h"
 #include <NTPClient.h>
 #include "web/http_server.h"
+#include "web/recovery_page.h"
 #include <Adafruit_NeoPixel.h>
 
 void power_thread_entry(void *args){
@@ -429,11 +430,63 @@ void config_monitor_thread_entry(void *args){
 void webserver_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
-    file_system_init();
-    
+    bool spiffs_ok = file_system_init();
+    if (!spiffs_ok) {
+        LOG_W("SPIFFS mount failed — entering recovery mode (firmware-embedded recovery page)");
+    }
+
     // wait for sta or ap ready
     xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_WIFI_AP_READY, pdFALSE, pdFALSE, portMAX_DELAY);
     delay(100);
+
+    if (!spiffs_ok) {
+        // ── Recovery mode: SPIFFS is unavailable ─────────────────────────────
+        // Serve the firmware-embedded recovery page for every GET request so
+        // the user can re-flash SPIFFS via a browser, then restart the device.
+        webServer.on("/api/system/restart", HTTP_POST, post_restart);
+        // OTA upload endpoints (both canonical and legacy aliases) so the
+        // recovery page upload button works regardless of browser-cached URL.
+        webServer.on("/api/update/firmware", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+        webServer.on("/api/update/spiffs",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+        webServer.on("/api/system/OTA",      HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+        webServer.on("/api/system/OTAWWW",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+        // API probe endpoint: checkNewApiSupport() on other devices calls this to
+        // decide which OTA URL to use. Returning a valid timeZone JSON lets the
+        // swarm panel correctly select /api/update/firmware & /api/update/spiffs
+        // instead of the legacy /api/system/OTA & /api/system/OTAWWW aliases.
+        webServer.on("/api/setting/time", HTTP_GET, [](AsyncWebServerRequest *request){
+            AsyncWebServerResponse *r = request->beginResponse(200, "application/json",
+                "{\"timeZone\":\"UTC\",\"ntpServer\":\"pool.ntp.org\"}");
+            r->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(r);
+        });
+        // Catch-all GET: serve recovery page from flash (no SPIFFS needed).
+        // CORS header is required so the swarm probe (checkNewApiSupport) from
+        // another device can read the response and correctly determine this is
+        // NOT new-API firmware.
+        webServer.on("/*", HTTP_GET, [](AsyncWebServerRequest *request){
+            AsyncWebServerResponse *r = request->beginResponse(200, "text/html", recovery_page);
+            r->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(r);
+        });
+        // CORS preflight handler — CRITICAL for swarm cross-origin upgrades.
+        // When device B's browser upgrades device A via the swarm panel, it sends
+        // a cross-origin POST (multipart/form-data). Some browser versions issue
+        // an OPTIONS preflight before the actual POST. Without this handler the
+        // preflight gets no response, the browser blocks the upload entirely, and
+        // the swarm UI reports an immediate error with 0% progress.
+        webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
+            AsyncWebServerResponse *r = request->beginResponse(200);
+            r->addHeader("Access-Control-Allow-Origin",  "*");
+            r->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
+            r->addHeader("Access-Control-Allow-Headers", "Accept,Content-Type");
+            request->send(r);
+        });
+        webServer.begin();
+        while (true) { delay(250); }
+    }
+
+    // ── Normal mode ───────────────────────────────────────────────────────────
     // Register AsyncWebSocket handler on webServer (same port 80, path /ws)
     webSocket.onEvent(webSocketEvent);
     webServer.addHandler(&webSocket);
@@ -481,7 +534,7 @@ void webserver_thread_entry(void *args){
     // cleanupClients() must be called periodically so AsyncWebSocket can detect
     // dropped connections and fire WS_EVT_DISCONNECT for stale clients.
     while (true) {
-        delay(1000);
+        delay(250);
         webSocket.cleanupClients();
     }
 }

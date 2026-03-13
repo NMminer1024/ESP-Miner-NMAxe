@@ -3,7 +3,7 @@
 #include <ESPAsyncWebServer.h>
 
 
-void file_system_init();
+bool file_system_init();
 
 // ── Dashboard status ─────────────────────────────────────────────────────────
 void get_system_info(AsyncWebServerRequest *request);

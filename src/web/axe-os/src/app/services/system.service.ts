@@ -179,9 +179,20 @@ export class SystemService {
   private checkNewApiSupport(host: string): Observable<boolean> {
     const cached = this._newApiCache.get(host);
     if (cached !== undefined) return of(cached);
-    return this.httpClient.get(`${host}/api/setting/time`).pipe(
+    return this.httpClient.get<any>(`${host}/api/setting/time`).pipe(
       timeout(5000),
-      map(() => { this._newApiCache.set(host, true);  return true; }),
+      map(res => {
+        // Angular's HttpClient does NOT throw when JSON.parse fails — it silently assigns
+        // the raw text to the response body.  When old firmware lacks /api/setting/time it
+        // returns a 302→/ redirect that resolves to Angular's index.html (HTTP 200, HTML body).
+        // Same-origin requests (Device A probing itself) are NOT blocked by CORS, so the
+        // map() callback would fire and wrongly flag the device as new firmware.
+        // Fix: require the response to be a proper JSON object containing the `timeZone`
+        // field that only the real /api/setting/time endpoint returns.
+        const isNewApi = res !== null && typeof res === 'object' && 'timeZone' in res;
+        this._newApiCache.set(host, isNewApi);
+        return isNewApi;
+      }),
       catchError(() => { this._newApiCache.set(host, false); return of(false); })
     );
   }
