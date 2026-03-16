@@ -89,4 +89,14 @@ bool operator==(const PsramAllocator<T>&, const PsramAllocator<U>&) { return tru
 template <typename T, typename U>
 bool operator!=(const PsramAllocator<T>&, const PsramAllocator<U>&) { return false; }
 
+// ArduinoJson 6.x-compatible PSRAM allocator for BasicJsonDocument<PsramJsonAllocator>.
+struct PsramJsonAllocator {
+    void* allocate(size_t size) {
+        return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    }
+    void deallocate(void* ptr) noexcept {
+        heap_caps_free(ptr);
+    }
+};
+
 #endif 

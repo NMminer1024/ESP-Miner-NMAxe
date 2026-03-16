@@ -404,12 +404,19 @@ void get_setting_market(AsyncWebServerRequest* request){
     json += g_board.info.base.coin_watchlist;
     json += "\",\"pairs\":[";
     if (g_board.market) {
-        const std::vector<String>& pairs = g_board.market->get_available_pairs();
-        for (size_t i = 0; i < pairs.size(); i++) {
-            json += "\"";
-            json += pairs[i];
-            json += "\"";
-            if (i + 1 < pairs.size()) json += ",";
+        const char* buf = g_board.market->get_pairs_buffer();
+        uint16_t    cnt = g_board.market->get_pairs_count();
+        if (buf && cnt > 0) {
+            const char* p = buf;
+            for (uint16_t i = 0; i < cnt; i++) {
+                const char* end = strchr(p, '\n');
+                size_t slen = end ? (size_t)(end - p) : strlen(p);
+                json += "\"";
+                json.concat(p, slen);
+                json += "\"";
+                if (i + 1 < cnt) json += ",";
+                p = end ? end + 1 : p + slen;
+            }
         }
     }
     json += "]}";

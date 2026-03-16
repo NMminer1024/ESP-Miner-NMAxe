@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <WiFiClient.h>
 #include <string.h>
+#include <algorithm>
 
 // https://developers.binance.com/docs/zh-CN/binance-spot-api-docs/rest-api/market-data-endpoints
 bool MarketClass::fetch_available_usdt_pairs() {
@@ -28,7 +29,9 @@ bool MarketClass::fetch_available_usdt_pairs() {
         return false;
     }
 
-    this->_availablePairs.clear();
+    this->_pairsBufLen = 0;
+    this->_pairsCount  = 0;
+    if (this->_pairsBuf) this->_pairsBuf[0] = '\0';
 
     WiFiClient *stream   = http.getStreamPtr();
     int32_t    remaining = http.getSize();       // -1 if chunked/unknown
@@ -74,7 +77,14 @@ bool MarketClass::fetch_available_usdt_pairs() {
                     uint8_t len = (uint8_t)strlen(sym_buf);
                     // Only store USDT pairs.
                     if (len < 5 || strcmp(sym_buf + len - 4, "USDT") != 0) continue;
-                    this->_availablePairs.push_back(String(sym_buf));
+                    uint8_t slen = (uint8_t)strlen(sym_buf);
+                    if (this->_pairsBuf && (this->_pairsBufLen + slen + 2 < MARKET_PAIRS_BUF_CAP)) {
+                        memcpy(this->_pairsBuf + this->_pairsBufLen, sym_buf, slen);
+                        this->_pairsBufLen += slen;
+                        this->_pairsBuf[this->_pairsBufLen++] = '\n';
+                        this->_pairsBuf[this->_pairsBufLen]   = '\0';
+                        this->_pairsCount++;
+                    }
                     LOG_D("  [%3d] %s", ++found, sym_buf);
                 } else if (sym_pos < (uint8_t)(sizeof(sym_buf) - 1)) {
                     sym_buf[sym_pos++] = c;
@@ -102,11 +112,9 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol, CoinPrice &out) {
 
     int httpCode = http.GET();
     if (httpCode == HTTP_CODE_OK) {
-        String payload = http.getString();
+        BasicJsonDocument<PsramJsonAllocator> doc(800);
+        DeserializationError error = deserializeJson(doc, http.getStream());
         http.end();
-
-        StaticJsonDocument<800> doc;
-        DeserializationError error = deserializeJson(doc, payload);
         if (!error) {
             out.price      = doc["lastPrice"].as<String>().toFloat();
             out.change_pct = doc["priceChangePercent"].as<String>().toFloat();
@@ -186,8 +194,8 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
     filter[0]["lastPrice"]          = true;
     filter[0]["priceChangePercent"] = true;
 
-    // DynamicJsonDocument sized for the filtered result (~150 bytes per entry)
-    DynamicJsonDocument doc(150 * symbols.size() + 256);
+    // PSRAM-backed JsonDocument sized for the filtered result (~150 bytes per entry)
+    BasicJsonDocument<PsramJsonAllocator> doc(150 * symbols.size() + 256);
     DeserializationError error = deserializeJson(doc, http.getStream(),
                                                  DeserializationOption::Filter(filter));
     http.end();
@@ -207,4 +215,18 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
         this->_watchlist_pairs[sym] = cp;
         LOG_D("[Watchlist] %s  price=%.4f  change=%.2f%%", sym.c_str(), cp.price, cp.change_pct);
     }
+}
+
+void MarketClass::sort_watchlist_by_price() {
+    _sortedWatchlist.clear();
+    _sortedWatchlist.reserve(_watchlist_pairs.size());
+    for (const auto& kv : _watchlist_pairs) {
+        _sortedWatchlist.push_back(kv);
+    }
+    std::sort(_sortedWatchlist.begin(), _sortedWatchlist.end(),
+              [](const std::pair<String, CoinPrice>& a,
+                 const std::pair<String, CoinPrice>& b) {
+                  return a.second.price > b.second.price;
+              });
+    LOG_D("[Market] Watchlist sorted by price desc, %d entries", (int)_sortedWatchlist.size());
 }
