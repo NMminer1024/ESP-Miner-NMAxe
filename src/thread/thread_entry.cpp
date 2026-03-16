@@ -691,6 +691,10 @@ void button_thread_entry(void *args){
     }
 
     while (true){
+        delay(20);
+        
+        if(board->status.ota.running) continue; 
+
         if(boot_btn != nullptr){
             boot_btn->tick();
         }
@@ -698,7 +702,6 @@ void button_thread_entry(void *args){
         if(user_btn != nullptr){
             user_btn->tick();
         }
-        delay(20);
     }
 }
 
@@ -721,6 +724,7 @@ void swarm_thread_entry(void *args){
   while (true){
     delay(100);
     if(board->status.wifi.status != WL_CONNECTED) continue;
+    if(board->status.ota.running) continue;
     swarm_cnt++;
     //listen udp status
     if(swarm_cnt % 1 == 0){
@@ -813,7 +817,6 @@ void swarm_thread_entry(void *args){
       //add self to swarm list
       board->status.swarm.map[board->status.wifi.ip.toString()] = String(jsonbuf);
     }
-
     // parse swarm list and update best diff and total hashrate
     if(swarm_cnt % 40 == 0){
         board->status.swarm.map[board->status.wifi.ip.toString()] = String(jsonbuf);

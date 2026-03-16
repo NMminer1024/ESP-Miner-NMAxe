@@ -693,7 +693,6 @@ static void long_press_event_cb(lv_event_t *e) {
         // disable tileview scrolling to prevent user from swiping to other pages during long-press countdown, which can cause confusion and potential bugs if user switch page and trigger other events before countdown ends
         lv_obj_clear_flag(parent_wall, LV_OBJ_FLAG_SCROLLABLE);
         xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED); 
-        LOG_W("[Touch] Long Press Detected, starting countdown: %d seconds remaining", g_board.status.ui.page.countdown.timeout);
     } else if (code == LV_EVENT_LONG_PRESSED_REPEAT) {
         if (millis() - s_lp_last_tick >= 1000) {
             s_lp_last_tick = millis();
@@ -703,7 +702,6 @@ static void long_press_event_cb(lv_event_t *e) {
             if (g_board.status.ui.page.countdown.timeout <= 0) {
                 xSemaphoreGive(g_board.status.recover_factory_xsem);
             }
-            LOG_W("[Touch] Long Press Repeat, countdown: %d seconds remaining", g_board.status.ui.page.countdown.timeout);
         }
     } else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
         lv_obj_add_flag(parent_wall, LV_OBJ_FLAG_SCROLLABLE); // re-enable scrolling when user releases long-press (either by lifting finger or system interrupt like incoming call that causes press lost), to restore normal UI behavior
@@ -2038,7 +2036,6 @@ void ui_layout_init(void* args){
 }
 
 void ui_loading_page_update(void* args) {
-
   board_sal_t *board = (board_sal_t*)args;
 
   if(!board){
@@ -2100,7 +2097,10 @@ void ui_loading_page_update(void* args) {
 
 void ui_config_page_update(void* args) {
   board_sal_t *board = (board_sal_t*)args;
-
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
   static uint8_t cnt = 0;
   static uint32_t last_update = millis();
   if(millis() - last_update < 1000) return;
@@ -2122,7 +2122,7 @@ void ui_miner_page_update(void* args){
     LOG_E("board is null\r\n");
     return;
   }
-  static uint32_t last_update = millis();
+  static uint32_t last_update = 0;
   if(millis() - last_update < 1000) return;
 
   lv_color_t font_color = lv_color_hex(0xFFFFFF);
@@ -2373,6 +2373,9 @@ void ui_ota_page_update(void* args){
 
   if(!board->status.ota.running) return; // skip update when OTA is running
 
+  static uint32_t last_update = millis();
+  if(millis() - last_update < 1000) return;
+
   static lv_obj_t * overlay = NULL, *bar = NULL, *label_file = NULL, *label_progress = NULL;
   static char progress_text[10];
   static lv_style_t style;
@@ -2418,6 +2421,7 @@ void ui_ota_page_update(void* args){
   //update bar value
   lv_bar_set_value(bar, board->status.ota.progress, LV_ANIM_ON);
   lv_label_set_text(label_file, board->status.ota.filename.c_str());
+  last_update = millis();
 }
 
 void ui_hits_page_update(void* args){
@@ -2430,6 +2434,10 @@ void ui_hits_page_update(void* args){
   static lv_obj_t *container = NULL, *back_img_obj = NULL;
   static lv_img_dsc_t *back_img_dsc = nullptr;
   static bool first_time = true;
+
+  static uint32_t last_update = 0;
+  if(millis() - last_update < 1000) return;
+
 
   if(first_time){
     if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
@@ -2489,6 +2497,8 @@ void ui_hits_page_update(void* args){
     lv_obj_clear_flag(container, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(container);  // bring to front
   }
+
+  last_update = millis(); 
 }
 
 void ui_achieve_page_update(void* args){
@@ -2497,6 +2507,11 @@ void ui_achieve_page_update(void* args){
     LOG_E("board is null\r\n");
     return;
   }
+
+  static uint32_t last_update = 0;
+  if(millis() - last_update < 1000) return;
+
+
   static ui_element_t lb_best_ever_diff = {}, lb_time_ago = {};
   static lv_style_t style_overlay;
   static lv_obj_t *container = NULL, *back_img_obj = NULL;
@@ -2587,8 +2602,6 @@ void ui_achieve_page_update(void* args){
     lb_time_ago.font        = &Inconsolata_16;
   }
 
-
-
   if(lb_best_ever_diff.obj == nullptr){
     lb_best_ever_diff.obj   = lv_label_create(container);
     lv_obj_set_style_text_color(lb_best_ever_diff.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
@@ -2613,23 +2626,17 @@ void ui_achieve_page_update(void* args){
     lv_label_set_text_fmt(lb_time_ago.obj, "%s", time_ago_str.c_str());
     lv_obj_align(lb_time_ago.obj, LV_ALIGN_CENTER, lb_time_ago.coord.x, lb_time_ago.coord.y);
   }
+  last_update = millis();
 }
 
 void ui_dashboard_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
-  static uint32_t last_update = millis();
-  // if(millis() - last_update < 1000) return;
-  limited_data_f limited_freq_req       = {board->info.spec.ui.dashboard_page.performance.asic_freq_req.min, board->info.spec.ui.dashboard_page.performance.asic_freq_req.max};
-  limited_data_f limited_power          = {board->info.spec.ui.dashboard_page.power.power.min, board->info.spec.ui.dashboard_page.power.power.max};
-  limited_data_f limited_vcore_req      = {board->info.spec.ui.dashboard_page.performance.vcore_req.min, board->info.spec.ui.dashboard_page.performance.vcore_req.max};
-  limited_data_f limited_vcore_measure  = {board->info.spec.ui.dashboard_page.performance.vcore_measure.min, board->info.spec.ui.dashboard_page.performance.vcore_measure.max};
-  limited_data_f limited_vcore_temp     = {board->info.spec.ui.dashboard_page.heat.vcore.min, board->info.spec.ui.dashboard_page.heat.vcore.max};
-  limited_data_f limited_asic_temp      = {board->info.spec.ui.dashboard_page.heat.asic.min, board->info.spec.ui.dashboard_page.heat.asic.max};
-
   if(!board){
     LOG_E("board is null\r\n");
     return;
   }
+
+  static uint32_t last_update = millis();
 
   // draw rings if not created
   if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_oc.obj.arc == NULL)) {
@@ -2647,26 +2654,35 @@ void ui_dashboard_page_update(void* args){
   if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_asic_temp.obj.arc == NULL)) {
     dashboard_page.ring_asic_temp.obj = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_asic_temp.cfg);
   }
-  // only for NMQ AXE ++
-  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-    if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL)) {
-      dashboard_page.ring_vcore_temp.obj = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
-    }
+  if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.ring_vcore_temp.obj.arc == NULL) && (board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME)){ // only NMQAXE ++ has vcore temp ring
+    dashboard_page.ring_vcore_temp.obj = ui_draw_ring(board->status.ui.page.list[UI_PAGE_DASHBOARD], &dashboard_page.ring_vcore_temp.cfg);
+  }
 
+  // only for NMQAXE ++
+  if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME)){
     static float step = 0.0f;
-    step += 0.04f;
+    step += 0.01f;
     lv_coord_t last_x = sin(step) * (SCREEN_WIDTH / 2 - dashboard_page.miner_img_dsc->header.w / 2);
-    // miner pos update
-    if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.img_miner.obj != NULL)) {
+    if (dashboard_page.img_miner.obj != NULL){
       lv_obj_set_x(dashboard_page.img_miner.obj, last_x);
     }
-    // diff pos update
-    if((board->status.ui.page.list[UI_PAGE_DASHBOARD] != NULL) && (dashboard_page.lb_diff.obj != NULL)) {
+    if(dashboard_page.lb_diff.obj != NULL) {
       String diff = formatNumber(board->status.miner.diff.last, 4) + "\r" + formatNumber(board->status.miner.diff.best_session, 4);
       lv_label_set_text_fmt(dashboard_page.lb_diff.obj, "%s", diff.c_str());
       lv_obj_set_x(dashboard_page.lb_diff.obj, last_x + 15);
     }
   }
+  
+
+  if(millis() - last_update < 1000) return;
+
+  limited_data_f limited_freq_req       = {board->info.spec.ui.dashboard_page.performance.asic_freq_req.min, board->info.spec.ui.dashboard_page.performance.asic_freq_req.max};
+  limited_data_f limited_power          = {board->info.spec.ui.dashboard_page.power.power.min, board->info.spec.ui.dashboard_page.power.power.max};
+  limited_data_f limited_vcore_req      = {board->info.spec.ui.dashboard_page.performance.vcore_req.min, board->info.spec.ui.dashboard_page.performance.vcore_req.max};
+  limited_data_f limited_vcore_measure  = {board->info.spec.ui.dashboard_page.performance.vcore_measure.min, board->info.spec.ui.dashboard_page.performance.vcore_measure.max};
+  limited_data_f limited_vcore_temp     = {board->info.spec.ui.dashboard_page.heat.vcore.min, board->info.spec.ui.dashboard_page.heat.vcore.max};
+  limited_data_f limited_asic_temp      = {board->info.spec.ui.dashboard_page.heat.asic.min, board->info.spec.ui.dashboard_page.heat.asic.max};
+
   // update angles
   uint16_t arc_angle_full = dashboard_page.ring_oc.cfg.angle_full;
   uint16_t oc_angle            = arc_angle_full * (board->info.spec.asic.req_frq - limited_freq_req.min) / (limited_freq_req.max - limited_freq_req.min); 
@@ -2701,7 +2717,7 @@ void ui_hr_healthy_page_update(void* args){
     return;
   }
   static double last_hashrate = 0;
-  static uint32_t last_update = millis();
+  static uint32_t last_update = 0;
 
   if(millis() - last_update < 1000) return;
   if(last_hashrate == board->status.miner.hashrate._3m) return;
@@ -2764,7 +2780,7 @@ void ui_clock_page_update(void* args){
     LOG_E("board is null\r\n");
     return;
   }
-  static uint32_t last_update = millis();
+  static uint32_t last_update = 0;
   if(millis() - last_update < 1000) return;
 
   String hr       = formatNumber(board->status.miner.hashrate._3m, 3);
@@ -2833,7 +2849,7 @@ void ui_market_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
   if(!board || !board->market) return;
 
-  static uint32_t last_update = millis();
+  static uint32_t last_update = 0;
   if(millis() - last_update < 1000) return;
 
   const auto& wl = board->market->get_sorted_watchlist();
@@ -3025,6 +3041,11 @@ void ui_market_page_update(void* args){
 
 void ui_setting_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
+
   if(board->info.spec.name != BOARD_NMQAXE_PLUS_PLUS_NAME){
     LOG_W("board does not support setting page\r\n");
     return;
