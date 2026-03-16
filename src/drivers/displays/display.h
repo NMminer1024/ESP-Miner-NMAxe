@@ -88,6 +88,7 @@ void ui_config_page_update(void* args);
 void ui_miner_page_update(void* args);
 void ui_countdown_page_update(void* args);
 void ui_ota_page_update(void* args);
+void ui_achieve_page_update(void* args);
 void ui_hits_page_update(void* args);
 void ui_dashboard_page_update(void* args);
 void ui_hr_healthy_page_update(void* args);

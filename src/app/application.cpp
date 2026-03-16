@@ -123,25 +123,23 @@ void MinerApp::print_stack_hwm() const {
 ──────────────────────────────────────────────*/
 void MinerApp::_tick_thread_entry(void* args) {
     board_sal_t* board = static_cast<board_sal_t*>(args);
-    for (;;) {
-        // screen brightness blink on block hit
-        uint32_t t0 = millis();
-        while (millis() - t0 < 1000) {
-            static uint16_t brightness = board->status.preference.screen.brightness;
-            static float    x = 0.0f;
-            if (board->status.miner.last_hits != board->status.miner.hits) {
-                brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
-                x += 0.1f;
-                tft_bl_ctrl(brightness);
-            } else {
-                brightness = board->status.preference.screen.brightness;
-            }
-            delay(10);
+    uint16_t brightness = board->status.preference.screen.brightness;
+    float    x = 0.0f;
+    while(true){
+        EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED, pdFALSE, pdFALSE, 0);
+        if((bits & SYS_EVENT_MINER_BLOCK_HIT) == SYS_EVENT_MINER_BLOCK_HIT) {
+            brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
+            x += 0.1f;
+        }else if((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) == SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED){
+            brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
+            x += 0.01f;
+        }else{
+            brightness = board->status.preference.screen.brightness;
         }
-        delay(100);
+        tft_bl_ctrl(brightness);
+        delay(10);
     }
 }
-
 /*──────────────────────────────────────────────
   _board_init()  –  private board setup
 ──────────────────────────────────────────────*/
@@ -223,7 +221,6 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.miner.block_proximity_mutex    = xSemaphoreCreateMutex();
     g_board.status.miner.update_xsem             = xSemaphoreCreateCounting(1, 0);
     g_board.status.miner.hits                    = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
-    g_board.status.miner.last_hits               = g_board.status.miner.hits;
     g_board.status.ota.running                   = false;
     g_board.status.ota.progress                  = 0;
     g_board.status.ota.filename                  = "";

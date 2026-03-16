@@ -46,7 +46,6 @@ struct{
   ui_element_t   lb_details;
   ui_element_t   lb_ip_and_slogan;
   ui_element_t   lb_pool_url;
-
 }loading_page;
 
 // config page elements
@@ -383,7 +382,7 @@ static void keyboard_event_cb(lv_event_t *e) {
 static void slider_event_cb(lv_event_t *e) {
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED &&
         lv_event_get_target(e) == setting_page.bar_brightness.obj) {
-        tft_bl_ctrl(lv_slider_get_value(lv_event_get_target(e)));
+        g_board.status.preference.screen.brightness = lv_slider_get_value(lv_event_get_target(e));
     }
 }
 
@@ -637,6 +636,7 @@ static void pressed_event_cb(lv_event_t *e) {
 
     if (code == LV_EVENT_PRESSED) {
         press_pt = pt;
+        xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED); 
     }else if (code == LV_EVENT_RELEASED) {
         // Capture scroll offset right now (before LVGL's snap animation starts).
         // scroll_end_cb uses these to measure the user's actual swipe distance.
@@ -692,7 +692,7 @@ static void long_press_event_cb(lv_event_t *e) {
         s_lp_last_tick = millis();
         // disable tileview scrolling to prevent user from swiping to other pages during long-press countdown, which can cause confusion and potential bugs if user switch page and trigger other events before countdown ends
         lv_obj_clear_flag(parent_wall, LV_OBJ_FLAG_SCROLLABLE);
-    } else if (code == LV_EVENT_LONG_PRESSED_REPEAT) {
+        xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED); 
         if (millis() - s_lp_last_tick >= 1000) {
             s_lp_last_tick = millis();
             g_board.status.ui.page.countdown.timeout =
@@ -895,6 +895,10 @@ void ui_page_element_init(void* args){
   block_hits_page_img_135_240.header.h = SCREEN_HEIGHT;
   block_hits_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
+  new_achievement_page_img_135_240.header.w = SCREEN_WIDTH;
+  new_achievement_page_img_135_240.header.h = SCREEN_HEIGHT;
+  new_achievement_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
   status_page_img_135_240.header.w = SCREEN_WIDTH;
   status_page_img_135_240.header.h = SCREEN_HEIGHT;
   status_page_img_135_240.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
@@ -919,6 +923,10 @@ void ui_page_element_init(void* args){
   block_hits_page_img_240_320.header.w = SCREEN_WIDTH;
   block_hits_page_img_240_320.header.h = SCREEN_HEIGHT;
   block_hits_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
+
+  new_achievement_page_img_240_320.header.w = SCREEN_WIDTH;
+  new_achievement_page_img_240_320.header.h = SCREEN_HEIGHT;
+  new_achievement_page_img_240_320.data_size = SCREEN_WIDTH * SCREEN_HEIGHT * LV_COLOR_SIZE / 8;
 
   status_page_img_240_320.header.w = SCREEN_WIDTH;
   status_page_img_240_320.header.h = SCREEN_HEIGHT;
@@ -2418,18 +2426,34 @@ void ui_hits_page_update(void* args){
   }
   static lv_style_t style_overlay;
   static lv_obj_t *container = NULL, *back_img_obj = NULL;
-  static lv_img_dsc_t *back_img_dsc = &block_hits_page_img_240_320;
-  if(board->status.miner.hits == board->status.miner.last_hits) {
-    if(back_img_obj != nullptr){
-      lv_obj_del(back_img_obj);
-      back_img_obj = nullptr;
+  static lv_img_dsc_t *back_img_dsc = nullptr;
+  static bool first_time = true;
+
+  if(first_time){
+    if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+      back_img_dsc = &block_hits_page_img_240_320;
+      first_time = false;
     }
+    else if( board->info.spec.name == BOARD_NMAXE_GAMMA_NAME || board->info.spec.name == BOARD_NMAXE_NAME){
+      back_img_dsc = &block_hits_page_img_135_240;
+      first_time = false;
+    }
+    else{
+      LOG_E("unsupported board for hits page\r\n");
+      return;
+    }
+  }
+
+  EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT, pdFALSE, pdTRUE, 0);
+  if ((bits & SYS_EVENT_MINER_BLOCK_HIT ) != SYS_EVENT_MINER_BLOCK_HIT) {
     if(container != nullptr){
-      lv_obj_del(container);
+      lv_obj_del(container);  // deletes back_img_obj as child automatically
       container = nullptr;
+      back_img_obj = nullptr;
     }
     return;
   }
+
   //create parent object
   if(container == nullptr){
     // create hits page
@@ -2439,6 +2463,7 @@ void ui_hits_page_update(void* args){
     lv_obj_set_style_pad_all(container, 0, 0);  
     lv_obj_set_style_border_width(container, 0, 0);
     lv_obj_set_scrollbar_mode(container, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_add_event_cb(container, pressed_event_cb, LV_EVENT_PRESSED, NULL);
     
     // create and configure style
     lv_style_init(&style_overlay);
@@ -2461,6 +2486,107 @@ void ui_hits_page_update(void* args){
     // show overlay
     lv_obj_clear_flag(container, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(container);  // bring to front
+  }
+}
+
+void ui_achieve_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
+  static ui_element_t lb_best_ever_diff = {};
+  static lv_style_t style_overlay;
+  static lv_obj_t *container = NULL, *back_img_obj = NULL;
+  static lv_img_dsc_t *back_img_dsc = nullptr;
+  static bool first_time = true;
+
+  if(first_time){
+    if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+      back_img_dsc = &new_achievement_page_img_240_320;
+      first_time = false;
+    }
+    else if(board->info.spec.name == BOARD_NMAXE_GAMMA_NAME || board->info.spec.name == BOARD_NMAXE_NAME){
+      back_img_dsc = &new_achievement_page_img_135_240;
+      first_time = false;
+    }
+    else{
+      LOG_E("unsupported board for achieve page\r\n");
+      return;
+    }
+  }
+
+  EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED, pdFALSE, pdTRUE, 0);
+  if ((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED ) != SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {
+    if(container != nullptr){
+      lv_obj_del(container);  // deletes back_img_obj and lb_best_ever_diff.obj as children automatically
+      container = nullptr;
+      back_img_obj = nullptr;
+      lb_best_ever_diff.obj = nullptr;
+    }
+    return;
+  }
+
+  //create parent object
+  if(container == nullptr){
+    // create new achievement page
+    container = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(container, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(container, LV_ALIGN_CENTER, 0, 0);  // center align
+    lv_obj_set_style_pad_all(container, 0, 0);  
+    lv_obj_set_style_border_width(container, 0, 0);
+    lv_obj_set_scrollbar_mode(container, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_add_event_cb(container, pressed_event_cb, LV_EVENT_PRESSED, NULL);
+    
+    // create and configure style
+    lv_style_init(&style_overlay);
+    lv_style_set_bg_color(&style_overlay, lv_color_black());
+    // lv_style_set_bg_opa(&style_overlay, LV_OPA_70);  // 70% opacity black background
+    lv_style_set_border_width(&style_overlay, 0);
+    lv_style_set_border_opa(&style_overlay, LV_OPA_TRANSP);
+    
+    // connect style to new achievement page
+    lv_obj_add_style(container, &style_overlay, LV_PART_MAIN);
+    
+    // create and configure image object
+    back_img_obj = lv_img_create(container);
+    lv_img_set_src(back_img_obj, back_img_dsc);
+    lv_obj_set_size(back_img_obj, SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_obj_align(back_img_obj, LV_ALIGN_CENTER, 0, 0);
+    
+    // set image opacity
+    lv_obj_set_style_img_opa(back_img_obj, LV_OPA_COVER, LV_PART_MAIN);
+    // show overlay
+    lv_obj_clear_flag(container, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(container);  // bring to front
+  }
+  
+  if(lb_best_ever_diff.obj == nullptr){
+    // for NMQ AXE ++
+    if((board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) && container != nullptr){
+      lb_best_ever_diff.coord = {0, 70};
+      lb_best_ever_diff.font  = &Inconsolata_26;
+      lb_best_ever_diff.obj   = lv_label_create(container);
+      lv_obj_set_style_text_color(lb_best_ever_diff.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+      lv_obj_set_pos(lb_best_ever_diff.obj, lb_best_ever_diff.coord.x, lb_best_ever_diff.coord.y);
+      lv_obj_set_style_text_font(lb_best_ever_diff.obj, lb_best_ever_diff.font, LV_PART_MAIN);
+      lv_label_set_text_fmt(lb_best_ever_diff.obj, "%s", formatNumber(board->status.miner.diff.best_ever, 4).c_str());
+      lv_obj_align(lb_best_ever_diff.obj, LV_ALIGN_CENTER, lb_best_ever_diff.coord.x, lb_best_ever_diff.coord.y);
+    }
+    // for NMAXE and NMAXE GAMMA
+    else if((board->info.spec.name == BOARD_NMAXE_GAMMA_NAME || board->info.spec.name == BOARD_NMAXE_NAME) && container != nullptr){
+      lb_best_ever_diff.coord = {0, 30};
+      lb_best_ever_diff.font  = &Inconsolata_18;
+      lb_best_ever_diff.obj   = lv_label_create(container);
+      lv_obj_set_style_text_color(lb_best_ever_diff.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+      lv_obj_set_pos(lb_best_ever_diff.obj, lb_best_ever_diff.coord.x, lb_best_ever_diff.coord.y);
+      lv_obj_set_style_text_font(lb_best_ever_diff.obj, lb_best_ever_diff.font, LV_PART_MAIN);
+      lv_label_set_text_fmt(lb_best_ever_diff.obj, "%s", formatNumber(board->status.miner.diff.best_ever, 4).c_str());
+      lv_obj_align(lb_best_ever_diff.obj, LV_ALIGN_CENTER, lb_best_ever_diff.coord.x, lb_best_ever_diff.coord.y);
+    }
+    else{
+      LOG_E("unsupported board for achieve page or container is null\r\n");
+    }
   }
 }
 
@@ -3044,9 +3170,9 @@ void ui_switch_next_page_cb(uint8_t tp_evt){
   // tap event
   if(TOUCH_TAP_EVT == tp_evt){
       g_board.status.preference.led.sleep = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
-      if(g_board.status.miner.last_hits!= g_board.status.miner.hits) {
+      EventBits_t bits = xEventGroupWaitBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT, pdFALSE, pdTRUE, 0);
+      if ((bits & SYS_EVENT_MINER_BLOCK_HIT )== SYS_EVENT_MINER_BLOCK_HIT) {
         xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
-        g_board.status.miner.last_hits = g_board.status.miner.hits;    //save last hits if button pressed
         return;
       } 
       next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;

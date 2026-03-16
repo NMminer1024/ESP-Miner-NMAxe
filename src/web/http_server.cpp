@@ -518,11 +518,6 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
             nvs_config_set_u16(NVS_CONFIG_FAN_SPEED, root["fanspeed"].as<uint16_t>());
             g_board.status.fan.list[0].speed = root["fanspeed"].as<uint16_t>();
         }
-        if (root.containsKey("blockhits")) {
-            nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, root["blockhits"].as<uint16_t>());
-            g_board.status.miner.hits      = root["blockhits"].as<uint16_t>();
-            g_board.status.miner.last_hits = g_board.status.miner.hits;
-        }
         request->send(200, "application/json", "{\"status\":\"ok\"}");
     }
     free(buf);
@@ -1163,7 +1158,7 @@ void post_restart(AsyncWebServerRequest * request){
 // POST /api/system/clearhits -- reset block-hit counter to zero in RAM and NVS.
 void post_reset_block_hits(AsyncWebServerRequest * request){
     g_board.status.miner.hits      = 0;
-    g_board.status.miner.last_hits = 0;
+    xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED); 
     nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, 0);
     LOG_I("Miner stats reset: block hits cleared");
     request->send(200, "application/json", "{\"status\":\"ok\"}");

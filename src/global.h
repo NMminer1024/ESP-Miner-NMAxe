@@ -75,7 +75,8 @@ enum{
 
 // system event flags
 enum{
-    
+    SYS_EVENT_MINER_BLOCK_HIT          = (1 << 0),   // miner hit a block
+    SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED = (1 << 1),   // miner achieved a new high difficulty
 };
 
 typedef struct {
@@ -180,10 +181,8 @@ typedef struct{
         uint64_t            uptime_ever;
         uint64_t            uptime_session;
         hashrate_t          hashrate;
-
         float               efficiency; // J/TH
         uint16_t            hits;
-        uint16_t            last_hits;//record the last hits
         diff_info_t         diff;
         uint32_t            asic_update;  // timestamp of asic respond
         uint32_t            stratum_update;//ms timestamp of last stratum data received

@@ -9,11 +9,15 @@ void setup() {
 }
 
 void loop() {
-#if 0
-  // Testing only: simulate a block hit every 20 loop iterations
+#if 1
+  // Testing only: simulate a screen blink
   static uint32_t cnt = 1;
-  if (cnt++ % 20 == 0) {
-    g_board.status.miner.hits++;
+  if ((cnt++ % 20) == 0) {
+    // xEventGroupSetBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT);
+    // LOG_W("Simulated SYS_EVENT_MINER_BLOCK_HIT triggered!");
+
+    xEventGroupSetBits(g_board.status.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
+    LOG_W("Simulated SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED triggered!");
   }
 #endif
 

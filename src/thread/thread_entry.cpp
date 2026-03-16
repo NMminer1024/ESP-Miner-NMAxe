@@ -669,9 +669,13 @@ void button_thread_entry(void *args){
 
     // link the boot button functions.
     if(boot_btn != nullptr){
-        static auto click_wrapper = [](void *param){ ui_switch_next_page_cb(*(uint8_t*)param); };
-        static uint8_t click_evt = TOUCH_TAP_EVT;
-        boot_btn->attachClick(click_wrapper, &click_evt);
+        auto click_wrapper = [](void *param){
+            board_sal_t *b = static_cast<board_sal_t*>(param);
+            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
+            static uint8_t evt = TOUCH_TAP_EVT;
+            ui_switch_next_page_cb(evt);
+        };
+        boot_btn->attachClick(click_wrapper, board); 
         boot_btn->attachDoubleClick(silence_mode_cb);
         boot_btn->attachLongPressStart(NULL);
         boot_btn->attachLongPressStop(NULL);
@@ -1662,6 +1666,7 @@ void miner_asic_rx_thread_entry(void *args){
                     LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
 
                     xSemaphoreGive(board->status.nvs_save_xsem);
+                    xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT);
                 }
 
                 //update miner status
@@ -1669,9 +1674,11 @@ void miner_asic_rx_thread_entry(void *args){
                 board->status.miner.diff.best_session    = (diff > board->status.miner.diff.best_session) ? diff : board->status.miner.diff.best_session;
                 board->status.miner.diff.best_ever       = (diff > board->status.miner.diff.best_ever) ? diff : board->status.miner.diff.best_ever;
 
-                //update all time best diff
+                // update best ever diff to NVS if best ever diff updated, avoid write to NVS too frequently
+                // notify ui 
                 if(diff == board->status.miner.diff.best_ever){
                     xSemaphoreGive(board->status.nvs_save_xsem);
+                    xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
                 }
                 
                 //add share to History of block proximity
@@ -2065,6 +2072,8 @@ void ui_thread_entry(void *args){
             }
             // countdown page update, if running, cover current page
             ui_countdown_page_update((void*)board);
+            // achievement page update, if running, cover current page
+            ui_achieve_page_update((void*)board);
             // block hits page popup, if hit, cover current page
             ui_hits_page_update((void*)board);
             // OTA page update, if running, cover current page
