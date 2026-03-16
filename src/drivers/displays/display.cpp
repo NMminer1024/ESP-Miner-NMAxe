@@ -693,6 +693,8 @@ static void long_press_event_cb(lv_event_t *e) {
         // disable tileview scrolling to prevent user from swiping to other pages during long-press countdown, which can cause confusion and potential bugs if user switch page and trigger other events before countdown ends
         lv_obj_clear_flag(parent_wall, LV_OBJ_FLAG_SCROLLABLE);
         xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED); 
+        LOG_W("[Touch] Long Press Detected, starting countdown: %d seconds remaining", g_board.status.ui.page.countdown.timeout);
+    } else if (code == LV_EVENT_LONG_PRESSED_REPEAT) {
         if (millis() - s_lp_last_tick >= 1000) {
             s_lp_last_tick = millis();
             g_board.status.ui.page.countdown.timeout =
@@ -701,7 +703,7 @@ static void long_press_event_cb(lv_event_t *e) {
             if (g_board.status.ui.page.countdown.timeout <= 0) {
                 xSemaphoreGive(g_board.status.recover_factory_xsem);
             }
-            LOG_D("[Touch] Long Press Repeat, remain=%d", g_board.status.ui.page.countdown.timeout);
+            LOG_W("[Touch] Long Press Repeat, countdown: %d seconds remaining", g_board.status.ui.page.countdown.timeout);
         }
     } else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
         lv_obj_add_flag(parent_wall, LV_OBJ_FLAG_SCROLLABLE); // re-enable scrolling when user releases long-press (either by lifting finger or system interrupt like incoming call that causes press lost), to restore normal UI behavior
@@ -2500,6 +2502,14 @@ void ui_achieve_page_update(void* args){
   static lv_obj_t *container = NULL, *back_img_obj = NULL;
   static lv_img_dsc_t *back_img_dsc = nullptr;
   static bool first_time = true;
+  static uint32_t achieve_time = 0;
+  static uint32_t last_best_ever_diff = board->status.miner.diff.best_ever;
+
+  if(0 == board->status.miner.diff.best_ever) return; // from factory reset, no best ever diff, skip the achieve page
+  if(last_best_ever_diff != board->status.miner.diff.best_ever){
+    last_best_ever_diff = board->status.miner.diff.best_ever;
+    achieve_time = millis();  // record when this achievement was first displayed
+  }
 
   if(first_time){
     if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
@@ -2578,6 +2588,7 @@ void ui_achieve_page_update(void* args){
   }
 
 
+
   if(lb_best_ever_diff.obj == nullptr){
     lb_best_ever_diff.obj   = lv_label_create(container);
     lv_obj_set_style_text_color(lb_best_ever_diff.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
@@ -2595,18 +2606,14 @@ void ui_achieve_page_update(void* args){
     lv_obj_set_style_text_color(lb_time_ago.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
     lv_obj_set_pos(lb_time_ago.obj, lb_time_ago.coord.x, lb_time_ago.coord.y);
     lv_obj_set_style_text_font(lb_time_ago.obj, lb_time_ago.font, LV_PART_MAIN);
+    lv_label_set_text(lb_time_ago.obj, "Just now");
   }else{
-    static uint32_t last_best = board->status.miner.diff.best_ever;
-    static uint32_t achieve_time = millis();
-    if(last_best != board->status.miner.diff.best_ever){
-      last_best = board->status.miner.diff.best_ever;
-      achieve_time = millis();
-    }
-    String time_ago_str = convert_uptime_to_string((millis() - achieve_time)/1000);
-    lv_label_set_text_fmt(lb_time_ago.obj, "%s ago", time_ago_str.c_str());
+    uint32_t seconds_ago = (millis() - achieve_time) / 1000;
+    String time_ago_str = convert_uptime_to_string(seconds_ago);
+    // time_ago_str = (seconds_ago < 30) ? "Just now" : time_ago_str + " ago";
+    lv_label_set_text_fmt(lb_time_ago.obj, "%s", time_ago_str.c_str());
     lv_obj_align(lb_time_ago.obj, LV_ALIGN_CENTER, lb_time_ago.coord.x, lb_time_ago.coord.y);
   }
-
 }
 
 void ui_dashboard_page_update(void* args){
