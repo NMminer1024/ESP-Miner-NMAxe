@@ -2503,9 +2503,9 @@ void ui_achieve_page_update(void* args){
   static lv_img_dsc_t *back_img_dsc = nullptr;
   static bool first_time = true;
   static uint32_t achieve_time = 0;
-  static uint32_t last_best_ever_diff = board->status.miner.diff.best_ever;
+  static double last_best_ever_diff = board->status.miner.diff.best_ever;
 
-  if(0 == board->status.miner.diff.best_ever) return; // from factory reset, no best ever diff, skip the achieve page
+  if(0.0 == board->status.miner.diff.best_ever) return; // from factory reset, no best ever diff, skip the achieve page
   if(last_best_ever_diff != board->status.miner.diff.best_ever){
     last_best_ever_diff = board->status.miner.diff.best_ever;
     achieve_time = millis();  // record when this achievement was first displayed
@@ -2600,7 +2600,6 @@ void ui_achieve_page_update(void* args){
     lv_label_set_text_fmt(lb_best_ever_diff.obj, "%s", formatNumber(board->status.miner.diff.best_ever, 4).c_str());
   }
 
-
   if(lb_time_ago.obj == nullptr){
     lb_time_ago.obj   = lv_label_create(container);
     lv_obj_set_style_text_color(lb_time_ago.obj, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
@@ -2610,7 +2609,7 @@ void ui_achieve_page_update(void* args){
   }else{
     uint32_t seconds_ago = (millis() - achieve_time) / 1000;
     String time_ago_str = convert_uptime_to_string(seconds_ago);
-    // time_ago_str = (seconds_ago < 30) ? "Just now" : time_ago_str + " ago";
+    time_ago_str = (seconds_ago < 30) ? "Just now" : time_ago_str + " ago";
     lv_label_set_text_fmt(lb_time_ago.obj, "%s", time_ago_str.c_str());
     lv_obj_align(lb_time_ago.obj, LV_ALIGN_CENTER, lb_time_ago.coord.x, lb_time_ago.coord.y);
   }
