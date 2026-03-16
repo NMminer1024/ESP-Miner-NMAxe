@@ -2053,7 +2053,8 @@ void ui_loading_page_update(void* args) {
   }
 
   // pool url update
-  if((loading_page.lb_pool_url.obj != NULL) && (board->market->get_last_update() != 0)){
+  EventBits_t bits = xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, 0);
+  if((loading_page.lb_pool_url.obj != NULL) && (bits & INIT_EVENT_VCORE_READY) == INIT_EVENT_VCORE_READY){
     String pool_str = (board->info.connection.pool.use.url + ":" + board->info.connection.pool.use.port);
     width = lv_txt_get_width(pool_str.c_str(), strlen(pool_str.c_str()), loading_page.lb_pool_url.font, 0, LV_TEXT_FLAG_NONE);
     width = (width > SCREEN_WIDTH) ? SCREEN_WIDTH : width;

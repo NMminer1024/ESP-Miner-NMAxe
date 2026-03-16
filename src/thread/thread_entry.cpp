@@ -173,50 +173,52 @@ void led_thread_entry(void *args){
 
             // ---- OTA progress bar effect (overrides normal effects while OTA is running) ----
             if(board->status.ota.running) {
-                static uint32_t ota_tick = 0;
+                static int      last_ota_progress = -1;
+                static uint32_t last_ota_show_ms  = 0;
 
-                // On OTA start transition: send an explicit all-off frame to clear any residual
-                // state from the previous LED effect. This prevents the RMT mid-frame glitch
-                // (flash cache pause during spi_flash_write can cut WS2812 transmission, causing
-                // the strip to latch a partial frame with leftover colors from the prior effect).
+                // On OTA start: blank the strip first to clear residual state from previous effect.
+                // This prevents WS2812 from latching a partial frame caused by the RMT transmission
+                // being interrupted when the flash cache is paused during spi_flash_write.
                 if(!ota_was_active) {
                     for(int i = 0; i < n; i++)
                         strip->setPixelColor(i, strip->Color(0, 0, 0));
                     strip->show();
-                    ota_tick = 0;
-                    ota_was_active = true;
-                    delay(2); // Let the strip latch the blank frame before entering progress loop
+                    last_ota_progress = -1;
+                    last_ota_show_ms  = 0;
+                    ota_was_active    = true;
+                    delay(10); // Let strip latch the blank frame fully before entering progress loop
                 }
-                // Progress: 0-100 mapped to 0-n pixels lit
-                // Color transition: Blue(0%) → Cyan(50%) → Green(100%)
-                int   progress  = board->status.ota.progress;
+
+                int progress = board->status.ota.progress;
                 progress = (progress < 0) ? 0 : (progress > 100 ? 100 : progress);
-                int   lit       = (progress * n + 99) / 100; // ceil, at least 1 pixel when started
 
-                // Pulsing brightness so the bar visually "breathes" during OTA
-                float pulse = (sinf(ota_tick * 0.08f) + 1.0f) / 2.0f * 0.4f + 0.6f; // 0.6 ~ 1.0
+                uint32_t now_ms = millis();
+                // KEY FIX: only refresh when progress value changes, and rate-limit to once per 500ms.
+                // During OTA the flash cache is periodically disabled for each SPI flash write; calling
+                // strip->show() (which runs from flash) inside that window stalls the CPU mid-RMT-frame,
+                // causing WS2812 to latch a partial/corrupt frame — the visible "ghost flicker".
+                // Reducing show() calls to ≤2/s makes it statistically unlikely to land inside a write
+                // window, eliminating the flicker without sacrificing progress bar visibility.
+                if(progress != last_ota_progress || (now_ms - last_ota_show_ms) >= 500) {
+                    last_ota_progress = progress;
+                    last_ota_show_ms  = now_ms;
 
-                // Color: lerp Blue→Cyan for first half, Cyan→Green for second half
-                uint8_t r = 0;
-                uint8_t g, b;
-                if(progress <= 50) {
-                    float t = progress / 50.0f;         // 0.0 → 1.0
-                    g = (uint8_t)(255 * t * pulse);     // 0 → 255
-                    b = (uint8_t)(255 * (1.0f - t * 0.5f) * pulse); // 255 → 128
-                } else {
-                    float t = (progress - 50) / 50.0f;
-                    g = (uint8_t)(255 * pulse);
-                    b = (uint8_t)(128 * (1.0f - t) * pulse); // 128 → 0
+                    // Static color bar (no pulsing): Blue(0%) → Cyan(50%) → Green(100%)
+                    int lit = (progress * n + 99) / 100; // ceil: at least 1 pixel lit once started
+                    uint8_t r = 0, g, b;
+                    if(progress <= 50) {
+                        float t = progress / 50.0f;
+                        g = (uint8_t)(200 * t);
+                        b = (uint8_t)(200 * (1.0f - t * 0.5f));
+                    } else {
+                        float t = (progress - 50) / 50.0f;
+                        g = 200;
+                        b = (uint8_t)(100 * (1.0f - t));
+                    }
+                    for(int i = 0; i < n; i++)
+                        strip->setPixelColor(i, (i < lit) ? strip->Color(r, g, b) : strip->Color(0, 0, 0));
+                    strip->show();
                 }
-
-                for(int i = 0; i < n; i++) {
-                    if(i < lit)
-                        strip->setPixelColor(i, strip->Color(r, g, b));
-                    else
-                        strip->setPixelColor(i, strip->Color(0, 0, 0));
-                }
-                strip->show();
-                ota_tick++;
                 continue;
             }
 
@@ -692,7 +694,7 @@ void button_thread_entry(void *args){
 
     while (true){
         delay(20);
-        
+
         if(board->status.ota.running) continue; 
 
         if(boot_btn != nullptr){
