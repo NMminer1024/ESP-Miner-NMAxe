@@ -2510,7 +2510,11 @@ void ui_achieve_page_update(void* args){
   }
 
   static uint32_t last_update = 0;
-  if(millis() - last_update < 1000) return;
+  static bool     fading_out    = false;
+  static uint32_t fade_start_ms = 0;
+  // During fade-out: let the caller's 50ms loop drive each opacity step.
+  // Normal operation: rate-limit to once per second.
+  if(!fading_out && (millis() - last_update < 1000)) return;
 
 
   static ui_element_t lb_best_ever_diff = {}, lb_time_ago = {};
@@ -2545,13 +2549,37 @@ void ui_achieve_page_update(void* args){
   EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED, pdFALSE, pdTRUE, 0);
   if ((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED ) != SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {
     if(container != nullptr){
-      lv_obj_del(container);  // deletes back_img_obj and lb_best_ever_diff.obj as children automatically
-      container = nullptr;
-      back_img_obj = nullptr;
-      lb_best_ever_diff.obj = nullptr;
-      lb_time_ago.obj = nullptr;
+      if(!fading_out) {
+        // Kick off a 1-second fade-out
+        fading_out    = true;
+        fade_start_ms = millis();
+        lv_obj_set_style_opa(container, LV_OPA_COVER, LV_PART_MAIN);
+      }
+      uint32_t elapsed = millis() - fade_start_ms;
+      if(elapsed >= 1000) {
+        // Fade complete — delete the overlay
+        lv_obj_del(container);
+        container             = nullptr;
+        back_img_obj          = nullptr;
+        lb_best_ever_diff.obj = nullptr;
+        lb_time_ago.obj       = nullptr;
+        fading_out            = false;
+      } else {
+        // Linearly interpolate opacity: 255 → 0 over 1000 ms
+        lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)(LV_OPA_COVER) * elapsed / 1000);
+        lv_obj_set_style_opa(container, opa, LV_PART_MAIN);
+      }
+    } else {
+      fading_out = false; // container already gone, keep state clean
     }
+    last_update = millis();
     return;
+  }
+  // Event is active — if the fade was triggered but event came back, restore opacity
+  if(fading_out) {
+    fading_out = false;
+    if(container != nullptr)
+      lv_obj_set_style_opa(container, LV_OPA_COVER, LV_PART_MAIN);
   }
 
   //create parent object

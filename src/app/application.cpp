@@ -131,8 +131,8 @@ void MinerApp::_tick_thread_entry(void* args) {
             brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
             x += 0.1f;
         }else if((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) == SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED){
-            brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
-            x += 0.06f;
+            // brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
+            // x += 0.06f;
         }else{
             brightness = board->status.preference.screen.brightness;
         }
