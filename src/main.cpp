@@ -9,7 +9,7 @@ void setup() {
 }
 
 void loop() {
-#if 1
+#if 0
   // Testing only: simulate a screen blink
   static uint32_t cnt = 1;
   if ((cnt++ % 20) == 0) {
