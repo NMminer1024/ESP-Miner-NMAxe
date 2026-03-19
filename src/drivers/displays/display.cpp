@@ -2637,6 +2637,7 @@ void ui_achieve_page_update(void* args){
     lv_obj_set_pos(lb_best_ever_diff.obj, lb_best_ever_diff.coord.x, lb_best_ever_diff.coord.y);
     lv_obj_set_style_text_font(lb_best_ever_diff.obj, lb_best_ever_diff.font, LV_PART_MAIN);
     lv_obj_align(lb_best_ever_diff.obj, LV_ALIGN_CENTER, lb_best_ever_diff.coord.x, lb_best_ever_diff.coord.y);
+    lv_label_set_text_fmt(lb_best_ever_diff.obj, "%s", formatNumber(board->status.miner.diff.best_ever, 4).c_str());
   }else{
     // update best ever diff value
     lv_label_set_text_fmt(lb_best_ever_diff.obj, "%s", formatNumber(board->status.miner.diff.best_ever, 4).c_str());
@@ -2648,6 +2649,7 @@ void ui_achieve_page_update(void* args){
     lv_obj_set_pos(lb_time_ago.obj, lb_time_ago.coord.x, lb_time_ago.coord.y);
     lv_obj_set_style_text_font(lb_time_ago.obj, lb_time_ago.font, LV_PART_MAIN);
     lv_label_set_text(lb_time_ago.obj, "Just now");
+    lv_obj_align(lb_time_ago.obj, LV_ALIGN_CENTER, lb_time_ago.coord.x, lb_time_ago.coord.y);
   }else{
     uint32_t seconds_ago = (millis() - achieve_time) / 1000;
     String time_ago_str = convert_uptime_to_string(seconds_ago);
