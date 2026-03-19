@@ -1760,7 +1760,7 @@ void stratum_thread_entry(void *args){
                 board->stratum->pool->connect();
                 board->status.miner.diff.last = 0;
             }else{
-                LOG_W("Primary pool [%s] is not available.", board->info.connection.pool.primary.url.c_str());
+                LOG_W("Primary pool [%s] is not available, keep using fallback pool [%s]...", board->info.connection.pool.primary.url.c_str(), board->info.connection.pool.fallback.url.c_str());
             }
             last = millis();
         }

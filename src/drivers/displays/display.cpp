@@ -3170,7 +3170,7 @@ void ui_setting_page_update(void* args){
 
     // ---- Row 3: LED On checkbox + Screen Flip checkbox (同行) ----
     setting_page.checkbox_led_on.obj = lv_checkbox_create(setting_page.container);
-    lv_checkbox_set_text(setting_page.checkbox_led_on.obj, "LED Indicator");
+    lv_checkbox_set_text(setting_page.checkbox_led_on.obj, "ARGB Enable");
     lv_obj_set_style_text_font(setting_page.checkbox_led_on.obj, font, 0);
     lv_obj_set_style_text_color(setting_page.checkbox_led_on.obj, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_pos(setting_page.checkbox_led_on.obj, pad, y + 4);
