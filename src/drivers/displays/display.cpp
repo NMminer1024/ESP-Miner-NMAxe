@@ -518,18 +518,27 @@ static void scroll_end_cb(lv_event_t *e) {
 
     lv_obj_t *tv = (lv_obj_t *)lv_event_get_target(e);
 
+    // Consume the captured release state immediately. This prevents stale touch data
+    // from interfering with subsequent programmatic scrolls (e.g. auto_rolling timer),
+    // whose LV_EVENT_SCROLL_END would otherwise re-enter here with outdated s_release_tile
+    // and incorrectly override the destination — causing the A→B→A bounce loop.
+    lv_obj_t   *release_tile     = s_release_tile;
+    lv_coord_t  release_scroll_x = s_release_scroll_x;
+    lv_coord_t  release_scroll_y = s_release_scroll_y;
+    s_release_tile = nullptr;  // consumed — re-armed on next finger RELEASED event
+
     // Resolve the departure page (page user was on when they started the swipe)
     int departure_page = -1;
     for (int i = 0; i <= UI_PAGE_SETTING; i++) {
-        if (g_board.status.ui.page.list[i] == s_release_tile) { departure_page = i; break; }
+        if (g_board.status.ui.page.list[i] == release_tile) { departure_page = i; break; }
     }
     if (departure_page < 0) return;
 
     // Drift = distance from departure tile center to where the finger released
-    lv_coord_t ref_x   = lv_obj_get_x(s_release_tile);
-    lv_coord_t ref_y   = lv_obj_get_y(s_release_tile);
-    lv_coord_t drift_x = s_release_scroll_x - ref_x;
-    lv_coord_t drift_y = s_release_scroll_y - ref_y;
+    lv_coord_t ref_x   = lv_obj_get_x(release_tile);
+    lv_coord_t ref_y   = lv_obj_get_y(release_tile);
+    lv_coord_t drift_x = release_scroll_x - ref_x;
+    lv_coord_t drift_y = release_scroll_y - ref_y;
 
     // Threshold: 20% of screen size
     const lv_coord_t THRESHOLD_X = SCREEN_WIDTH * 0.20;
