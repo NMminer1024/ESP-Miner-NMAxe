@@ -191,7 +191,8 @@ struct{
   ui_element_t btn_restart;
   ui_element_t list_asic_vcore;
   ui_element_t list_asic_freq;
-  ui_element_t checkbox_led_on;
+  // ui_element_t checkbox_led_on;
+  ui_element_t checkbox_auto_rolling;
   ui_element_t checkbox_screen_flip;
 }setting_page;
 
@@ -389,7 +390,7 @@ static void slider_event_cb(lv_event_t *e) {
 static void checkbox_event_cb(lv_event_t *e) {
     if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
         lv_obj_t *checkbox = lv_event_get_target(e);
-        if(checkbox == setting_page.checkbox_led_on.obj) {
+        if(checkbox == setting_page.checkbox_auto_rolling.obj) {
             g_board.status.preference.led.enable = lv_obj_has_state(checkbox, LV_STATE_CHECKED) ? true : false;
         }
         else if(checkbox == setting_page.checkbox_screen_flip.obj) {
@@ -449,9 +450,10 @@ static void button_event_cb(lv_event_t *e) {
           // brightness
           uint8_t brightness = (uint8_t)lv_slider_get_value(setting_page.bar_brightness.obj);
           nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, brightness);
-          // LED enable
-          bool led_on = lv_obj_has_state(setting_page.checkbox_led_on.obj, LV_STATE_CHECKED);
-          nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, led_on ? 1 : 0);
+          // auto rolling
+          bool auto_roll = lv_obj_has_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
+          g_board.status.preference.screen.auto_rolling = auto_roll;
+          nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, auto_roll ? 1 : 0);
           // screen flip
           bool flip = lv_obj_has_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
           nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
@@ -467,8 +469,10 @@ static void button_event_cb(lv_event_t *e) {
           if (setting_page.list_asic_vcore.obj) {
               uint16_t idx   = lv_dropdown_get_selected(setting_page.list_asic_vcore.obj);
               uint16_t vcore = g_board.info.spec.ui.setting_page.vc[idx].value;
+              g_board.info.spec.asic.req_vcore = vcore;
               nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
           } else {
+              g_board.info.spec.asic.req_vcore = g_board.info.spec.asic.default_vcore;
               nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, g_board.info.spec.asic.default_vcore);
           }
           
@@ -3170,16 +3174,16 @@ void ui_setting_page_update(void* args){
     }
     y += row_h + pad;
 
-    // ---- Row 3: LED On checkbox + Screen Flip checkbox (同行) ----
-    setting_page.checkbox_led_on.obj = lv_checkbox_create(setting_page.container);
-    lv_checkbox_set_text(setting_page.checkbox_led_on.obj, "ARGB Enable");
-    lv_obj_set_style_text_font(setting_page.checkbox_led_on.obj, font, 0);
-    lv_obj_set_style_text_color(setting_page.checkbox_led_on.obj, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(setting_page.checkbox_led_on.obj, pad, y + 4);
-    if(nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR, 1)) {
-      lv_obj_add_state(setting_page.checkbox_led_on.obj, LV_STATE_CHECKED);
+    // ---- Row 3: Auto rolling checkbox + Screen Flip checkbox (同行) ----
+    setting_page.checkbox_auto_rolling.obj = lv_checkbox_create(setting_page.container);
+    lv_checkbox_set_text(setting_page.checkbox_auto_rolling.obj, "Screen Roll");
+    lv_obj_set_style_text_font(setting_page.checkbox_auto_rolling.obj, font, 0);
+    lv_obj_set_style_text_color(setting_page.checkbox_auto_rolling.obj, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_pos(setting_page.checkbox_auto_rolling.obj, pad, y + 4);
+    if(nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, 1)) {
+      lv_obj_add_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
     }
-    lv_obj_add_event_cb(setting_page.checkbox_led_on.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(setting_page.checkbox_auto_rolling.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
     setting_page.checkbox_screen_flip.obj = lv_checkbox_create(setting_page.container);
     lv_checkbox_set_text(setting_page.checkbox_screen_flip.obj, "Flip Screen");
