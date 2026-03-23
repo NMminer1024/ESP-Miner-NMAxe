@@ -2525,7 +2525,7 @@ void ui_achieve_page_update(void* args){
   static uint32_t achieve_time = 0;
   static double last_best_ever_diff = board->status.miner.diff.best_ever;
 
-  if(0.0 == board->status.miner.diff.best_ever) return; // from factory reset, no best ever diff, skip the achieve page
+  if(board->status.miner.diff.best_ever < 100.0f*1000.0f*1000.0f) return; //skip the achieve page if best ever diff is less than 100M, which is not a significant achievement and may cause annoyance to users
   if(last_best_ever_diff != board->status.miner.diff.best_ever){
     last_best_ever_diff = board->status.miner.diff.best_ever;
     achieve_time = millis();  // record when this achievement was first displayed
