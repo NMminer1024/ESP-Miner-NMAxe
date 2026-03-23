@@ -492,7 +492,7 @@ static void scroll_begin_cb(lv_event_t *e) {
     // SCROLL_BEGIN passes the in-flight lv_anim_t* as param, so we can override time before it starts.
     lv_anim_t *a = (lv_anim_t *)lv_event_get_param(e);
     if (a) {
-        lv_anim_set_time(a, 80); // override to 80ms for smoother transition (reduced from 120ms)
+        lv_anim_set_time(a, 500); // override to 80ms for smoother transition (reduced from 120ms)
         // Set path to ease-out for natural deceleration feel
         lv_anim_set_path_cb(a, lv_anim_path_ease_out);
     }

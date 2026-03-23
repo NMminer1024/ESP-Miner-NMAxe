@@ -2021,7 +2021,7 @@ void stratum_thread_entry(void *args){
 void lvgl_tick_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
   uint16_t tick_interval = 5;
-  uint32_t last_tick = millis();
+//   uint32_t last_tick = millis();
 
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   // lvgl core init
@@ -2035,10 +2035,10 @@ void lvgl_tick_thread_entry(void *args){
   while(true){
     delay(tick_interval);
     if (xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, tick_interval) == pdTRUE){
-      lv_tick_inc(millis() - last_tick);
+    //   lv_tick_inc(millis() - last_tick);
       lv_timer_handler(); /* let the GUI do its work */
       xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
-      last_tick = millis();
+    //   last_tick = millis();
     }
   }
 }
