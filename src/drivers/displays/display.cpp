@@ -3106,6 +3106,7 @@ void ui_setting_page_update(void* args){
     const lv_coord_t lbl_w = 55;   // 标签列宽
     const lv_coord_t ctrl_w = W - lbl_w - pad * 3; // 控件列宽
     const lv_coord_t row_h = 28;   // 行高
+    const lv_coord_t drop_h = 34;   // 下拉框行高（字体20px需更多空间）
     const lv_font_t *font  = &lv_font_montserrat_14;
     lv_coord_t y = pad;
 
@@ -3124,22 +3125,19 @@ void ui_setting_page_update(void* args){
     lv_obj_add_event_cb(setting_page.bar_brightness.obj, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     y += row_h + pad;
 
-    // ---- Row 2: Vcore + Freq 同行，各占一半 ----
-    // 每半列布局：短标签(lbl_s) + 下拉框，左右各占 W/2
-    const lv_coord_t half   = W / 2;
-    const lv_coord_t lbl_s  = 38;  // 短标签宽，足够显示"Vcore"/"Freq"
-    const lv_coord_t drop_w = half - lbl_s - pad * 2 - pad; // 右侧额外留一个pad边距
-
+    // ---- Row 2: Vcore (独占一行，标签 + 宽下拉框) ----
     lv_obj_t *lb_vcore = lv_label_create(setting_page.container);
     lv_label_set_text(lb_vcore, "Vcore");
     lv_obj_set_style_text_font(lb_vcore, font, 0);
     lv_obj_set_style_text_color(lb_vcore, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(lb_vcore, pad, y + 6);
+    lv_obj_set_pos(lb_vcore, pad, y + (drop_h - 14) / 2);
 
     setting_page.list_asic_vcore.obj = lv_dropdown_create(setting_page.container);
-    lv_obj_set_size(setting_page.list_asic_vcore.obj, drop_w, row_h);
-    lv_obj_set_pos(setting_page.list_asic_vcore.obj, lbl_s + pad * 2, y);
-    lv_obj_set_style_text_font(setting_page.list_asic_vcore.obj, &lv_font_montserrat_16, 0);
+    lv_obj_set_size(setting_page.list_asic_vcore.obj, ctrl_w, drop_h);
+    lv_obj_set_pos(setting_page.list_asic_vcore.obj, lbl_w + pad * 2, y);
+    lv_obj_set_style_text_font(setting_page.list_asic_vcore.obj, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(setting_page.list_asic_vcore.obj, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(setting_page.list_asic_vcore.obj, 4, LV_PART_MAIN);
     {
       const std::vector<work_option_t>& vc_opts = board->info.spec.ui.setting_page.vc;
       String opts = "";
@@ -3154,18 +3152,24 @@ void ui_setting_page_update(void* args){
       }
       lv_dropdown_set_options(setting_page.list_asic_vcore.obj, opts.c_str());
       lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, sel_idx);
+      lv_obj_t *vc_list = lv_dropdown_get_list(setting_page.list_asic_vcore.obj);
+      if(vc_list) lv_obj_set_style_text_font(vc_list, &lv_font_montserrat_20, LV_PART_MAIN);
     }
+    y += drop_h + pad;
 
+    // ---- Row 3: Freq (独占一行，标签 + 宽下拉框) ----
     lv_obj_t *lb_freq = lv_label_create(setting_page.container);
     lv_label_set_text(lb_freq, "Freq");
     lv_obj_set_style_text_font(lb_freq, font, 0);
     lv_obj_set_style_text_color(lb_freq, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(lb_freq, half + pad, y + 6);
+    lv_obj_set_pos(lb_freq, pad, y + (drop_h - 14) / 2);
 
     setting_page.list_asic_freq.obj = lv_dropdown_create(setting_page.container);
-    lv_obj_set_size(setting_page.list_asic_freq.obj, drop_w, row_h);
-    lv_obj_set_pos(setting_page.list_asic_freq.obj, half + lbl_s + pad * 2, y);
-    lv_obj_set_style_text_font(setting_page.list_asic_freq.obj, &lv_font_montserrat_16, 0);
+    lv_obj_set_size(setting_page.list_asic_freq.obj, ctrl_w, drop_h);
+    lv_obj_set_pos(setting_page.list_asic_freq.obj, lbl_w + pad * 2, y);
+    lv_obj_set_style_text_font(setting_page.list_asic_freq.obj, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(setting_page.list_asic_freq.obj, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(setting_page.list_asic_freq.obj, 4, LV_PART_MAIN);
     {
       const std::vector<work_option_t>& oc_opts = board->info.spec.ui.setting_page.oc;
       String opts = "";
@@ -3180,10 +3184,12 @@ void ui_setting_page_update(void* args){
       }
       lv_dropdown_set_options(setting_page.list_asic_freq.obj, opts.c_str());
       lv_dropdown_set_selected(setting_page.list_asic_freq.obj, sel_idx);
+      lv_obj_t *freq_list = lv_dropdown_get_list(setting_page.list_asic_freq.obj);
+      if(freq_list) lv_obj_set_style_text_font(freq_list, &lv_font_montserrat_20, LV_PART_MAIN);
     }
-    y += row_h + pad;
+    y += drop_h + pad;
 
-    // ---- Row 3: Auto rolling checkbox + Screen Flip checkbox (同行) ----
+    // ---- Row 4: Auto rolling checkbox + Screen Flip checkbox (同行) ----
     setting_page.checkbox_auto_rolling.obj = lv_checkbox_create(setting_page.container);
     lv_checkbox_set_text(setting_page.checkbox_auto_rolling.obj, "Screen Roll");
     lv_obj_set_style_text_font(setting_page.checkbox_auto_rolling.obj, font, 0);
