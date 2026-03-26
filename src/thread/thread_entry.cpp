@@ -1150,15 +1150,15 @@ void monitor_thread_entry(void *args){
             }
         }
     
-        // recover factory if user long press user button
-        if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
-            LOG_W("Factory reset triggered, erasing config and restart...");
-            if(erase_all_nvs()){
-                xSemaphoreGive(board->status.reboot_xsem);
-            }else{
-                LOG_E("Factory reset failed!");
-            }
-        }
+        // // recover factory if user long press user button
+        // if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
+        //     LOG_W("Factory reset triggered, erasing config and restart...");
+        //     if(erase_all_nvs()){
+        //         xSemaphoreGive(board->status.reboot_xsem);
+        //     }else{
+        //         LOG_E("Factory reset failed!");
+        //     }
+        // }
 
         // force config if user long press boot button
         if(xSemaphoreTake(board->status.force_config_xsem, 0) == pdTRUE){
@@ -1202,6 +1202,16 @@ void daemon_thread_entry(void *args){
 
     //avoid restart when ota running
     if(board->status.ota.running) continue;
+
+    // recover factory if user long press user button
+    if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
+        LOG_W("Factory reset triggered, erasing config and restart...");
+        if(erase_all_nvs()){
+            xSemaphoreGive(board->status.reboot_xsem);
+        }else{
+            LOG_E("Factory reset failed!");
+        }
+    }
 
     //WiFi daemon
     if(xSemaphoreTake(board->status.wifi.reconnect_xsem, 0) == pdTRUE){
