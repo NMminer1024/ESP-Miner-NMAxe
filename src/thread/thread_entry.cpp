@@ -987,6 +987,7 @@ void alive_ip_scan_thread_entry(void* args) {
                 // Scan interrupt triggered: usually by a page refresh, requiring an immediate reset and full re-scan
                 if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
                     board->status.neighbor.scan_generation++;
+                    board->status.neighbor.alive_ips.clear(); // clear stale IPs immediately so /alive returns fresh data
                     xSemaphoreGive(board->status.neighbor.mutex);
                     LOG_W("(scan) force new scan generation=%u", board->status.neighbor.scan_generation);
                 }

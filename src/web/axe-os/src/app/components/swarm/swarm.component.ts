@@ -189,49 +189,59 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.updateTime();
     }, 1000);
 
-    // Trigger a fresh backend scan whenever the swarm view is opened
-    this.http.post(`${this.uri}/api/swarm/scan`, {}).pipe(catchError(() => EMPTY)).subscribe();
-
-    // Subscription 1: Refresh /alive every 10 s to update the IP candidate list.
-    // New IPs get probed; IPs already in deviceMap get an immediate info refresh.
-    // The blacklist is per-scan-cycle: reset it here so newly-alive IPs are re-probed.
-    const aliveSubscription = interval(10000).pipe(startWith(0)).subscribe(() => {
+    // Trigger a fresh backend scan when entering the swarm page.
+    // Start polling only AFTER the POST response so the first /alive fetch sees
+    // a clean backend state instead of leftover IPs from the previous session.
+    this.http.post(`${this.uri}/api/swarm/scan`, {}).pipe(catchError(() => of(null))).subscribe(() => {
+      // Clear all cached device state so the list rebuilds from the fresh scan
+      this.deviceMap.clear();
+      this.probeFailCount.clear();
       this.blacklist.clear();
-      this.http.get<{ self: string; ips: string[] }>(`${this.uri}/alive`).pipe(
-        catchError(() => of({ self: '', ips: [] as string[] }))
-      ).subscribe(resp => {
-        const ips = (resp.ips || []).filter((ip: string) => !!ip);
-        this.knownAliveIps = new Set(ips);
+      this.lastContactMs.clear();
+      this.swarmData = [];
+      this.swarmSummary = undefined;
 
-        ips.forEach((ip: string) => {
-          if (this.deviceMap.has(ip)) {
-            this.fetchDeviceInfo(ip);
-          } else {
-            this.probeDevice(ip);
-          }
+      // Subscription 1: Refresh /alive every 10 s to update the IP candidate list.
+      // New IPs get probed; IPs already in deviceMap get an immediate info refresh.
+      // The blacklist is per-scan-cycle: reset it here so newly-alive IPs are re-probed.
+      const aliveSubscription = interval(10000).pipe(startWith(0)).subscribe(() => {
+        this.blacklist.clear();
+        this.http.get<{ self: string; ips: string[] }>(`${this.uri}/alive`).pipe(
+          catchError(() => of({ self: '', ips: [] as string[] }))
+        ).subscribe(resp => {
+          const ips = (resp.ips || []).filter((ip: string) => !!ip);
+          this.knownAliveIps = new Set(ips);
+
+          ips.forEach((ip: string) => {
+            if (this.deviceMap.has(ip)) {
+              this.fetchDeviceInfo(ip);
+            } else {
+              this.probeDevice(ip);
+            }
+          });
+
+          // Evict devices not seen in alive list for > 5 minutes
+          const now = Date.now();
+          this.deviceMap.forEach((_, ip) => {
+            if ((now - (this.lastContactMs.get(ip) || 0)) > 5 * 60 * 1000) {
+              this.deviceMap.delete(ip);
+              this.lastContactMs.delete(ip);
+              this.probeFailCount.delete(ip);
+            }
+          });
+
+          this.rebuildSwarmData();
         });
-
-        // Evict devices not seen in alive list for > 5 minutes
-        const now = Date.now();
-        this.deviceMap.forEach((_, ip) => {
-          if ((now - (this.lastContactMs.get(ip) || 0)) > 5 * 60 * 1000) {
-            this.deviceMap.delete(ip);
-            this.lastContactMs.delete(ip);
-            this.probeFailCount.delete(ip);
-          }
-        });
-
-        this.rebuildSwarmData();
       });
-    });
 
-    // Subscription 2: Refresh device info every 3 s for already-confirmed devices.
-    const refreshSubscription = interval(3000).subscribe(() => {
-      this.deviceMap.forEach((_, ip) => this.fetchDeviceInfo(ip));
-    });
+      // Subscription 2: Refresh device info every 3 s for already-confirmed devices.
+      const refreshSubscription = interval(3000).subscribe(() => {
+        this.deviceMap.forEach((_, ip) => this.fetchDeviceInfo(ip));
+      });
 
-    this.subscription.add(aliveSubscription);
-    this.subscription.add(refreshSubscription);
+      this.subscription.add(aliveSubscription);
+      this.subscription.add(refreshSubscription);
+    });
   }
 
   ngOnDestroy(): void {
