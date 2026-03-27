@@ -239,7 +239,8 @@ The response is structured into nested sub-objects.
 | `miner.blkhits` | int | — | Block-hit counter (valid shares meeting network difficulty) |
 | `miner.sAccepted` | int | — | Cumulative accepted shares |
 | `miner.sRejected` | int | — | Cumulative rejected shares |
-| `miner.uptimeSeconds` | int | s | Session uptime |
+| `miner.uptimeSeconds` | int | s | Session uptime (resets on reboot) |
+| `miner.uptimeEver` | int | s | Total cumulative uptime across all sessions |
 | `miner.freeHeap` | int | bytes | ESP32 free heap memory |
 
 ##### 🪪 Board Identity — `identity`
@@ -304,7 +305,8 @@ Active pool connection — read-only snapshot.
     "freeHeap": 187320,
     "sAccepted": 1024,
     "sRejected": 3,
-    "uptimeSeconds": 86400
+    "uptimeSeconds": 86400,
+    "uptimeEver": 2592000
   },
   "identity": {
     "fwVersion": "v2.9.31",

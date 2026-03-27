@@ -57,6 +57,7 @@ export interface IInfoMiner {
   sAccepted:       number;
   sRejected:       number;
   uptimeSeconds:   number;
+  uptimeEver?:     number;
 }
 
 export interface IInfoIdentity {

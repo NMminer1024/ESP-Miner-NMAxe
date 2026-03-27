@@ -22,11 +22,13 @@ interface NMDevice {
   BestDiff: string;
   Valid: number;
   Power: string;
-  Temp: number;
+  Temp: number;       // ASIC temp
+  VcoreTemp: number;  // VCORE temp
   RSSI: number;
   FreeHeap: number;
   Version: string;
-  Uptime: string;
+  Uptime: string;      // session uptime
+  UptimeEver: string;  // ever uptime
   Lastseen: number;
   selected: boolean;
 }
@@ -159,10 +161,11 @@ export class SwarmComponent implements OnInit, OnDestroy {
   private intervalId: any;
 
   // Swarm discovery state
-  private deviceMap    = new Map<string, NMDevice>();
+  private deviceMap      = new Map<string, NMDevice>();
   private probeFailCount = new Map<string, number>();
-  private blacklist    = new Set<string>();
-  private lastContactMs = new Map<string, number>();
+  private blacklist      = new Set<string>();
+  private lastContactMs  = new Map<string, number>();
+  private knownAliveIps  = new Set<string>();
 
   @Input() uri = '';
 
@@ -189,23 +192,26 @@ export class SwarmComponent implements OnInit, OnDestroy {
     // Trigger a fresh backend scan whenever the swarm view is opened
     this.http.post(`${this.uri}/api/swarm/scan`, {}).pipe(catchError(() => EMPTY)).subscribe();
 
-    // Poll every 3 s: get alive IPs, probe unknowns, refresh confirmed devices
-    this.subscription = interval(3000).pipe(startWith(0)).subscribe(() => {
+    // Subscription 1: Refresh /alive every 10 s to update the IP candidate list.
+    // New IPs get probed; IPs already in deviceMap get an immediate info refresh.
+    // The blacklist is per-scan-cycle: reset it here so newly-alive IPs are re-probed.
+    const aliveSubscription = interval(10000).pipe(startWith(0)).subscribe(() => {
+      this.blacklist.clear();
       this.http.get<{ self: string; ips: string[] }>(`${this.uri}/alive`).pipe(
         catchError(() => of({ self: '', ips: [] as string[] }))
       ).subscribe(resp => {
         const ips = (resp.ips || []).filter((ip: string) => !!ip);
+        this.knownAliveIps = new Set(ips);
 
         ips.forEach((ip: string) => {
-          if (this.blacklist.has(ip)) return;
           if (this.deviceMap.has(ip)) {
-            this.fetchDeviceInfo(ip);   // known NM device – refresh
+            this.fetchDeviceInfo(ip);
           } else {
-            this.probeDevice(ip);       // unknown IP – probe first
+            this.probeDevice(ip);
           }
         });
 
-        // Evict devices not contacted for > 5 minutes
+        // Evict devices not seen in alive list for > 5 minutes
         const now = Date.now();
         this.deviceMap.forEach((_, ip) => {
           if ((now - (this.lastContactMs.get(ip) || 0)) > 5 * 60 * 1000) {
@@ -218,6 +224,14 @@ export class SwarmComponent implements OnInit, OnDestroy {
         this.rebuildSwarmData();
       });
     });
+
+    // Subscription 2: Refresh device info every 3 s for already-confirmed devices.
+    const refreshSubscription = interval(3000).subscribe(() => {
+      this.deviceMap.forEach((_, ip) => this.fetchDeviceInfo(ip));
+    });
+
+    this.subscription.add(aliveSubscription);
+    this.subscription.add(refreshSubscription);
   }
 
   ngOnDestroy(): void {
@@ -582,25 +596,36 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
     return {
       ip,
-      Hostname:  id?.hostName   ?? '',
-      BoardType: id?.hwModel    ?? '',
-      PoolInUse: stratum?.url   ?? '',
-      HashRate:  HashSuffixPipe.transform((miner?.hashRate ?? 0) * 1e9),
-      Share:     `${rejected}/${accepted}/${rate}%`,
-      PoolDiff:  miner?.poolDiff      ?? '0',
-      NetDiff:   miner?.networkDiff   ?? '0',
-      LastDiff:  miner?.lastDiff      ?? '0',
-      BestDiff:  `${miner?.bestDiffSession ?? '0'}\r${miner?.bestDiffEver ?? '0'}`,
-      Valid:     miner?.blkhits        ?? 0,
-      Power:     pwr   ? `${pwr.power.toFixed(1)}W` : '---',
-      Temp:      temps?.asic  ?? 0,
-      RSSI:      id?.rssi     ?? 0,
-      FreeHeap:  (miner?.freeHeap ?? 0) / 1024,
-      Version:   id?.fwVersion ?? '',
-      Uptime:    formatUptime(miner?.uptimeSeconds ?? 0),
-      Lastseen:  0,
-      selected:  false,
+      Hostname:   id?.hostName   ?? '',
+      BoardType:  id?.hwModel    ?? '',
+      PoolInUse:  stripStratumPrefix(stratum?.url ?? ''),
+      HashRate:   HashSuffixPipe.transform((miner?.hashRate ?? 0) * 1e9),
+      Share:      `${rejected}/${accepted}/${rate}%`,
+      PoolDiff:   miner?.poolDiff      ?? '0',
+      NetDiff:    miner?.networkDiff   ?? '0',
+      LastDiff:   miner?.lastDiff      ?? '0',
+      BestDiff:   `${miner?.bestDiffSession ?? '0'}\r${miner?.bestDiffEver ?? '0'}`,
+      Valid:      miner?.blkhits        ?? 0,
+      Power:      pwr   ? `${pwr.power.toFixed(1)}W` : '---',
+      Temp:       temps?.asic   ?? 0,
+      VcoreTemp:  temps?.vcore  ?? 0,
+      RSSI:       id?.rssi      ?? 0,
+      FreeHeap:   (miner?.freeHeap ?? 0) / 1024,
+      Version:    id?.fwVersion ?? '',
+      Uptime:     formatUptime(miner?.uptimeSeconds ?? 0),
+      UptimeEver: formatUptime(miner?.uptimeEver    ?? 0),
+      Lastseen:   Date.now(),   // ms timestamp, updated by rebuildSwarmData
+      selected:   false,
     };
+  }
+
+  /** Format absolute-ms timestamp as human-readable last-seen string. */
+  formatLastseen(ms: number): string {
+    const diffSec = Math.floor((Date.now() - ms) / 1000);
+    if (diffSec < 30)    return 'Just now';
+    if (diffSec < 3600)  return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return `${Math.floor(diffSec / 86400)}d ago`;
   }
 
   /** Rebuild swarmData from deviceMap and update selection / Lastseen. */
@@ -610,7 +635,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
     const devices = Array.from(this.deviceMap.values());
     devices.forEach(d => {
       d.selected = alreadySelectedIPs.includes(d.ip);
-      d.Lastseen = (now - (this.lastContactMs.get(d.ip) || now)) / 1000;
+      d.Lastseen = this.lastContactMs.get(d.ip) || Date.now();
     });
     this.swarmData = this.sort(devices);
     if (this.swarmData.length > 0) {
@@ -619,16 +644,17 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 }
 
+/** Strip stratum protocol prefix — keep only host:port */
+function stripStratumPrefix(url: string): string {
+  return url.replace(/^stratum\+\w+:\/\//, '');
+}
+
 function formatUptime(seconds: number): string {
-  if (seconds <= 0) return '0s';
+  if (seconds <= 0) return '0000d 00h 00m';
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
+  return `${String(d).padStart(4, '0')}d ${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
 }
 
 function calculateSwarmSummary(devices: NMDevice[]): SwarmSummary {

@@ -97,7 +97,7 @@
           <td><a class="ip" [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
           <td class="hostname-column">{{ axe.Hostname }}</td>
           <td class="boardtype-column">{{ axe.BoardType }}</td>
-          <td class="pool-column">{{ axe.PoolInUse }}</td>
+          <td class="pool-column" [title]="axe.PoolInUse">{{ axe.PoolInUse }}</td>
           <td>{{ axe.HashRate }}</td>
           <td>{{ axe.Share }}</td>
           <td>{{ axe.PoolDiff }}</td>
@@ -106,14 +106,25 @@
           <td class="multi-line">{{ formatMultiLineData(axe.BestDiff) }}</td>
           <td>{{ axe.Valid }}</td>
           <td [class.temp-na]="!axe.Power || axe.Power === '---'">{{ (axe.Power && axe.Power !== '---') ? axe.Power : 'N/A' }}</td>
-          <td class="temp" [ngClass]="getTempClass(axe.Temp)">
-            {{ axe.Temp == 0 ? 'N/A' : (axe.Temp | number: '1.1-1') + ' ℃' }}
+          <td class="temp multi-line" [ngClass]="getTempClass(axe.Temp)">
+            <span [title]="'ASIC: ' + (axe.Temp | number: '1.1-1') + ' ℃'">
+              {{ axe.Temp == 0 ? 'N/A' : (axe.Temp | number: '1.1-1') + ' ℃' }}
+            </span>
+            @if (axe.VcoreTemp > 0) {
+              <br/>
+              <span [title]="'VCore: ' + (axe.VcoreTemp | number: '1.1-1') + ' ℃'">
+                {{ axe.VcoreTemp | number: '1.1-1' }} ℃
+              </span>
+            }
           </td>
           <td class="common-column">{{ axe.RSSI }} <small>dBm</small></td>
           <td class="common-column">{{ axe.FreeHeap | number: '1.1-1' }} <small>KB</small></td>
           <td class="version">{{ axe.Version }}</td>
-          <td class="uptime-column multi-line">{{ formatMultiLineData(axe.Uptime) }}</td>
-          <td class="lastseen-column">{{ axe.Lastseen | dateAgo }}</td>
+          <td class="uptime-column multi-line">
+            <span [title]="'Session uptime'">{{ axe.Uptime }}</span><br/>
+            <span [title]="'Ever uptime'">{{ axe.UptimeEver }}</span>
+          </td>
+          <td class="lastseen-column">{{ formatLastseen(axe.Lastseen) }}</td>
           <td>
             <button class="edit-btn" (click)="restart(axe)">⚡</button>
           </td>
