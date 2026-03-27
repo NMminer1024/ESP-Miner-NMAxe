@@ -345,7 +345,9 @@ td {
   padding: 6px 4px;
   text-align: center;
   border-bottom: 1px solid #555;
+  border-right: 1px solid #4a4a4a;
   font-size: 12px;
+  font-family: 'Courier New', Consolas, 'Lucida Console', monospace;
   box-sizing: border-box;
   line-height: 1.2;
   white-space: nowrap;
@@ -355,13 +357,18 @@ td {
     padding: 4px 1px; // 复选框列更紧凑
     width: 25px;
     max-width: 25px;
-    text-align: center; // 居中对齐
+    text-align: center;
     
     input[type="checkbox"] {
       width: 12px;
       height: 12px;
       margin: 0;
     }
+  }
+
+  &:last-child {
+    text-align: center;
+    padding: 4px 2px;
   }
 }
 
@@ -423,8 +430,13 @@ td:first-child { min-width: 25px; max-width: 25px; width: 25px; } // Checkbox co
 .multi-line {
   white-space: pre-line;
   font-size: 12px;
+  font-family: 'Courier New', Consolas, 'Lucida Console', monospace;
   line-height: 1.2;
   min-width: 80px;
+
+  span {
+    font-family: 'Courier New', Consolas, 'Lucida Console', monospace;
+  }
 }
 
 .single-line {
@@ -450,24 +462,26 @@ tr.low-power {
 
 // Buttons
 .edit-btn {
-  background: linear-gradient(135deg, #FF6B35, #F7931E);
+  background: linear-gradient(135deg, #1565C0, #1E88E5);
   color: #fff;
   border: none;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 21px; // 增大1.5倍（14px * 1.5 = 21px）
+  font-size: 18px;
+  font-family: inherit;
   transition: all 0.3s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 30px;
-  height: 30px;
+  height: 28px;
+  line-height: 1;
 
   &:hover {
-    background: linear-gradient(135deg, #F7931E, #FF6B35);
+    background: linear-gradient(135deg, #1E88E5, #42A5F5);
     transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(255,107,53,0.3);
+    box-shadow: 0 3px 8px rgba(30,136,229,0.4);
   }
 
   &:active {

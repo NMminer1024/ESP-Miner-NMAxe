@@ -61,7 +61,7 @@ void MinerApp::begin() {
         {"(market)",    market_thread_entry,            1024*8,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
         {"(stratum)",   stratum_thread_entry,           1024*11,  TASK_PRIORITY_STRATUM,     1, &_stratumTask,    10,  0},
         {"(monitor)",   monitor_thread_entry,           1024*4,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
-        {"(neighbor)",  alive_ip_scan_thread_entry,     1024*3,   TASK_PRIORITY_SWARM,       1, &_neighborTask,   10,  0},
+        {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SWARM,       1, &_neighborTask,   10,  0},
         {"(asic_tx)",   miner_asic_tx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_TX,    1, &_minerTxTask,    10,  0},
         {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_RX,    0, &_minerRxTask,    10,  0},
     };
