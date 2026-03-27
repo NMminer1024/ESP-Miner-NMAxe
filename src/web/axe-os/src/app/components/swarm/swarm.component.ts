@@ -1,8 +1,8 @@
 import {HttpClient, HttpEventType} from '@angular/common/http';
 import {Component, OnInit, OnDestroy, Input, ViewChild} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
-import {Subscription, interval} from 'rxjs';
-import {BehaviorSubject, startWith, switchMap} from 'rxjs';
+import {Subscription, interval, BehaviorSubject, startWith, catchError, EMPTY, of, timeout} from 'rxjs';
+import {ISystemInfo} from 'src/models/ISystemInfo';
 import {HashSuffixPipe} from "../../pipes/hash-suffix.pipe";
 import {DiffSuffixPipe} from "../../pipes/diff-suffix.pipe";
 import {DateAgoPipe} from '../../pipes/date-ago.pipe';
@@ -158,6 +158,11 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   private intervalId: any;
 
+  // Swarm discovery state
+  private deviceMap    = new Map<string, NMDevice>();
+  private probeFailCount = new Map<string, number>();
+  private blacklist    = new Set<string>();
+  private lastContactMs = new Map<string, number>();
 
   @Input() uri = '';
 
@@ -181,27 +186,38 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.updateTime();
     }, 1000);
 
-    this.subscription = interval(3000).pipe(
-      startWith(0),
-      switchMap(() => {
-        this.logs.push(`Request sent ${this.uri}`)
-        return this.http.get<{ devices: NMDevice[] }>(`${this.uri}/api/swarm`);
-      })
-    ).subscribe(
-      data => {
-        const alreadySelectedIPs = this.selectedItems.map(item => item.ip);
+    // Trigger a fresh backend scan whenever the swarm view is opened
+    this.http.post(`${this.uri}/api/swarm/scan`, {}).pipe(catchError(() => EMPTY)).subscribe();
 
-        data.devices.forEach(item => {
-          item.selected = alreadySelectedIPs.includes(item.ip);
+    // Poll every 3 s: get alive IPs, probe unknowns, refresh confirmed devices
+    this.subscription = interval(3000).pipe(startWith(0)).subscribe(() => {
+      this.http.get<{ self: string; ips: string[] }>(`${this.uri}/alive`).pipe(
+        catchError(() => of({ self: '', ips: [] as string[] }))
+      ).subscribe(resp => {
+        const ips = (resp.ips || []).filter((ip: string) => !!ip);
+
+        ips.forEach((ip: string) => {
+          if (this.blacklist.has(ip)) return;
+          if (this.deviceMap.has(ip)) {
+            this.fetchDeviceInfo(ip);   // known NM device – refresh
+          } else {
+            this.probeDevice(ip);       // unknown IP – probe first
+          }
         });
 
-        this.swarmData = this.sort(data.devices);
+        // Evict devices not contacted for > 5 minutes
+        const now = Date.now();
+        this.deviceMap.forEach((_, ip) => {
+          if ((now - (this.lastContactMs.get(ip) || 0)) > 5 * 60 * 1000) {
+            this.deviceMap.delete(ip);
+            this.lastContactMs.delete(ip);
+            this.probeFailCount.delete(ip);
+          }
+        });
 
-        this.swarmSummary = calculateSwarmSummary(this.swarmData);
-        this.logs.push(`Request received ${this.uri}`);
-      },
-      error => console.error('Error fetching swarm data', error)
-    );
+        this.rebuildSwarmData();
+      });
+    });
   }
 
   ngOnDestroy(): void {
@@ -510,6 +526,109 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 
   protected readonly SortIndex = SortIndex;
+
+  // ── Swarm discovery helpers ────────────────────────────────────────────────
+
+  /** Probe an unknown IP; register as NM device on success, blacklist after 3 failures. */
+  private probeDevice(ip: string): void {
+    this.http.get<any>(`http://${ip}/probe`).pipe(
+      timeout(3000),
+      catchError(() => {
+        const n = (this.probeFailCount.get(ip) || 0) + 1;
+        this.probeFailCount.set(ip, n);
+        if (n >= 3) this.blacklist.add(ip);
+        return EMPTY;
+      })
+    ).subscribe((data: any) => {
+      if (data && data.model !== undefined) {
+        // Confirmed NM device – reset counter and fetch full info
+        this.probeFailCount.set(ip, 0);
+        this.fetchDeviceInfo(ip);
+      } else {
+        const n = (this.probeFailCount.get(ip) || 0) + 1;
+        this.probeFailCount.set(ip, n);
+        if (n >= 3) this.blacklist.add(ip);
+      }
+    });
+  }
+
+  /** Fetch /api/system/info from a confirmed NM device and update the device map. */
+  private fetchDeviceInfo(ip: string): void {
+    this.http.get<ISystemInfo>(`http://${ip}/api/system/info`).pipe(
+      timeout(5000),
+      catchError(() => EMPTY)
+    ).subscribe((info: ISystemInfo) => {
+      const prev   = this.deviceMap.get(ip);
+      const device = this.mapInfoToDevice(ip, info);
+      if (prev) device.selected = prev.selected;
+      this.deviceMap.set(ip, device);
+      this.lastContactMs.set(ip, Date.now());
+      this.rebuildSwarmData();
+    });
+  }
+
+  /** Map /api/system/info response fields to the NMDevice interface. */
+  private mapInfoToDevice(ip: string, info: ISystemInfo): NMDevice {
+    const miner   = info.miner;
+    const id      = info.identity;
+    const pwr     = info.power;
+    const temps   = info.temps;
+    const stratum = info.stratum;
+
+    const accepted = miner?.sAccepted ?? 0;
+    const rejected = miner?.sRejected ?? 0;
+    const total    = accepted + rejected;
+    const rate     = total > 0 ? (accepted / total * 100).toFixed(1) : '0.0';
+
+    return {
+      ip,
+      Hostname:  id?.hostName   ?? '',
+      BoardType: id?.hwModel    ?? '',
+      PoolInUse: stratum?.url   ?? '',
+      HashRate:  HashSuffixPipe.transform((miner?.hashRate ?? 0) * 1e9),
+      Share:     `${rejected}/${accepted}/${rate}%`,
+      PoolDiff:  miner?.poolDiff      ?? '0',
+      NetDiff:   miner?.networkDiff   ?? '0',
+      LastDiff:  miner?.lastDiff      ?? '0',
+      BestDiff:  `${miner?.bestDiffSession ?? '0'}\r${miner?.bestDiffEver ?? '0'}`,
+      Valid:     miner?.blkhits        ?? 0,
+      Power:     pwr   ? `${pwr.power.toFixed(1)}W` : '---',
+      Temp:      temps?.asic  ?? 0,
+      RSSI:      id?.rssi     ?? 0,
+      FreeHeap:  (miner?.freeHeap ?? 0) / 1024,
+      Version:   id?.fwVersion ?? '',
+      Uptime:    formatUptime(miner?.uptimeSeconds ?? 0),
+      Lastseen:  0,
+      selected:  false,
+    };
+  }
+
+  /** Rebuild swarmData from deviceMap and update selection / Lastseen. */
+  private rebuildSwarmData(): void {
+    const alreadySelectedIPs = this.selectedItems.map(i => i.ip);
+    const now     = Date.now();
+    const devices = Array.from(this.deviceMap.values());
+    devices.forEach(d => {
+      d.selected = alreadySelectedIPs.includes(d.ip);
+      d.Lastseen = (now - (this.lastContactMs.get(d.ip) || now)) / 1000;
+    });
+    this.swarmData = this.sort(devices);
+    if (this.swarmData.length > 0) {
+      this.swarmSummary = calculateSwarmSummary(this.swarmData);
+    }
+  }
+}
+
+function formatUptime(seconds: number): string {
+  if (seconds <= 0) return '0s';
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 function calculateSwarmSummary(devices: NMDevice[]): SwarmSummary {

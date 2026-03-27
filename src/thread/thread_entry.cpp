@@ -507,6 +507,14 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/dashboard/luck/history",   HTTP_GET, get_lucky_history);
     // ── Swarm endpoints ───────────────────────────────────────────────────────
     // webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
+    webServer.on("/api/swarm/scan", HTTP_POST, [board](AsyncWebServerRequest* request) {
+        if (board->status.neighbor.scan_required){
+            xSemaphoreGive(board->status.neighbor.scan_required);
+        }
+        AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+        r->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(r);
+    }); // trigger alive_ip_scan_thread immediately
     // ── Logging and echo endpoints ───────────────────────────────────────────────
     webServer.on("/api/log", HTTP_GET, echo_handler);
     // ── OTA update endpoints ──────────────────────────────────────────────────

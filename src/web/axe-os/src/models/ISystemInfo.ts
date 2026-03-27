@@ -49,6 +49,10 @@ export interface IInfoMiner {
   hashRate:        number;
   bestDiffEver:    string;
   bestDiffSession: string;
+  networkDiff?:    string;
+  poolDiff?:       string;
+  lastDiff?:       string;
+  blkhits?:        number;
   freeHeap:        number;
   sAccepted:       number;
   sRejected:       number;
