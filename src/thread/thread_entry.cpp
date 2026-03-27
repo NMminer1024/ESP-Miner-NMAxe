@@ -1335,16 +1335,6 @@ void monitor_thread_entry(void *args){
             }
         }
     
-        // // recover factory if user long press user button
-        // if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
-        //     LOG_W("Factory reset triggered, erasing config and restart...");
-        //     if(erase_all_nvs()){
-        //         xSemaphoreGive(board->status.reboot_xsem);
-        //     }else{
-        //         LOG_E("Factory reset failed!");
-        //     }
-        // }
-
         // force config if user long press boot button
         if(xSemaphoreTake(board->status.force_config_xsem, 0) == pdTRUE){
             LOG_W("Force configuration triggered, starting wifi in AP mode when next reboot...");
@@ -1425,9 +1415,8 @@ void daemon_thread_entry(void *args){
 void fan_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
-
-    int16_t now_count = 0, last_count = 0, temp_cnt = 0;
-    uint32_t start_ms = millis();
+    int16_t now_count[board->info.spec.fans.size()] = {0}, last_count[board->info.spec.fans.size()] = {0}, temp_cnt = 0;
+    uint32_t start_ms[board->info.spec.fans.size()] = {0};
     delay(100);
 
     // Initialize TMP102 temperature sensor
@@ -1459,7 +1448,7 @@ void fan_thread_entry(void *args){
     // fan self test
     while(true){
         bool self_test_result[board->info.spec.fans.size()] = {false,}; // initialize all to false
-        bool all_fan_ok = true; // assume all fans are okay until we find one that isn't
+        bool all_fan_ok = true;
 
         for(auto &fan : board->status.fan.list){
             if(self_test_result[fan.id])  continue;
@@ -1484,9 +1473,11 @@ void fan_thread_entry(void *args){
             all_fan_ok = all_fan_ok && self_test_result[fan.id];
         }
 
-        if(all_fan_ok && (board->status.fan.list.size() > 0)) break;
-        LOG_E("Fan self test failed, please check fan wiring and connection, retrying in 5s...");
-        delay(10);
+        if(all_fan_ok) {
+            LOG_W("All fans passed self test.");
+            break;
+        }
+        else LOG_W("Some fans failed self test, retrying...");
     }
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_FAN_READY);
 
@@ -1512,23 +1503,27 @@ void fan_thread_entry(void *args){
             temp_cnt++;
             
             // Calculate fan RPM
-            if(millis() - start_ms >= 1000) {
-                uint32_t delta_time = millis() - start_ms;
-                pcnt_get_counter_value(init_param.torch.unit, &now_count);
+            if(millis() - start_ms[fan.id] >= 1000){
+                uint32_t delta_time = millis() - start_ms[fan.id];
+                pcnt_get_counter_value(init_param.torch.unit, &now_count[fan.id]);
                 uint16_t delta_pcnt = 0;
-                if (now_count < last_count) delta_pcnt = (init_param.torch.counter_h_lim - last_count) + now_count;
-                else delta_pcnt = now_count - last_count;
+                if (now_count[fan.id] < last_count[fan.id]) delta_pcnt = (init_param.torch.counter_h_lim - last_count[fan.id]) + now_count[fan.id];
+                else delta_pcnt = now_count[fan.id] - last_count[fan.id];
                 fan.rpm = calculate_rpm(delta_pcnt, delta_time / 1000.0);
-                last_count = now_count;
-                start_ms = millis();
+                last_count[fan.id] = now_count[fan.id];
+                start_ms[fan.id] = millis();
             }
 
             // Adjust fan speed
             if(board->status.preference.fan.is_auto_speed && fan.self_test){
-                static uint32_t pid_start = millis();
-                float dt = (millis() - pid_start) / 1000.0f; // Convert to seconds
-                fan.speed = (uint16_t)pid_compute(&fan_cfg->pid, board->status.preference.fan.target_temp, board->status.temp.asic, dt);
-                pid_start = millis();
+                static uint32_t pid_start[2] = {0};
+                float dt = (millis() - pid_start[fan.id]) / 1000.0f; // Convert to seconds
+
+                float target   = (fan.id == 0) ? board->status.preference.fan.target_temp : 85.0f; // For example, fan 0 targets user-defined temp, fan 1 targets 85C
+                float measured = (fan.id == 0) ? board->status.temp.asic : board->status.temp.vcore; // For example, fan 0 measures ASIC temp, fan 1 measures Vcore temp
+                
+                fan.speed = (uint16_t)pid_compute(&fan_cfg->pid, target, measured, dt);
+                pid_start[fan.id] = millis();
             }
             fan_set_speed(init_param, fan.speed / 100.0, fan_invert);
         }

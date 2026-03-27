@@ -2150,7 +2150,8 @@ void ui_miner_page_update(void* args){
   String voltage = formatNumber(board->status.power.vbus/1000.0, 3);
   String power = formatNumber(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 2);
   String price = (millis() - board->market->get_last_update() <= MINER_MARKET_CONNECT_TIMEOUT) ? formatNumber(board->market->get_main_pair().price, 6) : "";
-  String fan_and_efficiency = String(board->status.fan.list[0].rpm) + " rpm";
+  String fan_asic  = String(board->status.fan.list[0].rpm) ;
+  String fan_vcore = String(board->status.fan.list[1].rpm) ;
 
   //diff symbol color update
   if(board->status.miner.diff.last != 0){//avoid the first time update
@@ -2265,11 +2266,16 @@ void ui_miner_page_update(void* args){
   lv_label_set_text_fmt(miner_page.lb_uptime_day.obj,    "%s", uptime.substring(0,3).c_str());
   //share
   lv_label_set_text_fmt(miner_page.lb_share.obj,  "%d/%d", board->status.miner.share_rejected, board->status.miner.share_accepted);
-  //fan
-  lv_label_set_text_fmt(miner_page.lb_fan.obj, "%s", fan_and_efficiency.c_str());
   //power
   lv_label_set_text_fmt(miner_page.lb_power.obj,  "%sV/%sW", voltage.c_str(), power.c_str()); 
 
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME)
+    //fan for vcore only show on NMQAXE ++
+    lv_label_set_text_fmt(miner_page.lb_fan.obj, "%s/%s", fan_vcore.c_str(), fan_asic.c_str());
+  else
+    //fan for asic only one fan 
+    lv_label_set_text_fmt(miner_page.lb_fan.obj, "%s rpm", fan_asic.c_str());
+    
 
   // only for NMQ AXE ++
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
