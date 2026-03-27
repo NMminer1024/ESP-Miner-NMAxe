@@ -170,6 +170,10 @@ void get_system_info(AsyncWebServerRequest* request){
     minerObj["hashRate"]        = g_board.status.miner.hashrate._3m / 1000 / 1000 / 1000;
     minerObj["bestDiffEver"]    = formatNumber(g_board.status.miner.diff.best_ever, 4);
     minerObj["bestDiffSession"] = formatNumber(g_board.status.miner.diff.best_session, 4);
+    minerObj["networkDiff"]     = formatNumber(g_board.status.miner.diff.network, 4);
+    minerObj["poolDiff"]        = formatNumber(g_board.status.miner.diff.pool, 4);
+    minerObj["lastDiff"]        = formatNumber(g_board.status.miner.diff.last, 4);
+    minerObj["blkhits"]         = g_board.status.miner.hits;
     minerObj["freeHeap"]        = ESP.getFreeHeap();
     minerObj["sAccepted"]       = g_board.status.miner.share_accepted;
     minerObj["sRejected"]       = g_board.status.miner.share_rejected;
@@ -202,7 +206,9 @@ void get_system_info(AsyncWebServerRequest* request){
 
     String json_str;
     serializeJson(root, json_str);
-    request->send(200, "application/json", json_str);
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_str);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
 }
 
 // GET /api/setting/network -- hostname, SSID, WiFi status and IP.

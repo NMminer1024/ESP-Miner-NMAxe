@@ -524,6 +524,21 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/setting/market",     HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_market);
     webServer.on("/api/setting/preference", HTTP_GET,   get_setting_preference);
     webServer.on("/api/setting/preference", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_preference);
+    // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
+    webServer.on("/probe", HTTP_GET, [board](AsyncWebServerRequest* request) {
+        AsyncResponseStream* resp = request->beginResponseStream("application/json");
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+        resp->print("{");
+        resp->printf("\"model\":\"%s\",",    board->info.spec.name.c_str());  // board model name
+        resp->printf("\"hostname\":\"%s\",",    board->info.base.hostname.c_str()); // hostname
+        resp->printf("\"ver\":\"%s\",", board->info.base.fw_version.c_str()); // firmware version
+        resp->printf("\"hr\":%.0f,",       board->status.miner.hashrate._3m); // hashrate in H/s, 3m average
+        resp->printf("\"sbd\":%.0f,", board->status.miner.diff.best_session); // best session difficulty
+        resp->printf("\"ebd\":%.0f,",     board->status.miner.diff.best_ever); // best ever difficulty
+        resp->printf("\"ut\":%d",      board->status.miner.uptime_session);   // uptime in seconds for current session
+        resp->print("}");
+        request->send(resp);
+    });
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
     webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
         AsyncWebServerResponse *response = request->beginResponse(200);

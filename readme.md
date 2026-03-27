@@ -233,6 +233,10 @@ The response is structured into nested sub-objects.
 | `miner.hashRate` | float | GH/s | 3-minute average hashrate |
 | `miner.bestDiffEver` | string | — | All-time best share difficulty (e.g. `"1.23M"`) |
 | `miner.bestDiffSession` | string | — | Session best share difficulty |
+| `miner.networkDiff` | string | — | Current network difficulty |
+| `miner.poolDiff` | string | — | Pool-assigned difficulty for this worker |
+| `miner.lastDiff` | string | — | Difficulty of the most recently submitted share |
+| `miner.blkhits` | int | — | Block-hit counter (valid shares meeting network difficulty) |
 | `miner.sAccepted` | int | — | Cumulative accepted shares |
 | `miner.sRejected` | int | — | Cumulative rejected shares |
 | `miner.uptimeSeconds` | int | s | Session uptime |
@@ -293,6 +297,10 @@ Active pool connection — read-only snapshot.
     "hashRate": 720.5,
     "bestDiffEver": "1.23M",
     "bestDiffSession": "456.7K",
+    "networkDiff": "88.55T",
+    "poolDiff": "65536",
+    "lastDiff": "131072",
+    "blkhits": 0,
     "freeHeap": 187320,
     "sAccepted": 1024,
     "sRejected": 3,
