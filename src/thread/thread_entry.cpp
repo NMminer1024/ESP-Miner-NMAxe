@@ -9,6 +9,10 @@
 #include "web/http_server.h"
 #include "web/recovery_page.h"
 #include <Adafruit_NeoPixel.h>
+#include "lwip/sockets.h"
+#include "lwip/icmp.h"
+#include "lwip/inet_chksum.h"
+#include "lwip/ip4.h"
 
 void power_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
@@ -502,7 +506,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/dashboard/chart/realtime", HTTP_GET, get_status_realtime);
     webServer.on("/api/dashboard/luck/history",   HTTP_GET, get_lucky_history);
     // ── Swarm endpoints ───────────────────────────────────────────────────────
-    webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
+    // webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
     // ── Logging and echo endpoints ───────────────────────────────────────────────
     webServer.on("/api/log", HTTP_GET, echo_handler);
     // ── OTA update endpoints ──────────────────────────────────────────────────
@@ -537,6 +541,22 @@ void webserver_thread_entry(void *args){
         resp->printf("\"ebd\":%.0f,",     board->status.miner.diff.best_ever); // best ever difficulty
         resp->printf("\"ut\":%d",      board->status.miner.uptime_session);   // uptime in seconds for current session
         resp->print("}");
+        request->send(resp);
+    });
+    // alive ip return from miner, just alive ip, maybe phone, pc, or miner itself, for miner probe endpoint, AxeOS probe one by one .
+    webServer.on("/alive", HTTP_GET, [board](AsyncWebServerRequest* request) {
+        String self_ip = WiFi.localIP().toString();
+        AsyncResponseStream* resp = request->beginResponseStream("application/json");
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+        resp->printf("{\"self\":\"%s\",\"ips\":[\"%s\"", self_ip.c_str(), self_ip.c_str());
+        if (board->status.neighbor.to_view().ips && 
+            board->status.neighbor.to_view().mutex && 
+            xSemaphoreTake(board->status.neighbor.to_view().mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
+                for (const auto& ip : *board->status.neighbor.to_view().ips)
+                    resp->printf(",\"%s\"", ip.c_str());
+                xSemaphoreGive(board->status.neighbor.to_view().mutex);
+        }
+        resp->print("]}");
         request->send(resp);
     });
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
@@ -861,6 +881,147 @@ void swarm_thread_entry(void *args){
         }
     }
   }
+}
+
+void alive_ip_scan_thread_entry(void* args) {
+    board_sal_t *board = (board_sal_t*)args;
+
+    constexpr uint32_t PING_TIMEOUT_MS = 500; // wait 500ms per IP
+
+    // ICMP packet layout: 8-byte header + 16-byte payload
+    struct PingPkt {
+        struct icmp_echo_hdr hdr;
+        uint8_t              data[32];
+    };
+
+    // ── Ping a single IP; returns true if an ICMP Echo Reply is received ────────
+    // sock:      RAW ICMP socket already created and configured with SO_RCVTIMEO
+    // o0~o2:     first three octets of the subnet
+    // last:      last octet of the target IP
+    // seq:       ICMP sequence number (maintained by caller, incremented by 1 each call)
+    // returns true  = Echo Reply received (host alive)
+    // returns false = timeout / send failure / non-Echo-Reply response
+    auto ping_one = [&](int sock, uint8_t o0, uint8_t o1, uint8_t o2, int last, uint16_t seq) -> bool {
+        PingPkt pkt = {};
+        ICMPH_TYPE_SET(&pkt.hdr, ICMP_ECHO);
+        ICMPH_CODE_SET(&pkt.hdr, 0);
+        pkt.hdr.id     = htons(0xBEEF);
+        pkt.hdr.seqno  = htons(seq);
+        pkt.hdr.chksum = inet_chksum(&pkt, sizeof(pkt));
+
+        struct sockaddr_in dest = {};
+        dest.sin_family      = AF_INET;
+        dest.sin_addr.s_addr = htonl(
+            ((uint32_t)o0 << 24) | ((uint32_t)o1 << 16) |
+            ((uint32_t)o2 <<  8) |  (uint32_t)last);
+
+        uint32_t t0 = millis();
+        if (::sendto(sock, &pkt, sizeof(pkt), 0,
+                     (struct sockaddr*)&dest, sizeof(dest)) < 0) {
+            LOG_D("(scan) %u.%u.%u.%u sendto failed: errno=%d (%s)", o0, o1, o2, last, errno, strerror(errno));
+            return false;
+        }
+
+        uint8_t rbuf[64];
+        struct sockaddr_in from = {};
+        socklen_t fromlen = sizeof(from);
+        int n = ::recvfrom(sock, rbuf, sizeof(rbuf), 0,
+                           (struct sockaddr*)&from, &fromlen);
+        if (n > 0) {
+            struct icmp_echo_hdr* reply = (struct icmp_echo_hdr*)(rbuf + 20);
+            if (ICMPH_TYPE(reply) == ICMP_ER) {
+                LOG_D("(scan) %u.%u.%u.%u alive, ping %lums", o0, o1, o2, last, (unsigned long)(millis() - t0));
+                return true;
+            }
+            LOG_D("(scan) %u.%u.%u.%u unexpected ICMP type=%u code=%u", o0, o1, o2, last, ICMPH_TYPE(reply), ICMPH_CODE(reply));
+        } else {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                LOG_D("(scan) %u.%u.%u.%u no reply (timeout %ums)", o0, o1, o2, last, PING_TIMEOUT_MS);
+            } else {
+                LOG_D("(scan) %u.%u.%u.%u recvfrom error: errno=%d (%s)",o0, o1, o2, last, errno, strerror(errno));
+            }
+        }
+        return false;
+    };
+
+    while (true) {
+        if (WiFi.status() != WL_CONNECTED) {
+            delay(1000);
+            continue;
+        }
+
+        // Create a single RAW ICMP socket shared for the entire /24 scan
+        int sock = ::socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+        if (sock < 0) {
+            LOG_E("(scan) raw socket create failed: %d", errno);
+             delay(1000*10); // creation failure is usually a permission issue; retry after 10s to avoid spamming the log
+            continue;
+        }
+        struct timeval tv = { 0, (long)(PING_TIMEOUT_MS * 1000L) };
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+        uint32_t scan_start = millis();
+
+        IPAddress local = WiFi.localIP();
+        uint8_t o0 = local[0], o1 = local[1], o2 = local[2], self_last = local[3];
+        // LOG_W("(scan) start ping %u.%u.%u.0/24, generation=%u", o0, o1, o2, ctx->scan_generation);
+        LOG_W("(scan) start ping %u.%u.%u.0/24, generation=%u", o0, o1, o2, board->status.neighbor.scan_generation);
+
+        std::vector<String> found;
+        found.reserve(16); // pre-allocate to avoid frequent reallocs; actual count is usually far less than 256
+
+        uint16_t seq = 0, MAX_SCAN = 254;
+        for (int last = 1; last <= MAX_SCAN; last++) {
+            if (last == self_last) continue; // skip self
+
+            // Page was refreshed — reset scan progress
+            if (xSemaphoreTake(board->status.neighbor.scan_required, 0) == pdTRUE) {
+                // Scan interrupt triggered: usually by a page refresh, requiring an immediate reset and full re-scan
+                if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+                    board->status.neighbor.scan_generation++;
+                    xSemaphoreGive(board->status.neighbor.mutex);
+                    LOG_W("(scan) force new scan generation=%u", board->status.neighbor.scan_generation);
+                }
+                last = 1;      
+                seq  = 0;
+                found.clear();
+            }
+
+            if (ping_one(sock, o0, o1, o2, last, ++seq)) {
+                char ip_str[16] = {0,};
+                snprintf(ip_str, sizeof(ip_str), "%u.%u.%u.%u", o0, o1, o2, last);
+                found.push_back(String(ip_str));
+            }
+
+            // Batch-update scan results every 10 IPs to avoid holding the mutex too long and blocking frontend requests
+            // Intermediate batches use copy-assignment to keep accumulating in found; the final batch uses move to avoid a deep copy
+            if ((seq % 10 == 0) || (last == MAX_SCAN)) {
+                bool is_last = (last == MAX_SCAN);
+                if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                    if (is_last) board->status.neighbor.alive_ips = std::move(found);
+                    else         board->status.neighbor.alive_ips = found;
+                    board->status.neighbor.last_scan_ms = millis();
+                    xSemaphoreGive(board->status.neighbor.mutex);
+                }
+                LOG_I("(scan) progress to %u.%u.%u.%u, found %u alive hosts", o0, o1, o2, last, (unsigned)board->status.neighbor.alive_ips.size());
+                // Yield 50ms after every 10 IPs so lwIP tcpip_thread can evict timed-out PENDING ARP entries,
+                // preventing an etharp_find_entry assert(q==NULL) crash when the ARP table (10 slots by default) is full.
+                delay(50); 
+            } 
+            delay(5); // give lwIP a processing window between pings within a batch
+        }
+        ::close(sock);
+
+        uint32_t elapsed = (millis() - scan_start) / 1000;
+        LOG_I("(scan) done in %lus, %u alive on %u.%u.%u.0/24", (uint32_t)elapsed, (uint16_t)board->status.neighbor.alive_ips.size(), o0, o1, o2);
+        // Scan complete: increment generation so the swarm thread detects the change, resets all cached state, and re-probes
+        if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            board->status.neighbor.scan_generation++;
+            xSemaphoreGive(board->status.neighbor.mutex);
+        }
+        // Wait for the next scan: triggered immediately by a page refresh, or automatically after 5 minutes
+        xSemaphoreTake(board->status.neighbor.scan_required, 5 * 60 * 1000);
+    }
 }
 
 void monitor_thread_entry(void *args){

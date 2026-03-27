@@ -1009,55 +1009,55 @@ void get_lucky_history(AsyncWebServerRequest* request){
     LOG_D("Lucky history sent: %d bytes, %d records", json_size, sampled_count);
 }
 
-// GET /api/swarm -- list all discovered swarm devices with their status JSON.
-void get_swarm_info_handler(AsyncWebServerRequest* request){
-    uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
+// // GET /api/swarm -- list all discovered swarm devices with their status JSON.
+// void get_swarm_info_handler(AsyncWebServerRequest* request){
+//     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
     
-    // Use local document instead of static to prevent memory leaks
-    DynamicJsonDocument root(json_size_max);
+//     // Use local document instead of static to prevent memory leaks
+//     DynamicJsonDocument root(json_size_max);
 
-    JsonArray devicesArray = root.createNestedArray("devices");
-    for (auto it = g_board.status.swarm.map.begin(); it != g_board.status.swarm.map.end(); it++) {
-        String ip        = it->first;
-        String swarm_str = it->second;
+//     JsonArray devicesArray = root.createNestedArray("devices");
+//     for (auto it = g_board.status.swarm.map.begin(); it != g_board.status.swarm.map.end(); it++) {
+//         String ip        = it->first;
+//         String swarm_str = it->second;
 
-        DynamicJsonDocument deviceDoc(2048);
-        DeserializationError error = deserializeJson(deviceDoc, swarm_str);
-        if (error) continue;
+//         DynamicJsonDocument deviceDoc(2048);
+//         DeserializationError error = deserializeJson(deviceDoc, swarm_str);
+//         if (error) continue;
         
-        JsonObject deviceObj = devicesArray.createNestedObject();
-        deviceObj["ip"] = ip;
-        deviceObj["Hostname"] = (deviceDoc.containsKey("Hostname")) ? deviceDoc["Hostname"].as<std::string>() : "";
-        deviceObj["BoardType"] = deviceDoc["BoardType"].as<std::string>();
-        deviceObj["PoolInUse"] = (deviceDoc.containsKey("PoolInUse")) ? deviceDoc["PoolInUse"].as<std::string>() : "N/A";
-        deviceObj["HashRate"] = deviceDoc["HashRate"].as<std::string>();
-        deviceObj["Share"] = deviceDoc["Share"].as<std::string>();
-        deviceObj["PoolDiff"] = deviceDoc["PoolDiff"].as<std::string>();
-        deviceObj["NetDiff"] = deviceDoc["NetDiff"].as<std::string>();
-        deviceObj["LastDiff"] = deviceDoc["LastDiff"].as<std::string>();
-        deviceObj["BestDiff"] = deviceDoc["BestDiff"].as<std::string>();
-        deviceObj["Valid"] = deviceDoc["Valid"].as<int>();
-        deviceObj["Power"] = (deviceDoc.containsKey("Power")) ? deviceDoc["Power"].as<std::string>() : "---";
-        deviceObj["Temp"] = deviceDoc["Temp"].as<float>();
-        deviceObj["RSSI"] = deviceDoc["RSSI"].as<int>();
-        deviceObj["FreeHeap"] = deviceDoc["FreeHeap"].as<float>();
-        deviceObj["Version"] = deviceDoc["Version"].as<std::string>();
-        deviceObj["Uptime"] = deviceDoc["Uptime"].as<std::string>();
-        deviceObj["Lastseen"] = deviceDoc["Lastseen"].as<int>() / 1000.0;
-    }
+//         JsonObject deviceObj = devicesArray.createNestedObject();
+//         deviceObj["ip"] = ip;
+//         deviceObj["Hostname"] = (deviceDoc.containsKey("Hostname")) ? deviceDoc["Hostname"].as<std::string>() : "";
+//         deviceObj["BoardType"] = deviceDoc["BoardType"].as<std::string>();
+//         deviceObj["PoolInUse"] = (deviceDoc.containsKey("PoolInUse")) ? deviceDoc["PoolInUse"].as<std::string>() : "N/A";
+//         deviceObj["HashRate"] = deviceDoc["HashRate"].as<std::string>();
+//         deviceObj["Share"] = deviceDoc["Share"].as<std::string>();
+//         deviceObj["PoolDiff"] = deviceDoc["PoolDiff"].as<std::string>();
+//         deviceObj["NetDiff"] = deviceDoc["NetDiff"].as<std::string>();
+//         deviceObj["LastDiff"] = deviceDoc["LastDiff"].as<std::string>();
+//         deviceObj["BestDiff"] = deviceDoc["BestDiff"].as<std::string>();
+//         deviceObj["Valid"] = deviceDoc["Valid"].as<int>();
+//         deviceObj["Power"] = (deviceDoc.containsKey("Power")) ? deviceDoc["Power"].as<std::string>() : "---";
+//         deviceObj["Temp"] = deviceDoc["Temp"].as<float>();
+//         deviceObj["RSSI"] = deviceDoc["RSSI"].as<int>();
+//         deviceObj["FreeHeap"] = deviceDoc["FreeHeap"].as<float>();
+//         deviceObj["Version"] = deviceDoc["Version"].as<std::string>();
+//         deviceObj["Uptime"] = deviceDoc["Uptime"].as<std::string>();
+//         deviceObj["Lastseen"] = deviceDoc["Lastseen"].as<int>() / 1000.0;
+//     }
 
-    String swarm_info;
-    serializeJson(root, swarm_info);
+//     String swarm_info;
+//     serializeJson(root, swarm_info);
 
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", swarm_info);
-    response->addHeader("Access-Control-Allow-Origin", "*");
-    response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-    request->send(response);
+//     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", swarm_info);
+//     response->addHeader("Access-Control-Allow-Origin", "*");
+//     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+//     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
+//     request->send(response);
     
-    LOG_D("Swarm info sent, json size: %d, devices: %d, heap free: %.3f KB", 
-          swarm_info.length(), devicesArray.size(), ESP.getFreeHeap() / 1024.0f);
-}
+//     LOG_D("Swarm info sent, json size: %d, devices: %d, heap free: %.3f KB", 
+//           swarm_info.length(), devicesArray.size(), ESP.getFreeHeap() / 1024.0f);
+// }
 
 // OPTIONS /api/theme -- CORS preflight (actual CORS headers set by wildcard handler).
 void options_theme_handler(AsyncWebServerRequest* request){

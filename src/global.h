@@ -11,6 +11,8 @@
 #include <vector>
 #include "drivers/touch/ft6206.h"
 #include "lvgl.h"
+#include <set>
+
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
@@ -141,8 +143,12 @@ typedef struct{
     connect_info_t          connection;
 }board_info_t;
 
-
-
+struct ScanView {
+    std::vector<String>*  ips          = nullptr;
+    SemaphoreHandle_t     mutex        = nullptr;
+    SemaphoreHandle_t     required_sem = nullptr;  // give once to trigger immediate rescan
+    uint32_t*             last_ms      = nullptr;
+};
 
 typedef String miner_ip_t;
 typedef String miner_info_t;
@@ -260,6 +266,24 @@ typedef struct{
         led_preference_info_t       led;
         asic_preference_info_t      asic;
     }preference;
+
+    struct ScanCtx {
+        std::vector<String> alive_ips;       // ICMP 存活 IP 列表
+        SemaphoreHandle_t   mutex;  
+        SemaphoreHandle_t   scan_required;   // 前端刷新时释放，触发新一轮扫描；超时后自动重扫
+        uint32_t            last_scan_ms;
+        std::set<String>    probe_blacklist; // 非 NMMiner IP，本轮 scan 周期内跳过
+        uint32_t            scan_generation; // 每完成一轮完整扫描 +1，通知 swarm 重置记忆
+
+        ScanView to_view() {
+            ScanView view;
+            view.ips          = &alive_ips;
+            view.mutex        = mutex;
+            view.required_sem = scan_required;
+            view.last_ms      = &last_scan_ms;
+            return view;
+        }
+    }neighbor;
 
     SemaphoreHandle_t                  reboot_xsem;             // reboot signal
     SemaphoreHandle_t                  nvs_save_xsem;           // save status to NVS signal

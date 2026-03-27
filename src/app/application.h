@@ -43,6 +43,7 @@ private:
     TaskHandle_t _touchTask    = NULL;
     TaskHandle_t _wsTask       = NULL;
     TaskHandle_t _monitorTask  = NULL;
+    TaskHandle_t _neighborTask = NULL;
     TaskHandle_t _swarmTask    = NULL;
     TaskHandle_t _marketTask   = NULL;
     TaskHandle_t _daemonTask   = NULL;
