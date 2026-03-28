@@ -119,9 +119,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = true;
-            config.preference.fan.is_auto_speed    = true;
+            // config.preference.fan0.is_auto_speed   = true;
+            // config.preference.fan0.target_temp     = 45;
             config.preference.led.enable           = true;
-            config.preference.asic.target_temp     = 45;
             config.create_asic_instance      = create_axe_asic_instance;
             config.create_power_instance     = create_axe_power_instance;
 
@@ -149,6 +149,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.integral             = 0;
             fan_cfg.pid.output_min           = 25.0f;
             fan_cfg.pid.output_max           = 99.999f;
+            fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
+            fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "30")).toFloat();
             config.fans.clear();
             config.fans.push_back(fan_cfg); // single fan
             break;
@@ -247,9 +249,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = true;
-            config.preference.fan.is_auto_speed    = true;
+            // config.preference.fan0.is_auto_speed    = true;
+            // config.preference.fan0.target_temp      = 45;
             config.preference.led.enable           = true;
-            config.preference.asic.target_temp     = 45;
             config.create_asic_instance      = create_gamma_asic_instance;
             config.create_power_instance     = create_gamma_power_instance;
 
@@ -277,10 +279,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.integral              = 0;
             fan_cfg.pid.output_min            = 25.0f;
             fan_cfg.pid.output_max            = 99.999f;
+            fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
+            fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "30")).toFloat();
             config.fans.clear();
             config.fans.push_back(fan_cfg); // single fan
-
-
             break;
         case NMQAXE_PLUS_PLUS:
             config.name                      = BOARD_NMQAXE_PLUS_PLUS_NAME;
@@ -381,9 +383,11 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = false;
-            config.preference.fan.is_auto_speed    = true;
+            // config.preference.fan0.is_auto_speed    = true;
+            // config.preference.fan0.target_temp      = 30;
+            // config.preference.fan1.is_auto_speed    = true;
+            // config.preference.fan1.target_temp      = 85;
             config.preference.led.enable           = true;
-            config.preference.asic.target_temp     = 30;
             config.create_asic_instance            = create_qaxepp_asic_instance;
             config.create_power_instance           = create_qaxepp_power_instance;
             
@@ -412,6 +416,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.integral             = 0;
             fan_cfg.pid.output_min           = 0.00f;
             fan_cfg.pid.output_max           = 100.0f;
+            fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
+            fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "30")).toFloat();
             config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
 
             
@@ -439,6 +445,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.integral             = 0;
             fan_cfg.pid.output_min           = 0.00f;
             fan_cfg.pid.output_max           = 100.0f;
+            fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
+            fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_VCORE_TARGET_TEMP, "85")).toFloat();
             config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
             break;
         default:

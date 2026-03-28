@@ -25,10 +25,15 @@
 #define NVS_CONFIG_FLIP_SCREEN "flipscreen"
 #define NVS_CONFIG_LED_INDICATOR "ledindicator"
 #define NVS_CONFIG_INVERT_FAN_POLARITY "invertfanpol"
-#define NVS_CONFIG_AUTO_FAN_SPEED "autofanspeed"
-#define NVS_CONFIG_ASIC_TARGET_TEMP "asictargettemp"
-#define NVS_CONFIG_AUTO_SCREEN "autoscreen"
-#define NVS_CONFIG_FAN_SPEED "fanspeed"
+
+#define NVS_CONFIG_AUTO_ASIC_FAN_SPEED  "autoasicfanspeed"
+#define NVS_CONFIG_AUTO_VCORE_FAN_SPEED "autovcorefanspeed"
+#define NVS_CONFIG_ASIC_TARGET_TEMP     "asictargettemp"
+#define NVS_CONFIG_VCORE_TARGET_TEMP    "vcoretargettemp"
+#define NVS_CONFIG_ASIC_FAN_SPEED       "asicfanspeed" // enabe manual fan speed control for ASIC cooling, value in percentage (0-100)
+#define NVS_CONFIG_VCORE_FAN_SPEED      "vcorefanspeed" // enabe manual fan speed control for Vcore cooling, value in percentage (0-100) , if applicable
+
+#define NVS_CONFIG_AUTO_SCREEN          "autoscreen"
 #define NVS_CONFIG_BEST_EVER "bestever"
 #define NVS_CONFIG_SELF_TEST "selftest"
 #define NVS_CONFIG_BLOCK_HITS "blockhits"

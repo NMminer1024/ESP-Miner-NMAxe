@@ -50,10 +50,10 @@ typedef struct{
     uint16_t    max;      // low temperature limit
 }limited_data_u16;
 
-typedef struct{
-    bool        is_auto_speed;
-    float       target_temp;  //asic temp
-}fan_preference_info_t;
+// typedef struct{
+//     bool        is_auto_speed;
+//     float       target_temp;  //asic temp
+// }fan_preference_info_t;
 
 typedef struct{
     bool     flip;
@@ -66,10 +66,6 @@ typedef struct{
     bool   sleep;
     bool   sleep_last;
 }led_preference_info_t;
-
-typedef struct{
-    uint8_t   target_temp;    // target asic temperature in celsius degree
-}asic_preference_info_t;
 
 // ---- OC / VC option lists (defined before BoardSpecConfig so it can be used as a field) ----
 struct work_option_t {
@@ -195,8 +191,8 @@ struct BoardSpecConfig {
 
     struct{
         screen_preference_info_t screen;
-        asic_preference_info_t   asic;
-        fan_preference_info_t    fan;
+        // fan_preference_info_t    fan0; // for asic cooling fan
+        // fan_preference_info_t    fan1; // for vcore cooling fan, if exist
         led_preference_info_t    led;
     }preference;
 

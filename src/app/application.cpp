@@ -35,7 +35,13 @@ bool MinerApp::init() {
         disable_usb_uart();
     }
 
-    return true;
+    // Start the MinerApp tick thread
+    BaseType_t ret = xTaskCreatePinnedToCore(_tick_thread_entry, "(app_tick)", 1024 * 3, (void*)(&g_board), TASK_PRIORITY_APP_TICK, &_tickTask, 1);
+    
+    if (ret == pdPASS) LOG_I("Thread (app_tick) created on core 1");
+    else               LOG_E("Failed to create thread (app_tick)");
+
+    return (ret == pdPASS);
 }
 
 /*──────────────────────────────────────────────
@@ -81,12 +87,6 @@ void MinerApp::begin() {
             xEventGroupWaitBits(g_board.status.init_evt, t.wait_events, pdFALSE, pdTRUE, portMAX_DELAY);
         }
     }
-
-    // Start the MinerApp tick thread
-    BaseType_t ret = xTaskCreatePinnedToCore(_tick_thread_entry, "(app_tick)", 1024 * 3, (void*)(&g_board), TASK_PRIORITY_APP_TICK, &_tickTask, 1);
-    
-    if (ret == pdPASS) LOG_I("Thread (app_tick) created on core 1");
-    else               LOG_E("Failed to create thread (app_tick)");
 }
 
 /*──────────────────────────────────────────────
@@ -127,6 +127,8 @@ void MinerApp::_tick_thread_entry(void* args) {
     uint16_t brightness = board->status.preference.screen.brightness;
     float    x = 0.0f;
     while(true){
+        delay(10);
+        // check miner events to trigger backlight effect, such as block hit or high diff achieved
         EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED, pdFALSE, pdFALSE, 0);
         if((bits & SYS_EVENT_MINER_BLOCK_HIT) == SYS_EVENT_MINER_BLOCK_HIT) {
             brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
@@ -138,7 +140,28 @@ void MinerApp::_tick_thread_entry(void* args) {
             brightness = board->status.preference.screen.brightness;
         }
         tft_bl_ctrl(brightness);
-        delay(10);
+
+
+        // sensor reading and other periodic tasks can also be added here if needed
+        //update board temperature
+        static uint16_t mcu_temp_last_update = 0, vcore_temp_last_update = 0, asic_temp_last_update = 0;
+        if(millis() - mcu_temp_last_update >= 30 * 1000){
+            board->status.temp.mcu = (float)get_mcu_temperature();
+            board->status.temp.mcu   = roundf(board->status.temp.mcu * 10) / 10.0f;
+            mcu_temp_last_update = millis();
+        }
+        if(millis() - vcore_temp_last_update >= 125){
+            board->status.temp.vcore = (float)get_vcore_temperature();
+            board->status.temp.vcore = roundf(board->status.temp.vcore * 10) / 10.0f;
+            xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_VCORE_TEMP_UPDATE);
+            vcore_temp_last_update = millis();
+        }
+        if(millis() - asic_temp_last_update >= 125){
+            board->status.temp.asic = (float)get_asic_temperature();
+            board->status.temp.asic  = roundf(board->status.temp.asic * 100) / 100.0f;
+            xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
+            asic_temp_last_update = millis();
+        }
     }
 }
 /*──────────────────────────────────────────────
@@ -198,8 +221,8 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.info.base.hostname                    = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_board.info.connection.wifi.ap.info.ssid.c_str()));
 
     g_board.status.miner.stratum_update               = millis();
-    g_board.status.preference.fan.is_auto_speed       = nvs_config_get_u16(NVS_CONFIG_AUTO_FAN_SPEED,   g_board.info.spec.preference.fan.is_auto_speed);
-    g_board.status.preference.fan.target_temp         = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, String(g_board.info.spec.preference.asic.target_temp).c_str())).toFloat();
+    // g_board.status.preference.fan0.is_auto_speed       = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
+    // g_board.status.preference.fan0.target_temp         = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, String(g_board.info.spec.preference.fan0.target_temp).c_str())).toFloat();
     g_board.status.preference.screen.flip             = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,       g_board.info.spec.preference.screen.flip);
     g_board.status.preference.screen.auto_rolling     = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN,       g_board.info.spec.preference.screen.auto_rolling);
     g_board.status.preference.screen.brightness       = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.spec.preference.screen.brightness);
@@ -247,7 +270,7 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
         fan_status_t state;
         state.id        = i;
         state.self_test = false;
-        state.speed     = nvs_config_get_u16(NVS_CONFIG_FAN_SPEED, 100);
+        state.speed     = nvs_config_get_u16(NVS_CONFIG_ASIC_FAN_SPEED, 100);
         state.rpm       = 0;
         g_board.status.fan.list.push_back(state);
     }

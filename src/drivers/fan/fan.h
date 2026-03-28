@@ -26,7 +26,9 @@ typedef struct{
 
 typedef struct{
     uint8_t    id;
-    bool       polarity; // false: normal, true: inverted
+    bool       polarity;   // false: normal, true: inverted
+    bool       auto_speed; // whether to automatically adjust speed based on temperature
+    float      target_temp; // target temperature for automatic speed control
     fan_init_t init;
     fan_pid_t  pid;
 }fan_config_t;

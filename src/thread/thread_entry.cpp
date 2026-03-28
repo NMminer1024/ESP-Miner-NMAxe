@@ -1445,6 +1445,18 @@ void fan_thread_entry(void *args){
         return nullptr;
     };
 
+    auto get_fan_status = [&](uint8_t fan_id) -> fan_status_t* {
+        for(auto &fan_status : board->status.fan.list){
+            if(fan_status.id == fan_id){
+                return &fan_status;
+            }
+        }
+        return nullptr;
+    };
+
+
+
+
     // fan self test
     while(true){
         bool self_test_result[board->info.spec.fans.size()] = {false,}; // initialize all to false
@@ -1483,50 +1495,48 @@ void fan_thread_entry(void *args){
 
     // fan control loop
     while(true){
-        for(auto &fan : board->status.fan.list){
-            fan_config_t* fan_cfg = get_fan_config(fan.id);
-            if(fan_cfg == nullptr) continue; // skip if fan config not found
-            
-            bool fan_invert = fan_cfg->polarity;  // find fan polarity by id from config
-            fan_init_t init_param = fan_cfg->init;// find fan init config by id from config
-
-            delay(125);// 8Hz
-            //update board temperature
-            board->status.temp.mcu    = (temp_cnt % 300 == 0) ? (float)get_mcu_temperature() : board->status.temp.mcu;
-            board->status.temp.vcore  = (temp_cnt % 20 == 0) ? (float)get_vcore_temperature() : board->status.temp.vcore;
-            board->status.temp.asic   = (temp_cnt % 1 == 0) ? (float)get_asic_temperature() : board->status.temp.asic;
-
-            // Round to 1 decimal place
-            board->status.temp.mcu   = roundf(board->status.temp.mcu * 10) / 10.0f;
-            board->status.temp.vcore = roundf(board->status.temp.vcore * 10) / 10.0f;
-            board->status.temp.asic  = roundf(board->status.temp.asic * 100) / 100.0f;
-            temp_cnt++;
-            
-            // Calculate fan RPM
-            if(millis() - start_ms[fan.id] >= 1000){
-                uint32_t delta_time = millis() - start_ms[fan.id];
-                pcnt_get_counter_value(init_param.torch.unit, &now_count[fan.id]);
-                uint16_t delta_pcnt = 0;
-                if (now_count[fan.id] < last_count[fan.id]) delta_pcnt = (init_param.torch.counter_h_lim - last_count[fan.id]) + now_count[fan.id];
-                else delta_pcnt = now_count[fan.id] - last_count[fan.id];
-                fan.rpm = calculate_rpm(delta_pcnt, delta_time / 1000.0);
-                last_count[fan.id] = now_count[fan.id];
-                start_ms[fan.id] = millis();
-            }
-
-            // Adjust fan speed
-            if(board->status.preference.fan.is_auto_speed && fan.self_test){
-                static uint32_t pid_start[2] = {0};
-                float dt = (millis() - pid_start[fan.id]) / 1000.0f; // Convert to seconds
-
-                float target   = (fan.id == 0) ? board->status.preference.fan.target_temp : 85.0f; // For example, fan 0 targets user-defined temp, fan 1 targets 85C
-                float measured = (fan.id == 0) ? board->status.temp.asic : board->status.temp.vcore; // For example, fan 0 measures ASIC temp, fan 1 measures Vcore temp
-                
-                fan.speed = (uint16_t)pid_compute(&fan_cfg->pid, target, measured, dt);
-                pid_start[fan.id] = millis();
-            }
-            fan_set_speed(init_param, fan.speed / 100.0, fan_invert);
+        uint8_t fan_id = 0; // default to fan 0 for event waiting; can be extended to support multiple fans with separate events if needed
+        EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_VCORE_TEMP_UPDATE | SYS_EVENT_MINER_ASIC_TEMP_UPDATE, pdFALSE, pdFALSE, portMAX_DELAY);
+        if((bits & SYS_EVENT_MINER_ASIC_TEMP_UPDATE) == SYS_EVENT_MINER_ASIC_TEMP_UPDATE){
+            fan_id = 0; // for example, fan 1 responds to ASIC temp updates
+            xEventGroupClearBits(board->status.sys_evt, SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
         }
+        if((bits & SYS_EVENT_MINER_VCORE_TEMP_UPDATE) == SYS_EVENT_MINER_VCORE_TEMP_UPDATE){
+            fan_id = 1; // for example, fan 0 responds to ASIC temp updates
+            xEventGroupClearBits(board->status.sys_evt, SYS_EVENT_MINER_VCORE_TEMP_UPDATE);
+        }
+
+        fan_config_t* fan_cfg    = get_fan_config(fan_id);
+        fan_status_t* fan_status = get_fan_status(fan_id);
+        if(fan_cfg == nullptr || fan_status == nullptr) continue; // skip if fan config or status not found
+
+        bool fan_invert = fan_cfg->polarity;  // find fan polarity by id from config
+        fan_init_t init_param = fan_cfg->init;// find fan init config by id from config
+        // Calculate fan RPM
+        if(millis() - start_ms[fan_id] >= 1000){
+            uint32_t delta_time = millis() - start_ms[fan_id];
+            pcnt_get_counter_value(init_param.torch.unit, &now_count[fan_id]);
+            uint16_t delta_pcnt = 0;
+            if (now_count[fan_id] < last_count[fan_id]) delta_pcnt = (init_param.torch.counter_h_lim - last_count[fan_id]) + now_count[fan_id];
+            else delta_pcnt = now_count[fan_id] - last_count[fan_id];
+            fan_status->rpm = calculate_rpm(delta_pcnt, delta_time / 1000.0);
+            last_count[fan_id] = now_count[fan_id];
+            start_ms[fan_id] = millis();
+        }
+
+        // Adjust fan speed     
+        if(fan_cfg->auto_speed && fan_status->self_test){
+            static uint32_t pid_start[2] = {0};
+            float dt = (millis() - pid_start[fan_id]) / 1000.0f; // Convert to seconds
+
+            float target   = fan_cfg->target_temp;
+            float measured = (fan_id == 0) ? board->status.temp.asic : board->status.temp.vcore; // fan 0 measures ASIC temp, fan 1 measures Vcore temp
+            
+            fan_status->speed = (uint16_t)pid_compute(&fan_cfg->pid, target, measured, dt);
+            pid_start[fan_id] = millis();
+        }
+        fan_set_speed(init_param, fan_status->speed / 100.0, fan_invert);
+        
     }
 }
 
@@ -2210,8 +2220,7 @@ void stratum_thread_entry(void *args){
 
 void lvgl_tick_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
-  uint16_t tick_interval = 5;
-//   uint32_t last_tick = millis();
+  uint16_t tick_interval = 1;
 
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   // lvgl core init
@@ -2225,10 +2234,8 @@ void lvgl_tick_thread_entry(void *args){
   while(true){
     delay(tick_interval);
     if (xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, tick_interval) == pdTRUE){
-    //   lv_tick_inc(millis() - last_tick);
       lv_timer_handler(); /* let the GUI do its work */
       xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
-    //   last_tick = millis();
     }
   }
 }

@@ -77,8 +77,10 @@ enum{
 
 // system event flags
 enum{
-    SYS_EVENT_MINER_BLOCK_HIT          = (1 << 0),   // miner hit a block
-    SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED = (1 << 1),   // miner achieved a new high difficulty
+    SYS_EVENT_MINER_BLOCK_HIT            = (1 << 0),   // miner hit a block
+    SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED   = (1 << 1),   // miner achieved a new high difficulty
+    SYS_EVENT_MINER_VCORE_TEMP_UPDATE    = (1 << 2),   // miner vcore temperature update, used to trigger backlight effect
+    SYS_EVENT_MINER_ASIC_TEMP_UPDATE     = (1 << 3),   // miner asic temperature update, used to trigger backlight effect
 };
 
 typedef struct {
@@ -261,10 +263,10 @@ typedef struct{
     }fan;
 
     struct{
-        fan_preference_info_t       fan;
+        // fan_preference_info_t       fan0;
+        // fan_preference_info_t       fan1;
         screen_preference_info_t    screen;
         led_preference_info_t       led;
-        asic_preference_info_t      asic;
     }preference;
 
     struct ScanCtx {
