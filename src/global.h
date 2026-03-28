@@ -36,7 +36,8 @@
 #define MINER_LOG_SUMMARY_INTERVAL      (1000*60*1) // 1 minutes
 
 enum{
-    TASK_PRIORITY_FAN      = 1, // lowest priority
+    TASK_PRIORITY_APHORISM   = 1, // lowest priority
+    TASK_PRIORITY_FAN      , 
     TASK_PRIORITY_CONFIG   ,
     TASK_PRIORITY_APP_TICK ,
     TASK_PRIORITY_DISPLAY  ,

@@ -50,6 +50,7 @@ private:
     TaskHandle_t _stratumTask  = NULL;
     TaskHandle_t _minerTxTask  = NULL;
     TaskHandle_t _minerRxTask  = NULL;
+    TaskHandle_t _aphorismTask = NULL;
     TaskHandle_t _powerTask    = NULL;
     TaskHandle_t _lvglTask     = NULL;
     TaskHandle_t _uiTask       = NULL;

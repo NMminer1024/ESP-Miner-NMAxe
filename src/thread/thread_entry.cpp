@@ -14,6 +14,8 @@
 #include "lwip/inet_chksum.h"
 #include "lwip/ip4.h"
 #include <WiFiClient.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
 
 void power_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
@@ -2513,3 +2515,109 @@ void display_thread_entry(void *args){
   vTaskDelete(NULL);
 }
 
+void aphorism_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+
+    // 与 Python 版本对应的常量
+    static const char* const KEYWORDS[] = {
+        "patience", "wait", "persist", "time", "endure", "effort", "work", "reward",
+        "success", "failure", "challenge", "struggle", "perseverance", "grind",
+        "hustle", "dedication", "commitment", "resilience", "fortitude", "tenacity"
+    };
+    static const uint8_t  KEYWORD_COUNT  = sizeof(KEYWORDS) / sizeof(KEYWORDS[0]);
+    static const uint8_t  MAX_CHARS      = 100;        // 名言最大字符数
+    static const uint32_t DISPLAY_MS     = 1000 * 30; // 每条展示 30 秒
+    static const uint8_t  BATCHES        = 2;          // 每轮拉取批次数
+    static const uint32_t BATCH_DELAY_MS = 1000 * 10; // 两批之间等待 10 秒
+
+    struct Quote { String q; String a; };
+
+    // 等待 WiFi 就绪
+    while (board->status.wifi.status != WL_CONNECTED) delay(1000);
+
+    uint32_t batch_no = 0;
+    while(true) {
+        batch_no++;
+        LOG_I("[Aphorism] Round %lu: fetching quotes...", batch_no);
+
+        std::vector<Quote>  pool;
+        std::set<String>    seen;
+
+        // zenquotes.io HTTPS 批量接口，每次返回 ~50 条，拉取 BATCHES 批
+        for(uint8_t b = 0; b < BATCHES; b++) {
+            while (board->status.wifi.status != WL_CONNECTED) delay(1000);
+
+            HTTPClient http;
+            WiFiClientSecure client;
+            client.setInsecure(); // 跳过证书验证，节省 CA 存储开销
+            http.begin(client, "https://zenquotes.io/api/quotes");
+            http.setTimeout(30000);
+            http.setConnectTimeout(15000);
+            http.addHeader("Connection", "close");
+
+            int code = http.GET();
+            if(code == HTTP_CODE_OK) {
+                String body = http.getString();
+                http.end();
+
+                // 服务器返回非数组（如限流错误对象）时直接跳过
+                if(!body.startsWith("[")) {
+                    LOG_E("[Aphorism] Response is not a JSON array, skipping. Content: %.100s", body.c_str());
+                    delay(BATCH_DELAY_MS);
+                    continue;
+                }
+
+                // 使用 PSRAM 分配的 JsonDocument 解析数组
+                BasicJsonDocument<PsramJsonAllocator> doc(1024 * 16);
+                DeserializationError err = deserializeJson(doc, body);
+                if(!err) {
+                    for(JsonObject item : doc.as<JsonArray>()) {
+                        String q = item["q"].as<String>();
+                        String a = item["a"].as<String>();
+                        if(q.isEmpty() || seen.count(q)) continue;
+                        seen.insert(q);
+                        if((uint8_t)q.length() > MAX_CHARS) continue;
+                        String ql = q;
+                        ql.toLowerCase();
+                        bool matched = false;
+                        for(uint8_t k = 0; k < KEYWORD_COUNT && !matched; k++) {
+                            if(ql.indexOf(KEYWORDS[k]) >= 0) matched = true;
+                        }
+                        if(matched) pool.push_back({q, a});
+                    }
+                } else {
+                    LOG_E("[Aphorism] JSON parse error: %s | body: %.100s", err.c_str(), body.c_str());
+                }
+            } else {
+                String body = http.getString();
+                http.end();
+                LOG_E("[Aphorism] HTTP error: %d | body: %.100s", code, body.c_str());
+            }
+
+            if(b < BATCHES - 1) delay(BATCH_DELAY_MS);
+        }
+
+        LOG_I("[Aphorism] Round %lu: %d / %d matching quotes", batch_no, (int)pool.size(), (int)seen.size());
+
+        if(pool.empty()) {
+            LOG_W("[Aphorism] No matching quotes this round, retrying...");
+            delay(DISPLAY_MS);
+            continue;
+        }
+
+        // Fisher-Yates 随机打乱顺序
+        for(int i = (int)pool.size() - 1; i > 0; i--) {
+            int j = (int)(esp_random() % (uint32_t)(i + 1));
+            std::swap(pool[i], pool[j]);
+        }
+
+        // 逐条展示，每条 DISPLAY_MS 毫秒
+        for(auto &qt : pool) {
+            LOG_I("[Aphorism] \"%s\"", qt.q.c_str());
+            LOG_I("[Aphorism]   -- %s  (%d chars)", qt.a.c_str(), (int)qt.q.length());
+            delay(DISPLAY_MS);
+        }
+
+        LOG_I("[Aphorism] Round %lu complete, refreshing next batch...", batch_no);
+    }
+} 
