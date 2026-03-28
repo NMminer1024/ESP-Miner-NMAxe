@@ -229,13 +229,6 @@ typedef struct{
     }touch;
 
     struct{
-        std::map<miner_ip_t, miner_info_t, std::less<miner_ip_t>, PsramAllocator<std::pair<const miner_ip_t, miner_info_t>>> map; // swarm miners info map (PSRAM)
-        uint16_t                           total_workers; // total workers in swarm
-        float                              total_hr;      // total hash rate in swarm
-        float                              best_diff;     // best diff in swarm
-    }swarm;
-
-    struct{
         IPAddress   ip;
         IPAddress   gateway;
         IPAddress   subnet;
@@ -243,7 +236,6 @@ typedef struct{
         int         rssi;
         wl_status_t status;
         uint16_t    config_timeout;
-
         bool                  force_config_required;
         bool                  client_connected;
         SemaphoreHandle_t     reconnect_xsem;
@@ -258,7 +250,6 @@ typedef struct{
         led_preference_info_t       led;
     }preference;
 
-
     struct {
         SemaphoreHandle_t mutex;            // 保护聚合字段和黑名单
         uint32_t          total_workers;
@@ -268,7 +259,7 @@ typedef struct{
         std::set<String>  confirmed_ips;    // 已确认是 NMMiner 的 IP，本轮 scan 周期内精确通信
         std::set<String>  probe_blacklist;  // 非 NMMiner IP，本轮 scan 周期内跳过
         uint32_t          last_scan_gen;    // 上次处理的 scan_generation，变化时重置所有记忆
-    }swarm_ctx;
+    }swarm;
 
     struct {
         std::vector<String> alive_ips;       // ICMP 存活 IP 列表

@@ -251,12 +251,12 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.neighbor.mutex                 = xSemaphoreCreateMutex();
     g_board.status.neighbor.scan_generation       = 0;
     g_board.status.neighbor.last_scan_ms          = 0;
-    g_board.status.swarm_ctx.mutex                = xSemaphoreCreateMutex();
-    g_board.status.swarm_ctx.last_scan_gen        = 0;
-    g_board.status.swarm_ctx.total_workers        = 0;
-    g_board.status.swarm_ctx.total_hr             = 0.0f;
-    g_board.status.swarm_ctx.best_session_bd      = 0.0f;
-    g_board.status.swarm_ctx.best_ever_bd         = 0.0f;
+    g_board.status.swarm.mutex                    = xSemaphoreCreateMutex();
+    g_board.status.swarm.last_scan_gen            = 0;
+    g_board.status.swarm.total_workers            = 0;
+    g_board.status.swarm.total_hr                 = 0.0f;
+    g_board.status.swarm.best_session_bd          = 0.0f;
+    g_board.status.swarm.best_ever_bd             = 0.0f;
 
     g_board.status.miner.history_mutex            = xSemaphoreCreateMutex();
     g_board.status.miner.block_proximity_mutex    = xSemaphoreCreateMutex();

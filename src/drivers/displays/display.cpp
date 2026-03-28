@@ -2280,7 +2280,7 @@ void ui_miner_page_update(void* args){
   // only for NMQ AXE ++
   if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     if(miner_page.lb_swarm_best_diff.obj != NULL){
-      lv_label_set_text_fmt(miner_page.lb_swarm_best_diff.obj, "%s", formatNumber(board->status.swarm.best_diff, 4).c_str());
+      lv_label_set_text_fmt(miner_page.lb_swarm_best_diff.obj, "%s", formatNumber(board->status.swarm.best_session_bd, 4).c_str());
     }
     if(miner_page.lb_swarm_workers.obj != NULL){
       lv_label_set_text_fmt(miner_page.lb_swarm_workers.obj, "%d", board->status.swarm.total_workers);
