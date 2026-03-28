@@ -1701,7 +1701,10 @@ void miner_asic_tx_thread_entry(void *args){
         LOG_W("Job [%s] from %s:%d", board->miner->pool_job_now.id.c_str(), board->stratum->pool->get_pool_info().url.c_str(), board->stratum->pool->get_pool_info().port);
         while (true){
             //construct asic job and send to asic every 2s
-            if(!board->miner->mining(&board->miner->pool_job_now)) continue;
+            if(!board->miner->mining(&board->miner->pool_job_now)){
+                delay(10); // avoid tight spin loop triggering interrupt WDT when mining() fails
+                continue;
+            }
             //exit if pool disconnected
             if(!board->stratum->is_subscribed()) break;
 

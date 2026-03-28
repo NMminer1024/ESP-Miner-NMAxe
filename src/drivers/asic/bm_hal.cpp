@@ -31,8 +31,10 @@ size_t BMxxx::send(uint8_t *cmd, uint16_t len){
 }
 
 bool BMxxx::clear_port_cache(){
+    uint32_t start = millis();
     while(this->_serial.available()){
         this->_serial.read();
+        if(millis() - start >= 100) break; // guard: max 100 ms to avoid blocking too long
     }
     return true;
 }
