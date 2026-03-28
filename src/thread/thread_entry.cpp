@@ -2518,38 +2518,66 @@ void display_thread_entry(void *args){
 void aphorism_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
-    // 与 Python 版本对应的常量
+    // Theme: solo mining requires patience — be a friend of time, good luck can arrive at any moment
     static const char* const KEYWORDS[] = {
-        "patience", "wait", "persist", "time", "endure", "effort", "work", "reward",
-        "success", "failure", "challenge", "struggle", "perseverance", "grind",
-        "hustle", "dedication", "commitment", "resilience", "fortitude", "tenacity"
+        // Patience & Waiting
+        "patience", "patient", "wait", "waiting", "endure", "endurance", "persist",
+        "persevere", "perseverance", "hold", "sustain", "steady", "calm", "breathe",
+        // Persistence & Effort
+        "keep", "continue", "never", "quit", "grind", "work", "effort", "dedication",
+        "commitment", "resilience", "fortitude", "tenacity", "grit", "strength",
+        "courage", "discipline", "focus", "purpose",
+        // Time & Opportunity
+        "time", "moment", "soon", "next", "tomorrow", "chance", "opportunity",
+        "happen", "closer", "near", "almost", "sudden", "overnight", "surprise",
+        // Luck & Miracles
+        "luck", "lucky", "fortune", "miracle", "destiny", "fate", "blessing",
+        "unexpected", "breakthrough",
+        // Hope & Faith
+        "hope", "faith", "believe", "trust", "wish", "dream", "vision", "goal",
+        // Victory & Reward
+        "reward", "win", "success", "achieve", "triumph", "glory", "victory",
+        "celebrate", "worthy", "prize",
+        // Bitcoin & Crypto Mining
+        "bitcoin", "btc", "crypto", "cryptocurrency", "blockchain", "satoshi",
+        "halving", "hash", "block", "miner", "hashrate", "nonce", "coinbase",
+        "hodl", "hodler", "solo", "difficulty", "proof", "decentralized",
+        "freedom", "scarce", "digital", "gold", "immutable", "trustless",
+        "accumulate", "stack"
     };
     static const uint8_t  KEYWORD_COUNT  = sizeof(KEYWORDS) / sizeof(KEYWORDS[0]);
-    static const uint8_t  MAX_CHARS      = 100;        // 名言最大字符数
-    static const uint32_t DISPLAY_MS     = 1000 * 30; // 每条展示 30 秒
-    static const uint8_t  BATCHES        = 2;          // 每轮拉取批次数
-    static const uint32_t BATCH_DELAY_MS = 1000 * 10; // 两批之间等待 10 秒
+    static const uint16_t MAX_CHARS      = 50;         // max quote length in chars (adjust to change filter threshold)
+    static const uint32_t DISPLAY_MS     = 1000 * 10;  // display each quote for 10 seconds
+    static const uint8_t  BATCHES        = 2;          // number of fetch batches per round
+    static const uint32_t BATCH_DELAY_MS = 1000 * 30;  // delay between batches (30 seconds)
 
-    struct Quote { String q; String a; };
+    struct Quote { String q; String a; String kw; };
 
-    // 等待 WiFi 就绪
+    // Wait until WiFi is ready
     while (board->status.wifi.status != WL_CONNECTED) delay(1000);
+
+    // Print current config for debugging
+    LOG_I("[Aphorism] Config => MAX_CHARS:%d  DISPLAY:%lus  BATCHES:%d  KEYWORDS:%d",
+          (int)MAX_CHARS, (unsigned long)(DISPLAY_MS / 1000), (int)BATCHES, (int)KEYWORD_COUNT);
 
     uint32_t batch_no = 0;
     while(true) {
+        delay(10); 
+        if(board->status.ota.running) continue; // skip while OTA is running to avoid resource contention
+
         batch_no++;
         LOG_I("[Aphorism] Round %lu: fetching quotes...", batch_no);
 
         std::vector<Quote>  pool;
         std::set<String>    seen;
 
-        // zenquotes.io HTTPS 批量接口，每次返回 ~50 条，拉取 BATCHES 批
+        // zenquotes.io HTTPS batch API — returns ~50 quotes per call, fetch BATCHES rounds
         for(uint8_t b = 0; b < BATCHES; b++) {
             while (board->status.wifi.status != WL_CONNECTED) delay(1000);
 
             HTTPClient http;
             WiFiClientSecure client;
-            client.setInsecure(); // 跳过证书验证，节省 CA 存储开销
+            client.setInsecure(); // skip certificate verification to save CA storage overhead
             http.begin(client, "https://zenquotes.io/api/quotes");
             http.setTimeout(30000);
             http.setConnectTimeout(15000);
@@ -2560,31 +2588,38 @@ void aphorism_thread_entry(void *args){
                 String body = http.getString();
                 http.end();
 
-                // 服务器返回非数组（如限流错误对象）时直接跳过
+                // skip if server returns a non-array response (e.g. rate-limit error object)
                 if(!body.startsWith("[")) {
                     LOG_E("[Aphorism] Response is not a JSON array, skipping. Content: %.100s", body.c_str());
                     delay(BATCH_DELAY_MS);
                     continue;
                 }
 
-                // 使用 PSRAM 分配的 JsonDocument 解析数组
-                BasicJsonDocument<PsramJsonAllocator> doc(1024 * 16);
+                // Use PSRAM-allocated JsonDocument to parse the array
+                // Each entry includes an h(HTML) field; 50 entries are ~25-35 KB, allocate 64 KB to be safe
+                BasicJsonDocument<PsramJsonAllocator> doc(1024 * 64);
                 DeserializationError err = deserializeJson(doc, body);
                 if(!err) {
+                    int cnt_total = 0, cnt_too_long = 0, cnt_no_kw = 0, cnt_hit = 0;
                     for(JsonObject item : doc.as<JsonArray>()) {
                         String q = item["q"].as<String>();
                         String a = item["a"].as<String>();
                         if(q.isEmpty() || seen.count(q)) continue;
                         seen.insert(q);
-                        if((uint8_t)q.length() > MAX_CHARS) continue;
+                        cnt_total++;
+                        if((uint16_t)q.length() > MAX_CHARS) { cnt_too_long++; continue; }
                         String ql = q;
                         ql.toLowerCase();
                         bool matched = false;
+                        String matched_kw;
                         for(uint8_t k = 0; k < KEYWORD_COUNT && !matched; k++) {
-                            if(ql.indexOf(KEYWORDS[k]) >= 0) matched = true;
+                            if(ql.indexOf(KEYWORDS[k]) >= 0) { matched = true; matched_kw = KEYWORDS[k]; }
                         }
-                        if(matched) pool.push_back({q, a});
+                        if(matched) { pool.push_back({q, a, matched_kw}); cnt_hit++; }
+                        else cnt_no_kw++;
                     }
+                    LOG_I("[Aphorism] Batch %d: total=%d too_long=%d no_kw=%d hit=%d",
+                          (int)b+1, cnt_total, cnt_too_long, cnt_no_kw, cnt_hit);
                 } else {
                     LOG_E("[Aphorism] JSON parse error: %s | body: %.100s", err.c_str(), body.c_str());
                 }
@@ -2605,16 +2640,20 @@ void aphorism_thread_entry(void *args){
             continue;
         }
 
-        // Fisher-Yates 随机打乱顺序
+        // Fisher-Yates shuffle
         for(int i = (int)pool.size() - 1; i > 0; i--) {
             int j = (int)(esp_random() % (uint32_t)(i + 1));
             std::swap(pool[i], pool[j]);
         }
 
-        // 逐条展示，每条 DISPLAY_MS 毫秒
-        for(auto &qt : pool) {
-            LOG_I("[Aphorism] \"%s\"", qt.q.c_str());
-            LOG_I("[Aphorism]   -- %s  (%d chars)", qt.a.c_str(), (int)qt.q.length());
+        // Display each quote one by one, DISPLAY_MS milliseconds per quote
+        for(size_t idx = 0; idx < pool.size(); idx++) {
+            const auto &qt = pool[idx];
+            LOG_W("[Aphorism] +--------------------------------------------------+");
+            LOG_I("[Aphorism] |  Quote %d / %d  [keyword: %s]", (int)(idx + 1), (int)pool.size(), qt.kw.c_str());
+            LOG_I("[Aphorism] |  \"%s\"", qt.q.c_str());
+            LOG_I("[Aphorism] |  -- %s  (%d chars)", qt.a.c_str(), (int)qt.q.length());
+            LOG_W("[Aphorism] +--------------------------------------------------+");
             delay(DISPLAY_MS);
         }
 
