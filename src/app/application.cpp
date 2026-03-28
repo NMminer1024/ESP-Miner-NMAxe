@@ -45,7 +45,7 @@ void MinerApp::begin() {
     _thread_pool = {
         {"(app_tick)",   _tick_thread_entry,            1024*4,   TASK_PRIORITY_APP_TICK,    1, &_tickTask,       10,  0},
         {"(display)",   display_thread_entry,           1024*5,   TASK_PRIORITY_DISPLAY,     1, NULL,             10,  0},
-        {"(lvgl)",      lvgl_tick_thread_entry,         1024*5,   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
+        {"(lvgl)",      lvgl_tick_thread_entry,         1024*4,   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
         {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
         {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
         {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,         1, &_btnTask,        10,  0},
@@ -58,11 +58,11 @@ void MinerApp::begin() {
         {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,         0, &_fanTask,        10,  0},
         // synchronisation point: wait for these events before starting the next batch
         {"",            NULL,                           0,        0,                         0, NULL,             0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_FAN_READY},
-        {"(swarm)",     swarm_thread_entry,             1024*5,   TASK_PRIORITY_SWARM,       0, &_swarmTask,      10,  0},
+        {"(swarm)",     swarm_thread_entry,             1024*4,   TASK_PRIORITY_SWARM,       0, &_swarmTask,      10,  0},
         {"(market)",    market_thread_entry,            1024*5,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
         {"(stratum)",   stratum_thread_entry,           1024*11,  TASK_PRIORITY_STRATUM,     1, &_stratumTask,    10,  0},
-        {"(monitor)",   monitor_thread_entry,           1024*4,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
-        {"(neighbor)",  alive_ip_scan_thread_entry,     1024*6,   TASK_PRIORITY_SWARM,       1, &_neighborTask,   10,  0},
+        {"(monitor)",   monitor_thread_entry,           1024*5,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
+        {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SWARM,       1, &_neighborTask,   10,  0},
         {"(asic_tx)",   miner_asic_tx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_TX,    1, &_minerTxTask,    10,  0},
         {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_RX,    0, &_minerRxTask,    10,  0},
     };
