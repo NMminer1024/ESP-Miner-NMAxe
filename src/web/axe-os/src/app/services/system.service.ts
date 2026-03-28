@@ -472,9 +472,11 @@ export class SystemService {
       return this.httpClient.get(`${uri}/api/setting/preference`);
     } else {
       return of({
-        screenFlip: 0, ledIndicator: 1, fanAutoSpeed: 1, screenAutoRoll: 0,
-        asicTargetTemp: '55', Brightness: 100,
-        fans: [{ id: 0, speed: 100, rpm: 4500 }],
+        screenFlip: 0, ledIndicator: 1, screenAutoRoll: 0, Brightness: 100,
+        fans: [
+          { id: 0, speed: 60,  rpm: 3600, auto: 1, target: 55, tempMin: 20,  tempMax: 75  },
+          { id: 1, speed: 80,  rpm: 4200, auto: 1, target: 85, tempMin: 80,  tempMax: 130 },
+        ],
       }).pipe(delay(300));
     }
   }

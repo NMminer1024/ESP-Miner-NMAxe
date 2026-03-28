@@ -437,20 +437,24 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 **GET**
 ```json
 {
-  "screenFlip": 0, "Brightness": 80, "screenAutoRoll": 1,
-  "ledIndicator": 1, "fanAutoSpeed": 1, "asicTargetTemp": "65.0",
-  "fans": [{ "id": 0, "speed": 60, "rpm": 3600 }]
+  "screenFlip": 0, "Brightness": 80, "screenAutoRoll": 1, "ledIndicator": 1,
+  "fans": [
+    { "id": 0, "speed": 60, "rpm": 3600, "auto": 1, "target": 55.0, "tempMin": 20.0, "tempMax": 75.0 },
+    { "id": 1, "speed": 80, "rpm": 4200, "auto": 1, "target": 85.0, "tempMin": 80.0, "tempMax": 130.0 }
+  ]
 }
 ```
+> `fans[1]` (Vcore fan) is only present on NMQAxe++. `tempMin`/`tempMax` reflect board spec limits: ASIC fan uses `asic.temp_limit`, Vcore fan uses `pwr.temp_limit`.
 
 **PATCH**
 ```json
 {
-  "brightness": 80, "flipscreen": 0, "ledindicator": 1,
-  "autofanspeed": 1, "targetAsicTemp": "65.0",
-  "autoscreen": 1, "fanspeed": 60
+  "brightness": 80, "flipscreen": 0, "ledindicator": 1, "autoscreen": 1,
+  "autoasicfanspeed": 1, "asictargettemp": "55.0", "asicfanspeed": 60,
+  "autovcorefanspeed": 1, "vcoretargettemp": "85.0", "vcorefanspeed": 80
 }
 ```
+> `asicfanspeed` takes effect only when `autoasicfanspeed=0`. `vcorefanspeed` takes effect only when `autovcorefanspeed=0`. Vcore fields are NMQAxe++ only. All changes require a device restart.
 
 ---
 

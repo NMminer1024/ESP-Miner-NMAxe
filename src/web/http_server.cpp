@@ -473,13 +473,11 @@ void get_setting_preference(AsyncWebServerRequest* request){
         return nullptr;
     };
 
-    StaticJsonDocument<512> root;
+    StaticJsonDocument<1024> root;
     root.clear();
     root["screenFlip"]     = g_board.status.preference.screen.flip;
     root["ledIndicator"]   = g_board.status.preference.led.enable;
-    // root["fanAutoSpeed"]   = g_board.status.preference.fan0.is_auto_speed;
     root["screenAutoRoll"] = g_board.status.preference.screen.auto_rolling;
-    // root["asicTargetTemp"] = String(g_board.status.preference.fan0.target_temp);
     root["Brightness"]     = g_board.status.preference.screen.brightness;
     JsonArray fansArray    = root.createNestedArray("fans");
     for (auto & fan : g_board.status.fan.list) {
@@ -499,7 +497,7 @@ void get_setting_preference(AsyncWebServerRequest* request){
 
 // PATCH /api/setting/preference -- save display/fan/LED preferences to NVS.
 void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
-    static const uint16_t BUF_SIZE = 512;
+    static const uint16_t BUF_SIZE = 1024;
     if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
     char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
@@ -507,7 +505,7 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
     if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
     if (index + len == total) {
         buf[total] = '\0';
-        StaticJsonDocument<512> root;
+        StaticJsonDocument<BUF_SIZE> root;
         if (deserializeJson(root, buf) || !root.is<JsonObject>()) {
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
@@ -526,31 +524,41 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
             nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledindicator"].as<uint8_t>());
         }
 
-        // fan for asic
+        // fan0 for asic
         if (root.containsKey("autoasicfanspeed")) {
             nvs_config_set_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, root["autoasicfanspeed"].as<uint16_t>());
-            // g_board.status.preference.fan0.is_auto_speed = root["autoasicfanspeed"].as<uint16_t>();
+            g_board.info.spec.fans[0].auto_speed = root["autoasicfanspeed"].as<uint16_t>();
         }
         if (root.containsKey("asictargettemp")) {
             nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, root["asictargettemp"].as<String>().c_str());
-            // g_board.status.preference.fan0.target_temp = root["asictargettemp"].as<String>().toFloat();
+            g_board.info.spec.fans[0].target_temp = String(root["asictargettemp"].as<String>()).toFloat();
         }
         if (root.containsKey("asicfanspeed")) {
             nvs_config_set_u16(NVS_CONFIG_ASIC_FAN_SPEED, root["asicfanspeed"].as<uint16_t>());
-            // g_board.status.fan.list[0].speed = root["asicfanspeed"].as<uint16_t>();
+            g_board.status.fan.list[0].speed = root["asicfanspeed"].as<uint16_t>();
         }
-        // fan for vcore
-        
-
-
-
-
-
+        // fan1 for vcore
+        if (root.containsKey("autovcorefanspeed")) {
+            nvs_config_set_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, root["autovcorefanspeed"].as<uint16_t>());
+            g_board.info.spec.fans[1].auto_speed = root["autovcorefanspeed"].as<uint16_t>();
+        }
+        if (root.containsKey("vcoretargettemp")) {
+            nvs_config_set_string(NVS_CONFIG_VCORE_TARGET_TEMP, root["vcoretargettemp"].as<String>().c_str());
+            g_board.info.spec.fans[1].target_temp = String(root["vcoretargettemp"].as<String>()).toFloat();
+        }
+        if (root.containsKey("vcorefanspeed")) {
+            nvs_config_set_u16(NVS_CONFIG_VCORE_FAN_SPEED, root["vcorefanspeed"].as<uint16_t>());
+            g_board.status.fan.list[1].speed = root["vcorefanspeed"].as<uint16_t>();
+        }
 
         if (root.containsKey("autoscreen")) {
             nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
             g_board.status.preference.screen.auto_rolling = root["autoscreen"].as<uint8_t>();
         }
+        for(const auto &kv : root.as<JsonObject>()) {
+            LOG_D("Preference update: %s = %s", kv.key().c_str(), kv.value().as<String>().c_str());
+        }
+
         request->send(200, "application/json", "{\"status\":\"ok\"}");
     }
     free(buf);

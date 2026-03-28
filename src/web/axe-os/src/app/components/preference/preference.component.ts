@@ -19,6 +19,11 @@ export class PreferenceComponent implements OnInit {
   public devToolsOpen: boolean = false;
   public eASICModel = eASICModel;
   public ASICModel!: eASICModel;
+  public hasDualFan: boolean = false;
+  public asicTempMin: number = 0;
+  public asicTempMax: number = 80;
+  public vcoreTempMin: number = 0;
+  public vcoreTempMax: number = 100;
 
   @Input() uri = '';
 
@@ -39,38 +44,55 @@ export class PreferenceComponent implements OnInit {
     this.systemService.getSettingPreference(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
-        const flipscreen    = info.screenFlip    ?? info.flipscreen    ?? 0;
-        const invertscreen  = info.invertscreen  ?? 0;
-        const ledindicator  = info.ledIndicator  ?? info.ledindicator  ?? 0;
-        const brightness    = info.Brightness    ?? info.brightness    ?? 100;
-        const autofanspeed  = info.fanAutoSpeed  ?? info.autofanspeed  ?? 1;
-        const autoscreen    = info.screenAutoRoll ?? info.autoscreen   ?? 0;
-        const targetAsicTemp = info.asicTargetTemp ?? info.targetAsicTemp ?? '70';
+        const flipscreen   = info.screenFlip    ?? info.flipscreen  ?? 0;
+        const invertscreen = info.invertscreen  ?? 0;
+        const ledindicator = info.ledIndicator  ?? info.ledindicator ?? 0;
+        const brightness   = info.Brightness    ?? info.brightness  ?? 100;
+        const autoscreen   = info.screenAutoRoll ?? info.autoscreen ?? 0;
 
-        if (info.fans && info.fans.length > 0) {
-          const defaultFan = info.fans.find((f: any) => f.id === 0) || info.fans[0];
-          info.fanspeed = defaultFan.speed;
-        }
+        const asicFan  = info.fans?.find((f: any) => f.id === 0) ?? info.fans?.[0];
+        const vcoreFan = info.fans?.find((f: any) => f.id === 1);
+        this.hasDualFan   = !!vcoreFan;
+
+        const autoasicfanspeed  = asicFan?.auto   ?? 1;
+        const asictargettemp    = asicFan?.target ?? 30;
+        const asicfanspeed      = asicFan?.speed  ?? 100;
+        const autovcorefanspeed = vcoreFan?.auto   ?? 1;
+        const vcoretargettemp   = vcoreFan?.target ?? 85;
+        const vcorefanspeed     = vcoreFan?.speed  ?? 100;
 
         this.ASICModel = info.asic || info.ASICModel;
         this.form = this.fb.group({
-          flipscreen:      [flipscreen == 1],
-          invertscreen:    [invertscreen == 1],
-          ledindicator:    [ledindicator == 1],
-          brightness:      [brightness, [Validators.required]],
-          autofanspeed:    [autofanspeed == 1, [Validators.required]],
-          targetAsicTemp:  [parseFloat(targetAsicTemp as string) || 70, [Validators.required, Validators.min(20), Validators.max(70)]],
-          autoscreen:      [autoscreen == 1],
-          fanspeed:        [info.fanspeed, [Validators.required]],
+          flipscreen:         [flipscreen == 1],
+          invertscreen:       [invertscreen == 1],
+          ledindicator:       [ledindicator == 1],
+          brightness:         [brightness, [Validators.required]],
+          autoscreen:         [autoscreen == 1],
+          autoasicfanspeed:   [autoasicfanspeed == 1 || autoasicfanspeed === true, [Validators.required]],
+          asictargettemp:     [parseFloat(String(asictargettemp)) || 30, [Validators.required, Validators.min(this.asicTempMin), Validators.max(this.asicTempMax)]],
+          asicfanspeed:       [asicfanspeed, [Validators.required]],
+          autovcorefanspeed:  [autovcorefanspeed == 1 || autovcorefanspeed === true, [Validators.required]],
+          vcoretargettemp:    [parseFloat(String(vcoretargettemp)) || 85, [Validators.required, Validators.min(this.vcoreTempMin), Validators.max(this.vcoreTempMax)]],
+          vcorefanspeed:      [vcorefanspeed, [Validators.required]],
         });
 
-        this.form.controls['autofanspeed'].valueChanges.pipe(
-          startWith(this.form.controls['autofanspeed'].value)
-        ).subscribe(autofanspeed => {
-          if (autofanspeed) {
-            this.form.controls['fanspeed'].disable();
+        this.form.controls['autoasicfanspeed'].valueChanges.pipe(
+          startWith(this.form.controls['autoasicfanspeed'].value)
+        ).subscribe(autoasic => {
+          if (autoasic) {
+            this.form.controls['asicfanspeed'].disable();
           } else {
-            this.form.controls['fanspeed'].enable();
+            this.form.controls['asicfanspeed'].enable();
+          }
+        });
+
+        this.form.controls['autovcorefanspeed'].valueChanges.pipe(
+          startWith(this.form.controls['autovcorefanspeed'].value)
+        ).subscribe(autovcore => {
+          if (autovcore) {
+            this.form.controls['vcorefanspeed'].disable();
+          } else {
+            this.form.controls['vcorefanspeed'].enable();
           }
         });
       });
@@ -89,30 +111,32 @@ export class PreferenceComponent implements OnInit {
   };
 
   public getTemperatureSliderClass(): string {
-    const temp = this.form?.get('targetAsicTemp')?.value || 70;
-    
-    if (temp <= 50) {
-      return 'temp-safe'; // 绿色 - 安全温度
-    } else if (temp <= 60) {
-      return 'temp-normal'; // 黄绿色 - 正常温度
-    } else if (temp <= 65) {
-      return 'temp-warm'; // 黄色 - 温暖温度
-    } else {
-      return 'temp-hot'; // 红色 - 高温警告
-    }
+    const temp = this.form?.get('asictargettemp')?.value || 30;
+    if (temp <= 50) return 'temp-safe';
+    else if (temp <= 60) return 'temp-normal';
+    else if (temp <= 65) return 'temp-warm';
+    else return 'temp-hot';
+  }
+
+  public getVcoreTemperatureSliderClass(): string {
+    const temp = this.form?.get('vcoretargettemp')?.value || 85;
+    if (temp <= 90) return 'temp-safe';
+    else if (temp <= 100) return 'temp-normal';
+    else if (temp <= 115) return 'temp-warm';
+    else return 'temp-hot';
   }
 
   public updateSystem() {
     const raw = this.form.getRawValue();
 
-    // Convert booleans to ints for backend
     const form: any = {
       ...raw,
-      flipscreen:   raw.flipscreen   ? 1 : 0,
-      invertscreen: raw.invertscreen ? 1 : 0,
-      ledindicator: raw.ledindicator ? 1 : 0,
-      autofanspeed: raw.autofanspeed ? 1 : 0,
-      autoscreen:   raw.autoscreen   ? 1 : 0,
+      flipscreen:        raw.flipscreen        ? 1 : 0,
+      invertscreen:      raw.invertscreen      ? 1 : 0,
+      ledindicator:      raw.ledindicator      ? 1 : 0,
+      autoasicfanspeed:  raw.autoasicfanspeed  ? 1 : 0,
+      autovcorefanspeed: raw.autovcorefanspeed ? 1 : 0,
+      autoscreen:        raw.autoscreen        ? 1 : 0,
     };
 
     this.systemService.patchSettingPreference(this.uri, form)

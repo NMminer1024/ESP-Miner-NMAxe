@@ -1454,9 +1454,6 @@ void fan_thread_entry(void *args){
         return nullptr;
     };
 
-
-
-
     // fan self test
     while(true){
         bool self_test_result[board->info.spec.fans.size()] = {false,}; // initialize all to false

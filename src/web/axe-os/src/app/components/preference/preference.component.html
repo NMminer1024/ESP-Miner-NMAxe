@@ -19,42 +19,77 @@
       </div>
     </div>
 
-    <!-- Target ASIC Temperature (Auto Fan Mode) -->
-    <div *ngIf="form.controls['autofanspeed'].value == true" class="field grid p-fluid">
-      <label class="col-12 mb-2 md:col-3 md:mb-0 white-space-nowrap" htmlFor="targetAsicTemp">Target ASIC Temp(°C)</label>
+    <!-- ASIC Fan Control -->
+    <div class="field grid p-fluid">
+      <div class="col-12 mb-2 md:col-3 md:mb-0 fan-auto-label">
+        <p-checkbox name="autoasicfanspeed" formControlName="autoasicfanspeed" inputId="autoasicfanspeed" [binary]="true"></p-checkbox>
+        <label for="autoasicfanspeed" class="fan-toggle-label">Auto ASIC Fan</label>
+      </div>
       <div class="col-12 md:col-9">
-        <div class="p-grid">
-          <div class="p-col-8">
-            <p-slider 
-              formControlName="targetAsicTemp" 
-              [(ngModel)]="form.controls['targetAsicTemp'].value"
-              [min]="20" 
-              [max]="70"
-              [step]="1"
-              [ngClass]="getTemperatureSliderClass()">
-            </p-slider>
+        <ng-container *ngIf="form.controls['autoasicfanspeed'].value == true">
+          <div class="p-grid">
+            <div class="p-col-8">
+              <p-slider
+                formControlName="asictargettemp"
+                [(ngModel)]="form.controls['asictargettemp'].value"
+                [min]="asicTempMin"
+                [max]="asicTempMax"
+                [step]="1"
+                [ngClass]="getTemperatureSliderClass()">
+              </p-slider>
+            </div>
+            <div class="p-col-4">
+              <label>Target ASIC: {{ form.controls['asictargettemp'].value }}°C</label>
+            </div>
           </div>
-          <div class="p-col-4">
-            <label>{{ form.controls['targetAsicTemp'].value }}°C</label>
+        </ng-container>
+        <ng-container *ngIf="form.controls['autoasicfanspeed'].value != true">
+          <div class="p-grid">
+            <div class="p-col-8">
+              <p-slider formControlName="asicfanspeed" [(ngModel)]="form.controls['asicfanspeed'].value"></p-slider>
+            </div>
+            <div class="p-col-4">
+              <label>ASIC Fan: {{ form.controls['asicfanspeed'].value }}%</label>
+            </div>
           </div>
-        </div>
+        </ng-container>
       </div>
     </div>
 
-    <!-- Fan Speed (Manual Mode) -->
-    <div *ngIf="form.controls['autofanspeed'].value != true" class="field grid p-fluid">
-      <label class="col-12 mb-2 md:col-3 md:mb-0" htmlFor="fanspeed">Manual Fan Speed
-        <b *ngIf="form.controls['fanspeed'].value < 33" style="color:red"></b>
-      </label>
+    <!-- Vcore Fan Control (NMQAxe++ dual fan only) -->
+    <div *ngIf="hasDualFan" class="field grid p-fluid">
+      <div class="col-12 mb-2 md:col-3 md:mb-0 fan-auto-label">
+        <p-checkbox name="autovcorefanspeed" formControlName="autovcorefanspeed" inputId="autovcorefanspeed" [binary]="true"></p-checkbox>
+        <label for="autovcorefanspeed" class="fan-toggle-label">Auto Vcore Fan</label>
+      </div>
       <div class="col-12 md:col-9">
-        <div class="p-grid">
-          <div class="p-col-8">
-            <p-slider formControlName="fanspeed" [(ngModel)]="form.controls['fanspeed'].value"></p-slider>
+        <ng-container *ngIf="form.controls['autovcorefanspeed'].value == true">
+          <div class="p-grid">
+            <div class="p-col-8">
+              <p-slider
+                formControlName="vcoretargettemp"
+                [(ngModel)]="form.controls['vcoretargettemp'].value"
+                [min]="vcoreTempMin"
+                [max]="vcoreTempMax"
+                [step]="1"
+                [ngClass]="getVcoreTemperatureSliderClass()">
+              </p-slider>
+            </div>
+            <div class="p-col-4">
+              <label>Target Vcore: {{ form.controls['vcoretargettemp'].value }}°C</label>
+            </div>
           </div>
-          <div class="p-col-4">
-            <label>{{ form.controls['fanspeed'].value }}%</label>
+        </ng-container>
+        <ng-container *ngIf="form.controls['autovcorefanspeed'].value != true">
+          <div class="p-grid">
+            <div class="p-col-8">
+              <p-slider formControlName="vcorefanspeed" [(ngModel)]="form.controls['vcorefanspeed'].value"></p-slider>
+            </div>
+            <div class="p-col-4">
+              <label>Vcore Fan: {{ form.controls['vcorefanspeed'].value }}%</label>
+            </div>
           </div>
-        </div>
+        </ng-container>
       </div>
     </div>
 
@@ -71,13 +106,6 @@
           <p-checkbox name="ledindicator" formControlName="ledindicator" inputId="ledindicator"
                       [binary]="true"></p-checkbox>
           <label for="ledindicator">LED Indicator</label>
-        </div>
-      </div>
-      <div class="col-12 md:col-4" style="flex: 1;">
-        <div class="field-checkbox">
-          <p-checkbox name="autofanspeed" formControlName="autofanspeed" inputId="autofanspeed"
-                      [binary]="true"></p-checkbox>
-          <label for="autofanspeed">Auto Fan</label>
         </div>
       </div>
       <div class="col-12 md:col-4" style="flex: 1;">

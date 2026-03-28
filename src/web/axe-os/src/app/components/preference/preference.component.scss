@@ -1,5 +1,21 @@
 /* Preference Component Styles */
 
+// 风扇自动控制行 - 左侧 checkbox + 标签
+.fan-auto-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+
+  .fan-toggle-label {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+  }
+}
+
 // 复选框容器优化
 .field-checkbox {
   display: flex !important;

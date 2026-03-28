@@ -191,8 +191,6 @@ struct BoardSpecConfig {
 
     struct{
         screen_preference_info_t screen;
-        // fan_preference_info_t    fan0; // for asic cooling fan
-        // fan_preference_info_t    fan1; // for vcore cooling fan, if exist
         led_preference_info_t    led;
     }preference;
 
