@@ -124,8 +124,16 @@ void MinerApp::print_stack_hwm() const {
 ──────────────────────────────────────────────*/
 void MinerApp::_tick_thread_entry(void* args) {
     board_sal_t* board = static_cast<board_sal_t*>(args);
-    uint16_t brightness = board->status.preference.screen.brightness;
     float    x = 0.0f;
+    
+    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY); // wait for ASIC count before proceeding
+    //backlight brightness ramp up
+    uint16_t brightness = board->status.preference.screen.brightness;
+    for(int i = 0; i < brightness; i++) {
+        tft_bl_ctrl(i);
+        delay(10);
+    }
+
     while(true){
         delay(10);
         // check miner events to trigger backlight effect, such as block hit or high diff achieved

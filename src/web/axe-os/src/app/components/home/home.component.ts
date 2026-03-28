@@ -201,4 +201,21 @@ export class HomeComponent implements OnInit {
     }
     return value >= this.getWarningThreshold(max);
   }
+
+  gaugeArc(value: number | undefined, min: number, max: number): string {
+    const CIRC = 276.46;
+    const MAX_ARC = 207.35;
+    const v = (value != null && !isNaN(+value)) ? +value : min;
+    const f = Math.max(0, Math.min(1, (v - min) / (max - min)));
+    const fill = f * MAX_ARC;
+    return `${fill.toFixed(2)} ${(CIRC - fill).toFixed(2)}`;
+  }
+
+  gaugeColor(value: number | undefined, min: number, max: number): string {
+    const v = (value != null && !isNaN(+value)) ? +value : min;
+    const f = Math.max(0, Math.min(1, (v - min) / (max - min)));
+    if (f < 0.6) return '#00e676';
+    if (f < 0.85) return '#ffab40';
+    return '#ff5252';
+  }
 }

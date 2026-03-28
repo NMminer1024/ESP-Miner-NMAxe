@@ -79,37 +79,46 @@
       <div class="power-card">
         <h5>⚡ Power</h5>
         <div class="power-grid" *ngIf="gaugeLimits">
-          <div class="power-item">
-            <p-knob [min]="gaugeLimits.power.vbus.min" 
-                    [max]="gaugeLimits.power.vbus.max" 
-                    [readonly]="true" 
-                    [(ngModel)]="info.voltage"
-                    valueTemplate="{value}V" 
-                    [size]="130" 
-                    strokeWidth="14"></p-knob>
-            <div class="power-label">Voltage</div>
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="130" height="130">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.voltage, gaugeLimits.power.vbus.min, gaugeLimits.power.vbus.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.voltage, gaugeLimits.power.vbus.min, gaugeLimits.power.vbus.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.voltage}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">V</text>
+            </svg>
+            <div class="mg-label">Voltage</div>
             <span class="danger" *ngIf="isWarning(info.voltage, gaugeLimits.power.vbus.max)">⚠️ High</span>
           </div>
-          <div class="power-item">
-            <p-knob [min]="gaugeLimits.power.ibus.min" 
-                    [max]="gaugeLimits.power.ibus.max" 
-                    [readonly]="true" 
-                    [(ngModel)]="info.current"
-                    valueTemplate="{value}A" 
-                    [size]="130" 
-                    strokeWidth="14"></p-knob>
-            <div class="power-label">Current</div>
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="130" height="130">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.current, gaugeLimits.power.ibus.min, gaugeLimits.power.ibus.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.current, gaugeLimits.power.ibus.min, gaugeLimits.power.ibus.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.current}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">A</text>
+            </svg>
+            <div class="mg-label">Current</div>
             <span class="danger" *ngIf="isWarning(info.current, gaugeLimits.power.ibus.max)">⚠️ High</span>
           </div>
-          <div class="power-item">
-            <p-knob [min]="gaugeLimits.power.power.min" 
-                    [max]="gaugeLimits.power.power.max" 
-                    [readonly]="true" 
-                    [(ngModel)]="info.power_w"
-                    valueTemplate="{value}W" 
-                    [size]="130" 
-                    strokeWidth="14"></p-knob>
-            <div class="power-label">Power</div>
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="130" height="130">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.power_w, gaugeLimits.power.power.min, gaugeLimits.power.power.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.power_w, gaugeLimits.power.power.min, gaugeLimits.power.power.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.power_w}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">W</text>
+            </svg>
+            <div class="mg-label">Power</div>
             <span class="danger" *ngIf="isWarning(info.power_w, gaugeLimits.power.power.max)">⚠️ High</span>
           </div>
         </div>
@@ -118,47 +127,59 @@
       <div class="heat-card">
         <h5>🌡️ Heat</h5>
         <div class="heat-grid" *ngIf="gaugeLimits">
-          <div class="heat-item">
-            <p-knob [min]="gaugeLimits.heat.asic.min" 
-                    [max]="gaugeLimits.heat.asic.max" 
-                    [readonly]="true" 
-                    [(ngModel)]="info.temp"
-                    valueTemplate="{value}°C" 
-                    [size]="120" 
-                    strokeWidth="12"></p-knob>
-            <div class="heat-label">ASIC Temp</div>
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.temp, gaugeLimits.heat.asic.min, gaugeLimits.heat.asic.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.temp, gaugeLimits.heat.asic.min, gaugeLimits.heat.asic.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.temp}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">°C</text>
+            </svg>
+            <div class="mg-label">ASIC Temp</div>
             <span class="danger" *ngIf="info.temp && isWarning(info.temp, gaugeLimits.heat.asic.max)">⚠️ High</span>
           </div>
-          <div class="heat-item" *ngIf="info.vrTemp && info.vrTemp > 0">
-            <p-knob [min]="gaugeLimits.heat.vcore.min" 
-                    [max]="gaugeLimits.heat.vcore.max" 
-                    [readonly]="true" 
-                    [(ngModel)]="info.vrTemp"
-                    valueTemplate="{value}°C" 
-                    [size]="120" 
-                    strokeWidth="12"></p-knob>
-            <div class="heat-label">Vcore Temp</div>
+          <div class="mg-item" *ngIf="info.vrTemp && info.vrTemp > 0">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.vrTemp, gaugeLimits.heat.vcore.min, gaugeLimits.heat.vcore.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.vrTemp, gaugeLimits.heat.vcore.min, gaugeLimits.heat.vcore.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.vrTemp}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">°C</text>
+            </svg>
+            <div class="mg-label">Vcore Temp</div>
             <span class="danger" *ngIf="info.vrTemp && isWarning(info.vrTemp, gaugeLimits.heat.vcore.max)">⚠️ High</span>
           </div>
-          <div class="heat-item">
-            <p-knob [min]="gaugeLimits.heat.fan.min" 
-                    [max]="gaugeLimits.heat.fan.max" 
-                    [readonly]="true" 
-                    [(ngModel)]="info.fanrpm"
-                    valueTemplate="{value}" 
-                    [size]="120" 
-                    strokeWidth="12"></p-knob>
-            <div class="heat-label">ASIC Fan</div>
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.fanrpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.fanrpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.fanrpm}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">rpm</text>
+            </svg>
+            <div class="mg-label">ASIC Fan</div>
           </div>
-          <div class="heat-item" *ngIf="info.vcoreFanRpm !== undefined">
-            <p-knob [min]="gaugeLimits.heat.fan.min" 
-                    [max]="gaugeLimits.heat.fan.max" 
-                    [readonly]="true" 
-                    [(ngModel)]="info.vcoreFanRpm"
-                    valueTemplate="{value}" 
-                    [size]="120" 
-                    strokeWidth="12"></p-knob>
-            <div class="heat-label">Vcore Fan</div>
+          <div class="mg-item" *ngIf="info.vcoreFanRpm !== undefined">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.vcoreFanRpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.vcoreFanRpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.vcoreFanRpm}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">rpm</text>
+            </svg>
+            <div class="mg-label">Vcore Fan</div>
           </div>
         </div>
       </div>
@@ -166,38 +187,47 @@
       <div class="performance-card">
         <h5>🚀 Performance</h5>
         <div class="performance-grid" *ngIf="gaugeLimits">
-          <div class="performance-item">
-            <p-knob [min]="gaugeLimits.performance.asic_freq_req.min" 
-                    [max]="gaugeLimits.performance.asic_freq_req.max" 
-                    [readonly]="true" 
-                    [(ngModel)]="info.frequency"
-                    valueTemplate="{value}M" 
-                    [size]="120" 
-                    strokeWidth="12"></p-knob>
-            <div class="performance-label">ASIC Clock</div>
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.frequency, gaugeLimits.performance.asic_freq_req.min, gaugeLimits.performance.asic_freq_req.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.frequency, gaugeLimits.performance.asic_freq_req.min, gaugeLimits.performance.asic_freq_req.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.frequency}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">MHz</text>
+            </svg>
+            <div class="mg-label">ASIC Clock</div>
             <span class="danger" *ngIf="isWarning(info.frequency, gaugeLimits.performance.asic_freq_req.max)">⚠️ High</span>
           </div>
           <div class="voltage-comparison">
             <div class="voltage-item">
-              <p-knob [min]="gaugeLimits.performance.vcore_req.min" 
-                      [max]="gaugeLimits.performance.vcore_req.max" 
-                      [readonly]="true" 
-                      [(ngModel)]="info.coreVoltage"
-                      valueTemplate="{value}V" 
-                      [size]="100" 
-                      strokeWidth="14"></p-knob>
+              <svg viewBox="0 0 100 100" class="mg-svg" width="100" height="100">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+                <circle cx="50" cy="50" r="44" fill="none"
+                        [attr.stroke]="gaugeColor(info.coreVoltage, gaugeLimits.performance.vcore_req.min, gaugeLimits.performance.vcore_req.max)"
+                        stroke-width="6" stroke-linecap="round"
+                        [attr.stroke-dasharray]="gaugeArc(info.coreVoltage, gaugeLimits.performance.vcore_req.min, gaugeLimits.performance.vcore_req.max)"
+                        stroke-dashoffset="-103.67" class="mg-arc"/>
+                <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.coreVoltage}}</text>
+                <text x="50" y="64" text-anchor="middle" class="mg-unit">V</text>
+              </svg>
               <div class="voltage-label">Requested</div>
               <span class="danger" *ngIf="isWarning(info.coreVoltage, gaugeLimits.performance.vcore_req.max)">⚠️ High</span>
             </div>
             <div class="voltage-vs">VS</div>
             <div class="voltage-item">
-              <p-knob [min]="gaugeLimits.performance.vcore_measure.min" 
-                      [max]="gaugeLimits.performance.vcore_measure.max" 
-                      [readonly]="true" 
-                      [(ngModel)]="info.coreVoltageActual"
-                      valueTemplate="{value}V" 
-                      [size]="100" 
-                      strokeWidth="14"></p-knob>
+              <svg viewBox="0 0 100 100" class="mg-svg" width="100" height="100">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+                <circle cx="50" cy="50" r="44" fill="none"
+                        [attr.stroke]="gaugeColor(info.coreVoltageActual, gaugeLimits.performance.vcore_measure.min, gaugeLimits.performance.vcore_measure.max)"
+                        stroke-width="6" stroke-linecap="round"
+                        [attr.stroke-dasharray]="gaugeArc(info.coreVoltageActual, gaugeLimits.performance.vcore_measure.min, gaugeLimits.performance.vcore_measure.max)"
+                        stroke-dashoffset="-103.67" class="mg-arc"/>
+                <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.coreVoltageActual}}</text>
+                <text x="50" y="64" text-anchor="middle" class="mg-unit">V</text>
+              </svg>
               <div class="voltage-label">Measured</div>
               <span class="danger" *ngIf="isWarning(info.coreVoltageActual, gaugeLimits.performance.vcore_measure.max)">⚠️ High</span>
             </div>

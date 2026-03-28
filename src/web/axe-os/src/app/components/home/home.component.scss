@@ -335,6 +335,43 @@
   font-weight: 500;
 }
 
+// Mini SVG Gauge
+.mg-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.mg-svg {
+  overflow: visible;
+  display: block;
+}
+
+.mg-arc {
+  transition: stroke-dasharray 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s ease;
+}
+
+.mg-val {
+  font-size: 17px;
+  font-weight: 700;
+  fill: #ffffff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.mg-unit {
+  font-size: 10px;
+  fill: #7a7a9a;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.mg-label {
+  font-size: 13px;
+  color: #9e9e9e;
+  font-weight: 500;
+  text-align: center;
+}
+
 // Device Information
 .device-info {
   margin: 20px 0;
@@ -748,15 +785,10 @@ ng-template {
     padding: 12px; // 减少padding
   }
   
-  // 移动端p-knob尺寸调整 - 缩小环的直径
-  ::ng-deep .power-grid .p-knob {
-    width: 110px !important;  // 从100px增加到110px
-    height: 110px !important;
-    
-    svg {
-      width: 110px !important;
-      height: 110px !important;
-    }
+  // 移动端svg gauge尺寸调整
+  .mg-svg {
+    width: 100px !important;
+    height: 100px !important;
   }
 }
 
@@ -786,15 +818,10 @@ ng-template {
     min-height: 200px;
   }
   
-  // 480px断点进一步缩小p-knob尺寸
-  ::ng-deep .power-grid .p-knob {
-    width: 95px !important;  // 从85px增加到95px
-    height: 95px !important;
-    
-    svg {
-      width: 95px !important;
-      height: 95px !important;
-    }
+  // 480px断点进一步缩小svg gauge
+  .mg-svg {
+    width: 85px !important;
+    height: 85px !important;
   }
 }
 

@@ -10,7 +10,7 @@
       <div class="col-12 md:col-9">
         <div class="p-grid">
           <div class="p-col-8">
-            <p-slider formControlName="brightness" [(ngModel)]="form.controls['brightness'].value"></p-slider>
+            <p-slider formControlName="brightness" [(ngModel)]="form.controls['brightness'].value" [min]="1" [max]="100"></p-slider>
           </div>
           <div class="p-col-4">
             <label>{{ form.controls['brightness'].value }}%</label>

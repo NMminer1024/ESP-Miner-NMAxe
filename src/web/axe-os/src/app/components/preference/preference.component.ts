@@ -66,7 +66,7 @@ export class PreferenceComponent implements OnInit {
           flipscreen:         [flipscreen == 1],
           invertscreen:       [invertscreen == 1],
           ledindicator:       [ledindicator == 1],
-          brightness:         [brightness, [Validators.required]],
+          brightness:         [brightness, [Validators.required, Validators.min(1), Validators.max(100)]],
           autoscreen:         [autoscreen == 1],
           autoasicfanspeed:   [autoasicfanspeed == 1 || autoasicfanspeed === true, [Validators.required]],
           asictargettemp:     [parseFloat(String(asictargettemp)) || 30, [Validators.required, Validators.min(this.asicTempMin), Validators.max(this.asicTempMax)]],

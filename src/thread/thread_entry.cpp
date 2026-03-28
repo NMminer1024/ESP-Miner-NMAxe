@@ -2304,11 +2304,12 @@ void display_thread_entry(void *args){
   // wait lvgl and ui thread ready
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_UI_READY | INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
 
-  //backlight brightness ramp up
-  for(int i = 0; i < board->status.preference.screen.brightness; i++) {
-    tft_bl_ctrl(i);
-    delay(10);
-  }
+//   //backlight brightness ramp up
+//   for(int i = 0; i < board->status.preference.screen.brightness; i++) {
+//     tft_bl_ctrl(i);
+//     delay(10);
+//     LOG_W("Screen brightness: %d%%", i);
+//   }
 
   uint16_t cnt = 0;
   /****************************************wait for Vbus ready*******************************************/
