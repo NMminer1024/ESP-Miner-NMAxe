@@ -126,7 +126,7 @@
                     valueTemplate="{value}°C" 
                     [size]="120" 
                     strokeWidth="12"></p-knob>
-            <div class="heat-label">ASIC</div>
+            <div class="heat-label">ASIC Temp</div>
             <span class="danger" *ngIf="info.temp && isWarning(info.temp, gaugeLimits.heat.asic.max)">⚠️ High</span>
           </div>
           <div class="heat-item" *ngIf="info.vrTemp && info.vrTemp > 0">
@@ -137,7 +137,7 @@
                     valueTemplate="{value}°C" 
                     [size]="120" 
                     strokeWidth="12"></p-knob>
-            <div class="heat-label">Vcore</div>
+            <div class="heat-label">Vcore Temp</div>
             <span class="danger" *ngIf="info.vrTemp && isWarning(info.vrTemp, gaugeLimits.heat.vcore.max)">⚠️ High</span>
           </div>
           <div class="heat-item">
