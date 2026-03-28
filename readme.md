@@ -282,7 +282,6 @@ Active pool connection — read-only snapshot.
   },
   "temps": {
     "vcore": 45.2,
-    "mcu": 38.1,
     "asic": 62.7
   },
   "asic": {
@@ -475,7 +474,35 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
-| GET | `/api/swarm` | List all discovered swarm devices with status |
+| POST | `/api/swarm/scan` | Trigger an immediate neighbor IP scan |
+
+---
+
+### Probe & Alive (Swarm Internal)
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET | `/probe` | Lightweight probe — returns model, hostname, firmware version, hashrate, best difficulty and uptime |
+| GET | `/alive` | Returns this device's own IP and all known alive neighbor IPs |
+
+#### `GET /probe` — Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `model` | string | Board model name (e.g. `"NMAxe"`) |
+| `hostname` | string | Device hostname |
+| `ver` | string | Firmware version |
+| `hr` | float | 3-minute average hashrate (H/s) |
+| `sbd` | float | Best session difficulty |
+| `ebd` | float | Best ever difficulty |
+| `ut` | int | Session uptime (seconds) |
+
+#### `GET /alive` — Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `self` | string | This device's own IP address |
+| `ips` | array | List of all alive IP addresses on the subnet (including self) |
 
 ---
 
