@@ -118,17 +118,6 @@
       <div class="heat-card">
         <h5>🌡️ Heat</h5>
         <div class="heat-grid" *ngIf="gaugeLimits">
-          <div class="heat-item" *ngIf="info.mcuTemp">
-            <p-knob [min]="gaugeLimits.heat.mcu.min" 
-                    [max]="gaugeLimits.heat.mcu.max" 
-                    [readonly]="true" 
-                    [(ngModel)]="info.mcuTemp"
-                    valueTemplate="{value}°C" 
-                    [size]="120" 
-                    strokeWidth="12"></p-knob>
-            <div class="heat-label">MCU</div>
-            <span class="danger" *ngIf="isWarning(info.mcuTemp, gaugeLimits.heat.mcu.max)">⚠️ High</span>
-          </div>
           <div class="heat-item">
             <p-knob [min]="gaugeLimits.heat.asic.min" 
                     [max]="gaugeLimits.heat.asic.max" 
@@ -159,7 +148,17 @@
                     valueTemplate="{value}" 
                     [size]="120" 
                     strokeWidth="12"></p-knob>
-            <div class="heat-label">Fan RPM</div>
+            <div class="heat-label">ASIC Fan</div>
+          </div>
+          <div class="heat-item" *ngIf="info.vcoreFanRpm !== undefined">
+            <p-knob [min]="gaugeLimits.heat.fan.min" 
+                    [max]="gaugeLimits.heat.fan.max" 
+                    [readonly]="true" 
+                    [(ngModel)]="info.vcoreFanRpm"
+                    valueTemplate="{value}" 
+                    [size]="120" 
+                    strokeWidth="12"></p-knob>
+            <div class="heat-label">Vcore Fan</div>
           </div>
         </div>
       </div>

@@ -15,5 +15,5 @@
 void tmp102_init();
 float get_vcore_temperature();
 float get_asic_temperature();
-float get_mcu_temperature();
+
 #endif 

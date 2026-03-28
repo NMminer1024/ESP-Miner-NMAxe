@@ -212,7 +212,6 @@ The response is structured into nested sub-objects.
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
 | `temps.vcore` | float | °C | VCORE regulator temperature |
-| `temps.mcu` | float | °C | MCU (ESP32) temperature |
 | `temps.asic` | float | °C | ASIC die temperature |
 
 ##### 🔧 ASIC Status — `asic`
@@ -315,7 +314,10 @@ Active pool connection — read-only snapshot.
     "ssid": "MyHomeWifi",
     "rssi": -55
   },
-  "fans": [{ "id": 0, "speed": 60, "rpm": 2800 }],
+  "fans": [
+    { "id": 0, "speed": 60, "rpm": 2800 },
+    { "id": 1, "speed": 80, "rpm": 4200 }
+  ],
   "stratum": {
     "url": "stratum+tcp://pool.example.com:3333",
     "user": "bc1q...xyz.worker1",

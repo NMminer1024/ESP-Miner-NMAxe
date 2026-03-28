@@ -153,7 +153,6 @@ void get_system_info(AsyncWebServerRequest* request){
     // Temperatures
     JsonObject tempObj  = root.createNestedObject("temps");
     tempObj["vcore"]    = g_board.status.temp.vcore;
-    tempObj["mcu"]      = g_board.status.temp.mcu;
     tempObj["asic"]     = g_board.status.temp.asic;
 
     // ASIC status
@@ -607,10 +606,6 @@ void get_gauge_limits(AsyncWebServerRequest* request){
     
     // Heat limits
     JsonObject heat = root.createNestedObject("heat");
-    JsonObject heat_mcu = heat.createNestedObject("mcu");
-    heat_mcu["min"] = g_board.info.spec.ui.dashboard_page.heat.mcu.min;
-    heat_mcu["max"] = g_board.info.spec.ui.dashboard_page.heat.mcu.max;
-    
     JsonObject heat_asic = heat.createNestedObject("asic");
     heat_asic["min"] = g_board.info.spec.ui.dashboard_page.heat.asic.min;
     heat_asic["max"] = g_board.info.spec.ui.dashboard_page.heat.asic.max;

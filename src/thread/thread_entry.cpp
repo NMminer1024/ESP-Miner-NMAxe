@@ -1184,12 +1184,6 @@ void monitor_thread_entry(void *args){
         
         //status check
         if(board->status.miner.uptime_session % 2 == 0){
-            //check mcu temperature status
-            if(board->status.temp.mcu > BOARD_MCU_TEMP_DANGER){
-                LOG_W("MCU temp reach danger (mcu: %.1fC), restart miner...", board->status.temp.mcu);
-                xSemaphoreGive(board->status.reboot_xsem);
-            }
-
             //check vcore temperature status
             static uint8_t vcore_err_cnt = 0;
             if(board->status.temp.vcore > board->info.spec.pwr.temp_limit.high){

@@ -19,7 +19,6 @@
 #define BOARD_CURRENT_FW_VERSION        "v3.0.10"
 #define BOARD_CURRENT_HW_VERSION        "v1.1.1"
 #define BOARD_NVS_SAVE_INTERVAL         (60*60)  //second
-#define BOARD_MCU_TEMP_DANGER           (70.0f)
 #define BOARD_TOUCH_LONG_PRESS_TO_RECOVER   (10)     //seconds, long press duration to enter recover mode
 
 #define MINER_WIFI_RSSI_STRONG          (-60)
@@ -163,7 +162,6 @@ typedef struct{
     }power;
 
     struct{
-        float       mcu;
         float       vcore;
         float       asic;
     }temp;

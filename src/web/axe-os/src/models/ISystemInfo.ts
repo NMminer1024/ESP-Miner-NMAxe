@@ -32,7 +32,6 @@ export interface IInfoPower {
 
 export interface IInfoTemp {
   vcore: number;    // °C
-  mcu:   number;    // °C
   asic:  number;    // °C
 }
 
@@ -113,7 +112,6 @@ export interface ISystemInfo {
   current?: number,
   asicTemp?: number,
   vcoreTemp?: number,
-  mcuTemp?: number,
   asicCount?: number,
   vcoreReq?: number,
   vcoreActual?: number,
@@ -163,6 +161,7 @@ export interface ISystemInfo {
   autoscreen?: number,
   fanspeed?: number,
   fanrpm?: number,
+  vcoreFanRpm?: number,
   boardtemp2?: number,
 }
 

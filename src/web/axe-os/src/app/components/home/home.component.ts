@@ -50,12 +50,8 @@ export class HomeComponent implements OnInit {
         // --- temp ---
         info.asicTemp  = tmp?.asic  ?? info.asicTemp;
         info.vcoreTemp = tmp?.vcore ?? info.vcoreTemp;
-        info.mcuTemp   = tmp?.mcu   ?? info.mcuTemp;
         info.temp   = parseFloat(((info.asicTemp  ?? 0) as number).toFixed(1));
         info.vrTemp = parseFloat(((info.vcoreTemp ?? 0) as number).toFixed(1));
-        if (info.mcuTemp !== undefined) {
-          info.mcuTemp = parseFloat((info.mcuTemp as number).toFixed(1));
-        }
 
         // --- asic ---
         info.vcoreReq    = asc?.vcoreReq    ?? info.vcoreReq;
@@ -114,6 +110,8 @@ export class HomeComponent implements OnInit {
           const defaultFan = info.fans.find((f: any) => f.id === 0) || info.fans[0];
           info.fanspeed = defaultFan.speed;
           info.fanrpm   = defaultFan.rpm;
+          const vcoreFan = info.fans.find((f: any) => f.id === 1);
+          info.vcoreFanRpm = vcoreFan ? vcoreFan.rpm : undefined;
         }
 
         return info;

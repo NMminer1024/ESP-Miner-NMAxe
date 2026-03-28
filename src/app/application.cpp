@@ -144,12 +144,7 @@ void MinerApp::_tick_thread_entry(void* args) {
 
         // sensor reading and other periodic tasks can also be added here if needed
         //update board temperature
-        static uint16_t mcu_temp_last_update = 0, vcore_temp_last_update = 0, asic_temp_last_update = 0;
-        if(millis() - mcu_temp_last_update >= 30 * 1000){
-            board->status.temp.mcu = (float)get_mcu_temperature();
-            board->status.temp.mcu   = roundf(board->status.temp.mcu * 10) / 10.0f;
-            mcu_temp_last_update = millis();
-        }
+        static uint16_t vcore_temp_last_update = 0, asic_temp_last_update = 0;
         if(millis() - vcore_temp_last_update >= 125){
             board->status.temp.vcore = (float)get_vcore_temperature();
             board->status.temp.vcore = roundf(board->status.temp.vcore * 10) / 10.0f;

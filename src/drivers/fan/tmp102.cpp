@@ -86,6 +86,3 @@ float get_asic_temperature(){
     return NAN;
 }
 
-float get_mcu_temperature(){
-    return temperatureRead();
-}
