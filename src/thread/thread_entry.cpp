@@ -756,13 +756,11 @@ void swarm_thread_entry(void *args){
     auto& nbr = board->status.neighbor;
 
     while (true) {
-        delay(10 * 1000);
+        delay(30 * 1000);
 
         if (WiFi.status() != WL_CONNECTED) continue;
 
-        LOG_W("(swarm) loop tick, heap=%u", ESP.getFreeHeap());
-
-        // ── 读取当前 scan generation 与 alive 列表（持锁最短时间）─────────
+        // ── Read current scan generation and alive list (hold lock for minimum time) ──────
         std::vector<String> alive;
         uint32_t cur_gen = 0;
         if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
@@ -773,8 +771,8 @@ void swarm_thread_entry(void *args){
             LOG_W("(swarm) WARNING: failed to acquire nbr.mutex in 200ms");
         }
 
-        // ── 检测 scan 是否完成了新一轮 ───────────────────────────────────
-        // generation 变化 → 清空所有记忆，本轮重新全量探测所有 alive IP
+        // ── Detect whether a new scan round has completed ────────────────────────────────
+        // generation changed → clear all cached state, re-probe all alive IPs from scratch
         if (cur_gen != ctx.last_scan_gen) {
             ctx.confirmed_ips.clear();
             ctx.last_scan_gen = cur_gen;
@@ -785,13 +783,13 @@ void swarm_thread_entry(void *args){
             LOG_W("(swarm) new scan gen=%u, reset swarm memory, %u alive IPs to probe", cur_gen, (uint32_t)alive.size());
         }
 
-        // ── 决定本轮探测目标 ─────────────────────────────────────────────
-        // confirmed_ips 有内容（非首轮）→ 精确通信已知 NMMiner + 补探 alive 中未分类 IP
-        // confirmed_ips 为空（新 generation 或启动初期）→ 全量探测 alive
+        // ── Determine probe targets for this round ──────────────────────────────────────
+        // confirmed_ips non-empty (not first round) → talk to known NMMiners + probe unclassified alive IPs
+        // confirmed_ips empty (new generation or startup) → full probe of all alive IPs
         const String selfIP = WiFi.localIP().toString();
         std::vector<String> targets;
         if (ctx.confirmed_ips.empty()) {
-            // 全量探测：过滤本机和黑名单
+            // Full probe: skip self and blacklisted IPs
             for (const auto& ip : alive) {
                 if (ip == selfIP) continue;
                 bool bl = false;
@@ -802,14 +800,14 @@ void swarm_thread_entry(void *args){
                 if (!bl) targets.push_back(ip);
             }
         } else {
-            // 精确探测：已确认的 NMMiner
+            // Targeted probe: confirmed NMMiners
             for (const auto& ip : ctx.confirmed_ips)
                 targets.push_back(ip);
-            // 补探：scan 扫描期间新上线、尚未被分类（未确认/未拉黑）的 alive IP
-            // 解决 scan 耗时较长时，swarm 已进入精确模式但新 IP 还未被探测的竞争问题
+            // Supplemental probe: IPs that came online during scanning, not yet classified (neither confirmed nor blacklisted)
+            // Resolves race condition where swarm enters targeted mode before newly discovered IPs have been probed
             for (const auto& ip : alive) {
                 if (ip == selfIP) continue;
-                if (ctx.confirmed_ips.count(ip)) continue; // 已确认，无需重复
+                if (ctx.confirmed_ips.count(ip)) continue; // already confirmed, skip
                 bool bl = false;
                 if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
                     bl = ctx.probe_blacklist.count(ip) > 0;
@@ -819,7 +817,7 @@ void swarm_thread_entry(void *args){
             }
         }
 
-        // ── 探测目标列表 ─────────────────────────────────────────────────
+        // ── Probe target list ────────────────────────────────────────────────────────
         uint32_t workers         = 0;
         float    total_hr        = 0.0f;
         float    best_session_bd = 0.0f;
@@ -834,31 +832,31 @@ void swarm_thread_entry(void *args){
             uint32_t t0 = millis();
             LOG_D("(swarm) >>> probing %s", ip.c_str());
 
-            // 使用 WiFiClient 直接控制连接与读取，避免 HTTPClient 的 Stream timedRead()
-            // 每次收到一个字节就重置计时器导致 "慢速响应" 设备卡死数十秒的问题
+            // Use WiFiClient directly to control connection and reads, avoiding HTTPClient's Stream timedRead()
+            // which resets the timer on every received byte, causing "slow response" devices to stall for tens of seconds
             WiFiClient wclient;
             int code = -1;
             String body;
-            if (wclient.connect(ip.c_str(), 80, 2000)) {   // 2000ms 建立 TCP 连接超时
+            if (wclient.connect(ip.c_str(), 80, 2000)) {   // 2000ms TCP connect timeout
                 wclient.print("GET /probe HTTP/1.0\r\nHost: " + ip + "\r\nConnection: close\r\n\r\n");
                 String resp;
                 resp.reserve(512);
-                uint32_t read_dl = millis() + 2000;   // 2秒硬截止读完整响应
+                uint32_t read_dl = millis() + 2000;   // 2s hard deadline for reading the full response
                 while ((wclient.connected() || wclient.available()) && millis() < read_dl) {
                     while (wclient.available()) {
                         resp += (char)wclient.read();
-                        if (resp.length() > 1024) goto probe_read_done;   // 响应超长，截断
+                        if (resp.length() > 1024) goto probe_read_done;   // response too long, truncate
                     }
                     delay(1);
                 }
                 probe_read_done:
                 wclient.stop();
-                // 解析状态码 "HTTP/x.x NNN ..."
+                // Parse HTTP status code "HTTP/x.x NNN ..."
                 int sp = resp.indexOf(' ');
                 if (sp >= 0 && resp.startsWith("HTTP/") && (int)resp.length() > sp + 3) {
                     code = resp.substring(sp + 1, sp + 4).toInt();
                 }
-                // 提取 body（双换行之后）
+                // Extract body (after double CRLF)
                 int bi = resp.indexOf("\r\n\r\n");
                 if (bi >= 0) body = resp.substring(bi + 4);
             }
@@ -869,8 +867,8 @@ void swarm_thread_entry(void *args){
                 StaticJsonDocument<256> doc;
                 LOG_D("(swarm) %s: %s", ip.c_str(), body.c_str());
                 if (!deserializeJson(doc, body)) {
-                    // NM 设备识别：/probe 必有 "hr"（算力）和 "ver"（固件版本）两个核心字段
-                    // 其他字段各型号可选，只检查这两个，后续扩展无需修改此处
+                    // NM device identification: /probe must have "hr" (hashrate) and "ver" (firmware version)
+                    // Other fields are optional per model; only these two are checked, no changes needed here for future extensions
                     bool isNM = doc.containsKey("hr") && doc.containsKey("ver");
                     if (isNM) {
                         workers++;
@@ -880,11 +878,11 @@ void swarm_thread_entry(void *args){
                         total_hr += hr;
                         if (sbd > best_session_bd) best_session_bd = sbd;
                         if (ebd > best_ever_bd)    best_ever_bd    = ebd;
-                        ctx.confirmed_ips.insert(ip); // 加入已确认集合
+                        ctx.confirmed_ips.insert(ip); // add to confirmed set
                         LOG_D("(swarm) %s NM device hr=%.0f sbd=%.0f ebd=%.0f",
                               ip.c_str(), hr, sbd, ebd);
                     } else {
-                        // 全量探测阶段发现非 NM 设备 → 拉黑（本轮 scan 周期内有效）
+                        // Non-NM device found during full probe → blacklist (valid for current scan cycle)
                         if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                             ctx.probe_blacklist.insert(ip);
                             xSemaphoreGive(ctx.mutex);
@@ -893,11 +891,11 @@ void swarm_thread_entry(void *args){
                     }
                 }
             } else {
-                // 连接失败/404：
-                //   - 未确认的 IP（全量探测或精确模式补探）→ 拉黑，避免每轮重复等待超时
-                //   - 已确认的 NM 矿机（临时断联）→ 不拉黑，下轮继续重试
-                // 注：精确模式下补探的 IP 若超时不拉黑，会导致每轮都重探大量非NM设备，
-                //     每个最多等待 4s (connect+read)，几十个设备会卡住循环数分钟。
+                // Connection failed / 404:
+                //   - unconfirmed IP (full probe or targeted-mode supplemental probe) → blacklist to avoid repeated timeout waits
+                //   - confirmed NM miner (temporarily offline) → do not blacklist, retry next round
+                // Note: if supplemental IPs in targeted mode are not blacklisted on timeout, every round will
+                //       re-probe many non-NM devices, each waiting up to 4s (connect+read), stalling the loop for minutes.
                 bool is_confirmed = ctx.confirmed_ips.count(ip) > 0;
                 if (!is_confirmed) {
                     if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
@@ -910,18 +908,19 @@ void swarm_thread_entry(void *args){
             delay(50);
         }
 
-        // ── 写入聚合结果 ─────────────────────────────────────────────────
+        // ── Write aggregated results ──────────────────────────────────────────────────
         if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            ctx.total_workers   = workers;
-            ctx.total_hr        = total_hr;
-            ctx.best_session_bd = best_session_bd;
-            ctx.best_ever_bd    = best_ever_bd;
+            ctx.total_workers   = workers + 1;                                 // include self
+            ctx.total_hr        = total_hr + board->status.miner.hashrate._3m; // include self
+            ctx.best_session_bd = (best_session_bd > board->status.miner.diff.best_session) ? best_session_bd : board->status.miner.diff.best_session;
+            ctx.best_ever_bd    = (best_ever_bd > board->status.miner.diff.best_ever) ? best_ever_bd : board->status.miner.diff.best_ever;
             xSemaphoreGive(ctx.mutex);
         }
-        LOG_W("(swarm) gen=%u targets=%u workers=%u hr=%.0fH/s bestSBD=%.0f bestEBD=%.0f", cur_gen, (uint32_t)targets.size(), workers, total_hr, best_session_bd, best_ever_bd);
-        for(auto ip : ctx.confirmed_ips){
-            LOG_I("(swarm)   ********   confirmed: %s ************", ip.c_str());
-        }
+        LOG_W("(swarm) gen=%u targets=%u workers=%u hr=%sH/s sbd=%s ebd=%s", 
+            ctx.last_scan_gen, (uint32_t)targets.size(), ctx.total_workers, 
+            formatNumber(ctx.total_hr / 1e9, 3).c_str(), 
+            formatNumber(ctx.best_session_bd, 3).c_str(), 
+            formatNumber(ctx.best_ever_bd, 3).c_str());
     }
 }
 
