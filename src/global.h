@@ -25,7 +25,7 @@
 #define MINER_WIFI_RSSI_GOOD            (-70)
 #define MINER_ASIC_ALIVE_TIMEOUT        (1000*60*3)//3 minutes
 #define MINER_STRATUM_ALIVE_TIMEOUT     (1000*60*3)//3 minutes
-#define MINER_MARKET_UPDATE_INTERVAL    (1000*20)  // ms
+#define MINER_MARKET_UPDATE_INTERVAL    (1000*30)  // ms
 #define MINER_MARKET_CONNECT_TIMEOUT    (MINER_MARKET_UPDATE_INTERVAL * 3) // ms
 #define MINER_HISTORY_SAMPLE_DEEPTH     (1000*3600*24)  // history depth, how long to keep the history, in seconds
 #define MINER_HISTORY_SAMPLE_INTERVAL   (2)             // history sample interval, in seconds
@@ -144,13 +144,6 @@ typedef struct{
     connect_info_t          connection;
 }board_info_t;
 
-struct ScanView {
-    std::vector<String>*  ips          = nullptr;
-    SemaphoreHandle_t     mutex        = nullptr;
-    SemaphoreHandle_t     required_sem = nullptr;  // give once to trigger immediate rescan
-    uint32_t*             last_ms      = nullptr;
-};
-
 typedef String miner_ip_t;
 typedef String miner_info_t;
 typedef uint16_t asic_id_t;
@@ -261,28 +254,28 @@ typedef struct{
     }fan;
 
     struct{
-        // fan_preference_info_t       fan0;
-        // fan_preference_info_t       fan1;
         screen_preference_info_t    screen;
         led_preference_info_t       led;
     }preference;
 
-    struct ScanCtx {
+
+    struct {
+        SemaphoreHandle_t mutex;            // 保护聚合字段和黑名单
+        uint32_t          total_workers;
+        float             total_hr;
+        float             best_session_bd;
+        float             best_ever_bd;
+        std::set<String>  confirmed_ips;    // 已确认是 NMMiner 的 IP，本轮 scan 周期内精确通信
+        std::set<String>  probe_blacklist;  // 非 NMMiner IP，本轮 scan 周期内跳过
+        uint32_t          last_scan_gen;    // 上次处理的 scan_generation，变化时重置所有记忆
+    }swarm_ctx;
+
+    struct {
         std::vector<String> alive_ips;       // ICMP 存活 IP 列表
-        SemaphoreHandle_t   mutex;  
+        SemaphoreHandle_t   mutex;
         SemaphoreHandle_t   scan_required;   // 前端刷新时释放，触发新一轮扫描；超时后自动重扫
         uint32_t            last_scan_ms;
-        std::set<String>    probe_blacklist; // 非 NMMiner IP，本轮 scan 周期内跳过
         uint32_t            scan_generation; // 每完成一轮完整扫描 +1，通知 swarm 重置记忆
-
-        ScanView to_view() {
-            ScanView view;
-            view.ips          = &alive_ips;
-            view.mutex        = mutex;
-            view.required_sem = scan_required;
-            view.last_ms      = &last_scan_ms;
-            return view;
-        }
     }neighbor;
 
     SemaphoreHandle_t                  reboot_xsem;             // reboot signal

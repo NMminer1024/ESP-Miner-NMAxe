@@ -13,6 +13,7 @@
 #include "lwip/icmp.h"
 #include "lwip/inet_chksum.h"
 #include "lwip/ip4.h"
+#include <HTTPClient.h>
 
 void power_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
@@ -557,12 +558,10 @@ void webserver_thread_entry(void *args){
         AsyncResponseStream* resp = request->beginResponseStream("application/json");
         resp->addHeader("Access-Control-Allow-Origin", "*");
         resp->printf("{\"self\":\"%s\",\"ips\":[\"%s\"", self_ip.c_str(), self_ip.c_str());
-        if (board->status.neighbor.to_view().ips && 
-            board->status.neighbor.to_view().mutex && 
-            xSemaphoreTake(board->status.neighbor.to_view().mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
-                for (const auto& ip : *board->status.neighbor.to_view().ips)
+        if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
+                for (const auto& ip : board->status.neighbor.alive_ips)
                     resp->printf(",\"%s\"", ip.c_str());
-                xSemaphoreGive(board->status.neighbor.to_view().mutex);
+                xSemaphoreGive(board->status.neighbor.mutex);
         }
         resp->print("]}");
         request->send(resp);
@@ -716,6 +715,7 @@ void button_thread_entry(void *args){
     if(boot_btn != nullptr){
         auto click_wrapper = [](void *param){
             board_sal_t *b = static_cast<board_sal_t*>(param);
+            xEventGroupWaitBits(b->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);// ensure miner is ready before allowing page switch
             xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
             static uint8_t evt = TOUCH_TAP_EVT;
             ui_switch_next_page_cb(evt);
@@ -751,144 +751,283 @@ void button_thread_entry(void *args){
 }
 
 void swarm_thread_entry(void *args){
-  board_sal_t *board = (board_sal_t*)args;
+    board_sal_t *board = (board_sal_t*)args;
+    auto& ctx = board->status.swarm_ctx;
+    auto& nbr = board->status.neighbor;
 
-  //malloc udp client
-  WiFiUDP* udp_client = new WiFiUDP();
-  while (udp_client == nullptr){
-    LOG_W("Failed to allocate memory for udp client, retry...");  
-    delay(1000);
-  }
+    while (true) {
+        delay(10 * 1000);
+
+        if (WiFi.status() != WL_CONNECTED) continue;
+
+        // ── 读取当前 scan generation 与 alive 列表（持锁最短时间）─────────
+        std::vector<String> alive;
+        uint32_t cur_gen = 0;
+        if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+            alive   = nbr.alive_ips;
+            cur_gen = nbr.scan_generation;
+            xSemaphoreGive(nbr.mutex);
+        }
+
+        // ── 检测 scan 是否完成了新一轮 ───────────────────────────────────
+        // generation 变化 → 清空所有记忆，本轮重新全量探测所有 alive IP
+        if (cur_gen != ctx.last_scan_gen) {
+            ctx.confirmed_ips.clear();
+            ctx.last_scan_gen = cur_gen;
+            if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                ctx.probe_blacklist.clear();
+                xSemaphoreGive(ctx.mutex);
+            }
+            LOG_W("(swarm) new scan gen=%u, reset swarm memory, %u alive IPs to probe", cur_gen, (uint32_t)alive.size());
+        }
+
+        // ── 决定本轮探测目标 ─────────────────────────────────────────────
+        // confirmed_ips 有内容（非首轮）→ 精确通信已知 NMMiner + 补探 alive 中未分类 IP
+        // confirmed_ips 为空（新 generation 或启动初期）→ 全量探测 alive
+        const String selfIP = WiFi.localIP().toString();
+        std::vector<String> targets;
+        if (ctx.confirmed_ips.empty()) {
+            // 全量探测：过滤本机和黑名单
+            for (const auto& ip : alive) {
+                if (ip == selfIP) continue;
+                bool bl = false;
+                if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+                    bl = ctx.probe_blacklist.count(ip) > 0;
+                    xSemaphoreGive(ctx.mutex);
+                }
+                if (!bl) targets.push_back(ip);
+            }
+        } else {
+            // 精确探测：已确认的 NMMiner
+            for (const auto& ip : ctx.confirmed_ips)
+                targets.push_back(ip);
+            // 补探：scan 扫描期间新上线、尚未被分类（未确认/未拉黑）的 alive IP
+            // 解决 scan 耗时较长时，swarm 已进入精确模式但新 IP 还未被探测的竞争问题
+            for (const auto& ip : alive) {
+                if (ip == selfIP) continue;
+                if (ctx.confirmed_ips.count(ip)) continue; // 已确认，无需重复
+                bool bl = false;
+                if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+                    bl = ctx.probe_blacklist.count(ip) > 0;
+                    xSemaphoreGive(ctx.mutex);
+                }
+                if (!bl) targets.push_back(ip);
+            }
+        }
+
+        // ── 探测目标列表 ─────────────────────────────────────────────────
+        uint32_t workers         = 0;
+        float    total_hr        = 0.0f;
+        float    best_session_bd = 0.0f;
+        float    best_ever_bd    = 0.0f;
+
+        for (const auto& ip : targets) {
+            HTTPClient http;
+            http.begin("http://" + ip + "/probe");
+            http.setConnectTimeout(2000); // TCP connection establishment timeout (ms)
+            http.setTimeout(2000);        // TCP read/response timeout (ms)
+            int code = http.GET();
+
+            if (code == HTTP_CODE_OK) {
+                String body = http.getString();
+                StaticJsonDocument<256> doc;
+                LOG_D("(swarm) %s: %s", ip.c_str(), body.c_str());
+                if (!deserializeJson(doc, body)) {
+                    // NM 设备识别：/probe 必有 "hr"（算力）和 "ver"（固件版本）两个核心字段
+                    // 其他字段各型号可选，只检查这两个，后续扩展无需修改此处
+                    bool isNM = doc.containsKey("hr") && doc.containsKey("ver");
+                    if (isNM) {
+                        workers++;
+                        float hr  = doc["hr"].as<float>();
+                        float sbd = doc["sbd"].as<float>();
+                        float ebd = doc["ebd"].as<float>();
+                        total_hr += hr;
+                        if (sbd > best_session_bd) best_session_bd = sbd;
+                        if (ebd > best_ever_bd)    best_ever_bd    = ebd;
+                        ctx.confirmed_ips.insert(ip); // 加入已确认集合
+                        LOG_D("(swarm) %s NM device hr=%.0f sbd=%.0f ebd=%.0f",
+                              ip.c_str(), hr, sbd, ebd);
+                    } else {
+                        // 全量探测阶段发现非 NM 设备 → 拉黑（本轮 scan 周期内有效）
+                        if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                            ctx.probe_blacklist.insert(ip);
+                            xSemaphoreGive(ctx.mutex);
+                        }
+                        LOG_D("(swarm) %s not NM device, blacklisted", ip.c_str());
+                    }
+                }
+            } else {
+                // 连接失败/404：
+                //   - 未确认的 IP（全量探测或精确模式补探）→ 拉黑，避免每轮重复等待超时
+                //   - 已确认的 NM 矿机（临时断联）→ 不拉黑，下轮继续重试
+                // 注：精确模式下补探的 IP 若超时不拉黑，会导致每轮都重探大量非NM设备，
+                //     每个最多等待 4s (connect+read)，几十个设备会卡住循环数分钟。
+                bool is_confirmed = ctx.confirmed_ips.count(ip) > 0;
+                if (!is_confirmed) {
+                    if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                        ctx.probe_blacklist.insert(ip);
+                        xSemaphoreGive(ctx.mutex);
+                    }
+                }
+                LOG_D("(swarm) probe %s => %d%s", ip.c_str(), code, !is_confirmed ? ", blacklisted" : ", skip(confirmed)");
+            }
+            http.end();
+            delay(50);
+        }
+
+        // ── 写入聚合结果 ─────────────────────────────────────────────────
+        if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            ctx.total_workers   = workers;
+            ctx.total_hr        = total_hr;
+            ctx.best_session_bd = best_session_bd;
+            ctx.best_ever_bd    = best_ever_bd;
+            xSemaphoreGive(ctx.mutex);
+        }
+        LOG_W("(swarm) gen=%u targets=%u workers=%u hr=%.0fH/s bestSBD=%.0f bestEBD=%.0f", cur_gen, (uint32_t)targets.size(), workers, total_hr, best_session_bd, best_ever_bd);
+        for(auto ip : ctx.confirmed_ips){
+            LOG_I("(swarm)   ********   confirmed: %s ************", ip.c_str());
+        }
+    
+    
+    }
+
+
+//   //malloc udp client
+//   WiFiUDP* udp_client = new WiFiUDP();
+//   while (udp_client == nullptr){
+//     LOG_W("Failed to allocate memory for udp client, retry...");  
+//     delay(1000);
+//   }
   
-  //udp status boardcast begin
-  udp_client->begin(MINER_SWARM_UDP_BOARDCAST_PORT);
+//   //udp status boardcast begin
+//   udp_client->begin(MINER_SWARM_UDP_BOARDCAST_PORT);
 
-  uint64_t swarm_cnt = 0;
-  char  jsonbuf[1024] = {0,};
-  StaticJsonDocument<1024> jsonDoc;
-  while (true){
-    delay(100);
-    if(board->status.wifi.status != WL_CONNECTED) continue;
-    if(board->status.ota.running) continue;
-    swarm_cnt++;
-    //listen udp status
-    if(swarm_cnt % 1 == 0){
-      int packetSize = udp_client->parsePacket();
+//   uint64_t swarm_cnt = 0;
+//   char  jsonbuf[1024] = {0,};
+//   StaticJsonDocument<1024> jsonDoc;
+//   while (true){
+//     delay(100);
+//     if(board->status.wifi.status != WL_CONNECTED) continue;
+//     if(board->status.ota.running) continue;
+//     swarm_cnt++;
+//     //listen udp status
+//     if(swarm_cnt % 1 == 0){
+//       int packetSize = udp_client->parsePacket();
 
-      char udpbuf[1152] = {0,}, json_udp_str[1152] = {0,};
-      if ((packetSize > 0) && (packetSize < sizeof(udpbuf))) {
-          int len = udp_client->read(udpbuf, packetSize);
-          memcpy(json_udp_str, udpbuf, packetSize);
-          jsonDoc.clear();
-          DeserializationError error = deserializeJson(jsonDoc, json_udp_str);
-          if(error) {
-            udp_client->flush();
-            continue;
-          }
-          jsonDoc["Lastseen"] = millis();
+//       char udpbuf[1152] = {0,}, json_udp_str[1152] = {0,};
+//       if ((packetSize > 0) && (packetSize < sizeof(udpbuf))) {
+//           int len = udp_client->read(udpbuf, packetSize);
+//           memcpy(json_udp_str, udpbuf, packetSize);
+//           jsonDoc.clear();
+//           DeserializationError error = deserializeJson(jsonDoc, json_udp_str);
+//           if(error) {
+//             udp_client->flush();
+//             continue;
+//           }
+//           jsonDoc["Lastseen"] = millis();
 
-          memset(jsonbuf, 0, sizeof(jsonbuf));
-          size_t n = serializeJson(jsonDoc, jsonbuf);
+//           memset(jsonbuf, 0, sizeof(jsonbuf));
+//           size_t n = serializeJson(jsonDoc, jsonbuf);
 
-          //update swarm list if has this ip
-          static std::map<String, uint32_t, std::less<String>, PsramAllocator<std::pair<const String, uint32_t>>> last_seen_map; // PSRAM
-          if(jsonDoc.containsKey("ip")){
-            board->status.swarm.map[jsonDoc["ip"].as<String>()] = String(jsonbuf);
-            last_seen_map[jsonDoc["ip"].as<String>()] = jsonDoc["Lastseen"];
-          }
+//           //update swarm list if has this ip
+//           static std::map<String, uint32_t, std::less<String>, PsramAllocator<std::pair<const String, uint32_t>>> last_seen_map; // PSRAM
+//           if(jsonDoc.containsKey("ip")){
+//             board->status.swarm.map[jsonDoc["ip"].as<String>()] = String(jsonbuf);
+//             last_seen_map[jsonDoc["ip"].as<String>()] = jsonDoc["Lastseen"];
+//           }
 
-          //update json string
-          for(auto it = board->status.swarm.map.begin(); it != board->status.swarm.map.end();it++){
-            //self status not in last seen map
-            if(last_seen_map.find(it->first) == last_seen_map.end()) continue;
+//           //update json string
+//           for(auto it = board->status.swarm.map.begin(); it != board->status.swarm.map.end();it++){
+//             //self status not in last seen map
+//             if(last_seen_map.find(it->first) == last_seen_map.end()) continue;
 
-            if(deserializeJson(jsonDoc, it->second)) continue;
+//             if(deserializeJson(jsonDoc, it->second)) continue;
 
-            jsonDoc["Lastseen"] = millis() - last_seen_map[it->first];
-            //remove offline device
-            if(jsonDoc["Lastseen"].as<uint32_t>() > MINER_SWARM_OFFLINE_TIMEOUT){
-              board->status.swarm.map.erase(it->first);
-              continue;
-            }
+//             jsonDoc["Lastseen"] = millis() - last_seen_map[it->first];
+//             //remove offline device
+//             if(jsonDoc["Lastseen"].as<uint32_t>() > MINER_SWARM_OFFLINE_TIMEOUT){
+//               board->status.swarm.map.erase(it->first);
+//               continue;
+//             }
 
-            memset(jsonbuf, 0, sizeof(jsonbuf));
-            size_t n = serializeJson(jsonDoc, jsonbuf);
-            it->second = (n>0) ? String(jsonbuf) : "";
-          }
-          udp_client->flush();
-        }
-    }
-    //status udp broadcast
-    if(swarm_cnt % 20 == 0){
-      jsonDoc.clear();
-      jsonDoc["Hostname"] = board->info.base.hostname;
-      jsonDoc["ip"] = board->status.wifi.ip.toString();
-      jsonDoc["HashRate"] = formatNumber(board->status.miner.hashrate._3m, 5) + "H/s";
-      uint32_t share_total = board->status.miner.share_accepted + board->status.miner.share_rejected;
-      float share_accepted = (share_total == 0) ? 0:(float)(board->status.miner.share_accepted) / (float)(share_total);
-      jsonDoc["Share"] = String(board->status.miner.share_rejected) + "/"+ String(board->status.miner.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
-      jsonDoc["NetDiff"] = formatNumber(board->status.miner.diff.network,4);
-      jsonDoc["PoolDiff"] = formatNumber(board->status.miner.diff.pool,4);
-      jsonDoc["LastDiff"] = formatNumber(board->status.miner.diff.last,4);
-      jsonDoc["BestDiff"] = formatNumber(board->status.miner.diff.best_session,4) + "\r" + formatNumber(board->status.miner.diff.best_ever,4);
-      jsonDoc["Valid"] = board->status.miner.hits;
-      jsonDoc["Temp"] = roundf(board->status.temp.asic * 100) / 100.0f;
-      jsonDoc["RSSI"] = board->status.wifi.rssi;
-      jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
-      jsonDoc["Uptime"] = convert_uptime_to_string(board->status.miner.uptime_session) + "\r" + convert_uptime_to_string(board->status.miner.uptime_ever);
-      jsonDoc["Version"] = board->info.base.fw_version;
-      jsonDoc["BoardType"] = board->info.spec.name;
-      jsonDoc["Power"]     = String(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 1) + "W";
-      jsonDoc["PoolInUse"] = String(board->info.connection.pool.use.url) + ":" + String(board->info.connection.pool.use.port);
-      static uint32_t last_seen = millis();
-      jsonDoc["Lastseen"]  = millis() - last_seen;
-      last_seen = millis();
+//             memset(jsonbuf, 0, sizeof(jsonbuf));
+//             size_t n = serializeJson(jsonDoc, jsonbuf);
+//             it->second = (n>0) ? String(jsonbuf) : "";
+//           }
+//           udp_client->flush();
+//         }
+//     }
+//     //status udp broadcast
+//     if(swarm_cnt % 20 == 0){
+//       jsonDoc.clear();
+//       jsonDoc["Hostname"] = board->info.base.hostname;
+//       jsonDoc["ip"] = board->status.wifi.ip.toString();
+//       jsonDoc["HashRate"] = formatNumber(board->status.miner.hashrate._3m, 5) + "H/s";
+//       uint32_t share_total = board->status.miner.share_accepted + board->status.miner.share_rejected;
+//       float share_accepted = (share_total == 0) ? 0:(float)(board->status.miner.share_accepted) / (float)(share_total);
+//       jsonDoc["Share"] = String(board->status.miner.share_rejected) + "/"+ String(board->status.miner.share_accepted) + "/" + String(share_accepted * 100, 1) + "%";
+//       jsonDoc["NetDiff"] = formatNumber(board->status.miner.diff.network,4);
+//       jsonDoc["PoolDiff"] = formatNumber(board->status.miner.diff.pool,4);
+//       jsonDoc["LastDiff"] = formatNumber(board->status.miner.diff.last,4);
+//       jsonDoc["BestDiff"] = formatNumber(board->status.miner.diff.best_session,4) + "\r" + formatNumber(board->status.miner.diff.best_ever,4);
+//       jsonDoc["Valid"] = board->status.miner.hits;
+//       jsonDoc["Temp"] = roundf(board->status.temp.asic * 100) / 100.0f;
+//       jsonDoc["RSSI"] = board->status.wifi.rssi;
+//       jsonDoc["FreeHeap"] = ESP.getFreeHeap() / 1024.0f;
+//       jsonDoc["Uptime"] = convert_uptime_to_string(board->status.miner.uptime_session) + "\r" + convert_uptime_to_string(board->status.miner.uptime_ever);
+//       jsonDoc["Version"] = board->info.base.fw_version;
+//       jsonDoc["BoardType"] = board->info.spec.name;
+//       jsonDoc["Power"]     = String(board->status.power.vbus*board->status.power.ibus/1000.0/1000.0, 1) + "W";
+//       jsonDoc["PoolInUse"] = String(board->info.connection.pool.use.url) + ":" + String(board->info.connection.pool.use.port);
+//       static uint32_t last_seen = millis();
+//       jsonDoc["Lastseen"]  = millis() - last_seen;
+//       last_seen = millis();
 
-      memset(jsonbuf, 0, sizeof(jsonbuf));
-      size_t n = serializeJson(jsonDoc, jsonbuf);
-      if(n >= sizeof(jsonbuf) || n == 0){
-        LOG_E("Swarm json serialize failed or too long: %d/%d", n, sizeof(jsonbuf));
-        continue;
-      }
-      //broadcast status to udp
-      udp_client->beginPacket(MINER_SWARM_UDP_BOARDCAST_ADDR, MINER_SWARM_UDP_BOARDCAST_PORT);
-      udp_client->write((uint8_t*)jsonbuf, n);
-      int res = udp_client->endPacket();
-      if(res != 1) {
-        LOG_E("Swarm udp broadcast failed: %d", res);
-        continue;
-      }
+//       memset(jsonbuf, 0, sizeof(jsonbuf));
+//       size_t n = serializeJson(jsonDoc, jsonbuf);
+//       if(n >= sizeof(jsonbuf) || n == 0){
+//         LOG_E("Swarm json serialize failed or too long: %d/%d", n, sizeof(jsonbuf));
+//         continue;
+//       }
+//       //broadcast status to udp
+//       udp_client->beginPacket(MINER_SWARM_UDP_BOARDCAST_ADDR, MINER_SWARM_UDP_BOARDCAST_PORT);
+//       udp_client->write((uint8_t*)jsonbuf, n);
+//       int res = udp_client->endPacket();
+//       if(res != 1) {
+//         LOG_E("Swarm udp broadcast failed: %d", res);
+//         continue;
+//       }
 
-      //add self to swarm list
-      board->status.swarm.map[board->status.wifi.ip.toString()] = String(jsonbuf);
-    }
-    // parse swarm list and update best diff and total hashrate
-    if(swarm_cnt % 40 == 0){
-        board->status.swarm.map[board->status.wifi.ip.toString()] = String(jsonbuf);
-        //calculate total hash rate and best diff of swarm list
-        board->status.swarm.total_workers = board->status.swarm.map.size();
-        board->status.swarm.total_hr = 0;
-        board->status.swarm.best_diff = 0;
-        for(auto it = board->status.swarm.map.begin(); it != board->status.swarm.map.end();it++){
-            jsonDoc.clear();
-            if(deserializeJson(jsonDoc, it->second)) continue;
-            if(jsonDoc.containsKey("HashRate")){
-                board->status.swarm.total_hr += parseHashRateStr(jsonDoc["HashRate"].as<String>());
-            }
-            if(jsonDoc.containsKey("BestDiff")){
-                int newlineIndex = jsonDoc["BestDiff"].as<String>().indexOf('\r');
-                String best_diff_str = "";
-                if (newlineIndex != -1) {
-                    best_diff_str = jsonDoc["BestDiff"].as<String>().substring(0, newlineIndex);
-                    best_diff_str.trim();
-                }else continue;
+//       //add self to swarm list
+//       board->status.swarm.map[board->status.wifi.ip.toString()] = String(jsonbuf);
+//     }
+//     // parse swarm list and update best diff and total hashrate
+//     if(swarm_cnt % 40 == 0){
+//         board->status.swarm.map[board->status.wifi.ip.toString()] = String(jsonbuf);
+//         //calculate total hash rate and best diff of swarm list
+//         board->status.swarm.total_workers = board->status.swarm.map.size();
+//         board->status.swarm.total_hr = 0;
+//         board->status.swarm.best_diff = 0;
+//         for(auto it = board->status.swarm.map.begin(); it != board->status.swarm.map.end();it++){
+//             jsonDoc.clear();
+//             if(deserializeJson(jsonDoc, it->second)) continue;
+//             if(jsonDoc.containsKey("HashRate")){
+//                 board->status.swarm.total_hr += parseHashRateStr(jsonDoc["HashRate"].as<String>());
+//             }
+//             if(jsonDoc.containsKey("BestDiff")){
+//                 int newlineIndex = jsonDoc["BestDiff"].as<String>().indexOf('\r');
+//                 String best_diff_str = "";
+//                 if (newlineIndex != -1) {
+//                     best_diff_str = jsonDoc["BestDiff"].as<String>().substring(0, newlineIndex);
+//                     best_diff_str.trim();
+//                 }else continue;
             
-                float best_diff = parseDiffStr(best_diff_str);
-                board->status.swarm.best_diff = (board->status.swarm.best_diff < best_diff) ? best_diff : board->status.swarm.best_diff;
-            }
-        }
-    }
-  }
+//                 float best_diff = parseDiffStr(best_diff_str);
+//                 board->status.swarm.best_diff = (board->status.swarm.best_diff < best_diff) ? best_diff : board->status.swarm.best_diff;
+//             }
+//         }
+//     }
+//   }
 }
 
 void alive_ip_scan_thread_entry(void* args) {
@@ -901,6 +1040,11 @@ void alive_ip_scan_thread_entry(void* args) {
         struct icmp_echo_hdr hdr;
         uint8_t              data[32];
     };
+
+    // avoid lwip resorce contention with the main thread during startup; wait until miner is ready before starting the scan
+    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    // additional delay to allow the system to stabilize after miner is ready
+    delay(2000); 
 
     // ── Ping a single IP; returns true if an ICMP Echo Reply is received ────────
     // sock:      RAW ICMP socket already created and configured with SO_RCVTIMEO
@@ -938,20 +1082,20 @@ void alive_ip_scan_thread_entry(void* args) {
         if (n > 0) {
             struct icmp_echo_hdr* reply = (struct icmp_echo_hdr*)(rbuf + 20);
             if (ICMPH_TYPE(reply) == ICMP_ER) {
-                LOG_D("(scan) %u.%u.%u.%u alive, ping %lums", o0, o1, o2, last, (unsigned long)(millis() - t0));
+                LOG_I("(scan) %u.%u.%u.%u alive, ping %lums", o0, o1, o2, last, (unsigned long)(millis() - t0));
                 return true;
             }
             LOG_D("(scan) %u.%u.%u.%u unexpected ICMP type=%u code=%u", o0, o1, o2, last, ICMPH_TYPE(reply), ICMPH_CODE(reply));
         } else {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                LOG_D("(scan) %u.%u.%u.%u no reply (timeout %ums)", o0, o1, o2, last, PING_TIMEOUT_MS);
+                LOG_W("(scan) %u.%u.%u.%u no reply (timeout %ums)", o0, o1, o2, last, PING_TIMEOUT_MS);
             } else {
-                LOG_D("(scan) %u.%u.%u.%u recvfrom error: errno=%d (%s)",o0, o1, o2, last, errno, strerror(errno));
+                LOG_W("(scan) %u.%u.%u.%u recvfrom error: errno=%d (%s)",o0, o1, o2, last, errno, strerror(errno));
             }
         }
         return false;
     };
-
+    
     while (true) {
         if (WiFi.status() != WL_CONNECTED) {
             delay(1000);
@@ -984,12 +1128,15 @@ void alive_ip_scan_thread_entry(void* args) {
 
             // Page was refreshed — reset scan progress
             if (xSemaphoreTake(board->status.neighbor.scan_required, 0) == pdTRUE) {
-                // Scan interrupt triggered: usually by a page refresh, requiring an immediate reset and full re-scan
+                // Scan interrupt triggered: usually by a page refresh, requiring an immediate reset and full re-scan.
+                // NOTE: Do NOT increment scan_generation here. If we did, swarm would immediately clear confirmed_ips
+                // while alive_ips is also empty (just cleared), causing a long blind period where swarm can't find
+                // any miners. Generation is only incremented once, at scan completion, so swarm always resets against
+                // a complete alive list.
                 if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
-                    board->status.neighbor.scan_generation++;
                     board->status.neighbor.alive_ips.clear(); // clear stale IPs immediately so /alive returns fresh data
                     xSemaphoreGive(board->status.neighbor.mutex);
-                    LOG_W("(scan) force new scan generation=%u", board->status.neighbor.scan_generation);
+                    LOG_W("(scan) page refresh: reset scan progress, alive_ips cleared (gen unchanged)");
                 }
                 last = 1;      
                 seq  = 0;
@@ -1549,7 +1696,7 @@ void market_thread_entry(void *args){
     // Number of consecutive retry attempts before giving up for this cycle
     const uint8_t  MARKET_MAX_RETRIES    = 3;
     // Short pause between retries to avoid hammering the server
-    const uint32_t MARKET_RETRY_DELAY_MS = 2000;
+    const uint32_t MARKET_RETRY_DELAY_MS = 1000*10;
 
     while(true){
         delay(50);
