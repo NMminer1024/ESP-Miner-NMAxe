@@ -61,17 +61,18 @@ enum{
 
 // init event flags
 enum{
-    INIT_EVENT_FAN_READY             = (1 << 0),   // fan initialized and self-test done
-    INIT_EVENT_WIFI_STA_CONNECTED    = (1 << 1),   // wifi sta mode initialized and connected
-    INIT_EVENT_WIFI_AP_READY         = (1 << 2),   // wifi ap mode initialized and ready for client connection
-    INIT_EVENT_ASIC_COUNTED          = (1 << 3),   // asic counting done
-    INIT_EVENT_VBUS_READY            = (1 << 4),   // vbus ready
-    INIT_EVENT_VDD_VPLL_READY        = (1 << 5),   // vdd and pll ready
-    INIT_EVENT_VCORE_READY           = (1 << 6),   // vcore ready
-    INIT_EVENT_SCREEN_READY          = (1 << 7),   // screen initialized and ready
-    INIT_EVENT_LVGL_READY            = (1 << 8),   // lvgl display driver ready
-    INIT_EVENT_UI_READY              = (1 << 9),   // UI initialized and ready
-    INIT_EVENT_MINER_READY           = (1 << 10),  // miner initialized and ready
+    INIT_EVENT_FAN_POLARITY_DETECT   = (1 << 0),   // fan polarity detected, ready for fan thread to start
+    INIT_EVENT_FAN_READY             = (1 << 1),   // fan initialized and self-test done
+    INIT_EVENT_WIFI_STA_CONNECTED    = (1 << 2),   // wifi sta mode initialized and connected
+    INIT_EVENT_WIFI_AP_READY         = (1 << 3),   // wifi ap mode initialized and ready for client connection
+    INIT_EVENT_ASIC_COUNTED          = (1 << 4),   // asic counting done
+    INIT_EVENT_VBUS_READY            = (1 << 5),   // vbus ready
+    INIT_EVENT_VDD_VPLL_READY        = (1 << 6),   // vdd and pll ready
+    INIT_EVENT_VCORE_READY           = (1 << 7),   // vcore ready
+    INIT_EVENT_SCREEN_READY          = (1 << 8),   // screen initialized and ready
+    INIT_EVENT_LVGL_READY            = (1 << 9),   // lvgl display driver ready
+    INIT_EVENT_UI_READY              = (1 << 10),   // UI initialized and ready
+    INIT_EVENT_MINER_READY           = (1 << 11),  // miner initialized and ready
 };
 
 // system event flags

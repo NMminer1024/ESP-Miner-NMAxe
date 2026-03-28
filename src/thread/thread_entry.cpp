@@ -1469,6 +1469,7 @@ void fan_thread_entry(void *args){
         fan.polarity = guess_fan_polarity(fan.init);
         LOG_I("Guess fan[%d] polarity :[%s]", fan.id, fan.polarity ? "inverted" : "normal");
     }
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_FAN_POLARITY_DETECT);
 
     // Helper function to find fan config by id
     auto get_fan_config = [&](uint8_t fan_id) -> fan_config_t* {
@@ -2324,17 +2325,17 @@ void ui_thread_entry(void *args){
 void display_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
 
-  String vbus_chk_str[]   = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
-  String vcore_chk_str[]  = {"Vcore check   ","Vcore check.  ","Vcore check.. ","Vcore check..."};
-  String asci_init_str[]  = {"ASIC init  ","ASIC init.  ","ASIC init.. ","ASIC init..."};
-  String wifi_con_str[]   = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
-  String fan_test_str[]   = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
-  String market_con_str[] = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
-  String ver_chk_str[]    = {"Version check ","Version check.","Version check..","Version check..."};
-  String pool_con_str[]   = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
-  String pool_auth_str[]  = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
-  String wait_job_str[]   = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
-  String config_str[]     = {"Config   ","Config.  ","Config.. ","Config..."};
+  String vbus_chk_str[]         = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
+  String vcore_chk_str[]        = {"Vcore check   ","Vcore check.  ","Vcore check.. ","Vcore check..."};
+  String asci_init_str[]        = {"ASIC init  ","ASIC init.  ","ASIC init.. ","ASIC init..."};
+  String wifi_con_str[]         = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
+  String fan_polarity_str[]     = {"Fan polarity check   ","Fan polarity check.  ","Fan polarity check.. ","Fan polarity check..."};
+  String fan_self_test_str[]    = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
+  String market_con_str[]       = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
+  String pool_con_str[]         = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
+  String pool_auth_str[]        = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
+  String wait_job_str[]         = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
+  String config_str[]           = {"Config   ","Config.  ","Config.. ","Config..."};
 
   // tft hardware init
   tft_init(board);
@@ -2344,13 +2345,6 @@ void display_thread_entry(void *args){
   xEventGroupSetBits(board->status.init_evt, INIT_EVENT_SCREEN_READY);  
   // wait lvgl and ui thread ready
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_UI_READY | INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-
-//   //backlight brightness ramp up
-//   for(int i = 0; i < board->status.preference.screen.brightness; i++) {
-//     tft_bl_ctrl(i);
-//     delay(10);
-//     LOG_W("Screen brightness: %d%%", i);
-//   }
 
   uint16_t cnt = 0;
   /****************************************wait for Vbus ready*******************************************/
@@ -2415,18 +2409,33 @@ void display_thread_entry(void *args){
   board->status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
   delay(3000);
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
+ /*********************************wait fan porality detect and fan self test *********************************/
+  cnt = 0;
+  board->status.ui.page.loading.percent = 0.5;
+  for(uint8_t i = 0; i < board->info.spec.fans.size(); i++){
+    while(true){
+      board->status.ui.page.loading.details.color = 0xFFFFFF;
+      board->status.ui.page.loading.details.msg   = String(fan_polarity_str[cnt++ % 4]);
+      if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_FAN_POLARITY_DETECT, pdFALSE, pdTRUE, 100) & INIT_EVENT_FAN_POLARITY_DETECT)  == INIT_EVENT_FAN_POLARITY_DETECT) break;
+    }
+    String polarity_str = (board->info.spec.fans[i].polarity) ? " Inverted" : " Normal";
+    board->status.ui.page.loading.details.color = 0x00FF00;
+    board->status.ui.page.loading.details.msg   = String("Fan ") + ((board->info.spec.fans.size() > 1) ? String(i + 1) : " ") + polarity_str;
+    delay(1000);
+  }
+  xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_POLARITY_DETECT, pdFALSE, pdTRUE, portMAX_DELAY);
   /********************************************wait fan self test ****************************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.5;
   for(uint8_t i = 0; i < board->info.spec.fans.size(); i++){
     while(true){
       board->status.ui.page.loading.details.color = 0xFFFFFF;
-      board->status.ui.page.loading.details.msg   = String(fan_test_str[cnt++ % 4]) + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
+      board->status.ui.page.loading.details.msg   = String(fan_self_test_str[cnt++ % 4]) + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + "rpm";
       if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_FAN_READY)  == INIT_EVENT_FAN_READY) break;
     }
     board->status.ui.page.loading.details.color = 0x00FF00;
     board->status.ui.page.loading.details.msg   = "Fan" + ((board->info.spec.fans.size() > 1) ? String(i + 1) : "") + " Pass! [" + String(board->status.fan.list[i].rpm) + "/ " + String(board->info.spec.fans[i].init.self_test_rpm_thr) + " rpm]";
-    delay(2000);
+    delay(1000);
   }
   xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
   /******************************************wait Vcore self test ****************************************/
@@ -2444,27 +2453,6 @@ void display_thread_entry(void *args){
   board->status.ui.page.loading.details.msg   = String("Vcore ") + String(board->power->get_vcore() / 1000.0, 3) + "v.";
   delay(500);
   xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-//   /****************************************wait for market connected*************************************/
-//   cnt = 0;
-//   board->status.ui.page.loading.percent = 0.7;
-//   uint32_t start = millis();
-//   while(0 == board->market->get_last_update()){
-//     board->status.ui.page.loading.details.color = 0xFFFFFF;
-//     board->status.ui.page.loading.details.msg   = market_con_str[(cnt++)%4] + "[" + board->info.base.coin_price + "]";
-//     if(millis() - start - board->market->get_last_update() >= MINER_MARKET_CONNECT_TIMEOUT){
-//       board->status.ui.page.loading.details.color = 0xFF0000;
-//       board->status.ui.page.loading.details.msg   = "Market update timeout!";
-//       delay(500);
-//       break;
-//     }
-//     delay(300);
-//   }
-//   delay(500);
-//   if(0 != board->market->get_last_update()) {
-//     board->status.ui.page.loading.details.color = 0x00FF00;
-//     board->status.ui.page.loading.details.msg   = "Market connected!";
-//   }
-//   delay(1000);
   /****************************************wait for pool connected**************************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.75;
