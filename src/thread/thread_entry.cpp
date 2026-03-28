@@ -918,7 +918,7 @@ void swarm_thread_entry(void *args){
         }
         LOG_W("(swarm) gen=%u targets=%u workers=%u hr=%sH/s sbd=%s ebd=%s", 
             ctx.last_scan_gen, (uint32_t)targets.size(), ctx.total_workers, 
-            formatNumber(ctx.total_hr / 1e9, 3).c_str(), 
+            formatNumber(ctx.total_hr, 3).c_str(), 
             formatNumber(ctx.best_session_bd, 3).c_str(), 
             formatNumber(ctx.best_ever_bd, 3).c_str());
     }
