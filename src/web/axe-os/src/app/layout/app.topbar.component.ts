@@ -101,6 +101,10 @@ export class AppTopBarComponent {
         return address.substring(0, 8) + '......' + address.substring(address.length - 8);
     }
 
+    public openApiDoc() {
+        window.open('/api-doc.html', '_blank');
+    }
+
     public restart() {
         this.systemService.restart()
             .pipe(this.loadingService.lockUIUntilComplete())
