@@ -278,7 +278,7 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.time.tz                       = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
     g_board.status.time.format.time              = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 24);
     g_board.status.time.format.date              = nvs_config_get_string(NVS_CONFIG_DATE_FORMAT, "YYYY/MM/DD");
-
+    g_board.status.aphorism.mutex                = xSemaphoreCreateMutex();
     // fan status initialisation
     for (uint8_t i = 0; i < g_board.info.spec.fans.size(); i++) {
         fan_status_t state;

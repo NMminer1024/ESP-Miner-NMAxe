@@ -2517,6 +2517,8 @@ void display_thread_entry(void *args){
 
 void aphorism_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
+    auto &aphorism = board->status.aphorism;
+    auto &pool     = aphorism.pool; // reuse pool vector in board status to avoid repeated dynamic allocation/free, just clear() it each round
 
     // Theme: solo mining requires patience — be a friend of time, good luck can arrive at any moment
     static const char* const KEYWORDS[] = {
@@ -2546,15 +2548,24 @@ void aphorism_thread_entry(void *args){
         "accumulate", "stack"
     };
     static const uint8_t  KEYWORD_COUNT  = sizeof(KEYWORDS) / sizeof(KEYWORDS[0]);
-    static const uint16_t MAX_CHARS      = 50;         // max quote length in chars (adjust to change filter threshold)
-    static const uint32_t DISPLAY_MS     = 1000 * 10;  // display each quote for 10 seconds
-    static const uint8_t  BATCHES        = 2;          // number of fetch batches per round
-    static const uint32_t BATCH_DELAY_MS = 1000 * 30;  // delay between batches (30 seconds)
-
-    struct Quote { String q; String a; String kw; };
+    static const uint16_t MAX_CHARS        = 50;           // max quote length in chars (adjust to change filter threshold)
+    static const uint32_t DISPLAY_MS       = 1000 * 60;    // display each quote for 60 seconds
+    static const uint8_t  BATCHES          = 1;            // 1 batch per round; ~50 quotes = ~50 min display, minimizes API pressure
+    static const uint32_t BATCH_DELAY_MS   = 1000 * 10;    // short inter-batch pause (http already closed before this delay)
+    // Max random jitter applied at startup and between rounds.
+    // Multiple LAN devices share the same public IP and the same 100 req/hr limit (zenquotes.io).
+    // Spreading requests across this window prevents simultaneous 429s.
+    static const uint32_t STARTUP_JITTER_MS = 1000UL * 60 * 3; // up to 3 minutes random startup offset
 
     // Wait until WiFi is ready
     while (board->status.wifi.status != WL_CONNECTED) delay(1000);
+
+    // Random startup jitter: stagger initial fetch across all LAN devices sharing the same public IP
+    {
+        uint32_t jitter_ms = esp_random() % STARTUP_JITTER_MS;
+        LOG_I("[Aphorism] Startup jitter: ~%lu s (desync LAN devices)", jitter_ms / 1000);
+        delay(jitter_ms);
+    }
 
     // Print current config for debugging
     LOG_I("[Aphorism] Config => MAX_CHARS:%d  DISPLAY:%lus  BATCHES:%d  KEYWORDS:%d",
@@ -2568,13 +2579,17 @@ void aphorism_thread_entry(void *args){
         batch_no++;
         LOG_I("[Aphorism] Round %lu: fetching quotes...", batch_no);
 
-        std::vector<Quote>  pool;
+        xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
+        pool.clear();
+        xSemaphoreGive(aphorism.mutex);
+
         std::set<String>    seen;
 
         // zenquotes.io HTTPS batch API — returns ~50 quotes per call, fetch BATCHES rounds
         for(uint8_t b = 0; b < BATCHES; b++) {
             while (board->status.wifi.status != WL_CONNECTED) delay(1000);
 
+            { // scope: HTTPClient & WiFiClientSecure are destroyed HERE before inter-batch delay, freeing TLS RAM immediately
             HTTPClient http;
             WiFiClientSecure client;
             client.setInsecure(); // skip certificate verification to save CA storage overhead
@@ -2615,7 +2630,12 @@ void aphorism_thread_entry(void *args){
                         for(uint8_t k = 0; k < KEYWORD_COUNT && !matched; k++) {
                             if(ql.indexOf(KEYWORDS[k]) >= 0) { matched = true; matched_kw = KEYWORDS[k]; }
                         }
-                        if(matched) { pool.push_back({q, a, matched_kw}); cnt_hit++; }
+                        if(matched) {
+                            xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
+                            pool.push_back({q, a, matched_kw});
+                            xSemaphoreGive(aphorism.mutex);
+                            cnt_hit++;
+                        }
                         else cnt_no_kw++;
                     }
                     LOG_I("[Aphorism] Batch %d: total=%d too_long=%d no_kw=%d hit=%d",
@@ -2628,35 +2648,51 @@ void aphorism_thread_entry(void *args){
                 http.end();
                 LOG_E("[Aphorism] HTTP error: %d | body: %.100s", code, body.c_str());
             }
+            } // end HTTP scope: HTTPClient & WiFiClientSecure freed here
 
             if(b < BATCHES - 1) delay(BATCH_DELAY_MS);
         }
 
-        LOG_I("[Aphorism] Round %lu: %d / %d matching quotes", batch_no, (int)pool.size(), (int)seen.size());
+        xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
+        int  pool_snap_size  = (int)pool.size();
+        bool pool_snap_empty = pool.empty();
+        xSemaphoreGive(aphorism.mutex);
+        LOG_I("[Aphorism] Round %lu: %d / %d matching quotes", batch_no, pool_snap_size, (int)seen.size());
 
-        if(pool.empty()) {
-            LOG_W("[Aphorism] No matching quotes this round, retrying...");
+        if(pool_snap_empty) {
+            LOG_W("[Aphorism] No matching aphorisms this round, retrying...");
             delay(DISPLAY_MS);
             continue;
         }
 
         // Fisher-Yates shuffle
+        xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
         for(int i = (int)pool.size() - 1; i > 0; i--) {
             int j = (int)(esp_random() % (uint32_t)(i + 1));
             std::swap(pool[i], pool[j]);
         }
+        xSemaphoreGive(aphorism.mutex);
 
         // Display each quote one by one, DISPLAY_MS milliseconds per quote
-        for(size_t idx = 0; idx < pool.size(); idx++) {
-            const auto &qt = pool[idx];
+        xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
+        size_t pool_disp_size = pool.size();
+        xSemaphoreGive(aphorism.mutex);
+        for(size_t idx = 0; idx < pool_disp_size; idx++) {
+            xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
+            if(idx >= pool.size()) { xSemaphoreGive(aphorism.mutex); break; } // safety: pool may shrink
+            auto qt = pool[idx]; // copy by value — must not hold lock during delay
+            xSemaphoreGive(aphorism.mutex);
             LOG_W("[Aphorism] +--------------------------------------------------+");
-            LOG_I("[Aphorism] |  Quote %d / %d  [keyword: %s]", (int)(idx + 1), (int)pool.size(), qt.kw.c_str());
-            LOG_I("[Aphorism] |  \"%s\"", qt.q.c_str());
-            LOG_I("[Aphorism] |  -- %s  (%d chars)", qt.a.c_str(), (int)qt.q.length());
+            LOG_I("[Aphorism] |  Quote %d / %d  [keyword: %s]", (int)(idx + 1), (int)pool_disp_size, qt.keyword.c_str());
+            LOG_I("[Aphorism] |  \"%s\"", qt.quote.c_str());
+            LOG_I("[Aphorism] |  -- %s  (%d chars)", qt.author.c_str(), (int)qt.quote.length());
             LOG_W("[Aphorism] +--------------------------------------------------+");
             delay(DISPLAY_MS);
         }
 
-        LOG_I("[Aphorism] Round %lu complete, refreshing next batch...", batch_no);
+        // Random inter-round jitter: further desync LAN devices' next request time across rounds
+        uint32_t round_jitter_ms = esp_random() % STARTUP_JITTER_MS;
+        LOG_I("[Aphorism] Round %lu complete, next batch in ~%lu s", batch_no, round_jitter_ms / 1000);
+        delay(round_jitter_ms);
     }
 } 

@@ -271,6 +271,16 @@ typedef struct{
         uint32_t            scan_generation; // 每完成一轮完整扫描 +1，通知 swarm 重置记忆
     }neighbor;
 
+    struct { 
+        struct Quote { 
+            String quote; 
+            String author; 
+            String keyword;
+        };
+        SemaphoreHandle_t   mutex;
+        std::vector<Quote> pool;
+    }aphorism;
+
     SemaphoreHandle_t                  reboot_xsem;             // reboot signal
     SemaphoreHandle_t                  nvs_save_xsem;           // save status to NVS signal
     SemaphoreHandle_t                  brightness_update_xsem;  // screen brightness update signal
