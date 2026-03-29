@@ -48,3 +48,17 @@ for root, _, files in os.walk(dist_dir):
         src_file = join(root, file)
         dest_file = join(data_dir, file)
         copy2(src_file, dest_file)
+
+# Copy screensaver GIFs into data/ so they are packed into SPIFFS.
+# Each board picks the right file at runtime based on its resolution:
+#   NMAxe / Gamma  → screen_saver_240x135.gif
+#   QAxe++         → screen_saver_320x240.gif
+gif_dir = join(project_dir, "gif")
+screensaver_gifs = ["screen_saver_240x135.gif", "screen_saver_320x240.gif"]
+for gif_file in screensaver_gifs:
+    src_gif = join(gif_dir, gif_file)
+    if isfile(src_gif):
+        copy2(src_gif, join(data_dir, gif_file))
+        print(f"Copied screensaver GIF: {gif_file}")
+    else:
+        print(f"WARNING: screensaver GIF not found, skipped: {src_gif}")

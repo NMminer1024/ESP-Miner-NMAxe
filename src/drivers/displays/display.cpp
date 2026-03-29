@@ -3415,18 +3415,26 @@ void ui_screen_saver_page_update(void* args){
   lv_obj_add_event_cb(overlay, pressed_event_cb, LV_EVENT_PRESSED, NULL);
   lv_obj_move_foreground(overlay);
 
+  // ── Select GIF filename based on board resolution ────────────────────────
+  // NMAxe / Gamma: 240×135  →  screen_saver_240x135.gif
+  // QAxe++:        320×240  →  screen_saver_320x240.gif
+  const char* gif_spiffs_name = ((board->info.spec.name == BOARD_NMAXE_NAME) ||
+                                  (board->info.spec.name == BOARD_NMAXE_GAMMA_NAME))
+                                 ? "/screen_saver_240x135.gif"
+                                 : "/screen_saver_320x240.gif";
+
   // ── Try to load GIF from SPIFFS ──────────────────────────────────────────
-  if(SPIFFS.exists("/screensaver.gif")){
+  if(SPIFFS.exists(gif_spiffs_name)){
     // Load GIF into PSRAM once; subsequent activations reuse the cache.
     // PSRAM reads at ~80 MB/s vs SPIFFS ~3-5 MB/s — eliminates decode stutter.
     if (gif_ram_buf == nullptr) {
-      File gf = SPIFFS.open("/screensaver.gif", "r");
+      File gf = SPIFFS.open(gif_spiffs_name, "r");
       if (gf) {
         gif_ram_size = gf.size();
         gif_ram_buf  = (uint8_t*)heap_caps_malloc(gif_ram_size, MALLOC_CAP_SPIRAM);
         if (gif_ram_buf) {
           gf.read(gif_ram_buf, gif_ram_size);
-          LOG_I("[screensaver] GIF cached in PSRAM: %u bytes", (unsigned)gif_ram_size);
+          LOG_I("[screensaver] GIF cached in PSRAM: %u bytes from %s", (unsigned)gif_ram_size, gif_spiffs_name);
         } else {
           gif_ram_size = 0;
           LOG_W("[screensaver] PSRAM alloc failed (%u bytes), fallback to SPIFFS", (unsigned)gif_ram_size);
@@ -3435,8 +3443,9 @@ void ui_screen_saver_page_update(void* args){
       }
     }
     gif_obj = lv_gif_create(overlay);
-    // Use PSRAM 'M' driver if cache loaded, else SPIFFS 'S' driver as fallback
-    lv_gif_set_src(gif_obj, gif_ram_buf ? "M:screensaver.gif" : "S:screensaver.gif");
+    // Use PSRAM 'M' driver if cache loaded, else SPIFFS 'S' driver as fallback.
+    // The filename after the colon is just an identifier for the FS driver.
+    lv_gif_set_src(gif_obj, gif_ram_buf ? "M:screensaver.gif" : (String("S:") + (gif_spiffs_name + 1)).c_str());
     lv_obj_center(gif_obj);
     // gif_obj sits on top of overlay; clear CLICKABLE so touch events fall through to overlay's pressed_event_cb
     lv_obj_clear_flag(gif_obj, LV_OBJ_FLAG_CLICKABLE);
@@ -3453,7 +3462,7 @@ void ui_screen_saver_page_update(void* args){
     lv_obj_align(lb_text, LV_ALIGN_CENTER, 0, 0);
     lv_label_set_text(lb_text, "Screen saver file lost!\nupload via AxeOS");
     lv_obj_move_foreground(overlay);
-    LOG_W("[screensaver] /screensaver.gif not found, showing placeholder");
+    LOG_W("[screensaver] %s not found, showing placeholder", gif_spiffs_name);
   }
 
   // Mark screen saver as active — touch / button will clear this bit to exit

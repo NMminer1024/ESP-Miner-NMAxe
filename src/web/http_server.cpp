@@ -1178,6 +1178,12 @@ void screensaver_upload_handler(AsyncWebServerRequest *request, const String& fi
     static int  last_pct = -1;
 
     uint64_t flen = request->contentLength();
+    String gif_name = "screen_saver.gif";
+    if(g_board.info.spec.name == BOARD_NMAXE_NAME || g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME){
+        gif_name = "screen_saver_240x135.gif";
+    } else {
+        gif_name = "screen_saver_320x240.gif";
+    }
 
     if (index == 0) {
         // Validate: must be a .gif
@@ -1189,9 +1195,9 @@ void screensaver_upload_handler(AsyncWebServerRequest *request, const String& fi
             return;
         }
         LOG_I("screensaver upload started: %s  total=%llu bytes", filename.c_str(), (unsigned long long)flen);
-        upload_file = SPIFFS.open("/screensaver.gif", "w");
+        upload_file = SPIFFS.open(("/" + gif_name).c_str(), "w");
         if (!upload_file) {
-            LOG_E("screensaver upload: failed to open /screensaver.gif for writing");
+            LOG_E("screensaver upload: failed to open %s for writing", ("/" + gif_name).c_str());
             request->send(500, "text/plain", "Failed to open file for writing.");
             return;
         }
@@ -1219,10 +1225,12 @@ void screensaver_upload_handler(AsyncWebServerRequest *request, const String& fi
 
     if (final) {
         if (upload_file) upload_file.close();
-        LOG_I("screensaver upload complete: %u bytes saved to /screensaver.gif", (unsigned)(index + len));
+        LOG_I("screensaver upload complete: %u bytes saved to %s", (unsigned)(index + len), ("/" + gif_name).c_str());
         AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
         resp->addHeader("Access-Control-Allow-Origin", "*");
         request->send(resp);
+        LOG_W("*************** Restarting System to apply new screensaver ***************");
+        xSemaphoreGive(g_board.status.reboot_xsem);
     }
 }
 

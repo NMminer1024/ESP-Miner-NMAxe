@@ -469,6 +469,21 @@ void webserver_thread_entry(void *args){
             r->addHeader("Access-Control-Allow-Origin", "*");
             request->send(r);
         });
+        // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
+        webServer.on("/probe", HTTP_GET, [board](AsyncWebServerRequest* request) {
+            AsyncResponseStream* resp = request->beginResponseStream("application/json");
+            resp->addHeader("Access-Control-Allow-Origin", "*");
+            resp->print("{");
+            resp->printf("\"model\":\"%s\",",    board->info.spec.name.c_str());  // board model name
+            resp->printf("\"hostname\":\"%s\",",    board->info.base.hostname.c_str()); // hostname
+            resp->printf("\"ver\":\"%s\",", board->info.base.fw_version.c_str()); // firmware version
+            resp->printf("\"hr\":%.0f,",       board->status.miner.hashrate._3m); // hashrate in H/s, 3m average
+            resp->printf("\"sbd\":%.0f,", board->status.miner.diff.best_session); // best session difficulty
+            resp->printf("\"ebd\":%.0f,",     board->status.miner.diff.best_ever); // best ever difficulty
+            resp->printf("\"ut\":%d",      board->status.miner.uptime_session);   // uptime in seconds for current session
+            resp->print("}");
+            request->send(resp);
+        });
         // Catch-all GET: serve recovery page from flash (no SPIFFS needed).
         // CORS header is required so the swarm probe (checkNewApiSupport) from
         // another device can read the response and correctly determine this is
@@ -2307,21 +2322,28 @@ void ui_thread_entry(void *args){
     while (true){
         delay(50);
         if(xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, 5) == pdTRUE){
-            // find the update function based on current page and call it, if not found, just skip page update
-            auto it = ui_page_update_cbs.find(board->status.ui.page.current);
-            if(it != ui_page_update_cbs.end()){
-                it->second((void*)board);  
+            // When screen saver is active its overlay covers everything; skip all
+            // underlying page/overlay updates so the mutex is released quickly and
+            // lvgl_tick_thread_entry can call lv_timer_handler() frequently to
+            // advance GIF frames without stutter.
+            bool screensaver_active = (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
+            if (!screensaver_active) {
+                // find the update function based on current page and call it, if not found, just skip page update
+                auto it = ui_page_update_cbs.find(board->status.ui.page.current);
+                if(it != ui_page_update_cbs.end()){
+                    it->second((void*)board);  
+                }
+                // countdown page update, if running, cover current page
+                ui_countdown_page_update((void*)board);
+                // achievement page update, if running, cover current page
+                ui_achieve_page_update((void*)board);
+                // block hits page popup, if hit, cover current page
+                ui_hits_page_update((void*)board);
+                // OTA page update, if running, cover current page
+                ui_ota_page_update((void*)board);
             }
-            // screen saver page overlay (1-min inactivity → overlay → dismiss on touch/button)
+            // screen saver page overlay — always run (handles activation + fade-out)
             ui_screen_saver_page_update((void*)board);
-            // countdown page update, if running, cover current page
-            ui_countdown_page_update((void*)board);
-            // achievement page update, if running, cover current page
-            ui_achieve_page_update((void*)board);
-            // block hits page popup, if hit, cover current page
-            ui_hits_page_update((void*)board);
-            // OTA page update, if running, cover current page
-            ui_ota_page_update((void*)board);
             //release mutex
             xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
         }
