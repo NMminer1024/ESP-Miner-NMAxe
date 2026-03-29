@@ -2312,8 +2312,8 @@ void ui_thread_entry(void *args){
             if(it != ui_page_update_cbs.end()){
                 it->second((void*)board);  
             }
-            // screen saveer update
-            ui_screen_saver_update((void*)board);
+            // screen saver page overlay (1-min inactivity → overlay → dismiss on touch/button)
+            ui_screen_saver_page_update((void*)board);
             // countdown page update, if running, cover current page
             ui_countdown_page_update((void*)board);
             // achievement page update, if running, cover current page

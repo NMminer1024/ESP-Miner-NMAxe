@@ -3270,13 +3270,89 @@ void ui_screen_saver_page_update(void* args){
     return;
   }
 
+  static uint32_t last_activity_ms = millis(); // reset on dismiss; starts fresh at first call
+  static bool     fading_out       = false;
+  static uint32_t fade_start_ms    = 0;
+  static lv_obj_t *overlay         = nullptr;
+  static lv_obj_t *lb_text         = nullptr;
+  static lv_style_t style;
+  static bool style_inited         = false;
+
+  // ── Overlay is visible ── manage fade-out or keep showing  ──────────────
+  if(overlay != nullptr){
+    EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED, pdFALSE, pdTRUE, 0);
+    if((bits & SYS_EVENT_SCREEN_SAVER_TRIGGERED) == 0){
+      // Event cleared by touch / button → start or continue 1-second fade-out
+      if(!fading_out){
+        fading_out    = true;
+        fade_start_ms = millis();
+        lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
+      }
+      uint32_t elapsed = millis() - fade_start_ms;
+      if(elapsed >= 1000){
+        // Fade complete — destroy overlay and reset inactivity timer
+        lv_obj_del(overlay);
+        overlay          = nullptr;
+        lb_text          = nullptr;
+        fading_out       = false;
+        last_activity_ms = millis();
+      } else {
+        // Linearly interpolate opacity: 255 → 0 over 1000 ms
+        lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)(LV_OPA_COVER) * elapsed / 1000);
+        lv_obj_set_style_opa(overlay, opa, LV_PART_MAIN);
+      }
+      return;
+    } else {
+      // Screen saver still active — cancel any in-progress fade and keep visible
+      if(fading_out){
+        fading_out = false;
+        lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
+      }
+      return;
+    }
+  }
+
+  // ── Overlay not showing ── wait 30 seconds of inactivity then create it  ──
+  if((millis() - last_activity_ms) < (30UL * 1000UL)) return;
+
+  // Create overlay style once
+  if(!style_inited){
+    lv_style_init(&style);
+    lv_style_set_bg_color(&style, lv_color_black());
+    lv_style_set_bg_opa(&style, LV_OPA_90);     // 90% opaque
+    lv_style_set_border_width(&style, 0);
+    lv_style_set_border_opa(&style, LV_OPA_TRANSP);
+    style_inited = true;
+  }
+
+  // Create full-screen overlay on the active screen
+  overlay = lv_obj_create(lv_scr_act());
+  lv_obj_set_size(overlay, LV_HOR_RES, LV_VER_RES);
+  lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_style_pad_all(overlay, 0, 0);
+  lv_obj_set_scrollbar_mode(overlay, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_add_style(overlay, &style, LV_PART_MAIN);
+  lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
+  // Register touch handler so a press clears the event and triggers fade-out
+  lv_obj_add_event_cb(overlay, pressed_event_cb, LV_EVENT_PRESSED, NULL);
+  lv_obj_move_foreground(overlay);
+
+  // "screen saver active" placeholder label
+  lb_text = lv_label_create(overlay);
+  lv_obj_set_style_text_color(lb_text, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+  lv_obj_set_style_text_font(lb_text, &lv_font_montserrat_14, LV_PART_MAIN);
+  lv_obj_align(lb_text, LV_ALIGN_CENTER, 0, 0);
+  lv_label_set_text(lb_text, "screen saver active");
+  lv_obj_move_foreground(overlay);
+
+  // Mark screen saver as active so pressed_event_cb / button can clear it to exit
+  xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
 
 
 
 
 
 
-  
 }
 
 
