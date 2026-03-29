@@ -1208,11 +1208,12 @@ void screensaver_upload_handler(AsyncWebServerRequest *request, const String& fi
         // Log progress every ~10 % (same style as OTA)
         if (flen > 0) {
             int pct = (int)((index + len) * 100ULL / flen);
-            if (pct / 10 != last_pct / 10) {
+            if (pct != last_pct ) {
                 LOG_I("screensaver upload: %d%%  (%u / %llu bytes)",
                       pct, (unsigned)(index + len), (unsigned long long)flen);
                 last_pct = pct;
             }
+            delay(5); // Feed the watchdog; 
         }
     }
 

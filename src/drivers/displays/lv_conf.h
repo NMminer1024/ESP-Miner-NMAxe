@@ -71,7 +71,7 @@
 #define LV_MEM_BUF_MAX_NUM 16
 
 /*Use the standard `memcpy` and `memset` instead of LVGL's own functions. (Might or might not be faster).*/
-#define LV_MEMCPY_MEMSET_STD 0
+#define LV_MEMCPY_MEMSET_STD 1  /* ESP32-S3: stdlib memcpy uses PIE/SIMD 128-bit instructions automatically */
 
 /*====================
    HAL SETTINGS

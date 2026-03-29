@@ -8,6 +8,12 @@
 #include "nvs/nvs_config.h"
 #include "board/board.h"
 
+// ── Screensaver GIF PSRAM cache ───────────────────────────────────────────────
+// Loaded once on first screensaver activation; subsequent frame decodes read
+// from PSRAM (~80 MB/s) instead of SPIFFS/NOR-flash (~3‑5 MB/s).
+static uint8_t *gif_ram_buf  = nullptr;
+static size_t   gif_ram_size = 0;
+
 // Forward-declare qrcodegen C API (compiled as part of lvgl, no header modify needed)
 extern "C" {
     int qrcodegen_getMinFitVersion(int ecl, size_t dataLen);
@@ -913,6 +919,43 @@ void ui_drv_register(void){
 
     lv_fs_drv_register(&spiffs_drv);
     LOG_I("LVGL SPIFFS FS driver registered (letter='S')");
+  }
+
+  // ── PSRAM FS driver for LVGL (letter 'M') ─────────────────────────────────
+  // Serves GIF bytes from the gif_ram_buf PSRAM cache instead of SPIFFS.
+  // Eliminates NOR-flash read latency (~3-5 MB/s) during LVGL GIF LZW decode;
+  // PSRAM reads at ~80 MB/s, 15-20x faster.
+  {
+    static lv_fs_drv_t ram_drv;
+    lv_fs_drv_init(&ram_drv);
+    ram_drv.letter = 'M';
+    ram_drv.open_cb = +[](lv_fs_drv_t*, const char*, lv_fs_mode_t) -> void* {
+        if (!gif_ram_buf) return nullptr;
+        return (void*)(new size_t(0));
+    };
+    ram_drv.close_cb = +[](lv_fs_drv_t*, void *fp) -> lv_fs_res_t {
+        delete (size_t*)fp; return LV_FS_RES_OK;
+    };
+    ram_drv.read_cb = +[](lv_fs_drv_t*, void *fp, void *buf, uint32_t btr, uint32_t *br) -> lv_fs_res_t {
+        size_t *pos = (size_t*)fp;
+        uint32_t avail = (gif_ram_size > *pos) ? (uint32_t)(gif_ram_size - *pos) : 0u;
+        *br = (btr < avail) ? btr : avail;
+        memcpy(buf, gif_ram_buf + *pos, *br);
+        *pos += *br;
+        return LV_FS_RES_OK;
+    };
+    ram_drv.seek_cb = +[](lv_fs_drv_t*, void *fp, uint32_t pos, lv_fs_whence_t whence) -> lv_fs_res_t {
+        size_t *cur = (size_t*)fp;
+        if      (whence == LV_FS_SEEK_SET) *cur = (size_t)pos;
+        else if (whence == LV_FS_SEEK_CUR) *cur += (size_t)pos;
+        else if (whence == LV_FS_SEEK_END) *cur = (size_t)((int32_t)gif_ram_size + (int32_t)pos);
+        return LV_FS_RES_OK;
+    };
+    ram_drv.tell_cb = +[](lv_fs_drv_t*, void *fp, uint32_t *pos_p) -> lv_fs_res_t {
+        *pos_p = (uint32_t)*(size_t*)fp; return LV_FS_RES_OK;
+    };
+    lv_fs_drv_register(&ram_drv);
+    LOG_I("LVGL PSRAM FS driver registered (letter='M')");
   }
 }
 
@@ -3374,14 +3417,31 @@ void ui_screen_saver_page_update(void* args){
 
   // ── Try to load GIF from SPIFFS ──────────────────────────────────────────
   if(SPIFFS.exists("/screensaver.gif")){
-    // Path format for registered LVGL FS driver: "S:" + filename (no leading /)
+    // Load GIF into PSRAM once; subsequent activations reuse the cache.
+    // PSRAM reads at ~80 MB/s vs SPIFFS ~3-5 MB/s — eliminates decode stutter.
+    if (gif_ram_buf == nullptr) {
+      File gf = SPIFFS.open("/screensaver.gif", "r");
+      if (gf) {
+        gif_ram_size = gf.size();
+        gif_ram_buf  = (uint8_t*)heap_caps_malloc(gif_ram_size, MALLOC_CAP_SPIRAM);
+        if (gif_ram_buf) {
+          gf.read(gif_ram_buf, gif_ram_size);
+          LOG_I("[screensaver] GIF cached in PSRAM: %u bytes", (unsigned)gif_ram_size);
+        } else {
+          gif_ram_size = 0;
+          LOG_W("[screensaver] PSRAM alloc failed (%u bytes), fallback to SPIFFS", (unsigned)gif_ram_size);
+        }
+        gf.close();
+      }
+    }
     gif_obj = lv_gif_create(overlay);
-    lv_gif_set_src(gif_obj, "S:screensaver.gif");
+    // Use PSRAM 'M' driver if cache loaded, else SPIFFS 'S' driver as fallback
+    lv_gif_set_src(gif_obj, gif_ram_buf ? "M:screensaver.gif" : "S:screensaver.gif");
     lv_obj_center(gif_obj);
     // gif_obj sits on top of overlay; clear CLICKABLE so touch events fall through to overlay's pressed_event_cb
     lv_obj_clear_flag(gif_obj, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_move_foreground(overlay);
-    LOG_I("[screensaver] GIF loaded from SPIFFS");
+    LOG_I("[screensaver] GIF loaded from %s", gif_ram_buf ? "PSRAM" : "SPIFFS");
   } else {
     // GIF absent — show error hint so user knows what to do
     lb_text = lv_label_create(overlay);
