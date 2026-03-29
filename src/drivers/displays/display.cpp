@@ -3263,7 +3263,24 @@ void ui_setting_page_update(void* args){
   }
 }
 
-void ui_screen_saver_update(void* args){
+void ui_screen_saver_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
+
+
+
+
+
+
+
+  
+}
+
+
+void ui_aphorism_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");

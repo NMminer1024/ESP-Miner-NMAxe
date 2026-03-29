@@ -88,6 +88,7 @@ void ui_config_page_update(void* args);
 void ui_miner_page_update(void* args);
 void ui_countdown_page_update(void* args);
 void ui_ota_page_update(void* args);
+void ui_aphorism_page_update(void* args);
 void ui_screen_saver_update(void* args);
 void ui_achieve_page_update(void* args);
 void ui_hits_page_update(void* args);
@@ -96,4 +97,5 @@ void ui_hr_healthy_page_update(void* args);
 void ui_clock_page_update(void* args);
 void ui_market_page_update(void* args);
 void ui_setting_page_update(void* args);
+void ui_screen_saver_page_update(void* args);
 #endif // DISPLAY_H
