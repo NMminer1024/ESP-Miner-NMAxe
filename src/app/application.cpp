@@ -43,7 +43,7 @@ bool MinerApp::init() {
 ──────────────────────────────────────────────*/
 void MinerApp::begin() {
     _thread_pool = {
-        {"(app_tick)",   _tick_thread_entry,            1024*4,   TASK_PRIORITY_APP_TICK,    1, &_tickTask,       10,  0},
+        {"(app_tick)",   _tick_thread_entry,            1024*5,   TASK_PRIORITY_APP_TICK,    1, &_tickTask,       10,  0},
         {"(display)",   display_thread_entry,           1024*5,   TASK_PRIORITY_DISPLAY,     1, NULL,             10,  0},
         {"(lvgl)",      lvgl_tick_thread_entry,         1024*4,   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
         {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
@@ -62,7 +62,7 @@ void MinerApp::begin() {
         {"(market)",    market_thread_entry,            1024*5,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
         {"(stratum)",   stratum_thread_entry,           1024*11,  TASK_PRIORITY_STRATUM,     1, &_stratumTask,    10,  0},
         {"(monitor)",   monitor_thread_entry,           1024*5,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
-        {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SWARM,       1, &_neighborTask,   10,  0},
+        {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SCAN,        1, &_neighborTask,   10,  0},
         {"(asic_tx)",   miner_asic_tx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_TX,    1, &_minerTxTask,    10,  0},
         {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_RX,    0, &_minerRxTask,    10,  0},
         {"(aphorism)",  aphorism_thread_entry,          1024*6,   TASK_PRIORITY_APHORISM,    0, &_aphorismTask,   10,  0},
@@ -137,7 +137,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     }
 
     while(true){
-        // MinerApp::instance().print_stack_hwm(); // debug: print stack usage
+        MinerApp::instance().print_stack_hwm(); // debug: print stack usage
 
         delay(10);
         // check miner events to trigger backlight effect, such as block hit or high diff achieved
@@ -171,15 +171,23 @@ void MinerApp::_tick_thread_entry(void* args) {
         }
 
 
-        // print aphorism every 30s
-        static uint32_t last_aphorism_print_ms = 0;
-        for(auto &q : board->status.aphorism.pool){
-            if(millis() - last_aphorism_print_ms >= 30000){
-                LOG_I("[Aphorism] %s — %s", q.quote.c_str(), q.author.c_str());
-                last_aphorism_print_ms = millis();
-            }else{
-                break; // pool is ordered by fetch time desc, if the first one is not due for print, the rest won't be either
+        // consume one aphorism every 30 s: pop from front, log, erase
+        static uint32_t last_aphorism_ms = 0;
+        if(millis() - last_aphorism_ms >= 30000) {
+            xSemaphoreTake(board->status.aphorism.mutex, portMAX_DELAY);
+            if(!board->status.aphorism.pool.empty()) {
+                auto qt = board->status.aphorism.pool.front();
+                board->status.aphorism.pool.erase(board->status.aphorism.pool.begin());
+                size_t remaining = board->status.aphorism.pool.size(); // already erased, so this is post-pop count
+                xSemaphoreGive(board->status.aphorism.mutex);
+                LOG_W("[tick] +--------------------------------------------------+");
+                LOG_I("[tick] |  \"%s\"", qt.quote.c_str());
+                LOG_I("[tick] |  -- %s  [kw: %s]  [%d left]", qt.author.c_str(), qt.keyword.c_str(), (int)remaining);
+                LOG_W("[tick] +--------------------------------------------------+");
+            } else {
+                xSemaphoreGive(board->status.aphorism.mutex);
             }
+            last_aphorism_ms = millis();
         }
     }
 }
@@ -271,8 +279,8 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.swarm.best_session_bd          = 0.0f;
     g_board.status.swarm.best_ever_bd             = 0.0f;
 
-    g_board.status.miner.history_mutex            = xSemaphoreCreateMutex();
-    g_board.status.miner.block_proximity_mutex    = xSemaphoreCreateMutex();
+    g_board.status.miner.status_history.mutex    = xSemaphoreCreateMutex();
+    g_board.status.miner.proximity_history.mutex = xSemaphoreCreateMutex();
     g_board.status.miner.update_xsem             = xSemaphoreCreateCounting(1, 0);
     g_board.status.miner.hits                    = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     g_board.status.ota.running                   = false;

@@ -41,8 +41,9 @@ enum{
     TASK_PRIORITY_CONFIG   ,
     TASK_PRIORITY_APP_TICK ,
     TASK_PRIORITY_DISPLAY  ,
-    TASK_PRIORITY_MARKET   ,
+    TASK_PRIORITY_SCAN     ,
     TASK_PRIORITY_SWARM    ,
+    TASK_PRIORITY_MARKET   ,
     TASK_PRIORITY_WS       ,
     TASK_PRIORITY_ASIC_CNT ,
     TASK_PRIORITY_ASIC_INIT,
@@ -188,12 +189,16 @@ typedef struct{
         uint32_t            asic_update;  // timestamp of asic respond
         uint32_t            stratum_update;//ms timestamp of last stratum data received
         uint32_t            latency;        // ms, latency to pool
-        std::deque<history_node_t, PsramAllocator<history_node_t>> status_history;// history of status samples
-        std::deque<proximity_node_t> block_proximity_history; // history of block proximity (internal RAM, fixed small size)
-        std::map<asic_id_t, uint64_t> asic_rsp_counter; // asic respond counter map (internal RAM, fixed small size)
-        SemaphoreHandle_t   history_mutex;// mutex for status_history concurrent access protection
-        SemaphoreHandle_t   block_proximity_mutex;// mutex for block_proximity_history concurrent access protection
         SemaphoreHandle_t   update_xsem;  // miner status update signal
+        std::map<asic_id_t, uint64_t> asic_rsp_counter; // asic respond counter map (internal RAM, fixed small size)
+        struct{
+            std::deque<history_node_t, PsramAllocator<history_node_t>>      deque; // history of status samples
+            SemaphoreHandle_t   mutex;// mutex for status_history concurrent access protection
+        }status_history;
+        struct{
+            std::deque<proximity_node_t, PsramAllocator<proximity_node_t>>  deque; // history of block proximity samples
+            SemaphoreHandle_t   mutex;// mutex for block_proximity_history concurrent access protection
+        }proximity_history;
     }miner;
 
     struct{

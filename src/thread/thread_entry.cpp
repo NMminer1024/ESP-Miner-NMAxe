@@ -1332,20 +1332,20 @@ void monitor_thread_entry(void *args){
             node.latency      = board->status.miner.latency; // ms
 
             // add node to history queue and protect concurrent access
-            if (xSemaphoreTake(board->status.miner.history_mutex, portMAX_DELAY) == pdTRUE) {
-                board->status.miner.status_history.push_back(node);
+            if (xSemaphoreTake(board->status.miner.status_history.mutex, portMAX_DELAY) == pdTRUE) {
+                board->status.miner.status_history.deque.push_back(node);
                 //remove old history
                 uint64_t current_time_ms = board->status.time.utc * 1000ULL; // Convert to milliseconds
-                while (!board->status.miner.status_history.empty()) {
-                    uint64_t oldest_time_ms = board->status.miner.status_history.front().epoch; // Already in milliseconds
+                while (!board->status.miner.status_history.deque.empty()) {
+                    uint64_t oldest_time_ms = board->status.miner.status_history.deque.front().epoch; // Already in milliseconds
                     if(current_time_ms - oldest_time_ms > MINER_HISTORY_SAMPLE_DEEPTH){ 
-                        board->status.miner.status_history.pop_front();
-                        LOG_D("Remove old history, current size: %d, removed timestamp: %llu", board->status.miner.status_history.size(), oldest_time_ms);
+                        board->status.miner.status_history.deque.pop_front();
+                        LOG_D("Remove old history, current size: %d, removed timestamp: %llu", board->status.miner.status_history.deque.size(), oldest_time_ms);
                     } else {
                         break;
                     }
                 }
-                xSemaphoreGive(board->status.miner.history_mutex);
+                xSemaphoreGive(board->status.miner.status_history.mutex);
             }
         }
 
@@ -1925,14 +1925,14 @@ void miner_asic_rx_thread_entry(void *args){
                 }
                 
                 //add share to History of block proximity
-                if(xSemaphoreTake(board->status.miner.block_proximity_mutex, portMAX_DELAY) == pdTRUE){
+                if(xSemaphoreTake(board->status.miner.proximity_history.mutex, portMAX_DELAY) == pdTRUE){
                     proximity_node_t node;
                     node.block_proximity = diff / board->status.miner.diff.network;
                     node.share_diff      = diff;
                     node.net_diff        = board->status.miner.diff.network;
                     node.epoch           = board->status.time.utc * 1000ULL;
-                    add_share_diff_history(board->status.miner.block_proximity_history, node, 36);
-                    xSemaphoreGive(board->status.miner.block_proximity_mutex);
+                    add_share_diff_history(board->status.miner.proximity_history.deque, node, 36);
+                    xSemaphoreGive(board->status.miner.proximity_history.mutex);
                 }
             }
         }
@@ -2518,7 +2518,7 @@ void display_thread_entry(void *args){
 void aphorism_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
     auto &aphorism = board->status.aphorism;
-    auto &pool     = aphorism.pool; // reuse pool vector in board status to avoid repeated dynamic allocation/free, just clear() it each round
+    auto &pool     = aphorism.pool; // producer appends here; consumer pops from front; pool is never cleared wholesale
 
     // Theme: solo mining requires patience — be a friend of time, good luck can arrive at any moment
     static const char* const KEYWORDS[] = {
@@ -2549,9 +2549,11 @@ void aphorism_thread_entry(void *args){
     };
     static const uint8_t  KEYWORD_COUNT  = sizeof(KEYWORDS) / sizeof(KEYWORDS[0]);
     static const uint16_t MAX_CHARS        = 50;           // max quote length in chars (adjust to change filter threshold)
-    static const uint32_t DISPLAY_MS       = 1000 * 60;    // display each quote for 60 seconds
-    static const uint8_t  BATCHES          = 1;            // 1 batch per round; ~50 quotes = ~50 min display, minimizes API pressure
-    static const uint32_t BATCH_DELAY_MS   = 1000 * 10;    // short inter-batch pause (http already closed before this delay)
+    static const uint8_t  POOL_MAX         = 30;           // producer stops appending when pool reaches this size
+    static const uint8_t  POOL_LOW_THR     = (uint8_t)(POOL_MAX * 0.3f); // refetch when pool drops below 30% (≤ 15 quotes)
+    static const uint32_t POOL_POLL_MS     = 1000 * 60;    // interval between pool-size checks when pool is healthy
+    static const uint8_t  BATCHES          = 2;            // 1 batch per round; ~50 quotes per fetch
+    static const uint32_t BATCH_DELAY_MS   = 1000 * 30;    // short inter-batch pause (http already closed before this delay)
     // Max random jitter applied at startup and between rounds.
     // Multiple LAN devices share the same public IP and the same 100 req/hr limit (zenquotes.io).
     // Spreading requests across this window prevents simultaneous 429s.
@@ -2563,27 +2565,40 @@ void aphorism_thread_entry(void *args){
     // Random startup jitter: stagger initial fetch across all LAN devices sharing the same public IP
     {
         uint32_t jitter_ms = esp_random() % STARTUP_JITTER_MS;
-        LOG_I("[Aphorism] Startup jitter: ~%lu s (desync LAN devices)", jitter_ms / 1000);
+        LOG_W("[Aphorism] Startup jitter: ~%lu s (desync LAN devices)", jitter_ms / 1000);
         delay(jitter_ms);
     }
 
     // Print current config for debugging
-    LOG_I("[Aphorism] Config => MAX_CHARS:%d  DISPLAY:%lus  BATCHES:%d  KEYWORDS:%d",
-          (int)MAX_CHARS, (unsigned long)(DISPLAY_MS / 1000), (int)BATCHES, (int)KEYWORD_COUNT);
+    LOG_W("[Aphorism] Config => MAX_CHARS:%d  POOL_MAX:%d  POOL_LOW_THR:%d  BATCHES:%d  KEYWORDS:%d",
+          (int)MAX_CHARS, (int)POOL_MAX, (int)POOL_LOW_THR, (int)BATCHES, (int)KEYWORD_COUNT);
 
     uint32_t batch_no = 0;
     while(true) {
         delay(10); 
-        if(board->status.ota.running) continue; // skip while OTA is running to avoid resource contention
-
-        batch_no++;
-        LOG_I("[Aphorism] Round %lu: fetching quotes...", batch_no);
-
+        if(WiFi.status() != WL_CONNECTED) continue; // skip if WiFi is down, will check again in 1s in the next loop iteration
+        if(board->status.ota.running)     continue; // skip while OTA is running to avoid resource contention
+        
+        // Check current pool capacity before deciding whether to fetch
         xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
-        pool.clear();
+        size_t cur_pool_size = pool.size();
         xSemaphoreGive(aphorism.mutex);
 
-        std::set<String>    seen;
+        // Pool is above the 30% low-water mark — keep waiting, no fetch needed yet
+        if(cur_pool_size >= POOL_LOW_THR) {
+            delay(POOL_POLL_MS);
+            continue;
+        }
+
+        // Pool is low — start a new fetch round
+        batch_no++;
+        LOG_I("[Aphorism] Round %lu: pool low (%d quotes), fetching...", batch_no, (int)cur_pool_size);
+
+        // Build dedup set from current pool to avoid re-appending already-queued quotes
+        std::set<String> seen;
+        xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
+        for(auto &qt : pool) seen.insert(qt.quote);
+        xSemaphoreGive(aphorism.mutex);
 
         // zenquotes.io HTTPS batch API — returns ~50 quotes per call, fetch BATCHES rounds
         for(uint8_t b = 0; b < BATCHES; b++) {
@@ -2632,9 +2647,11 @@ void aphorism_thread_entry(void *args){
                         }
                         if(matched) {
                             xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
-                            pool.push_back({q, a, matched_kw});
+                            if(pool.size() < POOL_MAX) {
+                                pool.push_back({q, a, matched_kw});
+                                cnt_hit++;
+                            }
                             xSemaphoreGive(aphorism.mutex);
-                            cnt_hit++;
                         }
                         else cnt_no_kw++;
                     }
@@ -2654,45 +2671,22 @@ void aphorism_thread_entry(void *args){
         }
 
         xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
-        int  pool_snap_size  = (int)pool.size();
-        bool pool_snap_empty = pool.empty();
+        int pool_snap_size = (int)pool.size();
         xSemaphoreGive(aphorism.mutex);
-        LOG_I("[Aphorism] Round %lu: %d / %d matching quotes", batch_no, pool_snap_size, (int)seen.size());
+        LOG_I("[Aphorism] Round %lu complete, pool now has %d quotes", batch_no, pool_snap_size);
 
-        if(pool_snap_empty) {
-            LOG_W("[Aphorism] No matching aphorisms this round, retrying...");
-            delay(DISPLAY_MS);
-            continue;
-        }
-
-        // Fisher-Yates shuffle
-        xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
-        for(int i = (int)pool.size() - 1; i > 0; i--) {
-            int j = (int)(esp_random() % (uint32_t)(i + 1));
-            std::swap(pool[i], pool[j]);
-        }
-        xSemaphoreGive(aphorism.mutex);
-
-        // Display each quote one by one, DISPLAY_MS milliseconds per quote
-        xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
-        size_t pool_disp_size = pool.size();
-        xSemaphoreGive(aphorism.mutex);
-        for(size_t idx = 0; idx < pool_disp_size; idx++) {
-            xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
-            if(idx >= pool.size()) { xSemaphoreGive(aphorism.mutex); break; } // safety: pool may shrink
-            auto qt = pool[idx]; // copy by value — must not hold lock during delay
-            xSemaphoreGive(aphorism.mutex);
-            LOG_W("[Aphorism] +--------------------------------------------------+");
-            LOG_I("[Aphorism] |  Quote %d / %d  [keyword: %s]", (int)(idx + 1), (int)pool_disp_size, qt.keyword.c_str());
-            LOG_I("[Aphorism] |  \"%s\"", qt.quote.c_str());
-            LOG_I("[Aphorism] |  -- %s  (%d chars)", qt.author.c_str(), (int)qt.quote.length());
-            LOG_W("[Aphorism] +--------------------------------------------------+");
-            delay(DISPLAY_MS);
-        }
-
-        // Random inter-round jitter: further desync LAN devices' next request time across rounds
+        // Interruptible inter-round jitter: desync LAN devices while still reacting quickly when pool runs low.
+        // Wakes early (every 5 s) if pool drops below POOL_LOW_THR, so the consumer never starves for long.
         uint32_t round_jitter_ms = esp_random() % STARTUP_JITTER_MS;
-        LOG_I("[Aphorism] Round %lu complete, next batch in ~%lu s", batch_no, round_jitter_ms / 1000);
-        delay(round_jitter_ms);
+        LOG_I("[Aphorism] Next check in ~%lu s (or earlier if pool runs low)", round_jitter_ms / 1000);
+        for(uint32_t _end = millis() + round_jitter_ms; millis() < _end; delay(5000)) {
+            xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
+            size_t sz = pool.size();
+            xSemaphoreGive(aphorism.mutex);
+            if(sz < POOL_LOW_THR) {
+                LOG_I("[Aphorism] Pool dropped to %d (< %d), waking early", (int)sz, (int)POOL_LOW_THR);
+                break;
+            }
+        }
     }
-} 
+}

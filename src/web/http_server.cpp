@@ -646,9 +646,9 @@ void get_status_history(AsyncWebServerRequest* request){
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
-    if (xSemaphoreTake(g_board.status.miner.history_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_board.status.miner.status_history.size();
-        xSemaphoreGive(g_board.status.miner.history_mutex);
+    if (xSemaphoreTake(g_board.status.miner.status_history.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        history_size = g_board.status.miner.status_history.deque.size();
+        xSemaphoreGive(g_board.status.miner.status_history.mutex);
         LOG_D("History size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
@@ -729,12 +729,12 @@ void get_status_history(AsyncWebServerRequest* request){
     // Acquire mutex for history traversal
     // NOTE: portMAX_DELAY in async_tcp context can deadlock the entire TCP stack.
     //       Use a bounded timeout; if the mutex is unavailable, return 503.
-    if (xSemaphoreTake(g_board.status.miner.history_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
-        actual_history_size = g_board.status.miner.status_history.size();
+    if (xSemaphoreTake(g_board.status.miner.status_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+        actual_history_size = g_board.status.miner.status_history.deque.size();
         LOG_D("Starting sampling: %d total records, interval: %d, max points: %d", 
               actual_history_size, actual_sample_interval, MAX_DATA_POINTS);
         
-        for (const auto& history : g_board.status.miner.status_history) {
+        for (const auto& history : g_board.status.miner.status_history.deque) {
             if(idx % actual_sample_interval == 0) {
                 // Stop if we've reached the maximum data points limit
                 if (sampled_count >= MAX_DATA_POINTS) {
@@ -789,7 +789,7 @@ void get_status_history(AsyncWebServerRequest* request){
             }
         }
         
-        xSemaphoreGive(g_board.status.miner.history_mutex);
+        xSemaphoreGive(g_board.status.miner.status_history.mutex);
         LOG_D("Sampling completed: %d samples from %d total records, interval: %d", 
               sampled_count, actual_history_size, actual_sample_interval);
     } else {
@@ -910,9 +910,9 @@ void get_status_realtime(AsyncWebServerRequest* request){
     JsonArray data = root.createNestedArray("statistics");
     
     // Protect status_history access with mutex
-    if (xSemaphoreTake(g_board.status.miner.history_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
-        if (!g_board.status.miner.status_history.empty()) {
-            auto& history = g_board.status.miner.status_history.back();
+    if (xSemaphoreTake(g_board.status.miner.status_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+        if (!g_board.status.miner.status_history.deque.empty()) {
+            auto& history = g_board.status.miner.status_history.deque.back();
             JsonArray dataPoint = data.createNestedArray();
             dataPoint.add(history.hashrate);           // hashRate (GH/s)
             dataPoint.add(history.asic_temp);          // asic_temp (°C)
@@ -929,13 +929,13 @@ void get_status_realtime(AsyncWebServerRequest* request){
             dataPoint.add(history.latency);            // latency (ms)
             dataPoint.add(history.epoch);              // timestamp (ms)
         }
-        xSemaphoreGive(g_board.status.miner.history_mutex);
+        xSemaphoreGive(g_board.status.miner.status_history.mutex);
     }
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 
-    LOG_D("Status realtime sent, history size: %d...", g_board.status.miner.status_history.size());
+    LOG_D("Status realtime sent, history size: %d...", g_board.status.miner.status_history.deque.size());
 }
 
 // GET /api/dashboard/luck/history -- block-proximity history for luck/difficulty chart.
@@ -944,9 +944,9 @@ void get_lucky_history(AsyncWebServerRequest* request){
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
-    if (xSemaphoreTake(g_board.status.miner.block_proximity_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_board.status.miner.block_proximity_history.size();
-        xSemaphoreGive(g_board.status.miner.block_proximity_mutex);
+    if (xSemaphoreTake(g_board.status.miner.proximity_history.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        history_size = g_board.status.miner.proximity_history.deque.size();
+        xSemaphoreGive(g_board.status.miner.proximity_history.mutex);
         LOG_D("Lucky history size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
@@ -990,10 +990,10 @@ void get_lucky_history(AsyncWebServerRequest* request){
     size_t sampled_count = 0;
     
     // Acquire mutex for history traversal
-    if (xSemaphoreTake(g_board.status.miner.block_proximity_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+    if (xSemaphoreTake(g_board.status.miner.proximity_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
         LOG_D("Starting data collection: %d total records", history_size);
         
-        for (const auto& history : g_board.status.miner.block_proximity_history) {
+        for (const auto& history : g_board.status.miner.proximity_history.deque) {
             JsonArray dataPoint = data.createNestedArray();
             
             dataPoint.add(history.block_proximity);
@@ -1005,7 +1005,7 @@ void get_lucky_history(AsyncWebServerRequest* request){
             if (sampled_count % 100 == 0) taskYIELD();
         }
         
-        xSemaphoreGive(g_board.status.miner.block_proximity_mutex);
+        xSemaphoreGive(g_board.status.miner.proximity_history.mutex);
         LOG_D("Data collection completed: %d samples from %d total records", sampled_count, history_size);
     } else {
         LOG_E("Failed to acquire history mutex for data collection");
@@ -1038,56 +1038,6 @@ void get_lucky_history(AsyncWebServerRequest* request){
     
     LOG_D("Lucky history sent: %d bytes, %d records", json_size, sampled_count);
 }
-
-// // GET /api/swarm -- list all discovered swarm devices with their status JSON.
-// void get_swarm_info_handler(AsyncWebServerRequest* request){
-//     uint32_t json_size_max = 1024 * 40; // in bytes, 40kB about 120 devices
-    
-//     // Use local document instead of static to prevent memory leaks
-//     DynamicJsonDocument root(json_size_max);
-
-//     JsonArray devicesArray = root.createNestedArray("devices");
-//     for (auto it = g_board.status.swarm.map.begin(); it != g_board.status.swarm.map.end(); it++) {
-//         String ip        = it->first;
-//         String swarm_str = it->second;
-
-//         DynamicJsonDocument deviceDoc(2048);
-//         DeserializationError error = deserializeJson(deviceDoc, swarm_str);
-//         if (error) continue;
-        
-//         JsonObject deviceObj = devicesArray.createNestedObject();
-//         deviceObj["ip"] = ip;
-//         deviceObj["Hostname"] = (deviceDoc.containsKey("Hostname")) ? deviceDoc["Hostname"].as<std::string>() : "";
-//         deviceObj["BoardType"] = deviceDoc["BoardType"].as<std::string>();
-//         deviceObj["PoolInUse"] = (deviceDoc.containsKey("PoolInUse")) ? deviceDoc["PoolInUse"].as<std::string>() : "N/A";
-//         deviceObj["HashRate"] = deviceDoc["HashRate"].as<std::string>();
-//         deviceObj["Share"] = deviceDoc["Share"].as<std::string>();
-//         deviceObj["PoolDiff"] = deviceDoc["PoolDiff"].as<std::string>();
-//         deviceObj["NetDiff"] = deviceDoc["NetDiff"].as<std::string>();
-//         deviceObj["LastDiff"] = deviceDoc["LastDiff"].as<std::string>();
-//         deviceObj["BestDiff"] = deviceDoc["BestDiff"].as<std::string>();
-//         deviceObj["Valid"] = deviceDoc["Valid"].as<int>();
-//         deviceObj["Power"] = (deviceDoc.containsKey("Power")) ? deviceDoc["Power"].as<std::string>() : "---";
-//         deviceObj["Temp"] = deviceDoc["Temp"].as<float>();
-//         deviceObj["RSSI"] = deviceDoc["RSSI"].as<int>();
-//         deviceObj["FreeHeap"] = deviceDoc["FreeHeap"].as<float>();
-//         deviceObj["Version"] = deviceDoc["Version"].as<std::string>();
-//         deviceObj["Uptime"] = deviceDoc["Uptime"].as<std::string>();
-//         deviceObj["Lastseen"] = deviceDoc["Lastseen"].as<int>() / 1000.0;
-//     }
-
-//     String swarm_info;
-//     serializeJson(root, swarm_info);
-
-//     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", swarm_info);
-//     response->addHeader("Access-Control-Allow-Origin", "*");
-//     response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-//     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
-//     request->send(response);
-    
-//     LOG_D("Swarm info sent, json size: %d, devices: %d, heap free: %.3f KB", 
-//           swarm_info.length(), devicesArray.size(), ESP.getFreeHeap() / 1024.0f);
-// }
 
 // OPTIONS /api/theme -- CORS preflight (actual CORS headers set by wildcard handler).
 void options_theme_handler(AsyncWebServerRequest* request){
