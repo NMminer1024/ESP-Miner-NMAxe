@@ -119,8 +119,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = true;
-            // config.preference.fan0.is_auto_speed   = true;
-            // config.preference.fan0.target_temp     = 45;
+
             config.preference.led.enable           = true;
             config.create_asic_instance      = create_axe_asic_instance;
             config.create_power_instance     = create_axe_power_instance;
@@ -249,8 +248,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = true;
-            // config.preference.fan0.is_auto_speed    = true;
-            // config.preference.fan0.target_temp      = 45;
+
             config.preference.led.enable           = true;
             config.create_asic_instance      = create_gamma_asic_instance;
             config.create_power_instance     = create_gamma_power_instance;
@@ -383,10 +381,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = false;
-            // config.preference.fan0.is_auto_speed    = true;
-            // config.preference.fan0.target_temp      = 30;
-            // config.preference.fan1.is_auto_speed    = true;
-            // config.preference.fan1.target_temp      = 85;
+            config.preference.led.enable           = true;
             config.preference.led.enable           = true;
             config.create_asic_instance            = create_qaxepp_asic_instance;
             config.create_power_instance           = create_qaxepp_power_instance;

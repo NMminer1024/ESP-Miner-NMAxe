@@ -125,6 +125,42 @@ void nvs_config_set_u16(const char * key, const uint16_t value)
     return;
 }
 
+uint32_t nvs_config_get_u32(const char * key, const uint32_t default_value)
+{
+    nvs_handle handle;
+    esp_err_t err;
+    err = nvs_open(NVS_CONFIG_NAMESPACE, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        return default_value;
+    }
+
+    uint32_t out;
+    err = nvs_get_u32(handle, key, &out);
+    nvs_close(handle);
+
+    if (err != ESP_OK) {
+        return default_value;
+    }
+    return out;
+}
+
+void nvs_config_set_u32(const char * key, const uint32_t value)
+{
+    nvs_handle handle;
+    esp_err_t err;
+    err = nvs_open(NVS_CONFIG_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        return;
+    }
+
+    err = nvs_set_u32(handle, key, value);
+    if (err != ESP_OK) {
+        return;
+    }
+    nvs_close(handle);
+    return;
+}
+
 uint64_t nvs_config_get_u64(const char * key, const uint64_t default_value)
 {
     nvs_handle handle;

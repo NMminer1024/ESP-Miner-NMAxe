@@ -19,11 +19,22 @@ export class PreferenceComponent implements OnInit {
   public devToolsOpen: boolean = false;
   public eASICModel = eASICModel;
   public ASICModel!: eASICModel;
+  public hwModel: string = '';
   public hasDualFan: boolean = false;
   public asicTempMin: number = 0;
   public asicTempMax: number = 80;
   public vcoreTempMin: number = 0;
   public vcoreTempMax: number = 100;
+
+  public screensaverOptions = [
+    { label: 'Never',    value: 0     },
+    { label: '1 min',    value: 60    },
+    { label: '5 min',    value: 300   },
+    { label: '15 min',   value: 900   },
+    { label: '1 hour',   value: 3600  },
+    { label: '3 hours',  value: 10800 },
+    { label: '24 hours', value: 86400 },
+  ];
 
   // Screensaver GIF upload state
   public screensaverFile: File | null = null;
@@ -55,6 +66,11 @@ export class PreferenceComponent implements OnInit {
         const brightness   = info.Brightness    ?? info.brightness  ?? 100;
         const autoscreen   = info.screenAutoRoll ?? info.autoscreen ?? 0;
 
+        const screensaverEnable  = info.screensaverEnable  ?? 0;
+        const screensaverTimeout = info.screensaverTimeout ?? 0;
+        // compute dropdown value: 0 (never) when disabled or timeout==0, otherwise use the timeout
+        const screensaverOption  = (screensaverEnable == 0 || screensaverTimeout == 0) ? 0 : screensaverTimeout;
+
         const asicFan  = info.fans?.find((f: any) => f.id === 0) ?? info.fans?.[0];
         const vcoreFan = info.fans?.find((f: any) => f.id === 1);
         this.hasDualFan   = !!vcoreFan;
@@ -67,6 +83,7 @@ export class PreferenceComponent implements OnInit {
         const vcorefanspeed     = vcoreFan?.speed  ?? 100;
 
         this.ASICModel = info.asic || info.ASICModel;
+        this.hwModel   = info.hwModel ?? '';
         this.form = this.fb.group({
           flipscreen:         [flipscreen == 1],
           invertscreen:       [invertscreen == 1],
@@ -79,6 +96,7 @@ export class PreferenceComponent implements OnInit {
           autovcorefanspeed:  [autovcorefanspeed == 1 || autovcorefanspeed === true, [Validators.required]],
           vcoretargettemp:    [parseFloat(String(vcoretargettemp)) || 85, [Validators.required, Validators.min(this.vcoreTempMin), Validators.max(this.vcoreTempMax)]],
           vcorefanspeed:      [vcorefanspeed, [Validators.required]],
+          screensaverTimeout: [screensaverOption, [Validators.required]],
         });
 
         this.form.controls['autoasicfanspeed'].valueChanges.pipe(
@@ -115,6 +133,15 @@ export class PreferenceComponent implements OnInit {
     }
   };
 
+  public get screensaverResolutionHint(): string {
+    if (this.hwModel === 'NMAxe' || this.hwModel === 'NMAxeGamma') {
+      return 'GIF: ≤300 KB, recommended 240×135 px (NMAxe / NMAxeGamma)';
+    } else if (this.hwModel === 'NMQAxe++') {
+      return 'GIF: ≤300 KB, recommended 320×240 px (NMQAxe++)';
+    }
+    return 'GIF: ≤300 KB, 240×135 (NMAxe/Gamma) · 320×240 (NMQAxe++)';
+  }
+
   public getTemperatureSliderClass(): string {
     const temp = this.form?.get('asictargettemp')?.value || 30;
     if (temp <= 50) return 'temp-safe';
@@ -133,14 +160,17 @@ export class PreferenceComponent implements OnInit {
 
   public updateSystem() {    const raw = this.form.getRawValue();
 
+    const { screensaverTimeout: _sst, ...rest } = raw;
     const form: any = {
-      ...raw,
-      flipscreen:        raw.flipscreen        ? 1 : 0,
-      invertscreen:      raw.invertscreen      ? 1 : 0,
-      ledindicator:      raw.ledindicator      ? 1 : 0,
-      autoasicfanspeed:  raw.autoasicfanspeed  ? 1 : 0,
-      autovcorefanspeed: raw.autovcorefanspeed ? 1 : 0,
-      autoscreen:        raw.autoscreen        ? 1 : 0,
+      ...rest,
+      flipscreen:          raw.flipscreen        ? 1 : 0,
+      invertscreen:        raw.invertscreen      ? 1 : 0,
+      ledindicator:        raw.ledindicator      ? 1 : 0,
+      autoasicfanspeed:    raw.autoasicfanspeed  ? 1 : 0,
+      autovcorefanspeed:   raw.autovcorefanspeed ? 1 : 0,
+      autoscreen:          raw.autoscreen        ? 1 : 0,
+      screensaverenable:   raw.screensaverTimeout === 0 ? 0 : 1,
+      screensavertimeout:  raw.screensaverTimeout,
     };
 
     this.systemService.patchSettingPreference(this.uri, form)
@@ -159,6 +189,7 @@ export class PreferenceComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
       this.screensaverFile = input.files[0];
+      this.uploadScreensaver();
     }
   }
 

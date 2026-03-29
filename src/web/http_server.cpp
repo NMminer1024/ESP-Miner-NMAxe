@@ -493,10 +493,13 @@ void get_setting_preference(AsyncWebServerRequest* request){
 
     StaticJsonDocument<1024> root;
     root.clear();
-    root["screenFlip"]     = g_board.status.preference.screen.flip;
-    root["ledIndicator"]   = g_board.status.preference.led.enable;
-    root["screenAutoRoll"] = g_board.status.preference.screen.auto_rolling;
-    root["Brightness"]     = g_board.status.preference.screen.brightness;
+    root["screenFlip"]        = g_board.status.preference.screen.flip;
+    root["ledIndicator"]      = g_board.status.preference.led.enable;
+    root["screenAutoRoll"]    = g_board.status.preference.screen.auto_rolling;
+    root["Brightness"]        = g_board.status.preference.screen.brightness;
+    root["screensaverEnable"] = g_board.status.preference.screen.saver_enable ? 1 : 0;
+    root["screensaverTimeout"]= (uint32_t)g_board.status.preference.screen.saver_timeout;
+    root["hwModel"]           = g_board.info.spec.name;
     JsonArray fansArray    = root.createNestedArray("fans");
     for (auto & fan : g_board.status.fan.list) {
         JsonObject fanObj = fansArray.createNestedObject();
@@ -534,9 +537,6 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
             nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, brightness);
             xSemaphoreGive(g_board.status.brightness_update_xsem);
         }
-        if (root.containsKey("flipscreen"))  {
-            nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());
-        }
         if (root.containsKey("ledindicator")) {
             g_board.status.preference.led.enable = root["ledindicator"].as<uint8_t>();
             g_board.status.preference.led.sleep  = false;
@@ -570,12 +570,25 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
             g_board.status.fan.list[1].speed = root["vcorefanspeed"].as<uint16_t>();
         }
 
+        // for screen
         if (root.containsKey("autoscreen")) {
             nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
             g_board.status.preference.screen.auto_rolling = root["autoscreen"].as<uint8_t>();
         }
+        if (root.containsKey("flipscreen"))  {
+            nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());
+        }
+        if (root.containsKey("screensaverenable"))  {
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, root["screensaverenable"].as<uint8_t>());
+            g_board.status.preference.screen.saver_enable = root["screensaverenable"].as<uint8_t>();
+        }
+        if(root.containsKey("screensavertimeout"))  {
+            nvs_config_set_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, root["screensavertimeout"].as<uint32_t>());
+            g_board.status.preference.screen.saver_timeout = root["screensavertimeout"].as<uint32_t>();
+        }
+
         for(const auto &kv : root.as<JsonObject>()) {
-            LOG_D("Preference update: %s = %s", kv.key().c_str(), kv.value().as<String>().c_str());
+            LOG_W("Preference update: %s = %s", kv.key().c_str(), kv.value().as<String>().c_str());
         }
 
         request->send(200, "application/json", "{\"status\":\"ok\"}");
@@ -1063,6 +1076,7 @@ void get_lucky_history(AsyncWebServerRequest* request){
 void options_theme_handler(AsyncWebServerRequest* request){
     request->send(200, "application/json", "");
 }
+
 // GET /api/theme -- current color scheme name and accent color map.
 void get_theme_handler(AsyncWebServerRequest* request){
     char *scheme = nvs_config_get_string(NVS_CONFIG_THEME_SCHEME, "dark");

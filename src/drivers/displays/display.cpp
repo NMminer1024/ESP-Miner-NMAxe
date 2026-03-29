@@ -8,16 +8,6 @@
 #include "nvs/nvs_config.h"
 #include "board/board.h"
 
-// ── Screensaver GIF PSRAM cache ───────────────────────────────────────────────
-// Loaded once on first screensaver activation; subsequent frame decodes read
-// from PSRAM (~80 MB/s) instead of SPIFFS/NOR-flash (~3‑5 MB/s).
-static uint8_t *gif_ram_buf  = nullptr;
-static size_t   gif_ram_size = 0;
-
-// Last user-activity timestamp for screensaver inactivity tracking.
-// Module-scope so pressed_event_cb() can update it on every touch.
-static uint32_t s_screensaver_last_activity_ms = 0;
-
 // Forward-declare qrcodegen C API (compiled as part of lvgl, no header modify needed)
 extern "C" {
     int qrcodegen_getMinFitVersion(int ecl, size_t dataLen);
@@ -203,10 +193,15 @@ struct{
   ui_element_t btn_restart;
   ui_element_t list_asic_vcore;
   ui_element_t list_asic_freq;
+  ui_element_t list_saver;
   // ui_element_t checkbox_led_on;
   ui_element_t checkbox_auto_rolling;
   ui_element_t checkbox_screen_flip;
 }setting_page;
+
+// Timestamp set by tileview_changed_cb when the setting page is entered;
+// ui_setting_page_update compares against it to reload NVS values on each entry.
+static uint32_t s_setting_page_entered_ms = 0;
 
 
 /*********************************** some helper func *******************************************/
@@ -440,16 +435,16 @@ static void show_toast(const char *msg, uint32_t duration_ms = 2000) {
     lv_obj_t *toast = lv_obj_create(lv_scr_act());
     lv_obj_set_size(toast, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(toast, lv_color_hex(0x009900), 0);
-    lv_obj_set_style_bg_opa(toast, LV_OPA_90, 0);
-    lv_obj_set_style_radius(toast, 6, 0);
+    lv_obj_set_style_bg_opa(toast, LV_OPA_80, 0);
+    lv_obj_set_style_radius(toast, 8, 0);
     lv_obj_set_style_pad_all(toast, 6, 0);
     lv_obj_set_style_border_width(toast, 0, 0);
     lv_obj_clear_flag(toast, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_t *lbl = lv_label_create(toast);
     lv_label_set_text(lbl, msg);
     lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
-    lv_obj_align(toast, LV_ALIGN_BOTTOM_RIGHT, -8, -8);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_16, 0);
+    lv_obj_align(toast, LV_ALIGN_CENTER, 0, -10);
     lv_timer_create(toast_timer_cb, duration_ms, toast);
 }
 
@@ -487,8 +482,22 @@ static void button_event_cb(lv_event_t *e) {
               g_board.info.spec.asic.req_vcore = g_board.info.spec.asic.default_vcore;
               nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, g_board.info.spec.asic.default_vcore);
           }
-          
-          show_toast("Settings saved!");
+          // screen saver
+          if (setting_page.list_saver.obj) {
+              static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
+              uint16_t idx = lv_dropdown_get_selected(setting_page.list_saver.obj);
+              uint32_t tmo = (idx < 7) ? SAVER_VALS[idx] : 0;
+              uint8_t  en  = (tmo > 0) ? 1 : 0;
+              nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, en);
+              nvs_config_set_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, tmo);
+              g_board.status.preference.screen.saver_enable  = en;
+              g_board.status.preference.screen.saver_timeout = tmo;
+              // Reset inactivity timer so the new timeout counts from now,
+              // not from the last touch event (which may be older than the new timeout).
+              g_board.status.ui.last_active_ms = millis();
+          }
+
+          show_toast("Settings Saved!");
       }
     }
     else if(setting_page.btn_restart.obj == btn){
@@ -641,6 +650,7 @@ static void tileview_changed_cb(lv_event_t *e) {
         if (g_board.status.ui.page.list[i] == active_tile) {
             g_board.status.ui.page.current = i;
             g_board.status.ui.page.last    = g_board.status.ui.page.current;
+            if (i == UI_PAGE_SETTING) s_setting_page_entered_ms = millis();
             xSemaphoreGive(g_board.status.ui.page.save_xsem);
             LOG_D("Page changed to %d", g_board.status.ui.page.current);
             break;
@@ -661,7 +671,7 @@ static void pressed_event_cb(lv_event_t *e) {
 
     if (code == LV_EVENT_PRESSED) {
         press_pt = pt;
-        s_screensaver_last_activity_ms = millis(); // track activity for screensaver inactivity timer
+        g_board.status.ui.last_active_ms = millis(); // track activity for screensaver inactivity timer
         xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
     }else if (code == LV_EVENT_RELEASED) {
         // Capture scroll offset right now (before LVGL's snap animation starts).
@@ -834,7 +844,9 @@ void touch_init(void* args){
         board->touch = nullptr;
     }
   }
-  LOG_I("FT6206 touch controller initialized.");
+  else {
+    LOG_I("FT6206 touch controller initialized.");
+  }
 }
 
 void ui_drv_register(void){
@@ -926,42 +938,6 @@ void ui_drv_register(void){
     LOG_I("LVGL SPIFFS FS driver registered (letter='S')");
   }
 
-  // ── PSRAM FS driver for LVGL (letter 'M') ─────────────────────────────────
-  // Serves GIF bytes from the gif_ram_buf PSRAM cache instead of SPIFFS.
-  // Eliminates NOR-flash read latency (~3-5 MB/s) during LVGL GIF LZW decode;
-  // PSRAM reads at ~80 MB/s, 15-20x faster.
-  {
-    static lv_fs_drv_t ram_drv;
-    lv_fs_drv_init(&ram_drv);
-    ram_drv.letter = 'M';
-    ram_drv.open_cb = +[](lv_fs_drv_t*, const char*, lv_fs_mode_t) -> void* {
-        if (!gif_ram_buf) return nullptr;
-        return (void*)(new size_t(0));
-    };
-    ram_drv.close_cb = +[](lv_fs_drv_t*, void *fp) -> lv_fs_res_t {
-        delete (size_t*)fp; return LV_FS_RES_OK;
-    };
-    ram_drv.read_cb = +[](lv_fs_drv_t*, void *fp, void *buf, uint32_t btr, uint32_t *br) -> lv_fs_res_t {
-        size_t *pos = (size_t*)fp;
-        uint32_t avail = (gif_ram_size > *pos) ? (uint32_t)(gif_ram_size - *pos) : 0u;
-        *br = (btr < avail) ? btr : avail;
-        memcpy(buf, gif_ram_buf + *pos, *br);
-        *pos += *br;
-        return LV_FS_RES_OK;
-    };
-    ram_drv.seek_cb = +[](lv_fs_drv_t*, void *fp, uint32_t pos, lv_fs_whence_t whence) -> lv_fs_res_t {
-        size_t *cur = (size_t*)fp;
-        if      (whence == LV_FS_SEEK_SET) *cur = (size_t)pos;
-        else if (whence == LV_FS_SEEK_CUR) *cur += (size_t)pos;
-        else if (whence == LV_FS_SEEK_END) *cur = (size_t)((int32_t)gif_ram_size + (int32_t)pos);
-        return LV_FS_RES_OK;
-    };
-    ram_drv.tell_cb = +[](lv_fs_drv_t*, void *fp, uint32_t *pos_p) -> lv_fs_res_t {
-        *pos_p = (uint32_t)*(size_t*)fp; return LV_FS_RES_OK;
-    };
-    lv_fs_drv_register(&ram_drv);
-    LOG_I("LVGL PSRAM FS driver registered (letter='M')");
-  }
 }
 
 void ui_page_element_init(void* args){
@@ -3192,7 +3168,8 @@ void ui_setting_page_update(void* args){
     return;
   }
 
-  static bool inited = false;
+  static bool     inited              = false;
+  static uint32_t s_last_reload_at_ms = 0;
   if(!inited){
     // 允许纵向滚动，方便小屏展示所有设置项
     lv_obj_set_scroll_dir(setting_page.container, LV_DIR_VER);
@@ -3200,8 +3177,9 @@ void ui_setting_page_update(void* args){
 
     const lv_coord_t W     = lv_disp_get_hor_res(NULL);
     const lv_coord_t pad   = 4;
-    const lv_coord_t lbl_w = 55;   // 标签列宽
-    const lv_coord_t ctrl_w = W - lbl_w - pad * 3; // 控件列宽
+    const lv_coord_t lbl_w = 64;   // 标签列宽（放 "Frequency" 用 montserrat_12）
+    const lv_coord_t ctrl_w = W - lbl_w - pad * 3 - 20; // 控件列宽（减少约2字符宽度）
+    const lv_coord_t ctrl_x = W - pad - ctrl_w;          // 右对齐起始x，右边缘贴屏幕右侧
     const lv_coord_t row_h = 28;   // 行高
     const lv_coord_t drop_h = 34;   // 下拉框行高（字体20px需更多空间）
     const lv_font_t *font  = &lv_font_montserrat_14;
@@ -3209,14 +3187,14 @@ void ui_setting_page_update(void* args){
 
     // ---- Row 1: 屏幕亮度 (标签 + 滑条) ----
     setting_page.lb_brightness.obj = lv_label_create(setting_page.container);
-    lv_label_set_text(setting_page.lb_brightness.obj, "Bright");
-    lv_obj_set_style_text_font(setting_page.lb_brightness.obj, font, 0);
+    lv_label_set_text(setting_page.lb_brightness.obj, "Brightness");
+    lv_obj_set_style_text_font(setting_page.lb_brightness.obj, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(setting_page.lb_brightness.obj, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_pos(setting_page.lb_brightness.obj, pad, y + 9);
 
     setting_page.bar_brightness.obj = lv_slider_create(setting_page.container);
-    lv_obj_set_size(setting_page.bar_brightness.obj, W - lbl_w - pad * 4, 14);
-    lv_obj_set_pos(setting_page.bar_brightness.obj, lbl_w + pad * 2, y + 7);
+    lv_obj_set_size(setting_page.bar_brightness.obj, ctrl_w, 14);
+    lv_obj_set_pos(setting_page.bar_brightness.obj, ctrl_x, y + 7);
     lv_slider_set_range(setting_page.bar_brightness.obj, 2, 100);
     lv_slider_set_value(setting_page.bar_brightness.obj, nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness), LV_ANIM_OFF);
     lv_obj_add_event_cb(setting_page.bar_brightness.obj, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
@@ -3225,13 +3203,13 @@ void ui_setting_page_update(void* args){
     // ---- Row 2: Vcore (独占一行，标签 + 宽下拉框) ----
     lv_obj_t *lb_vcore = lv_label_create(setting_page.container);
     lv_label_set_text(lb_vcore, "Vcore");
-    lv_obj_set_style_text_font(lb_vcore, font, 0);
+    lv_obj_set_style_text_font(lb_vcore, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lb_vcore, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_pos(lb_vcore, pad, y + (drop_h - 14) / 2);
 
     setting_page.list_asic_vcore.obj = lv_dropdown_create(setting_page.container);
     lv_obj_set_size(setting_page.list_asic_vcore.obj, ctrl_w, drop_h);
-    lv_obj_set_pos(setting_page.list_asic_vcore.obj, lbl_w + pad * 2, y);
+    lv_obj_set_pos(setting_page.list_asic_vcore.obj, ctrl_x, y);
     lv_obj_set_style_text_font(setting_page.list_asic_vcore.obj, &lv_font_montserrat_20, LV_PART_MAIN);
     lv_obj_set_style_pad_top(setting_page.list_asic_vcore.obj, 4, LV_PART_MAIN);
     lv_obj_set_style_pad_bottom(setting_page.list_asic_vcore.obj, 4, LV_PART_MAIN);
@@ -3256,14 +3234,14 @@ void ui_setting_page_update(void* args){
 
     // ---- Row 3: Freq (独占一行，标签 + 宽下拉框) ----
     lv_obj_t *lb_freq = lv_label_create(setting_page.container);
-    lv_label_set_text(lb_freq, "Freq");
-    lv_obj_set_style_text_font(lb_freq, font, 0);
+    lv_label_set_text(lb_freq, "Frequency");
+    lv_obj_set_style_text_font(lb_freq, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lb_freq, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_pos(lb_freq, pad, y + (drop_h - 14) / 2);
 
     setting_page.list_asic_freq.obj = lv_dropdown_create(setting_page.container);
     lv_obj_set_size(setting_page.list_asic_freq.obj, ctrl_w, drop_h);
-    lv_obj_set_pos(setting_page.list_asic_freq.obj, lbl_w + pad * 2, y);
+    lv_obj_set_pos(setting_page.list_asic_freq.obj, ctrl_x, y);
     lv_obj_set_style_text_font(setting_page.list_asic_freq.obj, &lv_font_montserrat_20, LV_PART_MAIN);
     lv_obj_set_style_pad_top(setting_page.list_asic_freq.obj, 4, LV_PART_MAIN);
     lv_obj_set_style_pad_bottom(setting_page.list_asic_freq.obj, 4, LV_PART_MAIN);
@@ -3286,7 +3264,36 @@ void ui_setting_page_update(void* args){
     }
     y += drop_h + pad;
 
-    // ---- Row 4: Auto rolling checkbox + Screen Flip checkbox (同行) ----
+    // ---- Row 4: Screen Saver (标签 + 宽下拉框) ----
+    lv_obj_t *lb_saver = lv_label_create(setting_page.container);
+    lv_label_set_text(lb_saver, "Screen Saver");
+    lv_obj_set_style_text_font(lb_saver, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(lb_saver, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_pos(lb_saver, pad, y + (drop_h - 14) / 2);
+
+    setting_page.list_saver.obj = lv_dropdown_create(setting_page.container);
+    lv_obj_set_size(setting_page.list_saver.obj, ctrl_w, drop_h);
+    lv_obj_set_pos(setting_page.list_saver.obj, ctrl_x, y);
+    lv_obj_set_style_text_font(setting_page.list_saver.obj, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(setting_page.list_saver.obj, 4, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(setting_page.list_saver.obj, 4, LV_PART_MAIN);
+    {
+      lv_dropdown_set_options(setting_page.list_saver.obj,
+        "Never\n1 min\n5 min\n15 min\n1 hour\n3 hours\n24 hours");
+      static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
+      uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
+      uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
+      uint16_t sel_idx = 0;
+      if (en) {
+        for (int i = 1; i < 7; i++) {
+          if (SAVER_VALS[i] == tmo) { sel_idx = (uint16_t)i; break; }
+        }
+      }
+      lv_dropdown_set_selected(setting_page.list_saver.obj, sel_idx);
+      lv_obj_t *saver_list = lv_dropdown_get_list(setting_page.list_saver.obj);
+      if(saver_list) lv_obj_set_style_text_font(saver_list, &lv_font_montserrat_20, LV_PART_MAIN);
+    }
+    y += drop_h + pad;
     setting_page.checkbox_auto_rolling.obj = lv_checkbox_create(setting_page.container);
     lv_checkbox_set_text(setting_page.checkbox_auto_rolling.obj, "Screen Roll");
     lv_obj_set_style_text_font(setting_page.checkbox_auto_rolling.obj, font, 0);
@@ -3310,7 +3317,7 @@ void ui_setting_page_update(void* args){
 
     // ---- Row 4: Save | Restart 两个等宽按钮 ----
     lv_coord_t btn_w = (W - pad * 3) / 2;
-    lv_coord_t btn_h = 28;
+    lv_coord_t btn_h = 38;
 
     setting_page.btn_save.obj = lv_btn_create(setting_page.container);
     lv_obj_set_size(setting_page.btn_save.obj, btn_w, btn_h);
@@ -3318,7 +3325,7 @@ void ui_setting_page_update(void* args){
     {
       lv_obj_t *lbl = lv_label_create(setting_page.btn_save.obj);
       lv_label_set_text(lbl, "Save");
-      lv_obj_set_style_text_font(lbl, font, 0);
+      lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, 0);
       lv_obj_center(lbl);
     }
     lv_obj_add_event_cb(setting_page.btn_save.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
@@ -3329,7 +3336,7 @@ void ui_setting_page_update(void* args){
     {
       lv_obj_t *lbl = lv_label_create(setting_page.btn_restart.obj);
       lv_label_set_text(lbl, "Restart");
-      lv_obj_set_style_text_font(lbl, font, 0);
+      lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, 0);
       lv_obj_center(lbl);
     }
     lv_obj_add_event_cb(setting_page.btn_restart.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
@@ -3344,6 +3351,64 @@ void ui_setting_page_update(void* args){
     lv_obj_add_event_cb(setting_page.kb_input.obj, keyboard_event_cb, LV_EVENT_READY, NULL);
 
     inited = true;
+    s_last_reload_at_ms = s_setting_page_entered_ms; // mark initial load done
+  }
+
+  // ── Reload NVS values into all controls each time setting page is entered ───
+  if (s_last_reload_at_ms != s_setting_page_entered_ms) {
+    s_last_reload_at_ms = s_setting_page_entered_ms;
+
+    // brightness
+    lv_slider_set_value(setting_page.bar_brightness.obj,
+        nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness),
+        LV_ANIM_OFF);
+
+    // vcore
+    if (setting_page.list_asic_vcore.obj) {
+      const std::vector<work_option_t>& vc_opts = board->info.spec.ui.setting_page.vc;
+      uint16_t cur = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, board->info.spec.asic.req_vcore);
+      uint16_t idx = 0;
+      for (uint16_t i = 0; i < (uint16_t)vc_opts.size(); i++) {
+        if (vc_opts[i].value == cur) { idx = i; break; }
+      }
+      lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, idx);
+    }
+
+    // freq
+    if (setting_page.list_asic_freq.obj) {
+      const std::vector<work_option_t>& oc_opts = board->info.spec.ui.setting_page.oc;
+      uint16_t cur = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, board->info.spec.asic.req_frq);
+      uint16_t idx = 0;
+      for (uint16_t i = 0; i < (uint16_t)oc_opts.size(); i++) {
+        if (oc_opts[i].value == cur) { idx = i; break; }
+      }
+      lv_dropdown_set_selected(setting_page.list_asic_freq.obj, idx);
+    }
+
+    // screen saver
+    if (setting_page.list_saver.obj) {
+      static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
+      uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
+      uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
+      uint16_t idx = 0;
+      if (en) {
+        for (int i = 1; i < 7; i++) {
+          if (SAVER_VALS[i] == tmo) { idx = (uint16_t)i; break; }
+        }
+      }
+      lv_dropdown_set_selected(setting_page.list_saver.obj, idx);
+    }
+
+    // checkboxes
+    if (nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, 1))
+      lv_obj_add_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
+    else
+      lv_obj_clear_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
+
+    if (nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, 0))
+      lv_obj_add_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
+    else
+      lv_obj_clear_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
   }
 }
 
@@ -3354,8 +3419,50 @@ void ui_screen_saver_page_update(void* args){
     return;
   }
 
-  // Initialize once on first call; afterwards updated by pressed_event_cb on every touch.
-  if (s_screensaver_last_activity_ms == 0) s_screensaver_last_activity_ms = millis();
+  // ── GIF PSRAM cache (function-scope, avoids polluting module namespace) ──────
+  static uint8_t *gif_ram_buf  = nullptr;
+  static size_t   gif_ram_size = 0;
+
+  // ── Register LVGL 'M' (PSRAM) FS driver once on first call ───────────────────
+  // The +[] lambdas below access gif_ram_buf/gif_ram_size as static locals
+  // (no capture needed — static locals have static storage duration).
+  static bool s_ram_drv_registered = false;
+  if (!s_ram_drv_registered) {
+    static lv_fs_drv_t ram_drv;
+    lv_fs_drv_init(&ram_drv);
+    ram_drv.letter = 'M';
+    ram_drv.open_cb = +[](lv_fs_drv_t*, const char*, lv_fs_mode_t) -> void* {
+        if (!gif_ram_buf) return nullptr;
+        return (void*)(new size_t(0));
+    };
+    ram_drv.close_cb = +[](lv_fs_drv_t*, void *fp) -> lv_fs_res_t {
+        delete (size_t*)fp; return LV_FS_RES_OK;
+    };
+    ram_drv.read_cb = +[](lv_fs_drv_t*, void *fp, void *buf, uint32_t btr, uint32_t *br) -> lv_fs_res_t {
+        size_t *pos = (size_t*)fp;
+        uint32_t avail = (gif_ram_size > *pos) ? (uint32_t)(gif_ram_size - *pos) : 0u;
+        *br = (btr < avail) ? btr : avail;
+        memcpy(buf, gif_ram_buf + *pos, *br);
+        *pos += *br;
+        return LV_FS_RES_OK;
+    };
+    ram_drv.seek_cb = +[](lv_fs_drv_t*, void *fp, uint32_t pos, lv_fs_whence_t whence) -> lv_fs_res_t {
+        size_t *cur = (size_t*)fp;
+        if      (whence == LV_FS_SEEK_SET) *cur = (size_t)pos;
+        else if (whence == LV_FS_SEEK_CUR) *cur += (size_t)pos;
+        else if (whence == LV_FS_SEEK_END) *cur = (size_t)((int32_t)gif_ram_size + (int32_t)pos);
+        return LV_FS_RES_OK;
+    };
+    ram_drv.tell_cb = +[](lv_fs_drv_t*, void *fp, uint32_t *pos_p) -> lv_fs_res_t {
+        *pos_p = (uint32_t)*(size_t*)fp; return LV_FS_RES_OK;
+    };
+    lv_fs_drv_register(&ram_drv);
+    LOG_I("LVGL PSRAM FS driver registered (letter='M')");
+    s_ram_drv_registered = true;
+  }
+
+  // Initialize last_active_ms on first call if not yet set
+  if (board->status.ui.last_active_ms == 0) board->status.ui.last_active_ms = millis();
   static bool     fading_out       = false;
   static uint32_t fade_start_ms    = 0;
   static lv_obj_t *overlay         = nullptr;
@@ -3381,7 +3488,7 @@ void ui_screen_saver_page_update(void* args){
         lb_text          = nullptr;
         gif_obj          = nullptr;
         fading_out       = false;
-        s_screensaver_last_activity_ms = millis();
+        board->status.ui.last_active_ms = millis();
       } else {
         lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)(LV_OPA_COVER) * elapsed / 1000);
         lv_obj_set_style_opa(overlay, opa, LV_PART_MAIN);
@@ -3397,8 +3504,9 @@ void ui_screen_saver_page_update(void* args){
     }
   }
 
-  // ── Wait 1 minute of inactivity ─────────────────────────────────────────
-  if((millis() - s_screensaver_last_activity_ms) < (60UL * 1000UL)) return;
+  // ── Screen saver disabled or timeout not yet reached ───────────────────
+  if(!board->status.preference.screen.saver_enable) return;
+  if((millis() - board->status.ui.last_active_ms) < ((uint32_t)board->status.preference.screen.saver_timeout * 1000UL)) return;
 
   // Create overlay background style once
   if(!style_inited){
@@ -3422,7 +3530,7 @@ void ui_screen_saver_page_update(void* args){
   // Fallback: LV_EVENT_PRESSING fires continuously while finger is held.
   // If PRESSED was somehow missed (e.g. indev==NULL path), PRESSING still clears the bit.
   lv_obj_add_event_cb(overlay, +[](lv_event_t*) {
-    s_screensaver_last_activity_ms = millis();
+    g_board.status.ui.last_active_ms = millis();
     xEventGroupClearBits(g_board.status.sys_evt,
       SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
   }, LV_EVENT_PRESSING, NULL);
@@ -3468,7 +3576,7 @@ void ui_screen_saver_page_update(void* args){
     // GIF absent — show error hint so user knows what to do
     lb_text = lv_label_create(overlay);
     lv_obj_set_style_text_color(lb_text, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-    lv_obj_set_style_text_font(lb_text, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(lb_text, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_set_style_text_align(lb_text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_label_set_long_mode(lb_text, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(lb_text, SCREEN_WIDTH - 10);
@@ -3578,7 +3686,7 @@ void ui_aphorism_page_update(void* args){
       lv_obj_add_event_cb(overlay, pressed_event_cb, LV_EVENT_PRESSED, NULL);
       // Fallback: fires while finger is held, ensures immediate exit even if PRESSED was missed
       lv_obj_add_event_cb(overlay, +[](lv_event_t*) {
-        s_screensaver_last_activity_ms = millis();
+        g_board.status.ui.last_active_ms = millis();
         xEventGroupClearBits(g_board.status.sys_evt,
           SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
       }, LV_EVENT_PRESSING, NULL);

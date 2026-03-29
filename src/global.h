@@ -230,6 +230,8 @@ typedef struct{
         struct {
             SemaphoreHandle_t   drv_xMutex;
         }lvgl;
+
+        uint32_t last_active_ms; // last active timestamp in milliseconds, used for screen saver
     }ui;
 
     struct{

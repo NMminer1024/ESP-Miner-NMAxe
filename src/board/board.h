@@ -57,7 +57,9 @@ typedef struct{
 
 typedef struct{
     bool     flip;
-    bool     auto_rolling;// auto rolling screen
+    bool     auto_rolling;  // auto rolling screen
+    bool     saver_enable;  // whether to enable screen saver
+    uint32_t saver_timeout; // seconds of inactivity to trigger screen saver
     uint16_t brightness;
 }screen_preference_info_t;
 

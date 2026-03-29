@@ -249,14 +249,14 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.info.base.hostname                    = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_board.info.connection.wifi.ap.info.ssid.c_str()));
 
     g_board.status.miner.stratum_update               = millis();
-    // g_board.status.preference.fan0.is_auto_speed       = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
-    // g_board.status.preference.fan0.target_temp         = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, String(g_board.info.spec.preference.fan0.target_temp).c_str())).toFloat();
     g_board.status.preference.screen.flip             = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,       g_board.info.spec.preference.screen.flip);
     g_board.status.preference.screen.auto_rolling     = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN,       g_board.info.spec.preference.screen.auto_rolling);
     g_board.status.preference.screen.brightness       = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.spec.preference.screen.brightness);
     g_board.status.preference.led.enable              = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR,     g_board.info.spec.preference.led.enable);
     g_board.status.preference.led.sleep               = false;
     g_board.status.preference.led.sleep_last          = g_board.status.preference.led.sleep;
+    g_board.status.preference.screen.saver_enable  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, false);   // default disabled
+    g_board.status.preference.screen.saver_timeout = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 60*10); // default 10min
     g_board.info.base.coin_price                      = String(nvs_config_get_string(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC"));
     g_board.info.base.coin_price.toUpperCase();
     g_board.info.base.coin_watchlist                  = String(nvs_config_get_string(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL"));

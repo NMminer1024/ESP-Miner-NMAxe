@@ -734,6 +734,7 @@ void button_thread_entry(void *args){
             board_sal_t *b = static_cast<board_sal_t*>(param);
             xEventGroupWaitBits(b->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);// ensure miner is ready before allowing page switch
             xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            b->status.ui.last_active_ms = millis();
             static uint8_t evt = TOUCH_TAP_EVT;
             ui_switch_next_page_cb(evt);
         };
@@ -764,6 +765,7 @@ void button_thread_entry(void *args){
             if (digitalRead(board->info.spec.btn.boot_pin) == LOW) {
                 xEventGroupClearBits(board->status.sys_evt,
                     SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+                board->status.ui.last_active_ms = millis();
             }
         }
 

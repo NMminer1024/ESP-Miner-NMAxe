@@ -93,6 +93,40 @@
       </div>
     </div>
 
+    <!-- Screen Saver: timer dropdown + GIF upload (same row 8:2) -->
+    <div class="field grid p-fluid">
+      <label class="col-12 mb-2 md:col-3 md:mb-0" htmlFor="screensaverTimeout">Screen Saver</label>
+      <div class="col-12 md:col-9">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="flex:8; min-width:0;">
+            <p-dropdown id="screensaverTimeout"
+                        formControlName="screensaverTimeout"
+                        [options]="screensaverOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        [style]="{'width':'100%'}">
+            </p-dropdown>
+          </div>
+          <div style="flex:2; min-width:0;">
+            <input #screensaverInput type="file" accept=".gif" style="display:none"
+                   (change)="onScreensaverFileSelected($event)" />
+            <button pButton type="button" label="GIF"
+                    icon="pi pi-image"
+                    class="p-button-secondary"
+                    [disabled]="screensaverUploading"
+                    (click)="screensaverInput.click()"
+                    style="width:100%;">
+            </button>
+          </div>
+        </div>
+        <small style="color:#aaaaaa; display:block; margin-top:4px;">
+          <span *ngIf="screensaverUploading" style="color:#4CAF50; margin-right:6px;">Uploading {{ screensaverProgress }}%</span>
+          {{ screensaverResolutionHint }}<br/>
+          <span style="color:#cc9933;">&#9888; Custom GIF will be lost when updating SPIFFS firmware. Please back up your GIF file offline.</span>
+        </small>
+      </div>
+    </div>
+
     <!-- Checkbox Options -->
     <div class="col-12" style="display: flex; flex-wrap: wrap; gap: 10px;">
       <div class="col-12 md:col-4" style="flex: 1;">
@@ -114,38 +148,6 @@
                       [binary]="true"></p-checkbox>
           <label for="autoscreen">Auto Scroll</label>
         </div>
-      </div>
-    </div>
-
-    <!-- Screen Saver GIF Upload -->
-    <div class="field grid p-fluid mt-3">
-      <label class="col-12 mb-2 md:col-3 md:mb-0">Screen Saver GIF</label>
-      <div class="col-12 md:col-9">
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <input #screensaverInput type="file" accept=".gif" style="display:none"
-                 (change)="onScreensaverFileSelected($event)" />
-          <button pButton type="button" label="Choose GIF"
-                  icon="pi pi-file"
-                  class="p-button-secondary p-button-sm"
-                  (click)="screensaverInput.click()">
-          </button>
-          <span style="color:#aaa; font-size:0.85rem; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-            {{ screensaverFile ? screensaverFile.name : 'No file selected' }}
-          </span>
-          <button pButton type="button" label="Upload"
-                  icon="pi pi-upload"
-                  class="p-button-sm"
-                  [disabled]="!screensaverFile || screensaverUploading"
-                  (click)="uploadScreensaver()">
-          </button>
-        </div>
-        <p-progressBar *ngIf="screensaverUploading"
-                       [value]="screensaverProgress"
-                       [showValue]="true"
-                       styleClass="mt-2"
-                       [style]="{'height': '6px'}">
-        </p-progressBar>
-        <small style="color:#666;">Upload a .gif file (recommended ≤500 KB, match your screen resolution).</small>
       </div>
     </div>
 
