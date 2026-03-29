@@ -510,8 +510,9 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
             free(buf); return;
         }
         if (root.containsKey("brightness")) {
-            g_board.status.preference.screen.brightness = root["brightness"].as<uint8_t>();
-            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.status.preference.screen.brightness);
+            uint8_t brightness = (root["brightness"].as<uint8_t>() <=1) ? 1 : ((root["brightness"].as<uint8_t>() >= 100) ? 100 : root["brightness"].as<uint8_t>());
+            g_board.status.preference.screen.brightness = brightness;
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, brightness);
             xSemaphoreGive(g_board.status.brightness_update_xsem);
         }
         if (root.containsKey("flipscreen"))  {

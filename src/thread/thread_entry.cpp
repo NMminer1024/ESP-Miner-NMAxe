@@ -718,7 +718,7 @@ void button_thread_entry(void *args){
         auto click_wrapper = [](void *param){
             board_sal_t *b = static_cast<board_sal_t*>(param);
             xEventGroupWaitBits(b->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);// ensure miner is ready before allowing page switch
-            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
+            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
             static uint8_t evt = TOUCH_TAP_EVT;
             ui_switch_next_page_cb(evt);
         };
@@ -919,7 +919,7 @@ void swarm_thread_entry(void *args){
             ctx.best_ever_bd    = (best_ever_bd > board->status.miner.diff.best_ever) ? best_ever_bd : board->status.miner.diff.best_ever;
             xSemaphoreGive(ctx.mutex);
         }
-        LOG_W("(swarm) gen=%u targets=%u workers=%u hr=%sH/s sbd=%s ebd=%s", 
+        LOG_W("(swarm) gen=%u probed=%u(+self) workers=%u hr=%sH/s sbd=%s ebd=%s", 
             ctx.last_scan_gen, (uint32_t)targets.size(), ctx.total_workers, 
             formatNumber(ctx.total_hr, 3).c_str(), 
             formatNumber(ctx.best_session_bd, 3).c_str(), 
@@ -1921,7 +1921,7 @@ void miner_asic_rx_thread_entry(void *args){
                 // notify ui 
                 if(diff == board->status.miner.diff.best_ever){
                     xSemaphoreGive(board->status.nvs_save_xsem);
-                    if(diff < 100.0f*1000.0f*1000.0f){ // only trigger high diff event when diff is less than 100M
+                    if(diff > 100.0f*1000.0f*1000.0f){ // only trigger high diff event when diff is larger than 100M
                         xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
                     }
                 }
@@ -2526,9 +2526,9 @@ void aphorism_thread_entry(void *args){
 
     // Theme: solo mining requires patience — be a friend of time, good luck can arrive at any moment
     static const char* const KEYWORDS[] = {
-        // Patience & Waiting
-        "patience", "patient", "wait", "waiting", "endure", "endurance", "persist",
-        "persevere", "perseverance", "hold", "sustain", "steady", "calm", "breathe",
+        // // Patience & Waiting
+        // "patience", "patient", "wait", "waiting", "endure", "endurance", "persist",
+        // "persevere", "perseverance", "hold", "sustain", "steady", "calm", "breathe",
         // Persistence & Effort
         "keep", "continue", "never", "quit", "grind", "work", "effort", "dedication",
         "commitment", "resilience", "fortitude", "tenacity", "grit", "strength",
@@ -2552,11 +2552,11 @@ void aphorism_thread_entry(void *args){
         "accumulate", "stack"
     };
     static const uint8_t  KEYWORD_COUNT  = sizeof(KEYWORDS) / sizeof(KEYWORDS[0]);
-    static const uint16_t MAX_CHARS        = 60;           // max quote length in chars (adjust to change filter threshold)
+    static const uint16_t MAX_CHARS        = 80;           // max quote length in chars (adjust to change filter threshold)
     static const uint8_t  POOL_MAX         = 30;           // producer stops appending when pool reaches this size
     static const uint8_t  POOL_LOW_THR     = (uint8_t)(POOL_MAX * 0.3f); // refetch when pool drops below 30% (≤ 15 quotes)
     static const uint32_t POOL_POLL_MS     = 1000 * 60;    // interval between pool-size checks when pool is healthy
-    static const uint8_t  BATCHES          = 4;            // 1 batch per round; ~50 quotes per fetch
+    static const uint8_t  BATCHES          = 2;            // 1 batch per round; ~50 quotes per fetch
     static const uint32_t BATCH_DELAY_MS   = 1000 * 30;    // short inter-batch pause (http already closed before this delay)
     // Max random jitter applied at startup and between rounds.
     // Multiple LAN devices share the same public IP and the same 100 req/hr limit (zenquotes.io).

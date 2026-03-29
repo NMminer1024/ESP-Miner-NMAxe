@@ -650,7 +650,7 @@ static void pressed_event_cb(lv_event_t *e) {
 
     if (code == LV_EVENT_PRESSED) {
         press_pt = pt;
-        xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED); 
+        xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
     }else if (code == LV_EVENT_RELEASED) {
         // Capture scroll offset right now (before LVGL's snap animation starts).
         // scroll_end_cb uses these to measure the user's actual swipe distance.
@@ -724,13 +724,25 @@ static void long_press_event_cb(lv_event_t *e) {
 }
 
 static void touchpad_read_cb(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) {
+    // Software debounce: require touch to be held for at least TOUCH_DEBOUNCE_MS
+    // before reporting PRESSED to LVGL.  This eliminates one-shot ghost touches
+    // caused by EMI / power-supply noise on the FT6206 INT line.
+    static const uint32_t TOUCH_DEBOUNCE_MS = 50; // empirically determined sweet spot for responsiveness without false triggers
+    static uint32_t touch_start_ms = 0;
+
     if (g_board.touch->touched()) {
-        TS_Point raw_p = g_board.touch->getPoint();
-        bool flip = g_board.status.preference.screen.flip;
-        data->point.x = flip ? raw_p.y                 : SCREEN_WIDTH  - raw_p.y;
-        data->point.y = flip ? SCREEN_HEIGHT - raw_p.x : raw_p.x;
-        data->state = LV_INDEV_STATE_PRESSED;
+        if (touch_start_ms == 0) touch_start_ms = millis();
+        if ((millis() - touch_start_ms) >= TOUCH_DEBOUNCE_MS) {
+            TS_Point raw_p = g_board.touch->getPoint();
+            bool flip = g_board.status.preference.screen.flip;
+            data->point.x = flip ? raw_p.y                 : SCREEN_WIDTH  - raw_p.y;
+            data->point.y = flip ? SCREEN_HEIGHT - raw_p.x : raw_p.x;
+            data->state = LV_INDEV_STATE_PRESSED;
+        } else {
+            data->state = LV_INDEV_STATE_RELEASED; // too short, ignore
+        }
     } else {
+        touch_start_ms = 0;
         data->state = LV_INDEV_STATE_RELEASED;
     }
 }
@@ -802,7 +814,7 @@ void tft_init(void* args){
 
 void touch_init(void* args){
   board_sal_t *board = (board_sal_t*)args;
-  if(!board->touch->begin(20)){
+  if(!board->touch->begin(100)){  // threshold=100: high enough to reject noise/ghost touches, low enough for normal finger presses
     LOG_W("No touch controller detected, disabling touch support.");
     delay(10);
     if(board->touch != nullptr) {
@@ -3252,16 +3264,58 @@ void ui_setting_page_update(void* args){
 }
 
 void ui_screen_saver_update(void* args){
-  static uint32_t last_update_ms = millis();
-  if(millis() - last_update_ms <= 1000*60) return;
-
   board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");
     return;
   }
+
+  static uint32_t last_update_ms = millis();
+  static bool     fading_out    = false;
+  static uint32_t fade_start_ms = 0;
+  static lv_obj_t *overlay = nullptr, *lb_quote = nullptr, *lb_author = nullptr;
+  static lv_style_t style;
+  static bool style_inited = false;
+
   auto &aphorism = board->status.aphorism;
 
+  // If overlay is visible, check whether the user has dismissed it (press/button clears the event)
+  if(overlay != nullptr) {
+    EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED, pdFALSE, pdTRUE, 0);
+    if((bits & SYS_EVENT_SCREEN_SAVER_TRIGGERED) == 0) {
+      // Event cleared — kick off / continue 1-second fade-out
+      if(!fading_out) {
+        fading_out    = true;
+        fade_start_ms = millis();
+        lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
+      }
+      uint32_t elapsed = millis() - fade_start_ms;
+      if(elapsed >= 1000) {
+        // Fade complete — destroy overlay
+        lv_obj_del(overlay);
+        overlay    = nullptr;
+        lb_quote   = nullptr;
+        lb_author  = nullptr;
+        fading_out = false;
+        last_update_ms = millis(); // reset timer so next quote waits a full 60 s
+      } else {
+        // Linearly interpolate opacity: 255 → 0 over 1000 ms
+        lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)(LV_OPA_COVER) * elapsed / 1000);
+        lv_obj_set_style_opa(overlay, opa, LV_PART_MAIN);
+      }
+      return;
+    } else {
+      // Event still set — screen saver active; cancel any in-progress fade
+      if(fading_out) {
+        fading_out = false;
+        lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
+      }
+      return; // Screen saver still showing — do NOT pop a new quote or update labels
+    }
+  }
+
+  // Rate-limit: wait 1 minute after screen saver was dismissed before showing the next quote
+  if(millis() - last_update_ms <= 1000*60) return;
 
   String quote, author;
 
@@ -3284,52 +3338,51 @@ void ui_screen_saver_update(void* args){
       return;
   }
 
-  static lv_obj_t * overlay = nullptr, *lb_quote = nullptr, *lb_author = nullptr;
-  static lv_style_t style;
-  static bool style_inited = false;
-
-  //create style one time
+  // Create style once
   if(!style_inited) {
     lv_style_init(&style);
     lv_style_set_bg_color(&style, lv_color_black());
-    lv_style_set_bg_opa(&style, LV_OPA_90); 
-    lv_style_set_border_width(&style, 0); 
+    lv_style_set_bg_opa(&style, LV_OPA_90);
+    lv_style_set_border_width(&style, 0);
     lv_style_set_border_opa(&style, LV_OPA_TRANSP);
     style_inited = true;
   }
   if(overlay == NULL){
-      //create overlay
       overlay = lv_obj_create(lv_scr_act());
       lv_obj_set_size(overlay, LV_HOR_RES, LV_VER_RES);
       lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
-      //apply style
+      lv_obj_set_style_pad_all(overlay, 0, 0);
+      lv_obj_set_scrollbar_mode(overlay, LV_SCROLLBAR_MODE_OFF);
       lv_obj_add_style(overlay, &style, LV_PART_MAIN);
+      lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN); // ensure full opacity on (re-)create
+      lv_obj_add_event_cb(overlay, pressed_event_cb, LV_EVENT_PRESSED, NULL);
+      // Mark screen saver as active so press/button can clear it to trigger fade
+      xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
   }
   if(lb_quote == NULL && overlay != NULL){
-      //create quote label
-      const lv_font_t *font = ((board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) ? &Inconsolata_26 : &Inconsolata_22); //use smaller font for 3.5" screen, larger font for 2.8" screen
+      const lv_font_t *font = ((board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) ? &Inconsolata_26 : &Inconsolata_22);
       lb_quote = lv_label_create(overlay);
       lv_obj_set_width(lb_quote, SCREEN_WIDTH - 5);
       lv_label_set_long_mode(lb_quote, LV_LABEL_LONG_WRAP);
       lv_obj_set_style_text_font(lb_quote, font, LV_PART_MAIN);
-      lv_obj_set_style_text_color(lb_quote, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      lv_obj_set_style_text_color(lb_quote, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
       lv_obj_align(lb_quote, LV_ALIGN_TOP_MID, 0, 5);
-      lv_obj_move_foreground(overlay);  // bring to front
+      lv_obj_move_foreground(overlay);
   }
   if(lb_author == NULL && overlay != NULL){
-      //create author
       const lv_font_t *font = &lv_font_montserrat_14;
       lb_author = lv_label_create(overlay);
       lv_obj_set_width(lb_quote, SCREEN_WIDTH - 5);
       lv_label_set_long_mode(lb_author, LV_LABEL_LONG_SCROLL);
       lv_obj_set_style_text_font(lb_author, font, LV_PART_MAIN);
-      lv_obj_set_style_text_color(lb_author, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      lv_obj_set_style_text_color(lb_author, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
       lv_obj_align(lb_author, LV_ALIGN_BOTTOM_RIGHT, 0, -5);
-      lv_obj_move_foreground(overlay);  // bring to front
+      lv_obj_move_foreground(overlay);
   }
 
   lv_label_set_text(lb_quote, quote.c_str());
   lv_label_set_text(lb_author, ("-- " + author).c_str());
+  lv_obj_move_foreground(overlay);
   last_update_ms = millis();
 }
 

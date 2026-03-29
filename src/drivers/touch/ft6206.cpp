@@ -2,7 +2,7 @@
 #include "utils/logger/logger.h"
 
 FT6206Class::FT6206Class() {
-    _threshold = 30;
+    _threshold = 80;
 }
 
 uint8_t FT6206Class::readRegister8(uint8_t reg) {
