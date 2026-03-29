@@ -1,6 +1,7 @@
 ﻿#include "display.h"
 #include "utils/logger/logger.h"
 #include <TFT_eSPI.h>
+#include <SPIFFS.h>
 #include "global.h"
 #include "utils/helper.h" 
 #include "image/image.h"
@@ -878,6 +879,41 @@ void ui_drv_register(void){
   indev_drv.long_press_time = 500;        // long press time in milliseconds
   indev_drv.long_press_repeat_time = 100; // long press repeat time in milliseconds
   lv_indev_t *indev = lv_indev_drv_register(&indev_drv);
+
+  // ── SPIFFS file-system driver for LVGL (letter 'S', used by lv_gif) ─────
+  // Registered here once so any LVGL widget can open "S:filename" from SPIFFS.
+  {
+    static lv_fs_drv_t spiffs_drv;
+    lv_fs_drv_init(&spiffs_drv);
+    spiffs_drv.letter = 'S';
+
+    // open: prepend '/' so SPIFFS path looks like "/screensaver.gif"
+    spiffs_drv.open_cb = +[](lv_fs_drv_t*, const char *path, lv_fs_mode_t mode) -> void* {
+        String fpath = String("/") + path;
+        const char *flag = (mode & LV_FS_MODE_WR) ? "w" : "r";
+        File *f = new File(SPIFFS.open(fpath.c_str(), flag));
+        if (!f || !(*f)) { delete f; return nullptr; }
+        return (void*)f;
+    };
+    spiffs_drv.close_cb = +[](lv_fs_drv_t*, void *fp) -> lv_fs_res_t {
+        File *f = (File*)fp; f->close(); delete f; return LV_FS_RES_OK;
+    };
+    spiffs_drv.read_cb  = +[](lv_fs_drv_t*, void *fp, void *buf, uint32_t btr, uint32_t *br) -> lv_fs_res_t {
+        File *f = (File*)fp; *br = f->read((uint8_t*)buf, btr); return LV_FS_RES_OK;
+    };
+    spiffs_drv.seek_cb  = +[](lv_fs_drv_t*, void *fp, uint32_t pos, lv_fs_whence_t whence) -> lv_fs_res_t {
+        File *f = (File*)fp;
+        SeekMode sm = (whence == LV_FS_SEEK_CUR) ? SeekCur
+                    : (whence == LV_FS_SEEK_END) ? SeekEnd : SeekSet;
+        f->seek(pos, sm); return LV_FS_RES_OK;
+    };
+    spiffs_drv.tell_cb  = +[](lv_fs_drv_t*, void *fp, uint32_t *pos_p) -> lv_fs_res_t {
+        File *f = (File*)fp; *pos_p = f->position(); return LV_FS_RES_OK;
+    };
+
+    lv_fs_drv_register(&spiffs_drv);
+    LOG_I("LVGL SPIFFS FS driver registered (letter='S')");
+  }
 }
 
 void ui_page_element_init(void* args){
@@ -3270,19 +3306,20 @@ void ui_screen_saver_page_update(void* args){
     return;
   }
 
-  static uint32_t last_activity_ms = millis(); // reset on dismiss; starts fresh at first call
+  static uint32_t last_activity_ms = millis();
   static bool     fading_out       = false;
   static uint32_t fade_start_ms    = 0;
   static lv_obj_t *overlay         = nullptr;
-  static lv_obj_t *lb_text         = nullptr;
+  static lv_obj_t *lb_text         = nullptr;  // error label (no GIF)
+  static lv_obj_t *gif_obj         = nullptr;  // GIF object (deleted with overlay)
   static lv_style_t style;
   static bool style_inited         = false;
 
-  // ── Overlay is visible ── manage fade-out or keep showing  ──────────────
+  // ── Overlay visible: manage fade-out or keep showing ────────────────────
   if(overlay != nullptr){
     EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED, pdFALSE, pdTRUE, 0);
     if((bits & SYS_EVENT_SCREEN_SAVER_TRIGGERED) == 0){
-      // Event cleared by touch / button → start or continue 1-second fade-out
+      // Event cleared (touch / button) → 1-second fade-out
       if(!fading_out){
         fading_out    = true;
         fade_start_ms = millis();
@@ -3290,20 +3327,19 @@ void ui_screen_saver_page_update(void* args){
       }
       uint32_t elapsed = millis() - fade_start_ms;
       if(elapsed >= 1000){
-        // Fade complete — destroy overlay and reset inactivity timer
-        lv_obj_del(overlay);
+        lv_obj_del(overlay);       // also deletes gif_obj / lb_text (children)
         overlay          = nullptr;
         lb_text          = nullptr;
+        gif_obj          = nullptr;
         fading_out       = false;
         last_activity_ms = millis();
       } else {
-        // Linearly interpolate opacity: 255 → 0 over 1000 ms
         lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)(LV_OPA_COVER) * elapsed / 1000);
         lv_obj_set_style_opa(overlay, opa, LV_PART_MAIN);
       }
       return;
     } else {
-      // Screen saver still active — cancel any in-progress fade and keep visible
+      // Still active — cancel any in-progress fade
       if(fading_out){
         fading_out = false;
         lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
@@ -3312,20 +3348,20 @@ void ui_screen_saver_page_update(void* args){
     }
   }
 
-  // ── Overlay not showing ── wait 30 seconds of inactivity then create it  ──
-  if((millis() - last_activity_ms) < (30UL * 1000UL)) return;
+  // ── Wait 1 minute of inactivity ─────────────────────────────────────────
+  if((millis() - last_activity_ms) < (60UL * 1000UL)) return;
 
-  // Create overlay style once
+  // Create overlay background style once
   if(!style_inited){
     lv_style_init(&style);
     lv_style_set_bg_color(&style, lv_color_black());
-    lv_style_set_bg_opa(&style, LV_OPA_90);     // 90% opaque
+    lv_style_set_bg_opa(&style, LV_OPA_COVER);
     lv_style_set_border_width(&style, 0);
     lv_style_set_border_opa(&style, LV_OPA_TRANSP);
     style_inited = true;
   }
 
-  // Create full-screen overlay on the active screen
+  // Create full-screen overlay
   overlay = lv_obj_create(lv_scr_act());
   lv_obj_set_size(overlay, LV_HOR_RES, LV_VER_RES);
   lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
@@ -3333,26 +3369,33 @@ void ui_screen_saver_page_update(void* args){
   lv_obj_set_scrollbar_mode(overlay, LV_SCROLLBAR_MODE_OFF);
   lv_obj_add_style(overlay, &style, LV_PART_MAIN);
   lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
-  // Register touch handler so a press clears the event and triggers fade-out
   lv_obj_add_event_cb(overlay, pressed_event_cb, LV_EVENT_PRESSED, NULL);
   lv_obj_move_foreground(overlay);
 
-  // "screen saver active" placeholder label
-  lb_text = lv_label_create(overlay);
-  lv_obj_set_style_text_color(lb_text, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-  lv_obj_set_style_text_font(lb_text, &lv_font_montserrat_14, LV_PART_MAIN);
-  lv_obj_align(lb_text, LV_ALIGN_CENTER, 0, 0);
-  lv_label_set_text(lb_text, "screen saver active");
-  lv_obj_move_foreground(overlay);
+  // ── Try to load GIF from SPIFFS ──────────────────────────────────────────
+  if(SPIFFS.exists("/screensaver.gif")){
+    // Path format for registered LVGL FS driver: "S:" + filename (no leading /)
+    gif_obj = lv_gif_create(overlay);
+    lv_gif_set_src(gif_obj, "S:screensaver.gif");
+    lv_obj_center(gif_obj);
+    lv_obj_move_foreground(overlay);
+    LOG_I("[screensaver] GIF loaded from SPIFFS");
+  } else {
+    // GIF absent — show error hint so user knows what to do
+    lb_text = lv_label_create(overlay);
+    lv_obj_set_style_text_color(lb_text, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_font(lb_text, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_align(lb_text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_label_set_long_mode(lb_text, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(lb_text, SCREEN_WIDTH - 10);
+    lv_obj_align(lb_text, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_text(lb_text, "Screen saver file lost!\nupload via AxeOS");
+    lv_obj_move_foreground(overlay);
+    LOG_W("[screensaver] /screensaver.gif not found, showing placeholder");
+  }
 
-  // Mark screen saver as active so pressed_event_cb / button can clear it to exit
+  // Mark screen saver as active — touch / button will clear this bit to exit
   xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
-
-
-
-
-
-
 }
 
 
