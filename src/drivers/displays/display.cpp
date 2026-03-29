@@ -31,6 +31,7 @@ LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(ds_digib_font_120)
 LV_FONT_DECLARE(Inconsolata_16)
 LV_FONT_DECLARE(Inconsolata_18)
+LV_FONT_DECLARE(Inconsolata_22)
 LV_FONT_DECLARE(Inconsolata_26)
 LV_FONT_DECLARE(symbol_14)
 LV_FONT_DECLARE(symbol_20)
@@ -2535,21 +2536,12 @@ void ui_achieve_page_update(void* args){
   // Normal operation: rate-limit to once per second.
   if(!fading_out && (millis() - last_update < 1000)) return;
 
-
   static ui_element_t lb_best_ever_diff = {}, lb_time_ago = {};
   static lv_style_t style_overlay;
   static lv_obj_t *container = NULL, *back_img_obj = NULL;
   static lv_img_dsc_t *back_img_dsc = nullptr;
   static bool first_time = true;
   static uint32_t achieve_time = 0;
-  static double last_best_ever_diff = board->status.miner.diff.best_ever;
-
-  if(board->status.miner.diff.best_ever < 100.0f*1000.0f*1000.0f) return; //skip the achieve page if best ever diff is less than 100M, which is not a significant achievement and may cause annoyance to users
-  if(last_best_ever_diff != board->status.miner.diff.best_ever){
-    last_best_ever_diff = board->status.miner.diff.best_ever;
-    achieve_time = millis();  // record when this achievement was first displayed
-  }
-
   if(first_time){
     if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
       back_img_dsc = &new_achievement_page_img_240_320;
@@ -2566,7 +2558,10 @@ void ui_achieve_page_update(void* args){
   }
 
   EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED, pdFALSE, pdTRUE, 0);
-  if ((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED ) != SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {
+  if((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED ) == SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED){
+    achieve_time = millis();  // record when this achievement was first displayed
+  }
+  else{
     if(container != nullptr){
       if(!fading_out) {
         // Kick off a 1-second fade-out
@@ -2594,13 +2589,13 @@ void ui_achieve_page_update(void* args){
     last_update = millis();
     return;
   }
+
   // Event is active — if the fade was triggered but event came back, restore opacity
   if(fading_out) {
     fading_out = false;
     if(container != nullptr)
       lv_obj_set_style_opa(container, LV_OPA_COVER, LV_PART_MAIN);
   }
-
   //create parent object
   if(container == nullptr){
     // create new achievement page
@@ -3254,6 +3249,88 @@ void ui_setting_page_update(void* args){
 
     inited = true;
   }
+}
+
+void ui_screen_saver_update(void* args){
+  static uint32_t last_update_ms = millis();
+  if(millis() - last_update_ms <= 1000*60) return;
+
+  board_sal_t *board = (board_sal_t*)args;
+  if(!board){
+    LOG_E("board is null\r\n");
+    return;
+  }
+  auto &aphorism = board->status.aphorism;
+
+
+  String quote, author;
+
+  xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
+  if(!aphorism.pool.empty()) {
+      auto qt = aphorism.pool.front();
+      aphorism.pool.erase(aphorism.pool.begin());
+      size_t remaining = aphorism.pool.size(); // already erased, so this is post-pop count
+      xSemaphoreGive(aphorism.mutex);
+      LOG_W("[tick] +--------------------------------------------------+");
+      LOG_I("[tick] |  \"%s\"", qt.quote.c_str());
+      LOG_I("[tick] |  -- %s  [kw: %s]  [%d left]", qt.author.c_str(), qt.keyword.c_str(), (int)remaining);
+      LOG_W("[tick] +--------------------------------------------------+");
+      quote = qt.quote;
+      author = qt.author;
+  } else {
+      xSemaphoreGive(aphorism.mutex);
+      LOG_W("aphorism pool is empty, skip this screen saver update");
+      last_update_ms = millis();
+      return;
+  }
+
+  static lv_obj_t * overlay = nullptr, *lb_quote = nullptr, *lb_author = nullptr;
+  static lv_style_t style;
+  static bool style_inited = false;
+
+  //create style one time
+  if(!style_inited) {
+    lv_style_init(&style);
+    lv_style_set_bg_color(&style, lv_color_black());
+    lv_style_set_bg_opa(&style, LV_OPA_90); 
+    lv_style_set_border_width(&style, 0); 
+    lv_style_set_border_opa(&style, LV_OPA_TRANSP);
+    style_inited = true;
+  }
+  if(overlay == NULL){
+      //create overlay
+      overlay = lv_obj_create(lv_scr_act());
+      lv_obj_set_size(overlay, LV_HOR_RES, LV_VER_RES);
+      lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+      //apply style
+      lv_obj_add_style(overlay, &style, LV_PART_MAIN);
+  }
+  if(lb_quote == NULL && overlay != NULL){
+      //create quote label
+      const lv_font_t *font = ((board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) ? &Inconsolata_26 : &Inconsolata_22); //use smaller font for 3.5" screen, larger font for 2.8" screen
+      lb_quote = lv_label_create(overlay);
+      lv_obj_set_width(lb_quote, SCREEN_WIDTH - 5);
+      lv_label_set_long_mode(lb_quote, LV_LABEL_LONG_WRAP);
+      lv_obj_set_style_text_font(lb_quote, font, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_quote, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      lv_obj_align(lb_quote, LV_ALIGN_TOP_MID, 0, 5);
+      lv_obj_move_foreground(overlay);  // bring to front
+  }
+  if(lb_author == NULL && overlay != NULL){
+      //create author
+      const lv_font_t *font = &lv_font_montserrat_14;
+      lb_author = lv_label_create(overlay);
+      lv_obj_set_width(lb_quote, SCREEN_WIDTH - 5);
+      lv_label_set_long_mode(lb_author, LV_LABEL_LONG_SCROLL);
+      lv_obj_set_style_text_font(lb_author, font, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_author, lv_color_hex(0xFFFFFF), LV_PART_MAIN); 
+      lv_obj_align(lb_author, LV_ALIGN_BOTTOM_RIGHT, 0, -5);
+      lv_obj_move_foreground(overlay);  // bring to front
+  }
+
+  lv_label_set_text(lb_quote, quote.c_str());
+  lv_label_set_text(lb_author, ("-- " + author).c_str());
+  last_update_ms = millis();
 }
 
 void ui_goto_page(int8_t page, lv_anim_enable_t anim) {

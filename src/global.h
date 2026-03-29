@@ -83,6 +83,7 @@ enum{
     SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED   = (1 << 1),   // miner achieved a new high difficulty
     SYS_EVENT_MINER_VCORE_TEMP_UPDATE    = (1 << 2),   // miner vcore temperature update, used to trigger backlight effect
     SYS_EVENT_MINER_ASIC_TEMP_UPDATE     = (1 << 3),   // miner asic temperature update, used to trigger backlight effect
+    SYS_EVENT_SCREEN_SAVER_TRIGGERED     = (1 << 4)    // screen saver triggered, used to dim the screen
 };
 
 typedef struct {

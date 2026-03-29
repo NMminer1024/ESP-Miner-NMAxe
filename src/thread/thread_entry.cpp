@@ -1921,7 +1921,9 @@ void miner_asic_rx_thread_entry(void *args){
                 // notify ui 
                 if(diff == board->status.miner.diff.best_ever){
                     xSemaphoreGive(board->status.nvs_save_xsem);
-                    xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
+                    if(diff < 100.0f*1000.0f*1000.0f){ // only trigger high diff event when diff is less than 100M
+                        xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
+                    }
                 }
                 
                 //add share to History of block proximity
@@ -2310,6 +2312,8 @@ void ui_thread_entry(void *args){
             if(it != ui_page_update_cbs.end()){
                 it->second((void*)board);  
             }
+            // screen saveer update
+            ui_screen_saver_update((void*)board);
             // countdown page update, if running, cover current page
             ui_countdown_page_update((void*)board);
             // achievement page update, if running, cover current page
@@ -2548,7 +2552,7 @@ void aphorism_thread_entry(void *args){
         "accumulate", "stack"
     };
     static const uint8_t  KEYWORD_COUNT  = sizeof(KEYWORDS) / sizeof(KEYWORDS[0]);
-    static const uint16_t MAX_CHARS        = 50;           // max quote length in chars (adjust to change filter threshold)
+    static const uint16_t MAX_CHARS        = 60;           // max quote length in chars (adjust to change filter threshold)
     static const uint8_t  POOL_MAX         = 30;           // producer stops appending when pool reaches this size
     static const uint8_t  POOL_LOW_THR     = (uint8_t)(POOL_MAX * 0.3f); // refetch when pool drops below 30% (≤ 15 quotes)
     static const uint32_t POOL_POLL_MS     = 1000 * 60;    // interval between pool-size checks when pool is healthy

@@ -171,24 +171,24 @@ void MinerApp::_tick_thread_entry(void* args) {
         }
 
 
-        // consume one aphorism every 30 s: pop from front, log, erase
-        static uint32_t last_aphorism_ms = 0;
-        if(millis() - last_aphorism_ms >= 1000*60*5) {
-            xSemaphoreTake(board->status.aphorism.mutex, portMAX_DELAY);
-            if(!board->status.aphorism.pool.empty()) {
-                auto qt = board->status.aphorism.pool.front();
-                board->status.aphorism.pool.erase(board->status.aphorism.pool.begin());
-                size_t remaining = board->status.aphorism.pool.size(); // already erased, so this is post-pop count
-                xSemaphoreGive(board->status.aphorism.mutex);
-                LOG_W("[tick] +--------------------------------------------------+");
-                LOG_I("[tick] |  \"%s\"", qt.quote.c_str());
-                LOG_I("[tick] |  -- %s  [kw: %s]  [%d left]", qt.author.c_str(), qt.keyword.c_str(), (int)remaining);
-                LOG_W("[tick] +--------------------------------------------------+");
-            } else {
-                xSemaphoreGive(board->status.aphorism.mutex);
-            }
-            last_aphorism_ms = millis();
-        }
+        // // consume one aphorism every 30 s: pop from front, log, erase
+        // static uint32_t last_aphorism_ms = 0;
+        // if(millis() - last_aphorism_ms >= 1000*60*5) {
+        //     xSemaphoreTake(board->status.aphorism.mutex, portMAX_DELAY);
+        //     if(!board->status.aphorism.pool.empty()) {
+        //         auto qt = board->status.aphorism.pool.front();
+        //         board->status.aphorism.pool.erase(board->status.aphorism.pool.begin());
+        //         size_t remaining = board->status.aphorism.pool.size(); // already erased, so this is post-pop count
+        //         xSemaphoreGive(board->status.aphorism.mutex);
+        //         LOG_W("[tick] +--------------------------------------------------+");
+        //         LOG_I("[tick] |  \"%s\"", qt.quote.c_str());
+        //         LOG_I("[tick] |  -- %s  [kw: %s]  [%d left]", qt.author.c_str(), qt.keyword.c_str(), (int)remaining);
+        //         LOG_W("[tick] +--------------------------------------------------+");
+        //     } else {
+        //         xSemaphoreGive(board->status.aphorism.mutex);
+        //     }
+        //     last_aphorism_ms = millis();
+        // }
     }
 }
 
