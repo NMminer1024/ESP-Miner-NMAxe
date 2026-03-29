@@ -78,7 +78,7 @@
  *====================*/
 
 /*Default display refresh period. LVG will redraw changed areas with this period time*/
-#define LV_DISP_DEF_REFR_PERIOD 16      /*[ms]*/ /* ~60fps, was 30 */
+#define LV_DISP_DEF_REFR_PERIOD 5       /*[ms]*/ /* reduced from 16ms → 5ms to minimize GIF frame latency jitter */
 
 /*Input device read period in milliseconds*/
 #define LV_INDEV_DEF_READ_PERIOD 10     /*[ms]*/ /* ~100Hz touch sample, was 30 */

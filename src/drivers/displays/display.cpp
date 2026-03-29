@@ -3378,6 +3378,8 @@ void ui_screen_saver_page_update(void* args){
     gif_obj = lv_gif_create(overlay);
     lv_gif_set_src(gif_obj, "S:screensaver.gif");
     lv_obj_center(gif_obj);
+    // gif_obj sits on top of overlay; clear CLICKABLE so touch events fall through to overlay's pressed_event_cb
+    lv_obj_clear_flag(gif_obj, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_move_foreground(overlay);
     LOG_I("[screensaver] GIF loaded from SPIFFS");
   } else {

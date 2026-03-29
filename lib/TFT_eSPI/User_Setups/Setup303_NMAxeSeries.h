@@ -37,7 +37,8 @@
 
 // #define USE_HSPI_PORT
 // #define SPI_FREQUENCY  27000000
-#define SPI_FREQUENCY  40000000
+// #define SPI_FREQUENCY  40000000
+#define SPI_FREQUENCY  80000000  // ESP32-S3 SPI max; ST7789 write spec ≤62.5MHz but most panels handle 80MHz
 
 #define SPI_READ_FREQUENCY  20000000
 

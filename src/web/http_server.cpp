@@ -89,21 +89,21 @@ bool file_system_init() {
     }
 
 
-    // ── Normal mode ───────────────────────────────────────────────────────────
-    // [DEBUG] Dump every file on SPIFFS so we can verify uploads (screensaver.gif etc.)
-    {
-        File root = SPIFFS.open("/");
-        File f    = root.openNextFile();
-        size_t totalUsed = SPIFFS.usedBytes(), totalSize = SPIFFS.totalBytes();
-        LOG_I("[SPIFFS] used %u / %u bytes", (unsigned)totalUsed, (unsigned)totalSize);
-        if (!f) {
-            LOG_W("[SPIFFS] filesystem is empty (no files found)");
-        }
-        while (f) {
-            LOG_I("[SPIFFS] %-40s  %u bytes", f.name(), (unsigned)f.size());
-            f = root.openNextFile();
-        }
-    }
+    // // ── Normal mode ───────────────────────────────────────────────────────────
+    // // [DEBUG] Dump every file on SPIFFS so we can verify uploads (screensaver.gif etc.)
+    // {
+    //     File root = SPIFFS.open("/");
+    //     File f    = root.openNextFile();
+    //     size_t totalUsed = SPIFFS.usedBytes(), totalSize = SPIFFS.totalBytes();
+    //     LOG_I("[SPIFFS] used %u / %u bytes", (unsigned)totalUsed, (unsigned)totalSize);
+    //     if (!f) {
+    //         LOG_W("[SPIFFS] filesystem is empty (no files found)");
+    //     }
+    //     while (f) {
+    //         LOG_I("[SPIFFS] %-40s  %u bytes", f.name(), (unsigned)f.size());
+    //         f = root.openNextFile();
+    //     }
+    // }
 
 
     return true;
