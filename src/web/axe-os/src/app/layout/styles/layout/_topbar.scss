@@ -422,37 +422,24 @@
 
 @media (max-width: 576px) {
     .layout-topbar {
-        height: auto;
-        min-height: unset;
-        padding: 0.3rem 0.75rem 0.4rem;
+        padding: 0 0.75rem 0.4rem;
 
         .layout-topbar-logo {
-            font-size: 1.2rem;
-            padding: 0.25rem;
-            
             .header-text span {
-                font-size: 2.5rem !important;
+                font-size: 2.8rem !important;
             }
-            
+
             .header-text .os {
-                font-size: 2rem !important;
+                font-size: 2.3rem !important;
             }
         }
 
-        // 按钮组独占一行，居中排列，解决超宽导致 logo 错位的问题
         .layout-topbar-menu {
-            order: 5;
-            width: 100%;
-            margin-left: 0;
-            justify-content: center;
-            padding: 0.2rem 0 !important;
-            gap: 0.4rem;
-
             .clear-hits-btn {
                 font-size: 11px !important;
                 padding: 5px 10px !important;
                 height: 1.85rem !important;
-                min-width: 90px !important;
+                min-width: 85px !important;
                 border-radius: 5px !important;
             }
 
@@ -460,7 +447,7 @@
                 font-size: 11px !important;
                 padding: 5px 10px !important;
                 height: 1.85rem !important;
-                min-width: 65px !important;
+                min-width: 60px !important;
                 border-radius: 5px !important;
             }
         }

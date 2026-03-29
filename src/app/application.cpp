@@ -169,6 +169,18 @@ void MinerApp::_tick_thread_entry(void* args) {
             xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
             asic_temp_last_update = millis();
         }
+
+
+        // print aphorism every 30s
+        static uint32_t last_aphorism_print_ms = 0;
+        for(auto &q : board->status.aphorism.pool){
+            if(millis() - last_aphorism_print_ms >= 30000){
+                LOG_I("[Aphorism] %s — %s", q.quote.c_str(), q.author.c_str());
+                last_aphorism_print_ms = millis();
+            }else{
+                break; // pool is ordered by fetch time desc, if the first one is not due for print, the rest won't be either
+            }
+        }
     }
 }
 
