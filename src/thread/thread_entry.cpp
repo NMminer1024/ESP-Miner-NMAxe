@@ -755,7 +755,17 @@ void button_thread_entry(void *args){
     while (true){
         delay(20);
 
-        if(board->status.ota.running) continue; 
+        if(board->status.ota.running) continue;
+
+        // Immediate screensaver exit on boot-button pin LOW — bypass OneButton's
+        // single-click debounce (~600ms) so the screen wakes without perceptible lag.
+        if (board->info.spec.btn.boot_pin != -1 &&
+            (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0) {
+            if (digitalRead(board->info.spec.btn.boot_pin) == LOW) {
+                xEventGroupClearBits(board->status.sys_evt,
+                    SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            }
+        }
 
         if(boot_btn != nullptr){
             boot_btn->tick();

@@ -14,6 +14,10 @@
 static uint8_t *gif_ram_buf  = nullptr;
 static size_t   gif_ram_size = 0;
 
+// Last user-activity timestamp for screensaver inactivity tracking.
+// Module-scope so pressed_event_cb() can update it on every touch.
+static uint32_t s_screensaver_last_activity_ms = 0;
+
 // Forward-declare qrcodegen C API (compiled as part of lvgl, no header modify needed)
 extern "C" {
     int qrcodegen_getMinFitVersion(int ecl, size_t dataLen);
@@ -657,6 +661,7 @@ static void pressed_event_cb(lv_event_t *e) {
 
     if (code == LV_EVENT_PRESSED) {
         press_pt = pt;
+        s_screensaver_last_activity_ms = millis(); // track activity for screensaver inactivity timer
         xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
     }else if (code == LV_EVENT_RELEASED) {
         // Capture scroll offset right now (before LVGL's snap animation starts).
@@ -713,7 +718,7 @@ static void long_press_event_cb(lv_event_t *e) {
         s_lp_last_tick = millis();
         // disable tileview scrolling to prevent user from swiping to other pages during long-press countdown, which can cause confusion and potential bugs if user switch page and trigger other events before countdown ends
         lv_obj_clear_flag(parent_wall, LV_OBJ_FLAG_SCROLLABLE);
-        xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED); 
+        xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
     } else if (code == LV_EVENT_LONG_PRESSED_REPEAT) {
         if (millis() - s_lp_last_tick >= 1000) {
             s_lp_last_tick = millis();
@@ -3349,7 +3354,8 @@ void ui_screen_saver_page_update(void* args){
     return;
   }
 
-  static uint32_t last_activity_ms = millis();
+  // Initialize once on first call; afterwards updated by pressed_event_cb on every touch.
+  if (s_screensaver_last_activity_ms == 0) s_screensaver_last_activity_ms = millis();
   static bool     fading_out       = false;
   static uint32_t fade_start_ms    = 0;
   static lv_obj_t *overlay         = nullptr;
@@ -3369,13 +3375,13 @@ void ui_screen_saver_page_update(void* args){
         lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
       }
       uint32_t elapsed = millis() - fade_start_ms;
-      if(elapsed >= 1000){
+      if(elapsed >= 300){
         lv_obj_del(overlay);       // also deletes gif_obj / lb_text (children)
         overlay          = nullptr;
         lb_text          = nullptr;
         gif_obj          = nullptr;
         fading_out       = false;
-        last_activity_ms = millis();
+        s_screensaver_last_activity_ms = millis();
       } else {
         lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)(LV_OPA_COVER) * elapsed / 1000);
         lv_obj_set_style_opa(overlay, opa, LV_PART_MAIN);
@@ -3392,7 +3398,7 @@ void ui_screen_saver_page_update(void* args){
   }
 
   // ── Wait 1 minute of inactivity ─────────────────────────────────────────
-  if((millis() - last_activity_ms) < (60UL * 1000UL)) return;
+  if((millis() - s_screensaver_last_activity_ms) < (60UL * 1000UL)) return;
 
   // Create overlay background style once
   if(!style_inited){
@@ -3413,6 +3419,13 @@ void ui_screen_saver_page_update(void* args){
   lv_obj_add_style(overlay, &style, LV_PART_MAIN);
   lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
   lv_obj_add_event_cb(overlay, pressed_event_cb, LV_EVENT_PRESSED, NULL);
+  // Fallback: LV_EVENT_PRESSING fires continuously while finger is held.
+  // If PRESSED was somehow missed (e.g. indev==NULL path), PRESSING still clears the bit.
+  lv_obj_add_event_cb(overlay, +[](lv_event_t*) {
+    s_screensaver_last_activity_ms = millis();
+    xEventGroupClearBits(g_board.status.sys_evt,
+      SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+  }, LV_EVENT_PRESSING, NULL);
   lv_obj_move_foreground(overlay);
 
   // ── Select GIF filename based on board resolution ────────────────────────
@@ -3563,6 +3576,12 @@ void ui_aphorism_page_update(void* args){
       lv_obj_add_style(overlay, &style, LV_PART_MAIN);
       lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN); // ensure full opacity on (re-)create
       lv_obj_add_event_cb(overlay, pressed_event_cb, LV_EVENT_PRESSED, NULL);
+      // Fallback: fires while finger is held, ensures immediate exit even if PRESSED was missed
+      lv_obj_add_event_cb(overlay, +[](lv_event_t*) {
+        s_screensaver_last_activity_ms = millis();
+        xEventGroupClearBits(g_board.status.sys_evt,
+          SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+      }, LV_EVENT_PRESSING, NULL);
       // Mark screen saver as active so press/button can clear it to trigger fade
       xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
   }
