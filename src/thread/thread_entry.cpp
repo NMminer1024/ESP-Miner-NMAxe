@@ -760,8 +760,9 @@ void swarm_thread_entry(void *args){
     while (true) {
         delay(30 * 1000);
 
-        if (WiFi.status() != WL_CONNECTED) continue;
-
+        if(WiFi.status() != WL_CONNECTED) continue; // skip if WiFi is down, will check again in 1s in the next loop iteration
+        if(board->status.ota.running)     continue; // skip while OTA is running to avoid resource contention
+        
         // ── Read current scan generation and alive list (hold lock for minimum time) ──────
         std::vector<String> alive;
         uint32_t cur_gen = 0;
@@ -993,10 +994,9 @@ void alive_ip_scan_thread_entry(void* args) {
     };
     
     while (true) {
-        if (WiFi.status() != WL_CONNECTED) {
-            delay(1000);
-            continue;
-        }
+        delay(1000);
+        if(WiFi.status() != WL_CONNECTED) continue; // skip if WiFi is down, will check again in 1s in the next loop iteration
+        if(board->status.ota.running)     continue; // skip while OTA is running to avoid resource contention
 
         // Create a single RAW ICMP socket shared for the entire /24 scan
         int sock = ::socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
@@ -2552,22 +2552,17 @@ void aphorism_thread_entry(void *args){
     static const uint8_t  POOL_MAX         = 30;           // producer stops appending when pool reaches this size
     static const uint8_t  POOL_LOW_THR     = (uint8_t)(POOL_MAX * 0.3f); // refetch when pool drops below 30% (≤ 15 quotes)
     static const uint32_t POOL_POLL_MS     = 1000 * 60;    // interval between pool-size checks when pool is healthy
-    static const uint8_t  BATCHES          = 2;            // 1 batch per round; ~50 quotes per fetch
+    static const uint8_t  BATCHES          = 4;            // 1 batch per round; ~50 quotes per fetch
     static const uint32_t BATCH_DELAY_MS   = 1000 * 30;    // short inter-batch pause (http already closed before this delay)
     // Max random jitter applied at startup and between rounds.
     // Multiple LAN devices share the same public IP and the same 100 req/hr limit (zenquotes.io).
     // Spreading requests across this window prevents simultaneous 429s.
-    static const uint32_t STARTUP_JITTER_MS = 1000UL * 60 * 3; // up to 3 minutes random startup offset
-
-    // Wait until WiFi is ready
-    while (board->status.wifi.status != WL_CONNECTED) delay(1000);
+    static const uint32_t STARTUP_JITTER_MS = 1000UL * 60 * 5; // up to 5 minutes random startup offset
 
     // Random startup jitter: stagger initial fetch across all LAN devices sharing the same public IP
-    {
-        uint32_t jitter_ms = esp_random() % STARTUP_JITTER_MS;
-        LOG_W("[Aphorism] Startup jitter: ~%lu s (desync LAN devices)", jitter_ms / 1000);
-        delay(jitter_ms);
-    }
+    uint32_t init_jitter_ms = esp_random() % STARTUP_JITTER_MS;
+    LOG_W("[Aphorism] Startup jitter: ~%lu s (desync LAN devices)", init_jitter_ms / 1000);
+    delay(init_jitter_ms);
 
     // Print current config for debugging
     LOG_W("[Aphorism] Config => MAX_CHARS:%d  POOL_MAX:%d  POOL_LOW_THR:%d  BATCHES:%d  KEYWORDS:%d",
@@ -2602,8 +2597,6 @@ void aphorism_thread_entry(void *args){
 
         // zenquotes.io HTTPS batch API — returns ~50 quotes per call, fetch BATCHES rounds
         for(uint8_t b = 0; b < BATCHES; b++) {
-            while (board->status.wifi.status != WL_CONNECTED) delay(1000);
-
             { // scope: HTTPClient & WiFiClientSecure are destroyed HERE before inter-batch delay, freeing TLS RAM immediately
             HTTPClient http;
             WiFiClientSecure client;
@@ -2675,18 +2668,10 @@ void aphorism_thread_entry(void *args){
         xSemaphoreGive(aphorism.mutex);
         LOG_I("[Aphorism] Round %lu complete, pool now has %d quotes", batch_no, pool_snap_size);
 
-        // Interruptible inter-round jitter: desync LAN devices while still reacting quickly when pool runs low.
-        // Wakes early (every 5 s) if pool drops below POOL_LOW_THR, so the consumer never starves for long.
-        uint32_t round_jitter_ms = esp_random() % STARTUP_JITTER_MS;
-        LOG_I("[Aphorism] Next check in ~%lu s (or earlier if pool runs low)", round_jitter_ms / 1000);
-        for(uint32_t _end = millis() + round_jitter_ms; millis() < _end; delay(5000)) {
-            xSemaphoreTake(aphorism.mutex, portMAX_DELAY);
-            size_t sz = pool.size();
-            xSemaphoreGive(aphorism.mutex);
-            if(sz < POOL_LOW_THR) {
-                LOG_I("[Aphorism] Pool dropped to %d (< %d), waking early", (int)sz, (int)POOL_LOW_THR);
-                break;
-            }
-        }
+        // Random inter-round jitter to desync LAN devices (min 1 min, max STARTUP_JITTER_MS)
+        static const uint32_t ROUND_JITTER_MIN_MS = 1000UL * 60 * 2;
+        uint32_t round_jitter_ms = ROUND_JITTER_MIN_MS + esp_random() % (STARTUP_JITTER_MS - ROUND_JITTER_MIN_MS + 1);
+        LOG_I("[Aphorism] Next check in ~%lu s", round_jitter_ms / 1000);
+        delay(round_jitter_ms);
     }
 }

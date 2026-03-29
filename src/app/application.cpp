@@ -64,7 +64,7 @@ void MinerApp::begin() {
         {"(monitor)",   monitor_thread_entry,           1024*5,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
         {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SCAN,        1, &_neighborTask,   10,  0},
         {"(asic_tx)",   miner_asic_tx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_TX,    1, &_minerTxTask,    10,  0},
-        {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_RX,    0, &_minerRxTask,    10,  0},
+        {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_RX,    0, &_minerRxTask,    1000,  0},
         {"(aphorism)",  aphorism_thread_entry,          1024*6,   TASK_PRIORITY_APHORISM,    0, &_aphorismTask,   10,  0},
     };
 
@@ -76,7 +76,7 @@ void MinerApp::begin() {
                 (void*)(&g_board), t.priority, t.handle, t.core_id
             );
             if (ret == pdPASS) LOG_I("Thread %s created on core %d", t.name, t.core_id);
-            else               LOG_E("Failed to create thread %s",    t.name);
+            else               LOG_E("Failed to create thread %s",   t.name);
             delay(t.delay_ms);
         } else {
             // synchronisation barrier: wait for specified init events before proceeding
@@ -137,7 +137,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     }
 
     while(true){
-        MinerApp::instance().print_stack_hwm(); // debug: print stack usage
+        // MinerApp::instance().print_stack_hwm(); // debug: print stack usage
 
         delay(10);
         // check miner events to trigger backlight effect, such as block hit or high diff achieved
@@ -173,7 +173,7 @@ void MinerApp::_tick_thread_entry(void* args) {
 
         // consume one aphorism every 30 s: pop from front, log, erase
         static uint32_t last_aphorism_ms = 0;
-        if(millis() - last_aphorism_ms >= 30000) {
+        if(millis() - last_aphorism_ms >= 1000*60*5) {
             xSemaphoreTake(board->status.aphorism.mutex, portMAX_DELAY);
             if(!board->status.aphorism.pool.empty()) {
                 auto qt = board->status.aphorism.pool.front();
