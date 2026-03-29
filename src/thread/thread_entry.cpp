@@ -449,6 +449,7 @@ void webserver_thread_entry(void *args){
     delay(100);
 
     if (!spiffs_ok) {
+        webServer.on("/api/system/info",  HTTP_GET, get_system_info);
         // ── Recovery mode: SPIFFS is unavailable ─────────────────────────────
         // Serve the firmware-embedded recovery page for every GET request so
         // the user can re-flash SPIFFS via a browser, then restart the device.
@@ -1083,9 +1084,11 @@ void alive_ip_scan_thread_entry(void* args) {
                     xSemaphoreGive(board->status.neighbor.mutex);
                 }
                 LOG_D("(scan) progress to %u.%u.%u.%u, found %u alive hosts", o0, o1, o2, last, (unsigned)board->status.neighbor.alive_ips.size());
-                // Yield 50ms after every 10 IPs so lwIP tcpip_thread can evict timed-out PENDING ARP entries,
-                // preventing an etharp_find_entry assert(q==NULL) crash when the ARP table (10 slots by default) is full.
-                delay(50); 
+                // Yield >1000ms after every 10 IPs so lwIP's ARP timer (fires every 1000ms) has time to evict
+                // timed-out PENDING ARP entries. 50ms was insufficient — the ARP table (10 slots by default) fills
+                // up with PENDING entries for dead hosts, and lwIP asserts(q==NULL) when trying to evict a slot
+                // that still holds a queued packet.
+                delay(1100); 
             } 
             delay(5); // give lwIP a processing window between pings within a batch
         }
