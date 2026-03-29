@@ -1,4 +1,4 @@
-import {HttpErrorResponse} from '@angular/common/http';
+import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
 import {Component, Input, OnInit} from '@angular/core';
 import {FormBuilder, FormGroup, Validators} from '@angular/forms';
 import {ToastrService} from 'ngx-toastr';
@@ -24,6 +24,11 @@ export class PreferenceComponent implements OnInit {
   public asicTempMax: number = 80;
   public vcoreTempMin: number = 0;
   public vcoreTempMax: number = 100;
+
+  // Screensaver GIF upload state
+  public screensaverFile: File | null = null;
+  public screensaverUploading: boolean = false;
+  public screensaverProgress: number = 0;
 
   @Input() uri = '';
 
@@ -126,8 +131,7 @@ export class PreferenceComponent implements OnInit {
     else return 'temp-hot';
   }
 
-  public updateSystem() {
-    const raw = this.form.getRawValue();
+  public updateSystem() {    const raw = this.form.getRawValue();
 
     const form: any = {
       ...raw,
@@ -147,6 +151,42 @@ export class PreferenceComponent implements OnInit {
         },
         error: (err: HttpErrorResponse) => {
           this.toastr.error('Error.', `Could not save. ${err.message}`);
+        }
+      });
+  }
+
+  public onScreensaverFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.screensaverFile = input.files[0];
+    }
+  }
+
+  public uploadScreensaver(): void {
+    if (!this.screensaverFile) return;
+    this.screensaverUploading = true;
+    this.screensaverProgress = 0;
+
+    // Do NOT pipe through lockUIUntilComplete() — that operator shows a blocking
+    // overlay for the entire lifetime of the observable.  A file upload emits
+    // multiple UploadProgress events before completing, so the overlay would
+    // cover the page the whole time.  We manage the busy state ourselves instead.
+    this.systemService.uploadScreensaver(this.uri, this.screensaverFile)
+      .subscribe({
+        next: (event: any) => {
+          if (event?.type === HttpEventType.UploadProgress && event.total) {
+            this.screensaverProgress = Math.round(100 * event.loaded / event.total);
+          } else if (event?.type === HttpEventType.Response) {
+            this.screensaverUploading = false;
+            this.screensaverFile = null;
+            this.screensaverProgress = 0;
+            this.toastr.success('Screen saver uploaded!', 'Success');
+          }
+        },
+        error: (err: HttpErrorResponse) => {
+          this.screensaverUploading = false;
+          this.screensaverProgress = 0;
+          this.toastr.error('Upload failed.', err.message);
         }
       });
   }

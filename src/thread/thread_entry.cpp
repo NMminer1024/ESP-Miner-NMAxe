@@ -495,7 +495,6 @@ void webserver_thread_entry(void *args){
         while (true) { delay(250); }
     }
 
-    // ── Normal mode ───────────────────────────────────────────────────────────
     // Register AsyncWebSocket handler on webServer (same port 80, path /ws)
     webSocket.onEvent(webSocketEvent);
     webServer.addHandler(&webSocket);
@@ -539,6 +538,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/setting/market",     HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_market);
     webServer.on("/api/setting/preference", HTTP_GET,   get_setting_preference);
     webServer.on("/api/setting/preference", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_preference);
+    webServer.on("/api/setting/screensaver",HTTP_POST,  [](AsyncWebServerRequest *request){}, screensaver_upload_handler);
     // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
     webServer.on("/probe", HTTP_GET, [board](AsyncWebServerRequest* request) {
         AsyncResponseStream* resp = request->beginResponseStream("application/json");

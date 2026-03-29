@@ -87,6 +87,25 @@ bool file_system_init() {
             return false;
         }
     }
+
+
+    // ── Normal mode ───────────────────────────────────────────────────────────
+    // [DEBUG] Dump every file on SPIFFS so we can verify uploads (screensaver.gif etc.)
+    {
+        File root = SPIFFS.open("/");
+        File f    = root.openNextFile();
+        size_t totalUsed = SPIFFS.usedBytes(), totalSize = SPIFFS.totalBytes();
+        LOG_I("[SPIFFS] used %u / %u bytes", (unsigned)totalUsed, (unsigned)totalSize);
+        if (!f) {
+            LOG_W("[SPIFFS] filesystem is empty (no files found)");
+        }
+        while (f) {
+            LOG_I("[SPIFFS] %-40s  %u bytes", f.name(), (unsigned)f.size());
+            f = root.openNextFile();
+        }
+    }
+
+
     return true;
 }
 
@@ -1149,6 +1168,61 @@ void post_reset_block_hits(AsyncWebServerRequest * request){
     nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, 0);
     LOG_I("Miner stats reset: block hits cleared");
     request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+// POST /api/setting/screensaver -- save a user-provided GIF to SPIFFS as /screensaver.gif.
+// The request must be multipart/form-data with the file in a field named "screensaver".
+// Overwrites any existing file.  Returns 200 on success, 500 on write error.
+void screensaver_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+    static File upload_file;
+    static int  last_pct = -1;
+
+    uint64_t flen = request->contentLength();
+
+    if (index == 0) {
+        // Validate: must be a .gif
+        String lname = filename;
+        lname.toLowerCase();
+        if (!lname.endsWith(".gif")) {
+            LOG_E("screensaver upload rejected: not a GIF (%s)", filename.c_str());
+            request->send(400, "text/plain", "Only .gif files are accepted.");
+            return;
+        }
+        LOG_I("screensaver upload started: %s  total=%llu bytes", filename.c_str(), (unsigned long long)flen);
+        upload_file = SPIFFS.open("/screensaver.gif", "w");
+        if (!upload_file) {
+            LOG_E("screensaver upload: failed to open /screensaver.gif for writing");
+            request->send(500, "text/plain", "Failed to open file for writing.");
+            return;
+        }
+        last_pct = -1;
+    }
+
+    if (upload_file) {
+        if (upload_file.write(data, len) != len) {
+            LOG_E("screensaver upload: write error at offset %u", (unsigned)index);
+            upload_file.close();
+            request->send(500, "text/plain", "Write error.");
+            return;
+        }
+        // Log progress every ~10 % (same style as OTA)
+        if (flen > 0) {
+            int pct = (int)((index + len) * 100ULL / flen);
+            if (pct / 10 != last_pct / 10) {
+                LOG_I("screensaver upload: %d%%  (%u / %llu bytes)",
+                      pct, (unsigned)(index + len), (unsigned long long)flen);
+                last_pct = pct;
+            }
+        }
+    }
+
+    if (final) {
+        if (upload_file) upload_file.close();
+        LOG_I("screensaver upload complete: %u bytes saved to /screensaver.gif", (unsigned)(index + len));
+        AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(resp);
+    }
 }
 
 // POST /api/update/{firmware,spiffs} -- OTA file upload handler; buffers chunks and calls Update.write().

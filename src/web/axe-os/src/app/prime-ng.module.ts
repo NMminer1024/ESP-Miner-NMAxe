@@ -11,6 +11,7 @@ import {InputGroupAddonModule} from 'primeng/inputgroupaddon';
 import {InputTextModule} from 'primeng/inputtext';
 import {KnobModule} from 'primeng/knob';
 import {MultiSelectModule} from 'primeng/multiselect';
+import {ProgressBarModule} from 'primeng/progressbar';
 import {SidebarModule} from 'primeng/sidebar';
 import {SliderModule} from 'primeng/slider';
 
@@ -28,7 +29,8 @@ const primeNgModules = [
   ChartModule,
   InputGroupModule,
   InputGroupAddonModule,
-  RadioButtonModule
+  RadioButtonModule,
+  ProgressBarModule
 ];
 
 @NgModule({

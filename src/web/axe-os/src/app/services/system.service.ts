@@ -484,4 +484,14 @@ export class SystemService {
   public patchSettingPreference(uri: string = '', data: any): Observable<any> {
     return this.httpClient.patch(`${uri}/api/setting/preference`, data);
   }
+
+  public uploadScreensaver(uri: string = '', file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('screensaver', file, file.name);
+    return this.httpClient.post(`${uri}/api/setting/screensaver`, formData, {
+      reportProgress: true,
+      observe: 'events',
+      responseType: 'text'
+    });
+  }
 }

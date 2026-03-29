@@ -117,6 +117,38 @@
       </div>
     </div>
 
+    <!-- Screen Saver GIF Upload -->
+    <div class="field grid p-fluid mt-3">
+      <label class="col-12 mb-2 md:col-3 md:mb-0">Screen Saver GIF</label>
+      <div class="col-12 md:col-9">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <input #screensaverInput type="file" accept=".gif" style="display:none"
+                 (change)="onScreensaverFileSelected($event)" />
+          <button pButton type="button" label="Choose GIF"
+                  icon="pi pi-file"
+                  class="p-button-secondary p-button-sm"
+                  (click)="screensaverInput.click()">
+          </button>
+          <span style="color:#aaa; font-size:0.85rem; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+            {{ screensaverFile ? screensaverFile.name : 'No file selected' }}
+          </span>
+          <button pButton type="button" label="Upload"
+                  icon="pi pi-upload"
+                  class="p-button-sm"
+                  [disabled]="!screensaverFile || screensaverUploading"
+                  (click)="uploadScreensaver()">
+          </button>
+        </div>
+        <p-progressBar *ngIf="screensaverUploading"
+                       [value]="screensaverProgress"
+                       [showValue]="true"
+                       styleClass="mt-2"
+                       [style]="{'height': '6px'}">
+        </p-progressBar>
+        <small style="color:#666;">Upload a .gif file (recommended ≤500 KB, match your screen resolution).</small>
+      </div>
+    </div>
+
     <!-- Save Button -->
     <div class="mt-2">
       <button pButton [disabled]="form.invalid" (click)="updateSystem()"
