@@ -55,6 +55,23 @@
       z-index: 100;
       box-shadow: 0 2px 12px rgba(0,0,0,0.4);
     }
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      transition: color 0.18s, border-color 0.18s, background 0.18s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .back-btn:hover { color: var(--primary); border-color: var(--primary); background: rgba(247,147,26,0.07); }
+    .back-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
     .topbar-logo {
       font-size: 1.5rem;
       font-weight: 700;
@@ -357,9 +374,23 @@
     }
     .hero-meta-item strong { color: var(--text); }
 
+    /* ── Mobile sidebar toggle ──────────────────────────────────────── */
+    .menu-btn {
+      display: none;
+      background: none; border: none; cursor: pointer;
+      padding: 4px 8px; color: var(--text); font-size: 1.5rem; line-height: 1; flex-shrink: 0;
+    }
+    .menu-btn:hover { color: var(--primary); }
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99;
+    }
+    .sidebar-overlay.open { display: block; }
+
     /* ── Responsive ────────────────────────────────────────────────── */
     @media (max-width: 768px) {
-      .sidebar { display: none; }
+      .menu-btn { display: block; }
+      .sidebar { transform: translateX(-100%); transition: transform 0.24s ease; z-index: 200; }
+      .sidebar.open { transform: translateX(0); }
       .main, .footer { margin-left: 0; padding-left: 16px; padding-right: 16px; }
     }
   </style>
@@ -368,6 +399,11 @@
 
 <!-- ══════════════════ TOP HEADER ══════════════════ -->
 <header class="topbar">
+  <a class="back-btn" href="/" title="返回 AxeOS">
+    <svg viewBox="0 0 16 16"><polyline points="10,3 5,8 10,13"/></svg>
+    AxeOS
+  </a>
+  <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button>
   <div class="topbar-logo">Axe<span>OS</span></div>
   <div class="topbar-subtitle">API Reference</div>
   <div class="topbar-version">v1.0</div>
@@ -376,8 +412,10 @@
 <!-- ══════════════════ LAYOUT ══════════════════ -->
 <div class="shell">
 
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
   <!-- ────────────── SIDEBAR ────────────── -->
-  <nav class="sidebar">
+  <nav class="sidebar" id="sidebar">
     <div class="nav-group">
       <div class="nav-group-title">Overview</div>
       <a class="nav-item" href="#intro">Introduction</a>
@@ -392,6 +430,9 @@
       </a>
       <a class="nav-item" href="#system-clearhits">
         <span class="nav-badge badge-post">POST</span> Clear Block Hits
+      </a>
+      <a class="nav-item" href="#system-wakeup">
+        <span class="nav-badge badge-get">GET</span> Wakeup
       </a>
     </div>
     <div class="nav-group">
@@ -435,6 +476,9 @@
     </div>
     <div class="nav-group">
       <div class="nav-group-title">OTA Update</div>
+      <a class="nav-item" href="#ota-progress">
+        <span class="nav-badge badge-get">GET</span> Upload Progress
+      </a>
       <a class="nav-item" href="#ota-firmware">
         <span class="nav-badge badge-post">POST</span> Flash Firmware
       </a>
@@ -585,8 +629,8 @@
           <div class="note note-warn">⚠️ The device will become unreachable for ~10–15 seconds while it reboots.</div>
           <div class="block-label">Request body</div>
           <pre><span class="cmt">// empty body or {}</span></pre>
-          <div class="block-label">Response 200</div>
-          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="block-label">Response 200 – text/plain</div>
+          <pre>System will restart shortly.</pre>
         </div>
       </div>
 
@@ -603,6 +647,25 @@
           <pre><span class="cmt">// empty body or {}</span></pre>
           <div class="block-label">Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- GET /api/wakeup -->
+      <div class="endpoint" id="system-wakeup">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/wakeup</code>
+          <span class="endpoint-summary">Wake up the screensaver</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Resets the screensaver idle timer and clears the <code>SYS_EVENT_SCREEN_SAVER_TRIGGERED</code> event
+            bit, waking the device display. Called by the dashboard and swarm pages periodically to keep
+            the screensaver inactive while the user is monitoring. Setting and update pages do <em>not</em>
+            call this endpoint, allowing the screensaver to activate during long idle sessions.
+          </p>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"ok"</span>: <span class="bool">true</span> }</pre>
         </div>
       </div>
     </section>
@@ -695,18 +758,22 @@
           </table>
           <div class="block-label">Response 200</div>
           <pre>{
-  <span class="kw">"statistics"</span>: [
-    {
-      <span class="kw">"ts"</span>:         <span class="num">1711526400</span>,  <span class="cmt">// Unix timestamp (UTC)</span>
-      <span class="kw">"hashrate"</span>:   <span class="num">465000000</span>,  <span class="cmt">// H/s – instantaneous</span>
-      <span class="kw">"temp_asic"</span>:  <span class="num">52.8</span>,
-      <span class="kw">"temp_vcore"</span>: <span class="num">45.2</span>,
-      <span class="kw">"vcore"</span>:      <span class="num">1198</span>,        <span class="cmt">// mV</span>
-      <span class="kw">"power"</span>:      <span class="num">12.5</span>         <span class="cmt">// W</span>
-    }
+  <span class="kw">"timestamp"</span>: <span class="num">1711526400000</span>,  <span class="cmt">// current UTC time in ms</span>
+  <span class="kw">"labels"</span>: [
+    <span class="str">"hashRate"</span>, <span class="str">"asicTemp"</span>, <span class="str">"vcoreTemp"</span>, <span class="str">"Pbus"</span>, <span class="str">"Vbus"</span>,
+    <span class="str">"Ibus"</span>, <span class="str">"Vcore"</span>, <span class="str">"fanspeed"</span>, <span class="str">"fanrpm"</span>, <span class="str">"wifiRSSI"</span>,
+    <span class="str">"freeHeap"</span>, <span class="str">"freePsram"</span>, <span class="str">"latency"</span>, <span class="str">"epoch"</span>
   ],
-  <span class="kw">"size"</span>:        <span class="num">3600</span>,         <span class="cmt">// total records stored</span>
-  <span class="kw">"sampledSize"</span>: <span class="num">360</span>           <span class="cmt">// records returned after sub-sampling</span>
+  <span class="kw">"statistics"</span>: [
+    <span class="cmt">// each entry is an array of values aligned to labels above</span>
+    [<span class="str">"465000000"</span>, <span class="str">"52.8"</span>, <span class="str">"45.2"</span>, <span class="str">"12.5"</span>, <span class="str">"5020"</span>, <span class="str">"2490"</span>, <span class="num">1198</span>, <span class="num">80</span>, <span class="num">4200</span>, <span class="num">-62</span>, <span class="num">204800</span>, <span class="num">1048576</span>, <span class="num">120</span>, <span class="num">1711526400</span>],
+    <span class="cmt">// ... more records ...</span>
+  ],
+  <span class="kw">"size"</span>:                  <span class="num">3600</span>,  <span class="cmt">// total records stored</span>
+  <span class="kw">"sampledSize"</span>:           <span class="num">360</span>,   <span class="cmt">// records returned after sub-sampling</span>
+  <span class="kw">"sampleInterval"</span>:        <span class="num">10</span>,    <span class="cmt">// actual sub-sampling interval used</span>
+  <span class="kw">"userRequestedInterval"</span>: <span class="num">10</span>,    <span class="cmt">// interval requested via query param</span>
+  <span class="kw">"maxDataPoints"</span>:         <span class="num">2000</span>   <span class="cmt">// hard cap</span>
 }</pre>
         </div>
       </div>
@@ -719,12 +786,16 @@
           <span class="endpoint-summary">Realtime status snapshot (last N seconds)</span>
         </div>
         <div class="endpoint-body">
-          <p class="ep-desc">Returns a short window of the most recent status records for feeding the live real-time chart. The response structure mirrors <code>/api/dashboard/chart/history</code> but covers only the latest samples.</p>
+          <p class="ep-desc">Returns the single most recent status record for feeding the live real-time chart. The response structure mirrors <code>/api/dashboard/chart/history</code> but always contains exactly one data point in <code>statistics</code>.</p>
           <div class="block-label">Response 200</div>
           <pre>{
-  <span class="kw">"statistics"</span>: [ <span class="cmt">/* same schema as history */</span> ],
-  <span class="kw">"size"</span>:        <span class="num">120</span>,
-  <span class="kw">"sampledSize"</span>: <span class="num">120</span>
+  <span class="kw">"timestamp"</span>: <span class="num">1711526400000</span>,
+  <span class="kw">"labels"</span>: [<span class="str">"hashRate"</span>, <span class="str">"asicTemp"</span>, <span class="str">"vcoreTemp"</span>, <span class="str">"Pbus"</span>, <span class="str">"Vbus"</span>,
+             <span class="str">"Ibus"</span>, <span class="str">"Vcore"</span>, <span class="str">"fanspeed"</span>, <span class="str">"fanrpm"</span>, <span class="str">"wifiRSSI"</span>,
+             <span class="str">"freeHeap"</span>, <span class="str">"freePsram"</span>, <span class="str">"latency"</span>, <span class="str">"epoch"</span>],
+  <span class="kw">"statistics"</span>: [
+    [<span class="str">"465000000"</span>, <span class="str">"52.8"</span>, <span class="str">"45.2"</span>, <span class="str">"12.5"</span>, <span class="str">"5020"</span>, <span class="str">"2490"</span>, <span class="num">1198</span>, <span class="num">80</span>, <span class="num">4200</span>, <span class="num">-62</span>, <span class="num">204800</span>, <span class="num">1048576</span>, <span class="num">120</span>, <span class="num">1711526400</span>]
+  ]
 }</pre>
         </div>
       </div>
@@ -737,16 +808,21 @@
           <span class="endpoint-summary">Luck score history</span>
         </div>
         <div class="endpoint-body">
-          <p class="ep-desc">Returns time-series data for the lucky chart showing share difficulty progression and luck score over the session.</p>
+          <p class="ep-desc">Returns time-series data for the luck chart showing share difficulty and block proximity over the session.</p>
           <div class="block-label">Response 200</div>
           <pre>{
-  <span class="kw">"luck"</span>: [
-    {
-      <span class="kw">"ts"</span>:   <span class="num">1711526400</span>,
-      <span class="kw">"diff"</span>: <span class="num">8192</span>,          <span class="cmt">// share difficulty</span>
-      <span class="kw">"luck"</span>: <span class="num">0.82</span>           <span class="cmt">// 0.0 – 1.0+ (>1 = above expected)</span>
-    }
-  ]
+  <span class="kw">"timestamp"</span>: <span class="num">1711526400000</span>,  <span class="cmt">// current UTC time in ms</span>
+  <span class="kw">"labels"</span>: [
+    <span class="str">"proximity"</span>,    <span class="cmt">// block proximity score (0.0 – 1.0+)</span>
+    <span class="str">"share_diff"</span>,   <span class="cmt">// individual share difficulty</span>
+    <span class="str">"net_diff"</span>,     <span class="cmt">// network difficulty at submission time</span>
+    <span class="str">"epoch"</span>         <span class="cmt">// Unix timestamp (s)</span>
+  ],
+  <span class="kw">"statistics"</span>: [
+    [<span class="num">0.82</span>, <span class="num">8192</span>, <span class="str">"83.67T"</span>, <span class="num">1711526400</span>],
+    <span class="cmt">// ... one entry per accepted share ...</span>
+  ],
+  <span class="kw">"size"</span>: <span class="num">1024</span>  <span class="cmt">// total records returned</span>
 }</pre>
         </div>
       </div>
@@ -928,7 +1004,10 @@
             Only <code>.gif</code> files are accepted; any other extension is rejected with <code>400</code>.
           </p>
           <div class="note note-warn">⚠️ The device reboots automatically after a successful upload.</div>
-          <div class="note">ℹ️ During upload the firmware periodically pushes progress log lines over the WebSocket (<code>/ws</code>). The frame text matches the pattern:<br><code>screensaver upload: N%  (bytes / total bytes)</code><br>Clients can parse the integer <code>N</code> with a regex such as <code>/screensaver upload:\s*(\d+)%/</code> to display device-side SPIFFS write progress.</div>
+          <div class="note">ℹ️ Upload progress is tracked by the firmware in <code>g_board.status.ota</code> and shared by
+          <strong>all</strong> upload types (firmware, SPIFFS, and screensaver GIF). Poll
+          <a href="#ota-progress"><code>GET /api/update/progress</code></a> to get accurate device-side write
+          progress during the upload.</div>
           <div class="block-label">Request – multipart/form-data</div>
           <pre>POST /api/setting/screensaver HTTP/1.1
 Content-Type: multipart/form-data; boundary=----boundary
@@ -959,10 +1038,13 @@ Content-Type: application/octet-stream
         <div class="endpoint-body">
           <div class="block-label">GET – Response 200</div>
           <pre>{
-  <span class="kw">"screenFlip"</span>:     <span class="bool">false</span>,
-  <span class="kw">"ledIndicator"</span>:   <span class="bool">true</span>,
-  <span class="kw">"screenAutoRoll"</span>: <span class="bool">true</span>,
-  <span class="kw">"Brightness"</span>:     <span class="num">80</span>,       <span class="cmt">// 0–255</span>
+  <span class="kw">"screenFlip"</span>:         <span class="bool">false</span>,
+  <span class="kw">"ledIndicator"</span>:       <span class="bool">true</span>,
+  <span class="kw">"screenAutoRoll"</span>:     <span class="bool">true</span>,
+  <span class="kw">"Brightness"</span>:         <span class="num">80</span>,      <span class="cmt">// 1–100</span>
+  <span class="kw">"screensaverEnable"</span>:  <span class="num">1</span>,       <span class="cmt">// 0=off, 1=on</span>
+  <span class="kw">"screensaverTimeout"</span>: <span class="num">300</span>,     <span class="cmt">// seconds before screensaver activates</span>
+  <span class="kw">"hwModel"</span>:            <span class="str">"NMAxe"</span>, <span class="cmt">// board model name</span>
   <span class="kw">"fans"</span>: [
     {
       <span class="kw">"id"</span>:     <span class="num">0</span>,             <span class="cmt">// 0 = ASIC fan</span>
@@ -1014,6 +1096,33 @@ Content-Type: application/octet-stream
 
       <div class="note note-warn">
         ⚠️ The device will reboot automatically after a successful flash. Ensure the uploaded binary matches the board model. Partial or interrupted uploads leave the device in recovery mode — re-uploading recovers it.
+      </div>
+
+      <!-- GET /api/update/progress -->
+      <div class="endpoint" id="ota-progress">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/update/progress</code>
+          <span class="endpoint-summary">Poll upload / flash progress</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Returns the current state of the unified upload handler. Applies to <strong>all</strong> upload types:
+            firmware (<code>firmware.bin</code>), SPIFFS image (<code>spiffs.bin</code>), and screensaver
+            (<code>.gif</code>). The frontend polls this endpoint (e.g. every 500 ms) during any upload to
+            display accurate device-side write progress. Progress is tracked in <code>g_board.status.ota</code>
+            and updated by <code>file_upload_handler</code>.
+          </p>
+          <div class="block-label">Response 200 – application/json</div>
+          <pre>{
+  <span class="kw">"running"</span>:  <span class="bool">true</span>,           <span class="cmt">// true while an upload/flash is in progress</span>
+  <span class="kw">"progress"</span>: <span class="num">45</span>,             <span class="cmt">// 0–100 (%)</span>
+  <span class="kw">"filename"</span>: <span class="str">"firmware.bin"</span>  <span class="cmt">// name of the file currently being written</span>
+}</pre>
+          <div class="note">ℹ️ Poll this endpoint during any upload to track progress. When <code>running</code> is <code>false</code> the
+          previous upload has completed (or no upload has started). The device reboots automatically after a successful
+          firmware or SPIFFS flash; for screensaver uploads the device also reboots to apply the new GIF.</div>
+        </div>
       </div>
 
       <!-- firmware -->
@@ -1095,18 +1204,25 @@ Content-Type: application/octet-stream
             <div class="col">
               <div class="block-label">GET – Response 200</div>
               <pre>{
+  <span class="kw">"colorScheme"</span>: <span class="str">"dark"</span>,
   <span class="kw">"theme"</span>:       <span class="str">"vela-blue"</span>,
-  <span class="kw">"primaryColor"</span>:<span class="str">"#f80421"</span>,
-  <span class="kw">"darkMode"</span>:    <span class="bool">true</span>
+  <span class="kw">"accentColors"</span>: {
+    <span class="kw">"--primary-color"</span>:       <span class="str">"#F80421"</span>,
+    <span class="kw">"--primary-color-text"</span>:  <span class="str">"#ffffff"</span>,
+    <span class="kw">"--highlight-bg"</span>:        <span class="str">"#F80421"</span>,
+    <span class="cmt">// ... other CSS variable overrides</span>
+  }
 }</pre>
             </div>
             <div class="col">
-              <div class="block-label">POST – Request body (multipart)</div>
-              <pre><span class="cmt">// Sent as multipart/form-data with
-// theme configuration fields</span>
-{
+              <div class="block-label">POST – Request body (JSON)</div>
+              <pre>{
+  <span class="kw">"colorScheme"</span>: <span class="str">"dark"</span>,
   <span class="kw">"theme"</span>:       <span class="str">"vela-green"</span>,
-  <span class="kw">"primaryColor"</span>:<span class="str">"#00c853"</span>
+  <span class="kw">"accentColors"</span>: {
+    <span class="kw">"--primary-color"</span>: <span class="str">"#00c853"</span>,
+    <span class="cmt">// ... CSS variable overrides</span>
+  }
 }</pre>
             </div>
           </div>
@@ -1202,13 +1318,7 @@ Content-Type: application/octet-stream
           <pre><span class="cmt">[I][12:34:56] WiFi connected to [MySSID], waiting for IP...
 [I][12:34:57] Got IP: 192.168.1.42
 [D][12:34:58] Vcore ready at 1200mV/1200mV
-[W][12:34:59] (swarm) new scan gen=3, reset swarm memory, 5 alive IPs to probe
-
-// During screensaver GIF upload — one frame per percent change:
-I screensaver upload: 25%  (76800 / 307200 bytes)
-I screensaver upload: 50%  (153600 / 307200 bytes)
-I screensaver upload: 100%  (307200 / 307200 bytes)</span></pre>
-          <div class="note">ℹ️ Screensaver upload progress frames follow the fixed pattern <code>screensaver upload: N%  (...)</code>. Parse with <code>/screensaver upload:\s*(\d+)%/</code> to extract <code>N</code>.</div>
+[W][12:34:59] (swarm) new scan gen=3, reset swarm memory, 5 alive IPs to probe</span></pre>
           <div class="block-label">Client → Server frames (text) – echoed back</div>
           <pre><span class="cmt">// Any text sent by the client is echoed back verbatim</span>
 <span class="str">"ping"</span>  <span class="cmt">→ server replies</span>  <span class="str">"ping"</span></pre>
@@ -1316,6 +1426,22 @@ I screensaver upload: 100%  (307200 / 307200 bytes)</span></pre>
 </footer>
 
 <script>
+  // Mobile sidebar toggle
+  const menuBtn = document.getElementById('menuBtn');
+  const sidebarEl = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  function openSidebar()  { sidebarEl.classList.add('open'); overlay.classList.add('open'); }
+  function closeSidebar() { sidebarEl.classList.remove('open'); overlay.classList.remove('open'); }
+  if (menuBtn) {
+    menuBtn.addEventListener('click', () =>
+      sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar());
+  }
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  // Close sidebar when a nav link is clicked on mobile
+  document.querySelectorAll('.nav-item[href^="#"]').forEach(a =>
+    a.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); })
+  );
+
   // Highlight the active sidebar link on scroll
   const items = document.querySelectorAll('.nav-item[href^="#"]');
   const sections = [];
