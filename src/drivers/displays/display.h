@@ -11,7 +11,7 @@ enum{
     UI_PAGE_HR_HEALTH,
     UI_PAGE_CLOCK,
     UI_PAGE_MARKET,
-    UI_PAGE_SETTING
+    UI_PAGE_SETTING_SWARM
 };
 
 typedef struct{
@@ -97,6 +97,6 @@ void ui_dashboard_page_update(void* args);
 void ui_hr_healthy_page_update(void* args);
 void ui_clock_page_update(void* args);
 void ui_market_page_update(void* args);
-void ui_setting_page_update(void* args);
+void ui_setting_or_swarm_page_update(void* args);
 void ui_screen_saver_page_update(void* args);
 #endif // DISPLAY_H

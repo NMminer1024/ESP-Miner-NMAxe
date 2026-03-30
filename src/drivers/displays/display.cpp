@@ -197,10 +197,15 @@ struct{
   // ui_element_t checkbox_led_on;
   ui_element_t checkbox_auto_rolling;
   ui_element_t checkbox_screen_flip;
+  // swarm page labels (NMAXE / NMAxeGamma only)
+  ui_element_t lb_swarm_workers;
+  ui_element_t lb_swarm_total_hr;
+  ui_element_t lb_swarm_best_sess_bd;
+  ui_element_t lb_swarm_best_ever_bd;
 }setting_page;
 
 // Timestamp set by tileview_changed_cb when the setting page is entered;
-// ui_setting_page_update compares against it to reload NVS values on each entry.
+// ui_setting_or_swarm_page_update compares against it to reload NVS values on each entry.
 static uint32_t s_setting_page_entered_ms = 0;
 
 
@@ -550,7 +555,7 @@ static void scroll_end_cb(lv_event_t *e) {
 
     // Resolve the departure page (page user was on when they started the swipe)
     int departure_page = -1;
-    for (int i = 0; i <= UI_PAGE_SETTING; i++) {
+    for (int i = 0; i <= UI_PAGE_SETTING_SWARM; i++) {
         if (g_board.status.ui.page.list[i] == release_tile) { departure_page = i; break; }
     }
     if (departure_page < 0) return;
@@ -572,7 +577,7 @@ static void scroll_end_cb(lv_event_t *e) {
             if (drift_x > 0) {
                 // Finger moved left → show right neighbour
                 switch (departure_page) {
-                    case UI_PAGE_MINER:     target_tile = g_board.status.ui.page.list[UI_PAGE_SETTING];   break;
+                    case UI_PAGE_MINER:     target_tile = g_board.status.ui.page.list[UI_PAGE_SETTING_SWARM];   break;
                     case UI_PAGE_DASHBOARD: target_tile = g_board.status.ui.page.list[UI_PAGE_MARKET];    break;
                     case UI_PAGE_HR_HEALTH: target_tile = g_board.status.ui.page.list[UI_PAGE_CLOCK];     break;
                     default: break;
@@ -580,7 +585,7 @@ static void scroll_end_cb(lv_event_t *e) {
             } else {
                 // Finger moved right → show left neighbour
                 switch (departure_page) {
-                    case UI_PAGE_SETTING: target_tile = g_board.status.ui.page.list[UI_PAGE_MINER];     break;
+                    case UI_PAGE_SETTING_SWARM: target_tile = g_board.status.ui.page.list[UI_PAGE_MINER];     break;
                     case UI_PAGE_MARKET:  target_tile = g_board.status.ui.page.list[UI_PAGE_DASHBOARD]; break;
                     case UI_PAGE_CLOCK:   target_tile = g_board.status.ui.page.list[UI_PAGE_HR_HEALTH]; break;
                     default: break;
@@ -595,7 +600,7 @@ static void scroll_end_cb(lv_event_t *e) {
                     case UI_PAGE_MINER:     target_tile = g_board.status.ui.page.list[UI_PAGE_DASHBOARD]; break;
                     case UI_PAGE_DASHBOARD: target_tile = g_board.status.ui.page.list[UI_PAGE_HR_HEALTH]; break;
                     case UI_PAGE_MARKET:    target_tile = g_board.status.ui.page.list[UI_PAGE_CLOCK];     break;
-                    case UI_PAGE_SETTING:   target_tile = g_board.status.ui.page.list[UI_PAGE_MARKET];    break;
+                    case UI_PAGE_SETTING_SWARM:   target_tile = g_board.status.ui.page.list[UI_PAGE_MARKET];    break;
                     default: break;
                 }
             } else {
@@ -604,7 +609,7 @@ static void scroll_end_cb(lv_event_t *e) {
                     case UI_PAGE_DASHBOARD: target_tile = g_board.status.ui.page.list[UI_PAGE_MINER];     break;
                     case UI_PAGE_HR_HEALTH: target_tile = g_board.status.ui.page.list[UI_PAGE_DASHBOARD]; break;
                     case UI_PAGE_CLOCK:     target_tile = g_board.status.ui.page.list[UI_PAGE_MARKET];    break;
-                    case UI_PAGE_MARKET:    target_tile = g_board.status.ui.page.list[UI_PAGE_SETTING];   break;
+                    case UI_PAGE_MARKET:    target_tile = g_board.status.ui.page.list[UI_PAGE_SETTING_SWARM];   break;
                     default: break;
                 }
             }
@@ -646,11 +651,11 @@ static void tileview_changed_cb(lv_event_t *e) {
     // If tileview is still animating/scrolling, this is the start-of-scroll event; ignore it.
     if (lv_obj_is_scrolling(tv)) return;
     lv_obj_t *active_tile = lv_tileview_get_tile_act(tv);
-    for (int i = 0; i <= UI_PAGE_SETTING; i++) {
+    for (int i = 0; i <= UI_PAGE_SETTING_SWARM; i++) {
         if (g_board.status.ui.page.list[i] == active_tile) {
             g_board.status.ui.page.current = i;
             g_board.status.ui.page.last    = g_board.status.ui.page.current;
-            if (i == UI_PAGE_SETTING) s_setting_page_entered_ms = millis();
+            if (i == UI_PAGE_SETTING_SWARM) s_setting_page_entered_ms = millis();
             xSemaphoreGive(g_board.status.ui.page.save_xsem);
             LOG_D("Page changed to %d", g_board.status.ui.page.current);
             break;
@@ -698,7 +703,7 @@ static void pressed_event_cb(lv_event_t *e) {
                 case UI_PAGE_HR_HEALTH: allowed = (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP);                  break;
                 case UI_PAGE_CLOCK:     allowed = (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP);                  break;
                 case UI_PAGE_MARKET:    allowed = (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP | LV_DIR_BOTTOM);  break;
-                case UI_PAGE_SETTING:   allowed = (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM);               break;
+                case UI_PAGE_SETTING_SWARM:   allowed = (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM);               break;
                 default: break;
             }
             // map gesture to tileview dir (finger direction is OPPOSITE to content scroll direction)
@@ -1553,7 +1558,7 @@ void ui_layout_init(void* args){
     { &hr_health_page.container,  &hr_health_page.back_img_obj,  &hr_health_page.back_img_dsc,  1,   2,   UI_PAGE_HR_HEALTH, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP)                 }, // right→clock(2,2), up→dashboard(1,1)
     { &clock_page.container,      &clock_page.back_img_obj,      &clock_page.back_img_dsc,      2,   2,   UI_PAGE_CLOCK,     (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP)                 }, // left→hr_health(1,2), up→market(2,1)
     { &market_page.container,     &market_page.back_img_obj,     &market_page.back_img_dsc,     2,   1,   UI_PAGE_MARKET,    (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP | LV_DIR_BOTTOM) }, // left→dashboard(1,1), up→setting(2,0), down→clock(2,2)
-    { &setting_page.container,    &setting_page.back_img_obj,    &setting_page.back_img_dsc,    2,   0,   UI_PAGE_SETTING,   (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM)              }, // left→miner(1,0), down→market(2,1)
+    { &setting_page.container,    &setting_page.back_img_obj,    &setting_page.back_img_dsc,    2,   0,   UI_PAGE_SETTING_SWARM,   (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM)              }, // left→miner(1,0), down→market(2,1)
   };
   // =====================================================================
   parent_wall = lv_tileview_create(lv_scr_act());
@@ -3156,260 +3161,375 @@ void ui_market_page_update(void* args){
   last_update = millis();
 }
 
-void ui_setting_page_update(void* args){
+void ui_setting_or_swarm_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
   if(!board){
     LOG_E("board is null\r\n");
     return;
   }
 
-  if(board->info.spec.name != BOARD_NMQAXE_PLUS_PLUS_NAME){
-    LOG_D("board does not support setting page\r\n");
-    return;
+  if((board->info.spec.name == BOARD_NMAXE_GAMMA_NAME) || (board->info.spec.name == BOARD_NMAXE_NAME)){
+    static bool swarm_inited = false;
+    if(!swarm_inited){
+      swarm_inited = true;
+      lv_obj_t *cont = setting_page.container;
+      lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
+
+      // ---- Title "SWARM" ----
+      lv_obj_t *lb_title = lv_label_create(cont);
+      lv_label_set_text(lb_title, "SWARM");
+      lv_obj_set_style_text_font(lb_title, &Inconsolata_22, 0);
+      lv_obj_set_style_text_color(lb_title, lv_color_hex(0xFFFFFF), 0);
+      lv_obj_align(lb_title, LV_ALIGN_TOP_MID, 0, 2);
+
+      const lv_coord_t W            = lv_disp_get_hor_res(NULL);
+      const lv_coord_t right_pad    = 5;
+      const lv_coord_t col1_x       = 5;
+      const lv_coord_t col2_x       = 122;
+      const lv_coord_t col_left_w   = col2_x - col1_x - 4;   // ~113px, left two cells
+      const lv_coord_t right_col_w  = W - col2_x - right_pad; // ~113px, right two cells
+      const lv_coord_t row1_lbl_y   = 26;
+      const lv_coord_t row1_data_y  = 38;
+      const lv_coord_t row2_lbl_y   = 74;
+      const lv_coord_t row2_data_y  = 86;
+      // ds_digib_font_32: line_height=31, base_line=6 → digit visual bottom = 31-6 = 25px from top
+      // Inconsolata_16:   line_height=17, base_line=4 → cap  visual bottom = 17-4 = 13px from top
+      // unit_y_off = 25 - 13 = 12, so both visual bottoms align
+      const lv_coord_t unit_y_off   = 25 - 13;  // = 12
+
+      // ---- Row1 Left: Workers (subtitle + value center-aligned in left column) ----
+      lv_obj_t *lb_workers_lbl = lv_label_create(cont);
+      lv_label_set_text(lb_workers_lbl, "Workers");
+      lv_obj_set_style_text_font(lb_workers_lbl, &lv_font_montserrat_12, 0);
+      lv_obj_set_style_text_color(lb_workers_lbl, lv_color_hex(0xAAAAAA), 0);
+      lv_obj_set_width(lb_workers_lbl, col_left_w);
+      lv_obj_set_style_text_align(lb_workers_lbl, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_set_pos(lb_workers_lbl, col1_x, row1_lbl_y);
+
+      setting_page.lb_swarm_workers.obj = lv_label_create(cont);
+      lv_label_set_text(setting_page.lb_swarm_workers.obj, "0");
+      lv_obj_set_style_text_font(setting_page.lb_swarm_workers.obj, &ds_digib_font_32, 0);
+      lv_obj_set_style_text_color(setting_page.lb_swarm_workers.obj, lv_color_hex(0xEE7D30), 0);
+      lv_obj_set_width(setting_page.lb_swarm_workers.obj, col_left_w);
+      lv_obj_set_style_text_align(setting_page.lb_swarm_workers.obj, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_set_pos(setting_page.lb_swarm_workers.obj, col1_x, row1_data_y);
+
+      // ---- Row1 Right: Hashrate (subtitle + value center-aligned; unit bottom-right in Inconsolata) ----
+      lv_obj_t *lb_hash_lbl = lv_label_create(cont);
+      lv_label_set_text(lb_hash_lbl, "Hashrate");
+      lv_obj_set_style_text_font(lb_hash_lbl, &lv_font_montserrat_12, 0);
+      lv_obj_set_style_text_color(lb_hash_lbl, lv_color_hex(0xAAAAAA), 0);
+      lv_obj_set_width(lb_hash_lbl, right_col_w);
+      lv_obj_set_style_text_align(lb_hash_lbl, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_set_pos(lb_hash_lbl, col2_x, row1_lbl_y);
+
+      setting_page.lb_swarm_total_hr.obj = lv_label_create(cont);
+      lv_label_set_text(setting_page.lb_swarm_total_hr.obj, "0.0");
+      lv_obj_set_style_text_font(setting_page.lb_swarm_total_hr.obj, &ds_digib_font_32, 0);
+      lv_obj_set_style_text_color(setting_page.lb_swarm_total_hr.obj, lv_color_hex(0xEE7D30), 0);
+      lv_obj_set_width(setting_page.lb_swarm_total_hr.obj, right_col_w);
+      lv_obj_set_style_text_align(setting_page.lb_swarm_total_hr.obj, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_set_pos(setting_page.lb_swarm_total_hr.obj, col2_x, row1_data_y);
+
+      // Unit label: Inconsolata_16, light gray, bottom-aligned with the data value
+      lv_obj_t *lb_hr_unit = lv_label_create(cont);
+      lv_label_set_text(lb_hr_unit, "H/s");
+      lv_obj_set_style_text_font(lb_hr_unit, &Inconsolata_16, 0);
+      lv_obj_set_style_text_color(lb_hr_unit, lv_color_hex(0xCCCCCC), 0);
+      lv_obj_set_pos(lb_hr_unit, W - right_pad - 26 + 3, row1_data_y + unit_y_off - 1);
+
+      // ---- Row2 Left: Best Session BD (subtitle + value center-aligned) ----
+      lv_obj_t *lb_sess_lbl = lv_label_create(cont);
+      lv_label_set_text(lb_sess_lbl, "Best Session");
+      lv_obj_set_style_text_font(lb_sess_lbl, &lv_font_montserrat_12, 0);
+      lv_obj_set_style_text_color(lb_sess_lbl, lv_color_hex(0xAAAAAA), 0);
+      lv_obj_set_width(lb_sess_lbl, col_left_w);
+      lv_obj_set_style_text_align(lb_sess_lbl, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_set_pos(lb_sess_lbl, col1_x, row2_lbl_y);
+
+      setting_page.lb_swarm_best_sess_bd.obj = lv_label_create(cont);
+      lv_label_set_text(setting_page.lb_swarm_best_sess_bd.obj, "0.0");
+      lv_obj_set_style_text_font(setting_page.lb_swarm_best_sess_bd.obj, &ds_digib_font_32, 0);
+      lv_obj_set_style_text_color(setting_page.lb_swarm_best_sess_bd.obj, lv_color_hex(0xEE7D30), 0);
+      lv_obj_set_width(setting_page.lb_swarm_best_sess_bd.obj, col_left_w);
+      lv_obj_set_style_text_align(setting_page.lb_swarm_best_sess_bd.obj, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_set_pos(setting_page.lb_swarm_best_sess_bd.obj, col1_x, row2_data_y);
+
+      // ---- Row2 Right: Best Ever BD (subtitle + value center-aligned) ----
+      lv_obj_t *lb_ever_lbl = lv_label_create(cont);
+      lv_label_set_text(lb_ever_lbl, "Best Ever");
+      lv_obj_set_style_text_font(lb_ever_lbl, &lv_font_montserrat_12, 0);
+      lv_obj_set_style_text_color(lb_ever_lbl, lv_color_hex(0xAAAAAA), 0);
+      lv_obj_set_width(lb_ever_lbl, right_col_w);
+      lv_obj_set_style_text_align(lb_ever_lbl, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_set_pos(lb_ever_lbl, col2_x, row2_lbl_y);
+
+      setting_page.lb_swarm_best_ever_bd.obj = lv_label_create(cont);
+      lv_label_set_text(setting_page.lb_swarm_best_ever_bd.obj, "0.0");
+      lv_obj_set_style_text_font(setting_page.lb_swarm_best_ever_bd.obj, &ds_digib_font_32, 0);
+      lv_obj_set_style_text_color(setting_page.lb_swarm_best_ever_bd.obj, lv_color_hex(0xEE7D30), 0);
+      lv_obj_set_width(setting_page.lb_swarm_best_ever_bd.obj, right_col_w);
+      lv_obj_set_style_text_align(setting_page.lb_swarm_best_ever_bd.obj, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_set_pos(setting_page.lb_swarm_best_ever_bd.obj, col2_x, row2_data_y);
+    }
+
+    // ---- Refresh values ----
+    if(setting_page.lb_swarm_workers.obj != NULL)
+      lv_label_set_text_fmt(setting_page.lb_swarm_workers.obj, "%lu", (unsigned long)board->status.swarm.total_workers);
+    if(setting_page.lb_swarm_total_hr.obj != NULL)
+      lv_label_set_text_fmt(setting_page.lb_swarm_total_hr.obj, "%s", formatNumber(board->status.swarm.total_hr, 3).c_str());
+    if(setting_page.lb_swarm_best_sess_bd.obj != NULL)
+      lv_label_set_text_fmt(setting_page.lb_swarm_best_sess_bd.obj, "%s", formatNumber(board->status.swarm.best_session_bd, 4).c_str());
+    if(setting_page.lb_swarm_best_ever_bd.obj != NULL)
+      lv_label_set_text_fmt(setting_page.lb_swarm_best_ever_bd.obj, "%s", formatNumber(board->status.swarm.best_ever_bd, 4).c_str());
   }
+  else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    static bool     inited              = false;
+    static uint32_t s_last_reload_at_ms = 0;
+    if(!inited){
+      // Enable vertical scrolling so all settings fit on the small screen
+      lv_obj_set_scroll_dir(setting_page.container, LV_DIR_VER);
+      lv_obj_set_scrollbar_mode(setting_page.container, LV_SCROLLBAR_MODE_AUTO);
 
-  static bool     inited              = false;
-  static uint32_t s_last_reload_at_ms = 0;
-  if(!inited){
-    // 允许纵向滚动，方便小屏展示所有设置项
-    lv_obj_set_scroll_dir(setting_page.container, LV_DIR_VER);
-    lv_obj_set_scrollbar_mode(setting_page.container, LV_SCROLLBAR_MODE_AUTO);
+      const lv_coord_t W     = lv_disp_get_hor_res(NULL);
+      const lv_coord_t pad   = 4;
+      const lv_coord_t lbl_w = 64;   // label column width (fits "Frequency" in montserrat_12)
+      const lv_coord_t ctrl_w = W - lbl_w - pad * 3 - 20; // control column width (trimmed ~2 char widths)
+      const lv_coord_t ctrl_x = W - pad - ctrl_w;          // right-aligned start x, flush to screen right edge
+      const lv_coord_t row_h = 28;   // row height
+      const lv_coord_t drop_h = 34;   // dropdown row height (font 20px needs extra space)
+      const lv_font_t *font  = &lv_font_montserrat_14;
+      lv_coord_t y = pad;
 
-    const lv_coord_t W     = lv_disp_get_hor_res(NULL);
-    const lv_coord_t pad   = 4;
-    const lv_coord_t lbl_w = 64;   // 标签列宽（放 "Frequency" 用 montserrat_12）
-    const lv_coord_t ctrl_w = W - lbl_w - pad * 3 - 20; // 控件列宽（减少约2字符宽度）
-    const lv_coord_t ctrl_x = W - pad - ctrl_w;          // 右对齐起始x，右边缘贴屏幕右侧
-    const lv_coord_t row_h = 28;   // 行高
-    const lv_coord_t drop_h = 34;   // 下拉框行高（字体20px需更多空间）
-    const lv_font_t *font  = &lv_font_montserrat_14;
-    lv_coord_t y = pad;
+      // ---- Row 1: Screen brightness (label + slider) ----
+      setting_page.lb_brightness.obj = lv_label_create(setting_page.container);
+      lv_label_set_text(setting_page.lb_brightness.obj, "Brightness");
+      lv_obj_set_style_text_font(setting_page.lb_brightness.obj, &lv_font_montserrat_12, 0);
+      lv_obj_set_style_text_color(setting_page.lb_brightness.obj, lv_color_hex(0xFFFFFF), 0);
+      lv_obj_set_pos(setting_page.lb_brightness.obj, pad, y + 9);
 
-    // ---- Row 1: 屏幕亮度 (标签 + 滑条) ----
-    setting_page.lb_brightness.obj = lv_label_create(setting_page.container);
-    lv_label_set_text(setting_page.lb_brightness.obj, "Brightness");
-    lv_obj_set_style_text_font(setting_page.lb_brightness.obj, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(setting_page.lb_brightness.obj, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(setting_page.lb_brightness.obj, pad, y + 9);
+      setting_page.bar_brightness.obj = lv_slider_create(setting_page.container);
+      lv_obj_set_size(setting_page.bar_brightness.obj, ctrl_w, 14);
+      lv_obj_set_pos(setting_page.bar_brightness.obj, ctrl_x, y + 7);
+      lv_slider_set_range(setting_page.bar_brightness.obj, 2, 100);
+      lv_slider_set_value(setting_page.bar_brightness.obj, nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness), LV_ANIM_OFF);
+      lv_obj_add_event_cb(setting_page.bar_brightness.obj, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+      y += row_h + pad;
 
-    setting_page.bar_brightness.obj = lv_slider_create(setting_page.container);
-    lv_obj_set_size(setting_page.bar_brightness.obj, ctrl_w, 14);
-    lv_obj_set_pos(setting_page.bar_brightness.obj, ctrl_x, y + 7);
-    lv_slider_set_range(setting_page.bar_brightness.obj, 2, 100);
-    lv_slider_set_value(setting_page.bar_brightness.obj, nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness), LV_ANIM_OFF);
-    lv_obj_add_event_cb(setting_page.bar_brightness.obj, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
-    y += row_h + pad;
+      // ---- Row 2: Vcore (full row, label + wide dropdown) ----
+      lv_obj_t *lb_vcore = lv_label_create(setting_page.container);
+      lv_label_set_text(lb_vcore, "Vcore");
+      lv_obj_set_style_text_font(lb_vcore, &lv_font_montserrat_12, 0);
+      lv_obj_set_style_text_color(lb_vcore, lv_color_hex(0xFFFFFF), 0);
+      lv_obj_set_pos(lb_vcore, pad, y + (drop_h - 14) / 2);
 
-    // ---- Row 2: Vcore (独占一行，标签 + 宽下拉框) ----
-    lv_obj_t *lb_vcore = lv_label_create(setting_page.container);
-    lv_label_set_text(lb_vcore, "Vcore");
-    lv_obj_set_style_text_font(lb_vcore, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(lb_vcore, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(lb_vcore, pad, y + (drop_h - 14) / 2);
-
-    setting_page.list_asic_vcore.obj = lv_dropdown_create(setting_page.container);
-    lv_obj_set_size(setting_page.list_asic_vcore.obj, ctrl_w, drop_h);
-    lv_obj_set_pos(setting_page.list_asic_vcore.obj, ctrl_x, y);
-    lv_obj_set_style_text_font(setting_page.list_asic_vcore.obj, &lv_font_montserrat_20, LV_PART_MAIN);
-    lv_obj_set_style_pad_top(setting_page.list_asic_vcore.obj, 4, LV_PART_MAIN);
-    lv_obj_set_style_pad_bottom(setting_page.list_asic_vcore.obj, 4, LV_PART_MAIN);
-    {
-      const std::vector<work_option_t>& vc_opts = board->info.spec.ui.setting_page.vc;
-      String opts = "";
-      uint16_t sel_idx = 0, idx = 0;
-      uint16_t cur =   board->info.spec.asic.req_vcore;
-      bool found = false;
-      for (const auto& item : vc_opts) {
-        if (opts.length() > 0) opts += "\n";
-        opts += item.name;
-        if (!found && item.value == cur) { sel_idx = idx; found = true; }
-        idx++;
-      }
-      lv_dropdown_set_options(setting_page.list_asic_vcore.obj, opts.c_str());
-      lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, sel_idx);
-      lv_obj_t *vc_list = lv_dropdown_get_list(setting_page.list_asic_vcore.obj);
-      if(vc_list) lv_obj_set_style_text_font(vc_list, &lv_font_montserrat_20, LV_PART_MAIN);
-    }
-    y += drop_h + pad;
-
-    // ---- Row 3: Freq (独占一行，标签 + 宽下拉框) ----
-    lv_obj_t *lb_freq = lv_label_create(setting_page.container);
-    lv_label_set_text(lb_freq, "Frequency");
-    lv_obj_set_style_text_font(lb_freq, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(lb_freq, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(lb_freq, pad, y + (drop_h - 14) / 2);
-
-    setting_page.list_asic_freq.obj = lv_dropdown_create(setting_page.container);
-    lv_obj_set_size(setting_page.list_asic_freq.obj, ctrl_w, drop_h);
-    lv_obj_set_pos(setting_page.list_asic_freq.obj, ctrl_x, y);
-    lv_obj_set_style_text_font(setting_page.list_asic_freq.obj, &lv_font_montserrat_20, LV_PART_MAIN);
-    lv_obj_set_style_pad_top(setting_page.list_asic_freq.obj, 4, LV_PART_MAIN);
-    lv_obj_set_style_pad_bottom(setting_page.list_asic_freq.obj, 4, LV_PART_MAIN);
-    {
-      const std::vector<work_option_t>& oc_opts = board->info.spec.ui.setting_page.oc;
-      String opts = "";
-      uint16_t sel_idx = 0, idx = 0;
-      uint16_t cur =   board->info.spec.asic.req_frq;
-      bool found = false;
-      for (const auto& item : oc_opts) {
-        if (opts.length() > 0) opts += "\n";
-        opts += item.name;
-        if (!found && item.value == cur) { sel_idx = idx; found = true; }
-        idx++;
-      }
-      lv_dropdown_set_options(setting_page.list_asic_freq.obj, opts.c_str());
-      lv_dropdown_set_selected(setting_page.list_asic_freq.obj, sel_idx);
-      lv_obj_t *freq_list = lv_dropdown_get_list(setting_page.list_asic_freq.obj);
-      if(freq_list) lv_obj_set_style_text_font(freq_list, &lv_font_montserrat_20, LV_PART_MAIN);
-    }
-    y += drop_h + pad;
-
-    // ---- Row 4: Screen Saver (标签 + 宽下拉框) ----
-    lv_obj_t *lb_saver = lv_label_create(setting_page.container);
-    lv_label_set_text(lb_saver, "Screen Saver");
-    lv_obj_set_style_text_font(lb_saver, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(lb_saver, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(lb_saver, pad, y + (drop_h - 14) / 2);
-
-    setting_page.list_saver.obj = lv_dropdown_create(setting_page.container);
-    lv_obj_set_size(setting_page.list_saver.obj, ctrl_w, drop_h);
-    lv_obj_set_pos(setting_page.list_saver.obj, ctrl_x, y);
-    lv_obj_set_style_text_font(setting_page.list_saver.obj, &lv_font_montserrat_20, LV_PART_MAIN);
-    lv_obj_set_style_pad_top(setting_page.list_saver.obj, 4, LV_PART_MAIN);
-    lv_obj_set_style_pad_bottom(setting_page.list_saver.obj, 4, LV_PART_MAIN);
-    {
-      lv_dropdown_set_options(setting_page.list_saver.obj,
-        "Never\n1 min\n5 min\n15 min\n1 hour\n3 hours\n24 hours");
-      static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
-      uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
-      uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
-      uint16_t sel_idx = 0;
-      if (en) {
-        for (int i = 1; i < 7; i++) {
-          if (SAVER_VALS[i] == tmo) { sel_idx = (uint16_t)i; break; }
+      setting_page.list_asic_vcore.obj = lv_dropdown_create(setting_page.container);
+      lv_obj_set_size(setting_page.list_asic_vcore.obj, ctrl_w, drop_h);
+      lv_obj_set_pos(setting_page.list_asic_vcore.obj, ctrl_x, y);
+      lv_obj_set_style_text_font(setting_page.list_asic_vcore.obj, &lv_font_montserrat_20, LV_PART_MAIN);
+      lv_obj_set_style_pad_top(setting_page.list_asic_vcore.obj, 4, LV_PART_MAIN);
+      lv_obj_set_style_pad_bottom(setting_page.list_asic_vcore.obj, 4, LV_PART_MAIN);
+      {
+        const std::vector<work_option_t>& vc_opts = board->info.spec.ui.setting_page.vc;
+        String opts = "";
+        uint16_t sel_idx = 0, idx = 0;
+        uint16_t cur =   board->info.spec.asic.req_vcore;
+        bool found = false;
+        for (const auto& item : vc_opts) {
+          if (opts.length() > 0) opts += "\n";
+          opts += item.name;
+          if (!found && item.value == cur) { sel_idx = idx; found = true; }
+          idx++;
         }
+        lv_dropdown_set_options(setting_page.list_asic_vcore.obj, opts.c_str());
+        lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, sel_idx);
+        lv_obj_t *vc_list = lv_dropdown_get_list(setting_page.list_asic_vcore.obj);
+        if(vc_list) lv_obj_set_style_text_font(vc_list, &lv_font_montserrat_20, LV_PART_MAIN);
       }
-      lv_dropdown_set_selected(setting_page.list_saver.obj, sel_idx);
-      lv_obj_t *saver_list = lv_dropdown_get_list(setting_page.list_saver.obj);
-      if(saver_list) lv_obj_set_style_text_font(saver_list, &lv_font_montserrat_20, LV_PART_MAIN);
-    }
-    y += drop_h + pad;
-    setting_page.checkbox_auto_rolling.obj = lv_checkbox_create(setting_page.container);
-    lv_checkbox_set_text(setting_page.checkbox_auto_rolling.obj, "Screen Roll");
-    lv_obj_set_style_text_font(setting_page.checkbox_auto_rolling.obj, font, 0);
-    lv_obj_set_style_text_color(setting_page.checkbox_auto_rolling.obj, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(setting_page.checkbox_auto_rolling.obj, pad, y + 4);
-    if(nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, 1)) {
-      lv_obj_add_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
-    }
-    lv_obj_add_event_cb(setting_page.checkbox_auto_rolling.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+      y += drop_h + pad;
 
-    setting_page.checkbox_screen_flip.obj = lv_checkbox_create(setting_page.container);
-    lv_checkbox_set_text(setting_page.checkbox_screen_flip.obj, "Flip Screen");
-    lv_obj_set_style_text_font(setting_page.checkbox_screen_flip.obj, font, 0);
-    lv_obj_set_style_text_color(setting_page.checkbox_screen_flip.obj, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(setting_page.checkbox_screen_flip.obj, W / 2, y + 4);
-    if(nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, 0)) {
-      lv_obj_add_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
-    }
-    lv_obj_add_event_cb(setting_page.checkbox_screen_flip.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
-    y += row_h + pad;
+      // ---- Row 3: Frequency (full row, label + wide dropdown) ----
+      lv_obj_t *lb_freq = lv_label_create(setting_page.container);
+      lv_label_set_text(lb_freq, "Frequency");
+      lv_obj_set_style_text_font(lb_freq, &lv_font_montserrat_12, 0);
+      lv_obj_set_style_text_color(lb_freq, lv_color_hex(0xFFFFFF), 0);
+      lv_obj_set_pos(lb_freq, pad, y + (drop_h - 14) / 2);
 
-    // ---- Row 4: Save | Restart 两个等宽按钮 ----
-    lv_coord_t btn_w = (W - pad * 3) / 2;
-    lv_coord_t btn_h = 38;
-
-    setting_page.btn_save.obj = lv_btn_create(setting_page.container);
-    lv_obj_set_size(setting_page.btn_save.obj, btn_w, btn_h);
-    lv_obj_set_pos(setting_page.btn_save.obj, pad, y);
-    {
-      lv_obj_t *lbl = lv_label_create(setting_page.btn_save.obj);
-      lv_label_set_text(lbl, "Save");
-      lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, 0);
-      lv_obj_center(lbl);
-    }
-    lv_obj_add_event_cb(setting_page.btn_save.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
-
-    setting_page.btn_restart.obj = lv_btn_create(setting_page.container);
-    lv_obj_set_size(setting_page.btn_restart.obj, btn_w, btn_h);
-    lv_obj_set_pos(setting_page.btn_restart.obj, pad * 2 + btn_w, y);
-    {
-      lv_obj_t *lbl = lv_label_create(setting_page.btn_restart.obj);
-      lv_label_set_text(lbl, "Restart");
-      lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, 0);
-      lv_obj_center(lbl);
-    }
-    lv_obj_add_event_cb(setting_page.btn_restart.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
-    y += btn_h + pad;
-
-    // ---- 输入键盘（默认隐藏，悬浮于底部）----
-    setting_page.kb_input.obj = lv_keyboard_create(setting_page.container);
-    lv_obj_set_size(setting_page.kb_input.obj, W, 120);
-    lv_obj_align(setting_page.kb_input.obj, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_add_flag(setting_page.kb_input.obj, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_event_cb(setting_page.kb_input.obj, keyboard_event_cb, LV_EVENT_CANCEL, NULL);
-    lv_obj_add_event_cb(setting_page.kb_input.obj, keyboard_event_cb, LV_EVENT_READY, NULL);
-
-    inited = true;
-    s_last_reload_at_ms = s_setting_page_entered_ms; // mark initial load done
-  }
-
-  // ── Reload NVS values into all controls each time setting page is entered ───
-  if (s_last_reload_at_ms != s_setting_page_entered_ms) {
-    s_last_reload_at_ms = s_setting_page_entered_ms;
-
-    // brightness
-    lv_slider_set_value(setting_page.bar_brightness.obj,
-        nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness),
-        LV_ANIM_OFF);
-
-    // vcore
-    if (setting_page.list_asic_vcore.obj) {
-      const std::vector<work_option_t>& vc_opts = board->info.spec.ui.setting_page.vc;
-      uint16_t cur = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, board->info.spec.asic.req_vcore);
-      uint16_t idx = 0;
-      for (uint16_t i = 0; i < (uint16_t)vc_opts.size(); i++) {
-        if (vc_opts[i].value == cur) { idx = i; break; }
-      }
-      lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, idx);
-    }
-
-    // freq
-    if (setting_page.list_asic_freq.obj) {
-      const std::vector<work_option_t>& oc_opts = board->info.spec.ui.setting_page.oc;
-      uint16_t cur = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, board->info.spec.asic.req_frq);
-      uint16_t idx = 0;
-      for (uint16_t i = 0; i < (uint16_t)oc_opts.size(); i++) {
-        if (oc_opts[i].value == cur) { idx = i; break; }
-      }
-      lv_dropdown_set_selected(setting_page.list_asic_freq.obj, idx);
-    }
-
-    // screen saver
-    if (setting_page.list_saver.obj) {
-      static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
-      uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
-      uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
-      uint16_t idx = 0;
-      if (en) {
-        for (int i = 1; i < 7; i++) {
-          if (SAVER_VALS[i] == tmo) { idx = (uint16_t)i; break; }
+      setting_page.list_asic_freq.obj = lv_dropdown_create(setting_page.container);
+      lv_obj_set_size(setting_page.list_asic_freq.obj, ctrl_w, drop_h);
+      lv_obj_set_pos(setting_page.list_asic_freq.obj, ctrl_x, y);
+      lv_obj_set_style_text_font(setting_page.list_asic_freq.obj, &lv_font_montserrat_20, LV_PART_MAIN);
+      lv_obj_set_style_pad_top(setting_page.list_asic_freq.obj, 4, LV_PART_MAIN);
+      lv_obj_set_style_pad_bottom(setting_page.list_asic_freq.obj, 4, LV_PART_MAIN);
+      {
+        const std::vector<work_option_t>& oc_opts = board->info.spec.ui.setting_page.oc;
+        String opts = "";
+        uint16_t sel_idx = 0, idx = 0;
+        uint16_t cur =   board->info.spec.asic.req_frq;
+        bool found = false;
+        for (const auto& item : oc_opts) {
+          if (opts.length() > 0) opts += "\n";
+          opts += item.name;
+          if (!found && item.value == cur) { sel_idx = idx; found = true; }
+          idx++;
         }
+        lv_dropdown_set_options(setting_page.list_asic_freq.obj, opts.c_str());
+        lv_dropdown_set_selected(setting_page.list_asic_freq.obj, sel_idx);
+        lv_obj_t *freq_list = lv_dropdown_get_list(setting_page.list_asic_freq.obj);
+        if(freq_list) lv_obj_set_style_text_font(freq_list, &lv_font_montserrat_20, LV_PART_MAIN);
       }
-      lv_dropdown_set_selected(setting_page.list_saver.obj, idx);
+      y += drop_h + pad;
+
+      // ---- Row 4: Screen Saver (label + wide dropdown) ----
+      lv_obj_t *lb_saver = lv_label_create(setting_page.container);
+      lv_label_set_text(lb_saver, "Screen Saver");
+      lv_obj_set_style_text_font(lb_saver, &lv_font_montserrat_12, 0);
+      lv_obj_set_style_text_color(lb_saver, lv_color_hex(0xFFFFFF), 0);
+      lv_obj_set_pos(lb_saver, pad, y + (drop_h - 14) / 2);
+
+      setting_page.list_saver.obj = lv_dropdown_create(setting_page.container);
+      lv_obj_set_size(setting_page.list_saver.obj, ctrl_w, drop_h);
+      lv_obj_set_pos(setting_page.list_saver.obj, ctrl_x, y);
+      lv_obj_set_style_text_font(setting_page.list_saver.obj, &lv_font_montserrat_20, LV_PART_MAIN);
+      lv_obj_set_style_pad_top(setting_page.list_saver.obj, 4, LV_PART_MAIN);
+      lv_obj_set_style_pad_bottom(setting_page.list_saver.obj, 4, LV_PART_MAIN);
+      {
+        lv_dropdown_set_options(setting_page.list_saver.obj,
+          "Never\n1 min\n5 min\n15 min\n1 hour\n3 hours\n24 hours");
+        static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
+        uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
+        uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
+        uint16_t sel_idx = 0;
+        if (en) {
+          for (int i = 1; i < 7; i++) {
+            if (SAVER_VALS[i] == tmo) { sel_idx = (uint16_t)i; break; }
+          }
+        }
+        lv_dropdown_set_selected(setting_page.list_saver.obj, sel_idx);
+        lv_obj_t *saver_list = lv_dropdown_get_list(setting_page.list_saver.obj);
+        if(saver_list) lv_obj_set_style_text_font(saver_list, &lv_font_montserrat_20, LV_PART_MAIN);
+      }
+      y += drop_h + pad;
+      setting_page.checkbox_auto_rolling.obj = lv_checkbox_create(setting_page.container);
+      lv_checkbox_set_text(setting_page.checkbox_auto_rolling.obj, "Screen Roll");
+      lv_obj_set_style_text_font(setting_page.checkbox_auto_rolling.obj, font, 0);
+      lv_obj_set_style_text_color(setting_page.checkbox_auto_rolling.obj, lv_color_hex(0xFFFFFF), 0);
+      lv_obj_set_pos(setting_page.checkbox_auto_rolling.obj, pad, y + 4);
+      if(nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, 1)) {
+        lv_obj_add_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
+      }
+      lv_obj_add_event_cb(setting_page.checkbox_auto_rolling.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+      setting_page.checkbox_screen_flip.obj = lv_checkbox_create(setting_page.container);
+      lv_checkbox_set_text(setting_page.checkbox_screen_flip.obj, "Flip Screen");
+      lv_obj_set_style_text_font(setting_page.checkbox_screen_flip.obj, font, 0);
+      lv_obj_set_style_text_color(setting_page.checkbox_screen_flip.obj, lv_color_hex(0xFFFFFF), 0);
+      lv_obj_set_pos(setting_page.checkbox_screen_flip.obj, W / 2, y + 4);
+      if(nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, 0)) {
+        lv_obj_add_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
+      }
+      lv_obj_add_event_cb(setting_page.checkbox_screen_flip.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+      y += row_h + pad;
+
+      // ---- Row 5: Save | Restart two equal-width buttons ----
+      lv_coord_t btn_w = (W - pad * 3) / 2;
+      lv_coord_t btn_h = 38;
+
+      setting_page.btn_save.obj = lv_btn_create(setting_page.container);
+      lv_obj_set_size(setting_page.btn_save.obj, btn_w, btn_h);
+      lv_obj_set_pos(setting_page.btn_save.obj, pad, y);
+      {
+        lv_obj_t *lbl = lv_label_create(setting_page.btn_save.obj);
+        lv_label_set_text(lbl, "Save");
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, 0);
+        lv_obj_center(lbl);
+      }
+      lv_obj_add_event_cb(setting_page.btn_save.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
+
+      setting_page.btn_restart.obj = lv_btn_create(setting_page.container);
+      lv_obj_set_size(setting_page.btn_restart.obj, btn_w, btn_h);
+      lv_obj_set_pos(setting_page.btn_restart.obj, pad * 2 + btn_w, y);
+      {
+        lv_obj_t *lbl = lv_label_create(setting_page.btn_restart.obj);
+        lv_label_set_text(lbl, "Restart");
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, 0);
+        lv_obj_center(lbl);
+      }
+      lv_obj_add_event_cb(setting_page.btn_restart.obj, button_event_cb, LV_EVENT_CLICKED, NULL);
+      y += btn_h + pad;
+
+      // ---- Input keyboard (hidden by default, floats at the bottom) ----
+      setting_page.kb_input.obj = lv_keyboard_create(setting_page.container);
+      lv_obj_set_size(setting_page.kb_input.obj, W, 120);
+      lv_obj_align(setting_page.kb_input.obj, LV_ALIGN_BOTTOM_MID, 0, 0);
+      lv_obj_add_flag(setting_page.kb_input.obj, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_add_event_cb(setting_page.kb_input.obj, keyboard_event_cb, LV_EVENT_CANCEL, NULL);
+      lv_obj_add_event_cb(setting_page.kb_input.obj, keyboard_event_cb, LV_EVENT_READY, NULL);
+
+      inited = true;
+      s_last_reload_at_ms = s_setting_page_entered_ms; // mark initial load done
     }
 
-    // checkboxes
-    if (nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, 1))
-      lv_obj_add_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
-    else
-      lv_obj_clear_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
+    // ── Reload NVS values into all controls each time setting page is entered ───
+    if (s_last_reload_at_ms != s_setting_page_entered_ms) {
+      s_last_reload_at_ms = s_setting_page_entered_ms;
 
-    if (nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, 0))
-      lv_obj_add_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
-    else
-      lv_obj_clear_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
+      // brightness
+      lv_slider_set_value(setting_page.bar_brightness.obj,
+          nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness),
+          LV_ANIM_OFF);
+
+      // vcore
+      if (setting_page.list_asic_vcore.obj) {
+        const std::vector<work_option_t>& vc_opts = board->info.spec.ui.setting_page.vc;
+        uint16_t cur = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, board->info.spec.asic.req_vcore);
+        uint16_t idx = 0;
+        for (uint16_t i = 0; i < (uint16_t)vc_opts.size(); i++) {
+          if (vc_opts[i].value == cur) { idx = i; break; }
+        }
+        lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, idx);
+      }
+
+      // freq
+      if (setting_page.list_asic_freq.obj) {
+        const std::vector<work_option_t>& oc_opts = board->info.spec.ui.setting_page.oc;
+        uint16_t cur = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, board->info.spec.asic.req_frq);
+        uint16_t idx = 0;
+        for (uint16_t i = 0; i < (uint16_t)oc_opts.size(); i++) {
+          if (oc_opts[i].value == cur) { idx = i; break; }
+        }
+        lv_dropdown_set_selected(setting_page.list_asic_freq.obj, idx);
+      }
+
+      // screen saver
+      if (setting_page.list_saver.obj) {
+        static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
+        uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
+        uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
+        uint16_t idx = 0;
+        if (en) {
+          for (int i = 1; i < 7; i++) {
+            if (SAVER_VALS[i] == tmo) { idx = (uint16_t)i; break; }
+          }
+        }
+        lv_dropdown_set_selected(setting_page.list_saver.obj, idx);
+      }
+
+      // checkboxes
+      if (nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, 1))
+        lv_obj_add_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
+      else
+        lv_obj_clear_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
+
+      if (nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, 0))
+        lv_obj_add_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
+      else
+        lv_obj_clear_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
+    }
   }
+
+
+
 }
 
 void ui_screen_saver_page_update(void* args){
@@ -3720,7 +3840,7 @@ void ui_aphorism_page_update(void* args){
 }
 
 void ui_goto_page(int8_t page, lv_anim_enable_t anim) {
-    if(parent_wall && page >= UI_PAGE_LOADING && page <= UI_PAGE_SETTING) {
+    if(parent_wall && page >= UI_PAGE_LOADING && page <= UI_PAGE_SETTING_SWARM) {
         g_board.status.ui.page.current = page;
         lv_obj_set_tile(parent_wall, g_board.status.ui.page.list[page], anim);
     }else{
@@ -3732,7 +3852,7 @@ void ui_switch_next_page_cb(){
   uint8_t current_index = g_board.status.ui.page.current;
   uint8_t next_index    = current_index;
 
-  next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
+  next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING_SWARM) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
   next_index++;
 
   ui_goto_page(next_index, LV_ANIM_ON);
@@ -3742,7 +3862,7 @@ void ui_switch_prev_page_cb(){
   uint8_t current_index = g_board.status.ui.page.current;
   uint8_t prev_index    = current_index;
 
-  prev_index = (g_board.status.ui.page.current == UI_PAGE_MINER) ? UI_PAGE_SETTING + 1 : g_board.status.ui.page.current;
+  prev_index = (g_board.status.ui.page.current == UI_PAGE_MINER) ? UI_PAGE_SETTING_SWARM + 1 : g_board.status.ui.page.current;
   prev_index--;
   
   ui_goto_page(prev_index, LV_ANIM_ON);

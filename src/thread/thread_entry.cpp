@@ -2378,7 +2378,7 @@ void ui_thread_entry(void *args){
         {UI_PAGE_HR_HEALTH, ui_hr_healthy_page_update},
         {UI_PAGE_CLOCK,     ui_clock_page_update},
         {UI_PAGE_MARKET,    ui_market_page_update},
-        {UI_PAGE_SETTING,   ui_setting_page_update}   
+        {UI_PAGE_SETTING_SWARM,   ui_setting_or_swarm_page_update}   // NMAxe and Gamma is swarm page, NMQAxe++ is setting page
     };
     // wait lvgl ready is necessary, otherwise may cause some lvgl api call fail due to lvgl not ready, such as lv_obj_create, which is widely used in ui element init and page update
     xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
