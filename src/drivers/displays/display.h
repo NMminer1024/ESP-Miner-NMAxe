@@ -73,7 +73,8 @@ typedef struct {
 typedef void (*ui_page_update_func_t)(void *);
 
 void tft_bl_ctrl(int8_t percent);
-void ui_switch_next_page_cb(uint8_t tp_evt);
+void ui_switch_next_page_cb();
+void ui_switch_prev_page_cb();
 void ui_goto_page(int8_t page, lv_anim_enable_t anim);
 void display_thread_entry(void *args);
 void lvgl_tick_thread_entry(void *args);

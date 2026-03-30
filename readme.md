@@ -63,7 +63,7 @@
 ***
 | Buttons           | Action             | Description             |
 | :---------------  | :-----------------:|:-----------------:      |
-|boot               |    Double click    |  Screen and led sleep   |
+|boot               |    Double click    |  Back to previous page    |
 |boot               |    Single click    |  Switch to next page    |
 |boot               |    Long press      |  Force configuration    |
 |user               |    Long press      |  Restore to factory settings  |

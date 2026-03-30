@@ -5,6 +5,6 @@
 
 void recover_factory_cb(void);
 void force_config_cb(void);
-void silence_mode_cb(void);
+// void silence_mode_cb(void);
 
 #endif

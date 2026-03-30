@@ -772,14 +772,27 @@ void button_thread_entry(void *args){
     if(boot_btn != nullptr){
         auto click_wrapper = [](void *param){
             board_sal_t *b = static_cast<board_sal_t*>(param);
+            bool screensaver_active = (xEventGroupGetBits(b->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
             xEventGroupWaitBits(b->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);// ensure miner is ready before allowing page switch
             xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
             b->status.ui.last_active_ms = millis();
-            static uint8_t evt = TOUCH_TAP_EVT;
-            ui_switch_next_page_cb(evt);
+            if(screensaver_active) return; // Do not switch page when screen saver is active
+
+            ui_switch_next_page_cb();
         };
+        auto double_click_wrapper = [](void *param){
+            board_sal_t *b = static_cast<board_sal_t*>(param);
+            bool screensaver_active = (xEventGroupGetBits(b->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
+            xEventGroupWaitBits(b->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);// ensure miner is ready before allowing page switch
+            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            b->status.ui.last_active_ms = millis();
+            if(screensaver_active) return; // Do not switch page when screen saver is active
+            
+            ui_switch_prev_page_cb();
+        };
+
         boot_btn->attachClick(click_wrapper, board); 
-        boot_btn->attachDoubleClick(silence_mode_cb);
+        boot_btn->attachDoubleClick(double_click_wrapper, board);
         boot_btn->attachLongPressStart(NULL);
         boot_btn->attachLongPressStop(NULL);
         boot_btn->attachDuringLongPress(force_config_cb);
@@ -795,27 +808,9 @@ void button_thread_entry(void *args){
 
     while (true){
         delay(20);
-
         if(board->status.ota.running) continue;
-
-        // Immediate screensaver exit on boot-button pin LOW — bypass OneButton's
-        // single-click debounce (~600ms) so the screen wakes without perceptible lag.
-        if (board->info.spec.btn.boot_pin != -1 &&
-            (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0) {
-            if (digitalRead(board->info.spec.btn.boot_pin) == LOW) {
-                xEventGroupClearBits(board->status.sys_evt,
-                    SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
-                board->status.ui.last_active_ms = millis();
-            }
-        }
-
-        if(boot_btn != nullptr){
-            boot_btn->tick();
-        }
-
-        if(user_btn != nullptr){
-            user_btn->tick();
-        }
+        if(boot_btn != nullptr) boot_btn->tick();
+        if(user_btn != nullptr) user_btn->tick();
     }
 }
 
@@ -1393,7 +1388,7 @@ void monitor_thread_entry(void *args){
 
         // auto screen page scrolling
         if((board->status.miner.uptime_session % 10 == 0) && (true == board->status.preference.screen.auto_rolling)){
-            ui_switch_next_page_cb(TOUCH_TAP_EVT);
+            ui_switch_next_page_cb();
         }
 
         //save status to NVS

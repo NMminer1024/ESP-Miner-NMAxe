@@ -3164,7 +3164,7 @@ void ui_setting_page_update(void* args){
   }
 
   if(board->info.spec.name != BOARD_NMQAXE_PLUS_PLUS_NAME){
-    LOG_W("board does not support setting page\r\n");
+    LOG_D("board does not support setting page\r\n");
     return;
   }
 
@@ -3590,7 +3590,6 @@ void ui_screen_saver_page_update(void* args){
   xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
 }
 
-
 void ui_aphorism_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
   if(!board){
@@ -3729,20 +3728,22 @@ void ui_goto_page(int8_t page, lv_anim_enable_t anim) {
     }
 }
 
-void ui_switch_next_page_cb(uint8_t tp_evt){
+void ui_switch_next_page_cb(){
   uint8_t current_index = g_board.status.ui.page.current;
   uint8_t next_index    = current_index;
 
-  // tap event
-  if(TOUCH_TAP_EVT == tp_evt){
-      g_board.status.preference.led.sleep = (g_board.status.preference.led.sleep_last) ? false : g_board.status.preference.led.sleep; //switch led sleep mode
-      EventBits_t bits = xEventGroupWaitBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT, pdFALSE, pdTRUE, 0);
-      if ((bits & SYS_EVENT_MINER_BLOCK_HIT )== SYS_EVENT_MINER_BLOCK_HIT) {
-        xSemaphoreGive(g_board.status.brightness_update_xsem); //wake up brightness thread to set brightness
-        return;
-      } 
-      next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
-      next_index++;
-  }
+  next_index = (g_board.status.ui.page.current == UI_PAGE_SETTING) ? UI_PAGE_CONFIG : g_board.status.ui.page.current;
+  next_index++;
+
   ui_goto_page(next_index, LV_ANIM_ON);
+}
+
+void ui_switch_prev_page_cb(){
+  uint8_t current_index = g_board.status.ui.page.current;
+  uint8_t prev_index    = current_index;
+
+  prev_index = (g_board.status.ui.page.current == UI_PAGE_MINER) ? UI_PAGE_SETTING + 1 : g_board.status.ui.page.current;
+  prev_index--;
+  
+  ui_goto_page(prev_index, LV_ANIM_ON);
 }
