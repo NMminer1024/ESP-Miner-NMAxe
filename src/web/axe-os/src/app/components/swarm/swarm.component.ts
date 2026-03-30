@@ -353,7 +353,8 @@ export class SwarmComponent implements OnInit, OnDestroy {
           }
         },
         error: (err) => {
-          this.toastr.error('Upload Error', 'Error');
+          const reason = this.extractOtaError(err);
+          this.toastr.error(`${item.ip}: ${reason}`, 'SPIFFS Update Failed');
           this.otaWebsiteUploader.clear();
           item.progress = "Error";
           item.result = false;
@@ -397,13 +398,28 @@ export class SwarmComponent implements OnInit, OnDestroy {
           }
         },
         error: (err) => {
-          this.toastr.error('Uploaded Error', 'Error');
+          const reason = this.extractOtaError(err);
+          this.toastr.error(`${item.ip}: ${reason}`, 'Firmware Update Failed');
           this.otaFileUploader.clear();
           item.progress = "Error";
           item.result = false;
         }
       });
     });
+  }
+
+  // Filter methods
+  private extractOtaError(err: any): string {
+    if (err.error && typeof err.error === 'string' && err.error.trim().length > 0) {
+      return err.error.trim();
+    }
+    if (err.status === 0) {
+      return 'Connection lost \u2014 device may have rebooted';
+    }
+    if (err.status >= 500) {
+      return `Server error (HTTP ${err.status})`;
+    }
+    return err.message || 'Unknown error';
   }
 
   // Filter methods

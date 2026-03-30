@@ -2344,15 +2344,14 @@ void ui_thread_entry(void *args){
     while (true){
         delay(50);
         if(xSemaphoreTake(board->status.ui.lvgl.drv_xMutex, 5) == pdTRUE){
-            // When screen saver is active its overlay covers everything; skip all
-            // underlying page/overlay updates so the mutex is released quickly and
-            // lvgl_tick_thread_entry can call lv_timer_handler() frequently to
-            // advance GIF frames without stutter.
-            if((xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0){
-                // screen saver page overlay — always run (handles activation + fade-out)
-                ui_screen_saver_page_update((void*)board);
-            }
-            else {
+            // screen saver update must ALWAYS run regardless of event state:
+            // it is responsible for both detecting the inactivity timeout (setting the event)
+            // and managing the active overlay / fade-out once the event is set.
+            ui_screen_saver_page_update((void*)board);
+
+            // When screen saver overlay is active skip all underlying page updates so the
+            // mutex is released quickly and lvgl_tick_thread_entry can advance GIF frames.
+            if((xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) == 0){
                 // find the update function based on current page and call it, if not found, just skip page update
                 auto it = ui_page_update_cbs.find(board->status.ui.page.current);
                 if(it != ui_page_update_cbs.end()){

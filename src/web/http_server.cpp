@@ -1256,7 +1256,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             lastPercentage = -1;
         } else {
             // ── Firmware / SPIFFS OTA init ────────────────────────────────
-            LOG_I("OTA Update Started, File name: %s, Index: %d, contentLength: %d, len: %d, Final: %d", filename.c_str(), index, flen, len, final);
+            LOG_I("OTA Update Started, File name: %s, Index: %d, contentLength: %llu, len: %d, Final: %d", filename.c_str(), index, flen, len, final);
             size_t bin_size   = UPDATE_SIZE_UNKNOWN;
             int    update_type = U_FLASH;
 
@@ -1280,7 +1280,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
 
             if (!Update.begin(bin_size, update_type)) {
                 LOG_E("OTA Update error: %s", Update.errorString());
-                request->send(500, "text/plain", "OTA Update Failed. Not enough space.");
+                String err_msg = String("OTA begin failed: ") + Update.errorString();
+                request->send(500, "text/plain", err_msg);
                 return;
             }
             g_board.status.ota.running  = true;
@@ -1319,7 +1320,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
             resp->addHeader("Access-Control-Allow-Origin", "*");
             request->send(resp);
-            
+
             LOG_W("*************** Update Success: %u bytes, rebooting *************** ", index + len);
             // NOTE: delay() in async_tcp context blocks the TCP stack.
             //       daemon_thread_entry waits ~1s before restarting, giving time for the HTTP response to be sent.
@@ -1340,7 +1341,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             if (flush) {
                 if (Update.write(ota_buf, ota_buf_len) != ota_buf_len) {
                     LOG_E("OTA Update error: %s", Update.errorString());
-                    request->send(500, "text/plain", "OTA Update Failed. Write error.");
+                    String err_msg = String("OTA write failed: ") + Update.errorString();
+                    request->send(500, "text/plain", err_msg);
                     ota_buf_len = 0;
                     return;
                 }
@@ -1370,7 +1372,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 if (filename == "spiffs.bin") {
                     nvs_config_set_u8(NVS_CONFIG_SPIFFS_UPDATING, 0);
                 }
-                AsyncWebServerResponse *response = request->beginResponse(200);
+                AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
                 response->addHeader("Access-Control-Allow-Origin", "*");
                 request->send(response);
 
@@ -1380,7 +1382,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 xSemaphoreGive(g_board.status.reboot_xsem);
             } else {
                 LOG_E("OTA Update error: %s", Update.errorString());
-                request->send(500, "text/plain", "OTA Update Failed. End error.");
+                String err_msg = String("OTA end failed: ") + Update.errorString();
+                request->send(500, "text/plain", err_msg);
             }
         }
     }

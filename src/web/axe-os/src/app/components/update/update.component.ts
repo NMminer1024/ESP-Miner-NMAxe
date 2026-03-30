@@ -497,7 +497,8 @@ export class UpdateComponent implements OnInit, AfterViewInit {
         },
         error: (err) => {
           this.stopProgressPolling();
-          this.toastrService.error('Uploaded Error', 'Error');
+          const reason = this.extractOtaError(err);
+          this.toastrService.error(reason, 'Firmware Update Failed');
           this.firmwareUpdateProgress = null;
           this.otaFileUploader.clear();
         },
@@ -542,7 +543,8 @@ export class UpdateComponent implements OnInit, AfterViewInit {
         },
         error: (err) => {
           this.stopProgressPolling();
-          this.toastrService.error('Upload Error', 'Error');
+          const reason = this.extractOtaError(err);
+          this.toastrService.error(reason, 'SPIFFS Update Failed');
           this.websiteUpdateProgress = null;
           this.otaFileUploader.clear();
         },
@@ -551,6 +553,22 @@ export class UpdateComponent implements OnInit, AfterViewInit {
           this.otaFileUploader.clear();
         }
       });
+  }
+
+  private extractOtaError(err: any): string {
+    // err.error is the raw response body (responseType: 'text'), which is the
+    // plain-text message sent by the ESP32 backend (e.g. "OTA write failed: MD5 check failed")
+    if (err.error && typeof err.error === 'string' && err.error.trim().length > 0) {
+      return err.error.trim();
+    }
+    // status 0 means the connection was dropped — device likely rebooted unexpectedly
+    if (err.status === 0) {
+      return 'Connection lost — device may have rebooted unexpectedly';
+    }
+    if (err.status >= 500) {
+      return `Server error (HTTP ${err.status})`;
+    }
+    return err.message || 'Unknown error';
   }
 
   private startProgressPolling(target: 'firmware' | 'spiffs') {
