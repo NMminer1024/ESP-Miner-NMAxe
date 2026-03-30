@@ -2,11 +2,9 @@ import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
 import {Component, Input, OnDestroy, OnInit} from '@angular/core';
 import {FormBuilder, FormGroup, Validators} from '@angular/forms';
 import {ToastrService} from 'ngx-toastr';
-import {Subscription} from 'rxjs';
 import {startWith} from 'rxjs';
 import {LoadingService} from 'src/app/services/loading.service';
 import {SystemService} from 'src/app/services/system.service';
-import {WebsocketService} from 'src/app/services/web-socket.service';
 import {eASICModel} from 'src/models/enum/eASICModel';
 
 @Component({
@@ -43,7 +41,7 @@ export class PreferenceComponent implements OnInit, OnDestroy {
   public screensaverUploading: boolean = false;
   public screensaverProgress: number = 0;         // network upload %
   public screensaverDeviceProgress: number = 0;   // device SPIFFS write %
-  private wsSub: Subscription | null = null;
+  private screensaverPollInterval: any = null;
 
   @Input() uri = '';
 
@@ -52,8 +50,7 @@ export class PreferenceComponent implements OnInit, OnDestroy {
     private systemService: SystemService,
     private toastr: ToastrService,
     private toastrService: ToastrService,
-    private loadingService: LoadingService,
-    private wsService: WebsocketService
+    private loadingService: LoadingService
   ) {
 
     window.addEventListener('resize', this.checkDevTools);
@@ -209,46 +206,43 @@ export class PreferenceComponent implements OnInit, OnDestroy {
     this.screensaverProgress = 0;
     this.screensaverDeviceProgress = 0;
 
-    // Subscribe to WebSocket to receive device-side SPIFFS write progress
-    this.wsSub = this.wsService.connect().subscribe((msg: string) => {
-      const m = msg.match(/screensaver upload:\s*(\d+)%/);
-      if (m) {
-        this.screensaverDeviceProgress = parseInt(m[1], 10);
-      }
-    });
+    // Start polling GET /api/update/progress to get accurate device-side SPIFFS write progress.
+    this.screensaverPollInterval = setInterval(() => {
+      this.systemService.getOtaProgress(this.uri).subscribe({
+        next: (p) => { this.screensaverDeviceProgress = p.progress; }
+      });
+    }, 500);
 
-    // Do NOT pipe through lockUIUntilComplete() — that operator shows a blocking
-    // overlay for the entire lifetime of the observable.  A file upload emits
-    // multiple UploadProgress events before completing, so the overlay would
-    // cover the page the whole time.  We manage the busy state ourselves instead.
     this.systemService.uploadScreensaver(this.uri, this.screensaverFile)
       .subscribe({
         next: (event: any) => {
           if (event?.type === HttpEventType.UploadProgress && event.total) {
             this.screensaverProgress = Math.round(100 * event.loaded / event.total);
           } else if (event?.type === HttpEventType.Response) {
+            clearInterval(this.screensaverPollInterval);
+            this.screensaverPollInterval = null;
             this.screensaverUploading = false;
             this.screensaverFile = null;
             this.screensaverProgress = 0;
             this.screensaverDeviceProgress = 0;
-            this.wsSub?.unsubscribe();
-            this.wsSub = null;
             this.toastr.success('Screen saver uploaded!', 'Success');
           }
         },
         error: (err: HttpErrorResponse) => {
+          clearInterval(this.screensaverPollInterval);
+          this.screensaverPollInterval = null;
           this.screensaverUploading = false;
           this.screensaverProgress = 0;
           this.screensaverDeviceProgress = 0;
-          this.wsSub?.unsubscribe();
-          this.wsSub = null;
           this.toastr.error('Upload failed.', err.message);
         }
       });
   }
 
   ngOnDestroy(): void {
-    this.wsSub?.unsubscribe();
+    if (this.screensaverPollInterval) {
+      clearInterval(this.screensaverPollInterval);
+    }
   }
 
 }

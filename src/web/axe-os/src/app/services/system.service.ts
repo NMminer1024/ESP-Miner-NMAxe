@@ -496,4 +496,10 @@ export class SystemService {
       responseType: 'text'
     });
   }
+
+  // Poll GET /api/update/progress to get accurate device-side write progress for any
+  // active upload (firmware.bin, spiffs.bin, screensaver .gif).
+  public getOtaProgress(uri: string = ''): Observable<{running: boolean, progress: number, filename: string}> {
+    return this.httpClient.get<{running: boolean, progress: number, filename: string}>(`${uri}/api/update/progress`);
+  }
 }

@@ -19,6 +19,8 @@ export class UpdateComponent implements OnInit, AfterViewInit {
   public firmwareUpdateProgress: number | null = null;
   public websiteUpdateProgress: number | null = null;
 
+  private progressPollInterval: any = null;
+
   public latestRelease$: Observable<any>;
   public info$: Observable<any>;
   public latestRelease: any = null;
@@ -473,21 +475,34 @@ export class UpdateComponent implements OnInit, AfterViewInit {
       .subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
-            this.firmwareUpdateProgress = Math.round((event.loaded / (event.total as number)) * 100);
+            if (this.firmwareUpdateProgress === null) {
+              this.firmwareUpdateProgress = 0;
+              this.startProgressPolling('firmware');
+            }
           } else if (event.type === HttpEventType.Response) {
+            this.stopProgressPolling();
             if (event.ok) {
+              this.firmwareUpdateProgress = 100;
               this.toastrService.success('Firmware updated', 'Success!');
+              setTimeout(() => {
+                this.firmwareUpdateProgress = null;
+                this.otaFileUploader.clear();
+              }, 2000);
             } else {
               this.toastrService.error(event.statusText, 'Error');
+              this.firmwareUpdateProgress = null;
+              this.otaFileUploader.clear();
             }
           }
         },
         error: (err) => {
+          this.stopProgressPolling();
           this.toastrService.error('Uploaded Error', 'Error');
+          this.firmwareUpdateProgress = null;
           this.otaFileUploader.clear();
         },
         complete: () => {
-          this.firmwareUpdateProgress = null;
+          this.stopProgressPolling();
           this.otaFileUploader.clear();
         }
       });
@@ -505,26 +520,58 @@ export class UpdateComponent implements OnInit, AfterViewInit {
       .subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
-            this.websiteUpdateProgress = Math.round((event.loaded / (event.total as number)) * 100);
+            if (this.websiteUpdateProgress === null) {
+              this.websiteUpdateProgress = 0;
+              this.startProgressPolling('spiffs');
+            }
           } else if (event.type === HttpEventType.Response) {
+            this.stopProgressPolling();
             if (event.ok) {
+              this.websiteUpdateProgress = 100;
               setTimeout(() => {
+                this.websiteUpdateProgress = null;
                 this.toastrService.success('Website updated', 'Success!');
                 window.location.reload();
               }, 1000);
             } else {
               this.toastrService.error(event.statusText, 'Error');
+              this.websiteUpdateProgress = null;
+              this.otaFileUploader.clear();
             }
           }
         },
         error: (err) => {
+          this.stopProgressPolling();
           this.toastrService.error('Upload Error', 'Error');
+          this.websiteUpdateProgress = null;
           this.otaFileUploader.clear();
         },
         complete: () => {
-          this.websiteUpdateProgress = null;
+          this.stopProgressPolling();
           this.otaFileUploader.clear();
         }
       });
+  }
+
+  private startProgressPolling(target: 'firmware' | 'spiffs') {
+    this.stopProgressPolling();
+    this.progressPollInterval = setInterval(() => {
+      this.systemService.getOtaProgress().subscribe({
+        next: (p) => {
+          if (target === 'firmware') {
+            this.firmwareUpdateProgress = p.progress;
+          } else {
+            this.websiteUpdateProgress = p.progress;
+          }
+        }
+      });
+    }, 500);
+  }
+
+  private stopProgressPolling() {
+    if (this.progressPollInterval) {
+      clearInterval(this.progressPollInterval);
+      this.progressPollInterval = null;
+    }
   }
 }

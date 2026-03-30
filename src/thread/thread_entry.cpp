@@ -536,6 +536,7 @@ void webserver_thread_entry(void *args){
     // ── Logging and echo endpoints ───────────────────────────────────────────────
     webServer.on("/api/log", HTTP_GET, echo_handler);
     // ── OTA update endpoints ──────────────────────────────────────────────────
+    webServer.on("/api/update/progress", HTTP_GET,  get_ota_progress);                                          // progress poll
     webServer.on("/api/update/firmware", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
     webServer.on("/api/update/spiffs",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
     webServer.on("/api/system/OTA",      HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // compat alias
@@ -554,7 +555,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/setting/market",     HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_market);
     webServer.on("/api/setting/preference", HTTP_GET,   get_setting_preference);
     webServer.on("/api/setting/preference", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_preference);
-    webServer.on("/api/setting/screensaver",HTTP_POST,  [](AsyncWebServerRequest *request){}, screensaver_upload_handler);
+    webServer.on("/api/setting/screensaver",HTTP_POST,  [](AsyncWebServerRequest *request){}, file_upload_handler);
     // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
     webServer.on("/probe", HTTP_GET, [board](AsyncWebServerRequest* request) {
         AsyncResponseStream* resp = request->beginResponseStream("application/json");
@@ -1442,7 +1443,10 @@ void daemon_thread_entry(void *args){
     delay(1000);
     //check ota status and reboot
     if(xSemaphoreTake(board->status.reboot_xsem, 0) == pdTRUE){
-      ESP.restart();
+        delay(500); // small delay to allow the log message to flush before rebooting
+        g_board.status.ota.running  = false;
+        delay(500);
+        ESP.restart();
     }
 
     //avoid restart when ota running
@@ -2344,8 +2348,11 @@ void ui_thread_entry(void *args){
             // underlying page/overlay updates so the mutex is released quickly and
             // lvgl_tick_thread_entry can call lv_timer_handler() frequently to
             // advance GIF frames without stutter.
-            bool screensaver_active = (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
-            if (!screensaver_active) {
+            if((xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0){
+                // screen saver page overlay — always run (handles activation + fade-out)
+                ui_screen_saver_page_update((void*)board);
+            }
+            else {
                 // find the update function based on current page and call it, if not found, just skip page update
                 auto it = ui_page_update_cbs.find(board->status.ui.page.current);
                 if(it != ui_page_update_cbs.end()){
@@ -2360,8 +2367,6 @@ void ui_thread_entry(void *args){
                 // OTA page update, if running, cover current page
                 ui_ota_page_update((void*)board);
             }
-            // screen saver page overlay — always run (handles activation + fade-out)
-            ui_screen_saver_page_update((void*)board);
             //release mutex
             xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
         }

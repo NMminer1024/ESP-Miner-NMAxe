@@ -1191,177 +1191,197 @@ void post_reset_block_hits(AsyncWebServerRequest * request){
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
 
-// POST /api/setting/screensaver -- save a user-provided GIF to SPIFFS as /screensaver.gif.
-// The request must be multipart/form-data with the file in a field named "screensaver".
-// Overwrites any existing file.  Returns 200 on success, 500 on write error.
-void screensaver_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
-    static File upload_file;
-    static int  last_pct = -1;
-
-    uint64_t flen = request->contentLength();
-    String gif_name = "screen_saver.gif";
-    if(g_board.info.spec.name == BOARD_NMAXE_NAME || g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME){
-        gif_name = "screen_saver_240x135.gif";
-    } else {
-        gif_name = "screen_saver_320x240.gif";
-    }
-
-    if (index == 0) {
-        // Validate: must be a .gif
-        String lname = filename;
-        lname.toLowerCase();
-        if (!lname.endsWith(".gif")) {
-            LOG_E("screensaver upload rejected: not a GIF (%s)", filename.c_str());
-            request->send(400, "text/plain", "Only .gif files are accepted.");
-            return;
-        }
-        LOG_I("screensaver upload started: %s  total=%llu bytes", filename.c_str(), (unsigned long long)flen);
-        upload_file = SPIFFS.open(("/" + gif_name).c_str(), "w");
-        if (!upload_file) {
-            LOG_E("screensaver upload: failed to open %s for writing", ("/" + gif_name).c_str());
-            request->send(500, "text/plain", "Failed to open file for writing.");
-            return;
-        }
-        last_pct = -1;
-    }
-
-    if (upload_file) {
-        if (upload_file.write(data, len) != len) {
-            LOG_E("screensaver upload: write error at offset %u", (unsigned)index);
-            upload_file.close();
-            request->send(500, "text/plain", "Write error.");
-            return;
-        }
-        // Log progress and push to WebSocket so the frontend can show device-side write progress
-        if (flen > 0) {
-            int pct = (int)((index + len) * 100ULL / flen);
-            if (pct != last_pct) {
-                /************************************* DO NOT MODIFY THIS LOG !!!!!***************************************/ 
-                /***********************  AxeOS will parse this log to track upload progress  ****************************/
-                LOG_I("screensaver upload: %d%%  (%u / %llu bytes)",pct, (unsigned)(index + len), (unsigned long long)flen);
-                last_pct = pct;
-            }
-            delay(5); // Feed the watchdog
-        }
-    }
-
-    if (final) {
-        if (upload_file) upload_file.close();
-        LOG_I("screensaver upload complete: %u bytes saved to %s", (unsigned)(index + len), ("/" + gif_name).c_str());
-        AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
-        resp->addHeader("Access-Control-Allow-Origin", "*");
-        request->send(resp);
-        LOG_W("*************** Restarting System to apply new screensaver ***************");
-        xSemaphoreGive(g_board.status.reboot_xsem);
-    }
+// GET /api/update/progress -- returns current OTA/upload progress from g_board.status.ota.
+// Used by the frontend to poll real device-side write progress for all upload types
+// (firmware.bin, spiffs.bin, screensaver .gif).
+void get_ota_progress(AsyncWebServerRequest* request) {
+    char buf[128];
+    snprintf(buf, sizeof(buf),
+        "{\"running\":%s,\"progress\":%d,\"filename\":\"%s\"}",
+        g_board.status.ota.running ? "true" : "false",
+        g_board.status.ota.progress,
+        g_board.status.ota.filename.c_str());
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", buf);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
 }
 
-// POST /api/update/{firmware,spiffs} -- OTA file upload handler; buffers chunks and calls Update.write().
+// Unified upload handler for all file types:
+//   *.gif  → SPIFFS file write (screensaver)  — uses g_board.status.ota for progress
+//   *.bin  → OTA flash write (firmware/spiffs) — uses g_board.status.ota for progress
+//
+// Both paths update g_board.status.ota.{running, progress, filename} so the frontend
+// can poll GET /api/update/progress to get accurate device-side write progress.
+//
+// POST /api/setting/screensaver -- GIF screensaver (multipart field: "screensaver")
+// POST /api/update/{firmware,spiffs} and legacy aliases -- firmware/SPIFFS OTA
 void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
-    // Accumulate TCP segments into a larger write buffer before calling Update.write().
-    // AsyncWebServer calls this handler once per TCP segment (~1460 bytes). Writing each
-    // segment individually is inefficient because:
-    //   1. Update.write() is most efficient at multiples of the flash sector size (4096 bytes).
-    //   2. Every Update.write() call is followed by vTaskDelay(1) to feed the IDLE watchdog;
-    //      fewer calls means less artificial delay.
-    // OTA_WRITE_BUFFER_SIZE = 8192 bytes = 2 flash sectors per write call.
+    // ── Shared statics (only one upload runs at a time) ──────────────────────
+    // GIF path
+    static File     gif_file;
+    // OTA bin path: accumulate TCP segments into larger writes (2 flash sectors each)
     static const size_t OTA_WRITE_BUFFER_SIZE = 8192;
     static uint8_t  ota_buf[OTA_WRITE_BUFFER_SIZE];
     static size_t   ota_buf_len = 0;
+    // Shared
     static int      lastPercentage = -1;
+    static bool     is_gif = false;
 
     uint64_t flen = request->contentLength();
+
     if (index == 0) {
-        LOG_I("OTA Update Started, File name: %s, Index: %d, contentLength: %d, len: %d, Final: %d", filename.c_str(), index, flen, len, final);
-        size_t bin_size = UPDATE_SIZE_UNKNOWN;
-        int update_type = U_FLASH; // Default to firmware update
+        // Detect file type by extension
+        String lname = filename;
+        lname.toLowerCase();
+        is_gif = lname.endsWith(".gif");
 
-        if(filename == "firmware.bin"){
-            bin_size = UPDATE_SIZE_UNKNOWN;
-            update_type = U_FLASH;
-        }
-        if(filename == "spiffs.bin"){
-            // Must use UPDATE_SIZE_UNKNOWN here. SPIFFS.totalBytes() returns the usable
-            // filesystem capacity (after metadata overhead), which is smaller than the
-            // actual partition size (0x380000 = 3.5MB). The generated spiffs.bin is sized
-            // to the full partition, so using totalBytes() as the limit causes "Not Enough
-            // Space" at ~91%. UPDATE_SIZE_UNKNOWN lets the Update library read the true
-            // partition size from the partition table.
-            bin_size = UPDATE_SIZE_UNKNOWN;
-            update_type = U_SPIFFS;
-            // Mark SPIFFS as being updated. Cleared only on successful completion.
-            // If the device reboots before that, file_system_init() will detect the
-            // flag and force recovery mode — even if SPIFFS partially mounted.
-            nvs_config_set_u8(NVS_CONFIG_SPIFFS_UPDATING, 1);
-        } 
+        if (is_gif) {
+            // ── GIF / screensaver init ─────────────────────────────────────
+            String gif_name;
+            if (g_board.info.spec.name == BOARD_NMAXE_NAME || g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME) {
+                gif_name = "screen_saver_240x135.gif";
+            } else {
+                gif_name = "screen_saver_320x240.gif";
+            }
+            LOG_I("GIF upload started: %s -> /%s  total=%llu bytes", filename.c_str(), gif_name.c_str(), (unsigned long long)flen);
+            gif_file = SPIFFS.open(("/" + gif_name).c_str(), "w");
+            if (!gif_file) {
+                LOG_E("GIF upload: failed to open /%s for writing", gif_name.c_str());
+                request->send(500, "text/plain", "Failed to open file for writing.");
+                return;
+            }
+            g_board.status.ota.running  = true;
+            g_board.status.ota.progress = 0;
+            g_board.status.ota.filename = filename;
+            lastPercentage = -1;
+        } else {
+            // ── Firmware / SPIFFS OTA init ────────────────────────────────
+            LOG_I("OTA Update Started, File name: %s, Index: %d, contentLength: %d, len: %d, Final: %d", filename.c_str(), index, flen, len, final);
+            size_t bin_size   = UPDATE_SIZE_UNKNOWN;
+            int    update_type = U_FLASH;
 
-        if (!Update.begin(bin_size, update_type)) { //start with max available size for firmware
-            LOG_E("OTA Update error: %s", Update.errorString());
-            request->send(500, "text/plain", "OTA Update Failed. Not enough space.");
-            return;
-        }else{
-            g_board.status.ota.running = true;
-            g_board.status.ota.progress    = 0;
-            g_board.status.ota.filename    = filename;
-            ota_buf_len = 0;
+            if (filename == "firmware.bin") {
+                bin_size    = UPDATE_SIZE_UNKNOWN;
+                update_type = U_FLASH;
+            } else if (filename == "spiffs.bin") {
+                // Must use UPDATE_SIZE_UNKNOWN here. SPIFFS.totalBytes() returns the usable
+                // filesystem capacity (after metadata overhead), which is smaller than the
+                // actual partition size (0x380000 = 3.5MB). The generated spiffs.bin is sized
+                // to the full partition, so using totalBytes() as the limit causes "Not Enough
+                // Space" at ~91%. UPDATE_SIZE_UNKNOWN lets the Update library read the true
+                // partition size from the partition table.
+                bin_size    = UPDATE_SIZE_UNKNOWN;
+                update_type = U_SPIFFS;
+                // Mark SPIFFS as being updated. Cleared only on successful completion.
+                // If the device reboots before that, file_system_init() will detect the
+                // flag and force recovery mode — even if SPIFFS partially mounted.
+                nvs_config_set_u8(NVS_CONFIG_SPIFFS_UPDATING, 1);
+            }
+
+            if (!Update.begin(bin_size, update_type)) {
+                LOG_E("OTA Update error: %s", Update.errorString());
+                request->send(500, "text/plain", "OTA Update Failed. Not enough space.");
+                return;
+            }
+            g_board.status.ota.running  = true;
+            g_board.status.ota.progress = 0;
+            g_board.status.ota.filename = filename;
+            ota_buf_len    = 0;
             lastPercentage = -1;
         }
     }
 
-    // Accumulate incoming data into ota_buf, flush when buffer is full or this is the last chunk.
-    size_t offset = 0;
-    while (offset < len) {
-        size_t copy_len = min(len - offset, OTA_WRITE_BUFFER_SIZE - ota_buf_len);
-        memcpy(ota_buf + ota_buf_len, data + offset, copy_len);
-        ota_buf_len += copy_len;
-        offset      += copy_len;
-
-        bool flush = (ota_buf_len == OTA_WRITE_BUFFER_SIZE) || (final && offset == len);
-        if (flush) {
-            if (Update.write(ota_buf, ota_buf_len) != ota_buf_len) {
-                LOG_E("OTA Update error: %s", Update.errorString());
-                request->send(500, "text/plain", "OTA Update Failed. Write error.");
-                ota_buf_len = 0;
+    if (is_gif) {
+        // ── GIF write path ────────────────────────────────────────────────
+        if (gif_file) {
+            if (gif_file.write(data, len) != len) {
+                LOG_E("GIF upload: write error at offset %u", (unsigned)index);
+                gif_file.close();
+                g_board.status.ota.running = false;
+                request->send(500, "text/plain", "Write error.");
                 return;
             }
-            ota_buf_len = 0;
-
-            // vTaskDelay(1): block async_tcp for 1ms so IDLE task can reset the task watchdog.
-            // taskYIELD() is insufficient  - it only yields to equal/higher-priority tasks,
-            // and IDLE (priority 0) would never run.
-            vTaskDelay(pdMS_TO_TICKS(1));
-
-            // Update progress after each flush
-            int progress = (int)((index + offset) * 100.0 / flen);
-            if (progress != lastPercentage) {
-                g_board.status.ota.progress = progress;
-                LOG_I("%s ota: %d%%", filename.c_str(), progress);
-                lastPercentage = progress;
+            if (flen > 0) {
+                int pct = (int)((index + len) * 100ULL / flen);
+                if (pct != lastPercentage) {
+                    g_board.status.ota.progress = pct;
+                    LOG_I("GIF upload: %d%%  (%u / %llu bytes)", pct, (unsigned)(index + len), (unsigned long long)flen);
+                    lastPercentage = pct;
+                }
+                delay(5); // Feed the watchdog
             }
         }
-    }
-
-    if (final) {
-        if (Update.end(true)) {
-            g_board.status.ota.running = false;
+        if (final) {
+            if (gif_file) gif_file.close();
+            // g_board.status.ota.running  = false;
             g_board.status.ota.progress = 100;
-            LOG_I("%s ota: %d%%", filename.c_str(), g_board.status.ota.progress);
-            // SPIFFS update completed successfully — clear the "in-progress" guard flag
-            // so the next boot proceeds to normal mode instead of recovery mode.
-            if (filename == "spiffs.bin") {
-                nvs_config_set_u8(NVS_CONFIG_SPIFFS_UPDATING, 0);
-            }
-            AsyncWebServerResponse *response = request->beginResponse(200);
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            request->send(response);
-
+            LOG_I("GIF upload complete: %u bytes saved as %s", (unsigned)(index + len), filename.c_str());
+            AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+            resp->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(resp);
+            
             LOG_W("*************** Update Success: %u bytes, rebooting *************** ", index + len);
             // NOTE: delay() in async_tcp context blocks the TCP stack.
             //       daemon_thread_entry waits ~1s before restarting, giving time for the HTTP response to be sent.
             xSemaphoreGive(g_board.status.reboot_xsem);
-        } else {
-            LOG_E("OTA Update error: %s", Update.errorString());
-            request->send(500, "text/plain", "OTA Update Failed. End error.");
+        }
+    } else {
+        // ── OTA bin write path ────────────────────────────────────────────
+        // Accumulate incoming data into ota_buf, flush when buffer is full or this is the last chunk.
+        // OTA_WRITE_BUFFER_SIZE = 8192 bytes = 2 flash sectors per write call.
+        size_t offset = 0;
+        while (offset < len) {
+            size_t copy_len = min(len - offset, OTA_WRITE_BUFFER_SIZE - ota_buf_len);
+            memcpy(ota_buf + ota_buf_len, data + offset, copy_len);
+            ota_buf_len += copy_len;
+            offset      += copy_len;
+
+            bool flush = (ota_buf_len == OTA_WRITE_BUFFER_SIZE) || (final && offset == len);
+            if (flush) {
+                if (Update.write(ota_buf, ota_buf_len) != ota_buf_len) {
+                    LOG_E("OTA Update error: %s", Update.errorString());
+                    request->send(500, "text/plain", "OTA Update Failed. Write error.");
+                    ota_buf_len = 0;
+                    return;
+                }
+                ota_buf_len = 0;
+
+                // vTaskDelay(1): block async_tcp for 1ms so IDLE task can reset the task watchdog.
+                // taskYIELD() is insufficient  - it only yields to equal/higher-priority tasks,
+                // and IDLE (priority 0) would never run.
+                vTaskDelay(pdMS_TO_TICKS(1));
+
+                int progress = (int)((index + offset) * 100.0 / flen);
+                if (progress != lastPercentage) {
+                    g_board.status.ota.progress = progress;
+                    LOG_I("%s ota: %d%%", filename.c_str(), progress);
+                    lastPercentage = progress;
+                }
+            }
+        }
+
+        if (final) {
+            if (Update.end(true)) {
+                // g_board.status.ota.running  = false;
+                g_board.status.ota.progress = 100;
+                LOG_I("%s ota: %d%%", filename.c_str(), g_board.status.ota.progress);
+                // SPIFFS update completed successfully — clear the "in-progress" guard flag
+                // so the next boot proceeds to normal mode instead of recovery mode.
+                if (filename == "spiffs.bin") {
+                    nvs_config_set_u8(NVS_CONFIG_SPIFFS_UPDATING, 0);
+                }
+                AsyncWebServerResponse *response = request->beginResponse(200);
+                response->addHeader("Access-Control-Allow-Origin", "*");
+                request->send(response);
+
+                LOG_W("*************** Update Success: %u bytes, rebooting *************** ", index + len);
+                // NOTE: delay() in async_tcp context blocks the TCP stack.
+                //       daemon_thread_entry waits ~1s before restarting, giving time for the HTTP response to be sent.
+                xSemaphoreGive(g_board.status.reboot_xsem);
+            } else {
+                LOG_E("OTA Update error: %s", Update.errorString());
+                request->send(500, "text/plain", "OTA Update Failed. End error.");
+            }
         }
     }
 }
