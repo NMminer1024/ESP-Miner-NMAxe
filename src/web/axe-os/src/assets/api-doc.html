@@ -429,6 +429,9 @@
       <a class="nav-item" href="#set-preference">
         <span class="nav-badge badge-multi">G/P</span> Preference
       </a>
+      <a class="nav-item" href="#set-screensaver">
+        <span class="nav-badge badge-post">POST</span> Screensaver
+      </a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">OTA Update</div>
@@ -454,7 +457,10 @@
     <div class="nav-group">
       <div class="nav-group-title">Logging</div>
       <a class="nav-item" href="#log">
-        <span class="nav-badge badge-get">GET</span> Log Stream
+        <span class="nav-badge badge-get">GET</span> Log Trigger
+      </a>
+      <a class="nav-item" href="#websocket">
+        <span class="nav-badge badge-ws">WS</span> WebSocket
       </a>
     </div>
     <div class="nav-group">
@@ -907,6 +913,41 @@
         </div>
       </div>
 
+      <!-- screensaver -->
+      <div class="endpoint" id="set-screensaver">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/setting/screensaver</code>
+          <span class="endpoint-summary">Upload custom screensaver GIF</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Upload a custom animated GIF to replace the built-in screensaver. The file is saved to SPIFFS as
+            <code>screen_saver_240x135.gif</code> (NMAxe / NMAxeGamma) or
+            <code>screen_saver_320x240.gif</code> (NMQAxe++), then the device reboots automatically to apply the change.
+            Only <code>.gif</code> files are accepted; any other extension is rejected with <code>400</code>.
+          </p>
+          <div class="note note-warn">⚠️ The device reboots automatically after a successful upload.</div>
+          <div class="note">ℹ️ During upload the firmware periodically pushes progress log lines over the WebSocket (<code>/ws</code>). The frame text matches the pattern:<br><code>screensaver upload: N%  (bytes / total bytes)</code><br>Clients can parse the integer <code>N</code> with a regex such as <code>/screensaver upload:\s*(\d+)%/</code> to display device-side SPIFFS write progress.</div>
+          <div class="block-label">Request – multipart/form-data</div>
+          <pre>POST /api/setting/screensaver HTTP/1.1
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="screensaver"; filename="my-animation.gif"
+Content-Type: application/octet-stream
+
+&lt;binary GIF data&gt;
+------boundary--</pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="block-label">Response 400 – non-GIF file</div>
+          <pre>Only .gif files are accepted.</pre>
+          <div class="block-label">Response 500 – SPIFFS write failure</div>
+          <pre>Write error.</pre>
+        </div>
+      </div>
+
       <!-- preference -->
       <div class="endpoint" id="set-preference">
         <div class="endpoint-head">
@@ -941,16 +982,16 @@
 }</pre>
           <div class="block-label">PATCH – Request body (send only the fields you want to change)</div>
           <pre>{
-  <span class="kw">"brightness"</span>:        <span class="num">100</span>,    <span class="cmt">// 0–255, applied immediately</span>
-  <span class="kw">"flipscreen"</span>:        <span class="num">0</span>,      <span class="cmt">// 0=normal, 1=flip</span>
-  <span class="kw">"ledindicator"</span>:      <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
-  <span class="kw">"autoscreen"</span>:        <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
-  <span class="kw">"autoasicfanspeed"</span>:  <span class="num">1</span>,      <span class="cmt">// 0=manual, 1=auto</span>
-  <span class="kw">"asictargettemp"</span>:    <span class="str">"65.0"</span>,
-  <span class="kw">"asicfanspeed"</span>:      <span class="num">80</span>,     <span class="cmt">// % – used when autoasicfanspeed=0</span>
-  <span class="kw">"autovcorefanspeed"</span>: <span class="num">0</span>,
-  <span class="kw">"vcoretargettemp"</span>:   <span class="str">"55.0"</span>,
-  <span class="kw">"vcorefanspeed"</span>:     <span class="num">60</span>
+  <span class="kw">"Brightness"</span>:        <span class="num">100</span>,    <span class="cmt">// 1–100, applied immediately</span>
+  <span class="kw">"screenFlip"</span>:        <span class="num">0</span>,      <span class="cmt">// 0=normal, 1=flip</span>
+  <span class="kw">"ledIndicator"</span>:      <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
+  <span class="kw">"screenAutoRoll"</span>:    <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
+  <span class="kw">"screensaverEnable"</span>: <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
+  <span class="kw">"screensaverTimeout"</span>:<span class="num">300</span>,    <span class="cmt">// seconds</span>
+  <span class="kw">"fans"</span>: [
+    { <span class="kw">"id"</span>: <span class="num">0</span>, <span class="kw">"auto"</span>: <span class="num">1</span>, <span class="kw">"target"</span>: <span class="num">65.0</span>, <span class="kw">"speed"</span>: <span class="num">80</span> },  <span class="cmt">// id=0: ASIC fan</span>
+    { <span class="kw">"id"</span>: <span class="num">1</span>, <span class="kw">"auto"</span>: <span class="num">0</span>, <span class="kw">"target"</span>: <span class="num">55.0</span>, <span class="kw">"speed"</span>: <span class="num">60</span> }   <span class="cmt">// id=1: Vcore fan (NMQAxe++ only)</span>
+  ]
 }</pre>
           <div class="block-label">PATCH – Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
@@ -1115,27 +1156,72 @@ Content-Type: application/octet-stream
         <div class="section-icon">📋</div>
         <div class="section-title">Logging</div>
       </div>
-      <p class="section-desc">Server-sent event (SSE) stream for real-time device log output.</p>
+      <p class="section-desc">
+        Real-time log output is pushed over the persistent WebSocket connection at <code>/ws</code>.
+        The HTTP <code>GET /api/log</code> endpoint is a lightweight probe that confirms the log channel
+        is available; actual log lines are delivered as WebSocket text frames.
+      </p>
 
+      <!-- GET /api/log -->
       <div class="endpoint" id="log">
         <div class="endpoint-head">
           <span class="method-badge method-get">GET</span>
           <code class="endpoint-path">/api/log</code>
-          <span class="endpoint-summary">Real-time log stream (SSE)</span>
+          <span class="endpoint-summary">Log feature probe / trigger</span>
         </div>
         <div class="endpoint-body">
           <p class="ep-desc">
-            Returns a <code>text/event-stream</code> (Server-Sent Events) or chunked text response containing continuous log output from the device. Each line is a timestamped log entry.
+            A lightweight probe endpoint. Invoking it triggers an internal log event so the client can
+            confirm the log channel is alive. Actual log lines are delivered as
+            <strong>WebSocket text frames</strong> over <code>ws://&lt;device&gt;/ws</code> — not in this HTTP response.
           </p>
-          <div class="block-label">Response headers</div>
-          <pre>Content-Type: text/event-stream
-Cache-Control: no-cache
-Connection: keep-alive</pre>
-          <div class="block-label">Response body (streaming)</div>
+          <div class="block-label">Response 200</div>
+          <pre><span class="cmt">// 200 OK with empty body — real logs arrive via WebSocket /ws</span></pre>
+        </div>
+      </div>
+
+      <!-- WebSocket /ws -->
+      <div class="endpoint" id="websocket">
+        <div class="endpoint-head">
+          <span class="method-badge method-ws">WS</span>
+          <code class="endpoint-path">ws://&lt;device&gt;/ws</code>
+          <span class="endpoint-summary">Real-time log &amp; event stream</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            A persistent WebSocket connection served on <strong>port 80</strong>, path <code>/ws</code>.
+            The firmware pushes every log line as a UTF-8 text frame in real time.
+            Text sent by a client is echoed back verbatim (useful for connectivity testing).
+            <code>webSocket.cleanupClients()</code> runs every 250 ms inside the webserver thread
+            to detect and evict stale connections.
+          </p>
+          <div class="note">ℹ️ Connect with any standard WebSocket client: the browser <code>WebSocket</code> API, <code>wscat</code>, or the AxeOS built-in Log page.</div>
+          <div class="block-label">Connection URL</div>
+          <pre>ws://<span class="url">&lt;device-ip&gt;/ws</span></pre>
+          <div class="block-label">Server → Client frames (text) – log lines</div>
           <pre><span class="cmt">[I][12:34:56] WiFi connected to [MySSID], waiting for IP...
 [I][12:34:57] Got IP: 192.168.1.42
 [D][12:34:58] Vcore ready at 1200mV/1200mV
-[I][12:34:59] Mining started on pool.example.com:3333</span></pre>
+[W][12:34:59] (swarm) new scan gen=3, reset swarm memory, 5 alive IPs to probe
+
+// During screensaver GIF upload — one frame per percent change:
+I screensaver upload: 25%  (76800 / 307200 bytes)
+I screensaver upload: 50%  (153600 / 307200 bytes)
+I screensaver upload: 100%  (307200 / 307200 bytes)</span></pre>
+          <div class="note">ℹ️ Screensaver upload progress frames follow the fixed pattern <code>screensaver upload: N%  (...)</code>. Parse with <code>/screensaver upload:\s*(\d+)%/</code> to extract <code>N</code>.</div>
+          <div class="block-label">Client → Server frames (text) – echoed back</div>
+          <pre><span class="cmt">// Any text sent by the client is echoed back verbatim</span>
+<span class="str">"ping"</span>  <span class="cmt">→ server replies</span>  <span class="str">"ping"</span></pre>
+          <table>
+            <thead><tr><th>Event</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>WS_EVT_CONNECT</code></td><td>Client connected; logged via <code>Serial.printf</code></td></tr>
+              <tr><td><code>WS_EVT_DISCONNECT</code></td><td>Client disconnected; stale clients cleaned up every 250 ms</td></tr>
+              <tr><td><code>WS_EVT_DATA</code></td><td>Incoming text frame echoed back to the sender</td></tr>
+              <tr><td><code>WS_EVT_PONG</code></td><td>Pong received in response to a server-side ping</td></tr>
+              <tr><td><code>WS_EVT_ERROR</code></td><td>Transport error on the client connection</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>

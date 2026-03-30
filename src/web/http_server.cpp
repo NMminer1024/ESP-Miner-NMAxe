@@ -531,60 +531,67 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
-        if (root.containsKey("brightness")) {
-            uint8_t brightness = (root["brightness"].as<uint8_t>() <=1) ? 1 : ((root["brightness"].as<uint8_t>() >= 100) ? 100 : root["brightness"].as<uint8_t>());
+        if (root.containsKey("Brightness")) {
+            uint8_t brightness = (root["Brightness"].as<uint8_t>() <=1) ? 1 : ((root["Brightness"].as<uint8_t>() >= 100) ? 100 : root["Brightness"].as<uint8_t>());
             g_board.status.preference.screen.brightness = brightness;
             nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, brightness);
             xSemaphoreGive(g_board.status.brightness_update_xsem);
         }
-        if (root.containsKey("ledindicator")) {
-            g_board.status.preference.led.enable = root["ledindicator"].as<uint8_t>();
+        if (root.containsKey("ledIndicator")) {
+            g_board.status.preference.led.enable = root["ledIndicator"].as<uint8_t>();
             g_board.status.preference.led.sleep  = false;
-            nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledindicator"].as<uint8_t>());
+            nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledIndicator"].as<uint8_t>());
         }
-
-        // fan0 for asic
-        if (root.containsKey("autoasicfanspeed")) {
-            nvs_config_set_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, root["autoasicfanspeed"].as<uint16_t>());
-            g_board.info.spec.fans[0].auto_speed = root["autoasicfanspeed"].as<uint16_t>();
+        if (root.containsKey("screenAutoRoll")) {
+            nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["screenAutoRoll"].as<uint8_t>());
+            g_board.status.preference.screen.auto_rolling = root["screenAutoRoll"].as<uint8_t>();
         }
-        if (root.containsKey("asictargettemp")) {
-            nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, root["asictargettemp"].as<String>().c_str());
-            g_board.info.spec.fans[0].target_temp = String(root["asictargettemp"].as<String>()).toFloat();
+        if (root.containsKey("screenFlip"))  {
+            nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["screenFlip"].as<uint8_t>());
         }
-        if (root.containsKey("asicfanspeed")) {
-            nvs_config_set_u16(NVS_CONFIG_ASIC_FAN_SPEED, root["asicfanspeed"].as<uint16_t>());
-            g_board.status.fan.list[0].speed = root["asicfanspeed"].as<uint16_t>();
+        if (root.containsKey("screensaverEnable"))  {
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, root["screensaverEnable"].as<uint8_t>());
+            g_board.status.preference.screen.saver_enable = root["screensaverEnable"].as<uint8_t>();
         }
-        // fan1 for vcore
-        if (root.containsKey("autovcorefanspeed")) {
-            nvs_config_set_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, root["autovcorefanspeed"].as<uint16_t>());
-            g_board.info.spec.fans[1].auto_speed = root["autovcorefanspeed"].as<uint16_t>();
+        if (root.containsKey("screensaverTimeout"))  {
+            nvs_config_set_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, root["screensaverTimeout"].as<uint32_t>());
+            g_board.status.preference.screen.saver_timeout = root["screensaverTimeout"].as<uint32_t>();
         }
-        if (root.containsKey("vcoretargettemp")) {
-            nvs_config_set_string(NVS_CONFIG_VCORE_TARGET_TEMP, root["vcoretargettemp"].as<String>().c_str());
-            g_board.info.spec.fans[1].target_temp = String(root["vcoretargettemp"].as<String>()).toFloat();
-        }
-        if (root.containsKey("vcorefanspeed")) {
-            nvs_config_set_u16(NVS_CONFIG_VCORE_FAN_SPEED, root["vcorefanspeed"].as<uint16_t>());
-            g_board.status.fan.list[1].speed = root["vcorefanspeed"].as<uint16_t>();
-        }
-
-        // for screen
-        if (root.containsKey("autoscreen")) {
-            nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["autoscreen"].as<uint8_t>());
-            g_board.status.preference.screen.auto_rolling = root["autoscreen"].as<uint8_t>();
-        }
-        if (root.containsKey("flipscreen"))  {
-            nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["flipscreen"].as<uint8_t>());
-        }
-        if (root.containsKey("screensaverenable"))  {
-            nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, root["screensaverenable"].as<uint8_t>());
-            g_board.status.preference.screen.saver_enable = root["screensaverenable"].as<uint8_t>();
-        }
-        if(root.containsKey("screensavertimeout"))  {
-            nvs_config_set_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, root["screensavertimeout"].as<uint32_t>());
-            g_board.status.preference.screen.saver_timeout = root["screensavertimeout"].as<uint32_t>();
+        // fans array: id=0 → ASIC fan, id=1 → Vcore fan
+        if (root.containsKey("fans") && root["fans"].is<JsonArray>()) {
+            for (JsonObject fan : root["fans"].as<JsonArray>()) {
+                if (!fan.containsKey("id")) continue;
+                uint8_t fan_id = fan["id"].as<uint8_t>();
+                if (fan_id == 0) {
+                    if (fan.containsKey("auto")) {
+                        nvs_config_set_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, fan["auto"].as<uint16_t>());
+                        g_board.info.spec.fans[0].auto_speed = fan["auto"].as<uint16_t>();
+                    }
+                    if (fan.containsKey("target")) {
+                        String t = String(fan["target"].as<float>(), 1);
+                        nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, t.c_str());
+                        g_board.info.spec.fans[0].target_temp = fan["target"].as<float>();
+                    }
+                    if (fan.containsKey("speed")) {
+                        nvs_config_set_u16(NVS_CONFIG_ASIC_FAN_SPEED, fan["speed"].as<uint16_t>());
+                        g_board.status.fan.list[0].speed = fan["speed"].as<uint16_t>();
+                    }
+                } else if (fan_id == 1) {
+                    if (fan.containsKey("auto")) {
+                        nvs_config_set_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, fan["auto"].as<uint16_t>());
+                        g_board.info.spec.fans[1].auto_speed = fan["auto"].as<uint16_t>();
+                    }
+                    if (fan.containsKey("target")) {
+                        String t = String(fan["target"].as<float>(), 1);
+                        nvs_config_set_string(NVS_CONFIG_VCORE_TARGET_TEMP, t.c_str());
+                        g_board.info.spec.fans[1].target_temp = fan["target"].as<float>();
+                    }
+                    if (fan.containsKey("speed")) {
+                        nvs_config_set_u16(NVS_CONFIG_VCORE_FAN_SPEED, fan["speed"].as<uint16_t>());
+                        g_board.status.fan.list[1].speed = fan["speed"].as<uint16_t>();
+                    }
+                }
+            }
         }
 
         for(const auto &kv : root.as<JsonObject>()) {
@@ -1225,15 +1232,16 @@ void screensaver_upload_handler(AsyncWebServerRequest *request, const String& fi
             request->send(500, "text/plain", "Write error.");
             return;
         }
-        // Log progress every ~10 % (same style as OTA)
+        // Log progress and push to WebSocket so the frontend can show device-side write progress
         if (flen > 0) {
             int pct = (int)((index + len) * 100ULL / flen);
-            if (pct != last_pct ) {
-                LOG_I("screensaver upload: %d%%  (%u / %llu bytes)",
-                      pct, (unsigned)(index + len), (unsigned long long)flen);
+            if (pct != last_pct) {
+                /************************************* DO NOT MODIFY THIS LOG !!!!!***************************************/ 
+                /***********************  AxeOS will parse this log to track upload progress  ****************************/
+                LOG_I("screensaver upload: %d%%  (%u / %llu bytes)",pct, (unsigned)(index + len), (unsigned long long)flen);
                 last_pct = pct;
             }
-            delay(5); // Feed the watchdog; 
+            delay(5); // Feed the watchdog
         }
     }
 

@@ -1,10 +1,12 @@
 import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
-import {Component, Input, OnInit} from '@angular/core';
+import {Component, Input, OnDestroy, OnInit} from '@angular/core';
 import {FormBuilder, FormGroup, Validators} from '@angular/forms';
 import {ToastrService} from 'ngx-toastr';
+import {Subscription} from 'rxjs';
 import {startWith} from 'rxjs';
 import {LoadingService} from 'src/app/services/loading.service';
 import {SystemService} from 'src/app/services/system.service';
+import {WebsocketService} from 'src/app/services/web-socket.service';
 import {eASICModel} from 'src/models/enum/eASICModel';
 
 @Component({
@@ -12,7 +14,7 @@ import {eASICModel} from 'src/models/enum/eASICModel';
   templateUrl: './preference.component.html',
   styleUrls: ['./preference.component.scss']
 })
-export class PreferenceComponent implements OnInit {
+export class PreferenceComponent implements OnInit, OnDestroy {
 
   public form!: FormGroup;
 
@@ -39,7 +41,9 @@ export class PreferenceComponent implements OnInit {
   // Screensaver GIF upload state
   public screensaverFile: File | null = null;
   public screensaverUploading: boolean = false;
-  public screensaverProgress: number = 0;
+  public screensaverProgress: number = 0;         // network upload %
+  public screensaverDeviceProgress: number = 0;   // device SPIFFS write %
+  private wsSub: Subscription | null = null;
 
   @Input() uri = '';
 
@@ -48,7 +52,8 @@ export class PreferenceComponent implements OnInit {
     private systemService: SystemService,
     private toastr: ToastrService,
     private toastrService: ToastrService,
-    private loadingService: LoadingService
+    private loadingService: LoadingService,
+    private wsService: WebsocketService
   ) {
 
     window.addEventListener('resize', this.checkDevTools);
@@ -160,17 +165,22 @@ export class PreferenceComponent implements OnInit {
 
   public updateSystem() {    const raw = this.form.getRawValue();
 
-    const { screensaverTimeout: _sst, ...rest } = raw;
+    const fans: any[] = [
+      { id: 0, auto: raw.autoasicfanspeed ? 1 : 0, target: raw.asictargettemp, speed: raw.asicfanspeed }
+    ];
+    if (this.hasDualFan) {
+      fans.push({ id: 1, auto: raw.autovcorefanspeed ? 1 : 0, target: raw.vcoretargettemp, speed: raw.vcorefanspeed });
+    }
+
     const form: any = {
-      ...rest,
-      flipscreen:          raw.flipscreen        ? 1 : 0,
-      invertscreen:        raw.invertscreen      ? 1 : 0,
-      ledindicator:        raw.ledindicator      ? 1 : 0,
-      autoasicfanspeed:    raw.autoasicfanspeed  ? 1 : 0,
-      autovcorefanspeed:   raw.autovcorefanspeed ? 1 : 0,
-      autoscreen:          raw.autoscreen        ? 1 : 0,
-      screensaverenable:   raw.screensaverTimeout === 0 ? 0 : 1,
-      screensavertimeout:  raw.screensaverTimeout,
+      Brightness:         raw.brightness,
+      screenFlip:         raw.flipscreen   ? 1 : 0,
+      invertscreen:       raw.invertscreen ? 1 : 0,
+      ledIndicator:       raw.ledindicator ? 1 : 0,
+      screenAutoRoll:     raw.autoscreen   ? 1 : 0,
+      screensaverEnable:  raw.screensaverTimeout === 0 ? 0 : 1,
+      screensaverTimeout: raw.screensaverTimeout,
+      fans
     };
 
     this.systemService.patchSettingPreference(this.uri, form)
@@ -197,6 +207,15 @@ export class PreferenceComponent implements OnInit {
     if (!this.screensaverFile) return;
     this.screensaverUploading = true;
     this.screensaverProgress = 0;
+    this.screensaverDeviceProgress = 0;
+
+    // Subscribe to WebSocket to receive device-side SPIFFS write progress
+    this.wsSub = this.wsService.connect().subscribe((msg: string) => {
+      const m = msg.match(/screensaver upload:\s*(\d+)%/);
+      if (m) {
+        this.screensaverDeviceProgress = parseInt(m[1], 10);
+      }
+    });
 
     // Do NOT pipe through lockUIUntilComplete() — that operator shows a blocking
     // overlay for the entire lifetime of the observable.  A file upload emits
@@ -211,15 +230,25 @@ export class PreferenceComponent implements OnInit {
             this.screensaverUploading = false;
             this.screensaverFile = null;
             this.screensaverProgress = 0;
+            this.screensaverDeviceProgress = 0;
+            this.wsSub?.unsubscribe();
+            this.wsSub = null;
             this.toastr.success('Screen saver uploaded!', 'Success');
           }
         },
         error: (err: HttpErrorResponse) => {
           this.screensaverUploading = false;
           this.screensaverProgress = 0;
+          this.screensaverDeviceProgress = 0;
+          this.wsSub?.unsubscribe();
+          this.wsSub = null;
           this.toastr.error('Upload failed.', err.message);
         }
       });
+  }
+
+  ngOnDestroy(): void {
+    this.wsSub?.unsubscribe();
   }
 
 }

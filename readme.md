@@ -439,23 +439,37 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 ```json
 {
   "screenFlip": 0, "Brightness": 80, "screenAutoRoll": 1, "ledIndicator": 1,
+  "screensaverEnable": 1, "screensaverTimeout": 300,
+  "hwModel": "NMAxe",
   "fans": [
-    { "id": 0, "speed": 60, "rpm": 3600, "auto": 1, "target": 55.0, "tempMin": 20.0, "tempMax": 75.0 },
-    { "id": 1, "speed": 80, "rpm": 4200, "auto": 1, "target": 85.0, "tempMin": 80.0, "tempMax": 130.0 }
+    { "id": 0, "speed": 60, "rpm": 3600, "auto": 1, "target": 55.0 },
+    { "id": 1, "speed": 80, "rpm": 4200, "auto": 1, "target": 85.0 }
   ]
 }
 ```
-> `fans[1]` (Vcore fan) is only present on NMQAxe++. `tempMin`/`tempMax` reflect board spec limits: ASIC fan uses `asic.temp_limit`, Vcore fan uses `pwr.temp_limit`.
+> `fans[1]` (Vcore fan) is only present on NMQAxe++.
 
 **PATCH**
 ```json
 {
-  "brightness": 80, "flipscreen": 0, "ledindicator": 1, "autoscreen": 1,
-  "autoasicfanspeed": 1, "asictargettemp": "55.0", "asicfanspeed": 60,
-  "autovcorefanspeed": 1, "vcoretargettemp": "85.0", "vcorefanspeed": 80
+  "Brightness": 80, "screenFlip": 0,
+  "ledIndicator": 1, "screenAutoRoll": 1,
+  "screensaverEnable": 1, "screensaverTimeout": 300,
+  "fans": [
+    { "id": 0, "auto": 1, "target": 55.0, "speed": 60 },
+    { "id": 1, "auto": 1, "target": 85.0, "speed": 80 }
+  ]
 }
 ```
-> `asicfanspeed` takes effect only when `autoasicfanspeed=0`. `vcorefanspeed` takes effect only when `autovcorefanspeed=0`. Vcore fields are NMQAxe++ only. All changes require a device restart.
+> `fans[].speed` takes effect only when `auto=0`. `fans[1]` (Vcore fan, `id=1`) is NMQAxe++ only. All fields are optional.
+
+#### Screensaver — `POST /api/setting/screensaver`
+
+Upload a custom animated GIF as screensaver. The file is written to SPIFFS, then the device reboots automatically.
+
+- Content-Type: `multipart/form-data`, field name: `screensaver`
+- Only `.gif` files accepted (400 otherwise)
+- Saved as `screen_saver_240x135.gif` (NMAxe / NMAxeGamma) or `screen_saver_320x240.gif` (NMQAxe++)
 
 ---
 
@@ -519,7 +533,8 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
-| GET | `/api/log` | Real-time log stream via WebSocket at `ws://{ip}/ws` |
+| GET | `/api/log` | Trigger probe only — real logs are pushed as text frames over `ws://{ip}/ws` |
+| WS  | `ws://{ip}/ws` | Persistent WebSocket — every `LOG_*` line is broadcast as a UTF-8 text frame. Outgoing text from clients is echoed back. |
 
 </details>
 

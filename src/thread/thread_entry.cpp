@@ -584,6 +584,9 @@ void webserver_thread_entry(void *args){
         resp->print("]}");
         request->send(resp);
     });
+    webServer.on("/api-doc", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->redirect("/api-doc.html");
+    });
     webServer.on("/*", HTTP_GET, rest_common_get_handler);
     webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
         AsyncWebServerResponse *response = request->beginResponse(200);

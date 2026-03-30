@@ -120,7 +120,14 @@
           </div>
         </div>
         <small style="color:#aaaaaa; display:block; margin-top:4px;">
-          <span *ngIf="screensaverUploading" style="color:#4CAF50; margin-right:6px;">Uploading {{ screensaverProgress }}%</span>
+          <ng-container *ngIf="screensaverUploading">
+            <span style="color:#4CAF50; margin-right:6px;">
+              Uploading {{ screensaverProgress }}%
+              <ng-container *ngIf="screensaverProgress >= 100 && screensaverDeviceProgress < 100">
+                &nbsp;· Writing {{ screensaverDeviceProgress }}%
+              </ng-container>
+            </span>
+          </ng-container>
           {{ screensaverResolutionHint }}<br/>
           <span style="color:#cc9933;">&#9888; Custom GIF will be lost when updating SPIFFS firmware. Please back up your GIF file offline.</span>
         </small>
