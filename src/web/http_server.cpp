@@ -1398,6 +1398,11 @@ void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEve
         case WS_EVT_CONNECT:
             Serial.printf("> [WS] client #%u connected from %s\r\n",
                           client->id(), client->remoteIP().toString().c_str());
+            // A WebSocket connection is the most reliable signal that a user has opened the web UI.
+            // Wake screensaver immediately so the page renders with a live display.
+            // Safe to call here: g_board is a global and these are atomic bit ops.
+            g_board.status.ui.last_active_ms = millis();
+            xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
             break;
         case WS_EVT_DISCONNECT:
             Serial.printf("> [WS] client #%u disconnected\r\n", client->id());

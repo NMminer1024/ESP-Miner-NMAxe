@@ -239,8 +239,15 @@ export class SwarmComponent implements OnInit, OnDestroy {
         this.deviceMap.forEach((_, ip) => this.fetchDeviceInfo(ip));
       });
 
+      // Subscription 3: Heartbeat every 5 s so the device screensaver stays off
+      // while the user is watching the swarm page.
+      const heartbeatSubscription = interval(5000).pipe(startWith(0)).subscribe(() => {
+        this.systemService.heartbeat().subscribe();
+      });
+
       this.subscription.add(aliveSubscription);
       this.subscription.add(refreshSubscription);
+      this.subscription.add(heartbeatSubscription);
     });
   }
 

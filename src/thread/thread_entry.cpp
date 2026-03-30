@@ -514,9 +514,23 @@ void webserver_thread_entry(void *args){
     // Register AsyncWebSocket handler on webServer (same port 80, path /ws)
     webSocket.onEvent(webSocketEvent);
     webServer.addHandler(&webSocket);
-    webServer.on("/api/system/info",  HTTP_GET, get_system_info);
+    webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/system/restart",HTTP_POST, post_restart);
     webServer.on("/api/system/clearhits", HTTP_POST, post_reset_block_hits);
+    // ── Heartbeat: dashboard and swarm pages call this to keep the screensaver inactive.
+    // Setting / update / log pages do NOT call this, so the screensaver can activate
+    // while the user is away from the real-time monitoring pages.
+    webServer.on("/api/heartbeat", HTTP_GET, [board](AsyncWebServerRequest *request){
+        const AsyncWebHeader* origin = request->getHeader("Origin");
+        bool is_local = !origin || (origin->value().indexOf(WiFi.localIP().toString()) >= 0);
+        if (is_local) {
+            board->status.ui.last_active_ms = millis();
+            xEventGroupClearBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+        }
+        AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"ok\":true}");
+        r->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(r);
+    });
     // ── Dashboard data endpoints ──────────────────────────────────────────────
     webServer.on("/api/dashboard/hr/dist",       HTTP_GET, get_hr_distribution);
     webServer.on("/api/dashboard/gauge/limits",   HTTP_GET, get_gauge_limits);
@@ -524,10 +538,10 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/dashboard/chart/realtime", HTTP_GET, get_status_realtime);
     webServer.on("/api/dashboard/luck/history",   HTTP_GET, get_lucky_history);
     // ── Swarm endpoints ───────────────────────────────────────────────────────
-    // webServer.on("/api/swarm", HTTP_GET, get_swarm_info_handler);
     webServer.on("/api/swarm/scan", HTTP_POST, [board](AsyncWebServerRequest* request) {
         if (board->status.neighbor.scan_required){
             xSemaphoreGive(board->status.neighbor.scan_required);
+            LOG_I("Triggered alive IP scan by swarm request");
         }
         AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
         r->addHeader("Access-Control-Allow-Origin", "*");
@@ -537,6 +551,8 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/log", HTTP_GET, echo_handler);
     // ── OTA update endpoints ──────────────────────────────────────────────────
     webServer.on("/api/update/progress", HTTP_GET,  get_ota_progress);                                          // progress poll
+    // Screensaver wake is handled exclusively by /api/heartbeat — OTA uploads do NOT
+    // need to wake the screensaver; the upload page itself does not call heartbeat.
     webServer.on("/api/update/firmware", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
     webServer.on("/api/update/spiffs",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
     webServer.on("/api/system/OTA",      HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // compat alias
@@ -558,6 +574,11 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/setting/screensaver",HTTP_POST,  [](AsyncWebServerRequest *request){}, file_upload_handler);
     // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
     webServer.on("/probe", HTTP_GET, [board](AsyncWebServerRequest* request) {
+        // Return 503 during OTA — avoid competing with the flash write for TCP/lwIP resources.
+        if (board->status.ota.running) {
+            request->send(503, "text/plain", "OTA in progress");
+            return;
+        }
         AsyncResponseStream* resp = request->beginResponseStream("application/json");
         resp->addHeader("Access-Control-Allow-Origin", "*");
         resp->print("{");
@@ -573,6 +594,11 @@ void webserver_thread_entry(void *args){
     });
     // alive ip return from miner, just alive ip, maybe phone, pc, or miner itself, for miner probe endpoint, AxeOS probe one by one .
     webServer.on("/alive", HTTP_GET, [board](AsyncWebServerRequest* request) {
+        // Return 503 during OTA — avoid competing with the flash write for TCP/lwIP resources.
+        if (board->status.ota.running) {
+            request->send(503, "text/plain", "OTA in progress");
+            return;
+        }
         String self_ip = WiFi.localIP().toString();
         AsyncResponseStream* resp = request->beginResponseStream("application/json");
         resp->addHeader("Access-Control-Allow-Origin", "*");
@@ -588,7 +614,16 @@ void webserver_thread_entry(void *args){
     webServer.on("/api-doc", HTTP_GET, [](AsyncWebServerRequest *request){
         request->redirect("/api-doc.html");
     });
-    webServer.on("/*", HTTP_GET, rest_common_get_handler);
+    webServer.on("/*", HTTP_GET, [board](AsyncWebServerRequest *request){
+        // Wake screensaver when the user loads or refreshes any page on this device.
+        // /probe and /alive are automated (other devices), handled by dedicated routes above
+        // and never reach this wildcard handler, so no false-wake risk.
+        if(xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
+            board->status.ui.last_active_ms = millis();
+            xEventGroupClearBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+        }
+        rest_common_get_handler(request);
+    });
     webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
         AsyncWebServerResponse *response = request->beginResponse(200);
         response->addHeader("Access-Control-Allow-Origin", "*");
@@ -794,6 +829,10 @@ void swarm_thread_entry(void *args){
 
         if(WiFi.status() != WL_CONNECTED) continue; // skip if WiFi is down, will check again in 1s in the next loop iteration
         if(board->status.ota.running)     continue; // skip while OTA is running to avoid resource contention
+        if(xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
+            LOG_W("(swarm) screensaver active, skipping swarm probe to yield resources");
+            continue; // yield network resources during screensaver
+        }
         
         // ── Read current scan generation and alive list (hold lock for minimum time) ──────
         std::vector<String> alive;
@@ -1029,6 +1068,10 @@ void alive_ip_scan_thread_entry(void* args) {
         delay(1000);
         if(WiFi.status() != WL_CONNECTED) continue; // skip if WiFi is down, will check again in 1s in the next loop iteration
         if(board->status.ota.running)     continue; // skip while OTA is running to avoid resource contention
+        if(xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
+            LOG_W("(scan) screensaver active, skipping alive IP scan to yield resources");
+            continue; // yield network resources during screensaver
+        }
 
         // Create a single RAW ICMP socket shared for the entire /24 scan
         int sock = ::socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
@@ -1053,6 +1096,17 @@ void alive_ip_scan_thread_entry(void* args) {
         uint16_t seq = 0, MAX_SCAN = 254;
         for (int last = 1; last <= MAX_SCAN; last++) {
             if (last == self_last) continue; // skip self
+
+            // Abort scan immediately if OTA starts or screensaver activates mid-scan.
+            // Raw ICMP socket + lwIP ARP delays compete directly with TCP transfer.
+            if (board->status.ota.running) {
+                LOG_W("(scan) OTA started mid-scan, aborting at %u.%u.%u.%u", o0, o1, o2, last);
+                break;
+            }
+            if (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
+                LOG_W("(scan) screensaver activated mid-scan, aborting at %u.%u.%u.%u", o0, o1, o2, last);
+                break;
+            }
 
             // Page was refreshed — reset scan progress
             if (xSemaphoreTake(board->status.neighbor.scan_required, 0) == pdTRUE) {
@@ -1261,6 +1315,8 @@ void monitor_thread_entry(void *args){
         
         //status check
         if(board->status.miner.uptime_session % 2 == 0){
+            //avoid restart when ota running
+            if(!board->status.ota.running) {
             //check vcore temperature status
             static uint8_t vcore_err_cnt = 0;
             if(board->status.temp.vcore > board->info.spec.pwr.temp_limit.high){
@@ -1314,8 +1370,6 @@ void monitor_thread_entry(void *args){
                 }
             }
 
-            //avoid restart when ota running
-            if(!board->status.ota.running) {
                 //check power status
                 static uint16_t pwr_err_cnt = 0;
                 if((board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0) < board->info.spec.pwr.power_low_threshold){
@@ -1334,7 +1388,7 @@ void monitor_thread_entry(void *args){
                         xSemaphoreGive(board->status.reboot_xsem);
                     }
                 }else hr_err_cnt = 0;
-            }
+            } // end !ota.running
         }
 
         // auto screen page scrolling
@@ -1633,10 +1687,15 @@ void market_thread_entry(void *args){
     const uint32_t MARKET_RETRY_DELAY_MS = 1000*10;
 
     while(true){
-        delay(50);
+        delay(1000);
         // Skip market update if OTA is running to avoid potential instability during critical updates.
         if(board->status.ota.running) {
             LOG_D("Market update skipped: OTA in progress.");
+            continue;
+        }
+        // Skip market update during screensaver to reduce network activity.
+        if(xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
+            LOG_D("Market update skipped: screensaver active.");
             continue;
         }
 

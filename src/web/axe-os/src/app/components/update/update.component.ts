@@ -2,7 +2,7 @@ import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
 import {Component, OnInit, ViewChild, AfterViewInit, ElementRef, ChangeDetectorRef} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
 import {FileUpload, FileUploadHandlerEvent} from 'primeng/fileupload';
-import {map, Observable, shareReplay} from 'rxjs';
+import {map, Observable, shareReplay, switchMap} from 'rxjs';
 import {GithubUpdateService} from 'src/app/services/github-update.service';
 import {SystemService} from 'src/app/services/system.service';
 import { marked } from 'marked';
@@ -471,8 +471,11 @@ export class UpdateComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    this.systemService.performOTAUpdate(file)
-      .subscribe({
+    // Wake the screensaver first; only after the heartbeat response comes back do we
+    // start streaming the firmware binary, ensuring the screen is already on.
+    this.systemService.heartbeat().pipe(
+      switchMap(() => this.systemService.performOTAUpdate(file))
+    ).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
             if (this.firmwareUpdateProgress === null) {
@@ -517,8 +520,11 @@ export class UpdateComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    this.systemService.performWWWOTAUpdate(file)
-      .subscribe({
+    // Wake the screensaver first; only after the heartbeat response comes back do we
+    // start streaming the SPIFFS binary, ensuring the screen is already on.
+    this.systemService.heartbeat().pipe(
+      switchMap(() => this.systemService.performWWWOTAUpdate(file))
+    ).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
             if (this.websiteUpdateProgress === null) {
