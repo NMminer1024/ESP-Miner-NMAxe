@@ -2,7 +2,7 @@ import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
 import {Component, Input, OnDestroy, OnInit} from '@angular/core';
 import {FormBuilder, FormGroup, Validators} from '@angular/forms';
 import {ToastrService} from 'ngx-toastr';
-import {startWith} from 'rxjs';
+import {startWith, switchMap} from 'rxjs';
 import {LoadingService} from 'src/app/services/loading.service';
 import {SystemService} from 'src/app/services/system.service';
 import {eASICModel} from 'src/models/enum/eASICModel';
@@ -213,8 +213,11 @@ export class PreferenceComponent implements OnInit, OnDestroy {
       });
     }, 500);
 
-    this.systemService.uploadScreensaver(this.uri, this.screensaverFile)
-      .subscribe({
+    // Wake the screensaver first; only after the wakeup response comes back do we
+    // start streaming the GIF binary, ensuring the screen is already on.
+    this.systemService.wakeup(this.uri).pipe(
+      switchMap(() => this.systemService.uploadScreensaver(this.uri, this.screensaverFile!))
+    ).subscribe({
         next: (event: any) => {
           if (event?.type === HttpEventType.UploadProgress && event.total) {
             this.screensaverProgress = Math.round(100 * event.loaded / event.total);

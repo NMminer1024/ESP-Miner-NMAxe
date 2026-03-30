@@ -3482,7 +3482,7 @@ void ui_screen_saver_page_update(void* args){
         lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
       }
       uint32_t elapsed = millis() - fade_start_ms;
-      if(elapsed >= 300){
+      if(elapsed >= 1000){
         lv_obj_del(overlay);       // also deletes gif_obj / lb_text (children)
         overlay          = nullptr;
         lb_text          = nullptr;
