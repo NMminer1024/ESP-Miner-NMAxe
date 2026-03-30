@@ -221,10 +221,10 @@ export class SystemService {
     return this.httpClient.patch(`${uri}/api/swarm`, swarmConfig);
   }
 
-  /** Notify the device that the user is on a real-time monitoring page (dashboard / swarm), keeping the screensaver inactive. */
-  public heartbeat(): Observable<any> {
+  /** Wake the screensaver on this device (or a remote device when uri is provided). */
+  public wakeup(uri: string = ''): Observable<any> {
     if (environment.production) {
-      return this.httpClient.get('/api/heartbeat');
+      return this.httpClient.get(`${uri}/api/wakeup`);
     }
     return of(null);
   }

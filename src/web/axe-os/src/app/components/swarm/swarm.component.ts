@@ -1,7 +1,7 @@
 import {HttpClient, HttpEventType} from '@angular/common/http';
 import {Component, OnInit, OnDestroy, Input, ViewChild} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
-import {Subscription, interval, BehaviorSubject, startWith, catchError, EMPTY, of, timeout} from 'rxjs';
+import {Subscription, interval, BehaviorSubject, startWith, catchError, EMPTY, of, timeout, switchMap} from 'rxjs';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 import {HashSuffixPipe} from "../../pipes/hash-suffix.pipe";
 import {DiffSuffixPipe} from "../../pipes/diff-suffix.pipe";
@@ -239,10 +239,9 @@ export class SwarmComponent implements OnInit, OnDestroy {
         this.deviceMap.forEach((_, ip) => this.fetchDeviceInfo(ip));
       });
 
-      // Subscription 3: Heartbeat every 5 s so the device screensaver stays off
-      // while the user is watching the swarm page.
+      // Subscription 3: Wake this device's screensaver every 5 s while the swarm page is open.
       const heartbeatSubscription = interval(5000).pipe(startWith(0)).subscribe(() => {
-        this.systemService.heartbeat().subscribe();
+        this.systemService.wakeup().subscribe();
       });
 
       this.subscription.add(aliveSubscription);
@@ -341,7 +340,11 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
     this.updateWebsiteDevices = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%", result: true}});
     this.updateWebsiteDevices.forEach(item => {
-      this.systemService.performWWWOTAUpdate(file, `http://${item.ip}`).subscribe({
+      // Wake the screensaver on each target device first; only after the wakeup
+      // response comes back do we start streaming the SPIFFS binary.
+      this.systemService.wakeup(`http://${item.ip}`).pipe(
+        switchMap(() => this.systemService.performWWWOTAUpdate(file, `http://${item.ip}`))
+      ).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
             // this.toastr.info(`Website update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
@@ -386,7 +389,11 @@ export class SwarmComponent implements OnInit, OnDestroy {
     this.updateFirmwareDevices  = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%", result: true}});
 
     this.updateFirmwareDevices.forEach(item => {
-      this.systemService.performOTAUpdate(file, `http://${item.ip}`).subscribe({
+      // Wake the screensaver on each target device first; only after the wakeup
+      // response comes back do we start streaming the firmware binary.
+      this.systemService.wakeup(`http://${item.ip}`).pipe(
+        switchMap(() => this.systemService.performOTAUpdate(file, `http://${item.ip}`))
+      ).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
             // this.toastr.info(`Firmware update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');

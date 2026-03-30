@@ -471,9 +471,9 @@ export class UpdateComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // Wake the screensaver first; only after the heartbeat response comes back do we
+    // Wake the screensaver first; only after the wakeup response comes back do we
     // start streaming the firmware binary, ensuring the screen is already on.
-    this.systemService.heartbeat().pipe(
+    this.systemService.wakeup().pipe(
       switchMap(() => this.systemService.performOTAUpdate(file))
     ).subscribe({
         next: (event) => {
@@ -520,9 +520,9 @@ export class UpdateComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // Wake the screensaver first; only after the heartbeat response comes back do we
+    // Wake the screensaver first; only after the wakeup response comes back do we
     // start streaming the SPIFFS binary, ensuring the screen is already on.
-    this.systemService.heartbeat().pipe(
+    this.systemService.wakeup().pipe(
       switchMap(() => this.systemService.performWWWOTAUpdate(file))
     ).subscribe({
         next: (event) => {

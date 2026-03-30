@@ -30,7 +30,7 @@ export class HomeComponent implements OnInit {
       startWith(0),
       switchMap(() => {
         // Notify the device that the user is on the dashboard so the screensaver stays off.
-        this.systemService.heartbeat().subscribe();
+        this.systemService.wakeup().subscribe();
         return this.systemService.getInfo()
       }),
       map(info => {

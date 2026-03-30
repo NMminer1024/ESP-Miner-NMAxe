@@ -517,22 +517,19 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/system/restart",HTTP_POST, post_restart);
     webServer.on("/api/system/clearhits", HTTP_POST, post_reset_block_hits);
-    // ── Heartbeat: dashboard and swarm pages call this to keep the screensaver inactive.
+    // ── Wakeup: any caller (local or cross-origin swarm panel) can wake this device's screensaver.
+    // Dashboard and swarm pages call this to keep the screensaver inactive.
     // Setting / update / log pages do NOT call this, so the screensaver can activate
     // while the user is away from the real-time monitoring pages.
-    webServer.on("/api/heartbeat", HTTP_GET, [board](AsyncWebServerRequest *request){
-        const AsyncWebHeader* origin = request->getHeader("Origin");
-        bool is_local = !origin || (origin->value().indexOf(WiFi.localIP().toString()) >= 0);
-        if (is_local) {
-            board->status.ui.last_active_ms = millis();
-            xEventGroupClearBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
-        }
+    webServer.on("/api/wakeup", HTTP_GET, [board](AsyncWebServerRequest *request){
+        board->status.ui.last_active_ms = millis();
+        xEventGroupClearBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
         AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"ok\":true}");
         r->addHeader("Access-Control-Allow-Origin", "*");
         request->send(r);
     });
     // ── Dashboard data endpoints ──────────────────────────────────────────────
-    webServer.on("/api/dashboard/hr/dist",       HTTP_GET, get_hr_distribution);
+    webServer.on("/api/dashboard/hr/dist",        HTTP_GET, get_hr_distribution);
     webServer.on("/api/dashboard/gauge/limits",   HTTP_GET, get_gauge_limits);
     webServer.on("/api/dashboard/chart/history",  HTTP_GET, get_status_history);
     webServer.on("/api/dashboard/chart/realtime", HTTP_GET, get_status_realtime);
@@ -551,8 +548,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/log", HTTP_GET, echo_handler);
     // ── OTA update endpoints ──────────────────────────────────────────────────
     webServer.on("/api/update/progress", HTTP_GET,  get_ota_progress);                                          // progress poll
-    // Screensaver wake is handled exclusively by /api/heartbeat — OTA uploads do NOT
-    // need to wake the screensaver; the upload page itself does not call heartbeat.
+    // Wakeup is handled by the frontend: swarm/update pages call /api/wakeup before uploading.
     webServer.on("/api/update/firmware", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
     webServer.on("/api/update/spiffs",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
     webServer.on("/api/system/OTA",      HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // compat alias
