@@ -43,16 +43,16 @@ bool MinerApp::init() {
 ──────────────────────────────────────────────*/
 void MinerApp::begin() {
     _thread_pool = {
-        {"(app_tick)",   _tick_thread_entry,            1024*5,   TASK_PRIORITY_APP_TICK,    1, &_tickTask,       10,  0},
+        {"(app_tick)",   _tick_thread_entry,            1024*4,   TASK_PRIORITY_APP_TICK,    1, &_tickTask,       10,  0},
         {"(display)",   display_thread_entry,           1024*5,   TASK_PRIORITY_DISPLAY,     1, NULL,             10,  0},
         {"(lvgl)",      lvgl_tick_thread_entry,         1024*5,   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
         {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
-        {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
+        {"(led)",       led_thread_entry,               1024*4,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
         {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,         1, &_btnTask,        10,  0},
         {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,          0, &_wsTask,         10,  0},
         {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,        1, NULL,             10,  0},
         {"(daemon)",    daemon_thread_entry,            1024*4,   TASK_PRIORITY_DAEMON,      0, &_daemonTask,     10,  0},
-        {"(power)",     power_thread_entry,             1024*7,   TASK_PRIORITY_PWR,         1, &_powerTask,      10,  0},
+        {"(power)",     power_thread_entry,             1024*8,   TASK_PRIORITY_PWR,         1, &_powerTask,      10,  0},
         {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*5,   TASK_PRIORITY_ASIC_CNT,    1, NULL,             10,  0},
         {"(asic_init)", miner_asic_init_thread_entry,   1024*6,   TASK_PRIORITY_ASIC_INIT,   1, NULL,             10,  0},
         {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,         0, &_fanTask,        10,  0},
