@@ -44,14 +44,37 @@
   
   <!-- Compact Filters -->
   <div class="compact-filter-section">
-    <div class="compact-filter-buttons">
-      <div class="compact-filter-btn high-power-btn" [class.active]="filterHighPower" (click)="toggleHighPowerFilter()">
-        <span class="filter-icon">🐇</span>
-        <span class="filter-text">High (≥1GH/s) ({{ getHighPowerCount() }})</span>
+    <div class="swarm-toolbar-row">
+      @if (selectedItems.length > 0) {
+      <div class="update-controls">
+        <p-button
+          styleClass="swarm-action-btn firmware-btn"
+          (click)="showUpdateFirmware = true"
+          label="Update Firmware"
+          size="small"></p-button>
+        <p-button
+          styleClass="swarm-action-btn website-btn"
+          (click)="showUpdateWebsite = true"
+          label="Update Website"
+          size="small"></p-button>
+        <div class="table-info">
+          <div class="info-item">
+            <span class="info-icon">✓</span>
+            <span>{{ selectedItems.length }} selected</span>
+          </div>
+        </div>
       </div>
-      <div class="compact-filter-btn low-power-btn" [class.active]="filterLowPower" (click)="toggleLowPowerFilter()">
-        <span class="filter-icon">🐌</span>
-        <span class="filter-text">Low (<1GH/s) ({{ getLowPowerCount() }})</span>
+      }
+
+      <div class="compact-filter-buttons">
+        <div class="compact-filter-btn high-power-btn" [class.active]="filterHighPower" (click)="toggleHighPowerFilter()">
+          <span class="filter-icon">🐇</span>
+          <span class="filter-text">High (≥1GH/s) ({{ getHighPowerCount() }})</span>
+        </div>
+        <div class="compact-filter-btn low-power-btn" [class.active]="filterLowPower" (click)="toggleLowPowerFilter()">
+          <span class="filter-icon">🐌</span>
+          <span class="filter-text">Low (<1GH/s) ({{ getLowPowerCount() }})</span>
+        </div>
       </div>
     </div>
   </div>
@@ -61,22 +84,6 @@
 
 <!-- Main Table -->
 <div class="table-section">
-  <!-- Batch Update Buttons -->
-  @if (selectedItems.length > 0) {
-  <div class="table-controls batch-update-controls">
-    <div class="update-controls">
-      <p-button severity="danger" (click)="showUpdateFirmware = true" label="Update Firmware" size="small"></p-button>
-      <p-button severity="danger" (click)="showUpdateWebsite = true" label="Update Website" size="small"></p-button>
-    </div>
-    <div class="table-info">
-      <div class="info-item">
-        <span class="info-icon">✓</span>
-        <span>{{ selectedItems.length }} selected</span>
-      </div>
-    </div>
-  </div>
-  }
-
   <div class="table-container">
     <table>
       <thead>

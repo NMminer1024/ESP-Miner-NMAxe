@@ -993,23 +993,22 @@
       <div class="endpoint" id="set-screensaver">
         <div class="endpoint-head">
           <span class="method-badge method-post">POST</span>
-          <code class="endpoint-path">/api/setting/screensaver</code>
+          <code class="endpoint-path">/api/update/screensaver</code>
           <span class="endpoint-summary">Upload custom screensaver GIF</span>
         </div>
         <div class="endpoint-body">
           <p class="ep-desc">
             Upload a custom animated GIF to replace the built-in screensaver. The file is saved to SPIFFS as
             <code>screen_saver_240x135.gif</code> (NMAxe / NMAxeGamma) or
-            <code>screen_saver_320x240.gif</code> (NMQAxe++), then the device reboots automatically to apply the change.
+            <code>screen_saver_320x240.gif</code> (NMQAxe++). The new GIF is used on the next screensaver trigger.
             Only <code>.gif</code> files are accepted; any other extension is rejected with <code>400</code>.
           </p>
-          <div class="note note-warn">⚠️ The device reboots automatically after a successful upload.</div>
           <div class="note">ℹ️ Upload progress is tracked by the firmware in <code>g_board.status.ota</code> and shared by
           <strong>all</strong> upload types (firmware, SPIFFS, and screensaver GIF). Poll
           <a href="#ota-progress"><code>GET /api/update/progress</code></a> to get accurate device-side write
           progress during the upload.</div>
           <div class="block-label">Request – multipart/form-data</div>
-          <pre>POST /api/setting/screensaver HTTP/1.1
+          <pre>POST /api/update/screensaver HTTP/1.1
 Content-Type: multipart/form-data; boundary=----boundary
 
 ------boundary
@@ -1121,7 +1120,7 @@ Content-Type: application/octet-stream
 }</pre>
           <div class="note">ℹ️ Poll this endpoint during any upload to track progress. When <code>running</code> is <code>false</code> the
           previous upload has completed (or no upload has started). The device reboots automatically after a successful
-          firmware or SPIFFS flash; for screensaver uploads the device also reboots to apply the new GIF.</div>
+          firmware or SPIFFS flash. Screensaver GIF uploads do not require a reboot.</div>
         </div>
       </div>
 

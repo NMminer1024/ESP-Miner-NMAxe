@@ -463,9 +463,9 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 ```
 > `fans[].speed` takes effect only when `auto=0`. `fans[1]` (Vcore fan, `id=1`) is NMQAxe++ only. All fields are optional.
 
-#### Screensaver — `POST /api/setting/screensaver`
+#### Screensaver — `POST /api/update/screensaver`
 
-Upload a custom animated GIF as screensaver. The file is written to SPIFFS, then the device reboots automatically.
+Upload a custom animated GIF as screensaver. The file is written to SPIFFS and will be used the next time the screensaver is triggered.
 
 - Content-Type: `multipart/form-data`, field name: `screensaver`
 - Only `.gif` files accepted (400 otherwise)

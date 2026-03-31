@@ -555,6 +555,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/update/spiffs",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
     webServer.on("/api/system/OTA",      HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // compat alias
     webServer.on("/api/system/OTAWWW",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // compat alias
+    webServer.on("/api/update/screensaver",HTTP_POST,  [](AsyncWebServerRequest *request){}, file_upload_handler);
     // ── Theme endpoints (OPTIONS covered by wildcard handler below) ───────────
     webServer.on("/api/theme", HTTP_GET,  get_theme_handler);
     webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
@@ -569,7 +570,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/setting/market",     HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_market);
     webServer.on("/api/setting/preference", HTTP_GET,   get_setting_preference);
     webServer.on("/api/setting/preference", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_preference);
-    webServer.on("/api/setting/screensaver",HTTP_POST,  [](AsyncWebServerRequest *request){}, file_upload_handler);
+
     // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
     webServer.on("/probe", HTTP_GET, [board](AsyncWebServerRequest* request) {
         // Return 503 during OTA — avoid competing with the flash write for TCP/lwIP resources.
@@ -825,7 +826,7 @@ void swarm_thread_entry(void *args){
         if(WiFi.status() != WL_CONNECTED) continue; // skip if WiFi is down, will check again in 1s in the next loop iteration
         if(board->status.ota.running)     continue; // skip while OTA is running to avoid resource contention
         if(xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
-            LOG_W("(swarm) screensaver active, skipping swarm probe to yield resources");
+            LOG_D("(swarm) screensaver active, skipping swarm probe to yield resources");
             continue; // yield network resources during screensaver
         }
         
@@ -1095,11 +1096,11 @@ void alive_ip_scan_thread_entry(void* args) {
             // Abort scan immediately if OTA starts or screensaver activates mid-scan.
             // Raw ICMP socket + lwIP ARP delays compete directly with TCP transfer.
             if (board->status.ota.running) {
-                LOG_W("(scan) OTA started mid-scan, aborting at %u.%u.%u.%u", o0, o1, o2, last);
+                LOG_D("(scan) OTA started mid-scan, aborting at %u.%u.%u.%u", o0, o1, o2, last);
                 break;
             }
             if (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
-                LOG_W("(scan) screensaver activated mid-scan, aborting at %u.%u.%u.%u", o0, o1, o2, last);
+                LOG_D("(scan) screensaver activated mid-scan, aborting at %u.%u.%u.%u", o0, o1, o2, last);
                 break;
             }
 
@@ -1113,7 +1114,7 @@ void alive_ip_scan_thread_entry(void* args) {
                 if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
                     board->status.neighbor.alive_ips.clear(); // clear stale IPs immediately so /alive returns fresh data
                     xSemaphoreGive(board->status.neighbor.mutex);
-                    LOG_W("(scan) page refresh: reset scan progress, alive_ips cleared (gen unchanged)");
+                    LOG_D("(scan) page refresh: reset scan progress, alive_ips cleared (gen unchanged)");
                 }
                 last = 1;      
                 seq  = 0;
@@ -1148,7 +1149,7 @@ void alive_ip_scan_thread_entry(void* args) {
         ::close(sock);
 
         uint32_t elapsed = (millis() - scan_start) / 1000;
-        LOG_I("(scan) done in %lus, %u alive on %u.%u.%u.0/24", (uint32_t)elapsed, (uint16_t)board->status.neighbor.alive_ips.size(), o0, o1, o2);
+        LOG_D("(scan) done in %lus, %u alive on %u.%u.%u.0/24", (uint32_t)elapsed, (uint16_t)board->status.neighbor.alive_ips.size(), o0, o1, o2);
         // Scan complete: increment generation so the swarm thread detects the change, resets all cached state, and re-probes
         if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             board->status.neighbor.scan_generation++;
@@ -1492,9 +1493,9 @@ void daemon_thread_entry(void *args){
     delay(1000);
     //check ota status and reboot
     if(xSemaphoreTake(board->status.reboot_xsem, 0) == pdTRUE){
-        delay(500); // small delay to allow the log message to flush before rebooting
+        delay(1500); // keep running=true so display can render 100% before reboot
         g_board.status.ota.running  = false;
-        delay(500);
+        delay(300);  // brief pause for any final rendering
         ESP.restart();
     }
 

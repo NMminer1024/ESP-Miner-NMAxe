@@ -218,9 +218,19 @@ body {
   padding: 0 5px;
 }
 
+.swarm-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 44px;
+}
+
 .compact-filter-buttons {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -885,9 +895,61 @@ a:active {
 }
 
 .update-controls {
-  display: flex;
-  gap: 15px; // 增加按钮间距
+  display: inline-flex;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+:host ::ng-deep .update-controls .swarm-action-btn.p-button {
+  border-radius: 12px;
+  border: 1px solid rgba(120, 180, 130, 0.45);
+  background: linear-gradient(135deg, #3ea54c, #2f8f3f);
+  color: #f4fff5;
+  font-weight: 700;
+  letter-spacing: 0;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 8px 18px rgba(24, 48, 26, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+:host ::ng-deep .update-controls .swarm-action-btn.p-button .p-button-label {
+  text-shadow: none;
+}
+
+:host ::ng-deep .update-controls .swarm-action-btn.p-button.p-disabled,
+:host ::ng-deep .update-controls .swarm-action-btn.p-button:disabled {
+  opacity: 0.55;
+  filter: grayscale(0.2);
+  box-shadow: none;
+}
+
+:host ::ng-deep .update-controls .swarm-action-btn.p-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow: 0 10px 22px rgba(24, 48, 26, 0.42), 0 0 16px rgba(70, 180, 92, 0.32);
+}
+
+:host ::ng-deep .update-controls .swarm-action-btn.p-button:active {
+  transform: translateY(0);
+}
+
+:host ::ng-deep .update-controls .swarm-action-btn.p-button:focus-visible {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.65), 0 0 0 4px rgba(92, 214, 120, 0.55);
+}
+
+:host ::ng-deep .update-controls .website-btn.p-button {
+  border-color: rgba(87, 166, 224, 0.5);
+  background: linear-gradient(135deg, #3975b8, #2f5f98);
+  box-shadow: 0 8px 18px rgba(20, 34, 56, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+:host ::ng-deep .update-controls .website-btn.p-button:hover {
+  box-shadow: 0 10px 22px rgba(20, 34, 56, 0.42), 0 0 16px rgba(87, 166, 224, 0.3);
 }
 
 .update-btn {
@@ -937,10 +999,32 @@ a:active {
     display: flex;
     align-items: center;
     gap: 4px;
+
+    &.inactive {
+      opacity: 0.7;
+    }
     
     .info-icon {
       color: #4CAF50;
     }
+  }
+}
+
+@media (max-width: 900px) {
+  .swarm-toolbar-row {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+  }
+
+  .update-controls {
+    position: static;
+    transform: none;
+    justify-content: flex-start;
+  }
+
+  .compact-filter-buttons {
+    justify-content: flex-start;
   }
 }
 

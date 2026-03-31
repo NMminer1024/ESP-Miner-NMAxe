@@ -2469,13 +2469,37 @@ void ui_ota_page_update(void* args){
     return;
   }
 
-  if(!board->status.ota.running) return; // skip update when OTA is running
-
-  static uint32_t last_update = millis();
-  if(millis() - last_update < 1000) return;
-
   static lv_obj_t * overlay = NULL, *bar = NULL, *label_file = NULL, *label_progress = NULL;
   static char progress_text[10];
+  static uint32_t dismiss_at = 0;
+
+  if(!board->status.ota.running) {
+    if(overlay != NULL) {
+      if(dismiss_at == 0) {
+        // First call after upload done: force-render 100%, then wait ~1.2s before dismissing
+        lv_bar_set_value(bar, 100, LV_ANIM_OFF);
+        lv_label_set_text(label_progress, "100%");
+        lv_label_set_text(label_file, board->status.ota.filename.c_str());
+        dismiss_at = millis() + 1200;
+      } else if(millis() >= dismiss_at) {
+        lv_obj_del(overlay);
+        overlay = NULL;
+        bar = NULL;
+        label_file = NULL;
+        label_progress = NULL;
+        dismiss_at = 0;
+      }
+      // else: still in hold period, keep overlay visible
+    } else {
+      dismiss_at = 0;
+    }
+    return;
+  }
+
+  static uint32_t last_update = millis();
+  // When progress just reached 100%, bypass the 1s throttle to render it immediately
+  bool is_complete = (board->status.ota.progress >= 100);
+  if(!is_complete && millis() - last_update < 1000) return;
   static lv_style_t style;
   if(overlay == NULL){
       //create overlay
@@ -3671,23 +3695,37 @@ void ui_screen_saver_page_update(void* args){
 
   // ── Try to load GIF from SPIFFS ──────────────────────────────────────────
   if(SPIFFS.exists(gif_spiffs_name)){
-    // Load GIF into PSRAM once; subsequent activations reuse the cache.
-    // PSRAM reads at ~80 MB/s vs SPIFFS ~3-5 MB/s — eliminates decode stutter.
-    if (gif_ram_buf == nullptr) {
-      File gf = SPIFFS.open(gif_spiffs_name, "r");
-      if (gf) {
-        gif_ram_size = gf.size();
-        gif_ram_buf  = (uint8_t*)heap_caps_malloc(gif_ram_size, MALLOC_CAP_SPIRAM);
-        if (gif_ram_buf) {
-          gf.read(gif_ram_buf, gif_ram_size);
-          LOG_I("[screensaver] GIF cached in PSRAM: %u bytes from %s", (unsigned)gif_ram_size, gif_spiffs_name);
-        } else {
-          gif_ram_size = 0;
-          LOG_W("[screensaver] PSRAM alloc failed (%u bytes), fallback to SPIFFS", (unsigned)gif_ram_size);
-        }
-        gf.close();
-      }
+    // Reload from SPIFFS on every trigger so a newly uploaded GIF takes effect
+    // immediately on next screensaver entry without reboot.
+    if (gif_ram_buf) {
+      heap_caps_free(gif_ram_buf);
+      gif_ram_buf = nullptr;
+      gif_ram_size = 0;
     }
+
+    File gf = SPIFFS.open(gif_spiffs_name, "r");
+    if (gf) {
+      gif_ram_size = gf.size();
+      gif_ram_buf  = (uint8_t*)heap_caps_malloc(gif_ram_size, MALLOC_CAP_SPIRAM);
+      if (gif_ram_buf) {
+        size_t read_bytes = gf.read(gif_ram_buf, gif_ram_size);
+        if (read_bytes != gif_ram_size) {
+          LOG_W("[screensaver] GIF read short: %u/%u bytes, fallback to SPIFFS", (unsigned)read_bytes, (unsigned)gif_ram_size);
+          heap_caps_free(gif_ram_buf);
+          gif_ram_buf = nullptr;
+          gif_ram_size = 0;
+        } else {
+          LOG_I("[screensaver] GIF reloaded into PSRAM: %u bytes from %s", (unsigned)gif_ram_size, gif_spiffs_name);
+        }
+      } else {
+        gif_ram_size = 0;
+        LOG_W("[screensaver] PSRAM alloc failed, fallback to SPIFFS");
+      }
+      gf.close();
+    } else {
+      LOG_W("[screensaver] open failed for %s, fallback to SPIFFS", gif_spiffs_name);
+    }
+
     gif_obj = lv_gif_create(overlay);
     // Use PSRAM 'M' driver if cache loaded, else SPIFFS 'S' driver as fallback.
     // The filename after the colon is just an identifier for the FS driver.

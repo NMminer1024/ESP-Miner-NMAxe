@@ -528,7 +528,7 @@ export class SystemService {
   public uploadScreensaver(uri: string = '', file: File): Observable<any> {
     const formData = new FormData();
     formData.append('screensaver', file, file.name);
-    return this.httpClient.post(`${uri}/api/setting/screensaver`, formData, {
+    return this.httpClient.post(`${uri}/api/update/screensaver`, formData, {
       reportProgress: true,
       observe: 'events',
       responseType: 'text'

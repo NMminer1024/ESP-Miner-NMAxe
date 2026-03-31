@@ -1213,7 +1213,7 @@ void get_ota_progress(AsyncWebServerRequest* request) {
 // Both paths update g_board.status.ota.{running, progress, filename} so the frontend
 // can poll GET /api/update/progress to get accurate device-side write progress.
 //
-// POST /api/setting/screensaver -- GIF screensaver (multipart field: "screensaver")
+// POST /api/update/screensaver -- GIF screensaver (multipart field: "screensaver")
 // POST /api/update/{firmware,spiffs} and legacy aliases -- firmware/SPIFFS OTA
 void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
     // ── Shared statics (only one upload runs at a time) ──────────────────────
@@ -1314,17 +1314,14 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
         }
         if (final) {
             if (gif_file) gif_file.close();
-            // g_board.status.ota.running  = false;
+            g_board.status.ota.running  = false;
             g_board.status.ota.progress = 100;
             LOG_I("GIF upload complete: %u bytes saved as %s", (unsigned)(index + len), filename.c_str());
             AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
             resp->addHeader("Access-Control-Allow-Origin", "*");
             request->send(resp);
 
-            LOG_W("*************** Update Success: %u bytes, rebooting *************** ", index + len);
-            // NOTE: delay() in async_tcp context blocks the TCP stack.
-            //       daemon_thread_entry waits ~1s before restarting, giving time for the HTTP response to be sent.
-            xSemaphoreGive(g_board.status.reboot_xsem);
+            LOG_I("GIF upload finished, new screensaver will be used on next trigger without reboot");
         }
     } else {
         // ── OTA bin write path ────────────────────────────────────────────

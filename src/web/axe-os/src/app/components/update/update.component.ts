@@ -610,7 +610,7 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
             this.stopProgressPolling();
             if (uploadEvent.ok) {
               this.screensaverUpdateProgress = 100;
-              this.toastrService.success('Screen saver uploaded. Device will reboot to apply it.', 'Success!');
+              this.toastrService.success('Screen saver uploaded. It will take effect the next time screensaver is triggered.', 'Success!');
               setTimeout(() => {
                 this.screensaverUpdateProgress = null;
                 this.screensaverFileUploader.clear();
