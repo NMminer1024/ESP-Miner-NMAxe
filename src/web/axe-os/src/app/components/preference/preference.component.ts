@@ -27,13 +27,15 @@ export class PreferenceComponent implements OnInit {
   public vcoreTempMax: number = 100;
 
   public screensaverOptions = [
-    { label: 'Never',    value: 0     },
-    { label: '1 min',    value: 60    },
-    { label: '5 min',    value: 300   },
-    { label: '15 min',   value: 900   },
-    { label: '1 hour',   value: 3600  },
-    { label: '3 hours',  value: 10800 },
-    { label: '24 hours', value: 86400 },
+    { label: 'never', value: 0 },
+    { label: '30s',   value: 30 },
+    { label: '1m',    value: 60 },
+    { label: '5m',    value: 300 },
+    { label: '15m',   value: 900 },
+    { label: '30m',   value: 1800 },
+    { label: '1h',    value: 3600 },
+    { label: '2h',    value: 7200 },
+    { label: '6h',    value: 21600 },
   ];
 
   @Input() uri = '';
@@ -63,8 +65,11 @@ export class PreferenceComponent implements OnInit {
 
         const screensaverEnable  = info.screensaverEnable  ?? 0;
         const screensaverTimeout = info.screensaverTimeout ?? 0;
-        // compute dropdown value: 0 (never) when disabled or timeout==0, otherwise use the timeout
-        const screensaverOption  = (screensaverEnable == 0 || screensaverTimeout == 0) ? 0 : screensaverTimeout;
+        const allowedScreensaverValues = this.screensaverOptions.map(option => option.value);
+        // Compute dropdown value: 0 (never) when disabled/unsupported, otherwise keep configured timeout.
+        const screensaverOption  = (screensaverEnable == 0 || !allowedScreensaverValues.includes(screensaverTimeout))
+          ? 0
+          : screensaverTimeout;
 
         const asicFan  = info.fans?.find((f: any) => f.id === 0) ?? info.fans?.[0];
         const vcoreFan = info.fans?.find((f: any) => f.id === 1);

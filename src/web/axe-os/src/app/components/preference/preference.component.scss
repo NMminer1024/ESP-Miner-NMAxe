@@ -1,133 +1,172 @@
 /* Preference Component Styles */
 
-// 风扇自动控制行 - 左侧 checkbox + 标签
+.preference-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.pref-row {
+  margin-bottom: 0 !important;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pref-label,
+.fan-auto-label .fan-toggle-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-size: 0.98rem !important;
+}
+
+.pref-control {
+  display: flex;
+  align-items: center;
+}
+
+.slider-row {
+  width: 100%;
+}
+
+.slider-value {
+  display: flex;
+  align-items: center;
+
+  label {
+    margin: 0 !important;
+    color: #f2f2f2 !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+  }
+}
+
 .fan-auto-label {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
 
   .fan-toggle-label {
-    color: #ffffff !important;
-    font-weight: 600 !important;
-    font-size: 1rem !important;
     cursor: pointer !important;
     margin: 0 !important;
     white-space: nowrap !important;
   }
 }
 
-// 复选框容器优化
+.preference-options-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.preference-option-item {
+  flex: 1;
+  min-width: 150px;
+}
+
 .field-checkbox {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
-  margin-bottom: 8px !important;
-  
-  // 复选框标签样式优化 - 缩小字体大小
+  margin-bottom: 0 !important;
+  min-height: 34px;
+
   label {
     color: #ffffff !important;
-    font-size: 0.85rem !important; // 从 0.9rem 缩小到 0.8rem
+    font-size: 0.88rem !important;
     font-weight: 500 !important;
     line-height: 1.2 !important;
     margin: 0 !important;
     white-space: nowrap !important;
     cursor: pointer !important;
   }
-  
-  // 复选框样式
+
   .p-checkbox {
     flex-shrink: 0 !important;
   }
 }
 
-// 复选框网格容器优化
-.col-12[style*="display: flex"] {
-  gap: 8px !important;
-  
-  // 响应式优化
-  @media (max-width: 768px) {
-    gap: 4px !important;
-    
-    .field-checkbox label {
-      font-size: 0.7rem !important; // 移动设备上更小的字体
-    }
+.save-row {
+  margin-top: 0.35rem !important;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+
+  b {
+    color: #cccccc !important;
+    font-size: 0.88rem !important;
+    line-height: 1.45;
+    font-weight: 600;
   }
 }
 
-// 温度滑动条颜色样式
+// Temperature slider color styles
 .temp-safe {
   ::ng-deep .p-slider .p-slider-range {
-    background: #4CAF50 !important; // 绿色 - 安全温度 (≤50°C)
+    background: #4caf50 !important;
   }
   ::ng-deep .p-slider .p-slider-handle {
-    background: #4CAF50 !important;
-    border-color: #4CAF50 !important;
+    background: #4caf50 !important;
+    border-color: #4caf50 !important;
   }
 }
 
 .temp-normal {
   ::ng-deep .p-slider .p-slider-range {
-    background: #8BC34A !important; // 黄绿色 - 正常温度 (51-60°C)
+    background: #8bc34a !important;
   }
   ::ng-deep .p-slider .p-slider-handle {
-    background: #8BC34A !important;
-    border-color: #8BC34A !important;
+    background: #8bc34a !important;
+    border-color: #8bc34a !important;
   }
 }
 
 .temp-warm {
   ::ng-deep .p-slider .p-slider-range {
-    background: #FFC107 !important; // 黄色 - 温暖温度 (61-65°C)
+    background: #ffc107 !important;
   }
   ::ng-deep .p-slider .p-slider-handle {
-    background: #FFC107 !important;
-    border-color: #FFC107 !important;
+    background: #ffc107 !important;
+    border-color: #ffc107 !important;
   }
 }
 
 .temp-hot {
   ::ng-deep .p-slider .p-slider-range {
-    background: #FF5722 !important; // 红色 - 高温警告 (>65°C)
+    background: #ff5722 !important;
   }
   ::ng-deep .p-slider .p-slider-handle {
-    background: #FF5722 !important;
-    border-color: #FF5722 !important;
+    background: #ff5722 !important;
+    border-color: #ff5722 !important;
   }
 }
 
-// 滑块容器样式
-.field.grid.p-fluid {
-  margin-bottom: 16px !important;
-  
-  label {
-    color: #ffffff !important;
-    font-weight: 600 !important;
-    font-size: 1rem !important;
+@media (max-width: 768px) {
+  .pref-row {
+    padding: 0.55rem 0.45rem;
   }
-}
 
-// 确保标签不换行
-.white-space-nowrap {
-  white-space: nowrap !important;
-}
-
-// 风扇速度滑块样式
-.col-12 label {
-  color: #ffffff !important;
-  font-weight: 600 !important;
-  
-  b {
+  .pref-label,
+  .fan-auto-label .fan-toggle-label {
     font-size: 0.9rem !important;
-    margin-left: 8px !important;
   }
-}
 
-// 保存按钮区域
-.mt-2 {
-  margin-top: 20px !important;
-  
-  b {
-    color: #cccccc !important;
-    font-size: 0.9rem !important;
+  .slider-value {
+    margin-top: 0.3rem;
+
+    label {
+      font-size: 0.83rem !important;
+    }
+  }
+
+  .field-checkbox label {
+    font-size: 0.8rem !important;
+  }
+
+  .save-row b {
+    font-size: 0.8rem !important;
   }
 }

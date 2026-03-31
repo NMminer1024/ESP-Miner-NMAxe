@@ -1,18 +1,18 @@
 <ng-container *ngIf="form != null">
-  <form [formGroup]="form">
+  <form [formGroup]="form" class="preference-form">
     <!-- <ng-container *ngIf="!devToolsOpen && ASICModel == eASICModel.BM1366">
 
     </ng-container> -->
 
     <!-- Screen Brightness -->
-    <div class="field grid p-fluid">
-      <label class="col-12 mb-2 md:col-3 md:mb-0" htmlFor="brightness">Screen Brightness</label>
-      <div class="col-12 md:col-9">
-        <div class="p-grid">
-          <div class="p-col-8">
+    <div class="field grid p-fluid pref-row">
+      <label class="col-12 mb-2 md:col-3 md:mb-0 pref-label" htmlFor="brightness">Screen Brightness</label>
+      <div class="col-12 md:col-9 pref-control">
+        <div class="p-grid align-items-center slider-row">
+          <div class="p-col-12 md:p-col-8">
             <p-slider formControlName="brightness" [(ngModel)]="form.controls['brightness'].value" [min]="1" [max]="100"></p-slider>
           </div>
-          <div class="p-col-4">
+          <div class="p-col-12 md:p-col-4 slider-value">
             <label>{{ form.controls['brightness'].value }}%</label>
           </div>
         </div>
@@ -20,15 +20,15 @@
     </div>
 
     <!-- ASIC Fan Control -->
-    <div class="field grid p-fluid">
+    <div class="field grid p-fluid pref-row">
       <div class="col-12 mb-2 md:col-3 md:mb-0 fan-auto-label">
         <p-checkbox name="autoasicfanspeed" formControlName="autoasicfanspeed" inputId="autoasicfanspeed" [binary]="true"></p-checkbox>
         <label for="autoasicfanspeed" class="fan-toggle-label">Auto ASIC Fan</label>
       </div>
-      <div class="col-12 md:col-9">
+      <div class="col-12 md:col-9 pref-control">
         <ng-container *ngIf="form.controls['autoasicfanspeed'].value == true">
-          <div class="p-grid">
-            <div class="p-col-8">
+          <div class="p-grid align-items-center slider-row">
+            <div class="p-col-12 md:p-col-8">
               <p-slider
                 formControlName="asictargettemp"
                 [(ngModel)]="form.controls['asictargettemp'].value"
@@ -38,17 +38,17 @@
                 [ngClass]="getTemperatureSliderClass()">
               </p-slider>
             </div>
-            <div class="p-col-4">
+            <div class="p-col-12 md:p-col-4 slider-value">
               <label>Target ASIC: {{ form.controls['asictargettemp'].value }}°C</label>
             </div>
           </div>
         </ng-container>
         <ng-container *ngIf="form.controls['autoasicfanspeed'].value != true">
-          <div class="p-grid">
-            <div class="p-col-8">
+          <div class="p-grid align-items-center slider-row">
+            <div class="p-col-12 md:p-col-8">
               <p-slider formControlName="asicfanspeed" [(ngModel)]="form.controls['asicfanspeed'].value"></p-slider>
             </div>
-            <div class="p-col-4">
+            <div class="p-col-12 md:p-col-4 slider-value">
               <label>ASIC Fan: {{ form.controls['asicfanspeed'].value }}%</label>
             </div>
           </div>
@@ -57,15 +57,15 @@
     </div>
 
     <!-- Vcore Fan Control (NMQAxe++ dual fan only) -->
-    <div *ngIf="hasDualFan" class="field grid p-fluid">
+    <div *ngIf="hasDualFan" class="field grid p-fluid pref-row">
       <div class="col-12 mb-2 md:col-3 md:mb-0 fan-auto-label">
         <p-checkbox name="autovcorefanspeed" formControlName="autovcorefanspeed" inputId="autovcorefanspeed" [binary]="true"></p-checkbox>
         <label for="autovcorefanspeed" class="fan-toggle-label">Auto Vcore Fan</label>
       </div>
-      <div class="col-12 md:col-9">
+      <div class="col-12 md:col-9 pref-control">
         <ng-container *ngIf="form.controls['autovcorefanspeed'].value == true">
-          <div class="p-grid">
-            <div class="p-col-8">
+          <div class="p-grid align-items-center slider-row">
+            <div class="p-col-12 md:p-col-8">
               <p-slider
                 formControlName="vcoretargettemp"
                 [(ngModel)]="form.controls['vcoretargettemp'].value"
@@ -75,17 +75,17 @@
                 [ngClass]="getVcoreTemperatureSliderClass()">
               </p-slider>
             </div>
-            <div class="p-col-4">
+            <div class="p-col-12 md:p-col-4 slider-value">
               <label>Target Vcore: {{ form.controls['vcoretargettemp'].value }}°C</label>
             </div>
           </div>
         </ng-container>
         <ng-container *ngIf="form.controls['autovcorefanspeed'].value != true">
-          <div class="p-grid">
-            <div class="p-col-8">
+          <div class="p-grid align-items-center slider-row">
+            <div class="p-col-12 md:p-col-8">
               <p-slider formControlName="vcorefanspeed" [(ngModel)]="form.controls['vcorefanspeed'].value"></p-slider>
             </div>
-            <div class="p-col-4">
+            <div class="p-col-12 md:p-col-4 slider-value">
               <label>Vcore Fan: {{ form.controls['vcorefanspeed'].value }}%</label>
             </div>
           </div>
@@ -94,9 +94,9 @@
     </div>
 
     <!-- Screen Saver timeout -->
-    <div class="field grid p-fluid">
-      <label class="col-12 mb-2 md:col-3 md:mb-0" htmlFor="screensaverTimeout">Screen Saver</label>
-      <div class="col-12 md:col-9">
+    <div class="field grid p-fluid pref-row">
+      <label class="col-12 mb-2 md:col-3 md:mb-0 pref-label" htmlFor="screensaverTimeout">Screen Saver</label>
+      <div class="col-12 md:col-9 pref-control">
         <p-dropdown id="screensaverTimeout"
                     formControlName="screensaverTimeout"
                     [options]="screensaverOptions"
@@ -108,21 +108,21 @@
     </div>
 
     <!-- Checkbox Options -->
-    <div class="col-12" style="display: flex; flex-wrap: wrap; gap: 10px;">
-      <div class="col-12 md:col-4" style="flex: 1;">
+    <div class="col-12 preference-options-grid">
+      <div class="col-12 md:col-4 preference-option-item">
         <div class="field-checkbox">
           <p-checkbox name="flipscreen" formControlName="flipscreen" inputId="flipscreen" [binary]="true"></p-checkbox>
           <label for="flipscreen">Flip Screen</label>
         </div>
       </div>
-      <div class="col-12 md:col-4" style="flex: 1;">
+      <div class="col-12 md:col-4 preference-option-item">
         <div class="field-checkbox">
           <p-checkbox name="ledindicator" formControlName="ledindicator" inputId="ledindicator"
                       [binary]="true"></p-checkbox>
           <label for="ledindicator">LED Indicator</label>
         </div>
       </div>
-      <div class="col-12 md:col-4" style="flex: 1;">
+      <div class="col-12 md:col-4 preference-option-item">
         <div class="field-checkbox">
           <p-checkbox name="autoscreen" formControlName="autoscreen" inputId="autoscreen"
                       [binary]="true"></p-checkbox>
@@ -132,11 +132,11 @@
     </div>
 
     <!-- Save Button -->
-    <div class="mt-2">
+    <div class="mt-2 save-row">
       <button pButton [disabled]="form.invalid" (click)="updateSystem()"
               class="btn btn-primary mr-2">Save
       </button>
-      <b style="line-height: 34px;">You must restart this device after saving for changes to take effect.</b>
+      <b>You must restart this device after saving for changes to take effect.</b>
     </div>
   </form>
 </ng-container>

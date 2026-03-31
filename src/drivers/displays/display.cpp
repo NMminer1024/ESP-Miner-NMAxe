@@ -489,9 +489,9 @@ static void button_event_cb(lv_event_t *e) {
           }
           // screen saver
           if (setting_page.list_saver.obj) {
-              static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
+              static const uint32_t SAVER_VALS[] = {0, 30, 60, 300, 900, 1800, 3600, 7200, 21600};
               uint16_t idx = lv_dropdown_get_selected(setting_page.list_saver.obj);
-              uint32_t tmo = (idx < 7) ? SAVER_VALS[idx] : 0;
+              uint32_t tmo = (idx < 9) ? SAVER_VALS[idx] : 0;
               uint8_t  en  = (tmo > 0) ? 1 : 0;
               nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, en);
               nvs_config_set_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, tmo);
@@ -3395,13 +3395,13 @@ void ui_setting_or_swarm_page_update(void* args){
       lv_obj_set_style_pad_bottom(setting_page.list_saver.obj, 4, LV_PART_MAIN);
       {
         lv_dropdown_set_options(setting_page.list_saver.obj,
-          "Never\n1 min\n5 min\n15 min\n1 hour\n3 hours\n24 hours");
-        static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
+          "never\n30s\n1m\n5m\n15m\n30m\n1h\n2h\n6h");
+        static const uint32_t SAVER_VALS[] = {0, 30, 60, 300, 900, 1800, 3600, 7200, 21600};
         uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
         uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
         uint16_t sel_idx = 0;
         if (en) {
-          for (int i = 1; i < 7; i++) {
+          for (int i = 1; i < 9; i++) {
             if (SAVER_VALS[i] == tmo) { sel_idx = (uint16_t)i; break; }
           }
         }
@@ -3503,12 +3503,12 @@ void ui_setting_or_swarm_page_update(void* args){
 
       // screen saver
       if (setting_page.list_saver.obj) {
-        static const uint32_t SAVER_VALS[] = {0, 60, 300, 900, 3600, 10800, 86400};
+        static const uint32_t SAVER_VALS[] = {0, 30, 60, 300, 900, 1800, 3600, 7200, 21600};
         uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
         uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
         uint16_t idx = 0;
         if (en) {
-          for (int i = 1; i < 7; i++) {
+          for (int i = 1; i < 9; i++) {
             if (SAVER_VALS[i] == tmo) { idx = (uint16_t)i; break; }
           }
         }

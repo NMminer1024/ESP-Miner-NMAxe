@@ -175,9 +175,9 @@
   </div>
 </div>
 
-<!-- 升级固件卡片 -->
-<div class="grid">
-  <div class="col-12 lg:col-6 xl:col-6">
+<!-- 升级卡片 -->
+<div class="grid update-cards-grid">
+  <div class="col-12 lg:col-4 xl:col-4">
     <div class="card modern-card update-card">
       <div class="card-header">
         <div class="card-title-group">
@@ -204,7 +204,7 @@
   </div>
   
   <!-- 升级网站卡片 -->
-  <div class="col-12 lg:col-6 xl:col-6">
+  <div class="col-12 lg:col-4 xl:col-4">
     <div class="card modern-card update-card">
       <div class="card-header">
         <div class="card-title-group">
@@ -228,10 +228,8 @@
       </div>
     </div>
   </div>
-</div>
 
-<div class="grid">
-  <div class="col-12">
+  <div class="col-12 lg:col-4 xl:col-4">
     <div class="card modern-card update-card screensaver-card">
       <div class="card-header">
         <div class="card-title-group">
@@ -249,14 +247,25 @@
       </div>
 
       <div class="card-content screensaver-card-content">
-        <p-fileUpload #screensaverFileUploader [customUpload]="true" mode="basic" accept=".gif"
-                      (uploadHandler)="uploadScreensaver($event)"
-                      [auto]="true" chooseLabel="Browse GIF"></p-fileUpload>
-        <small class="file-hint">(.gif)</small>
+        <div class="screensaver-upload-row">
+          <div class="screensaver-upload-action">
+            <p-fileUpload #screensaverFileUploader [customUpload]="true" mode="basic" accept=".gif"
+                          (uploadHandler)="uploadScreensaver($event)"
+                          [auto]="true" chooseLabel="Browse GIF"></p-fileUpload>
+            <small class="file-hint screensaver-file-hint">（*.gif）</small>
+          </div>
 
-        <div class="screensaver-hints">
-          <div class="screensaver-hint-line">{{ screensaverResolutionHint }}</div>
-          <div class="screensaver-warning">⚠ Custom GIF will be lost when updating SPIFFS.bin. Please back up your GIF file offline.</div>
+          <div class="screensaver-meta">
+            <small class="file-hint screensaver-compact-hint">{{ screensaverResolutionHint }}</small>
+            <span
+              class="screensaver-warning-badge"
+              tabindex="0"
+              role="img"
+              aria-label="Custom GIF will be lost when updating SPIFFS.bin. Please back up your GIF file offline.">
+              ⚠
+            </span>
+            <div class="screensaver-warning-tooltip">Custom GIF will be lost when updating SPIFFS.bin. Please back up your GIF file offline.</div>
+          </div>
         </div>
       </div>
     </div>

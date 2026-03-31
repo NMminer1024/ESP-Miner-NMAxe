@@ -962,22 +962,130 @@
   gap: 0.75rem;
 }
 
-.screensaver-hints {
+.screensaver-upload-row {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-top: 0.25rem;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  width: 100%;
 }
 
-.screensaver-hint-line {
-  color: #cfcfcf;
-  font-size: 0.95rem;
+.screensaver-upload-action {
+  flex: 0 0 auto;
 }
 
-.screensaver-warning {
-  color: #d8a64f;
-  font-size: 0.9rem;
-  line-height: 1.5;
+.screensaver-file-hint {
+  margin-top: 0.45rem;
+}
+
+.screensaver-meta {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.screensaver-compact-hint {
+  margin-top: 0 !important;
+  font-size: 0.8rem !important;
+  line-height: 1.25;
+  opacity: 0.82;
+}
+
+.screensaver-warning-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  color: #e3b25f;
+  background: rgba(216, 166, 79, 0.18);
+  border: 1px solid rgba(216, 166, 79, 0.5);
+  cursor: help;
+  outline: none;
+}
+
+.screensaver-warning-tooltip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  width: min(310px, calc(100vw - 64px));
+  padding: 0.42rem 0.52rem;
+  border-radius: 7px;
+  background: rgba(22, 22, 22, 0.95);
+  border: 1px solid rgba(216, 166, 79, 0.45);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  color: #e2b160;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.update-cards-grid {
+  align-items: stretch;
+
+  > [class*='col-'] {
+    display: flex;
+  }
+
+  .update-card {
+    width: 100%;
+    height: 100%;
+    min-height: 162px !important;
+  }
+
+  .screensaver-card {
+    .screensaver-card-content {
+      justify-content: flex-start;
+      gap: 0.5rem;
+    }
+
+    .screensaver-compact-hint {
+      font-size: 0.76rem !important;
+    }
+  }
+}
+
+.screensaver-meta:hover .screensaver-warning-tooltip,
+.screensaver-meta:focus-within .screensaver-warning-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 992px) {
+  .update-cards-grid {
+    .update-card {
+      min-height: 154px !important;
+    }
+
+    .screensaver-upload-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.45rem;
+    }
+
+    .screensaver-meta {
+      width: 100%;
+      padding: 0.34rem 0.45rem;
+    }
+
+    .screensaver-warning-tooltip {
+      width: min(300px, calc(100vw - 56px));
+    }
+  }
 }
 
 /* Release信息样式 */
@@ -1293,6 +1401,89 @@ body.dark-theme {
   .update-card {
     .file-hint {
       color: #cfcfcf;
+    }
+  }
+}
+
+/* Final overrides: avoid title/progress overlap on all three update cards */
+.update-cards-grid {
+  .update-card {
+    min-height: 162px !important;
+
+    .card-header {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 0.6rem !important;
+      margin-bottom: 0.55rem !important;
+      min-height: 38px;
+    }
+
+    .card-content {
+      justify-content: flex-start;
+      gap: 0.35rem;
+    }
+
+    .card-title-group {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .card-title {
+      font-size: 1.08rem !important;
+      line-height: 1.2 !important;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-area {
+      position: static !important;
+      top: auto !important;
+      right: auto !important;
+      margin-left: 0.5rem !important;
+      flex: 0 0 auto !important;
+      z-index: auto !important;
+    }
+
+    .custom-progress-container {
+      gap: 0.5rem !important;
+    }
+
+    .custom-progress-bar {
+      width: clamp(84px, 8vw, 120px) !important;
+      height: 7px !important;
+    }
+
+    .custom-progress-text {
+      font-size: clamp(20px, 1.75vw, 34px) !important;
+      line-height: 1;
+      min-width: 2.1ch;
+      text-align: right;
+    }
+  }
+}
+
+@media (max-width: 992px) {
+  .update-cards-grid {
+    .update-card {
+      min-height: 154px !important;
+
+      .card-header {
+        align-items: flex-start !important;
+      }
+
+      .progress-area {
+        margin-left: 0 !important;
+      }
+
+      .custom-progress-bar {
+        width: 140px !important;
+      }
+
+      .custom-progress-text {
+        font-size: 22px !important;
+      }
     }
   }
 }
