@@ -62,10 +62,11 @@
 <!-- Main Table -->
 <div class="table-section">
   <!-- Batch Update Buttons -->
+  @if (selectedItems.length > 0) {
   <div class="table-controls batch-update-controls">
     <div class="update-controls">
-      <p-button severity="danger" [disabled]="selectedItems.length === 0" (click)="selectedItems.length > 0 && (showUpdateFirmware = true)" label="Update Firmware" size="small"></p-button>
-      <p-button severity="danger" [disabled]="selectedItems.length === 0" (click)="selectedItems.length > 0 && (showUpdateWebsite = true)" label="Update Website" size="small"></p-button>
+      <p-button severity="danger" (click)="showUpdateFirmware = true" label="Update Firmware" size="small"></p-button>
+      <p-button severity="danger" (click)="showUpdateWebsite = true" label="Update Website" size="small"></p-button>
     </div>
     <div class="table-info">
       <div class="info-item">
@@ -74,6 +75,7 @@
       </div>
     </div>
   </div>
+  }
 
   <div class="table-container">
     <table>

@@ -1,8 +1,8 @@
-import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
-import {Component, Input, OnDestroy, OnInit} from '@angular/core';
+import {HttpErrorResponse} from '@angular/common/http';
+import {Component, Input, OnInit} from '@angular/core';
 import {FormBuilder, FormGroup, Validators} from '@angular/forms';
 import {ToastrService} from 'ngx-toastr';
-import {startWith, switchMap} from 'rxjs';
+import {startWith} from 'rxjs';
 import {LoadingService} from 'src/app/services/loading.service';
 import {SystemService} from 'src/app/services/system.service';
 import {eASICModel} from 'src/models/enum/eASICModel';
@@ -12,7 +12,7 @@ import {eASICModel} from 'src/models/enum/eASICModel';
   templateUrl: './preference.component.html',
   styleUrls: ['./preference.component.scss']
 })
-export class PreferenceComponent implements OnInit, OnDestroy {
+export class PreferenceComponent implements OnInit {
 
   public form!: FormGroup;
 
@@ -35,13 +35,6 @@ export class PreferenceComponent implements OnInit, OnDestroy {
     { label: '3 hours',  value: 10800 },
     { label: '24 hours', value: 86400 },
   ];
-
-  // Screensaver GIF upload state
-  public screensaverFile: File | null = null;
-  public screensaverUploading: boolean = false;
-  public screensaverProgress: number = 0;         // network upload %
-  public screensaverDeviceProgress: number = 0;   // device SPIFFS write %
-  private screensaverPollInterval: any = null;
 
   @Input() uri = '';
 
@@ -135,15 +128,6 @@ export class PreferenceComponent implements OnInit, OnDestroy {
     }
   };
 
-  public get screensaverResolutionHint(): string {
-    if (this.hwModel === 'NMAxe' || this.hwModel === 'NMAxeGamma') {
-      return 'GIF: ≤300 KB, recommended 240×135 px (NMAxe / NMAxeGamma)';
-    } else if (this.hwModel === 'NMQAxe++') {
-      return 'GIF: ≤300 KB, recommended 320×240 px (NMQAxe++)';
-    }
-    return 'GIF: ≤300 KB, 240×135 (NMAxe/Gamma) · 320×240 (NMQAxe++)';
-  }
-
   public getTemperatureSliderClass(): string {
     const temp = this.form?.get('asictargettemp')?.value || 30;
     if (temp <= 50) return 'temp-safe';
@@ -190,62 +174,6 @@ export class PreferenceComponent implements OnInit, OnDestroy {
           this.toastr.error('Error.', `Could not save. ${err.message}`);
         }
       });
-  }
-
-  public onScreensaverFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      this.screensaverFile = input.files[0];
-      this.uploadScreensaver();
-    }
-  }
-
-  public uploadScreensaver(): void {
-    if (!this.screensaverFile) return;
-    this.screensaverUploading = true;
-    this.screensaverProgress = 0;
-    this.screensaverDeviceProgress = 0;
-
-    // Start polling GET /api/update/progress to get accurate device-side SPIFFS write progress.
-    this.screensaverPollInterval = setInterval(() => {
-      this.systemService.getOtaProgress(this.uri).subscribe({
-        next: (p) => { this.screensaverDeviceProgress = p.progress; }
-      });
-    }, 500);
-
-    // Wake the screensaver first; only after the wakeup response comes back do we
-    // start streaming the GIF binary, ensuring the screen is already on.
-    this.systemService.wakeup(this.uri).pipe(
-      switchMap(() => this.systemService.uploadScreensaver(this.uri, this.screensaverFile!))
-    ).subscribe({
-        next: (event: any) => {
-          if (event?.type === HttpEventType.UploadProgress && event.total) {
-            this.screensaverProgress = Math.round(100 * event.loaded / event.total);
-          } else if (event?.type === HttpEventType.Response) {
-            clearInterval(this.screensaverPollInterval);
-            this.screensaverPollInterval = null;
-            this.screensaverUploading = false;
-            this.screensaverFile = null;
-            this.screensaverProgress = 0;
-            this.screensaverDeviceProgress = 0;
-            this.toastr.success('Screen saver uploaded!', 'Success');
-          }
-        },
-        error: (err: HttpErrorResponse) => {
-          clearInterval(this.screensaverPollInterval);
-          this.screensaverPollInterval = null;
-          this.screensaverUploading = false;
-          this.screensaverProgress = 0;
-          this.screensaverDeviceProgress = 0;
-          this.toastr.error('Upload failed.', err.message);
-        }
-      });
-  }
-
-  ngOnDestroy(): void {
-    if (this.screensaverPollInterval) {
-      clearInterval(this.screensaverPollInterval);
-    }
   }
 
 }

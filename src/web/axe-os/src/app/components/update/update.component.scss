@@ -958,6 +958,28 @@
   font-size: 13px;
 }
 
+.screensaver-card-content {
+  gap: 0.75rem;
+}
+
+.screensaver-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.screensaver-hint-line {
+  color: #cfcfcf;
+  font-size: 0.95rem;
+}
+
+.screensaver-warning {
+  color: #d8a64f;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 /* Release信息样式 */
 .release-meta {
   display: flex;

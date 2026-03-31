@@ -93,44 +93,17 @@
       </div>
     </div>
 
-    <!-- Screen Saver: timer dropdown + GIF upload (same row 8:2) -->
+    <!-- Screen Saver timeout -->
     <div class="field grid p-fluid">
       <label class="col-12 mb-2 md:col-3 md:mb-0" htmlFor="screensaverTimeout">Screen Saver</label>
       <div class="col-12 md:col-9">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <div style="flex:8; min-width:0;">
-            <p-dropdown id="screensaverTimeout"
-                        formControlName="screensaverTimeout"
-                        [options]="screensaverOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                        [style]="{'width':'100%'}">
-            </p-dropdown>
-          </div>
-          <div style="flex:2; min-width:0;">
-            <input #screensaverInput type="file" accept=".gif" style="display:none"
-                   (change)="onScreensaverFileSelected($event)" />
-            <button pButton type="button" label="GIF"
-                    icon="pi pi-image"
-                    class="p-button-secondary"
-                    [disabled]="screensaverUploading"
-                    (click)="screensaverInput.click()"
-                    style="width:100%;">
-            </button>
-          </div>
-        </div>
-        <small style="color:#aaaaaa; display:block; margin-top:4px;">
-          <ng-container *ngIf="screensaverUploading">
-            <span style="color:#4CAF50; margin-right:6px;">
-              Uploading {{ screensaverProgress }}%
-              <ng-container *ngIf="screensaverProgress >= 100 && screensaverDeviceProgress < 100">
-                &nbsp;· Writing {{ screensaverDeviceProgress }}%
-              </ng-container>
-            </span>
-          </ng-container>
-          {{ screensaverResolutionHint }}<br/>
-          <span style="color:#cc9933;">&#9888; Custom GIF will be lost when updating SPIFFS.bin. Please back up your GIF file offline.</span>
-        </small>
+        <p-dropdown id="screensaverTimeout"
+                    formControlName="screensaverTimeout"
+                    [options]="screensaverOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    [style]="{'width':'100%'}">
+        </p-dropdown>
       </div>
     </div>
 

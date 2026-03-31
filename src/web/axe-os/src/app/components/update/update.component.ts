@@ -1,5 +1,5 @@
 import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
-import {Component, OnInit, ViewChild, AfterViewInit, ElementRef, ChangeDetectorRef} from '@angular/core';
+import {AfterViewInit, ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
 import {FileUpload, FileUploadHandlerEvent} from 'primeng/fileupload';
 import {map, Observable, shareReplay, switchMap} from 'rxjs';
@@ -12,12 +12,15 @@ import { marked } from 'marked';
   templateUrl: './update.component.html',
   styleUrls: ['./update.component.scss']
 })
-export class UpdateComponent implements OnInit, AfterViewInit {
+export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('otaFileUploader') otaFileUploader!: FileUpload;
+  @ViewChild('wwwFileUploader') wwwFileUploader!: FileUpload;
+  @ViewChild('screensaverFileUploader') screensaverFileUploader!: FileUpload;
 
   public firmwareUpdateProgress: number | null = null;
   public websiteUpdateProgress: number | null = null;
+  public screensaverUpdateProgress: number | null = null;
 
   private progressPollInterval: any = null;
 
@@ -34,6 +37,20 @@ export class UpdateComponent implements OnInit, AfterViewInit {
   public selectedRelease: any = null; // 当前选中显示的release
   public isLatestSelected: boolean = true; // 是否选中的是最新版本
   public isDevelopmentVersionSelected: boolean = false; // 是否选中的是开发版本
+
+  public get screensaverResolutionHint(): string {
+    const hwModel = this.currentInfo?.boardVersion || this.currentInfo?.hwModel || '';
+
+    if (hwModel === 'NMAxe' || hwModel === 'NMAxeGamma') {
+      return 'GIF: ≤300 KB, recommended 240×135 px (NMAxe / NMAxeGamma)';
+    }
+
+    if (hwModel === 'NMQAxe++') {
+      return 'GIF: ≤300 KB, recommended 320×240 px (NMQAxe++)';
+    }
+
+    return 'GIF: ≤300 KB, 240×135 (NMAxe/Gamma) · 320×240 (NMQAxe++)';
+  }
 
   constructor(
     private systemService: SystemService,
@@ -516,7 +533,7 @@ export class UpdateComponent implements OnInit, AfterViewInit {
     const file = event.files[0];
     if (file.name != 'spiffs.bin') {
       this.toastrService.error('Incorrect file, looking for spiffs.bin.', 'Error');
-      this.otaFileUploader.clear();
+      this.wwwFileUploader.clear();
       return;
     }
 
@@ -538,12 +555,13 @@ export class UpdateComponent implements OnInit, AfterViewInit {
               setTimeout(() => {
                 this.websiteUpdateProgress = null;
                 this.toastrService.success('Website updated', 'Success!');
+                this.wwwFileUploader.clear();
                 window.location.reload();
               }, 1000);
             } else {
               this.toastrService.error(event.statusText, 'Error');
               this.websiteUpdateProgress = null;
-              this.otaFileUploader.clear();
+              this.wwwFileUploader.clear();
             }
           }
         },
@@ -552,11 +570,58 @@ export class UpdateComponent implements OnInit, AfterViewInit {
           const reason = this.extractOtaError(err);
           this.toastrService.error(reason, 'SPIFFS Update Failed');
           this.websiteUpdateProgress = null;
-          this.otaFileUploader.clear();
+          this.wwwFileUploader.clear();
         },
         complete: () => {
           this.stopProgressPolling();
-          this.otaFileUploader.clear();
+          this.wwwFileUploader.clear();
+        }
+      });
+  }
+
+  uploadScreensaver(event: FileUploadHandlerEvent) {
+    const file = event.files[0];
+
+    if (!file || !file.name.toLowerCase().endsWith('.gif')) {
+      this.toastrService.error('Incorrect file, looking for a .gif file.', 'Error');
+      this.screensaverFileUploader.clear();
+      return;
+    }
+
+    this.systemService.wakeup().pipe(
+      switchMap(() => this.systemService.uploadScreensaver('', file))
+    ).subscribe({
+        next: (uploadEvent) => {
+          if (uploadEvent.type === HttpEventType.UploadProgress) {
+            if (this.screensaverUpdateProgress === null) {
+              this.screensaverUpdateProgress = 0;
+              this.startProgressPolling('screensaver');
+            }
+          } else if (uploadEvent.type === HttpEventType.Response) {
+            this.stopProgressPolling();
+            if (uploadEvent.ok) {
+              this.screensaverUpdateProgress = 100;
+              this.toastrService.success('Screen saver uploaded. Device will reboot to apply it.', 'Success!');
+              setTimeout(() => {
+                this.screensaverUpdateProgress = null;
+                this.screensaverFileUploader.clear();
+              }, 2000);
+            } else {
+              this.toastrService.error(uploadEvent.statusText, 'Error');
+              this.screensaverUpdateProgress = null;
+              this.screensaverFileUploader.clear();
+            }
+          }
+        },
+        error: (err: HttpErrorResponse) => {
+          this.stopProgressPolling();
+          const reason = this.extractOtaError(err);
+          this.toastrService.error(reason, 'Screen Saver Upload Failed');
+          this.screensaverUpdateProgress = null;
+          this.screensaverFileUploader.clear();
+        },
+        complete: () => {
+          this.stopProgressPolling();
         }
       });
   }
@@ -577,15 +642,17 @@ export class UpdateComponent implements OnInit, AfterViewInit {
     return err.message || 'Unknown error';
   }
 
-  private startProgressPolling(target: 'firmware' | 'spiffs') {
+  private startProgressPolling(target: 'firmware' | 'spiffs' | 'screensaver') {
     this.stopProgressPolling();
     this.progressPollInterval = setInterval(() => {
       this.systemService.getOtaProgress().subscribe({
         next: (p) => {
           if (target === 'firmware') {
             this.firmwareUpdateProgress = p.progress;
-          } else {
+          } else if (target === 'spiffs') {
             this.websiteUpdateProgress = p.progress;
+          } else {
+            this.screensaverUpdateProgress = p.progress;
           }
         }
       });
@@ -597,5 +664,9 @@ export class UpdateComponent implements OnInit, AfterViewInit {
       clearInterval(this.progressPollInterval);
       this.progressPollInterval = null;
     }
+  }
+
+  ngOnDestroy(): void {
+    this.stopProgressPolling();
   }
 }

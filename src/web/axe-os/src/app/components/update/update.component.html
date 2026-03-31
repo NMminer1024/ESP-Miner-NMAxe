@@ -222,9 +222,42 @@
       </div>
 
       <div class="card-content">
-        <p-fileUpload [customUpload]="true" mode="basic" accept=".bin" (uploadHandler)="otaWWWUpdate($event)"
+        <p-fileUpload #wwwFileUploader [customUpload]="true" mode="basic" accept=".bin" (uploadHandler)="otaWWWUpdate($event)"
                       [auto]="true" chooseLabel="Browse Website"></p-fileUpload>
         <small class="file-hint">(spiffs.bin)</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="col-12">
+    <div class="card modern-card update-card screensaver-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-icon">🖼️</span>
+          <h2 class="card-title">Update Screen Saver GIF</h2>
+        </div>
+        <div class="progress-area" *ngIf="screensaverUpdateProgress != null">
+          <div class="custom-progress-container">
+            <div class="custom-progress-bar">
+              <div class="custom-progress-fill" [style.width.%]="screensaverUpdateProgress"></div>
+            </div>
+            <span class="custom-progress-text">{{ screensaverUpdateProgress }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-content screensaver-card-content">
+        <p-fileUpload #screensaverFileUploader [customUpload]="true" mode="basic" accept=".gif"
+                      (uploadHandler)="uploadScreensaver($event)"
+                      [auto]="true" chooseLabel="Browse GIF"></p-fileUpload>
+        <small class="file-hint">(.gif)</small>
+
+        <div class="screensaver-hints">
+          <div class="screensaver-hint-line">{{ screensaverResolutionHint }}</div>
+          <div class="screensaver-warning">⚠ Custom GIF will be lost when updating SPIFFS.bin. Please back up your GIF file offline.</div>
+        </div>
       </div>
     </div>
   </div>

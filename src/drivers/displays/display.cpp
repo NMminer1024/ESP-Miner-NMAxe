@@ -3539,6 +3539,13 @@ void ui_screen_saver_page_update(void* args){
     return;
   }
 
+  // Keep resetting the idle timer until miner is ready so the screensaver
+  // timeout only starts counting from the moment mining begins.
+  if(!(xEventGroupGetBits(board->status.init_evt) & INIT_EVENT_MINER_READY)){
+    board->status.ui.last_active_ms = millis();
+    return;
+  }
+
   // ── GIF PSRAM cache (function-scope, avoids polluting module namespace) ──────
   static uint8_t *gif_ram_buf  = nullptr;
   static size_t   gif_ram_size = 0;
@@ -3581,8 +3588,6 @@ void ui_screen_saver_page_update(void* args){
     s_ram_drv_registered = true;
   }
 
-  // Initialize last_active_ms on first call if not yet set
-  if (board->status.ui.last_active_ms == 0) board->status.ui.last_active_ms = millis();
   static bool     fading_out       = false;
   static uint32_t fade_start_ms    = 0;
   static lv_obj_t *overlay         = nullptr;
