@@ -506,6 +506,8 @@ Upload a custom animated GIF as screensaver. The file is written to SPIFFS, then
 | `model` | string | Board model name (e.g. `"NMAxe"`) |
 | `hostname` | string | Device hostname |
 | `ver` | string | Firmware version |
+| `sw` | int | TFT screen width in pixels |
+| `sh` | int | TFT screen height in pixels |
 | `hr` | float | 3-minute average hashrate (H/s) |
 | `sbd` | float | Best session difficulty |
 | `ebd` | float | Best ever difficulty |

@@ -478,6 +478,8 @@ void webserver_thread_entry(void *args){
             resp->printf("\"model\":\"%s\",",    board->info.spec.name.c_str());  // board model name
             resp->printf("\"hostname\":\"%s\",",    board->info.base.hostname.c_str()); // hostname
             resp->printf("\"ver\":\"%s\",", board->info.base.fw_version.c_str()); // firmware version
+            resp->printf("\"sw\":%d,",           board->info.spec.tft.width);   // TFT width from board spec
+            resp->printf("\"sh\":%d,",           board->info.spec.tft.height);  // TFT height from board spec
             resp->printf("\"hr\":%.0f,",       board->status.miner.hashrate._3m); // hashrate in H/s, 3m average
             resp->printf("\"sbd\":%.0f,", board->status.miner.diff.best_session); // best session difficulty
             resp->printf("\"ebd\":%.0f,",     board->status.miner.diff.best_ever); // best ever difficulty
@@ -581,6 +583,8 @@ void webserver_thread_entry(void *args){
         resp->printf("\"model\":\"%s\",",    board->info.spec.name.c_str());  // board model name
         resp->printf("\"hostname\":\"%s\",",    board->info.base.hostname.c_str()); // hostname
         resp->printf("\"ver\":\"%s\",", board->info.base.fw_version.c_str()); // firmware version
+        resp->printf("\"sw\":%d,",           board->info.spec.tft.width);   // TFT width from board spec
+        resp->printf("\"sh\":%d,",           board->info.spec.tft.height);  // TFT height from board spec
         resp->printf("\"hr\":%.0f,",       board->status.miner.hashrate._3m); // hashrate in H/s, 3m average
         resp->printf("\"sbd\":%.0f,", board->status.miner.diff.best_session); // best session difficulty
         resp->printf("\"ebd\":%.0f,",     board->status.miner.diff.best_ever); // best ever difficulty

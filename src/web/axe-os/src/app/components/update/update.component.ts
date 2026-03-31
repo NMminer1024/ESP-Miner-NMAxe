@@ -37,19 +37,19 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
   public selectedRelease: any = null; // 当前选中显示的release
   public isLatestSelected: boolean = true; // 是否选中的是最新版本
   public isDevelopmentVersionSelected: boolean = false; // 是否选中的是开发版本
+  public probeInfo: { sw?: number; sh?: number } | null = null;
 
   public get screensaverResolutionHint(): string {
-    const hwModel = this.currentInfo?.boardVersion || this.currentInfo?.hwModel || '';
+    const sw = Number(this.probeInfo?.sw);
+    const sh = Number(this.probeInfo?.sh);
 
-    if (hwModel === 'NMAxe' || hwModel === 'NMAxeGamma') {
-      return 'GIF: ≤300 KB, recommended 240×135 px (NMAxe / NMAxeGamma)';
+    if (Number.isFinite(sw) && sw > 0 && Number.isFinite(sh) && sh > 0) {
+      const recommendedW = Math.max(sw, sh);
+      const recommendedH = Math.min(sw, sh);
+      return `GIF: ≤300 KB, recommended ${recommendedW}×${recommendedH} px`;
     }
 
-    if (hwModel === 'NMQAxe++') {
-      return 'GIF: ≤300 KB, recommended 320×240 px (NMQAxe++)';
-    }
-
-    return 'GIF: ≤300 KB, 240×135 (NMAxe/Gamma) · 320×240 (NMQAxe++)';
+    return 'GIF: ≤300 KB, recommended resolution from /probe';
   }
 
   constructor(
@@ -95,6 +95,15 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (err) => {
         console.error('Failed to fetch system info:', err);
+      }
+    });
+
+    this.systemService.getProbe().subscribe({
+      next: (probe) => {
+        this.probeInfo = probe;
+      },
+      error: (err) => {
+        console.error('Failed to fetch probe info:', err);
       }
     });
   }

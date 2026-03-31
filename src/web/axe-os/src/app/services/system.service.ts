@@ -16,6 +16,18 @@ export interface StatusHistoryResponse {
   sampleInterval?: number;
 }
 
+export interface IProbeInfo {
+  model: string;
+  hostname: string;
+  ver: string;
+  hr: number;
+  sbd: number;
+  ebd: number;
+  ut: number;
+  sw: number;
+  sh: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -136,6 +148,24 @@ export class SystemService {
         }
       ) as Observable<ISystemInfo>;
     }
+  }
+
+  public getProbe(uri: string = ''): Observable<IProbeInfo> {
+    if (environment.production) {
+      return this.httpClient.get(`${uri}/probe`) as Observable<IProbeInfo>;
+    }
+
+    return of({
+      model: 'NMAxe',
+      hostname: 'nmaxe-dev',
+      ver: 'dev',
+      hr: 0,
+      sbd: 0,
+      ebd: 0,
+      ut: 0,
+      sw: 135,
+      sh: 240,
+    });
   }
 
   public restart(uri: string = '') {
