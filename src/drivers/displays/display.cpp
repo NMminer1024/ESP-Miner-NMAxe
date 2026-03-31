@@ -3657,6 +3657,16 @@ void ui_screen_saver_page_update(void* args){
   if(!board->status.preference.screen.saver_enable) return;
   if((millis() - board->status.ui.last_active_ms) < ((uint32_t)board->status.preference.screen.saver_timeout * 1000UL)) return;
 
+  // ── OTA in progress: suppress screensaver entirely ───────────────────────
+  // Overlay creation + GIF decode must not run while OTA is active:
+  // flash writes pause the CPU cache, which would corrupt the GIF decoder
+  // and freeze the display task. Reset last_active_ms so the inactivity
+  // timer restarts from zero once OTA finishes.
+  if (board->status.ota.running) {
+    board->status.ui.last_active_ms = millis();
+    return;
+  }
+
   // Create overlay background style once
   if(!style_inited){
     lv_style_init(&style);

@@ -137,7 +137,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     }
 
     while(true){
-        // MinerApp::instance().print_stack_hwm(); // debug: print stack usage
+        MinerApp::instance().print_stack_hwm(); // debug: print stack usage
 
         delay(10);
         // check miner events to trigger backlight effect, such as block hit or high diff achieved

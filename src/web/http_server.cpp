@@ -1226,8 +1226,20 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
     // Shared
     static int      lastPercentage = -1;
     static bool     is_gif = false;
+    static uint32_t last_progress_ms = 0;  // millis() when progress last advanced
 
     uint64_t flen = request->contentLength();
+
+    // Stall watchdog: if progress hasn't changed for >60s during an active upload, reboot.
+    // The callback is driven by incoming TCP data, so if no chunk arrives (or no progress
+    // is recorded) for a full minute the upload is effectively hung.
+    if (index > 0 && g_board.status.ota.running && last_progress_ms != 0) {
+        if (millis() - last_progress_ms > 60000UL) {
+            LOG_E("Upload stalled >60s (progress stuck at %d%%), triggering reboot", lastPercentage);
+            xSemaphoreGive(g_board.status.reboot_xsem);
+            return;
+        }
+    }
 
     if (index == 0) {
         // Detect file type by extension
@@ -1253,7 +1265,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             g_board.status.ota.running  = true;
             g_board.status.ota.progress = 0;
             g_board.status.ota.filename = filename;
-            lastPercentage = -1;
+            lastPercentage    = -1;
+            last_progress_ms  = millis();
         } else {
             // ── Firmware / SPIFFS OTA init ────────────────────────────────
             LOG_I("OTA Update Started, File name: %s, Index: %d, contentLength: %llu, len: %d, Final: %d", filename.c_str(), index, flen, len, final);
@@ -1287,8 +1300,9 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             g_board.status.ota.running  = true;
             g_board.status.ota.progress = 0;
             g_board.status.ota.filename = filename;
-            ota_buf_len    = 0;
-            lastPercentage = -1;
+            ota_buf_len      = 0;
+            lastPercentage   = -1;
+            last_progress_ms = millis();
         }
     }
 
@@ -1307,7 +1321,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 if (pct != lastPercentage) {
                     g_board.status.ota.progress = pct;
                     LOG_I("GIF upload: %d%%  (%u / %llu bytes)", pct, (unsigned)(index + len), (unsigned long long)flen);
-                    lastPercentage = pct;
+                    lastPercentage   = pct;
+                    last_progress_ms = millis();
                 }
                 delay(5); // Feed the watchdog
             }
@@ -1354,7 +1369,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 if (progress != lastPercentage) {
                     g_board.status.ota.progress = progress;
                     LOG_I("%s ota: %d%%", filename.c_str(), progress);
-                    lastPercentage = progress;
+                    lastPercentage   = progress;
+                    last_progress_ms = millis();
                 }
             }
         }
