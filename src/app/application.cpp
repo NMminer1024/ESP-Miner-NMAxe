@@ -46,7 +46,7 @@ void MinerApp::begin() {
         {"(app_tick)",   _tick_thread_entry,            (uint32_t)(1024*4),   TASK_PRIORITY_APP_TICK,    1, &_tickTask,       10,  0},
         {"(display)",   display_thread_entry,           1024*5,   TASK_PRIORITY_DISPLAY,     1, NULL,             10,  0},
         {"(lvgl)",      lvgl_tick_thread_entry,         (uint32_t)(1024*4.5),   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
-        {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
+        {"(ui)",        ui_thread_entry,                1024*4,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
         {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
         {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,         1, &_btnTask,        10,  0},
         {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,          0, &_wsTask,         10,  0},
@@ -138,7 +138,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     }
 
     while(true){
-        MinerApp::instance().print_stack_hwm(); // debug: print stack usage
+        // MinerApp::instance().print_stack_hwm(); // debug: print stack usage
 
         delay(10);
         // check miner events to trigger backlight effect, such as block hit or high diff achieved
