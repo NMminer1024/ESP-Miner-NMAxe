@@ -119,7 +119,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = true;
-            config.preference.screen.saver_enable  = true;
+            config.preference.screen.saver_enable  = false;
             config.preference.screen.saver_timeout = 15*60; // 15 minutes
 
             config.preference.led.enable           = true;
@@ -250,7 +250,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = true;
-            config.preference.screen.saver_enable  = true;
+            config.preference.screen.saver_enable  = false;
             config.preference.screen.saver_timeout = 15*60; // 15 minutes
 
             config.preference.led.enable           = true;
