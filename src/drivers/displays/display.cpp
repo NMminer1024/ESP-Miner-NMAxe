@@ -1246,7 +1246,7 @@ void ui_page_element_init(void* args){
   }
   else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
     loading_page.back_img_dsc           = &loading_page_img_240_320;
-    config_page.back_img_dsc            = &config_page_img_240_320;
+    config_page.back_img_dsc            = &black_page_img_240_320;
     miner_page.back_img_dsc             = &mining_page_img_240_320;
     dashboard_page.back_img_dsc         = &status_page_img_240_320;
     hr_health_page.back_img_dsc         = &status_page_img_240_320;
@@ -1664,7 +1664,7 @@ void ui_layout_init(void* args){
   lv_label_set_long_mode(loading_page.lb_pool_url.obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
   lv_obj_align( loading_page.lb_pool_url.obj, LV_ALIGN_CENTER, loading_page.lb_pool_url.coord.x, loading_page.lb_pool_url.coord.y);
   //////////////////////////////////////config page layout///////////////////////////////////////////////
-  // version label
+  // version + timeout labels — created for all boards, positioned per board below
   font_color = lv_color_hex(0xFFFFFF);
   width = lv_txt_get_width(board->info.base.fw_version.c_str(), strlen(board->info.base.fw_version.c_str()), config_page.lb_version.font, 0, LV_TEXT_FLAG_NONE);
   config_page.lb_version.obj   = lv_label_create(board->status.ui.page.list[UI_PAGE_CONFIG]);
@@ -1673,58 +1673,70 @@ void ui_layout_init(void* args){
   lv_obj_set_style_text_font(config_page.lb_version.obj, config_page.lb_version.font, LV_PART_MAIN);
   lv_obj_set_style_text_color(config_page.lb_version.obj, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(config_page.lb_version.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( config_page.lb_version.obj, LV_ALIGN_TOP_MID, config_page.lb_version.coord.x, config_page.lb_version.coord.y);
 
-  //config timeout label
-  font_color = lv_color_hex(0xFFFFFF);
   config_page.lb_cfg_timeout.obj   = lv_label_create(board->status.ui.page.list[UI_PAGE_CONFIG]);
-  lv_obj_set_width(config_page.lb_cfg_timeout.obj, SCREEN_WIDTH);
   lv_label_set_text( config_page.lb_cfg_timeout.obj, "");
   lv_obj_set_style_text_font(config_page.lb_cfg_timeout.obj, config_page.lb_cfg_timeout.font, LV_PART_MAIN);
   lv_obj_set_style_text_color(config_page.lb_cfg_timeout.obj, font_color, LV_PART_MAIN); 
   lv_label_set_long_mode(config_page.lb_cfg_timeout.obj, LV_LABEL_LONG_DOT);
-  lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
 
-  //QR code
-  lv_coord_t qr_size = SCREEN_HEIGHT - 32;
-  if((board->info.spec.name == BOARD_NMAXE_NAME) || (board->info.spec.name == BOARD_NMAXE_GAMMA_NAME)){
-    qr_size = SCREEN_HEIGHT - 32;
-  } else if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
-    qr_size = SCREEN_HEIGHT - 95;
-  }
-  // Build QR string first so we can compute the exact QR version and
-  // adjust canvas size to guarantee a visible quiet-zone border (>= 4 px).
-  // qrcodegen_Ecc_MEDIUM == 1; qrcodegen_version2size(v) == 4*v+17 (QR spec).
-  String qr_str = "WIFI:T:WPA;S:" + board->info.connection.wifi.ap.info.ssid + ";P:" + board->info.connection.wifi.ap.info.pwd + ";H:false;";
-  {
-    const int MIN_MARGIN_PX = 4;
-    int32_t version = qrcodegen_getMinFitVersion(1 /*Ecc_MEDIUM*/, qr_str.length());
-    if (version > 0) {
-      int32_t modules = 4 * version + 17;  // qrcodegen_version2size formula
-      int32_t scale   = qr_size / modules;
-      if (scale > 0) {
-        int32_t margin  = (qr_size - modules * scale) / 2;
-        if (margin < MIN_MARGIN_PX) {
-          qr_size = modules * scale + 2 * MIN_MARGIN_PX;
+  if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+    // NMQAxe++: touch WiFi Setup page
+    // Version bottom-left, countdown bottom-right; no QR code, no config text, hide logo.
+    // AP mode is kept by wifi_connect_thread as a web-config fallback (WIFI_AP → WIFI_AP_STA
+    // when the user triggers a scan so scanning works while AP stays up).
+    lv_obj_set_style_text_font(config_page.lb_version.obj,     &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_font(config_page.lb_cfg_timeout.obj, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_width(config_page.lb_version.obj,     80);
+    lv_obj_set_width(config_page.lb_cfg_timeout.obj, 60);
+    lv_obj_set_style_text_align(config_page.lb_cfg_timeout.obj, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+    lv_obj_align(config_page.lb_version.obj,     LV_ALIGN_BOTTOM_LEFT,  4, -4);
+    lv_obj_align(config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_RIGHT, -4, -4);
+    // hide logo image — dynamic WiFi list will cover the page
+    lv_obj_add_flag(config_page.img_logo.obj, LV_OBJ_FLAG_HIDDEN);
+    // qr_code and lb_config_txt are not created for NMQAxe++; obj stays nullptr (zero-init)
+  } else {
+    // NMAxe / NMAxeGamma: existing QR code config page
+    lv_obj_set_width(config_page.lb_cfg_timeout.obj, SCREEN_WIDTH);
+    lv_obj_align(config_page.lb_version.obj,     LV_ALIGN_TOP_MID,    config_page.lb_version.coord.x,     config_page.lb_version.coord.y);
+    lv_obj_align(config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
+
+    //QR code
+    lv_coord_t qr_size = SCREEN_HEIGHT - 32;
+    // Build QR string first so we can compute the exact QR version and
+    // adjust canvas size to guarantee a visible quiet-zone border (>= 4 px).
+    // qrcodegen_Ecc_MEDIUM == 1; qrcodegen_version2size(v) == 4*v+17 (QR spec).
+    String qr_str = "WIFI:T:WPA;S:" + board->info.connection.wifi.ap.info.ssid + ";P:" + board->info.connection.wifi.ap.info.pwd + ";H:false;";
+    {
+      const int MIN_MARGIN_PX = 4;
+      int32_t version = qrcodegen_getMinFitVersion(1 /*Ecc_MEDIUM*/, qr_str.length());
+      if (version > 0) {
+        int32_t modules = 4 * version + 17;  // qrcodegen_version2size formula
+        int32_t scale   = qr_size / modules;
+        if (scale > 0) {
+          int32_t margin  = (qr_size - modules * scale) / 2;
+          if (margin < MIN_MARGIN_PX) {
+            qr_size = modules * scale + 2 * MIN_MARGIN_PX;
+          }
         }
       }
     }
-  }
-  config_page.qr_code.obj = lv_qrcode_create(board->status.ui.page.list[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
-  lv_qrcode_update(config_page.qr_code.obj, (uint8_t*)qr_str.c_str(), qr_str.length());
-  lv_obj_align(config_page.qr_code.obj, LV_ALIGN_RIGHT_MID, config_page.qr_code.coord.x, config_page.qr_code.coord.y);
-  lv_obj_add_flag(config_page.qr_code.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_wall
+    config_page.qr_code.obj = lv_qrcode_create(board->status.ui.page.list[UI_PAGE_CONFIG], qr_size, lv_color_hex(0x000000), lv_color_hex(0xFFFFFF));
+    lv_qrcode_update(config_page.qr_code.obj, (uint8_t*)qr_str.c_str(), qr_str.length());
+    lv_obj_align(config_page.qr_code.obj, LV_ALIGN_RIGHT_MID, config_page.qr_code.coord.x, config_page.qr_code.coord.y);
+    lv_obj_add_flag(config_page.qr_code.obj, LV_OBJ_FLAG_EVENT_BUBBLE); // bubble swipe events up to parent_wall
 
-  // config text label
-  String config = board->info.connection.wifi.ap.info.ssid + "\r\n"+ board->info.connection.wifi.ap.ip.toString();
-  config_page.lb_config_txt.obj  = lv_label_create(board->status.ui.page.list[UI_PAGE_CONFIG]);
-  lv_obj_set_width(config_page.lb_config_txt.obj, SCREEN_WIDTH / 2);
-  lv_label_set_text(config_page.lb_config_txt.obj, config.c_str());
-  lv_obj_set_style_text_font(config_page.lb_config_txt.obj, config_page.lb_config_txt.font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(config_page.lb_config_txt.obj, font_color, LV_PART_MAIN);
-  lv_label_set_long_mode(config_page.lb_config_txt.obj, LV_LABEL_LONG_WRAP);
-  lv_obj_set_style_text_line_space(config_page.lb_config_txt.obj, 0, LV_PART_MAIN); 
-  lv_obj_align(config_page.lb_config_txt.obj, LV_ALIGN_LEFT_MID, config_page.lb_config_txt.coord.x, config_page.lb_config_txt.coord.y);
+    // config text label
+    String config = board->info.connection.wifi.ap.info.ssid + "\r\n"+ board->info.connection.wifi.ap.ip.toString();
+    config_page.lb_config_txt.obj  = lv_label_create(board->status.ui.page.list[UI_PAGE_CONFIG]);
+    lv_obj_set_width(config_page.lb_config_txt.obj, SCREEN_WIDTH / 2);
+    lv_label_set_text(config_page.lb_config_txt.obj, config.c_str());
+    lv_obj_set_style_text_font(config_page.lb_config_txt.obj, config_page.lb_config_txt.font, LV_PART_MAIN);
+    lv_obj_set_style_text_color(config_page.lb_config_txt.obj, font_color, LV_PART_MAIN);
+    lv_label_set_long_mode(config_page.lb_config_txt.obj, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_line_space(config_page.lb_config_txt.obj, 0, LV_PART_MAIN); 
+    lv_obj_align(config_page.lb_config_txt.obj, LV_ALIGN_LEFT_MID, config_page.lb_config_txt.coord.x, config_page.lb_config_txt.coord.y);
+  }
 
   //////////////////////////////////////miner page layout///////////////////////////////////////////////
   //Hashrate value
@@ -2189,23 +2201,504 @@ void ui_loading_page_update(void* args) {
 
 void ui_config_page_update(void* args) {
   board_sal_t *board = (board_sal_t*)args;
-  if(!board){
-    LOG_E("board is null\r\n");
-    return;
+  if(!board){ LOG_E("board is null\r\n"); return; }
+
+  // ── Countdown label: refresh every second for all boards ──────────────────────────────
+  static uint32_t last_timeout_ms = millis();
+  static uint8_t  cnt_anim        = 0;
+  if(millis() - last_timeout_ms >= 1000){
+    last_timeout_ms = millis();
+    if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+      // Use LVGL display inactive time to detect real touch events.
+      // This avoids the false-reset caused by ui_screen_saver_page_update()
+      // continuously setting last_active_ms while INIT_EVENT_MINER_READY is not set.
+      uint32_t inactive_ms = lv_disp_get_inactive_time(NULL);
+      if(inactive_ms < 1500){
+        // Fresh touch: extend the countdown back to its initial value
+        board->status.wifi.config_timeout = MINER_WIFI_CONFIG_TIMEOUT;
+      } else if(board->status.wifi.config_timeout > 0){
+        // UI thread owns the 1-second decrement for NMQAxe++ (thread skips it)
+        board->status.wifi.config_timeout--;
+      }
+      lv_label_set_text_fmt(config_page.lb_cfg_timeout.obj, "%ds", board->status.wifi.config_timeout);
+    } else {
+      // NMAxe / NMAxeGamma: existing animated label + alignment logic
+      String config_str[4] = {"config   ","config.  ","config.. ","config..."};
+      String timeout = board->status.wifi.client_connected
+                       ? config_str[cnt_anim++%4]
+                       : (String(board->status.wifi.config_timeout) + "s");
+      if(board->status.wifi.client_connected)
+        lv_obj_align(config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x - 10, config_page.lb_cfg_timeout.coord.y);
+      else
+        lv_obj_align(config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
+      lv_label_set_text(config_page.lb_cfg_timeout.obj, timeout.c_str());
+    }
   }
-  static uint8_t cnt = 0;
-  static uint32_t last_update = millis();
-  if(millis() - last_update < 1000) return;
+  if(board->info.spec.name != BOARD_NMQAXE_PLUS_PLUS_NAME) return;
 
-  String config_str[4] = {"config   ","config.  ","config.. ","config..."};
-  String timeout = (board->status.wifi.client_connected) ? config_str[cnt++%4] : (String(board->status.wifi.config_timeout) + "s");
-  //config timeout label location
-  if(board->status.wifi.client_connected) lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x - 10, config_page.lb_cfg_timeout.coord.y);
-  else lv_obj_align( config_page.lb_cfg_timeout.obj, LV_ALIGN_BOTTOM_MID, config_page.lb_cfg_timeout.coord.x, config_page.lb_cfg_timeout.coord.y);
+  // ════════════════════════════════════════════════════════════════════════════════════════
+  // NMQAxe++ WiFi Setup state machine  (UI thread only — static locals, no extra mutex)
+  //
+  //  WsPhase::LIST       scan results list  +  refresh icon button (top-right)
+  //  WsPhase::PWD_INPUT  modal dialog: password textarea + keyboard + Cancel/Save
+  //  WsPhase::CONFIRM    modal dialog: confirm reboot + Cancel/Confirm
+  //  WsPhase::SAVING     one-shot NVS write  →  reboot via daemon
+  //
+  //  AP mode is intentionally kept running as a secondary web-config path.
+  //  Before scanning we upgrade WiFi mode to WIFI_AP_STA so both AP and STA are active.
+  // ════════════════════════════════════════════════════════════════════════════════════════
+  enum class WsPhase : uint8_t { LIST = 0, PWD_INPUT, CONFIRM, SAVING };
 
-  lv_label_set_text(config_page.lb_cfg_timeout.obj, timeout.c_str());
+  static WsPhase   ws_phase       = WsPhase::LIST;
+  static WsPhase   ws_last_phase  = (WsPhase)0xFF;   // force initial build
+  static int16_t   ws_scan_status = -2;               // -2=idle  -1=running  >=0=count
+  static String    ws_pending_ssid;
+  static String    ws_pending_pwd;
 
-  last_update = millis();
+  // Phase-level root container and per-phase widget handles
+  static lv_obj_t *ws_cont      = nullptr;
+  static lv_obj_t *ws_ssid_list = nullptr;
+  static lv_obj_t *ws_scan_lbl  = nullptr;
+  static lv_obj_t *ws_pwd_ta    = nullptr;
+  static lv_obj_t *ws_kbd       = nullptr;
+  static lv_obj_t *ws_key_popup[4] = {nullptr, nullptr, nullptr, nullptr};  // iPhone-style: top/bottom/left/right
+
+  lv_obj_t *page = board->status.ui.page.list[UI_PAGE_CONFIG];
+
+  // ── Phase transition: destroy stale container, build fresh UI for new phase ──────────
+  if(ws_phase != ws_last_phase){
+    // Delete keyboard first: in PWD_INPUT it is a direct child of page (not ws_cont),
+    // so it won't be freed by lv_obj_del(ws_cont).
+    if(ws_key_popup[0]||ws_key_popup[1]||ws_key_popup[2]||ws_key_popup[3]){
+      for(int _i=0;_i<4;_i++){ if(ws_key_popup[_i]){ lv_obj_del(ws_key_popup[_i]); ws_key_popup[_i]=nullptr; } }
+    }
+    if(ws_kbd){ lv_obj_del(ws_kbd); ws_kbd = nullptr; }
+    if(ws_cont){ lv_obj_del(ws_cont); ws_cont = nullptr; }
+    ws_ssid_list = ws_scan_lbl = ws_pwd_ta = nullptr;
+    ws_last_phase = ws_phase;
+
+    // ──── LIST phase ──────────────────────────────────────────────────────────────────
+    if(ws_phase == WsPhase::LIST){
+      ws_cont = lv_obj_create(page);
+      lv_obj_set_size(ws_cont, SCREEN_WIDTH, SCREEN_HEIGHT - 22);
+      lv_obj_align(ws_cont, LV_ALIGN_TOP_LEFT, 0, 0);
+      lv_obj_set_style_bg_color(ws_cont, lv_color_hex(0x1A1A2E), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(ws_cont, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_border_width(ws_cont, 0, LV_PART_MAIN);
+      lv_obj_set_style_pad_all(ws_cont, 0, LV_PART_MAIN);
+      lv_obj_clear_flag(ws_cont, LV_OBJ_FLAG_SCROLLABLE);
+      lv_obj_add_flag(ws_cont, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+      // Title bar (26 px)
+      lv_obj_t *title_bar = lv_obj_create(ws_cont);
+      lv_obj_set_size(title_bar, SCREEN_WIDTH, 26);
+      lv_obj_align(title_bar, LV_ALIGN_TOP_LEFT, 0, 0);
+      lv_obj_set_style_bg_color(title_bar, lv_color_hex(0x16213E), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(title_bar, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_border_width(title_bar, 0, LV_PART_MAIN);
+      lv_obj_set_style_pad_all(title_bar, 0, LV_PART_MAIN);
+      lv_obj_clear_flag(title_bar, LV_OBJ_FLAG_SCROLLABLE);
+      lv_obj_add_flag(title_bar, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+      // Title label — centered
+      lv_obj_t *lb_title = lv_label_create(title_bar);
+      lv_label_set_text(lb_title, "WiFi Setup");
+      lv_obj_set_style_text_font(lb_title, &lv_font_montserrat_16, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_title, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+      lv_obj_align(lb_title, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_add_flag(lb_title, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+      // Refresh icon button (↺, top-right of title bar)
+      lv_obj_t *btn_refresh = lv_btn_create(title_bar);
+      lv_obj_set_size(btn_refresh, 32, 24);
+      lv_obj_align(btn_refresh, LV_ALIGN_RIGHT_MID, -2, 0);
+      lv_obj_set_style_bg_color(btn_refresh, lv_color_hex(0x16213E), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(btn_refresh, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_border_width(btn_refresh, 0, LV_PART_MAIN);
+      lv_obj_set_style_pad_all(btn_refresh, 2, LV_PART_MAIN);
+      lv_obj_t *lb_refresh_icon = lv_label_create(btn_refresh);
+      lv_label_set_text(lb_refresh_icon, LV_SYMBOL_LOOP);
+      lv_obj_set_style_text_color(lb_refresh_icon, lv_color_hex(0x00BFFF), LV_PART_MAIN);
+      lv_obj_center(lb_refresh_icon);
+      lv_obj_add_event_cb(btn_refresh, [](lv_event_t *e){
+          if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+          WiFi.scanDelete();
+          WiFi.mode(WIFI_AP_STA);
+          WiFi.scanNetworks(/*async=*/true, /*show_hidden=*/false);
+          ws_scan_status = -1;
+          if(ws_ssid_list) lv_obj_add_flag(ws_ssid_list, LV_OBJ_FLAG_HIDDEN);
+          if(ws_scan_lbl){
+            lv_obj_clear_flag(ws_scan_lbl, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text(ws_scan_lbl, "Scanning...");
+          }
+      }, LV_EVENT_CLICKED, nullptr);
+
+      // "Scanning..." placeholder label
+      ws_scan_lbl = lv_label_create(ws_cont);
+      lv_label_set_text(ws_scan_lbl, "Scanning...");
+      lv_obj_set_style_text_font(ws_scan_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_set_style_text_color(ws_scan_lbl, lv_color_hex(0xAAAAAA), LV_PART_MAIN);
+      lv_obj_align(ws_scan_lbl, LV_ALIGN_CENTER, 0, 0);
+
+      // SSID scroll container (hidden until scan completes)
+      ws_ssid_list = lv_obj_create(ws_cont);
+      lv_obj_set_size(ws_ssid_list, SCREEN_WIDTH, SCREEN_HEIGHT - 22 - 26);
+      lv_obj_align(ws_ssid_list, LV_ALIGN_TOP_LEFT, 0, 26);
+      lv_obj_set_style_bg_color(ws_ssid_list, lv_color_hex(0x1A1A2E), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(ws_ssid_list, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_border_width(ws_ssid_list, 0, LV_PART_MAIN);
+      lv_obj_set_style_pad_all(ws_ssid_list, 4, LV_PART_MAIN);
+      lv_obj_set_style_pad_row(ws_ssid_list, 3, LV_PART_MAIN);
+      lv_obj_set_flex_flow(ws_ssid_list, LV_FLEX_FLOW_COLUMN);
+      lv_obj_add_flag(ws_ssid_list, LV_OBJ_FLAG_HIDDEN);
+
+      // Trigger initial async scan (upgrade mode so scan works while AP stays up)
+      WiFi.scanDelete();
+      WiFi.mode(WIFI_AP_STA);
+      WiFi.scanNetworks(/*async=*/true, /*show_hidden=*/false);
+      ws_scan_status = -1;
+
+    // ──── PWD_INPUT phase ─────────────────────────────────────────────────────────────
+    // Layout (top → bottom, all pixel values for 320×240 landscape display):
+    //   ws_cont: top section (SSID label + textarea + buttons), height=top_h
+    //   ws_kbd:  direct child of page below ws_cont, fills remaining height
+    // Keyboard is placed on `page` (NOT inside ws_cont) so its full width is guaranteed
+    // and there is zero overlap between the input area and the key rows.
+    } else if(ws_phase == WsPhase::PWD_INPUT){
+      const lv_coord_t usable_h = SCREEN_HEIGHT - 22;  // below status-bar area
+      const lv_coord_t pad      = 6;
+      const lv_coord_t inner_w  = SCREEN_WIDTH - pad * 2;
+      const lv_coord_t btn_h    = 36;
+      const lv_coord_t btn_w    = inner_w / 2 - 2;
+      // ssid(18) + gap(4) + ta(32) + gap(4) + btn(36) + 2*pad(12) = 106
+      const lv_coord_t ssid_h  = 18;
+      const lv_coord_t ta_h    = 32;
+      const lv_coord_t top_h   = pad + ssid_h + 4 + ta_h + 4 + btn_h + pad; // 106
+      const lv_coord_t kbd_h   = usable_h - top_h;
+
+      // Top container — SSID + textarea + buttons only, no keyboard inside
+      ws_cont = lv_obj_create(page);
+      lv_obj_set_size(ws_cont, SCREEN_WIDTH, top_h);
+      lv_obj_align(ws_cont, LV_ALIGN_TOP_LEFT, 0, 0);
+      lv_obj_set_style_bg_color(ws_cont, lv_color_hex(0x1A1A2E), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(ws_cont, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_border_width(ws_cont, 0, LV_PART_MAIN);
+      lv_obj_set_style_pad_all(ws_cont, pad, LV_PART_MAIN);
+      lv_obj_clear_flag(ws_cont, LV_OBJ_FLAG_SCROLLABLE);
+
+      // Row 1: SSID label (y_offset=0 in content area)
+      lv_obj_t *lb_ssid = lv_label_create(ws_cont);
+      lv_label_set_text_fmt(lb_ssid, LV_SYMBOL_WIFI "  %s", ws_pending_ssid.c_str());
+      lv_obj_set_style_text_font(lb_ssid, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_ssid, lv_color_hex(0x00BFFF), LV_PART_MAIN);
+      lv_obj_set_width(lb_ssid, inner_w);
+      lv_label_set_long_mode(lb_ssid, LV_LABEL_LONG_DOT);
+      lv_obj_align(lb_ssid, LV_ALIGN_TOP_MID, 0, 0);
+
+      // Row 2: Password textarea — full inner_w; eye icon overlaid inside right edge
+      ws_pwd_ta = lv_textarea_create(ws_cont);
+      lv_obj_set_size(ws_pwd_ta, inner_w, ta_h);
+      lv_obj_align(ws_pwd_ta, LV_ALIGN_TOP_LEFT, 0, ssid_h + 4);
+      lv_textarea_set_password_mode(ws_pwd_ta, true);
+      lv_textarea_set_max_length(ws_pwd_ta, 64);
+      lv_textarea_set_placeholder_text(ws_pwd_ta, "Enter password...");
+      lv_textarea_set_text(ws_pwd_ta, "");
+      lv_obj_set_style_text_font(ws_pwd_ta, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_set_style_text_color(ws_pwd_ta, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+      lv_obj_set_style_bg_color(ws_pwd_ta, lv_color_hex(0x0F3460), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(ws_pwd_ta, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_border_color(ws_pwd_ta, lv_color_hex(0x00BFFF), LV_PART_MAIN);
+      lv_obj_set_style_border_width(ws_pwd_ta, 1, LV_PART_MAIN);
+      // Right padding so typed text doesn't slide under the eye icon (26px icon + 4px gap)
+      lv_obj_set_style_pad_right(ws_pwd_ta, 30, LV_PART_MAIN);
+
+      // Eye button: overlaid inside the textarea on the right, transparent background
+      lv_obj_t *btn_eye = lv_btn_create(ws_cont);
+      lv_obj_set_size(btn_eye, 28, ta_h - 4);
+      lv_obj_align(btn_eye, LV_ALIGN_TOP_RIGHT, -2, ssid_h + 4 + 2);
+      lv_obj_set_style_bg_opa(btn_eye, LV_OPA_TRANSP, LV_PART_MAIN);
+      lv_obj_set_style_shadow_width(btn_eye, 0, LV_PART_MAIN);
+      lv_obj_set_style_border_width(btn_eye, 0, LV_PART_MAIN);
+      lv_obj_set_style_pad_all(btn_eye, 0, LV_PART_MAIN);
+      lv_obj_t *lb_eye = lv_label_create(btn_eye);
+      lv_label_set_text(lb_eye, LV_SYMBOL_EYE_OPEN);
+      lv_obj_set_style_text_font(lb_eye, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_eye, lv_color_hex(0x888888), LV_PART_MAIN);
+      lv_obj_center(lb_eye);
+      lv_obj_add_event_cb(btn_eye, [](lv_event_t *e){
+          if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+          if(!ws_pwd_ta) return;
+          lv_obj_t *btn  = lv_event_get_target(e);
+          lv_obj_t *icon = lv_obj_get_child(btn, 0);
+          bool pw_mode = lv_textarea_get_password_mode(ws_pwd_ta);
+          lv_textarea_set_password_mode(ws_pwd_ta, !pw_mode);  // toggle
+          // When revealed: bright blue eye-close icon; when hidden: grey eye-open icon
+          if(icon) lv_label_set_text(icon, pw_mode ? LV_SYMBOL_EYE_CLOSE : LV_SYMBOL_EYE_OPEN);
+          lv_obj_set_style_text_color(icon,
+              pw_mode ? lv_color_hex(0x00BFFF) : lv_color_hex(0x888888), LV_PART_MAIN);
+      }, LV_EVENT_CLICKED, nullptr);
+
+      // Row 3: Cancel + Save buttons (y_offset = ssid_h + gap + ta_h + gap = 58)
+      const lv_coord_t btn_y = ssid_h + 4 + ta_h + 4;  // 58
+
+      lv_obj_t *btn_cancel = lv_btn_create(ws_cont);
+      lv_obj_set_size(btn_cancel, btn_w, btn_h);
+      lv_obj_align(btn_cancel, LV_ALIGN_TOP_LEFT, 0, btn_y);
+      lv_obj_set_style_bg_color(btn_cancel, lv_color_hex(0x555555), LV_PART_MAIN);
+      lv_obj_t *lb_cancel = lv_label_create(btn_cancel);
+      lv_label_set_text(lb_cancel, LV_SYMBOL_LEFT "  Cancel");
+      lv_obj_set_style_text_font(lb_cancel, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_center(lb_cancel);
+      lv_obj_add_event_cb(btn_cancel, [](lv_event_t *e){
+          if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+          ws_pending_ssid = "";
+          ws_pending_pwd  = "";
+          ws_phase        = WsPhase::LIST;
+      }, LV_EVENT_CLICKED, nullptr);
+
+      lv_obj_t *btn_save = lv_btn_create(ws_cont);
+      lv_obj_set_size(btn_save, btn_w, btn_h);
+      lv_obj_align(btn_save, LV_ALIGN_TOP_RIGHT, 0, btn_y);
+      lv_obj_set_style_bg_color(btn_save, lv_color_hex(0x007ACC), LV_PART_MAIN);
+      lv_obj_t *lb_save = lv_label_create(btn_save);
+      lv_label_set_text(lb_save, LV_SYMBOL_OK "  Save");
+      lv_obj_set_style_text_font(lb_save, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_center(lb_save);
+      lv_obj_add_event_cb(btn_save, [](lv_event_t *e){
+          if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+          if(ws_pwd_ta) ws_pending_pwd = String(lv_textarea_get_text(ws_pwd_ta));
+          ws_phase = WsPhase::CONFIRM;
+      }, LV_EVENT_CLICKED, nullptr);
+
+      // Keyboard: direct child of page, placed immediately below ws_cont.
+      // Being on the page level guarantees full SCREEN_WIDTH and no overlap with ws_cont.
+      ws_kbd = lv_keyboard_create(page);
+      lv_obj_set_size(ws_kbd, SCREEN_WIDTH, kbd_h);
+      lv_obj_align(ws_kbd, LV_ALIGN_TOP_LEFT, 0, top_h);
+      lv_keyboard_set_textarea(ws_kbd, ws_pwd_ta);
+      lv_obj_set_style_bg_color(ws_kbd, lv_color_hex(0x16213E), LV_PART_MAIN);
+      lv_obj_set_style_text_font(ws_kbd, &lv_font_montserrat_14, LV_PART_MAIN);
+      // Disable long-press repeat so holding a key does NOT keep inserting characters.
+      {
+          lv_btnmatrix_t *bm = (lv_btnmatrix_t *)ws_kbd;
+          uint16_t btn_cnt = bm->btn_cnt;
+          for(uint16_t _i = 0; _i < btn_cnt; _i++){
+              lv_btnmatrix_set_btn_ctrl(ws_kbd, _i, LV_BTNMATRIX_CTRL_NO_REPEAT);
+          }
+      }
+
+      // Four-bubble magnifier: top / bottom / left / right of the touch point.
+      // No matter how the finger covers the key, at least one bubble stays visible.
+      lv_obj_add_event_cb(ws_kbd, [](lv_event_t *e){
+          lv_event_code_t code = lv_event_get_code(e);
+          lv_obj_t       *kbd  = lv_event_get_target(e);
+          // Helper that creates one bubble at absolute position (px, py).
+          // Bubble is sized to tightly wrap the character — padding=0, font fills the box.
+          auto make_bubble = [](const char *txt, lv_coord_t px, lv_coord_t py,
+                                lv_coord_t pop_w, lv_coord_t pop_h) -> lv_obj_t* {
+              lv_obj_t *b = lv_obj_create(lv_layer_top());
+              lv_obj_set_size(b, pop_w, pop_h);
+              lv_obj_set_pos(b, px, py);
+              lv_obj_set_style_bg_color(b, lv_color_hex(0x00BFFF), LV_PART_MAIN);
+              lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_PART_MAIN);
+              lv_obj_set_style_radius(b, 8, LV_PART_MAIN);
+              lv_obj_set_style_border_width(b, 0, LV_PART_MAIN);
+              lv_obj_set_style_pad_all(b, 0, LV_PART_MAIN);  // no inner padding — char fills box
+              lv_obj_set_style_shadow_width(b, 14, LV_PART_MAIN);
+              lv_obj_set_style_shadow_color(b, lv_color_hex(0x0050A0), LV_PART_MAIN);
+              lv_obj_set_style_shadow_opa(b, LV_OPA_70, LV_PART_MAIN);
+              lv_obj_clear_flag(b, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+              lv_obj_t *lbl = lv_label_create(b);
+              lv_label_set_text(lbl, txt);
+              lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, LV_PART_MAIN);
+              lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+              // Scale the label to fill the bubble area
+              lv_obj_set_size(lbl, pop_w, pop_h);
+              lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+              lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+              return b;
+          };
+          if(code == LV_EVENT_PRESSED){
+              uint16_t btn_id = lv_btnmatrix_get_selected_btn(kbd);
+              if(btn_id == LV_BTNMATRIX_BTN_NONE) return;
+              const char *txt = lv_btnmatrix_get_btn_text(kbd, btn_id);
+              if(!txt || strlen(txt) != 1 || (uint8_t)txt[0] < 0x21) return;
+              lv_indev_t *ev_indev = lv_event_get_indev(e);
+              lv_point_t tp = {0, 0};
+              if(ev_indev) lv_indev_get_point(ev_indev, &tp);
+              // Delete any existing bubbles
+              for(int i=0;i<4;i++){ if(ws_key_popup[i]){ lv_obj_del(ws_key_popup[i]); ws_key_popup[i]=nullptr; } }
+              // pw/ph: bubble size — close to font_20 glyph size so char fills the box
+              // gap: distance from touch centre to near edge of bubble — large enough that
+              //      a typical fingertip (≈15–20 px radius) does not obscure any bubble.
+              const lv_coord_t pw = 28, ph = 28, gap = 40;
+              // Bubble positions: top, bottom, left, right
+              // Each is clamped so it stays fully on-screen.
+              lv_coord_t p0x = (lv_coord_t)(tp.x - pw/2),     p0y = (lv_coord_t)(tp.y - ph - gap);
+              lv_coord_t p1x = (lv_coord_t)(tp.x - pw/2),     p1y = (lv_coord_t)(tp.y + gap);
+              lv_coord_t p2x = (lv_coord_t)(tp.x - pw - gap), p2y = (lv_coord_t)(tp.y - ph/2);
+              lv_coord_t p3x = (lv_coord_t)(tp.x + gap),      p3y = (lv_coord_t)(tp.y - ph/2);
+              struct { lv_coord_t x, y; } pos[4] = {{p0x,p0y},{p1x,p1y},{p2x,p2y},{p3x,p3y}};
+              for(int i=0;i<4;i++){
+                  lv_coord_t cx = pos[i].x, cy = pos[i].y;
+                  if(cx < 0) cx = 0;
+                  if(cx + pw > SCREEN_WIDTH)  cx = SCREEN_WIDTH  - pw;
+                  if(cy < 0) cy = 0;
+                  if(cy + ph > SCREEN_HEIGHT) cy = SCREEN_HEIGHT - ph;
+                  ws_key_popup[i] = make_bubble(txt, cx, cy, pw, ph);
+              }
+          } else if(code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST){
+              for(int i=0;i<4;i++){ if(ws_key_popup[i]){ lv_obj_del(ws_key_popup[i]); ws_key_popup[i]=nullptr; } }
+          }
+      }, LV_EVENT_ALL, nullptr);
+
+    // ──── CONFIRM phase: reboot confirmation dialog ───────────────────────────────────
+    } else if(ws_phase == WsPhase::CONFIRM){
+      // Dim overlay behind the dialog
+      ws_cont = lv_obj_create(page);
+      lv_obj_set_size(ws_cont, SCREEN_WIDTH, SCREEN_HEIGHT - 22);
+      lv_obj_align(ws_cont, LV_ALIGN_TOP_LEFT, 0, 0);
+      lv_obj_set_style_bg_color(ws_cont, lv_color_hex(0x000000), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(ws_cont, LV_OPA_70, LV_PART_MAIN);
+      lv_obj_set_style_border_width(ws_cont, 0, LV_PART_MAIN);
+      lv_obj_clear_flag(ws_cont, LV_OBJ_FLAG_SCROLLABLE);
+
+      // Dialog card (centered)
+      const lv_coord_t dlg_w = SCREEN_WIDTH  - 24;
+      const lv_coord_t dlg_h = 150;
+      lv_obj_t *dlg = lv_obj_create(ws_cont);
+      lv_obj_set_size(dlg, dlg_w, dlg_h);
+      lv_obj_align(dlg, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_set_style_bg_color(dlg, lv_color_hex(0x16213E), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(dlg, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_border_color(dlg, lv_color_hex(0x007ACC), LV_PART_MAIN);
+      lv_obj_set_style_border_width(dlg, 1, LV_PART_MAIN);
+      lv_obj_set_style_radius(dlg, 6, LV_PART_MAIN);
+      lv_obj_set_style_pad_all(dlg, 10, LV_PART_MAIN);
+      lv_obj_clear_flag(dlg, LV_OBJ_FLAG_SCROLLABLE);
+
+      // Message
+      lv_obj_t *lb_msg = lv_label_create(dlg);
+      lv_label_set_text_fmt(lb_msg,
+          "Connect to \"%s\"?\nDevice will reboot.", ws_pending_ssid.c_str());
+      lv_obj_set_style_text_font(lb_msg, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_msg, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+      lv_obj_set_style_text_align(lb_msg, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+      lv_obj_set_width(lb_msg, dlg_w - 20);
+      lv_label_set_long_mode(lb_msg, LV_LABEL_LONG_WRAP);
+      lv_obj_align(lb_msg, LV_ALIGN_TOP_MID, 0, 0);
+
+      const lv_coord_t btn_w = (dlg_w - 20 - 8) / 2;
+      const lv_coord_t btn_h = 36;
+
+      // Cancel button
+      lv_obj_t *btn_cancel = lv_btn_create(dlg);
+      lv_obj_set_size(btn_cancel, btn_w, btn_h);
+      lv_obj_align(btn_cancel, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+      lv_obj_set_style_bg_color(btn_cancel, lv_color_hex(0x555555), LV_PART_MAIN);
+      lv_obj_t *lb_cancel = lv_label_create(btn_cancel);
+      lv_label_set_text(lb_cancel, "Cancel");
+      lv_obj_set_style_text_font(lb_cancel, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_center(lb_cancel);
+      lv_obj_add_event_cb(btn_cancel, [](lv_event_t *e){
+          if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+          ws_phase = WsPhase::PWD_INPUT;  // go back to password entry
+      }, LV_EVENT_CLICKED, nullptr);
+
+      // Confirm button
+      lv_obj_t *btn_confirm = lv_btn_create(dlg);
+      lv_obj_set_size(btn_confirm, btn_w, btn_h);
+      lv_obj_align(btn_confirm, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+      lv_obj_set_style_bg_color(btn_confirm, lv_color_hex(0x00AA55), LV_PART_MAIN);
+      lv_obj_t *lb_confirm = lv_label_create(btn_confirm);
+      lv_label_set_text(lb_confirm, LV_SYMBOL_OK "  Confirm");
+      lv_obj_set_style_text_font(lb_confirm, &lv_font_montserrat_14, LV_PART_MAIN);
+      lv_obj_center(lb_confirm);
+      lv_obj_add_event_cb(btn_confirm, [](lv_event_t *e){
+          if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+          ws_phase = WsPhase::SAVING;
+      }, LV_EVENT_CLICKED, nullptr);
+
+    // ──── SAVING phase ────────────────────────────────────────────────────────────────
+    } else if(ws_phase == WsPhase::SAVING){
+      // Persist credentials to NVS then trigger reboot via daemon thread
+      nvs_config_set_string(NVS_CONFIG_WIFI_SSID, ws_pending_ssid.c_str());
+      nvs_config_set_string(NVS_CONFIG_WIFI_PASS, ws_pending_pwd.c_str());
+      LOG_I("WiFi credentials saved: SSID=%s", ws_pending_ssid.c_str());
+
+      ws_cont = lv_obj_create(page);
+      lv_obj_set_size(ws_cont, SCREEN_WIDTH, SCREEN_HEIGHT - 22);
+      lv_obj_align(ws_cont, LV_ALIGN_TOP_LEFT, 0, 0);
+      lv_obj_set_style_bg_color(ws_cont, lv_color_hex(0x1A1A2E), LV_PART_MAIN);
+      lv_obj_set_style_bg_opa(ws_cont, LV_OPA_COVER, LV_PART_MAIN);
+      lv_obj_set_style_border_width(ws_cont, 0, LV_PART_MAIN);
+      lv_obj_clear_flag(ws_cont, LV_OBJ_FLAG_SCROLLABLE);
+      lv_obj_t *lb_ok = lv_label_create(ws_cont);
+      lv_label_set_text(lb_ok, "Saved!\nRebooting...");
+      lv_obj_set_style_text_font(lb_ok, &lv_font_montserrat_16, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_ok, lv_color_hex(0x00FF88), LV_PART_MAIN);
+      lv_obj_set_style_text_align(lb_ok, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+      lv_obj_center(lb_ok);
+
+      xSemaphoreGive(board->status.reboot_xsem);
+    }
+  }
+
+  // ── Per-frame poll: collect WiFi scan results while in LIST phase ─────────────────────
+  if(ws_phase == WsPhase::LIST && ws_scan_status == -1){
+    int16_t n = (int16_t)WiFi.scanComplete();
+    if(n >= 0){
+      ws_scan_status = n;
+      if(ws_scan_lbl)  lv_obj_add_flag(ws_scan_lbl, LV_OBJ_FLAG_HIDDEN);
+      if(ws_ssid_list) lv_obj_clear_flag(ws_ssid_list, LV_OBJ_FLAG_HIDDEN);
+      if(ws_ssid_list) lv_obj_clean(ws_ssid_list);
+      for(int16_t i = 0; i < n; i++){
+        String ssid = WiFi.SSID(i);
+        if(ssid.length() == 0) continue;
+        int32_t rssi = WiFi.RSSI(i);
+        // List item btn: [child0: icon_lbl, child1: ssid_lbl, child2: rssi_lbl]
+        // ws_pending_ssid is set from child1 (pure SSID, no RSSI suffix)
+        lv_obj_t *btn = lv_btn_create(ws_ssid_list);
+        lv_obj_set_size(btn, LV_PCT(100), 40);
+        lv_obj_set_style_bg_color(btn, lv_color_hex(0x0F3460), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(btn, 4, LV_PART_MAIN);
+        // child 0: wifi icon
+        lv_obj_t *icon_lbl = lv_label_create(btn);
+        lv_label_set_text(icon_lbl, LV_SYMBOL_WIFI);
+        lv_obj_set_style_text_color(icon_lbl, lv_color_hex(0x00BFFF), LV_PART_MAIN);
+        lv_obj_set_style_text_font(icon_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_align(icon_lbl, LV_ALIGN_LEFT_MID, 0, 0);
+        // child 1: ssid text (pure SSID, used for ws_pending_ssid)
+        lv_obj_t *ssid_lbl = lv_label_create(btn);
+        lv_label_set_text(ssid_lbl, ssid.c_str());
+        lv_obj_set_style_text_color(ssid_lbl, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+        lv_obj_set_style_text_font(ssid_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_label_set_long_mode(ssid_lbl, LV_LABEL_LONG_DOT);
+        lv_obj_set_width(ssid_lbl, SCREEN_WIDTH - 22 - 60);  // leave room for rssi
+        lv_obj_align(ssid_lbl, LV_ALIGN_LEFT_MID, 22, 0);
+        // child 2: rssi label (right side)
+        lv_obj_t *rssi_lbl = lv_label_create(btn);
+        lv_label_set_text_fmt(rssi_lbl, "%ddBm", (int)rssi);
+        lv_obj_set_style_text_color(rssi_lbl, lv_color_hex(0x888888), LV_PART_MAIN);
+        lv_obj_set_style_text_font(rssi_lbl, &lv_font_montserrat_12, LV_PART_MAIN);
+        lv_obj_align(rssi_lbl, LV_ALIGN_RIGHT_MID, -10, 0);
+        lv_obj_add_event_cb(btn, [](lv_event_t *e){
+            if(lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+            lv_obj_t *b = lv_event_get_target(e);
+            lv_obj_t *lbl = lv_obj_get_child(b, 1); // child 1 = pure SSID label
+            if(lbl) ws_pending_ssid = String(lv_label_get_text(lbl));
+            ws_phase = WsPhase::PWD_INPUT;
+        }, LV_EVENT_CLICKED, nullptr);
+      }
+      if(n == 0 && ws_scan_lbl){
+        lv_obj_clear_flag(ws_scan_lbl, LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(ws_scan_lbl, "No networks found");
+      }
+      WiFi.scanDelete();
+    }
+  }
 }
 
 void ui_miner_page_update(void* args){

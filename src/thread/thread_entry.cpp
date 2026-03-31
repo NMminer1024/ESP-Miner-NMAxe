@@ -462,18 +462,30 @@ void config_monitor_thread_entry(void *args){
     LOG_I("%s thread started on core %d...", taskName, xPortGetCoreID());
     LOG_I("Initializing wifi...");
     
-    uint16_t timeout = 0;
     board->status.wifi.config_timeout = MINER_WIFI_CONFIG_TIMEOUT;
     while(true){
         if (WL_CONNECTED == board->status.wifi.status) break;
 
         if(board->status.wifi.client_connected == false){
-            if(timeout++ >= MINER_WIFI_CONFIG_TIMEOUT){
-                LOG_W("WiFi configuration timeout, rebooting...");
-                delay(1000);
-                ESP.restart();
+            // config_timeout is decremented here; UI thread may reset it to
+            // MINER_WIFI_CONFIG_TIMEOUT on touch activity to extend the window.
+            // For NMQAxe++: the UI thread owns the decrement (to use lv_indev for
+            // touch detection). Thread only triggers the reboot when timeout reaches 0.
+            if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+                if(board->status.wifi.config_timeout == 0){
+                    LOG_W("WiFi configuration timeout, rebooting...");
+                    delay(1000);
+                    ESP.restart();
+                }
+                // Do NOT decrement here — UI thread handles it
+            } else {
+                if(board->status.wifi.config_timeout == 0){
+                    LOG_W("WiFi configuration timeout, rebooting...");
+                    delay(1000);
+                    ESP.restart();
+                }
+                board->status.wifi.config_timeout--;
             }
-            board->status.wifi.config_timeout = MINER_WIFI_CONFIG_TIMEOUT - timeout;
         }
         delay(1000);
     }
