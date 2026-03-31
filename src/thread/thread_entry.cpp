@@ -2430,17 +2430,20 @@ void ui_thread_entry(void *args){
 void display_thread_entry(void *args){
   board_sal_t *board = (board_sal_t*)args;
 
-  String vbus_chk_str[]         = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
-  String vcore_chk_str[]        = {"Vcore check   ","Vcore check.  ","Vcore check.. ","Vcore check..."};
-  String asci_init_str[]        = {"ASIC init  ","ASIC init.  ","ASIC init.. ","ASIC init..."};
-  String wifi_con_str[]         = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
-  String fan_polarity_str[]     = {"Fan polarity check   ","Fan polarity check.  ","Fan polarity check.. ","Fan polarity check..."};
-  String fan_self_test_str[]    = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
-  String market_con_str[]       = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
-  String pool_con_str[]         = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
-  String pool_auth_str[]        = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
-  String wait_job_str[]         = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
-  String config_str[]           = {"Config   ","Config.  ","Config.. ","Config..."};
+  // Use const char* arrays instead of String to avoid 44 heap allocations at task startup.
+  // String objects on the stack (12 bytes each × 44 = 528 bytes) plus their heap-allocated
+  // contents caused internal-heap corruption on boards with tighter memory layout.
+  static const char* vbus_chk_str[]         = {"Vbus check   ","Vbus check.  ","Vbus check.. ","Vbus check..."};
+  static const char* vcore_chk_str[]        = {"Vcore check   ","Vcore check.  ","Vcore check.. ","Vcore check..."};
+  static const char* asci_init_str[]        = {"ASIC init  ","ASIC init.  ","ASIC init.. ","ASIC init..."};
+  static const char* wifi_con_str[]         = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
+  static const char* fan_polarity_str[]     = {"Fan polarity check   ","Fan polarity check.  ","Fan polarity check.. ","Fan polarity check..."};
+  static const char* fan_self_test_str[]    = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
+  static const char* market_con_str[]       = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
+  static const char* pool_con_str[]         = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
+  static const char* pool_auth_str[]        = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
+  static const char* wait_job_str[]         = {"Waiting pool job   ","Waiting pool job.  ","Waiting pool job.. ","Waiting pool job..."};
+  static const char* config_str[]           = {"Config   ","Config.  ","Config.. ","Config..."};
 
   // tft hardware init
   tft_init(board);

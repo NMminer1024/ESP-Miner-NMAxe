@@ -119,6 +119,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = true;
+            config.preference.screen.saver_enable  = true;
+            config.preference.screen.saver_timeout = 15*60; // 15 minutes
 
             config.preference.led.enable           = true;
             config.create_asic_instance      = create_axe_asic_instance;
@@ -248,6 +250,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = true;
+            config.preference.screen.saver_enable  = true;
+            config.preference.screen.saver_timeout = 15*60; // 15 minutes
 
             config.preference.led.enable           = true;
             config.create_asic_instance      = create_gamma_asic_instance;
@@ -381,6 +385,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.screen.brightness    = 100;
             config.preference.screen.auto_rolling  = false;
             config.preference.screen.flip          = false;
+            config.preference.screen.saver_enable  = true;
+            config.preference.screen.saver_timeout = 15*60; // 15 minutes
             config.preference.led.enable           = true;
             config.preference.led.enable           = true;
             config.create_asic_instance            = create_qaxepp_asic_instance;
@@ -459,6 +465,22 @@ void hardware_pre_init(BoardSpecConfig config){
     Serial.begin(115200);
     delay(100);
 
+    // PSRAM explicit init + sanity check.
+    // Arduino-ESP32 initialises PSRAM automatically before setup(), but on boards
+    // with non-standard PSRAM chips (e.g. QPI vs OPI) the silent auto-init can
+    // succeed yet leave PSRAM in an unstable state.  Calling psramInit() here is
+    // a no-op when PSRAM is already up, but on a bad chip it will log a clear
+    // failure instead of a mysterious heap-corruption crash later.
+    if (!psramFound()) {
+        if (!psramInit()) {
+            LOG_E("PSRAM init FAILED — heap_caps_malloc(MALLOC_CAP_SPIRAM) will silently fall through to internal RAM");
+        } else {
+            LOG_I("PSRAM init OK (explicit): size=%uKB", ESP.getPsramSize()/1024);
+        }
+    } else {
+        LOG_I("PSRAM already initialised: size=%uKB free=%uKB", ESP.getPsramSize()/1024, ESP.getFreePsram()/1024);
+    }
+
     // i2c init
     i2c_master_init(config.iic.sda_pin, config.iic.scl_pin, 400000);
 
@@ -477,7 +499,6 @@ void hardware_pre_init(BoardSpecConfig config){
     if(config.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
         // init extio chip tca9554
         tca9554_init();
-
         // LCD reset
         tca9554_set_io_level(TCA9554_IO_1, 0); 
         delay(10);

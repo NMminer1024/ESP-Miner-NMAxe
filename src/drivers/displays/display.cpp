@@ -3421,8 +3421,8 @@ void ui_setting_or_swarm_page_update(void* args){
         lv_dropdown_set_options(setting_page.list_saver.obj,
           "never\n30s\n1m\n5m\n15m\n30m\n1h\n2h\n6h");
         static const uint32_t SAVER_VALS[] = {0, 30, 60, 300, 900, 1800, 3600, 7200, 21600};
-        uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
-        uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
+        uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, board->info.spec.preference.screen.saver_enable);
+        uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, board->info.spec.preference.screen.saver_timeout);
         uint16_t sel_idx = 0;
         if (en) {
           for (int i = 1; i < 9; i++) {
@@ -3439,7 +3439,7 @@ void ui_setting_or_swarm_page_update(void* args){
       lv_obj_set_style_text_font(setting_page.checkbox_auto_rolling.obj, font, 0);
       lv_obj_set_style_text_color(setting_page.checkbox_auto_rolling.obj, lv_color_hex(0xFFFFFF), 0);
       lv_obj_set_pos(setting_page.checkbox_auto_rolling.obj, pad, y + 4);
-      if(nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, 1)) {
+      if(nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, board->info.spec.preference.screen.auto_rolling)) {
         lv_obj_add_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
       }
       lv_obj_add_event_cb(setting_page.checkbox_auto_rolling.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
@@ -3449,7 +3449,7 @@ void ui_setting_or_swarm_page_update(void* args){
       lv_obj_set_style_text_font(setting_page.checkbox_screen_flip.obj, font, 0);
       lv_obj_set_style_text_color(setting_page.checkbox_screen_flip.obj, lv_color_hex(0xFFFFFF), 0);
       lv_obj_set_pos(setting_page.checkbox_screen_flip.obj, W / 2, y + 4);
-      if(nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, 0)) {
+      if(nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, board->info.spec.preference.screen.flip)) {
         lv_obj_add_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
       }
       lv_obj_add_event_cb(setting_page.checkbox_screen_flip.obj, checkbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
@@ -3528,8 +3528,8 @@ void ui_setting_or_swarm_page_update(void* args){
       // screen saver
       if (setting_page.list_saver.obj) {
         static const uint32_t SAVER_VALS[] = {0, 30, 60, 300, 900, 1800, 3600, 7200, 21600};
-        uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, 0);
-        uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 0);
+        uint8_t  en  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, board->info.spec.preference.screen.saver_enable);
+        uint32_t tmo = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, board->info.spec.preference.screen.saver_timeout);
         uint16_t idx = 0;
         if (en) {
           for (int i = 1; i < 9; i++) {
@@ -3539,21 +3539,18 @@ void ui_setting_or_swarm_page_update(void* args){
         lv_dropdown_set_selected(setting_page.list_saver.obj, idx);
       }
 
-      // checkboxes
-      if (nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, 1))
+      // checkboxes — defaults from board spec (compile-time constant, never hardcoded)
+      if (nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN, board->info.spec.preference.screen.auto_rolling))
         lv_obj_add_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
       else
         lv_obj_clear_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
 
-      if (nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, 0))
+      if (nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN, board->info.spec.preference.screen.flip))
         lv_obj_add_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
       else
         lv_obj_clear_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
     }
   }
-
-
-
 }
 
 void ui_screen_saver_page_update(void* args){

@@ -45,7 +45,7 @@ void MinerApp::begin() {
     _thread_pool = {
         {"(app_tick)",   _tick_thread_entry,            1024*5,   TASK_PRIORITY_APP_TICK,    1, &_tickTask,       10,  0},
         {"(display)",   display_thread_entry,           1024*5,   TASK_PRIORITY_DISPLAY,     1, NULL,             10,  0},
-        {"(lvgl)",      lvgl_tick_thread_entry,         1024*4,   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
+        {"(lvgl)",      lvgl_tick_thread_entry,         1024*5,   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
         {"(ui)",        ui_thread_entry,                1024*5,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
         {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
         {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,         1, &_btnTask,        10,  0},
@@ -59,7 +59,7 @@ void MinerApp::begin() {
         // synchronisation point: wait for these events before starting the next batch
         {"",            NULL,                           0,        0,                         0, NULL,             0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_FAN_READY},
         {"(swarm)",     swarm_thread_entry,             1024*4,   TASK_PRIORITY_SWARM,       0, &_swarmTask,      10,  0},
-        {"(market)",    market_thread_entry,            1024*5,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
+        {"(market)",    market_thread_entry,            1024*6,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
         {"(stratum)",   stratum_thread_entry,           1024*11,  TASK_PRIORITY_STRATUM,     1, &_stratumTask,    10,  0},
         {"(monitor)",   monitor_thread_entry,           1024*5,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
         {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SCAN,        0, &_neighborTask,   10,  0},
@@ -137,7 +137,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     }
 
     while(true){
-        MinerApp::instance().print_stack_hwm(); // debug: print stack usage
+        // MinerApp::instance().print_stack_hwm(); // debug: print stack usage
 
         delay(10);
         // check miner events to trigger backlight effect, such as block hit or high diff achieved
@@ -252,11 +252,11 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.preference.screen.flip             = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,       g_board.info.spec.preference.screen.flip);
     g_board.status.preference.screen.auto_rolling     = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN,       g_board.info.spec.preference.screen.auto_rolling);
     g_board.status.preference.screen.brightness       = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.spec.preference.screen.brightness);
+    g_board.status.preference.screen.saver_enable     = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, g_board.info.spec.preference.screen.saver_enable);
+    g_board.status.preference.screen.saver_timeout    = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, g_board.info.spec.preference.screen.saver_timeout);
     g_board.status.preference.led.enable              = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR,     g_board.info.spec.preference.led.enable);
     g_board.status.preference.led.sleep               = false;
     g_board.status.preference.led.sleep_last          = g_board.status.preference.led.sleep;
-    g_board.status.preference.screen.saver_enable  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, true);    // default enabled
-    g_board.status.preference.screen.saver_timeout = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 60*15); // default 10min
     g_board.info.base.coin_price                      = String(nvs_config_get_string(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC"));
     g_board.info.base.coin_price.toUpperCase();
     g_board.info.base.coin_watchlist                  = String(nvs_config_get_string(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL"));
