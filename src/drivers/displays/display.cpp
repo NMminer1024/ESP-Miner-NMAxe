@@ -3321,7 +3321,7 @@ void ui_setting_or_swarm_page_update(void* args){
       const lv_coord_t ctrl_w = W - lbl_w - pad * 3 - 20; // control column width (trimmed ~2 char widths)
       const lv_coord_t ctrl_x = W - pad - ctrl_w;          // right-aligned start x, flush to screen right edge
       const lv_coord_t row_h = 28;   // row height
-      const lv_coord_t drop_h = 34;   // dropdown row height (font 20px needs extra space)
+      const lv_coord_t drop_h = 28;   // dropdown row height (font 20px needs extra space)
       const lv_font_t *font  = &lv_font_montserrat_14;
       lv_coord_t y = pad;
 

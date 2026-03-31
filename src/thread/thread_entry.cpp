@@ -17,7 +17,7 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 
-void power_thread_entry(void *args){
+void power_init_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
     board->power->set_vcore_range(board->info.spec.asic.min_vcore, board->info.spec.asic.max_vcore);
@@ -56,6 +56,51 @@ void power_thread_entry(void *args){
     delay(100);
 
     LOG_D("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
+
+    vTaskDelete(NULL);
+}
+
+
+void power_loop_thread_entry(void *args){
+    board_sal_t *board = (board_sal_t*)args;
+
+    // board->power->set_vcore_range(board->info.spec.asic.min_vcore, board->info.spec.asic.max_vcore);
+    // LOG_D("Set vcore range to (%d~%d mV)", board->power->get_vcore_min(), board->power->get_vcore_max());
+
+    // //detect power plug or pd plug
+    // if(board->power->is_dc_pluged()) LOG_I("DC plug detected...");
+    // else LOG_D("USB plug detected...");
+    // delay(100);
+    // board->power->init();
+
+    // //set vdd_1v8 and pll_0v8 power
+    // board->power->set_pll_0v8(PWR_ON);
+    // board->power->set_vdd_1v8(PWR_ON);
+    // delay(100);//wait for power stable
+    // xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VDD_VPLL_READY);  
+
+
+    // while ((board->power->get_vbus() < board->info.spec.pwr.vbus_min_required)){
+    //     LOG_W("Vbus is %.2fV , at least %.2fV required...", board->power->get_vbus()/1000.0, board->info.spec.pwr.vbus_min_required/1000.0);
+    //     delay(1000);
+    // }
+    // xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VBUS_READY);  
+
+
+    // // wait for fan ready and wifi connected before setting vcore voltage, to avoid too high temperature without proper cooling or network connection for error reporting
+    // xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    // //set vcore voltage to required voltage
+    // board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
+    // board->power->set_vcore_status(PWR_ON);
+    // while (!board->power->is_vcore_ready()){
+    //     delay(500);
+    //     LOG_W("Waiting for vcore power setup...");
+    // }
+    // xEventGroupSetBits(board->status.init_evt, INIT_EVENT_VCORE_READY);  
+    // delay(100);
+
+    // LOG_D("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
+    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     while(true){
         delay(100);
         uint32_t vcore_measure = board->power->get_vcore();
