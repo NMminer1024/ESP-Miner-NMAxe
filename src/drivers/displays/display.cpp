@@ -2399,6 +2399,7 @@ void ui_config_page_update(void* args) {
       ws_pwd_ta = lv_textarea_create(ws_cont);
       lv_obj_set_size(ws_pwd_ta, inner_w, ta_h);
       lv_obj_align(ws_pwd_ta, LV_ALIGN_TOP_LEFT, 0, ssid_h + 4);
+      lv_textarea_set_one_line(ws_pwd_ta, true);
       lv_textarea_set_password_mode(ws_pwd_ta, true);
       lv_textarea_set_max_length(ws_pwd_ta, 64);
       lv_textarea_set_placeholder_text(ws_pwd_ta, "Enter password...");
@@ -2411,6 +2412,7 @@ void ui_config_page_update(void* args) {
       lv_obj_set_style_border_width(ws_pwd_ta, 1, LV_PART_MAIN);
       // Right padding so typed text doesn't slide under the eye icon (26px icon + 4px gap)
       lv_obj_set_style_pad_right(ws_pwd_ta, 30, LV_PART_MAIN);
+      lv_obj_clear_flag(ws_pwd_ta, LV_OBJ_FLAG_SCROLLABLE);
 
       // Eye button: overlaid inside the textarea on the right, transparent background
       lv_obj_t *btn_eye = lv_btn_create(ws_cont);
@@ -2478,14 +2480,25 @@ void ui_config_page_update(void* args) {
       lv_keyboard_set_textarea(ws_kbd, ws_pwd_ta);
       lv_obj_set_style_bg_color(ws_kbd, lv_color_hex(0x16213E), LV_PART_MAIN);
       lv_obj_set_style_text_font(ws_kbd, &lv_font_montserrat_14, LV_PART_MAIN);
-      // Disable long-press repeat so holding a key does NOT keep inserting characters.
-      {
-          lv_btnmatrix_t *bm = (lv_btnmatrix_t *)ws_kbd;
-          uint16_t btn_cnt = bm->btn_cnt;
-          for(uint16_t _i = 0; _i < btn_cnt; _i++){
-              lv_btnmatrix_set_btn_ctrl(ws_kbd, _i, LV_BTNMATRIX_CTRL_NO_REPEAT);
+      // Block long-press repeat for all keys EXCEPT backspace (which should repeat).
+      // PREPROCESS runs before the btnmatrix class event_cb, so stopping here prevents
+      // VALUE_CHANGED from being sent and keeps NO_REPEAT reliable across mode switches.
+      lv_obj_add_event_cb(ws_kbd, [](lv_event_t *e){
+          lv_obj_t *kbd = lv_event_get_target(e);
+          lv_btnmatrix_t *bm = (lv_btnmatrix_t *)kbd;
+          uint16_t sel = bm->btn_id_sel;
+          if(sel != LV_BTNMATRIX_BTN_NONE){
+              const char *txt = lv_btnmatrix_get_btn_text(kbd, sel);
+              if(txt && strcmp(txt, LV_SYMBOL_BACKSPACE) == 0) return; // allow repeat
           }
-      }
+          lv_event_stop_processing(e);
+      }, (lv_event_code_t)(LV_EVENT_LONG_PRESSED_REPEAT | LV_EVENT_PREPROCESS), nullptr);
+      // Enter key and √ key both send LV_EVENT_READY to the textarea.
+      // Intercept it to trigger the same Save → CONFIRM flow as the Save button.
+      lv_obj_add_event_cb(ws_pwd_ta, [](lv_event_t *e){
+          if(ws_pwd_ta) ws_pending_pwd = String(lv_textarea_get_text(ws_pwd_ta));
+          ws_phase = WsPhase::CONFIRM;
+      }, LV_EVENT_READY, nullptr);
 
       // Four-bubble magnifier: top / bottom / left / right of the touch point.
       // No matter how the finger covers the key, at least one bubble stays visible.
