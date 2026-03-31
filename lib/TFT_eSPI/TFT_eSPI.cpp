@@ -66,10 +66,10 @@
   void TFT_eSPI::spi_end()         {  end_tft_write();}
   void TFT_eSPI::spi_begin_read()  {begin_tft_read(); }
   void TFT_eSPI::spi_end_read()    {  end_tft_read(); }
-  void TFT_eSPI::cs_high()         { digitalWrite(_csPin, HIGH); }
-  void TFT_eSPI::cs_low()          { digitalWrite(_csPin, LOW);  }
-  void TFT_eSPI::dc_high()         { digitalWrite(_dcPin, HIGH); }
-  void TFT_eSPI::dc_low()          { digitalWrite(_dcPin, LOW);  }
+  void TFT_eSPI::cs_high()         { if (_csPin >= 0) digitalWrite(_csPin, HIGH); }
+  void TFT_eSPI::cs_low()          { if (_csPin >= 0) digitalWrite(_csPin, LOW);  }
+  void TFT_eSPI::dc_high()         { if (_dcPin >= 0) digitalWrite(_dcPin, HIGH); }
+  void TFT_eSPI::dc_low()          { if (_dcPin >= 0) digitalWrite(_dcPin, LOW);  }
  
 /***************************************************************************************
 ** Function name:           begin_tft_write (was called spi_begin)
@@ -442,6 +442,17 @@ bool TFT_eSPI::clipWindow(int32_t *xs, int32_t *ys, int32_t *xe, int32_t *ye)
 ***************************************************************************************/
 TFT_eSPI::TFT_eSPI(int16_t w, int16_t h)
 {
+  // Initialise pin members to -1 (invalid/unused) so that cs_low()/cs_high()
+  // and similar helpers never call digitalWrite() on a garbage GPIO number
+  // when the sketch passes -1 at runtime via begin().
+  _csPin   = -1;
+  _dcPin   = -1;
+  _rstPin  = -1;
+  _blPin   = -1;
+  _mosiPin = -1;
+  _misoPin = -1;
+  _sclkPin = -1;
+
   _init_width  = _width  = w; // Set by specific xxxxx_Defines.h file or by users sketch
   _init_height = _height = h; // Set by specific xxxxx_Defines.h file or by users sketch
 
