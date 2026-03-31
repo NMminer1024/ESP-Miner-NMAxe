@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Compile Angular",
+            "label": "Build Web (Angular)",
             "type": "shell",
             "command": "npm",
             "args": [
@@ -15,7 +15,7 @@
             "problemMatcher": [
                 "$tsc"
             ],
-            "detail": "Compile Angular"
+            "detail": "Build web assets only"
         },
         {
             "label": "Build SPIFFS",
@@ -23,6 +23,8 @@
             "command": "platformio",
             "args": [
                 "run",
+                "-e",
+                "NMAxe",
                 "--target",
                 "buildfs"
             ],
@@ -35,6 +37,8 @@
             "command": "platformio",
             "args": [
                 "run",
+                "-e",
+                "NMAxe",
                 "--target",
                 "uploadfs"
             ],
@@ -42,39 +46,42 @@
             "detail": "Upload SPIFFS"
         },
         {
-            "label": "Compile Arduino",
+            "label": "Upload ESP32 Firmware",
             "type": "shell",
             "command": "platformio",
             "args": [
                 "run",
+                "-e",
+                "NMAxe",
                 "--target",
                 "upload"
             ],
             "problemMatcher": [],
-            "detail": "Compile Arduino"
+            "detail": "Build and upload firmware only"
         },
         {
-            "label": "Compile All",
-            "dependsOn": [
-                "Compile Arduino"
+            "label": "Build ESP32 Firmware",
+            "type": "shell",
+            "command": "platformio",
+            "args": [
+                "run",
+                "-e",
+                "NMAxe"
             ],
-            "dependsOrder": "sequence",
+            "problemMatcher": [],
+            "detail": "Build firmware only (no web build)",
             "group": {
                 "kind": "build",
                 "isDefault": true
             }
         },
         {
-            "label": "Compile All and upload",
+            "label": "Build All and upload",
             "dependsOn": [
                 "Upload SPIFFS",
-                "Compile Arduino"
+                "Upload ESP32 Firmware"
             ],
-            "dependsOrder": "sequence",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+            "dependsOrder": "sequence"
         },
         {
             "label": "Calculate Web Files Size",

@@ -255,8 +255,8 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.preference.led.enable              = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR,     g_board.info.spec.preference.led.enable);
     g_board.status.preference.led.sleep               = false;
     g_board.status.preference.led.sleep_last          = g_board.status.preference.led.sleep;
-    g_board.status.preference.screen.saver_enable  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, false);   // default disabled
-    g_board.status.preference.screen.saver_timeout = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 60*10); // default 10min
+    g_board.status.preference.screen.saver_enable  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, true);    // default enabled
+    g_board.status.preference.screen.saver_timeout = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, 60*15); // default 10min
     g_board.info.base.coin_price                      = String(nvs_config_get_string(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC"));
     g_board.info.base.coin_price.toUpperCase();
     g_board.info.base.coin_watchlist                  = String(nvs_config_get_string(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL"));

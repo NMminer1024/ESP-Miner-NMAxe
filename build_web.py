@@ -5,6 +5,7 @@ from os.path import join, isdir, basename, splitext,isfile
 from sys import platform
 import hashlib
 import shutil
+from SCons.Script import COMMAND_LINE_TARGETS
 Import("env")
 
 clean_dirs = ["data"]
@@ -19,6 +20,12 @@ if env.IsCleanTarget():
         if isdir(abs_path):
             print("rmdir: ", abs_path)
             shutil.rmtree(abs_path)
+    Return()
+
+# Only run web build when building/uploading SPIFFS.
+# This keeps firmware-only build/upload independent from Angular compilation.
+if not any(target in ("buildfs", "uploadfs") for target in COMMAND_LINE_TARGETS):
+    print("Skip web build: non-SPIFFS target", COMMAND_LINE_TARGETS)
     Return()
 
 web_src_dir = join(project_dir, "src", "web", "axe-os")
