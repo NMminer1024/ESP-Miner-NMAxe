@@ -4371,7 +4371,7 @@ void ui_find_me_page_update(void* args){
 
   static const char* const FIND_ME_TEXT = ">>> I am here <<<";
   const bool is_nmqaxepp = (board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME);
-  const char* const FIND_ME_HINT = is_nmqaxepp ? "Touch to exit" : "Press any key to exit";
+  const char* const FIND_ME_HINT = is_nmqaxepp ? "Touch to exit" : "Press key to exit";
 
   lb_text = lv_label_create(overlay);
   lv_obj_set_style_text_font(lb_text, &Inconsolata_26, LV_PART_MAIN);
