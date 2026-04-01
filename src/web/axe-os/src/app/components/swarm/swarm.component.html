@@ -170,6 +170,7 @@
                   chooseLabel="Browse" (uploadHandler)="otaUpdate($event)"></p-fileUpload>
     <small>(firmware.bin)</small>
     <div class="progress-container">
+      <p class="update-summary" *ngIf="updateFirmwareDevices.length > 0">Total: {{ updateFirmwareDevices.length }} device(s)</p>
       <p class="upload-progress"
          *ngFor="let device of updateFirmwareDevices">
         {{ device.ip + ":" }}
@@ -192,6 +193,7 @@
                   chooseLabel="Browse" (uploadHandler)="otaWWWUpdate($event)"></p-fileUpload>
     <small>(spiffs.bin)</small>
     <div class="progress-container">
+      <p class="update-summary" *ngIf="updateWebsiteDevices.length > 0">Total: {{ updateWebsiteDevices.length }} device(s)</p>
       <p class="upload-progress" *ngFor="let device of updateWebsiteDevices">
         {{ device.ip + ":" }}
         <span [ngClass]="{

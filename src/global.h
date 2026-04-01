@@ -166,6 +166,7 @@ typedef struct{
         String      filename;//name
         bool        running;
         int         progress;
+        uint32_t    last_progress_ms;  // millis() when progress last advanced; 0 = not started
         String      error;   // last error string; set on failure, cleared on new upload start
     }ota;
 

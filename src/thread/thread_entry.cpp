@@ -507,6 +507,15 @@ void webserver_thread_entry(void *args){
 
     if (!spiffs_ok) {
         webServer.on("/api/system/info",  HTTP_GET, get_system_info);
+        // ── Recovery mode: wakeup endpoint so the swarm batch-upgrade flow (which calls
+        // /api/wakeup before streaming the binary) does not fail immediately on devices
+        // in recovery mode. Without this the wakeup GET falls through to the catch-all,
+        // returns HTML, Angular httpClient fails to parse JSON → OTA never starts.
+        webServer.on("/api/wakeup", HTTP_GET, [](AsyncWebServerRequest *request){
+            AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"ok\":true}");
+            r->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(r);
+        });
         // ── Recovery mode: SPIFFS is unavailable ─────────────────────────────
         // Serve the firmware-embedded recovery page for every GET request so
         // the user can re-flash SPIFFS via a browser, then restart the device.
@@ -695,6 +704,17 @@ void webserver_thread_entry(void *args){
     while (true) {
         delay(250);
         webSocket.cleanupClients();
+
+        // OTA stall watchdog: runs independently of the upload callback.
+        // If the TCP stream stalls (client drops, network error, etc.) the
+        // upload callback is never called again, so the in-callback check
+        // can never fire. This loop detects the condition externally.
+        if (board->status.ota.running && board->status.ota.last_progress_ms != 0) {
+            if (millis() - board->status.ota.last_progress_ms > 60*1000UL) {
+                LOG_E("[OTA watchdog] upload stalled >60s at %d%%, triggering reboot", board->status.ota.progress);
+                xSemaphoreGive(board->status.reboot_xsem);
+            }
+        }
     }
 }
 

@@ -338,7 +338,9 @@ export class SwarmComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.updateWebsiteDevices = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%", result: true}});
+    this.updateWebsiteDevices = this.selectedItems
+      .map(item => {return {ip:item.ip, progress: "0%", result: true}})
+      .sort((a, b) => ipToNumber(a.ip) - ipToNumber(b.ip));
     this.updateWebsiteDevices.forEach(item => {
       // Wake the screensaver on each target device first; only after the wakeup
       // response comes back do we start streaming the SPIFFS binary.
@@ -386,7 +388,9 @@ export class SwarmComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.updateFirmwareDevices  = this.selectedItems.map(item => {return {ip:item.ip, progress: "0%", result: true}});
+    this.updateFirmwareDevices = this.selectedItems
+      .map(item => {return {ip:item.ip, progress: "0%", result: true}})
+      .sort((a, b) => ipToNumber(a.ip) - ipToNumber(b.ip));
 
     this.updateFirmwareDevices.forEach(item => {
       // Wake the screensaver on each target device first; only after the wakeup

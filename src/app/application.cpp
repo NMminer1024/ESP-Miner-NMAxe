@@ -286,6 +286,7 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.miner.hits                    = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     g_board.status.ota.running                   = false;
     g_board.status.ota.progress                  = 0;
+    g_board.status.ota.last_progress_ms          = 0;
     g_board.status.ota.filename                  = "";
     g_board.status.miner.diff.best_ever          = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
     g_board.status.ui.page.countdown.timeout     = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;

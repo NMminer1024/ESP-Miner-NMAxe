@@ -614,6 +614,12 @@ a:active {
   gap: 20px;
   flex-wrap: wrap;
   
+  .update-summary {
+    color: #aaa;
+    font-size: 0.85em;
+    margin-bottom: 4px;
+  }
+
   .upload-progress {
     color: #fff;
   }
