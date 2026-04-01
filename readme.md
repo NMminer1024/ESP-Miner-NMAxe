@@ -140,37 +140,14 @@ Batch firmware update on swarm page.
 
 ## Recover A Bricked Device or Corrupt Firmware
 
-If your device is inaccessible, you can flash via USB using the commands below
+If your device is inaccessible, use the [NMMiner flash tool](https://flash.nmminer.com/) to fully recover it.
 
-### Prerequisites
-* [esptool.py installed into virtual env (venv) ](https://docs.espressif.com/projects/esptool/en/latest/esp32/installation.html)
-* usb-c cable with data support
-* 5v power supply also connected (flashing requires more power than usb ports provide)
-* download spiffs.bin and/or firmware.bin from website
-* reboot nmaxe by holding "boot" button down and tapping small reboot button next to usb-c port
+**How to enter forced flash mode:**
+1. Hold the **boot** button
+2. Plug in the USB cable
+3. Release the **boot** button
 
-### Confirm debug port is connected
-```
-esptool --chip esp32s3 --port COM3 flash_id
-```
-
-### Flash spiffs.bin
-
-flash spiffs.bin if your device web admin is corrupt or showing blank pages, but
-the device boots up and operates as expected
-
-```
-esptool --chip esp32s3 --port COM3 write_flash 0x410000 spiffs.bin
-```
-
-
-### Flash firmware.bin
-
-flash firmware.bin & spiffs.bin if the device does not boot when plugged in. 
-
-```
-esptool --chip esp32s3 --port COM3 write_flash 0x10000 firmware.bin
-```
+The browser will detect the device and you can flash the latest firmware directly.
 
 
 
@@ -192,6 +169,40 @@ Full API documentation: [docs/API.md](./docs/API.md)
 
 ## Release Log
 ***
+
+### (2026.04.01) - v3.0.10
+- `Add`:
+  - Screensaver: animated GIF screensaver support, with built-in GIF presets (240x135 / 320x240).
+  - Screensaver: custom GIF upload via AxeOS, no reboot required.
+  - AxeOS: Market / coin price wall page.
+  - AxeOS: Achievement page with fade-in animation on new personal best difficulty.
+  - AxeOS: Interactive API reference page accessible at `http://{ip}/api-doc`.
+  - Device Display: Vcore fan control support for NMQAxe++.
+  - Device Display: Screen auto-roll toggle on settings page for NMQAxe++.
+  - Device Display: Swarm page added for NMAxe and NMAxeGamma.
+  - API: `/alive` endpoint for swarm LAN discovery.
+  - API: `/probe` now includes screen resolution fields `sw` / `sh`.
+  - OTA: RGB LED progress indicator during firmware flash(Only NMQAxe++ and ARGB required).
+  - NTP: additional NTP server options.
+- `Fixed`:
+  - TFT_eSPI library compatibility issue.
+  - Multiple task stack overflow issues; power task stack reduced from 7 KB to 3 KB.
+  - Screen randomly going blank.
+  - Recovery mode logic when SPIFFS partition is missing or corrupt.
+  - Swarm cross-device OTA upgrade failure.
+  - Boot button logic.
+  - Swipe gesture and settings page UI issues.
+  - lwIP / HTTP stability issues.
+- `Improved`:
+  - Overall task stack and memory usage optimization.
+  - SPI bus speed increased to 80 MHz.
+  - AxeOS Update page UI.
+  - Loading page log display.
+  - Swarm total power consumption display.
+- `Modify`:
+  - None.
+- `Remove`:
+  - MCU temperature field removed from system info.
 
 ### (2026.03.04) - v2.9.31
 - `Add`:
