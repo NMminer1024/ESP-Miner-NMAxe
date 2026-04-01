@@ -182,6 +182,7 @@ Full API documentation: [docs/API.md](./docs/API.md)
   - API: `/alive` endpoint for swarm LAN discovery.
   - API: `/probe` now includes screen resolution fields `sw` / `sh`.
   - API: `/api/swarm/find` — locate a specific device in the swarm by blinking its screen.
+  - API: more API reference [docs/API.md](./docs/API.md).
   - OTA: RGB LED progress indicator during firmware flash(Only NMQAxe++ and ARGB required).
   - NTP: additional NTP server options.
 - `Fixed`:

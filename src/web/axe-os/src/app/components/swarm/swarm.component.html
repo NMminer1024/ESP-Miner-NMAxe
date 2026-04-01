@@ -153,9 +153,22 @@
             <button class="edit-btn" title="Restart" (click)="restart(axe)">↻</button>
           </td>          <td>
             <button class="edit-btn find-btn" title="Locate this device (blinks screen)" (click)="findMe(axe)">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" width="14" height="16" style="display:block">
-                <path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 8 20 8 20s8-14.75 8-20c0-4.42-3.58-8-8-8z" fill="#e53935"/>
-                <circle cx="12" cy="8" r="3.2" fill="#fff"/>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 66" width="16" height="19" style="display:block">
+                <defs>
+                  <radialGradient id="fg" cx="38%" cy="28%" r="62%">
+                    <stop offset="0%" stop-color="#ff6e6e"/>
+                    <stop offset="45%" stop-color="#e53935"/>
+                    <stop offset="100%" stop-color="#7f0000"/>
+                  </radialGradient>
+                  <radialGradient id="hg" cx="50%" cy="45%" r="50%">
+                    <stop offset="0%" stop-color="#ffffff"/>
+                    <stop offset="100%" stop-color="#d8d8d8"/>
+                  </radialGradient>
+                </defs>
+                <path d="M28 1C15.85 1 6 10.85 6 23c0 14.5 22 42 22 42S50 37.5 50 23C50 10.85 40.15 1 28 1z" fill="url(#fg)"/>
+                <path d="M28 3.5C22 3.5 16.5 7.5 14 13c-1 2.5 0.2 3.5 1.8 3C21 14 27 12 31.5 9c3.5-2.5 5.5-5.5 3-7.5C33 0.7 30.5 3.5 28 3.5z" fill="rgba(255,255,255,0.38)"/>
+                <circle cx="28" cy="23" r="10.5" fill="url(#hg)"/>
+                <circle cx="28" cy="23" r="10.5" fill="none" stroke="rgba(0,0,0,0.12)" stroke-width="1.5"/>
               </svg>
             </button>
           </td>        </tr>

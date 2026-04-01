@@ -4138,6 +4138,17 @@ void ui_screen_saver_page_update(void* args){
 
   // ── Overlay visible: manage fade-out or keep showing ────────────────────
   if(overlay != nullptr){
+    // Find me takes priority: immediately dismiss screensaver so find-me overlay can appear
+    if (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) {
+      xEventGroupClearBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+      lv_obj_del(overlay);       // also deletes gif_obj / lb_text (children)
+      overlay   = nullptr;
+      lb_text   = nullptr;
+      gif_obj   = nullptr;
+      fading_out = false;
+      board->status.ui.last_active_ms = millis();
+      return;
+    }
     EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED, pdFALSE, pdTRUE, 0);
     if((bits & SYS_EVENT_SCREEN_SAVER_TRIGGERED) == 0){
       // Event cleared (touch / button) → 1-second fade-out
@@ -4179,6 +4190,12 @@ void ui_screen_saver_page_update(void* args){
   // and freeze the display task. Reset last_active_ms so the inactivity
   // timer restarts from zero once OTA finishes.
   if (board->status.ota.running) {
+    board->status.ui.last_active_ms = millis();
+    return;
+  }
+
+  // ── Find me active: suppress screensaver, reset idle timer ──────────────
+  if (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) {
     board->status.ui.last_active_ms = millis();
     return;
   }
@@ -4328,7 +4345,7 @@ void ui_find_me_page_update(void* args){
   // ── Create full-screen overlay ───────────────────────────────────────────
   if (!style_inited) {
     lv_style_init(&style);
-    lv_style_set_bg_color(&style, lv_color_black());
+    lv_style_set_bg_color(&style, lv_color_white());
     lv_style_set_bg_opa(&style, LV_OPA_COVER);
     lv_style_set_border_width(&style, 0);
     lv_style_set_border_opa(&style, LV_OPA_TRANSP);
@@ -4352,33 +4369,27 @@ void ui_find_me_page_update(void* args){
   }, LV_EVENT_PRESSING, NULL);
   lv_obj_move_foreground(overlay);
 
-  // ── ">>> I am here <<<" label, font sized to fill the screen width ────────
-  // Pick the largest Montserrat font that fits LV_HOR_RES for the text.
-  static const lv_font_t* const candidate_fonts[] = {
-    &Inconsolata_16,
-    &Inconsolata_18,
-    &Inconsolata_22,
-    &Inconsolata_26
-  };
   static const char* const FIND_ME_TEXT = ">>> I am here <<<";
-  const lv_font_t *chosen_font = candidate_fonts[0]; // fallback: smallest (16px)
-  for (int fi = (int)(sizeof(candidate_fonts) / sizeof(candidate_fonts[0])) - 1; fi >= 0; fi--) {
-    lv_coord_t w = lv_txt_get_width(FIND_ME_TEXT, strlen(FIND_ME_TEXT),
-                                     candidate_fonts[fi], 0, LV_TEXT_FLAG_NONE);
-    if (w <= (LV_HOR_RES - 8)) {
-      chosen_font = candidate_fonts[fi];
-      break;
-    }
-  }
+  const bool is_nmqaxepp = (board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME);
+  const char* const FIND_ME_HINT = is_nmqaxepp ? "Touch to exit" : "Press any key to exit";
 
   lb_text = lv_label_create(overlay);
-  lv_obj_set_style_text_font(lb_text, chosen_font, LV_PART_MAIN);
-  lv_obj_set_style_text_color(lb_text, lv_color_hex(0xFFEB3B), LV_PART_MAIN); // yellow
+  lv_obj_set_style_text_font(lb_text, &Inconsolata_26, LV_PART_MAIN);
+  lv_obj_set_style_text_color(lb_text, lv_color_black(), LV_PART_MAIN); // black
   lv_obj_set_style_text_align(lb_text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
   lv_label_set_long_mode(lb_text, LV_LABEL_LONG_CLIP);
   lv_obj_set_width(lb_text, LV_HOR_RES - 4);
   lv_label_set_text(lb_text, FIND_ME_TEXT);
-  lv_obj_align(lb_text, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_align(lb_text, LV_ALIGN_CENTER, 0, -18);
+
+  lv_obj_t* lb_hint = lv_label_create(overlay);
+  lv_obj_set_style_text_font(lb_hint, &Inconsolata_26, LV_PART_MAIN);
+  lv_obj_set_style_text_color(lb_hint, lv_color_black(), LV_PART_MAIN);
+  lv_obj_set_style_text_align(lb_hint, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_label_set_long_mode(lb_hint, LV_LABEL_LONG_CLIP);
+  lv_obj_set_width(lb_hint, LV_HOR_RES - 4);
+  lv_label_set_text(lb_hint, FIND_ME_HINT);
+  lv_obj_align(lb_hint, LV_ALIGN_CENTER, 0, 18);
   lv_obj_move_foreground(overlay);
 }
 

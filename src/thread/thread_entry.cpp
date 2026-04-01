@@ -1,7 +1,7 @@
 ﻿#include "drivers/displays/display.h"
 #include "utils/logger/logger.h"
-#include "drivers/button/button.h"
 #include "global.h"
+#include "OneButton.h"
 #include "drivers/fan/fan.h"
 #include "utils/sha/csha256.h"
 #include "nvs/nvs_config.h"
@@ -885,19 +885,46 @@ void button_thread_entry(void *args){
             ui_switch_prev_page_cb();
         };
 
+        auto long_press_wrapper = [](void *param){
+            board_sal_t *b = static_cast<board_sal_t*>(param);
+            xSemaphoreGive(b->status.force_config_xsem);
+        };
+
         boot_btn->attachClick(click_wrapper, board); 
         boot_btn->attachDoubleClick(double_click_wrapper, board);
-        boot_btn->attachLongPressStart(NULL);
+        boot_btn->attachLongPressStart(long_press_wrapper, board);
         boot_btn->attachLongPressStop(NULL);
-        boot_btn->attachDuringLongPress(force_config_cb);
+        boot_btn->attachDuringLongPress(NULL);
     }
     // link the user button functions.
     if(user_btn != nullptr){
-        user_btn->attachClick(NULL);
-        user_btn->attachDoubleClick(NULL);
-        user_btn->attachLongPressStart(NULL);
+        auto click_wrapper = [](void *param){
+            board_sal_t *b = static_cast<board_sal_t*>(param);
+            // Suppress page switch when screensaver OR find-neighbor is active — both require
+            // a single interaction to dismiss the overlay before navigation is permitted.
+            bool no_page_switch = (xEventGroupGetBits(b->status.sys_evt) & (SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) != 0;
+            xEventGroupWaitBits(b->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);// ensure miner is ready before allowing page switch
+            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            b->status.ui.last_active_ms = millis();
+        };
+        auto double_click_wrapper = [](void *param){
+            board_sal_t *b = static_cast<board_sal_t*>(param);
+            bool no_page_switch = (xEventGroupGetBits(b->status.sys_evt) & (SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) != 0;
+            xEventGroupWaitBits(b->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);// ensure miner is ready before allowing page switch
+            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            b->status.ui.last_active_ms = millis();
+        };
+        
+        auto long_press_wrapper = [](void *param){
+            board_sal_t *b = static_cast<board_sal_t*>(param);
+            xSemaphoreGive(b->status.recover_factory_xsem);
+        };
+
+        user_btn->attachClick(click_wrapper, board);
+        user_btn->attachDoubleClick(double_click_wrapper, board);
+        user_btn->attachLongPressStart(long_press_wrapper, board);
         user_btn->attachLongPressStop(NULL);
-        user_btn->attachDuringLongPress(recover_factory_cb);
+        user_btn->attachDuringLongPress(NULL);
     }
 
     while (true){

@@ -152,7 +152,7 @@ void MinerApp::_tick_thread_entry(void* args) {
         }
         else if((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == SYS_EVENT_FIND_NEIGHBOR_TRIGGERED){
             brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
-            x += 0.6f;
+            x += 0.5f;
         }
         else{
             brightness = board->status.preference.screen.brightness;
