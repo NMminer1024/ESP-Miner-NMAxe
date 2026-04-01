@@ -889,16 +889,16 @@
             <div class="col">
               <div class="block-label">GET – Response 200</div>
               <pre>{
-  <span class="kw">"timeZone"</span>:   <span class="str">"Asia/Shanghai"</span>,
-  <span class="kw">"timeFormat"</span>: <span class="num">0</span>,  <span class="cmt">// 0=24h, 1=12h</span>
-  <span class="kw">"dateFormat"</span>: <span class="str">"YYYY-MM-DD"</span>
+  <span class="kw">"timeZone"</span>:   <span class="str">"8.0"</span>,
+  <span class="kw">"timeFormat"</span>: <span class="num">24</span>,  <span class="cmt">// 24=24h, 12=12h</span>
+  <span class="kw">"dateFormat"</span>: <span class="str">"YYYY/MM/DD"</span>
 }</pre>
             </div>
             <div class="col">
               <div class="block-label">PATCH – Request body</div>
               <pre>{
   <span class="kw">"timezone"</span>:   <span class="str">"UTC"</span>,
-  <span class="kw">"timeFormat"</span>: <span class="num">1</span>,
+  <span class="kw">"timeFormat"</span>: <span class="num">12</span>,  <span class="cmt">// 24=24h, 12=12h</span>
   <span class="kw">"dateFormat"</span>: <span class="str">"MM/DD/YYYY"</span>
 }</pre>
             </div>
@@ -970,8 +970,8 @@
   <span class="kw">"mainprice"</span>:    <span class="str">"BTC"</span>,
   <span class="kw">"coinWatchlist"</span>:<span class="str">"BTC,ETH,LTC"</span>,
   <span class="kw">"pairs"</span>: [
-    <span class="str">"BTC/USDT"</span>,
-    <span class="str">"ETH/USDT"</span>
+    <span class="str">"BTCUSDT"</span>,
+    <span class="str">"ETHUSDT"</span>
   ]
 }</pre>
             </div>
