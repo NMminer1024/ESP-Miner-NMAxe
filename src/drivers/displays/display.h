@@ -99,4 +99,5 @@ void ui_clock_page_update(void* args);
 void ui_market_page_update(void* args);
 void ui_setting_or_swarm_page_update(void* args);
 void ui_screen_saver_page_update(void* args);
+void ui_find_me_page_update(void* args);
 #endif // DISPLAY_H

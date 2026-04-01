@@ -497,6 +497,9 @@
       <a class="nav-item" href="#swarm-scan">
         <span class="nav-badge badge-post">POST</span> Trigger Scan
       </a>
+      <a class="nav-item" href="#swarm-find">
+        <span class="nav-badge badge-post">POST</span> Find Device
+      </a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">Logging</div>
@@ -1254,6 +1257,26 @@ Content-Type: application/octet-stream
         <div class="endpoint-body">
           <p class="ep-desc">
             Signals the IP-scan thread to abort the current scan and restart from the beginning. Typically called by the AxeOS Swarm page on load to get fresh data quickly. No request body is needed.
+          </p>
+          <div class="block-label">Request body</div>
+          <pre><span class="cmt">// empty body or {}</span></pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <div class="endpoint" id="swarm-find">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/swarm/find</code>
+          <span class="endpoint-summary">Locate a specific device by blinking its screen</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Sets the <em>FIND_NEIGHBOR</em> event on the target device, causing its display to flash
+            until the user dismisses it — by tapping the screen or pressing the Boot button.
+            Useful for physically identifying a device in a rack. Available in both normal and
+            recovery mode.
           </p>
           <div class="block-label">Request body</div>
           <pre><span class="cmt">// empty body or {}</span></pre>

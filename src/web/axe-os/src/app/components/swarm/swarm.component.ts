@@ -291,6 +291,18 @@ export class SwarmComponent implements OnInit, OnDestroy {
     }
   }
 
+  public findMe(axe: any) {
+    this.http.post(`http://${axe.ip}/api/swarm/find`, {}).pipe(
+      catchError(() => of(null))
+    ).subscribe(res => {
+      if (res !== null) {
+        this.toastr.info(`Screen on ${axe.ip} is flashing. Tap the screen or press Boot to stop.`, 'FindMe', { timeOut: 8000 });
+      } else {
+        this.toastr.error(`Failed to reach ${axe.ip}`, 'FindMe', { timeOut: 8000 });
+      }
+    });
+  }
+
   public sort(data: NMDevice[]): NMDevice[] {
     if (this.sortIndex === undefined) {
       return data;

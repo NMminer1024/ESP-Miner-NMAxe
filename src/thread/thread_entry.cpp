@@ -60,7 +60,6 @@ void power_init_thread_entry(void *args){
     vTaskDelete(NULL);
 }
 
-
 void power_loop_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
@@ -516,6 +515,14 @@ void webserver_thread_entry(void *args){
             r->addHeader("Access-Control-Allow-Origin", "*");
             request->send(r);
         });
+        // ── Find me: also available in recovery mode so the swarm panel can locate
+        // a device that is stuck in recovery (SPIFFS failed) by blinking its screen.
+        webServer.on("/api/swarm/find", HTTP_POST, [board](AsyncWebServerRequest* request) {
+            xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+            r->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(r);
+        });
         // ── Recovery mode: SPIFFS is unavailable ─────────────────────────────
         // Serve the firmware-embedded recovery page for every GET request so
         // the user can re-flash SPIFFS via a browser, then restart the device.
@@ -612,6 +619,13 @@ void webserver_thread_entry(void *args){
         r->addHeader("Access-Control-Allow-Origin", "*");
         request->send(r);
     }); // trigger alive_ip_scan_thread immediately
+    // ── Find me: blink screen to help user locate a specific device ───────────
+    webServer.on("/api/swarm/find", HTTP_POST, [board](AsyncWebServerRequest* request) {
+        xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+        AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+        r->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(r);
+    });
     // ── Logging and echo endpoints ───────────────────────────────────────────────
     webServer.on("/api/log", HTTP_GET, echo_handler);
     // ── OTA update endpoints ──────────────────────────────────────────────────
@@ -850,21 +864,23 @@ void button_thread_entry(void *args){
     if(boot_btn != nullptr){
         auto click_wrapper = [](void *param){
             board_sal_t *b = static_cast<board_sal_t*>(param);
-            bool screensaver_active = (xEventGroupGetBits(b->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
+            // Suppress page switch when screensaver OR find-neighbor is active — both require
+            // a single interaction to dismiss the overlay before navigation is permitted.
+            bool no_page_switch = (xEventGroupGetBits(b->status.sys_evt) & (SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) != 0;
             xEventGroupWaitBits(b->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);// ensure miner is ready before allowing page switch
-            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
             b->status.ui.last_active_ms = millis();
-            if(screensaver_active) return; // Do not switch page when screen saver is active
+            if(no_page_switch) return; // Dismiss overlay only; do not switch page
 
             ui_switch_next_page_cb();
         };
         auto double_click_wrapper = [](void *param){
             board_sal_t *b = static_cast<board_sal_t*>(param);
-            bool screensaver_active = (xEventGroupGetBits(b->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
+            bool no_page_switch = (xEventGroupGetBits(b->status.sys_evt) & (SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) != 0;
             xEventGroupWaitBits(b->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);// ensure miner is ready before allowing page switch
-            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
             b->status.ui.last_active_ms = millis();
-            if(screensaver_active) return; // Do not switch page when screen saver is active
+            if(no_page_switch) return; // Dismiss overlay only; do not switch page
             
             ui_switch_prev_page_cb();
         };
@@ -2480,6 +2496,9 @@ void ui_thread_entry(void *args){
             // it is responsible for both detecting the inactivity timeout (setting the event)
             // and managing the active overlay / fade-out once the event is set.
             ui_screen_saver_page_update((void*)board);
+            // find-me overlay: must run alongside screen-saver so it works even
+            // when the screensaver is active (device hidden behind another overlay).
+            ui_find_me_page_update((void*)board);
 
             // When screen saver overlay is active skip all underlying page updates so the
             // mutex is released quickly and lvgl_tick_thread_entry can advance GIF frames.

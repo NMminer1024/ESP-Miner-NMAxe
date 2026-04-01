@@ -80,9 +80,8 @@ enum{
     SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED   = (1 << 1),   // miner achieved a new high difficulty
     SYS_EVENT_MINER_VCORE_TEMP_UPDATE    = (1 << 2),   // miner vcore temperature update, used to trigger backlight effect
     SYS_EVENT_MINER_ASIC_TEMP_UPDATE     = (1 << 3),   // miner asic temperature update, used to trigger backlight effect
-    SYS_EVENT_SCREEN_SAVER_TRIGGERED     = (1 << 4),    // screen saver triggered, used to dim the screen
-    // SYS_EVENT_OTA_UPLOADING              = (1 << 5),    // OTA update is in progress, used to trigger OTA update page
-    // SYS_EVENT_OTA_COMPLETED              = (1 << 6),    // OTA update completed, used to trigger post-update actions
+    SYS_EVENT_SCREEN_SAVER_TRIGGERED     = (1 << 4),   // screen saver triggered, used to dim the screen
+    SYS_EVENT_FIND_NEIGHBOR_TRIGGERED    = (1 << 5),   // Notify to start screen blink when got this event, which indicates where is the neighbor miner
 };
 
 typedef struct {

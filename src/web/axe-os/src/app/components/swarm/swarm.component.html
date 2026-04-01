@@ -88,11 +88,11 @@
     <table>
       <thead>
         <tr>
-          <th>
+          <th class="frozen-col-1">
             <input type="checkbox" [(ngModel)]="allSelected" (change)="toggleAll()" />
           </th>
-          <th class="col-index">#</th>
-          <th class="col-ip sortable" (click)="sortTable(SortIndex.IP)">IP</th>
+          <th class="frozen-col-2 col-index">#</th>
+          <th class="frozen-col-3 col-ip sortable" (click)="sortTable(SortIndex.IP)">IP</th>
           <th class="col-hostname sortable" (click)="sortTable(SortIndex.Hostname)">Hostname</th>
           <th class="col-board sortable" (click)="sortTable(SortIndex.BoardType)">Board</th>
           <th class="col-pool sortable" (click)="sortTable(SortIndex.PoolInUse)">Pool</th>
@@ -111,13 +111,14 @@
           <th class="col-uptime sortable" (click)="sortTable(SortIndex.UpTime)">Uptime</th>
           <th class="col-lastseen sortable" (click)="sortTable(SortIndex.LastSeen)">Lastseen</th>
           <th class="col-edit">Restart</th>
+          <th class="col-edit">FindMe</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let axe of getFilteredData(); let i = index" [class.high-power]="isHighPower(axe)" [class.low-power]="isLowPower(axe)">
-          <td><input type="checkbox" [(ngModel)]="axe.selected" (change)="updateSelection()" /></td>
-          <td>{{ i + 1 }}</td>
-          <td><a class="ip" [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
+          <td class="frozen-col-1"><input type="checkbox" [(ngModel)]="axe.selected" (change)="updateSelection()" /></td>
+          <td class="frozen-col-2">{{ i + 1 }}</td>
+          <td class="frozen-col-3"><a class="ip" [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
           <td class="hostname-column">{{ axe.Hostname }}</td>
           <td class="boardtype-column">{{ axe.BoardType }}</td>
           <td class="pool-column" [title]="axe.PoolInUse">{{ axe.PoolInUse }}</td>
@@ -150,8 +151,14 @@
           <td class="lastseen-column">{{ formatLastseen(axe.Lastseen) }}</td>
           <td>
             <button class="edit-btn" title="Restart" (click)="restart(axe)">↻</button>
-          </td>
-        </tr>
+          </td>          <td>
+            <button class="edit-btn find-btn" title="Locate this device (blinks screen)" (click)="findMe(axe)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" width="14" height="16" style="display:block">
+                <path d="M12 0C7.58 0 4 3.58 4 8c0 5.25 8 20 8 20s8-14.75 8-20c0-4.42-3.58-8-8-8z" fill="#e53935"/>
+                <circle cx="12" cy="8" r="3.2" fill="#fff"/>
+              </svg>
+            </button>
+          </td>        </tr>
       </tbody>
     </table>
   </div>
@@ -166,11 +173,13 @@
   <div class="close" (click)="showUpdateFirmware = false">&#10006;</div>
   <h1>Update Firmware</h1>
   <div class="card">
-    <p-fileUpload #otaFileUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
-                  chooseLabel="Browse" (uploadHandler)="otaUpdate($event)"></p-fileUpload>
+    <div class="upload-row">
+      <p-fileUpload #otaFileUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
+                    chooseLabel="Browse" (uploadHandler)="otaUpdate($event)"></p-fileUpload>
+      <span class="update-summary" *ngIf="updateFirmwareDevices.length > 0">Total: {{ updateFirmwareDevices.length }} device(s)</span>
+    </div>
     <small>(firmware.bin)</small>
     <div class="progress-container">
-      <p class="update-summary" *ngIf="updateFirmwareDevices.length > 0">Total: {{ updateFirmwareDevices.length }} device(s)</p>
       <p class="upload-progress"
          *ngFor="let device of updateFirmwareDevices">
         {{ device.ip + ":" }}
@@ -189,11 +198,13 @@
   <div class="close" (click)="showUpdateWebsite = false">&#10006;</div>
   <h1>Update Website</h1>
   <div class="card">
-    <p-fileUpload #otaWebsiteUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
-                  chooseLabel="Browse" (uploadHandler)="otaWWWUpdate($event)"></p-fileUpload>
+    <div class="upload-row">
+      <p-fileUpload #otaWebsiteUploader [customUpload]="true" mode="basic" accept=".bin" [auto]="true"
+                    chooseLabel="Browse" (uploadHandler)="otaWWWUpdate($event)"></p-fileUpload>
+      <span class="update-summary" *ngIf="updateWebsiteDevices.length > 0">Total: {{ updateWebsiteDevices.length }} device(s)</span>
+    </div>
     <small>(spiffs.bin)</small>
     <div class="progress-container">
-      <p class="update-summary" *ngIf="updateWebsiteDevices.length > 0">Total: {{ updateWebsiteDevices.length }} device(s)</p>
       <p class="upload-progress" *ngFor="let device of updateWebsiteDevices">
         {{ device.ip + ":" }}
         <span [ngClass]="{

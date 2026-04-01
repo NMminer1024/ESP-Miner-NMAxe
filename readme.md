@@ -174,14 +174,14 @@ Full API documentation: [docs/API.md](./docs/API.md)
 - `Add`:
   - Screensaver: animated GIF screensaver support, with built-in GIF presets (240x135 / 320x240).
   - Screensaver: custom GIF upload via AxeOS, no reboot required.
-  - AxeOS: Market / coin price wall page.
   - AxeOS: Achievement page with fade-in animation on new personal best difficulty.
   - AxeOS: Interactive API reference page accessible at `http://{ip}/api-doc`.
-  - Device Display: Vcore fan control support for NMQAxe++.
+  - AxeOS: Vcore fan control support for NMQAxe++.
   - Device Display: Screen auto-roll toggle on settings page for NMQAxe++.
   - Device Display: Swarm page added for NMAxe and NMAxeGamma.
   - API: `/alive` endpoint for swarm LAN discovery.
   - API: `/probe` now includes screen resolution fields `sw` / `sh`.
+  - API: `/api/swarm/find` — locate a specific device in the swarm by blinking its screen.
   - OTA: RGB LED progress indicator during firmware flash(Only NMQAxe++ and ARGB required).
   - NTP: additional NTP server options.
 - `Fixed`:

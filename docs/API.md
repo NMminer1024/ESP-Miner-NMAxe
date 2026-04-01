@@ -311,6 +311,18 @@ Upload a custom animated GIF as screensaver.
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
 | POST | `/api/swarm/scan` | Trigger an immediate neighbor IP scan |
+| POST | `/api/swarm/find` | Locate a specific device by blinking its screen |
+
+### `POST /api/swarm/find`
+
+Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flash. The user can dismiss the effect by tapping the screen or pressing the Boot button. Available in both normal and recovery mode.
+
+**Request body:** empty or `{}`
+
+**Response 200**
+```json
+{ "status": "ok" }
+```
 
 ---
 

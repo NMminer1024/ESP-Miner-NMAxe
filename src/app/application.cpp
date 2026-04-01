@@ -142,14 +142,19 @@ void MinerApp::_tick_thread_entry(void* args) {
 
         delay(10);
         // check miner events to trigger backlight effect, such as block hit or high diff achieved
-        EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED, pdFALSE, pdFALSE, 0);
+        EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED, pdFALSE, pdFALSE, 0);
         if((bits & SYS_EVENT_MINER_BLOCK_HIT) == SYS_EVENT_MINER_BLOCK_HIT) {
             brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
             x += 0.1f;
         }else if((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) == SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED){
             // brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
             // x += 0.06f;
-        }else{
+        }
+        else if((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == SYS_EVENT_FIND_NEIGHBOR_TRIGGERED){
+            brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
+            x += 0.6f;
+        }
+        else{
             brightness = board->status.preference.screen.brightness;
         }
         tft_bl_ctrl(brightness);

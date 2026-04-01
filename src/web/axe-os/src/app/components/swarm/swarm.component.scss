@@ -327,6 +327,10 @@ th {
   white-space: nowrap;
   box-sizing: border-box;
   min-width: 60px;
+  // Sticky header row — stays visible during vertical scroll
+  position: sticky;
+  top: 0;
+  z-index: 4;
 
   &:first-child {
     border-top-left-radius: 10px;
@@ -420,6 +424,57 @@ td:first-child { min-width: 25px; max-width: 25px; width: 25px; } // Checkbox co
 .col-rssi { min-width: 55px; max-width: 65px; }
 .col-mem { min-width: 65px; max-width: 75px; }
 .col-version { min-width: 65px; max-width: 75px; }
+
+// ── Sticky frozen columns (checkbox / # / IP) ──────────────────────────────
+// Class-based selectors are used instead of :nth-child to avoid Angular
+// ViewEncapsulation scoping artefacts that can break nth-child counting.
+// frozen-col-1 = checkbox (0),  frozen-col-2 = # (25px),  frozen-col-3 = IP (55px)
+// $fc1 must equal the actual checkbox column width (25px), which is controlled by
+// th:first-child / td:first-child (specificity 0,1,1 > .frozen-col-1 0,1,0).
+// z-index 5 for th cells: must beat row-sticky (4) and td-sticky (2).
+$fc1: 25px;
+$fc2: 30px;
+.frozen-col-1 {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #444;
+  width: $fc1;
+  min-width: $fc1;
+  max-width: $fc1;
+}
+.frozen-col-2 {
+  position: sticky;
+  left: $fc1;
+  z-index: 2;
+  background: #444;
+  width: $fc2;
+  min-width: $fc2;
+  max-width: $fc2;
+}
+.frozen-col-3 {
+  position: sticky;
+  left: $fc1 + $fc2;
+  z-index: 2;
+  background: #444;
+}
+// th overrides: raise z-index to 5 (beats row sticky z-index 4)
+th.frozen-col-1 { z-index: 5; background: #2d5a27; }
+th.frozen-col-2 { z-index: 5; background: #2d5a27; }
+th.frozen-col-3 { z-index: 5; background: #2d5a27; }
+// hover & row-class overrides for frozen cells — must use opaque colours so
+// that content scrolling under sticky columns is not visible.
+tr:hover .frozen-col-1, tr:hover .frozen-col-2, tr:hover .frozen-col-3 {
+  background: #555;
+}
+// high-power rows: opaque equivalent of rgba(79,195,247,0.2) composited on #444
+tr.high-power:hover .frozen-col-1, tr.high-power:hover .frozen-col-2, tr.high-power:hover .frozen-col-3 {
+  background-color: #465d68 !important;
+}
+// low-power rows: opaque equivalent of rgba(96,125,139,0.2) composited on #444
+tr.low-power:hover .frozen-col-1, tr.low-power:hover .frozen-col-2, tr.low-power:hover .frozen-col-3 {
+  background-color: #4a4f52 !important;
+}
 
 // Special cell styles
 .ip {
@@ -613,11 +668,16 @@ a:active {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
-  
+
+  .upload-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
   .update-summary {
     color: #aaa;
     font-size: 0.85em;
-    margin-bottom: 4px;
   }
 
   .upload-progress {
@@ -774,8 +834,9 @@ a:active {
   .table-container {
     -webkit-overflow-scrolling: touch !important;
     overflow-x: auto !important;
-    overflow-y: visible;
-    padding-bottom: 15px;
+    overflow-y: auto;
+    max-height: calc(100vh - 260px); // 移动端导航栏占用更多高度
+    padding-bottom: 0;
     transform: translateZ(0);
     // 添加滚动指示器
     scrollbar-width: thin;
@@ -850,9 +911,8 @@ a:active {
     // 确保移动端能够水平滚动
     -webkit-overflow-scrolling: touch !important;
     overflow-x: auto !important;
-    overflow-y: visible;
-    // 增加底部空间，避免滚动条被遮挡
-    padding-bottom: 10px;
+    overflow-y: auto;
+    max-height: calc(100vh - 260px);
     // 使用 transform 硬件加速
     transform: translateZ(0);
   }
@@ -877,8 +937,9 @@ a:active {
 
 .table-container {
   border-radius: 10px;
-  overflow-x: auto; // 确保水平滚动
-  overflow-y: visible; // 垂直方向不需要滚动
+  overflow-x: auto;              // 水平滚动
+  overflow-y: auto;              // 垂直滚动在容器内，使水平滚动条常驻底部
+  max-height: calc(100vh - 220px); // 容器高度固定，滚动条始终可见
   background: transparent;
   -webkit-overflow-scrolling: touch; // iOS平滑滚动
   overscroll-behavior-x: contain; // 防止过度滚动

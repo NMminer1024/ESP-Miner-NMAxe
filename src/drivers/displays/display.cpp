@@ -674,10 +674,16 @@ static void pressed_event_cb(lv_event_t *e) {
     lv_point_t pt;
     lv_indev_get_point(indev, &pt);
 
+    // Tracks whether screensaver or find-neighbor was active at the moment of touch-down.
+    // Set in PRESSED, consumed in RELEASED to suppress page switching on the dismissal tap/swipe.
+    static bool s_was_special_state = false;
+
     if (code == LV_EVENT_PRESSED) {
         press_pt = pt;
+        // Capture special state BEFORE clearing — dismissal touch must not also navigate
+        s_was_special_state = (xEventGroupGetBits(g_board.status.sys_evt) & (SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) != 0;
         g_board.status.ui.last_active_ms = millis(); // track activity for screensaver inactivity timer
-        xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+        xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
     }else if (code == LV_EVENT_RELEASED) {
         // Capture scroll offset right now (before LVGL's snap animation starts).
         // scroll_end_cb uses these to measure the user's actual swipe distance.
@@ -685,6 +691,13 @@ static void pressed_event_cb(lv_event_t *e) {
             s_release_scroll_x = lv_obj_get_scroll_x(parent_wall);
             s_release_scroll_y = lv_obj_get_scroll_y(parent_wall);
             s_release_tile     = lv_tileview_get_tile_act(parent_wall);
+        }
+        // If the finger-down dismissed screensaver/find-neighbor, consume the release state
+        // so scroll_end_cb does not navigate to another page on this same interaction.
+        if (s_was_special_state) {
+            s_release_tile      = nullptr;
+            s_was_special_state = false;
+            return;
         }
 
         lv_coord_t dx = pt.x - press_pt.x;
@@ -4264,6 +4277,109 @@ void ui_screen_saver_page_update(void* args){
 
   // Mark screen saver as active — touch / button will clear this bit to exit
   xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+}
+
+void ui_find_me_page_update(void* args){
+  board_sal_t *board = (board_sal_t*)args;
+  if(!board) return;
+
+  static bool      fading_out    = false;
+  static uint32_t  fade_start_ms = 0;
+  static lv_obj_t *overlay       = nullptr;
+  static lv_obj_t *lb_text       = nullptr;
+  static lv_style_t style;
+  static bool style_inited       = false;
+
+  // ── Overlay visible: manage fade-out or keep showing ────────────────────
+  if (overlay != nullptr) {
+    EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED, pdFALSE, pdTRUE, 0);
+    if ((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == 0) {
+      // Event cleared → 1-second fade-out
+      if (!fading_out) {
+        fading_out    = true;
+        fade_start_ms = millis();
+        lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
+      }
+      uint32_t elapsed = millis() - fade_start_ms;
+      if (elapsed >= 1000) {
+        lv_obj_del(overlay);
+        overlay      = nullptr;
+        lb_text      = nullptr;
+        fading_out   = false;
+      } else {
+        lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)(LV_OPA_COVER) * elapsed / 1000);
+        lv_obj_set_style_opa(overlay, opa, LV_PART_MAIN);
+      }
+      return;
+    } else {
+      // Still active — cancel any in-progress fade
+      if (fading_out) {
+        fading_out = false;
+        lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
+      }
+      return;
+    }
+  }
+
+  // ── Event not set: nothing to show ──────────────────────────────────────
+  EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED, pdFALSE, pdTRUE, 0);
+  if ((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == 0) return;
+
+  // ── Create full-screen overlay ───────────────────────────────────────────
+  if (!style_inited) {
+    lv_style_init(&style);
+    lv_style_set_bg_color(&style, lv_color_black());
+    lv_style_set_bg_opa(&style, LV_OPA_COVER);
+    lv_style_set_border_width(&style, 0);
+    lv_style_set_border_opa(&style, LV_OPA_TRANSP);
+    style_inited = true;
+  }
+
+  overlay = lv_obj_create(lv_scr_act());
+  lv_obj_set_size(overlay, LV_HOR_RES, LV_VER_RES);
+  lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_style_pad_all(overlay, 0, 0);
+  lv_obj_set_scrollbar_mode(overlay, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_add_style(overlay, &style, LV_PART_MAIN);
+  lv_obj_set_style_opa(overlay, LV_OPA_COVER, LV_PART_MAIN);
+  lv_obj_add_event_cb(overlay, pressed_event_cb, LV_EVENT_PRESSED, NULL);
+  // Fallback: LV_EVENT_PRESSING fires continuously while finger is held.
+  // If PRESSED was somehow missed (e.g. indev==NULL path), PRESSING still clears the bit.
+  lv_obj_add_event_cb(overlay, +[](lv_event_t*) {
+    g_board.status.ui.last_active_ms = millis();
+    xEventGroupClearBits(g_board.status.sys_evt,
+      SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+  }, LV_EVENT_PRESSING, NULL);
+  lv_obj_move_foreground(overlay);
+
+  // ── ">>> I am here <<<" label, font sized to fill the screen width ────────
+  // Pick the largest Montserrat font that fits LV_HOR_RES for the text.
+  static const lv_font_t* const candidate_fonts[] = {
+    &Inconsolata_16,
+    &Inconsolata_18,
+    &Inconsolata_22,
+    &Inconsolata_26
+  };
+  static const char* const FIND_ME_TEXT = ">>> I am here <<<";
+  const lv_font_t *chosen_font = candidate_fonts[0]; // fallback: smallest (16px)
+  for (int fi = (int)(sizeof(candidate_fonts) / sizeof(candidate_fonts[0])) - 1; fi >= 0; fi--) {
+    lv_coord_t w = lv_txt_get_width(FIND_ME_TEXT, strlen(FIND_ME_TEXT),
+                                     candidate_fonts[fi], 0, LV_TEXT_FLAG_NONE);
+    if (w <= (LV_HOR_RES - 8)) {
+      chosen_font = candidate_fonts[fi];
+      break;
+    }
+  }
+
+  lb_text = lv_label_create(overlay);
+  lv_obj_set_style_text_font(lb_text, chosen_font, LV_PART_MAIN);
+  lv_obj_set_style_text_color(lb_text, lv_color_hex(0xFFEB3B), LV_PART_MAIN); // yellow
+  lv_obj_set_style_text_align(lb_text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_label_set_long_mode(lb_text, LV_LABEL_LONG_CLIP);
+  lv_obj_set_width(lb_text, LV_HOR_RES - 4);
+  lv_label_set_text(lb_text, FIND_ME_TEXT);
+  lv_obj_align(lb_text, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_move_foreground(overlay);
 }
 
 void ui_aphorism_page_update(void* args){
