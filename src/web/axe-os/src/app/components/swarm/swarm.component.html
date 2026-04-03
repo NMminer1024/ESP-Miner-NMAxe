@@ -67,13 +67,10 @@
       }
 
       <div class="compact-filter-buttons">
-        <div class="compact-filter-btn high-power-btn" [class.active]="filterHighPower" (click)="toggleHighPowerFilter()">
-          <span class="filter-icon">🐇</span>
-          <span class="filter-text">High (≥1GH/s) ({{ getHighPowerCount() }})</span>
-        </div>
-        <div class="compact-filter-btn low-power-btn" [class.active]="filterLowPower" (click)="toggleLowPowerFilter()">
-          <span class="filter-icon">🐌</span>
-          <span class="filter-text">Low (<1GH/s) ({{ getLowPowerCount() }})</span>
+        <div class="compact-filter-btn model-btn" *ngFor="let item of uniqueModels; trackBy: trackByModel"
+             [class.active]="filterModels.has(item.model)"
+             (click)="toggleModelFilter(item.model)">
+          <span class="filter-model-name">{{ item.model }}</span><span class="filter-model-count"> ({{ item.count }})</span>
         </div>
       </div>
     </div>
@@ -115,7 +112,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let axe of getFilteredData(); let i = index" [class.high-power]="isHighPower(axe)" [class.low-power]="isLowPower(axe)">
+        <tr *ngFor="let axe of getFilteredData(); let i = index">
           <td class="frozen-col-1"><input type="checkbox" [(ngModel)]="axe.selected" (change)="updateSelection()" /></td>
           <td class="frozen-col-2">{{ i + 1 }}</td>
           <td class="frozen-col-3"><a class="ip" [href]="'http://'+axe.ip" target="_blank">{{ axe.ip }}</a></td>
@@ -181,7 +178,7 @@
   <p>&copy; 2024 NMTech | <a href='https://github.com/NMminer1024/ESP-Miner-NMAxe' target='_blank'>GitHub</a></p>
 </div>
 
-<div class="modal-backdrop" *ngIf="showUpdateFirmware" (click)="showUpdateFirmware = false"></div>
+<div class="modal-backdrop" *ngIf="showUpdateFirmware"></div>
 <div class="modal card" *ngIf="showUpdateFirmware">
   <div class="close" (click)="showUpdateFirmware = false">&#10006;</div>
   <h1>Update Firmware</h1>
@@ -206,7 +203,7 @@
   </div>
 </div>
 
-<div class="modal-backdrop" *ngIf="showUpdateWebsite" (click)="showUpdateWebsite = false"></div>
+<div class="modal-backdrop" *ngIf="showUpdateWebsite"></div>
 <div class="modal card" *ngIf="showUpdateWebsite">
   <div class="close" (click)="showUpdateWebsite = false">&#10006;</div>
   <h1>Update Website</h1>

@@ -1185,7 +1185,7 @@ void alive_ip_scan_thread_entry(void* args) {
         if(WiFi.status() != WL_CONNECTED) continue; // skip if WiFi is down, will check again in 1s in the next loop iteration
         if(board->status.ota.running)     continue; // skip while OTA is running to avoid resource contention
         if(xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
-            LOG_W("(scan) screensaver active, skipping alive IP scan to yield resources");
+            LOG_D("(scan) screensaver active, skipping alive IP scan to yield resources");
             continue; // yield network resources during screensaver
         }
 

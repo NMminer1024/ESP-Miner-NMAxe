@@ -242,8 +242,8 @@ body {
   padding: 6px 12px;
   color: #fff;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 12px;
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -251,8 +251,12 @@ body {
   justify-content: center;
 
   &:hover {
-    transform: translateY(-1px);
     box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+  }
+
+  &:active {
+    transform: translateY(1px);
+    box-shadow: none;
   }
 
   &.active {
@@ -265,27 +269,25 @@ body {
     font-size: 14px;
   }
 
-  .filter-text {
-    font-weight: 500;
+  .filter-model-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #4FC3F7;
   }
 
-  &.high-power-btn {
-    border-color: #4FC3F7;
-    
-    &.active {
-      border-color: #4FC3F7;
-      background: linear-gradient(135deg, #0277BD, #0288D1);
-      box-shadow: 0 3px 8px rgba(79,195,247,0.3);
-    }
+  .filter-model-count {
+    font-weight: 400;
+    font-size: 14px;
+    color: #ffffff;
   }
 
-  &.low-power-btn {
-    border-color: #607D8B;
-    
+  &.model-btn {
+    border-color: #4CAF50;
+
     &.active {
-      border-color: #607D8B;
-      background: linear-gradient(135deg, #455A64, #546E7A);
-      box-shadow: 0 3px 8px rgba(96,125,139,0.3);
+      border-color: #4CAF50;
+      background: linear-gradient(135deg, #2d5a27, #3a6b2f);
+      box-shadow: 0 3px 8px rgba(76,175,80,0.3);
     }
   }
 }
@@ -467,14 +469,6 @@ th.frozen-col-3 { z-index: 5; background: #2d5a27; }
 tr:hover .frozen-col-1, tr:hover .frozen-col-2, tr:hover .frozen-col-3 {
   background: #555;
 }
-// high-power rows: opaque equivalent of rgba(79,195,247,0.2) composited on #444
-tr.high-power:hover .frozen-col-1, tr.high-power:hover .frozen-col-2, tr.high-power:hover .frozen-col-3 {
-  background-color: #465d68 !important;
-}
-// low-power rows: opaque equivalent of rgba(96,125,139,0.2) composited on #444
-tr.low-power:hover .frozen-col-1, tr.low-power:hover .frozen-col-2, tr.low-power:hover .frozen-col-3 {
-  background-color: #4a4f52 !important;
-}
 
 // Special cell styles
 .ip {
@@ -506,23 +500,6 @@ tr.low-power:hover .frozen-col-1, tr.low-power:hover .frozen-col-2, tr.low-power
 
 .single-line {
   white-space: nowrap;
-}
-
-// Row highlighting
-tr.high-power {
-  background-color: rgba(79, 195, 247, 0.1) !important;
-  
-  &:hover td {
-    background-color: rgba(79, 195, 247, 0.2) !important;
-  }
-}
-
-tr.low-power {
-  background-color: rgba(96, 125, 139, 0.1) !important;
-  
-  &:hover td {
-    background-color: rgba(96, 125, 139, 0.2) !important;
-  }
 }
 
 // Buttons

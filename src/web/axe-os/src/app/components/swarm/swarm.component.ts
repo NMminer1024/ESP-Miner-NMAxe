@@ -155,8 +155,8 @@ export class SwarmComponent implements OnInit, OnDestroy {
   public allSelected = false;
 
   // Filter properties
-  public filterHighPower = false;
-  public filterLowPower = false;
+  public filterModels: Set<string> = new Set();
+  public uniqueModels: { model: string; count: number }[] = [];
 
   private intervalId: any;
 
@@ -276,19 +276,15 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 
   public restart(axe: any) {
-    if (axe.BoardType.includes('Axe')) {
-      this.http.post(`http://${axe.ip}/api/system/restart`, {}, {
-        headers: {
-          'Content-Type': 'text/plain'
-        },
-      }).subscribe(res => {
-
-      });
-      this.toastr.success('Axe device restarted', 'Success');
-
-    } else {
-      this.toastr.warning('Warning!', 'Device is not Axe series');
-    }
+    this.http.post(`http://${axe.ip}/api/system/restart`, {}, {
+      headers: { 'Content-Type': 'text/plain' },
+    }).pipe(catchError(() => of(null))).subscribe(res => {
+      if (res !== null) {
+        this.toastr.success(`${axe.ip} restarted`, 'Success');
+      } else {
+        this.toastr.error(`Failed to reach ${axe.ip}`, 'Restart');
+      }
+    });
   }
 
   public findMe(axe: any) {
@@ -453,23 +449,28 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 
   // Filter methods
-  public toggleHighPowerFilter() {
-    this.filterHighPower = !this.filterHighPower;
-    if (this.filterHighPower) {
-      this.filterLowPower = false;
+  public toggleModelFilter(model: string) {
+    if (this.filterModels.has(model)) {
+      this.filterModels.delete(model);
+    } else {
+      this.filterModels.add(model);
     }
+    this.filterModels = new Set(this.filterModels); // trigger change detection
   }
 
-  public toggleLowPowerFilter() {
-    this.filterLowPower = !this.filterLowPower;
-    if (this.filterLowPower) {
-      this.filterHighPower = false;
-    }
+  public trackByModel(_index: number, item: { model: string; count: number }): string {
+    return item.model;
   }
 
-  public clearFilters() {
-    this.filterHighPower = false;
-    this.filterLowPower = false;
+  private updateUniqueModels(): void {
+    const counts = new Map<string, number>();
+    this.swarmData.forEach(d => {
+      const m = d.BoardType || 'Unknown';
+      counts.set(m, (counts.get(m) || 0) + 1);
+    });
+    this.uniqueModels = Array.from(counts.entries())
+      .map(([model, count]) => ({ model, count }))
+      .sort((a, b) => b.count - a.count);
   }
 
   public getTempClass(temp: number): string {
@@ -492,32 +493,12 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   public getFilteredData(): NMDevice[] {
     let filtered = this.swarmData;
-    
-    if (this.filterHighPower) {
-      filtered = filtered.filter(device => this.isHighPower(device));
-    } else if (this.filterLowPower) {
-      filtered = filtered.filter(device => this.isLowPower(device));
+
+    if (this.filterModels.size > 0) {
+      filtered = filtered.filter(device => this.filterModels.has(device.BoardType));
     }
-    
+
     return this.sort(filtered);
-  }
-
-  public isHighPower(device: NMDevice): boolean {
-    const hashRate = HashSuffixPipe.revert(device.HashRate);
-    return hashRate >= 1000000000; // >= 1GH/s
-  }
-
-  public isLowPower(device: NMDevice): boolean {
-    const hashRate = HashSuffixPipe.revert(device.HashRate);
-    return hashRate < 1000000000; // < 1GH/s
-  }
-
-  public getHighPowerCount(): number {
-    return this.swarmData.filter(device => this.isHighPower(device)).length;
-  }
-
-  public getLowPowerCount(): number {
-    return this.swarmData.filter(device => this.isLowPower(device)).length;
   }
 
   // Methods for filtered statistics
@@ -694,6 +675,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       d.Lastseen = this.lastContactMs.get(d.ip) || Date.now();
     });
     this.swarmData = this.sort(devices);
+    this.updateUniqueModels();
     if (this.swarmData.length > 0) {
       this.swarmSummary = calculateSwarmSummary(this.swarmData);
     }
