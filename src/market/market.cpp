@@ -85,7 +85,8 @@ bool MarketClass::fetch_available_usdt_pairs() {
                         this->_pairsBuf[this->_pairsBufLen]   = '\0';
                         this->_pairsCount++;
                     }
-                    LOG_D("  [%3d] %s", ++found, sym_buf);
+                    found++;
+                    LOG_D("  [%3d] %s", found, sym_buf);
                 } else if (sym_pos < (uint8_t)(sizeof(sym_buf) - 1)) {
                     sym_buf[sym_pos++] = c;
                 }
