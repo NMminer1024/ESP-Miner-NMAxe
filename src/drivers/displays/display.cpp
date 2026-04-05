@@ -3179,7 +3179,7 @@ void ui_achieve_page_update(void* args){
 
   EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED, pdFALSE, pdTRUE, 0);
   if((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED ) == SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED){
-    achieve_time = millis();  // record when this achievement was first displayed
+    // achieve_time is set only when the container is first created (see below)
   }
   else{
     if(container != nullptr){
@@ -3218,6 +3218,7 @@ void ui_achieve_page_update(void* args){
   }
   //create parent object
   if(container == nullptr){
+    achieve_time = millis();  // record when this achievement was first displayed
     // create new achievement page
     container = lv_obj_create(lv_scr_act());
     lv_obj_set_size(container, SCREEN_WIDTH, SCREEN_HEIGHT);
