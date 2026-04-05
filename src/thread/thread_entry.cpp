@@ -13,6 +13,9 @@
 #include "lwip/icmp.h"
 #include "lwip/inet_chksum.h"
 #include "lwip/ip4.h"
+#include "lwip/etharp.h"
+#include "lwip/netif.h"
+#include "lwip/tcpip.h"
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -1130,6 +1133,37 @@ void alive_ip_scan_thread_entry(void* args) {
     // additional delay to allow the system to stabilize after miner is ready
     delay(2000); 
 
+    // ── ARP pre-resolve: send ARP request and wait for resolution or timeout ───
+    // This avoids the lwIP assert(q==NULL) crash by ensuring the ARP entry is
+    // either STABLE (resolved) or fully timed-out BEFORE we send the ICMP packet.
+    // When sendto() is called with no ARP entry, lwIP creates a PENDING entry and
+    // queues the packet. If the ARP table is full, lwIP tries to recycle the oldest
+    // PENDING entry but asserts that its packet queue is empty — which it isn't.
+    // By pre-resolving ARP, the ICMP sendto() either hits a STABLE entry (no queue)
+    // or we skip the IP entirely (no PENDING entry created).
+    auto arp_resolve = [](ip4_addr_t *ipaddr, uint32_t timeout_ms) -> bool {
+        struct netif *nif = netif_default;
+        if (!nif) return false;
+
+        // Send ARP request via tcpip_thread (thread-safe)
+        LOCK_TCPIP_CORE();
+        etharp_request(nif, ipaddr);
+        UNLOCK_TCPIP_CORE();
+
+        // Poll for ARP resolution
+        uint32_t t0 = millis();
+        while ((millis() - t0) < timeout_ms) {
+            struct eth_addr *eth_ret = nullptr;
+            const ip4_addr_t *ip_ret = nullptr;
+            LOCK_TCPIP_CORE();
+            int8_t idx = etharp_find_addr(nif, ipaddr, &eth_ret, &ip_ret);
+            UNLOCK_TCPIP_CORE();
+            if (idx >= 0) return true;  // ARP resolved → MAC known
+            delay(20);
+        }
+        return false; // ARP timeout → host likely offline
+    };
+
     // ── Ping a single IP; returns true if an ICMP Echo Reply is received ────────
     // sock:      RAW ICMP socket already created and configured with SO_RCVTIMEO
     // o0~o2:     first three octets of the subnet
@@ -1138,6 +1172,16 @@ void alive_ip_scan_thread_entry(void* args) {
     // returns true  = Echo Reply received (host alive)
     // returns false = timeout / send failure / non-Echo-Reply response
     auto ping_one = [&](int sock, uint8_t o0, uint8_t o1, uint8_t o2, int last, uint16_t seq) -> bool {
+        // ── ARP pre-resolution: resolve MAC before sending ICMP ──────────
+        // This prevents lwIP from creating PENDING ARP entries with queued
+        // packets, which cause assert(q==NULL) crash on ARP table recycle.
+        ip4_addr_t target_ip;
+        IP4_ADDR(&target_ip, o0, o1, o2, last);
+        if (!arp_resolve(&target_ip, PING_TIMEOUT_MS)) {
+            LOG_D("(scan) %u.%u.%u.%u ARP timeout, skipping", o0, o1, o2, last);
+            return false; // host didn't respond to ARP → definitely offline
+        }
+
         PingPkt pkt = {};
         ICMPH_TYPE_SET(&pkt.hdr, ICMP_ECHO);
         ICMPH_CODE_SET(&pkt.hdr, 0);
