@@ -17,7 +17,7 @@ bool MarketClass::fetch_available_usdt_pairs() {
 
     String url = "http://" MARKET_HOST ":" MARKET_PORT "/api/v3/ticker/price";
     http.begin(client, url);
-    http.setTimeout(15000);                      // larger timeout: big response
+    http.setTimeout(MARKET_HTTP_TIMEOUT_MS);     // must stay below TWDT timeout (5 s)
     http.setConnectTimeout(MARKET_HTTP_TIMEOUT_MS);
     http.addHeader("Connection", "close");
 
