@@ -1030,11 +1030,11 @@ void swarm_thread_entry(void *args){
             WiFiClient wclient;
             int code = -1;
             String body;
-            if (wclient.connect(ip.c_str(), 80, 2000)) {   // 2000ms TCP connect timeout
+            if (wclient.connect(ip.c_str(), 80, 1000)) {   // 1000ms TCP connect timeout — keeps per-IP total < TWDT 5s
                 wclient.print("GET /probe HTTP/1.0\r\nHost: " + ip + "\r\nConnection: close\r\n\r\n");
                 String resp;
                 resp.reserve(512);
-                uint32_t read_dl = millis() + 2000;   // 2s hard deadline for reading the full response
+                uint32_t read_dl = millis() + 1500;   // 1.5s hard deadline for reading the full response
                 while ((wclient.connected() || wclient.available()) && millis() < read_dl) {
                     while (wclient.available()) {
                         resp += (char)wclient.read();

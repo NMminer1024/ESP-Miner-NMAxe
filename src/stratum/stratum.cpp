@@ -410,8 +410,7 @@ stratum_rsp StratumClass::get_method_rsp_by_id(uint32_t id){
 
 bool StratumClass::is_primary_pool_available(String url, uint16_t port){
     WiFiClient client;
-    client.setTimeout(3000);
-    bool connected = client.connect(url.c_str(), port);
+    bool connected = client.connect(url.c_str(), port, 4000); // 4s timeout < TWDT 5s; setTimeout() does not affect connect()
     if (connected) {
         client.stop();
         return true;
