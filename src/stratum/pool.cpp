@@ -54,7 +54,7 @@ bool PoolClass::connect(){
     }
 
     LOG_I("Resolving pool address [%s] to  [%s]", this->_pool_cfg.url.c_str(), this->_pool_ip.toString().c_str());
-    if(!this->_pwclient->connect(this->_pool_ip, this->_pool_cfg.port, 1000*10)){
+    if(!this->_pwclient->connect(this->_pool_ip, this->_pool_cfg.port, 4000)){ // 4s < TWDT 5s
         this->_last_err_str = "Wrong pool port!!!";
         return false;
     }

@@ -9,7 +9,7 @@
 
 #define MARKET_HOST            "data-api.binance.vision"
 #define MARKET_PORT            "80"
-#define MARKET_HTTP_TIMEOUT_MS 8000   // 8 s connection + read timeout
+#define MARKET_HTTP_TIMEOUT_MS 4000   // 4 s — must be < TWDT timeout (5 s) to prevent watchdog abort
 // PSRAM flat buffer capacity for all USDT pair names ('\n'-separated symbols).
 // 500 pairs x avg ~9 chars each ~= 4.5 KB; 8 KB gives comfortable headroom.
 #define MARKET_PAIRS_BUF_CAP   (8 * 1024)
