@@ -16,7 +16,7 @@
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define BOARD_CURRENT_FW_VERSION        "v3.0.11b"
+#define BOARD_CURRENT_FW_VERSION        "v3.0.11c"
 #define BOARD_CURRENT_HW_VERSION        "v1.1.1"
 #define BOARD_NVS_SAVE_INTERVAL         (60*60)  //second
 #define BOARD_TOUCH_LONG_PRESS_TO_RECOVER   (10)     //seconds, long press duration to enter recover mode
@@ -263,9 +263,9 @@ typedef struct{
     struct {
         SemaphoreHandle_t mutex;            // 保护聚合字段和黑名单
         uint32_t          total_workers;
-        float             total_hr;
-        float             best_session_bd;
-        float             best_ever_bd;
+        double            total_hr;
+        double            best_session_bd;
+        double            best_ever_bd;
         std::set<String>  confirmed_ips;    // 已确认是 NMMiner 的 IP，本轮 scan 周期内精确通信
         std::set<String>  probe_blacklist;  // 非 NMMiner IP，本轮 scan 周期内跳过
         uint32_t          last_scan_gen;    // 上次处理的 scan_generation，变化时重置所有记忆
