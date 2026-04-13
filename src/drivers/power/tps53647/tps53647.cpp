@@ -221,8 +221,8 @@ void TPS53647Class::hw_init(void){
     // Switch frequency, 700kHz
     this->_write_byte(PMBUS_MFR_SPECIFIC_12, 0x40);
 
-    // 33A current limit
-    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0x03);
+    // 30A current limit
+    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0x02);
 
     // set number of phases
     this->_set_phases(NUM_PHASE);

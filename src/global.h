@@ -16,7 +16,7 @@
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define BOARD_CURRENT_FW_VERSION        "v3.0.11b"
+#define BOARD_CURRENT_FW_VERSION        "v3.0.11e"
 #define BOARD_CURRENT_HW_VERSION        "v1.1.1"
 #define BOARD_NVS_SAVE_INTERVAL         (60*60)  //second
 #define BOARD_TOUCH_LONG_PRESS_TO_RECOVER   (10)     //seconds, long press duration to enter recover mode
