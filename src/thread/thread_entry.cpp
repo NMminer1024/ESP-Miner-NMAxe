@@ -2437,6 +2437,7 @@ void stratum_thread_entry(void *args){
                         stratum_rsp rsp = board->stratum->get_method_rsp_by_id(method.id);
                         if(rsp.method == "mining.submit"){
                             board->status.miner.latency = millis() - rsp.stamp;
+                            board->status.miner.stratum_update = millis();//pool alive timestamp
                             if (rsp.status == true){
                                 board->status.miner.share_accepted++;
                                 LOG_L("#%d share accepted, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, board->status.miner.latency);      
