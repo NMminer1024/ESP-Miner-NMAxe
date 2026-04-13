@@ -688,6 +688,17 @@ a:active {
     color: #2196F3; // 蓝色用于进度百分比
     font-weight: bold;
   }
+
+  .waiting {
+    color: #FF9800;
+    font-weight: bold;
+    animation: ota-breathing 1.5s ease-in-out infinite;
+  }
+
+  @keyframes ota-breathing {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.25; }
+  }
   
   .success {
     color: #4caf50; // 绿色用于成功状态

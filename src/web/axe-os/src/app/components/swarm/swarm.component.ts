@@ -75,7 +75,8 @@ interface StorageSwarmSort {
 interface UpdateDevice {
   ip: string;
   progress: string;
-  result: boolean
+  result: boolean;
+  waiting: boolean;
 }
 
 function setStorageSwarmSort(index: SortIndex, order: SortOrder) {
@@ -347,13 +348,15 @@ export class SwarmComponent implements OnInit, OnDestroy {
     }
 
     this.updateWebsiteDevices = this.selectedItems
-      .map(item => {return {ip:item.ip, progress: "0%", result: true}})
+      .map(item => {return {ip:item.ip, progress: "0%", result: true, waiting: true}})
       .sort((a, b) => ipToNumber(a.ip) - ipToNumber(b.ip));
 
     const OTA_CONCURRENCY = 10;
 
     from(this.updateWebsiteDevices).pipe(
-      mergeMap(item =>
+      mergeMap(item => {
+        item.waiting = false;
+        return (
         // Wake the screensaver on each target device first; only after the wakeup
         // response comes back do we start streaming the SPIFFS binary.
         this.systemService.wakeup(`http://${item.ip}`).pipe(
@@ -385,7 +388,8 @@ export class SwarmComponent implements OnInit, OnDestroy {
             item.result = false;
             return EMPTY;
           })
-        ),
+        ));
+      },
         OTA_CONCURRENCY
       )
     ).subscribe();
@@ -405,13 +409,15 @@ export class SwarmComponent implements OnInit, OnDestroy {
     }
 
     this.updateFirmwareDevices = this.selectedItems
-      .map(item => {return {ip:item.ip, progress: "0%", result: true}})
+      .map(item => {return {ip:item.ip, progress: "0%", result: true, waiting: true}})
       .sort((a, b) => ipToNumber(a.ip) - ipToNumber(b.ip));
 
     const OTA_CONCURRENCY = 10;
 
     from(this.updateFirmwareDevices).pipe(
-      mergeMap(item =>
+      mergeMap(item => {
+        item.waiting = false;
+        return (
         // Wake the screensaver on each target device first; only after the wakeup
         // response comes back do we start streaming the firmware binary.
         this.systemService.wakeup(`http://${item.ip}`).pipe(
@@ -443,7 +449,8 @@ export class SwarmComponent implements OnInit, OnDestroy {
             item.result = false;
             return EMPTY;
           })
-        ),
+        ));
+      },
         OTA_CONCURRENCY
       )
     ).subscribe();
