@@ -223,7 +223,13 @@
           'waiting': device.waiting,
           'success': device.progress === 'Ok',
           'error': device.progress === 'Error'
-        }">{{ device.waiting ? 'Pending...' : device.progress }}</span> (click)="showEdit = false"></div>
+        }">{{ device.waiting ? 'Pending...' : device.progress }}</span>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showEdit" (click)="showEdit = false"></div>
 <div class="modal card" *ngIf="showEdit">
   <div class="close" (click)="showEdit = false">&#10006;</div>
   <h1>{{ selectedAxeOs.ip }}</h1>

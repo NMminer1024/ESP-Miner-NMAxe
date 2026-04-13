@@ -421,6 +421,72 @@ static void msgbox_restart_cb(lv_event_t *e) {
     lv_msgbox_close(mbox);
 }
 
+static void show_toast(const char *msg, uint32_t duration_ms); // forward declaration
+
+static void do_save_settings() {
+    // brightness
+    uint8_t brightness = (uint8_t)lv_slider_get_value(setting_page.bar_brightness.obj);
+    nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, brightness);
+    // auto rolling
+    bool auto_roll = lv_obj_has_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
+    g_board.status.preference.screen.auto_rolling = auto_roll;
+    nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, auto_roll ? 1 : 0);
+    // screen flip
+    bool flip = lv_obj_has_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
+    nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
+    // overclock
+    if (setting_page.list_asic_freq.obj) {
+        uint16_t idx = lv_dropdown_get_selected(setting_page.list_asic_freq.obj);
+        uint16_t frq = g_board.info.spec.ui.setting_page.oc[idx].value;
+        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
+    } else {
+        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, g_board.info.spec.asic.default_frq);
+    }
+    // vcore
+    if (setting_page.list_asic_vcore.obj) {
+        uint16_t idx   = lv_dropdown_get_selected(setting_page.list_asic_vcore.obj);
+        uint16_t vcore = g_board.info.spec.ui.setting_page.vc[idx].value;
+        g_board.info.spec.asic.req_vcore = vcore;
+        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
+    } else {
+        g_board.info.spec.asic.req_vcore = g_board.info.spec.asic.default_vcore;
+        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, g_board.info.spec.asic.default_vcore);
+    }
+    // screen saver
+    if (setting_page.list_saver.obj) {
+        static const uint32_t SAVER_VALS[] = {0, 30, 60, 300, 900, 1800, 3600, 7200, 21600};
+        uint16_t idx = lv_dropdown_get_selected(setting_page.list_saver.obj);
+        uint32_t tmo = (idx < 9) ? SAVER_VALS[idx] : 0;
+        uint8_t  en  = (tmo > 0) ? 1 : 0;
+        nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, en);
+        nvs_config_set_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, tmo);
+        g_board.status.preference.screen.saver_enable  = en;
+        g_board.status.preference.screen.saver_timeout = tmo;
+        g_board.status.ui.last_active_ms = millis();
+    }
+    show_toast("Settings Saved!", 2000);
+}
+
+static void msgbox_save_cb(lv_event_t *e) {
+    lv_obj_t *mbox = lv_event_get_current_target(e);
+    uint16_t  btn  = lv_msgbox_get_active_btn(mbox);
+    if(btn == 0) { // "OK"
+        do_save_settings();
+    }
+    lv_msgbox_close(mbox);
+}
+
+static void enable_label_recolor_recursive(lv_obj_t *obj) {
+    if (!obj) return;
+    if (lv_obj_check_type(obj, &lv_label_class)) {
+        lv_label_set_recolor(obj, true);
+    }
+    uint32_t child_cnt = lv_obj_get_child_cnt(obj);
+    for (uint32_t i = 0; i < child_cnt; i++) {
+        enable_label_recolor_recursive(lv_obj_get_child(obj, i));
+    }
+}
+
 static void textarea_event_cb(lv_event_t *e) {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t *textarea   = lv_event_get_target(e);
@@ -458,51 +524,46 @@ static void button_event_cb(lv_event_t *e) {
     lv_obj_t *btn        = lv_event_get_target(e);
     
     if(setting_page.btn_save.obj == btn){
-      if (code == LV_EVENT_CLICKED) { 
-          // brightness
+      if (code == LV_EVENT_CLICKED) {
+          // Collect current values for confirmation display
           uint8_t brightness = (uint8_t)lv_slider_get_value(setting_page.bar_brightness.obj);
-          nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, brightness);
-          // auto rolling
           bool auto_roll = lv_obj_has_state(setting_page.checkbox_auto_rolling.obj, LV_STATE_CHECKED);
-          g_board.status.preference.screen.auto_rolling = auto_roll;
-          nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, auto_roll ? 1 : 0);
-          // screen flip
-          bool flip = lv_obj_has_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
-          nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
-          // overclock
+          bool flip      = lv_obj_has_state(setting_page.checkbox_screen_flip.obj,  LV_STATE_CHECKED);
+
+          char freq_buf[32]  = "N/A";
+          char vcore_buf[32] = "N/A";
+          char saver_buf[16] = "never";
+
           if (setting_page.list_asic_freq.obj) {
-              uint16_t idx = lv_dropdown_get_selected(setting_page.list_asic_freq.obj);
-              uint16_t frq = g_board.info.spec.ui.setting_page.oc[idx].value;
-              nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
-          } else {
-              nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, g_board.info.spec.asic.default_frq);
+              lv_dropdown_get_selected_str(setting_page.list_asic_freq.obj, freq_buf, sizeof(freq_buf));
           }
-          // vcore
           if (setting_page.list_asic_vcore.obj) {
-              uint16_t idx   = lv_dropdown_get_selected(setting_page.list_asic_vcore.obj);
-              uint16_t vcore = g_board.info.spec.ui.setting_page.vc[idx].value;
-              g_board.info.spec.asic.req_vcore = vcore;
-              nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
-          } else {
-              g_board.info.spec.asic.req_vcore = g_board.info.spec.asic.default_vcore;
-              nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, g_board.info.spec.asic.default_vcore);
+              lv_dropdown_get_selected_str(setting_page.list_asic_vcore.obj, vcore_buf, sizeof(vcore_buf));
           }
-          // screen saver
           if (setting_page.list_saver.obj) {
-              static const uint32_t SAVER_VALS[] = {0, 30, 60, 300, 900, 1800, 3600, 7200, 21600};
-              uint16_t idx = lv_dropdown_get_selected(setting_page.list_saver.obj);
-              uint32_t tmo = (idx < 9) ? SAVER_VALS[idx] : 0;
-              uint8_t  en  = (tmo > 0) ? 1 : 0;
-              nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, en);
-              nvs_config_set_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, tmo);
-              g_board.status.preference.screen.saver_enable  = en;
-              g_board.status.preference.screen.saver_timeout = tmo;
-              // Reset inactivity timer so the new timeout counts from now,
-              // not from the last touch event (which may be older than the new timeout).
-              g_board.status.ui.last_active_ms = millis();
+              lv_dropdown_get_selected_str(setting_page.list_saver.obj, saver_buf, sizeof(saver_buf));
           }
 
-          show_toast("Settings Saved!");
+          static char confirm_msg[512];
+          snprintf(confirm_msg, sizeof(confirm_msg),
+              "#7F8FA6 Brightness:# #00E5FF %d%%#\n"
+              "#7F8FA6 Frequency:# #00E5FF %s#\n"
+              "#7F8FA6 Vcore:# #00E5FF %s#\n"
+              "#7F8FA6 Screen Roll:# #00E5FF %s#\n"
+              "#7F8FA6 Screen Flip:# #00E5FF %s#\n"
+              "#7F8FA6 Screen Saver:# #00E5FF %s#",
+              brightness,
+              freq_buf,
+              vcore_buf,
+              auto_roll ? "ON" : "OFF",
+              flip       ? "ON" : "OFF",
+              saver_buf);
+
+          static const char *btns[] = {"OK", "Cancel", ""};
+          lv_obj_t *mbox = lv_msgbox_create(NULL, "Save Settings?", confirm_msg, btns, false);
+          enable_label_recolor_recursive(mbox);
+          lv_obj_add_event_cb(mbox, msgbox_save_cb, LV_EVENT_VALUE_CHANGED, NULL);
+          lv_obj_center(mbox);
       }
     }
     else if(setting_page.btn_restart.obj == btn){
