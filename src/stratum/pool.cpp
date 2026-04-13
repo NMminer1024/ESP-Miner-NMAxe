@@ -85,12 +85,13 @@ size_t PoolClass::write(const String data){
 String PoolClass::readline(uint32_t timeout_ms) {
     if (!this->_pwclient->connected())  return "";
     this->_line = "";
-    uint64_t start_time = millis();
-    while (millis() - start_time < timeout_ms) {
+    uint64_t last_byte_ms = millis();
+    while (millis() - last_byte_ms < timeout_ms) {
         if (this->_pwclient->available()) {
             char c = this->_pwclient->read();
             this->_line += c;
             if (c == '\n') break;
+            last_byte_ms = millis();
         }
     }
     if (this->_line.length() >= 4096) {
