@@ -1,7 +1,7 @@
 import {HttpClient, HttpEventType} from '@angular/common/http';
 import {Component, OnInit, OnDestroy, Input, ViewChild} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
-import {Subscription, interval, BehaviorSubject, startWith, catchError, EMPTY, of, timeout, switchMap} from 'rxjs';
+import {Subscription, interval, BehaviorSubject, startWith, catchError, EMPTY, of, timeout, switchMap, from, mergeMap, tap} from 'rxjs';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 import {HashSuffixPipe} from "../../pipes/hash-suffix.pipe";
 import {DiffSuffixPipe} from "../../pipes/diff-suffix.pipe";
@@ -349,38 +349,46 @@ export class SwarmComponent implements OnInit, OnDestroy {
     this.updateWebsiteDevices = this.selectedItems
       .map(item => {return {ip:item.ip, progress: "0%", result: true}})
       .sort((a, b) => ipToNumber(a.ip) - ipToNumber(b.ip));
-    this.updateWebsiteDevices.forEach(item => {
-      // Wake the screensaver on each target device first; only after the wakeup
-      // response comes back do we start streaming the SPIFFS binary.
-      this.systemService.wakeup(`http://${item.ip}`).pipe(
-        switchMap(() => this.systemService.performWWWOTAUpdate(file, `http://${item.ip}`))
-      ).subscribe({
-        next: (event) => {
-          if (event.type === HttpEventType.UploadProgress) {
-            // this.toastr.info(`Website update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
-            item.progress = `${Math.round((event.loaded / (event.total as number)) * 100)}%`;
-          } else if (event.type === HttpEventType.Response) {
-            if (event.ok) {
-              setTimeout(() => {
-                this.toastr.success('Website updated', 'Successed');
-                item.progress = "Ok";
-              }, 1000);
-            } else {
-              this.toastr.error(event.statusText, 'Error');
-              item.progress = "Error";
-              item.result = false;
+
+    const OTA_CONCURRENCY = 10;
+
+    from(this.updateWebsiteDevices).pipe(
+      mergeMap(item =>
+        // Wake the screensaver on each target device first; only after the wakeup
+        // response comes back do we start streaming the SPIFFS binary.
+        this.systemService.wakeup(`http://${item.ip}`).pipe(
+          switchMap(() => this.systemService.performWWWOTAUpdate(file, `http://${item.ip}`)),
+          tap({
+            next: (event) => {
+              if (!event) return;
+              if (event.type === HttpEventType.UploadProgress) {
+                item.progress = `${Math.round((event.loaded / (event.total as number)) * 100)}%`;
+              } else if (event.type === HttpEventType.Response) {
+                if (event.ok) {
+                  setTimeout(() => {
+                    this.toastr.success('Website updated', 'Successed');
+                    item.progress = "Ok";
+                  }, 1000);
+                } else {
+                  this.toastr.error(event.statusText, 'Error');
+                  item.progress = "Error";
+                  item.result = false;
+                }
+              }
             }
-          }
-        },
-        error: (err) => {
-          const reason = this.extractOtaError(err);
-          this.toastr.error(`${item.ip}: ${reason}`, 'SPIFFS Update Failed');
-          this.otaWebsiteUploader.clear();
-          item.progress = "Error";
-          item.result = false;
-        }
-      });
-    })
+          }),
+          catchError(err => {
+            const reason = this.extractOtaError(err);
+            this.toastr.error(`${item.ip}: ${reason}`, 'SPIFFS Update Failed');
+            this.otaWebsiteUploader.clear();
+            item.progress = "Error";
+            item.result = false;
+            return EMPTY;
+          })
+        ),
+        OTA_CONCURRENCY
+      )
+    ).subscribe();
 
   }
 
@@ -400,38 +408,45 @@ export class SwarmComponent implements OnInit, OnDestroy {
       .map(item => {return {ip:item.ip, progress: "0%", result: true}})
       .sort((a, b) => ipToNumber(a.ip) - ipToNumber(b.ip));
 
-    this.updateFirmwareDevices.forEach(item => {
-      // Wake the screensaver on each target device first; only after the wakeup
-      // response comes back do we start streaming the firmware binary.
-      this.systemService.wakeup(`http://${item.ip}`).pipe(
-        switchMap(() => this.systemService.performOTAUpdate(file, `http://${item.ip}`))
-      ).subscribe({
-        next: (event) => {
-          if (event.type === HttpEventType.UploadProgress) {
-            // this.toastr.info(`Firmware update progress: ${Math.round((event.loaded / (event.total as number)) * 100)}%`, 'Info');
-            item.progress = `${Math.round((event.loaded / (event.total as number)) * 100)}%`;
-          } else if (event.type === HttpEventType.Response) {
-            if (event.ok) {
-              setTimeout(() => {
-                this.toastr.success('Firmware updated', 'Successed');
-                item.progress = "Ok";
-              }, 1000);
-            } else {
-              this.toastr.error(event.statusText, 'Error');
-              item.progress = "Error";
-              item.result = false;
+    const OTA_CONCURRENCY = 10;
+
+    from(this.updateFirmwareDevices).pipe(
+      mergeMap(item =>
+        // Wake the screensaver on each target device first; only after the wakeup
+        // response comes back do we start streaming the firmware binary.
+        this.systemService.wakeup(`http://${item.ip}`).pipe(
+          switchMap(() => this.systemService.performOTAUpdate(file, `http://${item.ip}`)),
+          tap({
+            next: (event) => {
+              if (!event) return;
+              if (event.type === HttpEventType.UploadProgress) {
+                item.progress = `${Math.round((event.loaded / (event.total as number)) * 100)}%`;
+              } else if (event.type === HttpEventType.Response) {
+                if (event.ok) {
+                  setTimeout(() => {
+                    this.toastr.success('Firmware updated', 'Successed');
+                    item.progress = "Ok";
+                  }, 1000);
+                } else {
+                  this.toastr.error(event.statusText, 'Error');
+                  item.progress = "Error";
+                  item.result = false;
+                }
+              }
             }
-          }
-        },
-        error: (err) => {
-          const reason = this.extractOtaError(err);
-          this.toastr.error(`${item.ip}: ${reason}`, 'Firmware Update Failed');
-          this.otaFileUploader.clear();
-          item.progress = "Error";
-          item.result = false;
-        }
-      });
-    });
+          }),
+          catchError(err => {
+            const reason = this.extractOtaError(err);
+            this.toastr.error(`${item.ip}: ${reason}`, 'Firmware Update Failed');
+            this.otaFileUploader.clear();
+            item.progress = "Error";
+            item.result = false;
+            return EMPTY;
+          })
+        ),
+        OTA_CONCURRENCY
+      )
+    ).subscribe();
   }
 
   // Filter methods
