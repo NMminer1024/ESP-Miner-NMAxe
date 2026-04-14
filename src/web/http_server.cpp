@@ -1178,7 +1178,9 @@ void post_restart(AsyncWebServerRequest * request){
     // Send HTTP response before restarting.
     // NOTE: delay() must not be called in async_tcp context.
     //       daemon_thread_entry already waits ~1s before acting on reboot_xsem.
-    request->send(200, "text/plain", "System will restart shortly.");
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "System will restart shortly.");
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
     xSemaphoreGive(g_board.status.reboot_xsem);
 }
 

@@ -279,6 +279,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
   public restart(axe: any) {
     this.http.post(`http://${axe.ip}/api/system/restart`, {}, {
       headers: { 'Content-Type': 'text/plain' },
+      responseType: 'text',
     }).pipe(catchError(() => of(null))).subscribe(res => {
       if (res !== null) {
         this.toastr.success(`${axe.ip} restarted`, 'Success');
