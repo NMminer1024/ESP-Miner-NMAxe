@@ -329,9 +329,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 {"515 MHz",           515},
                 {"550 MHz",           550},
                 {"575 MHz",           575},
-                {"600 MHz",           600},
+                {"600 MHz (default)", 600},
                 {"625 MHz",           625},
-                {"650 MHz (default)", 650},
+                {"650 MHz ",          650},
                 {"675 MHz",           675},
                 {"700 MHz",           700},
             };
@@ -369,8 +369,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.wifi_pin              = -1; // Not used
             config.led.pool_pin              = -1; // Not used
             config.led.sys_pin               = 9; 
-            config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 650);
-            config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1225);
+            config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 600);
+            config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1150);
             config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
             config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1000;
