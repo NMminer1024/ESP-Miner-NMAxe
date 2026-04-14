@@ -341,10 +341,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 {"1050 mV",           1050},
                 {"1100 mV",           1100},
                 {"1125 mV",           1125},
-                {"1150 mV",           1150},
+                {"1150 mV (default)", 1150},
                 {"1175 mV",           1175},
                 {"1200 mV",           1200},
-                {"1225 mV (default)", 1225},
+                {"1225 mV ",          1225},
                 {"1250 mV",           1250},
             };
             
