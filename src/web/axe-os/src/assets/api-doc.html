@@ -374,6 +374,38 @@
     }
     .hero-meta-item strong { color: var(--text); }
 
+    /* ── Try It button ────────────────────────────────────────────────── */
+    .try-it-section {
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+    .try-it-btn {
+      background: rgba(13,158,110,0.15);
+      border: 1px solid var(--get);
+      color: #0bc68a;
+      padding: 5px 16px;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .try-it-btn:hover { background: rgba(13,158,110,0.3); }
+    .try-it-btn:disabled { opacity: 0.5; cursor: default; }
+    .try-it-response { margin-top: 12px; }
+    .try-it-pre {
+      white-space: pre;
+      word-break: break-all;
+      max-height: 420px;
+      overflow: auto;
+      background: #ffffff;
+      color: #1a1a1a;
+      border-color: #c8d6e5;
+    }
+    .try-it-error { color: #cc0000; }
+
     /* ── Mobile sidebar toggle ──────────────────────────────────────── */
     .menu-btn {
       display: none;
@@ -1465,6 +1497,62 @@ Content-Type: application/octet-stream
   document.querySelectorAll('.nav-item[href^="#"]').forEach(a =>
     a.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); })
   );
+
+  // ── Try It buttons for GET endpoints ──────────────────────────────
+  document.querySelectorAll('.endpoint').forEach(ep => {
+    if (!ep.querySelector('.method-badge.method-get')) return;
+    const pathEl = ep.querySelector('.endpoint-path');
+    if (!pathEl) return;
+    const path = pathEl.textContent.trim();
+    const body = ep.querySelector('.endpoint-body');
+    if (!body) return;
+
+    const section = document.createElement('div');
+    section.className = 'try-it-section';
+
+    const btn = document.createElement('button');
+    btn.className = 'try-it-btn';
+    btn.innerHTML = '<svg style="display:inline;vertical-align:middle;margin-right:5px" width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 9,5 2,9" fill="currentColor"/></svg>Try It';
+
+    const responseWrap = document.createElement('div');
+    responseWrap.className = 'try-it-response';
+    responseWrap.style.display = 'none';
+
+    const label = document.createElement('div');
+    label.className = 'block-label';
+    label.textContent = 'Live Response';
+
+    const pre = document.createElement('pre');
+    pre.className = 'try-it-pre';
+
+    responseWrap.appendChild(label);
+    responseWrap.appendChild(pre);
+    section.appendChild(btn);
+    section.appendChild(responseWrap);
+    body.appendChild(section);
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Loading…';
+      pre.className = 'try-it-pre';
+      pre.textContent = '';
+      responseWrap.style.display = 'block';
+      try {
+        const url = window.location.protocol + '//' + window.location.host + path;
+        const resp = await fetch(url);
+        const text = await resp.text();
+        let out;
+        try { out = JSON.stringify(JSON.parse(text), null, 2); } catch { out = text; }
+        pre.textContent = out;
+      } catch (e) {
+        pre.className = 'try-it-pre try-it-error';
+        pre.textContent = 'Request failed: ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg style="display:inline;vertical-align:middle;margin-right:5px" width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 9,5 2,9" fill="currentColor"/></svg>Try It';
+      }
+    });
+  });
 
   // Highlight the active sidebar link on scroll
   const items = document.querySelectorAll('.nav-item[href^="#"]');
