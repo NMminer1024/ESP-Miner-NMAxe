@@ -548,6 +548,14 @@ void webserver_thread_entry(void *args){
         });
         // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
         webServer.on("/probe", HTTP_GET, [board](AsyncWebServerRequest* request) {
+            // Snapshot double fields once: double is non-atomic on 32-bit ESP32,
+            // reading directly in printf could yield a torn value.
+            double hr  = board->status.miner.hashrate._3m;
+            double sbd = board->status.miner.diff.best_session;
+            double ebd = board->status.miner.diff.best_ever;
+            if (!isfinite(hr)  || hr  < 0.0) hr  = 0.0;
+            if (!isfinite(sbd) || sbd < 0.0) sbd = 0.0;
+            if (!isfinite(ebd) || ebd < 0.0) ebd = 0.0;
             AsyncResponseStream* resp = request->beginResponseStream("application/json");
             resp->addHeader("Access-Control-Allow-Origin", "*");
             resp->print("{");
@@ -556,9 +564,9 @@ void webserver_thread_entry(void *args){
             resp->printf("\"ver\":\"%s\",", board->info.base.fw_version.c_str()); // firmware version
             resp->printf("\"sw\":%d,",           board->info.spec.tft.width);   // TFT width from board spec
             resp->printf("\"sh\":%d,",           board->info.spec.tft.height);  // TFT height from board spec
-            resp->printf("\"hr\":%.0f,",       board->status.miner.hashrate._3m); // hashrate in H/s, 3m average
-            resp->printf("\"sbd\":%.0f,", board->status.miner.diff.best_session); // best session difficulty
-            resp->printf("\"ebd\":%.0f,",     board->status.miner.diff.best_ever); // best ever difficulty
+            resp->printf("\"hr\":%.0f,",       hr);  // hashrate in H/s, 3m average
+            resp->printf("\"sbd\":%.0f,",      sbd); // best session difficulty
+            resp->printf("\"ebd\":%.0f,",      ebd); // best ever difficulty
             resp->printf("\"ut\":%d",      board->status.miner.uptime_session);   // uptime in seconds for current session
             resp->print("}");
             request->send(resp);
@@ -661,6 +669,14 @@ void webserver_thread_entry(void *args){
             request->send(503, "text/plain", "OTA in progress");
             return;
         }
+        // Snapshot double fields once: double is non-atomic on 32-bit ESP32,
+        // reading directly in printf could yield a torn value.
+        double hr  = board->status.miner.hashrate._3m;
+        double sbd = board->status.miner.diff.best_session;
+        double ebd = board->status.miner.diff.best_ever;
+        if (!isfinite(hr)  || hr  < 0.0) hr  = 0.0;
+        if (!isfinite(sbd) || sbd < 0.0) sbd = 0.0;
+        if (!isfinite(ebd) || ebd < 0.0) ebd = 0.0;
         AsyncResponseStream* resp = request->beginResponseStream("application/json");
         resp->addHeader("Access-Control-Allow-Origin", "*");
         resp->print("{");
@@ -669,9 +685,9 @@ void webserver_thread_entry(void *args){
         resp->printf("\"ver\":\"%s\",", board->info.base.fw_version.c_str()); // firmware version
         resp->printf("\"sw\":%d,",           board->info.spec.tft.width);   // TFT width from board spec
         resp->printf("\"sh\":%d,",           board->info.spec.tft.height);  // TFT height from board spec
-        resp->printf("\"hr\":%.0f,",       board->status.miner.hashrate._3m); // hashrate in H/s, 3m average
-        resp->printf("\"sbd\":%.0f,", board->status.miner.diff.best_session); // best session difficulty
-        resp->printf("\"ebd\":%.0f,",     board->status.miner.diff.best_ever); // best ever difficulty
+        resp->printf("\"hr\":%.0f,",       hr);  // hashrate in H/s, 3m average
+        resp->printf("\"sbd\":%.0f,",      sbd); // best session difficulty
+        resp->printf("\"ebd\":%.0f,",      ebd); // best ever difficulty
         resp->printf("\"ut\":%d",      board->status.miner.uptime_session);   // uptime in seconds for current session
         resp->print("}");
         request->send(resp);
@@ -1012,9 +1028,9 @@ void swarm_thread_entry(void *args){
 
         // ── Probe target list ────────────────────────────────────────────────────────
         uint32_t workers         = 0;
-        float    total_hr        = 0.0f;
-        float    best_session_bd = 0.0f;
-        float    best_ever_bd    = 0.0f;
+        double   total_hr        = 0.0;
+        double   best_session_bd = 0.0;
+        double   best_ever_bd    = 0.0;
 
         LOG_D("(swarm) targets(%u): confirmed=%u unclassified=%u",
               (uint32_t)targets.size(),
@@ -1065,10 +1081,18 @@ void swarm_thread_entry(void *args){
                     bool isNM = doc.containsKey("hr") && doc.containsKey("ver");
                     if (isNM) {
                         workers++;
-                        float hr  = doc["hr"].as<float>();
-                        float sbd = doc["sbd"].as<float>();
-                        float ebd = doc["ebd"].as<float>();
-                        total_hr += hr;
+                        double hr  = doc["hr"].as<double>();
+                        double sbd = doc["sbd"].as<double>();
+                        double ebd = doc["ebd"].as<double>();
+                        // Sanity check: remote /probe may return a torn-read value (double is non-atomic on 32-bit ESP32).
+                        // A single NMAxe device cannot exceed 100 TH/s; discard obviously corrupt readings.
+                        if (!isfinite(hr) || hr < 0.0 || hr > 1e14) {
+                            LOG_W("(swarm) %s INVALID hr=%.0f, skipped (torn read?)", ip.c_str(), hr);
+                        } else {
+                            total_hr += hr;
+                        }
+                        if (!isfinite(sbd) || sbd < 0.0) sbd = 0.0;
+                        if (!isfinite(ebd) || ebd < 0.0) ebd = 0.0;
                         if (sbd > best_session_bd) best_session_bd = sbd;
                         if (ebd > best_ever_bd)    best_ever_bd    = ebd;
                         ctx.confirmed_ips.insert(ip); // add to confirmed set
@@ -1102,9 +1126,16 @@ void swarm_thread_entry(void *args){
         }
 
         // ── Write aggregated results ──────────────────────────────────────────────────
+        // Snapshot self-hashrate once: double is non-atomic on 32-bit ESP32,
+        // reading it twice could yield different torn values.
+        double self_hr = board->status.miner.hashrate._3m;
+        if (!isfinite(self_hr) || self_hr < 0.0 || self_hr > 1e14) {
+            LOG_W("(swarm) INVALID self hr=%.0f, using 0 (torn read?)", self_hr);
+            self_hr = 0.0;
+        }
         if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             ctx.total_workers   = workers + 1;                                 // include self
-            ctx.total_hr        = total_hr + board->status.miner.hashrate._3m; // include self
+            ctx.total_hr        = total_hr + self_hr;                          // include self
             ctx.best_session_bd = (best_session_bd > board->status.miner.diff.best_session) ? best_session_bd : board->status.miner.diff.best_session;
             ctx.best_ever_bd    = (best_ever_bd > board->status.miner.diff.best_ever) ? best_ever_bd : board->status.miner.diff.best_ever;
             xSemaphoreGive(ctx.mutex);
