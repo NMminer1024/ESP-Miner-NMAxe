@@ -729,9 +729,10 @@ void get_status_history(AsyncWebServerRequest* request){
     }
     
     // Calculate JSON document size based on estimated samples
-    // Each sample: ~14 numeric fields encoded as compact JSON ≈ 120 bytes
+    // ArduinoJson 6 internal: each VariantSlot = 16 bytes on ESP32 (32-bit).
+    // Per data point: 14 elements × 16B + 1 nested array slot × 16B = 240 bytes.
     uint32_t base_overhead = 2048;
-    uint32_t per_sample_size = 140;
+    uint32_t per_sample_size = 256;  // ArduinoJson internal memory per sample (240 + margin)
     uint32_t json_size_max = base_overhead + (estimated_samples * per_sample_size);
     
     // Add 25% safety margin
