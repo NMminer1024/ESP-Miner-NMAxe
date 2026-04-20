@@ -15,13 +15,14 @@ typedef struct{
 }hashrate_t;
 
 // ["hashRate","temp","vrTemp","power","voltage","current","coreVoltageActual","fanspeed","fanrpm","wifiRSSI","freeram","freepsram","timestamp"],
+// All numeric fields — eliminates per-node String heap allocations that fragment PSRAM.
 typedef struct{
-    String         hashrate;      // hashrate, GH/s
-    String         asic_temp;     // asic temperature, C
-    String         vcore_temp;    // vcore temperature, C
-    String         pbus;          // power, W
-    String         vbus;          // voltage, V
-    String         ibus;          // current, A
+    float          hashrate;      // hashrate, GH/s
+    float          asic_temp;     // asic temperature, C
+    float          vcore_temp;    // vcore temperature, C
+    float          pbus;          // power, W
+    float          vbus;          // voltage, V
+    float          ibus;          // current, A
     uint16_t       vcore;         // vcore measured, mV
     uint16_t       fanspeed;      // fan speed, %
     uint16_t       fanrpm;        // fan rpm, RPM

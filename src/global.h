@@ -16,7 +16,7 @@
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define BOARD_CURRENT_FW_VERSION        "v3.0.11t"
+#define BOARD_CURRENT_FW_VERSION        "v3.0.11w"
 #define BOARD_CURRENT_HW_VERSION        "v1.1.1"
 #define BOARD_NVS_SAVE_INTERVAL         (60*60)  //second
 #define BOARD_TOUCH_LONG_PRESS_TO_RECOVER   (10)     //seconds, long press duration to enter recover mode
@@ -29,6 +29,7 @@
 #define MINER_MARKET_CONNECT_TIMEOUT    (MINER_MARKET_UPDATE_INTERVAL * 3) // ms
 #define MINER_HISTORY_SAMPLE_DEEPTH     (1000*3600*24)  // history depth, how long to keep the history, in seconds
 #define MINER_HISTORY_SAMPLE_INTERVAL   (2)             // history sample interval, in seconds
+#define MINER_HISTORY_MAX_SIZE          (20000)         // hard cap on deque element count to prevent PSRAM exhaustion
 #define MINER_WIFI_CONFIG_TIMEOUT       (60*5)      // seconds
 #define MINER_LOG_SUMMARY_INTERVAL      (1000*60*1) // 1 minutes
 

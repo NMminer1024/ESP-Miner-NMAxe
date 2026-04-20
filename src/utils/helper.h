@@ -97,6 +97,9 @@ struct PsramJsonAllocator {
     void deallocate(void* ptr) noexcept {
         heap_caps_free(ptr);
     }
+    void* reallocate(void* ptr, size_t new_size) {
+        return heap_caps_realloc(ptr, new_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    }
 };
 
 #endif 

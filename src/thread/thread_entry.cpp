@@ -1595,12 +1595,12 @@ void monitor_thread_entry(void *args){
         //update miner status history queue
         if(board->status.miner.uptime_session % MINER_HISTORY_SAMPLE_INTERVAL == 0){
             history_node_t node;
-            node.hashrate     = String(board->status.miner.hashrate._3m /1e9, 3); //Ghash/s
-            node.asic_temp    = String(board->status.temp.asic,1);
-            node.vcore_temp   = String(board->status.temp.vcore,1);
-            node.pbus         = String((board->status.power.vbus * board->status.power.ibus / 1000.0f / 1000.0f),2); //W
-            node.vbus         = String((board->status.power.vbus / 1000.0f),1); //V
-            node.ibus         = String((board->status.power.ibus / 1000.0f),3); //A
+            node.hashrate     = (float)(board->status.miner.hashrate._3m / 1e9);  // GH/s
+            node.asic_temp    = board->status.temp.asic;
+            node.vcore_temp   = board->status.temp.vcore;
+            node.pbus         = (board->status.power.vbus * board->status.power.ibus / 1000.0f / 1000.0f); //W
+            node.vbus         = (board->status.power.vbus / 1000.0f); //V
+            node.ibus         = (board->status.power.ibus / 1000.0f); //A
             node.vcore        = board->status.power.vcore;//mV
             node.fanspeed     = board->status.fan.list[0].speed; //%
             node.fanrpm       = board->status.fan.list[0].rpm;
@@ -1613,7 +1613,11 @@ void monitor_thread_entry(void *args){
             // add node to history queue and protect concurrent access
             if (xSemaphoreTake(board->status.miner.status_history.mutex, portMAX_DELAY) == pdTRUE) {
                 board->status.miner.status_history.deque.push_back(node);
-                //remove old history
+                // Hard cap on element count to prevent PSRAM exhaustion
+                while (board->status.miner.status_history.deque.size() > MINER_HISTORY_MAX_SIZE) {
+                    board->status.miner.status_history.deque.pop_front();
+                }
+                //remove old history by time window
                 uint64_t current_time_ms = board->status.time.utc * 1000ULL; // Convert to milliseconds
                 while (!board->status.miner.status_history.deque.empty()) {
                     uint64_t oldest_time_ms = board->status.miner.status_history.deque.front().epoch; // Already in milliseconds

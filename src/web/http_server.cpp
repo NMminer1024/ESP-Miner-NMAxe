@@ -678,6 +678,9 @@ void get_gauge_limits(AsyncWebServerRequest* request){
 }
 
 // GET /api/dashboard/chart/history -- full miner status time-series (up to MAX_DATA_POINTS records).
+// Uses PSRAM for both JSON document and serialization buffer to avoid
+// fragmenting internal SRAM and to survive long uptimes on boards with high
+// baseline PSRAM usage (e.g. NMQAxe++).
 void get_status_history(AsyncWebServerRequest* request){
     LOG_D("Starting status history request processing...");
     
@@ -726,8 +729,9 @@ void get_status_history(AsyncWebServerRequest* request){
     }
     
     // Calculate JSON document size based on estimated samples
+    // Each sample: ~14 numeric fields encoded as compact JSON ≈ 120 bytes
     uint32_t base_overhead = 2048;
-    uint32_t per_sample_size = 200;
+    uint32_t per_sample_size = 140;
     uint32_t json_size_max = base_overhead + (estimated_samples * per_sample_size);
     
     // Add 25% safety margin
@@ -736,10 +740,10 @@ void get_status_history(AsyncWebServerRequest* request){
     // Ensure minimum size
     if (json_size_max < 32 * 1024) json_size_max = 32 * 1024;
     
-    LOG_D("Creating JSON document with %dKB for %d estimated samples", json_size_max/1024, estimated_samples);
+    LOG_D("Creating PSRAM JSON document with %dKB for %d estimated samples", json_size_max/1024, estimated_samples);
     
-    // Create JSON document
-    DynamicJsonDocument root(json_size_max);
+    // Create JSON document in PSRAM (Fix 2)
+    BasicJsonDocument<PsramJsonAllocator> root(json_size_max);
     
     // Build JSON structure
     uint64_t ms = g_board.status.time.utc * 1000ULL;
@@ -777,34 +781,20 @@ void get_status_history(AsyncWebServerRequest* request){
         for (const auto& history : g_board.status.miner.status_history.deque) {
             if(idx % actual_sample_interval == 0) {
                 // Stop if we've reached the maximum data points limit
-                if (sampled_count >= MAX_DATA_POINTS) {
+                if (sampled_count >= (int)MAX_DATA_POINTS) {
                     LOG_D("Reached maximum data points limit (%d), stopping sampling", MAX_DATA_POINTS);
                     break;
                 }
                 
                 JsonArray dataPoint = data.createNestedArray();
                 
-                // Data validation
-                String hashrate = history.hashrate;
-                String asic_temp = history.asic_temp;
-                String vcore_temp = history.vcore_temp;
-                String pbus = history.pbus;
-                String vbus = history.vbus;
-                String ibus = history.ibus;
-                
-                if (hashrate.length() == 0 || !isValidNumber(hashrate)) hashrate = "0";
-                if (asic_temp.length() == 0 || !isValidNumber(asic_temp)) asic_temp = "0";
-                if (vcore_temp.length() == 0 || !isValidNumber(vcore_temp)) vcore_temp = "0";
-                if (pbus.length() == 0 || !isValidNumber(pbus)) pbus = "0";
-                if (vbus.length() == 0 || !isValidNumber(vbus)) vbus = "0";
-                if (ibus.length() == 0 || !isValidNumber(ibus)) ibus = "0";
-                
-                dataPoint.add(hashrate);
-                dataPoint.add(asic_temp);
-                dataPoint.add(vcore_temp);
-                dataPoint.add(pbus);
-                dataPoint.add(vbus);
-                dataPoint.add(ibus);
+                // history_node_t fields are now native floats/ints — no String validation needed
+                dataPoint.add(history.hashrate);
+                dataPoint.add(history.asic_temp);
+                dataPoint.add(history.vcore_temp);
+                dataPoint.add(history.pbus);
+                dataPoint.add(history.vbus);
+                dataPoint.add(history.ibus);
                 dataPoint.add(history.vcore);
                 dataPoint.add(history.fanspeed);
                 dataPoint.add(history.fanrpm);
@@ -845,71 +835,33 @@ void get_status_history(AsyncWebServerRequest* request){
     root["userRequestedInterval"] = user_sample_interval;
     root["maxDataPoints"] = MAX_DATA_POINTS;
     
-    // Serialize and validate JSON response with retry mechanism
-    String json_str;
-    size_t json_size = 0;
-    bool json_valid = false;
-    int validation_attempts = 0;
-    const int MAX_VALIDATION_ATTEMPTS = 10;
-    
-    while (!json_valid && (validation_attempts < MAX_VALIDATION_ATTEMPTS)) {
-        validation_attempts++;
-        
-        // Clear previous attempt
-        json_str = "";
-        
-        // Serialize JSON
-        json_size = serializeJson(root, json_str);
-        
-        if (json_size == 0) {
-            LOG_E("JSON serialization failed on attempt %d", validation_attempts);
-            if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
-                request->send(500, "application/json", "{\"error\":\"JSON serialization failed after multiple attempts\"}");
-                return;
-            }
-            taskYIELD(); // Small yield before retry; delay() must not be used in async_tcp context
-            continue;
-        }
-        
-        // Validate by attempting to deserialize
-        DynamicJsonDocument validation_doc(json_size_max);
-        DeserializationError error = deserializeJson(validation_doc, json_str);
-        
-        if (error) {
-            // LOG_E("JSON validation failed on attempt %d: %s", validation_attempts, error.c_str());
-            // LOG_E("JSON validation failed, json_str length: %d", json_str.length());
-            // LOG_E("JSON validation error context (first 200 chars): %.200s", json_str.c_str());
-            
-            if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
-                request->send(500, "application/json", "{\"error\":\"JSON validation failed after multiple attempts\"}");
-                return;
-            }
-            taskYIELD(); // Small yield before retry
-            continue;
-        }
-        
-        // Additional validation: check key fields exist
-        if (!validation_doc.containsKey("timestamp") || 
-            !validation_doc.containsKey("labels") || 
-            !validation_doc.containsKey("statistics") ||
-            !validation_doc.containsKey("size")) {
-            LOG_E("JSON validation failed on attempt %d: missing required fields", validation_attempts);
-            
-            if (validation_attempts >= MAX_VALIDATION_ATTEMPTS) {
-                request->send(500, "application/json", "{\"error\":\"JSON structure validation failed\"}");
-                return;
-            }
-            taskYIELD(); // Small yield before retry
-            continue;
-        }
-        
-        // Validation successful
-        json_valid = true;
-        LOG_D("JSON validation successful on attempt %d, size: %d bytes", validation_attempts, json_size);
+    // Serialize directly into a PSRAM buffer to avoid a large contiguous
+    // Arduino String allocation on the (possibly fragmented) default heap. (Fix 4)
+    size_t json_len = measureJson(root);
+    char* json_buf = (char*)heap_caps_malloc(json_len + 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!json_buf) {
+        LOG_E("Failed to allocate %d bytes in PSRAM for JSON output", json_len + 1);
+        request->send(500, "application/json", "{\"error\":\"PSRAM allocation failed for response\"}");
+        return;
     }
+    serializeJson(root, json_buf, json_len + 1);
     
-    // Send validated response
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_str);
+    // Free the JSON document memory before sending to reduce peak usage
+    root.clear();
+    
+    // Stream the PSRAM buffer to the client via a callback-based response
+    // so that no secondary copy of the payload is needed.
+    AsyncWebServerResponse *response = request->beginResponse(
+        "application/json", json_len,
+        [json_buf, json_len](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+            size_t remaining = json_len - index;
+            size_t toWrite = (remaining < maxLen) ? remaining : maxLen;
+            memcpy(buffer, json_buf + index, toWrite);
+            if (index + toWrite >= json_len) {
+                heap_caps_free(json_buf);  // free PSRAM buffer after last chunk
+            }
+            return toWrite;
+        });
     response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     response->addHeader("Pragma", "no-cache");
     response->addHeader("Expires", "0");
@@ -918,8 +870,8 @@ void get_status_history(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
     
-    LOG_D("Validated response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d, attempts=%d", 
-          json_size, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS, validation_attempts);
+    LOG_D("Response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d", 
+          json_len, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS);
 }
 
 // GET /api/dashboard/chart/realtime -- single latest data point for live chart update.
