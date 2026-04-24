@@ -19,6 +19,9 @@
       <td width="50%" align="center"><img src="image/nmaxe-1.jpg" alt="nmaxe-1"></td>
       <td width="50%" align="center"><img src="image/nmaxe-2.jpg" alt="nmaxe-2"></td>
     </tr>
+    <tr>
+      <td colspan="2" align="center"><a href="https://www.nmminer.com/product/nmaxe/">🛒 Buy NMAxe</a></td>
+    </tr>
   </table>
 </div>
 <div align="center">
@@ -26,6 +29,20 @@
     <tr>
       <td width="50%" align="center"><img src="image/5.jpg" alt="Gamma-1"></td>
       <td width="50%" align="center"><img src="image/6.jpg" alt="Gamma-2"></td>
+    </tr>
+    <tr>
+      <td colspan="2" align="center"><a href="https://www.nmminer.com/product/nmaxe-gamma/">🛒 Buy NMAxeGamma</a></td>
+    </tr>
+  </table>
+</div>
+<div align="center">
+  <table width="100%">
+    <tr>
+      <td width="50%" align="center"><img src="image/NMQAxe++0.png" alt="NMQAxe++-1"></td>
+      <td width="50%" align="center"><img src="image/NMQAxe++1.png" alt="NMQAxe++-2"></td>
+    </tr>
+    <tr>
+      <td colspan="2" align="center"><a href="https://www.nmminer.com/product/nmqaxe/">🛒 Buy NMQAxe++</a></td>
     </tr>
   </table>
 </div>
@@ -44,19 +61,23 @@
 
 ## Features
 ***
-- **SHA256d algorithm**
-- **ESP32S3R8 wifi connection**
-- **Stratum with ssl connection optional**
-- **USB PD power supply support**
-- **Raspberry Pi5 structure compatible**
-- **User-friendly UI with a 1.14-inch TFT LCD driven by LVGL**
-- **Low cost Vcore regulator solution**
-- **Vcore adjustment without restart**
-- **A more accurate way for calculating hashrate**
-- **Dynamically adjust ASIC difficulty threshold**
-- **[One click deployment](https://flash.nmminer.com/)**
-- **[NMController_client](https://github.com/NMminer1024/NMController_client) monitor**.
-- **[NMController_web](https://github.com/NMminer1024/NMController_web) monitor**.
+
+| Feature | NMAxe | NMAxeGamma | NMQAxe++ |
+| :--- | :---: | :---: | :---: |
+| **ASIC Chip** | BM1366 x1 | BM1370 x1 | BM1370 x4 |
+| **Hashrate** | ~450–550 GH/s | ~1.2–2.0 TH/s | ~4.8–6.0 TH/s |
+| **Default OC** | 575 MHz / 1250 mV | 600 MHz / 1125 mV | 600 MHz / 1150 mV |
+| **Display** | 1.14" TFT 240x135 | 1.14" TFT 240x135 | 2.8" TFT 320×240 |
+| **Touch** | ❌ | ❌ | ✅ |
+| **Fan** | Single | Single | Dual (ASIC + Vcore) |
+| **USB PD** | ✅ | ✅ | ❌ |
+| **Power Supply** | DC 8–12V / 25W+ or USB PD 25W+ | DC 8–12V / 40W+ or USB PD 40W+ | DC 12V / 120W+ |
+| **RGB LED** | ✅ | ✅ | ARGB |
+| **User Button** | boot + user | boot + user | boot only |
+| **Screensaver** | ✅ | ✅ | ✅ |
+| **Algorithm** | SHA256d | SHA256d | SHA256d |
+| **Stratum SSL** | ✅ | ✅ | ✅ |
+| **[One click deployment](https://flash.nmminer.com/)** | ✅ | ✅ | ✅ |
 
 
 ## Buttons
@@ -66,15 +87,7 @@
 |boot               |    Double click    |  Back to previous page    |
 |boot               |    Single click    |  Switch to next page    |
 |boot               |    Long press      |  Force configuration    |
-|user               |    Long press      |  Restore to factory settings  |
-
-## Power 
-### NMAxe
-- DC adapter 8-12v/25W at least.
-- USB PD charger 25W at least. 
-### NMAxeGamma
-- DC adapter 8-12v/40W at least.
-- USB PD charger 40W at least. 
+|user               |    Long press      |  Restore to factory settings (NMAxe / NMAxeGamma only)  |
 
 ## Configuration
 ***
@@ -169,6 +182,30 @@ Full API documentation: [docs/API.md](./docs/API.md)
 
 ## Release Log
 ***
+
+### (2026.04.24) - v3.0.11
+- `Add`:
+  - None.
+- `Fixed`:
+  - PSRAM exhaustion causing random restarts after long uptime; history node data type optimized and hard cap added.
+  - lwIP `assert(q==NULL)` crash in LAN scan caused by ARP table race condition.
+  - WiFi reconnection logic.
+  - Market HTTP timeout causing watchdog restart.
+  - Network connection timeout.
+  - Stratum readline timeout logic.
+  - Swarm total hashrate calculation error.
+  - Swarm Restart button CORS issue.
+  - Achievement page display issue.
+- `Improved`:
+  - Swarm OTA batch upgrade stability.
+  - Swarm filter by device model.
+  - Swarm Restart button now handles errors and shows result feedback.
+  - History sample interval adjusted from 2s to 5s to reduce memory pressure.
+- `Modify`:
+  - NMQAxe++ default OC changed to 600 MHz / 1150 mV.
+  - TPS53647 switch frequency changed from 500 kHz to 700 kHz; current limit set to 30A.
+- `Remove`:
+  - None.
 
 ### (2026.04.01) - v3.0.10
 - `Add`:
