@@ -72,7 +72,6 @@
 | **Fan** | Single | Single | Dual (ASIC + Vcore) |
 | **USB PD** | ✅ | ✅ | ❌ |
 | **Power Supply** | DC 8–12V / 25W+ or USB PD 25W+ | DC 8–12V / 40W+ or USB PD 40W+ | DC 12V / 120W+ |
-| **RGB LED** | ✅ | ✅ | ARGB |
 | **User Button** | boot + user | boot + user | boot only |
 | **Screensaver** | ✅ | ✅ | ✅ |
 | **Algorithm** | SHA256d | SHA256d | SHA256d |
