@@ -8,3 +8,4 @@ upload.bat
 node_modules
 build/
 /data
+/release

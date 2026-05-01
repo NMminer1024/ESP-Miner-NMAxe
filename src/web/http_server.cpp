@@ -11,6 +11,8 @@
 #include "utils/reboot_log/reboot_log.h"
 #include "utils/reboot_log/coredump.h"
 #include "board/board.h"
+#include <esp_ota_ops.h>
+#include <esp_partition.h>
 
 AsyncWebServer  webServer(80);
 // AsyncWebSocket runs on the same port 80 at path /ws, no separate port needed.
@@ -207,6 +209,19 @@ void get_system_info(AsyncWebServerRequest* request){
     identityObj["hostName"]   = g_board.info.base.hostname;
     identityObj["ssid"]       = g_board.info.connection.wifi.sta.ssid;
     identityObj["rssi"]       = g_board.status.wifi.rssi;
+    // SHA256 of the running app image. Useful for matching this device against
+    // a specific build artifact when triaging crash reports. We expose only
+    // the first 16 hex chars (8 bytes) to keep JSON small — still > 2^64 of
+    // collision space, plenty to disambiguate dev builds.
+    {
+        const esp_partition_t* run = esp_ota_get_running_partition();
+        uint8_t sha[32] = {0};
+        if (run && esp_partition_get_sha256(run, sha) == ESP_OK) {
+            char hex[17] = {0};
+            for (int i = 0; i < 8; ++i) snprintf(hex + i * 2, 3, "%02x", sha[i]);
+            identityObj["appSha256"] = hex;
+        }
+    }
 
     // Currently-active pool (read-only status)
     JsonObject stratumObj = root.createNestedObject("stratum");

@@ -65,6 +65,7 @@ export interface IInfoIdentity {
   hostName:  string;
   ssid:      string;
   rssi:      number;
+  appSha256?: string;   // first 16 hex chars of running app image SHA256
 }
 
 // ── /api/system/info ─────────────────────────────────────────────────────────
@@ -126,6 +127,7 @@ export interface ISystemInfo {
   sharesRejected?: number,
   uptimeSeconds?: number,
   fwVersion?: string,
+  appSha256?: string,
   hwModel?: string,
   hostName?: string,
   wifiSSID?: string,

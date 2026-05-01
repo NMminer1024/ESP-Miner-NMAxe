@@ -80,6 +80,7 @@ export class HomeComponent implements OnInit {
 
         // --- identity ---
         info.fwVersion  = idn?.fwVersion ?? info.fwVersion;
+        info.appSha256  = idn?.appSha256 ?? info.appSha256;
         info.hwModel    = idn?.hwModel   ?? info.hwModel;
         info.hostName   = idn?.hostName  ?? info.hostName;
         info.wifiSSID   = idn?.ssid      ?? info.wifiSSID;

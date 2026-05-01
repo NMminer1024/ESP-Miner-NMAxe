@@ -278,7 +278,7 @@
               </tr>
               <tr>
                 <td class="label">Firmware Version:</td>
-                <td class="value">{{ info.version }}</td>
+                <td class="value">{{ info.version }}<span *ngIf="info.appSha256" class="sha-suffix">/{{ info.appSha256 }}</span></td>
               </tr>
               <tr>
                 <td class="label">Hardware Model:</td>

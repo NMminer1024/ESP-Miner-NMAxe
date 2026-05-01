@@ -86,6 +86,7 @@ The response is structured into nested sub-objects.
 | `identity.hostName` | string | Device hostname |
 | `identity.ssid` | string | Connected Wi-Fi SSID |
 | `identity.rssi` | int | Wi-Fi signal strength (dBm) |
+| `identity.appSha256` | string | First 16 hex chars of the running app image SHA256. Pairs a device with the exact build artifact when triaging crash reports. |
 
 #### 🌐 Stratum — `stratum`
 
@@ -146,7 +147,8 @@ Active pool connection — read-only snapshot.
     "hwModel": "NMAxe",
     "hostName": "nmaxe-001",
     "ssid": "MyHomeWifi",
-    "rssi": -55
+    "rssi": -55,
+    "appSha256": "ef970b389312276b"
   },
   "fans": [
     { "id": 0, "speed": 60, "rpm": 2800 }

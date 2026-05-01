@@ -594,6 +594,13 @@
   }
 }
 
+.sha-suffix {
+  margin-left: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
 .pool-link {
   color: #4CAF50;
   text-decoration: underline;
