@@ -4,6 +4,7 @@ import {delay, Observable, of, timeout, map, catchError, switchMap} from 'rxjs';
 import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 import {IGaugeLimits} from 'src/models/IGaugeLimits';
+import {IRebootRecord} from 'src/models/IRebootRecord';
 
 import {environment} from '../../environments/environment';
 
@@ -174,6 +175,21 @@ export class SystemService {
 
   public resetMinerStats(uri: string = '') {
     return this.httpClient.post(`${uri}/api/system/clearhits`, {});
+  }
+
+  // ── Reboot history ─────────────────────────────────────────────────────────
+  // Backend persists up to 10 records (newest first) describing why the device
+  // was last restarted (planned vs crash vs power issue, etc.).
+  public getRebootList(uri: string = ''): Observable<IRebootRecord[]> {
+    return this.httpClient.get<IRebootRecord[]>(`${uri}/api/reboot/list`);
+  }
+
+  public getRebootLast(uri: string = ''): Observable<IRebootRecord> {
+    return this.httpClient.get<IRebootRecord>(`${uri}/api/reboot/last`);
+  }
+
+  public clearRebootList(uri: string = '') {
+    return this.httpClient.delete(`${uri}/api/reboot/list`, {responseType: 'text'});
   }
 
 

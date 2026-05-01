@@ -1,5 +1,6 @@
 ﻿#include "drivers/displays/display.h"
 #include "utils/logger/logger.h"
+#include "utils/reboot_log/reboot_log.h"
 #include "global.h"
 #include "OneButton.h"
 #include "drivers/fan/fan.h"
@@ -476,6 +477,8 @@ void config_monitor_thread_entry(void *args){
             if(board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
                 if(board->status.wifi.config_timeout == 0){
                     LOG_W("WiFi configuration timeout, rebooting...");
+                    reboot_intent_set(REBOOT_INTENT_WIFI_CONFIG_TIMEOUT,
+                                      "no client connected during AP setup window");
                     delay(1000);
                     ESP.restart();
                 }
@@ -483,6 +486,8 @@ void config_monitor_thread_entry(void *args){
             } else {
                 if(board->status.wifi.config_timeout == 0){
                     LOG_W("WiFi configuration timeout, rebooting...");
+                    reboot_intent_set(REBOOT_INTENT_WIFI_CONFIG_TIMEOUT,
+                                      "no client connected during AP setup window");
                     delay(1000);
                     ESP.restart();
                 }
@@ -603,6 +608,10 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/system/restart",HTTP_POST, post_restart);
     webServer.on("/api/system/clearhits", HTTP_POST, post_reset_block_hits);
+    // ── Reboot history (planned vs crash, persisted across boots) ───────────
+    webServer.on("/api/reboot/last", HTTP_GET,    get_reboot_last);
+    webServer.on("/api/reboot/list", HTTP_GET,    get_reboot_list);
+    webServer.on("/api/reboot/list", HTTP_DELETE, delete_reboot_list);
     // ── Wakeup: any caller (local or cross-origin swarm panel) can wake this device's screensaver.
     // Dashboard and swarm pages call this to keep the screensaver inactive.
     // Setting / update / log pages do NOT call this, so the screensaver can activate
@@ -787,6 +796,8 @@ void wifi_connect_thread_entry(void *args){
         }
         if(retry_cnt >= max_retries){
             LOG_W("WiFi connection retry limit reached, rebooting...");
+            reboot_intent_set(REBOOT_INTENT_WIFI_RECONNECT_FAIL,
+                              "reached %d/%d retries", retry_cnt, max_retries);
             delay(1000);
             ESP.restart();
         }
@@ -1690,11 +1701,19 @@ void daemon_thread_entry(void *args){
 
   while (true){
     delay(1000);
+    // Mirror uptime / minimum free heap into RTC so a sudden crash still
+    // leaves "ran for X seconds, min heap Y" behind for the next boot.
+    reboot_log_tick();
+
     //check ota status and reboot
     if(xSemaphoreTake(board->status.reboot_xsem, 0) == pdTRUE){
         delay(1500); // keep running=true so display can render 100% before reboot
         g_board.status.ota.running  = false;
         delay(300);  // brief pause for any final rendering
+        // Fallback: if no caller stamped a real intent, mark the restart as
+        // a generic daemon-driven event so the UI doesn't show "unknown_sw".
+        reboot_intent_set_if_unset(REBOOT_INTENT_DAEMON_GENERIC,
+                                   "reboot_xsem fired without explicit intent");
         ESP.restart();
     }
 
@@ -1705,6 +1724,7 @@ void daemon_thread_entry(void *args){
     if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
         LOG_W("Factory reset triggered, erasing config and restart...");
         if(erase_all_nvs()){
+            reboot_intent_set(REBOOT_INTENT_FACTORY_RESET, "user-triggered factory reset");
             xSemaphoreGive(board->status.reboot_xsem);
         }else{
             LOG_E("Factory reset failed!");
@@ -1722,11 +1742,15 @@ void daemon_thread_entry(void *args){
     //Stratum daemon
     if(millis() - board->status.miner.stratum_update > MINER_STRATUM_ALIVE_TIMEOUT){
       LOG_W("Stratum connection seems frozen, restarting...");
+      reboot_intent_set(REBOOT_INTENT_POOL_TIMEOUT,
+                        "no stratum traffic for %lums", (unsigned long)MINER_STRATUM_ALIVE_TIMEOUT);
       xSemaphoreGive(board->status.reboot_xsem);
     }
     //ASIC daemon
     if(millis() - board->status.miner.asic_update > MINER_ASIC_ALIVE_TIMEOUT){
       LOG_W("ASIC seems frozen, restarting...");
+      reboot_intent_set(REBOOT_INTENT_ASIC_FROZEN,
+                        "no ASIC reply for %lums", (unsigned long)MINER_ASIC_ALIVE_TIMEOUT);
       xSemaphoreGive(board->status.reboot_xsem);
     }
   }
@@ -2257,7 +2281,12 @@ void stratum_thread_entry(void *args){
         if(board->status.wifi.status != WL_CONNECTED){
             w_retry++;
             LOG_W("WiFi reconnecting %d/%d...", w_retry, w_maxRetries);
-            if(w_retry >= w_maxRetries) ESP.restart();
+            if(w_retry >= w_maxRetries) {
+                reboot_intent_set(REBOOT_INTENT_WIFI_RECONNECT_FAIL,
+                                  "stratum loop: %d/%d retries exhausted",
+                                  w_retry, w_maxRetries);
+                ESP.restart();
+            }
 
             xSemaphoreGive(board->status.wifi.reconnect_xsem);
             board->stratum->reset();

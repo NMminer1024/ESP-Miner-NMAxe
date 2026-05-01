@@ -8,6 +8,7 @@
 #include "http_server.h"
 #include "nvs/nvs_config.h"
 #include "utils/helper.h"
+#include "utils/reboot_log/reboot_log.h"
 #include "board/board.h"
 
 AsyncWebServer  webServer(80);
@@ -1128,6 +1129,9 @@ void echo_handler(AsyncWebServerRequest* request){
 // POST /api/system/restart -- trigger a graceful soft reboot via semaphore.
 void post_restart(AsyncWebServerRequest * request){
     LOG_W("************** Restarting System because of API Request ***************");
+    // Stamp the intent BEFORE giving the semaphore so the daemon thread sees it.
+    String ip = request->client() ? request->client()->remoteIP().toString() : String("?");
+    reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "from %s", ip.c_str());
     // Send HTTP response before restarting.
     // NOTE: delay() must not be called in async_tcp context.
     //       daemon_thread_entry already waits ~1s before acting on reboot_xsem.
@@ -1144,6 +1148,70 @@ void post_reset_block_hits(AsyncWebServerRequest * request){
     nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, 0);
     LOG_I("Miner stats reset: block hits cleared");
     request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+// ── Reboot history endpoints ────────────────────────────────────────────────
+//
+// Records are produced by reboot_log_init() at the very top of setup() based on
+// the previous run's RTC state + esp_reset_reason(). The web layer only reads.
+//
+// JSON shape (one record):
+//   {
+//     "idx": 142, "ts": 0, "uptime": 11520, "heapMin": 49152,
+//     "reset": "panic", "intent": "none", "class": "crash",
+//     "fw": "v3.0.11", "detail": "panic"
+//   }
+static void reboot_record_to_json(const RebootRecord& r, JsonObject obj) {
+    obj["idx"]     = r.boot_index;
+    obj["ts"]      = r.epoch_ts;
+    obj["uptime"]  = r.uptime_last_sec;
+    obj["heapMin"] = r.free_heap_min;
+    obj["reset"]   = reboot_reset_reason_str(r.reset_reason);
+    obj["intent"]  = reboot_intent_str(r.intent);
+    obj["class"]   = reboot_class_str(r.cls);
+    obj["fw"]      = (const char*)r.fw_version;
+    obj["detail"]  = (const char*)r.detail;
+}
+
+// GET /api/reboot/last -- newest record only (for the dashboard banner).
+void get_reboot_last(AsyncWebServerRequest * request) {
+    RebootRecord r;
+    DynamicJsonDocument doc(512);
+    if (reboot_log_get_last(&r)) {
+        reboot_record_to_json(r, doc.to<JsonObject>());
+    } else {
+        // No history yet; return a stub so the frontend can render a neutral banner.
+        JsonObject obj = doc.to<JsonObject>();
+        obj["class"]  = reboot_class_str(REBOOT_CLASS_COLD);
+        obj["intent"] = reboot_intent_str(REBOOT_INTENT_NONE);
+    }
+    String body; serializeJson(doc, body);
+    AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", body);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(resp);
+}
+
+// GET /api/reboot/list -- up to REBOOT_LOG_RING_SIZE records, newest first.
+void get_reboot_list(AsyncWebServerRequest * request) {
+    RebootRecord recs[REBOOT_LOG_RING_SIZE];
+    size_t n = reboot_log_get_recent(recs, REBOOT_LOG_RING_SIZE);
+    DynamicJsonDocument doc(4096);
+    JsonArray arr = doc.to<JsonArray>();
+    for (size_t i = 0; i < n; ++i) {
+        reboot_record_to_json(recs[i], arr.createNestedObject());
+    }
+    String body; serializeJson(doc, body);
+    AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", body);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(resp);
+}
+
+// DELETE /api/reboot/list -- wipe stored history (boot index is preserved).
+void delete_reboot_list(AsyncWebServerRequest * request) {
+    reboot_log_clear();
+    AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(resp);
 }
 
 // GET /api/update/progress -- returns current OTA/upload progress from g_board.status.ota.
@@ -1335,6 +1403,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 LOG_W("*************** Update Success: %u bytes, rebooting *************** ", index + len);
                 // NOTE: delay() in async_tcp context blocks the TCP stack.
                 //       daemon_thread_entry waits ~1s before restarting, giving time for the HTTP response to be sent.
+                reboot_intent_set(REBOOT_INTENT_OTA_FINISHED, "uploaded %s (%u bytes)",
+                                  filename.c_str(), (unsigned)(index + len));
                 xSemaphoreGive(g_board.status.reboot_xsem);
             } else {
                 LOG_E("OTA Update error: %s", Update.errorString());

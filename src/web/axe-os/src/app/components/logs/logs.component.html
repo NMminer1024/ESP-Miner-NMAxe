@@ -1,43 +1,152 @@
 <div class="grid">
-  <!-- <div class="col-12">
-      <div class="card">
-          <h2>Realtime Logs <button pButton (click)="toggleLogs()" style="margin-left: 15px;"
-                  class="btn btn-secondary">{{showLogs
-                  ? 'Hide': 'Show'}}
-                  Logs</button>
-
-              <button pButton style="margin-left: 15px;" class="btn btn-secondary" (click)="stopScroll = !stopScroll"
-                  *ngIf="showLogs">{{stopScroll ? 'Start' : 'Stop'}} Scrolling</button>
-          </h2>
-
-          <div *ngIf="showLogs" id="logs" #scrollContainer>
-              <div *ngFor="let log of logs">₿ {{log }}</div>
-          </div>
-      </div>
-  </div> -->
-
   <div class="col-12">
     <div class="logs-container">
-      <div class="logs-header">
-        <div class="logs-title-group">
-          <span class="logs-icon">📋</span>
-          <h2>Realtime Logs</h2>
-          <button pButton 
-                  (click)="saveLog()"
-                  class="p-button-rounded p-button-outlined save-log-btn">
-            <span class="button-content">
-              <span class="download-icon">💾</span>
-              <span>Download</span>
-            </span>
-          </button>
+
+      <!-- ── Tab bar ────────────────────────────────────────────────────── -->
+      <div class="tabs-bar">
+        <button type="button"
+                class="tab-btn"
+                [class.active]="activeTab === 0"
+                (click)="selectTab(0)">
+          <span class="tab-icon">📋</span>
+          <span>Realtime Logs</span>
+        </button>
+        <button type="button"
+                class="tab-btn"
+                [class.active]="activeTab === 1"
+                (click)="selectTab(1)">
+          <span class="tab-icon">🔁</span>
+          <span>Reboot History</span>
+        </button>
+      </div>
+
+      <!-- ── Tab 1: Realtime Logs ──────────────────────────────────────── -->
+      <div class="tab-panel" *ngIf="activeTab === 0">
+        <div class="logs-header">
+          <div class="logs-title-group">
+            <h2>Realtime Logs</h2>
+            <button pButton
+                    (click)="saveLog()"
+                    class="p-button-rounded p-button-outlined save-log-btn">
+              <span class="button-content">
+                <span class="download-icon">💾</span>
+                <span>Download</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div id="logs" #scrollContainer>
+          <pre *ngFor="let log of logs" class="log-entry" [innerHTML]="log"></pre>
         </div>
       </div>
 
-      <div id="logs" #scrollContainer>
-        <pre *ngFor="let log of logs" class="log-entry" [innerHTML]="log"></pre>
+      <!-- ── Tab 2: Reboot History ─────────────────────────────────────── -->
+      <div class="tab-panel" *ngIf="activeTab === 1">
+        <div class="logs-header">
+          <div class="logs-title-group">
+            <h2>Reboot History</h2>
+            <div class="reboot-actions">
+              <button pButton
+                      (click)="refreshReboots()"
+                      class="p-button-rounded p-button-outlined save-log-btn"
+                      [disabled]="rebootLoading">
+                <span class="button-content">
+                  <span class="download-icon">↻</span>
+                  <span>Refresh</span>
+                </span>
+              </button>
+              <button pButton
+                      (click)="exportReboots()"
+                      class="p-button-rounded p-button-outlined save-log-btn"
+                      [disabled]="rebootList.length === 0">
+                <span class="button-content">
+                  <span class="download-icon">💾</span>
+                  <span>Export JSON</span>
+                </span>
+              </button>
+              <button pButton
+                      (click)="clearReboots()"
+                      class="p-button-rounded p-button-outlined save-log-btn danger"
+                      [disabled]="rebootList.length === 0">
+                <span class="button-content">
+                  <span class="download-icon">🗑</span>
+                  <span>Clear</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner: most recent reboot at-a-glance -->
+        <div class="reboot-banner"
+             *ngIf="rebootList.length > 0"
+             [ngClass]="classMeta(rebootList[0].class).cssClass">
+          <span class="banner-icon">{{ classMeta(rebootList[0].class).icon }}</span>
+          <div class="banner-text">
+            <div class="banner-title">
+              Last reboot: {{ classMeta(rebootList[0].class).label }}
+              <span class="banner-sub">— {{ reasonText(rebootList[0]) }}</span>
+            </div>
+            <div class="banner-meta">
+              boot #{{ rebootList[0].idx }}
+              · ran {{ formatUptime(rebootList[0].uptime) }}
+              · min heap {{ formatHeap(rebootList[0].heapMin) }}
+              · fw {{ rebootList[0].fw || '—' }}
+            </div>
+          </div>
+        </div>
+
+        <div class="reboot-empty" *ngIf="!rebootLoading && rebootList.length === 0 && !rebootError">
+          No reboot history yet. The first record will appear after the next restart.
+        </div>
+        <div class="reboot-empty error" *ngIf="rebootError">{{ rebootError }}</div>
+        <div class="reboot-empty" *ngIf="rebootLoading">Loading…</div>
+
+        <div class="reboot-table-wrap" *ngIf="rebootList.length > 0">
+          <table class="reboot-table">
+            <thead>
+              <tr>
+                <th class="col-idx">#</th>
+                <th class="col-when">When</th>
+                <th class="col-type">Type</th>
+                <th class="col-reason">Reason</th>
+                <th class="col-uptime">Ran for</th>
+                <th class="col-heap">Min heap</th>
+                <th class="col-fw">FW</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of rebootList" [ngClass]="classMeta(r.class).cssClass">
+                <td class="col-idx">{{ r.idx }}</td>
+                <td class="col-when">{{ formatTimestamp(r) }}</td>
+                <td class="col-type">
+                  <span class="type-badge">
+                    <span class="type-icon">{{ classMeta(r.class).icon }}</span>
+                    {{ classMeta(r.class).label }}
+                  </span>
+                </td>
+                <td class="col-reason">{{ reasonText(r) }}</td>
+                <td class="col-uptime">{{ formatUptime(r.uptime) }}</td>
+                <td class="col-heap">{{ formatHeap(r.heapMin) }}</td>
+                <td class="col-fw">{{ r.fw || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Legend -->
+        <div class="reboot-legend" *ngIf="rebootList.length > 0">
+          <span><span class="dot cls-cold"></span>Cold boot</span>
+          <span><span class="dot cls-planned"></span>Planned</span>
+          <span><span class="dot cls-unknown"></span>Unknown SW (no reason recorded)</span>
+          <span><span class="dot cls-crash"></span>Crash</span>
+          <span><span class="dot cls-power"></span>Power issue (brown-out)</span>
+          <span><span class="dot cls-external"></span>External / other</span>
+        </div>
       </div>
+
     </div>
   </div>
-
-
 </div>
+

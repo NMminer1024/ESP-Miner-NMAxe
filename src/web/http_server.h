@@ -21,6 +21,10 @@ void options_theme_handler(AsyncWebServerRequest * request);
 void get_swarm_info_handler(AsyncWebServerRequest * request);
 void post_reset_block_hits(AsyncWebServerRequest * request);
 void get_ota_progress(AsyncWebServerRequest* request);
+// ── Reboot history (planned vs crash, persisted across boots) ───────────────
+void get_reboot_last(AsyncWebServerRequest * request);
+void get_reboot_list(AsyncWebServerRequest * request);
+void delete_reboot_list(AsyncWebServerRequest * request);
 void file_upload_handler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final);
 void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total);
 void rest_common_get_handler(AsyncWebServerRequest *request);

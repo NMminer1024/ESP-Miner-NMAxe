@@ -3,7 +3,49 @@ import {interval, map, Observable, shareReplay, startWith, Subscription, switchM
 import {SystemService} from 'src/app/services/system.service';
 import {WebsocketService} from 'src/app/services/web-socket.service';
 import {ISystemInfo} from 'src/models/ISystemInfo';
+import {IRebootRecord} from 'src/models/IRebootRecord';
 import {DomSanitizer, SafeHtml} from '@angular/platform-browser';
+import {ToastrService} from 'ngx-toastr';
+
+// ── Friendly-text translation tables for reboot history ────────────────────
+// Keep these in sync with reboot_log.cpp::reboot_intent_str() / reset_reason_str().
+const INTENT_LABEL: Record<string, string> = {
+  none:                  '—',
+  user_web_reboot:       'User clicked Restart',
+  ota_finished:          'Firmware update finished',
+  factory_reset:         'Factory reset',
+  wifi_config_timeout:   'Wi-Fi setup timed out',
+  wifi_reconnect_fail:   'Wi-Fi reconnection failed',
+  low_hashrate:          'Hashrate too low',
+  pool_timeout:          'Mining pool stopped responding',
+  asic_frozen:           'ASIC stopped responding',
+  config_changed:        'Configuration changed',
+  selftest_triggered:    'Self-test',
+  daemon_generic:        'Internal restart',
+};
+
+const RESET_LABEL: Record<string, string> = {
+  poweron:   'Cold power-on',
+  ext_pin:   'External RST pin',
+  sw:        'Software restart',
+  panic:     'Firmware crash (Guru Meditation)',
+  int_wdt:   'Interrupt watchdog timeout',
+  task_wdt:  'Task watchdog timeout',
+  wdt:       'Watchdog timeout',
+  deepsleep: 'Wake from deep sleep',
+  brownout:  'Power supply dropped (brown-out)',
+  sdio:      'SDIO reset',
+  unknown:   'Unknown reason',
+};
+
+const CLASS_META: Record<string, {label: string; icon: string; cssClass: string}> = {
+  cold:       {label: 'Cold boot',     icon: '⚪', cssClass: 'cls-cold'},
+  planned:    {label: 'Planned',       icon: '🟢', cssClass: 'cls-planned'},
+  unknown_sw: {label: 'Unknown SW',    icon: '🟡', cssClass: 'cls-unknown'},
+  crash:      {label: 'Crash',         icon: '🔴', cssClass: 'cls-crash'},
+  power:      {label: 'Power issue',   icon: '🟠', cssClass: 'cls-power'},
+  external:   {label: 'External',      icon: '🔵', cssClass: 'cls-external'},
+};
 
 @Component({
   selector: 'app-logs',
@@ -18,12 +60,21 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
   public logs: SafeHtml[] = [];
   private rawLogs: string[] = []; // 保存原始日志用于下载
 
+  // Tabs: 0 = Realtime Logs (default), 1 = Reboot History
+  public activeTab: 0 | 1 = 0;
+
+  // Reboot history state
+  public rebootList: IRebootRecord[] = [];
+  public rebootLoading = false;
+  public rebootError: string | null = null;
+
   private websocketSubscription?: Subscription;
 
   constructor(
     private websocketService: WebsocketService,
     private systemService: SystemService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private toastr: ToastrService
   ) {
 
 
@@ -64,7 +115,7 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngOnInit(): void {
-    // 进入页面自动开始日志输出
+    // Default tab is Realtime Logs; start the WebSocket immediately.
     this.startLogs();
   }
 
@@ -73,6 +124,100 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.stopLogs();
   }
 
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  public selectTab(idx: 0 | 1): void {
+    if (this.activeTab === idx) return;
+    this.activeTab = idx;
+    if (idx === 1 && this.rebootList.length === 0 && !this.rebootLoading) {
+      this.refreshReboots();
+    }
+  }
+
+  // ── Reboot history actions ────────────────────────────────────────────────
+  public refreshReboots(): void {
+    this.rebootLoading = true;
+    this.rebootError   = null;
+    this.systemService.getRebootList().subscribe({
+      next: list => {
+        this.rebootList    = Array.isArray(list) ? list : [];
+        this.rebootLoading = false;
+      },
+      error: err => {
+        this.rebootError   = 'Failed to load reboot history';
+        this.rebootLoading = false;
+        // eslint-disable-next-line no-console
+        console.error('[reboot] list error', err);
+      }
+    });
+  }
+
+  public clearReboots(): void {
+    if (!confirm('Clear all reboot history records?')) return;
+    this.systemService.clearRebootList().subscribe({
+      next: () => {
+        this.rebootList = [];
+        this.toastr.success('Reboot history cleared', 'OK');
+      },
+      error: () => this.toastr.error('Failed to clear history', 'Error')
+    });
+  }
+
+  public exportReboots(): void {
+    const payload = JSON.stringify(this.rebootList, null, 2);
+    const blob = new Blob([payload], {type: 'application/json'});
+    const url  = window.URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.href     = url;
+    a.download = `reboot-history-${stamp}.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); window.URL.revokeObjectURL(url);
+  }
+
+  // ── Reboot field formatters (used by template) ────────────────────────────
+  public formatTimestamp(rec: IRebootRecord): string {
+    if (!rec.ts) return '—';
+    const d = new Date(rec.ts * 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ` +
+           `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  public formatUptime(sec: number): string {
+    if (!sec || sec < 0) return '—';
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (d > 0) return `${d}d ${h}h ${m}m`;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  public formatHeap(bytes: number): string {
+    if (!bytes) return '—';
+    if (bytes >= 1024) return `${(bytes/1024).toFixed(1)} KB`;
+    return `${bytes} B`;
+  }
+
+  public classMeta(cls: string) {
+    return CLASS_META[cls] ?? CLASS_META['external'];
+  }
+
+  // Compose a single human-readable "reason" string for the table cell,
+  // preferring intent (planned restarts) and falling back to the reset_reason
+  // (crashes / power issues) when no intent was recorded.
+  public reasonText(rec: IRebootRecord): string {
+    if (rec.intent && rec.intent !== 'none' && INTENT_LABEL[rec.intent]) {
+      const base = INTENT_LABEL[rec.intent];
+      return rec.detail ? `${base} — ${rec.detail}` : base;
+    }
+    const base = RESET_LABEL[rec.reset] ?? rec.reset;
+    return rec.detail ? `${base} — ${rec.detail}` : base;
+  }
+
+  // ── Logs ──────────────────────────────────────────────────────────────────
   private startLogs(): void {
     // connect() creates a fresh WebSocketSubject and opens the connection
     this.websocketSubscription = this.websocketService.connect().subscribe({
@@ -126,7 +271,8 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngAfterViewChecked(): void {
-    // 始终自动滚动到底部
+    // Only auto-scroll while the realtime-logs tab is visible.
+    if (this.activeTab !== 0) return;
     if (this.scrollContainer?.nativeElement != null) {
       this.scrollContainer.nativeElement.scrollTo({
         left: 0,

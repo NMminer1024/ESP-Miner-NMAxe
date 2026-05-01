@@ -1,8 +1,13 @@
 ﻿#include "app/application.h"
 #include "esp_freertos_hooks.h"
 #include "utils/logger/logger.h"
+#include "utils/reboot_log/reboot_log.h"
 
 void setup() {
+    // Must run before any task that may call reboot_intent_set(): commits the
+    // record describing the *previous* boot to NVS and arms RTC for this run.
+    reboot_log_init();
+
     auto& app = MinerApp::instance();
     app.init();
     app.begin();
