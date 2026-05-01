@@ -612,6 +612,11 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/reboot/last", HTTP_GET,    get_reboot_last);
     webServer.on("/api/reboot/list", HTTP_GET,    get_reboot_list);
     webServer.on("/api/reboot/list", HTTP_DELETE, delete_reboot_list);
+    // ── Coredump (post-mortem summary in flash, cleared on demand) ─────────
+    // The full ELF blob is intentionally NOT exposed: the on-card summary
+    // (PC + backtrace + task + sha) carries everything we need to triage.
+    webServer.on("/api/coredump/info", HTTP_GET,    get_coredump_info);
+    webServer.on("/api/coredump",      HTTP_DELETE, delete_coredump);
     // ── Wakeup: any caller (local or cross-origin swarm panel) can wake this device's screensaver.
     // Dashboard and swarm pages call this to keep the screensaver inactive.
     // Setting / update / log pages do NOT call this, so the screensaver can activate
@@ -754,6 +759,9 @@ void webserver_thread_entry(void *args){
         if (board->status.ota.running && board->status.ota.last_progress_ms != 0) {
             if (millis() - board->status.ota.last_progress_ms > 60*1000UL) {
                 LOG_E("[OTA watchdog] upload stalled >60s at %d%%, triggering reboot", board->status.ota.progress);
+                reboot_intent_set(REBOOT_INTENT_OTA_STALL,
+                                  "upload stalled at %d%% for >60s",
+                                  board->status.ota.progress);
                 xSemaphoreGive(board->status.reboot_xsem);
             }
         }
@@ -1535,6 +1543,10 @@ void monitor_thread_entry(void *args){
                 
                 if(++vcore_err_cnt > 10){//avoid some noise
                     LOG_W("Vcore part temp keep danger, restart miner...");
+                    reboot_intent_set(REBOOT_INTENT_OVERHEAT_VCORE,
+                                      "Vcore=%.1fC > limit=%dC for >10s",
+                                      board->status.temp.vcore,
+                                      board->info.spec.pwr.temp_limit.high);
                     xSemaphoreGive(board->status.reboot_xsem);
                 }
             }else vcore_err_cnt = 0;
@@ -1553,6 +1565,10 @@ void monitor_thread_entry(void *args){
                 LOG_W("ASIC temp reach danger (asic: %.1fC), decrease vcore from %d to %d mV", board->status.temp.asic, vcore_req_last, board->info.spec.asic.req_vcore);
                 if(++asic_err_cnt > 10){//avoid some noise
                     LOG_W("ASIC temp keep danger, restart miner...");
+                    reboot_intent_set(REBOOT_INTENT_OVERHEAT_ASIC,
+                                      "ASIC=%.1fC > limit=%dC for >10s",
+                                      board->status.temp.asic,
+                                      board->info.spec.asic.temp_limit.high);
                     xSemaphoreGive(board->status.reboot_xsem);
                 }
             }else asic_err_cnt = 0;
@@ -1565,6 +1581,10 @@ void monitor_thread_entry(void *args){
                         fan_err_cnt++;
                         if(fan_err_cnt > 20){//avoid some noise
                             LOG_W("Fan rpm is too low, restart miner...");
+                            reboot_intent_set(REBOOT_INTENT_FAN_STALL,
+                                              "fan#%d rpm=%d < danger=%d for >20s",
+                                              fan.id, fan.rpm,
+                                              board->info.spec.fans[fan.id].init.danger_rpm_thr);
                             xSemaphoreGive(board->status.reboot_xsem);
                         }
                     }
@@ -1578,6 +1598,10 @@ void monitor_thread_entry(void *args){
                     LOG_W("Power %0.1fW is too low...", board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0);
                     if(++pwr_err_cnt > 120){//120s
                         LOG_W("Power is too low, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_POWER_LOW,
+                                          "input %.1fW < threshold=%.1fW for >120s",
+                                          board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0,
+                                          (double)board->info.spec.pwr.power_low_threshold);
                         xSemaphoreGive(board->status.reboot_xsem);
                     }
                 }else pwr_err_cnt = 0;
@@ -1587,6 +1611,9 @@ void monitor_thread_entry(void *args){
                 if(board->status.miner.hashrate._3m <= 1){
                     if(++hr_err_cnt > 60){//1min
                         LOG_W("Hashrate is too low, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_LOW_HASHRATE,
+                                          "3m hashrate %.2f <= 1 for >60s",
+                                          (double)board->status.miner.hashrate._3m);
                         xSemaphoreGive(board->status.reboot_xsem);
                     }
                 }else hr_err_cnt = 0;
@@ -1670,6 +1697,8 @@ void monitor_thread_entry(void *args){
         if(xSemaphoreTake(board->status.force_config_xsem, 0) == pdTRUE){
             LOG_W("Force configuration triggered, starting wifi in AP mode when next reboot...");
             nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, true);
+            reboot_intent_set(REBOOT_INTENT_FORCE_CONFIG,
+                              "long-press boot button → AP mode on next boot");
             xSemaphoreGive(board->status.reboot_xsem);
         }
 

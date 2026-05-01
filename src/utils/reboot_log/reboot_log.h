@@ -38,6 +38,14 @@ enum RebootIntent : uint8_t {
     REBOOT_INTENT_CONFIG_CHANGED      = 9,
     REBOOT_INTENT_SELFTEST_TRIGGERED  = 10,
     REBOOT_INTENT_DAEMON_GENERIC      = 11, // fallback when reboot_xsem fired with no prior intent
+    REBOOT_INTENT_OVERHEAT_VCORE      = 12, // VRM/Vcore stage temperature stayed in danger zone
+    REBOOT_INTENT_OVERHEAT_ASIC       = 13, // ASIC die temperature stayed in danger zone
+    REBOOT_INTENT_FAN_STALL           = 14, // a fan reported danger-low RPM
+    REBOOT_INTENT_POWER_LOW           = 15, // input power dropped below threshold
+    REBOOT_INTENT_OTA_STALL           = 16, // OTA upload stalled (no progress >60s)
+    REBOOT_INTENT_LCD_USER_RESTART    = 17, // user confirmed restart on LCD setting page
+    REBOOT_INTENT_LCD_WIFI_SAVED      = 18, // user saved WiFi creds via on-screen wizard
+    REBOOT_INTENT_FORCE_CONFIG        = 19, // long-press boot button → enter AP/config on next boot
     // Append new values here, do NOT renumber existing ones.
     REBOOT_INTENT__COUNT
 };

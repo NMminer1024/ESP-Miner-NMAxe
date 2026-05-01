@@ -338,3 +338,199 @@ $external-color: #1e88e5;
     &.cls-external { background: $external-color; }
   }
 }
+
+// ── Coredump card (Plan B) ──────────────────────────────────────────────────
+.coredump-card {
+  position: relative;            // anchor for the GitHub-style copy button
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(229, 57, 53, 0.18), rgba(229, 57, 53, 0.05));
+  border: 1px solid rgba(229, 57, 53, 0.6);
+  border-left: 4px solid $crash-color;
+  border-radius: 8px;
+  color: #f0f0f0;
+
+  // Floating "copy snippet" affordance, matches GitHub's pattern: small square
+  // icon button anchored top-right of the panel.
+  .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.45);
+    color: #e0e0e0;
+    font-size: 14px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    z-index: 1;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+    &:active { transform: scale(0.95); }
+    &:disabled { opacity: 0.6; cursor: progress; }
+
+    &.copied {
+      background: rgba(67, 160, 71, 0.6);   // green flash on success
+      border-color: rgba(67, 160, 71, 0.9);
+      color: #fff;
+    }
+  }
+
+  .coredump-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .coredump-icon {
+      font-size: 28px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .coredump-titleblock { flex: 1; min-width: 240px; }
+    .coredump-title { font-size: 16px; font-weight: 700; color: #fff; }
+    .coredump-sub   {
+      font-size: 12px;
+      color: #c0c0c0;
+      margin-top: 4px;
+      line-height: 1.4;
+      code {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        color: #ffd54f;
+      }
+    }
+
+    .coredump-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      // Both Download (default) and Clear (danger) sit on the red gradient
+      // crash card, so force white text/icons for legibility regardless of the
+      // PrimeNG outlined-button defaults that would otherwise paint them red.
+      .save-log-btn {
+        color: #fff !important;
+        border-color: rgba(255, 255, 255, 0.35) !important;
+        .button-content, span { color: #fff !important; }
+        &:hover { color: #fff !important; }
+      }
+      .save-log-btn.danger {
+        background: linear-gradient(135deg, #c62828, #e53935) !important;
+        &:hover { background: linear-gradient(135deg, #b71c1c, #c62828) !important; }
+      }
+    }
+  }
+
+  .coredump-preview {
+    position: relative;                 // anchor for the floating copy button
+    margin: 12px 0 4px;
+
+    .summary-box {
+      width: 100%;
+      min-height: 220px;
+      max-height: 360px;
+      box-sizing: border-box;
+      padding: 12px 14px;
+      padding-right: 44px;              // leave room for the copy icon
+      background: rgba(0, 0, 0, 0.45);
+      color: #ffd54f;                   // amber on near-black for legibility
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      font-family: ui-monospace, "SF Mono", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre;
+      overflow: auto;
+      resize: vertical;
+      &:focus { outline: 1px solid rgba(255, 255, 255, 0.25); }
+    }
+
+    // GitHub-style square copy button anchored top-right of the textarea
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.55);
+      color: #e0e0e0;
+      font-size: 14px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+      z-index: 1;
+
+      &:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+      &:active { transform: scale(0.95); }
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
+      &.copied {
+        background: rgba(67, 160, 71, 0.65);
+        border-color: rgba(67, 160, 71, 0.9);
+        color: #fff;
+      }
+    }
+  }
+}
+
+// ── Clear-coredump confirmation modal ────────────────────────────────────────
+.cd-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.12s ease;
+}
+.cd-modal {
+  width: min(420px, 92vw);
+  background: #1f2530;
+  color: #e0e0e0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 20px 22px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  font-size: 14px;
+  line-height: 1.5;
+
+  h3 { margin: 0 0 10px; font-size: 16px; color: #fff; }
+  p  { margin: 0 0 8px; }
+  a  { color: #64b5f6; text-decoration: underline; }
+  .cd-modal-warn { color: #ef5350; font-size: 12px; margin-top: 6px; }
+
+  .cd-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 16px;
+
+    .save-log-btn.danger {
+      background: linear-gradient(135deg, #c62828, #e53935) !important;
+      color: #fff !important;
+      border-color: rgba(255, 255, 255, 0.35) !important;
+      .button-content, span { color: #fff !important; }
+      &:hover { background: linear-gradient(135deg, #b71c1c, #c62828) !important; }
+    }
+  }
+}
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }

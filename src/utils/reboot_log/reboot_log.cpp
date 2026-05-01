@@ -92,6 +92,14 @@ const char* reboot_intent_str(uint8_t v) {
         case REBOOT_INTENT_CONFIG_CHANGED:      return "config_changed";
         case REBOOT_INTENT_SELFTEST_TRIGGERED:  return "selftest_triggered";
         case REBOOT_INTENT_DAEMON_GENERIC:      return "daemon_generic";
+        case REBOOT_INTENT_OVERHEAT_VCORE:      return "overheat_vcore";
+        case REBOOT_INTENT_OVERHEAT_ASIC:       return "overheat_asic";
+        case REBOOT_INTENT_FAN_STALL:           return "fan_stall";
+        case REBOOT_INTENT_POWER_LOW:           return "power_low";
+        case REBOOT_INTENT_OTA_STALL:           return "ota_stall";
+        case REBOOT_INTENT_LCD_USER_RESTART:    return "lcd_user_restart";
+        case REBOOT_INTENT_LCD_WIFI_SAVED:      return "lcd_wifi_saved";
+        case REBOOT_INTENT_FORCE_CONFIG:        return "force_config";
         default:                                return "unknown";
     }
 }

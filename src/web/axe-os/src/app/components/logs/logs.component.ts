@@ -4,6 +4,7 @@ import {SystemService} from 'src/app/services/system.service';
 import {WebsocketService} from 'src/app/services/web-socket.service';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 import {IRebootRecord} from 'src/models/IRebootRecord';
+import {ICoredumpInfo} from 'src/models/ICoredumpInfo';
 import {DomSanitizer, SafeHtml} from '@angular/platform-browser';
 import {ToastrService} from 'ngx-toastr';
 
@@ -22,6 +23,14 @@ const INTENT_LABEL: Record<string, string> = {
   config_changed:        'Configuration changed',
   selftest_triggered:    'Self-test',
   daemon_generic:        'Internal restart',
+  overheat_vcore:        'VRM/Vcore overheated',
+  overheat_asic:         'ASIC overheated',
+  fan_stall:             'Fan stalled (low RPM)',
+  power_low:             'Input power too low',
+  ota_stall:             'OTA upload stalled',
+  lcd_user_restart:      'User restarted via LCD',
+  lcd_wifi_saved:        'Wi-Fi saved via on-screen wizard',
+  force_config:          'Force-config (boot button held)',
 };
 
 const RESET_LABEL: Record<string, string> = {
@@ -67,6 +76,10 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
   public rebootList: IRebootRecord[] = [];
   public rebootLoading = false;
   public rebootError: string | null = null;
+
+  // Coredump state (Plan B). Polled lazily when entering tab 1.
+  public coredump: ICoredumpInfo | null = null;
+  public coredumpLoading = false;
 
   private websocketSubscription?: Subscription;
 
@@ -131,6 +144,9 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (idx === 1 && this.rebootList.length === 0 && !this.rebootLoading) {
       this.refreshReboots();
     }
+    if (idx === 1 && this.coredump === null && !this.coredumpLoading) {
+      this.refreshCoredump();
+    }
   }
 
   // ── Reboot history actions ────────────────────────────────────────────────
@@ -162,16 +178,180 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
-  public exportReboots(): void {
-    const payload = JSON.stringify(this.rebootList, null, 2);
-    const blob = new Blob([payload], {type: 'application/json'});
-    const url  = window.URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    a.href     = url;
-    a.download = `reboot-history-${stamp}.json`;
+  // ── Coredump actions ───────────────────────────────────────────────────────────────────────────
+
+  // Cached firmware/host so we can name the download file consistently,
+  // and the rendered summary text shown in the read-only textarea.
+  public coredumpSummary: string = '';
+  public coredumpCopied  = false;        // brief check-mark on copy success
+  public coredumpDownloading = false;
+  private fwVersion: string = 'unknown';
+  private hostName : string = 'device';
+
+  public refreshCoredump(): void {
+    this.coredumpLoading = true;
+    this.systemService.getCoredumpInfo().subscribe({
+      next: info => {
+        this.coredump        = info ?? {present: false};
+        this.coredumpLoading = false;
+        if (this.coredump.present) this.refreshCoredumpSummary();
+        else                       this.coredumpSummary = '';
+      },
+      error: () => {
+        this.coredump        = {present: false};
+        this.coredumpLoading = false;
+        this.coredumpSummary = '';
+      }
+    });
+  }
+
+  // Pull host + fwVersion from /api/system/info, then build the textarea
+  // contents. Done as a separate request so the coredump card paints quickly
+  // on slow networks; on failure we still show a partial summary.
+  private refreshCoredumpSummary(): void {
+    const cd = this.coredump;
+    if (!cd?.present) { this.coredumpSummary = ''; return; }
+    this.systemService.getInfo().subscribe({
+      next: (info: any) => {
+        this.fwVersion = String(info?.identity?.fwVersion ?? info?.fwVersion ?? info?.version ?? 'unknown');
+        this.hostName  = String(info?.identity?.hostName  ?? info?.hostName  ?? info?.hostname ?? 'device');
+        this.coredumpSummary = this.buildCoredumpText(cd, this.fwVersion);
+      },
+      error: () => {
+        this.coredumpSummary = this.buildCoredumpText(cd, this.fwVersion);
+      }
+    });
+  }
+
+  // Toggle for the custom Clear-coredump confirmation modal. We use a real
+  // modal (not window.confirm) so we can render an HTML link to GitHub
+  // Issues and remind the user to keep a local backup before erasing.
+  public showClearConfirm = false;
+  public readonly githubIssuesUrl = 'https://github.com/NMminer1024/ESP-Miner-NMAxe/issues';
+
+  public clearCoredump(): void {
+    if (!this.coredump?.present) return;
+    this.showClearConfirm = true;
+  }
+
+  public confirmClearCoredump(): void {
+    this.showClearConfirm = false;
+    if (!this.coredump?.present) return;
+    this.systemService.clearCoredump().subscribe({
+      next: () => {
+        this.coredump        = {present: false};
+        this.coredumpSummary = '';
+        this.toastr.success('Coredump erased', 'OK');
+      },
+      error: () => this.toastr.error('Failed to erase coredump', 'Error')
+    });
+  }
+
+  public cancelClearCoredump(): void {
+    this.showClearConfirm = false;
+  }
+
+  // Save the rendered crash summary (the same text shown in the textarea)
+  // as a .log file. The full ELF coredump is intentionally not exposed:
+  // every actionable field (PC, backtrace, task, app SHA256) is already in
+  // the summary, and a plain-text file is far easier to email / paste into
+  // a GitHub issue.
+  public downloadCoredump(): void {
+    if (!this.coredump?.present || !this.coredumpSummary || this.coredumpDownloading) return;
+    this.coredumpDownloading = true;
+    try {
+      const blob = new Blob([this.coredumpSummary], {type: 'text/plain;charset=utf-8'});
+      this.saveBlob(blob, this.makeFilename('log'));
+      this.toastr.success('Crash summary saved', 'OK');
+    } catch {
+      this.toastr.error('Failed to save crash summary', 'Error');
+    } finally {
+      this.coredumpDownloading = false;
+    }
+  }
+
+  // Copy the textarea content (parsed summary) to the clipboard. Shows a
+  // brief check-mark on the GitHub-style icon button.
+  public copySummary(): void {
+    if (!this.coredumpSummary) return;
+    this.writeToClipboard(this.coredumpSummary).then(ok => {
+      if (ok) {
+        this.coredumpCopied = true;
+        this.toastr.success(`Copied ${this.coredumpSummary.length} chars`, 'OK');
+        setTimeout(() => this.coredumpCopied = false, 1500);
+      } else {
+        this.toastr.error('Clipboard write blocked by browser', 'Error');
+      }
+    });
+  }
+
+  // Build a sanitized "<host>-<fw>-yyyy-MM-dd-HH-mm-ss.<ext>" filename.
+  private makeFilename(ext: string): string {
+    const safe = (s: string) => s.replace(/[\\/:*?"<>|\s]+/g, '_').replace(/^_+|_+$/g, '') || 'x';
+    const d  = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}-` +
+                  `${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+    return `${safe(this.hostName)}-${safe(this.fwVersion)}-${stamp}.${ext}`;
+  }
+
+  // Trigger a browser download for an arbitrary Blob.
+  private saveBlob(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url; a.download = filename;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); window.URL.revokeObjectURL(url);
+  }
+
+  // Async clipboard with a textarea fallback for non-secure (http) contexts.
+  private writeToClipboard(text: string): Promise<boolean> {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).then(() => true, () => false);
+    }
+    return new Promise<boolean>(resolve => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        resolve(ok);
+      } catch { resolve(false); }
+    });
+  }
+
+  // Render the coredump summary into a multi-line plain-text block, mirroring
+  // what the user sees on the card. Useful for pasting into bug reports.
+  private buildCoredumpText(cd: ICoredumpInfo, fwVersion?: string): string {
+    const lines: string[] = [];
+    lines.push('=== ESP32 Coredump Summary ===');
+    if (cd.crcOk === false) {
+      lines.push('[WARNING] CRC check failed: dump may be truncated (common with TWDT crashes).');
+      lines.push('[WARNING] Backtrace addresses below may be incomplete or incorrect.');
+    }
+    lines.push(`Firmware   : ${fwVersion || '(unknown)'}`);
+    if (cd.size != null)        lines.push(`Size       : ${cd.size} bytes`);
+    if (cd.task)                lines.push(`Crash Task : ${cd.task}`);
+    if (cd.pc != null)          lines.push(`PC         : ${this.formatAddr(cd.pc)}`);
+    if (cd.appSha256)           lines.push(`App SHA256 : ${cd.appSha256}`);
+    if (cd.bt && cd.bt.length) {
+      lines.push('');
+      lines.push(`Backtrace${cd.btCorrupted ? ' (possibly partial/corrupted)' : ''}:`);
+      lines.push(cd.bt.map(a => this.formatAddr(a)).join(' '));
+    } else {
+      lines.push('Backtrace  : (none captured)');
+    }
+    return lines.join('\n');
+  }
+
+  // Format a 32-bit address as the conventional 0x........ hex string.
+  public formatAddr(v: number | undefined): string {
+    if (v == null) return '—';
+    return '0x' + (v >>> 0).toString(16).padStart(8, '0');
   }
 
   // ── Reboot field formatters (used by template) ────────────────────────────

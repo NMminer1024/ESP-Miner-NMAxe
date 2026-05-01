@@ -7,6 +7,7 @@
 #include "image/image.h"
 #include "nvs/nvs_config.h"
 #include "board/board.h"
+#include "utils/reboot_log/reboot_log.h"
 
 // Forward-declare qrcodegen C API (compiled as part of lvgl, no header modify needed)
 extern "C" {
@@ -416,6 +417,8 @@ static void msgbox_restart_cb(lv_event_t *e) {
     uint16_t  btn  = lv_msgbox_get_active_btn(mbox);
     if(btn == 0) { // "Yes"
         LOG_W("Restart confirmed.");
+        reboot_intent_set(REBOOT_INTENT_LCD_USER_RESTART,
+                          "user confirmed restart on LCD setting page");
         xSemaphoreGive(g_board.status.reboot_xsem);
     }
     lv_msgbox_close(mbox);
@@ -2727,6 +2730,9 @@ void ui_config_page_update(void* args) {
       lv_obj_set_style_text_align(lb_ok, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
       lv_obj_center(lb_ok);
 
+      reboot_intent_set(REBOOT_INTENT_LCD_WIFI_SAVED,
+                        "saved SSID=%s via on-screen wizard",
+                        ws_pending_ssid.c_str());
       xSemaphoreGive(board->status.reboot_xsem);
     }
   }

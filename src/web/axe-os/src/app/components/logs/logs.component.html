@@ -48,30 +48,98 @@
             <h2>Reboot History</h2>
             <div class="reboot-actions">
               <button pButton
-                      (click)="refreshReboots()"
-                      class="p-button-rounded p-button-outlined save-log-btn"
-                      [disabled]="rebootLoading">
-                <span class="button-content">
-                  <span class="download-icon">↻</span>
-                  <span>Refresh</span>
-                </span>
-              </button>
-              <button pButton
-                      (click)="exportReboots()"
-                      class="p-button-rounded p-button-outlined save-log-btn"
-                      [disabled]="rebootList.length === 0">
-                <span class="button-content">
-                  <span class="download-icon">💾</span>
-                  <span>Export JSON</span>
-                </span>
-              </button>
-              <button pButton
                       (click)="clearReboots()"
                       class="p-button-rounded p-button-outlined save-log-btn danger"
                       [disabled]="rebootList.length === 0">
                 <span class="button-content">
                   <span class="download-icon">🗑</span>
                   <span>Clear</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coredump card (only shown when a crash dump is present in flash) -->
+        <div class="coredump-card" *ngIf="coredump?.present">
+          <div class="coredump-head">
+            <span class="coredump-icon">💥</span>
+            <div class="coredump-titleblock">
+              <div class="coredump-title">Crash dump detect</div>
+              <div class="coredump-sub">
+                A panic / watchdog reset captured the crashing PC and call
+                stack below. Click <strong>Download</strong> to save it as a
+                .log file you can attach to a GitHub issue.
+              </div>
+            </div>
+            <div class="coredump-actions">
+              <button pButton
+                      (click)="downloadCoredump()"
+                      class="p-button-rounded p-button-outlined save-log-btn"
+                      [disabled]="coredumpDownloading">
+                <span class="button-content">
+                  <span class="download-icon">💾</span>
+                  <span>{{ coredumpDownloading ? 'Saving…' : 'Download' }}</span>
+                </span>
+              </button>
+              <button pButton
+                      (click)="clearCoredump()"
+                      class="p-button-rounded p-button-outlined save-log-btn danger">
+                <span class="button-content">
+                  <span class="download-icon">🗑</span>
+                  <span>Clear</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Summary text preview (read-only); GitHub-style copy button on top-right -->
+          <div class="coredump-preview">
+            <button type="button"
+                    class="copy-btn"
+                    (click)="copySummary()"
+                    [disabled]="!coredumpSummary"
+                    [class.copied]="coredumpCopied"
+                    [title]="coredumpCopied ? 'Copied!' : 'Copy summary text'">
+              <span *ngIf="!coredumpCopied">⧉</span>
+              <span *ngIf="coredumpCopied">✓</span>
+            </button>
+            <textarea class="summary-box mono"
+                      readonly
+                      spellcheck="false"
+                      [value]="coredumpSummary"></textarea>
+          </div>
+        </div>
+
+        <!-- Clear-coredump confirmation modal: warns the user that this is the
+             only on-device crash artifact, and points to GitHub Issues for
+             reporting. Shown by clearCoredump(); cleared by either button. -->
+        <div class="cd-modal-overlay" *ngIf="showClearConfirm" (click)="cancelClearCoredump()">
+          <div class="cd-modal" (click)="$event.stopPropagation()">
+            <h3>Clear crash dump?</h3>
+            <p>
+              This is the only on-device record of the last crash and is what
+              developers need to fix the bug.
+            </p>
+            <p>
+              <strong>Please Download a backup first.</strong> You can then
+              email it to support, or open an issue on
+              <a [href]="githubIssuesUrl" target="_blank" rel="noopener">GitHub</a>
+              with the log attached.
+            </p>
+            <p class="cd-modal-warn">Erasing cannot be undone.</p>
+            <div class="cd-modal-actions">
+              <button pButton type="button"
+                      class="p-button-text"
+                      (click)="cancelClearCoredump()">
+                <span>Cancel</span>
+              </button>
+              <button pButton type="button"
+                      class="p-button-rounded save-log-btn danger"
+                      (click)="confirmClearCoredump()">
+                <span class="button-content">
+                  <span class="download-icon">🗑</span>
+                  <span>Clear anyway</span>
                 </span>
               </button>
             </div>

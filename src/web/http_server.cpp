@@ -9,6 +9,7 @@
 #include "nvs/nvs_config.h"
 #include "utils/helper.h"
 #include "utils/reboot_log/reboot_log.h"
+#include "utils/reboot_log/coredump.h"
 #include "board/board.h"
 
 AsyncWebServer  webServer(80);
@@ -1210,6 +1211,68 @@ void get_reboot_list(AsyncWebServerRequest * request) {
 void delete_reboot_list(AsyncWebServerRequest * request) {
     reboot_log_clear();
     AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(resp);
+}
+
+// ── Coredump endpoints (Plan B) ─────────────────────────────────────────────
+//
+// On panic / WDT the IDF panic handler writes an ELF coredump to the dedicated
+// "coredump" partition (64 KB). These three endpoints let the user inspect
+// (info), retrieve (download) and clear (delete) it from the web UI.
+//
+// JSON shape from /api/coredump/info:
+//   {
+//     "present": true,
+//     "size": 12480,
+//     "task":  "miner",
+//     "pc":    1075871436,
+//     "bt":    [1075871436, 1075869312, ...],
+//     "btCorrupted": false,
+//     "appSha256": "abc123..."
+//   }
+// When no dump (or corrupted): {"present": false}.
+
+// GET /api/coredump/info -- presence + summary metadata.
+void get_coredump_info(AsyncWebServerRequest * request) {
+    DynamicJsonDocument doc(1024);
+    JsonObject obj = doc.to<JsonObject>();
+    size_t sz = 0;
+    bool crc_ok = false;
+    bool present = coredump_present(&sz, &crc_ok);
+    obj["present"] = present;
+    if (!present) {
+        String body; serializeJson(doc, body);
+        AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", body);
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(resp);
+        return;
+    }
+    obj["size"]   = (uint32_t)sz;
+    obj["crcOk"]  = crc_ok;   // false → dump may be truncated / corrupted
+
+    coredump_summary_lite_t s;
+    if (coredump_get_summary(&s) && s.valid) {
+        obj["task"]         = (const char*)s.task;
+        obj["pc"]           = s.pc;
+        obj["btCorrupted"]  = s.bt_corrupted;
+        obj["appSha256"]    = (const char*)s.app_sha256;
+        JsonArray bt = obj.createNestedArray("bt");
+        for (uint8_t i = 0; i < s.bt_depth; ++i) bt.add(s.bt[i]);
+    }
+    String body; serializeJson(doc, body);
+    AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", body);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(resp);
+}
+
+// DELETE /api/coredump -- erase the partition. Use only after the user has
+// downloaded what they need; this is irreversible.
+void delete_coredump(AsyncWebServerRequest * request) {
+    bool ok = coredump_erase();
+    AsyncWebServerResponse* resp = request->beginResponse(
+        ok ? 200 : 500, "application/json",
+        ok ? "{\"status\":\"ok\"}" : "{\"status\":\"error\"}");
     resp->addHeader("Access-Control-Allow-Origin", "*");
     request->send(resp);
 }

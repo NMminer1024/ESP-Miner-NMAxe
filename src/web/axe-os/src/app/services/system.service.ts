@@ -5,6 +5,7 @@ import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 import {IGaugeLimits} from 'src/models/IGaugeLimits';
 import {IRebootRecord} from 'src/models/IRebootRecord';
+import {ICoredumpInfo} from 'src/models/ICoredumpInfo';
 
 import {environment} from '../../environments/environment';
 
@@ -190,6 +191,17 @@ export class SystemService {
 
   public clearRebootList(uri: string = '') {
     return this.httpClient.delete(`${uri}/api/reboot/list`, {responseType: 'text'});
+  }
+
+  // ── Coredump (post-mortem summary written by IDF panic handler) ────────
+  // Workflow: poll info → user reads the summary on the card / saves it as a
+  // .log file locally → Clear (DELETE) once the report has been backed up.
+  public getCoredumpInfo(uri: string = ''): Observable<ICoredumpInfo> {
+    return this.httpClient.get<ICoredumpInfo>(`${uri}/api/coredump/info`);
+  }
+
+  public clearCoredump(uri: string = '') {
+    return this.httpClient.delete(`${uri}/api/coredump`, {responseType: 'text'});
   }
 
 
