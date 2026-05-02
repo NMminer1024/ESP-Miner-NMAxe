@@ -1209,9 +1209,13 @@ void swarm_thread_entry(void *args){
             LOG_W("(swarm) INVALID self hr=%.0f, using 0 (torn read?)", self_hr);
             self_hr = 0.0;
         }
+        // Use confirmed_ips.size() (not workers) for the displayed count: an already-confirmed NM
+        // peer that misses a single probe stays in confirmed_ips (kept until MAX_PROBE_FAIL),
+        // but is NOT counted in `workers` (only successful probes this round increment it).
+        // Reporting `workers` directly causes the UI count to flicker -1 on transient probe misses.
         if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            ctx.total_workers   = workers + 1;                                 // include self
-            ctx.total_hr        = total_hr + self_hr;                          // include self
+            ctx.total_workers   = (uint32_t)ctx.confirmed_ips.size() + 1;      // include self
+            ctx.total_hr        = total_hr + self_hr;                          // include self (slight dip on miss is OK; hr is continuous)
             ctx.best_session_bd = (best_session_bd > board->status.miner.diff.best_session) ? best_session_bd : board->status.miner.diff.best_session;
             ctx.best_ever_bd    = (best_ever_bd > board->status.miner.diff.best_ever) ? best_ever_bd : board->status.miner.diff.best_ever;
             xSemaphoreGive(ctx.mutex);
