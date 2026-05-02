@@ -137,6 +137,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     *(uint32_t*)this->_asic_job_now.starting_nonce  = 0x00000000;
     this->_asic_job_map[this->_asic_job_now.id]     = this->_asic_job_now;
     this->_extranonce2_map[this->_asic_job_now.id]  = extranonce2;
+    this->_pool_job_id_map[this->_asic_job_now.id]  = pool_job->id;   // bind pool_job_id to this asic slot
 
     LOG_D("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
 
@@ -183,6 +184,8 @@ bool AsicMinerClass::find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job)
 
 bool AsicMinerClass::clear_asic_job_cache(){
     this->_asic_job_map.clear();
+    this->_extranonce2_map.clear();
+    this->_pool_job_id_map.clear();
     return true;
 }
 
@@ -193,8 +196,15 @@ String AsicMinerClass::get_extranonce2_by_asic_job_id(uint8_t asic_job_id){
     return this->_extranonce2_map[asic_job_id];
 }
 
-bool AsicMinerClass::submit_job_share(String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version){
-    return g_board.stratum->submit(this->pool_job_now.id, extranonce2, ntime, nonce, version);
+String AsicMinerClass::get_pool_job_id_by_asic_job_id(uint8_t asic_job_id){
+    auto it = this->_pool_job_id_map.find(asic_job_id);
+    if(it == this->_pool_job_id_map.end()) return "";
+    return it->second;
+}
+
+bool AsicMinerClass::submit_job_share(String pool_job_id, String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version){
+    if(pool_job_id.length() == 0) return false;
+    return g_board.stratum->submit(pool_job_id, extranonce2, ntime, nonce, version);
 }
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){

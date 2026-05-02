@@ -1159,7 +1159,7 @@ void swarm_thread_entry(void *args){
             ctx.best_ever_bd    = (best_ever_bd > board->status.miner.diff.best_ever) ? best_ever_bd : board->status.miner.diff.best_ever;
             xSemaphoreGive(ctx.mutex);
         }
-        LOG_W("(swarm) gen=%u probed=%u(+self) workers=%u hr=%sH/s sbd=%s ebd=%s", 
+        LOG_D("(swarm) gen=%u probed=%u(+self) workers=%u hr=%sH/s sbd=%s ebd=%s", 
             ctx.last_scan_gen, (uint32_t)targets.size(), ctx.total_workers, 
             formatNumber(ctx.total_hr, 3).c_str(), 
             formatNumber(ctx.best_session_bd, 3).c_str(), 
@@ -2211,8 +2211,10 @@ void miner_asic_rx_thread_entry(void *args){
                 
                 //submit sulution
                 uint32_t version_submit = version ^ (*(uint32_t*)job.version);
-                String   extra2_submit = board->miner->get_extranonce2_by_asic_job_id(result.asic.job_id);
-                bool res = board->miner->submit_job_share(extra2_submit, result.asic.nonce, *(uint32_t*)job.ntime, version_submit);
+                String   pool_id_submit = board->miner->get_pool_job_id_by_asic_job_id(result.asic.job_id);
+                String   extra2_submit  = board->miner->get_extranonce2_by_asic_job_id(result.asic.job_id);
+                if(pool_id_submit.length() == 0 || extra2_submit.length() == 0) continue; // slot evicted/cleared
+                bool res = board->miner->submit_job_share(pool_id_submit, extra2_submit, result.asic.nonce, *(uint32_t*)job.ntime, version_submit);
                 if(!res) continue;
                 
                 //update the block hit counter

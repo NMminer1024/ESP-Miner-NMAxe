@@ -51,6 +51,7 @@ private:
     asic_job                    _asic_job_now;
     std::map<uint8_t, asic_job> _asic_job_map;
     std::map<uint8_t, String>   _extranonce2_map;
+    std::map<uint8_t, String>   _pool_job_id_map;   // bind asic_job_id -> pool_job_id at construction time
 public:
     pool_job_data_t             pool_job_now;
     AsicMinerClass(BMxxx *asic);
@@ -63,8 +64,9 @@ public:
     uint16_t get_asic_small_cores();
     double get_asic_diff();
     String get_extranonce2_by_asic_job_id(uint8_t asic_job_id);
+    String get_pool_job_id_by_asic_job_id(uint8_t asic_job_id);
     esp_err_t listen_asic_rsp(miner_result *result, uint32_t timeout_ms = 1000*60);
-    bool submit_job_share(String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version);
+    bool submit_job_share(String pool_job_id, String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version);
     bool find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job);
     bool clear_asic_job_cache();
     bool calculate_hashrate(hashrate_t *phr);
