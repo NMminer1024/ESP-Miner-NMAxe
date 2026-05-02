@@ -999,51 +999,44 @@ void swarm_thread_entry(void *args){
             LOG_W("(swarm) WARNING: failed to acquire nbr.mutex in 200ms");
         }
 
-        // ── Detect whether a new scan round has completed ────────────────────────────────
-        // generation changed → clear all cached state, re-probe all alive IPs from scratch
+        // ── Detect whether a new ICMP scan generation completed ──────────────────────────
+        // On generation change: only clear the blacklist (give non-NM devices a chance to be re-evaluated).
+        // confirmed_ips and gossip_union are kept across generations to prevent a UI worker-count cliff.
+        // A confirmed_ip is removed only after MAX_PROBE_FAIL consecutive probe failures (see below).
+        const uint8_t MAX_PROBE_FAIL = 3;
         if (cur_gen != ctx.last_scan_gen) {
-            ctx.confirmed_ips.clear();
             ctx.last_scan_gen = cur_gen;
             if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                 ctx.probe_blacklist.clear();
                 xSemaphoreGive(ctx.mutex);
             }
-            LOG_W("(swarm) new scan gen=%u, reset swarm memory, %u alive IPs to probe", cur_gen, (uint32_t)alive.size());
+            LOG_W("(swarm) new scan gen=%u, blacklist reset; confirmed=%u gossip=%u (kept)",
+                  cur_gen, (uint32_t)ctx.confirmed_ips.size(), (uint32_t)ctx.gossip_union.size());
         }
 
-        // ── Determine probe targets for this round ──────────────────────────────────────
-        // confirmed_ips non-empty (not first round) → talk to known NMMiners + probe unclassified alive IPs
-        // confirmed_ips empty (new generation or startup) → full probe of all alive IPs
+        // ── Build probe targets: local_alive ∪ confirmed_ips ∪ gossip_union ─────────────
+        // All three sources participate in probing; identity is determined by the /probe result this round.
         const String selfIP = WiFi.localIP().toString();
         std::vector<String> targets;
-        if (ctx.confirmed_ips.empty()) {
-            // Full probe: skip self and blacklisted IPs
-            for (const auto& ip : alive) {
-                if (ip == selfIP) continue;
-                bool bl = false;
-                if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-                    bl = ctx.probe_blacklist.count(ip) > 0;
-                    xSemaphoreGive(ctx.mutex);
-                }
-                if (!bl) targets.push_back(ip);
+        std::set<String>    seen;   // dedupe
+        auto add_target = [&](const String& ip) {
+            if (ip == selfIP) return;
+            if (seen.count(ip)) return;
+            bool bl = false;
+            if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+                bl = ctx.probe_blacklist.count(ip) > 0;
+                xSemaphoreGive(ctx.mutex);
             }
-        } else {
-            // Targeted probe: confirmed NMMiners
-            for (const auto& ip : ctx.confirmed_ips)
-                targets.push_back(ip);
-            // Supplemental probe: IPs that came online during scanning, not yet classified (neither confirmed nor blacklisted)
-            // Resolves race condition where swarm enters targeted mode before newly discovered IPs have been probed
-            for (const auto& ip : alive) {
-                if (ip == selfIP) continue;
-                if (ctx.confirmed_ips.count(ip)) continue; // already confirmed, skip
-                bool bl = false;
-                if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-                    bl = ctx.probe_blacklist.count(ip) > 0;
-                    xSemaphoreGive(ctx.mutex);
-                }
-                if (!bl) targets.push_back(ip);
-            }
-        }
+            if (bl) return;
+            seen.insert(ip);
+            targets.push_back(ip);
+        };
+        // confirmed_ips first to keep worker count stable
+        for (const auto& ip : ctx.confirmed_ips) add_target(ip);
+        // IPs discovered by local ICMP scan
+        for (const auto& ip : alive)             add_target(ip);
+        // supplemental IPs collected via gossip
+        for (const auto& ip : ctx.gossip_union)  add_target(ip);
 
         // ── Probe target list ────────────────────────────────────────────────────────
         uint32_t workers         = 0;
@@ -1051,10 +1044,11 @@ void swarm_thread_entry(void *args){
         double   best_session_bd = 0.0;
         double   best_ever_bd    = 0.0;
 
-        LOG_D("(swarm) targets(%u): confirmed=%u unclassified=%u",
+        LOG_D("(swarm) targets(%u): confirmed=%u alive=%u gossip=%u",
               (uint32_t)targets.size(),
               (uint32_t)ctx.confirmed_ips.size(),
-              (uint32_t)(targets.size() > ctx.confirmed_ips.size() ? targets.size() - ctx.confirmed_ips.size() : 0));
+              (uint32_t)alive.size(),
+              (uint32_t)ctx.gossip_union.size());
 
         for (const auto& ip : targets) {
             uint32_t t0 = millis();
@@ -1114,34 +1108,97 @@ void swarm_thread_entry(void *args){
                         if (!isfinite(ebd) || ebd < 0.0) ebd = 0.0;
                         if (sbd > best_session_bd) best_session_bd = sbd;
                         if (ebd > best_ever_bd)    best_ever_bd    = ebd;
-                        ctx.confirmed_ips.insert(ip); // add to confirmed set
+                        ctx.confirmed_ips.insert(ip);
+                        ctx.probe_fail_cnt[ip] = 0; // reset on success
                         LOG_D("(swarm) %s NM device hr=%.0f sbd=%.0f ebd=%.0f",
                               ip.c_str(), hr, sbd, ebd);
                     } else {
-                        // Non-NM device found during full probe → blacklist (valid for current scan cycle)
+                        // Non-NM device: blacklist for current generation; if it was confirmed before
+                        // (e.g. firmware downgraded / role changed), demote it.
                         if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                             ctx.probe_blacklist.insert(ip);
                             xSemaphoreGive(ctx.mutex);
                         }
+                        ctx.confirmed_ips.erase(ip);
+                        ctx.probe_fail_cnt.erase(ip);
                         LOG_D("(swarm) %s not NM device, blacklisted", ip.c_str());
                     }
                 }
             } else {
-                // Connection failed / 404:
-                //   - unconfirmed IP (full probe or targeted-mode supplemental probe) → blacklist to avoid repeated timeout waits
-                //   - confirmed NM miner (temporarily offline) → do not blacklist, retry next round
-                // Note: if supplemental IPs in targeted mode are not blacklisted on timeout, every round will
-                //       re-probe many non-NM devices, each waiting up to 4s (connect+read), stalling the loop for minutes.
+                // Connection failed / non-200:
+                //   - confirmed NM miner    : ++fail_cnt; remove only after MAX_PROBE_FAIL consecutive failures (≈90s)
+                //   - unconfirmed (alive/gossip) : blacklist immediately to avoid repeated timeout waits
                 bool is_confirmed = ctx.confirmed_ips.count(ip) > 0;
-                if (!is_confirmed) {
+                if (is_confirmed) {
+                    uint8_t &fc = ctx.probe_fail_cnt[ip];
+                    if (fc < 0xFF) fc++;
+                    if (fc >= MAX_PROBE_FAIL) {
+                        ctx.confirmed_ips.erase(ip);
+                        ctx.probe_fail_cnt.erase(ip);
+                        LOG_W("(swarm) %s removed from confirmed after %u failures", ip.c_str(), MAX_PROBE_FAIL);
+                    } else {
+                        LOG_D("(swarm) probe %s => %d, fail_cnt=%u (kept)", ip.c_str(), code, fc);
+                    }
+                } else {
                     if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                         ctx.probe_blacklist.insert(ip);
                         xSemaphoreGive(ctx.mutex);
                     }
+                    LOG_D("(swarm) probe %s => %d, blacklisted", ip.c_str(), code);
                 }
-                LOG_D("(swarm) probe %s => %d%s", ip.c_str(), code, !is_confirmed ? ", blacklisted" : ", skip(confirmed)");
             }
             delay(50);
+        }
+
+        // ── Gossip: ask each confirmed NM peer for its /alive list ──────────────────────
+        // IPs seen by a neighbor but not scanned locally are added to gossip_union;
+        // they will naturally enter the probe targets next round.
+        // They are NOT probed immediately this round to avoid making a single round too long.
+        size_t gossip_added = 0;
+        for (const auto& ip : ctx.confirmed_ips) {
+            if (board->status.ota.running) break;
+            if (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) break;
+
+            WiFiClient wclient;
+            String body;
+            if (!wclient.connect(ip.c_str(), 80, 1000)) continue;
+            wclient.print("GET /alive HTTP/1.0\r\nHost: " + ip + "\r\nConnection: close\r\n\r\n");
+            String resp;
+            resp.reserve(1024);
+            uint32_t read_dl = millis() + 1500;
+            while ((wclient.connected() || wclient.available()) && millis() < read_dl) {
+                while (wclient.available()) {
+                    resp += (char)wclient.read();
+                    if (resp.length() > 4096) goto gossip_read_done;
+                }
+                delay(1);
+            }
+            gossip_read_done:
+            wclient.stop();
+            int bi = resp.indexOf("\r\n\r\n");
+            if (bi < 0) continue;
+            String gbody = resp.substring(bi + 4);
+            // /alive returns: {"self":"x","ips":["x","y",...]}
+            DynamicJsonDocument gdoc(2048);
+            if (deserializeJson(gdoc, gbody)) continue;
+            JsonArray arr = gdoc["ips"].as<JsonArray>();
+            for (JsonVariant v : arr) {
+                String x = v.as<String>();
+                if (x == selfIP) continue;
+                if (ctx.confirmed_ips.count(x)) continue;
+                bool bl = false;
+                if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+                    bl = ctx.probe_blacklist.count(x) > 0;
+                    xSemaphoreGive(ctx.mutex);
+                }
+                if (bl) continue;
+                if (ctx.gossip_union.insert(x).second) gossip_added++;
+            }
+            delay(50);
+        }
+        if (gossip_added) {
+            LOG_W("(swarm) gossip added %u new IPs from %u peers, union=%u",
+                  (uint32_t)gossip_added, (uint32_t)ctx.confirmed_ips.size(), (uint32_t)ctx.gossip_union.size());
         }
 
         // ── Write aggregated results ──────────────────────────────────────────────────

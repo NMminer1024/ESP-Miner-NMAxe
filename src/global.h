@@ -267,9 +267,11 @@ typedef struct{
         float             total_hr;
         float             best_session_bd;
         float             best_ever_bd;
-        std::set<String>  confirmed_ips;    // 已确认是 NMMiner 的 IP，本轮 scan 周期内精确通信
-        std::set<String>  probe_blacklist;  // 非 NMMiner IP，本轮 scan 周期内跳过
-        uint32_t          last_scan_gen;    // 上次处理的 scan_generation，变化时重置所有记忆
+        std::set<String>          confirmed_ips;    // 已确认是 NMMiner 的 IP，跨 generation 保留；连续 probe 失败 N 轮才移除
+        std::set<String>          probe_blacklist;  // 非 NMMiner IP，本轮 scan 周期内跳过；generation 切换清空
+        std::set<String>          gossip_union;     // 从 confirmed_ips 邻居 /alive 收集的补充 IP 池，跨 generation 保留
+        std::map<String, uint8_t> probe_fail_cnt;   // 每个 confirmed_ip 的连续 probe 失败次数；满 3 次才下线
+        uint32_t                  last_scan_gen;    // 上次处理的 scan_generation，仅用于触发 blacklist 清空
     }swarm;
 
     struct {
