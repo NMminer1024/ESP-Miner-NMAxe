@@ -524,6 +524,18 @@ $external-color: #1e88e5;
     justify-content: flex-end;
     margin-top: 16px;
 
+    .p-button-text {
+      background: transparent !important;
+      color: #e0e0e0 !important;
+      border: 1px solid rgba(255, 255, 255, 0.25) !important;
+      span { color: #e0e0e0 !important; }
+      &:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: #fff !important;
+        span { color: #fff !important; }
+      }
+    }
+
     .save-log-btn.danger {
       background: linear-gradient(135deg, #c62828, #e53935) !important;
       color: #fff !important;

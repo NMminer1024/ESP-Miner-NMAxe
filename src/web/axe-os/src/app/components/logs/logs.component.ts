@@ -224,10 +224,9 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   // Toggle for the custom Clear-coredump confirmation modal. We use a real
-  // modal (not window.confirm) so we can render an HTML link to GitHub
-  // Issues and remind the user to keep a local backup before erasing.
+  // modal (not window.confirm) so we can remind the user to keep a local
+  // backup before erasing.
   public showClearConfirm = false;
-  public readonly githubIssuesUrl = 'https://github.com/NMminer1024/ESP-Miner-NMAxe/issues';
 
   public clearCoredump(): void {
     if (!this.coredump?.present) return;

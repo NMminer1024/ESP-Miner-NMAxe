@@ -94,5 +94,20 @@ void loop() {
   }
 #endif
 
+#if 0
+    // TEST ONLY: deliberately crash every 30s to verify coredump's App SHA256
+    // matches the dashboard's App SHA256. Remove after testing.
+    {
+        static uint32_t s_crash_start_ms = millis();
+        if (millis() - s_crash_start_ms >= 60000UL) {
+            LOG_W("[CRASH-TEST] Triggering deliberate abort() in 100ms ...");
+            delay(100);
+            // Use abort() to mimic the assert/abort path observed in the
+            // real lwIP crash, so coredump captures a similar pattern.
+            abort();
+        }
+    }
+#endif
+
     delay(1000);
 }

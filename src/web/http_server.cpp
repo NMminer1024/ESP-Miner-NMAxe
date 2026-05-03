@@ -209,16 +209,19 @@ void get_system_info(AsyncWebServerRequest* request){
     identityObj["hostName"]   = g_board.info.base.hostname;
     identityObj["ssid"]       = g_board.info.connection.wifi.sta.ssid;
     identityObj["rssi"]       = g_board.status.wifi.rssi;
-    // SHA256 of the running app image. Useful for matching this device against
-    // a specific build artifact when triaging crash reports. We expose only
-    // the first 16 hex chars (8 bytes) to keep JSON small — still > 2^64 of
-    // collision space, plenty to disambiguate dev builds.
+    // SHA256 of the running app's ELF (embedded by the linker into
+    // esp_app_desc.app_elf_sha256). This is the SAME value the IDF panic
+    // handler prints as "ELF file SHA256: ..." in coredumps, so the dashboard
+    // can be matched 1:1 against crash logs / saved firmware.elf.
+    // (Note: this is NOT the partition/.bin SHA — those are computed over
+    // different artifacts and will never match the coredump line.)
+    // We expose only the first 16 hex chars (8 bytes) to keep JSON small.
     {
-        const esp_partition_t* run = esp_ota_get_running_partition();
-        uint8_t sha[32] = {0};
-        if (run && esp_partition_get_sha256(run, sha) == ESP_OK) {
+        const esp_app_desc_t* desc = esp_ota_get_app_description();
+        if (desc) {
             char hex[17] = {0};
-            for (int i = 0; i < 8; ++i) snprintf(hex + i * 2, 3, "%02x", sha[i]);
+            for (int i = 0; i < 8; ++i)
+                snprintf(hex + i * 2, 3, "%02x", desc->app_elf_sha256[i]);
             identityObj["appSha256"] = hex;
         }
     }
