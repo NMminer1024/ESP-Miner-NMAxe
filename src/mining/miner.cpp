@@ -209,39 +209,76 @@ bool AsicMinerClass::submit_job_share(String pool_job_id, String extranonce2, ui
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     if (phr == NULL) return false;
-    static std::deque<std::pair<uint32_t, double>, PsramAllocator<std::pair<uint32_t, double>>> hr_samples_3m, hr_samples_30m, hr_samples_60m;
-    const uint32_t duration_3m  = 3 * 60 * 1000, duration_30m = 30 * 60 * 1000, duration_60m = 60 * 60 * 1000;
-    static double sum_3m = 0.0, sum_30m = 0.0, sum_60m = 0.0;
+
+    const uint32_t W3M  =  3 * 60 * 1000u;
+    const uint32_t W30M = 30 * 60 * 1000u;
+    const uint32_t W60M = 60 * 60 * 1000u;
     uint32_t now = millis();
-    uint32_t diff = this->_asic->get_asic_difficulty();
-    // record hashrate samples
-    hr_samples_3m.push_back( {now, diff});
-    hr_samples_30m.push_back({now, diff});
-    hr_samples_60m.push_back({now, diff});
 
-    sum_3m   += diff;
-    sum_30m  += diff;
-    sum_60m  += diff;
-    //remove samples older than 3 minute
-    while(!hr_samples_3m.empty() && (hr_samples_3m.front().first + duration_3m < now)) {
-        sum_3m -= hr_samples_3m.front().second;
-        hr_samples_3m.pop_front();
+    // Pruning order matters: shorter windows FIRST, then 60m pop.
+    // If 60m pop ran first and a sample had aged past all three windows since
+    // the previous call (e.g. monitor thread was starved >30m), the sample
+    // would be removed from _s60m and the deque before _off_30m / _off_3m had
+    // a chance to advance past it — leaving its diff stuck in _s30m / _s3m.
+    // By advancing 3m and 30m cursors first, the 60m pop only needs to
+    // decrement the cursors (sample is guaranteed already excluded from _s3m
+    // and _s30m).
+
+    // 3m: advance front cursor past samples that have aged out of 3m window.
+    while (_off_3m < _hr_deque.size() && (now - _hr_deque[_off_3m].first) > W3M) {
+        _s3m -= _hr_deque[_off_3m].second;
+        _off_3m++;
     }
-    //remove samples older than 30 minute
-    while(!hr_samples_30m.empty() && (hr_samples_30m.front().first + duration_30m < now)) {
-        sum_30m -= hr_samples_30m.front().second;
-        hr_samples_30m.pop_front();
+    // 30m: same idea.
+    while (_off_30m < _hr_deque.size() && (now - _hr_deque[_off_30m].first) > W30M) {
+        _s30m -= _hr_deque[_off_30m].second;
+        _off_30m++;
     }
-    //remove samples older than 60 minute
-    while(!hr_samples_60m.empty() && (hr_samples_60m.front().first + duration_60m < now)) {
-        sum_60m -= hr_samples_60m.front().second;
-        hr_samples_60m.pop_front();
+    // 60m: drop samples older than 60 min from deque AND from _s60m.
+    // The popped sample is already excluded from _s30m / _s3m (older than 60m
+    // implies older than 30m and 3m, handled above), so just shrink the
+    // cursors by 1 to account for the front element going away.
+    while (!_hr_deque.empty() && (now - _hr_deque.front().first) > W60M) {
+        _s60m -= _hr_deque.front().second;
+        _hr_deque.pop_front();
+        if (_off_30m > 0) _off_30m--;
+        if (_off_3m  > 0) _off_3m--;
     }
 
-    phr->_3m  = sum_3m  * 4294967296.0 / (3 * 60.0);
-    phr->_30m = sum_30m * 4294967296.0 / (30 * 60.0);
-    phr->_1h  = sum_60m * 4294967296.0 / (60 * 60.0);
+    // Guard against floating-point drift: if a window's cursor has caught up
+    // to deque end (no samples in window), force the sum to exactly 0.
+    if (_off_3m  >= _hr_deque.size()) _s3m  = 0.0;
+    if (_off_30m >= _hr_deque.size()) _s30m = 0.0;
+    if (_hr_deque.empty())            _s60m = 0.0;
+
+    // Denominator is fixed to the full window length. During startup
+    // (uptime < window) this lets the displayed hashrate ramp up smoothly
+    // from 0 to the true value, instead of being amplified by a tiny
+    // elapsed-time divisor (which can spike a single early nonce to 10T+).
+    phr->_3m  = _s3m  * 4294967296.0 / (double)(W3M  / 1000u);
+    phr->_30m = _s30m * 4294967296.0 / (double)(W30M / 1000u);
+    phr->_1h  = _s60m * 4294967296.0 / (double)(W60M / 1000u);
     return true;
+}
+
+// Record one valid nonce into the hashrate sample ring.
+// Called by the ASIC RX thread whenever a nonce meets the ASIC difficulty threshold.
+void AsicMinerClass::record_nonce() {
+    double diff = this->_asic->get_asic_difficulty();
+    if (diff <= 0.0) return;
+    _hr_deque.push_back({millis(), diff});
+    // New sample is inside all three windows by definition; cursors are
+    // front-relative so push_back doesn't invalidate them.
+    _s3m  += diff;
+    _s30m += diff;
+    _s60m += diff;
+}
+
+// Clear all hashrate samples (call on stratum disconnect).
+void AsicMinerClass::reset_hashrate() {
+    _hr_deque.clear();
+    _s3m = _s30m = _s60m = 0.0;
+    _off_3m = _off_30m = 0;
 }
 
 bool AsicMinerClass::end(){

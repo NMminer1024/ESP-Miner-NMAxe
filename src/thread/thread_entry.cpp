@@ -1567,21 +1567,39 @@ void monitor_thread_entry(void *args){
 
         board->status.miner.uptime_ever++;
         board->status.miner.uptime_session++;
-        //update temperature and power status
+        //update power, wifi, hashrate and ui distribution every second
         if(board->status.miner.uptime_session % 1 == 0){
-            static uint8_t temp_cnt = 0;
-
-            //update power status
-            board->status.power.vbus          = (temp_cnt % 2 == 0) ? board->power->get_vbus() : board->status.power.vbus;
-            board->status.power.ibus          = (temp_cnt % 2 == 0) ? board->power->get_ibus() : board->status.power.ibus;
-            board->status.miner.efficiency    = ((temp_cnt % 2 == 0) && board->status.miner.hashrate._3m > 0) ? (board->status.power.vbus * board->status.power.ibus/1e6) / (board->status.miner.hashrate._3m/1e12) : board->status.miner.efficiency; //J/TH
-            board->status.power.vcore         = (temp_cnt % 2 == 0) ? board->power->get_vcore() : board->status.power.vcore;
-
-            temp_cnt++;
-            //update wifi rssi
-            board->status.wifi.rssi = WiFi.RSSI();
+            board->status.power.vbus       = board->power->get_vbus();
+            board->status.power.ibus       = board->power->get_ibus();
+            board->status.power.vcore      = board->power->get_vcore();
+            board->status.wifi.rssi        = WiFi.RSSI();
+            if (board->status.miner.hashrate._3m > 0)
+                board->status.miner.efficiency = (board->status.power.vbus * board->status.power.ibus / 1e6) / (board->status.miner.hashrate._3m / 1e12); //J/TH
+            //recalculate hashrate every second; drives natural decay to 0 when ASIC is idle
+            board->miner->calculate_hashrate(&board->status.miner.hashrate);
             //give miner update signal
             xSemaphoreGive(board->status.miner.update_xsem);
+
+            //sample the hashrate for hashrate distribution chart on ui
+            static double last_hr_3m = 0;
+            board->info.spec.ui.hashrate_dist_page.time = board->status.miner.uptime_session;
+            if(board->status.miner.hashrate._3m != last_hr_3m) { // only update when hashrate changed to save some resource
+                last_hr_3m = board->status.miner.hashrate._3m;
+                static uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
+                static uint64_t *counts = NULL;
+                if (counts == NULL) {
+                    counts = (uint64_t *)malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+                    memset(counts, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+                }
+                int index = last_hr_3m/1000/1000/1000 / SCALE; // Convert to GH/s and scale
+                index = (index >= board->info.spec.ui.hashrate_dist_page.max_x_bars) ? board->info.spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
+                counts[index]++;
+                board->info.spec.ui.hashrate_dist_page.count++;
+                for (int i = 0; i < board->info.spec.ui.hashrate_dist_page.max_x_bars; i++) {
+                    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hashrate_dist_page.count);
+                    board->info.spec.ui.hashrate_dist_page.dist_map[i] = y;// Update the global distribution map
+                }
+            }
         }
         
         //status check
@@ -1731,29 +1749,6 @@ void monitor_thread_entry(void *args){
             }
         }
 
-        //sample the hashrate for hashrate chart on ui every second
-        if(board->status.miner.uptime_session % 1 == 0){
-            static double last_hr_3m = 0;
-            board->info.spec.ui.hashrate_dist_page.time = board->status.miner.uptime_session;
-            if(board->status.miner.hashrate._3m != last_hr_3m) { // only update when hashrate changed to save some resource
-                last_hr_3m = board->status.miner.hashrate._3m;
-                static uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
-                static uint64_t *counts = NULL;
-                if (counts == NULL) {
-                    counts = (uint64_t *)malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
-                    memset(counts, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
-                }
-                int index = last_hr_3m/1000/1000/1000 / SCALE; // Convert to GH/s and scale
-                index = (index >= board->info.spec.ui.hashrate_dist_page.max_x_bars) ? board->info.spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
-                counts[index]++;
-                board->info.spec.ui.hashrate_dist_page.count++;
-                for (int i = 0; i < board->info.spec.ui.hashrate_dist_page.max_x_bars; i++) {
-                    uint8_t y = (uint8_t)(100*(float)counts[i] / (float)board->info.spec.ui.hashrate_dist_page.count);
-                    board->info.spec.ui.hashrate_dist_page.dist_map[i] = y;// Update the global distribution map
-                }
-            }
-        }
-    
         // force config if user long press boot button
         if(xSemaphoreTake(board->status.force_config_xsem, 0) == pdTRUE){
             LOG_W("Force configuration triggered, starting wifi in AP mode when next reboot...");
@@ -2123,7 +2118,8 @@ void miner_asic_tx_thread_entry(void *args){
         //null loop if not subscribed
         if(!board->stratum->is_subscribed()){
             board->miner->end();
-            board->status.miner.hashrate._3m = 0.0;
+            board->miner->reset_hashrate();           // clear stale samples
+            board->status.miner.hashrate = {0.0, 0.0, 0.0};
             delay(1000);
             continue;   
         }
@@ -2225,8 +2221,8 @@ void miner_asic_rx_thread_entry(void *args){
                 //continue if diff < asic diff threshold 
                 if(diff < board->miner->get_asic_diff()) continue;
 
-                //update hashrate anyway, even if diff < pool diff, some high diff pool may need this, avoid local hashrate freeze. 
-                board->miner->calculate_hashrate(&board->status.miner.hashrate);
+                //record nonce into hashrate ring; calculation is driven by monitor thread every second
+                board->miner->record_nonce();
 
                 // update specific asic share count, based on asic id
                 board->status.miner.asic_rsp_counter[result.asic_id]++;

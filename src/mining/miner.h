@@ -52,6 +52,13 @@ private:
     std::map<uint8_t, asic_job> _asic_job_map;
     std::map<uint8_t, String>   _extranonce2_map;
     std::map<uint8_t, String>   _pool_job_id_map;   // bind asic_job_id -> pool_job_id at construction time
+    std::deque<std::pair<uint32_t, double>, PsramAllocator<std::pair<uint32_t, double>>> _hr_deque; // single 60-min sample ring (PSRAM)
+    // Running sums + front cursors for incremental O(1) hashrate maintenance.
+    // _off_3m / _off_30m are offsets (from current deque front) of the oldest
+    // sample STILL inside the 3m / 30m window — i.e. count of front samples
+    // already excluded from that window's sum.
+    double _s3m  = 0.0, _s30m = 0.0, _s60m = 0.0;
+    size_t _off_3m = 0,  _off_30m = 0;
 public:
     pool_job_data_t             pool_job_now;
     AsicMinerClass(BMxxx *asic);
@@ -70,6 +77,8 @@ public:
     bool find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job);
     bool clear_asic_job_cache();
     bool calculate_hashrate(hashrate_t *phr);
+    void record_nonce();      // call on every valid ASIC nonce (ASIC RX thread)
+    void reset_hashrate();    // call on stratum disconnect to clear stale samples
     bool end();
 };
 
