@@ -2535,6 +2535,7 @@ void stratum_thread_entry(void *args){
                     break;
                 case STRATUM_DOWN_SET_DIFFICULTY: {
                     LOG_D("Stratum set difficulty, id : %d => %s", method.id, method.raw.c_str());
+                    board->status.miner.stratum_update = millis();//pool alive timestamp (server-pushed)
                     json.clear();
                     DeserializationError error = deserializeJson(json, method.raw);
                     if(error){
@@ -2553,6 +2554,7 @@ void stratum_thread_entry(void *args){
                     break;
                 case STRATUM_DOWN_SET_VERSION_MASK:{
                     LOG_D("Stratum set version mask , id : %d => %s", method.id, method.raw.c_str());
+                    board->status.miner.stratum_update = millis();//pool alive timestamp (server-pushed)
                     board->stratum->set_msg_rsp_map(method.id, true);
                     json.clear();
                     DeserializationError error = deserializeJson(json, method.raw);
@@ -2577,6 +2579,7 @@ void stratum_thread_entry(void *args){
                     break;
                 case STRATUM_DOWN_SET_EXTRANONCE:{
                         LOG_L("Stratum set extranonce => %s", method.id, method.raw.c_str());
+                        board->status.miner.stratum_update = millis();//pool alive timestamp (server-pushed)
                         json.clear();
                         DeserializationError error = deserializeJson(json, method.raw);
                         if (error) {
@@ -2640,6 +2643,10 @@ void stratum_thread_entry(void *args){
                     }
                     break;
                 case STRATUM_DOWN_ERROR: 
+                    // Pool replied with an error (e.g. share rejected, auth failed). The TCP
+                    // connection is clearly alive — refresh watchdog so we don't wrongly
+                    // reboot when a window is full of stale/low-diff rejections.
+                    board->status.miner.stratum_update = millis();
                     if(method.id != -1){
                         board->stratum->set_msg_rsp_map(method.id, true);
                         stratum_rsp rsp = board->stratum->get_method_rsp_by_id(method.id);
