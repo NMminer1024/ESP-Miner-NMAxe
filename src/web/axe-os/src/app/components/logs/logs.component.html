@@ -24,7 +24,6 @@
       <div class="tab-panel" *ngIf="activeTab === 0">
         <div class="logs-header">
           <div class="logs-title-group">
-            <h2>Realtime Logs</h2>
             <button pButton
                     (click)="saveLog()"
                     class="p-button-rounded p-button-outlined save-log-btn">
@@ -45,7 +44,6 @@
       <div class="tab-panel" *ngIf="activeTab === 1">
         <div class="logs-header">
           <div class="logs-title-group">
-            <h2>Reboot History</h2>
             <div class="reboot-actions">
               <button pButton
                       (click)="clearReboots()"

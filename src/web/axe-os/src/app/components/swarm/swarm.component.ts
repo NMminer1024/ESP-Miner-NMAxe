@@ -27,6 +27,7 @@ interface NMDevice {
   RSSI: number;
   FreeHeap: number;
   Version: string;
+  AppSha256: string;
   Uptime: string;      // session uptime
   UptimeEver: string;  // ever uptime
   Lastseen: number;
@@ -672,6 +673,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       RSSI:       id?.rssi      ?? 0,
       FreeHeap:   (miner?.freeHeap ?? 0) / 1024,
       Version:    id?.fwVersion ?? '',
+      AppSha256:  id?.appSha256  ?? '',
       Uptime:     formatUptime(miner?.uptimeSeconds ?? 0),
       UptimeEver: formatUptime(miner?.uptimeEver    ?? 0),
       Lastseen:   Date.now(),   // ms timestamp, updated by rebuildSwarmData

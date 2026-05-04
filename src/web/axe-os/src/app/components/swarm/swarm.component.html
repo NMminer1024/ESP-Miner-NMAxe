@@ -140,7 +140,7 @@
           </td>
           <td class="common-column">{{ axe.RSSI }} <small>dBm</small></td>
           <td class="common-column">{{ axe.FreeHeap | number: '1.1-1' }} <small>KB</small></td>
-          <td class="version">{{ axe.Version }}</td>
+          <td class="version" [title]="axe.AppSha256 ? 'SHA256: ' + axe.AppSha256 : ''">{{ axe.Version }}</td>
           <td class="uptime-column multi-line">
             <span [title]="'Session uptime'">{{ axe.Uptime }}</span><br/>
             <span [title]="'Ever uptime'">{{ axe.UptimeEver }}</span>
