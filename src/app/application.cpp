@@ -155,7 +155,15 @@ void MinerApp::_tick_thread_entry(void* args) {
             x += 0.5f;
         }
         else{
-            brightness = board->status.preference.screen.brightness;
+            // Black screensaver mode: kill backlight while screensaver is active.
+            // When touch/button clears SYS_EVENT_SCREEN_SAVER_TRIGGERED the next
+            // 10ms tick automatically restores the configured brightness.
+            if ((xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED)
+                && board->status.preference.screen.saver_mode == 1) {
+                brightness = 0; 
+            } else {
+                brightness = board->status.preference.screen.brightness;
+            }
         }
         tft_bl_ctrl(brightness);
 
@@ -260,6 +268,7 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.preference.screen.brightness       = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.spec.preference.screen.brightness);
     g_board.status.preference.screen.saver_enable     = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, g_board.info.spec.preference.screen.saver_enable);
     g_board.status.preference.screen.saver_timeout    = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, g_board.info.spec.preference.screen.saver_timeout);
+    g_board.status.preference.screen.saver_mode       = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_MODE, 0);
     g_board.status.preference.led.enable              = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR,     g_board.info.spec.preference.led.enable);
     g_board.status.preference.led.sleep               = false;
     g_board.status.preference.led.sleep_last          = g_board.status.preference.led.sleep;

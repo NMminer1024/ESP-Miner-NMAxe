@@ -519,6 +519,7 @@ void get_setting_preference(AsyncWebServerRequest* request){
     root["Brightness"]        = g_board.status.preference.screen.brightness;
     root["screensaverEnable"] = g_board.status.preference.screen.saver_enable ? 1 : 0;
     root["screensaverTimeout"]= (uint32_t)g_board.status.preference.screen.saver_timeout;
+    root["screensaverMode"]   = (uint8_t)g_board.status.preference.screen.saver_mode;
     root["hwModel"]           = g_board.info.spec.name;
     JsonArray fansArray    = root.createNestedArray("fans");
     for (auto & fan : g_board.status.fan.list) {
@@ -576,6 +577,10 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
         if (root.containsKey("screensaverTimeout"))  {
             nvs_config_set_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, root["screensaverTimeout"].as<uint32_t>());
             g_board.status.preference.screen.saver_timeout = root["screensaverTimeout"].as<uint32_t>();
+        }
+        if (root.containsKey("screensaverMode"))  {
+            nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_MODE, root["screensaverMode"].as<uint8_t>());
+            g_board.status.preference.screen.saver_mode = root["screensaverMode"].as<uint8_t>();
         }
         // fans array: id=0 → ASIC fan, id=1 → Vcore fan
         if (root.containsKey("fans") && root["fans"].is<JsonArray>()) {

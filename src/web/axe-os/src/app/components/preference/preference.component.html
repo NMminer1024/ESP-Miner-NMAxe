@@ -96,7 +96,7 @@
     <!-- Screen Saver timeout -->
     <div class="field grid p-fluid pref-row">
       <label class="col-12 mb-2 md:col-3 md:mb-0 pref-label" htmlFor="screensaverTimeout">Screen Saver</label>
-      <div class="col-12 md:col-9 pref-control">
+      <div class="col-12 md:col-9 pref-control screensaver-row">
         <p-dropdown id="screensaverTimeout"
                     formControlName="screensaverTimeout"
                     [options]="screensaverOptions"
@@ -104,6 +104,14 @@
                     optionValue="value"
                     styleClass="screensaver-timeout-dropdown"
                     [style]="{'width':'12rem'}">
+        </p-dropdown>
+        <p-dropdown *ngIf="form.controls['screensaverTimeout'].value !== 0"
+                    id="screensaverMode"
+                    formControlName="screensaverMode"
+                    [options]="screensaverModeOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    [style]="{'width':'16rem'}">
         </p-dropdown>
       </div>
     </div>
@@ -117,7 +125,7 @@
         </div>
       </div>
       <div class="col-12 md:col-4 preference-option-item">
-        <div class="field-checkbox">
+        <div class="field-checkbox" *ngIf="hwModel !== 'NMQAxe++'">
           <p-checkbox name="ledindicator" formControlName="ledindicator" inputId="ledindicator"
                       [binary]="true"></p-checkbox>
           <label for="ledindicator">LED Indicator</label>

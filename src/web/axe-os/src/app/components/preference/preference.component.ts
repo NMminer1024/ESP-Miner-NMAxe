@@ -38,6 +38,11 @@ export class PreferenceComponent implements OnInit {
     { label: '6h',    value: 21600 },
   ];
 
+  public screensaverModeOptions = [
+    { label: 'GIF',              value: 0 },
+    { label: 'Black (Screen Off)', value: 1 },
+  ];
+
   @Input() uri = '';
 
   constructor(
@@ -65,6 +70,7 @@ export class PreferenceComponent implements OnInit {
 
         const screensaverEnable  = info.screensaverEnable  ?? 0;
         const screensaverTimeout = info.screensaverTimeout ?? 0;
+        const screensaverMode    = info.screensaverMode    ?? 0;
         const allowedScreensaverValues = this.screensaverOptions.map(option => option.value);
         // Compute dropdown value: 0 (never) when disabled/unsupported, otherwise keep configured timeout.
         const screensaverOption  = (screensaverEnable == 0 || !allowedScreensaverValues.includes(screensaverTimeout))
@@ -97,6 +103,7 @@ export class PreferenceComponent implements OnInit {
           vcoretargettemp:    [parseFloat(String(vcoretargettemp)) || 85, [Validators.required, Validators.min(this.vcoreTempMin), Validators.max(this.vcoreTempMax)]],
           vcorefanspeed:      [vcorefanspeed, [Validators.required]],
           screensaverTimeout: [screensaverOption, [Validators.required]],
+          screensaverMode:    [screensaverMode, [Validators.required]],
         });
 
         this.form.controls['autoasicfanspeed'].valueChanges.pipe(
@@ -166,6 +173,7 @@ export class PreferenceComponent implements OnInit {
       screenAutoRoll:     raw.autoscreen   ? 1 : 0,
       screensaverEnable:  raw.screensaverTimeout === 0 ? 0 : 1,
       screensaverTimeout: raw.screensaverTimeout,
+      screensaverMode:    raw.screensaverTimeout === 0 ? 0 : raw.screensaverMode,
       fans
     };
 

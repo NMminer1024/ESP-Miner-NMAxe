@@ -4296,6 +4296,16 @@ void ui_screen_saver_page_update(void* args){
   }, LV_EVENT_PRESSING, NULL);
   lv_obj_move_foreground(overlay);
 
+  // ── Mode 1: black (screen off) — pure black overlay, no GIF ─────────────
+  if (board->status.preference.screen.saver_mode == 1) {
+    // overlay is already full-screen black; touch/button events are wired via
+    // pressed_event_cb and the PRESSING lambda above, so wake-up works normally.
+    xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+    LOG_I("[screensaver] mode=black, screen off");
+    return;
+  }
+
+  // ── Mode 0 (default): GIF ────────────────────────────────────────────────
   // ── Select GIF filename based on board resolution ────────────────────────
   // NMAxe / Gamma: 240×135  →  screen_saver_240x135.gif
   // QAxe++:        320×240  →  screen_saver_320x240.gif

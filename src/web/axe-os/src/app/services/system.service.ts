@@ -539,7 +539,7 @@ export class SystemService {
     } else {
       return of({
         screenFlip: 0, ledIndicator: 1, screenAutoRoll: 0, Brightness: 100,
-        screensaverEnable: 0, screensaverTimeout: 0,
+        screensaverEnable: 0, screensaverTimeout: 0, screensaverMode: 0,
         hwModel: 'NMAxe',
         fans: [
           { id: 0, speed: 60,  rpm: 3600, auto: 1, target: 55, tempMin: 20,  tempMax: 75  },

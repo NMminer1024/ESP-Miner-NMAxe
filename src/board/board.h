@@ -60,6 +60,7 @@ typedef struct{
     bool     auto_rolling;  // auto rolling screen
     bool     saver_enable;  // whether to enable screen saver
     uint32_t saver_timeout; // seconds of inactivity to trigger screen saver
+    uint8_t  saver_mode;    // 0=gif, 1=black (screen off)
     uint16_t brightness;
 }screen_preference_info_t;
 

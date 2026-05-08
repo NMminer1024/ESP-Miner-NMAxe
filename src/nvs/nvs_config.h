@@ -28,6 +28,7 @@
 
 #define NVS_CONFIG_SCREEN_SAVER_ENABLE      "scrsaverenable"
 #define NVS_CONFIG_SCREEN_SAVER_TIMEOUT     "scrsavertimeout"
+#define NVS_CONFIG_SCREEN_SAVER_MODE        "scrsavermode"
 
 #define NVS_CONFIG_AUTO_ASIC_FAN_SPEED      "autoasicfanspd"
 #define NVS_CONFIG_AUTO_VCORE_FAN_SPEED     "autovcorefanspd"

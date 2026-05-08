@@ -21,9 +21,22 @@
   font-size: 0.98rem !important;
 }
 
+.pref-label {
+  display: flex !important;
+  align-items: center !important;
+  align-self: center !important;
+}
+
 .pref-control {
   display: flex;
   align-items: center;
+}
+
+.screensaver-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .slider-row {
