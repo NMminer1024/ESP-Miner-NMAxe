@@ -255,7 +255,7 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 ```json
 {
   "screenFlip": 0, "Brightness": 80, "screenAutoRoll": 1, "ledIndicator": 1,
-  "screensaverEnable": 1, "screensaverTimeout": 300,
+  "screensaverEnable": 1, "screensaverTimeout": 300, "screensaverMode": 0,
   "hwModel": "NMAxe",
   "fans": [
     { "id": 0, "speed": 60, "rpm": 3600, "auto": 1, "target": 55.0 },
@@ -271,7 +271,7 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 {
   "Brightness": 80, "screenFlip": 0,
   "ledIndicator": 1, "screenAutoRoll": 1,
-  "screensaverEnable": 1, "screensaverTimeout": 300,
+  "screensaverEnable": 1, "screensaverTimeout": 300, "screensaverMode": 0,
   "fans": [
     { "id": 0, "auto": 1, "target": 55.0, "speed": 60 },
     { "id": 1, "auto": 1, "target": 85.0, "speed": 80 }
@@ -280,6 +280,8 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 ```
 
 > `fans[].speed` takes effect only when `auto=0`. `fans[1]` (Vcore fan, `id=1`) is NMQAxe++ only.
+
+> `screensaverMode`: `0` = animated GIF, `1` = black (backlight off while screensaver is active). Only effective when `screensaverEnable=1` and `screensaverTimeout > 0`.
 
 ### Screensaver — `POST /api/update/screensaver`
 

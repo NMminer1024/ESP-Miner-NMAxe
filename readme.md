@@ -182,6 +182,27 @@ Full API documentation: [docs/API.md](./docs/API.md)
 ## Release Log
 ***
 
+### (2026.05.08) - v3.0.12
+- `Add`:
+  - Crash log: new reboot-log subsystem stores up to 10 reboot records in NVS, each with reset reason, reboot intent (OTA, factory reset, overheating, pool timeout, ASIC frozen, etc.), uptime and firmware version at the time of reboot.
+  - Coredump: ESP32 core-dump capture on unexpected crash; downloadable from AxeOS Logs page.
+  - AxeOS Logs page: reboot history table with friendly-text intent labels and coredump download button.
+  - AxeOS Dashboard / Swarm: firmware version now shows App SHA256 short hash suffix (full hash as tooltip in Swarm list).
+  - Screensaver: mode selection — `gif` (animated GIF) or `black` (backlight completely off) — configurable on AxeOS preference page.
+  - API: `screensaverMode` field added to `GET /api/setting/preference` response and `PATCH` request body (`0`=gif, `1`=black).
+- `Fixed`:
+  - High share reject rate on NMQAxe++.
+  - Stratum timeout reconnection logic.
+  - Hashrate calculation logic.
+  - Coredump log storage issue.
+- `Improved`:
+  - Swarm thread stability and works counter accuracy.
+  - AxeOS preference page: Screen Saver label vertically centered; mode dropdown width enlarged.
+- `Modify`:
+  - None.
+- `Remove`:
+  - None.
+
 ### (2026.04.24) - v3.0.11
 - `Add`:
   - None.

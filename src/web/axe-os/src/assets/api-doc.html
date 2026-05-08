@@ -1079,6 +1079,7 @@ Content-Type: application/octet-stream
   <span class="kw">"Brightness"</span>:         <span class="num">80</span>,      <span class="cmt">// 1–100</span>
   <span class="kw">"screensaverEnable"</span>:  <span class="num">1</span>,       <span class="cmt">// 0=off, 1=on</span>
   <span class="kw">"screensaverTimeout"</span>: <span class="num">300</span>,     <span class="cmt">// seconds before screensaver activates</span>
+  <span class="kw">"screensaverMode"</span>:    <span class="num">0</span>,       <span class="cmt">// 0=gif, 1=black (backlight off)</span>
   <span class="kw">"hwModel"</span>:            <span class="str">"NMAxe"</span>, <span class="cmt">// board model name</span>
   <span class="kw">"fans"</span>: [
     {
@@ -1105,6 +1106,7 @@ Content-Type: application/octet-stream
   <span class="kw">"screenAutoRoll"</span>:    <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
   <span class="kw">"screensaverEnable"</span>: <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
   <span class="kw">"screensaverTimeout"</span>:<span class="num">300</span>,    <span class="cmt">// seconds</span>
+  <span class="kw">"screensaverMode"</span>:   <span class="num">0</span>,      <span class="cmt">// 0=gif (animated GIF), 1=black (backlight off)</span>
   <span class="kw">"fans"</span>: [
     { <span class="kw">"id"</span>: <span class="num">0</span>, <span class="kw">"auto"</span>: <span class="num">1</span>, <span class="kw">"target"</span>: <span class="num">65.0</span>, <span class="kw">"speed"</span>: <span class="num">80</span> },  <span class="cmt">// id=0: ASIC fan</span>
     { <span class="kw">"id"</span>: <span class="num">1</span>, <span class="kw">"auto"</span>: <span class="num">0</span>, <span class="kw">"target"</span>: <span class="num">55.0</span>, <span class="kw">"speed"</span>: <span class="num">60</span> }   <span class="cmt">// id=1: Vcore fan (NMQAxe++ only)</span>
