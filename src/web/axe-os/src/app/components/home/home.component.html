@@ -155,19 +155,6 @@
             <div class="mg-label">Vcore Temp</div>
             <span class="danger" *ngIf="info.vrTemp && isWarning(info.vrTemp, gaugeLimits.heat.vcore.max)">⚠️ High</span>
           </div>
-          <div class="mg-item" *ngIf="info.vcoreFanRpm !== undefined">
-            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
-              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
-              <circle cx="50" cy="50" r="44" fill="none"
-                      [attr.stroke]="gaugeColor(info.vcoreFanRpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
-                      stroke-width="6" stroke-linecap="round"
-                      [attr.stroke-dasharray]="gaugeArc(info.vcoreFanRpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
-                      stroke-dashoffset="-103.67" class="mg-arc"/>
-              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.vcoreFanRpm}}</text>
-              <text x="50" y="64" text-anchor="middle" class="mg-unit">rpm</text>
-            </svg>
-            <div class="mg-label">Vcore Fan</div>
-          </div>
           <div class="mg-item">
             <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
               <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
@@ -180,6 +167,19 @@
               <text x="50" y="64" text-anchor="middle" class="mg-unit">rpm</text>
             </svg>
             <div class="mg-label">ASIC Fan</div>
+          </div>
+          <div class="mg-item" *ngIf="info.vcoreFanRpm !== undefined">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.vcoreFanRpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.vcoreFanRpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.vcoreFanRpm}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">rpm</text>
+            </svg>
+            <div class="mg-label">Vcore Fan</div>
           </div>
         </div>
       </div>
