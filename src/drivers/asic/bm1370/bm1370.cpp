@@ -73,7 +73,7 @@ void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
     }
 
     if (best_fbdiv == 0) {
-        LOG_E("Failed to find PLL settings for target frequency %.2f", target_freq);
+        LOG_W("Failed to find PLL settings for target frequency %.2f", target_freq);
         return;
     }
 
@@ -143,13 +143,9 @@ void BM1370::frequency_ramp_up(float target_frequency){
         this->_set_hash_frequency(-1, current, 0.002);
         float next_step = fminf(step, target_frequency - current);
         current += next_step;
-        // LOG_I("Ramping frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
-        
-        // //need some delay for some special frequency, have no idea why, but it works
-        // if((target_frequency == 440) && (target_frequency == 575)){
-        //     LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz...", current, target_frequency, step);
-        // }
     }
+    // Loop uses `<` so the final target is never sent inside; send it explicitly
+    this->_set_hash_frequency(-1, target_frequency, 0.002);
 }
 
 void BM1370::change_uart_baud(uint32_t baudrate){

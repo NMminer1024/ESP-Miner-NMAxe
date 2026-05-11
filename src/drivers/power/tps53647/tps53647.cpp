@@ -10,7 +10,8 @@
 #define ACK_VAL                         0x0
 #define NACK_VAL                        0x1
 
-#define REG_IBUS_SAMPLE                 (0.005f)
+#define REG_IBUS_SAMPLE                 (0.005f)  // for 2 phases board
+// #define REG_IBUS_SAMPLE                 (0.0025f) // for 3 phases board
 #define GAIN_IBUS_SAMPLE                (50.0f)
 #define GAIN_VBUS_SAMPLE                (6.1f)
 #define GAIN_VCORE_SAMPLE               (2.0f)
