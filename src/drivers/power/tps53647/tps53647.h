@@ -111,7 +111,6 @@ public:
     void set_vcore_range(uint16_t min_mv, uint16_t max_mv) override;
     bool is_vcore_ready(void) override;
     bool is_dc_pluged(void) override;
-    int  detect_num_phases(void) override;
     uint16_t get_vcore_min(void) override { return this->_vcore_min_mv;};
     uint16_t get_vcore_max(void) override { return this->_vcore_max_mv;};
     uint32_t get_vbus(void) override;
