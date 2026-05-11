@@ -49,6 +49,8 @@ void power_init_thread_entry(void *args){
 
     // wait for fan ready and wifi connected before setting vcore voltage, to avoid too high temperature without proper cooling or network connection for error reporting
     xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    //detect phase count via PHFLT register before enabling vcore for real
+    board->power->detect_num_phases();
     //set vcore voltage to required voltage
     board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
     board->power->set_vcore_status(PWR_ON);

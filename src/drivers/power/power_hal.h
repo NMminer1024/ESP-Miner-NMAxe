@@ -43,6 +43,7 @@ public:
     virtual uint16_t get_vcore_max(void) = 0;
     virtual bool is_vcore_ready(void) = 0;
     virtual bool is_dc_pluged(void) = 0;
+    virtual int  detect_num_phases(void) { return -1; } // detect hardware phase count via PHFLT; override per controller
 
     
     uint32_t get_vbus_adc(void);

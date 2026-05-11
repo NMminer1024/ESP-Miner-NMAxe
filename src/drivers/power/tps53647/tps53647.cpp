@@ -246,6 +246,48 @@ void TPS53647Class::hw_init(void){
     
 }
 
+int TPS53647Class::detect_num_phases(void) {
+    // Probe phase count using PHFLT (STATUS_MFR_SPECIFIC bit0).
+    // hw_init() already configured NUM_PHASE=3 (max).  Enable output
+    // briefly at minimum safe voltage, latch PHFLT if phase 3 is absent
+    // (2-phase board), then disable and correct the phase configuration.
+
+    // Set minimum safe voltage so ASIC cannot start up during probe
+    this->set_vcore_voltage(this->_vcore_min_mv);
+
+    // Enable buck output
+    this->set_vcore_status(PWR_ON);
+
+    // Wait several hundred switching cycles (700kHz → ~1.4µs/cycle, 5ms >> enough)
+    delay(5);
+
+    // Read STATUS_MFR_SPECIFIC: bit 0 = PHFLT
+    uint8_t status_mfr = 0;
+    this->_read_reg(PMBUS_STATUS_MFR_SPECIFIC, &status_mfr, 1);
+    bool phflt = (status_mfr & 0x01) != 0;
+
+    // Disable output and clear latched fault flags
+    this->set_vcore_status(PWR_OFF);
+    this->_write_cmd(PMBUS_CLEAR_FAULTS);
+
+    int detected_phases;
+    if (phflt) {
+        detected_phases = 2;
+        LOG_W("╔══════════════════════════════════════════╗");
+        LOG_W("║  TPS53647: PHFLT detected → 2-phase PCB  ║");
+        LOG_W("╚══════════════════════════════════════════╝");
+        this->_set_phases(2);
+    } else {
+        detected_phases = 3;
+        LOG_W("╔══════════════════════════════════════════╗");
+        LOG_W("║  TPS53647: No PHFLT    → 3-phase PCB     ║");
+        LOG_W("╚══════════════════════════════════════════╝");
+        this->_set_phases(3);
+    }
+
+    return detected_phases;
+}
+
 bool TPS53647Class::is_vcore_ready(void){
     if(digitalRead(this->_vcore_pgood_pin) == HIGH){
         delay(1);
