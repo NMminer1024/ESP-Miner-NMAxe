@@ -53,6 +53,7 @@ export interface IInfoMiner {
   lastDiff?:       string;
   blkhits?:        number;
   freeHeap:        number;
+  minFreeHeap?:    number;
   sAccepted:       number;
   sRejected:       number;
   uptimeSeconds:   number;

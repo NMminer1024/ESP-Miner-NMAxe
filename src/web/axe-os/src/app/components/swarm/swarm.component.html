@@ -4,10 +4,18 @@
     <div class="stat-card hashrate-card">
       <div class="stat-icon">⚡</div>
       <div class="stat-content">
-        <div class="stat-label">Total HashRate</div>
-        <div class="stat-value hashrate-value">
+        <div class="stat-label">Performance</div>
+        <div class="perf-main-row">
           <span class="hashrate-number">{{ getFormattedHashRate().value | number: '1.2-2' }}</span>
           <span class="hashrate-unit">{{ getFormattedHashRate().unit }}</span>
+          <span class="perf-sep">&nbsp;&nbsp;</span>
+          <span class="perf-power-val">{{ getTotalPower() }}</span>
+          <span class="perf-power-unit">W</span>
+        </div>
+        <div class="perf-eff-row">
+          <span class="perf-eff-label">Efficiency</span>
+          <span class="perf-eff-val">{{ getTotalEfficiency() }}</span>
+          <span class="perf-eff-unit">J/TH</span>
         </div>
       </div>
     </div>
@@ -31,14 +39,42 @@
         <div class="stat-unit">session / all-time</div>
       </div>
     </div>
-    <div class="stat-card time-card">
-      <div class="stat-icon">⚡</div>
-      <div class="stat-content">
-        <div class="stat-label">Totally Power</div>
-        <div class="stat-value">{{ getTotalPower() }}</div>
-        <div class="stat-unit">W</div>
+    <!-- Discovery card -->
+    <div class="stat-card discovery-card">
+      <!-- Corner countdown ring (visible after scan completes) -->
+      <div class="scan-corner-wrap" *ngIf="!scanning && countdownSecs > 0">
+        <svg class="scan-corner-svg" viewBox="0 0 44 44" width="44" height="44">
+          <circle class="scan-corner-track" cx="22" cy="22" r="18"/>
+          <circle class="scan-corner-arc" cx="22" cy="22" r="18"
+            [style.stroke-dashoffset]="113.1 * (1 - countdownPct)"/>
+        </svg>
+        <div class="scan-corner-num">{{ countdownSecs }}s</div>
       </div>
-      <div class="pulse-indicator"></div>
+      <!-- Scanning: ring progress -->
+      <ng-container *ngIf="scanning">
+        <div class="scan-ring-section">
+          <div class="scan-icon">📡</div>
+          <div class="stat-label">Discovery</div>
+          <div class="scan-ring-wrap">
+            <svg class="scan-ring" viewBox="0 0 70 70" xmlns="http://www.w3.org/2000/svg">
+              <circle class="scan-ring-track" cx="35" cy="35" r="28"/>
+              <circle class="scan-ring-arc" cx="35" cy="35" r="28"
+                [style.stroke-dashoffset]="175.93 * (1 - scanProgressPct / 100)"/>
+            </svg>
+            <div class="scan-ring-center">{{ scanProgressPct }}%</div>
+          </div>
+          <div class="scan-card-sub">scanning&hellip;</div>
+        </div>
+      </ng-container>
+      <!-- Done: miners found -->
+      <ng-container *ngIf="!scanning">
+        <div class="stat-icon">📡</div>
+        <div class="stat-content">
+          <div class="stat-label">Discovery</div>
+          <div class="stat-value">{{ swarmData.length }}</div>
+          <div class="stat-unit">miners found</div>
+        </div>
+      </ng-container>
     </div>
   </div>
   
@@ -139,7 +175,11 @@
             }
           </td>
           <td class="common-column">{{ axe.RSSI }} <small>dBm</small></td>
-          <td class="common-column">{{ axe.FreeHeap | number: '1.1-1' }} <small>KB</small></td>
+          <td class="common-column">
+            <span>{{ axe.FreeHeap | number: '1.1-1' }} <small>KB</small></span>
+            <br *ngIf="axe.MinFreeHeap > 0"/>
+            <small *ngIf="axe.MinFreeHeap > 0" class="mem-min">min: {{ axe.MinFreeHeap | number: '1.1-1' }} KB</small>
+          </td>
           <td class="version" [title]="axe.AppSha256 ? 'SHA256: ' + axe.AppSha256 : ''">{{ axe.Version }}</td>
           <td class="uptime-column multi-line">
             <span [title]="'Session uptime'">{{ axe.Uptime }}</span><br/>

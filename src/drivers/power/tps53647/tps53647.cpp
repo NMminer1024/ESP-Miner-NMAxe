@@ -18,7 +18,7 @@
 
 #define IMAX                            (20)      // Maximum current in A
 #define IFAULT                          (25.0f)   // Over current fault limit in A
-#define NUM_PHASE                       (2)       // Number of phases used
+#define NUM_PHASE                       (3)       // Number of phases used
 
 
 
@@ -221,8 +221,8 @@ void TPS53647Class::hw_init(void){
     // Switch frequency, 700kHz
     this->_write_byte(PMBUS_MFR_SPECIFIC_12, 0x40);
 
-    // 30A current limit
-    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0x02);
+    // 36A current limit
+    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0x04);
 
     // set number of phases
     this->_set_phases(NUM_PHASE);

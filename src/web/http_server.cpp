@@ -197,6 +197,7 @@ void get_system_info(AsyncWebServerRequest* request){
     minerObj["lastDiff"]        = formatNumber(g_board.status.miner.diff.last, 4);
     minerObj["blkhits"]         = g_board.status.miner.hits;
     minerObj["freeHeap"]        = ESP.getFreeHeap();
+    minerObj["minFreeHeap"]     = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     minerObj["sAccepted"]       = g_board.status.miner.share_accepted;
     minerObj["sRejected"]       = g_board.status.miner.share_rejected;
     minerObj["uptimeSeconds"]   = g_board.status.miner.uptime_session;

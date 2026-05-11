@@ -280,6 +280,8 @@ typedef struct{
         SemaphoreHandle_t   scan_required;   // 前端刷新时释放，触发新一轮扫描；超时后自动重扫
         uint32_t            last_scan_ms;
         uint32_t            scan_generation; // 每完成一轮完整扫描 +1，通知 swarm 重置记忆
+        bool                is_scanning;     // 当前是否正在扫描（供 /alive 接口使用）
+        uint16_t            scan_progress;   // 当前扫描进度 0~254
     }neighbor;
 
     struct { 

@@ -90,6 +90,10 @@ body {
   &.time-card::before {
     background: linear-gradient(90deg, #607D8B, #78909C);
   }
+
+  &.discovery-card::before {
+    background: linear-gradient(90deg, #9C27B0, #BA68C8);
+  }
 }
 
 .stat-icon {
@@ -1121,4 +1125,156 @@ a:active {
 
 .temp-danger {
   color: #F44336 !important;
+}
+
+// ── Performance card ──────────────────────────────────────────────────────────
+.perf-main-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 2px;
+}
+.hashrate-number {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #4CAF50;
+  line-height: 1;
+}
+.hashrate-unit {
+  font-size: 0.9rem;
+  color: #81C784;
+  margin-right: 2px;
+}
+.perf-sep { flex-shrink: 0; }
+.perf-power-val {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #aaa;
+}
+.perf-power-unit {
+  font-size: 0.75rem;
+  color: #777;
+  margin-left: 1px;
+}
+.perf-eff-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  font-size: 0.78rem;
+}
+.perf-eff-label { color: #b3e5fc; }
+.perf-eff-val   { font-weight: 600; color: #40c4ff; }
+.perf-eff-unit  { color: #b3e5fc; font-size: 0.7rem; }
+
+// ── Discovery card ────────────────────────────────────────────────────────────
+.discovery-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+// Scan ring (scanning state)
+.scan-ring-section {
+  width: 100%;
+  text-align: center;
+}
+.scan-icon { font-size: 1.4rem; margin-bottom: 0.3rem; }
+.scan-ring-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto;
+}
+.scan-ring {
+  width: 64px;
+  height: 64px;
+  transform: rotate(-90deg);
+  .scan-ring-track {
+    fill: none;
+    stroke: rgba(255,255,255,0.07);
+    stroke-width: 5;
+  }
+  .scan-ring-arc {
+    fill: none;
+    stroke: #BA68C8;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 175.93;
+    stroke-dashoffset: 175.93;
+    transition: stroke-dashoffset 0.5s ease;
+  }
+}
+.scan-ring-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.scan-card-sub {
+  font-size: 0.72rem;
+  color: #8e8ea0;
+  margin-top: 0.45rem;
+  text-align: center;
+}
+
+// Corner countdown (done state)
+.scan-corner-wrap {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.6rem;
+  width: 44px;
+  height: 44px;
+}
+.scan-corner-svg {
+  position: absolute;
+  top: 0; left: 0;
+  transform: rotate(-90deg);
+  .scan-corner-track {
+    fill: none;
+    stroke: rgba(255,255,255,0.06);
+    stroke-width: 3;
+  }
+  .scan-corner-arc {
+    fill: none;
+    stroke: rgba(186,104,200,0.55);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 113.1;
+    stroke-dashoffset: 113.1;
+    transition: stroke-dashoffset 1s linear;
+  }
+}
+.scan-corner-num {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.56rem;
+  color: rgba(255,255,255,0.45);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+// ── Memory min row ────────────────────────────────────────────────────────────
+.mem-min {
+  color: #888;
+  font-size: 0.7rem;
 }

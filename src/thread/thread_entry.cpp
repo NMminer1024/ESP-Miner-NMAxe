@@ -716,7 +716,22 @@ void webserver_thread_entry(void *args){
         String self_ip = WiFi.localIP().toString();
         AsyncResponseStream* resp = request->beginResponseStream("application/json");
         resp->addHeader("Access-Control-Allow-Origin", "*");
-        resp->printf("{\"self\":\"%s\",\"ips\":[\"%s\"", self_ip.c_str(), self_ip.c_str());
+        bool scanning   = board->status.neighbor.is_scanning;
+        uint16_t prog   = board->status.neighbor.scan_progress;
+        uint32_t lms    = 0;
+        resp->printf("{\"self\":\"%s\",\"scanning\":%s,\"progress\":%u,\"total\":254",
+            self_ip.c_str(), scanning ? "true" : "false", (unsigned)prog);
+        if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
+            lms = board->status.neighbor.last_scan_ms;
+            xSemaphoreGive(board->status.neighbor.mutex);
+        }
+        uint32_t next_in = 0;
+        if (!scanning && lms > 0) {
+            uint32_t elapsed_s = (millis() - lms) / 1000;
+            next_in = (elapsed_s < 300) ? (300 - elapsed_s) : 0;
+        }
+        resp->printf(",\"next_scan_in\":%u", (unsigned)next_in);
+        resp->printf(",\"ips\":[\"%s\"", self_ip.c_str());
         if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
                 for (const auto& ip : board->status.neighbor.alive_ips)
                     resp->printf(",\"%s\"", ip.c_str());
@@ -1364,6 +1379,10 @@ void alive_ip_scan_thread_entry(void* args) {
         std::vector<String> found;
         found.reserve(16); // pre-allocate to avoid frequent reallocs; actual count is usually far less than 256
 
+        // Mark scan as active
+        board->status.neighbor.is_scanning  = true;
+        board->status.neighbor.scan_progress = 0;
+
         uint16_t seq = 0, MAX_SCAN = 254;
         for (int last = 1; last <= MAX_SCAN; last++) {
             if (last == self_last) continue; // skip self
@@ -1378,6 +1397,9 @@ void alive_ip_scan_thread_entry(void* args) {
                 LOG_D("(scan) screensaver activated mid-scan, aborting at %u.%u.%u.%u", o0, o1, o2, last);
                 break;
             }
+
+            // Update scan progress for frontend polling
+            board->status.neighbor.scan_progress = (uint16_t)last;
 
             // Page was refreshed — reset scan progress
             if (xSemaphoreTake(board->status.neighbor.scan_required, 0) == pdTRUE) {
@@ -1394,6 +1416,7 @@ void alive_ip_scan_thread_entry(void* args) {
                 last = 1;      
                 seq  = 0;
                 found.clear();
+                board->status.neighbor.scan_progress = 0;
             }
 
             if (ping_one(sock, o0, o1, o2, last, ++seq)) {
@@ -1425,9 +1448,12 @@ void alive_ip_scan_thread_entry(void* args) {
 
         uint32_t elapsed = (millis() - scan_start) / 1000;
         LOG_D("(scan) done in %lus, %u alive on %u.%u.%u.0/24", (uint32_t)elapsed, (uint16_t)board->status.neighbor.alive_ips.size(), o0, o1, o2);
-        // Scan complete: increment generation so the swarm thread detects the change, resets all cached state, and re-probes
+        // Scan complete: mark done and increment generation
+        board->status.neighbor.is_scanning   = false;
+        board->status.neighbor.scan_progress = 254;
         if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             board->status.neighbor.scan_generation++;
+            board->status.neighbor.last_scan_ms = millis();
             xSemaphoreGive(board->status.neighbor.mutex);
         }
         // Wait for the next scan: triggered immediately by a page refresh, or automatically after 5 minutes

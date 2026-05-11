@@ -26,6 +26,7 @@ interface NMDevice {
   VcoreTemp: number;  // VCORE temp
   RSSI: number;
   FreeHeap: number;
+  MinFreeHeap: number;
   Version: string;
   AppSha256: string;
   Uptime: string;      // session uptime
@@ -162,6 +163,14 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   private intervalId: any;
 
+  // Discovery card state
+  public scanning     = false;
+  public scanProgress = 0;
+  public scanTotal    = 254;
+  public countdownSecs = 0;
+  private countdownTimer: any = null;
+  private countdownTotal = 0;
+
   // Swarm discovery state
   private deviceMap      = new Map<string, NMDevice>();
   private probeFailCount = new Map<string, number>();
@@ -206,11 +215,23 @@ export class SwarmComponent implements OnInit, OnDestroy {
       // Subscription 1: Refresh /alive every 10 s to update the IP candidate list.
       // New IPs get probed; IPs already in deviceMap get an immediate info refresh.
       // The blacklist is per-scan-cycle: reset it here so newly-alive IPs are re-probed.
-      const aliveSubscription = interval(10000).pipe(startWith(0)).subscribe(() => {
+      const aliveSubscription = interval(3000).pipe(startWith(0)).subscribe(() => {
         this.blacklist.clear();
-        this.http.get<{ self: string; ips: string[] }>(`${this.uri}/alive`).pipe(
-          catchError(() => of({ self: '', ips: [] as string[] }))
+        this.http.get<{ self: string; ips: string[]; scanning?: boolean; progress?: number; total?: number; next_scan_in?: number }>(`${this.uri}/alive`).pipe(
+          catchError(() => of({ self: '', ips: [] as string[], scanning: false, progress: 0, total: 254, next_scan_in: 0 }))
         ).subscribe(resp => {
+          // Update discovery card state
+          this.scanning     = !!resp.scanning;
+          this.scanProgress = resp.progress ?? 0;
+          this.scanTotal    = resp.total    ?? 254;
+          if (this.scanning) {
+            this._stopCountdown();
+          } else {
+            const nextIn = resp.next_scan_in ?? 0;
+            if (nextIn > 0) this._startCountdown(nextIn);
+            else            this._stopCountdown();
+          }
+
           const ips = (resp.ips || []).filter((ip: string) => !!ip);
           this.knownAliveIps = new Set(ips);
 
@@ -256,10 +277,45 @@ export class SwarmComponent implements OnInit, OnDestroy {
     if (this.subscription) {
       this.subscription.unsubscribe();
     }
+    this._stopCountdown();
 
     if (this.intervalId) {
       clearInterval(this.intervalId);
     }
+  }
+
+  private _startCountdown(secs: number): void {
+    if (this.countdownTimer) {
+      // already running — just update remaining seconds
+      this.countdownSecs = secs;
+      return;
+    }
+    this.countdownTotal = secs;
+    this.countdownSecs  = secs;
+    this.countdownTimer = setInterval(() => {
+      if (this.countdownSecs > 0) {
+        this.countdownSecs--;
+      } else {
+        this._stopCountdown();
+      }
+    }, 1000);
+  }
+
+  private _stopCountdown(): void {
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+    this.countdownTotal = 0;
+    this.countdownSecs  = 0;
+  }
+
+  public get scanProgressPct(): number {
+    return this.scanTotal > 0 ? Math.round(this.scanProgress / this.scanTotal * 100) : 0;
+  }
+
+  public get countdownPct(): number {
+    return this.countdownTotal > 0 ? this.countdownSecs / this.countdownTotal : 0;
   }
 
   private updateTime() {
@@ -600,6 +656,14 @@ export class SwarmComponent implements OnInit, OnDestroy {
     return total.toFixed(1);
   }
 
+  public getTotalEfficiency(): string {
+    const powerW  = parseFloat(this.getTotalPower());
+    const hashHS  = this.getFilteredHashRate(); // H/s
+    if (!hashHS || !powerW || hashHS < 1e9) return '---';
+    const jPerTH  = powerW / (hashHS / 1e12);
+    return jPerTH.toFixed(1);
+  }
+
   protected readonly SortIndex = SortIndex;
 
   // ── Swarm discovery helpers ────────────────────────────────────────────────
@@ -670,8 +734,9 @@ export class SwarmComponent implements OnInit, OnDestroy {
       Power:      pwr   ? `${pwr.power.toFixed(1)}W` : '---',
       Temp:       temps?.asic   ?? 0,
       VcoreTemp:  temps?.vcore  ?? 0,
-      RSSI:       id?.rssi      ?? 0,
-      FreeHeap:   (miner?.freeHeap ?? 0) / 1024,
+      RSSI:        id?.rssi      ?? 0,
+      FreeHeap:    (miner?.freeHeap    ?? 0) / 1024,
+      MinFreeHeap: (miner?.minFreeHeap ?? 0) / 1024,
       Version:    id?.fwVersion ?? '',
       AppSha256:  id?.appSha256  ?? '',
       Uptime:     formatUptime(miner?.uptimeSeconds ?? 0),
