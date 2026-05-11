@@ -155,6 +155,7 @@ typedef struct{
         uint16_t    vbus;//mV
         uint16_t    ibus;//mA
         uint16_t    vcore;//mV
+        uint8_t     num_phases; // detected hardware phase count (0=unknown, 2=2-phase, 3=3-phase)
     }power;
 
     struct{

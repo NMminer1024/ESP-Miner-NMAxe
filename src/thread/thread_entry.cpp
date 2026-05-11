@@ -50,7 +50,26 @@ void power_init_thread_entry(void *args){
     // wait for fan ready and wifi connected before setting vcore voltage, to avoid too high temperature without proper cooling or network connection for error reporting
     xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_VBUS_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     //detect phase count via PHFLT register before enabling vcore for real
-    board->power->detect_num_phases();
+    {
+        int detected_phases = board->power->detect_num_phases();
+        board->status.power.num_phases = (uint8_t)detected_phases;
+        if (detected_phases == 2) {
+            // 2-phase board: cap parameters in memory to safe limits.
+            // This protects against 3-phase firmware defaults loaded after factory reset.
+            const uint16_t PH2_MAX_FRQ_MHZ = 600;
+            const uint16_t PH2_MAX_VCORE_MV = 1150;
+            const uint16_t PH2_MAX_VCORE_CEILING_MV = 1200; // also cap max_vcore to block power_loop compensation
+            if (board->info.spec.asic.req_frq   > PH2_MAX_FRQ_MHZ)
+                board->info.spec.asic.req_frq   = PH2_MAX_FRQ_MHZ;
+            if (board->info.spec.asic.req_vcore > PH2_MAX_VCORE_MV)
+                board->info.spec.asic.req_vcore = PH2_MAX_VCORE_MV;
+            if (board->info.spec.asic.max_vcore > PH2_MAX_VCORE_CEILING_MV)
+                board->info.spec.asic.max_vcore = PH2_MAX_VCORE_CEILING_MV;
+            LOG_W("2-phase board: capped req_frq=%dMHz req_vcore=%dmV max_vcore=%dmV",
+                  board->info.spec.asic.req_frq, board->info.spec.asic.req_vcore,
+                  board->info.spec.asic.max_vcore);
+        }
+    }
     //set vcore voltage to required voltage
     board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
     board->power->set_vcore_status(PWR_ON);
