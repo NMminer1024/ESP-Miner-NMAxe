@@ -25,27 +25,26 @@
 #define NVS_CONFIG_FLIP_SCREEN              "flipscreen"
 #define NVS_CONFIG_LED_INDICATOR            "ledindicator"
 #define NVS_CONFIG_INVERT_FAN_POLARITY      "invertfanpol"
-
 #define NVS_CONFIG_SCREEN_SAVER_ENABLE      "scrsaverenable"
 #define NVS_CONFIG_SCREEN_SAVER_TIMEOUT     "scrsavertimeout"
 #define NVS_CONFIG_SCREEN_SAVER_MODE        "scrsavermode"
-
 #define NVS_CONFIG_AUTO_ASIC_FAN_SPEED      "autoasicfanspd"
 #define NVS_CONFIG_AUTO_VCORE_FAN_SPEED     "autovcorefanspd"
 #define NVS_CONFIG_ASIC_TARGET_TEMP         "asictargettemp"
 #define NVS_CONFIG_VCORE_TARGET_TEMP        "vcoretargettemp"
-#define NVS_CONFIG_ASIC_FAN_SPEED           "asicfanspeed" // enabe manual fan speed control for ASIC cooling, value in percentage (0-100)
+#define NVS_CONFIG_ASIC_FAN_SPEED           "asicfanspeed"  // enabe manual fan speed control for ASIC cooling, value in percentage (0-100)
 #define NVS_CONFIG_VCORE_FAN_SPEED          "vcorefanspeed" // enabe manual fan speed control for Vcore cooling, value in percentage (0-100) , if applicable
+#define NVS_CONFIG_TPS53647_PHASE_NUM       "tps53647phn"   // number of phases for TPS53647 power management (2 or 3), for QAxe++
 
-#define NVS_CONFIG_AUTO_SCREEN          "autoscreen"
-#define NVS_CONFIG_BEST_EVER            "bestever"
-#define NVS_CONFIG_SELF_TEST            "selftest"
-#define NVS_CONFIG_BLOCK_HITS           "blockhits"
-#define NVS_CONFIG_UPTIME               "uptime"
-#define NVS_CONFIG_FORCE_CONFIG         "forceconfig"
-#define NVS_CONFIG_PRICE_DISPLAY_COIN   "maincoindisplay"
-#define NVS_CONFIG_COIN_WATCHLIST       "coinwatchlist"
-#define NVS_CONFIG_UI_LAST_PAGE         "lastPage"
+#define NVS_CONFIG_AUTO_SCREEN              "autoscreen"
+#define NVS_CONFIG_BEST_EVER                "bestever"
+#define NVS_CONFIG_SELF_TEST                "selftest"
+#define NVS_CONFIG_BLOCK_HITS               "blockhits"
+#define NVS_CONFIG_UPTIME                   "uptime"
+#define NVS_CONFIG_FORCE_CONFIG             "forceconfig"
+#define NVS_CONFIG_PRICE_DISPLAY_COIN       "maincoindisplay"
+#define NVS_CONFIG_COIN_WATCHLIST           "coinwatchlist"
+#define NVS_CONFIG_UI_LAST_PAGE             "lastPage"
 // Theme configuration
 #define NVS_CONFIG_THEME_SCHEME         "themescheme"
 #define NVS_CONFIG_THEME_NAME           "themename"

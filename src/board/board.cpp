@@ -312,41 +312,101 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.max_x_bars= 20;
             config.ui.hashrate_dist_page.count     = 0;
 
-            config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
-            config.ui.dashboard_page.power.ibus          = {0.0f, 11.0f};
-            config.ui.dashboard_page.power.power         = {0.0f, 130.0f};
-            config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
-            config.ui.dashboard_page.heat.asic           = {0.0f, 80.0f};
-            config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
-            config.ui.dashboard_page.heat.fan            = {0.0f, 4000.0f};
-            config.ui.dashboard_page.performance.asic_freq_req  = {390.0f, 800.0f};
-            config.ui.dashboard_page.performance.vcore_req      = {0.900f, 1.500f};
-            config.ui.dashboard_page.performance.vcore_measure  = {0.900f, 1.500f};
-            config.ui.setting_page.oc = {
-                {"440 MHz",           440},
-                {"465 MHz",           465},
-                {"490 MHz",           490},
-                {"515 MHz",           515},
-                {"550 MHz",           550},
-                {"575 MHz",           575},
-                {"600 MHz (default)", 600},
-                {"625 MHz",           625},
-                {"650 MHz ",          650},
-                {"675 MHz",           675},
-                {"700 MHz",           700},
-            };
-            config.ui.setting_page.vc = {
-                {"1000 mV",           1000},
-                {"1025 mV",           1025},
-                {"1050 mV",           1050},
-                {"1100 mV",           1100},
-                {"1125 mV",           1125},
-                {"1150 mV (default)", 1150},
-                {"1175 mV",           1175},
-                {"1200 mV",           1200},
-                {"1225 mV ",          1225},
-                {"1250 mV",           1250},
-            };
+            {
+                int8_t tps_phn = nvs_config_get_u8(NVS_CONFIG_TPS53647_PHASE_NUM, 0); // set to 0 if not configured
+                if(tps_phn == 0) { // not configured, use default value 3
+                    nvs_config_set_u8(NVS_CONFIG_TPS53647_PHASE_NUM, 3);
+                    tps_phn = 3;
+                }
+
+                // per-phase temporary variables
+                float ibus_max, power_max, asic_freq_max;
+                std::vector<work_option_t> oc_opts, vc_opts;
+
+                if(tps_phn == 3) { // tps_phn == 3, QAxe++ 8T version
+                    config.asic.default_frq       = 700;
+                    config.asic.default_vcore     = 1300;
+                    ibus_max      = 18.0f;
+                    power_max     = 200.0f;
+                    asic_freq_max = 1000.0f;
+                    oc_opts = {
+                        {"515 MHz",           515},
+                        {"550 MHz",           550},
+                        {"575 MHz",           575},
+                        {"600 MHz",           600},
+                        {"625 MHz",           625},
+                        {"650 MHz",           650},
+                        {"675 MHz",           675},
+                        {"700 MHz(default)",  700},
+                        {"750 MHz",           750},
+                        {"800 MHz",           800},
+                        {"850 MHz",           850},
+                        {"900 MHz",           900},
+                        {"950 MHz",           950},
+                        {"1000 MHz",          1000},
+                    };
+                    vc_opts = {
+                        {"1025 mV",           1025},
+                        {"1050 mV",           1050},
+                        {"1100 mV",           1100},
+                        {"1125 mV",           1125},
+                        {"1150 mV",           1150},
+                        {"1175 mV",           1175},
+                        {"1200 mV",           1200},
+                        {"1225 mV ",          1225},
+                        {"1250 mV",           1250},
+                        {"1275 mV",           1275},
+                        {"1300 mV(default)",  1300},
+                        {"1325 mV",           1325},
+                        {"1350 mV",           1350},
+                    };
+                }
+                else{   // QAxe++ 4.8T version or fallback setting
+                    config.asic.default_frq       = 600;
+                    config.asic.default_vcore     = 1150;
+                    ibus_max      = 11.0f;
+                    power_max     = 130.0f;
+                    asic_freq_max = 800.0f;
+                    oc_opts = {
+                        {"515 MHz",           515},
+                        {"550 MHz",           550},
+                        {"575 MHz",           575},
+                        {"600 MHz (default)", 600},
+                        {"625 MHz",           625},
+                        {"650 MHz ",          650},
+                        {"675 MHz",           675},
+                        {"700 MHz",           700},
+                    };
+                    vc_opts = {
+                            {"1025 mV",           1025},
+                            {"1050 mV",           1050},
+                            {"1100 mV",           1100},
+                            {"1125 mV",           1125},
+                            {"1150 mV (default)", 1150},
+                            {"1175 mV",           1175},
+                            {"1200 mV",           1200},
+                            {"1225 mV ",          1225},
+                            {"1250 mV",           1250},
+                        };
+                }
+                // unified assignment
+                config.asic.req_frq       = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic.default_frq);
+                config.asic.req_vcore     = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
+                config.asic.min_vcore     = 1000;
+                config.asic.max_vcore     = 1500;
+                config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
+                config.ui.dashboard_page.power.ibus          = {0.0f, ibus_max};
+                config.ui.dashboard_page.power.power         = {0.0f, power_max};
+                config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
+                config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
+                config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
+                config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
+                config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, asic_freq_max};
+                config.ui.dashboard_page.performance.vcore_req      = {1.00f, 1.500f};
+                config.ui.dashboard_page.performance.vcore_measure  = {1.00f, 1.500f};
+                config.ui.setting_page.oc = oc_opts;
+                config.ui.setting_page.vc = vc_opts;
+            }
             
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = -1; // Not used
@@ -369,12 +429,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.wifi_pin              = -1; // Not used
             config.led.pool_pin              = -1; // Not used
             config.led.sys_pin               = 9; 
-            config.asic.default_frq          = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, 600);
-            config.asic.default_vcore        = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, 1150);
-            config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
-            config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
-            config.asic.min_vcore            = 1000;
-            config.asic.max_vcore            = 1500;
             config.asic.diff_thr_init        = 1024*2;
             config.asic.rx_pin               = 44;
             config.asic.tx_pin               = 43;
