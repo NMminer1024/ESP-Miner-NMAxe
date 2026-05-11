@@ -198,6 +198,26 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
     return;
 }
 
+
+bool nvs_config_delete_key(const char * key)
+{
+    nvs_handle handle;
+    esp_err_t err = nvs_open(NVS_CONFIG_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        return false;
+    }
+
+    err = nvs_erase_key(handle, key);
+    if (err != ESP_OK) {
+        nvs_close(handle);
+        return false;
+    }
+
+    err = nvs_commit(handle);
+    nvs_close(handle);
+    return err == ESP_OK;
+}
+
 bool erase_all_nvs(void){
     esp_err_t err;
     err = nvs_flash_init();

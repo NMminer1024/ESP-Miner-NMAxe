@@ -313,9 +313,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.count     = 0;
 
             {
-                int8_t tps_phn = nvs_config_get_u8(NVS_CONFIG_TPS53647_PHASE_NUM, 0); // set to 0 if not configured
-                if(tps_phn == 0) { // not configured, use default value 3
-                    nvs_config_set_u8(NVS_CONFIG_TPS53647_PHASE_NUM, 3);
+                int8_t tps_phn = nvs_config_get_u8(NVS_CONFIG_TPS53647_PHASE_NUM, 0); // 0 = not yet calibrated
+                if(tps_phn == 0) {
+                    // Phase number not set: run this boot with 3-phase defaults.
+                    // power_init_thread will auto-detect and persist the real value, then reboot if needed.
                     tps_phn = 3;
                 }
 

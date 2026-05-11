@@ -69,5 +69,5 @@ uint64_t nvs_config_get_u64(const char * key, const uint64_t default_value);
 void nvs_config_set_u64(const char * key, const uint64_t value);
 
 bool erase_all_nvs(void);
-
+bool nvs_config_delete_key(const char * key);
 #endif // MAIN_NVS_CONFIG_H

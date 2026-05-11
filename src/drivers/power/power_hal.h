@@ -43,6 +43,10 @@ public:
     virtual uint16_t get_vcore_max(void) = 0;
     virtual bool is_vcore_ready(void) = 0;
     virtual bool is_dc_pluged(void) = 0;
+    // Probe how many power phases are physically present.
+    // Returns 2 or 3 on success, -1 if not supported by this power class.
+    // Must be called after hw_init() and before set_vcore_status(PWR_ON).
+    virtual int8_t detect_phase(void) { return -1; }
 
     
     uint32_t get_vbus_adc(void);
