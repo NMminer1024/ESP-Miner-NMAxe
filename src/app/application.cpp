@@ -26,13 +26,6 @@ bool MinerApp::init() {
     config = get_board_config(model);
     hardware_pre_init(config);
 
-    // while (true) {
-    //     pinMode(NM_MODEL_SELECT_PIN2, INPUT_PULLDOWN);
-    //     uint8_t io_sta = digitalRead(NM_MODEL_SELECT_PIN2);
-    //     LOG_I("Debug: IO10=%d", io_sta);
-    //     delay(500);
-    // }
-
     while (!_board_init(config)) {
         LOG_E("Board initialization failed, retrying in 1s...");
         delay(1000);
@@ -219,20 +212,7 @@ void MinerApp::_tick_thread_entry(void* args) {
 ──────────────────────────────────────────────*/
 bool MinerApp::_board_init(const BoardSpecConfig& config) {
     /******* board-specific parameters *******/
-    g_board.info.spec.name                  = config.name;
-    g_board.info.spec.asic                  = config.asic;
-    g_board.info.spec.tft                   = config.tft;
-    g_board.info.spec.spi                   = config.spi;
-    g_board.info.spec.ui                    = config.ui;
-    g_board.info.spec.fans                  = config.fans;
-    g_board.info.spec.btn                   = config.btn;
-    g_board.info.spec.pwr                   = config.pwr;
-    g_board.info.spec.led                   = config.led;
-    g_board.info.spec.iic                   = config.iic;
-    g_board.info.spec.create_asic_instance  = config.create_asic_instance;
-    g_board.info.spec.create_power_instance = config.create_power_instance;
-    g_board.info.spec.preference            = config.preference;
-
+    g_board.info.spec = config;
     /******* common parameters *******/
     String stratum_pri = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
     String stratum_fb  = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
