@@ -16,12 +16,9 @@
 #define GAIN_VBUS_SAMPLE                (6.1f)
 #define GAIN_VCORE_SAMPLE               (2.0f)
 
-
 #define IMAX                            (40)      // Maximum current in A
 #define IFAULT                          (130.0f)   // Over current fault limit in A
 #define NUM_PHASE                       (3)       // Number of phases used
-
-
 
 TPS53647Class::~TPS53647Class(){
 

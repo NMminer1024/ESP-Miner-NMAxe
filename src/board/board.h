@@ -12,8 +12,9 @@
 
 /******************default parameter define for NMAxe***********************/
 #define BOARD_NMAXE_NAME                                "NMAxe"
-#define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"
+#define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"       
 #define BOARD_NMQAXE_PLUS_PLUS_NAME                     "NMQAxe++"
+#define BOARD_NMQAXE_PLUS_PLUS_REV6_NAME                "NMQAxe++Rev6"
 
 #define CHIP_NMAXE_NAME                                 "BM1366"
 #define CHIP_NMAXE_GAMMA_NAME                           "BM1370"
@@ -30,14 +31,16 @@
 #define FALLBACK_POOL_PWD                              "x"
 
 /*********************************Pin define********************************/
-#define NM_AXE_MODEL_SELECT_PIN0                       15
-#define NM_AXE_MODEL_SELECT_PIN1                       46
+#define NM_MODEL_SELECT_PIN0                       15
+#define NM_MODEL_SELECT_PIN1                       46 // 
+#define NM_MODEL_SELECT_PIN2                       10 // Default Hihg on Axe and Gamma, QAxe++ default LOW.
 
 typedef enum {
-    NMAXE            = 0b11,
-    NMAXE_GAMMA      = 0b01,
-    NMQAXE_PLUS_PLUS = 0b10,
-    BOARD_UNKNOWN    = 0b00
+    NMAXE               = 0b111,
+    NMAXE_GAMMA         = 0b011,
+    NMQAXE_PLUS_PLUS    = 0b100,
+    NMQAXE_PLUS_PLUS_REV61 = 0b110,
+    BOARD_UNKNOWN       = 0b000
 } BoardModelType;
 
 typedef struct{

@@ -9,20 +9,33 @@
 #include "drivers/extio/tca9554.h"
 
 BoardModelType get_board_model(){
-    BoardModelType model = BOARD_UNKNOWN;
-    pinMode(NM_AXE_MODEL_SELECT_PIN0, INPUT_PULLUP);
-    pinMode(NM_AXE_MODEL_SELECT_PIN1, INPUT_PULLUP);
-    delay(100); //wait for pin stable
-    uint8_t sel0 = digitalRead(NM_AXE_MODEL_SELECT_PIN0);
-    uint8_t sel1 = digitalRead(NM_AXE_MODEL_SELECT_PIN1);
-    // 0b11 NMAXE
-    // 0b01 NMAXE_GAMMA
-    // 0b10 NMQAXE++
-    // 0b00 BOARD_UNKNOWN
-    model = static_cast<BoardModelType>((sel0 << 1) | sel1);
-    return model;
+    pinMode(NM_MODEL_SELECT_PIN0, INPUT_PULLUP);
+    pinMode(NM_MODEL_SELECT_PIN1, INPUT_PULLUP);
+    pinMode(NM_MODEL_SELECT_PIN2, INPUT_PULLUP);
 
-    // return NMQAXE_PLUS_PLUS;
+    delay(100); //wait for pin stable
+    const uint8_t sel0 = digitalRead(NM_MODEL_SELECT_PIN0);
+    const uint8_t sel1 = digitalRead(NM_MODEL_SELECT_PIN1);
+    const uint8_t sel2 = digitalRead(NM_MODEL_SELECT_PIN2);
+    const uint8_t raw = static_cast<uint8_t>((sel0 << 2) | (sel1 << 1) | sel2);
+
+    // 0b111 NMAXE
+    // 0b011 NMAXE_GAMMA
+    // 0b100 NMQAXE++ 2 phase
+    // 0b110 NMQAXE++ 3 phase
+    // 0b000 BOARD_UNKNOWN
+    switch (raw) {
+        case 0b111:
+            return NMAXE;
+        case 0b011:
+            return NMAXE_GAMMA;
+        case 0b100:
+            return NMQAXE_PLUS_PLUS;
+        case 0b110:
+            return NMQAXE_PLUS_PLUS_REV61;
+        default:
+            return BOARD_UNKNOWN;
+    }
 }
 
 BoardSpecConfig get_board_config(BoardModelType model) {
@@ -312,103 +325,43 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.max_x_bars= 20;
             config.ui.hashrate_dist_page.count     = 0;
 
-            {
-                int8_t tps_phn = nvs_config_get_u8(NVS_CONFIG_TPS53647_PHASE_NUM, 0); // 0 = not yet calibrated
-                if(tps_phn == 0) {
-                    // Phase number not set: run this boot with 3-phase defaults.
-                    // power_init_thread will auto-detect and persist the real value, then reboot if needed.
-                    tps_phn = 3;
-                }
-
-                // per-phase temporary variables
-                float ibus_max, power_max, asic_freq_max;
-                std::vector<work_option_t> oc_opts, vc_opts;
-
-                if(tps_phn == 3) { // tps_phn == 3, QAxe++ 8T version
-                    config.asic.default_frq       = 700;
-                    config.asic.default_vcore     = 1300;
-                    ibus_max      = 18.0f;
-                    power_max     = 200.0f;
-                    asic_freq_max = 1000.0f;
-                    oc_opts = {
-                        {"515 MHz",           515},
-                        {"550 MHz",           550},
-                        {"575 MHz",           575},
-                        {"600 MHz",           600},
-                        {"625 MHz",           625},
-                        {"650 MHz",           650},
-                        {"675 MHz",           675},
-                        {"700 MHz(default)",  700},
-                        {"750 MHz",           750},
-                        {"800 MHz",           800},
-                        {"850 MHz",           850},
-                        {"900 MHz",           900},
-                        {"950 MHz",           950},
-                        {"1000 MHz",          1000},
-                    };
-                    vc_opts = {
-                        {"1025 mV",           1025},
-                        {"1050 mV",           1050},
-                        {"1100 mV",           1100},
-                        {"1125 mV",           1125},
-                        {"1150 mV",           1150},
-                        {"1175 mV",           1175},
-                        {"1200 mV",           1200},
-                        {"1225 mV ",          1225},
-                        {"1250 mV",           1250},
-                        {"1275 mV",           1275},
-                        {"1300 mV(default)",  1300},
-                        {"1325 mV",           1325},
-                        {"1350 mV",           1350},
-                    };
-                }
-                else{   // QAxe++ 4.8T version or fallback setting
-                    config.asic.default_frq       = 600;
-                    config.asic.default_vcore     = 1150;
-                    ibus_max      = 11.0f;
-                    power_max     = 130.0f;
-                    asic_freq_max = 800.0f;
-                    oc_opts = {
-                        {"515 MHz",           515},
-                        {"550 MHz",           550},
-                        {"575 MHz",           575},
-                        {"600 MHz (default)", 600},
-                        {"625 MHz",           625},
-                        {"650 MHz ",          650},
-                        {"675 MHz",           675},
-                        {"700 MHz",           700},
-                    };
-                    vc_opts = {
-                            {"1025 mV",           1025},
-                            {"1050 mV",           1050},
-                            {"1100 mV",           1100},
-                            {"1125 mV",           1125},
-                            {"1150 mV (default)", 1150},
-                            {"1175 mV",           1175},
-                            {"1200 mV",           1200},
-                            {"1225 mV ",          1225},
-                            {"1250 mV",           1250},
-                        };
-                }
-                // unified assignment
-                config.asic.req_frq       = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic.default_frq);
-                config.asic.req_vcore     = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
-                config.asic.min_vcore     = 1000;
-                config.asic.max_vcore     = 1500;
-                config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
-                config.ui.dashboard_page.power.ibus          = {0.0f, ibus_max};
-                config.ui.dashboard_page.power.power         = {0.0f, power_max};
-                config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
-                config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
-                config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
-                config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
-                config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, asic_freq_max};
-                config.ui.dashboard_page.performance.vcore_req      = {1.00f, 1.500f};
-                config.ui.dashboard_page.performance.vcore_measure  = {1.00f, 1.500f};
-                config.ui.setting_page.oc = oc_opts;
-                config.ui.setting_page.vc = vc_opts;
-            }
-            
+            config.asic.default_frq         = 600;
+            config.asic.default_vcore       = 1150;
+            config.asic.req_frq             = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic.default_frq);
+            config.asic.req_vcore           = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
+            config.asic.min_vcore           = 1000;
+            config.asic.max_vcore           = 1500;
+            config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
+            config.ui.dashboard_page.power.ibus          = {0.0f, 11.0f};
+            config.ui.dashboard_page.power.power         = {0.0f, 130.0f};
+            config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
+            config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
+            config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
+            config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
+            config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, 800.0f};
+            config.ui.dashboard_page.performance.vcore_req      = {1.00f, 1.500f};
+            config.ui.dashboard_page.performance.vcore_measure  = {1.00f, 1.500f};
+            config.ui.setting_page.oc = {
+                    {"515 MHz",           515},
+                    {"550 MHz",           550},
+                    {"575 MHz",           575},
+                    {"600 MHz (default)", 600},
+                    {"625 MHz",           625},
+                    {"650 MHz ",          650},
+                    {"675 MHz",           675},
+                    {"700 MHz",           700},
+                };
+            config.ui.setting_page.vc = {
+                    {"1025 mV",           1025},
+                    {"1050 mV",           1050},
+                    {"1100 mV",           1100},
+                    {"1125 mV",           1125},
+                    {"1150 mV (default)", 1150},
+                    {"1175 mV",           1175},
+                    {"1200 mV",           1200},
+                    {"1225 mV ",          1225},
+                    {"1250 mV",           1250},
+                };
             config.btn.boot_pin              = 0;
             config.btn.user_pin              = -1; // Not used
             config.pwr.en_pins.pwr_pll_0v8   = 39;
@@ -505,10 +458,171 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_VCORE_TARGET_TEMP, "85")).toFloat();
             config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
             break;
-        default:
-            config.name                      = "Unknown";
-            config.asic.name                 = "Unknown";
-            config.asic.job_interval_ms      = 0;
+        
+            case NMQAXE_PLUS_PLUS_REV61:
+            config.name                      = BOARD_NMQAXE_PLUS_PLUS_NAME;
+            config.asic.name                 = CHIP_NMQAXE_PLUS_PLUS_NAME;
+            config.asic.num_req              = 4;
+            config.asic.temp_limit.high      = 75.0f;
+            config.asic.temp_limit.medium    = 65.0f;
+            config.asic.temp_limit.low       = 50.0f;
+            config.asic.job_interval_ms      = 500;
+            config.tft.width                 = 240;
+            config.tft.height                = 320;
+            config.tft.dc_pin                = 3;
+            config.tft.bl.pin                = 6;
+            config.tft.bl.pwm_ch             = 0;
+            config.tft.bl.pwm_freq           = 1000*100; // Hz
+            config.tft.bl.pwm_resolution     = 8;        // bits
+            config.tft.rst_pin               = -1;       
+            config.tft.pwr_pin               = -1;
+            config.tft.color_invert          = true;
+            config.spi.cs_pin                = -1;
+            config.spi.miso_pin              = 2;
+            config.spi.mosi_pin              = 1;
+            config.spi.sclk_pin              = 5;
+            config.ui.hashrate_dist_page.max_x_hr  = 10000;
+            config.ui.hashrate_dist_page.max_x_bars= 20;
+            config.ui.hashrate_dist_page.count     = 0;
+
+            config.asic.default_frq         = 900;
+            config.asic.default_vcore       = 1350;
+            config.asic.req_frq             = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic.default_frq);
+            config.asic.req_vcore           = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
+            config.asic.min_vcore           = 1100;
+            config.asic.max_vcore           = 1500;
+            config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
+            config.ui.dashboard_page.power.ibus          = {0.0f, 18.0f};
+            config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
+            config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
+            config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
+            config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
+            config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
+            config.ui.dashboard_page.performance.asic_freq_req  = {600.0f, 1100.0f};
+            config.ui.dashboard_page.performance.vcore_req      = {1.10f, 1.500f};
+            config.ui.dashboard_page.performance.vcore_measure  = {1.10f, 1.500f};
+            config.ui.setting_page.oc = {
+                    {"650 MHz ",          650},
+                    {"675 MHz",           675},
+                    {"700 MHz",           700},
+                    {"750 MHz",           750},
+                    {"800 MHz",           800},
+                    {"850 MHz",           850},
+                    {"900 MHz (default)", 900},
+                    {"950 MHz",           950},
+                    {"1000 MHz",          1000},
+                };
+            config.ui.setting_page.vc = {
+                    {"1150 mV",           1150},
+                    {"1175 mV",           1175},
+                    {"1200 mV",           1200},
+                    {"1225 mV ",          1225},
+                    {"1250 mV",           1250},
+                    {"1275 mV",           1275},
+                    {"1300 mV",           1300},
+                    {"1350 mV (default)", 1350},
+                    {"1400 mV",           1400},
+                    };
+            config.btn.boot_pin              = 0;
+            config.btn.user_pin              = -1; // Not used
+            config.pwr.en_pins.pwr_pll_0v8   = 39;
+            config.pwr.en_pins.pwr_vdd_1v8   = 40;
+            config.pwr.en_pins.pwr_vcore     = 38;
+            config.pwr.adc_pins.vbus         = 18;
+            config.pwr.adc_pins.ibus         = 11;
+            config.pwr.adc_pins.vcore        = 17;
+            config.pwr.vcore_regulator_pin   = -1;  // Not used 
+            config.pwr.pgood_pin             = 21;
+            config.pwr.dc_plug_pin           = -1;  // Not used
+            config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
+            config.pwr.temp_limit.high       = 130.0f;
+            config.pwr.temp_limit.medium     = 110.0f;
+            config.pwr.temp_limit.low        = 80.0f;
+            config.pwr.power_low_threshold   = 20.0f; // Watt
+            config.iic.scl_pin               = 7;   
+            config.iic.sda_pin               = 8;
+            config.led.wifi_pin              = -1; // Not used
+            config.led.pool_pin              = -1; // Not used
+            config.led.sys_pin               = 9; 
+            config.asic.diff_thr_init        = 1024*2;
+            config.asic.rx_pin               = 44;
+            config.asic.tx_pin               = 43;
+            config.asic.rst_pin              = 45;
+            config.asic.com_baud_init        = 115200;
+            config.asic.com_baud_work        = 1000000;
+            config.asic.com_port             = &Serial1;
+            config.preference.screen.brightness    = 100;
+            config.preference.screen.auto_rolling  = false;
+            config.preference.screen.flip          = false;
+            config.preference.screen.saver_enable  = true;
+            config.preference.screen.saver_timeout = 15*60; // 15 minutes
+            config.preference.led.enable           = true;
+            config.preference.led.enable           = true;
+            config.create_asic_instance            = create_qaxepp_asic_instance;
+            config.create_power_instance           = create_qaxepp_power_instance;
+            
+            config.fans.clear();
+            fan_cfg.id                        = 0;
+            fan_cfg.init.pwm.pin              = 41;
+            fan_cfg.init.pwm.ch               = 1;
+            fan_cfg.init.pwm.freq             = 1000*100; // Hz
+            fan_cfg.init.pwm.resolution       = 8;        // bits
+            fan_cfg.init.torch.pulse_gpio_num = 42;
+            fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED; // Not used
+            fan_cfg.init.torch.lctrl_mode     = PCNT_MODE_KEEP;
+            fan_cfg.init.torch.hctrl_mode     = PCNT_MODE_KEEP;
+            fan_cfg.init.torch.pos_mode       = PCNT_COUNT_INC;
+            fan_cfg.init.torch.neg_mode       = PCNT_COUNT_DIS;
+            fan_cfg.init.torch.counter_h_lim  = 30000;
+            fan_cfg.init.torch.counter_l_lim  = 0;
+            fan_cfg.init.torch.unit           = PCNT_UNIT_0;
+            fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
+            fan_cfg.init.self_test_rpm_thr   = 1500;
+            fan_cfg.init.danger_rpm_thr      = 100;
+            fan_cfg.pid.Kp                   = 50.0f;
+            fan_cfg.pid.Ki                   = 1.0f;
+            fan_cfg.pid.Kd                   = 0.0f;
+            fan_cfg.pid.prev_error           = 0;
+            fan_cfg.pid.integral             = 0;
+            fan_cfg.pid.output_min           = 0.00f;
+            fan_cfg.pid.output_max           = 100.0f;
+            fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
+            fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "30")).toFloat();
+            config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
+
+            fan_cfg.id                        = 1;
+            fan_cfg.init.pwm.pin              = 10;
+            fan_cfg.init.pwm.ch               = 2;
+            fan_cfg.init.pwm.freq             = 1000*100; // Hz
+            fan_cfg.init.pwm.resolution       = 8;        // bits
+            fan_cfg.init.torch.pulse_gpio_num = 47;
+            fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED; // Not used
+            fan_cfg.init.torch.lctrl_mode     = PCNT_MODE_KEEP;
+            fan_cfg.init.torch.hctrl_mode     = PCNT_MODE_KEEP;
+            fan_cfg.init.torch.pos_mode       = PCNT_COUNT_INC;
+            fan_cfg.init.torch.neg_mode       = PCNT_COUNT_DIS;
+            fan_cfg.init.torch.counter_h_lim  = 30000;
+            fan_cfg.init.torch.counter_l_lim  = 0;
+            fan_cfg.init.torch.unit           = PCNT_UNIT_1;
+            fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
+            fan_cfg.init.self_test_rpm_thr   = 2000;
+            fan_cfg.init.danger_rpm_thr      = 100;
+            fan_cfg.pid.Kp                   = 50.0f;
+            fan_cfg.pid.Ki                   = 1.0f;
+            fan_cfg.pid.Kd                   = 0.0f;
+            fan_cfg.pid.prev_error           = 0;
+            fan_cfg.pid.integral             = 0;
+            fan_cfg.pid.output_min           = 0.00f;
+            fan_cfg.pid.output_max           = 100.0f;
+            fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
+            fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_VCORE_TARGET_TEMP, "85")).toFloat();
+            config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
+            break;
+        
+            default:
+                config.name                      = "Unknown";
+                config.asic.name                 = "Unknown";
+                config.asic.job_interval_ms      = 0;
             break;
     }
     

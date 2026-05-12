@@ -2,6 +2,7 @@
 #include "utils/logger/logger.h"
 #include "nvs/nvs_config.h"
 
+
 // Global board instance - declared extern in global.h, defined here
 board_sal_t g_board;
 
@@ -16,14 +17,21 @@ MinerApp& MinerApp::instance() {
 /*──────────────────────────────────────────────
   init()  –  hardware pre-init + board init
 ──────────────────────────────────────────────*/
+#include <Arduino.h>
 bool MinerApp::init() {
     BoardSpecConfig config;
     BoardModelType  model;
 
     model  = get_board_model();
     config = get_board_config(model);
-
     hardware_pre_init(config);
+
+    // while (true) {
+    //     pinMode(NM_MODEL_SELECT_PIN2, INPUT_PULLDOWN);
+    //     uint8_t io_sta = digitalRead(NM_MODEL_SELECT_PIN2);
+    //     LOG_I("Debug: IO10=%d", io_sta);
+    //     delay(500);
+    // }
 
     while (!_board_init(config)) {
         LOG_E("Board initialization failed, retrying in 1s...");
