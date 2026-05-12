@@ -81,12 +81,20 @@
 
 
 
+struct tps53647_cfg_t {
+    uint8_t num_phases;       // 2 or 3
+    uint8_t imax;             // max current in A (PMBUS_MFR_SPECIFIC_10)
+    float   ifault;           // OC fault/warn limit in A
+    float   reg_ibus_sample;  // shunt resistance: 0.005 Ω (2-ph) / 0.0025 Ω (3-ph)
+};
+
 class TPS53647Class: public AxePowerHal{
 private:
-    uint8_t  _vcore_pgood_pin;
-    float    _chip_min_output_vlot_mv;    // Hardware minimum Vcore voltage in mV, TPS53647 related
-    uint16_t _vcore_min_mv;// Vcore voltage range min in mV, ASIC related
-    uint16_t _vcore_max_mv;// Vcore voltage range max in mV, ASIC related
+    uint8_t       _vcore_pgood_pin;
+    float         _chip_min_output_vlot_mv;  // TPS53647 hardware min output voltage in V
+    uint16_t      _vcore_min_mv;             // Vcore range min in mV, ASIC-related
+    uint16_t      _vcore_max_mv;             // Vcore range max in mV, ASIC-related
+    tps53647_cfg_t _cfg;                     // board-specific phase / current config
     uint8_t  _read_reg(uint8_t regaddr, uint8_t *data, uint8_t length);
     void     _write_byte(uint8_t regaddr, uint8_t data);
     void     _write_word(uint8_t regaddr, uint16_t data);
@@ -97,9 +105,10 @@ private:
     uint16_t _float_to_slinear11(float x);
     void     _set_phases(int num_phases);
 public:
-    TPS53647Class(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t pgood,  uint8_t plug):AxePowerHal(en_pins, adc_pins){
-        this->_vcore_pgood_pin          = pgood;
-        this->_chip_min_output_vlot_mv  = 0.25; // TPS53647 minimum output voltage is 0.25V
+    TPS53647Class(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t pgood, uint8_t plug, tps53647_cfg_t cfg)
+        : AxePowerHal(en_pins, adc_pins), _cfg(cfg) {
+        this->_vcore_pgood_pin         = pgood;
+        this->_chip_min_output_vlot_mv = 0.25f; // TPS53647 minimum output voltage 0.25 V
     }
     ~TPS53647Class();
     /** Implementations of pure virtual functions from AxePowerHal */
@@ -116,7 +125,6 @@ public:
     uint32_t get_vbus(void) override;
     uint32_t get_ibus(void) override;
     uint32_t get_vcore(void) override;
-    int8_t   detect_phase(void) override;
 };
 
 #endif 

@@ -44,6 +44,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
     switch(model) {
         case NMAXE:
             config.name                      = BOARD_NMAXE_NAME;
+            config.display_name              = BOARD_NMAXE_NAME;
             config.asic.name                 = CHIP_NMAXE_NAME;
             config.asic.num_req              = 1;
             config.asic.temp_limit.high      = 75.0f;
@@ -170,6 +171,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             break;
         case NMAXE_GAMMA:
             config.name                      = BOARD_NMAXE_GAMMA_NAME;
+            config.display_name              = BOARD_NMAXE_GAMMA_NAME;
             config.asic.name                 = CHIP_NMAXE_GAMMA_NAME;
             config.asic.num_req              = 1;
             config.asic.temp_limit.high      = 70.0f;
@@ -301,6 +303,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             break;
         case NMQAXE_PLUS_PLUS:
             config.name                      = BOARD_NMQAXE_PLUS_PLUS_NAME;
+            config.display_name              = BOARD_NMQAXE_PLUS_PLUS_NAME;
             config.asic.name                 = CHIP_NMQAXE_PLUS_PLUS_NAME;
             config.asic.num_req              = 4;
             config.asic.temp_limit.high      = 75.0f;
@@ -398,8 +401,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.led.enable           = true;
             config.preference.led.enable           = true;
             config.create_asic_instance            = create_qaxepp_asic_instance;
-            config.create_power_instance           = create_qaxepp_power_instance;
-            
+            config.create_power_instance           = create_qaxepp_2ph_power_instance;  // 2-phase
+
             config.fans.clear();
             fan_cfg.id                        = 0;
             fan_cfg.init.pwm.pin              = 41;
@@ -429,7 +432,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_ASIC_TARGET_TEMP, "30")).toFloat();
             config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
 
-            
             fan_cfg.id                        = 1;
             fan_cfg.init.pwm.pin              = 10;
             fan_cfg.init.pwm.ch               = 2;
@@ -458,9 +460,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_VCORE_TARGET_TEMP, "85")).toFloat();
             config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
             break;
-        
-            case NMQAXE_PLUS_PLUS_REV61:
-            config.name                      = BOARD_NMQAXE_PLUS_PLUS_NAME;
+
+        case NMQAXE_PLUS_PLUS_REV61:
+            config.name                      = BOARD_NMQAXE_PLUS_PLUS_NAME;     // must match NMQAXE_PLUS_PLUS_NAME: all runtime checks use this string
+            config.display_name              = BOARD_NMQAXE_PLUS_PLUS_REV61_NAME;
             config.asic.name                 = CHIP_NMQAXE_PLUS_PLUS_NAME;
             config.asic.num_req              = 4;
             config.asic.temp_limit.high      = 75.0f;
@@ -559,7 +562,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.led.enable           = true;
             config.preference.led.enable           = true;
             config.create_asic_instance            = create_qaxepp_asic_instance;
-            config.create_power_instance           = create_qaxepp_power_instance;
+            config.create_power_instance           = create_qaxepp_rev61_power_instance; // 3-phase
             
             config.fans.clear();
             fan_cfg.id                        = 0;
@@ -619,8 +622,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
             break;
         
-            default:
+        default:
                 config.name                      = "Unknown";
+                config.display_name              = "Unknown";
                 config.asic.name                 = "Unknown";
                 config.asic.job_interval_ms      = 0;
             break;

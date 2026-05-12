@@ -32,36 +32,6 @@ void power_init_thread_entry(void *args){
     else LOG_D("USB plug detected...");
     delay(100);
     board->power->init();
-
-    // -----------------------------------------------------------------------
-    // Phase auto-detection (NMQAXE++ only, first-boot only)
-    //
-    // NVS key NVS_CONFIG_TPS53647_PHASE_NUM == 0 means "never calibrated".
-    // detect_phase() briefly enables the TPS53647 at 1000 mV (zero ASIC load)
-    // and reads STATUS_MFR_SPECIFIC PHFLT to count physical phases.
-    // Result is persisted to NVS; if a 2-phase board is detected the device
-    // reboots so get_board_config() picks up the correct config from NVS.
-    // -----------------------------------------------------------------------
-    if ((nvs_config_get_u8(NVS_CONFIG_TPS53647_PHASE_NUM, 0) == 0) && (board->info.spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME)) {
-        LOG_W("TPS53647 phase count not calibrated - running auto-detection...");
-        int8_t detected = board->power->detect_phase();
-        if (detected == 2) {
-            nvs_config_set_u8(NVS_CONFIG_TPS53647_PHASE_NUM, 2);
-            LOG_W("Phase auto-detection result: 2 phases → saved to NVS");
-            // This boot used 3-phase config; must reboot to apply 2-phase config.
-            LOG_W("Rebooting to apply 2-phase configuration...");
-            delay(500);
-            esp_restart();
-        } else if (detected < 0) {
-            // detect_phase() returned -1 (I2C error / unsupported).
-            LOG_E("Phase auto-detection failed (ret=%d), leaving NVS unset", detected);
-        } else {
-            // No PHFLT observed at no-load. Do not commit 3-phase to NVS,
-            // because that would make a false assumption permanent.
-            LOG_W("Phase auto-detection inconclusive at no-load; keeping NVS unset");
-        }
-    }
-
     //set vdd_1v8 and pll_0v8 power
     board->power->set_pll_0v8(PWR_ON);
     board->power->set_vdd_1v8(PWR_ON);

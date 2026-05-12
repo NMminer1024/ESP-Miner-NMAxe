@@ -10,15 +10,12 @@
 #define ACK_VAL                         0x0
 #define NACK_VAL                        0x1
 
-#define REG_IBUS_SAMPLE                 (0.005f)  // for 2 phases board
-// #define REG_IBUS_SAMPLE                 (0.0025f) // for 3 phases board
+// Board-independent ADC gain constants
 #define GAIN_IBUS_SAMPLE                (50.0f)
 #define GAIN_VBUS_SAMPLE                (6.1f)
 #define GAIN_VCORE_SAMPLE               (2.0f)
-
-#define IMAX                            (40)      // Maximum current in A
-#define IFAULT                          (130.0f)   // Over current fault limit in A
-#define NUM_PHASE                       (3)       // Number of phases used
+// Board-specific parameters (num_phases, imax, ifault, reg_ibus_sample) are
+// passed in via tps53647_cfg_t at construction time.
 
 TPS53647Class::~TPS53647Class(){
 
@@ -205,7 +202,7 @@ void TPS53647Class::hw_init(void){
     this->_write_byte(PMBUS_MFR_SPECIFIC_12, 0x20); // default value
 
     // set maximum current
-    this->_write_byte(PMBUS_MFR_SPECIFIC_10, (uint8_t) IMAX);
+    this->_write_byte(PMBUS_MFR_SPECIFIC_10, this->_cfg.imax);
 
     // operation mode
     // VR12 Mode
@@ -223,16 +220,15 @@ void TPS53647Class::hw_init(void){
     this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0x04);
 
     // set number of phases
-    this->_set_phases(NUM_PHASE);
+    this->_set_phases(this->_cfg.num_phases);
 
     // temperature
     this->_write_word(PMBUS_OT_WARN_LIMIT, this->_float_to_slinear11(95.0f));
     this->_write_word(PMBUS_OT_FAULT_LIMIT, this->_float_to_slinear11(125.0f));
 
-    // Iout current
-    // set warn and fault to the same value
-    this->_write_word(PMBUS_IOUT_OC_WARN_LIMIT, this->_float_to_slinear11(IFAULT));
-    this->_write_word(PMBUS_IOUT_OC_FAULT_LIMIT, this->_float_to_slinear11(IFAULT));
+    // Iout current — warn and fault thresholds from board config
+    this->_write_word(PMBUS_IOUT_OC_WARN_LIMIT,  this->_float_to_slinear11(this->_cfg.ifault));
+    this->_write_word(PMBUS_IOUT_OC_FAULT_LIMIT, this->_float_to_slinear11(this->_cfg.ifault));
 
     // Read back and print register values
     uint8_t mfr_specific_00 = 0x00;
@@ -331,7 +327,7 @@ uint32_t TPS53647Class::get_ibus(void){
     uint32_t vadc = this->get_ibus_adc();
     LOG_D("ibus %dmv", vadc);
     float real = (float)vadc / GAIN_IBUS_SAMPLE;
-    uint32_t current = (uint32_t)(real / REG_IBUS_SAMPLE); //0.01 ohm sampling resistor
+    uint32_t current = (uint32_t)(real / this->_cfg.reg_ibus_sample);
     return current;
 }
 
@@ -339,78 +335,4 @@ uint32_t TPS53647Class::get_vcore(void){
     uint32_t vadc = this->get_vcore_adc();
     LOG_D("vcore %dmv", vadc);
     return (vadc * GAIN_VCORE_SAMPLE);
-}
-
-// ---------------------------------------------------------------------------
-// detect_phase()
-//
-// Purpose : determine how many power-stage phases are physically present on
-//           the board WITHOUT knowing it in advance.
-//
-// Method  : Configure TPS53647 as 3-phase, set a safe 1000 mV output (the
-//           ASIC is never powered at this point so load ≈ 0 A, which is safe
-//           for any number of phases), briefly enable the converter, then read
-//           STATUS_MFR_SPECIFIC bit 0 (PHFLT).
-//           PHFLT = 1  →  a phase has no switching pulse  →  2-phase board
-//           PHFLT = 0  →  all 3 phases responding         →  3-phase board
-//
-// Pre-conditions:
-//   • hw_init() must have been called (PMBus comms established)
-//   • set_pll_0v8() / set_vdd_1v8() must NOT yet have been called
-//     (ASIC remains fully unpowered during detection)
-//   • set_vcore_status() must currently be PWR_OFF
-//
-// Returns : 2 if PHFLT indicates a missing phase,
-//           0 if no phase fault is observed,
-//          -1 on I2C error.
-// ---------------------------------------------------------------------------
-int8_t TPS53647Class::detect_phase(void) {
-    LOG_I("TPS53647: starting phase auto-detection...");
-
-    // 1. Attempt with 3 phases configured (maximum expected)
-    this->_set_phases(3);
-
-    // 2. Set a safe detection voltage: 1000 mV.
-    //    At zero ASIC load this is safe for 2-phase or 3-phase hardware.
-    this->_write_word(PMBUS_VOUT_COMMAND, this->_mv_to_vid(1000));
-
-    // 3. Clear any latched faults from a previous boot before enabling
-    this->_write_cmd(PMBUS_CLEAR_FAULTS);
-    delay(20);
-
-    // 4. Enable converter output:
-    //    • assert the hardware EN pin (GPIO)
-    //    • send OPERATION = 0x80 via PMBus (required when ON_OFF_CONFIG bit 3 is set)
-    this->set_vcore_status(PWR_ON);
-    this->_write_byte(PMBUS_OPERATION, 0x80);
-
-    // 5. Wait for the converter to stabilise and for PHFLT to assert if a
-    //    phase is missing (TPS53647 typically flags within a few ms, 150 ms
-    //    gives comfortable margin across temperature and tolerance).
-    delay(150);
-
-    // 6. Sample STATUS_MFR_SPECIFIC and check PHFLT (bit 0)
-    uint8_t status = 0;
-    uint8_t read_err = this->_read_reg(PMBUS_STATUS_MFR_SPECIFIC, &status, 1);
-
-    // 7. Disable converter immediately regardless of result
-    this->_write_byte(PMBUS_OPERATION, 0x00);
-    this->set_vcore_status(PWR_OFF);
-    delay(20);
-    this->_write_cmd(PMBUS_CLEAR_FAULTS);
-
-    if (read_err != 0) {
-        LOG_E("TPS53647: failed to read STATUS_MFR_SPECIFIC during phase detection");
-        return -1;
-    }
-
-    LOG_I("TPS53647: STATUS_MFR_SPECIFIC = 0x%02X  (PHFLT=%d)", status, status & 0x01);
-
-    if (status & 0x01) {
-        LOG_W("TPS53647: PHFLT set → 2-phase board detected");
-        return 2;
-    } else {
-        LOG_W("TPS53647: no PHFLT observed → phase count not conclusively detectable at no-load");
-        return 0;
-    }
 }

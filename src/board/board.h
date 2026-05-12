@@ -9,16 +9,18 @@
 #include <map>
 #include "drivers/fan/fan.h"
 #include <vector>
+#include <functional>
 
 /******************default parameter define for NMAxe***********************/
 #define BOARD_NMAXE_NAME                                "NMAxe"
 #define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"       
 #define BOARD_NMQAXE_PLUS_PLUS_NAME                     "NMQAxe++"
-#define BOARD_NMQAXE_PLUS_PLUS_REV6_NAME                "NMQAxe++Rev6"
+#define BOARD_NMQAXE_PLUS_PLUS_REV61_NAME               "NMQAxe++Rev6.1"
 
 #define CHIP_NMAXE_NAME                                 "BM1366"
 #define CHIP_NMAXE_GAMMA_NAME                           "BM1370"
 #define CHIP_NMQAXE_PLUS_PLUS_NAME                      "BM1370"
+#define CHIP_NMQAXE_PLUS_PLUS_REV61_NAME                "BM1370"
 
 
 #define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
@@ -82,7 +84,8 @@ struct work_option_t {
 
 // board config struct
 struct BoardSpecConfig {
-    String   name;
+    String   name;          // runtime functional ID, used in all spec.name == checks
+    String   display_name;  // UI-only label shown in hwModel / web
 
     struct{
         struct{
@@ -204,8 +207,8 @@ struct BoardSpecConfig {
 
     // creator function pointer
     BMxxx*       (*create_asic_instance)(HardwareSerial&, uint32_t, uint8_t, uint8_t, uint8_t);
-    // Power HAL instance pointer
-    AxePowerHal* (*create_power_instance)(axe_pwr_enable_pin_t, axe_pwr_adc_pin_t, uint8_t, uint8_t, uint8_t);
+    // Power HAL factory — std::function allows lambda captures for per-board cfg
+    std::function<AxePowerHal*(axe_pwr_enable_pin_t, axe_pwr_adc_pin_t, uint8_t, uint8_t, uint8_t)> create_power_instance;
 };
 
 void hardware_pre_init(BoardSpecConfig config);
