@@ -54,7 +54,7 @@ void MinerApp::begin() {
         {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,        1, NULL,             10,  0},
         {"(daemon)",    daemon_thread_entry,            1024*4,   TASK_PRIORITY_DAEMON,      0, &_daemonTask,     10,  0},
         {"(pwr_init)",  power_init_thread_entry,        1024*7,   TASK_PRIORITY_PWR,         1, NULL,             0,   0},
-        {"(pwr_loop)",  power_loop_thread_entry,        1024*4,   TASK_PRIORITY_PWR,         1, &_powerTask,      10,  0},
+        {"(pwr_loop)",  power_loop_thread_entry,        1024*5,   TASK_PRIORITY_PWR,         1, &_powerTask,      10,  0},
         {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*5,   TASK_PRIORITY_ASIC_CNT,    1, NULL,             10,  0},
         {"(asic_init)", miner_asic_init_thread_entry,   1024*6,   TASK_PRIORITY_ASIC_INIT,   1, NULL,             10,  0},
         {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,         0, &_fanTask,        10,  0},

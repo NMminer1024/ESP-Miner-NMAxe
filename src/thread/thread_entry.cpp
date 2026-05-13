@@ -67,15 +67,15 @@ void power_init_thread_entry(void *args){
 void power_loop_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
-    // LOG_D("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
     xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-    static uint32_t _pwr_debug_last_ms = 0;
+
+    uint32_t _pwr_debug_last_ms = 0;
     while(true){
         delay(100);
 #if 0
         // debugPrint throttled to once every 3 seconds
         uint32_t _now = millis();
-        if (_now - _pwr_debug_last_ms >= 3000) {
+        if (_now - _pwr_debug_last_ms >= 2000) {
             board->power->debugPrint();
             _pwr_debug_last_ms = _now;
         }
@@ -2433,6 +2433,28 @@ void stratum_thread_entry(void *args){
 
     double pool_init_diff = board->info.spec.asic.diff_thr_init;
     board->stratum->set_pool_difficulty(pool_init_diff);
+
+    // Parse a Stratum JSON-RPC error response into a human-readable string.
+    // Stratum error array format: [code, message, traceback]
+    // Standard error codes (de-facto industry standard, originated from Slush Pool):
+    //   20 = Other/Unknown, 21 = Stale share, 22 = Duplicate share,
+    //   23 = Low difficulty,  24 = Unauthorized worker, 25 = Not subscribed
+    auto parse_stratum_error = [](const String& raw) -> String {
+        StaticJsonDocument<256> err_doc;
+        if (deserializeJson(err_doc, raw) != DeserializationError::Ok) return "Unknown error";
+        if (!err_doc.containsKey("error") || err_doc["error"].isNull())  return "Unknown error";
+        int code = err_doc["error"][0] | 0;
+        switch (code) {
+            case 20: return "Other/Unknown";
+            case 21: return "Stale share";
+            case 22: return "Duplicate share";
+            case 23: return "Low difficulty";
+            case 24: return "Unauthorized worker";
+            case 25: return "Not subscribed";
+            default: return String("Error code ") + code;
+        }
+    };
+
     while(true){
         static int w_retry = 0, w_maxRetries = 24;
         if(board->status.wifi.status != WL_CONNECTED){
@@ -2668,7 +2690,8 @@ void stratum_thread_entry(void *args){
                             }
                             else {
                                 board->status.miner.share_rejected++;
-                                LOG_E("#%d share rejected, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, board->status.miner.latency);
+                                String err_msg = parse_stratum_error(method.raw);
+                                LOG_E("#%d share rejected, %ldms, %s", board->status.miner.share_accepted + board->status.miner.share_rejected, board->status.miner.latency, err_msg.c_str());
                             }
                         }
                         else if(rsp.method == "mining.configure"){
@@ -2718,7 +2741,8 @@ void stratum_thread_entry(void *args){
                         if(rsp.method == "mining.submit"){
                             board->status.miner.latency = millis() - rsp.stamp;
                             board->status.miner.share_rejected++;
-                            LOG_E("#%d share rejected, %ldms", board->status.miner.share_accepted + board->status.miner.share_rejected, board->status.miner.latency);
+                            String err_msg = parse_stratum_error(method.raw);
+                            LOG_E("#%d share rejected, %ldms, %s", board->status.miner.share_accepted + board->status.miner.share_rejected, board->status.miner.latency, err_msg.c_str());
                         }
                         else if(rsp.method == "mining.authorize"){
                             board->stratum->set_authorize(false);

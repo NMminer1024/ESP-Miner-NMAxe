@@ -55,6 +55,9 @@ public:
     // Caller must invoke clear_faults() after handling to reset sticky bits.
     virtual bool is_oc_fault(void) { return false; }
     virtual bool is_oc_warn(void)  { return false; }
+    // Send CLEAR_FAULTS to the regulator to un-latch sticky STATUS_IOUT / STATUS_WORD bits.
+    // Call this after a handled OC event or after ASIC startup to discard transient faults.
+    virtual void clear_faults(void) {}
     
     uint32_t get_vbus_adc(void);
     uint32_t get_ibus_adc(void);

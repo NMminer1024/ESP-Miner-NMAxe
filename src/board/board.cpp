@@ -348,8 +348,9 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                         {"600 MHz (default)", 600},
                         {"625 MHz",           625},
                         {"650 MHz ",          650},
-                        {"675 MHz",           675},
                         {"700 MHz",           700},
+                        {"750 MHz",           750},
+                        {"800 MHz",           800},
                     };
                 config.ui.setting_page.vc = {
                         {"1025 mV",           1025},

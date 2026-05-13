@@ -327,6 +327,10 @@ bool TPS53647Class::is_oc_fault(void){
     return (status_iout & 0x80) != 0;  // bit7: OC_FAULT (sticky/latched)
 }
 
+void TPS53647Class::clear_faults(void){
+    this->_write_cmd(PMBUS_CLEAR_FAULTS);
+}
+
 bool TPS53647Class::is_oc_warn(void){
     uint8_t status_iout = 0;
     this->_read_reg(PMBUS_STATUS_IOUT, &status_iout, 1);
