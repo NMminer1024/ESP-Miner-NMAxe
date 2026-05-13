@@ -73,6 +73,7 @@ enum{
     INIT_EVENT_LVGL_READY            = (1 << 9),   // lvgl display driver ready
     INIT_EVENT_UI_READY              = (1 << 10),   // UI initialized and ready
     INIT_EVENT_MINER_READY           = (1 << 11),  // miner initialized and ready
+    INIT_EVENT_TMP_READY             = (1 << 12),  // TMP102 self-test done
 };
 
 // system event flags

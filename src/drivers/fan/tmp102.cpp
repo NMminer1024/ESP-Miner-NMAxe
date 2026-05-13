@@ -8,7 +8,7 @@
 static uint8_t tmp102_readRegister(uint8_t chipaddr, uint8_t registerAddress, uint8_t *data, uint8_t length) {
     esp_err_t ret = i2c_master_register_read(chipaddr, registerAddress, data, length);
     if (ret != ESP_OK) {
-        LOG_E("TMP102 read register 0x%02X failed: %d", registerAddress, ret);
+        LOG_D("TMP102 read register 0x%02X failed: %d", registerAddress, ret);
         return 1;
     }
     return 0;

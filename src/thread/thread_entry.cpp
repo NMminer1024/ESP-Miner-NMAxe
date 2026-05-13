@@ -1854,6 +1854,32 @@ void fan_thread_entry(void *args){
     // Initialize TMP102 temperature sensor
     tmp102_init();
 
+    // TMP102 self-test: retry until both sensors pass (3-sample average each attempt)
+    while(true){
+        float vcore_sum = 0, asic_sum = 0;
+        int   vcore_cnt = 0, asic_cnt = 0;
+        for(int i = 0; i < 3; i++){
+            float t;
+            t = get_vcore_temperature();
+            if(!isnan(t)){ vcore_sum += t; vcore_cnt++; }
+            t = get_asic_temperature();
+            if(!isnan(t)){ asic_sum += t; asic_cnt++; }
+            delay(50);
+        }
+        float vcore_avg = (vcore_cnt > 0) ? vcore_sum / vcore_cnt : NAN;
+        float asic_avg  = (asic_cnt  > 0) ? asic_sum  / asic_cnt  : NAN;
+        bool vcore_ok = !isnan(vcore_avg);
+        bool asic_ok  = !isnan(asic_avg);
+        if(vcore_ok) LOG_W("TMP102 VRM : OK %.1fC",  vcore_avg);
+        else         LOG_W("TMP102 VRM : FAIL (no response)");
+        if(asic_ok)  LOG_W("TMP102 ASIC: OK %.1fC",  asic_avg);
+        else         LOG_W("TMP102 ASIC: FAIL (no response)");
+        if(vcore_ok && asic_ok) break;
+        LOG_W("TMP102 self test failed, retrying...");
+        delay(500);
+    }
+    xEventGroupSetBits(board->status.init_evt, INIT_EVENT_TMP_READY);
+
     //fan init
     for(auto &fan : board->info.spec.fans){
         // fan initialize with defined parameters
@@ -2766,6 +2792,7 @@ void display_thread_entry(void *args){
   static const char* wifi_con_str[]         = {"Wifi connect   ","Wifi connect.  ","Wifi connect.. ","Wifi connect..."};
   static const char* fan_polarity_str[]     = {"Fan polarity check   ","Fan polarity check.  ","Fan polarity check.. ","Fan polarity check..."};
   static const char* fan_self_test_str[]    = {"Fan test   ","Fan test.  ","Fan test.. ","Fan test..."};
+  static const char* tmp_chk_str[]          = {"temp sensor check   ","temp sensor check.  ","temp sensor check.. ","temp sensor check..."};
   static const char* market_con_str[]       = {"Market connect   ","Market connect.  ","Market connect.. ","Market connect..."};
   static const char* pool_con_str[]         = {"Pool connect   ","Pool connect.  ","Pool connect.. ","Pool connect..."};
   static const char* pool_auth_str[]        = {"Pool auth   ","Pool auth.  ","Pool auth.. ","Pool auth..."};
@@ -2844,6 +2871,30 @@ void display_thread_entry(void *args){
   board->status.ui.page.loading.details.msg   = "Found " + asic_cnt_str;
   delay(3000);
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
+  /******************************************wait TMP102 self test ***************************************/
+  cnt = 0;
+  board->status.ui.page.loading.percent = 0.5;
+  // Blocks here until both TMP102 sensors pass (fan_thread retries until all good)
+  // Realtime temps shown inline, e.g. "temp sensor check.  43.2C/34.1C"
+  while(true){
+    float t_vrm  = get_vcore_temperature();
+    float t_asic = get_asic_temperature();
+    String vrm_str  = isnan(t_vrm)  ? "NAN" : (String(t_vrm,  1) + "C");
+    String asic_str = isnan(t_asic) ? "NAN" : (String(t_asic, 1) + "C");
+    board->status.ui.page.loading.details.color = 0xFFFFFF;
+    board->status.ui.page.loading.details.msg   = String(tmp_chk_str[cnt++ % 4]) + " " + vrm_str + "/" + asic_str;
+    if((xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_TMP_READY, pdFALSE, pdTRUE, 100) & INIT_EVENT_TMP_READY) == INIT_EVENT_TMP_READY) break;
+  }
+  // TMP_READY means both sensors passed — show final green confirmation
+  {
+    float t_vrm  = get_vcore_temperature();
+    float t_asic = get_asic_temperature();
+    String vrm_str  = isnan(t_vrm)  ? "NAN" : (String(t_vrm,  1) + "C");
+    String asic_str = isnan(t_asic) ? "NAN" : (String(t_asic, 1) + "C");
+    board->status.ui.page.loading.details.color = 0x00FF00;
+    board->status.ui.page.loading.details.msg   = String("Temp Pass  ") + vrm_str + "/" + asic_str;
+    delay(700);
+  }
  /*********************************wait fan porality detect and fan self test *********************************/
   cnt = 0;
   board->status.ui.page.loading.percent = 0.5;
