@@ -547,7 +547,7 @@ void hardware_pre_init(BoardSpecConfig config){
         ret = nvs_flash_init();
         delay(1000);
     }
-
+    
     if(config.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
         // init extio chip tca9554
         tca9554_init();

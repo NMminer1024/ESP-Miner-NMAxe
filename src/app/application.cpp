@@ -1,7 +1,7 @@
 #include "application.h"
 #include "utils/logger/logger.h"
 #include "nvs/nvs_config.h"
-
+#include <nvs_flash.h>
 
 // Global board instance - declared extern in global.h, defined here
 board_sal_t g_board;
@@ -34,6 +34,25 @@ bool MinerApp::init() {
     // disable USB UART when DC-plug power is active (Apple divider / BC1.2 SDP/CDP/DCP)
     if (!g_board.power->is_dc_pluged()) {
         disable_usb_uart();
+    }
+
+
+    // Print NVS usage statistics and enumerate all stored keys after successful init
+    {
+        nvs_stats_t nvs_stats;
+        if (nvs_get_stats(NULL, &nvs_stats) == ESP_OK) {
+            // Each NVS entry is 32 bytes; integers/small values cost 1 entry each.
+            // free_entries * 32 = remaining writable bytes.
+            LOG_I("NVS: used=%d, free=%d, total=%d entries (32B each), namespaces=%d | %.1f%% used, %d bytes free",
+                  nvs_stats.used_entries,
+                  nvs_stats.free_entries,
+                  nvs_stats.total_entries,
+                  nvs_stats.namespace_count,
+                  100.0f * nvs_stats.used_entries / nvs_stats.total_entries,
+                  nvs_stats.free_entries * 32);
+        } else {
+            LOG_W("NVS: failed to get stats");
+        }
     }
 
     return true;
