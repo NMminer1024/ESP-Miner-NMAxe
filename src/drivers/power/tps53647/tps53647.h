@@ -128,7 +128,6 @@ public:
     void debugPrint(void) override;
     bool is_oc_fault(void) override;
     bool is_oc_warn(void)  override;
-    void clear_faults(void) override { this->_write_cmd(PMBUS_CLEAR_FAULTS); }
 };
 
 #endif 

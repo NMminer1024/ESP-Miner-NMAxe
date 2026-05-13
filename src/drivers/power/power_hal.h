@@ -55,9 +55,6 @@ public:
     // Caller must invoke clear_faults() after handling to reset sticky bits.
     virtual bool is_oc_fault(void) { return false; }
     virtual bool is_oc_warn(void)  { return false; }
-    // Clear PMBus fault/warn sticky bits. No-op on non-PMBus classes.
-    virtual void clear_faults(void) {}
-
     
     uint32_t get_vbus_adc(void);
     uint32_t get_ibus_adc(void);

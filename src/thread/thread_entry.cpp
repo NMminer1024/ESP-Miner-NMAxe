@@ -71,7 +71,7 @@ void power_loop_thread_entry(void *args){
     static uint32_t _pwr_debug_last_ms = 0;
     while(true){
         delay(100);
-#if 1
+#if 0
         // debugPrint throttled to once every 3 seconds
         uint32_t _now = millis();
         if (_now - _pwr_debug_last_ms >= 3000) {
@@ -79,7 +79,29 @@ void power_loop_thread_entry(void *args){
             _pwr_debug_last_ms = _now;
         }
 #endif
-        
+        bool oc_warn  = board->power->is_oc_warn();
+        bool oc_fault = board->power->is_oc_fault();
+        if(oc_fault) {
+            LOG_W("Overcurrent FAULT detected! Taking safety actions...");
+            // Immediate safety action: shut down ASIC power
+            board->power->set_vcore_status(PWR_OFF);
+            // Optionally, shut down other power rails if supported
+            board->power->set_vdd_1v8(PWR_OFF);
+            board->power->set_pll_0v8(PWR_OFF);
+            // Enter an infinite loop to halt further operations until manual reset
+            while(true) {
+                delay(1000);
+                LOG_E("ASIC powered down due to Power OverCurrent. Please check your ASICs OverClocking settings, and cooling.");
+            }
+        }
+        else if(oc_warn) {
+            static uint32_t last = millis(); // count in seconds
+            if(millis() - last >= 10000) { // if OC warning persists for 10 seconds, log a warning
+                LOG_W("Overcurrent WARNING detected...");
+                last = millis(); // reset count after logging
+            }
+        }
+
         uint32_t vcore_measure = board->power->get_vcore();
         int32_t err = vcore_measure - board->info.spec.asic.req_vcore;
         if(abs(err) <= 5) {
