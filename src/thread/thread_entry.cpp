@@ -79,7 +79,7 @@ void power_loop_thread_entry(void *args){
             _pwr_debug_last_ms = _now;
         }
 #endif
-
+        
         uint32_t vcore_measure = board->power->get_vcore();
         int32_t err = vcore_measure - board->info.spec.asic.req_vcore;
         if(abs(err) <= 5) {

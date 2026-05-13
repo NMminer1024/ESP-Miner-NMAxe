@@ -50,6 +50,13 @@ public:
     // Print key PMBus telemetry registers (VIN, IIN, IOUT, POUT, PIN).
     // Default no-op; override in concrete power classes that support PMBus.
     virtual void debugPrint(void) {}
+    // OC (overcurrent) status — sticky/latched bits from STATUS_IOUT.
+    // Default returns false (no fault); only meaningful on PMBus-capable power classes.
+    // Caller must invoke clear_faults() after handling to reset sticky bits.
+    virtual bool is_oc_fault(void) { return false; }
+    virtual bool is_oc_warn(void)  { return false; }
+    // Clear PMBus fault/warn sticky bits. No-op on non-PMBus classes.
+    virtual void clear_faults(void) {}
 
     
     uint32_t get_vbus_adc(void);
