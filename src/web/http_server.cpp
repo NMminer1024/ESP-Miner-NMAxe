@@ -1347,6 +1347,23 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
 
         if (is_gif) {
             // ── GIF / screensaver init ─────────────────────────────────────
+            // Reject oversized files before writing anything to SPIFFS.
+            // 400 KB is a safe upper bound: larger GIFs won't fit in PSRAM
+            // alongside the rest of the heap and degrade decode performance.
+            static const uint64_t GIF_MAX_BYTES = 400ULL * 1024;
+            if (flen > GIF_MAX_BYTES) {
+                LOG_E("GIF upload rejected: file too large (%llu bytes, max %llu)", (unsigned long long)flen, (unsigned long long)GIF_MAX_BYTES);
+                request->send(400, "text/plain", "GIF file too large (max 400 KB).");
+                is_gif = false;
+                return;
+            }
+            // Validate GIF magic bytes in the first chunk (must start with GIF87a or GIF89a).
+            if (len < 6 || !(memcmp(data, "GIF87a", 6) == 0 || memcmp(data, "GIF89a", 6) == 0)) {
+                LOG_E("GIF upload rejected: invalid magic bytes");
+                request->send(400, "text/plain", "Not a valid GIF file.");
+                is_gif = false;
+                return;
+            }
             String gif_name;
             if (g_board.info.spec.name == BOARD_NMAXE_NAME || g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME) {
                 gif_name = "screen_saver_240x135.gif";

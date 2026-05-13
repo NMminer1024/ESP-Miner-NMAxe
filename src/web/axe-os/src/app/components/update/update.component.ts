@@ -597,6 +597,13 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    const GIF_MAX_BYTES = 400 * 1024; // 400 KB — must match backend limit
+    if (file.size > GIF_MAX_BYTES) {
+      this.toastrService.error(`GIF file too large (${(file.size / 1024).toFixed(0)} KB). Maximum is 400 KB.`, 'Error');
+      this.screensaverFileUploader.clear();
+      return;
+    }
+
     this.systemService.wakeup().pipe(
       switchMap(() => this.systemService.uploadScreensaver('', file))
     ).subscribe({

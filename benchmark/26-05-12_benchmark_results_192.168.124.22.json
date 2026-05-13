@@ -1,0 +1,47 @@
+[
+    {
+        "coreVoltage": "1100mV",
+        "frequency": "440MHz",
+        "expectedHashRate": "3590.4GH/s",
+        "averageHashRate": "3473.5GH/s",
+        "averageTemperature": "37.1'C",
+        "efficiencyJTH": "14.75J/TH",
+        "averagePower": "50.17W"
+    },
+    {
+        "coreVoltage": "1125mV",
+        "frequency": "465MHz",
+        "expectedHashRate": "3794.4GH/s",
+        "averageHashRate": "3741.7GH/s",
+        "averageTemperature": "38.9'C",
+        "efficiencyJTH": "14.96J/TH",
+        "averagePower": "55.51W"
+    },
+    {
+        "coreVoltage": "1150mV",
+        "frequency": "490MHz",
+        "expectedHashRate": "3998.4GH/s",
+        "averageHashRate": "3980.2GH/s",
+        "averageTemperature": "39.6'C",
+        "efficiencyJTH": "15.41J/TH",
+        "averagePower": "61.13W"
+    },
+    {
+        "coreVoltage": "1150mV",
+        "frequency": "515MHz",
+        "expectedHashRate": "4202.4GH/s",
+        "averageHashRate": "4158.0GH/s",
+        "averageTemperature": "40.6'C",
+        "efficiencyJTH": "15.63J/TH",
+        "averagePower": "64.5W"
+    },
+    {
+        "coreVoltage": "1175mV",
+        "frequency": "540MHz",
+        "expectedHashRate": "4406.4GH/s",
+        "averageHashRate": "4159.2GH/s",
+        "averageTemperature": "40.9'C",
+        "efficiencyJTH": "17.01J/TH",
+        "averagePower": "70.22W"
+    }
+]
