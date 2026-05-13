@@ -205,9 +205,10 @@ void get_system_info(AsyncWebServerRequest* request){
 
     // Board identity
     JsonObject identityObj    = root.createNestedObject("identity");
-    identityObj["fwVersion"]  = g_board.info.base.fw_version;
-    identityObj["hwModel"]    = g_board.info.spec.display_name;
-    identityObj["hostName"]   = g_board.info.base.hostname;
+    identityObj["fwVersion"]   = g_board.info.base.fw_version;
+    identityObj["hwModel"]     = g_board.info.spec.name;
+    identityObj["displayName"] = g_board.info.spec.display_name;
+    identityObj["hostName"]    = g_board.info.base.hostname;
     identityObj["ssid"]       = g_board.info.connection.wifi.sta.ssid;
     identityObj["rssi"]       = g_board.status.wifi.rssi;
     // SHA256 of the running app's ELF (embedded by the linker into
@@ -521,7 +522,8 @@ void get_setting_preference(AsyncWebServerRequest* request){
     root["screensaverEnable"] = g_board.status.preference.screen.saver_enable ? 1 : 0;
     root["screensaverTimeout"]= (uint32_t)g_board.status.preference.screen.saver_timeout;
     root["screensaverMode"]   = (uint8_t)g_board.status.preference.screen.saver_mode;
-    root["hwModel"]           = g_board.info.spec.display_name;
+    root["hwModel"]           = g_board.info.spec.name;
+    root["displayName"]       = g_board.info.spec.display_name;
     JsonArray fansArray    = root.createNestedArray("fans");
     for (auto & fan : g_board.status.fan.list) {
         JsonObject fanObj = fansArray.createNestedObject();

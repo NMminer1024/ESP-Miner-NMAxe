@@ -634,7 +634,8 @@
   },
   <span class="kw">"identity"</span>: {
     <span class="kw">"fwVersion"</span>: <span class="str">"1.2.0"</span>,
-    <span class="kw">"hwModel"</span>:   <span class="str">"NMAxe"</span>,
+    <span class="kw">"hwModel"</span>:     <span class="str">"NMAxe"</span>,          <span class="cmt">// functional board ID, stable across revisions</span>
+    <span class="kw">"displayName"</span>: <span class="str">"NMAxe"</span>,          <span class="cmt">// human-readable label (may include revision suffix)</span>
     <span class="kw">"hostName"</span>:  <span class="str">"nmaxe-a1b2"</span>,
     <span class="kw">"ssid"</span>:      <span class="str">"MyHomeWiFi"</span>,
     <span class="kw">"rssi"</span>:      <span class="num">-62</span>,          <span class="cmt">// dBm – WiFi signal strength</span>
@@ -1080,7 +1081,8 @@ Content-Type: application/octet-stream
   <span class="kw">"screensaverEnable"</span>:  <span class="num">1</span>,       <span class="cmt">// 0=off, 1=on</span>
   <span class="kw">"screensaverTimeout"</span>: <span class="num">300</span>,     <span class="cmt">// seconds before screensaver activates</span>
   <span class="kw">"screensaverMode"</span>:    <span class="num">0</span>,       <span class="cmt">// 0=gif, 1=black (backlight off)</span>
-  <span class="kw">"hwModel"</span>:            <span class="str">"NMAxe"</span>, <span class="cmt">// board model name</span>
+  <span class="kw">"hwModel"</span>:            <span class="str">"NMAxe"</span>, <span class="cmt">// functional board ID, stable across revisions</span>
+  <span class="kw">"displayName"</span>:        <span class="str">"NMAxe"</span>, <span class="cmt">// human-readable label (may include revision suffix)</span>
   <span class="kw">"fans"</span>: [
     {
       <span class="kw">"id"</span>:     <span class="num">0</span>,             <span class="cmt">// 0 = ASIC fan</span>

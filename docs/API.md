@@ -82,7 +82,8 @@ The response is structured into nested sub-objects.
 | Field | Type | Description |
 |-------|------|-------------|
 | `identity.fwVersion` | string | Firmware version (e.g. `"v2.9.31"`) |
-| `identity.hwModel` | string | Hardware model (e.g. `"NMAxe"`) |
+| `identity.hwModel` | string | Functional board ID — stable across hardware revisions (e.g. `"NMQAxe+"`) |
+| `identity.displayName` | string | Human-readable variant label including revision (e.g. `"NMQAxe++Rev6.1"`) |
 | `identity.hostName` | string | Device hostname |
 | `identity.ssid` | string | Connected Wi-Fi SSID |
 | `identity.rssi` | int | Wi-Fi signal strength (dBm) |
@@ -145,6 +146,7 @@ Active pool connection — read-only snapshot.
   "identity": {
     "fwVersion": "v2.9.31",
     "hwModel": "NMAxe",
+    "displayName": "NMAxe",
     "hostName": "nmaxe-001",
     "ssid": "MyHomeWifi",
     "rssi": -55,
@@ -257,6 +259,7 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
   "screenFlip": 0, "Brightness": 80, "screenAutoRoll": 1, "ledIndicator": 1,
   "screensaverEnable": 1, "screensaverTimeout": 300, "screensaverMode": 0,
   "hwModel": "NMAxe",
+  "displayName": "NMAxe",
   "fans": [
     { "id": 0, "speed": 60, "rpm": 3600, "auto": 1, "target": 55.0 },
     { "id": 1, "speed": 80, "rpm": 4200, "auto": 1, "target": 85.0 }

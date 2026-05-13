@@ -61,9 +61,10 @@ export interface IInfoMiner {
 }
 
 export interface IInfoIdentity {
-  fwVersion: string;
-  hwModel:   string;
-  hostName:  string;
+  fwVersion:   string;
+  hwModel:     string;   // functional board ID, e.g. "NMQAxe++"
+  displayName: string;   // human-readable variant label, e.g. "NMQAxe++Rev6.1"
+  hostName:    string;
   ssid:      string;
   rssi:      number;
   appSha256?: string;   // first 16 hex chars of running app image SHA256
@@ -130,6 +131,7 @@ export interface ISystemInfo {
   fwVersion?: string,
   appSha256?: string,
   hwModel?: string,
+  displayName?: string,
   hostName?: string,
   wifiSSID?: string,
   wifiRSSI?: number,
@@ -207,5 +209,7 @@ export interface ISettingPreference {
   screenAutoRoll: number;
   asicTargetTemp: string;
   Brightness: number;
+  hwModel: string;       // functional board ID, e.g. "NMQAxe++"
+  displayName: string;   // human-readable variant label, e.g. "NMQAxe++Rev6.1"
   fans: IFan[];
 }

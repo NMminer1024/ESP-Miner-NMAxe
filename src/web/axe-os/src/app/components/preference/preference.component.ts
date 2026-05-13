@@ -20,6 +20,7 @@ export class PreferenceComponent implements OnInit {
   public eASICModel = eASICModel;
   public ASICModel!: eASICModel;
   public hwModel: string = '';
+  public displayName: string = '';;
   public hasDualFan: boolean = false;
   public asicTempMin: number = 0;
   public asicTempMax: number = 80;
@@ -90,6 +91,7 @@ export class PreferenceComponent implements OnInit {
 
         this.ASICModel = info.asic || info.ASICModel;
         this.hwModel   = info.hwModel ?? '';
+        this.displayName = info.displayName ?? '';
         this.form = this.fb.group({
           flipscreen:         [flipscreen == 1],
           invertscreen:       [invertscreen == 1],
