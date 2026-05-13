@@ -357,12 +357,16 @@ void TPS53647Class::debugPrint(void){
     // 0x97 READ_PIN  — input power (W, SLinear11)
     this->_read_reg(PMBUS_READ_PIN, (uint8_t*)&raw, 2);
     float pin  = this->_slinear11_to_float(raw);
-    LOG_I("-----------TPS53647 PMBUS READINGS---------------------");
-    LOG_I("[TPS53647] VIN  = %.2f V",  vin);
-    LOG_I("[TPS53647] IIN  = %.2f A",  iin);
-    LOG_I("[TPS53647] IOUT = %.2f A",  iout);
-    LOG_I("[TPS53647] Temp = %.1f C",  temp);
-    LOG_I("[TPS53647] POUT = %.2f W",  pout);
-    LOG_I("[TPS53647] PIN  = %.2f W",  pin);
-    LOG_I("---------------------------------------------------------");
+    char buf[256];
+    snprintf(buf, sizeof(buf),
+        "\n-----------TPS53647 PMBUS READINGS-----------"
+        "\n  VIN  = %.2f V"
+        "\n  IIN  = %.2f A"
+        "\n  IOUT = %.2f A"
+        "\n  Temp = %.1f C"
+        "\n  POUT = %.2f W"
+        "\n  PIN  = %.2f W"
+        "\n---------------------------------------------",
+        vin, iin, iout, temp, pout, pin);
+    LOG_W("%s", buf);
 }
