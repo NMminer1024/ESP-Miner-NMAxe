@@ -75,11 +75,12 @@ export class SystemService {
             uptimeSeconds:   38,
           },
           identity: {
-            fwVersion: "2.0",
-            hwModel:   "204",
-            hostName:  "NMAxe",
-            ssid:      "default",
-            rssi:      -55,
+            fwVersion:   "2.0",
+            hwModel:     "NMAxe",
+            displayName: "NMAxe",
+            hostName:    "NMAxe",
+            ssid:        "default",
+            rssi:        -55,
           },
           // ── Fan ────────────────────────────────────────────────────────
           fans: [
