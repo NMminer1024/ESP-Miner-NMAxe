@@ -125,6 +125,7 @@ public:
     uint32_t get_vbus(void) override;
     uint32_t get_ibus(void) override;
     uint32_t get_vcore(void) override;
+    void debugPrint(void) override;
 };
 
 #endif 

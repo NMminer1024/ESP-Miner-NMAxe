@@ -336,3 +336,33 @@ uint32_t TPS53647Class::get_vcore(void){
     LOG_D("vcore %dmv", vadc);
     return (vadc * GAIN_VCORE_SAMPLE);
 }
+
+void TPS53647Class::debugPrint(void){
+    uint16_t raw = 0;
+    // 0x88 READ_VIN  — input voltage (V, SLinear11)
+    this->_read_reg(PMBUS_READ_VIN, (uint8_t*)&raw, 2);
+    float vin  = this->_slinear11_to_float(raw);
+    // 0x89 READ_IIN  — input current (A, SLinear11)
+    this->_read_reg(PMBUS_READ_IIN, (uint8_t*)&raw, 2);
+    float iin  = this->_slinear11_to_float(raw);
+    // 0x8C READ_IOUT — output current (A, SLinear11)
+    this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
+    float iout = this->_slinear11_to_float(raw);
+    // 0x8D READ_TEMPERATURE_1 — die temperature (°C, SLinear11)
+    this->_read_reg(PMBUS_READ_TEMPERATURE_1, (uint8_t*)&raw, 2);
+    float temp = this->_slinear11_to_float(raw);
+    // 0x96 READ_POUT — output power (W, SLinear11)
+    this->_read_reg(PMBUS_READ_POUT, (uint8_t*)&raw, 2);
+    float pout = this->_slinear11_to_float(raw);
+    // 0x97 READ_PIN  — input power (W, SLinear11)
+    this->_read_reg(PMBUS_READ_PIN, (uint8_t*)&raw, 2);
+    float pin  = this->_slinear11_to_float(raw);
+    LOG_I("-----------TPS53647 PMBUS READINGS---------------------");
+    LOG_I("[TPS53647] VIN  = %.2f V",  vin);
+    LOG_I("[TPS53647] IIN  = %.2f A",  iin);
+    LOG_I("[TPS53647] IOUT = %.2f A",  iout);
+    LOG_I("[TPS53647] Temp = %.1f C",  temp);
+    LOG_I("[TPS53647] POUT = %.2f W",  pout);
+    LOG_I("[TPS53647] PIN  = %.2f W",  pin);
+    LOG_I("---------------------------------------------------------");
+}

@@ -68,8 +68,18 @@ void power_loop_thread_entry(void *args){
 
     // LOG_D("Vocre ready at %dmV/%dmV", board->power->get_vcore(), board->info.spec.asic.req_vcore);
     xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    static uint32_t _pwr_debug_last_ms = 0;
     while(true){
         delay(100);
+#if 0
+        // debugPrint throttled to once per second
+        uint32_t _now = millis();
+        if (_now - _pwr_debug_last_ms >= 1000) {
+            board->power->debugPrint();
+            _pwr_debug_last_ms = _now;
+        }
+#endif
+
         uint32_t vcore_measure = board->power->get_vcore();
         int32_t err = vcore_measure - board->info.spec.asic.req_vcore;
         if(abs(err) <= 5) {

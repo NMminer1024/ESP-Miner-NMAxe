@@ -47,6 +47,9 @@ public:
     // Returns 2 or 3 on success, -1 if not supported by this power class.
     // Must be called after hw_init() and before set_vcore_status(PWR_ON).
     virtual int8_t detect_phase(void) { return -1; }
+    // Print key PMBus telemetry registers (VIN, IIN, IOUT, POUT, PIN).
+    // Default no-op; override in concrete power classes that support PMBus.
+    virtual void debugPrint(void) {}
 
     
     uint32_t get_vbus_adc(void);
