@@ -53,4 +53,12 @@ void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEve
 
 extern AsyncWebSocket   webSocket;
 extern AsyncWebServer   webServer;
+
+// ── Benchmark API ────────────────────────────────────────────────────────────
+void get_benchmark(AsyncWebServerRequest *request);
+void patch_benchmark(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total);
+void post_benchmark_start(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total);
+void post_benchmark_stop(AsyncWebServerRequest *request);
+void delete_benchmark_results(AsyncWebServerRequest *request);
+void post_benchmark_reset(AsyncWebServerRequest *request);
 #endif

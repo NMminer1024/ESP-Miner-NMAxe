@@ -569,4 +569,43 @@ export class SystemService {
   public getOtaProgress(uri: string = ''): Observable<{running: boolean, progress: number, filename: string}> {
     return this.httpClient.get<{running: boolean, progress: number, filename: string}>(`${uri}/api/update/progress`);
   }
+
+  // ── Benchmark endpoints ────────────────────────────────────────────────────
+  public getBenchmark(uri: string = ''): Observable<any> {
+    if (environment.production) {
+      return this.httpClient.get(`${uri}/api/benchmark`);
+    } else {
+      return of({
+        mode: 0,
+        freqMin: 400, freqMax: 625, freqStep: 50,
+        vcoreMin: 1000, vcoreMax: 1300, vcoreStep: 25,
+        sampleIntv: 10, bmTime: 180, stabTime: 120,
+        curFreq: 0, curVcore: 0,
+        results: [
+          {freq: 400, vcore: 1000, expHR: 268.8, avgHR: 265.1, avgTemp: 58.2, effJTH: 0.042, avgPwr: 11.1},
+          {freq: 450, vcore: 1000, expHR: 302.4, avgHR: 300.8, avgTemp: 60.1, effJTH: 0.044, avgPwr: 13.2},
+        ]
+      }).pipe(delay(300));
+    }
+  }
+
+  public patchBenchmark(uri: string = '', data: any): Observable<any> {
+    return this.httpClient.patch(`${uri}/api/benchmark`, data);
+  }
+
+  public startBenchmark(uri: string = '', data: any): Observable<any> {
+    return this.httpClient.post(`${uri}/api/benchmark/start`, data);
+  }
+
+  public stopBenchmark(uri: string = ''): Observable<any> {
+    return this.httpClient.post(`${uri}/api/benchmark/stop`, {});
+  }
+
+  public deleteBenchmarkResults(uri: string = ''): Observable<any> {
+    return this.httpClient.delete(`${uri}/api/benchmark/results`);
+  }
+
+  public resetBenchmark(uri: string = ''): Observable<any> {
+    return this.httpClient.post(`${uri}/api/benchmark/reset`, {});
+  }
 }

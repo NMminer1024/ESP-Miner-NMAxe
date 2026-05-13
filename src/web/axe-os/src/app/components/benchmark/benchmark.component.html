@@ -1,0 +1,141 @@
+<!-- Benchmark Page -->
+<div class="card modern-card" *ngIf="form" [formGroup]="form">
+  <h2 class="card-title"><span class="card-icon">🔬</span>Benchmark</h2>
+
+  <!-- Status banner -->
+  <div class="bm-status" [class.running]="isRunning" [class.idle]="!isRunning">
+    <span *ngIf="!isRunning">⏸ Idle</span>
+    <span *ngIf="isRunning">
+      ▶ Running — Current: <strong>{{ curFreq }} MHz</strong> / <strong>{{ curVcore }} mV</strong>
+    </span>
+  </div>
+
+  <!-- Configuration grid -->
+  <div class="bm-config-grid">
+    <!-- Frequency sweep -->
+    <fieldset class="bm-fieldset">
+      <legend>Frequency Sweep (MHz)</legend>
+      <div class="bm-row">
+        <label>Min</label>
+        <input pInputText type="number" formControlName="freqMin" class="p-inputtext-sm" />
+      </div>
+      <div class="bm-row">
+        <label>Max</label>
+        <input pInputText type="number" formControlName="freqMax" class="p-inputtext-sm" />
+      </div>
+      <div class="bm-row">
+        <label>Step</label>
+        <input pInputText type="number" formControlName="freqStep" class="p-inputtext-sm" />
+      </div>
+    </fieldset>
+
+    <!-- Vcore sweep -->
+    <fieldset class="bm-fieldset">
+      <legend>Vcore Sweep (mV)</legend>
+      <div class="bm-row">
+        <label>Min</label>
+        <input pInputText type="number" formControlName="vcoreMin" class="p-inputtext-sm" />
+      </div>
+      <div class="bm-row">
+        <label>Max</label>
+        <input pInputText type="number" formControlName="vcoreMax" class="p-inputtext-sm" />
+      </div>
+      <div class="bm-row">
+        <label>Step</label>
+        <input pInputText type="number" formControlName="vcoreStep" class="p-inputtext-sm" />
+      </div>
+    </fieldset>
+
+    <!-- Timing -->
+    <fieldset class="bm-fieldset">
+      <legend>Timing (seconds)</legend>
+      <div class="bm-row">
+        <label>Stabilize</label>
+        <input pInputText type="number" formControlName="stabTime" class="p-inputtext-sm" />
+      </div>
+      <div class="bm-row">
+        <label>Benchmark</label>
+        <input pInputText type="number" formControlName="bmTime" class="p-inputtext-sm" />
+      </div>
+      <div class="bm-row">
+        <label>Sample Interval</label>
+        <input pInputText type="number" formControlName="sampleIntv" class="p-inputtext-sm" />
+      </div>
+    </fieldset>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="bm-actions">
+    <button pButton type="button" label="Start Benchmark" icon="pi pi-play"
+            class="p-button-success"
+            [disabled]="isRunning || !form.valid"
+            (click)="start()">
+    </button>
+    <button pButton type="button" label="Stop" icon="pi pi-stop"
+            class="p-button-danger"
+            [disabled]="!isRunning"
+            (click)="stop()">
+    </button>
+    <button pButton type="button" label="Reset Benchmark" icon="pi pi-refresh"
+            class="p-button-outlined p-button-warning"
+            [disabled]="isRunning && false"
+            (click)="reset()">
+    </button>
+  </div>
+</div>
+
+<!-- Results -->
+<div class="card modern-card" *ngIf="results.length > 0">
+  <h2 class="card-title"><span class="card-icon">📊</span>Results</h2>
+
+  <!-- Best entry summary -->
+  <div class="bm-best" *ngIf="bestResult() as best">
+    🏆 Best efficiency: <strong>{{ best.freq }} MHz / {{ best.vcore }} mV</strong>
+    — {{ best.effJTH | number:'1.3-3' }} J/TH &#64; {{ best.avgHR | number:'1.1-1' }} GH/s
+  </div>
+
+  <!-- Results table -->
+  <div class="bm-table-wrap">
+    <p-table [value]="results" styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Freq (MHz)</th>
+          <th>Vcore (mV)</th>
+          <th>Exp HR (GH/s)</th>
+          <th>Avg HR (GH/s)</th>
+          <th>Avg Temp (°C)</th>
+          <th>Eff (J/TH)</th>
+          <th>Avg Pwr (W)</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-r>
+        <tr [class.bm-best-row]="r === bestResult()">
+          <td>{{ r.freq }}</td>
+          <td>{{ r.vcore }}</td>
+          <td>{{ r.expHR | number:'1.1-1' }}</td>
+          <td>{{ r.avgHR | number:'1.1-1' }}</td>
+          <td>{{ r.avgTemp | number:'1.1-1' }}</td>
+          <td>{{ r.effJTH | number:'1.3-3' }}</td>
+          <td>{{ r.avgPwr | number:'1.2-2' }}</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <!-- Download / clear -->
+  <div class="bm-actions" style="margin-top:12px">
+    <button pButton type="button" label="Download JSON" icon="pi pi-download"
+            class="p-button-outlined p-button-info"
+            (click)="downloadResults()">
+    </button>
+    <button pButton type="button" label="Clear Results" icon="pi pi-trash"
+            class="p-button-outlined p-button-danger"
+            [disabled]="isRunning"
+            (click)="clearResults()">
+    </button>
+  </div>
+</div>
+
+<div class="card modern-card" *ngIf="!form">
+  <p style="color:#888;text-align:center;padding:2rem">Loading benchmark config...</p>
+</div>

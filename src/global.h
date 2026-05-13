@@ -153,6 +153,30 @@ typedef String miner_ip_t;
 typedef String miner_info_t;
 typedef uint16_t asic_id_t;
 typedef struct{
+    uint8_t bm_mode;    // Cached NVS_CONFIG_BM_MODE at boot: 0=Normal, 1=Benchmark
+
+    // Live benchmark progress — written by benchmark_thread_entry, read by UI overlay.
+    // All fields are simple integers / bool; no mutex needed (single writer, single reader).
+    struct {
+        bool     active;       // overlay visible (true once miner_ready, cleared when done/stopped)
+        bool     in_stab;      // true=stabilization phase, false=sampling phase
+        uint16_t cur_freq;     // MHz
+        uint16_t cur_vcore;    // mV
+        uint16_t freq_min;
+        uint16_t freq_max;
+        uint16_t freq_step;
+        uint16_t vcore_min;
+        uint16_t vcore_max;
+        uint16_t vcore_step;
+        uint32_t phase_elapsed; // seconds elapsed in current phase
+        uint32_t phase_total;   // total seconds for current phase
+        float    avg_hr_ghs;   // running average hashrate (GH/s) for current sampling window
+        float    asic_temp;    // last ASIC temp sample (°C)
+        float    vcore_temp;   // last VRM temp sample (°C)
+        uint16_t stab_total;   // total stabilization seconds for this benchmark run
+        uint16_t bm_total;     // total sampling seconds for this benchmark run
+    } bm;
+
     struct{
         uint16_t    vbus;//mV
         uint16_t    ibus;//mA

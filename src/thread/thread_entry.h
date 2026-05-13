@@ -20,4 +20,5 @@ void stratum_thread_entry(void *args);
 void webserver_thread_entry(void *args);
 void aphorism_thread_entry(void *args);
 void alive_ip_scan_thread_entry(void* args);
+void benchmark_thread_entry(void *args);
 #endif 

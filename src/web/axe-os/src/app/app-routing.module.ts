@@ -6,6 +6,7 @@ import {LogsComponent} from './components/logs/logs.component';
 import {MonitorComponent} from './components/monitor/monitor.component';
 import {SettingsComponent} from './components/settings/settings.component';
 import {SwarmComponent} from './components/swarm/swarm.component';
+import {BenchmarkComponent} from './components/benchmark/benchmark.component';
 import {UpdateComponent} from './components/update/update.component';
 import {AppLayoutComponent} from './layout/app.layout.component';
 
@@ -33,6 +34,10 @@ const routes: Routes = [
       {
         path: 'swarm',
         component: SwarmComponent
+      },
+      {
+        path: 'benchmark',
+        component: BenchmarkComponent
       }
     ]
   },

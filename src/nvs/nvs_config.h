@@ -53,6 +53,25 @@
 // If set at boot it means the last SPIFFS upload was interrupted — force recovery mode.
 #define NVS_CONFIG_SPIFFS_UPDATING      "spiffsupd"
 
+// ── Benchmark mode ──────────────────────────────────────────────────────────
+// bm_mode: 0=Normal, 1=Benchmark
+#define NVS_CONFIG_BM_MODE              "bm_mode"
+// Sweep parameters (mirrors python tool: -fr/-fs/-vr/-vs/-si/-bt/-st)
+#define NVS_CONFIG_BM_FREQ_MIN          "bm_freq_min"
+#define NVS_CONFIG_BM_FREQ_MAX          "bm_freq_max"
+#define NVS_CONFIG_BM_FREQ_STEP         "bm_freq_step"
+#define NVS_CONFIG_BM_VCORE_MIN         "bm_vcore_min"
+#define NVS_CONFIG_BM_VCORE_MAX         "bm_vcore_max"
+#define NVS_CONFIG_BM_VCORE_STEP        "bm_vcore_step"
+#define NVS_CONFIG_BM_SAMPLE_INTV       "bm_smp_intv"   // seconds, sample interval
+#define NVS_CONFIG_BM_TIME              "bm_time"        // seconds, per-round benchmark duration
+#define NVS_CONFIG_BM_STAB_TIME         "bm_stab_time"  // seconds, stabilize wait before sampling
+// State: current round's freq/vcore written before each reboot
+#define NVS_CONFIG_BM_CUR_FREQ          "bm_cur_freq"
+#define NVS_CONFIG_BM_CUR_VCORE         "bm_cur_vcore"
+// Result: JSON array string, appended after each stable round
+#define NVS_CONFIG_BM_RESULT            "bm_result"
+
 char * nvs_config_get_string(const char * key, const char * default_value);
 void nvs_config_set_string(const char * key, const char * value);
 

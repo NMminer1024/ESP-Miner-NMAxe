@@ -674,6 +674,13 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/setting/market",     HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_market);
     webServer.on("/api/setting/preference", HTTP_GET,   get_setting_preference);
     webServer.on("/api/setting/preference", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_preference);
+    // ── Benchmark endpoints ────────────────────────────────────────────────────
+    webServer.on("/api/benchmark",         HTTP_GET,    get_benchmark);
+    webServer.on("/api/benchmark",         HTTP_PATCH,  [](AsyncWebServerRequest *request){}, NULL, patch_benchmark);
+    webServer.on("/api/benchmark/start",   HTTP_POST,   [](AsyncWebServerRequest *request){}, NULL, post_benchmark_start);
+    webServer.on("/api/benchmark/stop",    HTTP_POST,   post_benchmark_stop);
+    webServer.on("/api/benchmark/results", HTTP_DELETE, delete_benchmark_results);
+    webServer.on("/api/benchmark/reset",   HTTP_POST,   post_benchmark_reset);
 
     // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
     webServer.on("/probe", HTTP_GET, [board](AsyncWebServerRequest* request) {
@@ -1627,74 +1634,75 @@ void monitor_thread_entry(void *args){
             }
         }
         
-        //status check
+        //status check — completely skipped in benchmark mode
         if(board->status.miner.uptime_session % 2 == 0){
+            if(board->status.bm_mode == 0) {
             //avoid restart when ota running
             if(!board->status.ota.running) {
-            //check vcore temperature status
-            static uint8_t vcore_err_cnt = 0;
-            if(board->status.temp.vcore > board->info.spec.pwr.temp_limit.high){
-                uint16_t vcore_req_last = board->info.spec.asic.req_vcore;
-                uint8_t step = 5;
+                //check vcore temperature status
+                static uint8_t vcore_err_cnt = 0;
+                if(board->status.temp.vcore > board->info.spec.pwr.temp_limit.high){
+                    uint16_t vcore_req_last = board->info.spec.asic.req_vcore;
+                    uint8_t step = 5;
 
-                if(board->info.spec.asic.req_vcore >= board->info.spec.asic.min_vcore + step)
-                    board->info.spec.asic.req_vcore -= step;
-                else 
-                    board->info.spec.asic.req_vcore = board->info.spec.asic.min_vcore;
+                    if(board->info.spec.asic.req_vcore >= board->info.spec.asic.min_vcore + step)
+                        board->info.spec.asic.req_vcore -= step;
+                    else 
+                        board->info.spec.asic.req_vcore = board->info.spec.asic.min_vcore;
 
 
-                LOG_W("Vcore part temp reach danger (vcore: %.1fC), decrease vcore from %d to %d mV", board->status.temp.vcore, vcore_req_last, board->info.spec.asic.req_vcore);
-                
-                if(++vcore_err_cnt > 10){//avoid some noise
-                    LOG_W("Vcore part temp keep danger, restart miner...");
-                    reboot_intent_set(REBOOT_INTENT_OVERHEAT_VCORE,
-                                      "Vcore=%.1fC > limit=%dC for >10s",
-                                      board->status.temp.vcore,
-                                      board->info.spec.pwr.temp_limit.high);
-                    xSemaphoreGive(board->status.reboot_xsem);
-                }
-            }else vcore_err_cnt = 0;
-
-            //check asic temperature status
-            static uint8_t asic_err_cnt = 0;
-            if(board->status.temp.asic > board->info.spec.asic.temp_limit.high){
-                uint16_t vcore_req_last = board->info.spec.asic.req_vcore;
-                uint8_t step = 5;
-
-                if(board->info.spec.asic.req_vcore >= board->info.spec.asic.min_vcore + step)
-                    board->info.spec.asic.req_vcore -= step;
-                else 
-                    board->info.spec.asic.req_vcore = board->info.spec.asic.min_vcore;
-
-                LOG_W("ASIC temp reach danger (asic: %.1fC), decrease vcore from %d to %d mV", board->status.temp.asic, vcore_req_last, board->info.spec.asic.req_vcore);
-                if(++asic_err_cnt > 10){//avoid some noise
-                    LOG_W("ASIC temp keep danger, restart miner...");
-                    reboot_intent_set(REBOOT_INTENT_OVERHEAT_ASIC,
-                                      "ASIC=%.1fC > limit=%dC for >10s",
-                                      board->status.temp.asic,
-                                      board->info.spec.asic.temp_limit.high);
-                    xSemaphoreGive(board->status.reboot_xsem);
-                }
-            }else asic_err_cnt = 0;
-
-            //check fan status
-            static uint16_t fan_err_cnt = 0;
-            if(board->status.temp.asic > board->info.spec.asic.temp_limit.low){
-                for(auto &fan : board->status.fan.list){
-                    if(fan.rpm < board->info.spec.fans[fan.id].init.danger_rpm_thr){
-                        fan_err_cnt++;
-                        if(fan_err_cnt > 20){//avoid some noise
-                            LOG_W("Fan rpm is too low, restart miner...");
-                            reboot_intent_set(REBOOT_INTENT_FAN_STALL,
-                                              "fan#%d rpm=%d < danger=%d for >20s",
-                                              fan.id, fan.rpm,
-                                              board->info.spec.fans[fan.id].init.danger_rpm_thr);
-                            xSemaphoreGive(board->status.reboot_xsem);
-                        }
+                    LOG_W("Vcore part temp reach danger (vcore: %.1fC), decrease vcore from %d to %d mV", board->status.temp.vcore, vcore_req_last, board->info.spec.asic.req_vcore);
+                    
+                    if(++vcore_err_cnt > 10){//avoid some noise
+                        LOG_W("Vcore part temp keep danger, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_OVERHEAT_VCORE,
+                                        "Vcore=%.1fC > limit=%dC for >10s",
+                                        board->status.temp.vcore,
+                                        board->info.spec.pwr.temp_limit.high);
+                        xSemaphoreGive(board->status.reboot_xsem);
                     }
-                    else fan_err_cnt = 0;
+                }else vcore_err_cnt = 0;
+
+                //check asic temperature status
+                static uint8_t asic_err_cnt = 0;
+                if(board->status.temp.asic > board->info.spec.asic.temp_limit.high){
+                    uint16_t vcore_req_last = board->info.spec.asic.req_vcore;
+                    uint8_t step = 5;
+
+                    if(board->info.spec.asic.req_vcore >= board->info.spec.asic.min_vcore + step)
+                        board->info.spec.asic.req_vcore -= step;
+                    else 
+                        board->info.spec.asic.req_vcore = board->info.spec.asic.min_vcore;
+
+                    LOG_W("ASIC temp reach danger (asic: %.1fC), decrease vcore from %d to %d mV", board->status.temp.asic, vcore_req_last, board->info.spec.asic.req_vcore);
+                    if(++asic_err_cnt > 10){//avoid some noise
+                        LOG_W("ASIC temp keep danger, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_OVERHEAT_ASIC,
+                                        "ASIC=%.1fC > limit=%dC for >10s",
+                                        board->status.temp.asic,
+                                        board->info.spec.asic.temp_limit.high);
+                        xSemaphoreGive(board->status.reboot_xsem);
+                    }
+                }else asic_err_cnt = 0;
+
+                //check fan status
+                static uint16_t fan_err_cnt = 0;
+                if(board->status.temp.asic > board->info.spec.asic.temp_limit.low){
+                    for(auto &fan : board->status.fan.list){
+                        if(fan.rpm < board->info.spec.fans[fan.id].init.danger_rpm_thr){
+                            fan_err_cnt++;
+                            if(fan_err_cnt > 20){//avoid some noise
+                                LOG_W("Fan rpm is too low, restart miner...");
+                                reboot_intent_set(REBOOT_INTENT_FAN_STALL,
+                                                "fan#%d rpm=%d < danger=%d for >20s",
+                                                fan.id, fan.rpm,
+                                                board->info.spec.fans[fan.id].init.danger_rpm_thr);
+                                xSemaphoreGive(board->status.reboot_xsem);
+                            }
+                        }
+                        else fan_err_cnt = 0;
+                    }
                 }
-            }
 
                 //check power status
                 static uint16_t pwr_err_cnt = 0;
@@ -1716,12 +1724,13 @@ void monitor_thread_entry(void *args){
                     if(++hr_err_cnt > 60){//1min
                         LOG_W("Hashrate is too low, restart miner...");
                         reboot_intent_set(REBOOT_INTENT_LOW_HASHRATE,
-                                          "3m hashrate %.2f <= 1 for >60s",
-                                          (double)board->status.miner.hashrate._3m);
+                                        "3m hashrate %.2f <= 1 for >60s",
+                                        (double)board->status.miner.hashrate._3m);
                         xSemaphoreGive(board->status.reboot_xsem);
                     }
                 }else hr_err_cnt = 0;
             } // end !ota.running
+            } // end bm_mode == 0 (Normal mode only)
         }
 
         // auto screen page scrolling
@@ -2840,6 +2849,8 @@ void ui_thread_entry(void *args){
                 ui_hits_page_update((void*)board);
                 // OTA page update, if running, cover current page
                 ui_ota_page_update((void*)board);
+                // benchmark mode overlay — covers active page during sweep
+                ui_benchmark_overlay_update((void*)board);
             }
             // Power OC alert — highest priority overlay, runs even during screen saver
             ui_power_oc_alert_update((void*)board);
@@ -3227,4 +3238,227 @@ void aphorism_thread_entry(void *args){
         LOG_I("[Aphorism] Next check in ~%lu s", round_jitter_ms / 1000);
         delay(round_jitter_ms);
     }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// benchmark_thread_entry
+//
+// Implements on-device hashrate benchmarking equivalent to the Python tool.
+// Workflow (one reboot per round):
+//   1. At boot, board.cpp reads bm_cur_freq/bm_cur_vcore from NVS and uses them
+//      instead of the user-configured values (benchmark mode only).
+//   2. This thread waits for MINER_READY, then waits stabilize_time seconds.
+//   3. Samples hashrate/power/temp for benchmark_time seconds.
+//   4. Evaluates stability (avg >= 94% expected HR).
+//   5. Writes result to bm_result JSON string in NVS, advances the sweep state,
+//      then triggers a reboot via reboot_xsem.
+// In Normal mode (bm_mode == 0) the thread exits immediately.
+// ──────────────────────────────────────────────────────────────────────────────
+void benchmark_thread_entry(void *args) {
+    board_sal_t *board = (board_sal_t*)args;
+
+    // Exit immediately in Normal mode — use cached bm_mode, zero overhead on normal boots
+    if (board->status.bm_mode != 1) {
+        LOG_D("[BM] Normal mode, benchmark thread exiting.");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    // Load benchmark parameters from NVS
+    uint16_t freq_min    = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,   400);
+    uint16_t freq_max    = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MAX,   625);
+    uint16_t freq_step   = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,  50);
+    uint16_t vcore_min   = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,  1000);
+    uint16_t vcore_max   = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,  1300);
+    uint16_t vcore_step  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP, 25);
+    uint8_t  smp_intv    = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 10);  // seconds
+    uint16_t bm_time     = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        180); // seconds
+    uint16_t stab_time   = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   120); // seconds
+
+    uint16_t cur_freq    = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+    uint16_t cur_vcore   = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+
+    LOG_W("[BM] === Benchmark started: freq=%d vcore=%d ===", cur_freq, cur_vcore);
+    LOG_W("[BM] Range freq %d~%dMHz step=%d, vcore %d~%dmV step=%d",
+          freq_min, freq_max, freq_step, vcore_min, vcore_max, vcore_step);
+    LOG_W("[BM] stab=%ds bm=%ds smp=%ds", stab_time, bm_time, smp_intv);
+
+    // Wait for full system init (WiFi + ASIC + miner ready)
+    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+
+    // ── Populate benchmark status for the UI overlay ──────────────────────────
+    board->status.bm.cur_freq    = cur_freq;
+    board->status.bm.cur_vcore   = cur_vcore;
+    board->status.bm.freq_min    = freq_min;
+    board->status.bm.freq_max    = freq_max;
+    board->status.bm.freq_step   = freq_step;
+    board->status.bm.vcore_min   = vcore_min;
+    board->status.bm.vcore_max   = vcore_max;
+    board->status.bm.vcore_step  = vcore_step;
+    board->status.bm.phase_total = stab_time;
+    board->status.bm.phase_elapsed = 0;
+    board->status.bm.in_stab     = true;
+    board->status.bm.avg_hr_ghs  = 0.0f;
+    board->status.bm.asic_temp   = 0.0f;
+    board->status.bm.vcore_temp  = 0.0f;
+    board->status.bm.stab_total  = stab_time;
+    board->status.bm.bm_total    = (uint16_t)bm_time;
+    board->status.bm.active      = true;  // show overlay
+
+    // ── Stabilization wait ────────────────────────────────────────────────────
+    LOG_W("[BM] Stabilizing for %ds at freq=%dMHz vcore=%dmV ...", stab_time, cur_freq, cur_vcore);
+    for (uint16_t s = 0; s < stab_time; s++) {
+        board->status.bm.phase_elapsed = s;
+        board->status.bm.asic_temp     = board->status.temp.asic;
+        board->status.bm.vcore_temp    = board->status.temp.vcore;
+        delay(1000);
+    }
+
+    // ── Sampling loop ─────────────────────────────────────────────────────────
+    uint32_t total_samples = bm_time / smp_intv;
+    if (total_samples == 0) total_samples = 1;
+
+    double hr_sum = 0, eff_sum = 0, pwr_sum = 0, at_sum = 0;
+    uint32_t sample_cnt = 0;
+    uint8_t  zero_hr_cnt = 0;
+
+    // Update overlay: switch to sampling phase
+    board->status.bm.in_stab      = false;
+    board->status.bm.phase_total   = bm_time;
+    board->status.bm.phase_elapsed = 0;
+
+    // Calculate expected hashrate based on ASIC spec
+    uint32_t small_cores = board->miner ? board->miner->get_asic_small_cores() : 0;
+    uint8_t  asic_count  = board->miner ? board->miner->get_asic_count()       : 0;
+    double   exp_hr_ghs  = (double)cur_freq * ((double)(small_cores * asic_count) / 1000.0); // GH/s
+
+    LOG_W("[BM] Expected HR: %.1f GH/s (freq=%d small_cores=%d asic_cnt=%d)",
+          exp_hr_ghs, cur_freq, small_cores, asic_count);
+
+    for (uint32_t i = 0; i < total_samples; i++) {
+        // Wait one sample interval
+        for (uint8_t s = 0; s < smp_intv; s++) delay(1000);
+
+        double hr_ghs = board->status.miner.hashrate._3m / 1e9;
+        double vbus   = board->status.power.vbus / 1000.0;  // V
+        double ibus   = board->status.power.ibus / 1000.0;  // A
+        double pwr_w  = vbus * ibus;
+        double at     = board->status.temp.asic;
+
+        // Update overlay data
+        board->status.bm.phase_elapsed = (i + 1) * smp_intv;
+        board->status.bm.asic_temp     = (float)at;
+        board->status.bm.vcore_temp    = board->status.temp.vcore;
+        board->status.bm.avg_hr_ghs    = (sample_cnt > 0) ? (float)((hr_sum + hr_ghs) / (sample_cnt + 1)) : (float)hr_ghs;
+
+        if (hr_ghs == 0.0) {
+            zero_hr_cnt++;
+        } else {
+            zero_hr_cnt = 0;
+        }
+
+        // Abort if zero hashrate persists for 5 consecutive samples
+        if (zero_hr_cnt >= 5) {
+            LOG_W("[BM] Zero hashrate for 5 samples, aborting round.");
+            break;
+        }
+
+        hr_sum  += hr_ghs;
+        eff_sum += (hr_ghs > 0 && pwr_w > 0) ? (pwr_w / (hr_ghs / 1000.0)) : 0; // J/TH
+        pwr_sum += pwr_w;
+        at_sum  += at;
+        sample_cnt++;
+
+        double hr_avg = hr_sum / sample_cnt;
+        uint32_t remaining = (total_samples - i - 1) * smp_intv;
+        LOG_W("[BM] [%3ds] %2.0f%% | HR:%.1fGH/s EXP:%.0fGH/s | AT:%.1fC | Vcore:%dmV | Pwr:%.1fW",
+              remaining, 100.0 * (i + 1) / total_samples,
+              hr_ghs, exp_hr_ghs, at,
+              board->status.power.vcore, pwr_w);
+
+        // Early exit if halfway and avg < 50% expected
+        if (sample_cnt >= total_samples / 2 && exp_hr_ghs > 0 && hr_avg < exp_hr_ghs * 0.5) {
+            LOG_W("[BM] Avg HR too low (%.1f < 50%% of %.1f), aborting round early.", hr_avg, exp_hr_ghs);
+            break;
+        }
+    }
+
+    // ── Evaluate stability ────────────────────────────────────────────────────
+    double hr_avg  = (sample_cnt > 0) ? (hr_sum  / sample_cnt) : 0;
+    double eff_avg = (sample_cnt > 0) ? (eff_sum / sample_cnt) : 0;
+    double pwr_avg = (sample_cnt > 0) ? (pwr_sum / sample_cnt) : 0;
+    double at_avg  = (sample_cnt > 0) ? (at_sum  / sample_cnt) : 0;
+
+    bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * 0.94);
+    LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s | eff:%.3fJ/TH | pwr:%.2fW | temp:%.1fC",
+          stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, eff_avg, pwr_avg, at_avg);
+
+    // ── Build result entry and append to NVS JSON string ─────────────────────
+    if (stable) {
+        // Read existing results
+        char *existing = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+        String results(existing);
+        free(existing);
+
+        // Remove trailing ']'
+        results.trim();
+        if (results.endsWith("]")) results.remove(results.length() - 1);
+        if (!results.endsWith("[")) results += ",";
+
+        // Append new entry
+        char entry[256];
+        snprintf(entry, sizeof(entry),
+            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f}",
+            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, eff_avg, pwr_avg);
+        results += entry;
+        results += "]";
+
+        nvs_config_set_string(NVS_CONFIG_BM_RESULT, results.c_str());
+        LOG_W("[BM] Result saved: %s", entry);
+
+        // Advance to next frequency, reset vcore
+        cur_freq  += freq_step;
+        cur_vcore  = vcore_min;
+
+        if (cur_freq > freq_max) {
+            LOG_W("[BM] All frequencies tested — benchmark complete, returning to Normal mode.");
+            board->status.bm.active = false;
+            nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
+            nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+            nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+            // Restore user freq/vcore
+            reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete, returning to Normal mode");
+            xSemaphoreGive(board->status.reboot_xsem);
+            vTaskDelete(NULL);
+            return;
+        }
+    } else {
+        // Unstable: increase vcore for next round
+        cur_vcore += vcore_step;
+        if (cur_vcore > vcore_max) {
+            LOG_W("[BM] freq=%dMHz unstable at all vcores, skipping to next freq.", cur_freq);
+            cur_freq  += freq_step;
+            cur_vcore  = vcore_min;
+            if (cur_freq > freq_max) {
+                LOG_W("[BM] All frequencies exhausted — benchmark complete.");
+                board->status.bm.active = false;
+                nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
+                nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+                nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+                reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete (all unstable)");
+                xSemaphoreGive(board->status.reboot_xsem);
+                vTaskDelete(NULL);
+                return;
+            }
+        }
+    }
+
+    // ── Write next round state and reboot ─────────────────────────────────────
+    nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  cur_freq);
+    nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, cur_vcore);
+    LOG_W("[BM] Next round: freq=%dMHz vcore=%dmV, rebooting...", cur_freq, cur_vcore);
+    delay(500);
+    reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark advancing to freq=%d vcore=%d", cur_freq, cur_vcore);
+    xSemaphoreGive(board->status.reboot_xsem);
+    vTaskDelete(NULL);
 }

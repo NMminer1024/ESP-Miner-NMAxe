@@ -27,6 +27,7 @@ export class AppMenuComponent implements OnInit {
           {label: 'Settings', icon: 'pi pi-fw pi-cog', routerLink: ['settings']},
           {label: 'Logs', icon: 'pi pi-fw pi-list', routerLink: ['logs']},
           {label: 'Update', icon: 'pi pi-fw pi-upload', routerLink: ['update']},
+          {label: 'Benchmark', icon: 'pi pi-fw pi-chart-bar', routerLink: ['benchmark']},
         ]
       }
     ];

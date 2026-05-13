@@ -15,6 +15,7 @@ import {MultiSelectModule} from 'primeng/multiselect';
 import {ProgressBarModule} from 'primeng/progressbar';
 import {SidebarModule} from 'primeng/sidebar';
 import {SliderModule} from 'primeng/slider';
+import {TableModule} from 'primeng/table';
 
 const primeNgModules = [
   InputSwitchModule,
@@ -32,7 +33,8 @@ const primeNgModules = [
   InputGroupModule,
   InputGroupAddonModule,
   RadioButtonModule,
-  ProgressBarModule
+  ProgressBarModule,
+  TableModule
 ];
 
 @NgModule({

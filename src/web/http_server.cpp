@@ -1153,6 +1153,162 @@ void echo_handler(AsyncWebServerRequest* request){
     LOG_I("Echo Request...");
 }
 
+// ── Benchmark API endpoints ──────────────────────────────────────────────────
+//
+// GET  /api/benchmark         — config + status + results
+// PATCH /api/benchmark        — update config parameters (does NOT start)
+// POST /api/benchmark/start   — write params, set bm_mode=1, reboot
+// POST /api/benchmark/stop    — set bm_mode=0, reboot
+// DELETE /api/benchmark/results — clear stored results
+
+// GET /api/benchmark
+void get_benchmark(AsyncWebServerRequest* request){
+    char *result_json = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+    AsyncResponseStream *resp = request->beginResponseStream("application/json");
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    resp->print("{");
+    resp->printf("\"mode\":%d,",         nvs_config_get_u8 (NVS_CONFIG_BM_MODE,        0));
+    resp->printf("\"freqMin\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,    400));
+    resp->printf("\"freqMax\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MAX,    625));
+    resp->printf("\"freqStep\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,   50));
+    resp->printf("\"vcoreMin\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,   1000));
+    resp->printf("\"vcoreMax\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,   1300));
+    resp->printf("\"vcoreStep\":%d,",    nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP,  25));
+    resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 10));
+    resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        180));
+    resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   120));
+    resp->printf("\"curFreq\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,    0));
+    resp->printf("\"curVcore\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE,   0));
+    resp->printf("\"results\":%s",       result_json);
+    resp->print("}");
+    free(result_json);
+    request->send(resp);
+}
+
+// PATCH /api/benchmark
+void patch_benchmark(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+    static const uint16_t BUF_SIZE = 512;
+    if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
+    char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
+    memset(buf, 0, BUF_SIZE);
+    if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
+    if (index + len == total) {
+        buf[total] = '\0';
+        StaticJsonDocument<512> root;
+        if (deserializeJson(root, buf) || !root.is<JsonObject>()) {
+            request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+            free(buf); return;
+        }
+        if (root.containsKey("freqMin"))    nvs_config_set_u16(NVS_CONFIG_BM_FREQ_MIN,    root["freqMin"].as<uint16_t>());
+        if (root.containsKey("freqMax"))    nvs_config_set_u16(NVS_CONFIG_BM_FREQ_MAX,    root["freqMax"].as<uint16_t>());
+        if (root.containsKey("freqStep"))   nvs_config_set_u16(NVS_CONFIG_BM_FREQ_STEP,   root["freqStep"].as<uint16_t>());
+        if (root.containsKey("vcoreMin"))   nvs_config_set_u16(NVS_CONFIG_BM_VCORE_MIN,   root["vcoreMin"].as<uint16_t>());
+        if (root.containsKey("vcoreMax"))   nvs_config_set_u16(NVS_CONFIG_BM_VCORE_MAX,   root["vcoreMax"].as<uint16_t>());
+        if (root.containsKey("vcoreStep"))  nvs_config_set_u16(NVS_CONFIG_BM_VCORE_STEP,  root["vcoreStep"].as<uint16_t>());
+        if (root.containsKey("sampleIntv")) nvs_config_set_u8 (NVS_CONFIG_BM_SAMPLE_INTV, root["sampleIntv"].as<uint8_t>());
+        if (root.containsKey("bmTime"))     nvs_config_set_u16(NVS_CONFIG_BM_TIME,         root["bmTime"].as<uint16_t>());
+        if (root.containsKey("stabTime"))   nvs_config_set_u16(NVS_CONFIG_BM_STAB_TIME,   root["stabTime"].as<uint16_t>());
+        request->send(200, "application/json", "{\"status\":\"ok\"}");
+    }
+    free(buf);
+}
+
+// POST /api/benchmark/start
+void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+    static const uint16_t BUF_SIZE = 512;
+    if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
+    char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
+    memset(buf, 0, BUF_SIZE);
+    if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
+    if (index + len == total) {
+        buf[total] = '\0';
+        // Optional: accept params in the start body to update them before starting
+        if (total > 0) {
+            StaticJsonDocument<512> root;
+            if (!deserializeJson(root, buf) && root.is<JsonObject>()) {
+                if (root.containsKey("freqMin"))    nvs_config_set_u16(NVS_CONFIG_BM_FREQ_MIN,    root["freqMin"].as<uint16_t>());
+                if (root.containsKey("freqMax"))    nvs_config_set_u16(NVS_CONFIG_BM_FREQ_MAX,    root["freqMax"].as<uint16_t>());
+                if (root.containsKey("freqStep"))   nvs_config_set_u16(NVS_CONFIG_BM_FREQ_STEP,   root["freqStep"].as<uint16_t>());
+                if (root.containsKey("vcoreMin"))   nvs_config_set_u16(NVS_CONFIG_BM_VCORE_MIN,   root["vcoreMin"].as<uint16_t>());
+                if (root.containsKey("vcoreMax"))   nvs_config_set_u16(NVS_CONFIG_BM_VCORE_MAX,   root["vcoreMax"].as<uint16_t>());
+                if (root.containsKey("vcoreStep"))  nvs_config_set_u16(NVS_CONFIG_BM_VCORE_STEP,  root["vcoreStep"].as<uint16_t>());
+                if (root.containsKey("sampleIntv")) nvs_config_set_u8 (NVS_CONFIG_BM_SAMPLE_INTV, root["sampleIntv"].as<uint8_t>());
+                if (root.containsKey("bmTime"))     nvs_config_set_u16(NVS_CONFIG_BM_TIME,         root["bmTime"].as<uint16_t>());
+                if (root.containsKey("stabTime"))   nvs_config_set_u16(NVS_CONFIG_BM_STAB_TIME,   root["stabTime"].as<uint16_t>());
+            }
+        }
+        // Reset sweep state to first round
+        uint16_t freq_min  = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,  400);
+        uint16_t vcore_min = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN, 1000);
+        nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+        nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+        nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 1);
+
+        LOG_W("[BM] Benchmark started via API: freq_min=%d vcore_min=%d", freq_min, vcore_min);
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"benchmark starting, device will reboot\"}");
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(response);
+        delay(300);
+        reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark start API");
+        xSemaphoreGive(g_board.status.reboot_xsem);
+    }
+    free(buf);
+}
+
+// POST /api/benchmark/stop
+void post_benchmark_stop(AsyncWebServerRequest* request){
+    nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
+    LOG_W("[BM] Benchmark stopped via API");
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"benchmark stopped, device will reboot\"}");
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
+    delay(300);
+    reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark stop API");
+    xSemaphoreGive(g_board.status.reboot_xsem);
+}
+
+// DELETE /api/benchmark/results
+void delete_benchmark_results(AsyncWebServerRequest* request){
+    nvs_config_set_string(NVS_CONFIG_BM_RESULT, "[]");
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
+}
+
+// POST /api/benchmark/reset
+// Stops any active benchmark run, clears accumulated results and resets the
+// sweep state (cur_freq / cur_vcore) back to the configured minimums.
+// If benchmark mode is currently active (bm_mode == 1) a reboot is triggered
+// so the device returns to normal mining immediately.
+void post_benchmark_reset(AsyncWebServerRequest* request){
+    uint16_t freq_min  = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,  400);
+    uint16_t vcore_min = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN, 1000);
+    bool was_running   = (nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) == 1);
+
+    // Clear all progress state
+    nvs_config_set_u8  (NVS_CONFIG_BM_MODE,      0);
+    nvs_config_set_u16 (NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+    nvs_config_set_u16 (NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+    nvs_config_set_string(NVS_CONFIG_BM_RESULT,  "[]");
+
+    LOG_W("[BM] Benchmark reset via API (was_running=%d)", (int)was_running);
+
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json",
+        was_running
+        ? "{\"status\":\"ok\",\"message\":\"benchmark reset, device will reboot\"}"
+        : "{\"status\":\"ok\",\"message\":\"benchmark reset\"}");
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
+
+    if (was_running) {
+        delay(300);
+        reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark reset API");
+        xSemaphoreGive(g_board.status.reboot_xsem);
+    }
+}
+
 // POST /api/system/restart -- trigger a graceful soft reboot via semaphore.
 void post_restart(AsyncWebServerRequest * request){
     LOG_W("************** Restarting System because of API Request ***************");

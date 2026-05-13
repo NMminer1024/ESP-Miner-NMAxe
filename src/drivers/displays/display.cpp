@@ -32,6 +32,7 @@ LV_FONT_DECLARE(ds_digib_font_38)
 LV_FONT_DECLARE(ds_digib_font_52)
 LV_FONT_DECLARE(ds_digib_font_56)
 LV_FONT_DECLARE(ds_digib_font_120)
+LV_FONT_DECLARE(Inconsolata_14)
 LV_FONT_DECLARE(Inconsolata_16)
 LV_FONT_DECLARE(Inconsolata_18)
 LV_FONT_DECLARE(Inconsolata_22)
@@ -4470,6 +4471,272 @@ void ui_find_me_page_update(void* args){
   lv_label_set_text(lb_hint, FIND_ME_HINT);
   lv_obj_align(lb_hint, LV_ALIGN_CENTER, 0, 18);
   lv_obj_move_foreground(overlay);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Benchmark status overlay
+// Shown after loading completes when bm_mode==1. Covers existing pages.
+// Updated every 1 s via the ui_thread_entry loop.
+// Layout (portrait 240×135 or landscape 320×240):
+//   [BENCHMARK]
+//   Freq 500MHz / Vcore 1100mV
+//   Phase: Stab  123s / 120s
+//   HR: 123.4 GH/s  Temp: 45.2°C
+//   [━━━━━━━━━━━━━━━━━━] 80%
+// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Benchmark status overlay — table layout, monospaced Inconsolata alignment.
+// Adapts to screen size at first call:
+//   Small (Axe / Gamma  240×135): Inconsolata_16 title, Inconsolata_14 rows, 5 data lines
+//   Large (QAxe++       320×240): Inconsolata_22 title, Inconsolata_18 rows, 9 data lines
+// ─────────────────────────────────────────────────────────────────────────────
+void ui_benchmark_overlay_update(void* args) {
+  board_sal_t *board = (board_sal_t*)args;
+  if (!board) return;
+
+  static lv_obj_t  *overlay    = nullptr;
+  static lv_obj_t  *lb_title   = nullptr;
+  static lv_obj_t  *lb_rows[9] = {};   // up to 9 data row labels
+  static lv_obj_t  *bar        = nullptr;
+  static lv_style_t style_bg;
+  static bool style_inited = false;
+  static bool is_large     = false;    // set once at create time
+  static int  n_rows       = 0;
+
+  // ── Destroy overlay when benchmark finishes ──────────────────────────────
+  if (!board->status.bm.active) {
+    if (overlay != nullptr) {
+      lv_obj_del(overlay);
+      overlay  = nullptr;
+      lb_title = nullptr;
+      for (int i = 0; i < 9; i++) lb_rows[i] = nullptr;
+      bar    = nullptr;
+      n_rows = 0;
+    }
+    return;
+  }
+
+  // ── Throttle to 1 update per second ─────────────────────────────────────
+  static uint32_t last_ms = 0;
+  if (overlay != nullptr && (millis() - last_ms < 1000)) return;
+
+  // ── Helper: format seconds as "Xh Ym" / "Xm Ys" / "Xs" ─────────────────
+  auto fmt_time = [](char* buf, size_t len, uint32_t s) {
+    if      (s >= 3600) snprintf(buf, len, "%uh%02um", (unsigned)(s / 3600), (unsigned)((s % 3600) / 60));
+    else if (s >= 60)   snprintf(buf, len, "%um%02us", (unsigned)(s / 60),   (unsigned)(s % 60));
+    else                snprintf(buf, len, "%us",       (unsigned)s);
+  };
+
+  // ── Create overlay (once) ────────────────────────────────────────────────
+  if (overlay == nullptr) {
+    is_large = (LV_HOR_RES >= 300); // QAxe++ 320×240; Axe/Gamma 240×135
+
+    if (!style_inited) {
+      lv_style_init(&style_bg);
+      lv_style_set_bg_color(&style_bg, lv_color_black());
+      lv_style_set_bg_opa(&style_bg, LV_OPA_90);
+      lv_style_set_border_width(&style_bg, 0);
+      lv_style_set_pad_all(&style_bg, 0);
+      style_inited = true;
+    }
+
+    overlay = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(overlay, LV_HOR_RES, LV_VER_RES);
+    lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_scrollbar_mode(overlay, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_add_style(overlay, &style_bg, LV_PART_MAIN);
+    lv_obj_move_foreground(overlay);
+
+    if (is_large) {
+      // ── Large screen 320×240: Inconsolata_22 title + Inconsolata_18 data ──
+      // Layout (y positions):
+      //   4  : title    (line_height=20)
+      //   28 : row[0]   Freq         (line_height=19 each)
+      //   47 : row[1]   Vcore
+      //   66 : row[2]   ASIC temp
+      //   85 : row[3]   VRM temp
+      //   104: row[4]   Phase
+      //   123: row[5]   Time left
+      //   142: row[6]   Hashrate
+      //   161: row[7]   Round (F x/N  V x/M)
+      //   180: row[8]   ETA
+      //   204: bar      (h=8)
+      n_rows = 9;
+
+      lb_title = lv_label_create(overlay);
+      lv_obj_set_style_text_font(lb_title, &Inconsolata_22, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_title, lv_color_hex(0x22D3EE), LV_PART_MAIN);
+      lv_obj_set_pos(lb_title, 0, 4);
+      lv_obj_set_width(lb_title, LV_HOR_RES);
+      lv_obj_set_style_text_align(lb_title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+      lv_label_set_text(lb_title, "[ BENCHMARK ]");
+
+      const lv_color_t init_colors[9] = {
+        lv_color_hex(0xFFFFFF), // Freq
+        lv_color_hex(0xFFFFFF), // Vcore
+        lv_color_hex(0xFFFFFF), // ASIC
+        lv_color_hex(0xFFFFFF), // VRM
+        lv_color_hex(0xFACC15), // Phase (yellow=stab; updated dynamically)
+        lv_color_hex(0xFFFFFF), // Left
+        lv_color_hex(0x4ADE80), // HR
+        lv_color_hex(0xAAAAAA), // Round
+        lv_color_hex(0xAAAAAA), // ETA
+      };
+      const int row_y_large[9] = {28, 47, 66, 85, 104, 123, 142, 161, 180};
+      for (int i = 0; i < n_rows; i++) {
+        lb_rows[i] = lv_label_create(overlay);
+        lv_obj_set_style_text_font(lb_rows[i], &Inconsolata_18, LV_PART_MAIN);
+        lv_obj_set_style_text_color(lb_rows[i], init_colors[i], LV_PART_MAIN);
+        lv_obj_set_pos(lb_rows[i], 8, row_y_large[i]);
+        lv_label_set_text(lb_rows[i], "");
+      }
+
+      bar = lv_bar_create(overlay);
+      lv_bar_set_range(bar, 0, 100);
+      lv_obj_set_size(bar, (lv_coord_t)(LV_HOR_RES - 24), 8);
+      lv_obj_set_pos(bar, 12, 204);
+
+    } else {
+      // ── Small screen 240×135: Inconsolata_16 title + Inconsolata_16 data ─
+      // Layout (y positions, line_height=17 each row):
+      //   2  : title    (line_height=17)
+      //   21 : row[0]   F:500MHz  Vc:1100mV
+      //   40 : row[1]   A: 45.2C  Vr: 38.1C
+      //   59 : row[2]   Stab  -  120s left
+      //   78 : row[3]   HR:123.4 GH/s  /  (Stab)
+      //   97 : row[4]   F2/5 V1/3 ~2h30m
+      //  124 : bar      (h=6)
+      n_rows = 5;
+
+      lb_title = lv_label_create(overlay);
+      lv_obj_set_style_text_font(lb_title, &Inconsolata_16, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_title, lv_color_hex(0x22D3EE), LV_PART_MAIN);
+      lv_obj_set_pos(lb_title, 0, 2);
+      lv_obj_set_width(lb_title, LV_HOR_RES);
+      lv_obj_set_style_text_align(lb_title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+      lv_label_set_text(lb_title, "[ BENCHMARK ]");
+
+      const lv_color_t init_colors_sm[5] = {
+        lv_color_hex(0xFFFFFF), // Freq/Vcore
+        lv_color_hex(0xFFFFFF), // Temps
+        lv_color_hex(0xFACC15), // Phase (updated dynamically)
+        lv_color_hex(0x4ADE80), // HR
+        lv_color_hex(0xAAAAAA), // Round/ETA
+      };
+      const int row_y_small[5] = {21, 40, 59, 78, 97};
+      for (int i = 0; i < n_rows; i++) {
+        lb_rows[i] = lv_label_create(overlay);
+        lv_obj_set_style_text_font(lb_rows[i], &Inconsolata_16, LV_PART_MAIN);
+        lv_obj_set_style_text_color(lb_rows[i], init_colors_sm[i], LV_PART_MAIN);
+        lv_obj_set_pos(lb_rows[i], 4, row_y_small[i]);
+        lv_label_set_text(lb_rows[i], "");
+      }
+
+      bar = lv_bar_create(overlay);
+      lv_bar_set_range(bar, 0, 100);
+      lv_obj_set_size(bar, (lv_coord_t)(LV_HOR_RES - 16), 6);
+      lv_obj_set_pos(bar, 8, 124);
+    }
+  }
+
+  // ── Compute derived values ────────────────────────────────────────────────
+  auto& bm = board->status.bm;
+
+  uint16_t freq_total = (bm.freq_step > 0) ? ((bm.freq_max - bm.freq_min) / bm.freq_step + 1) : 1;
+  uint16_t freq_idx   = (bm.freq_step > 0) ? ((bm.cur_freq  - bm.freq_min) / bm.freq_step + 1) : 1;
+  uint16_t vc_total   = (bm.vcore_step > 0) ? ((bm.vcore_max - bm.vcore_min) / bm.vcore_step + 1) : 1;
+  uint16_t vc_idx     = (bm.vcore_step > 0) ? ((bm.cur_vcore - bm.vcore_min) / bm.vcore_step + 1) : 1;
+
+  uint32_t phase_remaining = (bm.phase_total > bm.phase_elapsed)
+                             ? (bm.phase_total - bm.phase_elapsed) : 0;
+
+  // ETA: remaining time in current round + future freq rounds (best-case 1 vcore each)
+  uint32_t per_round = (uint32_t)bm.stab_total + (uint32_t)bm.bm_total;
+  uint32_t cur_round_left = bm.in_stab
+                            ? (phase_remaining + (uint32_t)bm.bm_total)
+                            : phase_remaining;
+  uint32_t eta_sec = cur_round_left + (uint32_t)(freq_total - freq_idx) * per_round;
+
+  char eta_str[16];
+  fmt_time(eta_str, sizeof(eta_str), eta_sec);
+
+  int pct = (bm.phase_total > 0) ? (int)(100u * bm.phase_elapsed / bm.phase_total) : 0;
+  if (pct > 100) pct = 100;
+
+  char buf[48];
+
+  if (is_large) {
+    // ── Large screen row updates ──────────────────────────────────────────
+    // Column alignment: label field 9 chars (left-aligned) + ": " + value field
+    // All rows start at x=8, monospaced → perfect column alignment
+    snprintf(buf, sizeof(buf), "  Freq   : %4d MHz",   bm.cur_freq);
+    lv_label_set_text(lb_rows[0], buf);
+
+    snprintf(buf, sizeof(buf), "  Vcore  : %4d mV",    bm.cur_vcore);
+    lv_label_set_text(lb_rows[1], buf);
+
+    snprintf(buf, sizeof(buf), "  ASIC   : %5.1f C",   bm.asic_temp);
+    lv_label_set_text(lb_rows[2], buf);
+
+    snprintf(buf, sizeof(buf), "  VRM    : %5.1f C",   bm.vcore_temp);
+    lv_label_set_text(lb_rows[3], buf);
+
+    snprintf(buf, sizeof(buf), "  Phase  : %s",        bm.in_stab ? "Stabilize" : "Sampling ");
+    lv_label_set_text(lb_rows[4], buf);
+    lv_obj_set_style_text_color(lb_rows[4],
+      bm.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA), LV_PART_MAIN);
+
+    snprintf(buf, sizeof(buf), "  Left   : %5lu s",    (unsigned long)phase_remaining);
+    lv_label_set_text(lb_rows[5], buf);
+
+    if (bm.in_stab) {
+      lv_label_set_text(lb_rows[6], "  HR     :  (stabilizing)");
+    } else {
+      snprintf(buf, sizeof(buf), "  HR     : %5.1f GH/s", bm.avg_hr_ghs);
+      lv_label_set_text(lb_rows[6], buf);
+    }
+
+    snprintf(buf, sizeof(buf), "  Round  :  F%u/%u  V%u/%u", freq_idx, freq_total, vc_idx, vc_total);
+    lv_label_set_text(lb_rows[7], buf);
+
+    snprintf(buf, sizeof(buf), "  ETA    : ~%s",        eta_str);
+    lv_label_set_text(lb_rows[8], buf);
+
+  } else {
+    // ── Small screen row updates ──────────────────────────────────────────
+    // Row 0: Freq + Vcore on one line (fixed-width, aligned at column 10)
+    snprintf(buf, sizeof(buf), "F:%3dMHz  Vc:%4dmV",   bm.cur_freq, bm.cur_vcore);
+    lv_label_set_text(lb_rows[0], buf);
+
+    // Row 1: ASIC + VRM temps (aligned at column 10)
+    snprintf(buf, sizeof(buf), "A:%4.1fC  Vr:%4.1fC",  bm.asic_temp, bm.vcore_temp);
+    lv_label_set_text(lb_rows[1], buf);
+
+    // Row 2: Phase name + seconds remaining (color changes dynamically)
+    snprintf(buf, sizeof(buf), "%-4s     -%4lus left",
+      bm.in_stab ? "Stab" : "Samp", (unsigned long)phase_remaining);
+    lv_label_set_text(lb_rows[2], buf);
+    lv_obj_set_style_text_color(lb_rows[2],
+      bm.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA), LV_PART_MAIN);
+
+    // Row 3: Hashrate (shows "(Stab)" during stabilization)
+    if (bm.in_stab) {
+      lv_label_set_text(lb_rows[3], "HR: (Stabilize)");
+    } else {
+      snprintf(buf, sizeof(buf), "HR:%5.1f GH/s", bm.avg_hr_ghs);
+      lv_label_set_text(lb_rows[3], buf);
+    }
+
+    // Row 4: Round indices + ETA
+    snprintf(buf, sizeof(buf), "F%u/%u V%u/%u ~%s",
+      freq_idx, freq_total, vc_idx, vc_total, eta_str);
+    lv_label_set_text(lb_rows[4], buf);
+  }
+
+  // ── Progress bar ─────────────────────────────────────────────────────────
+  lv_bar_set_value(bar, pct, LV_ANIM_ON);
+
+  last_ms = millis();
 }
 
 void ui_aphorism_page_update(void* args){
