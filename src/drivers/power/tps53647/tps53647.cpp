@@ -342,7 +342,24 @@ void TPS53647Class::debugPrint(void){
     this->_read_reg(PMBUS_READ_PIN, (uint8_t*)&raw, 2);
     float pin  = this->_slinear11_to_float(raw);
     float eff = (pin > 0.1f) ? (pout / pin * 100.0f) : 0.0f;
-    char buf[256];
+
+    // Fault / status registers — capture OC history
+    uint16_t status_word = 0;
+    uint8_t  status_iout = 0;
+    uint8_t  status_input = 0;
+    uint8_t  status_temp = 0;
+    uint8_t  status_mfr  = 0;
+    uint8_t  iout_oc_fault_resp = 0;
+    this->_read_reg(PMBUS_STATUS_WORD,           (uint8_t*)&status_word,    2);
+    this->_read_reg(PMBUS_STATUS_IOUT,           &status_iout,              1);
+    this->_read_reg(PMBUS_STATUS_INPUT,          &status_input,             1);
+    this->_read_reg(PMBUS_STATUS_TEMPERATURE,    &status_temp,              1);
+    this->_read_reg(PMBUS_STATUS_MFR_SPECIFIC,   &status_mfr,               1);
+    this->_read_reg(PMBUS_IOUT_OC_FAULT_RESPONSE,&iout_oc_fault_resp,       1);
+
+    // STATUS_IOUT bits: [7]OC_FAULT [5]OC_WARN [4]OC_FAULT_LOW [3]POUT_OP_FAULT [2]POUT_OP_WARN [1]VOUT_UV [0]POUT_LOW
+    // STATUS_INPUT bits:[7]VIN_OV_FAULT [6]VIN_OV_WARN [5]VIN_UV_WARN [4]VIN_UV_FAULT [1]IIN_OC_FAULT [0]IIN_OC_WARN
+    char buf[512];
     snprintf(buf, sizeof(buf),
         "\n-----------TPS53647 PMBUS READINGS-----------"
         "\n  VIN  = %.2f V"
@@ -352,7 +369,34 @@ void TPS53647Class::debugPrint(void){
         "\n  POUT = %.2f W"
         "\n  PIN  = %.2f W"
         "\n  Eff  = %.1f %%"
+        "\n  --- Fault Status ---"
+        "\n  STATUS_WORD = 0x%04X  [IOUT_OC:%d TEMP:%d INPUT:%d VOUT:%d]"
+        "\n  STATUS_IOUT = 0x%02X  [OC_FAULT:%d OC_WARN:%d]"
+        "\n  STATUS_INPUT= 0x%02X  [IIN_OC_FAULT:%d IIN_OC_WARN:%d VIN_OV:%d]"
+        "\n  STATUS_TEMP = 0x%02X  [OT_FAULT:%d OT_WARN:%d]"
+        "\n  STATUS_MFR  = 0x%02X"
+        "\n  IOUT_OC_FAULT_RESP(0x47) = 0x%02X  [action:%d retries:%d]"
+        "\n    action: 0=continue 1=shutdown+retry 2=shutdown+retry 3=latch-off"
         "\n---------------------------------------------",
-        vin, iin, iout, temp, pout, pin, eff);
+        vin, iin, iout, temp, pout, pin, eff,
+        status_word,
+        (status_word >> 4) & 1,
+        (status_word >> 2) & 1,
+        (status_word >> 5) & 1,
+        (status_word >> 15) & 1,
+        status_iout,
+        (status_iout >> 7) & 1,
+        (status_iout >> 5) & 1,
+        status_input,
+        (status_input >> 1) & 1,
+        (status_input >> 0) & 1,
+        (status_input >> 7) & 1,
+        status_temp,
+        (status_temp >> 7) & 1,
+        (status_temp >> 6) & 1,
+        status_mfr,
+        iout_oc_fault_resp,
+        (iout_oc_fault_resp >> 6) & 0x3,
+        iout_oc_fault_resp & 0x7);
     LOG_W("%s", buf);
 }
