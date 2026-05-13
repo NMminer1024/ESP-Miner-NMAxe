@@ -239,15 +239,6 @@ void TPS53647Class::hw_init(void){
     // Iout current — warn and fault thresholds from board config
     this->_write_word(PMBUS_IOUT_OC_WARN_LIMIT,  this->_float_to_slinear11(this->_cfg.ifault));
     this->_write_word(PMBUS_IOUT_OC_FAULT_LIMIT, this->_float_to_slinear11(this->_cfg.ifault));
-
-    // Read back and print register values
-    uint8_t mfr_specific_00 = 0x00;
-    uint8_t mfr_specific_12 = 0x00;
-    this->_read_reg(PMBUS_MFR_SPECIFIC_00, &mfr_specific_00, 1);
-    this->_read_reg(PMBUS_MFR_SPECIFIC_12, &mfr_specific_12, 1);
-    LOG_I("TPS53647 PMBUS_MFR_SPECIFIC_00: 0x%02X", mfr_specific_00);
-    LOG_I("TPS53647 PMBUS_MFR_SPECIFIC_12: 0x%02X", mfr_specific_12);
-    
 }
 
 bool TPS53647Class::is_vcore_ready(void){
@@ -303,23 +294,6 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
     uint8_t reg = this->_mv_to_vid(vlot_mv);
 
     this->_write_word(PMBUS_VOUT_COMMAND, reg); //VCORE Voltage Set Register   
-
-    // uint16_t u16_value;
-    // float f_value;
-    // LOG_I("-----------VOLTAGE---------------------");
-    // // // VOUT_MAX
-    // // this->_read_reg(PMBUS_VOUT_MAX, (uint8_t*)&u16_value, 2);
-    // // f_value = this->_vid_to_mv(u16_value);
-    // // LOG_I("Vout Max set to: %f V", f_value);
-
-    // // --- VOUT_COMMAND ---
-    // this->_read_reg(PMBUS_VOUT_COMMAND, (uint8_t*)&u16_value, 2);
-    // f_value = this->_vid_to_mv(u16_value);
-    // LOG_I("Vout read back : 0x%02X (%f V)", u16_value, f_value);
-
-    // uint8_t reg_1;
-    // this->_read_reg(PMBUS_MFR_SPECIFIC_12, (uint8_t*)&reg_1, 1);
-    // LOG_I("Switching Frequency Reg: 0x%02X", reg_1);
 }
 
 void TPS53647Class::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
