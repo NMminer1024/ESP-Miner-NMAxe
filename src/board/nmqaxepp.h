@@ -17,7 +17,7 @@ inline AxePowerHal* create_qaxepp_2ph_power_instance(axe_pwr_enable_pin_t en_pin
 }
 
 // 3-phase board (QAxe++ Rev6.1): 0.0025 Ω shunt, higher OC limit
-inline AxePowerHal* create_qaxepp_rev61_power_instance(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t vcore_regulator_pwm_pin, uint8_t pgood, uint8_t plug) {
+inline AxePowerHal* create_qaxepp_3ph_power_instance(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t vcore_regulator_pwm_pin, uint8_t pgood, uint8_t plug) {
     tps53647_cfg_t cfg = {3, 120, 130.0f, 0.0025f};
     return new TPS53647Class(en_pins, adc_pins, pgood, plug, cfg);
 }
