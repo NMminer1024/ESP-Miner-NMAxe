@@ -213,11 +213,21 @@ void TPS53647Class::hw_init(void){
     // set up the ON_OFF_CONFIG
     this->_write_byte(PMBUS_ON_OFF_CONFIG, 0b00010111);
 
-    // Switch frequency, 700kHz
-    this->_write_byte(PMBUS_MFR_SPECIFIC_12, 0x40);
-
-    // 36A current limit
-    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0x04);
+    // 0000:24A
+    // 0001:27A
+    // 0010:30A
+    // 0011:33A
+    // 0100:36A
+    // 0101:39A
+    // 0110:42A
+    // 0111:45A
+    // 1000:48A
+    // 1001:51A
+    // 1010:54A
+    // 1011:57A
+    // 1100:60A
+    // 1101:63A
+    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0b0010 & 0x0F); 
 
     // set number of phases
     this->_set_phases(this->_cfg.num_phases);
@@ -357,6 +367,7 @@ void TPS53647Class::debugPrint(void){
     // 0x97 READ_PIN  — input power (W, SLinear11)
     this->_read_reg(PMBUS_READ_PIN, (uint8_t*)&raw, 2);
     float pin  = this->_slinear11_to_float(raw);
+    float eff = (pin > 0.1f) ? (pout / pin * 100.0f) : 0.0f;
     char buf[256];
     snprintf(buf, sizeof(buf),
         "\n-----------TPS53647 PMBUS READINGS-----------"
@@ -366,7 +377,8 @@ void TPS53647Class::debugPrint(void){
         "\n  Temp = %.1f C"
         "\n  POUT = %.2f W"
         "\n  PIN  = %.2f W"
+        "\n  Eff  = %.1f %%"
         "\n---------------------------------------------",
-        vin, iin, iout, temp, pout, pin);
+        vin, iin, iout, temp, pout, pin, eff);
     LOG_W("%s", buf);
 }
