@@ -90,7 +90,6 @@ void ui_miner_page_update(void* args);
 void ui_countdown_page_update(void* args);
 void ui_ota_page_update(void* args);
 void ui_aphorism_page_update(void* args);
-void ui_screen_saver_update(void* args);
 void ui_achieve_page_update(void* args);
 void ui_hits_page_update(void* args);
 void ui_dashboard_page_update(void* args);
@@ -100,4 +99,5 @@ void ui_market_page_update(void* args);
 void ui_setting_or_swarm_page_update(void* args);
 void ui_screen_saver_page_update(void* args);
 void ui_find_me_page_update(void* args);
+void ui_power_oc_alert_update(void* args);
 #endif // DISPLAY_H

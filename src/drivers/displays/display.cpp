@@ -6,6 +6,7 @@
 #include "utils/helper.h" 
 #include "image/image.h"
 #include "nvs/nvs_config.h"
+#include <nvs.h>
 #include "board/board.h"
 #include "utils/reboot_log/reboot_log.h"
 
@@ -4627,4 +4628,131 @@ void ui_switch_prev_page_cb(){
   prev_index--;
   
   ui_goto_page(prev_index, LV_ANIM_ON);
+}
+
+// ─── Power OC Alert Overlay ───────────────────────────────────────────────────
+// Triggered when SYS_EVENT_POWER_OC_FAULT is set (TPS53647 OC fault detected).
+// "Reset & Reboot": writes factory freq/vcore to NVS with explicit commit, then reboots.
+// "Dismiss":        clears the event bit; overlay is removed on next update cycle.
+void ui_power_oc_alert_update(void* args) {
+  board_sal_t *board = (board_sal_t*)args;
+  if (!board) return;
+
+  static lv_obj_t *overlay  = NULL;
+  static lv_obj_t *lb_title = NULL;
+  static lv_obj_t *lb_body  = NULL;
+  static lv_obj_t *btn_yes  = NULL;
+  static lv_obj_t *btn_no   = NULL;
+  static lv_style_t style_overlay;
+  static lv_style_t style_btn_yes;
+  static lv_style_t style_btn_no;
+  static bool styles_inited = false;
+
+  bool oc_active = (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_POWER_OC_FAULT) != 0;
+
+  // Destroy overlay when event is cleared
+  if (!oc_active && overlay != NULL) {
+    lv_obj_del(overlay);
+    overlay = lb_title = lb_body = btn_yes = btn_no = NULL;
+    return;
+  }
+  if (!oc_active) return;
+  if (overlay != NULL)  return;  // already visible
+
+  // ── Init styles once ─────────────────────────────────────────────────────
+  if (!styles_inited) {
+    lv_style_init(&style_overlay);
+    lv_style_set_bg_color(&style_overlay, lv_color_black());
+    lv_style_set_bg_opa(&style_overlay, LV_OPA_90);
+    lv_style_set_border_width(&style_overlay, 0);
+    lv_style_set_border_opa(&style_overlay, LV_OPA_TRANSP);
+
+    lv_style_init(&style_btn_yes);
+    lv_style_set_bg_color(&style_btn_yes, lv_color_hex(0xD32F2F));  // red — destructive
+    lv_style_set_bg_opa(&style_btn_yes, LV_OPA_COVER);
+    lv_style_set_border_width(&style_btn_yes, 0);
+
+    lv_style_init(&style_btn_no);
+    lv_style_set_bg_color(&style_btn_no, lv_color_hex(0x424242));   // grey — cancel
+    lv_style_set_bg_opa(&style_btn_no, LV_OPA_COVER);
+    lv_style_set_border_width(&style_btn_no, 0);
+
+    styles_inited = true;
+  }
+
+  // ── Create full-screen overlay ────────────────────────────────────────────
+  overlay = lv_obj_create(lv_scr_act());
+  lv_obj_set_size(overlay, LV_HOR_RES, LV_VER_RES);
+  lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_scrollbar_mode(overlay, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_set_style_pad_all(overlay, 0, LV_PART_MAIN);  // remove default padding so child alignments use full pixel coordinates
+  lv_obj_add_style(overlay, &style_overlay, LV_PART_MAIN);
+  lv_obj_move_foreground(overlay);
+
+  // ── Title ─────────────────────────────────────────────────────────────────
+  lb_title = lv_label_create(overlay);
+  lv_obj_set_style_text_font(lb_title, &lv_font_montserrat_20, LV_PART_MAIN);
+  lv_obj_set_style_text_color(lb_title, lv_color_hex(0xFF5252), LV_PART_MAIN);
+  lv_label_set_text(lb_title, LV_SYMBOL_WARNING " Overcurrent Fault");
+  lv_obj_align(lb_title, LV_ALIGN_TOP_MID, 0, 10);
+
+  // ── Body text (montserrat_16 for readability) ─────────────────────────────
+  lb_body = lv_label_create(overlay);
+  lv_obj_set_style_text_font(lb_body, &lv_font_montserrat_16, LV_PART_MAIN);
+  lv_obj_set_style_text_color(lb_body, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+  lv_obj_set_style_text_align(lb_body, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_label_set_long_mode(lb_body, LV_LABEL_LONG_WRAP);
+  lv_obj_set_width(lb_body, LV_HOR_RES - 16);
+  lv_label_set_text(lb_body,
+    "OC fault! Reset ASIC freq &\n"
+    "voltage to factory defaults\n"
+    "and reboot?");
+  lv_obj_align(lb_body, LV_ALIGN_CENTER, 0, -8);
+
+  // ── Button layout: 20px outer margin each side, 10px gap between buttons ─
+  // btn_w = (screen_width - left_margin - gap - right_margin) / 2
+  //       = (LV_HOR_RES - 20 - 10 - 20) / 2
+  lv_coord_t btn_w = (LV_HOR_RES - 50) / 2;
+  lv_coord_t btn_h = 32;
+
+  // ── "Reset & Reboot" button (left, red) ──────────────────────────────────
+  btn_yes = lv_btn_create(overlay);
+  lv_obj_add_style(btn_yes, &style_btn_yes, LV_PART_MAIN);
+  lv_obj_set_size(btn_yes, btn_w, btn_h);
+  lv_obj_align(btn_yes, LV_ALIGN_BOTTOM_LEFT, 20, -8);
+  lv_obj_t *lb_yes = lv_label_create(btn_yes);
+  lv_obj_set_style_text_font(lb_yes, &lv_font_montserrat_14, LV_PART_MAIN);
+  lv_label_set_text(lb_yes, "Reset & Reboot");
+  lv_obj_center(lb_yes);
+  lv_obj_add_event_cb(btn_yes, +[](lv_event_t* e) {
+    board_sal_t* b = (board_sal_t*)lv_event_get_user_data(e);
+    if (!b) return;
+    // Explicitly commit both values in one NVS transaction before reboot
+    nvs_handle handle;
+    if (nvs_open(NVS_CONFIG_NAMESPACE, NVS_READWRITE, &handle) == ESP_OK) {
+      nvs_set_u16(handle, NVS_CONFIG_ASIC_FREQ,    b->info.spec.asic.default_frq);
+      nvs_set_u16(handle, NVS_CONFIG_ASIC_VOLTAGE, b->info.spec.asic.default_vcore);
+      nvs_commit(handle);
+      nvs_close(handle);
+    }
+    LOG_W("OC alert: reset freq=%u vcore=%u — rebooting...",
+          b->info.spec.asic.default_frq, b->info.spec.asic.default_vcore);
+    esp_restart();
+  }, LV_EVENT_CLICKED, (void*)board);
+
+  // ── "Dismiss" button (right, grey) ───────────────────────────────────────
+  btn_no = lv_btn_create(overlay);
+  lv_obj_add_style(btn_no, &style_btn_no, LV_PART_MAIN);
+  lv_obj_set_size(btn_no, btn_w, btn_h);
+  lv_obj_align(btn_no, LV_ALIGN_BOTTOM_RIGHT, -20, -8);
+  lv_obj_t *lb_no = lv_label_create(btn_no);
+  lv_obj_set_style_text_font(lb_no, &lv_font_montserrat_14, LV_PART_MAIN);
+  lv_label_set_text(lb_no, "Dismiss");
+  lv_obj_center(lb_no);
+  lv_obj_add_event_cb(btn_no, +[](lv_event_t* e) {
+    board_sal_t* b = (board_sal_t*)lv_event_get_user_data(e);
+    if (!b) return;
+    xEventGroupClearBits(b->status.sys_evt, SYS_EVENT_POWER_OC_FAULT);
+    // overlay removed on next ui_power_oc_alert_update() call
+  }, LV_EVENT_CLICKED, (void*)board);
 }

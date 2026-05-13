@@ -20,6 +20,7 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <unordered_set>
 
 void power_init_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
@@ -88,7 +89,9 @@ void power_loop_thread_entry(void *args){
             // Optionally, shut down other power rails if supported
             board->power->set_vdd_1v8(PWR_OFF);
             board->power->set_pll_0v8(PWR_OFF);
-            // Enter an infinite loop to halt further operations until manual reset
+            // Signal the display thread to show the OC alert overlay
+            xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_POWER_OC_FAULT);
+            // Park this thread — display/UI thread keeps running to handle user interaction
             while(true) {
                 delay(1000);
                 LOG_E("ASIC powered down due to Power OverCurrent. Please check your ASICs OverClocking settings, and cooling.");
@@ -96,7 +99,7 @@ void power_loop_thread_entry(void *args){
         }
         else if(oc_warn) {
             static uint32_t last = millis(); // count in seconds
-            if(millis() - last >= 10000) { // if OC warning persists for 10 seconds, log a warning
+            if(millis() - last >= 3000) { // if OC warning persists for 10 seconds, log a warning
                 LOG_W("Overcurrent WARNING detected...");
                 last = millis(); // reset count after logging
             }
@@ -2269,6 +2272,29 @@ void miner_asic_rx_thread_entry(void *args){
                 //continue if diff < asic diff threshold 
                 if(diff < board->miner->get_asic_diff()) continue;
 
+                //submit solution — fetch job context first so dedup can run before hashrate is counted
+                uint32_t version_submit = version ^ (*(uint32_t*)job.version);
+                String   pool_id_submit = board->miner->get_pool_job_id_by_asic_job_id(result.asic.job_id);
+                String   extra2_submit  = board->miner->get_extranonce2_by_asic_job_id(result.asic.job_id);
+                if(pool_id_submit.length() == 0 || extra2_submit.length() == 0) continue; // slot evicted/cleared
+
+                // Deduplicate nonces within the same (pool_job_id, extranonce2) scope.
+                // BM1370 at high frequency occasionally emits the same result frame twice;
+                // both pass local SHA256 but the second submission is rejected by the pool as Duplicate.
+                // Must run BEFORE record_nonce() so duplicates are not counted toward hashrate.
+                static std::unordered_set<uint32_t> _submitted_nonces;
+                static String _dedup_job_key = "";
+                String _cur_job_key = pool_id_submit + extra2_submit;
+                if(_cur_job_key != _dedup_job_key){
+                    _submitted_nonces.clear();
+                    _dedup_job_key = _cur_job_key;
+                }
+                if(_submitted_nonces.count(result.asic.nonce)){
+                    LOG_W("Dup nonce 0x%08x skipped (pool_job=%s)", result.asic.nonce, pool_id_submit.c_str());
+                    continue;
+                }
+                _submitted_nonces.insert(result.asic.nonce);
+
                 //record nonce into hashrate ring; calculation is driven by monitor thread every second
                 board->miner->record_nonce();
 
@@ -2313,12 +2339,7 @@ void miner_asic_rx_thread_entry(void *args){
 
                 //continue if diff < pool diff threshold
                 if(diff < board->stratum->get_pool_difficulty())continue; 
-                
-                //submit sulution
-                uint32_t version_submit = version ^ (*(uint32_t*)job.version);
-                String   pool_id_submit = board->miner->get_pool_job_id_by_asic_job_id(result.asic.job_id);
-                String   extra2_submit  = board->miner->get_extranonce2_by_asic_job_id(result.asic.job_id);
-                if(pool_id_submit.length() == 0 || extra2_submit.length() == 0) continue; // slot evicted/cleared
+
                 bool res = board->miner->submit_job_share(pool_id_submit, extra2_submit, result.asic.nonce, *(uint32_t*)job.ntime, version_submit);
                 if(!res) continue;
                 
@@ -2796,6 +2817,8 @@ void ui_thread_entry(void *args){
                 // OTA page update, if running, cover current page
                 ui_ota_page_update((void*)board);
             }
+            // Power OC alert — highest priority overlay, runs even during screen saver
+            ui_power_oc_alert_update((void*)board);
             //release mutex
             xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
         }

@@ -310,7 +310,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.temp_limit.high      = 75.0f;
             config.asic.temp_limit.medium    = 65.0f;
             config.asic.temp_limit.low       = 50.0f;
-            config.asic.job_interval_ms      = 500;
             config.tft.width                 = 240;
             config.tft.height                = 320;
             config.tft.dc_pin                = 3;
@@ -335,6 +334,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_frq          = 600;
                 config.asic.default_vcore        = 1150;
                 config.asic.min_vcore            = 1000;
+                config.asic.diff_thr_init        = 1024*2;
+                config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 11.0f};
                 config.ui.dashboard_page.power.power         = {0.0f, 130.0f};
                 config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, 800.0f};
@@ -367,6 +368,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_frq          = 900;
                 config.asic.default_vcore        = 1350;
                 config.asic.min_vcore            = 1100;
+                config.asic.diff_thr_init        = 1024*2;
+                config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 18.0f};
                 config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
                 config.ui.dashboard_page.performance.asic_freq_req  = {600.0f, 1100.0f};
@@ -425,7 +428,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.led.wifi_pin              = -1; // Not used
             config.led.pool_pin              = -1; // Not used
             config.led.sys_pin               = 9; 
-            config.asic.diff_thr_init        = 1024*2;
             config.asic.rx_pin               = 44;
             config.asic.tx_pin               = 43;
             config.asic.rst_pin              = 45;
