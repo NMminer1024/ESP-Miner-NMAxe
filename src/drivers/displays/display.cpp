@@ -4690,9 +4690,10 @@ void ui_benchmark_overlay_update(void* args) {
     lv_label_set_text(lb_rows[5], buf);
 
     if (bm.in_stab) {
-      lv_label_set_text(lb_rows[6], "  HR     :  (stabilizing)");
+      snprintf(buf, sizeof(buf), "  Avg    : (Stab) / %4.0f GH", bm.exp_hr_ghs);
+      lv_label_set_text(lb_rows[6], buf);
     } else {
-      snprintf(buf, sizeof(buf), "  HR     : %5.1f GH/s", bm.avg_hr_ghs);
+      snprintf(buf, sizeof(buf), "  Avg    : %4.1f / %4.0f GH", bm.avg_hr_ghs, bm.exp_hr_ghs);
       lv_label_set_text(lb_rows[6], buf);
     }
 
@@ -4719,11 +4720,12 @@ void ui_benchmark_overlay_update(void* args) {
     lv_obj_set_style_text_color(lb_rows[2],
       bm.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA), LV_PART_MAIN);
 
-    // Row 3: Hashrate (shows "(Stab)" during stabilization)
+    // Row 3: Hashrate real/expected
     if (bm.in_stab) {
-      lv_label_set_text(lb_rows[3], "HR: (Stabilize)");
+      snprintf(buf, sizeof(buf), "Avg:Stab /%4.0fGH", bm.exp_hr_ghs);
+      lv_label_set_text(lb_rows[3], buf);
     } else {
-      snprintf(buf, sizeof(buf), "HR:%5.1f GH/s", bm.avg_hr_ghs);
+      snprintf(buf, sizeof(buf), "Avg:%4.1f/%4.0f GH", bm.avg_hr_ghs, bm.exp_hr_ghs);
       lv_label_set_text(lb_rows[3], buf);
     }
 

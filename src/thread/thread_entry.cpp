@@ -3303,6 +3303,12 @@ void benchmark_thread_entry(void *args) {
     board->status.bm.vcore_temp  = 0.0f;
     board->status.bm.stab_total  = stab_time;
     board->status.bm.bm_total    = (uint16_t)bm_time;
+    // Calculate and store expected hashrate so overlay can show it from the start
+    {
+        uint32_t sc = board->miner ? board->miner->get_asic_small_cores() : 0;
+        uint8_t  ac = board->miner ? board->miner->get_asic_count()       : 0;
+        board->status.bm.exp_hr_ghs = (float)((double)cur_freq * ((double)(sc * ac) / 1000.0));
+    }
     board->status.bm.active      = true;  // show overlay
 
     // ── Stabilization wait ────────────────────────────────────────────────────
@@ -3318,7 +3324,7 @@ void benchmark_thread_entry(void *args) {
     uint32_t total_samples = bm_time / smp_intv;
     if (total_samples == 0) total_samples = 1;
 
-    double hr_sum = 0, eff_sum = 0, pwr_sum = 0, at_sum = 0;
+    double hr_sum = 0, eff_sum = 0, pwr_sum = 0, at_sum = 0, vt_sum = 0;
     uint32_t sample_cnt = 0;
     uint8_t  zero_hr_cnt = 0;
 
@@ -3331,6 +3337,7 @@ void benchmark_thread_entry(void *args) {
     uint32_t small_cores = board->miner ? board->miner->get_asic_small_cores() : 0;
     uint8_t  asic_count  = board->miner ? board->miner->get_asic_count()       : 0;
     double   exp_hr_ghs  = (double)cur_freq * ((double)(small_cores * asic_count) / 1000.0); // GH/s
+    // (exp_hr_ghs already written at init; keep local var for stable/eff checks below)
 
     LOG_W("[BM] Expected HR: %.1f GH/s (freq=%d small_cores=%d asic_cnt=%d)",
           exp_hr_ghs, cur_freq, small_cores, asic_count);
@@ -3367,6 +3374,7 @@ void benchmark_thread_entry(void *args) {
         eff_sum += (hr_ghs > 0 && pwr_w > 0) ? (pwr_w / (hr_ghs / 1000.0)) : 0; // J/TH
         pwr_sum += pwr_w;
         at_sum  += at;
+        vt_sum  += board->status.temp.vcore;
         sample_cnt++;
 
         double hr_avg = hr_sum / sample_cnt;
@@ -3388,10 +3396,11 @@ void benchmark_thread_entry(void *args) {
     double eff_avg = (sample_cnt > 0) ? (eff_sum / sample_cnt) : 0;
     double pwr_avg = (sample_cnt > 0) ? (pwr_sum / sample_cnt) : 0;
     double at_avg  = (sample_cnt > 0) ? (at_sum  / sample_cnt) : 0;
+    double vt_avg  = (sample_cnt > 0) ? (vt_sum  / sample_cnt) : 0;
 
     bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * 0.94);
-    LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s | eff:%.3fJ/TH | pwr:%.2fW | temp:%.1fC",
-          stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, eff_avg, pwr_avg, at_avg);
+    LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s | eff:%.3fJ/TH | pwr:%.2fW | asicT:%.1fC vcoreT:%.1fC",
+          stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, eff_avg, pwr_avg, at_avg, vt_avg);
 
     // ── Build result entry and append to NVS JSON string ─────────────────────
     if (stable) {
@@ -3408,8 +3417,8 @@ void benchmark_thread_entry(void *args) {
         // Append new entry
         char entry[256];
         snprintf(entry, sizeof(entry),
-            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f}",
-            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, eff_avg, pwr_avg);
+            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f}",
+            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg, eff_avg, pwr_avg);
         results += entry;
         results += "]";
 
@@ -3421,13 +3430,39 @@ void benchmark_thread_entry(void *args) {
         cur_vcore  = vcore_min;
 
         if (cur_freq > freq_max) {
-            LOG_W("[BM] All frequencies tested — benchmark complete, returning to Normal mode.");
+            LOG_W("[BM] All frequencies tested — benchmark complete, applying best result.");
             board->status.bm.active = false;
             nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
             nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
             nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
-            // Restore user freq/vcore
-            reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete, returning to Normal mode");
+            // Select best result: highest avgHR entry in saved results
+            {
+                char *res_str = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+                DynamicJsonDocument rdoc(4096);
+                DeserializationError rerr = deserializeJson(rdoc, res_str);
+                free(res_str);
+                uint16_t best_freq = 0, best_vcore = 0;
+                float    best_avgHR = -1.0f;
+                if (!rerr && rdoc.is<JsonArray>()) {
+                    for (JsonObject e : rdoc.as<JsonArray>()) {
+                        float avgHR = e["avgHR"] | 0.0f;
+                        if (avgHR > best_avgHR) {
+                            best_avgHR  = avgHR;
+                            best_freq   = e["freq"]  | (uint16_t)0;
+                            best_vcore  = e["vcore"] | (uint16_t)0;
+                        }
+                    }
+                }
+                if (best_freq > 0 && best_vcore > 0) {
+                    LOG_W("[BM] Best result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying to Normal mode.",
+                          best_freq, best_vcore, best_avgHR);
+                    nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
+                    nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
+                } else {
+                    LOG_W("[BM] No stable results found, keeping current Normal mode settings.");
+                }
+            }
+            reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete, switching to Normal mode with best params");
             xSemaphoreGive(board->status.reboot_xsem);
             vTaskDelete(NULL);
             return;
@@ -3440,12 +3475,39 @@ void benchmark_thread_entry(void *args) {
             cur_freq  += freq_step;
             cur_vcore  = vcore_min;
             if (cur_freq > freq_max) {
-                LOG_W("[BM] All frequencies exhausted — benchmark complete.");
+                LOG_W("[BM] All frequencies exhausted — benchmark complete, applying best result.");
                 board->status.bm.active = false;
                 nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
                 nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
                 nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
-                reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete (all unstable)");
+                // Select best result: highest avgHR entry in saved results
+                {
+                    char *res_str = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+                    DynamicJsonDocument rdoc(4096);
+                    DeserializationError rerr = deserializeJson(rdoc, res_str);
+                    free(res_str);
+                    uint16_t best_freq = 0, best_vcore = 0;
+                    float    best_avgHR = -1.0f;
+                    if (!rerr && rdoc.is<JsonArray>()) {
+                        for (JsonObject e : rdoc.as<JsonArray>()) {
+                            float avgHR = e["avgHR"] | 0.0f;
+                            if (avgHR > best_avgHR) {
+                                best_avgHR  = avgHR;
+                                best_freq   = e["freq"]  | (uint16_t)0;
+                                best_vcore  = e["vcore"] | (uint16_t)0;
+                            }
+                        }
+                    }
+                    if (best_freq > 0 && best_vcore > 0) {
+                        LOG_W("[BM] Best result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying to Normal mode.",
+                              best_freq, best_vcore, best_avgHR);
+                        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
+                        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
+                    } else {
+                        LOG_W("[BM] No stable results found, keeping current Normal mode settings.");
+                    }
+                }
+                reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete (all unstable), switching to Normal mode");
                 xSemaphoreGive(board->status.reboot_xsem);
                 vTaskDelete(NULL);
                 return;

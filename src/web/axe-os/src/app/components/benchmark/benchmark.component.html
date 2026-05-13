@@ -103,7 +103,8 @@
           <th>Vcore (mV)</th>
           <th>Exp HR (GH/s)</th>
           <th>Avg HR (GH/s)</th>
-          <th>Avg Temp (°C)</th>
+          <th>ASIC Temp (°C)</th>
+          <th>VRM Temp (°C)</th>
           <th>Eff (J/TH)</th>
           <th>Avg Pwr (W)</th>
         </tr>
@@ -114,7 +115,8 @@
           <td>{{ r.vcore }}</td>
           <td>{{ r.expHR | number:'1.1-1' }}</td>
           <td>{{ r.avgHR | number:'1.1-1' }}</td>
-          <td>{{ r.avgTemp | number:'1.1-1' }}</td>
+          <td>{{ r.avgAsicTemp | number:'1.1-1' }}</td>
+          <td>{{ r.avgVcoreTemp | number:'1.1-1' }}</td>
           <td>{{ r.effJTH | number:'1.3-3' }}</td>
           <td>{{ r.avgPwr | number:'1.2-2' }}</td>
         </tr>

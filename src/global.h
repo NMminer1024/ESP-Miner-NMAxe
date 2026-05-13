@@ -171,6 +171,7 @@ typedef struct{
         uint32_t phase_elapsed; // seconds elapsed in current phase
         uint32_t phase_total;   // total seconds for current phase
         float    avg_hr_ghs;   // running average hashrate (GH/s) for current sampling window
+        float    exp_hr_ghs;   // expected hashrate (GH/s) based on ASIC spec
         float    asic_temp;    // last ASIC temp sample (°C)
         float    vcore_temp;   // last VRM temp sample (°C)
         uint16_t stab_total;   // total stabilization seconds for this benchmark run

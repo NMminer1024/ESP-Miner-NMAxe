@@ -11,7 +11,8 @@ export interface BenchmarkResult {
   vcore: number;
   expHR: number;
   avgHR: number;
-  avgTemp: number;
+  avgAsicTemp: number;
+  avgVcoreTemp: number;
   effJTH: number;
   avgPwr: number;
 }

@@ -582,8 +582,8 @@ export class SystemService {
         sampleIntv: 10, bmTime: 180, stabTime: 120,
         curFreq: 0, curVcore: 0,
         results: [
-          {freq: 400, vcore: 1000, expHR: 268.8, avgHR: 265.1, avgTemp: 58.2, effJTH: 0.042, avgPwr: 11.1},
-          {freq: 450, vcore: 1000, expHR: 302.4, avgHR: 300.8, avgTemp: 60.1, effJTH: 0.044, avgPwr: 13.2},
+          {freq: 400, vcore: 1000, expHR: 268.8, avgHR: 265.1, avgAsicTemp: 58.2, avgVcoreTemp: 42.5, effJTH: 0.042, avgPwr: 11.1},
+          {freq: 450, vcore: 1000, expHR: 302.4, avgHR: 300.8, avgAsicTemp: 60.1, avgVcoreTemp: 44.8, effJTH: 0.044, avgPwr: 13.2},
         ]
       }).pipe(delay(300));
     }
