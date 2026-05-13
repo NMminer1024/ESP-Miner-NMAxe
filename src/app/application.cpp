@@ -21,7 +21,7 @@ MinerApp& MinerApp::instance() {
 bool MinerApp::init() {
     BoardSpecConfig config;
     BoardModelType  model;
-
+    delay(500); // allow time for hard model selection pins to stabilize
     model  = get_board_model();
     config = get_board_config(model);
     hardware_pre_init(config);

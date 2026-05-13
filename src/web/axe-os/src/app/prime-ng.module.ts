@@ -1,6 +1,7 @@
 import {NgModule} from '@angular/core';
 import {RadioButtonModule} from 'primeng/radiobutton';
 import {ButtonModule} from 'primeng/button';
+import {InputSwitchModule} from 'primeng/inputswitch';
 import {ChartModule} from 'primeng/chart';
 import {CheckboxModule} from 'primeng/checkbox';
 import {DialogModule} from 'primeng/dialog';
@@ -16,6 +17,7 @@ import {SidebarModule} from 'primeng/sidebar';
 import {SliderModule} from 'primeng/slider';
 
 const primeNgModules = [
+  InputSwitchModule,
   SidebarModule,
   InputTextModule,
   CheckboxModule,

@@ -48,7 +48,22 @@
     font-weight: inherit;
     margin-right: 12px;
   }
-  
+
+  .auto-refresh-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 4px;
+  }
+
+  .auto-refresh-label {
+    color: #ccc;
+    font-size: 13px;
+    font-weight: 400;
+    cursor: pointer;
+    user-select: none;
+  }
+
   .save-log-btn {
     margin-left: auto;
     background: linear-gradient(135deg, #2196F3, #42A5F5) !important;

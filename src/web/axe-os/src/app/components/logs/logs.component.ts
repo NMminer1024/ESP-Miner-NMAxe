@@ -69,6 +69,9 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
   public logs: SafeHtml[] = [];
   private rawLogs: string[] = []; // 保存原始日志用于下载
 
+  // Auto-scroll toggle: when false the view stays at its current scroll position.
+  public autoRefresh: boolean = true;
+
   // Tabs: 0 = Realtime Logs (default), 1 = Reboot History
   public activeTab: 0 | 1 = 0;
 
@@ -450,8 +453,8 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngAfterViewChecked(): void {
-    // Only auto-scroll while the realtime-logs tab is visible.
-    if (this.activeTab !== 0) return;
+    // Only auto-scroll while the realtime-logs tab is visible and autoRefresh is on.
+    if (this.activeTab !== 0 || !this.autoRefresh) return;
     if (this.scrollContainer?.nativeElement != null) {
       this.scrollContainer.nativeElement.scrollTo({
         left: 0,

@@ -46,10 +46,10 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
     if (Number.isFinite(sw) && sw > 0 && Number.isFinite(sh) && sh > 0) {
       const recommendedW = Math.max(sw, sh);
       const recommendedH = Math.min(sw, sh);
-      return `GIF: ≤300 KB, recommended ${recommendedW}×${recommendedH} px`;
+      return `GIF: ≤400 KB, recommended ${recommendedW}×${recommendedH} px`;
     }
 
-    return 'GIF: ≤300 KB, recommended resolution from /probe';
+    return 'GIF: ≤400 KB, recommended resolution from /probe';
   }
 
   constructor(

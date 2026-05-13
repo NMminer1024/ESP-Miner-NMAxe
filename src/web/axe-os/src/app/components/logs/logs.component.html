@@ -24,6 +24,10 @@
       <div class="tab-panel" *ngIf="activeTab === 0">
         <div class="logs-header">
           <div class="logs-title-group">
+            <div class="auto-refresh-toggle">
+              <p-inputSwitch [(ngModel)]="autoRefresh" inputId="autoRefreshSwitch"></p-inputSwitch>
+              <label for="autoRefreshSwitch" class="auto-refresh-label">Auto Scroll</label>
+            </div>
             <button pButton
                     (click)="saveLog()"
                     class="p-button-rounded p-button-outlined save-log-btn">
