@@ -681,6 +681,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/benchmark/stop",    HTTP_POST,   post_benchmark_stop);
     webServer.on("/api/benchmark/results", HTTP_DELETE, delete_benchmark_results);
     webServer.on("/api/benchmark/reset",   HTTP_POST,   post_benchmark_reset);
+    webServer.on("/api/benchmark/apply",   HTTP_POST,   [](AsyncWebServerRequest *request){}, NULL, post_benchmark_apply);
 
     // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
     webServer.on("/probe", HTTP_GET, [board](AsyncWebServerRequest* request) {
@@ -3415,10 +3416,10 @@ void benchmark_thread_entry(void *args) {
         if (!results.endsWith("[")) results += ",";
 
         // Append new entry
-        char entry[256];
+        char entry[300];
         snprintf(entry, sizeof(entry),
-            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f}",
-            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg, eff_avg, pwr_avg);
+            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f,\"ts\":%ld}",
+            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg, eff_avg, pwr_avg, (long)time(nullptr));
         results += entry;
         results += "]";
 

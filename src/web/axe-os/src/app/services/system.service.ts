@@ -575,15 +575,20 @@ export class SystemService {
     if (environment.production) {
       return this.httpClient.get(`${uri}/api/benchmark`);
     } else {
+      const now = Math.floor(Date.now() / 1000);
       return of({
         mode: 0,
-        freqMin: 400, freqMax: 625, freqStep: 50,
-        vcoreMin: 1000, vcoreMax: 1300, vcoreStep: 25,
-        sampleIntv: 10, bmTime: 180, stabTime: 120,
+        freqMin: 400, freqMax: 575, freqStep: 25,
+        vcoreMin: 1100, vcoreMax: 1300, vcoreStep: 25,
+        sampleIntv: 5, bmTime: 1000, stabTime: 200,
         curFreq: 0, curVcore: 0,
         results: [
-          {freq: 400, vcore: 1000, expHR: 268.8, avgHR: 265.1, avgAsicTemp: 58.2, avgVcoreTemp: 42.5, effJTH: 0.042, avgPwr: 11.1},
-          {freq: 450, vcore: 1000, expHR: 302.4, avgHR: 300.8, avgAsicTemp: 60.1, avgVcoreTemp: 44.8, effJTH: 0.044, avgPwr: 13.2},
+          {freq: 400, vcore: 1100, expHR: 268.8, avgHR: 265.1, avgAsicTemp: 55.2, avgVcoreTemp: 38.5, effJTH: 0.042, avgPwr: 11.1, ts: now - 7200},
+          {freq: 425, vcore: 1100, expHR: 285.7, avgHR: 283.4, avgAsicTemp: 57.0, avgVcoreTemp: 40.1, effJTH: 0.040, avgPwr: 11.3, ts: now - 6000},
+          {freq: 475, vcore: 1150, expHR: 319.4, avgHR: 318.2, avgAsicTemp: 59.1, avgVcoreTemp: 42.0, effJTH: 0.041, avgPwr: 13.0, ts: now - 4800},
+          {freq: 500, vcore: 1200, expHR: 336.2, avgHR: 334.5, avgAsicTemp: 61.3, avgVcoreTemp: 44.5, effJTH: 0.043, avgPwr: 14.4, ts: now - 3600},
+          {freq: 550, vcore: 1250, expHR: 369.9, avgHR: 368.0, avgAsicTemp: 63.8, avgVcoreTemp: 47.2, effJTH: 0.045, avgPwr: 16.6, ts: now - 2400},
+          {freq: 575, vcore: 1250, expHR: 386.7, avgHR: 384.1, avgAsicTemp: 65.5, avgVcoreTemp: 48.9, effJTH: 0.047, avgPwr: 18.0, ts: now - 1200},
         ]
       }).pipe(delay(300));
     }
@@ -607,5 +612,9 @@ export class SystemService {
 
   public resetBenchmark(uri: string = ''): Observable<any> {
     return this.httpClient.post(`${uri}/api/benchmark/reset`, {});
+  }
+
+  public applyBenchmarkResult(uri: string = '', r: {freq: number, vcore: number}): Observable<any> {
+    return this.httpClient.post(`${uri}/api/benchmark/apply`, {freq: r.freq, vcore: r.vcore});
   }
 }

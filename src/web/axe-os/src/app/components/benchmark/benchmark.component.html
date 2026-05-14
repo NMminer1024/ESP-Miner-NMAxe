@@ -69,7 +69,7 @@
     <button pButton type="button" label="Start Benchmark" icon="pi pi-play"
             class="p-button-success"
             [disabled]="isRunning || !form.valid"
-            (click)="start()">
+            (click)="openStartConfirm()">
     </button>
     <button pButton type="button" label="Stop" icon="pi pi-stop"
             class="p-button-danger"
@@ -78,8 +78,7 @@
     </button>
     <button pButton type="button" label="Reset Benchmark" icon="pi pi-refresh"
             class="p-button-outlined p-button-warning"
-            [disabled]="isRunning && false"
-            (click)="reset()">
+            (click)="openResetConfirm()">
     </button>
   </div>
 </div>
@@ -88,29 +87,78 @@
 <div class="card modern-card" *ngIf="results.length > 0">
   <h2 class="card-title"><span class="card-icon">📊</span>Results</h2>
 
-  <!-- Best entry summary -->
-  <div class="bm-best" *ngIf="bestResult() as best">
-    🏆 Best efficiency: <strong>{{ best.freq }} MHz / {{ best.vcore }} mV</strong>
-    — {{ best.effJTH | number:'1.3-3' }} J/TH &#64; {{ best.avgHR | number:'1.1-1' }} GH/s
+  <!-- Best entry summaries -->
+  <div class="bm-best-wrap">
+    <div class="bm-best bm-best-eff" *ngIf="bestEff">
+      <span class="bm-best-label">🏆 Best Efficiency</span>
+      <span class="bm-best-params"><strong>{{ bestEff.freq }} MHz / {{ bestEff.vcore }} mV</strong></span>
+      <span class="bm-best-metrics">{{ bestEff.effJTH | number:'1.3-3' }} J/TH &nbsp;&#64;&nbsp; {{ bestEff.avgHR | number:'1.1-1' }} GH/s</span>
+      <button pButton type="button" label="Apply" icon="pi pi-check"
+              class="p-button-outlined p-button-warning p-button-sm"
+              (click)="openApplyConfirm(bestEff!)">
+      </button>
+    </div>
+    <div class="bm-best bm-best-hr" *ngIf="bestHR && bestHR !== bestEff">
+      <span class="bm-best-label">⚡ Best HashRate</span>
+      <span class="bm-best-params"><strong>{{ bestHR.freq }} MHz / {{ bestHR.vcore }} mV</strong></span>
+      <span class="bm-best-metrics">{{ bestHR.avgHR | number:'1.1-1' }} GH/s &nbsp;&#64;&nbsp; {{ bestHR.effJTH | number:'1.3-3' }} J/TH</span>
+      <button pButton type="button" label="Apply" icon="pi pi-check"
+              class="p-button-outlined p-button-success p-button-sm"
+              (click)="openApplyConfirm(bestHR!)">
+      </button>
+    </div>
+    <div class="bm-best bm-best-both" *ngIf="bestHR && bestHR === bestEff">
+      <span class="bm-best-label">🏆⚡ Best Efficiency &amp; HashRate</span>
+      <span class="bm-best-params"><strong>{{ bestEff.freq }} MHz / {{ bestEff.vcore }} mV</strong></span>
+      <span class="bm-best-metrics">{{ bestEff.effJTH | number:'1.3-3' }} J/TH &nbsp;&#64;&nbsp; {{ bestEff.avgHR | number:'1.1-1' }} GH/s</span>
+      <button pButton type="button" label="Apply" icon="pi pi-check"
+              class="p-button-outlined p-button-success p-button-sm"
+              (click)="openApplyConfirm(bestEff!)">
+      </button>
+    </div>
   </div>
 
   <!-- Results table -->
   <div class="bm-table-wrap">
-    <p-table [value]="results" styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true">
-      <ng-template pTemplate="header">
+    <table class="bm-table">
+      <thead>
         <tr>
-          <th>Freq (MHz)</th>
-          <th>Vcore (mV)</th>
-          <th>Exp HR (GH/s)</th>
-          <th>Avg HR (GH/s)</th>
-          <th>ASIC Temp (°C)</th>
-          <th>VRM Temp (°C)</th>
-          <th>Eff (J/TH)</th>
-          <th>Avg Pwr (W)</th>
+          <th class="bm-th" [class.sort-asc]="sortCol==='ts' && sortDir===1" [class.sort-desc]="sortCol==='ts' && sortDir===-1" (click)="sortBy('ts')">
+            Time <i [class]="sortIcon('ts')"></i>
+          </th>
+          <th class="bm-th" [class.sort-asc]="sortCol==='freq' && sortDir===1" [class.sort-desc]="sortCol==='freq' && sortDir===-1" (click)="sortBy('freq')">
+            Freq (MHz) <i [class]="sortIcon('freq')"></i>
+          </th>
+          <th class="bm-th" [class.sort-asc]="sortCol==='vcore' && sortDir===1" [class.sort-desc]="sortCol==='vcore' && sortDir===-1" (click)="sortBy('vcore')">
+            Vcore (mV) <i [class]="sortIcon('vcore')"></i>
+          </th>
+          <th class="bm-th" [class.sort-asc]="sortCol==='expHR' && sortDir===1" [class.sort-desc]="sortCol==='expHR' && sortDir===-1" (click)="sortBy('expHR')">
+            Exp HR (GH/s) <i [class]="sortIcon('expHR')"></i>
+          </th>
+          <th class="bm-th" [class.sort-asc]="sortCol==='avgHR' && sortDir===1" [class.sort-desc]="sortCol==='avgHR' && sortDir===-1" (click)="sortBy('avgHR')">
+            Avg HR (GH/s) <i [class]="sortIcon('avgHR')"></i>
+          </th>
+          <th class="bm-th" [class.sort-asc]="sortCol==='avgAsicTemp' && sortDir===1" [class.sort-desc]="sortCol==='avgAsicTemp' && sortDir===-1" (click)="sortBy('avgAsicTemp')">
+            ASIC Temp (°C) <i [class]="sortIcon('avgAsicTemp')"></i>
+          </th>
+          <th class="bm-th" [class.sort-asc]="sortCol==='avgVcoreTemp' && sortDir===1" [class.sort-desc]="sortCol==='avgVcoreTemp' && sortDir===-1" (click)="sortBy('avgVcoreTemp')">
+            VRM Temp (°C) <i [class]="sortIcon('avgVcoreTemp')"></i>
+          </th>
+          <th class="bm-th" [class.sort-asc]="sortCol==='effJTH' && sortDir===1" [class.sort-desc]="sortCol==='effJTH' && sortDir===-1" (click)="sortBy('effJTH')">
+            Eff (J/TH) <i [class]="sortIcon('effJTH')"></i>
+          </th>
+          <th class="bm-th" [class.sort-asc]="sortCol==='avgPwr' && sortDir===1" [class.sort-desc]="sortCol==='avgPwr' && sortDir===-1" (click)="sortBy('avgPwr')">
+            Avg Pwr (W) <i [class]="sortIcon('avgPwr')"></i>
+          </th>
+          <th class="bm-th bm-th-action">Action</th>
         </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-r>
-        <tr [class.bm-best-row]="r === bestResult()">
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of sortedResults"
+            [class.bm-best-eff-row]="r === bestEff && r !== bestHR"
+            [class.bm-best-hr-row]="r === bestHR && r !== bestEff"
+            [class.bm-best-both-row]="r === bestEff && r === bestHR">
+          <td>{{ formatTs(r.ts) }}</td>
           <td>{{ r.freq }}</td>
           <td>{{ r.vcore }}</td>
           <td>{{ r.expHR | number:'1.1-1' }}</td>
@@ -119,9 +167,15 @@
           <td>{{ r.avgVcoreTemp | number:'1.1-1' }}</td>
           <td>{{ r.effJTH | number:'1.3-3' }}</td>
           <td>{{ r.avgPwr | number:'1.2-2' }}</td>
+          <td class="bm-td-action">
+            <button pButton type="button" label="Apply" icon="pi pi-check"
+                    class="p-button-outlined p-button-success p-button-sm"
+                    (click)="openApplyConfirm(r)">
+            </button>
+          </td>
         </tr>
-      </ng-template>
-    </p-table>
+      </tbody>
+    </table>
   </div>
 
   <!-- Download / clear -->
@@ -141,3 +195,82 @@
 <div class="card modern-card" *ngIf="!form">
   <p style="color:#888;text-align:center;padding:2rem">Loading benchmark config...</p>
 </div>
+
+<!-- ── Confirmation Dialogs ── -->
+
+<!-- Start Benchmark -->
+<p-dialog [(visible)]="showStartConfirm"
+          header="Start Benchmark?"
+          [modal]="true"
+          [style]="{width: '420px'}"
+          [draggable]="false">
+  <div class="bm-dialog-body">
+    <i class="pi pi-exclamation-triangle bm-dialog-icon"></i>
+    <p>The benchmark will sweep through all configured frequency and voltage combinations.</p>
+    <p>The device will <strong>reboot multiple times</strong> during the process — this is normal.</p>
+    <p>Total estimated duration depends on parameter range and timing settings.</p>
+  </div>
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cancel" icon="pi pi-times"
+            class="p-button-outlined p-button-secondary"
+            (click)="showStartConfirm = false">
+    </button>
+    <button pButton type="button" label="Start" icon="pi pi-play"
+            class="p-button-success"
+            (click)="confirmStart()">
+    </button>
+  </ng-template>
+</p-dialog>
+
+<!-- Reset Benchmark -->
+<p-dialog [(visible)]="showResetConfirm"
+          header="Reset Benchmark?"
+          [modal]="true"
+          [style]="{width: '420px'}"
+          [draggable]="false">
+  <div class="bm-dialog-body">
+    <i class="pi pi-exclamation-triangle bm-dialog-icon"></i>
+    <p>This will stop any running benchmark, <strong>clear all results</strong>, and reset the sweep to the beginning.</p>
+    <p *ngIf="isRunning">The device is currently running a benchmark and <strong>will reboot</strong>.</p>
+  </div>
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cancel" icon="pi pi-times"
+            class="p-button-outlined p-button-secondary"
+            (click)="showResetConfirm = false">
+    </button>
+    <button pButton type="button" label="Reset" icon="pi pi-refresh"
+            class="p-button-warning"
+            (click)="confirmReset()">
+    </button>
+  </ng-template>
+</p-dialog>
+
+<!-- Apply Settings -->
+<p-dialog [(visible)]="showApplyConfirm"
+          header="Apply Settings & Reboot?"
+          [modal]="true"
+          [style]="{width: '420px'}"
+          [draggable]="false">
+  <div class="bm-dialog-body" *ngIf="pendingApply">
+    <i class="pi pi-exclamation-triangle bm-dialog-icon"></i>
+    <p>Apply the following as <strong>Normal mode</strong> settings?</p>
+    <div class="bm-apply-params">
+      <span>Frequency: <strong>{{ pendingApply.freq }} MHz</strong></span>
+      <span>Vcore: <strong>{{ pendingApply.vcore }} mV</strong></span>
+      <span>Avg HR: <strong>{{ pendingApply.avgHR | number:'1.1-1' }} GH/s</strong></span>
+      <span>Efficiency: <strong>{{ pendingApply.effJTH | number:'1.3-3' }} J/TH</strong></span>
+    </div>
+    <p>The device will <strong>reboot</strong> to apply the new settings.</p>
+  </div>
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cancel" icon="pi pi-times"
+            class="p-button-outlined p-button-secondary"
+            (click)="showApplyConfirm = false">
+    </button>
+    <button pButton type="button" label="Apply & Reboot" icon="pi pi-check"
+            class="p-button-success"
+            (click)="confirmApply()">
+    </button>
+  </ng-template>
+</p-dialog>
+

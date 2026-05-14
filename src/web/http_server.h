@@ -61,4 +61,5 @@ void post_benchmark_start(AsyncWebServerRequest *request, uint8_t *data, size_t 
 void post_benchmark_stop(AsyncWebServerRequest *request);
 void delete_benchmark_results(AsyncWebServerRequest *request);
 void post_benchmark_reset(AsyncWebServerRequest *request);
+void post_benchmark_apply(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total);
 #endif

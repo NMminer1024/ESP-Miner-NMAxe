@@ -1164,19 +1164,30 @@ void echo_handler(AsyncWebServerRequest* request){
 // GET /api/benchmark
 void get_benchmark(AsyncWebServerRequest* request){
     char *result_json = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+    // Board-specific default sweep range.
+    // Freq : iterate (same pattern as get_setting_mining) to avoid new front()/back() instantiations.
+    // Vcore: read from asic struct integers directly — no vector access needed.
+    uint16_t oc_min_def = 400, oc_max_def = 625;
+    { bool first = true;
+      for (const auto& o : g_board.info.spec.ui.setting_page.oc) {
+          if (first) { oc_min_def = o.value; first = false; }
+          oc_max_def = o.value;
+      } }
+    uint16_t vc_min_def = g_board.info.spec.asic.min_vcore ? g_board.info.spec.asic.min_vcore : 1000;
+    uint16_t vc_max_def = g_board.info.spec.asic.max_vcore ? g_board.info.spec.asic.max_vcore : 1300;
     AsyncResponseStream *resp = request->beginResponseStream("application/json");
     resp->addHeader("Access-Control-Allow-Origin", "*");
     resp->print("{");
     resp->printf("\"mode\":%d,",         nvs_config_get_u8 (NVS_CONFIG_BM_MODE,        0));
-    resp->printf("\"freqMin\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,    400));
-    resp->printf("\"freqMax\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MAX,    625));
-    resp->printf("\"freqStep\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,   50));
-    resp->printf("\"vcoreMin\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,   1000));
-    resp->printf("\"vcoreMax\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,   1300));
+    resp->printf("\"freqMin\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,    oc_min_def));
+    resp->printf("\"freqMax\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MAX,    oc_max_def));
+    resp->printf("\"freqStep\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,   25));
+    resp->printf("\"vcoreMin\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,   vc_min_def));
+    resp->printf("\"vcoreMax\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,   vc_max_def));
     resp->printf("\"vcoreStep\":%d,",    nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP,  25));
-    resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 10));
-    resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        180));
-    resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   120));
+    resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 5));
+    resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        1000));
+    resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   200));
     resp->printf("\"curFreq\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,    0));
     resp->printf("\"curVcore\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE,   0));
     resp->printf("\"results\":%s",       result_json);
@@ -1270,11 +1281,64 @@ void post_benchmark_stop(AsyncWebServerRequest* request){
 }
 
 // DELETE /api/benchmark/results
+// Clears sweep results AND resets all config params so defaults revert to board values.
 void delete_benchmark_results(AsyncWebServerRequest* request){
     nvs_config_set_string(NVS_CONFIG_BM_RESULT, "[]");
+    nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MIN);
+    nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MAX);
+    nvs_config_delete_key(NVS_CONFIG_BM_FREQ_STEP);
+    nvs_config_delete_key(NVS_CONFIG_BM_VCORE_MIN);
+    nvs_config_delete_key(NVS_CONFIG_BM_VCORE_MAX);
+    nvs_config_delete_key(NVS_CONFIG_BM_VCORE_STEP);
+    nvs_config_delete_key(NVS_CONFIG_BM_SAMPLE_INTV);
+    nvs_config_delete_key(NVS_CONFIG_BM_TIME);
+    nvs_config_delete_key(NVS_CONFIG_BM_STAB_TIME);
+    nvs_config_delete_key(NVS_CONFIG_BM_CUR_FREQ);
+    nvs_config_delete_key(NVS_CONFIG_BM_CUR_VCORE);
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
+}
+
+// POST /api/benchmark/apply
+// Saves a specific freq+vcore as the Normal-mode ASIC settings, then reboots.
+void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+    static const uint16_t BUF_SIZE = 256;
+    if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
+    char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
+    memset(buf, 0, BUF_SIZE);
+    if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
+    if (index + len == total) {
+        buf[total] = '\0';
+        StaticJsonDocument<256> root;
+        if (deserializeJson(root, buf) || !root.is<JsonObject>()) {
+            request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+            free(buf); return;
+        }
+        uint16_t freq  = root["freq"]  | (uint16_t)0;
+        uint16_t vcore = root["vcore"] | (uint16_t)0;
+        if (freq == 0 || vcore == 0) {
+            request->send(400, "application/json", "{\"error\":\"missing freq or vcore\"}");
+            free(buf); return;
+        }
+        // Clamp vcore to board safety limits
+        uint16_t vcore_min = g_board.info.spec.asic.min_vcore;
+        uint16_t vcore_max = g_board.info.spec.asic.max_vcore;
+        if (vcore_min > 0 && vcore < vcore_min) vcore = vcore_min;
+        if (vcore_max > 0 && vcore > vcore_max) vcore = vcore_max;
+        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    freq);
+        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
+        nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 0);  // Ensure Normal mode
+        LOG_W("[BM] Apply via API: freq=%dMHz vcore=%dmV — will reboot", freq, vcore);
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"settings applied, device will reboot\"}");
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(response);
+        delay(300);
+        reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark apply API");
+        xSemaphoreGive(g_board.status.reboot_xsem);
+    }
+    free(buf);
 }
 
 // POST /api/benchmark/reset
@@ -1283,15 +1347,22 @@ void delete_benchmark_results(AsyncWebServerRequest* request){
 // If benchmark mode is currently active (bm_mode == 1) a reboot is triggered
 // so the device returns to normal mining immediately.
 void post_benchmark_reset(AsyncWebServerRequest* request){
-    uint16_t freq_min  = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,  400);
-    uint16_t vcore_min = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN, 1000);
-    bool was_running   = (nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) == 1);
+    bool was_running = (nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) == 1);
 
-    // Clear all progress state
-    nvs_config_set_u8  (NVS_CONFIG_BM_MODE,      0);
-    nvs_config_set_u16 (NVS_CONFIG_BM_CUR_FREQ,  freq_min);
-    nvs_config_set_u16 (NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+    // Clear all progress state and erase config keys so defaults revert to board values.
+    nvs_config_set_u8    (NVS_CONFIG_BM_MODE,    0);
     nvs_config_set_string(NVS_CONFIG_BM_RESULT,  "[]");
+    nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MIN);
+    nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MAX);
+    nvs_config_delete_key(NVS_CONFIG_BM_FREQ_STEP);
+    nvs_config_delete_key(NVS_CONFIG_BM_VCORE_MIN);
+    nvs_config_delete_key(NVS_CONFIG_BM_VCORE_MAX);
+    nvs_config_delete_key(NVS_CONFIG_BM_VCORE_STEP);
+    nvs_config_delete_key(NVS_CONFIG_BM_SAMPLE_INTV);
+    nvs_config_delete_key(NVS_CONFIG_BM_TIME);
+    nvs_config_delete_key(NVS_CONFIG_BM_STAB_TIME);
+    nvs_config_delete_key(NVS_CONFIG_BM_CUR_FREQ);
+    nvs_config_delete_key(NVS_CONFIG_BM_CUR_VCORE);
 
     LOG_W("[BM] Benchmark reset via API (was_running=%d)", (int)was_running);
 

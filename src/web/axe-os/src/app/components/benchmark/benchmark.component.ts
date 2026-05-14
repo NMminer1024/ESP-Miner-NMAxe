@@ -15,6 +15,7 @@ export interface BenchmarkResult {
   avgVcoreTemp: number;
   effJTH: number;
   avgPwr: number;
+  ts?: number;  // Unix timestamp (seconds)
 }
 
 @Component({
@@ -31,6 +32,20 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   public results: BenchmarkResult[] = [];
   private pollSub?: Subscription;
 
+  // Sorting state
+  public sortCol: keyof BenchmarkResult = 'ts';
+  public sortDir: 1 | -1 = 1;
+
+  // Pre-computed best entries (updated whenever results change)
+  public bestEff: BenchmarkResult | null = null;
+  public bestHR:  BenchmarkResult | null = null;
+
+  // Confirmation dialog visibility
+  public showStartConfirm = false;
+  public showResetConfirm = false;
+  public showApplyConfirm = false;
+  public pendingApply: BenchmarkResult | null = null;
+
   constructor(
     private fb: FormBuilder,
     private systemService: SystemService,
@@ -45,7 +60,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         this.isRunning = data.mode === 1;
         this.curFreq   = data.curFreq;
         this.curVcore  = data.curVcore;
-        this.results   = Array.isArray(data.results) ? data.results : [];
+        this.setResults(Array.isArray(data.results) ? data.results : []);
 
         this.form = this.fb.group({
           freqMin:    [data.freqMin,    [Validators.required, Validators.min(100), Validators.max(1000)]],
@@ -54,8 +69,8 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
           vcoreMin:   [data.vcoreMin,   [Validators.required, Validators.min(600), Validators.max(1500)]],
           vcoreMax:   [data.vcoreMax,   [Validators.required, Validators.min(600), Validators.max(1500)]],
           vcoreStep:  [data.vcoreStep,  [Validators.required, Validators.min(1),   Validators.max(200)]],
-          sampleIntv: [data.sampleIntv, [Validators.required, Validators.min(5),   Validators.max(300)]],
-          bmTime:     [data.bmTime,     [Validators.required, Validators.min(30),  Validators.max(3600)]],
+          sampleIntv: [data.sampleIntv, [Validators.required, Validators.min(1),   Validators.max(300)]],
+          bmTime:     [data.bmTime,     [Validators.required, Validators.min(30),  Validators.max(7200)]],
           stabTime:   [data.stabTime,   [Validators.required, Validators.min(30),  Validators.max(3600)]],
         });
 
@@ -69,6 +84,13 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     this.pollSub?.unsubscribe();
   }
 
+  // ── Results management ────────────────────────────────────────────────────
+  private setResults(results: BenchmarkResult[]): void {
+    this.results = results;
+    this.bestEff = results.length ? results.reduce((b, r) => r.effJTH < b.effJTH ? r : b) : null;
+    this.bestHR  = results.length ? results.reduce((b, r) => r.avgHR  > b.avgHR  ? r : b) : null;
+  }
+
   private startPolling(): void {
     this.pollSub = interval(10000).pipe(
       switchMap(() => this.systemService.getBenchmark())
@@ -76,7 +98,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       this.isRunning = data.mode === 1;
       this.curFreq   = data.curFreq;
       this.curVcore  = data.curVcore;
-      this.results   = Array.isArray(data.results) ? data.results : [];
+      this.setResults(Array.isArray(data.results) ? data.results : []);
       if (!this.isRunning) {
         this.pollSub?.unsubscribe();
         this.toastr.success('Benchmark complete!', 'Done');
@@ -84,11 +106,56 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     });
   }
 
-  public start(): void {
+  // ── Sorting ───────────────────────────────────────────────────────────────
+  public sortBy(col: keyof BenchmarkResult): void {
+    if (this.sortCol === col) {
+      this.sortDir = this.sortDir === 1 ? -1 : 1;
+    } else {
+      this.sortCol = col;
+      this.sortDir = 1;
+    }
+  }
+
+  public get sortedResults(): BenchmarkResult[] {
+    if (!this.results.length) return [];
+    const col = this.sortCol;
+    const dir = this.sortDir;
+    return [...this.results].sort((a, b) => {
+      const av = (a[col] ?? 0) as number;
+      const bv = (b[col] ?? 0) as number;
+      return av < bv ? -dir : av > bv ? dir : 0;
+    });
+  }
+
+  // ── Utilities ─────────────────────────────────────────────────────────────
+  public formatTs(ts?: number): string {
+    if (!ts) return '—';
+    return new Date(ts * 1000).toLocaleString([], {
+      month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
+  }
+
+  public sortIcon(col: keyof BenchmarkResult): string {
+    if (this.sortCol !== col) return 'pi pi-sort-alt';
+    return this.sortDir === 1 ? 'pi pi-sort-amount-up-alt' : 'pi pi-sort-amount-down-alt';
+  }
+
+  // ── Start / Stop ──────────────────────────────────────────────────────────
+  public openStartConfirm(): void {
     if (!this.form.valid) {
       this.toastr.warning('Please fix form errors before starting.', 'Invalid');
       return;
     }
+    this.showStartConfirm = true;
+  }
+
+  public confirmStart(): void {
+    this.showStartConfirm = false;
+    this.doStart();
+  }
+
+  private doStart(): void {
     const payload = this.form.getRawValue();
     this.systemService.startBenchmark('', payload)
       .pipe(this.loadingService.lockUIUntilComplete())
@@ -119,31 +186,40 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       });
   }
 
-  public clearResults(): void {
-    this.systemService.deleteBenchmarkResults()
-      .pipe(this.loadingService.lockUIUntilComplete())
-      .subscribe({
-        next: () => {
-          this.results = [];
-          this.toastr.success('Results cleared.', 'Done');
-        },
-        error: (err: any) => {
-          this.toastr.error(`Could not clear: ${err.message}`, 'Error');
-        }
-      });
+  // ── Reset ─────────────────────────────────────────────────────────────────
+  public openResetConfirm(): void {
+    this.showResetConfirm = true;
   }
 
-  public reset(): void {
+  public confirmReset(): void {
+    this.showResetConfirm = false;
+    this.doReset();
+  }
+
+  private doReset(): void {
     this.systemService.resetBenchmark()
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
         next: (res: any) => {
-          this.results = [];
+          this.setResults([]);
           this.isRunning = false;
           this.pollSub?.unsubscribe();
+          // Re-fetch config so the form reflects board defaults after NVS keys are erased.
+          this.systemService.getBenchmark().subscribe((data: any) => {
+            this.form.patchValue({
+              freqMin:    data.freqMin,
+              freqMax:    data.freqMax,
+              freqStep:   data.freqStep,
+              vcoreMin:   data.vcoreMin,
+              vcoreMax:   data.vcoreMax,
+              vcoreStep:  data.vcoreStep,
+              sampleIntv: data.sampleIntv,
+              bmTime:     data.bmTime,
+              stabTime:   data.stabTime,
+            });
+          });
           const msg: string = res?.message ?? 'Benchmark reset.';
-          const willReboot = msg.includes('reboot');
-          if (willReboot) {
+          if (msg.includes('reboot')) {
             this.toastr.info(msg, 'Reset');
           } else {
             this.toastr.success(msg, 'Reset');
@@ -155,6 +231,22 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       });
   }
 
+  // ── Clear results ─────────────────────────────────────────────────────────
+  public clearResults(): void {
+    this.systemService.deleteBenchmarkResults()
+      .pipe(this.loadingService.lockUIUntilComplete())
+      .subscribe({
+        next: () => {
+          this.setResults([]);
+          this.toastr.success('Results cleared.', 'Done');
+        },
+        error: (err: any) => {
+          this.toastr.error(`Could not clear: ${err.message}`, 'Error');
+        }
+      });
+  }
+
+  // ── Download ──────────────────────────────────────────────────────────────
   public downloadResults(): void {
     const blob = new Blob([JSON.stringify(this.results, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
@@ -165,9 +257,26 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     URL.revokeObjectURL(url);
   }
 
-  /** Best efficiency entry (lowest J/TH) */
-  public bestResult(): BenchmarkResult | null {
-    if (!this.results.length) return null;
-    return this.results.reduce((best, r) => r.effJTH < best.effJTH ? r : best);
+  // ── Apply with confirmation ───────────────────────────────────────────────
+  public openApplyConfirm(r: BenchmarkResult): void {
+    this.pendingApply = r;
+    this.showApplyConfirm = true;
+  }
+
+  public confirmApply(): void {
+    if (!this.pendingApply) return;
+    this.showApplyConfirm = false;
+    const r = this.pendingApply;
+    this.pendingApply = null;
+    this.systemService.applyBenchmarkResult('', r)
+      .pipe(this.loadingService.lockUIUntilComplete())
+      .subscribe({
+        next: () => {
+          this.toastr.info(`Applied ${r.freq} MHz / ${r.vcore} mV — device will reboot.`, 'Applied');
+        },
+        error: (err: any) => {
+          this.toastr.error(`Could not apply: ${err.message}`, 'Error');
+        }
+      });
   }
 }
