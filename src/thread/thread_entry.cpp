@@ -3258,7 +3258,7 @@ void aphorism_thread_entry(void *args){
 //      (default 200 samples over 1000 s).  Three early-exit conditions:
 //        a. ASIC temperature exceeds temp_limit → mark round UNSTABLE.
 //        b. Five consecutive zero-HR samples → mark round UNSTABLE.
-//        c. Halfway through and average HR < 50 % of expected → mark UNSTABLE.
+//        c. 20 consecutive samples with HR < 80 % of expected → mark UNSTABLE.
 //   4. Stability evaluation — a round is STABLE only when ALL of:
 //        • avg HR >= 94 % of expected HR (freq × small_cores × asic_count / 1000)
 //        • HR spread (max – min) / expected <= 12 %  (intra-round variance)
@@ -3368,6 +3368,7 @@ void benchmark_thread_entry(void *args) {
     double hr_min_s = 1e30, hr_max_s = 0.0;  // for HR spread check
     uint32_t sample_cnt = 0;
     uint8_t  zero_hr_cnt = 0;
+    uint8_t  low_hr_cnt  = 0;  // consecutive samples below 80% expected
     bool     over_temp = false;
 
     // Update overlay: switch to sampling phase
@@ -3419,6 +3420,18 @@ void benchmark_thread_entry(void *args) {
             break;
         }
 
+        // Track consecutive low-HR samples (below 80% of expected)
+        if (exp_hr_ghs > 0 && hr_ghs < exp_hr_ghs * 0.80) {
+            low_hr_cnt++;
+        } else {
+            low_hr_cnt = 0;
+        }
+        if (low_hr_cnt >= 20) {
+            LOG_W("[BM] HR below 80%% expected for 20 consecutive samples (last:%.1f exp:%.1f), aborting round early.",
+                  hr_ghs, exp_hr_ghs);
+            break;
+        }
+
         hr_sum  += hr_ghs;
         eff_sum += (hr_ghs > 0 && pwr_w > 0) ? (pwr_w / (hr_ghs / 1000.0)) : 0; // J/TH
         pwr_sum += pwr_w;
@@ -3438,11 +3451,7 @@ void benchmark_thread_entry(void *args) {
               hr_ghs, exp_hr_ghs, at,
               board->status.power.vcore, pwr_w);
 
-        // Early exit if halfway and avg < 50% expected
-        if (sample_cnt >= total_samples / 2 && exp_hr_ghs > 0 && hr_avg_running < exp_hr_ghs * 0.5) {
-            LOG_W("[BM] Avg HR too low (%.1f < 50%% of %.1f), aborting round early.", hr_avg_running, exp_hr_ghs);
-            break;
-        }
+
     }
 
     // ── Evaluate stability ────────────────────────────────────────────────────
