@@ -19,10 +19,21 @@ MinerApp& MinerApp::instance() {
 ──────────────────────────────────────────────*/
 #include <Arduino.h>
 bool MinerApp::init() {
-    BoardSpecConfig config;
-    BoardModelType  model;
+    Serial.setTimeout(20);
+    Serial.begin(115200);
+    delay(100);
+
+    BoardSpecConfig config{};
+    BoardModelType  model = BOARD_UNKNOWN;
     delay(500); // allow time for hard model selection pins to stabilize
     model  = get_board_model();
+    if (model == BOARD_UNKNOWN) {
+        LOG_E("Unknown board model detected; hardware init stopped to avoid invalid pin/function-pointer use.");
+        LOG_E("Expected raw model pins: NMAXE=111, Gamma=011, QAxe++=100, QAxe++ Rev6.1=110.");
+        while (true) {
+            delay(1000);
+        }
+    }
     config = get_board_config(model);
     hardware_pre_init(config);
 

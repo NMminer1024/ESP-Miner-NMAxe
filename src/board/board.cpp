@@ -57,6 +57,11 @@ BoardModelType get_board_model(){
     // 0b100 NMQAXE++ 2 phase
     // 0b110 NMQAXE++ 3 phase
     // 0b000 BOARD_UNKNOWN
+    LOG_W("Board model detect: GPIO%d=%d GPIO%d=%d GPIO%d=%d raw=0b%d%d%d",
+          NM_MODEL_SELECT_PIN0, last[0],
+          NM_MODEL_SELECT_PIN1, last[1],
+          NM_MODEL_SELECT_PIN2, last[2],
+          last[0], last[1], last[2]);
     switch (raw) {
         case 0b111: return NMAXE;
         case 0b011: return NMAXE_GAMMA;
@@ -67,8 +72,8 @@ BoardModelType get_board_model(){
 }
 
 BoardSpecConfig get_board_config(BoardModelType model) {
-    BoardSpecConfig config;
-    fan_config_t fan_cfg;
+    BoardSpecConfig config{};
+    fan_config_t fan_cfg{};
     switch(model) {
         case NMAXE:
             config.name                      = BOARD_NMAXE_NAME;
@@ -556,10 +561,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
 }
 
 void hardware_pre_init(BoardSpecConfig config){
-    Serial.setTimeout(20);
-    Serial.begin(115200);
-    delay(100);
-
     // PSRAM explicit init + sanity check.
     // Arduino-ESP32 initialises PSRAM automatically before setup(), but on boards
     // with non-standard PSRAM chips (e.g. QPI vs OPI) the silent auto-init can
