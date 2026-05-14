@@ -92,7 +92,7 @@ void MinerApp::begin() {
         {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SCAN,        0, &_neighborTask,   10,  0},
         {"(asic_tx)",   miner_asic_tx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_TX,    1, &_minerTxTask,    10,  0},
         {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*5,   TASK_PRIORITY_MINER_RX,    0, &_minerRxTask,    1000,  0},
-        {"(benchmark)", benchmark_thread_entry,          1024*5,   TASK_PRIORITY_MONITOR,     0, NULL,             10,  0},
+        {"(benchmark)", benchmark_thread_entry,         1024*6,   TASK_PRIORITY_MONITOR,     0, NULL,             10,  0},
         // {"(aphorism)",  aphorism_thread_entry,          1024*6,   TASK_PRIORITY_APHORISM,    0, &_aphorismTask,   10,  0},
     };
 

@@ -1188,8 +1188,13 @@ void get_benchmark(AsyncWebServerRequest* request){
     resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 5));
     resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        1000));
     resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   200));
+    resp->printf("\"tempLimit\":%d,",    nvs_config_get_u8 (NVS_CONFIG_BM_TEMP_LIMIT,  82));
     resp->printf("\"curFreq\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,    0));
     resp->printf("\"curVcore\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE,   0));
+    resp->printf("\"bestFreq\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_BEST_FREQ,   0));
+    resp->printf("\"bestVcore\":%d,",    nvs_config_get_u16(NVS_CONFIG_BM_BEST_VCORE,  0));
+    resp->printf("\"bestHR\":%.1f,",     nvs_config_get_u16(NVS_CONFIG_BM_BEST_HR,     0) / 10.0f);
+    resp->printf("\"bestEff\":%.1f,",    nvs_config_get_u16(NVS_CONFIG_BM_BEST_EFF,    0) / 10.0f);
     resp->printf("\"results\":%s",       result_json);
     resp->print("}");
     free(result_json);
@@ -1220,6 +1225,7 @@ void patch_benchmark(AsyncWebServerRequest* request, uint8_t *data, size_t len, 
         if (root.containsKey("sampleIntv")) nvs_config_set_u8 (NVS_CONFIG_BM_SAMPLE_INTV, root["sampleIntv"].as<uint8_t>());
         if (root.containsKey("bmTime"))     nvs_config_set_u16(NVS_CONFIG_BM_TIME,         root["bmTime"].as<uint16_t>());
         if (root.containsKey("stabTime"))   nvs_config_set_u16(NVS_CONFIG_BM_STAB_TIME,   root["stabTime"].as<uint16_t>());
+        if (root.containsKey("tempLimit"))  nvs_config_set_u8 (NVS_CONFIG_BM_TEMP_LIMIT,  root["tempLimit"].as<uint8_t>());
         request->send(200, "application/json", "{\"status\":\"ok\"}");
     }
     free(buf);
@@ -1248,6 +1254,7 @@ void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t 
                 if (root.containsKey("sampleIntv")) nvs_config_set_u8 (NVS_CONFIG_BM_SAMPLE_INTV, root["sampleIntv"].as<uint8_t>());
                 if (root.containsKey("bmTime"))     nvs_config_set_u16(NVS_CONFIG_BM_TIME,         root["bmTime"].as<uint16_t>());
                 if (root.containsKey("stabTime"))   nvs_config_set_u16(NVS_CONFIG_BM_STAB_TIME,   root["stabTime"].as<uint16_t>());
+                if (root.containsKey("tempLimit"))  nvs_config_set_u8 (NVS_CONFIG_BM_TEMP_LIMIT,  root["tempLimit"].as<uint8_t>());
             }
         }
         // Reset sweep state to first round
@@ -1255,6 +1262,14 @@ void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t 
         uint16_t vcore_min = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN, 1000);
         nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
         nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+        // Reset bisect and best cache for a fresh run
+        nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, 0);
+        nvs_config_set_u16(NVS_CONFIG_BM_BISECT_HI, 0);
+        nvs_config_set_u16(NVS_CONFIG_BM_LAST_SV,   0);
+        nvs_config_set_u16(NVS_CONFIG_BM_BEST_FREQ,  0);
+        nvs_config_set_u16(NVS_CONFIG_BM_BEST_VCORE, 0);
+        nvs_config_set_u16(NVS_CONFIG_BM_BEST_HR,    0);
+        nvs_config_set_u16(NVS_CONFIG_BM_BEST_EFF,   0);
         nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 1);
 
         LOG_W("[BM] Benchmark started via API: freq_min=%d vcore_min=%d", freq_min, vcore_min);
@@ -1295,6 +1310,13 @@ void delete_benchmark_results(AsyncWebServerRequest* request){
     nvs_config_delete_key(NVS_CONFIG_BM_STAB_TIME);
     nvs_config_delete_key(NVS_CONFIG_BM_CUR_FREQ);
     nvs_config_delete_key(NVS_CONFIG_BM_CUR_VCORE);
+    nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, 0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BISECT_HI, 0);
+    nvs_config_set_u16(NVS_CONFIG_BM_LAST_SV,   0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BEST_FREQ,  0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BEST_VCORE, 0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BEST_HR,    0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BEST_EFF,   0);
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
@@ -1363,6 +1385,13 @@ void post_benchmark_reset(AsyncWebServerRequest* request){
     nvs_config_delete_key(NVS_CONFIG_BM_STAB_TIME);
     nvs_config_delete_key(NVS_CONFIG_BM_CUR_FREQ);
     nvs_config_delete_key(NVS_CONFIG_BM_CUR_VCORE);
+    nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, 0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BISECT_HI, 0);
+    nvs_config_set_u16(NVS_CONFIG_BM_LAST_SV,   0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BEST_FREQ,  0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BEST_VCORE, 0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BEST_HR,    0);
+    nvs_config_set_u16(NVS_CONFIG_BM_BEST_EFF,   0);
 
     LOG_W("[BM] Benchmark reset via API (was_running=%d)", (int)was_running);
 

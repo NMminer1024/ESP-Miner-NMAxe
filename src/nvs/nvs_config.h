@@ -71,6 +71,18 @@
 #define NVS_CONFIG_BM_CUR_VCORE         "bm_cur_vcore"
 // Result: JSON array string, appended after each stable round
 #define NVS_CONFIG_BM_RESULT            "bm_result"
+// Binary search state (per-frequency; reset at each freq advance)
+#define NVS_CONFIG_BM_BISECT_LO         "bm_bisect_lo"  // u16, highest known unstable vcore; 0=not found
+#define NVS_CONFIG_BM_BISECT_HI         "bm_bisect_hi"  // u16, lowest known stable vcore; 0=not found
+// Cross-frequency state
+#define NVS_CONFIG_BM_LAST_SV           "bm_last_sv"    // u16, last freq's stable vcore (for next freq start); 0=none
+// Best-result cache (updated incrementally; avoids JSON re-parse at finish)
+#define NVS_CONFIG_BM_BEST_FREQ         "bm_best_freq"  // u16
+#define NVS_CONFIG_BM_BEST_VCORE        "bm_best_vcore" // u16
+#define NVS_CONFIG_BM_BEST_HR           "bm_best_hr"    // u16, avgHR * 10 (GH/s)
+#define NVS_CONFIG_BM_BEST_EFF          "bm_best_eff"   // u16, effJTH * 10 (J/TH)
+// Safety
+#define NVS_CONFIG_BM_TEMP_LIMIT        "bm_temp_lim"   // u8, ASIC temp upper limit in °C (default 82)
 
 char * nvs_config_get_string(const char * key, const char * default_value);
 void nvs_config_set_string(const char * key, const char * value);
