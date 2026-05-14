@@ -13,11 +13,44 @@ BoardModelType get_board_model(){
     pinMode(NM_MODEL_SELECT_PIN1, INPUT_PULLUP);
     pinMode(NM_MODEL_SELECT_PIN2, INPUT_PULLUP);
 
-    delay(100); //wait for pin stable
-    const uint8_t sel0 = digitalRead(NM_MODEL_SELECT_PIN0);
-    const uint8_t sel1 = digitalRead(NM_MODEL_SELECT_PIN1);
-    const uint8_t sel2 = digitalRead(NM_MODEL_SELECT_PIN2);
-    const uint8_t raw = static_cast<uint8_t>((sel0 << 2) | (sel1 << 1) | sel2);
+    // Per-pin debounce: each pin must read the same level continuously for
+    // STABLE_MS before it is considered settled.  Glitches on one pin only
+    // reset that pin's counter; the others keep accumulating.
+    constexpr uint32_t SAMPLE_INTERVAL_MS = 10;
+    constexpr uint32_t STABLE_MS          = 500;
+    constexpr uint32_t STABLE_SAMPLES     = STABLE_MS / SAMPLE_INTERVAL_MS; // 50
+
+    static const uint8_t PINS[3] = {
+        NM_MODEL_SELECT_PIN0,
+        NM_MODEL_SELECT_PIN1,
+        NM_MODEL_SELECT_PIN2,
+    };
+    int8_t   last[3] = {-1, -1, -1}; // -1 = not yet sampled
+    uint32_t cnt[3]  = { 0,  0,  0}; // consecutive-same-level count
+
+    while (true) {
+        bool all_stable = true;
+        for (int i = 0; i < 3; i++) {
+            const int8_t cur = static_cast<int8_t>(digitalRead(PINS[i]));
+            if (cur != last[i]) {
+                // level changed (or first sample) — restart this pin's window
+                last[i] = cur;
+                cnt[i]  = 1;
+            } else {
+                cnt[i]++;
+            }
+            if (cnt[i] < STABLE_SAMPLES) {
+                all_stable = false;
+            }
+        }
+        if (all_stable) break;
+        delay(SAMPLE_INTERVAL_MS);
+    }
+
+    // last[] now holds the debounced level for each pin
+    const uint8_t raw = static_cast<uint8_t>(
+        (last[0] << 2) | (last[1] << 1) | last[2]
+    );
 
     // 0b111 NMAXE
     // 0b011 NMAXE_GAMMA
@@ -25,16 +58,11 @@ BoardModelType get_board_model(){
     // 0b110 NMQAXE++ 3 phase
     // 0b000 BOARD_UNKNOWN
     switch (raw) {
-        case 0b111:
-            return NMAXE;
-        case 0b011:
-            return NMAXE_GAMMA;
-        case 0b100:
-            return NMQAXE_PLUS_PLUS;
-        case 0b110:
-            return NMQAXE_PLUS_PLUS_REV61;
-        default:
-            return BOARD_UNKNOWN;
+        case 0b111: return NMAXE;
+        case 0b011: return NMAXE_GAMMA;
+        case 0b100: return NMQAXE_PLUS_PLUS;
+        case 0b110: return NMQAXE_PLUS_PLUS_REV61;
+        default:    return BOARD_UNKNOWN;
     }
 }
 
@@ -334,6 +362,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_frq          = 600;
                 config.asic.default_vcore        = 1150;
                 config.asic.min_vcore            = 1000;
+                config.asic.max_vcore            = 1300;
                 config.asic.diff_thr_init        = 1024*2;
                 config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 11.0f};
@@ -369,6 +398,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_frq          = 900;
                 config.asic.default_vcore        = 1350;
                 config.asic.min_vcore            = 1100;
+                config.asic.max_vcore            = 1500;
                 config.asic.diff_thr_init        = 1024*2;
                 config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 18.0f};
@@ -397,12 +427,12 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                         {"1300 mV",           1300},
                         {"1350 mV (default)", 1350},
                         {"1400 mV",           1400},
+                        {"1450 mV",           1450},
                     };
                 config.create_power_instance     = create_qaxepp_3ph_power_instance; // 3-phase
             }
             config.asic.req_frq             = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic.default_frq);
             config.asic.req_vcore           = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
-            config.asic.max_vcore           = 1500;
             config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
             config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
             config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
