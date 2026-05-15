@@ -176,6 +176,7 @@ typedef struct{
         float    vcore_temp;   // last VRM temp sample (°C)
         uint16_t stab_total;   // total stabilization seconds for this benchmark run
         uint16_t bm_total;     // total sampling seconds for this benchmark run
+        uint32_t eta_sec;      // estimated seconds remaining — written by benchmark_thread_entry
     } bm;
 
     struct{

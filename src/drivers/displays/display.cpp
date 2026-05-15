@@ -4650,15 +4650,8 @@ void ui_benchmark_overlay_update(void* args) {
   uint32_t phase_remaining = (bm.phase_total > bm.phase_elapsed)
                              ? (bm.phase_total - bm.phase_elapsed) : 0;
 
-  // ETA: remaining time in current round + future freq rounds (best-case 1 vcore each)
-  uint32_t per_round = (uint32_t)bm.stab_total + (uint32_t)bm.bm_total;
-  uint32_t cur_round_left = bm.in_stab
-                            ? (phase_remaining + (uint32_t)bm.bm_total)
-                            : phase_remaining;
-  uint32_t eta_sec = cur_round_left + (uint32_t)(freq_total - freq_idx) * per_round;
-
   char eta_str[16];
-  fmt_time(eta_str, sizeof(eta_str), eta_sec);
+  fmt_time(eta_str, sizeof(eta_str), bm.eta_sec);
 
   int pct = (bm.phase_total > 0) ? (int)(100u * bm.phase_elapsed / bm.phase_total) : 0;
   if (pct > 100) pct = 100;

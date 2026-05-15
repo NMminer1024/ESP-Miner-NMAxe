@@ -3312,12 +3312,34 @@ void benchmark_thread_entry(void *args) {
     }
     board->status.bm.active      = true;  // show overlay
 
+    // ── Pre-compute ETA invariants (fixed for this boot) ─────────────────────
+    uint16_t bm_freq_total = (freq_step > 0) ? ((freq_max - freq_min) / freq_step + 1) : 1;
+    uint16_t bm_freq_idx   = (freq_step > 0) ? ((cur_freq  - freq_min) / freq_step + 1) : 1;
+    uint32_t bm_per_round  = (uint32_t)stab_time + (uint32_t)bm_time;
+    // Worst-case ETA:
+    //   Current freq  : tries ALL remaining vcore steps from cur_vcore to vcore_max.
+    //   Future freqs  : each starts one step below the current stable point (optimizer),
+    //                   so worst-case rounds = vc_rounds_this + 1.
+    //   ETA may increase slightly between rounds when the observed stable vcore is high
+    //   (signals future freqs will also need higher voltage) — this is intentional and
+    //   informative, similar to a nav app updating ETA when it detects slower conditions.
+    uint32_t bm_vc_rounds_this   = (vcore_step > 0 && vcore_max >= cur_vcore)
+                                    ? ((vcore_max - cur_vcore) / vcore_step + 1) : 1;
+    uint32_t bm_vc_rounds_future = bm_vc_rounds_this + 1; // next freq starts at cur_vcore-step
+    uint32_t bm_freq_remaining = (bm_freq_total > bm_freq_idx) ? (bm_freq_total - bm_freq_idx) : 0;
+    // bm_future_rounds: seconds for everything AFTER the current round (worst case)
+    uint32_t bm_future_rounds  = (bm_vc_rounds_this > 1 ? bm_vc_rounds_this - 1 : 0) * bm_per_round
+                                  + bm_freq_remaining * bm_vc_rounds_future * bm_per_round;
+    board->status.bm.eta_sec = (uint32_t)stab_time + (uint32_t)bm_time + bm_future_rounds;
+
     // ── Stabilization wait ────────────────────────────────────────────────────
     LOG_W("[BM] Stabilizing for %ds at freq=%dMHz vcore=%dmV ...", stab_time, cur_freq, cur_vcore);
     for (uint16_t s = 0; s < stab_time; s++) {
         board->status.bm.phase_elapsed = s;
         board->status.bm.asic_temp     = board->status.temp.asic;
         board->status.bm.vcore_temp    = board->status.temp.vcore;
+        uint32_t stab_rem = (stab_time > s) ? (stab_time - s) : 0;
+        board->status.bm.eta_sec = stab_rem + (uint32_t)bm_time + bm_future_rounds;
         delay(1000);
     }
 
@@ -3333,6 +3355,7 @@ void benchmark_thread_entry(void *args) {
     board->status.bm.in_stab      = false;
     board->status.bm.phase_total   = bm_time;
     board->status.bm.phase_elapsed = 0;
+    board->status.bm.eta_sec       = (uint32_t)bm_time + bm_future_rounds;
 
     // Calculate expected hashrate based on ASIC spec
     uint32_t small_cores = board->miner ? board->miner->get_asic_small_cores() : 0;
@@ -3358,6 +3381,11 @@ void benchmark_thread_entry(void *args) {
         board->status.bm.asic_temp     = (float)at;
         board->status.bm.vcore_temp    = board->status.temp.vcore;
         board->status.bm.avg_hr_ghs    = (sample_cnt > 0) ? (float)((hr_sum + hr_ghs) / (sample_cnt + 1)) : (float)hr_ghs;
+        {
+            uint32_t samp_elapsed = (i + 1) * (uint32_t)smp_intv;
+            uint32_t samp_rem = (samp_elapsed < (uint32_t)bm_time) ? ((uint32_t)bm_time - samp_elapsed) : 0;
+            board->status.bm.eta_sec = samp_rem + bm_future_rounds;
+        }
 
         if (hr_ghs == 0.0) {
             zero_hr_cnt++;
@@ -3426,9 +3454,13 @@ void benchmark_thread_entry(void *args) {
         nvs_config_set_string(NVS_CONFIG_BM_RESULT, results.c_str());
         LOG_W("[BM] Result saved: %s", entry);
 
-        // Advance to next frequency, reset vcore
+        // Advance to next frequency.
+        // Start next freq's vcore one step below the last stable point:
+        // higher freq needs at least as much vcore, so vcore_min is wasteful.
+        // One step down gives a small exploratory margin in case the new freq
+        // can actually run slightly lower.
         cur_freq  += freq_step;
-        cur_vcore  = vcore_min;
+        cur_vcore  = (cur_vcore > vcore_min + vcore_step) ? (cur_vcore - vcore_step) : vcore_min;
 
         if (cur_freq > freq_max) {
             LOG_W("[BM] All frequencies tested — benchmark complete, applying best result.");
@@ -3474,7 +3506,9 @@ void benchmark_thread_entry(void *args) {
         if (cur_vcore > vcore_max) {
             LOG_W("[BM] freq=%dMHz unstable at all vcores, skipping to next freq.", cur_freq);
             cur_freq  += freq_step;
-            cur_vcore  = vcore_min;
+            // Even vcore_max wasn't enough for this freq; higher freq will need
+            // at least as much, so skip straight to vcore_max to avoid pointless rounds.
+            cur_vcore  = vcore_max;
             if (cur_freq > freq_max) {
                 LOG_W("[BM] All frequencies exhausted — benchmark complete, applying best result.");
                 board->status.bm.active = false;

@@ -38,7 +38,7 @@
         <div class="stat-icon">⚙️</div>
         <div class="stat-content">
           <div class="stat-label">Efficiency</div>
-          <div class="stat-value">{{ (info.power_w || 0) / ((info.hashRate || 0.001) / 1000) | number: '1.2-2' }}</div>
+          <div class="stat-value">{{ info.hashRate ? ((info.power_w || 0) / (info.hashRate / 1000) | number: '1.2-2') : '--' }}</div>
           <div class="stat-unit">J/TH</div>
         </div>
       </div>
