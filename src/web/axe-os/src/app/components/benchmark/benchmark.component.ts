@@ -29,8 +29,12 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   public isRunning = false;
   public curFreq = 0;
   public curVcore = 0;
+  public totalSec = 0;
+  public startTs = 0;
+  public elapsedSec = 0;
   public results: BenchmarkResult[] = [];
   private pollSub?: Subscription;
+  private timerSub?: Subscription;
 
   // Sorting state
   public sortCol: keyof BenchmarkResult = 'ts';
@@ -60,7 +64,11 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         this.isRunning = data.mode === 1;
         this.curFreq   = data.curFreq;
         this.curVcore  = data.curVcore;
+        this.totalSec  = data.totalSec ?? 0;
+        this.startTs   = data.startTs  ?? 0;
         this.setResults(Array.isArray(data.results) ? data.results : []);
+
+        if (this.isRunning) this.startElapsedTimer();
 
         this.form = this.fb.group({
           freqMin:    [data.freqMin,    [Validators.required, Validators.min(100), Validators.max(1000)]],
@@ -82,6 +90,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
+    this.timerSub?.unsubscribe();
   }
 
   // ── Results management ────────────────────────────────────────────────────
@@ -98,8 +107,11 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       this.isRunning = data.mode === 1;
       this.curFreq   = data.curFreq;
       this.curVcore  = data.curVcore;
+      this.totalSec  = data.totalSec ?? 0;
+      this.startTs   = data.startTs  ?? 0;
       this.setResults(Array.isArray(data.results) ? data.results : []);
       if (!this.isRunning) {
+        this.timerSub?.unsubscribe();
         this.pollSub?.unsubscribe();
         this.toastr.success('Benchmark complete!', 'Done');
       }
@@ -127,7 +139,27 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── Elapsed timer ───────────────────────────────────────────────────────
+  private startElapsedTimer(): void {
+    this.timerSub?.unsubscribe();
+    if (!this.startTs) return;
+    this.elapsedSec = Math.floor(Date.now() / 1000) - this.startTs;
+    this.timerSub = interval(1000).subscribe(() => {
+      this.elapsedSec = Math.floor(Date.now() / 1000) - this.startTs;
+    });
+  }
+
   // ── Utilities ─────────────────────────────────────────────────────────────
+  public formatDuration(sec: number): string {
+    if (!sec || sec <= 0) return '—';
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
   public formatTs(ts?: number): string {
     if (!ts) return '—';
     return new Date(ts * 1000).toLocaleString([], {

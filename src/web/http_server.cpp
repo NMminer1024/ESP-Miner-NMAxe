@@ -1190,6 +1190,8 @@ void get_benchmark(AsyncWebServerRequest* request){
     resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   200));
     resp->printf("\"curFreq\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,    0));
     resp->printf("\"curVcore\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE,   0));
+    resp->printf("\"startTs\":%lu,",     (unsigned long)nvs_config_get_u32(NVS_CONFIG_BM_START_TS,  0));
+    resp->printf("\"totalSec\":%lu,",    (unsigned long)nvs_config_get_u32(NVS_CONFIG_BM_TOTAL_SEC, 0));
     resp->printf("\"results\":%s",       result_json);
     resp->print("}");
     free(result_json);
@@ -1256,6 +1258,8 @@ void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t 
         nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
         nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
         nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 1);
+        nvs_config_set_u32(NVS_CONFIG_BM_START_TS,  (uint32_t)time(nullptr));
+        nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, 0);
 
         LOG_W("[BM] Benchmark started via API: freq_min=%d vcore_min=%d", freq_min, vcore_min);
         AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"benchmark starting, device will reboot\"}");
@@ -1270,7 +1274,8 @@ void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t 
 
 // POST /api/benchmark/stop
 void post_benchmark_stop(AsyncWebServerRequest* request){
-    nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
+    nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 0);
+    nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, 0);  // discard partial run time
     LOG_W("[BM] Benchmark stopped via API");
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"benchmark stopped, device will reboot\"}");
     response->addHeader("Access-Control-Allow-Origin", "*");
@@ -1295,6 +1300,8 @@ void delete_benchmark_results(AsyncWebServerRequest* request){
     nvs_config_delete_key(NVS_CONFIG_BM_STAB_TIME);
     nvs_config_delete_key(NVS_CONFIG_BM_CUR_FREQ);
     nvs_config_delete_key(NVS_CONFIG_BM_CUR_VCORE);
+    nvs_config_delete_key(NVS_CONFIG_BM_START_TS);
+    nvs_config_delete_key(NVS_CONFIG_BM_TOTAL_SEC);
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);

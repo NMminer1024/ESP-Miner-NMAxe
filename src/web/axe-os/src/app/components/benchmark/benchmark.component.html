@@ -7,6 +7,7 @@
     <span *ngIf="!isRunning">⏸ Idle</span>
     <span *ngIf="isRunning">
       ▶ Running — Current: <strong>{{ curFreq }} MHz</strong> / <strong>{{ curVcore }} mV</strong>
+      <span *ngIf="elapsedSec > 0" class="bm-elapsed">&nbsp;— Elapsed: <strong>{{ formatDuration(elapsedSec) }}</strong></span>
     </span>
   </div>
 
@@ -86,6 +87,12 @@
 <!-- Results -->
 <div class="card modern-card" *ngIf="results.length > 0">
   <h2 class="card-title"><span class="card-icon">📊</span>Results</h2>
+
+  <!-- Total benchmark duration -->
+  <div class="bm-duration" *ngIf="totalSec > 0 && !isRunning">
+    <span class="bm-duration-label">⏱ Total Time:</span>
+    <span class="bm-duration-value">{{ formatDuration(totalSec) }}</span>
+  </div>
 
   <!-- Best entry summaries -->
   <div class="bm-best-wrap">

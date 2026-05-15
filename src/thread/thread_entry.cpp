@@ -3448,9 +3448,9 @@ void benchmark_thread_entry(void *args) {
 
         double hr_avg = hr_sum / sample_cnt;
         uint32_t remaining = (total_samples - i - 1) * smp_intv;
-        LOG_W("[BM] [%3ds] %2.0f%% | HR:%.1fGH/s EXP:%.0fGH/s | AT:%.1fC | Vcore:%dmV | Pwr:%.1fW",
+        LOG_W("[BM] [%3ds] %2.0f%% | HR:%.1fGH/s EXP:%.0fGH/s | AT:%.1fC VT:%.1fC | Vcore:%dmV | Pwr:%.1fW",
               remaining, 100.0 * (i + 1) / total_samples,
-              hr_ghs, exp_hr_ghs, at,
+              hr_ghs, exp_hr_ghs, at, board->status.temp.vcore,
               board->status.power.vcore, pwr_w);
 
         // Early exit if halfway and avg < 50% expected
@@ -3535,6 +3535,10 @@ void benchmark_thread_entry(void *args) {
                     LOG_W("[BM] No stable results found, keeping current Normal mode settings.");
                 }
             }
+            {
+                uint32_t _start = nvs_config_get_u32(NVS_CONFIG_BM_START_TS, 0);
+                if (_start > 0) nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, (uint32_t)time(nullptr) - _start);
+            }
             reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete, switching to Normal mode with best params");
             xSemaphoreGive(board->status.reboot_xsem);
             vTaskDelete(NULL);
@@ -3581,6 +3585,10 @@ void benchmark_thread_entry(void *args) {
                     } else {
                         LOG_W("[BM] No stable results found, keeping current Normal mode settings.");
                     }
+                }
+                {
+                    uint32_t _start = nvs_config_get_u32(NVS_CONFIG_BM_START_TS, 0);
+                    if (_start > 0) nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, (uint32_t)time(nullptr) - _start);
                 }
                 reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete (all unstable), switching to Normal mode");
                 xSemaphoreGive(board->status.reboot_xsem);

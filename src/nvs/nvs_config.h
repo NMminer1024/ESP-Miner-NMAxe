@@ -71,6 +71,9 @@
 #define NVS_CONFIG_BM_CUR_VCORE         "bm_cur_vcore"
 // Result: JSON array string, appended after each stable round
 #define NVS_CONFIG_BM_RESULT            "bm_result"
+// Timing: start timestamp (Unix s) written at POST /start; total elapsed written at completion
+#define NVS_CONFIG_BM_START_TS          "bm_start_ts"
+#define NVS_CONFIG_BM_TOTAL_SEC         "bm_total_sec"
 
 char * nvs_config_get_string(const char * key, const char * default_value);
 void nvs_config_set_string(const char * key, const char * value);
