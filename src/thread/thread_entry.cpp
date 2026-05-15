@@ -3290,7 +3290,7 @@ void aphorism_thread_entry(void *args){
 //      instead of the user-configured values (benchmark mode only).
 //   2. This thread waits for MINER_READY, then waits stabilize_time seconds.
 //   3. Samples hashrate/power/temp for benchmark_time seconds.
-//   4. Evaluates stability (avg >= 94% expected HR).
+//   4. Evaluates stability (avg >= 98% expected HR).
 //   5. Writes result to bm_result JSON string in NVS, advances the sweep state,
 //      then triggers a reboot via reboot_xsem.
 // In Normal mode (bm_mode == 0) the thread exits immediately.
@@ -3467,7 +3467,7 @@ void benchmark_thread_entry(void *args) {
     double at_avg  = (sample_cnt > 0) ? (at_sum  / sample_cnt) : 0;
     double vt_avg  = (sample_cnt > 0) ? (vt_sum  / sample_cnt) : 0;
 
-    bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * 0.94);
+    bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * 0.98);
     LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s | eff:%.3fJ/TH | pwr:%.2fW | asicT:%.1fC vcoreT:%.1fC",
           stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, eff_avg, pwr_avg, at_avg, vt_avg);
 
