@@ -3244,49 +3244,16 @@ void aphorism_thread_entry(void *args){
 // ──────────────────────────────────────────────────────────────────────────────
 // benchmark_thread_entry
 //
-// Runs one benchmark round per reboot, sweeping freq × vcore to find the
-// optimal ASIC operating point.  All state is persisted in NVS so each reboot
-// continues where the previous round left off.
-//
-// Round lifecycle:
-//   1. board.cpp reads bm_cur_freq / bm_cur_vcore from NVS at boot and applies
-//      them to the ASIC instead of the normal user-configured values.
-//   2. This thread waits for MINER_READY, then holds for stab_time seconds to
-//      let hashrate and temperature reach steady state.
-//   3. Sampling phase: every smp_intv seconds, records 3-minute-average HR,
-//      bus power (vbus × ibus), and ASIC temperature for bm_time seconds total
-//      (default 200 samples over 1000 s).  Three early-exit conditions:
-//        a. ASIC temperature exceeds temp_limit → mark round UNSTABLE.
-//        b. Five consecutive zero-HR samples → mark round UNSTABLE.
-//        c. 20 consecutive samples with HR < 80 % of expected → mark UNSTABLE.
-//   4. Stability evaluation — a round is STABLE only when ALL of:
-//        • avg HR >= 94 % of expected HR (freq × small_cores × asic_count / 1000)
-//        • HR spread (max – min) / expected <= 12 %  (intra-round variance)
-//        • No over-temperature abort
-//
-// Vcore binary search (per frequency):
-//   The goal is to find the minimum stable vcore for each frequency.
-//   - No stable point known yet   → linear scan upward (cur_vcore += step).
-//   - Stable point found          → binary-search downward toward vcore_min:
-//       bisect_hi = cur stable vcore, effective_lo = last known unstable vcore
-//       (or cur_vcore – step as a seed).  Next vcore = midpoint.
-//   - Unstable with bisect_hi known → binary-search upward between lo and hi.
-//   - Converged (gap <= step)     → bisect_hi is the minimum stable vcore;
-//       record it as last_sv and advance to the next frequency.
-//   When advancing to the next frequency, vcore starts at (last_sv – step),
-//   inheriting the previous frequency's minimum stable vcore as a warm start.
-//
-// Best-result cache:
-//   Every STABLE round updates bm_best_freq / bm_best_vcore / bm_best_hr /
-//   bm_best_eff in NVS if the current avg HR exceeds the stored best.
-//   On completion, the cached values are applied directly to asic_freq /
-//   asic_voltage without re-parsing the full result JSON.
-//
-// Completion:
-//   When all frequencies have been tested (or exhausted without a stable point),
-//   the thread sets bm_mode = 0, writes the best freq/vcore to the normal ASIC
-//   config, resets all bisect and cache state, and triggers a reboot into Normal
-//   mode.  In Normal mode (bm_mode == 0) the thread exits immediately.
+// Implements on-device hashrate benchmarking equivalent to the Python tool.
+// Workflow (one reboot per round):
+//   1. At boot, board.cpp reads bm_cur_freq/bm_cur_vcore from NVS and uses them
+//      instead of the user-configured values (benchmark mode only).
+//   2. This thread waits for MINER_READY, then waits stabilize_time seconds.
+//   3. Samples hashrate/power/temp for benchmark_time seconds.
+//   4. Evaluates stability (avg >= 94% expected HR).
+//   5. Writes result to bm_result JSON string in NVS, advances the sweep state,
+//      then triggers a reboot via reboot_xsem.
+// In Normal mode (bm_mode == 0) the thread exits immediately.
 // ──────────────────────────────────────────────────────────────────────────────
 void benchmark_thread_entry(void *args) {
     board_sal_t *board = (board_sal_t*)args;
@@ -3301,27 +3268,21 @@ void benchmark_thread_entry(void *args) {
     // Load benchmark parameters from NVS
     uint16_t freq_min    = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,   400);
     uint16_t freq_max    = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MAX,   625);
-    uint16_t freq_step   = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,  25);
+    uint16_t freq_step   = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,  50);
     uint16_t vcore_min   = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,  1000);
     uint16_t vcore_max   = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,  1300);
     uint16_t vcore_step  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP, 25);
-    uint8_t  smp_intv    = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 5);   // seconds
-    uint16_t bm_time     = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        1000); // seconds
-    uint16_t stab_time   = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   200); // seconds
-    uint8_t  temp_limit  = nvs_config_get_u8 (NVS_CONFIG_BM_TEMP_LIMIT,  82);  // °C
+    uint8_t  smp_intv    = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 10);  // seconds
+    uint16_t bm_time     = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        180); // seconds
+    uint16_t stab_time   = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   120); // seconds
 
-    uint16_t cur_freq    = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,   freq_min);
-    uint16_t cur_vcore   = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE,  vcore_min);
-
-    // Binary search state for the current frequency (reset at each freq advance)
-    uint16_t bisect_lo   = nvs_config_get_u16(NVS_CONFIG_BM_BISECT_LO, 0); // 0 = no unstable found yet
-    uint16_t bisect_hi   = nvs_config_get_u16(NVS_CONFIG_BM_BISECT_HI, 0); // 0 = no stable found yet
+    uint16_t cur_freq    = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+    uint16_t cur_vcore   = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
 
     LOG_W("[BM] === Benchmark started: freq=%d vcore=%d ===", cur_freq, cur_vcore);
-    LOG_W("[BM] Range freq %d~%dMHz step=%d, vcore %d~%dmV step=%d temp_limit=%d°C",
-          freq_min, freq_max, freq_step, vcore_min, vcore_max, vcore_step, temp_limit);
-    LOG_W("[BM] stab=%ds bm=%ds smp=%ds bisect_lo=%d bisect_hi=%d",
-          stab_time, bm_time, smp_intv, bisect_lo, bisect_hi);
+    LOG_W("[BM] Range freq %d~%dMHz step=%d, vcore %d~%dmV step=%d",
+          freq_min, freq_max, freq_step, vcore_min, vcore_max, vcore_step);
+    LOG_W("[BM] stab=%ds bm=%ds smp=%ds", stab_time, bm_time, smp_intv);
 
     // Wait for full system init (WiFi + ASIC + miner ready)
     xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
@@ -3365,11 +3326,8 @@ void benchmark_thread_entry(void *args) {
     if (total_samples == 0) total_samples = 1;
 
     double hr_sum = 0, eff_sum = 0, pwr_sum = 0, at_sum = 0, vt_sum = 0;
-    double hr_min_s = 1e30, hr_max_s = 0.0;  // for HR spread check
     uint32_t sample_cnt = 0;
     uint8_t  zero_hr_cnt = 0;
-    uint8_t  low_hr_cnt  = 0;  // consecutive samples below 80% expected
-    bool     over_temp = false;
 
     // Update overlay: switch to sampling phase
     board->status.bm.in_stab      = false;
@@ -3401,13 +3359,6 @@ void benchmark_thread_entry(void *args) {
         board->status.bm.vcore_temp    = board->status.temp.vcore;
         board->status.bm.avg_hr_ghs    = (sample_cnt > 0) ? (float)((hr_sum + hr_ghs) / (sample_cnt + 1)) : (float)hr_ghs;
 
-        // ── Temperature limit check ───────────────────────────────────────────
-        if (at > temp_limit) {
-            LOG_W("[BM] ASIC temp %.1f°C > limit %d°C, aborting round as UNSTABLE.", at, (int)temp_limit);
-            over_temp = true;
-            break;
-        }
-
         if (hr_ghs == 0.0) {
             zero_hr_cnt++;
         } else {
@@ -3420,38 +3371,25 @@ void benchmark_thread_entry(void *args) {
             break;
         }
 
-        // Track consecutive low-HR samples (below 80% of expected)
-        if (exp_hr_ghs > 0 && hr_ghs < exp_hr_ghs * 0.80) {
-            low_hr_cnt++;
-        } else {
-            low_hr_cnt = 0;
-        }
-        if (low_hr_cnt >= 20) {
-            LOG_W("[BM] HR below 80%% expected for 20 consecutive samples (last:%.1f exp:%.1f), aborting round early.",
-                  hr_ghs, exp_hr_ghs);
-            break;
-        }
-
         hr_sum  += hr_ghs;
         eff_sum += (hr_ghs > 0 && pwr_w > 0) ? (pwr_w / (hr_ghs / 1000.0)) : 0; // J/TH
         pwr_sum += pwr_w;
         at_sum  += at;
         vt_sum  += board->status.temp.vcore;
-        // Track HR spread (max - min) for stability quality check
-        if (hr_ghs > 0) {
-            if (hr_ghs < hr_min_s) hr_min_s = hr_ghs;
-            if (hr_ghs > hr_max_s) hr_max_s = hr_ghs;
-        }
         sample_cnt++;
 
-        double hr_avg_running = hr_sum / sample_cnt;
+        double hr_avg = hr_sum / sample_cnt;
         uint32_t remaining = (total_samples - i - 1) * smp_intv;
         LOG_W("[BM] [%3ds] %2.0f%% | HR:%.1fGH/s EXP:%.0fGH/s | AT:%.1fC | Vcore:%dmV | Pwr:%.1fW",
               remaining, 100.0 * (i + 1) / total_samples,
               hr_ghs, exp_hr_ghs, at,
               board->status.power.vcore, pwr_w);
 
-
+        // Early exit if halfway and avg < 50% expected
+        if (sample_cnt >= total_samples / 2 && exp_hr_ghs > 0 && hr_avg < exp_hr_ghs * 0.5) {
+            LOG_W("[BM] Avg HR too low (%.1f < 50%% of %.1f), aborting round early.", hr_avg, exp_hr_ghs);
+            break;
+        }
     }
 
     // ── Evaluate stability ────────────────────────────────────────────────────
@@ -3461,188 +3399,129 @@ void benchmark_thread_entry(void *args) {
     double at_avg  = (sample_cnt > 0) ? (at_sum  / sample_cnt) : 0;
     double vt_avg  = (sample_cnt > 0) ? (vt_sum  / sample_cnt) : 0;
 
-    // HR spread: (max - min) / expected — measures hashrate stability within the round
-    double hr_spread = (sample_cnt >= 2 && exp_hr_ghs > 0 && hr_max_s > hr_min_s)
-                       ? (hr_max_s - hr_min_s) / exp_hr_ghs
-                       : 0.0;
+    bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * 0.94);
+    LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s | eff:%.3fJ/TH | pwr:%.2fW | asicT:%.1fC vcoreT:%.1fC",
+          stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, eff_avg, pwr_avg, at_avg, vt_avg);
 
-    bool stable = !over_temp
-               && (exp_hr_ghs > 0)
-               && (hr_avg   >= exp_hr_ghs * 0.94)  // average must reach 94% of expected
-               && (hr_spread <= 0.12);              // spread must be within 12% of expected
-
-    LOG_W("[BM] Round %s | avgHR:%.1fGH/s exp:%.1fGH/s spread:%.1f%% | eff:%.3fJ/TH | pwr:%.2fW | asicT:%.1fC vcoreT:%.1fC",
-          stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, hr_spread * 100.0,
-          eff_avg, pwr_avg, at_avg, vt_avg);
-
-    // ── Helper: apply best cached result and reboot to Normal mode ────────────
-    // Called from both "all freqs done" exit paths. Uses the incrementally
-    // maintained best cache — no JSON re-parse (removes the DynamicJsonDocument).
-    auto apply_best_and_finish = [&](const char* reason) {
-        board->status.bm.active = false;
-        nvs_config_set_u8 (NVS_CONFIG_BM_MODE,    0);
-        nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
-        nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
-        // Reset bisect and cross-freq state for next run
-        nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, 0);
-        nvs_config_set_u16(NVS_CONFIG_BM_BISECT_HI, 0);
-        nvs_config_set_u16(NVS_CONFIG_BM_LAST_SV,   0);
-        // Apply best result (read from incrementally-updated cache)
-        uint16_t best_freq   = nvs_config_get_u16(NVS_CONFIG_BM_BEST_FREQ,  0);
-        uint16_t best_vcore  = nvs_config_get_u16(NVS_CONFIG_BM_BEST_VCORE, 0);
-        uint16_t best_hr_x10 = nvs_config_get_u16(NVS_CONFIG_BM_BEST_HR,   0);
-        if (best_freq > 0 && best_vcore > 0) {
-            LOG_W("[BM] Best: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying to Normal mode.",
-                  best_freq, best_vcore, best_hr_x10 / 10.0f);
-            nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
-            nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
-        } else {
-            LOG_W("[BM] No stable results found, keeping current Normal mode settings.");
-        }
-        LOG_W("[BM] %s, rebooting to Normal mode.", reason);
-        reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, reason);
-        xSemaphoreGive(board->status.reboot_xsem);
-        vTaskDelete(NULL);
-    };
-
-    // ── If stable: save result and update incremental best cache ─────────────
+    // ── Build result entry and append to NVS JSON string ─────────────────────
     if (stable) {
-        // Append to NVS JSON result string
+        // Read existing results
         char *existing = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
         String results(existing);
         free(existing);
+
+        // Remove trailing ']'
         results.trim();
         if (results.endsWith("]")) results.remove(results.length() - 1);
         if (!results.endsWith("[")) results += ",";
-        char entry[320];
+
+        // Append new entry
+        char entry[300];
         snprintf(entry, sizeof(entry),
-            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"hrSpread\":%.3f,"
-            "\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f,\"ts\":%ld}",
-            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, hr_spread,
-            at_avg, vt_avg, eff_avg, pwr_avg, (long)time(nullptr));
+            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f,\"ts\":%ld}",
+            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg, eff_avg, pwr_avg, (long)time(nullptr));
         results += entry;
         results += "]";
+
         nvs_config_set_string(NVS_CONFIG_BM_RESULT, results.c_str());
         LOG_W("[BM] Result saved: %s", entry);
 
-        // ── Update best-result cache (avoids JSON re-parse at finish) ─────────
-        uint16_t prev_best_hr_x10 = nvs_config_get_u16(NVS_CONFIG_BM_BEST_HR, 0);
-        uint16_t cur_hr_x10  = (hr_avg  > 6553.5) ? 65535u : (uint16_t)(hr_avg  * 10.0 + 0.5);
-        uint16_t cur_eff_x10 = (eff_avg > 6553.5) ? 65535u : (uint16_t)(eff_avg * 10.0 + 0.5);
-        if (cur_hr_x10 > prev_best_hr_x10) {
-            nvs_config_set_u16(NVS_CONFIG_BM_BEST_FREQ,  cur_freq);
-            nvs_config_set_u16(NVS_CONFIG_BM_BEST_VCORE, cur_vcore);
-            nvs_config_set_u16(NVS_CONFIG_BM_BEST_HR,    cur_hr_x10);
-            nvs_config_set_u16(NVS_CONFIG_BM_BEST_EFF,   cur_eff_x10);
-            LOG_W("[BM] New best: freq=%dMHz vcore=%dmV HR=%.1fGH/s eff=%.1fJ/TH",
-                  cur_freq, cur_vcore, hr_avg, eff_avg);
-        }
+        // Advance to next frequency, reset vcore
+        cur_freq  += freq_step;
+        cur_vcore  = vcore_min;
 
-        // ── Binary search: stable → try going lower on vcore ─────────────────
-        bisect_hi = cur_vcore;
-        // Determine the lower search boundary:
-        // If no unstable point tested yet for this freq, treat (cur_vcore - step) as the tentative lo.
-        uint16_t effective_lo = (bisect_lo > 0) ? bisect_lo
-                              : (cur_vcore > vcore_step ? cur_vcore - vcore_step : 0);
-
-        // Converged when: already at vcore_min, or no room to search lower
-        bool converged = (cur_vcore <= vcore_min)
-                      || (effective_lo == 0)
-                      || (bisect_hi <= effective_lo + vcore_step);
-        if (converged) {
-            LOG_W("[BM] freq=%dMHz: min stable vcore=%dmV (bisect converged).", cur_freq, bisect_hi);
-            nvs_config_set_u16(NVS_CONFIG_BM_LAST_SV, bisect_hi);
-            uint16_t next_freq = cur_freq + freq_step;
-            if (next_freq > freq_max) {
-                apply_best_and_finish("benchmark complete, all frequencies tested");
-                return;
+        if (cur_freq > freq_max) {
+            LOG_W("[BM] All frequencies tested — benchmark complete, applying best result.");
+            board->status.bm.active = false;
+            nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
+            nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+            nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+            // Select best result: highest avgHR entry in saved results
+            {
+                char *res_str = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+                DynamicJsonDocument rdoc(4096);
+                DeserializationError rerr = deserializeJson(rdoc, res_str);
+                free(res_str);
+                uint16_t best_freq = 0, best_vcore = 0;
+                float    best_avgHR = -1.0f;
+                if (!rerr && rdoc.is<JsonArray>()) {
+                    for (JsonObject e : rdoc.as<JsonArray>()) {
+                        float avgHR = e["avgHR"] | 0.0f;
+                        if (avgHR > best_avgHR) {
+                            best_avgHR  = avgHR;
+                            best_freq   = e["freq"]  | (uint16_t)0;
+                            best_vcore  = e["vcore"] | (uint16_t)0;
+                        }
+                    }
+                }
+                if (best_freq > 0 && best_vcore > 0) {
+                    LOG_W("[BM] Best result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying to Normal mode.",
+                          best_freq, best_vcore, best_avgHR);
+                    nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
+                    nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
+                } else {
+                    LOG_W("[BM] No stable results found, keeping current Normal mode settings.");
+                }
             }
-            // Next freq starts below last stable vcore (inheritance)
-            uint16_t sv = bisect_hi;
-            uint16_t next_vcore = (sv > vcore_min + vcore_step) ? (sv - vcore_step) : vcore_min;
-            nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  next_freq);
-            nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, next_vcore);
-            nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, 0);
-            nvs_config_set_u16(NVS_CONFIG_BM_BISECT_HI, 0);
-        } else {
-            // Search lower: bisect between effective_lo and bisect_hi
-            uint16_t steps     = (bisect_hi - effective_lo) / vcore_step;
-            uint16_t mid_steps = steps / 2;
-            if (mid_steps == 0) mid_steps = 1;
-            uint16_t next_vcore = effective_lo + mid_steps * vcore_step;
-            if (next_vcore < vcore_min) next_vcore = vcore_min;
-            LOG_W("[BM] freq=%dMHz: stable at %dmV, search lower → lo=%d hi=%d next=%d",
-                  cur_freq, cur_vcore, effective_lo, bisect_hi, next_vcore);
-            nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, effective_lo);
-            nvs_config_set_u16(NVS_CONFIG_BM_BISECT_HI, bisect_hi);
-            nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  cur_freq);  // same freq
-            nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, next_vcore);
+            reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete, switching to Normal mode with best params");
+            xSemaphoreGive(board->status.reboot_xsem);
+            vTaskDelete(NULL);
+            return;
         }
     } else {
-        // ── Unstable: update bisect_lo and decide next vcore ──────────────────
-        bisect_lo = cur_vcore;
-
-        if (bisect_hi > 0) {
-            // We have a known stable upper bound — binary search between lo and hi
-            if (bisect_hi <= bisect_lo + vcore_step) {
-                // Converged: bisect_hi is already the minimum stable vcore (saved in a prior round)
-                LOG_W("[BM] freq=%dMHz: bisect converged (unstable side), min stable vcore=%dmV.", cur_freq, bisect_hi);
-                nvs_config_set_u16(NVS_CONFIG_BM_LAST_SV, bisect_hi);
-                uint16_t next_freq = cur_freq + freq_step;
-                if (next_freq > freq_max) {
-                    apply_best_and_finish("benchmark complete, all frequencies tested");
-                    return;
+        // Unstable: increase vcore for next round
+        cur_vcore += vcore_step;
+        if (cur_vcore > vcore_max) {
+            LOG_W("[BM] freq=%dMHz unstable at all vcores, skipping to next freq.", cur_freq);
+            cur_freq  += freq_step;
+            cur_vcore  = vcore_min;
+            if (cur_freq > freq_max) {
+                LOG_W("[BM] All frequencies exhausted — benchmark complete, applying best result.");
+                board->status.bm.active = false;
+                nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
+                nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+                nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+                // Select best result: highest avgHR entry in saved results
+                {
+                    char *res_str = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+                    DynamicJsonDocument rdoc(4096);
+                    DeserializationError rerr = deserializeJson(rdoc, res_str);
+                    free(res_str);
+                    uint16_t best_freq = 0, best_vcore = 0;
+                    float    best_avgHR = -1.0f;
+                    if (!rerr && rdoc.is<JsonArray>()) {
+                        for (JsonObject e : rdoc.as<JsonArray>()) {
+                            float avgHR = e["avgHR"] | 0.0f;
+                            if (avgHR > best_avgHR) {
+                                best_avgHR  = avgHR;
+                                best_freq   = e["freq"]  | (uint16_t)0;
+                                best_vcore  = e["vcore"] | (uint16_t)0;
+                            }
+                        }
+                    }
+                    if (best_freq > 0 && best_vcore > 0) {
+                        LOG_W("[BM] Best result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying to Normal mode.",
+                              best_freq, best_vcore, best_avgHR);
+                        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
+                        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
+                    } else {
+                        LOG_W("[BM] No stable results found, keeping current Normal mode settings.");
+                    }
                 }
-                uint16_t sv = bisect_hi;
-                uint16_t next_vcore = (sv > vcore_min + vcore_step) ? (sv - vcore_step) : vcore_min;
-                nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  next_freq);
-                nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, next_vcore);
-                nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, 0);
-                nvs_config_set_u16(NVS_CONFIG_BM_BISECT_HI, 0);
-            } else {
-                // Binary search upward between bisect_lo and bisect_hi
-                uint16_t steps     = (bisect_hi - bisect_lo) / vcore_step;
-                uint16_t mid_steps = steps / 2;
-                if (mid_steps == 0) mid_steps = 1;
-                uint16_t next_vcore = bisect_lo + mid_steps * vcore_step;
-                LOG_W("[BM] freq=%dMHz: unstable at %dmV, bisect → lo=%d hi=%d next=%d",
-                      cur_freq, cur_vcore, bisect_lo, bisect_hi, next_vcore);
-                nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, bisect_lo);
-                nvs_config_set_u16(NVS_CONFIG_BM_BISECT_HI, bisect_hi);
-                nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  cur_freq);
-                nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, next_vcore);
-            }
-        } else {
-            // No stable point found yet — linear scan upward
-            uint16_t next_vcore = cur_vcore + vcore_step;
-            if (next_vcore > vcore_max) {
-                LOG_W("[BM] freq=%dMHz unstable at all vcores, skipping to next freq.", cur_freq);
-                uint16_t next_freq = cur_freq + freq_step;
-                if (next_freq > freq_max) {
-                    apply_best_and_finish("benchmark complete, all frequencies exhausted");
-                    return;
-                }
-                uint16_t sv = nvs_config_get_u16(NVS_CONFIG_BM_LAST_SV, 0);
-                uint16_t nv = (sv > vcore_min + vcore_step) ? (sv - vcore_step) : vcore_min;
-                nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  next_freq);
-                nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, nv);
-                nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, 0);
-                nvs_config_set_u16(NVS_CONFIG_BM_BISECT_HI, 0);
-            } else {
-                LOG_W("[BM] freq=%dMHz: unstable at %dmV, linear scan up → %dmV", cur_freq, cur_vcore, next_vcore);
-                nvs_config_set_u16(NVS_CONFIG_BM_BISECT_LO, bisect_lo);
-                nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  cur_freq);
-                nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, next_vcore);
+                reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark complete (all unstable), switching to Normal mode");
+                xSemaphoreGive(board->status.reboot_xsem);
+                vTaskDelete(NULL);
+                return;
             }
         }
     }
 
     // ── Write next round state and reboot ─────────────────────────────────────
-    LOG_W("[BM] Next round: freq=%dMHz vcore=%dmV, rebooting...",
-          nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,  0),
-          nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, 0));
+    nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  cur_freq);
+    nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, cur_vcore);
+    LOG_W("[BM] Next round: freq=%dMHz vcore=%dmV, rebooting...", cur_freq, cur_vcore);
     delay(500);
-    reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark advancing to next round");
+    reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark advancing to freq=%d vcore=%d", cur_freq, cur_vcore);
     xSemaphoreGive(board->status.reboot_xsem);
     vTaskDelete(NULL);
 }
