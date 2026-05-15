@@ -17,7 +17,6 @@ MinerApp& MinerApp::instance() {
 /*──────────────────────────────────────────────
   init()  –  hardware pre-init + board init
 ──────────────────────────────────────────────*/
-#include <Arduino.h>
 bool MinerApp::init() {
     Serial.setTimeout(20);
     Serial.begin(115200);
