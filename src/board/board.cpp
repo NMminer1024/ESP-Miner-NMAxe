@@ -388,11 +388,11 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.max_vcore            = 1300;
                 config.asic.diff_thr_init        = 1024*2;
                 config.asic.job_interval_ms      = 500;
-                config.ui.dashboard_page.power.ibus          = {0.0f, 11.0f};
-                config.ui.dashboard_page.power.power         = {0.0f, 130.0f};
-                config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, 800.0f};
-                config.ui.dashboard_page.performance.vcore_req      = {1.00f, 1.500f};
-                config.ui.dashboard_page.performance.vcore_measure  = {1.00f, 1.500f};
+                config.ui.dashboard_page.power.ibus          = {0.0f, 12.0f};
+                config.ui.dashboard_page.power.power         = {0.0f, 140.0f};
+                config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, 850.0f};
+                config.ui.dashboard_page.performance.vcore_req      = {1.00f, 1.400f};
+                config.ui.dashboard_page.performance.vcore_measure  = {1.00f, 1.400f};
                 config.ui.setting_page.oc = {
                         {"515 MHz",           515},
                         {"550 MHz",           550},
@@ -550,7 +550,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             fan_cfg.pid.output_min           = 0.00f;
             fan_cfg.pid.output_max           = 100.0f;
             fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
-            fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_VCORE_TARGET_TEMP, "85")).toFloat();
+            fan_cfg.target_temp              = String(nvs_config_get_string(NVS_CONFIG_VCORE_TARGET_TEMP, "70")).toFloat();
             config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
             break;
         
