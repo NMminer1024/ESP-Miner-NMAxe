@@ -9,60 +9,78 @@
 #include "drivers/extio/tca9554.h"
 
 BoardModelType get_board_model(){
+    // ── Step 1: active discharge ──────────────────────────────────────────────
+    // Drive all model-select pins OUTPUT LOW to discharge any external
+    // capacitance (e.g. fan-PWM filter caps on GPIO10) that may have charged
+    // during power-on.  At this point in boot no power rails are active, so
+    // briefly asserting LOW on these pins is safe for all board variants.
+    pinMode(NM_MODEL_SELECT_PIN0, OUTPUT); digitalWrite(NM_MODEL_SELECT_PIN0, LOW);
+    pinMode(NM_MODEL_SELECT_PIN1, OUTPUT); digitalWrite(NM_MODEL_SELECT_PIN1, LOW);
+    pinMode(NM_MODEL_SELECT_PIN2, OUTPUT); digitalWrite(NM_MODEL_SELECT_PIN2, LOW);
+    delay(20); // hold LOW long enough to discharge external capacitance
+
+    // ── Step 2: release to INPUT_PULLUP ──────────────────────────────────────
+    // Board pull resistors now determine the stable logical level:
+    //   NMAxe / Gamma : PIN2 pulled HIGH by board hardware  → reads 1
+    //   QAxe++        : PIN2 pulled LOW  by board hardware  → reads 0
     pinMode(NM_MODEL_SELECT_PIN0, INPUT_PULLUP);
     pinMode(NM_MODEL_SELECT_PIN1, INPUT_PULLUP);
     pinMode(NM_MODEL_SELECT_PIN2, INPUT_PULLUP);
 
-    // Per-pin debounce: each pin must read the same level continuously for
-    // STABLE_MS before it is considered settled.  Glitches on one pin only
-    // reset that pin's counter; the others keep accumulating.
+    // ── Step 3: debounce ─────────────────────────────────────────────────────
+    // Only accept a raw value that:
+    //   a) matches a known-valid board combination, AND
+    //   b) has been continuously stable for STABLE_MS.
+    // Invalid transients (e.g. 0b101 while a cap finishes discharging) are
+    // ignored; only legal board codes reset / accumulate the stable counter.
     constexpr uint32_t SAMPLE_INTERVAL_MS = 10;
     constexpr uint32_t STABLE_MS          = 500;
     constexpr uint32_t STABLE_SAMPLES     = STABLE_MS / SAMPLE_INTERVAL_MS; // 50
+    constexpr uint32_t TIMEOUT_SAMPLES    = 3000 / SAMPLE_INTERVAL_MS;      // 3 s
 
-    static const uint8_t PINS[3] = {
-        NM_MODEL_SELECT_PIN0,
-        NM_MODEL_SELECT_PIN1,
-        NM_MODEL_SELECT_PIN2,
+    auto read_raw = []() -> uint8_t {
+        return static_cast<uint8_t>(
+            (digitalRead(NM_MODEL_SELECT_PIN0) << 2) |
+            (digitalRead(NM_MODEL_SELECT_PIN1) << 1) |
+            (digitalRead(NM_MODEL_SELECT_PIN2))
+        );
     };
-    int8_t   last[3] = {-1, -1, -1}; // -1 = not yet sampled
-    uint32_t cnt[3]  = { 0,  0,  0}; // consecutive-same-level count
+    auto is_valid_raw = [](uint8_t r) -> bool {
+        return r == 0b111 || r == 0b011 || r == 0b100 || r == 0b110;
+    };
+
+    uint8_t  last_raw    = 0xFF;
+    uint32_t stable_cnt  = 0;
+    uint32_t timeout_cnt = 0;
 
     while (true) {
-        bool all_stable = true;
-        for (int i = 0; i < 3; i++) {
-            const int8_t cur = static_cast<int8_t>(digitalRead(PINS[i]));
-            if (cur != last[i]) {
-                // level changed (or first sample) — restart this pin's window
-                last[i] = cur;
-                cnt[i]  = 1;
-            } else {
-                cnt[i]++;
-            }
-            if (cnt[i] < STABLE_SAMPLES) {
-                all_stable = false;
-            }
+        const uint8_t raw = read_raw();
+        if (raw == last_raw) {
+            stable_cnt++;
+        } else {
+            last_raw   = raw;
+            stable_cnt = 1;
         }
-        if (all_stable) break;
+        if (stable_cnt >= STABLE_SAMPLES && is_valid_raw(raw)) break;
+        if (++timeout_cnt >= TIMEOUT_SAMPLES) {
+            LOG_W("[Board] Pin debounce timeout; last raw=0b%d%d%d",
+                  (last_raw >> 2) & 1, (last_raw >> 1) & 1, last_raw & 1);
+            break;
+        }
         delay(SAMPLE_INTERVAL_MS);
     }
 
-    // last[] now holds the debounced level for each pin
-    const uint8_t raw = static_cast<uint8_t>(
-        (last[0] << 2) | (last[1] << 1) | last[2]
-    );
+    LOG_I("[Board] GPIO%d=%d GPIO%d=%d GPIO%d=%d raw=0b%d%d%d",
+          NM_MODEL_SELECT_PIN0, (last_raw >> 2) & 1,
+          NM_MODEL_SELECT_PIN1, (last_raw >> 1) & 1,
+          NM_MODEL_SELECT_PIN2,  last_raw        & 1,
+          (last_raw >> 2) & 1, (last_raw >> 1) & 1, last_raw & 1);
 
     // 0b111 NMAXE
     // 0b011 NMAXE_GAMMA
     // 0b100 NMQAXE++ 2 phase
     // 0b110 NMQAXE++ 3 phase
-    // 0b000 BOARD_UNKNOWN
-    LOG_W("Board model detect: GPIO%d=%d GPIO%d=%d GPIO%d=%d raw=0b%d%d%d",
-          NM_MODEL_SELECT_PIN0, last[0],
-          NM_MODEL_SELECT_PIN1, last[1],
-          NM_MODEL_SELECT_PIN2, last[2],
-          last[0], last[1], last[2]);
-    switch (raw) {
+    switch (last_raw) {
         case 0b111: return NMAXE;
         case 0b011: return NMAXE_GAMMA;
         case 0b100: return NMQAXE_PLUS_PLUS;
@@ -72,8 +90,8 @@ BoardModelType get_board_model(){
 }
 
 BoardSpecConfig get_board_config(BoardModelType model) {
-    BoardSpecConfig config{};
-    fan_config_t fan_cfg{};
+    BoardSpecConfig config;
+    fan_config_t fan_cfg;
     switch(model) {
         case NMAXE:
             config.name                      = BOARD_NMAXE_NAME;
@@ -561,6 +579,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
 }
 
 void hardware_pre_init(BoardSpecConfig config){
+    Serial.setTimeout(20);
+    Serial.begin(115200);
+    delay(100);
+
     // PSRAM explicit init + sanity check.
     // Arduino-ESP32 initialises PSRAM automatically before setup(), but on boards
     // with non-standard PSRAM chips (e.g. QPI vs OPI) the silent auto-init can

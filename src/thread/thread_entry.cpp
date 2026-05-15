@@ -1922,10 +1922,43 @@ void fan_thread_entry(void *args){
         LOG_D("Fan[%d] initialized with torch pin %d, pwm pin %d", fan.id, fan.init.torch.pulse_gpio_num, fan.init.pwm.pin);
     }
 
-    // polarity detection
-    for(auto &fan : board->info.spec.fans){
-        fan.polarity = guess_fan_polarity(fan.init);
-        LOG_I("Guess fan[%d] polarity :[%s]", fan.id, fan.polarity ? "inverted" : "normal");
+    // Local helper types for parallel fan init — local structs + captureless lambdas decay to TaskFunction_t
+    struct PolarityArg {
+        fan_init_t        init_param;   // copied — each fan owns independent LEDC ch + PCNT unit
+        bool             *out_polarity;
+        SemaphoreHandle_t done;
+    };
+    struct SelfTestArg {
+        fan_init_t        init_param;
+        bool              fan_invert;
+        fan_status_t     *fan_status;
+        uint16_t          rpm_thr;
+        SemaphoreHandle_t done;
+    };
+
+    // polarity detection — all fans probed in parallel
+    {
+        auto polarity_task = [](void *pv) {
+            auto *a = static_cast<PolarityArg*>(pv);
+            *a->out_polarity = guess_fan_polarity(a->init_param);
+            xSemaphoreGive(a->done);
+            vTaskDelete(NULL);
+        };
+        size_t n = board->info.spec.fans.size();
+        SemaphoreHandle_t pol_done = xSemaphoreCreateCounting(n, 0);
+        std::vector<PolarityArg> pol_args(n);
+        size_t i = 0;
+        for (auto &fan : board->info.spec.fans) {
+            pol_args[i].init_param   = fan.init;
+            pol_args[i].out_polarity = &fan.polarity;
+            pol_args[i].done         = pol_done;
+            xTaskCreate(polarity_task, "fan_pol", 4096, &pol_args[i], uxTaskPriorityGet(NULL), NULL);
+            i++;
+        }
+        for (size_t j = 0; j < n; j++) xSemaphoreTake(pol_done, portMAX_DELAY);
+        vSemaphoreDelete(pol_done);
+        for (auto &fan : board->info.spec.fans)
+            LOG_I("Guess fan[%d] polarity :[%s]", fan.id, fan.polarity ? "inverted" : "normal");
     }
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_FAN_POLARITY_DETECT);
 
@@ -1948,33 +1981,40 @@ void fan_thread_entry(void *args){
         return nullptr;
     };
 
-    // fan self test
+    // fan self test — all fans tested in parallel
     while(true){
-        bool self_test_result[board->info.spec.fans.size()] = {false,}; // initialize all to false
-        bool all_fan_ok = true;
-
-        for(auto &fan : board->status.fan.list){
-            if(self_test_result[fan.id])  continue;
-            
+        auto selftest_task = [](void *pv) {
+            auto *a = static_cast<SelfTestArg*>(pv);
+            uint16_t rpm = 0;
+            for (uint8_t i = 0; i < 3; i++)
+                rpm = measure_fan_rpm_for_duration(a->init_param, 1.0f, 1000, a->fan_invert);
+            a->fan_status->rpm       = rpm;
+            a->fan_status->self_test = (rpm > a->rpm_thr);
+            LOG_W("Fan[%d] self test result: %s, measured rpm: %d, threshold rpm: %d",
+                  a->fan_status->id, a->fan_status->self_test ? "OK" : "FAIL", rpm, a->rpm_thr);
+            xSemaphoreGive(a->done);
+            vTaskDelete(NULL);
+        };
+        size_t n = board->status.fan.list.size();
+        SemaphoreHandle_t st_done = xSemaphoreCreateCounting(n, 0);
+        std::vector<SelfTestArg> st_args(n);
+        size_t i = 0;
+        for (auto &fan : board->status.fan.list) {
             fan_config_t* fan_cfg = get_fan_config(fan.id);
-            if(fan_cfg == nullptr) continue; // skip if fan config not found
-            
-            bool fan_invert = fan_cfg->polarity;  // find fan polarity by id from config
-            fan_init_t init_param = fan_cfg->init;// find fan init config by id from config
-
-            for(uint8_t i = 0; i < 3; i++){
-                fan.rpm = measure_fan_rpm_for_duration(init_param, 1.0, 1000, fan_invert); 
-            }
-
-            fan.self_test = (fan.rpm > fan_cfg->init.self_test_rpm_thr) ? true : false;
-            self_test_result[fan.id] = fan.self_test;
-            LOG_W("Fan[%d] self test result: %s, measured rpm: %d, threshold rpm: %d", fan.id, fan.self_test ? "OK" : "FAIL", fan.rpm, fan_cfg->init.self_test_rpm_thr);
+            if (fan_cfg == nullptr) { xSemaphoreGive(st_done); i++; continue; }
+            st_args[i].init_param = fan_cfg->init;
+            st_args[i].fan_invert = fan_cfg->polarity;
+            st_args[i].fan_status = &fan;
+            st_args[i].rpm_thr    = fan_cfg->init.self_test_rpm_thr;
+            st_args[i].done       = st_done;
+            xTaskCreate(selftest_task, "fan_st", 4096, &st_args[i], uxTaskPriorityGet(NULL), NULL);
+            i++;
         }
+        for (size_t j = 0; j < n; j++) xSemaphoreTake(st_done, portMAX_DELAY);
+        vSemaphoreDelete(st_done);
 
-        for(auto &fan : board->status.fan.list){
-            // if any fan self test result is false, set all_fan_ok to false
-            all_fan_ok = all_fan_ok && self_test_result[fan.id];
-        }
+        bool all_fan_ok = true;
+        for (auto &fan : board->status.fan.list) all_fan_ok = all_fan_ok && fan.self_test;
 
         if(all_fan_ok) {
             LOG_W("All fans passed self test.");

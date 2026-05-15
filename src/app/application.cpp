@@ -25,12 +25,13 @@ bool MinerApp::init() {
 
     BoardSpecConfig config{};
     BoardModelType  model = BOARD_UNKNOWN;
-    delay(500); // allow time for hard model selection pins to stabilize
+    // get_board_model() internally debounces the selection pins (up to 5 s),
+    // so no extra pre-delay is needed here.
     model  = get_board_model();
     if (model == BOARD_UNKNOWN) {
-        LOG_E("Unknown board model detected; hardware init stopped to avoid invalid pin/function-pointer use.");
-        LOG_E("Expected raw model pins: NMAXE=111, Gamma=011, QAxe++=100, QAxe++ Rev6.1=110.");
         while (true) {
+            LOG_E("Unknown board model detected; hardware init stopped to avoid invalid pin/function-pointer use.");
+            LOG_E("Expected raw model pins: NMAXE=111, Gamma=011, QAxe++=100, QAxe++ Rev6.1=110.");
             delay(1000);
         }
     }
