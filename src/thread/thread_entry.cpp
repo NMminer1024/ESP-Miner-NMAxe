@@ -1866,12 +1866,14 @@ void daemon_thread_entry(void *args){
                         "no stratum traffic for %lums", (unsigned long)MINER_STRATUM_ALIVE_TIMEOUT);
       xSemaphoreGive(board->status.reboot_xsem);
     }
-    //ASIC daemon
-    if(millis() - board->status.miner.asic_update > MINER_ASIC_ALIVE_TIMEOUT){
-      LOG_W("ASIC seems frozen, restarting...");
-      reboot_intent_set(REBOOT_INTENT_ASIC_FROZEN,
-                        "no ASIC reply for %lums", (unsigned long)MINER_ASIC_ALIVE_TIMEOUT);
-      xSemaphoreGive(board->status.reboot_xsem);
+    //ASIC daemon — skipped in benchmark mode (benchmark_thread handles zero-HR abort itself)
+    if(board->status.bm_mode == 0) {
+      if(millis() - board->status.miner.asic_update > MINER_ASIC_ALIVE_TIMEOUT){
+        LOG_W("ASIC seems frozen, restarting...");
+        reboot_intent_set(REBOOT_INTENT_ASIC_FROZEN,
+                          "no ASIC reply for %lums", (unsigned long)MINER_ASIC_ALIVE_TIMEOUT);
+        xSemaphoreGive(board->status.reboot_xsem);
+      }
     }
   }
   LOG_W("Daemon thread exiting...");
