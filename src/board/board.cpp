@@ -417,7 +417,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             } else { // NMQAXE_PLUS_PLUS_REV61
                 config.display_name              = BOARD_NMQAXE_PLUS_PLUS_REV61_NAME;
                 config.asic.default_frq          = 750;
-                config.asic.default_vcore        = 1225;
+                config.asic.default_vcore        = 1250;
                 config.asic.min_vcore            = 1100;
                 config.asic.max_vcore            = 1550;
                 config.asic.diff_thr_init        = 1024;
@@ -442,8 +442,8 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                         {"1150 mV",           1150},
                         {"1175 mV",           1175},
                         {"1200 mV",           1200},
-                        {"1225 mV (default)", 1225},
-                        {"1250 mV",           1250},
+                        {"1225 mV",           1225},
+                        {"1250 mV (default)", 1250},
                         {"1275 mV",           1275},
                         {"1300 mV",           1300},
                         {"1350 mV",           1350},
