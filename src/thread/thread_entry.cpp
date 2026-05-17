@@ -71,7 +71,7 @@ void power_loop_thread_entry(void *args){
 
     uint32_t _pwr_debug_last_ms = 0;
     while(true){
-        delay(100);
+        delay(50);
 #if 0
         // debugPrint throttled to once every 3 seconds
         uint32_t _now = millis();
@@ -1907,12 +1907,12 @@ void fan_thread_entry(void *args){
         float asic_avg  = (asic_cnt  > 0) ? asic_sum  / asic_cnt  : NAN;
         bool vcore_ok = !isnan(vcore_avg);
         bool asic_ok  = !isnan(asic_avg);
-        if(vcore_ok) LOG_W("TMP102 VRM : OK %.1fC",  vcore_avg);
+        if(vcore_ok) LOG_D("TMP102 VRM : OK %.1fC",  vcore_avg);
         else         LOG_W("TMP102 VRM : FAIL (no response)");
-        if(asic_ok)  LOG_W("TMP102 ASIC: OK %.1fC",  asic_avg);
+        if(asic_ok)  LOG_D("TMP102 ASIC: OK %.1fC",  asic_avg);
         else         LOG_W("TMP102 ASIC: FAIL (no response)");
         if(vcore_ok && asic_ok) break;
-        LOG_W("TMP102 self test failed, retrying...");
+        LOG_E("TMP102 self test failed, retrying...");
         delay(500);
     }
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_TMP_READY);

@@ -180,7 +180,7 @@ void TPS53647Class::hw_init(void){
     // Establish communication with regulator
     uint16_t device_code = 0x00;
     this->_read_reg(PMBUS_MFR_SPECIFIC_44, (uint8_t*)&device_code, 2);
-    LOG_I("TPS53647 Device ID: 0x%04X", device_code);
+    LOG_D("TPS53647 Device ID: 0x%04X", device_code);
 
     if (device_code != 0x01f0) {
         LOG_E("Cannot find TPS53647 buck controller");
@@ -316,9 +316,20 @@ uint32_t TPS53647Class::get_ibus(void){
 }
 
 uint32_t TPS53647Class::get_vcore(void){
-    uint32_t vadc = this->get_vcore_adc();
-    LOG_D("vcore %dmv", vadc);
-    return (vadc * GAIN_VCORE_SAMPLE);
+    // ── PMBus READ_VOUT diagnostic (VID mode: low byte is VID code) ──────────
+    // {
+    //     uint16_t raw_vout = 0;
+    //     this->_read_reg(PMBUS_READ_VOUT, (uint8_t*)&raw_vout, 2);
+    //     uint8_t vid = (uint8_t)(raw_vout & 0xFF);
+    //     uint32_t vcore_pmbus_mv = (vid == 0) ? 0u : (uint32_t)((vid - 1) * 5 + 250);
+    //     LOG_W("[TPS53647] PMBus READ_VOUT VID=0x%02X => %u mV", vid, vcore_pmbus_mv);
+    //     return vcore_pmbus_mv;
+    // }
+
+    uint32_t vadc     = this->get_vcore_adc();
+    uint32_t vcore_mv = (uint32_t)(vadc * GAIN_VCORE_SAMPLE);
+    LOG_D("[TPS53647] ADC vcore %u mV (x2 gain -> %u mV)", vadc, vcore_mv);
+    return vcore_mv;
 }
 
 bool TPS53647Class::is_oc_fault(void){

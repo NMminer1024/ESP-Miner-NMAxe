@@ -385,7 +385,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_frq          = 600;
                 config.asic.default_vcore        = 1150;
                 config.asic.min_vcore            = 1000;
-                config.asic.max_vcore            = 1300;
+                config.asic.max_vcore            = 1400;
                 config.asic.diff_thr_init        = 1024*2;
                 config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 12.0f};
