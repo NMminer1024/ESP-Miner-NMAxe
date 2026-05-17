@@ -41,9 +41,12 @@ size_t BMxxx::receive(uint8_t *buf, uint16_t len, uint32_t timeout_ms){
     size_t received = 0;
     uint32_t start_time = millis();
     while (received < len) {
-        if (this->_serial.available()) {
-            uint8_t data = this->_serial.read();
-            buf[received++] = data;
+        int available = this->_serial.available();
+        while ((available-- > 0) && (received < len)) {
+            buf[received++] = this->_serial.read();
+        }
+        if (received >= len) {
+            break;
         }
         if (millis() - start_time >= timeout_ms) break;
         else delay(1);

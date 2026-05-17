@@ -1,0 +1,11 @@
+[
+    {
+        "coreVoltage": "1150mV",
+        "frequency": "540MHz",
+        "expectedHashRate": "4406.4GH/s",
+        "averageHashRate": "4307.1GH/s",
+        "averageTemperature": "36.8'C",
+        "efficiencyJTH": "14.47J/TH",
+        "averagePower": "61.89W"
+    }
+]
