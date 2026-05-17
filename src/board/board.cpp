@@ -385,14 +385,14 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_frq          = 600;
                 config.asic.default_vcore        = 1150;
                 config.asic.min_vcore            = 1000;
-                config.asic.max_vcore            = 1400;
+                config.asic.max_vcore            = 1300;
                 config.asic.diff_thr_init        = 1024*2;
                 config.asic.job_interval_ms      = 500;
-                config.ui.dashboard_page.power.ibus          = {0.0f, 12.0f};
-                config.ui.dashboard_page.power.power         = {0.0f, 140.0f};
-                config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, 850.0f};
-                config.ui.dashboard_page.performance.vcore_req      = {1.00f, 1.400f};
-                config.ui.dashboard_page.performance.vcore_measure  = {1.00f, 1.400f};
+                config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
+                config.ui.dashboard_page.power.power         = {0.0f, 160.0f};
+                config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, 800.0f};
+                config.ui.dashboard_page.performance.vcore_req      = {1.00f, 1.300f};
+                config.ui.dashboard_page.performance.vcore_measure  = {1.00f, 1.300f};
                 config.ui.setting_page.oc = {
                         {"515 MHz",           515},
                         {"550 MHz",           550},
@@ -402,7 +402,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                         {"650 MHz ",          650},
                         {"700 MHz",           700},
                         {"750 MHz",           750},
-                        {"800 MHz",           800},
                     };
                 config.ui.setting_page.vc = {
                         {"1025 mV",           1025},
@@ -413,7 +412,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                         {"1175 mV",           1175},
                         {"1200 mV",           1200},
                         {"1225 mV ",          1225},
-                        {"1250 mV",           1250},
                     };
                 config.create_power_instance     = create_qaxepp_2ph_power_instance;  // 2-phase
             } else { // NMQAXE_PLUS_PLUS_REV61
