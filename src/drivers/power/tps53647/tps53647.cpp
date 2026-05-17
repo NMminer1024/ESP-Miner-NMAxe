@@ -227,7 +227,7 @@ void TPS53647Class::hw_init(void){
     // 1011:57A
     // 1100:60A
     // 1101:63A
-    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0b0010 & 0x0F); 
+    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0b0100 & 0x0F); 
 
     // set number of phases
     this->_set_phases(this->_cfg.num_phases);
@@ -299,6 +299,7 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
 void TPS53647Class::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
     this->_vcore_min_mv = min_mv;
     this->_vcore_max_mv = max_mv;
+    LOG_I("Vcore range from %dmv to %dmv",this->_vcore_min_mv, this->_vcore_max_mv = max_mv);
 }
 
 uint32_t TPS53647Class::get_vbus(void){
