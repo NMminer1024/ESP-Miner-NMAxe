@@ -386,7 +386,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_vcore        = 1150;
                 config.asic.min_vcore            = 1000;
                 config.asic.max_vcore            = 1300;
-                config.asic.diff_thr_init        = 1024*2;
+                config.asic.diff_thr_init        = 1024;
                 config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
                 config.ui.dashboard_page.power.power         = {0.0f, 160.0f};
@@ -420,7 +420,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_vcore        = 1350;
                 config.asic.min_vcore            = 1100;
                 config.asic.max_vcore            = 1500;
-                config.asic.diff_thr_init        = 1024*2;
+                config.asic.diff_thr_init        = 1024;
                 config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 18.0f};
                 config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
