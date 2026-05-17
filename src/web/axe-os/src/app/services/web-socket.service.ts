@@ -17,7 +17,8 @@ export class WebsocketService {
     // always close any existing socket before opening a new one
     this._close();
 
-    const ws = new WebSocket(`ws://${window.location.hostname}/ws`);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     this._ws = ws;
 
     ws.onmessage = (e: MessageEvent) => {
