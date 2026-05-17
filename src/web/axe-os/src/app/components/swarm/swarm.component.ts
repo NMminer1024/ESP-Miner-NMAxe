@@ -722,7 +722,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
     return {
       ip,
       Hostname:   id?.hostName   ?? '',
-      BoardType:  id?.hwModel    ?? '',
+      BoardType:  id?.displayName || id?.hwModel || '',
       PoolInUse:  stripStratumPrefix(stratum?.url ?? ''),
       HashRate:   HashSuffixPipe.transform((miner?.hashRate ?? 0) * 1e9),
       Share:      `${rejected}/${accepted}/${rate}%`,

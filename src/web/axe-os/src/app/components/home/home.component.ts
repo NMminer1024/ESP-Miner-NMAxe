@@ -88,7 +88,7 @@ export class HomeComponent implements OnInit {
         info.hostname   = info.hostName;
         info.ssid       = info.wifiSSID;
         info.version    = info.fwVersion;
-        info.boardVersion = info.hwModel;
+        info.boardVersion = idn?.displayName || info.hwModel;
 
         // --- stratum (nested → legacy flat) ---
         info.stratumURLUSED  = info.stratum?.url  || info.usedUrl  || '';
