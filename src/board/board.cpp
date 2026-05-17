@@ -385,7 +385,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_frq          = 600;
                 config.asic.default_vcore        = 1150;
                 config.asic.min_vcore            = 1000;
-                config.asic.max_vcore            = 1300;
+                config.asic.max_vcore            = 1350;
                 config.asic.diff_thr_init        = 1024;
                 config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
@@ -416,10 +416,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.create_power_instance     = create_qaxepp_2ph_power_instance;  // 2-phase
             } else { // NMQAXE_PLUS_PLUS_REV61
                 config.display_name              = BOARD_NMQAXE_PLUS_PLUS_REV61_NAME;
-                config.asic.default_frq          = 900;
-                config.asic.default_vcore        = 1350;
+                config.asic.default_frq          = 750;
+                config.asic.default_vcore        = 1225;
                 config.asic.min_vcore            = 1100;
-                config.asic.max_vcore            = 1500;
+                config.asic.max_vcore            = 1550;
                 config.asic.diff_thr_init        = 1024;
                 config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 18.0f};
@@ -431,10 +431,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                         {"650 MHz ",          650},
                         {"675 MHz",           675},
                         {"700 MHz",           700},
-                        {"750 MHz",           750},
+                        {"750 MHz (default)", 750},
                         {"800 MHz",           800},
                         {"850 MHz",           850},
-                        {"900 MHz (default)", 900},
+                        {"900 MHz",           900},
                         {"950 MHz",           950},
                         {"1000 MHz",          1000},
                     };
@@ -442,11 +442,11 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                         {"1150 mV",           1150},
                         {"1175 mV",           1175},
                         {"1200 mV",           1200},
-                        {"1225 mV ",          1225},
+                        {"1225 mV (default)", 1225},
                         {"1250 mV",           1250},
                         {"1275 mV",           1275},
                         {"1300 mV",           1300},
-                        {"1350 mV (default)", 1350},
+                        {"1350 mV",           1350},
                         {"1400 mV",           1400},
                         {"1450 mV",           1450},
                     };
