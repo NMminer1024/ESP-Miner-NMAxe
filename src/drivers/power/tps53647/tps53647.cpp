@@ -107,10 +107,13 @@ uint8_t TPS53647Class::_mv_to_vid(uint16_t mv){
 
     int reg = (int) ((vlot - this->_chip_min_output_vlot_mv) / 0.005f) + 1;
 
-    // Ensure the register value is within the valid range (0x01 to 0xFF)
+    // Clamp to valid VID range (0x01 to 0xFF); never return 0 for a non-zero request
     if (reg > 0xFF) {
-        LOG_E("Requested voltage %dmV is out of range", mv);
-        reg = 0;
+        LOG_W("Requested voltage %dmV exceeds chip max, clamping to 0xFF", mv);
+        reg = 0xFF;
+    } else if (reg < 1) {
+        LOG_W("Requested voltage %dmV below chip min, clamping to 0x01", mv);
+        reg = 0x01;
     }
     LOG_D("Converted %dmV to VID 0x%02X", mv, reg);
     return reg;
