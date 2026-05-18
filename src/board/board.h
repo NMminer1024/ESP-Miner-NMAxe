@@ -209,6 +209,9 @@ struct BoardSpecConfig {
     BMxxx*       (*create_asic_instance)(HardwareSerial&, uint32_t, uint8_t, uint8_t, uint8_t);
     // Power HAL factory — std::function allows lambda captures for per-board cfg
     std::function<AxePowerHal*(axe_pwr_enable_pin_t, axe_pwr_adc_pin_t, uint8_t, uint8_t, uint8_t)> create_power_instance;
+    // Temperature HAL setup — called after power HAL is constructed; receives the power instance
+    // so TPS53647-based boards can cast and register their built-in temperature reader.
+    std::function<void(AxePowerHal*)> setup_temp_hal;
 };
 
 void hardware_pre_init(BoardSpecConfig config);

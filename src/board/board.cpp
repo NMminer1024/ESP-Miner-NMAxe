@@ -7,6 +7,8 @@
 #include "nmqaxepp.h"
 #include "drivers/iic/i2c_master.h"
 #include "drivers/extio/tca9554.h"
+#include "drivers/fan/tmp102.h"
+#include "drivers/temp/temp_hal.h"
 
 BoardModelType get_board_model(){
     // ── Step 1: active discharge ──────────────────────────────────────────────
@@ -190,6 +192,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.led.enable           = true;
             config.create_asic_instance      = create_axe_asic_instance;
             config.create_power_instance     = create_axe_power_instance;
+            config.setup_temp_hal            = [](AxePowerHal*) { tmp102_register_temp_hal(); };
 
             fan_cfg.id                        = 0;
             fan_cfg.init.pwm.pin              = 41;
@@ -322,6 +325,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.preference.led.enable           = true;
             config.create_asic_instance      = create_gamma_asic_instance;
             config.create_power_instance     = create_gamma_power_instance;
+            config.setup_temp_hal            = [](AxePowerHal*) { tmp102_register_temp_hal(); };
 
             fan_cfg.id                       = 0;
             fan_cfg.init.pwm.pin              = 41;
@@ -452,6 +456,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                     };
                 config.create_power_instance     = create_qaxepp_3ph_power_instance; // 3-phase
             }
+            config.setup_temp_hal = [](AxePowerHal* pwr) {
+                tps53647_register_vcore_temp_hal(static_cast<TPS53647Class*>(pwr));
+                tmp102_register_asic_temp_hal();
+            };
             config.asic.req_frq             = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic.default_frq);
             config.asic.req_vcore           = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};

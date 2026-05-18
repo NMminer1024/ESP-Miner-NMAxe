@@ -125,10 +125,14 @@ public:
     uint32_t get_vbus(void) override;
     uint32_t get_ibus(void) override;
     uint32_t get_vcore(void) override;
+    float    get_temperature(void);   // reads PMBUS_READ_TEMPERATURE_1 via SLINEAR11
     void debugPrint(void) override;
     bool is_oc_fault(void) override;
     bool is_oc_warn(void)  override;
     void clear_faults(void) override;
 };
+
+// Register TPS53647 instance as the Vcore temperature source in temp_hal
+void tps53647_register_vcore_temp_hal(TPS53647Class *instance);
 
 #endif 

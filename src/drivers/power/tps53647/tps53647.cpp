@@ -1,5 +1,6 @@
 #include "tps53647.h"
 #include "utils/logger/logger.h"
+#include "drivers/temp/temp_hal.h"
 #include <driver/i2c.h>
 
 /** For NMQAxe++ **/
@@ -397,4 +398,25 @@ void TPS53647Class::debugPrint(void){
         status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1,
         iout_oc_fault_resp, (iout_oc_fault_resp >> 6) & 0x3, iout_oc_fault_resp & 0x7);
     LOG_W("%s", buf);
+}
+
+// ---------------------------------------------------------------------------
+// Temperature reading (PMBUS_READ_TEMPERATURE_1, SLINEAR11 format)
+// ---------------------------------------------------------------------------
+float TPS53647Class::get_temperature(void) {
+    uint8_t data[2] = {0, 0};
+    if (_read_reg(PMBUS_READ_TEMPERATURE_1, data, 2) != 0) return NAN;
+    uint16_t raw = (uint16_t)data[0] | ((uint16_t)data[1] << 8);
+    return _slinear11_to_float(raw);
+}
+
+// ---------------------------------------------------------------------------
+// Temperature HAL registration
+// ---------------------------------------------------------------------------
+static float _tps53647_temp_cb(void *ctx) {
+    return static_cast<TPS53647Class*>(ctx)->get_temperature();
+}
+
+void tps53647_register_vcore_temp_hal(TPS53647Class *inst) {
+    temp_hal_register_vcore(_tps53647_temp_cb, inst);
 }

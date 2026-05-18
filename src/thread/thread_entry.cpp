@@ -1897,9 +1897,9 @@ void fan_thread_entry(void *args){
         int   vcore_cnt = 0, asic_cnt = 0;
         for(int i = 0; i < 3; i++){
             float t;
-            t = get_vcore_temperature();
+            t = temp_hal_get_vcore();
             if(!isnan(t)){ vcore_sum += t; vcore_cnt++; }
-            t = get_asic_temperature();
+            t = temp_hal_get_asic();
             if(!isnan(t)){ asic_sum += t; asic_cnt++; }
             delay(50);
         }
@@ -3000,8 +3000,8 @@ void display_thread_entry(void *args){
   // Blocks here until both TMP102 sensors pass (fan_thread retries until all good)
   // Realtime temps shown inline, e.g. "temp sensor check.  43.2C/34.1C"
   while(true){
-    float t_vrm  = get_vcore_temperature();
-    float t_asic = get_asic_temperature();
+    float t_vrm  = temp_hal_get_vcore();
+    float t_asic = temp_hal_get_asic();
     String vrm_str  = isnan(t_vrm)  ? "NAN" : (String(t_vrm,  1) + "C");
     String asic_str = isnan(t_asic) ? "NAN" : (String(t_asic, 1) + "C");
     board->status.ui.page.loading.details.color = 0xFFFFFF;
@@ -3010,8 +3010,8 @@ void display_thread_entry(void *args){
   }
   // TMP_READY means both sensors passed — show final green confirmation
   {
-    float t_vrm  = get_vcore_temperature();
-    float t_asic = get_asic_temperature();
+    float t_vrm  = temp_hal_get_vcore();
+    float t_asic = temp_hal_get_asic();
     String vrm_str  = isnan(t_vrm)  ? "NAN" : (String(t_vrm,  1) + "C");
     String asic_str = isnan(t_asic) ? "NAN" : (String(t_asic, 1) + "C");
     board->status.ui.page.loading.details.color = 0x00FF00;

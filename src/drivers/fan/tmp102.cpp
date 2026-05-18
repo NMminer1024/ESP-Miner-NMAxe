@@ -3,6 +3,7 @@
 #include "utils/logger/logger.h"
 #include "tmp102.h"
 #include "global.h"
+#include "drivers/temp/temp_hal.h"
 #include <cmath>
 
 static uint8_t tmp102_readRegister(uint8_t chipaddr, uint8_t registerAddress, uint8_t *data, uint8_t length) {
@@ -85,4 +86,21 @@ float get_asic_temperature(){
     }
     return NAN;
 }
+
+// ---------------------------------------------------------------------------
+// Temperature HAL registration helpers
+// ---------------------------------------------------------------------------
+static float _tmp102_vcore_cb(void*) {
+    float t;
+    return get_temperature(TMP102_IIC_VCORE_ADDR, &t) ? t : NAN;
+}
+
+static float _tmp102_asic_cb(void*) {
+    float t;
+    return get_temperature(TMP102_IIC_ASIC_ADDR, &t) ? t : NAN;
+}
+
+void tmp102_register_vcore_temp_hal(void) { temp_hal_register_vcore(_tmp102_vcore_cb, nullptr); }
+void tmp102_register_asic_temp_hal(void)  { temp_hal_register_asic (_tmp102_asic_cb,  nullptr); }
+void tmp102_register_temp_hal(void)       { tmp102_register_vcore_temp_hal(); tmp102_register_asic_temp_hal(); }
 

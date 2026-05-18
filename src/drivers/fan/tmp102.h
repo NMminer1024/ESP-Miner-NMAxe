@@ -16,4 +16,9 @@ void tmp102_init();
 float get_vcore_temperature();
 float get_asic_temperature();
 
+// Register TMP102 channels into the temperature HAL
+void tmp102_register_vcore_temp_hal(void); // vcore only
+void tmp102_register_asic_temp_hal(void);  // asic only
+void tmp102_register_temp_hal(void);       // both
+
 #endif 

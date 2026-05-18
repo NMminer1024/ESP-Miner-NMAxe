@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "drivers/power/power_hal.h"
 #include "drivers/fan/tmp102.h"
+#include "drivers/temp/temp_hal.h"
 #include "stratum/stratum.h"
 #include "mining/miner.h"
 #include "market/market.h"

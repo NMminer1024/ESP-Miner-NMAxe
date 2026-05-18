@@ -210,14 +210,12 @@ void MinerApp::_tick_thread_entry(void* args) {
         //update board temperature
         static uint16_t vcore_temp_last_update = 0, asic_temp_last_update = 0;
         if(millis() - vcore_temp_last_update >= 125){
-            board->status.temp.vcore = (float)get_vcore_temperature();
-            board->status.temp.vcore = roundf(board->status.temp.vcore * 10) / 10.0f;
+            board->status.temp.vcore = roundf(temp_hal_get_vcore() * 10) / 10.0f;
             xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_VCORE_TEMP_UPDATE);
             vcore_temp_last_update = millis();
         }
         if(millis() - asic_temp_last_update >= 125){
-            board->status.temp.asic = (float)get_asic_temperature();
-            board->status.temp.asic  = roundf(board->status.temp.asic * 100) / 100.0f;
+            board->status.temp.asic  = roundf(temp_hal_get_asic() * 100) / 100.0f;
             xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
             asic_temp_last_update = millis();
         }
@@ -370,6 +368,11 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
         config.pwr.vcore_regulator_pin, config.pwr.pgood_pin, config.pwr.dc_plug_pin
     );
     if (g_board.power == NULL) { LOG_E("AxePower instance creation failed"); return false; }
+
+    // Register board-specific temperature readers into the temp HAL
+    if (g_board.info.spec.setup_temp_hal) {
+        g_board.info.spec.setup_temp_hal(g_board.power);
+    }
 
     // market
     g_board.market = new MarketClass();
