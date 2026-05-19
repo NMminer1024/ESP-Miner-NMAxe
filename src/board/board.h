@@ -35,13 +35,13 @@
 /*********************************Pin define********************************/
 #define NM_MODEL_SELECT_PIN0                       15
 #define NM_MODEL_SELECT_PIN1                       46 // 
-#define NM_MODEL_SELECT_PIN2                       10 // Default Hihg on Axe and Gamma, QAxe++ default LOW.
+#define NM_MODEL_SELECT_PIN2                       39 // Default LOW on Axe and Gamma, QAxe++ default HIGH.
 
 typedef enum {
-    NMAXE                   = 0b111,
-    NMAXE_GAMMA             = 0b011,
-    NMQAXE_PLUS_PLUS        = 0b100,
-    NMQAXE_PLUS_PLUS_REV61  = 0b110,
+    NMAXE                   = 0b110,
+    NMAXE_GAMMA             = 0b010,
+    NMQAXE_PLUS_PLUS        = 0b101,
+    NMQAXE_PLUS_PLUS_REV61  = 0b111,
     BOARD_UNKNOWN           = 0b000
 } BoardModelType;
 

@@ -394,6 +394,6 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     log_w("\r\n           |::/  /       /:/  /      ");
     log_w("\r\n           /:/  /       /:/  /       ");
     log_w("\r\n           \\/__/        \\/__/      \r\n");
-    log_w("         %s - %s\r\n", g_board.info.spec.name.c_str(), g_board.info.base.fw_version.c_str());
+    log_w("         %s - %s\r\n", g_board.info.spec.display_name.c_str(), g_board.info.base.fw_version.c_str());
     return true;
 }

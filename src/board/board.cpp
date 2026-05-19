@@ -27,7 +27,7 @@ BoardModelType get_board_model(){
     //   QAxe++        : PIN2 pulled LOW  by board hardware  → reads 0
     pinMode(NM_MODEL_SELECT_PIN0, INPUT_PULLUP);
     pinMode(NM_MODEL_SELECT_PIN1, INPUT_PULLUP);
-    pinMode(NM_MODEL_SELECT_PIN2, INPUT_PULLUP);
+    pinMode(NM_MODEL_SELECT_PIN2, INPUT_PULLDOWN);
 
     // ── Step 3: debounce ─────────────────────────────────────────────────────
     // Only accept a raw value that:
@@ -48,7 +48,7 @@ BoardModelType get_board_model(){
         );
     };
     auto is_valid_raw = [](uint8_t r) -> bool {
-        return r == 0b111 || r == 0b011 || r == 0b100 || r == 0b110;
+        return r == 0b110 || r == 0b010 || r == 0b101 || r == 0b111;
     };
 
     uint8_t  last_raw    = 0xFF;
@@ -63,6 +63,7 @@ BoardModelType get_board_model(){
             last_raw   = raw;
             stable_cnt = 1;
         }
+
         if (stable_cnt >= STABLE_SAMPLES && is_valid_raw(raw)) break;
         if (++timeout_cnt >= TIMEOUT_SAMPLES) {
             LOG_W("[Board] Pin debounce timeout; last raw=0b%d%d%d",
@@ -78,15 +79,15 @@ BoardModelType get_board_model(){
           NM_MODEL_SELECT_PIN2,  last_raw        & 1,
           (last_raw >> 2) & 1, (last_raw >> 1) & 1, last_raw & 1);
 
-    // 0b111 NMAXE
-    // 0b011 NMAXE_GAMMA
-    // 0b100 NMQAXE++ 2 phase
-    // 0b110 NMQAXE++ 3 phase
+    // 0b110 NMAXE
+    // 0b010 NMAXE_GAMMA
+    // 0b101 NMQAXE++ 2 phase
+    // 0b111 NMQAXE++ 3 phase
     switch (last_raw) {
-        case 0b111: return NMAXE;
-        case 0b011: return NMAXE_GAMMA;
-        case 0b100: return NMQAXE_PLUS_PLUS;
-        case 0b110: return NMQAXE_PLUS_PLUS_REV61;
+        case 0b110: return NMAXE;
+        case 0b010: return NMAXE_GAMMA;
+        case 0b101: return NMQAXE_PLUS_PLUS;
+        case 0b111: return NMQAXE_PLUS_PLUS_REV61;
         default:    return BOARD_UNKNOWN;
     }
 }
