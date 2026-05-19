@@ -1735,7 +1735,9 @@ void monitor_thread_entry(void *args){
         }
 
         // auto screen page scrolling
-        if((board->status.miner.uptime_session % 10 == 0) && (true == board->status.preference.screen.auto_rolling)){
+        if((board->status.miner.uptime_session % 10 == 0) &&
+           (true == board->status.preference.screen.auto_rolling) &&
+           ((xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) == 0)){
             ui_switch_next_page_cb();
         }
 

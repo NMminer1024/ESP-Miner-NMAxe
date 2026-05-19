@@ -4863,13 +4863,29 @@ void ui_aphorism_page_update(void* args){
   last_update_ms = millis();
 }
 
+static void ui_goto_page_unlocked(int8_t page, lv_anim_enable_t anim) {
+  if(parent_wall && page >= UI_PAGE_LOADING && page <= UI_PAGE_SETTING_SWARM && g_board.status.ui.page.list[page]) {
+    g_board.status.ui.page.current = page;
+    lv_obj_set_tile(parent_wall, g_board.status.ui.page.list[page], anim);
+  }else{
+    LOG_E("invalid page index or parent docker is null!!!");
+  }
+}
+
 void ui_goto_page(int8_t page, lv_anim_enable_t anim) {
-    if(parent_wall && page >= UI_PAGE_LOADING && page <= UI_PAGE_SETTING_SWARM) {
-        g_board.status.ui.page.current = page;
-        lv_obj_set_tile(parent_wall, g_board.status.ui.page.list[page], anim);
-    }else{
-      LOG_E("invalid page index or parent docker is null!!!");
-    }
+  SemaphoreHandle_t mutex = g_board.status.ui.lvgl.drv_xMutex;
+  if(mutex == nullptr) {
+    ui_goto_page_unlocked(page, anim);
+    return;
+  }
+
+  if(xSemaphoreTake(mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+    LOG_W("ui_goto_page lock timeout, page=%d", page);
+    return;
+  }
+
+  ui_goto_page_unlocked(page, anim);
+  xSemaphoreGive(mutex);
 }
 
 void ui_switch_next_page_cb(){
