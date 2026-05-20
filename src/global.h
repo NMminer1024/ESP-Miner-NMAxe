@@ -86,6 +86,7 @@ enum{
     SYS_EVENT_SCREEN_SAVER_TRIGGERED     = (1 << 4),   // screen saver triggered, used to dim the screen
     SYS_EVENT_FIND_NEIGHBOR_TRIGGERED    = (1 << 5),   // Notify to start screen blink when got this event, which indicates where is the neighbor miner
     SYS_EVENT_POWER_OC_FAULT             = (1 << 6),   // power overcurrent fault — prompt user to reset OC settings
+    SYS_EVENT_POWER_OT_FAULT             = (1 << 7),   // power over-temperature fault — prompt user to check cooling
 };
 
 typedef struct {

@@ -100,5 +100,5 @@ void ui_setting_or_swarm_page_update(void* args);
 void ui_screen_saver_page_update(void* args);
 void ui_find_me_page_update(void* args);
 void ui_benchmark_overlay_update(void* args);
-void ui_power_oc_alert_update(void* args);
+void ui_power_alert_update(void* args);  // handles both OC and OT fault overlays
 #endif // DISPLAY_H

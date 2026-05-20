@@ -84,8 +84,9 @@
 struct tps53647_cfg_t {
     uint8_t num_phases;       // 2 or 3
     uint8_t imax;             // max current in A (PMBUS_MFR_SPECIFIC_10)
-    float   ifault;           // OC fault/warn limit in A
+    float   ifault;           // OC fault limit in A; warn = ifault - 2 A
     float   reg_ibus_sample;  // shunt resistance: 0.005 Ω (2-ph) / 0.0025 Ω (3-ph)
+    float   tfault;           // OT fault limit in °C; warn = tfault - 20 °C
 };
 
 class TPS53647Class: public AxePowerHal{
@@ -129,6 +130,8 @@ public:
     void debugPrint(void) override;
     bool is_oc_fault(void) override;
     bool is_oc_warn(void)  override;
+    bool is_ot_fault(void) override;
+    bool is_ot_warn(void)  override;
     void clear_faults(void) override;
 };
 

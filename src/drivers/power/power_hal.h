@@ -55,6 +55,11 @@ public:
     // Caller must invoke clear_faults() after handling to reset sticky bits.
     virtual bool is_oc_fault(void) { return false; }
     virtual bool is_oc_warn(void)  { return false; }
+    // OT (over-temperature) status — sticky/latched bits from STATUS_TEMPERATURE.
+    // Default returns false; only meaningful on PMBus-capable power classes.
+    // Caller must invoke clear_faults() after handling to reset sticky bits.
+    virtual bool is_ot_fault(void) { return false; }
+    virtual bool is_ot_warn(void)  { return false; }
     // Send CLEAR_FAULTS to the regulator to un-latch sticky STATUS_IOUT / STATUS_WORD bits.
     // Call this after a handled OC event or after ASIC startup to discard transient faults.
     virtual void clear_faults(void) {}

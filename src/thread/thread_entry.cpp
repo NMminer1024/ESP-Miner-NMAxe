@@ -82,6 +82,8 @@ void power_loop_thread_entry(void *args){
 #endif
         bool oc_warn  = board->power->is_oc_warn();
         bool oc_fault = board->power->is_oc_fault();
+        bool ot_warn  = board->power->is_ot_warn();
+        bool ot_fault = board->power->is_ot_fault();
         if(oc_fault) {
             LOG_W("Overcurrent FAULT detected! Taking safety actions...");
             // Immediate safety action: shut down ASIC power
@@ -101,6 +103,28 @@ void power_loop_thread_entry(void *args){
             static uint32_t last = millis(); // count in seconds
             if(millis() - last >= 3000) { // if OC warning persists for 10 seconds, log a warning
                 LOG_W("Overcurrent WARNING detected...");
+                last = millis(); // reset count after logging
+            }
+        }
+        else if(ot_fault) {
+            LOG_W("Overtemperature FAULT detected! Taking safety actions...");
+            // Immediate safety action: shut down ASIC power
+            board->power->set_vcore_status(PWR_OFF);
+            // Optionally, shut down other power rails if supported
+            board->power->set_vdd_1v8(PWR_OFF);
+            board->power->set_pll_0v8(PWR_OFF);
+            // Signal the display thread to show the OT alert overlay
+            xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_POWER_OT_FAULT);
+            // Park this thread — display/UI thread keeps running to handle user interaction
+            while(true) {
+                delay(1000);
+                LOG_E("ASIC powered down due to OverTemperature. Please check your cooling system and ambient temperature.");
+            }
+        }
+        else if(ot_warn) {
+            static uint32_t last = millis(); // count in seconds
+            if(millis() - last >= 3000) { // if OT warning persists for 10 seconds, log a warning
+                LOG_W("Overtemperature WARNING detected...");
                 last = millis(); // reset count after logging
             }
         }
@@ -2897,8 +2921,8 @@ void ui_thread_entry(void *args){
                 // benchmark mode overlay — covers active page during sweep
                 ui_benchmark_overlay_update((void*)board);
             }
-            // Power OC alert — highest priority overlay, runs even during screen saver
-            ui_power_oc_alert_update((void*)board);
+            // Power fault alert (OC / OT) — highest priority overlay, runs even during screen saver
+            ui_power_alert_update((void*)board);
             //release mutex
             xSemaphoreGive(board->status.ui.lvgl.drv_xMutex); 
         }

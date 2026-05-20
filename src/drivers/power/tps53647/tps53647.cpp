@@ -236,9 +236,9 @@ void TPS53647Class::hw_init(void){
     // set number of phases
     this->_set_phases(this->_cfg.num_phases);
 
-    // temperature
-    this->_write_word(PMBUS_OT_WARN_LIMIT, this->_float_to_slinear11(95.0f));
-    this->_write_word(PMBUS_OT_FAULT_LIMIT, this->_float_to_slinear11(125.0f));
+    // temperature — thresholds from board config; warn is 20 °C below fault
+    this->_write_word(PMBUS_OT_WARN_LIMIT,  this->_float_to_slinear11(this->_cfg.tfault - 10.0f));
+    this->_write_word(PMBUS_OT_FAULT_LIMIT, this->_float_to_slinear11(this->_cfg.tfault));
 
     // Iout current — warn and fault thresholds from board config
     this->_write_word(PMBUS_IOUT_OC_WARN_LIMIT,  this->_float_to_slinear11(this->_cfg.ifault - 2.0f)); // set OC warn limit 5A below fault limit
@@ -351,6 +351,18 @@ bool TPS53647Class::is_oc_warn(void){
     uint8_t status_iout = 0;
     this->_read_reg(PMBUS_STATUS_IOUT, &status_iout, 1);
     return (status_iout & 0x20) != 0;  // bit5: OC_WARN (sticky/latched)
+}
+
+bool TPS53647Class::is_ot_fault(void){
+    uint8_t status_temp = 0;
+    this->_read_reg(PMBUS_STATUS_TEMPERATURE, &status_temp, 1);
+    return (status_temp & 0x80) != 0;  // bit7: OT_FAULT (sticky/latched)
+}
+
+bool TPS53647Class::is_ot_warn(void){
+    uint8_t status_temp = 0;
+    this->_read_reg(PMBUS_STATUS_TEMPERATURE, &status_temp, 1);
+    return (status_temp & 0x40) != 0;  // bit6: OT_WARN (sticky/latched)
 }
 
 void TPS53647Class::debugPrint(void){
