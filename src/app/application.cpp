@@ -29,8 +29,7 @@ bool MinerApp::init() {
     model  = get_board_model();
     if (model == BOARD_UNKNOWN) {
         while (true) {
-            LOG_E("Unknown board model detected; hardware init stopped to avoid invalid pin/function-pointer use.");
-            LOG_E("Expected raw model pins: NMAXE=111, Gamma=011, QAxe++=100, QAxe++ Rev6.1=110.");
+            LOG_E("Expected raw model pins: NMAXE=110, Gamma=010, QAxe++=101, QAxe++ Rev6.1=111.");
             delay(1000);
         }
     }

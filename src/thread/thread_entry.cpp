@@ -72,7 +72,7 @@ void power_loop_thread_entry(void *args){
     uint32_t _pwr_debug_last_ms = 0;
     while(true){
         delay(50);
-#if 1
+#if 0
         // debugPrint throttled to once every 3 seconds
         uint32_t _now = millis();
         if (_now - _pwr_debug_last_ms >= 2000) {

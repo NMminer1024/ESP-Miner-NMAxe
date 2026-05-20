@@ -586,10 +586,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
 }
 
 void hardware_pre_init(BoardSpecConfig config){
-    Serial.setTimeout(20);
-    Serial.begin(115200);
-    delay(100);
-
     // PSRAM explicit init + sanity check.
     // Arduino-ESP32 initialises PSRAM automatically before setup(), but on boards
     // with non-standard PSRAM chips (e.g. QPI vs OPI) the silent auto-init can
