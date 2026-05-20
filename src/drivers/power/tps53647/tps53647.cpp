@@ -110,10 +110,16 @@ uint8_t TPS53647Class::_mv_to_vid(uint16_t mv){
 
     // Clamp to valid VID range (0x01 to 0xFF); never return 0 for a non-zero request
     if (reg > 0xFF) {
-        LOG_W("Requested voltage %dmV exceeds chip max, clamping to 0xFF", mv);
+        // mv is the TPS-side output target, intentionally above the user-configured ASIC
+        // voltage: power_loop adds extra mV to compensate for the PCB wire voltage drop
+        // between TPS output and ASIC pins. The user's configured ASIC voltage is lower.
+        uint16_t chip_max_mv = (uint16_t)((0xFF - 1) * 5 + this->_chip_min_output_vlot_mv * 1000);
+        LOG_W("To deliver the configured ASIC voltage, TPS must output %dmV (wire-drop compensated), "
+              "but the TPS chip max is %dmV — clamping to chip max", mv, chip_max_mv);
         reg = 0xFF;
     } else if (reg < 1) {
-        LOG_W("Requested voltage %dmV below chip min, clamping to 0x01", mv);
+        uint16_t chip_min_mv = (uint16_t)(this->_chip_min_output_vlot_mv * 1000);
+        LOG_W("TPS output target %dmV (wire-drop compensated) is below chip min %dmV — clamping to chip min", mv, chip_min_mv);
         reg = 0x01;
     }
     LOG_D("Converted %dmV to VID 0x%02X", mv, reg);
