@@ -186,7 +186,7 @@ bool StratumClass::subscribe(){
     this->_is_subscribed = false;
     
     uint32_t id = this->_get_msg_id();
-    String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.subscribe\", \"params\": [\"" +  g_board.info.spec.name + "/" + BOARD_CURRENT_FW_VERSION +"\"]}\n";
+    String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.subscribe\", \"params\": [\"" +  g_board.info.spec.display_name + "/" + BOARD_CURRENT_FW_VERSION +"\"]}\n";
     if(this->pool->write(payload) == 0){
         LOG_E("Failed to send mining.subscribe request");
         return false;
