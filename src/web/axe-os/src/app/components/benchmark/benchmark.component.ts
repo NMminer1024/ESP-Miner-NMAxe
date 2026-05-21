@@ -46,6 +46,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
 
   // Confirmation dialog visibility
   public showStartConfirm = false;
+  public showResumeConfirm = false;
   public showResetConfirm = false;
   public showClearConfirm = false;
   public showApplyConfirm = false;
@@ -54,6 +55,10 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   // Device identity for download filename
   private deviceDisplayName = 'NMAxe';
   private deviceIp = '';
+
+  // Baseline sweep range (from initial GET response, used for resume detection)
+  private loadedFreqMin  = 0;
+  private loadedVcoreMin = 0;
 
   constructor(
     private fb: FormBuilder,
@@ -80,6 +85,8 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         this.curVcore  = data.curVcore;
         this.totalSec  = data.totalSec ?? 0;
         this.startTs   = data.startTs  ?? 0;
+        this.loadedFreqMin  = data.freqMin;
+        this.loadedVcoreMin = data.vcoreMin;
         this.setResults(Array.isArray(data.results) ? data.results : []);
 
         if (this.isRunning) this.startElapsedTimer();
@@ -116,6 +123,17 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
 
   public get stopDisabledTip(): string {
     return !this.isRunning ? 'No benchmark is currently running' : '';
+  }
+
+  public get resumeDisabledTip(): string {
+    if (this.isRunning) return 'Benchmark is currently running — stop it first';
+    if (!this.canResume) return 'No paused benchmark position to resume from';
+    return '';
+  }
+
+  public get canResume(): boolean {
+    return !this.isRunning && this.curFreq > 0 &&
+           (this.curFreq !== this.loadedFreqMin || this.curVcore !== this.loadedVcoreMin);
   }
 
   public get clearDisabledTip(): string {
@@ -229,6 +247,30 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   public confirmStart(): void {
     this.showStartConfirm = false;
     this.doStart();
+  }
+
+  public openResumeConfirm(): void {
+    this.showResumeConfirm = true;
+  }
+
+  public confirmResume(): void {
+    this.showResumeConfirm = false;
+    this.doResume();
+  }
+
+  private doResume(): void {
+    this.systemService.startBenchmark('', { resume: true })
+      .pipe(this.loadingService.lockUIUntilComplete())
+      .subscribe({
+        next: () => {
+          this.isRunning = true;
+          this.toastr.info('Resuming from last position — device will reboot.', 'Resuming...');
+          this.startPolling();
+        },
+        error: (err: any) => {
+          this.toastr.error(`Could not resume: ${err.message}`, 'Error');
+        }
+      });
   }
 
   private doStart(): void {

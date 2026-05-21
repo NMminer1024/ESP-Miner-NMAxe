@@ -2,6 +2,7 @@
 #define AXE_NVS_CONFIG_H
 
 #include <stdint.h>
+#include <esp_err.h>  // esp_err_t
 
 #define NVS_CONFIG_NAMESPACE "main"
 
@@ -75,8 +76,9 @@
 #define NVS_CONFIG_BM_START_TS          "bm_start_ts"
 #define NVS_CONFIG_BM_TOTAL_SEC         "bm_total_sec"
 
-char * nvs_config_get_string(const char * key, const char * default_value);
-void nvs_config_set_string(const char * key, const char * value);
+char *    nvs_config_get_string(const char * key, const char * default_value);
+void      nvs_config_set_string(const char * key, const char * value);
+esp_err_t nvs_config_try_set_string(const char * key, const char * value);  // returns ESP_OK or the NVS error (e.g. ESP_ERR_NVS_NOT_ENOUGH_SPACE)
 
 uint8_t  nvs_config_get_u8(const char * key,  const uint8_t default_value);
 void nvs_config_set_u8(const char * key, const uint8_t value);

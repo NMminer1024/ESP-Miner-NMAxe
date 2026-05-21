@@ -6,6 +6,7 @@
 #include "drivers/fan/fan.h"
 #include "utils/sha/csha256.h"
 #include "nvs/nvs_config.h"
+#include <nvs.h>      // ESP_ERR_NVS_NOT_ENOUGH_SPACE, ESP_ERR_NVS_VALUE_TOO_LONG
 #include <NTPClient.h>
 #include "web/http_server.h"
 #include "web/recovery_page.h"
@@ -3539,8 +3540,35 @@ void benchmark_thread_entry(void *args) {
         results += entry;
         results += "]";
 
-        nvs_config_set_string(NVS_CONFIG_BM_RESULT, results.c_str());
-        LOG_W("[BM] Result saved: %s", entry);
+        // ── LRU trim: try to write to NVS; if the partition is full (accounting
+        // for all other keys), evict the oldest entry and retry — no hardcoded
+        // size threshold, actual free space is determined by the NVS driver.
+        // Entries are flat JSON objects with no nested braces, so the first '}'
+        // after the array open marks the end of the oldest entry.
+        esp_err_t nvs_write_err;
+        do {
+            nvs_write_err = nvs_config_try_set_string(NVS_CONFIG_BM_RESULT, results.c_str());
+            if (nvs_write_err == ESP_OK) break;
+            if (nvs_write_err != ESP_ERR_NVS_NOT_ENOUGH_SPACE &&
+                nvs_write_err != ESP_ERR_NVS_VALUE_TOO_LONG) {
+                LOG_E("[BM] NVS write failed (%s), result not saved.", esp_err_to_name(nvs_write_err));
+                break;
+            }
+            // NVS full — evict the oldest (leftmost) entry
+            int obj_start = results.indexOf('{');
+            if (obj_start < 0) { nvs_write_err = ESP_FAIL; break; }
+            int obj_end = results.indexOf('}', obj_start);
+            if (obj_end < 0) { nvs_write_err = ESP_FAIL; break; }
+            int remove_len = obj_end - obj_start + 1;
+            if ((size_t)(obj_end + 1) < results.length() && results[obj_end + 1] == ',')
+                remove_len++;
+            results.remove(obj_start, remove_len);
+            LOG_W("[BM] NVS full, evicted oldest entry (%u chars remaining).", (unsigned)results.length());
+        } while (results.length() > 2); // stop when only "[]" is left
+
+        if (nvs_write_err == ESP_OK) {
+            LOG_W("[BM] Result saved: %s", entry);
+        }
 
         // Advance to next frequency.
         // Start next freq's vcore one step below the last stable point:

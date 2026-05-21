@@ -44,11 +44,25 @@ void nvs_config_set_string(const char * key, const char * value)
 
     err = nvs_set_str(handle, key, value);
     if (err != ESP_OK) {
+        nvs_close(handle);
         return;
     }
 
     nvs_close(handle);
     return;
+}
+
+// Like nvs_config_set_string but returns the raw NVS error code so the caller
+// can detect ESP_ERR_NVS_NOT_ENOUGH_SPACE and evict data before retrying.
+esp_err_t nvs_config_try_set_string(const char * key, const char * value)
+{
+    nvs_handle handle;
+    esp_err_t err = nvs_open(NVS_CONFIG_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) return err;
+    err = nvs_set_str(handle, key, value);
+    if (err == ESP_OK) nvs_commit(handle);
+    nvs_close(handle);
+    return err;
 }
 
 

@@ -3,8 +3,9 @@
   <h2 class="card-title"><span class="card-icon">🔬</span>Benchmark</h2>
 
   <!-- Status banner -->
-  <div class="bm-status" [class.running]="isRunning" [class.idle]="!isRunning">
-    <span *ngIf="!isRunning">⏸ Idle</span>
+  <div class="bm-status" [class.running]="isRunning" [class.idle]="!isRunning && !canResume" [class.paused]="canResume && !isRunning">
+    <span *ngIf="!isRunning && !canResume">⏸ Idle</span>
+    <span *ngIf="!isRunning && canResume">⏭ Paused at <strong>{{ curFreq }} MHz</strong> / <strong>{{ curVcore }} mV</strong> — click Resume to continue</span>
     <span *ngIf="isRunning">
       ▶ Running — Current: <strong>{{ curFreq }} MHz</strong> / <strong>{{ curVcore }} mV</strong>
       <span *ngIf="elapsedSec > 0" class="bm-elapsed">&nbsp;— Elapsed: <strong>{{ formatDuration(elapsedSec) }}</strong></span>
@@ -72,6 +73,13 @@
               class="p-button-success btn"
               [disabled]="isRunning || !form.valid"
               (click)="openStartConfirm()">
+      </button>
+    </span>
+    <span [pTooltip]="resumeDisabledTip" [tooltipDisabled]="!resumeDisabledTip" tooltipPosition="top" style="display:inline-block">
+      <button pButton type="button" label="Resume" icon="pi pi-step-forward"
+              class="p-button-outlined p-button-success btn"
+              [disabled]="!canResume || isRunning"
+              (click)="openResumeConfirm()">
       </button>
     </span>
     <span [pTooltip]="stopDisabledTip" [tooltipDisabled]="!stopDisabledTip" tooltipPosition="top" style="display:inline-block">
@@ -234,6 +242,31 @@
     <button pButton type="button" label="Clear Anyway" icon="pi pi-trash"
             class="p-button-danger btn"
             (click)="confirmClear()">
+    </button>
+  </ng-template>
+</p-dialog>
+
+<!-- Resume Benchmark -->
+<p-dialog [(visible)]="showResumeConfirm"
+          header="Resume Benchmark?"
+          [modal]="true"
+          [style]="{width: '420px'}"
+          [draggable]="false">
+  <div class="bm-dialog-body">
+    <i class="pi pi-step-forward bm-dialog-icon"></i>
+    <p>Resume the sweep from the last stopped position:</p>
+    <p><strong>{{ curFreq }} MHz / {{ curVcore }} mV</strong></p>
+    <p>The device will <strong>reboot</strong> and continue from where it left off.</p>
+    <p style="color: var(--text-color-secondary); font-size: 0.875rem">Results collected so far will be preserved. To start over from the beginning, use <em>Start Benchmark</em> instead.</p>
+  </div>
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cancel" icon="pi pi-times"
+            class="p-button-outlined p-button-secondary btn"
+            (click)="showResumeConfirm = false">
+    </button>
+    <button pButton type="button" label="Resume" icon="pi pi-step-forward"
+            class="p-button-success btn"
+            (click)="confirmResume()">
     </button>
   </ng-template>
 </p-dialog>
