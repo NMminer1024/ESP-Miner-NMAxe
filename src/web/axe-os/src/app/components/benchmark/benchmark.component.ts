@@ -71,11 +71,11 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         if (this.isRunning) this.startElapsedTimer();
 
         this.form = this.fb.group({
-          freqMin:    [data.freqMin,    [Validators.required, Validators.min(100), Validators.max(1000)]],
-          freqMax:    [data.freqMax,    [Validators.required, Validators.min(100), Validators.max(1000)]],
+          freqMin:    [data.freqMin,    [Validators.required, Validators.min(100), Validators.max(5000)]],
+          freqMax:    [data.freqMax,    [Validators.required, Validators.min(100), Validators.max(5000)]],
           freqStep:   [data.freqStep,   [Validators.required, Validators.min(1),   Validators.max(500)]],
-          vcoreMin:   [data.vcoreMin,   [Validators.required, Validators.min(600), Validators.max(1500)]],
-          vcoreMax:   [data.vcoreMax,   [Validators.required, Validators.min(600), Validators.max(1500)]],
+          vcoreMin:   [data.vcoreMin,   [Validators.required, Validators.min(600), Validators.max(2000)]],
+          vcoreMax:   [data.vcoreMax,   [Validators.required, Validators.min(600), Validators.max(2000)]],
           vcoreStep:  [data.vcoreStep,  [Validators.required, Validators.min(1),   Validators.max(200)]],
           sampleIntv: [data.sampleIntv, [Validators.required, Validators.min(1),   Validators.max(300)]],
           bmTime:     [data.bmTime,     [Validators.required, Validators.min(30),  Validators.max(7200)]],
@@ -91,6 +91,36 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
     this.timerSub?.unsubscribe();
+  }
+
+  // ── Disabled button tooltip messages ─────────────────────────────────────
+  public get startDisabledTip(): string {
+    if (this.isRunning) return 'Benchmark is currently running — stop it first';
+    if (this.form && !this.form.valid) return this.formInvalidReason;
+    return '';
+  }
+
+  public get stopDisabledTip(): string {
+    return !this.isRunning ? 'No benchmark is currently running' : '';
+  }
+
+  public get clearDisabledTip(): string {
+    return this.isRunning ? 'Cannot clear results while a benchmark is running' : '';
+  }
+
+  private get formInvalidReason(): string {
+    if (!this.form) return 'Form not ready';
+    const ctrl = this.form.controls;
+    const fieldNames: Record<string, string> = {
+      freqMin: 'Freq Min', freqMax: 'Freq Max', freqStep: 'Freq Step',
+      vcoreMin: 'Vcore Min', vcoreMax: 'Vcore Max', vcoreStep: 'Vcore Step',
+      sampleIntv: 'Sample Interval', bmTime: 'Benchmark Time', stabTime: 'Stabilize Time'
+    };
+    const errs: string[] = [];
+    for (const [key, label] of Object.entries(fieldNames)) {
+      if (ctrl[key]?.invalid) errs.push(label);
+    }
+    return errs.length ? `Invalid fields: ${errs.join(', ')}` : 'Form has validation errors';
   }
 
   // ── Results management ────────────────────────────────────────────────────

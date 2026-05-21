@@ -228,3 +228,88 @@ tr.bm-best-both-row td {
   }
 }
 
+// ── Responsive / Mobile layout ────────────────────────────────────────────────
+
+// Tablet (600–900px): 2-column config grid
+@media (max-width: 900px) {
+  .bm-config-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+}
+
+// Mobile (< 600px): fully single-column
+@media (max-width: 599px) {
+  .bm-config-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .bm-fieldset {
+    legend {
+      white-space: normal;
+    }
+  }
+
+  // Let label text wrap and shrink on tiny screens
+  .bm-row {
+    flex-wrap: wrap;
+    label {
+      white-space: normal;
+      min-width: 0;
+      flex: 0 0 auto;
+      width: 100%;
+      margin-bottom: 0.1rem;
+    }
+    input {
+      flex: 1 1 100%;
+      width: 100%;
+    }
+  }
+
+  // Stack action buttons vertically, full width
+  .bm-actions {
+    flex-direction: column;
+
+    // tooltip wrapper spans become block
+    > span {
+      display: block !important;
+      width: 100%;
+
+      .p-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    > button.p-button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  // Best-entry banners: stack content vertically
+  .bm-best {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+
+    .bm-best-label,
+    .bm-best-params,
+    .bm-best-metrics {
+      white-space: normal;
+    }
+
+    button.p-button {
+      margin-left: 0;
+      align-self: stretch;
+      justify-content: center;
+    }
+  }
+
+  // Apply-params dialog: single column
+  .bm-apply-params {
+    grid-template-columns: 1fr;
+  }
+}
+
