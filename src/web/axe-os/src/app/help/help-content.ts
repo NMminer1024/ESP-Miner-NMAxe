@@ -351,7 +351,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '🌙 Screen Saver',
-        body: 'Sets how long the display stays idle before the screen saver activates. Select 0 to disable (always on).\n\nWhen a non-zero timeout is selected, a second dropdown appears to choose the screen saver style/mode.'
+        body: 'Controls the screen saver timeout. Select "Never" to keep the display always on and never activate the screen saver.\n\nWhen any other value is selected, the display will enter the screen saver after that many seconds of no interaction. A second dropdown then appears to choose the screen saver style/mode.'
       },
       {
         heading: '☑ Other Options',
