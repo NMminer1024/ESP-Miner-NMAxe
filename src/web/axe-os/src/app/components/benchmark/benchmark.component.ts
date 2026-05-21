@@ -103,6 +103,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
           stabTime:   [data.stabTime,   [Validators.required, Validators.min(30),  Validators.max(3600)]],
         });
 
+        this.syncFormLock();
         if (this.isRunning) {
           this.startPolling();
         }
@@ -204,6 +205,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       switchMap(() => this.systemService.getBenchmark())
     ).subscribe((data: any) => {
       this.isRunning = data.mode === 1;
+      this.syncFormLock();
       this.curFreq   = data.curFreq;
       this.curVcore  = data.curVcore;
       this.totalSec  = data.totalSec ?? 0;
@@ -216,7 +218,10 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       }
     });
   }
-
+  private syncFormLock(): void {
+    if (!this.form) return;
+    this.isRunning ? this.form.disable() : this.form.enable();
+  }
   // ── Sorting ───────────────────────────────────────────────────────────────
   public sortBy(col: keyof BenchmarkResult): void {
     if (this.sortCol === col) {
@@ -301,6 +306,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.isRunning = true;
+          this.syncFormLock();
           this.toastr.info('Resuming from last position — device will reboot.', 'Resuming...');
           this.startPolling();
         },
@@ -317,6 +323,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.isRunning = true;
+          this.syncFormLock();
           this.toastr.info('Benchmark starting — device will reboot.', 'Starting...');
           this.startPolling();
         },
@@ -332,6 +339,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.isRunning = false;
+          this.syncFormLock();
           this.pollSub?.unsubscribe();
           this.toastr.info('Benchmark stopped — device will reboot.', 'Stopped');
         },
@@ -358,6 +366,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         next: (res: any) => {
           this.setResults([]);
           this.isRunning = false;
+          this.syncFormLock();
           this.pollSub?.unsubscribe();
           // Re-fetch config so the form reflects board defaults after NVS keys are erased.
           this.systemService.getBenchmark().subscribe((data: any) => {
