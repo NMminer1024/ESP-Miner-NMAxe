@@ -153,12 +153,12 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     return 'pi pi-play';
   }
 
-  public get primaryButtonNgClass(): Record<string, boolean> {
-    return {
-      'p-button-danger':  this.isRunning,
-      'p-button-warning': !this.isRunning && this.canResume,
-      'p-button-success': !this.isRunning && !this.canResume,
-    };
+  // PrimeNG 17: severity is managed via HostBinding inside pButton directive;
+  // [ngClass] additions are overridden by updateClass(). Must use [severity] input.
+  public get primaryButtonSeverity(): 'success' | 'warning' | 'danger' {
+    if (this.isRunning) return 'danger';
+    if (this.canResume) return 'warning';
+    return 'success';
   }
 
   public get primaryButtonDisabled(): boolean {

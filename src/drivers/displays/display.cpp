@@ -4559,7 +4559,7 @@ void ui_benchmark_overlay_update(void* args) {
       //   4   : title           (Inconsolata_22, ~22px tall)
       //   28  : row[0]  F/V     (400MHz / 1200mV)
       //   50  : row[1]  Temp    (98C / 45C  ASIC/VRM)
-      //   72  : row[2]  Phase   (Stabilize / Sampling)
+      //   72  : row[2]  Phase   (Warmup / Sampling)
       //   94  : row[3]  Left    (seconds remaining)
       //   116 : row[4]  Avg/Exp (hashrate real / expected GH/s)
       //   138 : row[5]  Round   (F x/N  V x/M)
@@ -4687,8 +4687,8 @@ void ui_benchmark_overlay_update(void* args) {
     snprintf(buf, sizeof(buf), "  Temp   : %.0fC / %.0fC", bm.vcore_temp, bm.asic_temp);
     lv_label_set_text(lb_rows[1], buf);
 
-    // Row 2 — Phase : Stabilize (yellow) or Sampling (blue)
-    snprintf(buf, sizeof(buf), "  Phase  : %s", bm.in_stab ? "Stabilize" : "Sampling ");
+    // Row 2 — Phase : Warmup (yellow) or Sampling (blue)
+    snprintf(buf, sizeof(buf), "  Phase  : %s", bm.in_stab ? "Warmup    " : "Sampling ");
     lv_label_set_text(lb_rows[2], buf);
     lv_obj_set_style_text_color(lb_rows[2],
       bm.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA), LV_PART_MAIN);
