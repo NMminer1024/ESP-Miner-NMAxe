@@ -257,20 +257,24 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     icon: 'pi pi-wifi',
     sections: [
       {
+        heading: '🏷 HostName',
+        body: 'This is the device\'s network name. The default name is auto-generated from the device model and a short unique code (e.g. NMAxe_AB123).\n\nYou can change it to any name you like (up to 20 characters). The main use of this name is to identify the device in the Swarm list when you manage multiple miners — a descriptive name like "Desk-01" or "Axe-Left" makes it much easier to tell them apart.\n\nNote: this name is also used as the hotspot (AP) name if the device cannot connect to your WiFi — see below.'
+      },
+      {
         heading: '📶 WiFi SSID & Password',
-        body: 'Enter the name (SSID) and password of your 2.4 GHz WiFi network.\n\nIMPORTANT: The ESP32 chip only supports 2.4 GHz — it cannot connect to 5 GHz networks. If your router broadcasts both bands with the same name, the device will automatically connect to 2.4 GHz.\n\nAfter saving, the device reboots and attempts to connect. If it succeeds, you will be able to reach the web interface at the same IP address (or the new static IP if configured).'
+        body: 'Enter the name (SSID) and password of your 2.4 GHz WiFi network.\n\nThe ESP32 chip only supports 2.4 GHz bands — it cannot connect to 5 GHz networks. If your router broadcasts both bands under the same name, the device will automatically pick the 2.4 GHz band.\n\nAfter saving, the device must be restarted for the new WiFi settings to take effect.'
       },
       {
-        heading: '🖥 Hostname',
-        body: 'The device\'s mDNS hostname on your local network. With mDNS enabled on your router you can reach the device at http://[hostname].local instead of typing the IP address. Default is "NMAxe" — change it if you have multiple miners.'
+        heading: '📡 Hotspot fallback (AP mode)',
+        body: 'If the device cannot connect to the configured WiFi network after about 15 seconds, it automatically switches to AP (hotspot) mode so you can reconfigure it:\n\n• Hotspot name: same as the HostName set above\n• Hotspot password: 12345678\n• Connect your phone or laptop to this hotspot, then open http://192.168.4.1 in a browser to access the settings page.'
       },
       {
-        heading: '📌 Static IP',
-        body: 'By default the device uses DHCP — it gets an IP address automatically from your router. If you want a fixed, predictable IP address (recommended for multi-miner setups or if you use the Benchmark IP display feature), enable Static IP and fill in:\n\n• IP Address — The fixed IP you want (e.g. 192.168.1.50). Must be in the same subnet as your gateway and not conflict with another device.\n• Gateway — Your router\'s IP address (e.g. 192.168.1.1).\n• Subnet Mask — Typically 255.255.255.0 for home networks.\n• DNS Server — Usually the same as Gateway, or use 8.8.8.8 (Google) / 1.1.1.1 (Cloudflare).'
+        heading: '📌 Static / Fixed IP',
+        body: 'The device always uses DHCP to get its IP address — there is no option to configure a static IP directly on the device.\n\nIf you need a fixed IP address (recommended for multi-miner setups or remote access), configure MAC address binding (also called "IP reservation" or "DHCP static lease") on your router. Look up the device MAC address in your router\'s connected-devices list, then bind it to a fixed IP there.'
       },
       {
         heading: '⚠ Notes',
-        body: '• If you enter wrong WiFi credentials, the device enters AP (Access Point) mode and broadcasts a hotspot named "NMAxe-Setup". Connect to it and navigate to 192.168.4.1 to reconfigure.\n• A static IP address that conflicts with another device on your network will cause connection drops.\n• A wrong Gateway or Subnet Mask in Static IP mode will make the device unreachable — you may need to factory reset (10-second long-press of the button) to recover.'
+        body: '• Changes require a restart to take effect — click Save, then restart the device.\n• The HostName cannot contain spaces or special characters; stick to letters, numbers, and hyphens.'
       }
     ]
   },
