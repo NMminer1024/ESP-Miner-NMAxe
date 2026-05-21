@@ -4597,7 +4597,7 @@ void ui_benchmark_overlay_update(void* args) {
       // IP label — slightly larger font (Inconsolata_22), centered
       lb_ip = lv_label_create(overlay);
       lv_obj_set_style_text_font(lb_ip, &Inconsolata_22, LV_PART_MAIN);
-      lv_obj_set_style_text_color(lb_ip, lv_color_hex(0x94A3B8), LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_ip, lv_color_hex(0x4ADE80), LV_PART_MAIN);
       lv_obj_set_pos(lb_ip, 0, 186);
       lv_obj_set_width(lb_ip, LV_HOR_RES);
       lv_obj_set_style_text_align(lb_ip, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
@@ -4675,12 +4675,16 @@ void ui_benchmark_overlay_update(void* args) {
     // All rows: 2-space indent + 7-char label (space-padded) + ": " = 11-char prefix.
     // This gives perfect colon alignment in monospaced Inconsolata_18.
     //
-    // Row 0 — F/V : combined frequency and voltage
-    snprintf(buf, sizeof(buf), "  F/V    : %uMHz / %umV", bm.cur_freq, bm.cur_vcore);
+    // Row 0 — F/V/P : frequency / voltage / realtime power
+    {
+      float pwr_w = (float)board->status.power.vbus / 1000.0f
+                  * (float)board->status.power.ibus / 1000.0f;
+      snprintf(buf, sizeof(buf), "  F/V/P  : %uMHz/%umV/%.1fW", bm.cur_freq, bm.cur_vcore, pwr_w);
+    }
     lv_label_set_text(lb_rows[0], buf);
 
-    // Row 1 — Temp : ASIC temp / VRM temp
-    snprintf(buf, sizeof(buf), "  Temp   : %.0fC / %.0fC", bm.asic_temp, bm.vcore_temp);
+    // Row 1 — Temp : VRM temp / ASIC temp
+    snprintf(buf, sizeof(buf), "  Temp   : %.0fC / %.0fC", bm.vcore_temp, bm.asic_temp);
     lv_label_set_text(lb_rows[1], buf);
 
     // Row 2 — Phase : Stabilize (yellow) or Sampling (blue)
