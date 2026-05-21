@@ -12,6 +12,30 @@ export interface HelpEntry {
 
 export const HELP_CONTENT: Record<string, HelpEntry> = {
 
+  // ── Hashrate Distribution ─────────────────────────────────────────────────
+  'hr-dist': {
+    title: 'Hashrate Distribution',
+    icon: 'pi pi-chart-bar',
+    sections: [
+      {
+        heading: '📊 What is it?',
+        body: 'This bar chart shows how often your miner ran at each hashrate range since the last boot. The X-axis is divided into equal GH/s bands (width = Scale value); the Y-axis is the percentage of samples that fell in that band.\n\nExample: if the bar at "400 GH/s" reaches 80%, the miner spent 80% of its uptime producing hashrate in the 400–450 GH/s range.'
+      },
+      {
+        heading: '📐 How it works (backend)',
+        body: 'The firmware samples the 3-minute rolling hashrate once per second, every second — including idle periods where hashrate is 0. Each sample is mapped to a bar index = hashrate_GH ÷ Scale. The bar height is recalculated as (samples in this band ÷ total samples) × 100%.\n\n• Scale — Width of each GH/s band (= max_hr ÷ number of bars)\n• Samples — Total number of 1-second samples collected\n• Time — Uptime in seconds since the last boot'
+      },
+      {
+        heading: '🔍 How to read it',
+        body: '• Tall single bar — Hashrate is stable; the miner consistently hits one operating point.\n• Wide spread across multiple bars — Hashrate is fluctuating (pool reconnections, thermal throttling, or ASIC instability).\n• Bar at the far left (near 0 GH/s) — The miner was idle, disconnected, or restarting during part of the session. A small leftmost bar is normal at boot; a large one may indicate connectivity issues.'
+      },
+      {
+        heading: '⚠ Notes',
+        body: '• The distribution resets on every reboot — it only reflects the current session.\n• Samples are taken every second unconditionally; the Samples counter should closely match the Time (uptime) value.\n• The chart refreshes every 10 seconds.'
+      }
+    ]
+  },
+
   // ── Benchmark ─────────────────────────────────────────────────────────────
   benchmark: {
     title: 'Benchmark',
@@ -156,6 +180,30 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     ]
   },
 
+  // ── Swarm — Discovery ──────────────────────────────────────────────────────
+  'swarm-discovery': {
+    title: 'Device Discovery',
+    icon: 'pi pi-search',
+    sections: [
+      {
+        heading: '📡 How are devices found?',
+        body: 'When you open the Swarm page, your miner automatically scans every possible address on your local network (up to 254 addresses in the same subnet) to find all active devices. It does this by sending a small "are you there?" ping to each address one by one.\n\nDevices that respond are then checked to see if they are NMAxe miners. Only confirmed miners appear in the table.'
+      },
+      {
+        heading: '⏳ Why does it take a while to show all miners?',
+        body: 'The scan checks all 254 possible addresses in order, one at a time. For each address with no device connected, the miner has to wait up to about half a second before concluding "nobody home" and moving on.\n\nThis means:\n• Networks with few devices → scan finishes faster\n• Networks with many empty addresses → each one adds ~0.5 s to the scan\n• A full scan typically takes 2–5 minutes\n\nMiners found early in the scan appear in the table immediately — the rest gradually fill in as the scan progresses. The progress ring shows how far along the scan is.'
+      },
+      {
+        heading: '🔄 When does it rescan?',
+        body: '• Automatically every 5 minutes — the countdown ring in the top-right corner of this card shows how long until the next automatic scan.\n• Immediately when you open or refresh the Swarm page — a fresh scan starts from scratch and the progress ring is shown in place of the miner count.'
+      },
+      {
+        heading: '⚠ Notes',
+        body: '• Only devices on the same subnet (e.g. 192.168.1.x) are scanned. Miners on a different network will not appear.\n• Scanning is paused during OTA updates and while the screen saver is active, to avoid slowing down those operations.\n• If a miner is powered off, it will disappear after the next complete scan.'
+      }
+    ]
+  },
+
   // ── Swarm ─────────────────────────────────────────────────────────────────
   swarm: {
     title: 'Swarm — Multi-device Management',
@@ -171,7 +219,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• Device discovery uses mDNS — make sure your router allows mDNS/Bonjour traffic.\n• Apply All reboots all devices; wait ~60 seconds before checking results.\n• Benchmark data is device-specific and is NOT synced via Swarm.'
+        body: '• Device discovery uses network scanning (ICMP ping) — all miners must be on the same subnet.\n• Apply All reboots all devices; wait ~60 seconds before checking results.\n• Benchmark data is device-specific and is NOT synced via Swarm.'
       }
     ]
   },
@@ -303,7 +351,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• All changes require Save and a device restart to take effect.\n• Do NOT change these settings while a Benchmark is running — it may corrupt sweep results.\n• After changing frequency or voltage, allow ~60 seconds for hashrate to stabilise before judging the result.'
+        body: '• Vcore (mV) changes take effect immediately after Save — no restart required.\n• All other changes (pool, frequency) require Save and a device restart to take effect.\n• Do NOT change these settings while a Benchmark is running — it may corrupt sweep results.\n• After changing frequency or voltage, allow ~180 seconds for hashrate to stabilise before judging the result.'
       }
     ]
   },
@@ -359,7 +407,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• All preference changes require Save and a device restart to take effect.'
+        body: '• Most preference changes (brightness, fan, screen saver, LED, auto scroll) take effect immediately after Save — no restart required.\n• Flip Screen requires a device restart to take effect.'
       }
     ]
   },

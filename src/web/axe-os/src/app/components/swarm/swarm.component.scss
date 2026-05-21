@@ -664,6 +664,32 @@ a:active {
   width: 100px;
 }
 
+.rssi-column {
+  white-space: nowrap;
+}
+
+.rssi-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.rssi-bars-wrap {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 14px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.rssi-bar {
+  display: inline-block;
+  width: 3px;
+  border-radius: 1px;
+}
+
 .upload-row {
   display: flex;
   align-items: center;
@@ -1179,6 +1205,12 @@ a:active {
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+.discovery-help-corner {
+  position: absolute;
+  bottom: 0.35rem;
+  left: 0.45rem;
 }
 
 // Scan ring (scanning state)

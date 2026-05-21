@@ -75,6 +75,10 @@
           <div class="stat-unit">miners found</div>
         </div>
       </ng-container>
+      <!-- Help button: always visible, bottom-left to avoid countdown ring at top-right -->
+      <div class="discovery-help-corner">
+        <app-help-btn key="swarm-discovery"></app-help-btn>
+      </div>
     </div>
   </div>
   
@@ -174,7 +178,19 @@
               </span>
             }
           </td>
-          <td class="common-column">{{ axe.RSSI }} <small>dBm</small></td>
+          <td class="rssi-column">
+            <span class="rssi-signal" [title]="axe.RSSI + ' dBm'">
+              <span class="rssi-bars-wrap">
+                <span
+                  *ngFor="let h of rssiBarHeights; let i = index"
+                  class="rssi-bar"
+                  [style.height.px]="h"
+                  [style.background-color]="i < getRssiLevel(axe.RSSI) ? getRssiColor(axe.RSSI) : '#444'">
+                </span>
+              </span>
+              <small>{{ axe.RSSI }} dBm</small>
+            </span>
+          </td>
           <td class="common-column">
             <span>{{ axe.FreeHeap | number: '1.1-1' }} <small>KB</small></span>
             <br *ngIf="axe.MinFreeHeap > 0"/>

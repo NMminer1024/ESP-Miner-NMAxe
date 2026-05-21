@@ -27,6 +27,11 @@
             <i class="pi pi-wifi"></i>
             <span>{{ pool.rssi }} dBm</span>
         </span>
+        <span class="info-divider">|</span>
+        <span class="info-item uptime-item" pTooltip="Session Uptime" tooltipPosition="bottom">
+            <i class="pi pi-clock"></i>
+            <span>{{ formatUptime(pool.uptime) }}</span>
+        </span>
     </div>
 
     <div class="layout-topbar-menu">

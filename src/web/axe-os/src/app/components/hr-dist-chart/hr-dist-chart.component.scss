@@ -40,6 +40,12 @@
   gap: 8px;
 }
 
+.chart-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .chart-stats {
   display: flex;
   gap: 1rem;

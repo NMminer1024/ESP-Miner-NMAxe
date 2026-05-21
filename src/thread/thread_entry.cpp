@@ -1639,17 +1639,20 @@ void monitor_thread_entry(void *args){
             xSemaphoreGive(board->status.miner.update_xsem);
 
             //sample the hashrate for hashrate distribution chart on ui
-            static double last_hr_3m = 0;
+            // Always sample every second (unconditional). The old "only sample when _3m
+            // changes" guard was flawed: when the miner is idle (_3m == 0 steadily), the
+            // condition is never true and idle time is completely invisible in the histogram.
+            // The per-second cost (a small array loop over max_bars) is negligible on ESP32.
             board->info.spec.ui.hashrate_dist_page.time = board->status.miner.uptime_session;
-            if(board->status.miner.hashrate._3m != last_hr_3m) { // only update when hashrate changed to save some resource
-                last_hr_3m = board->status.miner.hashrate._3m;
+            {
                 static uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
                 static uint64_t *counts = NULL;
                 if (counts == NULL) {
                     counts = (uint64_t *)malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
                     memset(counts, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
                 }
-                int index = last_hr_3m/1000/1000/1000 / SCALE; // Convert to GH/s and scale
+                double hr_now = board->status.miner.hashrate._3m;
+                int index = (int)(hr_now/1000/1000/1000 / SCALE); // Convert to GH/s and scale
                 index = (index >= board->info.spec.ui.hashrate_dist_page.max_x_bars) ? board->info.spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
                 counts[index]++;
                 board->info.spec.ui.hashrate_dist_page.count++;

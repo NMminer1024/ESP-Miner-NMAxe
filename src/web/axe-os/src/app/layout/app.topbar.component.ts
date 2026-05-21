@@ -61,7 +61,7 @@ export class AppTopBarComponent {
 
     items!: MenuItem[];
     clearBlockHitsDialogVisible: boolean = false;
-    poolDisplay$: Observable<{ url: string; wallet: string; rssi: number }>;
+    poolDisplay$: Observable<{ url: string; wallet: string; rssi: number; uptime: number }>;
 
     @ViewChild('menubutton') menuButton!: ElementRef;
 
@@ -81,10 +81,12 @@ export class AppTopBarComponent {
                 const url  = info.stratum?.url  || info.stratumURLUSED || info.usedUrl  || '';
                 const user = info.stratum?.user || info.stratumUserUSED || info.usedUser || '';
                 const rssi = info.identity?.rssi ?? info.wifiRSSI ?? 0;
+                const uptime = info.miner?.uptimeSeconds ?? info.uptimeSeconds ?? 0;
                 return {
                     url:    this.stripStratumPrefix(url),
                     wallet: this.abbreviateAddress(user),
-                    rssi:   rssi as number
+                    rssi:   rssi as number,
+                    uptime: uptime as number
                 };
             }),
             shareReplay({ refCount: true, bufferSize: 1 })
@@ -99,6 +101,17 @@ export class AppTopBarComponent {
         const address = user.split('.')[0];
         if (address.length <= 16) return address;
         return address.substring(0, 8) + '......' + address.substring(address.length - 8);
+    }
+
+    public formatUptime(seconds: number): string {
+        const d = Math.floor(seconds / 86400);
+        const h = Math.floor((seconds % 86400) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (d > 0) return `${d}d ${h}h ${m}m`;
+        if (h > 0) return `${h}h ${m}m`;
+        if (m > 0) return `${m}m ${s}s`;
+        return `${s}s`;
     }
 
 

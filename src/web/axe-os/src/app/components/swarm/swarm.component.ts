@@ -553,6 +553,24 @@ export class SwarmComponent implements OnInit, OnDestroy {
       .sort((a, b) => b.count - a.count);
   }
 
+  public readonly rssiBarHeights = [3, 6, 9, 13];
+
+  public getRssiLevel(rssi: number): number {
+    if (!rssi && rssi !== 0) return 0;
+    if (rssi >= -50) return 4;
+    if (rssi >= -60) return 3;
+    if (rssi >= -70) return 2;
+    return 1;
+  }
+
+  public getRssiColor(rssi: number): string {
+    if (!rssi && rssi !== 0) return '#444';
+    if (rssi >= -50) return '#4CAF50';
+    if (rssi >= -60) return '#8BC34A';
+    if (rssi >= -70) return '#FF9800';
+    return '#f44336';
+  }
+
   public getTempClass(temp: number): string {
     if (temp === 0) {
       return 'temp-na';
