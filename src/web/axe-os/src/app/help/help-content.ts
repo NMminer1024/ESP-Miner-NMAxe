@@ -395,7 +395,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '📊 How to read the chart',
-        body: '• Each data point represents one share submission and its difficulty value.\n• The Y-axis uses a logarithmic scale because share difficulties span a huge range.\n• The horizontal Network Difficulty line is the threshold your share must clear to solve a block. It moves with the Bitcoin network\'s global difficulty.\n• The top 3 highest-difficulty shares are specially marked and always retained in the chart, even as older records rotate out.'
+        body: '• Each data point represents one share submission and its difficulty value.\n• The Y-axis uses a logarithmic scale because share difficulties span a huge range.\n• The horizontal Network Difficulty line is the threshold your share must clear to solve a block. It moves with the Bitcoin network\'s global difficulty.\n• The top 3 highest-difficulty shares of the current session are highlighted and protected from removal — they reset on power cycle.'
       },
       {
         heading: '⚡ Flashing bar — possible block!',
@@ -403,7 +403,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '📌 Record samples',
-        body: 'The "N record samples" badge shows how many share events are stored in the device\'s flash memory. Records are saved in NVS and survive power cycles. When storage fills up, the oldest records rotate out automatically — but the top 3 all-time highs are always kept.'
+        body: 'The "N record samples" badge shows how many shares are in this session\'s chart. The chart holds up to 36 shares at a time. Once full, new shares push out a randomly selected non-top-3 share to make room.\n\nThe top 3 highest-difficulty shares are protected and highlighted for the current power-on session — they will not be randomly removed. However, the entire chart (including the top 3 markers) resets when the device is rebooted or powered off.'
       },
       {
         heading: '🔔 The one rule that matters',
