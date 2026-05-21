@@ -7,6 +7,7 @@ export interface HelpEntry {
   title: string;
   icon: string;
   sections: HelpSection[];
+  callout?: string;
 }
 
 export const HELP_CONTENT: Record<string, HelpEntry> = {
@@ -385,30 +386,31 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
 
   // ── Lucky Statistics ───────────────────────────────────────────────────────
   'lucky-stats': {
-    title: 'Lucky Statistics — How to Read',
+    title: 'Lucky Statistics',
     icon: 'pi pi-chart-line',
     sections: [
       {
-        heading: '🍀 What is "Luck"?',
-        body: 'This is a solo miner — it does not receive a share of a pool\'s daily payout. Instead, it competes to find a full Bitcoin block on its own. When it does, the entire block reward goes to your wallet. When it doesn\'t, you receive nothing for that period.\n\nLuck measures how often your miner finds valid shares compared to the statistical expectation based on its hashrate:\n\n• 100% luck — Finding shares at exactly the rate math predicts.\n• > 100% — Finding shares faster than expected (lucky run 🔥).\n• < 100% — Finding shares slower than expected (cold streak ❄️).\n\nLuck is random by nature — like rolling dice. Long cold streaks are completely normal for a small solo miner and do not mean the device is broken. Luck averages out statistically over a very long time.'
+        heading: '🎰 Why this chart exists',
+        body: 'Solo mining is a lonely journey. Unlike pool mining there is no guaranteed daily income — your miner competes with the entire Bitcoin network to find a block entirely on its own. Weeks or even months can pass without a single block, and that\'s statistically normal.\n\nThis chart exists to make that wait a little more alive. It records every share difficulty your miner has achieved since it powered on — think of each bar as a lottery ticket. The higher the bar, the luckier that moment was.'
       },
       {
-        heading: '📊 The chart explained',
-        body: 'The chart plots two lines on a logarithmic scale over time:\n\n• Share Difficulty (your line) — The difficulty value of each share your miner submitted to the pool. Higher = harder share found.\n• Network Difficulty (reference line) — The current Bitcoin network mining difficulty. A share that reaches this level would be a valid block solve (extremely rare).\n\nThe Y-axis uses a log scale because difficulties span many orders of magnitude — this lets you see both small pool-difficulty shares and large near-block events on the same chart.'
+        heading: '📊 How to read the chart',
+        body: '• Each data point represents one share submission and its difficulty value.\n• The Y-axis uses a logarithmic scale because share difficulties span a huge range.\n• The horizontal Network Difficulty line is the threshold your share must clear to solve a block. It moves with the Bitcoin network\'s global difficulty.\n• The top 3 highest-difficulty shares are specially marked and always retained in the chart, even as older records rotate out.'
       },
       {
-        heading: '📅 Record samples',
-        body: 'The "N record samples" badge in the top-right shows how many data points are stored in the device\'s flash memory for this chart. Each record is one share submission event.\n\n• More records = longer history visible in the chart.\n• Records are stored in NVS (non-volatile storage) and survive reboots and power loss.\n• Very old records are automatically rotated out when storage is full.'
+        heading: '⚡ Flashing bar — possible block!',
+        body: 'When a share\'s difficulty exceeds the Network Difficulty line, that bar flashes on screen to alert you that this share may have solved a block.\n\nIMPORTANT: this is only a possibility. A block solve must be accepted and confirmed by the rest of the decentralised network — other nodes must validate and propagate it. Until confirmation arrives, treat it as a candidate, not a guaranteed win.'
       },
       {
-        heading: '📉 Gaps in the chart',
-        body: 'Gaps in the share difficulty line indicate periods when no shares were submitted — usually because:\n• The miner was offline or rebooting\n• The pool connection was interrupted\n• No shares happened to be found in that interval\n\nGaps are filled visually to maintain line continuity, but no actual data is fabricated.'
+        heading: '📌 Record samples',
+        body: 'The "N record samples" badge shows how many share events are stored in the device\'s flash memory. Records are saved in NVS and survive power cycles. When storage fills up, the oldest records rotate out automatically — but the top 3 all-time highs are always kept.'
       },
       {
-        heading: '🔍 Practical tips',
-        body: '• A long period of luck < 50% is statistically normal for a solo miner — it does not mean anything is wrong with the hardware.\n• Occasional very high share difficulty spikes are normal — these are "high-luck" shares, and a spike reaching Bitcoin network difficulty would be a block solve.\n• If the share difficulty line flatlines at zero for extended periods, check your pool/node connection and miner uptime in the Home dashboard.'
+        heading: '🔔 The one rule that matters',
+        body: 'No matter how impressive a bar looks — no matter how high the share difficulty climbs — if it does not cross the Network Difficulty line, it is not a block solve. There is no partial credit in Bitcoin mining. One threshold, one rule.'
       }
-    ]
+    ],
+    callout: 'Be a Friend of Time'
   }
 
 };

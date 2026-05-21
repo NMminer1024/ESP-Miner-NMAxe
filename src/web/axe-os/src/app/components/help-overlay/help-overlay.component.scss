@@ -113,6 +113,22 @@
   white-space: pre-line;   // renders \n and bullet points correctly
 }
 
+// Callout — big colored motivational line at bottom of card
+.help-callout {
+  margin: 28px 0 12px;
+  padding: 14px 20px;
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  background: linear-gradient(90deg, #f59e0b 0%, #f97316 40%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
 // Footer
 .help-footer {
   display: flex;
