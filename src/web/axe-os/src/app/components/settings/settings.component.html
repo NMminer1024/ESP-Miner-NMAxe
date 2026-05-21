@@ -1,3 +1,32 @@
+<!-- Benchmark running warning dialog -->
+<p-dialog [(visible)]="showBenchmarkWarning"
+          header="Benchmark Mode Active"
+          [modal]="true"
+          [closable]="true"
+          [style]="{width: '440px'}"
+          [draggable]="false">
+  <div class="bm-dialog-body" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding: 8px 0;">
+    <i class="pi pi-lock" style="font-size:2.5rem; color: var(--yellow-400, #f59e0b);"></i>
+    <p style="text-align:center; margin:0;">
+      <strong>Benchmark mode is currently running.</strong>
+    </p>
+    <p style="text-align:center; margin:0; color: var(--text-color-secondary);">
+      Modifying configuration during a benchmark may corrupt the sweep results.<br/>
+      Please stop the benchmark first before making any changes.
+    </p>
+  </div>
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Stay Here" icon="pi pi-times"
+            class="p-button-outlined p-button-secondary btn"
+            (click)="showBenchmarkWarning = false">
+    </button>
+    <button pButton type="button" label="Go to Benchmark" icon="pi pi-arrow-right"
+            class="p-button-warning btn"
+            (click)="goToBenchmark()">
+    </button>
+  </ng-template>
+</p-dialog>
+
 <div class="card modern-card time-card">
   <h2 class="card-title"><span class="card-icon">🕐</span>Time</h2>
   <app-time-edit/>

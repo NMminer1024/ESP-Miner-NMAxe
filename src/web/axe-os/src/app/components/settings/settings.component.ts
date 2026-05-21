@@ -1,6 +1,7 @@
 import {HttpErrorResponse} from '@angular/common/http';
-import {Component} from '@angular/core';
+import {Component, OnInit} from '@angular/core';
 import {AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators} from '@angular/forms';
+import {Router} from '@angular/router';
 import {ToastrService} from 'ngx-toastr';
 import {LoadingService} from 'src/app/services/loading.service';
 import {SystemService} from 'src/app/services/system.service';
@@ -10,7 +11,10 @@ import {SystemService} from 'src/app/services/system.service';
   templateUrl: './settings.component.html',
   styleUrls: ['./settings.component.scss']
 })
-export class SettingsComponent {
+export class SettingsComponent implements OnInit {
+
+  public isBenchmarkRunning = false;
+  public showBenchmarkWarning = false;
 
   public form!: FormGroup;
   // Available USDT pairs from Binance, as selectable options {label, value}.
@@ -20,8 +24,19 @@ export class SettingsComponent {
     private fb: FormBuilder,
     private systemService: SystemService,
     private toastr: ToastrService,
-    private loadingService: LoadingService
-  ) {
+    private loadingService: LoadingService,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    // Check benchmark mode first — show warning if running
+    this.systemService.getBenchmark().subscribe((data: any) => {
+      if (data.mode === 1) {
+        this.isBenchmarkRunning = true;
+        this.showBenchmarkWarning = true;
+      }
+    });
+
     // Load market settings (includes available pairs) to build the market card form.
     this.systemService.getSettingMarket()
       .pipe(this.loadingService.lockUIUntilComplete())
@@ -45,6 +60,11 @@ export class SettingsComponent {
           ]],
         });
       });
+  }
+
+  public goToBenchmark(): void {
+    this.showBenchmarkWarning = false;
+    this.router.navigate(['/benchmark']);
   }
 
   public saveMarket() {

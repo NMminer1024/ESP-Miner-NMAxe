@@ -197,9 +197,9 @@
     </button>
     <span [pTooltip]="clearDisabledTip" [tooltipDisabled]="!clearDisabledTip" tooltipPosition="top" style="display:inline-block">
       <button pButton type="button" label="Clear Results" icon="pi pi-trash"
-              class="p-button-outlined p-button-danger btn"
+              class="p-button-outlined p-button-info btn"
               [disabled]="isRunning"
-              (click)="clearResults()">
+              (click)="showClearConfirm = true">
       </button>
     </span>
   </div>
@@ -210,6 +210,33 @@
 </div>
 
 <!-- ── Confirmation Dialogs ── -->
+
+<!-- Clear Results -->
+<p-dialog [(visible)]="showClearConfirm"
+          header="Clear Results?"
+          [modal]="true"
+          [style]="{width: '420px'}"
+          [draggable]="false">
+  <div class="bm-dialog-body">
+    <i class="pi pi-exclamation-triangle bm-dialog-icon"></i>
+    <p>This will <strong>permanently delete</strong> all benchmark results stored on the device.</p>
+    <p>It is recommended to <strong>Download</strong> a local backup before clearing.</p>
+  </div>
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cancel" icon="pi pi-times"
+            class="p-button-outlined p-button-secondary btn"
+            (click)="showClearConfirm = false">
+    </button>
+    <button pButton type="button" label="Download First" icon="pi pi-download"
+            class="p-button-outlined p-button-info btn"
+            (click)="downloadResults()">
+    </button>
+    <button pButton type="button" label="Clear Anyway" icon="pi pi-trash"
+            class="p-button-danger btn"
+            (click)="confirmClear()">
+    </button>
+  </ng-template>
+</p-dialog>
 
 <!-- Start Benchmark -->
 <p-dialog [(visible)]="showStartConfirm"

@@ -1868,13 +1868,33 @@ void daemon_thread_entry(void *args){
 
     // recover factory if user long press user button
     if(xSemaphoreTake(board->status.recover_factory_xsem, 0) == pdTRUE){
-        LOG_W("Factory reset triggered, erasing config and restart...");
+        LOG_W("Factory reset triggered, erasing config (benchmark results preserved) and restart...");
+
+        // ── Save benchmark data BEFORE erasing (sequential calls so each frame
+        //    is fully released before erase_all_nvs is invoked — same stack
+        //    depth as the original direct erase_all_nvs() call). ──────────────
+        char    *bm_result_save    = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+        uint32_t bm_start_ts_save  = nvs_config_get_u32(NVS_CONFIG_BM_START_TS,  0);
+        uint32_t bm_total_sec_save = nvs_config_get_u32(NVS_CONFIG_BM_TOTAL_SEC, 0);
+        bool     bm_has_data       = bm_result_save
+                                     && strcmp(bm_result_save, "[]") != 0
+                                     && strlen(bm_result_save) > 2;
+        LOG_I("Factory reset: benchmark saved (has_data=%d, start_ts=%lu, total_sec=%lu)",
+              (int)bm_has_data, (unsigned long)bm_start_ts_save, (unsigned long)bm_total_sec_save);
+
         if(erase_all_nvs()){
+            // ── Restore benchmark data to fresh NVS ──────────────────────────
+            if(bm_has_data)            nvs_config_set_string(NVS_CONFIG_BM_RESULT,    bm_result_save);
+            if(bm_start_ts_save  > 0)  nvs_config_set_u32(NVS_CONFIG_BM_START_TS,   bm_start_ts_save);
+            if(bm_total_sec_save > 0)  nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC,  bm_total_sec_save);
+            LOG_I("Factory reset: benchmark data restored successfully");
+
             reboot_intent_set(REBOOT_INTENT_FACTORY_RESET, "user-triggered factory reset");
             xSemaphoreGive(board->status.reboot_xsem);
         }else{
             LOG_E("Factory reset failed!");
         }
+        if(bm_result_save) free(bm_result_save);
     }
 
     //WiFi daemon

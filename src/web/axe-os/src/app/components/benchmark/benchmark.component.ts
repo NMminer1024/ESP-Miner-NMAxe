@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
-import { interval, Subscription } from 'rxjs';
+import { forkJoin, interval, Subscription } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { SystemService } from 'src/app/services/system.service';
 import { LoadingService } from 'src/app/services/loading.service';
@@ -47,8 +47,13 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   // Confirmation dialog visibility
   public showStartConfirm = false;
   public showResetConfirm = false;
+  public showClearConfirm = false;
   public showApplyConfirm = false;
   public pendingApply: BenchmarkResult | null = null;
+
+  // Device identity for download filename
+  private deviceDisplayName = 'NMAxe';
+  private deviceIp = '';
 
   constructor(
     private fb: FormBuilder,
@@ -58,6 +63,15 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // Load device identity for download filename
+    forkJoin({
+      info:    this.systemService.getInfo(),
+      network: this.systemService.getSettingNetwork()
+    }).subscribe(({ info, network }) => {
+      this.deviceDisplayName = (info as any)?.identity?.displayName || 'NMAxe';
+      this.deviceIp          = (network as any)?.ip || '';
+    });
+
     this.systemService.getBenchmark()
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe((data: any) => {
@@ -294,7 +308,8 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   }
 
   // ── Clear results ─────────────────────────────────────────────────────────
-  public clearResults(): void {
+  public confirmClear(): void {
+    this.showClearConfirm = false;
     this.systemService.deleteBenchmarkResults()
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
@@ -310,11 +325,16 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
 
   // ── Download ──────────────────────────────────────────────────────────────
   public downloadResults(): void {
+    const now  = new Date();
+    const pad  = (n: number, len = 2) => String(n).padStart(len, '0');
+    const ts   = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const name = [this.deviceDisplayName, this.deviceIp, ts].filter(Boolean).join('_') + '.txt';
+
     const blob = new Blob([JSON.stringify(this.results, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `benchmark_results_${Date.now()}.json`;
+    a.download = name;
     a.click();
     URL.revokeObjectURL(url);
   }
