@@ -377,6 +377,34 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
         body: '• Theme settings are per-browser and are NOT synced across devices.\n• If the page looks broken after a theme change, try a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to clear cached CSS.'
       }
     ]
+  },
+
+  // ── Lucky Statistics ───────────────────────────────────────────────────────
+  'lucky-stats': {
+    title: 'Lucky Statistics — How to Read',
+    icon: 'pi pi-chart-line',
+    sections: [
+      {
+        heading: '🍀 What is "Luck"?',
+        body: 'Luck measures how often your miner finds valid shares compared to the statistical expectation based on its hashrate.\n\n• 100% luck — You\'re finding shares at exactly the rate math predicts.\n• > 100% — You\'re finding shares faster than expected (running hot 🔥).\n• < 100% — You\'re finding shares slower than expected (cold streak ❄️).\n\nLuck is random by nature — like rolling dice. Short-term swings are completely normal. It converges toward 100% over thousands of shares.'
+      },
+      {
+        heading: '📊 The chart explained',
+        body: 'The chart plots two lines on a logarithmic scale over time:\n\n• Share Difficulty (your line) — The difficulty value of each share your miner submitted to the pool. Higher = harder share found.\n• Network Difficulty (reference line) — The current Bitcoin network mining difficulty. A share that reaches this level would be a valid block solve (extremely rare).\n\nThe Y-axis uses a log scale because difficulties span many orders of magnitude — this lets you see both small pool-difficulty shares and large near-block events on the same chart.'
+      },
+      {
+        heading: '📅 Record samples',
+        body: 'The "N record samples" badge in the top-right shows how many data points are stored in the device\'s flash memory for this chart. Each record is one share submission event.\n\n• More records = longer history visible in the chart.\n• Records are stored in NVS (non-volatile storage) and survive reboots and power loss.\n• Very old records are automatically rotated out when storage is full.'
+      },
+      {
+        heading: '📉 Gaps in the chart',
+        body: 'Gaps in the share difficulty line indicate periods when no shares were submitted — usually because:\n• The miner was offline or rebooting\n• The pool connection was interrupted\n• No shares happened to be found in that interval\n\nGaps are filled visually to maintain line continuity, but no actual data is fabricated.'
+      },
+      {
+        heading: '🔍 Practical tips',
+        body: '• A consistently low share difficulty with luck < 50% over many hours may indicate the pool has assigned you a difficulty that\'s too high for your hashrate — contact your pool to lower it.\n• Occasional very high share difficulty spikes are normal — these are "high-luck" shares.\n• If the share difficulty line flatlines at zero for extended periods, check your pool connection and miner uptime in the Home dashboard.'
+      }
+    ]
   }
 
 };
