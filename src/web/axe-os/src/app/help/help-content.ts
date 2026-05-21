@@ -50,7 +50,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '📊 Shares',
-        body: '• Accepted — Valid shares acknowledged by the pool (count toward your earnings)\n• Rejected — Shares the pool refused (stale, invalid difficulty, etc.)\n• Difficulty — The share difficulty your pool has assigned; higher = fewer but larger shares'
+        body: '• Accepted — Valid shares acknowledged by the pool/node. In solo mining, shares do not generate direct income — they are proof-of-work submissions. A share that meets the full network difficulty would constitute a block solve.\n• Rejected — Shares the pool refused (stale, invalid difficulty, etc.). A high reject rate may indicate pool latency or incorrect settings.\n• Difficulty — The share difficulty your pool/node has assigned; higher = fewer but harder shares per unit time.'
       },
       {
         heading: '🍀 Luck',
@@ -218,7 +218,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '🎯 How to pick your operating point',
-        body: '1. For 24/7 mining, the Green (best efficiency) row gives the lowest electricity cost per coin earned.\n2. For max earnings when electricity is cheap or free, pick the Blue (best hashrate) row.\n3. If temperature is a concern, look for a row with acceptable ASIC Temp while still having good Avg HR.\n4. Once decided, click "Apply" on that row — it saves Freq and Vcore to your Settings and reboots the miner.'
+        body: 'This miner operates in solo mode — there is no guaranteed daily income. Each block found is a luck event. The goal is to maximise your hashrate or minimise power consumption, not to predict earnings.\n\n1. Green row (best efficiency) — Lowest J/TH. Run here to minimise electricity costs while keeping hashrate reasonable. Good for long-term 24/7 operation.\n2. Blue row (best hashrate) — Highest Avg HR. More hash attempts per second = statistically higher chance of finding the next block.\n3. If temperature is a concern, find a row with acceptable ASIC Temp that still gives good hashrate.\n4. Once decided, click "Apply" on that row — it saves Freq and Vcore to your Settings and reboots the miner.'
       },
       {
         heading: '💾 Data management',
@@ -285,28 +285,24 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     icon: 'pi pi-cog',
     sections: [
       {
-        heading: '⛏ ASIC Frequency (MHz)',
-        body: 'The clock speed of the mining chip. Higher frequency = more hashrate, but also:\n• Higher power consumption (roughly linear)\n• Higher chip temperature\n• More voltage required for stability\n\nStart with the stock frequency and use Benchmark to find the optimal point for your chip. Typical range for BM1370-series: 400–600 MHz.'
+        heading: '🥇 Primary Pool',
+        body: 'The pool the miner connects to on startup. Three fields:\n\n• Stratum USER — Your wallet address (for solo/p2pool) or pool account username. This is where any block reward would be sent.\n• Stratum URL — Connection address in the format: stratum+tcp://pool.host.com:3333\n• Stratum PWD — Pool password. Enter "x" if unsure; some pools use this field to pass a worker name.'
       },
       {
-        heading: '⚡ Core Voltage (Vcore, mV)',
-        body: 'Voltage supplied to the ASIC cores. Lower voltage = less heat and power, but too low causes the chip to fail and produce invalid hashes (0% efficiency, low actual hashrate vs. expected).\n\nRule of thumb: lower frequency → lower minimum stable voltage. Use Benchmark to find the lowest stable voltage for your target frequency. Typical range: 1050–1250 mV.'
+        heading: '🥈 Backup Pool',
+        body: 'Same three fields as Primary Pool. If the device cannot reach the primary pool after ~30 seconds, it automatically switches to the backup pool and continues mining there.'
       },
       {
-        heading: '🌀 Fan Speed (%)',
-        body: '• Manual — Sets a fixed fan duty cycle (0–100%). Use 100% for maximum cooling during Benchmark or in hot environments.\n• Auto — The firmware adjusts fan speed to maintain a target ASIC temperature. Recommended for daily use.\n\nSilence-vs-cooling is a trade-off: lower fan speed is quieter but may cause thermal throttling at high frequencies.'
+        heading: '⚡ OverClock (MHz)',
+        body: 'The ASIC chip clock frequency. Higher frequency = higher hashrate, but also higher chip temperature and higher power draw. Select from the available presets in the dropdown.\n\nUse the Benchmark page to find the optimal frequency for your specific chip — results vary between individual chips even of the same model.'
       },
       {
-        heading: '🔗 Pool Settings (Primary & Backup)',
-        body: 'Each pool entry requires:\n• Stratum URL — format: stratum+tcp://pool.host.com:3333\n• Wallet / Username — your wallet address or pool account name\n• Password / Worker — enter "x" if unsure; some pools use this field for worker naming (e.g. "worker1")\n\nThe device connects to the Primary pool first. If it cannot reach it within ~30 seconds it automatically fails over to the Backup pool.'
-      },
-      {
-        heading: '🏷 Device Name',
-        body: 'A human-readable label for this miner. Shown on the physical display and in the Swarm view when managing multiple devices. Use a short, unique name if you have several miners (e.g. "Axe-01", "Axe-02").'
+        heading: '🔋 Vcore (mV)',
+        body: 'Core voltage supplied to the ASIC. Lower voltage = less heat and power consumption; too low and the chip becomes unstable and produces invalid hashes.\n\nSelect from the available presets. Use the Benchmark page to find the lowest stable voltage at your chosen frequency.'
       },
       {
         heading: '⚠ Notes',
-        body: '• All mining settings require a Save + Reboot to take effect.\n• Do NOT change settings while a Benchmark is running — it can corrupt sweep results.\n• ASIC Boost is enabled by default and improves efficiency ~20% — only disable if your pool explicitly rejects boosted shares.\n• After a frequency or voltage change, wait ~60 seconds for hashrate to stabilise before judging performance.'
+        body: '• All changes require Save and a device restart to take effect.\n• Do NOT change these settings while a Benchmark is running — it may corrupt sweep results.\n• After changing frequency or voltage, allow ~60 seconds for hashrate to stabilise before judging the result.'
       }
     ]
   },
@@ -330,7 +326,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• Price data requires an active internet connection.\n• Prices are for informational display only and do not affect mining operation.\n• Selecting many watchlist coins with fast cycle speed may make individual prices hard to read — 5–15 coins is a practical maximum for readability.\n• Click Save after making changes.'
+        body: '• Price data requires an active internet connection.\n• Prices are for display purposes only and have no effect on mining operation.\n• Click Save after making changes.'
       }
     ]
   },
@@ -341,20 +337,28 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     icon: 'pi pi-sliders-v',
     sections: [
       {
-        heading: '🖥 Display Settings',
-        body: 'Controls what is shown on the miner\'s physical screen:\n• Screen timeout — How many minutes of inactivity before the screen dims or turns off (0 = always on)\n• Brightness — Backlight intensity (0–100%). Lower brightness saves a small amount of power and extends display lifespan.\n• Screen saver — Enables a moving animation when the screen has been idle for the timeout period'
+        heading: '� Screen Brightness',
+        body: 'Controls the backlight intensity of the physical display, from 1% to 100%. Lower brightness reduces heat output from the display and is easier on the eyes in dark environments.'
       },
       {
-        heading: '🔔 Notifications',
-        body: 'Visual or audio alerts shown on the physical display:\n• Block found alert — Flashes a special animation when a block hit is detected\n• Share accepted pulse — Brief visual confirmation when the pool accepts a share\n\nThese are purely cosmetic and do not affect mining performance.'
+        heading: '🌀 ASIC Fan Control',
+        body: '• Auto ASIC Fan (checked) — The firmware automatically adjusts fan speed to maintain a Target ASIC temperature. Set the target temperature using the slider that appears. Recommended for daily operation.\n• Auto ASIC Fan (unchecked) — Manual mode. Set a fixed ASIC fan duty cycle (0–100%) using the slider. 100% = maximum airflow.'
       },
       {
-        heading: '📊 Display Layout',
-        body: 'Choose which statistics are shown on the home screen of the physical display and in what order. Hiding unused metrics reduces visual clutter.\n\nCommon options: Hashrate, Temperature, Pool Latency, Best Difficulty, Uptime, Power.'
+        heading: '🌀 Vcore Fan Control',
+        body: 'Only visible on NMQAxe++ (dual-fan models). Works the same as ASIC Fan Control but for the VRM (voltage regulator) cooling fan:\n• Checked — Auto mode, maintains a target Vcore temperature.\n• Unchecked — Manual mode, fixed fan duty cycle.'
+      },
+      {
+        heading: '🌙 Screen Saver',
+        body: 'Sets how long the display stays idle before the screen saver activates. Select 0 to disable (always on).\n\nWhen a non-zero timeout is selected, a second dropdown appears to choose the screen saver style/mode.'
+      },
+      {
+        heading: '☑ Other Options',
+        body: '• Flip Screen — Rotates the display 180°. Useful if the device is mounted upside-down.\n• LED Indicator — Enables or disables the status LED (not available on NMQAxe++ models).\n• Auto Scroll — The display automatically cycles through different info screens instead of staying on one page.'
       },
       {
         heading: '⚠ Notes',
-        body: '• Preference changes take effect immediately without a reboot.\n• Very low brightness on some display models may cause colour banding — if the display looks odd, increase brightness to at least 20%.'
+        body: '• All preference changes require Save and a device restart to take effect.'
       }
     ]
   },
@@ -365,20 +369,16 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     icon: 'pi pi-palette',
     sections: [
       {
-        heading: '🎨 Color Theme',
-        body: 'Changes the color scheme of the AxeOS web interface. The selected theme is stored in your browser (localStorage) — switching browsers or using a private/incognito window will reset to the default.\n\nAll themes are dark-mode by design to reduce eye strain during overnight monitoring sessions.'
+        heading: '☀️ Color Scheme',
+        body: 'Switch between Dark and Light mode for the AxeOS web interface. Select the radio button for your preferred mode — the change takes effect immediately in the browser.'
       },
       {
-        heading: '🖌 Accent Color',
-        body: 'Some themes support a custom accent color for buttons, highlights, and interactive elements. Click a color swatch to preview it before saving.'
-      },
-      {
-        heading: '🔡 Font Size',
-        body: 'Adjust the base font size of the web interface. "Default" is optimised for desktop monitors. "Large" is useful on tablets or if you prefer bigger text. Changes apply instantly without a page reload.'
+        heading: '🎨 Theme Colors',
+        body: 'A set of named color presets (e.g. Red, Blue, Green…). Each preset changes the primary accent color used for buttons, highlights, sliders, and other interactive elements across the entire interface.\n\nClick a color dot to apply it immediately — no save button needed. The selection is stored in your browser and takes effect right away.'
       },
       {
         heading: '⚠ Notes',
-        body: '• Theme settings are per-browser and are NOT synced across devices.\n• If the page looks broken after a theme change, try a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to clear cached CSS.'
+        body: '• Theme settings are saved in your browser (localStorage) and are not synced across different browsers or devices.\n• Switching to a private/incognito window will reset to the default theme.\n• If the interface looks broken after switching, do a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to clear cached styles.'
       }
     ]
   },
@@ -390,7 +390,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     sections: [
       {
         heading: '🍀 What is "Luck"?',
-        body: 'Luck measures how often your miner finds valid shares compared to the statistical expectation based on its hashrate.\n\n• 100% luck — You\'re finding shares at exactly the rate math predicts.\n• > 100% — You\'re finding shares faster than expected (running hot 🔥).\n• < 100% — You\'re finding shares slower than expected (cold streak ❄️).\n\nLuck is random by nature — like rolling dice. Short-term swings are completely normal. It converges toward 100% over thousands of shares.'
+        body: 'This is a solo miner — it does not receive a share of a pool\'s daily payout. Instead, it competes to find a full Bitcoin block on its own. When it does, the entire block reward goes to your wallet. When it doesn\'t, you receive nothing for that period.\n\nLuck measures how often your miner finds valid shares compared to the statistical expectation based on its hashrate:\n\n• 100% luck — Finding shares at exactly the rate math predicts.\n• > 100% — Finding shares faster than expected (lucky run 🔥).\n• < 100% — Finding shares slower than expected (cold streak ❄️).\n\nLuck is random by nature — like rolling dice. Long cold streaks are completely normal for a small solo miner and do not mean the device is broken. Luck averages out statistically over a very long time.'
       },
       {
         heading: '📊 The chart explained',
@@ -406,7 +406,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '🔍 Practical tips',
-        body: '• A consistently low share difficulty with luck < 50% over many hours may indicate the pool has assigned you a difficulty that\'s too high for your hashrate — contact your pool to lower it.\n• Occasional very high share difficulty spikes are normal — these are "high-luck" shares.\n• If the share difficulty line flatlines at zero for extended periods, check your pool connection and miner uptime in the Home dashboard.'
+        body: '• A long period of luck < 50% is statistically normal for a solo miner — it does not mean anything is wrong with the hardware.\n• Occasional very high share difficulty spikes are normal — these are "high-luck" shares, and a spike reaching Bitcoin network difficulty would be a block solve.\n• If the share difficulty line flatlines at zero for extended periods, check your pool/node connection and miner uptime in the Home dashboard.'
       }
     ]
   }
