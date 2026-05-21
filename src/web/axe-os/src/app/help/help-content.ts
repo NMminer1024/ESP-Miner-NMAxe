@@ -199,7 +199,11 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• Only devices on the same subnet (e.g. 192.168.1.x) are scanned. Miners on a different network will not appear.\n• Scanning is paused during OTA updates and while the screen saver is active, to avoid slowing down those operations.\n• If a miner is powered off, it will disappear after the next complete scan.'
+        body: '• Only devices on the same subnet (e.g. 192.168.1.x) are scanned. Miners on a different network will not appear.<br>• Scanning is paused during OTA updates and while the screen saver is active, to avoid slowing down those operations.<br>• If a miner is powered off, it will disappear after the next complete scan.'
+      },
+      {
+        heading: '🔒 Is this scan safe? Does it expose my privacy?',
+        body: 'Yes, completely safe. Here is why:<br><br>• <b>Just a knock on the door</b> — The scan only sends a standard ping (same as the <code>ping</code> command on your PC) to each address and asks “are you there?”. It cannot read any data from other devices.<br>• <b>Your network, your rules</b> — The scan only covers your own local network (same as your phone and PC do every day). You are the owner of that network.<br>• <b>Results never leave your device</b> — Discovered IPs are stored only in the miner’s memory and are cleared on every reboot. Nothing is uploaded to any server.<br>• <b>Non-miners are immediately ignored</b> — After confirming a device is not an NMAxe miner, it is not contacted again until the next scan cycle.<br>• <b>Fully open source and auditable</b> — Every line of this code is public. See for yourself: <a href="https://github.com/NMminer1024/ESP-Miner-NMAxe" target="_blank" rel="noopener">github.com/NMminer1024/ESP-Miner-NMAxe</a>'
       }
     ]
   },

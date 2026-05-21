@@ -14,7 +14,7 @@
     <div class="help-body">
       <ng-container *ngFor="let section of content.sections">
         <h4 class="help-section-heading" *ngIf="section.heading">{{ section.heading }}</h4>
-        <p class="help-section-body">{{ section.body }}</p>
+        <p class="help-section-body" [innerHTML]="section.body | safeHtml"></p>
       </ng-container>
       <div class="help-callout" *ngIf="content.callout">{{ content.callout }}</div>
     </div>

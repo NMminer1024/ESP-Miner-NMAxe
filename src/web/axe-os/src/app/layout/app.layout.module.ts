@@ -14,6 +14,7 @@ import { SidebarModule } from 'primeng/sidebar';
 import { PrimeNGModule } from '../prime-ng.module';
 import { HelpBtnComponent } from '../components/help-btn/help-btn.component';
 import { HelpOverlayComponent } from '../components/help-overlay/help-overlay.component';
+import { SafeHtmlPipe } from '../pipes/safe-html.pipe';
 import { AppFooterComponent } from './app.footer.component';
 import { AppLayoutComponent } from './app.layout.component';
 import { AppMenuComponent } from './app.menu.component';
@@ -31,6 +32,7 @@ import { AppTopBarComponent } from './app.topbar.component';
         AppLayoutComponent,
         HelpBtnComponent,
         HelpOverlayComponent,
+        SafeHtmlPipe,
     ],
     imports: [
         BrowserModule,
@@ -47,6 +49,6 @@ import { AppTopBarComponent } from './app.topbar.component';
         PrimeNGModule,
 
     ],
-    exports: [AppLayoutComponent, HelpBtnComponent, HelpOverlayComponent]
+    exports: [AppLayoutComponent, HelpBtnComponent, HelpOverlayComponent, SafeHtmlPipe]
 })
 export class AppLayoutModule { }
