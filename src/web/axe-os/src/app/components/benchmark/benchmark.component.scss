@@ -1,3 +1,17 @@
+// ── Card styling (mirrors settings .modern-card) ─────────────────────────────
+.card.modern-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  border: 1px solid #404040;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+}
+
 .bm-status {
   padding: 0.6rem 1rem;
   border-radius: 6px;
@@ -26,35 +40,54 @@
   margin-bottom: 1.25rem;
 }
 
-.bm-fieldset {
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
+.bm-section {
   min-width: 0;
-  legend {
-    font-size: 0.8rem;
-    padding: 0 6px;
-    color: #aaa;
-    white-space: nowrap;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 8px;
+  padding: 0.75rem 1rem 0.4rem;
+
+  .field.grid {
+    margin-bottom: 0.5rem;
+  }
+
+  label {
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    font-size: 0.88rem !important;
+    display: flex;
+    align-items: center;
+  }
+
+  input.p-inputtext {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #555;
+    background: rgba(255,255,255,0.05);
+    padding: 8px 12px;
+    font-size: 0.88rem;
+    color: #fff;
+
+    &:hover  { border-color: #007bff; }
+    &:focus  { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.25); outline: none; }
+    &.ng-invalid.ng-touched { border-color: #f87171; }
+  }
+
+  .p-error {
+    font-size: 0.78rem;
+    margin-top: 3px;
+    color: #f87171;
   }
 }
 
-.bm-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.bm-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: 0.45rem;
   margin-bottom: 0.5rem;
-  label {
-    flex: 0 0 auto;
-    min-width: 80px;
-    font-size: 0.85rem;
-    color: #ccc;
-    white-space: nowrap;
-  }
-  input {
-    flex: 1;
-    min-width: 0;
-  }
+  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
 .bm-actions {
@@ -63,118 +96,79 @@
   flex-wrap: wrap;
 }
 
-// ── Best entry banners ───────────────────────────────────────────────────────
-.bm-best-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.bm-best {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 0.55rem 1rem;
-  border-radius: 6px;
-  font-size: 0.88rem;
-
-  .bm-best-label {
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .bm-best-params {
-    white-space: nowrap;
-  }
-  .bm-best-metrics {
-    opacity: 0.85;
-    white-space: nowrap;
-  }
-  button {
-    margin-left: auto;
-  }
-}
-
-.bm-best-eff {
-  background: rgba(250, 204, 21, 0.1);
-  border-left: 3px solid #facc15;
-  color: #fde68a;
-}
-
-.bm-best-hr {
-  background: rgba(34, 197, 94, 0.1);
-  border-left: 3px solid #4ade80;
-  color: #bbf7d0;
-}
-
-.bm-best-both {
-  background: rgba(99, 102, 241, 0.12);
-  border-left: 3px solid #818cf8;
-  color: #c7d2fe;
-}
-
 // ── Results table ────────────────────────────────────────────────────────────
 .bm-table-wrap {
   overflow-x: auto;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.1);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  margin-bottom: 4px;
 }
 
 .bm-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  background: #333;
   font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
-  font-size: 0.83rem;
+  font-size: 12px;
 }
 
-// Header: dark background, muted color, pointer cursor
+// Header: swarm-style dark green
 .bm-table thead th.bm-th {
-  background: #1a1a2e;
-  color: #94a3b8;
-  padding: 0.55rem 0.75rem;
+  background: #2d5a27;
+  color: #fff;
+  padding: 10px 6px;
   text-align: center;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  border-bottom: 2px solid rgba(148, 163, 184, 0.2);
   font-family: inherit;
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
+  font-size: 13px;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 4;
 
   i {
     font-size: 0.7rem;
     margin-left: 4px;
-    opacity: 0.5;
+    opacity: 0.7;
   }
 
   &:hover {
-    background: #1e2040;
-    color: #cbd5e1;
+    background: #3a6b2f;
     i { opacity: 1; }
   }
 
   &.sort-asc, &.sort-desc {
-    color: #e2e8f0;
-    i { opacity: 1; color: #818cf8; }
+    background: #3a6b2f;
+    i { opacity: 1; color: #a5f3c5; }
   }
 }
 
 .bm-table thead th.bm-th-action {
   cursor: default;
-  &:hover { background: #1a1a2e; }
+  &:hover { background: #2d5a27; }
 }
 
-// Body cells: center-aligned, monospace (inherited)
+// Body cells
 .bm-table tbody td {
-  padding: 0.45rem 0.75rem;
+  background: #444;
+  color: #fff;
+  padding: 6px 4px;
   text-align: center;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  color: #e2e8f0;
+  border-bottom: 1px solid #555;
+  border-right: 1px solid #4a4a4a;
+  font-family: 'Courier New', Consolas, 'Lucida Console', monospace;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .bm-table tbody tr:hover td {
-  background: rgba(255,255,255,0.04);
+  background: #555;
 }
 
 .bm-td-action {
@@ -183,15 +177,38 @@
 
 // ── Row highlights ────────────────────────────────────────────────────────────
 tr.bm-best-eff-row td {
-  background: rgba(250, 204, 21, 0.07) !important;
+  background: rgba(250, 204, 21, 0.18) !important;
 }
 
 tr.bm-best-hr-row td {
-  background: rgba(34, 197, 94, 0.07) !important;
+  background: rgba(34, 197, 94, 0.18) !important;
 }
 
 tr.bm-best-both-row td {
-  background: rgba(99, 102, 241, 0.10) !important;
+  background: rgba(99, 102, 241, 0.22) !important;
+}
+
+// ── Best value cell emphasis ─────────────────────────────────────────────────
+// Best HashRate row: highlight the avgHR cell
+td.bm-val-best-hr {
+  color: #4ade80;
+  font-weight: 700;
+  font-size: 0.97rem;
+}
+
+// Best Efficiency row: highlight the effJTH cell
+td.bm-val-best-eff {
+  color: #facc15;
+  font-weight: 700;
+  font-size: 0.97rem;
+}
+
+// Small badge icon that precedes the highlighted value
+.bm-best-tag {
+  font-size: 0.72rem;
+  margin-right: 3px;
+  vertical-align: middle;
+  line-height: 1;
 }
 
 // ── Confirmation dialog ───────────────────────────────────────────────────────
@@ -249,28 +266,6 @@ tr.bm-best-both-row td {
     gap: 0.75rem;
   }
 
-  .bm-fieldset {
-    legend {
-      white-space: normal;
-    }
-  }
-
-  // Let label text wrap and shrink on tiny screens
-  .bm-row {
-    flex-wrap: wrap;
-    label {
-      white-space: normal;
-      min-width: 0;
-      flex: 0 0 auto;
-      width: 100%;
-      margin-bottom: 0.1rem;
-    }
-    input {
-      flex: 1 1 100%;
-      width: 100%;
-    }
-  }
-
   // Stack action buttons vertically, full width
   .bm-actions {
     flex-direction: column;
@@ -288,25 +283,6 @@ tr.bm-best-both-row td {
 
     > button.p-button {
       width: 100%;
-      justify-content: center;
-    }
-  }
-
-  // Best-entry banners: stack content vertically
-  .bm-best {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.4rem;
-
-    .bm-best-label,
-    .bm-best-params,
-    .bm-best-metrics {
-      white-space: normal;
-    }
-
-    button.p-button {
-      margin-left: 0;
-      align-self: stretch;
       justify-content: center;
     }
   }

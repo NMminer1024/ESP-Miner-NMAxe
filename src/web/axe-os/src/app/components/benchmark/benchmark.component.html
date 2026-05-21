@@ -14,79 +14,98 @@
 
   <!-- Configuration grid -->
   <div class="bm-config-grid">
+
     <!-- Frequency sweep -->
-    <fieldset class="bm-fieldset">
-      <legend>Frequency Sweep (MHz)</legend>
-      <div class="bm-row">
-        <label>Min</label>
-        <input pInputText type="number" formControlName="freqMin" class="p-inputtext-sm" />
+    <div class="bm-section">
+      <div class="bm-section-title">Frequency Sweep (MHz)</div>
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Min</label>
+        <div class="col-12 md:col-8">
+          <input pInputText type="number" formControlName="freqMin" />
+          <small class="p-error block" *ngIf="fieldError('freqMin')">{{ fieldError('freqMin') }}</small>
+        </div>
       </div>
-      <div class="bm-row">
-        <label>Max</label>
-        <input pInputText type="number" formControlName="freqMax" class="p-inputtext-sm" />
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Max</label>
+        <div class="col-12 md:col-8">
+          <input pInputText type="number" formControlName="freqMax" />
+          <small class="p-error block" *ngIf="fieldError('freqMax')">{{ fieldError('freqMax') }}</small>
+        </div>
       </div>
-      <div class="bm-row">
-        <label>Step</label>
-        <input pInputText type="number" formControlName="freqStep" class="p-inputtext-sm" />
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Step</label>
+        <div class="col-12 md:col-8">
+          <input pInputText type="number" formControlName="freqStep" />
+          <small class="p-error block" *ngIf="fieldError('freqStep')">{{ fieldError('freqStep') }}</small>
+        </div>
       </div>
-    </fieldset>
+    </div>
 
     <!-- Vcore sweep -->
-    <fieldset class="bm-fieldset">
-      <legend>Vcore Sweep (mV)</legend>
-      <div class="bm-row">
-        <label>Min</label>
-        <input pInputText type="number" formControlName="vcoreMin" class="p-inputtext-sm" />
+    <div class="bm-section">
+      <div class="bm-section-title">Vcore Sweep (mV)</div>
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Min</label>
+        <div class="col-12 md:col-8">
+          <input pInputText type="number" formControlName="vcoreMin" />
+          <small class="p-error block" *ngIf="fieldError('vcoreMin')">{{ fieldError('vcoreMin') }}</small>
+        </div>
       </div>
-      <div class="bm-row">
-        <label>Max</label>
-        <input pInputText type="number" formControlName="vcoreMax" class="p-inputtext-sm" />
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Max</label>
+        <div class="col-12 md:col-8">
+          <input pInputText type="number" formControlName="vcoreMax" />
+          <small class="p-error block" *ngIf="fieldError('vcoreMax')">{{ fieldError('vcoreMax') }}</small>
+        </div>
       </div>
-      <div class="bm-row">
-        <label>Step</label>
-        <input pInputText type="number" formControlName="vcoreStep" class="p-inputtext-sm" />
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Step</label>
+        <div class="col-12 md:col-8">
+          <input pInputText type="number" formControlName="vcoreStep" />
+          <small class="p-error block" *ngIf="fieldError('vcoreStep')">{{ fieldError('vcoreStep') }}</small>
+        </div>
       </div>
-    </fieldset>
+    </div>
 
     <!-- Timing -->
-    <fieldset class="bm-fieldset">
-      <legend>Timing (seconds)</legend>
-      <div class="bm-row">
-        <label>Stabilize</label>
-        <input pInputText type="number" formControlName="stabTime" class="p-inputtext-sm" />
+    <div class="bm-section">
+      <div class="bm-section-title">Timing (seconds)</div>
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Stabilize</label>
+        <div class="col-12 md:col-8">
+          <input pInputText type="number" formControlName="stabTime" />
+          <small class="p-error block" *ngIf="fieldError('stabTime')">{{ fieldError('stabTime') }}</small>
+        </div>
       </div>
-      <div class="bm-row">
-        <label>Benchmark</label>
-        <input pInputText type="number" formControlName="bmTime" class="p-inputtext-sm" />
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Benchmark</label>
+        <div class="col-12 md:col-8">
+          <input pInputText type="number" formControlName="bmTime" />
+          <small class="p-error block" *ngIf="fieldError('bmTime')">{{ fieldError('bmTime') }}</small>
+        </div>
       </div>
-      <div class="bm-row">
-        <label>Sample Interval</label>
-        <input pInputText type="number" formControlName="sampleIntv" class="p-inputtext-sm" />
+      <div class="field grid p-fluid">
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Sample Interval</label>
+        <div class="col-12 md:col-8">
+          <input pInputText type="number" formControlName="sampleIntv" />
+          <small class="p-error block" *ngIf="fieldError('sampleIntv')">{{ fieldError('sampleIntv') }}</small>
+        </div>
       </div>
-    </fieldset>
+    </div>
+
   </div>
 
   <!-- Action buttons -->
   <div class="bm-actions">
-    <span [pTooltip]="startDisabledTip" [tooltipDisabled]="!startDisabledTip" tooltipPosition="top" style="display:inline-block">
-      <button pButton type="button" label="Start Benchmark" icon="pi pi-play"
-              class="p-button-success btn"
-              [disabled]="isRunning || !form.valid"
-              (click)="openStartConfirm()">
-      </button>
-    </span>
-    <span [pTooltip]="resumeDisabledTip" [tooltipDisabled]="!resumeDisabledTip" tooltipPosition="top" style="display:inline-block">
-      <button pButton type="button" label="Resume" icon="pi pi-step-forward"
-              class="p-button-outlined p-button-success btn"
-              [disabled]="!canResume || isRunning"
-              (click)="openResumeConfirm()">
-      </button>
-    </span>
-    <span [pTooltip]="stopDisabledTip" [tooltipDisabled]="!stopDisabledTip" tooltipPosition="top" style="display:inline-block">
-      <button pButton type="button" label="Stop" icon="pi pi-stop"
-              class="p-button-danger btn"
-              [disabled]="!isRunning"
-              (click)="stop()">
+    <!-- Single context-aware primary button: Start / Resume / Stop -->
+    <span [pTooltip]="primaryDisabledTip" [tooltipDisabled]="!primaryDisabledTip" tooltipPosition="top" style="display:inline-block">
+      <button pButton type="button"
+              [label]="primaryButtonLabel"
+              [icon]="primaryButtonIcon"
+              class="btn"
+              [ngClass]="primaryButtonNgClass"
+              [disabled]="primaryButtonDisabled"
+              (click)="primaryAction()">
       </button>
     </span>
     <button pButton type="button" label="Reset Benchmark" icon="pi pi-refresh"
@@ -104,37 +123,6 @@
   <div class="bm-duration" *ngIf="totalSec > 0 && !isRunning">
     <span class="bm-duration-label">⏱ Total Time:</span>
     <span class="bm-duration-value">{{ formatDuration(totalSec) }}</span>
-  </div>
-
-  <!-- Best entry summaries -->
-  <div class="bm-best-wrap">
-    <div class="bm-best bm-best-eff" *ngIf="bestEff">
-      <span class="bm-best-label">🏆 Best Efficiency</span>
-      <span class="bm-best-params"><strong>{{ bestEff.freq }} MHz / {{ bestEff.vcore }} mV</strong></span>
-      <span class="bm-best-metrics">{{ bestEff.effJTH | number:'1.3-3' }} J/TH &nbsp;&#64;&nbsp; {{ bestEff.avgHR | number:'1.1-1' }} GH/s</span>
-      <button pButton type="button" label="Apply" icon="pi pi-check"
-              class="p-button-outlined p-button-warning p-button-sm btn"
-              (click)="openApplyConfirm(bestEff!)">
-      </button>
-    </div>
-    <div class="bm-best bm-best-hr" *ngIf="bestHR && bestHR !== bestEff">
-      <span class="bm-best-label">⚡ Best HashRate</span>
-      <span class="bm-best-params"><strong>{{ bestHR.freq }} MHz / {{ bestHR.vcore }} mV</strong></span>
-      <span class="bm-best-metrics">{{ bestHR.avgHR | number:'1.1-1' }} GH/s &nbsp;&#64;&nbsp; {{ bestHR.effJTH | number:'1.3-3' }} J/TH</span>
-      <button pButton type="button" label="Apply" icon="pi pi-check"
-              class="p-button-outlined p-button-success p-button-sm btn"
-              (click)="openApplyConfirm(bestHR!)">
-      </button>
-    </div>
-    <div class="bm-best bm-best-both" *ngIf="bestHR && bestHR === bestEff">
-      <span class="bm-best-label">🏆⚡ Best Efficiency &amp; HashRate</span>
-      <span class="bm-best-params"><strong>{{ bestEff.freq }} MHz / {{ bestEff.vcore }} mV</strong></span>
-      <span class="bm-best-metrics">{{ bestEff.effJTH | number:'1.3-3' }} J/TH &nbsp;&#64;&nbsp; {{ bestEff.avgHR | number:'1.1-1' }} GH/s</span>
-      <button pButton type="button" label="Apply" icon="pi pi-check"
-              class="p-button-outlined p-button-success p-button-sm btn"
-              (click)="openApplyConfirm(bestEff!)">
-      </button>
-    </div>
   </div>
 
   <!-- Results table -->
@@ -181,10 +169,14 @@
           <td>{{ r.freq }}</td>
           <td>{{ r.vcore }}</td>
           <td>{{ r.expHR | number:'1.1-1' }}</td>
-          <td>{{ r.avgHR | number:'1.1-1' }}</td>
+          <td [class.bm-val-best-hr]="r === bestHR">
+            <span *ngIf="r === bestHR" class="bm-best-tag">⚡</span>{{ r.avgHR | number:'1.1-1' }}
+          </td>
           <td>{{ r.avgAsicTemp | number:'1.1-1' }}</td>
           <td>{{ r.avgVcoreTemp | number:'1.1-1' }}</td>
-          <td>{{ r.effJTH | number:'1.3-3' }}</td>
+          <td [class.bm-val-best-eff]="r === bestEff">
+            <span *ngIf="r === bestEff" class="bm-best-tag">🏆</span>{{ r.effJTH | number:'1.3-3' }}
+          </td>
           <td>{{ r.avgPwr | number:'1.2-2' }}</td>
           <td class="bm-td-action">
             <button pButton type="button" label="Apply" icon="pi pi-check"
@@ -257,12 +249,16 @@
     <p>Resume the sweep from the last stopped position:</p>
     <p><strong>{{ curFreq }} MHz / {{ curVcore }} mV</strong></p>
     <p>The device will <strong>reboot</strong> and continue from where it left off.</p>
-    <p style="color: var(--text-color-secondary); font-size: 0.875rem">Results collected so far will be preserved. To start over from the beginning, use <em>Start Benchmark</em> instead.</p>
+    <p style="color: var(--text-color-secondary); font-size: 0.875rem">Existing results will be preserved. Use <em>Start Fresh</em> to restart from the beginning instead.</p>
   </div>
   <ng-template pTemplate="footer">
     <button pButton type="button" label="Cancel" icon="pi pi-times"
             class="p-button-outlined p-button-secondary btn"
             (click)="showResumeConfirm = false">
+    </button>
+    <button pButton type="button" label="Start Fresh" icon="pi pi-play"
+            class="p-button-outlined p-button-secondary btn"
+            (click)="startFresh()">
     </button>
     <button pButton type="button" label="Resume" icon="pi pi-step-forward"
             class="p-button-success btn"

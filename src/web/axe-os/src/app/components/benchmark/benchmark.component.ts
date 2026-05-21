@@ -114,30 +114,67 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     this.timerSub?.unsubscribe();
   }
 
-  // ── Disabled button tooltip messages ─────────────────────────────────────
-  public get startDisabledTip(): string {
-    if (this.isRunning) return 'Benchmark is currently running — stop it first';
-    if (this.form && !this.form.valid) return this.formInvalidReason;
+  // ── Field validation error messages ─────────────────────────────────────
+  public fieldError(name: string): string {
+    const ctrl = this.form?.get(name);
+    if (!ctrl || ctrl.valid || !ctrl.touched) return '';
+    if (ctrl.hasError('required')) return 'This field is required.';
+    if (ctrl.hasError('min')) return `Must be ≥ ${ctrl.getError('min').min}.`;
+    if (ctrl.hasError('max')) return `Must be ≤ ${ctrl.getError('max').max}.`;
+    return 'Invalid value — enter a positive integer.';
+  }
+
+  // ── Button state helpers ──────────────────────────────────────────────────
+  public get primaryDisabledTip(): string {
+    if (!this.isRunning && !this.canResume && this.form && !this.form.valid)
+      return this.formInvalidReason;
     return '';
   }
 
-  public get stopDisabledTip(): string {
-    return !this.isRunning ? 'No benchmark is currently running' : '';
+  public get clearDisabledTip(): string {
+    return this.isRunning ? 'Cannot clear results while a benchmark is running' : '';
   }
 
-  public get resumeDisabledTip(): string {
-    if (this.isRunning) return 'Benchmark is currently running — stop it first';
-    if (!this.canResume) return 'No paused benchmark position to resume from';
-    return '';
-  }
-
+  // ── Merged primary button (Start / Resume / Stop) ─────────────────────────
   public get canResume(): boolean {
     return !this.isRunning && this.curFreq > 0 &&
            (this.curFreq !== this.loadedFreqMin || this.curVcore !== this.loadedVcoreMin);
   }
 
-  public get clearDisabledTip(): string {
-    return this.isRunning ? 'Cannot clear results while a benchmark is running' : '';
+  public get primaryButtonLabel(): string {
+    if (this.isRunning) return 'Stop';
+    if (this.canResume) return 'Resume';
+    return 'Start Benchmark';
+  }
+
+  public get primaryButtonIcon(): string {
+    if (this.isRunning) return 'pi pi-stop';
+    if (this.canResume) return 'pi pi-step-forward';
+    return 'pi pi-play';
+  }
+
+  public get primaryButtonNgClass(): Record<string, boolean> {
+    return {
+      'p-button-danger':  this.isRunning,
+      'p-button-warning': !this.isRunning && this.canResume,
+      'p-button-success': !this.isRunning && !this.canResume,
+    };
+  }
+
+  public get primaryButtonDisabled(): boolean {
+    return !this.isRunning && !this.canResume && !this.form?.valid;
+  }
+
+  public primaryAction(): void {
+    if (this.isRunning) { this.stop(); return; }
+    if (this.canResume) { this.openResumeConfirm(); return; }
+    this.openStartConfirm();
+  }
+
+  // Start from scratch even when a resumable position exists
+  public startFresh(): void {
+    this.showResumeConfirm = false;
+    this.doStart();
   }
 
   private get formInvalidReason(): string {
