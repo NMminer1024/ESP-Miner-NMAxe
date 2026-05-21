@@ -1,6 +1,6 @@
 <!-- Benchmark Page -->
 <div class="card modern-card" *ngIf="form" [formGroup]="form">
-  <h2 class="card-title"><span class="card-icon">🔬</span>Benchmark</h2>
+  <h2 class="card-title"><span class="card-icon">🔬</span>Benchmark<app-help-btn key="benchmark"></app-help-btn></h2>
 
   <!-- Status banner -->
   <div class="bm-status" [class.running]="isRunning" [class.idle]="!isRunning && !canResume" [class.paused]="canResume && !isRunning">

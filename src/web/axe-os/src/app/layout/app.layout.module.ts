@@ -12,6 +12,8 @@ import { RippleModule } from 'primeng/ripple';
 import { SidebarModule } from 'primeng/sidebar';
 
 import { PrimeNGModule } from '../prime-ng.module';
+import { HelpBtnComponent } from '../components/help-btn/help-btn.component';
+import { HelpOverlayComponent } from '../components/help-overlay/help-overlay.component';
 import { AppFooterComponent } from './app.footer.component';
 import { AppLayoutComponent } from './app.layout.component';
 import { AppMenuComponent } from './app.menu.component';
@@ -27,6 +29,8 @@ import { AppTopBarComponent } from './app.topbar.component';
         AppMenuComponent,
         AppSidebarComponent,
         AppLayoutComponent,
+        HelpBtnComponent,
+        HelpOverlayComponent,
     ],
     imports: [
         BrowserModule,
@@ -43,6 +47,6 @@ import { AppTopBarComponent } from './app.topbar.component';
         PrimeNGModule,
 
     ],
-    exports: [AppLayoutComponent]
+    exports: [AppLayoutComponent, HelpBtnComponent, HelpOverlayComponent]
 })
 export class AppLayoutModule { }

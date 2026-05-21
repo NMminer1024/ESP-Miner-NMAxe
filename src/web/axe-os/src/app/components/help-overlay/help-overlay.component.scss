@@ -1,0 +1,142 @@
+// Backdrop — full-screen semi-transparent overlay
+.help-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: help-fade-in 0.18s ease;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+@keyframes help-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// Card
+.help-card {
+  background: linear-gradient(160deg, #1e2a38 0%, #1a2030 100%);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.05);
+  width: 100%;
+  max-width: 580px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  animation: help-slide-in 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+  overflow: hidden;
+}
+
+@keyframes help-slide-in {
+  from { transform: scale(0.92) translateY(12px); opacity: 0; }
+  to   { transform: scale(1)    translateY(0);    opacity: 1; }
+}
+
+// Header
+.help-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.help-header-icon {
+  font-size: 1.25rem;
+  color: #60a5fa;
+}
+
+.help-title {
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: 0.01em;
+}
+
+.help-close-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+
+  i { font-size: 1rem; }
+
+  &:hover {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.12);
+  }
+
+  &:focus { outline: none; }
+}
+
+// Scrollable body
+.help-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+}
+
+.help-section-heading {
+  margin: 16px 0 6px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #93c5fd;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+
+  &:first-child { margin-top: 0; }
+}
+
+.help-section-body {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: #cbd5e1;
+  white-space: pre-line;   // renders \n and bullet points correctly
+}
+
+// Footer
+.help-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.help-ok-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s;
+
+  &:hover  { background: #1d4ed8; }
+  &:active { background: #1e40af; }
+  &:focus  { outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.4); }
+}

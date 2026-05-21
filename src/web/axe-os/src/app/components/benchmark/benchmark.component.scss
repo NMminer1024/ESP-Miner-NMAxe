@@ -12,6 +12,20 @@
   }
 }
 
+// Card title — flex row so the help-btn floats to the right
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+
+  .card-icon { flex-shrink: 0; }
+  app-help-btn { margin-left: auto; }
+}
+
 // Fieldset wrapper for config grid: remove border, dim when disabled
 .bm-fieldset {
   border: none;
