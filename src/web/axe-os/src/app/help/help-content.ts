@@ -193,6 +193,190 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
         body: '• Do not power off the device during an update — this can corrupt flash and require USB recovery.\n• If the web interface does not load after an update, connect via USB and re-flash SPIFFS.\n• Always download a backup of your Benchmark results before updating firmware.'
       }
     ]
+  },
+
+  // ── Benchmark Results ─────────────────────────────────────────────────────
+  'benchmark-results': {
+    title: 'Benchmark Results — How to Read',
+    icon: 'pi pi-table',
+    sections: [
+      {
+        heading: '📋 What each column means',
+        body: '• Time — When this data point was recorded (date + hour:minute)\n• Freq (MHz) — The ASIC clock frequency that was tested at this row\n• Vcore (mV) — The core voltage applied during this test point\n• Exp HR (GH/s) — Expected (theoretical) hashrate at this frequency based on chip spec\n• Avg HR (GH/s) — The actual measured average hashrate over the entire Benchmark Time window\n• ASIC Temp (°C) — Average ASIC chip temperature during the sampling window\n• VRM Temp (°C) — Average VRM (voltage regulator) temperature during the sampling window\n• Eff (J/TH) — Energy efficiency in Joules per Terahash — lower = better\n• Avg Pwr (W) — Average power consumption of the whole miner at this operating point\n• Action — Apply this row\'s Freq + Vcore to the miner as its permanent settings'
+      },
+      {
+        heading: '🏆 Row highlighting',
+        body: '• Green row — Best efficiency point (lowest J/TH). This is usually the sweet spot for running 24/7 with minimum electricity cost.\n• Blue row — Highest hashrate point (highest Avg HR). Choose this if you want maximum output regardless of power draw.\n• Gold row — The same operating point wins both best efficiency AND best hashrate simultaneously (rare).'
+      },
+      {
+        heading: '⚡ Efficiency (J/TH) explained',
+        body: 'J/TH = Watts ÷ (Hashrate in TH/s). It tells you how many Joules of energy are spent to compute one Terahash.\n\nExample: 8 W ÷ 0.8 TH/s = 10 J/TH.\n\nLower J/TH means the chip does more hashing per watt — better for profitability. Typically, lowering Vcore at the same frequency improves efficiency until the chip becomes unstable and starts producing invalid shares.'
+      },
+      {
+        heading: '📊 Avg HR vs Exp HR',
+        body: 'The gap between Avg HR and Exp HR shows how well the chip performs at a given operating point.\n\n• Small gap (< 5%) — Chip is stable; all cores are hashing correctly.\n• Large gap (> 10%) — Some ASIC cores may be failing or rejecting shares at this Freq/Vcore combination. Try raising Vcore slightly or lowering Freq.\n• Avg HR > Exp HR — Rare; can happen due to variance in pool-side share counting.'
+      },
+      {
+        heading: '🎯 How to pick your operating point',
+        body: '1. For 24/7 mining, the Green (best efficiency) row gives the lowest electricity cost per coin earned.\n2. For max earnings when electricity is cheap or free, pick the Blue (best hashrate) row.\n3. If temperature is a concern, look for a row with acceptable ASIC Temp while still having good Avg HR.\n4. Once decided, click "Apply" on that row — it saves Freq and Vcore to your Settings and reboots the miner.'
+      },
+      {
+        heading: '💾 Data management',
+        body: '• Results are stored in device flash (NVS) and survive power cycles.\n• "Download JSON" exports all results as a text file for offline analysis or backup.\n• "Clear Results" permanently deletes all stored data — download first!\n• Results survive a factory reset (10-second long-press) but NOT a "Reset Benchmark" in the Benchmark card.'
+      }
+    ]
+  },
+
+  // ── Settings — Time ───────────────────────────────────────────────────────
+  'settings-time': {
+    title: 'Settings — Time',
+    icon: 'pi pi-clock',
+    sections: [
+      {
+        heading: '🕐 Timezone Offset',
+        body: 'Enter your UTC offset as a plain integer.\n\nExamples:\n• UTC+8 (China, Singapore, Perth) → enter 8\n• UTC+0 (UK, Portugal) → enter 0\n• UTC-5 (US Eastern) → enter -5\n• UTC+5:30 (India) → enter 5 (half-hours are not supported)\n\nThe device normally detects timezone automatically from your network. This manual offset is only used as a fallback when automatic detection fails — for example if your router blocks NTP or geolocation requests.'
+      },
+      {
+        heading: '🕑 Time Format',
+        body: '• 12-hour — Displays time as 01:30 PM / 11:45 AM (AM/PM style)\n• 24-hour — Displays time as 13:30 / 23:45 (military / European style)\n\nThis affects the clock shown on the miner\'s physical display and the timestamp column in Benchmark results.'
+      },
+      {
+        heading: '📅 Date Format',
+        body: 'Controls how dates are shown on-screen:\n\n• MM/DD/YYYY — US style (e.g. 05/21/2026)\n• DD/MM/YYYY — European style (e.g. 21/05/2026)\n• YYYY-MM-DD — ISO 8601 international standard (e.g. 2026-05-21)\n\nChoose whichever matches your regional convention.'
+      },
+      {
+        heading: '⚠ Notes',
+        body: '• You must click Save and then restart the device for time changes to take effect.\n• The device syncs time from the internet via NTP (Network Time Protocol) automatically on boot — if the time shown is wrong, check your network connection and timezone offset.\n• Time is not battery-backed; the clock resets to epoch on power loss and re-syncs after WiFi connects.'
+      }
+    ]
+  },
+
+  // ── Settings — Network ────────────────────────────────────────────────────
+  'settings-network': {
+    title: 'Settings — Network',
+    icon: 'pi pi-wifi',
+    sections: [
+      {
+        heading: '📶 WiFi SSID & Password',
+        body: 'Enter the name (SSID) and password of your 2.4 GHz WiFi network.\n\nIMPORTANT: The ESP32 chip only supports 2.4 GHz — it cannot connect to 5 GHz networks. If your router broadcasts both bands with the same name, the device will automatically connect to 2.4 GHz.\n\nAfter saving, the device reboots and attempts to connect. If it succeeds, you will be able to reach the web interface at the same IP address (or the new static IP if configured).'
+      },
+      {
+        heading: '🖥 Hostname',
+        body: 'The device\'s mDNS hostname on your local network. With mDNS enabled on your router you can reach the device at http://[hostname].local instead of typing the IP address. Default is "NMAxe" — change it if you have multiple miners.'
+      },
+      {
+        heading: '📌 Static IP',
+        body: 'By default the device uses DHCP — it gets an IP address automatically from your router. If you want a fixed, predictable IP address (recommended for multi-miner setups or if you use the Benchmark IP display feature), enable Static IP and fill in:\n\n• IP Address — The fixed IP you want (e.g. 192.168.1.50). Must be in the same subnet as your gateway and not conflict with another device.\n• Gateway — Your router\'s IP address (e.g. 192.168.1.1).\n• Subnet Mask — Typically 255.255.255.0 for home networks.\n• DNS Server — Usually the same as Gateway, or use 8.8.8.8 (Google) / 1.1.1.1 (Cloudflare).'
+      },
+      {
+        heading: '⚠ Notes',
+        body: '• If you enter wrong WiFi credentials, the device enters AP (Access Point) mode and broadcasts a hotspot named "NMAxe-Setup". Connect to it and navigate to 192.168.4.1 to reconfigure.\n• A static IP address that conflicts with another device on your network will cause connection drops.\n• A wrong Gateway or Subnet Mask in Static IP mode will make the device unreachable — you may need to factory reset (10-second long-press of the button) to recover.'
+      }
+    ]
+  },
+
+  // ── Settings — Mining ─────────────────────────────────────────────────────
+  'settings-mining': {
+    title: 'Settings — Mining',
+    icon: 'pi pi-cog',
+    sections: [
+      {
+        heading: '⛏ ASIC Frequency (MHz)',
+        body: 'The clock speed of the mining chip. Higher frequency = more hashrate, but also:\n• Higher power consumption (roughly linear)\n• Higher chip temperature\n• More voltage required for stability\n\nStart with the stock frequency and use Benchmark to find the optimal point for your chip. Typical range for BM1370-series: 400–600 MHz.'
+      },
+      {
+        heading: '⚡ Core Voltage (Vcore, mV)',
+        body: 'Voltage supplied to the ASIC cores. Lower voltage = less heat and power, but too low causes the chip to fail and produce invalid hashes (0% efficiency, low actual hashrate vs. expected).\n\nRule of thumb: lower frequency → lower minimum stable voltage. Use Benchmark to find the lowest stable voltage for your target frequency. Typical range: 1050–1250 mV.'
+      },
+      {
+        heading: '🌀 Fan Speed (%)',
+        body: '• Manual — Sets a fixed fan duty cycle (0–100%). Use 100% for maximum cooling during Benchmark or in hot environments.\n• Auto — The firmware adjusts fan speed to maintain a target ASIC temperature. Recommended for daily use.\n\nSilence-vs-cooling is a trade-off: lower fan speed is quieter but may cause thermal throttling at high frequencies.'
+      },
+      {
+        heading: '🔗 Pool Settings (Primary & Backup)',
+        body: 'Each pool entry requires:\n• Stratum URL — format: stratum+tcp://pool.host.com:3333\n• Wallet / Username — your wallet address or pool account name\n• Password / Worker — enter "x" if unsure; some pools use this field for worker naming (e.g. "worker1")\n\nThe device connects to the Primary pool first. If it cannot reach it within ~30 seconds it automatically fails over to the Backup pool.'
+      },
+      {
+        heading: '🏷 Device Name',
+        body: 'A human-readable label for this miner. Shown on the physical display and in the Swarm view when managing multiple devices. Use a short, unique name if you have several miners (e.g. "Axe-01", "Axe-02").'
+      },
+      {
+        heading: '⚠ Notes',
+        body: '• All mining settings require a Save + Reboot to take effect.\n• Do NOT change settings while a Benchmark is running — it can corrupt sweep results.\n• ASIC Boost is enabled by default and improves efficiency ~20% — only disable if your pool explicitly rejects boosted shares.\n• After a frequency or voltage change, wait ~60 seconds for hashrate to stabilise before judging performance.'
+      }
+    ]
+  },
+
+  // ── Settings — Market ─────────────────────────────────────────────────────
+  'settings-market': {
+    title: 'Settings — Market',
+    icon: 'pi pi-chart-line',
+    sections: [
+      {
+        heading: '💰 Main Price',
+        body: 'The cryptocurrency whose live price is shown on the main display screen of your miner. Only one coin can be selected as the main price.\n\nThe price is fetched from the internet and refreshed periodically. If the device has no internet connection, the display will show the last known price.'
+      },
+      {
+        heading: '👀 Watchlist',
+        body: 'A list of coins whose prices continuously cycle on the price wall / ticker screen of the display. You can select up to 50 trading pairs.\n\nThe price wall scrolls through all selected pairs in order, updating live. This is useful for tracking multiple assets simultaneously on the physical display.'
+      },
+      {
+        heading: '🔍 Finding coins',
+        body: 'Both dropdowns have a search/filter field — type the coin symbol (e.g. BTC, ETH, SOL) or name to quickly filter the list. The list is sourced from major exchange data.'
+      },
+      {
+        heading: '⚠ Notes',
+        body: '• Price data requires an active internet connection.\n• Prices are for informational display only and do not affect mining operation.\n• Selecting many watchlist coins with fast cycle speed may make individual prices hard to read — 5–15 coins is a practical maximum for readability.\n• Click Save after making changes.'
+      }
+    ]
+  },
+
+  // ── Settings — Preference ─────────────────────────────────────────────────
+  'settings-preference': {
+    title: 'Settings — Preference',
+    icon: 'pi pi-sliders-v',
+    sections: [
+      {
+        heading: '🖥 Display Settings',
+        body: 'Controls what is shown on the miner\'s physical screen:\n• Screen timeout — How many minutes of inactivity before the screen dims or turns off (0 = always on)\n• Brightness — Backlight intensity (0–100%). Lower brightness saves a small amount of power and extends display lifespan.\n• Screen saver — Enables a moving animation when the screen has been idle for the timeout period'
+      },
+      {
+        heading: '🔔 Notifications',
+        body: 'Visual or audio alerts shown on the physical display:\n• Block found alert — Flashes a special animation when a block hit is detected\n• Share accepted pulse — Brief visual confirmation when the pool accepts a share\n\nThese are purely cosmetic and do not affect mining performance.'
+      },
+      {
+        heading: '📊 Display Layout',
+        body: 'Choose which statistics are shown on the home screen of the physical display and in what order. Hiding unused metrics reduces visual clutter.\n\nCommon options: Hashrate, Temperature, Pool Latency, Best Difficulty, Uptime, Power.'
+      },
+      {
+        heading: '⚠ Notes',
+        body: '• Preference changes take effect immediately without a reboot.\n• Very low brightness on some display models may cause colour banding — if the display looks odd, increase brightness to at least 20%.'
+      }
+    ]
+  },
+
+  // ── Settings — Theme ─────────────────────────────────────────────────────
+  'settings-theme': {
+    title: 'Settings — Theme',
+    icon: 'pi pi-palette',
+    sections: [
+      {
+        heading: '🎨 Color Theme',
+        body: 'Changes the color scheme of the AxeOS web interface. The selected theme is stored in your browser (localStorage) — switching browsers or using a private/incognito window will reset to the default.\n\nAll themes are dark-mode by design to reduce eye strain during overnight monitoring sessions.'
+      },
+      {
+        heading: '🖌 Accent Color',
+        body: 'Some themes support a custom accent color for buttons, highlights, and interactive elements. Click a color swatch to preview it before saving.'
+      },
+      {
+        heading: '🔡 Font Size',
+        body: 'Adjust the base font size of the web interface. "Default" is optimised for desktop monitors. "Large" is useful on tablets or if you prefer bigger text. Changes apply instantly without a page reload.'
+      },
+      {
+        heading: '⚠ Notes',
+        body: '• Theme settings are per-browser and are NOT synced across devices.\n• If the page looks broken after a theme change, try a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to clear cached CSS.'
+      }
+    ]
   }
 
 };

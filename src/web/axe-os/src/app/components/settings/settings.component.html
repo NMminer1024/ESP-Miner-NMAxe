@@ -28,30 +28,27 @@
 </p-dialog>
 
 <div class="card modern-card time-card">
-  <h2 class="card-title"><span class="card-icon">🕐</span>Time</h2>
+  <h2 class="card-title"><span class="card-icon">🕐</span>Time<app-help-btn key="settings-time"></app-help-btn></h2>
   <app-time-edit/>
 </div>
 
 <div class="card modern-card network-card">
-  <h2 class="card-title"><span class="card-icon">🌐</span>Network</h2>
+  <h2 class="card-title"><span class="card-icon">🌐</span>Network<app-help-btn key="settings-network"></app-help-btn></h2>
   <app-network-edit/>
 </div>
 
 <div class="card modern-card mining-card">
-  <h2 class="card-title"><span class="card-icon">⛏️</span>Mining</h2>
+  <h2 class="card-title"><span class="card-icon">⛏️</span>Mining<app-help-btn key="settings-mining"></app-help-btn></h2>
   <app-edit></app-edit>
 </div>
 
 <div class="card modern-card market-card" *ngIf="form" [formGroup]="form">
-  <h2 class="card-title"><span class="card-icon">📈</span>Market</h2>
+  <h2 class="card-title"><span class="card-icon">📈</span>Market<app-help-btn key="settings-market"></app-help-btn></h2>
 
   <!-- Primary Display Coin -->
   <div class="field grid p-fluid">
     <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="mainprice">
       Main Price:
-      <span pTooltip="The coin whose price is shown on the main screen. Only one coin can be selected."
-            tooltipPosition="top"
-            style="margin-left: 5px; cursor: help; color: #888; font-size: 14px;">❓</span>
     </label>
     <div class="col-12 md:col-10">
       <p-dropdown id="mainprice"
@@ -72,9 +69,6 @@
   <div class="field grid p-fluid">
     <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coinWatchlist">
       Watchlist:
-      <span pTooltip="Coins that continuously cycle on the price wall screen. Maximum 50 pairs."
-            tooltipPosition="top"
-            style="margin-left: 5px; cursor: help; color: #888; font-size: 14px;">❓</span>
     </label>
     <div class="col-12 md:col-10">
       <p-multiSelect id="coinWatchlist"
@@ -106,14 +100,14 @@
 <div class="grid preference-theme-grid">
   <div class="col-12 lg:col-6 xl:col-6">
     <div class="card modern-card preference-card">
-      <h2 class="card-title"><span class="card-icon">⚙️</span>Preference</h2>
+      <h2 class="card-title"><span class="card-icon">⚙️</span>Preference<app-help-btn key="settings-preference"></app-help-btn></h2>
       <app-preferences/>
     </div>
   </div>
   
   <div class="col-12 lg:col-6 xl:col-6">
     <div class="card modern-card theme-card compact-theme-card">
-      <h2 class="card-title"><span class="card-icon">🎨</span>Theme Configuration</h2>
+      <h2 class="card-title"><span class="card-icon">🎨</span>Theme Configuration<app-help-btn key="settings-theme"></app-help-btn></h2>
       <div class="theme-content-wrapper">
         <app-theme-config></app-theme-config>
       </div>

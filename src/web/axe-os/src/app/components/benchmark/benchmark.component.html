@@ -72,7 +72,7 @@
     <div class="bm-section">
       <div class="bm-section-title">Timing (seconds)</div>
       <div class="field grid p-fluid">
-        <label class="col-12 mb-1 md:col-4 md:mb-0">Stabilize</label>
+        <label class="col-12 mb-1 md:col-4 md:mb-0">Warmup</label>
         <div class="col-12 md:col-8">
           <input pInputText type="number" formControlName="stabTime" />
           <small class="p-error block" *ngIf="fieldError('stabTime')">{{ fieldError('stabTime') }}</small>
@@ -118,7 +118,7 @@
 
 <!-- Results -->
 <div class="card modern-card" *ngIf="results.length > 0">
-  <h2 class="card-title"><span class="card-icon">📊</span>Results</h2>
+  <h2 class="card-title"><span class="card-icon">📊</span>Results<app-help-btn key="benchmark-results"></app-help-btn></h2>
 
   <!-- Total benchmark duration -->
   <div class="bm-duration" *ngIf="totalSec > 0 && !isRunning">
