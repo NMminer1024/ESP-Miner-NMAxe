@@ -12,7 +12,8 @@
     </span>
   </div>
 
-  <!-- Configuration grid -->
+  <!-- Configuration grid — fieldset disables all inputs while running -->
+  <fieldset [disabled]="isRunning" class="bm-fieldset">
   <div class="bm-config-grid">
 
     <!-- Frequency sweep -->
@@ -94,19 +95,19 @@
     </div>
 
   </div>
+  </fieldset>
 
   <!-- Action buttons -->
   <div class="bm-actions">
     <!-- Single context-aware primary button: Start / Resume / Stop -->
     <span [pTooltip]="primaryDisabledTip" [tooltipDisabled]="!primaryDisabledTip" tooltipPosition="top" style="display:inline-block">
-      <button pButton type="button"
-              [label]="primaryButtonLabel"
-              [icon]="primaryButtonIcon"
-              class="btn"
-              [severity]="primaryButtonSeverity"
-              [disabled]="primaryButtonDisabled"
-              (click)="primaryAction()">
-      </button>
+      <p-button [label]="primaryButtonLabel"
+                [icon]="primaryButtonIcon"
+                styleClass="btn"
+                [severity]="primaryButtonSeverity"
+                [disabled]="primaryButtonDisabled"
+                (onClick)="primaryAction()">
+      </p-button>
     </span>
     <button pButton type="button" label="Reset Benchmark" icon="pi pi-refresh"
             class="p-button-outlined p-button-warning btn"

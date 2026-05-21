@@ -12,6 +12,19 @@
   }
 }
 
+// Fieldset wrapper for config grid: remove border, dim when disabled
+.bm-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-inline-size: auto;
+
+  &:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+}
+
 .bm-status {
   padding: 0.6rem 1rem;
   border-radius: 6px;
