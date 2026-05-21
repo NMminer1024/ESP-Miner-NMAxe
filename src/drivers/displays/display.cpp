@@ -4497,6 +4497,7 @@ void ui_benchmark_overlay_update(void* args) {
   static lv_obj_t  *overlay    = nullptr;
   static lv_obj_t  *lb_title   = nullptr;
   static lv_obj_t  *lb_rows[9] = {};   // up to 9 data row labels
+  static lv_obj_t  *lb_ip      = nullptr; // IP address label (large screen only)
   static lv_obj_t  *bar        = nullptr;
   static lv_style_t style_bg;
   static bool style_inited = false;
@@ -4509,6 +4510,7 @@ void ui_benchmark_overlay_update(void* args) {
       lv_obj_del(overlay);
       overlay  = nullptr;
       lb_title = nullptr;
+      lb_ip    = nullptr;
       for (int i = 0; i < 9; i++) lb_rows[i] = nullptr;
       bar    = nullptr;
       n_rows = 0;
@@ -4534,7 +4536,7 @@ void ui_benchmark_overlay_update(void* args) {
     if (!style_inited) {
       lv_style_init(&style_bg);
       lv_style_set_bg_color(&style_bg, lv_color_black());
-      lv_style_set_bg_opa(&style_bg, LV_OPA_90);
+      lv_style_set_bg_opa(&style_bg, 242);  // ~95% opaque (LV_OPA_90=230, LV_OPA_100=255)
       lv_style_set_border_width(&style_bg, 0);
       lv_style_set_pad_all(&style_bg, 0);
       style_inited = true;
@@ -4548,20 +4550,23 @@ void ui_benchmark_overlay_update(void* args) {
     lv_obj_move_foreground(overlay);
 
     if (is_large) {
-      // ── Large screen 320×240: Inconsolata_22 title + Inconsolata_18 data ──
-      // Layout (y positions):
-      //   4  : title    (line_height=20)
-      //   28 : row[0]   Freq         (line_height=19 each)
-      //   47 : row[1]   Vcore
-      //   66 : row[2]   ASIC temp
-      //   85 : row[3]   VRM temp
-      //   104: row[4]   Phase
-      //   123: row[5]   Time left
-      //   142: row[6]   Hashrate
-      //   161: row[7]   Round (F x/N  V x/M)
-      //   180: row[8]   ETA
-      //   204: bar      (h=8)
-      n_rows = 9;
+      // ── Large screen 320×240: Inconsolata_22 title + Inconsolata_18 data rows ──
+      // Redesigned layout — 7 combined data rows + IP line + progress bar.
+      // All data rows use identical 11-char label prefix for strict colon alignment:
+      //   "  XXXXXXX: " (2 spaces + 7-char label padded with spaces + ": " = 11 chars)
+      //
+      // Y positions (screen 320×240):
+      //   4   : title           (Inconsolata_22, ~22px tall)
+      //   28  : row[0]  F/V     (400MHz / 1200mV)
+      //   50  : row[1]  Temp    (98C / 45C  ASIC/VRM)
+      //   72  : row[2]  Phase   (Stabilize / Sampling)
+      //   94  : row[3]  Left    (seconds remaining)
+      //   116 : row[4]  Avg/Exp (hashrate real / expected GH/s)
+      //   138 : row[5]  Round   (F x/N  V x/M)
+      //   160 : row[6]  ETA     (~Xh Ym (max))
+      //   186 : IP label        (Inconsolata_22, center-aligned, slightly larger)
+      //   218 : bar             (h=8)
+      n_rows = 7;
 
       lb_title = lv_label_create(overlay);
       lv_obj_set_style_text_font(lb_title, &Inconsolata_22, LV_PART_MAIN);
@@ -4571,18 +4576,16 @@ void ui_benchmark_overlay_update(void* args) {
       lv_obj_set_style_text_align(lb_title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
       lv_label_set_text(lb_title, "[ BENCHMARK ]");
 
-      const lv_color_t init_colors[9] = {
-        lv_color_hex(0xFFFFFF), // Freq
-        lv_color_hex(0xFFFFFF), // Vcore
-        lv_color_hex(0xFFFFFF), // ASIC
-        lv_color_hex(0xFFFFFF), // VRM
+      const lv_color_t init_colors[7] = {
+        lv_color_hex(0xFFFFFF), // F/V
+        lv_color_hex(0xFFFFFF), // Temp
         lv_color_hex(0xFACC15), // Phase (yellow=stab; updated dynamically)
         lv_color_hex(0xFFFFFF), // Left
-        lv_color_hex(0x4ADE80), // HR
+        lv_color_hex(0x4ADE80), // Avg/Exp HR
         lv_color_hex(0xAAAAAA), // Round
         lv_color_hex(0xAAAAAA), // ETA
       };
-      const int row_y_large[9] = {28, 47, 66, 85, 104, 123, 142, 161, 180};
+      const int row_y_large[7] = {28, 50, 72, 94, 116, 138, 160};
       for (int i = 0; i < n_rows; i++) {
         lb_rows[i] = lv_label_create(overlay);
         lv_obj_set_style_text_font(lb_rows[i], &Inconsolata_18, LV_PART_MAIN);
@@ -4591,10 +4594,19 @@ void ui_benchmark_overlay_update(void* args) {
         lv_label_set_text(lb_rows[i], "");
       }
 
+      // IP label — slightly larger font (Inconsolata_22), centered
+      lb_ip = lv_label_create(overlay);
+      lv_obj_set_style_text_font(lb_ip, &Inconsolata_22, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_ip, lv_color_hex(0x94A3B8), LV_PART_MAIN);
+      lv_obj_set_pos(lb_ip, 0, 186);
+      lv_obj_set_width(lb_ip, LV_HOR_RES);
+      lv_obj_set_style_text_align(lb_ip, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+      lv_label_set_text(lb_ip, "");
+
       bar = lv_bar_create(overlay);
       lv_bar_set_range(bar, 0, 100);
       lv_obj_set_size(bar, (lv_coord_t)(LV_HOR_RES - 24), 8);
-      lv_obj_set_pos(bar, 12, 204);
+      lv_obj_set_pos(bar, 12, 218);
 
     } else {
       // ── Small screen 240×135: Inconsolata_16 title + Inconsolata_16 data ─
@@ -4660,41 +4672,45 @@ void ui_benchmark_overlay_update(void* args) {
 
   if (is_large) {
     // ── Large screen row updates ──────────────────────────────────────────
-    // Column alignment: label field 9 chars (left-aligned) + ": " + value field
-    // All rows start at x=8, monospaced → perfect column alignment
-    snprintf(buf, sizeof(buf), "  Freq   : %4d MHz",   bm.cur_freq);
+    // All rows: 2-space indent + 7-char label (space-padded) + ": " = 11-char prefix.
+    // This gives perfect colon alignment in monospaced Inconsolata_18.
+    //
+    // Row 0 — F/V : combined frequency and voltage
+    snprintf(buf, sizeof(buf), "  F/V    : %uMHz / %umV", bm.cur_freq, bm.cur_vcore);
     lv_label_set_text(lb_rows[0], buf);
 
-    snprintf(buf, sizeof(buf), "  Vcore  : %4d mV",    bm.cur_vcore);
+    // Row 1 — Temp : ASIC temp / VRM temp
+    snprintf(buf, sizeof(buf), "  Temp   : %.0fC / %.0fC", bm.asic_temp, bm.vcore_temp);
     lv_label_set_text(lb_rows[1], buf);
 
-    snprintf(buf, sizeof(buf), "  ASIC   : %5.1f C",   bm.asic_temp);
+    // Row 2 — Phase : Stabilize (yellow) or Sampling (blue)
+    snprintf(buf, sizeof(buf), "  Phase  : %s", bm.in_stab ? "Stabilize" : "Sampling ");
     lv_label_set_text(lb_rows[2], buf);
-
-    snprintf(buf, sizeof(buf), "  VRM    : %5.1f C",   bm.vcore_temp);
-    lv_label_set_text(lb_rows[3], buf);
-
-    snprintf(buf, sizeof(buf), "  Phase  : %s",        bm.in_stab ? "Stabilize" : "Sampling ");
-    lv_label_set_text(lb_rows[4], buf);
-    lv_obj_set_style_text_color(lb_rows[4],
+    lv_obj_set_style_text_color(lb_rows[2],
       bm.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA), LV_PART_MAIN);
 
-    snprintf(buf, sizeof(buf), "  Left   : %5lu s",    (unsigned long)phase_remaining);
+    // Row 3 — Left : seconds remaining in current phase
+    snprintf(buf, sizeof(buf), "  Left   : %lus",  (unsigned long)phase_remaining);
+    lv_label_set_text(lb_rows[3], buf);
+
+    // Row 4 — Avg/Exp : measured / expected hashrate with GH/s unit
+    if (bm.in_stab) {
+      snprintf(buf, sizeof(buf), "  Avg/Exp: (Stab) / %.0f GH/s", bm.exp_hr_ghs);
+    } else {
+      snprintf(buf, sizeof(buf), "  Avg/Exp: %.0f / %.0f GH/s", bm.avg_hr_ghs, bm.exp_hr_ghs);
+    }
+    lv_label_set_text(lb_rows[4], buf);
+
+    // Row 5 — Round : frequency and voltage sweep indices
+    snprintf(buf, sizeof(buf), "  Round  : F%u/%u  V%u/%u", freq_idx, freq_total, vc_idx, vc_total);
     lv_label_set_text(lb_rows[5], buf);
 
-    if (bm.in_stab) {
-      snprintf(buf, sizeof(buf), "  Avg    : (Stab) / %4.0f GH", bm.exp_hr_ghs);
-      lv_label_set_text(lb_rows[6], buf);
-    } else {
-      snprintf(buf, sizeof(buf), "  Avg    : %4.1f / %4.0f GH", bm.avg_hr_ghs, bm.exp_hr_ghs);
-      lv_label_set_text(lb_rows[6], buf);
-    }
+    // Row 6 — ETA : worst-case time remaining (labelled "max")
+    snprintf(buf, sizeof(buf), "  ETA    : ~%s (max)", eta_str);
+    lv_label_set_text(lb_rows[6], buf);
 
-    snprintf(buf, sizeof(buf), "  Round  :  F%u/%u  V%u/%u", freq_idx, freq_total, vc_idx, vc_total);
-    lv_label_set_text(lb_rows[7], buf);
-
-    snprintf(buf, sizeof(buf), "  ETA    : ~%s",        eta_str);
-    lv_label_set_text(lb_rows[8], buf);
+    // IP label — centered, Inconsolata_22
+    lv_label_set_text(lb_ip, board->status.wifi.ip.toString().c_str());
 
   } else {
     // ── Small screen row updates ──────────────────────────────────────────
@@ -4715,10 +4731,10 @@ void ui_benchmark_overlay_update(void* args) {
 
     // Row 3: Hashrate real/expected
     if (bm.in_stab) {
-      snprintf(buf, sizeof(buf), "Avg:Stab /%4.0fGH", bm.exp_hr_ghs);
+      snprintf(buf, sizeof(buf), "Avg:Stab /%.0fGH/s", bm.exp_hr_ghs);
       lv_label_set_text(lb_rows[3], buf);
     } else {
-      snprintf(buf, sizeof(buf), "Avg:%4.1f/%4.0f GH", bm.avg_hr_ghs, bm.exp_hr_ghs);
+      snprintf(buf, sizeof(buf), "Avg:%.0f/%.0f GH/s", bm.avg_hr_ghs, bm.exp_hr_ghs);
       lv_label_set_text(lb_rows[3], buf);
     }
 
