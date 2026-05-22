@@ -347,11 +347,11 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚡ OverClock (MHz)',
-        body: 'The ASIC chip clock frequency. Higher frequency = higher hashrate, but also higher chip temperature and higher power draw. Select from the available presets in the dropdown.\n\nUse the Benchmark page to find the optimal frequency for your specific chip — results vary between individual chips even of the same model.'
+        body: 'The ASIC chip clock frequency. Higher frequency = higher hashrate, but also higher chip temperature and higher power draw. Select from the available presets in the dropdown.\n\nUse the Benchmark page to find the optimal frequency for your specific chip — results vary between individual chips even of the same model.\n\n★ A value marked with * (e.g. "450 MHz*") is a custom value applied by the Benchmark — it falls outside the standard preset list and is shown at its correct sorted position for your reference.'
       },
       {
         heading: '🔋 Vcore (mV)',
-        body: 'Core voltage supplied to the ASIC. Lower voltage = less heat and power consumption; too low and the chip becomes unstable and produces invalid hashes.\n\nSelect from the available presets. Use the Benchmark page to find the lowest stable voltage at your chosen frequency.'
+        body: 'Core voltage supplied to the ASIC. Lower voltage = less heat and power consumption; too low and the chip becomes unstable and produces invalid hashes.\n\nSelect from the available presets. Use the Benchmark page to find the lowest stable voltage at your chosen frequency.\n\n★ A value marked with * (e.g. "1175 mV*") is a custom value applied by the Benchmark — it falls outside the standard preset list and is shown at its correct sorted position for your reference.'
       },
       {
         heading: '⚠ Notes',
