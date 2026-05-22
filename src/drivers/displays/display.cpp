@@ -4758,11 +4758,11 @@ void ui_benchmark_overlay_update(void* args) {
     snprintf(buf, sizeof(buf), "  Temp : %.0fC / %.0fC", bm.asic_temp, bm.vcore_temp);
     lv_label_set_text(lb_rows[1], buf);
 
-    // Row 2 — Avg : measured hashrate (or "(warmup)" during stab phase)
+    // Row 2 — Avg : measured / expected hashrate (warmup: "--" for measured)
     if (bm.in_stab) {
-      snprintf(buf, sizeof(buf), "  Avg  : (warmup)");
+      snprintf(buf, sizeof(buf), "  Avg  : --/%.0f GH/s", bm.exp_hr_ghs);
     } else {
-      snprintf(buf, sizeof(buf), "  Avg  : %.0f GH/s", bm.avg_hr_ghs);
+      snprintf(buf, sizeof(buf), "  Avg  : %.0f/%.0f GH/s", bm.avg_hr_ghs, bm.exp_hr_ghs);
     }
     lv_label_set_text(lb_rows[2], buf);
 
