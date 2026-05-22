@@ -170,34 +170,23 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 
 ### (2026.05.22) - v3.0.20
 - `Add`:
-  - **NMQAxe++ Rev6.1**: new hardware revision with higher power headroom; hashrate up to ~7.3 TH/s. Default OC 750 MHz / 1250 mV.
-  - **Offline Benchmark**: full Freq × Vcore grid sweep running entirely on-device — warmup + sampling phases, per-point hashrate / power / temperature records, NVS persistence (LRU eviction when full), resume-across-reboot, and a one-click "Apply Best" button. Results survive factory reset.
-  - **Benchmark Overlay**: dedicated full-screen benchmark status overlay for NMQAxe++ large display (F/V/P/Temp layout, progress, ETA).
-  - **AxeOS Help System**: "What's this?" overlay available on every major card (Benchmark, Mining settings, Pool, Hashrate, Lucky Statistics, ASIC, Logs, Swarm, etc.) with detailed contextual descriptions.
-  - **Swarm Scan Progress**: live scanning progress bar and count on the Swarm page during device discovery.
-  - **AxeOS UI improvements**: RSSI signal bars, uptime display, improved Logs page (log level coloring, auto-scroll), benchmark time-cost display, GIF reminder fixes.
-  - **TMP102 self-test** on boot process.
-  - **Nonce deduplication** check for REV6.1.
-  - `displayName` field in `GET /api/system/info` API response.
+  - **NMQAxe++ Rev6.1**: new hardware revision; hashrate up to ~7.3 TH/s, default OC 750 MHz / 1250 mV.
+  - **Offline Benchmark**: on-device Freq × Vcore sweep — warmup + sampling phases, per-point hashrate / power / temp, NVS persistence, resume-across-reboot, one-click Apply Best.
+  - **Benchmark Overlay** *(NMQAxe++ only)*: full-screen status overlay with F/V/P/Temp, progress, and ETA.
+  - **AxeOS Help System**: "What's this?" contextual overlay on every major card (Benchmark, Mining, Pool, Hashrate, Lucky Statistics, ASIC, Logs, Swarm, etc.).
+  - **Swarm Scan Progress**: live progress bar and device count during LAN discovery.
+  - **AxeOS UI**: RSSI signal bars, uptime display, Logs page level-coloring and auto-scroll, benchmark time-cost display.
+  - `displayName` field in `GET /api/system/info`.
 - `Fixed`:
-  - Screen saver crash (LVGL timer dangling pointer).
-  - Auto-roll crash on enable.
-  - BMxx HAL `get_board_model` fix.
+  - Screen saver crash (LVGL timer dangling pointer); auto-roll crash on enable.
+  - BMxx HAL `get_board_model` fix; Rev6.1 display name layout in AxeOS.
   - Benchmark logic correctness (threshold 0.9, thread restore).
-  - Reactive button color binding in benchmark UI.
-  - Benchmark overlay button severity binding.
-  - `subscribe` lifecycle leak in AxeOS components.
-  - Share reject reason now logged per-share.
-  - AxeOS fit / layout for QAxe++ Rev6.1 display name.
+  - `subscribe` lifecycle leak in AxeOS components; share reject reason now logged per-share.
 - `Improved`:
-  - Custom NVS freq/vcore values (e.g. from Benchmark Apply) shown in device display and AxeOS Mining dropdowns at their correct sorted position, marked with `*` (e.g. `"450 MHz*"`, `"1175 mV*"`).
-  - Fan self-test logic.
-  - Benchmark ETA calculation.
-  - Board detection logic.
-  - NVS usage logging.
-  - AxeOS help text: Mining card notes that `*`-marked values are Benchmark-applied custom settings.
-  - API documentation (`docs/API.md` and on-device `api-doc`) fully synced with backend: added `minFreeHeap`, `/alive` scanning fields, Reboot History / Coredump / Benchmark endpoint sections.
-  - **NMQAxe++ Vcore temperature source** corrected: now reads from the VRM's internal sensor (previously from an external sensor, which under-reported). Expect displayed Vcore temp to be **10–20 °C higher** after upgrading — anything below **125 °C** is normal.
+  - Custom NVS freq/vcore values shown with `*` in device display and AxeOS Mining dropdowns at correct sorted position (e.g. `"450 MHz*"`, `"1175 mV*"`); Mining card help text documents this.
+  - Fan self-test, benchmark ETA, board detection, and NVS usage logging.
+  - API docs (`docs/API.md` and on-device `api-doc`) updated: added `minFreeHeap`, `/alive` scanning fields, Reboot / Coredump / Benchmark sections.
+  - **NMQAxe++ Vcore temp** source corrected: VRM internal sensor (was external, under-reported); expect **10–20 °C higher** after upgrade — below **125 °C** is normal.
 - `Remove`:
   - None.
 
