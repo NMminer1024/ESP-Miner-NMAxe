@@ -182,6 +182,39 @@ Full API documentation: [docs/API.md](./docs/API.md)
 ## Release Log
 ***
 
+### (2026.05.22) - v3.1.0
+- `Add`:
+  - **NMQAxe++ Rev6.1 (3-phase power)**: new hardware variant with TPS53647 3-phase VRM, 3 mΩ shunt, higher current headroom (~150 W), dedicated OC/OT status read, over-current protection, and phase-count auto-detection. Default OC 750 MHz / 1250 mV.
+  - **Offline Benchmark**: full Freq × Vcore grid sweep running entirely on-device — warmup + sampling phases, per-point hashrate / power / temperature records, NVS persistence (LRU eviction when full), resume-across-reboot, and a one-click "Apply Best" button. Results survive factory reset.
+  - **Benchmark Overlay**: dedicated full-screen benchmark status overlay for NMQAxe++ large display (F/V/P/Temp layout, progress, ETA).
+  - **AxeOS Help System**: "What's this?" overlay available on every major card (Benchmark, Mining settings, Pool, Hashrate, Lucky Statistics, ASIC, Logs, Swarm, etc.) with detailed contextual descriptions.
+  - **Swarm Scan Progress**: live scanning progress bar and count on the Swarm page during device discovery.
+  - **AxeOS UI improvements**: RSSI signal bars, uptime display, improved Logs page (log level coloring, auto-scroll), benchmark time-cost display, GIF reminder fixes.
+  - **TMP102 self-test** on boot process.
+  - **Nonce deduplication** check for REV6.1.
+  - `displayName` field in `GET /api/system/info` API response.
+  - Benchmark batch scripts (`run-expert-*.bat`) for automated remote sweeps.
+- `Fixed`:
+  - Screen saver crash (LVGL timer dangling pointer).
+  - Auto-roll crash on enable.
+  - BMxx HAL `get_board_model` fix.
+  - Benchmark logic correctness (threshold 0.9, thread restore).
+  - Reactive button color binding in benchmark UI.
+  - Benchmark overlay button severity binding.
+  - `subscribe` lifecycle leak in AxeOS components.
+  - Share reject reason now logged per-share.
+  - AxeOS fit / layout for QAxe++ Rev6.1 display name.
+- `Improved`:
+  - Custom NVS freq/vcore values (e.g. from Benchmark Apply) shown in device display and AxeOS Mining dropdowns at their correct sorted position, marked with `*` (e.g. `"450 MHz*"`, `"1175 mV*"`).
+  - Fan self-test logic.
+  - Benchmark ETA calculation.
+  - Board detection logic.
+  - NVS usage logging.
+  - AxeOS help text: Mining card notes that `*`-marked values are Benchmark-applied custom settings.
+  - API documentation (`docs/API.md` and on-device `api-doc`) fully synced with backend: added `minFreeHeap`, `/alive` scanning fields, Reboot History / Coredump / Benchmark endpoint sections.
+- `Remove`:
+  - None.
+
 ### (2026.05.08) - v3.0.12
 - `Add`:
   - Crash log: new reboot-log subsystem stores up to 10 reboot records in NVS, each with reset reason, reboot intent (OTA, factory reset, overheating, pool timeout, ASIC frozen, etc.), uptime and firmware version at the time of reboot.
