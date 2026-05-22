@@ -627,6 +627,7 @@
     <span class="kw">"lastDiff"</span>:        <span class="str">"8192"</span>,     <span class="cmt">// difficulty of the last accepted share</span>
     <span class="kw">"blkhits"</span>:         <span class="num">0</span>,          <span class="cmt">// block hits (shares ≥ network diff)</span>
     <span class="kw">"freeHeap"</span>:        <span class="num">204800</span>,    <span class="cmt">// bytes of free heap</span>
+    <span class="kw">"minFreeHeap"</span>:     <span class="num">163840</span>,    <span class="cmt">// minimum free heap since boot (watermark)</span>
     <span class="kw">"sAccepted"</span>:       <span class="num">1024</span>,      <span class="cmt">// accepted shares this session</span>
     <span class="kw">"sRejected"</span>:       <span class="num">3</span>,          <span class="cmt">// rejected shares this session</span>
     <span class="kw">"uptimeSeconds"</span>:   <span class="num">3600</span>,      <span class="cmt">// seconds since last reboot</span>
@@ -1449,8 +1450,12 @@ Content-Type: application/octet-stream
           </p>
           <div class="block-label">Response 200</div>
           <pre>{
-  <span class="kw">"self"</span>: <span class="str">"192.168.1.42"</span>,
-  <span class="kw">"ips"</span>:  [
+  <span class="kw">"self"</span>:         <span class="str">"192.168.1.42"</span>,
+  <span class="kw">"scanning"</span>:     <span class="bool">false</span>,          <span class="cmt">// true while a /24 subnet scan is in progress</span>
+  <span class="kw">"progress"</span>:     <span class="num">254</span>,            <span class="cmt">// hosts probed so far in the current scan</span>
+  <span class="kw">"total"</span>:        <span class="num">254</span>,            <span class="cmt">// total hosts in the /24 subnet</span>
+  <span class="kw">"next_scan_in"</span>: <span class="num">287</span>,            <span class="cmt">// seconds until next automatic scan (0 if overdue)</span>
+  <span class="kw">"ips"</span>:          [
     <span class="str">"192.168.1.42"</span>,   <span class="cmt">// self is always first</span>
     <span class="str">"192.168.1.1"</span>,
     <span class="str">"192.168.1.100"</span>,

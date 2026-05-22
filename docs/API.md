@@ -18,6 +18,9 @@ All endpoints are served on **port 80**. Response bodies are JSON unless noted o
 - [Probe & Alive](#probe--alive-swarm-internal)
 - [Theme](#theme)
 - [Log & WebSocket](#log--websocket)
+- [Reboot History](#reboot-history)
+- [Coredump](#coredump)
+- [Benchmark](#benchmark)
 
 ---
 
@@ -76,6 +79,7 @@ The response is structured into nested sub-objects.
 | `miner.uptimeSeconds` | int | s | Session uptime (resets on reboot) |
 | `miner.uptimeEver` | int | s | Total cumulative uptime across all sessions |
 | `miner.freeHeap` | int | bytes | ESP32 free heap memory |
+| `miner.minFreeHeap` | int | bytes | ESP32 minimum free heap since boot (watermark) |
 
 #### 🪪 Board Identity — `identity`
 
@@ -138,6 +142,7 @@ Active pool connection — read-only snapshot.
     "lastDiff": "131072",
     "blkhits": 0,
     "freeHeap": 187320,
+    "minFreeHeap": 163840,
     "sAccepted": 1024,
     "sRejected": 3,
     "uptimeSeconds": 86400,
@@ -359,6 +364,10 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | Field | Type | Description |
 |-------|------|-------------|
 | `self` | string | This device's own IP address |
+| `scanning` | bool | `true` while a subnet scan is in progress |
+| `progress` | int | Current scan progress (0–254 hosts probed so far) |
+| `total` | int | Total hosts to probe (always 254 for a /24 subnet) |
+| `next_scan_in` | int | Seconds until the next automatic scan (0 if overdue or never scanned) |
 | `ips` | array | List of all alive IP addresses on the subnet (including self) |
 
 ---
@@ -378,3 +387,125 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 |:------:|:---------|:------------|
 | GET | `/api/log`       | Trigger probe only — real logs are pushed over WebSocket |
 | WS  | `ws://{ip}/ws`   | Persistent WebSocket — every `LOG_*` line is broadcast as a UTF-8 text frame. Outgoing text from clients is echoed back. |
+
+---
+
+## Reboot History
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET    | `/api/reboot/last` | Newest reboot record only (for dashboard banner) |
+| GET    | `/api/reboot/list` | Up to 10 reboot records, newest first |
+| DELETE | `/api/reboot/list` | Wipe stored reboot history (boot index is preserved) |
+
+### Reboot Record Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `idx` | int | Monotonic boot index (increments each boot, survives resets) |
+| `ts` | int | Unix timestamp at the time of reboot (0 if RTC not synced) |
+| `uptime` | int | Uptime in seconds of the previous session |
+| `heapMin` | int | Minimum free internal heap (bytes) during the previous session |
+| `reset` | string | ESP32 reset reason (e.g. `"panic"`, `"watchdog"`, `"power_on"`) |
+| `intent` | string | Software reboot intent (e.g. `"ota_finished"`, `"user_web"`, `"none"`) |
+| `class` | string | Reboot class: `"cold"`, `"normal"`, `"crash"`, `"ota"` |
+| `fw` | string | Firmware version that was running when the reboot occurred |
+| `detail` | string | Additional detail string (e.g. panic reason, uploaded filename) |
+
+**`GET /api/reboot/list` example response**
+```json
+[
+  {
+    "idx": 142, "ts": 1716000000, "uptime": 11520, "heapMin": 49152,
+    "reset": "panic", "intent": "none", "class": "crash",
+    "fw": "v3.0.11", "detail": "panic"
+  }
+]
+```
+
+> `GET /api/reboot/last` returns a single object (not an array). If no history exists it returns `{"class":"cold","intent":"none"}`.
+
+---
+
+## Coredump
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET    | `/api/coredump/info` | Coredump presence and summary metadata |
+| DELETE | `/api/coredump`      | Erase the coredump partition (irreversible) |
+
+### `GET /api/coredump/info` — Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `present` | bool | `true` if a coredump exists in flash |
+| `size` | int | Coredump size in bytes (only when `present=true`) |
+| `crcOk` | bool | `false` if the dump may be truncated or corrupted |
+| `task` | string | Name of the crashing task (if parseable) |
+| `pc` | int | Program counter at crash (hex address as integer) |
+| `bt` | array | Backtrace addresses (array of integers) |
+| `btCorrupted` | bool | `true` if the backtrace could not be fully decoded |
+| `appSha256` | string | First 16 hex chars of the firmware SHA256 at crash time |
+
+```json
+{ "present": true, "size": 12480, "crcOk": true,
+  "task": "miner", "pc": 1075871436,
+  "bt": [1075871436, 1075869312], "btCorrupted": false,
+  "appSha256": "ef970b389312276b" }
+```
+
+> When no coredump is present: `{ "present": false }`.
+
+---
+
+## Benchmark
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET    | `/api/benchmark`         | Config, sweep state and stored results |
+| PATCH  | `/api/benchmark`         | Update sweep parameters (does NOT start) |
+| POST   | `/api/benchmark/start`   | Start (or resume) benchmark sweep; device reboots |
+| POST   | `/api/benchmark/stop`    | Stop benchmark and reboot into normal mining |
+| DELETE | `/api/benchmark/results` | Clear results and reset all sweep config to board defaults |
+| POST   | `/api/benchmark/reset`   | Stop sweep, clear results, reset state; reboots if running |
+| POST   | `/api/benchmark/apply`   | Apply a specific freq+vcore as normal ASIC settings; reboots |
+
+### `GET /api/benchmark` — Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | int | `0` = normal mining, `1` = benchmark sweep active |
+| `freqMin` | int | MHz — sweep start frequency |
+| `freqMax` | int | MHz — sweep end frequency |
+| `freqStep` | int | MHz — frequency increment per step |
+| `vcoreMin` | int | mV — sweep start core voltage |
+| `vcoreMax` | int | mV — sweep end core voltage |
+| `vcoreStep` | int | mV — voltage increment per step |
+| `sampleIntv` | int | Minutes — sampling interval between hash-rate measurements |
+| `bmTime` | int | Seconds — measurement window per step |
+| `stabTime` | int | Milliseconds — stabilisation delay before each measurement |
+| `curFreq` | int | MHz — current sweep position (frequency) |
+| `curVcore` | int | mV — current sweep position (voltage) |
+| `startTs` | int | Unix timestamp when the current sweep started |
+| `totalSec` | int | Accumulated sweep time across all sessions (seconds) |
+| `results` | array | Array of result objects stored in NVS |
+
+### `PATCH /api/benchmark` / `POST /api/benchmark/start` — Request Body
+
+All fields are optional. `POST /api/benchmark/start` also accepts `{"resume": true}` to continue from a paused sweep.
+
+```json
+{
+  "freqMin": 400, "freqMax": 625, "freqStep": 25,
+  "vcoreMin": 1000, "vcoreMax": 1250, "vcoreStep": 25,
+  "sampleIntv": 5, "bmTime": 1000, "stabTime": 200
+}
+```
+
+### `POST /api/benchmark/apply` — Request Body
+
+```json
+{ "freq": 575, "vcore": 1200 }
+```
+
+> Both fields are required. `vcore` is clamped to the board's safety limits. The device reboots immediately into normal mining with the new settings.
