@@ -140,9 +140,17 @@ Batch firmware update on swarm page.
   <img src="image/ota-batch.jpg" alt="ota-batch">
 </div>
 
-
-
 - *Via [NMMiner flash tool](https://flash.nmminer.com/)*
+
+
+## What's this
+***
+Every card in the AxeOS web interface has a small **"?"** button in its title bar. Tap it to open a contextual help overlay explaining what each setting does, what the numbers mean, and how to get the best results from your miner — no need to leave the page.
+
+<div align="center">
+  <img src="image/help.png" alt="what's this help overlay">
+</div>
+
 
 ***Notice***：Long press and hold **boot** button，then click **reset** button to let the NMAxe force into bootloader mode, So that the computer will recognize a COMx device plug in.
 
@@ -182,7 +190,7 @@ Full API documentation: [docs/API.md](./docs/API.md)
 ## Release Log
 ***
 
-### (2026.05.22) - v3.1.0
+### (2026.05.22) - v3.0.20
 - `Add`:
   - **NMQAxe++ Rev6.1**: new hardware revision with higher power headroom; hashrate up to ~7.3 TH/s. Default OC 750 MHz / 1250 mV.
   - **Offline Benchmark**: full Freq × Vcore grid sweep running entirely on-device — warmup + sampling phases, per-point hashrate / power / temperature records, NVS persistence (LRU eviction when full), resume-across-reboot, and a one-click "Apply Best" button. Results survive factory reset.
@@ -193,7 +201,6 @@ Full API documentation: [docs/API.md](./docs/API.md)
   - **TMP102 self-test** on boot process.
   - **Nonce deduplication** check for REV6.1.
   - `displayName` field in `GET /api/system/info` API response.
-  - Benchmark batch scripts (`run-expert-*.bat`) for automated remote sweeps.
 - `Fixed`:
   - Screen saver crash (LVGL timer dangling pointer).
   - Auto-roll crash on enable.
