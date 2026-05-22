@@ -4645,8 +4645,8 @@ void ui_benchmark_overlay_update(void* args) {
       const lv_color_t init_colors_sm[4] = {
         lv_color_hex(0xFFFFFF), // F/V/P
         lv_color_hex(0xFFFFFF), // Temp
-        lv_color_hex(0x4ADE80), // Avg (green)
-        lv_color_hex(0xAAAAAA), // Round/ETA (gray)
+        lv_color_hex(0xFFFFFF), // Avg
+        lv_color_hex(0xFFFFFF), // Round/ETA
       };
       const int row_y_small[4] = {21, 40, 59, 78};
       for (int i = 0; i < n_rows; i++) {
