@@ -8,55 +8,24 @@
   <h1>Make it better</h1>
 </div>
 
-## NMAxe
+## Overview
 ***
-- NMAxe and NMAxeGamma solo miner based on BM1366 and BM1370 which fork from [bitaxe](https://github.com/skot/bitaxe), hashrate around 450-550GH/s and 1.2-2.0TH/s.
-- NMAxe [aliexpress](https://www.aliexpress.com/item/1005008053561633.html)
+NMAxe series are ESP32-S3 based Bitcoin solo miners forked from [bitaxe](https://github.com/skot/bitaxe), featuring a built-in color TFT display, AxeOS web interface, and swarm management. Three models are available:
 
 <div align="center">
   <table width="100%">
     <tr>
-      <td width="50%" align="center"><img src="image/nmaxe-1.jpg" alt="nmaxe-1"></td>
-      <td width="50%" align="center"><img src="image/nmaxe-2.jpg" alt="nmaxe-2"></td>
+      <td width="33%" align="center"><img src="image/nmaxe-1.jpg" alt="NMAxe"></td>
+      <td width="33%" align="center"><img src="image/5.jpg" alt="NMAxeGamma"></td>
+      <td width="33%" align="center"><img src="image/NMQAxe++0.png" alt="NMQAxe++"></td>
     </tr>
     <tr>
-      <td colspan="2" align="center"><a href="https://www.nmminer.com/product/nmaxe/">🛒 Buy NMAxe</a></td>
+      <td align="center"><a href="https://www.nmminer.com/product/nmaxe/">🛒 NMAxe</a></td>
+      <td align="center"><a href="https://www.nmminer.com/product/nmaxe-gamma/">🛒 NMAxeGamma</a></td>
+      <td align="center"><a href="https://www.nmminer.com/product/nmqaxe/">🛒 NMQAxe++</a></td>
     </tr>
   </table>
 </div>
-<div align="center">
-  <table width="100%">
-    <tr>
-      <td width="50%" align="center"><img src="image/5.jpg" alt="Gamma-1"></td>
-      <td width="50%" align="center"><img src="image/6.jpg" alt="Gamma-2"></td>
-    </tr>
-    <tr>
-      <td colspan="2" align="center"><a href="https://www.nmminer.com/product/nmaxe-gamma/">🛒 Buy NMAxeGamma</a></td>
-    </tr>
-  </table>
-</div>
-<div align="center">
-  <table width="100%">
-    <tr>
-      <td width="50%" align="center"><img src="image/NMQAxe++0.png" alt="NMQAxe++-1"></td>
-      <td width="50%" align="center"><img src="image/NMQAxe++1.png" alt="NMQAxe++-2"></td>
-    </tr>
-    <tr>
-      <td colspan="2" align="center"><a href="https://www.nmminer.com/product/nmqaxe/">🛒 Buy NMQAxe++</a></td>
-    </tr>
-  </table>
-</div>
-
-## Tutorial
-***
-- [NMTech YouTube Channel](https://www.youtube.com/@NMTech-official)
-
-
-## Build requirements
-***
-| Platform           | framework  | PCB     | Firmware                     |
-| :---------------   | :---------:|:-------:|:----------------------------:|
-|espressif32@6.6.0   |    Arduino |JLC EDA  | VS code with platformio      |
 
 
 ## Features
@@ -64,65 +33,69 @@
 
 | Feature | NMAxe | NMAxeGamma | NMQAxe++ |
 | :--- | :---: | :---: | :---: |
-| **ASIC Chip** | BM1366 x1 | BM1370 x1 | BM1370 x4 |
-| **Hashrate** | ~450–550 GH/s | ~1.2–2.0 TH/s | ~4.8–6.0 TH/s |
+| **ASIC Chip** | BM1366 × 1 | BM1370 × 1 | BM1370 × 4 |
+| **Hashrate** | ~450–550 GH/s | ~1.2–2.0 TH/s | ~4.8–7.3 TH/s |
 | **Default OC** | 575 MHz / 1250 mV | 600 MHz / 1125 mV | 600 MHz / 1150 mV |
-| **Display** | 1.14" TFT 240x135 | 1.14" TFT 240x135 | 2.8" TFT 320×240 |
+| **Display** | 1.14" TFT 240×135 | 1.14" TFT 240×135 | 2.8" TFT 320×240 |
 | **Touch** | ❌ | ❌ | ✅ |
 | **Fan** | Single | Single | Dual (ASIC + Vcore) |
 | **USB PD** | ✅ | ✅ | ❌ |
 | **Power Supply** | DC 8–12V / 25W+ or USB PD 25W+ | DC 8–12V / 40W+ or USB PD 40W+ | DC 12V / 120W+ |
-| **User Button** | boot + user | boot + user | boot only |
 | **Screensaver** | ✅ | ✅ | ✅ |
 | **Algorithm** | SHA256d | SHA256d | SHA256d |
 | **Stratum SSL** | ✅ | ✅ | ✅ |
-| **[One click deployment](https://flash.nmminer.com/)** | ✅ | ✅ | ✅ |
+| **[One-click Flash](https://flash.nmminer.com/)** | ✅ | ✅ | ✅ |
 
 
-## Buttons
+## Button Controls
 ***
-| Buttons           | Action             | Description             |
-| :---------------  | :-----------------:|:-----------------:      |
-|boot               |    Double click    |  Back to previous page    |
-|boot               |    Single click    |  Switch to next page    |
-|boot               |    Long press      |  Force configuration    |
-|user               |    Long press      |  Restore to factory settings (NMAxe / NMAxeGamma only)  |
+| Button | Action | Description |
+| :--- | :---: | :--- |
+| boot | Single click | Switch to next page |
+| boot | Double click | Back to previous page |
+| boot | Long press | Force configuration mode |
+| user | Long press | Restore factory settings *(NMAxe / NMAxeGamma only)* |
 
-## Configuration
+## Pool Configuration
 ***
 
-### Solo
-| Url               | Type               | Port               | Description       | Minimum required difficulty|
-| :---------------  | :-----------------:| :-----------------:|:-----------------:| :----------------------:   |
-|solobtc.nmminer.com| tcp                |    3333           |         BTC        |  Minimum 0.001  |
-|au.solobtc.nmminer.com| tcp             |    3333           |         BTC        |  Minimum 0.001  |
-|solo.ckpool.org    | tcp                |    3333            |        BTC        | 10K initial, dynamically adjusted based on hashrate|
-|pool.nmminer.com   | tcp                |    3333            |        XEC        | 1K initial, dynamically adjusted based on hashrate |
-|eu.molepool.com    | tcp                |    7450            |        DGB        | Minimum 32.768K constantly         |
-|eu.molepool.com    | tcp                |    5566            |        BCH        | Minimum 32.768K constantly         |
-|eu.molepool.com    | tcp                |    2566            |        SPACE      | Minimum 32.768K constantly         |
-|eu2.molepool.com   | tcp                |    1801            |        FB         | Minimum 32.768K constantly         |
+### Solo Mining
+| URL | Port | Coin | Min Difficulty |
+| :--- | :---: | :---: | :--- |
+| solobtc.nmminer.com | 3333 | BTC | 0.001 |
+| au.solobtc.nmminer.com | 3333 | BTC | 0.001 |
+| solo.ckpool.org | 3333 | BTC | 10K (auto-adjusted) |
+| pool.nmminer.com | 3333 | XEC | 1K (auto-adjusted) |
+| eu.molepool.com | 7450 | DGB | 32.768K |
+| eu.molepool.com | 5566 | BCH | 32.768K |
+| eu.molepool.com | 2566 | SPACE | 32.768K |
+| eu2.molepool.com | 1801 | FB | 32.768K |
 
-### Pool(v2.2.xx at least)
-| Url               | Type               | Port               | Description       | Region|
-| :---------------  | :-----------------:| :-----------------:|:-----------------:| :----------------------:   |
-|btc.f2pool.com     | tcp                |    1314            |        BTC        | common  |
-|btc-asia.f2pool.com| tcp                |    1314            |        BTC        | Asia    |
-|btc-na.f2pool.com  | tcp                |    1314            |        BTC        | North America|
-|btc-euro.f2pool.com| tcp                |    1314            |        BTC        | Europe|
-|btc-africa.f2pool.com| tcp              |    1314            |        BTC        | Africa|
-|btc-latin.f2pool.com| tcp               |    1314            |        BTC        | Latin|
+### Pool Mining *(v2.2.xx or later)*
+| URL | Port | Coin | Region |
+| :--- | :---: | :---: | :---: |
+| btc.f2pool.com | 1314 | BTC | Global |
+| btc-asia.f2pool.com | 1314 | BTC | Asia |
+| btc-na.f2pool.com | 1314 | BTC | North America |
+| btc-euro.f2pool.com | 1314 | BTC | Europe |
+| btc-africa.f2pool.com | 1314 | BTC | Africa |
+| btc-latin.f2pool.com | 1314 | BTC | Latin America |
 
-## How to monitor
+## Monitoring
+***
+The AxeOS web interface provides real-time monitoring. The **Swarm** page lets you manage multiple miners from a single view; the **Lucky Statistics** chart tracks your solo mining progress over time.
 
-- *Swarm*
 <div align="center">
-  <img src="image/swarm.jpg" alt="swarm">
-</div>
-
-- *Lucky statistics*
-<div align="center">
-  <img src="image/Lucky.png" alt="png">
+  <table width="100%">
+    <tr>
+      <td width="50%" align="center"><img src="image/swarm.jpg" alt="Swarm"></td>
+      <td width="50%" align="center"><img src="image/Lucky.png" alt="Lucky Statistics"></td>
+    </tr>
+    <tr>
+      <td align="center">Swarm &mdash; multi-device dashboard</td>
+      <td align="center">Lucky Statistics</td>
+    </tr>
+  </table>
 </div>
 
 ## What's this
@@ -134,56 +107,66 @@ Every card in the AxeOS web interface has a small **"?"** button in its title ba
 </div>
 
 
-## Firmware update
-- *Via AxeOS ota*
+## Firmware Update
+***
 
-Check the latest **firmware.bin** and **spiffs.bin**.
-
-<div align="center">
-  <img src="image/firmware-check.jpg" alt="firmware-check">
-</div>
-
-Batch firmware update on swarm page.
-<div align="center">
-  <img src="image/ota-batch.jpg" alt="ota-batch">
-</div>
-
-
-- *Via [NMMiner flash tool](https://flash.nmminer.com/)*
-
-***Notice***：Long press and hold **boot** button，then click **reset** button to let the NMAxe force into bootloader mode, So that the computer will recognize a COMx device plug in.
+### Via AxeOS OTA
+Download the latest **firmware.bin** and **spiffs.bin** from the [Releases](https://github.com/NMminer1024/ESP-Miner-NMAxe/releases) page, then upload via the AxeOS Update menu. Batch OTA upgrade is also supported from the Swarm page.
 
 <div align="center">
-  <img src="image/nm-flash-tool.jpg" alt="nm-flash-tool">
+  <table width="100%">
+    <tr>
+      <td width="50%" align="center"><img src="image/firmware-check.jpg" alt="OTA update"></td>
+      <td width="50%" align="center"><img src="image/ota-batch.jpg" alt="Batch OTA"></td>
+    </tr>
+    <tr>
+      <td align="center">Single device OTA</td>
+      <td align="center">Batch OTA via Swarm</td>
+    </tr>
+  </table>
 </div>
 
-## Recover A Bricked Device or Corrupt Firmware
 
-If your device is inaccessible, use the [NMMiner flash tool](https://flash.nmminer.com/) to fully recover it.
+### Via [NMMiner Flash Tool](https://flash.nmminer.com/)
+Use the web-based flash tool for first-time flashing or full recovery. To enter flash mode: **long press** the `boot` button, then click `reset` — the device will appear as a COM port and the browser can flash it directly.
 
-**How to enter forced flash mode:**
-1. Hold the **boot** button
+<div align="center">
+  <img src="image/nm-flash-tool.jpg" alt="NMMiner Flash Tool">
+</div>
+
+## Recover a Bricked Device
+***
+If the device is inaccessible via AxeOS, use the [NMMiner Flash Tool](https://flash.nmminer.com/) to fully reflash it.
+
+**Enter forced flash mode:**
+1. Hold the `boot` button
 2. Plug in the USB cable
-3. Release the **boot** button
+3. Release the `boot` button
 
-The browser will detect the device and you can flash the latest firmware directly.
+The browser will detect the device and flash the latest firmware directly.
 
 
 
 
 ## API Reference
 ***
+Full REST API documentation: [docs/API.md](./docs/API.md)
 
-Full API documentation: [docs/API.md](./docs/API.md)
+> An interactive version is also available on-device at `http://{device-ip}/api-doc` after flashing.
 
-> After flashing, an interactive version is also available on-device at `http://{device-ip}/api-doc`.
+## Build from Source
+***
+| Platform | Framework | PCB | IDE |
+| :--- | :---: | :---: | :--- |
+| espressif32 @ 6.6.0 | Arduino | JLC EDA | VS Code + PlatformIO |
+
+Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-official)
 
 ## Contact
-- Anything do not work as your expectation, just let us know.
-
-| Email                   |  Telegram                       | Home page           |
-| :-----------------:     |  :-----------------:            |:-----------------:  |
-|nmminer1024@gmail.com    |  https://t.me/NMAxe1024         |[NMTech](https://www.nmminer.com/) |
+***
+| Email | Telegram | Home Page |
+| :---: | :---: | :---: |
+| nmminer1024@gmail.com | https://t.me/NMAxe1024 | [NMTech](https://www.nmminer.com/) |
 
 
 ## Release Log
