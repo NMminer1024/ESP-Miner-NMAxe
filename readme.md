@@ -197,7 +197,7 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
   - NVS usage logging.
   - AxeOS help text: Mining card notes that `*`-marked values are Benchmark-applied custom settings.
   - API documentation (`docs/API.md` and on-device `api-doc`) fully synced with backend: added `minFreeHeap`, `/alive` scanning fields, Reboot History / Coredump / Benchmark endpoint sections.
-  - **NMQAxe++ Vcore temperature source** switched to the on-board regulator sensor, which reflects the true VRM junction temperature. After upgrading, the displayed Vcore temperature will read **10–20 °C higher** than in previous firmware — this is expected and not a fault. Vcore temperatures below **125 °C** are within the normal operating range.
+  - **NMQAxe++ Vcore temperature source** corrected: now reads from the VRM's internal sensor (previously from an external sensor, which under-reported). Expect displayed Vcore temp to be **10–20 °C higher** after upgrading — anything below **125 °C** is normal.
 - `Remove`:
   - None.
 
