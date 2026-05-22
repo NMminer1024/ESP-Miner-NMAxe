@@ -184,7 +184,7 @@ Full API documentation: [docs/API.md](./docs/API.md)
 
 ### (2026.05.22) - v3.1.0
 - `Add`:
-  - **NMQAxe++ Rev6.1 (3-phase power)**: new hardware variant with TPS53647 3-phase VRM, 3 mΩ shunt, higher current headroom (~150 W), dedicated OC/OT status read, over-current protection, and phase-count auto-detection. Default OC 750 MHz / 1250 mV.
+  - **NMQAxe++ Rev6.1**: new hardware revision with higher power headroom; hashrate up to ~7.3 TH/s. Default OC 750 MHz / 1250 mV.
   - **Offline Benchmark**: full Freq × Vcore grid sweep running entirely on-device — warmup + sampling phases, per-point hashrate / power / temperature records, NVS persistence (LRU eviction when full), resume-across-reboot, and a one-click "Apply Best" button. Results survive factory reset.
   - **Benchmark Overlay**: dedicated full-screen benchmark status overlay for NMQAxe++ large display (F/V/P/Temp layout, progress, ETA).
   - **AxeOS Help System**: "What's this?" overlay available on every major card (Benchmark, Mining settings, Pool, Hashrate, Lucky Statistics, ASIC, Logs, Swarm, etc.) with detailed contextual descriptions.
