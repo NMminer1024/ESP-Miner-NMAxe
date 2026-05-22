@@ -4623,13 +4623,13 @@ void ui_benchmark_overlay_update(void* args) {
 
     } else {
       // ── Small screen 240×135: Inconsolata_16, 4 data rows + IP + bar ────
-      // Strict colon alignment: "XXXXX: " prefix (5-char label padded + ": " = 7 chars).
+      // Strict colon alignment: "  XXXXX: " prefix (2sp + 5-char label + ": " = 9 chars).
       // Layout (y positions, Inconsolata_16 line-height ≈ 18px):
       //   2   : title   (centered, cyan)
-      //   21  : row[0]  F/V/P : 500M/1100mV/5W
-      //   40  : row[1]  Temp  : 45C / 38C
-      //   59  : row[2]  Avg   : 123 GH/s  (or "(warmup)")
-      //   78  : row[3]  Round : F2/5 V1/3 ~2h30m
+      //   21  : row[0]    F/V/P: 500M/1100mV/5W
+      //   40  : row[1]    Temp : 45C / 38C
+      //   59  : row[2]    Avg  : 123 GH/s  (or "(warmup)")
+      //   78  : row[3]    Round: F2/5 V1/3 ~2h30m
       //   97  : lb_ip   (centered, green)
       //  118  : bar     (h=8; yellow=warmup, blue=sampling)
       n_rows = 4;
@@ -4740,34 +4740,34 @@ void ui_benchmark_overlay_update(void* args) {
 
   } else {
     // ── Small screen row updates ──────────────────────────────────────────
-    // Strict colon alignment: "XXXXX: " (5-char label padded + ": " = 7-char prefix).
-    //   "F/V/P: " → F/V/P(5) + colon + sp = col 5 colon
-    //   "Temp : " → Temp+sp(5) + colon + sp = col 5 colon
-    //   "Avg  : " → Avg+2sp(5) + colon + sp = col 5 colon
-    //   "Round: " → Round(5) + colon + sp = col 5 colon
+    // Strict colon alignment: "  XXXXX: " (2sp + 5-char label padded + ": " = 9-char prefix).
+    //   "  F/V/P: " → 2sp + F/V/P(5) + colon + sp = col 7 colon
+    //   "  Temp : " → 2sp + Temp+sp(5) + colon + sp = col 7 colon
+    //   "  Avg  : " → 2sp + Avg+2sp(5) + colon + sp = col 7 colon
+    //   "  Round: " → 2sp + Round(5) + colon + sp = col 7 colon
 
     // Row 0 — F/V/P : frequency / voltage / power
     {
       float pwr_w = (float)board->status.power.vbus / 1000.0f
                   * (float)board->status.power.ibus / 1000.0f;
-      snprintf(buf, sizeof(buf), "F/V/P: %uM/%umV/%.0fW", bm.cur_freq, bm.cur_vcore, pwr_w);
+      snprintf(buf, sizeof(buf), "  F/V/P: %uM/%umV/%.0fW", bm.cur_freq, bm.cur_vcore, pwr_w);
     }
     lv_label_set_text(lb_rows[0], buf);
 
     // Row 1 — Temp : ASIC temp / VRM temp
-    snprintf(buf, sizeof(buf), "Temp : %.0fC / %.0fC", bm.asic_temp, bm.vcore_temp);
+    snprintf(buf, sizeof(buf), "  Temp : %.0fC / %.0fC", bm.asic_temp, bm.vcore_temp);
     lv_label_set_text(lb_rows[1], buf);
 
     // Row 2 — Avg : measured hashrate (or "(warmup)" during stab phase)
     if (bm.in_stab) {
-      snprintf(buf, sizeof(buf), "Avg  : (warmup)");
+      snprintf(buf, sizeof(buf), "  Avg  : (warmup)");
     } else {
-      snprintf(buf, sizeof(buf), "Avg  : %.0f GH/s", bm.avg_hr_ghs);
+      snprintf(buf, sizeof(buf), "  Avg  : %.0f GH/s", bm.avg_hr_ghs);
     }
     lv_label_set_text(lb_rows[2], buf);
 
     // Row 3 — Round & ETA : sweep indices + worst-case time remaining
-    snprintf(buf, sizeof(buf), "Round: F%u/%u V%u/%u ~%s",
+    snprintf(buf, sizeof(buf), "  Round: F%u/%u V%u/%u ~%s",
       freq_idx, freq_total, vc_idx, vc_total, eta_str);
     lv_label_set_text(lb_rows[3], buf);
 
