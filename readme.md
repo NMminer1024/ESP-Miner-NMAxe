@@ -15,7 +15,7 @@ NMAxe series are ESP32-S3 based Bitcoin solo miners forked from [bitaxe](https:/
 <div align="center">
   <table width="100%">
     <tr>
-      <td width="33%" align="center"><img src="image/nmaxe-1.jpg" alt="NMAxe"></td>
+      <td width="33%" align="center"><img src="image/nmaxe.jpg" alt="NMAxe"></td>
       <td width="33%" align="center"><img src="image/5.jpg" alt="NMAxeGamma"></td>
       <td width="33%" align="center"><img src="image/NMQAxe++0.png" alt="NMQAxe++"></td>
     </tr>
@@ -100,7 +100,7 @@ The AxeOS web interface provides real-time monitoring. The **Swarm** page lets y
 
 ## What's this
 
-Every card in the AxeOS web interface has a small **"?"** button in its title bar. Tap it to open a contextual help overlay explaining what each setting does, what the numbers mean, and how to get the best results from your miner — no need to leave the page.
+Most cards in the AxeOS web interface have a small **"?"** button in its title bar. Tap it to open a contextual help overlay explaining what each setting does, what the numbers mean, and how to get the best results from your miner — no need to leave the page.
 
 <div align="center">
   <img src="image/help.png" alt="what's this help overlay">
@@ -116,7 +116,7 @@ Download the latest **firmware.bin** and **spiffs.bin** from the [Releases](http
 <div align="center">
   <table width="100%">
     <tr>
-      <td width="50%" align="center"><img src="image/firmware-check.jpg" alt="OTA update"></td>
+      <td width="50%" align="center"><img src="image/update.png" alt="OTA update"></td>
       <td width="50%" align="center"><img src="image/ota-batch.jpg" alt="Batch OTA"></td>
     </tr>
     <tr>
@@ -197,6 +197,7 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
   - NVS usage logging.
   - AxeOS help text: Mining card notes that `*`-marked values are Benchmark-applied custom settings.
   - API documentation (`docs/API.md` and on-device `api-doc`) fully synced with backend: added `minFreeHeap`, `/alive` scanning fields, Reboot History / Coredump / Benchmark endpoint sections.
+  - **NMQAxe++ Vcore temperature source** switched to the on-board regulator sensor, which reflects the true VRM junction temperature. After upgrading, the displayed Vcore temperature will read **10–20 °C higher** than in previous firmware — this is expected and not a fault. Vcore temperatures below **125 °C** are within the normal operating range.
 - `Remove`:
   - None.
 
