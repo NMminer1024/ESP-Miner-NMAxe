@@ -128,22 +128,18 @@ Download the latest **firmware.bin** and **spiffs.bin** from the [Releases](http
 
 
 ### Via [NMMiner Flash Tool](https://flash.nmminer.com/)
-Use the web-based flash tool for first-time flashing or full recovery. To enter flash mode: **long press** the `boot` button, then click `reset` — the device will appear as a COM port and the browser can flash it directly.
+Use the web-based flash tool for first-time flashing or to recover a bricked device.
+
+**Enter flash mode:**
+1. Hold the `boot` button
+2. Plug in the USB cable (or click `reset` if already connected)
+3. Release the `boot` button
+
+The browser will detect the device and flash the latest firmware directly.
 
 <div align="center">
   <img src="image/nm-flash-tool.jpg" alt="NMMiner Flash Tool">
 </div>
-
-## Recover a Bricked Device
-***
-If the device is inaccessible via AxeOS, use the [NMMiner Flash Tool](https://flash.nmminer.com/) to fully reflash it.
-
-**Enter forced flash mode:**
-1. Hold the `boot` button
-2. Plug in the USB cable
-3. Release the `boot` button
-
-The browser will detect the device and flash the latest firmware directly.
 
 
 
