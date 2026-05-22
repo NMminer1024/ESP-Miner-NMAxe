@@ -125,6 +125,14 @@
   <img src="image/Lucky.png" alt="png">
 </div>
 
+## What's this
+
+Every card in the AxeOS web interface has a small **"?"** button in its title bar. Tap it to open a contextual help overlay explaining what each setting does, what the numbers mean, and how to get the best results from your miner — no need to leave the page.
+
+<div align="center">
+  <img src="image/help.png" alt="what's this help overlay">
+</div>
+
 
 ## Firmware update
 - *Via AxeOS ota*
@@ -140,17 +148,8 @@ Batch firmware update on swarm page.
   <img src="image/ota-batch.jpg" alt="ota-batch">
 </div>
 
+
 - *Via [NMMiner flash tool](https://flash.nmminer.com/)*
-
-
-## What's this
-***
-Every card in the AxeOS web interface has a small **"?"** button in its title bar. Tap it to open a contextual help overlay explaining what each setting does, what the numbers mean, and how to get the best results from your miner — no need to leave the page.
-
-<div align="center">
-  <img src="image/help.png" alt="what's this help overlay">
-</div>
-
 
 ***Notice***：Long press and hold **boot** button，then click **reset** button to let the NMAxe force into bootloader mode, So that the computer will recognize a COMx device plug in.
 
