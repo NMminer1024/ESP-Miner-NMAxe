@@ -47,9 +47,11 @@ export class EditComponent implements OnInit {
     this.systemService.getSettingMining(this.uri)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
-        // Populate dropdown options
-        if (info.overclock?.options) this.DropdownFrequency = info.overclock.options;
-        if (info.vcore?.options)     this.CoreVoltage       = info.vcore.options;
+        // Populate dropdown options, injecting custom value at sorted position if needed
+        const freqVal  = (info.asic as any)?.freqReq  ?? info.freqReq;
+        const vcoreVal = (info.asic as any)?.vcoreReq ?? info.vcoreReq;
+        if (info.overclock?.options) this.DropdownFrequency = this.ensureCustomOption(info.overclock.options, freqVal,  'MHz');
+        if (info.vcore?.options)     this.CoreVoltage       = this.ensureCustomOption(info.vcore.options,     vcoreVal, 'mV');
 
         // Map ASIC model: /api/setting/mining returns asic as a plain string (e.g. "BM1366")
         this.ASICModel = (info.asic as any)?.model ?? info.asic ?? info.ASICModel;
@@ -79,6 +81,21 @@ export class EditComponent implements OnInit {
           frequency:   [(info.asic as any)?.freqReq  ?? info.freqReq,  [Validators.required]],
         });
       });
+  }
+
+  // Insert curVal at its sorted position in options with '*' suffix if not already present.
+  private ensureCustomOption(
+    options: Array<{name: string, value: number}>,
+    curVal: number,
+    unit: string
+  ): Array<{name: string, value: number}> {
+    if (curVal == null || options.some(o => o.value === curVal)) return options;
+    const result = [...options];
+    const insertIdx = result.findIndex(o => o.value > curVal);
+    const entry = { name: `${curVal} ${unit}*`, value: curVal };
+    if (insertIdx === -1) result.push(entry);
+    else result.splice(insertIdx, 0, entry);
+    return result;
   }
 
 

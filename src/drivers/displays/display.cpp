@@ -428,6 +428,45 @@ static void msgbox_restart_cb(lv_event_t *e) {
 
 static void show_toast(const char *msg, uint32_t duration_ms); // forward declaration
 
+// Build dropdown options for a work_option_t list, inserting a custom value (not in the list)
+// at its sorted position marked with '*'. Returns selected index.
+// spec_opts must be sorted ascending by value.
+static uint16_t build_dropdown_with_custom(
+    lv_obj_t *dropdown,
+    const std::vector<work_option_t>& spec_opts,
+    uint16_t cur_val,
+    const char *custom_unit)  // e.g. "MHz" or "mV"
+{
+    bool found = false;
+    for (const auto& item : spec_opts) {
+        if (item.value == cur_val) { found = true; break; }
+    }
+    String s;
+    uint16_t sel_idx = 0;
+    uint16_t idx = 0;
+    bool inserted = false;
+    for (int i = 0; i < (int)spec_opts.size(); i++) {
+        if (!found && !inserted && cur_val < spec_opts[i].value) {
+            if (s.length() > 0) s += "\n";
+            s += String(cur_val) + " " + custom_unit + "*";
+            sel_idx = idx++;
+            inserted = true;
+        }
+        if (s.length() > 0) s += "\n";
+        s += spec_opts[i].name;
+        if (found && spec_opts[i].value == cur_val) sel_idx = idx;
+        idx++;
+    }
+    if (!found && !inserted) {
+        if (s.length() > 0) s += "\n";
+        s += String(cur_val) + " " + custom_unit + "*";
+        sel_idx = idx;
+    }
+    lv_dropdown_set_options(dropdown, s.c_str());
+    lv_dropdown_set_selected(dropdown, sel_idx);
+    return sel_idx;
+}
+
 static void do_save_settings() {
     // brightness
     uint8_t brightness = (uint8_t)lv_slider_get_value(setting_page.bar_brightness.obj);
@@ -439,18 +478,20 @@ static void do_save_settings() {
     // screen flip
     bool flip = lv_obj_has_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
     nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
-    // overclock
+    // overclock — parse numeric value from selected label (handles custom '*' entries too)
     if (setting_page.list_asic_freq.obj) {
-        uint16_t idx = lv_dropdown_get_selected(setting_page.list_asic_freq.obj);
-        uint16_t frq = g_board.info.spec.ui.setting_page.oc[idx].value;
+        char freq_buf[32] = "";
+        lv_dropdown_get_selected_str(setting_page.list_asic_freq.obj, freq_buf, sizeof(freq_buf));
+        uint16_t frq = (uint16_t)atoi(freq_buf);
         nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
     } else {
         nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, g_board.info.spec.asic.default_frq);
     }
-    // vcore
+    // vcore — parse numeric value from selected label (handles custom '*' entries too)
     if (setting_page.list_asic_vcore.obj) {
-        uint16_t idx   = lv_dropdown_get_selected(setting_page.list_asic_vcore.obj);
-        uint16_t vcore = g_board.info.spec.ui.setting_page.vc[idx].value;
+        char vcore_buf[32] = "";
+        lv_dropdown_get_selected_str(setting_page.list_asic_vcore.obj, vcore_buf, sizeof(vcore_buf));
+        uint16_t vcore = (uint16_t)atoi(vcore_buf);
         g_board.info.spec.asic.req_vcore = vcore;
         nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
     } else {
@@ -3944,18 +3985,8 @@ void ui_setting_or_swarm_page_update(void* args){
       lv_obj_set_style_pad_bottom(setting_page.list_asic_vcore.obj, 4, LV_PART_MAIN);
       {
         const std::vector<work_option_t>& vc_opts = board->info.spec.ui.setting_page.vc;
-        String opts = "";
-        uint16_t sel_idx = 0, idx = 0;
-        uint16_t cur =   board->info.spec.asic.req_vcore;
-        bool found = false;
-        for (const auto& item : vc_opts) {
-          if (opts.length() > 0) opts += "\n";
-          opts += item.name;
-          if (!found && item.value == cur) { sel_idx = idx; found = true; }
-          idx++;
-        }
-        lv_dropdown_set_options(setting_page.list_asic_vcore.obj, opts.c_str());
-        lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, sel_idx);
+        uint16_t cur = board->info.spec.asic.req_vcore;
+        build_dropdown_with_custom(setting_page.list_asic_vcore.obj, vc_opts, cur, "mV");
         lv_obj_t *vc_list = lv_dropdown_get_list(setting_page.list_asic_vcore.obj);
         if(vc_list) lv_obj_set_style_text_font(vc_list, &lv_font_montserrat_20, LV_PART_MAIN);
       }
@@ -3976,18 +4007,8 @@ void ui_setting_or_swarm_page_update(void* args){
       lv_obj_set_style_pad_bottom(setting_page.list_asic_freq.obj, 4, LV_PART_MAIN);
       {
         const std::vector<work_option_t>& oc_opts = board->info.spec.ui.setting_page.oc;
-        String opts = "";
-        uint16_t sel_idx = 0, idx = 0;
-        uint16_t cur =   board->info.spec.asic.req_frq;
-        bool found = false;
-        for (const auto& item : oc_opts) {
-          if (opts.length() > 0) opts += "\n";
-          opts += item.name;
-          if (!found && item.value == cur) { sel_idx = idx; found = true; }
-          idx++;
-        }
-        lv_dropdown_set_options(setting_page.list_asic_freq.obj, opts.c_str());
-        lv_dropdown_set_selected(setting_page.list_asic_freq.obj, sel_idx);
+        uint16_t cur = board->info.spec.asic.req_frq;
+        build_dropdown_with_custom(setting_page.list_asic_freq.obj, oc_opts, cur, "MHz");
         lv_obj_t *freq_list = lv_dropdown_get_list(setting_page.list_asic_freq.obj);
         if(freq_list) lv_obj_set_style_text_font(freq_list, &lv_font_montserrat_20, LV_PART_MAIN);
       }
@@ -4092,26 +4113,18 @@ void ui_setting_or_swarm_page_update(void* args){
           nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, board->info.spec.preference.screen.brightness),
           LV_ANIM_OFF);
 
-      // vcore
+      // vcore — rebuild options to handle custom (NVS) values not in the standard list
       if (setting_page.list_asic_vcore.obj) {
         const std::vector<work_option_t>& vc_opts = board->info.spec.ui.setting_page.vc;
         uint16_t cur = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, board->info.spec.asic.req_vcore);
-        uint16_t idx = 0;
-        for (uint16_t i = 0; i < (uint16_t)vc_opts.size(); i++) {
-          if (vc_opts[i].value == cur) { idx = i; break; }
-        }
-        lv_dropdown_set_selected(setting_page.list_asic_vcore.obj, idx);
+        build_dropdown_with_custom(setting_page.list_asic_vcore.obj, vc_opts, cur, "mV");
       }
 
-      // freq
+      // freq — rebuild options to handle custom (NVS) values not in the standard list
       if (setting_page.list_asic_freq.obj) {
         const std::vector<work_option_t>& oc_opts = board->info.spec.ui.setting_page.oc;
         uint16_t cur = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, board->info.spec.asic.req_frq);
-        uint16_t idx = 0;
-        for (uint16_t i = 0; i < (uint16_t)oc_opts.size(); i++) {
-          if (oc_opts[i].value == cur) { idx = i; break; }
-        }
-        lv_dropdown_set_selected(setting_page.list_asic_freq.obj, idx);
+        build_dropdown_with_custom(setting_page.list_asic_freq.obj, oc_opts, cur, "MHz");
       }
 
       // screen saver
