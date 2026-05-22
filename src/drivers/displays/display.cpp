@@ -4622,16 +4622,17 @@ void ui_benchmark_overlay_update(void* args) {
       lv_obj_set_pos(bar, 12, 218);
 
     } else {
-      // ── Small screen 240×135: Inconsolata_16 title + Inconsolata_16 data ─
-      // Layout (y positions, line_height=17 each row):
-      //   2  : title    (line_height=17)
-      //   21 : row[0]   F:500MHz  Vc:1100mV
-      //   40 : row[1]   A: 45.2C  Vr: 38.1C
-      //   59 : row[2]   Stab  -  120s left
-      //   78 : row[3]   HR:123.4 GH/s  /  (Stab)
-      //   97 : row[4]   F2/5 V1/3 ~2h30m
-      //  124 : bar      (h=6)
-      n_rows = 5;
+      // ── Small screen 240×135: Inconsolata_16, 4 data rows + IP + bar ────
+      // Strict colon alignment: "XXXXX: " prefix (5-char label padded + ": " = 7 chars).
+      // Layout (y positions, Inconsolata_16 line-height ≈ 18px):
+      //   2   : title   (centered, cyan)
+      //   21  : row[0]  F/V/P : 500M/1100mV/5W
+      //   40  : row[1]  Temp  : 45C / 38C
+      //   59  : row[2]  Avg   : 123 GH/s  (or "(warmup)")
+      //   78  : row[3]  Round : F2/5 V1/3 ~2h30m
+      //   97  : lb_ip   (centered, green)
+      //  118  : bar     (h=8; yellow=warmup, blue=sampling)
+      n_rows = 4;
 
       lb_title = lv_label_create(overlay);
       lv_obj_set_style_text_font(lb_title, &Inconsolata_16, LV_PART_MAIN);
@@ -4641,14 +4642,13 @@ void ui_benchmark_overlay_update(void* args) {
       lv_obj_set_style_text_align(lb_title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
       lv_label_set_text(lb_title, "[ BENCHMARK ]");
 
-      const lv_color_t init_colors_sm[5] = {
-        lv_color_hex(0xFFFFFF), // Freq/Vcore
-        lv_color_hex(0xFFFFFF), // Temps
-        lv_color_hex(0xFACC15), // Phase (updated dynamically)
-        lv_color_hex(0x4ADE80), // HR
-        lv_color_hex(0xAAAAAA), // Round/ETA
+      const lv_color_t init_colors_sm[4] = {
+        lv_color_hex(0xFFFFFF), // F/V/P
+        lv_color_hex(0xFFFFFF), // Temp
+        lv_color_hex(0x4ADE80), // Avg (green)
+        lv_color_hex(0xAAAAAA), // Round/ETA (gray)
       };
-      const int row_y_small[5] = {21, 40, 59, 78, 97};
+      const int row_y_small[4] = {21, 40, 59, 78};
       for (int i = 0; i < n_rows; i++) {
         lb_rows[i] = lv_label_create(overlay);
         lv_obj_set_style_text_font(lb_rows[i], &Inconsolata_16, LV_PART_MAIN);
@@ -4657,10 +4657,19 @@ void ui_benchmark_overlay_update(void* args) {
         lv_label_set_text(lb_rows[i], "");
       }
 
+      // IP label — centered, green
+      lb_ip = lv_label_create(overlay);
+      lv_obj_set_style_text_font(lb_ip, &Inconsolata_16, LV_PART_MAIN);
+      lv_obj_set_style_text_color(lb_ip, lv_color_hex(0x4ADE80), LV_PART_MAIN);
+      lv_obj_set_pos(lb_ip, 0, 97);
+      lv_obj_set_width(lb_ip, LV_HOR_RES);
+      lv_obj_set_style_text_align(lb_ip, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+      lv_label_set_text(lb_ip, "");
+
       bar = lv_bar_create(overlay);
       lv_bar_set_range(bar, 0, 100);
-      lv_obj_set_size(bar, (lv_coord_t)(LV_HOR_RES - 16), 6);
-      lv_obj_set_pos(bar, 8, 124);
+      lv_obj_set_size(bar, (lv_coord_t)(LV_HOR_RES - 16), 8);
+      lv_obj_set_pos(bar, 8, 118);
     }
   }
 
@@ -4731,38 +4740,49 @@ void ui_benchmark_overlay_update(void* args) {
 
   } else {
     // ── Small screen row updates ──────────────────────────────────────────
-    // Row 0: Freq + Vcore on one line (fixed-width, aligned at column 10)
-    snprintf(buf, sizeof(buf), "F:%3dMHz  Vc:%4dmV",   bm.cur_freq, bm.cur_vcore);
+    // Strict colon alignment: "XXXXX: " (5-char label padded + ": " = 7-char prefix).
+    //   "F/V/P: " → F/V/P(5) + colon + sp = col 5 colon
+    //   "Temp : " → Temp+sp(5) + colon + sp = col 5 colon
+    //   "Avg  : " → Avg+2sp(5) + colon + sp = col 5 colon
+    //   "Round: " → Round(5) + colon + sp = col 5 colon
+
+    // Row 0 — F/V/P : frequency / voltage / power
+    {
+      float pwr_w = (float)board->status.power.vbus / 1000.0f
+                  * (float)board->status.power.ibus / 1000.0f;
+      snprintf(buf, sizeof(buf), "F/V/P: %uM/%umV/%.0fW", bm.cur_freq, bm.cur_vcore, pwr_w);
+    }
     lv_label_set_text(lb_rows[0], buf);
 
-    // Row 1: ASIC + VRM temps (aligned at column 10)
-    snprintf(buf, sizeof(buf), "A:%4.1fC  Vr:%4.1fC",  bm.asic_temp, bm.vcore_temp);
+    // Row 1 — Temp : ASIC temp / VRM temp
+    snprintf(buf, sizeof(buf), "Temp : %.0fC / %.0fC", bm.asic_temp, bm.vcore_temp);
     lv_label_set_text(lb_rows[1], buf);
 
-    // Row 2: Phase name + seconds remaining (color changes dynamically)
-    snprintf(buf, sizeof(buf), "%-4s     -%4lus left",
-      bm.in_stab ? "Stab" : "Samp", (unsigned long)phase_remaining);
-    lv_label_set_text(lb_rows[2], buf);
-    lv_obj_set_style_text_color(lb_rows[2],
-      bm.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA), LV_PART_MAIN);
-
-    // Row 3: Hashrate real/expected
+    // Row 2 — Avg : measured hashrate (or "(warmup)" during stab phase)
     if (bm.in_stab) {
-      snprintf(buf, sizeof(buf), "Avg:Stab /%.0fGH/s", bm.exp_hr_ghs);
-      lv_label_set_text(lb_rows[3], buf);
+      snprintf(buf, sizeof(buf), "Avg  : (warmup)");
     } else {
-      snprintf(buf, sizeof(buf), "Avg:%.0f/%.0f GH/s", bm.avg_hr_ghs, bm.exp_hr_ghs);
-      lv_label_set_text(lb_rows[3], buf);
+      snprintf(buf, sizeof(buf), "Avg  : %.0f GH/s", bm.avg_hr_ghs);
     }
+    lv_label_set_text(lb_rows[2], buf);
 
-    // Row 4: Round indices + ETA
-    snprintf(buf, sizeof(buf), "F%u/%u V%u/%u ~%s",
+    // Row 3 — Round & ETA : sweep indices + worst-case time remaining
+    snprintf(buf, sizeof(buf), "Round: F%u/%u V%u/%u ~%s",
       freq_idx, freq_total, vc_idx, vc_total, eta_str);
-    lv_label_set_text(lb_rows[4], buf);
+    lv_label_set_text(lb_rows[3], buf);
+
+    // IP label — centered
+    lv_label_set_text(lb_ip, board->status.wifi.ip.toString().c_str());
   }
 
   // ── Progress bar ─────────────────────────────────────────────────────────
   lv_bar_set_value(bar, pct, LV_ANIM_ON);
+  if (!is_large) {
+    // Small screen: bar color reflects current phase (warmup=yellow, sampling=blue)
+    lv_obj_set_style_bg_color(bar,
+      bm.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA),
+      LV_PART_INDICATOR);
+  }
 
   last_ms = millis();
 }
