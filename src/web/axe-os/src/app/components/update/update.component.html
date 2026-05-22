@@ -16,6 +16,7 @@
             {{ getVersionStatusInfo().description }}
           </span>
           <span class="version-chain-title" *ngIf="versionStatus !== 'behind'">Version Timeline</span>
+          <app-help-btn key="update-version-timeline"></app-help-btn>
         </div>
         <div class="version-chain">
           <div *ngFor="let item of versionChain; let i = index" 

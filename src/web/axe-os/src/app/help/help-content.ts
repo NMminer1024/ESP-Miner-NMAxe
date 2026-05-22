@@ -437,6 +437,42 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
   },
 
   // ── Lucky Statistics ───────────────────────────────────────────────────────
+  // ── Update / Version Timeline ───────────────────────────────────────────
+  'update-version-timeline': {
+    title: 'Update — Version Timeline',
+    icon: 'pi pi-history',
+    sections: [
+      {
+        heading: '📅 What is the Version Timeline?',
+        body: 'The timeline shows the last 8 official releases as a horizontal chain, ordered from oldest (left) to newest (right). Your currently installed firmware is marked with a pin icon (📍 You are here now); the latest release is marked with a star (⭐ Latest Release).\n\nIf your firmware is older than the latest release, the chain highlights the gap — you can see exactly how many versions behind you are.'
+      },
+      {
+        heading: '🔍 How to read the nodes',
+        body: '• 📍 You are here now — your current firmware version.\n• ⭐ Latest Release — the newest official build on GitHub.\n• ⭐📍 (both icons) — you are already on the latest version.\n• ... (ellipsis) — older versions not shown in the visible window.\n• dev — you are running a development build that is ahead of the latest release.\n\nClick any version number in the chain to view its release notes below.'
+      },
+      {
+        heading: '⬇ How to download firmware',
+        body: 'Click any version number in the timeline — it opens the GitHub Releases page for that specific tag and automatically downloads the zip archive (firmware.bin + spiffs.bin).\n\nYou can also go directly to the Releases page:\nhttps://github.com/NMminer1024/ESP-Miner-NMAxe/releases'
+      },
+      {
+        heading: '🔧 How to upgrade firmware',
+        body: 'After downloading, upload the two files separately using the cards below the timeline:\n\n1. Update Firmware — select firmware.bin → the ESP32 application code is replaced.\n2. Update Website — select spiffs.bin → the web UI files (AxeOS) are replaced.\n\nBoth files must be updated together when doing a version upgrade. You can update them in either order, but the device will restart after each upload. After both uploads are complete your miner will be running the new version.'
+      },
+      {
+        heading: '🚨 What is Recovery Mode?',
+        body: 'Recovery Mode is a failsafe that activates automatically when the device cannot load AxeOS from its internal storage (SPIFFS). In this mode the device serves a minimal built-in recovery page instead of the normal AxeOS interface — mining is paused.\n\nYou will know you are in Recovery Mode when opening the device IP shows a plain dark page titled "AxeOS Recovery" instead of the normal dashboard.'
+      },
+      {
+        heading: '⚙ When does Recovery Mode trigger?',
+        body: 'The firmware checks three things at every boot and enters Recovery Mode if any fail:\n\n1. Interrupted upload — a previous spiffs.bin upload was cut short (power loss, browser closed mid-transfer). The device detects the incomplete flag and refuses to boot a possibly broken UI.\n2. Corrupt partition — the SPIFFS storage partition cannot be mounted at all (rare; usually caused by flash wear or a failed erase).\n3. Missing files — SPIFFS mounted but the four essential AxeOS files are absent (index.html.gz, runtime.js.gz, main.js.gz, styles.css.gz).'
+      },
+      {
+        heading: '🛠 How to fix Recovery Mode',
+        body: 'Open the device IP in a browser — the Recovery page will appear automatically.\n\n1. Click "Download latest release" on the recovery page to get the latest spiffs.bin, or download it manually from the Releases page.\n2. Click "Upload spiffs.bin" and select the file — the recovery page will flash the web UI back to the device.\n3. The device restarts automatically. AxeOS should load normally.\n\nIf the recovery page itself is unreachable, use the NMMiner Flash Tool at https://flash.nmminer.com/ to reflash completely.'
+      }
+    ]
+  },
+
   'lucky-stats': {
     title: 'Lucky Statistics',
     icon: 'pi pi-chart-line',
