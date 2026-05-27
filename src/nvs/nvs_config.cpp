@@ -9,27 +9,42 @@ char * nvs_config_get_string(const char * key, const char * default_value)
 {
     nvs_handle handle;
     esp_err_t err;
+    const char *fallback = default_value ? default_value : "";
     err = nvs_open(NVS_CONFIG_NAMESPACE, NVS_READONLY, &handle);
     if (err != ESP_OK) {
-        return strdup(default_value);
+        return strdup(fallback);
     }
 
     size_t size = 0;
     err = nvs_get_str(handle, key, NULL, &size);
 
     if (err != ESP_OK) {
-        return strdup(default_value);
+        nvs_close(handle);
+        return strdup(fallback);
     }
 
     char * out = (char *)malloc(size);
+    if (!out) {
+        nvs_close(handle);
+        return strdup(fallback);
+    }
     err = nvs_get_str(handle, key, out, &size);
 
     if (err != ESP_OK) {
         free(out);
-        return strdup(default_value);
+        nvs_close(handle);
+        return strdup(fallback);
     }
 
     nvs_close(handle);
+    return out;
+}
+
+String nvs_config_get_string_value(const char * key, const char * default_value)
+{
+    char *value = nvs_config_get_string(key, default_value);
+    String out = value ? String(value) : String(default_value ? default_value : "");
+    if (value) free(value);
     return out;
 }
 

@@ -1,6 +1,7 @@
 #ifndef AXE_NVS_CONFIG_H
 #define AXE_NVS_CONFIG_H
 
+#include <Arduino.h>
 #include <stdint.h>
 #include <esp_err.h>  // esp_err_t
 
@@ -77,6 +78,7 @@
 #define NVS_CONFIG_BM_TOTAL_SEC         "bm_total_sec"
 
 char *    nvs_config_get_string(const char * key, const char * default_value);
+String    nvs_config_get_string_value(const char * key, const char * default_value);
 void      nvs_config_set_string(const char * key, const char * value);
 esp_err_t nvs_config_try_set_string(const char * key, const char * value);  // returns ESP_OK or the NVS error (e.g. ESP_ERR_NVS_NOT_ENOUGH_SPACE)
 

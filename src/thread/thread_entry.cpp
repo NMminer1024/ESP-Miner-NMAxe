@@ -765,9 +765,19 @@ void webserver_thread_entry(void *args){
         resp->printf(",\"next_scan_in\":%u", (unsigned)next_in);
         resp->printf(",\"ips\":[\"%s\"", self_ip.c_str());
         if (xSemaphoreTake(board->status.neighbor.mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
-                for (const auto& ip : board->status.neighbor.alive_ips)
-                    resp->printf(",\"%s\"", ip.c_str());
-                xSemaphoreGive(board->status.neighbor.mutex);
+            auto neighbor_ip_to_cstr = [](neighbor_ip_t address, char *buffer, size_t buffer_size) {
+                snprintf(buffer, buffer_size, "%u.%u.%u.%u",
+                         (unsigned)((address >> 24) & 0xFF),
+                         (unsigned)((address >> 16) & 0xFF),
+                         (unsigned)((address >> 8) & 0xFF),
+                         (unsigned)(address & 0xFF));
+            };
+            char ip_buf[16];
+            for (const auto& ip : board->status.neighbor.alive_ips) {
+                neighbor_ip_to_cstr(ip, ip_buf, sizeof(ip_buf));
+                resp->printf(",\"%s\"", ip_buf);
+            }
+            xSemaphoreGive(board->status.neighbor.mutex);
         }
         resp->print("]}");
         request->send(resp);
@@ -1025,6 +1035,27 @@ void swarm_thread_entry(void *args){
     auto& ctx = board->status.swarm;
     auto& nbr = board->status.neighbor;
 
+    auto neighbor_ip_from_octets = [](uint8_t octet0, uint8_t octet1, uint8_t octet2, uint8_t octet3) -> neighbor_ip_t {
+        return ((neighbor_ip_t)octet0 << 24) | ((neighbor_ip_t)octet1 << 16) | ((neighbor_ip_t)octet2 << 8) | (neighbor_ip_t)octet3;
+    };
+    auto neighbor_ip_from_ipaddress = [&neighbor_ip_from_octets](const IPAddress& address) -> neighbor_ip_t {
+        return neighbor_ip_from_octets(address[0], address[1], address[2], address[3]);
+    };
+    auto neighbor_ip_to_cstr = [](neighbor_ip_t address, char *buffer, size_t buffer_size) {
+        snprintf(buffer, buffer_size, "%u.%u.%u.%u",
+                 (unsigned)((address >> 24) & 0xFF),
+                 (unsigned)((address >> 16) & 0xFF),
+                 (unsigned)((address >> 8) & 0xFF),
+                 (unsigned)(address & 0xFF));
+    };
+    auto neighbor_ip_from_string = [&neighbor_ip_from_ipaddress](const char *text, neighbor_ip_t *address) -> bool {
+        if (!text || !address) return false;
+        IPAddress parsed;
+        if (!parsed.fromString(text)) return false;
+        *address = neighbor_ip_from_ipaddress(parsed);
+        return true;
+    };
+
     while (true) {
         delay(30 * 1000);
 
@@ -1036,7 +1067,7 @@ void swarm_thread_entry(void *args){
         }
         
         // ── Read current scan generation and alive list (hold lock for minimum time) ──────
-        std::vector<String> alive;
+        neighbor_ip_vector_t alive;
         uint32_t cur_gen = 0;
         if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
             alive   = nbr.alive_ips;
@@ -1063,10 +1094,10 @@ void swarm_thread_entry(void *args){
 
         // ── Build probe targets: local_alive ∪ confirmed_ips ∪ gossip_union ─────────────
         // All three sources participate in probing; identity is determined by the /probe result this round.
-        const String selfIP = WiFi.localIP().toString();
-        std::vector<String> targets;
-        std::set<String>    seen;   // dedupe
-        auto add_target = [&](const String& ip) {
+        const neighbor_ip_t selfIP = neighbor_ip_from_ipaddress(WiFi.localIP());
+        neighbor_ip_vector_t targets;
+        neighbor_ip_set_t    seen;   // dedupe
+        auto add_target = [&](neighbor_ip_t ip) {
             if (ip == selfIP) return;
             if (seen.count(ip)) return;
             bool bl = false;
@@ -1099,15 +1130,19 @@ void swarm_thread_entry(void *args){
 
         for (const auto& ip : targets) {
             uint32_t t0 = millis();
-            LOG_D("(swarm) >>> probing %s", ip.c_str());
+            char ip_buf[16];
+            neighbor_ip_to_cstr(ip, ip_buf, sizeof(ip_buf));
+            LOG_D("(swarm) >>> probing %s", ip_buf);
 
             // Use WiFiClient directly to control connection and reads, avoiding HTTPClient's Stream timedRead()
             // which resets the timer on every received byte, causing "slow response" devices to stall for tens of seconds
             WiFiClient wclient;
             int code = -1;
             String body;
-            if (wclient.connect(ip.c_str(), 80, 1000)) {   // 1000ms TCP connect timeout — keeps per-IP total < TWDT 5s
-                wclient.print("GET /probe HTTP/1.0\r\nHost: " + ip + "\r\nConnection: close\r\n\r\n");
+            if (wclient.connect(ip_buf, 80, 1000)) {   // 1000ms TCP connect timeout — keeps per-IP total < TWDT 5s
+                wclient.print("GET /probe HTTP/1.0\r\nHost: ");
+                wclient.print(ip_buf);
+                wclient.print("\r\nConnection: close\r\n\r\n");
                 String resp;
                 resp.reserve(512);
                 uint32_t read_dl = millis() + 1500;   // 1.5s hard deadline for reading the full response
@@ -1130,11 +1165,11 @@ void swarm_thread_entry(void *args){
                 if (bi >= 0) body = resp.substring(bi + 4);
             }
 
-            LOG_D("(swarm) <<< probe %s => code=%d (%lums)", ip.c_str(), code, (unsigned long)(millis() - t0));
+            LOG_D("(swarm) <<< probe %s => code=%d (%lums)", ip_buf, code, (unsigned long)(millis() - t0));
 
             if (code == 200) {
                 StaticJsonDocument<256> doc;
-                LOG_D("(swarm) %s: %s", ip.c_str(), body.c_str());
+                LOG_D("(swarm) %s: %s", ip_buf, body.c_str());
                 if (!deserializeJson(doc, body)) {
                     // NM device identification: /probe must have "hr" (hashrate) and "ver" (firmware version)
                     // Other fields are optional per model; only these two are checked, no changes needed here for future extensions
@@ -1147,7 +1182,7 @@ void swarm_thread_entry(void *args){
                         // Sanity check: remote /probe may return a torn-read value (double is non-atomic on 32-bit ESP32).
                         // A single NMAxe device cannot exceed 100 TH/s; discard obviously corrupt readings.
                         if (!isfinite(hr) || hr < 0.0 || hr > 1e14) {
-                            LOG_W("(swarm) %s INVALID hr=%.0f, skipped (torn read?)", ip.c_str(), hr);
+                            LOG_W("(swarm) %s INVALID hr=%.0f, skipped (torn read?)", ip_buf, hr);
                         } else {
                             total_hr += hr;
                         }
@@ -1158,7 +1193,7 @@ void swarm_thread_entry(void *args){
                         ctx.confirmed_ips.insert(ip);
                         ctx.probe_fail_cnt[ip] = 0; // reset on success
                         LOG_D("(swarm) %s NM device hr=%.0f sbd=%.0f ebd=%.0f",
-                              ip.c_str(), hr, sbd, ebd);
+                            ip_buf, hr, sbd, ebd);
                     } else {
                         // Non-NM device: blacklist for current generation; if it was confirmed before
                         // (e.g. firmware downgraded / role changed), demote it.
@@ -1168,7 +1203,7 @@ void swarm_thread_entry(void *args){
                         }
                         ctx.confirmed_ips.erase(ip);
                         ctx.probe_fail_cnt.erase(ip);
-                        LOG_D("(swarm) %s not NM device, blacklisted", ip.c_str());
+                        LOG_D("(swarm) %s not NM device, blacklisted", ip_buf);
                     }
                 }
             } else {
@@ -1182,16 +1217,16 @@ void swarm_thread_entry(void *args){
                     if (fc >= MAX_PROBE_FAIL) {
                         ctx.confirmed_ips.erase(ip);
                         ctx.probe_fail_cnt.erase(ip);
-                        LOG_W("(swarm) %s removed from confirmed after %u failures", ip.c_str(), MAX_PROBE_FAIL);
+                        LOG_W("(swarm) %s removed from confirmed after %u failures", ip_buf, MAX_PROBE_FAIL);
                     } else {
-                        LOG_D("(swarm) probe %s => %d, fail_cnt=%u (kept)", ip.c_str(), code, fc);
+                        LOG_D("(swarm) probe %s => %d, fail_cnt=%u (kept)", ip_buf, code, fc);
                     }
                 } else {
                     if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                         ctx.probe_blacklist.insert(ip);
                         xSemaphoreGive(ctx.mutex);
                     }
-                    LOG_D("(swarm) probe %s => %d, blacklisted", ip.c_str(), code);
+                    LOG_D("(swarm) probe %s => %d, blacklisted", ip_buf, code);
                 }
             }
             delay(50);
@@ -1208,8 +1243,12 @@ void swarm_thread_entry(void *args){
 
             WiFiClient wclient;
             String body;
-            if (!wclient.connect(ip.c_str(), 80, 1000)) continue;
-            wclient.print("GET /alive HTTP/1.0\r\nHost: " + ip + "\r\nConnection: close\r\n\r\n");
+            char ip_buf[16];
+            neighbor_ip_to_cstr(ip, ip_buf, sizeof(ip_buf));
+            if (!wclient.connect(ip_buf, 80, 1000)) continue;
+            wclient.print("GET /alive HTTP/1.0\r\nHost: ");
+            wclient.print(ip_buf);
+            wclient.print("\r\nConnection: close\r\n\r\n");
             String resp;
             resp.reserve(1024);
             uint32_t read_dl = millis() + 1500;
@@ -1230,16 +1269,17 @@ void swarm_thread_entry(void *args){
             if (deserializeJson(gdoc, gbody)) continue;
             JsonArray arr = gdoc["ips"].as<JsonArray>();
             for (JsonVariant v : arr) {
-                String x = v.as<String>();
-                if (x == selfIP) continue;
-                if (ctx.confirmed_ips.count(x)) continue;
+                neighbor_ip_t candidate;
+                if (!neighbor_ip_from_string(v.as<const char*>(), &candidate)) continue;
+                if (candidate == selfIP) continue;
+                if (ctx.confirmed_ips.count(candidate)) continue;
                 bool bl = false;
                 if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-                    bl = ctx.probe_blacklist.count(x) > 0;
+                    bl = ctx.probe_blacklist.count(candidate) > 0;
                     xSemaphoreGive(ctx.mutex);
                 }
                 if (bl) continue;
-                if (ctx.gossip_union.insert(x).second) gossip_added++;
+                if (ctx.gossip_union.insert(candidate).second) gossip_added++;
             }
             delay(50);
         }
@@ -1284,6 +1324,10 @@ void alive_ip_scan_thread_entry(void* args) {
     struct PingPkt {
         struct icmp_echo_hdr hdr;
         uint8_t              data[32];
+    };
+
+    auto neighbor_ip_from_octets = [](uint8_t octet0, uint8_t octet1, uint8_t octet2, uint8_t octet3) -> neighbor_ip_t {
+        return ((neighbor_ip_t)octet0 << 24) | ((neighbor_ip_t)octet1 << 16) | ((neighbor_ip_t)octet2 << 8) | (neighbor_ip_t)octet3;
     };
 
     // avoid lwip resorce contention with the main thread during startup; wait until miner is ready before starting the scan
@@ -1408,7 +1452,7 @@ void alive_ip_scan_thread_entry(void* args) {
         // LOG_W("(scan) start ping %u.%u.%u.0/24, generation=%u", o0, o1, o2, ctx->scan_generation);
         LOG_D("(scan) start ping %u.%u.%u.0/24, generation=%u", o0, o1, o2, board->status.neighbor.scan_generation);
 
-        std::vector<String> found;
+        neighbor_ip_vector_t found;
         found.reserve(16); // pre-allocate to avoid frequent reallocs; actual count is usually far less than 256
 
         // Mark scan as active
@@ -1452,9 +1496,7 @@ void alive_ip_scan_thread_entry(void* args) {
             }
 
             if (ping_one(sock, o0, o1, o2, last, ++seq)) {
-                char ip_str[16] = {0,};
-                snprintf(ip_str, sizeof(ip_str), "%u.%u.%u.%u", o0, o1, o2, last);
-                found.push_back(String(ip_str));
+                found.push_back(neighbor_ip_from_octets(o0, o1, o2, (uint8_t)last));
             }
 
             // Batch-update scan results every 10 IPs to avoid holding the mutex too long and blocking frontend requests

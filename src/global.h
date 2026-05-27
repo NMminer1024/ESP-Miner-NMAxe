@@ -10,9 +10,15 @@
 #include <deque>
 #include <map>
 #include <vector>
+#include "utils/helper.h"
 #include "drivers/touch/ft6206.h"
 #include "lvgl.h"
 #include <set>
+
+using neighbor_ip_t = uint32_t;
+using neighbor_ip_vector_t = std::vector<neighbor_ip_t, PsramAllocator<neighbor_ip_t>>;
+using neighbor_ip_set_t = std::set<neighbor_ip_t, std::less<neighbor_ip_t>, PsramAllocator<neighbor_ip_t>>;
+using neighbor_ip_fail_map_t = std::map<neighbor_ip_t, uint8_t, std::less<neighbor_ip_t>, PsramAllocator<std::pair<const neighbor_ip_t, uint8_t>>>;
 
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
@@ -297,15 +303,15 @@ typedef struct{
         float             total_hr;
         float             best_session_bd;
         float             best_ever_bd;
-        std::set<String>          confirmed_ips;    // 已确认是 NMMiner 的 IP，跨 generation 保留；连续 probe 失败 N 轮才移除
-        std::set<String>          probe_blacklist;  // 非 NMMiner IP，本轮 scan 周期内跳过；generation 切换清空
-        std::set<String>          gossip_union;     // 从 confirmed_ips 邻居 /alive 收集的补充 IP 池，跨 generation 保留
-        std::map<String, uint8_t> probe_fail_cnt;   // 每个 confirmed_ip 的连续 probe 失败次数；满 3 次才下线
+        neighbor_ip_set_t         confirmed_ips;    // 已确认是 NMMiner 的 IP，跨 generation 保留；连续 probe 失败 N 轮才移除
+        neighbor_ip_set_t         probe_blacklist;  // 非 NMMiner IP，本轮 scan 周期内跳过；generation 切换清空
+        neighbor_ip_set_t         gossip_union;     // 从 confirmed_ips 邻居 /alive 收集的补充 IP 池，跨 generation 保留
+        neighbor_ip_fail_map_t    probe_fail_cnt;   // 每个 confirmed_ip 的连续 probe 失败次数；满 3 次才下线
         uint32_t                  last_scan_gen;    // 上次处理的 scan_generation，仅用于触发 blacklist 清空
     }swarm;
 
     struct {
-        std::vector<String> alive_ips;       // ICMP 存活 IP 列表
+        neighbor_ip_vector_t alive_ips;       // ICMP 存活 IP 列表
         SemaphoreHandle_t   mutex;
         SemaphoreHandle_t   scan_required;   // 前端刷新时释放，触发新一轮扫描；超时后自动重扫
         uint32_t            last_scan_ms;

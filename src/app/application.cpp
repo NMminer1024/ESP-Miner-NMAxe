@@ -248,8 +248,8 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     /******* board-specific parameters *******/
     g_board.info.spec = config;
     /******* common parameters *******/
-    String stratum_pri = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL));
-    String stratum_fb  = String(nvs_config_get_string(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL));
+    String stratum_pri = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL);
+    String stratum_fb  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL);
 
     g_board.info.connection.pool.primary.ssl  = ((stratum_pri.indexOf("ssl") != -1) || (stratum_pri.indexOf("tls") != -1));
     g_board.info.connection.pool.primary.url  = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
@@ -266,10 +266,10 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
 
     String default_user_pri = String(PRIMARY_USER)  + "." + g_board.info.spec.name + "_" + g_board.info.base.devcie_code.substring(0, 5);
     String default_user_fb  = String(FALLBACK_USER) + "." + g_board.info.spec.name + "_" + g_board.info.base.devcie_code.substring(0, 5);
-    g_board.info.connection.stratum.primary.user  = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_PRIMARY,  default_user_pri.c_str()));
-    g_board.info.connection.stratum.primary.pwd   = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_PRIMARY,  PRIMARY_POOL_PWD));
-    g_board.info.connection.stratum.fallback.user = String(nvs_config_get_string(NVS_CONFIG_STRATUM_USER_FALLBACK, default_user_fb.c_str()));
-    g_board.info.connection.stratum.fallback.pwd  = String(nvs_config_get_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD));
+    g_board.info.connection.stratum.primary.user  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_PRIMARY,  default_user_pri.c_str());
+    g_board.info.connection.stratum.primary.pwd   = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_PRIMARY,  PRIMARY_POOL_PWD);
+    g_board.info.connection.stratum.fallback.user = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_FALLBACK, default_user_fb.c_str());
+    g_board.info.connection.stratum.fallback.pwd  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD);
     g_board.info.connection.stratum.use           = g_board.info.connection.stratum.primary;
 
     g_board.status.wifi.reconnect_xsem            = xSemaphoreCreateCounting(1, 0);
@@ -277,12 +277,12 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.info.connection.wifi.ap.info.pwd      = "12345678";
 
     String ap_default_ssid = g_board.info.spec.name + "_" + g_board.info.base.devcie_code.substring(0, 5);
-    g_board.info.connection.wifi.ap.info.ssid     = String(nvs_config_get_string(NVS_CONFIG_AP_SSID, ap_default_ssid.c_str()));
+    g_board.info.connection.wifi.ap.info.ssid     = nvs_config_get_string_value(NVS_CONFIG_AP_SSID, ap_default_ssid.c_str());
     g_board.status.wifi.force_config_required     = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
     g_board.status.wifi.client_connected          = false;
-    g_board.info.connection.wifi.sta.ssid         = String(nvs_config_get_string(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G"));
-    g_board.info.connection.wifi.sta.pwd          = String(nvs_config_get_string(NVS_CONFIG_WIFI_PASS, "NMMiner2048"));
-    g_board.info.base.hostname                    = String(nvs_config_get_string(NVS_CONFIG_HOSTNAME, g_board.info.connection.wifi.ap.info.ssid.c_str()));
+    g_board.info.connection.wifi.sta.ssid         = nvs_config_get_string_value(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G");
+    g_board.info.connection.wifi.sta.pwd          = nvs_config_get_string_value(NVS_CONFIG_WIFI_PASS, "NMMiner2048");
+    g_board.info.base.hostname                    = nvs_config_get_string_value(NVS_CONFIG_HOSTNAME, g_board.info.connection.wifi.ap.info.ssid.c_str());
 
     g_board.status.miner.stratum_update               = millis();
     g_board.status.preference.screen.flip             = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,       g_board.info.spec.preference.screen.flip);
@@ -294,9 +294,9 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.preference.led.enable              = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR,     g_board.info.spec.preference.led.enable);
     g_board.status.preference.led.sleep               = false;
     g_board.status.preference.led.sleep_last          = g_board.status.preference.led.sleep;
-    g_board.info.base.coin_price                      = String(nvs_config_get_string(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC"));
+    g_board.info.base.coin_price                      = nvs_config_get_string_value(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC");
     g_board.info.base.coin_price.toUpperCase();
-    g_board.info.base.coin_watchlist                  = String(nvs_config_get_string(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL"));
+    g_board.info.base.coin_watchlist                  = nvs_config_get_string_value(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL");
 
     g_board.status.reboot_xsem                    = xSemaphoreCreateCounting(1, 0);
     g_board.status.nvs_save_xsem                  = xSemaphoreCreateCounting(1, 0);
@@ -324,7 +324,8 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.ota.progress                  = 0;
     g_board.status.ota.last_progress_ms          = 0;
     g_board.status.ota.filename                  = "";
-    g_board.status.miner.diff.best_ever          = strtoull(nvs_config_get_string(NVS_CONFIG_BEST_EVER, "0"), NULL, 10);
+    String best_ever = nvs_config_get_string_value(NVS_CONFIG_BEST_EVER, "0");
+    g_board.status.miner.diff.best_ever          = strtoull(best_ever.c_str(), NULL, 10);
     g_board.status.ui.page.countdown.timeout     = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
     g_board.status.ui.page.last                  = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
     g_board.status.ui.page.current               = UI_PAGE_LOADING;
@@ -333,9 +334,9 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
     g_board.status.ui.lvgl.drv_xMutex            = xSemaphoreCreateMutex();
     g_board.status.touch.evt                     = TOUCH_NONE_EVT;
     g_board.status.miner.uptime_ever             = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    g_board.status.time.tz                       = String(nvs_config_get_string(NVS_CONFIG_TIMEZONE, "8.0"));
+    g_board.status.time.tz                       = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
     g_board.status.time.format.time              = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 24);
-    g_board.status.time.format.date              = nvs_config_get_string(NVS_CONFIG_DATE_FORMAT, "YYYY/MM/DD");
+    g_board.status.time.format.date              = nvs_config_get_string_value(NVS_CONFIG_DATE_FORMAT, "YYYY/MM/DD");
     g_board.status.aphorism.mutex                = xSemaphoreCreateMutex();
     // fan status initialisation
     for (uint8_t i = 0; i < g_board.info.spec.fans.size(); i++) {
