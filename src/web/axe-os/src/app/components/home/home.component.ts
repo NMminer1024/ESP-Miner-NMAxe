@@ -72,6 +72,7 @@ export class HomeComponent implements OnInit {
         info.bestDiffEver    = mnr?.bestDiffEver    ?? info.bestDiffEver;
         info.bestDiffSession = mnr?.bestDiffSession ?? info.bestDiffSession;
         info.freeHeap        = mnr?.freeHeap        ?? info.freeHeap;
+        info.minFreeHeap     = mnr?.minFreeHeap     ?? info.minFreeHeap;
         info.sharesAccepted  = mnr?.sAccepted       ?? info.sharesAccepted;
         info.sharesRejected  = mnr?.sRejected       ?? info.sharesRejected;
         info.uptimeSeconds   = mnr?.uptimeSeconds   ?? info.uptimeSeconds;
