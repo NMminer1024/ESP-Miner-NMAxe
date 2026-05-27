@@ -125,6 +125,7 @@ export interface ISystemInfo {
   bestDiffEver?: string,
   bestDiffSession?: string,
   freeHeap?: number,
+  minFreeHeap?: number,
   sharesAccepted?: number,
   sharesRejected?: number,
   uptimeSeconds?: number,
