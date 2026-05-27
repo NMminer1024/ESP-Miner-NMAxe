@@ -76,7 +76,7 @@ private:
     bool                                            _suggest_diff_support;
     uint32_t                                        _vr_mask;
     double                                          _pool_difficulty;
-    StaticJsonDocument<4096>                        _rsp_json;
+    BasicJsonDocument<PsramJsonAllocator>           _rsp_json;
     stratum_subscribe_info_t                        _sub_info;
     uint32_t                                        _max_rsp_id_cache;
     uint32_t                                        _job_counter;
@@ -87,9 +87,9 @@ public:
     PoolClass  *pool;
     SemaphoreHandle_t new_job_xsem, clear_job_xsem;
 
-    StratumClass(){};
+    StratumClass() : _rsp_json(4096) {};
     StratumClass(pool_info_t pConfig, stratum_info_t sConfig, uint8_t job_cached_max): 
-     _stratum_info(sConfig), _pool_job_cache_size(job_cached_max){
+     _stratum_info(sConfig), _rsp_json(4096), _pool_job_cache_size(job_cached_max){
         this->pool = new PoolClass(pConfig);
         this->_max_rsp_id_cache = 20;
         this->_job_counter = 0;

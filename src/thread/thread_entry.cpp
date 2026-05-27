@@ -1237,6 +1237,7 @@ void swarm_thread_entry(void *args){
         // they will naturally enter the probe targets next round.
         // They are NOT probed immediately this round to avoid making a single round too long.
         size_t gossip_added = 0;
+        BasicJsonDocument<PsramJsonAllocator> gdoc(2048);
         for (const auto& ip : ctx.confirmed_ips) {
             if (board->status.ota.running) break;
             if (xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) break;
@@ -1265,7 +1266,7 @@ void swarm_thread_entry(void *args){
             if (bi < 0) continue;
             String gbody = resp.substring(bi + 4);
             // /alive returns: {"self":"x","ips":["x","y",...]}
-            DynamicJsonDocument gdoc(2048);
+            gdoc.clear();
             if (deserializeJson(gdoc, gbody)) continue;
             JsonArray arr = gdoc["ips"].as<JsonArray>();
             for (JsonVariant v : arr) {
@@ -1690,7 +1691,11 @@ void monitor_thread_entry(void *args){
                 static uint16_t SCALE = (board->info.spec.ui.hashrate_dist_page.max_x_hr / board->info.spec.ui.hashrate_dist_page.max_x_bars);
                 static uint64_t *counts = NULL;
                 if (counts == NULL) {
-                    counts = (uint64_t *)malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+                    counts = (uint64_t *)heap_caps_malloc(board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+                    if (counts == NULL) {
+                        LOG_E("Failed to allocate hashrate distribution counts in PSRAM");
+                        continue;
+                    }
                     memset(counts, 0, board->info.spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
                 }
                 double hr_now = board->status.miner.hashrate._3m;
@@ -2426,7 +2431,7 @@ void miner_asic_rx_thread_entry(void *args){
                 // BM1370 at high frequency occasionally emits the same result frame twice;
                 // both pass local SHA256 but the second submission is rejected by the pool as Duplicate.
                 // Must run BEFORE record_nonce() so duplicates are not counted toward hashrate.
-                static std::unordered_set<uint32_t> _submitted_nonces;
+                static std::unordered_set<uint32_t, std::hash<uint32_t>, std::equal_to<uint32_t>, PsramAllocator<uint32_t>> _submitted_nonces;
                 static String _dedup_job_key = "";
                 String _cur_job_key = pool_id_submit + extra2_submit;
                 if(_cur_job_key != _dedup_job_key){
@@ -2572,7 +2577,7 @@ void miner_asic_rx_thread_entry(void *args){
 void stratum_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
-    StaticJsonDocument<1024*4> json;
+    BasicJsonDocument<PsramJsonAllocator> json(1024*4);
     bool is_primary_pool = true;
 
     double pool_init_diff = board->info.spec.asic.diff_thr_init;
@@ -3632,7 +3637,7 @@ void benchmark_thread_entry(void *args) {
             // Select best result: highest avgHR entry in saved results
             {
                 char *res_str = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
-                DynamicJsonDocument rdoc(4096);
+                BasicJsonDocument<PsramJsonAllocator> rdoc(4096);
                 DeserializationError rerr = deserializeJson(rdoc, res_str);
                 free(res_str);
                 uint16_t best_freq = 0, best_vcore = 0;
@@ -3683,7 +3688,7 @@ void benchmark_thread_entry(void *args) {
                 // Select best result: highest avgHR entry in saved results
                 {
                     char *res_str = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
-                    DynamicJsonDocument rdoc(4096);
+                    BasicJsonDocument<PsramJsonAllocator> rdoc(4096);
                     DeserializationError rerr = deserializeJson(rdoc, res_str);
                     free(res_str);
                     uint16_t best_freq = 0, best_vcore = 0;

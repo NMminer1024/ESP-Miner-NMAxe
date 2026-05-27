@@ -908,7 +908,7 @@ void get_status_realtime(AsyncWebServerRequest* request){
     uint32_t json_size_max = 1024; // in bytes 
     
     // Use local document instead of static to prevent memory leaks
-    DynamicJsonDocument root(json_size_max);
+    BasicJsonDocument<PsramJsonAllocator> root(json_size_max);
 
     uint64_t ms = g_board.status.time.utc*1000ULL;
     root["timestamp"] = ms;
@@ -992,10 +992,10 @@ void get_lucky_history(AsyncWebServerRequest* request){
     // Ensure minimum size
     if (json_size_max < 32 * 1024) json_size_max = 32 * 1024;
     
-    LOG_D("Creating lucky JSON document with %dKB for %d samples", json_size_max/1024, history_size);
+    LOG_D("Creating PSRAM lucky JSON document with %dKB for %d samples", json_size_max/1024, history_size);
     
-    // Create JSON document
-    DynamicJsonDocument root(json_size_max);
+    // Create JSON document in PSRAM
+    BasicJsonDocument<PsramJsonAllocator> root(json_size_max);
     
     // Build JSON structure
     uint64_t ms = g_board.status.time.utc * 1000ULL;
@@ -1037,18 +1037,34 @@ void get_lucky_history(AsyncWebServerRequest* request){
     // Add metadata
     root["size"] = sampled_count;
     
-    // Serialize JSON response
-    String json_str;
-    size_t json_size = serializeJson(root, json_str);
-    
+    // Serialize directly into a PSRAM buffer to avoid a large internal-heap String.
+    size_t json_size = measureJson(root);
     if (json_size == 0) {
         LOG_E("JSON serialization failed");
         request->send(500, "application/json", "{\"error\":\"JSON serialization failed\"}");
         return;
     }
+    char* json_buf = (char*)heap_caps_malloc(json_size + 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!json_buf) {
+        LOG_E("Failed to allocate %d bytes in PSRAM for lucky JSON output", json_size + 1);
+        request->send(500, "application/json", "{\"error\":\"PSRAM allocation failed for response\"}");
+        return;
+    }
+    serializeJson(root, json_buf, json_size + 1);
+    root.clear();
     
     // Send response
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json_str);
+    AsyncWebServerResponse *response = request->beginResponse(
+        "application/json", json_size,
+        [json_buf, json_size](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+            size_t remaining = json_size - index;
+            size_t toWrite = (remaining < maxLen) ? remaining : maxLen;
+            memcpy(buffer, json_buf + index, toWrite);
+            if (index + toWrite >= json_size) {
+                heap_caps_free(json_buf);
+            }
+            return toWrite;
+        });
     response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     response->addHeader("Pragma", "no-cache");
     response->addHeader("Expires", "0");
@@ -1095,7 +1111,7 @@ void get_theme_handler(AsyncWebServerRequest* request){
         "}"
     );
     
-    DynamicJsonDocument root(1024), colors_json(512);
+    BasicJsonDocument<PsramJsonAllocator> root(1024), colors_json(512);
     DeserializationError error = deserializeJson(colors_json, colors);
 
     root["colorScheme"] = scheme;
@@ -1123,7 +1139,7 @@ void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t le
         return;
     }
 
-    DynamicJsonDocument root = DynamicJsonDocument(1024*2);
+    BasicJsonDocument<PsramJsonAllocator> root(1024*2);
     DeserializationError error = deserializeJson(root, data);
     if(error){
         request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
@@ -1448,7 +1464,7 @@ static void reboot_record_to_json(const RebootRecord& r, JsonObject obj) {
 // GET /api/reboot/last -- newest record only (for the dashboard banner).
 void get_reboot_last(AsyncWebServerRequest * request) {
     RebootRecord r;
-    DynamicJsonDocument doc(512);
+    BasicJsonDocument<PsramJsonAllocator> doc(512);
     if (reboot_log_get_last(&r)) {
         reboot_record_to_json(r, doc.to<JsonObject>());
     } else {
@@ -1467,7 +1483,7 @@ void get_reboot_last(AsyncWebServerRequest * request) {
 void get_reboot_list(AsyncWebServerRequest * request) {
     RebootRecord recs[REBOOT_LOG_RING_SIZE];
     size_t n = reboot_log_get_recent(recs, REBOOT_LOG_RING_SIZE);
-    DynamicJsonDocument doc(4096);
+    BasicJsonDocument<PsramJsonAllocator> doc(4096);
     JsonArray arr = doc.to<JsonArray>();
     for (size_t i = 0; i < n; ++i) {
         reboot_record_to_json(recs[i], arr.createNestedObject());
@@ -1506,7 +1522,7 @@ void delete_reboot_list(AsyncWebServerRequest * request) {
 
 // GET /api/coredump/info -- presence + summary metadata.
 void get_coredump_info(AsyncWebServerRequest * request) {
-    DynamicJsonDocument doc(1024);
+    BasicJsonDocument<PsramJsonAllocator> doc(1024);
     JsonObject obj = doc.to<JsonObject>();
     size_t sz = 0;
     bool crc_ok = false;

@@ -45,13 +45,16 @@ typedef struct{
 
 class AsicMinerClass{
 private:
+    using AsicJobMap = std::map<uint8_t, asic_job, std::less<uint8_t>, PsramAllocator<std::pair<const uint8_t, asic_job>>>;
+    using AsicJobStringMap = std::map<uint8_t, String, std::less<uint8_t>, PsramAllocator<std::pair<const uint8_t, String>>>;
+
     BMxxx                       *_asic;  
     float                       _asic_diff_thr;
     uint8_t                     _asic_count;
     asic_job                    _asic_job_now;
-    std::map<uint8_t, asic_job> _asic_job_map;
-    std::map<uint8_t, String>   _extranonce2_map;
-    std::map<uint8_t, String>   _pool_job_id_map;   // bind asic_job_id -> pool_job_id at construction time
+    AsicJobMap                  _asic_job_map;
+    AsicJobStringMap            _extranonce2_map;
+    AsicJobStringMap            _pool_job_id_map;   // bind asic_job_id -> pool_job_id at construction time
     std::deque<std::pair<uint32_t, double>, PsramAllocator<std::pair<uint32_t, double>>> _hr_deque; // single 60-min sample ring (PSRAM)
     // Running sums + front cursors for incremental O(1) hashrate maintenance.
     // _off_3m / _off_30m are offsets (from current deque front) of the oldest
