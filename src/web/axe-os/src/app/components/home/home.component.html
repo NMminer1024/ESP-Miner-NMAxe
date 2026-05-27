@@ -274,10 +274,7 @@
               </tr>
               <tr>
                 <td class="label">Free Memory:</td>
-                <td class="value">
-                  {{ ((info.freeHeap || 0) / 1024) | number: '1.0-0' }} /
-                  {{ ((info.minFreeHeap || 0) / 1024) | number: '1.0-0' }} KB
-                </td>
+                <td class="value">{{ ((info.freeHeap || 0) / 1024) | number: '1.0-0' }} KB<span class="sha-suffix">/ {{ ((info.minFreeHeap || 0) / 1024) | number: '1.0-0' }} KB</span></td>
               </tr>
               <tr>
                 <td class="label">Firmware Version:</td>
