@@ -2387,6 +2387,7 @@ void miner_asic_tx_thread_entry(void *args){
         if(state == MINER_RUNTIME_PAUSING) {
             LOG_W("Pausing mining: clearing ASIC work and powering off Vcore");
             board->status.miner.user_paused = true;
+            if(board->status.miner.pause_started_ms == 0) board->status.miner.pause_started_ms = millis();
             clear_mining_runtime_caches();
             board->power->set_vcore_status(PWR_OFF);
             board->status.miner.runtime_state = MINER_RUNTIME_PAUSED;
@@ -2419,6 +2420,7 @@ void miner_asic_tx_thread_entry(void *args){
                 board->power->set_vcore_status(PWR_OFF);
                 board->status.miner.runtime_state = MINER_RUNTIME_ERROR;
                 board->status.miner.user_paused = true;
+                board->status.miner.pause_started_ms = 0;
                 refresh_mining_timeouts();
                 xSemaphoreGive(board->status.miner.update_xsem);
                 return true;
@@ -2432,6 +2434,7 @@ void miner_asic_tx_thread_entry(void *args){
                 board->power->set_vcore_status(PWR_OFF);
                 board->status.miner.runtime_state = MINER_RUNTIME_ERROR;
                 board->status.miner.user_paused = true;
+                board->status.miner.pause_started_ms = 0;
                 refresh_mining_timeouts();
                 xSemaphoreGive(board->status.miner.update_xsem);
                 return true;
@@ -2440,6 +2443,7 @@ void miner_asic_tx_thread_entry(void *args){
             refresh_mining_timeouts();
             board->status.miner.resume_grace_until_ms = millis() + MINER_RESUME_GRACE_MS;
             board->status.miner.user_paused = false;
+            board->status.miner.pause_started_ms = 0;
             board->status.miner.runtime_state = MINER_RUNTIME_RUNNING;
             if(board->stratum != nullptr) xSemaphoreGive(board->stratum->new_job_xsem);
             xSemaphoreGive(board->status.miner.update_xsem);
@@ -3161,6 +3165,8 @@ void ui_thread_entry(void *args){
                 // benchmark mode overlay — covers active page during sweep
                 ui_benchmark_overlay_update((void*)board);
             }
+            // Mining pause overlay runs even during screen saver; power faults remain higher priority.
+            ui_mining_pause_overlay_update((void*)board);
             // Power fault alert (OC / OT) — highest priority overlay, runs even during screen saver
             ui_power_alert_update((void*)board);
             //release mutex

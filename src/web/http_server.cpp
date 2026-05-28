@@ -1506,12 +1506,14 @@ void patch_mining_state(AsyncWebServerRequest *request, uint8_t *data, size_t le
             if (state != MINER_RUNTIME_PAUSING && state != MINER_RUNTIME_PAUSED) {
                 g_board.status.miner.user_paused = true;
                 g_board.status.miner.runtime_state = MINER_RUNTIME_PAUSING;
+                g_board.status.miner.pause_started_ms = millis();
                 g_board.status.miner.resume_grace_until_ms = 0;
                 LOG_W("Mining pause requested by API");
             }
         } else {
             if (state != MINER_RUNTIME_RUNNING || g_board.status.miner.user_paused) {
                 g_board.status.miner.runtime_state = MINER_RUNTIME_RESUMING;
+                g_board.status.miner.pause_started_ms = 0;
                 LOG_W("Mining resume requested by API");
             }
         }

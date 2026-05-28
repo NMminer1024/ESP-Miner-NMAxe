@@ -247,6 +247,7 @@ typedef struct{
         diff_info_t         diff;
         volatile miner_runtime_state_t runtime_state;
         volatile bool       user_paused;
+        volatile uint32_t   pause_started_ms;
         uint32_t            resume_grace_until_ms;
         uint32_t            asic_update;  // timestamp of asic respond
         uint32_t            stratum_update;//ms timestamp of last stratum data received

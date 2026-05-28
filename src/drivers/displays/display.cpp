@@ -4792,6 +4792,135 @@ void ui_benchmark_overlay_update(void* args) {
   last_ms = millis();
 }
 
+// ─── Mining Pause Overlay ──────────────────────────────────────────────────
+// Runtime-only visual state. Shown while the user pause API is active and
+// removed automatically when resume starts. Power fault overlays remain above it.
+void ui_mining_pause_overlay_update(void* args) {
+  board_sal_t *board = (board_sal_t*)args;
+  if (!board) return;
+
+  static lv_obj_t  *overlay    = nullptr;
+  static lv_obj_t  *lb_icon    = nullptr;
+  static lv_obj_t  *lb_title   = nullptr;
+  static lv_obj_t  *lb_elapsed = nullptr;
+  static lv_obj_t  *lb_power   = nullptr;
+  static lv_style_t style_overlay;
+  static bool       style_inited = false;
+  static bool       is_large     = false;
+  static uint32_t   last_ms      = 0;
+
+  miner_runtime_state_t state = board->status.miner.runtime_state;
+  bool pause_active = board->status.miner.user_paused &&
+                      (state == MINER_RUNTIME_PAUSING || state == MINER_RUNTIME_PAUSED);
+
+  if (!pause_active) {
+    if (overlay != nullptr) {
+      lv_obj_del(overlay);
+      overlay = lb_icon = lb_title = lb_elapsed = lb_power = nullptr;
+      last_ms = 0;
+    }
+    return;
+  }
+
+  if (!style_inited) {
+    lv_style_init(&style_overlay);
+    lv_style_set_bg_color(&style_overlay, lv_color_black());
+    lv_style_set_bg_opa(&style_overlay, LV_OPA_80);
+    lv_style_set_border_width(&style_overlay, 0);
+    lv_style_set_border_opa(&style_overlay, LV_OPA_TRANSP);
+    lv_style_set_pad_all(&style_overlay, 0);
+    style_inited = true;
+  }
+
+  if (overlay == nullptr) {
+    is_large = (LV_HOR_RES >= 300); // same split used by the benchmark overlay
+
+    overlay = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(overlay, LV_HOR_RES, LV_VER_RES);
+    lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_scrollbar_mode(overlay, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_style_pad_all(overlay, 0, LV_PART_MAIN);
+    lv_obj_add_style(overlay, &style_overlay, LV_PART_MAIN);
+    lv_obj_clear_flag(overlay, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_coord_t width = (lv_coord_t)(LV_HOR_RES - (is_large ? 24 : 8));
+    // Layout: 4 rows vertically centered as a group
+    //   large (320×240): icon(20) +6+ title(26) +4+ elapsed(22) +4+ power(22) = 104px
+    //   small (240×135): icon(20) +2+ title(26) +2+ elapsed(18) +2+ power(18) =  88px
+    lv_coord_t icon_y    = is_large ? -42 : -34;
+    lv_coord_t title_y   = is_large ? -13 :  -9;
+    lv_coord_t elapsed_y = is_large ?  15 :  15;
+    lv_coord_t power_y   = is_large ?  41 :  35;
+
+    lb_icon = lv_label_create(overlay);
+    lv_label_set_long_mode(lb_icon, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_font(lb_icon, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_icon, lv_color_hex(0xFACC15), LV_PART_MAIN);
+    lv_label_set_text(lb_icon, LV_SYMBOL_PAUSE);
+    lv_obj_align(lb_icon, LV_ALIGN_CENTER, 0, icon_y);
+
+    lb_title = lv_label_create(overlay);
+    lv_obj_set_width(lb_title, width);
+    lv_label_set_long_mode(lb_title, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_font(lb_title, &Inconsolata_26, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_title, lv_color_hex(0xFACC15), LV_PART_MAIN);
+    lv_obj_set_style_text_align(lb_title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_label_set_text(lb_title, "mining pause!");
+    lv_obj_align(lb_title, LV_ALIGN_CENTER, 0, title_y);
+
+    lb_elapsed = lv_label_create(overlay);
+    lv_obj_set_width(lb_elapsed, width);
+    lv_label_set_long_mode(lb_elapsed, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_font(lb_elapsed, is_large ? &Inconsolata_22 : &Inconsolata_18, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_elapsed, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(lb_elapsed, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_label_set_text(lb_elapsed, "paused 00:00:00");
+    lv_obj_align(lb_elapsed, LV_ALIGN_CENTER, 0, elapsed_y);
+
+    lb_power = lv_label_create(overlay);
+    lv_obj_set_width(lb_power, width);
+    lv_label_set_long_mode(lb_power, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_font(lb_power, is_large ? &Inconsolata_22 : &Inconsolata_18, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lb_power, lv_color_hex(0x4ADE80), LV_PART_MAIN);
+    lv_obj_set_style_text_align(lb_power, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_label_set_text(lb_power, "Vbus 0.000V  P 0.0W");
+    lv_obj_align(lb_power, LV_ALIGN_CENTER, 0, power_y);
+  }
+
+  lv_obj_move_foreground(overlay);
+
+  uint32_t now_ms = millis();
+  if (last_ms != 0 && (uint32_t)(now_ms - last_ms) < 1000) return;
+
+  uint32_t start_ms = board->status.miner.pause_started_ms;
+  uint32_t elapsed_sec = (start_ms == 0) ? 0 : (uint32_t)((now_ms - start_ms) / 1000UL);
+  uint32_t days = elapsed_sec / 86400UL;
+  uint32_t rem = elapsed_sec % 86400UL;
+  uint32_t hours = rem / 3600UL;
+  uint32_t minutes = (rem % 3600UL) / 60UL;
+  uint32_t seconds = rem % 60UL;
+
+  char elapsed[24];
+  if (days > 0) {
+    snprintf(elapsed, sizeof(elapsed), "%lud %02lu:%02lu:%02lu",
+             (unsigned long)days, (unsigned long)hours, (unsigned long)minutes, (unsigned long)seconds);
+  } else {
+    snprintf(elapsed, sizeof(elapsed), "%02lu:%02lu:%02lu",
+             (unsigned long)hours, (unsigned long)minutes, (unsigned long)seconds);
+  }
+
+  char buf[48];
+  snprintf(buf, sizeof(buf), "paused %s", elapsed);
+  lv_label_set_text(lb_elapsed, buf);
+
+  float vbus_v = board->status.power.vbus / 1000.0f;
+  float power_w = (board->status.power.vbus / 1000.0f) * (board->status.power.ibus / 1000.0f);
+  snprintf(buf, sizeof(buf), "Vbus %.3fV  P %.3fW", vbus_v, power_w);
+  lv_label_set_text(lb_power, buf);
+
+  last_ms = now_ms;
+}
+
 void ui_aphorism_page_update(void* args){
   board_sal_t *board = (board_sal_t*)args;
   if(!board){
