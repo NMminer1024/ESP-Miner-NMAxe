@@ -453,7 +453,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                         {"1300 mV",           1300},
                         {"1350 mV",           1350},
                         {"1400 mV",           1400},
-                        {"1450 mV",           1450},
                     };
                 config.create_power_instance     = create_qaxepp_3ph_power_instance; // 3-phase
             }
