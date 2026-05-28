@@ -31,6 +31,7 @@ All endpoints are served on **port 80**. Response bodies are JSON unless noted o
 | GET  | `/api/system/info`      | Dashboard summary: power, temperatures, ASIC status, mining stats, board identity |
 | POST | `/api/system/restart`   | Trigger a graceful soft reboot |
 | POST | `/api/system/clearhits` | Reset block-hit counter to zero (RAM + NVS) |
+| PATCH | `/api/mining/state`    | Pause/resume mining at runtime; pause powers off ASIC Vcore |
 | GET  | `/api/wakeup`           | Reset screensaver idle timer and wake the display |
 
 ### `GET /api/system/info` — Response Fields
@@ -67,6 +68,9 @@ The response is structured into nested sub-objects.
 
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
+| `miner.state` | string | — | Runtime mining state: `running`, `pausing`, `paused`, `resuming`, or `error` |
+| `miner.paused` | bool | — | `true` while user pause/resume control is active |
+| `miner.pauseReason` | string | — | Pause reason, currently `"user"` for API/UI-triggered pause |
 | `miner.hashRate` | float | GH/s | 3-minute average hashrate |
 | `miner.bestDiffEver` | string | — | All-time best share difficulty (e.g. `"1.23M"`) |
 | `miner.bestDiffSession` | string | — | Session best share difficulty |
@@ -134,6 +138,9 @@ Active pool connection — read-only snapshot.
     "smallCoreCnt": 672
   },
   "miner": {
+    "state": "running",
+    "paused": false,
+    "pauseReason": "",
     "hashRate": 720.5,
     "bestDiffEver": "1.23M",
     "bestDiffSession": "456.7K",
@@ -163,6 +170,33 @@ Active pool connection — read-only snapshot.
   "stratum": {
     "url": "stratum+tcp://pool.example.com:3333",
     "user": "bc1q...xyz.worker1",
+
+### `PATCH /api/mining/state` — Pause/Resume Mining
+
+Controls mining at runtime without rebooting the ESP32. Pausing is a user action: the firmware powers off ASIC Vcore, stops ASIC job TX/RX, clears ASIC job/hashrate caches, and suppresses low-power/low-hashrate/ASIC-alive restart monitors while paused. Resuming restores Vcore, reinitializes the ASIC, refreshes miner timeout timestamps, and applies a short recovery grace period before activity monitors resume.
+
+**Request**
+```json
+{ "paused": true }
+```
+
+Set `paused` to `false` to start mining again:
+```json
+{ "paused": false }
+```
+
+**Response 200**
+```json
+{
+  "status": "ok",
+  "state": "pausing",
+  "paused": true,
+  "reason": "user",
+  "vcoreEnabled": false
+}
+```
+
+`409 Conflict` is returned while Benchmark mode or OTA update is running. The pause state is runtime-only and is not saved to NVS; after reboot, normal mining starts as usual.
     "pwd": "x"
   }
 }

@@ -318,6 +318,10 @@ bool MinerApp::_board_init(const BoardSpecConfig& config) {
 
     g_board.status.miner.status_history.mutex    = xSemaphoreCreateMutex();
     g_board.status.miner.proximity_history.mutex = xSemaphoreCreateMutex();
+    g_board.status.miner.runtime_state           = MINER_RUNTIME_RUNNING;
+    g_board.status.miner.user_paused             = false;
+    g_board.status.miner.resume_grace_until_ms   = 0;
+    g_board.status.miner.control_xsem            = xSemaphoreCreateCounting(1, 0);
     g_board.status.miner.update_xsem             = xSemaphoreCreateCounting(1, 0);
     g_board.status.miner.hits                    = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
     g_board.status.ota.running                   = false;

@@ -6,6 +6,7 @@ import { LoadingService } from '../services/loading.service';
 import { SystemService } from '../services/system.service';
 import { LayoutService } from './service/app.layout.service';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ISystemInfo } from 'src/models/ISystemInfo';
 
 @Component({
     selector: 'app-topbar',
@@ -61,7 +62,9 @@ export class AppTopBarComponent {
 
     items!: MenuItem[];
     clearBlockHitsDialogVisible: boolean = false;
+    private infoPoll$: Observable<ISystemInfo>;
     poolDisplay$: Observable<{ url: string; wallet: string; rssi: number; uptime: number }>;
+    miningControl$: Observable<{ state: string; paused: boolean }>;
 
     @ViewChild('menubutton') menuButton!: ElementRef;
 
@@ -74,9 +77,13 @@ export class AppTopBarComponent {
                 private toastr: ToastrService,
                 private loadingService: LoadingService
     ) {
-        this.poolDisplay$ = interval(10000).pipe(
+        this.infoPoll$ = interval(5000).pipe(
             startWith(0),
             switchMap(() => this.systemService.getInfo()),
+            shareReplay({ refCount: true, bufferSize: 1 })
+        );
+
+        this.poolDisplay$ = this.infoPoll$.pipe(
             map(info => {
                 const url  = info.stratum?.url  || info.stratumURLUSED || info.usedUrl  || '';
                 const user = info.stratum?.user || info.stratumUserUSED || info.usedUser || '';
@@ -88,6 +95,15 @@ export class AppTopBarComponent {
                     rssi:   rssi as number,
                     uptime: uptime as number
                 };
+            }),
+            shareReplay({ refCount: true, bufferSize: 1 })
+        );
+
+        this.miningControl$ = this.infoPoll$.pipe(
+            map(info => {
+                const state = info.miner?.state || 'running';
+                const paused = !!info.miner?.paused || state === 'pausing' || state === 'paused' || state === 'resuming' || state === 'error';
+                return { state, paused };
             }),
             shareReplay({ refCount: true, bufferSize: 1 })
         );
@@ -124,6 +140,31 @@ export class AppTopBarComponent {
                 },
                 error: (err: HttpErrorResponse) => {
                     this.toastr.error('Error', `Could not restart. ${err.message}`);
+                }
+            });
+    }
+
+    public isMiningControlBusy(state: string): boolean {
+        return state === 'pausing' || state === 'resuming';
+    }
+
+    public miningControlLabel(control: { state: string; paused: boolean }): string {
+        if (control.state === 'pausing') return 'Pausing';
+        if (control.state === 'resuming') return 'Starting';
+        if (control.paused) return 'Start Mining';
+        return 'Pause Mining';
+    }
+
+    public toggleMiningPause(control: { state: string; paused: boolean }) {
+        const pause = !control.paused;
+        this.systemService.setMiningPaused(pause)
+            .pipe(this.loadingService.lockUIUntilComplete())
+            .subscribe({
+                next: () => {
+                    this.toastr.success('Success!', pause ? 'Mining paused' : 'Mining started');
+                },
+                error: (err: HttpErrorResponse) => {
+                    this.toastr.error('Error', `Could not ${pause ? 'pause' : 'start'} mining. ${err.message}`);
                 }
             });
     }

@@ -20,6 +20,7 @@
       --get:       #0d9e6e;
       --post:      #c47d05;
       --patch:     #1a6fc4;
+      --delete:    #b91c1c;
       --ws:        #7c3aed;
       --code-bg:   #0d1929;
       --font:      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -164,6 +165,7 @@
     .badge-get   { background: var(--get);   color: #fff; }
     .badge-post  { background: var(--post);  color: #fff; }
     .badge-patch { background: var(--patch); color: #fff; }
+    .badge-delete{ background: var(--delete); color: #fff; }
     .badge-ws    { background: var(--ws);    color: #fff; }
     .badge-multi { background: var(--border); color: var(--text); }
 
@@ -239,6 +241,7 @@
     .method-get   { background: rgba(13,158,110,0.2);  color: #0bc68a; border: 1px solid #0d9e6e; }
     .method-post  { background: rgba(196,125,5,0.2);   color: #f5a623; border: 1px solid #c47d05; }
     .method-patch { background: rgba(26,111,196,0.2);  color: #5aabff; border: 1px solid #1a6fc4; }
+    .method-delete{ background: rgba(185,28,28,0.2);   color: #ff7b7b; border: 1px solid #b91c1c; }
     .method-ws    { background: rgba(124,58,237,0.2);  color: #a78bfa; border: 1px solid #7c3aed; }
 
     .endpoint-path {
@@ -463,8 +466,32 @@
       <a class="nav-item" href="#system-clearhits">
         <span class="nav-badge badge-post">POST</span> Clear Block Hits
       </a>
+      <a class="nav-item" href="#mining-state">
+        <span class="nav-badge badge-multi">PATCH</span> Mining State
+      </a>
       <a class="nav-item" href="#system-wakeup">
         <span class="nav-badge badge-get">GET</span> Wakeup
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Reboot History</div>
+      <a class="nav-item" href="#reboot-last">
+        <span class="nav-badge badge-get">GET</span> Last Reboot
+      </a>
+      <a class="nav-item" href="#reboot-list">
+        <span class="nav-badge badge-get">GET</span> Reboot List
+      </a>
+      <a class="nav-item" href="#reboot-clear">
+        <span class="nav-badge badge-delete">DELETE</span> Clear History
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Coredump</div>
+      <a class="nav-item" href="#coredump-info">
+        <span class="nav-badge badge-get">GET</span> Dump Info
+      </a>
+      <a class="nav-item" href="#coredump-clear">
+        <span class="nav-badge badge-delete">DELETE</span> Clear Dump
       </a>
     </div>
     <div class="nav-group">
@@ -504,6 +531,27 @@
       </a>
       <a class="nav-item" href="#set-screensaver">
         <span class="nav-badge badge-post">POST</span> Screensaver
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Benchmark</div>
+      <a class="nav-item" href="#benchmark-config">
+        <span class="nav-badge badge-multi">G/P</span> Config &amp; Status
+      </a>
+      <a class="nav-item" href="#benchmark-start">
+        <span class="nav-badge badge-post">POST</span> Start
+      </a>
+      <a class="nav-item" href="#benchmark-stop">
+        <span class="nav-badge badge-post">POST</span> Stop
+      </a>
+      <a class="nav-item" href="#benchmark-results">
+        <span class="nav-badge badge-delete">DELETE</span> Results
+      </a>
+      <a class="nav-item" href="#benchmark-reset">
+        <span class="nav-badge badge-post">POST</span> Reset
+      </a>
+      <a class="nav-item" href="#benchmark-apply">
+        <span class="nav-badge badge-post">POST</span> Apply
       </a>
     </div>
     <div class="nav-group">
@@ -563,7 +611,9 @@
         This document describes the HTTP and WebSocket API exposed by the ESP32-based
         NMAxe / NMAxeGamma / NMQAxe++ firmware. All endpoints are served on
         <strong>port 80</strong>. JSON is used for all request and response bodies
-        unless noted otherwise.
+        unless noted otherwise. This reference is served at <code>/api-doc</code>,
+        which redirects to <code>/api-doc.html</code>. Generic CORS preflight is
+        handled by <code>OPTIONS /*</code>.
       </p>
       <div class="hero-meta">
         <div class="hero-meta-item">🌐 <strong>Base URL</strong>&nbsp; http://&lt;device-ip&gt;</div>
@@ -583,7 +633,8 @@
       </div>
       <p class="section-desc">
         Core device management endpoints: read live status, restart the miner, and
-        clear block-hit counters.
+        clear block-hit counters. Runtime mining control can pause ASIC Vcore without
+        rebooting the ESP32.
       </p>
 
       <!-- GET /api/system/info -->
@@ -619,6 +670,9 @@
     <span class="kw">"smallCoreCnt"</span>: <span class="num">894</span>    <span class="cmt">// number of small cores</span>
   },
   <span class="kw">"miner"</span>: {
+    <span class="kw">"state"</span>:           <span class="str">"running"</span>,  <span class="cmt">// running | pausing | paused | resuming | error</span>
+    <span class="kw">"paused"</span>:          <span class="bool">false</span>,      <span class="cmt">// true during user pause/resume control</span>
+    <span class="kw">"pauseReason"</span>:     <span class="str">""</span>,         <span class="cmt">// "user" when paused from API/UI</span>
     <span class="kw">"hashRate"</span>:        <span class="num">0.465</span>,      <span class="cmt">// GH/s – 3-minute rolling average</span>
     <span class="kw">"bestDiffEver"</span>:    <span class="str">"52.3G"</span>,    <span class="cmt">// best difficulty since first boot</span>
     <span class="kw">"bestDiffSession"</span>: <span class="str">"12.1G"</span>,    <span class="cmt">// best difficulty this session</span>
@@ -688,6 +742,35 @@
         </div>
       </div>
 
+      <!-- PATCH /api/mining/state -->
+      <div class="endpoint" id="mining-state">
+        <div class="endpoint-head">
+          <span class="method-badge method-patch">PATCH</span>
+          <code class="endpoint-path">/api/mining/state</code>
+          <span class="endpoint-summary">Pause or start mining without reboot</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Controls mining at runtime. Pausing powers off ASIC Vcore, stops ASIC job TX/RX,
+            clears ASIC job/hashrate caches, and suppresses low-power/low-hashrate/ASIC-alive
+            restart monitors while the pause is user-requested. Starting mining again restores
+            Vcore, reinitializes the ASIC, and refreshes miner timeout timestamps.
+          </p>
+          <div class="block-label">Request body</div>
+          <pre>{ <span class="kw">"paused"</span>: <span class="bool">true</span> }</pre>
+          <pre>{ <span class="kw">"paused"</span>: <span class="bool">false</span> }</pre>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"status"</span>:       <span class="str">"ok"</span>,
+  <span class="kw">"state"</span>:        <span class="str">"pausing"</span>,
+  <span class="kw">"paused"</span>:       <span class="bool">true</span>,
+  <span class="kw">"reason"</span>:       <span class="str">"user"</span>,
+  <span class="kw">"vcoreEnabled"</span>: <span class="bool">false</span>
+}</pre>
+          <div class="note note-warn">Returns 409 Conflict while Benchmark mode or OTA update is running. The pause state is runtime-only and is not saved to NVS.</div>
+        </div>
+      </div>
+
       <!-- GET /api/wakeup -->
       <div class="endpoint" id="system-wakeup">
         <div class="endpoint-head">
@@ -709,7 +792,140 @@
     </section>
 
     <!-- ═══════════════════════════════════════════════════════
-         SECTION 2 – DASHBOARD
+         SECTION 2 – REBOOT HISTORY
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="reboot-history">
+      <div class="section-header">
+        <div class="section-icon">↻</div>
+        <div class="section-title">Reboot History</div>
+      </div>
+      <p class="section-desc">
+        Reboot records are captured at boot from RTC state and the ESP32 reset reason.
+        The API is read-only except for clearing the stored ring buffer; the monotonic
+        boot index is preserved when history is cleared.
+      </p>
+
+      <!-- GET /api/reboot/last -->
+      <div class="endpoint" id="reboot-last">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/reboot/last</code>
+          <span class="endpoint-summary">Newest reboot record</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns the newest reboot record as a single JSON object for the dashboard banner.</p>
+          <div class="block-label">Response 200 – application/json</div>
+          <pre>{
+  <span class="kw">"idx"</span>:     <span class="num">142</span>,
+  <span class="kw">"ts"</span>:      <span class="num">1716000000</span>,     <span class="cmt">// Unix timestamp; 0 if RTC was not synced</span>
+  <span class="kw">"uptime"</span>:  <span class="num">11520</span>,          <span class="cmt">// previous session uptime, seconds</span>
+  <span class="kw">"heapMin"</span>: <span class="num">49152</span>,          <span class="cmt">// minimum free heap in previous session</span>
+  <span class="kw">"reset"</span>:   <span class="str">"panic"</span>,        <span class="cmt">// ESP32 reset reason</span>
+  <span class="kw">"intent"</span>:  <span class="str">"none"</span>,         <span class="cmt">// software reboot intent</span>
+  <span class="kw">"class"</span>:   <span class="str">"crash"</span>,        <span class="cmt">// cold | planned | crash | power | external | unknown_sw</span>
+  <span class="kw">"fw"</span>:      <span class="str">"v3.0.20"</span>,
+  <span class="kw">"detail"</span>:  <span class="str">"panic"</span>
+}</pre>
+          <div class="note">If no record exists yet, the firmware returns <code>{"class":"cold","intent":"none"}</code>.</div>
+        </div>
+      </div>
+
+      <!-- GET /api/reboot/list -->
+      <div class="endpoint" id="reboot-list">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/reboot/list</code>
+          <span class="endpoint-summary">Recent reboot records</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns the stored reboot ring buffer, newest record first. The current firmware keeps up to 10 records.</p>
+          <div class="block-label">Response 200 – application/json</div>
+          <pre>[
+  {
+    <span class="kw">"idx"</span>: <span class="num">142</span>, <span class="kw">"ts"</span>: <span class="num">1716000000</span>, <span class="kw">"uptime"</span>: <span class="num">11520</span>, <span class="kw">"heapMin"</span>: <span class="num">49152</span>,
+    <span class="kw">"reset"</span>: <span class="str">"panic"</span>, <span class="kw">"intent"</span>: <span class="str">"none"</span>, <span class="kw">"class"</span>: <span class="str">"crash"</span>,
+    <span class="kw">"fw"</span>: <span class="str">"v3.0.20"</span>, <span class="kw">"detail"</span>: <span class="str">"panic"</span>
+  }
+]</pre>
+        </div>
+      </div>
+
+      <!-- DELETE /api/reboot/list -->
+      <div class="endpoint" id="reboot-clear">
+        <div class="endpoint-head">
+          <span class="method-badge method-delete">DELETE</span>
+          <code class="endpoint-path">/api/reboot/list</code>
+          <span class="endpoint-summary">Clear stored reboot history</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Wipes stored reboot records. The boot index is not reset.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION 3 – COREDUMP
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="coredump">
+      <div class="section-header">
+        <div class="section-icon">🧩</div>
+        <div class="section-title">Coredump</div>
+      </div>
+      <p class="section-desc">
+        Panic and watchdog crashes can leave an ELF coredump in the dedicated flash
+        partition. These endpoints expose a compact summary and allow clearing the
+        partition after the report has been saved or reviewed.
+      </p>
+
+      <!-- GET /api/coredump/info -->
+      <div class="endpoint" id="coredump-info">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/coredump/info</code>
+          <span class="endpoint-summary">Coredump presence and summary metadata</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns whether a dump exists and, when parseable, lightweight crash metadata.</p>
+          <div class="block-label">Response 200 – dump present</div>
+          <pre>{
+  <span class="kw">"present"</span>:     <span class="bool">true</span>,
+  <span class="kw">"size"</span>:        <span class="num">12480</span>,
+  <span class="kw">"crcOk"</span>:       <span class="bool">true</span>,       <span class="cmt">// false if the dump may be truncated/corrupted</span>
+  <span class="kw">"task"</span>:        <span class="str">"miner"</span>,
+  <span class="kw">"pc"</span>:          <span class="num">1075871436</span>,
+  <span class="kw">"btCorrupted"</span>: <span class="bool">false</span>,
+  <span class="kw">"appSha256"</span>:   <span class="str">"ef970b389312276b"</span>,
+  <span class="kw">"bt"</span>: [
+    <span class="num">1075871436</span>,
+    <span class="num">1075869312</span>
+  ]
+}</pre>
+          <div class="block-label">Response 200 – no dump</div>
+          <pre>{ <span class="kw">"present"</span>: <span class="bool">false</span> }</pre>
+        </div>
+      </div>
+
+      <!-- DELETE /api/coredump -->
+      <div class="endpoint" id="coredump-clear">
+        <div class="endpoint-head">
+          <span class="method-badge method-delete">DELETE</span>
+          <code class="endpoint-path">/api/coredump</code>
+          <span class="endpoint-summary">Erase the coredump partition</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Erases the coredump flash partition. This operation is irreversible.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="block-label">Response 500</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"error"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION 4 – DASHBOARD
     ════════════════════════════════════════════════════════════ -->
     <section class="section" id="dashboard">
       <div class="section-header">
@@ -867,7 +1083,7 @@
     </section>
 
     <!-- ═══════════════════════════════════════════════════════
-         SECTION 3 – SETTINGS
+          SECTION 5 – SETTINGS
     ════════════════════════════════════════════════════════════ -->
     <section class="section" id="settings">
       <div class="section-header">
@@ -1123,7 +1339,176 @@ Content-Type: application/octet-stream
     </section>
 
     <!-- ═══════════════════════════════════════════════════════
-         SECTION 4 – OTA UPDATE
+         SECTION 6 – BENCHMARK
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="benchmark">
+      <div class="section-header">
+        <div class="section-icon">⏱</div>
+        <div class="section-title">Benchmark</div>
+      </div>
+      <p class="section-desc">
+        Benchmark mode sweeps ASIC frequency and Vcore combinations, stores measured
+        results in NVS, and can apply a selected result back to normal mining settings.
+        Starting, stopping, resetting while running, or applying a result triggers a reboot.
+      </p>
+
+      <!-- GET/PATCH /api/benchmark -->
+      <div class="endpoint" id="benchmark-config">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <span class="method-badge method-patch">PATCH</span>
+          <code class="endpoint-path">/api/benchmark</code>
+          <span class="endpoint-summary">Benchmark config, state and results</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            <code>GET</code> returns the current benchmark mode, sweep configuration, progress,
+            accumulated runtime, and stored result array. <code>PATCH</code> updates only the
+            supplied sweep fields and does not start a benchmark run.
+          </p>
+          <div class="block-label">GET – Response 200</div>
+          <pre>{
+  <span class="kw">"mode"</span>:       <span class="num">0</span>,       <span class="cmt">// 0=normal mining, 1=benchmark active</span>
+  <span class="kw">"freqMin"</span>:    <span class="num">400</span>,     <span class="cmt">// MHz</span>
+  <span class="kw">"freqMax"</span>:    <span class="num">625</span>,
+  <span class="kw">"freqStep"</span>:   <span class="num">25</span>,
+  <span class="kw">"vcoreMin"</span>:   <span class="num">1000</span>,    <span class="cmt">// mV</span>
+  <span class="kw">"vcoreMax"</span>:   <span class="num">1300</span>,
+  <span class="kw">"vcoreStep"</span>:  <span class="num">25</span>,
+  <span class="kw">"sampleIntv"</span>: <span class="num">5</span>,       <span class="cmt">// minutes</span>
+  <span class="kw">"bmTime"</span>:     <span class="num">1000</span>,    <span class="cmt">// seconds per measurement window</span>
+  <span class="kw">"stabTime"</span>:   <span class="num">200</span>,     <span class="cmt">// stabilization delay</span>
+  <span class="kw">"curFreq"</span>:    <span class="num">0</span>,       <span class="cmt">// current sweep frequency</span>
+  <span class="kw">"curVcore"</span>:   <span class="num">0</span>,       <span class="cmt">// current sweep Vcore</span>
+  <span class="kw">"startTs"</span>:    <span class="num">0</span>,       <span class="cmt">// Unix timestamp of the current run</span>
+  <span class="kw">"totalSec"</span>:   <span class="num">0</span>,       <span class="cmt">// accumulated sweep time</span>
+  <span class="kw">"results"</span>: [
+    {
+      <span class="kw">"freq"</span>: <span class="num">575</span>, <span class="kw">"vcore"</span>: <span class="num">1250</span>, <span class="kw">"expHR"</span>: <span class="num">386.7</span>, <span class="kw">"avgHR"</span>: <span class="num">384.1</span>,
+      <span class="kw">"avgAsicTemp"</span>: <span class="num">65.5</span>, <span class="kw">"avgVcoreTemp"</span>: <span class="num">48.9</span>,
+      <span class="kw">"effJTH"</span>: <span class="num">0.047</span>, <span class="kw">"avgPwr"</span>: <span class="num">18.0</span>, <span class="kw">"ts"</span>: <span class="num">1716000000</span>
+    }
+  ]
+}</pre>
+          <div class="block-label">PATCH – Request body (all fields optional)</div>
+          <pre>{
+  <span class="kw">"freqMin"</span>:    <span class="num">400</span>,
+  <span class="kw">"freqMax"</span>:    <span class="num">625</span>,
+  <span class="kw">"freqStep"</span>:   <span class="num">25</span>,
+  <span class="kw">"vcoreMin"</span>:   <span class="num">1000</span>,
+  <span class="kw">"vcoreMax"</span>:   <span class="num">1300</span>,
+  <span class="kw">"vcoreStep"</span>:  <span class="num">25</span>,
+  <span class="kw">"sampleIntv"</span>: <span class="num">5</span>,
+  <span class="kw">"bmTime"</span>:     <span class="num">1000</span>,
+  <span class="kw">"stabTime"</span>:   <span class="num">200</span>
+}</pre>
+          <div class="block-label">PATCH – Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- POST /api/benchmark/start -->
+      <div class="endpoint" id="benchmark-start">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/benchmark/start</code>
+          <span class="endpoint-summary">Start or resume a benchmark sweep</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Optionally updates sweep fields, enables benchmark mode, and reboots. When
+            <code>resume</code> is omitted or false, the firmware resets the sweep position to
+            <code>freqMin</code>/<code>vcoreMin</code>; with <code>resume:true</code>, it keeps
+            the current sweep position.
+          </p>
+          <div class="block-label">Request body</div>
+          <pre>{
+  <span class="kw">"resume"</span>: <span class="bool">true</span>,
+  <span class="kw">"freqMin"</span>: <span class="num">400</span>,
+  <span class="kw">"freqMax"</span>: <span class="num">625</span>
+}</pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark starting, device will reboot"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- POST /api/benchmark/stop -->
+      <div class="endpoint" id="benchmark-stop">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/benchmark/stop</code>
+          <span class="endpoint-summary">Stop benchmark mode</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Disables benchmark mode, discards partial accumulated runtime, and reboots into normal mining.</p>
+          <div class="block-label">Request body</div>
+          <pre><span class="cmt">// empty body or {}</span></pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark stopped, device will reboot"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- DELETE /api/benchmark/results -->
+      <div class="endpoint" id="benchmark-results">
+        <div class="endpoint-head">
+          <span class="method-badge method-delete">DELETE</span>
+          <code class="endpoint-path">/api/benchmark/results</code>
+          <span class="endpoint-summary">Clear results and sweep config</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Clears the stored result array and deletes benchmark config/progress keys so
+            defaults fall back to board-specific values on the next <code>GET</code>.
+          </p>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- POST /api/benchmark/reset -->
+      <div class="endpoint" id="benchmark-reset">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/benchmark/reset</code>
+          <span class="endpoint-summary">Reset benchmark state</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Stops any active benchmark, clears results and progress, and resets config keys to board defaults. It reboots only when benchmark mode was active.</p>
+          <div class="block-label">Request body</div>
+          <pre><span class="cmt">// empty body or {}</span></pre>
+          <div class="block-label">Response 200 – not running</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark reset"</span> }</pre>
+          <div class="block-label">Response 200 – running</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark reset, device will reboot"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- POST /api/benchmark/apply -->
+      <div class="endpoint" id="benchmark-apply">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/benchmark/apply</code>
+          <span class="endpoint-summary">Apply a result to normal mining settings</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Saves the selected frequency and Vcore to normal ASIC settings, exits benchmark
+            mode, and reboots. <code>vcore</code> is clamped to board safety limits. During
+            normal mining, real-time frequency/Vcore changes should use
+            <a href="#set-mining"><code>PATCH /api/setting/mining</code></a> instead.
+          </p>
+          <div class="block-label">Request body</div>
+          <pre>{ <span class="kw">"freq"</span>: <span class="num">575</span>, <span class="kw">"vcore"</span>: <span class="num">1200</span> }</pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"settings applied, device will reboot"</span> }</pre>
+          <div class="block-label">Response 400</div>
+          <pre>{ <span class="kw">"error"</span>: <span class="str">"missing freq or vcore"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION 7 – OTA UPDATE
     ════════════════════════════════════════════════════════════ -->
     <section class="section" id="ota">
       <div class="section-header">
@@ -1224,7 +1609,7 @@ Content-Type: application/octet-stream
     </section>
 
     <!-- ═══════════════════════════════════════════════════════
-         SECTION 5 – THEME
+          SECTION 8 – THEME
     ════════════════════════════════════════════════════════════ -->
     <section class="section" id="theme">
       <div class="section-header">
@@ -1274,7 +1659,7 @@ Content-Type: application/octet-stream
     </section>
 
     <!-- ═══════════════════════════════════════════════════════
-         SECTION 6 – SWARM
+          SECTION 9 – SWARM
     ════════════════════════════════════════════════════════════ -->
     <section class="section" id="swarm">
       <div class="section-header">
@@ -1326,7 +1711,7 @@ Content-Type: application/octet-stream
     </section>
 
     <!-- ═══════════════════════════════════════════════════════
-         SECTION 7 – LOGGING
+          SECTION 10 – LOGGING
     ════════════════════════════════════════════════════════════ -->
     <section class="section" id="logging">
       <div class="section-header">
@@ -1398,7 +1783,7 @@ Content-Type: application/octet-stream
     </section>
 
     <!-- ═══════════════════════════════════════════════════════
-         SECTION 8 – PROBE & DISCOVERY
+          SECTION 11 – PROBE & DISCOVERY
     ════════════════════════════════════════════════════════════ -->
     <section class="section" id="discovery">
       <div class="section-header">

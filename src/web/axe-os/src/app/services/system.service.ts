@@ -66,6 +66,9 @@ export class SystemService {
             smallCoreCnt: 672,
           },
           miner: {
+            state:           'running',
+            paused:          false,
+            pauseReason:     '',
             hashRate:        475,
             bestDiffEver:    "0",
             bestDiffSession: "0",
@@ -179,6 +182,10 @@ export class SystemService {
     return this.httpClient.post(`${uri}/api/system/clearhits`, {});
   }
 
+  public setMiningPaused(paused: boolean, uri: string = '') {
+    return this.httpClient.patch(`${uri}/api/mining/state`, {paused});
+  }
+
   // ── Reboot history ─────────────────────────────────────────────────────────
   // Backend persists up to 10 records (newest first) describing why the device
   // was last restarted (planned vs crash vs power issue, etc.).
@@ -268,16 +275,8 @@ export class SystemService {
     );
   }
 
-  public getSwarmInfo(uri: string = ''): Observable<{ ip: string }[]> {
-    return this.httpClient.get(`${uri}/api/swarm/info`) as Observable<{ ip: string }[]>;
-  }
-
   public getHashrateDistribution(uri: string = ''): Observable<any> {
     return this.httpClient.get(`${uri}/api/dashboard/hr/dist`);
-  }
-
-  public updateSwarm(uri: string = '', swarmConfig: any) {
-    return this.httpClient.patch(`${uri}/api/swarm`, swarmConfig);
   }
 
   /** Wake the screensaver on this device (or a remote device when uri is provided). */

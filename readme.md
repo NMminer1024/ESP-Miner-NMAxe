@@ -150,6 +150,8 @@ Full REST API documentation: [docs/API.md](./docs/API.md)
 
 Mining settings apply ASIC frequency (`asicFreqReq`) and Vcore (`asicVcoreReq`) in real time without an ESP32 reboot; pool changes are persisted and take effect after reconnect/restart.
 
+Runtime mining control is available through `PATCH /api/mining/state`: `{ "paused": true }` pauses mining and powers off ASIC Vcore, while `{ "paused": false }` restores Vcore and reinitializes the ASIC without rebooting the ESP32. User-paused mining suppresses low-power/low-hashrate restart monitors until mining is resumed.
+
 > An interactive version is also available on-device at `http://{device-ip}/api-doc` after flashing.
 
 ## Build from Source

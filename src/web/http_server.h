@@ -16,9 +16,9 @@ void get_status_realtime(AsyncWebServerRequest *request);
 void get_lucky_history(AsyncWebServerRequest *request);
 void echo_handler(AsyncWebServerRequest* request);
 void post_restart(AsyncWebServerRequest * request);
+void patch_mining_state(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total);
 void get_theme_handler(AsyncWebServerRequest * request);
 void options_theme_handler(AsyncWebServerRequest * request);
-void get_swarm_info_handler(AsyncWebServerRequest * request);
 void post_reset_block_hits(AsyncWebServerRequest * request);
 void get_ota_progress(AsyncWebServerRequest* request);
 // ── Reboot history (planned vs crash, persisted across boots) ───────────────

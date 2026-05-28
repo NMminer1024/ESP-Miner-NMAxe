@@ -35,6 +35,19 @@
     </div>
 
     <div class="layout-topbar-menu">
+        <button *ngIf="miningControl$ | async as mining"
+                pButton
+                type="button"
+                class="mining-control-btn"
+                [class.paused]="mining.paused"
+                [class.busy]="isMiningControlBusy(mining.state)"
+                [disabled]="isMiningControlBusy(mining.state)"
+                (click)="toggleMiningPause(mining)"
+                pTooltip="Pause or start mining"
+                tooltipPosition="bottom">
+            <i [class]="mining.paused ? 'pi pi-play' : 'pi pi-pause'"></i>
+            <span>{{ miningControlLabel(mining) }}</span>
+        </button>
         <button pButton 
                 class="clear-hits-btn"
                 (click)="showClearBlockHitsDialog()"

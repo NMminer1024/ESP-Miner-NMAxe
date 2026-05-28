@@ -45,6 +45,9 @@ export interface IInfoAsic {
 }
 
 export interface IInfoMiner {
+  state?:           string;
+  paused?:          boolean;
+  pauseReason?:     string;
   hashRate:        number;
   bestDiffEver:    string;
   bestDiffSession: string;

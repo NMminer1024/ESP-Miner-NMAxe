@@ -39,6 +39,31 @@ bool isValidNumber(const String& str) {
     return hasDigit;
 }
 
+static bool miner_state_is_paused_like(miner_runtime_state_t state) {
+    return state == MINER_RUNTIME_PAUSING ||
+           state == MINER_RUNTIME_PAUSED ||
+           state == MINER_RUNTIME_RESUMING ||
+           state == MINER_RUNTIME_ERROR;
+}
+
+static void send_mining_state_response(AsyncWebServerRequest *request, uint16_t code = 200) {
+    StaticJsonDocument<256> root;
+    miner_runtime_state_t state = g_board.status.miner.runtime_state;
+    bool paused = g_board.status.miner.user_paused || miner_state_is_paused_like(state);
+
+    root["status"] = (code >= 200 && code < 300) ? "ok" : "error";
+    root["state"] = miner_runtime_state_to_string(state);
+    root["paused"] = paused;
+    root["reason"] = paused ? "user" : "";
+    root["vcoreEnabled"] = !(state == MINER_RUNTIME_PAUSING || state == MINER_RUNTIME_PAUSED || state == MINER_RUNTIME_ERROR);
+
+    String json_str;
+    serializeJson(root, json_str);
+    AsyncWebServerResponse *response = request->beginResponse(code, "application/json", json_str);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
+}
+
 // Initialize SPIFFS; log total/used capacity. Called once at boot.
 // Returns true only when SPIFFS mounts AND all essential web files are present.
 //
@@ -163,7 +188,7 @@ void rest_common_get_handler(AsyncWebServerRequest *request) {
 
 // GET /api/system/info -- dashboard summary: power, temps, ASIC, mining stats, board identity.
 void get_system_info(AsyncWebServerRequest* request){
-    const uint16_t json_size_max = 1024;
+    const uint16_t json_size_max = 1536;
     StaticJsonDocument<json_size_max> root;
     root.clear();
 
@@ -189,6 +214,11 @@ void get_system_info(AsyncWebServerRequest* request){
 
     // Mining stats
     JsonObject minerObj         = root.createNestedObject("miner");
+    miner_runtime_state_t miner_state = g_board.status.miner.runtime_state;
+    bool miner_paused = g_board.status.miner.user_paused || miner_state_is_paused_like(miner_state);
+    minerObj["state"]           = miner_runtime_state_to_string(miner_state);
+    minerObj["paused"]          = miner_paused;
+    minerObj["pauseReason"]     = miner_paused ? "user" : "";
     minerObj["hashRate"]        = g_board.status.miner.hashrate._3m / 1000 / 1000 / 1000;
     minerObj["bestDiffEver"]    = formatNumber(g_board.status.miner.diff.best_ever, 4);
     minerObj["bestDiffSession"] = formatNumber(g_board.status.miner.diff.best_session, 4);
@@ -1439,6 +1469,58 @@ void post_reset_block_hits(AsyncWebServerRequest * request){
     nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, 0);
     LOG_I("Miner stats reset: block hits cleared");
     request->send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+// PATCH /api/mining/state -- user-controlled runtime pause/resume.
+void patch_mining_state(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+    static const uint16_t BUF_SIZE = 128;
+    if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
+    char *buf = (char*)heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { request->send(500, "application/json", "{\"error\":\"oom\"}"); return; }
+    memset(buf, 0, BUF_SIZE);
+    if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
+    if (index + len == total) {
+        buf[total] = '\0';
+        StaticJsonDocument<128> root;
+        if (deserializeJson(root, buf) || !root.is<JsonObject>() || !root.containsKey("paused")) {
+            request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+            free(buf); return;
+        }
+
+        if (g_board.status.bm_mode != 0) {
+            request->send(409, "application/json", "{\"error\":\"mining state control is disabled in benchmark mode\"}");
+            free(buf); return;
+        }
+        if (g_board.status.ota.running) {
+            request->send(409, "application/json", "{\"error\":\"mining state control is disabled during OTA\"}");
+            free(buf); return;
+        }
+        if (g_board.miner == nullptr || g_board.power == nullptr) {
+            request->send(503, "application/json", "{\"error\":\"miner is not ready\"}");
+            free(buf); return;
+        }
+
+        bool pause_requested = root["paused"].as<bool>();
+        miner_runtime_state_t state = g_board.status.miner.runtime_state;
+        if (pause_requested) {
+            if (state != MINER_RUNTIME_PAUSING && state != MINER_RUNTIME_PAUSED) {
+                g_board.status.miner.user_paused = true;
+                g_board.status.miner.runtime_state = MINER_RUNTIME_PAUSING;
+                g_board.status.miner.resume_grace_until_ms = 0;
+                LOG_W("Mining pause requested by API");
+            }
+        } else {
+            if (state != MINER_RUNTIME_RUNNING || g_board.status.miner.user_paused) {
+                g_board.status.miner.runtime_state = MINER_RUNTIME_RESUMING;
+                LOG_W("Mining resume requested by API");
+            }
+        }
+
+        if (g_board.status.miner.control_xsem != NULL) xSemaphoreGive(g_board.status.miner.control_xsem);
+        if (g_board.stratum != nullptr) xSemaphoreGive(g_board.stratum->new_job_xsem);
+        send_mining_state_response(request);
+    }
+    free(buf);
 }
 
 // ── Reboot history endpoints ────────────────────────────────────────────────

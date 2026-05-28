@@ -23,6 +23,25 @@
 #include <HTTPClient.h>
 #include <unordered_set>
 
+static bool miner_runtime_is_controlled_idle(board_sal_t *board) {
+    if (board == nullptr) return false;
+    miner_runtime_state_t state = board->status.miner.runtime_state;
+    return board->status.miner.user_paused ||
+           state == MINER_RUNTIME_PAUSING ||
+           state == MINER_RUNTIME_PAUSED ||
+           state == MINER_RUNTIME_RESUMING ||
+           state == MINER_RUNTIME_ERROR;
+}
+
+static bool miner_runtime_in_resume_grace(board_sal_t *board) {
+    if (board == nullptr || board->status.miner.resume_grace_until_ms == 0) return false;
+    return (int32_t)(board->status.miner.resume_grace_until_ms - millis()) > 0;
+}
+
+static bool miner_runtime_suppress_activity_checks(board_sal_t *board) {
+    return miner_runtime_is_controlled_idle(board) || miner_runtime_in_resume_grace(board);
+}
+
 void power_init_thread_entry(void *args){
     board_sal_t *board = (board_sal_t*)args;
 
@@ -128,6 +147,10 @@ void power_loop_thread_entry(void *args){
                 LOG_W("Overtemperature WARNING detected...");
                 last = millis(); // reset count after logging
             }
+        }
+
+        if(miner_runtime_is_controlled_idle(board)) {
+            continue;
         }
 
         uint32_t vcore_measure = board->power->get_vcore();
@@ -632,6 +655,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/system/info", HTTP_GET, get_system_info);
     webServer.on("/api/system/restart",HTTP_POST, post_restart);
     webServer.on("/api/system/clearhits", HTTP_POST, post_reset_block_hits);
+    webServer.on("/api/mining/state", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_mining_state);
     // ── Reboot history (planned vs crash, persisted across boots) ───────────
     webServer.on("/api/reboot/last", HTTP_GET,    get_reboot_last);
     webServer.on("/api/reboot/list", HTTP_GET,    get_reboot_list);
@@ -1715,8 +1739,20 @@ void monitor_thread_entry(void *args){
             if(board->status.bm_mode == 0) {
             //avoid restart when ota running
             if(!board->status.ota.running) {
+                static uint8_t  vcore_err_cnt = 0;
+                static uint8_t  asic_err_cnt  = 0;
+                static uint16_t fan_err_cnt   = 0;
+                static uint16_t pwr_err_cnt   = 0;
+                static uint16_t hr_err_cnt    = 0;
+                bool suppress_activity_checks = miner_runtime_suppress_activity_checks(board);
+                if(suppress_activity_checks) {
+                    fan_err_cnt = 0;
+                    pwr_err_cnt = 0;
+                    hr_err_cnt  = 0;
+                    board->status.miner.asic_update = millis();
+                }
+
                 //check vcore temperature status
-                static uint8_t vcore_err_cnt = 0;
                 if(board->status.temp.vcore > board->info.spec.pwr.temp_limit.high){
                     uint16_t vcore_req_last = board->info.spec.asic.req_vcore;
                     uint8_t step = 5;
@@ -1740,7 +1776,6 @@ void monitor_thread_entry(void *args){
                 }else vcore_err_cnt = 0;
 
                 //check asic temperature status
-                static uint8_t asic_err_cnt = 0;
                 if(board->status.temp.asic > board->info.spec.asic.temp_limit.high){
                     uint16_t vcore_req_last = board->info.spec.asic.req_vcore;
                     uint8_t step = 5;
@@ -1762,8 +1797,7 @@ void monitor_thread_entry(void *args){
                 }else asic_err_cnt = 0;
 
                 //check fan status
-                static uint16_t fan_err_cnt = 0;
-                if(board->status.temp.asic > board->info.spec.asic.temp_limit.low){
+                if(!suppress_activity_checks && board->status.temp.asic > board->info.spec.asic.temp_limit.low){
                     for(auto &fan : board->status.fan.list){
                         if(fan.rpm < board->info.spec.fans[fan.id].init.danger_rpm_thr){
                             fan_err_cnt++;
@@ -1781,8 +1815,7 @@ void monitor_thread_entry(void *args){
                 }
 
                 //check power status
-                static uint16_t pwr_err_cnt = 0;
-                if((board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0) < board->info.spec.pwr.power_low_threshold){
+                if(!suppress_activity_checks && (board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0) < board->info.spec.pwr.power_low_threshold){
                     LOG_W("Power %0.1fW is too low...", board->status.power.vbus * board->status.power.ibus / 1000.0 / 1000.0);
                     if(++pwr_err_cnt > 120){//120s
                         LOG_W("Power is too low, restart miner...");
@@ -1795,8 +1828,7 @@ void monitor_thread_entry(void *args){
                 }else pwr_err_cnt = 0;
 
                 //check hashrate
-                static uint16_t hr_err_cnt = 0;
-                if(board->status.miner.hashrate._3m <= 1){
+                if(!suppress_activity_checks && board->status.miner.hashrate._3m <= 1){
                     if(++hr_err_cnt > 60){//1min
                         LOG_W("Hashrate is too low, restart miner...");
                         reboot_intent_set(REBOOT_INTENT_LOW_HASHRATE,
@@ -1964,7 +1996,7 @@ void daemon_thread_entry(void *args){
       xSemaphoreGive(board->status.reboot_xsem);
     }
     //ASIC daemon — skipped in benchmark mode (benchmark_thread handles zero-HR abort itself)
-    if(board->status.bm_mode == 0) {
+        if(board->status.bm_mode == 0 && !miner_runtime_suppress_activity_checks(board)) {
       if(millis() - board->status.miner.asic_update > MINER_ASIC_ALIVE_TIMEOUT){
         LOG_W("ASIC seems frozen, restarting...");
         reboot_intent_set(REBOOT_INTENT_ASIC_FROZEN,
@@ -2325,8 +2357,115 @@ void miner_asic_tx_thread_entry(void *args){
         return true;
     };
 
+    auto refresh_mining_timeouts = [&]() {
+        uint32_t now = millis();
+        board->status.miner.asic_update = now;
+        board->status.miner.stratum_update = now;
+    };
+
+    auto clear_mining_runtime_caches = [&]() {
+        if(board->miner != nullptr) {
+            board->miner->clear_asic_job_cache();
+            board->miner->reset_hashrate();
+            board->miner->end();
+        }
+        if(board->stratum != nullptr) {
+            board->stratum->clear_job_cache();
+            board->stratum->clear_sub_extranonce2();
+            while(xSemaphoreTake(board->stratum->new_job_xsem, 0) == pdTRUE) {}
+            while(xSemaphoreTake(board->stratum->clear_job_xsem, 0) == pdTRUE) {}
+        }
+        board->status.miner.hashrate = {0.0, 0.0, 0.0};
+        refresh_mining_timeouts();
+        xSemaphoreGive(board->status.miner.update_xsem);
+    };
+
+    auto apply_mining_control = [&]() -> bool{
+        if(board->miner == nullptr || board->power == nullptr) return false;
+
+        miner_runtime_state_t state = board->status.miner.runtime_state;
+        if(state == MINER_RUNTIME_PAUSING) {
+            LOG_W("Pausing mining: clearing ASIC work and powering off Vcore");
+            board->status.miner.user_paused = true;
+            clear_mining_runtime_caches();
+            board->power->set_vcore_status(PWR_OFF);
+            board->status.miner.runtime_state = MINER_RUNTIME_PAUSED;
+            board->status.miner.resume_grace_until_ms = 0;
+            refresh_mining_timeouts();
+            xSemaphoreGive(board->status.miner.update_xsem);
+            LOG_W("Mining paused, ASIC Vcore is off");
+            return true;
+        }
+
+        if(state == MINER_RUNTIME_RESUMING) {
+            LOG_W("Resuming mining: restoring Vcore and reinitializing ASIC");
+            refresh_mining_timeouts();
+            board->power->set_vcore_voltage(board->info.spec.asic.req_vcore);
+            board->power->set_vcore_status(PWR_ON);
+
+            bool vcore_ready = false;
+            uint32_t start_ms = millis();
+            while(millis() - start_ms < 10000) {
+                if(board->power->is_vcore_ready()) {
+                    vcore_ready = true;
+                    break;
+                }
+                refresh_mining_timeouts();
+                delay(100);
+            }
+
+            if(!vcore_ready) {
+                LOG_E("Mining resume failed: Vcore not ready");
+                board->power->set_vcore_status(PWR_OFF);
+                board->status.miner.runtime_state = MINER_RUNTIME_ERROR;
+                board->status.miner.user_paused = true;
+                refresh_mining_timeouts();
+                xSemaphoreGive(board->status.miner.update_xsem);
+                return true;
+            }
+
+            board->miner->clear_asic_job_cache();
+            board->miner->reset_hashrate();
+            board->status.miner.hashrate = {0.0, 0.0, 0.0};
+            if(!board->miner->begin(board->info.spec.asic.req_frq, board->info.spec.asic.diff_thr_init, board->info.spec.asic.com_baud_work)){
+                LOG_E("Mining resume failed: ASIC reinitialization failed");
+                board->power->set_vcore_status(PWR_OFF);
+                board->status.miner.runtime_state = MINER_RUNTIME_ERROR;
+                board->status.miner.user_paused = true;
+                refresh_mining_timeouts();
+                xSemaphoreGive(board->status.miner.update_xsem);
+                return true;
+            }
+
+            refresh_mining_timeouts();
+            board->status.miner.resume_grace_until_ms = millis() + MINER_RESUME_GRACE_MS;
+            board->status.miner.user_paused = false;
+            board->status.miner.runtime_state = MINER_RUNTIME_RUNNING;
+            if(board->stratum != nullptr) xSemaphoreGive(board->stratum->new_job_xsem);
+            xSemaphoreGive(board->status.miner.update_xsem);
+            LOG_W("Mining resumed, ASIC timeout counters refreshed");
+            return true;
+        }
+
+        if(state == MINER_RUNTIME_PAUSED || state == MINER_RUNTIME_ERROR) {
+            refresh_mining_timeouts();
+            return true;
+        }
+
+        return false;
+    };
+
     //forever loop
     while (true){
+        if(apply_mining_control()) {
+            if(board->status.miner.control_xsem != NULL) {
+                xSemaphoreTake(board->status.miner.control_xsem, pdMS_TO_TICKS(200));
+            } else {
+                delay(200);
+            }
+            continue;
+        }
+
         apply_pending_frequency();
 
         //null loop if not subscribed
@@ -2344,7 +2483,10 @@ void miner_asic_tx_thread_entry(void *args){
         }
 
         //get job from pool job caches
-        board->miner->pool_job_now = board->stratum->pop_job_cache();
+        {
+            pool_job_data_t next_job = board->stratum->pop_job_cache();
+            if(next_job.id != "") board->miner->pool_job_now = next_job;
+        }
         if(board->miner->pool_job_now.id == "")continue;
         
         //calculate network diff
@@ -2354,6 +2496,7 @@ void miner_asic_tx_thread_entry(void *args){
         
         LOG_W("Job [%s] from %s:%d", board->miner->pool_job_now.id.c_str(), board->stratum->pool->get_pool_info().url.c_str(), board->stratum->pool->get_pool_info().port);
         while (true){
+            if(apply_mining_control()) break;
             apply_pending_frequency();
 
             //construct asic job and send to asic every 2s
@@ -2419,6 +2562,10 @@ void miner_asic_rx_thread_entry(void *args){
 
     //forever loop
     while(true){
+        if(miner_runtime_is_controlled_idle(board)){
+            delay(100);
+            continue;
+        }
         if(!board->stratum->is_subscribed()){
             delay(1000);
             continue;

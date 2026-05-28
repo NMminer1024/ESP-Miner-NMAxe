@@ -34,6 +34,7 @@ using neighbor_ip_fail_map_t = std::map<neighbor_ip_t, uint8_t, std::less<neighb
 #define MINER_STRATUM_ALIVE_TIMEOUT     (1000*60*5)//5 minutes
 #define MINER_MARKET_UPDATE_INTERVAL    (1000*30)  // ms
 #define MINER_MARKET_CONNECT_TIMEOUT    (MINER_MARKET_UPDATE_INTERVAL * 3) // ms
+#define MINER_RESUME_GRACE_MS           (1000*60*3)//3 minutes
 #define MINER_HISTORY_SAMPLE_DEEPTH     (1000*3600*24)  // history depth, how long to keep the history, in seconds
 #define MINER_HISTORY_SAMPLE_INTERVAL   (5)             // history sample interval, in seconds
 #define MINER_HISTORY_MAX_SIZE          (20000)         // hard cap on deque element count to prevent PSRAM exhaustion
@@ -160,6 +161,26 @@ typedef struct{
 typedef String miner_ip_t;
 typedef String miner_info_t;
 typedef uint16_t asic_id_t;
+
+typedef enum {
+    MINER_RUNTIME_RUNNING = 0,
+    MINER_RUNTIME_PAUSING,
+    MINER_RUNTIME_PAUSED,
+    MINER_RUNTIME_RESUMING,
+    MINER_RUNTIME_ERROR,
+} miner_runtime_state_t;
+
+static inline const char* miner_runtime_state_to_string(miner_runtime_state_t state) {
+    switch (state) {
+        case MINER_RUNTIME_RUNNING:  return "running";
+        case MINER_RUNTIME_PAUSING:  return "pausing";
+        case MINER_RUNTIME_PAUSED:   return "paused";
+        case MINER_RUNTIME_RESUMING: return "resuming";
+        case MINER_RUNTIME_ERROR:    return "error";
+        default:                     return "unknown";
+    }
+}
+
 typedef struct{
     uint8_t bm_mode;    // Cached NVS_CONFIG_BM_MODE at boot: 0=Normal, 1=Benchmark
 
@@ -224,9 +245,13 @@ typedef struct{
         float               efficiency; // J/TH
         uint16_t            hits;
         diff_info_t         diff;
+        volatile miner_runtime_state_t runtime_state;
+        volatile bool       user_paused;
+        uint32_t            resume_grace_until_ms;
         uint32_t            asic_update;  // timestamp of asic respond
         uint32_t            stratum_update;//ms timestamp of last stratum data received
         uint32_t            latency;        // ms, latency to pool
+        SemaphoreHandle_t   control_xsem;  // miner pause/resume control signal
         SemaphoreHandle_t   update_xsem;  // miner status update signal
         std::map<asic_id_t, uint64_t> asic_rsp_counter; // asic respond counter map (internal RAM, fixed small size)
         struct{
