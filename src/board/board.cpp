@@ -7,6 +7,7 @@
 #include "nmqaxepp.h"
 #include "drivers/iic/i2c_master.h"
 #include "drivers/extio/tca9554.h"
+#include "drivers/power/axp2101/axp2101.h"
 #include "drivers/fan/tmp102.h"
 #include "drivers/temp/temp_hal.h"
 
@@ -617,12 +618,15 @@ void hardware_pre_init(BoardSpecConfig config){
     }
 
     if(config.name == BOARD_NMQAXE_PLUS_PLUS_NAME){
+        // init PMU (AXP2101)
+        axp2101_init();
         // init extio chip tca9554
         tca9554_init();
         // LCD reset
         tca9554_set_io_level(TCA9554_IO_1, 0); 
         delay(10);
         tca9554_set_io_level(TCA9554_IO_1, 1); 
+        delay(10);
     }
 }
 
