@@ -2313,8 +2313,22 @@ void miner_asic_tx_thread_entry(void *args){
         return le_hash_to_diff(netdiff_array);
     };
 
+    auto apply_pending_frequency = [&]() -> bool{
+        if(board->miner == nullptr) return false;
+        if(!board->miner->apply_pending_asic_frequency()) return false;
+
+        uint16_t current_freq = board->miner->get_asic_frequency_current();
+        if(current_freq > 0) board->info.spec.asic.req_frq = current_freq;
+        board->status.miner.hashrate = {0.0, 0.0, 0.0};
+        board->status.miner.asic_update = millis();
+        LOG_W("ASIC PLL hot-switch completed, freq now %uMHz", current_freq);
+        return true;
+    };
+
     //forever loop
     while (true){
+        apply_pending_frequency();
+
         //null loop if not subscribed
         if(!board->stratum->is_subscribed()){
             board->miner->end();
@@ -2325,6 +2339,7 @@ void miner_asic_tx_thread_entry(void *args){
         }
         //wait for new job signal 1000ms max
         if(xSemaphoreTake(board->stratum->new_job_xsem, 1000) != pdTRUE) {
+            apply_pending_frequency();
             continue;
         }
 
@@ -2339,6 +2354,8 @@ void miner_asic_tx_thread_entry(void *args){
         
         LOG_W("Job [%s] from %s:%d", board->miner->pool_job_now.id.c_str(), board->stratum->pool->get_pool_info().url.c_str(), board->stratum->pool->get_pool_info().port);
         while (true){
+            apply_pending_frequency();
+
             //construct asic job and send to asic every 2s
             if(!board->miner->mining(&board->miner->pool_job_now)){
                 delay(10); // avoid tight spin loop triggering interrupt WDT when mining() fails
@@ -2406,7 +2423,12 @@ void miner_asic_rx_thread_entry(void *args){
             delay(1000);
             continue;
         }
+        if(board->miner->is_asic_frequency_updating()){
+            delay(50);
+            continue;
+        }
         esp_err_t err = board->miner->listen_asic_rsp(&result, 1000*30);
+        if(board->miner->is_asic_frequency_updating()) continue;
         if(ESP_OK == err){
             if(!board->stratum->is_subscribed()) continue;
             if(board->miner->find_job_by_asic_job_id(result.asic.job_id, &job)){

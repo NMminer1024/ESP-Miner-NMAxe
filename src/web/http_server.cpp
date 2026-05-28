@@ -432,6 +432,9 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
         }
         if (root.containsKey("asicFreqReq")) {
             uint16_t req_mhz = root["asicFreqReq"].as<uint16_t>();
+            if (g_board.miner != nullptr && !g_board.miner->request_asic_frequency(req_mhz)) {
+                LOG_W("ASIC frequency hot-switch request failed to queue: %uMHz", req_mhz);
+            }
             g_board.info.spec.asic.req_frq = req_mhz;
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, req_mhz);
         }

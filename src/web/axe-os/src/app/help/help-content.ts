@@ -271,7 +271,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '🎯 How to pick your operating point',
-        body: 'This miner operates in solo mode — there is no guaranteed daily income. Each block found is a luck event. The goal is to maximise your hashrate or minimise power consumption, not to predict earnings.\n\n1. Green row (best efficiency) — Lowest J/TH. Run here to minimise electricity costs while keeping hashrate reasonable. Good for long-term 24/7 operation.\n2. Blue row (best hashrate) — Highest Avg HR. More hash attempts per second = statistically higher chance of finding the next block.\n3. If temperature is a concern, find a row with acceptable ASIC Temp that still gives good hashrate.\n4. Once decided, click "Apply" on that row — it saves Freq and Vcore to your Settings and reboots the miner.'
+        body: 'This miner operates in solo mode — there is no guaranteed daily income. Each block found is a luck event. The goal is to maximise your hashrate or minimise power consumption, not to predict earnings.\n\n1. Green row (best efficiency) — Lowest J/TH. Run here to minimise electricity costs while keeping hashrate reasonable. Good for long-term 24/7 operation.\n2. Blue row (best hashrate) — Highest Avg HR. More hash attempts per second = statistically higher chance of finding the next block.\n3. If temperature is a concern, find a row with acceptable ASIC Temp that still gives good hashrate.\n4. Once decided, click "Apply" on that row — it saves Freq and Vcore to your Settings and reboots to exit Benchmark mode. Normal Mining Settings changes apply Freq and Vcore in real time.'
       },
       {
         heading: '💾 Data management',
@@ -355,7 +355,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• Vcore (mV) changes take effect immediately after Save — no restart required.\n• All other changes (pool, frequency) require Save and a device restart to take effect.\n• Do NOT change these settings while a Benchmark is running — it may corrupt sweep results.\n• After changing frequency or voltage, allow ~180 seconds for hashrate to stabilise before judging the result.'
+        body: '• Vcore (mV) and frequency changes take effect in real time after Save — no restart required.\n• Pool changes are saved to NVS and require reconnect or restart to take effect.\n• Do NOT change these settings while a Benchmark is running — it may corrupt sweep results.\n• After changing frequency or voltage, allow ~180 seconds for hashrate to stabilise before judging the result.'
       }
     ]
   },

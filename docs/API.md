@@ -60,7 +60,7 @@ The response is structured into nested sub-objects.
 | `asic.model` | string | — | ASIC model name (e.g. `"BM1366"`) |
 | `asic.vcoreReq` | int | mV | ASIC rated core voltage |
 | `asic.vcoreReal` | int | mV | ASIC actual measured core voltage |
-| `asic.freqReq` | int | MHz | ASIC target frequency |
+| `asic.freqReq` | int | MHz | ASIC active/requested target frequency; hot-applied when changed via mining settings |
 | `asic.smallCoreCnt` | int | — | Total small-core count across all ASICs |
 
 #### ⛏ Mining Stats — `miner`
@@ -242,7 +242,7 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 }
 ```
 
-> `asicVcoreReq` is applied immediately (no reboot required). `asicFreqReq` takes effect after reboot.
+> `asicVcoreReq` and `asicFreqReq` both take effect in real time after `PATCH /api/setting/mining`. Vcore is applied through the power regulator; frequency is hot-switched through the ASIC PLL. Both values are saved to NVS for the next boot. Stratum changes are saved to NVS and take effect after reconnect/restart.
 
 ### Market — `/api/setting/market`
 
@@ -468,7 +468,7 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | POST   | `/api/benchmark/stop`    | Stop benchmark and reboot into normal mining |
 | DELETE | `/api/benchmark/results` | Clear results and reset all sweep config to board defaults |
 | POST   | `/api/benchmark/reset`   | Stop sweep, clear results, reset state; reboots if running |
-| POST   | `/api/benchmark/apply`   | Apply a specific freq+vcore as normal ASIC settings; reboots |
+| POST   | `/api/benchmark/apply`   | Apply a benchmark result as normal ASIC settings; reboots to exit benchmark mode |
 
 ### `GET /api/benchmark` — Response Fields
 
@@ -508,4 +508,4 @@ All fields are optional. `POST /api/benchmark/start` also accepts `{"resume": tr
 { "freq": 575, "vcore": 1200 }
 ```
 
-> Both fields are required. `vcore` is clamped to the board's safety limits. The device reboots immediately into normal mining with the new settings.
+> Both fields are required. `vcore` is clamped to the board's safety limits. This benchmark endpoint reboots immediately into normal mining to exit benchmark mode. For real-time frequency/Vcore changes during normal mining, use `PATCH /api/setting/mining` with `asicFreqReq` and `asicVcoreReq`.

@@ -148,6 +148,8 @@ The browser will detect the device and flash the latest firmware directly.
 ***
 Full REST API documentation: [docs/API.md](./docs/API.md)
 
+Mining settings apply ASIC frequency (`asicFreqReq`) and Vcore (`asicVcoreReq`) in real time without an ESP32 reboot; pool changes are persisted and take effect after reconnect/restart.
+
 > An interactive version is also available on-device at `http://{device-ip}/api-doc` after flashing.
 
 ## Build from Source

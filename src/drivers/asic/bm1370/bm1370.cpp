@@ -41,7 +41,7 @@ void BM1370::_set_chip_address(uint8_t address){
     this->_send_bm1370((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), chip_addr, 2);
 }
 
-void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
+bool BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
     uint8_t freqbuf[6] = {0x00, 0x08, 0x40, 0xA0, 0x02, 0x41};
     uint8_t postdiv_min = 255;
     uint8_t postdiv2_min = 255;
@@ -74,7 +74,7 @@ void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
 
     if (best_fbdiv == 0) {
         LOG_W("Failed to find PLL settings for target frequency %.2f", target_freq);
-        return;
+        return false;
     }
 
     freqbuf[0] = (id != -1) ? (id * 2) : freqbuf[0];
@@ -86,6 +86,7 @@ void BM1370::_set_hash_frequency(int id, float target_freq, float max_diff){
 
     this->_send_bm1370(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
     // LOG_W("Setting clock frequency to %.2fMHz (%.2f)", target_freq, best_freq);
+    return true;
 }
 
 void BM1370::_set_version_mask(uint32_t version_mask) {
@@ -129,23 +130,47 @@ uint32_t BM1370::get_asic_difficulty(){
 }
 
 void BM1370::frequency_ramp_up(float target_frequency){
-    float current = 56.25;
+    this->set_frequency(56.25, target_frequency);
+}
+
+bool BM1370::set_frequency(float current_frequency, float target_frequency){
+    float current = current_frequency;
     float step    = 6.25;
 
     if (target_frequency == 0) {
         LOG_W("Skipping frequency ramp");
-        return;
+        return false;
     }
 
-    LOG_I("Ramping up frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
-
-    while (current < target_frequency) {
-        this->_set_hash_frequency(-1, current, 0.002);
-        float next_step = fminf(step, target_frequency - current);
-        current += next_step;
+    if (fabs(target_frequency - current) < 0.001f) {
+        LOG_W("Clock frequency already at %.2fMHz", target_frequency);
+        return true;
     }
-    // Loop uses `<` so the final target is never sent inside; send it explicitly
-    this->_set_hash_frequency(-1, target_frequency, 0.002);
+
+    LOG_I("Ramping frequency from %.2f MHz to %.2f MHz with step %.2f MHz", current, target_frequency, step);
+
+    float direction = (target_frequency > current) ? step : -step;
+
+    if (fmod(current, step) != 0) {
+        float next_dividable;
+        if (direction > 0) {
+            next_dividable = ceil(current / step) * step;
+        } else {
+            next_dividable = floor(current / step) * step;
+        }
+        current = next_dividable;
+        if (!this->_set_hash_frequency(-1, current, 0.002)) return false;
+        delay(1);
+    }
+
+    while ((direction > 0 && current < target_frequency) || (direction < 0 && current > target_frequency)) {
+        float next_step = fminf(fabs(direction), fabs(target_frequency - current));
+        current += direction > 0 ? next_step : -next_step;
+        if (!this->_set_hash_frequency(-1, current, 0.002)) return false;
+        delay(1);
+    }
+    if (!this->_set_hash_frequency(-1, target_frequency, 0.002)) return false;
+    return true;
 }
 
 void BM1370::change_uart_baud(uint32_t baudrate){

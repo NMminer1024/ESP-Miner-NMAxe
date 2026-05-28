@@ -60,20 +60,123 @@ void add_share_diff_history(std::deque<proximity_node_t, PsramAllocator<proximit
 AsicMinerClass::AsicMinerClass(BMxxx *asic){
     this->_asic = asic;
     this->_asic_count = 0;
+    this->_asic_freq_current = 0;
+    this->_asic_freq_target = 0;
+    this->_asic_freq_update_pending = false;
+    this->_asic_freq_updating = false;
+    this->_asic_ready = false;
+    this->_asic_freq_mutex = xSemaphoreCreateMutex();
     this->pool_job_now.id = "";
     this->_asic_job_map.clear();
     memset(&this->_asic_job_now, 0, sizeof(asic_job));
 }
 
 AsicMinerClass::~AsicMinerClass(){
-
+    if (this->_asic_freq_mutex != NULL) {
+        vSemaphoreDelete(this->_asic_freq_mutex);
+        this->_asic_freq_mutex = NULL;
+    }
 }
 
 bool AsicMinerClass::begin(uint16_t freq, uint16_t diff, uint32_t baudrate){
+    if (this->_asic == NULL) return false;
     this->_asic->init(freq, diff, this->_asic_count);
+    this->_asic_freq_current = freq;
+    this->_asic_ready = true;
+    if (this->_asic_freq_mutex != NULL && xSemaphoreTake(this->_asic_freq_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        if (this->_asic_freq_target == freq) this->_asic_freq_update_pending = false;
+        xSemaphoreGive(this->_asic_freq_mutex);
+    }
     this->_asic->change_uart_baud(baudrate);
     this->_asic->clear_port_cache();
     return true;
+}
+
+bool AsicMinerClass::request_asic_frequency(uint16_t target_freq){
+    if (target_freq == 0) return false;
+
+    if (this->_asic_freq_mutex != NULL && xSemaphoreTake(this->_asic_freq_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        LOG_W("ASIC frequency request busy, target %uMHz not queued", target_freq);
+        return false;
+    }
+
+    if (this->_asic_freq_current == target_freq && !this->_asic_freq_update_pending && !this->_asic_freq_updating) {
+        if (this->_asic_freq_mutex != NULL) xSemaphoreGive(this->_asic_freq_mutex);
+        return true;
+    }
+
+    this->_asic_freq_target = target_freq;
+    this->_asic_freq_update_pending = true;
+    LOG_W("ASIC frequency change requested: %uMHz -> %uMHz", this->_asic_freq_current, target_freq);
+
+    if (this->_asic_freq_mutex != NULL) xSemaphoreGive(this->_asic_freq_mutex);
+    return true;
+}
+
+bool AsicMinerClass::apply_pending_asic_frequency(){
+    if (this->_asic == NULL || !this->_asic_ready) return false;
+
+    uint16_t current_freq = 0;
+    uint16_t target_freq = 0;
+
+    if (this->_asic_freq_mutex != NULL && xSemaphoreTake(this->_asic_freq_mutex, 0) != pdTRUE) return false;
+
+    if (!this->_asic_freq_update_pending || this->_asic_freq_updating) {
+        if (this->_asic_freq_mutex != NULL) xSemaphoreGive(this->_asic_freq_mutex);
+        return false;
+    }
+
+    current_freq = this->_asic_freq_current;
+    target_freq = this->_asic_freq_target;
+    this->_asic_freq_update_pending = false;
+
+    if (target_freq == 0 || current_freq == target_freq) {
+        if (this->_asic_freq_mutex != NULL) xSemaphoreGive(this->_asic_freq_mutex);
+        return false;
+    }
+
+    this->_asic_freq_updating = true;
+    if (this->_asic_freq_mutex != NULL) xSemaphoreGive(this->_asic_freq_mutex);
+
+    LOG_W("Applying ASIC PLL frequency change: %uMHz -> %uMHz", current_freq, target_freq);
+    this->clear_asic_job_cache();
+    this->reset_hashrate();
+    this->_asic->clear_port_cache();
+    bool ok = this->_asic->set_frequency((float)current_freq, (float)target_freq);
+    this->_asic->clear_port_cache();
+
+    if (this->_asic_freq_mutex != NULL && xSemaphoreTake(this->_asic_freq_mutex, portMAX_DELAY) == pdTRUE) {
+        if (ok) this->_asic_freq_current = target_freq;
+        this->_asic_freq_updating = false;
+        xSemaphoreGive(this->_asic_freq_mutex);
+    } else if (this->_asic_freq_mutex == NULL) {
+        if (ok) this->_asic_freq_current = target_freq;
+        this->_asic_freq_updating = false;
+    }
+
+    if (ok) LOG_W("ASIC PLL frequency change applied: %uMHz", target_freq);
+    else    LOG_E("ASIC PLL frequency change failed: %uMHz -> %uMHz", current_freq, target_freq);
+    return ok;
+}
+
+bool AsicMinerClass::is_asic_frequency_updating(){
+    bool updating = false;
+    if (this->_asic_freq_mutex != NULL && xSemaphoreTake(this->_asic_freq_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        updating = this->_asic_freq_updating;
+        xSemaphoreGive(this->_asic_freq_mutex);
+    } else {
+        updating = this->_asic_freq_updating;
+    }
+    return updating;
+}
+
+uint16_t AsicMinerClass::get_asic_frequency_current(){
+    uint16_t freq = this->_asic_freq_current;
+    if (this->_asic_freq_mutex != NULL && xSemaphoreTake(this->_asic_freq_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        freq = this->_asic_freq_current;
+        xSemaphoreGive(this->_asic_freq_mutex);
+    }
+    return freq;
 }
 
 esp_err_t AsicMinerClass::listen_asic_rsp(miner_result *result, uint32_t timeout_ms){

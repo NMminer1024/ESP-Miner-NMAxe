@@ -442,7 +442,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
         next: () => {
-          this.toastr.info(`Applied ${r.freq} MHz / ${r.vcore} mV — device will reboot.`, 'Applied');
+          this.toastr.info(`Applied ${r.freq} MHz / ${r.vcore} mV — rebooting to exit Benchmark mode.`, 'Applied');
         },
         error: (err: any) => {
           this.toastr.error(`Could not apply: ${err.message}`, 'Error');

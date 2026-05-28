@@ -136,7 +136,7 @@ export class EditComponent implements OnInit {
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
         next: () => {
-          this.toastr.success('Success!', 'Saved.');
+          this.toastr.success('Freq and Vcore applied.', 'Saved.');
         },
         error: (err: HttpErrorResponse) => {
           this.toastr.error('Error.', `Could not save. ${err.message}`);

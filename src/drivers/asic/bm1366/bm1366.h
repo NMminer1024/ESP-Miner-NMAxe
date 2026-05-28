@@ -12,7 +12,7 @@ private:
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();
     void _set_version_mask(uint32_t version_mask);
-    void _set_hash_frequency(float target_freq);
+    bool _set_hash_frequency(float target_freq);
 public:
     BM1366(HardwareSerial &sport, uint32_t init_baud, uint8_t rx, uint8_t tx, uint8_t rst):BMxxx(sport, init_baud, rx, tx, rst) {
         this->_diff_current = 0;
@@ -20,6 +20,7 @@ public:
     void init(uint64_t freq, int diff, uint8_t asic_count) override;
     void change_uart_baud(uint32_t baudrate) override;
     void frequency_ramp_up(float target_frequency) override;
+    bool set_frequency(float current_frequency, float target_frequency) override;
     uint32_t set_job_difficulty(int difficulty) override;
     uint8_t get_asic_count() override;
     uint32_t get_asic_difficulty() override;

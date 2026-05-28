@@ -615,7 +615,7 @@
     <span class="kw">"model"</span>:        <span class="str">"BM1366"</span>,
     <span class="kw">"vcoreReq"</span>:     <span class="num">1200</span>,   <span class="cmt">// mV – requested vcore</span>
     <span class="kw">"vcoreReal"</span>:    <span class="num">1198</span>,   <span class="cmt">// mV – measured vcore</span>
-    <span class="kw">"freqReq"</span>:      <span class="num">485</span>,    <span class="cmt">// MHz – requested frequency</span>
+    <span class="kw">"freqReq"</span>:      <span class="num">485</span>,    <span class="cmt">// MHz – active/requested frequency</span>
     <span class="kw">"smallCoreCnt"</span>: <span class="num">894</span>    <span class="cmt">// number of small cores</span>
   },
   <span class="kw">"miner"</span>: {
@@ -952,7 +952,7 @@
           <span class="method-badge method-get">GET</span>
           <span class="method-badge method-patch">PATCH</span>
           <code class="endpoint-path">/api/setting/mining</code>
-          <span class="endpoint-summary">Stratum pools &amp; ASIC overclock</span>
+          <span class="endpoint-summary">Stratum pools &amp; live ASIC tuning</span>
         </div>
         <div class="endpoint-body">
           <div class="block-label">GET – Response 200</div>
@@ -985,8 +985,9 @@
     <span class="kw">"fallback"</span>: { <span class="kw">"url"</span>: <span class="str">"stratum+tcp://backup.com:3333"</span>,  <span class="kw">"user"</span>: <span class="str">"bc1q..."</span>, <span class="kw">"pwd"</span>: <span class="str">"x"</span> }
   },
   <span class="kw">"asicVcoreReq"</span>: <span class="num">1200</span>,   <span class="cmt">// mV – applied immediately, saved to NVS</span>
-  <span class="kw">"asicFreqReq"</span>:  <span class="num">500</span>    <span class="cmt">// MHz – saved to NVS, takes effect after reboot</span>
+  <span class="kw">"asicFreqReq"</span>:  <span class="num">500</span>    <span class="cmt">// MHz – applied immediately via ASIC PLL, saved to NVS</span>
 }</pre>
+          <div class="note">ASIC frequency and Vcore both take effect in real time after saving. Frequency is hot-switched through the ASIC PLL; Vcore is applied through the power regulator. Stratum pool changes still require reconnect or restart.</div>
           <div class="block-label">PATCH – Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
         </div>

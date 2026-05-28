@@ -6,6 +6,8 @@
 #include "board/board.h"
 #include "drivers/asic/bm1366/bm1366.h"
 #include "drivers/asic/bm1370/bm1370.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <deque>
 
 typedef struct{
@@ -56,6 +58,12 @@ private:
     AsicJobStringMap            _extranonce2_map;
     AsicJobStringMap            _pool_job_id_map;   // bind asic_job_id -> pool_job_id at construction time
     std::deque<std::pair<uint32_t, double>, PsramAllocator<std::pair<uint32_t, double>>> _hr_deque; // single 60-min sample ring (PSRAM)
+    uint16_t                    _asic_freq_current;
+    uint16_t                    _asic_freq_target;
+    volatile bool               _asic_freq_update_pending;
+    volatile bool               _asic_freq_updating;
+    bool                        _asic_ready;
+    SemaphoreHandle_t           _asic_freq_mutex;
     // Running sums + front cursors for incremental O(1) hashrate maintenance.
     // _off_3m / _off_30m are offsets (from current deque front) of the oldest
     // sample STILL inside the 3m / 30m window — i.e. count of front samples
@@ -67,6 +75,10 @@ public:
     AsicMinerClass(BMxxx *asic);
     ~AsicMinerClass();
     bool begin(uint16_t freq, uint16_t diff, uint32_t baudrate);
+    bool request_asic_frequency(uint16_t target_freq);
+    bool apply_pending_asic_frequency();
+    bool is_asic_frequency_updating();
+    uint16_t get_asic_frequency_current();
     bool mining(pool_job_data_t *pool_job);
     uint32_t set_asic_diff(uint64_t diff);
     uint8_t connect_chip();

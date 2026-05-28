@@ -41,7 +41,7 @@ void BM1366::_set_chip_address(uint8_t address){
     this->_send_bm1366((TYPE_CMD | GROUP_SINGLE | CMD_SETADDRESS), read_address, 2);
 }
 
-void BM1366::_set_hash_frequency(float target_freq){
+bool BM1366::_set_hash_frequency(float target_freq){
     // default 200Mhz if it fails
     unsigned char freqbuf[9] = {0x00, 0x08, 0x40, 0xA0, 0x02, 0x41}; // freqbuf - pll0_parameter
     float newf = 200.0;
@@ -78,7 +78,8 @@ void BM1366::_set_hash_frequency(float target_freq){
     }
 
     if (fb_divider == 0) {
-        puts("Finding dividers failed, using default value (200Mhz)");
+        LOG_W("Failed to find PLL settings for target frequency %.2f", target_freq);
+        return false;
     } else {
         newf = 25.0 * (float) (fb_divider) / (float) (ref_divider * post_divider1 * post_divider2);
         // LOG_I("final refdiv: %d, fbdiv: %d, postdiv1: %d, postdiv2: %d, min diff value: %f", ref_divider, fb_divider,
@@ -96,6 +97,7 @@ void BM1366::_set_hash_frequency(float target_freq){
     this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_WRITE), freqbuf, 6);
 
     // LOG_W("Setting clock frequency to %.2fMHz (%.2f)", target_freq, newf);
+    return true;
 }
 
 void BM1366::_set_version_mask(uint32_t version_mask) {
@@ -169,10 +171,23 @@ uint8_t BM1366::get_asic_count(){
 
 
 void BM1366::frequency_ramp_up(float target_frequency){
-    float current_frequency = 56.25;
+    this->set_frequency(56.25, target_frequency);
+}
+
+bool BM1366::set_frequency(float current_frequency, float target_frequency){
     float step = 6.25;
     float current = current_frequency;
     float target = target_frequency;
+
+    if (target <= 0) {
+        LOG_W("Skipping invalid frequency target %.2fMHz", target);
+        return false;
+    }
+
+    if (fabs(target - current) < 0.001f) {
+        LOG_W("Clock frequency already at %.2fMHz", target);
+        return true;
+    }
 
     float direction = (target > current) ? step : -step;
 
@@ -184,17 +199,19 @@ void BM1366::frequency_ramp_up(float target_frequency){
             next_dividable = floor(current / step) * step;
         }
         current = next_dividable;
-        this->_set_hash_frequency(current);
+        if (!this->_set_hash_frequency(current)) return false;
+        delay(1);
     }
 
     while ((direction > 0 && current < target) || (direction < 0 && current > target)) {
         float next_step = fmin(fabs(direction), fabs(target - current));
         current += direction > 0 ? next_step : -next_step;
-        this->_set_hash_frequency(current);
+        if (!this->_set_hash_frequency(current)) return false;
+        delay(1);
     }
-    this->_set_hash_frequency(target);
-    LOG_W("Setting clock frequency to %.2fMHz", target);
-    return;
+    if (!this->_set_hash_frequency(target)) return false;
+    LOG_W("Setting clock frequency from %.2fMHz to %.2fMHz", current_frequency, target);
+    return true;
 }
 
 

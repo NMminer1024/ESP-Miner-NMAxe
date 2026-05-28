@@ -483,9 +483,14 @@ static void do_save_settings() {
         char freq_buf[32] = "";
         lv_dropdown_get_selected_str(setting_page.list_asic_freq.obj, freq_buf, sizeof(freq_buf));
         uint16_t frq = (uint16_t)atoi(freq_buf);
+      g_board.info.spec.asic.req_frq = frq;
         nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
+      if (g_board.miner != nullptr) g_board.miner->request_asic_frequency(frq);
     } else {
-        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, g_board.info.spec.asic.default_frq);
+      uint16_t frq = g_board.info.spec.asic.default_frq;
+      g_board.info.spec.asic.req_frq = frq;
+      nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
+      if (g_board.miner != nullptr) g_board.miner->request_asic_frequency(frq);
     }
     // vcore — parse numeric value from selected label (handles custom '*' entries too)
     if (setting_page.list_asic_vcore.obj) {

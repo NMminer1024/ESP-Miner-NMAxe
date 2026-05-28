@@ -80,6 +80,7 @@ public:
     bool clear_port_cache();
     virtual void init(uint64_t freq, int diff, uint8_t asic_count) = 0;
     virtual void frequency_ramp_up(float target_frequency) = 0;
+    virtual bool set_frequency(float current_frequency, float target_frequency) = 0;
     virtual uint32_t set_job_difficulty(int difficulty) = 0;
     virtual uint8_t get_asic_count() = 0;
     virtual uint32_t get_asic_difficulty() = 0;
