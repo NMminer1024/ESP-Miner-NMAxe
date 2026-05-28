@@ -2155,7 +2155,8 @@ void fan_thread_entry(void *args){
         else LOG_W("Some fans failed self test, retrying...");
     }
     xEventGroupSetBits(board->status.init_evt, INIT_EVENT_FAN_READY);
-
+    delay(2000); // allow some time for user to see the self test result on loading page before fan speed changes
+    
     // fan control loop
     while(true){
         uint8_t fan_id = 0; // default to fan 0 for event waiting; can be extended to support multiple fans with separate events if needed
