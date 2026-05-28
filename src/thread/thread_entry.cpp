@@ -2117,9 +2117,10 @@ void fan_thread_entry(void *args){
         auto selftest_task = [](void *pv) {
             auto *a = static_cast<SelfTestArg*>(pv);
             uint16_t rpm = 0;
-            for (uint8_t i = 0; i < 3; i++)
+            for (uint8_t i = 0; i < 3; i++) {
                 rpm = measure_fan_rpm_for_duration(a->init_param, 1.0f, 1000, a->fan_invert);
-            a->fan_status->rpm       = rpm;
+                a->fan_status->rpm = rpm; // live update so loading page shows real-time RPM
+            }
             a->fan_status->self_test = (rpm > a->rpm_thr);
             LOG_W("Fan[%d] self test result: %s, measured rpm: %d, threshold rpm: %d",
                   a->fan_status->id, a->fan_status->self_test ? "OK" : "FAIL", rpm, a->rpm_thr);
