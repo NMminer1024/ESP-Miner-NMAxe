@@ -1573,15 +1573,24 @@ Content-Type: application/octet-stream
         </div>
         <div class="endpoint-body">
           <p class="ep-desc">
-            Saves the selected frequency and Vcore to normal ASIC settings, exits benchmark
-            mode, and reboots. <code>vcore</code> is clamped to board safety limits. During
-            normal mining, real-time frequency/Vcore changes should use
-            <a href="#set-mining"><code>PATCH /api/setting/mining</code></a> instead.
+            Saves the selected frequency and Vcore to normal ASIC settings and clears benchmark
+            mode. Behaviour depends on the current run state:
           </p>
+          <ul class="ep-list">
+            <li><strong>Normal mode</strong> (<code>bm_mode == 0</code>) — applies Vcore to the
+              hardware power rail then hot-switches the ASIC PLL immediately.
+              <strong>No reboot required.</strong> Response includes <code>"reboot":false</code>.</li>
+            <li><strong>Benchmark mode</strong> (<code>bm_mode == 1</code>, sweep still running) —
+              saves settings to NVS then reboots to exit the sweep cleanly.
+              Response includes <code>"reboot":true</code>.</li>
+          </ul>
+          <p class="ep-desc"><code>vcore</code> is clamped to board safety limits before applying.</p>
           <div class="block-label">Request body</div>
           <pre>{ <span class="kw">"freq"</span>: <span class="num">575</span>, <span class="kw">"vcore"</span>: <span class="num">1200</span> }</pre>
-          <div class="block-label">Response 200</div>
-          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"settings applied, device will reboot"</span> }</pre>
+          <div class="block-label">Response 200 – Normal mode (hot-switch, no reboot)</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"reboot"</span>: <span class="kw">false</span> }</pre>
+          <div class="block-label">Response 200 – Benchmark mode (will reboot)</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"reboot"</span>: <span class="kw">true</span> }</pre>
           <div class="block-label">Response 400</div>
           <pre>{ <span class="kw">"error"</span>: <span class="str">"missing freq or vcore"</span> }</pre>
         </div>

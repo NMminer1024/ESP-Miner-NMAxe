@@ -59,7 +59,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• A full sweep can take hours. Use Stop to pause and Resume to continue from where you left off.\n• Do NOT change Settings while a benchmark is running — it may corrupt sweep results.\n• Reset erases all NVS benchmark data and restores factory sweep parameters.\n• Results survive a factory reset (10-second long-press) but are erased by Reset Benchmark.\n• Temperature readings are VRM (voltage regulator) and ASIC (chip) respectively.'
+        body: '• A full sweep can take hours. Use Stop to pause and Resume to continue from where you left off.\n• Do NOT change Settings while a benchmark is running — it may corrupt sweep results.\n• Reset erases all NVS benchmark data and restores factory sweep parameters.\n• Results survive a factory reset (10-second long-press) but are erased by Reset Benchmark.\n• Temperature readings are VRM (voltage regulator) and ASIC (chip) respectively.\n• Apply — if the benchmark has finished (Normal mode), freq and Vcore switch immediately without rebooting. If the sweep is still active, the device reboots to exit Benchmark mode cleanly.'
       }
     ]
   },

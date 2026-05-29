@@ -317,7 +317,7 @@
 
 <!-- Apply Settings -->
 <p-dialog [(visible)]="showApplyConfirm"
-          header="Apply Settings & Reboot?"
+          header="Apply Settings"
           [modal]="true"
           [style]="{width: '420px'}"
           [draggable]="false">
@@ -330,14 +330,15 @@
       <span>Avg HR: <strong>{{ pendingApply.avgHR | number:'1.1-1' }} GH/s</strong></span>
       <span>Efficiency: <strong>{{ pendingApply.effJTH | number:'1.3-3' }} J/TH</strong></span>
     </div>
-    <p>The device will <strong>reboot</strong> to apply the new settings.</p>
+    <p *ngIf="isRunning">The device will <strong>reboot</strong> to exit Benchmark mode.</p>
+    <p *ngIf="!isRunning">Settings will take effect <strong>immediately</strong> without reboot.</p>
   </div>
   <ng-template pTemplate="footer">
     <button pButton type="button" label="Cancel" icon="pi pi-times"
             class="p-button-outlined p-button-secondary btn"
             (click)="showApplyConfirm = false">
     </button>
-    <button pButton type="button" label="Apply & Reboot" icon="pi pi-check"
+    <button pButton type="button" [label]="isRunning ? 'Apply & Reboot' : 'Apply'" icon="pi pi-check"
             class="p-button-success btn"
             (click)="confirmApply()">
     </button>

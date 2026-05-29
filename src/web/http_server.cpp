@@ -1368,7 +1368,11 @@ void delete_benchmark_results(AsyncWebServerRequest* request){
 }
 
 // POST /api/benchmark/apply
-// Saves a specific freq+vcore as the Normal-mode ASIC settings, then reboots.
+// Saves a specific freq+vcore as the Normal-mode ASIC settings.
+// If device is already in Normal mode (bm_mode==0), hot-switches freq+vcore immediately
+// (no reboot, mirrors PATCH /api/setting/mining behaviour).
+// If device is in Benchmark mode (bm_mode==1 — sweep still running), reboots to exit cleanly.
+// Response: {"status":"ok","reboot":false} or {"status":"ok","reboot":true}
 void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
     static const uint16_t BUF_SIZE = 256;
     if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
@@ -1394,16 +1398,34 @@ void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t 
         uint16_t vcore_max = g_board.info.spec.asic.max_vcore;
         if (vcore_min > 0 && vcore < vcore_min) vcore = vcore_min;
         if (vcore_max > 0 && vcore > vcore_max) vcore = vcore_max;
+        // Always persist to NVS and ensure Normal mode flag is cleared
         nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    freq);
         nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
-        nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 0);  // Ensure Normal mode
-        LOG_W("[BM] Apply via API: freq=%dMHz vcore=%dmV — will reboot", freq, vcore);
-        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"settings applied, device will reboot\"}");
-        response->addHeader("Access-Control-Allow-Origin", "*");
-        request->send(response);
-        delay(300);
-        reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark apply API");
-        xSemaphoreGive(g_board.status.reboot_xsem);
+        nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 0);
+        bool need_reboot = (g_board.status.bm_mode != 0);
+        if (!need_reboot) {
+            // Normal mode — hot-switch freq+vcore immediately, no reboot needed.
+            // Apply vcore first (voltage must be stable before PLL change).
+            g_board.info.spec.asic.req_vcore = vcore;
+            if (g_board.power  != nullptr) g_board.power->set_vcore_voltage(vcore);
+            g_board.info.spec.asic.req_frq = freq;
+            if (g_board.miner  != nullptr && !g_board.miner->request_asic_frequency(freq)) {
+                LOG_W("[BM] Apply (hot): freq hot-switch request failed to queue: %uMHz", freq);
+            }
+            LOG_I("[BM] Apply via API (hot): freq=%dMHz vcore=%dmV — active immediately, no reboot", freq, vcore);
+            AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"reboot\":false}");
+            response->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(response);
+        } else {
+            // Benchmark mode active — reboot to exit BM sweep cleanly
+            LOG_W("[BM] Apply via API: freq=%dMHz vcore=%dmV — rebooting to exit BM mode", freq, vcore);
+            AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
+            response->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(response);
+            delay(300);
+            reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark apply API");
+            xSemaphoreGive(g_board.status.reboot_xsem);
+        }
     }
     free(buf);
 }
