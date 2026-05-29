@@ -228,10 +228,6 @@
             class="p-button-outlined p-button-secondary btn"
             (click)="showClearConfirm = false">
     </button>
-    <button pButton type="button" label="Download First" icon="pi pi-download"
-            class="p-button-outlined p-button-info btn"
-            (click)="downloadResults()">
-    </button>
     <button pButton type="button" label="Clear Anyway" icon="pi pi-trash"
             class="p-button-danger btn"
             (click)="confirmClear()">
@@ -292,6 +288,30 @@
   </ng-template>
 </p-dialog>
 
+<!-- Stop Benchmark -->
+<p-dialog [(visible)]="showStopConfirm"
+          header="Stop Benchmark?"
+          [modal]="true"
+          [style]="{width: '420px'}"
+          [draggable]="false">
+  <div class="bm-dialog-body">
+    <i class="pi pi-stop bm-dialog-icon" style="color: var(--red-400)"></i>
+    <p>Stopping will <strong>pause the sweep</strong> at the current position.</p>
+    <p>The device will <strong>reboot</strong> to exit benchmark mode.</p>
+    <p style="color: var(--text-color-secondary); font-size: 0.875rem">Results collected so far will be preserved. You can resume the sweep from this position later.</p>
+  </div>
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cancel" icon="pi pi-times"
+            class="p-button-outlined p-button-secondary btn"
+            (click)="showStopConfirm = false">
+    </button>
+    <button pButton type="button" label="Stop" icon="pi pi-stop"
+            class="p-button-danger btn"
+            (click)="confirmStop()">
+    </button>
+  </ng-template>
+</p-dialog>
+
 <!-- Reset Benchmark -->
 <p-dialog [(visible)]="showResetConfirm"
           header="Reset Benchmark?"
@@ -300,7 +320,8 @@
           [draggable]="false">
   <div class="bm-dialog-body">
     <i class="pi pi-exclamation-triangle bm-dialog-icon"></i>
-    <p>This will stop any running benchmark, <strong>clear all results</strong>, and reset the sweep to the beginning.</p>
+    <p>This will stop any running benchmark and <strong>reset all sweep parameters back to board defaults</strong>.</p>
+    <p><strong>Existing results will be preserved.</strong> Use &ldquo;Clear Results&rdquo; in the Results card if you want to delete them.</p>
     <p *ngIf="isRunning">The device is currently running a benchmark and <strong>will reboot</strong>.</p>
   </div>
   <ng-template pTemplate="footer">

@@ -1438,9 +1438,9 @@ void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t 
 void post_benchmark_reset(AsyncWebServerRequest* request){
     bool was_running = (nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) == 1);
 
-    // Clear all progress state and erase config keys so defaults revert to board values.
+    // Reset progress state and config keys so defaults revert to board values.
+    // NOTE: results are intentionally preserved — use DELETE /api/benchmark/results to clear them.
     nvs_config_set_u8    (NVS_CONFIG_BM_MODE,    0);
-    nvs_config_set_string(NVS_CONFIG_BM_RESULT,  "[]");
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MIN);
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MAX);
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_STEP);
@@ -1452,6 +1452,8 @@ void post_benchmark_reset(AsyncWebServerRequest* request){
     nvs_config_delete_key(NVS_CONFIG_BM_STAB_TIME);
     nvs_config_delete_key(NVS_CONFIG_BM_CUR_FREQ);
     nvs_config_delete_key(NVS_CONFIG_BM_CUR_VCORE);
+    nvs_config_delete_key(NVS_CONFIG_BM_START_TS);
+    nvs_config_delete_key(NVS_CONFIG_BM_TOTAL_SEC);
 
     LOG_W("[BM] Benchmark reset via API (was_running=%d)", (int)was_running);
 

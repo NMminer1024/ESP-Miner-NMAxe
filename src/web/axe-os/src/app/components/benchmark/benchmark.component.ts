@@ -47,6 +47,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   // Confirmation dialog visibility
   public showStartConfirm = false;
   public showResumeConfirm = false;
+  public showStopConfirm = false;
   public showResetConfirm = false;
   public showClearConfirm = false;
   public showApplyConfirm = false;
@@ -138,8 +139,14 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
 
   // ── Merged primary button (Start / Resume / Stop) ─────────────────────────
   public get canResume(): boolean {
-    return !this.isRunning && this.curFreq > 0 &&
-           (this.curFreq !== this.loadedFreqMin || this.curVcore !== this.loadedVcoreMin);
+    // A run is resumable when:
+    //  - not currently running
+    //  - a run was previously started (startTs > 0, set by post_benchmark_start)
+    //  - the run did NOT complete normally (totalSec === 0; completion sets totalSec > 0)
+    //  - curFreq is valid (> 0 means NVS has a saved position)
+    // This correctly handles stopping at the very first round (curFreq === loadedFreqMin)
+    // without falsely triggering after a completed run or after reset.
+    return !this.isRunning && this.startTs > 0 && this.totalSec === 0 && this.curFreq > 0;
   }
 
   public get primaryButtonLabel(): string {
@@ -167,7 +174,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   }
 
   public primaryAction(): void {
-    if (this.isRunning) { this.stop(); return; }
+    if (this.isRunning) { this.openStopConfirm(); return; }
     if (this.canResume) { this.openResumeConfirm(); return; }
     this.openStartConfirm();
   }
@@ -333,6 +340,16 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       });
   }
 
+  // ── Stop ──────────────────────────────────────────────────────────────────
+  public openStopConfirm(): void {
+    this.showStopConfirm = true;
+  }
+
+  public confirmStop(): void {
+    this.showStopConfirm = false;
+    this.stop();
+  }
+
   public stop(): void {
     this.systemService.stopBenchmark()
       .pipe(this.loadingService.lockUIUntilComplete())
@@ -364,12 +381,21 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
         next: (res: any) => {
-          this.setResults([]);
+          // NOTE: results are intentionally kept — only Clear Results can remove them.
           this.isRunning = false;
           this.syncFormLock();
           this.pollSub?.unsubscribe();
-          // Re-fetch config so the form reflects board defaults after NVS keys are erased.
+          this.timerSub?.unsubscribe();
+          // Re-fetch config so the form and all state reflect board defaults after NVS keys are erased.
           this.systemService.getBenchmark().subscribe((data: any) => {
+            // Update all runtime state (reset deletes cur_freq/cur_vcore/start_ts/total_sec)
+            this.curFreq        = data.curFreq  ?? 0;
+            this.curVcore       = data.curVcore ?? 0;
+            this.startTs        = data.startTs  ?? 0;
+            this.totalSec       = data.totalSec ?? 0;
+            this.elapsedSec     = 0;
+            this.loadedFreqMin  = data.freqMin;
+            this.loadedVcoreMin = data.vcoreMin;
             this.form.patchValue({
               freqMin:    data.freqMin,
               freqMax:    data.freqMax,
