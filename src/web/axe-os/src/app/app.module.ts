@@ -34,7 +34,6 @@ import {DateAgoPipe} from './pipes/date-ago.pipe';
 import {HashSuffixPipe} from './pipes/hash-suffix.pipe';
 import {ReplacePipe} from './pipes/replace.pipe';
 import {PrimeNGModule} from './prime-ng.module';
-import {MessageModule} from 'primeng/message';
 import {TooltipModule} from 'primeng/tooltip';
 
 const components = [
@@ -82,7 +81,6 @@ const components = [
     CommonModule,
     PrimeNGModule,
     AppLayoutModule,
-    MessageModule,
     TooltipModule,
   ],
   providers: [
