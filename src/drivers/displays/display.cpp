@@ -478,30 +478,41 @@ static void do_save_settings() {
     // screen flip
     bool flip = lv_obj_has_state(setting_page.checkbox_screen_flip.obj, LV_STATE_CHECKED);
     nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
-    // overclock — parse numeric value from selected label (handles custom '*' entries too)
-    if (setting_page.list_asic_freq.obj) {
-        char freq_buf[32] = "";
-        lv_dropdown_get_selected_str(setting_page.list_asic_freq.obj, freq_buf, sizeof(freq_buf));
-        uint16_t frq = (uint16_t)atoi(freq_buf);
-      g_board.info.spec.asic.req_frq = frq;
-        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
-      if (g_board.miner != nullptr) g_board.miner->request_asic_frequency(frq);
-    } else {
-      uint16_t frq = g_board.info.spec.asic.default_frq;
-      g_board.info.spec.asic.req_frq = frq;
-      nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
-      if (g_board.miner != nullptr) g_board.miner->request_asic_frequency(frq);
-    }
-    // vcore — parse numeric value from selected label (handles custom '*' entries too)
+    // vcore — apply immediately to hardware first (voltage must be stable before freq change),
+    //          then save to NVS. Mirrors the AxeOS PATCH /api/setting/mining path which calls
+    //          set_vcore_voltage() before request_asic_frequency().
     if (setting_page.list_asic_vcore.obj) {
         char vcore_buf[32] = "";
         lv_dropdown_get_selected_str(setting_page.list_asic_vcore.obj, vcore_buf, sizeof(vcore_buf));
         uint16_t vcore = (uint16_t)atoi(vcore_buf);
         g_board.info.spec.asic.req_vcore = vcore;
+        if (g_board.power != nullptr) g_board.power->set_vcore_voltage(vcore);
         nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
     } else {
-        g_board.info.spec.asic.req_vcore = g_board.info.spec.asic.default_vcore;
-        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, g_board.info.spec.asic.default_vcore);
+        uint16_t vcore = g_board.info.spec.asic.default_vcore;
+        g_board.info.spec.asic.req_vcore = vcore;
+        if (g_board.power != nullptr) g_board.power->set_vcore_voltage(vcore);
+        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
+    }
+    // overclock — parse numeric value from selected label (handles custom '*' entries too),
+    //             then hot-switch the ASIC PLL immediately (no restart required).
+    //             Vcore is already applied above so the chip is at the correct voltage.
+    if (setting_page.list_asic_freq.obj) {
+        char freq_buf[32] = "";
+        lv_dropdown_get_selected_str(setting_page.list_asic_freq.obj, freq_buf, sizeof(freq_buf));
+        uint16_t frq = (uint16_t)atoi(freq_buf);
+        g_board.info.spec.asic.req_frq = frq;
+        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
+        if (g_board.miner != nullptr && !g_board.miner->request_asic_frequency(frq)) {
+            LOG_W("LCD: ASIC frequency hot-switch request failed to queue: %uMHz", frq);
+        }
+    } else {
+        uint16_t frq = g_board.info.spec.asic.default_frq;
+        g_board.info.spec.asic.req_frq = frq;
+        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, frq);
+        if (g_board.miner != nullptr && !g_board.miner->request_asic_frequency(frq)) {
+            LOG_W("LCD: ASIC frequency hot-switch request failed to queue: %uMHz", frq);
+        }
     }
     // screen saver
     if (setting_page.list_saver.obj) {

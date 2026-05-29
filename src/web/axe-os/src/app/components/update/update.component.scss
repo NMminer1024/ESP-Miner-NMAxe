@@ -54,6 +54,7 @@
       align-items: center !important;
       gap: 6px !important;
       color: #ccc !important;
+      margin-bottom: 0 !important; // 覆盖外层 16px，避免 flex 垂直居中时问号偏低
 
       &.behind-title {
         color: #ff9800 !important;

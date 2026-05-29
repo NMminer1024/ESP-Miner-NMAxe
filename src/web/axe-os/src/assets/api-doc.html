@@ -702,10 +702,22 @@
     <span class="kw">"pwd"</span>:  <span class="str">"x"</span>
   },
   <span class="kw">"fans"</span>: [
-    { <span class="kw">"id"</span>: <span class="num">0</span>, <span class="kw">"speed"</span>: <span class="num">80</span>, <span class="kw">"rpm"</span>: <span class="num">4200</span> },  <span class="cmt">// ASIC fan</span>
-    { <span class="kw">"id"</span>: <span class="num">1</span>, <span class="kw">"speed"</span>: <span class="num">60</span>, <span class="kw">"rpm"</span>: <span class="num">3100</span> }   <span class="cmt">// vcore fan</span>
+    { <span class="kw">"id"</span>: <span class="num">0</span>, <span class="kw">"speed"</span>: <span class="num">80</span>, <span class="kw">"rpm"</span>: <span class="num">4200</span> },  <span class="cmt">// id=0: ASIC fan</span>
+    { <span class="kw">"id"</span>: <span class="num">1</span>, <span class="kw">"speed"</span>: <span class="num">60</span>, <span class="kw">"rpm"</span>: <span class="num">3100</span> }   <span class="cmt">// id=1: Vcore fan (NMQAxe++ only)</span>
   ]
 }</pre>
+          <div class="block-label">Miner state values (<code>miner.state</code> field)</div>
+          <table class="field-table">
+            <thead><tr><th>state</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>running</code></td><td>Mining normally. ASIC Vcore on, jobs flowing.</td></tr>
+              <tr><td><code>pausing</code></td><td>Pause command received; ASIC shutting down (transient).</td></tr>
+              <tr><td><code>paused</code></td><td>Mining halted. Vcore off, restart monitors suppressed.</td></tr>
+              <tr><td><code>resuming</code></td><td>Resume command received; ASIC reinitializing (transient).</td></tr>
+              <tr><td><code>error</code></td><td>ASIC initialization or runtime error. Vcore off.</td></tr>
+            </tbody>
+          </table>
+          <div class="note">ℹ️ <code>miner.paused</code> is <code>true</code> in any state other than <code>running</code>. The <code>miner.pauseReason</code> field is <code>"user"</code> when paused via API/UI, <code>""</code> otherwise.</div>
         </div>
       </div>
 
@@ -762,11 +774,22 @@
           <div class="block-label">Response 200</div>
           <pre>{
   <span class="kw">"status"</span>:       <span class="str">"ok"</span>,
-  <span class="kw">"state"</span>:        <span class="str">"pausing"</span>,
-  <span class="kw">"paused"</span>:       <span class="bool">true</span>,
-  <span class="kw">"reason"</span>:       <span class="str">"user"</span>,
-  <span class="kw">"vcoreEnabled"</span>: <span class="bool">false</span>
+  <span class="kw">"state"</span>:        <span class="str">"pausing"</span>,  <span class="cmt">// running | pausing | paused | resuming | error</span>
+  <span class="kw">"paused"</span>:       <span class="bool">true</span>,        <span class="cmt">// true during any paused/pausing/resuming/error state</span>
+  <span class="kw">"reason"</span>:       <span class="str">"user"</span>,      <span class="cmt">// "user" when paused by API; "" otherwise</span>
+  <span class="kw">"vcoreEnabled"</span>: <span class="bool">false</span>       <span class="cmt">// false when state is pausing | paused | error</span>
 }</pre>
+          <div class="block-label">State values</div>
+          <table class="field-table">
+            <thead><tr><th>state</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>running</code></td><td>Mining normally. ASIC Vcore on, jobs flowing.</td></tr>
+              <tr><td><code>pausing</code></td><td>Pause command received; ASIC shutting down (transient).</td></tr>
+              <tr><td><code>paused</code></td><td>Mining halted. Vcore off, restart monitors suppressed.</td></tr>
+              <tr><td><code>resuming</code></td><td>Resume command received; ASIC reinitializing (transient).</td></tr>
+              <tr><td><code>error</code></td><td>ASIC initialization or runtime error. Vcore off.</td></tr>
+            </tbody>
+          </table>
           <div class="note note-warn">Returns 409 Conflict while Benchmark mode or OTA update is running. The pause state is runtime-only and is not saved to NVS.</div>
         </div>
       </div>
@@ -820,13 +843,71 @@
   <span class="kw">"ts"</span>:      <span class="num">1716000000</span>,     <span class="cmt">// Unix timestamp; 0 if RTC was not synced</span>
   <span class="kw">"uptime"</span>:  <span class="num">11520</span>,          <span class="cmt">// previous session uptime, seconds</span>
   <span class="kw">"heapMin"</span>: <span class="num">49152</span>,          <span class="cmt">// minimum free heap in previous session</span>
-  <span class="kw">"reset"</span>:   <span class="str">"panic"</span>,        <span class="cmt">// ESP32 reset reason</span>
-  <span class="kw">"intent"</span>:  <span class="str">"none"</span>,         <span class="cmt">// software reboot intent</span>
-  <span class="kw">"class"</span>:   <span class="str">"crash"</span>,        <span class="cmt">// cold | planned | crash | power | external | unknown_sw</span>
-  <span class="kw">"fw"</span>:      <span class="str">"v3.0.20"</span>,
-  <span class="kw">"detail"</span>:  <span class="str">"panic"</span>
+  <span class="kw">"reset"</span>:   <span class="str">"panic"</span>,        <span class="cmt">// ESP32 hardware reset reason (see Reset values table)</span>
+  <span class="kw">"intent"</span>:  <span class="str">"none"</span>,         <span class="cmt">// software reboot intent set before restart (see Intent values table)</span>
+  <span class="kw">"class"</span>:   <span class="str">"crash"</span>,        <span class="cmt">// cold | planned | unknown_sw | crash | power | external | other</span>
+  <span class="kw">"fw"</span>:      <span class="str">"v3.0.20"</span>,      <span class="cmt">// firmware version that ran during the previous session</span>
+  <span class="kw">"detail"</span>:  <span class="str">"panic"</span>         <span class="cmt">// free-form description (reset reason string or intent detail)</span>
 }</pre>
           <div class="note">If no record exists yet, the firmware returns <code>{"class":"cold","intent":"none"}</code>.</div>
+          <div class="block-label">Class values</div>
+          <table class="field-table">
+            <thead><tr><th>class</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>cold</code></td><td>Power-on (cold boot).</td></tr>
+              <tr><td><code>planned</code></td><td>Software restart with a known intent (see Intent values).</td></tr>
+              <tr><td><code>unknown_sw</code></td><td>Software restart but no intent was recorded before reset.</td></tr>
+              <tr><td><code>crash</code></td><td>Panic or watchdog timeout.</td></tr>
+              <tr><td><code>power</code></td><td>Brown-out / power loss detected by the brown-out detector.</td></tr>
+              <tr><td><code>external</code></td><td>RST pin, deep-sleep wake, SDIO reset, or other hardware-driven reset.</td></tr>
+              <tr><td><code>other</code></td><td>Unclassified reset reason.</td></tr>
+            </tbody>
+          </table>
+          <div class="block-label">Reset values (<code>reset</code> field — ESP32 hardware reset reason)</div>
+          <table class="field-table">
+            <thead><tr><th>reset</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>poweron</code></td><td>Power-on reset (cold boot).</td></tr>
+              <tr><td><code>sw</code></td><td>Software reset via <code>ESP.restart()</code> or <code>esp_restart()</code>.</td></tr>
+              <tr><td><code>panic</code></td><td>Firmware panic (assertion, exception, stack overflow, etc.).</td></tr>
+              <tr><td><code>int_wdt</code></td><td>Interrupt watchdog timeout.</td></tr>
+              <tr><td><code>task_wdt</code></td><td>Task watchdog timeout.</td></tr>
+              <tr><td><code>wdt</code></td><td>Other watchdog timeout.</td></tr>
+              <tr><td><code>brownout</code></td><td>Brown-out reset.</td></tr>
+              <tr><td><code>ext_pin</code></td><td>External RST pin pulled low.</td></tr>
+              <tr><td><code>deepsleep</code></td><td>Wake from deep sleep.</td></tr>
+              <tr><td><code>sdio</code></td><td>SDIO peripheral reset.</td></tr>
+              <tr><td><code>unknown</code></td><td>Reset reason could not be determined.</td></tr>
+              <tr><td><code>other</code></td><td>Other hardware-level reset.</td></tr>
+            </tbody>
+          </table>
+          <div class="block-label">Intent values (<code>intent</code> field — software reboot intent)</div>
+          <table class="field-table">
+            <thead><tr><th>intent</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>none</code></td><td>No intent recorded (unexpected restart or cold boot).</td></tr>
+              <tr><td><code>user_web_reboot</code></td><td>User triggered restart via <code>POST /api/system/restart</code>.</td></tr>
+              <tr><td><code>lcd_user_restart</code></td><td>User confirmed restart on the LCD settings page.</td></tr>
+              <tr><td><code>ota_finished</code></td><td>OTA firmware or SPIFFS flash completed successfully.</td></tr>
+              <tr><td><code>factory_reset</code></td><td>Factory reset initiated.</td></tr>
+              <tr><td><code>config_changed</code></td><td>NVS config change required a reboot to take effect.</td></tr>
+              <tr><td><code>wifi_config_timeout</code></td><td>AP/config mode timed out with no connection.</td></tr>
+              <tr><td><code>wifi_reconnect_fail</code></td><td>WiFi reconnect attempts exhausted.</td></tr>
+              <tr><td><code>lcd_wifi_saved</code></td><td>User saved WiFi credentials via the on-screen wizard.</td></tr>
+              <tr><td><code>force_config</code></td><td>Long-press boot button — enter AP/config mode on next boot.</td></tr>
+              <tr><td><code>low_hashrate</code></td><td>Hashrate monitor detected sustained low hashrate.</td></tr>
+              <tr><td><code>pool_timeout</code></td><td>No stratum response within the pool timeout window.</td></tr>
+              <tr><td><code>asic_frozen</code></td><td>ASIC stopped producing nonces (alive monitor triggered).</td></tr>
+              <tr><td><code>overheat_vcore</code></td><td>VRM/Vcore stage temperature sustained in danger zone.</td></tr>
+              <tr><td><code>overheat_asic</code></td><td>ASIC die temperature sustained in danger zone.</td></tr>
+              <tr><td><code>fan_stall</code></td><td>A fan reported danger-low RPM.</td></tr>
+              <tr><td><code>power_low</code></td><td>Input power dropped below threshold.</td></tr>
+              <tr><td><code>ota_stall</code></td><td>OTA upload stalled (no progress for &gt;60 s).</td></tr>
+              <tr><td><code>selftest_triggered</code></td><td>Self-test sequence triggered a reboot.</td></tr>
+              <tr><td><code>daemon_generic</code></td><td>Daemon-initiated reboot with no more specific intent.</td></tr>
+              <tr><td><code>unknown</code></td><td>Unrecognized intent value (firmware version mismatch).</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -1111,7 +1192,7 @@
               <pre>{
   <span class="kw">"hostName"</span>: <span class="str">"nmaxe-a1b2"</span>,
   <span class="kw">"ssid"</span>:     <span class="str">"MyHomeWiFi"</span>,
-  <span class="kw">"status"</span>:   <span class="str">"connected"</span>,
+  <span class="kw">"status"</span>:   <span class="str">"connected"</span>,  <span class="cmt">// connected | disconnected</span>
   <span class="kw">"ip"</span>:       <span class="str">"192.168.1.42"</span>
 }</pre>
             </div>
