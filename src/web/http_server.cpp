@@ -232,6 +232,7 @@ void get_system_info(AsyncWebServerRequest* request){
     minerObj["sRejected"]       = g_board.status.miner.share_rejected;
     minerObj["uptimeSeconds"]   = g_board.status.miner.uptime_session;
     minerObj["uptimeEver"]      = g_board.status.miner.uptime_ever;
+    minerObj["bmMode"]          = g_board.status.bm_mode;
 
     // Board identity
     JsonObject identityObj    = root.createNestedObject("identity");

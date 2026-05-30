@@ -64,7 +64,7 @@ export class AppTopBarComponent {
     clearBlockHitsDialogVisible: boolean = false;
     private infoPoll$: Observable<ISystemInfo>;
     poolDisplay$: Observable<{ url: string; wallet: string; rssi: number; uptime: number }>;
-    miningControl$: Observable<{ state: string; paused: boolean }>;
+    miningControl$: Observable<{ state: string; paused: boolean; bmMode: number }>;
 
     @ViewChild('menubutton') menuButton!: ElementRef;
 
@@ -103,7 +103,8 @@ export class AppTopBarComponent {
             map(info => {
                 const state = info.miner?.state || 'running';
                 const paused = !!info.miner?.paused || state === 'pausing' || state === 'paused' || state === 'resuming' || state === 'error';
-                return { state, paused };
+                const bmMode = info.miner?.bmMode ?? 0;
+                return { state, paused, bmMode };
             }),
             shareReplay({ refCount: true, bufferSize: 1 })
         );
@@ -148,14 +149,18 @@ export class AppTopBarComponent {
         return state === 'pausing' || state === 'resuming';
     }
 
-    public miningControlLabel(control: { state: string; paused: boolean }): string {
+    public miningControlLabel(control: { state: string; paused: boolean; bmMode: number }): string {
         if (control.state === 'pausing') return 'Pausing';
         if (control.state === 'resuming') return 'Starting';
         if (control.paused) return 'Start Mining';
         return 'Pause Mining';
     }
 
-    public toggleMiningPause(control: { state: string; paused: boolean }) {
+    public toggleMiningPause(control: { state: string; paused: boolean; bmMode: number }) {
+        if (control.bmMode === 1) {
+            this.toastr.warning('Pause Mining is not supported during Benchmark. Stop the Benchmark first.', 'Not Supported');
+            return;
+        }
         const pause = !control.paused;
         this.systemService.setMiningPaused(pause)
             .pipe(this.loadingService.lockUIUntilComplete())
