@@ -31,6 +31,7 @@ const INTENT_LABEL: Record<string, string> = {
   lcd_user_restart:      'User restarted via LCD',
   lcd_wifi_saved:        'Wi-Fi saved via on-screen wizard',
   force_config:          'Force-config (boot button held)',
+  overcurrent_fault:     'Power overcurrent fault',
 };
 
 const RESET_LABEL: Record<string, string> = {

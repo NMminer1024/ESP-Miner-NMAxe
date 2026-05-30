@@ -100,54 +100,69 @@ void power_loop_thread_entry(void *args){
             _pwr_debug_last_ms = _now;
         }
 #endif
-        bool oc_warn  = board->power->is_oc_warn();
-        bool oc_fault = board->power->is_oc_fault();
-        bool ot_warn  = board->power->is_ot_warn();
-        bool ot_fault = board->power->is_ot_fault();
-        if(oc_fault) {
-            LOG_W("Overcurrent FAULT detected! Taking safety actions...");
-            // Immediate safety action: shut down ASIC power
-            board->power->set_vcore_status(PWR_OFF);
-            // Optionally, shut down other power rails if supported
-            board->power->set_vdd_1v8(PWR_OFF);
-            board->power->set_pll_0v8(PWR_OFF);
-            // Signal the display thread to show the OC alert overlay
-            xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_POWER_OC_FAULT);
-            // Park this thread — display/UI thread keeps running to handle user interaction
-            while(true) {
-                delay(1000);
-                LOG_E("ASIC powered down due to Power OverCurrent. Please check your ASICs OverClocking settings, and cooling.");
+        if(!board->status.ota.running){
+            bool oc_warn  = board->power->is_oc_warn();
+            bool oc_fault = board->power->is_oc_fault();
+            bool ot_warn  = board->power->is_ot_warn();
+            bool ot_fault = board->power->is_ot_fault();
+            if(oc_fault) {
+                LOG_W("Overcurrent FAULT detected! Taking safety actions...");
+                // Immediate safety action: shut down ASIC power
+                board->power->set_vcore_status(PWR_OFF);
+                // Optionally, shut down other power rails if supported
+                board->power->set_vdd_1v8(PWR_OFF);
+                board->power->set_pll_0v8(PWR_OFF);
+                // Pre-stamp the real root cause so that when the ASIC-frozen watchdog
+                // fires 3 minutes later, it sees this intent and does not overwrite it.
+                reboot_intent_set(REBOOT_INTENT_OVERCURRENT_FAULT,
+                                "power overcurrent fault, Vcore/VDD/PLL shut down");
+                // Signal the display thread to show the OC alert overlay
+                xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_POWER_OC_FAULT);
+                // Park this thread — display/UI thread keeps running to handle user interaction
+                while(true) {
+                    delay(1000);
+                    LOG_E("ASIC powered down due to Power OverCurrent. Please check your ASICs OverClocking settings, and cooling.");
+                }
             }
-        }
-        else if(oc_warn) {
-            static uint32_t last = millis(); // count in seconds
-            if(millis() - last >= 3000) { // if OC warning persists for 10 seconds, log a warning
-                LOG_W("Overcurrent WARNING detected...");
-                last = millis(); // reset count after logging
+            else if(oc_warn) {
+                static uint32_t last = millis(); // count in seconds
+                if(millis() - last >= 3000) { // if OC warning persists for 10 seconds, log a warning
+                    LOG_W("Overcurrent WARNING detected...");
+                    last = millis(); // reset count after logging
+                }
             }
-        }
-        else if(ot_fault) {
-            LOG_W("Overtemperature FAULT detected! Taking safety actions...");
-            // Immediate safety action: shut down ASIC power
-            board->power->set_vcore_status(PWR_OFF);
-            // Optionally, shut down other power rails if supported
-            board->power->set_vdd_1v8(PWR_OFF);
-            board->power->set_pll_0v8(PWR_OFF);
-            // Signal the display thread to show the OT alert overlay
-            xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_POWER_OT_FAULT);
-            // Park this thread — display/UI thread keeps running to handle user interaction
-            while(true) {
-                delay(1000);
-                LOG_E("ASIC powered down due to OverTemperature. Please check your cooling system and ambient temperature.");
+            else if(ot_fault) {
+                LOG_W("Overtemperature FAULT detected! Taking safety actions...");
+                // Immediate safety action: shut down ASIC power
+                board->power->set_vcore_status(PWR_OFF);
+                // Optionally, shut down other power rails if supported
+                board->power->set_vdd_1v8(PWR_OFF);
+                board->power->set_pll_0v8(PWR_OFF);
+                // Pre-stamp the real root cause so that when the ASIC-frozen watchdog
+                // fires 3 minutes later, it sees this intent and does not overwrite it.
+                reboot_intent_set(REBOOT_INTENT_OVERHEAT_VCORE,
+                                "power overtemperature fault, Vcore/VDD/PLL shut down");
+                // Signal the display thread to show the OT alert overlay
+                xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_POWER_OT_FAULT);
+                // Park this thread — display/UI thread keeps running to handle user interaction
+                while(true) {
+                    delay(1000);
+                    LOG_E("ASIC powered down due to OverTemperature. Please check your cooling system and ambient temperature.");
+                }
             }
-        }
-        else if(ot_warn) {
-            static uint32_t last = millis(); // count in seconds
-            if(millis() - last >= 3000) { // if OT warning persists for 10 seconds, log a warning
-                LOG_W("Overtemperature WARNING detected...");
-                last = millis(); // reset count after logging
+            else if(ot_warn) {
+                static uint32_t last = millis(); // count in seconds
+                if(millis() - last >= 3000) { // if OT warning persists for 10 seconds, log a warning
+                    LOG_W("Overtemperature WARNING detected...");
+                    last = millis(); // reset count after logging
+                }
             }
+
         }
+
+
+
+
 
         if(miner_runtime_is_controlled_idle(board)) {
             continue;
@@ -1999,7 +2014,7 @@ void daemon_thread_entry(void *args){
         if(board->status.bm_mode == 0 && !miner_runtime_suppress_activity_checks(board)) {
       if(millis() - board->status.miner.asic_update > MINER_ASIC_ALIVE_TIMEOUT){
         LOG_W("ASIC seems frozen, restarting...");
-        reboot_intent_set(REBOOT_INTENT_ASIC_FROZEN,
+        reboot_intent_set_if_unset(REBOOT_INTENT_ASIC_FROZEN,
                           "no ASIC reply for %lums", (unsigned long)MINER_ASIC_ALIVE_TIMEOUT);
         xSemaphoreGive(board->status.reboot_xsem);
       }

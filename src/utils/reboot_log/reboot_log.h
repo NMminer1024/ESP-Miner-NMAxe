@@ -46,6 +46,7 @@ enum RebootIntent : uint8_t {
     REBOOT_INTENT_LCD_USER_RESTART    = 17, // user confirmed restart on LCD setting page
     REBOOT_INTENT_LCD_WIFI_SAVED      = 18, // user saved WiFi creds via on-screen wizard
     REBOOT_INTENT_FORCE_CONFIG        = 19, // long-press boot button → enter AP/config on next boot
+    REBOOT_INTENT_OVERCURRENT_FAULT   = 20, // power overcurrent fault — ASIC powered down by hardware protection
     // Append new values here, do NOT renumber existing ones.
     REBOOT_INTENT__COUNT
 };

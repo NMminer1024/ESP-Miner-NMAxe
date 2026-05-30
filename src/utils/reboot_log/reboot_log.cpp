@@ -100,6 +100,7 @@ const char* reboot_intent_str(uint8_t v) {
         case REBOOT_INTENT_LCD_USER_RESTART:    return "lcd_user_restart";
         case REBOOT_INTENT_LCD_WIFI_SAVED:      return "lcd_wifi_saved";
         case REBOOT_INTENT_FORCE_CONFIG:        return "force_config";
+        case REBOOT_INTENT_OVERCURRENT_FAULT:   return "overcurrent_fault";
         default:                                return "unknown";
     }
 }
