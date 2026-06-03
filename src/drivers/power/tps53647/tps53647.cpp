@@ -237,7 +237,7 @@ void TPS53647Class::hw_init(void){
     // 1011:57A
     // 1100:60A
     // 1101:63A
-    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0b0100 & 0x0F); 
+    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0b0011 & 0x0F); 
 
     // set number of phases
     this->_set_phases(this->_cfg.num_phases);
