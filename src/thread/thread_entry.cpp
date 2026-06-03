@@ -1271,7 +1271,7 @@ void swarm_thread_entry(void *args){
             char ip_buf[16];
             neighbor_ip_to_cstr(ip, ip_buf, sizeof(ip_buf));
             if (!wclient.connect(ip_buf, 80, 1000)) continue;
-            wclient.print("GET /alive HTTP/1.0\r\nHost: ");
+            wclient.print("GET /alive?src=swarm HTTP/1.0\r\nHost: ");
             wclient.print(ip_buf);
             wclient.print("\r\nConnection: close\r\n\r\n");
             String resp;
