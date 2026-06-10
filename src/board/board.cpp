@@ -181,7 +181,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1100;
             config.asic.max_vcore            = 1300;
-            config.asic.diff_thr_init        = 256;
+            config.asic.diff_thr_init        = 32;
             config.asic.com_baud_init        = 115200;
             config.asic.com_baud_work        = 1000000;
             config.asic.com_port             = &Serial1;
@@ -311,7 +311,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
             config.asic.min_vcore            = 1000;
             config.asic.max_vcore            = 1250;
-            config.asic.diff_thr_init        = 512;
+            config.asic.diff_thr_init        = 64;
             config.asic.rx_pin               = 44;
             config.asic.tx_pin               = 43;
             config.asic.rst_pin              = 45;
@@ -384,6 +384,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.ui.hashrate_dist_page.max_x_hr  = 10000;
             config.ui.hashrate_dist_page.max_x_bars= 20;
             config.ui.hashrate_dist_page.count     = 0;
+            config.asic.diff_thr_init        = 128;
 
             // --- per-variant fields ---
             if (model == NMQAXE_PLUS_PLUS) {
@@ -392,7 +393,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_vcore        = 1150;
                 config.asic.min_vcore            = 1000;
                 config.asic.max_vcore            = 1350;
-                config.asic.diff_thr_init        = 1024;
                 config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
                 config.ui.dashboard_page.power.power         = {0.0f, 160.0f};
@@ -426,7 +426,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                 config.asic.default_vcore        = 1250;
                 config.asic.min_vcore            = 1100;
                 config.asic.max_vcore            = 1550;
-                config.asic.diff_thr_init        = 1024;
                 config.asic.job_interval_ms      = 500;
                 config.ui.dashboard_page.power.ibus          = {0.0f, 18.0f};
                 config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
