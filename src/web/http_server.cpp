@@ -18,6 +18,48 @@ AsyncWebServer  webServer(80);
 // AsyncWebSocket runs on the same port 80 at path /ws, no separate port needed.
 AsyncWebSocket  webSocket("/ws");
 
+struct OtaLastResultSnapshot {
+    bool valid;
+    bool success;
+    bool reboot_pending;
+    uint16_t http_status;
+    uint32_t bytes;
+    uint32_t ts_ms;
+    char target[16];
+    char filename[40];
+    char detail[128];
+};
+
+static OtaLastResultSnapshot g_ota_last_result = {
+    false, false, false, 0, 0, 0, "", "", ""
+};
+
+static const char* ota_target_from_filename(const String& filename) {
+    if (filename == "firmware.bin") return "firmware";
+    if (filename == "spiffs.bin")   return "spiffs";
+    String lname = filename;
+    lname.toLowerCase();
+    if (lname.endsWith(".gif")) return "screensaver";
+    return "unknown";
+}
+
+static void ota_last_result_set(bool success,
+                                bool reboot_pending,
+                                uint16_t http_status,
+                                uint32_t bytes,
+                                const String& filename,
+                                const char* detail) {
+    g_ota_last_result.valid = true;
+    g_ota_last_result.success = success;
+    g_ota_last_result.reboot_pending = reboot_pending;
+    g_ota_last_result.http_status = http_status;
+    g_ota_last_result.bytes = bytes;
+    g_ota_last_result.ts_ms = millis();
+    snprintf(g_ota_last_result.target, sizeof(g_ota_last_result.target), "%s", ota_target_from_filename(filename));
+    snprintf(g_ota_last_result.filename, sizeof(g_ota_last_result.filename), "%s", filename.c_str());
+    snprintf(g_ota_last_result.detail, sizeof(g_ota_last_result.detail), "%s", detail ? detail : "");
+}
+
 bool isValidNumber(const String& str) {
     if (str.length() == 0) return false;
     bool hasDot = false;
@@ -1691,6 +1733,30 @@ void get_ota_progress(AsyncWebServerRequest* request) {
     request->send(response);
 }
 
+// GET /api/update/last-result -- snapshot of the latest OTA/upload outcome.
+void get_ota_last_result(AsyncWebServerRequest* request) {
+    BasicJsonDocument<PsramJsonAllocator> doc(768);
+    JsonObject obj = doc.to<JsonObject>();
+    obj["valid"] = g_ota_last_result.valid;
+    obj["success"] = g_ota_last_result.success;
+    obj["rebootPending"] = g_ota_last_result.reboot_pending;
+    obj["httpStatus"] = g_ota_last_result.http_status;
+    obj["bytes"] = g_ota_last_result.bytes;
+    obj["tsMs"] = g_ota_last_result.ts_ms;
+    obj["target"] = g_ota_last_result.target;
+    obj["filename"] = g_ota_last_result.filename;
+    obj["detail"] = g_ota_last_result.detail;
+    obj["running"] = g_board.status.ota.running;
+    obj["progress"] = g_board.status.ota.progress;
+
+    String body;
+    serializeJson(doc, body);
+
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", body);
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
+}
+
 // Unified upload handler for all file types:
 //   *.gif  → SPIFFS file write (screensaver)  — uses g_board.status.ota for progress
 //   *.bin  → OTA flash write (firmware/spiffs) — uses g_board.status.ota for progress
@@ -1715,6 +1781,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
     uint64_t flen = request->contentLength();
 
     if (index == 0) {
+        ota_last_result_set(false, false, 0, 0, filename, "upload_started");
+
         // Detect file type by extension
         String lname = filename;
         lname.toLowerCase();
@@ -1728,6 +1796,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             static const uint64_t GIF_MAX_BYTES = 400ULL * 1024;
             if (flen > GIF_MAX_BYTES) {
                 LOG_E("GIF upload rejected: file too large (%llu bytes, max %llu)", (unsigned long long)flen, (unsigned long long)GIF_MAX_BYTES);
+                ota_last_result_set(false, false, 400, (uint32_t)flen, filename, "GIF file too large (max 400 KB)");
                 request->send(400, "text/plain", "GIF file too large (max 400 KB).");
                 is_gif = false;
                 return;
@@ -1735,6 +1804,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             // Validate GIF magic bytes in the first chunk (must start with GIF87a or GIF89a).
             if (len < 6 || !(memcmp(data, "GIF87a", 6) == 0 || memcmp(data, "GIF89a", 6) == 0)) {
                 LOG_E("GIF upload rejected: invalid magic bytes");
+                ota_last_result_set(false, false, 400, (uint32_t)len, filename, "Not a valid GIF file");
                 request->send(400, "text/plain", "Not a valid GIF file.");
                 is_gif = false;
                 return;
@@ -1749,6 +1819,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             gif_file = SPIFFS.open(("/" + gif_name).c_str(), "w");
             if (!gif_file) {
                 LOG_E("GIF upload: failed to open /%s for writing", gif_name.c_str());
+                ota_last_result_set(false, false, 500, 0, filename, "Failed to open file for writing");
                 request->send(500, "text/plain", "Failed to open file for writing.");
                 return;
             }
@@ -1784,6 +1855,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             if (!Update.begin(bin_size, update_type)) {
                 LOG_E("OTA Update error: %s", Update.errorString());
                 String err_msg = String("OTA begin failed: ") + Update.errorString();
+                ota_last_result_set(false, false, 500, 0, filename, err_msg.c_str());
                 request->send(500, "text/plain", err_msg);
                 return;
             }
@@ -1803,6 +1875,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 LOG_E("GIF upload: write error at offset %u", (unsigned)index);
                 gif_file.close();
                 g_board.status.ota.running = false;
+                ota_last_result_set(false, false, 500, (uint32_t)(index + len), filename, "Write error");
                 request->send(500, "text/plain", "Write error.");
                 return;
             }
@@ -1825,6 +1898,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
             resp->addHeader("Access-Control-Allow-Origin", "*");
             request->send(resp);
+            ota_last_result_set(true, false, 200, (uint32_t)(index + len), filename, "upload_success");
 
             LOG_I("GIF upload finished, new screensaver will be used on next trigger without reboot");
         }
@@ -1844,6 +1918,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 if (Update.write(ota_buf, ota_buf_len) != ota_buf_len) {
                     LOG_E("OTA Update error: %s", Update.errorString());
                     String err_msg = String("OTA write failed: ") + Update.errorString();
+                    ota_last_result_set(false, false, 500, (uint32_t)(index + offset), filename, err_msg.c_str());
                     request->send(500, "text/plain", err_msg);
                     ota_buf_len = 0;
                     return;
@@ -1878,6 +1953,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
                 response->addHeader("Access-Control-Allow-Origin", "*");
                 request->send(response);
+                ota_last_result_set(true, true, 200, (uint32_t)(index + len), filename, "upload_success_reboot_pending");
 
                 LOG_W("*************** Update Success: %u bytes, rebooting *************** ", index + len);
                 // NOTE: delay() in async_tcp context blocks the TCP stack.
@@ -1888,6 +1964,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             } else {
                 LOG_E("OTA Update error: %s", Update.errorString());
                 String err_msg = String("OTA end failed: ") + Update.errorString();
+                ota_last_result_set(false, false, 500, (uint32_t)(index + len), filename, err_msg.c_str());
                 request->send(500, "text/plain", err_msg);
             }
         }

@@ -959,7 +959,16 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
           console.warn('⏰ Real-time data request timed out - this is usually temporary');
         } else if (error.status === 0) {
-          console.warn('🌐 Network connection issue for real-time data');
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            console.warn('🌐 Real-time request failed: browser is offline');
+          } else {
+            const eventType = error?.error instanceof ProgressEvent ? error.error.type : '';
+            if (eventType === 'abort') {
+              console.warn('🌐 Real-time request aborted by browser/client');
+            } else {
+              console.warn('🌐 Real-time request connection dropped (Wi-Fi jitter / TCP reset / AP roam)');
+            }
+          }
         } else {
           console.error('Error details:', {
             status: error.status,

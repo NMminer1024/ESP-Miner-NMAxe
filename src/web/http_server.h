@@ -21,6 +21,7 @@ void get_theme_handler(AsyncWebServerRequest * request);
 void options_theme_handler(AsyncWebServerRequest * request);
 void post_reset_block_hits(AsyncWebServerRequest * request);
 void get_ota_progress(AsyncWebServerRequest* request);
+void get_ota_last_result(AsyncWebServerRequest* request);
 // ── Reboot history (planned vs crash, persisted across boots) ───────────────
 void get_reboot_last(AsyncWebServerRequest * request);
 void get_reboot_list(AsyncWebServerRequest * request);

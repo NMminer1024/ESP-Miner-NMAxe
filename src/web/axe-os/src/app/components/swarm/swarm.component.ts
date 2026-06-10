@@ -517,13 +517,29 @@ export class SwarmComponent implements OnInit, OnDestroy {
   // Filter methods
   private extractOtaError(err: any): string {
     if (err.error && typeof err.error === 'string' && err.error.trim().length > 0) {
+      if (err.status && err.status > 0) {
+        return `HTTP ${err.status}: ${err.error.trim()}`;
+      }
       return err.error.trim();
     }
+    if (err?.name === 'TimeoutError') {
+      return 'Request timeout: device response took too long';
+    }
     if (err.status === 0) {
-      return 'Connection lost \u2014 device may have rebooted';
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return 'Network disconnected: browser is offline';
+      }
+      const eventType = err?.error instanceof ProgressEvent ? err.error.type : '';
+      if (eventType === 'abort') {
+        return 'Upload aborted by browser/client';
+      }
+      return 'Connection dropped: device temporarily unreachable (Wi-Fi jitter / TCP reset / AP roam)';
     }
     if (err.status >= 500) {
-      return `Server error (HTTP ${err.status})`;
+      return `Server error (HTTP ${err.status}): device update handler failed`;
+    }
+    if (err.status >= 400) {
+      return `Client request error (HTTP ${err.status})`;
     }
     return err.message || 'Unknown error';
   }

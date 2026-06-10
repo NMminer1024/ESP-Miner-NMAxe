@@ -30,6 +30,20 @@ export interface IProbeInfo {
   sh: number;
 }
 
+export interface IOtaLastResult {
+  valid: boolean;
+  success: boolean;
+  rebootPending: boolean;
+  target: string;
+  filename: string;
+  detail: string;
+  httpStatus: number;
+  bytes: number;
+  tsMs: number;
+  running: boolean;
+  progress: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -275,6 +289,10 @@ export class SystemService {
     );
   }
 
+  public getOtaLastResult(uri: string = ''): Observable<IOtaLastResult> {
+    return this.httpClient.get<IOtaLastResult>(`${uri}/api/update/last-result`);
+  }
+
   public getHashrateDistribution(uri: string = ''): Observable<any> {
     return this.httpClient.get(`${uri}/api/dashboard/hr/dist`);
   }
@@ -361,8 +379,9 @@ export class SystemService {
           console.error(`⏰ Request timed out after ${timeoutMs/1000}s for sample interval ${sampleInterval}`);
           throw new Error(`Request timed out after ${timeoutMs/1000} seconds. Try using a lower detail level.`);
         } else if (error.status === 0) {
-          console.error('🌐 Network connection failed');
-          throw new Error('Network connection failed. Please check your connection.');
+          const detail = this.describeStatusZeroError(error);
+          console.error(`🌐 ${detail}`);
+          throw new Error(detail);
         } else {
           console.error('❌ HTTP request failed:', error);
           throw error;
@@ -417,8 +436,9 @@ export class SystemService {
           console.error('⏰ Lucky history request timed out after 60s');
           throw new Error('Lucky history request timed out after 60 seconds.');
         } else if (error.status === 0) {
-          console.error('🌐 Lucky history network connection failed');
-          throw new Error('Network connection failed. Please check your connection.');
+          const detail = this.describeStatusZeroError(error);
+          console.error(`🌐 Lucky history network issue: ${detail}`);
+          throw new Error(detail);
         } else {
           console.error('❌ Lucky history HTTP request failed:', error);
           throw error;
@@ -434,6 +454,23 @@ export class SystemService {
     
     return this.httpClient.get<StatusHistoryResponse>(`${uri}/api/dashboard/luck/realtime`, { headers })
       .pipe(timeout(20000)); // 实时数据20秒超时
+  }
+
+  private describeStatusZeroError(error: any): string {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return 'Network disconnected: browser is offline.';
+    }
+
+    const eventType = error?.error instanceof ProgressEvent ? error.error.type : '';
+    if (eventType === 'abort') {
+      return 'Request aborted by browser/client.';
+    }
+
+    if (eventType === 'timeout') {
+      return 'Connection timeout at transport layer.';
+    }
+
+    return 'Connection dropped: device or network temporarily unreachable (Wi-Fi jitter / TCP reset / AP roam).';
   }
 
   public getGaugeLimits(uri: string = ''): Observable<IGaugeLimits> {

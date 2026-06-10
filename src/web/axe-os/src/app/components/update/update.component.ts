@@ -2,7 +2,7 @@ import {HttpErrorResponse, HttpEventType} from '@angular/common/http';
 import {AfterViewInit, ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
 import {ToastrService} from 'ngx-toastr';
 import {FileUpload, FileUploadHandlerEvent} from 'primeng/fileupload';
-import {map, Observable, shareReplay, switchMap} from 'rxjs';
+import {catchError, firstValueFrom, map, Observable, of, shareReplay, switchMap, timeout} from 'rxjs';
 import {GithubUpdateService} from 'src/app/services/github-update.service';
 import {SystemService} from 'src/app/services/system.service';
 import { marked } from 'marked';
@@ -38,6 +38,10 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
   public isLatestSelected: boolean = true; // 是否选中的是最新版本
   public isDevelopmentVersionSelected: boolean = false; // 是否选中的是开发版本
   public probeInfo: { sw?: number; sh?: number } | null = null;
+
+  // Snapshot reboot index before each OTA upload; used for status=0 post-check.
+  private otaBaselineBootIdx: number | null = null;
+  private readonly otaDiagKey = 'axeos.otaDiag';
 
   public get screensaverResolutionHint(): string {
     const sw = Number(this.probeInfo?.sw);
@@ -497,11 +501,15 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // Wake the screensaver first; only after the wakeup response comes back do we
-    // start streaming the firmware binary, ensuring the screen is already on.
-    this.systemService.wakeup().pipe(
-      switchMap(() => this.systemService.performOTAUpdate(file))
-    ).subscribe({
+    this.captureOtaBaselineBootIdx().then((bootIdx) => {
+      this.otaBaselineBootIdx = bootIdx;
+      this.otaDiag('baseline.bootIdx', { bootIdx, target: 'firmware' });
+
+      // Wake the screensaver first; only after the wakeup response comes back do we
+      // start streaming the firmware binary, ensuring the screen is already on.
+      this.systemService.wakeup().pipe(
+        switchMap(() => this.systemService.performOTAUpdate(file))
+      ).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
             if (this.firmwareUpdateProgress === null) {
@@ -524,9 +532,9 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         },
-        error: (err) => {
+        error: async (err) => {
           this.stopProgressPolling();
-          const reason = this.extractOtaError(err);
+          const reason = await this.extractOtaError(err, 'firmware', this.firmwareUpdateProgress);
           this.toastrService.error(reason, 'Firmware Update Failed');
           this.firmwareUpdateProgress = null;
           this.otaFileUploader.clear();
@@ -536,6 +544,7 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
           this.otaFileUploader.clear();
         }
       });
+    });
   }
 
   otaWWWUpdate(event: FileUploadHandlerEvent) {
@@ -546,11 +555,15 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // Wake the screensaver first; only after the wakeup response comes back do we
-    // start streaming the SPIFFS binary, ensuring the screen is already on.
-    this.systemService.wakeup().pipe(
-      switchMap(() => this.systemService.performWWWOTAUpdate(file))
-    ).subscribe({
+    this.captureOtaBaselineBootIdx().then((bootIdx) => {
+      this.otaBaselineBootIdx = bootIdx;
+      this.otaDiag('baseline.bootIdx', { bootIdx, target: 'spiffs' });
+
+      // Wake the screensaver first; only after the wakeup response comes back do we
+      // start streaming the SPIFFS binary, ensuring the screen is already on.
+      this.systemService.wakeup().pipe(
+        switchMap(() => this.systemService.performWWWOTAUpdate(file))
+      ).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
             if (this.websiteUpdateProgress === null) {
@@ -574,9 +587,9 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         },
-        error: (err) => {
+        error: async (err) => {
           this.stopProgressPolling();
-          const reason = this.extractOtaError(err);
+          const reason = await this.extractOtaError(err, 'spiffs', this.websiteUpdateProgress);
           this.toastrService.error(reason, 'SPIFFS Update Failed');
           this.websiteUpdateProgress = null;
           this.wwwFileUploader.clear();
@@ -586,6 +599,7 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
           this.wwwFileUploader.clear();
         }
       });
+    });
   }
 
   uploadScreensaver(event: FileUploadHandlerEvent) {
@@ -629,9 +643,9 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         },
-        error: (err: HttpErrorResponse) => {
+        error: async (err: HttpErrorResponse) => {
           this.stopProgressPolling();
-          const reason = this.extractOtaError(err);
+          const reason = await this.extractOtaError(err, 'screensaver', this.screensaverUpdateProgress);
           this.toastrService.error(reason, 'Screen Saver Upload Failed');
           this.screensaverUpdateProgress = null;
           this.screensaverFileUploader.clear();
@@ -642,20 +656,191 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
-  private extractOtaError(err: any): string {
-    // err.error is the raw response body (responseType: 'text'), which is the
-    // plain-text message sent by the ESP32 backend (e.g. "OTA write failed: MD5 check failed")
-    if (err.error && typeof err.error === 'string' && err.error.trim().length > 0) {
-      return err.error.trim();
+  private async extractOtaError(
+    err: any,
+    target: 'firmware' | 'spiffs' | 'screensaver',
+    progress: number | null
+  ): Promise<string> {
+    // Backend plain-text error body always has highest priority when present.
+    if (err?.error && typeof err.error === 'string' && err.error.trim().length > 0) {
+      const msg = err.error.trim();
+      if (err.status && err.status > 0) {
+        return `HTTP ${err.status}: ${msg}`;
+      }
+      return msg;
     }
-    // status 0 means the connection was dropped — device likely rebooted unexpectedly
-    if (err.status === 0) {
-      return 'Connection lost — device may have rebooted unexpectedly';
+
+    if (err?.name === 'TimeoutError') {
+      return 'Request timeout: device response took too long.';
     }
-    if (err.status >= 500) {
-      return `Server error (HTTP ${err.status})`;
+
+    if (err?.status === 0) {
+      return await this.resolveStatus0OtaError(target, progress, err);
     }
-    return err.message || 'Unknown error';
+
+    if (err?.status >= 500) {
+      return `Server error (HTTP ${err.status}): device update handler failed.`;
+    }
+
+    if (err?.status >= 400) {
+      return `Client request error (HTTP ${err.status}).`;
+    }
+
+    return err?.message || 'Unknown error';
+  }
+
+  private async captureOtaBaselineBootIdx(): Promise<number | null> {
+    try {
+      const rec = await firstValueFrom(
+        this.systemService.getRebootLast().pipe(
+          timeout(3000),
+          catchError(() => of(null))
+        )
+      );
+      return rec && typeof rec.idx === 'number' ? rec.idx : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolveStatus0OtaError(
+    target: 'firmware' | 'spiffs' | 'screensaver',
+    progress: number | null,
+    err: HttpErrorResponse
+  ): Promise<string> {
+    this.otaDiag('status0.received', {
+      target,
+      progress,
+      eventType: err?.error instanceof ProgressEvent ? err.error.type : '',
+      online: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown'
+    });
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      this.otaDiag('status0.browserOffline');
+      return 'Network disconnected: browser is offline.';
+    }
+
+    const eventType = err?.error instanceof ProgressEvent ? err.error.type : '';
+    if (eventType === 'abort') {
+      this.otaDiag('status0.abortByClient');
+      return 'Upload aborted by browser/client.';
+    }
+
+    // Wait briefly so device has time to switch state (especially near OTA finish).
+    await this.sleep(1200);
+
+    const deviceOnline = await this.isDeviceReachable();
+    this.otaDiag('status0.deviceReachable', { deviceOnline });
+    if (!deviceOnline) {
+      if (progress !== null && progress >= 90) {
+        return 'Connection dropped near completion: device may be applying update/rebooting. Wait 10-20s and refresh.';
+      }
+      return 'Connection dropped: device temporarily unreachable (Wi-Fi jitter / TCP reset / AP roam).';
+    }
+
+    if (target === 'screensaver') {
+      return 'Upload connection interrupted, but device is online. Likely transient network interruption.';
+    }
+
+    const lastResult = await this.getOtaLastResultSnapshot();
+    this.otaDiag('status0.lastResult', lastResult);
+    if (lastResult) {
+      if (lastResult.success && lastResult.rebootPending) {
+        return 'Upload likely finished: device marked OTA success and is rebooting/reconnecting.';
+      }
+      if (!lastResult.success && lastResult.detail) {
+        const httpPart = lastResult.httpStatus > 0 ? `HTTP ${lastResult.httpStatus}: ` : '';
+        return `${httpPart}${lastResult.detail}`;
+      }
+    }
+
+    const rebootState = await this.detectRebootStateSinceBaseline();
+    this.otaDiag('status0.rebootState', { rebootState });
+    if (rebootState === 'ota-planned') {
+      return 'Upload likely finished: device performed planned OTA reboot. Wait for reconnect.';
+    }
+    if (rebootState === 'rebooted') {
+      return 'Connection interrupted and device rebooted. Check Reboot History for detailed cause.';
+    }
+
+    return 'Connection interrupted, but device is online and no reboot detected. Likely transient network interruption.';
+  }
+
+  private async isDeviceReachable(): Promise<boolean> {
+    try {
+      await firstValueFrom(
+        this.systemService.getInfo().pipe(
+          timeout(4000),
+          catchError(() => of(null))
+        )
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async detectRebootStateSinceBaseline(): Promise<'ota-planned' | 'rebooted' | 'not-rebooted' | 'unknown'> {
+    const baseline = this.otaBaselineBootIdx;
+    if (baseline === null || baseline === undefined) {
+      return 'unknown';
+    }
+
+    try {
+      const rec = await firstValueFrom(
+        this.systemService.getRebootLast().pipe(
+          timeout(4000),
+          catchError(() => of(null))
+        )
+      );
+
+      if (!rec || typeof rec.idx !== 'number') {
+        return 'unknown';
+      }
+
+      if (rec.idx <= baseline) {
+        return 'not-rebooted';
+      }
+
+      if (rec.intent === 'ota_finished') {
+        return 'ota-planned';
+      }
+
+      return 'rebooted';
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  private async getOtaLastResultSnapshot(): Promise<any | null> {
+    try {
+      return await firstValueFrom(
+        this.systemService.getOtaLastResult().pipe(
+          timeout(3000),
+          catchError(() => of(null))
+        )
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  private otaDiag(step: string, payload?: any): void {
+    try {
+      const enabled = localStorage.getItem(this.otaDiagKey) === '1';
+      if (!enabled) return;
+      if (payload !== undefined) {
+        console.log(`[OTA-DIAG] ${step}`, payload);
+      } else {
+        console.log(`[OTA-DIAG] ${step}`);
+      }
+    } catch {
+      // ignore localStorage access failures
+    }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private startProgressPolling(target: 'firmware' | 'spiffs' | 'screensaver') {

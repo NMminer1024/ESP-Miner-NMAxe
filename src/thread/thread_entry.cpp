@@ -718,6 +718,7 @@ void webserver_thread_entry(void *args){
     webServer.on("/api/log", HTTP_GET, echo_handler);
     // ── OTA update endpoints ──────────────────────────────────────────────────
     webServer.on("/api/update/progress", HTTP_GET,  get_ota_progress);                                          // progress poll
+    webServer.on("/api/update/last-result", HTTP_GET, get_ota_last_result);                                     // last OTA result snapshot
     // Wakeup is handled by the frontend: swarm/update pages call /api/wakeup before uploading.
     webServer.on("/api/update/firmware", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
     webServer.on("/api/update/spiffs",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
@@ -2592,6 +2593,10 @@ void miner_asic_rx_thread_entry(void *args){
             continue;
         }
         if(board->miner->is_asic_frequency_updating()){
+            delay(50);
+            continue;
+        }
+        if(board->status.ota.running){
             delay(50);
             continue;
         }
