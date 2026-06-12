@@ -16,12 +16,13 @@
 #define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"       
 #define BOARD_NMQAXE_PLUS_PLUS_NAME                     "NMQAxe++"
 #define BOARD_NMQAXE_PLUS_PLUS_REV61_NAME               "NMQAxe++Rev6.1"
+#define BOARD_NMQAXE_PLUS_PLUS_REV81_NAME               "NMQAxe++Rev8.1"
 
 #define CHIP_NMAXE_NAME                                 "BM1366"
 #define CHIP_NMAXE_GAMMA_NAME                           "BM1370"
 #define CHIP_NMQAXE_PLUS_PLUS_NAME                      "BM1370"
 #define CHIP_NMQAXE_PLUS_PLUS_REV61_NAME                "BM1370"
-
+#define CHIP_NMQAXE_PLUS_PLUS_REV81_NAME                "BM1373"
 
 #define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
 #define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
@@ -42,6 +43,7 @@ typedef enum {
     NMAXE_GAMMA             = 0b010,
     NMQAXE_PLUS_PLUS        = 0b101,
     NMQAXE_PLUS_PLUS_REV61  = 0b111,
+    NMQAXE_PLUS_PLUS_REV81  = 0b100,
     BOARD_UNKNOWN           = 0b000
 } BoardModelType;
 
