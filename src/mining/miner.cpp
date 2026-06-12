@@ -244,6 +244,8 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
 
     LOG_D("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
 
+    // dbg::hex_print((uint8_t*)&this->_asic_job_now, sizeof(asic_job), "asic_job_now");
+
     ////////////////////////////////////////send asic job//////////////////////////////////
     this->_asic->send_work_to_asic(&this->_asic_job_now);
     return true;

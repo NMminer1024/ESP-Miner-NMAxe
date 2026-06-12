@@ -315,7 +315,11 @@ esp_err_t BM1370::wait_for_result(miner_result *result, uint32_t timeout_ms){
         return ESP_ERR_INVALID_RESPONSE;
     }
 
+    // hex dump raw response for CRC diagnosis
+    // dbg::hex_print(rsp, 11, "asic_rsp_raw");
+
     asic_result asic  = *(asic_result*)(rsp);
+
     asic.job_id       = (asic.job_id & 0xf0) >> 1; // upper 4 bits are job id for BM1370
     int asic_id       = (uint8_t) ((asic.nonce & 0x0000fc00) >> 11);
 
