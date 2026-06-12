@@ -83,26 +83,26 @@ void MinerApp::begin() {
         {"(display)",   display_thread_entry,           1024*5,   TASK_PRIORITY_DISPLAY,     1, NULL,             10,  0},
         {"(lvgl)",      lvgl_tick_thread_entry,         (uint32_t)(1024*4.5),   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
         {"(ui)",        ui_thread_entry,                1024*4,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
-        {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
-        {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,         1, &_btnTask,        10,  0},
-        {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,          0, &_wsTask,         10,  0},
+        // {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
+        // {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,         1, &_btnTask,        10,  0},
+        // {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,          0, &_wsTask,         10,  0},
         {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,        1, NULL,             10,  0},
-        {"(daemon)",    daemon_thread_entry,            1024*4,   TASK_PRIORITY_DAEMON,      0, &_daemonTask,     10,  0},
-        {"(pwr_init)",  power_init_thread_entry,        1024*7,   TASK_PRIORITY_PWR,         1, NULL,             0,   0},
-        {"(pwr_loop)",  power_loop_thread_entry,        1024*5,   TASK_PRIORITY_PWR,         1, &_powerTask,      10,  0},
-        {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*5,   TASK_PRIORITY_ASIC_CNT,    1, NULL,             10,  0},
+        // {"(daemon)",    daemon_thread_entry,            1024*4,   TASK_PRIORITY_DAEMON,      0, &_daemonTask,     10,  0},
+        // {"(pwr_init)",  power_init_thread_entry,        1024*7,   TASK_PRIORITY_PWR,         1, NULL,             0,   0},
+        // {"(pwr_loop)",  power_loop_thread_entry,        1024*5,   TASK_PRIORITY_PWR,         1, &_powerTask,      10,  0},
+        // {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*5,   TASK_PRIORITY_ASIC_CNT,    1, NULL,             10,  0},
         {"(asic_init)", miner_asic_init_thread_entry,   1024*6,   TASK_PRIORITY_ASIC_INIT,   1, NULL,             10,  0},
-        {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,         0, &_fanTask,        10,  0},
+        // {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,         0, &_fanTask,        10,  0},
         // synchronisation point: wait for these events before starting the next batch
-        {"",            NULL,                           0,        0,                         0, NULL,             0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_FAN_READY},
-        {"(swarm)",     swarm_thread_entry,             (uint32_t)(1024*4),   TASK_PRIORITY_SWARM,       0, &_swarmTask,      10,  0},
-        {"(market)",    market_thread_entry,            1024*6,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
+        // {"",            NULL,                           0,        0,                         0, NULL,             0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_FAN_READY},
+        // {"(swarm)",     swarm_thread_entry,             (uint32_t)(1024*4),   TASK_PRIORITY_SWARM,       0, &_swarmTask,      10,  0},
+        // {"(market)",    market_thread_entry,            1024*6,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
         {"(stratum)",   stratum_thread_entry,           1024*11,  TASK_PRIORITY_STRATUM,     1, &_stratumTask,    10,  0},
-        {"(monitor)",   monitor_thread_entry,           1024*5,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
-        {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SCAN,        0, &_neighborTask,   10,  0},
+        // {"(monitor)",   monitor_thread_entry,           1024*5,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
+        // {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SCAN,        0, &_neighborTask,   10,  0},
         {"(asic_tx)",   miner_asic_tx_thread_entry,     1024*7,   TASK_PRIORITY_MINER_TX,    1, &_minerTxTask,    10,  0},
         {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*6,   TASK_PRIORITY_MINER_RX,    0, &_minerRxTask,    1000,  0},
-        {"(benchmark)", benchmark_thread_entry,         1024*6,   TASK_PRIORITY_MONITOR,     0, NULL,             10,  0},
+        // {"(benchmark)", benchmark_thread_entry,         1024*6,   TASK_PRIORITY_MONITOR,     0, NULL,             10,  0},
         // {"(aphorism)",  aphorism_thread_entry,          1024*6,   TASK_PRIORITY_APHORISM,    0, &_aphorismTask,   10,  0},
     };
 
@@ -205,19 +205,28 @@ void MinerApp::_tick_thread_entry(void* args) {
         tft_bl_ctrl(brightness);
 
 
-        // sensor reading and other periodic tasks can also be added here if needed
-        //update board temperature
-        static uint16_t vcore_temp_last_update = 0, asic_temp_last_update = 0;
-        if(millis() - vcore_temp_last_update >= 125){
-            board->status.temp.vcore = roundf(temp_hal_get_vcore() * 10) / 10.0f;
-            xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_VCORE_TEMP_UPDATE);
-            vcore_temp_last_update = millis();
-        }
-        if(millis() - asic_temp_last_update >= 125){
-            board->status.temp.asic  = roundf(temp_hal_get_asic() * 100) / 100.0f;
-            xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
-            asic_temp_last_update = millis();
-        }
+
+
+
+        // // sensor reading and other periodic tasks can also be added here if needed
+        // //update board temperature
+        // static uint16_t vcore_temp_last_update = 0, asic_temp_last_update = 0;
+        // if(millis() - vcore_temp_last_update >= 125){
+        //     board->status.temp.vcore = roundf(temp_hal_get_vcore() * 10) / 10.0f;
+        //     xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_VCORE_TEMP_UPDATE);
+        //     vcore_temp_last_update = millis();
+        // }
+        // if(millis() - asic_temp_last_update >= 125){
+        //     board->status.temp.asic  = roundf(temp_hal_get_asic() * 100) / 100.0f;
+        //     xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
+        //     asic_temp_last_update = millis();
+        // }
+
+
+
+
+
+
 
 
         // // consume one aphorism every 30 s: pop from front, log, erase

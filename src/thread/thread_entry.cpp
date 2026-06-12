@@ -2329,7 +2329,7 @@ void miner_asic_init_thread_entry(void *args){
     // wait for vcore ready
     // wait fan self-test event
     // wait wifi connect
-    xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_VCORE_READY | INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
+    // xEventGroupWaitBits(g_board.status.init_evt, INIT_EVENT_ASIC_COUNTED | INIT_EVENT_VCORE_READY | INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
 
     //begin asic hardware
     if(!board->miner->begin(board->info.spec.asic.req_frq, board->info.spec.asic.diff_thr_init, board->info.spec.asic.com_baud_work)){
@@ -2918,7 +2918,7 @@ void stratum_thread_entry(void *args){
                     }
                     break;
                 case STRATUM_DOWN_NOTIFY:{
-                        LOG_D("Stratum notify, id : %d => %s", method.id, method.raw.c_str());
+                        LOG_W("Stratum notify, id : %d => %s", method.id, method.raw.c_str());
                         pool_job_data_t job;
                         json.clear();
                         DeserializationError error = deserializeJson(json, method.raw);
@@ -3224,6 +3224,30 @@ void display_thread_entry(void *args){
   xEventGroupSetBits(board->status.init_evt, INIT_EVENT_SCREEN_READY);  
   // wait lvgl and ui thread ready
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_UI_READY | INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+
+
+
+
+
+  //for test purpose 
+  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+  
+  /***************************************scroll to last page******************************************/
+  ui_goto_page(board->status.ui.page.last, LV_ANIM_ON);
+  //exit this thread
+  vTaskDelete(NULL);
+
+
+
+
+
+
+
+
+
+
+
+
 
   uint16_t cnt = 0;
   /****************************************wait for Vbus ready*******************************************/

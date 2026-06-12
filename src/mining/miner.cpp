@@ -193,6 +193,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     if(g_board.info.spec.asic.name == CHIP_NMAXE_NAME)                  step = 8;
     else if (g_board.info.spec.asic.name == CHIP_NMAXE_GAMMA_NAME)      step = 24;
     else if (g_board.info.spec.asic.name == CHIP_NMQAXE_PLUS_PLUS_NAME) step = 24;
+    else if (g_board.info.spec.asic.name == CHIP_NMQAXE_PLUS_PLUS_REV81_NAME) step = 24;
     else LOG_W("Unknown ASIC model, using default step 8");
 
     this->_asic_job_now.id = (this->_asic_job_now.id + step) % 128;
@@ -244,7 +245,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
 
     LOG_D("ASIC job [%03d] with ext2 [%s]", this->_asic_job_now.id, extranonce2.c_str());
 
-    // dbg::hex_print((uint8_t*)&this->_asic_job_now, sizeof(asic_job), "asic_job_now");
+    dbg::hex_print((uint8_t*)&this->_asic_job_now, sizeof(asic_job), "asic_job_now");
 
     ////////////////////////////////////////send asic job//////////////////////////////////
     this->_asic->send_work_to_asic(&this->_asic_job_now);

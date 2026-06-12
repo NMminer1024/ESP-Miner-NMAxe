@@ -12,6 +12,9 @@
 #include "drivers/temp/temp_hal.h"
 
 BoardModelType get_board_model(){
+    return NMQAXE_PLUS_PLUS_REV81; // Force override for testing; comment out to enable real pin reading
+
+
     // ── Step 1: active discharge ──────────────────────────────────────────────
     // Drive all model-select pins OUTPUT LOW to discharge any external
     // capacitance (e.g. fan-PWM filter caps on GPIO10) that may have charged
@@ -560,7 +563,6 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
             break;
         case NMQAXE_PLUS_PLUS_REV81:
-            // --- shared: NMQAXE_PLUS_PLUS and NMQAXE_PLUS_PLUS_REV61 ---
             config.name                      = BOARD_NMQAXE_PLUS_PLUS_NAME;     // runtime functional ID
             config.asic.name                 = CHIP_NMQAXE_PLUS_PLUS_REV81_NAME;
             config.asic.num_req              = 4;
