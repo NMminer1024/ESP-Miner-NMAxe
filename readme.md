@@ -65,7 +65,7 @@ NMAxe series are ESP32-S3 based Bitcoin solo miners forked from [bitaxe](https:/
 | solobtc.nmminer.com | 3333 | BTC | 0.001 |
 | au.solobtc.nmminer.com | 3333 | BTC | 0.001 |
 | solo.ckpool.org | 3333 | BTC | 10K (auto-adjusted) |
-| pool.nmminer.com | 3333 | XEC | 1K (auto-adjusted) |
+| xec.nmminer.com | 3333 | XEC | 1K (auto-adjusted) |
 | eu.molepool.com | 7450 | DGB | 32.768K |
 | eu.molepool.com | 5566 | BCH | 32.768K |
 | eu.molepool.com | 2566 | SPACE | 32.768K |
