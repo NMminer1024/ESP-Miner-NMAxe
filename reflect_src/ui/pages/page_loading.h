@@ -2,8 +2,6 @@
 
 #include "ui/hal.h"
 #include "app/app_state.h"
-
-#if defined(LVGL_ENABLE)
 #include "lvgl.h"
 
 // ============================================================================
@@ -30,11 +28,3 @@ private:
     static void _on_text   (const String&   v, void* ctx);
     static void _on_color  (const uint32_t& v, void* ctx);
 };
-
-#else
-class PageLoadingBase : public UIPage {
-public:
-    void _on_update() override {}
-    void destroy() override {}
-};
-#endif

@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+#include "lvgl.h"
+#include <Arduino.h>
+
 // ============================================================================
 // UIPage — UI page abstract base class
 //
@@ -12,11 +15,6 @@
 //   Page base classes implement their own throttling in _on_update().
 //   NEVER operate LVGL objects outside the LVGL task thread.
 // ============================================================================
-
-#if defined(LVGL_ENABLE)
-#include "lvgl.h"
-#include <Arduino.h>
-
 class UIPage {
 public:
     virtual ~UIPage() = default;
@@ -30,19 +28,3 @@ public:
 protected:
     virtual void _on_update() = 0;
 };
-
-#else
-
-// Stub for non-LVGL builds
-class UIPage {
-public:
-    virtual ~UIPage() = default;
-    virtual void        create(void* parent) = 0;
-    void                update() {}
-    virtual void        destroy()   = 0;
-    virtual const char* name() const = 0;
-protected:
-    virtual void _on_update() {}
-};
-
-#endif // LVGL_ENABLE

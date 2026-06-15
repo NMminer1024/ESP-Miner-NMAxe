@@ -1,7 +1,5 @@
 ﻿#include "pages/page_miner.h"
 
-#if defined(LVGL_ENABLE)
-
 // ============================================================================
 // destroy() — unsubscribe all Observables, null widget pointers
 // ============================================================================
@@ -87,4 +85,3 @@ void PageMinerBase::_on_color(const uint32_t& v, void* ctx) {
     if (*lbl) lv_obj_set_style_text_color(*lbl, lv_color_hex(v), 0);
 }
 
-#endif // LVGL_ENABLE

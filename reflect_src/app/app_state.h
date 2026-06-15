@@ -3,10 +3,7 @@
 #include <Arduino.h>
 #include <vector>
 #include <algorithm>
-
-#if defined(LVGL_ENABLE)
 #include "lvgl.h"
-#endif
 
 // ============================================================================
 // Observable<T> — thread-safe observable property
@@ -58,7 +55,6 @@ private:
 
     void _dispatch() {
         if (_subs.empty()) return;
-#if defined(LVGL_ENABLE)
         vTaskSuspendAll();
         auto* msg = new (std::nothrow) AsyncMsg{ _val, _subs };
         if (msg) {
@@ -69,9 +65,6 @@ private:
             }, msg);
         }
         xTaskResumeAll();
-#else
-        for (auto& s : _subs) s.obs(_val, s.ctx);
-#endif
     }
 };
 

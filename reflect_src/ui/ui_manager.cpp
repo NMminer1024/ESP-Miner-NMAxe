@@ -3,7 +3,6 @@
 #include "utils/logger/logger.h"
 #include "app/app_state.h"
 
-#if defined(LVGL_ENABLE)
 
 // ============================================================================
 //  Singleton
@@ -214,4 +213,3 @@ void UIManager::_scroll_end_cb(lv_event_t* e) {
     LOG_D("UIManager: scroll_end -> tile %u", (unsigned)self._current);
 }
 
-#endif // LVGL_ENABLE

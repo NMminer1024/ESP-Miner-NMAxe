@@ -2,12 +2,9 @@
 
 #include <stdint.h>
 #include "hal.h"
+#include "lvgl.h"
 #include <vector>
 #include <functional>
-
-#if defined(LVGL_ENABLE)
-#include "lvgl.h"
-#endif
 
 // ============================================================================
 // UIPageId — page enum (order must match _register_page calls in init())
@@ -70,7 +67,6 @@ private:
     volatile bool          _goto_page_pending = false;
     volatile uint8_t       _goto_page_id = 0;
 
-#if defined(LVGL_ENABLE)
     struct TileEntry { lv_obj_t* obj; uint8_t col; uint8_t row; };
     lv_obj_t*               _tileview      = nullptr;
     std::vector<TileEntry>  _tile_entries;
@@ -83,5 +79,4 @@ private:
     static void _released_cb(lv_event_t* e);
     static void _scroll_end_cb(lv_event_t* e);
     static void _scroll_begin_cb(lv_event_t* e);
-#endif
 };

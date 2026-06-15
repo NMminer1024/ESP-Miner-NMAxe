@@ -1,7 +1,5 @@
 ﻿#include "page_miner.h"
 
-#if defined(LVGL_ENABLE)
-
 #include "utils/logger/logger.h"
 
 // ============================================================================
@@ -154,4 +152,3 @@ void PageMiner320x240::_create_dynamic(lv_obj_t* parent) {
     lv_obj_align(_lb_swarm_bd, LV_ALIGN_BOTTOM_RIGHT, -5, -30);
 }
 
-#endif // LVGL_ENABLE

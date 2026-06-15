@@ -554,7 +554,6 @@ void MinerApp::_lvgl_thread_entry(void* args) {
 //  _ui_init() — allocate frame buffer, register display/touch drivers
 // ============================================================================
 bool MinerApp::_ui_init() {
-#if defined(LVGL_ENABLE)
     lv_coord_t w = (lv_coord_t)_board_spec->tft.width;
     lv_coord_t h = (lv_coord_t)_board_spec->tft.height;
 
@@ -595,8 +594,4 @@ bool MinerApp::_ui_init() {
 
     LOG_I("LVGL display driver registered: %dx%d", w, h);
     return true;
-#else
-    LOG_W("LVGL not enabled in build flags");
-    return false;
-#endif
 }

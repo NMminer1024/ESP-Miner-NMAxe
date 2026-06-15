@@ -1,7 +1,5 @@
 ﻿#include "pages/page_loading.h"
 
-#if defined(LVGL_ENABLE)
-
 void PageLoadingBase::destroy() {
     auto& l = AppState::instance().loading;
 
@@ -40,4 +38,3 @@ void PageLoadingBase::_on_color(const uint32_t& v, void* ctx) {
     if (*lbl) lv_obj_set_style_text_color(*lbl, lv_color_hex(v), 0);
 }
 
-#endif // LVGL_ENABLE

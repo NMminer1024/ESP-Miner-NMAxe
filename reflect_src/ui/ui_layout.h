@@ -9,8 +9,6 @@
 //  Add new resolutions here as needed.
 // ============================================================================
 
-#if defined(LVGL_ENABLE)
-
 #if defined(UI_LAYOUT_320x240)
     #include "layouts/layout_320x240/page_loading.h"
     #include "layouts/layout_320x240/page_miner.h"
@@ -19,5 +17,3 @@
     #include "layouts/layout_320x240/page_loading.h"
     #include "layouts/layout_320x240/page_miner.h"
 #endif
-
-#endif // LVGL_ENABLE

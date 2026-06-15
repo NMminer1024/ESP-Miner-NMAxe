@@ -1,7 +1,5 @@
 ﻿#include "page_loading.h"
 
-#if defined(LVGL_ENABLE)
-
 #include "utils/logger/logger.h"
 
 void PageLoading320x240::create(lv_obj_t* parent) {
@@ -44,4 +42,3 @@ void PageLoading320x240::_create_dynamic(lv_obj_t* parent) {
     lv_obj_align(_lb_ip, LV_ALIGN_CENTER, 0, 50);
 }
 
-#endif // LVGL_ENABLE
