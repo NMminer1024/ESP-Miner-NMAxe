@@ -176,6 +176,31 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 ## Release Log
 ***
 
+### (2026.06.15) - v3.0.21
+- `Add`:
+  - **Mining Pause/Resume**: runtime pause/resume via `PATCH /api/mining/state` without ESP32 reboot; pause overlay with centered layout and 3-decimal power display; blocked during benchmark with toast warning.
+  - **ASIC PLL Hot-switch** *(BM1366 / BM1370)*: frequency changes take effect immediately through ASIC PLL, no reboot required; Vcore also applied in real time.
+  - **AXP2101 PMU Driver**: new power management driver initialized in `hardware_pre_init` for NMAxe++.
+  - **Dashboard Memory Display**: real-time and minimum free memory shown on AxeOS Dashboard.
+  - `minFreeHeap` field added to `GET /api/system/info` flat interface.
+- `Fixed`:
+  - **Hashrate volatility**: significantly reduced hashrate fluctuation for more stable readings.
+  - Record overcurrent / overtemperature as root cause for ASIC-frozen reboot.
+  - NVS string ownership fix; neighbor IP state moved from `String` to PSRAM-backed `neighbor_ip_t`.
+  - Fan self-test now updates RPM live for accurate loading-page display.
+  - Gossip logic fix.
+  - Benchmark: fix Stop confirm dialog, Resume detection, Reset preserves results; apply hot-switches freq+vcore in Normal mode, reboot only when sweep active.
+  - Webserver thread re-enabled.
+- `Improved`:
+  - **Memory optimization**: large runtime buffers moved to PSRAM to reduce SRAM pressure.
+  - **Web SPIFFS size**: subset web fonts and remove unused modules / dead assets to trim flash footprint.
+  - OTA error messages improved in frontend.
+  - Increased stack size for ASIC TX thread.
+  - TPS current protection raised to 33 A.
+  - ASIC debug hex-prints silenced; share diff threshold log ordering corrected.
+- `Remove`: 
+  - NMQAxe++ Vcore 1450 mV option removed.
+
 ### (2026.05.22) - v3.0.20
 - `Add`:
   - **NMQAxe++ Rev6.1**: new hardware revision; hashrate up to ~7.3 TH/s, default OC 750 MHz / 1250 mV.
