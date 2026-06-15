@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <Arduino.h>
 #include "app_state.h"
+#include "task_config.h"
 #include "../mining/mining_types.h"
 #include <vector>
 #include <map>

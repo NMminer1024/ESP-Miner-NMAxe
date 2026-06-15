@@ -12,8 +12,9 @@
 #include "nvs/nvs_config.h"
 #include "utils/logger/logger.h"
 
-// LVGL
+// LVGL + UI
 #include "lvgl.h"
+#include "ui/ui_manager.h"
 
 // ============================================================================
 //  Singleton
@@ -349,9 +350,28 @@ void MinerApp::_begin_wifi_connect(BootProgress& boot) {
 void MinerApp::_begin_display(BootProgress& boot) {
     boot.next("Init display...");
 
-    // TODO: lv_init(), frame buffer, display driver registration
-    // TODO: UIManager init
-    // TODO: LVGL tick task start
+    // ── LVGL core init ──────────────────────────────────────────────────
+    lv_init();
+
+    // ── Frame buffer + display driver registration ──────────────────────
+    if (!_ui_init()) {
+        LOG_E("UI init failed");
+        return;
+    }
+
+    // ── UIManager: create tileview + register all pages ─────────────────
+    UIManager::instance().init();
+
+    // ── Start LVGL rendering task ───────────────────────────────────────
+    _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 5, nullptr,
+                 TASK_PRIORITY_LVGL_DRV, 1);
+
+    // ── Backlight ramp-up ───────────────────────────────────────────────
+    uint16_t brightness = _cache.screen_brightness;
+    for (int i = 0; i <= brightness; i++) {
+        tft_bl_ctrl(i);
+        delay(10);
+    }
 
     boot.next("Display ready.", 0x00FF00);
 }
@@ -518,4 +538,65 @@ void MinerApp::_tick_thread_entry(void* args) {
             xSemaphoreGive(app._swarm->mutex);
         }
     }
+}
+
+// ============================================================================
+//  _lvgl_thread_entry — LVGL rendering loop
+// ============================================================================
+void MinerApp::_lvgl_thread_entry(void* args) {
+    while (true) {
+        UIManager::instance().render_update();
+        delay(5);
+    }
+}
+
+// ============================================================================
+//  _ui_init() — allocate frame buffer, register display/touch drivers
+// ============================================================================
+bool MinerApp::_ui_init() {
+#if defined(LVGL_ENABLE)
+    lv_coord_t w = (lv_coord_t)_board_spec->tft.width;
+    lv_coord_t h = (lv_coord_t)_board_spec->tft.height;
+
+    // ── Frame buffer ───────────────────────────────────────────────────
+    static lv_color_t* buf = nullptr;
+    static lv_disp_draw_buf_t draw_buf;
+
+#ifdef BOARD_HAS_PSRAM
+    const uint32_t buf_size = w * h;
+    buf = (lv_color_t*)heap_caps_malloc(buf_size * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
+#else
+    const uint32_t buf_size = w * h / 10;
+    buf = (lv_color_t*)malloc(buf_size * sizeof(lv_color_t));
+#endif
+
+    if (buf == nullptr) {
+        LOG_E("Failed to allocate LVGL frame buffer");
+        return false;
+    }
+    lv_disp_draw_buf_init(&draw_buf, buf, nullptr, buf_size);
+
+    // ── Display driver ─────────────────────────────────────────────────
+    static lv_disp_drv_t disp_drv;
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.hor_res  = w;
+    disp_drv.ver_res  = h;
+    disp_drv.draw_buf = &draw_buf;
+    disp_drv.flush_cb = [](lv_disp_drv_t* drv, const lv_area_t* area, lv_color_t* color_p) {
+        uint16_t x1 = area->x1, y1 = area->y1;
+        uint16_t x2 = area->x2, y2 = area->y2;
+        tft_start_write();
+        tft_set_addr_window(x1, y1, x2 - x1 + 1, y2 - y1 + 1);
+        tft_push_colors((uint16_t*)color_p, (x2 - x1 + 1) * (y2 - y1 + 1), true);
+        tft_end_write();
+        lv_disp_flush_ready(drv);
+    };
+    lv_disp_drv_register(&disp_drv);
+
+    LOG_I("LVGL display driver registered: %dx%d", w, h);
+    return true;
+#else
+    LOG_W("LVGL not enabled in build flags");
+    return false;
+#endif
 }
