@@ -1,11 +1,11 @@
-ï»¿#pragma once
+#pragma once
 
 #include "ui/hal.h"
 #include "app/app_state.h"
 #include "lvgl.h"
 
 // ============================================================================
-// PageLoadingBase â€” boot loading screen abstract base class
+// PageLoadingBase ¡ª boot loading screen abstract base class
 // ============================================================================
 class PageLoadingBase : public UIPage {
 public:

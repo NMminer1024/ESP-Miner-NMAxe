@@ -5,7 +5,7 @@
 // ============================================================================
 // create() ¡ª background + dynamic widgets + Observable subscriptions
 // ============================================================================
-void PageMiner240x320::create(lv_obj_t* parent) {
+void PageMiner320x240::create(lv_obj_t* parent) {
     _W = 320; _H = 240;
 
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
@@ -15,13 +15,13 @@ void PageMiner240x320::create(lv_obj_t* parent) {
     _create_dynamic(parent);
     _finish_create();
 
-    LOG_D("PageMiner240x320: created");
+    LOG_D("PageMiner320x240: created");
 }
 
 // ============================================================================
-// _create_dynamic() ¡ª layout all labels at 240x320 coordinates
+// _create_dynamic() ¡ª layout all labels at 320x240 coordinates
 // ============================================================================
-void PageMiner240x320::_create_dynamic(lv_obj_t* parent) {
+void PageMiner320x240::_create_dynamic(lv_obj_t* parent) {
     // TODO: Replace placeholder font references with actual font assets
     // when migrating from original display.cpp.
 

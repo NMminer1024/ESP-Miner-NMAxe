@@ -1,8 +1,8 @@
-﻿#pragma once
-#include "ui/pages/page_market.h"
+#pragma once
+#include "ui/pages/page_dashboard.h"
 #include "lvgl.h"
 
-class Pagemarket135x240 : public PagemarketBase {
+class Pagedashboard240x135 : public PagedashboardBase {
 public:
     void create(lv_obj_t* parent) override {
         _W = 135, _H = 240.Replace('W = ','').Replace(', _H = ','');
@@ -11,11 +11,11 @@ public:
         lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
         _create_dynamic(parent);
     }
-    const char* name() const override { return "market135x240"; }
+    const char* name() const override { return "dashboard240x135"; }
 protected:
     void _create_dynamic(lv_obj_t* parent) override {
         _lb_details = lv_label_create(parent);
-        lv_label_set_text(_lb_details, "market (TODO)");
+        lv_label_set_text(_lb_details, "dashboard (TODO)");
         lv_obj_set_style_text_color(_lb_details, lv_color_hex(0xFFFFFF), 0);
         lv_obj_center(_lb_details);
     }

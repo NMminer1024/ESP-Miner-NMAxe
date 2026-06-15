@@ -1,8 +1,8 @@
-﻿#pragma once
+#pragma once
 #include "ui/pages/page_setting.h"
 #include "lvgl.h"
 
-class Pagesetting240x320 : public PagesettingBase {
+class Pagesetting320x240 : public PagesettingBase {
 public:
     void create(lv_obj_t* parent) override {
         _W = 240, _H = 320.Replace('W = ','').Replace(', _H = ','');
@@ -11,7 +11,7 @@ public:
         lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
         _create_dynamic(parent);
     }
-    const char* name() const override { return "setting240x320"; }
+    const char* name() const override { return "setting320x240"; }
 protected:
     void _create_dynamic(lv_obj_t* parent) override {
         _lb_details = lv_label_create(parent);

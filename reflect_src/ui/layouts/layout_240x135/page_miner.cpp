@@ -1,18 +1,18 @@
-﻿#include "page_miner.h"
+#include "page_miner.h"
 #include "utils/logger/logger.h"
 
-void PageMiner135x240::create(lv_obj_t* parent) {
+void PageMiner240x135::create(lv_obj_t* parent) {
     _W = 135; _H = 240;
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(parent, 0, 0);
     lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
     _create_dynamic(parent);
     _finish_create();
-    LOG_D("PageMiner135x240: created");
+    LOG_D("PageMiner240x135: created");
 }
 
-void PageMiner135x240::_create_dynamic(lv_obj_t* parent) {
-    // TODO: layout for 135x240 (NMAXE / NMAXE_GAMMA)
+void PageMiner240x135::_create_dynamic(lv_obj_t* parent) {
+    // TODO: layout for 240x135 (NMAXE / NMAXE_GAMMA)
     _lb_hasrate = lv_label_create(parent);
     lv_obj_set_width(_lb_hasrate, 120);
     lv_label_set_text(_lb_hasrate, "0.0");

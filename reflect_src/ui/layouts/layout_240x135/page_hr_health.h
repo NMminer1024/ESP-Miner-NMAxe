@@ -1,8 +1,8 @@
-﻿#pragma once
+#pragma once
 #include "ui/pages/page_hr_health.h"
 #include "lvgl.h"
 
-class Pagehr_health135x240 : public Pagehr_healthBase {
+class Pagehr_health240x135 : public Pagehr_healthBase {
 public:
     void create(lv_obj_t* parent) override {
         _W = 135, _H = 240.Replace('W = ','').Replace(', _H = ','');
@@ -11,7 +11,7 @@ public:
         lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
         _create_dynamic(parent);
     }
-    const char* name() const override { return "hr_health135x240"; }
+    const char* name() const override { return "hr_health240x135"; }
 protected:
     void _create_dynamic(lv_obj_t* parent) override {
         _lb_details = lv_label_create(parent);

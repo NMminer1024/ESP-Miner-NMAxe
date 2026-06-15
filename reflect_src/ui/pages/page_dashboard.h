@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "ui/hal.h"
 #include "app/app_state.h"
 #include "lvgl.h"

@@ -1,7 +1,7 @@
-ï»¿#include "pages/page_miner.h"
+#include "pages/page_miner.h"
 
 // ============================================================================
-// destroy() â€” unsubscribe all Observables, null widget pointers
+// destroy() ¡ª unsubscribe all Observables, null widget pointers
 // ============================================================================
 void PageMinerBase::destroy() {
     auto& m = AppState::instance().miner;
@@ -39,7 +39,7 @@ void PageMinerBase::destroy() {
 }
 
 // ============================================================================
-// _finish_create() â€” subscribe all Observables with widget pointers as ctx
+// _finish_create() ¡ª subscribe all Observables with widget pointers as ctx
 // ============================================================================
 void PageMinerBase::_finish_create() {
     auto& m = AppState::instance().miner;
@@ -60,7 +60,7 @@ void PageMinerBase::_finish_create() {
     m.swarm_hr.subscribe(_on_text, &_lb_swarm_hr);
     m.swarm_workers.subscribe(_on_text, &_lb_swarm_workers);
 
-    // â”€â”€ Colors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ©¤©¤ Colors ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
     m.rssi_icon_color.subscribe(_on_color, &_lb_rssi);
     m.job_icon_color.subscribe(_on_color, &_lb_job_count);
     m.local_diff_icon_color.subscribe(_on_color, &_lb_best_diff);
@@ -68,7 +68,7 @@ void PageMinerBase::_finish_create() {
 }
 
 // ============================================================================
-// _on_text â€” static Observable callback: set label text
+// _on_text ¡ª static Observable callback: set label text
 // ============================================================================
 void PageMinerBase::_on_text(const String& v, void* ctx) {
     if (!ctx) return;
@@ -77,7 +77,7 @@ void PageMinerBase::_on_text(const String& v, void* ctx) {
 }
 
 // ============================================================================
-// _on_color â€” static Observable callback: set label color
+// _on_color ¡ª static Observable callback: set label color
 // ============================================================================
 void PageMinerBase::_on_color(const uint32_t& v, void* ctx) {
     if (!ctx) return;
