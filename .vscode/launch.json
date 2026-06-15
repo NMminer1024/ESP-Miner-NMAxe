@@ -12,21 +12,21 @@
             "type": "platformio-debug",
             "request": "launch",
             "name": "PIO Debug",
-            "executable": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/build/NMAxe/firmware.elf",
-            "projectEnvName": "NMAxe",
+            "executable": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/build/reflect/firmware.elf",
+            "projectEnvName": "reflect",
             "toolchainBinDir": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/packages/toolchain-xtensa-esp32s3/bin",
             "internalConsoleOptions": "openOnSessionStart",
             "preLaunchTask": {
                 "type": "PlatformIO",
-                "task": "Pre-Debug"
+                "task": "Pre-Debug (reflect)"
             }
         },
         {
             "type": "platformio-debug",
             "request": "launch",
             "name": "PIO Debug (skip Pre-Debug)",
-            "executable": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/build/NMAxe/firmware.elf",
-            "projectEnvName": "NMAxe",
+            "executable": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/build/reflect/firmware.elf",
+            "projectEnvName": "reflect",
             "toolchainBinDir": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/packages/toolchain-xtensa-esp32s3/bin",
             "internalConsoleOptions": "openOnSessionStart"
         },
@@ -34,8 +34,8 @@
             "type": "platformio-debug",
             "request": "launch",
             "name": "PIO Debug (without uploading)",
-            "executable": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/build/NMAxe/firmware.elf",
-            "projectEnvName": "NMAxe",
+            "executable": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/build/reflect/firmware.elf",
+            "projectEnvName": "reflect",
             "toolchainBinDir": "D:/code/pony/lotto/Axe/ESP-Miner-NMAxe/.pio/packages/toolchain-xtensa-esp32s3/bin",
             "internalConsoleOptions": "openOnSessionStart",
             "loadMode": "manual"

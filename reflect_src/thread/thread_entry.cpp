@@ -1,87 +1,93 @@
 ﻿#include "thread_entry.h"
 #include "../app/application.h"
-#include "utils/logger/logger.h"
 
-// ============================================================================
-//  Thread entry stubs (to be filled in during migration)
-// ============================================================================
+namespace {
+void thread_log(const char* name) {
+    Serial.print("[reflect-thread] ");
+    Serial.println(name);
+}
+}
 
 void stratum_thread_entry(void* args) {
-    // StratumCtx* ctx = static_cast<StratumCtx*>(args);
-    LOG_I("(stratum) placeholder — TODO");
+    (void)args;
+    thread_log("(stratum) placeholder");
     while (true) { delay(10000); }
 }
 
 void miner_tx_thread_entry(void* args) {
-    // MinerCtx* ctx = static_cast<MinerCtx*>(args);
-    LOG_I("(asic_tx) placeholder — TODO");
+    (void)args;
+    thread_log("(asic_tx) placeholder");
     while (true) { delay(10000); }
 }
 
 void miner_rx_thread_entry(void* args) {
-    // MinerCtx* ctx = static_cast<MinerCtx*>(args);
-    LOG_I("(asic_rx) placeholder — TODO");
+    (void)args;
+    thread_log("(asic_rx) placeholder");
     while (true) { delay(10000); }
 }
 
 void wifi_connect_thread_entry(void* args) {
-    // WifiCtx* ctx = static_cast<WifiCtx*>(args);
-    LOG_I("(wifi) placeholder — TODO");
+    (void)args;
+    thread_log("(wifi) placeholder");
     while (true) { delay(10000); }
 }
 
 void power_loop_thread_entry(void* args) {
-    // PowerStatus* ctx = static_cast<PowerStatus*>(args);
-    LOG_I("(power) placeholder — TODO");
+    (void)args;
+    thread_log("(power) placeholder");
     while (true) { delay(10000); }
 }
 
 void fan_thread_entry(void* args) {
-    // FanCtx* ctx = static_cast<FanCtx*>(args);
-    LOG_I("(fan) placeholder — TODO");
+    (void)args;
+    thread_log("(fan) placeholder");
     while (true) { delay(10000); }
 }
 
 void led_thread_entry(void* args) {
-    // UIPrefs* ctx = static_cast<UIPrefs*>(args);
-    LOG_I("(led) placeholder — TODO");
+    (void)args;
+    thread_log("(led) placeholder");
     while (true) { delay(10000); }
 }
 
 void webserver_thread_entry(void* args) {
-    LOG_I("(web) placeholder — TODO");
+    (void)args;
+    thread_log("(web) placeholder");
     while (true) { delay(10000); }
 }
 
 void scan_thread_entry(void* args) {
-    // ScanCtx* ctx = static_cast<ScanCtx*>(args);
-    LOG_I("(scan) placeholder — TODO");
+    (void)args;
+    thread_log("(scan) placeholder");
     while (true) { delay(10000); }
 }
 
 void swarm_thread_entry(void* args) {
-    // SwarmCtx* ctx = static_cast<SwarmCtx*>(args);
-    LOG_I("(swarm) placeholder — TODO");
+    (void)args;
+    thread_log("(swarm) placeholder");
     while (true) { delay(10000); }
 }
 
 void market_thread_entry(void* args) {
-    // MarketCtx* ctx = static_cast<MarketCtx*>(args);
-    LOG_I("(market) placeholder — TODO");
+    (void)args;
+    thread_log("(market) placeholder");
     while (true) { delay(10000); }
 }
 
 void lvgl_thread_entry(void* args) {
-    LOG_I("(lvgl) placeholder — TODO");
+    (void)args;
+    thread_log("(lvgl) placeholder");
     while (true) { delay(5); }
 }
 
 void ui_thread_entry(void* args) {
-    LOG_I("(ui) placeholder — TODO");
+    (void)args;
+    thread_log("(ui) placeholder");
     while (true) { delay(100); }
 }
 
 void benchmark_thread_entry(void* args) {
-    LOG_I("(benchmark) placeholder — TODO");
+    (void)args;
+    thread_log("(benchmark) placeholder");
     while (true) { delay(10000); }
 }
