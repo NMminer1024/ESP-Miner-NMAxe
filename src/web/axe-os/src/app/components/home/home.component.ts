@@ -146,9 +146,9 @@ export class HomeComponent implements OnInit {
         } else if (poolUrl.includes('solo.ckpool.org:3333')) {
           const address = poolUser.split('.')[0]
           return `https://solostats.ckpool.org/users/${address}`;
-        } else if (poolUrl.includes('pool.nmminer.com')) {
+        } else if (poolUrl.includes('xec.nmminer.com')) {
           const address = poolUser.split('.')[0]
-          return `https://pool.nmminer.com/user?workername=${address}`;
+          return `https://xec.nmminer.com/user?workername=${address}`;
         } else if (poolUrl.includes('au.solobtc.nmminer.com')) {
           const address = poolUser.split('.')[0]
           return `https://au.solobtc.nmminer.com/#/app/${address}`;

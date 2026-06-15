@@ -25,7 +25,7 @@
 #define CHIP_NMQAXE_PLUS_PLUS_REV81_NAME                "BM1373"
 
 #define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
-#define FALLBACK_POOL_URL                              "stratum+tcp://pool.nmminer.com:3333" //xec
+#define FALLBACK_POOL_URL                              "stratum+tcp://xec.nmminer.com:3333" //xec
 
 #define PRIMARY_USER                                   "18dK8EfyepKuS74fs27iuDJWoGUT4rPto1"//btc
 #define FALLBACK_USER                                  "ecash:qpf6dlpplgltcxuq4rve99jfk67z4tlcjc3sscrrsf"//xec
