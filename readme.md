@@ -198,6 +198,7 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
   - Increased stack size for ASIC TX thread.
   - TPS current protection raised to 33 A.
   - ASIC debug hex-prints silenced; share diff threshold log ordering corrected.
+  - XEC fallback pool URL updated: `pool.nmminer.com` → `xec.nmminer.com` (board.h, web UI, docs).
 - `Remove`: 
   - NMQAxe++ Vcore 1450 mV option removed.
 
