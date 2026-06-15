@@ -285,7 +285,7 @@ esp_err_t BM1373::wait_for_result(miner_result *result, uint32_t timeout_ms){
 
     asic_result asic  = *(asic_result*)(rsp);
 
-    dbg::hex_print((uint8_t*)rsp, sizeof(rsp), "asic rsp");
+    // dbg::hex_print((uint8_t*)rsp, sizeof(rsp), "asic rsp");
 
     asic.job_id       = (asic.job_id & 0xf0) >> 1; // upper 4 bits are job id for BM137x
     int asic_id       = (uint8_t) ((asic.nonce & 0x0000fc00) >> 11);

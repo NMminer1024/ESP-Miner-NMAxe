@@ -85,7 +85,7 @@ void MinerApp::begin() {
         {"(ui)",        ui_thread_entry,                1024*4,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
         // {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
         // {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,         1, &_btnTask,        10,  0},
-        // {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,          0, &_wsTask,         10,  0},
+        {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,          0, &_wsTask,         10,  0},
         {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,        1, NULL,             10,  0},
         // {"(daemon)",    daemon_thread_entry,            1024*4,   TASK_PRIORITY_DAEMON,      0, &_daemonTask,     10,  0},
         // {"(pwr_init)",  power_init_thread_entry,        1024*7,   TASK_PRIORITY_PWR,         1, NULL,             0,   0},
