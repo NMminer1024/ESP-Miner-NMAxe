@@ -689,9 +689,9 @@ static void scroll_end_cb(lv_event_t *e) {
     lv_coord_t drift_x = release_scroll_x - ref_x;
     lv_coord_t drift_y = release_scroll_y - ref_y;
 
-    // Threshold: 20% of screen size
-    const lv_coord_t THRESHOLD_X = SCREEN_WIDTH * 0.20;
-    const lv_coord_t THRESHOLD_Y = SCREEN_HEIGHT * 0.20;
+    // Threshold: 1% of screen size
+    const lv_coord_t THRESHOLD_X = SCREEN_WIDTH * 0.01;
+    const lv_coord_t THRESHOLD_Y = SCREEN_HEIGHT * 0.01;
 
     lv_obj_t *target_tile = nullptr;
 
@@ -977,7 +977,7 @@ void tft_init(void* args){
 
 void touch_init(void* args){
   board_sal_t *board = (board_sal_t*)args;
-  if(!board->touch->begin(100)){  // threshold=100: high enough to reject noise/ghost touches, low enough for normal finger presses
+  if(!board->touch->begin(50)){  // threshold=50: balanced sensitivity — low enough for light touches, high enough for EMI rejection
     LOG_W("No touch controller detected, disabling touch support.");
     delay(10);
     if(board->touch != nullptr) {
