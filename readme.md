@@ -199,6 +199,8 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
   - TPS current protection raised to 33 A.
   - ASIC debug hex-prints silenced; share diff threshold log ordering corrected.
   - XEC fallback pool URL updated: `pool.nmminer.com` → `xec.nmminer.com` (board.h, web UI, docs).
+  - **Touch sensitivity**: lowered FT6206 detection threshold from 100 to 50 for lighter tap/swipe recognition.
+  - **Page-switch responsiveness**: reduced tileview drift threshold from 20% to 1% of screen for shorter-swipe page switching.
 - `Remove`: 
   - NMQAxe++ Vcore 1450 mV option removed.
 

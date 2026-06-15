@@ -23,7 +23,7 @@ using neighbor_ip_fail_map_t = std::map<neighbor_ip_t, uint8_t, std::less<neighb
 
 #define HAS_VERSION_CHECK_FEATURE 0 //enable/disable version check feature
 
-#define BOARD_CURRENT_FW_VERSION        "v3.0.22"
+#define BOARD_CURRENT_FW_VERSION        "v3.0.21"
 #define BOARD_CURRENT_HW_VERSION        "v1.1.1"
 #define BOARD_NVS_SAVE_INTERVAL         (60*60)  //second
 #define BOARD_TOUCH_LONG_PRESS_TO_RECOVER   (10)     //seconds, long press duration to enter recover mode
