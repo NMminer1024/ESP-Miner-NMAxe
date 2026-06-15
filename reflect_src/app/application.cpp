@@ -73,12 +73,16 @@ bool MinerApp::init() {
     _swarm->total_hr = 0.0f;
     _swarm->best_ever_bd = 0.0f;
 
+    _board_model = detect_reflect_board_model();
+    Serial.printf("[reflect] board model detected: %s\n", reflect_board_model_name(_board_model));
+
     app_log("MinerApp::init placeholder ready");
     return true;
 }
 
 void MinerApp::_begin_board_init(BootProgress& boot) {
-    boot.next("Board init placeholder");
+    String stage_msg = String("Board: ") + reflect_board_model_name(_board_model);
+    boot.next(stage_msg.c_str());
     xEventGroupSetBits(_sys->init_evt, 1 << 0);
 }
 
