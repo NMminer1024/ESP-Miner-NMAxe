@@ -360,7 +360,10 @@ void MinerApp::_begin_display(BootProgress& boot) {
     }
 
     // ── UIManager: create tileview + register all pages ─────────────────
-    UIManager::instance().init();
+    // Pass board-specific screen dimensions for runtime resolution selection
+    UIManager::instance().init(
+        (uint16_t)_board_spec->tft.width,
+        (uint16_t)_board_spec->tft.height);
 
     // ── Start LVGL rendering task ───────────────────────────────────────
     _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 5, nullptr,

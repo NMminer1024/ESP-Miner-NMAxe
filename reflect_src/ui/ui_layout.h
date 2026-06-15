@@ -1,19 +1,29 @@
 ﻿#pragma once
 
 // ============================================================================
-//  UI layout selector — compile-time resolution dispatch
+//  UI layout includes — all resolution layouts compiled into firmware.
 //
-//  The board config.h (or build_flags) defines UI_LAYOUT_* to select
-//  the correct resolution-specific page implementations.
-//
-//  Add new resolutions here as needed.
+//  Board model is detected at runtime via get_board_model(), so all
+//  resolution-specific classes must be available. The UIManager selects
+//  the correct layout based on BoardSpecConfig.tft.width/height.
 // ============================================================================
 
-#if defined(UI_LAYOUT_320x240)
-    #include "layouts/layout_320x240/page_loading.h"
-    #include "layouts/layout_320x240/page_miner.h"
-#else
-    // Default: 320x240 (NMAxe primary resolution)
-    #include "layouts/layout_320x240/page_loading.h"
-    #include "layouts/layout_320x240/page_miner.h"
-#endif
+// ── 135x240 (NMAXE / NMAXE_GAMMA) ──────────────────────────────────────────
+#include "layouts/layout_135x240/page_loading.h"
+#include "layouts/layout_135x240/page_config.h"
+#include "layouts/layout_135x240/page_miner.h"
+#include "layouts/layout_135x240/page_dashboard.h"
+#include "layouts/layout_135x240/page_hr_health.h"
+#include "layouts/layout_135x240/page_clock.h"
+#include "layouts/layout_135x240/page_market.h"
+#include "layouts/layout_135x240/page_setting.h"
+
+// ── 240x320 (NMQAXE_PLUS_PLUS / Rev6.1 / Rev8.1) ──────────────────────────
+#include "layouts/layout_240x320/page_loading.h"
+#include "layouts/layout_240x320/page_config.h"
+#include "layouts/layout_240x320/page_miner.h"
+#include "layouts/layout_240x320/page_dashboard.h"
+#include "layouts/layout_240x320/page_hr_health.h"
+#include "layouts/layout_240x320/page_clock.h"
+#include "layouts/layout_240x320/page_market.h"
+#include "layouts/layout_240x320/page_setting.h"

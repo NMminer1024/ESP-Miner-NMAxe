@@ -13,35 +13,71 @@ UIManager& UIManager::instance() {
 }
 
 // ============================================================================
+//  All layout instances — both resolutions compiled in, selected at runtime
+// ============================================================================
+static PageLoading135x240  s_load_135;
+static PageConfig135x240   s_cfg_135;
+static PageMiner135x240    s_miner_135;
+static PageDashboard135x240 s_dash_135;
+static PageHr_health135x240 s_health_135;
+static PageClock135x240    s_clock_135;
+static PageMarket135x240   s_market_135;
+static PageSetting135x240  s_sett_135;
+
+static PageLoading240x320  s_load_240;
+static PageConfig240x320   s_cfg_240;
+static PageMiner240x320    s_miner_240;
+static PageDashboard240x320 s_dash_240;
+static PageHr_health240x320 s_health_240;
+static PageClock240x320    s_clock_240;
+static PageMarket240x320   s_market_240;
+static PageSetting240x320  s_sett_240;
+
+// Helper: pick the correct layout array based on screen dimensions
+static UIPage* s_pick_layouts(UIPageId id, uint16_t w, uint16_t h) {
+    // Match by width — NMAXE is 135 wide, QAxe++ is 240 wide
+    bool is_135 = (w <= 160);
+    switch (id) {
+        case UIPageId::LOADING:        return is_135 ? (UIPage*)&s_load_135   : (UIPage*)&s_load_240;
+        case UIPageId::CONFIG:         return is_135 ? (UIPage*)&s_cfg_135    : (UIPage*)&s_cfg_240;
+        case UIPageId::MINER:          return is_135 ? (UIPage*)&s_miner_135  : (UIPage*)&s_miner_240;
+        case UIPageId::DASHBOARD:      return is_135 ? (UIPage*)&s_dash_135   : (UIPage*)&s_dash_240;
+        case UIPageId::HR_HEALTH:      return is_135 ? (UIPage*)&s_health_135 : (UIPage*)&s_health_240;
+        case UIPageId::CLOCK:          return is_135 ? (UIPage*)&s_clock_135  : (UIPage*)&s_clock_240;
+        case UIPageId::MARKET:         return is_135 ? (UIPage*)&s_market_135 : (UIPage*)&s_market_240;
+        case UIPageId::SETTING_SWARM:  return is_135 ? (UIPage*)&s_sett_135   : (UIPage*)&s_sett_240;
+        default: return nullptr;
+    }
+}
+
+// ============================================================================
 //  init() — create tileview + register all pages
 // ============================================================================
-void UIManager::init() {
-    // ── Get screen dimensions from active display ───────────────────────
-    lv_disp_t* disp = lv_disp_get_default();
-    lv_coord_t w = lv_disp_get_hor_res(disp);
-    lv_coord_t h = lv_disp_get_ver_res(disp);
-
+void UIManager::init(uint16_t w, uint16_t h) {
     // ── Create tileview ─────────────────────────────────────────────────
     _tileview = lv_tileview_create(lv_scr_act());
     lv_obj_set_size(_tileview, w, h);
     lv_obj_set_style_bg_color(_tileview, lv_color_hex(0x000000), 0);
     lv_obj_set_scrollbar_mode(_tileview, LV_SCROLLBAR_MODE_OFF);
 
-    // Snap acceleration
     lv_obj_add_event_cb(_tileview, _scroll_begin_cb, LV_EVENT_SCROLL_BEGIN, nullptr);
     lv_obj_add_event_cb(_tileview, _pressed_cb,      LV_EVENT_PRESSED,      nullptr);
     lv_obj_add_event_cb(_tileview, _released_cb,     LV_EVENT_RELEASED,     nullptr);
     lv_obj_add_event_cb(_tileview, _scroll_end_cb,   LV_EVENT_SCROLL_END,   nullptr);
 
-    // ── Register pages ──────────────────────────────────────────────────
-    static PageLoading320x240 page_loading;
-    static PageMiner320x240   page_miner;
+    // ── Register all 8 pages (matching original display.cpp page order) ─
+    // Tile layout: rows with horizontal swipe, columns for vertical grouping
+    _register_page(s_pick_layouts(UIPageId::LOADING, w, h),       UIPageId::LOADING,       0, 0, LV_DIR_RIGHT | LV_DIR_BOTTOM);
+    _register_page(s_pick_layouts(UIPageId::CONFIG, w, h),        UIPageId::CONFIG,        1, 0, LV_DIR_LEFT  | LV_DIR_RIGHT);
+    _register_page(s_pick_layouts(UIPageId::MINER, w, h),         UIPageId::MINER,         2, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_BOTTOM);
+    _register_page(s_pick_layouts(UIPageId::DASHBOARD, w, h),     UIPageId::DASHBOARD,     3, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_TOP);
+    _register_page(s_pick_layouts(UIPageId::HR_HEALTH, w, h),     UIPageId::HR_HEALTH,     4, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_TOP);
+    _register_page(s_pick_layouts(UIPageId::CLOCK, w, h),         UIPageId::CLOCK,         5, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_TOP);
+    _register_page(s_pick_layouts(UIPageId::MARKET, w, h),        UIPageId::MARKET,        6, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_TOP);
+    _register_page(s_pick_layouts(UIPageId::SETTING_SWARM, w, h), UIPageId::SETTING_SWARM, 7, 0, LV_DIR_LEFT  | LV_DIR_TOP);
 
-    _register_page(&page_loading, UIPageId::LOADING, 0, 0, LV_DIR_RIGHT | LV_DIR_BOTTOM);
-    _register_page(&page_miner,   UIPageId::MINER,   1, 0, LV_DIR_LEFT  | LV_DIR_BOTTOM);
-
-    LOG_I("UIManager: %u pages registered, tileview %dx%d",
-          (unsigned)_pages.size(), w, h);
+    LOG_I("UIManager: %u pages registered for %dx%d (%s)",
+          (unsigned)_pages.size(), w, h, (w <= 160) ? "NMAXE" : "QAxe++");
 }
 
 // ============================================================================
@@ -168,7 +204,8 @@ void UIManager::request_goto_page(UIPageId id){ _goto_page_id = (uint8_t)id; _go
 //  wake_activity
 // ============================================================================
 void UIManager::wake_activity() {
-    AppState::instance().miner.ip.text = AppState::instance().miner.ip.text;
+    // Reset screensaver idle timer
+    _last_active_ms = 0;
 }
 
 // ============================================================================

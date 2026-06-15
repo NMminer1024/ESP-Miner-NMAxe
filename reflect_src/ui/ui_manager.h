@@ -8,14 +8,19 @@
 
 // ============================================================================
 // UIPageId — page enum (order must match _register_page calls in init())
+// Matches original display.cpp: LOADING/CONFIG/MINER/DASHBOARD/HR_HEALTH/CLOCK/MARKET/SETTING_SWARM
 // ============================================================================
 enum class UIPageId : uint8_t {
-    LOADING  = 0,
-    CONFIG   = 1,
-    MINER    = 2,
-    SETTING  = 3,
+    LOADING        = 0,
+    CONFIG         = 1,
+    MINER          = 2,
+    DASHBOARD      = 3,
+    HR_HEALTH      = 4,
+    CLOCK          = 5,
+    MARKET         = 6,
+    SETTING_SWARM  = 7,
 
-    COUNT    // must be last
+    COUNT
 };
 
 // ============================================================================
@@ -29,7 +34,9 @@ class UIManager {
 public:
     static UIManager& instance();
 
-    void init();
+    // Initialize with screen dimensions. Resolution-specific pages are selected
+    // based on the closest match to the given width/height.
+    void init(uint16_t width, uint16_t height);
 
     // Called periodically from LVGL task: sync active tile, refresh page, drive LVGL
     void render_update();
@@ -60,6 +67,7 @@ private:
     std::vector<UIPage*>   _pages;
     size_t                 _current = 0;
     int8_t                 _next_dir = 1;
+    uint32_t               _last_active_ms = 0;
 
     // Cross-thread pending flags
     volatile bool          _next_page_pending = false;
