@@ -44,6 +44,10 @@ BaseType_t MinerApp::_create_task(TaskFunction_t fn, const char* name,
 }
 
 bool MinerApp::init() {
+    Serial.setTimeout(20);
+    Serial.begin(115200);
+    delay(100);
+
     static SystemSync sys_storage;
     static WifiCtx wifi_storage;
     static SwarmCtx swarm_storage;
@@ -67,15 +71,25 @@ bool MinerApp::init() {
     _swarm->total_hr = 0.0f;
     _swarm->best_ever_bd = 0.0f;
 
-    _board_model = detect_reflect_board_model();
-    LOG_I("board model detected: %s", reflect_board_model_name(_board_model));
+    // ── Board detection + spec (real board layer, preserves original timing) ──
+    // get_board_model() internally debounces the selection pins (up to ~3 s).
+    _model = get_board_model();
+    if (_model == BOARD_UNKNOWN) {
+        while (true) {
+            LOG_E("Expected raw model pins: NMAXE=110, Gamma=010, QAxe++=101, QAxe++ Rev6.1=111.");
+            delay(1000);
+        }
+    }
+    _spec = get_board_config(_model);
+    hardware_pre_init(_spec);
+    LOG_I("board model detected: %s", _spec.display_name.c_str());
 
-    LOG_D("MinerApp::init placeholder ready");
+    LOG_D("MinerApp::init ready");
     return true;
 }
 
 void MinerApp::_begin_board_init(BootProgress& boot) {
-    String stage_msg = String("Board: ") + reflect_board_model_name(_board_model);
+    String stage_msg = String("Board: ") + _spec.display_name;
     boot.next(stage_msg.c_str());
     xEventGroupSetBits(_sys->init_evt, 1 << 0);
 }

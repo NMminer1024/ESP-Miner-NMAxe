@@ -6,7 +6,7 @@
 #include "app_state.h"
 #include "task_config.h"
 #include "../mining/mining_types.h"
-#include "../board/board_probe.h"
+#include "../board/board.h"
 
 class MinerApp {
 public:
@@ -66,7 +66,8 @@ private:
     WifiCtx* _wifi = nullptr;
     SwarmCtx* _swarm = nullptr;
     MiningSharedCtx* _miningShared = nullptr;
-    ReflectBoardModel _board_model = ReflectBoardModel::Unknown;
+    BoardModelType   _model = BOARD_UNKNOWN;
+    BoardSpecConfig  _spec;                 // runtime board spec (replaces g_board.info.spec)
     std::vector<TaskEntry> _tasks;
 
     BaseType_t _create_task(TaskFunction_t fn, const char* name,

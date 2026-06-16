@@ -34,3 +34,13 @@ g_board.status 里的字段按「谁写谁拥有」原则拆成各线程 Ctx：
 - power_hal.cpp / tca9554.cpp 删除了无用的 `#include "global.h"`（实际未用 g_board）
 - build_src_filter 逐个加入；构建通过 Flash 15.6%
 - fan / displays 依赖 board spec(fan_config_t / tft 配置)，留到 P3 之后
+
+### P3 完成 (板级 spec BoardSpecConfig)
+- 复制 board.{h,cpp} + nmaxe/nmaxegamma/nmqaxepp.h；fan 目录(仅 tmp102.cpp 入构建) + fan.h 类型
+- tmp102.cpp 去掉无用 global.h
+- application 改用真实板层：get_board_model() → get_board_config() → hardware_pre_init()
+  MinerApp 持有 `BoardModelType _model` + `BoardSpecConfig _spec`（取代 g_board.info.spec）
+- 删除占位 board_probe.{h,cpp}/board_re_export.h，检测路径单一化（保留原始去抖时序）
+- init() 补回原始 Serial.begin(115200) 时序
+- 注意：board.cpp::get_board_model() 顶部仍保留原 src 的 `return REV81` 测试强制项（逻辑与 src 一致，未改）
+- 构建通过 Flash 17.6%
