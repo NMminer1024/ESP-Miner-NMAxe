@@ -1,5 +1,5 @@
 #include "page_loading.h"
-#include "utils/logger/logger.h"
+#include "../../../utils/logger/logger.h"
 
 void PageLoading240x135::create(lv_obj_t* parent) {
     _W = 135; _H = 240;

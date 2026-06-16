@@ -1,13 +1,7 @@
 ﻿#include "application.h"
 
 #include "lvgl.h"
-
-namespace {
-void app_log(const char* msg) {
-    Serial.print("[reflect] ");
-    Serial.println(msg);
-}
-}
+#include "../utils/logger/logger.h"
 
 MinerApp& MinerApp::instance() {
     static MinerApp app;
@@ -74,9 +68,9 @@ bool MinerApp::init() {
     _swarm->best_ever_bd = 0.0f;
 
     _board_model = detect_reflect_board_model();
-    Serial.printf("[reflect] board model detected: %s\n", reflect_board_model_name(_board_model));
+    LOG_I("board model detected: %s", reflect_board_model_name(_board_model));
 
-    app_log("MinerApp::init placeholder ready");
+    LOG_D("MinerApp::init placeholder ready");
     return true;
 }
 
@@ -131,7 +125,7 @@ void MinerApp::begin() {
     _create_task(_tick_thread_entry, "(tick)", 1024 * 3, nullptr, TASK_PRIORITY_APP_TICK, 1);
 
     boot.finish("Reflect started");
-    app_log("MinerApp::begin done");
+    LOG_I("MinerApp::begin done");
 }
 
 void MinerApp::print_stack_hwm() const {
@@ -140,7 +134,7 @@ void MinerApp::print_stack_hwm() const {
             continue;
         }
         UBaseType_t hwm = uxTaskGetStackHighWaterMark(t.handle);
-        Serial.printf("[reflect] %-12s hwm=%u/%u\n", t.name, (unsigned)hwm, (unsigned)t.stack_bytes);
+        LOG_D("%-12s hwm=%u/%u", t.name, (unsigned)hwm, (unsigned)t.stack_bytes);
     }
 }
 
