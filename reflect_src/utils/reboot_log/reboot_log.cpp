@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "global.h"
+#include "version.h"
 #include "../logger/logger.h"
 
 // ── NVS layout (namespace "reboot") ──────────────────────────────────────────
