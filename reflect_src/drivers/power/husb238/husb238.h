@@ -1,0 +1,54 @@
+#ifndef _HUS238__H_
+#define _HUS238__H_
+#include <Arduino.h>
+
+
+#define HUSB238_IIC_ADDR (uint8_t)0x08
+
+#define HUSB238_PD_STATUS0_ADDR  0x00
+#define HUSB238_PD_STATUS1_ADDR  0x01
+#define HUSB238_SRC_PDO_5V_ADDR  0x02
+#define HUSB238_SRC_PDO_9V_ADDR  0x03
+#define HUSB238_SRC_PDO_12V_ADDR 0x04
+#define HUSB238_SRC_PDO_15V_ADDR 0x05
+#define HUSB238_SRC_PDO_18V_ADDR 0x06
+#define HUSB238_SRC_PDO_20V_ADDR 0x07
+#define HUSB238_SRC_PDO_ADDR     0x08
+#define HUSB238_GO_COMMAND_ADDR  0x09
+
+typedef enum {
+    HUSB238_VOLTAGE_PD_UNATTACHED   = 0b0000,
+    HUSB238_VOLTAGE_PD_5V           = 0b0001,
+    HUSB238_VOLTAGE_PD_9V           = 0b0010,
+    HUSB238_VOLTAGE_PD_12V          = 0b0011,
+    HUSB238_VOLTAGE_PD_15V          = 0b0100,
+    HUSB238_VOLTAGE_PD_18V          = 0b0101,
+    HUSB238_VOLTAGE_PD_20V          = 0b0110,
+}husb238_voltage_map_t;
+
+typedef enum {
+    HUSB238_CURRENT_0_5A    = 0b0000,
+    HUSB238_CURRENT_0_7A    = 0b0001,
+    HUSB238_CURRENT_1_0A    = 0b0010,
+    HUSB238_CURRENT_1_25A   = 0b0011,
+    HUSB238_CURRENT_1_5A    = 0b0100,
+    HUSB238_CURRENT_1_75A   = 0b0101,
+    HUSB238_CURRENT_2_0A    = 0b0110,
+    HUSB238_CURRENT_2_25A   = 0b0111,
+    HUSB238_CURRENT_2_5A    = 0b1000,
+    HUSB238_CURRENT_2_75A   = 0b1001,
+    HUSB238_CURRENT_3_0A    = 0b1010,
+    HUSB238_CURRENT_3_25A   = 0b1011,
+    HUSB238_CURRENT_3_5A    = 0b1100,
+    HUSB238_CURRENT_4_0A    = 0b1101,
+    HUSB238_CURRENT_4_5A    = 0b1110,
+    HUSB238_CURRENT_5_0A    = 0b1111,
+}husb238_current_map_t;
+
+
+
+
+
+
+void husb238_monitor_entry(void *arg);
+#endif 

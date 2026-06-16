@@ -28,3 +28,9 @@ g_board.status 里的字段按「谁写谁拥有」原则拆成各线程 Ctx：
 - platformio.ini: build_src_filter 加 utils/ nvs/；加 `-iquote ./reflect_src`
   解决 PlatformIO 隐式 -Isrc 抢占（src/logger.h 误拉 AsyncWebSocket.h）
 - 构建通过：Flash 15.4%
+
+### P2 完成 (驱动 HAL: iic/asic/temp/touch/power/extio)
+- 复制以上驱动到 reflect_src/drivers/，root-relative include 在 -iquote/-I reflect_src 下正确解析
+- power_hal.cpp / tca9554.cpp 删除了无用的 `#include "global.h"`（实际未用 g_board）
+- build_src_filter 逐个加入；构建通过 Flash 15.6%
+- fan / displays 依赖 board spec(fan_config_t / tft 配置)，留到 P3 之后
