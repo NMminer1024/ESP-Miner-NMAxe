@@ -731,6 +731,7 @@ bool MinerApp::_ui_init() {
     touch_drv_register(&_pref, 50);   // enables tileview swipe nav (no-op if absent)
     lvgl_fs_spiffs_register();        // 'S' drive for lv_gif screensaver
     UIManager::instance().init(w, h);
+    UIManager::instance().set_recover_factory_xsem(_recover_factory_xsem);  // touch long-press factory reset
 
     OverlayCtx octx;
     octx.bm_mode = &_bm_mode;

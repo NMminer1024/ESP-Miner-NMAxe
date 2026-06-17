@@ -56,6 +56,10 @@ public:
     // ── Wake activity: reset screensaver idle timer ─────────────────────
     void wake_activity();
 
+    // ── Touch long-press factory reset (primary path on boards w/o user btn) ──
+    void set_recover_factory_xsem(SemaphoreHandle_t s) { _recover_factory_xsem = s; }
+    int  factory_countdown() const { return _factory_cd; }   // <0 = inactive
+
 private:
     UIManager() = default;
     UIManager(const UIManager&) = delete;
@@ -88,4 +92,13 @@ private:
     static void _released_cb(lv_event_t* e);
     static void _scroll_end_cb(lv_event_t* e);
     static void _scroll_begin_cb(lv_event_t* e);
+
+    // Touch long-press → factory-reset countdown
+    static void _long_pressed_cb(lv_event_t* e);
+    static void _long_press_repeat_cb(lv_event_t* e);
+    static void _long_press_release_cb(lv_event_t* e);
+
+    SemaphoreHandle_t _recover_factory_xsem = nullptr;
+    volatile int      _factory_cd = -1;     // seconds remaining (<0 = inactive)
+    uint32_t          _lp_last_tick = 0;
 };

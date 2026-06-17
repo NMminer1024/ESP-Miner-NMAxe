@@ -1,4 +1,5 @@
 #include "overlay_manager.h"
+#include "ui_manager.h"
 #include "../app/system_events.h"
 #include "../utils/logger/logger.h"
 #include <SPIFFS.h>
@@ -74,6 +75,15 @@ void OverlayManager::update() {
     if (!_panel) return;
 
     uint32_t bits = _ctx.sys_evt ? xEventGroupGetBits(_ctx.sys_evt) : 0;
+
+    // ── Priority 0: touch long-press factory-reset countdown ──
+    int fcd = UIManager::instance().factory_countdown();
+    if (fcd >= 0) {
+        _gif_hide();
+        String body = String("Keep holding to reset:\n") + fcd + " s\nRelease to cancel.";
+        _show(0xFF5252, "FACTORY RESET", body);
+        return;
+    }
 
     // ── Priority 0: find-me (blink the whole screen ~6 s to locate device) ──
     if (bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) {

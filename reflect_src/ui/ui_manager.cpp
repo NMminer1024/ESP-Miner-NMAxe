@@ -64,6 +64,11 @@ void UIManager::init(uint16_t w, uint16_t h) {
     lv_obj_add_event_cb(_tileview, _pressed_cb,      LV_EVENT_PRESSED,      nullptr);
     lv_obj_add_event_cb(_tileview, _released_cb,     LV_EVENT_RELEASED,     nullptr);
     lv_obj_add_event_cb(_tileview, _scroll_end_cb,   LV_EVENT_SCROLL_END,   nullptr);
+    // Touch long-press → factory-reset countdown (primary path on user-button-less boards)
+    lv_obj_add_event_cb(_tileview, _long_pressed_cb,        LV_EVENT_LONG_PRESSED,        nullptr);
+    lv_obj_add_event_cb(_tileview, _long_press_repeat_cb,   LV_EVENT_LONG_PRESSED_REPEAT, nullptr);
+    lv_obj_add_event_cb(_tileview, _long_press_release_cb,  LV_EVENT_RELEASED,            nullptr);
+    lv_obj_add_event_cb(_tileview, _long_press_release_cb,  LV_EVENT_PRESS_LOST,          nullptr);
 
     // ���� Register all 8 pages (matching original display.cpp page order) ��
     // Tile layout: rows with horizontal swipe, columns for vertical grouping
@@ -211,6 +216,41 @@ void UIManager::wake_activity() {
     // Called from non-LVGL threads (button). Defer the LVGL inactivity reset to
     // render_update() (LVGL thread) to keep all LVGL calls single-threaded.
     _wake_pending = true;
+}
+
+// ============================================================================
+//  Touch long-press → factory-reset countdown (10 s hold). Runs on LVGL thread.
+//  Mirrors legacy long_press_event_cb (BOARD_TOUCH_LONG_PRESS_TO_RECOVER).
+// ============================================================================
+static const int UI_FACTORY_HOLD_SEC = 10;
+
+void UIManager::_long_pressed_cb(lv_event_t* e) {
+    UIManager& self = instance();
+    self._factory_cd   = UI_FACTORY_HOLD_SEC;
+    self._lp_last_tick = millis();
+    // Freeze page swiping during the countdown to avoid confusing mid-hold nav.
+    lv_obj_clear_flag(self._tileview, LV_OBJ_FLAG_SCROLLABLE);
+}
+
+void UIManager::_long_press_repeat_cb(lv_event_t* e) {
+    UIManager& self = instance();
+    if (self._factory_cd < 0) return;
+    if (millis() - self._lp_last_tick < 1000) return;
+    self._lp_last_tick = millis();
+    if (self._factory_cd > 0) self._factory_cd--;
+    if (self._factory_cd <= 0) {
+        self._factory_cd = -1;
+        lv_obj_add_flag(self._tileview, LV_OBJ_FLAG_SCROLLABLE);
+        if (self._recover_factory_xsem) xSemaphoreGive(self._recover_factory_xsem);
+    }
+}
+
+void UIManager::_long_press_release_cb(lv_event_t* e) {
+    UIManager& self = instance();
+    if (self._factory_cd >= 0) {
+        self._factory_cd = -1;   // cancelled — user released before 0
+        lv_obj_add_flag(self._tileview, LV_OBJ_FLAG_SCROLLABLE);
+    }
 }
 
 // ============================================================================
