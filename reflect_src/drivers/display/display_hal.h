@@ -29,6 +29,10 @@ void ui_drv_register(uint16_t hor_res, uint16_t ver_res);
 // `pref` provides the live screen-flip flag for coordinate mapping.
 bool touch_drv_register(PreferenceState* pref, uint8_t threshold = 50);
 
+// Register the SPIFFS-backed LVGL filesystem driver (drive letter 'S'), so
+// widgets such as lv_gif can open "S:<name>" from SPIFFS (screensaver GIF).
+void lvgl_fs_spiffs_register();
+
 // Post-rotation logical resolution (valid after tft_init()).
 uint16_t tft_screen_width();
 uint16_t tft_screen_height();

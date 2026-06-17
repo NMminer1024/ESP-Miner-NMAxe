@@ -1,5 +1,7 @@
 #include "display_hal.h"
 #include <TFT_eSPI.h>
+#include <SPIFFS.h>
+#include <FS.h>
 #include "../../utils/logger/logger.h"
 #include "../touch/ft6206.h"
 
@@ -155,4 +157,36 @@ bool touch_drv_register(PreferenceState* pref, uint8_t threshold) {
     indev_drv.read_cb = touchpad_read_cb;
     lv_indev_drv_register(&indev_drv);
     return true;
+}
+
+// SPIFFS-backed LVGL filesystem driver (letter 'S'); used by lv_gif to stream
+// the screensaver GIF from "/screen_saver_*.gif". Ported from legacy display.cpp.
+void lvgl_fs_spiffs_register() {
+    static lv_fs_drv_t spiffs_drv;
+    lv_fs_drv_init(&spiffs_drv);
+    spiffs_drv.letter = 'S';
+    spiffs_drv.open_cb = +[](lv_fs_drv_t*, const char* path, lv_fs_mode_t mode) -> void* {
+        String fpath = String("/") + path;
+        const char* flag = (mode & LV_FS_MODE_WR) ? "w" : "r";
+        fs::File* f = new fs::File(SPIFFS.open(fpath.c_str(), flag));
+        if (!f || !(*f)) { delete f; return nullptr; }
+        return (void*)f;
+    };
+    spiffs_drv.close_cb = +[](lv_fs_drv_t*, void* fp) -> lv_fs_res_t {
+        fs::File* f = (fs::File*)fp; f->close(); delete f; return LV_FS_RES_OK;
+    };
+    spiffs_drv.read_cb = +[](lv_fs_drv_t*, void* fp, void* buf, uint32_t btr, uint32_t* br) -> lv_fs_res_t {
+        fs::File* f = (fs::File*)fp; *br = f->read((uint8_t*)buf, btr); return LV_FS_RES_OK;
+    };
+    spiffs_drv.seek_cb = +[](lv_fs_drv_t*, void* fp, uint32_t pos, lv_fs_whence_t whence) -> lv_fs_res_t {
+        fs::File* f = (fs::File*)fp;
+        fs::SeekMode sm = (whence == LV_FS_SEEK_CUR) ? fs::SeekCur
+                        : (whence == LV_FS_SEEK_END) ? fs::SeekEnd : fs::SeekSet;
+        f->seek(pos, sm); return LV_FS_RES_OK;
+    };
+    spiffs_drv.tell_cb = +[](lv_fs_drv_t*, void* fp, uint32_t* pos_p) -> lv_fs_res_t {
+        fs::File* f = (fs::File*)fp; *pos_p = f->position(); return LV_FS_RES_OK;
+    };
+    lv_fs_drv_register(&spiffs_drv);
+    LOG_I("LVGL SPIFFS FS driver registered (letter='S')");
 }

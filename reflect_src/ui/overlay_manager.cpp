@@ -1,6 +1,7 @@
 #include "overlay_manager.h"
 #include "../app/system_events.h"
 #include "../utils/logger/logger.h"
+#include <SPIFFS.h>
 
 OverlayManager& OverlayManager::instance() {
     static OverlayManager mgr;
@@ -39,9 +40,17 @@ void OverlayManager::_build() {
     _visible = false;
 }
 
+void OverlayManager::_gif_hide() {
+    if (_gif) { lv_obj_del(_gif); _gif = nullptr; }
+    _gif_shown = false;
+}
+
 void OverlayManager::_show(uint32_t accent, const char* title, const String& body) {
     if (!_panel) return;
+    _gif_hide();                                                    // no GIF for non-screensaver overlays
     lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);  // normal dark bg
+    lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 8);
+    lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_color(_lb_title, lv_color_hex(accent), 0);
     lv_label_set_text(_lb_title, title);
     lv_label_set_text(_lb_body, body.c_str());
@@ -52,6 +61,7 @@ void OverlayManager::_show(uint32_t accent, const char* title, const String& bod
 }
 
 void OverlayManager::_hide() {
+    _gif_hide();
     if (!_panel || !_visible) return;
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
@@ -165,7 +175,31 @@ void OverlayManager::update() {
         }
         String body = _aph_have ? (String("\"") + _aph_quote + "\"\n\n- " + _aph_author)
                                 : String("Solo mining:\nbe a friend of time.");
-        _show(0x66BB6A, "", body);
+
+        // GIF background if a screensaver GIF is present in SPIFFS, else quote-only.
+        bool gif_ok = false;
+        if (_ctx.gif_path && SPIFFS.exists(_ctx.gif_path)) {
+            if (!_gif) _gif = lv_gif_create(_panel);
+            if (_gif && !_gif_shown) {
+                String src = String("S:") + (_ctx.gif_path + 1);   // strip leading '/'
+                lv_gif_set_src(_gif, src.c_str());
+                lv_obj_align(_gif, LV_ALIGN_CENTER, 0, 0);
+                lv_obj_clear_flag(_gif, LV_OBJ_FLAG_HIDDEN);
+                _gif_shown = true;
+            }
+            gif_ok = (_gif != nullptr);
+        } else {
+            _gif_hide();
+        }
+
+        lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_bg_opa(_panel, LV_OPA_COVER, 0);
+        lv_label_set_text(_lb_title, "");
+        lv_label_set_text(_lb_body, body.c_str());
+        lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x66BB6A), 0);
+        lv_obj_align(_lb_body, gif_ok ? LV_ALIGN_BOTTOM_MID : LV_ALIGN_CENTER, 0, gif_ok ? -6 : 8);
+        if (_gif) lv_obj_move_background(_gif);   // keep quote text on top
+        if (!_visible) { lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN); _visible = true; }
         return;
     }
     _aph_have = false;   // reset so the next screensaver entry pops a fresh quote

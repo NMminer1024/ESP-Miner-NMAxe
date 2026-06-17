@@ -17,7 +17,8 @@ struct OverlayCtx {
     EventGroupHandle_t sys_evt = nullptr;   // OC/OT fault bits
     OtaState*          ota     = nullptr;   // firmware-update progress
     AphorismState*     aphorism   = nullptr;  // screensaver quote pool
-    const uint8_t*     saver_mode = nullptr;  // 0=quote/gif, 1=black
+    const uint8_t*     saver_mode = nullptr;  // 0=gif/quote, 1=black
+    const char*        gif_path   = nullptr;  // "S:screen_saver_*.gif" (nullptr=none)
 };
 
 // ============================================================================
@@ -38,10 +39,14 @@ private:
     void _show(uint32_t accent, const char* title, const String& body);
     void _hide();
 
+    void _gif_hide();
+
     OverlayCtx _ctx;
     lv_obj_t*  _panel = nullptr;
     lv_obj_t*  _lb_title = nullptr;
     lv_obj_t*  _lb_body  = nullptr;
+    lv_obj_t*  _gif = nullptr;     // lazy lv_gif for the screensaver (mode 0)
+    bool       _gif_shown = false;
     bool       _visible = false;
     uint32_t   _last_ms = 0;
     uint32_t   _find_start = 0;   // find-me blink start (0 = inactive)

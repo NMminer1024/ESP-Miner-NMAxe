@@ -719,6 +719,7 @@ bool MinerApp::_ui_init() {
     uint16_t h = tft_screen_height();
     ui_drv_register(w, h);
     touch_drv_register(&_pref, 50);   // enables tileview swipe nav (no-op if absent)
+    lvgl_fs_spiffs_register();        // 'S' drive for lv_gif screensaver
     UIManager::instance().init(w, h);
 
     OverlayCtx octx;
@@ -729,6 +730,9 @@ bool MinerApp::_ui_init() {
     octx.ota     = &_ota;
     octx.aphorism   = &_aphorism;
     octx.saver_mode = &_pref.screen.saver_mode;
+    // Screensaver GIF path (uploaded via web). Filename matches http upload handler.
+    octx.gif_path = (_spec.name == BOARD_NMAXE_NAME || _spec.name == BOARD_NMAXE_GAMMA_NAME)
+                  ? "/screen_saver_240x135.gif" : "/screen_saver_320x240.gif";
     OverlayManager::instance().init(octx);
     // Backlight on (fall back to a sane default if no NVS brightness set).
     uint8_t br = _pref.screen.brightness ? _pref.screen.brightness : 80;
