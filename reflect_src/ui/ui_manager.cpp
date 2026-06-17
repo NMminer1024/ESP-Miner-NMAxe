@@ -72,14 +72,17 @@ void UIManager::init(uint16_t w, uint16_t h) {
 
     // ���� Register all 8 pages (matching original display.cpp page order) ��
     // Tile layout: rows with horizontal swipe, columns for vertical grouping
-    _register_page(s_pick_layouts(UIPageId::LOADING, w, h),       UIPageId::LOADING,       0, 0, LV_DIR_RIGHT | LV_DIR_BOTTOM);
-    _register_page(s_pick_layouts(UIPageId::CONFIG, w, h),        UIPageId::CONFIG,        1, 0, LV_DIR_LEFT  | LV_DIR_RIGHT);
-    _register_page(s_pick_layouts(UIPageId::MINER, w, h),         UIPageId::MINER,         2, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_BOTTOM);
-    _register_page(s_pick_layouts(UIPageId::DASHBOARD, w, h),     UIPageId::DASHBOARD,     3, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_TOP);
-    _register_page(s_pick_layouts(UIPageId::HR_HEALTH, w, h),     UIPageId::HR_HEALTH,     4, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_TOP);
-    _register_page(s_pick_layouts(UIPageId::CLOCK, w, h),         UIPageId::CLOCK,         5, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_TOP);
-    _register_page(s_pick_layouts(UIPageId::MARKET, w, h),        UIPageId::MARKET,        6, 0, LV_DIR_LEFT  | LV_DIR_RIGHT | LV_DIR_TOP);
-    _register_page(s_pick_layouts(UIPageId::SETTING_SWARM, w, h), UIPageId::SETTING_SWARM, 7, 0, LV_DIR_LEFT  | LV_DIR_TOP);
+    // 2D tile grid + per-page swipe directions — identical to legacy display.cpp:
+    //   (col,row): LOADING(0,0) CONFIG(0,1) | MINER(1,0) DASHBOARD(1,1) HR_HEALTH(1,2)
+    //              SETTING(2,0) MARKET(2,1) CLOCK(2,2)
+    _register_page(s_pick_layouts(UIPageId::LOADING, w, h),       UIPageId::LOADING,       0, 0, LV_DIR_NONE);
+    _register_page(s_pick_layouts(UIPageId::CONFIG, w, h),        UIPageId::CONFIG,        0, 1, LV_DIR_NONE);
+    _register_page(s_pick_layouts(UIPageId::MINER, w, h),         UIPageId::MINER,         1, 0, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_BOTTOM));
+    _register_page(s_pick_layouts(UIPageId::DASHBOARD, w, h),     UIPageId::DASHBOARD,     1, 1, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP | LV_DIR_BOTTOM));
+    _register_page(s_pick_layouts(UIPageId::HR_HEALTH, w, h),     UIPageId::HR_HEALTH,     1, 2, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP));
+    _register_page(s_pick_layouts(UIPageId::SETTING_SWARM, w, h), UIPageId::SETTING_SWARM, 2, 0, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM));
+    _register_page(s_pick_layouts(UIPageId::MARKET, w, h),        UIPageId::MARKET,        2, 1, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP | LV_DIR_BOTTOM));
+    _register_page(s_pick_layouts(UIPageId::CLOCK, w, h),         UIPageId::CLOCK,         2, 2, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP));
 
     LOG_I("UIManager: %u pages registered for %dx%d (%s)",
           (unsigned)_pages.size(), w, h, (h <= 160) ? "NMAXE" : "QAxe++");

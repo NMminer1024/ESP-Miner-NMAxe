@@ -8,6 +8,7 @@
 #include "../drivers/display/display_hal.h"
 #include "../ui/ui_manager.h"
 #include "../ui/overlay_manager.h"
+#include "../ui/assets/images.h"
 #include "../utils/helper.h"
 #include "../utils/logger/logger.h"
 #include "../version.h"
@@ -767,6 +768,7 @@ bool MinerApp::_ui_init() {
     ui_drv_register(w, h);
     touch_drv_register(&_pref, 50);   // enables tileview swipe nav (no-op if absent)
     lvgl_fs_spiffs_register();        // 'S' drive for lv_gif screensaver
+    images_init(w, h);                // set bg/image descriptor dimensions
     UIManager::instance().init(w, h);
     UIManager::instance().set_recover_factory_xsem(_recover_factory_xsem);  // touch long-press factory reset
 
