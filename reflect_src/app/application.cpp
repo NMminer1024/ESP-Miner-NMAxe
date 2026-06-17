@@ -5,7 +5,9 @@
 #include "../thread/thread_entry.h"
 #include "../nvs/nvs_config.h"
 #include "../drivers/temp/temp_hal.h"
+#include "../utils/helper.h"
 #include "../utils/logger/logger.h"
+#include "../version.h"
 
 MinerApp& MinerApp::instance() {
     static MinerApp app;
@@ -107,7 +109,73 @@ bool MinerApp::init() {
     miner_status.init();
     _minerStatus = &miner_status;
 
+    _nvs_save_xsem = xSemaphoreCreateCounting(1, 0);
+
+    // Restore persisted counters (best-ever diff, block hits, uptime).
+    {
+        String best_ever = nvs_config_get_string_value(NVS_CONFIG_BEST_EVER, "0");
+        _minerStatus->diff.best_ever = strtoull(best_ever.c_str(), nullptr, 10);
+        _minerStatus->hits           = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
+        _minerStatus->uptime_ever    = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
+    }
+
+    // ── Build connection set + asic/miner/stratum instances with DI ──
+    if (!_init_mining_instances()) {
+        return false;
+    }
+
     LOG_D("MinerApp::init ready");
+    return true;
+}
+
+bool MinerApp::_init_mining_instances() {
+    static ConnInfo conn;
+    _conn = &conn;
+
+    // Pool URLs (parse "stratum+tcp://host:port" / ssl|tls detection).
+    String stratum_pri = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL);
+    String stratum_fb  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL);
+
+    conn.pool.primary.ssl  = (stratum_pri.indexOf("ssl") != -1) || (stratum_pri.indexOf("tls") != -1);
+    conn.pool.primary.url  = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
+    conn.pool.primary.port = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1).toInt();
+    conn.pool.fallback.ssl  = (stratum_fb.indexOf("ssl") != -1) || (stratum_fb.indexOf("tls") != -1);
+    conn.pool.fallback.url  = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
+    conn.pool.fallback.port = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1).toInt();
+    conn.pool.use           = conn.pool.primary;
+
+    // Stratum users/passwords (default worker = "<USER>.<spec.name>_<dev5>").
+    String device_code = gen_device_code();
+    String default_user_pri = String(PRIMARY_USER)  + "." + _spec.name + "_" + device_code.substring(0, 5);
+    String default_user_fb  = String(FALLBACK_USER) + "." + _spec.name + "_" + device_code.substring(0, 5);
+    conn.stratum.primary.user  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_PRIMARY,  default_user_pri.c_str());
+    conn.stratum.primary.pwd   = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_PRIMARY,  PRIMARY_POOL_PWD);
+    conn.stratum.fallback.user = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_FALLBACK, default_user_fb.c_str());
+    conn.stratum.fallback.pwd  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD);
+    conn.stratum.use           = conn.stratum.primary;
+
+    // ASIC driver instance from the board spec factory.
+    BMxxx* asic = _spec.create_asic_instance(
+        *_spec.asic.com_port, _spec.asic.com_baud_init,
+        _spec.asic.rx_pin, _spec.asic.tx_pin, _spec.asic.rst_pin);
+    if (asic == nullptr) {
+        LOG_E("BMxxx instance creation failed");
+        return false;
+    }
+
+    _miner = new AsicMinerClass(asic);
+    if (_miner == nullptr) { LOG_E("AsicMinerClass instance creation failed"); return false; }
+
+    _stratum = new StratumClass(conn.pool.use, conn.stratum.use, 10);
+    if (_stratum == nullptr) { LOG_E("StratumClass instance creation failed"); return false; }
+
+    // Dependency injection (replaces former g_board cross-references).
+    _miner->set_stratum(_stratum);
+    _miner->set_asic_name(_spec.asic.name);
+    _stratum->set_client_id(_spec.display_name + "/" + BOARD_CURRENT_FW_VERSION);
+
+    LOG_I("Mining instances ready: asic=%s pool=%s:%d",
+          _spec.asic.name.c_str(), conn.pool.use.url.c_str(), conn.pool.use.port);
     return true;
 }
 

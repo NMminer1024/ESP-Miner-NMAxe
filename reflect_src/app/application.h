@@ -69,6 +69,12 @@ private:
     WifiCtx* _wifi = nullptr;
     SwarmCtx* _swarm = nullptr;
     MinerStatus*     _minerStatus = nullptr;  // shared mining runtime state (replaces g_board.status.miner)
+    AsicMinerClass*  _miner = nullptr;        // ASIC miner instance (replaces g_board.miner)
+    StratumClass*    _stratum = nullptr;      // stratum client instance (replaces g_board.stratum)
+    ConnInfo*        _conn = nullptr;         // pool/stratum connection set (replaces g_board.info.connection)
+    MinerCtx*        _miner_ctx = nullptr;    // DI context for stratum/miner/monitor threads
+    volatile uint64_t _utc = 0;              // shared UTC seconds (time domain)
+    SemaphoreHandle_t _nvs_save_xsem = nullptr; // request NVS persist of best-ever/hits/uptime
     BoardModelType   _model = BOARD_UNKNOWN;
     BoardSpecConfig  _spec;                 // runtime board spec (replaces g_board.info.spec)
     AxePowerHal*     _power = nullptr;       // power HAL instance (replaces g_board.power)
@@ -82,6 +88,8 @@ private:
     BaseType_t _create_task(TaskFunction_t fn, const char* name,
                             uint32_t stack_bytes, void* param,
                             UBaseType_t prio, BaseType_t core);
+
+    bool _init_mining_instances();   // parse NVS conn + build asic/miner/stratum with DI
 
     void _begin_board_init(BootProgress& boot);
     void _begin_fan(BootProgress& boot);
