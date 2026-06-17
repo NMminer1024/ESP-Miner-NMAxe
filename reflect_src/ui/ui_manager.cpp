@@ -2,6 +2,8 @@
 #include "ui_layout.h"
 #include "../utils/logger/logger.h"
 #include "app/app_state.h"
+#include "../app/system_events.h"
+#include "../nvs/nvs_config.h"
 
 
 // ============================================================================
@@ -10,6 +12,13 @@
 UIManager& UIManager::instance() {
     static UIManager mgr;
     return mgr;
+}
+
+static void s_save_last_page(size_t idx) {
+    if (idx >= (size_t)UIPageId::COUNT || idx == (size_t)UIPageId::LOADING) {
+        return;
+    }
+    nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, (uint8_t)idx);
 }
 
 // ============================================================================
@@ -165,6 +174,7 @@ void UIManager::next_page() {
         lv_obj_set_tile(_tileview, _tile_entries[next].obj,
                         dx > 0 ? LV_ANIM_ON : (dx < 0 ? LV_ANIM_ON : LV_ANIM_OFF));
         _current = next;
+        s_save_last_page(_current);
         LOG_D("UIManager: page -> %u '%s'", (unsigned)_current, _pages[_current]->name());
     }
 }
@@ -189,6 +199,7 @@ void UIManager::prev_page() {
         lv_obj_set_tile(_tileview, _tile_entries[prev].obj,
                         dx < 0 ? LV_ANIM_ON : (dx > 0 ? LV_ANIM_ON : LV_ANIM_OFF));
         _current = prev;
+        s_save_last_page(_current);
         LOG_D("UIManager: page <- %u '%s'", (unsigned)_current, _pages[_current]->name());
     }
 }
@@ -202,6 +213,7 @@ void UIManager::goto_page(UIPageId id) {
                        _tile_entries[idx].col, _tile_entries[idx].row,
                        LV_ANIM_ON);
     _current = idx;
+    s_save_last_page(_current);
     LOG_D("UIManager: page -> %u '%s'", (unsigned)_current, _pages[_current]->name());
 }
 
@@ -268,24 +280,54 @@ void UIManager::_scroll_begin_cb(lv_event_t* e) {
 void UIManager::_pressed_cb(lv_event_t* e) {
     UIManager& self = instance();
     self._s_start_tile = lv_tileview_get_tile_act(lv_event_get_target(e));
+    self._s_was_special_state = false;
+    if (self._sys_evt != nullptr) {
+        const EventBits_t special_bits = SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED;
+        self._s_was_special_state = (xEventGroupGetBits(self._sys_evt) & special_bits) != 0;
+        xEventGroupClearBits(self._sys_evt,
+            SYS_EVENT_MINER_BLOCK_HIT |
+            SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+            special_bits);
+    }
+    self.wake_activity();
 }
 
 void UIManager::_released_cb(lv_event_t* e) {
     UIManager& self = instance();
     lv_obj_t* tv = lv_event_get_target(e);
-    // Read scroll offset BEFORE scroll_end (where it resets to 0)
-    lv_coord_t x = lv_obj_get_scroll_x(tv);
-    lv_coord_t y = lv_obj_get_scroll_y(tv);
-    // Normalize: tile size = screen size
-    lv_coord_t w = lv_obj_get_width(tv);
-    lv_coord_t h = lv_obj_get_height(tv);
-    self._s_rel_x = x % w;
-    self._s_rel_y = y % h;
+    self._s_release_scroll_x = lv_obj_get_scroll_x(tv);
+    self._s_release_scroll_y = lv_obj_get_scroll_y(tv);
 }
 
 void UIManager::_scroll_end_cb(lv_event_t* e) {
     UIManager& self = instance();
     lv_obj_t* tv = lv_event_get_target(e);
+
+    if (self._s_was_special_state && self._s_start_tile != nullptr) {
+        lv_obj_set_tile(tv, self._s_start_tile, LV_ANIM_OFF);
+        self._s_was_special_state = false;
+    }
+    lv_obj_t* release_tile = self._s_start_tile;
+    lv_coord_t release_scroll_x = self._s_release_scroll_x;
+    lv_coord_t release_scroll_y = self._s_release_scroll_y;
+    self._s_start_tile = nullptr;
+
+    if (release_tile != nullptr) {
+        int departure_idx = self._tile_index_from_obj(release_tile);
+        if (departure_idx >= 0) {
+            lv_coord_t ref_x = lv_obj_get_x(release_tile);
+            lv_coord_t ref_y = lv_obj_get_y(release_tile);
+            lv_coord_t drift_x = release_scroll_x - ref_x;
+            lv_coord_t drift_y = release_scroll_y - ref_y;
+            if (lv_obj_t* target_tile = self._resolve_target_tile((size_t)departure_idx, drift_x, drift_y)) {
+                lv_obj_t* snapped_tile = lv_tileview_get_tile_act(tv);
+                if (target_tile != snapped_tile) {
+                    lv_obj_set_tile(tv, target_tile, LV_ANIM_ON);
+                }
+            }
+        }
+    }
+
     lv_obj_t* active = lv_tileview_get_tile_act(tv);
 
     // Find current index
@@ -295,6 +337,71 @@ void UIManager::_scroll_end_cb(lv_event_t* e) {
             break;
         }
     }
+    self._s_was_special_state = false;
+    s_save_last_page(self._current);
     LOG_D("UIManager: scroll_end -> tile %u", (unsigned)self._current);
+}
+
+int UIManager::_tile_index_from_obj(lv_obj_t* obj) const {
+    for (size_t i = 0; i < _tile_entries.size(); ++i) {
+        if (_tile_entries[i].obj == obj) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+lv_obj_t* UIManager::_resolve_target_tile(size_t departure_idx, lv_coord_t drift_x, lv_coord_t drift_y) const {
+    if (departure_idx >= _tile_entries.size()) {
+        return nullptr;
+    }
+
+    const lv_coord_t threshold_x = lv_obj_get_width(_tileview) / 100;
+    const lv_coord_t threshold_y = lv_obj_get_height(_tileview) / 100;
+    size_t target_idx = departure_idx;
+    bool has_target = false;
+
+    if (LV_ABS(drift_x) > LV_ABS(drift_y)) {
+        if (LV_ABS(drift_x) <= threshold_x) return nullptr;
+        if (drift_x > 0) {
+            switch ((UIPageId)departure_idx) {
+                case UIPageId::MINER:         target_idx = (size_t)UIPageId::SETTING_SWARM; has_target = true; break;
+                case UIPageId::DASHBOARD:     target_idx = (size_t)UIPageId::MARKET;        has_target = true; break;
+                case UIPageId::HR_HEALTH:     target_idx = (size_t)UIPageId::CLOCK;         has_target = true; break;
+                default: break;
+            }
+        } else {
+            switch ((UIPageId)departure_idx) {
+                case UIPageId::SETTING_SWARM: target_idx = (size_t)UIPageId::MINER;         has_target = true; break;
+                case UIPageId::MARKET:        target_idx = (size_t)UIPageId::DASHBOARD;     has_target = true; break;
+                case UIPageId::CLOCK:         target_idx = (size_t)UIPageId::HR_HEALTH;     has_target = true; break;
+                default: break;
+            }
+        }
+    } else {
+        if (LV_ABS(drift_y) <= threshold_y) return nullptr;
+        if (drift_y > 0) {
+            switch ((UIPageId)departure_idx) {
+                case UIPageId::MINER:         target_idx = (size_t)UIPageId::DASHBOARD;     has_target = true; break;
+                case UIPageId::DASHBOARD:     target_idx = (size_t)UIPageId::HR_HEALTH;     has_target = true; break;
+                case UIPageId::MARKET:        target_idx = (size_t)UIPageId::CLOCK;         has_target = true; break;
+                case UIPageId::SETTING_SWARM: target_idx = (size_t)UIPageId::MARKET;        has_target = true; break;
+                default: break;
+            }
+        } else {
+            switch ((UIPageId)departure_idx) {
+                case UIPageId::DASHBOARD:     target_idx = (size_t)UIPageId::MINER;         has_target = true; break;
+                case UIPageId::HR_HEALTH:     target_idx = (size_t)UIPageId::DASHBOARD;     has_target = true; break;
+                case UIPageId::CLOCK:         target_idx = (size_t)UIPageId::MARKET;        has_target = true; break;
+                case UIPageId::MARKET:        target_idx = (size_t)UIPageId::SETTING_SWARM; has_target = true; break;
+                default: break;
+            }
+        }
+    }
+
+    if (!has_target || target_idx >= _tile_entries.size() || _pages[target_idx] == nullptr) {
+        return nullptr;
+    }
+    return _tile_entries[target_idx].obj;
 }
 

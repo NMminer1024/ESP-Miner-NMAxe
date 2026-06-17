@@ -251,3 +251,33 @@ lv_conf.h 启用 Montserrat 28/48 大字。构建通过，Flash 约 44.7%。
 - config / dashboard / hr_health / market / setting：**底图与帧方向已对齐**，元素为可用文本布局。
   这几页的仪表/图表/币种列表在 legacy 中大多**烘焙进底图位图**、动态覆盖元素较少；其精确覆盖坐标
   可对照各自底图继续细化（后续）。
+
+## Latest Status - 2026-06-17
+
+Build baseline saved for next power-on test.
+
+What was completed in this round:
+- loading page progress bar now animates smoothly in reflect, with moving percent text restored
+- loading page `details`, IP, and pool labels were adjusted to behave closer to legacy scroll/layout timing
+- loading page IP/pool live updates were moved onto the fast UI tick path so they no longer wait for the 1 Hz refresh
+- tileview swipe destination logic was corrected to match legacy page selection more closely
+- power OC/OT overlay actions were restored so the overlay is no longer display-only
+- miner bring-up was corrected back to a 2-stage flow:
+  1. `miner_count_thread_entry()` still counts ASICs after `INIT_EVENT_VDD_VPLL_READY`
+  2. `miner_init_thread_entry()` now waits for `INIT_EVENT_ASIC_COUNTED | INIT_EVENT_VCORE_READY | INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED`
+
+Why this ASIC change matters:
+- this preserves the old USB-only detection window
+- with DC/Vcore not yet enabled, the board should still be able to identify ASIC presence before full miner init begins
+
+Build verification:
+- `pio run -e reflect`
+- result: `SUCCESS`
+
+Hardware test focus for next session:
+- USB-only power, no DC: verify ASIC count can still be detected before Vcore comes up
+- confirm loading page progress, details, IP, and pool text all update/scroll as expected during boot
+- verify page swipe behavior and overlay dismissal behavior on real hardware
+
+Known limitation:
+- no hardware validation was possible in this session; ASIC power-path behavior is restored by code audit and build verification only

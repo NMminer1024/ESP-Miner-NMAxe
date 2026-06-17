@@ -37,6 +37,7 @@ public:
     // Initialize with screen dimensions. Resolution-specific pages are selected
     // based on the closest match to the given width/height.
     void init(uint16_t width, uint16_t height);
+    void set_sys_evt(EventGroupHandle_t sys_evt) { _sys_evt = sys_evt; }
 
     // Called periodically from LVGL task: sync active tile, refresh page, drive LVGL
     void render_update();
@@ -85,13 +86,18 @@ private:
     std::vector<TileEntry>  _tile_entries;
 
     lv_obj_t*  _s_start_tile = nullptr;
-    lv_coord_t _s_rel_x = 0;
-    lv_coord_t _s_rel_y = 0;
+    lv_coord_t _s_release_scroll_x = 0;
+    lv_coord_t _s_release_scroll_y = 0;
+    bool       _s_was_special_state = false;
+    EventGroupHandle_t _sys_evt = nullptr;
 
     static void _pressed_cb(lv_event_t* e);
     static void _released_cb(lv_event_t* e);
     static void _scroll_end_cb(lv_event_t* e);
     static void _scroll_begin_cb(lv_event_t* e);
+
+    int _tile_index_from_obj(lv_obj_t* obj) const;
+    lv_obj_t* _resolve_target_tile(size_t departure_idx, lv_coord_t drift_x, lv_coord_t drift_y) const;
 
     // Touch long-press → factory-reset countdown
     static void _long_pressed_cb(lv_event_t* e);

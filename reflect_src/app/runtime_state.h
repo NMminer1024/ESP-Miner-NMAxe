@@ -29,7 +29,7 @@ struct OtaState {
 // ============================================================================
 struct TimeState {
     struct {
-        uint16_t time = 0;   // 0=24h, 1=12h (matches legacy time.format.time)
+        uint16_t time = 24;  // 24=24h, 12=12h (matches legacy/web API values)
         String   date;       // date format string, e.g. "YYYY/MM/DD"
     } format;
 };

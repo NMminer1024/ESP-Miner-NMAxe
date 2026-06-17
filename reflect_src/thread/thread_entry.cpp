@@ -375,6 +375,16 @@ void miner_init_thread_entry(void* args) {
         delay(1000);
     }
 
+    // Preserve the legacy two-stage bring-up:
+    // 1. ASIC count runs first on VDD/VPLL only, so USB-only power can still detect chips.
+    // 2. Full ASIC init waits until Vcore, fan self-test, and WiFi are all ready.
+    xEventGroupWaitBits(ctx->init_evt,
+                        INIT_EVENT_ASIC_COUNTED |
+                        INIT_EVENT_VCORE_READY |
+                        INIT_EVENT_FAN_READY |
+                        INIT_EVENT_WIFI_STA_CONNECTED,
+                        pdFALSE, pdTRUE, portMAX_DELAY);
+
     if (!ctx->miner->begin(ctx->spec->asic.req_frq, ctx->spec->asic.diff_thr_init,
                            ctx->spec->asic.com_baud_work)) {
         while (true) {

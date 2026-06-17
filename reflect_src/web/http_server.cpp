@@ -7,6 +7,7 @@
 #include "http_server.h"
 #include "web_ctx.h"
 #include "app/system_events.h"
+#include "ui/ui_manager.h"
 #include "nvs/nvs_config.h"
 #include "utils/helper.h"
 #include "utils/reboot_log/reboot_log.h"
@@ -403,8 +404,10 @@ void patch_setting_time(AsyncWebServerRequest* request, uint8_t *data, size_t le
             (*g_web->tz) = root["timezone"].as<String>();
         }
         if (root.containsKey("timeFormat")) {
-            nvs_config_set_u8(NVS_CONFIG_TIME_FORMAT, root["timeFormat"].as<uint8_t>());
-            g_web->time->format.time = root["timeFormat"].as<uint8_t>();
+            uint8_t tf = root["timeFormat"].as<uint8_t>();
+            tf = (tf == 12) ? 12 : 24;
+            nvs_config_set_u8(NVS_CONFIG_TIME_FORMAT, tf);
+            g_web->time->format.time = tf;
         }
         if (root.containsKey("dateFormat")) {
             nvs_config_set_string(NVS_CONFIG_DATE_FORMAT, root["dateFormat"].as<String>().c_str());
@@ -1987,8 +1990,8 @@ void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEve
                           client->id(), client->remoteIP().toString().c_str());
             // A WebSocket connection is the most reliable signal that a user has opened the web UI.
             // Wake screensaver immediately so the page renders with a live display.
-            // Safe to call here: g_board is a global and these are atomic bit ops.
-            /* ui activity tracked by UI framework */;
+            // Defer the LVGL inactivity reset onto the UI thread.
+            UIManager::instance().wake_activity();
             xEventGroupClearBits(g_web->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
             break;
         case WS_EVT_DISCONNECT:

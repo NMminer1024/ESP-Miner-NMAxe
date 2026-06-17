@@ -2,6 +2,8 @@
 #include "ui_manager.h"
 #include "../app/system_events.h"
 #include "../utils/logger/logger.h"
+#include "../nvs/nvs_config.h"
+#include "../utils/reboot_log/reboot_log.h"
 #include <SPIFFS.h>
 
 OverlayManager& OverlayManager::instance() {
@@ -23,6 +25,19 @@ void OverlayManager::_build() {
     lv_obj_set_style_border_width(_panel, 0, 0);
     lv_obj_set_style_pad_all(_panel, 6, 0);
     lv_obj_clear_flag(_panel, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(_panel, [](lv_event_t*) {
+        auto& mgr = OverlayManager::instance();
+        if (!mgr._ctx.sys_evt) return;
+        xEventGroupClearBits(mgr._ctx.sys_evt,
+            SYS_EVENT_MINER_BLOCK_HIT |
+            SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+            SYS_EVENT_SCREEN_SAVER_TRIGGERED |
+            SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+        UIManager::instance().wake_activity();
+    }, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_event_cb(_panel, [](lv_event_t*) {
+        UIManager::instance().wake_activity();
+    }, LV_EVENT_PRESSING, nullptr);
 
     _lb_title = lv_label_create(_panel);
     lv_obj_set_style_text_font(_lb_title, &lv_font_montserrat_20, 0);
@@ -49,6 +64,9 @@ void OverlayManager::_gif_hide() {
 void OverlayManager::_show(uint32_t accent, const char* title, const String& body) {
     if (!_panel) return;
     _gif_hide();                                                    // no GIF for non-screensaver overlays
+    if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
+    if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
+    _fault_event = 0;
     lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);  // normal dark bg
     lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 8);
     lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
@@ -64,8 +82,90 @@ void OverlayManager::_show(uint32_t accent, const char* title, const String& bod
 void OverlayManager::_hide() {
     _gif_hide();
     if (!_panel || !_visible) return;
+    _fault_event = 0;
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
+}
+
+void OverlayManager::_show_fault_overlay(bool is_oc) {
+    if (!_panel) return;
+    _gif_hide();
+    _fault_event = is_oc ? SYS_EVENT_POWER_OC_FAULT : SYS_EVENT_POWER_OT_FAULT;
+
+    lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(_panel, LV_OPA_90, 0);
+    lv_obj_set_style_text_color(_lb_title, lv_color_hex(is_oc ? 0xFF5252 : 0xFF6D00), 0);
+    lv_label_set_text(_lb_title, is_oc ? LV_SYMBOL_WARNING " Overcurrent Fault"
+                                       : LV_SYMBOL_WARNING " Overtemp Fault");
+    lv_label_set_text(_lb_body,
+        is_oc ? "Reset freq & voltage to defaults,\nthen reboot?"
+              : "ASIC powered down.\nCheck cooling & lower OC settings,\nthen restart.");
+    lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, -8);
+    lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
+
+    if (_btn_yes == nullptr) {
+        _btn_yes = lv_btn_create(_panel);
+        lv_obj_set_size(_btn_yes, (LV_HOR_RES - 50) / 2, 32);
+        lv_obj_align(_btn_yes, LV_ALIGN_BOTTOM_LEFT, 20, -8);
+        lv_obj_add_event_cb(_btn_yes, _fault_action_yes_cb, LV_EVENT_CLICKED, this);
+        lv_obj_t* lb = lv_label_create(_btn_yes);
+        lv_obj_set_style_text_font(lb, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_center(lb);
+    }
+    if (_btn_no == nullptr) {
+        _btn_no = lv_btn_create(_panel);
+        lv_obj_set_size(_btn_no, (LV_HOR_RES - 50) / 2, 32);
+        lv_obj_align(_btn_no, LV_ALIGN_BOTTOM_RIGHT, -20, -8);
+        lv_obj_set_style_bg_color(_btn_no, lv_color_hex(0x424242), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(_btn_no, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_border_width(_btn_no, 0, LV_PART_MAIN);
+        lv_obj_add_event_cb(_btn_no, _fault_action_no_cb, LV_EVENT_CLICKED, this);
+        lv_obj_t* lb = lv_label_create(_btn_no);
+        lv_obj_set_style_text_font(lb, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_label_set_text(lb, "Dismiss");
+        lv_obj_center(lb);
+    }
+
+    lv_obj_set_style_bg_color(_btn_yes, lv_color_hex(is_oc ? 0xD32F2F : 0xFF6D00), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(_btn_yes, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(_btn_yes, 0, LV_PART_MAIN);
+    lv_label_set_text(lv_obj_get_child(_btn_yes, 0), is_oc ? "Reset & Reboot" : "Restart");
+    lv_obj_clear_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(_btn_no, LV_OBJ_FLAG_HIDDEN);
+
+    if (!_visible) {
+        lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
+        _visible = true;
+    }
+}
+
+void OverlayManager::_fault_action_yes_cb(lv_event_t* e) {
+    auto* self = static_cast<OverlayManager*>(lv_event_get_user_data(e));
+    if (!self) return;
+
+    bool is_oc = (self->_fault_event == SYS_EVENT_POWER_OC_FAULT);
+    if (is_oc && self->_ctx.spec != nullptr) {
+        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, self->_ctx.spec->asic.default_frq);
+        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, self->_ctx.spec->asic.default_vcore);
+        LOG_W("OC alert: reset freq=%u vcore=%u — rebooting...",
+              self->_ctx.spec->asic.default_frq, self->_ctx.spec->asic.default_vcore);
+    } else {
+        LOG_W("OT alert: user confirmed restart");
+    }
+
+    reboot_intent_set_if_unset(is_oc ? REBOOT_INTENT_OVERCURRENT_FAULT
+                                     : REBOOT_INTENT_OVERHEAT_VCORE,
+                               is_oc ? "overlay confirmed reset+reboot after OC fault"
+                                     : "overlay confirmed reboot after OT fault");
+    if (self->_ctx.reboot_xsem) {
+        xSemaphoreGive(self->_ctx.reboot_xsem);
+    }
+}
+
+void OverlayManager::_fault_action_no_cb(lv_event_t* e) {
+    auto* self = static_cast<OverlayManager*>(lv_event_get_user_data(e));
+    if (!self || !self->_ctx.sys_evt) return;
+    xEventGroupClearBits(self->_ctx.sys_evt, SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT);
 }
 
 void OverlayManager::update() {
@@ -107,11 +207,11 @@ void OverlayManager::update() {
 
     // ── Priority 1: power faults ──
     if (bits & SYS_EVENT_POWER_OT_FAULT) {
-        _show(0xFF5252, "OVER-TEMP", "ASIC/VRM over-temperature.\nMining throttled for safety.");
+        _show_fault_overlay(false);
         return;
     }
     if (bits & SYS_EVENT_POWER_OC_FAULT) {
-        _show(0xFF5252, "OVER-CURRENT", "Power overcurrent fault.\nCheck PSU / load.");
+        _show_fault_overlay(true);
         return;
     }
 

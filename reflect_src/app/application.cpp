@@ -145,8 +145,15 @@ bool MinerApp::init() {
     _brightness_update_xsem = xSemaphoreCreateCounting(1, 0);
     _tz = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
     _bm_mode = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0);
-    _time.format.time = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 0);
+    {
+        uint8_t tf = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 24);
+        _time.format.time = (tf == 12) ? 12 : 24;
+    }
     _time.format.date = nvs_config_get_string_value(NVS_CONFIG_DATE_FORMAT, "YYYY/MM/DD");
+    _last_ui_page = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, (uint8_t)UIPageId::MINER);
+    if (_last_ui_page >= (uint8_t)UIPageId::COUNT || _last_ui_page == (uint8_t)UIPageId::LOADING) {
+        _last_ui_page = (uint8_t)UIPageId::MINER;
+    }
 
     // ── Live user preferences (defaults from board spec, overridden by NVS) ──
     _pref.screen.flip          = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,         _spec.preference.screen.flip);
@@ -505,10 +512,12 @@ void MinerApp::_tick_thread_entry(void* args) {
     auto& app = MinerApp::instance();
 
     bool     tmp_ready = false;
+    bool     miner_ready_evt = false;
     uint32_t last_temp_ms = 0;
     uint32_t last_ui_ms   = 0;
     uint32_t last_roll_ms = 0;       // auto page-rolling cadence
     uint32_t last_connect_ms = 0;    // boot wifi-connecting status cadence
+    uint32_t last_cfg_timeout_ms = 0; // NMQAxe++ AP config timeout cadence
     uint8_t  connect_dots = 0;
     bool     ss_active    = false;   // screensaver state (this thread owns backlight)
     bool     ui_switched  = false;   // one-shot LOADING -> MINER after boot
@@ -526,7 +535,7 @@ void MinerApp::_tick_thread_entry(void* args) {
                 UIManager::instance().request_goto_page(UIPageId::CONFIG);
                 ui_switched = true;
             } else if (ib & INIT_EVENT_MINER_READY) {
-                UIManager::instance().request_goto_page(UIPageId::MINER);
+                UIManager::instance().request_goto_page((UIPageId)app._last_ui_page);
                 ui_switched = true;
             } else if (app._wifi && app._wifi->status != WL_CONNECTED &&
                        now - last_connect_ms >= 500) {
@@ -550,6 +559,29 @@ void MinerApp::_tick_thread_entry(void* args) {
             xEventGroupSetBits(app._sys->sys_evt,
                 SYS_EVENT_MINER_VCORE_TEMP_UPDATE | SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
             last_temp_ms = now;
+        }
+
+        // ── Legacy-equivalent MINER_READY gate: only raise once boot has truly
+        //     reached the "mining ready" state (pool job obtained + fan self-test
+        //     complete + Vcore/TMP/WiFi ready). Multiple threads gate on this.
+        if (!miner_ready_evt && app._sys && app._sys->init_evt && app._stratum && app._minerStatus) {
+            EventBits_t ib = xEventGroupGetBits(app._sys->init_evt);
+            bool prereq_ok =
+                (ib & INIT_EVENT_WIFI_STA_CONNECTED) &&
+                (ib & INIT_EVENT_TMP_READY) &&
+                (ib & INIT_EVENT_FAN_READY) &&
+                (ib & INIT_EVENT_VCORE_READY);
+            if (prereq_ok &&
+                app._stratum->is_subscribed() &&
+                app._stratum->is_authorized() &&
+                app._stratum->get_job_counter() > 0) {
+                xEventGroupSetBits(app._sys->init_evt, INIT_EVENT_MINER_READY);
+                miner_ready_evt = true;
+                AppState::instance().loading.progress = 100;
+                AppState::instance().loading.details.color = 0x00FF00;
+                AppState::instance().loading.details.text = "Miner ready!";
+                LOG_I("INIT_EVENT_MINER_READY set");
+            }
         }
 
         // ── Backlight brightness update (web/UI changes screen.brightness then
@@ -604,6 +636,17 @@ void MinerApp::_tick_thread_entry(void* args) {
             if (!(xEventGroupGetBits(app._sys->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED)) {
                 UIManager::instance().request_next_page();
             }
+        }
+
+        // ── Loading page live fields: keep these on the fast UI path so they
+        //     react as soon as WiFi/Vcore becomes ready, matching legacy boot UX.
+        if (app._wifi && app._wifi->status == WL_CONNECTED) {
+            AppState::instance().loading.ip.text = app._wifi->ip.toString();
+            AppState::instance().loading.ip.color = 0x00FF00;
+        }
+        if (app._conn && ((xEventGroupGetBits(app._sys->init_evt) & INIT_EVENT_VCORE_READY) != 0)) {
+            AppState::instance().loading.pool.text =
+                app._conn->pool.use.url + ":" + String(app._conn->pool.use.port);
         }
 
         // ── UI state refresh at 1 Hz ──
@@ -684,7 +727,7 @@ void MinerApp::_tick_thread_entry(void* args) {
             struct tm lt;
             localtime_r(&t, &lt);
             char tbuf[16];
-            if (app._time.format.time == 1) {  // 12h
+            if (app._time.format.time == 12) {  // 12h
                 strftime(tbuf, sizeof(tbuf), "%I:%M %p", &lt);
             } else {                            // 24h
                 strftime(tbuf, sizeof(tbuf), "%H:%M", &lt);
@@ -707,10 +750,22 @@ void MinerApp::_tick_thread_entry(void* args) {
 
         // ── Config page: AP setup info + config-window countdown ──
         if (app._wifi) {
+            EventBits_t ib = app._sys ? xEventGroupGetBits(app._sys->init_evt) : 0;
+            bool ap_config_active = ((ib & INIT_EVENT_WIFI_AP_READY) != 0) &&
+                                    (app._wifi->status != WL_CONNECTED);
             auto& cfg = AppState::instance().config;
             cfg.ssid.text = String("SSID: ") + app._wifi_cfg.ap_ssid;
             cfg.ip.text   = String("IP: ") + app._wifi_cfg.ap_ip.toString();
-            if (app._wifi->force_config_required) {
+            if (ap_config_active) {
+                if (app._spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME && now - last_cfg_timeout_ms >= 1000) {
+                    last_cfg_timeout_ms = now;
+                    uint32_t inactive_ms = lv_disp_get_inactive_time(nullptr);
+                    if (inactive_ms < 1500) {
+                        app._wifi->config_timeout = MINER_WIFI_CONFIG_TIMEOUT;
+                    } else if (app._wifi->config_timeout > 0) {
+                        app._wifi->config_timeout--;
+                    }
+                }
                 cfg.timeout.text = String("Timeout: ") + String((unsigned)app._wifi->config_timeout) + "s";
             } else {
                 cfg.timeout.text = "";
@@ -761,6 +816,15 @@ void MinerApp::_tick_thread_entry(void* args) {
         if (app._wifi) {
             AppState::instance().setting_swarm.ip.text = String("IP: ") + app._wifi->ip.toString();
         }
+
+        size_t current_page = UIManager::instance().current();
+        if (current_page < (size_t)UIPageId::COUNT &&
+            current_page != (size_t)UIPageId::LOADING &&
+            current_page != app._last_ui_page) {
+            app._last_ui_page = (uint8_t)current_page;
+            nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, app._last_ui_page);
+            LOG_D("Saved last page to NVS: %u", (unsigned)app._last_ui_page);
+        }
     }
 }
 
@@ -784,6 +848,7 @@ bool MinerApp::_ui_init() {
     lvgl_fs_spiffs_register();        // 'S' drive for lv_gif screensaver
     images_init(w, h);                // set bg/image descriptor dimensions
     UIManager::instance().init(w, h);
+    UIManager::instance().set_sys_evt(_sys->sys_evt);
     UIManager::instance().set_recover_factory_xsem(_recover_factory_xsem);  // touch long-press factory reset
 
     OverlayCtx octx;
@@ -791,7 +856,9 @@ bool MinerApp::_ui_init() {
     octx.bm      = &_bm;
     octx.status  = _minerStatus;
     octx.sys_evt = _sys->sys_evt;
+    octx.reboot_xsem = _sys->reboot_xsem;
     octx.ota     = &_ota;
+    octx.spec    = &_spec;
     octx.aphorism   = &_aphorism;
     octx.saver_mode = &_pref.screen.saver_mode;
     // Screensaver GIF path (uploaded via web). Filename matches http upload handler.

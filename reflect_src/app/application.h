@@ -83,6 +83,7 @@ private:
     TimeState        _time;                   // time/date format prefs (replaces g_board.status.time.format)
     SemaphoreHandle_t _brightness_update_xsem = nullptr; // screen brightness update signal
     PreferenceState  _pref;                  // live user preferences (replaces g_board.status.preference)
+    uint8_t          _last_ui_page = 0;      // persisted page index (legacy lastPage NVS)
     LedCtx*          _led_ctx = nullptr;     // DI context for led thread
     BenchmarkState   _bm;                     // benchmark overlay progress (replaces g_board.status.bm)
     BenchmarkCtx*    _benchmark_ctx = nullptr;// DI context for benchmark thread

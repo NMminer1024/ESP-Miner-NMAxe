@@ -90,6 +90,7 @@ struct LoadingPageState {
     Observable<int32_t> progress{(int32_t)0};
     ObsLabel            details;
     ObsLabel            ip;
+    ObsLabel            pool;
 };
 
 // ============================================================================
