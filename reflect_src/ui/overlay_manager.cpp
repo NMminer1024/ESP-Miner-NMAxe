@@ -95,6 +95,16 @@ void OverlayManager::update() {
         return;
     }
 
+    // ── Priority 1.2: OTA / file upload in progress ──
+    if (_ctx.ota && _ctx.ota->running) {
+        String body = _ctx.ota->filename;
+        if (body.length()) body += "\n";
+        body += String(_ctx.ota->progress) + " %";
+        body += "\nDo not power off.";
+        _show(0x42A5F5, "UPDATING", body);
+        return;
+    }
+
     // ── Priority 1.5: celebrations (cleared by a button press) ──
     if (bits & SYS_EVENT_MINER_BLOCK_HIT) {
         _show(0xFFD700, "BLOCK FOUND!", "Congratulations!\nYou solved a block!");

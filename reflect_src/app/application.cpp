@@ -529,7 +529,15 @@ void MinerApp::_tick_thread_entry(void* args) {
 
         // ── Screensaver: blank after idle (LVGL inactivity tracks touch; button &
         //     web wakeups reset via lv_disp_trig_activity / clearing the bit). ──
-        if (app._pref.screen.saver_enable && app._pref.screen.saver_timeout > 0) {
+        if (app._ota.running) {
+            // Keep the screen lit during firmware update; treat as activity.
+            if (ss_active) {
+                tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
+                xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+                ss_active = false;
+            }
+            lv_disp_trig_activity(nullptr);
+        } else if (app._pref.screen.saver_enable && app._pref.screen.saver_timeout > 0) {
             uint32_t idle_ms = lv_disp_get_inactive_time(nullptr);
             bool bit_set = (xEventGroupGetBits(app._sys->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
             if (!ss_active) {
@@ -706,6 +714,7 @@ bool MinerApp::_ui_init() {
     octx.bm      = &_bm;
     octx.status  = _minerStatus;
     octx.sys_evt = _sys->sys_evt;
+    octx.ota     = &_ota;
     OverlayManager::instance().init(octx);
     // Backlight on (fall back to a sane default if no NVS brightness set).
     uint8_t br = _pref.screen.brightness ? _pref.screen.brightness : 80;

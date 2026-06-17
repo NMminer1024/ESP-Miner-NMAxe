@@ -14,6 +14,7 @@ struct OverlayCtx {
     BenchmarkState*    bm      = nullptr;   // live sweep progress
     MinerStatus*       status  = nullptr;   // runtime_state / user_paused
     EventGroupHandle_t sys_evt = nullptr;   // OC/OT fault bits
+    OtaState*          ota     = nullptr;   // firmware-update progress
 };
 
 // ============================================================================
