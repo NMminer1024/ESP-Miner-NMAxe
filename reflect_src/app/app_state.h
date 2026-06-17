@@ -127,7 +127,9 @@ struct MinerPageState {
 // Config page state
 // ============================================================================
 struct ConfigPageState {
-    ObsLabel timeout;
+    ObsLabel ssid;       // AP SSID the user should join
+    ObsLabel ip;         // AP IP (captive-portal address)
+    ObsLabel timeout;    // AP config-window countdown (seconds)
 };
 
 // ============================================================================

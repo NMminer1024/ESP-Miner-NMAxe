@@ -561,6 +561,18 @@ void MinerApp::_tick_thread_entry(void* args) {
             AppState::instance().clock.date_str.text = String(dbuf);
         }
 
+        // ── Config page: AP setup info + config-window countdown ──
+        if (app._wifi) {
+            auto& cfg = AppState::instance().config;
+            cfg.ssid.text = String("SSID: ") + app._wifi_cfg.ap_ssid;
+            cfg.ip.text   = String("IP: ") + app._wifi_cfg.ap_ip.toString();
+            if (app._wifi->force_config_required) {
+                cfg.timeout.text = String("Timeout: ") + String((unsigned)app._wifi->config_timeout) + "s";
+            } else {
+                cfg.timeout.text = "";
+            }
+        }
+
         // ── Market page: main coin symbol / price / 24h change ──
         if (app._market && app._market->get_last_update() != 0) {
             const CoinPrice& mp = app._market->get_main_pair();
