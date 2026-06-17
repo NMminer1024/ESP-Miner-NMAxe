@@ -194,6 +194,22 @@ loading/miner 页有实时数据，触摸滑动 + 按键翻页可用。
 layout（240x135 + 320x240）建 widget 并 _finish_create()；_tick_thread 以 1Hz 喂数。
 lv_conf.h 启用 Montserrat 28/48 大字。构建通过，Flash 约 44.7%。
 
-### 仍待办（可选增强）
-- 各类 overlay（benchmark/暂停/OC-OT 告警/screensaver/find-me/aphorism）与屏保/亮度自动化。
-- dashboard/hr_health 可进一步替换为弧形仪表/直方图（当前为文本行，数据已就绪）。
+## Overlay / 屏保 / 亮度（P30–P33）
+- **P30 亮度联动**：tick 线程消费 _brightness_update_xsem → tft_bl_ctrl(_pref.brightness)，
+  web/UI 改亮度即时生效。**OverlayManager**（lv_layer_top 顶层面板，DI via OverlayCtx，
+  自限频 4Hz）：按优先级显示 OC/OT 告警 > benchmark 扫描进度 > 挖矿暂停。
+- **P31 屏保**：tick 线程自带状态机，独占背光——LVGL 空闲（触摸）超过 saver_timeout 熄屏，
+  触摸/外部清位（web/按键）唤醒；wake_activity() 改为在 LVGL 线程 lv_disp_trig_activity()。
+- **P32 find-me**：web /api/swarm/find 触发全屏黑白闪烁 ~6s 定位设备，自动清位。
+- **P33 庆祝 overlay**：爆块 BLOCK FOUND!（金）/ 新高难度 NEW BEST!（青），按键消除。
+
+最终构建通过，Flash≈44.8%，RAM≈21.1%。
+
+## 总结：reflect 架构迁移 + UI 重建已达可用完整度
+- god-object → DI 全后台域 + webserver 已迁移；reflect_src 无 g_board。
+- UI：真实 TFT 点亮（实机验证）；8 页全部实时数据；触摸滑动 + 按键翻页；
+  6 类 overlay（find-me/OC/OT/爆块/新高/benchmark/暂停）；屏保 + 亮度联动。
+
+### 仍待办（纯可选润色）
+- aphorism 格言页 / GIF 屏保模式（当前屏保为熄屏）/ 弧形仪表·直方图样式
+  （dashboard/hr_health 现为文本行，数据已就绪）。
