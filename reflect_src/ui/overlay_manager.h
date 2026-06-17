@@ -40,4 +40,5 @@ private:
     lv_obj_t*  _lb_body  = nullptr;
     bool       _visible = false;
     uint32_t   _last_ms = 0;
+    uint32_t   _find_start = 0;   // find-me blink start (0 = inactive)
 };

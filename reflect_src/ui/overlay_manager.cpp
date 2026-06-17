@@ -41,6 +41,7 @@ void OverlayManager::_build() {
 
 void OverlayManager::_show(uint32_t accent, const char* title, const String& body) {
     if (!_panel) return;
+    lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);  // normal dark bg
     lv_obj_set_style_text_color(_lb_title, lv_color_hex(accent), 0);
     lv_label_set_text(_lb_title, title);
     lv_label_set_text(_lb_body, body.c_str());
@@ -63,6 +64,26 @@ void OverlayManager::update() {
     if (!_panel) return;
 
     uint32_t bits = _ctx.sys_evt ? xEventGroupGetBits(_ctx.sys_evt) : 0;
+
+    // ── Priority 0: find-me (blink the whole screen ~6 s to locate device) ──
+    if (bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) {
+        if (_find_start == 0) _find_start = now;
+        if (now - _find_start < 6000) {
+            bool on = ((now / 250) & 1);
+            lv_obj_set_style_bg_color(_panel, lv_color_hex(on ? 0xFFFFFF : 0x000000), 0);
+            lv_obj_set_style_text_color(_lb_title, lv_color_hex(on ? 0x000000 : 0xFFFFFF), 0);
+            lv_obj_set_style_text_color(_lb_body,  lv_color_hex(on ? 0x000000 : 0xFFFFFF), 0);
+            lv_label_set_text(_lb_title, "FIND ME");
+            lv_label_set_text(_lb_body, "Locating this miner...");
+            if (!_visible) { lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN); _visible = true; }
+            return;
+        }
+        _find_start = 0;
+        lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);  // restore body color
+        if (_ctx.sys_evt) xEventGroupClearBits(_ctx.sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+    } else {
+        _find_start = 0;
+    }
 
     // ── Priority 1: power faults ──
     if (bits & SYS_EVENT_POWER_OT_FAULT) {
