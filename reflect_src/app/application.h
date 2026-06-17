@@ -8,6 +8,8 @@
 #include "../mining/mining_types.h"
 #include "../board/board.h"
 #include "../drivers/power/power_ctx.h"
+#include "../drivers/fan/fan_ctx.h"
+#include "../drivers/temp/temp_ctx.h"
 
 class MinerApp {
 public:
@@ -72,6 +74,9 @@ private:
     AxePowerHal*     _power = nullptr;       // power HAL instance (replaces g_board.power)
     PowerCtx*        _power_ctx = nullptr;   // DI context for power threads
     volatile bool    _ota_running = false;   // shared OTA flag (replaces g_board.status.ota.running)
+    TempState        _temp;                  // shared temp samples (replaces g_board.status.temp)
+    std::vector<fan_status_t> _fan_status;   // runtime fan status (replaces g_board.status.fan.list)
+    FanCtx*          _fan_ctx = nullptr;     // DI context for fan thread
     std::vector<TaskEntry> _tasks;
 
     BaseType_t _create_task(TaskFunction_t fn, const char* name,
@@ -79,6 +84,7 @@ private:
                             UBaseType_t prio, BaseType_t core);
 
     void _begin_board_init(BootProgress& boot);
+    void _begin_fan(BootProgress& boot);
     void _begin_power(BootProgress& boot);
     void _begin_wifi_connect(BootProgress& boot);
     void _begin_display(BootProgress& boot);

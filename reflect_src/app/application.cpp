@@ -3,6 +3,8 @@
 #include "lvgl.h"
 #include "system_events.h"
 #include "../thread/thread_entry.h"
+#include "../nvs/nvs_config.h"
+#include "../drivers/temp/temp_hal.h"
 #include "../utils/logger/logger.h"
 
 MinerApp& MinerApp::instance() {
@@ -108,6 +110,32 @@ void MinerApp::_begin_board_init(BootProgress& boot) {
     boot.next(stage_msg.c_str());
 }
 
+void MinerApp::_begin_fan(BootProgress& boot) {
+    boot.next("Fan self-test...");
+
+    // Initialize per-fan runtime status from spec + NVS (replaces g_board.status.fan.list)
+    _fan_status.clear();
+    uint16_t default_speed = nvs_config_get_u16(NVS_CONFIG_ASIC_FAN_SPEED, 100);
+    for (uint8_t i = 0; i < _spec.fans.size(); i++) {
+        fan_status_t state;
+        state.id        = i;
+        state.self_test = false;
+        state.speed     = default_speed;
+        state.rpm       = 0;
+        _fan_status.push_back(state);
+    }
+
+    static FanCtx ctx;
+    ctx.spec        = &_spec;
+    ctx.init_evt    = _sys->init_evt;
+    ctx.sys_evt     = _sys->sys_evt;
+    ctx.status_list = &_fan_status;
+    ctx.temp        = &_temp;
+    _fan_ctx = &ctx;
+
+    _create_task(fan_thread_entry, "(fan)", 1024 * 5, _fan_ctx, TASK_PRIORITY_FAN, 0);
+}
+
 void MinerApp::_begin_power(BootProgress& boot) {
     boot.next("Power up...");
 
@@ -119,10 +147,6 @@ void MinerApp::_begin_power(BootProgress& boot) {
     ctx.ota_running = &_ota_running;
     ctx.mining      = _miningShared;   // nullptr until the miner domain is migrated
     _power_ctx = &ctx;
-
-    // TODO(fan): the fan thread is not migrated yet. Assert FAN_READY here so
-    // power_init can pass its (fan & wifi & vbus) gate. Remove once fan lands.
-    xEventGroupSetBits(_sys->init_evt, INIT_EVENT_FAN_READY);
 
     _create_task(power_init_thread_entry, "(pwr_init)", 1024 * 7, _power_ctx, TASK_PRIORITY_PWR, 1);
     _create_task(power_loop_thread_entry, "(pwr_loop)", 1024 * 5, _power_ctx, TASK_PRIORITY_PWR, 1);
@@ -159,11 +183,12 @@ void MinerApp::_begin_miners(BootProgress& boot) {
 }
 
 void MinerApp::begin() {
-    constexpr int BOOT_STAGE_TOTAL = 7;
+    constexpr int BOOT_STAGE_TOTAL = 8;
     BootProgress boot(BOOT_STAGE_TOTAL);
 
     boot.post("Reflect booting...");
     _begin_board_init(boot);
+    _begin_fan(boot);
     _begin_power(boot);
     _begin_wifi_connect(boot);
     _begin_display(boot);
@@ -191,8 +216,32 @@ void MinerApp::_tick_thread_entry(void* args) {
     (void)args;
     auto& app = MinerApp::instance();
 
+    bool     tmp_ready = false;
+    uint32_t last_temp_ms = 0;
+    uint32_t last_ui_ms   = 0;
+
     while (true) {
-        delay(1000);
+        delay(10);
+        uint32_t now = millis();
+
+        // ── temperature sampling (single writer) — gated on TMP102 readiness ──
+        if (!tmp_ready) {
+            tmp_ready = (xEventGroupGetBits(app._sys->init_evt) & INIT_EVENT_TMP_READY) != 0;
+        }
+        if (tmp_ready && now - last_temp_ms >= 125) {
+            app._temp.asic  = roundf(temp_hal_get_asic()  * 100) / 100.0f;
+            app._temp.vcore = roundf(temp_hal_get_vcore() * 10)  / 10.0f;
+            // trigger fan PID + backlight temp effects
+            xEventGroupSetBits(app._sys->sys_evt,
+                SYS_EVENT_MINER_VCORE_TEMP_UPDATE | SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
+            last_temp_ms = now;
+        }
+
+        // ── UI state refresh at 1 Hz ──
+        if (now - last_ui_ms < 1000) {
+            continue;
+        }
+        last_ui_ms = now;
 
         if (app._miningShared) {
             auto& m = AppState::instance().miner;
