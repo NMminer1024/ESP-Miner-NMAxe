@@ -130,5 +130,7 @@ struct MinerCtx {
     SemaphoreHandle_t  nvs_save_xsem = nullptr;
     volatile bool*     ota_running   = nullptr;   // nullptr -> treated as false
     volatile uint64_t* utc           = nullptr;   // shared UTC seconds (time domain)
+    volatile int*      wifi_status   = nullptr;   // wl_status_t snapshot (WL_CONNECTED check)
+    SemaphoreHandle_t  wifi_reconnect_xsem = nullptr; // signal wifi thread to reconnect
     String             fw_version;                // for summary logs
 };

@@ -264,11 +264,14 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     ctx.nvs_save_xsem = _nvs_save_xsem;
     ctx.ota_running   = &_ota_running;
     ctx.utc           = &_utc;
+    ctx.wifi_status   = &_wifi->status;
+    ctx.wifi_reconnect_xsem = _wifi->reconnect_xsem;
     ctx.fw_version    = BOARD_CURRENT_FW_VERSION;
     _miner_ctx = &ctx;
 
-    _create_task(miner_count_thread_entry, "(asic_cnt)",  1024 * 5, _miner_ctx, TASK_PRIORITY_ASIC_CNT,  1);
-    _create_task(miner_init_thread_entry,  "(asic_init)", 1024 * 6, _miner_ctx, TASK_PRIORITY_ASIC_INIT, 1);
+    _create_task(miner_count_thread_entry, "(asic_cnt)",  1024 * 5,  _miner_ctx, TASK_PRIORITY_ASIC_CNT,  1);
+    _create_task(miner_init_thread_entry,  "(asic_init)", 1024 * 6,  _miner_ctx, TASK_PRIORITY_ASIC_INIT, 1);
+    _create_task(stratum_thread_entry,     "(stratum)",   1024 * 11, _miner_ctx, TASK_PRIORITY_STRATUM,   1);
 }
 
 void MinerApp::begin() {
