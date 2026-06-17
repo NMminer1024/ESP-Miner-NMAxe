@@ -102,6 +102,15 @@ bool MinerApp::init() {
         _wifi_cfg.board_name = _spec.name;
     }
 
+    // ── Market client + coin config (replaces g_board.market / info.base.coin_*) ──
+    _coin_price     = nvs_config_get_string_value(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC");
+    _coin_watchlist = nvs_config_get_string_value(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL");
+    _market = new MarketClass();
+    if (_market == nullptr) {
+        LOG_E("MarketClass instance creation failed");
+        return false;
+    }
+
     // ── Power HAL instance (replaces g_board.power), built from the board spec ──
     _power = _spec.create_power_instance(
         _spec.pwr.en_pins, _spec.pwr.adc_pins,
@@ -262,7 +271,18 @@ void MinerApp::_begin_infra(BootProgress& boot) {
 }
 
 void MinerApp::_begin_market(BootProgress& boot) {
-    boot.next("Market placeholder");
+    boot.next("Market start...");
+
+    static MarketCtx ctx;
+    ctx.market         = _market;
+    ctx.wifi_status    = &_wifi->status;
+    ctx.ota_running    = &_ota_running;
+    ctx.sys_evt        = _sys->sys_evt;
+    ctx.coin_price     = _coin_price;
+    ctx.coin_watchlist = _coin_watchlist;
+    _market_ctx = &ctx;
+
+    _create_task(market_thread_entry, "(market)", 1024 * 6, _market_ctx, TASK_PRIORITY_MARKET, 0);
 }
 
 void MinerApp::_begin_miners(BootProgress& boot) {

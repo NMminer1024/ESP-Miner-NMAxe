@@ -11,6 +11,7 @@
 #include "../drivers/fan/fan_ctx.h"
 #include "../drivers/temp/temp_ctx.h"
 #include "../net/wifi_ctx.h"
+#include "../market/market_ctx.h"
 
 class MinerApp {
 public:
@@ -75,6 +76,10 @@ private:
     TempState        _temp;                  // shared temp samples (replaces g_board.status.temp)
     std::vector<fan_status_t> _fan_status;   // runtime fan status (replaces g_board.status.fan.list)
     FanCtx*          _fan_ctx = nullptr;     // DI context for fan thread
+    MarketClass*     _market = nullptr;      // crypto price client (replaces g_board.market)
+    MarketCtx*       _market_ctx = nullptr;  // DI context for market thread
+    String           _coin_price;            // main display coin (NVS)
+    String           _coin_watchlist;        // watchlist coins (NVS)
     std::vector<TaskEntry> _tasks;
 
     BaseType_t _create_task(TaskFunction_t fn, const char* name,
