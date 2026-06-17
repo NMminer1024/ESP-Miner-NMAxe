@@ -507,6 +507,8 @@ void MinerApp::_tick_thread_entry(void* args) {
     uint32_t last_temp_ms = 0;
     uint32_t last_ui_ms   = 0;
     uint32_t last_roll_ms = 0;       // auto page-rolling cadence
+    uint32_t last_connect_ms = 0;    // boot wifi-connecting status cadence
+    uint8_t  connect_dots = 0;
     bool     ss_active    = false;   // screensaver state (this thread owns backlight)
     bool     ui_switched  = false;   // one-shot LOADING -> MINER after boot
 
@@ -514,11 +516,26 @@ void MinerApp::_tick_thread_entry(void* args) {
         delay(10);
         uint32_t now = millis();
 
-        // ── One-shot: leave the boot LOADING page for MINER once mining is up ──
-        if (!ui_switched &&
-            (xEventGroupGetBits(app._sys->init_evt) & INIT_EVENT_MINER_READY)) {
-            UIManager::instance().request_goto_page(UIPageId::MINER);
-            ui_switched = true;
+        // ── Boot UX: drive the LOADING page off to CONFIG (AP mode) or MINER. ──
+        if (!ui_switched) {
+            uint32_t ib = xEventGroupGetBits(app._sys->init_evt);
+            if (ib & INIT_EVENT_WIFI_AP_READY) {
+                AppState::instance().loading.details.color = 0xFF3B30;
+                AppState::instance().loading.details.text  = "AP config mode";
+                UIManager::instance().request_goto_page(UIPageId::CONFIG);
+                ui_switched = true;
+            } else if (ib & INIT_EVENT_MINER_READY) {
+                UIManager::instance().request_goto_page(UIPageId::MINER);
+                ui_switched = true;
+            } else if (app._wifi && app._wifi->status != WL_CONNECTED &&
+                       now - last_connect_ms >= 500) {
+                last_connect_ms = now;
+                String d = "Connecting WiFi";
+                for (uint8_t i = 0; i < (connect_dots % 4); i++) d += ".";
+                connect_dots++;
+                AppState::instance().loading.details.color = 0xFFFFFF;
+                AppState::instance().loading.details.text  = d + "\n[" + app._wifi_cfg.sta_ssid + "]";
+            }
         }
 
         // ── temperature sampling (single writer) — gated on TMP102 readiness ──
