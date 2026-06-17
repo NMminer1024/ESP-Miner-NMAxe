@@ -18,6 +18,7 @@
 #include "button_ctx.h"
 #include "runtime_state.h"
 #include "led_ctx.h"
+#include "benchmark_ctx.h"
 
 class MinerApp {
 public:
@@ -80,6 +81,8 @@ private:
     volatile int     _ota_progress = 0;      // OTA progress 0..100 (replaces g_board.status.ota.progress)
     PreferenceState  _pref;                  // live user preferences (replaces g_board.status.preference)
     LedCtx*          _led_ctx = nullptr;     // DI context for led thread
+    BenchmarkState   _bm;                     // benchmark overlay progress (replaces g_board.status.bm)
+    BenchmarkCtx*    _benchmark_ctx = nullptr;// DI context for benchmark thread
     TempState        _temp;                  // shared temp samples (replaces g_board.status.temp)
     std::vector<fan_status_t> _fan_status;   // runtime fan status (replaces g_board.status.fan.list)
     FanCtx*          _fan_ctx = nullptr;     // DI context for fan thread

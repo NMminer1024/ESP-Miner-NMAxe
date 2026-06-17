@@ -19,7 +19,9 @@
 #include "../app/monitor_ctx.h"
 #include "../app/button_ctx.h"
 #include "../app/led_ctx.h"
+#include "../app/benchmark_ctx.h"
 #include "../nvs/nvs_config.h"
+#include <nvs.h>
 #include <OneButton.h>
 #include <Adafruit_NeoPixel.h>
 #include "../utils/helper.h"
@@ -2472,8 +2474,264 @@ void ui_thread_entry(void* args) {
     while (true) { delay(100); }
 }
 
+// ── Benchmark: auto frequency/vcore sweep (NVS-driven, reboot per round) ────
+//    Mirrors legacy benchmark_thread_entry; board_sal_t* -> BenchmarkCtx* (DI).
 void benchmark_thread_entry(void* args) {
-    (void)args;
-    LOG_D("(benchmark) placeholder");
-    while (true) { delay(10000); }
+    BenchmarkCtx* ctx = static_cast<BenchmarkCtx*>(args);
+
+    // Exit immediately in Normal mode — zero overhead on normal boots.
+    if (*ctx->bm_mode != 1) {
+        LOG_D("[BM] Normal mode, benchmark thread exiting.");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    BenchmarkState& bm = *ctx->bm;
+
+    uint16_t freq_min   = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,   400);
+    uint16_t freq_max   = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MAX,   625);
+    uint16_t freq_step  = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,  50);
+    uint16_t vcore_min  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,  1000);
+    uint16_t vcore_max  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,  1300);
+    uint16_t vcore_step = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP, 25);
+    uint8_t  smp_intv   = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 10);
+    uint16_t bm_time    = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        180);
+    uint16_t stab_time  = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   120);
+
+    uint16_t cur_freq   = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+    uint16_t cur_vcore  = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+
+    LOG_W("[BM] === Benchmark started: freq=%d vcore=%d ===", cur_freq, cur_vcore);
+    LOG_W("[BM] Range freq %d~%dMHz step=%d, vcore %d~%dmV step=%d",
+          freq_min, freq_max, freq_step, vcore_min, vcore_max, vcore_step);
+    LOG_W("[BM] stab=%ds bm=%ds smp=%ds", stab_time, bm_time, smp_intv);
+
+    xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+
+    bm.cur_freq     = cur_freq;
+    bm.cur_vcore    = cur_vcore;
+    bm.freq_min     = freq_min;
+    bm.freq_max     = freq_max;
+    bm.freq_step    = freq_step;
+    bm.vcore_min    = vcore_min;
+    bm.vcore_max    = vcore_max;
+    bm.vcore_step   = vcore_step;
+    bm.phase_total  = stab_time;
+    bm.phase_elapsed = 0;
+    bm.in_stab      = true;
+    bm.avg_hr_ghs   = 0.0f;
+    bm.asic_temp    = 0.0f;
+    bm.vcore_temp   = 0.0f;
+    bm.stab_total   = stab_time;
+    bm.bm_total     = (uint16_t)bm_time;
+    {
+        uint32_t sc = ctx->miner ? ctx->miner->get_asic_small_cores() : 0;
+        uint8_t  ac = ctx->miner ? ctx->miner->get_asic_count()       : 0;
+        bm.exp_hr_ghs = (float)((double)cur_freq * ((double)(sc * ac) / 1000.0));
+    }
+    bm.active = true;
+
+    uint16_t bm_freq_total = (freq_step > 0) ? ((freq_max - freq_min) / freq_step + 1) : 1;
+    uint16_t bm_freq_idx   = (freq_step > 0) ? ((cur_freq  - freq_min) / freq_step + 1) : 1;
+    uint32_t bm_per_round  = (uint32_t)stab_time + (uint32_t)bm_time;
+    uint32_t bm_vc_rounds_this   = (vcore_step > 0 && vcore_max >= cur_vcore)
+                                    ? ((vcore_max - cur_vcore) / vcore_step + 1) : 1;
+    uint32_t bm_vc_rounds_future = bm_vc_rounds_this + 1;
+    uint32_t bm_freq_remaining   = (bm_freq_total > bm_freq_idx) ? (bm_freq_total - bm_freq_idx) : 0;
+    uint32_t bm_future_rounds    = (bm_vc_rounds_this > 1 ? bm_vc_rounds_this - 1 : 0) * bm_per_round
+                                    + bm_freq_remaining * bm_vc_rounds_future * bm_per_round;
+    bm.eta_sec = (uint32_t)stab_time + (uint32_t)bm_time + bm_future_rounds;
+
+    LOG_W("[BM] Stabilizing for %ds at freq=%dMHz vcore=%dmV ...", stab_time, cur_freq, cur_vcore);
+    for (uint16_t s = 0; s < stab_time; s++) {
+        bm.phase_elapsed = s;
+        bm.asic_temp     = ctx->temp->asic;
+        bm.vcore_temp    = ctx->temp->vcore;
+        uint32_t stab_rem = (stab_time > s) ? (stab_time - s) : 0;
+        bm.eta_sec = stab_rem + (uint32_t)bm_time + bm_future_rounds;
+        delay(1000);
+    }
+
+    uint32_t total_samples = bm_time / smp_intv;
+    if (total_samples == 0) total_samples = 1;
+
+    double hr_sum = 0, eff_sum = 0, pwr_sum = 0, at_sum = 0, vt_sum = 0;
+    uint32_t sample_cnt = 0;
+    uint8_t  zero_hr_cnt = 0;
+
+    bm.in_stab       = false;
+    bm.phase_total   = bm_time;
+    bm.phase_elapsed = 0;
+    bm.eta_sec       = (uint32_t)bm_time + bm_future_rounds;
+
+    uint32_t small_cores = ctx->miner ? ctx->miner->get_asic_small_cores() : 0;
+    uint8_t  asic_count  = ctx->miner ? ctx->miner->get_asic_count()       : 0;
+    double   exp_hr_ghs  = (double)cur_freq * ((double)(small_cores * asic_count) / 1000.0);
+
+    LOG_W("[BM] Expected HR: %.1f GH/s (freq=%d small_cores=%d asic_cnt=%d)",
+          exp_hr_ghs, cur_freq, small_cores, asic_count);
+
+    for (uint32_t i = 0; i < total_samples; i++) {
+        for (uint8_t s = 0; s < smp_intv; s++) delay(1000);
+
+        double hr_ghs = ctx->status->hashrate._3m / 1e9;
+        double vbus   = ctx->pwr->vbus / 1000.0;
+        double ibus   = ctx->pwr->ibus / 1000.0;
+        double pwr_w  = vbus * ibus;
+        double at     = ctx->temp->asic;
+
+        bm.phase_elapsed = (i + 1) * smp_intv;
+        bm.asic_temp     = (float)at;
+        bm.vcore_temp    = ctx->temp->vcore;
+        bm.avg_hr_ghs    = (sample_cnt > 0) ? (float)((hr_sum + hr_ghs) / (sample_cnt + 1)) : (float)hr_ghs;
+        {
+            uint32_t samp_elapsed = (i + 1) * (uint32_t)smp_intv;
+            uint32_t samp_rem = (samp_elapsed < (uint32_t)bm_time) ? ((uint32_t)bm_time - samp_elapsed) : 0;
+            bm.eta_sec = samp_rem + bm_future_rounds;
+        }
+
+        if (hr_ghs == 0.0) zero_hr_cnt++;
+        else               zero_hr_cnt = 0;
+
+        if (zero_hr_cnt >= 5) {
+            LOG_W("[BM] Zero hashrate for 5 samples, aborting round.");
+            break;
+        }
+
+        hr_sum  += hr_ghs;
+        eff_sum += (hr_ghs > 0 && pwr_w > 0) ? (pwr_w / (hr_ghs / 1000.0)) : 0;
+        pwr_sum += pwr_w;
+        at_sum  += at;
+        vt_sum  += ctx->temp->vcore;
+        sample_cnt++;
+
+        double hr_avg = hr_sum / sample_cnt;
+        uint32_t remaining = (total_samples - i - 1) * smp_intv;
+        LOG_W("[BM] [%3lus] %2.0f%% | HR:%.1fGH/s EXP:%.0fGH/s | AT:%.1fC VT:%.1fC | Vcore:%dmV | Pwr:%.1fW",
+              (unsigned long)remaining, 100.0 * (i + 1) / total_samples,
+              hr_ghs, exp_hr_ghs, at, ctx->temp->vcore, ctx->pwr->vcore, pwr_w);
+
+        if (sample_cnt >= total_samples / 2 && exp_hr_ghs > 0 && hr_avg < exp_hr_ghs * 0.5) {
+            LOG_W("[BM] Avg HR too low (%.1f < 50%% of %.1f), aborting round early.", hr_avg, exp_hr_ghs);
+            break;
+        }
+    }
+
+    double hr_avg  = (sample_cnt > 0) ? (hr_sum  / sample_cnt) : 0;
+    double eff_avg = (sample_cnt > 0) ? (eff_sum / sample_cnt) : 0;
+    double pwr_avg = (sample_cnt > 0) ? (pwr_sum / sample_cnt) : 0;
+    double at_avg  = (sample_cnt > 0) ? (at_sum  / sample_cnt) : 0;
+    double vt_avg  = (sample_cnt > 0) ? (vt_sum  / sample_cnt) : 0;
+
+    bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * 0.98);
+    LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s | eff:%.3fJ/TH | pwr:%.2fW | asicT:%.1fC vcoreT:%.1fC",
+          stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, eff_avg, pwr_avg, at_avg, vt_avg);
+
+    // Lambda: select best avgHR result from NVS and apply to Normal mode, then reboot.
+    auto finish_and_reboot = [&](const char* reason) {
+        bm.active = false;
+        nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
+        nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
+        nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
+        {
+            char* res_str = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+            BasicJsonDocument<PsramJsonAllocator> rdoc(4096);
+            DeserializationError rerr = deserializeJson(rdoc, res_str);
+            free(res_str);
+            uint16_t best_freq = 0, best_vcore = 0;
+            float    best_avgHR = -1.0f;
+            if (!rerr && rdoc.is<JsonArray>()) {
+                for (JsonObject e : rdoc.as<JsonArray>()) {
+                    float avgHR = e["avgHR"] | 0.0f;
+                    if (avgHR > best_avgHR) {
+                        best_avgHR = avgHR;
+                        best_freq  = e["freq"]  | (uint16_t)0;
+                        best_vcore = e["vcore"] | (uint16_t)0;
+                    }
+                }
+            }
+            if (best_freq > 0 && best_vcore > 0) {
+                LOG_W("[BM] Best result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying to Normal mode.",
+                      best_freq, best_vcore, best_avgHR);
+                nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
+                nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
+            } else {
+                LOG_W("[BM] No stable results found, keeping current Normal mode settings.");
+            }
+        }
+        {
+            uint32_t _start = nvs_config_get_u32(NVS_CONFIG_BM_START_TS, 0);
+            if (_start > 0) nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, (uint32_t)time(nullptr) - _start);
+        }
+        reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, reason);
+        xSemaphoreGive(ctx->reboot_xsem);
+        vTaskDelete(NULL);
+    };
+
+    if (stable) {
+        char* existing = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+        String results(existing);
+        free(existing);
+
+        results.trim();
+        if (results.endsWith("]")) results.remove(results.length() - 1);
+        if (!results.endsWith("[")) results += ",";
+
+        char entry[300];
+        snprintf(entry, sizeof(entry),
+            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f,\"ts\":%ld}",
+            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg, eff_avg, pwr_avg, (long)time(nullptr));
+        results += entry;
+        results += "]";
+
+        esp_err_t nvs_write_err;
+        do {
+            nvs_write_err = nvs_config_try_set_string(NVS_CONFIG_BM_RESULT, results.c_str());
+            if (nvs_write_err == ESP_OK) break;
+            if (nvs_write_err != ESP_ERR_NVS_NOT_ENOUGH_SPACE &&
+                nvs_write_err != ESP_ERR_NVS_VALUE_TOO_LONG) {
+                LOG_E("[BM] NVS write failed (%s), result not saved.", esp_err_to_name(nvs_write_err));
+                break;
+            }
+            int obj_start = results.indexOf('{');
+            if (obj_start < 0) { nvs_write_err = ESP_FAIL; break; }
+            int obj_end = results.indexOf('}', obj_start);
+            if (obj_end < 0) { nvs_write_err = ESP_FAIL; break; }
+            int remove_len = obj_end - obj_start + 1;
+            if ((size_t)(obj_end + 1) < results.length() && results[obj_end + 1] == ',')
+                remove_len++;
+            results.remove(obj_start, remove_len);
+            LOG_W("[BM] NVS full, evicted oldest entry (%u chars remaining).", (unsigned)results.length());
+        } while (results.length() > 2);
+
+        if (nvs_write_err == ESP_OK) LOG_W("[BM] Result saved: %s", entry);
+
+        cur_freq  += freq_step;
+        cur_vcore  = (cur_vcore > vcore_min + vcore_step) ? (cur_vcore - vcore_step) : vcore_min;
+
+        if (cur_freq > freq_max) {
+            LOG_W("[BM] All frequencies tested — benchmark complete, applying best result.");
+            finish_and_reboot("benchmark complete, switching to Normal mode with best params");
+            return;
+        }
+    } else {
+        cur_vcore += vcore_step;
+        if (cur_vcore > vcore_max) {
+            LOG_W("[BM] freq=%dMHz unstable at all vcores, skipping to next freq.", cur_freq);
+            cur_freq  += freq_step;
+            cur_vcore  = vcore_max;
+            if (cur_freq > freq_max) {
+                LOG_W("[BM] All frequencies exhausted — benchmark complete, applying best result.");
+                finish_and_reboot("benchmark complete (all unstable), switching to Normal mode");
+                return;
+            }
+        }
+    }
+
+    nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  cur_freq);
+    nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, cur_vcore);
+    LOG_W("[BM] Next round: freq=%dMHz vcore=%dmV, rebooting...", cur_freq, cur_vcore);
+    reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark round complete, rebooting for next (freq,vcore)");
+    xSemaphoreGive(ctx->reboot_xsem);
+    vTaskDelete(NULL);
 }

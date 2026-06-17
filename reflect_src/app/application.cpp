@@ -403,6 +403,19 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     _monitor_ctx = &mctx;
 
     _create_task(monitor_thread_entry, "(monitor)", 1024 * 5, _monitor_ctx, TASK_PRIORITY_MONITOR, 1);
+
+    static BenchmarkCtx bctx;
+    bctx.bm_mode     = &_bm_mode;
+    bctx.bm          = &_bm;
+    bctx.miner       = _miner;
+    bctx.status      = _minerStatus;
+    bctx.pwr         = &_pwr_tele;
+    bctx.temp        = &_temp;
+    bctx.reboot_xsem = _sys->reboot_xsem;
+    bctx.init_evt    = _sys->init_evt;
+    _benchmark_ctx = &bctx;
+
+    _create_task(benchmark_thread_entry, "(benchmark)", 1024 * 6, _benchmark_ctx, TASK_PRIORITY_MONITOR, 0);
 }
 
 void MinerApp::begin() {
