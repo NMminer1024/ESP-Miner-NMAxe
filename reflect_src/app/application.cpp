@@ -619,10 +619,29 @@ void MinerApp::_tick_thread_entry(void* args) {
 
         if (app._swarm && xSemaphoreTake(app._swarm->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
             auto& m = AppState::instance().miner;
-            m.swarm_workers.text = String(app._swarm->total_workers);
-            m.swarm_hr.text = String(app._swarm->total_hr, 1);
-            m.swarm_bd.text = String(app._swarm->best_ever_bd, 0);
+            uint32_t workers = app._swarm->total_workers;
+            float    thr     = app._swarm->total_hr;
+            float    sbd     = app._swarm->best_ever_bd;
+            m.swarm_workers.text = String(workers);
+            m.swarm_hr.text = String(thr, 1);
+            m.swarm_bd.text = String(sbd, 0);
             xSemaphoreGive(app._swarm->mutex);
+
+            // ── Setting / Swarm page ──
+            auto& ss = AppState::instance().setting_swarm;
+            ss.workers.text   = String("Workers: ") + String(workers);
+            ss.total_hr.text  = String("HR: ") + String(thr, 1) + " GH/s";
+            ss.best_diff.text = String("Best: ") + String(sbd, 0);
+        }
+
+        if (app._neighbor && app._neighbor->mutex &&
+            xSemaphoreTake(app._neighbor->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+            size_t n = app._neighbor->alive_ips.size();
+            xSemaphoreGive(app._neighbor->mutex);
+            AppState::instance().setting_swarm.neighbors.text = String("Neighbors: ") + String((unsigned)n);
+        }
+        if (app._wifi) {
+            AppState::instance().setting_swarm.ip.text = String("IP: ") + app._wifi->ip.toString();
         }
     }
 }

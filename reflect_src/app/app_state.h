@@ -173,6 +173,17 @@ struct HrHealthPageState {
 };
 
 // ============================================================================
+// Setting / Swarm page state — aggregated neighbor-miner statistics
+// ============================================================================
+struct SettingSwarmPageState {
+    ObsLabel workers;     // total workers (incl. self)
+    ObsLabel total_hr;    // aggregated swarm hashrate
+    ObsLabel best_diff;   // swarm best-ever difficulty
+    ObsLabel neighbors;   // alive-IP count on the LAN
+    ObsLabel ip;          // this device's IP
+};
+
+// ============================================================================
 // AppState — application global state singleton
 //
 //   Usage (from any FreeRTOS task):
@@ -194,8 +205,9 @@ public:
     ConfigPageState     config;
     ClockPageState      clock;
     MarketPageState     market;
-    DashboardPageState  dashboard;
-    HrHealthPageState   hr_health;
+    DashboardPageState     dashboard;
+    HrHealthPageState      hr_health;
+    SettingSwarmPageState  setting_swarm;
 
 private:
     AppState() = default;
