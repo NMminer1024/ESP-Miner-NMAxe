@@ -1,6 +1,7 @@
 #include "display_hal.h"
 #include <TFT_eSPI.h>
 #include "../../utils/logger/logger.h"
+#include "../touch/ft6206.h"
 
 // ── Panel driver + logical resolution (post-rotation) ───────────────────────
 static TFT_eSPI* tftDriver    = nullptr;
@@ -9,6 +10,10 @@ static uint16_t  SCREEN_HEIGHT = 0;
 
 // Backlight needs the spec for the board-specific PWM mapping; cached at init.
 static BoardSpecConfig* s_spec = nullptr;
+
+// ── Touch state ─────────────────────────────────────────────────────────────
+static FT6206Class*     s_touch      = nullptr;
+static PreferenceState* s_touch_pref = nullptr;
 
 uint16_t tft_screen_width()  { return SCREEN_WIDTH; }
 uint16_t tft_screen_height() { return SCREEN_HEIGHT; }
@@ -108,4 +113,46 @@ void ui_drv_register(uint16_t hor_res, uint16_t ver_res) {
     disp_drv.flush_cb = tft_flush_cb;
     disp_drv.draw_buf = &lvgl_draw_buf;
     lv_disp_drv_register(&disp_drv);
+}
+
+// LVGL touch read: debounced FT6206 sampling + flip-aware coord mapping.
+// (Ported from legacy touchpad_read_cb.)
+static void touchpad_read_cb(lv_indev_drv_t* indev_drv, lv_indev_data_t* data) {
+    (void)indev_drv;
+    static const uint32_t TOUCH_DEBOUNCE_MS = 50;
+    static uint32_t touch_start_ms = 0;
+
+    if (s_touch && s_touch->touched()) {
+        if (touch_start_ms == 0) touch_start_ms = millis();
+        if ((millis() - touch_start_ms) >= TOUCH_DEBOUNCE_MS) {
+            TS_Point raw_p = s_touch->getPoint();
+            bool flip = s_touch_pref && s_touch_pref->screen.flip;
+            data->point.x = flip ? raw_p.y                 : SCREEN_WIDTH  - raw_p.y;
+            data->point.y = flip ? SCREEN_HEIGHT - raw_p.x : raw_p.x;
+            data->state = LV_INDEV_STATE_PRESSED;
+        } else {
+            data->state = LV_INDEV_STATE_RELEASED; // too short, ignore
+        }
+    } else {
+        touch_start_ms = 0;
+        data->state = LV_INDEV_STATE_RELEASED;
+    }
+}
+
+bool touch_drv_register(PreferenceState* pref, uint8_t threshold) {
+    s_touch_pref = pref;
+    if (!s_touch) s_touch = new FT6206Class();
+    if (!s_touch || !s_touch->begin(threshold)) {
+        LOG_W("No touch controller detected, disabling touch support.");
+        if (s_touch) { delete s_touch; s_touch = nullptr; }
+        return false;
+    }
+    LOG_I("FT6206 touch controller initialized.");
+
+    static lv_indev_drv_t indev_drv;
+    lv_indev_drv_init(&indev_drv);
+    indev_drv.type    = LV_INDEV_TYPE_POINTER;
+    indev_drv.read_cb = touchpad_read_cb;
+    lv_indev_drv_register(&indev_drv);
+    return true;
 }

@@ -329,6 +329,11 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     button_ctx.force_config_xsem    = _force_config_xsem;
     button_ctx.recover_factory_xsem = _recover_factory_xsem;
     button_ctx.ota_running          = &_ota.running;
+    // UI navigation hooks (non-capturing lambdas -> function pointers). Thread-safe:
+    // these set pending flags consumed by the LVGL thread in render_update().
+    button_ctx.on_next_page = [](){ UIManager::instance().request_next_page(); };
+    button_ctx.on_prev_page = [](){ UIManager::instance().request_prev_page(); };
+    button_ctx.on_activity  = [](){ UIManager::instance().wake_activity(); };
     _button_ctx = &button_ctx;
 
     _create_task(button_thread_entry, "(button)", 1024 * 3, _button_ctx, TASK_PRIORITY_BTN, 1);
@@ -555,6 +560,7 @@ bool MinerApp::_ui_init() {
     uint16_t w = tft_screen_width();
     uint16_t h = tft_screen_height();
     ui_drv_register(w, h);
+    touch_drv_register(&_pref, 50);   // enables tileview swipe nav (no-op if absent)
     UIManager::instance().init(w, h);
     // Backlight on (fall back to a sane default if no NVS brightness set).
     uint8_t br = _pref.screen.brightness ? _pref.screen.brightness : 80;

@@ -23,6 +23,12 @@ void tft_bl_ctrl(int8_t percent, BoardSpecConfig* spec);
 // hor_res/ver_res are the post-rotation logical resolution.
 void ui_drv_register(uint16_t hor_res, uint16_t ver_res);
 
+// Initialize the FT6206 capacitive touch controller and, if present, register
+// an LVGL pointer input device (enables tileview swipe navigation). I2C must
+// already be initialized (board init). Returns true if touch is available.
+// `pref` provides the live screen-flip flag for coordinate mapping.
+bool touch_drv_register(PreferenceState* pref, uint8_t threshold = 50);
+
 // Post-rotation logical resolution (valid after tft_init()).
 uint16_t tft_screen_width();
 uint16_t tft_screen_height();
