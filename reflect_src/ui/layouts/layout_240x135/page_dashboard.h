@@ -1,11 +1,12 @@
 #pragma once
+#include "ui/assets/images.h"
 #include "ui/pages/page_dashboard.h"
 #include "lvgl.h"
 
 class PageDashboard240x135 : public PageDashboardBase {
 public:
     void create(lv_obj_t* parent) override {
-        _W = 135, _H = 240;
+        _W = 240, _H = 135;
         lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_style_pad_all(parent, 0, 0);
         lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
@@ -23,6 +24,7 @@ protected:
         return l;
     }
     void _create_dynamic(lv_obj_t* parent) override {
+        { lv_obj_t* _bg = lv_img_create(parent); lv_img_set_src(_bg, &status_page_img_135_240); lv_obj_set_pos(_bg, 0, 0); lv_obj_move_background(_bg); }
         lv_obj_t* title = lv_label_create(parent);
         lv_label_set_text(title, "Dashboard");
         lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
