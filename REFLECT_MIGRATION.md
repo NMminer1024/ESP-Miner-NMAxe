@@ -231,3 +231,23 @@ lv_conf.h 启用 Montserrat 28/48 大字。构建通过，Flash 约 44.7%。
 ### 仅剩纯视觉润色（非逻辑、需美术资源）
 - 开机 logo 图、爆块/成就整屏位图、弧形仪表/直方图（dashboard/hr_health 现为文本行，
   数据已就绪）。这些不影响功能，依赖 src/image 位图资源，按需再做。
+
+## UI 视觉还原（P42–P46，对照 src 真实坐标/底图/字体）
+- **P42 资源管线**：从 src/image 复制全部底图位图（loading/config/mining/status/black/blockhit/
+  achievement/logo），images.{h,cpp}（lv_img_dsc 描述符 + images_init 按分辨率设维度）；从
+  src/drivers/displays 复制 ds_digib_font_*/Inconsolata_*/symbol_* 字体（fonts.h 声明）。UIManager
+  瓦片网格与滑动方向改为与 legacy 完全一致的 2D 布局。
+- **P43 loading 页**：底图 + version/details/进度条/slogan 精确 legacy 坐标（240x135 & 320x240）。
+- **P44 miner 页**：mining 底图 + worker logo + ~21 元素精确坐标/字体/颜色/符号（ds_digib 数字字体、
+  Inconsolata、symbol 图标）；MinerPageState 重定义为 legacy 字段集；NMQAxe++ 含 swarm 行 + UTC。
+- **P45 底图铺设**：dashboard/hr_health 用 status 底图，config 用 config 底图；clock/market/setting 底图
+  为黑。修正所有页面由竖屏 → 横屏实际帧（240x135 / 320x240）。
+- **P46 clock 页**：黑底 + ds_digib 大字时间（135=ds_56，240=ds_120）+ 算力/爆块/币价精确坐标。
+
+构建通过，Flash≈89.7%（大数字字体 ds_120 较大；legacy 同样内置全部字体，体量相当）。
+
+### UI 还原状态
+- **loading / miner / clock：逐像素对齐 legacy**（坐标/字体/颜色/符号/底图）。
+- config / dashboard / hr_health / market / setting：**底图与帧方向已对齐**，元素为可用文本布局。
+  这几页的仪表/图表/币种列表在 legacy 中大多**烘焙进底图位图**、动态覆盖元素较少；其精确覆盖坐标
+  可对照各自底图继续细化（后续）。
