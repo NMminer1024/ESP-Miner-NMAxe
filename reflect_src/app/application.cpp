@@ -474,7 +474,7 @@ void MinerApp::begin() {
     _begin_market(boot);
     _begin_miners(boot);
 
-    _create_task(_tick_thread_entry, "(tick)", 1024 * 3, nullptr, TASK_PRIORITY_APP_TICK, 1);
+    _create_task(_tick_thread_entry, "(tick)", 1024 * 5, nullptr, TASK_PRIORITY_APP_TICK, 1);
 
     boot.finish("Reflect started");
     LOG_I("MinerApp::begin done");
@@ -497,6 +497,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     bool     tmp_ready = false;
     uint32_t last_temp_ms = 0;
     uint32_t last_ui_ms   = 0;
+    bool     ss_active    = false;   // screensaver state (this thread owns backlight)
 
     while (true) {
         delay(10);
@@ -519,8 +520,34 @@ void MinerApp::_tick_thread_entry(void* args) {
         //     gives this semaphore). Apply immediately; ledcWrite is thread-safe.
         if (app._brightness_update_xsem &&
             xSemaphoreTake(app._brightness_update_xsem, 0) == pdTRUE) {
+            ss_active = false;   // brightness change implies user activity
             tft_bl_ctrl(app._pref.screen.brightness, &app._spec);
+            lv_disp_trig_activity(nullptr);
+            xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
             LOG_I("Backlight updated -> %u%%", app._pref.screen.brightness);
+        }
+
+        // ── Screensaver: blank after idle (LVGL inactivity tracks touch; button &
+        //     web wakeups reset via lv_disp_trig_activity / clearing the bit). ──
+        if (app._pref.screen.saver_enable && app._pref.screen.saver_timeout > 0) {
+            uint32_t idle_ms = lv_disp_get_inactive_time(nullptr);
+            bool bit_set = (xEventGroupGetBits(app._sys->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
+            if (!ss_active) {
+                if (idle_ms > app._pref.screen.saver_timeout * 1000UL) {
+                    xEventGroupSetBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+                    tft_bl_ctrl(0, &app._spec);   // blank backlight
+                    ss_active = true;
+                }
+            } else if (idle_ms < 1000 || !bit_set) {   // touch activity or external wakeup
+                xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+                tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
+                lv_disp_trig_activity(nullptr);
+                ss_active = false;
+            }
+        } else if (ss_active) {                        // saver disabled at runtime
+            tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
+            xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            ss_active = false;
         }
 
         // ── UI state refresh at 1 Hz ──

@@ -13,7 +13,7 @@ UIManager& UIManager::instance() {
 }
 
 // ============================================================================
-//  All layout instances ¡ª both resolutions compiled in, selected at runtime
+//  All layout instances ï¿½ï¿½ both resolutions compiled in, selected at runtime
 // ============================================================================
 static PageLoading240x135  s_load_135;
 static PageConfig240x135   s_cfg_135;
@@ -35,7 +35,7 @@ static PageSetting320x240  s_sett_240;
 
 // Helper: pick the correct layout array based on screen dimensions
 static UIPage* s_pick_layouts(UIPageId id, uint16_t w, uint16_t h) {
-    // Match by width ¡ª NMAXE is 135 wide, QAxe++ is 240 wide
+    // Match by width ï¿½ï¿½ NMAXE is 135 wide, QAxe++ is 240 wide
     bool is_135 = (h <= 160);
     switch (id) {
         case UIPageId::LOADING:        return is_135 ? (UIPage*)&s_load_135   : (UIPage*)&s_load_240;
@@ -51,10 +51,10 @@ static UIPage* s_pick_layouts(UIPageId id, uint16_t w, uint16_t h) {
 }
 
 // ============================================================================
-//  init() ¡ª create tileview + register all pages
+//  init() ï¿½ï¿½ create tileview + register all pages
 // ============================================================================
 void UIManager::init(uint16_t w, uint16_t h) {
-    // ©¤©¤ Create tileview ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+    // ï¿½ï¿½ï¿½ï¿½ Create tileview ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     _tileview = lv_tileview_create(lv_scr_act());
     lv_obj_set_size(_tileview, w, h);
     lv_obj_set_style_bg_color(_tileview, lv_color_hex(0x000000), 0);
@@ -65,7 +65,7 @@ void UIManager::init(uint16_t w, uint16_t h) {
     lv_obj_add_event_cb(_tileview, _released_cb,     LV_EVENT_RELEASED,     nullptr);
     lv_obj_add_event_cb(_tileview, _scroll_end_cb,   LV_EVENT_SCROLL_END,   nullptr);
 
-    // ©¤©¤ Register all 8 pages (matching original display.cpp page order) ©¤
+    // ï¿½ï¿½ï¿½ï¿½ Register all 8 pages (matching original display.cpp page order) ï¿½ï¿½
     // Tile layout: rows with horizontal swipe, columns for vertical grouping
     _register_page(s_pick_layouts(UIPageId::LOADING, w, h),       UIPageId::LOADING,       0, 0, LV_DIR_RIGHT | LV_DIR_BOTTOM);
     _register_page(s_pick_layouts(UIPageId::CONFIG, w, h),        UIPageId::CONFIG,        1, 0, LV_DIR_LEFT  | LV_DIR_RIGHT);
@@ -81,7 +81,7 @@ void UIManager::init(uint16_t w, uint16_t h) {
 }
 
 // ============================================================================
-//  _register_page ¡ª create tile, call page->create(tile), store entry
+//  _register_page ï¿½ï¿½ create tile, call page->create(tile), store entry
 // ============================================================================
 void UIManager::_register_page(UIPage* page, UIPageId id,
                                 uint8_t col, uint8_t row, lv_dir_t dir) {
@@ -99,10 +99,10 @@ void UIManager::_register_page(UIPage* page, UIPageId id,
 }
 
 // ============================================================================
-//  render_update() ¡ª sync active tile, refresh current page, drive LVGL
+//  render_update() ï¿½ï¿½ sync active tile, refresh current page, drive LVGL
 // ============================================================================
 void UIManager::render_update() {
-    // ©¤©¤ Consume cross-thread page requests ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+    // ï¿½ï¿½ï¿½ï¿½ Consume cross-thread page requests ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     if (_goto_page_pending) {
         _goto_page_pending = false;
         goto_page((UIPageId)_goto_page_id);
@@ -115,13 +115,17 @@ void UIManager::render_update() {
         _prev_page_pending = false;
         prev_page();
     }
+    if (_wake_pending) {
+        _wake_pending = false;
+        lv_disp_trig_activity(nullptr);   // reset LVGL inactivity timer (screensaver)
+    }
 
-    // ©¤©¤ Refresh current page ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+    // ï¿½ï¿½ï¿½ï¿½ Refresh current page ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     if (_current < _pages.size() && _pages[_current]) {
         _pages[_current]->update();
     }
 
-    // ©¤©¤ Drive LVGL ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+    // ï¿½ï¿½ï¿½ï¿½ Drive LVGL ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     lv_timer_handler();
 }
 
@@ -204,8 +208,9 @@ void UIManager::request_goto_page(UIPageId id){ _goto_page_id = (uint8_t)id; _go
 //  wake_activity
 // ============================================================================
 void UIManager::wake_activity() {
-    // Reset screensaver idle timer
-    _last_active_ms = 0;
+    // Called from non-LVGL threads (button). Defer the LVGL inactivity reset to
+    // render_update() (LVGL thread) to keep all LVGL calls single-threaded.
+    _wake_pending = true;
 }
 
 // ============================================================================

@@ -74,6 +74,7 @@ private:
     volatile bool          _prev_page_pending = false;
     volatile bool          _goto_page_pending = false;
     volatile uint8_t       _goto_page_id = 0;
+    volatile bool          _wake_pending = false;
 
     struct TileEntry { lv_obj_t* obj; uint8_t col; uint8_t row; };
     lv_obj_t*               _tileview      = nullptr;
