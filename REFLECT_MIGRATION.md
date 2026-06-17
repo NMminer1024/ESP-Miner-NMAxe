@@ -138,8 +138,23 @@ g_board.status god 结构按「写者拥有」拆分为各线程 Ctx：
 - 迁移 benchmark 线程（freq/vcore 自动扫描，NVS 存稳定结果，逐轮重启，完成时择优写回 Normal 模式）
 - application：新增 _bm，_begin_miners 启动 (benchmark)
 
-构建均通过；Flash 随阶段增长至约 34.7%。
+### P22 完成 (webserver 域)
+- 新增 reflect_src/web/web_ctx.h：WebCtx（miner/stratum/market/power 实例 + spec/status/conn/wifi/
+  wifi_cfg/pwr/temp/time/ota/pref/neighbor/fan_status 状态结构 + bm_mode/utc/tz/coin_price/
+  coin_watchlist/fw_version + sys_evt/init_evt/reboot_xsem/brightness_update_xsem）；模块级 g_web 单例
+- 迁移 reflect_src/web/http_server.{h,cpp}（约 2000 行）：全部 g_board.X → g_web->...（系统化替换，
+  保持逻辑/超时/PSRAM 分配/OTA 流程逐字一致）；recovery_page.h 逐字复制
+- webserver 线程：set g_web、file_system_init、等 STA/AP 就绪、注册全部路由（含 recovery 模式分支、
+  /probe、/alive、swarm/find、swarm/scan、wakeup、benchmark、setting、dashboard、ota、theme、
+  coredump、reboot），webSocket 事件 + cleanupClients + OTA 失速看门狗；UI 活动（last_active_ms）
+  改由新 UI 框架负责，仅保留 sys_evt 屏保唤醒清位
+- platformio.ini：build_src_filter 增加 +<../reflect_src/web/>
+- application：新增 _web_ctx，_begin_infra 启动 (webserver)（stack 1024*5，TASK_PRIORITY_WS，core 0）
+- application 预备：合并 _ota_running/_ota_progress → OtaState _ota；新增 TimeState _time +
+  _brightness_update_xsem；init() 读 NVS_CONFIG_TIME_FORMAT/DATE_FORMAT；mining_types.h 补
+  miner_runtime_state_to_string()
+
+构建均通过；Flash 随阶段增长至约 38.9%。
 
 ### 仍未迁移（独立工作流，待定）
-- webserver（src/web/http_server.cpp 约 2000 行，深度耦合 g_board，需整体 DI 化重写）
 - UI 框架接线（display/lvgl/ui/aphorism — reflect_src/ui 为全新重写，需接真实 TFT 显示 HAL）

@@ -342,6 +342,37 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     _led_ctx = &led_ctx;
 
     _create_task(led_thread_entry, "(led)", 1024 * 3, _led_ctx, TASK_PRIORITY_LED, 1);
+
+    static WebCtx web_ctx;
+    web_ctx.miner          = _miner;
+    web_ctx.stratum        = _stratum;
+    web_ctx.market         = _market;
+    web_ctx.power          = _power;
+    web_ctx.spec           = &_spec;
+    web_ctx.status         = _minerStatus;
+    web_ctx.conn           = _conn;
+    web_ctx.wifi           = _wifi;
+    web_ctx.wifi_cfg       = &_wifi_cfg;
+    web_ctx.pwr            = &_pwr_tele;
+    web_ctx.temp           = &_temp;
+    web_ctx.time           = &_time;
+    web_ctx.ota            = &_ota;
+    web_ctx.pref           = &_pref;
+    web_ctx.neighbor       = _neighbor;
+    web_ctx.fan_status     = &_fan_status;
+    web_ctx.bm_mode        = &_bm_mode;
+    web_ctx.utc            = &_utc;
+    web_ctx.tz             = &_tz;
+    web_ctx.coin_price     = &_coin_price;
+    web_ctx.coin_watchlist = &_coin_watchlist;
+    web_ctx.fw_version     = BOARD_CURRENT_FW_VERSION;
+    web_ctx.sys_evt        = _sys->sys_evt;
+    web_ctx.init_evt       = _sys->init_evt;
+    web_ctx.reboot_xsem    = _sys->reboot_xsem;
+    web_ctx.brightness_update_xsem = _brightness_update_xsem;
+    _web_ctx = &web_ctx;
+
+    _create_task(webserver_thread_entry, "(webserver)", 1024 * 5, _web_ctx, TASK_PRIORITY_WS, 0);
 }
 
 void MinerApp::_begin_market(BootProgress& boot) {

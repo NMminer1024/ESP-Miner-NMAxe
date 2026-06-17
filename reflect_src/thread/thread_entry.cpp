@@ -20,6 +20,9 @@
 #include "../app/button_ctx.h"
 #include "../app/led_ctx.h"
 #include "../app/benchmark_ctx.h"
+#include "../web/web_ctx.h"
+#include "../web/http_server.h"
+#include "../web/recovery_page.h"
 #include "../nvs/nvs_config.h"
 #include <nvs.h>
 #include <OneButton.h>
@@ -1959,9 +1962,284 @@ void led_thread_entry(void* args) {
 }
 
 void webserver_thread_entry(void* args) {
-    (void)args;
-    LOG_D("(web) placeholder");
-    while (true) { delay(10000); }
+    WebCtx* ctx = static_cast<WebCtx*>(args);
+    g_web = ctx;   // publish context for the free-function HTTP handlers
+
+    bool spiffs_ok = file_system_init();
+    if (!spiffs_ok) {
+        LOG_W("SPIFFS mount failed — entering recovery mode (firmware-embedded recovery page)");
+    }
+
+    // wait for sta or ap ready
+    xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_WIFI_AP_READY, pdFALSE, pdFALSE, portMAX_DELAY);
+    delay(100);
+
+    if (!spiffs_ok) {
+        webServer.on("/api/system/info",  HTTP_GET, get_system_info);
+        // ── Recovery mode: wakeup endpoint so the swarm batch-upgrade flow (which calls
+        // /api/wakeup before streaming the binary) does not fail immediately on devices
+        // in recovery mode. Without this the wakeup GET falls through to the catch-all,
+        // returns HTML, Angular httpClient fails to parse JSON → OTA never starts.
+        webServer.on("/api/wakeup", HTTP_GET, [](AsyncWebServerRequest *request){
+            AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"ok\":true}");
+            r->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(r);
+        });
+        // ── Find me: also available in recovery mode so the swarm panel can locate
+        // a device that is stuck in recovery (SPIFFS failed) by blinking its screen.
+        webServer.on("/api/swarm/find", HTTP_POST, [ctx](AsyncWebServerRequest* request) {
+            xEventGroupSetBits(ctx->sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+            r->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(r);
+        });
+        // ── Recovery mode: SPIFFS is unavailable ─────────────────────────────
+        // Serve the firmware-embedded recovery page for every GET request so
+        // the user can re-flash SPIFFS via a browser, then restart the device.
+        webServer.on("/api/system/restart", HTTP_POST, post_restart);
+        // OTA upload endpoints (both canonical and legacy aliases) so the
+        // recovery page upload button works regardless of browser-cached URL.
+        webServer.on("/api/update/firmware", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+        webServer.on("/api/update/spiffs",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+        webServer.on("/api/system/OTA",      HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+        webServer.on("/api/system/OTAWWW",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler);
+        // API probe endpoint: checkNewApiSupport() on other devices calls this to
+        // decide which OTA URL to use. Returning a valid timeZone JSON lets the
+        // swarm panel correctly select /api/update/firmware & /api/update/spiffs
+        // instead of the legacy /api/system/OTA & /api/system/OTAWWW aliases.
+        webServer.on("/api/setting/time", HTTP_GET, [](AsyncWebServerRequest *request){
+            AsyncWebServerResponse *r = request->beginResponse(200, "application/json",
+                "{\"timeZone\":\"UTC\",\"ntpServer\":\"pool.ntp.org\"}");
+            r->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(r);
+        });
+        // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
+        webServer.on("/probe", HTTP_GET, [ctx](AsyncWebServerRequest* request) {
+            // Snapshot double fields once: double is non-atomic on 32-bit ESP32,
+            // reading directly in printf could yield a torn value.
+            double hr  = ctx->status->hashrate._3m;
+            double sbd = ctx->status->diff.best_session;
+            double ebd = ctx->status->diff.best_ever;
+            if (!isfinite(hr)  || hr  < 0.0) hr  = 0.0;
+            if (!isfinite(sbd) || sbd < 0.0) sbd = 0.0;
+            if (!isfinite(ebd) || ebd < 0.0) ebd = 0.0;
+            AsyncResponseStream* resp = request->beginResponseStream("application/json");
+            resp->addHeader("Access-Control-Allow-Origin", "*");
+            resp->print("{");
+            resp->printf("\"model\":\"%s\",",    ctx->spec->name.c_str());  // board model name
+            resp->printf("\"hostname\":\"%s\",",    ctx->wifi_cfg->hostname.c_str()); // hostname
+            resp->printf("\"ver\":\"%s\",", ctx->fw_version.c_str()); // firmware version
+            resp->printf("\"sw\":%d,",           ctx->spec->tft.width);   // TFT width from board spec
+            resp->printf("\"sh\":%d,",           ctx->spec->tft.height);  // TFT height from board spec
+            resp->printf("\"hr\":%.0f,",       hr);  // hashrate in H/s, 3m average
+            resp->printf("\"sbd\":%.0f,",      sbd); // best session difficulty
+            resp->printf("\"ebd\":%.0f,",      ebd); // best ever difficulty
+            resp->printf("\"ut\":%d",      ctx->status->uptime_session);   // uptime in seconds for current session
+            resp->print("}");
+            request->send(resp);
+        });
+        // Catch-all GET: serve recovery page from flash (no SPIFFS needed).
+        webServer.on("/*", HTTP_GET, [](AsyncWebServerRequest *request){
+            AsyncWebServerResponse *r = request->beginResponse(200, "text/html", recovery_page);
+            r->addHeader("Access-Control-Allow-Origin", "*");
+            request->send(r);
+        });
+        // CORS preflight handler — CRITICAL for swarm cross-origin upgrades.
+        webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
+            AsyncWebServerResponse *r = request->beginResponse(200);
+            r->addHeader("Access-Control-Allow-Origin",  "*");
+            r->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
+            r->addHeader("Access-Control-Allow-Headers", "Accept,Content-Type");
+            request->send(r);
+        });
+        webServer.begin();
+        while (true) { delay(250); }
+    }
+
+    // Register AsyncWebSocket handler on webServer (same port 80, path /ws)
+    webSocket.onEvent(webSocketEvent);
+    webServer.addHandler(&webSocket);
+    webServer.on("/api/system/info", HTTP_GET, get_system_info);
+    webServer.on("/api/system/restart",HTTP_POST, post_restart);
+    webServer.on("/api/system/clearhits", HTTP_POST, post_reset_block_hits);
+    webServer.on("/api/mining/state", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_mining_state);
+    // ── Reboot history (planned vs crash, persisted across boots) ───────────
+    webServer.on("/api/reboot/last", HTTP_GET,    get_reboot_last);
+    webServer.on("/api/reboot/list", HTTP_GET,    get_reboot_list);
+    webServer.on("/api/reboot/list", HTTP_DELETE, delete_reboot_list);
+    // ── Coredump (post-mortem summary in flash, cleared on demand) ─────────
+    webServer.on("/api/coredump/info", HTTP_GET,    get_coredump_info);
+    webServer.on("/api/coredump",      HTTP_DELETE, delete_coredump);
+    // ── Wakeup: any caller (local or cross-origin swarm panel) can wake this device's screensaver.
+    webServer.on("/api/wakeup", HTTP_GET, [ctx](AsyncWebServerRequest *request){
+        xEventGroupClearBits(ctx->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+        AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"ok\":true}");
+        r->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(r);
+    });
+    // ── Dashboard data endpoints ──────────────────────────────────────────────
+    webServer.on("/api/dashboard/hr/dist",        HTTP_GET, get_hr_distribution);
+    webServer.on("/api/dashboard/gauge/limits",   HTTP_GET, get_gauge_limits);
+    webServer.on("/api/dashboard/chart/history",  HTTP_GET, get_status_history);
+    webServer.on("/api/dashboard/chart/realtime", HTTP_GET, get_status_realtime);
+    webServer.on("/api/dashboard/luck/history",   HTTP_GET, get_lucky_history);
+    // ── Swarm endpoints ───────────────────────────────────────────────────────
+    webServer.on("/api/swarm/scan", HTTP_POST, [ctx](AsyncWebServerRequest* request) {
+        if (ctx->neighbor->scan_required){
+            xSemaphoreGive(ctx->neighbor->scan_required);
+            LOG_I("Triggered alive IP scan by swarm request");
+        }
+        AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+        r->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(r);
+    }); // trigger alive_ip_scan_thread immediately
+    // ── Find me: blink screen to help user locate a specific device ───────────
+    webServer.on("/api/swarm/find", HTTP_POST, [ctx](AsyncWebServerRequest* request) {
+        xEventGroupSetBits(ctx->sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+        AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+        r->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(r);
+    });
+    // ── Logging and echo endpoints ───────────────────────────────────────────────
+    webServer.on("/api/log", HTTP_GET, echo_handler);
+    // ── OTA update endpoints ──────────────────────────────────────────────────
+    webServer.on("/api/update/progress", HTTP_GET,  get_ota_progress);                                          // progress poll
+    webServer.on("/api/update/last-result", HTTP_GET, get_ota_last_result);                                     // last OTA result snapshot
+    webServer.on("/api/update/firmware", HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
+    webServer.on("/api/update/spiffs",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // canonical
+    webServer.on("/api/system/OTA",      HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // compat alias
+    webServer.on("/api/system/OTAWWW",   HTTP_POST, [](AsyncWebServerRequest *request){}, file_upload_handler); // compat alias
+    webServer.on("/api/update/screensaver",HTTP_POST,  [](AsyncWebServerRequest *request){}, file_upload_handler);
+    // ── Theme endpoints (OPTIONS covered by wildcard handler below) ───────────
+    webServer.on("/api/theme", HTTP_GET,  get_theme_handler);
+    webServer.on("/api/theme", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, post_theme_handler);
+    // ── Settings per-card endpoints ───────────────────────────────────────────
+    webServer.on("/api/setting/network",    HTTP_GET,   get_setting_network);
+    webServer.on("/api/setting/network",    HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_network);
+    webServer.on("/api/setting/time",       HTTP_GET,   get_setting_time);
+    webServer.on("/api/setting/time",       HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_time);
+    webServer.on("/api/setting/mining",     HTTP_GET,   get_setting_mining);
+    webServer.on("/api/setting/mining",     HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_mining);
+    webServer.on("/api/setting/market",     HTTP_GET,   get_setting_market);
+    webServer.on("/api/setting/market",     HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_market);
+    webServer.on("/api/setting/preference", HTTP_GET,   get_setting_preference);
+    webServer.on("/api/setting/preference", HTTP_PATCH, [](AsyncWebServerRequest *request){}, NULL, patch_setting_preference);
+    // ── Benchmark endpoints ────────────────────────────────────────────────────
+    webServer.on("/api/benchmark",         HTTP_GET,    get_benchmark);
+    webServer.on("/api/benchmark",         HTTP_PATCH,  [](AsyncWebServerRequest *request){}, NULL, patch_benchmark);
+    webServer.on("/api/benchmark/start",   HTTP_POST,   [](AsyncWebServerRequest *request){}, NULL, post_benchmark_start);
+    webServer.on("/api/benchmark/stop",    HTTP_POST,   post_benchmark_stop);
+    webServer.on("/api/benchmark/results", HTTP_DELETE, delete_benchmark_results);
+    webServer.on("/api/benchmark/reset",   HTTP_POST,   post_benchmark_reset);
+    webServer.on("/api/benchmark/apply",   HTTP_POST,   [](AsyncWebServerRequest *request){}, NULL, post_benchmark_apply);
+
+    // for miner probe endpoint, swarm panel calls this to get hashrate and difficulty for swarm mining display , Keep this endpoint lightweight and fast.
+    webServer.on("/probe", HTTP_GET, [ctx](AsyncWebServerRequest* request) {
+        // Return 503 during OTA — avoid competing with the flash write for TCP/lwIP resources.
+        if (ctx->ota->running) {
+            request->send(503, "text/plain", "OTA in progress");
+            return;
+        }
+        double hr  = ctx->status->hashrate._3m;
+        double sbd = ctx->status->diff.best_session;
+        double ebd = ctx->status->diff.best_ever;
+        if (!isfinite(hr)  || hr  < 0.0) hr  = 0.0;
+        if (!isfinite(sbd) || sbd < 0.0) sbd = 0.0;
+        if (!isfinite(ebd) || ebd < 0.0) ebd = 0.0;
+        AsyncResponseStream* resp = request->beginResponseStream("application/json");
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+        resp->print("{");
+        resp->printf("\"model\":\"%s\",",    ctx->spec->name.c_str());  // board model name
+        resp->printf("\"hostname\":\"%s\",",    ctx->wifi_cfg->hostname.c_str()); // hostname
+        resp->printf("\"ver\":\"%s\",", ctx->fw_version.c_str()); // firmware version
+        resp->printf("\"sw\":%d,",           ctx->spec->tft.width);   // TFT width from board spec
+        resp->printf("\"sh\":%d,",           ctx->spec->tft.height);  // TFT height from board spec
+        resp->printf("\"hr\":%.0f,",       hr);  // hashrate in H/s, 3m average
+        resp->printf("\"sbd\":%.0f,",      sbd); // best session difficulty
+        resp->printf("\"ebd\":%.0f,",      ebd); // best ever difficulty
+        resp->printf("\"ut\":%d",      ctx->status->uptime_session);   // uptime in seconds for current session
+        resp->print("}");
+        request->send(resp);
+    });
+    // alive ip return from miner, just alive ip, maybe phone, pc, or miner itself, for miner probe endpoint, AxeOS probe one by one .
+    webServer.on("/alive", HTTP_GET, [ctx](AsyncWebServerRequest* request) {
+        // Return 503 during OTA — avoid competing with the flash write for TCP/lwIP resources.
+        if (ctx->ota->running) {
+            request->send(503, "text/plain", "OTA in progress");
+            return;
+        }
+        String self_ip = WiFi.localIP().toString();
+        AsyncResponseStream* resp = request->beginResponseStream("application/json");
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+        bool scanning   = ctx->neighbor->is_scanning;
+        uint16_t prog   = ctx->neighbor->scan_progress;
+        uint32_t lms    = 0;
+        resp->printf("{\"self\":\"%s\",\"scanning\":%s,\"progress\":%u,\"total\":254",
+            self_ip.c_str(), scanning ? "true" : "false", (unsigned)prog);
+        if (xSemaphoreTake(ctx->neighbor->mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
+            lms = ctx->neighbor->last_scan_ms;
+            xSemaphoreGive(ctx->neighbor->mutex);
+        }
+        uint32_t next_in = 0;
+        if (!scanning && lms > 0) {
+            uint32_t elapsed_s = (millis() - lms) / 1000;
+            next_in = (elapsed_s < 300) ? (300 - elapsed_s) : 0;
+        }
+        resp->printf(",\"next_scan_in\":%u", (unsigned)next_in);
+        resp->printf(",\"ips\":[\"%s\"", self_ip.c_str());
+        if (xSemaphoreTake(ctx->neighbor->mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
+            auto neighbor_ip_to_cstr = [](neighbor_ip_t address, char *buffer, size_t buffer_size) {
+                snprintf(buffer, buffer_size, "%u.%u.%u.%u",
+                         (unsigned)((address >> 24) & 0xFF),
+                         (unsigned)((address >> 16) & 0xFF),
+                         (unsigned)((address >> 8) & 0xFF),
+                         (unsigned)(address & 0xFF));
+            };
+            char ip_buf[16];
+            for (const auto& ip : ctx->neighbor->alive_ips) {
+                neighbor_ip_to_cstr(ip, ip_buf, sizeof(ip_buf));
+                resp->printf(",\"%s\"", ip_buf);
+            }
+            xSemaphoreGive(ctx->neighbor->mutex);
+        }
+        resp->print("]}");
+        request->send(resp);
+    });
+    webServer.on("/api-doc", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->redirect("/api-doc.html");
+    });
+    webServer.on("/*", HTTP_GET, [ctx](AsyncWebServerRequest *request){
+        // Wake screensaver when the user loads or refreshes any page on this device.
+        if(xEventGroupGetBits(ctx->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
+            xEventGroupClearBits(ctx->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+        }
+        rest_common_get_handler(request);
+    });
+    webServer.on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request){
+        AsyncWebServerResponse *response = request->beginResponse(200);
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        response->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
+        response->addHeader("Access-Control-Allow-Headers", "Accept,Content-Type");
+        request->send(response);
+    });
+    webServer.begin();
+    // cleanupClients() must be called periodically so AsyncWebSocket can detect
+    // dropped connections and fire WS_EVT_DISCONNECT for stale clients.
+    while (true) {
+        delay(250);
+        webSocket.cleanupClients();
+
+        // OTA stall watchdog: runs independently of the upload callback.
+        if (ctx->ota->running && ctx->ota->last_progress_ms != 0) {
+            if (millis() - ctx->ota->last_progress_ms > 60*1000UL) {
+                LOG_E("[OTA watchdog] upload stalled >60s at %d%%, triggering reboot", ctx->ota->progress);
+                reboot_intent_set(REBOOT_INTENT_OTA_STALL,
+                                  "upload stalled at %d%% for >60s",
+                                  ctx->ota->progress);
+                xSemaphoreGive(ctx->reboot_xsem);
+            }
+        }
+    }
 }
 
 // ── Scan: LAN /24 ICMP alive-IP discovery ───────────────────────────────────
