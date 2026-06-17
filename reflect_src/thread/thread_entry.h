@@ -65,3 +65,6 @@ void ui_thread_entry(void* args);
 
 // ── Benchmark: auto frequency/vcore tuning ───────────────────────────────────
 void benchmark_thread_entry(void* args);
+
+// ── Aphorism: fetch motivational quotes (screensaver content) ────────────────
+void aphorism_thread_entry(void* args);

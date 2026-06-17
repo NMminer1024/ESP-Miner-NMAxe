@@ -5,6 +5,7 @@
 #include <freertos/event_groups.h>
 #include "../mining/mining_types.h"   // MinerStatus, MinerRuntimeState
 #include "../app/runtime_state.h"     // BenchmarkState
+#include "../app/aphorism_ctx.h"      // AphorismState
 
 // ============================================================================
 //  OverlayCtx — dependencies the overlay layer reads (LVGL thread, read-only).
@@ -15,6 +16,8 @@ struct OverlayCtx {
     MinerStatus*       status  = nullptr;   // runtime_state / user_paused
     EventGroupHandle_t sys_evt = nullptr;   // OC/OT fault bits
     OtaState*          ota     = nullptr;   // firmware-update progress
+    AphorismState*     aphorism   = nullptr;  // screensaver quote pool
+    const uint8_t*     saver_mode = nullptr;  // 0=quote/gif, 1=black
 };
 
 // ============================================================================
@@ -42,4 +45,8 @@ private:
     bool       _visible = false;
     uint32_t   _last_ms = 0;
     uint32_t   _find_start = 0;   // find-me blink start (0 = inactive)
+    // screensaver aphorism rotation
+    String     _aph_quote, _aph_author;
+    bool       _aph_have = false;
+    uint32_t   _aph_last = 0;
 };

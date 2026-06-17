@@ -146,5 +146,29 @@ void OverlayManager::update() {
         }
     }
 
+    // ── Priority 4: screensaver (aphorism quote, non-black mode) ──
+    if ((bits & SYS_EVENT_SCREEN_SAVER_TRIGGERED) &&
+        _ctx.saver_mode && *_ctx.saver_mode != 1) {
+        // Rotate to a fresh quote on entry and every ~60 s thereafter.
+        if (!_aph_have || (now - _aph_last) > 60000) {
+            if (_ctx.aphorism && _ctx.aphorism->mutex &&
+                xSemaphoreTake(_ctx.aphorism->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+                if (!_ctx.aphorism->pool.empty()) {
+                    _aph_quote  = _ctx.aphorism->pool.front().quote;
+                    _aph_author = _ctx.aphorism->pool.front().author;
+                    _ctx.aphorism->pool.erase(_ctx.aphorism->pool.begin());
+                    _aph_have = true;
+                }
+                xSemaphoreGive(_ctx.aphorism->mutex);
+            }
+            _aph_last = now;
+        }
+        String body = _aph_have ? (String("\"") + _aph_quote + "\"\n\n- " + _aph_author)
+                                : String("Solo mining:\nbe a friend of time.");
+        _show(0x66BB6A, "", body);
+        return;
+    }
+    _aph_have = false;   // reset so the next screensaver entry pops a fresh quote
+
     _hide();
 }

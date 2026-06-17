@@ -19,6 +19,7 @@
 #include "runtime_state.h"
 #include "led_ctx.h"
 #include "benchmark_ctx.h"
+#include "aphorism_ctx.h"
 #include "../web/web_ctx.h"
 
 class MinerApp {
@@ -98,6 +99,8 @@ private:
     DaemonCtx*       _daemon_ctx = nullptr;   // DI context for daemon thread
     ButtonCtx*       _button_ctx = nullptr;   // DI context for button thread
     WebCtx*          _web_ctx = nullptr;      // DI context for webserver thread
+    AphorismState    _aphorism;               // motivational-quote pool (screensaver)
+    AphorismCtx*     _aphorism_ctx = nullptr; // DI context for aphorism thread
     std::vector<TaskEntry> _tasks;
 
     BaseType_t _create_task(TaskFunction_t fn, const char* name,

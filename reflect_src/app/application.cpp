@@ -396,6 +396,15 @@ void MinerApp::_begin_market(BootProgress& boot) {
     _market_ctx = &ctx;
 
     _create_task(market_thread_entry, "(market)", 1024 * 6, _market_ctx, TASK_PRIORITY_MARKET, 0);
+
+    static AphorismCtx aph_ctx;
+    _aphorism.mutex     = xSemaphoreCreateMutex();
+    aph_ctx.state       = &_aphorism;
+    aph_ctx.wifi_status = &_wifi->status;
+    aph_ctx.ota_running = &_ota.running;
+    _aphorism_ctx = &aph_ctx;
+
+    _create_task(aphorism_thread_entry, "(aphorism)", 1024 * 8, _aphorism_ctx, TASK_PRIORITY_APHORISM, 0);
 }
 
 void MinerApp::_begin_miners(BootProgress& boot) {
@@ -543,7 +552,10 @@ void MinerApp::_tick_thread_entry(void* args) {
             if (!ss_active) {
                 if (idle_ms > app._pref.screen.saver_timeout * 1000UL) {
                     xEventGroupSetBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
-                    tft_bl_ctrl(0, &app._spec);   // blank backlight
+                    // mode 1 = black (blank backlight); mode 0 = keep lit for the
+                    // aphorism/quote screensaver rendered by the OverlayManager.
+                    if (app._pref.screen.saver_mode == 1) tft_bl_ctrl(0, &app._spec);
+                    else tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
                     ss_active = true;
                 }
             } else if (idle_ms < 1000 || !bit_set) {   // touch activity or external wakeup
@@ -715,6 +727,8 @@ bool MinerApp::_ui_init() {
     octx.status  = _minerStatus;
     octx.sys_evt = _sys->sys_evt;
     octx.ota     = &_ota;
+    octx.aphorism   = &_aphorism;
+    octx.saver_mode = &_pref.screen.saver_mode;
     OverlayManager::instance().init(octx);
     // Backlight on (fall back to a sane default if no NVS brightness set).
     uint8_t br = _pref.screen.brightness ? _pref.screen.brightness : 80;
