@@ -1,7 +1,7 @@
 #include "ui/pages/page_miner.h"
 
 // ============================================================================
-// destroy() ¡ª unsubscribe all Observables, null widget pointers
+// destroy() ï¿½ï¿½ unsubscribe all Observables, null widget pointers
 // ============================================================================
 void PageMinerBase::destroy() {
     auto& m = AppState::instance().miner;
@@ -22,6 +22,9 @@ void PageMinerBase::destroy() {
     m.shares_icon_color.unsubscribe(_on_color);
     m.blk_hit.unsubscribe(_on_text);
     m.hashrate.unsubscribe(_on_text);
+    m.power.unsubscribe(_on_text);
+    m.asic_temp.unsubscribe(_on_text);
+    m.vcore_temp.unsubscribe(_on_text);
     m.ver.unsubscribe(_on_text);
     m.ip.unsubscribe(_on_text);
     m.swarm_bd.unsubscribe(_on_text);
@@ -39,7 +42,7 @@ void PageMinerBase::destroy() {
 }
 
 // ============================================================================
-// _finish_create() ¡ª subscribe all Observables with widget pointers as ctx
+// _finish_create() ï¿½ï¿½ subscribe all Observables with widget pointers as ctx
 // ============================================================================
 void PageMinerBase::_finish_create() {
     auto& m = AppState::instance().miner;
@@ -51,6 +54,9 @@ void PageMinerBase::_finish_create() {
     m.ip.subscribe(_on_text, &_lb_ip);
     m.ver.subscribe(_on_text, &_lb_ver);
     m.hashrate.subscribe(_on_text, &_lb_hasrate);
+    m.power.subscribe(_on_text, &_lb_power);
+    m.asic_temp.subscribe(_on_text, &_lb_asic_temp);
+    m.vcore_temp.subscribe(_on_text, &_lb_vcore_temp);
     m.blk_hit.subscribe(_on_text, &_lb_blk_hit);
     m.job_count.subscribe(_on_text, &_lb_job_count);
     m.net_diff.subscribe(_on_text, &_lb_net_diff);
@@ -60,7 +66,7 @@ void PageMinerBase::_finish_create() {
     m.swarm_hr.subscribe(_on_text, &_lb_swarm_hr);
     m.swarm_workers.subscribe(_on_text, &_lb_swarm_workers);
 
-    // ©¤©¤ Colors ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+    // ï¿½ï¿½ï¿½ï¿½ Colors ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     m.rssi_icon_color.subscribe(_on_color, &_lb_rssi);
     m.job_icon_color.subscribe(_on_color, &_lb_job_count);
     m.local_diff_icon_color.subscribe(_on_color, &_lb_best_diff);
@@ -68,7 +74,7 @@ void PageMinerBase::_finish_create() {
 }
 
 // ============================================================================
-// _on_text ¡ª static Observable callback: set label text
+// _on_text ï¿½ï¿½ static Observable callback: set label text
 // ============================================================================
 void PageMinerBase::_on_text(const String& v, void* ctx) {
     if (!ctx) return;
@@ -77,7 +83,7 @@ void PageMinerBase::_on_text(const String& v, void* ctx) {
 }
 
 // ============================================================================
-// _on_color ¡ª static Observable callback: set label color
+// _on_color ï¿½ï¿½ static Observable callback: set label color
 // ============================================================================
 void PageMinerBase::_on_color(const uint32_t& v, void* ctx) {
     if (!ctx) return;

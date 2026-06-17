@@ -114,6 +114,10 @@ struct MinerPageState {
     ObsLabel blk_hit;
     ObsLabel hashrate;
 
+    ObsLabel power;       // "12.3W"
+    ObsLabel asic_temp;   // "ASIC 58C"
+    ObsLabel vcore_temp;  // "VCORE 47C"
+
     ObsLabel ver;
     ObsLabel ip;
 

@@ -619,6 +619,16 @@ void MinerApp::_tick_thread_entry(void* args) {
                             String((unsigned)app._minerStatus->share_accepted);
             m.local_diff.text = String(app._minerStatus->diff.best_session, 0) + "/" +
                                 String(app._minerStatus->diff.best_ever, 0);
+            m.net_diff.text   = formatNumber(app._minerStatus->diff.network, 3);
+            m.ver.text        = String(BOARD_CURRENT_FW_VERSION).substring(1);  // strip leading 'v'
+            m.uptime_hms.text = convert_uptime_to_string(app._minerStatus->uptime_session);
+            {
+                float vbus_v = app._pwr_tele.vbus / 1000.0f;
+                float ibus_a = app._pwr_tele.ibus / 1000.0f;
+                m.power.text      = String(vbus_v * ibus_a, 1) + "W";
+                m.asic_temp.text  = String("ASIC ") + String((float)app._temp.asic, 0) + "C";
+                m.vcore_temp.text = String("VCORE ") + String((float)app._temp.vcore, 0) + "C";
+            }
 
             // ── Hashrate-health page ──
             auto& hh = AppState::instance().hr_health;
@@ -665,6 +675,7 @@ void MinerApp::_tick_thread_entry(void* args) {
                 strftime(tbuf, sizeof(tbuf), "%H:%M", &lt);
             }
             AppState::instance().clock.time_str.text = String(tbuf);
+            AppState::instance().miner.time_str.text = String(tbuf);
 
             const String& df = app._time.format.date;
             char dbuf[16];
@@ -706,6 +717,7 @@ void MinerApp::_tick_thread_entry(void* args) {
             snprintf(cb, sizeof(cb), "%+.2f%%", mp.change_pct);
             mk.change.text  = String(cb);
             mk.change.color = (mp.change_pct >= 0.0f) ? (uint32_t)0x00C853 : (uint32_t)0xFF5252;
+            AppState::instance().miner.price.text = String(pb);   // mirror on miner page
         }
 
         if (app._swarm && xSemaphoreTake(app._swarm->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
