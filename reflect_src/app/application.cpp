@@ -250,7 +250,25 @@ void MinerApp::_begin_market(BootProgress& boot) {
 }
 
 void MinerApp::_begin_miners(BootProgress& boot) {
-    boot.next("Miners placeholder");
+    boot.next("ASIC bring-up...");
+
+    static MinerCtx ctx;
+    ctx.miner         = _miner;
+    ctx.stratum       = _stratum;
+    ctx.power         = _power;
+    ctx.spec          = &_spec;
+    ctx.status        = _minerStatus;
+    ctx.conn          = _conn;
+    ctx.init_evt      = _sys->init_evt;
+    ctx.sys_evt       = _sys->sys_evt;
+    ctx.nvs_save_xsem = _nvs_save_xsem;
+    ctx.ota_running   = &_ota_running;
+    ctx.utc           = &_utc;
+    ctx.fw_version    = BOARD_CURRENT_FW_VERSION;
+    _miner_ctx = &ctx;
+
+    _create_task(miner_count_thread_entry, "(asic_cnt)",  1024 * 5, _miner_ctx, TASK_PRIORITY_ASIC_CNT,  1);
+    _create_task(miner_init_thread_entry,  "(asic_init)", 1024 * 6, _miner_ctx, TASK_PRIORITY_ASIC_INIT, 1);
 }
 
 void MinerApp::begin() {

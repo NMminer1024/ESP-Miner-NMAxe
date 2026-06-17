@@ -20,6 +20,57 @@ void stratum_thread_entry(void* args) {
     while (true) { delay(10000); }
 }
 
+// ── Miner count: wait for power, enumerate ASIC chips ───────────────────────
+//    Mirrors legacy miner_asic_count_thread_entry; board_sal_t* -> MinerCtx*.
+void miner_count_thread_entry(void* args) {
+    MinerCtx* ctx = static_cast<MinerCtx*>(args);
+
+    while (ctx->miner == nullptr) {
+        LOG_W("Waiting for miner instance ready...");
+        delay(1000);
+    }
+
+    // wait for vdd and vpll ready, avoid some asic chip not detected issue
+    xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_VDD_VPLL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+
+    // wait for asic detected, avoid some usb-sata bridge not ready issue
+    while (ctx->miner->connect_chip() == 0) {
+        LOG_W("Waiting for asic chip detected...");
+        delay(1000);
+    }
+
+    xEventGroupSetBits(ctx->init_evt, INIT_EVENT_ASIC_COUNTED);
+
+    if (ctx->miner->get_asic_count() != ctx->spec->asic.num_req) {
+        LOG_E("Detected ASIC count (%d/%d) does not match required ASIC count!!!!",
+              ctx->miner->get_asic_count(), ctx->spec->asic.num_req);
+    }
+
+    vTaskDelete(NULL);
+}
+
+// ── Miner init: bring up ASIC hardware at the required frequency/diff ────────
+//    Mirrors legacy miner_asic_init_thread_entry; board_sal_t* -> MinerCtx*.
+void miner_init_thread_entry(void* args) {
+    MinerCtx* ctx = static_cast<MinerCtx*>(args);
+
+    while (ctx->miner == nullptr) {
+        LOG_W("Waiting for miner instance ready...");
+        delay(1000);
+    }
+
+    if (!ctx->miner->begin(ctx->spec->asic.req_frq, ctx->spec->asic.diff_thr_init,
+                           ctx->spec->asic.com_baud_work)) {
+        while (true) {
+            LOG_E("Miner ASIC init failed, retrying...");
+            delay(1000);
+        }
+    }
+    LOG_I("%s init completed, job interval set to %d ms",
+          ctx->spec->asic.name.c_str(), ctx->spec->asic.job_interval_ms);
+    vTaskDelete(NULL);
+}
+
 void miner_tx_thread_entry(void* args) {
     (void)args;
     LOG_D("(asic_tx) placeholder");

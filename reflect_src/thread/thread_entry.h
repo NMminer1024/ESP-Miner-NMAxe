@@ -10,6 +10,10 @@
 // ── Stratum: pool communication ─────────────────────────────────────────────
 void stratum_thread_entry(void* args);
 
+// ── Miner count/init: ASIC chip enumeration and hardware bring-up ───────────
+void miner_count_thread_entry(void* args);
+void miner_init_thread_entry(void* args);
+
 // ── Miner TX/RX: ASIC job dispatch and response ─────────────────────────────
 void miner_tx_thread_entry(void* args);
 void miner_rx_thread_entry(void* args);
