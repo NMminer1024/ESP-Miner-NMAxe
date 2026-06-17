@@ -508,10 +508,18 @@ void MinerApp::_tick_thread_entry(void* args) {
     uint32_t last_ui_ms   = 0;
     uint32_t last_roll_ms = 0;       // auto page-rolling cadence
     bool     ss_active    = false;   // screensaver state (this thread owns backlight)
+    bool     ui_switched  = false;   // one-shot LOADING -> MINER after boot
 
     while (true) {
         delay(10);
         uint32_t now = millis();
+
+        // ── One-shot: leave the boot LOADING page for MINER once mining is up ──
+        if (!ui_switched &&
+            (xEventGroupGetBits(app._sys->init_evt) & INIT_EVENT_MINER_READY)) {
+            UIManager::instance().request_goto_page(UIPageId::MINER);
+            ui_switched = true;
+        }
 
         // ── temperature sampling (single writer) — gated on TMP102 readiness ──
         if (!tmp_ready) {
