@@ -154,7 +154,36 @@ g_board.status god 结构按「写者拥有」拆分为各线程 Ctx：
   _brightness_update_xsem；init() 读 NVS_CONFIG_TIME_FORMAT/DATE_FORMAT；mining_types.h 补
   miner_runtime_state_to_string()
 
-构建均通过；Flash 随阶段增长至约 38.9%。
+### P23 完成 (显示 HAL + UI 框架接线)
+- 新增 reflect_src/drivers/display/display_hal.{h,cpp}：从 legacy display.cpp 面板层移植（DI 化，
+  无 g_board）：tft_init（上电/背光 PWM/TFT_eSPI begin 运行时引脚/rotation）、tft_bl_ctrl、
+  ui_drv_register（PSRAM LVGL draw buffer + flush_cb）、tft_screen_width/height
+- 编译 reflect_src/ui/（UIManager tileview + 8 页面 ×2 分辨率 + AppState 观察者模式）
+  - 修复 codegen 残留：_W/_H 初始化行的 '.Replace(...)' 伪代码（12 个 layout 头）
+  - 修复 base page .cpp include 路径；统一页面类名为 PascalCase（PageConfig/Dashboard/
+    Hr_health/Clock/Market/Setting）以匹配 ui_manager.cpp
+  - app_state.h：ObsLabel 增加 subscribe/unsubscribe 便捷重载
+- application：_ui_init 改为真实 tft_init + ui_drv_register + UIManager::init + 背光；
+  _lvgl_thread 调 UIManager::render_update()；栈 4K→8K
+- platformio.ini：build_src_filter 增加 reflect_src/ui/ + reflect_src/drivers/display/
+- AppState 已由 _tick_thread 以 1Hz 喂数：miner 页算力/diff/shares/IP/RSSI/swarm；loading 页进度
 
-### 仍未迁移（独立工作流，待定）
-- UI 框架接线（display/lvgl/ui/aphorism — reflect_src/ui 为全新重写，需接真实 TFT 显示 HAL）
+### P24 完成 (UI 导航接线)
+- display_hal：touch_drv_register()——FT6206 触摸初始化（共享 I2C）+ LVGL 指针 indev，
+  去抖 + flip 感知坐标映射（移植 legacy touchpad_read_cb），无控制器时优雅禁用
+- application：_ui_init 调 touch_drv_register(&_pref)；button 导航 hook 接到 UIManager
+  request_next_page/request_prev_page/wake_activity（无捕获 lambda→函数指针，跨线程安全）
+
+构建均通过；Flash 随阶段增长至约 40.4%。
+
+## 迁移结论
+**God-object（board_sal_t g_board）→ 每线程 DI 上下文的迁移已完成。** reflect_src 中不再存在
+g_board；所有后台线程（stratum/miner×4/wifi/config/power×2/fan/monitor/daemon/button/led/
+market/scan/swarm/benchmark/webserver）均通过各自的 *Ctx 注入依赖。UI 框架已在真实 TFT 上点亮，
+loading/miner 页有实时数据，触摸滑动 + 按键翻页可用。
+
+### 后续为「新功能开发」而非迁移（待定）
+- 其余 6 个页面（config/dashboard/hr_health/clock/market/setting）目前为静态布局占位：
+  需为各页设计数据模型（在 AppState 增 *PageState + 观察者）、补全布局、并从后台喂数。
+  这属于全新 UI 开发，不在 god-object 迁移范畴内。
+- 各类 overlay（benchmark/暂停/OC-OT 告警/screensaver/find-me/aphorism）与屏保/亮度自动化。
