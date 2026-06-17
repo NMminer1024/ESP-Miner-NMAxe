@@ -5,14 +5,9 @@
 #include "lvgl.h"
 
 // ============================================================================
-// PageMinerBase ¡ª miner dashboard abstract base class (resolution-independent)
-//
-//   Data update is purely Observable-driven (no polling):
-//     AppState::instance().miner field assignment ¡ú Observable lv_async_call
-//     ¡ú LVGL thread callback updates corresponding widget.
-//
-//   Subclasses only implement create() (with coordinates) and _create_dynamic().
-//   create() calls _finish_create() at end to subscribe all Observables.
+// PageMinerBase â€” miner dashboard, exact legacy element set. Subclasses create
+// the widgets (with bg image, fonts, coords, symbols) and call _finish_create()
+// to bind the AppState::miner Observables.
 // ============================================================================
 class PageMinerBase : public UIPage {
 public:
@@ -20,41 +15,29 @@ public:
     void destroy() override;
 
 protected:
-    // ©¤©¤ Top bar ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    lv_obj_t* _lb_time_str      = nullptr;
-    lv_obj_t* _lb_uptime_day    = nullptr;
-    lv_obj_t* _lb_uptime_hms    = nullptr;
-    lv_obj_t* _lb_hasrate       = nullptr;
-    lv_obj_t* _lb_hasrate_unit  = nullptr;
-    lv_obj_t* _lb_power         = nullptr;
-    lv_obj_t* _lb_vcore_temp    = nullptr;
-    lv_obj_t* _lb_asic_temp     = nullptr;
+    // value labels (subset created per resolution; nullptr = not on this layout)
+    lv_obj_t* _lb_hashrate   = nullptr;
+    lv_obj_t* _lb_hr_unit    = nullptr;
+    lv_obj_t* _lb_blk_hit    = nullptr;
+    lv_obj_t* _lb_price      = nullptr;
+    lv_obj_t* _lb_ver        = nullptr;
+    lv_obj_t* _lb_power      = nullptr;
+    lv_obj_t* _lb_ip         = nullptr;
+    lv_obj_t* _lb_uptime_hms = nullptr;
+    lv_obj_t* _lb_uptime_day = nullptr;
+    lv_obj_t* _lb_diff       = nullptr;
+    lv_obj_t* _lb_share      = nullptr;
+    lv_obj_t* _lb_temp       = nullptr;
+    lv_obj_t* _lb_fan        = nullptr;
+    lv_obj_t* _lb_utc_time   = nullptr;
+    lv_obj_t* _lb_wifi_symb  = nullptr;
+    lv_obj_t* _lb_swarm_bd   = nullptr;
+    lv_obj_t* _lb_swarm_hr   = nullptr;
+    lv_obj_t* _lb_swarm_wk   = nullptr;
 
-    // ©¤©¤ Middle section ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    lv_obj_t* _lb_net_diff      = nullptr;
-    lv_obj_t* _lb_best_diff     = nullptr;
-    lv_obj_t* _lb_shares        = nullptr;
-    lv_obj_t* _lb_blk_hit       = nullptr;
-    lv_obj_t* _lb_job_count     = nullptr;
+    lv_coord_t _W = 0, _H = 0;
 
-    // ©¤©¤ Bottom info ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    lv_obj_t* _lb_ver           = nullptr;
-    lv_obj_t* _lb_ip            = nullptr;
-    lv_obj_t* _lb_rssi          = nullptr;
-
-    // ©¤©¤ Swarm bar ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    lv_obj_t* _lb_swarm_bd      = nullptr;
-    lv_obj_t* _lb_swarm_hr      = nullptr;
-    lv_obj_t* _lb_swarm_workers = nullptr;
-
-    // ©¤©¤ Screen dimensions (set by subclass in create()) ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    lv_coord_t _W = 0;
-    lv_coord_t _H = 0;
-
-    // Subclass implements actual widget layout at its resolution
     virtual void _create_dynamic(lv_obj_t* parent) = 0;
-
-    // Called at end of subclass create(): subscribes to AppState::miner Observables
     void _finish_create();
 
 private:

@@ -95,33 +95,25 @@ struct LoadingPageState {
 // ============================================================================
 // Miner page state
 // ============================================================================
+// Field set + semantics mirror the legacy miner page exactly.
 struct MinerPageState {
-    ObsLabel time_str;
-    ObsLabel uptime_day;
-    ObsLabel uptime_hms;
-    ObsLabel rssi;
-    Observable<uint32_t> rssi_icon_color{(uint32_t)0xEE7D30};
-    ObsLabel price;
+    ObsLabel hashrate;       // numeric value only, e.g. "1.23"
+    ObsLabel hashrate_unit;  // "TH/s" / "GH/s"
+    ObsLabel blk_hit;        // block-proximity hit count
+    ObsLabel price;          // "$67000"
+    ObsLabel ver;            // fw version (no leading 'v')
+    ObsLabel power;          // "12.3W"
+    ObsLabel ip;             // local IP
+    ObsLabel uptime_hms;     // "12:34:56"
+    ObsLabel uptime_day;     // "3"
+    ObsLabel diff;           // "bestSession/network"
+    ObsLabel shares;         // "acc/rej"
+    ObsLabel temp;           // "vcore/asic" deg C
+    ObsLabel fan;            // fan rpm
+    ObsLabel utc_time;       // "HH:MM" (320x240 top bar)
+    Observable<uint32_t> wifi_color{(uint32_t)0xFFA500};   // wifi icon color by RSSI
 
-    ObsLabel job_count;
-    Observable<uint32_t> job_icon_color{(uint32_t)0xA9A9A9};
-    ObsLabel net_diff;
-    ObsLabel local_diff;
-    Observable<uint32_t> local_diff_icon_color{(uint32_t)0xA9A9A9};
-    ObsLabel shares;
-    Observable<uint32_t> shares_icon_color{(uint32_t)0xA9A9A9};
-
-    ObsLabel blk_hit;
-    ObsLabel hashrate;
-
-    ObsLabel power;       // "12.3W"
-    ObsLabel asic_temp;   // "ASIC 58C"
-    ObsLabel vcore_temp;  // "VCORE 47C"
-
-    ObsLabel ver;
-    ObsLabel ip;
-
-    // Swarm bar
+    // Swarm bar (shown on the NMQAxe++ miner page; also the setting/swarm page)
     ObsLabel swarm_bd;
     ObsLabel swarm_hr;
     ObsLabel swarm_workers;

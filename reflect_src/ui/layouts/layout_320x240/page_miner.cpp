@@ -1,154 +1,70 @@
 #include "page_miner.h"
-
+#include "ui/assets/images.h"
+#include "ui/assets/fonts.h"
+#include "../../../version.h"
 #include "../../../utils/logger/logger.h"
 
-// ============================================================================
-// create() ¡ª background + dynamic widgets + Observable subscriptions
-// ============================================================================
+// Miner page (NMQAxe++, 320x240) â€” exact legacy element layout (incl. swarm bar).
 void PageMiner320x240::create(lv_obj_t* parent) {
     _W = 320; _H = 240;
-
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(parent, 0, 0);
     lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
-
     _create_dynamic(parent);
     _finish_create();
-
     LOG_D("PageMiner320x240: created");
 }
 
-// ============================================================================
-// _create_dynamic() ¡ª layout all labels at 320x240 coordinates
-// ============================================================================
 void PageMiner320x240::_create_dynamic(lv_obj_t* parent) {
-    // TODO: Replace placeholder font references with actual font assets
-    // when migrating from original display.cpp.
+    auto mk = [&](const lv_font_t* f, uint32_t col, lv_align_t al, lv_coord_t x, lv_coord_t y,
+                  lv_coord_t w, const char* txt, lv_label_long_mode_t lm) -> lv_obj_t* {
+        lv_obj_t* l = lv_label_create(parent);
+        if (w > 0) lv_obj_set_width(l, w);
+        lv_label_set_text(l, txt);
+        lv_obj_set_style_text_font(l, f, LV_PART_MAIN);
+        lv_obj_set_style_text_color(l, lv_color_hex(col), LV_PART_MAIN);
+        lv_label_set_long_mode(l, lm);
+        lv_obj_align(l, al, x, y);
+        lv_obj_add_flag(l, LV_OBJ_FLAG_EVENT_BUBBLE);
+        return l;
+    };
+    const lv_coord_t SW = _W;
 
-    // ©¤©¤ Top bar: hashrate ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_hasrate = lv_label_create(parent);
-    lv_obj_set_width(_lb_hasrate, 200);
-    lv_label_set_text(_lb_hasrate, "0.0");
-    lv_obj_set_style_text_color(_lb_hasrate, lv_color_hex(0xEE7D30), 0);
-    lv_obj_align(_lb_hasrate, LV_ALIGN_TOP_LEFT, 10, 10);
+    lv_obj_t* bg = lv_img_create(parent);
+    lv_img_set_src(bg, &mining_page_img_240_320);
+    lv_obj_set_pos(bg, 0, 0);
+    lv_obj_add_flag(bg, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_t* logo = lv_img_create(parent);
+    lv_img_set_src(logo, &logo_worker_nmqaxepp);
+    lv_obj_align(logo, LV_ALIGN_TOP_LEFT, 70, 44);
+    lv_obj_add_flag(logo, LV_OBJ_FLAG_EVENT_BUBBLE);
 
-    _lb_hasrate_unit = lv_label_create(parent);
-    lv_obj_set_width(_lb_hasrate_unit, 60);
-    lv_label_set_text(_lb_hasrate_unit, "TH/s");
-    lv_obj_set_style_text_color(_lb_hasrate_unit, lv_color_hex(0xEE7D30), 0);
-    lv_obj_align(_lb_hasrate_unit, LV_ALIGN_TOP_LEFT, 215, 15);
+    _lb_blk_hit    = mk(&ds_digib_font_56, 0xEE7D30, LV_ALIGN_TOP_MID,    20, 65,  SW, " ", LV_LABEL_LONG_SCROLL_CIRCULAR);
+    _lb_hashrate   = mk(&ds_digib_font_52, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, 62, -44, 150," ", LV_LABEL_LONG_SCROLL_CIRCULAR);
+    _lb_hr_unit    = mk(&ds_digib_font_24, 0xFFFFFF, LV_ALIGN_TOP_MID,    268,172, SW, " ", LV_LABEL_LONG_DOT);
+    _lb_price      = mk(&ds_digib_font_24, 0xFFFFFF, LV_ALIGN_LEFT_MID,   60, 25,  SW, "",  LV_LABEL_LONG_DOT);
+    _lb_ver        = mk(&ds_digib_font_18, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   16, 38,  SW, &BOARD_CURRENT_FW_VERSION[1], LV_LABEL_LONG_DOT);
+    _lb_power      = mk(&Inconsolata_26,   0xFFFFFF, LV_ALIGN_TOP_LEFT,   20, 169, (lv_coord_t)(SW/2.2), " ", LV_LABEL_LONG_DOT);
+    _lb_ip         = mk(&ds_digib_font_18, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   208,2,   (lv_coord_t)(SW/2.5), " ", LV_LABEL_LONG_SCROLL_CIRCULAR);
+    _lb_uptime_hms = mk(&ds_digib_font_18, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   123,2,   88, " ", LV_LABEL_LONG_DOT);
+    _lb_uptime_day = mk(&ds_digib_font_18, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   87, 2,   88, " ", LV_LABEL_LONG_DOT);
+    _lb_diff       = mk(&ds_digib_font_24, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   187,30,  (lv_coord_t)(SW/2.6), " ", LV_LABEL_LONG_SCROLL_CIRCULAR);
+    _lb_share      = mk(&ds_digib_font_24, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   187,55,  SW, " ", LV_LABEL_LONG_DOT);
+    _lb_temp       = mk(&ds_digib_font_24, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   187,83,  SW, " ", LV_LABEL_LONG_DOT);
+    _lb_fan        = mk(&ds_digib_font_24, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   187,110, SW, " ", LV_LABEL_LONG_DOT);
+    _lb_utc_time   = mk(&ds_digib_font_18, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   1,  3,   88, " ", LV_LABEL_LONG_DOT);
 
-    // ©¤©¤ Top bar: power ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_power = lv_label_create(parent);
-    lv_obj_set_width(_lb_power, 100);
-    lv_label_set_text(_lb_power, "0.0W");
-    lv_obj_set_style_text_color(_lb_power, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_power, LV_ALIGN_TOP_RIGHT, -10, 10);
+    // Swarm bar
+    _lb_swarm_bd   = mk(&ds_digib_font_24, 0xFFFFFF, LV_ALIGN_TOP_LEFT, 3,   210, SW, " ", LV_LABEL_LONG_DOT);
+    _lb_swarm_wk   = mk(&ds_digib_font_24, 0xFFFFFF, LV_ALIGN_TOP_LEFT, 145, 210, SW, " ", LV_LABEL_LONG_DOT);
+    _lb_swarm_hr   = mk(&ds_digib_font_24, 0xFFFFFF, LV_ALIGN_TOP_LEFT, 237, 210, SW, " ", LV_LABEL_LONG_DOT);
 
-    // ©¤©¤ Top bar: temperatures ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_vcore_temp = lv_label_create(parent);
-    lv_obj_set_width(_lb_vcore_temp, 80);
-    lv_label_set_text(_lb_vcore_temp, "VC 0C");
-    lv_obj_set_style_text_color(_lb_vcore_temp, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_vcore_temp, LV_ALIGN_TOP_LEFT, 10, 40);
-
-    _lb_asic_temp = lv_label_create(parent);
-    lv_obj_set_width(_lb_asic_temp, 80);
-    lv_label_set_text(_lb_asic_temp, "AS 0C");
-    lv_obj_set_style_text_color(_lb_asic_temp, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_asic_temp, LV_ALIGN_TOP_LEFT, 100, 40);
-
-    // ©¤©¤ Time ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_time_str = lv_label_create(parent);
-    lv_obj_set_width(_lb_time_str, 100);
-    lv_label_set_text(_lb_time_str, "--:--");
-    lv_obj_set_style_text_color(_lb_time_str, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_time_str, LV_ALIGN_TOP_RIGHT, -10, 40);
-
-    // ©¤©¤ Uptime ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_uptime_day = lv_label_create(parent);
-    lv_obj_set_width(_lb_uptime_day, 50);
-    lv_label_set_text(_lb_uptime_day, "0d");
-    lv_obj_set_style_text_color(_lb_uptime_day, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_uptime_day, LV_ALIGN_TOP_LEFT, 10, 70);
-
-    _lb_uptime_hms = lv_label_create(parent);
-    lv_obj_set_width(_lb_uptime_hms, 100);
-    lv_label_set_text(_lb_uptime_hms, "00:00:00");
-    lv_obj_set_style_text_color(_lb_uptime_hms, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_uptime_hms, LV_ALIGN_TOP_LEFT, 65, 70);
-
-    // ©¤©¤ RSSI ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_rssi = lv_label_create(parent);
-    lv_obj_set_width(_lb_rssi, 60);
-    lv_label_set_text(_lb_rssi, "-60");
-    lv_obj_set_style_text_color(_lb_rssi, lv_color_hex(0x00FF00), 0);
-    lv_obj_align(_lb_rssi, LV_ALIGN_TOP_RIGHT, -10, 70);
-
-    // ©¤©¤ Middle: difficulties ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_net_diff = lv_label_create(parent);
-    lv_obj_set_width(_lb_net_diff, 150);
-    lv_label_set_text(_lb_net_diff, "Net: ---");
-    lv_obj_set_style_text_color(_lb_net_diff, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_net_diff, LV_ALIGN_TOP_LEFT, 10, 100);
-
-    _lb_best_diff = lv_label_create(parent);
-    lv_obj_set_width(_lb_best_diff, 150);
-    lv_label_set_text(_lb_best_diff, "Best: ---");
-    lv_obj_set_style_text_color(_lb_best_diff, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_best_diff, LV_ALIGN_TOP_RIGHT, -10, 100);
-
-    // ©¤©¤ Middle: shares ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_shares = lv_label_create(parent);
-    lv_obj_set_width(_lb_shares, 150);
-    lv_label_set_text(_lb_shares, "Shares: 0/0");
-    lv_obj_set_style_text_color(_lb_shares, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_shares, LV_ALIGN_TOP_LEFT, 10, 130);
-
-    // ©¤©¤ Middle: block hits ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_blk_hit = lv_label_create(parent);
-    lv_obj_set_width(_lb_blk_hit, 100);
-    lv_label_set_text(_lb_blk_hit, "Hits: 0");
-    lv_obj_set_style_text_color(_lb_blk_hit, lv_color_hex(0xEE7D30), 0);
-    lv_obj_align(_lb_blk_hit, LV_ALIGN_TOP_RIGHT, -10, 130);
-
-    // ©¤©¤ Middle: job count ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_job_count = lv_label_create(parent);
-    lv_obj_set_width(_lb_job_count, 150);
-    lv_label_set_text(_lb_job_count, "Jobs: 0");
-    lv_obj_set_style_text_color(_lb_job_count, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_job_count, LV_ALIGN_TOP_LEFT, 10, 160);
-
-    // ©¤©¤ Bottom: version ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_ip = lv_label_create(parent);
-    lv_obj_set_width(_lb_ip, 200);
-    lv_label_set_text(_lb_ip, "---.---.---.---");
-    lv_obj_set_style_text_color(_lb_ip, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(_lb_ip, LV_ALIGN_BOTTOM_LEFT, 5, -5);
-
-    _lb_ver = lv_label_create(parent);
-    lv_obj_set_width(_lb_ver, 100);
-    lv_label_set_text(_lb_ver, "---");
-    lv_obj_set_style_text_color(_lb_ver, lv_color_hex(0x808080), 0);
-    lv_obj_align(_lb_ver, LV_ALIGN_BOTTOM_RIGHT, -5, -5);
-
-    // ©¤©¤ Swarm bar (bottom area) ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
-    _lb_swarm_workers = lv_label_create(parent);
-    lv_obj_set_width(_lb_swarm_workers, 80);
-    lv_label_set_text(_lb_swarm_workers, "W: 0");
-    lv_obj_set_style_text_color(_lb_swarm_workers, lv_color_hex(0xEE7D30), 0);
-    lv_obj_align(_lb_swarm_workers, LV_ALIGN_BOTTOM_LEFT, 5, -30);
-
-    _lb_swarm_hr = lv_label_create(parent);
-    lv_obj_set_width(_lb_swarm_hr, 120);
-    lv_label_set_text(_lb_swarm_hr, "HR: 0");
-    lv_obj_set_style_text_color(_lb_swarm_hr, lv_color_hex(0xEE7D30), 0);
-    lv_obj_align(_lb_swarm_hr, LV_ALIGN_BOTTOM_MID, 0, -30);
-
-    _lb_swarm_bd = lv_label_create(parent);
-    lv_obj_set_width(_lb_swarm_bd, 100);
-    lv_label_set_text(_lb_swarm_bd, "BD: 0");
-    lv_obj_set_style_text_color(_lb_swarm_bd, lv_color_hex(0xEE7D30), 0);
-    lv_obj_align(_lb_swarm_bd, LV_ALIGN_BOTTOM_RIGHT, -5, -30);
+    // Static labels / symbols
+    mk(&lv_font_montserrat_16, 0xFFA500, LV_ALIGN_TOP_LEFT, 113, 2, 24, "d", LV_LABEL_LONG_DOT);
+    mk(&lv_font_montserrat_16, 0xFFA500, LV_ALIGN_TOP_LEFT, 73,  1, SW, LV_SYMBOL_BELL, LV_LABEL_LONG_DOT);
+    _lb_wifi_symb = mk(&lv_font_montserrat_16, 0xFFA500, LV_ALIGN_TOP_LEFT, 187, 1, SW, LV_SYMBOL_WIFI, LV_LABEL_LONG_DOT);
+    mk(&symbol_20, 0xA9A9A9, LV_ALIGN_TOP_LEFT, 153, 30,  SW, "\xEF\x82\x80", LV_LABEL_LONG_DOT);
+    mk(&symbol_20, 0xA9A9A9, LV_ALIGN_TOP_LEFT, 151, 55,  SW, "\xEF\x8E\x82", LV_LABEL_LONG_DOT);
+    mk(&symbol_20, 0xA9A9A9, LV_ALIGN_TOP_LEFT, 160, 83,  SW, "\xEF\x8B\x88", LV_LABEL_LONG_DOT);
+    mk(&symbol_20, 0xA9A9A9, LV_ALIGN_TOP_LEFT, 155, 110, SW, "\xEF\xA1\xA3", LV_LABEL_LONG_DOT);
 }
-

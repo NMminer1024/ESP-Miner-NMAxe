@@ -614,21 +614,28 @@ void MinerApp::_tick_thread_entry(void* args) {
 
         if (app._minerStatus) {
             auto& m = AppState::instance().miner;
-            m.hashrate.text = String((double)app._minerStatus->hashrate._3m, 2);
-            m.blk_hit.text = String((int)app._minerStatus->hits);
-            m.shares.text = String((unsigned)app._minerStatus->share_rejected) + "/" +
-                            String((unsigned)app._minerStatus->share_accepted);
-            m.local_diff.text = String(app._minerStatus->diff.best_session, 0) + "/" +
-                                String(app._minerStatus->diff.best_ever, 0);
-            m.net_diff.text   = formatNumber(app._minerStatus->diff.network, 3);
-            m.ver.text        = String(BOARD_CURRENT_FW_VERSION).substring(1);  // strip leading 'v'
-            m.uptime_hms.text = convert_uptime_to_string(app._minerStatus->uptime_session);
+            double ghs3 = (double)app._minerStatus->hashrate._3m;
+            if (ghs3 >= 1000.0) { m.hashrate.text = String(ghs3 / 1000.0, 2); m.hashrate_unit.text = "TH/s"; }
+            else                { m.hashrate.text = String(ghs3, 1);          m.hashrate_unit.text = "GH/s"; }
+            m.blk_hit.text  = String((int)app._minerStatus->hits);
+            m.shares.text   = String((unsigned)app._minerStatus->share_accepted) + "/" +
+                              String((unsigned)app._minerStatus->share_rejected);
+            m.diff.text     = formatNumber(app._minerStatus->diff.best_session, 1) + "/" +
+                              formatNumber(app._minerStatus->diff.network, 1);
+            m.ver.text      = String(BOARD_CURRENT_FW_VERSION).substring(1);
+            {
+                uint64_t up = app._minerStatus->uptime_session;
+                m.uptime_day.text = String((unsigned)(up / 86400));
+                uint32_t s = up % 86400;
+                char hms[12]; snprintf(hms, sizeof(hms), "%02u:%02u:%02u",
+                    (unsigned)(s/3600), (unsigned)((s%3600)/60), (unsigned)(s%60));
+                m.uptime_hms.text = String(hms);
+            }
             {
                 float vbus_v = app._pwr_tele.vbus / 1000.0f;
                 float ibus_a = app._pwr_tele.ibus / 1000.0f;
-                m.power.text      = String(vbus_v * ibus_a, 1) + "W";
-                m.asic_temp.text  = String("ASIC ") + String((float)app._temp.asic, 0) + "C";
-                m.vcore_temp.text = String("VCORE ") + String((float)app._temp.vcore, 0) + "C";
+                m.power.text = String(vbus_v * ibus_a, 1) + "W";
+                m.temp.text  = String((float)app._temp.vcore, 0) + "/" + String((float)app._temp.asic, 0);
             }
 
             // ── Hashrate-health page ──
@@ -661,7 +668,14 @@ void MinerApp::_tick_thread_entry(void* args) {
 
         if (app._wifi) {
             AppState::instance().miner.ip.text = app._wifi->ip.toString();
-            AppState::instance().miner.rssi.text = String(app._wifi->rssi);
+            int rssi = app._wifi->rssi;
+            uint32_t wc = (rssi >= -60) ? 0x00FF00 : (rssi >= -75) ? 0xFFA500 : 0xFF0000;
+            AppState::instance().miner.wifi_color = wc;
+        }
+
+        // ── Fan label (first fan rpm) for the miner page ──
+        if (!app._fan_status.empty()) {
+            AppState::instance().miner.fan.text = String((unsigned)app._fan_status[0].rpm);
         }
 
         // ── Clock page: local time/date (TZ set by monitor via setenv/tzset) ──
@@ -676,7 +690,7 @@ void MinerApp::_tick_thread_entry(void* args) {
                 strftime(tbuf, sizeof(tbuf), "%H:%M", &lt);
             }
             AppState::instance().clock.time_str.text = String(tbuf);
-            AppState::instance().miner.time_str.text = String(tbuf);
+            AppState::instance().miner.utc_time.text = String(tbuf);
 
             const String& df = app._time.format.date;
             char dbuf[16];
