@@ -39,6 +39,9 @@ void monitor_thread_entry(void* args);
 // ── Daemon: reboot orchestration + factory reset + freeze watchdogs ─────────
 void daemon_thread_entry(void* args);
 
+// ── Button: boot/user button page-nav + force-config / factory-reset ────────
+void button_thread_entry(void* args);
+
 // ── LED: status indicator effects ───────────────────────────────────────────
 void led_thread_entry(void* args);
 

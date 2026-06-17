@@ -15,6 +15,7 @@
 #include "../market/market_ctx.h"
 #include "daemon_ctx.h"
 #include "monitor_ctx.h"
+#include "button_ctx.h"
 
 class MinerApp {
 public:
@@ -85,6 +86,7 @@ private:
     SemaphoreHandle_t _force_config_xsem = nullptr;    // force AP config request (control)
     volatile uint8_t _bm_mode = 0;           // benchmark mode flag (NVS cached at boot)
     DaemonCtx*       _daemon_ctx = nullptr;   // DI context for daemon thread
+    ButtonCtx*       _button_ctx = nullptr;   // DI context for button thread
     std::vector<TaskEntry> _tasks;
 
     BaseType_t _create_task(TaskFunction_t fn, const char* name,

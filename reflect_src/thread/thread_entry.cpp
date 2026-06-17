@@ -17,7 +17,9 @@
 #include "../net/swarm_ctx.h"
 #include "../app/daemon_ctx.h"
 #include "../app/monitor_ctx.h"
+#include "../app/button_ctx.h"
 #include "../nvs/nvs_config.h"
+#include <OneButton.h>
 #include "../utils/helper.h"
 #include "../utils/sha/csha256.h"
 #include <ArduinoJson.h>
@@ -1613,6 +1615,92 @@ void daemon_thread_entry(void* args) {
     LOG_W("Daemon thread exiting...");
     delay(1000);
     vTaskDelete(NULL);
+}
+
+// ── Button: page navigation + force-config / factory-reset long-press ───────
+//    Mirrors legacy button_thread_entry; board_sal_t* -> ButtonCtx* (DI).
+//    UI navigation routes through injected nav hooks (decoupled from UI fw).
+void button_thread_entry(void* args) {
+    ButtonCtx* ctx = static_cast<ButtonCtx*>(args);
+    const BoardSpecConfig& spec = *ctx->spec;
+
+    OneButton* boot_btn = nullptr;
+    OneButton* user_btn = nullptr;
+
+    if (spec.btn.boot_pin != -1) boot_btn = new OneButton(spec.btn.boot_pin, true);
+    if (spec.btn.user_pin != -1) user_btn = new OneButton(spec.btn.user_pin, true);
+
+    const EventBits_t OVERLAY_BITS = SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED;
+    const EventBits_t CLEAR_BITS   = SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+                                     SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED;
+
+    if (boot_btn != nullptr) {
+        auto click_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            bool no_page_switch = (xEventGroupGetBits(c->sys_evt) &
+                (SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) != 0;
+            xEventGroupWaitBits(c->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+            xEventGroupClearBits(c->sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+                                 SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            if (c->on_activity) c->on_activity();
+            if (no_page_switch) return;
+            if (c->on_next_page) c->on_next_page();
+        };
+        auto double_click_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            bool no_page_switch = (xEventGroupGetBits(c->sys_evt) &
+                (SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) != 0;
+            xEventGroupWaitBits(c->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+            xEventGroupClearBits(c->sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+                                 SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            if (c->on_activity) c->on_activity();
+            if (no_page_switch) return;
+            if (c->on_prev_page) c->on_prev_page();
+        };
+        auto long_press_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            xSemaphoreGive(c->force_config_xsem);
+        };
+        boot_btn->attachClick(click_wrapper, ctx);
+        boot_btn->attachDoubleClick(double_click_wrapper, ctx);
+        boot_btn->attachLongPressStart(long_press_wrapper, ctx);
+        boot_btn->attachLongPressStop(NULL);
+        boot_btn->attachDuringLongPress(NULL);
+    }
+
+    if (user_btn != nullptr) {
+        auto click_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            xEventGroupWaitBits(c->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+            xEventGroupClearBits(c->sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+                                 SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            if (c->on_activity) c->on_activity();
+        };
+        auto double_click_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            xEventGroupWaitBits(c->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+            xEventGroupClearBits(c->sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+                                 SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            if (c->on_activity) c->on_activity();
+        };
+        auto long_press_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            xSemaphoreGive(c->recover_factory_xsem);
+        };
+        user_btn->attachClick(click_wrapper, ctx);
+        user_btn->attachDoubleClick(double_click_wrapper, ctx);
+        user_btn->attachLongPressStart(long_press_wrapper, ctx);
+        user_btn->attachLongPressStop(NULL);
+        user_btn->attachDuringLongPress(NULL);
+    }
+
+    (void)OVERLAY_BITS; (void)CLEAR_BITS;
+    while (true) {
+        delay(20);
+        if (ctx->ota_running && *ctx->ota_running) continue;
+        if (boot_btn != nullptr) boot_btn->tick();
+        if (user_btn != nullptr) user_btn->tick();
+    }
 }
 
 void led_thread_entry(void* args) {

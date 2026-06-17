@@ -305,6 +305,17 @@ void MinerApp::_begin_infra(BootProgress& boot) {
 
     _create_task(swarm_thread_entry, "(swarm)",    1024 * 4, _swarm_ctx, TASK_PRIORITY_SWARM, 0);
     _create_task(scan_thread_entry,  "(neighbor)", 1024 * 4, _swarm_ctx, TASK_PRIORITY_SCAN,  0);
+
+    static ButtonCtx button_ctx;
+    button_ctx.spec                 = &_spec;
+    button_ctx.init_evt             = _sys->init_evt;
+    button_ctx.sys_evt              = _sys->sys_evt;
+    button_ctx.force_config_xsem    = _force_config_xsem;
+    button_ctx.recover_factory_xsem = _recover_factory_xsem;
+    button_ctx.ota_running          = &_ota_running;
+    _button_ctx = &button_ctx;
+
+    _create_task(button_thread_entry, "(button)", 1024 * 3, _button_ctx, TASK_PRIORITY_BTN, 1);
 }
 
 void MinerApp::_begin_market(BootProgress& boot) {
