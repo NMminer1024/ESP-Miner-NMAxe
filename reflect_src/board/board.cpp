@@ -8,7 +8,7 @@
 #include "drivers/iic/i2c_master.h"
 #include "drivers/extio/tca9554.h"
 #include "drivers/power/axp2101/axp2101.h"
-#include "drivers/fan/tmp102.h"
+#include "drivers/temp/tmp102.h"
 #include "drivers/temp/temp_hal.h"
 
 BoardModelType get_board_model(){
