@@ -17,6 +17,9 @@ void miner_rx_thread_entry(void* args);
 // ── WiFi: STA connect / AP config portal ────────────────────────────────────
 void wifi_connect_thread_entry(void* args);
 
+// ── Power init: rail bring-up, gate on fan/wifi/vbus, set vcore ──────────────
+void power_init_thread_entry(void* args);
+
 // ── Power loop: Vcore regulation, OC/OT monitoring ──────────────────────────
 void power_loop_thread_entry(void* args);
 

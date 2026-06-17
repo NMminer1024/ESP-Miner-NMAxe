@@ -35,6 +35,17 @@ struct SubmitRequest {
 };
 
 // ============================================================================
+//  Miner runtime control state (mirrors legacy miner_runtime_state_t)
+// ============================================================================
+enum MinerRuntimeState {
+    MINER_RUNTIME_RUNNING = 0,
+    MINER_RUNTIME_PAUSING,
+    MINER_RUNTIME_PAUSED,
+    MINER_RUNTIME_RESUMING,
+    MINER_RUNTIME_ERROR,
+};
+
+// ============================================================================
 //  Shared context between stratum thread and miner threads
 // ============================================================================
 struct MiningSharedCtx {
@@ -74,8 +85,31 @@ struct MiningSharedCtx {
     // --- uptime base: loaded once from NVS at boot ---
     volatile uint32_t   uptime_ever_base;
 
+    // --- runtime control state (owned by miner thread; read by power/fan/web) ---
+    volatile MinerRuntimeState runtime_state;
+    volatile bool       user_paused;
+    volatile uint32_t   pause_started_ms;
+    volatile uint32_t   resume_grace_until_ms;
+
     // --- asic respond counter map (per-asic-id → counter) ---
     // Stored separately; indexed by asic_id.
+
+    // Controlled-idle: miner is intentionally not hashing (paused/resuming/error).
+    // Power/fan loops use this to suppress vcore regulation and activity checks.
+    bool is_controlled_idle() const {
+        return user_paused ||
+               runtime_state == MINER_RUNTIME_PAUSING ||
+               runtime_state == MINER_RUNTIME_PAUSED  ||
+               runtime_state == MINER_RUNTIME_RESUMING ||
+               runtime_state == MINER_RUNTIME_ERROR;
+    }
+    bool in_resume_grace(uint32_t now_ms) const {
+        if (resume_grace_until_ms == 0) return false;
+        return (int32_t)(resume_grace_until_ms - now_ms) > 0;
+    }
+    bool suppress_activity_checks(uint32_t now_ms) const {
+        return is_controlled_idle() || in_resume_grace(now_ms);
+    }
 
     void pause_mining() {
         pause_requested = true;
@@ -104,6 +138,10 @@ struct MiningSharedCtx {
         memset(active_pool_user, 0, sizeof(active_pool_user));
         active_pool_port = 0;
         uptime_ever_base = 0;
+        runtime_state         = MINER_RUNTIME_RUNNING;
+        user_paused           = false;
+        pause_started_ms      = 0;
+        resume_grace_until_ms = 0;
     }
 };
 

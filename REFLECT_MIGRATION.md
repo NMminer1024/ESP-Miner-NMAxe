@@ -54,6 +54,26 @@ g_board.status 里的字段按「谁写谁拥有」原则拆成各线程 Ctx：
 - 构建通过 Flash 17.9%
 - 注入点将在后续矿工线程上下文阶段由 application 调用（set_stratum/set_asic_name/set_client_id）
 
+### 整理: tmp102 归位 (drivers/fan → drivers/temp)
+- TMP102 是温度传感器，注册进 temp HAL（temp_hal_register_vcore/asic），放 fan/ 是历史遗留
+- git mv tmp102.{cpp,h} → drivers/temp/；board.cpp include 改 drivers/temp/tmp102.h
+- platformio.ini 去掉显式 fan/tmp102.cpp（已被 drivers/temp/ glob 覆盖）
+- 构建通过 Flash 17.9%
+
+### P6 完成 (power 域线程上下文化)
+- 新增 reflect_src/app/system_events.h：INIT_EVENT_* / SYS_EVENT_* 真实事件位（与 global.h 字面一致）
+- mining_types.h：新增 MinerRuntimeState 枚举 + runtime_state/user_paused/pause_started_ms/
+  resume_grace_until_ms 字段 + is_controlled_idle()/in_resume_grace()/suppress_activity_checks() 辅助
+- 新增 reflect_src/drivers/power/power_ctx.h：PowerCtx（前置声明，零重头依赖）
+  字段=power/spec/init_evt/sys_evt/ota_running/mining，全部由 application 注入（替代 board_sal_t*）
+- thread_entry.cpp：power_init/power_loop 从 src 完整迁移，board-> 全部改读 PowerCtx，逻辑/时序不变
+- application：init() 用 spec.create_power_instance + setup_temp_hal 创建 _power（替代 g_board.power）
+  新增 _begin_power() 注入 PowerCtx 并启动 (pwr_init)/(pwr_loop)；boot 阶段数 6→7
+  占位事件位改为真实位（wifi 占位 set WIFI_STA_CONNECTED）
+- 临时项：fan 未迁移，_begin_power 里临时 set INIT_EVENT_FAN_READY 让 power_init 过 gate（带 TODO）
+  PowerCtx.mining 暂为 nullptr（miner 域未迁移，idle 判断退化为“非 idle”，与启动期行为一致）
+- 构建通过 Flash 18.0%
+
 ### 待办（下一步：线程上下文化）
 g_board.status god 结构按「写者拥有」拆分为各线程 Ctx：
   Power/Fan/Display/Wifi/Web/Neighbor/Swarm/Market/Benchmark ...

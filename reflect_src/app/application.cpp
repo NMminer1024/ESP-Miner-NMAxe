@@ -1,6 +1,8 @@
 ﻿#include "application.h"
 
 #include "lvgl.h"
+#include "system_events.h"
+#include "../thread/thread_entry.h"
 #include "../utils/logger/logger.h"
 
 MinerApp& MinerApp::instance() {
@@ -84,6 +86,19 @@ bool MinerApp::init() {
     hardware_pre_init(_spec);
     LOG_I("board model detected: %s", _spec.display_name.c_str());
 
+    // ── Power HAL instance (replaces g_board.power), built from the board spec ──
+    _power = _spec.create_power_instance(
+        _spec.pwr.en_pins, _spec.pwr.adc_pins,
+        _spec.pwr.vcore_regulator_pin, _spec.pwr.pgood_pin, _spec.pwr.dc_plug_pin);
+    if (_power == nullptr) {
+        LOG_E("AxePower instance creation failed");
+        return false;
+    }
+    // Register board-specific temperature readers into the temp HAL.
+    if (_spec.setup_temp_hal) {
+        _spec.setup_temp_hal(_power);
+    }
+
     LOG_D("MinerApp::init ready");
     return true;
 }
@@ -91,7 +106,26 @@ bool MinerApp::init() {
 void MinerApp::_begin_board_init(BootProgress& boot) {
     String stage_msg = String("Board: ") + _spec.display_name;
     boot.next(stage_msg.c_str());
-    xEventGroupSetBits(_sys->init_evt, 1 << 0);
+}
+
+void MinerApp::_begin_power(BootProgress& boot) {
+    boot.next("Power up...");
+
+    static PowerCtx ctx;
+    ctx.power       = _power;
+    ctx.spec        = &_spec;
+    ctx.init_evt    = _sys->init_evt;
+    ctx.sys_evt     = _sys->sys_evt;
+    ctx.ota_running = &_ota_running;
+    ctx.mining      = _miningShared;   // nullptr until the miner domain is migrated
+    _power_ctx = &ctx;
+
+    // TODO(fan): the fan thread is not migrated yet. Assert FAN_READY here so
+    // power_init can pass its (fan & wifi & vbus) gate. Remove once fan lands.
+    xEventGroupSetBits(_sys->init_evt, INIT_EVENT_FAN_READY);
+
+    _create_task(power_init_thread_entry, "(pwr_init)", 1024 * 7, _power_ctx, TASK_PRIORITY_PWR, 1);
+    _create_task(power_loop_thread_entry, "(pwr_loop)", 1024 * 5, _power_ctx, TASK_PRIORITY_PWR, 1);
 }
 
 void MinerApp::_begin_wifi_connect(BootProgress& boot) {
@@ -99,7 +133,7 @@ void MinerApp::_begin_wifi_connect(BootProgress& boot) {
     _wifi->status = WIFI_CONNECTED;
     snprintf(_wifi->ip, sizeof(_wifi->ip), "192.168.1.100");
     _wifi->rssi = -55;
-    xEventGroupSetBits(_sys->init_evt, 1 << 1);
+    xEventGroupSetBits(_sys->init_evt, INIT_EVENT_WIFI_STA_CONNECTED);
 }
 
 void MinerApp::_begin_display(BootProgress& boot) {
@@ -125,11 +159,12 @@ void MinerApp::_begin_miners(BootProgress& boot) {
 }
 
 void MinerApp::begin() {
-    constexpr int BOOT_STAGE_TOTAL = 6;
+    constexpr int BOOT_STAGE_TOTAL = 7;
     BootProgress boot(BOOT_STAGE_TOTAL);
 
     boot.post("Reflect booting...");
     _begin_board_init(boot);
+    _begin_power(boot);
     _begin_wifi_connect(boot);
     _begin_display(boot);
     _begin_infra(boot);
