@@ -25,6 +25,16 @@ struct OtaState {
 };
 
 // ============================================================================
+//  TimeState — time/date display format prefs (replaces board.status.time.format)
+// ============================================================================
+struct TimeState {
+    struct {
+        uint16_t time = 0;   // 0=24h, 1=12h (matches legacy time.format.time)
+        String   date;       // date format string, e.g. "YYYY/MM/DD"
+    } format;
+};
+
+// ============================================================================
 //  BenchmarkState — live benchmark progress (replaces board.status.bm)
 //  Single writer (benchmark thread), single reader (UI overlay); no mutex.
 // ============================================================================

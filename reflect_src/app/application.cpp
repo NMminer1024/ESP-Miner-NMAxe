@@ -138,8 +138,11 @@ bool MinerApp::init() {
     _nvs_save_xsem = xSemaphoreCreateCounting(1, 0);
     _recover_factory_xsem = xSemaphoreCreateCounting(1, 0);
     _force_config_xsem    = xSemaphoreCreateCounting(1, 0);
+    _brightness_update_xsem = xSemaphoreCreateCounting(1, 0);
     _tz = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
     _bm_mode = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0);
+    _time.format.time = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 0);
+    _time.format.date = nvs_config_get_string_value(NVS_CONFIG_DATE_FORMAT, "YYYY/MM/DD");
 
     // ── Live user preferences (defaults from board spec, overridden by NVS) ──
     _pref.screen.flip          = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,         _spec.preference.screen.flip);
@@ -262,7 +265,7 @@ void MinerApp::_begin_power(BootProgress& boot) {
     ctx.spec        = &_spec;
     ctx.init_evt    = _sys->init_evt;
     ctx.sys_evt     = _sys->sys_evt;
-    ctx.ota_running = &_ota_running;
+    ctx.ota_running = &_ota.running;
     ctx.mining      = _minerStatus;    // controlled-idle check (nullptr until miners launch)
     _power_ctx = &ctx;
 
@@ -296,7 +299,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     ctx.reboot_xsem          = _sys->reboot_xsem;
     ctx.recover_factory_xsem = _recover_factory_xsem;
     ctx.wifi_reconnect_xsem  = _wifi->reconnect_xsem;
-    ctx.ota_running          = &_ota_running;
+    ctx.ota_running          = &_ota.running;
     ctx.wifi_status          = &_wifi->status;
     ctx.bm_mode              = &_bm_mode;
     ctx.status               = _minerStatus;
@@ -309,7 +312,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     swarm_ctx.swarm       = _swarm;
     swarm_ctx.neighbor    = _neighbor;
     swarm_ctx.status      = _minerStatus;
-    swarm_ctx.ota_running = &_ota_running;
+    swarm_ctx.ota_running = &_ota.running;
     swarm_ctx.sys_evt     = _sys->sys_evt;
     swarm_ctx.init_evt    = _sys->init_evt;
     _swarm_ctx = &swarm_ctx;
@@ -323,7 +326,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     button_ctx.sys_evt              = _sys->sys_evt;
     button_ctx.force_config_xsem    = _force_config_xsem;
     button_ctx.recover_factory_xsem = _recover_factory_xsem;
-    button_ctx.ota_running          = &_ota_running;
+    button_ctx.ota_running          = &_ota.running;
     _button_ctx = &button_ctx;
 
     _create_task(button_thread_entry, "(button)", 1024 * 3, _button_ctx, TASK_PRIORITY_BTN, 1);
@@ -334,8 +337,8 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     led_ctx.stratum      = _stratum;
     led_ctx.status       = _minerStatus;
     led_ctx.wifi_status  = &_wifi->status;
-    led_ctx.ota_running  = &_ota_running;
-    led_ctx.ota_progress = &_ota_progress;
+    led_ctx.ota_running  = &_ota.running;
+    led_ctx.ota_progress = &_ota.progress;
     _led_ctx = &led_ctx;
 
     _create_task(led_thread_entry, "(led)", 1024 * 3, _led_ctx, TASK_PRIORITY_LED, 1);
@@ -347,7 +350,7 @@ void MinerApp::_begin_market(BootProgress& boot) {
     static MarketCtx ctx;
     ctx.market         = _market;
     ctx.wifi_status    = &_wifi->status;
-    ctx.ota_running    = &_ota_running;
+    ctx.ota_running    = &_ota.running;
     ctx.sys_evt        = _sys->sys_evt;
     ctx.coin_price     = _coin_price;
     ctx.coin_watchlist = _coin_watchlist;
@@ -369,7 +372,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     ctx.init_evt      = _sys->init_evt;
     ctx.sys_evt       = _sys->sys_evt;
     ctx.nvs_save_xsem = _nvs_save_xsem;
-    ctx.ota_running   = &_ota_running;
+    ctx.ota_running   = &_ota.running;
     ctx.utc           = &_utc;
     ctx.wifi_status   = &_wifi->status;
     ctx.wifi_reconnect_xsem = _wifi->reconnect_xsem;
@@ -394,7 +397,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     mctx.wifi_rssi        = &_wifi->rssi;
     mctx.utc              = &_utc;
     mctx.tz               = &_tz;
-    mctx.ota_running      = &_ota_running;
+    mctx.ota_running      = &_ota.running;
     mctx.bm_mode          = &_bm_mode;
     mctx.reboot_xsem      = _sys->reboot_xsem;
     mctx.nvs_save_xsem    = _nvs_save_xsem;

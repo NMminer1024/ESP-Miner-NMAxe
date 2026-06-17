@@ -36,6 +36,17 @@ enum MinerRuntimeState {
     MINER_RUNTIME_ERROR,
 };
 
+static inline const char* miner_runtime_state_to_string(MinerRuntimeState state) {
+    switch (state) {
+        case MINER_RUNTIME_RUNNING:  return "running";
+        case MINER_RUNTIME_PAUSING:  return "pausing";
+        case MINER_RUNTIME_PAUSED:   return "paused";
+        case MINER_RUNTIME_RESUMING: return "resuming";
+        case MINER_RUNTIME_ERROR:    return "error";
+        default:                     return "unknown";
+    }
+}
+
 // ============================================================================
 //  Difficulty snapshot (mirrors legacy diff_info_t)
 // ============================================================================

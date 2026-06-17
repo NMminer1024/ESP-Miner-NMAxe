@@ -77,8 +77,9 @@ private:
     BoardSpecConfig  _spec;                 // runtime board spec (replaces g_board.info.spec)
     AxePowerHal*     _power = nullptr;       // power HAL instance (replaces g_board.power)
     PowerCtx*        _power_ctx = nullptr;   // DI context for power threads
-    volatile bool    _ota_running = false;   // shared OTA flag (replaces g_board.status.ota.running)
-    volatile int     _ota_progress = 0;      // OTA progress 0..100 (replaces g_board.status.ota.progress)
+    OtaState         _ota;                   // firmware update state (replaces g_board.status.ota)
+    TimeState        _time;                   // time/date format prefs (replaces g_board.status.time.format)
+    SemaphoreHandle_t _brightness_update_xsem = nullptr; // screen brightness update signal
     PreferenceState  _pref;                  // live user preferences (replaces g_board.status.preference)
     LedCtx*          _led_ctx = nullptr;     // DI context for led thread
     BenchmarkState   _bm;                     // benchmark overlay progress (replaces g_board.status.bm)
