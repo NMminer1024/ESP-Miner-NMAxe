@@ -272,6 +272,8 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     _create_task(miner_count_thread_entry, "(asic_cnt)",  1024 * 5,  _miner_ctx, TASK_PRIORITY_ASIC_CNT,  1);
     _create_task(miner_init_thread_entry,  "(asic_init)", 1024 * 6,  _miner_ctx, TASK_PRIORITY_ASIC_INIT, 1);
     _create_task(stratum_thread_entry,     "(stratum)",   1024 * 11, _miner_ctx, TASK_PRIORITY_STRATUM,   1);
+    _create_task(miner_tx_thread_entry,    "(asic_tx)",   1024 * 7,  _miner_ctx, TASK_PRIORITY_MINER_TX,  1);
+    _create_task(miner_rx_thread_entry,    "(asic_rx)",   1024 * 6,  _miner_ctx, TASK_PRIORITY_MINER_RX,  0);
 }
 
 void MinerApp::begin() {

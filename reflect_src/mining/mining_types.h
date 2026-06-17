@@ -13,6 +13,12 @@
 
 typedef uint16_t asic_id_t;
 
+// ── Mining timing constants (mirror legacy global.h) ────────────────────────
+#define MINER_ASIC_ALIVE_TIMEOUT        (1000*60*3)  // ms, ASIC frozen watchdog
+#define MINER_STRATUM_ALIVE_TIMEOUT     (1000*60*5)  // ms, pool silence watchdog
+#define MINER_RESUME_GRACE_MS           (1000*60*3)  // ms, post-resume grace window
+#define MINER_LOG_SUMMARY_INTERVAL      (1000*60*1)  // ms, summary log cadence
+
 // ============================================================================
 //  Miner runtime control state (mirrors legacy miner_runtime_state_t)
 // ============================================================================

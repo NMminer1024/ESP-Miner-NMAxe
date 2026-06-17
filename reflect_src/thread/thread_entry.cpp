@@ -357,16 +357,401 @@ void miner_init_thread_entry(void* args) {
     vTaskDelete(NULL);
 }
 
+// ── Miner TX: pull jobs, drive ASIC, runtime pause/resume control ───────────
+//    Mirrors legacy miner_asic_tx_thread_entry; board_sal_t* -> MinerCtx*.
 void miner_tx_thread_entry(void* args) {
-    (void)args;
-    LOG_D("(asic_tx) placeholder");
-    while (true) { delay(10000); }
+    MinerCtx* ctx = static_cast<MinerCtx*>(args);
+    AsicMinerClass* miner   = ctx->miner;
+    StratumClass*   stratum = ctx->stratum;
+    AxePowerHal*    power   = ctx->power;
+    MinerStatus&    st      = *ctx->status;
+    const BoardSpecConfig& spec = *ctx->spec;
+
+    auto calculate_diff = [](String nBits) -> double {
+        static const uint8_t TARGET_BUFFER_SIZE = 64;
+        uint8_t netdiff_array[TARGET_BUFFER_SIZE / 2];
+        char str[TARGET_BUFFER_SIZE + 1];
+        memset(str, '0', TARGET_BUFFER_SIZE);
+        int k = (int)strtol(nBits.substring(0, 2).c_str(), 0, 16) - 3;
+        uint8_t index = 58 - 2 * k;
+        memcpy(str + index, nBits.substring(2).c_str(), nBits.length() - 2);
+        str[TARGET_BUFFER_SIZE] = 0;
+        str_to_byte_array(str, TARGET_BUFFER_SIZE / 2, netdiff_array);
+        reverse_bytes(netdiff_array, TARGET_BUFFER_SIZE / 2);
+        return le_hash_to_diff(netdiff_array);
+    };
+
+    auto apply_pending_frequency = [&]() -> bool {
+        if (miner == nullptr) return false;
+        if (!miner->apply_pending_asic_frequency()) return false;
+        uint16_t current_freq = miner->get_asic_frequency_current();
+        if (current_freq > 0) ctx->spec->asic.req_frq = current_freq;
+        st.hashrate = {0.0, 0.0, 0.0};
+        st.asic_update = millis();
+        LOG_W("ASIC PLL hot-switch completed, freq now %uMHz", current_freq);
+        return true;
+    };
+
+    auto refresh_mining_timeouts = [&]() {
+        uint32_t now = millis();
+        st.asic_update = now;
+        st.stratum_update = now;
+    };
+
+    auto clear_mining_runtime_caches = [&]() {
+        if (miner != nullptr) {
+            miner->clear_asic_job_cache();
+            miner->reset_hashrate();
+            miner->end();
+        }
+        if (stratum != nullptr) {
+            stratum->clear_job_cache();
+            stratum->clear_sub_extranonce2();
+            while (xSemaphoreTake(stratum->new_job_xsem, 0) == pdTRUE) {}
+            while (xSemaphoreTake(stratum->clear_job_xsem, 0) == pdTRUE) {}
+        }
+        st.hashrate = {0.0, 0.0, 0.0};
+        refresh_mining_timeouts();
+        xSemaphoreGive(st.update_xsem);
+    };
+
+    auto apply_mining_control = [&]() -> bool {
+        if (miner == nullptr || power == nullptr) return false;
+
+        MinerRuntimeState state = st.runtime_state;
+        if (state == MINER_RUNTIME_PAUSING) {
+            LOG_W("Pausing mining: clearing ASIC work and powering off Vcore");
+            st.user_paused = true;
+            if (st.pause_started_ms == 0) st.pause_started_ms = millis();
+            clear_mining_runtime_caches();
+            power->set_vcore_status(PWR_OFF);
+            st.runtime_state = MINER_RUNTIME_PAUSED;
+            st.resume_grace_until_ms = 0;
+            refresh_mining_timeouts();
+            xSemaphoreGive(st.update_xsem);
+            LOG_W("Mining paused, ASIC Vcore is off");
+            return true;
+        }
+
+        if (state == MINER_RUNTIME_RESUMING) {
+            LOG_W("Resuming mining: restoring Vcore and reinitializing ASIC");
+            refresh_mining_timeouts();
+            power->set_vcore_voltage(spec.asic.req_vcore);
+            power->set_vcore_status(PWR_ON);
+
+            bool vcore_ready = false;
+            uint32_t start_ms = millis();
+            while (millis() - start_ms < 10000) {
+                if (power->is_vcore_ready()) { vcore_ready = true; break; }
+                refresh_mining_timeouts();
+                delay(100);
+            }
+
+            if (!vcore_ready) {
+                LOG_E("Mining resume failed: Vcore not ready");
+                power->set_vcore_status(PWR_OFF);
+                st.runtime_state = MINER_RUNTIME_ERROR;
+                st.user_paused = true;
+                st.pause_started_ms = 0;
+                refresh_mining_timeouts();
+                xSemaphoreGive(st.update_xsem);
+                return true;
+            }
+
+            miner->clear_asic_job_cache();
+            miner->reset_hashrate();
+            st.hashrate = {0.0, 0.0, 0.0};
+            if (!miner->begin(spec.asic.req_frq, spec.asic.diff_thr_init, spec.asic.com_baud_work)) {
+                LOG_E("Mining resume failed: ASIC reinitialization failed");
+                power->set_vcore_status(PWR_OFF);
+                st.runtime_state = MINER_RUNTIME_ERROR;
+                st.user_paused = true;
+                st.pause_started_ms = 0;
+                refresh_mining_timeouts();
+                xSemaphoreGive(st.update_xsem);
+                return true;
+            }
+
+            refresh_mining_timeouts();
+            st.resume_grace_until_ms = millis() + MINER_RESUME_GRACE_MS;
+            st.user_paused = false;
+            st.pause_started_ms = 0;
+            st.runtime_state = MINER_RUNTIME_RUNNING;
+            if (stratum != nullptr) xSemaphoreGive(stratum->new_job_xsem);
+            xSemaphoreGive(st.update_xsem);
+            LOG_W("Mining resumed, ASIC timeout counters refreshed");
+            return true;
+        }
+
+        if (state == MINER_RUNTIME_PAUSED || state == MINER_RUNTIME_ERROR) {
+            refresh_mining_timeouts();
+            return true;
+        }
+        return false;
+    };
+
+    // forever loop
+    while (true) {
+        if (apply_mining_control()) {
+            if (st.control_xsem != NULL) {
+                xSemaphoreTake(st.control_xsem, pdMS_TO_TICKS(200));
+            } else {
+                delay(200);
+            }
+            continue;
+        }
+
+        apply_pending_frequency();
+
+        // null loop if not subscribed
+        if (!stratum->is_subscribed()) {
+            miner->end();
+            miner->reset_hashrate();
+            st.hashrate = {0.0, 0.0, 0.0};
+            delay(1000);
+            continue;
+        }
+        // wait for new job signal 1000ms max
+        if (xSemaphoreTake(stratum->new_job_xsem, 1000) != pdTRUE) {
+            apply_pending_frequency();
+            continue;
+        }
+
+        // get job from pool job caches
+        {
+            pool_job_data_t next_job = stratum->pop_job_cache();
+            if (next_job.id != "") miner->pool_job_now = next_job;
+        }
+        if (miner->pool_job_now.id == "") continue;
+
+        // calculate network diff + update pool diff
+        st.diff.network = calculate_diff(miner->pool_job_now.nbits);
+        st.diff.pool    = stratum->get_pool_difficulty();
+
+        LOG_W("Job [%s] from %s:%d", miner->pool_job_now.id.c_str(),
+              stratum->pool->get_pool_info().url.c_str(), stratum->pool->get_pool_info().port);
+        while (true) {
+            if (apply_mining_control()) break;
+            apply_pending_frequency();
+
+            // construct asic job and send to asic
+            if (!miner->mining(&miner->pool_job_now)) {
+                delay(10); // avoid tight spin loop tripping interrupt WDT when mining() fails
+                continue;
+            }
+            // exit if pool disconnected
+            if (!stratum->is_subscribed()) break;
+
+            // set asic diff as pool diff if pool diff < initial asic diff
+            double target_diff = min(stratum->get_pool_difficulty(), (double)spec.asic.diff_thr_init);
+            static double last_diff = 0.0;
+            if (target_diff != last_diff) {
+                uint32_t diff = miner->set_asic_diff(target_diff);
+                LOG_W("Change asic diff from [%.1f] to [%d/%.1f] successfully", last_diff, diff, target_diff);
+                last_diff = target_diff;
+            }
+
+            // interval 'job_interval_ms' per asic job, exit if a new pool job arrived
+            if (xSemaphoreTake(stratum->new_job_xsem, spec.asic.job_interval_ms) == pdTRUE) {
+                // clear job cache if clean job signal received (avoid stale share submit)
+                if (xSemaphoreTake(stratum->clear_job_xsem, 0) == pdTRUE) {
+                    miner->clear_asic_job_cache();
+                    stratum->clear_sub_extranonce2();
+                    LOG_D("Stratum job cache clear...");
+                }
+                xSemaphoreGive(stratum->new_job_xsem); // release for next pool job
+                break;
+            }
+        }
+    }
 }
 
+// ── Miner RX: listen ASIC nonces, verify, dedup, submit shares ──────────────
+//    Mirrors legacy miner_asic_rx_thread_entry; board_sal_t* -> MinerCtx*.
 void miner_rx_thread_entry(void* args) {
-    (void)args;
-    LOG_D("(asic_rx) placeholder");
-    while (true) { delay(10000); }
+    MinerCtx* ctx = static_cast<MinerCtx*>(args);
+    AsicMinerClass* miner   = ctx->miner;
+    StratumClass*   stratum = ctx->stratum;
+    MinerStatus&    st      = *ctx->status;
+
+    asic_job      job    = {0,};
+    miner_result  result = {0,};
+
+    auto calculate_diff = [](uint32_t version, uint8_t* prev_block_hash, uint8_t* merkle_root,
+                             uint32_t ntime, uint32_t nbits, uint32_t nonce) -> double {
+        uint8_t header[4 + 32 + 32 + 4 + 4 + 4] = {0,};
+        uint8_t hash[32] = {0,};
+        uint8_t prev_block_hash_t[32] = {0}, merkle_root_t[32] = {0};
+        memcpy(prev_block_hash_t, prev_block_hash, 32);
+        memcpy(merkle_root_t, merkle_root, 32);
+        reverse_words(prev_block_hash_t, 32);
+        reverse_words(merkle_root_t, 32);
+        memcpy(header, (uint8_t*)&version, 4);
+        memcpy(header + 4, prev_block_hash_t, 32);
+        memcpy(header + 36, merkle_root_t, 32);
+        memcpy(header + 68, (uint8_t*)&ntime, 4);
+        memcpy(header + 72, (uint8_t*)&nbits, 4);
+        memcpy(header + 76, (uint8_t*)&nonce, 4);
+        csha256d(header, sizeof(header), hash);
+        return le_hash_to_diff(hash);
+    };
+
+    const bool ota_running_default = false;
+    while (true) {
+        if (st.is_controlled_idle()) { delay(100); continue; }
+        if (!stratum->is_subscribed()) { delay(1000); continue; }
+        if (miner->is_asic_frequency_updating()) { delay(50); continue; }
+        if (ctx->ota_running ? *ctx->ota_running : ota_running_default) { delay(50); continue; }
+
+        esp_err_t err = miner->listen_asic_rsp(&result, 1000 * 30);
+        if (miner->is_asic_frequency_updating()) continue;
+        if (ESP_OK == err) {
+            if (!stratum->is_subscribed()) continue;
+            if (miner->find_job_by_asic_job_id(result.asic.job_id, &job)) {
+                st.asic_update = millis();
+                uint32_t version_bits = (reverse_uint16(result.asic.version) << 13); // logic from bitaxe
+                uint32_t version      = version_bits | (*(uint32_t*)job.version);
+                double diff = calculate_diff(version, job.prev_block_hash, job.merkle_root,
+                                             *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.asic.nonce);
+
+                if ((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff)) continue;
+                if (diff < miner->get_asic_diff()) continue;
+
+                // fetch job context first so dedup can run before hashrate is counted
+                uint32_t version_submit = version ^ (*(uint32_t*)job.version);
+                String   pool_id_submit = miner->get_pool_job_id_by_asic_job_id(result.asic.job_id);
+                String   extra2_submit  = miner->get_extranonce2_by_asic_job_id(result.asic.job_id);
+                if (pool_id_submit.length() == 0 || extra2_submit.length() == 0) continue; // slot evicted
+
+                // Deduplicate nonces within the same (pool_job_id, extranonce2) scope.
+                static std::unordered_set<uint32_t, std::hash<uint32_t>, std::equal_to<uint32_t>, PsramAllocator<uint32_t>> _submitted_nonces;
+                static String _dedup_job_key = "";
+                String _cur_job_key = pool_id_submit + extra2_submit;
+                if (_cur_job_key != _dedup_job_key) {
+                    _submitted_nonces.clear();
+                    _dedup_job_key = _cur_job_key;
+                }
+                if (_submitted_nonces.count(result.asic.nonce)) {
+                    LOG_W("Dup nonce 0x%08x skipped (pool_job=%s)", result.asic.nonce, pool_id_submit.c_str());
+                    continue;
+                }
+                _submitted_nonces.insert(result.asic.nonce);
+
+                // record nonce into hashrate ring; calculation driven by monitor thread
+                miner->record_nonce();
+
+                // per-asic share count
+                st.asic_rsp_counter[result.asic_id]++;
+
+                // throttled summary log
+                static uint32_t last = millis();
+                if (millis() - last >= MINER_LOG_SUMMARY_INTERVAL) {
+                    LOG_L(" ============%s=========== ", ctx->fw_version.c_str());
+                    LOG_L("|            Summary           |");
+                    LOG_L("+------------Uptime------------+");
+                    LOG_L("|%s | %s |", convert_uptime_to_string(st.uptime_session).c_str(), convert_uptime_to_string(st.uptime_ever).c_str());
+                    LOG_L("+-----------HashRate-----------+");
+                    LOG_L("|   3m    |    30m   |    1h   |");
+                    LOG_L("|%-4sH/s| %-4sH/s|%-4sH/s|",
+                          formatNumber(st.hashrate._3m, 4).c_str(),
+                          formatNumber(st.hashrate._30m, 4).c_str(),
+                          formatNumber(st.hashrate._1h, 4).c_str());
+                    LOG_L("+----------Difficulty----------+");
+                    LOG_L("|From boot| Best ever| Network |");
+                    LOG_L("| %-6s |  %-5s | %-7s |",
+                          formatNumber(st.diff.best_session, 5).c_str(),
+                          formatNumber(st.diff.best_ever, 5).c_str(),
+                          formatNumber(st.diff.network, 5).c_str());
+                    LOG_L("+---Free heap-----Efficiency---+");
+                    LOG_L("|    %-3sKB   |   %-3sJ/TH   |", formatNumber(ESP.getFreeHeap() / 1024.0f, 4).c_str(), formatNumber(st.efficiency, 4).c_str());
+                    LOG_L(" ============================== ");
+                    log_i("\r\n");
+                    LOG_I("| ASIC | Last | Pool | Network |");
+                    LOG_I("|------|------|------|---------|");
+                    last = millis();
+                }
+
+                LOG_I("|%-6s|%-6s|%-6s|%-7s|",
+                      formatNumber(miner->get_asic_diff(), 4).c_str(),
+                      formatNumber(diff, 4).c_str(),
+                      formatNumber(stratum->get_pool_difficulty(), 4).c_str(),
+                      formatNumber(st.diff.network, 7).c_str());
+
+                if (diff < stratum->get_pool_difficulty()) continue;
+
+                bool res = miner->submit_job_share(pool_id_submit, extra2_submit, result.asic.nonce, *(uint32_t*)job.ntime, version_submit);
+                if (!res) continue;
+
+                // block hit?
+                if (diff >= st.diff.network) {
+                    st.hits = (st.hits >= 99) ? 0 : (st.hits);
+                    st.hits++;
+
+                    uint8_t header[4 + 32 + 32 + 4 + 4 + 4] = {0,};
+                    uint8_t hash[32] = {0,};
+                    uint8_t prev_block_hash_t[32] = {0}, merkle_root_t[32] = {0};
+                    memcpy(prev_block_hash_t, job.prev_block_hash, 32);
+                    memcpy(merkle_root_t, job.merkle_root, 32);
+                    reverse_words(prev_block_hash_t, 32);
+                    reverse_words(merkle_root_t, 32);
+                    memcpy(header, (uint8_t*)&version, 4);
+                    memcpy(header + 4, prev_block_hash_t, 32);
+                    memcpy(header + 36, merkle_root_t, 32);
+                    memcpy(header + 68, (uint8_t*)&job.ntime, 4);
+                    memcpy(header + 72, (uint8_t*)&job.nbits, 4);
+                    memcpy(header + 76, (uint8_t*)&result.asic.nonce, 4);
+                    csha256d(header, sizeof(header), hash);
+
+                    LOG_W("******************************* Your Are The Chosen One ********************************");
+                    LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BLOCK FOUND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                    log_i("Nonce       : %08x", result.asic.nonce);
+                    log_i("\r\nVersion     : %08x", version);
+                    log_i("\r\nBlock header: ");
+                    for (int i = 0; i < 40; i++) log_i("%02x", header[i]);
+                    log_i("\r\n              ");
+                    for (int i = 40; i < 80; i++) log_i("%02x", header[i]);
+                    log_i("\r\nBlock hash  : ");
+                    for (size_t i = 0; i < sizeof(hash); i++) log_i("%02x", hash[i]);
+                    log_i("\r\n");
+                    LOG_I("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
+
+                    xSemaphoreGive(ctx->nvs_save_xsem);
+                    xEventGroupSetBits(ctx->sys_evt, SYS_EVENT_MINER_BLOCK_HIT);
+                }
+
+                // update diff stats
+                st.diff.last         = diff;
+                st.diff.best_session = (diff > st.diff.best_session) ? diff : st.diff.best_session;
+                st.diff.best_ever    = (diff > st.diff.best_ever) ? diff : st.diff.best_ever;
+
+                if (diff == st.diff.best_ever) {
+                    xSemaphoreGive(ctx->nvs_save_xsem);
+                    if (diff > 100.0f * 1000.0f * 1000.0f) { // > 100M
+                        xEventGroupSetBits(ctx->sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
+                    }
+                }
+
+                // add to block-proximity history
+                if (xSemaphoreTake(st.proximity_history.mutex, portMAX_DELAY) == pdTRUE) {
+                    proximity_node_t node;
+                    node.block_proximity = diff / st.diff.network;
+                    node.share_diff      = diff;
+                    node.net_diff        = st.diff.network;
+                    node.epoch           = (ctx->utc ? *ctx->utc : 0ULL) * 1000ULL;
+                    add_share_diff_history(st.proximity_history.deque, node, 36);
+                    xSemaphoreGive(st.proximity_history.mutex);
+                }
+            }
+        } else if (ESP_ERR_INVALID_SIZE == err) {
+            LOG_W("Asic response size error.");
+        } else if (ESP_ERR_TIMEOUT == err) {
+            LOG_W("Asic response timeout.");
+        } else if (ESP_ERR_INVALID_RESPONSE == err) {
+            LOG_W("Asic response header error.");
+        } else {
+            LOG_W("Asic response error: %s", esp_err_to_name(err));
+        }
+    }
 }
 
 void wifi_connect_thread_entry(void* args) {
