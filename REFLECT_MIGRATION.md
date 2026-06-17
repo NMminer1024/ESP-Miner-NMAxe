@@ -182,8 +182,18 @@ g_board；所有后台线程（stratum/miner×4/wifi/config/power×2/fan/monitor
 market/scan/swarm/benchmark/webserver）均通过各自的 *Ctx 注入依赖。UI 框架已在真实 TFT 上点亮，
 loading/miner 页有实时数据，触摸滑动 + 按键翻页可用。
 
-### 后续为「新功能开发」而非迁移（待定）
-- 其余 6 个页面（config/dashboard/hr_health/clock/market/setting）目前为静态布局占位：
-  需为各页设计数据模型（在 AppState 增 *PageState + 观察者）、补全布局、并从后台喂数。
-  这属于全新 UI 开发，不在 god-object 迁移范畴内。
+## UI 页面数据接线（P25–P29，迁移完成后的功能补全）
+全部 8 个页面已从静态占位补全为 AppState 观察者驱动的实时页面：
+- **P25 clock**：本地时间 + 日期（按 _time.format 12/24h 与日期格式；NTP 同步后）
+- **P26 market**：主币种 符号/价格/24h 涨跌（涨绿跌红）
+- **P27 config**：AP 配网 SSID/IP + 配网倒计时（仅 force_config 时显示秒数）
+- **P28 dashboard**：功率/Vbus/Ibus/ASIC 温/VRM 温/频率/Vcore 文本行
+- **P28 hr_health**：3 分钟算力大字 + 效率(J/TH) + shares + best diff
+- **P29 setting/swarm**：集群 workers/总算力/best diff + 邻居数 + 本机 IP
+统一模式：AppState 增 *PageState（ObsLabel）；page base（ui/pages/*.{h,cpp}）订阅/退订；
+layout（240x135 + 320x240）建 widget 并 _finish_create()；_tick_thread 以 1Hz 喂数。
+lv_conf.h 启用 Montserrat 28/48 大字。构建通过，Flash 约 44.7%。
+
+### 仍待办（可选增强）
 - 各类 overlay（benchmark/暂停/OC-OT 告警/screensaver/find-me/aphorism）与屏保/亮度自动化。
+- dashboard/hr_health 可进一步替换为弧形仪表/直方图（当前为文本行，数据已就绪）。
