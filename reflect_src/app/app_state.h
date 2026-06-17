@@ -150,6 +150,29 @@ struct MarketPageState {
 };
 
 // ============================================================================
+// Dashboard page state — power / thermal / performance readouts
+// ============================================================================
+struct DashboardPageState {
+    ObsLabel power;      // bus power, "12.3 W"
+    ObsLabel vbus;       // input voltage, "5.01 V"
+    ObsLabel ibus;       // input current, "2.45 A"
+    ObsLabel asic_temp;  // "58.2 C"
+    ObsLabel vcore_temp; // "47.1 C"
+    ObsLabel freq;       // requested ASIC frequency, "525 MHz"
+    ObsLabel vcore;      // measured core voltage, "1180 mV"
+};
+
+// ============================================================================
+// Hashrate-health page state
+// ============================================================================
+struct HrHealthPageState {
+    ObsLabel hashrate;    // 3-min avg hashrate, "1.23 TH/s"
+    ObsLabel efficiency;  // "21.4 J/TH"
+    ObsLabel shares;      // "rej/acc"
+    ObsLabel best_diff;   // best-ever difficulty
+};
+
+// ============================================================================
 // AppState — application global state singleton
 //
 //   Usage (from any FreeRTOS task):
@@ -168,9 +191,11 @@ public:
 
     LoadingPageState  loading;
     MinerPageState    miner;
-    ConfigPageState   config;
-    ClockPageState    clock;
-    MarketPageState   market;
+    ConfigPageState     config;
+    ClockPageState      clock;
+    MarketPageState     market;
+    DashboardPageState  dashboard;
+    HrHealthPageState   hr_health;
 
 private:
     AppState() = default;

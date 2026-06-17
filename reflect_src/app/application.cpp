@@ -528,6 +528,33 @@ void MinerApp::_tick_thread_entry(void* args) {
                             String((unsigned)app._minerStatus->share_accepted);
             m.local_diff.text = String(app._minerStatus->diff.best_session, 0) + "/" +
                                 String(app._minerStatus->diff.best_ever, 0);
+
+            // ── Hashrate-health page ──
+            auto& hh = AppState::instance().hr_health;
+            double ghs = (double)app._minerStatus->hashrate._3m;
+            char hb[24];
+            if (ghs >= 1000.0) snprintf(hb, sizeof(hb), "%.2f TH/s", ghs / 1000.0);
+            else               snprintf(hb, sizeof(hb), "%.1f GH/s", ghs);
+            hh.hashrate.text   = String(hb);
+            hh.efficiency.text = String("Eff: ") + String(app._minerStatus->efficiency, 1) + " J/TH";
+            hh.shares.text     = String("Shares: ") +
+                                 String((unsigned)app._minerStatus->share_rejected) + "/" +
+                                 String((unsigned)app._minerStatus->share_accepted);
+            hh.best_diff.text  = String("Best: ") + String(app._minerStatus->diff.best_ever, 0);
+        }
+
+        // ── Dashboard page: power / thermal / performance ──
+        {
+            auto& d = AppState::instance().dashboard;
+            float vbus_v = app._pwr_tele.vbus / 1000.0f;
+            float ibus_a = app._pwr_tele.ibus / 1000.0f;
+            d.power.text      = String("Power: ") + String(vbus_v * ibus_a, 1) + " W";
+            d.vbus.text       = String("Vbus:  ") + String(vbus_v, 2) + " V";
+            d.ibus.text       = String("Ibus:  ") + String(ibus_a, 2) + " A";
+            d.asic_temp.text  = String("ASIC:  ") + String((float)app._temp.asic, 1) + " C";
+            d.vcore_temp.text = String("VRM:   ") + String((float)app._temp.vcore, 1) + " C";
+            d.freq.text       = String("Freq:  ") + String((unsigned)app._spec.asic.req_frq) + " MHz";
+            d.vcore.text      = String("Vcore: ") + String((unsigned)app._pwr_tele.vcore) + " mV";
         }
 
         if (app._wifi) {
