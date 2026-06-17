@@ -12,6 +12,8 @@
 #include "../drivers/temp/temp_hal.h"
 #include "../drivers/temp/temp_ctx.h"
 #include "../drivers/temp/tmp102.h"
+#include "../net/wifi_ctx.h"
+#include "../nvs/nvs_config.h"
 #include "../utils/helper.h"
 #include "../utils/sha/csha256.h"
 #include <ArduinoJson.h>
@@ -754,10 +756,154 @@ void miner_rx_thread_entry(void* args) {
     }
 }
 
+// ── WiFi config monitor: reboots if no client connects within the window ────
+//    Mirrors legacy config_monitor_thread_entry; board_sal_t* -> WifiCtx*.
+void config_monitor_thread_entry(void* args) {
+    WifiCtx* ctx = static_cast<WifiCtx*>(args);
+    WifiState& st = *ctx->state;
+    LOG_I("(config_monitor) thread started on core %d...", xPortGetCoreID());
+
+    st.config_timeout = MINER_WIFI_CONFIG_TIMEOUT;
+    while (true) {
+        if (WL_CONNECTED == st.status) break;
+
+        if (st.client_connected == false) {
+            // For NMQAxe++: the UI thread owns the decrement (lv_indev touch detect);
+            // this thread only fires the reboot when timeout reaches 0.
+            if (ctx->cfg->board_name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
+                if (st.config_timeout == 0) {
+                    LOG_W("WiFi configuration timeout, rebooting...");
+                    reboot_intent_set(REBOOT_INTENT_WIFI_CONFIG_TIMEOUT,
+                                      "no client connected during AP setup window");
+                    delay(1000);
+                    ESP.restart();
+                }
+                // Do NOT decrement here — UI thread handles it
+            } else {
+                if (st.config_timeout == 0) {
+                    LOG_W("WiFi configuration timeout, rebooting...");
+                    reboot_intent_set(REBOOT_INTENT_WIFI_CONFIG_TIMEOUT,
+                                      "no client connected during AP setup window");
+                    delay(1000);
+                    ESP.restart();
+                }
+                st.config_timeout--;
+            }
+        }
+        delay(1000);
+    }
+    LOG_I("WiFi configuration monitor exit...");
+    vTaskDelete(NULL);
+}
+
+// ── WiFi: STA connect with AP config-portal fallback ────────────────────────
+//    Mirrors legacy wifi_connect_thread_entry; board_sal_t* -> WifiCtx*.
 void wifi_connect_thread_entry(void* args) {
-    (void)args;
-    LOG_D("(wifi) placeholder");
-    while (true) { delay(10000); }
+    WifiCtx* ctx = static_cast<WifiCtx*>(args);
+    WifiState&      st  = *ctx->state;
+    WifiConnConfig& cfg = *ctx->cfg;
+
+    auto wifiEvent = [ctx](WiFiEvent_t event, WiFiEventInfo_t info) {
+        WifiState& st = *ctx->state;
+        const char* reason = NULL;
+        static uint8_t retry_cnt = 0, max_retries = 120;
+        wifi_event_sta_disconnected_t disconnected;
+        switch (event) {
+            case SYSTEM_EVENT_STA_CONNECTED:
+                LOG_I("WiFi connected to [%s], waiting for IP...", WiFi.SSID().c_str());
+                break;
+            case SYSTEM_EVENT_STA_GOT_IP:
+                st.ip      = WiFi.localIP();
+                st.gateway = WiFi.gatewayIP();
+                st.subnet  = WiFi.subnetMask();
+                st.dns     = WiFi.dnsIP();
+                st.status  = WL_CONNECTED;
+                retry_cnt  = 0;
+                LOG_I("Got IP : %s", WiFi.localIP().toString().c_str());
+                break;
+            case SYSTEM_EVENT_STA_DISCONNECTED:
+                st.ip = st.gateway = st.subnet = st.dns = IPAddress(0, 0, 0, 0);
+                st.status = WL_DISCONNECTED;
+                disconnected = info.wifi_sta_disconnected;
+                reason = WiFi.disconnectReasonName((wifi_err_reason_t)disconnected.reason);
+                retry_cnt++;
+                LOG_W("WiFi disconnected, reason: %s", reason);
+                break;
+            default:
+                break;
+        }
+        if (retry_cnt >= max_retries) {
+            LOG_W("WiFi connection retry limit reached, rebooting...");
+            reboot_intent_set(REBOOT_INTENT_WIFI_RECONNECT_FAIL, "reached %d/%d retries", retry_cnt, max_retries);
+            delay(1000);
+            ESP.restart();
+        }
+    };
+
+    WiFi.mode(WIFI_STA);
+    WiFi.setTxPower(WIFI_POWER_15dBm);
+    WiFi.onEvent(wifiEvent);
+    WiFi.setHostname(cfg.hostname.c_str());
+
+    // ── force config mode ──
+    if (st.force_config_required) {
+        nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, false);
+        LOG_W("Set softAP [%s]...", cfg.ap_ssid.c_str());
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP(cfg.ap_ssid);
+        WiFi.softAPConfig(cfg.ap_ip, cfg.ap_ip, IPAddress(255, 255, 255, 0));
+        delay(500);
+        xEventGroupSetBits(ctx->init_evt, INIT_EVENT_WIFI_AP_READY);
+        xTaskCreatePinnedToCore(config_monitor_thread_entry, "(config_monitor)", 1024 * 4, ctx, TASK_PRIORITY_CONFIG, NULL, 1);
+        while (true) {
+            st.client_connected = (WiFi.softAPgetStationNum() > 0);
+            if (WiFi.softAPgetStationNum() == 0)
+                LOG_W("Force configuration, ssid[%s], timeout: %ds...", cfg.ap_ssid.c_str(), st.config_timeout);
+            delay(1000);
+        }
+    }
+
+    // ── normal wifi connection ──
+    uint16_t random_delay = random(0, 1000 * 8);
+    LOG_I("Initializing WiFi, delay: %dms...", random_delay);
+    delay(random_delay);
+    LOG_I("Try to connect [%s]...", cfg.sta_ssid.c_str());
+    WiFi.begin(cfg.sta_ssid.c_str(), cfg.sta_pwd.c_str());
+    int maxRetries = 0;
+    while (WiFi.status() != WL_CONNECTED && maxRetries < 60 * 5) {
+        maxRetries++;
+        LOG_I("Try to connect [%s] %ds...", cfg.sta_ssid.c_str(), maxRetries);
+        if (maxRetries >= 15) {
+            LOG_I("Set softAP [%s]...", cfg.hostname.c_str());
+            WiFi.mode(WIFI_AP);
+            WiFi.softAP(cfg.ap_ssid);
+            WiFi.softAPConfig(cfg.ap_ip, cfg.ap_ip, IPAddress(255, 255, 255, 0));
+            delay(500);
+            xEventGroupSetBits(ctx->init_evt, INIT_EVENT_WIFI_AP_READY);
+            xTaskCreatePinnedToCore(config_monitor_thread_entry, "(config_monitor)", 1024 * 4, ctx, TASK_PRIORITY_CONFIG, NULL, 1);
+            while (true) {
+                st.client_connected = (WiFi.softAPgetStationNum() > 0);
+                if (WiFi.softAPgetStationNum() == 0)
+                    LOG_W("Force configuration, ssid[%s], timeout: %ds...", cfg.ap_ssid.c_str(), st.config_timeout);
+                delay(1000);
+            }
+        }
+        delay(1000);
+    }
+
+    LOG_I("------------------------------------");
+    LOG_I("SSID     : %s ", WiFi.SSID().c_str());
+    LOG_I("IP       : %s ", WiFi.localIP().toString().c_str());
+    LOG_I("RSSI     : %d dBm", WiFi.RSSI());
+    LOG_I("Channel  : %d", WiFi.channel());
+    LOG_I("Gateway  : %s", WiFi.gatewayIP().toString().c_str());
+    LOG_I("Subnet   : %s", WiFi.subnetMask().toString().c_str());
+    LOG_I("MAC      : %s", WiFi.macAddress().c_str());
+    LOG_I("Hostname : %s", WiFi.getHostname());
+    LOG_I("------------------------------------");
+
+    xEventGroupSetBits(ctx->init_evt, INIT_EVENT_WIFI_STA_CONNECTED);
+    vTaskDelete(NULL);
 }
 
 // ── Power init: bring up rails, gate on fan/wifi/vbus, set vcore ────────────

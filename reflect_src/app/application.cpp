@@ -55,7 +55,7 @@ bool MinerApp::init() {
     delay(100);
 
     static SystemSync sys_storage;
-    static WifiCtx wifi_storage;
+    static WifiState wifi_storage;
     static SwarmCtx swarm_storage;
 
     _sys = &sys_storage;
@@ -66,11 +66,11 @@ bool MinerApp::init() {
     _sys->sys_evt = xEventGroupCreate();
     _sys->reboot_xsem = xSemaphoreCreateCounting(1, 0);
 
-    _wifi->status = WIFI_DISCONNECTED;
+    _wifi->status = WL_DISCONNECTED;
     _wifi->rssi = 0;
     _wifi->reconnect_xsem = xSemaphoreCreateCounting(1, 0);
     _wifi->client_connected = false;
-    memset(_wifi->ip, 0, sizeof(_wifi->ip));
+    _wifi->force_config_required = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
 
     _swarm->mutex = xSemaphoreCreateMutex();
     _swarm->total_workers = 1;
@@ -89,6 +89,18 @@ bool MinerApp::init() {
     _spec = get_board_config(_model);
     hardware_pre_init(_spec);
     LOG_I("board model detected: %s", _spec.display_name.c_str());
+
+    // ── WiFi connection config (loaded once from NVS; replaces g_board.info.connection.wifi) ──
+    {
+        String dev = gen_device_code();
+        String ap_default = _spec.name + "_" + dev.substring(0, 5);
+        _wifi_cfg.ap_ip      = IPAddress(192, 168, 4, 1);
+        _wifi_cfg.ap_ssid    = nvs_config_get_string_value(NVS_CONFIG_AP_SSID,  ap_default.c_str());
+        _wifi_cfg.sta_ssid   = nvs_config_get_string_value(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G");
+        _wifi_cfg.sta_pwd    = nvs_config_get_string_value(NVS_CONFIG_WIFI_PASS, "NMMiner2048");
+        _wifi_cfg.hostname   = nvs_config_get_string_value(NVS_CONFIG_HOSTNAME, _wifi_cfg.ap_ssid.c_str());
+        _wifi_cfg.board_name = _spec.name;
+    }
 
     // ── Power HAL instance (replaces g_board.power), built from the board spec ──
     _power = _spec.create_power_instance(
@@ -227,11 +239,15 @@ void MinerApp::_begin_power(BootProgress& boot) {
 }
 
 void MinerApp::_begin_wifi_connect(BootProgress& boot) {
-    boot.next("WiFi placeholder");
-    _wifi->status = WIFI_CONNECTED;
-    snprintf(_wifi->ip, sizeof(_wifi->ip), "192.168.1.100");
-    _wifi->rssi = -55;
-    xEventGroupSetBits(_sys->init_evt, INIT_EVENT_WIFI_STA_CONNECTED);
+    boot.next("WiFi connect...");
+
+    static WifiCtx ctx;
+    ctx.state    = _wifi;
+    ctx.cfg      = &_wifi_cfg;
+    ctx.init_evt = _sys->init_evt;
+    _wifi_ctx = &ctx;
+
+    _create_task(wifi_connect_thread_entry, "(wifi)", 1024 * 6, _wifi_ctx, TASK_PRIORITY_WIFI, 1);
 }
 
 void MinerApp::_begin_display(BootProgress& boot) {
@@ -348,7 +364,7 @@ void MinerApp::_tick_thread_entry(void* args) {
         }
 
         if (app._wifi) {
-            AppState::instance().miner.ip.text = String(app._wifi->ip);
+            AppState::instance().miner.ip.text = app._wifi->ip.toString();
             AppState::instance().miner.rssi.text = String(app._wifi->rssi);
         }
 

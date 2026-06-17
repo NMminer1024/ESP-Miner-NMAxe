@@ -10,12 +10,10 @@
 #include "../drivers/power/power_ctx.h"
 #include "../drivers/fan/fan_ctx.h"
 #include "../drivers/temp/temp_ctx.h"
+#include "../net/wifi_ctx.h"
 
 class MinerApp {
 public:
-    static constexpr int WIFI_DISCONNECTED = 0;
-    static constexpr int WIFI_CONNECTED = 3;
-
     static MinerApp& instance();
 
     bool init();
@@ -32,14 +30,6 @@ private:
         EventGroupHandle_t init_evt = nullptr;
         EventGroupHandle_t sys_evt = nullptr;
         SemaphoreHandle_t reboot_xsem = nullptr;
-    };
-
-    struct WifiCtx {
-        volatile int status = WIFI_DISCONNECTED;
-        char ip[16] = {0};
-        volatile int rssi = 0;
-        SemaphoreHandle_t reconnect_xsem = nullptr;
-        volatile bool client_connected = false;
     };
 
     struct SwarmCtx {
@@ -66,7 +56,9 @@ private:
     };
 
     SystemSync* _sys = nullptr;
-    WifiCtx* _wifi = nullptr;
+    WifiState* _wifi = nullptr;          // live network state (replaces g_board.status.wifi)
+    WifiConnConfig _wifi_cfg;            // connection params loaded from NVS
+    WifiCtx*   _wifi_ctx = nullptr;      // DI context for wifi/config_monitor threads
     SwarmCtx* _swarm = nullptr;
     MinerStatus*     _minerStatus = nullptr;  // shared mining runtime state (replaces g_board.status.miner)
     AsicMinerClass*  _miner = nullptr;        // ASIC miner instance (replaces g_board.miner)
