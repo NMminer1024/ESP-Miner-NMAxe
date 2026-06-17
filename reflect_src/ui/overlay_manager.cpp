@@ -95,6 +95,18 @@ void OverlayManager::update() {
         return;
     }
 
+    // ── Priority 1.5: celebrations (cleared by a button press) ──
+    if (bits & SYS_EVENT_MINER_BLOCK_HIT) {
+        _show(0xFFD700, "BLOCK FOUND!", "Congratulations!\nYou solved a block!");
+        return;
+    }
+    if (bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {
+        String body = "New best difficulty!";
+        if (_ctx.status) body += String("\nBest: ") + String(_ctx.status->diff.best_ever, 0);
+        _show(0x00E5FF, "NEW BEST!", body);
+        return;
+    }
+
     // ── Priority 2: benchmark sweep in progress ──
     if (_ctx.bm_mode && *_ctx.bm_mode && _ctx.bm) {
         const BenchmarkState& b = *_ctx.bm;
