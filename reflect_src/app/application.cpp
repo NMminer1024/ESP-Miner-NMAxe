@@ -506,6 +506,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     bool     tmp_ready = false;
     uint32_t last_temp_ms = 0;
     uint32_t last_ui_ms   = 0;
+    uint32_t last_roll_ms = 0;       // auto page-rolling cadence
     bool     ss_active    = false;   // screensaver state (this thread owns backlight)
 
     while (true) {
@@ -568,6 +569,15 @@ void MinerApp::_tick_thread_entry(void* args) {
             tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
             xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
             ss_active = false;
+        }
+
+        // ── Auto page-rolling: advance one page every 10 s when enabled and not
+        //     in screensaver (mirrors legacy monitor behaviour). ──
+        if (app._pref.screen.auto_rolling && now - last_roll_ms >= 10000) {
+            last_roll_ms = now;
+            if (!(xEventGroupGetBits(app._sys->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED)) {
+                UIManager::instance().request_next_page();
+            }
         }
 
         // ── UI state refresh at 1 Hz ──
