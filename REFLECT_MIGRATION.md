@@ -210,6 +210,24 @@ lv_conf.h 启用 Montserrat 28/48 大字。构建通过，Flash 约 44.7%。
 - UI：真实 TFT 点亮（实机验证）；8 页全部实时数据；触摸滑动 + 按键翻页；
   6 类 overlay（find-me/OC/OT/爆块/新高/benchmark/暂停）；屏保 + 亮度联动。
 
-### 仍待办（纯可选润色）
-- aphorism 格言页 / GIF 屏保模式（当前屏保为熄屏）/ 弧形仪表·直方图样式
-  （dashboard/hr_health 现为文本行，数据已就绪）。
+## 全量对比 src/ 后的补完（P34–P41）
+对 `src/` 逐目录、逐线程、逐 NVS 键、逐事件位审计，确认无后台逻辑遗漏，并补完 UI 行为：
+- **P34** OTA 升级进度 overlay（升级中保持亮屏）。
+- **P35** aphorism 格言抓取线程（zenquotes.io，逐字移植，DI 化）。
+- **P36** GIF 屏保（lv_gif + SPIFFS 'S' LVGL 文件系统驱动）+ 格言叠加；mode 1 仍熄屏。
+- **P37** 自动翻页（screenAutoRoll，每 10s）。
+- **P38** 触摸长按恢复出厂倒计时（NMQAxe++ 无实体 user 键，触摸长按是唯一路径）。
+- **P39** 启动后 LOADING→MINER 自动切换（MINER_READY）。
+- **P40** AP 配网模式自动切到 CONFIG 页 + loading 页「Connecting WiFi[ssid]」动画。
+- **P41** miner 页数据补全（功率/温度/网络难度/版本/运行时长/时间/币价）。
+
+### 审计结论（无遗漏）
+- 线程：src 全部 *_thread_entry 在 reflect 均有对应（display/lvgl_tick/ui 三者合并为
+  UIManager 渲染循环；config_monitor 由 wifi 线程动态拉起，已核对）。
+- 数据模型：NVS 键、SYS/INIT 事件位 src→reflect 全覆盖（diff 为空）。
+- 共享模块（board/miner/stratum/market/power_hal/fan/nvs/asic 等）行数与逻辑一致。
+- OC/OT 故障位在 reflect power_loop 已置位，overlay 可正常触发。
+
+### 仅剩纯视觉润色（非逻辑、需美术资源）
+- 开机 logo 图、爆块/成就整屏位图、弧形仪表/直方图（dashboard/hr_health 现为文本行，
+  数据已就绪）。这些不影响功能，依赖 src/image 位图资源，按需再做。
