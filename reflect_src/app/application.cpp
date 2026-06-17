@@ -101,6 +101,12 @@ bool MinerApp::init() {
         _spec.setup_temp_hal(_power);
     }
 
+    // ── Shared mining runtime state (replaces g_board.status.miner) ──
+    // Created here so the power loop's controlled-idle check can reference it.
+    static MinerStatus miner_status;
+    miner_status.init();
+    _minerStatus = &miner_status;
+
     LOG_D("MinerApp::init ready");
     return true;
 }
@@ -145,7 +151,7 @@ void MinerApp::_begin_power(BootProgress& boot) {
     ctx.init_evt    = _sys->init_evt;
     ctx.sys_evt     = _sys->sys_evt;
     ctx.ota_running = &_ota_running;
-    ctx.mining      = _miningShared;   // nullptr until the miner domain is migrated
+    ctx.mining      = _minerStatus;    // controlled-idle check (nullptr until miners launch)
     _power_ctx = &ctx;
 
     _create_task(power_init_thread_entry, "(pwr_init)", 1024 * 7, _power_ctx, TASK_PRIORITY_PWR, 1);
@@ -176,9 +182,6 @@ void MinerApp::_begin_market(BootProgress& boot) {
 }
 
 void MinerApp::_begin_miners(BootProgress& boot) {
-    static MiningSharedCtx mining_shared;
-    mining_shared.init();
-    _miningShared = &mining_shared;
     boot.next("Miners placeholder");
 }
 
@@ -243,14 +246,14 @@ void MinerApp::_tick_thread_entry(void* args) {
         }
         last_ui_ms = now;
 
-        if (app._miningShared) {
+        if (app._minerStatus) {
             auto& m = AppState::instance().miner;
-            m.hashrate.text = String(app._miningShared->hashrate_3m / 1e12, 1);
-            m.blk_hit.text = String((int)app._miningShared->block_hits);
-            m.shares.text = String((int)app._miningShared->shares_rejected) + "/" +
-                            String((int)app._miningShared->shares_accepted);
-            m.local_diff.text = String(app._miningShared->best_session_diff, 0) + "/" +
-                                String(app._miningShared->best_ever_diff, 0);
+            m.hashrate.text = String((double)app._minerStatus->hashrate._3m, 2);
+            m.blk_hit.text = String((int)app._minerStatus->hits);
+            m.shares.text = String((unsigned)app._minerStatus->share_rejected) + "/" +
+                            String((unsigned)app._minerStatus->share_accepted);
+            m.local_diff.text = String(app._minerStatus->diff.best_session, 0) + "/" +
+                                String(app._minerStatus->diff.best_ever, 0);
         }
 
         if (app._wifi) {

@@ -68,7 +68,7 @@ private:
     SystemSync* _sys = nullptr;
     WifiCtx* _wifi = nullptr;
     SwarmCtx* _swarm = nullptr;
-    MiningSharedCtx* _miningShared = nullptr;
+    MinerStatus*     _minerStatus = nullptr;  // shared mining runtime state (replaces g_board.status.miner)
     BoardModelType   _model = BOARD_UNKNOWN;
     BoardSpecConfig  _spec;                 // runtime board spec (replaces g_board.info.spec)
     AxePowerHal*     _power = nullptr;       // power HAL instance (replaces g_board.power)

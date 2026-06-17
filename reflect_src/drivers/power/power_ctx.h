@@ -6,7 +6,7 @@
 // the power threads (thread_entry.cpp) pull in the full definitions.
 class  AxePowerHal;
 struct BoardSpecConfig;
-struct MiningSharedCtx;
+struct MinerStatus;
 
 // ============================================================================
 //  PowerCtx — launch context for power_init / power_loop threads
@@ -21,5 +21,5 @@ struct PowerCtx {
     EventGroupHandle_t     init_evt    = nullptr;  // INIT_EVENT_* milestones
     EventGroupHandle_t     sys_evt     = nullptr;  // SYS_EVENT_* runtime notifications
     volatile bool*         ota_running = nullptr;  // skip fault handling during OTA (nullptr -> false)
-    MiningSharedCtx*       mining      = nullptr;  // controlled-idle check (nullptr -> not idle)
+    MinerStatus*           mining      = nullptr;  // controlled-idle check (nullptr -> not idle)
 };

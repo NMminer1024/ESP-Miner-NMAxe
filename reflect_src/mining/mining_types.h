@@ -1,38 +1,17 @@
-﻿#pragma once
-#include <cstdint>
-#include <cstring>
+#pragma once
 #include <Arduino.h>
+#include <map>
+#include <deque>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
-#include <freertos/queue.h>
+#include <freertos/event_groups.h>
 
-// ============================================================================
-//  Stratum → Miner : Job snapshot
-// ============================================================================
-struct MiningJob {
-    uint8_t     block_header[80];
-    uint8_t     net_diff_target[32];
-    uint32_t    pool_diff_mask;
-    double      pool_difficulty;
-    bool        clean_job;
+#include "mining/miner.h"             // hashrate_t, history_node_t, proximity_node_t, AsicMinerClass, PsramAllocator
+#include "stratum/stratum.h"          // StratumClass, stratum_info_t, pool_info_t (via pool.h)
+#include "board/board.h"              // BoardSpecConfig
+#include "drivers/power/power_hal.h"  // AxePowerHal
 
-    uint32_t    sequence;           // monotonic, 0 = no job yet
-
-    char        job_id[68];
-    char        extranonce2[20];
-    char        ntime[12];
-};
-
-// ============================================================================
-//  Miner → Stratum : Submit request
-// ============================================================================
-struct SubmitRequest {
-    uint32_t    nonce;
-    double      diff;
-    char        job_id[68];
-    char        extranonce2[20];
-    char        ntime[12];
-};
+typedef uint16_t asic_id_t;
 
 // ============================================================================
 //  Miner runtime control state (mirrors legacy miner_runtime_state_t)
@@ -46,53 +25,56 @@ enum MinerRuntimeState {
 };
 
 // ============================================================================
-//  Shared context between stratum thread and miner threads
+//  Difficulty snapshot (mirrors legacy diff_info_t)
 // ============================================================================
-struct MiningSharedCtx {
-    // --- job channel (Stratum → Miner) ---
-    MiningJob           latest_job;
-    SemaphoreHandle_t   job_mutex;
-    SemaphoreHandle_t   job_event;          // binary: new job available
+struct DiffInfo {
+    double best_session = 0.0;
+    double best_ever    = 0.0;
+    double pool         = 0.0;
+    double last         = 0.0;
+    double network      = 0.0;
+};
 
-    // --- submit channel (Miner → Stratum) ---
-    QueueHandle_t       submit_queue;       // carries SubmitRequest
+// ============================================================================
+//  MinerStatus — shared mining runtime state + statistics
+//
+//  Replaces the legacy board.status.miner god-struct. Writers/readers are
+//  documented per field; the mining threads (stratum/tx/rx) and monitor are
+//  the principal participants, with display/web as read-only consumers.
+// ============================================================================
+struct MinerStatus {
+    DiffInfo   diff;
+    hashrate_t hashrate{0.0, 0.0, 0.0};
+    float      efficiency = 0.0f;       // J/TH
+    uint16_t   hits = 0;                // block-proximity hit counter
+    uint32_t   share_accepted = 0;
+    uint32_t   share_rejected = 0;
+    uint64_t   uptime_ever = 0;
+    uint64_t   uptime_session = 0;
+    uint32_t   latency = 0;             // ms, pool round-trip
+    uint32_t   asic_update = 0;         // ms, last ASIC response timestamp
+    uint32_t   stratum_update = 0;      // ms, last stratum data timestamp
 
-    // --- stop flags ---
-    volatile bool       stop_mining;
-    volatile bool       pause_requested;
+    // --- runtime control (owned by miner tx; read by power/fan/rx/web) ---
+    volatile MinerRuntimeState runtime_state = MINER_RUNTIME_RUNNING;
+    volatile bool     user_paused = false;
+    volatile uint32_t pause_started_ms = 0;
+    uint32_t          resume_grace_until_ms = 0;
+    SemaphoreHandle_t control_xsem = nullptr;   // pause/resume control signal
+    SemaphoreHandle_t update_xsem  = nullptr;   // status-changed signal
 
-    // --- statistics (single-writer per field) ---
-    volatile uint64_t   hash_count;
-    volatile double     last_diff;
-    volatile double     best_session_diff;
-    volatile double     best_ever_diff;
-    volatile double     network_diff;
-    volatile double     pool_diff;
-    volatile uint32_t   shares_accepted;
-    volatile uint32_t   shares_rejected;
-    volatile uint16_t   block_hits;
-    volatile uint32_t   last_nonce;
-    volatile uint32_t   job_received;
+    // --- per-asic response counters ---
+    std::map<asic_id_t, uint64_t> asic_rsp_counter;
 
-    // --- hashrate (3m average, updated periodically) ---
-    volatile double     hashrate_3m;
-
-    // --- pool info (stratum writes, webserver reads) ---
-    char                active_pool_host[64];
-    char                active_pool_user[128];
-    volatile int        active_pool_port;
-
-    // --- uptime base: loaded once from NVS at boot ---
-    volatile uint32_t   uptime_ever_base;
-
-    // --- runtime control state (owned by miner thread; read by power/fan/web) ---
-    volatile MinerRuntimeState runtime_state;
-    volatile bool       user_paused;
-    volatile uint32_t   pause_started_ms;
-    volatile uint32_t   resume_grace_until_ms;
-
-    // --- asic respond counter map (per-asic-id → counter) ---
-    // Stored separately; indexed by asic_id.
+    // --- sample histories (PSRAM) ---
+    struct {
+        std::deque<history_node_t, PsramAllocator<history_node_t>> deque;
+        SemaphoreHandle_t mutex = nullptr;
+    } status_history;
+    struct {
+        std::deque<proximity_node_t, PsramAllocator<proximity_node_t>> deque;
+        SemaphoreHandle_t mutex = nullptr;
+    } proximity_history;
 
     // Controlled-idle: miner is intentionally not hashing (paused/resuming/error).
     // Power/fan loops use this to suppress vcore regulation and activity checks.
@@ -111,53 +93,42 @@ struct MiningSharedCtx {
         return is_controlled_idle() || in_resume_grace(now_ms);
     }
 
-    void pause_mining() {
-        pause_requested = true;
-        stop_mining     = true;
-        if (job_event) xSemaphoreGive(job_event);
-    }
-
-    void resume_mining() {
-        pause_requested = false;
-        if (job_event) xSemaphoreGive(job_event);
-    }
-
     void init() {
-        memset(&latest_job, 0, sizeof(latest_job));
-        job_mutex       = xSemaphoreCreateMutex();
-        job_event       = xSemaphoreCreateBinary();
-        submit_queue    = xQueueCreate(8, sizeof(SubmitRequest));
-        stop_mining       = false;
-        pause_requested   = false;
-        hash_count        = 0;
-        last_diff = best_session_diff = best_ever_diff = network_diff = pool_diff = 0.0;
-        shares_accepted = shares_rejected = block_hits = 0;
-        last_nonce = job_received = 0;
-        hashrate_3m = 0.0;
-        memset(active_pool_host, 0, sizeof(active_pool_host));
-        memset(active_pool_user, 0, sizeof(active_pool_user));
-        active_pool_port = 0;
-        uptime_ever_base = 0;
-        runtime_state         = MINER_RUNTIME_RUNNING;
-        user_paused           = false;
-        pause_started_ms      = 0;
-        resume_grace_until_ms = 0;
+        control_xsem            = xSemaphoreCreateCounting(1, 0);
+        update_xsem             = xSemaphoreCreateCounting(1, 0);
+        status_history.mutex    = xSemaphoreCreateMutex();
+        proximity_history.mutex = xSemaphoreCreateMutex();
+        runtime_state           = MINER_RUNTIME_RUNNING;
+        user_paused             = false;
+        pause_started_ms        = 0;
+        resume_grace_until_ms   = 0;
     }
 };
 
 // ============================================================================
-//  Stratum thread launch context
+//  ConnInfo — pool & stratum connection set (mirrors board.info.connection)
 // ============================================================================
-struct StratumCtx {
-    MiningSharedCtx*    shared;
-    // Pool connection info will be loaded from NVS at thread start
+struct ConnInfo {
+    struct { pool_info_t    use, primary, fallback; } pool;
+    struct { stratum_info_t use, primary, fallback; } stratum;
 };
 
 // ============================================================================
-//  Miner thread launch context
+//  MinerCtx — launch context shared by stratum / miner-tx / miner-rx / monitor
+//
+//  Replaces board_sal_t*. Every cross-domain dependency is injected explicitly.
 // ============================================================================
 struct MinerCtx {
-    MiningSharedCtx*    shared;
-    const char*         name;
-    // ASIC driver reference will be set by application before thread start
+    AsicMinerClass*    miner   = nullptr;
+    StratumClass*      stratum = nullptr;
+    AxePowerHal*       power   = nullptr;
+    BoardSpecConfig*   spec    = nullptr;
+    MinerStatus*       status  = nullptr;
+    ConnInfo*          conn    = nullptr;
+    EventGroupHandle_t init_evt = nullptr;
+    EventGroupHandle_t sys_evt  = nullptr;
+    SemaphoreHandle_t  nvs_save_xsem = nullptr;
+    volatile bool*     ota_running   = nullptr;   // nullptr -> treated as false
+    volatile uint64_t* utc           = nullptr;   // shared UTC seconds (time domain)
+    String             fw_version;                // for summary logs
 };
