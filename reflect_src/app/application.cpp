@@ -535,6 +535,32 @@ void MinerApp::_tick_thread_entry(void* args) {
             AppState::instance().miner.rssi.text = String(app._wifi->rssi);
         }
 
+        // ── Clock page: local time/date (TZ set by monitor via setenv/tzset) ──
+        if (app._utc > 1600000000ULL) {   // only once NTP-synced
+            time_t t = (time_t)app._utc;
+            struct tm lt;
+            localtime_r(&t, &lt);
+            char tbuf[16];
+            if (app._time.format.time == 1) {  // 12h
+                strftime(tbuf, sizeof(tbuf), "%I:%M %p", &lt);
+            } else {                            // 24h
+                strftime(tbuf, sizeof(tbuf), "%H:%M", &lt);
+            }
+            AppState::instance().clock.time_str.text = String(tbuf);
+
+            const String& df = app._time.format.date;
+            char dbuf[16];
+            const char* fmt = "%Y/%m/%d";
+            if      (df == "MM-DD-YYYY") fmt = "%m-%d-%Y";
+            else if (df == "DD-MM-YYYY") fmt = "%d-%m-%Y";
+            else if (df == "YYYY-MM-DD") fmt = "%Y-%m-%d";
+            else if (df == "DD/MM/YYYY") fmt = "%d/%m/%Y";
+            else if (df == "MM/DD/YYYY") fmt = "%m/%d/%Y";
+            else if (df == "YYYY/MM/DD") fmt = "%Y/%m/%d";
+            strftime(dbuf, sizeof(dbuf), fmt, &lt);
+            AppState::instance().clock.date_str.text = String(dbuf);
+        }
+
         if (app._swarm && xSemaphoreTake(app._swarm->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
             auto& m = AppState::instance().miner;
             m.swarm_workers.text = String(app._swarm->total_workers);

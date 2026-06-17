@@ -10,13 +10,21 @@ public:
         lv_obj_set_style_pad_all(parent, 0, 0);
         lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
         _create_dynamic(parent);
+        _finish_create();
     }
     const char* name() const override { return "clock320x240"; }
 protected:
     void _create_dynamic(lv_obj_t* parent) override {
-        _lb_details = lv_label_create(parent);
-        lv_label_set_text(_lb_details, "clock (TODO)");
-        lv_obj_set_style_text_color(_lb_details, lv_color_hex(0xFFFFFF), 0);
-        lv_obj_center(_lb_details);
+        _lb_time = lv_label_create(parent);
+        lv_label_set_text(_lb_time, "--:--");
+        lv_obj_set_style_text_font(_lb_time, &lv_font_montserrat_48, 0);
+        lv_obj_set_style_text_color(_lb_time, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_align(_lb_time, LV_ALIGN_CENTER, 0, -20);
+
+        _lb_date = lv_label_create(parent);
+        lv_label_set_text(_lb_date, "----/--/--");
+        lv_obj_set_style_text_font(_lb_date, &lv_font_montserrat_28, 0);
+        lv_obj_set_style_text_color(_lb_date, lv_color_hex(0xA9A9A9), 0);
+        lv_obj_align(_lb_date, LV_ALIGN_CENTER, 0, 50);
     }
 };

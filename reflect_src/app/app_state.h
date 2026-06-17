@@ -131,6 +131,14 @@ struct ConfigPageState {
 };
 
 // ============================================================================
+// Clock page state
+// ============================================================================
+struct ClockPageState {
+    ObsLabel time_str;   // "HH:MM" (24h) or "hh:MM AM/PM" (12h)
+    ObsLabel date_str;   // formatted per user date-format preference
+};
+
+// ============================================================================
 // AppState — application global state singleton
 //
 //   Usage (from any FreeRTOS task):
@@ -150,6 +158,7 @@ public:
     LoadingPageState  loading;
     MinerPageState    miner;
     ConfigPageState   config;
+    ClockPageState    clock;
 
 private:
     AppState() = default;
