@@ -561,6 +561,23 @@ void MinerApp::_tick_thread_entry(void* args) {
             AppState::instance().clock.date_str.text = String(dbuf);
         }
 
+        // ── Market page: main coin symbol / price / 24h change ──
+        if (app._market && app._market->get_last_update() != 0) {
+            const CoinPrice& mp = app._market->get_main_pair();
+            auto& mk = AppState::instance().market;
+            String sym = app._coin_price; sym.toUpperCase();
+            mk.symbol.text = sym;
+            char pb[24];
+            if (mp.price >= 1000.0f)      snprintf(pb, sizeof(pb), "$%.0f", mp.price);
+            else if (mp.price >= 1.0f)    snprintf(pb, sizeof(pb), "$%.2f", mp.price);
+            else                          snprintf(pb, sizeof(pb), "$%.4f", mp.price);
+            mk.price.text = String(pb);
+            char cb[16];
+            snprintf(cb, sizeof(cb), "%+.2f%%", mp.change_pct);
+            mk.change.text  = String(cb);
+            mk.change.color = (mp.change_pct >= 0.0f) ? (uint32_t)0x00C853 : (uint32_t)0xFF5252;
+        }
+
         if (app._swarm && xSemaphoreTake(app._swarm->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
             auto& m = AppState::instance().miner;
             m.swarm_workers.text = String(app._swarm->total_workers);

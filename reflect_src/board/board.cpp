@@ -12,7 +12,7 @@
 #include "drivers/temp/temp_hal.h"
 
 BoardModelType get_board_model(){
-    return NMQAXE_PLUS_PLUS_REV81; // Force override for testing; comment out to enable real pin reading
+    // return NMQAXE_PLUS_PLUS_REV81; // Force override for testing; comment out to enable real pin reading
 
 
     // ── Step 1: active discharge ──────────────────────────────────────────────

@@ -139,6 +139,15 @@ struct ClockPageState {
 };
 
 // ============================================================================
+// Market page state
+// ============================================================================
+struct MarketPageState {
+    ObsLabel symbol;     // main coin symbol, e.g. "BTC"
+    ObsLabel price;      // formatted price, e.g. "$67,123"
+    ObsLabel change;     // 24h change %, colored (green up / red down)
+};
+
+// ============================================================================
 // AppState — application global state singleton
 //
 //   Usage (from any FreeRTOS task):
@@ -159,6 +168,7 @@ public:
     MinerPageState    miner;
     ConfigPageState   config;
     ClockPageState    clock;
+    MarketPageState   market;
 
 private:
     AppState() = default;
