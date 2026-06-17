@@ -1,4 +1,4 @@
-#include "pages/page_miner.h"
+#include "ui/pages/page_miner.h"
 
 // ============================================================================
 // destroy() ¡ª unsubscribe all Observables, null widget pointers

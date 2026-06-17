@@ -5,6 +5,8 @@
 #include "../thread/thread_entry.h"
 #include "../nvs/nvs_config.h"
 #include "../drivers/temp/temp_hal.h"
+#include "../drivers/display/display_hal.h"
+#include "../ui/ui_manager.h"
 #include "../utils/helper.h"
 #include "../utils/logger/logger.h"
 #include "../version.h"
@@ -286,10 +288,10 @@ void MinerApp::_begin_wifi_connect(BootProgress& boot) {
 }
 
 void MinerApp::_begin_display(BootProgress& boot) {
-    boot.next("Display placeholder");
+    boot.next("Display init...");
     lv_init();
     _ui_init();
-    _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 4, nullptr, TASK_PRIORITY_LVGL_DRV, 1);
+    _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 8, nullptr, TASK_PRIORITY_LVGL_DRV, 1);
 }
 
 void MinerApp::_begin_infra(BootProgress& boot) {
@@ -541,27 +543,22 @@ void MinerApp::_tick_thread_entry(void* args) {
 void MinerApp::_lvgl_thread_entry(void* args) {
     (void)args;
     while (true) {
-        lv_timer_handler();
+        // Drives current page update + LVGL timer handler (tileview + redraw).
+        UIManager::instance().render_update();
         delay(5);
     }
 }
 
 bool MinerApp::_ui_init() {
-    static lv_color_t buf[32];
-    static lv_disp_draw_buf_t draw_buf;
-    static lv_disp_drv_t disp_drv;
-
-    lv_disp_draw_buf_init(&draw_buf, buf, nullptr, 32);
-    lv_disp_drv_init(&disp_drv);
-    disp_drv.hor_res = 8;
-    disp_drv.ver_res = 4;
-    disp_drv.draw_buf = &draw_buf;
-    disp_drv.flush_cb = [](lv_disp_drv_t* drv, const lv_area_t* area, lv_color_t* color_p) {
-        (void)area;
-        (void)color_p;
-        lv_disp_flush_ready(drv);
-    };
-
-    lv_disp_drv_register(&disp_drv);
+    // Bring up the real TFT panel + LVGL display driver, then build the page tree.
+    tft_init(&_spec, &_pref);
+    uint16_t w = tft_screen_width();
+    uint16_t h = tft_screen_height();
+    ui_drv_register(w, h);
+    UIManager::instance().init(w, h);
+    // Backlight on (fall back to a sane default if no NVS brightness set).
+    uint8_t br = _pref.screen.brightness ? _pref.screen.brightness : 80;
+    tft_bl_ctrl(br, &_spec);
+    LOG_I("UI init done: %ux%u, brightness=%u%%", w, h, br);
     return true;
 }

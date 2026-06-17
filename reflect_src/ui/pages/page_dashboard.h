@@ -3,7 +3,7 @@
 #include "app/app_state.h"
 #include "lvgl.h"
 
-class PagedashboardBase : public UIPage {
+class PageDashboardBase : public UIPage {
 public:
     void _on_update() override {}
     void destroy() override { _bar_progress = _lb_details = nullptr; }

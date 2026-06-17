@@ -2,10 +2,10 @@
 #include "ui/pages/page_dashboard.h"
 #include "lvgl.h"
 
-class Pagedashboard320x240 : public PagedashboardBase {
+class PageDashboard320x240 : public PageDashboardBase {
 public:
     void create(lv_obj_t* parent) override {
-        _W = 240, _H = 320.Replace('W = ','').Replace(', _H = ','');
+        _W = 240, _H = 320;
         lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_style_pad_all(parent, 0, 0);
         lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);

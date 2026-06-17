@@ -74,6 +74,13 @@ private:
 struct ObsLabel {
     Observable<String>   text;
     Observable<uint32_t> color{(uint32_t)0xFFFFFF};
+
+    // Convenience forwarders so pages can subscribe text/color directly on the
+    // label. Overloads disambiguate by observer signature (String vs uint32_t).
+    void subscribe(Observable<String>::Observer obs, void* ctx = nullptr)   { text.subscribe(obs, ctx); }
+    void subscribe(Observable<uint32_t>::Observer obs, void* ctx = nullptr) { color.subscribe(obs, ctx); }
+    void unsubscribe(Observable<String>::Observer obs)   { text.unsubscribe(obs); }
+    void unsubscribe(Observable<uint32_t>::Observer obs) { color.unsubscribe(obs); }
 };
 
 // ============================================================================

@@ -1,4 +1,4 @@
-#include "pages/page_loading.h"
+#include "ui/pages/page_loading.h"
 
 void PageLoadingBase::destroy() {
     auto& l = AppState::instance().loading;

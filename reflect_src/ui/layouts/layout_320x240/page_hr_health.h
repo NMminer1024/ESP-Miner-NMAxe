@@ -2,10 +2,10 @@
 #include "ui/pages/page_hr_health.h"
 #include "lvgl.h"
 
-class Pagehr_health320x240 : public Pagehr_healthBase {
+class PageHr_health320x240 : public PageHr_healthBase {
 public:
     void create(lv_obj_t* parent) override {
-        _W = 240, _H = 320.Replace('W = ','').Replace(', _H = ','');
+        _W = 240, _H = 320;
         lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_style_pad_all(parent, 0, 0);
         lv_obj_set_style_bg_color(parent, lv_color_hex(0x000000), 0);
