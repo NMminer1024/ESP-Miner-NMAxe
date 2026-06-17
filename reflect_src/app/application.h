@@ -16,6 +16,8 @@
 #include "daemon_ctx.h"
 #include "monitor_ctx.h"
 #include "button_ctx.h"
+#include "runtime_state.h"
+#include "led_ctx.h"
 
 class MinerApp {
 public:
@@ -75,6 +77,9 @@ private:
     AxePowerHal*     _power = nullptr;       // power HAL instance (replaces g_board.power)
     PowerCtx*        _power_ctx = nullptr;   // DI context for power threads
     volatile bool    _ota_running = false;   // shared OTA flag (replaces g_board.status.ota.running)
+    volatile int     _ota_progress = 0;      // OTA progress 0..100 (replaces g_board.status.ota.progress)
+    PreferenceState  _pref;                  // live user preferences (replaces g_board.status.preference)
+    LedCtx*          _led_ctx = nullptr;     // DI context for led thread
     TempState        _temp;                  // shared temp samples (replaces g_board.status.temp)
     std::vector<fan_status_t> _fan_status;   // runtime fan status (replaces g_board.status.fan.list)
     FanCtx*          _fan_ctx = nullptr;     // DI context for fan thread

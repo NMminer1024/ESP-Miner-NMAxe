@@ -18,8 +18,10 @@
 #include "../app/daemon_ctx.h"
 #include "../app/monitor_ctx.h"
 #include "../app/button_ctx.h"
+#include "../app/led_ctx.h"
 #include "../nvs/nvs_config.h"
 #include <OneButton.h>
+#include <Adafruit_NeoPixel.h>
 #include "../utils/helper.h"
 #include "../utils/sha/csha256.h"
 #include <ArduinoJson.h>
@@ -1703,10 +1705,255 @@ void button_thread_entry(void* args) {
     }
 }
 
+// ── LED: WiFi/pool/sys status LEDs (NMAXE/Gamma) or NeoPixel show (NMQAXE++) ─
+//    Mirrors legacy led_thread_entry; board_sal_t* -> LedCtx* (DI).
 void led_thread_entry(void* args) {
-    (void)args;
-    LOG_D("(led) placeholder");
-    while (true) { delay(10000); }
+    LedCtx* ctx = static_cast<LedCtx*>(args);
+    const BoardSpecConfig& spec = *ctx->spec;
+    PreferenceState& pref = *ctx->pref;
+
+    const int pwmChannel = 3;
+    const int freq = 5 * 1000;
+    const int resolution = 8;
+
+    Adafruit_NeoPixel* strip = nullptr;
+
+    if (spec.led.wifi_pin != -1) {
+        pinMode(spec.led.wifi_pin, OUTPUT);
+        digitalWrite(spec.led.wifi_pin, HIGH);
+    }
+    if (spec.led.pool_pin != -1) {
+        pinMode(spec.led.pool_pin, OUTPUT);
+        digitalWrite(spec.led.pool_pin, HIGH);
+    }
+    if (spec.led.sys_pin != -1) {
+        if (spec.name == BOARD_NMAXE_NAME || spec.name == BOARD_NMAXE_GAMMA_NAME) {
+            pinMode(spec.led.sys_pin, OUTPUT);
+            ledcSetup(pwmChannel, freq, resolution);
+            ledcAttachPin(spec.led.sys_pin, pwmChannel);
+            ledcWrite(pwmChannel, 255); // off
+        } else if (spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
+            strip = new Adafruit_NeoPixel(8, spec.led.sys_pin, NEO_GRB + NEO_KHZ800);
+            while (!strip) {
+                LOG_E("Failed to create NeoPixel instance for SYS LED");
+                delay(1000);
+            }
+            strip->begin();
+            strip->show();
+            strip->setBrightness(100);
+        } else {
+            LOG_W("Unsupported board type for SYS LED control");
+        }
+    }
+
+    uint64_t led_cnt = 0;
+    const uint8_t dot = 20;
+    while (true) {
+        delay(10);
+        if (spec.name == BOARD_NMAXE_NAME || spec.name == BOARD_NMAXE_GAMMA_NAME) {
+            if (pref.led.sleep || !pref.led.enable) {
+                if (spec.led.wifi_pin != -1) digitalWrite(spec.led.wifi_pin, HIGH);
+                if (spec.led.pool_pin != -1) digitalWrite(spec.led.pool_pin, HIGH);
+                if (spec.led.sys_pin != -1)  ledcWrite(pwmChannel, 255);
+                continue;
+            }
+            if (ctx->ota_running && *ctx->ota_running) {
+                if (spec.led.wifi_pin != -1) digitalWrite(spec.led.wifi_pin, HIGH);
+                if (spec.led.pool_pin != -1) digitalWrite(spec.led.pool_pin, HIGH);
+                if (spec.led.sys_pin != -1)  ledcWrite(pwmChannel, 255);
+                continue;
+            }
+
+            uint8_t pattern_idx = (led_cnt % 201) / dot;
+            if (pattern_idx > 0 && pattern_idx <= 10) {
+                pattern_idx--;
+                bool wifi_connected = (*ctx->wifi_status == WL_CONNECTED);
+                bool pool_connected = ctx->stratum->is_subscribed();
+                bool wifi_state = wifi_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+                digitalWrite(spec.led.wifi_pin, wifi_state ? LOW : HIGH);
+                bool pool_state = pool_connected ? (pattern_idx == 0) : (pattern_idx % 2 == 1);
+                digitalWrite(spec.led.pool_pin, pool_state ? LOW : HIGH);
+            } else {
+                if (spec.led.wifi_pin != -1) digitalWrite(spec.led.wifi_pin, HIGH);
+                if (spec.led.pool_pin != -1) digitalWrite(spec.led.pool_pin, HIGH);
+            }
+
+            uint8_t speed = (ctx->status->hashrate._3m > 0) ? 1 : 20;
+            ledcWrite(pwmChannel, (uint32_t)((1 + sin(speed * led_cnt / 100.0f)) * (1 << resolution - 1)));
+            led_cnt++;
+        } else if (spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
+            if (pref.led.sleep || !pref.led.enable) {
+                for (int i = 0; i < strip->numPixels(); i++) strip->setPixelColor(i, strip->Color(0, 0, 0));
+                strip->show();
+                continue;
+            }
+
+            const uint8_t n = strip->numPixels();
+            static bool ota_was_active = false;
+
+            if (ctx->ota_running && *ctx->ota_running) {
+                static int      last_ota_progress = -1;
+                static uint32_t last_ota_show_ms  = 0;
+                if (!ota_was_active) {
+                    for (int i = 0; i < n; i++) strip->setPixelColor(i, strip->Color(0, 0, 0));
+                    strip->show();
+                    last_ota_progress = -1;
+                    last_ota_show_ms  = 0;
+                    ota_was_active    = true;
+                    delay(10);
+                }
+                int progress = ctx->ota_progress ? *ctx->ota_progress : 0;
+                progress = (progress < 0) ? 0 : (progress > 100 ? 100 : progress);
+                uint32_t now_ms = millis();
+                if (progress != last_ota_progress || (now_ms - last_ota_show_ms) >= 500) {
+                    last_ota_progress = progress;
+                    last_ota_show_ms  = now_ms;
+                    int lit = (progress * n + 99) / 100;
+                    uint8_t r = 0, g, b;
+                    if (progress <= 50) {
+                        float t = progress / 50.0f;
+                        g = (uint8_t)(200 * t);
+                        b = (uint8_t)(200 * (1.0f - t * 0.5f));
+                    } else {
+                        float t = (progress - 50) / 50.0f;
+                        g = 200;
+                        b = (uint8_t)(100 * (1.0f - t));
+                    }
+                    for (int i = 0; i < n; i++)
+                        strip->setPixelColor(i, (i < lit) ? strip->Color(r, g, b) : strip->Color(0, 0, 0));
+                    strip->show();
+                }
+                continue;
+            }
+
+            static bool post_ota_reset = false;
+            if (ota_was_active && !(ctx->ota_running && *ctx->ota_running)) {
+                ota_was_active = false;
+                post_ota_reset = true;
+                for (int i = 0; i < n; i++) strip->setPixelColor(i, strip->Color(0, 0, 0));
+                strip->show();
+            }
+
+            const uint8_t  NUM_EFFECTS        = 6;
+            const uint32_t EFFECT_DURATION_MS = 30000UL;
+            static uint8_t  cur_effect   = 0;
+            static uint32_t eff_start_ms = 0;
+            static uint32_t tick         = 0;
+
+            uint32_t now_ms = millis();
+            if (eff_start_ms == 0 || post_ota_reset) {
+                eff_start_ms   = now_ms;
+                tick           = 0;
+                cur_effect     = 0;
+                post_ota_reset = false;
+            }
+            if (now_ms - eff_start_ms >= EFFECT_DURATION_MS) {
+                cur_effect   = (cur_effect + 1) % NUM_EFFECTS;
+                eff_start_ms = now_ms;
+                tick         = 0;
+                for (int i = 0; i < strip->numPixels(); i++) strip->setPixelColor(i, strip->Color(0, 0, 0));
+                strip->show();
+            }
+
+            auto wheel = [&](uint8_t pos) -> uint32_t {
+                pos = 255 - pos;
+                if (pos < 85)  return strip->Color(255 - pos * 3, 0, pos * 3);
+                if (pos < 170) { pos -= 85;  return strip->Color(0, pos * 3, 255 - pos * 3); }
+                pos -= 170;    return strip->Color(pos * 3, 255 - pos * 3, 0);
+            };
+
+            switch (cur_effect) {
+                case 0: {
+                    uint8_t offset = (uint8_t)(tick * 2);
+                    for (int i = 0; i < n; i++) strip->setPixelColor(i, wheel((i * 256 / n + offset) & 0xFF));
+                    strip->show();
+                    break;
+                }
+                case 1: {
+                    float bri = (sinf(tick * 0.05f) + 1.0f) / 2.0f;
+                    static uint8_t color_idx = 0;
+                    static bool    was_dark  = false;
+                    if (bri < 0.02f) {
+                        if (!was_dark) { color_idx = (color_idx + 1) % 3; was_dark = true; }
+                    } else was_dark = false;
+                    uint8_t r = (color_idx == 0) ? (uint8_t)(255 * bri) : 0;
+                    uint8_t g = (color_idx == 1) ? (uint8_t)(255 * bri) : 0;
+                    uint8_t b = (color_idx == 2) ? (uint8_t)(255 * bri) : 0;
+                    for (int i = 0; i < n; i++) strip->setPixelColor(i, strip->Color(r, g, b));
+                    strip->show();
+                    break;
+                }
+                case 2: {
+                    for (int i = 0; i < n; i++) strip->setPixelColor(i, strip->Color(0, 0, 0));
+                    uint8_t phase = (tick / 5) % 3;
+                    uint32_t chase_color = wheel((uint8_t)(tick * 3));
+                    for (int i = phase; i < n; i += 3) strip->setPixelColor(i, chase_color);
+                    strip->show();
+                    break;
+                }
+                case 3: {
+                    const uint8_t METEOR_SIZE = 3;
+                    const float   TRAIL_DECAY = 0.75f;
+                    for (int i = 0; i < n; i++) {
+                        uint32_t c = strip->getPixelColor(i);
+                        uint8_t r2 = (uint8_t)(((c >> 16) & 0xFF) * TRAIL_DECAY);
+                        uint8_t g2 = (uint8_t)(((c >>  8) & 0xFF) * TRAIL_DECAY);
+                        uint8_t b2 = (uint8_t)(((c      ) & 0xFF) * TRAIL_DECAY);
+                        strip->setPixelColor(i, strip->Color(r2, g2, b2));
+                    }
+                    int meteor_pos = (tick / 2) % (n + METEOR_SIZE);
+                    for (int j = 0; j < METEOR_SIZE; j++) {
+                        int pos = meteor_pos - j;
+                        if (pos >= 0 && pos < n) {
+                            uint8_t bright = (j == 0) ? 255 : (j == 1 ? 160 : 80);
+                            strip->setPixelColor(pos, strip->Color(bright, bright, bright));
+                        }
+                    }
+                    strip->show();
+                    break;
+                }
+                case 4: {
+                    for (int i = 0; i < n; i++) {
+                        uint32_t c = strip->getPixelColor(i);
+                        uint8_t r2 = (uint8_t)(((c >> 16) & 0xFF) * 0.80f);
+                        uint8_t g2 = (uint8_t)(((c >>  8) & 0xFF) * 0.80f);
+                        uint8_t b2 = (uint8_t)(((c      ) & 0xFF) * 0.80f);
+                        strip->setPixelColor(i, strip->Color(r2, g2, b2));
+                    }
+                    if (tick % 3 == 0) {
+                        int pos = random(0, n);
+                        strip->setPixelColor(pos, wheel((uint8_t)random(0, 256)));
+                    }
+                    strip->show();
+                    break;
+                }
+                case 5: {
+                    static const uint32_t WIPE_COLORS[] = { 0xFF0000UL, 0x00FF00UL, 0x0000FFUL, 0xFF8800UL };
+                    const uint8_t NUM_WIPE = 4;
+                    uint32_t phase_len  = (uint32_t)n * 10;
+                    uint32_t color_idx  = (tick / phase_len) % NUM_WIPE;
+                    uint32_t phase_tick = tick % phase_len;
+                    uint32_t col = WIPE_COLORS[color_idx];
+                    uint8_t wr = (col >> 16) & 0xFF, wg = (col >> 8) & 0xFF, wb = (col) & 0xFF;
+                    if (phase_tick < (uint32_t)n * 5) {
+                        int fill_to = (int)(phase_tick / 5);
+                        for (int i = 0; i < n; i++)
+                            strip->setPixelColor(i, i <= fill_to ? strip->Color(wr, wg, wb) : strip->Color(0, 0, 0));
+                    } else {
+                        int clear_to = (int)((phase_tick - (uint32_t)n * 5) / 5);
+                        for (int i = 0; i < n; i++)
+                            strip->setPixelColor(i, i <= clear_to ? strip->Color(0, 0, 0) : strip->Color(wr, wg, wb));
+                    }
+                    strip->show();
+                    break;
+                }
+                default: break;
+            }
+            tick++;
+        }
+    }
+    LOG_I("led thread exit...");
+    vTaskDelete(NULL);
 }
 
 void webserver_thread_entry(void* args) {

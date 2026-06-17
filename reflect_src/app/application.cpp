@@ -140,6 +140,17 @@ bool MinerApp::init() {
     _force_config_xsem    = xSemaphoreCreateCounting(1, 0);
     _tz = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
     _bm_mode = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0);
+
+    // ── Live user preferences (defaults from board spec, overridden by NVS) ──
+    _pref.screen.flip          = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,         _spec.preference.screen.flip);
+    _pref.screen.auto_rolling  = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN,         _spec.preference.screen.auto_rolling);
+    _pref.screen.brightness    = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS,   _spec.preference.screen.brightness);
+    _pref.screen.saver_enable  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, _spec.preference.screen.saver_enable);
+    _pref.screen.saver_timeout = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, _spec.preference.screen.saver_timeout);
+    _pref.screen.saver_mode    = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_MODE,   0);
+    _pref.led.enable           = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR,       _spec.preference.led.enable);
+    _pref.led.sleep            = false;
+    _pref.led.sleep_last       = _pref.led.sleep;
     if (_bm_mode) {
         LOG_W("[BM] *** Benchmark mode active (bm_mode=%d) ***", _bm_mode);
     }
@@ -316,6 +327,18 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     _button_ctx = &button_ctx;
 
     _create_task(button_thread_entry, "(button)", 1024 * 3, _button_ctx, TASK_PRIORITY_BTN, 1);
+
+    static LedCtx led_ctx;
+    led_ctx.spec         = &_spec;
+    led_ctx.pref         = &_pref;
+    led_ctx.stratum      = _stratum;
+    led_ctx.status       = _minerStatus;
+    led_ctx.wifi_status  = &_wifi->status;
+    led_ctx.ota_running  = &_ota_running;
+    led_ctx.ota_progress = &_ota_progress;
+    _led_ctx = &led_ctx;
+
+    _create_task(led_thread_entry, "(led)", 1024 * 3, _led_ctx, TASK_PRIORITY_LED, 1);
 }
 
 void MinerApp::_begin_market(BootProgress& boot) {
