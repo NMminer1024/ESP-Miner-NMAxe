@@ -9,6 +9,16 @@ struct BoardSpecConfig;
 struct MinerStatus;
 
 // ============================================================================
+//  PowerTelemetry — measured power rails (replaces board.status.power)
+//  Written by the monitor thread (sampled every second), read by ui/web/history.
+// ============================================================================
+struct PowerTelemetry {
+    volatile uint16_t vbus  = 0;   // mV
+    volatile uint16_t ibus  = 0;   // mA
+    volatile uint16_t vcore = 0;   // mV
+};
+
+// ============================================================================
 //  PowerCtx — launch context for power_init / power_loop threads
 //
 //  Replaces the legacy board_sal_t* arg. Each field is an explicit dependency

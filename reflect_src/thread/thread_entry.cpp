@@ -16,12 +16,16 @@
 #include "../market/market_ctx.h"
 #include "../net/swarm_ctx.h"
 #include "../app/daemon_ctx.h"
+#include "../app/monitor_ctx.h"
 #include "../nvs/nvs_config.h"
 #include "../utils/helper.h"
 #include "../utils/sha/csha256.h"
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+#include <WiFiUdp.h>
+#include <NTPClient.h>
+#include <sys/time.h>
 #include "lwip/sockets.h"
 #include "lwip/icmp.h"
 #include "lwip/inet_chksum.h"
@@ -1238,6 +1242,294 @@ void fan_thread_entry(void* args) {
             pid_start[fan_id] = millis();
         }
         fan_set_speed(init_param, fan_status->speed / 100.0, fan_invert);
+    }
+}
+
+// ── Monitor: NTP/time sync, telemetry, hashrate calc, safety watchdogs ──────
+//    Mirrors legacy monitor_thread_entry; board_sal_t* -> MonitorCtx* (DI).
+//    UI page-rolling and backlight control are owned by the reflect UI
+//    framework, so those legacy branches are intentionally omitted here.
+void monitor_thread_entry(void* args) {
+    MonitorCtx* ctx = static_cast<MonitorCtx*>(args);
+    AxePowerHal*     power = ctx->power;
+    BoardSpecConfig& spec  = *ctx->spec;
+    MinerStatus&     st    = *ctx->status;
+    LOG_I("(monitor) thread started on core %d...", xPortGetCoreID());
+
+    // NTP server list — rotated on consecutive failures; global coverage.
+    static const char* const NTP_SERVERS[] = {
+        "pool.ntp.org", "time.cloudflare.com", "time.apple.com", "time.windows.com",
+        "ntp.aliyun.com", "ntp.tencent.com", "ntp.ntsc.ac.cn", "cn.pool.ntp.org",
+        "asia.pool.ntp.org", "europe.pool.ntp.org", "ntp.ubuntu.com",
+        "north-america.pool.ntp.org", "time.google.com",
+        "south-america.pool.ntp.org", "a.ntp.br", "africa.pool.ntp.org",
+        "oceania.pool.ntp.org", "au.pool.ntp.org",
+    };
+    static const uint8_t  NTP_SERVER_COUNT  = sizeof(NTP_SERVERS) / sizeof(NTP_SERVERS[0]);
+    static const uint8_t  NTP_MAX_FAIL      = 3;
+    static const uint32_t NTP_SYNC_INTERVAL = 3600;
+
+    uint8_t  ntp_server_idx  = 0;
+    uint8_t  ntp_fail_cnt    = 0;
+    bool     ntp_ever_synced = false;
+    uint64_t last_ntp_sync   = 0;
+
+    WiFiUDP   udpNtpClient;
+    NTPClient* ntpClient = new NTPClient(udpNtpClient, NTP_SERVERS[ntp_server_idx]);
+    uint64_t  last_nvs_save_time = st.uptime_session;
+
+    ntpClient->begin();
+    ntpClient->setTimeOffset(0); // UTC, no timezone offset
+    LOG_I("NTP client started, primary server: %s", NTP_SERVERS[ntp_server_idx]);
+
+    while (true) {
+        delay(1000);
+
+        // --- NTP sync ---
+        bool wifi_up     = (WL_CONNECTED == *ctx->wifi_status);
+        bool first_sync  = (!ntp_ever_synced && wifi_up);
+        bool interval_ok = (st.uptime_session - last_ntp_sync >= NTP_SYNC_INTERVAL);
+
+        if (wifi_up && (first_sync || interval_ok)) {
+            LOG_I("NTP sync attempt [%d/%d] using server: %s ...", ntp_fail_cnt + 1, NTP_MAX_FAIL, NTP_SERVERS[ntp_server_idx]);
+            bool sync_ok = ntpClient->forceUpdate();
+
+            if (sync_ok) {
+                struct timeval tv;
+                tv.tv_sec  = ntpClient->getEpochTime();
+                tv.tv_usec = 0;
+                settimeofday(&tv, NULL);
+                *ctx->utc = tv.tv_sec;
+
+                float tz_offset = ctx->tz->toFloat();
+                int tz_hour = (int)tz_offset;
+                int tz_min  = (int)((fabs(tz_offset) - abs(tz_hour)) * 60 + 0.5f);
+
+                char tz_buf[16] = {0};
+                if (tz_offset >= 0) {
+                    if (tz_min == 0) sprintf(tz_buf, "UTC-%d",     tz_hour);
+                    else             sprintf(tz_buf, "UTC-%d:%02d", tz_hour, tz_min);
+                } else {
+                    if (tz_min == 0) sprintf(tz_buf, "UTC+%d",     abs(tz_hour));
+                    else             sprintf(tz_buf, "UTC+%d:%02d", abs(tz_hour), tz_min);
+                }
+                setenv("TZ", tz_buf, 1);
+                tzset();
+
+                String time_local = convert_time_to_local((uint32_t)*ctx->utc);
+                LOG_W("NTP sync OK  [server: %s] UTC[%llu] local[%s] tz[%s] env[%s]",
+                      NTP_SERVERS[ntp_server_idx], (unsigned long long)*ctx->utc,
+                      time_local.c_str(), ctx->tz->c_str(), tz_buf);
+
+                ntp_fail_cnt    = 0;
+                ntp_ever_synced = true;
+                last_ntp_sync   = st.uptime_session;
+            } else {
+                ntp_fail_cnt++;
+                LOG_W("NTP sync FAIL [server: %s] consecutive_fail=%d/%d  ever_synced=%s  last_sync=%llus ago",
+                      NTP_SERVERS[ntp_server_idx], ntp_fail_cnt, NTP_MAX_FAIL,
+                      ntp_ever_synced ? "yes" : "no",
+                      (unsigned long long)(ntp_ever_synced ? (st.uptime_session - last_ntp_sync) : 0));
+
+                if (ntp_fail_cnt >= NTP_MAX_FAIL) {
+                    uint8_t old_idx = ntp_server_idx;
+                    ntp_server_idx  = (ntp_server_idx + 1) % NTP_SERVER_COUNT;
+                    ntp_fail_cnt    = 0;
+                    ntpClient->end();
+                    delete ntpClient;
+                    ntpClient = new NTPClient(udpNtpClient, NTP_SERVERS[ntp_server_idx]);
+                    ntpClient->begin();
+                    ntpClient->setTimeOffset(0);
+                    LOG_W("NTP server rotated: [%s] -> [%s]", NTP_SERVERS[old_idx], NTP_SERVERS[ntp_server_idx]);
+                }
+
+                time_t now;
+                time(&now);
+                *ctx->utc = now;
+            }
+        } else {
+            time_t now;
+            time(&now);
+            *ctx->utc = now;
+        }
+
+        st.uptime_ever++;
+        st.uptime_session++;
+
+        // --- per-second telemetry, hashrate recalc, efficiency, distribution ---
+        {
+            ctx->pwr->vbus  = power->get_vbus();
+            ctx->pwr->ibus  = power->get_ibus();
+            ctx->pwr->vcore = power->get_vcore();
+            if (ctx->wifi_rssi) *ctx->wifi_rssi = WiFi.RSSI();
+            if (st.hashrate._3m > 0)
+                st.efficiency = (ctx->pwr->vbus * ctx->pwr->ibus / 1e6) / (st.hashrate._3m / 1e12); // J/TH
+            ctx->miner->calculate_hashrate(&st.hashrate);
+            xSemaphoreGive(st.update_xsem);
+
+            // hashrate distribution histogram (PSRAM-backed counts)
+            spec.ui.hashrate_dist_page.time = st.uptime_session;
+            {
+                static uint16_t SCALE = (spec.ui.hashrate_dist_page.max_x_hr / spec.ui.hashrate_dist_page.max_x_bars);
+                static uint64_t* counts = NULL;
+                if (counts == NULL) {
+                    counts = (uint64_t*)heap_caps_malloc(spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+                    if (counts == NULL) {
+                        LOG_E("Failed to allocate hashrate distribution counts in PSRAM");
+                        continue;
+                    }
+                    memset(counts, 0, spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+                }
+                double hr_now = st.hashrate._3m;
+                int index = (int)(hr_now / 1000 / 1000 / 1000 / SCALE); // GH/s, scaled
+                index = (index >= (int)spec.ui.hashrate_dist_page.max_x_bars) ? spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
+                counts[index]++;
+                spec.ui.hashrate_dist_page.count++;
+                for (int i = 0; i < (int)spec.ui.hashrate_dist_page.max_x_bars; i++) {
+                    uint8_t y = (uint8_t)(100 * (float)counts[i] / (float)spec.ui.hashrate_dist_page.count);
+                    spec.ui.hashrate_dist_page.dist_map[i] = y;
+                }
+            }
+        }
+
+        // --- safety status checks (skipped entirely in benchmark mode) ---
+        if (st.uptime_session % 2 == 0) {
+            if (*ctx->bm_mode == 0) {
+            if (!(ctx->ota_running && *ctx->ota_running)) {
+                static uint8_t  vcore_err_cnt = 0;
+                static uint8_t  asic_err_cnt  = 0;
+                static uint16_t fan_err_cnt   = 0;
+                static uint16_t pwr_err_cnt   = 0;
+                static uint16_t hr_err_cnt    = 0;
+                bool suppress_activity_checks = st.suppress_activity_checks(millis());
+                if (suppress_activity_checks) {
+                    fan_err_cnt = 0;
+                    pwr_err_cnt = 0;
+                    hr_err_cnt  = 0;
+                    st.asic_update = millis();
+                }
+
+                // vcore temperature
+                if (ctx->temp->vcore > spec.pwr.temp_limit.high) {
+                    uint16_t vcore_req_last = spec.asic.req_vcore;
+                    uint8_t step = 5;
+                    if (spec.asic.req_vcore >= spec.asic.min_vcore + step) spec.asic.req_vcore -= step;
+                    else                                                   spec.asic.req_vcore = spec.asic.min_vcore;
+                    LOG_W("Vcore part temp reach danger (vcore: %.1fC), decrease vcore from %d to %d mV", ctx->temp->vcore, vcore_req_last, spec.asic.req_vcore);
+                    if (++vcore_err_cnt > 10) {
+                        LOG_W("Vcore part temp keep danger, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_OVERHEAT_VCORE, "Vcore=%.1fC > limit=%dC for >10s", ctx->temp->vcore, (int)spec.pwr.temp_limit.high);
+                        xSemaphoreGive(ctx->reboot_xsem);
+                    }
+                } else vcore_err_cnt = 0;
+
+                // asic temperature
+                if (ctx->temp->asic > spec.asic.temp_limit.high) {
+                    uint16_t vcore_req_last = spec.asic.req_vcore;
+                    uint8_t step = 5;
+                    if (spec.asic.req_vcore >= spec.asic.min_vcore + step) spec.asic.req_vcore -= step;
+                    else                                                   spec.asic.req_vcore = spec.asic.min_vcore;
+                    LOG_W("ASIC temp reach danger (asic: %.1fC), decrease vcore from %d to %d mV", ctx->temp->asic, vcore_req_last, spec.asic.req_vcore);
+                    if (++asic_err_cnt > 10) {
+                        LOG_W("ASIC temp keep danger, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_OVERHEAT_ASIC, "ASIC=%.1fC > limit=%dC for >10s", ctx->temp->asic, (int)spec.asic.temp_limit.high);
+                        xSemaphoreGive(ctx->reboot_xsem);
+                    }
+                } else asic_err_cnt = 0;
+
+                // fan status
+                if (!suppress_activity_checks && ctx->temp->asic > spec.asic.temp_limit.low) {
+                    for (auto& fan : *ctx->fan_status) {
+                        if (fan.rpm < spec.fans[fan.id].init.danger_rpm_thr) {
+                            fan_err_cnt++;
+                            if (fan_err_cnt > 20) {
+                                LOG_W("Fan rpm is too low, restart miner...");
+                                reboot_intent_set(REBOOT_INTENT_FAN_STALL, "fan#%d rpm=%d < danger=%d for >20s", fan.id, fan.rpm, spec.fans[fan.id].init.danger_rpm_thr);
+                                xSemaphoreGive(ctx->reboot_xsem);
+                            }
+                        } else fan_err_cnt = 0;
+                    }
+                }
+
+                // power status
+                if (!suppress_activity_checks && (ctx->pwr->vbus * ctx->pwr->ibus / 1000.0 / 1000.0) < spec.pwr.power_low_threshold) {
+                    LOG_W("Power %0.1fW is too low...", ctx->pwr->vbus * ctx->pwr->ibus / 1000.0 / 1000.0);
+                    if (++pwr_err_cnt > 120) {
+                        LOG_W("Power is too low, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_POWER_LOW, "input %.1fW < threshold=%.1fW for >120s", ctx->pwr->vbus * ctx->pwr->ibus / 1000.0 / 1000.0, (double)spec.pwr.power_low_threshold);
+                        xSemaphoreGive(ctx->reboot_xsem);
+                    }
+                } else pwr_err_cnt = 0;
+
+                // hashrate
+                if (!suppress_activity_checks && st.hashrate._3m <= 1) {
+                    if (++hr_err_cnt > 60) {
+                        LOG_W("Hashrate is too low, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_LOW_HASHRATE, "3m hashrate %.2f <= 1 for >60s", (double)st.hashrate._3m);
+                        xSemaphoreGive(ctx->reboot_xsem);
+                    }
+                } else hr_err_cnt = 0;
+            } // end !ota.running
+            } // end bm_mode == 0
+        }
+
+        // save status to NVS (interval-driven request)
+        if (st.uptime_session - last_nvs_save_time > BOARD_NVS_SAVE_INTERVAL) {
+            xSemaphoreGive(ctx->nvs_save_xsem);
+        }
+
+        // update miner status history queue
+        if (st.uptime_session % MINER_HISTORY_SAMPLE_INTERVAL == 0) {
+            history_node_t node;
+            node.hashrate   = (float)(st.hashrate._3m / 1e9);  // GH/s
+            node.asic_temp  = ctx->temp->asic;
+            node.vcore_temp = ctx->temp->vcore;
+            node.pbus       = (ctx->pwr->vbus * ctx->pwr->ibus / 1000.0f / 1000.0f); // W
+            node.vbus       = (ctx->pwr->vbus / 1000.0f); // V
+            node.ibus       = (ctx->pwr->ibus / 1000.0f); // A
+            node.vcore      = ctx->pwr->vcore;            // mV
+            node.fanspeed   = ctx->fan_status->empty() ? 0 : (*ctx->fan_status)[0].speed;
+            node.fanrpm     = ctx->fan_status->empty() ? 0 : (*ctx->fan_status)[0].rpm;
+            node.wifi_rssi  = ctx->wifi_rssi ? *ctx->wifi_rssi : 0;
+            node.free_ram   = ESP.getFreeHeap() / 1024;
+            node.free_psram = ESP.getFreePsram() / 1024;
+            node.epoch      = *ctx->utc * 1000ULL;
+            node.latency    = st.latency;
+
+            if (xSemaphoreTake(st.status_history.mutex, portMAX_DELAY) == pdTRUE) {
+                st.status_history.deque.push_back(node);
+                while (st.status_history.deque.size() > MINER_HISTORY_MAX_SIZE) {
+                    st.status_history.deque.pop_front();
+                }
+                uint64_t current_time_ms = *ctx->utc * 1000ULL;
+                while (!st.status_history.deque.empty()) {
+                    uint64_t oldest_time_ms = st.status_history.deque.front().epoch;
+                    if (current_time_ms - oldest_time_ms > MINER_HISTORY_SAMPLE_DEEPTH) {
+                        st.status_history.deque.pop_front();
+                    } else break;
+                }
+                xSemaphoreGive(st.status_history.mutex);
+            }
+        }
+
+        // force config if user long-press boot button
+        if (xSemaphoreTake(ctx->force_config_xsem, 0) == pdTRUE) {
+            LOG_W("Force configuration triggered, starting wifi in AP mode when next reboot...");
+            nvs_config_set_u8(NVS_CONFIG_FORCE_CONFIG, true);
+            reboot_intent_set(REBOOT_INTENT_FORCE_CONFIG, "long-press boot button -> AP mode on next boot");
+            xSemaphoreGive(ctx->reboot_xsem);
+        }
+
+        // persist some status to NVS on request
+        if (xSemaphoreTake(ctx->nvs_save_xsem, 0) == pdTRUE) {
+            nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(st.diff.best_ever).c_str());
+            nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, st.hits);
+            nvs_config_set_u64(NVS_CONFIG_UPTIME, st.uptime_ever);
+            last_nvs_save_time = st.uptime_session;
+            LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]",
+                  formatNumber(st.diff.best_ever, 4).c_str(), st.hits,
+                  convert_uptime_to_string(st.uptime_ever).c_str());
+        }
     }
 }
 

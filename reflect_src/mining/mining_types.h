@@ -19,6 +19,12 @@ typedef uint16_t asic_id_t;
 #define MINER_RESUME_GRACE_MS           (1000*60*3)  // ms, post-resume grace window
 #define MINER_LOG_SUMMARY_INTERVAL      (1000*60*1)  // ms, summary log cadence
 
+// ── History / persistence cadence (mirror legacy global.h) ──────────────────
+#define BOARD_NVS_SAVE_INTERVAL         (60*60)         // seconds between NVS persists
+#define MINER_HISTORY_SAMPLE_DEEPTH     (1000*3600*24)  // history retention window (ms)
+#define MINER_HISTORY_SAMPLE_INTERVAL   (5)             // history sample interval (s)
+#define MINER_HISTORY_MAX_SIZE          (20000)         // hard cap on deque element count
+
 // ============================================================================
 //  Miner runtime control state (mirrors legacy miner_runtime_state_t)
 // ============================================================================

@@ -138,6 +138,7 @@ bool MinerApp::init() {
     _nvs_save_xsem = xSemaphoreCreateCounting(1, 0);
     _recover_factory_xsem = xSemaphoreCreateCounting(1, 0);
     _force_config_xsem    = xSemaphoreCreateCounting(1, 0);
+    _tz = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
     _bm_mode = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0);
     if (_bm_mode) {
         LOG_W("[BM] *** Benchmark mode active (bm_mode=%d) ***", _bm_mode);
@@ -346,6 +347,28 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     _create_task(stratum_thread_entry,     "(stratum)",   1024 * 11, _miner_ctx, TASK_PRIORITY_STRATUM,   1);
     _create_task(miner_tx_thread_entry,    "(asic_tx)",   1024 * 7,  _miner_ctx, TASK_PRIORITY_MINER_TX,  1);
     _create_task(miner_rx_thread_entry,    "(asic_rx)",   1024 * 6,  _miner_ctx, TASK_PRIORITY_MINER_RX,  0);
+
+    static MonitorCtx mctx;
+    mctx.power             = _power;
+    mctx.spec             = &_spec;
+    mctx.miner            = _miner;
+    mctx.status           = _minerStatus;
+    mctx.pwr              = &_pwr_tele;
+    mctx.temp             = &_temp;
+    mctx.fan_status       = &_fan_status;
+    mctx.wifi_status      = &_wifi->status;
+    mctx.wifi_rssi        = &_wifi->rssi;
+    mctx.utc              = &_utc;
+    mctx.tz               = &_tz;
+    mctx.ota_running      = &_ota_running;
+    mctx.bm_mode          = &_bm_mode;
+    mctx.reboot_xsem      = _sys->reboot_xsem;
+    mctx.nvs_save_xsem    = _nvs_save_xsem;
+    mctx.force_config_xsem = _force_config_xsem;
+    mctx.sys_evt          = _sys->sys_evt;
+    _monitor_ctx = &mctx;
+
+    _create_task(monitor_thread_entry, "(monitor)", 1024 * 5, _monitor_ctx, TASK_PRIORITY_MONITOR, 1);
 }
 
 void MinerApp::begin() {

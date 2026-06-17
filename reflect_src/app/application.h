@@ -14,6 +14,7 @@
 #include "../net/swarm_ctx.h"
 #include "../market/market_ctx.h"
 #include "daemon_ctx.h"
+#include "monitor_ctx.h"
 
 class MinerApp {
 public:
@@ -64,6 +65,9 @@ private:
     ConnInfo*        _conn = nullptr;         // pool/stratum connection set (replaces g_board.info.connection)
     MinerCtx*        _miner_ctx = nullptr;    // DI context for stratum/miner/monitor threads
     volatile uint64_t _utc = 0;              // shared UTC seconds (time domain)
+    String           _tz;                    // timezone string, e.g. "8.0" (NVS)
+    PowerTelemetry   _pwr_tele;              // measured vbus/ibus/vcore (replaces g_board.status.power)
+    MonitorCtx*      _monitor_ctx = nullptr; // DI context for monitor thread
     SemaphoreHandle_t _nvs_save_xsem = nullptr; // request NVS persist of best-ever/hits/uptime
     BoardModelType   _model = BOARD_UNKNOWN;
     BoardSpecConfig  _spec;                 // runtime board spec (replaces g_board.info.spec)
