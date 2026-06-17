@@ -7,6 +7,7 @@
 #include "../drivers/temp/temp_hal.h"
 #include "../drivers/display/display_hal.h"
 #include "../ui/ui_manager.h"
+#include "../ui/overlay_manager.h"
 #include "../utils/helper.h"
 #include "../utils/logger/logger.h"
 #include "../version.h"
@@ -514,6 +515,14 @@ void MinerApp::_tick_thread_entry(void* args) {
             last_temp_ms = now;
         }
 
+        // ── Backlight brightness update (web/UI changes screen.brightness then
+        //     gives this semaphore). Apply immediately; ledcWrite is thread-safe.
+        if (app._brightness_update_xsem &&
+            xSemaphoreTake(app._brightness_update_xsem, 0) == pdTRUE) {
+            tft_bl_ctrl(app._pref.screen.brightness, &app._spec);
+            LOG_I("Backlight updated -> %u%%", app._pref.screen.brightness);
+        }
+
         // ── UI state refresh at 1 Hz ──
         if (now - last_ui_ms < 1000) {
             continue;
@@ -649,7 +658,8 @@ void MinerApp::_tick_thread_entry(void* args) {
 void MinerApp::_lvgl_thread_entry(void* args) {
     (void)args;
     while (true) {
-        // Drives current page update + LVGL timer handler (tileview + redraw).
+        // Update top-layer overlays (benchmark/pause/fault) then drive pages + LVGL.
+        OverlayManager::instance().update();
         UIManager::instance().render_update();
         delay(5);
     }
@@ -663,6 +673,13 @@ bool MinerApp::_ui_init() {
     ui_drv_register(w, h);
     touch_drv_register(&_pref, 50);   // enables tileview swipe nav (no-op if absent)
     UIManager::instance().init(w, h);
+
+    OverlayCtx octx;
+    octx.bm_mode = &_bm_mode;
+    octx.bm      = &_bm;
+    octx.status  = _minerStatus;
+    octx.sys_evt = _sys->sys_evt;
+    OverlayManager::instance().init(octx);
     // Backlight on (fall back to a sane default if no NVS brightness set).
     uint8_t br = _pref.screen.brightness ? _pref.screen.brightness : 80;
     tft_bl_ctrl(br, &_spec);
