@@ -33,6 +33,9 @@ void power_loop_thread_entry(void* args);
 // ── Fan: speed control ──────────────────────────────────────────────────────
 void fan_thread_entry(void* args);
 
+// ── Daemon: reboot orchestration + factory reset + freeze watchdogs ─────────
+void daemon_thread_entry(void* args);
+
 // ── LED: status indicator effects ───────────────────────────────────────────
 void led_thread_entry(void* args);
 

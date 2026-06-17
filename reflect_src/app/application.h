@@ -12,6 +12,7 @@
 #include "../drivers/temp/temp_ctx.h"
 #include "../net/wifi_ctx.h"
 #include "../market/market_ctx.h"
+#include "daemon_ctx.h"
 
 class MinerApp {
 public:
@@ -80,6 +81,10 @@ private:
     MarketCtx*       _market_ctx = nullptr;  // DI context for market thread
     String           _coin_price;            // main display coin (NVS)
     String           _coin_watchlist;        // watchlist coins (NVS)
+    SemaphoreHandle_t _recover_factory_xsem = nullptr; // factory reset request (control)
+    SemaphoreHandle_t _force_config_xsem = nullptr;    // force AP config request (control)
+    volatile uint8_t _bm_mode = 0;           // benchmark mode flag (NVS cached at boot)
+    DaemonCtx*       _daemon_ctx = nullptr;   // DI context for daemon thread
     std::vector<TaskEntry> _tasks;
 
     BaseType_t _create_task(TaskFunction_t fn, const char* name,

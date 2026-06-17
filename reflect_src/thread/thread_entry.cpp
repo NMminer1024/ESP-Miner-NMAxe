@@ -14,6 +14,7 @@
 #include "../drivers/temp/tmp102.h"
 #include "../net/wifi_ctx.h"
 #include "../market/market_ctx.h"
+#include "../app/daemon_ctx.h"
 #include "../nvs/nvs_config.h"
 #include "../utils/helper.h"
 #include "../utils/sha/csha256.h"
@@ -1229,6 +1230,88 @@ void fan_thread_entry(void* args) {
         }
         fan_set_speed(init_param, fan_status->speed / 100.0, fan_invert);
     }
+}
+
+// ── Daemon: reboot orchestration, factory reset, stratum/ASIC watchdogs ─────
+//    Mirrors legacy daemon_thread_entry; board_sal_t* -> DaemonCtx* (DI).
+void daemon_thread_entry(void* args) {
+    DaemonCtx* ctx = static_cast<DaemonCtx*>(args);
+    MinerStatus& st = *ctx->status;
+    LOG_I("(daemon) thread started on core %d...", xPortGetCoreID());
+
+    while (true) {
+        delay(1000);
+        // Mirror uptime / min free heap into RTC for post-crash forensics.
+        reboot_log_tick();
+
+        // check reboot request
+        if (xSemaphoreTake(ctx->reboot_xsem, 0) == pdTRUE) {
+            delay(1500); // keep running=true so display can render 100% before reboot
+            if (ctx->ota_running) *ctx->ota_running = false;
+            delay(300);  // brief pause for any final rendering
+            reboot_intent_set_if_unset(REBOOT_INTENT_DAEMON_GENERIC,
+                                       "reboot_xsem fired without explicit intent");
+            ESP.restart();
+        }
+
+        // avoid restart when ota running
+        if (ctx->ota_running && *ctx->ota_running) continue;
+
+        // recover factory if user long press user button
+        if (xSemaphoreTake(ctx->recover_factory_xsem, 0) == pdTRUE) {
+            LOG_W("Factory reset triggered, erasing config (benchmark results preserved) and restart...");
+
+            char*    bm_result_save    = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+            uint32_t bm_start_ts_save  = nvs_config_get_u32(NVS_CONFIG_BM_START_TS,  0);
+            uint32_t bm_total_sec_save = nvs_config_get_u32(NVS_CONFIG_BM_TOTAL_SEC, 0);
+            bool     bm_has_data       = bm_result_save
+                                         && strcmp(bm_result_save, "[]") != 0
+                                         && strlen(bm_result_save) > 2;
+            LOG_I("Factory reset: benchmark saved (has_data=%d, start_ts=%lu, total_sec=%lu)",
+                  (int)bm_has_data, (unsigned long)bm_start_ts_save, (unsigned long)bm_total_sec_save);
+
+            if (erase_all_nvs()) {
+                if (bm_has_data)            nvs_config_set_string(NVS_CONFIG_BM_RESULT,   bm_result_save);
+                if (bm_start_ts_save  > 0)  nvs_config_set_u32(NVS_CONFIG_BM_START_TS,  bm_start_ts_save);
+                if (bm_total_sec_save > 0)  nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, bm_total_sec_save);
+                LOG_I("Factory reset: benchmark data restored successfully");
+
+                reboot_intent_set(REBOOT_INTENT_FACTORY_RESET, "user-triggered factory reset");
+                xSemaphoreGive(ctx->reboot_xsem);
+            } else {
+                LOG_E("Factory reset failed!");
+            }
+            if (bm_result_save) free(bm_result_save);
+        }
+
+        // WiFi daemon
+        if (xSemaphoreTake(ctx->wifi_reconnect_xsem, 0) == pdTRUE) {
+            WiFi.begin(ctx->wifi_cfg->sta_ssid.c_str(), ctx->wifi_cfg->sta_pwd.c_str());
+        }
+
+        // skip further checks if wifi not connected
+        if (*ctx->wifi_status != WL_CONNECTED) continue;
+
+        // Stratum daemon
+        if (millis() - st.stratum_update > MINER_STRATUM_ALIVE_TIMEOUT) {
+            LOG_W("Stratum connection seems frozen, restarting...");
+            reboot_intent_set(REBOOT_INTENT_POOL_TIMEOUT,
+                              "no stratum traffic for %lums", (unsigned long)MINER_STRATUM_ALIVE_TIMEOUT);
+            xSemaphoreGive(ctx->reboot_xsem);
+        }
+        // ASIC daemon — skipped in benchmark mode (benchmark thread handles zero-HR abort)
+        if (*ctx->bm_mode == 0 && !st.suppress_activity_checks(millis())) {
+            if (millis() - st.asic_update > MINER_ASIC_ALIVE_TIMEOUT) {
+                LOG_W("ASIC seems frozen, restarting...");
+                reboot_intent_set_if_unset(REBOOT_INTENT_ASIC_FROZEN,
+                                  "no ASIC reply for %lums", (unsigned long)MINER_ASIC_ALIVE_TIMEOUT);
+                xSemaphoreGive(ctx->reboot_xsem);
+            }
+        }
+    }
+    LOG_W("Daemon thread exiting...");
+    delay(1000);
+    vTaskDelete(NULL);
 }
 
 void led_thread_entry(void* args) {

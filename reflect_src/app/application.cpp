@@ -131,6 +131,12 @@ bool MinerApp::init() {
     _minerStatus = &miner_status;
 
     _nvs_save_xsem = xSemaphoreCreateCounting(1, 0);
+    _recover_factory_xsem = xSemaphoreCreateCounting(1, 0);
+    _force_config_xsem    = xSemaphoreCreateCounting(1, 0);
+    _bm_mode = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0);
+    if (_bm_mode) {
+        LOG_W("[BM] *** Benchmark mode active (bm_mode=%d) ***", _bm_mode);
+    }
 
     // Restore persisted counters (best-ever diff, block hits, uptime).
     {
@@ -267,7 +273,20 @@ void MinerApp::_begin_display(BootProgress& boot) {
 }
 
 void MinerApp::_begin_infra(BootProgress& boot) {
-    boot.next("Infra placeholder");
+    boot.next("Daemon start...");
+
+    static DaemonCtx ctx;
+    ctx.reboot_xsem          = _sys->reboot_xsem;
+    ctx.recover_factory_xsem = _recover_factory_xsem;
+    ctx.wifi_reconnect_xsem  = _wifi->reconnect_xsem;
+    ctx.ota_running          = &_ota_running;
+    ctx.wifi_status          = &_wifi->status;
+    ctx.bm_mode              = &_bm_mode;
+    ctx.status               = _minerStatus;
+    ctx.wifi_cfg             = &_wifi_cfg;
+    _daemon_ctx = &ctx;
+
+    _create_task(daemon_thread_entry, "(daemon)", 1024 * 4, _daemon_ctx, TASK_PRIORITY_DAEMON, 0);
 }
 
 void MinerApp::_begin_market(BootProgress& boot) {
