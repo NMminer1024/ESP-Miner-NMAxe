@@ -56,11 +56,13 @@ bool MinerApp::init() {
 
     static SystemSync sys_storage;
     static WifiState wifi_storage;
-    static SwarmCtx swarm_storage;
+    static SwarmState swarm_storage;
+    static NeighborState neighbor_storage;
 
     _sys = &sys_storage;
     _wifi = &wifi_storage;
     _swarm = &swarm_storage;
+    _neighbor = &neighbor_storage;
 
     _sys->init_evt = xEventGroupCreate();
     _sys->sys_evt = xEventGroupCreate();
@@ -76,6 +78,9 @@ bool MinerApp::init() {
     _swarm->total_workers = 1;
     _swarm->total_hr = 0.0f;
     _swarm->best_ever_bd = 0.0f;
+
+    _neighbor->mutex = xSemaphoreCreateMutex();
+    _neighbor->scan_required = xSemaphoreCreateCounting(1, 0);
 
     // ── Board detection + spec (real board layer, preserves original timing) ──
     // get_board_model() internally debounces the selection pins (up to ~3 s).
@@ -287,6 +292,18 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     _daemon_ctx = &ctx;
 
     _create_task(daemon_thread_entry, "(daemon)", 1024 * 4, _daemon_ctx, TASK_PRIORITY_DAEMON, 0);
+
+    static SwarmCtx swarm_ctx;
+    swarm_ctx.swarm       = _swarm;
+    swarm_ctx.neighbor    = _neighbor;
+    swarm_ctx.status      = _minerStatus;
+    swarm_ctx.ota_running = &_ota_running;
+    swarm_ctx.sys_evt     = _sys->sys_evt;
+    swarm_ctx.init_evt    = _sys->init_evt;
+    _swarm_ctx = &swarm_ctx;
+
+    _create_task(swarm_thread_entry, "(swarm)",    1024 * 4, _swarm_ctx, TASK_PRIORITY_SWARM, 0);
+    _create_task(scan_thread_entry,  "(neighbor)", 1024 * 4, _swarm_ctx, TASK_PRIORITY_SCAN,  0);
 }
 
 void MinerApp::_begin_market(BootProgress& boot) {

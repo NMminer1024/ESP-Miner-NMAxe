@@ -11,6 +11,7 @@
 #include "../drivers/fan/fan_ctx.h"
 #include "../drivers/temp/temp_ctx.h"
 #include "../net/wifi_ctx.h"
+#include "../net/swarm_ctx.h"
 #include "../market/market_ctx.h"
 #include "daemon_ctx.h"
 
@@ -34,13 +35,6 @@ private:
         SemaphoreHandle_t reboot_xsem = nullptr;
     };
 
-    struct SwarmCtx {
-        SemaphoreHandle_t mutex = nullptr;
-        volatile uint32_t total_workers = 0;
-        volatile float total_hr = 0.0f;
-        volatile float best_ever_bd = 0.0f;
-    };
-
     struct TaskEntry {
         TaskHandle_t handle;
         const char* name;
@@ -61,7 +55,9 @@ private:
     WifiState* _wifi = nullptr;          // live network state (replaces g_board.status.wifi)
     WifiConnConfig _wifi_cfg;            // connection params loaded from NVS
     WifiCtx*   _wifi_ctx = nullptr;      // DI context for wifi/config_monitor threads
-    SwarmCtx* _swarm = nullptr;
+    SwarmState*    _swarm = nullptr;         // aggregated neighbor stats (replaces g_board.status.swarm)
+    NeighborState* _neighbor = nullptr;      // local ICMP scan results (replaces g_board.status.neighbor)
+    SwarmCtx*      _swarm_ctx = nullptr;      // DI context for swarm/scan threads
     MinerStatus*     _minerStatus = nullptr;  // shared mining runtime state (replaces g_board.status.miner)
     AsicMinerClass*  _miner = nullptr;        // ASIC miner instance (replaces g_board.miner)
     StratumClass*    _stratum = nullptr;      // stratum client instance (replaces g_board.stratum)

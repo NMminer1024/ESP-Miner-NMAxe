@@ -14,12 +14,21 @@
 #include "../drivers/temp/tmp102.h"
 #include "../net/wifi_ctx.h"
 #include "../market/market_ctx.h"
+#include "../net/swarm_ctx.h"
 #include "../app/daemon_ctx.h"
 #include "../nvs/nvs_config.h"
 #include "../utils/helper.h"
 #include "../utils/sha/csha256.h"
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <WiFiClient.h>
+#include "lwip/sockets.h"
+#include "lwip/icmp.h"
+#include "lwip/inet_chksum.h"
+#include "lwip/ip4.h"
+#include "lwip/etharp.h"
+#include "lwip/netif.h"
+#include "lwip/tcpip.h"
 #include <limits>
 #include <unordered_set>
 #include <vector>
@@ -1326,16 +1335,433 @@ void webserver_thread_entry(void* args) {
     while (true) { delay(10000); }
 }
 
+// ── Scan: LAN /24 ICMP alive-IP discovery ───────────────────────────────────
+//    Mirrors legacy alive_ip_scan_thread_entry; board_sal_t* -> SwarmCtx* (DI).
 void scan_thread_entry(void* args) {
-    (void)args;
-    LOG_D("(scan) placeholder");
-    while (true) { delay(10000); }
+    SwarmCtx* ctx = static_cast<SwarmCtx*>(args);
+    NeighborState& nbr = *ctx->neighbor;
+
+    constexpr uint32_t PING_TIMEOUT_MS = 500; // wait 500ms per IP
+
+    struct PingPkt {
+        struct icmp_echo_hdr hdr;
+        uint8_t              data[32];
+    };
+
+    auto neighbor_ip_from_octets = [](uint8_t o0, uint8_t o1, uint8_t o2, uint8_t o3) -> neighbor_ip_t {
+        return ((neighbor_ip_t)o0 << 24) | ((neighbor_ip_t)o1 << 16) | ((neighbor_ip_t)o2 << 8) | (neighbor_ip_t)o3;
+    };
+
+    // Avoid lwip resource contention during startup; wait until miner is ready.
+    xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    delay(2000);
+
+    // ── ARP pre-resolve to avoid lwIP assert(q==NULL) on full ARP table ──
+    auto arp_resolve = [](ip4_addr_t* ipaddr, uint32_t timeout_ms) -> bool {
+        struct netif* nif = netif_default;
+        if (!nif) return false;
+        LOCK_TCPIP_CORE();
+        etharp_request(nif, ipaddr);
+        UNLOCK_TCPIP_CORE();
+        uint32_t t0 = millis();
+        while ((millis() - t0) < timeout_ms) {
+            struct eth_addr* eth_ret = nullptr;
+            const ip4_addr_t* ip_ret = nullptr;
+            LOCK_TCPIP_CORE();
+            int8_t idx = etharp_find_addr(nif, ipaddr, &eth_ret, &ip_ret);
+            UNLOCK_TCPIP_CORE();
+            if (idx >= 0) return true;
+            delay(20);
+        }
+        return false;
+    };
+
+    auto ping_one = [&](int sock, uint8_t o0, uint8_t o1, uint8_t o2, int last, uint16_t seq) -> bool {
+        ip4_addr_t target_ip;
+        IP4_ADDR(&target_ip, o0, o1, o2, last);
+        if (!arp_resolve(&target_ip, PING_TIMEOUT_MS)) {
+            LOG_D("(scan) %u.%u.%u.%u ARP timeout, skipping", o0, o1, o2, last);
+            return false;
+        }
+
+        PingPkt pkt = {};
+        ICMPH_TYPE_SET(&pkt.hdr, ICMP_ECHO);
+        ICMPH_CODE_SET(&pkt.hdr, 0);
+        pkt.hdr.id     = htons(0xBEEF);
+        pkt.hdr.seqno  = htons(seq);
+        pkt.hdr.chksum = inet_chksum(&pkt, sizeof(pkt));
+
+        struct sockaddr_in dest = {};
+        dest.sin_family      = AF_INET;
+        dest.sin_addr.s_addr = htonl(
+            ((uint32_t)o0 << 24) | ((uint32_t)o1 << 16) |
+            ((uint32_t)o2 <<  8) |  (uint32_t)last);
+
+        uint32_t t0 = millis();
+        if (::sendto(sock, &pkt, sizeof(pkt), 0, (struct sockaddr*)&dest, sizeof(dest)) < 0) {
+            LOG_D("(scan) %u.%u.%u.%u sendto failed: errno=%d (%s)", o0, o1, o2, last, errno, strerror(errno));
+            return false;
+        }
+
+        uint8_t rbuf[64];
+        struct sockaddr_in from = {};
+        socklen_t fromlen = sizeof(from);
+        int n = ::recvfrom(sock, rbuf, sizeof(rbuf), 0, (struct sockaddr*)&from, &fromlen);
+        if (n > 0) {
+            struct icmp_echo_hdr* reply = (struct icmp_echo_hdr*)(rbuf + 20);
+            if (ICMPH_TYPE(reply) == ICMP_ER) {
+                LOG_D("(scan) %u.%u.%u.%u alive, ping %lums", o0, o1, o2, last, (unsigned long)(millis() - t0));
+                return true;
+            }
+            LOG_D("(scan) %u.%u.%u.%u unexpected ICMP type=%u code=%u", o0, o1, o2, last, ICMPH_TYPE(reply), ICMPH_CODE(reply));
+        } else {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                LOG_D("(scan) %u.%u.%u.%u no reply (timeout %ums)", o0, o1, o2, last, PING_TIMEOUT_MS);
+            } else {
+                LOG_D("(scan) %u.%u.%u.%u recvfrom error: errno=%d (%s)", o0, o1, o2, last, errno, strerror(errno));
+            }
+        }
+        return false;
+    };
+
+    while (true) {
+        delay(1000);
+        if (WiFi.status() != WL_CONNECTED) continue;
+        if (*ctx->ota_running)             continue;
+        if (xEventGroupGetBits(ctx->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
+            LOG_D("(scan) screensaver active, skipping alive IP scan to yield resources");
+            continue;
+        }
+
+        int sock = ::socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+        if (sock < 0) {
+            LOG_E("(scan) raw socket create failed: %d", errno);
+            delay(1000 * 10);
+            continue;
+        }
+        struct timeval tv = { 0, (long)(PING_TIMEOUT_MS * 1000L) };
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+        uint32_t scan_start = millis();
+
+        IPAddress local = WiFi.localIP();
+        uint8_t o0 = local[0], o1 = local[1], o2 = local[2], self_last = local[3];
+        LOG_D("(scan) start ping %u.%u.%u.0/24, generation=%u", o0, o1, o2, nbr.scan_generation);
+
+        neighbor_ip_vector_t found;
+        found.reserve(16);
+
+        nbr.is_scanning   = true;
+        nbr.scan_progress = 0;
+
+        uint16_t seq = 0, MAX_SCAN = 254;
+        for (int last = 1; last <= MAX_SCAN; last++) {
+            if (last == self_last) continue;
+
+            if (*ctx->ota_running) {
+                LOG_D("(scan) OTA started mid-scan, aborting at %u.%u.%u.%u", o0, o1, o2, last);
+                break;
+            }
+            if (xEventGroupGetBits(ctx->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
+                LOG_D("(scan) screensaver activated mid-scan, aborting at %u.%u.%u.%u", o0, o1, o2, last);
+                break;
+            }
+
+            nbr.scan_progress = (uint16_t)last;
+
+            if (xSemaphoreTake(nbr.scan_required, 0) == pdTRUE) {
+                if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+                    nbr.alive_ips.clear();
+                    xSemaphoreGive(nbr.mutex);
+                    LOG_D("(scan) page refresh: reset scan progress, alive_ips cleared (gen unchanged)");
+                }
+                last = 1;
+                seq  = 0;
+                found.clear();
+                nbr.scan_progress = 0;
+            }
+
+            if (ping_one(sock, o0, o1, o2, last, ++seq)) {
+                found.push_back(neighbor_ip_from_octets(o0, o1, o2, (uint8_t)last));
+            }
+
+            if ((seq % 10 == 0) || (last == MAX_SCAN)) {
+                bool is_last = (last == MAX_SCAN);
+                if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                    if (is_last) nbr.alive_ips = std::move(found);
+                    else         nbr.alive_ips = found;
+                    nbr.last_scan_ms = millis();
+                    xSemaphoreGive(nbr.mutex);
+                }
+                LOG_D("(scan) progress to %u.%u.%u.%u, found %u alive hosts", o0, o1, o2, last, (unsigned)nbr.alive_ips.size());
+                delay(1100);
+            }
+            delay(5);
+        }
+        ::close(sock);
+
+        uint32_t elapsed = (millis() - scan_start) / 1000;
+        LOG_D("(scan) done in %lus, %u alive on %u.%u.%u.0/24", (uint32_t)elapsed, (uint16_t)nbr.alive_ips.size(), o0, o1, o2);
+        nbr.is_scanning   = false;
+        nbr.scan_progress = 254;
+        if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            nbr.scan_generation++;
+            nbr.last_scan_ms = millis();
+            xSemaphoreGive(nbr.mutex);
+        }
+        xSemaphoreTake(nbr.scan_required, 5 * 60 * 1000);
+    }
 }
 
+// ── Swarm: probe / aggregate neighbor miner stats via /probe + /alive gossip ─
+//    Mirrors legacy swarm_thread_entry; board_sal_t* -> SwarmCtx* (DI).
 void swarm_thread_entry(void* args) {
-    (void)args;
-    LOG_D("(swarm) placeholder");
-    while (true) { delay(10000); }
+    SwarmCtx* sctx = static_cast<SwarmCtx*>(args);
+    SwarmState&    ctx = *sctx->swarm;
+    NeighborState& nbr = *sctx->neighbor;
+    MinerStatus&   st  = *sctx->status;
+
+    auto neighbor_ip_from_octets = [](uint8_t o0, uint8_t o1, uint8_t o2, uint8_t o3) -> neighbor_ip_t {
+        return ((neighbor_ip_t)o0 << 24) | ((neighbor_ip_t)o1 << 16) | ((neighbor_ip_t)o2 << 8) | (neighbor_ip_t)o3;
+    };
+    auto neighbor_ip_from_ipaddress = [&neighbor_ip_from_octets](const IPAddress& address) -> neighbor_ip_t {
+        return neighbor_ip_from_octets(address[0], address[1], address[2], address[3]);
+    };
+    auto neighbor_ip_to_cstr = [](neighbor_ip_t address, char* buffer, size_t buffer_size) {
+        snprintf(buffer, buffer_size, "%u.%u.%u.%u",
+                 (unsigned)((address >> 24) & 0xFF), (unsigned)((address >> 16) & 0xFF),
+                 (unsigned)((address >> 8) & 0xFF), (unsigned)(address & 0xFF));
+    };
+    auto neighbor_ip_from_string = [&neighbor_ip_from_ipaddress](const char* text, neighbor_ip_t* address) -> bool {
+        if (!text || !address) return false;
+        IPAddress parsed;
+        if (!parsed.fromString(text)) return false;
+        *address = neighbor_ip_from_ipaddress(parsed);
+        return true;
+    };
+
+    while (true) {
+        delay(30 * 1000);
+
+        if (WiFi.status() != WL_CONNECTED) continue;
+        if (*sctx->ota_running)            continue;
+        if (xEventGroupGetBits(sctx->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
+            LOG_D("(swarm) screensaver active, skipping swarm probe to yield resources");
+            continue;
+        }
+
+        // ── Snapshot current scan generation and alive list ──
+        neighbor_ip_vector_t alive;
+        uint32_t cur_gen = 0;
+        if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+            alive   = nbr.alive_ips;
+            cur_gen = nbr.scan_generation;
+            xSemaphoreGive(nbr.mutex);
+        } else {
+            LOG_W("(swarm) WARNING: failed to acquire nbr.mutex in 200ms");
+        }
+
+        const uint8_t MAX_PROBE_FAIL = 3;
+        if (cur_gen != ctx.last_scan_gen) {
+            ctx.last_scan_gen = cur_gen;
+            if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                ctx.probe_blacklist.clear();
+                xSemaphoreGive(ctx.mutex);
+            }
+            LOG_W("(swarm) new scan gen=%u, blacklist reset; confirmed=%u gossip=%u (kept)",
+                  cur_gen, (uint32_t)ctx.confirmed_ips.size(), (uint32_t)ctx.gossip_union.size());
+        }
+
+        // ── Build probe targets: confirmed ∪ local_alive ∪ gossip ──
+        const neighbor_ip_t selfIP = neighbor_ip_from_ipaddress(WiFi.localIP());
+        neighbor_ip_vector_t targets;
+        neighbor_ip_set_t    seen;
+        auto add_target = [&](neighbor_ip_t ip) {
+            if (ip == selfIP) return;
+            if (seen.count(ip)) return;
+            bool bl = false;
+            if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+                bl = ctx.probe_blacklist.count(ip) > 0;
+                xSemaphoreGive(ctx.mutex);
+            }
+            if (bl) return;
+            seen.insert(ip);
+            targets.push_back(ip);
+        };
+        for (const auto& ip : ctx.confirmed_ips) add_target(ip);
+        for (const auto& ip : alive)             add_target(ip);
+        for (const auto& ip : ctx.gossip_union)  add_target(ip);
+
+        uint32_t workers         = 0;
+        double   total_hr        = 0.0;
+        double   best_session_bd = 0.0;
+        double   best_ever_bd    = 0.0;
+
+        LOG_D("(swarm) targets(%u): confirmed=%u alive=%u gossip=%u",
+              (uint32_t)targets.size(), (uint32_t)ctx.confirmed_ips.size(),
+              (uint32_t)alive.size(), (uint32_t)ctx.gossip_union.size());
+
+        for (const auto& ip : targets) {
+            uint32_t t0 = millis();
+            char ip_buf[16];
+            neighbor_ip_to_cstr(ip, ip_buf, sizeof(ip_buf));
+            LOG_D("(swarm) >>> probing %s", ip_buf);
+
+            WiFiClient wclient;
+            int code = -1;
+            String body;
+            if (wclient.connect(ip_buf, 80, 1000)) {
+                wclient.print("GET /probe HTTP/1.0\r\nHost: ");
+                wclient.print(ip_buf);
+                wclient.print("\r\nConnection: close\r\n\r\n");
+                String resp;
+                resp.reserve(512);
+                uint32_t read_dl = millis() + 1500;
+                while ((wclient.connected() || wclient.available()) && millis() < read_dl) {
+                    while (wclient.available()) {
+                        resp += (char)wclient.read();
+                        if (resp.length() > 1024) goto probe_read_done;
+                    }
+                    delay(1);
+                }
+                probe_read_done:
+                wclient.stop();
+                int sp = resp.indexOf(' ');
+                if (sp >= 0 && resp.startsWith("HTTP/") && (int)resp.length() > sp + 3) {
+                    code = resp.substring(sp + 1, sp + 4).toInt();
+                }
+                int bi = resp.indexOf("\r\n\r\n");
+                if (bi >= 0) body = resp.substring(bi + 4);
+            }
+
+            LOG_D("(swarm) <<< probe %s => code=%d (%lums)", ip_buf, code, (unsigned long)(millis() - t0));
+
+            if (code == 200) {
+                StaticJsonDocument<256> doc;
+                LOG_D("(swarm) %s: %s", ip_buf, body.c_str());
+                if (!deserializeJson(doc, body)) {
+                    bool isNM = doc.containsKey("hr") && doc.containsKey("ver");
+                    if (isNM) {
+                        workers++;
+                        double hr  = doc["hr"].as<double>();
+                        double sbd = doc["sbd"].as<double>();
+                        double ebd = doc["ebd"].as<double>();
+                        if (!isfinite(hr) || hr < 0.0 || hr > 1e14) {
+                            LOG_W("(swarm) %s INVALID hr=%.0f, skipped (torn read?)", ip_buf, hr);
+                        } else {
+                            total_hr += hr;
+                        }
+                        if (!isfinite(sbd) || sbd < 0.0) sbd = 0.0;
+                        if (!isfinite(ebd) || ebd < 0.0) ebd = 0.0;
+                        if (sbd > best_session_bd) best_session_bd = sbd;
+                        if (ebd > best_ever_bd)    best_ever_bd    = ebd;
+                        ctx.confirmed_ips.insert(ip);
+                        ctx.probe_fail_cnt[ip] = 0;
+                        LOG_D("(swarm) %s NM device hr=%.0f sbd=%.0f ebd=%.0f", ip_buf, hr, sbd, ebd);
+                    } else {
+                        if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                            ctx.probe_blacklist.insert(ip);
+                            xSemaphoreGive(ctx.mutex);
+                        }
+                        ctx.confirmed_ips.erase(ip);
+                        ctx.probe_fail_cnt.erase(ip);
+                        LOG_D("(swarm) %s not NM device, blacklisted", ip_buf);
+                    }
+                }
+            } else {
+                bool is_confirmed = ctx.confirmed_ips.count(ip) > 0;
+                if (is_confirmed) {
+                    uint8_t& fc = ctx.probe_fail_cnt[ip];
+                    if (fc < 0xFF) fc++;
+                    if (fc >= MAX_PROBE_FAIL) {
+                        ctx.confirmed_ips.erase(ip);
+                        ctx.probe_fail_cnt.erase(ip);
+                        LOG_W("(swarm) %s removed from confirmed after %u failures", ip_buf, MAX_PROBE_FAIL);
+                    } else {
+                        LOG_D("(swarm) probe %s => %d, fail_cnt=%u (kept)", ip_buf, code, fc);
+                    }
+                } else {
+                    if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                        ctx.probe_blacklist.insert(ip);
+                        xSemaphoreGive(ctx.mutex);
+                    }
+                    LOG_D("(swarm) probe %s => %d, blacklisted", ip_buf, code);
+                }
+            }
+            delay(50);
+        }
+
+        // ── Gossip: ask each confirmed NM peer for its /alive list ──
+        size_t gossip_added = 0;
+        BasicJsonDocument<PsramJsonAllocator> gdoc(2048);
+        for (const auto& ip : ctx.confirmed_ips) {
+            if (*sctx->ota_running) break;
+            if (xEventGroupGetBits(sctx->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) break;
+
+            WiFiClient wclient;
+            char ip_buf[16];
+            neighbor_ip_to_cstr(ip, ip_buf, sizeof(ip_buf));
+            if (!wclient.connect(ip_buf, 80, 1000)) continue;
+            wclient.print("GET /alive?src=swarm HTTP/1.0\r\nHost: ");
+            wclient.print(ip_buf);
+            wclient.print("\r\nConnection: close\r\n\r\n");
+            String resp;
+            resp.reserve(1024);
+            uint32_t read_dl = millis() + 1500;
+            while ((wclient.connected() || wclient.available()) && millis() < read_dl) {
+                while (wclient.available()) {
+                    resp += (char)wclient.read();
+                    if (resp.length() > 4096) goto gossip_read_done;
+                }
+                delay(1);
+            }
+            gossip_read_done:
+            wclient.stop();
+            int bi = resp.indexOf("\r\n\r\n");
+            if (bi < 0) continue;
+            String gbody = resp.substring(bi + 4);
+            gdoc.clear();
+            if (deserializeJson(gdoc, gbody)) continue;
+            JsonArray arr = gdoc["ips"].as<JsonArray>();
+            for (JsonVariant v : arr) {
+                neighbor_ip_t candidate;
+                if (!neighbor_ip_from_string(v.as<const char*>(), &candidate)) continue;
+                if (candidate == selfIP) continue;
+                if (ctx.confirmed_ips.count(candidate)) continue;
+                bool bl = false;
+                if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+                    bl = ctx.probe_blacklist.count(candidate) > 0;
+                    xSemaphoreGive(ctx.mutex);
+                }
+                if (bl) continue;
+                if (ctx.gossip_union.insert(candidate).second) gossip_added++;
+            }
+            delay(50);
+        }
+        if (gossip_added) {
+            LOG_W("(swarm) gossip added %u new IPs from %u peers, union=%u",
+                  (uint32_t)gossip_added, (uint32_t)ctx.confirmed_ips.size(), (uint32_t)ctx.gossip_union.size());
+        }
+
+        // ── Write aggregated results ──
+        double self_hr = st.hashrate._3m;
+        if (!isfinite(self_hr) || self_hr < 0.0 || self_hr > 1e14) {
+            LOG_W("(swarm) INVALID self hr=%.0f, using 0 (torn read?)", self_hr);
+            self_hr = 0.0;
+        }
+        if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            ctx.total_workers   = (uint32_t)ctx.confirmed_ips.size() + 1;
+            ctx.total_hr        = total_hr + self_hr;
+            ctx.best_session_bd = (best_session_bd > st.diff.best_session) ? best_session_bd : st.diff.best_session;
+            ctx.best_ever_bd    = (best_ever_bd > st.diff.best_ever) ? best_ever_bd : st.diff.best_ever;
+            xSemaphoreGive(ctx.mutex);
+        }
+        LOG_D("(swarm) gen=%u probed=%u(+self) workers=%u hr=%sH/s sbd=%s ebd=%s",
+              ctx.last_scan_gen, (uint32_t)targets.size(), ctx.total_workers,
+              formatNumber(ctx.total_hr, 3).c_str(),
+              formatNumber(ctx.best_session_bd, 3).c_str(),
+              formatNumber(ctx.best_ever_bd, 3).c_str());
+    }
 }
 
 // ── Market: fetch crypto price & watchlist from Binance ─────────────────────
