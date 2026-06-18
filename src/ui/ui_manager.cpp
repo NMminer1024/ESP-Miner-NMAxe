@@ -93,9 +93,9 @@ void UIManager::init(uint16_t w, uint16_t h) {
     _register_page(s_pick_layouts(UIPageId::MINER, w, h),         UIPageId::MINER,         1, 0, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_BOTTOM));
     _register_page(s_pick_layouts(UIPageId::DASHBOARD, w, h),     UIPageId::DASHBOARD,     1, 1, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP | LV_DIR_BOTTOM));
     _register_page(s_pick_layouts(UIPageId::HR_HEALTH, w, h),     UIPageId::HR_HEALTH,     1, 2, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP));
-    _register_page(s_pick_layouts(UIPageId::SETTING_SWARM, w, h), UIPageId::SETTING_SWARM, 2, 0, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM));
-    _register_page(s_pick_layouts(UIPageId::MARKET, w, h),        UIPageId::MARKET,        2, 1, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP | LV_DIR_BOTTOM));
     _register_page(s_pick_layouts(UIPageId::CLOCK, w, h),         UIPageId::CLOCK,         2, 2, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP));
+    _register_page(s_pick_layouts(UIPageId::MARKET, w, h),        UIPageId::MARKET,        2, 1, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP | LV_DIR_BOTTOM));
+    _register_page(s_pick_layouts(UIPageId::SETTING_SWARM, w, h), UIPageId::SETTING_SWARM, 2, 0, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM));
 
     LOG_I("UIManager: %u pages registered for %dx%d (%s)",
           (unsigned)_pages.size(), w, h, (h <= 160) ? "NMAXE" : "QAxe++");
@@ -168,14 +168,7 @@ void UIManager::next_page() {
     }
 
     if (_pages[next]) {
-        // Animate tileview
-        int8_t dx = (_tile_entries[next].col > _tile_entries[_current].col) ? 1
-                   : ((_tile_entries[next].col < _tile_entries[_current].col) ? -1 : 0);
-        int8_t dy = (_tile_entries[next].row > _tile_entries[_current].row) ? 1
-                   : ((_tile_entries[next].row < _tile_entries[_current].row) ? -1 : 0);
-
-        lv_obj_set_tile(_tileview, _tile_entries[next].obj,
-                        dx > 0 ? LV_ANIM_ON : (dx < 0 ? LV_ANIM_ON : LV_ANIM_OFF));
+        lv_obj_set_tile(_tileview, _tile_entries[next].obj, LV_ANIM_ON);
         _current = next;
         s_save_last_page(_current);
         LOG_D("UIManager: page -> %u '%s'", (unsigned)_current, _pages[_current]->name());
@@ -193,13 +186,7 @@ void UIManager::prev_page() {
     }
 
     if (_pages[prev]) {
-        int8_t dx = (_tile_entries[prev].col > _tile_entries[_current].col) ? 1
-                   : ((_tile_entries[prev].col < _tile_entries[_current].col) ? -1 : 0);
-        int8_t dy = (_tile_entries[prev].row > _tile_entries[_current].row) ? 1
-                   : ((_tile_entries[prev].row < _tile_entries[_current].row) ? -1 : 0);
-
-        lv_obj_set_tile(_tileview, _tile_entries[prev].obj,
-                        dx < 0 ? LV_ANIM_ON : (dx > 0 ? LV_ANIM_ON : LV_ANIM_OFF));
+        lv_obj_set_tile(_tileview, _tile_entries[prev].obj, LV_ANIM_ON);
         _current = prev;
         s_save_last_page(_current);
         LOG_D("UIManager: page <- %u '%s'", (unsigned)_current, _pages[_current]->name());
