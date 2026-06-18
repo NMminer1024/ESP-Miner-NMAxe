@@ -4,8 +4,10 @@
 #include <SPIFFS.h>
 #include "ArduinoJson.h"
 #include "utils/logger/logger.h"
-#include "global.h"
 #include "http_server.h"
+#include "web_ctx.h"
+#include "app/system_events.h"
+#include "ui/ui_manager.h"
 #include "nvs/nvs_config.h"
 #include "utils/helper.h"
 #include "utils/reboot_log/reboot_log.h"
@@ -17,6 +19,10 @@
 AsyncWebServer  webServer(80);
 // AsyncWebSocket runs on the same port 80 at path /ws, no separate port needed.
 AsyncWebSocket  webSocket("/ws");
+
+// Module-global webserver context, set once at the start of webserver_thread_entry
+// before any route is registered. The free-function request handlers read it.
+WebCtx* g_web = nullptr;
 
 struct OtaLastResultSnapshot {
     bool valid;
@@ -81,7 +87,7 @@ bool isValidNumber(const String& str) {
     return hasDigit;
 }
 
-static bool miner_state_is_paused_like(miner_runtime_state_t state) {
+static bool miner_state_is_paused_like(MinerRuntimeState state) {
     return state == MINER_RUNTIME_PAUSING ||
            state == MINER_RUNTIME_PAUSED ||
            state == MINER_RUNTIME_RESUMING ||
@@ -90,8 +96,8 @@ static bool miner_state_is_paused_like(miner_runtime_state_t state) {
 
 static void send_mining_state_response(AsyncWebServerRequest *request, uint16_t code = 200) {
     StaticJsonDocument<256> root;
-    miner_runtime_state_t state = g_board.status.miner.runtime_state;
-    bool paused = g_board.status.miner.user_paused || miner_state_is_paused_like(state);
+    MinerRuntimeState state = g_web->status->runtime_state;
+    bool paused = g_web->status->user_paused || miner_state_is_paused_like(state);
 
     root["status"] = (code >= 200 && code < 300) ? "ok" : "error";
     root["state"] = miner_runtime_state_to_string(state);
@@ -236,54 +242,54 @@ void get_system_info(AsyncWebServerRequest* request){
 
     // Power & electrical
     JsonObject powerObj = root.createNestedObject("power");
-    powerObj["power"]   = (g_board.status.power.ibus / 1000.0f) * (g_board.status.power.vbus / 1000.0f);
-    powerObj["vbus"]    = g_board.status.power.vbus;
-    powerObj["ibus"]    = g_board.status.power.ibus;
+    powerObj["power"]   = (g_web->pwr->ibus / 1000.0f) * (g_web->pwr->vbus / 1000.0f);
+    powerObj["vbus"]    = g_web->pwr->vbus;
+    powerObj["ibus"]    = g_web->pwr->ibus;
 
     // Temperatures
     JsonObject tempObj  = root.createNestedObject("temps");
-    tempObj["vcore"]    = g_board.status.temp.vcore;
-    tempObj["asic"]     = g_board.status.temp.asic;
+    tempObj["vcore"]    = g_web->temp->vcore;
+    tempObj["asic"]     = g_web->temp->asic;
 
     // ASIC status
     JsonObject asicObj      = root.createNestedObject("asic");
-    asicObj["count"]        = g_board.miner->get_asic_count();
-    asicObj["model"]        = g_board.info.spec.asic.name;
-    asicObj["vcoreReq"]     = g_board.info.spec.asic.req_vcore;
-    asicObj["vcoreReal"]    = g_board.status.power.vcore;
-    asicObj["freqReq"]      = g_board.info.spec.asic.req_frq;
-    asicObj["smallCoreCnt"] = g_board.miner->get_asic_small_cores();
+    asicObj["count"]        = g_web->miner->get_asic_count();
+    asicObj["model"]        = g_web->spec->asic.name;
+    asicObj["vcoreReq"]     = g_web->spec->asic.req_vcore;
+    asicObj["vcoreReal"]    = g_web->pwr->vcore;
+    asicObj["freqReq"]      = g_web->spec->asic.req_frq;
+    asicObj["smallCoreCnt"] = g_web->miner->get_asic_small_cores();
 
     // Mining stats
     JsonObject minerObj         = root.createNestedObject("miner");
-    miner_runtime_state_t miner_state = g_board.status.miner.runtime_state;
-    bool miner_paused = g_board.status.miner.user_paused || miner_state_is_paused_like(miner_state);
+    MinerRuntimeState miner_state = g_web->status->runtime_state;
+    bool miner_paused = g_web->status->user_paused || miner_state_is_paused_like(miner_state);
     minerObj["state"]           = miner_runtime_state_to_string(miner_state);
     minerObj["paused"]          = miner_paused;
     minerObj["pauseReason"]     = miner_paused ? "user" : "";
-    minerObj["hashRate"]        = g_board.status.miner.hashrate._3m / 1000 / 1000 / 1000;
-    minerObj["bestDiffEver"]    = formatNumber(g_board.status.miner.diff.best_ever, 4);
-    minerObj["bestDiffSession"] = formatNumber(g_board.status.miner.diff.best_session, 4);
-    minerObj["networkDiff"]     = formatNumber(g_board.status.miner.diff.network, 4);
-    minerObj["poolDiff"]        = formatNumber(g_board.status.miner.diff.pool, 4);
-    minerObj["lastDiff"]        = formatNumber(g_board.status.miner.diff.last, 4);
-    minerObj["blkhits"]         = g_board.status.miner.hits;
+    minerObj["hashRate"]        = g_web->status->hashrate._3m / 1000 / 1000 / 1000;
+    minerObj["bestDiffEver"]    = formatNumber(g_web->status->diff.best_ever, 4);
+    minerObj["bestDiffSession"] = formatNumber(g_web->status->diff.best_session, 4);
+    minerObj["networkDiff"]     = formatNumber(g_web->status->diff.network, 4);
+    minerObj["poolDiff"]        = formatNumber(g_web->status->diff.pool, 4);
+    minerObj["lastDiff"]        = formatNumber(g_web->status->diff.last, 4);
+    minerObj["blkhits"]         = g_web->status->hits;
     minerObj["freeHeap"]        = ESP.getFreeHeap();
     minerObj["minFreeHeap"]     = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    minerObj["sAccepted"]       = g_board.status.miner.share_accepted;
-    minerObj["sRejected"]       = g_board.status.miner.share_rejected;
-    minerObj["uptimeSeconds"]   = g_board.status.miner.uptime_session;
-    minerObj["uptimeEver"]      = g_board.status.miner.uptime_ever;
-    minerObj["bmMode"]          = g_board.status.bm_mode;
+    minerObj["sAccepted"]       = g_web->status->share_accepted;
+    minerObj["sRejected"]       = g_web->status->share_rejected;
+    minerObj["uptimeSeconds"]   = g_web->status->uptime_session;
+    minerObj["uptimeEver"]      = g_web->status->uptime_ever;
+    minerObj["bmMode"]          = (*g_web->bm_mode);
 
     // Board identity
     JsonObject identityObj    = root.createNestedObject("identity");
-    identityObj["fwVersion"]   = g_board.info.base.fw_version;
-    identityObj["hwModel"]     = g_board.info.spec.name;
-    identityObj["displayName"] = g_board.info.spec.display_name;
-    identityObj["hostName"]    = g_board.info.base.hostname;
-    identityObj["ssid"]       = g_board.info.connection.wifi.sta.ssid;
-    identityObj["rssi"]       = g_board.status.wifi.rssi;
+    identityObj["fwVersion"]   = g_web->fw_version;
+    identityObj["hwModel"]     = g_web->spec->name;
+    identityObj["displayName"] = g_web->spec->display_name;
+    identityObj["hostName"]    = g_web->wifi_cfg->hostname;
+    identityObj["ssid"]       = g_web->wifi_cfg->sta_ssid;
+    identityObj["rssi"]       = g_web->wifi->rssi;
     // SHA256 of the running app's ELF (embedded by the linker into
     // esp_app_desc.app_elf_sha256). This is the SAME value the IDF panic
     // handler prints as "ELF file SHA256: ..." in coredumps, so the dashboard
@@ -303,15 +309,15 @@ void get_system_info(AsyncWebServerRequest* request){
 
     // Currently-active pool (read-only status)
     JsonObject stratumObj = root.createNestedObject("stratum");
-    stratumObj["url"]  = g_board.info.connection.pool.use.ssl
-        ? ("stratum+ssl://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port))
-        : ("stratum+tcp://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port));
-    stratumObj["user"] = g_board.info.connection.stratum.use.user;
-    stratumObj["pwd"]  = g_board.info.connection.stratum.use.pwd;
+    stratumObj["url"]  = g_web->conn->pool.use.ssl
+        ? ("stratum+ssl://" + g_web->conn->pool.use.url + ":" + String(g_web->conn->pool.use.port))
+        : ("stratum+tcp://" + g_web->conn->pool.use.url + ":" + String(g_web->conn->pool.use.port));
+    stratumObj["user"] = g_web->conn->stratum.use.user;
+    stratumObj["pwd"]  = g_web->conn->stratum.use.pwd;
 
     // Fan status
     JsonArray fansArray = root.createNestedArray("fans");
-    for (auto & fan : g_board.status.fan.list) {
+    for (auto & fan : (*g_web->fan_status)) {
         JsonObject fanObj = fansArray.createNestedObject();
         fanObj["id"]    = fan.id;
         fanObj["speed"] = fan.speed;
@@ -329,10 +335,10 @@ void get_system_info(AsyncWebServerRequest* request){
 void get_setting_network(AsyncWebServerRequest* request){
     StaticJsonDocument<256> root;
     root.clear();
-    root["hostName"] = g_board.info.base.hostname;
-    root["ssid"]     = g_board.info.connection.wifi.sta.ssid;
-    root["status"]   = (g_board.status.wifi.status == WL_CONNECTED) ? "connected" : "disconnected";
-    root["ip"]       = g_board.status.wifi.ip.toString();
+    root["hostName"] = g_web->wifi_cfg->hostname;
+    root["ssid"]     = g_web->wifi_cfg->sta_ssid;
+    root["status"]   = (g_web->wifi->status == WL_CONNECTED) ? "connected" : "disconnected";
+    root["ip"]       = g_web->wifi->ip.toString();
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
@@ -358,8 +364,8 @@ void patch_setting_network(AsyncWebServerRequest* request, uint8_t *data, size_t
         if (root.containsKey("hostname")) {
             nvs_config_set_string(NVS_CONFIG_HOSTNAME, root["hostname"].as<String>().c_str());
             nvs_config_set_string(NVS_CONFIG_AP_SSID,  root["hostname"].as<String>().c_str());
-            g_board.info.base.hostname                = root["hostname"].as<String>();
-            g_board.info.connection.wifi.ap.info.ssid = root["hostname"].as<String>();
+            g_web->wifi_cfg->hostname                = root["hostname"].as<String>();
+            g_web->wifi_cfg->ap_ssid = root["hostname"].as<String>();
         }
         request->send(200, "application/json", "{\"status\":\"ok\"}");
     }
@@ -370,9 +376,9 @@ void patch_setting_network(AsyncWebServerRequest* request, uint8_t *data, size_t
 void get_setting_time(AsyncWebServerRequest* request){
     StaticJsonDocument<256> root;
     root.clear();
-    root["timeZone"]   = g_board.status.time.tz;
-    root["timeFormat"] = g_board.status.time.format.time;
-    root["dateFormat"] = g_board.status.time.format.date;
+    root["timeZone"]   = (*g_web->tz);
+    root["timeFormat"] = g_web->time->format.time;
+    root["dateFormat"] = g_web->time->format.date;
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
@@ -395,15 +401,17 @@ void patch_setting_time(AsyncWebServerRequest* request, uint8_t *data, size_t le
         }
         if (root.containsKey("timezone")) {
             nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
-            g_board.status.time.tz = root["timezone"].as<String>();
+            (*g_web->tz) = root["timezone"].as<String>();
         }
         if (root.containsKey("timeFormat")) {
-            nvs_config_set_u8(NVS_CONFIG_TIME_FORMAT, root["timeFormat"].as<uint8_t>());
-            g_board.status.time.format.time = root["timeFormat"].as<uint8_t>();
+            uint8_t tf = root["timeFormat"].as<uint8_t>();
+            tf = (tf == 12) ? 12 : 24;
+            nvs_config_set_u8(NVS_CONFIG_TIME_FORMAT, tf);
+            g_web->time->format.time = tf;
         }
         if (root.containsKey("dateFormat")) {
             nvs_config_set_string(NVS_CONFIG_DATE_FORMAT, root["dateFormat"].as<String>().c_str());
-            g_board.status.time.format.date = root["dateFormat"].as<String>();
+            g_web->time->format.date = root["dateFormat"].as<String>();
         }
         request->send(200, "application/json", "{\"status\":\"ok\"}");
     }
@@ -417,34 +425,34 @@ void get_setting_mining(AsyncWebServerRequest* request){
     StaticJsonDocument<json_size_max> root;
     root.clear();
 
-    root["vcoreReq"] = g_board.info.spec.asic.req_vcore;
-    root["freqReq"]  = g_board.info.spec.asic.req_frq;
-    root["asic"]     = g_board.info.spec.asic.name;
+    root["vcoreReq"] = g_web->spec->asic.req_vcore;
+    root["freqReq"]  = g_web->spec->asic.req_frq;
+    root["asic"]     = g_web->spec->asic.name;
 
     JsonObject stratumObj    = root.createNestedObject("stratum");
     JsonObject usedObj       = stratumObj.createNestedObject("used");
-    usedObj["url"]  = g_board.info.connection.pool.use.ssl
-        ? ("stratum+ssl://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port))
-        : ("stratum+tcp://" + g_board.info.connection.pool.use.url + ":" + String(g_board.info.connection.pool.use.port));
-    usedObj["user"] = g_board.info.connection.stratum.use.user;
-    usedObj["pwd"]  = g_board.info.connection.stratum.use.pwd;
+    usedObj["url"]  = g_web->conn->pool.use.ssl
+        ? ("stratum+ssl://" + g_web->conn->pool.use.url + ":" + String(g_web->conn->pool.use.port))
+        : ("stratum+tcp://" + g_web->conn->pool.use.url + ":" + String(g_web->conn->pool.use.port));
+    usedObj["user"] = g_web->conn->stratum.use.user;
+    usedObj["pwd"]  = g_web->conn->stratum.use.pwd;
 
     JsonObject primaryObj    = stratumObj.createNestedObject("primary");
-    primaryObj["url"]  = g_board.info.connection.pool.primary.ssl
-        ? ("stratum+ssl://" + g_board.info.connection.pool.primary.url + ":" + String(g_board.info.connection.pool.primary.port))
-        : ("stratum+tcp://" + g_board.info.connection.pool.primary.url + ":" + String(g_board.info.connection.pool.primary.port));
-    primaryObj["user"] = g_board.info.connection.stratum.primary.user;
-    primaryObj["pwd"]  = g_board.info.connection.stratum.primary.pwd;
+    primaryObj["url"]  = g_web->conn->pool.primary.ssl
+        ? ("stratum+ssl://" + g_web->conn->pool.primary.url + ":" + String(g_web->conn->pool.primary.port))
+        : ("stratum+tcp://" + g_web->conn->pool.primary.url + ":" + String(g_web->conn->pool.primary.port));
+    primaryObj["user"] = g_web->conn->stratum.primary.user;
+    primaryObj["pwd"]  = g_web->conn->stratum.primary.pwd;
 
     JsonObject fallbackObj   = stratumObj.createNestedObject("fallback");
-    fallbackObj["url"]  = g_board.info.connection.pool.fallback.ssl
-        ? ("stratum+ssl://" + g_board.info.connection.pool.fallback.url + ":" + String(g_board.info.connection.pool.fallback.port))
-        : ("stratum+tcp://" + g_board.info.connection.pool.fallback.url + ":" + String(g_board.info.connection.pool.fallback.port));
-    fallbackObj["user"] = g_board.info.connection.stratum.fallback.user;
-    fallbackObj["pwd"]  = g_board.info.connection.stratum.fallback.pwd;
+    fallbackObj["url"]  = g_web->conn->pool.fallback.ssl
+        ? ("stratum+ssl://" + g_web->conn->pool.fallback.url + ":" + String(g_web->conn->pool.fallback.port))
+        : ("stratum+tcp://" + g_web->conn->pool.fallback.url + ":" + String(g_web->conn->pool.fallback.port));
+    fallbackObj["user"] = g_web->conn->stratum.fallback.user;
+    fallbackObj["pwd"]  = g_web->conn->stratum.fallback.pwd;
 
-    const std::vector<work_option_t>& oc_opts = g_board.info.spec.ui.setting_page.oc;
-    const std::vector<work_option_t>& vc_opts = g_board.info.spec.ui.setting_page.vc;
+    const std::vector<work_option_t>& oc_opts = g_web->spec->ui.setting_page.oc;
+    const std::vector<work_option_t>& vc_opts = g_web->spec->ui.setting_page.vc;
 
     JsonObject overclock    = root.createNestedObject("overclock");
     JsonArray  oc_options   = overclock.createNestedArray("options");
@@ -499,16 +507,16 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
         }
         if (root.containsKey("asicVcoreReq")) {
             uint16_t req_mv = root["asicVcoreReq"].as<uint16_t>();
-            g_board.info.spec.asic.req_vcore = req_mv;
-            g_board.power->set_vcore_voltage(req_mv);
+            g_web->spec->asic.req_vcore = req_mv;
+            g_web->power->set_vcore_voltage(req_mv);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, req_mv);
         }
         if (root.containsKey("asicFreqReq")) {
             uint16_t req_mhz = root["asicFreqReq"].as<uint16_t>();
-            if (g_board.miner != nullptr && !g_board.miner->request_asic_frequency(req_mhz)) {
+            if (g_web->miner != nullptr && !g_web->miner->request_asic_frequency(req_mhz)) {
                 LOG_W("ASIC frequency hot-switch request failed to queue: %uMHz", req_mhz);
             }
-            g_board.info.spec.asic.req_frq = req_mhz;
+            g_web->spec->asic.req_frq = req_mhz;
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, req_mhz);
         }
         request->send(200, "application/json", "{\"status\":\"ok\"}");
@@ -522,13 +530,13 @@ void get_setting_market(AsyncWebServerRequest* request){
     String json;
     json.reserve(10800);
     json  = "{\"mainprice\":\"";
-    json += g_board.info.base.coin_price;
+    json += (*g_web->coin_price);
     json += "\",\"coinWatchlist\":\"";
-    json += g_board.info.base.coin_watchlist;
+    json += (*g_web->coin_watchlist);
     json += "\",\"pairs\":[";
-    if (g_board.market) {
-        const char* buf = g_board.market->get_pairs_buffer();
-        uint16_t    cnt = g_board.market->get_pairs_count();
+    if (g_web->market) {
+        const char* buf = g_web->market->get_pairs_buffer();
+        uint16_t    cnt = g_web->market->get_pairs_count();
         if (buf && cnt > 0) {
             const char* p = buf;
             for (uint16_t i = 0; i < cnt; i++) {
@@ -563,15 +571,15 @@ void patch_setting_market(AsyncWebServerRequest* request, uint8_t *data, size_t 
         }
         if (root.containsKey("mainprice")) {
             nvs_config_set_string(NVS_CONFIG_PRICE_DISPLAY_COIN, root["mainprice"].as<String>().c_str());
-            g_board.info.base.coin_price = root["mainprice"].as<String>();
-            g_board.info.base.coin_price.toUpperCase();
+            (*g_web->coin_price) = root["mainprice"].as<String>();
+            (*g_web->coin_price).toUpperCase();
         }
         if (root.containsKey("coinWatchlist")) {
             nvs_config_set_string(NVS_CONFIG_COIN_WATCHLIST, root["coinWatchlist"].as<String>().c_str());
-            g_board.info.base.coin_watchlist = root["coinWatchlist"].as<String>();
+            (*g_web->coin_watchlist) = root["coinWatchlist"].as<String>();
         }
         // Trigger an immediate market refresh so the new coin settings take effect at once.
-        if (g_board.market) g_board.market->request_refresh();
+        if (g_web->market) g_web->market->request_refresh();
         request->send(200, "application/json", "{\"status\":\"ok\"}");
     }
     free(buf);
@@ -581,7 +589,7 @@ void patch_setting_market(AsyncWebServerRequest* request, uint8_t *data, size_t 
 void get_setting_preference(AsyncWebServerRequest* request){
 
     auto get_fan_config = [&](uint8_t fan_id) -> fan_config_t* {
-        for(auto &fan_cfg : g_board.info.spec.fans){
+        for(auto &fan_cfg : g_web->spec->fans){
             if(fan_cfg.id == fan_id){
                 return &fan_cfg;
             }
@@ -591,17 +599,17 @@ void get_setting_preference(AsyncWebServerRequest* request){
 
     StaticJsonDocument<1024> root;
     root.clear();
-    root["screenFlip"]        = g_board.status.preference.screen.flip;
-    root["ledIndicator"]      = g_board.status.preference.led.enable;
-    root["screenAutoRoll"]    = g_board.status.preference.screen.auto_rolling;
-    root["Brightness"]        = g_board.status.preference.screen.brightness;
-    root["screensaverEnable"] = g_board.status.preference.screen.saver_enable ? 1 : 0;
-    root["screensaverTimeout"]= (uint32_t)g_board.status.preference.screen.saver_timeout;
-    root["screensaverMode"]   = (uint8_t)g_board.status.preference.screen.saver_mode;
-    root["hwModel"]           = g_board.info.spec.name;
-    root["displayName"]       = g_board.info.spec.display_name;
+    root["screenFlip"]        = g_web->pref->screen.flip;
+    root["ledIndicator"]      = g_web->pref->led.enable;
+    root["screenAutoRoll"]    = g_web->pref->screen.auto_rolling;
+    root["Brightness"]        = g_web->pref->screen.brightness;
+    root["screensaverEnable"] = g_web->pref->screen.saver_enable ? 1 : 0;
+    root["screensaverTimeout"]= (uint32_t)g_web->pref->screen.saver_timeout;
+    root["screensaverMode"]   = (uint8_t)g_web->pref->screen.saver_mode;
+    root["hwModel"]           = g_web->spec->name;
+    root["displayName"]       = g_web->spec->display_name;
     JsonArray fansArray    = root.createNestedArray("fans");
-    for (auto & fan : g_board.status.fan.list) {
+    for (auto & fan : (*g_web->fan_status)) {
         JsonObject fanObj = fansArray.createNestedObject();
         auto cfg = get_fan_config(fan.id); // ensure the fan config exists for this fan ID; if not, defaults will be used
         if(!cfg) continue;
@@ -633,33 +641,33 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
         }
         if (root.containsKey("Brightness")) {
             uint8_t brightness = (root["Brightness"].as<uint8_t>() <=1) ? 1 : ((root["Brightness"].as<uint8_t>() >= 100) ? 100 : root["Brightness"].as<uint8_t>());
-            g_board.status.preference.screen.brightness = brightness;
+            g_web->pref->screen.brightness = brightness;
             nvs_config_set_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, brightness);
-            xSemaphoreGive(g_board.status.brightness_update_xsem);
+            xSemaphoreGive(g_web->brightness_update_xsem);
         }
         if (root.containsKey("ledIndicator")) {
-            g_board.status.preference.led.enable = root["ledIndicator"].as<uint8_t>();
-            g_board.status.preference.led.sleep  = false;
+            g_web->pref->led.enable = root["ledIndicator"].as<uint8_t>();
+            g_web->pref->led.sleep  = false;
             nvs_config_set_u8(NVS_CONFIG_LED_INDICATOR, root["ledIndicator"].as<uint8_t>());
         }
         if (root.containsKey("screenAutoRoll")) {
             nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, root["screenAutoRoll"].as<uint8_t>());
-            g_board.status.preference.screen.auto_rolling = root["screenAutoRoll"].as<uint8_t>();
+            g_web->pref->screen.auto_rolling = root["screenAutoRoll"].as<uint8_t>();
         }
         if (root.containsKey("screenFlip"))  {
             nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, root["screenFlip"].as<uint8_t>());
         }
         if (root.containsKey("screensaverEnable"))  {
             nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, root["screensaverEnable"].as<uint8_t>());
-            g_board.status.preference.screen.saver_enable = root["screensaverEnable"].as<uint8_t>();
+            g_web->pref->screen.saver_enable = root["screensaverEnable"].as<uint8_t>();
         }
         if (root.containsKey("screensaverTimeout"))  {
             nvs_config_set_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, root["screensaverTimeout"].as<uint32_t>());
-            g_board.status.preference.screen.saver_timeout = root["screensaverTimeout"].as<uint32_t>();
+            g_web->pref->screen.saver_timeout = root["screensaverTimeout"].as<uint32_t>();
         }
         if (root.containsKey("screensaverMode"))  {
             nvs_config_set_u8(NVS_CONFIG_SCREEN_SAVER_MODE, root["screensaverMode"].as<uint8_t>());
-            g_board.status.preference.screen.saver_mode = root["screensaverMode"].as<uint8_t>();
+            g_web->pref->screen.saver_mode = root["screensaverMode"].as<uint8_t>();
         }
         // fans array: id=0 → ASIC fan, id=1 → Vcore fan
         if (root.containsKey("fans") && root["fans"].is<JsonArray>()) {
@@ -669,30 +677,30 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
                 if (fan_id == 0) {
                     if (fan.containsKey("auto")) {
                         nvs_config_set_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, fan["auto"].as<uint16_t>());
-                        g_board.info.spec.fans[0].auto_speed = fan["auto"].as<uint16_t>();
+                        g_web->spec->fans[0].auto_speed = fan["auto"].as<uint16_t>();
                     }
                     if (fan.containsKey("target")) {
                         String t = String(fan["target"].as<float>(), 1);
                         nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, t.c_str());
-                        g_board.info.spec.fans[0].target_temp = fan["target"].as<float>();
+                        g_web->spec->fans[0].target_temp = fan["target"].as<float>();
                     }
                     if (fan.containsKey("speed")) {
                         nvs_config_set_u16(NVS_CONFIG_ASIC_FAN_SPEED, fan["speed"].as<uint16_t>());
-                        g_board.status.fan.list[0].speed = fan["speed"].as<uint16_t>();
+                        (*g_web->fan_status)[0].speed = fan["speed"].as<uint16_t>();
                     }
                 } else if (fan_id == 1) {
                     if (fan.containsKey("auto")) {
                         nvs_config_set_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, fan["auto"].as<uint16_t>());
-                        g_board.info.spec.fans[1].auto_speed = fan["auto"].as<uint16_t>();
+                        g_web->spec->fans[1].auto_speed = fan["auto"].as<uint16_t>();
                     }
                     if (fan.containsKey("target")) {
                         String t = String(fan["target"].as<float>(), 1);
                         nvs_config_set_string(NVS_CONFIG_VCORE_TARGET_TEMP, t.c_str());
-                        g_board.info.spec.fans[1].target_temp = fan["target"].as<float>();
+                        g_web->spec->fans[1].target_temp = fan["target"].as<float>();
                     }
                     if (fan.containsKey("speed")) {
                         nvs_config_set_u16(NVS_CONFIG_VCORE_FAN_SPEED, fan["speed"].as<uint16_t>());
-                        g_board.status.fan.list[1].speed = fan["speed"].as<uint16_t>();
+                        (*g_web->fan_status)[1].speed = fan["speed"].as<uint16_t>();
                     }
                 }
             }
@@ -713,12 +721,12 @@ void get_hr_distribution(AsyncWebServerRequest* request){
     StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
 
     root.clear();
-    root["max_bars"]    = g_board.info.spec.ui.hashrate_dist_page.max_x_bars;
-    root["max_hr"]      = g_board.info.spec.ui.hashrate_dist_page.max_x_hr;
-    root["count"]       = g_board.info.spec.ui.hashrate_dist_page.count;
-    root["time"]        = g_board.info.spec.ui.hashrate_dist_page.time;
+    root["max_bars"]    = g_web->spec->ui.hashrate_dist_page.max_x_bars;
+    root["max_hr"]      = g_web->spec->ui.hashrate_dist_page.max_x_hr;
+    root["count"]       = g_web->spec->ui.hashrate_dist_page.count;
+    root["time"]        = g_web->spec->ui.hashrate_dist_page.time;
     JsonObject dist_map = root.createNestedObject("dist");
-    for (const auto& pair : g_board.info.spec.ui.hashrate_dist_page.dist_map) {
+    for (const auto& pair : g_web->spec->ui.hashrate_dist_page.dist_map) {
         dist_map[String(pair.first)] = pair.second; 
     }
 
@@ -737,44 +745,44 @@ void get_gauge_limits(AsyncWebServerRequest* request){
     // Power limits
     JsonObject power = root.createNestedObject("power");
     JsonObject power_vbus = power.createNestedObject("vbus");
-    power_vbus["min"] = g_board.info.spec.ui.dashboard_page.power.vbus.min;
-    power_vbus["max"] = g_board.info.spec.ui.dashboard_page.power.vbus.max;
+    power_vbus["min"] = g_web->spec->ui.dashboard_page.power.vbus.min;
+    power_vbus["max"] = g_web->spec->ui.dashboard_page.power.vbus.max;
     
     JsonObject power_ibus = power.createNestedObject("ibus");
-    power_ibus["min"] = g_board.info.spec.ui.dashboard_page.power.ibus.min;
-    power_ibus["max"] = g_board.info.spec.ui.dashboard_page.power.ibus.max;
+    power_ibus["min"] = g_web->spec->ui.dashboard_page.power.ibus.min;
+    power_ibus["max"] = g_web->spec->ui.dashboard_page.power.ibus.max;
     
     JsonObject power_power = power.createNestedObject("power");
-    power_power["min"] = g_board.info.spec.ui.dashboard_page.power.power.min;
-    power_power["max"] = g_board.info.spec.ui.dashboard_page.power.power.max;
+    power_power["min"] = g_web->spec->ui.dashboard_page.power.power.min;
+    power_power["max"] = g_web->spec->ui.dashboard_page.power.power.max;
     
     // Heat limits
     JsonObject heat = root.createNestedObject("heat");
     JsonObject heat_asic = heat.createNestedObject("asic");
-    heat_asic["min"] = g_board.info.spec.ui.dashboard_page.heat.asic.min;
-    heat_asic["max"] = g_board.info.spec.ui.dashboard_page.heat.asic.max;
+    heat_asic["min"] = g_web->spec->ui.dashboard_page.heat.asic.min;
+    heat_asic["max"] = g_web->spec->ui.dashboard_page.heat.asic.max;
     
     JsonObject heat_vcore = heat.createNestedObject("vcore");
-    heat_vcore["min"] = g_board.info.spec.ui.dashboard_page.heat.vcore.min;
-    heat_vcore["max"] = g_board.info.spec.ui.dashboard_page.heat.vcore.max;
+    heat_vcore["min"] = g_web->spec->ui.dashboard_page.heat.vcore.min;
+    heat_vcore["max"] = g_web->spec->ui.dashboard_page.heat.vcore.max;
     
     JsonObject heat_fan = heat.createNestedObject("fan");
-    heat_fan["min"] = g_board.info.spec.ui.dashboard_page.heat.fan.min;
-    heat_fan["max"] = g_board.info.spec.ui.dashboard_page.heat.fan.max;
+    heat_fan["min"] = g_web->spec->ui.dashboard_page.heat.fan.min;
+    heat_fan["max"] = g_web->spec->ui.dashboard_page.heat.fan.max;
     
     // Performance limits
     JsonObject performance = root.createNestedObject("performance");
     JsonObject perf_asic_freq = performance.createNestedObject("asic_freq_req");
-    perf_asic_freq["min"] = g_board.info.spec.ui.dashboard_page.performance.asic_freq_req.min;
-    perf_asic_freq["max"] = g_board.info.spec.ui.dashboard_page.performance.asic_freq_req.max;
+    perf_asic_freq["min"] = g_web->spec->ui.dashboard_page.performance.asic_freq_req.min;
+    perf_asic_freq["max"] = g_web->spec->ui.dashboard_page.performance.asic_freq_req.max;
     
     JsonObject perf_vcore_req = performance.createNestedObject("vcore_req");
-    perf_vcore_req["min"] = g_board.info.spec.ui.dashboard_page.performance.vcore_req.min;
-    perf_vcore_req["max"] = g_board.info.spec.ui.dashboard_page.performance.vcore_req.max;
+    perf_vcore_req["min"] = g_web->spec->ui.dashboard_page.performance.vcore_req.min;
+    perf_vcore_req["max"] = g_web->spec->ui.dashboard_page.performance.vcore_req.max;
     
     JsonObject perf_vcore_measure = performance.createNestedObject("vcore_measure");
-    perf_vcore_measure["min"] = g_board.info.spec.ui.dashboard_page.performance.vcore_measure.min;
-    perf_vcore_measure["max"] = g_board.info.spec.ui.dashboard_page.performance.vcore_measure.max;
+    perf_vcore_measure["min"] = g_web->spec->ui.dashboard_page.performance.vcore_measure.min;
+    perf_vcore_measure["max"] = g_web->spec->ui.dashboard_page.performance.vcore_measure.max;
 
     String json_str;
     serializeJsonPretty(root, json_str);
@@ -793,9 +801,9 @@ void get_status_history(AsyncWebServerRequest* request){
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
-    if (xSemaphoreTake(g_board.status.miner.status_history.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_board.status.miner.status_history.deque.size();
-        xSemaphoreGive(g_board.status.miner.status_history.mutex);
+    if (xSemaphoreTake(g_web->status->status_history.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        history_size = g_web->status->status_history.deque.size();
+        xSemaphoreGive(g_web->status->status_history.mutex);
         LOG_D("History size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
@@ -851,7 +859,7 @@ void get_status_history(AsyncWebServerRequest* request){
     BasicJsonDocument<PsramJsonAllocator> root(json_size_max);
     
     // Build JSON structure
-    uint64_t ms = g_board.status.time.utc * 1000ULL;
+    uint64_t ms = (*g_web->utc) * 1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
@@ -878,12 +886,12 @@ void get_status_history(AsyncWebServerRequest* request){
     // Acquire mutex for history traversal
     // NOTE: portMAX_DELAY in async_tcp context can deadlock the entire TCP stack.
     //       Use a bounded timeout; if the mutex is unavailable, return 503.
-    if (xSemaphoreTake(g_board.status.miner.status_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
-        actual_history_size = g_board.status.miner.status_history.deque.size();
+    if (xSemaphoreTake(g_web->status->status_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+        actual_history_size = g_web->status->status_history.deque.size();
         LOG_D("Starting sampling: %d total records, interval: %d, max points: %d", 
               actual_history_size, actual_sample_interval, MAX_DATA_POINTS);
         
-        for (const auto& history : g_board.status.miner.status_history.deque) {
+        for (const auto& history : g_web->status->status_history.deque) {
             if(idx % actual_sample_interval == 0) {
                 // Stop if we've reached the maximum data points limit
                 if (sampled_count >= (int)MAX_DATA_POINTS) {
@@ -924,7 +932,7 @@ void get_status_history(AsyncWebServerRequest* request){
             }
         }
         
-        xSemaphoreGive(g_board.status.miner.status_history.mutex);
+        xSemaphoreGive(g_web->status->status_history.mutex);
         LOG_D("Sampling completed: %d samples from %d total records, interval: %d", 
               sampled_count, actual_history_size, actual_sample_interval);
     } else {
@@ -986,7 +994,7 @@ void get_status_realtime(AsyncWebServerRequest* request){
     // Use local document instead of static to prevent memory leaks
     BasicJsonDocument<PsramJsonAllocator> root(json_size_max);
 
-    uint64_t ms = g_board.status.time.utc*1000ULL;
+    uint64_t ms = (*g_web->utc)*1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
@@ -1007,9 +1015,9 @@ void get_status_realtime(AsyncWebServerRequest* request){
     JsonArray data = root.createNestedArray("statistics");
     
     // Protect status_history access with mutex
-    if (xSemaphoreTake(g_board.status.miner.status_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
-        if (!g_board.status.miner.status_history.deque.empty()) {
-            auto& history = g_board.status.miner.status_history.deque.back();
+    if (xSemaphoreTake(g_web->status->status_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+        if (!g_web->status->status_history.deque.empty()) {
+            auto& history = g_web->status->status_history.deque.back();
             JsonArray dataPoint = data.createNestedArray();
             dataPoint.add(history.hashrate);           // hashRate (GH/s)
             dataPoint.add(history.asic_temp);          // asic_temp (°C)
@@ -1026,13 +1034,13 @@ void get_status_realtime(AsyncWebServerRequest* request){
             dataPoint.add(history.latency);            // latency (ms)
             dataPoint.add(history.epoch);              // timestamp (ms)
         }
-        xSemaphoreGive(g_board.status.miner.status_history.mutex);
+        xSemaphoreGive(g_web->status->status_history.mutex);
     }
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
 
-    LOG_D("Status realtime sent, history size: %d...", g_board.status.miner.status_history.deque.size());
+    LOG_D("Status realtime sent, history size: %d...", g_web->status->status_history.deque.size());
 }
 
 // GET /api/dashboard/luck/history -- block-proximity history for luck/difficulty chart.
@@ -1041,9 +1049,9 @@ void get_lucky_history(AsyncWebServerRequest* request){
     
     // Safely check history data size with mutex protection
     size_t history_size = 0;
-    if (xSemaphoreTake(g_board.status.miner.proximity_history.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_board.status.miner.proximity_history.deque.size();
-        xSemaphoreGive(g_board.status.miner.proximity_history.mutex);
+    if (xSemaphoreTake(g_web->status->proximity_history.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        history_size = g_web->status->proximity_history.deque.size();
+        xSemaphoreGive(g_web->status->proximity_history.mutex);
         LOG_D("Lucky history size retrieved: %d records", history_size);
     } else {
         LOG_E("Failed to acquire history mutex, aborting request");
@@ -1074,7 +1082,7 @@ void get_lucky_history(AsyncWebServerRequest* request){
     BasicJsonDocument<PsramJsonAllocator> root(json_size_max);
     
     // Build JSON structure
-    uint64_t ms = g_board.status.time.utc * 1000ULL;
+    uint64_t ms = (*g_web->utc) * 1000ULL;
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("proximity");
@@ -1087,10 +1095,10 @@ void get_lucky_history(AsyncWebServerRequest* request){
     size_t sampled_count = 0;
     
     // Acquire mutex for history traversal
-    if (xSemaphoreTake(g_board.status.miner.proximity_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+    if (xSemaphoreTake(g_web->status->proximity_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
         LOG_D("Starting data collection: %d total records", history_size);
         
-        for (const auto& history : g_board.status.miner.proximity_history.deque) {
+        for (const auto& history : g_web->status->proximity_history.deque) {
             JsonArray dataPoint = data.createNestedArray();
             
             dataPoint.add(history.block_proximity);
@@ -1102,7 +1110,7 @@ void get_lucky_history(AsyncWebServerRequest* request){
             if (sampled_count % 100 == 0) taskYIELD();
         }
         
-        xSemaphoreGive(g_board.status.miner.proximity_history.mutex);
+        xSemaphoreGive(g_web->status->proximity_history.mutex);
         LOG_D("Data collection completed: %d samples from %d total records", sampled_count, history_size);
     } else {
         LOG_E("Failed to acquire history mutex for data collection");
@@ -1261,12 +1269,12 @@ void get_benchmark(AsyncWebServerRequest* request){
     // Vcore: read from asic struct integers directly — no vector access needed.
     uint16_t oc_min_def = 400, oc_max_def = 625;
     { bool first = true;
-      for (const auto& o : g_board.info.spec.ui.setting_page.oc) {
+      for (const auto& o : g_web->spec->ui.setting_page.oc) {
           if (first) { oc_min_def = o.value; first = false; }
           oc_max_def = o.value;
       } }
-    uint16_t vc_min_def = g_board.info.spec.asic.min_vcore ? g_board.info.spec.asic.min_vcore : 1000;
-    uint16_t vc_max_def = g_board.info.spec.asic.max_vcore ? g_board.info.spec.asic.max_vcore : 1300;
+    uint16_t vc_min_def = g_web->spec->asic.min_vcore ? g_web->spec->asic.min_vcore : 1000;
+    uint16_t vc_max_def = g_web->spec->asic.max_vcore ? g_web->spec->asic.max_vcore : 1300;
     AsyncResponseStream *resp = request->beginResponseStream("application/json");
     resp->addHeader("Access-Control-Allow-Origin", "*");
     resp->print("{");
@@ -1370,7 +1378,7 @@ void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t 
         request->send(response);
         delay(300);
         reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark start API");
-        xSemaphoreGive(g_board.status.reboot_xsem);
+        xSemaphoreGive(g_web->reboot_xsem);
     }
     free(buf);
 }
@@ -1385,7 +1393,7 @@ void post_benchmark_stop(AsyncWebServerRequest* request){
     request->send(response);
     delay(300);
     reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark stop API");
-    xSemaphoreGive(g_board.status.reboot_xsem);
+    xSemaphoreGive(g_web->reboot_xsem);
 }
 
 // DELETE /api/benchmark/results
@@ -1437,22 +1445,22 @@ void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t 
             free(buf); return;
         }
         // Clamp vcore to board safety limits
-        uint16_t vcore_min = g_board.info.spec.asic.min_vcore;
-        uint16_t vcore_max = g_board.info.spec.asic.max_vcore;
+        uint16_t vcore_min = g_web->spec->asic.min_vcore;
+        uint16_t vcore_max = g_web->spec->asic.max_vcore;
         if (vcore_min > 0 && vcore < vcore_min) vcore = vcore_min;
         if (vcore_max > 0 && vcore > vcore_max) vcore = vcore_max;
         // Always persist to NVS and ensure Normal mode flag is cleared
         nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    freq);
         nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
         nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 0);
-        bool need_reboot = (g_board.status.bm_mode != 0);
+        bool need_reboot = ((*g_web->bm_mode) != 0);
         if (!need_reboot) {
             // Normal mode — hot-switch freq+vcore immediately, no reboot needed.
             // Apply vcore first (voltage must be stable before PLL change).
-            g_board.info.spec.asic.req_vcore = vcore;
-            if (g_board.power  != nullptr) g_board.power->set_vcore_voltage(vcore);
-            g_board.info.spec.asic.req_frq = freq;
-            if (g_board.miner  != nullptr && !g_board.miner->request_asic_frequency(freq)) {
+            g_web->spec->asic.req_vcore = vcore;
+            if (g_web->power  != nullptr) g_web->power->set_vcore_voltage(vcore);
+            g_web->spec->asic.req_frq = freq;
+            if (g_web->miner  != nullptr && !g_web->miner->request_asic_frequency(freq)) {
                 LOG_W("[BM] Apply (hot): freq hot-switch request failed to queue: %uMHz", freq);
             }
             LOG_I("[BM] Apply via API (hot): freq=%dMHz vcore=%dmV — active immediately, no reboot", freq, vcore);
@@ -1467,7 +1475,7 @@ void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t 
             request->send(response);
             delay(300);
             reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark apply API");
-            xSemaphoreGive(g_board.status.reboot_xsem);
+            xSemaphoreGive(g_web->reboot_xsem);
         }
     }
     free(buf);
@@ -1510,7 +1518,7 @@ void post_benchmark_reset(AsyncWebServerRequest* request){
     if (was_running) {
         delay(300);
         reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark reset API");
-        xSemaphoreGive(g_board.status.reboot_xsem);
+        xSemaphoreGive(g_web->reboot_xsem);
     }
 }
 
@@ -1526,13 +1534,13 @@ void post_restart(AsyncWebServerRequest * request){
     AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "System will restart shortly.");
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
-    xSemaphoreGive(g_board.status.reboot_xsem);
+    xSemaphoreGive(g_web->reboot_xsem);
 }
 
 // POST /api/system/clearhits -- reset block-hit counter to zero in RAM and NVS.
 void post_reset_block_hits(AsyncWebServerRequest * request){
-    g_board.status.miner.hits      = 0;
-    xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED); 
+    g_web->status->hits      = 0;
+    xEventGroupClearBits(g_web->sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED); 
     nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, 0);
     LOG_I("Miner stats reset: block hits cleared");
     request->send(200, "application/json", "{\"status\":\"ok\"}");
@@ -1554,39 +1562,39 @@ void patch_mining_state(AsyncWebServerRequest *request, uint8_t *data, size_t le
             free(buf); return;
         }
 
-        if (g_board.status.bm_mode != 0) {
+        if ((*g_web->bm_mode) != 0) {
             request->send(409, "application/json", "{\"error\":\"mining state control is disabled in benchmark mode\"}");
             free(buf); return;
         }
-        if (g_board.status.ota.running) {
+        if (g_web->ota->running) {
             request->send(409, "application/json", "{\"error\":\"mining state control is disabled during OTA\"}");
             free(buf); return;
         }
-        if (g_board.miner == nullptr || g_board.power == nullptr) {
+        if (g_web->miner == nullptr || g_web->power == nullptr) {
             request->send(503, "application/json", "{\"error\":\"miner is not ready\"}");
             free(buf); return;
         }
 
         bool pause_requested = root["paused"].as<bool>();
-        miner_runtime_state_t state = g_board.status.miner.runtime_state;
+        MinerRuntimeState state = g_web->status->runtime_state;
         if (pause_requested) {
             if (state != MINER_RUNTIME_PAUSING && state != MINER_RUNTIME_PAUSED) {
-                g_board.status.miner.user_paused = true;
-                g_board.status.miner.runtime_state = MINER_RUNTIME_PAUSING;
-                g_board.status.miner.pause_started_ms = millis();
-                g_board.status.miner.resume_grace_until_ms = 0;
+                g_web->status->user_paused = true;
+                g_web->status->runtime_state = MINER_RUNTIME_PAUSING;
+                g_web->status->pause_started_ms = millis();
+                g_web->status->resume_grace_until_ms = 0;
                 LOG_W("Mining pause requested by API");
             }
         } else {
-            if (state != MINER_RUNTIME_RUNNING || g_board.status.miner.user_paused) {
-                g_board.status.miner.runtime_state = MINER_RUNTIME_RESUMING;
-                g_board.status.miner.pause_started_ms = 0;
+            if (state != MINER_RUNTIME_RUNNING || g_web->status->user_paused) {
+                g_web->status->runtime_state = MINER_RUNTIME_RESUMING;
+                g_web->status->pause_started_ms = 0;
                 LOG_W("Mining resume requested by API");
             }
         }
 
-        if (g_board.status.miner.control_xsem != NULL) xSemaphoreGive(g_board.status.miner.control_xsem);
-        if (g_board.stratum != nullptr) xSemaphoreGive(g_board.stratum->new_job_xsem);
+        if (g_web->status->control_xsem != NULL) xSemaphoreGive(g_web->status->control_xsem);
+        if (g_web->stratum != nullptr) xSemaphoreGive(g_web->stratum->new_job_xsem);
         send_mining_state_response(request);
     }
     free(buf);
@@ -1718,16 +1726,16 @@ void delete_coredump(AsyncWebServerRequest * request) {
     request->send(resp);
 }
 
-// GET /api/update/progress -- returns current OTA/upload progress from g_board.status.ota.
+// GET /api/update/progress -- returns current OTA/upload progress from g_web->ota->
 // Used by the frontend to poll real device-side write progress for all upload types
 // (firmware.bin, spiffs.bin, screensaver .gif).
 void get_ota_progress(AsyncWebServerRequest* request) {
     char buf[128];
     snprintf(buf, sizeof(buf),
         "{\"running\":%s,\"progress\":%d,\"filename\":\"%s\"}",
-        g_board.status.ota.running ? "true" : "false",
-        g_board.status.ota.progress,
-        g_board.status.ota.filename.c_str());
+        g_web->ota->running ? "true" : "false",
+        g_web->ota->progress,
+        g_web->ota->filename.c_str());
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", buf);
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
@@ -1746,8 +1754,8 @@ void get_ota_last_result(AsyncWebServerRequest* request) {
     obj["target"] = g_ota_last_result.target;
     obj["filename"] = g_ota_last_result.filename;
     obj["detail"] = g_ota_last_result.detail;
-    obj["running"] = g_board.status.ota.running;
-    obj["progress"] = g_board.status.ota.progress;
+    obj["running"] = g_web->ota->running;
+    obj["progress"] = g_web->ota->progress;
 
     String body;
     serializeJson(doc, body);
@@ -1761,7 +1769,7 @@ void get_ota_last_result(AsyncWebServerRequest* request) {
 //   *.gif  → SPIFFS file write (screensaver)  — uses g_board.status.ota for progress
 //   *.bin  → OTA flash write (firmware/spiffs) — uses g_board.status.ota for progress
 //
-// Both paths update g_board.status.ota.{running, progress, filename} so the frontend
+// Both paths update g_web->ota->{running, progress, filename} so the frontend
 // can poll GET /api/update/progress to get accurate device-side write progress.
 //
 // POST /api/update/screensaver -- GIF screensaver (multipart field: "screensaver")
@@ -1810,7 +1818,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 return;
             }
             String gif_name;
-            if (g_board.info.spec.name == BOARD_NMAXE_NAME || g_board.info.spec.name == BOARD_NMAXE_GAMMA_NAME) {
+            if (g_web->spec->name == BOARD_NMAXE_NAME || g_web->spec->name == BOARD_NMAXE_GAMMA_NAME) {
                 gif_name = "screen_saver_240x135.gif";
             } else {
                 gif_name = "screen_saver_320x240.gif";
@@ -1823,10 +1831,10 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 request->send(500, "text/plain", "Failed to open file for writing.");
                 return;
             }
-            g_board.status.ota.running          = true;
-            g_board.status.ota.progress         = 0;
-            g_board.status.ota.filename         = filename;
-            g_board.status.ota.last_progress_ms = millis();
+            g_web->ota->running          = true;
+            g_web->ota->progress         = 0;
+            g_web->ota->filename         = filename;
+            g_web->ota->last_progress_ms = millis();
             lastPercentage    = -1;
         } else {
             // ── Firmware / SPIFFS OTA init ────────────────────────────────
@@ -1859,10 +1867,10 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 request->send(500, "text/plain", err_msg);
                 return;
             }
-            g_board.status.ota.running          = true;
-            g_board.status.ota.progress         = 0;
-            g_board.status.ota.filename         = filename;
-            g_board.status.ota.last_progress_ms = millis();
+            g_web->ota->running          = true;
+            g_web->ota->progress         = 0;
+            g_web->ota->filename         = filename;
+            g_web->ota->last_progress_ms = millis();
             ota_buf_len    = 0;
             lastPercentage = -1;
         }
@@ -1874,7 +1882,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             if (gif_file.write(data, len) != len) {
                 LOG_E("GIF upload: write error at offset %u", (unsigned)index);
                 gif_file.close();
-                g_board.status.ota.running = false;
+                g_web->ota->running = false;
                 ota_last_result_set(false, false, 500, (uint32_t)(index + len), filename, "Write error");
                 request->send(500, "text/plain", "Write error.");
                 return;
@@ -1882,8 +1890,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             if (flen > 0) {
                 int pct = (int)((index + len) * 100ULL / flen);
                 if (pct != lastPercentage) {
-                    g_board.status.ota.progress         = pct;
-                    g_board.status.ota.last_progress_ms = millis();
+                    g_web->ota->progress         = pct;
+                    g_web->ota->last_progress_ms = millis();
                     LOG_I("GIF upload: %d%%  (%u / %llu bytes)", pct, (unsigned)(index + len), (unsigned long long)flen);
                     lastPercentage = pct;
                 }
@@ -1892,8 +1900,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
         }
         if (final) {
             if (gif_file) gif_file.close();
-            g_board.status.ota.running  = false;
-            g_board.status.ota.progress = 100;
+            g_web->ota->running  = false;
+            g_web->ota->progress = 100;
             LOG_I("GIF upload complete: %u bytes saved as %s", (unsigned)(index + len), filename.c_str());
             AsyncWebServerResponse *resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
             resp->addHeader("Access-Control-Allow-Origin", "*");
@@ -1932,8 +1940,8 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
 
                 int progress = (int)((index + offset) * 100.0 / flen);
                 if (progress != lastPercentage) {
-                    g_board.status.ota.progress         = progress;
-                    g_board.status.ota.last_progress_ms = millis();
+                    g_web->ota->progress         = progress;
+                    g_web->ota->last_progress_ms = millis();
                     LOG_I("%s ota: %d%%", filename.c_str(), progress);
                     lastPercentage = progress;
                 }
@@ -1942,9 +1950,9 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
 
         if (final) {
             if (Update.end(true)) {
-                // g_board.status.ota.running  = false;
-                g_board.status.ota.progress = 100;
-                LOG_I("%s ota: %d%%", filename.c_str(), g_board.status.ota.progress);
+                // g_web->ota->running  = false;
+                g_web->ota->progress = 100;
+                LOG_I("%s ota: %d%%", filename.c_str(), g_web->ota->progress);
                 // SPIFFS update completed successfully — clear the "in-progress" guard flag
                 // so the next boot proceeds to normal mode instead of recovery mode.
                 if (filename == "spiffs.bin") {
@@ -1960,7 +1968,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 //       daemon_thread_entry waits ~1s before restarting, giving time for the HTTP response to be sent.
                 reboot_intent_set(REBOOT_INTENT_OTA_FINISHED, "uploaded %s (%u bytes)",
                                   filename.c_str(), (unsigned)(index + len));
-                xSemaphoreGive(g_board.status.reboot_xsem);
+                xSemaphoreGive(g_web->reboot_xsem);
             } else {
                 LOG_E("OTA Update error: %s", Update.errorString());
                 String err_msg = String("OTA end failed: ") + Update.errorString();
@@ -1982,9 +1990,9 @@ void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEve
                           client->id(), client->remoteIP().toString().c_str());
             // A WebSocket connection is the most reliable signal that a user has opened the web UI.
             // Wake screensaver immediately so the page renders with a live display.
-            // Safe to call here: g_board is a global and these are atomic bit ops.
-            g_board.status.ui.last_active_ms = millis();
-            xEventGroupClearBits(g_board.status.sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            // Defer the LVGL inactivity reset onto the UI thread.
+            UIManager::instance().wake_activity();
+            xEventGroupClearBits(g_web->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
             break;
         case WS_EVT_DISCONNECT:
             Serial.printf("> [WS] client #%u disconnected\r\n", client->id());

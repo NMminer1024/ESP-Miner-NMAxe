@@ -2,7 +2,6 @@
 #include "drivers/iic/i2c_master.h"
 #include "utils/logger/logger.h"
 #include "tca9554.h"
-#include "global.h"
 #include <cmath>
 
 #define TCA9554_IIC_ADDR                (uint8_t)(0x20)

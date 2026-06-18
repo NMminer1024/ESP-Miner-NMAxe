@@ -5,7 +5,7 @@
 #include <esp_err.h>
 #include <esp_core_dump.h>
 
-#include "utils/logger/logger.h"
+#include "../logger/logger.h"
 
 // ── Presence ────────────────────────────────────────────────────────────────
 bool coredump_present(size_t* out_size_bytes, bool* out_crc_ok) {

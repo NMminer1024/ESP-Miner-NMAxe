@@ -1,6 +1,4 @@
 #include "utils/logger/logger.h"
-#include "board/board.h"
-#include "global.h"
 #include "fan.h"
 
 #define PULSES_PER_REVOLUTION 2        // Number of pulses per fan revolution

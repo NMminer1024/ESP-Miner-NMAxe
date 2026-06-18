@@ -1,5 +1,13 @@
 # Reflect 重构迁移进度
 
+## 当前目录约定
+- `legacy/`：旧版代码目录，保留原始实现用于对照与回归核对
+- `src/`：当前重构后的主代码目录，后续开发与编译默认基于此目录
+
+说明：
+- 本文档中的早期阶段记录保留了当时的历史命名 `reflect_src/`
+- 这些记录表示迁移过程中的原始阶段，不代表当前仓库目录结构
+
 目标：把 `src/` 的 god 结构 `board_sal_t g_board` 拆成 NMMiner 风格的「每线程上下文 (void* args 注入)」，
 逻辑/时序严格不变；驱动按更优雅的结构重组。每个阶段必须编译通过后才进入下一步。
 
@@ -252,12 +260,12 @@ lv_conf.h 启用 Montserrat 28/48 大字。构建通过，Flash 约 44.7%。
   这几页的仪表/图表/币种列表在 legacy 中大多**烘焙进底图位图**、动态覆盖元素较少；其精确覆盖坐标
   可对照各自底图继续细化（后续）。
 
-## 最新进度 - 2026-06-17
+## 最新进度 - 2026-06-18
 
 已保存一份可用于下一次上电测试的构建基线。
 
 本轮完成内容：
-- reflect 的 loading 页面进度条已恢复平滑动画，进度百分比文字会随进度条移动
+- loading 页面进度条已恢复平滑动画，进度百分比文字会随进度条移动
 - loading 页的 `details`、IP、pool 文本布局与滚动行为已向 legacy 对齐
 - loading 页的 IP / pool 实时更新已挪到快速 UI tick 路径，不再受 1Hz 刷新限制
 - tileview 滑动落点逻辑已修正，更接近 legacy 的页面切换判定
@@ -269,6 +277,10 @@ lv_conf.h 启用 Montserrat 28/48 大字。构建通过，Flash 约 44.7%。
 这项 ASIC 修改的意义：
 - 保留旧版 USB-only 供电下的 ASIC 识别窗口
 - 在未插 DC、电压核心 Vcore 尚未开启时，板子仍应先识别到 ASIC，再进入完整 miner 初始化
+- 已完成目录切换：
+  - 旧 `src/` → `legacy/`
+  - 旧 `reflect_src/` → `src/`
+- `platformio.ini` 已同步更新，`reflect` 构建环境现在直接从新的 `src/` 编译，并从 `legacy/patches/etharp.c` 引入补丁文件
 
 构建验证：
 - 命令：`pio run -e reflect`

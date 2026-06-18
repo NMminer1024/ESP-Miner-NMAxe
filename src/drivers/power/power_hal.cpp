@@ -1,6 +1,5 @@
 #include "power_hal.h"
 #include "utils/logger/logger.h"
-#include "global.h"
 #include <driver/adc.h>
 
 #define DEFAULT_VREF            1100

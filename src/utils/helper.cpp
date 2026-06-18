@@ -4,7 +4,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
-#include "utils/logger/logger.h"
+#include "logger/logger.h"
 #include <nvs_flash.h>
 #include <nvs.h>
 #include "utils/sha/csha256.h"

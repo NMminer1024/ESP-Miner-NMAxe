@@ -4,7 +4,6 @@
 #include <esp_task_wdt.h>
 #include "utils/helper.h"
 #include <limits> 
-#include "global.h"
 #include "utils/sha/csha256.h"
 #include <deque>
 #include <vector>
@@ -190,18 +189,18 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     if(this->_asic == NULL) return false;
     ////////////////////////////////////////construct asic job//////////////////////////////////
     uint8_t step = 8;
-    if(g_board.info.spec.asic.name == CHIP_NMAXE_NAME)                  step = 8;
-    else if (g_board.info.spec.asic.name == CHIP_NMAXE_GAMMA_NAME)      step = 24;
-    else if (g_board.info.spec.asic.name == CHIP_NMQAXE_PLUS_PLUS_NAME) step = 24;
-    else if (g_board.info.spec.asic.name == CHIP_NMQAXE_PLUS_PLUS_REV81_NAME) step = 24;
+    if(this->_asic_name == CHIP_NMAXE_NAME)                  step = 8;
+    else if (this->_asic_name == CHIP_NMAXE_GAMMA_NAME)      step = 24;
+    else if (this->_asic_name == CHIP_NMQAXE_PLUS_PLUS_NAME) step = 24;
+    else if (this->_asic_name == CHIP_NMQAXE_PLUS_PLUS_REV81_NAME) step = 24;
     else LOG_W("Unknown ASIC model, using default step 8");
 
     this->_asic_job_now.id = (this->_asic_job_now.id + step) % 128;
 
     this->pool_job_now.id  = pool_job->id;
-    String  extranonce2    = g_board.stratum->get_sub_extranonce2();
+    String  extranonce2    = this->_stratum->get_sub_extranonce2();
     /**************************************** coinhash ****************************************/
-    String coinbaseStr = pool_job->coinb1 + g_board.stratum->get_sub_extranonce1() + extranonce2 + pool_job->coinb2;
+    String coinbaseStr = pool_job->coinb1 + this->_stratum->get_sub_extranonce1() + extranonce2 + pool_job->coinb2;
     uint8_t merkle_root[32], coinbase[coinbaseStr.length()/2];
     size_t res = str_to_byte_array(coinbaseStr.c_str(), coinbaseStr.length(), coinbase);
     if(res <= 0){
@@ -264,10 +263,10 @@ uint8_t AsicMinerClass::connect_chip(){
     this->_asic->reset();
     this->_asic_count = this->_asic->get_asic_count();
     if(0 == this->_asic_count) {
-        LOG_E("xxxxxxx No %s ASIC found xxxxxxx", g_board.info.spec.asic.name);
+        LOG_E("xxxxxxx No %s ASIC found xxxxxxx", this->_asic_name);
         return 0;
     }
-    LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, g_board.info.spec.asic.name, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
+    LOG_I("======= Found %d %s %s (%d/%d)=======", this->_asic_count, this->_asic_name, (this->_asic_count > 1) ? "chips" : "chip" , this->_asic->get_cores(), this->_asic->get_small_cores());
     return this->_asic_count;
 }
 
@@ -310,7 +309,7 @@ String AsicMinerClass::get_pool_job_id_by_asic_job_id(uint8_t asic_job_id){
 
 bool AsicMinerClass::submit_job_share(String pool_job_id, String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version){
     if(pool_job_id.length() == 0) return false;
-    return g_board.stratum->submit(pool_job_id, extranonce2, ntime, nonce, version);
+    return this->_stratum->submit(pool_job_id, extranonce2, ntime, nonce, version);
 }
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){

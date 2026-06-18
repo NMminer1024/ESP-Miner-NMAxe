@@ -50,7 +50,9 @@ private:
     using AsicJobMap = std::map<uint8_t, asic_job, std::less<uint8_t>, PsramAllocator<std::pair<const uint8_t, asic_job>>>;
     using AsicJobStringMap = std::map<uint8_t, String, std::less<uint8_t>, PsramAllocator<std::pair<const uint8_t, String>>>;
 
-    BMxxx                       *_asic;  
+    BMxxx                       *_asic;
+    StratumClass                *_stratum = nullptr;   // injected (replaces g_board.stratum)
+    String                      _asic_name;            // injected (replaces g_board.info.spec.asic.name)
     float                       _asic_diff_thr;
     uint8_t                     _asic_count;
     asic_job                    _asic_job_now;
@@ -74,6 +76,8 @@ public:
     pool_job_data_t             pool_job_now;
     AsicMinerClass(BMxxx *asic);
     ~AsicMinerClass();
+    void set_stratum(StratumClass* s){ this->_stratum = s; }       // dependency injection
+    void set_asic_name(const String& n){ this->_asic_name = n; }   // dependency injection
     bool begin(uint16_t freq, uint16_t diff, uint32_t baudrate);
     bool request_asic_frequency(uint16_t target_freq);
     bool apply_pending_asic_frequency();

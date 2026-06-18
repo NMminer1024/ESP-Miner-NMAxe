@@ -11,8 +11,8 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "global.h"
-#include "utils/logger/logger.h"
+#include "version.h"
+#include "../logger/logger.h"
 
 // ── NVS layout (namespace "reboot") ──────────────────────────────────────────
 //   "head"    u8     index of next slot to write (0..RING-1)

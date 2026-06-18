@@ -81,6 +81,7 @@ private:
     uint32_t                                        _max_rsp_id_cache;
     uint32_t                                        _job_counter;
     uint8_t                                         _pool_job_cache_size;
+    String                                          _client_id;   // injected: "<display_name>/<fw_version>" for mining.subscribe
     std::deque<pool_job_data_t, PsramAllocator<pool_job_data_t>>                                                                      _pool_job_cache;   // PSRAM
     std::map<stratum_msg_rsp_id_t, stratum_rsp, std::less<stratum_msg_rsp_id_t>, PsramAllocator<std::pair<const stratum_msg_rsp_id_t, stratum_rsp>>> _msg_rsp_map; // PSRAM
 public:
@@ -130,6 +131,7 @@ public:
     bool del_msg_rsp_map(uint32_t id);
     bool is_submit_timeout();
 
+    void   set_client_id(const String& id){ this->_client_id = id; }
     void   set_sub_extranonce1(String extranonce1);
     void   set_sub_extranonce2_size(int size);
     String get_sub_extranonce1();

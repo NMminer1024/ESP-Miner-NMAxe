@@ -1,7 +1,6 @@
 #include "market.h"
 #include "utils/logger/logger.h"
 #include <ArduinoJson.h>
-#include "global.h"
 #include <HTTPClient.h>
 #include <WiFiClient.h>
 #include <string.h>

@@ -1,413 +1,1099 @@
-#include "application.h"
-#include "utils/logger/logger.h"
-#include "nvs/nvs_config.h"
-#include <nvs_flash.h>
+﻿#include "application.h"
 
-// Global board instance - declared extern in global.h, defined here
-board_sal_t g_board;
+#include "lvgl.h"
+#include "system_events.h"
+#include "../thread/thread_entry.h"
+#include "../nvs/nvs_config.h"
+#include "../drivers/temp/temp_hal.h"
+#include "../drivers/display/display_hal.h"
+#include "../ui/ui_manager.h"
+#include "../ui/overlay_manager.h"
+#include "../ui/assets/images.h"
+#include "../utils/helper.h"
+#include "../utils/logger/logger.h"
+#include "../version.h"
 
-/*──────────────────────────────────────────────
-  Singleton
-──────────────────────────────────────────────*/
 MinerApp& MinerApp::instance() {
     static MinerApp app;
     return app;
 }
 
-/*──────────────────────────────────────────────
-  init()  –  hardware pre-init + board init
-──────────────────────────────────────────────*/
+MinerApp::BootProgress::BootProgress(int total_stages)
+    : step_inc(100 / total_stages) {}
+
+void MinerApp::BootProgress::post(const char* msg, uint32_t c) {
+    AppState::instance().loading.details.text = String(msg);
+    AppState::instance().loading.details.color = c;
+}
+
+void MinerApp::BootProgress::next(const char* msg, uint32_t c) {
+    step += step_inc;
+    if (step > 100) {
+        step = 100;
+    }
+    post(msg, c);
+}
+
+void MinerApp::BootProgress::finish(const char* msg, uint32_t c) {
+    step = 100;
+    post(msg, c);
+}
+
+BaseType_t MinerApp::_create_task(TaskFunction_t fn, const char* name,
+                                  uint32_t stack_bytes, void* param,
+                                  UBaseType_t prio, BaseType_t core) {
+    TaskHandle_t h = nullptr;
+    BaseType_t ret = xTaskCreatePinnedToCore(fn, name, stack_bytes, param, prio, &h, core);
+    if (ret == pdPASS) {
+        _tasks.push_back({h, name, stack_bytes, prio});
+    }
+    return ret;
+}
+
 bool MinerApp::init() {
     Serial.setTimeout(20);
     Serial.begin(115200);
     delay(100);
 
-    BoardSpecConfig config{};
-    BoardModelType  model = BOARD_UNKNOWN;
-    // get_board_model() internally debounces the selection pins (up to 5 s),
-    // so no extra pre-delay is needed here.
-    model  = get_board_model();
-    if (model == BOARD_UNKNOWN) {
+    static SystemSync sys_storage;
+    static WifiState wifi_storage;
+    static SwarmState swarm_storage;
+    static NeighborState neighbor_storage;
+
+    _sys = &sys_storage;
+    _wifi = &wifi_storage;
+    _swarm = &swarm_storage;
+    _neighbor = &neighbor_storage;
+
+    _sys->init_evt = xEventGroupCreate();
+    _sys->sys_evt = xEventGroupCreate();
+    _sys->reboot_xsem = xSemaphoreCreateCounting(1, 0);
+
+    _wifi->status = WL_DISCONNECTED;
+    _wifi->rssi = 0;
+    _wifi->reconnect_xsem = xSemaphoreCreateCounting(1, 0);
+    _wifi->client_connected = false;
+    _wifi->force_config_required = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
+
+    _swarm->mutex = xSemaphoreCreateMutex();
+    _swarm->total_workers = 1;
+    _swarm->total_hr = 0.0f;
+    _swarm->best_ever_bd = 0.0f;
+
+    _neighbor->mutex = xSemaphoreCreateMutex();
+    _neighbor->scan_required = xSemaphoreCreateCounting(1, 0);
+
+    // ── Board detection + spec (real board layer, preserves original timing) ──
+    // get_board_model() internally debounces the selection pins (up to ~3 s).
+    _model = get_board_model();
+    if (_model == BOARD_UNKNOWN) {
         while (true) {
             LOG_E("Expected raw model pins: NMAXE=110, Gamma=010, QAxe++=101, QAxe++ Rev6.1=111.");
             delay(1000);
         }
     }
-    config = get_board_config(model);
-    hardware_pre_init(config);
+    _spec = get_board_config(_model);
+    hardware_pre_init(_spec);
+    LOG_I("board model detected: %s", _spec.display_name.c_str());
 
-    while (!_board_init(config)) {
-        LOG_E("Board initialization failed, retrying in 1s...");
-        delay(1000);
-    }
-
-    // Cache benchmark mode at boot — avoids repeated NVS reads throughout runtime
-    g_board.status.bm_mode = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0);
-    if (g_board.status.bm_mode) {
-        LOG_W("[BM] *** Benchmark mode active (bm_mode=%d) ***", g_board.status.bm_mode);
-    }
-
-    // disable USB UART when DC-plug power is active (Apple divider / BC1.2 SDP/CDP/DCP)
-    if (!g_board.power->is_dc_pluged()) {
-        disable_usb_uart();
-    }
-
-
-    // Print NVS usage statistics and enumerate all stored keys after successful init
+    // ── WiFi connection config (loaded once from NVS; replaces g_board.info.connection.wifi) ──
     {
-        nvs_stats_t nvs_stats;
-        if (nvs_get_stats(NULL, &nvs_stats) == ESP_OK) {
-            // Each NVS entry is 32 bytes; integers/small values cost 1 entry each.
-            // free_entries * 32 = remaining writable bytes.
-            LOG_I("NVS: used=%d, free=%d, total=%d entries (32B each), namespaces=%d | %.1f%% used, %d bytes free",
-                  nvs_stats.used_entries,
-                  nvs_stats.free_entries,
-                  nvs_stats.total_entries,
-                  nvs_stats.namespace_count,
-                  100.0f * nvs_stats.used_entries / nvs_stats.total_entries,
-                  nvs_stats.free_entries * 32);
-        } else {
-            LOG_W("NVS: failed to get stats");
-        }
+        String dev = gen_device_code();
+        String ap_default = _spec.name + "_" + dev.substring(0, 5);
+        _wifi_cfg.ap_ip      = IPAddress(192, 168, 4, 1);
+        _wifi_cfg.ap_ssid    = nvs_config_get_string_value(NVS_CONFIG_AP_SSID,  ap_default.c_str());
+        _wifi_cfg.sta_ssid   = nvs_config_get_string_value(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G");
+        _wifi_cfg.sta_pwd    = nvs_config_get_string_value(NVS_CONFIG_WIFI_PASS, "NMMiner2048");
+        _wifi_cfg.hostname   = nvs_config_get_string_value(NVS_CONFIG_HOSTNAME, _wifi_cfg.ap_ssid.c_str());
+        _wifi_cfg.board_name = _spec.name;
     }
 
+    // ── Market client + coin config (replaces g_board.market / info.base.coin_*) ──
+    _coin_price     = nvs_config_get_string_value(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC");
+    _coin_watchlist = nvs_config_get_string_value(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL");
+    _market = new MarketClass();
+    if (_market == nullptr) {
+        LOG_E("MarketClass instance creation failed");
+        return false;
+    }
+
+    // ── Power HAL instance (replaces g_board.power), built from the board spec ──
+    _power = _spec.create_power_instance(
+        _spec.pwr.en_pins, _spec.pwr.adc_pins,
+        _spec.pwr.vcore_regulator_pin, _spec.pwr.pgood_pin, _spec.pwr.dc_plug_pin);
+    if (_power == nullptr) {
+        LOG_E("AxePower instance creation failed");
+        return false;
+    }
+    // Register board-specific temperature readers into the temp HAL.
+    if (_spec.setup_temp_hal) {
+        _spec.setup_temp_hal(_power);
+    }
+
+    // ── Shared mining runtime state (replaces g_board.status.miner) ──
+    // Created here so the power loop's controlled-idle check can reference it.
+    static MinerStatus miner_status;
+    miner_status.init();
+    _minerStatus = &miner_status;
+
+    _nvs_save_xsem = xSemaphoreCreateCounting(1, 0);
+    _recover_factory_xsem = xSemaphoreCreateCounting(1, 0);
+    _force_config_xsem    = xSemaphoreCreateCounting(1, 0);
+    _brightness_update_xsem = xSemaphoreCreateCounting(1, 0);
+    _tz = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
+    _bm_mode = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0);
+    {
+        uint8_t tf = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 24);
+        _time.format.time = (tf == 12) ? 12 : 24;
+    }
+    _time.format.date = nvs_config_get_string_value(NVS_CONFIG_DATE_FORMAT, "YYYY/MM/DD");
+    _last_ui_page = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, (uint8_t)UIPageId::MINER);
+    if (_last_ui_page >= (uint8_t)UIPageId::COUNT || _last_ui_page == (uint8_t)UIPageId::LOADING) {
+        _last_ui_page = (uint8_t)UIPageId::MINER;
+    }
+
+    // ── Live user preferences (defaults from board spec, overridden by NVS) ──
+    _pref.screen.flip          = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,         _spec.preference.screen.flip);
+    _pref.screen.auto_rolling  = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN,         _spec.preference.screen.auto_rolling);
+    _pref.screen.brightness    = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS,   _spec.preference.screen.brightness);
+    _pref.screen.saver_enable  = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, _spec.preference.screen.saver_enable);
+    _pref.screen.saver_timeout = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, _spec.preference.screen.saver_timeout);
+    _pref.screen.saver_mode    = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_MODE,   0);
+    _pref.led.enable           = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR,       _spec.preference.led.enable);
+    _pref.led.sleep            = false;
+    _pref.led.sleep_last       = _pref.led.sleep;
+    if (_bm_mode) {
+        LOG_W("[BM] *** Benchmark mode active (bm_mode=%d) ***", _bm_mode);
+    }
+
+    // Restore persisted counters (best-ever diff, block hits, uptime).
+    {
+        String best_ever = nvs_config_get_string_value(NVS_CONFIG_BEST_EVER, "0");
+        _minerStatus->diff.best_ever = strtoull(best_ever.c_str(), nullptr, 10);
+        _minerStatus->hits           = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
+        _minerStatus->uptime_ever    = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
+    }
+
+    // ── Build connection set + asic/miner/stratum instances with DI ──
+    if (!_init_mining_instances()) {
+        return false;
+    }
+
+    LOG_D("MinerApp::init ready");
     return true;
 }
 
-/*──────────────────────────────────────────────
-  begin()  –  create and start all threads
-──────────────────────────────────────────────*/
-void MinerApp::begin() {
-    _thread_pool = {
-        {"(app_tick)",   _tick_thread_entry,            (uint32_t)(1024*4),   TASK_PRIORITY_APP_TICK,    1, &_tickTask,       10,  0},
-        {"(display)",   display_thread_entry,           1024*5,   TASK_PRIORITY_DISPLAY,     1, NULL,             10,  0},
-        {"(lvgl)",      lvgl_tick_thread_entry,         (uint32_t)(1024*4.5),   TASK_PRIORITY_LVGL_DRV,    1, &_lvglTask,       10,  0},
-        {"(ui)",        ui_thread_entry,                1024*4,   TASK_PRIORITY_UI,          1, &_uiTask,         10,  0},
-        // {"(led)",       led_thread_entry,               1024*3,   TASK_PRIORITY_LED,         1, &_ledTask,        10,  0},
-        // {"(button)",    button_thread_entry,            1024*3,   TASK_PRIORITY_BTN,         1, &_btnTask,        10,  0},
-        {"(webserver)", webserver_thread_entry,         1024*5,   TASK_PRIORITY_WS,          0, &_wsTask,         10,  0},
-        {"(wifi)",      wifi_connect_thread_entry,      1024*6,   TASK_PRIORITY_WIFI,        1, NULL,             10,  0},
-        // {"(daemon)",    daemon_thread_entry,            1024*4,   TASK_PRIORITY_DAEMON,      0, &_daemonTask,     10,  0},
-        // {"(pwr_init)",  power_init_thread_entry,        1024*7,   TASK_PRIORITY_PWR,         1, NULL,             0,   0},
-        // {"(pwr_loop)",  power_loop_thread_entry,        1024*5,   TASK_PRIORITY_PWR,         1, &_powerTask,      10,  0},
-        // {"(asic_cnt)",  miner_asic_count_thread_entry,  1024*5,   TASK_PRIORITY_ASIC_CNT,    1, NULL,             10,  0},
-        {"(asic_init)", miner_asic_init_thread_entry,   1024*6,   TASK_PRIORITY_ASIC_INIT,   1, NULL,             10,  0},
-        // {"(fan)",       fan_thread_entry,               1024*5,   TASK_PRIORITY_FAN,         0, &_fanTask,        10,  0},
-        // synchronisation point: wait for these events before starting the next batch
-        // {"",            NULL,                           0,        0,                         0, NULL,             0,   INIT_EVENT_ASIC_COUNTED | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_FAN_READY},
-        // {"(swarm)",     swarm_thread_entry,             (uint32_t)(1024*4),   TASK_PRIORITY_SWARM,       0, &_swarmTask,      10,  0},
-        // {"(market)",    market_thread_entry,            1024*6,   TASK_PRIORITY_MARKET,      0, &_marketTask,     10,  0},
-        {"(stratum)",   stratum_thread_entry,           1024*11,  TASK_PRIORITY_STRATUM,     1, &_stratumTask,    10,  0},
-        // {"(monitor)",   monitor_thread_entry,           1024*5,   TASK_PRIORITY_MONITOR,     1, &_monitorTask,    10,  0},
-        // {"(neighbor)",  alive_ip_scan_thread_entry,     1024*4,   TASK_PRIORITY_SCAN,        0, &_neighborTask,   10,  0},
-        {"(asic_tx)",   miner_asic_tx_thread_entry,     1024*7,   TASK_PRIORITY_MINER_TX,    1, &_minerTxTask,    10,  0},
-        {"(asic_rx)",   miner_asic_rx_thread_entry,     1024*6,   TASK_PRIORITY_MINER_RX,    0, &_minerRxTask,    1000,  0},
-        // {"(benchmark)", benchmark_thread_entry,         1024*6,   TASK_PRIORITY_MONITOR,     0, NULL,             10,  0},
-        // {"(aphorism)",  aphorism_thread_entry,          1024*6,   TASK_PRIORITY_APHORISM,    0, &_aphorismTask,   10,  0},
-    };
+bool MinerApp::_init_mining_instances() {
+    static ConnInfo conn;
+    _conn = &conn;
 
-    // start threads in order, with optional synchronisation barriers
-    for (const auto& t : _thread_pool) {
-        if (t.entry != NULL) {
-            BaseType_t ret = xTaskCreatePinnedToCore(
-                t.entry, t.name, t.stack_size,
-                (void*)(&g_board), t.priority, t.handle, t.core_id
-            );
-            if (ret == pdPASS) LOG_I("Thread %s created on core %d", t.name, t.core_id);
-            else               LOG_E("Failed to create thread %s",   t.name);
-            delay(t.delay_ms);
-        } else {
-            // synchronisation barrier: wait for specified init events before proceeding
-            xEventGroupWaitBits(g_board.status.init_evt, t.wait_events, pdFALSE, pdTRUE, portMAX_DELAY);
-        }
-    }
-}
-
-/*──────────────────────────────────────────────
-  print_stack_hwm()  –  debug: stack usage table
-──────────────────────────────────────────────*/
-void MinerApp::print_stack_hwm() const {
-    static uint32_t last_print_ms = 0;
-    if (millis() - last_print_ms < 10000) return; // print every 10s
-    last_print_ms = millis();
-
-
-
-    LOG_W("=========== Stack High Water Mark (in bytes) ===========");
-    LOG_I("+-----------------+----------+------------+------------+");
-    LOG_I("| Task Name       | HWM      | Total Stack| Optimizable|");
-    LOG_I("+-----------------+----------+------------+------------+");
-
-    for (const auto& t : _thread_pool) {
-        if (t.handle == NULL || *t.handle == NULL) continue;
-
-        eTaskState state = eTaskGetState(*t.handle);
-        if (state == eDeleted) continue;
-
-        char* taskName = pcTaskGetName(*t.handle);
-        if (taskName == NULL || taskName[0] == '\0') continue;
-
-        UBaseType_t hwm        = uxTaskGetStackHighWaterMark(*t.handle);
-        uint32_t    total      = t.stack_size;
-        uint32_t    optimizable = (hwm > 512) ? (hwm - 512) : 0; // keep 512 B safety margin
-
-        LOG_I("| %-15s | %8u | %10u | %10u |",
-              taskName, (unsigned)hwm, (unsigned)total, (unsigned)optimizable);
-    }
-
-    LOG_I("+-----------------+----------+------------+------------+");
-    LOG_W("Note: Optimizable = HWM - 512 (keeping 512 bytes safety buffer)");
-}
-
-/*──────────────────────────────────────────────
-  _tick_thread_entry()  –  MinerApp private tick
-──────────────────────────────────────────────*/
-void MinerApp::_tick_thread_entry(void* args) {
-    board_sal_t* board = static_cast<board_sal_t*>(args);
-    float    x = 0.0f;
-
-    xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY); // wait for ASIC count before proceeding
-    //backlight brightness ramp up
-    uint16_t brightness = board->status.preference.screen.brightness;
-    for(int i = 0; i < brightness; i++) {
-        tft_bl_ctrl(i);
-        delay(10);
-    }
-
-    while(true){
-        // MinerApp::instance().print_stack_hwm(); // debug: print stack usage
-
-        delay(10);
-        // check miner events to trigger backlight effect, such as block hit or high diff achieved
-        EventBits_t bits = xEventGroupWaitBits(board->status.sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED, pdFALSE, pdFALSE, 0);
-        if((bits & SYS_EVENT_MINER_BLOCK_HIT) == SYS_EVENT_MINER_BLOCK_HIT) {
-            brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
-            x += 0.1f;
-        }else if((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) == SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED){
-            // brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
-            // x += 0.06f;
-        }
-        else if((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == SYS_EVENT_FIND_NEIGHBOR_TRIGGERED){
-            brightness = static_cast<uint16_t>(100.0f * (1.0f + sinf(x)) / 2.0f);
-            x += 0.5f;
-        }
-        else{
-            // Black screensaver mode: kill backlight while screensaver is active.
-            // When touch/button clears SYS_EVENT_SCREEN_SAVER_TRIGGERED the next
-            // 10ms tick automatically restores the configured brightness.
-            if ((xEventGroupGetBits(board->status.sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED)
-                && board->status.preference.screen.saver_mode == 1) {
-                brightness = 0; 
-            } else {
-                brightness = board->status.preference.screen.brightness;
-            }
-        }
-        tft_bl_ctrl(brightness);
-
-
-
-
-
-        // // sensor reading and other periodic tasks can also be added here if needed
-        // //update board temperature
-        // static uint16_t vcore_temp_last_update = 0, asic_temp_last_update = 0;
-        // if(millis() - vcore_temp_last_update >= 125){
-        //     board->status.temp.vcore = roundf(temp_hal_get_vcore() * 10) / 10.0f;
-        //     xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_VCORE_TEMP_UPDATE);
-        //     vcore_temp_last_update = millis();
-        // }
-        // if(millis() - asic_temp_last_update >= 125){
-        //     board->status.temp.asic  = roundf(temp_hal_get_asic() * 100) / 100.0f;
-        //     xEventGroupSetBits(board->status.sys_evt, SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
-        //     asic_temp_last_update = millis();
-        // }
-
-
-
-
-
-
-
-
-        // // consume one aphorism every 30 s: pop from front, log, erase
-        // static uint32_t last_aphorism_ms = 0;
-        // if(millis() - last_aphorism_ms >= 1000*60*5) {
-        //     xSemaphoreTake(board->status.aphorism.mutex, portMAX_DELAY);
-        //     if(!board->status.aphorism.pool.empty()) {
-        //         auto qt = board->status.aphorism.pool.front();
-        //         board->status.aphorism.pool.erase(board->status.aphorism.pool.begin());
-        //         size_t remaining = board->status.aphorism.pool.size(); // already erased, so this is post-pop count
-        //         xSemaphoreGive(board->status.aphorism.mutex);
-        //         LOG_W("[tick] +--------------------------------------------------+");
-        //         LOG_I("[tick] |  \"%s\"", qt.quote.c_str());
-        //         LOG_I("[tick] |  -- %s  [kw: %s]  [%d left]", qt.author.c_str(), qt.keyword.c_str(), (int)remaining);
-        //         LOG_W("[tick] +--------------------------------------------------+");
-        //     } else {
-        //         xSemaphoreGive(board->status.aphorism.mutex);
-        //     }
-        //     last_aphorism_ms = millis();
-        // }
-    }
-}
-
-/*──────────────────────────────────────────────
-  _board_init()  –  private board setup
-──────────────────────────────────────────────*/
-bool MinerApp::_board_init(const BoardSpecConfig& config) {
-    /******* board-specific parameters *******/
-    g_board.info.spec = config;
-    /******* common parameters *******/
+    // Pool URLs (parse "stratum+tcp://host:port" / ssl|tls detection).
     String stratum_pri = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL);
     String stratum_fb  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL);
 
-    g_board.info.connection.pool.primary.ssl  = ((stratum_pri.indexOf("ssl") != -1) || (stratum_pri.indexOf("tls") != -1));
-    g_board.info.connection.pool.primary.url  = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
-    g_board.info.connection.pool.primary.port = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1).toInt();
-    g_board.info.connection.pool.fallback.ssl  = ((stratum_fb.indexOf("ssl") != -1) || (stratum_fb.indexOf("tls") != -1));
-    g_board.info.connection.pool.fallback.url  = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
-    g_board.info.connection.pool.fallback.port = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1).toInt();
-    g_board.info.connection.pool.use           = g_board.info.connection.pool.primary;
+    conn.pool.primary.ssl  = (stratum_pri.indexOf("ssl") != -1) || (stratum_pri.indexOf("tls") != -1);
+    conn.pool.primary.url  = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
+    conn.pool.primary.port = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1).toInt();
+    conn.pool.fallback.ssl  = (stratum_fb.indexOf("ssl") != -1) || (stratum_fb.indexOf("tls") != -1);
+    conn.pool.fallback.url  = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
+    conn.pool.fallback.port = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1).toInt();
+    conn.pool.use           = conn.pool.primary;
 
-    g_board.info.base.fw_version         = BOARD_CURRENT_FW_VERSION;
-    g_board.info.base.hw_version         = BOARD_CURRENT_HW_VERSION;
-    g_board.info.base.devcie_code        = gen_device_code();
-    g_board.info.base.fw_latest_release  = "";
+    // Stratum users/passwords (default worker = "<USER>.<spec.name>_<dev5>").
+    String device_code = gen_device_code();
+    String default_user_pri = String(PRIMARY_USER)  + "." + _spec.name + "_" + device_code.substring(0, 5);
+    String default_user_fb  = String(FALLBACK_USER) + "." + _spec.name + "_" + device_code.substring(0, 5);
+    conn.stratum.primary.user  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_PRIMARY,  default_user_pri.c_str());
+    conn.stratum.primary.pwd   = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_PRIMARY,  PRIMARY_POOL_PWD);
+    conn.stratum.fallback.user = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_FALLBACK, default_user_fb.c_str());
+    conn.stratum.fallback.pwd  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD);
+    conn.stratum.use           = conn.stratum.primary;
 
-    String default_user_pri = String(PRIMARY_USER)  + "." + g_board.info.spec.name + "_" + g_board.info.base.devcie_code.substring(0, 5);
-    String default_user_fb  = String(FALLBACK_USER) + "." + g_board.info.spec.name + "_" + g_board.info.base.devcie_code.substring(0, 5);
-    g_board.info.connection.stratum.primary.user  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_PRIMARY,  default_user_pri.c_str());
-    g_board.info.connection.stratum.primary.pwd   = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_PRIMARY,  PRIMARY_POOL_PWD);
-    g_board.info.connection.stratum.fallback.user = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_FALLBACK, default_user_fb.c_str());
-    g_board.info.connection.stratum.fallback.pwd  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_FALLBACK, FALLBACK_POOL_PWD);
-    g_board.info.connection.stratum.use           = g_board.info.connection.stratum.primary;
+    // ASIC driver instance from the board spec factory.
+    BMxxx* asic = _spec.create_asic_instance(
+        *_spec.asic.com_port, _spec.asic.com_baud_init,
+        _spec.asic.rx_pin, _spec.asic.tx_pin, _spec.asic.rst_pin);
+    if (asic == nullptr) {
+        LOG_E("BMxxx instance creation failed");
+        return false;
+    }
 
-    g_board.status.wifi.reconnect_xsem            = xSemaphoreCreateCounting(1, 0);
-    g_board.info.connection.wifi.ap.ip            = IPAddress(192, 168, 4, 1);
-    g_board.info.connection.wifi.ap.info.pwd      = "12345678";
+    _miner = new AsicMinerClass(asic);
+    if (_miner == nullptr) { LOG_E("AsicMinerClass instance creation failed"); return false; }
 
-    String ap_default_ssid = g_board.info.spec.name + "_" + g_board.info.base.devcie_code.substring(0, 5);
-    g_board.info.connection.wifi.ap.info.ssid     = nvs_config_get_string_value(NVS_CONFIG_AP_SSID, ap_default_ssid.c_str());
-    g_board.status.wifi.force_config_required     = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
-    g_board.status.wifi.client_connected          = false;
-    g_board.info.connection.wifi.sta.ssid         = nvs_config_get_string_value(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G");
-    g_board.info.connection.wifi.sta.pwd          = nvs_config_get_string_value(NVS_CONFIG_WIFI_PASS, "NMMiner2048");
-    g_board.info.base.hostname                    = nvs_config_get_string_value(NVS_CONFIG_HOSTNAME, g_board.info.connection.wifi.ap.info.ssid.c_str());
+    _stratum = new StratumClass(conn.pool.use, conn.stratum.use, 10);
+    if (_stratum == nullptr) { LOG_E("StratumClass instance creation failed"); return false; }
 
-    g_board.status.miner.stratum_update               = millis();
-    g_board.status.preference.screen.flip             = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,       g_board.info.spec.preference.screen.flip);
-    g_board.status.preference.screen.auto_rolling     = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN,       g_board.info.spec.preference.screen.auto_rolling);
-    g_board.status.preference.screen.brightness       = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS, g_board.info.spec.preference.screen.brightness);
-    g_board.status.preference.screen.saver_enable     = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_ENABLE, g_board.info.spec.preference.screen.saver_enable);
-    g_board.status.preference.screen.saver_timeout    = nvs_config_get_u32(NVS_CONFIG_SCREEN_SAVER_TIMEOUT, g_board.info.spec.preference.screen.saver_timeout);
-    g_board.status.preference.screen.saver_mode       = nvs_config_get_u8(NVS_CONFIG_SCREEN_SAVER_MODE, 0);
-    g_board.status.preference.led.enable              = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR,     g_board.info.spec.preference.led.enable);
-    g_board.status.preference.led.sleep               = false;
-    g_board.status.preference.led.sleep_last          = g_board.status.preference.led.sleep;
-    g_board.info.base.coin_price                      = nvs_config_get_string_value(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC");
-    g_board.info.base.coin_price.toUpperCase();
-    g_board.info.base.coin_watchlist                  = nvs_config_get_string_value(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL");
+    // Dependency injection (replaces former g_board cross-references).
+    _miner->set_stratum(_stratum);
+    _miner->set_asic_name(_spec.asic.name);
+    _stratum->set_client_id(_spec.display_name + "/" + BOARD_CURRENT_FW_VERSION);
 
-    g_board.status.reboot_xsem                    = xSemaphoreCreateCounting(1, 0);
-    g_board.status.nvs_save_xsem                  = xSemaphoreCreateCounting(1, 0);
-    g_board.status.brightness_update_xsem         = xSemaphoreCreateCounting(1, 0);
-    g_board.status.recover_factory_xsem           = xSemaphoreCreateCounting(1, 0);
-    g_board.status.force_config_xsem              = xSemaphoreCreateCounting(1, 0);
-    g_board.status.init_evt                       = xEventGroupCreate();
-    g_board.status.sys_evt                        = xEventGroupCreate();
-    g_board.status.neighbor.scan_required         = xSemaphoreCreateCounting(1, 0);
-    g_board.status.neighbor.mutex                 = xSemaphoreCreateMutex();
-    g_board.status.neighbor.scan_generation       = 0;
-    g_board.status.neighbor.last_scan_ms          = 0;
-    g_board.status.swarm.mutex                    = xSemaphoreCreateMutex();
-    g_board.status.swarm.last_scan_gen            = 0;
-    g_board.status.swarm.total_workers            = 0;
-    g_board.status.swarm.total_hr                 = 0.0;
-    g_board.status.swarm.best_session_bd          = 0.0;
-    g_board.status.swarm.best_ever_bd             = 0.0;
+    LOG_I("Mining instances ready: asic=%s pool=%s:%d",
+          _spec.asic.name.c_str(), conn.pool.use.url.c_str(), conn.pool.use.port);
+    return true;
+}
 
-    g_board.status.miner.status_history.mutex    = xSemaphoreCreateMutex();
-    g_board.status.miner.proximity_history.mutex = xSemaphoreCreateMutex();
-    g_board.status.miner.runtime_state           = MINER_RUNTIME_RUNNING;
-    g_board.status.miner.user_paused             = false;
-    g_board.status.miner.pause_started_ms        = 0;
-    g_board.status.miner.resume_grace_until_ms   = 0;
-    g_board.status.miner.control_xsem            = xSemaphoreCreateCounting(1, 0);
-    g_board.status.miner.update_xsem             = xSemaphoreCreateCounting(1, 0);
-    g_board.status.miner.hits                    = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
-    g_board.status.ota.running                   = false;
-    g_board.status.ota.progress                  = 0;
-    g_board.status.ota.last_progress_ms          = 0;
-    g_board.status.ota.filename                  = "";
-    String best_ever = nvs_config_get_string_value(NVS_CONFIG_BEST_EVER, "0");
-    g_board.status.miner.diff.best_ever          = strtoull(best_ever.c_str(), NULL, 10);
-    g_board.status.ui.page.countdown.timeout     = BOARD_TOUCH_LONG_PRESS_TO_RECOVER;
-    g_board.status.ui.page.last                  = nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, UI_PAGE_MINER);
-    g_board.status.ui.page.current               = UI_PAGE_LOADING;
-    g_board.status.ui.page.save_xsem             = xSemaphoreCreateCounting(1, 0);
-    g_board.status.ui.page.list                  = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-    g_board.status.ui.lvgl.drv_xMutex            = xSemaphoreCreateMutex();
-    g_board.status.touch.evt                     = TOUCH_NONE_EVT;
-    g_board.status.miner.uptime_ever             = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
-    g_board.status.time.tz                       = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
-    g_board.status.time.format.time              = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 24);
-    g_board.status.time.format.date              = nvs_config_get_string_value(NVS_CONFIG_DATE_FORMAT, "YYYY/MM/DD");
-    g_board.status.aphorism.mutex                = xSemaphoreCreateMutex();
-    // fan status initialisation
-    for (uint8_t i = 0; i < g_board.info.spec.fans.size(); i++) {
+void MinerApp::_begin_board_init(BootProgress& boot) {
+    String stage_msg = String("Board: ") + _spec.display_name;
+    boot.next(stage_msg.c_str());
+}
+
+void MinerApp::_begin_fan(BootProgress& boot) {
+    boot.next("Fan self-test...");
+
+    // Initialize per-fan runtime status from spec + NVS (replaces g_board.status.fan.list)
+    _fan_status.clear();
+    uint16_t default_speed = nvs_config_get_u16(NVS_CONFIG_ASIC_FAN_SPEED, 100);
+    for (uint8_t i = 0; i < _spec.fans.size(); i++) {
         fan_status_t state;
         state.id        = i;
         state.self_test = false;
-        state.speed     = nvs_config_get_u16(NVS_CONFIG_ASIC_FAN_SPEED, 100);
+        state.speed     = default_speed;
         state.rpm       = 0;
-        g_board.status.fan.list.push_back(state);
+        _fan_status.push_back(state);
     }
 
-    // touch controller
-    g_board.touch = new FT6206Class();
-    if (g_board.touch == NULL) { LOG_E("FT6206Class instance creation failed"); return false; }
+    static FanCtx ctx;
+    ctx.spec        = &_spec;
+    ctx.init_evt    = _sys->init_evt;
+    ctx.sys_evt     = _sys->sys_evt;
+    ctx.status_list = &_fan_status;
+    ctx.temp        = &_temp;
+    _fan_ctx = &ctx;
 
-    // ASIC
-    BMxxx* asic = g_board.info.spec.create_asic_instance(
-        *config.asic.com_port, config.asic.com_baud_init,
-        config.asic.rx_pin, config.asic.tx_pin, config.asic.rst_pin
-    );
-    if (asic == NULL) { LOG_E("BMxxx instance creation failed"); return false; }
+    _create_task(fan_thread_entry, "(fan)", 1024 * 5, _fan_ctx, TASK_PRIORITY_FAN, 0);
+}
 
-    g_board.miner = new AsicMinerClass(asic);
-    if (g_board.miner == NULL) { LOG_E("AsicMinerClass instance creation failed"); return false; }
+void MinerApp::_begin_power(BootProgress& boot) {
+    boot.next("Power up...");
 
-    // power HAL
-    g_board.power = g_board.info.spec.create_power_instance(
-        config.pwr.en_pins, config.pwr.adc_pins,
-        config.pwr.vcore_regulator_pin, config.pwr.pgood_pin, config.pwr.dc_plug_pin
-    );
-    if (g_board.power == NULL) { LOG_E("AxePower instance creation failed"); return false; }
+    static PowerCtx ctx;
+    ctx.power       = _power;
+    ctx.spec        = &_spec;
+    ctx.init_evt    = _sys->init_evt;
+    ctx.sys_evt     = _sys->sys_evt;
+    ctx.ota_running = &_ota.running;
+    ctx.mining      = _minerStatus;    // controlled-idle check (nullptr until miners launch)
+    _power_ctx = &ctx;
 
-    // Register board-specific temperature readers into the temp HAL
-    if (g_board.info.spec.setup_temp_hal) {
-        g_board.info.spec.setup_temp_hal(g_board.power);
+    _create_task(power_init_thread_entry, "(pwr_init)", 1024 * 7, _power_ctx, TASK_PRIORITY_PWR, 1);
+    _create_task(power_loop_thread_entry, "(pwr_loop)", 1024 * 5, _power_ctx, TASK_PRIORITY_PWR, 1);
+}
+
+void MinerApp::_begin_wifi_connect(BootProgress& boot) {
+    boot.next("WiFi connect...");
+
+    static WifiCtx ctx;
+    ctx.state    = _wifi;
+    ctx.cfg      = &_wifi_cfg;
+    ctx.init_evt = _sys->init_evt;
+    _wifi_ctx = &ctx;
+
+    _create_task(wifi_connect_thread_entry, "(wifi)", 1024 * 6, _wifi_ctx, TASK_PRIORITY_WIFI, 1);
+}
+
+void MinerApp::_begin_display(BootProgress& boot) {
+    boot.next("Display init...");
+    lv_init();
+    _ui_init();
+    _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 8, nullptr, TASK_PRIORITY_LVGL_DRV, 1);
+}
+
+void MinerApp::_begin_infra(BootProgress& boot) {
+    boot.next("Daemon start...");
+
+    static DaemonCtx ctx;
+    ctx.reboot_xsem          = _sys->reboot_xsem;
+    ctx.recover_factory_xsem = _recover_factory_xsem;
+    ctx.wifi_reconnect_xsem  = _wifi->reconnect_xsem;
+    ctx.ota_running          = &_ota.running;
+    ctx.wifi_status          = &_wifi->status;
+    ctx.bm_mode              = &_bm_mode;
+    ctx.status               = _minerStatus;
+    ctx.wifi_cfg             = &_wifi_cfg;
+    _daemon_ctx = &ctx;
+
+    _create_task(daemon_thread_entry, "(daemon)", 1024 * 4, _daemon_ctx, TASK_PRIORITY_DAEMON, 0);
+
+    static SwarmCtx swarm_ctx;
+    swarm_ctx.swarm       = _swarm;
+    swarm_ctx.neighbor    = _neighbor;
+    swarm_ctx.status      = _minerStatus;
+    swarm_ctx.ota_running = &_ota.running;
+    swarm_ctx.sys_evt     = _sys->sys_evt;
+    swarm_ctx.init_evt    = _sys->init_evt;
+    _swarm_ctx = &swarm_ctx;
+
+    _create_task(swarm_thread_entry, "(swarm)",    1024 * 4, _swarm_ctx, TASK_PRIORITY_SWARM, 0);
+    _create_task(scan_thread_entry,  "(neighbor)", 1024 * 4, _swarm_ctx, TASK_PRIORITY_SCAN,  0);
+
+    static ButtonCtx button_ctx;
+    button_ctx.spec                 = &_spec;
+    button_ctx.init_evt             = _sys->init_evt;
+    button_ctx.sys_evt              = _sys->sys_evt;
+    button_ctx.force_config_xsem    = _force_config_xsem;
+    button_ctx.recover_factory_xsem = _recover_factory_xsem;
+    button_ctx.ota_running          = &_ota.running;
+    // UI navigation hooks (non-capturing lambdas -> function pointers). Thread-safe:
+    // these set pending flags consumed by the LVGL thread in render_update().
+    button_ctx.on_next_page = [](){ UIManager::instance().request_next_page(); };
+    button_ctx.on_prev_page = [](){ UIManager::instance().request_prev_page(); };
+    button_ctx.on_activity  = [](){ UIManager::instance().wake_activity(); };
+    _button_ctx = &button_ctx;
+
+    _create_task(button_thread_entry, "(button)", 1024 * 3, _button_ctx, TASK_PRIORITY_BTN, 1);
+
+    static LedCtx led_ctx;
+    led_ctx.spec         = &_spec;
+    led_ctx.pref         = &_pref;
+    led_ctx.stratum      = _stratum;
+    led_ctx.status       = _minerStatus;
+    led_ctx.wifi_status  = &_wifi->status;
+    led_ctx.ota_running  = &_ota.running;
+    led_ctx.ota_progress = &_ota.progress;
+    _led_ctx = &led_ctx;
+
+    _create_task(led_thread_entry, "(led)", 1024 * 3, _led_ctx, TASK_PRIORITY_LED, 1);
+
+    static WebCtx web_ctx;
+    web_ctx.miner          = _miner;
+    web_ctx.stratum        = _stratum;
+    web_ctx.market         = _market;
+    web_ctx.power          = _power;
+    web_ctx.spec           = &_spec;
+    web_ctx.status         = _minerStatus;
+    web_ctx.conn           = _conn;
+    web_ctx.wifi           = _wifi;
+    web_ctx.wifi_cfg       = &_wifi_cfg;
+    web_ctx.pwr            = &_pwr_tele;
+    web_ctx.temp           = &_temp;
+    web_ctx.time           = &_time;
+    web_ctx.ota            = &_ota;
+    web_ctx.pref           = &_pref;
+    web_ctx.neighbor       = _neighbor;
+    web_ctx.fan_status     = &_fan_status;
+    web_ctx.bm_mode        = &_bm_mode;
+    web_ctx.utc            = &_utc;
+    web_ctx.tz             = &_tz;
+    web_ctx.coin_price     = &_coin_price;
+    web_ctx.coin_watchlist = &_coin_watchlist;
+    web_ctx.fw_version     = BOARD_CURRENT_FW_VERSION;
+    web_ctx.sys_evt        = _sys->sys_evt;
+    web_ctx.init_evt       = _sys->init_evt;
+    web_ctx.reboot_xsem    = _sys->reboot_xsem;
+    web_ctx.brightness_update_xsem = _brightness_update_xsem;
+    _web_ctx = &web_ctx;
+
+    _create_task(webserver_thread_entry, "(webserver)", 1024 * 5, _web_ctx, TASK_PRIORITY_WS, 0);
+}
+
+void MinerApp::_begin_market(BootProgress& boot) {
+    boot.next("Market start...");
+
+    static MarketCtx ctx;
+    ctx.market         = _market;
+    ctx.wifi_status    = &_wifi->status;
+    ctx.ota_running    = &_ota.running;
+    ctx.sys_evt        = _sys->sys_evt;
+    ctx.coin_price     = _coin_price;
+    ctx.coin_watchlist = _coin_watchlist;
+    _market_ctx = &ctx;
+
+    _create_task(market_thread_entry, "(market)", 1024 * 6, _market_ctx, TASK_PRIORITY_MARKET, 0);
+
+    static AphorismCtx aph_ctx;
+    _aphorism.mutex     = xSemaphoreCreateMutex();
+    aph_ctx.state       = &_aphorism;
+    aph_ctx.wifi_status = &_wifi->status;
+    aph_ctx.ota_running = &_ota.running;
+    _aphorism_ctx = &aph_ctx;
+
+    _create_task(aphorism_thread_entry, "(aphorism)", 1024 * 8, _aphorism_ctx, TASK_PRIORITY_APHORISM, 0);
+}
+
+void MinerApp::_begin_miners(BootProgress& boot) {
+    boot.next("ASIC bring-up...");
+
+    static MinerCtx ctx;
+    ctx.miner         = _miner;
+    ctx.stratum       = _stratum;
+    ctx.power         = _power;
+    ctx.spec          = &_spec;
+    ctx.status        = _minerStatus;
+    ctx.conn          = _conn;
+    ctx.init_evt      = _sys->init_evt;
+    ctx.sys_evt       = _sys->sys_evt;
+    ctx.nvs_save_xsem = _nvs_save_xsem;
+    ctx.ota_running   = &_ota.running;
+    ctx.utc           = &_utc;
+    ctx.wifi_status   = &_wifi->status;
+    ctx.wifi_reconnect_xsem = _wifi->reconnect_xsem;
+    ctx.fw_version    = BOARD_CURRENT_FW_VERSION;
+    _miner_ctx = &ctx;
+
+    _create_task(miner_count_thread_entry, "(asic_cnt)",  1024 * 5,  _miner_ctx, TASK_PRIORITY_ASIC_CNT,  1);
+    _create_task(miner_init_thread_entry,  "(asic_init)", 1024 * 6,  _miner_ctx, TASK_PRIORITY_ASIC_INIT, 1);
+    _create_task(stratum_thread_entry,     "(stratum)",   1024 * 11, _miner_ctx, TASK_PRIORITY_STRATUM,   1);
+    _create_task(miner_tx_thread_entry,    "(asic_tx)",   1024 * 7,  _miner_ctx, TASK_PRIORITY_MINER_TX,  1);
+    _create_task(miner_rx_thread_entry,    "(asic_rx)",   1024 * 6,  _miner_ctx, TASK_PRIORITY_MINER_RX,  0);
+
+    static MonitorCtx mctx;
+    mctx.power             = _power;
+    mctx.spec             = &_spec;
+    mctx.miner            = _miner;
+    mctx.status           = _minerStatus;
+    mctx.pwr              = &_pwr_tele;
+    mctx.temp             = &_temp;
+    mctx.fan_status       = &_fan_status;
+    mctx.wifi_status      = &_wifi->status;
+    mctx.wifi_rssi        = &_wifi->rssi;
+    mctx.utc              = &_utc;
+    mctx.tz               = &_tz;
+    mctx.ota_running      = &_ota.running;
+    mctx.bm_mode          = &_bm_mode;
+    mctx.reboot_xsem      = _sys->reboot_xsem;
+    mctx.nvs_save_xsem    = _nvs_save_xsem;
+    mctx.force_config_xsem = _force_config_xsem;
+    mctx.sys_evt          = _sys->sys_evt;
+    _monitor_ctx = &mctx;
+
+    _create_task(monitor_thread_entry, "(monitor)", 1024 * 5, _monitor_ctx, TASK_PRIORITY_MONITOR, 1);
+
+    static BenchmarkCtx bctx;
+    bctx.bm_mode     = &_bm_mode;
+    bctx.bm          = &_bm;
+    bctx.miner       = _miner;
+    bctx.status      = _minerStatus;
+    bctx.pwr         = &_pwr_tele;
+    bctx.temp        = &_temp;
+    bctx.reboot_xsem = _sys->reboot_xsem;
+    bctx.init_evt    = _sys->init_evt;
+    _benchmark_ctx = &bctx;
+
+    _create_task(benchmark_thread_entry, "(benchmark)", 1024 * 6, _benchmark_ctx, TASK_PRIORITY_MONITOR, 0);
+}
+
+void MinerApp::begin() {
+    constexpr int BOOT_STAGE_TOTAL = 8;
+    BootProgress boot(BOOT_STAGE_TOTAL);
+
+    boot.post("Reflect booting...");
+    _begin_board_init(boot);
+    _begin_fan(boot);
+    _begin_power(boot);
+    _begin_wifi_connect(boot);
+    _begin_display(boot);
+    _begin_infra(boot);
+    _begin_market(boot);
+    _begin_miners(boot);
+
+    _create_task(_tick_thread_entry, "(tick)", 1024 * 5, nullptr, TASK_PRIORITY_APP_TICK, 1);
+
+    boot.finish("Reflect started");
+    LOG_I("MinerApp::begin done");
+}
+
+void MinerApp::print_stack_hwm() const {
+    for (const auto& t : _tasks) {
+        if (t.handle == nullptr) {
+            continue;
+        }
+        UBaseType_t hwm = uxTaskGetStackHighWaterMark(t.handle);
+        LOG_D("%-12s hwm=%u/%u", t.name, (unsigned)hwm, (unsigned)t.stack_bytes);
     }
+}
 
-    // market
-    g_board.market = new MarketClass();
-    if (g_board.market == NULL) { LOG_E("MarketClass instance creation failed"); return false; }
+void MinerApp::_tick_thread_entry(void* args) {
+    (void)args;
+    auto& app = MinerApp::instance();
+    static const char* const VBUS_CHK_STR[] = {
+        "Vbus check   ", "Vbus check.  ", "Vbus check.. ", "Vbus check..."
+    };
+    static const char* const WIFI_CON_STR[] = {
+        "Wifi connect   ", "Wifi connect.  ", "Wifi connect.. ", "Wifi connect..."
+    };
+    static const char* const ASIC_INIT_STR[] = {
+        "ASIC init  ", "ASIC init.  ", "ASIC init.. ", "ASIC init..."
+    };
+    static const char* const TMP_CHK_STR[] = {
+        "temp sensor check   ", "temp sensor check.  ",
+        "temp sensor check.. ", "temp sensor check..."
+    };
+    static const char* const FAN_POLARITY_STR[] = {
+        "Fan polarity check   ", "Fan polarity check.  ",
+        "Fan polarity check.. ", "Fan polarity check..."
+    };
+    static const char* const FAN_SELF_TEST_STR[] = {
+        "Fan test   ", "Fan test.  ", "Fan test.. ", "Fan test..."
+    };
+    static const char* const VCORE_CHK_STR[] = {
+        "Vcore check   ", "Vcore check.  ", "Vcore check.. ", "Vcore check..."
+    };
+    static const char* const POOL_CON_STR[] = {
+        "Pool connect   ", "Pool connect.  ", "Pool connect.. ", "Pool connect..."
+    };
+    static const char* const POOL_AUTH_STR[] = {
+        "Pool auth   ", "Pool auth.  ", "Pool auth.. ", "Pool auth..."
+    };
+    static const char* const WAIT_JOB_STR[] = {
+        "Waiting pool job   ", "Waiting pool job.  ",
+        "Waiting pool job.. ", "Waiting pool job..."
+    };
 
-    // stratum
-    g_board.stratum = new StratumClass(g_board.info.connection.pool.use, g_board.info.connection.stratum.use, 10);
-    if (g_board.stratum == NULL) { LOG_E("StratumClass instance creation failed"); return false; }
+    enum class LoadingStage : uint8_t {
+        WAIT_ADC,
+        WAIT_VBUS,
+        WAIT_WIFI,
+        WAIT_ASIC,
+        WAIT_ASIC_CONFIRM,
+        WAIT_TMP,
+        WAIT_TMP_CONFIRM,
+        WAIT_FAN_POLARITY,
+        WAIT_FAN_POLARITY_CONFIRM,
+        WAIT_FAN_READY,
+        WAIT_FAN_READY_CONFIRM,
+        WAIT_VCORE,
+        WAIT_VCORE_CONFIRM,
+        WAIT_POOL_CONNECT,
+        WAIT_POOL_CONNECT_CONFIRM,
+        WAIT_POOL_AUTH,
+        WAIT_POOL_AUTH_CONFIRM,
+        WAIT_POOL_JOB,
+        READY_CONFIRM,
+    };
 
-    delay(2000);
-    log_w("\r\n            ___          ___         ");
-    log_w("\r\n           /\\__\\        /\\__\\    ");
-    log_w("\r\n          /::|  |      /::|  |       ");
-    log_w("\r\n         /:|:|  |     /:|:|  |       ");
-    log_w("\r\n        /:/|:|  |__  /:/|:|__|__     ");
-    log_w("\r\n       /:/ |:| /\\__\\/:/ |::::\\__\\");
-    log_w("\r\n       \\/__|:|/:/  /\\/__/~~/:/  /  ");
-    log_w("\r\n           |:/:/  /       /:/  /     ");
-    log_w("\r\n           |::/  /       /:/  /      ");
-    log_w("\r\n           /:/  /       /:/  /       ");
-    log_w("\r\n           \\/__/        \\/__/      \r\n");
-    log_w("         %s - %s\r\n", g_board.info.spec.display_name.c_str(), g_board.info.base.fw_version.c_str());
+    bool     tmp_ready = false;
+    uint32_t last_temp_ms = 0;
+    uint32_t last_ui_ms   = 0;
+    uint32_t last_roll_ms = 0;       // auto page-rolling cadence
+    uint32_t last_cfg_timeout_ms = 0; // NMQAxe++ AP config timeout cadence
+    bool     ss_active    = false;   // screensaver state (this thread owns backlight)
+    bool     ui_switched  = false;   // one-shot LOADING -> MINER after boot
+    LoadingStage loading_stage = LoadingStage::WAIT_ADC;
+    uint32_t loading_stage_ms = millis();
+
+    auto set_loading = [&](int32_t progress, const String& text, uint32_t color) {
+        AppState::instance().loading.progress = progress;
+        AppState::instance().loading.details.text = text;
+        AppState::instance().loading.details.color = color;
+    };
+    auto advance_loading = [&](LoadingStage next, uint32_t now) {
+        loading_stage = next;
+        loading_stage_ms = now;
+    };
+
+    while (true) {
+        delay(10);
+        uint32_t now = millis();
+        EventBits_t ib = app._sys ? xEventGroupGetBits(app._sys->init_evt) : 0;
+
+        if (!ui_switched) {
+            uint32_t stage_elapsed = now - loading_stage_ms;
+            uint8_t anim_idx = (uint8_t)((stage_elapsed / 300) % 4);
+            bool blink_500ms = (((stage_elapsed / 500) & 1U) == 0U);
+
+            switch (loading_stage) {
+                case LoadingStage::WAIT_ADC:
+                    set_loading(10, VBUS_CHK_STR[anim_idx], 0xFFFFFF);
+                    if (app._power && app._power->is_adc_ready()) {
+                        advance_loading(LoadingStage::WAIT_VBUS, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_VBUS:
+                    if (stage_elapsed < 500) {
+                        set_loading(20,
+                            app._power && app._power->is_dc_pluged() ? "DC pluged." : "USB pluged.",
+                            0x00FF00);
+                    } else {
+                        if ((ib & INIT_EVENT_VBUS_READY) != 0) {
+                            String vbus = "Vbus " + String(app._power->get_vbus() / 1000.0, 3) + "V.";
+                            set_loading(20, vbus, 0x00FF00);
+                            if (stage_elapsed >= 1000) {
+                                advance_loading(LoadingStage::WAIT_WIFI, now);
+                            }
+                        } else if (app._power) {
+                            String vbus = "Vbus " + String(app._power->get_vbus() / 1000.0, 1) +
+                                          "v(at least" +
+                                          String(app._spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
+                            uint32_t color = blink_500ms ? 0xFF0000 : 0xFFFFFF;
+                            set_loading(20, vbus, color);
+                        }
+                    }
+                    break;
+
+                case LoadingStage::WAIT_WIFI:
+                    set_loading(30,
+                        String(WIFI_CON_STR[anim_idx]) + "[" + app._wifi_cfg.sta_ssid + "]",
+                        0xFFFFFF);
+                    if ((ib & INIT_EVENT_WIFI_STA_CONNECTED) != 0) {
+                        set_loading(30, "Wifi Connected!", 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_ASIC, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_ASIC:
+                    set_loading(40, ASIC_INIT_STR[anim_idx], 0xFFFFFF);
+                    if (app._miner && app._miner->get_asic_count() > 0) {
+                        uint8_t asic_cnt = app._miner->get_asic_count();
+                        String asic_cnt_str = (asic_cnt > 1)
+                            ? (String(asic_cnt) + "/" + String(app._spec.asic.num_req) + " chips")
+                            : "1 chip";
+                        uint32_t color = (asic_cnt != app._spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
+                        set_loading(40, "Found " + asic_cnt_str, color);
+                        advance_loading(LoadingStage::WAIT_ASIC_CONFIRM, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_ASIC_CONFIRM:
+                    if (now - loading_stage_ms >= 3000 && (ib & INIT_EVENT_ASIC_COUNTED) != 0) {
+                        advance_loading(LoadingStage::WAIT_TMP, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_TMP: {
+                    float t_vrm  = temp_hal_get_vcore();
+                    float t_asic = temp_hal_get_asic();
+                    String vrm_str  = isnan(t_vrm)  ? "NAN" : (String(t_vrm, 1) + "C");
+                    String asic_str = isnan(t_asic) ? "NAN" : (String(t_asic, 1) + "C");
+                    set_loading(50, String(TMP_CHK_STR[anim_idx]) + " " + vrm_str + "/" + asic_str, 0xFFFFFF);
+                    if ((ib & INIT_EVENT_TMP_READY) != 0) {
+                        set_loading(50, String("Temp Pass  ") + vrm_str + "/" + asic_str, 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_TMP_CONFIRM, now);
+                    }
+                    break;
+                }
+
+                case LoadingStage::WAIT_TMP_CONFIRM:
+                    if (now - loading_stage_ms >= 700) {
+                        advance_loading(LoadingStage::WAIT_FAN_POLARITY, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_FAN_POLARITY:
+                    set_loading(50, FAN_POLARITY_STR[anim_idx], 0xFFFFFF);
+                    if ((ib & INIT_EVENT_FAN_POLARITY_DETECT) != 0) {
+                        set_loading(50, "Fan polarity pass!", 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_FAN_POLARITY_CONFIRM, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_FAN_POLARITY_CONFIRM:
+                    if (now - loading_stage_ms >= 1000) {
+                        advance_loading(LoadingStage::WAIT_FAN_READY, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_FAN_READY: {
+                    String fan_msg = FAN_SELF_TEST_STR[anim_idx];
+                    if (!app._fan_status.empty()) {
+                        fan_msg += String(app._fan_status[0].rpm) + "/ " +
+                                   String(app._spec.fans[0].init.self_test_rpm_thr) + "rpm";
+                    }
+                    set_loading(50, fan_msg, 0xFFFFFF);
+                    if ((ib & INIT_EVENT_FAN_READY) != 0) {
+                        String pass_msg = "Fan Pass!";
+                        if (!app._fan_status.empty()) {
+                            pass_msg = "Fan Pass! [" + String(app._fan_status[0].rpm) + "/ " +
+                                       String(app._spec.fans[0].init.self_test_rpm_thr) + " rpm]";
+                        }
+                        set_loading(50, pass_msg, 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_FAN_READY_CONFIRM, now);
+                    }
+                    break;
+                }
+
+                case LoadingStage::WAIT_FAN_READY_CONFIRM:
+                    if (now - loading_stage_ms >= 1000) {
+                        advance_loading(LoadingStage::WAIT_VCORE, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_VCORE:
+                    set_loading(60, VCORE_CHK_STR[anim_idx], 0xFFFFFF);
+                    if ((ib & INIT_EVENT_VCORE_READY) != 0) {
+                        String vcore = "Vcore " + String(app._power->get_vcore() / 1000.0, 3) + "v.";
+                        set_loading(60, vcore, 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_VCORE_CONFIRM, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_VCORE_CONFIRM:
+                    if (now - loading_stage_ms >= 1000) {
+                        advance_loading(LoadingStage::WAIT_POOL_CONNECT, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_CONNECT:
+                    if (app._stratum && app._stratum->is_subscribed()) {
+                        set_loading(75, "Pool connected!", 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_POOL_CONNECT_CONFIRM, now);
+                    } else if (app._stratum && app._stratum->pool->get_last_errormsg().length() > 0) {
+                        uint32_t color = blink_500ms ? 0xFFFFFF : 0xFF0000;
+                        set_loading(75, app._stratum->pool->get_last_errormsg(), color);
+                    } else {
+                        String con_type = app._conn && app._conn->pool.use.ssl ? "[ssl]" : "[tcp]";
+                        set_loading(75, String(POOL_CON_STR[anim_idx]) + con_type, 0xFFFFFF);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_CONNECT_CONFIRM:
+                    if (now - loading_stage_ms >= 100) {
+                        advance_loading(LoadingStage::WAIT_POOL_AUTH, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_AUTH:
+                    if (app._stratum && app._stratum->is_authorized()) {
+                        set_loading(85, "Pool authorized!", 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_POOL_AUTH_CONFIRM, now);
+                    } else if (now - loading_stage_ms >= 6000) {
+                        uint32_t color = blink_500ms ? 0xFFFFFF : 0xFF0000;
+                        set_loading(85, "Wrong stratum user!", color);
+                    } else {
+                        set_loading(85, POOL_AUTH_STR[anim_idx], 0xFFFFFF);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_AUTH_CONFIRM:
+                    if (now - loading_stage_ms >= 100) {
+                        advance_loading(LoadingStage::WAIT_POOL_JOB, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_JOB:
+                    if (app._stratum && app._stratum->get_job_counter() > 0) {
+                        set_loading(100, "Miner ready!", 0x00FF00);
+                        advance_loading(LoadingStage::READY_CONFIRM, now);
+                    } else if (now - loading_stage_ms >= 60000) {
+                        uint32_t color = blink_500ms ? 0xFFFFFF : 0xFF0000;
+                        set_loading(100, "Pool job timeout!", color);
+                    } else {
+                        set_loading(100, WAIT_JOB_STR[anim_idx], 0xFFFFFF);
+                    }
+                    break;
+
+                case LoadingStage::READY_CONFIRM:
+                    set_loading(100, "Miner ready!", 0x00FF00);
+                    if ((ib & INIT_EVENT_MINER_READY) == 0 && now - loading_stage_ms >= 500) {
+                        xEventGroupSetBits(app._sys->init_evt, INIT_EVENT_MINER_READY);
+                        LOG_I("INIT_EVENT_MINER_READY set");
+                    }
+                    break;
+            }
+        }
+
+        // ── Boot UX: drive the LOADING page off to CONFIG (AP mode) or MINER. ──
+        if (!ui_switched) {
+            if (ib & INIT_EVENT_WIFI_AP_READY) {
+                AppState::instance().loading.details.color = 0xFF3B30;
+                AppState::instance().loading.details.text  = "AP config mode";
+                UIManager::instance().request_goto_page(UIPageId::CONFIG);
+                ui_switched = true;
+            } else if (ib & INIT_EVENT_MINER_READY) {
+                UIManager::instance().request_goto_page((UIPageId)app._last_ui_page);
+                ui_switched = true;
+            }
+        }
+
+        // ── temperature sampling (single writer) — gated on TMP102 readiness ──
+        if (!tmp_ready) {
+            tmp_ready = (xEventGroupGetBits(app._sys->init_evt) & INIT_EVENT_TMP_READY) != 0;
+        }
+        if (tmp_ready && now - last_temp_ms >= 125) {
+            app._temp.asic  = roundf(temp_hal_get_asic()  * 100) / 100.0f;
+            app._temp.vcore = roundf(temp_hal_get_vcore() * 10)  / 10.0f;
+            // trigger fan PID + backlight temp effects
+            xEventGroupSetBits(app._sys->sys_evt,
+                SYS_EVENT_MINER_VCORE_TEMP_UPDATE | SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
+            last_temp_ms = now;
+        }
+
+        // ── Backlight brightness update (web/UI changes screen.brightness then
+        //     gives this semaphore). Apply immediately; ledcWrite is thread-safe.
+        if (app._brightness_update_xsem &&
+            xSemaphoreTake(app._brightness_update_xsem, 0) == pdTRUE) {
+            ss_active = false;   // brightness change implies user activity
+            tft_bl_ctrl(app._pref.screen.brightness, &app._spec);
+            lv_disp_trig_activity(nullptr);
+            xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            LOG_I("Backlight updated -> %u%%", app._pref.screen.brightness);
+        }
+
+        // ── Screensaver: blank after idle (LVGL inactivity tracks touch; button &
+        //     web wakeups reset via lv_disp_trig_activity / clearing the bit). ──
+        if (app._ota.running) {
+            // Keep the screen lit during firmware update; treat as activity.
+            if (ss_active) {
+                tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
+                xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+                ss_active = false;
+            }
+            lv_disp_trig_activity(nullptr);
+        } else if (app._pref.screen.saver_enable && app._pref.screen.saver_timeout > 0) {
+            uint32_t idle_ms = lv_disp_get_inactive_time(nullptr);
+            bool bit_set = (xEventGroupGetBits(app._sys->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
+            if (!ss_active) {
+                if (idle_ms > app._pref.screen.saver_timeout * 1000UL) {
+                    xEventGroupSetBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+                    // mode 1 = black (blank backlight); mode 0 = keep lit for the
+                    // aphorism/quote screensaver rendered by the OverlayManager.
+                    if (app._pref.screen.saver_mode == 1) tft_bl_ctrl(0, &app._spec);
+                    else tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
+                    ss_active = true;
+                }
+            } else if (idle_ms < 1000 || !bit_set) {   // touch activity or external wakeup
+                xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+                tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
+                lv_disp_trig_activity(nullptr);
+                ss_active = false;
+            }
+        } else if (ss_active) {                        // saver disabled at runtime
+            tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
+            xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            ss_active = false;
+        }
+
+        // ── Auto page-rolling: advance one page every 10 s when enabled and not
+        //     in screensaver (mirrors legacy monitor behaviour). ──
+        if (app._pref.screen.auto_rolling && now - last_roll_ms >= 10000) {
+            last_roll_ms = now;
+            if (!(xEventGroupGetBits(app._sys->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED)) {
+                UIManager::instance().request_next_page();
+            }
+        }
+
+        // ── Loading page live fields: keep these on the fast UI path so they
+        //     react as soon as WiFi/Vcore becomes ready, matching legacy boot UX.
+        if (app._wifi && app._wifi->status == WL_CONNECTED) {
+            AppState::instance().loading.ip.text = app._wifi->ip.toString();
+            AppState::instance().loading.ip.color = 0x00FF00;
+        }
+        if (app._conn && ((xEventGroupGetBits(app._sys->init_evt) & INIT_EVENT_VCORE_READY) != 0)) {
+            AppState::instance().loading.pool.text =
+                app._conn->pool.use.url + ":" + String(app._conn->pool.use.port);
+        }
+
+        // ── UI state refresh at 1 Hz ──
+        if (now - last_ui_ms < 1000) {
+            continue;
+        }
+        last_ui_ms = now;
+
+        if (app._minerStatus) {
+            auto& m = AppState::instance().miner;
+            double ghs3 = (double)app._minerStatus->hashrate._3m;
+            if (ghs3 >= 1000.0) { m.hashrate.text = String(ghs3 / 1000.0, 2); m.hashrate_unit.text = "TH/s"; }
+            else                { m.hashrate.text = String(ghs3, 1);          m.hashrate_unit.text = "GH/s"; }
+            m.blk_hit.text  = String((int)app._minerStatus->hits);
+            m.shares.text   = String((unsigned)app._minerStatus->share_accepted) + "/" +
+                              String((unsigned)app._minerStatus->share_rejected);
+            m.diff.text     = formatNumber(app._minerStatus->diff.best_session, 1) + "/" +
+                              formatNumber(app._minerStatus->diff.network, 1);
+            m.ver.text      = String(BOARD_CURRENT_FW_VERSION).substring(1);
+            {
+                uint64_t up = app._minerStatus->uptime_session;
+                m.uptime_day.text = String((unsigned)(up / 86400));
+                uint32_t s = up % 86400;
+                char hms[12]; snprintf(hms, sizeof(hms), "%02u:%02u:%02u",
+                    (unsigned)(s/3600), (unsigned)((s%3600)/60), (unsigned)(s%60));
+                m.uptime_hms.text = String(hms);
+            }
+            {
+                float vbus_v = app._pwr_tele.vbus / 1000.0f;
+                float ibus_a = app._pwr_tele.ibus / 1000.0f;
+                m.power.text = String(vbus_v * ibus_a, 1) + "W";
+                m.temp.text  = String((float)app._temp.vcore, 0) + "/" + String((float)app._temp.asic, 0);
+            }
+
+            // ── Hashrate-health page ──
+            auto& hh = AppState::instance().hr_health;
+            double ghs = (double)app._minerStatus->hashrate._3m;
+            char hb[24];
+            if (ghs >= 1000.0) snprintf(hb, sizeof(hb), "%.2f TH/s", ghs / 1000.0);
+            else               snprintf(hb, sizeof(hb), "%.1f GH/s", ghs);
+            hh.hashrate.text   = String(hb);
+            hh.efficiency.text = String("Eff: ") + String(app._minerStatus->efficiency, 1) + " J/TH";
+            hh.shares.text     = String("Shares: ") +
+                                 String((unsigned)app._minerStatus->share_rejected) + "/" +
+                                 String((unsigned)app._minerStatus->share_accepted);
+            hh.best_diff.text  = String("Best: ") + String(app._minerStatus->diff.best_ever, 0);
+        }
+
+        // ── Dashboard page: power / thermal / performance ──
+        {
+            auto& d = AppState::instance().dashboard;
+            float vbus_v = app._pwr_tele.vbus / 1000.0f;
+            float ibus_a = app._pwr_tele.ibus / 1000.0f;
+            d.power.text      = String("Power: ") + String(vbus_v * ibus_a, 1) + " W";
+            d.vbus.text       = String("Vbus:  ") + String(vbus_v, 2) + " V";
+            d.ibus.text       = String("Ibus:  ") + String(ibus_a, 2) + " A";
+            d.asic_temp.text  = String("ASIC:  ") + String((float)app._temp.asic, 1) + " C";
+            d.vcore_temp.text = String("VRM:   ") + String((float)app._temp.vcore, 1) + " C";
+            d.freq.text       = String("Freq:  ") + String((unsigned)app._spec.asic.req_frq) + " MHz";
+            d.vcore.text      = String("Vcore: ") + String((unsigned)app._pwr_tele.vcore) + " mV";
+        }
+
+        if (app._wifi) {
+            AppState::instance().miner.ip.text = app._wifi->ip.toString();
+            int rssi = app._wifi->rssi;
+            uint32_t wc = (rssi >= -60) ? 0x00FF00 : (rssi >= -75) ? 0xFFA500 : 0xFF0000;
+            AppState::instance().miner.wifi_color = wc;
+        }
+
+        // ── Fan label (first fan rpm) for the miner page ──
+        if (!app._fan_status.empty()) {
+            AppState::instance().miner.fan.text = String((unsigned)app._fan_status[0].rpm);
+        }
+
+        // ── Clock page: local time/date (TZ set by monitor via setenv/tzset) ──
+        if (app._utc > 1600000000ULL) {   // only once NTP-synced
+            time_t t = (time_t)app._utc;
+            struct tm lt;
+            localtime_r(&t, &lt);
+            char tbuf[16];
+            if (app._time.format.time == 12) {  // 12h
+                strftime(tbuf, sizeof(tbuf), "%I:%M %p", &lt);
+            } else {                            // 24h
+                strftime(tbuf, sizeof(tbuf), "%H:%M", &lt);
+            }
+            AppState::instance().clock.time_str.text = String(tbuf);
+            AppState::instance().miner.utc_time.text = String(tbuf);
+
+            const String& df = app._time.format.date;
+            char dbuf[16];
+            const char* fmt = "%Y/%m/%d";
+            if      (df == "MM-DD-YYYY") fmt = "%m-%d-%Y";
+            else if (df == "DD-MM-YYYY") fmt = "%d-%m-%Y";
+            else if (df == "YYYY-MM-DD") fmt = "%Y-%m-%d";
+            else if (df == "DD/MM/YYYY") fmt = "%d/%m/%Y";
+            else if (df == "MM/DD/YYYY") fmt = "%m/%d/%Y";
+            else if (df == "YYYY/MM/DD") fmt = "%Y/%m/%d";
+            strftime(dbuf, sizeof(dbuf), fmt, &lt);
+            AppState::instance().clock.date_str.text = String(dbuf);
+        }
+
+        // ── Config page: AP setup info + config-window countdown ──
+        if (app._wifi) {
+            EventBits_t ib = app._sys ? xEventGroupGetBits(app._sys->init_evt) : 0;
+            bool ap_config_active = ((ib & INIT_EVENT_WIFI_AP_READY) != 0) &&
+                                    (app._wifi->status != WL_CONNECTED);
+            auto& cfg = AppState::instance().config;
+            cfg.ssid.text = String("SSID: ") + app._wifi_cfg.ap_ssid;
+            cfg.ip.text   = String("IP: ") + app._wifi_cfg.ap_ip.toString();
+            if (ap_config_active) {
+                if (app._spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME && now - last_cfg_timeout_ms >= 1000) {
+                    last_cfg_timeout_ms = now;
+                    uint32_t inactive_ms = lv_disp_get_inactive_time(nullptr);
+                    if (inactive_ms < 1500) {
+                        app._wifi->config_timeout = MINER_WIFI_CONFIG_TIMEOUT;
+                    } else if (app._wifi->config_timeout > 0) {
+                        app._wifi->config_timeout--;
+                    }
+                }
+                cfg.timeout.text = String("Timeout: ") + String((unsigned)app._wifi->config_timeout) + "s";
+            } else {
+                cfg.timeout.text = "";
+            }
+        }
+
+        // ── Market page: main coin symbol / price / 24h change ──
+        if (app._market && app._market->get_last_update() != 0) {
+            const CoinPrice& mp = app._market->get_main_pair();
+            auto& mk = AppState::instance().market;
+            String sym = app._coin_price; sym.toUpperCase();
+            mk.symbol.text = sym;
+            char pb[24];
+            if (mp.price >= 1000.0f)      snprintf(pb, sizeof(pb), "$%.0f", mp.price);
+            else if (mp.price >= 1.0f)    snprintf(pb, sizeof(pb), "$%.2f", mp.price);
+            else                          snprintf(pb, sizeof(pb), "$%.4f", mp.price);
+            mk.price.text = String(pb);
+            char cb[16];
+            snprintf(cb, sizeof(cb), "%+.2f%%", mp.change_pct);
+            mk.change.text  = String(cb);
+            mk.change.color = (mp.change_pct >= 0.0f) ? (uint32_t)0x00C853 : (uint32_t)0xFF5252;
+            AppState::instance().miner.price.text = String(pb);   // mirror on miner page
+        }
+
+        if (app._swarm && xSemaphoreTake(app._swarm->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+            auto& m = AppState::instance().miner;
+            uint32_t workers = app._swarm->total_workers;
+            float    thr     = app._swarm->total_hr;
+            float    sbd     = app._swarm->best_ever_bd;
+            m.swarm_workers.text = String(workers);
+            m.swarm_hr.text = String(thr, 1);
+            m.swarm_bd.text = String(sbd, 0);
+            xSemaphoreGive(app._swarm->mutex);
+
+            // ── Setting / Swarm page ──
+            auto& ss = AppState::instance().setting_swarm;
+            ss.workers.text   = String("Workers: ") + String(workers);
+            ss.total_hr.text  = String("HR: ") + String(thr, 1) + " GH/s";
+            ss.best_diff.text = String("Best: ") + String(sbd, 0);
+        }
+
+        if (app._neighbor && app._neighbor->mutex &&
+            xSemaphoreTake(app._neighbor->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+            size_t n = app._neighbor->alive_ips.size();
+            xSemaphoreGive(app._neighbor->mutex);
+            AppState::instance().setting_swarm.neighbors.text = String("Neighbors: ") + String((unsigned)n);
+        }
+        if (app._wifi) {
+            AppState::instance().setting_swarm.ip.text = String("IP: ") + app._wifi->ip.toString();
+        }
+
+        size_t current_page = UIManager::instance().current();
+        if (current_page < (size_t)UIPageId::COUNT &&
+            current_page != (size_t)UIPageId::LOADING &&
+            current_page != app._last_ui_page) {
+            app._last_ui_page = (uint8_t)current_page;
+            nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, app._last_ui_page);
+            LOG_D("Saved last page to NVS: %u", (unsigned)app._last_ui_page);
+        }
+    }
+}
+
+void MinerApp::_lvgl_thread_entry(void* args) {
+    (void)args;
+    while (true) {
+        // Update top-layer overlays (benchmark/pause/fault) then drive pages + LVGL.
+        OverlayManager::instance().update();
+        UIManager::instance().render_update();
+        delay(5);
+    }
+}
+
+bool MinerApp::_ui_init() {
+    // Bring up the real TFT panel + LVGL display driver, then build the page tree.
+    tft_init(&_spec, &_pref);
+    uint16_t w = tft_screen_width();
+    uint16_t h = tft_screen_height();
+    ui_drv_register(w, h);
+    touch_drv_register(&_pref, 50);   // enables tileview swipe nav (no-op if absent)
+    lvgl_fs_spiffs_register();        // 'S' drive for lv_gif screensaver
+    images_init(w, h);                // set bg/image descriptor dimensions
+    UIManager::instance().init(w, h);
+    UIManager::instance().set_sys_evt(_sys->sys_evt);
+    UIManager::instance().set_recover_factory_xsem(_recover_factory_xsem);  // touch long-press factory reset
+
+    OverlayCtx octx;
+    octx.bm_mode = &_bm_mode;
+    octx.bm      = &_bm;
+    octx.status  = _minerStatus;
+    octx.sys_evt = _sys->sys_evt;
+    octx.reboot_xsem = _sys->reboot_xsem;
+    octx.ota     = &_ota;
+    octx.spec    = &_spec;
+    octx.aphorism   = &_aphorism;
+    octx.saver_mode = &_pref.screen.saver_mode;
+    // Screensaver GIF path (uploaded via web). Filename matches http upload handler.
+    octx.gif_path = (_spec.name == BOARD_NMAXE_NAME || _spec.name == BOARD_NMAXE_GAMMA_NAME)
+                  ? "/screen_saver_240x135.gif" : "/screen_saver_320x240.gif";
+    OverlayManager::instance().init(octx);
+    // Backlight on (fall back to a sane default if no NVS brightness set).
+    uint8_t br = _pref.screen.brightness ? _pref.screen.brightness : 80;
+    tft_bl_ctrl(br, &_spec);
+    LOG_I("UI init done: %ux%u, brightness=%u%%", w, h, br);
     return true;
 }
