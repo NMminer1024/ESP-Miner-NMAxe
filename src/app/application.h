@@ -21,6 +21,7 @@
 #include "benchmark_ctx.h"
 #include "aphorism_ctx.h"
 #include "../web/web_ctx.h"
+#include "../market/market.h"
 
 class MinerApp {
 public:
@@ -35,6 +36,7 @@ public:
     const PowerTelemetry& pwr_tele() const { return _pwr_tele; }
     const std::vector<fan_status_t>& fan_status() const { return _fan_status; }
     uint8_t asic_count() const { return _miner ? _miner->get_asic_count() : 0; }
+    MarketClass* market() const { return _market; }
 
     void print_stack_hwm() const;
 

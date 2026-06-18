@@ -53,6 +53,10 @@ void PageClockBase::_sync_time_and_date() {
         ampm = time_text.substring(sep + 1);
     }
 
+    if (hms.length() > 0 && hms.charAt(0) == '0') {
+        hms.remove(0, 1);
+    }
+
     if (_lb_time) {
         lv_label_set_text(_lb_time, hms.c_str());
         lv_coord_t width = lv_txt_get_width(hms.c_str(), hms.length(),
@@ -101,6 +105,7 @@ void PageClockBase::_sync_hits() {
     }
 
     String hits_text = String((unsigned)st->hits);
+    lv_obj_set_width(_lb_hits, 75);
     lv_label_set_text(_lb_hits, hits_text.c_str());
 }
 

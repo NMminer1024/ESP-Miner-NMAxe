@@ -31,6 +31,7 @@ void PageClock240x135::_create_dynamic(lv_obj_t* parent) {
     _lb_hr = make_clock_label(parent, &ds_digib_font_56, 0xEE7D30, LV_ALIGN_TOP_LEFT, 0, 0, " ");
     _lb_hr_unit = make_clock_label(parent, &ds_digib_font_20, 0x808080, LV_ALIGN_TOP_LEFT, 95, 26, " ");
     _lb_hits = make_clock_label(parent, &ds_digib_font_56, 0xEE7D30, LV_ALIGN_TOP_RIGHT, -30, 0, " ");
+    lv_obj_set_width(_lb_hits, 75);
     _lb_hits_unit = make_clock_label(parent, &ds_digib_font_20, 0x808080, LV_ALIGN_TOP_LEFT, 190, 26, "hits");
     _lb_time = make_clock_label(parent, &ds_digib_font_56, 0xFFFFFF, LV_ALIGN_CENTER, 0, 15, "--:--");
     _lb_ampm = make_clock_label(parent, &lv_font_montserrat_14, 0xFFFFFF, LV_ALIGN_CENTER, 0, 15, "");
