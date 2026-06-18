@@ -11,7 +11,6 @@
 // ============================================================================
 class PageMinerBase : public UIPage {
 public:
-    void _on_update() override {}
     void destroy() override;
 
 protected:
@@ -31,12 +30,17 @@ protected:
     lv_obj_t* _lb_fan        = nullptr;
     lv_obj_t* _lb_utc_time   = nullptr;
     lv_obj_t* _lb_wifi_symb  = nullptr;
+    lv_obj_t* _lb_diff_symb  = nullptr;
+    lv_obj_t* _lb_share_symb = nullptr;
+    lv_obj_t* _lb_temp_symb  = nullptr;
+    lv_obj_t* _lb_fan_symb   = nullptr;
     lv_obj_t* _lb_swarm_bd   = nullptr;
     lv_obj_t* _lb_swarm_hr   = nullptr;
     lv_obj_t* _lb_swarm_wk   = nullptr;
 
     lv_coord_t _W = 0, _H = 0;
 
+    void _on_update() override;
     virtual void _create_dynamic(lv_obj_t* parent) = 0;
     void _finish_create();
 

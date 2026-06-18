@@ -42,7 +42,7 @@ void PageMiner240x135::_create_dynamic(lv_obj_t* parent) {
 
     // Value labels
     _lb_blk_hit    = mk(&ds_digib_font_56, 0xEE7D30, LV_ALIGN_TOP_MID,    6,  36, SW, " ", LV_LABEL_LONG_SCROLL_CIRCULAR);
-    _lb_hashrate   = mk(&ds_digib_font_38, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, 50, 0,  100," ", LV_LABEL_LONG_SCROLL_CIRCULAR);
+    _lb_hashrate   = mk(&ds_digib_font_38, 0xEE7D30, LV_ALIGN_BOTTOM_MID, 50, 0,  100," ", LV_LABEL_LONG_SCROLL_CIRCULAR);
     _lb_hr_unit    = mk(&ds_digib_font_28, 0xFFFFFF, LV_ALIGN_TOP_MID,    182,110,SW, " ", LV_LABEL_LONG_DOT);
     _lb_price      = mk(&ds_digib_font_20, 0xFFFFFF, LV_ALIGN_LEFT_MID,   33, 29, SW, "",  LV_LABEL_LONG_DOT);
     _lb_ver        = mk(&ds_digib_font_16, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   2,  22, SW, &BOARD_CURRENT_FW_VERSION[1], LV_LABEL_LONG_DOT);
@@ -58,9 +58,9 @@ void PageMiner240x135::_create_dynamic(lv_obj_t* parent) {
     // Static labels / symbols
     mk(&lv_font_montserrat_14, 0xFFA500, LV_ALIGN_TOP_LEFT, 56, 2, 20, "d", LV_LABEL_LONG_DOT);       // uptime day unit
     mk(&lv_font_montserrat_14, 0xFFA500, LV_ALIGN_TOP_MID,  18, 1, SW, LV_SYMBOL_BELL, LV_LABEL_LONG_DOT);  // uptime symbol
-    _lb_wifi_symb = mk(&lv_font_montserrat_14, 0xFFA500, LV_ALIGN_TOP_MID, 123, 1, SW, LV_SYMBOL_WIFI, LV_LABEL_LONG_DOT);
-    mk(&symbol_14, 0xA9A9A9, LV_ALIGN_TOP_MID, 108, 26, SW, "\xEF\x82\x80", LV_LABEL_LONG_DOT); // diff
-    mk(&symbol_14, 0xA9A9A9, LV_ALIGN_TOP_MID, 108, 42, SW, "\xEF\x8E\x82", LV_LABEL_LONG_DOT); // share
-    mk(&symbol_14, 0xA9A9A9, LV_ALIGN_TOP_MID, 113, 59, SW, "\xEF\x8B\x88", LV_LABEL_LONG_DOT); // temp
-    mk(&symbol_14, 0xA9A9A9, LV_ALIGN_TOP_MID, 110, 76, SW, "\xEF\xA1\xA3", LV_LABEL_LONG_DOT); // fan
+    _lb_wifi_symb  = mk(&lv_font_montserrat_14, 0xFFA500, LV_ALIGN_TOP_MID, 123, 1, SW, LV_SYMBOL_WIFI, LV_LABEL_LONG_DOT);
+    _lb_diff_symb  = mk(&symbol_14, 0xA9A9A9, LV_ALIGN_TOP_MID, 108, 26, SW, "\xEF\x82\x80", LV_LABEL_LONG_DOT); // diff
+    _lb_share_symb = mk(&symbol_14, 0xA9A9A9, LV_ALIGN_TOP_MID, 108, 42, SW, "\xEF\x8E\x82", LV_LABEL_LONG_DOT); // share
+    _lb_temp_symb  = mk(&symbol_14, 0xA9A9A9, LV_ALIGN_TOP_MID, 113, 59, SW, "\xEF\x8B\x88", LV_LABEL_LONG_DOT); // temp
+    _lb_fan_symb   = mk(&symbol_14, 0xA9A9A9, LV_ALIGN_TOP_MID, 110, 76, SW, "\xEF\xA1\xA3", LV_LABEL_LONG_DOT); // fan
 }

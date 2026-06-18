@@ -21,6 +21,10 @@ static void s_save_last_page(size_t idx) {
     nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, (uint8_t)idx);
 }
 
+static bool s_is_runtime_nav_page(size_t idx) {
+    return idx >= (size_t)UIPageId::MINER && idx <= (size_t)UIPageId::SETTING_SWARM;
+}
+
 // ============================================================================
 //  All layout instances �� both resolutions compiled in, selected at runtime
 // ============================================================================
@@ -154,15 +158,14 @@ size_t UIManager::current() const {
 }
 
 void UIManager::next_page() {
-    size_t n = _pages.size();
-    if (n < 2) return;
+    if (_pages.size() < (size_t)UIPageId::SETTING_SWARM + 1) return;
 
     size_t next = _current;
-    uint8_t tries = 0;
-    do {
-        next = (next + 1) % n;
-        tries++;
-    } while (_pages[next] == nullptr && tries < n);
+    if (!s_is_runtime_nav_page(next)) {
+        next = (size_t)UIPageId::MINER;
+    } else {
+        next = (next == (size_t)UIPageId::SETTING_SWARM) ? (size_t)UIPageId::MINER : (next + 1);
+    }
 
     if (_pages[next]) {
         // Animate tileview
@@ -180,15 +183,14 @@ void UIManager::next_page() {
 }
 
 void UIManager::prev_page() {
-    size_t n = _pages.size();
-    if (n < 2) return;
+    if (_pages.size() < (size_t)UIPageId::SETTING_SWARM + 1) return;
 
     size_t prev = _current;
-    uint8_t tries = 0;
-    do {
-        prev = (prev == 0) ? (n - 1) : (prev - 1);
-        tries++;
-    } while (_pages[prev] == nullptr && tries < n);
+    if (!s_is_runtime_nav_page(prev)) {
+        prev = (size_t)UIPageId::SETTING_SWARM;
+    } else {
+        prev = (prev == (size_t)UIPageId::MINER) ? (size_t)UIPageId::SETTING_SWARM : (prev - 1);
+    }
 
     if (_pages[prev]) {
         int8_t dx = (_tile_entries[prev].col > _tile_entries[_current].col) ? 1

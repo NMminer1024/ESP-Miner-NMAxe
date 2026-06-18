@@ -711,13 +711,13 @@ void miner_rx_thread_entry(void* args) {
                     last = millis();
                 }
 
+                if (diff < stratum->get_pool_difficulty()) continue;
+
                 LOG_I("|%-6s|%-6s|%-6s|%-7s|",
                       formatNumber(miner->get_asic_diff(), 4).c_str(),
                       formatNumber(diff, 4).c_str(),
                       formatNumber(stratum->get_pool_difficulty(), 4).c_str(),
                       formatNumber(st.diff.network, 7).c_str());
-
-                if (diff < stratum->get_pool_difficulty()) continue;
 
                 bool res = miner->submit_job_share(pool_id_submit, extra2_submit, result.asic.nonce, *(uint32_t*)job.ntime, version_submit);
                 if (!res) continue;

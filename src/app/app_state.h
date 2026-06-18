@@ -103,15 +103,19 @@ struct MinerPageState {
     ObsLabel blk_hit;        // block-proximity hit count
     ObsLabel price;          // "$67000"
     ObsLabel ver;            // fw version (no leading 'v')
-    ObsLabel power;          // "12.3W"
+    ObsLabel power;          // "5.000V/12.3W"
     ObsLabel ip;             // local IP
     ObsLabel uptime_hms;     // "12:34:56"
-    ObsLabel uptime_day;     // "3"
+    ObsLabel uptime_day;     // "003"
     ObsLabel diff;           // "bestSession/network"
-    ObsLabel shares;         // "acc/rej"
-    ObsLabel temp;           // "vcore/asic" deg C
-    ObsLabel fan;            // fan rpm
+    ObsLabel shares;         // "rej/acc"
+    ObsLabel temp;           // "vcore'C/asic'C"
+    ObsLabel fan;            // "rpm" or "vcore/asic"
     ObsLabel utc_time;       // "HH:MM" (320x240 top bar)
+    Observable<uint32_t> diff_symbol_color{(uint32_t)0xA9A9A9};
+    Observable<uint32_t> share_symbol_color{(uint32_t)0xA9A9A9};
+    Observable<uint32_t> temp_symbol_color{(uint32_t)0xA9A9A9};
+    Observable<uint32_t> fan_symbol_color{(uint32_t)0xA9A9A9};
     Observable<uint32_t> wifi_color{(uint32_t)0xFFA500};   // wifi icon color by RSSI
 
     // Swarm bar (shown on the NMQAxe++ miner page; also the setting/swarm page)
@@ -135,6 +139,7 @@ struct ConfigPageState {
 struct ClockPageState {
     ObsLabel time_str;   // "HH:MM" (24h) or "hh:MM AM/PM" (12h)
     ObsLabel date_str;   // formatted per user date-format preference
+    ObsLabel price;      // formatted price mirrored from legacy clock page
 };
 
 // ============================================================================

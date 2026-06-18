@@ -29,6 +29,11 @@ public:
     bool init();
     void begin();
 
+    const MinerStatus* status() const { return _minerStatus; }
+    const BoardSpecConfig& spec() const { return _spec; }
+    const TempState& temp() const { return _temp; }
+    const std::vector<fan_status_t>& fan_status() const { return _fan_status; }
+
     void print_stack_hwm() const;
 
 private:

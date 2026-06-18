@@ -12,6 +12,7 @@
 #include "../utils/helper.h"
 #include "../utils/logger/logger.h"
 #include "../version.h"
+#include "../market/market_ctx.h"
 
 MinerApp& MinerApp::instance() {
     static MinerApp app;
@@ -297,6 +298,7 @@ void MinerApp::_begin_display(BootProgress& boot) {
     boot.next("Display init...");
     lv_init();
     _ui_init();
+    xEventGroupSetBits(_sys->init_evt, INIT_EVENT_SCREEN_READY);
     _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 8, nullptr, TASK_PRIORITY_LVGL_DRV, 1);
 }
 
@@ -478,8 +480,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
 void MinerApp::begin() {
     constexpr int BOOT_STAGE_TOTAL = 8;
     BootProgress boot(BOOT_STAGE_TOTAL);
-
-    boot.post("Reflect booting...");
+    
     _begin_board_init(boot);
     _begin_fan(boot);
     _begin_power(boot);
@@ -488,11 +489,8 @@ void MinerApp::begin() {
     _begin_infra(boot);
     _begin_market(boot);
     _begin_miners(boot);
-
     _create_task(_tick_thread_entry, "(tick)", 1024 * 5, nullptr, TASK_PRIORITY_APP_TICK, 1);
-
-    boot.finish("Reflect started");
-    LOG_I("MinerApp::begin done");
+    boot.post("booting...");
 }
 
 void MinerApp::print_stack_hwm() const {
@@ -574,6 +572,14 @@ void MinerApp::_tick_thread_entry(void* args) {
     LoadingStage loading_stage = LoadingStage::WAIT_ADC;
     uint32_t loading_stage_ms = millis();
     uint32_t loading_detail_ms = 0;
+
+    xEventGroupWaitBits(app._sys->init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    uint8_t boot_brightness = app._pref.screen.brightness ? app._pref.screen.brightness : 80;
+    for (uint8_t i = 0; i < boot_brightness; ++i) {
+        tft_bl_ctrl(i, &app._spec);
+        delay(10);
+    }
+    tft_bl_ctrl(boot_brightness, &app._spec);
 
     auto set_loading = [&](int32_t progress, const String& text, uint32_t color) {
         AppState::instance().loading.progress = progress;
@@ -901,28 +907,32 @@ void MinerApp::_tick_thread_entry(void* args) {
 
         if (app._minerStatus) {
             auto& m = AppState::instance().miner;
-            double ghs3 = (double)app._minerStatus->hashrate._3m;
-            if (ghs3 >= 1000.0) { m.hashrate.text = String(ghs3 / 1000.0, 2); m.hashrate_unit.text = "TH/s"; }
-            else                { m.hashrate.text = String(ghs3, 1);          m.hashrate_unit.text = "GH/s"; }
+            String hr = formatNumber(app._minerStatus->hashrate._3m, 3);
+            if (app._minerStatus->hashrate._3m > 0 && hr.length() > 0) {
+                m.hashrate.text = hr.substring(0, hr.length() - 1);
+                m.hashrate_unit.text = String(hr.charAt(hr.length() - 1)) + "H/s";
+            } else {
+                m.hashrate.text = hr;
+                m.hashrate_unit.text = "";
+            }
             m.blk_hit.text  = String((int)app._minerStatus->hits);
-            m.shares.text   = String((unsigned)app._minerStatus->share_accepted) + "/" +
-                              String((unsigned)app._minerStatus->share_rejected);
-            m.diff.text     = formatNumber(app._minerStatus->diff.best_session, 1) + "/" +
-                              formatNumber(app._minerStatus->diff.network, 1);
+            m.shares.text   = String((unsigned)app._minerStatus->share_rejected) + "/" +
+                              String((unsigned)app._minerStatus->share_accepted);
+            m.diff.text     = formatNumber(app._minerStatus->diff.best_session, 3) + "/" +
+                              formatNumber(app._minerStatus->diff.network, 3);
             m.ver.text      = String(BOARD_CURRENT_FW_VERSION).substring(1);
             {
-                uint64_t up = app._minerStatus->uptime_session;
-                m.uptime_day.text = String((unsigned)(up / 86400));
-                uint32_t s = up % 86400;
-                char hms[12]; snprintf(hms, sizeof(hms), "%02u:%02u:%02u",
-                    (unsigned)(s/3600), (unsigned)((s%3600)/60), (unsigned)(s%60));
-                m.uptime_hms.text = String(hms);
+                String uptime = convert_uptime_to_string(app._minerStatus->uptime_session);
+                m.uptime_day.text = uptime.substring(0, 3);
+                m.uptime_hms.text = uptime.substring(5);
             }
             {
                 float vbus_v = app._pwr_tele.vbus / 1000.0f;
                 float ibus_a = app._pwr_tele.ibus / 1000.0f;
-                m.power.text = String(vbus_v * ibus_a, 1) + "W";
-                m.temp.text  = String((float)app._temp.vcore, 0) + "/" + String((float)app._temp.asic, 0);
+                m.power.text = formatNumber(vbus_v, 3) + "V/" +
+                               formatNumber(vbus_v * ibus_a, 2) + "W";
+                m.temp.text  = formatNumber(app._temp.vcore, 2) + "'C/" +
+                               formatNumber(app._temp.asic, 2) + "'C";
             }
 
             // ── Hashrate-health page ──
@@ -956,13 +966,17 @@ void MinerApp::_tick_thread_entry(void* args) {
         if (app._wifi) {
             AppState::instance().miner.ip.text = app._wifi->ip.toString();
             int rssi = app._wifi->rssi;
-            uint32_t wc = (rssi >= -60) ? 0x00FF00 : (rssi >= -75) ? 0xFFA500 : 0xFF0000;
+            uint32_t wc = (rssi >= -60) ? 0x00FF00 : (rssi >= -70) ? 0xFFA500 : 0xFF0000;
             AppState::instance().miner.wifi_color = wc;
         }
 
-        // ── Fan label (first fan rpm) for the miner page ──
         if (!app._fan_status.empty()) {
-            AppState::instance().miner.fan.text = String((unsigned)app._fan_status[0].rpm);
+            if (app._spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME && app._fan_status.size() > 1) {
+                AppState::instance().miner.fan.text = String((unsigned)app._fan_status[1].rpm) + "/" +
+                                                      String((unsigned)app._fan_status[0].rpm);
+            } else {
+                AppState::instance().miner.fan.text = String((unsigned)app._fan_status[0].rpm) + " rpm";
+            }
         }
 
         // ── Clock page: local time/date (TZ set by monitor via setenv/tzset) ──
@@ -1031,24 +1045,31 @@ void MinerApp::_tick_thread_entry(void* args) {
             snprintf(cb, sizeof(cb), "%+.2f%%", mp.change_pct);
             mk.change.text  = String(cb);
             mk.change.color = (mp.change_pct >= 0.0f) ? (uint32_t)0x00C853 : (uint32_t)0xFF5252;
-            AppState::instance().miner.price.text = String(pb);   // mirror on miner page
+            if (now - app._market->get_last_update() <= (MINER_MARKET_UPDATE_INTERVAL * 3)) {
+                String miner_price = formatNumber(mp.price, 6);
+                AppState::instance().miner.price.text = String("$") + miner_price;
+            } else {
+                AppState::instance().miner.price.text = "";
+            }
+            String clock_price = (mp.price > 1.0f) ? String(mp.price, 1) : String(mp.price, 6);
+            AppState::instance().clock.price.text = String("$") + clock_price;
         }
 
         if (app._swarm && xSemaphoreTake(app._swarm->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
             auto& m = AppState::instance().miner;
             uint32_t workers = app._swarm->total_workers;
             float    thr     = app._swarm->total_hr;
-            float    sbd     = app._swarm->best_ever_bd;
+            float    sbd     = app._swarm->best_session_bd;
             m.swarm_workers.text = String(workers);
-            m.swarm_hr.text = String(thr, 1);
-            m.swarm_bd.text = String(sbd, 0);
+            m.swarm_hr.text = formatNumber(thr, 2) + "H/s";
+            m.swarm_bd.text = formatNumber(sbd, 4);
             xSemaphoreGive(app._swarm->mutex);
 
             // ── Setting / Swarm page ──
             auto& ss = AppState::instance().setting_swarm;
             ss.workers.text   = String("Workers: ") + String(workers);
-            ss.total_hr.text  = String("HR: ") + String(thr, 1) + " GH/s";
-            ss.best_diff.text = String("Best: ") + String(sbd, 0);
+            ss.total_hr.text  = String("HR: ") + formatNumber(thr, 3);
+            ss.best_diff.text = String("Best: ") + formatNumber(app._swarm->best_ever_bd, 4);
         }
 
         if (app._neighbor && app._neighbor->mutex &&
@@ -1109,9 +1130,7 @@ bool MinerApp::_ui_init() {
     octx.gif_path = (_spec.name == BOARD_NMAXE_NAME || _spec.name == BOARD_NMAXE_GAMMA_NAME)
                   ? "/screen_saver_240x135.gif" : "/screen_saver_320x240.gif";
     OverlayManager::instance().init(octx);
-    // Backlight on (fall back to a sane default if no NVS brightness set).
     uint8_t br = _pref.screen.brightness ? _pref.screen.brightness : 80;
-    tft_bl_ctrl(br, &_spec);
-    LOG_I("UI init done: %ux%u, brightness=%u%%", w, h, br);
+    LOG_I("UI init done: %ux%u, target brightness=%u%%", w, h, br);
     return true;
 }
