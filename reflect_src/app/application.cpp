@@ -31,14 +31,11 @@ void MinerApp::BootProgress::next(const char* msg, uint32_t c) {
     if (step > 100) {
         step = 100;
     }
-    AppState::instance().loading.progress = step;
-    AppState::instance().loading.details.text = String(msg);
-    AppState::instance().loading.details.color = c;
+    post(msg, c);
 }
 
 void MinerApp::BootProgress::finish(const char* msg, uint32_t c) {
     step = 100;
-    AppState::instance().loading.progress = 100;
     post(msg, c);
 }
 
@@ -510,25 +507,285 @@ void MinerApp::print_stack_hwm() const {
 void MinerApp::_tick_thread_entry(void* args) {
     (void)args;
     auto& app = MinerApp::instance();
+    static const char* const VBUS_CHK_STR[] = {
+        "Vbus check   ", "Vbus check.  ", "Vbus check.. ", "Vbus check..."
+    };
+    static const char* const WIFI_CON_STR[] = {
+        "Wifi connect   ", "Wifi connect.  ", "Wifi connect.. ", "Wifi connect..."
+    };
+    static const char* const ASIC_INIT_STR[] = {
+        "ASIC init  ", "ASIC init.  ", "ASIC init.. ", "ASIC init..."
+    };
+    static const char* const TMP_CHK_STR[] = {
+        "temp sensor check   ", "temp sensor check.  ",
+        "temp sensor check.. ", "temp sensor check..."
+    };
+    static const char* const FAN_POLARITY_STR[] = {
+        "Fan polarity check   ", "Fan polarity check.  ",
+        "Fan polarity check.. ", "Fan polarity check..."
+    };
+    static const char* const FAN_SELF_TEST_STR[] = {
+        "Fan test   ", "Fan test.  ", "Fan test.. ", "Fan test..."
+    };
+    static const char* const VCORE_CHK_STR[] = {
+        "Vcore check   ", "Vcore check.  ", "Vcore check.. ", "Vcore check..."
+    };
+    static const char* const POOL_CON_STR[] = {
+        "Pool connect   ", "Pool connect.  ", "Pool connect.. ", "Pool connect..."
+    };
+    static const char* const POOL_AUTH_STR[] = {
+        "Pool auth   ", "Pool auth.  ", "Pool auth.. ", "Pool auth..."
+    };
+    static const char* const WAIT_JOB_STR[] = {
+        "Waiting pool job   ", "Waiting pool job.  ",
+        "Waiting pool job.. ", "Waiting pool job..."
+    };
+
+    enum class LoadingStage : uint8_t {
+        WAIT_ADC,
+        WAIT_VBUS,
+        WAIT_WIFI,
+        WAIT_ASIC,
+        WAIT_ASIC_CONFIRM,
+        WAIT_TMP,
+        WAIT_TMP_CONFIRM,
+        WAIT_FAN_POLARITY,
+        WAIT_FAN_POLARITY_CONFIRM,
+        WAIT_FAN_READY,
+        WAIT_FAN_READY_CONFIRM,
+        WAIT_VCORE,
+        WAIT_VCORE_CONFIRM,
+        WAIT_POOL_CONNECT,
+        WAIT_POOL_CONNECT_CONFIRM,
+        WAIT_POOL_AUTH,
+        WAIT_POOL_AUTH_CONFIRM,
+        WAIT_POOL_JOB,
+        READY_CONFIRM,
+    };
 
     bool     tmp_ready = false;
-    bool     miner_ready_evt = false;
     uint32_t last_temp_ms = 0;
     uint32_t last_ui_ms   = 0;
     uint32_t last_roll_ms = 0;       // auto page-rolling cadence
-    uint32_t last_connect_ms = 0;    // boot wifi-connecting status cadence
     uint32_t last_cfg_timeout_ms = 0; // NMQAxe++ AP config timeout cadence
-    uint8_t  connect_dots = 0;
     bool     ss_active    = false;   // screensaver state (this thread owns backlight)
     bool     ui_switched  = false;   // one-shot LOADING -> MINER after boot
+    LoadingStage loading_stage = LoadingStage::WAIT_ADC;
+    uint32_t loading_stage_ms = millis();
+
+    auto set_loading = [&](int32_t progress, const String& text, uint32_t color) {
+        AppState::instance().loading.progress = progress;
+        AppState::instance().loading.details.text = text;
+        AppState::instance().loading.details.color = color;
+    };
+    auto advance_loading = [&](LoadingStage next, uint32_t now) {
+        loading_stage = next;
+        loading_stage_ms = now;
+    };
 
     while (true) {
         delay(10);
         uint32_t now = millis();
+        EventBits_t ib = app._sys ? xEventGroupGetBits(app._sys->init_evt) : 0;
+
+        if (!ui_switched) {
+            uint32_t stage_elapsed = now - loading_stage_ms;
+            uint8_t anim_idx = (uint8_t)((stage_elapsed / 300) % 4);
+            bool blink_500ms = (((stage_elapsed / 500) & 1U) == 0U);
+
+            switch (loading_stage) {
+                case LoadingStage::WAIT_ADC:
+                    set_loading(10, VBUS_CHK_STR[anim_idx], 0xFFFFFF);
+                    if (app._power && app._power->is_adc_ready()) {
+                        advance_loading(LoadingStage::WAIT_VBUS, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_VBUS:
+                    if (stage_elapsed < 500) {
+                        set_loading(20,
+                            app._power && app._power->is_dc_pluged() ? "DC pluged." : "USB pluged.",
+                            0x00FF00);
+                    } else {
+                        if ((ib & INIT_EVENT_VBUS_READY) != 0) {
+                            String vbus = "Vbus " + String(app._power->get_vbus() / 1000.0, 3) + "V.";
+                            set_loading(20, vbus, 0x00FF00);
+                            if (stage_elapsed >= 1000) {
+                                advance_loading(LoadingStage::WAIT_WIFI, now);
+                            }
+                        } else if (app._power) {
+                            String vbus = "Vbus " + String(app._power->get_vbus() / 1000.0, 1) +
+                                          "v(at least" +
+                                          String(app._spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
+                            uint32_t color = blink_500ms ? 0xFF0000 : 0xFFFFFF;
+                            set_loading(20, vbus, color);
+                        }
+                    }
+                    break;
+
+                case LoadingStage::WAIT_WIFI:
+                    set_loading(30,
+                        String(WIFI_CON_STR[anim_idx]) + "[" + app._wifi_cfg.sta_ssid + "]",
+                        0xFFFFFF);
+                    if ((ib & INIT_EVENT_WIFI_STA_CONNECTED) != 0) {
+                        set_loading(30, "Wifi Connected!", 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_ASIC, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_ASIC:
+                    set_loading(40, ASIC_INIT_STR[anim_idx], 0xFFFFFF);
+                    if (app._miner && app._miner->get_asic_count() > 0) {
+                        uint8_t asic_cnt = app._miner->get_asic_count();
+                        String asic_cnt_str = (asic_cnt > 1)
+                            ? (String(asic_cnt) + "/" + String(app._spec.asic.num_req) + " chips")
+                            : "1 chip";
+                        uint32_t color = (asic_cnt != app._spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
+                        set_loading(40, "Found " + asic_cnt_str, color);
+                        advance_loading(LoadingStage::WAIT_ASIC_CONFIRM, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_ASIC_CONFIRM:
+                    if (now - loading_stage_ms >= 3000 && (ib & INIT_EVENT_ASIC_COUNTED) != 0) {
+                        advance_loading(LoadingStage::WAIT_TMP, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_TMP: {
+                    float t_vrm  = temp_hal_get_vcore();
+                    float t_asic = temp_hal_get_asic();
+                    String vrm_str  = isnan(t_vrm)  ? "NAN" : (String(t_vrm, 1) + "C");
+                    String asic_str = isnan(t_asic) ? "NAN" : (String(t_asic, 1) + "C");
+                    set_loading(50, String(TMP_CHK_STR[anim_idx]) + " " + vrm_str + "/" + asic_str, 0xFFFFFF);
+                    if ((ib & INIT_EVENT_TMP_READY) != 0) {
+                        set_loading(50, String("Temp Pass  ") + vrm_str + "/" + asic_str, 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_TMP_CONFIRM, now);
+                    }
+                    break;
+                }
+
+                case LoadingStage::WAIT_TMP_CONFIRM:
+                    if (now - loading_stage_ms >= 700) {
+                        advance_loading(LoadingStage::WAIT_FAN_POLARITY, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_FAN_POLARITY:
+                    set_loading(50, FAN_POLARITY_STR[anim_idx], 0xFFFFFF);
+                    if ((ib & INIT_EVENT_FAN_POLARITY_DETECT) != 0) {
+                        set_loading(50, "Fan polarity pass!", 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_FAN_POLARITY_CONFIRM, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_FAN_POLARITY_CONFIRM:
+                    if (now - loading_stage_ms >= 1000) {
+                        advance_loading(LoadingStage::WAIT_FAN_READY, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_FAN_READY: {
+                    String fan_msg = FAN_SELF_TEST_STR[anim_idx];
+                    if (!app._fan_status.empty()) {
+                        fan_msg += String(app._fan_status[0].rpm) + "/ " +
+                                   String(app._spec.fans[0].init.self_test_rpm_thr) + "rpm";
+                    }
+                    set_loading(50, fan_msg, 0xFFFFFF);
+                    if ((ib & INIT_EVENT_FAN_READY) != 0) {
+                        String pass_msg = "Fan Pass!";
+                        if (!app._fan_status.empty()) {
+                            pass_msg = "Fan Pass! [" + String(app._fan_status[0].rpm) + "/ " +
+                                       String(app._spec.fans[0].init.self_test_rpm_thr) + " rpm]";
+                        }
+                        set_loading(50, pass_msg, 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_FAN_READY_CONFIRM, now);
+                    }
+                    break;
+                }
+
+                case LoadingStage::WAIT_FAN_READY_CONFIRM:
+                    if (now - loading_stage_ms >= 1000) {
+                        advance_loading(LoadingStage::WAIT_VCORE, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_VCORE:
+                    set_loading(60, VCORE_CHK_STR[anim_idx], 0xFFFFFF);
+                    if ((ib & INIT_EVENT_VCORE_READY) != 0) {
+                        String vcore = "Vcore " + String(app._power->get_vcore() / 1000.0, 3) + "v.";
+                        set_loading(60, vcore, 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_VCORE_CONFIRM, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_VCORE_CONFIRM:
+                    if (now - loading_stage_ms >= 1000) {
+                        advance_loading(LoadingStage::WAIT_POOL_CONNECT, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_CONNECT:
+                    if (app._stratum && app._stratum->is_subscribed()) {
+                        set_loading(75, "Pool connected!", 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_POOL_CONNECT_CONFIRM, now);
+                    } else if (app._stratum && app._stratum->pool->get_last_errormsg().length() > 0) {
+                        uint32_t color = blink_500ms ? 0xFFFFFF : 0xFF0000;
+                        set_loading(75, app._stratum->pool->get_last_errormsg(), color);
+                    } else {
+                        String con_type = app._conn && app._conn->pool.use.ssl ? "[ssl]" : "[tcp]";
+                        set_loading(75, String(POOL_CON_STR[anim_idx]) + con_type, 0xFFFFFF);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_CONNECT_CONFIRM:
+                    if (now - loading_stage_ms >= 100) {
+                        advance_loading(LoadingStage::WAIT_POOL_AUTH, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_AUTH:
+                    if (app._stratum && app._stratum->is_authorized()) {
+                        set_loading(85, "Pool authorized!", 0x00FF00);
+                        advance_loading(LoadingStage::WAIT_POOL_AUTH_CONFIRM, now);
+                    } else if (now - loading_stage_ms >= 6000) {
+                        uint32_t color = blink_500ms ? 0xFFFFFF : 0xFF0000;
+                        set_loading(85, "Wrong stratum user!", color);
+                    } else {
+                        set_loading(85, POOL_AUTH_STR[anim_idx], 0xFFFFFF);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_AUTH_CONFIRM:
+                    if (now - loading_stage_ms >= 100) {
+                        advance_loading(LoadingStage::WAIT_POOL_JOB, now);
+                    }
+                    break;
+
+                case LoadingStage::WAIT_POOL_JOB:
+                    if (app._stratum && app._stratum->get_job_counter() > 0) {
+                        set_loading(100, "Miner ready!", 0x00FF00);
+                        advance_loading(LoadingStage::READY_CONFIRM, now);
+                    } else if (now - loading_stage_ms >= 60000) {
+                        uint32_t color = blink_500ms ? 0xFFFFFF : 0xFF0000;
+                        set_loading(100, "Pool job timeout!", color);
+                    } else {
+                        set_loading(100, WAIT_JOB_STR[anim_idx], 0xFFFFFF);
+                    }
+                    break;
+
+                case LoadingStage::READY_CONFIRM:
+                    set_loading(100, "Miner ready!", 0x00FF00);
+                    if ((ib & INIT_EVENT_MINER_READY) == 0 && now - loading_stage_ms >= 500) {
+                        xEventGroupSetBits(app._sys->init_evt, INIT_EVENT_MINER_READY);
+                        LOG_I("INIT_EVENT_MINER_READY set");
+                    }
+                    break;
+            }
+        }
 
         // ── Boot UX: drive the LOADING page off to CONFIG (AP mode) or MINER. ──
         if (!ui_switched) {
-            uint32_t ib = xEventGroupGetBits(app._sys->init_evt);
             if (ib & INIT_EVENT_WIFI_AP_READY) {
                 AppState::instance().loading.details.color = 0xFF3B30;
                 AppState::instance().loading.details.text  = "AP config mode";
@@ -537,14 +794,6 @@ void MinerApp::_tick_thread_entry(void* args) {
             } else if (ib & INIT_EVENT_MINER_READY) {
                 UIManager::instance().request_goto_page((UIPageId)app._last_ui_page);
                 ui_switched = true;
-            } else if (app._wifi && app._wifi->status != WL_CONNECTED &&
-                       now - last_connect_ms >= 500) {
-                last_connect_ms = now;
-                String d = "Connecting WiFi";
-                for (uint8_t i = 0; i < (connect_dots % 4); i++) d += ".";
-                connect_dots++;
-                AppState::instance().loading.details.color = 0xFFFFFF;
-                AppState::instance().loading.details.text  = d + "\n[" + app._wifi_cfg.sta_ssid + "]";
             }
         }
 
@@ -559,29 +808,6 @@ void MinerApp::_tick_thread_entry(void* args) {
             xEventGroupSetBits(app._sys->sys_evt,
                 SYS_EVENT_MINER_VCORE_TEMP_UPDATE | SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
             last_temp_ms = now;
-        }
-
-        // ── Legacy-equivalent MINER_READY gate: only raise once boot has truly
-        //     reached the "mining ready" state (pool job obtained + fan self-test
-        //     complete + Vcore/TMP/WiFi ready). Multiple threads gate on this.
-        if (!miner_ready_evt && app._sys && app._sys->init_evt && app._stratum && app._minerStatus) {
-            EventBits_t ib = xEventGroupGetBits(app._sys->init_evt);
-            bool prereq_ok =
-                (ib & INIT_EVENT_WIFI_STA_CONNECTED) &&
-                (ib & INIT_EVENT_TMP_READY) &&
-                (ib & INIT_EVENT_FAN_READY) &&
-                (ib & INIT_EVENT_VCORE_READY);
-            if (prereq_ok &&
-                app._stratum->is_subscribed() &&
-                app._stratum->is_authorized() &&
-                app._stratum->get_job_counter() > 0) {
-                xEventGroupSetBits(app._sys->init_evt, INIT_EVENT_MINER_READY);
-                miner_ready_evt = true;
-                AppState::instance().loading.progress = 100;
-                AppState::instance().loading.details.color = 0x00FF00;
-                AppState::instance().loading.details.text = "Miner ready!";
-                LOG_I("INIT_EVENT_MINER_READY set");
-            }
         }
 
         // ── Backlight brightness update (web/UI changes screen.brightness then
