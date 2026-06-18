@@ -4,7 +4,7 @@
 // ============================================================================
 //  Background images & logos (full bitmaps live in the *_img.h arrays; the
 //  lv_img_dsc_t descriptors are defined once in images.cpp). Ported verbatim
-//  from the legacy src/image set so the UI keeps its exact look.
+//  from the legacy image set so the UI keeps its exact look.
 // ============================================================================
 
 // Worker / miner logos

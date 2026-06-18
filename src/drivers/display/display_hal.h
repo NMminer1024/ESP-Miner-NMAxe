@@ -5,11 +5,11 @@
 #include "../../app/runtime_state.h"  // PreferenceState (screen.flip)
 
 // ============================================================================
-//  Display HAL — TFT_eSPI panel bring-up + LVGL display driver registration
+//  Display HAL - TFT_eSPI panel bring-up + LVGL display driver registration
 //
-//  Ported from the legacy src/drivers/displays/display.cpp panel layer, but
-//  dependency-injected: no g_board. The owning thread passes the board spec
-//  (pins / resolution) and live preference (screen flip).
+//  Ported from the legacy display panel layer, but dependency-injected:
+//  no g_board. The owning thread passes the board spec (pins / resolution)
+//  and live preference (screen flip).
 // ============================================================================
 
 // Power-on the panel, configure backlight PWM, construct TFT_eSPI with the

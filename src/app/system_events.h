@@ -7,11 +7,11 @@
 //    - init_evt : one-shot "ready" milestones latched during boot/bring-up.
 //    - sys_evt  : runtime notifications (block hit, faults, screensaver ...).
 //
-//  Values are kept identical to the legacy src/global.h scheme so behaviour
+//  Values are kept identical to the legacy global.h scheme so behaviour
 //  and any cross-thread handshake timing are byte-for-byte preserved.
 // ============================================================================
 
-// ── init_evt : boot/bring-up milestones ─────────────────────────────────────
+// init_evt : boot/bring-up milestones
 enum {
     INIT_EVENT_FAN_POLARITY_DETECT   = (1 << 0),   // fan polarity detected, ready for fan thread to start
     INIT_EVENT_FAN_READY             = (1 << 1),   // fan initialized and self-test done
@@ -28,7 +28,7 @@ enum {
     INIT_EVENT_TMP_READY             = (1 << 12),  // TMP102 self-test done
 };
 
-// ── sys_evt : runtime notifications ─────────────────────────────────────────
+// sys_evt : runtime notifications
 enum {
     SYS_EVENT_MINER_BLOCK_HIT            = (1 << 0),   // miner hit a block
     SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED   = (1 << 1),   // miner achieved a new high difficulty
