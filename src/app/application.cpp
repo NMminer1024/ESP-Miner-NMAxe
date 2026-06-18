@@ -455,6 +455,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     mctx.reboot_xsem      = _sys->reboot_xsem;
     mctx.nvs_save_xsem    = _nvs_save_xsem;
     mctx.force_config_xsem = _force_config_xsem;
+    mctx.init_evt         = _sys->init_evt;
     mctx.sys_evt          = _sys->sys_evt;
     _monitor_ctx = &mctx;
 
@@ -572,6 +573,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     bool     ui_switched  = false;   // one-shot LOADING -> MINER after boot
     LoadingStage loading_stage = LoadingStage::WAIT_ADC;
     uint32_t loading_stage_ms = millis();
+    uint32_t loading_detail_ms = 0;
 
     auto set_loading = [&](int32_t progress, const String& text, uint32_t color) {
         AppState::instance().loading.progress = progress;
@@ -581,6 +583,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     auto advance_loading = [&](LoadingStage next, uint32_t now) {
         loading_stage = next;
         loading_stage_ms = now;
+        loading_detail_ms = 0;
     };
 
     while (true) {
@@ -607,18 +610,29 @@ void MinerApp::_tick_thread_entry(void* args) {
                             app._power && app._power->is_dc_pluged() ? "DC pluged." : "USB pluged.",
                             0x00FF00);
                     } else {
-                        if ((ib & INIT_EVENT_VBUS_READY) != 0) {
-                            String vbus = "Vbus " + String(app._power->get_vbus() / 1000.0, 3) + "V.";
-                            set_loading(20, vbus, 0x00FF00);
+                        bool vbus_ready = app._power &&
+                                          app._power->get_vbus() >= app._spec.pwr.vbus_min_required;
+                        if (vbus_ready) {
+                            if (loading_detail_ms == 0 || now - loading_detail_ms >= 300) {
+                                String vbus = "Vbus " + String(app._power->get_vbus() / 1000.0, 3) + "V.";
+                                set_loading(20, vbus, 0x00FF00);
+                                loading_detail_ms = now;
+                            }
                             if (stage_elapsed >= 1000) {
                                 advance_loading(LoadingStage::WAIT_WIFI, now);
                             }
                         } else if (app._power) {
-                            String vbus = "Vbus " + String(app._power->get_vbus() / 1000.0, 1) +
-                                          "v(at least" +
-                                          String(app._spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
-                            uint32_t color = blink_500ms ? 0xFF0000 : 0xFFFFFF;
-                            set_loading(20, vbus, color);
+                            if (loading_detail_ms == 0 || now - loading_detail_ms >= 300) {
+                                String vbus = "Vbus " + String(app._power->get_vbus() / 1000.0, 1) +
+                                              "v(at least" +
+                                              String(app._spec.pwr.vbus_min_required / 1000.0, 1) + "v)";
+                                uint32_t color = blink_500ms ? 0xFF0000 : 0xFFFFFF;
+                                set_loading(20, vbus, color);
+                                loading_detail_ms = now;
+                            }
+                            if (stage_elapsed >= 1500) {
+                                advance_loading(LoadingStage::WAIT_WIFI, now);
+                            }
                         }
                     }
                     break;
@@ -634,8 +648,12 @@ void MinerApp::_tick_thread_entry(void* args) {
                     break;
 
                 case LoadingStage::WAIT_ASIC:
-                    set_loading(40, ASIC_INIT_STR[anim_idx], 0xFFFFFF);
-                    if (app._miner && app._miner->get_asic_count() > 0) {
+                    if (loading_detail_ms == 0 || now - loading_detail_ms >= 100) {
+                        uint8_t asic_anim_idx = (uint8_t)((stage_elapsed / 100) % 4);
+                        set_loading(40, ASIC_INIT_STR[asic_anim_idx], 0xFFFFFF);
+                        loading_detail_ms = now;
+                    }
+                    if (stage_elapsed >= 300 && app._miner && app._miner->get_asic_count() > 0) {
                         uint8_t asic_cnt = app._miner->get_asic_count();
                         String asic_cnt_str = (asic_cnt > 1)
                             ? (String(asic_cnt) + "/" + String(app._spec.asic.num_req) + " chips")

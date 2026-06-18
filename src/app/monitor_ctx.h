@@ -37,5 +37,6 @@ struct MonitorCtx {
     SemaphoreHandle_t  reboot_xsem       = nullptr;
     SemaphoreHandle_t  nvs_save_xsem     = nullptr;
     SemaphoreHandle_t  force_config_xsem = nullptr;
+    EventGroupHandle_t init_evt = nullptr;
     EventGroupHandle_t sys_evt = nullptr;
 };

@@ -188,7 +188,7 @@ void stratum_thread_entry(void* args) {
                     else                  LOG_E("Stratum parse error, id : %d", method.id);
                     break;
                 case STRATUM_DOWN_NOTIFY: {
-                    LOG_W("Stratum notify, id : %d => %s", method.id, method.raw.c_str());
+                    LOG_D("Stratum notify, id : %d => %s", method.id, method.raw.c_str());
                     pool_job_data_t job;
                     json.clear();
                     DeserializationError error = deserializeJson(json, method.raw);
@@ -965,18 +965,37 @@ void power_init_thread_entry(void* args) {
     delay(100); // wait for power stable
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VDD_VPLL_READY);
 
-    while (power->get_vbus() < spec.pwr.vbus_min_required) {
-        LOG_W("Vbus is %.2fV , at least %.2fV required...",
-              power->get_vbus() / 1000.0, spec.pwr.vbus_min_required / 1000.0);
-        delay(1000);
-    }
-    xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VBUS_READY);
+    // Do not block early boot on low Vbus: USB-only power must still be able to
+    // continue through WiFi / ASIC count so the loading page can show chip detect.
+    // Vcore bring-up itself remains gated on sufficient Vbus.
+    const EventBits_t vcore_gate_bits = INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED;
+    uint32_t last_vbus_warn_ms = 0;
+    while (true) {
+        EventBits_t gate = xEventGroupWaitBits(ctx->init_evt,
+                                               vcore_gate_bits,
+                                               pdFALSE, pdTRUE,
+                                               pdMS_TO_TICKS(100));
+        bool vbus_ready = power->get_vbus() >= spec.pwr.vbus_min_required;
+        if (vbus_ready) {
+            xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VBUS_READY);
+        } else {
+            xEventGroupClearBits(ctx->init_evt, INIT_EVENT_VBUS_READY);
+            uint32_t now = millis();
+            if (last_vbus_warn_ms == 0 || now - last_vbus_warn_ms >= 1000) {
+                LOG_W("Vbus is %.2fV , at least %.2fV required...",
+                      power->get_vbus() / 1000.0, spec.pwr.vbus_min_required / 1000.0);
+                last_vbus_warn_ms = now;
+            }
+        }
 
-    // wait for fan ready and wifi connected before setting vcore voltage, to avoid too high
-    // temperature without proper cooling or network connection for error reporting
-    xEventGroupWaitBits(ctx->init_evt,
-                        INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED | INIT_EVENT_VBUS_READY,
-                        pdFALSE, pdTRUE, portMAX_DELAY);
+        if (((gate & vcore_gate_bits) == vcore_gate_bits) && vbus_ready) {
+            break;
+        }
+    }
+
+    // wait for fan ready, wifi connected, and sufficient Vbus before setting
+    // vcore voltage, to avoid too high temperature without proper cooling or
+    // network connection for error reporting.
     // set vcore voltage to required voltage
     power->set_vcore_voltage(spec.asic.req_vcore);
     power->set_vcore_status(PWR_ON);
@@ -1475,7 +1494,11 @@ void monitor_thread_entry(void* args) {
                 }
 
                 // power status
-                if (!suppress_activity_checks && (ctx->pwr->vbus * ctx->pwr->ibus / 1000.0 / 1000.0) < spec.pwr.power_low_threshold) {
+                bool miner_ready = ctx->init_evt &&
+                                   ((xEventGroupGetBits(ctx->init_evt) & INIT_EVENT_MINER_READY) != 0);
+                if (!suppress_activity_checks &&
+                    miner_ready &&
+                    (ctx->pwr->vbus * ctx->pwr->ibus / 1000.0 / 1000.0) < spec.pwr.power_low_threshold) {
                     LOG_W("Power %0.1fW is too low...", ctx->pwr->vbus * ctx->pwr->ibus / 1000.0 / 1000.0);
                     if (++pwr_err_cnt > 120) {
                         LOG_W("Power is too low, restart miner...");
