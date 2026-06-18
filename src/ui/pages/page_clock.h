@@ -9,21 +9,26 @@
 // ============================================================================
 class PageClockBase : public UIPage {
 public:
-    void _on_update() override {}
+    void _on_update() override;
     void destroy() override;
 
 protected:
+    lv_obj_t* _parent     = nullptr;
     lv_obj_t* _lb_time    = nullptr;
+    lv_obj_t* _lb_ampm    = nullptr;
     lv_obj_t* _lb_date    = nullptr;
     lv_obj_t* _lb_hr      = nullptr;
     lv_obj_t* _lb_hr_unit = nullptr;
     lv_obj_t* _lb_hits    = nullptr;
+    lv_obj_t* _lb_hits_unit = nullptr;
     lv_obj_t* _lb_price   = nullptr;
     lv_coord_t _W = 0, _H = 0;
+    uint32_t _last_sync_ms = 0;
+    String _last_price_text;
 
     virtual void _create_dynamic(lv_obj_t* parent) = 0;
-    void _finish_create();
-
-private:
-    static void _on_text(const String& v, void* ctx);
+    void _sync_hashrate();
+    void _sync_time_and_date();
+    void _sync_hits();
+    void _sync_price();
 };
