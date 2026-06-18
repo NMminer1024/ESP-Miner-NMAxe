@@ -4,6 +4,7 @@
 #include <FS.h>
 #include "../../utils/logger/logger.h"
 #include "../touch/ft6206.h"
+#include "../../ui/ui_manager.h"
 
 // ── Panel driver + logical resolution (post-rotation) ───────────────────────
 static TFT_eSPI* tftDriver    = nullptr;
@@ -132,12 +133,15 @@ static void touchpad_read_cb(lv_indev_drv_t* indev_drv, lv_indev_data_t* data) {
             data->point.x = flip ? raw_p.y                 : SCREEN_WIDTH  - raw_p.y;
             data->point.y = flip ? SCREEN_HEIGHT - raw_p.x : raw_p.x;
             data->state = LV_INDEV_STATE_PRESSED;
+            UIManager::instance().process_touch_sample(true, &data->point);
         } else {
             data->state = LV_INDEV_STATE_RELEASED; // too short, ignore
+            UIManager::instance().process_touch_sample(false, nullptr);
         }
     } else {
         touch_start_ms = 0;
         data->state = LV_INDEV_STATE_RELEASED;
+        UIManager::instance().process_touch_sample(false, nullptr);
     }
 }
 
@@ -155,6 +159,8 @@ bool touch_drv_register(PreferenceState* pref, uint8_t threshold) {
     lv_indev_drv_init(&indev_drv);
     indev_drv.type    = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = touchpad_read_cb;
+    indev_drv.long_press_time = 500;
+    indev_drv.long_press_repeat_time = 100;
     lv_indev_drv_register(&indev_drv);
     return true;
 }

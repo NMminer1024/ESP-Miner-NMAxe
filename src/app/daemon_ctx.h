@@ -16,6 +16,7 @@ struct DaemonCtx {
     SemaphoreHandle_t reboot_xsem          = nullptr;  // fire to request a reboot
     SemaphoreHandle_t recover_factory_xsem = nullptr;  // user-triggered factory reset
     SemaphoreHandle_t wifi_reconnect_xsem  = nullptr;  // wifi reconnect request
+    EventGroupHandle_t init_evt            = nullptr;  // boot/init state gate
     volatile bool*    ota_running = nullptr;           // skip checks while OTA active
     volatile int*     wifi_status = nullptr;           // wl_status_t snapshot
     volatile uint8_t* bm_mode     = nullptr;           // 0=Normal, 1=Benchmark

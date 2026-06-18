@@ -309,6 +309,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     ctx.reboot_xsem          = _sys->reboot_xsem;
     ctx.recover_factory_xsem = _recover_factory_xsem;
     ctx.wifi_reconnect_xsem  = _wifi->reconnect_xsem;
+    ctx.init_evt             = _sys->init_evt;
     ctx.ota_running          = &_ota.running;
     ctx.wifi_status          = &_wifi->status;
     ctx.bm_mode              = &_bm_mode;
@@ -1015,15 +1016,6 @@ void MinerApp::_tick_thread_entry(void* args) {
             cfg.ssid.text = String("SSID: ") + app._wifi_cfg.ap_ssid;
             cfg.ip.text   = String("IP: ") + app._wifi_cfg.ap_ip.toString();
             if (ap_config_active) {
-                if (app._spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME && now - last_cfg_timeout_ms >= 1000) {
-                    last_cfg_timeout_ms = now;
-                    uint32_t inactive_ms = lv_disp_get_inactive_time(nullptr);
-                    if (inactive_ms < 1500) {
-                        app._wifi->config_timeout = MINER_WIFI_CONFIG_TIMEOUT;
-                    } else if (app._wifi->config_timeout > 0) {
-                        app._wifi->config_timeout--;
-                    }
-                }
                 cfg.timeout.text = String("Timeout: ") + String((unsigned)app._wifi->config_timeout) + "s";
             } else {
                 cfg.timeout.text = "";
@@ -1083,8 +1075,8 @@ void MinerApp::_tick_thread_entry(void* args) {
         }
 
         size_t current_page = UIManager::instance().current();
-        if (current_page < (size_t)UIPageId::COUNT &&
-            current_page != (size_t)UIPageId::LOADING &&
+        if (current_page >= (size_t)UIPageId::MINER &&
+            current_page <= (size_t)UIPageId::SETTING_SWARM &&
             current_page != app._last_ui_page) {
             app._last_ui_page = (uint8_t)current_page;
             nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, app._last_ui_page);

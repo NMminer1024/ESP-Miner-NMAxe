@@ -57,6 +57,7 @@ public:
 
     // ── Wake activity: reset screensaver idle timer ─────────────────────
     void wake_activity();
+    void process_touch_sample(bool pressed, const lv_point_t* point);
 
     // ── Touch long-press factory reset (primary path on boards w/o user btn) ──
     void set_recover_factory_xsem(SemaphoreHandle_t s) { _recover_factory_xsem = s; }
@@ -109,4 +110,9 @@ private:
     SemaphoreHandle_t _recover_factory_xsem = nullptr;
     volatile int      _factory_cd = -1;     // seconds remaining (<0 = inactive)
     uint32_t          _lp_last_tick = 0;
+    bool              _touch_pressed = false;
+    bool              _factory_hold_consumed = false;
+    bool              _factory_hold_cancelled = false;
+    uint32_t          _touch_press_start_ms = 0;
+    lv_point_t        _touch_press_point = {0, 0};
 };

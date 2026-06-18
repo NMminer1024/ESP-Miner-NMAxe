@@ -42,6 +42,11 @@ public:
     PreferenceState& pref() { return _pref; }
     AxePowerHal* power() const { return _power; }
     AsicMinerClass* miner() const { return _miner; }
+    WifiState* wifi() const { return _wifi; }
+    WifiConnConfig& wifi_cfg() { return _wifi_cfg; }
+    const WifiConnConfig& wifi_cfg() const { return _wifi_cfg; }
+    EventGroupHandle_t init_evt() const { return _sys ? _sys->init_evt : nullptr; }
+    EventGroupHandle_t sys_evt() const { return _sys ? _sys->sys_evt : nullptr; }
     SemaphoreHandle_t brightness_update_xsem() const { return _brightness_update_xsem; }
     SemaphoreHandle_t reboot_xsem() const { return _sys ? _sys->reboot_xsem : nullptr; }
 

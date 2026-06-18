@@ -1633,7 +1633,12 @@ void daemon_thread_entry(void* args) {
 
         // WiFi daemon
         if (xSemaphoreTake(ctx->wifi_reconnect_xsem, 0) == pdTRUE) {
-            WiFi.begin(ctx->wifi_cfg->sta_ssid.c_str(), ctx->wifi_cfg->sta_pwd.c_str());
+            bool ap_config_active = ctx->init_evt &&
+                ((xEventGroupGetBits(ctx->init_evt) & INIT_EVENT_WIFI_AP_READY) != 0) &&
+                (*ctx->wifi_status != WL_CONNECTED);
+            if (!ap_config_active) {
+                WiFi.begin(ctx->wifi_cfg->sta_ssid.c_str(), ctx->wifi_cfg->sta_pwd.c_str());
+            }
         }
 
         // skip further checks if wifi not connected

@@ -41,20 +41,29 @@ private:
     void _build();
     void _show(uint32_t accent, const char* title, const String& body);
     void _hide();
+    void _reset_layout();
 
     void _gif_hide();
+    void _show_factory_overlay(int countdown_sec);
+    void _show_ota_overlay(uint32_t now);
 
     OverlayCtx _ctx;
     lv_obj_t*  _panel = nullptr;
     lv_obj_t*  _lb_title = nullptr;
     lv_obj_t*  _lb_body  = nullptr;
+    lv_obj_t*  _lb_aux   = nullptr;
+    lv_obj_t*  _lb_aux2  = nullptr;
     lv_obj_t*  _btn_yes  = nullptr;
     lv_obj_t*  _btn_no   = nullptr;
+    lv_obj_t*  _bar = nullptr;
     lv_obj_t*  _gif = nullptr;     // lazy lv_gif for the screensaver (mode 0)
     bool       _gif_shown = false;
     bool       _visible = false;
+    bool       _ota_overlay_active = false;
     uint32_t   _last_ms = 0;
     uint32_t   _find_start = 0;   // find-me blink start (0 = inactive)
+    uint32_t   _ota_dismiss_at = 0;
+    uint32_t   _ota_last_update = 0;
     EventBits_t _fault_event = 0;
     // screensaver aphorism rotation
     String     _aph_quote, _aph_author;

@@ -4,6 +4,7 @@
 #include "../utils/logger/logger.h"
 #include "../nvs/nvs_config.h"
 #include "../utils/reboot_log/reboot_log.h"
+#include "assets/fonts.h"
 #include <SPIFFS.h>
 
 OverlayManager& OverlayManager::instance() {
@@ -52,8 +53,57 @@ void OverlayManager::_build() {
     lv_label_set_text(_lb_body, "");
     lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 8);
 
+    _lb_aux = lv_label_create(_panel);
+    lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
+    lv_label_set_text(_lb_aux, "");
+    lv_obj_add_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+
+    _lb_aux2 = lv_label_create(_panel);
+    lv_obj_set_style_text_color(_lb_aux2, lv_color_hex(0xFFFFFF), 0);
+    lv_label_set_text(_lb_aux2, "");
+    lv_obj_add_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
+
+    _bar = lv_bar_create(_panel);
+    lv_bar_set_range(_bar, 0, 100);
+    lv_obj_add_flag(_bar, LV_OBJ_FLAG_HIDDEN);
+
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
+}
+
+void OverlayManager::_reset_layout() {
+    if (!_panel) return;
+    lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(_panel, LV_OPA_COVER, 0);
+    lv_obj_set_style_pad_all(_panel, 6, 0);
+
+    if (_lb_title) {
+        lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_font(_lb_title, &lv_font_montserrat_20, 0);
+        lv_obj_set_style_text_color(_lb_title, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_align(_lb_title, LV_ALIGN_TOP_MID, 0, 8);
+    }
+    if (_lb_body) {
+        lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_width(_lb_body, LV_PCT(92));
+        lv_obj_set_style_text_font(_lb_body, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_LEFT, 0);
+        lv_label_set_long_mode(_lb_body, LV_LABEL_LONG_WRAP);
+        lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 8);
+    }
+    if (_lb_aux) {
+        lv_label_set_text(_lb_aux, "");
+        lv_obj_add_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (_lb_aux2) {
+        lv_label_set_text(_lb_aux2, "");
+        lv_obj_add_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (_bar) {
+        lv_bar_set_value(_bar, 0, LV_ANIM_OFF);
+        lv_obj_add_flag(_bar, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 void OverlayManager::_gif_hide() {
@@ -63,6 +113,7 @@ void OverlayManager::_gif_hide() {
 
 void OverlayManager::_show(uint32_t accent, const char* title, const String& body) {
     if (!_panel) return;
+    _reset_layout();
     _gif_hide();                                                    // no GIF for non-screensaver overlays
     if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
     if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
@@ -79,16 +130,139 @@ void OverlayManager::_show(uint32_t accent, const char* title, const String& bod
     }
 }
 
+void OverlayManager::_show_factory_overlay(int countdown_sec) {
+    if (!_panel) return;
+    _reset_layout();
+    _gif_hide();
+    if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
+    if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
+    _fault_event = 0;
+
+    lv_obj_set_style_bg_opa(_panel, LV_OPA_80, 0);
+    lv_obj_add_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_text_font(_lb_aux, &ds_digib_font_120, 0);
+    lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
+    lv_label_set_text_fmt(_lb_aux, "%d", countdown_sec);
+    lv_obj_align(_lb_aux, LV_ALIGN_CENTER, 0, 0);
+
+    lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
+    const char* reminder = "Recover to factory settings...";
+    lv_coord_t reminder_w = lv_txt_get_width(
+        reminder,
+        strlen(reminder),
+        &lv_font_montserrat_20,
+        0,
+        LV_TEXT_FLAG_NONE);
+    lv_obj_set_width(_lb_aux2, reminder_w > LV_HOR_RES ? LV_HOR_RES : reminder_w);
+    lv_obj_set_style_text_font(_lb_aux2, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(_lb_aux2, lv_color_hex(0xFFFFFF), 0);
+    lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_SCROLL);
+    lv_label_set_text(_lb_aux2, reminder);
+    lv_obj_align(_lb_aux2, LV_ALIGN_TOP_MID, 0, 10);
+
+    if (!_visible) {
+        lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
+        _visible = true;
+    }
+}
+
+void OverlayManager::_show_ota_overlay(uint32_t now) {
+    if (!_panel || !_ctx.ota) return;
+
+    if (!_ctx.ota->running) {
+        if (_visible && _ota_dismiss_at == 0 && !lv_obj_has_flag(_bar, LV_OBJ_FLAG_HIDDEN)) {
+            lv_bar_set_value(_bar, 100, LV_ANIM_OFF);
+            lv_label_set_text(_lb_aux, "100%");
+            lv_label_set_text(_lb_title, _ctx.ota->filename.c_str());
+            _ota_dismiss_at = now + 1200;
+        } else if (_ota_dismiss_at != 0 && now >= _ota_dismiss_at) {
+            _ota_dismiss_at = 0;
+            _ota_last_update = 0;
+            _ota_overlay_active = false;
+            _hide();
+        }
+        return;
+    }
+
+    const bool is_complete = (_ctx.ota->progress >= 100);
+    if (!is_complete && _ota_last_update != 0 && (now - _ota_last_update) < 1000) {
+        return;
+    }
+
+    if (!_ota_overlay_active) {
+        _reset_layout();
+        _gif_hide();
+        if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
+        if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
+        _fault_event = 0;
+        _ota_dismiss_at = 0;
+
+        lv_obj_set_style_bg_opa(_panel, LV_OPA_70, 0);
+        lv_obj_set_style_pad_all(_panel, 0, 0);
+
+        lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_font(_lb_title, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_color(_lb_title, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_align(_lb_title, LV_ALIGN_CENTER, 0, -30);
+
+        lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+
+        lv_obj_clear_flag(_bar, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_size(_bar, (lv_coord_t)(LV_HOR_RES * 0.81f), 5);
+        lv_obj_align(_bar, LV_ALIGN_CENTER, 0, 0);
+
+        lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_font(_lb_aux, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_align(_lb_aux, LV_ALIGN_LEFT_MID, 0, 0);
+
+        lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_width(_lb_aux2, LV_PCT(92));
+        lv_obj_set_style_text_font(_lb_aux2, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(_lb_aux2, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_align(_lb_aux2, LV_TEXT_ALIGN_CENTER, 0);
+        lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_WRAP);
+        lv_label_set_text(_lb_aux2, "Do not power off during update.");
+        lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, 24);
+
+        if (!_visible) {
+            lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
+            _visible = true;
+        }
+        _ota_overlay_active = true;
+    }
+
+    lv_label_set_text(_lb_title, _ctx.ota->filename.c_str());
+    lv_bar_set_value(_bar, _ctx.ota->progress, is_complete ? LV_ANIM_OFF : LV_ANIM_ON);
+    lv_label_set_text_fmt(_lb_aux, "%d%%", _ctx.ota->progress);
+    lv_obj_update_layout(_panel);
+
+    lv_coord_t bar_x = lv_obj_get_x(_bar);
+    lv_coord_t bar_y = lv_obj_get_y(_bar);
+    lv_coord_t bar_w = lv_obj_get_width(_bar);
+    lv_coord_t label_w = lv_obj_get_width(_lb_aux);
+    lv_coord_t label_x = bar_x + (lv_coord_t)(bar_w * _ctx.ota->progress / 100.0f) - label_w / 2;
+    lv_obj_set_pos(_lb_aux, label_x, bar_y + 10);
+
+    _ota_last_update = now;
+}
+
 void OverlayManager::_hide() {
     _gif_hide();
     if (!_panel || !_visible) return;
     _fault_event = 0;
+    _ota_dismiss_at = 0;
+    _ota_overlay_active = false;
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
 }
 
 void OverlayManager::_show_fault_overlay(bool is_oc) {
     if (!_panel) return;
+    _reset_layout();
     _gif_hide();
     _fault_event = is_oc ? SYS_EVENT_POWER_OC_FAULT : SYS_EVENT_POWER_OT_FAULT;
 
@@ -179,9 +353,7 @@ void OverlayManager::update() {
     // ── Priority 0: touch long-press factory-reset countdown ──
     int fcd = UIManager::instance().factory_countdown();
     if (fcd >= 0) {
-        _gif_hide();
-        String body = String("Keep holding to reset:\n") + fcd + " s\nRelease to cancel.";
-        _show(0xFF5252, "FACTORY RESET", body);
+        _show_factory_overlay(fcd);
         return;
     }
 
@@ -216,12 +388,8 @@ void OverlayManager::update() {
     }
 
     // ── Priority 1.2: OTA / file upload in progress ──
-    if (_ctx.ota && _ctx.ota->running) {
-        String body = _ctx.ota->filename;
-        if (body.length()) body += "\n";
-        body += String(_ctx.ota->progress) + " %";
-        body += "\nDo not power off.";
-        _show(0x42A5F5, "UPDATING", body);
+    if (_ctx.ota && (_ctx.ota->running || _ota_dismiss_at != 0)) {
+        _show_ota_overlay(now);
         return;
     }
 

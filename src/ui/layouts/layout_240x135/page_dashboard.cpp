@@ -9,7 +9,7 @@ void PageDashboard240x135::create(lv_obj_t* parent) {
     _parent = parent;
     _show_miner_diff = false;
     _show_vcore_temp_ring = false;
-    _miner_img_dsc = &logo_worker_nmaxe;
+    _miner_img_dsc = nullptr;
     _img_miner_x = 0;
     _img_miner_y = 60;
     _lb_hr_x = 75;
@@ -45,11 +45,6 @@ void PageDashboard240x135::_create_dynamic(lv_obj_t* parent) {
     lv_obj_set_style_text_color(_lb_hr_unit, lv_color_hex(0x808080), LV_PART_MAIN);
     lv_label_set_long_mode(_lb_hr_unit, LV_LABEL_LONG_DOT);
     lv_obj_align(_lb_hr_unit, LV_ALIGN_TOP_MID, _lb_hr_unit_x, _lb_hr_unit_y);
-
-    _img_miner = lv_img_create(parent);
-    lv_img_set_src(_img_miner, _miner_img_dsc);
-    lv_obj_align(_img_miner, LV_ALIGN_CENTER, _img_miner_x, _img_miner_y);
-    lv_obj_add_flag(_img_miner, LV_OBJ_FLAG_EVENT_BUBBLE);
 
     const uint8_t arc_r = 30;
     const uint8_t arc_line_width = 8;
