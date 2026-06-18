@@ -34,6 +34,7 @@ public:
     const TempState& temp() const { return _temp; }
     const PowerTelemetry& pwr_tele() const { return _pwr_tele; }
     const std::vector<fan_status_t>& fan_status() const { return _fan_status; }
+    uint8_t asic_count() const { return _miner ? _miner->get_asic_count() : 0; }
 
     void print_stack_hwm() const;
 

@@ -490,7 +490,7 @@ void MinerApp::begin() {
     _begin_market(boot);
     _begin_miners(boot);
     _create_task(_tick_thread_entry, "(tick)", 1024 * 5, nullptr, TASK_PRIORITY_APP_TICK, 1);
-    boot.post("booting...");
+    boot.post("Booting...");
 }
 
 void MinerApp::print_stack_hwm() const {
