@@ -3227,30 +3227,6 @@ void display_thread_entry(void *args){
   // wait lvgl and ui thread ready
   xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_UI_READY | INIT_EVENT_LVGL_READY, pdFALSE, pdTRUE, portMAX_DELAY);
 
-
-
-
-
-  //for test purpose 
-  xEventGroupWaitBits(board->status.init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
-  
-  /***************************************scroll to last page******************************************/
-  ui_goto_page(board->status.ui.page.last, LV_ANIM_ON);
-  //exit this thread
-  vTaskDelete(NULL);
-
-
-
-
-
-
-
-
-
-
-
-
-
   uint16_t cnt = 0;
   /****************************************wait for Vbus ready*******************************************/
   board->status.ui.page.loading.percent = 0.1;

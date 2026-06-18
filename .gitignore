@@ -11,3 +11,4 @@ build/
 /release
 reflect.md
 /design
+compile_commands*.json

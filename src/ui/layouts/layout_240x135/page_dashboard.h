@@ -36,7 +36,7 @@ public:
         lv_obj_set_width(_lb_hr, _W / 2);
         lv_label_set_text(_lb_hr, " ");
         lv_obj_set_style_text_font(_lb_hr, &ds_digib_font_36, LV_PART_MAIN);
-        lv_obj_set_style_text_color(_lb_hr, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+        lv_obj_set_style_text_color(_lb_hr, lv_color_hex(0x000000), LV_PART_MAIN);
         lv_label_set_long_mode(_lb_hr, LV_LABEL_LONG_DOT);
         lv_obj_align(_lb_hr, LV_ALIGN_TOP_MID, _lb_hr_x, _lb_hr_y);
 
@@ -44,7 +44,7 @@ public:
         lv_obj_set_width(_lb_hr_unit, _W / 2);
         lv_label_set_text(_lb_hr_unit, " ");
         lv_obj_set_style_text_font(_lb_hr_unit, &ds_digib_font_20, LV_PART_MAIN);
-        lv_obj_set_style_text_color(_lb_hr_unit, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+        lv_obj_set_style_text_color(_lb_hr_unit, lv_color_hex(0x808080), LV_PART_MAIN);
         lv_label_set_long_mode(_lb_hr_unit, LV_LABEL_LONG_DOT);
         lv_obj_align(_lb_hr_unit, LV_ALIGN_TOP_MID, _lb_hr_unit_x, _lb_hr_unit_y);
 

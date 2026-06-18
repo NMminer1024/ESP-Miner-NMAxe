@@ -74,6 +74,7 @@ protected:
     bool _show_vcore_temp_ring = false;
     uint16_t _ring_angle_full = 230;
     uint32_t _last_ring_update_ms = 0;
+    uint32_t _last_miner_anim_ms = 0;
     float _miner_anim_step = 0.0f;
     lv_coord_t _W = 0;
     lv_coord_t _H = 0;

@@ -9,6 +9,7 @@ void PageDashboardBase::destroy() {
     _lb_diff = nullptr;
     _miner_img_dsc = nullptr;
     _last_ring_update_ms = 0;
+    _last_miner_anim_ms = 0;
     _miner_anim_step = 0.0f;
     _ring_oc = {};
     _ring_pwr = {};
@@ -117,6 +118,12 @@ void PageDashboardBase::_sync_miner_diff_animation() {
     if (!st) {
         return;
     }
+
+    uint32_t now = millis();
+    if (now - _last_miner_anim_ms < 50) {
+        return;
+    }
+    _last_miner_anim_ms = now;
 
     _miner_anim_step += 0.01f;
     lv_coord_t last_x = (lv_coord_t)(sinf(_miner_anim_step) * (_W / 2 - _miner_img_dsc->header.w / 2));
