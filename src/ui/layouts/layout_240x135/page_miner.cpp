@@ -1,6 +1,8 @@
 #include "page_miner.h"
 #include "ui/assets/images.h"
 #include "ui/assets/fonts.h"
+#include "app/application.h"
+#include "board/board.h"
 #include "../../../version.h"
 #include "../../../utils/logger/logger.h"
 
@@ -36,7 +38,10 @@ void PageMiner240x135::_create_dynamic(lv_obj_t* parent) {
     lv_obj_set_pos(bg, 0, 0);
     lv_obj_add_flag(bg, LV_OBJ_FLAG_EVENT_BUBBLE);
     lv_obj_t* logo = lv_img_create(parent);
-    lv_img_set_src(logo, &logo_worker_nmaxe);
+    lv_img_set_src(logo,
+        MinerApp::instance().spec().name == BOARD_NMAXE_GAMMA_NAME
+            ? &logo_worker_nmaxegamma
+            : &logo_worker_nmaxe);
     lv_obj_align(logo, LV_ALIGN_TOP_LEFT, 45, 20);
     lv_obj_add_flag(logo, LV_OBJ_FLAG_EVENT_BUBBLE);
 

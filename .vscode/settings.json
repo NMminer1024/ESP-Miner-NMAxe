@@ -1,4 +1,33 @@
 {
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/compile_commands.NMAxe.json",
+    "C_Cpp.default.browse.databaseFilename": "${workspaceFolder}/.vscode/.browse.vc.db",
+    "C_Cpp.intelliSenseCachePath": "${workspaceFolder}/.vscode/.cpptools-cache",
+    "C_Cpp.intelliSenseCacheSize": 256,
+    "C_Cpp.default.compilerPath": "d:\\code\\pony\\lotto\\Axe\\ESP-Miner-NMAxe\\.pio\\packages\\toolchain-xtensa-esp32s3\\bin\\xtensa-esp32s3-elf-g++.exe",
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/src",
+        "${workspaceFolder}/src/**",
+        "${workspaceFolder}/legacy",
+        "${workspaceFolder}/legacy/**",
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/include/**",
+        "${workspaceFolder}/lib/**",
+        "${workspaceFolder}/.pio/libdeps/**",
+        "${workspaceFolder}/.pio/packages/framework-arduinoespressif32/**",
+        "${workspaceFolder}/.pio/packages/toolchain-xtensa-esp32s3/**"
+    ],
+    "C_Cpp.default.browse.path": [
+        "${workspaceFolder}/src",
+        "${workspaceFolder}/legacy",
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/lib",
+        "${workspaceFolder}/.pio/libdeps",
+        "${workspaceFolder}/.pio/packages/framework-arduinoespressif32",
+        "${workspaceFolder}/.pio/packages/toolchain-xtensa-esp32s3"
+    ],
+    "C_Cpp.default.cppStandard": "c++17",
+    "C_Cpp.default.intelliSenseMode": "windows-gcc-x64",
+    "C_Cpp.intelliSenseEngine": "Default",
     "files.associations": {
         "string": "cpp",
         "functional": "cpp",
