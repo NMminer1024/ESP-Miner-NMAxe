@@ -32,11 +32,18 @@ public:
 
     const MinerStatus* status() const { return _minerStatus; }
     const BoardSpecConfig& spec() const { return _spec; }
+    BoardSpecConfig& spec_mut() { return _spec; }
     const TempState& temp() const { return _temp; }
     const PowerTelemetry& pwr_tele() const { return _pwr_tele; }
     const std::vector<fan_status_t>& fan_status() const { return _fan_status; }
     uint8_t asic_count() const { return _miner ? _miner->get_asic_count() : 0; }
     MarketClass* market() const { return _market; }
+    SwarmState* swarm() const { return _swarm; }
+    PreferenceState& pref() { return _pref; }
+    AxePowerHal* power() const { return _power; }
+    AsicMinerClass* miner() const { return _miner; }
+    SemaphoreHandle_t brightness_update_xsem() const { return _brightness_update_xsem; }
+    SemaphoreHandle_t reboot_xsem() const { return _sys ? _sys->reboot_xsem : nullptr; }
 
     void print_stack_hwm() const;
 

@@ -4,7 +4,7 @@
 #include "lvgl.h"
 
 // ============================================================================
-// PageMiner320x240 ¡ª 320x240 resolution miner dashboard
+// PageMiner320x240 — 320x240 resolution miner dashboard
 //
 //   Inherits PageMinerBase: only handles layout at 320x240 coordinates.
 //   Data updates driven by Observable (AppState::miner).

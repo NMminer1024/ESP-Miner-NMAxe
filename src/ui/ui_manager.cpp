@@ -26,7 +26,7 @@ static bool s_is_runtime_nav_page(size_t idx) {
 }
 
 // ============================================================================
-//  All layout instances �� both resolutions compiled in, selected at runtime
+//  All layout instances — both resolutions compiled in, selected at runtime
 // ============================================================================
 static PageLoading240x135  s_load_135;
 static PageConfig240x135   s_cfg_135;
@@ -48,7 +48,7 @@ static PageSetting320x240  s_sett_240;
 
 // Helper: pick the correct layout array based on screen dimensions
 static UIPage* s_pick_layouts(UIPageId id, uint16_t w, uint16_t h) {
-    // Match by width �� NMAXE is 135 wide, QAxe++ is 240 wide
+    // Match by width — NMAXE is 135 wide, QAxe++ is 240 wide
     bool is_135 = (h <= 160);
     switch (id) {
         case UIPageId::LOADING:        return is_135 ? (UIPage*)&s_load_135   : (UIPage*)&s_load_240;
@@ -170,6 +170,7 @@ void UIManager::next_page() {
     if (_pages[next]) {
         lv_obj_set_tile(_tileview, _tile_entries[next].obj, LV_ANIM_ON);
         _current = next;
+        _page_enter_serial++;
         s_save_last_page(_current);
         LOG_D("UIManager: page -> %u '%s'", (unsigned)_current, _pages[_current]->name());
     }
@@ -188,6 +189,7 @@ void UIManager::prev_page() {
     if (_pages[prev]) {
         lv_obj_set_tile(_tileview, _tile_entries[prev].obj, LV_ANIM_ON);
         _current = prev;
+        _page_enter_serial++;
         s_save_last_page(_current);
         LOG_D("UIManager: page <- %u '%s'", (unsigned)_current, _pages[_current]->name());
     }
@@ -202,6 +204,7 @@ void UIManager::goto_page(UIPageId id) {
                        _tile_entries[idx].col, _tile_entries[idx].row,
                        LV_ANIM_ON);
     _current = idx;
+    _page_enter_serial++;
     s_save_last_page(_current);
     LOG_D("UIManager: page -> %u '%s'", (unsigned)_current, _pages[_current]->name());
 }
@@ -322,6 +325,9 @@ void UIManager::_scroll_end_cb(lv_event_t* e) {
     // Find current index
     for (size_t i = 0; i < self._tile_entries.size(); i++) {
         if (self._tile_entries[i].obj == active) {
+            if (self._current != i) {
+                self._page_enter_serial++;
+            }
             self._current = i;
             break;
         }

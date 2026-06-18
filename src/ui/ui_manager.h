@@ -48,6 +48,7 @@ public:
     void goto_page(UIPageId id);
 
     size_t current() const;
+    uint32_t page_enter_serial() const { return _page_enter_serial; }
 
     // ── Cross-thread-safe page requests (set pending flags, consumed in render_update) ──
     void request_next_page();
@@ -71,6 +72,7 @@ private:
 
     std::vector<UIPage*>   _pages;
     size_t                 _current = 0;
+    uint32_t               _page_enter_serial = 0;
     int8_t                 _next_dir = 1;
     uint32_t               _last_active_ms = 0;
 
