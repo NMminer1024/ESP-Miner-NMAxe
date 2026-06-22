@@ -588,25 +588,40 @@ void OverlayManager::_show_fault_overlay(bool is_oc) {
         lv_obj_center(lb);
     }
 
-    const lv_coord_t btn_h = is_small ? 28 : 34;
-    const lv_coord_t btn_gap = is_small ? 8 : 12;
-    const lv_coord_t btn_margin_x = is_small ? 10 : 18;
-    const lv_coord_t btn_y = is_small ? -26 : -36;
+    const lv_coord_t btn_h = is_small ? 28 : 44;
+    const lv_coord_t btn_gap = is_small ? 8 : 16;
+    const lv_coord_t btn_margin_x = is_small ? 10 : 22;
+    const lv_coord_t btn_y = is_small ? -26 : -52;
     const lv_coord_t btn_w = (LV_HOR_RES - btn_margin_x * 2 - btn_gap) / 2;
     lv_obj_set_size(_btn_yes, btn_w, btn_h);
     lv_obj_set_size(_btn_no, btn_w, btn_h);
     lv_obj_align(_btn_yes, LV_ALIGN_BOTTOM_LEFT, btn_margin_x, btn_y);
     lv_obj_align(_btn_no, LV_ALIGN_BOTTOM_RIGHT, -btn_margin_x, btn_y);
 
-    lv_obj_set_style_bg_color(_btn_yes, lv_color_hex(is_oc ? 0xD32F2F : 0xFF6D00), LV_PART_MAIN);
+    lv_obj_set_style_radius(_btn_yes, is_small ? 8 : 14, LV_PART_MAIN);
+    lv_obj_set_style_radius(_btn_no, is_small ? 8 : 14, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(_btn_yes, lv_color_hex(is_oc ? 0xB3261E : 0xC2410C), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(_btn_yes, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(_btn_yes, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(_btn_yes, is_small ? 0 : 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(_btn_yes, lv_color_hex(is_oc ? 0xFF6B6B : 0xFDBA74), LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(_btn_yes, is_small ? 0 : 14, LV_PART_MAIN);
+    lv_obj_set_style_shadow_color(_btn_yes, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(_btn_yes, LV_OPA_40, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(_btn_no, lv_color_hex(0x1F2937), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(_btn_no, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(_btn_no, is_small ? 0 : 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(_btn_no, lv_color_hex(0x475569), LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(_btn_no, is_small ? 0 : 14, LV_PART_MAIN);
+    lv_obj_set_style_shadow_color(_btn_no, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(_btn_no, LV_OPA_35, LV_PART_MAIN);
     lv_label_set_text(lv_obj_get_child(_btn_yes, 0), is_oc ? "Reset & Reboot" : "Restart");
     lv_obj_set_style_text_font(lv_obj_get_child(_btn_yes, 0), is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_font(lv_obj_get_child(_btn_no, 0), is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(_btn_yes, 0), lv_color_hex(0xFFF7ED), 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(_btn_no, 0), lv_color_hex(0xE5E7EB), 0);
     lv_obj_clear_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(_btn_no, LV_OBJ_FLAG_HIDDEN);
-    _show_footer_ip(is_small ? 114 : 214);
+    _show_footer_ip(is_small ? 114 : 220);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
