@@ -1,0 +1,185 @@
+/* Preference Component Styles */
+
+.preference-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.pref-row {
+  margin-bottom: 0 !important;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pref-label,
+.fan-auto-label .fan-toggle-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-size: 0.98rem !important;
+}
+
+.pref-label {
+  display: flex !important;
+  align-items: center !important;
+  align-self: center !important;
+}
+
+.pref-control {
+  display: flex;
+  align-items: center;
+}
+
+.screensaver-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.slider-row {
+  width: 100%;
+}
+
+.slider-value {
+  display: flex;
+  align-items: center;
+
+  label {
+    margin: 0 !important;
+    color: #f2f2f2 !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+  }
+}
+
+.fan-auto-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+
+  .fan-toggle-label {
+    cursor: pointer !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+  }
+}
+
+.preference-options-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.preference-option-item {
+  flex: 1;
+  min-width: 150px;
+}
+
+.field-checkbox {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 0 !important;
+  min-height: 34px;
+
+  label {
+    color: #ffffff !important;
+    font-size: 0.88rem !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+  }
+
+  .p-checkbox {
+    flex-shrink: 0 !important;
+  }
+}
+
+.save-row {
+  margin-top: 0.35rem !important;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+
+  b {
+    color: #cccccc !important;
+    font-size: 0.88rem !important;
+    line-height: 1.45;
+    font-weight: 600;
+  }
+}
+
+// Temperature slider color styles
+.temp-safe {
+  ::ng-deep .p-slider .p-slider-range {
+    background: #4caf50 !important;
+  }
+  ::ng-deep .p-slider .p-slider-handle {
+    background: #4caf50 !important;
+    border-color: #4caf50 !important;
+  }
+}
+
+.temp-normal {
+  ::ng-deep .p-slider .p-slider-range {
+    background: #8bc34a !important;
+  }
+  ::ng-deep .p-slider .p-slider-handle {
+    background: #8bc34a !important;
+    border-color: #8bc34a !important;
+  }
+}
+
+.temp-warm {
+  ::ng-deep .p-slider .p-slider-range {
+    background: #ffc107 !important;
+  }
+  ::ng-deep .p-slider .p-slider-handle {
+    background: #ffc107 !important;
+    border-color: #ffc107 !important;
+  }
+}
+
+.temp-hot {
+  ::ng-deep .p-slider .p-slider-range {
+    background: #ff5722 !important;
+  }
+  ::ng-deep .p-slider .p-slider-handle {
+    background: #ff5722 !important;
+    border-color: #ff5722 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .pref-row {
+    padding: 0.55rem 0.45rem;
+  }
+
+  .pref-label,
+  .fan-auto-label .fan-toggle-label {
+    font-size: 0.9rem !important;
+  }
+
+  .slider-value {
+    margin-top: 0.3rem;
+
+    label {
+      font-size: 0.83rem !important;
+    }
+  }
+
+  .field-checkbox label {
+    font-size: 0.8rem !important;
+  }
+
+  .save-row b {
+    font-size: 0.8rem !important;
+  }
+}

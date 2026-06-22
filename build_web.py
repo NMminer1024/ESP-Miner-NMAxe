@@ -73,10 +73,27 @@ def run_buildfs(env):
     )
 
 
+def run_buildprog(env):
+    build_env = os.environ.copy()
+    build_env["NMAXE_SKIP_WEB_BUILD"] = "1"
+    subprocess.run(
+        [
+            "pio",
+            "run",
+            "-e",
+            env.subst("$PIOENV"),
+        ],
+        cwd=project_dir,
+        env=build_env,
+        check=True,
+    )
+
+
 def ensure_spiffs_before_upload(target=None, source=None, env=None, **kwargs):
     print("Prepare SPIFFS image before upload")
     env.AutodetectUploadPort()
     build_web_assets()
+    run_buildprog(env)
     run_buildfs(env)
     esptool = join(project_dir, ".pio", "packages", "tool-esptoolpy", "esptool.py")
     upload_args = [

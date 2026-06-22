@@ -1,0 +1,93 @@
+<div class="layout-topbar">
+    <a class="layout-topbar-logo" routerLink="">
+        <div [routerLink]="['/']" class="header-text"><span style="font-family: Angel Wish; font-size: 4rem;">Axe</span><span class="os" style=" font-size: 3rem;">OS</span></div>
+    </a>
+
+    <button #menubutton class="p-link layout-menu-button layout-topbar-button" (click)="layoutService.onMenuToggle()">
+        <i class="pi pi-bars"></i>
+    </button>
+
+
+    <div class="topbar-pool-info" *ngIf="poolDisplay$ | async as pool">
+        <span class="info-item pool-url-item" pTooltip="Active Pool" tooltipPosition="bottom">
+            <i class="pi pi-server"></i>
+            <span>{{ pool.url }}</span>
+        </span>
+        <span class="info-divider">|</span>
+        <span class="info-item wallet-item" pTooltip="Wallet Address" tooltipPosition="bottom">
+            <i class="pi pi-wallet"></i>
+            <span>{{ pool.wallet }}</span>
+        </span>
+        <span class="info-divider">|</span>
+        <span class="info-item rssi-item"
+              [class.rssi-good]="pool.rssi >= -65"
+              [class.rssi-fair]="pool.rssi < -65 && pool.rssi >= -75"
+              [class.rssi-poor]="pool.rssi < -75"
+              pTooltip="WiFi Signal" tooltipPosition="bottom">
+            <i class="pi pi-wifi"></i>
+            <span>{{ pool.rssi }} dBm</span>
+        </span>
+        <span class="info-divider">|</span>
+        <span class="info-item uptime-item" pTooltip="Session Uptime" tooltipPosition="bottom">
+            <i class="pi pi-clock"></i>
+            <span>{{ formatUptime(pool.uptime) }}</span>
+        </span>
+    </div>
+
+    <div class="layout-topbar-menu">
+        <button *ngIf="miningControl$ | async as mining"
+                pButton
+                type="button"
+                class="mining-control-btn"
+                [class.paused]="mining.paused"
+                [class.busy]="isMiningControlBusy(mining.state)"
+                [disabled]="isMiningControlBusy(mining.state)"
+                (click)="toggleMiningPause(mining)"
+                pTooltip="Pause or start mining"
+                tooltipPosition="bottom">
+            <i [class]="mining.paused ? 'pi pi-play' : 'pi pi-pause'"></i>
+            <span>{{ miningControlLabel(mining) }}</span>
+        </button>
+        <button pButton 
+                class="clear-hits-btn"
+                (click)="showClearBlockHitsDialog()"
+                pTooltip="Clear Block Hits"
+                tooltipPosition="bottom">
+            Clear Block Hits
+        </button>
+        <button pButton 
+                class="restart-text-btn"
+                (click)="restart()"
+                pTooltip="Restart Device"
+                tooltipPosition="bottom">
+            Restart
+        </button>
+    </div>
+
+</div>
+
+<!-- Clear Block Hits Confirmation Dialog -->
+<p-dialog header="Clear Block Hits" 
+          [(visible)]="clearBlockHitsDialogVisible" 
+          [modal]="true" 
+          [style]="{width: '450px'}" 
+          [closable]="true"
+          [dismissableMask]="true">
+    <p>This will reset the block hit counter on your miner. Your crypto assets are safe. Confirm to continue?</p>
+    <ng-template pTemplate="footer">
+        <button pButton 
+                type="button" 
+                label="No" 
+                icon="pi pi-times" 
+                class="p-button-secondary p-button-outlined" 
+                (click)="clearBlockHitsDialogVisible = false">
+        </button>
+        <button pButton 
+                type="button" 
+                label="Yes" 
+                icon="pi pi-check" 
+                class="p-button-danger" 
+                (click)="clearBlockHits()">
+        </button>
+    </ng-template>
+</p-dialog>

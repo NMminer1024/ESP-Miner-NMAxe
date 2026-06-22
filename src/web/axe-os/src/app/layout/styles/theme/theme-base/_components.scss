@@ -1,0 +1,27 @@
+@import "_mixins";
+@import "_colors";
+
+@import "./components/input/_editor";
+
+@layer primeng {
+  @import "_common";
+
+  // Inputs used by the app
+  @import "./components/input/_checkbox";
+  @import "./components/input/_dropdown";
+  @import "./components/input/_inputswitch";
+  @import "./components/input/_inputtext";
+  @import "./components/input/_multiselect";
+  @import "./components/input/_radiobutton";
+  @import "./components/input/_slider";
+
+  // Buttons
+  @import "./components/button/_button";
+
+  // Overlays
+  @import "./components/overlay/_dialog";
+  @import "./components/overlay/_tooltip";
+
+  // File upload
+  @import "./components/file/_fileupload";
+}

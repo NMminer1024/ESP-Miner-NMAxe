@@ -1,0 +1,1183 @@
+.monitor-container {
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  background: transparent;
+  box-sizing: border-box;
+  min-width: 0; // 重要：允许容器收缩
+  overflow: visible !important; // 改为visible允许内容溢出
+  position: relative; // 为dropdown提供定位上下文
+  max-height: 600px; // 添加最大高度限制，防止无限增长
+}
+
+// 全局修复：确保PrimeNG multiselect面板能正确显示
+::ng-deep {
+  .p-multiselect-panel {
+    z-index: 10000 !important;
+    position: absolute !important;
+    
+    // 确保在monitor组件中正确显示
+    &[data-pc-section="panel"] {
+      background: #2a2a2a !important;
+      border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+    }
+  }
+  
+  // 修复monitor卡片中的overflow问题
+  .monitor-container .card.modern-card {
+    overflow: visible !important;
+    
+    .top-controls {
+      overflow: visible !important;
+      
+      .dropdown-container {
+        overflow: visible !important;
+        
+        .metrics-multiselect {
+          overflow: visible !important;
+          
+          .p-multiselect {
+            overflow: visible !important;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* 现代化卡片样式 - 与其他页面保持一致 */
+.card.modern-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
+  border: 1px solid #404040 !important;
+  transition: all 0.3s ease !important;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0; // 允许卡片收缩
+  box-sizing: border-box;
+  overflow: visible !important; // 确保dropdown面板可以显示
+  position: relative; // 为内部定位元素提供上下文
+  display: flex; // 添加flex布局
+  flex-direction: column; // 垂直方向
+  height: 100%; // 占满父容器高度
+  max-height: 600px; // 添加最大高度限制，防止无限增长
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4) !important;
+  }
+  
+  .card-content {
+    padding: 0;
+    background: transparent;
+    min-width: 0; // 允许内容收缩
+    overflow: visible !important; // 确保内容可以溢出显示dropdown
+    flex: 1; // 占据剩余空间
+    display: flex; // 添加flex布局
+    flex-direction: column; // 垂直方向
+    max-height: calc(100% - 60px); // 限制内容高度
+  }
+}
+
+/* 顶部控制栏 */
+.top-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 16px; // 减少上下padding给图表腾出更多空间
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  border-radius: 12px 12px 0 0; // 匹配卡片的顶部圆角
+  overflow: visible !important; // 改为visible允许dropdown正常显示
+  position: relative; // 确保作为定位上下文
+  z-index: 1; // 设置基础层级
+  
+  // 针对浏览器放大的响应式处理
+  @media (min-width: 1200px) and (max-width: 1400px) {
+    padding: 6px 12px; // 减少左右padding
+    gap: 8px; // 减少整体间距
+  }
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.realtime-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--primary-color);
+  font-weight: 500;
+  padding: 4px 8px;
+  background: rgba(var(--primary-color-rgb), 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(var(--primary-color-rgb), 0.2);
+}
+
+.realtime-text {
+  font-size: 0.75rem;
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.control-actions {
+  display: flex;
+  gap: 12px; // 减少间距以适应放大
+  align-items: center;
+  flex: 1; // 占据剩余空间
+  min-width: 0; // 允许收缩
+  
+  // PC端：直接显示所有控件
+  .dropdown-container {
+    display: flex; // 改为flex布局而不是contents
+    gap: 8px; // 减少下拉框之间的间距
+    flex: 1; // 占据剩余空间
+    min-width: 0; // 允许收缩
+    max-width: calc(100% - 60px); // 为导出按钮预留空间
+    overflow: visible !important; // 确保dropdown面板可以正常显示
+    position: relative; // 为dropdown提供定位上下文
+    z-index: 10; // 设置基础层级，低于dropdown面板
+  }
+  
+  // 针对浏览器放大时的特殊处理
+  @media (min-width: 1200px) and (max-width: 1400px) {
+    gap: 8px; // 进一步减少间距
+    
+    .dropdown-container {
+      gap: 6px; // 进一步减少下拉框间距
+      max-width: calc(100% - 50px); // 为导出按钮预留更少空间
+    }
+  }
+  
+  // 更极端放大的处理
+  @media (min-width: 1000px) and (max-width: 1200px) {
+    gap: 6px;
+    
+    .dropdown-container {
+      gap: 4px;
+      max-width: calc(100% - 45px);
+    }
+  }
+}
+  
+  .time-selector, .sample-selector, .metrics-multiselect {
+    height: 40px;
+    flex: 1; // 使用flex自动分配宽度
+    min-width: 120px; // 减少最小宽度
+    max-width: 180px; // 减少最大宽度
+    padding: 8px 12px; // 减少左右padding
+    font-size: 14px; // 统一字体大小
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 400; // 统一字体粗细
+    box-sizing: border-box; // 统一盒模型
+    display: flex; // 统一为flex布局
+    align-items: center; // 垂直居中
+    white-space: nowrap; // 防止文本换行
+    overflow: hidden; // 隐藏溢出
+    text-overflow: ellipsis; // 文本溢出时显示省略号
+    
+    // 针对浏览器放大时的特殊处理
+    @media (min-width: 1200px) and (max-width: 1400px) {
+      min-width: 100px; // 进一步减少最小宽度
+      max-width: 150px; // 进一步减少最大宽度
+      padding: 6px 10px; // 减少padding
+      font-size: 13px; // 稍微减少字体
+    }
+    
+    // 更极端放大情况的处理
+    @media (min-width: 1000px) and (max-width: 1200px) {
+      min-width: 90px;
+      max-width: 130px;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    &:focus {
+      outline: none;
+      border-color: #4caf50;
+      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+    }
+  }
+
+  // 多选下拉框特殊样式
+  .metrics-multiselect {
+    // 继承flex设置，不需要重复定义尺寸
+    
+    // 深层覆盖 PrimeNG 多选框样式
+    ::ng-deep {
+      .p-multiselect {
+        background: transparent;
+        border: none;
+        height: 100%;
+        width: 100%; // 确保填满容器
+        box-sizing: border-box; // 统一盒模型
+        
+        .p-multiselect-label {
+          background: transparent;
+          border: none;
+          color: #ffffff;
+          padding: 0;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          font-size: 14px !important; // 强制统一字体大小
+          font-weight: 400 !important; // 统一字体粗细
+          line-height: 1.2 !important; // 统一行高
+          
+          // 针对浏览器放大时的响应式字体
+          @media (min-width: 1200px) and (max-width: 1400px) {
+            font-size: 13px !important;
+          }
+          
+          @media (min-width: 1000px) and (max-width: 1200px) {
+            font-size: 12px !important;
+          }
+          
+          // 确保多选项显示文本的字体也一致
+          .p-multiselect-token {
+            font-size: 14px !important;
+            font-weight: 400 !important;
+            
+            @media (min-width: 1200px) and (max-width: 1400px) {
+              font-size: 13px !important;
+            }
+            
+            @media (min-width: 1000px) and (max-width: 1200px) {
+              font-size: 12px !important;
+            }
+          }
+          
+          // 确保占位符文本字体也一致  
+          &.p-placeholder {
+            font-size: 14px !important;
+            font-weight: 400 !important;
+            
+            @media (min-width: 1200px) and (max-width: 1400px) {
+              font-size: 13px !important;
+            }
+            
+            @media (min-width: 1000px) and (max-width: 1200px) {
+              font-size: 12px !important;
+            }
+          }
+        }
+        
+        .p-multiselect-trigger {
+          background: transparent;
+          color: #ffffff;
+          border: none;
+          width: 24px;
+        }
+        
+        &:not(.p-disabled):hover {
+          border-color: transparent;
+        }
+        
+        &:not(.p-disabled).p-focus {
+          border-color: transparent;
+          box-shadow: none;
+        }
+      }
+      
+      .p-multiselect-panel {
+        background: #2a2a2a !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 8px !important;
+        z-index: 10000 !important; // 确保在所有元素之上
+        position: absolute !important; // 使用绝对定位
+        min-width: 200px !important; // 确保最小宽度
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important; // 增强阴影效果
+        
+        // PC端和平板端优化 - 显示更多选项
+        @media (min-width: 769px) {
+          max-height: 400px !important; // 增加最大高度显示更多选项
+          min-height: 150px !important; // 设置最小高度确保至少显示几个选项
+          overflow: visible !important; // 改为visible
+          top: 100% !important; // 确保在下拉框下方显示
+          left: 0 !important; // 左对齐
+          width: 100% !important; // 与父元素同宽
+          margin-top: 2px !important; // 小间距避免重叠
+        }
+        
+        // 移动端特殊处理
+        @media (max-width: 768px) {
+          position: fixed !important; // 使用fixed定位
+          top: 50% !important;
+          left: 50% !important;
+          transform: translate(-50%, -50%) !important;
+          width: 90vw !important; // 宽度为视口的90%
+          max-width: 300px !important;
+          max-height: 60vh !important; // 最大高度为视口的60%
+          overflow-y: auto !important; // 添加滚动
+        }
+        
+        .p-multiselect-items {
+          // PC端显示更多选项
+          @media (min-width: 769px) {
+            max-height: 280px !important; // 增加最大高度
+            min-height: 80px !important; // 确保最小高度
+            overflow-y: auto !important;
+          }
+          
+          // 移动端添加滚动
+          @media (max-width: 768px) {
+            max-height: 50vh !important;
+            overflow-y: auto !important;
+          }
+          
+          .p-multiselect-item {
+            background: transparent;
+            color: #ffffff;
+            border: none;
+            padding: 8px 12px;
+            
+            &:hover {
+              background: rgba(255, 255, 255, 0.1);
+            }
+            
+            &.p-highlight {
+              background: rgba(76, 175, 80, 0.2);
+              color: #4caf50;
+            }
+          }
+        }
+        
+        .p-multiselect-header {
+          background: #2a2a2a;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          
+          .p-checkbox .p-checkbox-box {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            
+            &.p-highlight {
+              background: #4caf50;
+              border-color: #4caf50;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 移动端和平板端指标选择器按钮
+  .mobile-metrics-selector {
+    height: 40px;
+    min-width: 160px;
+    padding: 8px 16px;
+    font-size: 14px; // 统一字体大小
+    font-weight: 400; // 统一字体粗细
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    
+    // 平板竖屏优化（769-1024px）
+    @media (min-width: 769px) and (max-width: 1024px) {
+      height: 36px;
+      min-width: 180px;
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+    
+    // 手机端与其他下拉框保持一致
+    @media (max-width: 768px) {
+      height: 32px;
+      min-width: 0; // 移除固定最小宽度，使用flex布局
+      flex: 1; // 与其他下拉框使用相同的flex布局
+      font-size: 12px;
+      padding: 4px 6px; // 与其他下拉框保持一致的padding
+    }
+    
+    @media (max-width: 480px) {
+      height: 30px; // 与其他下拉框保持一致
+      font-size: 11px !important; // 与其他下拉框保持一致
+      padding: 3px 4px; // 与其他下拉框保持一致
+    }
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    &.has-selection {
+      border-color: #4caf50;
+      background: rgba(76, 175, 80, 0.1);
+      
+      .selector-text {
+        color: #4caf50;
+        font-weight: 500;
+      }
+    }
+    
+    .selector-text {
+      flex: 1;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .selector-icon {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      transition: transform 0.3s ease;
+    }
+    
+    &:hover .selector-icon {
+      transform: translateY(2px);
+      color: rgba(255, 255, 255, 0.9);
+    }
+  }
+
+  .export-button {
+    height: 40px;
+    width: 40px; // 设置为正方形按钮
+    min-width: 40px;
+    flex-shrink: 0; // 防止按钮被压缩
+    padding: 8px;
+    font-size: 16px; // 稍微增大图标
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    &:focus {
+      outline: none;
+      border-color: #4caf50;
+      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+    }
+    
+    .export-icon {
+      font-size: 16px;
+    }
+  }
+  
+  // 下拉框选项样式
+  .time-selector option, .sample-selector option {
+    background: #2a2a2a;
+    color: #ffffff;
+    padding: 8px;
+  }
+  
+  // 移动端和平板竖屏优化：调整布局
+  @media (max-width: 1024px) {
+    .control-actions {
+      flex-direction: row; // 改为水平布局
+      gap: 6px;
+      width: 100%;
+      flex-wrap: wrap; // 允许换行
+      
+      // 创建下拉框容器，强制同行显示
+      .dropdown-container {
+        display: flex;
+        gap: 4px; // 减少间距
+        flex: 1; // 占据剩余空间
+        min-width: 0;
+      }
+      
+      .time-selector, .sample-selector, .metrics-multiselect {
+        flex: 1;
+        height: 32px; // 减少高度
+        font-size: 12px !important; // 统一移动端字体大小
+        font-weight: 400 !important; // 统一字体粗细
+        padding: 4px 6px; // 减少padding
+        min-width: 0; // 允许收缩
+      }
+      
+      .metrics-multiselect {
+        min-width: 0; // 移动端允许收缩
+        
+        ::ng-deep .p-multiselect .p-multiselect-label {
+          font-size: 12px !important; // 统一移动端字体大小
+          font-weight: 400 !important; // 统一字体粗细
+          padding: 0 2px;
+        }
+      }
+      
+      .export-button {
+        width: 32px; // 减少尺寸
+        height: 32px;
+        font-size: 12px;
+        padding: 4px;
+        flex-shrink: 0; // 不允许收缩
+        margin-left: 4px; // 左边距
+      }
+    }
+  }
+
+  // 平板竖屏特定优化（769-1024px）
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .control-actions {
+      gap: 8px; // 平板有更多空间，增加间距
+      
+      .dropdown-container {
+        gap: 6px; // 平板间距稍大
+      }
+      
+      .time-selector, .sample-selector, .metrics-multiselect {
+        height: 36px; // 平板高度稍大
+        font-size: 13px !important; // 平板字体稍大
+        padding: 6px 8px; // 平板padding稍大
+      }
+      
+      .metrics-multiselect {
+        ::ng-deep .p-multiselect .p-multiselect-label {
+          font-size: 13px !important; // 平板字体稍大
+        }
+      }
+      
+      .export-button {
+        width: 36px; // 平板按钮稍大
+        height: 36px;
+        font-size: 14px;
+        padding: 6px;
+      }
+    }
+  }
+
+  // 手机端特定样式保持不变
+  @media (max-width: 768px) {
+    // 保持现有手机端样式
+  }
+  
+  @media (max-width: 480px) {
+    .dropdown-container {
+      gap: 3px; // 进一步减少间距
+    }
+    
+    .time-selector, .sample-selector, .metrics-multiselect {
+      font-size: 11px !important; // 统一超小屏幕字体大小  
+      font-weight: 400 !important; // 统一字体粗细
+      padding: 3px 4px;
+      height: 30px; // 进一步减少高度
+    }
+    
+    .metrics-multiselect {
+      ::ng-deep .p-multiselect .p-multiselect-label {
+        font-size: 11px !important; // 统一超小屏幕字体大小
+        font-weight: 400 !important; // 统一字体粗细
+        padding: 0 2px;
+      }
+    }
+    
+    .export-button {
+      font-size: 10px;
+      height: 30px;
+      width: 30px;
+      padding: 3px;
+    }
+  }
+
+/* 导出按钮额外样式 */
+.export-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #4caf50, #45a049) !important;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+  
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #45a049, #4caf50) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  
+  .export-icon {
+    font-size: 16px;
+  }
+  
+  .export-text {
+    font-weight: 600;
+  }
+}
+
+/* 现代化指标选择器 */
+.metrics-selector {
+  padding: 15px 20px;
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.selector-label {
+  display: block;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+.metrics-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  
+  // 移动端优化：复选框网格布局
+  @media (max-width: 768px) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+  
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+.metric-checkbox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  
+  // 移动端优化：左对齐布局
+  @media (max-width: 768px) {
+    justify-content: flex-start;
+    align-items: center;
+    padding: 6px 8px;
+    min-height: 36px;
+    width: 100%;
+    
+    // 确保内容左对齐
+    .checkbox-custom {
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    
+    .metric-label {
+      text-align: left;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+  }
+  
+  /* 隐藏原生复选框 */
+  input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+}
+
+/* 自定义复选框样式 */
+.checkbox-custom {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: transparent;
+  transition: all 0.3s ease;
+  
+  .checkmark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    transition: transform 0.2s ease;
+  }
+}
+
+/* 选中状态的复选框 */
+.metric-checkbox input[type="checkbox"]:checked + .checkbox-custom {
+  background: var(--accent-color, #4caf50);
+  border-color: var(--accent-color, #4caf50);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+  
+  .checkmark {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.metric-label {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  user-select: none;
+  
+  // 移动端优化：文字左对齐
+  @media (max-width: 768px) {
+    font-size: 11px;
+    text-align: left;
+    line-height: 1.2;
+  }
+}
+
+/* Loading 容器 - 绝对定位覆盖图表，不占用布局空间 */
+.loading-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(42, 42, 42, 0.9); // 半透明背景
+  backdrop-filter: blur(2px); // 模糊背景
+  z-index: 10; // 确保在图表上方
+  border-radius: 8px; // 匹配容器圆角
+  
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-left: 4px solid #4caf50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+  }
+  
+  p {
+    color: #aaa;
+    font-size: 16px;
+    margin: 0;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 主图表容器 */
+.chart-container-main {
+  padding: 8px 12px; // 减少 padding 给图表更多空间
+  margin-top: 0;
+  height: calc(100% - 60px); // PC端使用父容器高度减去顶部控制栏高度
+  max-height: 500px; // 添加最大高度限制，防止无限增长
+  min-height: 280px; // 确保足够的图表显示空间
+  background: transparent;
+  border-radius: 0 0 12px 12px; // 匹配卡片的底部圆角
+  position: relative; // 确保子元素的绝对定位正确
+  flex: 1; // 占据父容器剩余空间
+  overflow: hidden; // 添加overflow hidden防止内容溢出
+  
+  .chart-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: none !important;
+    background: transparent;
+    border-radius: 4px;
+    display: block; // 确保Canvas正确显示
+    
+    // 移动端特殊优化：确保图表完全填充容器
+    @media (max-width: 768px) {
+      border-radius: 2px; // 减少圆角以节省空间
+      margin: 0; // 移除任何可能的margin
+      padding: 0; // 移除任何可能的padding
+    }
+  }
+  
+  // 移动端优化图表空间利用
+  @media (max-width: 768px) {
+    padding: 2px 4px; // 最小化 padding 让图表完全填满
+    height: calc(45vh - 90px); // 移动端优化高度，给图表更多空间
+    min-height: 220px; // 移动端最小高度
+  }
+  
+  @media (max-width: 480px) {
+    padding: 1px 2px; // 进一步最小化 padding
+    height: calc(40vh - 80px); // 小屏幕高度优化
+    min-height: 200px; // 小屏幕最小高度
+  }
+}
+
+.no-data-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  
+  .no-data-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+  }
+  
+  h3 {
+    color: #ffffff;
+    margin: 0 0 10px 0;
+    font-size: 24px;
+  }
+  
+  p {
+    color: #aaa;
+    margin: 0;
+    max-width: 400px;
+    line-height: 1.5;
+  }
+}
+
+/* 响应式设计 */
+/* 移动端和平板端响应式设计 */
+@media (max-width: 1024px) {
+  .monitor-container {
+    padding: 0; // 移除padding防止溢出
+    margin: 0; // 移除margin防止溢出
+  }
+  
+  .card.modern-card {
+    margin: 0; // 移除卡片margin
+    border-radius: 8px !important; // 稍微减少圆角
+  }
+  
+  .top-controls {
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 6px; // 进一步减少padding让图表有更多空间
+  }
+  
+  .status-info {
+    gap: 0.5rem; // 减少间距
+  }
+  
+  .realtime-info {
+    padding: 3px 6px; // 减少padding
+    font-size: 0.7rem; // 减少字体大小
+  }
+  
+  .chart-container-main {
+    padding: 2px 4px; // 最小化 padding 给图表更多空间
+    height: calc(45vh - 70px); // 进一步优化高度，减少控制栏占用空间
+    min-height: 220px; // 确保图表有足够显示空间
+  }
+  
+  .loading-container {
+    padding: 20px 10px;
+    
+    .loading-spinner {
+      width: 24px;
+      height: 24px;
+      margin-bottom: 10px;
+    }
+    
+    p {
+      font-size: 12px;
+    }
+  }
+}
+
+/* 平板竖屏特定样式（769-1024px） */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .top-controls {
+    padding: 6px 8px; // 平板有更多空间
+  }
+  
+  .realtime-info {
+    padding: 4px 8px; // 平板padding稍大
+    font-size: 0.75rem; // 平板字体稍大
+  }
+  
+  .chart-container-main {
+    padding: 4px 6px; // 平板padding稍大
+    height: calc(50vh - 80px); // 平板高度稍大
+    min-height: 250px; // 平板最小高度稍大
+  }
+  
+  .loading-container {
+    // 平板端也使用绝对定位覆盖，不占用布局空间
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(42, 42, 42, 0.9); // 平板端背景半透明
+    
+    .loading-spinner {
+      width: 28px;
+      height: 28px;
+      margin-bottom: 12px;
+    }
+    
+    p {
+      font-size: 13px;
+    }
+  }
+}
+
+/* 手机端响应式设计 */
+@media (max-width: 768px) {
+  .monitor-container {
+    padding: 0; // 移除padding防止溢出
+    margin: 0; // 移除margin防止溢出
+  }
+  
+  .card.modern-card {
+    margin: 0; // 移除卡片margin
+    border-radius: 8px !important; // 稍微减少圆角
+  }
+  
+  .top-controls {
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 6px; // 进一步减少padding让图表有更多空间
+  }
+  
+  .status-info {
+    gap: 0.5rem; // 减少间距
+  }
+  
+  .realtime-info {
+    padding: 3px 6px; // 减少padding
+    font-size: 0.7rem; // 减少字体大小
+  }
+  
+  .chart-container-main {
+    padding: 2px 4px; // 最小化 padding 给图表更多空间
+    height: calc(45vh - 70px); // 移动端进一步优化高度，减少控制栏占用空间
+    min-height: 220px; // 确保图表有足够显示空间
+  }
+  
+  .loading-container {
+    // 移动端也使用绝对定位覆盖，不占用布局空间
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(42, 42, 42, 0.95); // 移动端背景更不透明
+    
+    .loading-spinner {
+      width: 24px;
+      height: 24px;
+      margin-bottom: 10px;
+    }
+    
+    p {
+      font-size: 12px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .monitor-container {
+    padding: 0;
+  }
+  
+  .card.modern-card {
+    border-radius: 6px !important; // 进一步减少圆角
+  }
+  
+  .top-controls {
+    padding: 3px 4px; // 最小化padding让图表完全填满
+    gap: 6px;
+  }
+  
+  .realtime-info {
+    padding: 2px 4px;
+    font-size: 0.65rem;
+  }
+  
+  .chart-container-main {
+    padding: 1px 2px; // 进一步最小化 padding
+    height: calc(42vh - 60px); // 小屏幕高度优化，给图表更多垂直空间
+    min-height: 200px; // 确保最小可用空间
+  }
+  
+  .loading-container {
+    // 小屏幕也使用绝对定位覆盖，不占用布局空间
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(42, 42, 42, 0.95); // 小屏幕背景更不透明
+    
+    .loading-spinner {
+      width: 20px;
+      height: 20px;
+      margin-bottom: 8px;
+    }
+    
+    p {
+      font-size: 11px;
+    }
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 360px) {
+  .chart-container-main {
+    height: calc(100vh - 200px); // 给图表更多垂直空间
+    min-height: 320px; // 确保图表有足够空间显示
+    padding: 0px 1px; // 进一步减少边距
+  }
+
+  .top-controls {
+    padding: 2px 4px; // 最小化控制栏空间占用
+  }
+}
+
+/* 导出按钮和均值线切换按钮样式 */
+.export-button, .toggle-average-button {
+  min-width: 40px;
+  height: 40px;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 400;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-shrink: 0; // 不允许收缩
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: none;
+    }
+  }
+  
+  .export-icon, .average-icon {
+    font-size: 16px;
+  }
+  
+  .average-text {
+    font-size: 10px;
+    font-weight: 500;
+  }
+}
+
+.toggle-average-button {
+  &.active {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: rgba(76, 175, 80, 0.4);
+    color: #4caf50;
+    
+    &:hover {
+      background: rgba(76, 175, 80, 0.3);
+      border-color: rgba(76, 175, 80, 0.5);
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 1024px) {
+  .export-button, .toggle-average-button {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+    padding: 4px;
+    margin-left: 4px;
+    
+    .export-icon, .average-icon {
+      font-size: 14px;
+    }
+    
+    .average-text {
+      font-size: 8px;
+    }
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .export-button, .toggle-average-button {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+    padding: 6px;
+    
+    .export-icon, .average-icon {
+      font-size: 15px;
+    }
+    
+    .average-text {
+      font-size: 9px;
+    }
+  }
+}

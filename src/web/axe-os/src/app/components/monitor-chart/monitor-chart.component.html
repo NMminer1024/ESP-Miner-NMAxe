@@ -1,0 +1,52 @@
+<div class="monitor-chart-container">
+  <div class="chart-header">
+    <h3 class="chart-title">📊 12-Hour Monitoring History</h3>
+    <div class="chart-controls">
+      <div class="control-group">
+        <label for="sampleInterval">Sample Rate:</label>
+        <select id="sampleInterval" 
+                [(ngModel)]="sampleInterval" 
+                (ngModelChange)="onSampleIntervalChange($event)"
+                class="sample-selector">
+          <option value="1">Every point (High detail)</option>
+          <option value="5">Every 5th point (Normal)</option>
+          <option value="10">Every 10th point (Fast)</option>
+          <option value="20">Every 20th point (Low detail)</option>
+        </select>
+      </div>
+      <button class="refresh-btn" 
+              (click)="refreshData()" 
+              [disabled]="loading">
+        <i class="pi pi-refresh" [class.pi-spin]="loading"></i>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="chart-info" *ngIf="!loading">
+    <span class="info-item">Total Points: {{ totalDataPoints }}</span>
+    <span class="info-item">Showing: {{ dataCount }}</span>
+    <span class="info-item">Sample Rate: 1/{{ sampleInterval }}</span>
+    <span class="info-item realtime-info">
+      <app-circular-countdown 
+        [countdown]="realtimeCountdown" 
+        [maxValue]="realtimeInterval">
+      </app-circular-countdown>
+    </span>
+  </div>
+
+  <div class="chart-wrapper" [class.loading]="loading">
+    <div class="loading-overlay" *ngIf="loading">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>Loading 12-hour history data...</span>
+    </div>
+    
+    <p-chart #chart 
+             [data]="chartData" 
+             [options]="chartOptions"
+             type="line"
+             class="monitor-chart"
+             [style.height]="'400px'">
+    </p-chart>
+  </div>
+</div>

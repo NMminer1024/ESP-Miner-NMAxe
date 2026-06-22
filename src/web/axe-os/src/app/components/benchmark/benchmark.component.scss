@@ -1,0 +1,322 @@
+// ── Card styling (mirrors settings .modern-card) ─────────────────────────────
+.card.modern-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  border: 1px solid #404040;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+}
+
+// Card title — flex row so the help-btn floats to the right
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+
+  .card-icon { flex-shrink: 0; }
+  app-help-btn { margin-left: auto; }
+}
+
+// Fieldset wrapper for config grid: remove border, dim when disabled
+.bm-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-inline-size: auto;
+
+  &:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+}
+
+.bm-status {
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+
+  &.idle {
+    background: rgba(100, 100, 100, 0.15);
+    color: #aaa;
+  }
+  &.running {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+  }
+  &.paused {
+    background: rgba(99, 179, 237, 0.15);
+    color: #63b3ed;
+  }
+}
+
+.bm-config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.bm-section {
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 8px;
+  padding: 0.75rem 1rem 0.4rem;
+
+  .field.grid {
+    margin-bottom: 0.5rem;
+  }
+
+  label {
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    font-size: 0.88rem !important;
+    display: flex;
+    align-items: center;
+  }
+
+  input.p-inputtext {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #555;
+    background: rgba(255,255,255,0.05);
+    padding: 8px 12px;
+    font-size: 0.88rem;
+    color: #fff;
+
+    &:hover  { border-color: #007bff; }
+    &:focus  { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,0.25); outline: none; }
+    &.ng-invalid.ng-touched { border-color: #f87171; }
+  }
+
+  .p-error {
+    font-size: 0.78rem;
+    margin-top: 3px;
+    color: #f87171;
+  }
+}
+
+.bm-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.bm-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+// ── Results table ────────────────────────────────────────────────────────────
+.bm-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  margin-bottom: 4px;
+}
+
+.bm-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  background: #333;
+  font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
+  font-size: 12px;
+}
+
+// Header: swarm-style dark green
+.bm-table thead th.bm-th {
+  background: #2d5a27;
+  color: #fff;
+  padding: 10px 6px;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+
+  i {
+    font-size: 0.7rem;
+    margin-left: 4px;
+    opacity: 0.7;
+  }
+
+  &:hover {
+    background: #3a6b2f;
+    i { opacity: 1; }
+  }
+
+  &.sort-asc, &.sort-desc {
+    background: #3a6b2f;
+    i { opacity: 1; color: #a5f3c5; }
+  }
+}
+
+.bm-table thead th.bm-th-action {
+  cursor: default;
+  &:hover { background: #2d5a27; }
+}
+
+// Body cells
+.bm-table tbody td {
+  background: #444;
+  color: #fff;
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid #555;
+  border-right: 1px solid #4a4a4a;
+  font-family: 'Courier New', Consolas, 'Lucida Console', monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.bm-table tbody tr:hover td {
+  background: #555;
+}
+
+.bm-td-action {
+  white-space: nowrap;
+}
+
+// ── Row highlights ────────────────────────────────────────────────────────────
+tr.bm-best-eff-row td {
+  background: rgba(250, 204, 21, 0.18) !important;
+}
+
+tr.bm-best-hr-row td {
+  background: rgba(34, 197, 94, 0.18) !important;
+}
+
+tr.bm-best-both-row td {
+  background: rgba(99, 102, 241, 0.22) !important;
+}
+
+// ── Best value cell emphasis ─────────────────────────────────────────────────
+// Best HashRate row: highlight the avgHR cell
+td.bm-val-best-hr {
+  color: #4ade80;
+  font-weight: 700;
+  font-size: 0.97rem;
+}
+
+// Best Efficiency row: highlight the effJTH cell
+td.bm-val-best-eff {
+  color: #facc15;
+  font-weight: 700;
+  font-size: 0.97rem;
+}
+
+// Small badge icon that precedes the highlighted value
+.bm-best-tag {
+  font-size: 0.72rem;
+  margin-right: 3px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+// ── Confirmation dialog ───────────────────────────────────────────────────────
+.bm-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+
+  p {
+    margin: 0;
+    color: #cbd5e1;
+    line-height: 1.5;
+    font-size: 0.92rem;
+  }
+}
+
+.bm-dialog-icon {
+  font-size: 1.8rem;
+  color: #f59e0b;
+  align-self: center;
+  margin-bottom: 0.25rem;
+}
+
+.bm-apply-params {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 1rem;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-size: 0.88rem;
+  color: #e2e8f0;
+
+  strong {
+    color: #818cf8;
+  }
+}
+
+// ── Responsive / Mobile layout ────────────────────────────────────────────────
+
+// Tablet (600–900px): 2-column config grid
+@media (max-width: 900px) {
+  .bm-config-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+}
+
+// Mobile (< 600px): fully single-column
+@media (max-width: 599px) {
+  .bm-config-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  // Stack action buttons vertically, full width
+  .bm-actions {
+    flex-direction: column;
+
+    // tooltip wrapper spans become block
+    > span {
+      display: block !important;
+      width: 100%;
+
+      .p-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    > button.p-button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  // Apply-params dialog: single column
+  .bm-apply-params {
+    grid-template-columns: 1fr;
+  }
+}
+

@@ -1,0 +1,573 @@
+/* 底部滑出选择器样式 */
+:host {
+  pointer-events: none; // 默认不阻挡
+  
+  &.visible {
+    pointer-events: auto; // 显示时启用
+  }
+}
+
+.bottom-sheet-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99999; // 大幅提高z-index确保在最顶层
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none; // 默认不接收事件
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  
+  &.visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto; // 显示时启用事件
+  }
+  
+  &.animating {
+    pointer-events: none;
+  }
+}
+
+.bottom-sheet-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #2a2a2a;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 
+    0 -12px 40px rgba(0, 0, 0, 0.4),
+    0 -4px 16px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  transform: translateY(100%);
+  transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  max-height: 80vh; // 增加到 80vh，给更多空间
+  min-height: 200px; // 添加最小高度保证基本可用性
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  
+  .visible & {
+    transform: translateY(0);
+  }
+
+  // 添加内部阴影增强深度感
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    pointer-events: none;
+  }
+}
+
+/* 顶部把手 */
+.bottom-sheet-handle {
+  width: 48px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 3px;
+  margin: 16px auto 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    border-radius: 12px;
+  }
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.6);
+    transform: scaleY(1.2);
+  }
+  
+  &:active {
+    background: rgba(255, 255, 255, 0.8);
+    transform: scaleY(1.4);
+  }
+}
+
+/* 标题栏 */
+.bottom-sheet-header {
+  padding: 0 20px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  .bottom-sheet-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #ffffff;
+  }
+  
+  .bottom-sheet-info {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 12px;
+    border-radius: 12px;
+  }
+}
+
+/* 选项列表容器 */
+.bottom-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 0 24px 0; // 增加顶部和底部padding，确保内容不被遮挡
+  
+  /* 自定义滚动条 */
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+  }
+}
+
+.option-list {
+  padding: 0;
+  margin: 0; // 确保没有默认margin
+}
+
+/* 选项项目 */
+.option-item {
+  padding: 0 24px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  
+  &:hover:not(.disabled) {
+    &::before {
+      transform: translateX(0);
+    }
+  }
+  
+  &:active:not(.disabled) {
+    transform: scale(0.98);
+    
+    &::before {
+      background: rgba(255, 255, 255, 0.1);
+    }
+  }
+  
+  &.selected {
+    background: linear-gradient(135deg, 
+      rgba(var(--primary-color-rgb, 248, 4, 33), 0.15),
+      rgba(var(--primary-color-rgb, 248, 4, 33), 0.08)
+    );
+    
+    &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: linear-gradient(to bottom, 
+        var(--primary-color, #F80421),
+        color-mix(in srgb, var(--primary-color, #F80421) 70%, transparent)
+      );
+    }
+  }
+  
+  &.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    
+    &::before {
+      display: none;
+    }
+  }
+}
+
+.option-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  
+  .option-label {
+    font-size: 16px;
+    color: #ffffff;
+    font-weight: 500;
+  }
+}
+
+/* 单选按钮样式 */
+.option-radio {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  background: rgba(255, 255, 255, 0.02);
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 10px;
+    height: 10px;
+    background: var(--primary-color, #F80421);
+    border-radius: 50%;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  
+  &.checked {
+    border-color: var(--primary-color, #F80421);
+    background: rgba(var(--primary-color-rgb, 248, 4, 33), 0.1);
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb, 248, 4, 33), 0.2);
+    
+    &::before {
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+  
+  .radio-dot {
+    display: none; // 使用 ::before 伪元素替代
+  }
+}
+
+/* 多选复选框样式 */
+.option-checkbox {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  background: rgba(255, 255, 255, 0.02);
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--primary-color, #F80421);
+    transform: scale(0);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border-radius: 4px;
+  }
+  
+  &.checked {
+    border-color: var(--primary-color, #F80421);
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb, 248, 4, 33), 0.2);
+    
+    &::before {
+      transform: scale(1);
+    }
+  }
+  
+  .pi-check {
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    position: relative;
+    z-index: 1;
+    transform: scale(0);
+    transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1) 0.1s;
+  }
+  
+  &.checked .pi-check {
+    transform: scale(1);
+  }
+}
+
+/* 底部操作栏 */
+.bottom-sheet-footer {
+  padding: 20px 24px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 16px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.1), transparent);
+  
+  button {
+    flex: 1;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: all 0.4s ease;
+    }
+    
+    &:active {
+      transform: scale(0.96);
+      
+      &::before {
+        width: 200px;
+        height: 200px;
+      }
+    }
+  }
+  
+  .cancel-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+  }
+  
+  .confirm-btn {
+    background: linear-gradient(135deg, 
+      var(--primary-color, #F80421),
+      color-mix(in srgb, var(--primary-color, #F80421) 80%, black)
+    );
+    color: white;
+    box-shadow: 0 2px 8px rgba(var(--primary-color-rgb, 248, 4, 33), 0.3);
+    
+    &:hover {
+      background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--primary-color, #F80421) 90%, white),
+        var(--primary-color, #F80421)
+      );
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(var(--primary-color-rgb, 248, 4, 33), 0.4);
+    }
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .bottom-sheet-content {
+    max-height: 85vh;
+    border-radius: 20px 20px 0 0;
+  }
+  
+  .bottom-sheet-header {
+    padding: 0 20px 16px;
+    
+    .bottom-sheet-title {
+      font-size: 16px;
+    }
+    
+    .bottom-sheet-info {
+      font-size: 12px;
+      padding: 3px 10px;
+    }
+  }
+  
+  .option-item {
+    padding: 0 20px;
+  }
+  
+  .option-content {
+    padding: 16px 0;
+    
+    .option-label {
+      font-size: 15px;
+    }
+  }
+  
+  .bottom-sheet-footer {
+    padding: 16px 20px 20px;
+    
+    button {
+      padding: 12px 20px;
+      font-size: 15px;
+    }
+  }
+}
+
+/* 横屏模式优化 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .bottom-sheet-content {
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+  }
+  
+  .bottom-sheet-handle {
+    margin: 12px auto 8px;
+  }
+  
+  .option-content {
+    padding: 12px 0;
+  }
+  
+  .bottom-sheet-footer {
+    padding: 12px 20px 16px;
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 360px) {
+  .bottom-sheet-content {
+    border-radius: 16px 16px 0 0;
+  }
+  
+  .bottom-sheet-header {
+    padding: 0 16px 12px;
+  }
+  
+  .option-item {
+    padding: 0 16px;
+  }
+  
+  .bottom-sheet-footer {
+    padding: 12px 16px 16px;
+    gap: 12px;
+  }
+}
+
+/* 适配不同主题 */
+.light-theme {
+  .bottom-sheet-content {
+    background: #ffffff;
+  }
+  
+  .bottom-sheet-title,
+  .option-label {
+    color: #333333;
+  }
+  
+  .bottom-sheet-info {
+    color: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.05);
+  }
+  
+  .bottom-sheet-handle {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  .bottom-sheet-header,
+  .bottom-sheet-footer {
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  .option-content {
+    border-color: rgba(0, 0, 0, 0.05);
+  }
+  
+  .option-item {
+    &:hover:not(.disabled) {
+      background: rgba(0, 0, 0, 0.05);
+    }
+    
+    &:active:not(.disabled) {
+      background: rgba(0, 0, 0, 0.1);
+    }
+  }
+  
+  .option-radio {
+    border-color: rgba(0, 0, 0, 0.3);
+  }
+  
+  .option-checkbox {
+    border-color: rgba(0, 0, 0, 0.3);
+  }
+  
+  .cancel-btn {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333333;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.15);
+    }
+  }
+}
+
+/* 移动端特定优化 */
+@media (max-width: 768px) {
+  .bottom-sheet-content {
+    max-height: 85vh; // 在小屏幕上给更多空间
+    border-radius: 16px 16px 0 0; // 稍微减小圆角适应小屏幕
+  }
+  
+  .bottom-sheet-body {
+    padding: 20px 0 32px 0; // 在移动端增加更多padding
+  }
+  
+  .option-content {
+    padding: 18px 0; // 增加触摸目标大小
+  }
+  
+  .option-item {
+    padding: 0 20px; // 减少左右padding给内容更多空间
+  }
+  
+  .bottom-sheet-header {
+    padding: 20px 24px 16px; // 调整头部padding
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-height: 600px) {
+  .bottom-sheet-content {
+    max-height: 90vh; // 在高度受限的设备上使用更多空间
+  }
+  
+  .bottom-sheet-body {
+    padding: 12px 0 20px 0; // 减少垂直padding节省空间
+  }
+  
+  .option-content {
+    padding: 14px 0; // 减少选项高度
+  }
+}

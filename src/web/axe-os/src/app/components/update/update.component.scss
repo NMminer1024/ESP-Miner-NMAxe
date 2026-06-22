@@ -1,0 +1,1492 @@
+/* 顶部版本状态栏样式 */
+.version-status-banner {
+  margin-bottom: 1.5rem;
+  padding: 0 16px !important; // 添加左右padding为阴影留出空间
+  
+  .status-container {
+    border-radius: 16px !important;
+    border: 2px solid transparent !important;
+    background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+    transition: all 0.3s ease !important;
+    overflow: visible !important; // 改为visible确保阴影不被截断
+    margin: 16px 0 !important; // 添加上下外边距给阴影留出更多空间
+    
+    &.update-available {
+      border-color: #ff6b6b !important;
+      background: linear-gradient(135deg, #3d2a2a, #4a3333) !important;
+      box-shadow: 0 8px 32px rgba(255, 107, 107, 0.25) !important;
+    }
+    
+    &.up-to-date {
+      border-color: #4caf50 !important;
+      background: linear-gradient(135deg, #2a3d2a, #334a33) !important;
+      box-shadow: 0 8px 32px rgba(76, 175, 80, 0.25) !important;
+    }
+
+    &.dev-version {
+      border-color: #2196f3 !important;
+      background: linear-gradient(135deg, #2a2a3d, #33334a) !important;
+      box-shadow: 0 8px 32px rgba(33, 150, 243, 0.25) !important;
+    }
+  }
+  
+  .status-content-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 12px 24px !important; // 从16px减少到12px，降低高度
+    gap: 0 !important;
+  }
+
+  // 版本链条头部样式
+  .version-chain-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    margin-bottom: 6px !important; // 从8px减少到6px，进一步压缩
+    
+    .version-chain-title {
+      font-size: 0.8rem !important; // 从0.85rem减少到0.8rem
+      font-weight: 500 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.5px !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      color: #ccc !important;
+      margin-bottom: 0 !important; // 覆盖外层 16px，避免 flex 垂直居中时问号偏低
+
+      &.behind-title {
+        color: #ff9800 !important;
+        font-weight: 600 !important;
+
+        .pi {
+          color: #ff9800 !important;
+        }
+      }
+    }
+    
+    // 当显示版本落后信息时的特殊样式
+    .version-chain-title.behind-title {
+      color: #ff9999 !important;
+      background: rgba(255, 107, 107, 0.1) !important;
+      padding: 8px 12px !important;
+      border-radius: 6px !important;
+      border-left: 3px solid #ff6b6b !important;
+      text-transform: none !important;
+      font-size: 1.0rem !important; // 从0.8rem增大到1.0rem
+      
+      .pi {
+        color: #ff6b6b !important;
+        font-size: 1.1rem !important; // 从0.9rem增大到1.1rem
+      }
+    }
+  }
+}
+
+/* 旧版本状态栏样式 - 保留用于兼容 */
+.version-status-banner {
+
+  // 版本链条样式
+  .version-chain-container {
+    margin-top: 12px !important; // 从20px减少到12px，压缩上边距
+    padding: 8px 16px 16px 16px !important; // 大幅增加左右padding为16px，上下也增加，确保阴影不被截断
+    overflow: visible !important; // 确保变换效果不被截断
+  }
+
+  .version-chain-title {
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    color: #ccc !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .version-chain {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important; // 允许换行
+    gap: 4px 12px !important; // 垂直间距4px，水平间距增加到12px适应放大的节点
+    overflow: visible !important; // 移除滚动，允许溢出
+    padding: 12px 8px 20px 8px !important; // 调整padding适应换行布局
+    justify-content: flex-start !important; // 左对齐
+    align-content: flex-start !important; // 多行内容顶部对齐
+    
+    .version-node {
+      flex-shrink: 0 !important; // 防止节点被压缩
+    }
+  }
+
+  .version-node {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+    margin: 4px 2px 8px 2px !important; // 大幅减少边距适应换行：上4px，左右2px，下8px留给阴影
+    
+    .version-content {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      text-align: center !important;
+      padding: 4px 8px !important; // 进一步减小内边距让节点更紧凑
+      border-radius: 6px !important; // 稍微减小圆角
+      background: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      transition: all 0.3s ease !important;
+      position: relative !important;
+      min-width: 60px !important; // 减小最小宽度
+      cursor: pointer !important;
+      z-index: 1 !important; // 基础层级
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important; // 增强阴影效果
+        z-index: 100 !important; // 悬浮时提升到最高层级，确保阴影不被遮挡
+      }
+      
+      .version-text {
+        font-size: 1.3rem !important; // 从1.1rem增大到1.3rem
+        font-weight: 600 !important;
+        color: #ffffff !important;
+        margin-bottom: 4px !important;
+        
+        &.clickable-version {
+          cursor: pointer !important;
+          transition: all 0.2s ease !important;
+          border-radius: 4px !important;
+          padding: 2px 4px !important;
+          text-decoration: underline !important;
+          text-decoration-color: rgba(255, 255, 255, 0.5) !important;
+          text-underline-offset: 2px !important;
+          
+          &:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            transform: scale(1.05) !important;
+            text-decoration-color: rgba(255, 255, 255, 0.8) !important;
+          }
+        }
+      }
+      
+      .version-label {
+        font-size: 0.85rem !important; // 从0.8rem增大到0.85rem
+        color: #aaa !important;
+        font-weight: 400 !important;
+      }
+      
+      // 不同类型版本的样式
+      &.ellipsis-content {
+        background: rgba(158, 158, 158, 0.1) !important;
+        border-color: rgba(158, 158, 158, 0.3) !important;
+        
+        .version-text {
+          font-size: 1.6rem !important; // 从1.4rem增大到1.6rem
+          color: #888 !important;
+        }
+      }
+      
+      &.gap-content {
+        background: transparent !important;
+        border: none !important;
+        padding: 4px !important;
+        min-width: auto !important;
+        
+        .version-text {
+          font-size: 1.4rem !important; // 从1.2rem增大到1.4rem
+          color: #666 !important;
+        }
+      }
+      
+      &.current-content {
+        // TortoiseGit风格：当前版本使用深红色
+        background: linear-gradient(135deg, #CC0000, #990000) !important;
+        border-color: rgba(204, 0, 0, 0.6) !important;
+        transform: scale(1.1) !important;
+        box-shadow: 0 4px 12px rgba(204, 0, 0, 0.35) !important;
+        z-index: 5 !important; // 当前版本的基础层级更高
+        
+        &:hover {
+          background: linear-gradient(135deg, #E60000, #CC0000) !important;
+          transform: scale(1.15) translateY(-2px) !important;
+          box-shadow: 0 10px 25px rgba(204, 0, 0, 0.5) !important; // 增强阴影效果
+          z-index: 100 !important; // 悬浮时确保在最高层级
+        }
+        
+        .version-text {
+          color: #fff !important;
+          font-weight: 600 !important;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        .version-label {
+          color: #fff !important;
+          font-weight: 500 !important;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        .current-indicator {
+          position: absolute !important;
+          top: -8px !important;
+          right: -8px !important;
+          background: linear-gradient(135deg, #FF3333, #CC0000) !important;
+          border-radius: 50% !important;
+          width: 20px !important;
+          height: 20px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-shadow: 0 2px 6px rgba(204, 0, 0, 0.4) !important;
+          border: 2px solid #fff !important;
+          
+          .pi {
+            font-size: 0.7rem !important;
+            color: white !important;
+          }
+        }
+      }
+      
+      &.release-content {
+        // 普通版本使用灰色系
+        background: rgba(200, 200, 200, 0.1) !important;
+        border-color: rgba(200, 200, 200, 0.3) !important;
+        
+        &:hover {
+          background: rgba(200, 200, 200, 0.15) !important;
+          transform: translateY(-2px) !important;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important; // 增强阴影效果
+          z-index: 100 !important; // 悬浮时提升层级
+        }
+        
+        .version-text {
+          color: #ccc !important;
+        }
+        
+        .version-label {
+          color: #999 !important;
+        }
+        
+        // 当前版本在release中的特殊样式
+        &.current-content {
+          // TortoiseGit风格：当前版本使用深红色
+          background: linear-gradient(135deg, #CC0000, #990000) !important;
+          border-color: rgba(204, 0, 0, 0.6) !important;
+          transform: scale(1.1) !important;
+          box-shadow: 0 4px 12px rgba(204, 0, 0, 0.35) !important;
+          
+          &:hover {
+            background: linear-gradient(135deg, #E60000, #CC0000) !important;
+            transform: scale(1.15) translateY(-2px) !important;
+            box-shadow: 0 10px 25px rgba(204, 0, 0, 0.5) !important; // 增强阴影效果
+            z-index: 100 !important; // 悬浮时确保在最高层级
+          }
+          
+          .version-text {
+            color: #fff !important;
+            font-weight: 600 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+          }
+          
+          .version-label {
+            color: #fff !important;
+            font-weight: 500 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+          }
+        }
+        
+        // 最新版本特殊样式 - 绿色高亮（只在非当前版本时应用）
+        &.latest-release:not(.current-content) {
+          background: rgba(76, 175, 80, 0.2) !important;
+          border-color: rgba(76, 175, 80, 0.5) !important;
+          transform: scale(1.05) !important;
+          box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+          
+          &:hover {
+            background: rgba(76, 175, 80, 0.3) !important;
+            transform: scale(1.1) translateY(-2px) !important;
+            box-shadow: 0 10px 25px rgba(76, 175, 80, 0.45) !important; // 增强阴影效果
+            z-index: 100 !important; // 悬浮时确保在最高层级
+          }
+          
+          .version-text {
+            color: #4caf50 !important;
+            font-weight: 700 !important;
+          }
+          
+          .version-label {
+            color: #4caf50 !important;
+            
+            .release-date {
+              font-size: 0.65rem !important;
+              color: #66bb6a !important;
+              font-weight: 400 !important;
+              display: block !important;
+              margin-top: 2px !important;
+            }
+          }
+        }
+        
+        .latest-indicator {
+          position: absolute !important;
+          top: -8px !important;
+          right: -8px !important;
+          background: #4caf50 !important;
+          border-radius: 50% !important;
+          width: 20px !important;
+          height: 20px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          
+          .pi {
+            font-size: 0.7rem !important;
+            color: white !important;
+          }
+        }
+        
+        .latest-current-indicator {
+          position: absolute !important;
+          top: -12px !important;
+          right: -12px !important;
+          background: linear-gradient(135deg, #4caf50, #2196f3) !important;
+          border: 2px solid #fff !important;
+          border-radius: 50% !important;
+          width: 28px !important;
+          height: 28px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          flex-direction: column !important;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+          
+          .pi {
+            font-size: 0.55rem !important;
+            color: white !important;
+            line-height: 1 !important;
+            margin: 0 !important;
+            
+            &:first-child {
+              margin-bottom: 1px !important;
+            }
+          }
+        }
+        
+        .current-indicator {
+          position: absolute !important;
+          top: -8px !important;
+          right: -8px !important;
+          background: linear-gradient(135deg, #2196f3, #1976d2) !important;
+          border-radius: 50% !important;
+          width: 20px !important;
+          height: 20px !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-shadow: 0 2px 6px rgba(33, 150, 243, 0.3) !important;
+          border: 2px solid #fff !important;
+          
+          .pi {
+            font-size: 0.7rem !important;
+            color: white !important;
+          }
+        }
+      }
+      
+      &.future-content {
+        background: rgba(33, 150, 243, 0.15) !important;
+        border-color: rgba(33, 150, 243, 0.3) !important;
+        
+        .version-text {
+          color: #87ceeb !important;
+        }
+        
+        .version-label {
+          color: #87ceeb !important;
+        }
+      }
+    }
+    
+    .version-connector {
+      display: flex !important;
+      align-items: center !important;
+      margin: 0 1px !important;
+      flex-shrink: 0 !important;
+      
+      .connector-line {
+        width: 14px !important; // 与伪元素保持一致的长度
+        height: 2px !important;
+        background: rgba(255, 255, 255, 0.8) !important; // 与伪元素保持一致的颜色
+        border-radius: 1px !important;
+      }
+      
+      .connector-arrow {
+        margin-left: -2px !important;
+        width: 0 !important;
+        height: 0 !important;
+        border-left: 4px solid rgba(255, 255, 255, 0.8) !important; // 与伪元素保持一致
+        border-top: 3px solid transparent !important;
+        border-bottom: 3px solid transparent !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+        color: transparent !important;
+        overflow: hidden !important;
+        text-indent: -9999px !important;
+        display: block !important;
+        // 去掉所有悬浮效果
+        transition: none !important;
+        
+        &:hover {
+          // 明确禁用悬浮效果
+          transform: none !important;
+          opacity: 1 !important;
+        }
+      }
+    }
+    
+    // 对于最后一个节点的连接器，隐藏它
+    &:last-child .version-connector {
+      display: none !important;
+    }
+    
+    // 特殊节点的样式
+    &.current {
+      z-index: 10 !important;
+    }
+    
+    &.latest .version-content {
+      border-color: rgba(76, 175, 80, 0.5) !important;
+      box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3) !important; // 增强最新版本的基础阴影
+      z-index: 5 !important; // 确保最新版本有足够的层级显示阴影
+    }
+  }
+
+  .status-action {
+    display: none !important; // 隐藏所有按钮
+  }
+
+  // 响应式设计
+  @media (max-width: 768px) {
+    .status-content-wrapper {
+      padding: 12px !important; // 移动端减少内边距
+    }
+    
+    .version-chain-header {
+      text-align: center !important;
+      
+      .version-chain-title.behind-title {
+        font-size: 0.85rem !important; // 移动端稍小字体
+        padding: 4px 8px !important;
+      }
+    }
+    
+    .version-chain {
+      justify-content: center !important; // 移动端居中对齐
+      gap: 16px 10px !important; // 增加垂直间距到16px为换行连接留出空间，水平间距增加到10px适应放大节点
+      
+      .version-node {
+        position: relative !important; // 为伪元素定位做准备
+        
+        .version-content {
+          min-width: 45px !important; // 移动端更小的节点
+          padding: 2px 5px !important; // 更紧凑的内边距
+          
+          .version-text {
+            font-size: 0.85rem !important; // 进一步减小字体
+          }
+          
+          .version-label {
+            font-size: 0.6rem !important; // 更小的标签字体
+          }
+        }
+        
+        .version-connector {
+          display: flex !important;
+          align-items: center !important;
+          margin: 0 1px !important;
+          flex-shrink: 0 !important;
+          
+          .connector-line {
+            width: 10px !important; // 移动端768px长度
+            height: 2px !important;
+            background: rgba(255, 255, 255, 0.8) !important;
+            border-radius: 1px !important;
+          }
+          
+          .connector-arrow {
+            margin-left: -2px !important;
+            width: 0 !important;
+            height: 0 !important;
+            border-left: 4px solid rgba(255, 255, 255, 0.8) !important;
+            border-top: 3px solid transparent !important;
+            border-bottom: 3px solid transparent !important;
+            font-size: 0 !important;
+            line-height: 0 !important;
+            color: transparent !important;
+            overflow: hidden !important;
+            text-indent: -9999px !important;
+            display: block !important;
+            transition: none !important;
+            
+            &:hover {
+              transform: none !important;
+              opacity: 1 !important;
+            }
+          }
+        }
+        
+        // 对于最后一个节点的连接器，隐藏它
+        &:last-child .version-connector {
+          display: none !important;
+        }
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    .version-chain-container {
+      margin: 12px -8px 0 -8px !important;
+      padding: 12px !important;
+    }
+    
+    .version-chain {
+      gap: 20px 8px !important; // 增加垂直间距到20px为更复杂的连接线留空间，水平间距增加到8px适应放大节点
+    }
+    
+    .version-node {
+      .version-content {
+        padding: 4px 6px !important; // 进一步减小内边距
+        min-width: 40px !important; // 更小的最小宽度
+        
+        .version-text {
+          font-size: 0.8rem !important; // 进一步减小字体从1.15rem到0.8rem
+        }
+        
+        .version-label {
+          font-size: 0.55rem !important; // 进一步减小标签字体从0.8rem到0.55rem
+        }
+      }
+      
+      .version-connector {
+        display: flex !important;
+        align-items: center !important;
+        margin: 0 1px !important;
+        flex-shrink: 0 !important;
+        
+        .connector-line {
+          width: 8px !important; // 480px端最短长度
+          height: 2px !important;
+          background: rgba(255, 255, 255, 0.8) !important;
+          border-radius: 1px !important;
+        }
+        
+        .connector-arrow {
+          margin-left: -2px !important;
+          width: 0 !important;
+          height: 0 !important;
+          border-left: 3px solid rgba(255, 255, 255, 0.8) !important; // 稍小的箭头
+          border-top: 2.5px solid transparent !important;
+          border-bottom: 2.5px solid transparent !important;
+          font-size: 0 !important;
+          line-height: 0 !important;
+          color: transparent !important;
+          overflow: hidden !important;
+          text-indent: -9999px !important;
+          display: block !important;
+          transition: none !important;
+          
+          &:hover {
+            transform: none !important;
+            opacity: 1 !important;
+          }
+        }
+      }
+      
+      // 对于最后一个节点的连接器，隐藏它
+      &:last-child .version-connector {
+        display: none !important;
+      }
+    }
+  }
+}
+
+/* Release Notes详细样式 - 使用标准Markdown解析 */
+.release-description {
+  line-height: 1.6 !important;
+  color: #cccccc !important;
+  
+  // 版本标题
+  .release-title {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    margin: 16px 0 12px 0 !important;
+    padding-bottom: 8px !important;
+    border-bottom: 2px solid #404040 !important;
+    
+    &:first-child {
+      margin-top: 0 !important;
+    }
+  }
+  
+  h3.release-title {
+    font-size: 1.2rem !important;
+  }
+  
+  h2.release-title {
+    font-size: 1.3rem !important;
+  }
+  
+  h1.release-title {
+    font-size: 1.4rem !important;
+  }
+  
+  // 标准列表样式
+  .release-list {
+    margin: 12px 0 !important;
+    padding-left: 0 !important;
+    list-style: none !important;
+    
+    // 顶级列表项 (Add, Fixed, etc.)
+    > .release-item {
+      margin: 8px 0 !important;
+      position: relative !important;
+      
+      // 嵌套列表
+      .release-list {
+        margin-left: 20px !important;
+        margin-top: 8px !important;
+        
+        .release-item {
+          position: relative !important;
+          padding-left: 20px !important;
+          margin: 4px 0 !important;
+          color: #cccccc !important;
+          
+          &::before {
+            content: '●' !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            color: #4caf50 !important;
+            font-size: 0.8rem !important;
+          }
+        }
+      }
+    }
+  }
+  
+  // 分类标签样式 (用于代码块)
+  .inline-code {
+    // 默认代码样式
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #ffd700 !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-family: 'Courier New', monospace !important;
+    font-size: 0.9em !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
+  
+  // 特殊处理：分类标签 (Add, Fixed, etc.)
+  .release-item:first-child .inline-code {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    color: white !important;
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3) !important;
+    display: inline-block !important;
+    margin-right: 8px !important;
+    border: none !important;
+  }
+  
+  // 链接
+  .release-link {
+    color: #64b5f6 !important;
+    text-decoration: none !important;
+    border-bottom: 1px dotted #64b5f6 !important;
+    transition: all 0.2s ease !important;
+    
+    &:hover {
+      color: #90caf9 !important;
+      border-bottom-style: solid !important;
+    }
+  }
+  
+  // 段落间距
+  p {
+    margin: 8px 0 !important;
+    color: #cccccc !important;
+  }
+}
+.release-info-card {
+  .card-title-group {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    width: auto !important;
+    
+    .card-icon {
+      font-size: 1.5rem !important;
+      flex-shrink: 0 !important;
+      margin-right: 8px !important;
+    }
+    
+    .card-title {
+      margin: 0 !important;
+      font-size: 1.25rem !important;
+      font-weight: 600 !important;
+      color: #ffffff !important;
+      flex-shrink: 0 !important;
+    }
+    
+    .release-version {
+      background: linear-gradient(135deg, #6c5ce7, #a29bfe) !important;
+      color: white !important;
+      padding: 4px 12px !important;
+      border-radius: 12px !important;
+      font-size: 0.8rem !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.5px !important;
+      box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3) !important;
+    }
+  }
+}
+.grid {
+  margin: 0;
+}
+
+.card {
+  margin-bottom: 1rem;
+}
+
+.modern-card {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid #404040 !important;
+  transition: all 0.3s ease !important;
+  min-height: 200px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  color: #ffffff !important;
+}
+
+// 升级卡片使用更小的高度
+.update-card.modern-card {
+  min-height: 150px !important;
+}
+
+.modern-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 卡片头部 - 标题和图标在左上角，进度条在右上角 */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding: 0;
+}
+
+.card-title-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.card-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+/* 卡片内容区域 */
+.card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 固件和网页更新卡片 - 科技蓝色渐变 */
+.update-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.update-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2196F3, #42A5F5);
+}
+
+/* Release信息卡片 - 科技绿色渐变 */
+.release-info-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.release-info-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #4CAF50, #66BB6A);
+}
+
+/* 自定义进度条样式 - 卡片右上角 */
+.progress-area {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+.custom-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.custom-progress-bar {
+  width: 280px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.custom-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #66BB6A);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.custom-progress-text {
+  font-size: 28px;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .progress-area {
+    position: static;
+    margin-top: 10px;
+    text-align: right;
+  }
+  
+  .custom-progress-bar {
+    width: 200px;
+    height: 6px;
+  }
+  
+  .custom-progress-text {
+    font-size: 20px;
+  }
+}
+
+/* 版本信息样式 */
+.version-info-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.version-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding: 6px 0;
+}
+
+.version-item:last-of-type {
+  margin-bottom: 1rem;
+}
+
+.version-label {
+  font-weight: 500;
+  color: #aaa;
+  font-size: 14px;
+}
+
+.version-value {
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.version-value.latest {
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  color: white;
+  font-size: 13px;
+}
+
+/* 文件提示 */
+.file-hint {
+  display: block;
+  margin-top: 0.75rem;
+  font-style: italic;
+  opacity: 0.7;
+  color: #cfcfcf;
+  font-size: 13px;
+}
+
+.screensaver-card-content {
+  gap: 0.75rem;
+}
+
+.screensaver-upload-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.screensaver-upload-action {
+  flex: 0 0 auto;
+}
+
+.screensaver-file-hint {
+  margin-top: 0.45rem;
+}
+
+.screensaver-meta {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.screensaver-compact-hint {
+  margin-top: 0 !important;
+  font-size: 0.8rem !important;
+  line-height: 1.25;
+  opacity: 0.82;
+}
+
+.screensaver-warning-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  color: #e3b25f;
+  background: rgba(216, 166, 79, 0.18);
+  border: 1px solid rgba(216, 166, 79, 0.5);
+  cursor: help;
+  outline: none;
+}
+
+.screensaver-warning-tooltip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  width: min(310px, calc(100vw - 64px));
+  padding: 0.42rem 0.52rem;
+  border-radius: 7px;
+  background: rgba(22, 22, 22, 0.95);
+  border: 1px solid rgba(216, 166, 79, 0.45);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  color: #e2b160;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.update-cards-grid {
+  align-items: stretch;
+
+  > [class*='col-'] {
+    display: flex;
+  }
+
+  .update-card {
+    width: 100%;
+    height: 100%;
+    min-height: 162px !important;
+  }
+
+  .screensaver-card {
+    .screensaver-card-content {
+      justify-content: flex-start;
+      gap: 0.5rem;
+    }
+
+    .screensaver-compact-hint {
+      font-size: 0.76rem !important;
+    }
+  }
+}
+
+.screensaver-meta:hover .screensaver-warning-tooltip,
+.screensaver-meta:focus-within .screensaver-warning-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 992px) {
+  .update-cards-grid {
+    .update-card {
+      min-height: 154px !important;
+    }
+
+    .screensaver-upload-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.45rem;
+    }
+
+    .screensaver-meta {
+      width: 100%;
+      margin-top: 0;
+      padding: 0.34rem 0.45rem;
+    }
+
+    .screensaver-warning-tooltip {
+      width: min(300px, calc(100vw - 56px));
+    }
+  }
+}
+
+/* Release信息样式 */
+.release-meta {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+  color: #aaa;
+}
+
+.release-date,
+.release-author {
+  display: flex;
+  align-items: center;
+}
+
+.release-description {
+  line-height: 1.6;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.release-description ::ng-deep p {
+  margin-bottom: 1rem;
+}
+
+.release-description ::ng-deep code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.release-description ::ng-deep pre {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+/* 统一按钮颜色样式 */
+::ng-deep .p-fileupload .p-button {
+  background: linear-gradient(135deg, #4CAF50, #66BB6A) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 12px 20px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  color: white !important;
+}
+
+::ng-deep .p-fileupload .p-button:hover {
+  background: linear-gradient(135deg, #45a049, #4CAF50) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+}
+
+::ng-deep .p-fileupload .p-button:focus {
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.5) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .progress-badge-with-bar {
+    min-width: 100px;
+  }
+  
+  .progress-mini-container {
+    width: 90px;
+    height: 20px;
+  }
+  
+  .progress-text-overlay {
+    font-size: 10px;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .progress-badge-with-bar {
+    align-self: flex-end;
+    margin-top: 0.5rem;
+  }
+  
+  .release-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+  .modern-card {
+    background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
+    color: white;
+  }
+  
+  .card-title {
+    color: white;
+  }
+}
+
+/* 更新状态样式 */
+.update-card {
+  transition: all 0.3s ease;
+  
+  &.update-available {
+    border-left: 4px solid #ff6b6b !important;
+    box-shadow: 0 4px 16px rgba(255, 107, 107, 0.2) !important;
+  }
+  
+  &.up-to-date {
+    border-left: 4px solid #4caf50 !important;
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.2) !important;
+  }
+
+  // Individual update card styles
+  .file-hint {
+    color: #cfcfcf;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+}
+
+.card-title-group {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: auto !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+}
+
+.update-status {
+  .status-badge {
+    padding: 4px 10px !important;
+    border-radius: 10px !important;
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    white-space: nowrap !important;
+    
+    &.update-badge {
+      background: linear-gradient(135deg, #ff6b6b, #ff5252) !important;
+      color: white !important;
+      box-shadow: 0 2px 6px rgba(255, 107, 107, 0.4) !important;
+    }
+    
+    &.uptodate-badge {
+      background: linear-gradient(135deg, #4caf50, #45a049) !important;
+      color: white !important;
+      box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4) !important;
+    }
+  }
+}
+
+/* 新的紧凑型卡片头部样式 - 标题在左上角，进度条占据更多右侧空间 */
+.card-header-compact {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 1rem !important;
+  padding: 0 !important;
+  width: 100% !important;
+  position: relative !important;
+  min-height: 40px !important;
+}
+
+.card-title-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+  
+  .card-icon {
+    font-size: 20px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .card-title-inline {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+  }
+}
+
+.progress-area {
+  flex: 1 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  margin-left: 16px !important;
+  
+  .progress-badge-with-bar {
+    display: flex !important;
+    align-items: center !important;
+    min-width: 160px !important;
+    justify-content: flex-end !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .progress-mini-container {
+    position: relative !important;
+    width: 150px !important;
+    height: 28px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
+  
+  .progress-text-overlay {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    font-size: 13px !important;
+    font-weight: bold !important;
+    color: white !important;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+    z-index: 10 !important;
+  }
+}
+
+// 开发版本指示器的特殊样式
+.version-node .version-content .current-indicator.dev-version-indicator {
+  background: linear-gradient(135deg, #ff9800, #f57c00) !important;
+  box-shadow: 0 2px 6px rgba(255, 152, 0, 0.4) !important;
+  border: 2px solid #fff !important;
+  width: 24px !important;
+  height: 24px !important;
+  top: -10px !important;
+  right: -10px !important;
+  
+  .pi {
+    display: none !important; // 隐藏原来的地图标记图标
+  }
+  
+  &::before {
+    content: '🚧' !important;
+    position: absolute !important;
+    font-size: 0.8rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+// 开发版本卡片样式
+.development-version-card {
+  .coming-soon-text {
+    font-size: 3rem !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    color: #ff9800 !important;
+    margin: 2rem 0 !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  .development-description {
+    text-align: center !important;
+    color: #666 !important;
+    font-size: 1.1rem !important;
+    line-height: 1.6 !important;
+  }
+  
+  .development-content {
+    padding: 2rem !important;
+  }
+}
+
+// Ensure consistent widths across all cards
+.version-status-banner,
+.release-info-card,
+.update-card {
+  width: 100%;
+  max-width: none;
+}
+
+// Dark theme adjustments
+body.dark-theme {
+  .version-status-banner {
+    .status-container {
+      background: linear-gradient(135deg, #1a1a1a, #2a2a2a) !important;
+      
+      &.update-available {
+        background: linear-gradient(135deg, #2a1a1a, #3a2a2a) !important;
+      }
+      
+      &.up-to-date {
+        background: linear-gradient(135deg, #1a2a1a, #2a3a2a) !important;
+      }
+
+      &.dev-version {
+        background: linear-gradient(135deg, #1a1a2a, #2a2a3a) !important;
+      }
+    }
+  }
+  
+  .update-card {
+    .file-hint {
+      color: #cfcfcf;
+    }
+  }
+}
+
+/* Final overrides: avoid title/progress overlap on all three update cards */
+.update-cards-grid {
+  .update-card {
+    min-height: 162px !important;
+
+    .card-header {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 0.6rem !important;
+      margin-bottom: 0.55rem !important;
+      min-height: 38px;
+    }
+
+    .card-content {
+      justify-content: flex-start;
+      gap: 0.35rem;
+    }
+
+    .card-title-group {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .card-title {
+      font-size: 1.08rem !important;
+      line-height: 1.2 !important;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-area {
+      position: static !important;
+      top: auto !important;
+      right: auto !important;
+      margin-left: 0.5rem !important;
+      flex: 0 0 auto !important;
+      z-index: auto !important;
+    }
+
+    .custom-progress-container {
+      gap: 0.5rem !important;
+    }
+
+    .custom-progress-bar {
+      width: clamp(84px, 8vw, 120px) !important;
+      height: 7px !important;
+    }
+
+    .custom-progress-text {
+      font-size: clamp(20px, 1.75vw, 34px) !important;
+      line-height: 1;
+      min-width: 2.1ch;
+      text-align: right;
+    }
+  }
+}
+
+@media (max-width: 992px) {
+  .update-cards-grid {
+    .update-card {
+      min-height: 154px !important;
+
+      .card-header {
+        align-items: flex-start !important;
+      }
+
+      .progress-area {
+        margin-left: 0 !important;
+      }
+
+      .custom-progress-bar {
+        width: 140px !important;
+      }
+
+      .custom-progress-text {
+        font-size: 22px !important;
+      }
+    }
+  }
+}

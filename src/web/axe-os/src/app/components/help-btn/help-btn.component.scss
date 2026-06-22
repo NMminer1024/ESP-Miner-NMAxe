@@ -1,0 +1,38 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+}
+
+.help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 8px;
+  vertical-align: middle;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  flex-shrink: 0;
+
+  i {
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  &:hover {
+    color: #60a5fa;
+    border-color: #60a5fa;
+    background: rgba(96, 165, 250, 0.1);
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.4);
+  }
+}
