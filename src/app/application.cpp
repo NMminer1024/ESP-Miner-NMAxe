@@ -274,7 +274,7 @@ void MinerApp::_begin_fan(BootProgress& boot) {
     ctx.temp        = &_temp;
     _fan_ctx = &ctx;
 
-    _create_task(fan_thread_entry, "(fan)", 1024 * 5, _fan_ctx, TASK_PRIORITY_FAN, 0);
+    _create_task(fan_thread_entry, "(fan)", 1024 * 4, _fan_ctx, TASK_PRIORITY_FAN, 0);
 }
 
 void MinerApp::_begin_power(BootProgress& boot) {
@@ -290,7 +290,7 @@ void MinerApp::_begin_power(BootProgress& boot) {
     _power_ctx = &ctx;
 
     _create_task(power_init_thread_entry, "(pwr_init)", 1024 * 7, _power_ctx, TASK_PRIORITY_PWR, 1);
-    _create_task(power_loop_thread_entry, "(pwr_loop)", 1024 * 5, _power_ctx, TASK_PRIORITY_PWR, 1);
+    _create_task(power_loop_thread_entry, "(pwr_loop)", 1024 * 3, _power_ctx, TASK_PRIORITY_PWR, 1);
 }
 
 void MinerApp::_begin_wifi_connect(BootProgress& boot) {
@@ -310,7 +310,7 @@ void MinerApp::_begin_display(BootProgress& boot) {
     lv_init();
     _ui_init();
     xEventGroupSetBits(_sys->init_evt, INIT_EVENT_SCREEN_READY);
-    _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 8, nullptr, TASK_PRIORITY_LVGL_DRV, 1);
+    _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 5, nullptr, TASK_PRIORITY_LVGL_DRV, 1);
 }
 
 void MinerApp::_begin_infra(BootProgress& boot) {
@@ -328,7 +328,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     ctx.wifi_cfg             = &_wifi_cfg;
     _daemon_ctx = &ctx;
 
-    _create_task(daemon_thread_entry, "(daemon)", 1024 * 4, _daemon_ctx, TASK_PRIORITY_DAEMON, 0);
+    _create_task(daemon_thread_entry, "(daemon)", 1024 * 3, _daemon_ctx, TASK_PRIORITY_DAEMON, 0);
 
     static SwarmCtx swarm_ctx;
     swarm_ctx.swarm       = _swarm;
@@ -340,7 +340,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     _swarm_ctx = &swarm_ctx;
 
     _create_task(swarm_thread_entry, "(swarm)",    1024 * 4, _swarm_ctx, TASK_PRIORITY_SWARM, 0);
-    _create_task(scan_thread_entry,  "(neighbor)", 1024 * 4, _swarm_ctx, TASK_PRIORITY_SCAN,  0);
+    _create_task(scan_thread_entry,  "(neighbor)", 1024 * 3, _swarm_ctx, TASK_PRIORITY_SCAN,  0);
 
     static ButtonCtx button_ctx;
     button_ctx.spec                 = &_spec;
@@ -356,7 +356,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     button_ctx.on_activity  = [](){ UIManager::instance().wake_activity(); };
     _button_ctx = &button_ctx;
 
-    _create_task(button_thread_entry, "(button)", 1024 * 3, _button_ctx, TASK_PRIORITY_BTN, 1);
+    _create_task(button_thread_entry, "(button)", 1024 * 2, _button_ctx, TASK_PRIORITY_BTN, 1);
 
     static LedCtx led_ctx;
     led_ctx.spec         = &_spec;
@@ -368,7 +368,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     led_ctx.ota_progress = &_ota.progress;
     _led_ctx = &led_ctx;
 
-    _create_task(led_thread_entry, "(led)", 1024 * 3, _led_ctx, TASK_PRIORITY_LED, 1);
+    _create_task(led_thread_entry, "(led)", 1024 * 2 + 512, _led_ctx, TASK_PRIORITY_LED, 1);
 
     static WebCtx web_ctx;
     web_ctx.miner          = _miner;
@@ -399,7 +399,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     web_ctx.brightness_update_xsem = _brightness_update_xsem;
     _web_ctx = &web_ctx;
 
-    _create_task(webserver_thread_entry, "(webserver)", 1024 * 5, _web_ctx, TASK_PRIORITY_WS, 0);
+    _create_task(webserver_thread_entry, "(webserver)", 1024 * 4, _web_ctx, TASK_PRIORITY_WS, 0);
 }
 
 void MinerApp::_begin_market(BootProgress& boot) {
@@ -414,7 +414,7 @@ void MinerApp::_begin_market(BootProgress& boot) {
     ctx.coin_watchlist = _coin_watchlist;
     _market_ctx = &ctx;
 
-    _create_task(market_thread_entry, "(market)", 1024 * 6, _market_ctx, TASK_PRIORITY_MARKET, 0);
+    _create_task(market_thread_entry, "(market)", 1024 * 4, _market_ctx, TASK_PRIORITY_MARKET, 0);
 
     static AphorismCtx aph_ctx;
     _aphorism.mutex     = xSemaphoreCreateMutex();
@@ -423,7 +423,7 @@ void MinerApp::_begin_market(BootProgress& boot) {
     aph_ctx.ota_running = &_ota.running;
     _aphorism_ctx = &aph_ctx;
 
-    _create_task(aphorism_thread_entry, "(aphorism)", 1024 * 8, _aphorism_ctx, TASK_PRIORITY_APHORISM, 0);
+    _create_task(aphorism_thread_entry, "(aphorism)", 1024 * 6, _aphorism_ctx, TASK_PRIORITY_APHORISM, 0);
 }
 
 void MinerApp::_begin_miners(BootProgress& boot) {
@@ -448,9 +448,9 @@ void MinerApp::_begin_miners(BootProgress& boot) {
 
     _create_task(miner_count_thread_entry, "(asic_cnt)",  1024 * 5,  _miner_ctx, TASK_PRIORITY_ASIC_CNT,  1);
     _create_task(miner_init_thread_entry,  "(asic_init)", 1024 * 6,  _miner_ctx, TASK_PRIORITY_ASIC_INIT, 1);
-    _create_task(stratum_thread_entry,     "(stratum)",   1024 * 11, _miner_ctx, TASK_PRIORITY_STRATUM,   1);
-    _create_task(miner_tx_thread_entry,    "(asic_tx)",   1024 * 7,  _miner_ctx, TASK_PRIORITY_MINER_TX,  1);
-    _create_task(miner_rx_thread_entry,    "(asic_rx)",   1024 * 6,  _miner_ctx, TASK_PRIORITY_MINER_RX,  0);
+    _create_task(stratum_thread_entry,     "(stratum)",   1024 * 5,  _miner_ctx, TASK_PRIORITY_STRATUM,   1);
+    _create_task(miner_tx_thread_entry,    "(asic_tx)",   1024 * 4,  _miner_ctx, TASK_PRIORITY_MINER_TX,  1);
+    _create_task(miner_rx_thread_entry,    "(asic_rx)",   1024 * 4,  _miner_ctx, TASK_PRIORITY_MINER_RX,  0);
 
     static MonitorCtx mctx;
     mctx.power             = _power;
@@ -473,7 +473,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     mctx.sys_evt          = _sys->sys_evt;
     _monitor_ctx = &mctx;
 
-    _create_task(monitor_thread_entry, "(monitor)", 1024 * 5, _monitor_ctx, TASK_PRIORITY_MONITOR, 1);
+    _create_task(monitor_thread_entry, "(monitor)", 1024 * 4, _monitor_ctx, TASK_PRIORITY_MONITOR, 1);
 
     static BenchmarkCtx bctx;
     bctx.bm_mode     = &_bm_mode;
@@ -501,7 +501,7 @@ void MinerApp::begin() {
     _begin_infra(boot);
     _begin_market(boot);
     _begin_miners(boot);
-    _create_task(_tick_thread_entry, "(tick)", 1024 * 5, nullptr, TASK_PRIORITY_APP_TICK, 1);
+    _create_task(_tick_thread_entry, "(tick)", 1024 * 4, nullptr, TASK_PRIORITY_APP_TICK, 1);
     boot.post("Booting...");
 }
 
