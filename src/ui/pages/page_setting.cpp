@@ -112,7 +112,12 @@ void PageSettingBase::_toast_timer_cb(lv_timer_t* t) {
 
 void PageSettingBase::_show_toast(const char* msg, uint32_t duration_ms) {
     lv_obj_t* toast = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(toast, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_coord_t max_w = lv_obj_get_width(lv_scr_act()) - 24;
+    if (max_w < 120) {
+        max_w = 120;
+    }
+    lv_obj_set_width(toast, max_w);
+    lv_obj_set_height(toast, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(toast, lv_color_hex(0x009900), 0);
     lv_obj_set_style_bg_opa(toast, LV_OPA_80, 0);
     lv_obj_set_style_radius(toast, 8, 0);
@@ -120,6 +125,8 @@ void PageSettingBase::_show_toast(const char* msg, uint32_t duration_ms) {
     lv_obj_set_style_border_width(toast, 0, 0);
     lv_obj_clear_flag(toast, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_t* lbl = lv_label_create(toast);
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(lbl, max_w - 12);
     lv_label_set_text(lbl, msg);
     lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_font(lbl, &lv_font_montserrat_16, 0);
@@ -211,7 +218,7 @@ void PageSettingBase::_save_settings() {
         app.pref().screen.saver_timeout = tmo;
     }
 
-    _show_toast(flip_changed ? "Settings Saved! Flip Screen applies after restart."
+    _show_toast(flip_changed ? "Saved! Reboot to apply Flip Screen."
                              : "Settings Saved!",
                 2500);
 }
