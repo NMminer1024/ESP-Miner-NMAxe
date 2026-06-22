@@ -216,7 +216,7 @@ struct BoardSpecConfig {
     std::function<void(AxePowerHal*)> setup_temp_hal;
 };
 
-void hardware_pre_init(BoardSpecConfig config);
+void hardware_pre_init(const BoardSpecConfig& config);
 BoardModelType get_board_model();
 BoardSpecConfig get_board_config(BoardModelType model);
 

@@ -702,23 +702,10 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             break;
     }
 
-    // ── Benchmark mode: override freq/vcore with current benchmark round values ──
-    // Written by benchmark_thread_entry before each reboot; NOP in Normal mode.
-    if (nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) == 1) {
-        uint16_t bm_freq  = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,  config.asic.req_frq);
-        uint16_t bm_vcore = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, config.asic.req_vcore);
-        // Clamp to board limits for safety
-        bm_vcore = (bm_vcore < config.asic.min_vcore) ? config.asic.min_vcore : bm_vcore;
-        bm_vcore = (bm_vcore > config.asic.max_vcore) ? config.asic.max_vcore : bm_vcore;
-        config.asic.req_frq   = bm_freq;
-        config.asic.req_vcore = bm_vcore;
-        LOG_W("[BM] Benchmark mode: freq=%dMHz vcore=%dmV", bm_freq, bm_vcore);
-    }
-
     return config;
 }
 
-void hardware_pre_init(BoardSpecConfig config){
+void hardware_pre_init(const BoardSpecConfig& config){
     // PSRAM explicit init + sanity check.
     // Arduino-ESP32 initialises PSRAM automatically before setup(), but on boards
     // with non-standard PSRAM chips (e.g. QPI vs OPI) the silent auto-init can

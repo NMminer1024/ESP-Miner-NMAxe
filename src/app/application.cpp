@@ -95,6 +95,17 @@ bool MinerApp::init() {
     }
     _spec = get_board_config(_model);
     hardware_pre_init(_spec);
+
+    if (nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) == 1) {
+        uint16_t bm_freq  = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ, _spec.asic.req_frq);
+        uint16_t bm_vcore = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, _spec.asic.req_vcore);
+        if (bm_vcore < _spec.asic.min_vcore) bm_vcore = _spec.asic.min_vcore;
+        if (bm_vcore > _spec.asic.max_vcore) bm_vcore = _spec.asic.max_vcore;
+        _spec.asic.req_frq   = bm_freq;
+        _spec.asic.req_vcore = bm_vcore;
+        LOG_W("[BM] Benchmark mode: freq=%dMHz vcore=%dmV", bm_freq, bm_vcore);
+    }
+
     LOG_I("board model detected: %s", _spec.display_name.c_str());
 
     // ── WiFi connection config (loaded once from NVS; replaces g_board.info.connection.wifi) ──
@@ -495,13 +506,28 @@ void MinerApp::begin() {
 }
 
 void MinerApp::print_stack_hwm() const {
+    static uint32_t last_print_ms = 0;
+    if (millis() - last_print_ms < 10000) return;
+    last_print_ms = millis();
+
+    LOG_W("=========== Stack High Water Mark (in bytes) ===========");
+    LOG_I("+-----------------+----------+------------+------------+");
+    LOG_I("| Task Name       | HWM      | Total Stack| Optimizable|");
+    LOG_I("+-----------------+----------+------------+------------+");
     for (const auto& t : _tasks) {
-        if (t.handle == nullptr) {
-            continue;
-        }
+        if (t.handle == nullptr) continue;
+        eTaskState state = eTaskGetState(t.handle);
+        if (state == eDeleted) continue;
+        char* taskName = pcTaskGetName(t.handle);
+        if (taskName == NULL || taskName[0] == '\0') continue;
         UBaseType_t hwm = uxTaskGetStackHighWaterMark(t.handle);
-        LOG_D("%-12s hwm=%u/%u", t.name, (unsigned)hwm, (unsigned)t.stack_bytes);
+        uint32_t total = t.stack_bytes;
+        uint32_t optimizable = (hwm > 512) ? (hwm - 512) : 0;
+        LOG_I("| %-15s | %8u | %10u | %10u |",
+              taskName, (unsigned)hwm, (unsigned)total, (unsigned)optimizable);
     }
+    LOG_I("+-----------------+----------+------------+------------+");
+    LOG_W("Note: Optimizable = HWM - 512 (keeping 512 bytes safety buffer)");
 }
 
 void MinerApp::_tick_thread_entry(void* args) {
@@ -986,13 +1012,16 @@ void MinerApp::_tick_thread_entry(void* args) {
             struct tm lt;
             localtime_r(&t, &lt);
             char tbuf[16];
+            char miner_tbuf[8];
             if (app._time.format.time == 12) {  // 12h
                 strftime(tbuf, sizeof(tbuf), "%I:%M %p", &lt);
+                strftime(miner_tbuf, sizeof(miner_tbuf), "%I:%M", &lt);
             } else {                            // 24h
                 strftime(tbuf, sizeof(tbuf), "%H:%M", &lt);
+                strftime(miner_tbuf, sizeof(miner_tbuf), "%H:%M", &lt);
             }
             AppState::instance().clock.time_str.text = String(tbuf);
-            AppState::instance().miner.utc_time.text = String(tbuf);
+            AppState::instance().miner.utc_time.text = String(miner_tbuf);
 
             const String& df = app._time.format.date;
             char dbuf[16];
@@ -1107,6 +1136,7 @@ bool MinerApp::_ui_init() {
     UIManager::instance().init(w, h);
     UIManager::instance().set_sys_evt(_sys->sys_evt);
     UIManager::instance().set_recover_factory_xsem(_recover_factory_xsem);  // touch long-press factory reset
+    UIManager::instance().set_force_config_xsem(_force_config_xsem);        // boot long-press setup mode
 
     OverlayCtx octx;
     octx.bm_mode = &_bm_mode;
