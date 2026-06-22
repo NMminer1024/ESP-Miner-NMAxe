@@ -10,7 +10,7 @@
 #include <cstring>
 
 namespace {
-constexpr lv_opa_t kOverlayBgOpa = LV_OPA_80;
+constexpr lv_opa_t kOverlayBgOpa = LV_OPA_90;
 }
 
 OverlayManager& OverlayManager::instance() {
@@ -156,6 +156,8 @@ void OverlayManager::_show(uint32_t accent, const char* title, const String& bod
 void OverlayManager::_show_factory_overlay(int countdown_sec) {
     if (!_panel) return;
     const bool is_small = LV_VER_RES <= 135;
+    const lv_coord_t reminder_y = is_small ? 6 : 10;
+    const lv_coord_t countdown_y = is_small ? 16 : 0;
     _reset_layout();
     _gif_hide();
     if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
@@ -170,7 +172,7 @@ void OverlayManager::_show_factory_overlay(int countdown_sec) {
     lv_obj_set_style_text_font(_lb_aux, is_small ? &ds_digib_font_56 : &ds_digib_font_120, 0);
     lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
     lv_label_set_text_fmt(_lb_aux, "%d", countdown_sec);
-    lv_obj_align(_lb_aux, LV_ALIGN_CENTER, 0, is_small ? 14 : 0);
+    lv_obj_align(_lb_aux, LV_ALIGN_CENTER, 0, countdown_y);
 
     lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
     const char* reminder = is_small ? "Recover to\nfactory settings" : "Recover to factory settings...";
@@ -180,7 +182,7 @@ void OverlayManager::_show_factory_overlay(int countdown_sec) {
     lv_obj_set_style_text_align(_lb_aux2, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(_lb_aux2, is_small ? LV_LABEL_LONG_WRAP : LV_LABEL_LONG_SCROLL);
     lv_label_set_text(_lb_aux2, reminder);
-    lv_obj_align(_lb_aux2, LV_ALIGN_TOP_MID, 0, is_small ? 8 : 10);
+    lv_obj_align(_lb_aux2, LV_ALIGN_TOP_MID, 0, reminder_y);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -191,6 +193,8 @@ void OverlayManager::_show_factory_overlay(int countdown_sec) {
 void OverlayManager::_show_setup_overlay(int countdown_sec) {
     if (!_panel) return;
     const bool is_small = LV_VER_RES <= 135;
+    const lv_coord_t reminder_y = is_small ? 6 : 10;
+    const lv_coord_t countdown_y = is_small ? 16 : 0;
     _reset_layout();
     _gif_hide();
     if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
@@ -205,7 +209,7 @@ void OverlayManager::_show_setup_overlay(int countdown_sec) {
     lv_obj_set_style_text_font(_lb_aux, is_small ? &ds_digib_font_56 : &ds_digib_font_120, 0);
     lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
     lv_label_set_text_fmt(_lb_aux, "%d", countdown_sec);
-    lv_obj_align(_lb_aux, LV_ALIGN_CENTER, 0, is_small ? 14 : 0);
+    lv_obj_align(_lb_aux, LV_ALIGN_CENTER, 0, countdown_y);
 
     lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
     const char* reminder = is_small ? "Reboot to\nsetup mode" : "Reboot to setup mode...";
@@ -215,7 +219,7 @@ void OverlayManager::_show_setup_overlay(int countdown_sec) {
     lv_obj_set_style_text_align(_lb_aux2, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(_lb_aux2, is_small ? LV_LABEL_LONG_WRAP : LV_LABEL_LONG_SCROLL);
     lv_label_set_text(_lb_aux2, reminder);
-    lv_obj_align(_lb_aux2, LV_ALIGN_TOP_MID, 0, is_small ? 8 : 10);
+    lv_obj_align(_lb_aux2, LV_ALIGN_TOP_MID, 0, reminder_y);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -226,6 +230,8 @@ void OverlayManager::_show_setup_overlay(int countdown_sec) {
 void OverlayManager::_show_rebooting_overlay(const char* title) {
     if (!_panel) return;
     const bool is_small = LV_VER_RES <= 135;
+    const lv_coord_t title_y = is_small ? -16 : -16;
+    const lv_coord_t reboot_y = is_small ? 20 : 20;
     _reset_layout();
     _gif_hide();
     if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
@@ -243,16 +249,16 @@ void OverlayManager::_show_rebooting_overlay(const char* title) {
     lv_obj_set_style_text_align(_lb_aux, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(_lb_aux, title);
     lv_label_set_long_mode(_lb_aux, LV_LABEL_LONG_WRAP);
-    lv_obj_align(_lb_aux, LV_ALIGN_CENTER, 0, is_small ? -10 : -16);
+    lv_obj_align(_lb_aux, LV_ALIGN_CENTER, 0, title_y);
 
     lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_width(_lb_aux2, LV_HOR_RES - (is_small ? 20 : 28));
-    lv_obj_set_style_text_font(_lb_aux2, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(_lb_aux2, is_small ? &lv_font_montserrat_16 : &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(_lb_aux2, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_align(_lb_aux2, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(_lb_aux2, "rebooting...");
     lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_WRAP);
-    lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, is_small ? 16 : 20);
+    lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, reboot_y);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -408,6 +414,7 @@ void OverlayManager::_show_benchmark_overlay() {
 
 void OverlayManager::_show_ota_overlay(uint32_t now) {
     if (!_panel || !_ctx.ota) return;
+    const bool is_small = LV_VER_RES <= 135;
 
     if (!_ctx.ota->running) {
         if (_ota_overlay_active && _ctx.ota->progress >= 100) {
@@ -442,30 +449,30 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
         lv_obj_set_style_pad_all(_panel, 0, 0);
 
         lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_style_text_font(_lb_title, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_font(_lb_title, is_small ? &lv_font_montserrat_14 : &lv_font_montserrat_16, 0);
         lv_obj_set_style_text_color(_lb_title, lv_color_hex(0xFFFFFF), 0); 
-        lv_obj_align(_lb_title, LV_ALIGN_CENTER, 0, -30);
+        lv_obj_align(_lb_title, LV_ALIGN_CENTER, 0, is_small ? -34 : -30);
 
         lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
 
         lv_obj_clear_flag(_bar, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_size(_bar, (lv_coord_t)(LV_HOR_RES * 0.81f), 5);
-        lv_obj_align(_bar, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_align(_bar, LV_ALIGN_CENTER, 0, is_small ? -2 : 0);
 
         lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_width(_lb_aux, LV_SIZE_CONTENT);
-        lv_obj_set_style_text_font(_lb_aux, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(_lb_aux, is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
         lv_obj_set_pos(_lb_aux, 0, 10);
 
         lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_width(_lb_aux2, LV_PCT(92));
-        lv_obj_set_style_text_font(_lb_aux2, &lv_font_montserrat_14, 0);
+        lv_obj_set_width(_lb_aux2, is_small ? LV_PCT(88) : LV_PCT(92));
+        lv_obj_set_style_text_font(_lb_aux2, is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_color(_lb_aux2, lv_color_hex(0xFFFFFF), 0);
         lv_obj_set_style_text_align(_lb_aux2, LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_WRAP);
         lv_label_set_text(_lb_aux2, "Do not power off during update.");
-        lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, 24);
+        lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, is_small ? 38 : 28);
 
         if (!_visible) {
             lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -489,7 +496,7 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
     lv_coord_t max_x = bar_x + bar_w - label_w;
     if (label_x < min_x) label_x = min_x;
     if (label_x > max_x) label_x = max_x;
-    lv_obj_set_pos(_lb_aux, label_x, bar_y + 10);
+    lv_obj_set_pos(_lb_aux, label_x, bar_y + (is_small ? 8 : 10));
 
     _ota_last_update = now;
 }
