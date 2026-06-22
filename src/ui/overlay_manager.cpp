@@ -5,6 +5,7 @@
 #include "../utils/logger/logger.h"
 #include "../nvs/nvs_config.h"
 #include "../utils/reboot_log/reboot_log.h"
+#include "../drivers/display/display_hal.h"
 #include "assets/fonts.h"
 #include <SPIFFS.h>
 #include <cstring>
@@ -130,6 +131,7 @@ void OverlayManager::_reset_layout() {
 
 void OverlayManager::_gif_hide() {
     if (_gif) { lv_obj_del(_gif); _gif = nullptr; }
+    screensaver_gif_release_psram();
     _gif_shown = false;
 }
 
@@ -768,46 +770,54 @@ void OverlayManager::update() {
     // ── Priority 4: screensaver (aphorism quote, non-black mode) ──
     if ((bits & SYS_EVENT_SCREEN_SAVER_TRIGGERED) &&
         _ctx.saver_mode && *_ctx.saver_mode != 1) {
-        // Rotate to a fresh quote on entry and every ~60 s thereafter.
-        if (!_aph_have || (now - _aph_last) > 60000) {
-            if (_ctx.aphorism && _ctx.aphorism->mutex &&
-                xSemaphoreTake(_ctx.aphorism->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
-                if (!_ctx.aphorism->pool.empty()) {
-                    _aph_quote  = _ctx.aphorism->pool.front().quote;
-                    _aph_author = _ctx.aphorism->pool.front().author;
-                    _ctx.aphorism->pool.erase(_ctx.aphorism->pool.begin());
-                    _aph_have = true;
-                }
-                xSemaphoreGive(_ctx.aphorism->mutex);
-            }
-            _aph_last = now;
-        }
-        String body = _aph_have ? (String("\"") + _aph_quote + "\"\n\n- " + _aph_author)
-                                : String("Solo mining:\nbe a friend of time.");
-
         // GIF background if a screensaver GIF is present in SPIFFS, else quote-only.
         bool gif_ok = false;
         if (_ctx.gif_path && SPIFFS.exists(_ctx.gif_path)) {
             if (!_gif) _gif = lv_gif_create(_panel);
             if (_gif && !_gif_shown) {
-                String src = String("S:") + (_ctx.gif_path + 1);   // strip leading '/'
+                bool loaded_to_psram = screensaver_gif_load_to_psram(_ctx.gif_path);
+                String src = loaded_to_psram
+                    ? String("M:screensaver.gif")
+                    : (String("S:") + (_ctx.gif_path + 1));   // strip leading '/'
                 lv_gif_set_src(_gif, src.c_str());
                 lv_obj_align(_gif, LV_ALIGN_CENTER, 0, 0);
                 lv_obj_clear_flag(_gif, LV_OBJ_FLAG_HIDDEN);
                 _gif_shown = true;
+                LOG_I("[screensaver] GIF loaded from %s", loaded_to_psram ? "PSRAM" : "SPIFFS");
             }
             gif_ok = (_gif != nullptr);
         } else {
             _gif_hide();
+            screensaver_gif_release_psram();
         }
 
         lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
         lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
         lv_label_set_text(_lb_title, "");
-        lv_label_set_text(_lb_body, body.c_str());
-        lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x66BB6A), 0);
-        lv_obj_align(_lb_body, gif_ok ? LV_ALIGN_BOTTOM_MID : LV_ALIGN_CENTER, 0, gif_ok ? -6 : 8);
-        if (_gif) lv_obj_move_background(_gif);   // keep quote text on top
+        if (gif_ok) {
+            lv_label_set_text(_lb_body, "");
+        } else {
+            // Rotate to a fresh quote on entry and every ~60 s thereafter.
+            if (!_aph_have || (now - _aph_last) > 60000) {
+                if (_ctx.aphorism && _ctx.aphorism->mutex &&
+                    xSemaphoreTake(_ctx.aphorism->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+                    if (!_ctx.aphorism->pool.empty()) {
+                        _aph_quote  = _ctx.aphorism->pool.front().quote;
+                        _aph_author = _ctx.aphorism->pool.front().author;
+                        _ctx.aphorism->pool.erase(_ctx.aphorism->pool.begin());
+                        _aph_have = true;
+                    }
+                    xSemaphoreGive(_ctx.aphorism->mutex);
+                }
+                _aph_last = now;
+            }
+            String body = _aph_have ? (String("\"") + _aph_quote + "\"\n\n- " + _aph_author)
+                                    : String("Solo mining:\nbe a friend of time.");
+            lv_label_set_text(_lb_body, body.c_str());
+            lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x66BB6A), 0);
+            lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 8);
+        }
+        if (_gif) lv_obj_move_background(_gif);
         if (!_visible) { lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN); _visible = true; }
         return;
     }

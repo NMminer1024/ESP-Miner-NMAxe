@@ -2,6 +2,8 @@
 #include <TFT_eSPI.h>
 #include <SPIFFS.h>
 #include <FS.h>
+#include <esp_heap_caps.h>
+#include <cstring>
 #include "../../utils/logger/logger.h"
 #include "../touch/ft6206.h"
 #include "../../ui/ui_manager.h"
@@ -17,6 +19,10 @@ static BoardSpecConfig* s_spec = nullptr;
 // ── Touch state ─────────────────────────────────────────────────────────────
 static FT6206Class*     s_touch      = nullptr;
 static PreferenceState* s_touch_pref = nullptr;
+
+// RAM-backed LVGL filesystem state for playing the screensaver GIF from PSRAM.
+static uint8_t* s_gif_ram_buf = nullptr;
+static size_t   s_gif_ram_size = 0;
 
 uint16_t tft_screen_width()  { return SCREEN_WIDTH; }
 uint16_t tft_screen_height() { return SCREEN_HEIGHT; }
@@ -195,4 +201,91 @@ void lvgl_fs_spiffs_register() {
     };
     lv_fs_drv_register(&spiffs_drv);
     LOG_I("LVGL SPIFFS FS driver registered (letter='S')");
+}
+
+void lvgl_fs_mem_register() {
+    static lv_fs_drv_t ram_drv;
+    static bool registered = false;
+    if (registered) return;
+
+    lv_fs_drv_init(&ram_drv);
+    ram_drv.letter = 'M';
+    ram_drv.open_cb = +[](lv_fs_drv_t*, const char*, lv_fs_mode_t) -> void* {
+        if (!s_gif_ram_buf || s_gif_ram_size == 0) return nullptr;
+        return new size_t(0);
+    };
+    ram_drv.close_cb = +[](lv_fs_drv_t*, void* fp) -> lv_fs_res_t {
+        size_t* pos = static_cast<size_t*>(fp);
+        delete pos;
+        return LV_FS_RES_OK;
+    };
+    ram_drv.read_cb = +[](lv_fs_drv_t*, void* fp, void* buf, uint32_t btr, uint32_t* br) -> lv_fs_res_t {
+        size_t* pos = static_cast<size_t*>(fp);
+        uint32_t avail = (s_gif_ram_size > *pos) ? (uint32_t)(s_gif_ram_size - *pos) : 0u;
+        *br = (btr < avail) ? btr : avail;
+        if (*br) memcpy(buf, s_gif_ram_buf + *pos, *br);
+        *pos += *br;
+        return LV_FS_RES_OK;
+    };
+    ram_drv.seek_cb = +[](lv_fs_drv_t*, void* fp, uint32_t pos, lv_fs_whence_t whence) -> lv_fs_res_t {
+        size_t* cur = static_cast<size_t*>(fp);
+        if (whence == LV_FS_SEEK_SET) *cur = pos;
+        else if (whence == LV_FS_SEEK_CUR) *cur += pos;
+        else if (whence == LV_FS_SEEK_END) *cur = (size_t)((int32_t)s_gif_ram_size + (int32_t)pos);
+        return LV_FS_RES_OK;
+    };
+    ram_drv.tell_cb = +[](lv_fs_drv_t*, void* fp, uint32_t* pos_p) -> lv_fs_res_t {
+        *pos_p = (uint32_t)(*static_cast<size_t*>(fp));
+        return LV_FS_RES_OK;
+    };
+    lv_fs_drv_register(&ram_drv);
+    registered = true;
+    LOG_I("LVGL memory FS driver registered (letter='M')");
+}
+
+void screensaver_gif_release_psram() {
+    if (s_gif_ram_buf) {
+        heap_caps_free(s_gif_ram_buf);
+        s_gif_ram_buf = nullptr;
+    }
+    s_gif_ram_size = 0;
+}
+
+bool screensaver_gif_load_to_psram(const char* spiffs_path) {
+    screensaver_gif_release_psram();
+    if (!spiffs_path) return false;
+
+    fs::File gf = SPIFFS.open(spiffs_path, "r");
+    if (!gf) {
+        LOG_W("[screensaver] open failed for %s, fallback to SPIFFS", spiffs_path);
+        return false;
+    }
+
+    s_gif_ram_size = gf.size();
+    if (s_gif_ram_size == 0) {
+        gf.close();
+        LOG_W("[screensaver] empty GIF file: %s", spiffs_path);
+        return false;
+    }
+
+    s_gif_ram_buf = (uint8_t*)heap_caps_malloc(s_gif_ram_size, MALLOC_CAP_SPIRAM);
+    if (!s_gif_ram_buf) {
+        s_gif_ram_size = 0;
+        gf.close();
+        LOG_W("[screensaver] PSRAM alloc failed, fallback to SPIFFS");
+        return false;
+    }
+
+    size_t read_bytes = gf.read(s_gif_ram_buf, s_gif_ram_size);
+    gf.close();
+    if (read_bytes != s_gif_ram_size) {
+        LOG_W("[screensaver] GIF read short: %u/%u bytes, fallback to SPIFFS",
+              (unsigned)read_bytes, (unsigned)s_gif_ram_size);
+        screensaver_gif_release_psram();
+        return false;
+    }
+
+    LOG_I("[screensaver] GIF reloaded into PSRAM: %u bytes from %s",
+          (unsigned)s_gif_ram_size, spiffs_path);
+    return true;
 }

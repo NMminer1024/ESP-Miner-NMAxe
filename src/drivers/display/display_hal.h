@@ -33,6 +33,17 @@ bool touch_drv_register(PreferenceState* pref, uint8_t threshold = 50);
 // widgets such as lv_gif can open "S:<name>" from SPIFFS (screensaver GIF).
 void lvgl_fs_spiffs_register();
 
+// Register the RAM-backed LVGL filesystem driver (drive letter 'M') used to
+// play a screensaver GIF directly from PSRAM when available.
+void lvgl_fs_mem_register();
+
+// Reload a screensaver GIF into PSRAM from SPIFFS. Returns true on success;
+// callers can then use "M:screensaver.gif" as the lv_gif source.
+bool screensaver_gif_load_to_psram(const char* spiffs_path);
+
+// Free the cached PSRAM screensaver GIF buffer, if any.
+void screensaver_gif_release_psram();
+
 // Post-rotation logical resolution (valid after tft_init()).
 uint16_t tft_screen_width();
 uint16_t tft_screen_height();

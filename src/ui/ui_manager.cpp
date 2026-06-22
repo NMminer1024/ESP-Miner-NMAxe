@@ -144,8 +144,12 @@ void UIManager::render_update() {
         lv_disp_trig_activity(nullptr);   // reset LVGL inactivity timer (screensaver)
     }
 
-    // 2. Refresh current page
-    if (_current < _pages.size() && _pages[_current]) {
+    const bool screensaver_active = _sys_evt &&
+        ((xEventGroupGetBits(_sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0);
+
+    // 2. Refresh current page. Skip underlying page work while screensaver is active
+    // so LVGL can spend the frame budget advancing the GIF.
+    if (!screensaver_active && _current < _pages.size() && _pages[_current]) {
         _pages[_current]->update();
     }
 

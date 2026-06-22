@@ -1133,6 +1133,7 @@ bool MinerApp::_ui_init() {
     ui_drv_register(w, h);
     touch_drv_register(&_pref, 50);   // enables tileview swipe nav (no-op if absent)
     lvgl_fs_spiffs_register();        // 'S' drive for lv_gif screensaver
+    lvgl_fs_mem_register();           // 'M' drive for lv_gif screensaver cached in PSRAM
     images_init(w, h);                // set bg/image descriptor dimensions
     UIManager::instance().init(w, h);
     UIManager::instance().set_sys_evt(_sys->sys_evt);
