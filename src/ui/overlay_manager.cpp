@@ -497,14 +497,14 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
         lv_obj_set_pos(_lb_aux, 0, 10);
 
         lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_width(_lb_aux2, is_small ? LV_PCT(88) : LV_PCT(92));
+        lv_obj_set_width(_lb_aux2, is_small ? LV_PCT(76) : LV_PCT(92));
         lv_obj_set_style_text_font(_lb_aux2, is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_color(_lb_aux2, lv_color_hex(0xFFFFFF), 0);
         lv_obj_set_style_text_align(_lb_aux2, LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_WRAP);
         lv_label_set_text(_lb_aux2, "Do not power off during update.");
-        lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, is_small ? 46 : 36);
-        _show_footer_ip(is_small ? 112 : 206);
+        lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, is_small ? 38 : 36);
+        _show_footer_ip(is_small ? 118 : 206);
 
         if (!_visible) {
             lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -531,7 +531,7 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
     if (label_x > max_x) label_x = max_x;
     lv_obj_set_pos(_lb_aux, label_x, bar_y + (is_small ? 10 : 12));
     lv_obj_move_foreground(_lb_aux);
-    _show_footer_ip(is_small ? 112 : 206);
+    _show_footer_ip(is_small ? 118 : 206);
 
     _ota_last_update = now;
 }
