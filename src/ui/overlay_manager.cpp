@@ -545,6 +545,9 @@ void OverlayManager::_hide() {
     _ota_dismiss_at = 0;
     _ota_overlay_active = false;
     _ota_rebooting = false;
+    _screensaver_fading = false;
+    _screensaver_fade_start = 0;
+    lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
 }
@@ -770,6 +773,10 @@ void OverlayManager::update() {
     // ── Priority 4: screensaver (aphorism quote, non-black mode) ──
     if ((bits & SYS_EVENT_SCREEN_SAVER_TRIGGERED) &&
         _ctx.saver_mode && *_ctx.saver_mode != 1) {
+        _screensaver_fading = false;
+        _screensaver_fade_start = 0;
+        lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
+
         // GIF background if a screensaver GIF is present in SPIFFS, else quote-only.
         bool gif_ok = false;
         if (_ctx.gif_path && SPIFFS.exists(_ctx.gif_path)) {
@@ -822,6 +829,23 @@ void OverlayManager::update() {
         return;
     }
     _aph_have = false;   // reset so the next screensaver entry pops a fresh quote
+
+    if (_visible && (_gif || _gif_shown)) {
+        if (!_screensaver_fading) {
+            _screensaver_fading = true;
+            _screensaver_fade_start = now;
+            lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
+        }
+
+        uint32_t elapsed = now - _screensaver_fade_start;
+        if (elapsed >= 1000) {
+            _hide();
+        } else {
+            lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - ((uint32_t)LV_OPA_COVER * elapsed / 1000));
+            lv_obj_set_style_opa(_panel, opa, LV_PART_MAIN);
+        }
+        return;
+    }
 
     _hide();
 }

@@ -65,10 +65,12 @@ private:
     lv_obj_t*  _gif = nullptr;     // lazy lv_gif for the screensaver (mode 0)
     bool       _gif_shown = false;
     bool       _visible = false;
+    bool       _screensaver_fading = false;
     bool       _ota_overlay_active = false;
     bool       _ota_rebooting = false;
     uint32_t   _last_ms = 0;
     uint32_t   _find_start = 0;   // find-me blink start (0 = inactive)
+    uint32_t   _screensaver_fade_start = 0;
     uint32_t   _ota_dismiss_at = 0;
     uint32_t   _ota_last_update = 0;
     EventBits_t _fault_event = 0;
