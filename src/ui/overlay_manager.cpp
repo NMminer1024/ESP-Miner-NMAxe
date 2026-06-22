@@ -153,7 +153,7 @@ void OverlayManager::_show_footer_ip(lv_coord_t y, bool large_font) {
 
     lv_obj_clear_flag(_bm_ip, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_width(_bm_ip, LV_HOR_RES);
-    lv_obj_set_style_text_font(_bm_ip, large_font ? &Inconsolata_22 : (LV_VER_RES <= 135 ? &Inconsolata_14 : &Inconsolata_16), 0);
+    lv_obj_set_style_text_font(_bm_ip, large_font ? &Inconsolata_26 : (LV_VER_RES <= 135 ? &Inconsolata_16 : &Inconsolata_18), 0);
     lv_obj_set_style_text_color(_bm_ip, lv_color_hex(0x4ADE80), 0);
     lv_obj_set_style_text_align(_bm_ip, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(_bm_ip, LV_LABEL_LONG_CLIP);
@@ -493,7 +493,7 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
         lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_width(_lb_aux, LV_SIZE_CONTENT);
         lv_obj_set_style_text_font(_lb_aux, is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0x4ADE80), 0);
         lv_obj_set_pos(_lb_aux, 0, 10);
 
         lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
@@ -503,8 +503,8 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
         lv_obj_set_style_text_align(_lb_aux2, LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_WRAP);
         lv_label_set_text(_lb_aux2, "Do not power off during update.");
-        lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, is_small ? 38 : 28);
-        _show_footer_ip(is_small ? 114 : 212);
+        lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, is_small ? 46 : 36);
+        _show_footer_ip(is_small ? 112 : 206);
 
         if (!_visible) {
             lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -529,9 +529,9 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
     lv_coord_t max_x = bar_x + bar_w - label_w;
     if (label_x < min_x) label_x = min_x;
     if (label_x > max_x) label_x = max_x;
-    lv_obj_set_pos(_lb_aux, label_x, bar_y + (is_small ? 8 : 10));
+    lv_obj_set_pos(_lb_aux, label_x, bar_y + (is_small ? 10 : 12));
     lv_obj_move_foreground(_lb_aux);
-    _show_footer_ip(is_small ? 114 : 212);
+    _show_footer_ip(is_small ? 112 : 206);
 
     _ota_last_update = now;
 }
@@ -549,25 +549,28 @@ void OverlayManager::_hide() {
 
 void OverlayManager::_show_fault_overlay(bool is_oc) {
     if (!_panel) return;
+    const bool is_small = LV_VER_RES <= 135;
     _reset_layout();
     _gif_hide();
     _fault_event = is_oc ? SYS_EVENT_POWER_OC_FAULT : SYS_EVENT_POWER_OT_FAULT;
 
     lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
+    lv_obj_set_style_text_font(_lb_title, is_small ? &lv_font_montserrat_16 : &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(_lb_title, lv_color_hex(is_oc ? 0xFF5252 : 0xFF6D00), 0);
     lv_label_set_text(_lb_title, is_oc ? LV_SYMBOL_WARNING " Overcurrent Fault"
                                        : LV_SYMBOL_WARNING " Overtemp Fault");
+    lv_obj_align(_lb_title, LV_ALIGN_TOP_MID, 0, is_small ? 8 : 12);
+    lv_obj_set_width(_lb_body, is_small ? LV_PCT(92) : LV_PCT(88));
+    lv_obj_set_style_text_font(_lb_body, is_small ? &lv_font_montserrat_14 : &lv_font_montserrat_16, 0);
     lv_label_set_text(_lb_body,
         is_oc ? "Reset freq & voltage to defaults,\nthen reboot?"
               : "ASIC powered down.\nCheck cooling & lower OC settings,\nthen restart.");
-    lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, -8);
+    lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, is_small ? -12 : -18);
     lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
 
     if (_btn_yes == nullptr) {
         _btn_yes = lv_btn_create(_panel);
-        lv_obj_set_size(_btn_yes, (LV_HOR_RES - 50) / 2, 32);
-        lv_obj_align(_btn_yes, LV_ALIGN_BOTTOM_LEFT, 20, -8);
         lv_obj_add_event_cb(_btn_yes, _fault_action_yes_cb, LV_EVENT_CLICKED, this);
         lv_obj_t* lb = lv_label_create(_btn_yes);
         lv_obj_set_style_text_font(lb, &lv_font_montserrat_14, LV_PART_MAIN);
@@ -575,8 +578,6 @@ void OverlayManager::_show_fault_overlay(bool is_oc) {
     }
     if (_btn_no == nullptr) {
         _btn_no = lv_btn_create(_panel);
-        lv_obj_set_size(_btn_no, (LV_HOR_RES - 50) / 2, 32);
-        lv_obj_align(_btn_no, LV_ALIGN_BOTTOM_RIGHT, -20, -8);
         lv_obj_set_style_bg_color(_btn_no, lv_color_hex(0x424242), LV_PART_MAIN);
         lv_obj_set_style_bg_opa(_btn_no, LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_set_style_border_width(_btn_no, 0, LV_PART_MAIN);
@@ -587,13 +588,25 @@ void OverlayManager::_show_fault_overlay(bool is_oc) {
         lv_obj_center(lb);
     }
 
+    const lv_coord_t btn_h = is_small ? 28 : 34;
+    const lv_coord_t btn_gap = is_small ? 8 : 12;
+    const lv_coord_t btn_margin_x = is_small ? 10 : 18;
+    const lv_coord_t btn_y = is_small ? -26 : -36;
+    const lv_coord_t btn_w = (LV_HOR_RES - btn_margin_x * 2 - btn_gap) / 2;
+    lv_obj_set_size(_btn_yes, btn_w, btn_h);
+    lv_obj_set_size(_btn_no, btn_w, btn_h);
+    lv_obj_align(_btn_yes, LV_ALIGN_BOTTOM_LEFT, btn_margin_x, btn_y);
+    lv_obj_align(_btn_no, LV_ALIGN_BOTTOM_RIGHT, -btn_margin_x, btn_y);
+
     lv_obj_set_style_bg_color(_btn_yes, lv_color_hex(is_oc ? 0xD32F2F : 0xFF6D00), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(_btn_yes, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_width(_btn_yes, 0, LV_PART_MAIN);
     lv_label_set_text(lv_obj_get_child(_btn_yes, 0), is_oc ? "Reset & Reboot" : "Restart");
+    lv_obj_set_style_text_font(lv_obj_get_child(_btn_yes, 0), is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(lv_obj_get_child(_btn_no, 0), is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
     lv_obj_clear_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(_btn_no, LV_OBJ_FLAG_HIDDEN);
-    _show_footer_ip(LV_VER_RES <= 135 ? 114 : 212);
+    _show_footer_ip(is_small ? 114 : 214);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
