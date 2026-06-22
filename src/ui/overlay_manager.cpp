@@ -7,9 +7,10 @@
 #include "../utils/reboot_log/reboot_log.h"
 #include "assets/fonts.h"
 #include <SPIFFS.h>
+#include <cstring>
 
 namespace {
-constexpr lv_opa_t kOverlayBgOpa = LV_OPA_70;
+constexpr lv_opa_t kOverlayBgOpa = LV_OPA_80;
 }
 
 OverlayManager& OverlayManager::instance() {
@@ -267,7 +268,7 @@ void OverlayManager::_show_benchmark_overlay() {
     const MinerApp& app = MinerApp::instance();
     const uint32_t now = millis();
     const bool first_build = !_visible || lv_obj_has_flag(_lb_title, LV_OBJ_FLAG_HIDDEN) ||
-                             lv_strcmp(lv_label_get_text(_lb_title), "[ BENCHMARK ]") != 0;
+                             std::strcmp(lv_label_get_text(_lb_title), "[ BENCHMARK ]") != 0;
     static uint32_t last_bm_ms = 0;
     if (_visible && last_bm_ms != 0 && (now - last_bm_ms < 1000)) {
         return;
