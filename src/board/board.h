@@ -39,12 +39,12 @@
 #define NM_MODEL_SELECT_PIN2                       39 // Default LOW on Axe and Gamma, QAxe++ default HIGH.
 
 typedef enum {
-    NMAXE                   = 0b110,
-    NMAXE_GAMMA             = 0b010,
-    NMQAXE_PLUS_PLUS        = 0b101,
-    NMQAXE_PLUS_PLUS_REV61  = 0b111,
-    NMQAXE_PLUS_PLUS_REV81  = 0b100,
-    BOARD_UNKNOWN           = 0b000
+    NMAXE                   = 0b110, // BM1366 x 1
+    NMAXE_GAMMA             = 0b010, // BM1370 x 1
+    NMQAXE_PLUS_PLUS        = 0b101, // BM1370 x 4, 2 phase
+    NMQAXE_PLUS_PLUS_REV61  = 0b111, // BM1370 x 4, 3 phase
+    NMQAXE_PLUS_PLUS_REV81  = 0b100, // BM1373 x 4, 3 phase
+    BOARD_UNKNOWN           = 0b000  
 } BoardModelType;
 
 typedef struct{

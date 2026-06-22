@@ -617,7 +617,7 @@ BoardSpecConfig get_board_config(BoardModelType model) {
                     {"1025 mV",           1025},
                     {"1050 mV",           1050},
                 };
-            config.create_power_instance     = create_qaxepp_4ph_power_instance; // 4-phase
+            config.create_power_instance     = create_qaxepp_3ph_power_instance; // 3-phase
             config.setup_temp_hal = [](AxePowerHal* pwr) {
                 tps53647_register_vcore_temp_hal(static_cast<TPS53647Class*>(pwr));
                 tmp102_register_asic_temp_hal();
