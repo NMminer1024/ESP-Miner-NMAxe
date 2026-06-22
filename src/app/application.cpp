@@ -1,6 +1,7 @@
 ﻿#include "application.h"
 
 #include "lvgl.h"
+#include <freertos/task.h>
 #include "system_events.h"
 #include "../thread/thread_entry.h"
 #include "../nvs/nvs_config.h"
@@ -510,21 +511,35 @@ void MinerApp::print_stack_hwm() const {
     if (millis() - last_print_ms < 3000) return;
     last_print_ms = millis();
 
+    UBaseType_t live_task_count = uxTaskGetNumberOfTasks();
+    if (live_task_count == 0) return;
+
+    std::vector<TaskStatus_t> live_tasks(live_task_count);
+    UBaseType_t snapshot_count = uxTaskGetSystemState(live_tasks.data(), live_task_count, nullptr);
+    if (snapshot_count == 0) return;
+
     LOG_W("=========== Stack High Water Mark (in bytes) ===========");
     LOG_I("+-----------------+----------+------------+------------+");
     LOG_I("| Task Name       | HWM      | Total Stack| Optimizable|");
     LOG_I("+-----------------+----------+------------+------------+");
     for (const auto& t : _tasks) {
         if (t.handle == nullptr) continue;
-        eTaskState state = eTaskGetState(t.handle);
-        if (state == eDeleted) continue;
-        char* taskName = pcTaskGetName(t.handle);
-        if (taskName == NULL || taskName[0] == '\0') continue;
-        UBaseType_t hwm = uxTaskGetStackHighWaterMark(t.handle);
+
+        const TaskStatus_t* live = nullptr;
+        for (UBaseType_t i = 0; i < snapshot_count; ++i) {
+            if (live_tasks[i].xHandle == t.handle) {
+                live = &live_tasks[i];
+                break;
+            }
+        }
+        if (live == nullptr) continue;
+        if (live->pcTaskName == nullptr || live->pcTaskName[0] == '\0') continue;
+
+        UBaseType_t hwm = live->usStackHighWaterMark;
         uint32_t total = t.stack_bytes;
         uint32_t optimizable = (hwm > 512) ? (hwm - 512) : 0;
         LOG_I("| %-15s | %8u | %10u | %10u |",
-              taskName, (unsigned)hwm, (unsigned)total, (unsigned)optimizable);
+              live->pcTaskName, (unsigned)hwm, (unsigned)total, (unsigned)optimizable);
     }
     LOG_I("+-----------------+----------+------------+------------+");
     LOG_W("Note: Optimizable = HWM - 512 (keeping 512 bytes safety buffer)");
