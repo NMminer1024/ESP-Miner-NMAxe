@@ -33,10 +33,16 @@ void PageConfig240x135::_create_dynamic(lv_obj_t* parent) {
     lv_obj_align(_lb_logo, LV_ALIGN_TOP_LEFT, 35, 0);
     lv_obj_add_flag(_lb_logo, LV_OBJ_FLAG_EVENT_BUBBLE);
 
+    lv_coord_t version_w = lv_txt_get_width(
+        BOARD_CURRENT_FW_VERSION,
+        strlen(BOARD_CURRENT_FW_VERSION),
+        &lv_font_montserrat_16,
+        0,
+        LV_TEXT_FLAG_NONE);
     _lb_version = lv_label_create(parent);
-    lv_obj_set_width(_lb_version, 120);
+    lv_obj_set_width(_lb_version, version_w);
     lv_label_set_text(_lb_version, BOARD_CURRENT_FW_VERSION);
-    lv_obj_set_style_text_font(_lb_version, &lv_font_montserrat_16, LV_PART_MAIN);
+    lv_obj_set_style_text_font(_lb_version, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_set_style_text_color(_lb_version, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
     lv_label_set_long_mode(_lb_version, LV_LABEL_LONG_DOT);
     lv_obj_align(_lb_version, LV_ALIGN_TOP_MID, 70, 0);

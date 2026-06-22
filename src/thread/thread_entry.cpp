@@ -23,6 +23,7 @@
 #include "../app/aphorism_ctx.h"
 #include "../web/web_ctx.h"
 #include "../web/http_server.h"
+#include "../ui/ui_manager.h"
 #include "../web/recovery_page.h"
 #include "../nvs/nvs_config.h"
 #include <nvs.h>
@@ -1706,15 +1707,28 @@ void button_thread_entry(void* args) {
             if (no_page_switch) return;
             if (c->on_prev_page) c->on_prev_page();
         };
-        auto long_press_wrapper = [](void* param) {
+        auto long_press_start_wrapper = [](void* param) {
             ButtonCtx* c = static_cast<ButtonCtx*>(param);
-            xSemaphoreGive(c->force_config_xsem);
+            xEventGroupClearBits(c->sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+                                 SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            if (c->on_activity) c->on_activity();
+            UIManager::instance().start_setup_countdown();
+        };
+        auto long_press_stop_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            if (c->on_activity) c->on_activity();
+            UIManager::instance().cancel_setup_countdown();
+        };
+        auto during_long_press_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            if (c->on_activity) c->on_activity();
+            UIManager::instance().tick_setup_countdown();
         };
         boot_btn->attachClick(click_wrapper, ctx);
         boot_btn->attachDoubleClick(double_click_wrapper, ctx);
-        boot_btn->attachLongPressStart(long_press_wrapper, ctx);
-        boot_btn->attachLongPressStop(NULL);
-        boot_btn->attachDuringLongPress(NULL);
+        boot_btn->attachLongPressStart(long_press_start_wrapper, ctx);
+        boot_btn->attachLongPressStop(long_press_stop_wrapper, ctx);
+        boot_btn->attachDuringLongPress(during_long_press_wrapper, ctx);
     }
 
     if (user_btn != nullptr) {
@@ -1732,15 +1746,36 @@ void button_thread_entry(void* args) {
                                  SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
             if (c->on_activity) c->on_activity();
         };
-        auto long_press_wrapper = [](void* param) {
+        auto long_press_start_wrapper = [](void* param) {
             ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            xEventGroupClearBits(c->sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+                                 SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+            if (c->on_activity) c->on_activity();
+            if (c->spec->name == BOARD_NMAXE_NAME || c->spec->name == BOARD_NMAXE_GAMMA_NAME) {
+                UIManager::instance().start_factory_countdown();
+                return;
+            }
             xSemaphoreGive(c->recover_factory_xsem);
+        };
+        auto long_press_stop_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            if (c->on_activity) c->on_activity();
+            if (c->spec->name == BOARD_NMAXE_NAME || c->spec->name == BOARD_NMAXE_GAMMA_NAME) {
+                UIManager::instance().cancel_factory_countdown();
+            }
+        };
+        auto during_long_press_wrapper = [](void* param) {
+            ButtonCtx* c = static_cast<ButtonCtx*>(param);
+            if (c->on_activity) c->on_activity();
+            if (c->spec->name == BOARD_NMAXE_NAME || c->spec->name == BOARD_NMAXE_GAMMA_NAME) {
+                UIManager::instance().tick_factory_countdown();
+            }
         };
         user_btn->attachClick(click_wrapper, ctx);
         user_btn->attachDoubleClick(double_click_wrapper, ctx);
-        user_btn->attachLongPressStart(long_press_wrapper, ctx);
-        user_btn->attachLongPressStop(NULL);
-        user_btn->attachDuringLongPress(NULL);
+        user_btn->attachLongPressStart(long_press_start_wrapper, ctx);
+        user_btn->attachLongPressStop(long_press_stop_wrapper, ctx);
+        user_btn->attachDuringLongPress(during_long_press_wrapper, ctx);
     }
 
     (void)OVERLAY_BITS; (void)CLEAR_BITS;

@@ -45,7 +45,10 @@ private:
 
     void _gif_hide();
     void _show_factory_overlay(int countdown_sec);
+    void _show_setup_overlay(int countdown_sec);
+    void _show_rebooting_overlay(const char* title);
     void _show_ota_overlay(uint32_t now);
+    void _show_benchmark_overlay();
 
     OverlayCtx _ctx;
     lv_obj_t*  _panel = nullptr;
@@ -56,10 +59,13 @@ private:
     lv_obj_t*  _btn_yes  = nullptr;
     lv_obj_t*  _btn_no   = nullptr;
     lv_obj_t*  _bar = nullptr;
+    lv_obj_t*  _bm_rows[7] = {nullptr};
+    lv_obj_t*  _bm_ip = nullptr;
     lv_obj_t*  _gif = nullptr;     // lazy lv_gif for the screensaver (mode 0)
     bool       _gif_shown = false;
     bool       _visible = false;
     bool       _ota_overlay_active = false;
+    bool       _ota_rebooting = false;
     uint32_t   _last_ms = 0;
     uint32_t   _find_start = 0;   // find-me blink start (0 = inactive)
     uint32_t   _ota_dismiss_at = 0;

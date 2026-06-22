@@ -2,7 +2,12 @@
 #define _LOGGER_H_
 
 #include <Arduino.h>
+#include <AsyncWebSocket.h>
 #include <cstring>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
+extern AsyncWebSocket webSocket;
 
 #define LOG_COLOR_ENABLE
 
@@ -25,6 +30,8 @@
 namespace dbg
 {
     extern char log_buffer[1024]; 
+    SemaphoreHandle_t logger_mutex();
+    void serial_print_locked(const char* text);
 
     /**
      * @brief Prints the hexadecimal representation of an array of bytes.
@@ -46,51 +53,6 @@ namespace dbg
     #define DBG_SECTION_NAME  "₿"
 
     /**
-     * @brief Macro to print the debug log header with the specified level name and color.
-     */
-
-    #ifdef LOG_COLOR_ENABLE
-        #define _DBG_LOG_HDR(new_line, lvl_name, color_n) \
-            do { \
-                if(new_line) { \
-                    Serial.printf("\033["#color_n"m" DBG_SECTION_NAME " "); \
-                } else { \
-                    Serial.printf("\033["#color_n"m"); \
-                } \
-            } while(0)
-    #else
-        #define _DBG_LOG_HDR(new_line, lvl_name, color_n) \
-            do { \
-                if(new_line) { \
-                    Serial.printf(DBG_SECTION_NAME " "); \
-                } else { \
-                    Serial.printf(""); \
-                } \
-            } while(0)
-    #endif
-
-
-    /**
-     * @brief Macro to print the debug log end with a new line.
-     */
-    
-    #ifdef LOG_COLOR_ENABLE
-        #define _DBG_LOG_X_END_NEWLINE             Serial.printf("\033[0m\r\n")
-    #else
-        #define _DBG_LOG_X_END_NEWLINE             Serial.printf("\r\n")
-    #endif
-
-    /**
-     * @brief Macro to print the debug log end without a new line.
-     */
-
-    #ifdef LOG_COLOR_ENABLE
-        #define _DBG_LOG_X_END_NONE                Serial.printf("\033[0m")
-    #else
-        #define _DBG_LOG_X_END_NONE                Serial.printf("")
-    #endif
-
-    /**
      * @brief Macro to print the debug log line with the specified level, color, format, and arguments.
      * 
      * @param auto_new_line Flag indicating whether to print a new line after the log line.
@@ -102,11 +64,10 @@ namespace dbg
     #define dbg_log_line(auto_new_line, lvl, color_n, fmt, ...) \
                             do \
                             { \
-                                _DBG_LOG_HDR(auto_new_line, lvl, color_n);\
                                 char log_buffer[1024]; \
                                 snprintf(log_buffer, sizeof(log_buffer), fmt, ##__VA_ARGS__); \
-                                Serial.print(log_buffer); \
                                 int content_len = strlen(log_buffer); \
+                                char serial_buffer[1120]; \
                                 if (content_len > 0 && content_len < 950) \
                                 { \
                                     if (auto_new_line) \
@@ -126,14 +87,15 @@ namespace dbg
                                         strcpy(log_buffer + prefix_len + content_len, "\033[0m"); \
                                     } \
                                 } \
-                                if (auto_new_line) \
-                                { \
-                                    _DBG_LOG_X_END_NEWLINE; \
-                                } \
                                 else \
                                 { \
-                                    _DBG_LOG_X_END_NONE; \
+                                    if (auto_new_line) snprintf(serial_buffer, sizeof(serial_buffer), "\033[" #color_n "m" DBG_SECTION_NAME " %s\033[0m\r\n", log_buffer); \
+                                    else               snprintf(serial_buffer, sizeof(serial_buffer), "\033[" #color_n "m%s\033[0m", log_buffer); \
+                                    strncpy(log_buffer, serial_buffer, sizeof(log_buffer) - 1); \
+                                    log_buffer[sizeof(log_buffer) - 1] = '\0'; \
                                 } \
+                                dbg::serial_print_locked(log_buffer); \
+                                webSocket.textAll(log_buffer); \
                             } \
                             while (0)
 

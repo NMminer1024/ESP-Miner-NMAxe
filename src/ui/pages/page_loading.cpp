@@ -108,13 +108,12 @@ void PageLoadingBase::_on_update() {
     lv_coord_t bar_y = lv_obj_get_y(_bar_progress);
     lv_coord_t bar_w = lv_obj_get_width(_bar_progress);
     lv_coord_t label_w = lv_obj_get_width(_lb_progress);
-    lv_coord_t label_h = lv_obj_get_height(_lb_progress);
     float display_percent = _display_progress / 100.0f;
     lv_coord_t label_x = bar_x + (lv_coord_t)(bar_w * display_percent) - label_w / 2;
     lv_coord_t min_x = bar_x - label_w / 2;
     lv_coord_t max_x = bar_x + bar_w - label_w / 2;
     if (label_x < min_x) label_x = min_x;
     if (label_x > max_x) label_x = max_x;
-    lv_obj_set_pos(_lb_progress, label_x, bar_y - label_h - 4);
+    lv_obj_set_pos(_lb_progress, label_x, bar_y + 10);
     lv_bar_set_value(_bar_progress, (int32_t)lroundf(_display_progress), LV_ANIM_OFF);
 }

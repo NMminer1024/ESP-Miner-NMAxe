@@ -141,6 +141,9 @@ void PageSettingBase::_slider_event_cb(lv_event_t* e) {
     }
     auto& app = MinerApp::instance();
     app.pref().screen.brightness = (uint8_t)lv_slider_get_value(lv_event_get_target(e));
+    if (app.brightness_update_xsem()) {
+        xSemaphoreGive(app.brightness_update_xsem());
+    }
 }
 
 void PageSettingBase::_checkbox_event_cb(lv_event_t* e) {
