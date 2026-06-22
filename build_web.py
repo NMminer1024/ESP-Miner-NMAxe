@@ -17,8 +17,6 @@ if not project_dir:
 
 def build_web_assets():
     web_src_dir = join(project_dir, "src", "web", "axe-os")
-    if not isfile(join(web_src_dir, "package.json")):
-        web_src_dir = join(project_dir, "legacy", "web", "axe-os")
     dist_dir = join(web_src_dir, "dist", "axe-os")
     data_dir = join(project_dir, "data")
 

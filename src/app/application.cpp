@@ -931,7 +931,7 @@ void MinerApp::_tick_thread_entry(void* args) {
             continue;
         }
         last_ui_ms = now;
-        app.print_stack_hwm();
+        // app.print_stack_hwm();
 
         if (app._minerStatus) {
             auto& m = AppState::instance().miner;
