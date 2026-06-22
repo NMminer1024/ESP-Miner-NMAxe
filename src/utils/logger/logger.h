@@ -29,9 +29,10 @@ extern AsyncWebSocket webSocket;
 
 namespace dbg
 {
-    extern char log_buffer[1024]; 
+    extern char log_buffer[1152];
     SemaphoreHandle_t logger_mutex();
     void serial_print_locked(const char* text);
+    void log_emit(bool auto_new_line, uint8_t color_n, const char* fmt, ...);
 
     /**
      * @brief Prints the hexadecimal representation of an array of bytes.
@@ -64,38 +65,7 @@ namespace dbg
     #define dbg_log_line(auto_new_line, lvl, color_n, fmt, ...) \
                             do \
                             { \
-                                char log_buffer[1024]; \
-                                snprintf(log_buffer, sizeof(log_buffer), fmt, ##__VA_ARGS__); \
-                                int content_len = strlen(log_buffer); \
-                                char serial_buffer[1120]; \
-                                if (content_len > 0 && content_len < 950) \
-                                { \
-                                    if (auto_new_line) \
-                                    { \
-                                        char prefix[] = "\033[" #color_n "m" DBG_SECTION_NAME " "; \
-                                        int prefix_len = strlen(prefix); \
-                                        memmove(log_buffer + prefix_len, log_buffer, content_len + 1); \
-                                        memcpy(log_buffer, prefix, prefix_len); \
-                                        strcpy(log_buffer + prefix_len + content_len, "\033[0m\r\n"); \
-                                    } \
-                                    else \
-                                    { \
-                                        char prefix[] = "\033[" #color_n "m"; \
-                                        int prefix_len = strlen(prefix); \
-                                        memmove(log_buffer + prefix_len, log_buffer, content_len + 1); \
-                                        memcpy(log_buffer, prefix, prefix_len); \
-                                        strcpy(log_buffer + prefix_len + content_len, "\033[0m"); \
-                                    } \
-                                } \
-                                else \
-                                { \
-                                    if (auto_new_line) snprintf(serial_buffer, sizeof(serial_buffer), "\033[" #color_n "m" DBG_SECTION_NAME " %s\033[0m\r\n", log_buffer); \
-                                    else               snprintf(serial_buffer, sizeof(serial_buffer), "\033[" #color_n "m%s\033[0m", log_buffer); \
-                                    strncpy(log_buffer, serial_buffer, sizeof(log_buffer) - 1); \
-                                    log_buffer[sizeof(log_buffer) - 1] = '\0'; \
-                                } \
-                                dbg::serial_print_locked(log_buffer); \
-                                webSocket.textAll(log_buffer); \
+                                dbg::log_emit((auto_new_line), (color_n), (fmt), ##__VA_ARGS__); \
                             } \
                             while (0)
 

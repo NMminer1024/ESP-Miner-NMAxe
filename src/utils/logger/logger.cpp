@@ -1,7 +1,10 @@
 
 #include "logger.h"
+#include <cstdarg>
 
 namespace dbg{
+
+char log_buffer[1152];
 
 SemaphoreHandle_t logger_mutex() {
     static SemaphoreHandle_t s_mutex = xSemaphoreCreateMutex();
@@ -19,6 +22,55 @@ void serial_print_locked(const char* text) {
         }
     }
     Serial.print(text);
+}
+
+void log_emit(bool auto_new_line, uint8_t color_n, const char* fmt, ...) {
+    SemaphoreHandle_t mutex = logger_mutex();
+    if (mutex != NULL && xSemaphoreTake(mutex, portMAX_DELAY) != pdTRUE) {
+        return;
+    }
+
+    char msg_buffer[512];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(msg_buffer, sizeof(msg_buffer), fmt, args);
+    va_end(args);
+
+    int content_len = strlen(msg_buffer);
+    if (content_len > 0 && content_len < 950) {
+        if (auto_new_line) {
+            char prefix[] = "\033[00m" DBG_SECTION_NAME " ";
+            prefix[3] = (char)('0' + (color_n / 10));
+            prefix[4] = (char)('0' + (color_n % 10));
+            int prefix_len = strlen(prefix);
+            memmove(log_buffer + prefix_len, msg_buffer, content_len + 1);
+            memcpy(log_buffer, prefix, prefix_len);
+            strcpy(log_buffer + prefix_len + content_len, "\033[0m\r\n");
+        } else {
+            char prefix[] = "\033[00m";
+            prefix[3] = (char)('0' + (color_n / 10));
+            prefix[4] = (char)('0' + (color_n % 10));
+            int prefix_len = strlen(prefix);
+            memmove(log_buffer + prefix_len, msg_buffer, content_len + 1);
+            memcpy(log_buffer, prefix, prefix_len);
+            strcpy(log_buffer + prefix_len + content_len, "\033[0m");
+        }
+    } else {
+        if (auto_new_line) {
+            snprintf(log_buffer, sizeof(log_buffer), "\033[%um" DBG_SECTION_NAME " %s\033[0m\r\n",
+                     (unsigned)color_n, msg_buffer);
+        } else {
+            snprintf(log_buffer, sizeof(log_buffer), "\033[%um%s\033[0m",
+                     (unsigned)color_n, msg_buffer);
+        }
+    }
+
+    Serial.print(log_buffer);
+    webSocket.textAll(log_buffer);
+
+    if (mutex != NULL) {
+        xSemaphoreGive(mutex);
+    }
 }
 
 /**
