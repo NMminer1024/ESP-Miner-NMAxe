@@ -507,7 +507,7 @@ void MinerApp::begin() {
 
 void MinerApp::print_stack_hwm() const {
     static uint32_t last_print_ms = 0;
-    if (millis() - last_print_ms < 10000) return;
+    if (millis() - last_print_ms < 3000) return;
     last_print_ms = millis();
 
     LOG_W("=========== Stack High Water Mark (in bytes) ===========");

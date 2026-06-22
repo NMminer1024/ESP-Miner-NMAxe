@@ -39,21 +39,11 @@ void log_emit(bool auto_new_line, uint8_t color_n, const char* fmt, ...) {
     int content_len = strlen(msg_buffer);
     if (content_len > 0 && content_len < 950) {
         if (auto_new_line) {
-            char prefix[] = "\033[00m" DBG_SECTION_NAME " ";
-            prefix[3] = (char)('0' + (color_n / 10));
-            prefix[4] = (char)('0' + (color_n % 10));
-            int prefix_len = strlen(prefix);
-            memmove(log_buffer + prefix_len, msg_buffer, content_len + 1);
-            memcpy(log_buffer, prefix, prefix_len);
-            strcpy(log_buffer + prefix_len + content_len, "\033[0m\r\n");
+            snprintf(log_buffer, sizeof(log_buffer), "\033[%um" DBG_SECTION_NAME " %s\033[0m\r\n",
+                     (unsigned)color_n, msg_buffer);
         } else {
-            char prefix[] = "\033[00m";
-            prefix[3] = (char)('0' + (color_n / 10));
-            prefix[4] = (char)('0' + (color_n % 10));
-            int prefix_len = strlen(prefix);
-            memmove(log_buffer + prefix_len, msg_buffer, content_len + 1);
-            memcpy(log_buffer, prefix, prefix_len);
-            strcpy(log_buffer + prefix_len + content_len, "\033[0m");
+            snprintf(log_buffer, sizeof(log_buffer), "\033[%um%s\033[0m",
+                     (unsigned)color_n, msg_buffer);
         }
     } else {
         if (auto_new_line) {
