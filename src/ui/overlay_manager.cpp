@@ -8,6 +8,10 @@
 #include "assets/fonts.h"
 #include <SPIFFS.h>
 
+namespace {
+constexpr lv_opa_t kOverlayBgOpa = LV_OPA_70;
+}
+
 OverlayManager& OverlayManager::instance() {
     static OverlayManager mgr;
     return mgr;
@@ -23,7 +27,7 @@ void OverlayManager::_build() {
     _panel = lv_obj_create(lv_layer_top());
     lv_obj_set_size(_panel, LV_PCT(100), LV_PCT(100));
     lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_bg_opa(_panel, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
     lv_obj_set_style_border_width(_panel, 0, 0);
     lv_obj_set_style_pad_all(_panel, 6, 0);
     lv_obj_clear_flag(_panel, LV_OBJ_FLAG_SCROLLABLE);
@@ -75,7 +79,7 @@ void OverlayManager::_build() {
 void OverlayManager::_reset_layout() {
     if (!_panel) return;
     lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_bg_opa(_panel, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
     lv_obj_set_style_pad_all(_panel, 6, 0);
 
     if (_lb_title) {
@@ -136,6 +140,7 @@ void OverlayManager::_show(uint32_t accent, const char* title, const String& bod
     if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
     _fault_event = 0;
     lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);  // normal dark bg
+    lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
     lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 8);
     lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_color(_lb_title, lv_color_hex(accent), 0);
@@ -156,7 +161,7 @@ void OverlayManager::_show_factory_overlay(int countdown_sec) {
     if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
     _fault_event = 0;
 
-    lv_obj_set_style_bg_opa(_panel, LV_OPA_90, 0);
+    lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
     lv_obj_add_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
 
@@ -191,7 +196,7 @@ void OverlayManager::_show_setup_overlay(int countdown_sec) {
     if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
     _fault_event = 0;
 
-    lv_obj_set_style_bg_opa(_panel, LV_OPA_90, 0);
+    lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
     lv_obj_add_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
 
@@ -226,7 +231,7 @@ void OverlayManager::_show_rebooting_overlay(const char* title) {
     if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
     _fault_event = 0;
 
-    lv_obj_set_style_bg_opa(_panel, LV_OPA_90, 0);
+    lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
     lv_obj_add_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
 
@@ -261,68 +266,72 @@ void OverlayManager::_show_benchmark_overlay() {
     const bool is_large = LV_HOR_RES >= 300;
     const MinerApp& app = MinerApp::instance();
     const uint32_t now = millis();
+    const bool first_build = !_visible || lv_obj_has_flag(_lb_title, LV_OBJ_FLAG_HIDDEN) ||
+                             lv_strcmp(lv_label_get_text(_lb_title), "[ BENCHMARK ]") != 0;
     static uint32_t last_bm_ms = 0;
     if (_visible && last_bm_ms != 0 && (now - last_bm_ms < 1000)) {
         return;
     }
     last_bm_ms = now;
 
-    _reset_layout();
-    _gif_hide();
-    if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
-    if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
-    _fault_event = 0;
+    if (first_build) {
+        _reset_layout();
+        _gif_hide();
+        if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
+        if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
+        _fault_event = 0;
 
-    lv_obj_set_style_bg_color(_panel, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(_panel, (lv_opa_t)242, 0);
-    lv_obj_set_style_pad_all(_panel, 0, 0);
+        lv_obj_set_style_bg_color(_panel, lv_color_black(), 0);
+        lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
+        lv_obj_set_style_pad_all(_panel, 0, 0);
 
-    lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_style_text_font(_lb_title, is_large ? &Inconsolata_22 : &Inconsolata_16, 0);
-    lv_obj_set_style_text_color(_lb_title, lv_color_hex(0x22D3EE), 0);
-    lv_obj_set_width(_lb_title, LV_HOR_RES);
-    lv_obj_set_style_text_align(_lb_title, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_pos(_lb_title, 0, is_large ? 4 : 2);
-    lv_label_set_text(_lb_title, "[ BENCHMARK ]");
+        lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_font(_lb_title, is_large ? &Inconsolata_22 : &Inconsolata_16, 0);
+        lv_obj_set_style_text_color(_lb_title, lv_color_hex(0x22D3EE), 0);
+        lv_obj_set_width(_lb_title, LV_HOR_RES);
+        lv_obj_set_style_text_align(_lb_title, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_pos(_lb_title, 0, is_large ? 4 : 2);
+        lv_label_set_text(_lb_title, "[ BENCHMARK ]");
 
-    lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
 
-    if (_bm_ip == nullptr) {
-        _bm_ip = lv_label_create(_panel);
-    }
-    lv_obj_clear_flag(_bm_ip, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_style_text_font(_bm_ip, is_large ? &Inconsolata_22 : &Inconsolata_16, 0);
-    lv_obj_set_style_text_color(_bm_ip, lv_color_hex(0x4ADE80), 0);
-    lv_obj_set_width(_bm_ip, LV_HOR_RES);
-    lv_obj_set_style_text_align(_bm_ip, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_pos(_bm_ip, 0, is_large ? 186 : 97);
-
-    const int row_count = is_large ? 7 : 4;
-    const int row_y_large[7] = {28, 50, 72, 94, 116, 138, 160};
-    const int row_y_small[4] = {21, 40, 59, 78};
-    for (int i = 0; i < row_count; i++) {
-        if (_bm_rows[i] == nullptr) {
-            _bm_rows[i] = lv_label_create(_panel);
+        if (_bm_ip == nullptr) {
+            _bm_ip = lv_label_create(_panel);
         }
-        lv_obj_clear_flag(_bm_rows[i], LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_style_text_font(_bm_rows[i], is_large ? &Inconsolata_18 : &Inconsolata_16, 0);
-        lv_obj_set_style_text_color(_bm_rows[i], lv_color_hex(0xFFFFFF), 0);
-        lv_obj_set_pos(_bm_rows[i], is_large ? 8 : 4, is_large ? row_y_large[i] : row_y_small[i]);
-    }
-    for (int i = row_count; i < 7; i++) {
-        if (_bm_rows[i]) lv_obj_add_flag(_bm_rows[i], LV_OBJ_FLAG_HIDDEN);
-    }
+        lv_obj_clear_flag(_bm_ip, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_font(_bm_ip, is_large ? &Inconsolata_22 : &Inconsolata_16, 0);
+        lv_obj_set_style_text_color(_bm_ip, lv_color_hex(0x4ADE80), 0);
+        lv_obj_set_width(_bm_ip, LV_HOR_RES);
+        lv_obj_set_style_text_align(_bm_ip, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_pos(_bm_ip, 0, is_large ? 186 : 97);
 
-    lv_obj_clear_flag(_bar, LV_OBJ_FLAG_HIDDEN);
-    lv_bar_set_range(_bar, 0, 100);
-    if (is_large) {
-        lv_obj_set_size(_bar, (lv_coord_t)(LV_HOR_RES - 24), 8);
-        lv_obj_set_pos(_bar, 12, 218);
-    } else {
-        lv_obj_set_size(_bar, (lv_coord_t)(LV_HOR_RES - 16), 8);
-        lv_obj_set_pos(_bar, 8, 118);
+        const int row_count = is_large ? 7 : 4;
+        const int row_y_large[7] = {28, 50, 72, 94, 116, 138, 160};
+        const int row_y_small[4] = {21, 40, 59, 78};
+        for (int i = 0; i < row_count; i++) {
+            if (_bm_rows[i] == nullptr) {
+                _bm_rows[i] = lv_label_create(_panel);
+            }
+            lv_obj_clear_flag(_bm_rows[i], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_style_text_font(_bm_rows[i], is_large ? &Inconsolata_18 : &Inconsolata_16, 0);
+            lv_obj_set_style_text_color(_bm_rows[i], lv_color_hex(0xFFFFFF), 0);
+            lv_obj_set_pos(_bm_rows[i], is_large ? 8 : 4, is_large ? row_y_large[i] : row_y_small[i]);
+        }
+        for (int i = row_count; i < 7; i++) {
+            if (_bm_rows[i]) lv_obj_add_flag(_bm_rows[i], LV_OBJ_FLAG_HIDDEN);
+        }
+
+        lv_obj_clear_flag(_bar, LV_OBJ_FLAG_HIDDEN);
+        lv_bar_set_range(_bar, 0, 100);
+        if (is_large) {
+            lv_obj_set_size(_bar, (lv_coord_t)(LV_HOR_RES - 24), 8);
+            lv_obj_set_pos(_bar, 12, 218);
+        } else {
+            lv_obj_set_size(_bar, (lv_coord_t)(LV_HOR_RES - 16), 8);
+            lv_obj_set_pos(_bar, 8, 118);
+        }
     }
 
     auto fmt_time = [](char* buf, size_t len, uint32_t s) {
@@ -387,7 +396,7 @@ void OverlayManager::_show_benchmark_overlay() {
 
     WifiState* wifi = app.wifi();
     lv_label_set_text(_bm_ip, wifi ? wifi->ip.toString().c_str() : "");
-    lv_bar_set_value(_bar, pct, LV_ANIM_ON);
+    lv_bar_set_value(_bar, pct, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(_bar, b.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA), LV_PART_INDICATOR);
 
     if (!_visible) {
@@ -428,7 +437,7 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
         _fault_event = 0;
         _ota_dismiss_at = 0;
 
-        lv_obj_set_style_bg_opa(_panel, LV_OPA_90, 0);
+        lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
         lv_obj_set_style_pad_all(_panel, 0, 0);
 
         lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
@@ -446,7 +455,7 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
         lv_obj_set_width(_lb_aux, LV_SIZE_CONTENT);
         lv_obj_set_style_text_font(_lb_aux, &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
-        lv_obj_align(_lb_aux, LV_ALIGN_LEFT_MID, 0, 0);
+        lv_obj_set_pos(_lb_aux, 0, 10);
 
         lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_width(_lb_aux2, LV_PCT(92));
@@ -466,21 +475,17 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
     }
 
     lv_label_set_text(_lb_title, _ctx.ota->filename.c_str());
-    lv_bar_set_value(_bar, _ctx.ota->progress, is_complete ? LV_ANIM_OFF : LV_ANIM_ON);
+    lv_bar_set_value(_bar, _ctx.ota->progress, is_complete ? LV_ANIM_OFF : LV_ANIM_OFF);
     lv_label_set_text_fmt(_lb_aux, "%d%%", _ctx.ota->progress);
-    lv_obj_update_layout(_panel);
+    lv_obj_update_layout(_lb_aux);
 
-    lv_area_t bar_coords;
-    lv_obj_get_coords(_bar, &bar_coords);
-    lv_area_t panel_coords;
-    lv_obj_get_coords(_panel, &panel_coords);
-    lv_coord_t bar_x = bar_coords.x1 - panel_coords.x1;
-    lv_coord_t bar_y = bar_coords.y1 - panel_coords.y1;
+    lv_coord_t bar_x = lv_obj_get_x(_bar);
+    lv_coord_t bar_y = lv_obj_get_y(_bar);
     lv_coord_t bar_w = lv_obj_get_width(_bar);
     lv_coord_t label_w = lv_obj_get_width(_lb_aux);
     lv_coord_t label_x = bar_x + (lv_coord_t)(bar_w * _ctx.ota->progress / 100.0f) - label_w / 2;
-    lv_coord_t min_x = bar_x - label_w / 2;
-    lv_coord_t max_x = bar_x + bar_w - label_w / 2;
+    lv_coord_t min_x = bar_x;
+    lv_coord_t max_x = bar_x + bar_w - label_w;
     if (label_x < min_x) label_x = min_x;
     if (label_x > max_x) label_x = max_x;
     lv_obj_set_pos(_lb_aux, label_x, bar_y + 10);
@@ -506,7 +511,7 @@ void OverlayManager::_show_fault_overlay(bool is_oc) {
     _fault_event = is_oc ? SYS_EVENT_POWER_OC_FAULT : SYS_EVENT_POWER_OT_FAULT;
 
     lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_bg_opa(_panel, LV_OPA_90, 0);
+    lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
     lv_obj_set_style_text_color(_lb_title, lv_color_hex(is_oc ? 0xFF5252 : 0xFF6D00), 0);
     lv_label_set_text(_lb_title, is_oc ? LV_SYMBOL_WARNING " Overcurrent Fault"
                                        : LV_SYMBOL_WARNING " Overtemp Fault");
@@ -725,7 +730,7 @@ void OverlayManager::update() {
         }
 
         lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
-        lv_obj_set_style_bg_opa(_panel, LV_OPA_COVER, 0);
+        lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
         lv_label_set_text(_lb_title, "");
         lv_label_set_text(_lb_body, body.c_str());
         lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x66BB6A), 0);
