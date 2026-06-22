@@ -61,17 +61,7 @@ public:
 
     // ── Touch long-press factory reset (primary path on boards w/o user btn) ──
     void set_recover_factory_xsem(SemaphoreHandle_t s) { _recover_factory_xsem = s; }
-    void set_force_config_xsem(SemaphoreHandle_t s) { _force_config_xsem = s; }
     int  factory_countdown() const { return _factory_cd; }   // <0 = inactive
-    int  setup_countdown() const { return _setup_cd; }       // <0 = inactive
-    bool factory_rebooting() const { return _factory_rebooting; }
-    bool setup_rebooting() const { return _setup_rebooting; }
-    void start_factory_countdown();
-    void cancel_factory_countdown();
-    void tick_factory_countdown();
-    void start_setup_countdown();
-    void cancel_setup_countdown();
-    void tick_setup_countdown();
 
 private:
     UIManager() = default;
@@ -118,18 +108,11 @@ private:
     static void _long_press_release_cb(lv_event_t* e);
 
     SemaphoreHandle_t _recover_factory_xsem = nullptr;
-    SemaphoreHandle_t _force_config_xsem = nullptr;
     volatile int      _factory_cd = -1;     // seconds remaining (<0 = inactive)
-    volatile int      _setup_cd = -1;       // seconds remaining (<0 = inactive)
     uint32_t          _lp_last_tick = 0;
-    uint32_t          _setup_last_tick = 0;
     bool              _touch_pressed = false;
     bool              _factory_hold_consumed = false;
     bool              _factory_hold_cancelled = false;
-    bool              _factory_rebooting = false;
-    bool              _setup_hold_active = false;
-    bool              _setup_hold_consumed = false;
-    bool              _setup_rebooting = false;
     uint32_t          _touch_press_start_ms = 0;
     lv_point_t        _touch_press_point = {0, 0};
 };

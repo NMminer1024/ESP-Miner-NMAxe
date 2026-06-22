@@ -3,24 +3,6 @@
 
 namespace dbg{
 
-SemaphoreHandle_t logger_mutex() {
-    static SemaphoreHandle_t s_mutex = xSemaphoreCreateMutex();
-    return s_mutex;
-}
-
-void serial_print_locked(const char* text) {
-    if (text == NULL) return;
-    SemaphoreHandle_t mutex = logger_mutex();
-    if (mutex != NULL) {
-        if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
-            Serial.print(text);
-            xSemaphoreGive(mutex);
-            return;
-        }
-    }
-    Serial.print(text);
-}
-
 /**
  * @brief Prints the hexadecimal representation of an array of bytes.
  * 

@@ -15,7 +15,6 @@ UIManager& UIManager::instance() {
 }
 
 static const int UI_FACTORY_HOLD_SEC = 10;
-static const int UI_SETUP_HOLD_SEC = 5;
 
 static bool s_is_runtime_nav_page(size_t idx) {
     return idx >= (size_t)UIPageId::MINER && idx <= (size_t)UIPageId::SETTING_SWARM;
@@ -67,10 +66,10 @@ static UIPage* s_pick_layouts(UIPageId id, uint16_t w, uint16_t h) {
 }
 
 // ============================================================================
-//  init() — create tileview + register all pages
+//  init() �� create tileview + register all pages
 // ============================================================================
 void UIManager::init(uint16_t w, uint16_t h) {
-    // 1. Create tileview
+    // ���� Create tileview ��������������������������������������������������������������������������������������������������
     _tileview = lv_tileview_create(lv_scr_act());
     lv_obj_set_size(_tileview, w, h);
     lv_obj_set_style_bg_color(_tileview, lv_color_hex(0x000000), 0);
@@ -86,7 +85,7 @@ void UIManager::init(uint16_t w, uint16_t h) {
     lv_obj_add_event_cb(_tileview, _long_press_release_cb,  LV_EVENT_RELEASED,            nullptr);
     lv_obj_add_event_cb(_tileview, _long_press_release_cb,  LV_EVENT_PRESS_LOST,          nullptr);
 
-    // 2. Register all 8 pages (matching original display.cpp page order)
+    // ���� Register all 8 pages (matching original display.cpp page order) ��
     // Tile layout: rows with horizontal swipe, columns for vertical grouping
     // 2D tile grid + per-page swipe directions — identical to legacy display.cpp:
     //   (col,row): LOADING(0,0) CONFIG(0,1) | MINER(1,0) DASHBOARD(1,1) HR_HEALTH(1,2)
@@ -105,7 +104,7 @@ void UIManager::init(uint16_t w, uint16_t h) {
 }
 
 // ============================================================================
-//  _register_page — create tile, call page->create(tile), store entry
+//  _register_page �� create tile, call page->create(tile), store entry
 // ============================================================================
 void UIManager::_register_page(UIPage* page, UIPageId id,
                                 uint8_t col, uint8_t row, lv_dir_t dir) {
@@ -123,10 +122,10 @@ void UIManager::_register_page(UIPage* page, UIPageId id,
 }
 
 // ============================================================================
-//  render_update() — sync active tile, refresh current page, drive LVGL
+//  render_update() �� sync active tile, refresh current page, drive LVGL
 // ============================================================================
 void UIManager::render_update() {
-    // 1. Consume cross-thread page requests
+    // ���� Consume cross-thread page requests ������������������������������������������������������������
     if (_goto_page_pending) {
         _goto_page_pending = false;
         goto_page((UIPageId)_goto_page_id);
@@ -144,12 +143,12 @@ void UIManager::render_update() {
         lv_disp_trig_activity(nullptr);   // reset LVGL inactivity timer (screensaver)
     }
 
-    // 2. Refresh current page
+    // ���� Refresh current page ����������������������������������������������������������������������������������������
     if (_current < _pages.size() && _pages[_current]) {
         _pages[_current]->update();
     }
 
-    // 3. Drive LVGL
+    // ���� Drive LVGL ������������������������������������������������������������������������������������������������������������
     lv_timer_handler();
 }
 
@@ -245,9 +244,7 @@ void UIManager::process_touch_sample(bool pressed, const lv_point_t* point) {
         _factory_hold_consumed = false;
         _factory_hold_cancelled = false;
         _touch_press_start_ms = 0;
-        if (!_factory_rebooting) {
-            _factory_cd = -1;
-        }
+        _factory_cd = -1;
         return;
     }
 
@@ -274,128 +271,32 @@ void UIManager::process_touch_sample(bool pressed, const lv_point_t* point) {
         if (_factory_hold_cancelled) return;
         if (now - _touch_press_start_ms < kLongPressStartMs) return;
         _factory_hold_consumed = true;
-        start_factory_countdown();
+        _factory_cd = UI_FACTORY_HOLD_SEC;
+        _lp_last_tick = now;
+        if (_tileview) {
+            lv_obj_clear_flag(_tileview, LV_OBJ_FLAG_SCROLLABLE);
+        }
+        if (_sys_evt != nullptr) {
+            xEventGroupClearBits(_sys_evt,
+                SYS_EVENT_MINER_BLOCK_HIT |
+                SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+                SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+        }
         return;
     }
 
     if (_factory_cd < 0) return;
     if (now - _lp_last_tick < kLongPressRepeatMs) return;
-    tick_factory_countdown();
-}
-
-void UIManager::start_factory_countdown() {
-    uint32_t now = millis();
-
-    _factory_rebooting = false;
-    _factory_cd = UI_FACTORY_HOLD_SEC;
     _lp_last_tick = now;
-
-    if (_tileview) {
-        lv_obj_clear_flag(_tileview, LV_OBJ_FLAG_SCROLLABLE);
-    }
-    if (_sys_evt != nullptr) {
-        xEventGroupClearBits(_sys_evt,
-            SYS_EVENT_MINER_BLOCK_HIT |
-            SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
-            SYS_EVENT_SCREEN_SAVER_TRIGGERED |
-            SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
-    }
-}
-
-void UIManager::cancel_factory_countdown() {
-    if (!_factory_rebooting) {
+    if (_factory_cd > 0) _factory_cd--;
+    if (_factory_cd <= 0) {
         _factory_cd = -1;
-    }
-
-    if (_tileview) {
-        lv_obj_add_flag(_tileview, LV_OBJ_FLAG_SCROLLABLE);
-    }
-}
-
-void UIManager::tick_factory_countdown() {
-    if (_factory_cd < 0 || _factory_rebooting) return;
-
-    uint32_t now = millis();
-    if (now - _lp_last_tick < 1000) return;
-
-    _lp_last_tick = now;
-    if (_factory_cd > 0) {
-        _factory_cd--;
-    }
-
-    if (_factory_cd > 0) {
-        return;
-    }
-
-    _factory_cd = -1;
-    _factory_rebooting = true;
-
-    if (_tileview) {
-        lv_obj_add_flag(_tileview, LV_OBJ_FLAG_SCROLLABLE);
-    }
-    if (_recover_factory_xsem) {
-        xSemaphoreGive(_recover_factory_xsem);
-    }
-}
-
-void UIManager::start_setup_countdown() {
-    uint32_t now = millis();
-
-    _setup_hold_active = true;
-    _setup_hold_consumed = false;
-    _setup_rebooting = false;
-    _setup_cd = UI_SETUP_HOLD_SEC;
-    _setup_last_tick = now;
-
-    if (_tileview) {
-        lv_obj_clear_flag(_tileview, LV_OBJ_FLAG_SCROLLABLE);
-    }
-    if (_sys_evt != nullptr) {
-        xEventGroupClearBits(_sys_evt,
-            SYS_EVENT_MINER_BLOCK_HIT |
-            SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
-            SYS_EVENT_SCREEN_SAVER_TRIGGERED |
-            SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
-    }
-}
-
-void UIManager::cancel_setup_countdown() {
-    _setup_hold_active = false;
-    _setup_hold_consumed = false;
-    if (!_setup_rebooting) {
-        _setup_cd = -1;
-    }
-
-    if (_tileview) {
-        lv_obj_add_flag(_tileview, LV_OBJ_FLAG_SCROLLABLE);
-    }
-}
-
-void UIManager::tick_setup_countdown() {
-    if (!_setup_hold_active || _setup_cd < 0) return;
-
-    uint32_t now = millis();
-    if (now - _setup_last_tick < 1000) return;
-
-    _setup_last_tick = now;
-    if (_setup_cd > 0) {
-        _setup_cd--;
-    }
-
-    if (_setup_cd > 0) {
-        return;
-    }
-
-    _setup_hold_active = false;
-    _setup_hold_consumed = true;
-    _setup_rebooting = true;
-    _setup_cd = -1;
-
-    if (_tileview) {
-        lv_obj_add_flag(_tileview, LV_OBJ_FLAG_SCROLLABLE);
-    }
-    if (_force_config_xsem) {
-        xSemaphoreGive(_force_config_xsem);
+        if (_tileview) {
+            lv_obj_add_flag(_tileview, LV_OBJ_FLAG_SCROLLABLE);
+        }
+        if (_recover_factory_xsem) {
+            xSemaphoreGive(_recover_factory_xsem);
+        }
     }
 }
 
