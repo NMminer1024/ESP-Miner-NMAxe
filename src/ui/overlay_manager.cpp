@@ -516,6 +516,7 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
 
     lv_label_set_text(_lb_title, _ctx.ota->filename.c_str());
     lv_bar_set_value(_bar, _ctx.ota->progress, is_complete ? LV_ANIM_OFF : LV_ANIM_OFF);
+    lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text_fmt(_lb_aux, "%d%%", _ctx.ota->progress);
     lv_obj_update_layout(_lb_aux);
 
@@ -529,6 +530,7 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
     if (label_x < min_x) label_x = min_x;
     if (label_x > max_x) label_x = max_x;
     lv_obj_set_pos(_lb_aux, label_x, bar_y + (is_small ? 8 : 10));
+    lv_obj_move_foreground(_lb_aux);
     _show_footer_ip(is_small ? 114 : 212);
 
     _ota_last_update = now;
