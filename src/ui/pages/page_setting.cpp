@@ -177,7 +177,7 @@ void PageSettingBase::_save_settings() {
     nvs_config_set_u8(NVS_CONFIG_AUTO_SCREEN, auto_roll ? 1 : 0);
 
     bool flip = lv_obj_has_state(_checkbox_flip, LV_STATE_CHECKED);
-    app.pref().screen.flip = flip;
+    bool flip_changed = (app.pref().screen.flip != flip);
     nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
 
     if (_dropdown_vcore) {
@@ -211,7 +211,9 @@ void PageSettingBase::_save_settings() {
         app.pref().screen.saver_timeout = tmo;
     }
 
-    _show_toast("Settings Saved!", 2000);
+    _show_toast(flip_changed ? "Settings Saved! Flip Screen applies after restart."
+                             : "Settings Saved!",
+                2500);
 }
 
 void PageSettingBase::_msgbox_save_cb(lv_event_t* e) {
@@ -256,7 +258,7 @@ void PageSettingBase::_button_event_cb(lv_event_t* e) {
                  "#7F8FA6 Frequency:# #00E5FF %s#\n"
                  "#7F8FA6 Vcore:# #00E5FF %s#\n"
                  "#7F8FA6 Screen Roll:# #00E5FF %s#\n"
-                 "#7F8FA6 Screen Flip:# #00E5FF %s#\n"
+                 "#7F8FA6 Screen Flip:# #00E5FF %s# #7F8FA6(restart)#\n"
                  "#7F8FA6 Screen Saver:# #00E5FF %s#",
                  brightness, freq_buf, vcore_buf,
                  auto_roll ? "ON" : "OFF",
