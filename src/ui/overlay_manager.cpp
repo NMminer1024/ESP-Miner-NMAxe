@@ -497,13 +497,13 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
         lv_obj_set_pos(_lb_aux, 0, 10);
 
         lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_width(_lb_aux2, is_small ? LV_PCT(76) : LV_PCT(92));
-        lv_obj_set_style_text_font(_lb_aux2, is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
+        lv_obj_set_width(_lb_aux2, is_small ? (LV_HOR_RES - 8) : LV_PCT(92));
+        lv_obj_set_style_text_font(_lb_aux2, is_small ? &lv_font_montserrat_14 : &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_color(_lb_aux2, lv_color_hex(0xFFFFFF), 0);
         lv_obj_set_style_text_align(_lb_aux2, LV_TEXT_ALIGN_CENTER, 0);
-        lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_WRAP);
-        lv_label_set_text(_lb_aux2, "Do not power off during update.");
-        lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, is_small ? 38 : 36);
+        lv_label_set_long_mode(_lb_aux2, is_small ? LV_LABEL_LONG_CLIP : LV_LABEL_LONG_WRAP);
+        lv_label_set_text(_lb_aux2, is_small ? "Keep power on" : "Do not power off during update.");
+        lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, is_small ? 34 : 50);
         _show_footer_ip(is_small ? 118 : 206);
 
         if (!_visible) {

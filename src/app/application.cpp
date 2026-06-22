@@ -416,14 +416,14 @@ void MinerApp::_begin_market(BootProgress& boot) {
 
     _create_task(market_thread_entry, "(market)", 1024 * 4, _market_ctx, TASK_PRIORITY_MARKET, 0);
 
-    static AphorismCtx aph_ctx;
-    _aphorism.mutex     = xSemaphoreCreateMutex();
-    aph_ctx.state       = &_aphorism;
-    aph_ctx.wifi_status = &_wifi->status;
-    aph_ctx.ota_running = &_ota.running;
-    _aphorism_ctx = &aph_ctx;
+    // static AphorismCtx aph_ctx;
+    // _aphorism.mutex     = xSemaphoreCreateMutex();
+    // aph_ctx.state       = &_aphorism;
+    // aph_ctx.wifi_status = &_wifi->status;
+    // aph_ctx.ota_running = &_ota.running;
+    // _aphorism_ctx = &aph_ctx;
 
-    _create_task(aphorism_thread_entry, "(aphorism)", 1024 * 6, _aphorism_ctx, TASK_PRIORITY_APHORISM, 0);
+    // _create_task(aphorism_thread_entry, "(aphorism)", 1024 * 6, _aphorism_ctx, TASK_PRIORITY_APHORISM, 0);
 }
 
 void MinerApp::_begin_miners(BootProgress& boot) {
