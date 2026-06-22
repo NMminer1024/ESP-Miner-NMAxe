@@ -49,6 +49,7 @@ private:
     void _show_rebooting_overlay(const char* title);
     void _show_ota_overlay(uint32_t now);
     void _show_benchmark_overlay();
+    void _show_footer_ip(lv_coord_t y, bool large_font = false);
 
     OverlayCtx _ctx;
     lv_obj_t*  _panel = nullptr;

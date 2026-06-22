@@ -133,6 +133,34 @@ void OverlayManager::_gif_hide() {
     _gif_shown = false;
 }
 
+void OverlayManager::_show_footer_ip(lv_coord_t y, bool large_font) {
+    if (!_panel) return;
+    if (_bm_ip == nullptr) {
+        _bm_ip = lv_label_create(_panel);
+    }
+
+    const MinerApp& app = MinerApp::instance();
+    WifiState* wifi = app.wifi();
+    String ip_text = (wifi && wifi->ip != IPAddress(0, 0, 0, 0))
+        ? wifi->ip.toString()
+        : String();
+
+    if (ip_text.isEmpty()) {
+        lv_label_set_text(_bm_ip, "");
+        lv_obj_add_flag(_bm_ip, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+
+    lv_obj_clear_flag(_bm_ip, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_width(_bm_ip, LV_HOR_RES);
+    lv_obj_set_style_text_font(_bm_ip, large_font ? &Inconsolata_22 : (LV_VER_RES <= 135 ? &Inconsolata_14 : &Inconsolata_16), 0);
+    lv_obj_set_style_text_color(_bm_ip, lv_color_hex(0x4ADE80), 0);
+    lv_obj_set_style_text_align(_bm_ip, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(_bm_ip, LV_LABEL_LONG_CLIP);
+    lv_label_set_text(_bm_ip, ip_text.c_str());
+    lv_obj_set_pos(_bm_ip, 0, y);
+}
+
 void OverlayManager::_show(uint32_t accent, const char* title, const String& body) {
     if (!_panel) return;
     _reset_layout();
@@ -147,6 +175,7 @@ void OverlayManager::_show(uint32_t accent, const char* title, const String& bod
     lv_obj_set_style_text_color(_lb_title, lv_color_hex(accent), 0);
     lv_label_set_text(_lb_title, title);
     lv_label_set_text(_lb_body, body.c_str());
+    _show_footer_ip(LV_VER_RES <= 135 ? 114 : 212);
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
         _visible = true;
@@ -183,6 +212,7 @@ void OverlayManager::_show_factory_overlay(int countdown_sec) {
     lv_label_set_long_mode(_lb_aux2, is_small ? LV_LABEL_LONG_WRAP : LV_LABEL_LONG_SCROLL);
     lv_label_set_text(_lb_aux2, reminder);
     lv_obj_align(_lb_aux2, LV_ALIGN_TOP_MID, 0, reminder_y);
+    _show_footer_ip(is_small ? 114 : 212);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -220,6 +250,7 @@ void OverlayManager::_show_setup_overlay(int countdown_sec) {
     lv_label_set_long_mode(_lb_aux2, is_small ? LV_LABEL_LONG_WRAP : LV_LABEL_LONG_SCROLL);
     lv_label_set_text(_lb_aux2, reminder);
     lv_obj_align(_lb_aux2, LV_ALIGN_TOP_MID, 0, reminder_y);
+    _show_footer_ip(is_small ? 114 : 212);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -259,6 +290,7 @@ void OverlayManager::_show_rebooting_overlay(const char* title) {
     lv_label_set_text(_lb_aux2, "rebooting...");
     lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_WRAP);
     lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, reboot_y);
+    _show_footer_ip(is_small ? 114 : 212);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -401,8 +433,7 @@ void OverlayManager::_show_benchmark_overlay() {
         lv_label_set_text(_bm_rows[3], buf);
     }
 
-    WifiState* wifi = app.wifi();
-    lv_label_set_text(_bm_ip, wifi ? wifi->ip.toString().c_str() : "");
+    _show_footer_ip(is_large ? 186 : 97, is_large);
     lv_bar_set_value(_bar, pct, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(_bar, b.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA), LV_PART_INDICATOR);
 
@@ -473,6 +504,7 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
         lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_WRAP);
         lv_label_set_text(_lb_aux2, "Do not power off during update.");
         lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, is_small ? 38 : 28);
+        _show_footer_ip(is_small ? 114 : 212);
 
         if (!_visible) {
             lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -497,6 +529,7 @@ void OverlayManager::_show_ota_overlay(uint32_t now) {
     if (label_x < min_x) label_x = min_x;
     if (label_x > max_x) label_x = max_x;
     lv_obj_set_pos(_lb_aux, label_x, bar_y + (is_small ? 8 : 10));
+    _show_footer_ip(is_small ? 114 : 212);
 
     _ota_last_update = now;
 }
@@ -558,6 +591,7 @@ void OverlayManager::_show_fault_overlay(bool is_oc) {
     lv_label_set_text(lv_obj_get_child(_btn_yes, 0), is_oc ? "Reset & Reboot" : "Restart");
     lv_obj_clear_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(_btn_no, LV_OBJ_FLAG_HIDDEN);
+    _show_footer_ip(LV_VER_RES <= 135 ? 114 : 212);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
