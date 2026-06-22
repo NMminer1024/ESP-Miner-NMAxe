@@ -613,7 +613,7 @@ void OverlayManager::_show_fault_overlay(bool is_oc) {
     lv_obj_set_style_border_color(_btn_no, lv_color_hex(0x475569), LV_PART_MAIN);
     lv_obj_set_style_shadow_width(_btn_no, is_small ? 0 : 14, LV_PART_MAIN);
     lv_obj_set_style_shadow_color(_btn_no, lv_color_hex(0x000000), LV_PART_MAIN);
-    lv_obj_set_style_shadow_opa(_btn_no, LV_OPA_35, LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(_btn_no, LV_OPA_30, LV_PART_MAIN);
     lv_label_set_text(lv_obj_get_child(_btn_yes, 0), is_oc ? "Reset & Reboot" : "Restart");
     lv_obj_set_style_text_font(lv_obj_get_child(_btn_yes, 0), is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_font(lv_obj_get_child(_btn_no, 0), is_small ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
@@ -621,7 +621,7 @@ void OverlayManager::_show_fault_overlay(bool is_oc) {
     lv_obj_set_style_text_color(lv_obj_get_child(_btn_no, 0), lv_color_hex(0xE5E7EB), 0);
     lv_obj_clear_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(_btn_no, LV_OBJ_FLAG_HIDDEN);
-    _show_footer_ip(is_small ? 114 : 220);
+    _show_footer_ip(is_small ? 114 : 210);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
