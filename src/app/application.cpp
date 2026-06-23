@@ -862,94 +862,7 @@ void MinerApp::_tick_thread_entry(void* args) {
             last_temp_ms = now;
         }
 
-        // ── Backlight brightness update (web/UI changes screen.brightness then
-        //     gives this semaphore). Apply immediately; ledcWrite is thread-safe.
-        if (app._brightness_update_xsem &&
-            xSemaphoreTake(app._brightness_update_xsem, 0) == pdTRUE) {
-            ss_active = false;   // brightness change implies user activity
-            tft_bl_ctrl(app._pref.screen.brightness, &app._spec);
-            lv_disp_trig_activity(nullptr);
-            xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
-            LOG_I("Backlight updated -> %u%%", app._pref.screen.brightness);
-        }
-
-        // Legacy event-driven backlight pulse. Keep this ahead of the normal
-        // screensaver/default brightness path so miner celebration events can
-        // continuously drive the backlight while their event bits stay active.
-        {
-            EventBits_t evt = app._sys ? xEventGroupGetBits(app._sys->sys_evt) : 0;
-            uint8_t base_bl = app._pref.screen.brightness ? app._pref.screen.brightness : 80;
-            if ((evt & SYS_EVENT_MINER_BLOCK_HIT) != 0) {
-                uint8_t pulse = (uint8_t)(100.0f * (1.0f + sinf(bl_wave)) / 2.0f);
-                tft_bl_ctrl(pulse, &app._spec);
-                bl_wave += 0.10f;
-            } else if ((evt & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) != 0) {
-                uint8_t pulse = (uint8_t)(100.0f * (1.0f + sinf(bl_wave)) / 2.0f);
-                tft_bl_ctrl(pulse, &app._spec);
-                bl_wave += 0.06f;
-            } else if ((evt & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) != 0) {
-                uint8_t pulse = (uint8_t)(100.0f * (1.0f + sinf(bl_wave)) / 2.0f);
-                tft_bl_ctrl(pulse, &app._spec);
-                bl_wave += 0.50f;
-            } else {
-                bl_wave = 0.0f;
-                if (app._ota.running) {
-                    tft_bl_ctrl(base_bl, &app._spec);
-                } else if ((evt & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0 &&
-                           app._pref.screen.saver_mode == 1) {
-                    tft_bl_ctrl(0, &app._spec);
-                } else {
-                    tft_bl_ctrl(base_bl, &app._spec);
-                }
-            }
-        }
-
-        // ── Screensaver: blank after idle (LVGL inactivity tracks touch; button &
-        //     web wakeups reset via lv_disp_trig_activity / clearing the bit). ──
-        if (app._ota.running) {
-            // Keep the screen lit during firmware update; treat as activity.
-            if (ss_active && (xEventGroupGetBits(app._sys->sys_evt) &
-                              (SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
-                               SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) == 0) {
-                tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
-                xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
-                ss_active = false;
-            }
-            lv_disp_trig_activity(nullptr);
-        } else if (app._pref.screen.saver_enable && app._pref.screen.saver_timeout > 0) {
-            uint32_t idle_ms = lv_disp_get_inactive_time(nullptr);
-            bool bit_set = (xEventGroupGetBits(app._sys->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
-            bool event_active = (xEventGroupGetBits(app._sys->sys_evt) &
-                (SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
-                 SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) != 0;
-            if (!ss_active) {
-                if (idle_ms > app._pref.screen.saver_timeout * 1000UL) {
-                    xEventGroupSetBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
-                    // mode 1 = black (blank backlight); mode 0 = keep lit for the
-                    // aphorism/quote screensaver rendered by the OverlayManager.
-                    if (!event_active) {
-                        if (app._pref.screen.saver_mode == 1) tft_bl_ctrl(0, &app._spec);
-                        else tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
-                    }
-                    ss_active = true;
-                }
-            } else if (idle_ms < 1000 || !bit_set) {   // touch activity or external wakeup
-                xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
-                if (!event_active) {
-                    tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
-                }
-                lv_disp_trig_activity(nullptr);
-                ss_active = false;
-            }
-        } else if (ss_active) {                        // saver disabled at runtime
-            if ((xEventGroupGetBits(app._sys->sys_evt) &
-                 (SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
-                  SYS_EVENT_FIND_NEIGHBOR_TRIGGERED)) == 0) {
-                tft_bl_ctrl(app._pref.screen.brightness ? app._pref.screen.brightness : 80, &app._spec);
-            }
-            xEventGroupClearBits(app._sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
-            ss_active = false;
-        }
+        app._update_backlight_by_events(ss_active, bl_wave);
 
         // ── Auto page-rolling: advance one page every 10 s when enabled and not
         //     in screensaver (mirrors legacy monitor behaviour). ──
@@ -1157,6 +1070,90 @@ void MinerApp::_tick_thread_entry(void* args) {
             nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, app._last_ui_page);
             LOG_D("Saved last page to NVS: %u", (unsigned)app._last_ui_page);
         }
+    }
+}
+
+void MinerApp::_update_backlight_by_events(bool& ss_active, float& bl_wave) {
+    EventBits_t evt = _sys ? xEventGroupGetBits(_sys->sys_evt) : 0;
+    uint8_t base_bl = _pref.screen.brightness ? _pref.screen.brightness : 80;
+    const EventBits_t pulse_bits =
+        SYS_EVENT_MINER_BLOCK_HIT |
+        SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
+        SYS_EVENT_FIND_NEIGHBOR_TRIGGERED;
+
+    // Web/UI brightness writes are still routed through this single hardware entry.
+    if (_brightness_update_xsem && xSemaphoreTake(_brightness_update_xsem, 0) == pdTRUE) {
+        ss_active = false;
+        tft_bl_ctrl(_pref.screen.brightness, &_spec);
+        lv_disp_trig_activity(nullptr);
+        xEventGroupClearBits(_sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+        LOG_I("Backlight updated -> %u%%", _pref.screen.brightness);
+    }
+
+    if ((evt & SYS_EVENT_MINER_BLOCK_HIT) != 0) {
+        uint8_t pulse = (uint8_t)(100.0f * (1.0f + sinf(bl_wave)) / 2.0f);
+        tft_bl_ctrl(pulse, &_spec);
+        bl_wave += 0.10f;
+    } else if ((evt & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) != 0) {
+        uint8_t pulse = (uint8_t)(100.0f * (1.0f + sinf(bl_wave)) / 2.0f);
+        tft_bl_ctrl(pulse, &_spec);
+        bl_wave += 0.06f;
+    } else if ((evt & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) != 0) {
+        uint8_t pulse = (uint8_t)(100.0f * (1.0f + sinf(bl_wave)) / 2.0f);
+        tft_bl_ctrl(pulse, &_spec);
+        bl_wave += 0.50f;
+    } else {
+        bl_wave = 0.0f;
+        if (_ota.running) {
+            tft_bl_ctrl(base_bl, &_spec);
+        } else if ((evt & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0 &&
+                   _pref.screen.saver_mode == 1) {
+            tft_bl_ctrl(0, &_spec);
+        } else {
+            tft_bl_ctrl(base_bl, &_spec);
+        }
+    }
+
+    if (_ota.running) {
+        if (ss_active && (evt & pulse_bits) == 0) {
+            tft_bl_ctrl(base_bl, &_spec);
+            xEventGroupClearBits(_sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            ss_active = false;
+        }
+        lv_disp_trig_activity(nullptr);
+        return;
+    }
+
+    if (_pref.screen.saver_enable && _pref.screen.saver_timeout > 0) {
+        uint32_t idle_ms = lv_disp_get_inactive_time(nullptr);
+        bool bit_set = (evt & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0;
+        bool event_active = (evt & pulse_bits) != 0;
+        if (!ss_active) {
+            if (idle_ms > _pref.screen.saver_timeout * 1000UL) {
+                xEventGroupSetBits(_sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+                if (!event_active) {
+                    if (_pref.screen.saver_mode == 1) tft_bl_ctrl(0, &_spec);
+                    else tft_bl_ctrl(base_bl, &_spec);
+                }
+                ss_active = true;
+            }
+        } else if (idle_ms < 1000 || !bit_set) {
+            xEventGroupClearBits(_sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+            if (!event_active) {
+                tft_bl_ctrl(base_bl, &_spec);
+            }
+            lv_disp_trig_activity(nullptr);
+            ss_active = false;
+        }
+        return;
+    }
+
+    if (ss_active) {
+        if ((evt & pulse_bits) == 0) {
+            tft_bl_ctrl(base_bl, &_spec);
+        }
+        xEventGroupClearBits(_sys->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
+        ss_active = false;
     }
 }
 
