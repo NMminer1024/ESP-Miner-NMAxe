@@ -60,8 +60,20 @@ void OverlayManager::_build() {
                 break;
         }
 
-        mgr._dismiss_transient_overlays();
         xEventGroupClearBits(mgr._ctx.sys_evt, bits_to_clear);
+        if (mgr._transient_kind == TransientOverlayKind::CelebrationBlockHit ||
+            mgr._transient_kind == TransientOverlayKind::CelebrationHighDiff) {
+            mgr._celebration_fading = true;
+            mgr._celebration_fade_start = millis();
+        } else if (mgr._transient_kind == TransientOverlayKind::FindMe) {
+            mgr._find_fading = true;
+            mgr._find_fade_start = millis();
+        } else if ((bits_to_clear & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0) {
+            mgr._screensaver_fading = true;
+            mgr._screensaver_fade_start = millis();
+        } else {
+            mgr._dismiss_transient_overlays();
+        }
         UIManager::instance().wake_activity();
     };
     lv_obj_add_event_cb(_panel, dismiss_pressed_cb, LV_EVENT_PRESSED, nullptr);
@@ -296,6 +308,20 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
 void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit) {
     if (_transient_kind != TransientOverlayKind::CelebrationBlockHit &&
         _transient_kind != TransientOverlayKind::CelebrationHighDiff) return;
+    if (_celebration_fading) {
+        uint32_t fade_elapsed = now - _celebration_fade_start;
+        if (fade_elapsed >= 1000) {
+            _celebration_fading = false;
+            _transient_kind = TransientOverlayKind::None;
+            _celebration_active = false;
+            _high_diff_achieved_at = 0;
+            _hide();
+        } else {
+            lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)LV_OPA_COVER * fade_elapsed / 1000);
+            lv_obj_set_style_opa(_panel, opa, LV_PART_MAIN);
+        }
+        return;
+    }
     uint32_t elapsed = (now - _transient_started_at) / 1000; // seconds
 
     if (is_block_hit) {
@@ -350,6 +376,8 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
 void OverlayManager::_dismiss_transient_overlays() {
     _transient_kind = TransientOverlayKind::None;
     _celebration_active = false;
+    _celebration_fading = false;
+    _celebration_fade_start = 0;
     _high_diff_achieved_at = 0;
     _find_active = false;
     _find_fading = false;
@@ -737,6 +765,8 @@ void OverlayManager::_hide() {
     _screensaver_fade_start = 0;
     _find_active = false;
     _find_fading = false;
+    _celebration_fading = false;
+    _celebration_fade_start = 0;
     _transient_kind = TransientOverlayKind::None;
     _celebration_active = false;
     _high_diff_achieved_at = 0;
@@ -986,7 +1016,8 @@ bool OverlayManager::_render_ota_overlay(uint32_t now) {
 }
 
 bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits) {
-    if (_transient_kind == TransientOverlayKind::CelebrationBlockHit) {
+    if (_transient_kind == TransientOverlayKind::CelebrationBlockHit ||
+        (_celebration_fading && _celebration_is_block_hit)) {
         _update_celebration_overlay(now, true);
         return true;
     }
@@ -1002,7 +1033,8 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
         return true;
     }
 
-    if (_transient_kind == TransientOverlayKind::CelebrationHighDiff) {
+    if (_transient_kind == TransientOverlayKind::CelebrationHighDiff ||
+        (_celebration_fading && !_celebration_is_block_hit)) {
         _update_celebration_overlay(now, false);
         return true;
     }

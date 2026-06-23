@@ -92,6 +92,8 @@ private:
     bool       _find_active = false;   // find-me white overlay is showing
     bool       _find_fading = false;   // find-me fade-out in progress
     uint32_t   _find_fade_start = 0;   // fade-out start ms
+    bool       _celebration_fading = false;
+    uint32_t   _celebration_fade_start = 0;
     uint32_t   _screensaver_fade_start = 0;
     uint32_t   _ota_dismiss_at = 0;
     uint32_t   _ota_last_update = 0;
