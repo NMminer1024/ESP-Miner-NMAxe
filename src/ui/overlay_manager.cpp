@@ -244,6 +244,9 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
         // Block hit: 0s→100% 1s→30% 2s→100% 3s→30% 4s→100% 5s→30% 6s→dismiss
         if (elapsed >= 6) {
             // Dismiss celebration
+            if (_ctx.sys_evt) {
+                xEventGroupClearBits(_ctx.sys_evt, SYS_EVENT_MINER_BLOCK_HIT);
+            }
             _transient_kind = TransientOverlayKind::None;
             _celebration_active = false;
             _hide();
@@ -251,6 +254,9 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
     } else {
         // High diff: 0s→100% 2s→80%, ends at 5s
         if (elapsed >= 5) {
+            if (_ctx.sys_evt) {
+                xEventGroupClearBits(_ctx.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
+            }
             _transient_kind = TransientOverlayKind::None;
             _celebration_active = false;
             _hide();
@@ -893,7 +899,9 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
         _update_celebration_overlay(now, true);
         return true;
     }
-    if (bits & SYS_EVENT_MINER_BLOCK_HIT) {
+    if ((bits & SYS_EVENT_MINER_BLOCK_HIT) &&
+        _transient_kind != TransientOverlayKind::CelebrationBlockHit &&
+        _transient_kind != TransientOverlayKind::CelebrationHighDiff) {
         const lv_img_dsc_t* img = (LV_VER_RES <= 135)
             ? &block_hits_page_img_135_240 : &block_hits_page_img_240_320;
         _show_celebration(0xFFD700, "BLOCK FOUND!",
@@ -907,7 +915,9 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
         _update_celebration_overlay(now, false);
         return true;
     }
-    if (bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {
+    if ((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) &&
+        _transient_kind != TransientOverlayKind::CelebrationBlockHit &&
+        _transient_kind != TransientOverlayKind::CelebrationHighDiff) {
         String body = "New best difficulty!";
         if (_ctx.status) body += String("\nBest: ") + formatNumber(_ctx.status->diff.best_ever, 4);
         const lv_img_dsc_t* img = (LV_VER_RES <= 135)
