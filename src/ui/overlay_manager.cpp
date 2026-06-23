@@ -8,6 +8,7 @@
 #include "../drivers/display/display_hal.h"
 #include "assets/fonts.h"
 #include "assets/images.h"
+#include "../utils/helper.h"
 #include <SPIFFS.h>
 #include <cstring>
 
@@ -252,11 +253,26 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
         lv_obj_set_width(_lb_body, LV_HOR_RES);
         lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
         if (is_high_diff) {
+            const lv_coord_t diff_y = LV_VER_RES <= 135 ? 23 : 70;
             lv_obj_set_style_text_font(_lb_body, LV_VER_RES <= 135 ? &Inconsolata_18 : &Inconsolata_26, 0);
-            lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, LV_VER_RES <= 135 ? 23 : 70);
+            lv_obj_set_pos(_lb_body, 0, diff_y);
+            lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, diff_y);
         } else {
             lv_obj_set_pos(_lb_body, 0, LV_VER_RES <= 135 ? 98 : 200);
         }
+    }
+
+    if (is_high_diff && _lb_aux) {
+        const lv_coord_t ago_y = LV_VER_RES <= 135 ? 60 : 105;
+        lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_width(_lb_aux, LV_HOR_RES);
+        lv_obj_set_style_text_font(_lb_aux, LV_VER_RES <= 135 ? &Inconsolata_16 : &Inconsolata_18, 0);
+        lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_align(_lb_aux, LV_TEXT_ALIGN_CENTER, 0);
+        lv_label_set_long_mode(_lb_aux, LV_LABEL_LONG_CLIP);
+        lv_label_set_text(_lb_aux, "000d 00:00:00 ago");
+        lv_obj_set_pos(_lb_aux, 0, ago_y);
+        lv_obj_align(_lb_aux, LV_ALIGN_CENTER, 0, ago_y);
     }
 
     if (!_visible) {
@@ -280,10 +296,23 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
         }
     } else {
         // High diff: 0s→100% 2s→80%, ends at 5s
+        if (_ctx.status) {
+            double best = _ctx.status->diff.best_ever;
+            if (_high_diff_last_best != best || _high_diff_achieved_at == 0) {
+                _high_diff_last_best = best;
+                _high_diff_achieved_at = millis();
+            }
+        }
+
         if (_ctx.status && _lb_body) {
             String body = formatNumber(_ctx.status->diff.best_ever, 4);
             lv_label_set_text(_lb_body, body.c_str());
             lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (_lb_aux && _high_diff_achieved_at != 0) {
+            String time_ago_str = convert_uptime_to_string((millis() - _high_diff_achieved_at) / 1000);
+            lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text_fmt(_lb_aux, "%s ago", time_ago_str.c_str());
         }
         if (_ctx.sys_evt &&
             (xEventGroupGetBits(_ctx.sys_evt) & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) != 0) {
@@ -301,6 +330,7 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
         }
         _transient_kind = TransientOverlayKind::None;
         _celebration_active = false;
+        _high_diff_achieved_at = 0;
         _hide();
     }
 }
@@ -308,6 +338,7 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
 void OverlayManager::_dismiss_transient_overlays() {
     _transient_kind = TransientOverlayKind::None;
     _celebration_active = false;
+    _high_diff_achieved_at = 0;
     _find_active = false;
     _find_fading = false;
     _find_fade_start = 0;
@@ -696,6 +727,7 @@ void OverlayManager::_hide() {
     _find_fading = false;
     _transient_kind = TransientOverlayKind::None;
     _celebration_active = false;
+    _high_diff_achieved_at = 0;
     lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
@@ -967,6 +999,8 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
         _transient_kind != TransientOverlayKind::CelebrationHighDiff) {
         String body;
         if (_ctx.status) body = formatNumber(_ctx.status->diff.best_ever, 4);
+        _high_diff_last_best = _ctx.status ? _ctx.status->diff.best_ever : 0.0;
+        _high_diff_achieved_at = millis();
         const lv_img_dsc_t* img = (LV_VER_RES <= 135)
             ? &new_achievement_page_img_135_240 : &new_achievement_page_img_240_320;
         _show_celebration(0x00E5FF, "NEW BEST!", body, img);

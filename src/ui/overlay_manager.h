@@ -107,6 +107,8 @@ private:
     bool       _celebration_active = false;
     bool       _celebration_is_block_hit = false;
     uint32_t   _celebration_start = 0;
+    double     _high_diff_last_best = 0.0;
+    uint32_t   _high_diff_achieved_at = 0;
 
     void _show_fault_overlay(bool is_oc);
     static void _fault_action_yes_cb(lv_event_t* e);
