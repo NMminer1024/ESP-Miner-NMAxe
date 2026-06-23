@@ -109,6 +109,7 @@ private:
     bool       _celebration_active = false;
     bool       _celebration_is_block_hit = false;
     uint32_t   _celebration_start = 0;
+    uint32_t   _block_hit_achieved_at = 0;
     double     _high_diff_last_best = 0.0;
     uint32_t   _high_diff_achieved_at = 0;
 

@@ -292,7 +292,7 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
         }
     }
 
-    if (is_high_diff && _lb_aux) {
+    if ((is_high_diff || is_block_hit) && _lb_aux) {
         const lv_coord_t ago_y = LV_VER_RES <= 135 ? 60 : 105;
         lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_width(_lb_aux, LV_HOR_RES);
@@ -320,6 +320,7 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
             _celebration_fading = false;
             _transient_kind = TransientOverlayKind::None;
             _celebration_active = false;
+            _block_hit_achieved_at = 0;
             _high_diff_achieved_at = 0;
             _hide();
         } else {
@@ -331,11 +332,20 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
     uint32_t elapsed = (now - _transient_started_at) / 1000; // seconds
 
     if (is_block_hit) {
+        if (_block_hit_achieved_at == 0) {
+            _block_hit_achieved_at = millis();
+        }
+        if (_lb_aux && _block_hit_achieved_at != 0) {
+            String time_ago_str = convert_uptime_to_string((millis() - _block_hit_achieved_at) / 1000);
+            lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text_fmt(_lb_aux, "%s ago", time_ago_str.c_str());
+        }
         // Block hit: 0s→100% 1s→30% 2s→100% 3s→30% 4s→100% 5s→30% 6s→dismiss
         if (elapsed >= 6) {
             // Dismiss celebration
             _transient_kind = TransientOverlayKind::None;
             _celebration_active = false;
+            _block_hit_achieved_at = 0;
             _hide();
         }
     } else {
@@ -384,6 +394,7 @@ void OverlayManager::_dismiss_transient_overlays() {
     _celebration_active = false;
     _celebration_fading = false;
     _celebration_fade_start = 0;
+    _block_hit_achieved_at = 0;
     _high_diff_achieved_at = 0;
     _find_active = false;
     _find_fading = false;
@@ -775,6 +786,7 @@ void OverlayManager::_hide() {
     _celebration_fade_start = 0;
     _transient_kind = TransientOverlayKind::None;
     _celebration_active = false;
+    _block_hit_achieved_at = 0;
     _high_diff_achieved_at = 0;
     lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
@@ -1030,6 +1042,7 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
     if ((bits & SYS_EVENT_MINER_BLOCK_HIT) &&
         _transient_kind != TransientOverlayKind::CelebrationBlockHit &&
         _transient_kind != TransientOverlayKind::CelebrationHighDiff) {
+        _block_hit_achieved_at = millis();
         const lv_img_dsc_t* img = (LV_VER_RES <= 135)
             ? &block_hits_page_img_135_240 : &block_hits_page_img_240_320;
         _show_celebration(0xFFD700, "BLOCK FOUND!",
