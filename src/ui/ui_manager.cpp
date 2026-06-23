@@ -238,8 +238,20 @@ void UIManager::process_touch_sample(bool pressed, const lv_point_t* point) {
     static const lv_coord_t kLongPressMoveThreshold = 12;
 
     uint32_t now = millis();
+    const bool ota_running = _ota_running && *_ota_running;
     bool screensaver_active = _sys_evt &&
         ((xEventGroupGetBits(_sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0);
+
+    if (ota_running) {
+        if (_factory_cd >= 0 && !_factory_rebooting) {
+            cancel_factory_countdown();
+        }
+        _touch_pressed = false;
+        _factory_hold_consumed = false;
+        _factory_hold_cancelled = false;
+        _touch_press_start_ms = 0;
+        return;
+    }
 
     if (!pressed || screensaver_active) {
         if (_factory_cd >= 0 && _tileview) {

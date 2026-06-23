@@ -38,6 +38,7 @@ public:
     // based on the closest match to the given width/height.
     void init(uint16_t width, uint16_t height);
     void set_sys_evt(EventGroupHandle_t sys_evt) { _sys_evt = sys_evt; }
+    void set_ota_running(volatile bool* ota_running) { _ota_running = ota_running; }
 
     // Called periodically from LVGL task: sync active tile, refresh page, drive LVGL
     void render_update();
@@ -103,6 +104,7 @@ private:
     lv_coord_t _s_release_scroll_y = 0;
     bool       _s_was_special_state = false;
     EventGroupHandle_t _sys_evt = nullptr;
+    volatile bool* _ota_running = nullptr;
 
     static void _pressed_cb(lv_event_t* e);
     static void _released_cb(lv_event_t* e);

@@ -1185,6 +1185,7 @@ bool MinerApp::_ui_init() {
     images_init(w, h);                // set bg/image descriptor dimensions
     UIManager::instance().init(w, h);
     UIManager::instance().set_sys_evt(_sys->sys_evt);
+    UIManager::instance().set_ota_running(&_ota.running);
     UIManager::instance().set_recover_factory_xsem(_recover_factory_xsem);  // touch long-press factory reset
     UIManager::instance().set_force_config_xsem(_force_config_xsem);        // boot long-press setup mode
 
