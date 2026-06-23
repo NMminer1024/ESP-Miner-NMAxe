@@ -37,6 +37,13 @@ public:
     void update();   // call from LVGL thread (render loop)
 
 private:
+    enum class TransientOverlayKind : uint8_t {
+        None,
+        CelebrationBlockHit,
+        CelebrationHighDiff,
+        FindMe,
+    };
+
     OverlayManager() = default;
     void _build();
     void _show(uint32_t accent, const char* title, const String& body);
@@ -53,6 +60,16 @@ private:
     void _show_ota_overlay(uint32_t now);
     void _show_benchmark_overlay();
     void _show_footer_ip(lv_coord_t y, bool large_font = false);
+    void _stop_transient_backlight_effect();
+    void _dismiss_transient_overlays();
+
+    bool _render_countdown_overlays();
+    bool _render_find_overlay(uint32_t now, EventBits_t bits);
+    bool _render_fault_overlay(EventBits_t bits);
+    bool _render_ota_overlay(uint32_t now);
+    bool _render_celebration_overlay(uint32_t now, EventBits_t bits);
+    bool _render_status_overlay();
+    bool _render_screensaver_overlay(uint32_t now, EventBits_t bits);
 
     OverlayCtx _ctx;
     lv_obj_t*  _panel = nullptr;
@@ -86,7 +103,11 @@ private:
     String     _aph_quote, _aph_author;
     bool       _aph_have = false;
     uint32_t   _aph_last = 0;
-    // celebration overlay backlight state
+    // Unified transient overlay / backlight effect state.
+    TransientOverlayKind _transient_kind = TransientOverlayKind::None;
+    uint32_t   _transient_started_at = 0;
+    int8_t     _transient_saved_bl = 80;
+    // Compatibility shim while the old monolithic update() path is being retired.
     bool       _celebration_active = false;
     bool       _celebration_is_block_hit = false;
     uint32_t   _celebration_start = 0;

@@ -37,14 +37,7 @@ void OverlayManager::_build() {
     lv_obj_add_event_cb(_panel, [](lv_event_t*) {
         auto& mgr = OverlayManager::instance();
         if (!mgr._ctx.sys_evt) return;
-        // Dismiss any active celebration / find-me and restore backlight
-        if (mgr._celebration_active) {
-            tft_bl_ctrl(mgr._celebration_saved_bl, mgr._ctx.spec);
-            mgr._celebration_active = false;
-        }
-        if (mgr._find_active) {
-            tft_bl_ctrl(mgr._find_saved_bl, mgr._ctx.spec);
-        }
+        mgr._dismiss_transient_overlays();
         xEventGroupClearBits(mgr._ctx.sys_evt,
             SYS_EVENT_MINER_BLOCK_HIT |
             SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
@@ -205,8 +198,10 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
     if (!_panel || !_img) return;
 
     // Save and max the backlight
-    _celebration_saved_bl = tft_bl_get_brightness();
-    _celebration_start = millis();
+    _transient_saved_bl = tft_bl_get_brightness();
+    _transient_started_at = millis();
+    _celebration_saved_bl = _transient_saved_bl;
+    _celebration_start = _transient_started_at;
     _celebration_active = true;
 
     _reset_layout();
@@ -246,15 +241,16 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
 }
 
 void OverlayManager::_update_celebration_backlight(uint32_t now, bool is_block_hit) {
-    if (!_celebration_active || !_ctx.spec) return;
-    uint32_t elapsed = (now - _celebration_start) / 1000; // seconds
+    if (_transient_kind != TransientOverlayKind::CelebrationBlockHit &&
+        _transient_kind != TransientOverlayKind::CelebrationHighDiff) return;
+    if (!_ctx.spec) return;
+    uint32_t elapsed = (now - _transient_started_at) / 1000; // seconds
 
     if (is_block_hit) {
         // Block hit: 0s→100% 1s→30% 2s→100% 3s→30% 4s→100% 5s→30% 6s→dismiss
         if (elapsed >= 6) {
             // Dismiss celebration
-            tft_bl_ctrl(_celebration_saved_bl, _ctx.spec);
-            _celebration_active = false;
+            _stop_transient_backlight_effect();
             _hide();
         } else if (elapsed >= 5) {
             tft_bl_ctrl(30, _ctx.spec);
@@ -270,12 +266,53 @@ void OverlayManager::_update_celebration_backlight(uint32_t now, bool is_block_h
     } else {
         // High diff: 0s→100% 2s→80%, ends at 5s
         if (elapsed >= 5) {
-            tft_bl_ctrl(_celebration_saved_bl, _ctx.spec);
-            _celebration_active = false;
+            _stop_transient_backlight_effect();
             _hide();
         } else if (elapsed >= 2) {
             tft_bl_ctrl(80, _ctx.spec);
         }
+    }
+}
+
+void OverlayManager::_stop_transient_backlight_effect() {
+    if (_ctx.spec != nullptr) {
+        switch (_transient_kind) {
+            case TransientOverlayKind::CelebrationBlockHit:
+            case TransientOverlayKind::CelebrationHighDiff:
+                tft_bl_ctrl(_transient_saved_bl, _ctx.spec);
+                break;
+            case TransientOverlayKind::FindMe:
+                tft_bl_ctrl(_find_saved_bl, _ctx.spec);
+                break;
+            case TransientOverlayKind::None:
+                break;
+        }
+    }
+    _transient_kind = TransientOverlayKind::None;
+    _celebration_active = false;
+}
+
+void OverlayManager::_dismiss_transient_overlays() {
+    _stop_transient_backlight_effect();
+    _find_active = false;
+    _find_fading = false;
+    _find_fade_start = 0;
+    _find_blink_last = 0;
+
+    if (_panel) {
+        lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
+    }
+    if (_lb_body) {
+        lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
+    }
+    if (_img) {
+        lv_obj_add_flag(_img, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (_visible) {
+        _hide();
     }
 }
 
@@ -644,11 +681,7 @@ void OverlayManager::_hide() {
     _screensaver_fade_start = 0;
     _find_active = false;
     _find_fading = false;
-    // Restore backlight if celebration was active
-    if (_celebration_active) {
-        tft_bl_ctrl(_celebration_saved_bl, _ctx.spec);
-        _celebration_active = false;
-    }
+    _stop_transient_backlight_effect();
     lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
@@ -765,6 +798,277 @@ void OverlayManager::_fault_action_no_cb(lv_event_t* e) {
     xEventGroupClearBits(self->_ctx.sys_evt, SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT);
 }
 
+bool OverlayManager::_render_countdown_overlays() {
+    if (UIManager::instance().setup_rebooting()) {
+        _show_rebooting_overlay("Entering setup mode");
+        return true;
+    }
+
+    if (UIManager::instance().factory_rebooting()) {
+        _show_rebooting_overlay("Recovering factory settings");
+        return true;
+    }
+
+    int scd = UIManager::instance().setup_countdown();
+    if (scd >= 0) {
+        _show_setup_overlay(scd);
+        return true;
+    }
+
+    int fcd = UIManager::instance().factory_countdown();
+    if (fcd >= 0) {
+        _show_factory_overlay(fcd);
+        return true;
+    }
+
+    return false;
+}
+
+bool OverlayManager::_render_find_overlay(uint32_t now, EventBits_t bits) {
+    if (_find_fading) {
+        uint32_t elapsed = now - _find_fade_start;
+        if (elapsed >= 1000) {
+            _find_fading  = false;
+            _find_active  = false;
+            _stop_transient_backlight_effect();
+            _hide();
+            lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
+            lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
+            lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
+        } else {
+            lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)LV_OPA_COVER * elapsed / 1000);
+            lv_obj_set_style_opa(_panel, opa, LV_PART_MAIN);
+        }
+        if (bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) {
+            _find_fading = false;
+            lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
+        }
+        return true;
+    }
+
+    if (_find_active) {
+        if (now - _find_blink_last >= 500) {
+            _find_blink_last = now;
+            static bool s_bl_on = true;
+            s_bl_on = !s_bl_on;
+            tft_bl_ctrl(s_bl_on ? 100 : 30, _ctx.spec);
+        }
+        if ((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == 0) {
+            _find_fading     = true;
+            _find_fade_start = now;
+        }
+        return true;
+    }
+
+    if ((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == 0) {
+        return false;
+    }
+
+    _find_active = true;
+    _transient_kind = TransientOverlayKind::FindMe;
+    _find_saved_bl = tft_bl_get_brightness();
+    _find_blink_last = now;
+    _reset_layout();
+    _gif_hide();
+    if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
+    if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
+    _fault_event = 0;
+
+    lv_obj_set_style_bg_color(_panel, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_bg_opa(_panel, LV_OPA_COVER, 0);
+
+    lv_obj_set_style_text_font(_lb_title, &Inconsolata_26, 0);
+    lv_obj_set_style_text_color(_lb_title, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_text_align(_lb_title, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(_lb_title, LV_LABEL_LONG_CLIP);
+    lv_obj_set_width(_lb_title, LV_HOR_RES - 4);
+    lv_label_set_text(_lb_title, ">>> I am here <<<");
+    lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_align(_lb_title, LV_ALIGN_CENTER, 0, -18);
+
+    const bool is_touch = (_ctx.spec && _ctx.spec->name == BOARD_NMQAXE_PLUS_PLUS_NAME);
+    lv_obj_set_style_text_font(_lb_body, &Inconsolata_26, 0);
+    lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(_lb_body, LV_LABEL_LONG_CLIP);
+    lv_obj_set_width(_lb_body, LV_HOR_RES - 4);
+    lv_label_set_text(_lb_body, is_touch ? "Touch to exit" : "Press key to exit");
+    lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 18);
+
+    if (!_visible) {
+        lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
+        _visible = true;
+    }
+    return true;
+}
+
+bool OverlayManager::_render_fault_overlay(EventBits_t bits) {
+    if (bits & SYS_EVENT_POWER_OT_FAULT) {
+        _show_fault_overlay(false);
+        return true;
+    }
+    if (bits & SYS_EVENT_POWER_OC_FAULT) {
+        _show_fault_overlay(true);
+        return true;
+    }
+    return false;
+}
+
+bool OverlayManager::_render_ota_overlay(uint32_t now) {
+    if (_ota_rebooting) {
+        _show_rebooting_overlay("OTA update complete");
+        return true;
+    }
+
+    if (_ctx.ota && (_ctx.ota->running || _ota_dismiss_at != 0 || (_ota_overlay_active && _ctx.ota->progress >= 100))) {
+        _show_ota_overlay(now);
+        return true;
+    }
+
+    return false;
+}
+
+bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits) {
+    if (_transient_kind == TransientOverlayKind::CelebrationBlockHit) {
+        _update_celebration_backlight(now, true);
+        return true;
+    }
+    if (bits & SYS_EVENT_MINER_BLOCK_HIT) {
+        const lv_img_dsc_t* img = (LV_VER_RES <= 135)
+            ? &block_hits_page_img_135_240 : &block_hits_page_img_240_320;
+        _show_celebration(0xFFD700, "BLOCK FOUND!",
+            "Congratulations!\nYou solved a block!", img);
+        _transient_kind = TransientOverlayKind::CelebrationBlockHit;
+        _celebration_is_block_hit = true;
+        return true;
+    }
+
+    if (_transient_kind == TransientOverlayKind::CelebrationHighDiff) {
+        _update_celebration_backlight(now, false);
+        return true;
+    }
+    if (bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {
+        String body = "New best difficulty!";
+        if (_ctx.status) body += String("\nBest: ") + formatNumber(_ctx.status->diff.best_ever, 4);
+        const lv_img_dsc_t* img = (LV_VER_RES <= 135)
+            ? &new_achievement_page_img_135_240 : &new_achievement_page_img_240_320;
+        _show_celebration(0x00E5FF, "NEW BEST!", body, img);
+        _transient_kind = TransientOverlayKind::CelebrationHighDiff;
+        _celebration_is_block_hit = false;
+        return true;
+    }
+
+    return false;
+}
+
+bool OverlayManager::_render_status_overlay() {
+    if (_ctx.bm && _ctx.bm->active) {
+        size_t cur = UIManager::instance().current();
+        if (cur >= (size_t)UIPageId::MINER && cur <= (size_t)UIPageId::SETTING_SWARM) {
+            _show_benchmark_overlay();
+            return true;
+        }
+    }
+
+    if (_ctx.status) {
+        MinerRuntimeState st = _ctx.status->runtime_state;
+        bool paused_like = _ctx.status->user_paused ||
+                           st == MINER_RUNTIME_PAUSING || st == MINER_RUNTIME_PAUSED ||
+                           st == MINER_RUNTIME_RESUMING || st == MINER_RUNTIME_ERROR;
+        if (paused_like) {
+            String body = String("State: ") + miner_runtime_state_to_string(st);
+            if (_ctx.status->user_paused) body += "\nPaused by user";
+            _show(0xFFC107, "MINING PAUSED", body);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool OverlayManager::_render_screensaver_overlay(uint32_t now, EventBits_t bits) {
+    if ((bits & SYS_EVENT_SCREEN_SAVER_TRIGGERED) &&
+        _ctx.saver_mode && *_ctx.saver_mode != 1) {
+        _screensaver_fading = false;
+        _screensaver_fade_start = 0;
+        lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
+
+        bool gif_ok = false;
+        if (_ctx.gif_path && SPIFFS.exists(_ctx.gif_path)) {
+            if (!_gif) _gif = lv_gif_create(_panel);
+            if (_gif && !_gif_shown) {
+                bool loaded_to_psram = screensaver_gif_load_to_psram(_ctx.gif_path);
+                String src = loaded_to_psram
+                    ? String("M:screensaver.gif")
+                    : (String("S:") + (_ctx.gif_path + 1));
+                lv_gif_set_src(_gif, src.c_str());
+                lv_obj_align(_gif, LV_ALIGN_CENTER, 0, 0);
+                lv_obj_clear_flag(_gif, LV_OBJ_FLAG_HIDDEN);
+                _gif_shown = true;
+                LOG_I("[screensaver] GIF loaded from %s", loaded_to_psram ? "PSRAM" : "SPIFFS");
+            }
+            gif_ok = (_gif != nullptr);
+        } else {
+            _gif_hide();
+            screensaver_gif_release_psram();
+        }
+
+        lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
+        lv_label_set_text(_lb_title, "");
+        if (gif_ok) {
+            lv_label_set_text(_lb_body, "");
+        } else {
+            if (!_aph_have || (now - _aph_last) > 60000) {
+                if (_ctx.aphorism && _ctx.aphorism->mutex &&
+                    xSemaphoreTake(_ctx.aphorism->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+                    if (!_ctx.aphorism->pool.empty()) {
+                        _aph_quote  = _ctx.aphorism->pool.front().quote;
+                        _aph_author = _ctx.aphorism->pool.front().author;
+                        _ctx.aphorism->pool.erase(_ctx.aphorism->pool.begin());
+                        _aph_have = true;
+                    }
+                    xSemaphoreGive(_ctx.aphorism->mutex);
+                }
+                _aph_last = now;
+            }
+            String body = _aph_have ? (String("\"") + _aph_quote + "\"\n\n- " + _aph_author)
+                                    : String("Solo mining:\nbe a friend of time.");
+            lv_label_set_text(_lb_body, body.c_str());
+            lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x66BB6A), 0);
+            lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 8);
+        }
+        if (_gif) lv_obj_move_background(_gif);
+        if (!_visible) {
+            lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
+            _visible = true;
+        }
+        return true;
+    }
+
+    _aph_have = false;
+
+    if (_visible && (_gif || _gif_shown)) {
+        if (!_screensaver_fading) {
+            _screensaver_fading = true;
+            _screensaver_fade_start = now;
+            lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
+        }
+
+        uint32_t elapsed = now - _screensaver_fade_start;
+        if (elapsed >= 1000) {
+            _hide();
+        } else {
+            lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - ((uint32_t)LV_OPA_COVER * elapsed / 1000));
+            lv_obj_set_style_opa(_panel, opa, LV_PART_MAIN);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 void OverlayManager::update() {
     uint32_t now = millis();
     if (now - _last_ms < 250) return;   // self-throttle (~4 Hz)
@@ -772,6 +1076,17 @@ void OverlayManager::update() {
     if (!_panel) return;
 
     uint32_t bits = _ctx.sys_evt ? xEventGroupGetBits(_ctx.sys_evt) : 0;
+
+    if (_render_countdown_overlays()) return;
+    if (_render_find_overlay(now, bits)) return;
+    if (_render_fault_overlay(bits)) return;
+    if (_render_ota_overlay(now)) return;
+    if (_render_celebration_overlay(now, bits)) return;
+    if (_render_status_overlay()) return;
+    if (_render_screensaver_overlay(now, bits)) return;
+
+    _hide();
+    return;
 
     // ── Priority 0: touch long-press factory-reset countdown ──
     if (UIManager::instance().setup_rebooting()) {
