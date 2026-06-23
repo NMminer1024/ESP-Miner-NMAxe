@@ -19,6 +19,9 @@ void tft_init(BoardSpecConfig* spec, PreferenceState* pref);
 // Set backlight brightness 0..100 (%). Board-specific PWM mapping.
 void tft_bl_ctrl(int8_t percent, BoardSpecConfig* spec);
 
+// Query the last brightness value set via tft_bl_ctrl (0..100).
+int8_t tft_bl_get_brightness();
+
 // Register the LVGL display driver (PSRAM draw buffer + flush callback).
 // hor_res/ver_res are the post-rotation logical resolution.
 void ui_drv_register(uint16_t hor_res, uint16_t ver_res);

@@ -7,6 +7,7 @@
 #include "../utils/reboot_log/reboot_log.h"
 #include "../drivers/display/display_hal.h"
 #include "assets/fonts.h"
+#include "assets/images.h"
 #include <SPIFFS.h>
 #include <cstring>
 
@@ -36,6 +37,11 @@ void OverlayManager::_build() {
     lv_obj_add_event_cb(_panel, [](lv_event_t*) {
         auto& mgr = OverlayManager::instance();
         if (!mgr._ctx.sys_evt) return;
+        // Dismiss any active celebration and restore backlight
+        if (mgr._celebration_active) {
+            tft_bl_ctrl(mgr._celebration_saved_bl, mgr._ctx.spec);
+            mgr._celebration_active = false;
+        }
         xEventGroupClearBits(mgr._ctx.sys_evt,
             SYS_EVENT_MINER_BLOCK_HIT |
             SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
@@ -73,6 +79,10 @@ void OverlayManager::_build() {
     _bar = lv_bar_create(_panel);
     lv_bar_set_range(_bar, 0, 100);
     lv_obj_add_flag(_bar, LV_OBJ_FLAG_HIDDEN);
+
+    // Celebration full-screen image (lazily set src per event)
+    _img = lv_img_create(_panel);
+    lv_obj_add_flag(_img, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
@@ -116,6 +126,10 @@ void OverlayManager::_reset_layout() {
     if (_bar) {
         lv_bar_set_value(_bar, 0, LV_ANIM_OFF);
         lv_obj_add_flag(_bar, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (_img) {
+        lv_img_set_src(_img, nullptr);
+        lv_obj_add_flag(_img, LV_OBJ_FLAG_HIDDEN);
     }
     if (_bm_ip) {
         lv_label_set_text(_bm_ip, "");
@@ -181,6 +195,84 @@ void OverlayManager::_show(uint32_t accent, const char* title, const String& bod
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
         _visible = true;
+    }
+}
+
+void OverlayManager::_show_celebration(uint32_t accent, const char* title, const String& body, const lv_img_dsc_t* img) {
+    if (!_panel || !_img) return;
+
+    // Save and max the backlight
+    _celebration_saved_bl = tft_bl_get_brightness();
+    _celebration_start = millis();
+    _celebration_active = true;
+
+    _reset_layout();
+    _gif_hide();
+    if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
+    if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
+    _fault_event = 0;
+
+    // Set image source and show full-screen
+    lv_img_set_src(_img, img);
+    lv_obj_set_pos(_img, 0, 0);
+    lv_obj_set_size(_img, LV_HOR_RES, LV_VER_RES);
+    lv_obj_clear_flag(_img, LV_OBJ_FLAG_HIDDEN);
+
+    // Title on top of image
+    lv_obj_set_style_text_color(_lb_title, lv_color_hex(accent), 0);
+    lv_label_set_text(_lb_title, title);
+    lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+
+    // Body text overlaid near bottom
+    if (_lb_body) {
+        lv_label_set_text(_lb_body, body.c_str());
+        lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_pos(_lb_body, 0, LV_VER_RES <= 135 ? 98 : 200);
+        lv_obj_set_width(_lb_body, LV_HOR_RES);
+        lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
+    }
+
+    // Blast backlight to 100%
+    tft_bl_ctrl(100, _ctx.spec);
+
+    if (!_visible) {
+        lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
+        _visible = true;
+    }
+}
+
+void OverlayManager::_update_celebration_backlight(uint32_t now, bool is_block_hit) {
+    if (!_celebration_active || !_ctx.spec) return;
+    uint32_t elapsed = (now - _celebration_start) / 1000; // seconds
+
+    if (is_block_hit) {
+        // Block hit: 0s→100% 1s→30% 2s→100% 3s→30% 4s→100% 5s→30% 6s→dismiss
+        if (elapsed >= 6) {
+            // Dismiss celebration
+            tft_bl_ctrl(_celebration_saved_bl, _ctx.spec);
+            _celebration_active = false;
+            _hide();
+        } else if (elapsed >= 5) {
+            tft_bl_ctrl(30, _ctx.spec);
+        } else if (elapsed >= 4) {
+            tft_bl_ctrl(100, _ctx.spec);
+        } else if (elapsed >= 3) {
+            tft_bl_ctrl(30, _ctx.spec);
+        } else if (elapsed >= 2) {
+            tft_bl_ctrl(100, _ctx.spec);
+        } else if (elapsed >= 1) {
+            tft_bl_ctrl(30, _ctx.spec);
+        }
+    } else {
+        // High diff: 0s→100% 2s→80%, ends at 5s
+        if (elapsed >= 5) {
+            tft_bl_ctrl(_celebration_saved_bl, _ctx.spec);
+            _celebration_active = false;
+            _hide();
+        } else if (elapsed >= 2) {
+            tft_bl_ctrl(80, _ctx.spec);
+        }
     }
 }
 
@@ -547,6 +639,13 @@ void OverlayManager::_hide() {
     _ota_rebooting = false;
     _screensaver_fading = false;
     _screensaver_fade_start = 0;
+    _find_active = false;
+    _find_fading = false;
+    // Restore backlight if celebration was active
+    if (_celebration_active) {
+        tft_bl_ctrl(_celebration_saved_bl, _ctx.spec);
+        _celebration_active = false;
+    }
     lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
@@ -694,24 +793,67 @@ void OverlayManager::update() {
         return;
     }
 
-    // ── Priority 0: find-me (blink the whole screen ~6 s to locate device) ──
-    if (bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) {
-        if (_find_start == 0) _find_start = now;
-        if (now - _find_start < 6000) {
-            bool on = ((now / 250) & 1);
-            lv_obj_set_style_bg_color(_panel, lv_color_hex(on ? 0xFFFFFF : 0x000000), 0);
-            lv_obj_set_style_text_color(_lb_title, lv_color_hex(on ? 0x000000 : 0xFFFFFF), 0);
-            lv_obj_set_style_text_color(_lb_body,  lv_color_hex(on ? 0x000000 : 0xFFFFFF), 0);
-            lv_label_set_text(_lb_title, "FIND ME");
-            lv_label_set_text(_lb_body, "Locating this miner...");
-            if (!_visible) { lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN); _visible = true; }
-            return;
+    // ── Priority 0: find-me (white overlay + 1 s fade-out, from original project) ──
+    if (_find_fading) {
+        uint32_t elapsed = now - _find_fade_start;
+        if (elapsed >= 1000) {
+            _find_fading  = false;
+            _find_active  = false;
+            _hide();
+            // Restore defaults modified by find-me
+            lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
+            lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
+            lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
+        } else {
+            lv_opa_t opa = (lv_opa_t)(LV_OPA_COVER - (uint32_t)LV_OPA_COVER * elapsed / 1000);
+            lv_obj_set_style_opa(_panel, opa, LV_PART_MAIN);
         }
-        _find_start = 0;
-        lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);  // restore body color
-        if (_ctx.sys_evt) xEventGroupClearBits(_ctx.sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
-    } else {
-        _find_start = 0;
+        // If event is re-set during fade, cancel fade and restore full opacity
+        if (bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) {
+            _find_fading = false;
+            lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
+        }
+        return;
+    }
+
+    if (_find_active) {
+        // Overlay is visible — check if event was cleared (touch / button)
+        if ((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == 0) {
+            _find_fading     = true;
+            _find_fade_start = now;
+        }
+        return;
+    }
+
+    if (bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) {
+        _find_active = true;
+        _reset_layout();
+        _gif_hide();
+        if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
+        if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
+        _fault_event = 0;
+
+        // White full-screen overlay (覆膜)
+        lv_obj_set_style_bg_color(_panel, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_bg_opa(_panel, LV_OPA_COVER, 0);
+
+        // ">>> I am here <<<" — large font, centered
+        lv_obj_set_style_text_font(_lb_title, &Inconsolata_26, 0);
+        lv_obj_set_style_text_color(_lb_title, lv_color_hex(0x000000), 0);
+        lv_label_set_text(_lb_title, ">>> I am here <<<");
+        lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_align(_lb_title, LV_ALIGN_CENTER, 0, -18);
+
+        // Hint text
+        const bool is_touch = (_ctx.spec && _ctx.spec->name == BOARD_NMQAXE_PLUS_PLUS_NAME);
+        lv_obj_set_style_text_font(_lb_body, &Inconsolata_26, 0);
+        lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x000000), 0);
+        lv_label_set_text(_lb_body, is_touch ? "Touch to exit" : "Press key to exit");
+        lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 18);
+
+        if (!_visible) { lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN); _visible = true; }
+        return;
     }
 
     // ── Priority 1: power faults ──
@@ -736,14 +878,31 @@ void OverlayManager::update() {
     }
 
     // ── Priority 1.5: celebrations (cleared by a button press) ──
+    // Block-hit celebration: full-screen image + backlight flash sequence
+    if (_celebration_active && _celebration_is_block_hit) {
+        _update_celebration_backlight(now, true);
+        return;
+    }
     if (bits & SYS_EVENT_MINER_BLOCK_HIT) {
-        _show(0xFFD700, "BLOCK FOUND!", "Congratulations!\nYou solved a block!");
+        const lv_img_dsc_t* img = (LV_VER_RES <= 135)
+            ? &block_hits_page_img_135_240 : &block_hits_page_img_240_320;
+        _show_celebration(0xFFD700, "BLOCK FOUND!",
+            "Congratulations!\nYou solved a block!", img);
+        _celebration_is_block_hit = true;
+        return;
+    }
+
+    if (_celebration_active && !_celebration_is_block_hit) {
+        _update_celebration_backlight(now, false);
         return;
     }
     if (bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {
         String body = "New best difficulty!";
         if (_ctx.status) body += String("\nBest: ") + String(_ctx.status->diff.best_ever, 0);
-        _show(0x00E5FF, "NEW BEST!", body);
+        const lv_img_dsc_t* img = (LV_VER_RES <= 135)
+            ? &new_achievement_page_img_135_240 : &new_achievement_page_img_240_320;
+        _show_celebration(0x00E5FF, "NEW BEST!", body, img);
+        _celebration_is_block_hit = false;
         return;
     }
 

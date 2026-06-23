@@ -15,6 +15,7 @@ static uint16_t  SCREEN_HEIGHT = 0;
 
 // Backlight needs the spec for the board-specific PWM mapping; cached at init.
 static BoardSpecConfig* s_spec = nullptr;
+static int8_t           s_last_brightness = 80;   // cached for celebration restore
 
 // ── Touch state ─────────────────────────────────────────────────────────────
 static FT6206Class*     s_touch      = nullptr;
@@ -43,6 +44,7 @@ static void tft_flush_cb(lv_disp_drv_t* disp_drv, const lv_area_t* area, lv_colo
 void tft_bl_ctrl(int8_t percent, BoardSpecConfig* spec) {
     if (!spec) spec = s_spec;
     if (!spec) return;
+    s_last_brightness = percent;          // cache for celebration restore
     uint8_t pwm = 0;
     if ((spec->name == BOARD_NMAXE_GAMMA_NAME) || (spec->name == BOARD_NMAXE_NAME)) {
         pwm = 255 * (1 - percent * 0.01f);
@@ -53,6 +55,10 @@ void tft_bl_ctrl(int8_t percent, BoardSpecConfig* spec) {
     }
     LOG_D("Set brightness %d%%, PWM=%d", percent, pwm);
     ledcWrite(spec->tft.bl.pwm_ch, pwm);
+}
+
+int8_t tft_bl_get_brightness() {
+    return s_last_brightness;
 }
 
 void tft_init(BoardSpecConfig* spec, PreferenceState* pref) {
