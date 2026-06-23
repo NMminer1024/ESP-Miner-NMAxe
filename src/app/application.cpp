@@ -561,7 +561,7 @@ void MinerApp::begin() {
     _begin_display(boot);
     _begin_infra(boot);
     _begin_market(boot);
-    _begin_aphorism(boot);
+    // _begin_aphorism(boot);
     _begin_miners(boot);
     _create_task(_tick_thread_entry, "(tick)", 1024 * 4, nullptr, TASK_PRIORITY_APP_TICK, 1);
     boot.post("Booting...");
