@@ -64,14 +64,7 @@ void stratum_thread_entry(void* args) {
 
     double pool_init_diff = ctx->spec->asic.diff_thr_init;
     stratum->set_pool_difficulty(pool_init_diff);
-    bool stratum_parked_for_config = false;
-
     while (true) {
-        const wifi_mode_t wifi_mode = WiFi.getMode();
-        if (wifi_mode == WIFI_MODE_AP) {
-            delay(1000);
-            continue;
-        }
         if (WiFi.status() == WL_CONNECTED) {
             break;
         }
@@ -96,17 +89,6 @@ void stratum_thread_entry(void* args) {
     };
 
     while (true) {
-        if (WiFi.getMode() == WIFI_MODE_AP) {
-            if (!stratum_parked_for_config) {
-                stratum->reset();
-                stratum->set_pool_difficulty(pool_init_diff);
-                stratum_parked_for_config = true;
-            }
-            delay(1000);
-            continue;
-        }
-
-        stratum_parked_for_config = false;
         static int w_retry = 0, w_maxRetries = 24;
         if (*ctx->wifi_status != WL_CONNECTED) {
             w_retry++;
