@@ -54,8 +54,10 @@ BaseType_t MinerApp::_create_task(TaskFunction_t fn, const char* name,
 
 bool MinerApp::init() {
     // ── Stage 0: earliest boot bookkeeping + serial console ────────────────
-    // Persist the previous boot's reboot record before other init paths can
-    // touch reboot intent state.
+    // 1) Recover and persist the previous boot's reboot trace from RTC memory.
+    // 2) Bring up Serial first so every later init stage can log failures.
+    // This stage must stay at the very top because later code may already set
+    // reboot intents or emit logs we want to capture.
     reboot_log_init();
 
     Serial.setTimeout(20);
@@ -74,16 +76,26 @@ bool MinerApp::init() {
     _neighbor = &neighbor_storage;
 
     // ── Stage 2: create core sync primitives / zero-cost shared runtime state ──
+    // Build the process-wide synchronization objects first:
+    // - init_evt/sys_evt coordinate boot milestones and runtime UI/events
+    // - reboot_xsem centralizes deferred reboot requests from worker threads
+    // Then reset the lightweight shared state blocks that threads will later
+    // read and write without needing dynamic allocation.
     _sys->init_evt = xEventGroupCreate();
     _sys->sys_evt  = xEventGroupCreate();
     _sys->reboot_xsem = xSemaphoreCreateCounting(1, 0);
 
+    // WiFi state starts disconnected. force_config_required is restored from
+    // NVS so a previous long-press boot request can divert this boot straight
+    // into AP setup mode before any STA or pool workflow proceeds.
     _wifi->status                = WL_DISCONNECTED;
     _wifi->rssi                  = 0;
     _wifi->reconnect_xsem        = xSemaphoreCreateCounting(1, 0);
     _wifi->client_connected      = false;
     _wifi->force_config_required = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
 
+    // Swarm/neighbor state is initialized to a safe empty topology so pages
+    // and web APIs can render deterministic defaults before scans begin.
     _swarm->mutex         = xSemaphoreCreateMutex();
     _swarm->total_workers = 1;
     _swarm->total_hr      = 0.0f;
@@ -94,6 +106,8 @@ bool MinerApp::init() {
 
     // ── Stage 3: detect board model and materialize the runtime board spec ──
     // get_board_model() internally debounces the selection pins (up to ~3 s).
+    // After this point, _spec becomes the single source of truth for board-
+    // specific pins, power rails, display geometry, ASIC type, and defaults.
     _model = get_board_model();
     if (_model == BOARD_UNKNOWN) {
         while (true) {
@@ -105,8 +119,9 @@ bool MinerApp::init() {
     hardware_pre_init(_spec);
     LOG_I("board model detected: %s", _spec.display_name.c_str());
 
-    // Benchmark mode overrides the nominal board operating point before any
-    // downstream component is constructed from _spec.
+    // If benchmark mode was persisted, override the nominal ASIC operating
+    // point here before any downstream object is created from _spec. This keeps
+    // power/miner construction aligned with the benchmark resume state.
     if (nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) == 1) {
         uint16_t bm_freq  = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ, _spec.asic.req_frq);
         uint16_t bm_vcore = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, _spec.asic.req_vcore);
@@ -118,6 +133,13 @@ bool MinerApp::init() {
     }
 
     // ── Stage 4: load persistent user / network / UI configuration ─────────
+    // Pull in all NVS-backed configuration that does not require hardware
+    // objects yet:
+    // - WiFi STA/AP identity
+    // - time/date/UI preferences
+    // - user-facing coins/watchlists
+    // - page restore and control semaphores used by later threads
+
     // WiFi connection config (replaces g_board.info.connection.wifi)
     {
         String dev = gen_device_code();
@@ -130,11 +152,18 @@ bool MinerApp::init() {
         _wifi_cfg.board_name = _spec.name;
     }
 
+    // These semaphores are control-plane signals consumed later by monitor,
+    // daemon, web, and UI code. They exist before thread creation so every
+    // context can safely capture them during begin().
     _nvs_save_xsem = xSemaphoreCreateCounting(1, 0);
     _recover_factory_xsem = xSemaphoreCreateCounting(1, 0);
     _force_config_xsem    = xSemaphoreCreateCounting(1, 0);
     _brightness_update_xsem = xSemaphoreCreateCounting(1, 0);
 
+    // Time/UI restore:
+    // - timezone + 12/24 h + date format feed clock/dashboard rendering
+    // - last page restore is sanitized so LOADING/CONFIG never become boot
+    //   landing pages after restart
     _tz      = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
     _bm_mode = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0);
     {
@@ -147,7 +176,9 @@ bool MinerApp::init() {
         _last_ui_page = (uint8_t)UIPageId::MINER;
     }
 
-    // Live user preferences (defaults from board spec, overridden by NVS)
+    // Live user preferences start from board defaults in _spec and are then
+    // overridden by NVS. Keeping that merge here makes display/LED behavior
+    // deterministic before any related thread starts.
     _pref.screen.flip          = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,         _spec.preference.screen.flip);
     _pref.screen.auto_rolling  = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN,         _spec.preference.screen.auto_rolling);
     _pref.screen.brightness    = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS,   _spec.preference.screen.brightness);
@@ -166,13 +197,21 @@ bool MinerApp::init() {
     }
 
     // ── Stage 5: create shared runtime domains backed by the loaded config ──
+    // Instantiate the shared long-lived runtime objects that threads will use:
+    // - miner status / counters / pause state
+    // - market client
+    // - power HAL + temperature probe wiring
+    // These depend on the board spec and loaded preferences above, but still
+    // happen before worker thread creation.
+
     // Shared mining runtime state (replaces g_board.status.miner). Created here
     // so the power loop's controlled-idle check can reference it immediately.
     static MinerStatus miner_status;
     miner_status.init();
     _minerStatus = &miner_status;
 
-    // Restore persisted counters (best-ever diff, block hits, uptime).
+    // Restore persisted miner counters so UI/web/logging start from the saved
+    // lifetime values instead of resetting to zero on every reboot.
     {
         String best_ever = nvs_config_get_string_value(NVS_CONFIG_BEST_EVER, "0");
         _minerStatus->diff.best_ever = strtoull(best_ever.c_str(), nullptr, 10);
@@ -186,6 +225,8 @@ bool MinerApp::init() {
         return false;
     }
 
+    // Build the board-specific power HAL from the resolved spec. This is the
+    // one concrete hardware object many later threads share.
     _power = _spec.create_power_instance(
         _spec.pwr.en_pins, _spec.pwr.adc_pins,
         _spec.pwr.vcore_regulator_pin, _spec.pwr.pgood_pin, _spec.pwr.dc_plug_pin);
@@ -193,11 +234,16 @@ bool MinerApp::init() {
         LOG_E("AxePower instance creation failed");
         return false;
     }
+    // Some boards register temperature readers through the power domain.
+    // Hook them here immediately after power HAL creation.
     if (_spec.setup_temp_hal) {
         _spec.setup_temp_hal(_power);
     }
 
     // ── Stage 6: build miners / pool connectivity objects from the spec + NVS ──
+    // Final stage: parse persisted pool credentials/URLs, create the ASIC
+    // driver, miner, and stratum client, and wire their dependencies together.
+    // begin() can only launch worker threads after this succeeds.
     if (!_init_mining_instances()) {
         return false;
     }
