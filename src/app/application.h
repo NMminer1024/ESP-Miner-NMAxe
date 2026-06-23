@@ -139,7 +139,7 @@ private:
     void _begin_infra(BootProgress& boot);
     void _begin_market(BootProgress& boot);
     void _begin_miners(BootProgress& boot);
-    void _update_backlight_by_events(bool& ss_active, float& bl_wave);
+    void _update_backlight_by_events(bool& ss_active, float& bl_wave, uint32_t delta_ms);
 
     static void _tick_thread_entry(void* args);
     static void _lvgl_thread_entry(void* args);

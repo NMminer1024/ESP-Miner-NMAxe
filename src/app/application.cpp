@@ -597,6 +597,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     bool     ss_active    = false;   // screensaver state (this thread owns backlight)
     bool     ui_switched  = false;   // one-shot LOADING -> MINER after boot
     float    bl_wave      = 0.0f;    // legacy-style event backlight pulse
+    uint32_t last_bl_ms   = millis();
     LoadingStage loading_stage = LoadingStage::WAIT_ADC;
     uint32_t loading_stage_ms = millis();
     uint32_t loading_detail_ms = 0;
@@ -623,6 +624,8 @@ void MinerApp::_tick_thread_entry(void* args) {
     while (true) {
         delay(10);
         uint32_t now = millis();
+        uint32_t delta_bl_ms = now - last_bl_ms;
+        last_bl_ms = now;
         EventBits_t ib = app._sys ? xEventGroupGetBits(app._sys->init_evt) : 0;
 
         if (!ui_switched) {
@@ -862,7 +865,7 @@ void MinerApp::_tick_thread_entry(void* args) {
             last_temp_ms = now;
         }
 
-        app._update_backlight_by_events(ss_active, bl_wave);
+        app._update_backlight_by_events(ss_active, bl_wave, delta_bl_ms);
 
         // ── Auto page-rolling: advance one page every 10 s when enabled and not
         //     in screensaver (mirrors legacy monitor behaviour). ──
@@ -1073,9 +1076,12 @@ void MinerApp::_tick_thread_entry(void* args) {
     }
 }
 
-void MinerApp::_update_backlight_by_events(bool& ss_active, float& bl_wave) {
+void MinerApp::_update_backlight_by_events(bool& ss_active, float& bl_wave, uint32_t delta_ms) {
     EventBits_t evt = _sys ? xEventGroupGetBits(_sys->sys_evt) : 0;
     uint8_t base_bl = _pref.screen.brightness ? _pref.screen.brightness : 80;
+    float step_scale = (float)delta_ms / 10.0f;
+    if (step_scale < 0.1f) step_scale = 0.1f;
+    if (step_scale > 10.0f) step_scale = 10.0f;
     const EventBits_t pulse_bits =
         SYS_EVENT_MINER_BLOCK_HIT |
         SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
@@ -1093,15 +1099,15 @@ void MinerApp::_update_backlight_by_events(bool& ss_active, float& bl_wave) {
     if ((evt & SYS_EVENT_MINER_BLOCK_HIT) != 0) {
         uint8_t pulse = (uint8_t)(100.0f * (1.0f + sinf(bl_wave)) / 2.0f);
         tft_bl_ctrl(pulse, &_spec);
-        bl_wave += 0.10f;
+        bl_wave += 0.10f * step_scale;
     } else if ((evt & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) != 0) {
         uint8_t pulse = (uint8_t)(100.0f * (1.0f + sinf(bl_wave)) / 2.0f);
         tft_bl_ctrl(pulse, &_spec);
-        bl_wave += 0.06f;
+        bl_wave += 0.06f * step_scale;
     } else if ((evt & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) != 0) {
         uint8_t pulse = (uint8_t)(100.0f * (1.0f + sinf(bl_wave)) / 2.0f);
         tft_bl_ctrl(pulse, &_spec);
-        bl_wave += 0.50f;
+        bl_wave += 0.50f * step_scale;
     } else {
         bl_wave = 0.0f;
         if (_ota.running) {
