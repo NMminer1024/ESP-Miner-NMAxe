@@ -472,15 +472,19 @@ void MinerApp::_begin_market(BootProgress& boot) {
     _ctx_market = &ctx;
 
     _create_task(market_thread_entry, "(market)", 1024 * 4, _ctx_market, TASK_PRIORITY_MARKET, 0);
+}
 
-    // static AphorismCtx aph_ctx;
-    // _state_aphorism.mutex = xSemaphoreCreateMutex();
-    // aph_ctx.state       = &_state_aphorism;
-    // aph_ctx.wifi_status = &_state_wifi->status;
-    // aph_ctx.ota_running = &_state_ota.running;
-    // _ctx_aphorism = &aph_ctx;
+void MinerApp::_begin_aphorism(BootProgress& boot) {
+    boot.next("Aphorism start...");
 
-    // _create_task(aphorism_thread_entry, "(aphorism)", 1024 * 6, _ctx_aphorism, TASK_PRIORITY_APHORISM, 0);
+    static AphorismCtx aph_ctx;
+    _state_aphorism.mutex = xSemaphoreCreateMutex();
+    aph_ctx.state       = &_state_aphorism;
+    aph_ctx.wifi_status = &_state_wifi->status;
+    aph_ctx.ota_running = &_state_ota.running;
+    _ctx_aphorism = &aph_ctx;
+
+    _create_task(aphorism_thread_entry, "(aphorism)", 1024 * 6, _ctx_aphorism, TASK_PRIORITY_APHORISM, 0);
 }
 
 void MinerApp::_begin_miners(BootProgress& boot) {
@@ -547,7 +551,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
 }
 
 void MinerApp::begin() {
-    constexpr int BOOT_STAGE_TOTAL = 8;
+    constexpr int BOOT_STAGE_TOTAL = 9;
     BootProgress boot(BOOT_STAGE_TOTAL);
     
     _begin_board_init(boot);
@@ -557,6 +561,7 @@ void MinerApp::begin() {
     _begin_display(boot);
     _begin_infra(boot);
     _begin_market(boot);
+    _begin_aphorism(boot);
     _begin_miners(boot);
     _create_task(_tick_thread_entry, "(tick)", 1024 * 4, nullptr, TASK_PRIORITY_APP_TICK, 1);
     boot.post("Booting...");
