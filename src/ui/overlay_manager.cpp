@@ -244,23 +244,35 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
         // Block hit: 0s→100% 1s→30% 2s→100% 3s→30% 4s→100% 5s→30% 6s→dismiss
         if (elapsed >= 6) {
             // Dismiss celebration
-            if (_ctx.sys_evt) {
-                xEventGroupClearBits(_ctx.sys_evt, SYS_EVENT_MINER_BLOCK_HIT);
-            }
             _transient_kind = TransientOverlayKind::None;
             _celebration_active = false;
             _hide();
         }
     } else {
         // High diff: 0s→100% 2s→80%, ends at 5s
-        if (elapsed >= 5) {
-            if (_ctx.sys_evt) {
-                xEventGroupClearBits(_ctx.sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
-            }
-            _transient_kind = TransientOverlayKind::None;
-            _celebration_active = false;
-            _hide();
+        if (_ctx.status && _lb_body) {
+            String body = String("New best difficulty!\n") +
+                          formatNumber(_ctx.status->diff.best_ever, 4);
+            lv_label_set_text(_lb_body, body.c_str());
+            lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
         }
+        if (_ctx.sys_evt &&
+            (xEventGroupGetBits(_ctx.sys_evt) & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) != 0) {
+            if (_img) {
+                lv_obj_clear_flag(_img, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_move_background(_img);
+            }
+            if (_lb_title) lv_obj_move_foreground(_lb_title);
+            if (_lb_body)  lv_obj_move_foreground(_lb_body);
+            if (_panel && !_visible) {
+                lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
+                _visible = true;
+            }
+            return;
+        }
+        _transient_kind = TransientOverlayKind::None;
+        _celebration_active = false;
+        _hide();
     }
 }
 
@@ -798,6 +810,12 @@ bool OverlayManager::_render_countdown_overlays() {
 }
 
 bool OverlayManager::_render_find_overlay(uint32_t now, EventBits_t bits) {
+    if ((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) != 0 &&
+        _transient_kind != TransientOverlayKind::None &&
+        _transient_kind != TransientOverlayKind::FindMe) {
+        _dismiss_transient_overlays();
+    }
+
     if (_find_fading) {
         uint32_t elapsed = now - _find_fade_start;
         if (elapsed >= 1000) {
@@ -919,7 +937,7 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
         _transient_kind != TransientOverlayKind::CelebrationBlockHit &&
         _transient_kind != TransientOverlayKind::CelebrationHighDiff) {
         String body = "New best difficulty!";
-        if (_ctx.status) body += String("\nBest: ") + formatNumber(_ctx.status->diff.best_ever, 4);
+        if (_ctx.status) body += String("\n") + formatNumber(_ctx.status->diff.best_ever, 4);
         const lv_img_dsc_t* img = (LV_VER_RES <= 135)
             ? &new_achievement_page_img_135_240 : &new_achievement_page_img_240_320;
         _show_celebration(0x00E5FF, "NEW BEST!", body, img);
