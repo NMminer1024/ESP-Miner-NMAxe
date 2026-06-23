@@ -904,6 +904,97 @@ void OverlayManager::_fault_action_no_cb(lv_event_t* e) {
     xEventGroupClearBits(self->_ctx.sys_evt, SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT);
 }
 
+void OverlayManager::_show_mining_pause_overlay() {
+    if (!_panel || !_ctx.status) return;
+
+    MinerRuntimeState state = _ctx.status->runtime_state;
+    bool pause_active = _ctx.status->user_paused &&
+                        (state == MINER_RUNTIME_PAUSING || state == MINER_RUNTIME_PAUSED);
+    if (!pause_active) return;
+
+    const bool is_large = (LV_HOR_RES >= 300);
+    const lv_coord_t width = (lv_coord_t)(LV_HOR_RES - (is_large ? 24 : 8));
+    const lv_coord_t icon_y = is_large ? -42 : -34;
+    const lv_coord_t title_y = is_large ? -13 : -9;
+    const lv_coord_t elapsed_y = 15;
+    const lv_coord_t power_y = is_large ? 41 : 35;
+
+    _reset_layout();
+    _gif_hide();
+    if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
+    if (_btn_no)  { lv_obj_add_flag(_btn_no, LV_OBJ_FLAG_HIDDEN); }
+    _fault_event = 0;
+
+    lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(_panel, LV_OPA_80, 0);
+
+    lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_width(_lb_title, width);
+    lv_obj_set_style_text_font(_lb_title, &Inconsolata_26, 0);
+    lv_obj_set_style_text_color(_lb_title, lv_color_hex(0xFACC15), 0);
+    lv_obj_set_style_text_align(_lb_title, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(_lb_title, LV_LABEL_LONG_CLIP);
+    lv_label_set_text(_lb_title, "mining pause!");
+    lv_obj_align(_lb_title, LV_ALIGN_CENTER, 0, title_y);
+
+    lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_width(_lb_body, width);
+    lv_obj_set_style_text_font(_lb_body, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFACC15), 0);
+    lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(_lb_body, LV_LABEL_LONG_CLIP);
+    lv_label_set_text(_lb_body, LV_SYMBOL_PAUSE);
+    lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, icon_y);
+
+    uint32_t now_ms = millis();
+    uint32_t start_ms = _ctx.status->pause_started_ms;
+    uint32_t elapsed_sec = (start_ms == 0) ? 0 : (uint32_t)((now_ms - start_ms) / 1000UL);
+    uint32_t days = elapsed_sec / 86400UL;
+    uint32_t rem = elapsed_sec % 86400UL;
+    uint32_t hours = rem / 3600UL;
+    uint32_t minutes = (rem % 3600UL) / 60UL;
+    uint32_t seconds = rem % 60UL;
+
+    char elapsed[32];
+    if (days > 0) {
+        snprintf(elapsed, sizeof(elapsed), "%lud %02lu:%02lu:%02lu",
+                 (unsigned long)days, (unsigned long)hours,
+                 (unsigned long)minutes, (unsigned long)seconds);
+    } else {
+        snprintf(elapsed, sizeof(elapsed), "%02lu:%02lu:%02lu",
+                 (unsigned long)hours, (unsigned long)minutes, (unsigned long)seconds);
+    }
+
+    lv_obj_clear_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_width(_lb_aux, width);
+    lv_obj_set_style_text_font(_lb_aux, is_large ? &Inconsolata_22 : &Inconsolata_18, 0);
+    lv_obj_set_style_text_color(_lb_aux, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_align(_lb_aux, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(_lb_aux, LV_LABEL_LONG_CLIP);
+    lv_label_set_text_fmt(_lb_aux, "paused %s", elapsed);
+    lv_obj_align(_lb_aux, LV_ALIGN_CENTER, 0, elapsed_y);
+
+    const PowerTelemetry& pwr = MinerApp::instance().pwr_tele();
+    const float vbus_v = pwr.vbus / 1000.0f;
+    const float power_w = (pwr.vbus / 1000.0f) * (pwr.ibus / 1000.0f);
+    char power_buf[48];
+    snprintf(power_buf, sizeof(power_buf), "Vbus %.3fV  P %.3fW", vbus_v, power_w);
+
+    lv_obj_clear_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_width(_lb_aux2, width);
+    lv_obj_set_style_text_font(_lb_aux2, is_large ? &Inconsolata_22 : &Inconsolata_18, 0);
+    lv_obj_set_style_text_color(_lb_aux2, lv_color_hex(0x4ADE80), 0);
+    lv_obj_set_style_text_align(_lb_aux2, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(_lb_aux2, LV_LABEL_LONG_CLIP);
+    lv_label_set_text(_lb_aux2, power_buf);
+    lv_obj_align(_lb_aux2, LV_ALIGN_CENTER, 0, power_y);
+
+    if (!_visible) {
+        lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
+        _visible = true;
+    }
+}
+
 bool OverlayManager::_render_countdown_overlays() {
     if (UIManager::instance().setup_rebooting()) {
         _show_rebooting_overlay("Entering setup mode");
@@ -1086,13 +1177,10 @@ bool OverlayManager::_render_status_overlay() {
 
     if (_ctx.status) {
         MinerRuntimeState st = _ctx.status->runtime_state;
-        bool paused_like = _ctx.status->user_paused ||
-                           st == MINER_RUNTIME_PAUSING || st == MINER_RUNTIME_PAUSED ||
-                           st == MINER_RUNTIME_RESUMING || st == MINER_RUNTIME_ERROR;
-        if (paused_like) {
-            String body = String("State: ") + miner_runtime_state_to_string(st);
-            if (_ctx.status->user_paused) body += "\nPaused by user";
-            _show(0xFFC107, "MINING PAUSED", body);
+        bool pause_active = _ctx.status->user_paused &&
+                            (st == MINER_RUNTIME_PAUSING || st == MINER_RUNTIME_PAUSED);
+        if (pause_active) {
+            _show_mining_pause_overlay();
             return true;
         }
     }
