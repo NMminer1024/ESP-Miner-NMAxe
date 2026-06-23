@@ -37,12 +37,26 @@ void OverlayManager::_build() {
     auto dismiss_pressed_cb = [](lv_event_t*) {
         auto& mgr = OverlayManager::instance();
         if (!mgr._ctx.sys_evt) return;
+
+        EventBits_t bits_to_clear = 0;
+        switch (mgr._transient_kind) {
+            case TransientOverlayKind::CelebrationBlockHit:
+                bits_to_clear = SYS_EVENT_MINER_BLOCK_HIT;
+                break;
+            case TransientOverlayKind::CelebrationHighDiff:
+                bits_to_clear = SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED;
+                break;
+            case TransientOverlayKind::FindMe:
+                bits_to_clear = SYS_EVENT_FIND_NEIGHBOR_TRIGGERED;
+                break;
+            case TransientOverlayKind::None:
+            default:
+                bits_to_clear = SYS_EVENT_SCREEN_SAVER_TRIGGERED;
+                break;
+        }
+
         mgr._dismiss_transient_overlays();
-        xEventGroupClearBits(mgr._ctx.sys_evt,
-            SYS_EVENT_MINER_BLOCK_HIT |
-            SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
-            SYS_EVENT_SCREEN_SAVER_TRIGGERED |
-            SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
+        xEventGroupClearBits(mgr._ctx.sys_evt, bits_to_clear);
         UIManager::instance().wake_activity();
     };
     lv_obj_add_event_cb(_panel, dismiss_pressed_cb, LV_EVENT_PRESSED, nullptr);
@@ -80,9 +94,9 @@ void OverlayManager::_build() {
     // Celebration full-screen image (lazily set src per event)
     _img = lv_img_create(_panel);
     lv_obj_add_flag(_img, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_event_cb(_img, dismiss_pressed_cb, LV_EVENT_PRESSED, nullptr);
-    lv_obj_add_event_cb(_lb_title, dismiss_pressed_cb, LV_EVENT_PRESSED, nullptr);
-    lv_obj_add_event_cb(_lb_body, dismiss_pressed_cb, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_flag(_img, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_add_flag(_lb_title, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_EVENT_BUBBLE);
 
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
