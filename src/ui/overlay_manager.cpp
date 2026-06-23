@@ -33,7 +33,11 @@ void OverlayManager::_build() {
     lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
     lv_obj_set_style_border_width(_panel, 0, 0);
-    lv_obj_set_style_pad_all(_panel, 6, 0);
+    lv_obj_set_style_pad_all(_panel, 0, 0);
+    lv_obj_set_style_radius(_panel, 0, 0);
+    lv_obj_set_style_clip_corner(_panel, false, 0);
+    lv_obj_set_style_outline_width(_panel, 0, 0);
+    lv_obj_set_style_shadow_width(_panel, 0, 0);
     lv_obj_clear_flag(_panel, LV_OBJ_FLAG_SCROLLABLE);
     auto dismiss_pressed_cb = [](lv_event_t*) {
         auto& mgr = OverlayManager::instance();
@@ -107,7 +111,11 @@ void OverlayManager::_reset_layout() {
     if (!_panel) return;
     lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
-    lv_obj_set_style_pad_all(_panel, 6, 0);
+    lv_obj_set_style_pad_all(_panel, 0, 0);
+    lv_obj_set_style_radius(_panel, 0, 0);
+    lv_obj_set_style_clip_corner(_panel, false, 0);
+    lv_obj_set_style_outline_width(_panel, 0, 0);
+    lv_obj_set_style_shadow_width(_panel, 0, 0);
 
     if (_lb_title) {
         lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
@@ -229,8 +237,12 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
 
     // Set image source and show full-screen
     lv_img_set_src(_img, img);
+    lv_obj_set_style_pad_all(_img, 0, 0);
+    lv_obj_set_style_border_width(_img, 0, 0);
+    lv_obj_set_style_radius(_img, 0, 0);
     lv_obj_set_pos(_img, 0, 0);
     lv_obj_set_size(_img, LV_HOR_RES, LV_VER_RES);
+    lv_obj_align(_img, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_clear_flag(_img, LV_OBJ_FLAG_HIDDEN);
 
     const bool is_high_diff = (title != nullptr && std::strcmp(title, "NEW BEST!") == 0);
