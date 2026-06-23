@@ -917,7 +917,7 @@ void OverlayManager::update() {
     }
     if (bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {
         String body = "New best difficulty!";
-        if (_ctx.status) body += String("\nBest: ") + String(_ctx.status->diff.best_ever, 0);
+        if (_ctx.status) body += String("\nBest: ") + formatNumber(_ctx.status->diff.best_ever, 4);
         const lv_img_dsc_t* img = (LV_VER_RES <= 135)
             ? &new_achievement_page_img_135_240 : &new_achievement_page_img_240_320;
         _show_celebration(0x00E5FF, "NEW BEST!", body, img);
