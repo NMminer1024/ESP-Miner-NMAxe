@@ -11,6 +11,7 @@
 #include "../ui/assets/images.h"
 #include "../utils/helper.h"
 #include "../utils/logger/logger.h"
+#include "../utils/reboot_log/reboot_log.h"
 #include "../version.h"
 #include "../market/market_ctx.h"
 
@@ -52,6 +53,10 @@ BaseType_t MinerApp::_create_task(TaskFunction_t fn, const char* name,
 }
 
 bool MinerApp::init() {
+    // Persist the previous boot's reboot record before other init paths can
+    // touch reboot intent state.
+    reboot_log_init();
+
     Serial.setTimeout(20);
     Serial.begin(115200);
     delay(100);
