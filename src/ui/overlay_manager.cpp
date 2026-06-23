@@ -5,6 +5,7 @@
 #include "../utils/logger/logger.h"
 #include "../nvs/nvs_config.h"
 #include "../utils/reboot_log/reboot_log.h"
+#include "../drivers/display/display_hal.h"
 #include "assets/fonts.h"
 #include "assets/images.h"
 #include <SPIFFS.h>
