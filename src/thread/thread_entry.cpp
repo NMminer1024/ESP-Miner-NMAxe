@@ -51,6 +51,13 @@
 #include <unordered_set>
 #include <vector>
 
+static void wait_for_wifi_sta_connected(EventGroupHandle_t init_evt, const char* thread_name) {
+    if (init_evt == nullptr) return;
+    LOG_I("%s waiting for WiFi STA connected gate...", thread_name);
+    xEventGroupWaitBits(init_evt, INIT_EVENT_WIFI_STA_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
+    LOG_I("%s WiFi STA connected gate opened.", thread_name);
+}
+
 // ── Stratum: pool connect / subscribe / job notify / share results ──────────
 //    Mirrors legacy stratum_thread_entry; board_sal_t* -> MinerCtx*.
 void stratum_thread_entry(void* args) {
@@ -64,12 +71,7 @@ void stratum_thread_entry(void* args) {
 
     double pool_init_diff = ctx->spec->asic.diff_thr_init;
     stratum->set_pool_difficulty(pool_init_diff);
-    while (true) {
-        if (WiFi.status() == WL_CONNECTED) {
-            break;
-        }
-        delay(1000);
-    }
+    wait_for_wifi_sta_connected(ctx->init_evt, "(stratum)");
 
     // Parse a Stratum JSON-RPC error response into a human-readable string.
     auto parse_stratum_error = [](const String& raw) -> String {
@@ -1304,6 +1306,7 @@ void monitor_thread_entry(void* args) {
     BoardSpecConfig& spec  = *ctx->spec;
     MinerStatus&     st    = *ctx->status;
     LOG_I("(monitor) thread started on core %d...", xPortGetCoreID());
+    wait_for_wifi_sta_connected(ctx->init_evt, "(monitor)");
 
     // NTP server list — rotated on consecutive failures; global coverage.
     static const char* const NTP_SERVERS[] = {
@@ -2342,6 +2345,8 @@ void scan_thread_entry(void* args) {
         return ((neighbor_ip_t)o0 << 24) | ((neighbor_ip_t)o1 << 16) | ((neighbor_ip_t)o2 << 8) | (neighbor_ip_t)o3;
     };
 
+    wait_for_wifi_sta_connected(ctx->init_evt, "(neighbor)");
+
     // Avoid lwip resource contention during startup; wait until miner is ready.
     xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     delay(2000);
@@ -2510,6 +2515,8 @@ void swarm_thread_entry(void* args) {
     SwarmState&    ctx = *sctx->swarm;
     NeighborState& nbr = *sctx->neighbor;
     MinerStatus&   st  = *sctx->status;
+
+    wait_for_wifi_sta_connected(sctx->init_evt, "(swarm)");
 
     auto neighbor_ip_from_octets = [](uint8_t o0, uint8_t o1, uint8_t o2, uint8_t o3) -> neighbor_ip_t {
         return ((neighbor_ip_t)o0 << 24) | ((neighbor_ip_t)o1 << 16) | ((neighbor_ip_t)o2 << 8) | (neighbor_ip_t)o3;
@@ -2766,8 +2773,9 @@ void market_thread_entry(void* args) {
         delay(1000);
     }
 
+    wait_for_wifi_sta_connected(ctx->init_evt, "(market)");
+
     // Wait for WiFi, then print all available USDT trading pairs once at startup.
-    while (*ctx->wifi_status != WL_CONNECTED) delay(1000);
     LOG_I("Fetching available USDT trading pairs from Binance...");
     market->fetch_available_usdt_pairs();
 
@@ -3105,6 +3113,8 @@ void aphorism_thread_entry(void* args) {
     AphorismCtx* ctx = static_cast<AphorismCtx*>(args);
     AphorismState& aphorism = *ctx->state;
     auto& pool = aphorism.pool;
+
+    wait_for_wifi_sta_connected(ctx->init_evt, "(aphorism)");
 
     static const char* const KEYWORDS[] = {
         "keep", "continue", "never", "quit", "grind", "work", "effort", "dedication",

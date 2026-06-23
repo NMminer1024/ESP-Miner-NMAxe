@@ -26,4 +26,5 @@ struct AphorismCtx {
     AphorismState*  state       = nullptr;
     volatile int*   wifi_status = nullptr;   // wl_status_t (skip fetch if not connected)
     volatile bool*  ota_running = nullptr;   // skip fetch during OTA
+    EventGroupHandle_t init_evt = nullptr;   // INIT_EVENT_WIFI_STA_CONNECTED gate
 };

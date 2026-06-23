@@ -466,6 +466,7 @@ void MinerApp::_begin_market(BootProgress& boot) {
     ctx.market         = _service_market;
     ctx.wifi_status    = &_state_wifi->status;
     ctx.ota_running    = &_state_ota.running;
+    ctx.init_evt       = _sync_system->init_evt;
     ctx.sys_evt        = _sync_system->sys_evt;
     ctx.coin_price     = _config_coin_price;
     ctx.coin_watchlist = _config_coin_watchlist;
@@ -482,6 +483,7 @@ void MinerApp::_begin_aphorism(BootProgress& boot) {
     aph_ctx.state       = &_state_aphorism;
     aph_ctx.wifi_status = &_state_wifi->status;
     aph_ctx.ota_running = &_state_ota.running;
+    aph_ctx.init_evt    = _sync_system->init_evt;
     _ctx_aphorism = &aph_ctx;
 
     _create_task(aphorism_thread_entry, "(aphorism)", 1024 * 6, _ctx_aphorism, TASK_PRIORITY_APHORISM, 0);
