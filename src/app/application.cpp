@@ -53,6 +53,7 @@ BaseType_t MinerApp::_create_task(TaskFunction_t fn, const char* name,
 }
 
 bool MinerApp::init() {
+    // ── Stage 0: earliest boot bookkeeping + serial console ────────────────
     // Persist the previous boot's reboot record before other init paths can
     // touch reboot intent state.
     reboot_log_init();
@@ -61,6 +62,7 @@ bool MinerApp::init() {
     Serial.begin(115200);
     delay(100);
 
+    // ── Stage 1: bind singleton-owned shared state storage ──────────────────
     static SystemSync sys_storage;
     static WifiState wifi_storage;
     static SwarmState swarm_storage;
@@ -71,25 +73,26 @@ bool MinerApp::init() {
     _swarm = &swarm_storage;
     _neighbor = &neighbor_storage;
 
+    // ── Stage 2: create core sync primitives / zero-cost shared runtime state ──
     _sys->init_evt = xEventGroupCreate();
-    _sys->sys_evt = xEventGroupCreate();
+    _sys->sys_evt  = xEventGroupCreate();
     _sys->reboot_xsem = xSemaphoreCreateCounting(1, 0);
 
-    _wifi->status = WL_DISCONNECTED;
-    _wifi->rssi = 0;
-    _wifi->reconnect_xsem = xSemaphoreCreateCounting(1, 0);
-    _wifi->client_connected = false;
+    _wifi->status                = WL_DISCONNECTED;
+    _wifi->rssi                  = 0;
+    _wifi->reconnect_xsem        = xSemaphoreCreateCounting(1, 0);
+    _wifi->client_connected      = false;
     _wifi->force_config_required = nvs_config_get_u8(NVS_CONFIG_FORCE_CONFIG, false);
 
-    _swarm->mutex = xSemaphoreCreateMutex();
+    _swarm->mutex         = xSemaphoreCreateMutex();
     _swarm->total_workers = 1;
-    _swarm->total_hr = 0.0f;
-    _swarm->best_ever_bd = 0.0f;
+    _swarm->total_hr      = 0.0f;
+    _swarm->best_ever_bd  = 0.0f;
 
-    _neighbor->mutex = xSemaphoreCreateMutex();
+    _neighbor->mutex         = xSemaphoreCreateMutex();
     _neighbor->scan_required = xSemaphoreCreateCounting(1, 0);
 
-    // ── Board detection + spec (real board layer, preserves original timing) ──
+    // ── Stage 3: detect board model and materialize the runtime board spec ──
     // get_board_model() internally debounces the selection pins (up to ~3 s).
     _model = get_board_model();
     if (_model == BOARD_UNKNOWN) {
@@ -100,7 +103,10 @@ bool MinerApp::init() {
     }
     _spec = get_board_config(_model);
     hardware_pre_init(_spec);
+    LOG_I("board model detected: %s", _spec.display_name.c_str());
 
+    // Benchmark mode overrides the nominal board operating point before any
+    // downstream component is constructed from _spec.
     if (nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) == 1) {
         uint16_t bm_freq  = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ, _spec.asic.req_frq);
         uint16_t bm_vcore = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, _spec.asic.req_vcore);
@@ -111,9 +117,8 @@ bool MinerApp::init() {
         LOG_W("[BM] Benchmark mode: freq=%dMHz vcore=%dmV", bm_freq, bm_vcore);
     }
 
-    LOG_I("board model detected: %s", _spec.display_name.c_str());
-
-    // ── WiFi connection config (loaded once from NVS; replaces g_board.info.connection.wifi) ──
+    // ── Stage 4: load persistent user / network / UI configuration ─────────
+    // WiFi connection config (replaces g_board.info.connection.wifi)
     {
         String dev = gen_device_code();
         String ap_default = _spec.name + "_" + dev.substring(0, 5);
@@ -125,39 +130,12 @@ bool MinerApp::init() {
         _wifi_cfg.board_name = _spec.name;
     }
 
-    // ── Market client + coin config (replaces g_board.market / info.base.coin_*) ──
-    _coin_price     = nvs_config_get_string_value(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC");
-    _coin_watchlist = nvs_config_get_string_value(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL");
-    _market = new MarketClass();
-    if (_market == nullptr) {
-        LOG_E("MarketClass instance creation failed");
-        return false;
-    }
-
-    // ── Power HAL instance (replaces g_board.power), built from the board spec ──
-    _power = _spec.create_power_instance(
-        _spec.pwr.en_pins, _spec.pwr.adc_pins,
-        _spec.pwr.vcore_regulator_pin, _spec.pwr.pgood_pin, _spec.pwr.dc_plug_pin);
-    if (_power == nullptr) {
-        LOG_E("AxePower instance creation failed");
-        return false;
-    }
-    // Register board-specific temperature readers into the temp HAL.
-    if (_spec.setup_temp_hal) {
-        _spec.setup_temp_hal(_power);
-    }
-
-    // ── Shared mining runtime state (replaces g_board.status.miner) ──
-    // Created here so the power loop's controlled-idle check can reference it.
-    static MinerStatus miner_status;
-    miner_status.init();
-    _minerStatus = &miner_status;
-
     _nvs_save_xsem = xSemaphoreCreateCounting(1, 0);
     _recover_factory_xsem = xSemaphoreCreateCounting(1, 0);
     _force_config_xsem    = xSemaphoreCreateCounting(1, 0);
     _brightness_update_xsem = xSemaphoreCreateCounting(1, 0);
-    _tz = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
+
+    _tz      = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
     _bm_mode = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0);
     {
         uint8_t tf = nvs_config_get_u8(NVS_CONFIG_TIME_FORMAT, 24);
@@ -169,7 +147,7 @@ bool MinerApp::init() {
         _last_ui_page = (uint8_t)UIPageId::MINER;
     }
 
-    // ── Live user preferences (defaults from board spec, overridden by NVS) ──
+    // Live user preferences (defaults from board spec, overridden by NVS)
     _pref.screen.flip          = nvs_config_get_u8(NVS_CONFIG_FLIP_SCREEN,         _spec.preference.screen.flip);
     _pref.screen.auto_rolling  = nvs_config_get_u8(NVS_CONFIG_AUTO_SCREEN,         _spec.preference.screen.auto_rolling);
     _pref.screen.brightness    = nvs_config_get_u8(NVS_CONFIG_SCREEN_BRIGHTNESS,   _spec.preference.screen.brightness);
@@ -179,9 +157,20 @@ bool MinerApp::init() {
     _pref.led.enable           = nvs_config_get_u8(NVS_CONFIG_LED_INDICATOR,       _spec.preference.led.enable);
     _pref.led.sleep            = false;
     _pref.led.sleep_last       = _pref.led.sleep;
+
+    _coin_price     = nvs_config_get_string_value(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC");
+    _coin_watchlist = nvs_config_get_string_value(NVS_CONFIG_COIN_WATCHLIST, "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL");
+
     if (_bm_mode) {
         LOG_W("[BM] *** Benchmark mode active (bm_mode=%d) ***", _bm_mode);
     }
+
+    // ── Stage 5: create shared runtime domains backed by the loaded config ──
+    // Shared mining runtime state (replaces g_board.status.miner). Created here
+    // so the power loop's controlled-idle check can reference it immediately.
+    static MinerStatus miner_status;
+    miner_status.init();
+    _minerStatus = &miner_status;
 
     // Restore persisted counters (best-ever diff, block hits, uptime).
     {
@@ -191,12 +180,29 @@ bool MinerApp::init() {
         _minerStatus->uptime_ever    = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
     }
 
-    // ── Build connection set + asic/miner/stratum instances with DI ──
+    _market = new MarketClass();
+    if (_market == nullptr) {
+        LOG_E("MarketClass instance creation failed");
+        return false;
+    }
+
+    _power = _spec.create_power_instance(
+        _spec.pwr.en_pins, _spec.pwr.adc_pins,
+        _spec.pwr.vcore_regulator_pin, _spec.pwr.pgood_pin, _spec.pwr.dc_plug_pin);
+    if (_power == nullptr) {
+        LOG_E("AxePower instance creation failed");
+        return false;
+    }
+    if (_spec.setup_temp_hal) {
+        _spec.setup_temp_hal(_power);
+    }
+
+    // ── Stage 6: build miners / pool connectivity objects from the spec + NVS ──
     if (!_init_mining_instances()) {
         return false;
     }
 
-    LOG_D("MinerApp::init ready");
+    LOG_I("MinerApp::init ready");
     return true;
 }
 
