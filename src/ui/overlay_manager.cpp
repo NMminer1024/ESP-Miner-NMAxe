@@ -34,7 +34,7 @@ void OverlayManager::_build() {
     lv_obj_set_style_border_width(_panel, 0, 0);
     lv_obj_set_style_pad_all(_panel, 6, 0);
     lv_obj_clear_flag(_panel, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_event_cb(_panel, [](lv_event_t*) {
+    auto dismiss_pressed_cb = [](lv_event_t*) {
         auto& mgr = OverlayManager::instance();
         if (!mgr._ctx.sys_evt) return;
         mgr._dismiss_transient_overlays();
@@ -44,7 +44,8 @@ void OverlayManager::_build() {
             SYS_EVENT_SCREEN_SAVER_TRIGGERED |
             SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
         UIManager::instance().wake_activity();
-    }, LV_EVENT_PRESSED, nullptr);
+    };
+    lv_obj_add_event_cb(_panel, dismiss_pressed_cb, LV_EVENT_PRESSED, nullptr);
     lv_obj_add_event_cb(_panel, [](lv_event_t*) {
         UIManager::instance().wake_activity();
     }, LV_EVENT_PRESSING, nullptr);
@@ -79,6 +80,9 @@ void OverlayManager::_build() {
     // Celebration full-screen image (lazily set src per event)
     _img = lv_img_create(_panel);
     lv_obj_add_flag(_img, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(_img, dismiss_pressed_cb, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_event_cb(_lb_title, dismiss_pressed_cb, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_event_cb(_lb_body, dismiss_pressed_cb, LV_EVENT_PRESSED, nullptr);
 
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
@@ -214,19 +218,31 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
     lv_obj_set_size(_img, LV_HOR_RES, LV_VER_RES);
     lv_obj_clear_flag(_img, LV_OBJ_FLAG_HIDDEN);
 
-    // Title on top of image
-    lv_obj_set_style_text_color(_lb_title, lv_color_hex(accent), 0);
-    lv_label_set_text(_lb_title, title);
-    lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+    const bool is_high_diff = (title != nullptr && std::strcmp(title, "NEW BEST!") == 0);
 
-    // Body text overlaid near bottom
+    // Title on top of image
+    if (is_high_diff) {
+        lv_label_set_text(_lb_title, "");
+        lv_obj_add_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_set_style_text_color(_lb_title, lv_color_hex(accent), 0);
+        lv_label_set_text(_lb_title, title);
+        lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Body text overlaid near bottom / centered for high diff
     if (_lb_body) {
         lv_label_set_text(_lb_body, body.c_str());
         lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
-        lv_obj_set_pos(_lb_body, 0, LV_VER_RES <= 135 ? 98 : 200);
         lv_obj_set_width(_lb_body, LV_HOR_RES);
         lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
+        if (is_high_diff) {
+            lv_obj_set_style_text_font(_lb_body, LV_VER_RES <= 135 ? &Inconsolata_18 : &Inconsolata_26, 0);
+            lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, LV_VER_RES <= 135 ? 23 : 70);
+        } else {
+            lv_obj_set_pos(_lb_body, 0, LV_VER_RES <= 135 ? 98 : 200);
+        }
     }
 
     if (!_visible) {
@@ -251,8 +267,7 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
     } else {
         // High diff: 0s→100% 2s→80%, ends at 5s
         if (_ctx.status && _lb_body) {
-            String body = String("New best difficulty!\n") +
-                          formatNumber(_ctx.status->diff.best_ever, 4);
+            String body = formatNumber(_ctx.status->diff.best_ever, 4);
             lv_label_set_text(_lb_body, body.c_str());
             lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
         }
@@ -936,8 +951,8 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
     if ((bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) &&
         _transient_kind != TransientOverlayKind::CelebrationBlockHit &&
         _transient_kind != TransientOverlayKind::CelebrationHighDiff) {
-        String body = "New best difficulty!";
-        if (_ctx.status) body += String("\n") + formatNumber(_ctx.status->diff.best_ever, 4);
+        String body;
+        if (_ctx.status) body = formatNumber(_ctx.status->diff.best_ever, 4);
         const lv_img_dsc_t* img = (LV_VER_RES <= 135)
             ? &new_achievement_page_img_135_240 : &new_achievement_page_img_240_320;
         _show_celebration(0x00E5FF, "NEW BEST!", body, img);
