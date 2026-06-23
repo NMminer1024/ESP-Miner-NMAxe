@@ -258,9 +258,10 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
     lv_obj_clear_flag(_img, LV_OBJ_FLAG_HIDDEN);
 
     const bool is_high_diff = (title != nullptr && std::strcmp(title, "NEW BEST!") == 0);
+    const bool is_block_hit = (title != nullptr && std::strcmp(title, "BLOCK FOUND!") == 0);
 
     // Title on top of image
-    if (is_high_diff) {
+    if (is_high_diff || is_block_hit) {
         lv_label_set_text(_lb_title, "");
         lv_obj_add_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
     } else {
@@ -271,17 +272,22 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
 
     // Body text overlaid near bottom / centered for high diff
     if (_lb_body) {
-        lv_label_set_text(_lb_body, body.c_str());
-        lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
-        lv_obj_set_width(_lb_body, LV_HOR_RES);
-        lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
+        if (is_block_hit) {
+            lv_label_set_text(_lb_body, "");
+            lv_obj_add_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_label_set_text(_lb_body, body.c_str());
+            lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
+            lv_obj_set_width(_lb_body, LV_HOR_RES);
+            lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
+        }
         if (is_high_diff) {
             const lv_coord_t diff_y = LV_VER_RES <= 135 ? 23 : 70;
             lv_obj_set_style_text_font(_lb_body, LV_VER_RES <= 135 ? &Inconsolata_18 : &Inconsolata_26, 0);
             lv_obj_set_pos(_lb_body, 0, diff_y);
             lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, diff_y);
-        } else {
+        } else if (!is_block_hit) {
             lv_obj_set_pos(_lb_body, 0, LV_VER_RES <= 135 ? 98 : 200);
         }
     }
