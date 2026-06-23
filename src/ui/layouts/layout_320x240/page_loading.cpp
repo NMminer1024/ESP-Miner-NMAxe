@@ -31,7 +31,7 @@ void PageLoading320x240::_create_dynamic(lv_obj_t* parent) {
     _lb_details = lv_label_create(parent);
     lv_obj_set_width(_lb_details, _W - ver_width);
     lv_label_set_text(_lb_details, "Initializing...");
-    lv_obj_set_style_text_font(_lb_details, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(_lb_details, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(_lb_details, lv_color_hex(0xFFFFFF), 0);
     lv_label_set_long_mode(_lb_details, LV_LABEL_LONG_DOT);
     lv_obj_align(_lb_details, LV_ALIGN_BOTTOM_LEFT, 3, 0);

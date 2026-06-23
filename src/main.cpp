@@ -1,6 +1,7 @@
 ﻿#include "app/application.h"
 #include "app/system_events.h"
 #include "utils/reboot_log/reboot_log.h"
+#include "utils/logger/logger.h"
 
 void setup() {
     // Persist the previous boot's reboot record before other tasks can touch reboot intent state.
@@ -19,17 +20,19 @@ void loop() {
 
     // ── Test 1: Block Hit celebration (image + backlight flash) ──
     // Trigger after 40 loops (~40 s). Set #if 1 to enable.
-#if 0
-    if (evt && s_loop_count == 40) {
+#if 1
+    if (evt && (s_loop_count % 56 == 0)) {
         xEventGroupSetBits(evt, SYS_EVENT_MINER_BLOCK_HIT);
+        LOG_W("Test: Block Hit celebration triggered");
     }
 #endif
 
     // ── Test 2: High Difficulty celebration (image + backlight pulse) ──
     // Trigger after 40 loops (~40 s). Set #if 1 to enable.
 #if 1
-    if (evt && s_loop_count == 40) {
+    if (evt && (s_loop_count % 40 == 0)) {
         xEventGroupSetBits(evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
+        LOG_W("Test: High Difficulty celebration triggered");
     }
 #endif
 
