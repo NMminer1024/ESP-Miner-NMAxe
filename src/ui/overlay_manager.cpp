@@ -1184,7 +1184,9 @@ bool OverlayManager::_render_screensaver_overlay(uint32_t now, EventBits_t bits)
 
 void OverlayManager::update() {
     uint32_t now = millis();
-    if (now - _last_ms < 250) return;   // self-throttle (~4 Hz)
+    const bool fade_active = _find_fading || _celebration_fading || _screensaver_fading;
+    const uint32_t min_interval_ms = fade_active ? 16 : 250;
+    if (now - _last_ms < min_interval_ms) return;
     _last_ms = now;
     if (!_panel) return;
 
