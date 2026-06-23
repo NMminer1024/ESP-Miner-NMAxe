@@ -37,10 +37,13 @@ void OverlayManager::_build() {
     lv_obj_add_event_cb(_panel, [](lv_event_t*) {
         auto& mgr = OverlayManager::instance();
         if (!mgr._ctx.sys_evt) return;
-        // Dismiss any active celebration and restore backlight
+        // Dismiss any active celebration / find-me and restore backlight
         if (mgr._celebration_active) {
             tft_bl_ctrl(mgr._celebration_saved_bl, mgr._ctx.spec);
             mgr._celebration_active = false;
+        }
+        if (mgr._find_active) {
+            tft_bl_ctrl(mgr._find_saved_bl, mgr._ctx.spec);
         }
         xEventGroupClearBits(mgr._ctx.sys_evt,
             SYS_EVENT_MINER_BLOCK_HIT |
@@ -793,10 +796,11 @@ void OverlayManager::update() {
         return;
     }
 
-    // ── Priority 0: find-me (white overlay + 1 s fade-out, from original project) ──
+    // ── Priority 0: find-me (white overlay + backlight blink + 1 s fade-out) ──
     if (_find_fading) {
         uint32_t elapsed = now - _find_fade_start;
         if (elapsed >= 1000) {
+            tft_bl_ctrl(_find_saved_bl, _ctx.spec);  // restore backlight
             _find_fading  = false;
             _find_active  = false;
             _hide();
@@ -817,7 +821,14 @@ void OverlayManager::update() {
     }
 
     if (_find_active) {
-        // Overlay is visible — check if event was cleared (touch / button)
+        // Backlight blink: toggle every 500ms between 100% and 30%
+        if (now - _find_blink_last >= 500) {
+            _find_blink_last = now;
+            static bool s_bl_on = true;
+            s_bl_on = !s_bl_on;
+            tft_bl_ctrl(s_bl_on ? 100 : 30, _ctx.spec);
+        }
+        // Check if event was cleared (touch / button) → start fade
         if ((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == 0) {
             _find_fading     = true;
             _find_fade_start = now;
@@ -827,6 +838,8 @@ void OverlayManager::update() {
 
     if (bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) {
         _find_active = true;
+        _find_saved_bl = tft_bl_get_brightness();
+        _find_blink_last = now;
         _reset_layout();
         _gif_hide();
         if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
@@ -837,17 +850,23 @@ void OverlayManager::update() {
         lv_obj_set_style_bg_color(_panel, lv_color_hex(0xFFFFFF), 0);
         lv_obj_set_style_bg_opa(_panel, LV_OPA_COVER, 0);
 
-        // ">>> I am here <<<" — large font, centered
+        // ">>> I am here <<<" — centered large text
         lv_obj_set_style_text_font(_lb_title, &Inconsolata_26, 0);
         lv_obj_set_style_text_color(_lb_title, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_align(_lb_title, LV_TEXT_ALIGN_CENTER, 0);
+        lv_label_set_long_mode(_lb_title, LV_LABEL_LONG_CLIP);
+        lv_obj_set_width(_lb_title, LV_HOR_RES - 4);
         lv_label_set_text(_lb_title, ">>> I am here <<<");
         lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
         lv_obj_align(_lb_title, LV_ALIGN_CENTER, 0, -18);
 
-        // Hint text
+        // Hint text — centered below
         const bool is_touch = (_ctx.spec && _ctx.spec->name == BOARD_NMQAXE_PLUS_PLUS_NAME);
         lv_obj_set_style_text_font(_lb_body, &Inconsolata_26, 0);
         lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
+        lv_label_set_long_mode(_lb_body, LV_LABEL_LONG_CLIP);
+        lv_obj_set_width(_lb_body, LV_HOR_RES - 4);
         lv_label_set_text(_lb_body, is_touch ? "Touch to exit" : "Press key to exit");
         lv_obj_clear_flag(_lb_body, LV_OBJ_FLAG_HIDDEN);
         lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 18);
