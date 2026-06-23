@@ -20,7 +20,7 @@
 
 // ── On-disk / on-RAM constants ───────────────────────────────────────────────
 #define REBOOT_LOG_RING_SIZE      10        // number of historical records kept in NVS
-#define REBOOT_LOG_DETAIL_LEN     56        // bytes for human-readable detail (incl. NUL)
+#define REBOOT_LOG_DETAIL_LEN     64        // bytes for human-readable detail (incl. NUL)
 #define REBOOT_LOG_FW_LEN         24        // bytes for fw_version string (incl. NUL)
 #define REBOOT_RECORD_MAGIC       0x474C4252u   // 'RBLG'
 
@@ -74,7 +74,7 @@ struct __attribute__((packed)) RebootRecord {
     uint8_t  reserved0;
     char     fw_version[REBOOT_LOG_FW_LEN];         // firmware version string of the previous run
     char     detail[REBOOT_LOG_DETAIL_LEN];         // human-readable detail
-    uint32_t reserved1[5];
+    uint32_t reserved1[3];
     uint32_t crc32;                                 // CRC of all preceding bytes
 };
 static_assert(sizeof(RebootRecord) == 128, "RebootRecord must stay exactly 128 bytes");

@@ -37,7 +37,7 @@ struct __attribute__((packed)) RtcState {
     uint8_t  intent_valid;        // 0 = no intent for this boot
     uint16_t pad;
     char     detail[REBOOT_LOG_DETAIL_LEN];
-    uint32_t reserved[2];
+    // reserved removed — absorbed by detail growth (56→64)
     uint32_t crc32;
 };
 

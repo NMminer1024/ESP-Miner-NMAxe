@@ -1963,11 +1963,11 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 request->send(response);
                 ota_last_result_set(true, true, 200, (uint32_t)(index + len), filename, "upload_success_reboot_pending");
 
-                LOG_W("*************** Update Success: %u bytes, rebooting *************** ", index + len);
+                LOG_W("*************** Update Success: %.1f KB, rebooting *************** ", (index + len) / 1024.0);
                 // NOTE: delay() in async_tcp context blocks the TCP stack.
                 //       daemon_thread_entry waits ~1s before restarting, giving time for the HTTP response to be sent.
-                reboot_intent_set(REBOOT_INTENT_OTA_FINISHED, "uploaded %s (%u bytes)",
-                                  filename.c_str(), (unsigned)(index + len));
+                reboot_intent_set(REBOOT_INTENT_OTA_FINISHED, "uploaded %s, %.1f KB",
+                                  filename.c_str(), (index + len) / 1024.0);
                 xSemaphoreGive(g_web->reboot_xsem);
             } else {
                 LOG_E("OTA Update error: %s", Update.errorString());
