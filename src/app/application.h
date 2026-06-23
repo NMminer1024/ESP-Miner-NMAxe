@@ -30,25 +30,25 @@ public:
     bool init();
     void begin();
 
-    const MinerStatus* status() const { return _minerStatus; }
-    const BoardSpecConfig& spec() const { return _spec; }
-    BoardSpecConfig& spec_mut() { return _spec; }
-    const TempState& temp() const { return _temp; }
-    const PowerTelemetry& pwr_tele() const { return _pwr_tele; }
-    const std::vector<fan_status_t>& fan_status() const { return _fan_status; }
-    uint8_t asic_count() const { return _miner ? _miner->get_asic_count() : 0; }
-    MarketClass* market() const { return _market; }
-    SwarmState* swarm() const { return _swarm; }
-    PreferenceState& pref() { return _pref; }
-    AxePowerHal* power() const { return _power; }
-    AsicMinerClass* miner() const { return _miner; }
-    WifiState* wifi() const { return _wifi; }
-    WifiConnConfig& wifi_cfg() { return _wifi_cfg; }
-    const WifiConnConfig& wifi_cfg() const { return _wifi_cfg; }
-    EventGroupHandle_t init_evt() const { return _sys ? _sys->init_evt : nullptr; }
-    EventGroupHandle_t sys_evt() const { return _sys ? _sys->sys_evt : nullptr; }
-    SemaphoreHandle_t brightness_update_xsem() const { return _brightness_update_xsem; }
-    SemaphoreHandle_t reboot_xsem() const { return _sys ? _sys->reboot_xsem : nullptr; }
+    const MinerStatus* status() const { return _state_miner; }
+    const BoardSpecConfig& spec() const { return _board_spec; }
+    BoardSpecConfig& spec_mut() { return _board_spec; }
+    const TempState& temp() const { return _state_temp; }
+    const PowerTelemetry& pwr_tele() const { return _state_power_telemetry; }
+    const std::vector<fan_status_t>& fan_status() const { return _state_fans; }
+    uint8_t asic_count() const { return _service_miner ? _service_miner->get_asic_count() : 0; }
+    MarketClass* market() const { return _service_market; }
+    SwarmState* swarm() const { return _state_swarm; }
+    PreferenceState& pref() { return _config_pref; }
+    AxePowerHal* power() const { return _hal_power; }
+    AsicMinerClass* miner() const { return _service_miner; }
+    WifiState* wifi() const { return _state_wifi; }
+    WifiConnConfig& wifi_cfg() { return _config_wifi; }
+    const WifiConnConfig& wifi_cfg() const { return _config_wifi; }
+    EventGroupHandle_t init_evt() const { return _sync_system ? _sync_system->init_evt : nullptr; }
+    EventGroupHandle_t sys_evt() const { return _sync_system ? _sync_system->sys_evt : nullptr; }
+    SemaphoreHandle_t brightness_update_xsem() const { return _xsem_brightness_update; }
+    SemaphoreHandle_t reboot_xsem() const { return _sync_system ? _sync_system->reboot_xsem : nullptr; }
 
     void print_stack_hwm() const;
 
@@ -79,51 +79,64 @@ private:
         void finish(const char* msg, uint32_t c = 0x00FF00);
     };
 
-    SystemSync* _sys = nullptr;
-    WifiState* _wifi = nullptr;          // live network state (replaces g_board.status.wifi)
-    WifiConnConfig _wifi_cfg;            // connection params loaded from NVS
-    WifiCtx*   _wifi_ctx = nullptr;      // DI context for wifi/config_monitor threads
-    SwarmState*    _swarm = nullptr;         // aggregated neighbor stats (replaces g_board.status.swarm)
-    NeighborState* _neighbor = nullptr;      // local ICMP scan results (replaces g_board.status.neighbor)
-    SwarmCtx*      _swarm_ctx = nullptr;      // DI context for swarm/scan threads
-    MinerStatus*     _minerStatus = nullptr;  // shared mining runtime state (replaces g_board.status.miner)
-    AsicMinerClass*  _miner = nullptr;        // ASIC miner instance (replaces g_board.miner)
-    StratumClass*    _stratum = nullptr;      // stratum client instance (replaces g_board.stratum)
-    ConnInfo*        _conn = nullptr;         // pool/stratum connection set (replaces g_board.info.connection)
-    MinerCtx*        _miner_ctx = nullptr;    // DI context for stratum/miner/monitor threads
-    volatile uint64_t _utc = 0;              // shared UTC seconds (time domain)
-    String           _tz;                    // timezone string, e.g. "8.0" (NVS)
-    PowerTelemetry   _pwr_tele;              // measured vbus/ibus/vcore (replaces g_board.status.power)
-    MonitorCtx*      _monitor_ctx = nullptr; // DI context for monitor thread
-    SemaphoreHandle_t _nvs_save_xsem = nullptr; // request NVS persist of best-ever/hits/uptime
-    BoardModelType   _model = BOARD_UNKNOWN;
-    BoardSpecConfig  _spec;                 // runtime board spec (replaces g_board.info.spec)
-    AxePowerHal*     _power = nullptr;       // power HAL instance (replaces g_board.power)
-    PowerCtx*        _power_ctx = nullptr;   // DI context for power threads
-    OtaState         _ota;                   // firmware update state (replaces g_board.status.ota)
-    TimeState        _time;                   // time/date format prefs (replaces g_board.status.time.format)
-    SemaphoreHandle_t _brightness_update_xsem = nullptr; // screen brightness update signal
-    PreferenceState  _pref;                  // live user preferences (replaces g_board.status.preference)
-    uint8_t          _last_ui_page = 0;      // persisted page index (legacy lastPage NVS)
-    LedCtx*          _led_ctx = nullptr;     // DI context for led thread
-    BenchmarkState   _bm;                     // benchmark overlay progress (replaces g_board.status.bm)
-    BenchmarkCtx*    _benchmark_ctx = nullptr;// DI context for benchmark thread
-    TempState        _temp;                  // shared temp samples (replaces g_board.status.temp)
-    std::vector<fan_status_t> _fan_status;   // runtime fan status (replaces g_board.status.fan.list)
-    FanCtx*          _fan_ctx = nullptr;     // DI context for fan thread
-    MarketClass*     _market = nullptr;      // crypto price client (replaces g_board.market)
-    MarketCtx*       _market_ctx = nullptr;  // DI context for market thread
-    String           _coin_price;            // main display coin (NVS)
-    String           _coin_watchlist;        // watchlist coins (NVS)
-    SemaphoreHandle_t _recover_factory_xsem = nullptr; // factory reset request (control)
-    SemaphoreHandle_t _force_config_xsem = nullptr;    // force AP config request (control)
-    volatile uint8_t _bm_mode = 0;           // benchmark mode flag (NVS cached at boot)
-    DaemonCtx*       _daemon_ctx = nullptr;   // DI context for daemon thread
-    ButtonCtx*       _button_ctx = nullptr;   // DI context for button thread
-    WebCtx*          _web_ctx = nullptr;      // DI context for webserver thread
-    AphorismState    _aphorism;               // motivational-quote pool (screensaver)
-    AphorismCtx*     _aphorism_ctx = nullptr; // DI context for aphorism thread
-    std::vector<TaskEntry> _tasks;
+    // ── Platform-wide synchronization / ownership roots ────────────────────
+    SystemSync* _sync_system = nullptr;          // init/sys event groups + reboot gate
+    BoardModelType _board_model = BOARD_UNKNOWN; // detected board selector result
+    BoardSpecConfig _board_spec;                 // resolved runtime board spec
+
+    // ── Persistent configuration restored from NVS ─────────────────────────
+    WifiConnConfig _config_wifi;                 // WiFi STA/AP identity and host name
+    PreferenceState _config_pref;                // live UI/LED preferences after NVS merge
+    TimeState _config_time;                      // time/date format preferences
+    String _config_timezone;                     // timezone string, e.g. "8.0"
+    String _config_coin_price;                   // primary market symbol
+    String _config_coin_watchlist;               // watchlist symbols
+    uint8_t _config_last_ui_page = 0;            // sanitized runtime page restore target
+    volatile uint8_t _config_benchmark_mode = 0; // benchmark mode flag restored at boot
+
+    // ── Shared runtime state exposed across threads / UI / web ─────────────
+    WifiState* _state_wifi = nullptr;                // live WiFi/AP status
+    SwarmState* _state_swarm = nullptr;              // aggregated peer miner summary
+    NeighborState* _state_neighbor = nullptr;        // LAN discovery / ICMP scan results
+    MinerStatus* _state_miner = nullptr;             // mining runtime stats + control flags
+    PowerTelemetry _state_power_telemetry;           // measured VBUS/IBUS/Vcore samples
+    TempState _state_temp;                           // board/ASIC thermal samples
+    std::vector<fan_status_t> _state_fans;           // per-fan runtime speed/rpm state
+    OtaState _state_ota;                             // OTA progress / running state
+    BenchmarkState _state_benchmark;                 // benchmark overlay / sweep progress
+    AphorismState _state_aphorism;                   // screensaver quote pool
+    volatile uint64_t _state_utc = 0;                // shared UTC seconds
+
+    // ── Core service / hardware objects ────────────────────────────────────
+    AxePowerHal* _hal_power = nullptr;           // board-specific power HAL
+    MarketClass* _service_market = nullptr;      // market data client
+    ConnInfo* _service_conn = nullptr;           // parsed pool + stratum connection set
+    AsicMinerClass* _service_miner = nullptr;    // ASIC miner orchestrator
+    StratumClass* _service_stratum = nullptr;    // pool protocol client
+
+    // ── Cross-thread control semaphores ────────────────────────────────────
+    SemaphoreHandle_t _xsem_nvs_save = nullptr;            // persist counters/status to NVS
+    SemaphoreHandle_t _xsem_recover_factory = nullptr;     // user-triggered factory reset
+    SemaphoreHandle_t _xsem_force_config = nullptr;        // boot long-press -> AP setup on reboot
+    SemaphoreHandle_t _xsem_brightness_update = nullptr;   // async screen brightness apply
+
+    // ── Dependency-injection contexts captured by worker threads ───────────
+    WifiCtx* _ctx_wifi = nullptr;
+    SwarmCtx* _ctx_swarm = nullptr;
+    PowerCtx* _ctx_power = nullptr;
+    FanCtx* _ctx_fan = nullptr;
+    MarketCtx* _ctx_market = nullptr;
+    MinerCtx* _ctx_miner = nullptr;
+    MonitorCtx* _ctx_monitor = nullptr;
+    BenchmarkCtx* _ctx_benchmark = nullptr;
+    DaemonCtx* _ctx_daemon = nullptr;
+    ButtonCtx* _ctx_button = nullptr;
+    LedCtx* _ctx_led = nullptr;
+    WebCtx* _ctx_web = nullptr;
+    AphorismCtx* _ctx_aphorism = nullptr;
+
+    // ── Task registry / diagnostics ────────────────────────────────────────
+    std::vector<TaskEntry> _tasks;           // created RTOS tasks for HWM reporting
 
     BaseType_t _create_task(TaskFunction_t fn, const char* name,
                             uint32_t stack_bytes, void* param,
