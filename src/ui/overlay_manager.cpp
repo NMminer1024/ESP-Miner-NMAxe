@@ -5,7 +5,6 @@
 #include "../utils/logger/logger.h"
 #include "../nvs/nvs_config.h"
 #include "../utils/reboot_log/reboot_log.h"
-#include "../drivers/display/display_hal.h"
 #include "assets/fonts.h"
 #include "assets/images.h"
 #include <SPIFFS.h>
@@ -198,9 +197,7 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
     if (!_panel || !_img) return;
 
     // Save and max the backlight
-    _transient_saved_bl = tft_bl_get_brightness();
     _transient_started_at = millis();
-    _celebration_saved_bl = _transient_saved_bl;
     _celebration_start = _transient_started_at;
     _celebration_active = true;
 
@@ -231,73 +228,41 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
         lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
     }
 
-    // Blast backlight to 100%
-    tft_bl_ctrl(100, _ctx.spec);
-
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
         _visible = true;
     }
 }
 
-void OverlayManager::_update_celebration_backlight(uint32_t now, bool is_block_hit) {
+void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit) {
     if (_transient_kind != TransientOverlayKind::CelebrationBlockHit &&
         _transient_kind != TransientOverlayKind::CelebrationHighDiff) return;
-    if (!_ctx.spec) return;
     uint32_t elapsed = (now - _transient_started_at) / 1000; // seconds
 
     if (is_block_hit) {
         // Block hit: 0s→100% 1s→30% 2s→100% 3s→30% 4s→100% 5s→30% 6s→dismiss
         if (elapsed >= 6) {
             // Dismiss celebration
-            _stop_transient_backlight_effect();
+            _transient_kind = TransientOverlayKind::None;
+            _celebration_active = false;
             _hide();
-        } else if (elapsed >= 5) {
-            tft_bl_ctrl(30, _ctx.spec);
-        } else if (elapsed >= 4) {
-            tft_bl_ctrl(100, _ctx.spec);
-        } else if (elapsed >= 3) {
-            tft_bl_ctrl(30, _ctx.spec);
-        } else if (elapsed >= 2) {
-            tft_bl_ctrl(100, _ctx.spec);
-        } else if (elapsed >= 1) {
-            tft_bl_ctrl(30, _ctx.spec);
         }
     } else {
         // High diff: 0s→100% 2s→80%, ends at 5s
         if (elapsed >= 5) {
-            _stop_transient_backlight_effect();
+            _transient_kind = TransientOverlayKind::None;
+            _celebration_active = false;
             _hide();
-        } else if (elapsed >= 2) {
-            tft_bl_ctrl(80, _ctx.spec);
         }
     }
-}
-
-void OverlayManager::_stop_transient_backlight_effect() {
-    if (_ctx.spec != nullptr) {
-        switch (_transient_kind) {
-            case TransientOverlayKind::CelebrationBlockHit:
-            case TransientOverlayKind::CelebrationHighDiff:
-                tft_bl_ctrl(_transient_saved_bl, _ctx.spec);
-                break;
-            case TransientOverlayKind::FindMe:
-                tft_bl_ctrl(_find_saved_bl, _ctx.spec);
-                break;
-            case TransientOverlayKind::None:
-                break;
-        }
-    }
-    _transient_kind = TransientOverlayKind::None;
-    _celebration_active = false;
 }
 
 void OverlayManager::_dismiss_transient_overlays() {
-    _stop_transient_backlight_effect();
+    _transient_kind = TransientOverlayKind::None;
+    _celebration_active = false;
     _find_active = false;
     _find_fading = false;
     _find_fade_start = 0;
-    _find_blink_last = 0;
 
     if (_panel) {
         lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
@@ -681,7 +646,8 @@ void OverlayManager::_hide() {
     _screensaver_fade_start = 0;
     _find_active = false;
     _find_fading = false;
-    _stop_transient_backlight_effect();
+    _transient_kind = TransientOverlayKind::None;
+    _celebration_active = false;
     lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
@@ -830,7 +796,7 @@ bool OverlayManager::_render_find_overlay(uint32_t now, EventBits_t bits) {
         if (elapsed >= 1000) {
             _find_fading  = false;
             _find_active  = false;
-            _stop_transient_backlight_effect();
+            _transient_kind = TransientOverlayKind::None;
             _hide();
             lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
             lv_obj_set_style_bg_opa(_panel, kOverlayBgOpa, 0);
@@ -847,12 +813,6 @@ bool OverlayManager::_render_find_overlay(uint32_t now, EventBits_t bits) {
     }
 
     if (_find_active) {
-        if (now - _find_blink_last >= 500) {
-            _find_blink_last = now;
-            static bool s_bl_on = true;
-            s_bl_on = !s_bl_on;
-            tft_bl_ctrl(s_bl_on ? 100 : 30, _ctx.spec);
-        }
         if ((bits & SYS_EVENT_FIND_NEIGHBOR_TRIGGERED) == 0) {
             _find_fading     = true;
             _find_fade_start = now;
@@ -866,8 +826,6 @@ bool OverlayManager::_render_find_overlay(uint32_t now, EventBits_t bits) {
 
     _find_active = true;
     _transient_kind = TransientOverlayKind::FindMe;
-    _find_saved_bl = tft_bl_get_brightness();
-    _find_blink_last = now;
     _reset_layout();
     _gif_hide();
     if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
@@ -931,7 +889,7 @@ bool OverlayManager::_render_ota_overlay(uint32_t now) {
 
 bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits) {
     if (_transient_kind == TransientOverlayKind::CelebrationBlockHit) {
-        _update_celebration_backlight(now, true);
+        _update_celebration_overlay(now, true);
         return true;
     }
     if (bits & SYS_EVENT_MINER_BLOCK_HIT) {
@@ -945,7 +903,7 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
     }
 
     if (_transient_kind == TransientOverlayKind::CelebrationHighDiff) {
-        _update_celebration_backlight(now, false);
+        _update_celebration_overlay(now, false);
         return true;
     }
     if (bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {
@@ -1214,7 +1172,7 @@ void OverlayManager::update() {
     // ── Priority 1.5: celebrations (cleared by a button press) ──
     // Block-hit celebration: full-screen image + backlight flash sequence
     if (_celebration_active && _celebration_is_block_hit) {
-        _update_celebration_backlight(now, true);
+        _update_celebration_overlay(now, true);
         return;
     }
     if (bits & SYS_EVENT_MINER_BLOCK_HIT) {
@@ -1227,7 +1185,7 @@ void OverlayManager::update() {
     }
 
     if (_celebration_active && !_celebration_is_block_hit) {
-        _update_celebration_backlight(now, false);
+        _update_celebration_overlay(now, false);
         return;
     }
     if (bits & SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED) {

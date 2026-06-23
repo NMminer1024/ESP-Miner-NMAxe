@@ -51,7 +51,7 @@ private:
     void _reset_layout();
 
     void _show_celebration(uint32_t accent, const char* title, const String& body, const lv_img_dsc_t* img);
-    void _update_celebration_backlight(uint32_t now, bool is_block_hit);
+    void _update_celebration_overlay(uint32_t now, bool is_block_hit);
 
     void _gif_hide();
     void _show_factory_overlay(int countdown_sec);
@@ -60,7 +60,6 @@ private:
     void _show_ota_overlay(uint32_t now);
     void _show_benchmark_overlay();
     void _show_footer_ip(lv_coord_t y, bool large_font = false);
-    void _stop_transient_backlight_effect();
     void _dismiss_transient_overlays();
 
     bool _render_countdown_overlays();
@@ -93,8 +92,6 @@ private:
     bool       _find_active = false;   // find-me white overlay is showing
     bool       _find_fading = false;   // find-me fade-out in progress
     uint32_t   _find_fade_start = 0;   // fade-out start ms
-    uint32_t   _find_blink_last = 0;   // backlight blink timer
-    int8_t     _find_saved_bl = 80;    // backlight before find-me
     uint32_t   _screensaver_fade_start = 0;
     uint32_t   _ota_dismiss_at = 0;
     uint32_t   _ota_last_update = 0;
@@ -103,15 +100,13 @@ private:
     String     _aph_quote, _aph_author;
     bool       _aph_have = false;
     uint32_t   _aph_last = 0;
-    // Unified transient overlay / backlight effect state.
+    // Unified transient overlay state. Backlight is driven by app tick thread.
     TransientOverlayKind _transient_kind = TransientOverlayKind::None;
     uint32_t   _transient_started_at = 0;
-    int8_t     _transient_saved_bl = 80;
     // Compatibility shim while the old monolithic update() path is being retired.
     bool       _celebration_active = false;
     bool       _celebration_is_block_hit = false;
     uint32_t   _celebration_start = 0;
-    int8_t     _celebration_saved_bl = 80;
 
     void _show_fault_overlay(bool is_oc);
     static void _fault_action_yes_cb(lv_event_t* e);
