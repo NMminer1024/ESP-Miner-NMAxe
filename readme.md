@@ -148,16 +148,6 @@ The browser will detect the device and flash the latest firmware directly.
 ***
 Full REST API documentation: [docs/API.md](./docs/API.md)
 
-Mining settings apply ASIC frequency (`asicFreqReq`) and Vcore (`asicVcoreReq`) in real time without an ESP32 reboot; pool changes are persisted and take effect after reconnect/restart.
-
-Runtime mining control is available through `PATCH /api/mining/state`: `{ "paused": true }` pauses mining and powers off ASIC Vcore, while `{ "paused": false }` restores Vcore and reinitializes the ASIC without rebooting the ESP32. User-paused mining suppresses low-power/low-hashrate restart monitors until mining is resumed.
-
-The response `state` field is one of five values: `running` (normal), `pausing` (shutting down, transient), `paused` (halted, Vcore off), `resuming` (reinitializing, transient), `error` (ASIC fault, Vcore off). `vcoreEnabled` is `false` when state is `pausing`, `paused`, or `error`.
-
-Reboot history (`GET /api/reboot/last`, `GET /api/reboot/list`) records carry three classified fields. The `class` field coarsely categorises the cause: `cold` (power-on), `planned` (intentional SW restart), `unknown_sw` (SW restart with no recorded intent), `crash` (panic/watchdog), `power` (brown-out), `external` (RST pin / deep-sleep), `other`. The `intent` field captures the specific reason set by the firmware just before restarting — values include `user_web_reboot`, `ota_finished`, `low_hashrate`, `pool_timeout`, `asic_frozen`, `overheat_vcore`, `overheat_asic`, `fan_stall`, `power_low`, `wifi_reconnect_fail`, `config_changed`, and more; `none` means no intent was recorded (crash or cold boot). The `reset` field is the raw ESP32 hardware reset reason: `poweron`, `sw`, `panic`, `int_wdt`, `task_wdt`, `wdt`, `brownout`, `ext_pin`, `deepsleep`, `sdio`, `unknown`, `other`. Full enum tables for all three fields are in the on-device API doc.
-
-> An interactive version is also available on-device at `http://{device-ip}/api-doc` after flashing.
-
 ## Build from Source
 ***
 | Platform | Framework | PCB | IDE |
