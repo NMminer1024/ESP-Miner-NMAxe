@@ -147,6 +147,17 @@ void UIManager::render_update() {
     const bool screensaver_active = _sys_evt &&
         ((xEventGroupGetBits(_sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0);
 
+    // Screensaver is a passive idle state. If it is active, any non-rebooting
+    // factory/setup countdown left behind is stale and must not overlay the GIF.
+    if (screensaver_active) {
+        if (_factory_cd >= 0 && !_factory_rebooting) {
+            cancel_factory_countdown();
+        }
+        if (_setup_cd >= 0 && !_setup_rebooting) {
+            cancel_setup_countdown();
+        }
+    }
+
     // 2. Refresh current page. Skip underlying page work while screensaver is active
     // so LVGL can spend the frame budget advancing the GIF.
     if (!screensaver_active && _current < _pages.size() && _pages[_current]) {
