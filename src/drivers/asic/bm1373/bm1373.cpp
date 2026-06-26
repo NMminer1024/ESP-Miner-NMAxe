@@ -207,7 +207,10 @@ void BM1373::init(uint64_t freq, int diff, uint8_t asic_count){
     // 4. Set chain inactive
     this->_set_chain_inactive();
 
-    // 5. Set chip addresses - BM1373 uses interval 16
+    // 5. Assign unique addresses to each chip on the daisy-chain SPI bus.
+    // BM1373 uses interval=16, giving each chip 16 address slots (base+0..15)
+    // for internal sub-unit (core-domain / PLL group) selection.
+    // e.g. with 4 chips: chip0=addr0, chip1=addr16, chip2=addr32, chip3=addr48.
     uint8_t address_interval = 16;
     for (uint8_t i = 0; i < asic_count; i++) {
         this->_set_chip_address(i * address_interval);

@@ -234,7 +234,10 @@ void BM1366::init(uint64_t freq, int diff, uint8_t asic_count){
 
     this->_set_chain_inactive();
 
-    // split the chip address space evenly
+    // Assign unique addresses to each chip on the daisy-chain SPI bus.
+    // BM1366 splits the 256-wide address space evenly: interval = 256 / asic_count.
+    // Each chip reserves multiple address slots for internal sub-unit
+    // (core-domain / PLL group) selection within a single chip.
     uint8_t address_interval = (uint8_t) (256 / asic_count);
     for (uint8_t i = 0; i < asic_count; i++) {
       this->_set_chip_address(i * address_interval);

@@ -222,7 +222,11 @@ void BM1370::init(uint64_t freq, int diff, uint8_t asic_count){
 
     this->_set_chain_inactive();
 
-    // split the chip address space evenly
+    // Assign unique addresses to each chip on the daisy-chain SPI bus.
+    // BM1370 uses interval=4, giving each chip 4 address slots (base+0..3).
+    // The low 2 bits of the address select different internal core domains
+    // (PLL/core groups) within a single chip.
+    // e.g. with 4 chips: chip0=addr0, chip1=addr4, chip2=addr8, chip3=addr12.
     uint8_t address_interval = 4;
     for (uint8_t i = 0; i < asic_count; i++) {
       this->_set_chip_address(i * address_interval);
