@@ -691,6 +691,7 @@ void miner_rx_thread_entry(void* args) {
 
                 // per-asic share count
                 st.asic_rsp_counter[result.asic_id]++;
+                LOG_D("ASIC[%d] nonce 0x%08x", result.asic_id, result.asic.nonce);
 
                 // throttled summary log
                 static uint32_t last = millis();
@@ -722,8 +723,9 @@ void miner_rx_thread_entry(void* args) {
 
                 if (diff < stratum->get_pool_difficulty()) continue;
 
-                LOG_I("|%-6s|%-6s|%-6s|%-7s|",
-                      formatNumber(miner->get_asic_diff(), 4).c_str(),
+                LOG_I("| %d/%d |%-6s|%-6s|%-7s|",
+                      result.asic_id, 
+                      ctx->spec->asic.num_req,
                       formatNumber(diff, 4).c_str(),
                       formatNumber(stratum->get_pool_difficulty(), 4).c_str(),
                       formatNumber(st.diff.network, 7).c_str());

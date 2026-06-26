@@ -173,11 +173,13 @@ void PageHr_healthBase::_on_update() {
     }
 
     if (_show_asic_pie && spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
-        uint8_t asic_count = MinerApp::instance().asic_count();
+        // Use board-design expected chip count (num_req), not runtime detected count.
+        // This ensures all sectors always show — a dead chip simply stays at 0%.
+        uint8_t asic_count = spec.asic.num_req;
         if (asic_count > 0 && asic_count <= 4 && _pie.arcs[0] == nullptr) {
             _create_pie_chart(asic_count);
         }
-        if (_pie.arcs[0] != nullptr && st->asic_rsp_counter.size() == asic_count) {
+        if (_pie.arcs[0] != nullptr) {
             uint64_t total = 0;
             for (const auto& pair : st->asic_rsp_counter) {
                 total += pair.second;
