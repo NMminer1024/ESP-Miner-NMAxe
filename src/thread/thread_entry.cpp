@@ -723,8 +723,8 @@ void miner_rx_thread_entry(void* args) {
 
                 if (diff < stratum->get_pool_difficulty()) continue;
 
-                LOG_I("| %d/%d |%-6s|%-6s|%-7s|",
-                      result.asic_id, 
+                LOG_I("| %d/%d  |%-6s|%-6s|%-7s|",
+                      result.asic_id + 1, 
                       ctx->spec->asic.num_req,
                       formatNumber(diff, 4).c_str(),
                       formatNumber(stratum->get_pool_difficulty(), 4).c_str(),
