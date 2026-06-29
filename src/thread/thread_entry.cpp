@@ -1115,8 +1115,8 @@ void fan_thread_entry(void* args) {
     std::vector<fan_status_t>& fan_list = *ctx->status_list;
 
     const size_t fan_n = spec.fans.size();
-    std::vector<int16_t>  now_count(fan_n, 0), last_count(fan_n, 0);
-    std::vector<uint32_t> start_ms(fan_n, 0);
+    std::vector<uint32_t> rpm_start_ms(fan_n, 0);
+    std::vector<uint32_t> pid_start_ms(fan_n, 0);
     delay(100);
 
     // Initialize TMP102 temperature sensor
@@ -1207,6 +1207,11 @@ void fan_thread_entry(void* args) {
             if (fs.id == fan_id) return &fs;
         return nullptr;
     };
+    auto get_fan_index = [&](uint8_t fan_id) -> int {
+        for (size_t i = 0; i < spec.fans.size(); i++)
+            if (spec.fans[i].id == fan_id) return (int)i;
+        return -1;
+    };
 
     // fan self test — all fans tested in parallel
     while (true) {
@@ -1250,51 +1255,70 @@ void fan_thread_entry(void* args) {
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_FAN_READY);
     delay(2000); // let user see the self-test result on loading page before fan speed changes
 
+    auto sample_fan_rpm = [&](size_t fan_index, uint32_t now_ms) {
+        fan_config_t& fan_cfg = spec.fans[fan_index];
+        fan_status_t* fan_status = get_fan_status(fan_cfg.id);
+        if (fan_status == nullptr) return;
+
+        if (rpm_start_ms[fan_index] == 0) {
+            pcnt_counter_clear(fan_cfg.init.torch.unit);
+            rpm_start_ms[fan_index] = now_ms;
+            return;
+        }
+
+        uint32_t delta_time = now_ms - rpm_start_ms[fan_index];
+        if (delta_time < 1000) return;
+
+        int16_t pulse_count = 0;
+        pcnt_get_counter_value(fan_cfg.init.torch.unit, &pulse_count);
+        pcnt_counter_clear(fan_cfg.init.torch.unit);
+        fan_status->rpm = calculate_rpm(pulse_count, delta_time / 1000.0);
+        rpm_start_ms[fan_index] = now_ms;
+    };
+    auto drive_fan = [&](size_t fan_index, bool update_pid) {
+        fan_config_t& fan_cfg = spec.fans[fan_index];
+        fan_status_t* fan_status = get_fan_status(fan_cfg.id);
+        if (fan_status == nullptr) return;
+
+        if (update_pid && fan_cfg.auto_speed && fan_status->self_test) {
+            uint32_t now_ms = millis();
+            float dt = (pid_start_ms[fan_index] == 0) ? 0.125f : (now_ms - pid_start_ms[fan_index]) / 1000.0f;
+            if (dt <= 0.0f) dt = 0.001f;
+            float target   = fan_cfg.target_temp;
+            float measured = (fan_cfg.id == 0) ? ctx->temp->asic : ctx->temp->vcore; // fan0=ASIC, fan1=Vcore
+            fan_status->speed = (uint16_t)pid_compute(&fan_cfg.pid, target, measured, dt);
+            pid_start_ms[fan_index] = now_ms;
+        }
+
+        fan_set_speed(fan_cfg.init, fan_status->speed / 100.0f, fan_cfg.polarity);
+    };
+
+    uint32_t now_ms = millis();
+    for (size_t i = 0; i < fan_n; i++) {
+        pcnt_counter_clear(spec.fans[i].init.torch.unit);
+        rpm_start_ms[i] = now_ms;
+        drive_fan(i, false);
+    }
+
     // fan control loop
     while (true) {
-        uint8_t fan_id = 0; // default fan 0; extend with separate events for multi-fan
         EventBits_t bits = xEventGroupWaitBits(ctx->sys_evt,
             SYS_EVENT_MINER_VCORE_TEMP_UPDATE | SYS_EVENT_MINER_ASIC_TEMP_UPDATE,
-            pdFALSE, pdFALSE, portMAX_DELAY);
+            pdTRUE, pdFALSE, pdMS_TO_TICKS(125));
+
+        now_ms = millis();
+        for (size_t i = 0; i < fan_n; i++) {
+            sample_fan_rpm(i, now_ms);
+        }
+
         if ((bits & SYS_EVENT_MINER_ASIC_TEMP_UPDATE) == SYS_EVENT_MINER_ASIC_TEMP_UPDATE) {
-            fan_id = 0; // fan 0 responds to ASIC temp updates
-            xEventGroupClearBits(ctx->sys_evt, SYS_EVENT_MINER_ASIC_TEMP_UPDATE);
+            int fan_index = get_fan_index(0);
+            if (fan_index >= 0) drive_fan((size_t)fan_index, true);
         }
         if ((bits & SYS_EVENT_MINER_VCORE_TEMP_UPDATE) == SYS_EVENT_MINER_VCORE_TEMP_UPDATE) {
-            fan_id = 1; // fan 1 responds to Vcore temp updates
-            xEventGroupClearBits(ctx->sys_evt, SYS_EVENT_MINER_VCORE_TEMP_UPDATE);
+            int fan_index = get_fan_index(1);
+            if (fan_index >= 0) drive_fan((size_t)fan_index, true);
         }
-
-        fan_config_t* fan_cfg    = get_fan_config(fan_id);
-        fan_status_t* fan_status = get_fan_status(fan_id);
-        if (fan_cfg == nullptr || fan_status == nullptr) continue;
-
-        bool fan_invert = fan_cfg->polarity;
-        fan_init_t init_param = fan_cfg->init;
-        // Calculate fan RPM
-        if (millis() - start_ms[fan_id] >= 1000) {
-            uint32_t delta_time = millis() - start_ms[fan_id];
-            pcnt_get_counter_value(init_param.torch.unit, &now_count[fan_id]);
-            uint16_t delta_pcnt = 0;
-            if (now_count[fan_id] < last_count[fan_id])
-                delta_pcnt = (init_param.torch.counter_h_lim - last_count[fan_id]) + now_count[fan_id];
-            else
-                delta_pcnt = now_count[fan_id] - last_count[fan_id];
-            fan_status->rpm = calculate_rpm(delta_pcnt, delta_time / 1000.0);
-            last_count[fan_id] = now_count[fan_id];
-            start_ms[fan_id] = millis();
-        }
-
-        // Adjust fan speed
-        if (fan_cfg->auto_speed && fan_status->self_test) {
-            static uint32_t pid_start[2] = {0};
-            float dt = (millis() - pid_start[fan_id]) / 1000.0f;
-            float target   = fan_cfg->target_temp;
-            float measured = (fan_id == 0) ? ctx->temp->asic : ctx->temp->vcore; // fan0=ASIC, fan1=Vcore
-            fan_status->speed = (uint16_t)pid_compute(&fan_cfg->pid, target, measured, dt);
-            pid_start[fan_id] = millis();
-        }
-        fan_set_speed(init_param, fan_status->speed / 100.0, fan_invert);
     }
 }
 
@@ -1452,12 +1476,15 @@ void monitor_thread_entry(void* args) {
             if (!(ctx->ota_running && *ctx->ota_running)) {
                 static uint8_t  vcore_err_cnt = 0;
                 static uint8_t  asic_err_cnt  = 0;
-                static uint16_t fan_err_cnt   = 0;
+                static std::vector<uint16_t> fan_err_cnt;
                 static uint16_t pwr_err_cnt   = 0;
                 static uint16_t hr_err_cnt    = 0;
+                if (fan_err_cnt.size() != ctx->fan_status->size()) {
+                    fan_err_cnt.assign(ctx->fan_status->size(), 0);
+                }
                 bool suppress_activity_checks = st.suppress_activity_checks(millis());
                 if (suppress_activity_checks) {
-                    fan_err_cnt = 0;
+                    std::fill(fan_err_cnt.begin(), fan_err_cnt.end(), 0);
                     pwr_err_cnt = 0;
                     hr_err_cnt  = 0;
                     st.asic_update = millis();
@@ -1493,16 +1520,22 @@ void monitor_thread_entry(void* args) {
 
                 // fan status
                 if (!suppress_activity_checks && ctx->temp->asic > spec.asic.temp_limit.low) {
-                    for (auto& fan : *ctx->fan_status) {
+                    for (size_t i = 0; i < ctx->fan_status->size(); i++) {
+                        auto& fan = (*ctx->fan_status)[i];
+                        if (fan.id >= spec.fans.size()) continue;
                         if (fan.rpm < spec.fans[fan.id].init.danger_rpm_thr) {
-                            fan_err_cnt++;
-                            if (fan_err_cnt > 20) {
+                            fan_err_cnt[i]++;
+                            if (fan_err_cnt[i] > 20) {
                                 LOG_W("Fan rpm is too low, restart miner...");
                                 reboot_intent_set(REBOOT_INTENT_FAN_STALL, "fan#%d rpm=%d < danger=%d for >20s", fan.id, fan.rpm, spec.fans[fan.id].init.danger_rpm_thr);
                                 xSemaphoreGive(ctx->reboot_xsem);
                             }
-                        } else fan_err_cnt = 0;
+                        } else {
+                            fan_err_cnt[i] = 0;
+                        }
                     }
+                } else {
+                    std::fill(fan_err_cnt.begin(), fan_err_cnt.end(), 0);
                 }
 
                 // power status
