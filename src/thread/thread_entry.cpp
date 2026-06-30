@@ -2813,6 +2813,7 @@ void market_thread_entry(void* args) {
     // Wait for WiFi, then print all available USDT trading pairs once at startup.
     LOG_I("Fetching available USDT trading pairs from Binance...");
     market->fetch_available_usdt_pairs();
+    delay(1);
 
     const uint8_t  MARKET_MAX_RETRIES    = 3;
     const uint32_t MARKET_RETRY_DELAY_MS = 1000 * 10;
@@ -2847,9 +2848,12 @@ void market_thread_entry(void* args) {
                 LOG_E("Market data fetch failed after %d attempts. Please verify that the Binance API is accessible in your country.", MARKET_MAX_RETRIES);
             }
 
+            delay(1);
             // Fetch watchlist pairs, then sort by price descending for display
             market->refresh_watchlist(ctx->coin_watchlist);
+            delay(1);
             market->sort_watchlist_by_price();
+            delay(1);
         } else {
             LOG_D("Market update skipped: WiFi not connected.");
         }

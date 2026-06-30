@@ -44,6 +44,7 @@ bool MarketClass::fetch_available_usdt_pairs() {
     char     sym_buf[20];
     uint8_t  sym_pos    = 0;
     uint16_t found      = 0;
+    uint32_t bytes_since_yield = 0;
 
     uint8_t chunk[128];
     while ((remaining != 0) && (stream->connected() || stream->available())) {
@@ -53,6 +54,7 @@ bool MarketClass::fetch_available_usdt_pairs() {
         int to_read = (avail < (int)sizeof(chunk)) ? avail : (int)sizeof(chunk);
         int n = stream->readBytes(chunk, to_read);
         if (remaining > 0) remaining -= n;
+        bytes_since_yield += (uint32_t)n;
 
         for (int i = 0; i < n; i++) {
             char c = (char)chunk[i];
@@ -91,6 +93,11 @@ bool MarketClass::fetch_available_usdt_pairs() {
                 }
             }
         }
+
+        if (bytes_since_yield >= 512) {
+            bytes_since_yield = 0;
+            delay(1);
+        }
     }
 
     http.end();
@@ -115,6 +122,7 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol, CoinPrice &out) {
         BasicJsonDocument<PsramJsonAllocator> doc(800);
         DeserializationError error = deserializeJson(doc, http.getStream());
         http.end();
+        delay(1);
         if (!error) {
             out.price      = doc["lastPrice"].as<String>().toFloat();
             out.change_pct = doc["priceChangePercent"].as<String>().toFloat();
@@ -199,6 +207,7 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
     DeserializationError error = deserializeJson(doc, http.getStream(),
                                                  DeserializationOption::Filter(filter));
     http.end();
+    delay(1);
 
     if (error) {
         LOG_E("[Watchlist] Failed to parse batch JSON: %s", error.c_str());
@@ -214,6 +223,7 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
         cp.change_pct = item["priceChangePercent"].as<String>().toFloat();
         this->_watchlist_pairs[sym] = cp;
         LOG_D("[Watchlist] %s  price=%.4f  change=%.2f%%", sym.c_str(), cp.price, cp.change_pct);
+        delay(1);
     }
 }
 
