@@ -161,7 +161,10 @@ export class HomeComponent implements OnInit {
         } else if (poolUrl.includes('dgb-stratum.solominer.net')) {
           const address = poolUser.split('.')[0]
           return `https://digibyte.solominer.net/#/app/${address}`;
-        } 
+        } else if (poolUrl.includes('sololuck.io')) {
+          const address = poolUser.split('.')[0]
+          return `https://sololuck.io/users/${address}`;
+        }
         else {
           return undefined;
         }
