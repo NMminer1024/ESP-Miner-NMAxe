@@ -27,8 +27,9 @@ struct OverlayCtx {
 // ============================================================================
 //  OverlayManager — single top-layer panel shown above the page tileview.
 //
-//  Priority (highest first): OC/OT power alert > benchmark progress >
-//  mining-paused. Driven from the LVGL thread via update() (self-throttled).
+//  Priority (highest first): setup/factory countdown > power alert > OTA >
+//  find-me > celebration > benchmark > mining-paused > screensaver.
+//  Driven from the LVGL thread via update() (self-throttled).
 // ============================================================================
 class OverlayManager {
 public:
@@ -37,6 +38,19 @@ public:
     void update();   // call from LVGL thread (render loop)
 
 private:
+    enum class ActiveOverlayKind : uint8_t {
+        None,
+        Blocking,
+        Fault,
+        Ota,
+        FindMe,
+        CelebrationBlockHit,
+        CelebrationHighDiff,
+        Benchmark,
+        MiningPause,
+        Screensaver,
+    };
+
     enum class TransientOverlayKind : uint8_t {
         None,
         CelebrationBlockHit,
@@ -62,6 +76,9 @@ private:
     void _show_mining_pause_overlay();
     void _show_footer_ip(lv_coord_t y, bool large_font = false);
     void _dismiss_transient_overlays();
+    void _set_active_overlay(ActiveOverlayKind kind);
+    void _reset_transient_state();
+    static bool _is_transient_overlay(ActiveOverlayKind kind);
 
     bool _render_countdown_overlays();
     bool _render_find_overlay(uint32_t now, EventBits_t bits);
@@ -90,6 +107,7 @@ private:
     bool       _ota_overlay_active = false;
     bool       _ota_rebooting = false;
     uint32_t   _last_ms = 0;
+    ActiveOverlayKind _active_overlay = ActiveOverlayKind::None;
     bool       _find_active = false;   // find-me white overlay is showing
     bool       _find_fading = false;   // find-me fade-out in progress
     uint32_t   _find_fade_start = 0;   // fade-out start ms

@@ -66,6 +66,15 @@ static void ota_last_result_set(bool success,
     snprintf(g_ota_last_result.detail, sizeof(g_ota_last_result.detail), "%s", detail ? detail : "");
 }
 
+static void ota_begin_exclusive_ui_session() {
+    if (!g_web || !g_web->sys_evt) return;
+    xEventGroupClearBits(
+        g_web->sys_evt,
+        SYS_EVENT_FIND_NEIGHBOR_TRIGGERED |
+        SYS_EVENT_SCREEN_SAVER_TRIGGERED
+    );
+}
+
 bool isValidNumber(const String& str) {
     if (str.length() == 0) return false;
     bool hasDot = false;
@@ -1831,6 +1840,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 request->send(500, "text/plain", "Failed to open file for writing.");
                 return;
             }
+            ota_begin_exclusive_ui_session();
             g_web->ota->running          = true;
             g_web->ota->progress         = 0;
             g_web->ota->filename         = filename;
@@ -1867,6 +1877,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 request->send(500, "text/plain", err_msg);
                 return;
             }
+            ota_begin_exclusive_ui_session();
             g_web->ota->running          = true;
             g_web->ota->progress         = 0;
             g_web->ota->filename         = filename;

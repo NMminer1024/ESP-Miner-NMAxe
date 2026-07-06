@@ -771,11 +771,13 @@ void miner_rx_thread_entry(void* args) {
                 }
 
                 // update diff stats
-                st.diff.last         = diff;
-                st.diff.best_session = (diff > st.diff.best_session) ? diff : st.diff.best_session;
-                st.diff.best_ever    = (diff > st.diff.best_ever) ? diff : st.diff.best_ever;
+                st.diff.last = diff;
+                const bool new_best_session = diff > st.diff.best_session;
+                const bool new_best_ever = diff > st.diff.best_ever;
+                if (new_best_session) st.diff.best_session = diff;
+                if (new_best_ever)    st.diff.best_ever = diff;
 
-                if (diff == st.diff.best_ever) {
+                if (new_best_ever) {
                     xSemaphoreGive(ctx->nvs_save_xsem);
                     if (diff > 100.0f * 1000.0f * 1000.0f) { // > 100M
                         xEventGroupSetBits(ctx->sys_evt, SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED);
@@ -2193,6 +2195,7 @@ void webserver_thread_entry(void* args) {
     webServer.on("/api/coredump",      HTTP_DELETE, delete_coredump);
     // ── Wakeup: any caller (local or cross-origin swarm panel) can wake this device's screensaver.
     webServer.on("/api/wakeup", HTTP_GET, [ctx](AsyncWebServerRequest *request){
+        UIManager::instance().wake_activity();
         xEventGroupClearBits(ctx->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
         AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"ok\":true}");
         r->addHeader("Access-Control-Allow-Origin", "*");
@@ -2331,6 +2334,7 @@ void webserver_thread_entry(void* args) {
     });
     webServer.on("/*", HTTP_GET, [ctx](AsyncWebServerRequest *request){
         // Wake screensaver when the user loads or refreshes any page on this device.
+        UIManager::instance().wake_activity();
         if(xEventGroupGetBits(ctx->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) {
             xEventGroupClearBits(ctx->sys_evt, SYS_EVENT_SCREEN_SAVER_TRIGGERED);
         }

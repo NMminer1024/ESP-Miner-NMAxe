@@ -21,6 +21,40 @@ OverlayManager& OverlayManager::instance() {
     return mgr;
 }
 
+bool OverlayManager::_is_transient_overlay(ActiveOverlayKind kind) {
+    return kind == ActiveOverlayKind::FindMe ||
+           kind == ActiveOverlayKind::CelebrationBlockHit ||
+           kind == ActiveOverlayKind::CelebrationHighDiff ||
+           kind == ActiveOverlayKind::Screensaver;
+}
+
+void OverlayManager::_reset_transient_state() {
+    _find_active = false;
+    _find_fading = false;
+    _find_fade_start = 0;
+    _celebration_fading = false;
+    _celebration_fade_start = 0;
+    _celebration_active = false;
+    _celebration_is_block_hit = false;
+    _celebration_start = 0;
+    _transient_kind = TransientOverlayKind::None;
+    _transient_started_at = 0;
+    _block_hit_achieved_at = 0;
+    _high_diff_achieved_at = 0;
+    _screensaver_fading = false;
+    _screensaver_fade_start = 0;
+    _aph_have = false;
+    lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
+}
+
+void OverlayManager::_set_active_overlay(ActiveOverlayKind kind) {
+    if (kind == _active_overlay) return;
+    if (_is_transient_overlay(_active_overlay) && !_is_transient_overlay(kind)) {
+        _reset_transient_state();
+    }
+    _active_overlay = kind;
+}
+
 void OverlayManager::init(const OverlayCtx& ctx) {
     _ctx = ctx;
     _build();
@@ -44,34 +78,37 @@ void OverlayManager::_build() {
         if (!mgr._ctx.sys_evt) return;
 
         EventBits_t bits_to_clear = 0;
-        switch (mgr._transient_kind) {
-            case TransientOverlayKind::CelebrationBlockHit:
+        switch (mgr._active_overlay) {
+            case ActiveOverlayKind::CelebrationBlockHit:
                 bits_to_clear = SYS_EVENT_MINER_BLOCK_HIT;
                 break;
-            case TransientOverlayKind::CelebrationHighDiff:
+            case ActiveOverlayKind::CelebrationHighDiff:
                 bits_to_clear = SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED;
                 break;
-            case TransientOverlayKind::FindMe:
+            case ActiveOverlayKind::FindMe:
                 bits_to_clear = SYS_EVENT_FIND_NEIGHBOR_TRIGGERED;
                 break;
-            case TransientOverlayKind::None:
-            default:
+            case ActiveOverlayKind::Screensaver:
                 bits_to_clear = SYS_EVENT_SCREEN_SAVER_TRIGGERED;
+                break;
+            default:
                 break;
         }
 
-        xEventGroupClearBits(mgr._ctx.sys_evt, bits_to_clear);
-        if (mgr._transient_kind == TransientOverlayKind::CelebrationBlockHit ||
-            mgr._transient_kind == TransientOverlayKind::CelebrationHighDiff) {
+        if (bits_to_clear != 0) {
+            xEventGroupClearBits(mgr._ctx.sys_evt, bits_to_clear);
+        }
+        if (mgr._active_overlay == ActiveOverlayKind::CelebrationBlockHit ||
+            mgr._active_overlay == ActiveOverlayKind::CelebrationHighDiff) {
             mgr._celebration_fading = true;
             mgr._celebration_fade_start = millis();
-        } else if (mgr._transient_kind == TransientOverlayKind::FindMe) {
+        } else if (mgr._active_overlay == ActiveOverlayKind::FindMe) {
             mgr._find_fading = true;
             mgr._find_fade_start = millis();
-        } else if ((bits_to_clear & SYS_EVENT_SCREEN_SAVER_TRIGGERED) != 0) {
+        } else if (mgr._active_overlay == ActiveOverlayKind::Screensaver) {
             mgr._screensaver_fading = true;
             mgr._screensaver_fade_start = millis();
-        } else {
+        } else if (bits_to_clear != 0) {
             mgr._dismiss_transient_overlays();
         }
         UIManager::instance().wake_activity();
@@ -214,6 +251,7 @@ void OverlayManager::_show_footer_ip(lv_coord_t y, bool large_font) {
 
 void OverlayManager::_show(uint32_t accent, const char* title, const String& body) {
     if (!_panel) return;
+    _set_active_overlay(ActiveOverlayKind::Blocking);
     _reset_layout();
     _gif_hide();                                                    // no GIF for non-screensaver overlays
     if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
@@ -259,6 +297,9 @@ void OverlayManager::_show_celebration(uint32_t accent, const char* title, const
 
     const bool is_high_diff = (title != nullptr && std::strcmp(title, "NEW BEST!") == 0);
     const bool is_block_hit = (title != nullptr && std::strcmp(title, "BLOCK FOUND!") == 0);
+    _set_active_overlay(is_block_hit ? ActiveOverlayKind::CelebrationBlockHit
+                                     : (is_high_diff ? ActiveOverlayKind::CelebrationHighDiff
+                                                     : ActiveOverlayKind::Blocking));
 
     // Title on top of image
     if (is_high_diff || is_block_hit) {
@@ -376,6 +417,7 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
             }
             if (_lb_title) lv_obj_move_foreground(_lb_title);
             if (_lb_body)  lv_obj_move_foreground(_lb_body);
+            if (_lb_aux)   lv_obj_move_foreground(_lb_aux);
             if (_panel && !_visible) {
                 lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
                 _visible = true;
@@ -390,15 +432,8 @@ void OverlayManager::_update_celebration_overlay(uint32_t now, bool is_block_hit
 }
 
 void OverlayManager::_dismiss_transient_overlays() {
-    _transient_kind = TransientOverlayKind::None;
-    _celebration_active = false;
-    _celebration_fading = false;
-    _celebration_fade_start = 0;
-    _block_hit_achieved_at = 0;
-    _high_diff_achieved_at = 0;
-    _find_active = false;
-    _find_fading = false;
-    _find_fade_start = 0;
+    _reset_transient_state();
+    _active_overlay = ActiveOverlayKind::None;
 
     if (_panel) {
         lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
@@ -419,6 +454,7 @@ void OverlayManager::_dismiss_transient_overlays() {
 
 void OverlayManager::_show_factory_overlay(int countdown_sec) {
     if (!_panel) return;
+    _set_active_overlay(ActiveOverlayKind::Blocking);
     const bool is_small = LV_VER_RES <= 135;
     const lv_coord_t reminder_y = is_small ? 6 : 10;
     const lv_coord_t countdown_y = is_small ? 16 : 0;
@@ -457,6 +493,7 @@ void OverlayManager::_show_factory_overlay(int countdown_sec) {
 
 void OverlayManager::_show_setup_overlay(int countdown_sec) {
     if (!_panel) return;
+    _set_active_overlay(ActiveOverlayKind::Blocking);
     const bool is_small = LV_VER_RES <= 135;
     const lv_coord_t reminder_y = is_small ? 6 : 10;
     const lv_coord_t countdown_y = is_small ? 16 : 0;
@@ -495,6 +532,7 @@ void OverlayManager::_show_setup_overlay(int countdown_sec) {
 
 void OverlayManager::_show_rebooting_overlay(const char* title) {
     if (!_panel) return;
+    _set_active_overlay(ActiveOverlayKind::Blocking);
     const bool is_small = LV_VER_RES <= 135;
     const lv_coord_t title_y = is_small ? -16 : -16;
     const lv_coord_t reboot_y = is_small ? 20 : 20;
@@ -535,6 +573,7 @@ void OverlayManager::_show_rebooting_overlay(const char* title) {
 
 void OverlayManager::_show_benchmark_overlay() {
     if (!_panel || !_ctx.bm || !_ctx.status) return;
+    _set_active_overlay(ActiveOverlayKind::Benchmark);
 
     const BenchmarkState& b = *_ctx.bm;
     const bool is_large = LV_HOR_RES >= 300;
@@ -680,6 +719,7 @@ void OverlayManager::_show_benchmark_overlay() {
 
 void OverlayManager::_show_ota_overlay(uint32_t now) {
     if (!_panel || !_ctx.ota) return;
+    _set_active_overlay(ActiveOverlayKind::Ota);
     const bool is_small = LV_VER_RES <= 135;
 
     if (!_ctx.ota->running) {
@@ -778,16 +818,8 @@ void OverlayManager::_hide() {
     _ota_dismiss_at = 0;
     _ota_overlay_active = false;
     _ota_rebooting = false;
-    _screensaver_fading = false;
-    _screensaver_fade_start = 0;
-    _find_active = false;
-    _find_fading = false;
-    _celebration_fading = false;
-    _celebration_fade_start = 0;
-    _transient_kind = TransientOverlayKind::None;
-    _celebration_active = false;
-    _block_hit_achieved_at = 0;
-    _high_diff_achieved_at = 0;
+    _reset_transient_state();
+    _active_overlay = ActiveOverlayKind::None;
     lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_add_flag(_panel, LV_OBJ_FLAG_HIDDEN);
     _visible = false;
@@ -795,6 +827,7 @@ void OverlayManager::_hide() {
 
 void OverlayManager::_show_fault_overlay(bool is_oc) {
     if (!_panel) return;
+    _set_active_overlay(ActiveOverlayKind::Fault);
     const bool is_small = LV_VER_RES <= 135;
     _reset_layout();
     _gif_hide();
@@ -906,6 +939,7 @@ void OverlayManager::_fault_action_no_cb(lv_event_t* e) {
 
 void OverlayManager::_show_mining_pause_overlay() {
     if (!_panel || !_ctx.status) return;
+    _set_active_overlay(ActiveOverlayKind::MiningPause);
 
     MinerRuntimeState state = _ctx.status->runtime_state;
     bool pause_active = _ctx.status->user_paused &&
@@ -1063,6 +1097,7 @@ bool OverlayManager::_render_find_overlay(uint32_t now, EventBits_t bits) {
 
     _find_active = true;
     _transient_kind = TransientOverlayKind::FindMe;
+    _set_active_overlay(ActiveOverlayKind::FindMe);
     _reset_layout();
     _gif_hide();
     if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
@@ -1125,6 +1160,11 @@ bool OverlayManager::_render_ota_overlay(uint32_t now) {
 }
 
 bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits) {
+    if ((bits & SYS_EVENT_MINER_BLOCK_HIT) &&
+        _transient_kind == TransientOverlayKind::CelebrationHighDiff) {
+        _dismiss_transient_overlays();
+    }
+
     if (_transient_kind == TransientOverlayKind::CelebrationBlockHit ||
         (_celebration_fading && _celebration_is_block_hit)) {
         _update_celebration_overlay(now, true);
@@ -1191,9 +1231,15 @@ bool OverlayManager::_render_status_overlay() {
 bool OverlayManager::_render_screensaver_overlay(uint32_t now, EventBits_t bits) {
     if ((bits & SYS_EVENT_SCREEN_SAVER_TRIGGERED) &&
         _ctx.saver_mode && *_ctx.saver_mode != 1) {
+        _set_active_overlay(ActiveOverlayKind::Screensaver);
+        _reset_layout();
         _screensaver_fading = false;
         _screensaver_fade_start = 0;
         lv_obj_set_style_opa(_panel, LV_OPA_COVER, LV_PART_MAIN);
+        if (_img) {
+            lv_img_set_src(_img, nullptr);
+            lv_obj_add_flag(_img, LV_OBJ_FLAG_HIDDEN);
+        }
 
         bool gif_ok = false;
         if (_ctx.gif_path && SPIFFS.exists(_ctx.gif_path)) {
@@ -1281,9 +1327,9 @@ void OverlayManager::update() {
     uint32_t bits = _ctx.sys_evt ? xEventGroupGetBits(_ctx.sys_evt) : 0;
 
     if (_render_countdown_overlays()) return;
-    if (_render_find_overlay(now, bits)) return;
     if (_render_fault_overlay(bits)) return;
     if (_render_ota_overlay(now)) return;
+    if (_render_find_overlay(now, bits)) return;
     if (_render_celebration_overlay(now, bits)) return;
     if (_render_status_overlay()) return;
     if (_render_screensaver_overlay(now, bits)) return;
