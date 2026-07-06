@@ -180,6 +180,8 @@ uint8_t BM1373::get_asic_count(){
         memset(rsp, 0, sizeof(rsp));
         uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
         if(len == 0) break;
+        LOG_W("BM1373 probe rsp len=%d", len);
+        dbg::hex_print(rsp, len, "BM1373 probe raw");
         uint8_t *rsp_ptr = rsp;
         while (rsp_ptr <= rsp + len - 11) {
             if(memcmp(rsp_ptr, "\xaa\x55\x13\x72\x00\x00\x00\x00\x00\x00\x07", 11) == 0){

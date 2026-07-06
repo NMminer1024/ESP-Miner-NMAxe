@@ -27,6 +27,7 @@ void BMxxx::change_uart_baud(uint32_t baudrate){
 }
 
 size_t BMxxx::send(uint8_t *cmd, uint16_t len){
+    dbg::hex_print(cmd, len, "BMxxx send");
     return this->_serial.write(cmd, len);
 }
 
@@ -51,5 +52,6 @@ size_t BMxxx::receive(uint8_t *buf, uint16_t len, uint32_t timeout_ms){
         if (millis() - start_time >= timeout_ms) break;
         else delay(1);
     }
+    dbg::hex_print(buf, received, "BMxxx receive");
     return received;
 }

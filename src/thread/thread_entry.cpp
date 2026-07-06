@@ -73,6 +73,11 @@ void stratum_thread_entry(void* args) {
     stratum->set_pool_difficulty(pool_init_diff);
     wait_for_wifi_sta_connected(ctx->init_evt, "(stratum)");
 
+    // Wait for ASIC chip enumeration to complete before connecting to pool.
+    LOG_I("(stratum) waiting for ASIC counted gate...");
+    xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_ASIC_COUNTED, pdFALSE, pdTRUE, portMAX_DELAY);
+    LOG_I("(stratum) ASIC counted gate opened.");
+
     // Parse a Stratum JSON-RPC error response into a human-readable string.
     auto parse_stratum_error = [](const String& raw) -> String {
         StaticJsonDocument<256> err_doc;
