@@ -11,18 +11,18 @@
 #include <vector>
 #include <functional>
 
-/******************default parameter define for NMAxe***********************/
-#define BOARD_NMAXE_NAME                                "NMAxe"
-#define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"       
-#define BOARD_NMQAXE_PLUS_PLUS_NAME                     "NMQAxe++"
-#define BOARD_NMQAXE_PLUS_PLUS_REV61_NAME               "NMQAxe++Rev6.1"
-#define BOARD_NMQAXE_PLUS_PLUS_REV81_NAME               "NMQAxe++Rev8.1"
+// /******************default parameter define for NMAxe***********************/
+// #define BOARD_NMAXE_NAME                                "NMAxe"
+// #define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"       
+// #define BOARD_NMQAXE_PLUS_PLUS_NAME                     "NMQAxe++"
+// #define BOARD_NMQAXE_PLUS_PLUS_REV61_NAME               "NMQAxe++Rev6.1"
+// #define BOARD_NMQAXE_PLUS_PLUS_REV81_NAME               "NMQAxe++Rev8.1"
 
-#define CHIP_NMAXE_NAME                                 "BM1366"
-#define CHIP_NMAXE_GAMMA_NAME                           "BM1370"
-#define CHIP_NMQAXE_PLUS_PLUS_NAME                      "BM1370"
-#define CHIP_NMQAXE_PLUS_PLUS_REV61_NAME                "BM1370"
-#define CHIP_NMQAXE_PLUS_PLUS_REV81_NAME                "BM1373"
+// #define CHIP_NMAXE_NAME                                 "BM1366"
+// #define CHIP_NMAXE_GAMMA_NAME                           "BM1370"
+// #define CHIP_NMQAXE_PLUS_PLUS_NAME                      "BM1370"
+// #define CHIP_NMQAXE_PLUS_PLUS_REV61_NAME                "BM1370"
+// #define CHIP_NMQAXE_PLUS_PLUS_REV81_NAME                "BM1373"
 
 #define PRIMARY_POOL_URL                               "stratum+tcp://solo.ckpool.org:3333"//btc
 #define FALLBACK_POOL_URL                              "stratum+tcp://xec.nmminer.com:3333" //xec
@@ -33,19 +33,19 @@
 #define PRIMARY_POOL_PWD                               "x"
 #define FALLBACK_POOL_PWD                              "x"
 
-/*********************************Pin define********************************/
-#define NM_MODEL_SELECT_PIN0                       15
-#define NM_MODEL_SELECT_PIN1                       46 // 
-#define NM_MODEL_SELECT_PIN2                       39 // Default LOW on Axe and Gamma, QAxe++ default HIGH.
+// /*********************************Pin define********************************/
+// #define NM_MODEL_SELECT_PIN0                       15
+// #define NM_MODEL_SELECT_PIN1                       46 // 
+// #define NM_MODEL_SELECT_PIN2                       39 // Default LOW on Axe and Gamma, QAxe++ default HIGH.
 
-typedef enum {
-    NMAXE                   = 0b110, // BM1366 x 1
-    NMAXE_GAMMA             = 0b010, // BM1370 x 1
-    NMQAXE_PLUS_PLUS        = 0b101, // BM1370 x 4, 2 phase
-    NMQAXE_PLUS_PLUS_REV61  = 0b111, // BM1370 x 4, 3 phase
-    NMQAXE_PLUS_PLUS_REV81  = 0b100, // BM1373 x 4, 3 phase
-    BOARD_UNKNOWN           = 0b000  
-} BoardModelType;
+// typedef enum {
+//     NMAXE                   = 0b110, // BM1366 x 1
+//     NMAXE_GAMMA             = 0b010, // BM1370 x 1
+//     NMQAXE_PLUS_PLUS        = 0b101, // BM1370 x 4, 2 phase
+//     NMQAXE_PLUS_PLUS_REV61  = 0b111, // BM1370 x 4, 3 phase
+//     NMQAXE_PLUS_PLUS_REV81  = 0b100, // BM1373 x 4, 3 phase
+//     BOARD_UNKNOWN           = 0b000  
+// } BoardModelType;
 
 typedef struct{
     float       min;      // high temperature limit
@@ -217,7 +217,6 @@ struct BoardSpecConfig {
 };
 
 void hardware_pre_init(const BoardSpecConfig& config);
-BoardModelType get_board_model();
-BoardSpecConfig get_board_config(BoardModelType model);
+BoardSpecConfig get_board_config_compile_time();
 
 #endif

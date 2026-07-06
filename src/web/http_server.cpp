@@ -1827,11 +1827,13 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 return;
             }
             String gif_name;
-            if (g_web->spec->name == BOARD_NMAXE_NAME || g_web->spec->name == BOARD_NMAXE_GAMMA_NAME) {
-                gif_name = "screen_saver_240x135.gif";
-            } else {
-                gif_name = "screen_saver_320x240.gif";
-            }
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+            gif_name = "screen_saver_240x135.gif";
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+            gif_name = "screen_saver_320x240.gif";
+#else
+            #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
             LOG_I("GIF upload started: %s -> /%s  total=%llu bytes", filename.c_str(), gif_name.c_str(), (unsigned long long)flen);
             gif_file = SPIFFS.open(("/" + gif_name).c_str(), "w");
             if (!gif_file) {

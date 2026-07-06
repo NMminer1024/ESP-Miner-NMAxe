@@ -826,25 +826,27 @@ void config_monitor_thread_entry(void* args) {
         if (st.client_connected == false) {
             // For NMQAxe++: the UI thread owns the decrement (lv_indev touch detect);
             // this thread only fires the reboot when timeout reaches 0.
-            if (ctx->cfg->board_name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
-                if (st.config_timeout == 0) {
-                    LOG_W("WiFi configuration timeout, rebooting...");
-                    reboot_intent_set(REBOOT_INTENT_WIFI_CONFIG_TIMEOUT,
-                                      "no client connected during AP setup window");
-                    delay(1000);
-                    ESP.restart();
-                }
-                // Do NOT decrement here — UI thread handles it
-            } else {
-                if (st.config_timeout == 0) {
-                    LOG_W("WiFi configuration timeout, rebooting...");
-                    reboot_intent_set(REBOOT_INTENT_WIFI_CONFIG_TIMEOUT,
-                                      "no client connected during AP setup window");
-                    delay(1000);
-                    ESP.restart();
-                }
-                st.config_timeout--;
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+            if (st.config_timeout == 0) {
+                LOG_W("WiFi configuration timeout, rebooting...");
+                reboot_intent_set(REBOOT_INTENT_WIFI_CONFIG_TIMEOUT,
+                                  "no client connected during AP setup window");
+                delay(1000);
+                ESP.restart();
             }
+            // Do NOT decrement here — UI thread handles it
+#elif defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+            if (st.config_timeout == 0) {
+                LOG_W("WiFi configuration timeout, rebooting...");
+                reboot_intent_set(REBOOT_INTENT_WIFI_CONFIG_TIMEOUT,
+                                  "no client connected during AP setup window");
+                delay(1000);
+                ESP.restart();
+            }
+            st.config_timeout--;
+#else
+            #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
         }
         delay(1000);
     }
@@ -1802,25 +1804,34 @@ void button_thread_entry(void* args) {
             xEventGroupClearBits(c->sys_evt, SYS_EVENT_MINER_BLOCK_HIT | SYS_EVENT_MINER_HIGH_DIFF_ACHIEVED |
                                  SYS_EVENT_SCREEN_SAVER_TRIGGERED | SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
             if (c->on_activity) c->on_activity();
-            if (c->spec->name == BOARD_NMAXE_NAME || c->spec->name == BOARD_NMAXE_GAMMA_NAME) {
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
                 UIManager::instance().start_factory_countdown();
                 return;
-            }
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#else
+                #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
             xSemaphoreGive(c->recover_factory_xsem);
         };
         auto long_press_stop_wrapper = [](void* param) {
             ButtonCtx* c = static_cast<ButtonCtx*>(param);
             if (c->on_activity) c->on_activity();
-            if (c->spec->name == BOARD_NMAXE_NAME || c->spec->name == BOARD_NMAXE_GAMMA_NAME) {
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
                 UIManager::instance().cancel_factory_countdown();
-            }
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#else
+                #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
         };
         auto during_long_press_wrapper = [](void* param) {
             ButtonCtx* c = static_cast<ButtonCtx*>(param);
             if (c->on_activity) c->on_activity();
-            if (c->spec->name == BOARD_NMAXE_NAME || c->spec->name == BOARD_NMAXE_GAMMA_NAME) {
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
                 UIManager::instance().tick_factory_countdown();
-            }
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#else
+                #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
         };
         user_btn->attachClick(click_wrapper, ctx);
         user_btn->attachDoubleClick(double_click_wrapper, ctx);
@@ -1860,30 +1871,30 @@ void led_thread_entry(void* args) {
         digitalWrite(spec.led.pool_pin, HIGH);
     }
     if (spec.led.sys_pin != -1) {
-        if (spec.name == BOARD_NMAXE_NAME || spec.name == BOARD_NMAXE_GAMMA_NAME) {
-            pinMode(spec.led.sys_pin, OUTPUT);
-            ledcSetup(pwmChannel, freq, resolution);
-            ledcAttachPin(spec.led.sys_pin, pwmChannel);
-            ledcWrite(pwmChannel, 255); // off
-        } else if (spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
-            strip = new Adafruit_NeoPixel(8, spec.led.sys_pin, NEO_GRB + NEO_KHZ800);
-            while (!strip) {
-                LOG_E("Failed to create NeoPixel instance for SYS LED");
-                delay(1000);
-            }
-            strip->begin();
-            strip->show();
-            strip->setBrightness(100);
-        } else {
-            LOG_W("Unsupported board type for SYS LED control");
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+        pinMode(spec.led.sys_pin, OUTPUT);
+        ledcSetup(pwmChannel, freq, resolution);
+        ledcAttachPin(spec.led.sys_pin, pwmChannel);
+        ledcWrite(pwmChannel, 255); // off
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+        strip = new Adafruit_NeoPixel(8, spec.led.sys_pin, NEO_GRB + NEO_KHZ800);
+        while (!strip) {
+            LOG_E("Failed to create NeoPixel instance for SYS LED");
+            delay(1000);
         }
+        strip->begin();
+        strip->show();
+        strip->setBrightness(100);
+#else
+        #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
     }
 
     uint64_t led_cnt = 0;
     const uint8_t dot = 20;
     while (true) {
         delay(10);
-        if (spec.name == BOARD_NMAXE_NAME || spec.name == BOARD_NMAXE_GAMMA_NAME) {
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
             if (pref.led.sleep || !pref.led.enable) {
                 if (spec.led.wifi_pin != -1) digitalWrite(spec.led.wifi_pin, HIGH);
                 if (spec.led.pool_pin != -1) digitalWrite(spec.led.pool_pin, HIGH);
@@ -1914,7 +1925,7 @@ void led_thread_entry(void* args) {
             uint8_t speed = (ctx->status->hashrate._3m > 0) ? 1 : 20;
             ledcWrite(pwmChannel, (uint32_t)((1 + sin(speed * led_cnt / 100.0f)) * (1 << resolution - 1)));
             led_cnt++;
-        } else if (spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
             if (pref.led.sleep || !pref.led.enable) {
                 for (int i = 0; i < strip->numPixels(); i++) strip->setPixelColor(i, strip->Color(0, 0, 0));
                 strip->show();
@@ -2083,7 +2094,9 @@ void led_thread_entry(void* args) {
                 default: break;
             }
             tick++;
-        }
+#else
+        #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
     }
     LOG_I("led thread exit...");
     vTaskDelete(NULL);

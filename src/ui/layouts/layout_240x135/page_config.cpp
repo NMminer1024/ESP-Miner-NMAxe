@@ -28,8 +28,13 @@ void PageConfig240x135::_create_dynamic(lv_obj_t* parent) {
 
     auto& app = MinerApp::instance();
     _lb_logo = lv_img_create(parent);
-    lv_img_set_src(_lb_logo,
-        app.spec().name == BOARD_NMAXE_GAMMA_NAME ? &logo_worker_nmaxegamma : &logo_worker_nmaxe);
+#if defined(BOARD_NMAXE_GAMMA)
+    lv_img_set_src(_lb_logo, &logo_worker_nmaxegamma);
+#elif defined(BOARD_NMAXE) || defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+    lv_img_set_src(_lb_logo, &logo_worker_nmaxe);
+#else
+    #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
     lv_obj_align(_lb_logo, LV_ALIGN_TOP_LEFT, 35, 0);
     lv_obj_add_flag(_lb_logo, LV_OBJ_FLAG_EVENT_BUBBLE);
 

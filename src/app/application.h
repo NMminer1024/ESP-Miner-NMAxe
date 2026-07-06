@@ -81,7 +81,6 @@ private:
 
     // ── Platform-wide synchronization / ownership roots ────────────────────
     SystemSync* _sync_system = nullptr;          // init/sys event groups + reboot gate
-    BoardModelType _board_model = BOARD_UNKNOWN; // detected board selector result
     BoardSpecConfig _board_spec;                 // resolved runtime board spec
 
     // ── Persistent configuration restored from NVS ─────────────────────────

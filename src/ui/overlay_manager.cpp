@@ -1116,7 +1116,13 @@ bool OverlayManager::_render_find_overlay(uint32_t now, EventBits_t bits) {
     lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
     lv_obj_align(_lb_title, LV_ALIGN_CENTER, 0, -18);
 
-    const bool is_touch = (_ctx.spec && _ctx.spec->name == BOARD_NMQAXE_PLUS_PLUS_NAME);
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+    const bool is_touch = true;
+#elif defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+    const bool is_touch = false;
+#else
+    #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
     lv_obj_set_style_text_font(_lb_body, &Inconsolata_26, 0);
     lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x000000), 0);
     lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);

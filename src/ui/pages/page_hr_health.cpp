@@ -172,7 +172,8 @@ void PageHr_healthBase::_on_update() {
         lv_label_set_text(_lb_hr_unit, hr_unit.c_str());
     }
 
-    if (_show_asic_pie && spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+    if (_show_asic_pie) {
         // Use board-design expected chip count (num_req), not runtime detected count.
         // This ensures all sectors always show — a dead chip simply stays at 0%.
         uint8_t asic_count = spec.asic.num_req;
@@ -202,6 +203,10 @@ void PageHr_healthBase::_on_update() {
             _update_pie_chart(new_angles);
         }
     }
+#elif defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+#else
+    #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
 
     _last_update_ms = now;
 }

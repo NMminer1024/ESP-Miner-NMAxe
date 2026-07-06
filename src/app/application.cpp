@@ -104,18 +104,10 @@ bool MinerApp::init() {
     _state_neighbor->mutex         = xSemaphoreCreateMutex();
     _state_neighbor->scan_required = xSemaphoreCreateCounting(1, 0);
 
-    // ── Stage 3: detect board model and materialize the runtime board spec ──
-    // get_board_model() internally debounces the selection pins (up to ~3 s).
-    // After this point, _board_spec becomes the single source of truth for board-
-    // specific pins, power rails, display geometry, ASIC type, and defaults.
-    _board_model = get_board_model();
-    if (_board_model == BOARD_UNKNOWN) {
-        while (true) {
-            LOG_E("Expected raw model pins: NMAXE=110, Gamma=010, QAxe++=101, QAxe++ Rev6.1=111.");
-            delay(1000);
-        }
-    }
-    _board_spec = get_board_config(_board_model);
+    // ── Stage 3: materialize compile-time board spec ──
+    // When BOARD_COMPILE_TIME is defined (PlatformIO env), the board is selected
+    // at compile time. Otherwise falls back to runtime pin-based detection.
+    _board_spec = get_board_config_compile_time();
     hardware_pre_init(_board_spec);
     LOG_I("board model detected: %s", _board_spec.display_name.c_str());
 
@@ -1024,12 +1016,18 @@ void MinerApp::_tick_thread_entry(void* args) {
         }
 
         if (!app._state_fans.empty()) {
-            if (app._board_spec.name == BOARD_NMQAXE_PLUS_PLUS_NAME && app._state_fans.size() > 1) {
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+            if (app._state_fans.size() > 1) {
                 AppState::instance().miner.fan.text = String((unsigned)app._state_fans[1].rpm) + "/" +
                                                       String((unsigned)app._state_fans[0].rpm);
             } else {
                 AppState::instance().miner.fan.text = String((unsigned)app._state_fans[0].rpm) + " rpm";
             }
+#elif defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+            AppState::instance().miner.fan.text = String((unsigned)app._state_fans[0].rpm) + " rpm";
+#else
+            #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
         }
 
         // ── Clock page: local time/date (TZ set by monitor via setenv/tzset) ──
@@ -1264,8 +1262,13 @@ bool MinerApp::_ui_init() {
     octx.aphorism   = &_state_aphorism;
     octx.saver_mode = &_config_pref.screen.saver_mode;
     // Screensaver GIF path (uploaded via web). Filename matches http upload handler.
-    octx.gif_path = (_board_spec.name == BOARD_NMAXE_NAME || _board_spec.name == BOARD_NMAXE_GAMMA_NAME)
-                  ? "/screen_saver_240x135.gif" : "/screen_saver_320x240.gif";
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+    octx.gif_path = "/screen_saver_240x135.gif";
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+    octx.gif_path = "/screen_saver_320x240.gif";
+#else
+    #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
     OverlayManager::instance().init(octx);
     uint8_t br = _config_pref.screen.brightness ? _config_pref.screen.brightness : 80;
     LOG_I("UI init done: %ux%u, target brightness=%u%%", w, h, br);

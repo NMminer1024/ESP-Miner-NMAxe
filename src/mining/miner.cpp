@@ -189,11 +189,19 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     if(this->_asic == NULL) return false;
     ////////////////////////////////////////construct asic job//////////////////////////////////
     uint8_t step = 8;
-    if(this->_asic_name == CHIP_NMAXE_NAME)                  step = 8;
-    else if (this->_asic_name == CHIP_NMAXE_GAMMA_NAME)      step = 24;
-    else if (this->_asic_name == CHIP_NMQAXE_PLUS_PLUS_NAME) step = 24;
-    else if (this->_asic_name == CHIP_NMQAXE_PLUS_PLUS_REV81_NAME) step = 24;
-    else LOG_W("Unknown ASIC model, using default step 8");
+
+    // if(this->_asic_name == CHIP_NMAXE_NAME)                  step = 8;
+    // else if (this->_asic_name == CHIP_NMAXE_GAMMA_NAME)      step = 24;
+    // else if (this->_asic_name == CHIP_NMQAXE_PLUS_PLUS_NAME) step = 24;
+    // else if (this->_asic_name == CHIP_NMQAXE_PLUS_PLUS_REV81_NAME) step = 24;
+    // else LOG_W("Unknown ASIC model, using default step 8");
+#if defined(BOARD_NMAXE)
+    step = 8;
+#elif defined(BOARD_NMAXE_GAMMA) || defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+    step = 24;
+#else
+    #error "Unknown board type for ASIC job step size"
+#endif
 
     this->_asic_job_now.id = (this->_asic_job_now.id + step) % 128;
 

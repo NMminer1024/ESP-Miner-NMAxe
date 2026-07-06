@@ -133,7 +133,13 @@ void PageMinerBase::_on_update() {
     m.fan_symbol_color = fan_color;
 
     if (_lb_blk_hit) {
-        const bool is_pp = app.spec().name == BOARD_NMQAXE_PLUS_PLUS_NAME;
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+        const bool is_pp = true;
+#elif defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+        const bool is_pp = false;
+#else
+        #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
         if (st->hits <= 9) {
             lv_obj_set_style_text_font(_lb_blk_hit, is_pp ? &ds_digib_font_56 : &ds_digib_font_56, LV_PART_MAIN);
             lv_obj_align(_lb_blk_hit, LV_ALIGN_TOP_MID, is_pp ? 20 : 6, is_pp ? 65 : 36);

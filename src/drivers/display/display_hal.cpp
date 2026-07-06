@@ -46,13 +46,13 @@ void tft_bl_ctrl(int8_t percent, BoardSpecConfig* spec) {
     if (!spec) return;
     s_last_brightness = percent;          // cache for celebration restore
     uint8_t pwm = 0;
-    if ((spec->name == BOARD_NMAXE_GAMMA_NAME) || (spec->name == BOARD_NMAXE_NAME)) {
-        pwm = 255 * (1 - percent * 0.01f);
-    } else if (spec->name == BOARD_NMQAXE_PLUS_PLUS_NAME) {
-        pwm = percent * 2.55;
-    } else {
-        pwm = 128; // default mid brightness
-    }
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+    pwm = 255 * (1 - percent * 0.01f); // invert for NMAxe and NMAxeGamma
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+    pwm = percent * 2.55; // linear for NMQAxe++
+#else
+    #error "Unknown board type for backlight control"
+#endif
     LOG_D("Set brightness %d%%, PWM=%d", percent, pwm);
     ledcWrite(spec->tft.bl.pwm_ch, pwm);
 }
@@ -94,8 +94,17 @@ void tft_init(BoardSpecConfig* spec, PreferenceState* pref) {
                      spec->spi.mosi_pin,
                      spec->tft.color_invert);
 
-    if (pref && pref->screen.flip) tftDriver->setRotation(1);
-    else tftDriver->setRotation(spec->name == BOARD_NMQAXE_PLUS_PLUS_NAME ? 4 : 3);
+    if (pref && pref->screen.flip) {
+        tftDriver->setRotation(1);
+    } else {
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+        tftDriver->setRotation(3);
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+        tftDriver->setRotation(4);
+#else
+        #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
+#endif
+    }
 }
 
 void ui_drv_register(uint16_t hor_res, uint16_t ver_res) {
