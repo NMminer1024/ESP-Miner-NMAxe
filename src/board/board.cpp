@@ -12,7 +12,7 @@
 #include "drivers/temp/temp_hal.h"
 
 BoardModelType get_board_model(){
-    // return NMQAXE_PLUS_PLUS_REV81; // Force override for testing; comment out to enable real pin reading
+    return NMQAXE_PLUS_PLUS_REV81; // Force override for testing; comment out to enable real pin reading
 
 
     // ── Step 1: active discharge ──────────────────────────────────────────────
@@ -591,13 +591,13 @@ BoardSpecConfig get_board_config(BoardModelType model) {
             config.asic.default_frq          = 375;
             config.asic.default_vcore        = 950;
             config.asic.min_vcore            = 900;
-            config.asic.max_vcore            = 1050;
+            config.asic.max_vcore            = 1200;
             config.asic.job_interval_ms      = 500;
             config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
             config.ui.dashboard_page.power.power         = {0.0f, 150.0f};
-            config.ui.dashboard_page.performance.asic_freq_req  = {350.0f, 450.0f};
-            config.ui.dashboard_page.performance.vcore_req      = {8.50f, 1.100f};
-            config.ui.dashboard_page.performance.vcore_measure  = {8.50f, 1.100f};
+            config.ui.dashboard_page.performance.asic_freq_req  = {350.0f, 550.0f};
+            config.ui.dashboard_page.performance.vcore_req      = {0.85f, 1.150f};
+            config.ui.dashboard_page.performance.vcore_measure  = {0.85f, 1.150f};
             config.ui.setting_page.oc = {
                     {"300 MHz",           300},
                     {"325 MHz",           325},
