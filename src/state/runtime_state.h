@@ -30,6 +30,7 @@ enum class BootPhase : uint8_t {
 struct BootState {
     BootPhase phase = BootPhase::ColdBoot;
     const char* message = "cold boot";
+    uint8_t progress_percent = 0;
     bool board_ready = false;
     bool ui_ready = false;
     bool ready = false;

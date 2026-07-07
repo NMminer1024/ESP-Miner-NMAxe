@@ -90,7 +90,6 @@ private:
     void _enable_panel_power();
     void _setup_backlight_pwm();
     void _set_boot_backlight_off();
-    void _set_backlight_on();
     bool _init_bus();
     void _hardware_reset();
     void _begin_transaction();

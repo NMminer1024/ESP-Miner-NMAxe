@@ -1,7 +1,7 @@
-// What: Concrete UI service driving the current placeholder LVGL tree.
+// What: Concrete UI service driving the page-based LVGL tree.
 // Why: The new architecture needs a service-level adapter between runtime state
-// and the view layer before richer pages are migrated.
-// Role: Starts the UI, applies event-driven page changes, and schedules renders.
+// and the layout/page layer while UI migration proceeds incrementally.
+// Role: Starts the UI, applies page-navigation events, and schedules renders.
 // Benefit: Keeps rendering concerns away from `Application` and other services.
 #include "services/ui_service.h"
 
@@ -24,18 +24,15 @@ bool UiService::start(
     _events = &events;
     _last_render_ms = 0;
 
-    runtime.boot.message = "bind ui";
-    if (!ui::boot(board, runtime, ui_state)) {
+    if (!ui::boot(board, config, runtime, ui_state)) {
         runtime.boot.phase = state::BootPhase::Fault;
         runtime.boot.message = "ui bind failed";
         return false;
     }
 
-    runtime.boot.phase = state::BootPhase::Ready;
-    runtime.boot.message = "ready";
     runtime.boot.ui_ready = true;
-    runtime.boot.ready = true;
     events.set(system::Event::UiReady);
+    ui_state.dirty = true;
     return true;
 }
 
@@ -54,13 +51,11 @@ void UiService::poll() {
         _ui_state->dirty = true;
     }
     if (_events->consume(system::Event::UiNextPageRequested)) {
-        _ui_state->current_page =
-            _ui_state->current_page == state::UiPageId::Summary ? state::UiPageId::Detail : state::UiPageId::Summary;
+        _ui_state->current_page = state::next_runtime_ui_page(_ui_state->current_page);
         _ui_state->dirty = true;
     }
     if (_events->consume(system::Event::UiPrevPageRequested)) {
-        _ui_state->current_page =
-            _ui_state->current_page == state::UiPageId::Summary ? state::UiPageId::Detail : state::UiPageId::Summary;
+        _ui_state->current_page = state::prev_runtime_ui_page(_ui_state->current_page);
         _ui_state->dirty = true;
     }
 
@@ -72,7 +67,7 @@ void UiService::poll() {
     // small and mostly polled. If later pages depend on richer async data,
     // prefer explicit invalidation/messages over tightening this loop.
     if (_ui_state->dirty || telemetry_dirty || mining_dirty || (now_ms - _last_render_ms) >= 1000) {
-        ui::render(*_board, *_runtime, *_ui_state);
+        ui::render(*_board, *_config, *_runtime, *_ui_state);
         _ui_state->dirty = false;
         _last_render_ms = now_ms;
     }

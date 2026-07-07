@@ -45,7 +45,6 @@ bool St7789Display::init() {
     _hardware_reset();
     _run_init_sequence();
     _apply_rotation(_flip);
-    _set_backlight_on();
 
     const auto display_size = size();
     Serial.printf(
@@ -174,10 +173,6 @@ void St7789Display::_set_boot_backlight_off() {
 
     ledcWrite(_config.backlight.pwm_channel, _config.backlight.off_duty);
     _brightness_percent = 0;
-}
-
-void St7789Display::_set_backlight_on() {
-    set_brightness_percent(100);
 }
 
 bool St7789Display::_init_bus() {

@@ -40,9 +40,9 @@ void Application::setup() {
                       _runtime.boot.message);
         return;
     }
-    _mining_service.start(*_board, _config, _runtime, _events);
-    _monitor_service.start(*_board, _config, _runtime, _events);
 
+    _services_started = false;
+    _boot_slide_complete = false;
     _initialized = true;
 }
 
@@ -56,8 +56,56 @@ void Application::loop() {
     // state, and service seams are stable. Do not add blocking market/stratum/
     // web/mining work here. Those subsystems should later move to dedicated
     // tasks/executors and feed state/events back into this layer.
-    _mining_service.poll();
-    _monitor_service.poll();
+    _boot_service.poll();
+
+    if (_boot_service.ready_for_services() && !_services_started) {
+        _monitor_service.start(*_board, _config, _runtime, _events);
+        _mining_service.start(*_board, _config, _runtime, _events);
+        _boot_service.mark_services_started();
+        _services_started = true;
+    }
+
+    if (_services_started) {
+        _mining_service.poll();
+        _monitor_service.poll();
+
+        if (!_boot_slide_complete) {
+            switch (_runtime.mining.phase) {
+                case state::MiningPhase::Standby:
+                case state::MiningPhase::Running:
+                    _runtime.boot.progress_percent = 100;
+                    _runtime.boot.message = "miner ready";
+                    _ui_state.current_page = state::UiPageId::Miner;
+                    _ui_state.dirty = true;
+                    _boot_slide_complete = true;
+                    break;
+
+                case state::MiningPhase::Disabled:
+                    _runtime.boot.progress_percent = 100;
+                    _runtime.boot.message = "miner disabled";
+                    _ui_state.current_page = state::UiPageId::Miner;
+                    _ui_state.dirty = true;
+                    _boot_slide_complete = true;
+                    break;
+
+                case state::MiningPhase::Fault:
+                    _runtime.boot.progress_percent = 100;
+                    _runtime.boot.message = "miner fault";
+                    _ui_state.current_page = state::UiPageId::Miner;
+                    _ui_state.dirty = true;
+                    _boot_slide_complete = true;
+                    break;
+
+                case state::MiningPhase::WaitPower:
+                case state::MiningPhase::Probe:
+                case state::MiningPhase::WaitVbus:
+                case state::MiningPhase::WaitVcore:
+                case state::MiningPhase::Bringup:
+                    break;
+            }
+        }
+    }
+
     _ui_service.poll();
 }
 

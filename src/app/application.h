@@ -38,6 +38,8 @@ private:
 
     bsp::Board* _board = nullptr;
     bool _initialized = false;
+    bool _services_started = false;
+    bool _boot_slide_complete = false;
     config::NvsConfigStore _config_store{};
     config::AppConfig _config{};
     state::RuntimeState _runtime{};

@@ -1,7 +1,7 @@
-// What: Service wrapper around the current LVGL UI root.
+// What: Service wrapper around the page-based LVGL UI framework.
 // Why: The application layer should talk to a service boundary, not directly to
-// rendering functions or LVGL-driven page logic.
-// Role: Initializes the UI root, consumes navigation events, and forwards the
+// rendering functions or layout-specific page objects.
+// Role: Initializes the page tree, consumes navigation events, and forwards the
 // runtime snapshot into rendering.
 // Benefit: Keeps UI flow replaceable and aligned with the new service-oriented
 // application skeleton.

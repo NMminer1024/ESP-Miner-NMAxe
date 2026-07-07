@@ -1,209 +1,135 @@
-// What: UI boot coordinator and temporary root-page builder.
-// Why: After BSP init, the framework needs one place to bind hardware-backed UI
-// ports, resolve the active product profile, and build the first screen.
-// Role: Bridges board context into LVGL-facing UI composition.
-// Benefit: Concentrates UI bring-up logic in one layer instead of coupling page
-// creation directly to application startup or BSP implementations.
+// What: UI boot coordinator and tileview host for the new framework.
+// Why: The firmware needs one place to bind LVGL ports, select the active
+// layout, and host all pages in an old-style sliding tile container.
+// Role: Bridges board/product context into a resolution-specific tileview tree.
+// Benefit: Page classes stay layout-local while top-level UI flow retains the
+// same sliding-page model the legacy product used.
 #include "ui/ui_root.h"
 
-#include <Arduino.h>
-#include <stdio.h>
 #include <lvgl.h>
 
 #include "product/ui_profile.h"
+#include "ui/layouts/layout_resolver.h"
+#include "ui/page.h"
 #include "ui/port/ports.h"
 
 namespace nm::ui {
 
 namespace {
 
-struct RootView {
-    lv_obj_t* title = nullptr;
-    lv_obj_t* subtitle = nullptr;
-    lv_obj_t* line1 = nullptr;
-    lv_obj_t* line2 = nullptr;
-    lv_obj_t* line3 = nullptr;
-    lv_obj_t* line4 = nullptr;
-    lv_obj_t* line5 = nullptr;
-    lv_obj_t* footer = nullptr;
+struct RootPages {
+    const PageCatalog* catalog = nullptr;
+    lv_obj_t* tileview = nullptr;
+    std::array<lv_obj_t*, state::kUiPageCount> tiles{};
+    state::UiPageId active_page = state::UiPageId::Count;
     bool ready = false;
 };
 
-RootView g_root;
+RootPages g_root;
 
-const char* phase_text(state::MiningPhase phase) {
-    switch (phase) {
-        case state::MiningPhase::Disabled:
-            return "disabled";
-        case state::MiningPhase::WaitPower:
-            return "wait-power";
-        case state::MiningPhase::Probe:
-            return "probe";
-        case state::MiningPhase::WaitVbus:
-            return "wait-vbus";
-        case state::MiningPhase::WaitVcore:
-            return "wait-vcore";
-        case state::MiningPhase::Bringup:
-            return "bringup";
-        case state::MiningPhase::Standby:
-            return "standby";
-        case state::MiningPhase::Running:
-            return "running";
-        case state::MiningPhase::Fault:
-            return "fault";
-    }
-
-    return "unknown";
+size_t page_slot(state::UiPageId page_id) {
+    const uint8_t index = state::ui_page_index(page_id);
+    return index < state::kUiPageCount ? static_cast<size_t>(index) : state::kUiPageCount;
 }
 
-lv_obj_t* create_text_line(lv_obj_t* parent, const lv_font_t* font, lv_align_t align, lv_coord_t x, lv_coord_t y) {
-    lv_obj_t* label = lv_label_create(parent);
-    if (label == nullptr) {
+const PageCatalogEntry* entry_for(state::UiPageId page_id) {
+    if (g_root.catalog == nullptr) {
         return nullptr;
     }
-    lv_obj_set_style_text_color(label, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_text_font(label, font, LV_PART_MAIN);
-    lv_label_set_long_mode(label, LV_LABEL_LONG_CLIP);
-    lv_obj_set_width(label, 236);
-    lv_obj_align(label, align, x, y);
-    return label;
+
+    const size_t slot = page_slot(page_id);
+    if (slot >= g_root.catalog->entries.size()) {
+        return nullptr;
+    }
+
+    return &g_root.catalog->entries[slot];
 }
 
-void build_root_page() {
-    lv_obj_t* screen = lv_scr_act();
-    if (screen == nullptr) {
+UIPage* page_for(state::UiPageId page_id) {
+    const auto* entry = entry_for(page_id);
+    return entry != nullptr ? entry->page : nullptr;
+}
+
+void destroy_catalog_pages() {
+    if (g_root.catalog == nullptr) {
         return;
     }
 
+    for (const auto& entry : g_root.catalog->entries) {
+        if (entry.page != nullptr) {
+            entry.page->destroy();
+        }
+    }
+}
+
+bool build_page_tree(const bsp::Board& board, const PageCatalog& catalog, lv_obj_t* screen) {
+    if (screen == nullptr) {
+        return false;
+    }
+
+    destroy_catalog_pages();
     lv_obj_clean(screen);
-    lv_obj_set_style_bg_color(screen, lv_color_white(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, LV_PART_MAIN);
 
-    g_root.title = create_text_line(screen, &lv_font_montserrat_20, LV_ALIGN_TOP_MID, 0, 8);
-    g_root.subtitle = create_text_line(screen, &lv_font_montserrat_14, LV_ALIGN_TOP_MID, 0, 34);
-    g_root.line1 = create_text_line(screen, &lv_font_montserrat_14, LV_ALIGN_TOP_LEFT, 4, 56);
-    g_root.line2 = create_text_line(screen, &lv_font_montserrat_14, LV_ALIGN_TOP_LEFT, 4, 74);
-    g_root.line3 = create_text_line(screen, &lv_font_montserrat_14, LV_ALIGN_TOP_LEFT, 4, 92);
-    g_root.line4 = create_text_line(screen, &lv_font_montserrat_14, LV_ALIGN_TOP_LEFT, 4, 110);
-    g_root.line5 = create_text_line(screen, &lv_font_montserrat_14, LV_ALIGN_TOP_LEFT, 4, 128);
-    g_root.footer = create_text_line(screen, &lv_font_montserrat_12, LV_ALIGN_BOTTOM_MID, 0, -4);
-    g_root.ready =
-        g_root.title != nullptr &&
-        g_root.subtitle != nullptr &&
-        g_root.line1 != nullptr &&
-        g_root.line2 != nullptr &&
-        g_root.line3 != nullptr &&
-        g_root.line4 != nullptr &&
-        g_root.line5 != nullptr &&
-        g_root.footer != nullptr;
+    g_root.tiles.fill(nullptr);
+    g_root.catalog = &catalog;
+    g_root.active_page = state::UiPageId::Count;
+    g_root.tileview = lv_tileview_create(screen);
+    if (g_root.tileview == nullptr) {
+        return false;
+    }
+
+    lv_obj_set_size(
+        g_root.tileview,
+        static_cast<lv_coord_t>(board.display_profile().width),
+        static_cast<lv_coord_t>(board.display_profile().height));
+    lv_obj_set_style_bg_color(g_root.tileview, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(g_root.tileview, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_scrollbar_mode(g_root.tileview, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_align(g_root.tileview, LV_ALIGN_CENTER, 0, 0);
+
+    bool has_page = false;
+    for (size_t i = 0; i < catalog.entries.size(); ++i) {
+        const auto& entry = catalog.entries[i];
+        if (entry.page == nullptr) {
+            continue;
+        }
+
+        lv_obj_t* tile = lv_tileview_add_tile(g_root.tileview, entry.col, entry.row, entry.nav_dir);
+        if (tile == nullptr) {
+            continue;
+        }
+
+        lv_obj_set_style_pad_all(tile, 0, LV_PART_MAIN);
+        lv_obj_set_scrollbar_mode(tile, LV_SCROLLBAR_MODE_OFF);
+        entry.page->create(tile);
+        g_root.tiles[i] = tile;
+        has_page = true;
+    }
+
+    return has_page;
 }
 
-void render_summary_page(const bsp::Board& board, const state::RuntimeState& runtime) {
-    char line[96] = {};
+void sync_active_page(state::UiPageId page_id, lv_anim_enable_t animate) {
+    if (g_root.tileview == nullptr) {
+        return;
+    }
 
-    lv_label_set_text(g_root.subtitle, "Summary");
+    const auto* entry = entry_for(page_id);
+    if (entry == nullptr || entry->page == nullptr) {
+        return;
+    }
 
-    snprintf(line, sizeof(line), "BOOT %s", runtime.boot.message);
-    lv_label_set_text(g_root.line1, line);
-
-    snprintf(
-        line,
-        sizeof(line),
-        "MINER %s @ %uMHz",
-        phase_text(runtime.mining.phase),
-        static_cast<unsigned>(runtime.mining.applied_freq_mhz));
-    lv_label_set_text(g_root.line2, line);
-
-    snprintf(
-        line,
-        sizeof(line),
-        "VBUS %.2fV  IBUS %.2fA",
-        runtime.power.vbus_mv / 1000.0f,
-        runtime.power.ibus_ma / 1000.0f);
-    lv_label_set_text(g_root.line3, line);
-
-    snprintf(
-        line,
-        sizeof(line),
-        "VCORE %lumV  %s",
-        static_cast<unsigned long>(runtime.power.vcore_mv),
-        runtime.power.vcore_ready ? "READY" : "WAIT");
-    lv_label_set_text(g_root.line4, line);
-
-    snprintf(
-        line,
-        sizeof(line),
-        "TEMP VRM %.1fC ASIC %.1fC",
-        runtime.thermal.vcore_c,
-        runtime.thermal.asic_c);
-    lv_label_set_text(g_root.line5, line);
-
-    snprintf(
-        line,
-        sizeof(line),
-        "%s  %ux%u",
-        board.display_profile().display_name,
-        static_cast<unsigned>(board.display_profile().width),
-        static_cast<unsigned>(board.display_profile().height));
-    lv_label_set_text(g_root.footer, line);
-}
-
-void render_detail_page(const bsp::Board& board, const state::RuntimeState& runtime) {
-    char line[96] = {};
-
-    lv_label_set_text(g_root.subtitle, "Detail");
-
-    snprintf(
-        line,
-        sizeof(line),
-        "ASIC %u x %u @ %uMHz",
-        static_cast<unsigned>(board.mining_profile().asic_family),
-        static_cast<unsigned>(board.mining_profile().asic_count),
-        static_cast<unsigned>(board.mining_profile().default_freq_mhz));
-    lv_label_set_text(g_root.line1, line);
-
-    snprintf(
-        line,
-        sizeof(line),
-        "MINER %s trg:%u app:%u",
-        phase_text(runtime.mining.phase),
-        static_cast<unsigned>(runtime.mining.target_freq_mhz),
-        static_cast<unsigned>(runtime.mining.applied_freq_mhz));
-    lv_label_set_text(g_root.line2, line);
-
-    snprintf(
-        line,
-        sizeof(line),
-        "ASIC det:%u exp:%u tx:%s",
-        static_cast<unsigned>(runtime.mining.detected_asic_count),
-        static_cast<unsigned>(runtime.mining.expected_asic_count),
-        runtime.mining.transport_ready ? "yes" : "no");
-    lv_label_set_text(g_root.line3, line);
-
-    snprintf(
-        line,
-        sizeof(line),
-        "PWR adc:%s dc:%s vcore:%s",
-        runtime.power.adc_ready ? "yes" : "no",
-        runtime.power.dc_plugged ? "yes" : "no",
-        runtime.power.vcore_ready ? "yes" : "no");
-    lv_label_set_text(g_root.line4, line);
-
-    snprintf(
-        line,
-        sizeof(line),
-        "BTN0 %lu  BTN1 %lu",
-        static_cast<unsigned long>(runtime.buttons[0].click_count),
-        static_cast<unsigned long>(runtime.buttons[1].click_count));
-    lv_label_set_text(g_root.line5, line);
-
-    lv_label_set_text(g_root.footer, runtime.mining.message);
+    lv_obj_set_tile_id(g_root.tileview, entry->col, entry->row, animate);
+    g_root.active_page = page_id;
 }
 
 }  // namespace
 
-
-bool boot(const bsp::Board& board, const state::RuntimeState&, const state::UiState& ui_state) {
+bool boot(
+    const bsp::Board& board,
+    const config::AppConfig& config,
+    const state::RuntimeState& runtime,
+    const state::UiState& ui_state) {
     const auto& profile = product::active_ui_profile(board);
 
     bool display_ready = false;
@@ -222,30 +148,50 @@ bool boot(const bsp::Board& board, const state::RuntimeState&, const state::UiSt
         return false;
     }
 
-    build_root_page();
-    if (!g_root.ready) {
+    lv_obj_t* screen = lv_scr_act();
+    if (screen == nullptr) {
         return false;
     }
 
-    render(board, state::RuntimeState{}, ui_state);
+    const PageCatalog& catalog = resolve_page_catalog(profile.layout_id);
+    if (!build_page_tree(board, catalog, screen)) {
+        return false;
+    }
+
+    g_root.ready = true;
+    sync_active_page(ui_state.current_page, LV_ANIM_OFF);
+    render(board, config, runtime, ui_state);
     if (lv_disp_get_default() != nullptr) {
         lv_refr_now(lv_disp_get_default());
     }
     return true;
 }
 
-void render(const bsp::Board& board, const state::RuntimeState& runtime, const state::UiState& ui_state) {
+void render(
+    const bsp::Board& board,
+    const config::AppConfig& config,
+    const state::RuntimeState& runtime,
+    const state::UiState& ui_state) {
     if (!g_root.ready) {
         return;
     }
 
-    lv_label_set_text(g_root.title, board.traits().board_name);
-
-    if (ui_state.current_page == state::UiPageId::Summary) {
-        render_summary_page(board, runtime);
-    } else {
-        render_detail_page(board, runtime);
+    UIPage* active_page = page_for(ui_state.current_page);
+    if (active_page == nullptr) {
+        return;
     }
+
+    if (g_root.active_page != ui_state.current_page) {
+        sync_active_page(ui_state.current_page, g_root.active_page == state::UiPageId::Count ? LV_ANIM_OFF : LV_ANIM_ON);
+    }
+
+    const PageContext context = {
+        board,
+        config,
+        runtime,
+        ui_state,
+    };
+    active_page->render(context);
 }
 
 void poll() {
