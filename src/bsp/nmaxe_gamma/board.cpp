@@ -267,6 +267,7 @@ const BoardPolicies& board_policies() {
         policy.default_vcore_mv = 1125;
         policy.min_vcore_mv = 1000;
         policy.max_vcore_mv = 1250;
+        policy.vbus_min_required_mv = 8000;
         policy.default_rotation = gamma_default_rotation();
         policy.default_brightness_pct = 100;
         policy.default_flip = gamma_display_config().default_flip;

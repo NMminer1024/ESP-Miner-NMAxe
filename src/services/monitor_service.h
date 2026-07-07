@@ -4,6 +4,10 @@
 // Role: Samples power, temperatures, fan RPM, and button events on a cadence.
 // Benefit: UI and future network/mining layers can consume stable state instead
 // of talking to devices directly.
+// Temporary note: this service is intentionally limited to local board input
+// and low-rate telemetry polling. Do not grow it into a catch-all executor for
+// blocking mining/network logic; those paths should become separate services or
+// tasks and only publish state/events here.
 #pragma once
 
 #include "bsp/board.h"

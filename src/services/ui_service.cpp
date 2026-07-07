@@ -44,6 +44,11 @@ void UiService::poll() {
         return;
     }
 
+    // Phase-1 event consumption:
+    // These `consume()` calls intentionally coalesce repeated requests because
+    // the current framework only needs lightweight UI wake/page toggles. When
+    // async producers arrive, upgrade the event transport instead of encoding
+    // more semantics into this temporary bitflag pattern.
     if (_events->consume(system::Event::UiWakeRequested)) {
         _ui_state->last_activity_ms = millis();
         _ui_state->dirty = true;
@@ -61,7 +66,12 @@ void UiService::poll() {
 
     const uint32_t now_ms = millis();
     const bool telemetry_dirty = _events->consume(system::Event::TelemetryUpdated);
-    if (_ui_state->dirty || telemetry_dirty || (now_ms - _last_render_ms) >= 1000) {
+    const bool mining_dirty = _events->consume(system::Event::MiningStateChanged);
+    // Temporary render trigger:
+    // The 1 s fallback refresh is useful while the runtime snapshot is still
+    // small and mostly polled. If later pages depend on richer async data,
+    // prefer explicit invalidation/messages over tightening this loop.
+    if (_ui_state->dirty || telemetry_dirty || mining_dirty || (now_ms - _last_render_ms) >= 1000) {
         ui::render(*_board, *_runtime, *_ui_state);
         _ui_state->dirty = false;
         _last_render_ms = now_ms;

@@ -28,6 +28,10 @@ void MonitorService::poll() {
         return;
     }
 
+    // Phase-1 polling only:
+    // This must remain quick and non-blocking so the temporary single-loop
+    // scheduler stays responsive. Later async services should not be folded
+    // into this method.
     const uint32_t now_ms = millis();
     _poll_buttons(now_ms);
     _poll_telemetry(now_ms);
@@ -87,6 +91,10 @@ void MonitorService::_poll_telemetry(uint32_t now_ms) {
     }
     _last_telemetry_poll_ms = now_ms;
 
+    // Temporary cadence:
+    // 500 ms is acceptable for bring-up telemetry and UI verification. If a
+    // future service needs tighter timing, give that subsystem its own cadence
+    // or task instead of shrinking this global poll until everything contends.
     if (_board->drivers().power != nullptr) {
         auto& power = _runtime->power;
         power.adc_ready = _board->drivers().power->adc_ready();

@@ -149,6 +149,7 @@ struct BoardPolicies {
     uint16_t default_vcore_mv = 0;
     uint16_t min_vcore_mv = 0;
     uint16_t max_vcore_mv = 0;
+    uint16_t vbus_min_required_mv = 0;
     uint16_t default_rotation = 0;
     uint8_t default_brightness_pct = 0;
     bool default_flip = false;

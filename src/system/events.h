@@ -4,6 +4,11 @@
 // Role: Provides a small bitflag API for setting, testing, and consuming events.
 // Benefit: Gives the architecture a stable event seam now and can later be
 // swapped for RTOS-backed primitives with minimal service churn.
+// Temporary note: this is intentionally only a phase-1 event mechanism. Bit
+// flags coalesce repeated events and assume cheap single-loop consumers, so do
+// not stretch this type into long-term market/stratum/web/mining traffic.
+// TODO(agent): replace this with a queue/mailbox/RTOS-backed event transport
+// before introducing asynchronous or high-rate service producers.
 #pragma once
 
 #include <stdint.h>
@@ -20,10 +25,14 @@ enum class Event : uint32_t {
     UiPrevPageRequested = 1u << 5,
     FactoryResetRequested = 1u << 6,
     SetupModeRequested = 1u << 7,
+    MiningStateChanged = 1u << 8,
 };
 
 class EventFlags {
 public:
+    // Temporary phase-1 API:
+    // Safe enough for the current single-loop service skeleton, but not a
+    // substitute for queued events once multiple concurrent producers exist.
     void set(Event event) {
         _bits |= static_cast<uint32_t>(event);
     }

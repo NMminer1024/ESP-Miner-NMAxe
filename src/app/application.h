@@ -9,6 +9,7 @@
 #include "config/app_config.h"
 #include "config/config_store.h"
 #include "services/boot_service.h"
+#include "services/mining_service.h"
 #include "services/monitor_service.h"
 #include "services/ui_service.h"
 #include "state/runtime_state.h"
@@ -43,6 +44,7 @@ private:
     state::UiState _ui_state{};
     system::EventFlags _events{};
     services::BootService _boot_service{};
+    services::MiningService _mining_service{};
     services::MonitorService _monitor_service{};
     services::UiService _ui_service{};
 };

@@ -54,9 +54,15 @@ bool BootService::start(
         runtime.boot.message = "apply power defaults";
         board.drivers().power->set_vcore_limits(board.policies().min_vcore_mv, board.policies().max_vcore_mv);
         board.drivers().power->set_vcore_mv(config.mining.target_vcore_mv);
+
+        // Preserve the legacy two-stage ASIC power-up order:
+        // 1. Enable only the digital rails first so ASIC probe/count can happen
+        //    before Vcore is raised.
+        // 2. Vcore itself is enabled later by the mining service after probe
+        //    succeeds and any higher-level gating policy is satisfied.
         board.drivers().power->set_rail_enabled(drivers::PowerRail::Pll0v8, true);
         board.drivers().power->set_rail_enabled(drivers::PowerRail::Vdd1v8, true);
-        board.drivers().power->set_rail_enabled(drivers::PowerRail::Vcore, true);
+        board.drivers().power->set_rail_enabled(drivers::PowerRail::Vcore, false);
     }
 
     runtime.fan_count = 0;

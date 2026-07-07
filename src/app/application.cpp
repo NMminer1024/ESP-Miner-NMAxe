@@ -40,6 +40,7 @@ void Application::setup() {
                       _runtime.boot.message);
         return;
     }
+    _mining_service.start(*_board, _config, _runtime, _events);
     _monitor_service.start(*_board, _config, _runtime, _events);
 
     _initialized = true;
@@ -50,6 +51,12 @@ void Application::loop() {
         return;
     }
 
+    // Phase-1 temporary scheduler:
+    // Keep the early framework in one simple, non-blocking loop until the BSP,
+    // state, and service seams are stable. Do not add blocking market/stratum/
+    // web/mining work here. Those subsystems should later move to dedicated
+    // tasks/executors and feed state/events back into this layer.
+    _mining_service.poll();
     _monitor_service.poll();
     _ui_service.poll();
 }

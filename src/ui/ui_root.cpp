@@ -31,6 +31,31 @@ struct RootView {
 
 RootView g_root;
 
+const char* phase_text(state::MiningPhase phase) {
+    switch (phase) {
+        case state::MiningPhase::Disabled:
+            return "disabled";
+        case state::MiningPhase::WaitPower:
+            return "wait-power";
+        case state::MiningPhase::Probe:
+            return "probe";
+        case state::MiningPhase::WaitVbus:
+            return "wait-vbus";
+        case state::MiningPhase::WaitVcore:
+            return "wait-vcore";
+        case state::MiningPhase::Bringup:
+            return "bringup";
+        case state::MiningPhase::Standby:
+            return "standby";
+        case state::MiningPhase::Running:
+            return "running";
+        case state::MiningPhase::Fault:
+            return "fault";
+    }
+
+    return "unknown";
+}
+
 lv_obj_t* create_text_line(lv_obj_t* parent, const lv_font_t* font, lv_align_t align, lv_coord_t x, lv_coord_t y) {
     lv_obj_t* label = lv_label_create(parent);
     if (label == nullptr) {
@@ -84,10 +109,18 @@ void render_summary_page(const bsp::Board& board, const state::RuntimeState& run
     snprintf(
         line,
         sizeof(line),
+        "MINER %s @ %uMHz",
+        phase_text(runtime.mining.phase),
+        static_cast<unsigned>(runtime.mining.applied_freq_mhz));
+    lv_label_set_text(g_root.line2, line);
+
+    snprintf(
+        line,
+        sizeof(line),
         "VBUS %.2fV  IBUS %.2fA",
         runtime.power.vbus_mv / 1000.0f,
         runtime.power.ibus_ma / 1000.0f);
-    lv_label_set_text(g_root.line2, line);
+    lv_label_set_text(g_root.line3, line);
 
     snprintf(
         line,
@@ -95,7 +128,7 @@ void render_summary_page(const bsp::Board& board, const state::RuntimeState& run
         "VCORE %lumV  %s",
         static_cast<unsigned long>(runtime.power.vcore_mv),
         runtime.power.vcore_ready ? "READY" : "WAIT");
-    lv_label_set_text(g_root.line3, line);
+    lv_label_set_text(g_root.line4, line);
 
     snprintf(
         line,
@@ -103,18 +136,6 @@ void render_summary_page(const bsp::Board& board, const state::RuntimeState& run
         "TEMP VRM %.1fC ASIC %.1fC",
         runtime.thermal.vcore_c,
         runtime.thermal.asic_c);
-    lv_label_set_text(g_root.line4, line);
-
-    if (runtime.fan_count > 0) {
-        snprintf(
-            line,
-            sizeof(line),
-            "FAN %urpm @ %u%%",
-            static_cast<unsigned>(runtime.fans[0].rpm),
-            static_cast<unsigned>(runtime.fans[0].speed_percent));
-    } else {
-        snprintf(line, sizeof(line), "FAN none");
-    }
     lv_label_set_text(g_root.line5, line);
 
     snprintf(
@@ -144,40 +165,39 @@ void render_detail_page(const bsp::Board& board, const state::RuntimeState& runt
     snprintf(
         line,
         sizeof(line),
-        "PWR adc:%s dc:%s vcore:%s",
-        runtime.power.adc_ready ? "yes" : "no",
-        runtime.power.dc_plugged ? "yes" : "no",
-        runtime.power.vcore_ready ? "yes" : "no");
+        "MINER %s trg:%u app:%u",
+        phase_text(runtime.mining.phase),
+        static_cast<unsigned>(runtime.mining.target_freq_mhz),
+        static_cast<unsigned>(runtime.mining.applied_freq_mhz));
     lv_label_set_text(g_root.line2, line);
 
     snprintf(
         line,
         sizeof(line),
-        "BTN0 %lu/%lu/%lu",
-        static_cast<unsigned long>(runtime.buttons[0].click_count),
-        static_cast<unsigned long>(runtime.buttons[0].double_click_count),
-        static_cast<unsigned long>(runtime.buttons[0].long_press_count));
+        "ASIC det:%u exp:%u tx:%s",
+        static_cast<unsigned>(runtime.mining.detected_asic_count),
+        static_cast<unsigned>(runtime.mining.expected_asic_count),
+        runtime.mining.transport_ready ? "yes" : "no");
     lv_label_set_text(g_root.line3, line);
 
     snprintf(
         line,
         sizeof(line),
-        "BTN1 %lu/%lu/%lu",
-        static_cast<unsigned long>(runtime.buttons[1].click_count),
-        static_cast<unsigned long>(runtime.buttons[1].double_click_count),
-        static_cast<unsigned long>(runtime.buttons[1].long_press_count));
+        "PWR adc:%s dc:%s vcore:%s",
+        runtime.power.adc_ready ? "yes" : "no",
+        runtime.power.dc_plugged ? "yes" : "no",
+        runtime.power.vcore_ready ? "yes" : "no");
     lv_label_set_text(g_root.line4, line);
 
     snprintf(
         line,
         sizeof(line),
-        "REV %s  BTN %u FAN %u",
-        board.traits().board_revision,
-        static_cast<unsigned>(board.traits().button_count),
-        static_cast<unsigned>(board.traits().fan_count));
+        "BTN0 %lu  BTN1 %lu",
+        static_cast<unsigned long>(runtime.buttons[0].click_count),
+        static_cast<unsigned long>(runtime.buttons[1].click_count));
     lv_label_set_text(g_root.line5, line);
 
-    lv_label_set_text(g_root.footer, "boot click next, double prev");
+    lv_label_set_text(g_root.footer, runtime.mining.message);
 }
 
 }  // namespace

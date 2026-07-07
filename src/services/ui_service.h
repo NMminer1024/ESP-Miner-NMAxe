@@ -5,6 +5,10 @@
 // runtime snapshot into rendering.
 // Benefit: Keeps UI flow replaceable and aligned with the new service-oriented
 // application skeleton.
+// Temporary note: this service currently assumes one LVGL owner plus cheap
+// polling/event-flag wakeups. That is intentional for phase-1 bring-up, but
+// higher-rate async producers should later notify UI through a stronger event
+// or mailbox mechanism instead of expanding this poll contract indefinitely.
 #pragma once
 
 #include "bsp/board.h"

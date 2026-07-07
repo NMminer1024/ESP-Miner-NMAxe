@@ -9,6 +9,8 @@
 #include <array>
 #include <stdint.h>
 
+#include "state/mining_state.h"
+
 namespace nm::state {
 
 constexpr size_t kMaxFans = 4;
@@ -68,6 +70,7 @@ struct RuntimeState {
     BootState boot;
     PowerTelemetry power;
     ThermalTelemetry thermal;
+    MiningState mining;
     std::array<FanTelemetry, kMaxFans> fans{};
     uint8_t fan_count = 0;
     std::array<ButtonTelemetry, kMaxButtons> buttons{};
