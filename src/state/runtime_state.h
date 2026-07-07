@@ -158,10 +158,27 @@ struct NetworkTelemetry {
     char dns[16] = {};
 };
 
+struct StratumTelemetry {
+    bool task_running = false;
+    bool connecting = false;
+    bool connected = false;
+    bool subscribed = false;
+    bool authorized = false;
+    bool job_received = false;
+    bool ssl = false;
+    uint16_t port = 0;
+    uint32_t job_counter = 0;
+    uint32_t last_update_ms = 0;
+    char host[96] = {};
+    char user[128] = {};
+    char last_error[kBootMessageMaxLen] = {};
+};
+
 struct RuntimeState {
     BootState boot;
     PowerTelemetry power;
     NetworkTelemetry network;
+    StratumTelemetry stratum;
     ThermalTelemetry thermal;
     MiningState mining;
     std::array<FanTelemetry, kMaxFans> fans{};

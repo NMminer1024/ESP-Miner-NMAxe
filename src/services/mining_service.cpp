@@ -410,6 +410,109 @@ void MiningService::poll() {
 
         case state::MiningPhase::Standby:
             _publish_asic_status();
+            _set_phase(state::MiningPhase::PoolConnect, "pool connect");
+            break;
+
+        case state::MiningPhase::PoolConnect: {
+            _publish_asic_status();
+            const uint32_t elapsed_ms = millis() - _runtime->mining.last_transition_ms;
+            const bool blink = (((elapsed_ms / 500u) & 1u) == 0u);
+
+            if (_runtime->stratum.subscribed) {
+                _set_boot_loading("Pool connected!", 75, 0x00FF00);
+                _set_phase(state::MiningPhase::PoolConnectConfirm, "pool connected");
+                break;
+            }
+
+            if (_runtime->stratum.last_error[0] != '\0') {
+                _set_boot_loading(_runtime->stratum.last_error, 75, blink ? 0xFFFFFF : 0xFF0000);
+                break;
+            }
+
+            static const char* const kPoolConnect[] = {
+                "Pool connect   ", "Pool connect.  ", "Pool connect.. ", "Pool connect..."
+            };
+            const uint8_t anim = static_cast<uint8_t>((elapsed_ms / state::kBootMessageMinVisibleMs) % 4u);
+            snprintf(
+                _boot_message,
+                sizeof(_boot_message),
+                "%s[%s]",
+                kPoolConnect[anim],
+                _runtime->stratum.ssl ? "ssl" : "tcp");
+            _set_boot_loading(_boot_message, 75);
+            break;
+        }
+
+        case state::MiningPhase::PoolConnectConfirm:
+            _set_boot_loading("Pool connected!", 75, 0x00FF00);
+            if (state::boot_message_equals(_runtime->boot.message, "Pool connected!") &&
+                !_runtime->boot.pending_message_valid &&
+                millis() - _runtime->boot.message_changed_ms >= state::kBootMessageMinVisibleMs) {
+                _set_phase(state::MiningPhase::PoolAuth, "pool auth");
+            }
+            break;
+
+        case state::MiningPhase::PoolAuth: {
+            _publish_asic_status();
+            const uint32_t elapsed_ms = millis() - _runtime->mining.last_transition_ms;
+            const bool blink = (((elapsed_ms / 500u) & 1u) == 0u);
+
+            if (_runtime->stratum.authorized) {
+                _set_boot_loading("Pool authorized!", 85, 0x00FF00);
+                _set_phase(state::MiningPhase::PoolAuthConfirm, "pool authorized");
+                break;
+            }
+
+            if (elapsed_ms >= 6000u) {
+                _set_boot_loading("Wrong stratum user!", 85, blink ? 0xFFFFFF : 0xFF0000);
+                break;
+            }
+
+            static const char* const kPoolAuth[] = {
+                "Pool auth   ", "Pool auth.  ", "Pool auth.. ", "Pool auth..."
+            };
+            const uint8_t anim = static_cast<uint8_t>((elapsed_ms / state::kBootMessageMinVisibleMs) % 4u);
+            _set_boot_loading(kPoolAuth[anim], 85);
+            break;
+        }
+
+        case state::MiningPhase::PoolAuthConfirm:
+            _set_boot_loading("Pool authorized!", 85, 0x00FF00);
+            if (state::boot_message_equals(_runtime->boot.message, "Pool authorized!") &&
+                !_runtime->boot.pending_message_valid &&
+                millis() - _runtime->boot.message_changed_ms >= state::kBootMessageMinVisibleMs) {
+                _set_phase(state::MiningPhase::PoolJob, "pool job");
+            }
+            break;
+
+        case state::MiningPhase::PoolJob: {
+            _publish_asic_status();
+            const uint32_t elapsed_ms = millis() - _runtime->mining.last_transition_ms;
+            const bool blink = (((elapsed_ms / 500u) & 1u) == 0u);
+
+            if (_runtime->stratum.job_counter > 0 || _runtime->stratum.job_received) {
+                _set_boot_loading("Miner ready!", 100, 0x00FF00);
+                _set_phase(state::MiningPhase::ReadyConfirm, "miner ready");
+                break;
+            }
+
+            if (elapsed_ms >= 60000u) {
+                _set_boot_loading("Pool job timeout!", 100, blink ? 0xFFFFFF : 0xFF0000);
+                break;
+            }
+
+            static const char* const kWaitJob[] = {
+                "Waiting pool job   ", "Waiting pool job.  ",
+                "Waiting pool job.. ", "Waiting pool job..."
+            };
+            const uint8_t anim = static_cast<uint8_t>((elapsed_ms / state::kBootMessageMinVisibleMs) % 4u);
+            _set_boot_loading(kWaitJob[anim], 100);
+            break;
+        }
+
+        case state::MiningPhase::ReadyConfirm:
+            _publish_asic_status();
+            _set_boot_loading("Miner ready!", 100, 0x00FF00);
             break;
     }
 }

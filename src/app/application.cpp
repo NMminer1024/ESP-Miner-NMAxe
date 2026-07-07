@@ -47,6 +47,7 @@ void Application::setup() {
         return;
     }
     _wifi_started = false;
+    _stratum_started = false;
     _services_started = false;
     _boot_slide_complete = false;
     _initialized = true;
@@ -143,20 +144,21 @@ void Application::_run_app_once() {
     }
 
     if (_services_started) {
+        _stratum_service.poll(_runtime);
+
+        if (_runtime.mining.phase == state::MiningPhase::PoolConnect && !_stratum_started) {
+            _stratum_service.start(*_board, _config);
+            _stratum_started = true;
+            _stratum_service.poll(_runtime);
+        }
+
         _mining_service.poll();
         _monitor_service.poll();
+        _stratum_service.poll(_runtime);
 
         if (!_boot_slide_complete) {
             switch (_runtime.mining.phase) {
-                case state::MiningPhase::Standby:
                 case state::MiningPhase::Running:
-                    state::publish_boot_state(
-                        _runtime.boot,
-                        state::BootPhase::Ready,
-                        "Miner ready!",
-                        100,
-                        0x00FF00,
-                        millis());
                     _ui_state.current_page = state::UiPageId::Miner;
                     _ui_state.dirty = true;
                     _boot_slide_complete = true;
@@ -201,6 +203,26 @@ void Application::_run_app_once() {
                 case state::MiningPhase::WaitVcore:
                 case state::MiningPhase::WaitVcoreConfirm:
                 case state::MiningPhase::Bringup:
+                case state::MiningPhase::Standby:
+                case state::MiningPhase::PoolConnect:
+                case state::MiningPhase::PoolConnectConfirm:
+                case state::MiningPhase::PoolAuth:
+                case state::MiningPhase::PoolAuthConfirm:
+                case state::MiningPhase::PoolJob:
+                    break;
+
+                case state::MiningPhase::ReadyConfirm:
+                    if (state::boot_message_equals(_runtime.boot.message, "Miner ready!") &&
+                        !_runtime.boot.pending_message_valid &&
+                        millis() - _runtime.boot.message_changed_ms >= state::kBootMessageMinVisibleMs) {
+                        _runtime.mining.phase = state::MiningPhase::Running;
+                        _runtime.mining.message = "running";
+                        _runtime.mining.last_transition_ms = millis();
+                        _runtime.boot.phase = state::BootPhase::Ready;
+                        _ui_state.current_page = state::UiPageId::Miner;
+                        _ui_state.dirty = true;
+                        _boot_slide_complete = true;
+                    }
                     break;
             }
         }

@@ -44,6 +44,18 @@ const char* mining_phase_text(state::MiningPhase phase) {
             return "bringup";
         case state::MiningPhase::Standby:
             return "standby";
+        case state::MiningPhase::PoolConnect:
+            return "pool-connect";
+        case state::MiningPhase::PoolConnectConfirm:
+            return "pool-connected";
+        case state::MiningPhase::PoolAuth:
+            return "pool-auth";
+        case state::MiningPhase::PoolAuthConfirm:
+            return "pool-authorized";
+        case state::MiningPhase::PoolJob:
+            return "pool-job";
+        case state::MiningPhase::ReadyConfirm:
+            return "ready-confirm";
         case state::MiningPhase::Running:
             return "running";
         case state::MiningPhase::Fault:

@@ -27,8 +27,14 @@ enum class MiningPhase : uint8_t {
     WaitVcoreConfirm = 12,
     Bringup = 13,
     Standby = 14,
-    Running = 15,
-    Fault = 16,
+    PoolConnect = 15,
+    PoolConnectConfirm = 16,
+    PoolAuth = 17,
+    PoolAuthConfirm = 18,
+    PoolJob = 19,
+    ReadyConfirm = 20,
+    Running = 21,
+    Fault = 22,
 };
 
 struct MiningState {

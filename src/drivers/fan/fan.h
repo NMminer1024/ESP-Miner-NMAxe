@@ -47,27 +47,4 @@ public:
     }
 };
 
-// Temporary skeleton-only fallback.
-// TODO(agent): remove this class after each active BSP is wired to real fan control.
-class NullFan final : public Fan {
-public:
-    explicit NullFan(const char* fan_name) : _name(fan_name) {}
-
-    bool init() override { return true; }
-    const char* name() const override { return _name; }
-    bool set_speed_percent(uint8_t percent) override {
-        _speed_percent = percent;
-        return true;
-    }
-    uint8_t speed_percent() const override { return _speed_percent; }
-    uint16_t read_rpm() override { return 0; }
-    FanPolarityDetectResult detect_polarity() override { return {}; }
-    uint16_t self_test_rpm_threshold() const override { return 0; }
-    FanSelfTestResult run_self_test() override { return {true, 0}; }
-
-private:
-    const char* _name = "null-fan";
-    uint8_t _speed_percent = 0;
-};
-
 }  // namespace nm::drivers

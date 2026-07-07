@@ -34,6 +34,7 @@ enum TaskCore : uint8_t {
 
 constexpr uint32_t kAppServiceTaskStackBytes = 4096;
 constexpr uint32_t kWifiTaskStackBytes = 6144;
+constexpr uint32_t kStratumTaskStackBytes = 8192;
 constexpr uint32_t kUiTaskStackBytes = 6144;
 constexpr uint32_t kUiTaskPeriodMs = 5;
 constexpr uint32_t kAppServiceTaskPeriodMs = 5;
