@@ -1,6 +1,7 @@
 #include "bsp/nmaxe_gamma/board.h"
 
 #include <Arduino.h>
+#include <SPI.h>
 
 #include "drivers/asic/asic.h"
 #include "drivers/display/display.h"
@@ -10,8 +11,7 @@
 #include "drivers/touch/touch.h"
 
 namespace nm::bsp::nmaxe_gamma {
-
-namespace {
+namespace {  // namespace nm::bsp::nmaxe_gamma::(file-local board profiles)
 
 const BoardTraits& board_traits() {
     static BoardTraits traits;
@@ -19,21 +19,21 @@ const BoardTraits& board_traits() {
 
     if (!initialized) {
         traits.board_name = "NMAxeGamma";
-        traits.display_name = "NMAxeGamma Placeholder";
+        traits.display_name = "NMAxeGamma";
         traits.asic_family = AsicFamily::BM1370;
         traits.asic_count = 1;
         traits.fan_count = 1;
         traits.has_touch = false;
         traits.has_button = true;
         traits.has_led = false;
-        traits.screen_width = 320;
-        traits.screen_height = 240;
-        traits.capabilities = BoardCapability::Display |
-            BoardCapability::Button |
-            BoardCapability::Fan |
-            BoardCapability::Power |
-            BoardCapability::Temp |
-            BoardCapability::Mining;
+        traits.screen_width = DisplayDevice::screen_width();
+        traits.screen_height = DisplayDevice::screen_height();
+        traits.capabilities =   BoardCapability::Display |
+                                BoardCapability::Button |
+                                BoardCapability::Fan |
+                                BoardCapability::Power |
+                                BoardCapability::Temp |
+                                BoardCapability::Mining;
         traits.board_revision = "skeleton-v1";
         initialized = true;
     }
@@ -46,13 +46,13 @@ const BoardPolicies& board_policies() {
     static bool initialized = false;
 
     if (!initialized) {
-        policy.default_freq_mhz = 525;
-        policy.default_vcore_mv = 1200;
-        policy.min_vcore_mv = 1100;
-        policy.max_vcore_mv = 1350;
-        policy.default_rotation = 0;
-        policy.default_brightness_pct = 80;
-        policy.default_flip = false;
+        policy.default_freq_mhz = 600;
+        policy.default_vcore_mv = 1125;
+        policy.min_vcore_mv = 1000;
+        policy.max_vcore_mv = 1250;
+        policy.default_rotation = DisplayDevice::default_rotation();
+        policy.default_brightness_pct = 100;
+        policy.default_flip = DisplayDevice::default_flip();
         initialized = true;
     }
 
@@ -64,17 +64,17 @@ const DisplayProfile& display_profile() {
     static bool initialized = false;
 
     if (!initialized) {
-        profile.width = 320;
-        profile.height = 240;
-        profile.controller_id = DisplayControllerId::Placeholder;
+        profile.width = DisplayDevice::screen_width();
+        profile.height = DisplayDevice::screen_height();
+        profile.controller_id = DisplayControllerId::ST7789;
         profile.bus_type = DisplayBusType::Spi;
-        profile.color_invert = false;
+        profile.color_invert = DisplayDevice::color_invert();
         profile.rgb_order = true;
         profile.swap_bytes = false;
-        profile.default_rotation = 0;
-        profile.backlight_active_high = true;
+        profile.default_rotation = DisplayDevice::default_rotation();
+        profile.backlight_active_high = false;
         profile.shared_bus_with_touch = false;
-        profile.display_name = "gamma-placeholder-display";
+        profile.display_name = DisplayDevice::display_id();
         initialized = true;
     }
 
@@ -87,10 +87,10 @@ const ThermalProfile& thermal_profile() {
 
     if (!initialized) {
         profile.vcore_sensor_id = TemperatureSensorId::Placeholder;
-        profile.asic_sensor_id = TemperatureSensorId::Placeholder;
-        profile.sensor_bus_type = SensorBusType::Internal;
-        profile.sample_policy = "placeholder-sample";
-        profile.aggregation_policy = "placeholder-aggregate";
+        profile.asic_sensor_id = TemperatureSensorId::TMP102;
+        profile.sensor_bus_type = SensorBusType::I2c;
+        profile.sample_policy = "board-sensor-poll";
+        profile.aggregation_policy = "single-sensor";
         profile.fault_value_policy = "nan-on-fault";
         initialized = true;
     }
@@ -106,8 +106,8 @@ const MiningProfile& mining_profile() {
         profile.asic_family = AsicFamily::BM1370;
         profile.asic_count = 1;
         profile.chain_topology = ChainTopology::Single;
-        profile.default_freq_mhz = 525;
-        profile.default_vcore_mv = 1200;
+        profile.default_freq_mhz = 600;
+        profile.default_vcore_mv = 1125;
         profile.job_interval_ms = 500;
         profile.expected_hashrate_ghs = 1200;
         initialized = true;
@@ -134,7 +134,7 @@ const BoardDrivers& board_drivers() {
     static drivers::NullAsic asic("bm1370-placeholder");
     static drivers::NullPower power("gamma-power-placeholder");
     static drivers::NullTempSensor temp("gamma-temp-placeholder", 42.0f, 55.0f);
-    static drivers::NullDisplay display("gamma-display-placeholder", 320, 240);
+    static DisplayDevice display;
     static drivers::NullFan fan0("gamma-fan-placeholder");
     static BoardDrivers drivers;
     static bool initialized = false;
@@ -152,7 +152,251 @@ const BoardDrivers& board_drivers() {
     return drivers;
 }
 
-}  // namespace
+}  // namespace nm::bsp::nmaxe_gamma::(file-local board profiles)
+
+// -----------------------------------------------------------------------------
+// DisplayDevice: board-private ST7789 direct-drive implementation
+// -----------------------------------------------------------------------------
+
+void DisplayDevice::enable_panel_power() {
+    const auto& panel = panel_config();
+    if (panel.power_pin < 0) {
+        return;
+    }
+
+    pinMode(panel.power_pin, OUTPUT);
+    digitalWrite(panel.power_pin, LOW);
+    delay(20);
+}
+
+void DisplayDevice::setup_backlight_pwm() {
+    const auto& panel = panel_config();
+    if (panel.backlight_pin < 0) {
+        return;
+    }
+
+    pinMode(panel.backlight_pin, OUTPUT);
+    ledcSetup(
+        panel.backlight_pwm_channel,
+        panel.backlight_pwm_frequency,
+        panel.backlight_pwm_resolution);
+    ledcAttachPin(panel.backlight_pin, panel.backlight_pwm_channel);
+}
+
+void DisplayDevice::set_boot_backlight_off() {
+    const auto& panel = panel_config();
+    if (panel.backlight_pin < 0) {
+        return;
+    }
+
+    // Gamma/NMAxe legacy hardware uses inverted backlight PWM.
+    ledcWrite(panel.backlight_pwm_channel, kBacklightOffDuty);
+}
+
+void DisplayDevice::set_backlight_on() {
+    const auto& panel = panel_config();
+    if (panel.backlight_pin < 0) {
+        return;
+    }
+
+    ledcWrite(panel.backlight_pwm_channel, kBacklightOnDuty);
+}
+
+bool DisplayDevice::init() {
+    if (_initialized) {
+        return true;
+    }
+
+    enable_panel_power();
+    setup_backlight_pwm();
+    set_boot_backlight_off();
+    init_bus();
+    hardware_reset();
+    run_init_sequence();
+    apply_rotation(default_flip());
+    fill_screen(0x07E0);
+    set_backlight_on();
+
+    const auto display_size = size();
+    Serial.printf(
+        "[bsp.display] gamma direct init panel=%s size=%ux%u dc=%d rst=%d cs=%d mosi=%d sclk=%d pwr=%d bl=%d rotation=%u offset=(%u,%u)\n",
+        name(),
+        static_cast<unsigned>(display_size.width),
+        static_cast<unsigned>(display_size.height),
+        static_cast<int>(panel_config().dc_pin),
+        static_cast<int>(panel_config().reset_pin),
+        static_cast<int>(panel_config().spi_cs_pin),
+        static_cast<int>(panel_config().spi_mosi_pin),
+        static_cast<int>(panel_config().spi_sclk_pin),
+        static_cast<int>(panel_config().power_pin),
+        static_cast<int>(panel_config().backlight_pin),
+        static_cast<unsigned>(default_rotation()),
+        static_cast<unsigned>(_rotation.colstart),
+        static_cast<unsigned>(_rotation.rowstart));
+
+    _initialized = true;
+    return true;
+}
+
+const char* DisplayDevice::name() const {
+    return display_id();
+}
+
+drivers::DisplaySize DisplayDevice::size() const {
+    return {screen_width(), screen_height()};
+}
+
+void DisplayDevice::init_bus() {
+    const auto& panel = panel_config();
+    pinMode(panel.dc_pin, OUTPUT);
+    pinMode(panel.spi_cs_pin, OUTPUT);
+    digitalWrite(panel.dc_pin, HIGH);
+    digitalWrite(panel.spi_cs_pin, HIGH);
+
+    if (panel.reset_pin >= 0) {
+        pinMode(panel.reset_pin, OUTPUT);
+        digitalWrite(panel.reset_pin, HIGH);
+    }
+
+    SPI.begin(
+        panel.spi_sclk_pin,
+        panel.spi_miso_pin,
+        panel.spi_mosi_pin,
+        panel.spi_cs_pin);
+}
+
+void DisplayDevice::hardware_reset() {
+    const auto& panel = panel_config();
+    if (panel.reset_pin < 0) {
+        return;
+    }
+
+    digitalWrite(panel.reset_pin, LOW);
+    delay(20);
+    digitalWrite(panel.reset_pin, HIGH);
+    delay(20);
+}
+
+void DisplayDevice::begin_transaction() {
+    SPI.beginTransaction(SPISettings(panel_config().spi_frequency_hz, MSBFIRST, SPI_MODE3));
+}
+
+void DisplayDevice::end_transaction() {
+    SPI.endTransaction();
+}
+
+void DisplayDevice::select_panel() {
+    digitalWrite(panel_config().spi_cs_pin, LOW);
+}
+
+void DisplayDevice::release_panel() {
+    digitalWrite(panel_config().spi_cs_pin, HIGH);
+}
+
+void DisplayDevice::set_command_mode() {
+    digitalWrite(panel_config().dc_pin, LOW);
+}
+
+void DisplayDevice::set_data_mode() {
+    digitalWrite(panel_config().dc_pin, HIGH);
+}
+
+void DisplayDevice::write_command_with_data(uint8_t command, const uint8_t* data, uint8_t size) {
+    select_panel();
+    set_command_mode();
+    SPI.transfer(command);
+    if (data != nullptr && size > 0) {
+        set_data_mode();
+        SPI.writeBytes(data, size);
+    }
+    release_panel();
+}
+
+void DisplayDevice::run_init_sequence() {
+    begin_transaction();
+    for (const auto& step : init_sequence()) {
+        write_command_with_data(step.command, step.data, step.size);
+        if (step.delay_ms > 0) {
+            end_transaction();
+            delay(step.delay_ms);
+            begin_transaction();
+        }
+    }
+    end_transaction();
+}
+
+void DisplayDevice::apply_rotation(bool flip) {
+    _rotation = rotation_config(flip);
+    begin_transaction();
+    write_command_with_data(0x36, &_rotation.madctl, 1);
+    end_transaction();
+}
+
+void DisplayDevice::begin_memory_write(uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
+    const uint16_t x0 = x + _rotation.colstart;
+    const uint16_t x1 = x0 + width - 1;
+    const uint16_t y0 = y + _rotation.rowstart;
+    const uint16_t y1 = y0 + height - 1;
+    const uint8_t column_data[] = {
+        static_cast<uint8_t>(x0 >> 8),
+        static_cast<uint8_t>(x0 & 0xFF),
+        static_cast<uint8_t>(x1 >> 8),
+        static_cast<uint8_t>(x1 & 0xFF),
+    };
+    const uint8_t row_data[] = {
+        static_cast<uint8_t>(y0 >> 8),
+        static_cast<uint8_t>(y0 & 0xFF),
+        static_cast<uint8_t>(y1 >> 8),
+        static_cast<uint8_t>(y1 & 0xFF),
+    };
+
+    begin_transaction();
+    select_panel();
+    set_command_mode();
+    SPI.transfer(0x2A);
+    set_data_mode();
+    SPI.writeBytes(column_data, sizeof(column_data));
+
+    set_command_mode();
+    SPI.transfer(0x2B);
+    set_data_mode();
+    SPI.writeBytes(row_data, sizeof(row_data));
+
+    set_command_mode();
+    SPI.transfer(0x2C);
+    set_data_mode();
+}
+
+void DisplayDevice::end_memory_write() {
+    release_panel();
+    end_transaction();
+}
+
+void DisplayDevice::fill_screen(uint16_t color) {
+    const auto display_size = size();
+    uint8_t color_bytes[kFillChunkPixels * 2];
+    const uint8_t high = static_cast<uint8_t>(color >> 8);
+    const uint8_t low = static_cast<uint8_t>(color & 0xFF);
+
+    for (uint16_t i = 0; i < kFillChunkPixels; ++i) {
+        color_bytes[i * 2] = high;
+        color_bytes[i * 2 + 1] = low;
+    }
+
+    uint32_t remaining = static_cast<uint32_t>(display_size.width) * display_size.height;
+    begin_memory_write(0, 0, display_size.width, display_size.height);
+    while (remaining > 0) {
+        const uint16_t chunk_pixels =
+            remaining > kFillChunkPixels ? kFillChunkPixels : static_cast<uint16_t>(remaining);
+        SPI.writeBytes(color_bytes, chunk_pixels * 2);
+        remaining -= chunk_pixels;
+    }
+    end_memory_write();
+}
+
+// -----------------------------------------------------------------------------
+// NMAxeGammaBoard: board context assembly and runtime bring-up entry
+// -----------------------------------------------------------------------------
 
 NMAxeGammaBoard::NMAxeGammaBoard() {
     _context.traits = &board_traits();
