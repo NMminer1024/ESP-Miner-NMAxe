@@ -2,22 +2,22 @@
 
 namespace nm::drivers {
 
-class Fan {
+class Asic {
 public:
-    virtual ~Fan() = default;
+    virtual ~Asic() = default;
     virtual bool init() = 0;
     virtual const char* name() const = 0;
 };
 
-class NullFan final : public Fan {
+class NullAsic final : public Asic {
 public:
-    explicit NullFan(const char* fan_name) : _name(fan_name) {}
+    explicit NullAsic(const char* asic_name) : _name(asic_name) {}
 
     bool init() override { return true; }
     const char* name() const override { return _name; }
 
 private:
-    const char* _name = "null-fan";
+    const char* _name = "null-asic";
 };
 
 }  // namespace nm::drivers

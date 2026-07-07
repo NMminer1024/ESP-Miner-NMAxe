@@ -2,22 +2,22 @@
 
 namespace nm::drivers {
 
-class Fan {
+class Power {
 public:
-    virtual ~Fan() = default;
+    virtual ~Power() = default;
     virtual bool init() = 0;
     virtual const char* name() const = 0;
 };
 
-class NullFan final : public Fan {
+class NullPower final : public Power {
 public:
-    explicit NullFan(const char* fan_name) : _name(fan_name) {}
+    explicit NullPower(const char* power_name) : _name(power_name) {}
 
     bool init() override { return true; }
     const char* name() const override { return _name; }
 
 private:
-    const char* _name = "null-fan";
+    const char* _name = "null-power";
 };
 
 }  // namespace nm::drivers

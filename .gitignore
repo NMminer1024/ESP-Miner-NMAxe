@@ -5,6 +5,7 @@
 .platformio-home/
 AGENTS.md
 upload.bat
+NMAxe-bsp-framework-draft.md
 node_modules
 build/
 /data

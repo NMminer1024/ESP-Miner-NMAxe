@@ -1,0 +1,36 @@
+#pragma once
+
+#include <stdint.h>
+
+namespace nm::drivers {
+
+struct TouchPoint {
+    uint16_t x = 0;
+    uint16_t y = 0;
+    bool pressed = false;
+};
+
+class Touch {
+public:
+    virtual ~Touch() = default;
+    virtual bool init() = 0;
+    virtual const char* name() const = 0;
+    virtual bool read(TouchPoint& point) = 0;
+};
+
+class NullTouch final : public Touch {
+public:
+    explicit NullTouch(const char* touch_name) : _name(touch_name) {}
+
+    bool init() override { return true; }
+    const char* name() const override { return _name; }
+    bool read(TouchPoint& point) override {
+        point = {};
+        return false;
+    }
+
+private:
+    const char* _name = "null-touch";
+};
+
+}  // namespace nm::drivers
