@@ -1,10 +1,10 @@
 // What: Configuration storage abstraction for the new application layer.
-// Why: The main flow should ask a config service for normalized values instead
-// of reading board defaults or persistence details directly.
-// Role: Defines the load/save contract plus a board-default implementation used
-// during the current bring-up phase.
-// Benefit: Lets the architecture adopt NVS or remote config later without
-// reshaping application or service code.
+// Why: The main flow should ask one service for normalized settings instead of
+// reading board defaults or persistence details directly.
+// Role: Defines the load/save contract plus the NVS-backed implementation used
+// by the current firmware image.
+// Benefit: Board defaults remain the fallback source, while runtime settings can
+// now persist without leaking NVS access into services or UI code.
 #pragma once
 
 #include "bsp/board.h"
@@ -20,7 +20,7 @@ public:
     virtual bool save(const AppConfig& config) = 0;
 };
 
-class BoardDefaultConfigStore final : public ConfigStore {
+class NvsConfigStore final : public ConfigStore {
 public:
     bool init() override;
     bool load(const bsp::Board& board, AppConfig& config) override;

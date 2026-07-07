@@ -38,7 +38,7 @@ private:
 
     bsp::Board* _board = nullptr;
     bool _initialized = false;
-    config::BoardDefaultConfigStore _config_store{};
+    config::NvsConfigStore _config_store{};
     config::AppConfig _config{};
     state::RuntimeState _runtime{};
     state::UiState _ui_state{};

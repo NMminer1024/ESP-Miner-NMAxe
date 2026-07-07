@@ -277,6 +277,34 @@ const BoardPolicies& board_policies() {
     return policy;
 }
 
+const BoardConfigDefaults& board_config_defaults() {
+    static BoardConfigDefaults defaults;
+    static bool initialized = false;
+
+    if (!initialized) {
+        defaults.auto_cycle_pages = false;
+        defaults.screensaver_enabled = false;
+        defaults.screensaver_timeout_s = 15u * 60u;
+        defaults.led_indicator_enabled = true;
+        defaults.asic_fan.auto_control = true;
+        defaults.asic_fan.target_temp_c = 30.0f;
+        defaults.vcore_fan.auto_control = true;
+        defaults.vcore_fan.target_temp_c = 70.0f;
+        defaults.benchmark.freq_min_mhz = 400;
+        defaults.benchmark.freq_max_mhz = 700;
+        defaults.benchmark.freq_step_mhz = 25;
+        defaults.benchmark.vcore_min_mv = 1000;
+        defaults.benchmark.vcore_max_mv = 1250;
+        defaults.benchmark.vcore_step_mv = 25;
+        defaults.benchmark.sample_interval_s = 5;
+        defaults.benchmark.benchmark_time_s = 1000;
+        defaults.benchmark.stabilize_time_s = 200;
+        initialized = true;
+    }
+
+    return defaults;
+}
+
 const DisplayProfile& board_display_profile() {
     static DisplayProfile profile;
     static bool initialized = false;
@@ -386,6 +414,7 @@ const BoardDrivers& board_drivers() {
 NMAxeGammaBoard::NMAxeGammaBoard() {
     _context.traits = &board_traits();
     _context.policies = &board_policies();
+    _context.config_defaults = &board_config_defaults();
     _context.display = &board_display_profile();
     _context.thermal = &board_thermal_profile();
     _context.mining = &board_mining_profile();

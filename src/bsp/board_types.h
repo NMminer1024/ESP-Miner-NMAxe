@@ -155,6 +155,33 @@ struct BoardPolicies {
     bool default_flip = false;
 };
 
+struct BoardFanDefaults {
+    bool auto_control = true;
+    float target_temp_c = 0.0f;
+};
+
+struct BoardBenchmarkDefaults {
+    uint16_t freq_min_mhz = 0;
+    uint16_t freq_max_mhz = 0;
+    uint16_t freq_step_mhz = 0;
+    uint16_t vcore_min_mv = 0;
+    uint16_t vcore_max_mv = 0;
+    uint16_t vcore_step_mv = 0;
+    uint8_t sample_interval_s = 0;
+    uint16_t benchmark_time_s = 0;
+    uint16_t stabilize_time_s = 0;
+};
+
+struct BoardConfigDefaults {
+    bool auto_cycle_pages = false;
+    bool screensaver_enabled = false;
+    uint32_t screensaver_timeout_s = 0;
+    bool led_indicator_enabled = true;
+    BoardFanDefaults asic_fan{};
+    BoardFanDefaults vcore_fan{};
+    BoardBenchmarkDefaults benchmark{};
+};
+
 struct BoardDrivers {
     drivers::Asic* asic = nullptr;
     drivers::Power* power = nullptr;
@@ -168,6 +195,7 @@ struct BoardDrivers {
 struct BoardContext {
     const BoardTraits* traits = nullptr;
     const BoardPolicies* policies = nullptr;
+    const BoardConfigDefaults* config_defaults = nullptr;
     const DisplayProfile* display = nullptr;
     const ThermalProfile* thermal = nullptr;
     const MiningProfile* mining = nullptr;

@@ -1,6 +1,7 @@
 // What: Abstract board contract for BSP-first application startup.
-// Why: Upper layers need one stable interface for board traits, policies, and
-// driver handles without touching board-specific pins or compile-time macros.
+// Why: Upper layers need one stable interface for board traits, policies,
+// config defaults, and driver handles without touching board-specific pins or
+// compile-time macros.
 // Role: Defines the minimal API every concrete BSP must implement.
 // Benefit: Application and UI code can stay hardware-agnostic while each board
 // keeps full control over its own low-level wiring and bring-up sequence.
@@ -20,6 +21,7 @@ public:
 
     const BoardTraits& traits() const { return *context().traits; }
     const BoardPolicies& policies() const { return *context().policies; }
+    const BoardConfigDefaults& config_defaults() const { return *context().config_defaults; }
     const DisplayProfile& display_profile() const { return *context().display; }
     const ThermalProfile& thermal_profile() const { return *context().thermal; }
     const MiningProfile& mining_profile() const { return *context().mining; }
