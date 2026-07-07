@@ -1,4 +1,5 @@
 .pio
+.pio-core/
 .bashrc
 .vscode/
 .claude/
@@ -10,6 +11,9 @@ node_modules
 build/
 /data
 /release
+src/web/axe-os/.angular/
+src/web/axe-os/dist/
+src/web/axe-os/node_modules/
 reflect.md
 /design
 REFLECT_MIGRATION.md
