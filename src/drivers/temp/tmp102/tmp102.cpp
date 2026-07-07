@@ -4,7 +4,7 @@
 // Role: Configures both TMP102 channels and converts raw register values into C.
 // Benefit: Thermal services can stay sensor-agnostic while board code simply
 // instantiates this driver with the correct bus and addresses.
-#include "drivers/temp/tmp102.h"
+#include "drivers/temp/tmp102/tmp102.h"
 
 #include <math.h>
 

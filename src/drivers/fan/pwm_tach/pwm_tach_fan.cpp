@@ -3,7 +3,7 @@
 // not through direct LEDC or PCNT calls.
 // Role: Sets PWM duty, measures tach pulses, and runs the startup self-test.
 // Benefit: Cooling behavior stays encapsulated and reusable across BSPs.
-#include "drivers/fan/pwm_tach_fan.h"
+#include "drivers/fan/pwm_tach/pwm_tach_fan.h"
 
 #include <Arduino.h>
 

@@ -3,7 +3,7 @@
 // external helper library baked into the application layer.
 // Role: Debounces the GPIO state and generates higher-level button events.
 // Benefit: Input policy remains reusable and testable above the BSP layer.
-#include "drivers/button/gpio_button.h"
+#include "drivers/button/gpio/gpio_button.h"
 
 #include <Arduino.h>
 

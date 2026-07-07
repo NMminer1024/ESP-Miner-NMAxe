@@ -4,7 +4,7 @@
 // Role: Maps the old Gamma PWM/ADC formulas into the reusable driver contract.
 // Benefit: Main flow can monitor and control power without touching pins,
 // attenuation settings, or board-specific enable polarity.
-#include "drivers/power/tps53355.h"
+#include "drivers/power/tps53355/tps53355.h"
 
 #include <Arduino.h>
 
