@@ -1,3 +1,9 @@
+// What: Touch input abstraction exported by BSPs to upper layers.
+// Why: Different boards may use different touch controllers, buses, or even no
+// touch at all, but the UI layer needs one stable read contract.
+// Role: Defines the generic touch point shape and the driver interface.
+// Benefit: Touch-capable boards can vary freely underneath while UI code stays
+// focused on pointer semantics rather than controller-specific transactions.
 #pragma once
 
 #include <stdint.h>
@@ -18,6 +24,8 @@ public:
     virtual bool read(TouchPoint& point) = 0;
 };
 
+// Temporary skeleton-only fallback.
+// TODO(agent): remove this class after each active BSP is wired to a real touch driver.
 class NullTouch final : public Touch {
 public:
     explicit NullTouch(const char* touch_name) : _name(touch_name) {}

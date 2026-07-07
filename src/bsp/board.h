@@ -1,3 +1,9 @@
+// What: Abstract board contract for BSP-first application startup.
+// Why: Upper layers need one stable interface for board traits, policies, and
+// driver handles without touching board-specific pins or compile-time macros.
+// Role: Defines the minimal API every concrete BSP must implement.
+// Benefit: Application and UI code can stay hardware-agnostic while each board
+// keeps full control over its own low-level wiring and bring-up sequence.
 #pragma once
 
 #include "bsp/board_types.h"

@@ -1,3 +1,11 @@
+/*
+ * What: Project-local LVGL configuration for the current NMAxe framework.
+ * Why: LVGL is highly compile-time driven, so display color depth, memory usage,
+ * enabled widgets, fonts, and draw backends must be decided before linking.
+ * Role: Acts as the single UI middleware configuration surface shared by all BSPs.
+ * Benefit: UI behavior stays deterministic across boards and avoids runtime
+ * feature probing or board-specific LVGL forks.
+ */
 /**
  * @file lv_conf.h
  * Configuration file for v8.4.0
@@ -17,7 +25,9 @@
 #ifndef LV_CONF_H
 #define LV_CONF_H
 
+#include <stddef.h>
 #include <stdint.h>
+#include <esp_heap_caps.h>
 
 /*====================
    COLOR SETTINGS
@@ -61,9 +71,26 @@
 
 #else       /*LV_MEM_CUSTOM*/
     #define LV_MEM_CUSTOM_INCLUDE <esp_heap_caps.h>   /*Header for the dynamic memory function*/
-    #define LV_MEM_CUSTOM_ALLOC(size)   heap_caps_malloc(size, MALLOC_CAP_SPIRAM)
+
+    static inline void* nm_lvgl_mem_alloc(size_t size) {
+        void* ptr = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if(ptr == NULL) {
+            ptr = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        }
+        return ptr;
+    }
+
+    static inline void* nm_lvgl_mem_realloc(void* ptr, size_t size) {
+        void* new_ptr = heap_caps_realloc(ptr, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if(new_ptr == NULL) {
+            new_ptr = heap_caps_realloc(ptr, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        }
+        return new_ptr;
+    }
+
+    #define LV_MEM_CUSTOM_ALLOC(size)   nm_lvgl_mem_alloc(size)
     #define LV_MEM_CUSTOM_FREE          heap_caps_free
-    #define LV_MEM_CUSTOM_REALLOC(ptr, size) heap_caps_realloc(ptr, size, MALLOC_CAP_SPIRAM)
+    #define LV_MEM_CUSTOM_REALLOC(ptr, size) nm_lvgl_mem_realloc(ptr, size)
 #endif     /*LV_MEM_CUSTOM*/
 
 /*Number of the intermediate memory buffer used during rendering and other internal processing mechanisms.

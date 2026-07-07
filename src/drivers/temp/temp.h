@@ -1,3 +1,9 @@
+// What: Temperature sensing abstraction for board thermal telemetry.
+// Why: Boards may read Vcore and ASIC temperatures from different chips or buses,
+// but thermal consumers need a consistent interface.
+// Role: Defines the generic thermal read contract exported by BSPs.
+// Benefit: Keeps mining policy and UI telemetry code independent from concrete
+// sensor parts, buses, and fallback behavior.
 #pragma once
 
 namespace nm::drivers {
@@ -11,6 +17,8 @@ public:
     virtual float read_asic_c() const = 0;
 };
 
+// Temporary skeleton-only fallback.
+// TODO(agent): remove this class after each active BSP is wired to real temperature sensors.
 class NullTempSensor final : public TempSensor {
 public:
     NullTempSensor(const char* sensor_name, float vcore_c, float asic_c)

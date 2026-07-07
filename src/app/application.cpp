@@ -1,3 +1,9 @@
+// What: Concrete application bootstrap and main-loop implementation.
+// Why: This is where the selected BSP and UI framework are actually stitched
+// together at runtime after the firmware image starts.
+// Role: Initializes serial logging, boots the active board, and pumps UI polling.
+// Benefit: Keeps the execution order explicit and makes framework bring-up easy
+// to inspect or adjust without touching board-specific code.
 #include "app/application.h"
 
 #include <Arduino.h>
@@ -34,18 +40,7 @@ void Application::loop() {
         return;
     }
 
-    static uint32_t last_log_ms = 0;
-    const uint32_t now = millis();
-    if (now - last_log_ms < 1000) {
-        return;
-    }
-
-    last_log_ms = now;
-    Serial.printf("[app] alive board=%s display=%s %ux%u\n",
-                  _board->traits().board_name,
-                  _board->display_profile().display_name,
-                  _board->display_profile().width,
-                  _board->display_profile().height);
+    ui::poll();
 }
 
 const bsp::Board& Application::board() const {

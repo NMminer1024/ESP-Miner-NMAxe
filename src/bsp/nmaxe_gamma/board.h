@@ -1,3 +1,10 @@
+// What: Concrete Gamma BSP declaration, including its board-private display driver.
+// Why: Gamma needs a self-contained BSP that owns panel wiring, runtime policies,
+// and the direct-drive ST7789 implementation without exposing that detail upward.
+// Role: Declares the Gamma board class plus the private display device used only
+// by this BSP.
+// Benefit: Keeps low-level hardware knowledge local to Gamma while presenting
+// the rest of the firmware with the standard board and display abstractions.
 #pragma once
 
 #include "bsp/board.h"
@@ -9,6 +16,7 @@ public:
     bool init() override;
     const char* name() const override;
     drivers::DisplaySize size() const override;
+    bool write_rect(const drivers::DisplayRect& rect, const uint16_t* pixels) override;
 
     static const char* display_id() { return "gamma-st7789"; }
     static uint16_t screen_width() { return panel_config().width; }
@@ -23,9 +31,9 @@ private:
         uint16_t height = 135;
         int8_t power_pin = 18;
         int8_t backlight_pin = 17;
-        int8_t backlight_pwm_channel = 0;
-        uint32_t backlight_pwm_frequency = 1000 * 100;
-        uint8_t backlight_pwm_resolution = 8;
+        int8_t bl_pwm_channel = 0;
+        uint32_t bl_pwm_frequency = 1000 * 100;
+        uint8_t bl_pwm_resolution = 8;
         int8_t dc_pin = 47;
         int8_t reset_pin = 40;
         int8_t spi_cs_pin = 39;
@@ -34,7 +42,7 @@ private:
         int8_t spi_sclk_pin = 38;
         uint32_t spi_frequency_hz = 80000000;
         bool color_invert = true;
-        bool default_flip = true;
+        bool default_flip = false;
     };
 
     struct InitCommand {
@@ -52,8 +60,8 @@ private:
 
     static const uint8_t kBacklightOffDuty = 255;
     static const uint8_t kBacklightOnDuty = 0;
-    static const uint8_t kInitSequenceCount = 21;
-    static const uint16_t kFillChunkPixels = 128;
+    static const uint8_t kInitSequenceCount = 20;
+    static const uint16_t kTransferChunkPixels = 128;
 
     static const PanelConfig& panel_config() {
         static const PanelConfig config;
@@ -62,6 +70,10 @@ private:
 
     static const InitCommand (&init_sequence())[kInitSequenceCount] {
         static const InitCommand sequence[kInitSequenceCount] = {
+            // 01h SWRESET:
+            // Software reset. NMMiner's working 240x135 ST7789 BSP sends this even when hardware reset exists.
+            {0x01, {}, 0, 150},
+
             // 11h SLPOUT:
             // Exit sleep mode. The controller needs a long delay for internal power blocks to stabilize.
             {0x11, {}, 0, 120},
@@ -138,16 +150,6 @@ private:
             // Enable display inversion. This matches the legacy gamma panel behavior.
             {0x21, {}, 0, 0},
 
-            // 2Ah CASET:
-            // Set full controller column address range.
-            // controller column range = 0..239.
-            {0x2A, {0x00, 0x00, 0x00, 0xEF}, 4, 0},
-
-            // 2Bh RASET:
-            // Set full controller row address range.
-            // controller row range = 0..319.
-            {0x2B, {0x00, 0x00, 0x01, 0x3F}, 4, 0},
-
             // 29h DISPON:
             // Turn the panel output on after all timing/power/gamma registers are ready.
             {0x29, {}, 0, 120},
@@ -176,6 +178,7 @@ private:
     void end_transaction();
     void select_panel();
     void release_panel();
+    int8_t resolved_spi_miso_pin() const;
     void set_command_mode();
     void set_data_mode();
     void write_command_with_data(uint8_t command, const uint8_t* data, uint8_t size);
@@ -183,10 +186,11 @@ private:
     void apply_rotation(bool flip);
     void begin_memory_write(uint16_t x, uint16_t y, uint16_t width, uint16_t height);
     void end_memory_write();
-    void fill_screen(uint16_t color);
+    bool contains_rect(const drivers::DisplayRect& rect) const;
 
     bool _initialized = false;
     RotationConfig _rotation{};
+    uint8_t _transfer_buffer[kTransferChunkPixels * 2] = {};
 };
 
 class NMAxeGammaBoard final : public bsp::Board {

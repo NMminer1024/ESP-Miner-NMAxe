@@ -1,3 +1,10 @@
+// What: Shared BSP metadata and driver bundle definitions.
+// Why: The framework needs a common language for board capabilities, display
+// facts, mining policy, thermal policy, and exported driver interfaces.
+// Role: Declares the typed data structures that concrete BSPs fill and upper
+// layers consume through `BoardContext`.
+// Benefit: Separates "what this board is" from "how this board is implemented",
+// which makes BSPs easier to compare, extend, and keep compile-time deterministic.
 #pragma once
 
 #include <stdint.h>
@@ -46,6 +53,8 @@ enum class ChainTopology : uint8_t {
 
 enum class DisplayControllerId : uint8_t {
     None = 0,
+    // Temporary metadata-only tag used while some BSPs are still skeletons.
+    // TODO(agent): remove once every active board is wired to a real panel controller id.
     Placeholder = 1,
     ST7789 = 2,
     ILI9341 = 3,
@@ -59,6 +68,8 @@ enum class DisplayBusType : uint8_t {
 
 enum class TemperatureSensorId : uint8_t {
     None = 0,
+    // Temporary metadata-only tag used while the BSP still carries stub thermal wiring.
+    // TODO(agent): remove once every active board reports real sensor identities.
     Placeholder = 1,
     PowerInternal = 2,
     TMP102 = 3,

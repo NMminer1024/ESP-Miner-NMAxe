@@ -1,3 +1,10 @@
+// What: Concrete Gamma BSP implementation and direct-drive display bring-up.
+// Why: This file is where compile-time board description becomes real runtime
+// hardware initialization, driver ownership, and exported board metadata.
+// Role: Builds Gamma's board context, owns the ST7789 register-level driver, and
+// performs ordered bring-up for the board's subsystems.
+// Benefit: All Gamma-specific hardware logic stays in one place, which keeps the
+// upper layers clean and makes future board additions follow the same BSP pattern.
 #include "bsp/nmaxe_gamma/board.h"
 
 #include <Arduino.h>
@@ -59,7 +66,7 @@ const BoardPolicies& board_policies() {
     return policy;
 }
 
-const DisplayProfile& display_profile() {
+const DisplayProfile& board_display_profile() {
     static DisplayProfile profile;
     static bool initialized = false;
 
@@ -81,11 +88,12 @@ const DisplayProfile& display_profile() {
     return profile;
 }
 
-const ThermalProfile& thermal_profile() {
+const ThermalProfile& board_thermal_profile() {
     static ThermalProfile profile;
     static bool initialized = false;
 
     if (!initialized) {
+        // TODO(agent): replace with the real gamma Vcore sensor id once the BSP thermal path is wired.
         profile.vcore_sensor_id = TemperatureSensorId::Placeholder;
         profile.asic_sensor_id = TemperatureSensorId::TMP102;
         profile.sensor_bus_type = SensorBusType::I2c;
@@ -98,7 +106,7 @@ const ThermalProfile& thermal_profile() {
     return profile;
 }
 
-const MiningProfile& mining_profile() {
+const MiningProfile& board_mining_profile() {
     static MiningProfile profile;
     static bool initialized = false;
 
@@ -116,7 +124,7 @@ const MiningProfile& mining_profile() {
     return profile;
 }
 
-const InputProfile& input_profile() {
+const InputProfile& board_input_profile() {
     static InputProfile profile;
     static bool initialized = false;
 
@@ -131,6 +139,8 @@ const InputProfile& input_profile() {
 }
 
 const BoardDrivers& board_drivers() {
+    // TODO(agent): replace the remaining Null* instances below with real gamma BSP
+    // implementations as each subsystem is brought up.
     static drivers::NullAsic asic("bm1370-placeholder");
     static drivers::NullPower power("gamma-power-placeholder");
     static drivers::NullTempSensor temp("gamma-temp-placeholder", 42.0f, 55.0f);
@@ -177,10 +187,10 @@ void DisplayDevice::setup_backlight_pwm() {
 
     pinMode(panel.backlight_pin, OUTPUT);
     ledcSetup(
-        panel.backlight_pwm_channel,
-        panel.backlight_pwm_frequency,
-        panel.backlight_pwm_resolution);
-    ledcAttachPin(panel.backlight_pin, panel.backlight_pwm_channel);
+        panel.bl_pwm_channel,
+        panel.bl_pwm_frequency,
+        panel.bl_pwm_resolution);
+    ledcAttachPin(panel.backlight_pin, panel.bl_pwm_channel);
 }
 
 void DisplayDevice::set_boot_backlight_off() {
@@ -190,7 +200,7 @@ void DisplayDevice::set_boot_backlight_off() {
     }
 
     // Gamma/NMAxe legacy hardware uses inverted backlight PWM.
-    ledcWrite(panel.backlight_pwm_channel, kBacklightOffDuty);
+    ledcWrite(panel.bl_pwm_channel, kBacklightOffDuty);
 }
 
 void DisplayDevice::set_backlight_on() {
@@ -199,7 +209,7 @@ void DisplayDevice::set_backlight_on() {
         return;
     }
 
-    ledcWrite(panel.backlight_pwm_channel, kBacklightOnDuty);
+    ledcWrite(panel.bl_pwm_channel, kBacklightOnDuty);
 }
 
 bool DisplayDevice::init() {
@@ -214,12 +224,11 @@ bool DisplayDevice::init() {
     hardware_reset();
     run_init_sequence();
     apply_rotation(default_flip());
-    fill_screen(0x07E0);
     set_backlight_on();
 
     const auto display_size = size();
     Serial.printf(
-        "[bsp.display] gamma direct init panel=%s size=%ux%u dc=%d rst=%d cs=%d mosi=%d sclk=%d pwr=%d bl=%d rotation=%u offset=(%u,%u)\n",
+        "[bsp.display] gamma direct init panel=%s size=%ux%u dc=%d rst=%d cs=%d mosi=%d miso=%d sclk=%d pwr=%d bl=%d rotation=%u offset=(%u,%u)\n",
         name(),
         static_cast<unsigned>(display_size.width),
         static_cast<unsigned>(display_size.height),
@@ -227,6 +236,7 @@ bool DisplayDevice::init() {
         static_cast<int>(panel_config().reset_pin),
         static_cast<int>(panel_config().spi_cs_pin),
         static_cast<int>(panel_config().spi_mosi_pin),
+        static_cast<int>(resolved_spi_miso_pin()),
         static_cast<int>(panel_config().spi_sclk_pin),
         static_cast<int>(panel_config().power_pin),
         static_cast<int>(panel_config().backlight_pin),
@@ -246,6 +256,34 @@ drivers::DisplaySize DisplayDevice::size() const {
     return {screen_width(), screen_height()};
 }
 
+bool DisplayDevice::write_rect(const drivers::DisplayRect& rect, const uint16_t* pixels) {
+    if (!_initialized || pixels == nullptr || rect.width == 0 || rect.height == 0 || !contains_rect(rect)) {
+        return false;
+    }
+
+    uint32_t remaining = static_cast<uint32_t>(rect.width) * rect.height;
+    const uint16_t* cursor = pixels;
+
+    begin_memory_write(rect.x, rect.y, rect.width, rect.height);
+    while (remaining > 0) {
+        const uint16_t chunk_pixels =
+            remaining > kTransferChunkPixels ? kTransferChunkPixels : static_cast<uint16_t>(remaining);
+
+        for (uint16_t i = 0; i < chunk_pixels; ++i) {
+            const uint16_t color = cursor[i];
+            _transfer_buffer[i * 2] = static_cast<uint8_t>(color >> 8);
+            _transfer_buffer[i * 2 + 1] = static_cast<uint8_t>(color & 0xFF);
+        }
+
+        SPI.writeBytes(_transfer_buffer, chunk_pixels * 2);
+        cursor += chunk_pixels;
+        remaining -= chunk_pixels;
+    }
+    end_memory_write();
+
+    return true;
+}
+
 void DisplayDevice::init_bus() {
     const auto& panel = panel_config();
     pinMode(panel.dc_pin, OUTPUT);
@@ -260,7 +298,7 @@ void DisplayDevice::init_bus() {
 
     SPI.begin(
         panel.spi_sclk_pin,
-        panel.spi_miso_pin,
+        resolved_spi_miso_pin(),
         panel.spi_mosi_pin,
         panel.spi_cs_pin);
 }
@@ -271,10 +309,12 @@ void DisplayDevice::hardware_reset() {
         return;
     }
 
+    digitalWrite(panel.reset_pin, HIGH);
+    delay(5);
     digitalWrite(panel.reset_pin, LOW);
     delay(20);
     digitalWrite(panel.reset_pin, HIGH);
-    delay(20);
+    delay(150);
 }
 
 void DisplayDevice::begin_transaction() {
@@ -291,6 +331,15 @@ void DisplayDevice::select_panel() {
 
 void DisplayDevice::release_panel() {
     digitalWrite(panel_config().spi_cs_pin, HIGH);
+}
+
+int8_t DisplayDevice::resolved_spi_miso_pin() const {
+    const auto& panel = panel_config();
+
+    // Match the working TFT_eSPI/ESP32-S3 behavior used by the legacy code:
+    // when the panel has no real MISO line, bind MISO to MOSI so the FSPI bus
+    // still gets a fully-defined pin map.
+    return panel.spi_miso_pin >= 0 ? panel.spi_miso_pin : panel.spi_mosi_pin;
 }
 
 void DisplayDevice::set_command_mode() {
@@ -351,17 +400,11 @@ void DisplayDevice::begin_memory_write(uint16_t x, uint16_t y, uint16_t width, u
     };
 
     begin_transaction();
+    write_command_with_data(0x2A, column_data, sizeof(column_data));
+    write_command_with_data(0x2B, row_data, sizeof(row_data));
+
+    // Keep CS asserted after RAMWR so the pixel payload can stream directly.
     select_panel();
-    set_command_mode();
-    SPI.transfer(0x2A);
-    set_data_mode();
-    SPI.writeBytes(column_data, sizeof(column_data));
-
-    set_command_mode();
-    SPI.transfer(0x2B);
-    set_data_mode();
-    SPI.writeBytes(row_data, sizeof(row_data));
-
     set_command_mode();
     SPI.transfer(0x2C);
     set_data_mode();
@@ -372,26 +415,12 @@ void DisplayDevice::end_memory_write() {
     end_transaction();
 }
 
-void DisplayDevice::fill_screen(uint16_t color) {
+bool DisplayDevice::contains_rect(const drivers::DisplayRect& rect) const {
     const auto display_size = size();
-    uint8_t color_bytes[kFillChunkPixels * 2];
-    const uint8_t high = static_cast<uint8_t>(color >> 8);
-    const uint8_t low = static_cast<uint8_t>(color & 0xFF);
-
-    for (uint16_t i = 0; i < kFillChunkPixels; ++i) {
-        color_bytes[i * 2] = high;
-        color_bytes[i * 2 + 1] = low;
-    }
-
-    uint32_t remaining = static_cast<uint32_t>(display_size.width) * display_size.height;
-    begin_memory_write(0, 0, display_size.width, display_size.height);
-    while (remaining > 0) {
-        const uint16_t chunk_pixels =
-            remaining > kFillChunkPixels ? kFillChunkPixels : static_cast<uint16_t>(remaining);
-        SPI.writeBytes(color_bytes, chunk_pixels * 2);
-        remaining -= chunk_pixels;
-    }
-    end_memory_write();
+    return rect.x < display_size.width &&
+           rect.y < display_size.height &&
+           rect.width <= display_size.width - rect.x &&
+           rect.height <= display_size.height - rect.y;
 }
 
 // -----------------------------------------------------------------------------
@@ -401,10 +430,10 @@ void DisplayDevice::fill_screen(uint16_t color) {
 NMAxeGammaBoard::NMAxeGammaBoard() {
     _context.traits = &board_traits();
     _context.policies = &board_policies();
-    _context.display = &display_profile();
-    _context.thermal = &thermal_profile();
-    _context.mining = &mining_profile();
-    _context.input = &input_profile();
+    _context.display = &board_display_profile();
+    _context.thermal = &board_thermal_profile();
+    _context.mining = &board_mining_profile();
+    _context.input = &board_input_profile();
     _context.drivers = &board_drivers();
 }
 

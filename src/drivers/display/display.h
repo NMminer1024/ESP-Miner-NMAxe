@@ -1,3 +1,9 @@
+// What: Generic display abstraction used by the UI layer.
+// Why: Each BSP may drive a different panel controller or bus implementation,
+// but LVGL integration should only depend on basic display operations.
+// Role: Defines display geometry types and the rectangle-write contract.
+// Benefit: Allows board-private panel drivers to stay fully encapsulated while
+// the UI stack talks to one clean rendering interface.
 #pragma once
 
 #include <stdint.h>
@@ -13,26 +19,24 @@ struct DisplaySize {
         : width(width_value), height(height_value) {}
 };
 
+struct DisplayRect {
+    uint16_t x = 0;
+    uint16_t y = 0;
+    uint16_t width = 0;
+    uint16_t height = 0;
+
+    DisplayRect() = default;
+    DisplayRect(uint16_t x_value, uint16_t y_value, uint16_t width_value, uint16_t height_value)
+        : x(x_value), y(y_value), width(width_value), height(height_value) {}
+};
+
 class Display {
 public:
     virtual ~Display() = default;
     virtual bool init() = 0;
     virtual const char* name() const = 0;
     virtual DisplaySize size() const = 0;
-};
-
-class NullDisplay final : public Display {
-public:
-    NullDisplay(const char* display_name, uint16_t width, uint16_t height)
-        : _name(display_name), _size(width, height) {}
-
-    bool init() override { return true; }
-    const char* name() const override { return _name; }
-    DisplaySize size() const override { return _size; }
-
-private:
-    const char* _name = "null-display";
-    DisplaySize _size{};
+    virtual bool write_rect(const DisplayRect& rect, const uint16_t* pixels) = 0;
 };
 
 }  // namespace nm::drivers

@@ -1,3 +1,9 @@
+// What: Minimal ASIC control abstraction for mining-capable BSPs.
+// Why: The framework needs a typed hook for the active ASIC path even before the
+// real mining implementation is fully wired.
+// Role: Defines the board-exported interface for ASIC subsystem ownership.
+// Benefit: Lets the BSP reserve a clean seam for mining logic while keeping
+// application and UI layers decoupled from ASIC-specific details.
 #pragma once
 
 namespace nm::drivers {
@@ -9,6 +15,8 @@ public:
     virtual const char* name() const = 0;
 };
 
+// Temporary skeleton-only fallback.
+// TODO(agent): remove this class after each active BSP is wired to a real ASIC driver.
 class NullAsic final : public Asic {
 public:
     explicit NullAsic(const char* asic_name) : _name(asic_name) {}
