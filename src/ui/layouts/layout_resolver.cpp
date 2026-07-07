@@ -9,8 +9,8 @@
 
 namespace nm::ui {
 
-const PageCatalog& resolve_page_catalog(product::UiLayoutId layout_id) {
-    switch (layout_id) {
+const PageCatalog& resolve_page_catalog(const product::UiProfile& profile) {
+    switch (profile.layout_id) {
         case product::UiLayoutId::Layout240x135:
             return page_catalog_240x135();
         case product::UiLayoutId::Layout320x240:

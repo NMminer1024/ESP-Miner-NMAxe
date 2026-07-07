@@ -1,6 +1,6 @@
 // What: Layout-to-page-catalog resolver for the new page framework.
-// Why: `ui_root` should choose a page set by layout id, not by hard-coded page
-// construction logic.
+// Why: The UI runtime should choose a page set by layout id, not by hard-coded
+// page construction logic.
 // Role: Translates a resolved product layout into a concrete page catalog.
 // Benefit: New resolutions can be added by extending one resolver instead of
 // editing every UI entry point.
@@ -11,6 +11,6 @@
 
 namespace nm::ui {
 
-const PageCatalog& resolve_page_catalog(product::UiLayoutId layout_id);
+const PageCatalog& resolve_page_catalog(const product::UiProfile& profile);
 
 }  // namespace nm::ui

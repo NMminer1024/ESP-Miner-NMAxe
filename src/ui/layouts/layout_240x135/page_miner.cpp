@@ -1,6 +1,6 @@
 // What: 240x135 miner-page concrete implementation.
 // Why: The 240x135 layout directory should own concrete miner-page creation
-// from the start instead of deferring all layout concerns to `ui_root`.
+// from the start instead of deferring all layout concerns to the UI runtime.
 // Role: Creates the 240x135 miner-page scaffold using shared layout metrics.
 // Benefit: Future legacy miner migration has a dedicated local target.
 #include "ui/layouts/layout_240x135/page_miner.h"

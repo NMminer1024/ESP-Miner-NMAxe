@@ -3,7 +3,7 @@
 // can start consuming it before the old visuals are migrated.
 // Role: Shows the key config domains currently available in `AppConfig`.
 // Benefit: Keeps config rendering behind a page boundary instead of expanding
-// `ui_root` into another monolithic switch statement.
+// the UI runtime into another monolithic switch statement.
 #include "ui/pages/page_config.h"
 
 #include <stdio.h>
@@ -42,7 +42,8 @@ void PageConfigBase::render(const PageContext& context) {
     snprintf(
         line,
         sizeof(line),
-        "screen flip:%s br:%u%%",
+        "%s flip:%s br:%u%%",
+        context.board.traits().board_name != nullptr ? context.board.traits().board_name : "board",
         context.config.screen.flip ? "on" : "off",
         static_cast<unsigned>(context.config.screen.brightness_percent));
     set_line(3, line);

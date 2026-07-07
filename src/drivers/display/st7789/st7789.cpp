@@ -11,6 +11,20 @@
 
 namespace nm::drivers {
 
+namespace {
+
+uint8_t orientation_label_from_rotation(const St7789RotationConfig& rotation) {
+    if (rotation.madctl == static_cast<uint8_t>(0x40 | 0x20 | 0x08)) {
+        return 3u;
+    }
+    if (rotation.madctl == static_cast<uint8_t>(0x20 | 0x80 | 0x08)) {
+        return 1u;
+    }
+    return 0u;
+}
+
+}  // namespace
+
 St7789InitCommand::St7789InitCommand(
     uint8_t command_value,
     std::initializer_list<uint8_t> data_value,
@@ -60,7 +74,7 @@ bool St7789Display::init() {
         static_cast<int>(_spi_bus().sclk_pin()),
         static_cast<int>(_config.power_pin),
         static_cast<int>(_config.backlight.pin),
-        static_cast<unsigned>(_flip ? 1u : 3u),
+        static_cast<unsigned>(orientation_label_from_rotation(_rotation)),
         static_cast<unsigned>(_rotation.colstart),
         static_cast<unsigned>(_rotation.rowstart));
 

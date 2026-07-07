@@ -1,16 +1,15 @@
 // What: 240x135 loading-page concrete implementation.
-// Why: The layout layer should decide how a loading page is instantiated for
-// this resolution, even before the exact legacy background is migrated.
-// Role: Creates the 240x135 loading-page scaffold using shared layout metrics.
-// Benefit: Loading-page visuals can now evolve locally inside the 240x135 tree.
+// Why: The old 240x135 products share one exact loading layout that belongs in
+// the resolution tree rather than the generic UI root.
+// Role: Creates the migrated legacy loading page for NMAxe and Gamma.
+// Benefit: Boot visuals now match the old product flow while staying inside the
+// new page framework.
 #include "ui/layouts/layout_240x135/page_loading.h"
-
-#include "ui/layouts/layout_240x135/layout.h"
 
 namespace nm::ui {
 
 void PageLoading240x135::create(lv_obj_t* parent) {
-    create_loading_page(parent, page_metrics_240x135());
+    create_loading_page(parent, 240, 135);
 }
 
 }  // namespace nm::ui

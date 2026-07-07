@@ -3,17 +3,10 @@
 // a concrete catalog of page objects instead of a placeholder stub.
 // Role: Owns the shared 240x135 metrics and static page instances.
 // Benefit: The active layout can now be selected cleanly without hard-coding
-// page construction into `ui_root`.
+// page construction into the UI runtime.
 #include "ui/layouts/layout_240x135/layout.h"
 
-#include "ui/layouts/layout_240x135/page_clock.h"
-#include "ui/layouts/layout_240x135/page_config.h"
-#include "ui/layouts/layout_240x135/page_dashboard.h"
-#include "ui/layouts/layout_240x135/page_hr_health.h"
-#include "ui/layouts/layout_240x135/page_loading.h"
-#include "ui/layouts/layout_240x135/page_market.h"
-#include "ui/layouts/layout_240x135/page_miner.h"
-#include "ui/layouts/layout_240x135/page_setting.h"
+#include "ui/layouts/layout_240x135/product_pages.h"
 
 namespace nm::ui {
 
@@ -32,16 +25,16 @@ const PageScaffoldMetrics& page_metrics_240x135() {
     return metrics;
 }
 
-const PageCatalog& page_catalog_240x135() {
-    static PageLoading240x135 page_loading;
-    static PageConfig240x135 page_config;
-    static PageMiner240x135 page_miner;
-    static PageDashboard240x135 page_dashboard;
-    static PageHrHealth240x135 page_hr_health;
-    static PageClock240x135 page_clock;
-    static PageMarket240x135 page_market;
-    static PageSetting240x135 page_setting;
-    static const PageCatalog catalog = [] {
+namespace {
+
+PageCatalog make_catalog(UIPage& page_loading,
+                         UIPage& page_config,
+                         UIPage& page_miner,
+                         UIPage& page_dashboard,
+                         UIPage& page_hr_health,
+                         UIPage& page_clock,
+                         UIPage& page_market,
+                         UIPage& page_setting) {
         PageCatalog value;
         value.entries[0].page = &page_loading;
         value.entries[0].col = 0;
@@ -83,8 +76,30 @@ const PageCatalog& page_catalog_240x135() {
         value.entries[7].row = 0;
         value.entries[7].nav_dir = static_cast<lv_dir_t>(LV_DIR_LEFT | LV_DIR_BOTTOM);
         return value;
-    }();
+}
 
+}  // namespace
+
+const PageCatalog& page_catalog_240x135() {
+    using ProductPages = layout_240x135::ActiveProductPages;
+
+    static ProductPages::LoadingPage page_loading;
+    static ProductPages::ConfigPage page_config;
+    static ProductPages::MinerPage page_miner;
+    static ProductPages::DashboardPage page_dashboard;
+    static ProductPages::HrHealthPage page_hr_health;
+    static ProductPages::ClockPage page_clock;
+    static ProductPages::MarketPage page_market;
+    static ProductPages::SettingPage page_setting;
+    static const PageCatalog catalog = make_catalog(
+        page_loading,
+        page_config,
+        page_miner,
+        page_dashboard,
+        page_hr_health,
+        page_clock,
+        page_market,
+        page_setting);
     return catalog;
 }
 

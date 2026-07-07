@@ -8,7 +8,6 @@
 
 #include <stdint.h>
 
-#include "bsp/board.h"
 #include "bsp/board_types.h"
 
 namespace nm::product {
@@ -26,13 +25,23 @@ enum class UiVariantId : uint8_t {
     RichDashboard = 2,
 };
 
+enum class UiProductId : uint8_t {
+    Unknown = 0,
+    NMAxe = 1,
+    NMAxeGamma = 2,
+    NMQAxePP = 3,
+    NMQAxePPRev61 = 4,
+    NMQAxePPRev81 = 5,
+};
+
 struct UiProfile {
     UiLayoutId layout_id = UiLayoutId::Unknown;
     UiVariantId variant_id = UiVariantId::Default;
+    UiProductId product_id = UiProductId::Unknown;
     bsp::UiInputMode input_mode = bsp::UiInputMode::ButtonOnly;
     const char* profile_name = "default";
 };
 
-const UiProfile& active_ui_profile(const bsp::Board& board);
+const UiProfile& active_ui_profile();
 
 }  // namespace nm::product

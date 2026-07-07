@@ -13,4 +13,5 @@ build/
 reflect.md
 /design
 REFLECT_MIGRATION.md
+LOCAL_MIGRATION_PROGRESS.md
 compile_commands*.json

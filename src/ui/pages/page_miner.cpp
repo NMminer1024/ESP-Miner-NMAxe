@@ -80,7 +80,8 @@ void PageMinerBase::render(const PageContext& context) {
     snprintf(
         line,
         sizeof(line),
-        "family %u x %u",
+        "%s %u x %u",
+        context.board.traits().board_name != nullptr ? context.board.traits().board_name : context.board.key(),
         static_cast<unsigned>(context.board.mining_profile().asic_family),
         static_cast<unsigned>(context.board.mining_profile().asic_count));
     set_line(4, line);

@@ -2,7 +2,8 @@
 // Why: Resolution-specific page classes own the exact widget geometry and
 // visuals, even when the page logic is shared by the base class.
 // Role: Binds the loading-page base to the 240x135 layout metrics.
-// Benefit: The future legacy Gamma loading migration can land here directly.
+// Benefit: Product-specific 240x135 loading variants can diverge here later
+// without re-introducing runtime product switches into the layout registry.
 #pragma once
 
 #include "ui/pages/page_loading.h"

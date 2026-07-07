@@ -6,10 +6,10 @@
 // spreading preprocessor conditionals through the rest of the project.
 #pragma once
 
-// Phase-1 placeholder mapping:
-// all current BOARD_* envs temporarily point to the same NMAxeGamma BSP
-// so we can validate the new framework shape before splitting real boards.
-// TODO(agent): replace this temporary fan-in mapping with one-to-one BOARD_* -> BSP wiring.
+// Phase-1 board mapping:
+// only BSPs that already have concrete implementations are wired here.
+// Unimplemented BOARD_* targets fail at compile time so missing support stays
+// explicit instead of silently impersonating another product.
 #if defined(BOARD_NMAXE)
     #include "bsp/nmaxe/board.h"
     namespace nm::bsp {
@@ -21,15 +21,11 @@
     using ActiveBoard = nmaxe_gamma::NMAxeGammaBoard;
     }
 #elif defined(BOARD_NMQAXE_PP)
-    #include "bsp/nmaxepp/board.h"
-    namespace nm::bsp {
-    using ActiveBoard = nmaxepp::NMAxePPBoard;
-    }
+    #error "BOARD_NMQAXE_PP BSP is not implemented yet."
 #elif defined(BOARD_NMQAXE_PP_REV61)
-    #include "bsp/nmaxepprev61/board.h"
-    namespace nm::bsp {
-    using ActiveBoard = nmaxepprev61::NMAxePPRev61Board;
-    }
+    #error "BOARD_NMQAXE_PP_REV61 BSP is not implemented yet."
+#elif defined(BOARD_NMQAXE_PP_REV81)
+    #error "BOARD_NMQAXE_PP_REV81 BSP is not implemented yet."
 #else
 #error "No BSP selected. Define one BOARD_* macro in platformio.ini."
 #endif

@@ -1,6 +1,6 @@
 // What: Dashboard-page base implementation for the new UI framework.
 // Why: Dashboard content is a cross-cut of power, thermal, and cooling state
-// that should not be hard-coded inside `ui_root`.
+// that should not be hard-coded inside the UI runtime.
 // Role: Summarizes telemetry using the shared scaffold layout.
 // Benefit: Keeps the future dashboard migration bounded to one page family.
 #include "ui/pages/page_dashboard.h"

@@ -1,4 +1,4 @@
-// What: UI bootstrap surface for the page-based LVGL framework.
+// What: UI runtime bootstrap surface for the page-based LVGL framework.
 // Why: The application layer should start and render UI without knowing LVGL
 // widget ownership, layout selection, or page construction details.
 // Role: Exposes the top-level operations needed by the UI service.
@@ -13,16 +13,16 @@
 
 namespace nm::ui {
 
-bool boot(
+bool boot_runtime(
     const bsp::Board& board,
     const config::AppConfig& config,
     const state::RuntimeState& runtime,
     const state::UiState& ui_state);
-void render(
+void render_runtime(
     const bsp::Board& board,
     const config::AppConfig& config,
     const state::RuntimeState& runtime,
     const state::UiState& ui_state);
-void poll();
+void poll_runtime();
 
 }  // namespace nm::ui
