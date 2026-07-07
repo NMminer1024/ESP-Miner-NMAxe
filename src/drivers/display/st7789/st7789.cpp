@@ -32,14 +32,20 @@ bool St7789Display::init() {
         return true;
     }
 
-    enable_panel_power();
-    setup_backlight_pwm();
-    set_boot_backlight_off();
-    init_bus();
-    hardware_reset();
-    run_init_sequence();
-    apply_rotation(_flip);
-    set_backlight_on();
+    if (_config.spi.bus == nullptr) {
+        return false;
+    }
+
+    _enable_panel_power();
+    _setup_backlight_pwm();
+    _set_boot_backlight_off();
+    if (!_init_bus()) {
+        return false;
+    }
+    _hardware_reset();
+    _run_init_sequence();
+    _apply_rotation(_flip);
+    _set_backlight_on();
 
     const auto display_size = size();
     Serial.printf(
@@ -50,9 +56,9 @@ bool St7789Display::init() {
         static_cast<int>(_config.spi.dc_pin),
         static_cast<int>(_config.spi.reset_pin),
         static_cast<int>(_config.spi.cs_pin),
-        static_cast<int>(_config.spi.mosi_pin),
-        static_cast<int>(resolved_spi_miso_pin()),
-        static_cast<int>(_config.spi.sclk_pin),
+        static_cast<int>(_spi_bus().mosi_pin()),
+        static_cast<int>(_spi_bus().effective_miso_pin()),
+        static_cast<int>(_spi_bus().sclk_pin()),
         static_cast<int>(_config.power_pin),
         static_cast<int>(_config.backlight.pin),
         static_cast<unsigned>(_flip ? 1u : 3u),
@@ -72,14 +78,14 @@ DisplaySize St7789Display::size() const {
 }
 
 bool St7789Display::write_rect(const DisplayRect& rect, const uint16_t* pixels) {
-    if (!_initialized || pixels == nullptr || rect.width == 0 || rect.height == 0 || !contains_rect(rect)) {
+    if (!_initialized || pixels == nullptr || rect.width == 0 || rect.height == 0 || !_contains_rect(rect)) {
         return false;
     }
 
     uint32_t remaining = static_cast<uint32_t>(rect.width) * rect.height;
     const uint16_t* cursor = pixels;
 
-    begin_memory_write(rect.x, rect.y, rect.width, rect.height);
+    _begin_memory_write(rect.x, rect.y, rect.width, rect.height);
     while (remaining > 0) {
         const uint16_t chunk_pixels =
             remaining > kTransferChunkPixels ? kTransferChunkPixels : static_cast<uint16_t>(remaining);
@@ -90,11 +96,11 @@ bool St7789Display::write_rect(const DisplayRect& rect, const uint16_t* pixels) 
             _transfer_buffer[i * 2 + 1] = static_cast<uint8_t>(color & 0xFF);
         }
 
-        spi_bus().writeBytes(_transfer_buffer, chunk_pixels * 2);
+        _spi_bus().write_bytes(_transfer_buffer, chunk_pixels * 2);
         cursor += chunk_pixels;
         remaining -= chunk_pixels;
     }
-    end_memory_write();
+    _end_memory_write();
 
     return true;
 }
@@ -102,7 +108,7 @@ bool St7789Display::write_rect(const DisplayRect& rect, const uint16_t* pixels) 
 bool St7789Display::set_flip(bool flip_value) {
     _flip = flip_value;
     if (_initialized) {
-        apply_rotation(_flip);
+        _apply_rotation(_flip);
     }
     return true;
 }
@@ -138,7 +144,7 @@ uint8_t St7789Display::brightness_percent() const {
     return _brightness_percent;
 }
 
-void St7789Display::enable_panel_power() {
+void St7789Display::_enable_panel_power() {
     if (_config.power_pin < 0) {
         return;
     }
@@ -148,7 +154,7 @@ void St7789Display::enable_panel_power() {
     delay(20);
 }
 
-void St7789Display::setup_backlight_pwm() {
+void St7789Display::_setup_backlight_pwm() {
     if (_config.backlight.pin < 0) {
         return;
     }
@@ -161,7 +167,7 @@ void St7789Display::setup_backlight_pwm() {
     ledcAttachPin(_config.backlight.pin, _config.backlight.pwm_channel);
 }
 
-void St7789Display::set_boot_backlight_off() {
+void St7789Display::_set_boot_backlight_off() {
     if (_config.backlight.pin < 0) {
         return;
     }
@@ -170,11 +176,11 @@ void St7789Display::set_boot_backlight_off() {
     _brightness_percent = 0;
 }
 
-void St7789Display::set_backlight_on() {
+void St7789Display::_set_backlight_on() {
     set_brightness_percent(100);
 }
 
-void St7789Display::init_bus() {
+bool St7789Display::_init_bus() {
     pinMode(_config.spi.dc_pin, OUTPUT);
     pinMode(_config.spi.cs_pin, OUTPUT);
     digitalWrite(_config.spi.dc_pin, HIGH);
@@ -185,14 +191,10 @@ void St7789Display::init_bus() {
         digitalWrite(_config.spi.reset_pin, HIGH);
     }
 
-    spi_bus().begin(
-        _config.spi.sclk_pin,
-        resolved_spi_miso_pin(),
-        _config.spi.mosi_pin,
-        _config.spi.cs_pin);
+    return _spi_bus().init();
 }
 
-void St7789Display::hardware_reset() {
+void St7789Display::_hardware_reset() {
     if (_config.spi.reset_pin < 0) {
         return;
     }
@@ -205,74 +207,67 @@ void St7789Display::hardware_reset() {
     delay(150);
 }
 
-void St7789Display::begin_transaction() {
-    spi_bus().beginTransaction(SPISettings(_config.spi.frequency_hz, MSBFIRST, SPI_MODE3));
+void St7789Display::_begin_transaction() {
+    _spi_bus().begin_transaction(_config.spi.frequency_hz, _config.spi.data_mode, _config.spi.bit_order);
 }
 
-void St7789Display::end_transaction() {
-    spi_bus().endTransaction();
+void St7789Display::_end_transaction() {
+    _spi_bus().end_transaction();
 }
 
-void St7789Display::select_panel() {
+void St7789Display::_select_panel() {
     digitalWrite(_config.spi.cs_pin, LOW);
 }
 
-void St7789Display::release_panel() {
+void St7789Display::_release_panel() {
     digitalWrite(_config.spi.cs_pin, HIGH);
 }
 
-SPIClass& St7789Display::spi_bus() const {
-    if (_config.spi.bus != nullptr) {
-        return *_config.spi.bus;
-    }
-    return SPI;
+hal::spi::SpiMaster& St7789Display::_spi_bus() const {
+    return *_config.spi.bus;
 }
 
-int8_t St7789Display::resolved_spi_miso_pin() const {
-    return _config.spi.miso_pin >= 0 ? _config.spi.miso_pin : _config.spi.mosi_pin;
-}
-
-void St7789Display::set_command_mode() {
+void St7789Display::_set_command_mode() {
     digitalWrite(_config.spi.dc_pin, LOW);
 }
 
-void St7789Display::set_data_mode() {
+void St7789Display::_set_data_mode() {
     digitalWrite(_config.spi.dc_pin, HIGH);
 }
 
-void St7789Display::write_command_with_data(uint8_t command, const uint8_t* data, uint8_t size) {
-    select_panel();
-    set_command_mode();
-    spi_bus().transfer(command);
+void St7789Display::_write_command_with_data(uint8_t command, const uint8_t* data, uint8_t size) {
+    _select_panel();
+    _set_command_mode();
+    _spi_bus().transfer(command);
     if (data != nullptr && size > 0) {
-        set_data_mode();
-        spi_bus().writeBytes(data, size);
+        _set_data_mode();
+        _spi_bus().write_bytes(data, size);
     }
-    release_panel();
+    _release_panel();
 }
 
-void St7789Display::run_init_sequence() {
-    begin_transaction();
+void St7789Display::_run_init_sequence() {
+    _begin_transaction();
     for (size_t i = 0; i < _config.init_sequence_count; ++i) {
         const auto& step = _config.init_sequence[i];
-        write_command_with_data(step.command, step.data, step.size);
+        _write_command_with_data(step.command, step.data, step.size);
         if (step.delay_ms > 0) {
-            end_transaction();
+            _end_transaction();
             delay(step.delay_ms);
-            begin_transaction();
+            _begin_transaction();
         }
     }
-    end_transaction();
+    _end_transaction();
 }
 
-void St7789Display::apply_rotation(bool flip_value) {
+void St7789Display::_apply_rotation(bool flip_value) {
     _rotation = flip_value ? _config.rotation_flipped : _config.rotation_normal;
-    begin_transaction();
-    write_command_with_data(0x36, &_rotation.madctl, 1);
-    end_transaction();
+    _begin_transaction();
+    _write_command_with_data(0x36, &_rotation.madctl, 1);
+    _end_transaction();
 }
 
-void St7789Display::begin_memory_write(uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
+void St7789Display::_begin_memory_write(uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
     const uint16_t x0 = static_cast<uint16_t>(x + _rotation.colstart);
     const uint16_t x1 = static_cast<uint16_t>(x0 + width - 1);
     const uint16_t y0 = static_cast<uint16_t>(y + _rotation.rowstart);
@@ -290,22 +285,22 @@ void St7789Display::begin_memory_write(uint16_t x, uint16_t y, uint16_t width, u
         static_cast<uint8_t>(y1 & 0xFF),
     };
 
-    begin_transaction();
-    write_command_with_data(0x2A, column_data, sizeof(column_data));
-    write_command_with_data(0x2B, row_data, sizeof(row_data));
+    _begin_transaction();
+    _write_command_with_data(0x2A, column_data, sizeof(column_data));
+    _write_command_with_data(0x2B, row_data, sizeof(row_data));
 
-    select_panel();
-    set_command_mode();
-    spi_bus().transfer(0x2C);
-    set_data_mode();
+    _select_panel();
+    _set_command_mode();
+    _spi_bus().transfer(0x2C);
+    _set_data_mode();
 }
 
-void St7789Display::end_memory_write() {
-    release_panel();
-    end_transaction();
+void St7789Display::_end_memory_write() {
+    _release_panel();
+    _end_transaction();
 }
 
-bool St7789Display::contains_rect(const DisplayRect& rect) const {
+bool St7789Display::_contains_rect(const DisplayRect& rect) const {
     const auto display_size = size();
     return rect.x < display_size.width &&
            rect.y < display_size.height &&

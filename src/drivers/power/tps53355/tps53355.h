@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "drivers/power/power.h"
+#include "hal/adc/adc_sampler.h"
 
 namespace nm::drivers {
 
@@ -47,8 +48,8 @@ struct Tps53355PinConfig {
 
 class Tps53355Power final : public Power {
 public:
-    explicit Tps53355Power(const char* power_name, const Tps53355PinConfig& config)
-        : _name(power_name), _config(config) {}
+    Tps53355Power(const char* power_name, const Tps53355PinConfig& config, hal::adc::AdcSampler& adc)
+        : _name(power_name), _config(config), _adc(adc) {}
 
     bool init() override;
     const char* name() const override { return _name; }
@@ -65,10 +66,11 @@ public:
     uint32_t read_vcore_mv() override;
 
 private:
-    uint32_t sample_adc_mv(int8_t pin) const;
+    uint32_t _sample_adc_mv(int8_t pin) const;
 
     const char* _name = "tps53355";
     Tps53355PinConfig _config{};
+    hal::adc::AdcSampler& _adc;
     bool _initialized = false;
     bool _adc_ready = false;
     uint16_t _min_vcore_mv = 0;

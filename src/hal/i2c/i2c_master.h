@@ -1,9 +1,9 @@
-// What: Reusable I2C master helper for BSP-owned peripheral drivers.
-// Why: Several board drivers need simple register reads and writes without each
-// one re-implementing bus setup and transaction boilerplate.
+// What: Reusable HAL-level I2C master helper for board-composed device drivers.
+// Why: Bus setup is transport infrastructure, not a chip driver, so it should
+// live below `drivers` and be shared by any I2C-attached device implementation.
 // Role: Owns one configured ESP32 I2C master port and exposes register helpers.
-// Benefit: Keeps bus management shared and lets board code focus on wiring and
-// device composition rather than transaction plumbing.
+// Benefit: Keeps transport concerns in `hal`, device logic in `drivers`, and
+// BSP code focused on selecting pins, addresses, and chip instances.
 #pragma once
 
 #include <stddef.h>
@@ -11,7 +11,7 @@
 
 #include <driver/i2c.h>
 
-namespace nm::drivers::i2c {
+namespace nm::hal::i2c {
 
 class I2cMaster {
 public:
@@ -30,4 +30,4 @@ private:
     bool _initialized = false;
 };
 
-}  // namespace nm::drivers::i2c
+}  // namespace nm::hal::i2c

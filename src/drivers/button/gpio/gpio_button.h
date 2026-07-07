@@ -37,7 +37,7 @@ public:
     bool read_event(ButtonEvent& event) override;
 
 private:
-    void push_event(ButtonEventType type, uint32_t timestamp_ms);
+    void _push_event(ButtonEventType type, uint32_t timestamp_ms);
 
     static constexpr size_t kQueueSize = 8;
 

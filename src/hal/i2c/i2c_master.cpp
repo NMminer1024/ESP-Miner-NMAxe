@@ -1,14 +1,14 @@
-// What: ESP32 I2C master implementation used by shared board drivers.
-// Why: Board-private code should compose device drivers from a small bus helper
-// instead of scattering direct ESP-IDF I2C calls through BSP files.
+// What: ESP32 I2C master HAL implementation shared by chip drivers.
+// Why: Chip drivers like TMP102 should depend on a transport helper instead of
+// embedding direct ESP-IDF bus transactions inside every device driver.
 // Role: Configures the selected port and performs register-level transactions.
-// Benefit: Makes TMP102-like drivers reusable across BSPs and keeps bus setup
-// consistent.
-#include "drivers/i2c/i2c_master.h"
+// Benefit: Gives the project one place to evolve I2C behavior while keeping
+// device drivers and BSP assembly code small and consistent.
+#include "hal/i2c/i2c_master.h"
 
 #include <freertos/FreeRTOS.h>
 
-namespace nm::drivers::i2c {
+namespace nm::hal::i2c {
 
 namespace {
 
@@ -62,4 +62,4 @@ bool I2cMaster::write_register_byte(uint8_t device_address, uint8_t reg_addr, ui
     return i2c_master_write_to_device(_port, device_address, write_buf, sizeof(write_buf), kI2cTimeoutTicks) == ESP_OK;
 }
 
-}  // namespace nm::drivers::i2c
+}  // namespace nm::hal::i2c

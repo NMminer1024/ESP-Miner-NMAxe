@@ -51,22 +51,25 @@ bool Tps53355Power::init() {
         pinMode(_config.dc_plug_pin, INPUT_PULLUP);
     }
 
+    bool adc_ok = _adc.init(12);
     if (_config.vbus_adc_pin >= 0) {
-        analogSetPinAttenuation(_config.vbus_adc_pin, ADC_11db);
+        adc_ok = _adc.configure_pin(_config.vbus_adc_pin, hal::adc::AdcAttenuation::Db11) && adc_ok;
     }
     if (_config.ibus_adc_pin >= 0) {
-        analogSetPinAttenuation(_config.ibus_adc_pin, ADC_11db);
+        adc_ok = _adc.configure_pin(_config.ibus_adc_pin, hal::adc::AdcAttenuation::Db11) && adc_ok;
     }
     if (_config.vcore_adc_pin >= 0) {
-        analogSetPinAttenuation(_config.vcore_adc_pin, ADC_6db);
+        adc_ok = _adc.configure_pin(_config.vcore_adc_pin, hal::adc::AdcAttenuation::Db6) && adc_ok;
     }
-    analogReadResolution(12);
 
     set_rail_enabled(PowerRail::Pll0v8, false);
     set_rail_enabled(PowerRail::Vdd1v8, false);
     set_rail_enabled(PowerRail::Vcore, false);
 
-    _adc_ready = _config.vbus_adc_pin >= 0 && _config.ibus_adc_pin >= 0 && _config.vcore_adc_pin >= 0;
+    _adc_ready = adc_ok &&
+                 _config.vbus_adc_pin >= 0 &&
+                 _config.ibus_adc_pin >= 0 &&
+                 _config.vcore_adc_pin >= 0;
     _initialized = true;
     return true;
 }
@@ -130,30 +133,21 @@ bool Tps53355Power::is_dc_plugged() const {
 }
 
 uint32_t Tps53355Power::read_vbus_mv() {
-    return static_cast<uint32_t>(sample_adc_mv(_config.vbus_adc_pin) * kVbusGain);
+    return static_cast<uint32_t>(_sample_adc_mv(_config.vbus_adc_pin) * kVbusGain);
 }
 
 uint32_t Tps53355Power::read_ibus_ma() {
-    const float sense_mv = static_cast<float>(sample_adc_mv(_config.ibus_adc_pin));
+    const float sense_mv = static_cast<float>(_sample_adc_mv(_config.ibus_adc_pin));
     const float shunt_mv = sense_mv / kIbusGain;
     return static_cast<uint32_t>(shunt_mv / kIbusSampleResistorOhm);
 }
 
 uint32_t Tps53355Power::read_vcore_mv() {
-    return static_cast<uint32_t>(sample_adc_mv(_config.vcore_adc_pin) * kVcoreGain);
+    return static_cast<uint32_t>(_sample_adc_mv(_config.vcore_adc_pin) * kVcoreGain);
 }
 
-uint32_t Tps53355Power::sample_adc_mv(int8_t pin) const {
-    if (pin < 0) {
-        return 0;
-    }
-
-    uint32_t total_mv = 0;
-    for (uint8_t i = 0; i < kAdcSamples; ++i) {
-        total_mv += static_cast<uint32_t>(analogReadMilliVolts(pin));
-        delay(kAdcSampleDelayMs);
-    }
-    return total_mv / kAdcSamples;
+uint32_t Tps53355Power::_sample_adc_mv(int8_t pin) const {
+    return _adc.sample_mv(pin, kAdcSamples, kAdcSampleDelayMs);
 }
 
 }  // namespace nm::drivers

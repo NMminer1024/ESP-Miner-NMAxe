@@ -45,15 +45,15 @@ void GpioButton::poll() {
             _stable_press_ms = now;
             _long_press_active = false;
             _last_repeat_ms = now;
-            push_event(ButtonEventType::Pressed, now);
+            _push_event(ButtonEventType::Pressed, now);
         } else {
-            push_event(ButtonEventType::Released, now);
+            _push_event(ButtonEventType::Released, now);
             if (_long_press_active) {
-                push_event(ButtonEventType::LongPressStop, now);
+                _push_event(ButtonEventType::LongPressStop, now);
                 _long_press_active = false;
                 _pending_click = false;
             } else if (_pending_click && (now - _last_release_ms) <= _click_window_ms) {
-                push_event(ButtonEventType::DoubleClicked, now);
+                _push_event(ButtonEventType::DoubleClicked, now);
                 _pending_click = false;
             } else {
                 _pending_click = true;
@@ -68,13 +68,13 @@ void GpioButton::poll() {
             _long_press_active = true;
             _pending_click = false;
             _last_repeat_ms = now;
-            push_event(ButtonEventType::LongPressStart, now);
+            _push_event(ButtonEventType::LongPressStart, now);
         } else if (_long_press_active && (now - _last_repeat_ms) >= _long_repeat_ms) {
             _last_repeat_ms = now;
-            push_event(ButtonEventType::LongPressRepeat, now);
+            _push_event(ButtonEventType::LongPressRepeat, now);
         }
     } else if (_pending_click && (now - _last_release_ms) > _click_window_ms) {
-        push_event(ButtonEventType::Clicked, _last_release_ms);
+        _push_event(ButtonEventType::Clicked, _last_release_ms);
         _pending_click = false;
     }
 }
@@ -90,7 +90,7 @@ bool GpioButton::read_event(ButtonEvent& event) {
     return true;
 }
 
-void GpioButton::push_event(ButtonEventType type, uint32_t timestamp_ms) {
+void GpioButton::_push_event(ButtonEventType type, uint32_t timestamp_ms) {
     if (_queue_count >= kQueueSize) {
         return;
     }

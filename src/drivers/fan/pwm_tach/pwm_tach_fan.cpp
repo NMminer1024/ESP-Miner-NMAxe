@@ -65,12 +65,12 @@ bool PwmTachFan::set_speed_percent(uint8_t percent) {
     }
 
     _speed_percent = percent;
-    apply_speed_percent(percent);
+    _apply_speed_percent(percent);
     return true;
 }
 
 uint16_t PwmTachFan::read_rpm() {
-    return measure_current_rpm(120);
+    return _measure_current_rpm(120);
 }
 
 FanSelfTestResult PwmTachFan::run_self_test() {
@@ -78,37 +78,37 @@ FanSelfTestResult PwmTachFan::run_self_test() {
         return {};
     }
 
-    const uint16_t rpm_50 = measure_rpm_for_duration(50, 1200);
-    const uint16_t rpm_100 = measure_rpm_for_duration(100, 1200);
+    const uint16_t rpm_50 = _measure_rpm_for_duration(50, 1200);
+    const uint16_t rpm_100 = _measure_rpm_for_duration(100, 1200);
     _inverted = (static_cast<uint32_t>(rpm_100) * 9u / 10u) <= rpm_50;
 
-    const uint16_t final_rpm = measure_rpm_for_duration(100, 1200);
+    const uint16_t final_rpm = _measure_rpm_for_duration(100, 1200);
     set_speed_percent(100);
     return {final_rpm >= _config.self_test_rpm_threshold, final_rpm};
 }
 
-uint16_t PwmTachFan::measure_rpm_for_duration(uint8_t percent, uint32_t duration_ms) {
-    apply_speed_percent(percent);
+uint16_t PwmTachFan::_measure_rpm_for_duration(uint8_t percent, uint32_t duration_ms) {
+    _apply_speed_percent(percent);
     delay(500);
-    return measure_current_rpm(duration_ms);
+    return _measure_current_rpm(duration_ms);
 }
 
-uint16_t PwmTachFan::measure_current_rpm(uint32_t duration_ms) {
+uint16_t PwmTachFan::_measure_current_rpm(uint32_t duration_ms) {
     int16_t pulse_count = 0;
     pcnt_counter_clear(_config.pcnt_unit);
     delay(duration_ms);
     pcnt_get_counter_value(_config.pcnt_unit, &pulse_count);
-    return calculate_rpm(pulse_count, duration_ms);
+    return _calculate_rpm(pulse_count, duration_ms);
 }
 
-void PwmTachFan::apply_speed_percent(uint8_t percent) {
+void PwmTachFan::_apply_speed_percent(uint8_t percent) {
     const uint8_t effective_percent = _inverted ? static_cast<uint8_t>(100 - percent) : percent;
     const uint32_t max_duty = (1u << _config.pwm_resolution_bits) - 1u;
     const uint32_t duty = (static_cast<uint32_t>(effective_percent) * max_duty) / 100u;
     ledcWrite(_config.pwm_channel, duty);
 }
 
-uint16_t PwmTachFan::calculate_rpm(int16_t pulse_count, uint32_t duration_ms) {
+uint16_t PwmTachFan::_calculate_rpm(int16_t pulse_count, uint32_t duration_ms) {
     if (duration_ms == 0) {
         return 0;
     }

@@ -9,18 +9,21 @@
 #include <Arduino.h>
 #include <SPI.h>
 
-#include "drivers/asic/asic.h"
+#include "drivers/asic/bm1370/bm1370.h"
 #include "drivers/button/button.h"
 #include "drivers/button/gpio/gpio_button.h"
 #include "drivers/display/st7789/st7789.h"
 #include "drivers/fan/fan.h"
 #include "drivers/fan/pwm_tach/pwm_tach_fan.h"
-#include "drivers/i2c/i2c_master.h"
 #include "drivers/power/power.h"
 #include "drivers/power/tps53355/tps53355.h"
 #include "drivers/temp/temp.h"
 #include "drivers/temp/tmp102/tmp102.h"
 #include "drivers/touch/touch.h"
+#include "hal/adc/adc_sampler.h"
+#include "hal/i2c/i2c_master.h"
+#include "hal/spi/spi_master.h"
+#include "hal/uart/uart_port.h"
 
 namespace nm::bsp::nmaxe_gamma {
 namespace {  // namespace nm::bsp::nmaxe_gamma::(file-local board profiles)
@@ -36,6 +39,39 @@ uint16_t gamma_default_rotation() {
 bool gamma_backlight_active_high() {
     const auto& backlight = gamma_display_config().backlight;
     return backlight.on_duty > backlight.off_duty;
+}
+
+hal::spi::SpiMaster& gamma_display_bus() {
+    static const hal::spi::SpiBusConfig config(
+        &SPI,
+        38,  // sclk_pin
+        -1,  // miso_pin
+        48); // mosi_pin
+    static hal::spi::SpiMaster bus(config);
+    return bus;
+}
+
+hal::uart::UartPort& gamma_asic_uart() {
+    static const hal::uart::UartPortConfig config(
+        &Serial1,
+        44,  // rx_pin
+        43); // tx_pin
+    static hal::uart::UartPort port(config);
+    return port;
+}
+
+hal::adc::AdcSampler& gamma_power_adc() {
+    static hal::adc::AdcSampler sampler;
+    return sampler;
+}
+
+const drivers::Bm1370UartConfig& gamma_asic_config() {
+    static const drivers::Bm1370UartConfig config(
+        &gamma_asic_uart(),
+        115200,   // init_baud
+        1000000,  // work_baud
+        45);      // reset_pin
+    return config;
 }
 
 const drivers::Tps53355PinConfig& gamma_power_config() {
@@ -171,13 +207,10 @@ const drivers::St7789PanelConfig& gamma_display_config() {
         panel.backlight.off_duty = 255;
         panel.backlight.on_duty = 0;
 
-        panel.spi.bus = &SPI;
+        panel.spi.bus = &gamma_display_bus();
         panel.spi.dc_pin = 47;
         panel.spi.reset_pin = 40;
         panel.spi.cs_pin = 39;
-        panel.spi.mosi_pin = 48;
-        panel.spi.miso_pin = -1;
-        panel.spi.sclk_pin = 38;
         panel.spi.frequency_hz = 80000000;
 
         panel.rotation_normal = drivers::St7789RotationConfig(
@@ -315,11 +348,11 @@ const InputProfile& board_input_profile() {
 }
 
 const BoardDrivers& board_drivers() {
-    // TODO(agent): replace the remaining NullAsic instance below once Gamma
-    // mining bring-up is migrated into the new service layer.
-    static drivers::NullAsic asic("bm1370-placeholder");
-    static drivers::Tps53355Power power("gamma-tps53355", gamma_power_config());
-    static drivers::i2c::I2cMaster temp_bus(9, 8, 400000);
+    // TODO(agent): this phase-1 BM1370 driver currently owns only transport and
+    // reset bring-up. Extend it with migrated mining protocol logic later.
+    static drivers::Bm1370Asic asic("gamma-bm1370", gamma_asic_config());
+    static drivers::Tps53355Power power("gamma-tps53355", gamma_power_config(), gamma_power_adc());
+    static hal::i2c::I2cMaster temp_bus(9, 8, 400000);
     static drivers::Tmp102Sensor temp("gamma-tmp102", temp_bus);
     static drivers::St7789Display display(gamma_display_config());
     static drivers::PwmTachFan fan0("gamma-fan0", gamma_fan0_config());

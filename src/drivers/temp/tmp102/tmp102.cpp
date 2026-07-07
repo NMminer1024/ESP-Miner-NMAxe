@@ -27,23 +27,23 @@ bool Tmp102Sensor::init() {
         return false;
     }
 
-    const bool vcore_ok = configure_sensor(_vcore_address);
-    const bool asic_ok = configure_sensor(_asic_address);
+    const bool vcore_ok = _configure_sensor(_vcore_address);
+    const bool asic_ok = _configure_sensor(_asic_address);
     _initialized = vcore_ok || asic_ok;
     return _initialized;
 }
 
 float Tmp102Sensor::read_vcore_c() const {
     float value_c = NAN;
-    return read_temperature(_vcore_address, value_c) ? value_c : NAN;
+    return _read_temperature(_vcore_address, value_c) ? value_c : NAN;
 }
 
 float Tmp102Sensor::read_asic_c() const {
     float value_c = NAN;
-    return read_temperature(_asic_address, value_c) ? value_c : NAN;
+    return _read_temperature(_asic_address, value_c) ? value_c : NAN;
 }
 
-bool Tmp102Sensor::configure_sensor(uint8_t address) const {
+bool Tmp102Sensor::_configure_sensor(uint8_t address) const {
     uint8_t data[2] = {};
     if (!_bus.read_register(address, kConfigRegister, data, sizeof(data))) {
         return false;
@@ -55,7 +55,7 @@ bool Tmp102Sensor::configure_sensor(uint8_t address) const {
     return _bus.write_register_byte(address, kConfigRegister, static_cast<uint8_t>(config & 0xFF));
 }
 
-bool Tmp102Sensor::read_temperature(uint8_t address, float& value_c) const {
+bool Tmp102Sensor::_read_temperature(uint8_t address, float& value_c) const {
     uint8_t data[2] = {};
     if (!_initialized || !_bus.read_register(address, kTemperatureRegister, data, sizeof(data))) {
         return false;

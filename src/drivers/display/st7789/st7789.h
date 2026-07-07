@@ -11,9 +11,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <SPI.h>
-
 #include "drivers/display/display.h"
+#include "hal/spi/spi_master.h"
 
 namespace nm::drivers {
 
@@ -47,14 +46,13 @@ struct St7789BacklightConfig {
 };
 
 struct St7789SpiConfig {
-    SPIClass* bus = nullptr;
+    hal::spi::SpiMaster* bus = nullptr;
     int8_t dc_pin = -1;
     int8_t reset_pin = -1;
     int8_t cs_pin = -1;
-    int8_t mosi_pin = -1;
-    int8_t miso_pin = -1;
-    int8_t sclk_pin = -1;
     uint32_t frequency_hz = 80000000;
+    uint8_t data_mode = SPI_MODE3;
+    uint8_t bit_order = SPI_MSBFIRST;
 };
 
 struct St7789PanelConfig {
@@ -89,26 +87,25 @@ public:
 private:
     static constexpr uint16_t kTransferChunkPixels = 128;
 
-    void enable_panel_power();
-    void setup_backlight_pwm();
-    void set_boot_backlight_off();
-    void set_backlight_on();
-    void init_bus();
-    void hardware_reset();
-    void begin_transaction();
-    void end_transaction();
-    void select_panel();
-    void release_panel();
-    SPIClass& spi_bus() const;
-    int8_t resolved_spi_miso_pin() const;
-    void set_command_mode();
-    void set_data_mode();
-    void write_command_with_data(uint8_t command, const uint8_t* data, uint8_t size);
-    void run_init_sequence();
-    void apply_rotation(bool flip);
-    void begin_memory_write(uint16_t x, uint16_t y, uint16_t width, uint16_t height);
-    void end_memory_write();
-    bool contains_rect(const DisplayRect& rect) const;
+    void _enable_panel_power();
+    void _setup_backlight_pwm();
+    void _set_boot_backlight_off();
+    void _set_backlight_on();
+    bool _init_bus();
+    void _hardware_reset();
+    void _begin_transaction();
+    void _end_transaction();
+    void _select_panel();
+    void _release_panel();
+    hal::spi::SpiMaster& _spi_bus() const;
+    void _set_command_mode();
+    void _set_data_mode();
+    void _write_command_with_data(uint8_t command, const uint8_t* data, uint8_t size);
+    void _run_init_sequence();
+    void _apply_rotation(bool flip);
+    void _begin_memory_write(uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+    void _end_memory_write();
+    bool _contains_rect(const DisplayRect& rect) const;
 
     const St7789PanelConfig& _config;
     bool _initialized = false;

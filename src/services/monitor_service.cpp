@@ -29,11 +29,11 @@ void MonitorService::poll() {
     }
 
     const uint32_t now_ms = millis();
-    poll_buttons(now_ms);
-    poll_telemetry(now_ms);
+    _poll_buttons(now_ms);
+    _poll_telemetry(now_ms);
 }
 
-void MonitorService::poll_buttons(uint32_t now_ms) {
+void MonitorService::_poll_buttons(uint32_t now_ms) {
     if (now_ms - _last_button_poll_ms < 20) {
         return;
     }
@@ -81,7 +81,7 @@ void MonitorService::poll_buttons(uint32_t now_ms) {
     }
 }
 
-void MonitorService::poll_telemetry(uint32_t now_ms) {
+void MonitorService::_poll_telemetry(uint32_t now_ms) {
     if (now_ms - _last_telemetry_poll_ms < 500) {
         return;
     }

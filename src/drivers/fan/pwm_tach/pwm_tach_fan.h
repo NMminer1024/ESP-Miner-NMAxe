@@ -58,10 +58,10 @@ public:
     FanSelfTestResult run_self_test() override;
 
 private:
-    uint16_t measure_rpm_for_duration(uint8_t percent, uint32_t duration_ms);
-    uint16_t measure_current_rpm(uint32_t duration_ms);
-    void apply_speed_percent(uint8_t percent);
-    static uint16_t calculate_rpm(int16_t pulse_count, uint32_t duration_ms);
+    uint16_t _measure_rpm_for_duration(uint8_t percent, uint32_t duration_ms);
+    uint16_t _measure_current_rpm(uint32_t duration_ms);
+    void _apply_speed_percent(uint8_t percent);
+    static uint16_t _calculate_rpm(int16_t pulse_count, uint32_t duration_ms);
 
     const char* _name = "fan";
     PwmTachFanConfig _config{};

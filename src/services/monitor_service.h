@@ -24,8 +24,8 @@ public:
     void poll();
 
 private:
-    void poll_buttons(uint32_t now_ms);
-    void poll_telemetry(uint32_t now_ms);
+    void _poll_buttons(uint32_t now_ms);
+    void _poll_telemetry(uint32_t now_ms);
 
     const bsp::Board* _board = nullptr;
     const config::AppConfig* _config = nullptr;
