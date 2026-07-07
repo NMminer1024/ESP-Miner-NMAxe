@@ -7,10 +7,13 @@
 #pragma once
 
 #include "bsp/board.h"
+#include "state/runtime_state.h"
+#include "state/ui_state.h"
 
 namespace nm::ui {
 
-void boot(const bsp::Board& board);
+bool boot(const bsp::Board& board, const state::RuntimeState& runtime, const state::UiState& ui_state);
+void render(const bsp::Board& board, const state::RuntimeState& runtime, const state::UiState& ui_state);
 void poll();
 
 }  // namespace nm::ui

@@ -37,6 +37,10 @@ public:
     virtual const char* name() const = 0;
     virtual DisplaySize size() const = 0;
     virtual bool write_rect(const DisplayRect& rect, const uint16_t* pixels) = 0;
+    virtual bool set_flip(bool flip) = 0;
+    virtual bool flip() const = 0;
+    virtual bool set_brightness_percent(uint8_t percent) = 0;
+    virtual uint8_t brightness_percent() const = 0;
 };
 
 }  // namespace nm::drivers

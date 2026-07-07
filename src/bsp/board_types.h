@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "drivers/asic/asic.h"
+#include "drivers/button/button.h"
 #include "drivers/display/display.h"
 #include "drivers/fan/fan.h"
 #include "drivers/power/power.h"
@@ -133,6 +134,7 @@ struct BoardTraits {
     AsicFamily asic_family = AsicFamily::Unknown;
     uint8_t asic_count = 0;
     uint8_t fan_count = 0;
+    uint8_t button_count = 0;
     bool has_touch = false;
     bool has_button = false;
     bool has_led = false;
@@ -159,6 +161,7 @@ struct BoardDrivers {
     drivers::Display* display = nullptr;
     drivers::Touch* touch = nullptr;
     std::vector<drivers::Fan*> fans;
+    std::vector<drivers::Button*> buttons;
 };
 
 struct BoardContext {

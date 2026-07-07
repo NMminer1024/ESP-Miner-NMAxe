@@ -9,7 +9,6 @@
 #include <Arduino.h>
 
 #include "bsp/board.h"
-#include "ui/ui_root.h"
 
 namespace nm {
 
@@ -29,8 +28,19 @@ void Application::setup() {
     Serial.println("[app] BSP-first skeleton boot");
 
     _board = &bsp::board();
-    _board->init();
-    ui::boot(*_board);
+    if (!_boot_service.start(*_board, _config_store, _config, _runtime, _ui_state, _events)) {
+        Serial.printf("[app] boot failed at phase=%u msg=%s\n",
+                      static_cast<unsigned>(_runtime.boot.phase),
+                      _runtime.boot.message);
+        return;
+    }
+    if (!_ui_service.start(*_board, _config, _runtime, _ui_state, _events)) {
+        Serial.printf("[app] ui start failed at phase=%u msg=%s\n",
+                      static_cast<unsigned>(_runtime.boot.phase),
+                      _runtime.boot.message);
+        return;
+    }
+    _monitor_service.start(*_board, _config, _runtime, _events);
 
     _initialized = true;
 }
@@ -40,7 +50,8 @@ void Application::loop() {
         return;
     }
 
-    ui::poll();
+    _monitor_service.poll();
+    _ui_service.poll();
 }
 
 const bsp::Board& Application::board() const {

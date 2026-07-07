@@ -14,6 +14,10 @@ struct TouchPoint {
     uint16_t x = 0;
     uint16_t y = 0;
     bool pressed = false;
+
+    TouchPoint() = default;
+    TouchPoint(uint16_t x_value, uint16_t y_value, bool pressed_value)
+        : x(x_value), y(y_value), pressed(pressed_value) {}
 };
 
 class Touch {
@@ -33,7 +37,7 @@ public:
     bool init() override { return true; }
     const char* name() const override { return _name; }
     bool read(TouchPoint& point) override {
-        point = {};
+        point = TouchPoint();
         return false;
     }
 

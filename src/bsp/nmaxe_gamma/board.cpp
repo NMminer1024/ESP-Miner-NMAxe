@@ -11,14 +11,50 @@
 #include <SPI.h>
 
 #include "drivers/asic/asic.h"
+#include "drivers/button/button.h"
+#include "drivers/button/gpio_button.h"
 #include "drivers/display/display.h"
 #include "drivers/fan/fan.h"
+#include "drivers/fan/pwm_tach_fan.h"
+#include "drivers/i2c/i2c_master.h"
 #include "drivers/power/power.h"
+#include "drivers/power/tps53355.h"
 #include "drivers/temp/temp.h"
+#include "drivers/temp/tmp102.h"
 #include "drivers/touch/touch.h"
 
 namespace nm::bsp::nmaxe_gamma {
 namespace {  // namespace nm::bsp::nmaxe_gamma::(file-local board profiles)
+
+const drivers::Tps53355PinConfig& gamma_power_config() {
+    static const drivers::Tps53355PinConfig config = {
+        13,  // pll_enable_pin
+        14,  // vdd_enable_pin
+        10,  // vcore_enable_pin
+        16,  // vcore_pwm_pin
+        21,  // vcore_pgood_pin
+        11,  // dc_plug_pin
+        2,   // vbus_adc_pin
+        3,   // ibus_adc_pin
+        1,   // vcore_adc_pin
+    };
+    return config;
+}
+
+const drivers::PwmTachFanConfig& gamma_fan0_config() {
+    static const drivers::PwmTachFanConfig config = {
+        41,              // pwm_pin
+        2,               // pwm_channel
+        1000 * 100,      // pwm_frequency_hz
+        8,               // pwm_resolution_bits
+        42,              // tach_pin
+        PCNT_UNIT_0,     // pcnt_unit
+        PCNT_CHANNEL_0,  // pcnt_channel
+        4000,            // self_test_rpm_threshold
+        500,             // danger_rpm_threshold
+    };
+    return config;
+}
 
 const BoardTraits& board_traits() {
     static BoardTraits traits;
@@ -30,6 +66,7 @@ const BoardTraits& board_traits() {
         traits.asic_family = AsicFamily::BM1370;
         traits.asic_count = 1;
         traits.fan_count = 1;
+        traits.button_count = 2;
         traits.has_touch = false;
         traits.has_button = true;
         traits.has_led = false;
@@ -93,8 +130,7 @@ const ThermalProfile& board_thermal_profile() {
     static bool initialized = false;
 
     if (!initialized) {
-        // TODO(agent): replace with the real gamma Vcore sensor id once the BSP thermal path is wired.
-        profile.vcore_sensor_id = TemperatureSensorId::Placeholder;
+        profile.vcore_sensor_id = TemperatureSensorId::TMP102;
         profile.asic_sensor_id = TemperatureSensorId::TMP102;
         profile.sensor_bus_type = SensorBusType::I2c;
         profile.sample_policy = "board-sensor-poll";
@@ -139,13 +175,16 @@ const InputProfile& board_input_profile() {
 }
 
 const BoardDrivers& board_drivers() {
-    // TODO(agent): replace the remaining Null* instances below with real gamma BSP
-    // implementations as each subsystem is brought up.
+    // TODO(agent): replace the remaining NullAsic instance below once Gamma
+    // mining bring-up is migrated into the new service layer.
     static drivers::NullAsic asic("bm1370-placeholder");
-    static drivers::NullPower power("gamma-power-placeholder");
-    static drivers::NullTempSensor temp("gamma-temp-placeholder", 42.0f, 55.0f);
+    static drivers::Tps53355Power power("gamma-tps53355", gamma_power_config());
+    static drivers::i2c::I2cMaster temp_bus(9, 8, 400000);
+    static drivers::Tmp102Sensor temp("gamma-tmp102", temp_bus);
     static DisplayDevice display;
-    static drivers::NullFan fan0("gamma-fan-placeholder");
+    static drivers::PwmTachFan fan0("gamma-fan0", gamma_fan0_config());
+    static drivers::GpioButton boot_button("gamma-boot-button", 0, true);
+    static drivers::GpioButton user_button("gamma-user-button", 12, true);
     static BoardDrivers drivers;
     static bool initialized = false;
 
@@ -156,6 +195,8 @@ const BoardDrivers& board_drivers() {
         drivers.display = &display;
         drivers.touch = nullptr;
         drivers.fans.push_back(&fan0);
+        drivers.buttons.push_back(&boot_button);
+        drivers.buttons.push_back(&user_button);
         initialized = true;
     }
 
@@ -201,15 +242,11 @@ void DisplayDevice::set_boot_backlight_off() {
 
     // Gamma/NMAxe legacy hardware uses inverted backlight PWM.
     ledcWrite(panel.bl_pwm_channel, kBacklightOffDuty);
+    _brightness_percent = 0;
 }
 
 void DisplayDevice::set_backlight_on() {
-    const auto& panel = panel_config();
-    if (panel.backlight_pin < 0) {
-        return;
-    }
-
-    ledcWrite(panel.bl_pwm_channel, kBacklightOnDuty);
+    set_brightness_percent(100);
 }
 
 bool DisplayDevice::init() {
@@ -223,7 +260,7 @@ bool DisplayDevice::init() {
     init_bus();
     hardware_reset();
     run_init_sequence();
-    apply_rotation(default_flip());
+    apply_rotation(_flip);
     set_backlight_on();
 
     const auto display_size = size();
@@ -254,6 +291,39 @@ const char* DisplayDevice::name() const {
 
 drivers::DisplaySize DisplayDevice::size() const {
     return {screen_width(), screen_height()};
+}
+
+bool DisplayDevice::set_brightness_percent(uint8_t percent) {
+    const auto& panel = panel_config();
+    if (panel.backlight_pin < 0) {
+        return false;
+    }
+
+    if (percent > 100) {
+        percent = 100;
+    }
+
+    const uint16_t duty_span = static_cast<uint16_t>(kBacklightOffDuty - kBacklightOnDuty);
+    const uint16_t duty = kBacklightOffDuty - ((static_cast<uint16_t>(percent) * duty_span) / 100u);
+    ledcWrite(panel.bl_pwm_channel, static_cast<uint8_t>(duty));
+    _brightness_percent = percent;
+    return true;
+}
+
+bool DisplayDevice::set_flip(bool flip) {
+    _flip = flip;
+    if (_initialized) {
+        apply_rotation(_flip);
+    }
+    return true;
+}
+
+bool DisplayDevice::flip() const {
+    return _flip;
+}
+
+uint8_t DisplayDevice::brightness_percent() const {
+    return _brightness_percent;
 }
 
 bool DisplayDevice::write_rect(const drivers::DisplayRect& rect, const uint16_t* pixels) {
@@ -458,6 +528,11 @@ void NMAxeGammaBoard::init() {
     for (auto* fan : drivers().fans) {
         if (fan != nullptr) {
             fan->init();
+        }
+    }
+    for (auto* button : drivers().buttons) {
+        if (button != nullptr) {
+            button->init();
         }
     }
 }

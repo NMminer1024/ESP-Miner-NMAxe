@@ -6,6 +6,15 @@
 // about and preventing framework code from leaking into Arduino globals.
 #pragma once
 
+#include "config/app_config.h"
+#include "config/config_store.h"
+#include "services/boot_service.h"
+#include "services/monitor_service.h"
+#include "services/ui_service.h"
+#include "state/runtime_state.h"
+#include "state/ui_state.h"
+#include "system/events.h"
+
 namespace nm::bsp {
 class Board;
 }
@@ -20,12 +29,22 @@ public:
     void loop();
 
     const bsp::Board& board() const;
+    const config::AppConfig& config() const { return _config; }
+    const state::RuntimeState& runtime() const { return _runtime; }
 
 private:
     Application() = default;
 
     bsp::Board* _board = nullptr;
     bool _initialized = false;
+    config::BoardDefaultConfigStore _config_store{};
+    config::AppConfig _config{};
+    state::RuntimeState _runtime{};
+    state::UiState _ui_state{};
+    system::EventFlags _events{};
+    services::BootService _boot_service{};
+    services::MonitorService _monitor_service{};
+    services::UiService _ui_service{};
 };
 
 }  // namespace nm

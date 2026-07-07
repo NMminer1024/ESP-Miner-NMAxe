@@ -6,13 +6,28 @@
 // contract that application, policy, or UI code depends on.
 #pragma once
 
+#include <stdint.h>
+
 namespace nm::drivers {
+
+struct FanSelfTestResult {
+    bool passed = false;
+    uint16_t rpm = 0;
+
+    FanSelfTestResult() = default;
+    FanSelfTestResult(bool passed_value, uint16_t rpm_value)
+        : passed(passed_value), rpm(rpm_value) {}
+};
 
 class Fan {
 public:
     virtual ~Fan() = default;
     virtual bool init() = 0;
     virtual const char* name() const = 0;
+    virtual bool set_speed_percent(uint8_t percent) = 0;
+    virtual uint8_t speed_percent() const = 0;
+    virtual uint16_t read_rpm() = 0;
+    virtual FanSelfTestResult run_self_test() = 0;
 };
 
 // Temporary skeleton-only fallback.
@@ -23,9 +38,17 @@ public:
 
     bool init() override { return true; }
     const char* name() const override { return _name; }
+    bool set_speed_percent(uint8_t percent) override {
+        _speed_percent = percent;
+        return true;
+    }
+    uint8_t speed_percent() const override { return _speed_percent; }
+    uint16_t read_rpm() override { return 0; }
+    FanSelfTestResult run_self_test() override { return {true, 0}; }
 
 private:
     const char* _name = "null-fan";
+    uint8_t _speed_percent = 0;
 };
 
 }  // namespace nm::drivers

@@ -17,6 +17,10 @@ public:
     const char* name() const override;
     drivers::DisplaySize size() const override;
     bool write_rect(const drivers::DisplayRect& rect, const uint16_t* pixels) override;
+    bool set_flip(bool flip) override;
+    bool flip() const override;
+    bool set_brightness_percent(uint8_t percent) override;
+    uint8_t brightness_percent() const override;
 
     static const char* display_id() { return "gamma-st7789"; }
     static uint16_t screen_width() { return panel_config().width; }
@@ -42,7 +46,7 @@ private:
         int8_t spi_sclk_pin = 38;
         uint32_t spi_frequency_hz = 80000000;
         bool color_invert = true;
-        bool default_flip = false;
+        bool default_flip = true;
     };
 
     struct InitCommand {
@@ -189,6 +193,8 @@ private:
     bool contains_rect(const drivers::DisplayRect& rect) const;
 
     bool _initialized = false;
+    bool _flip = default_flip();
+    uint8_t _brightness_percent = 0;
     RotationConfig _rotation{};
     uint8_t _transfer_buffer[kTransferChunkPixels * 2] = {};
 };
