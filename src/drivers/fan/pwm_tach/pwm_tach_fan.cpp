@@ -73,16 +73,39 @@ uint16_t PwmTachFan::read_rpm() {
     return _measure_current_rpm(120);
 }
 
-FanSelfTestResult PwmTachFan::run_self_test() {
+FanPolarityDetectResult PwmTachFan::detect_polarity() {
     if (!_initialized) {
         return {};
     }
 
+    _inverted = false;
     const uint16_t rpm_50 = _measure_rpm_for_duration(50, 1200);
     const uint16_t rpm_100 = _measure_rpm_for_duration(100, 1200);
     _inverted = (static_cast<uint32_t>(rpm_100) * 9u / 10u) <= rpm_50;
+    set_speed_percent(100);
+    FanPolarityDetectResult result;
+    result.inverted = _inverted;
+    result.rpm_50 = rpm_50;
+    result.rpm_100 = rpm_100;
+    return result;
+}
 
-    const uint16_t final_rpm = _measure_rpm_for_duration(100, 1200);
+FanSelfTestResult PwmTachFan::run_self_test() {
+    return run_self_test(nullptr, nullptr);
+}
+
+FanSelfTestResult PwmTachFan::run_self_test(FanSelfTestProgressCallback callback, void* ctx) {
+    if (!_initialized) {
+        return {};
+    }
+
+    uint16_t final_rpm = 0;
+    for (uint8_t i = 0; i < 3; ++i) {
+        final_rpm = _measure_rpm_for_duration(100, 1200);
+        if (callback != nullptr) {
+            callback(final_rpm, ctx);
+        }
+    }
     set_speed_percent(100);
     return {final_rpm >= _config.self_test_rpm_threshold, final_rpm};
 }

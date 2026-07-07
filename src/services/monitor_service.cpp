@@ -113,14 +113,21 @@ void MonitorService::_poll_telemetry(uint32_t now_ms) {
         thermal.ready = true;
     }
 
-    for (size_t i = 0; i < _board->drivers().fans.size() && i < state::kMaxFans; ++i) {
-        auto* fan = _board->drivers().fans[i];
-        if (fan == nullptr) {
-            continue;
+    const bool fan_self_test_active =
+        _runtime->mining.phase == state::MiningPhase::FanPolarityCheck ||
+        _runtime->mining.phase == state::MiningPhase::FanPolarityConfirm ||
+        _runtime->mining.phase == state::MiningPhase::FanSelfTest ||
+        _runtime->mining.phase == state::MiningPhase::FanSelfTestConfirm;
+    if (!fan_self_test_active) {
+        for (size_t i = 0; i < _board->drivers().fans.size() && i < state::kMaxFans; ++i) {
+            auto* fan = _board->drivers().fans[i];
+            if (fan == nullptr) {
+                continue;
+            }
+            _runtime->fans[i].present = true;
+            _runtime->fans[i].speed_percent = fan->speed_percent();
+            _runtime->fans[i].rpm = fan->read_rpm();
         }
-        _runtime->fans[i].present = true;
-        _runtime->fans[i].speed_percent = fan->speed_percent();
-        _runtime->fans[i].rpm = fan->read_rpm();
     }
 
     _runtime->last_sample_ms = now_ms;

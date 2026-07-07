@@ -8,8 +8,43 @@
 #include "services/mining_service.h"
 
 #include <Arduino.h>
+#include <math.h>
+#include <stdio.h>
+
+#include "app/task_config.h"
 
 namespace nm::services {
+
+namespace {
+
+const char* asic_family_name(bsp::AsicFamily family) {
+    switch (family) {
+        case bsp::AsicFamily::BM1366:
+            return "bm1366";
+        case bsp::AsicFamily::BM1370:
+            return "bm1370";
+        case bsp::AsicFamily::BM1373:
+            return "bm1373";
+        case bsp::AsicFamily::Unknown:
+        default:
+            return "asic";
+    }
+}
+
+void format_temp_value(char* buffer, size_t buffer_size, float value_c) {
+    if (buffer == nullptr || buffer_size == 0) {
+        return;
+    }
+
+    if (isnan(value_c)) {
+        snprintf(buffer, buffer_size, "NAN");
+        return;
+    }
+
+    snprintf(buffer, buffer_size, "%.1f", static_cast<double>(value_c));
+}
+
+}  // namespace
 
 void MiningService::start(
     const bsp::Board& board,
@@ -29,6 +64,21 @@ void MiningService::start(
     runtime.mining.bringup_complete = false;
     runtime.mining.last_transition_ms = millis();
     _last_probe_attempt_ms = 0;
+    _fan_polarity_ran = false;
+    _fan_polarity_task = nullptr;
+    _fan_polarity_running = false;
+    _fan_polarity_complete = false;
+    _fan_polarity_inverted = false;
+    _fan_polarity_rpm_50 = 0;
+    _fan_polarity_rpm_100 = 0;
+    _fan_self_test_ran = false;
+    _fan_self_test_task = nullptr;
+    _fan_self_test_running = false;
+    _fan_self_test_complete = false;
+    _fan_self_test_passed = false;
+    _fan_self_test_rpm = 0;
+    _fan_self_test_threshold = 0;
+    _asic_result_message[0] = '\0';
 
     if (board.drivers().asic == nullptr) {
         _set_phase(state::MiningPhase::Disabled, "asic absent");
@@ -58,6 +108,7 @@ void MiningService::poll() {
             _publish_asic_status();
             // Legacy-compatible sequencing:
             // probe/count must run on PLL/VDD only, before Vcore is enabled.
+            _set_boot_loading("ASIC probe   ", 40);
             _set_phase(state::MiningPhase::Probe, "probe chips");
             break;
 
@@ -65,7 +116,14 @@ void MiningService::poll() {
             _publish_asic_status();
 
             const uint32_t now_ms = millis();
-            if (_last_probe_attempt_ms != 0 && (now_ms - _last_probe_attempt_ms) < 1000) {
+            const uint32_t phase_elapsed_ms = now_ms - _runtime->mining.last_transition_ms;
+            if (phase_elapsed_ms < 300u ||
+                (_last_probe_attempt_ms != 0 && (now_ms - _last_probe_attempt_ms) < 1000u)) {
+                static const char* const kAsicInit[] = {
+                    "ASIC probe   ", "ASIC probe.  ", "ASIC probe.. ", "ASIC probe..."
+                };
+                const uint8_t anim = static_cast<uint8_t>((phase_elapsed_ms / state::kBootMessageMinVisibleMs) % 4u);
+                _set_boot_loading(kAsicInit[anim], 40);
                 break;
             }
 
@@ -79,39 +137,213 @@ void MiningService::poll() {
             }
 
             _runtime->mining.detected_asic_count = detected;
-
-            if (_board->drivers().power != nullptr) {
-                const uint32_t vbus_mv = _read_vbus_mv();
-                if (_board->policies().vbus_min_required_mv > 0 &&
-                    vbus_mv < _board->policies().vbus_min_required_mv) {
-                    _set_phase(state::MiningPhase::WaitVbus, "wait vbus");
-                    break;
-                }
-
-                _board->drivers().power->set_vcore_mv(_config->mining.target_vcore_mv);
-                _board->drivers().power->set_rail_enabled(drivers::PowerRail::Vcore, true);
-                _set_phase(state::MiningPhase::WaitVcore, "wait vcore");
+            const char* chip_name = asic_family_name(_board->mining_profile().asic_family);
+            if (detected > 1) {
+                snprintf(
+                    _asic_result_message,
+                    sizeof(_asic_result_message),
+                    "Found %u/%u %s",
+                    static_cast<unsigned>(detected),
+                    static_cast<unsigned>(_runtime->mining.expected_asic_count),
+                    chip_name);
             } else {
-                _set_phase(state::MiningPhase::Bringup, "bringup asic");
+                snprintf(
+                    _asic_result_message,
+                    sizeof(_asic_result_message),
+                    "Found %u %s",
+                    static_cast<unsigned>(detected),
+                    chip_name);
+            }
+            _set_boot_loading(
+                _asic_result_message,
+                40,
+                detected == _runtime->mining.expected_asic_count ? 0x00FF00 : 0xFF0000);
+            _set_phase(state::MiningPhase::AsicConfirm, "asic counted");
+            break;
+        }
+
+        case state::MiningPhase::AsicConfirm:
+            _publish_asic_status();
+            if (!state::boot_message_equals(_runtime->boot.message, _asic_result_message)) {
+                _set_boot_loading(
+                    _asic_result_message,
+                    40,
+                    _runtime->mining.detected_asic_count == _runtime->mining.expected_asic_count ? 0x00FF00 : 0xFF0000);
+            }
+            if (state::boot_message_equals(_runtime->boot.message, _asic_result_message) &&
+                !_runtime->boot.pending_message_valid &&
+                millis() - _runtime->boot.message_changed_ms >= 2000u) {
+                _set_phase(state::MiningPhase::TempCheck, "Temp check");
+            }
+            break;
+
+        case state::MiningPhase::TempCheck: {
+            const uint32_t elapsed_ms = millis() - _runtime->mining.last_transition_ms;
+            static const char* const kTempCheck[] = {
+                "Temp check   ", "Temp check.  ", "Temp check.. ", "Temp check..."
+            };
+            float vcore_c = NAN;
+            float asic_c = NAN;
+            if (_board->drivers().temp != nullptr) {
+                vcore_c = _board->drivers().temp->read_vcore_c();
+                asic_c = _board->drivers().temp->read_asic_c();
+                _runtime->thermal.vcore_c = vcore_c;
+                _runtime->thermal.asic_c = asic_c;
+            }
+            const uint8_t anim = static_cast<uint8_t>((elapsed_ms / state::kBootMessageMinVisibleMs) % 4u);
+            char vcore_text[12] = {};
+            char asic_text[12] = {};
+            format_temp_value(vcore_text, sizeof(vcore_text), vcore_c);
+            format_temp_value(asic_text, sizeof(asic_text), asic_c);
+            snprintf(_boot_message, sizeof(_boot_message), "%s %s/%s", kTempCheck[anim], vcore_text, asic_text);
+            _set_boot_loading(_boot_message, 50);
+            const bool temp_check_passed =
+                _board->drivers().temp != nullptr && !isnan(vcore_c) && !isnan(asic_c);
+            if (temp_check_passed) {
+                _runtime->thermal.ready = true;
+                snprintf(_boot_message, sizeof(_boot_message), "Temp OK %s/%s", vcore_text, asic_text);
+                _set_boot_loading(_boot_message, 50, 0x00FF00);
+                _set_phase(state::MiningPhase::TempConfirm, "temp pass");
+                break;
+            }
+
+            if (elapsed_ms >= 5000u) {
+                const bool blink = (((elapsed_ms / 500u) & 1u) == 0u);
+                _runtime->thermal.ready = false;
+                snprintf(_boot_message, sizeof(_boot_message), "Temp ERR %s/%s", vcore_text, asic_text);
+                _set_boot_loading(_boot_message, 50, blink ? 0xFF0000 : 0xFFFFFF);
             }
             break;
         }
 
-        case state::MiningPhase::WaitVbus: {
-            _publish_asic_status();
+        case state::MiningPhase::TempConfirm:
+            _set_boot_loading(_boot_message, 50, 0x00FF00);
+            if (millis() - _runtime->mining.last_transition_ms >= 700u &&
+                !_runtime->boot.pending_message_valid) {
+                _set_phase(state::MiningPhase::FanPolarityCheck, "fan polarity");
+            }
+            break;
 
-            // Legacy note:
-            // the old multi-threaded flow also waited for WiFi before enabling
-            // Vcore. This phase only restores the board-defined VBUS gate for
-            // now because the new network-ready gate has not been migrated yet.
-            // Do not fold this back into Probe/WaitVcore; keep it as the seam
-            // where the future WiFi/system readiness policy will be reattached.
-            const uint32_t vbus_mv = _read_vbus_mv();
-            if (_board->policies().vbus_min_required_mv > 0 &&
-                vbus_mv < _board->policies().vbus_min_required_mv) {
+        case state::MiningPhase::FanPolarityCheck: {
+            const uint32_t elapsed_ms = millis() - _runtime->mining.last_transition_ms;
+            static const char* const kFanPolarity[] = {
+                "Fan polarity check   ", "Fan polarity check.  ",
+                "Fan polarity check.. ", "Fan polarity check..."
+            };
+            const uint8_t anim = static_cast<uint8_t>((elapsed_ms / state::kBootMessageMinVisibleMs) % 4u);
+            _set_boot_loading(kFanPolarity[anim], 50);
+            if (elapsed_ms < state::kBootMessageMinVisibleMs) {
                 break;
             }
 
+            if (!_fan_polarity_ran) {
+                _start_fan_polarity_task();
+                break;
+            }
+
+            if (!_fan_polarity_complete) {
+                break;
+            }
+
+            _set_boot_loading("Fan polarity pass!", 50, 0x00FF00);
+            _set_phase(state::MiningPhase::FanPolarityConfirm, "fan polarity pass");
+            break;
+        }
+
+        case state::MiningPhase::FanPolarityConfirm:
+            _set_boot_loading("Fan polarity pass!", 50, 0x00FF00);
+            if (state::boot_message_equals(_runtime->boot.message, "Fan polarity pass!") &&
+                !_runtime->boot.pending_message_valid &&
+                millis() - _runtime->boot.message_changed_ms >= 1000u) {
+                _set_phase(state::MiningPhase::FanSelfTest, "fan self-test");
+            }
+            break;
+
+        case state::MiningPhase::FanSelfTest: {
+            auto* fan = !_board->drivers().fans.empty() ? _board->drivers().fans[0] : nullptr;
+            const uint16_t threshold = _fan_self_test_threshold != 0
+                ? _fan_self_test_threshold
+                : (fan != nullptr ? fan->self_test_rpm_threshold() : 0);
+            const uint16_t rpm = _fan_self_test_rpm;
+            const uint32_t elapsed_ms = millis() - _runtime->mining.last_transition_ms;
+            static const char* const kFanTest[] = {
+                "Fan test   ", "Fan test.  ", "Fan test.. ", "Fan test..."
+            };
+            const uint8_t anim = static_cast<uint8_t>((elapsed_ms / state::kBootMessageMinVisibleMs) % 4u);
+            snprintf(_boot_message, sizeof(_boot_message), "%s%u/ %urpm", kFanTest[anim], rpm, threshold);
+            _set_boot_loading(_boot_message, 50);
+
+            if (elapsed_ms < state::kBootMessageMinVisibleMs) {
+                break;
+            }
+
+            if (!_fan_self_test_ran) {
+                _start_fan_self_test_task();
+                break;
+            }
+
+            if (_fan_self_test_complete) {
+                if (fan != nullptr) {
+                    _runtime->fans[0].present = true;
+                    _runtime->fans[0].self_test_passed = _fan_self_test_passed;
+                    _runtime->fans[0].speed_percent = fan->speed_percent();
+                    _runtime->fans[0].rpm = _fan_self_test_rpm;
+                    _runtime->fan_count = 1;
+                }
+                snprintf(
+                    _boot_message,
+                    sizeof(_boot_message),
+                    _fan_self_test_passed ? "Fan Pass! [%u/ %u rpm]" : "Fan Fail! [%u/ %u rpm]",
+                    static_cast<unsigned>(_fan_self_test_rpm),
+                    static_cast<unsigned>(threshold));
+                _set_boot_loading(_boot_message, 50, _fan_self_test_passed ? 0x00FF00 : 0xFF0000);
+                _set_phase(state::MiningPhase::FanSelfTestConfirm, "fan self-test pass");
+            }
+            break;
+        }
+
+        case state::MiningPhase::FanSelfTestConfirm:
+            _set_boot_loading(
+                _boot_message,
+                50,
+                _runtime->fan_count > 0 && !_runtime->fans[0].self_test_passed ? 0xFF0000 : 0x00FF00);
+            if (millis() - _runtime->mining.last_transition_ms >= 1000u &&
+                !_runtime->boot.pending_message_valid) {
+                if (_board->drivers().power != nullptr) {
+                    _set_phase(state::MiningPhase::WaitVcore, "wait vcore");
+                } else {
+                    _set_phase(state::MiningPhase::Bringup, "bringup asic");
+                }
+            }
+            break;
+
+        case state::MiningPhase::WaitVbus: {
+            _publish_asic_status();
+
+            // Kept only as a defensive fallback. The legacy loading state does
+            // not return to VBUS after ASIC probe; normal flow gates low VBUS
+            // inside WaitVcore while continuing to display "Vcore check...".
+            const uint32_t vbus_mv = _read_vbus_mv();
+            if (_board->policies().vbus_min_required_mv > 0 &&
+                vbus_mv < _board->policies().vbus_min_required_mv) {
+                snprintf(
+                    _boot_message,
+                    sizeof(_boot_message),
+                    "Vbus %.1fv(at least%.1fv)",
+                    static_cast<double>(vbus_mv) / 1000.0,
+                    static_cast<double>(_board->policies().vbus_min_required_mv) / 1000.0);
+                const uint32_t elapsed_ms = millis() - _runtime->mining.last_transition_ms;
+                const bool blink = (((elapsed_ms / 500u) & 1u) == 0u);
+                _set_boot_loading(_boot_message, 20, blink ? 0xFF0000 : 0xFFFFFF);
+                break;
+            }
+
+            snprintf(
+                _boot_message,
+                sizeof(_boot_message),
+                "Vbus %.1fv.",
+                static_cast<double>(vbus_mv) / 1000.0);
+            _set_boot_loading(_boot_message, 20, 0x00FF00);
             _board->drivers().power->set_vcore_mv(_config->mining.target_vcore_mv);
             _board->drivers().power->set_rail_enabled(drivers::PowerRail::Vcore, true);
             _set_phase(state::MiningPhase::WaitVcore, "wait vcore");
@@ -120,7 +352,45 @@ void MiningService::poll() {
 
         case state::MiningPhase::WaitVcore:
             _publish_asic_status();
+            {
+                static const char* const kVcoreCheck[] = {
+                    "Vcore check   ", "Vcore check.  ", "Vcore check.. ", "Vcore check..."
+                };
+                const uint32_t elapsed_ms = millis() - _runtime->mining.last_transition_ms;
+                const uint8_t anim = static_cast<uint8_t>((elapsed_ms / state::kBootMessageMinVisibleMs) % 4u);
+                _set_boot_loading(kVcoreCheck[anim], 60);
+            }
+            if (_board->drivers().power != nullptr) {
+                const uint32_t vbus_mv = _read_vbus_mv();
+                if (_board->policies().vbus_min_required_mv > 0 &&
+                    vbus_mv < _board->policies().vbus_min_required_mv) {
+                    break;
+                }
+
+                _board->drivers().power->set_vcore_mv(_config->mining.target_vcore_mv);
+                _board->drivers().power->set_rail_enabled(drivers::PowerRail::Vcore, true);
+            }
             if (_power_ready()) {
+                uint32_t vcore_mv = _runtime->power.vcore_mv;
+                if (_board->drivers().power != nullptr) {
+                    vcore_mv = _board->drivers().power->read_vcore_mv();
+                    _runtime->power.vcore_mv = vcore_mv;
+                    _runtime->power.vcore_ready = true;
+                }
+                snprintf(
+                    _boot_message,
+                    sizeof(_boot_message),
+                    "Vcore %.3fv.",
+                    static_cast<double>(vcore_mv) / 1000.0);
+                _set_boot_loading(_boot_message, 60, 0x00FF00);
+                _set_phase(state::MiningPhase::WaitVcoreConfirm, "vcore ready");
+            }
+            break;
+
+        case state::MiningPhase::WaitVcoreConfirm:
+            _set_boot_loading(_boot_message, 60, 0x00FF00);
+            if (millis() - _runtime->mining.last_transition_ms >= 1000u &&
+                !_runtime->boot.pending_message_valid) {
                 _set_phase(state::MiningPhase::Bringup, "bringup asic");
             }
             break;
@@ -171,6 +441,21 @@ void MiningService::_set_phase(state::MiningPhase phase, const char* message) {
     _events->set(system::Event::MiningStateChanged);
 }
 
+void MiningService::_set_boot_loading(const char* message, uint8_t progress_percent, uint32_t message_color) {
+    if (_runtime == nullptr || _events == nullptr) {
+        return;
+    }
+
+    state::publish_boot_state(
+        _runtime->boot,
+        _runtime->boot.phase,
+        message,
+        progress_percent,
+        message_color,
+        millis());
+    _events->set(system::Event::MiningStateChanged);
+}
+
 void MiningService::_publish_asic_status() {
     if (_board == nullptr || _runtime == nullptr || _board->drivers().asic == nullptr) {
         return;
@@ -183,6 +468,127 @@ void MiningService::_publish_asic_status() {
     if (status.target_freq_mhz > 0) {
         _runtime->mining.applied_freq_mhz = status.target_freq_mhz;
     }
+}
+
+void MiningService::_start_fan_polarity_task() {
+    if (_board == nullptr) {
+        return;
+    }
+
+    auto* fan = !_board->drivers().fans.empty() ? _board->drivers().fans[0] : nullptr;
+    _fan_polarity_ran = true;
+    _fan_polarity_running = true;
+    _fan_polarity_complete = false;
+    _fan_polarity_inverted = false;
+    _fan_polarity_rpm_50 = 0;
+    _fan_polarity_rpm_100 = 0;
+
+    if (fan == nullptr) {
+        _fan_polarity_complete = true;
+        _fan_polarity_running = false;
+        return;
+    }
+
+    const BaseType_t ok = xTaskCreatePinnedToCore(
+        _fan_polarity_task_entry,
+        "(fan_pol)",
+        app::kAppServiceTaskStackBytes,
+        this,
+        app::kTaskPriorityMonitor,
+        &_fan_polarity_task,
+        app::kTaskCoreUi);
+    if (ok != pdPASS) {
+        _fan_polarity_task = nullptr;
+        _fan_polarity_complete = true;
+        _fan_polarity_running = false;
+    }
+}
+
+void MiningService::_start_fan_self_test_task() {
+    if (_board == nullptr) {
+        return;
+    }
+
+    auto* fan = !_board->drivers().fans.empty() ? _board->drivers().fans[0] : nullptr;
+    _fan_self_test_ran = true;
+    _fan_self_test_running = true;
+    _fan_self_test_complete = false;
+    _fan_self_test_passed = false;
+    _fan_self_test_rpm = 0;
+    _fan_self_test_threshold = fan != nullptr ? fan->self_test_rpm_threshold() : 0;
+
+    if (fan == nullptr) {
+        _fan_self_test_passed = true;
+        _fan_self_test_complete = true;
+        _fan_self_test_running = false;
+        return;
+    }
+
+    const BaseType_t ok = xTaskCreatePinnedToCore(
+        _fan_self_test_task_entry,
+        "(fan_test)",
+        app::kAppServiceTaskStackBytes,
+        this,
+        app::kTaskPriorityMonitor,
+        &_fan_self_test_task,
+        app::kTaskCoreUi);
+    if (ok != pdPASS) {
+        _fan_self_test_task = nullptr;
+        _fan_self_test_passed = false;
+        _fan_self_test_complete = true;
+        _fan_self_test_running = false;
+    }
+}
+
+void MiningService::_fan_polarity_task_entry(void* args) {
+    auto* self = static_cast<MiningService*>(args);
+    if (self == nullptr || self->_board == nullptr) {
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    auto* fan = !self->_board->drivers().fans.empty() ? self->_board->drivers().fans[0] : nullptr;
+    drivers::FanPolarityDetectResult result{};
+    if (fan != nullptr) {
+        result = fan->detect_polarity();
+    }
+
+    self->_fan_polarity_inverted = result.inverted;
+    self->_fan_polarity_rpm_50 = result.rpm_50;
+    self->_fan_polarity_rpm_100 = result.rpm_100;
+    self->_fan_polarity_running = false;
+    self->_fan_polarity_complete = true;
+    self->_fan_polarity_task = nullptr;
+    vTaskDelete(nullptr);
+}
+
+void MiningService::_fan_self_test_task_entry(void* args) {
+    auto* self = static_cast<MiningService*>(args);
+    if (self == nullptr || self->_board == nullptr) {
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    auto* fan = !self->_board->drivers().fans.empty() ? self->_board->drivers().fans[0] : nullptr;
+    drivers::FanSelfTestResult result{true, 0};
+    if (fan != nullptr) {
+        result = fan->run_self_test(_fan_self_test_progress, self);
+    }
+
+    self->_fan_self_test_rpm = result.rpm;
+    self->_fan_self_test_passed = result.passed;
+    self->_fan_self_test_running = false;
+    self->_fan_self_test_complete = true;
+    self->_fan_self_test_task = nullptr;
+    vTaskDelete(nullptr);
+}
+
+void MiningService::_fan_self_test_progress(uint16_t rpm, void* ctx) {
+    auto* self = static_cast<MiningService*>(ctx);
+    if (self == nullptr) {
+        return;
+    }
+    self->_fan_self_test_rpm = rpm;
 }
 
 bool MiningService::_power_ready() const {

@@ -19,6 +19,14 @@ struct FanSelfTestResult {
         : passed(passed_value), rpm(rpm_value) {}
 };
 
+struct FanPolarityDetectResult {
+    bool inverted = false;
+    uint16_t rpm_50 = 0;
+    uint16_t rpm_100 = 0;
+};
+
+using FanSelfTestProgressCallback = void (*)(uint16_t rpm, void* ctx);
+
 class Fan {
 public:
     virtual ~Fan() = default;
@@ -27,7 +35,16 @@ public:
     virtual bool set_speed_percent(uint8_t percent) = 0;
     virtual uint8_t speed_percent() const = 0;
     virtual uint16_t read_rpm() = 0;
+    virtual FanPolarityDetectResult detect_polarity() = 0;
+    virtual uint16_t self_test_rpm_threshold() const = 0;
     virtual FanSelfTestResult run_self_test() = 0;
+    virtual FanSelfTestResult run_self_test(FanSelfTestProgressCallback callback, void* ctx) {
+        FanSelfTestResult result = run_self_test();
+        if (callback != nullptr) {
+            callback(result.rpm, ctx);
+        }
+        return result;
+    }
 };
 
 // Temporary skeleton-only fallback.
@@ -44,6 +61,8 @@ public:
     }
     uint8_t speed_percent() const override { return _speed_percent; }
     uint16_t read_rpm() override { return 0; }
+    FanPolarityDetectResult detect_polarity() override { return {}; }
+    uint16_t self_test_rpm_threshold() const override { return 0; }
     FanSelfTestResult run_self_test() override { return {true, 0}; }
 
 private:

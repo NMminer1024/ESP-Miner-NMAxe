@@ -20,10 +20,26 @@ const char* mining_phase_text(state::MiningPhase phase) {
             return "wait-power";
         case state::MiningPhase::Probe:
             return "probe";
+        case state::MiningPhase::AsicConfirm:
+            return "asic-confirm";
+        case state::MiningPhase::TempCheck:
+            return "temp-check";
+        case state::MiningPhase::TempConfirm:
+            return "temp-confirm";
+        case state::MiningPhase::FanPolarityCheck:
+            return "fan-polarity";
+        case state::MiningPhase::FanPolarityConfirm:
+            return "fan-polarity-ok";
+        case state::MiningPhase::FanSelfTest:
+            return "fan-test";
+        case state::MiningPhase::FanSelfTestConfirm:
+            return "fan-test-ok";
         case state::MiningPhase::WaitVbus:
             return "wait-vbus";
         case state::MiningPhase::WaitVcore:
             return "wait-vcore";
+        case state::MiningPhase::WaitVcoreConfirm:
+            return "vcore-ok";
         case state::MiningPhase::Bringup:
             return "bringup";
         case state::MiningPhase::Standby:

@@ -13,5 +13,4 @@ void setup() {
 
 void loop() {
     nm::Application::instance().loop();
-    delay(10);
 }

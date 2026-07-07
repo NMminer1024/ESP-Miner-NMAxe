@@ -8,6 +8,7 @@
 #include "services/boot_service.h"
 
 #include <Arduino.h>
+#include <stdio.h>
 
 namespace nm::services {
 
@@ -27,6 +28,7 @@ bool BootService::start(
     _target_brightness_percent = 0;
     _current_brightness_percent = 0;
     _last_backlight_step_ms = millis();
+    _stage_started_ms = millis();
 
     runtime.boot = {};
     _set_boot_state(state::BootPhase::LoadConfig, "load config", 5);
@@ -58,8 +60,9 @@ bool BootService::start(
     _target_brightness_percent =
         config.screen.brightness_percent != 0 ? config.screen.brightness_percent : board.policies().default_brightness_pct;
     _current_brightness_percent = 0;
-    _set_boot_state(state::BootPhase::InitUi, "ui bind pending", 15);
-    _stage = Stage::FadeBacklight;
+    _set_boot_state(state::BootPhase::InitPower, "Vbus check   ", 10);
+    _stage = Stage::WaitAdc;
+    _stage_started_ms = millis();
     return true;
 }
 
@@ -74,6 +77,79 @@ void BootService::poll() {
         case Stage::Fault:
             return;
 
+        case Stage::WaitAdc: {
+            const uint32_t now_ms = millis();
+            static const char* const kVbusCheck[] = {
+                "Vbus check   ", "Vbus check.  ", "Vbus check.. ", "Vbus check..."
+            };
+            const uint8_t anim = static_cast<uint8_t>(((now_ms - _stage_started_ms) / 300u) % 4u);
+            _set_boot_state(state::BootPhase::InitPower, kVbusCheck[anim], 10);
+
+            auto* power = _board->drivers().power;
+            if (power == nullptr || power->adc_ready()) {
+                _advance(
+                    Stage::WaitVbus,
+                    state::BootPhase::InitPower,
+                    power != nullptr && power->is_dc_plugged() ? "DC pluged." : "USB pluged.",
+                    20,
+                    0x00FF00);
+            }
+            return;
+        }
+
+        case Stage::WaitVbus: {
+            auto* power = _board->drivers().power;
+            const uint32_t now_ms = millis();
+            const uint32_t elapsed_ms = now_ms - _stage_started_ms;
+            if (power == nullptr) {
+                _advance_silent(Stage::FadeBacklight, state::BootPhase::InitUi);
+                return;
+            }
+
+            if (elapsed_ms < 500u) {
+                _set_boot_state(
+                    state::BootPhase::InitPower,
+                    power->is_dc_plugged() ? "DC pluged." : "USB pluged.",
+                    20,
+                    0x00FF00);
+                return;
+            }
+
+            const uint32_t vbus_mv = power->read_vbus_mv();
+            _runtime->power.vbus_mv = vbus_mv;
+            _runtime->power.dc_plugged = power->is_dc_plugged();
+            _runtime->power.adc_ready = power->adc_ready();
+
+            const bool vbus_ready =
+                _board->policies().vbus_min_required_mv == 0 ||
+                vbus_mv >= _board->policies().vbus_min_required_mv;
+            if (vbus_ready) {
+                snprintf(
+                    _boot_message,
+                    sizeof(_boot_message),
+                    "Vbus %.1fv.",
+                    static_cast<double>(vbus_mv) / 1000.0);
+                _set_boot_state(state::BootPhase::InitPower, _boot_message, 20, 0x00FF00);
+                if (elapsed_ms >= 1000u) {
+                    _advance_silent(Stage::FadeBacklight, state::BootPhase::InitUi);
+                }
+                return;
+            }
+
+            snprintf(
+                _boot_message,
+                sizeof(_boot_message),
+                "Vbus %.1fv(at least%.1fv)",
+                static_cast<double>(vbus_mv) / 1000.0,
+                static_cast<double>(_board->policies().vbus_min_required_mv) / 1000.0);
+            const bool blink = (((elapsed_ms / 500u) & 1u) == 0u);
+            _set_boot_state(state::BootPhase::InitPower, _boot_message, 20, blink ? 0xFF0000 : 0xFFFFFF);
+            if (elapsed_ms >= 1500u) {
+                _advance_silent(Stage::FadeBacklight, state::BootPhase::InitUi);
+            }
+            return;
+        }
+
         case Stage::FadeBacklight: {
             if (!_runtime->boot.ui_ready) {
                 return;
@@ -81,7 +157,7 @@ void BootService::poll() {
 
             auto* display = _board->drivers().display;
             if (display == nullptr || _target_brightness_percent == 0) {
-                _advance(Stage::ApplyPowerDefaults, state::BootPhase::InitPower, "apply power defaults", 30);
+                _advance_silent(Stage::ApplyPowerDefaults, state::BootPhase::InitPower);
                 return;
             }
 
@@ -94,14 +170,14 @@ void BootService::poll() {
             if (_current_brightness_percent < _target_brightness_percent) {
                 ++_current_brightness_percent;
                 display->set_brightness_percent(_current_brightness_percent);
-                const uint8_t fade_span = static_cast<uint8_t>(30u - 15u);
+                const uint8_t fade_span = static_cast<uint8_t>(30u - 20u);
                 _runtime->boot.progress_percent =
-                    static_cast<uint8_t>(15u + ((_current_brightness_percent * fade_span) / _target_brightness_percent));
+                    static_cast<uint8_t>(20u + ((_current_brightness_percent * fade_span) / _target_brightness_percent));
                 _ui_state->dirty = true;
                 return;
             }
 
-            _advance(Stage::ApplyPowerDefaults, state::BootPhase::InitPower, "apply power defaults", 30);
+            _advance_silent(Stage::ApplyPowerDefaults, state::BootPhase::InitPower);
             return;
         }
 
@@ -120,7 +196,7 @@ void BootService::poll() {
                 _board->drivers().power->set_rail_enabled(drivers::PowerRail::Vcore, false);
             }
 
-            _advance(Stage::InitCooling, state::BootPhase::InitCooling, "fan self-test", 45);
+            _advance_silent(Stage::InitCooling, state::BootPhase::InitCooling);
             return;
 
         case Stage::InitCooling:
@@ -131,15 +207,14 @@ void BootService::poll() {
                     continue;
                 }
                 fan->set_speed_percent(100);
-                const auto self_test = fan->run_self_test();
                 _runtime->fans[i].present = true;
-                _runtime->fans[i].self_test_passed = self_test.passed;
+                _runtime->fans[i].self_test_passed = false;
                 _runtime->fans[i].speed_percent = fan->speed_percent();
-                _runtime->fans[i].rpm = self_test.rpm;
+                _runtime->fans[i].rpm = fan->read_rpm();
                 _runtime->fan_count++;
             }
 
-            _advance(Stage::RegisterInputs, state::BootPhase::InitUi, "bind inputs", 65);
+            _advance_silent(Stage::RegisterInputs, state::BootPhase::InitUi);
             return;
 
         case Stage::RegisterInputs:
@@ -153,7 +228,46 @@ void BootService::poll() {
             }
 
             _runtime->boot.ready = true;
-            _advance(Stage::WaitServicesStart, state::BootPhase::Ready, "core init ready", 90);
+            _advance(Stage::WaitWifi, state::BootPhase::Ready, "Wifi connect   ", 30);
+            return;
+
+        case Stage::WaitWifi: {
+            const uint32_t now_ms = millis();
+            static const char* const kWifiConnect[] = {
+                "Wifi connect   ", "Wifi connect.  ", "Wifi connect.. ", "Wifi connect..."
+            };
+            const uint8_t anim = static_cast<uint8_t>(((now_ms - _stage_started_ms) / state::kBootMessageMinVisibleMs) % 4u);
+            snprintf(
+                _boot_message,
+                sizeof(_boot_message),
+                "%s[%s]",
+                kWifiConnect[anim],
+                _config->network.sta_ssid.c_str());
+            _set_boot_state(state::BootPhase::Ready, _boot_message, 30);
+
+            if (_runtime->network.ap_ready) {
+                _set_boot_state(state::BootPhase::Fault, "AP config mode", 30, 0xFF3B30);
+                if (_ui_state != nullptr) {
+                    _ui_state->current_page = state::UiPageId::Config;
+                    _ui_state->dirty = true;
+                }
+                _stage = Stage::Fault;
+                return;
+            }
+
+            if (_runtime->network.sta_connected) {
+                _advance(Stage::WaitWifiConfirm, state::BootPhase::Ready, "Wifi Connected!", 30, 0x00FF00);
+            }
+            return;
+        }
+
+        case Stage::WaitWifiConfirm:
+            _set_boot_state(state::BootPhase::Ready, "Wifi Connected!", 30, 0x00FF00);
+            if (state::boot_message_equals(_runtime->boot.message, "Wifi Connected!") &&
+                !_runtime->boot.pending_message_valid &&
+                (millis() - _runtime->boot.message_changed_ms) >= state::kBootMessageMinVisibleMs) {
+                _advance_silent(Stage::WaitServicesStart, state::BootPhase::Ready);
+            }
             return;
 
         case Stage::WaitServicesStart:
@@ -165,31 +279,57 @@ bool BootService::ready_for_services() const {
     return _stage == Stage::WaitServicesStart || _stage == Stage::Complete;
 }
 
+bool BootService::waiting_for_wifi() const {
+    return _stage == Stage::WaitWifi;
+}
+
 void BootService::mark_services_started() {
     if (_stage != Stage::WaitServicesStart || _runtime == nullptr || _ui_state == nullptr) {
         return;
     }
 
     _stage = Stage::Complete;
-    _set_boot_state(state::BootPhase::Ready, "wait miner ready", 95);
 }
 
-void BootService::_set_boot_state(state::BootPhase phase, const char* message, uint8_t progress_percent) {
+void BootService::_set_boot_state(
+    state::BootPhase phase,
+    const char* message,
+    uint8_t progress_percent,
+    uint32_t message_color) {
     if (_runtime == nullptr) {
         return;
     }
 
     _runtime->boot.phase = phase;
-    _runtime->boot.message = message;
-    _runtime->boot.progress_percent = progress_percent;
+    state::publish_boot_state(
+        _runtime->boot,
+        phase,
+        message,
+        progress_percent,
+        message_color,
+        millis());
     if (_ui_state != nullptr) {
         _ui_state->dirty = true;
     }
 }
 
-void BootService::_advance(Stage next_stage, state::BootPhase phase, const char* message, uint8_t progress_percent) {
+void BootService::_advance(
+    Stage next_stage,
+    state::BootPhase phase,
+    const char* message,
+    uint8_t progress_percent,
+    uint32_t message_color) {
     _stage = next_stage;
-    _set_boot_state(phase, message, progress_percent);
+    _stage_started_ms = millis();
+    _set_boot_state(phase, message, progress_percent, message_color);
+}
+
+void BootService::_advance_silent(Stage next_stage, state::BootPhase phase) {
+    _stage = next_stage;
+    _stage_started_ms = millis();
+    if (_runtime != nullptr) {
+        _runtime->boot.phase = phase;
+    }
 }
 
 bool BootService::_fail(const char* message) {

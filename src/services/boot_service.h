@@ -26,22 +26,37 @@ public:
 
     void poll();
     bool ready_for_services() const;
+    bool waiting_for_wifi() const;
     void mark_services_started();
 
 private:
     enum class Stage : uint8_t {
         Idle = 0,
-        FadeBacklight = 1,
-        ApplyPowerDefaults = 2,
-        InitCooling = 3,
-        RegisterInputs = 4,
-        WaitServicesStart = 5,
-        Complete = 6,
-        Fault = 7,
+        WaitAdc = 1,
+        WaitVbus = 2,
+        FadeBacklight = 3,
+        ApplyPowerDefaults = 4,
+        InitCooling = 5,
+        RegisterInputs = 6,
+        WaitWifi = 7,
+        WaitWifiConfirm = 8,
+        WaitServicesStart = 9,
+        Complete = 10,
+        Fault = 11,
     };
 
-    void _set_boot_state(state::BootPhase phase, const char* message, uint8_t progress_percent);
-    void _advance(Stage next_stage, state::BootPhase phase, const char* message, uint8_t progress_percent);
+    void _set_boot_state(
+        state::BootPhase phase,
+        const char* message,
+        uint8_t progress_percent,
+        uint32_t message_color = 0xFFFFFF);
+    void _advance(
+        Stage next_stage,
+        state::BootPhase phase,
+        const char* message,
+        uint8_t progress_percent,
+        uint32_t message_color = 0xFFFFFF);
+    void _advance_silent(Stage next_stage, state::BootPhase phase);
     bool _fail(const char* message);
 
     bsp::Board* _board = nullptr;
@@ -53,6 +68,8 @@ private:
     uint8_t _target_brightness_percent = 0;
     uint8_t _current_brightness_percent = 0;
     uint32_t _last_backlight_step_ms = 0;
+    uint32_t _stage_started_ms = 0;
+    char _boot_message[64] = {};
 };
 
 }  // namespace nm::services

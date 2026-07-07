@@ -11,21 +11,15 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <WiFi.h>
-
 #include "app/firmware_identity.h"
 #include "ui/assets/loading/loading_visuals.h"
 
 namespace nm::ui {
 
 namespace {
-const char* loading_ip_text(const assets::LoadingVisualSpec& visuals) {
-    if (WiFi.status() == WL_CONNECTED) {
-        static String ip_text;
-        ip_text = WiFi.localIP().toString();
-        if (!ip_text.isEmpty()) {
-            return ip_text.c_str();
-        }
+const char* loading_ip_text(const PageContext& context, const assets::LoadingVisualSpec& visuals) {
+    if (context.runtime.network.sta_connected && context.runtime.network.ip[0] != '\0') {
+        return context.runtime.network.ip;
     }
 
     return visuals.headline;
@@ -39,8 +33,8 @@ const char* loading_pool(const PageContext& context, const assets::LoadingVisual
     return visuals.fallback_pool;
 }
 
-lv_color_t loading_ip_color() {
-    return WiFi.status() == WL_CONNECTED ? lv_color_hex(0x00FF00) : lv_color_white();
+lv_color_t loading_ip_color(const PageContext& context) {
+    return context.runtime.network.sta_connected ? lv_color_hex(0x00FF00) : lv_color_white();
 }
 
 lv_coord_t text_width(const char* text, const lv_font_t* font) {
@@ -243,15 +237,19 @@ void PageLoadingBase::render(const PageContext& context) {
         lv_label_set_text(
             _lb_details,
             context.runtime.boot.message != nullptr ? context.runtime.boot.message : "");
+        lv_obj_set_style_text_color(
+            _lb_details,
+            lv_color_hex(context.runtime.boot.message_color),
+            LV_PART_MAIN);
     }
 
     if (_lb_ip != nullptr) {
         set_scrolling_text(
             _lb_ip,
-            loading_ip_text(visuals),
+            loading_ip_text(context, visuals),
             _ip_font,
             _ip_max_width);
-        lv_obj_set_style_text_color(_lb_ip, loading_ip_color(), LV_PART_MAIN);
+        lv_obj_set_style_text_color(_lb_ip, loading_ip_color(context), LV_PART_MAIN);
     }
 
     if (_lb_pool != nullptr) {

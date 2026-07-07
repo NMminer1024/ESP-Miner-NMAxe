@@ -25,8 +25,13 @@ bool UiService::start(
     _last_render_ms = 0;
 
     if (!ui::boot_runtime(board, config, runtime, ui_state)) {
-        runtime.boot.phase = state::BootPhase::Fault;
-        runtime.boot.message = "ui bind failed";
+        state::publish_boot_state(
+            runtime.boot,
+            state::BootPhase::Fault,
+            "ui bind failed",
+            100,
+            0xFF0000,
+            millis());
         return false;
     }
 
@@ -62,13 +67,14 @@ void UiService::poll() {
     const uint32_t now_ms = millis();
     const bool telemetry_dirty = _events->consume(system::Event::TelemetryUpdated);
     const bool mining_dirty = _events->consume(system::Event::MiningStateChanged);
+    const bool network_dirty = _events->consume(system::Event::NetworkStateChanged);
     const uint32_t refresh_interval_ms =
         _ui_state->current_page == state::UiPageId::Loading ? 50u : 1000u;
     // Temporary render trigger:
     // The 1 s fallback refresh is useful while the runtime snapshot is still
     // small and mostly polled. If later pages depend on richer async data,
     // prefer explicit invalidation/messages over tightening this loop.
-    if (_ui_state->dirty || telemetry_dirty || mining_dirty || (now_ms - _last_render_ms) >= refresh_interval_ms) {
+    if (_ui_state->dirty || telemetry_dirty || mining_dirty || network_dirty || (now_ms - _last_render_ms) >= refresh_interval_ms) {
         ui::render_runtime(*_board, *_config, *_runtime, *_ui_state);
         _ui_state->dirty = false;
         _last_render_ms = now_ms;

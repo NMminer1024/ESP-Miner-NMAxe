@@ -26,6 +26,7 @@ enum class Event : uint32_t {
     FactoryResetRequested = 1u << 6,
     SetupModeRequested = 1u << 7,
     MiningStateChanged = 1u << 8,
+    NetworkStateChanged = 1u << 9,
 };
 
 class EventFlags {

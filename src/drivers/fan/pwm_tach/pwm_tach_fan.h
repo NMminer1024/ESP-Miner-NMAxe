@@ -55,7 +55,10 @@ public:
     bool set_speed_percent(uint8_t percent) override;
     uint8_t speed_percent() const override { return _speed_percent; }
     uint16_t read_rpm() override;
+    FanPolarityDetectResult detect_polarity() override;
+    uint16_t self_test_rpm_threshold() const override { return _config.self_test_rpm_threshold; }
     FanSelfTestResult run_self_test() override;
+    FanSelfTestResult run_self_test(FanSelfTestProgressCallback callback, void* ctx) override;
 
 private:
     uint16_t _measure_rpm_for_duration(uint8_t percent, uint32_t duration_ms);
