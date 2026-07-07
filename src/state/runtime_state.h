@@ -166,11 +166,25 @@ struct StratumTelemetry {
     bool authorized = false;
     bool job_received = false;
     bool ssl = false;
+    bool using_fallback = false;
+    bool version_rolling = false;
+    bool suggest_difficulty_supported = true;
     uint16_t port = 0;
     uint32_t job_counter = 0;
+    uint32_t version_mask = 0xffffffff;
+    uint32_t share_accepted = 0;
+    uint32_t share_rejected = 0;
+    uint32_t last_share_latency_ms = 0;
     uint32_t last_update_ms = 0;
+    uint32_t last_read_ms = 0;
+    uint32_t last_write_ms = 0;
+    uint8_t job_cache_size = 0;
+    double pool_difficulty = 0.0;
     char host[96] = {};
     char user[128] = {};
+    char extranonce1[64] = {};
+    uint8_t extranonce2_size = 0;
+    char last_job_id[64] = {};
     char last_error[kBootMessageMaxLen] = {};
 };
 

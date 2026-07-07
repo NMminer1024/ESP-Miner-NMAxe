@@ -10,6 +10,8 @@
 #include <nvs_flash.h>
 #include <vector>
 
+#include "utils/logger/logger.h"
+
 namespace nm::drivers::storage {
 
 namespace {
@@ -38,8 +40,8 @@ T read_value(
 }
 
 bool write_denied(const char* namespace_name) {
-    Serial.printf("[storage] namespace '%s' is not writable\n",
-                  namespace_name != nullptr ? namespace_name : "unknown");
+    LOG_E("[storage] namespace '%s' is not writable",
+          namespace_name != nullptr ? namespace_name : "unknown");
     return false;
 }
 
@@ -58,10 +60,10 @@ bool write_value(
 
     const esp_err_t err = setter(handle, key, value);
     if (err != ESP_OK) {
-        Serial.printf("[storage] set '%s/%s' failed: %s\n",
-                      namespace_name != nullptr ? namespace_name : "unknown",
-                      key,
-                      esp_err_to_name(err));
+        LOG_E("[storage] set '%s/%s' failed: %s",
+              namespace_name != nullptr ? namespace_name : "unknown",
+              key,
+              esp_err_to_name(err));
         return false;
     }
 
@@ -83,7 +85,7 @@ bool init_flash() {
     esp_err_t err = first_try;
 
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        Serial.printf("[storage] nvs init error '%s', erasing partition\n", esp_err_to_name(err));
+        LOG_W("[storage] nvs init error '%s', erasing partition", esp_err_to_name(err));
         err = nvs_flash_erase();
         if (err == ESP_OK) {
             err = nvs_flash_init();
@@ -91,7 +93,7 @@ bool init_flash() {
     }
 
     if (err != ESP_OK) {
-        Serial.printf("[storage] nvs init failed: %s\n", esp_err_to_name(err));
+        LOG_E("[storage] nvs init failed: %s", esp_err_to_name(err));
         init_ok = false;
     } else {
         init_ok = true;
@@ -114,9 +116,9 @@ Storage::Storage(const char* namespace_name, bool read_write)
         _read_write ? NVS_READWRITE : NVS_READONLY,
         &_handle);
     if (err != ESP_OK) {
-        Serial.printf("[storage] nvs_open('%s') failed: %s\n",
-                      _namespace_name != nullptr ? _namespace_name : "unknown",
-                      esp_err_to_name(err));
+        LOG_E("[storage] nvs_open('%s') failed: %s",
+              _namespace_name != nullptr ? _namespace_name : "unknown",
+              esp_err_to_name(err));
         _handle = 0;
     }
 }
@@ -158,10 +160,10 @@ bool Storage::set_string(const char* key, const String& value) {
 
     const esp_err_t err = nvs_set_str(_handle, key, value.c_str());
     if (err != ESP_OK) {
-        Serial.printf("[storage] set '%s/%s' failed: %s\n",
-                      _namespace_name != nullptr ? _namespace_name : "unknown",
-                      key,
-                      esp_err_to_name(err));
+        LOG_E("[storage] set '%s/%s' failed: %s",
+              _namespace_name != nullptr ? _namespace_name : "unknown",
+              key,
+              esp_err_to_name(err));
         return false;
     }
 
@@ -211,9 +213,9 @@ bool Storage::commit() {
 
     const esp_err_t err = nvs_commit(_handle);
     if (err != ESP_OK) {
-        Serial.printf("[storage] commit '%s' failed: %s\n",
-                      _namespace_name != nullptr ? _namespace_name : "unknown",
-                      esp_err_to_name(err));
+        LOG_E("[storage] commit '%s' failed: %s",
+              _namespace_name != nullptr ? _namespace_name : "unknown",
+              esp_err_to_name(err));
         return false;
     }
 

@@ -9,6 +9,7 @@
 #include <Arduino.h>
 
 #include "bsp/board.h"
+#include "utils/logger/logger.h"
 
 namespace nm {
 
@@ -25,25 +26,25 @@ void Application::setup() {
     Serial.begin(115200);
     delay(50);
     Serial.println();
-    Serial.println("[app] BSP-first skeleton boot");
+    LOG_I("[app] BSP-first skeleton boot");
 
     _state_mutex = xSemaphoreCreateMutex();
     if (_state_mutex == nullptr) {
-        Serial.println("[app] state mutex create failed");
+        LOG_E("[app] state mutex create failed");
         return;
     }
 
     _board = &bsp::board();
     if (!_boot_service.start(*_board, _config_store, _config, _runtime, _ui_state, _events)) {
-        Serial.printf("[app] boot failed at phase=%u msg=%s\n",
-                      static_cast<unsigned>(_runtime.boot.phase),
-                      _runtime.boot.message);
+        LOG_E("[app] boot failed at phase=%u msg=%s",
+              static_cast<unsigned>(_runtime.boot.phase),
+              _runtime.boot.message);
         return;
     }
     if (!_ui_service.start(*_board, _config, _runtime, _ui_state, _events)) {
-        Serial.printf("[app] ui start failed at phase=%u msg=%s\n",
-                      static_cast<unsigned>(_runtime.boot.phase),
-                      _runtime.boot.message);
+        LOG_E("[app] ui start failed at phase=%u msg=%s",
+              static_cast<unsigned>(_runtime.boot.phase),
+              _runtime.boot.message);
         return;
     }
     _wifi_started = false;
@@ -72,7 +73,7 @@ void Application::_start_tasks() {
         &_wifi_task,
         app::kTaskCoreNet);
     if (wifi_ok != pdPASS) {
-        Serial.println("[app] failed to create wifi task");
+        LOG_E("[app] failed to create wifi task");
         return;
     }
 
@@ -85,7 +86,7 @@ void Application::_start_tasks() {
         &_app_task,
         app::kTaskCoreUi);
     if (app_ok != pdPASS) {
-        Serial.println("[app] failed to create app service task");
+        LOG_E("[app] failed to create app service task");
         if (_wifi_task != nullptr) {
             vTaskDelete(_wifi_task);
             _wifi_task = nullptr;
@@ -102,7 +103,7 @@ void Application::_start_tasks() {
         &_ui_task,
         app::kTaskCoreUi);
     if (ui_ok != pdPASS) {
-        Serial.println("[app] failed to create ui task");
+        LOG_E("[app] failed to create ui task");
         if (_app_task != nullptr) {
             vTaskDelete(_app_task);
             _app_task = nullptr;
@@ -115,8 +116,8 @@ void Application::_start_tasks() {
     }
 
     _tasks_started = true;
-    Serial.printf(
-        "[app] tasks started wifi_prio=%u app_prio=%u ui_prio=%u ui_core=%u net_core=%u\n",
+    LOG_I(
+        "[app] tasks started wifi_prio=%u app_prio=%u ui_prio=%u ui_core=%u net_core=%u",
         static_cast<unsigned>(app::kTaskPriorityWifi),
         static_cast<unsigned>(app::kTaskPriorityAppService),
         static_cast<unsigned>(app::kTaskPriorityLvgl),

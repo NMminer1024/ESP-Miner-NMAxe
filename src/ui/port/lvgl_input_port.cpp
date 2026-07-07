@@ -8,17 +8,19 @@
 
 #include <Arduino.h>
 
+#include "utils/logger/logger.h"
+
 namespace nm::ui::port {
 
 void bind_input(drivers::Touch* touch) {
     // Temporary BSP-first input stub.
     // TODO(agent): replace this with a real LVGL indev binding once touch/button input is implemented.
     if (touch == nullptr) {
-        Serial.println("[ui.port] no touch bound");
+        LOG_I("[ui.port] no touch bound");
         return;
     }
 
-    Serial.printf("[ui.port] bind touch=%s\n", touch->name());
+    LOG_I("[ui.port] bind touch=%s", touch->name());
 }
 
 }  // namespace nm::ui::port

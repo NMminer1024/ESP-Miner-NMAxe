@@ -12,6 +12,7 @@
 #include "ui/layouts/layout_resolver.h"
 #include "ui/page.h"
 #include "ui/port/ports.h"
+#include "utils/logger/logger.h"
 
 namespace nm::ui {
 
@@ -138,11 +139,11 @@ bool boot_runtime(
     }
     port::bind_input(board.drivers().touch);
 
-    Serial.printf("[ui] profile=%s layout=%u variant=%u input=%u\n",
-                  profile.profile_name,
-                  static_cast<unsigned>(profile.layout_id),
-                  static_cast<unsigned>(profile.variant_id),
-                  static_cast<unsigned>(profile.input_mode));
+    LOG_I("[ui] profile=%s layout=%u variant=%u input=%u",
+          profile.profile_name,
+          static_cast<unsigned>(profile.layout_id),
+          static_cast<unsigned>(profile.variant_id),
+          static_cast<unsigned>(profile.input_mode));
 
     if (!display_ready) {
         return false;

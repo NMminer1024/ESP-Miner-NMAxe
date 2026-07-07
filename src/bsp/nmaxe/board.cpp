@@ -25,6 +25,7 @@
 #include "hal/i2c/i2c_master.h"
 #include "hal/spi/spi_master.h"
 #include "hal/uart/uart_port.h"
+#include "utils/logger/logger.h"
 
 namespace nm::bsp::nmaxe {
 namespace {
@@ -368,7 +369,7 @@ NMAxeBoard::NMAxeBoard() {
 }
 
 void NMAxeBoard::init() {
-    Serial.printf("[bsp] init %s (%s)\n", key(), traits().board_revision);
+    LOG_I("[bsp] init %s (%s)", key(), traits().board_revision);
 
     if (drivers().display != nullptr) {
         drivers().display->init();

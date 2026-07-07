@@ -9,6 +9,8 @@
 
 #include <Arduino.h>
 
+#include "utils/logger/logger.h"
+
 namespace nm::drivers {
 
 namespace {
@@ -61,8 +63,8 @@ bool St7789Display::init() {
     _apply_rotation(_flip);
 
     const auto display_size = size();
-    Serial.printf(
-        "[display.st7789] init panel=%s size=%ux%u dc=%d rst=%d cs=%d mosi=%d miso=%d sclk=%d pwr=%d bl=%d rotation=%u offset=(%u,%u)\n",
+    LOG_I(
+        "[display.st7789] init panel=%s size=%ux%u dc=%d rst=%d cs=%d mosi=%d miso=%d sclk=%d pwr=%d bl=%d rotation=%u offset=(%u,%u)",
         name(),
         static_cast<unsigned>(display_size.width),
         static_cast<unsigned>(display_size.height),

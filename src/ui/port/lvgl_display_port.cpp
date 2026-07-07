@@ -11,6 +11,8 @@
 #include <esp_heap_caps.h>
 #include <lvgl.h>
 
+#include "utils/logger/logger.h"
+
 namespace nm::ui::port {
 
 struct LvglDisplayPortState {
@@ -56,7 +58,7 @@ static bool allocate_draw_buffer(const drivers::DisplaySize& size) {
             heap_caps_malloc(buffer_bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
     }
     if (g_display_port.buffer == nullptr) {
-        Serial.printf("[ui.port] draw buffer alloc failed bytes=%u\n", static_cast<unsigned>(buffer_bytes));
+        LOG_E("[ui.port] draw buffer alloc failed bytes=%u", static_cast<unsigned>(buffer_bytes));
         return false;
     }
 
@@ -81,7 +83,7 @@ static void flush_display(lv_disp_drv_t* driver, const lv_area_t* area, lv_color
 bool bind_display(drivers::Display& display) {
     const auto size = display.size();
     if (!display.init()) {
-        Serial.printf("[ui.port] display init failed=%s\n", display.name());
+        LOG_E("[ui.port] display init failed=%s", display.name());
         return false;
     }
 
@@ -114,10 +116,7 @@ bool bind_display(drivers::Display& display) {
     }
     g_display_port.display_ready = g_display_port.handle != nullptr;
 
-    Serial.printf("[ui.port] bind display=%s %ux%u\n",
-                  display.name(),
-                  size.width,
-                  size.height);
+    LOG_I("[ui.port] bind display=%s %ux%u", display.name(), size.width, size.height);
 
     return g_display_port.display_ready;
 }

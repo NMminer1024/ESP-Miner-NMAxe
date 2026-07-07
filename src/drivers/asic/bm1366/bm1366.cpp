@@ -10,6 +10,8 @@
 #include <Arduino.h>
 #include <string.h>
 
+#include "utils/logger/logger.h"
+
 namespace nm::drivers {
 
 namespace {
@@ -69,8 +71,8 @@ bool Bm1366Asic::init() {
     _configure_reset_pin();
     _clear_port_cache();
 
-    Serial.printf(
-        "[asic.bm1366] transport ready name=%s init_baud=%lu work_baud=%lu rx=%d tx=%d rst=%d\n",
+    LOG_I(
+        "[asic.bm1366] transport ready name=%s init_baud=%lu work_baud=%lu rx=%d tx=%d rst=%d",
         name(),
         static_cast<unsigned long>(_config.init_baud),
         static_cast<unsigned long>(_config.work_baud),
@@ -121,7 +123,7 @@ uint8_t Bm1366Asic::probe_count() {
     }
 
     _status.detected_asic_count = chip_counter;
-    Serial.printf("[asic.bm1366] probe detected=%u\n", static_cast<unsigned>(chip_counter));
+    LOG_I("[asic.bm1366] probe detected=%u", static_cast<unsigned>(chip_counter));
     return chip_counter;
 }
 

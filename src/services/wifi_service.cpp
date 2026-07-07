@@ -7,6 +7,8 @@
 #include <WiFi.h>
 #include <stdio.h>
 
+#include "utils/logger/logger.h"
+
 namespace nm::services {
 
 namespace {
@@ -73,7 +75,7 @@ void WifiService::poll() {
 
         case Stage::StaDelay:
             if (millis() >= _connect_after_ms) {
-                Serial.printf("[wifi] Try to connect [%s]...\n", _config->network.sta_ssid.c_str());
+                LOG_I("[wifi] Try to connect [%s]...", _config->network.sta_ssid.c_str());
                 WiFi.begin(_config->network.sta_ssid.c_str(), _config->network.sta_password.c_str());
                 _stage = Stage::StaConnecting;
                 _stage_started_ms = millis();
@@ -94,7 +96,7 @@ void WifiService::poll() {
 
             if (_last_retry_log_ms == 0 || (now_ms - _last_retry_log_ms) >= kRetryLogPeriodMs) {
                 const uint32_t elapsed_s = (now_ms - _stage_started_ms) / 1000u;
-                Serial.printf("[wifi] Try to connect [%s] %us...\n", _config->network.sta_ssid.c_str(), elapsed_s);
+                LOG_I("[wifi] Try to connect [%s] %us...", _config->network.sta_ssid.c_str(), elapsed_s);
                 _last_retry_log_ms = now_ms;
             }
 
@@ -148,7 +150,7 @@ void WifiService::_start_sta() {
     _events->set(system::Event::NetworkStateChanged);
 
     const uint16_t random_delay_ms = static_cast<uint16_t>(random(0, 1000 * 8));
-    Serial.printf("[wifi] Initializing WiFi, delay: %ums...\n", random_delay_ms);
+    LOG_I("[wifi] Initializing WiFi, delay: %ums...", random_delay_ms);
     _connect_after_ms = _stage_started_ms + random_delay_ms;
     _stage = Stage::StaDelay;
 }
@@ -161,7 +163,7 @@ void WifiService::_start_ap() {
     const char* ap_ssid = !_config->network.ap_ssid.isEmpty()
         ? _config->network.ap_ssid.c_str()
         : _config->network.hostname.c_str();
-    Serial.printf("[wifi] Set softAP [%s]...\n", ap_ssid);
+    LOG_I("[wifi] Set softAP [%s]...", ap_ssid);
     WiFi.mode(WIFI_AP);
     WiFi.softAP(ap_ssid);
     WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
@@ -195,16 +197,16 @@ void WifiService::_publish_sta_connected() {
     copy_ip(_runtime->network.subnet, sizeof(_runtime->network.subnet), WiFi.subnetMask());
     copy_ip(_runtime->network.dns, sizeof(_runtime->network.dns), WiFi.dnsIP());
 
-    Serial.println("[wifi] ------------------------------------");
-    Serial.printf("[wifi] SSID     : %s\n", WiFi.SSID().c_str());
-    Serial.printf("[wifi] IP       : %s\n", WiFi.localIP().toString().c_str());
-    Serial.printf("[wifi] RSSI     : %d dBm\n", WiFi.RSSI());
-    Serial.printf("[wifi] Channel  : %d\n", WiFi.channel());
-    Serial.printf("[wifi] Gateway  : %s\n", WiFi.gatewayIP().toString().c_str());
-    Serial.printf("[wifi] Subnet   : %s\n", WiFi.subnetMask().toString().c_str());
-    Serial.printf("[wifi] MAC      : %s\n", WiFi.macAddress().c_str());
-    Serial.printf("[wifi] Hostname : %s\n", WiFi.getHostname());
-    Serial.println("[wifi] ------------------------------------");
+    LOG_I("[wifi] ------------------------------------");
+    LOG_I("[wifi] SSID     : %s", WiFi.SSID().c_str());
+    LOG_I("[wifi] IP       : %s", WiFi.localIP().toString().c_str());
+    LOG_I("[wifi] RSSI     : %d dBm", WiFi.RSSI());
+    LOG_I("[wifi] Channel  : %d", WiFi.channel());
+    LOG_I("[wifi] Gateway  : %s", WiFi.gatewayIP().toString().c_str());
+    LOG_I("[wifi] Subnet   : %s", WiFi.subnetMask().toString().c_str());
+    LOG_I("[wifi] MAC      : %s", WiFi.macAddress().c_str());
+    LOG_I("[wifi] Hostname : %s", WiFi.getHostname());
+    LOG_I("[wifi] ------------------------------------");
 
     _events->set(system::Event::NetworkStateChanged);
 }
