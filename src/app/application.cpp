@@ -49,6 +49,7 @@ void Application::setup() {
     }
     _wifi_started = false;
     _stratum_started = false;
+    _asic_mining_started = false;
     _services_started = false;
     _boot_slide_complete = false;
     _initialized = true;
@@ -160,6 +161,10 @@ void Application::_run_app_once() {
         if (!_boot_slide_complete) {
             switch (_runtime.mining.phase) {
                 case state::MiningPhase::Running:
+                    if (!_asic_mining_started) {
+                        _asic_mining_service.start(*_board, _config, _runtime, _events, _stratum_service);
+                        _asic_mining_started = _asic_mining_service.started();
+                    }
                     _ui_state.current_page = state::UiPageId::Miner;
                     _ui_state.dirty = true;
                     _boot_slide_complete = true;
@@ -219,6 +224,10 @@ void Application::_run_app_once() {
                         _runtime.mining.phase = state::MiningPhase::Running;
                         _runtime.mining.message = "running";
                         _runtime.mining.last_transition_ms = millis();
+                        if (!_asic_mining_started) {
+                            _asic_mining_service.start(*_board, _config, _runtime, _events, _stratum_service);
+                            _asic_mining_started = _asic_mining_service.started();
+                        }
                         _runtime.boot.phase = state::BootPhase::Ready;
                         _ui_state.current_page = state::UiPageId::Miner;
                         _ui_state.dirty = true;

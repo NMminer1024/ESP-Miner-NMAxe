@@ -14,6 +14,7 @@
 #include "config/app_config.h"
 #include "config/config_store.h"
 #include "services/boot_service.h"
+#include "services/asic_mining_service.h"
 #include "services/mining_service.h"
 #include "services/monitor_service.h"
 #include "services/stratum_service.h"
@@ -60,6 +61,7 @@ private:
     bool _services_started = false;
     bool _wifi_started = false;
     bool _stratum_started = false;
+    bool _asic_mining_started = false;
     bool _boot_slide_complete = false;
     SemaphoreHandle_t _state_mutex = nullptr;
     TaskHandle_t _app_task = nullptr;
@@ -71,6 +73,7 @@ private:
     state::UiState _ui_state{};
     system::EventFlags _events{};
     services::BootService _boot_service{};
+    services::AsicMiningService _asic_mining_service{};
     services::MiningService _mining_service{};
     services::MonitorService _monitor_service{};
     services::StratumService _stratum_service{};

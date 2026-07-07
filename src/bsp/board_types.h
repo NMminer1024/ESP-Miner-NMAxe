@@ -115,6 +115,7 @@ struct MiningProfile {
     ChainTopology chain_topology = ChainTopology::Single;
     uint16_t default_freq_mhz = 0;
     uint16_t default_vcore_mv = 0;
+    uint32_t initial_difficulty = 0;
     uint32_t job_interval_ms = 0;
     uint32_t expected_hashrate_ghs = 0;
 };

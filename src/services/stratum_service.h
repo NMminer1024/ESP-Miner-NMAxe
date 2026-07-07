@@ -124,6 +124,7 @@ private:
     static void _task_entry(void* args);
 
     mutable SemaphoreHandle_t _mutex = nullptr;
+    SemaphoreHandle_t _write_mutex = nullptr;
     SemaphoreHandle_t _new_job_sem = nullptr;
     SemaphoreHandle_t _clear_job_sem = nullptr;
     TaskHandle_t _task = nullptr;

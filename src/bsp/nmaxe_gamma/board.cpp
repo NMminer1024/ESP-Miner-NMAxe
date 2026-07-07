@@ -355,6 +355,7 @@ const MiningProfile& board_mining_profile() {
         profile.chain_topology = ChainTopology::Single;
         profile.default_freq_mhz = 600;
         profile.default_vcore_mv = 1125;
+        profile.initial_difficulty = 64;
         profile.job_interval_ms = 500;
         profile.expected_hashrate_ghs = 1200;
         initialized = true;

@@ -47,6 +47,14 @@ struct MiningState {
     uint16_t target_freq_mhz = 0;
     uint16_t applied_freq_mhz = 0;
     uint32_t last_transition_ms = 0;
+    bool asic_mining_started = false;
+    uint32_t asic_job_counter = 0;
+    uint32_t asic_nonce_counter = 0;
+    uint32_t last_asic_nonce_ms = 0;
+    double diff_last = 0.0;
+    double diff_pool = 0.0;
+    double diff_network = 0.0;
+    double diff_best_session = 0.0;
 };
 
 }  // namespace nm::state

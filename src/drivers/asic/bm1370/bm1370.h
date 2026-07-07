@@ -39,7 +39,12 @@ public:
 
     bool init() override;
     uint8_t probe_count() override;
-    bool bringup(uint16_t target_freq_mhz, uint8_t expected_asic_count) override;
+    bool bringup(uint16_t target_freq_mhz, uint8_t expected_asic_count, uint32_t initial_difficulty) override;
+    uint32_t set_job_difficulty(uint32_t difficulty) override;
+    uint32_t current_difficulty() const override { return _difficulty_current; }
+    bool send_work(const AsicJob& job) override;
+    esp_err_t wait_for_result(MinerResult& result, uint32_t timeout_ms) override;
+    bool clear_port_cache() override;
     const char* name() const override { return _name; }
     AsicStatus status() const override { return _status; }
 
@@ -51,16 +56,22 @@ private:
     void _reset_chip();
     bool _configure_uart();
     void _configure_reset_pin();
-    void _clear_port_cache();
     size_t _send_raw(const uint8_t* data, size_t size);
     size_t _receive(uint8_t* data, size_t size, uint32_t timeout_ms);
     void _send_command_packet(uint8_t header, const uint8_t* data, uint8_t size);
+    void _send_packet(uint8_t header, const uint8_t* data, uint8_t size);
+    void _set_chain_inactive();
+    void _set_chip_address(uint8_t address);
     void _set_version_mask(uint32_t version_mask);
+    bool _set_hash_frequency(float target_freq_mhz, float max_diff);
+    bool _set_frequency(float current_freq_mhz, float target_freq_mhz);
+    void _change_uart_baud(uint32_t baudrate);
 
     const char* _name = "bm1370";
     Bm1370UartConfig _config{};
     AsicStatus _status{};
     bool _initialized = false;
+    uint32_t _difficulty_current = 0;
 };
 
 }  // namespace nm::drivers

@@ -47,13 +47,16 @@ void StratumService::start(const bsp::Board& board, const config::AppConfig& con
     if (_mutex == nullptr) {
         _mutex = xSemaphoreCreateMutex();
     }
+    if (_write_mutex == nullptr) {
+        _write_mutex = xSemaphoreCreateMutex();
+    }
     if (_new_job_sem == nullptr) {
         _new_job_sem = xSemaphoreCreateCounting(1, 0);
     }
     if (_clear_job_sem == nullptr) {
         _clear_job_sem = xSemaphoreCreateCounting(1, 0);
     }
-    if (_mutex == nullptr || _new_job_sem == nullptr || _clear_job_sem == nullptr) {
+    if (_mutex == nullptr || _write_mutex == nullptr || _new_job_sem == nullptr || _clear_job_sem == nullptr) {
         LOG_E("[stratum] sync primitive create failed");
         return;
     }
@@ -409,11 +412,19 @@ bool StratumService::_connect_pool(const Endpoint& endpoint) {
 }
 
 bool StratumService::_send_line(const String& line) {
+    if (_write_mutex != nullptr) {
+        xSemaphoreTake(_write_mutex, portMAX_DELAY);
+    }
     if (_client == nullptr || !_client->connected()) {
+        if (_write_mutex != nullptr) {
+            xSemaphoreGive(_write_mutex);
+        }
         return false;
     }
-
     const size_t written = _client->print(line);
+    if (_write_mutex != nullptr) {
+        xSemaphoreGive(_write_mutex);
+    }
     if (written > 0) {
         _last_write_ms = millis();
         if (_mutex != nullptr && xSemaphoreTake(_mutex, portMAX_DELAY) == pdTRUE) {
@@ -748,6 +759,7 @@ void StratumService::_handle_response(DynamicJsonDocument& doc, const String& ra
     } else if (pending.method == "mining.submit") {
         const uint32_t latency = millis() - pending.stamp_ms;
         const bool accepted = !has_error && (doc["result"] | false);
+        uint32_t total_shares = 0;
         if (_mutex != nullptr && xSemaphoreTake(_mutex, portMAX_DELAY) == pdTRUE) {
             _telemetry.last_share_latency_ms = latency;
             if (accepted) {
@@ -755,17 +767,18 @@ void StratumService::_handle_response(DynamicJsonDocument& doc, const String& ra
             } else {
                 ++_telemetry.share_rejected;
             }
+            total_shares = _telemetry.share_accepted + _telemetry.share_rejected;
             _telemetry.last_update_ms = millis();
             _pending.erase(static_cast<uint32_t>(id));
             xSemaphoreGive(_mutex);
         }
         if (accepted) {
-            LOG_L("[stratum] #%lu share accepted, %lums",
-                  static_cast<unsigned long>(_telemetry.share_accepted + _telemetry.share_rejected),
+            LOG_L("#%lu share accepted, %lums",
+                  static_cast<unsigned long>(total_shares),
                   static_cast<unsigned long>(latency));
         } else {
-            LOG_E("[stratum] #%lu share rejected, %lums, %s",
-                  static_cast<unsigned long>(_telemetry.share_accepted + _telemetry.share_rejected),
+            LOG_E("#%lu share rejected, %lums, %s",
+                  static_cast<unsigned long>(total_shares),
                   static_cast<unsigned long>(latency),
                   _parse_stratum_error(raw).c_str());
         }

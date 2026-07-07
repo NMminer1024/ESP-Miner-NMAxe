@@ -398,7 +398,8 @@ void MiningService::poll() {
         case state::MiningPhase::Bringup:
             if (!_board->drivers().asic->bringup(
                     _config->mining.target_freq_mhz,
-                    _runtime->mining.detected_asic_count)) {
+                    _runtime->mining.detected_asic_count,
+                    _board->mining_profile().initial_difficulty)) {
                 _fail("asic bringup failed");
                 break;
             }
