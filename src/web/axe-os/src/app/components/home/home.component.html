@@ -1,0 +1,294 @@
+<ng-template #loading>
+  <h4>Loading...</h4>
+</ng-template>
+<ng-container>
+  <div class="dashboard-home" *ngIf="info$ | async as info; else loading">
+    
+    <!-- Main Statistics Cards -->
+    <div class="main-stats">
+      <div class="stat-card hashrate-card">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-content">
+          <div class="stat-label">Hash Rate</div>
+          <div class="stat-value hashrate-value">
+            <span class="hashrate-number">{{ info.hashRate | number: '1.2-2' }}</span>
+            <span class="hashrate-unit">GH/s</span>
+          </div>
+          <ng-container *ngIf="expectedHashRate$ | async as expectedHashRate">
+            <div class="stat-sub">Expected: {{ expectedHashRate }} GH/s</div>
+          </ng-container>
+        </div>
+      </div>
+
+      <div class="stat-card shares-card">
+        <div class="latency-badge"
+             *ngIf="latency$ | async as lat"
+             [class.latency-good]="lat < 100"
+             [class.latency-fair]="lat >= 100 && lat < 200"
+             [class.latency-poor]="lat >= 200">{{ lat }} ms</div>
+        <div class="stat-icon">📊</div>
+        <div class="stat-content">
+          <div class="stat-label">Shares</div>
+          <div class="stat-value">{{ info.sharesAccepted }}</div>
+          <div class="stat-sub rejected">Rejected: {{ info.sharesRejected }}</div>
+        </div>
+      </div>
+
+      <div class="stat-card efficiency-card">
+        <div class="stat-icon">⚙️</div>
+        <div class="stat-content">
+          <div class="stat-label">Efficiency</div>
+          <div class="stat-value">{{ info.hashRate ? ((info.power_w || 0) / (info.hashRate / 1000) | number: '1.2-2') : '--' }}</div>
+          <div class="stat-unit">J/TH</div>
+        </div>
+      </div>
+
+      <div class="stat-card difficulty-card">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-content">
+          <div class="stat-label">Best Difficulty</div>
+          <div class="stat-value difficulty-value">
+            <span class="session-diff">{{ info.bestSessionDiff }}</span>
+            <span class="diff-separator"> / </span>
+            <span class="alltime-diff">{{ info.bestDiff }}</span>
+          </div>
+          <div class="stat-unit">session / all-time</div>
+        </div>
+      </div>
+    </div>
+
+    
+    <!-- Charts Section - Side by Side Layout -->
+    <div class="charts-grid">
+      <div class="chart-section">
+        <app-monitor></app-monitor>
+      </div>
+
+      <div class="chart-section">
+        <app-hr-dist-chart></app-hr-dist-chart>
+      </div>
+    </div>
+
+    <!-- Lucky Chart Section - Full Width -->
+    <div class="lucky-chart-section">
+      <app-lucky-chart></app-lucky-chart>
+    </div>
+
+    <!-- Secondary Stats Grid -->
+    <div class="secondary-stats">
+      <div class="power-card">
+        <h5>⚡ Power</h5>
+        <div class="power-grid" *ngIf="gaugeLimits">
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="130" height="130">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.voltage, gaugeLimits.power.vbus.min, gaugeLimits.power.vbus.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.voltage, gaugeLimits.power.vbus.min, gaugeLimits.power.vbus.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.voltage}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">V</text>
+            </svg>
+            <div class="mg-label">Voltage</div>
+            <span class="danger" *ngIf="isWarning(info.voltage, gaugeLimits.power.vbus.max)">⚠️ High</span>
+          </div>
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="130" height="130">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.current, gaugeLimits.power.ibus.min, gaugeLimits.power.ibus.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.current, gaugeLimits.power.ibus.min, gaugeLimits.power.ibus.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.current}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">A</text>
+            </svg>
+            <div class="mg-label">Current</div>
+            <span class="danger" *ngIf="isWarning(info.current, gaugeLimits.power.ibus.max)">⚠️ High</span>
+          </div>
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="130" height="130">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.power_w, gaugeLimits.power.power.min, gaugeLimits.power.power.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.power_w, gaugeLimits.power.power.min, gaugeLimits.power.power.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.power_w}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">W</text>
+            </svg>
+            <div class="mg-label">Power</div>
+            <span class="danger" *ngIf="isWarning(info.power_w, gaugeLimits.power.power.max)">⚠️ High</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="heat-card">
+        <h5>🌡️ Heat</h5>
+        <div class="heat-grid" *ngIf="gaugeLimits">
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.temp, gaugeLimits.heat.asic.min, gaugeLimits.heat.asic.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.temp, gaugeLimits.heat.asic.min, gaugeLimits.heat.asic.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.temp}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">°C</text>
+            </svg>
+            <div class="mg-label">ASIC Temp</div>
+            <span class="danger" *ngIf="info.temp && isWarning(info.temp, gaugeLimits.heat.asic.max)">⚠️ High</span>
+          </div>
+          <div class="mg-item" *ngIf="info.vrTemp && info.vrTemp > 0">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.vrTemp, gaugeLimits.heat.vcore.min, gaugeLimits.heat.vcore.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.vrTemp, gaugeLimits.heat.vcore.min, gaugeLimits.heat.vcore.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.vrTemp}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">°C</text>
+            </svg>
+            <div class="mg-label">Vcore Temp</div>
+            <span class="danger" *ngIf="info.vrTemp && isWarning(info.vrTemp, gaugeLimits.heat.vcore.max)">⚠️ High</span>
+          </div>
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.fanrpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.fanrpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.fanrpm}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">rpm</text>
+            </svg>
+            <div class="mg-label">ASIC Fan</div>
+          </div>
+          <div class="mg-item" *ngIf="info.vcoreFanRpm !== undefined">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.vcoreFanRpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.vcoreFanRpm, gaugeLimits.heat.fan.min, gaugeLimits.heat.fan.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.vcoreFanRpm}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">rpm</text>
+            </svg>
+            <div class="mg-label">Vcore Fan</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="performance-card">
+        <h5>🚀 Performance</h5>
+        <div class="performance-grid" *ngIf="gaugeLimits">
+          <div class="mg-item">
+            <svg viewBox="0 0 100 100" class="mg-svg" width="120" height="120">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+              <circle cx="50" cy="50" r="44" fill="none"
+                      [attr.stroke]="gaugeColor(info.frequency, gaugeLimits.performance.asic_freq_req.min, gaugeLimits.performance.asic_freq_req.max)"
+                      stroke-width="6" stroke-linecap="round"
+                      [attr.stroke-dasharray]="gaugeArc(info.frequency, gaugeLimits.performance.asic_freq_req.min, gaugeLimits.performance.asic_freq_req.max)"
+                      stroke-dashoffset="-103.67" class="mg-arc"/>
+              <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.frequency}}</text>
+              <text x="50" y="64" text-anchor="middle" class="mg-unit">MHz</text>
+            </svg>
+            <div class="mg-label">ASIC Clock</div>
+            <span class="danger" *ngIf="isWarning(info.frequency, gaugeLimits.performance.asic_freq_req.max)">⚠️ High</span>
+          </div>
+          <div class="voltage-comparison">
+            <div class="voltage-item">
+              <svg viewBox="0 0 100 100" class="mg-svg" width="100" height="100">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+                <circle cx="50" cy="50" r="44" fill="none"
+                        [attr.stroke]="gaugeColor(info.coreVoltage, gaugeLimits.performance.vcore_req.min, gaugeLimits.performance.vcore_req.max)"
+                        stroke-width="6" stroke-linecap="round"
+                        [attr.stroke-dasharray]="gaugeArc(info.coreVoltage, gaugeLimits.performance.vcore_req.min, gaugeLimits.performance.vcore_req.max)"
+                        stroke-dashoffset="-103.67" class="mg-arc"/>
+                <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.coreVoltage | number:'1.3-3'}}</text>
+                <text x="50" y="64" text-anchor="middle" class="mg-unit">V</text>
+              </svg>
+              <div class="voltage-label">Requested</div>
+              <span class="danger" *ngIf="isWarning(info.coreVoltage, gaugeLimits.performance.vcore_req.max)">⚠️ High</span>
+            </div>
+            <div class="voltage-vs">VS</div>
+            <div class="voltage-item">
+              <svg viewBox="0 0 100 100" class="mg-svg" width="100" height="100">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="#1e2433" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35 69.11" stroke-dashoffset="-103.67"/>
+                <circle cx="50" cy="50" r="44" fill="none"
+                        [attr.stroke]="gaugeColor(info.coreVoltageActual, gaugeLimits.performance.vcore_measure.min, gaugeLimits.performance.vcore_measure.max)"
+                        stroke-width="6" stroke-linecap="round"
+                        [attr.stroke-dasharray]="gaugeArc(info.coreVoltageActual, gaugeLimits.performance.vcore_measure.min, gaugeLimits.performance.vcore_measure.max)"
+                        stroke-dashoffset="-103.67" class="mg-arc"/>
+                <text x="50" y="47" text-anchor="middle" dominant-baseline="middle" class="mg-val">{{info.coreVoltageActual | number:'1.3-3'}}</text>
+                <text x="50" y="64" text-anchor="middle" class="mg-unit">V</text>
+              </svg>
+              <div class="voltage-label">Measured</div>
+              <span class="danger" *ngIf="isWarning(info.coreVoltageActual, gaugeLimits.performance.vcore_measure.max)">⚠️ High</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Device Information -->
+    <div class="device-info">
+      <div class="info-card combined-info">
+        <h5>📋 Overview</h5>
+        <div class="info-sections">
+          <div class="info-section">
+            <h6>🌐 Pool</h6>
+            <table class="info-table" *ngIf="info$ | async as info; else loading">
+              <tr *ngIf="quickLink$ | async as quickLink">
+                <td class="label">Quick Link:</td>
+                <td class="value">
+                  <a class="pool-link" [href]="quickLink" target="_blank">{{ quickLink }}</a>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">Pool:</td>
+                <td class="value">{{ info.stratumURLUSED }}</td>
+              </tr>
+              <tr>
+                <td class="label">User:</td>
+                <td class="value">{{ info.stratumUserUSED }}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div class="info-section">
+            <h6>⚙️ System</h6>
+            <table class="info-table" *ngIf="info$ | async as info">
+              <tr>
+                <td class="label">ASIC Model:</td>
+                <td class="value">{{ info.ASICModel }}</td>
+              </tr>
+              <tr>
+                <td class="label">Session Uptime:</td>
+                <td class="value">{{ info.uptimeSeconds | dateAgo }}</td>
+              </tr>
+              <tr>
+                <td class="label">Free Memory:</td>
+                <td class="value">{{ ((info.freeHeap || 0) / 1024) | number: '1.0-0' }} KB<span class="sha-suffix">/ {{ ((info.minFreeHeap || 0) / 1024) | number: '1.0-0' }} KB</span></td>
+              </tr>
+              <tr>
+                <td class="label">Firmware Version:</td>
+                <td class="value">{{ info.version }}<span *ngIf="info.appSha256" class="sha-suffix">/{{ info.appSha256 }}</span></td>
+              </tr>
+              <tr>
+                <td class="label">Hardware Model:</td>
+                <td class="value">{{ info.boardVersion }}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</ng-container>

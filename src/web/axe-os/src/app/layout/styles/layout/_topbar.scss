@@ -1,0 +1,540 @@
+.layout-topbar {
+    position: fixed;
+    height: 5rem;
+    z-index: 997;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0 2rem;
+    background: linear-gradient(135deg, #2a2a2a, #3a3a3a) !important;
+    transition: left $transitionDuration;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2) !important;
+    border-bottom: 1px solid #404040;
+
+    .layout-topbar-logo {
+        display: flex;
+        align-items: center;
+        color: #ffffff !important;
+        font-size: 1.75rem;
+        font-weight: 700;
+        width: 280px;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        background: transparent !important;
+        border: none !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        transition: all 0.3s ease;
+        letter-spacing: 0.5px;
+
+        img {
+            height: 2.5rem;
+            margin-right: 1rem;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+
+        &:focus {
+            outline: none;
+        }
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.03) !important; // 更淡的hover效果
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+    }
+
+    .layout-topbar-button {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        color: #ffffff !important;
+        border-radius: 12px;
+        width: 3rem;
+        height: 3rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        i {
+            font-size: 1.5rem;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+        }
+
+        span {
+            font-size: 1rem;
+            display: none;
+        }
+    }
+
+    .layout-menu-button {
+        margin-left: 2rem;
+    }
+
+    .layout-topbar-menu-button {
+        display: none;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+
+        i {
+            font-size: 1.25rem;
+            color: #ffffff !important;
+        }
+
+        &:hover {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.2);
+
+            i {
+                color: #4CAF50 !important;
+            }
+        }
+    }
+
+    // Pool / wallet / RSSI info — absolutely centered in the topbar
+    .topbar-pool-info {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        pointer-events: none;
+
+        .info-item {
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.55);
+            cursor: default;
+            white-space: nowrap;
+            transition: color 0.2s ease;
+
+            i {
+                font-size: 11px;
+                opacity: 0.7;
+            }
+
+            &:hover {
+                color: rgba(255, 255, 255, 0.85);
+            }
+        }
+
+        .info-divider {
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 12px;
+            user-select: none;
+        }
+
+        .rssi-item {
+            &.rssi-good  { color: rgba(76, 175, 80, 0.75); }
+            &.rssi-fair  { color: rgba(255, 193, 7, 0.75); }
+            &.rssi-poor  { color: rgba(255, 107, 107, 0.75); }
+        }
+    }
+
+    .layout-topbar-menu {
+        margin: 0 0 0 auto;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        .mining-control-btn {
+            background: rgba(76, 175, 80, 0.1) !important;
+            border: 1px solid rgba(76, 175, 80, 0.3) !important;
+            color: #4CAF50 !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            transition: all 0.3s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 6px !important;
+            height: 2.5rem !important;
+            min-width: 120px !important;
+            margin: 0 !important;
+
+            &.paused {
+                background: rgba(33, 150, 243, 0.1) !important;
+                border-color: rgba(33, 150, 243, 0.3) !important;
+                color: #42A5F5 !important;
+            }
+
+            &.busy,
+            &:disabled {
+                opacity: 0.65 !important;
+                cursor: wait !important;
+                transform: none !important;
+            }
+
+            &:hover:not(:disabled) {
+                background: rgba(76, 175, 80, 0.2) !important;
+                border: 1px solid rgba(76, 175, 80, 0.5) !important;
+                color: #66BB6A !important;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+            }
+
+            &.paused:hover:not(:disabled) {
+                background: rgba(33, 150, 243, 0.2) !important;
+                border-color: rgba(33, 150, 243, 0.5) !important;
+                color: #64B5F6 !important;
+                box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3) !important;
+            }
+
+            &:focus {
+                outline: none !important;
+                box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3) !important;
+            }
+
+            &:active:not(:disabled) {
+                transform: translateY(0px);
+                box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3) !important;
+            }
+        }
+
+        .clear-hits-btn {
+            background: rgba(255, 193, 7, 0.1) !important;
+            border: 1px solid rgba(255, 193, 7, 0.3) !important;
+            color: #ffc107 !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            transition: all 0.3s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            height: 2.5rem !important;
+            min-width: 120px !important;
+            margin: 0 !important;
+
+            &:hover {
+                background: rgba(255, 193, 7, 0.2) !important;
+                border: 1px solid rgba(255, 193, 7, 0.5) !important;
+                color: #ffb300 !important;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3) !important;
+            }
+
+            &:focus {
+                outline: none !important;
+                box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.3) !important;
+            }
+
+            &:active {
+                transform: translateY(0px);
+                box-shadow: 0 2px 6px rgba(255, 193, 7, 0.3) !important;
+            }
+        }
+
+        .restart-text-btn {
+            background: rgba(255, 107, 107, 0.1) !important;
+            border: 1px solid rgba(255, 107, 107, 0.3) !important;
+            color: #ff6b6b !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            transition: all 0.3s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            height: 2.5rem !important;
+            min-width: 80px !important;
+            margin: 0 !important;
+
+            &:hover {
+                background: rgba(255, 107, 107, 0.2) !important;
+                border: 1px solid rgba(255, 107, 107, 0.5) !important;
+                color: #ff5252 !important;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3) !important;
+            }
+
+            &:focus {
+                outline: none !important;
+                box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.3) !important;
+            }
+
+            &:active {
+                transform: translateY(0px);
+                box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3) !important;
+            }
+        }
+
+        .layout-topbar-button {
+            margin-left: 0;
+        }
+    }
+}
+
+@media (max-width: 991px) {
+    .layout-topbar {
+        height: auto;
+        min-height: 5rem;
+        flex-wrap: wrap;
+        align-content: center;
+        padding: 0 1rem 0.4rem;
+
+        .topbar-pool-info {
+            position: static !important;
+            transform: none !important;
+            order: 10;
+            width: 100%;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: 0.15rem;
+            pointer-events: all;
+            overflow: hidden;
+
+            .info-item {
+                font-size: 11px !important;
+                min-width: 0;
+                flex-shrink: 1;
+
+                span {
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    min-width: 0;
+                }
+            }
+
+            .pool-url-item {
+                flex: 1 1 auto;
+                max-width: 35%;
+            }
+
+            .wallet-item {
+                flex: 2 1 auto;
+                max-width: 42%;
+            }
+
+            .rssi-item {
+                flex: 0 0 auto;
+            }
+
+            .info-divider {
+                font-size: 11px !important;
+                flex: 0 0 auto;
+            }
+        }
+
+        .layout-topbar-logo {
+            width: auto;
+            order: 2;
+            font-size: 1.5rem;
+            padding: 0.5rem;
+            
+            .header-text span {
+                font-size: 3rem !important;
+            }
+            
+            .header-text .os {
+                font-size: 2.5rem !important;
+            }
+        }
+
+        .layout-menu-button {
+            margin-left: 0;
+            order: 1;
+        }
+
+        .layout-topbar-menu-button {
+            display: inline-flex;
+            margin-left: 0;
+            order: 3;
+        }
+
+        .layout-topbar-menu {
+            margin-left: auto;
+            order: 3;
+            padding: 0 !important;
+            right: auto !important;
+            top: auto !important;
+            min-width: auto !important;
+
+            .mining-control-btn {
+                width: auto !important;
+                justify-content: center !important;
+                border-radius: 6px !important;
+                padding: 6px 12px !important;
+                margin-bottom: 0 !important;
+                font-size: 12px !important;
+                height: 2rem !important;
+                min-width: 92px !important;
+                display: flex !important;
+            }
+
+            .clear-hits-btn {
+                width: auto !important;
+                justify-content: center !important;
+                border-radius: 6px !important;
+                padding: 6px 12px !important;
+                margin-bottom: 0 !important;
+                font-size: 12px !important;
+                height: 2rem !important;
+                min-width: 80px !important;
+                display: flex !important;
+            }
+
+            .restart-text-btn {
+                width: auto !important;
+                justify-content: center !important;
+                border-radius: 6px !important;
+                padding: 6px 12px !important;
+                margin-bottom: 0 !important;
+                font-size: 12px !important;
+                height: 2rem !important;
+                min-width: 60px !important;
+                display: flex !important;
+            }
+
+            .layout-topbar-button {
+                margin-left: 0;
+                display: flex;
+                width: auto;
+                height: auto;
+                justify-content: flex-start;
+                border-radius: 12px;
+                padding: 1rem;
+
+                i {
+                    font-size: 1rem;
+                    margin-right: .5rem;
+                }
+
+                span {
+                    font-weight: medium;
+                    display: block;
+                }
+            }
+        }
+    }
+}
+
+// iPad 横屏模式优化 - 确保菜单按钮始终可见
+@media (min-width: 768px) and (max-width: 1400px) and (orientation: landscape) {
+    .layout-topbar {
+        .layout-menu-button {
+            display: inline-flex !important;
+            visibility: visible !important;
+            margin-left: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            
+            &:hover {
+                background: rgba(76, 175, 80, 0.1);
+                border: 1px solid rgba(76, 175, 80, 0.2);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+
+                i {
+                    color: #4CAF50 !important;
+                }
+            }
+            
+            i {
+                font-size: 1.25rem;
+                color: #ffffff !important;
+                transition: all 0.3s ease;
+            }
+        }
+
+        .layout-topbar-logo {
+            width: auto;
+            font-size: 1.6rem;
+            padding: 0.5rem 1rem;
+            margin-right: 0.5rem;
+            
+            .header-text span {
+                font-size: 3.5rem !important;
+            }
+            
+            .header-text .os {
+                font-size: 2.75rem !important;
+            }
+        }
+
+        .layout-topbar-menu {
+            .mining-control-btn {
+                padding: 6px 14px !important;
+                font-size: 13px !important;
+                height: 2.25rem !important;
+                min-width: 105px !important;
+            }
+
+            .clear-hits-btn {
+                padding: 6px 14px !important;
+                font-size: 13px !important;
+                height: 2.25rem !important;
+                min-width: 90px !important;
+            }
+
+            .restart-text-btn {
+                padding: 6px 14px !important;
+                font-size: 13px !important;
+                height: 2.25rem !important;
+                min-width: 70px !important;
+            }
+        }
+    }
+}
+
+@media (max-width: 576px) {
+    .layout-topbar {
+        padding: 0 0.75rem 0.4rem;
+
+        .layout-topbar-logo {
+            .header-text span {
+                font-size: 2.8rem !important;
+            }
+
+            .header-text .os {
+                font-size: 2.3rem !important;
+            }
+        }
+
+        .layout-topbar-menu {
+            .mining-control-btn {
+                font-size: 11px !important;
+                padding: 5px 10px !important;
+                height: 1.85rem !important;
+                min-width: 92px !important;
+                border-radius: 5px !important;
+            }
+
+            .clear-hits-btn {
+                font-size: 11px !important;
+                padding: 5px 10px !important;
+                height: 1.85rem !important;
+                min-width: 85px !important;
+                border-radius: 5px !important;
+            }
+
+            .restart-text-btn {
+                font-size: 11px !important;
+                padding: 5px 10px !important;
+                height: 1.85rem !important;
+                min-width: 60px !important;
+                border-radius: 5px !important;
+            }
+        }
+    }
+}

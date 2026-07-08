@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AxeOS API Reference</title>
+  <style>
+    /* ── Reset & base ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #070D17;
+      --surface:   #1f2d40;
+      --surface2:  #283951;
+      --border:    #304562;
+      --text:      rgba(255,255,255,0.87);
+      --text-muted:rgba(255,255,255,0.55);
+      --primary:   #f80421;
+      --primary-lt:#ff3348;
+      --get:       #0d9e6e;
+      --post:      #c47d05;
+      --patch:     #1a6fc4;
+      --delete:    #b91c1c;
+      --ws:        #7c3aed;
+      --code-bg:   #0d1929;
+      --font:      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono:      "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --sidebar-w: 260px;
+      --topbar-h:  56px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { color: var(--primary-lt); text-decoration: underline; }
+
+    /* ── Top header bar ────────────────────────────────────────────── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--topbar-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 12px;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      transition: color 0.18s, border-color 0.18s, background 0.18s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .back-btn:hover { color: var(--primary); border-color: var(--primary); background: rgba(247,147,26,0.07); }
+    .back-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .topbar-logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: 1px;
+    }
+    .topbar-logo span { color: var(--text); font-size: 1.1rem; margin-left: 2px; }
+    .topbar-subtitle {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-left: 8px;
+      border-left: 1px solid var(--border);
+      padding-left: 12px;
+    }
+    .topbar-version {
+      margin-left: auto;
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.75rem;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Layout shell ──────────────────────────────────────────────── */
+    .shell {
+      display: flex;
+      padding-top: var(--topbar-h);
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ───────────────────────────────────────────────────── */
+    .sidebar {
+      position: fixed;
+      top: var(--topbar-h);
+      left: 0;
+      width: var(--sidebar-w);
+      height: calc(100vh - var(--topbar-h));
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0 40px;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .nav-group { margin-bottom: 4px; }
+    .nav-group-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      padding: 14px 20px 6px;
+      font-weight: 700;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 20px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      text-decoration: none;
+    }
+    .nav-item.active,
+    .nav-item:focus {
+      border-left-color: var(--primary);
+      background: rgba(248,4,33,0.08);
+      color: var(--text);
+    }
+    .nav-badge {
+      font-size: 0.62rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .badge-get   { background: var(--get);   color: #fff; }
+    .badge-post  { background: var(--post);  color: #fff; }
+    .badge-patch { background: var(--patch); color: #fff; }
+    .badge-delete{ background: var(--delete); color: #fff; }
+    .badge-ws    { background: var(--ws);    color: #fff; }
+    .badge-multi { background: var(--border); color: var(--text); }
+
+    /* ── Main content ──────────────────────────────────────────────── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      padding: 40px 48px 80px;
+      max-width: 900px;
+    }
+
+    /* ── Section ───────────────────────────────────────────────────── */
+    .section {
+      margin-bottom: 64px;
+      scroll-margin-top: calc(var(--topbar-h) + 20px);
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: rgba(248,4,33,0.15);
+      border: 1px solid rgba(248,4,33,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .section-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 28px;
+      line-height: 1.7;
+    }
+
+    /* ── Endpoint card ─────────────────────────────────────────────── */
+    .endpoint {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      scroll-margin-top: calc(var(--topbar-h) + 20px);
+    }
+    .endpoint-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .method-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      flex-shrink: 0;
+    }
+    .method-get   { background: rgba(13,158,110,0.2);  color: #0bc68a; border: 1px solid #0d9e6e; }
+    .method-post  { background: rgba(196,125,5,0.2);   color: #f5a623; border: 1px solid #c47d05; }
+    .method-patch { background: rgba(26,111,196,0.2);  color: #5aabff; border: 1px solid #1a6fc4; }
+    .method-delete{ background: rgba(185,28,28,0.2);   color: #ff7b7b; border: 1px solid #b91c1c; }
+    .method-ws    { background: rgba(124,58,237,0.2);  color: #a78bfa; border: 1px solid #7c3aed; }
+
+    .endpoint-path {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .endpoint-summary {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      margin-left: auto;
+    }
+    .endpoint-body { padding: 16px 18px; }
+
+    .ep-desc {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-bottom: 16px;
+      line-height: 1.65;
+    }
+
+    /* ── Code blocks ───────────────────────────────────────────────── */
+    .block-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin-bottom: 14px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: #c9d1d9;
+    }
+    pre:last-child { margin-bottom: 0; }
+
+    .kw  { color: #79c0ff; } /* keys */
+    .str { color: #a5d6ff; } /* strings */
+    .num { color: #f0c674; } /* numbers */
+    .cmt { color: #8b949e; font-style: italic; } /* comments */
+    .bool{ color: #ff7b72; } /* bool */
+    .url { color: #7ee787; } /* URL paths */
+
+    /* ── Note / info box ───────────────────────────────────────────── */
+    .note {
+      background: rgba(26,111,196,0.1);
+      border: 1px solid rgba(26,111,196,0.35);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 0.83rem;
+      color: #7ec8ff;
+      margin-bottom: 14px;
+      line-height: 1.6;
+    }
+    .note-warn {
+      background: rgba(196,125,5,0.1);
+      border-color: rgba(196,125,5,0.35);
+      color: #f5c842;
+    }
+
+    /* ── Two-col layout for request / response ─────────────────────── */
+    .cols { display: flex; gap: 16px; flex-wrap: wrap; }
+    .col  { flex: 1; min-width: 260px; }
+
+    /* ── Table ─────────────────────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 0.83rem; }
+    th { background: var(--surface2); color: var(--text-muted); text-align: left; padding: 8px 12px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid var(--border); }
+    td { padding: 8px 12px; border-bottom: 1px solid rgba(48,69,98,0.5); vertical-align: top; }
+    td code { font-family: var(--mono); background: var(--code-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.8rem; color: #a5d6ff; }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── Footer ────────────────────────────────────────────────────── */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 48px;
+      margin-left: var(--sidebar-w);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-logo { font-size: 1.1rem; font-weight: 700; color: var(--primary); }
+    .footer-text { color: var(--text-muted); font-size: 0.83rem; }
+    .footer-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.83rem;
+      transition: border-color 0.15s, color 0.15s;
+      margin-left: auto;
+      text-decoration: none;
+    }
+    .footer-link:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+
+    /* ── Intro hero ────────────────────────────────────────────────── */
+    .hero {
+      margin-bottom: 48px;
+      padding: 28px 32px;
+      background: linear-gradient(135deg, rgba(248,4,33,0.08) 0%, rgba(31,45,64,0.6) 100%);
+      border: 1px solid rgba(248,4,33,0.2);
+      border-radius: 10px;
+    }
+    .hero h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 8px; }
+    .hero h1 span { color: var(--primary); }
+    .hero p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; max-width: 600px; }
+    .hero-meta {
+      display: flex;
+      gap: 20px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .hero-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .hero-meta-item strong { color: var(--text); }
+
+    /* ── Try It button ────────────────────────────────────────────────── */
+    .try-it-section {
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+    .try-it-btn {
+      background: rgba(13,158,110,0.15);
+      border: 1px solid var(--get);
+      color: #0bc68a;
+      padding: 5px 16px;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .try-it-btn:hover { background: rgba(13,158,110,0.3); }
+    .try-it-btn:disabled { opacity: 0.5; cursor: default; }
+    .try-it-response { margin-top: 12px; }
+    .try-it-pre {
+      white-space: pre;
+      word-break: break-all;
+      max-height: 420px;
+      overflow: auto;
+      background: #ffffff;
+      color: #1a1a1a;
+      border-color: #c8d6e5;
+    }
+    .try-it-error { color: #cc0000; }
+
+    /* ── Mobile sidebar toggle ──────────────────────────────────────── */
+    .menu-btn {
+      display: none;
+      background: none; border: none; cursor: pointer;
+      padding: 4px 8px; color: var(--text); font-size: 1.5rem; line-height: 1; flex-shrink: 0;
+    }
+    .menu-btn:hover { color: var(--primary); }
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99;
+    }
+    .sidebar-overlay.open { display: block; }
+
+    /* ── Responsive ────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .menu-btn { display: block; }
+      .sidebar { transform: translateX(-100%); transition: transform 0.24s ease; z-index: 200; }
+      .sidebar.open { transform: translateX(0); }
+      .main, .footer { margin-left: 0; padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════ TOP HEADER ══════════════════ -->
+<header class="topbar">
+  <a class="back-btn" href="/" title="返回 AxeOS">
+    <svg viewBox="0 0 16 16"><polyline points="10,3 5,8 10,13"/></svg>
+    AxeOS
+  </a>
+  <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button>
+  <div class="topbar-logo">Axe<span>OS</span></div>
+  <div class="topbar-subtitle">API Reference</div>
+  <div class="topbar-version">v1.0</div>
+</header>
+
+<!-- ══════════════════ LAYOUT ══════════════════ -->
+<div class="shell">
+
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- ────────────── SIDEBAR ────────────── -->
+  <nav class="sidebar" id="sidebar">
+    <div class="nav-group">
+      <div class="nav-group-title">Overview</div>
+      <a class="nav-item" href="#intro">Introduction</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">System</div>
+      <a class="nav-item" href="#system-info">
+        <span class="nav-badge badge-get">GET</span> System Info
+      </a>
+      <a class="nav-item" href="#system-restart">
+        <span class="nav-badge badge-post">POST</span> Restart Device
+      </a>
+      <a class="nav-item" href="#system-clearhits">
+        <span class="nav-badge badge-post">POST</span> Clear Block Hits
+      </a>
+      <a class="nav-item" href="#mining-state">
+        <span class="nav-badge badge-multi">PATCH</span> Mining State
+      </a>
+      <a class="nav-item" href="#system-wakeup">
+        <span class="nav-badge badge-get">GET</span> Wakeup
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Reboot History</div>
+      <a class="nav-item" href="#reboot-last">
+        <span class="nav-badge badge-get">GET</span> Last Reboot
+      </a>
+      <a class="nav-item" href="#reboot-list">
+        <span class="nav-badge badge-get">GET</span> Reboot List
+      </a>
+      <a class="nav-item" href="#reboot-clear">
+        <span class="nav-badge badge-delete">DELETE</span> Clear History
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Coredump</div>
+      <a class="nav-item" href="#coredump-info">
+        <span class="nav-badge badge-get">GET</span> Dump Info
+      </a>
+      <a class="nav-item" href="#coredump-clear">
+        <span class="nav-badge badge-delete">DELETE</span> Clear Dump
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Dashboard</div>
+      <a class="nav-item" href="#dash-hr-dist">
+        <span class="nav-badge badge-get">GET</span> HR Distribution
+      </a>
+      <a class="nav-item" href="#dash-gauge">
+        <span class="nav-badge badge-get">GET</span> Gauge Limits
+      </a>
+      <a class="nav-item" href="#dash-history">
+        <span class="nav-badge badge-get">GET</span> Status History
+      </a>
+      <a class="nav-item" href="#dash-realtime">
+        <span class="nav-badge badge-get">GET</span> Realtime Status
+      </a>
+      <a class="nav-item" href="#dash-luck">
+        <span class="nav-badge badge-get">GET</span> Luck History
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Settings</div>
+      <a class="nav-item" href="#set-network">
+        <span class="nav-badge badge-multi">G/P</span> Network
+      </a>
+      <a class="nav-item" href="#set-time">
+        <span class="nav-badge badge-multi">G/P</span> Time
+      </a>
+      <a class="nav-item" href="#set-mining">
+        <span class="nav-badge badge-multi">G/P</span> Mining
+      </a>
+      <a class="nav-item" href="#set-market">
+        <span class="nav-badge badge-multi">G/P</span> Market
+      </a>
+      <a class="nav-item" href="#set-preference">
+        <span class="nav-badge badge-multi">G/P</span> Preference
+      </a>
+      <a class="nav-item" href="#set-screensaver">
+        <span class="nav-badge badge-post">POST</span> Screensaver
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Benchmark</div>
+      <a class="nav-item" href="#benchmark-config">
+        <span class="nav-badge badge-multi">G/P</span> Config &amp; Status
+      </a>
+      <a class="nav-item" href="#benchmark-start">
+        <span class="nav-badge badge-post">POST</span> Start
+      </a>
+      <a class="nav-item" href="#benchmark-stop">
+        <span class="nav-badge badge-post">POST</span> Stop
+      </a>
+      <a class="nav-item" href="#benchmark-results">
+        <span class="nav-badge badge-delete">DELETE</span> Results
+      </a>
+      <a class="nav-item" href="#benchmark-reset">
+        <span class="nav-badge badge-post">POST</span> Reset
+      </a>
+      <a class="nav-item" href="#benchmark-apply">
+        <span class="nav-badge badge-post">POST</span> Apply
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">OTA Update</div>
+      <a class="nav-item" href="#ota-progress">
+        <span class="nav-badge badge-get">GET</span> Upload Progress
+      </a>
+      <a class="nav-item" href="#ota-firmware">
+        <span class="nav-badge badge-post">POST</span> Flash Firmware
+      </a>
+      <a class="nav-item" href="#ota-spiffs">
+        <span class="nav-badge badge-post">POST</span> Flash SPIFFS
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Theme</div>
+      <a class="nav-item" href="#theme">
+        <span class="nav-badge badge-multi">G/P</span> Theme Config
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Swarm</div>
+      <a class="nav-item" href="#swarm-scan">
+        <span class="nav-badge badge-post">POST</span> Trigger Scan
+      </a>
+      <a class="nav-item" href="#swarm-find">
+        <span class="nav-badge badge-post">POST</span> Find Device
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Logging</div>
+      <a class="nav-item" href="#log">
+        <span class="nav-badge badge-get">GET</span> Log Trigger
+      </a>
+      <a class="nav-item" href="#websocket">
+        <span class="nav-badge badge-ws">WS</span> WebSocket
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Probe &amp; Discovery</div>
+      <a class="nav-item" href="#probe">
+        <span class="nav-badge badge-get">GET</span> Miner Probe
+      </a>
+      <a class="nav-item" href="#alive">
+        <span class="nav-badge badge-get">GET</span> Alive IPs
+      </a>
+    </div>
+  </nav>
+
+  <!-- ══════════════════ MAIN CONTENT ══════════════════ -->
+  <main class="main">
+
+    <!-- ── INTRO ──────────────────────────────────────────── -->
+    <div class="hero" id="intro">
+      <h1>AxeOS <span>API Reference</span></h1>
+      <p>
+        This document describes the HTTP and WebSocket API exposed by the ESP32-based
+        NMAxe / NMAxeGamma / NMQAxe++ firmware. All endpoints are served on
+        <strong>port 80</strong>. JSON is used for all request and response bodies
+        unless noted otherwise. This reference is served at <code>/api-doc</code>,
+        which redirects to <code>/api-doc.html</code>. Generic CORS preflight is
+        handled by <code>OPTIONS /*</code>.
+      </p>
+      <div class="hero-meta">
+        <div class="hero-meta-item">🌐 <strong>Base URL</strong>&nbsp; http://&lt;device-ip&gt;</div>
+        <div class="hero-meta-item">📦 <strong>Content-Type</strong>&nbsp; application/json</div>
+        <div class="hero-meta-item">🔓 <strong>Auth</strong>&nbsp; None</div>
+        <div class="hero-meta-item">🔄 <strong>CORS</strong>&nbsp; * (all origins allowed)</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION 1 – SYSTEM
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="system">
+      <div class="section-header">
+        <div class="section-icon">⚙️</div>
+        <div class="section-title">System</div>
+      </div>
+      <p class="section-desc">
+        Core device management endpoints: read live status, restart the miner, and
+        clear block-hit counters. Runtime mining control can pause ASIC Vcore without
+        rebooting the ESP32.
+      </p>
+
+      <!-- GET /api/system/info -->
+      <div class="endpoint" id="system-info">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/system/info</code>
+          <span class="endpoint-summary">Live device status snapshot</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Returns a comprehensive status snapshot: power measurements, temperatures,
+            ASIC configuration, mining statistics, board identity, active stratum pool,
+            and fan speeds. Polled every few seconds by the AxeOS dashboard.
+          </p>
+          <div class="block-label">Response 200 – application/json</div>
+          <pre>{
+  <span class="kw">"power"</span>: {
+    <span class="kw">"power"</span>:  <span class="num">12.5</span>,          <span class="cmt">// Watts (vbus_V × ibus_A)</span>
+    <span class="kw">"vbus"</span>:   <span class="num">5020</span>,          <span class="cmt">// mV – input bus voltage</span>
+    <span class="kw">"ibus"</span>:   <span class="num">2490</span>           <span class="cmt">// mA – input bus current</span>
+  },
+  <span class="kw">"temps"</span>: {
+    <span class="kw">"vcore"</span>: <span class="num">45.2</span>,           <span class="cmt">// °C – voltage-regulator temperature</span>
+    <span class="kw">"asic"</span>:  <span class="num">52.8</span>            <span class="cmt">// °C – ASIC die temperature</span>
+  },
+  <span class="kw">"asic"</span>: {
+    <span class="kw">"count"</span>:        <span class="num">1</span>,      <span class="cmt">// number of ASIC chips detected</span>
+    <span class="kw">"model"</span>:        <span class="str">"BM1366"</span>,
+    <span class="kw">"vcoreReq"</span>:     <span class="num">1200</span>,   <span class="cmt">// mV – requested vcore</span>
+    <span class="kw">"vcoreReal"</span>:    <span class="num">1198</span>,   <span class="cmt">// mV – measured vcore</span>
+    <span class="kw">"freqReq"</span>:      <span class="num">485</span>,    <span class="cmt">// MHz – active/requested frequency</span>
+    <span class="kw">"smallCoreCnt"</span>: <span class="num">894</span>    <span class="cmt">// number of small cores</span>
+  },
+  <span class="kw">"miner"</span>: {
+    <span class="kw">"state"</span>:           <span class="str">"running"</span>,  <span class="cmt">// running | pausing | paused | resuming | error</span>
+    <span class="kw">"paused"</span>:          <span class="bool">false</span>,      <span class="cmt">// true during user pause/resume control</span>
+    <span class="kw">"pauseReason"</span>:     <span class="str">""</span>,         <span class="cmt">// "user" when paused from API/UI</span>
+    <span class="kw">"hashRate"</span>:        <span class="num">0.465</span>,      <span class="cmt">// GH/s – 3-minute rolling average</span>
+    <span class="kw">"bestDiffEver"</span>:    <span class="str">"52.3G"</span>,    <span class="cmt">// best difficulty since first boot</span>
+    <span class="kw">"bestDiffSession"</span>: <span class="str">"12.1G"</span>,    <span class="cmt">// best difficulty this session</span>
+    <span class="kw">"networkDiff"</span>:     <span class="str">"83.67T"</span>,   <span class="cmt">// current Bitcoin network difficulty</span>
+    <span class="kw">"poolDiff"</span>:        <span class="str">"8192"</span>,     <span class="cmt">// pool-assigned share difficulty</span>
+    <span class="kw">"lastDiff"</span>:        <span class="str">"8192"</span>,     <span class="cmt">// difficulty of the last accepted share</span>
+    <span class="kw">"blkhits"</span>:         <span class="num">0</span>,          <span class="cmt">// block hits (shares ≥ network diff)</span>
+    <span class="kw">"freeHeap"</span>:        <span class="num">204800</span>,    <span class="cmt">// bytes of free heap</span>
+    <span class="kw">"minFreeHeap"</span>:     <span class="num">163840</span>,    <span class="cmt">// minimum free heap since boot (watermark)</span>
+    <span class="kw">"sAccepted"</span>:       <span class="num">1024</span>,      <span class="cmt">// accepted shares this session</span>
+    <span class="kw">"sRejected"</span>:       <span class="num">3</span>,          <span class="cmt">// rejected shares this session</span>
+    <span class="kw">"uptimeSeconds"</span>:   <span class="num">3600</span>,      <span class="cmt">// seconds since last reboot</span>
+    <span class="kw">"uptimeEver"</span>:      <span class="num">86400</span>      <span class="cmt">// cumulative uptime seconds</span>
+  },
+  <span class="kw">"identity"</span>: {
+    <span class="kw">"fwVersion"</span>: <span class="str">"1.2.0"</span>,
+    <span class="kw">"hwModel"</span>:     <span class="str">"NMAxe"</span>,          <span class="cmt">// functional board ID, stable across revisions</span>
+    <span class="kw">"displayName"</span>: <span class="str">"NMAxe"</span>,          <span class="cmt">// human-readable label (may include revision suffix)</span>
+    <span class="kw">"hostName"</span>:  <span class="str">"nmaxe-a1b2"</span>,
+    <span class="kw">"ssid"</span>:      <span class="str">"MyHomeWiFi"</span>,
+    <span class="kw">"rssi"</span>:      <span class="num">-62</span>,          <span class="cmt">// dBm – WiFi signal strength</span>
+    <span class="kw">"appSha256"</span>: <span class="str">"ef970b389312276b"</span>  <span class="cmt">// first 16 hex chars of running app image SHA256</span>
+  },
+  <span class="kw">"stratum"</span>: {
+    <span class="kw">"url"</span>:  <span class="str">"stratum+tcp://public-pool.io:21496"</span>,
+    <span class="kw">"user"</span>: <span class="str">"bc1q...YOUR_ADDRESS...xyz.nmaxe"</span>,
+    <span class="kw">"pwd"</span>:  <span class="str">"x"</span>
+  },
+  <span class="kw">"fans"</span>: [
+    { <span class="kw">"id"</span>: <span class="num">0</span>, <span class="kw">"speed"</span>: <span class="num">80</span>, <span class="kw">"rpm"</span>: <span class="num">4200</span> },  <span class="cmt">// id=0: ASIC fan</span>
+    { <span class="kw">"id"</span>: <span class="num">1</span>, <span class="kw">"speed"</span>: <span class="num">60</span>, <span class="kw">"rpm"</span>: <span class="num">3100</span> }   <span class="cmt">// id=1: Vcore fan (NMQAxe++ only)</span>
+  ]
+}</pre>
+          <div class="block-label">Miner state values (<code>miner.state</code> field)</div>
+          <table class="field-table">
+            <thead><tr><th>state</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>running</code></td><td>Mining normally. ASIC Vcore on, jobs flowing.</td></tr>
+              <tr><td><code>pausing</code></td><td>Pause command received; ASIC shutting down (transient).</td></tr>
+              <tr><td><code>paused</code></td><td>Mining halted. Vcore off, restart monitors suppressed.</td></tr>
+              <tr><td><code>resuming</code></td><td>Resume command received; ASIC reinitializing (transient).</td></tr>
+              <tr><td><code>error</code></td><td>ASIC initialization or runtime error. Vcore off.</td></tr>
+            </tbody>
+          </table>
+          <div class="note">ℹ️ <code>miner.paused</code> is <code>true</code> in any state other than <code>running</code>. The <code>miner.pauseReason</code> field is <code>"user"</code> when paused via API/UI, <code>""</code> otherwise.</div>
+        </div>
+      </div>
+
+      <!-- POST /api/system/restart -->
+      <div class="endpoint" id="system-restart">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/system/restart</code>
+          <span class="endpoint-summary">Restart the device</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Triggers a software restart (<code>ESP.restart()</code>). No request body is required.</p>
+          <div class="note note-warn">⚠️ The device will become unreachable for ~10–15 seconds while it reboots.</div>
+          <div class="block-label">Request body</div>
+          <pre><span class="cmt">// empty body or {}</span></pre>
+          <div class="block-label">Response 200 – text/plain</div>
+          <pre>System will restart shortly.</pre>
+        </div>
+      </div>
+
+      <!-- POST /api/system/clearhits -->
+      <div class="endpoint" id="system-clearhits">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/system/clearhits</code>
+          <span class="endpoint-summary">Reset the block-hit counter</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Resets the <code>blkhits</code> counter (shares whose difficulty meets or exceeds the current network difficulty) to zero. Mining continues uninterrupted.</p>
+          <div class="block-label">Request body</div>
+          <pre><span class="cmt">// empty body or {}</span></pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- PATCH /api/mining/state -->
+      <div class="endpoint" id="mining-state">
+        <div class="endpoint-head">
+          <span class="method-badge method-patch">PATCH</span>
+          <code class="endpoint-path">/api/mining/state</code>
+          <span class="endpoint-summary">Pause or start mining without reboot</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Controls mining at runtime. Pausing powers off ASIC Vcore, stops ASIC job TX/RX,
+            clears ASIC job/hashrate caches, and suppresses low-power/low-hashrate/ASIC-alive
+            restart monitors while the pause is user-requested. Starting mining again restores
+            Vcore, reinitializes the ASIC, and refreshes miner timeout timestamps.
+          </p>
+          <div class="block-label">Request body</div>
+          <pre>{ <span class="kw">"paused"</span>: <span class="bool">true</span> }</pre>
+          <pre>{ <span class="kw">"paused"</span>: <span class="bool">false</span> }</pre>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"status"</span>:       <span class="str">"ok"</span>,
+  <span class="kw">"state"</span>:        <span class="str">"pausing"</span>,  <span class="cmt">// running | pausing | paused | resuming | error</span>
+  <span class="kw">"paused"</span>:       <span class="bool">true</span>,        <span class="cmt">// true during any paused/pausing/resuming/error state</span>
+  <span class="kw">"reason"</span>:       <span class="str">"user"</span>,      <span class="cmt">// "user" when paused by API; "" otherwise</span>
+  <span class="kw">"vcoreEnabled"</span>: <span class="bool">false</span>       <span class="cmt">// false when state is pausing | paused | error</span>
+}</pre>
+          <div class="block-label">State values</div>
+          <table class="field-table">
+            <thead><tr><th>state</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>running</code></td><td>Mining normally. ASIC Vcore on, jobs flowing.</td></tr>
+              <tr><td><code>pausing</code></td><td>Pause command received; ASIC shutting down (transient).</td></tr>
+              <tr><td><code>paused</code></td><td>Mining halted. Vcore off, restart monitors suppressed.</td></tr>
+              <tr><td><code>resuming</code></td><td>Resume command received; ASIC reinitializing (transient).</td></tr>
+              <tr><td><code>error</code></td><td>ASIC initialization or runtime error. Vcore off.</td></tr>
+            </tbody>
+          </table>
+          <div class="note note-warn">Returns 409 Conflict while Benchmark mode or OTA update is running. The pause state is runtime-only and is not saved to NVS.</div>
+        </div>
+      </div>
+
+      <!-- GET /api/wakeup -->
+      <div class="endpoint" id="system-wakeup">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/wakeup</code>
+          <span class="endpoint-summary">Wake up the screensaver</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Resets the screensaver idle timer and clears the <code>SYS_EVENT_SCREEN_SAVER_TRIGGERED</code> event
+            bit, waking the device display. Called by the dashboard and swarm pages periodically to keep
+            the screensaver inactive while the user is monitoring. Setting and update pages do <em>not</em>
+            call this endpoint, allowing the screensaver to activate during long idle sessions.
+          </p>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"ok"</span>: <span class="bool">true</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION 2 – REBOOT HISTORY
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="reboot-history">
+      <div class="section-header">
+        <div class="section-icon">↻</div>
+        <div class="section-title">Reboot History</div>
+      </div>
+      <p class="section-desc">
+        Reboot records are captured at boot from RTC state and the ESP32 reset reason.
+        The API is read-only except for clearing the stored ring buffer; the monotonic
+        boot index is preserved when history is cleared.
+      </p>
+
+      <!-- GET /api/reboot/last -->
+      <div class="endpoint" id="reboot-last">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/reboot/last</code>
+          <span class="endpoint-summary">Newest reboot record</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns the newest reboot record as a single JSON object for the dashboard banner.</p>
+          <div class="block-label">Response 200 – application/json</div>
+          <pre>{
+  <span class="kw">"idx"</span>:     <span class="num">142</span>,
+  <span class="kw">"ts"</span>:      <span class="num">1716000000</span>,     <span class="cmt">// Unix timestamp; 0 if RTC was not synced</span>
+  <span class="kw">"uptime"</span>:  <span class="num">11520</span>,          <span class="cmt">// previous session uptime, seconds</span>
+  <span class="kw">"heapMin"</span>: <span class="num">49152</span>,          <span class="cmt">// minimum free heap in previous session</span>
+  <span class="kw">"reset"</span>:   <span class="str">"panic"</span>,        <span class="cmt">// ESP32 hardware reset reason (see Reset values table)</span>
+  <span class="kw">"intent"</span>:  <span class="str">"none"</span>,         <span class="cmt">// software reboot intent set before restart (see Intent values table)</span>
+  <span class="kw">"class"</span>:   <span class="str">"crash"</span>,        <span class="cmt">// cold | planned | unknown_sw | crash | power | external | other</span>
+  <span class="kw">"fw"</span>:      <span class="str">"v3.0.20"</span>,      <span class="cmt">// firmware version that ran during the previous session</span>
+  <span class="kw">"detail"</span>:  <span class="str">"panic"</span>         <span class="cmt">// free-form description (reset reason string or intent detail)</span>
+}</pre>
+          <div class="note">If no record exists yet, the firmware returns <code>{"class":"cold","intent":"none"}</code>.</div>
+          <div class="block-label">Class values</div>
+          <table class="field-table">
+            <thead><tr><th>class</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>cold</code></td><td>Power-on (cold boot).</td></tr>
+              <tr><td><code>planned</code></td><td>Software restart with a known intent (see Intent values).</td></tr>
+              <tr><td><code>unknown_sw</code></td><td>Software restart but no intent was recorded before reset.</td></tr>
+              <tr><td><code>crash</code></td><td>Panic or watchdog timeout.</td></tr>
+              <tr><td><code>power</code></td><td>Brown-out / power loss detected by the brown-out detector.</td></tr>
+              <tr><td><code>external</code></td><td>RST pin, deep-sleep wake, SDIO reset, or other hardware-driven reset.</td></tr>
+              <tr><td><code>other</code></td><td>Unclassified reset reason.</td></tr>
+            </tbody>
+          </table>
+          <div class="block-label">Reset values (<code>reset</code> field — ESP32 hardware reset reason)</div>
+          <table class="field-table">
+            <thead><tr><th>reset</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>poweron</code></td><td>Power-on reset (cold boot).</td></tr>
+              <tr><td><code>sw</code></td><td>Software reset via <code>ESP.restart()</code> or <code>esp_restart()</code>.</td></tr>
+              <tr><td><code>panic</code></td><td>Firmware panic (assertion, exception, stack overflow, etc.).</td></tr>
+              <tr><td><code>int_wdt</code></td><td>Interrupt watchdog timeout.</td></tr>
+              <tr><td><code>task_wdt</code></td><td>Task watchdog timeout.</td></tr>
+              <tr><td><code>wdt</code></td><td>Other watchdog timeout.</td></tr>
+              <tr><td><code>brownout</code></td><td>Brown-out reset.</td></tr>
+              <tr><td><code>ext_pin</code></td><td>External RST pin pulled low.</td></tr>
+              <tr><td><code>deepsleep</code></td><td>Wake from deep sleep.</td></tr>
+              <tr><td><code>sdio</code></td><td>SDIO peripheral reset.</td></tr>
+              <tr><td><code>unknown</code></td><td>Reset reason could not be determined.</td></tr>
+              <tr><td><code>other</code></td><td>Other hardware-level reset.</td></tr>
+            </tbody>
+          </table>
+          <div class="block-label">Intent values (<code>intent</code> field — software reboot intent)</div>
+          <table class="field-table">
+            <thead><tr><th>intent</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>none</code></td><td>No intent recorded (unexpected restart or cold boot).</td></tr>
+              <tr><td><code>user_web_reboot</code></td><td>User triggered restart via <code>POST /api/system/restart</code>.</td></tr>
+              <tr><td><code>lcd_user_restart</code></td><td>User confirmed restart on the LCD settings page.</td></tr>
+              <tr><td><code>ota_finished</code></td><td>OTA firmware or SPIFFS flash completed successfully.</td></tr>
+              <tr><td><code>factory_reset</code></td><td>Factory reset initiated.</td></tr>
+              <tr><td><code>config_changed</code></td><td>NVS config change required a reboot to take effect.</td></tr>
+              <tr><td><code>wifi_config_timeout</code></td><td>AP/config mode timed out with no connection.</td></tr>
+              <tr><td><code>wifi_reconnect_fail</code></td><td>WiFi reconnect attempts exhausted.</td></tr>
+              <tr><td><code>lcd_wifi_saved</code></td><td>User saved WiFi credentials via the on-screen wizard.</td></tr>
+              <tr><td><code>force_config</code></td><td>Long-press boot button — enter AP/config mode on next boot.</td></tr>
+              <tr><td><code>low_hashrate</code></td><td>Hashrate monitor detected sustained low hashrate.</td></tr>
+              <tr><td><code>pool_timeout</code></td><td>No stratum response within the pool timeout window.</td></tr>
+              <tr><td><code>asic_frozen</code></td><td>ASIC stopped producing nonces (alive monitor triggered).</td></tr>
+              <tr><td><code>overheat_vcore</code></td><td>VRM/Vcore stage temperature sustained in danger zone.</td></tr>
+              <tr><td><code>overheat_asic</code></td><td>ASIC die temperature sustained in danger zone.</td></tr>
+              <tr><td><code>fan_stall</code></td><td>A fan reported danger-low RPM.</td></tr>
+              <tr><td><code>power_low</code></td><td>Input power dropped below threshold.</td></tr>
+              <tr><td><code>ota_stall</code></td><td>OTA upload stalled (no progress for &gt;60 s).</td></tr>
+              <tr><td><code>selftest_triggered</code></td><td>Self-test sequence triggered a reboot.</td></tr>
+              <tr><td><code>daemon_generic</code></td><td>Daemon-initiated reboot with no more specific intent.</td></tr>
+              <tr><td><code>unknown</code></td><td>Unrecognized intent value (firmware version mismatch).</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- GET /api/reboot/list -->
+      <div class="endpoint" id="reboot-list">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/reboot/list</code>
+          <span class="endpoint-summary">Recent reboot records</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns the stored reboot ring buffer, newest record first. The current firmware keeps up to 10 records.</p>
+          <div class="block-label">Response 200 – application/json</div>
+          <pre>[
+  {
+    <span class="kw">"idx"</span>: <span class="num">142</span>, <span class="kw">"ts"</span>: <span class="num">1716000000</span>, <span class="kw">"uptime"</span>: <span class="num">11520</span>, <span class="kw">"heapMin"</span>: <span class="num">49152</span>,
+    <span class="kw">"reset"</span>: <span class="str">"panic"</span>, <span class="kw">"intent"</span>: <span class="str">"none"</span>, <span class="kw">"class"</span>: <span class="str">"crash"</span>,
+    <span class="kw">"fw"</span>: <span class="str">"v3.0.20"</span>, <span class="kw">"detail"</span>: <span class="str">"panic"</span>
+  }
+]</pre>
+        </div>
+      </div>
+
+      <!-- DELETE /api/reboot/list -->
+      <div class="endpoint" id="reboot-clear">
+        <div class="endpoint-head">
+          <span class="method-badge method-delete">DELETE</span>
+          <code class="endpoint-path">/api/reboot/list</code>
+          <span class="endpoint-summary">Clear stored reboot history</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Wipes stored reboot records. The boot index is not reset.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION 3 – COREDUMP
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="coredump">
+      <div class="section-header">
+        <div class="section-icon">🧩</div>
+        <div class="section-title">Coredump</div>
+      </div>
+      <p class="section-desc">
+        Panic and watchdog crashes can leave an ELF coredump in the dedicated flash
+        partition. These endpoints expose a compact summary and allow clearing the
+        partition after the report has been saved or reviewed.
+      </p>
+
+      <!-- GET /api/coredump/info -->
+      <div class="endpoint" id="coredump-info">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/coredump/info</code>
+          <span class="endpoint-summary">Coredump presence and summary metadata</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns whether a dump exists and, when parseable, lightweight crash metadata.</p>
+          <div class="block-label">Response 200 – dump present</div>
+          <pre>{
+  <span class="kw">"present"</span>:     <span class="bool">true</span>,
+  <span class="kw">"size"</span>:        <span class="num">12480</span>,
+  <span class="kw">"crcOk"</span>:       <span class="bool">true</span>,       <span class="cmt">// false if the dump may be truncated/corrupted</span>
+  <span class="kw">"task"</span>:        <span class="str">"miner"</span>,
+  <span class="kw">"pc"</span>:          <span class="num">1075871436</span>,
+  <span class="kw">"btCorrupted"</span>: <span class="bool">false</span>,
+  <span class="kw">"appSha256"</span>:   <span class="str">"ef970b389312276b"</span>,
+  <span class="kw">"bt"</span>: [
+    <span class="num">1075871436</span>,
+    <span class="num">1075869312</span>
+  ]
+}</pre>
+          <div class="block-label">Response 200 – no dump</div>
+          <pre>{ <span class="kw">"present"</span>: <span class="bool">false</span> }</pre>
+        </div>
+      </div>
+
+      <!-- DELETE /api/coredump -->
+      <div class="endpoint" id="coredump-clear">
+        <div class="endpoint-head">
+          <span class="method-badge method-delete">DELETE</span>
+          <code class="endpoint-path">/api/coredump</code>
+          <span class="endpoint-summary">Erase the coredump partition</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Erases the coredump flash partition. This operation is irreversible.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="block-label">Response 500</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"error"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION 4 – DASHBOARD
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="dashboard">
+      <div class="section-header">
+        <div class="section-icon">📊</div>
+        <div class="section-title">Dashboard</div>
+      </div>
+      <p class="section-desc">
+        Data feed endpoints consumed by the AxeOS dashboard widgets: hashrate
+        distribution histogram, gauge range bounds, time-series history, and
+        real-time snapshot.
+      </p>
+
+      <!-- GET /api/dashboard/hr/dist -->
+      <div class="endpoint" id="dash-hr-dist">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/dashboard/hr/dist</code>
+          <span class="endpoint-summary">Hashrate distribution histogram config</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns the hashrate distribution bar chart configuration including bucket counts and the sample distribution map.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"max_bars"</span>: <span class="num">20</span>,         <span class="cmt">// number of histogram bars</span>
+  <span class="kw">"max_hr"</span>:   <span class="num">600</span>,         <span class="cmt">// GH/s – X-axis maximum</span>
+  <span class="kw">"count"</span>:    <span class="num">360</span>,         <span class="cmt">// total sample count in distribution</span>
+  <span class="kw">"time"</span>:     <span class="num">3600</span>,         <span class="cmt">// seconds – sampling window</span>
+  <span class="kw">"dist"</span>: {
+    <span class="kw">"400"</span>: <span class="num">12</span>,              <span class="cmt">// key = GH/s bucket, value = sample count</span>
+    <span class="kw">"420"</span>: <span class="num">28</span>,
+    <span class="kw">"440"</span>: <span class="num">45</span>,
+    <span class="kw">"460"</span>: <span class="num">87</span>,
+    <span class="kw">"480"</span>: <span class="num">64</span>,
+    <span class="kw">"500"</span>: <span class="num">31</span>
+  }
+}</pre>
+        </div>
+      </div>
+
+      <!-- GET /api/dashboard/gauge/limits -->
+      <div class="endpoint" id="dash-gauge">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/dashboard/gauge/limits</code>
+          <span class="endpoint-summary">Dashboard gauge min/max bounds</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns the board-specific minimum and maximum values used to calibrate the dashboard gauges for power, temperature, and performance.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"power"</span>: {
+    <span class="kw">"vbus"</span>:  { <span class="kw">"min"</span>: <span class="num">4500</span>,  <span class="kw">"max"</span>: <span class="num">5500</span>  },  <span class="cmt">// mV</span>
+    <span class="kw">"ibus"</span>:  { <span class="kw">"min"</span>: <span class="num">0</span>,      <span class="kw">"max"</span>: <span class="num">5000</span>  },  <span class="cmt">// mA</span>
+    <span class="kw">"power"</span>: { <span class="kw">"min"</span>: <span class="num">0</span>,      <span class="kw">"max"</span>: <span class="num">25</span>    }   <span class="cmt">// W</span>
+  },
+  <span class="kw">"heat"</span>: {
+    <span class="kw">"asic"</span>:  { <span class="kw">"min"</span>: <span class="num">0</span>,      <span class="kw">"max"</span>: <span class="num">100</span>   },  <span class="cmt">// °C</span>
+    <span class="kw">"vcore"</span>: { <span class="kw">"min"</span>: <span class="num">0</span>,      <span class="kw">"max"</span>: <span class="num">80</span>    },  <span class="cmt">// °C</span>
+    <span class="kw">"fan"</span>:   { <span class="kw">"min"</span>: <span class="num">0</span>,      <span class="kw">"max"</span>: <span class="num">100</span>   }   <span class="cmt">// % speed</span>
+  },
+  <span class="kw">"performance"</span>: {
+    <span class="kw">"asic_freq_req"</span>: { <span class="kw">"min"</span>: <span class="num">400</span>, <span class="kw">"max"</span>: <span class="num">600</span> },  <span class="cmt">// MHz</span>
+    <span class="kw">"vcore_req"</span>:     { <span class="kw">"min"</span>: <span class="num">1100</span>,<span class="kw">"max"</span>: <span class="num">1400</span>},  <span class="cmt">// mV</span>
+    <span class="kw">"vcore_measure"</span>: { <span class="kw">"min"</span>: <span class="num">1100</span>,<span class="kw">"max"</span>: <span class="num">1400</span>}   <span class="cmt">// mV</span>
+  }
+}</pre>
+        </div>
+      </div>
+
+      <!-- GET /api/dashboard/chart/history -->
+      <div class="endpoint" id="dash-history">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/dashboard/chart/history</code>
+          <span class="endpoint-summary">Full miner status time-series</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns historical miner statistics as a time-series array (up to 2 000 data points). Used to populate the history charts on the Monitor page.</p>
+          <table>
+            <thead><tr><th>Query param</th><th>Type</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>interval</code></td><td>integer 1–100</td><td>Sub-sampling interval; default 10. The server auto-adjusts upward to keep results ≤ 2 000 points.</td></tr>
+            </tbody>
+          </table>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"timestamp"</span>: <span class="num">1711526400000</span>,  <span class="cmt">// current UTC time in ms</span>
+  <span class="kw">"labels"</span>: [
+    <span class="str">"hashRate"</span>, <span class="str">"asicTemp"</span>, <span class="str">"vcoreTemp"</span>, <span class="str">"Pbus"</span>, <span class="str">"Vbus"</span>,
+    <span class="str">"Ibus"</span>, <span class="str">"Vcore"</span>, <span class="str">"fanspeed"</span>, <span class="str">"fanrpm"</span>, <span class="str">"wifiRSSI"</span>,
+    <span class="str">"freeHeap"</span>, <span class="str">"freePsram"</span>, <span class="str">"latency"</span>, <span class="str">"epoch"</span>
+  ],
+  <span class="kw">"statistics"</span>: [
+    <span class="cmt">// each entry is an array of values aligned to labels above</span>
+    [<span class="str">"465000000"</span>, <span class="str">"52.8"</span>, <span class="str">"45.2"</span>, <span class="str">"12.5"</span>, <span class="str">"5020"</span>, <span class="str">"2490"</span>, <span class="num">1198</span>, <span class="num">80</span>, <span class="num">4200</span>, <span class="num">-62</span>, <span class="num">204800</span>, <span class="num">1048576</span>, <span class="num">120</span>, <span class="num">1711526400</span>],
+    <span class="cmt">// ... more records ...</span>
+  ],
+  <span class="kw">"size"</span>:                  <span class="num">3600</span>,  <span class="cmt">// total records stored</span>
+  <span class="kw">"sampledSize"</span>:           <span class="num">360</span>,   <span class="cmt">// records returned after sub-sampling</span>
+  <span class="kw">"sampleInterval"</span>:        <span class="num">10</span>,    <span class="cmt">// actual sub-sampling interval used</span>
+  <span class="kw">"userRequestedInterval"</span>: <span class="num">10</span>,    <span class="cmt">// interval requested via query param</span>
+  <span class="kw">"maxDataPoints"</span>:         <span class="num">2000</span>   <span class="cmt">// hard cap</span>
+}</pre>
+        </div>
+      </div>
+
+      <!-- GET /api/dashboard/chart/realtime -->
+      <div class="endpoint" id="dash-realtime">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/dashboard/chart/realtime</code>
+          <span class="endpoint-summary">Realtime status snapshot (last N seconds)</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns the single most recent status record for feeding the live real-time chart. The response structure mirrors <code>/api/dashboard/chart/history</code> but always contains exactly one data point in <code>statistics</code>.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"timestamp"</span>: <span class="num">1711526400000</span>,
+  <span class="kw">"labels"</span>: [<span class="str">"hashRate"</span>, <span class="str">"asicTemp"</span>, <span class="str">"vcoreTemp"</span>, <span class="str">"Pbus"</span>, <span class="str">"Vbus"</span>,
+             <span class="str">"Ibus"</span>, <span class="str">"Vcore"</span>, <span class="str">"fanspeed"</span>, <span class="str">"fanrpm"</span>, <span class="str">"wifiRSSI"</span>,
+             <span class="str">"freeHeap"</span>, <span class="str">"freePsram"</span>, <span class="str">"latency"</span>, <span class="str">"epoch"</span>],
+  <span class="kw">"statistics"</span>: [
+    [<span class="str">"465000000"</span>, <span class="str">"52.8"</span>, <span class="str">"45.2"</span>, <span class="str">"12.5"</span>, <span class="str">"5020"</span>, <span class="str">"2490"</span>, <span class="num">1198</span>, <span class="num">80</span>, <span class="num">4200</span>, <span class="num">-62</span>, <span class="num">204800</span>, <span class="num">1048576</span>, <span class="num">120</span>, <span class="num">1711526400</span>]
+  ]
+}</pre>
+        </div>
+      </div>
+
+      <!-- GET /api/dashboard/luck/history -->
+      <div class="endpoint" id="dash-luck">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/dashboard/luck/history</code>
+          <span class="endpoint-summary">Luck score history</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Returns time-series data for the luck chart showing share difficulty and block proximity over the session.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"timestamp"</span>: <span class="num">1711526400000</span>,  <span class="cmt">// current UTC time in ms</span>
+  <span class="kw">"labels"</span>: [
+    <span class="str">"proximity"</span>,    <span class="cmt">// block proximity score (0.0 – 1.0+)</span>
+    <span class="str">"share_diff"</span>,   <span class="cmt">// individual share difficulty</span>
+    <span class="str">"net_diff"</span>,     <span class="cmt">// network difficulty at submission time</span>
+    <span class="str">"epoch"</span>         <span class="cmt">// Unix timestamp (s)</span>
+  ],
+  <span class="kw">"statistics"</span>: [
+    [<span class="num">0.82</span>, <span class="num">8192</span>, <span class="str">"83.67T"</span>, <span class="num">1711526400</span>],
+    <span class="cmt">// ... one entry per accepted share ...</span>
+  ],
+  <span class="kw">"size"</span>: <span class="num">1024</span>  <span class="cmt">// total records returned</span>
+}</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+          SECTION 5 – SETTINGS
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="settings">
+      <div class="section-header">
+        <div class="section-icon">🔧</div>
+        <div class="section-title">Settings</div>
+      </div>
+      <p class="section-desc">
+        Per-card settings endpoints. Each resource supports
+        <strong>GET</strong> (read current values) and <strong>PATCH</strong>
+        (write only the provided fields). Changes are persisted to NVS flash.
+      </p>
+
+      <!-- network -->
+      <div class="endpoint" id="set-network">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <span class="method-badge method-patch">PATCH</span>
+          <code class="endpoint-path">/api/setting/network</code>
+          <span class="endpoint-summary">WiFi &amp; hostname</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="cols">
+            <div class="col">
+              <div class="block-label">GET – Response 200</div>
+              <pre>{
+  <span class="kw">"hostName"</span>: <span class="str">"nmaxe-a1b2"</span>,
+  <span class="kw">"ssid"</span>:     <span class="str">"MyHomeWiFi"</span>,
+  <span class="kw">"status"</span>:   <span class="str">"connected"</span>,  <span class="cmt">// connected | disconnected</span>
+  <span class="kw">"ip"</span>:       <span class="str">"192.168.1.42"</span>
+}</pre>
+            </div>
+            <div class="col">
+              <div class="block-label">PATCH – Request body (all fields optional)</div>
+              <pre>{
+  <span class="kw">"hostname"</span>: <span class="str">"my-miner"</span>,
+  <span class="kw">"ssid"</span>:     <span class="str">"NewSSID"</span>,
+  <span class="kw">"wifiPass"</span>: <span class="str">"s3cr3t"</span>
+}</pre>
+            </div>
+          </div>
+          <div class="block-label">PATCH – Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="note">Changes to <code>hostname</code> or <code>ssid</code>/<code>wifiPass</code> take effect after a reboot.</div>
+        </div>
+      </div>
+
+      <!-- time -->
+      <div class="endpoint" id="set-time">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <span class="method-badge method-patch">PATCH</span>
+          <code class="endpoint-path">/api/setting/time</code>
+          <span class="endpoint-summary">Timezone &amp; display format</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="cols">
+            <div class="col">
+              <div class="block-label">GET – Response 200</div>
+              <pre>{
+  <span class="kw">"timeZone"</span>:   <span class="str">"8.0"</span>,
+  <span class="kw">"timeFormat"</span>: <span class="num">24</span>,  <span class="cmt">// 24=24h, 12=12h</span>
+  <span class="kw">"dateFormat"</span>: <span class="str">"YYYY/MM/DD"</span>
+}</pre>
+            </div>
+            <div class="col">
+              <div class="block-label">PATCH – Request body</div>
+              <pre>{
+  <span class="kw">"timezone"</span>:   <span class="str">"UTC"</span>,
+  <span class="kw">"timeFormat"</span>: <span class="num">12</span>,  <span class="cmt">// 24=24h, 12=12h</span>
+  <span class="kw">"dateFormat"</span>: <span class="str">"MM/DD/YYYY"</span>
+}</pre>
+            </div>
+          </div>
+          <div class="block-label">PATCH – Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- mining -->
+      <div class="endpoint" id="set-mining">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <span class="method-badge method-patch">PATCH</span>
+          <code class="endpoint-path">/api/setting/mining</code>
+          <span class="endpoint-summary">Stratum pools &amp; live ASIC tuning</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="block-label">GET – Response 200</div>
+          <pre>{
+  <span class="kw">"vcoreReq"</span>: <span class="num">1200</span>,           <span class="cmt">// mV</span>
+  <span class="kw">"freqReq"</span>:  <span class="num">485</span>,            <span class="cmt">// MHz</span>
+  <span class="kw">"asic"</span>:     <span class="str">"BM1366"</span>,
+  <span class="kw">"stratum"</span>: {
+    <span class="kw">"used"</span>:     { <span class="kw">"url"</span>: <span class="str">"stratum+tcp://pool.example.com:3333"</span>, <span class="kw">"user"</span>: <span class="str">"bc1q..."</span>, <span class="kw">"pwd"</span>: <span class="str">"x"</span> },
+    <span class="kw">"primary"</span>:  { <span class="kw">"url"</span>: <span class="str">"stratum+tcp://pool.example.com:3333"</span>, <span class="kw">"user"</span>: <span class="str">"bc1q..."</span>, <span class="kw">"pwd"</span>: <span class="str">"x"</span> },
+    <span class="kw">"fallback"</span>: { <span class="kw">"url"</span>: <span class="str">"stratum+tcp://backup-pool.com:3333"</span>,  <span class="kw">"user"</span>: <span class="str">"bc1q..."</span>, <span class="kw">"pwd"</span>: <span class="str">"x"</span> }
+  },
+  <span class="kw">"overclock"</span>: {
+    <span class="kw">"options"</span>: [
+      { <span class="kw">"name"</span>: <span class="str">"Stock (485 MHz)"</span>,  <span class="kw">"value"</span>: <span class="num">485</span> },
+      { <span class="kw">"name"</span>: <span class="str">"OC1 (500 MHz)"</span>,   <span class="kw">"value"</span>: <span class="num">500</span> }
+    ]
+  },
+  <span class="kw">"vcore"</span>: {
+    <span class="kw">"options"</span>: [
+      { <span class="kw">"name"</span>: <span class="str">"1200 mV (default)"</span>, <span class="kw">"value"</span>: <span class="num">1200</span> },
+      { <span class="kw">"name"</span>: <span class="str">"1250 mV"</span>,          <span class="kw">"value"</span>: <span class="num">1250</span> }
+    ]
+  }
+}</pre>
+          <div class="block-label">PATCH – Request body (all fields optional)</div>
+          <pre>{
+  <span class="kw">"stratum"</span>: {
+    <span class="kw">"primary"</span>:  { <span class="kw">"url"</span>: <span class="str">"stratum+tcp://newpool.com:3333"</span>, <span class="kw">"user"</span>: <span class="str">"bc1q..."</span>, <span class="kw">"pwd"</span>: <span class="str">"x"</span> },
+    <span class="kw">"fallback"</span>: { <span class="kw">"url"</span>: <span class="str">"stratum+tcp://backup.com:3333"</span>,  <span class="kw">"user"</span>: <span class="str">"bc1q..."</span>, <span class="kw">"pwd"</span>: <span class="str">"x"</span> }
+  },
+  <span class="kw">"asicVcoreReq"</span>: <span class="num">1200</span>,   <span class="cmt">// mV – applied immediately, saved to NVS</span>
+  <span class="kw">"asicFreqReq"</span>:  <span class="num">500</span>    <span class="cmt">// MHz – applied immediately via ASIC PLL, saved to NVS</span>
+}</pre>
+          <div class="note">ASIC frequency and Vcore both take effect in real time after saving. Frequency is hot-switched through the ASIC PLL; Vcore is applied through the power regulator. Stratum pool changes still require reconnect or restart.</div>
+          <div class="block-label">PATCH – Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- market -->
+      <div class="endpoint" id="set-market">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <span class="method-badge method-patch">PATCH</span>
+          <code class="endpoint-path">/api/setting/market</code>
+          <span class="endpoint-summary">Coin price display &amp; watchlist</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="cols">
+            <div class="col">
+              <div class="block-label">GET – Response 200</div>
+              <pre>{
+  <span class="kw">"mainprice"</span>:    <span class="str">"BTC"</span>,
+  <span class="kw">"coinWatchlist"</span>:<span class="str">"BTC,ETH,LTC"</span>,
+  <span class="kw">"pairs"</span>: [
+    <span class="str">"BTCUSDT"</span>,
+    <span class="str">"ETHUSDT"</span>
+  ]
+}</pre>
+            </div>
+            <div class="col">
+              <div class="block-label">PATCH – Request body</div>
+              <pre>{
+  <span class="kw">"mainprice"</span>:     <span class="str">"BTC"</span>,
+  <span class="kw">"coinWatchlist"</span>: <span class="str">"BTC,SOL"</span>
+}</pre>
+            </div>
+          </div>
+          <div class="block-label">PATCH – Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="note">A market refresh is triggered immediately after a successful PATCH.</div>
+        </div>
+      </div>
+
+      <!-- screensaver -->
+      <div class="endpoint" id="set-screensaver">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/update/screensaver</code>
+          <span class="endpoint-summary">Upload custom screensaver GIF</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Upload a custom animated GIF to replace the built-in screensaver. The file is saved to SPIFFS as
+            <code>screen_saver_240x135.gif</code> (NMAxe / NMAxeGamma) or
+            <code>screen_saver_320x240.gif</code> (NMQAxe++). The new GIF is used on the next screensaver trigger.
+            Only <code>.gif</code> files are accepted; any other extension is rejected with <code>400</code>.
+          </p>
+          <div class="note">ℹ️ Upload progress is tracked by the firmware in <code>g_board.status.ota</code> and shared by
+          <strong>all</strong> upload types (firmware, SPIFFS, and screensaver GIF). Poll
+          <a href="#ota-progress"><code>GET /api/update/progress</code></a> to get accurate device-side write
+          progress during the upload.</div>
+          <div class="block-label">Request – multipart/form-data</div>
+          <pre>POST /api/update/screensaver HTTP/1.1
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="screensaver"; filename="my-animation.gif"
+Content-Type: application/octet-stream
+
+&lt;binary GIF data&gt;
+------boundary--</pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="block-label">Response 400 – non-GIF file</div>
+          <pre>Only .gif files are accepted.</pre>
+          <div class="block-label">Response 500 – SPIFFS write failure</div>
+          <pre>Write error.</pre>
+        </div>
+      </div>
+
+      <!-- preference -->
+      <div class="endpoint" id="set-preference">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <span class="method-badge method-patch">PATCH</span>
+          <code class="endpoint-path">/api/setting/preference</code>
+          <span class="endpoint-summary">Display, fan &amp; LED preferences</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="block-label">GET – Response 200</div>
+          <pre>{
+  <span class="kw">"screenFlip"</span>:         <span class="bool">false</span>,
+  <span class="kw">"ledIndicator"</span>:       <span class="bool">true</span>,
+  <span class="kw">"screenAutoRoll"</span>:     <span class="bool">true</span>,
+  <span class="kw">"Brightness"</span>:         <span class="num">80</span>,      <span class="cmt">// 1–100</span>
+  <span class="kw">"screensaverEnable"</span>:  <span class="num">1</span>,       <span class="cmt">// 0=off, 1=on</span>
+  <span class="kw">"screensaverTimeout"</span>: <span class="num">300</span>,     <span class="cmt">// seconds before screensaver activates</span>
+  <span class="kw">"screensaverMode"</span>:    <span class="num">0</span>,       <span class="cmt">// 0=gif, 1=black (backlight off)</span>
+  <span class="kw">"hwModel"</span>:            <span class="str">"NMAxe"</span>, <span class="cmt">// functional board ID, stable across revisions</span>
+  <span class="kw">"displayName"</span>:        <span class="str">"NMAxe"</span>, <span class="cmt">// human-readable label (may include revision suffix)</span>
+  <span class="kw">"fans"</span>: [
+    {
+      <span class="kw">"id"</span>:     <span class="num">0</span>,             <span class="cmt">// 0 = ASIC fan</span>
+      <span class="kw">"speed"</span>: <span class="num">80</span>,             <span class="cmt">// current duty cycle %</span>
+      <span class="kw">"rpm"</span>:   <span class="num">4200</span>,
+      <span class="kw">"auto"</span>:  <span class="bool">true</span>,           <span class="cmt">// auto-speed mode</span>
+      <span class="kw">"target"</span>:<span class="num">65.0</span>            <span class="cmt">// °C target temperature</span>
+    },
+    {
+      <span class="kw">"id"</span>:     <span class="num">1</span>,             <span class="cmt">// 1 = vcore fan</span>
+      <span class="kw">"speed"</span>: <span class="num">60</span>,
+      <span class="kw">"rpm"</span>:   <span class="num">3100</span>,
+      <span class="kw">"auto"</span>:  <span class="bool">false</span>,
+      <span class="kw">"target"</span>:<span class="num">55.0</span>
+    }
+  ]
+}</pre>
+          <div class="block-label">PATCH – Request body (send only the fields you want to change)</div>
+          <pre>{
+  <span class="kw">"Brightness"</span>:        <span class="num">100</span>,    <span class="cmt">// 1–100, applied immediately</span>
+  <span class="kw">"screenFlip"</span>:        <span class="num">0</span>,      <span class="cmt">// 0=normal, 1=flip</span>
+  <span class="kw">"ledIndicator"</span>:      <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
+  <span class="kw">"screenAutoRoll"</span>:    <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
+  <span class="kw">"screensaverEnable"</span>: <span class="num">1</span>,      <span class="cmt">// 0=off, 1=on</span>
+  <span class="kw">"screensaverTimeout"</span>:<span class="num">300</span>,    <span class="cmt">// seconds</span>
+  <span class="kw">"screensaverMode"</span>:   <span class="num">0</span>,      <span class="cmt">// 0=gif (animated GIF), 1=black (backlight off)</span>
+  <span class="kw">"fans"</span>: [
+    { <span class="kw">"id"</span>: <span class="num">0</span>, <span class="kw">"auto"</span>: <span class="num">1</span>, <span class="kw">"target"</span>: <span class="num">65.0</span>, <span class="kw">"speed"</span>: <span class="num">80</span> },  <span class="cmt">// id=0: ASIC fan</span>
+    { <span class="kw">"id"</span>: <span class="num">1</span>, <span class="kw">"auto"</span>: <span class="num">0</span>, <span class="kw">"target"</span>: <span class="num">55.0</span>, <span class="kw">"speed"</span>: <span class="num">60</span> }   <span class="cmt">// id=1: Vcore fan (NMQAxe++ only)</span>
+  ]
+}</pre>
+          <div class="block-label">PATCH – Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION 6 – BENCHMARK
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="benchmark">
+      <div class="section-header">
+        <div class="section-icon">⏱</div>
+        <div class="section-title">Benchmark</div>
+      </div>
+      <p class="section-desc">
+        Benchmark mode sweeps ASIC frequency and Vcore combinations, stores measured
+        results in NVS, and can apply a selected result back to normal mining settings.
+        Starting, stopping, resetting while running, or applying a result triggers a reboot.
+      </p>
+
+      <!-- GET/PATCH /api/benchmark -->
+      <div class="endpoint" id="benchmark-config">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <span class="method-badge method-patch">PATCH</span>
+          <code class="endpoint-path">/api/benchmark</code>
+          <span class="endpoint-summary">Benchmark config, state and results</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            <code>GET</code> returns the current benchmark mode, sweep configuration, progress,
+            accumulated runtime, and stored result array. <code>PATCH</code> updates only the
+            supplied sweep fields and does not start a benchmark run.
+          </p>
+          <div class="block-label">GET – Response 200</div>
+          <pre>{
+  <span class="kw">"mode"</span>:       <span class="num">0</span>,       <span class="cmt">// 0=normal mining, 1=benchmark active</span>
+  <span class="kw">"freqMin"</span>:    <span class="num">400</span>,     <span class="cmt">// MHz</span>
+  <span class="kw">"freqMax"</span>:    <span class="num">625</span>,
+  <span class="kw">"freqStep"</span>:   <span class="num">25</span>,
+  <span class="kw">"vcoreMin"</span>:   <span class="num">1000</span>,    <span class="cmt">// mV</span>
+  <span class="kw">"vcoreMax"</span>:   <span class="num">1300</span>,
+  <span class="kw">"vcoreStep"</span>:  <span class="num">25</span>,
+  <span class="kw">"sampleIntv"</span>: <span class="num">5</span>,       <span class="cmt">// minutes</span>
+  <span class="kw">"bmTime"</span>:     <span class="num">1000</span>,    <span class="cmt">// seconds per measurement window</span>
+  <span class="kw">"stabTime"</span>:   <span class="num">200</span>,     <span class="cmt">// stabilization delay</span>
+  <span class="kw">"curFreq"</span>:    <span class="num">0</span>,       <span class="cmt">// current sweep frequency</span>
+  <span class="kw">"curVcore"</span>:   <span class="num">0</span>,       <span class="cmt">// current sweep Vcore</span>
+  <span class="kw">"startTs"</span>:    <span class="num">0</span>,       <span class="cmt">// Unix timestamp of the current run</span>
+  <span class="kw">"totalSec"</span>:   <span class="num">0</span>,       <span class="cmt">// accumulated sweep time</span>
+  <span class="kw">"results"</span>: [
+    {
+      <span class="kw">"freq"</span>: <span class="num">575</span>, <span class="kw">"vcore"</span>: <span class="num">1250</span>, <span class="kw">"expHR"</span>: <span class="num">386.7</span>, <span class="kw">"avgHR"</span>: <span class="num">384.1</span>,
+      <span class="kw">"avgAsicTemp"</span>: <span class="num">65.5</span>, <span class="kw">"avgVcoreTemp"</span>: <span class="num">48.9</span>,
+      <span class="kw">"effJTH"</span>: <span class="num">0.047</span>, <span class="kw">"avgPwr"</span>: <span class="num">18.0</span>, <span class="kw">"ts"</span>: <span class="num">1716000000</span>
+    }
+  ]
+}</pre>
+          <div class="block-label">PATCH – Request body (all fields optional)</div>
+          <pre>{
+  <span class="kw">"freqMin"</span>:    <span class="num">400</span>,
+  <span class="kw">"freqMax"</span>:    <span class="num">625</span>,
+  <span class="kw">"freqStep"</span>:   <span class="num">25</span>,
+  <span class="kw">"vcoreMin"</span>:   <span class="num">1000</span>,
+  <span class="kw">"vcoreMax"</span>:   <span class="num">1300</span>,
+  <span class="kw">"vcoreStep"</span>:  <span class="num">25</span>,
+  <span class="kw">"sampleIntv"</span>: <span class="num">5</span>,
+  <span class="kw">"bmTime"</span>:     <span class="num">1000</span>,
+  <span class="kw">"stabTime"</span>:   <span class="num">200</span>
+}</pre>
+          <div class="block-label">PATCH – Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- POST /api/benchmark/start -->
+      <div class="endpoint" id="benchmark-start">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/benchmark/start</code>
+          <span class="endpoint-summary">Start or resume a benchmark sweep</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Optionally updates sweep fields, enables benchmark mode, and reboots. When
+            <code>resume</code> is omitted or false, the firmware resets the sweep position to
+            <code>freqMin</code>/<code>vcoreMin</code>; with <code>resume:true</code>, it keeps
+            the current sweep position.
+          </p>
+          <div class="block-label">Request body</div>
+          <pre>{
+  <span class="kw">"resume"</span>: <span class="bool">true</span>,
+  <span class="kw">"freqMin"</span>: <span class="num">400</span>,
+  <span class="kw">"freqMax"</span>: <span class="num">625</span>
+}</pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark starting, device will reboot"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- POST /api/benchmark/stop -->
+      <div class="endpoint" id="benchmark-stop">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/benchmark/stop</code>
+          <span class="endpoint-summary">Stop benchmark mode</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Disables benchmark mode, discards partial accumulated runtime, and reboots into normal mining.</p>
+          <div class="block-label">Request body</div>
+          <pre><span class="cmt">// empty body or {}</span></pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark stopped, device will reboot"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- DELETE /api/benchmark/results -->
+      <div class="endpoint" id="benchmark-results">
+        <div class="endpoint-head">
+          <span class="method-badge method-delete">DELETE</span>
+          <code class="endpoint-path">/api/benchmark/results</code>
+          <span class="endpoint-summary">Clear results and sweep config</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Clears the stored result array and deletes benchmark config/progress keys so
+            defaults fall back to board-specific values on the next <code>GET</code>.
+          </p>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- POST /api/benchmark/reset -->
+      <div class="endpoint" id="benchmark-reset">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/benchmark/reset</code>
+          <span class="endpoint-summary">Reset benchmark state</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Stops any active benchmark, clears results and progress, and resets config keys to board defaults. It reboots only when benchmark mode was active.</p>
+          <div class="block-label">Request body</div>
+          <pre><span class="cmt">// empty body or {}</span></pre>
+          <div class="block-label">Response 200 – not running</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark reset"</span> }</pre>
+          <div class="block-label">Response 200 – running</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark reset, device will reboot"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- POST /api/benchmark/apply -->
+      <div class="endpoint" id="benchmark-apply">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/benchmark/apply</code>
+          <span class="endpoint-summary">Apply a result to normal mining settings</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Saves the selected frequency and Vcore to normal ASIC settings and clears benchmark
+            mode. Behaviour depends on the current run state:
+          </p>
+          <ul class="ep-list">
+            <li><strong>Normal mode</strong> (<code>bm_mode == 0</code>) — applies Vcore to the
+              hardware power rail then hot-switches the ASIC PLL immediately.
+              <strong>No reboot required.</strong> Response includes <code>"reboot":false</code>.</li>
+            <li><strong>Benchmark mode</strong> (<code>bm_mode == 1</code>, sweep still running) —
+              saves settings to NVS then reboots to exit the sweep cleanly.
+              Response includes <code>"reboot":true</code>.</li>
+          </ul>
+          <p class="ep-desc"><code>vcore</code> is clamped to board safety limits before applying.</p>
+          <div class="block-label">Request body</div>
+          <pre>{ <span class="kw">"freq"</span>: <span class="num">575</span>, <span class="kw">"vcore"</span>: <span class="num">1200</span> }</pre>
+          <div class="block-label">Response 200 – Normal mode (hot-switch, no reboot)</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"reboot"</span>: <span class="kw">false</span> }</pre>
+          <div class="block-label">Response 200 – Benchmark mode (will reboot)</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"reboot"</span>: <span class="kw">true</span> }</pre>
+          <div class="block-label">Response 400</div>
+          <pre>{ <span class="kw">"error"</span>: <span class="str">"missing freq or vcore"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION 7 – OTA UPDATE
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="ota">
+      <div class="section-header">
+        <div class="section-icon">🔄</div>
+        <div class="section-title">OTA Update</div>
+      </div>
+      <p class="section-desc">
+        Over-the-air firmware and SPIFFS (web UI) flash endpoints.
+        Both canonical URLs and legacy compatibility aliases are supported.
+      </p>
+
+      <div class="note note-warn">
+        ⚠️ The device will reboot automatically after a successful flash. Ensure the uploaded binary matches the board model. Partial or interrupted uploads leave the device in recovery mode — re-uploading recovers it.
+      </div>
+
+      <!-- GET /api/update/progress -->
+      <div class="endpoint" id="ota-progress">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/update/progress</code>
+          <span class="endpoint-summary">Poll upload / flash progress</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Returns the current state of the unified upload handler. Applies to <strong>all</strong> upload types:
+            firmware (<code>firmware.bin</code>), SPIFFS image (<code>spiffs.bin</code>), and screensaver
+            (<code>.gif</code>). The frontend polls this endpoint (e.g. every 500 ms) during any upload to
+            display accurate device-side write progress. Progress is tracked in <code>g_board.status.ota</code>
+            and updated by <code>file_upload_handler</code>.
+          </p>
+          <div class="block-label">Response 200 – application/json</div>
+          <pre>{
+  <span class="kw">"running"</span>:  <span class="bool">true</span>,           <span class="cmt">// true while an upload/flash is in progress</span>
+  <span class="kw">"progress"</span>: <span class="num">45</span>,             <span class="cmt">// 0–100 (%)</span>
+  <span class="kw">"filename"</span>: <span class="str">"firmware.bin"</span>  <span class="cmt">// name of the file currently being written</span>
+}</pre>
+          <div class="note">ℹ️ Poll this endpoint during any upload to track progress. When <code>running</code> is <code>false</code> the
+          previous upload has completed (or no upload has started). The device reboots automatically after a successful
+          firmware or SPIFFS flash. Screensaver GIF uploads do not require a reboot.</div>
+        </div>
+      </div>
+
+      <!-- firmware -->
+      <div class="endpoint" id="ota-firmware">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/update/firmware</code>
+          <span class="endpoint-summary">Flash new firmware (.bin)</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Upload a new firmware binary via <code>multipart/form-data</code>. The device will flash it to the OTA partition and reboot.
+            Legacy alias: <code>/api/system/OTA</code>
+          </p>
+          <div class="block-label">Request – multipart/form-data</div>
+          <pre>POST /api/update/firmware HTTP/1.1
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="file"; filename="firmware.bin"
+Content-Type: application/octet-stream
+
+&lt;binary firmware data&gt;
+------boundary--</pre>
+          <div class="block-label">Response 200 (on success, before reboot)</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="block-label">Response 400 (flash failed)</div>
+          <pre>{ <span class="kw">"error"</span>: <span class="str">"flash failed"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- spiffs -->
+      <div class="endpoint" id="ota-spiffs">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/update/spiffs</code>
+          <span class="endpoint-summary">Flash new web UI (SPIFFS image)</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Upload a new SPIFFS filesystem image. The device sets an NVS flag before writing and clears it on success; an interrupted upload leaves the flag set, forcing recovery mode on the next boot.
+            Legacy alias: <code>/api/system/OTAWWW</code>
+          </p>
+          <div class="block-label">Request – multipart/form-data</div>
+          <pre>POST /api/update/spiffs HTTP/1.1
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="file"; filename="spiffs.bin"
+Content-Type: application/octet-stream
+
+&lt;binary SPIFFS image&gt;
+------boundary--</pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+          SECTION 8 – THEME
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="theme">
+      <div class="section-header">
+        <div class="section-icon">🎨</div>
+        <div class="section-title">Theme</div>
+      </div>
+      <p class="section-desc">Read and write the AxeOS UI theme configuration (color scheme, accent color, etc.).</p>
+
+      <div class="endpoint">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/theme</code>
+          <span class="endpoint-summary">Theme configuration</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="cols">
+            <div class="col">
+              <div class="block-label">GET – Response 200</div>
+              <pre>{
+  <span class="kw">"colorScheme"</span>: <span class="str">"dark"</span>,
+  <span class="kw">"theme"</span>:       <span class="str">"vela-blue"</span>,
+  <span class="kw">"accentColors"</span>: {
+    <span class="kw">"--primary-color"</span>:       <span class="str">"#F80421"</span>,
+    <span class="kw">"--primary-color-text"</span>:  <span class="str">"#ffffff"</span>,
+    <span class="kw">"--highlight-bg"</span>:        <span class="str">"#F80421"</span>,
+    <span class="cmt">// ... other CSS variable overrides</span>
+  }
+}</pre>
+            </div>
+            <div class="col">
+              <div class="block-label">POST – Request body (JSON)</div>
+              <pre>{
+  <span class="kw">"colorScheme"</span>: <span class="str">"dark"</span>,
+  <span class="kw">"theme"</span>:       <span class="str">"vela-green"</span>,
+  <span class="kw">"accentColors"</span>: {
+    <span class="kw">"--primary-color"</span>: <span class="str">"#00c853"</span>,
+    <span class="cmt">// ... CSS variable overrides</span>
+  }
+}</pre>
+            </div>
+          </div>
+          <div class="block-label">POST – Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+          SECTION 9 – SWARM
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="swarm">
+      <div class="section-header">
+        <div class="section-icon">🐝</div>
+        <div class="section-title">Swarm</div>
+      </div>
+      <p class="section-desc">
+        Swarm mining aggregates statistics across multiple NMAxe devices on the same
+        LAN. The background <em>alive_ip_scan_thread</em> periodically pings the /24
+        subnet; <em>swarm_thread</em> probes found IPs for NM-compatible firmware.
+      </p>
+
+      <div class="endpoint" id="swarm-scan">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/swarm/scan</code>
+          <span class="endpoint-summary">Trigger an immediate subnet re-scan</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Signals the IP-scan thread to abort the current scan and restart from the beginning. Typically called by the AxeOS Swarm page on load to get fresh data quickly. No request body is needed.
+          </p>
+          <div class="block-label">Request body</div>
+          <pre><span class="cmt">// empty body or {}</span></pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <div class="endpoint" id="swarm-find">
+        <div class="endpoint-head">
+          <span class="method-badge method-post">POST</span>
+          <code class="endpoint-path">/api/swarm/find</code>
+          <span class="endpoint-summary">Locate a specific device by blinking its screen</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Sets the <em>FIND_NEIGHBOR</em> event on the target device, causing its display to flash
+            until the user dismisses it — by tapping the screen or pressing the Boot button.
+            Useful for physically identifying a device in a rack. Available in both normal and
+            recovery mode.
+          </p>
+          <div class="block-label">Request body</div>
+          <pre><span class="cmt">// empty body or {}</span></pre>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+          SECTION 10 – LOGGING
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="logging">
+      <div class="section-header">
+        <div class="section-icon">📋</div>
+        <div class="section-title">Logging</div>
+      </div>
+      <p class="section-desc">
+        Real-time log output is pushed over the persistent WebSocket connection at <code>/ws</code>.
+        The HTTP <code>GET /api/log</code> endpoint is a lightweight probe that confirms the log channel
+        is available; actual log lines are delivered as WebSocket text frames.
+      </p>
+
+      <!-- GET /api/log -->
+      <div class="endpoint" id="log">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/log</code>
+          <span class="endpoint-summary">Log feature probe / trigger</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            A lightweight probe endpoint. Invoking it triggers an internal log event so the client can
+            confirm the log channel is alive. Actual log lines are delivered as
+            <strong>WebSocket text frames</strong> over <code>ws://&lt;device&gt;/ws</code> — not in this HTTP response.
+          </p>
+          <div class="block-label">Response 200</div>
+          <pre><span class="cmt">// 200 OK with empty body — real logs arrive via WebSocket /ws</span></pre>
+        </div>
+      </div>
+
+      <!-- WebSocket /ws -->
+      <div class="endpoint" id="websocket">
+        <div class="endpoint-head">
+          <span class="method-badge method-ws">WS</span>
+          <code class="endpoint-path">ws://&lt;device&gt;/ws</code>
+          <span class="endpoint-summary">Real-time log &amp; event stream</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            A persistent WebSocket connection served on <strong>port 80</strong>, path <code>/ws</code>.
+            The firmware pushes every log line as a UTF-8 text frame in real time.
+            Text sent by a client is echoed back verbatim (useful for connectivity testing).
+            <code>webSocket.cleanupClients()</code> runs every 250 ms inside the webserver thread
+            to detect and evict stale connections.
+          </p>
+          <div class="note">ℹ️ Connect with any standard WebSocket client: the browser <code>WebSocket</code> API, <code>wscat</code>, or the AxeOS built-in Log page.</div>
+          <div class="block-label">Connection URL</div>
+          <pre>ws://<span class="url">&lt;device-ip&gt;/ws</span></pre>
+          <div class="block-label">Server → Client frames (text) – log lines</div>
+          <pre><span class="cmt">[I][12:34:56] WiFi connected to [MySSID], waiting for IP...
+[I][12:34:57] Got IP: 192.168.1.42
+[D][12:34:58] Vcore ready at 1200mV/1200mV
+[W][12:34:59] (swarm) new scan gen=3, reset swarm memory, 5 alive IPs to probe</span></pre>
+          <div class="block-label">Client → Server frames (text) – echoed back</div>
+          <pre><span class="cmt">// Any text sent by the client is echoed back verbatim</span>
+<span class="str">"ping"</span>  <span class="cmt">→ server replies</span>  <span class="str">"ping"</span></pre>
+          <table>
+            <thead><tr><th>Event</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>WS_EVT_CONNECT</code></td><td>Client connected; logged via <code>Serial.printf</code></td></tr>
+              <tr><td><code>WS_EVT_DISCONNECT</code></td><td>Client disconnected; stale clients cleaned up every 250 ms</td></tr>
+              <tr><td><code>WS_EVT_DATA</code></td><td>Incoming text frame echoed back to the sender</td></tr>
+              <tr><td><code>WS_EVT_PONG</code></td><td>Pong received in response to a server-side ping</td></tr>
+              <tr><td><code>WS_EVT_ERROR</code></td><td>Transport error on the client connection</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+          SECTION 11 – PROBE & DISCOVERY
+    ════════════════════════════════════════════════════════════ -->
+    <section class="section" id="discovery">
+      <div class="section-header">
+        <div class="section-icon">🔍</div>
+        <div class="section-title">Probe &amp; Discovery</div>
+      </div>
+      <p class="section-desc">
+        Lightweight discovery endpoints used by the Swarm panel to identify NM-compatible
+        miners and enumerate live hosts on the subnet.
+      </p>
+
+      <!-- /probe -->
+      <div class="endpoint" id="probe">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/probe</code>
+          <span class="endpoint-summary">NM miner identification probe</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Designed to be called by other devices (e.g. the Swarm panel of a neighbouring miner) to identify this device as an NM-compatible miner and retrieve its real-time statistics.
+            A device is classified as NM-compatible if the response contains both <code>hr</code> and <code>ver</code> keys.
+          </p>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"model"</span>: <span class="str">"NMAxe"</span>,            <span class="cmt">// board model name</span>
+  <span class="kw">"hostname"</span>: <span class="str">"nmaxe-a1b2"</span>,    <span class="cmt">// mDNS hostname</span>
+  <span class="kw">"ver"</span>: <span class="str">"1.2.0"</span>,             <span class="cmt">// firmware version — mandatory for NM identification</span>
+  <span class="kw">"sw"</span>: <span class="num">135</span>,                <span class="cmt">// TFT screen width in pixels</span>
+  <span class="kw">"sh"</span>: <span class="num">240</span>,                <span class="cmt">// TFT screen height in pixels</span>
+  <span class="kw">"hr"</span>: <span class="num">465000000</span>,            <span class="cmt">// H/s – 3-minute average — mandatory for NM identification</span>
+  <span class="kw">"sbd"</span>: <span class="num">12884901888</span>,        <span class="cmt">// best session difficulty (raw)</span>
+  <span class="kw">"ebd"</span>: <span class="num">52428800000</span>,        <span class="cmt">// best ever difficulty (raw)</span>
+  <span class="kw">"ut"</span>: <span class="num">3600</span>                 <span class="cmt">// uptime in seconds for current session</span>
+}</pre>
+        </div>
+      </div>
+
+      <!-- /alive -->
+      <div class="endpoint" id="alive">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/alive</code>
+          <span class="endpoint-summary">List of alive IPs on the subnet</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Returns the device's own IP along with all IP addresses that responded to ICMP pings during the last /24 subnet scan.
+            Rather than having each miner independently probe the network, the design offloads discovery to the querying side: the miner performs a single coarse ICMP sweep and caches the results; callers receive the full alive-IP list and are responsible for the finer-grained NM-device identification (via <code>/probe</code>). This keeps the miner's CPU and network load minimal — it only does one pass of raw reachability, leaving protocol-level classification to the client.
+          </p>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"self"</span>:         <span class="str">"192.168.1.42"</span>,
+  <span class="kw">"scanning"</span>:     <span class="bool">false</span>,          <span class="cmt">// true while a /24 subnet scan is in progress</span>
+  <span class="kw">"progress"</span>:     <span class="num">254</span>,            <span class="cmt">// hosts probed so far in the current scan</span>
+  <span class="kw">"total"</span>:        <span class="num">254</span>,            <span class="cmt">// total hosts in the /24 subnet</span>
+  <span class="kw">"next_scan_in"</span>: <span class="num">287</span>,            <span class="cmt">// seconds until next automatic scan (0 if overdue)</span>
+  <span class="kw">"ips"</span>:          [
+    <span class="str">"192.168.1.42"</span>,   <span class="cmt">// self is always first</span>
+    <span class="str">"192.168.1.1"</span>,
+    <span class="str">"192.168.1.100"</span>,
+    <span class="str">"192.168.1.101"</span>
+  ]
+}</pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ══════════════════ FOOTER ══════════════════ -->
+<footer class="footer">
+  <div class="footer-logo">AxeOS</div>
+  <div class="footer-text">NMAxe / NMAxeGamma / NMQAxe++ · ESP32-S3 Bitcoin Solo Miner Firmware</div>
+  <a class="footer-link"
+     href="https://github.com/NMminer1024/ESP-Miner-NMAxe"
+     target="_blank" rel="noopener">
+    <!-- GitHub SVG icon -->
+    <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+               0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+               -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+               .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+               -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27
+               .68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12
+               .51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+               0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+    </svg>
+    GitHub Repository
+  </a>
+</footer>
+
+<script>
+  // Mobile sidebar toggle
+  const menuBtn = document.getElementById('menuBtn');
+  const sidebarEl = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  function openSidebar()  { sidebarEl.classList.add('open'); overlay.classList.add('open'); }
+  function closeSidebar() { sidebarEl.classList.remove('open'); overlay.classList.remove('open'); }
+  if (menuBtn) {
+    menuBtn.addEventListener('click', () =>
+      sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar());
+  }
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  // Close sidebar when a nav link is clicked on mobile
+  document.querySelectorAll('.nav-item[href^="#"]').forEach(a =>
+    a.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); })
+  );
+
+  // ── Try It buttons for GET endpoints ──────────────────────────────
+  document.querySelectorAll('.endpoint').forEach(ep => {
+    if (!ep.querySelector('.method-badge.method-get')) return;
+    const pathEl = ep.querySelector('.endpoint-path');
+    if (!pathEl) return;
+    const path = pathEl.textContent.trim();
+    const body = ep.querySelector('.endpoint-body');
+    if (!body) return;
+
+    const section = document.createElement('div');
+    section.className = 'try-it-section';
+
+    const btn = document.createElement('button');
+    btn.className = 'try-it-btn';
+    btn.innerHTML = '<svg style="display:inline;vertical-align:middle;margin-right:5px" width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 9,5 2,9" fill="currentColor"/></svg>Try It';
+
+    const responseWrap = document.createElement('div');
+    responseWrap.className = 'try-it-response';
+    responseWrap.style.display = 'none';
+
+    const label = document.createElement('div');
+    label.className = 'block-label';
+    label.textContent = 'Live Response';
+
+    const pre = document.createElement('pre');
+    pre.className = 'try-it-pre';
+
+    responseWrap.appendChild(label);
+    responseWrap.appendChild(pre);
+    section.appendChild(btn);
+    section.appendChild(responseWrap);
+    body.appendChild(section);
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Loading…';
+      pre.className = 'try-it-pre';
+      pre.textContent = '';
+      responseWrap.style.display = 'block';
+      try {
+        const url = window.location.protocol + '//' + window.location.host + path;
+        const resp = await fetch(url);
+        const text = await resp.text();
+        let out;
+        try { out = JSON.stringify(JSON.parse(text), null, 2); } catch { out = text; }
+        pre.textContent = out;
+      } catch (e) {
+        pre.className = 'try-it-pre try-it-error';
+        pre.textContent = 'Request failed: ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg style="display:inline;vertical-align:middle;margin-right:5px" width="10" height="10" viewBox="0 0 10 10"><polygon points="2,1 9,5 2,9" fill="currentColor"/></svg>Try It';
+      }
+    });
+  });
+
+  // Highlight the active sidebar link on scroll
+  const items = document.querySelectorAll('.nav-item[href^="#"]');
+  const sections = [];
+  items.forEach(a => {
+    const id = a.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ el, a });
+  });
+
+  function onScroll() {
+    const scrollY = window.scrollY + 80;
+    let active = null;
+    for (const { el, a } of sections) {
+      if (el.offsetTop <= scrollY) active = a;
+    }
+    items.forEach(i => i.classList.remove('active'));
+    if (active) active.classList.add('active');
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+</script>
+
+</body>
+</html>

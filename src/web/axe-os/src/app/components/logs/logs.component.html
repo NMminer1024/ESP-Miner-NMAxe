@@ -1,0 +1,220 @@
+<div class="grid">
+  <div class="col-12">
+    <div class="logs-container">
+
+      <!-- ── Tab bar ────────────────────────────────────────────────────── -->
+      <div class="tabs-bar">
+        <button type="button"
+                class="tab-btn"
+                [class.active]="activeTab === 0"
+                (click)="selectTab(0)">
+          <span class="tab-icon">📋</span>
+          <span>Realtime Logs</span>
+        </button>
+        <button type="button"
+                class="tab-btn"
+                [class.active]="activeTab === 1"
+                (click)="selectTab(1)">
+          <span class="tab-icon">🔁</span>
+          <span>Reboot History</span>
+        </button>
+      </div>
+
+      <!-- ── Tab 1: Realtime Logs ──────────────────────────────────────── -->
+      <div class="tab-panel" *ngIf="activeTab === 0">
+        <div class="logs-header">
+          <div class="logs-title-group">
+            <div class="auto-refresh-toggle">
+              <p-inputSwitch [(ngModel)]="autoRefresh" inputId="autoRefreshSwitch"></p-inputSwitch>
+              <label for="autoRefreshSwitch" class="auto-refresh-label">Auto Scroll</label>
+            </div>
+            <button pButton
+                    (click)="saveLog()"
+                    class="p-button-rounded p-button-outlined save-log-btn">
+              <span class="button-content">
+                <span class="download-icon">💾</span>
+                <span>Download</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div id="logs" #scrollContainer>
+          <pre *ngFor="let log of logs" class="log-entry" [innerHTML]="log"></pre>
+        </div>
+      </div>
+
+      <!-- ── Tab 2: Reboot History ─────────────────────────────────────── -->
+      <div class="tab-panel" *ngIf="activeTab === 1">
+        <div class="logs-header">
+          <div class="logs-title-group">
+            <div class="reboot-actions">
+              <button pButton
+                      (click)="clearReboots()"
+                      class="p-button-rounded p-button-outlined save-log-btn danger"
+                      [disabled]="rebootList.length === 0">
+                <span class="button-content">
+                  <span class="download-icon">🗑</span>
+                  <span>Clear</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coredump card (only shown when a crash dump is present in flash) -->
+        <div class="coredump-card" *ngIf="coredump?.present">
+          <div class="coredump-head">
+            <span class="coredump-icon">💥</span>
+            <div class="coredump-titleblock">
+              <div class="coredump-title">Crash dump detect</div>
+              <div class="coredump-sub">
+                A panic / watchdog reset captured the crashing PC and call
+                stack below. Click <strong>Download</strong> to save it as a
+                .log file you can attach to a GitHub issue.
+              </div>
+            </div>
+            <div class="coredump-actions">
+              <button pButton
+                      (click)="downloadCoredump()"
+                      class="p-button-rounded p-button-outlined save-log-btn"
+                      [disabled]="coredumpDownloading">
+                <span class="button-content">
+                  <span class="download-icon">💾</span>
+                  <span>{{ coredumpDownloading ? 'Saving…' : 'Download' }}</span>
+                </span>
+              </button>
+              <button pButton
+                      (click)="clearCoredump()"
+                      class="p-button-rounded p-button-outlined save-log-btn danger">
+                <span class="button-content">
+                  <span class="download-icon">🗑</span>
+                  <span>Clear</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Summary text preview (read-only); GitHub-style copy button on top-right -->
+          <div class="coredump-preview">
+            <button type="button"
+                    class="copy-btn"
+                    (click)="copySummary()"
+                    [disabled]="!coredumpSummary"
+                    [class.copied]="coredumpCopied"
+                    [title]="coredumpCopied ? 'Copied!' : 'Copy summary text'">
+              <span *ngIf="!coredumpCopied">⧉</span>
+              <span *ngIf="coredumpCopied">✓</span>
+            </button>
+            <textarea class="summary-box mono"
+                      readonly
+                      spellcheck="false"
+                      [value]="coredumpSummary"></textarea>
+          </div>
+        </div>
+
+        <!-- Clear-coredump confirmation modal: warns the user that this is the
+             only on-device crash artifact, and points to GitHub Issues for
+             reporting. Shown by clearCoredump(); cleared by either button. -->
+        <div class="cd-modal-overlay" *ngIf="showClearConfirm" (click)="cancelClearCoredump()">
+          <div class="cd-modal" (click)="$event.stopPropagation()">
+            <h3>Clear crash dump?</h3>
+            <p>
+              This is the only on-device record of the last crash and is what
+              developers need to fix the bug.
+            </p>
+            <p>
+              <strong>Please Download a backup first</strong> so the log is
+              safely saved before erasing.
+            </p>
+            <p class="cd-modal-warn">Erasing cannot be undone.</p>
+            <div class="cd-modal-actions">
+              <button pButton type="button"
+                      class="p-button-text"
+                      (click)="cancelClearCoredump()">
+                <span>Cancel</span>
+              </button>
+              <button pButton type="button"
+                      class="p-button-rounded save-log-btn danger"
+                      (click)="confirmClearCoredump()">
+                <span class="button-content">
+                  <span class="download-icon">🗑</span>
+                  <span>Clear anyway</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner: most recent reboot at-a-glance -->
+        <div class="reboot-banner"
+             *ngIf="rebootList.length > 0"
+             [ngClass]="classMeta(rebootList[0].class).cssClass">
+          <span class="banner-icon">{{ classMeta(rebootList[0].class).icon }}</span>
+          <div class="banner-text">
+            <div class="banner-title">
+              Last reboot: {{ classMeta(rebootList[0].class).label }}
+              <span class="banner-sub">— {{ reasonText(rebootList[0]) }}</span>
+            </div>
+            <div class="banner-meta">
+              boot #{{ rebootList[0].idx }}
+              · ran {{ formatUptime(rebootList[0].uptime) }}
+              · min heap {{ formatHeap(rebootList[0].heapMin) }}
+              · fw {{ rebootList[0].fw || '—' }}
+            </div>
+          </div>
+        </div>
+
+        <div class="reboot-empty" *ngIf="!rebootLoading && rebootList.length === 0 && !rebootError">
+          No reboot history yet. The first record will appear after the next restart.
+        </div>
+        <div class="reboot-empty error" *ngIf="rebootError">{{ rebootError }}</div>
+        <div class="reboot-empty" *ngIf="rebootLoading">Loading…</div>
+
+        <div class="reboot-table-wrap" *ngIf="rebootList.length > 0">
+          <table class="reboot-table">
+            <thead>
+              <tr>
+                <th class="col-idx">#</th>
+                <th class="col-when">When</th>
+                <th class="col-type">Type</th>
+                <th class="col-reason">Reason</th>
+                <th class="col-uptime">Ran for</th>
+                <th class="col-heap">Min heap</th>
+                <th class="col-fw">FW</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of rebootList" [ngClass]="classMeta(r.class).cssClass">
+                <td class="col-idx">{{ r.idx }}</td>
+                <td class="col-when">{{ formatTimestamp(r) }}</td>
+                <td class="col-type">
+                  <span class="type-badge">
+                    <span class="type-icon">{{ classMeta(r.class).icon }}</span>
+                    {{ classMeta(r.class).label }}
+                  </span>
+                </td>
+                <td class="col-reason">{{ reasonText(r) }}</td>
+                <td class="col-uptime">{{ formatUptime(r.uptime) }}</td>
+                <td class="col-heap">{{ formatHeap(r.heapMin) }}</td>
+                <td class="col-fw">{{ r.fw || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Legend -->
+        <div class="reboot-legend" *ngIf="rebootList.length > 0">
+          <span><span class="dot cls-cold"></span>Cold boot</span>
+          <span><span class="dot cls-planned"></span>Planned</span>
+          <span><span class="dot cls-unknown"></span>Unknown SW (no reason recorded)</span>
+          <span><span class="dot cls-crash"></span>Crash</span>
+          <span><span class="dot cls-power"></span>Power issue (brown-out)</span>
+          <span><span class="dot cls-external"></span>External / other</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+

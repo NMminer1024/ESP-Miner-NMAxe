@@ -1,0 +1,230 @@
+.hr-dist-chart-container {
+  background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+  border-radius: 10px;
+  padding: 6px; // 进一步减少padding给图表更多空间
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  border: 1px solid #404040;
+  color: #ffffff;
+  margin-bottom: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  height: 100%; // 占满父容器高度
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; // 改回hidden防止图表溢出，但保持hover效果
+  
+  // 只允许hover时溢出
+  &:hover {
+    overflow: visible;
+  }
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2px; // 进一步减少底部边距
+  flex-wrap: wrap;
+  gap: 0.25rem; // 进一步减少gap以节省更多空间
+  flex-shrink: 0; // 防止header被压缩
+  padding-bottom: 2px; // 进一步减少内边距
+}
+
+.chart-title {
+  color: #fff;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chart-stats {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #cccccc;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  min-width: 50px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.3);
+}
+
+.chart-wrapper {
+  flex: 1;
+  height: calc(100% - 40px); // 进一步减少减去的高度，给chart-header留出更少空间
+  max-height: 550px; // 添加最大高度限制，与monitor组件类似但稍高一些以充分利用空间
+  min-height: 520px; // 大幅增加最小高度，确保铺满卡片
+  width: 100%;
+  position: relative; // 确保内部元素正确定位
+  overflow: hidden; // 改为hidden防止图表溢出，与monitor组件保持一致
+  display: flex; // 添加flex布局
+  flex-direction: column; // 垂直布局
+  
+  // 原生Canvas样式，参考monitor组件
+  .chart-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: none !important;
+    background: transparent;
+    border-radius: 4px;
+    display: block; // 确保Canvas正确显示
+    flex: 1; // 占据父容器剩余空间
+    
+    // 移动端特殊优化：确保图表完全填充容器
+    @media (max-width: 768px) {
+      border-radius: 2px; // 减少圆角以节省空间
+      margin: 0; // 移除任何可能的margin
+      padding: 0; // 移除任何可能的padding
+    }
+  }
+}
+
+.chart-footer {
+  display: none; // PC端隐藏footer给图表更多空间
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-description {
+  font-size: 0.8rem;
+  color: #cccccc;
+  line-height: 1.4;
+  margin: 0;
+  text-align: center;
+  font-style: italic;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .hr-dist-chart-container {
+    padding: 8px; // 进一步减少padding给图表更多空间
+    margin-bottom: 0.5rem;
+  }
+  
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 4px; // 大幅减少margin，让图表有更多空间
+  }
+  
+  .chart-title {
+    font-size: 14px; // 进一步减少字体大小节省空间
+    margin-bottom: 2px;
+  }
+  
+  .chart-wrapper {
+    min-height: 240px; // 增加最小高度确保图表充分显示
+    height: calc(100% - 50px); // 减少减去的高度，给图表更多垂直空间
+    padding-bottom: 10px; // 为横轴标签预留底部空间
+    
+    // 移动端Canvas样式优化
+    .chart-canvas {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+  }
+  
+  .chart-stats {
+    width: 100%;
+    justify-content: space-between;
+    margin-bottom: 2px; // 减少底部边距
+  }
+  
+  .stat-item {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .stat-value {
+    font-size: 0.7rem; // 进一步减小字体
+    padding: 0.1rem 0.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hr-dist-chart-container {
+    padding: 6px; // 最小化padding
+  }
+  
+  .chart-title {
+    font-size: 12px; // 进一步减少字体
+  }
+  
+  .chart-wrapper {
+    min-height: 200px; // 增加最小高度确保图表可见
+    height: calc(100% - 40px); // 进一步减少减去的高度
+    padding-bottom: 12px; // 为横轴标签预留空间
+    
+    // 小屏幕Canvas样式优化
+    .chart-canvas {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+  }
+  
+  .chart-stats {
+    flex-direction: row; // 改为水平布局
+    gap: 0.2rem; // 进一步减少间距
+    justify-content: space-between; // 平均分布
+    margin-bottom: 1px; // 最小化底部边距
+  }
+  
+  .stat-item {
+    flex-direction: column; // 改回垂直布局，label在上，value在下
+    justify-content: center;
+    align-items: center;
+    flex: 1; // 等宽分布
+    min-width: 0;
+  }
+  
+  .stat-label {
+    font-size: 0.7rem; // 进一步减少字体
+    white-space: nowrap; // 防止换行
+  }
+  
+  .stat-value {
+    font-size: 0.7rem; // 进一步减少字体
+    padding: 0.1rem 0.3rem; // 减少padding
+    min-width: 30px; // 减少最小宽度
+  }
+}
+
+/* PC端专用优化样式 */
+@media (min-width: 769px) {
+  .hr-dist-chart-container {
+    min-height: 600px; // PC端容器最小高度
+  }
+  
+  .chart-wrapper {
+    min-height: 560px; // PC端图表包装器最小高度
+  }
+}

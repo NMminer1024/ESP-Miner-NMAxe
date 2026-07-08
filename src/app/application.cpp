@@ -48,6 +48,7 @@ void Application::setup() {
         return;
     }
     _wifi_started = false;
+    _web_started = false;
     _stratum_started = false;
     _asic_mining_started = false;
     _services_started = false;
@@ -136,6 +137,11 @@ void Application::_run_app_once() {
     if (_boot_service.waiting_for_wifi() && !_wifi_started) {
         _wifi_service.start(_config, _runtime, _events);
         _wifi_started = true;
+    }
+
+    if (_wifi_started && !_web_started) {
+        _web_service.start(*_board, _config_store, _config, _runtime, _events, _state_mutex);
+        _web_started = _web_service.started();
     }
 
     if (_boot_service.ready_for_services() && !_services_started) {

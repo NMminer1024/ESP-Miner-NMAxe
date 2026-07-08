@@ -16,9 +16,6 @@ if not project_dir:
 
 
 def build_web_assets():
-    # Legacy web asset pipeline kept for the future full-flash flow.
-    # The current BSP-first skeleton does not restore `src/web/axe-os` yet, so
-    # normal `pio run -t upload` must not assume this path already exists.
     web_src_dir = join(project_dir, "src", "web", "axe-os")
     dist_dir = join(web_src_dir, "dist", "axe-os")
     data_dir = join(project_dir, "data")
@@ -134,15 +131,7 @@ if env.IsCleanTarget():
     Return()
 
 if any(target == "upload" for target in COMMAND_LINE_TARGETS):
-    # Current BSP-first upload mode skips SPIFFS on purpose.
-    # `platformio.ini` still uses a custom full-flash command, but only for:
-    # bootloader + ota_data + partitions + firmware.
-    #
-    # The SPIFFS preparation helpers above are intentionally kept in this file
-    # for later restoration, but upload does not hook them right now.
-    #
-    # TODO(agent): when the new web/SPiffs pipeline returns, add the upload
-    # pre-action back here and extend upload_command to flash spiffs.bin again.
+    env.AddPreAction("upload", ensure_spiffs_before_upload)
     Return()
 
 if not any(target in ("buildfs", "uploadfs") for target in COMMAND_LINE_TARGETS):

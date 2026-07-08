@@ -1,0 +1,29 @@
+<div class="hr-dist-chart-container">
+  <div class="chart-header">
+    <h3 class="chart-title">📊 Hashrate Distribution</h3>
+    <div class="chart-header-right">
+      <div class="chart-stats">
+        <div class="stat-item">
+          <span class="stat-label">Scale</span>
+          <span class="stat-value">{{ scale }} {{ scaleUnit }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Time</span>
+          <span class="stat-value">{{ formattedTime }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Samples</span>
+          <span class="stat-value">{{ samplingCount }}</span>
+        </div>
+      </div>
+      <app-help-btn key="hr-dist"></app-help-btn>
+    </div>
+  </div>
+  
+  <div class="chart-wrapper">
+    <!-- 原生Canvas实现，参考monitor组件 -->
+    <canvas #chartCanvas 
+            class="chart-canvas">
+    </canvas>
+  </div>
+</div>

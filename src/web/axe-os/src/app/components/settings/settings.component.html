@@ -1,0 +1,116 @@
+<!-- Benchmark running warning dialog -->
+<p-dialog [(visible)]="showBenchmarkWarning"
+          header="Benchmark Mode Active"
+          [modal]="true"
+          [closable]="true"
+          [style]="{width: '440px'}"
+          [draggable]="false">
+  <div class="bm-dialog-body" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding: 8px 0;">
+    <i class="pi pi-lock" style="font-size:2.5rem; color: var(--yellow-400, #f59e0b);"></i>
+    <p style="text-align:center; margin:0;">
+      <strong>Benchmark mode is currently running.</strong>
+    </p>
+    <p style="text-align:center; margin:0; color: var(--text-color-secondary);">
+      Modifying configuration during a benchmark may corrupt the sweep results.<br/>
+      Please stop the benchmark first before making any changes.
+    </p>
+  </div>
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Stay Here" icon="pi pi-times"
+            class="p-button-outlined p-button-secondary btn"
+            (click)="showBenchmarkWarning = false">
+    </button>
+    <button pButton type="button" label="Go to Benchmark" icon="pi pi-arrow-right"
+            class="p-button-warning btn"
+            (click)="goToBenchmark()">
+    </button>
+  </ng-template>
+</p-dialog>
+
+<div class="card modern-card time-card">
+  <h2 class="card-title"><span class="card-icon">🕐</span>Time<app-help-btn key="settings-time"></app-help-btn></h2>
+  <app-time-edit/>
+</div>
+
+<div class="card modern-card network-card">
+  <h2 class="card-title"><span class="card-icon">🌐</span>Network<app-help-btn key="settings-network"></app-help-btn></h2>
+  <app-network-edit/>
+</div>
+
+<div class="card modern-card mining-card">
+  <h2 class="card-title"><span class="card-icon">⛏️</span>Mining<app-help-btn key="settings-mining"></app-help-btn></h2>
+  <app-edit></app-edit>
+</div>
+
+<div class="card modern-card market-card" *ngIf="form" [formGroup]="form">
+  <h2 class="card-title"><span class="card-icon">📈</span>Market<app-help-btn key="settings-market"></app-help-btn></h2>
+
+  <!-- Primary Display Coin -->
+  <div class="field grid p-fluid">
+    <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="mainprice">
+      Main Price:
+    </label>
+    <div class="col-12 md:col-10">
+      <p-dropdown id="mainprice"
+                  [options]="pairOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  formControlName="mainprice"
+                  [filter]="true"
+                  filterBy="label"
+                  placeholder="Select coin"
+                  appendTo="body"
+                  styleClass="w-full">
+      </p-dropdown>
+    </div>
+  </div>
+
+  <!-- Watchlist Coins -->
+  <div class="field grid p-fluid">
+    <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coinWatchlist">
+      Watchlist:
+    </label>
+    <div class="col-12 md:col-10">
+      <p-multiSelect id="coinWatchlist"
+                     [options]="pairOptions"
+                     optionLabel="label"
+                     optionValue="value"
+                     formControlName="coinWatchlist"
+                     [filter]="true"
+                     filterBy="label"
+                     placeholder="Select coins to watch"
+                     display="chip"
+                     [maxSelectedLabels]="50"
+                     selectedItemsLabel="{0} coins selected"
+                     [showToggleAll]="false"
+                     appendTo="body"
+                     styleClass="w-full">
+      </p-multiSelect>
+      <small *ngIf="form.get('coinWatchlist')?.errors?.['maxWatchlist']" style="color: #ff6b6b;">
+        Too many coins selected — maximum 50 allowed.
+      </small>
+    </div>
+  </div>
+
+  <div class="flex justify-content-start mt-3">
+    <button pButton label="Save" class="btn" (click)="saveMarket()"></button>
+  </div>
+</div>
+
+<div class="grid preference-theme-grid">
+  <div class="col-12 lg:col-6 xl:col-6">
+    <div class="card modern-card preference-card">
+      <h2 class="card-title"><span class="card-icon">⚙️</span>Preference<app-help-btn key="settings-preference"></app-help-btn></h2>
+      <app-preferences/>
+    </div>
+  </div>
+  
+  <div class="col-12 lg:col-6 xl:col-6">
+    <div class="card modern-card theme-card compact-theme-card">
+      <h2 class="card-title"><span class="card-icon">🎨</span>Theme Configuration<app-help-btn key="settings-theme"></app-help-btn></h2>
+      <div class="theme-content-wrapper">
+        <app-theme-config></app-theme-config>
+      </div>
+    </div>
+  </div>
+</div>

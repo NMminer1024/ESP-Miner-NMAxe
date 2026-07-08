@@ -23,6 +23,7 @@
 #include "state/runtime_state.h"
 #include "state/ui_state.h"
 #include "system/events.h"
+#include "web/web_service.h"
 
 namespace nm::bsp {
 class Board;
@@ -60,6 +61,7 @@ private:
     bool _tasks_started = false;
     bool _services_started = false;
     bool _wifi_started = false;
+    bool _web_started = false;
     bool _stratum_started = false;
     bool _asic_mining_started = false;
     bool _boot_slide_complete = false;
@@ -79,6 +81,7 @@ private:
     services::StratumService _stratum_service{};
     services::UiService _ui_service{};
     services::WifiService _wifi_service{};
+    web::WebService _web_service{};
 };
 
 }  // namespace nm
