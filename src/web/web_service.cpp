@@ -1040,14 +1040,23 @@ void update_ota_progress(uint32_t transferred, size_t total, const String& filen
     g_ota_progress.progress = static_cast<uint8_t>(percent);
 
     if (static_cast<int>(percent) != g_ota_upload.last_logged_percent) {
-        LOG_I("%s %s: %u%% (%u / %u bytes)",
+        LOG_I("%s %s: %u%% (%.1f / %.1f kB)",
               filename.c_str(),
               prefix != nullptr ? prefix : "ota",
               static_cast<unsigned>(percent),
-              static_cast<unsigned>(transferred),
-              static_cast<unsigned>(total));
+              transferred / 1024.0f,
+              total / 1024.0f);
         g_ota_upload.last_logged_percent = static_cast<int>(percent);
     }
+}
+
+void log_ota_complete_progress(const String& filename, uint32_t bytes) {
+    g_ota_progress.progress = 100;
+    g_ota_upload.last_logged_percent = 100;
+    LOG_I("%s ota: 100%% (%.1f / %.1f kB)",
+          filename.c_str(),
+          bytes / 1024.0f,
+          bytes / 1024.0f);
 }
 
 void reset_upload_state() {
@@ -1308,9 +1317,9 @@ void upload_handler(AsyncWebServerRequest* request, const String& filename, size
 
         g_ota_progress.running = false;
         g_ota_progress.error = false;
-        g_ota_progress.progress = 100;
         g_ota_progress.bytes = static_cast<uint32_t>(index + len);
         g_ota_progress.last_progress_ms = millis();
+        log_ota_complete_progress(filename, g_ota_progress.bytes);
         set_ota_result(target, true, true, 200, g_ota_progress.bytes, filename, "upload_success_reboot_pending");
         LOG_W("[web] %s OTA success: %.1f KB, rebooting",
               target_name(target),
