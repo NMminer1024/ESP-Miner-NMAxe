@@ -3,8 +3,8 @@
 // panel CS pin, two fans, and four ASICs, which is materially different from
 // the Axe/Gamma BSPs.
 // Role: Describes QAxe++ pins, panel quirks, policies, and driver assembly.
-// Benefit: The firmware can bring up QAxe++ loading/UI early while missing
-// BM1373 and TPS53647 migrations stay explicit framework-level placeholders.
+// Benefit: The firmware can bring up QAxe++ with real display, fan, PMBus
+// power, and Vcore telemetry while BM1373 support remains an explicit gap.
 #include "bsp/nmqaxe_pp/board.h"
 
 #include <Arduino.h>
@@ -18,8 +18,11 @@
 #include "drivers/fan/fan.h"
 #include "drivers/fan/pwm_tach/pwm_tach_fan.h"
 #include "drivers/power/power.h"
+#include "drivers/power/tps53647/tps53647.h"
 #include "drivers/temp/temp.h"
+#include "drivers/temp/tmp102/tmp102.h"
 #include "drivers/touch/touch.h"
+#include "hal/adc/adc_sampler.h"
 #include "hal/i2c/i2c_master.h"
 #include "hal/spi/spi_master.h"
 #include "hal/uart/uart_port.h"
@@ -28,7 +31,7 @@
 namespace nm::bsp::nmqaxe_pp {
 namespace {
 
-constexpr uint8_t kTca9554Address = 0x20;
+constexpr uint8_t kTca9554Address   = 0x20;
 constexpr uint8_t kTca9554RegOutput = 0x01;
 constexpr uint8_t kTca9554RegConfig = 0x03;
 constexpr uint8_t kTftResetIoBit = 1u << 1;
@@ -148,6 +151,11 @@ hal::i2c::I2cMaster& qaxe_i2c_bus() {
     return bus;
 }
 
+hal::adc::AdcSampler& qaxe_power_adc() {
+    static hal::adc::AdcSampler sampler;
+    return sampler;
+}
+
 hal::spi::SpiMaster& qaxe_display_bus() {
     static SPIClass controller(HSPI);
     static const hal::spi::SpiBusConfig config(
@@ -176,6 +184,63 @@ const drivers::Bm1370UartConfig& qaxe_bm1370_config() {
         45);
     return config;
 }
+
+const drivers::Tps53647PinConfig& qaxe_power_pins() {
+    static const drivers::Tps53647PinConfig pins(
+        39,  // pll_enable_pin
+        40,  // vdd_enable_pin
+        38,  // vcore_enable_pin
+        21,  // vcore_pgood_pin
+        -1,  // dc_plug_pin, not used on QAxe++
+        18,  // vbus_adc_pin
+        11,  // ibus_adc_pin
+        17); // vcore_adc_pin
+    return pins;
+}
+
+const drivers::Tps53647ControllerConfig& qaxe_power_controller() {
+    static const drivers::Tps53647ControllerConfig config = [] {
+        drivers::Tps53647ControllerConfig controller;
+#if defined(BOARD_NMQAXE_PP)
+        controller.phases = 2;
+        controller.imax_a = 60;
+        controller.ifault_a = 73.0f;
+        controller.ibus_shunt_ohm = 0.005f;
+#else
+        controller.phases = 3;
+        controller.imax_a = 120;
+        controller.ifault_a = 100.0f;
+        controller.ibus_shunt_ohm = 0.003f;
+#endif
+        controller.tfault_c = 125.0f;
+        controller.i2c_address = 0x71;
+        return controller;
+    }();
+    return config;
+}
+
+class QaxeTempSensor final : public drivers::TempSensor {
+public:
+    QaxeTempSensor(
+        const char* sensor_name,
+        drivers::Tps53647Power& power,
+        drivers::Tmp102Sensor& tmp102)
+        : _name(sensor_name), _power(power), _tmp102(tmp102) {}
+
+    bool init() override {
+        _tmp102.init();
+        return true;
+    }
+
+    const char* name() const override { return _name; }
+    float read_vcore_c() const override { return _power.read_temperature_c(); }
+    float read_asic_c() const override { return _tmp102.read_asic_c(); }
+
+private:
+    const char* _name = "qaxe-temp";
+    drivers::Tps53647Power& _power;
+    drivers::Tmp102Sensor& _tmp102;
+};
 
 bool tca_write_register(uint8_t reg, uint8_t value) {
     return qaxe_i2c_bus().write_register_byte(kTca9554Address, reg, value);
@@ -417,12 +482,12 @@ const ThermalProfile& board_thermal_profile() {
     static bool initialized = false;
 
     if (!initialized) {
-        profile.vcore_sensor_id = TemperatureSensorId::Placeholder;
-        profile.asic_sensor_id = TemperatureSensorId::Placeholder;
-        profile.sensor_bus_type = SensorBusType::Internal;
-        profile.sample_policy = "qaxe-tps53647-tmp102-pending";
-        profile.aggregation_policy = "stub-until-power-driver-migrated";
-        profile.fault_value_policy = "fixed-placeholder";
+        profile.vcore_sensor_id = TemperatureSensorId::PowerInternal;
+        profile.asic_sensor_id = TemperatureSensorId::TMP102;
+        profile.sensor_bus_type = SensorBusType::I2c;
+        profile.sample_policy = "tps53647-vcore-and-tmp102-asic";
+        profile.aggregation_policy = "direct";
+        profile.fault_value_policy = "nan-on-read-failure";
         initialized = true;
     }
 
@@ -468,8 +533,9 @@ const BoardDrivers& board_drivers() {
 #else
     static drivers::Bm1370Asic asic("qaxe-bm1370", qaxe_bm1370_config());
 #endif
-    static drivers::NullPower power("qaxe-tps53647-pending");
-    static drivers::NullTempSensor temp("qaxe-temp-pending", 45.0f, 45.0f);
+    static drivers::Tps53647Power power("qaxe-tps53647", qaxe_power_pins(), qaxe_power_controller(), qaxe_i2c_bus(), qaxe_power_adc());
+    static drivers::Tmp102Sensor asic_temp("qaxe-tmp102", qaxe_i2c_bus());
+    static QaxeTempSensor temp("qaxe-temp", power, asic_temp);
     static drivers::St7789Display display(qaxe_display_config());
     static drivers::PwmTachFan fan0("qaxe-asic-fan", qaxe_fan0_config());
     static drivers::PwmTachFan fan1("qaxe-vcore-fan", qaxe_fan1_config());

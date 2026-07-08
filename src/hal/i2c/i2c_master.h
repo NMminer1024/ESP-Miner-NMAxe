@@ -19,8 +19,11 @@ public:
         : _sda_pin(sda_pin), _scl_pin(scl_pin), _frequency_hz(frequency_hz), _port(port) {}
 
     bool init();
+    bool write(uint8_t device_address, const uint8_t* data, size_t len) const;
     bool read_register(uint8_t device_address, uint8_t reg_addr, uint8_t* data, size_t len) const;
+    bool write_command(uint8_t device_address, uint8_t cmd) const;
     bool write_register_byte(uint8_t device_address, uint8_t reg_addr, uint8_t data) const;
+    bool write_register_word_le(uint8_t device_address, uint8_t reg_addr, uint16_t data) const;
 
 private:
     int8_t _sda_pin = -1;

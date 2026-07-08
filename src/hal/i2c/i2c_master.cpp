@@ -45,6 +45,14 @@ bool I2cMaster::init() {
     return true;
 }
 
+bool I2cMaster::write(uint8_t device_address, const uint8_t* data, size_t len) const {
+    if (!_initialized || data == nullptr || len == 0) {
+        return false;
+    }
+
+    return i2c_master_write_to_device(_port, device_address, data, len, kI2cTimeoutTicks) == ESP_OK;
+}
+
 bool I2cMaster::read_register(uint8_t device_address, uint8_t reg_addr, uint8_t* data, size_t len) const {
     if (!_initialized || data == nullptr || len == 0) {
         return false;
@@ -53,13 +61,22 @@ bool I2cMaster::read_register(uint8_t device_address, uint8_t reg_addr, uint8_t*
     return i2c_master_write_read_device(_port, device_address, &reg_addr, 1, data, len, kI2cTimeoutTicks) == ESP_OK;
 }
 
-bool I2cMaster::write_register_byte(uint8_t device_address, uint8_t reg_addr, uint8_t data) const {
-    if (!_initialized) {
-        return false;
-    }
+bool I2cMaster::write_command(uint8_t device_address, uint8_t cmd) const {
+    return write(device_address, &cmd, 1);
+}
 
+bool I2cMaster::write_register_byte(uint8_t device_address, uint8_t reg_addr, uint8_t data) const {
     const uint8_t write_buf[2] = {reg_addr, data};
-    return i2c_master_write_to_device(_port, device_address, write_buf, sizeof(write_buf), kI2cTimeoutTicks) == ESP_OK;
+    return write(device_address, write_buf, sizeof(write_buf));
+}
+
+bool I2cMaster::write_register_word_le(uint8_t device_address, uint8_t reg_addr, uint16_t data) const {
+    const uint8_t write_buf[3] = {
+        reg_addr,
+        static_cast<uint8_t>(data & 0x00FFu),
+        static_cast<uint8_t>((data & 0xFF00u) >> 8),
+    };
+    return write(device_address, write_buf, sizeof(write_buf));
 }
 
 }  // namespace nm::hal::i2c
