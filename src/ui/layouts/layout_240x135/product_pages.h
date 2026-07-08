@@ -46,7 +46,19 @@ struct ActiveProductPages {
 
 #else
 
-    #error "No 240x135 product page binding selected."
+// Layout sources are compiled for every firmware target by PlatformIO's broad
+// src_filter. Keep this catalog buildable even when the active product resolves
+// to another layout; layout_resolver will not select it for those targets.
+struct ActiveProductPages {
+    using LoadingPage = PageLoading240x135;
+    using ConfigPage = PageConfig240x135;
+    using MinerPage = PageMiner240x135;
+    using DashboardPage = PageDashboard240x135;
+    using HrHealthPage = PageHrHealth240x135;
+    using ClockPage = PageClock240x135;
+    using MarketPage = PageMarket240x135;
+    using SettingPage = PageSetting240x135;
+};
 
 #endif
 

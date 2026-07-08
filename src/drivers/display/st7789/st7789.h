@@ -50,6 +50,7 @@ struct St7789SpiConfig {
     int8_t dc_pin = -1;
     int8_t reset_pin = -1;
     int8_t cs_pin = -1;
+    void (*external_reset)() = nullptr;
     uint32_t frequency_hz = 80000000;
     uint8_t data_mode = SPI_MODE3;
     uint8_t bit_order = SPI_MSBFIRST;

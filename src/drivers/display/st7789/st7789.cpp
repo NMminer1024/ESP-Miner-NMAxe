@@ -193,9 +193,11 @@ void St7789Display::_set_boot_backlight_off() {
 
 bool St7789Display::_init_bus() {
     pinMode(_config.spi.dc_pin, OUTPUT);
-    pinMode(_config.spi.cs_pin, OUTPUT);
     digitalWrite(_config.spi.dc_pin, HIGH);
-    digitalWrite(_config.spi.cs_pin, HIGH);
+    if (_config.spi.cs_pin >= 0) {
+        pinMode(_config.spi.cs_pin, OUTPUT);
+        digitalWrite(_config.spi.cs_pin, HIGH);
+    }
 
     if (_config.spi.reset_pin >= 0) {
         pinMode(_config.spi.reset_pin, OUTPUT);
@@ -206,6 +208,11 @@ bool St7789Display::_init_bus() {
 }
 
 void St7789Display::_hardware_reset() {
+    if (_config.spi.external_reset != nullptr) {
+        _config.spi.external_reset();
+        return;
+    }
+
     if (_config.spi.reset_pin < 0) {
         return;
     }
@@ -227,10 +234,18 @@ void St7789Display::_end_transaction() {
 }
 
 void St7789Display::_select_panel() {
+    if (_config.spi.cs_pin < 0) {
+        return;
+    }
+
     digitalWrite(_config.spi.cs_pin, LOW);
 }
 
 void St7789Display::_release_panel() {
+    if (_config.spi.cs_pin < 0) {
+        return;
+    }
+
     digitalWrite(_config.spi.cs_pin, HIGH);
 }
 

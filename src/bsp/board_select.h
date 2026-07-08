@@ -20,12 +20,11 @@
     namespace nm::bsp {
     using ActiveBoard = nmaxe_gamma::NMAxeGammaBoard;
     }
-#elif defined(BOARD_NMQAXE_PP)
-    #error "BOARD_NMQAXE_PP BSP is not implemented yet."
-#elif defined(BOARD_NMQAXE_PP_REV61)
-    #error "BOARD_NMQAXE_PP_REV61 BSP is not implemented yet."
-#elif defined(BOARD_NMQAXE_PP_REV81)
-    #error "BOARD_NMQAXE_PP_REV81 BSP is not implemented yet."
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+    #include "bsp/nmqaxe_pp/board.h"
+    namespace nm::bsp {
+    using ActiveBoard = nmqaxe_pp::NMQAxePPBoard;
+    }
 #else
 #error "No BSP selected. Define one BOARD_* macro in platformio.ini."
 #endif
