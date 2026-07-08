@@ -8,8 +8,11 @@
 #include <esp_heap_caps.h>
 #include <esp_ota_ops.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "app/firmware_identity.h"
+#include "config/nvs_keys.h"
+#include "drivers/storage/storage.h"
 #include "utils/logger/logger.h"
 
 namespace nm::web {
@@ -20,10 +23,19 @@ AsyncWebSocket web_socket("/ws");
 
 WebService* g_service = nullptr;
 
+enum class OtaTarget : uint8_t {
+    None,
+    Firmware,
+    Spiffs,
+    Screensaver,
+};
+
 struct OtaProgress {
     bool running = false;
+    bool error = false;
     uint8_t progress = 0;
     uint32_t bytes = 0;
+    uint32_t last_progress_ms = 0;
     char filename[48] = {};
 };
 
@@ -41,6 +53,32 @@ struct OtaLastResult {
 
 OtaProgress g_ota_progress;
 OtaLastResult g_ota_last_result;
+
+constexpr size_t kOtaWriteBufferSize = 8192;
+constexpr uint32_t kOtaStallTimeoutMs = 60 * 1000UL;
+constexpr uint32_t kOtaRebootDelayMs = 1200;
+constexpr uint64_t kScreensaverMaxBytes = 400ULL * 1024ULL;
+
+struct OtaUploadState {
+    bool abort = false;
+    OtaTarget target = OtaTarget::None;
+    AsyncWebServerRequest* request = nullptr;
+    uint8_t buffer[kOtaWriteBufferSize] = {};
+    size_t buffer_len = 0;
+    int last_logged_percent = -1;
+    File screensaver_file;
+    char screensaver_path[40] = {};
+};
+
+struct RestartSchedule {
+    bool pending = false;
+    uint32_t due_ms = 0;
+    char reason[64] = {};
+};
+
+OtaUploadState g_ota_upload;
+RestartSchedule g_restart_schedule;
+TaskHandle_t g_web_maintenance_task = nullptr;
 
 const char* asic_name(bsp::AsicFamily family) {
     switch (family) {
@@ -111,6 +149,53 @@ void send_text(AsyncWebServerRequest* request, int code, const char* text) {
     request->send(response);
 }
 
+bool ota_is_running() {
+    return g_ota_progress.running;
+}
+
+void send_ota_busy(AsyncWebServerRequest* request) {
+    StaticJsonDocument<128> root;
+    root["status"] = "busy";
+    root["detail"] = "ota running";
+    send_json(request, root, 503);
+}
+
+bool spiffs_update_flag() {
+    drivers::storage::Storage storage(NVS_CONFIG_NAMESPACE, false);
+    return storage.get_bool(NVS_CONFIG_SPIFFS_UPDATING, false);
+}
+
+void set_spiffs_update_flag(bool updating) {
+    drivers::storage::Storage storage(NVS_CONFIG_NAMESPACE, true);
+    if (!storage.valid()) {
+        return;
+    }
+    if (storage.set_bool(NVS_CONFIG_SPIFFS_UPDATING, updating)) {
+        storage.commit();
+    }
+}
+
+const char* target_name(OtaTarget target) {
+    switch (target) {
+        case OtaTarget::Firmware: return "firmware";
+        case OtaTarget::Spiffs: return "spiffs";
+        case OtaTarget::Screensaver: return "screensaver";
+        default: return "unknown";
+    }
+}
+
+void schedule_restart(const char* reason, uint32_t delay_ms = kOtaRebootDelayMs) {
+    g_restart_schedule.pending = true;
+    g_restart_schedule.due_ms = millis() + delay_ms;
+    snprintf(g_restart_schedule.reason,
+             sizeof(g_restart_schedule.reason),
+             "%s",
+             reason != nullptr ? reason : "scheduled");
+    LOG_W("[web] restart scheduled reason=%s delay=%ums",
+          g_restart_schedule.reason,
+          static_cast<unsigned>(delay_ms));
+}
+
 bool parse_body(uint8_t* data, size_t len, JsonDocument& doc) {
     if (data == nullptr || len == 0) {
         return false;
@@ -148,6 +233,11 @@ String content_type_for(const String& path) {
 }
 
 bool file_system_init() {
+    if (spiffs_update_flag()) {
+        LOG_E("[web] previous SPIFFS OTA was interrupted; forcing recovery mode");
+        return false;
+    }
+
     if (!SPIFFS.begin(false, "", 5, nullptr)) {
         LOG_E("[web] SPIFFS mount failed");
         return false;
@@ -173,6 +263,11 @@ bool file_system_init() {
 }
 
 void serve_static(AsyncWebServerRequest* request) {
+    if (ota_is_running()) {
+        send_ota_busy(request);
+        return;
+    }
+
     String plain_path = request->url().endsWith("/") ? "/index.html" : request->url();
     const String content_type = content_type_for(plain_path);
     const String gz_path = plain_path + ".gz";
@@ -779,6 +874,11 @@ void patch_benchmark(AsyncWebServerRequest* request, uint8_t* data, size_t len, 
 }
 
 void handle_probe(AsyncWebServerRequest* request) {
+    if (ota_is_running()) {
+        send_ota_busy(request);
+        return;
+    }
+
     StaticJsonDocument<512> root;
     lock_state();
     const auto& board = *g_service->_board;
@@ -798,6 +898,11 @@ void handle_probe(AsyncWebServerRequest* request) {
 }
 
 void handle_alive(AsyncWebServerRequest* request) {
+    if (ota_is_running()) {
+        send_ota_busy(request);
+        return;
+    }
+
     StaticJsonDocument<512> root;
     lock_state();
     root["self"] = g_service->_runtime->network.ip;
@@ -822,18 +927,17 @@ void handle_empty_object(AsyncWebServerRequest* request) {
     send_json(request, root);
 }
 
-void schedule_restart_task(void*) {
-    vTaskDelay(pdMS_TO_TICKS(500));
-    ESP.restart();
-    vTaskDelete(nullptr);
-}
-
 void handle_restart(AsyncWebServerRequest* request) {
-    send_text(request, 200, "restart");
-    xTaskCreate(schedule_restart_task, "(web_rst)", 2048, nullptr, 1, nullptr);
+    send_text(request, 200, "System will restart shortly.");
+    schedule_restart("user_web_reboot", 500);
 }
 
 void handle_mining_state_patch(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
+    if (ota_is_running()) {
+        send_ota_busy(request);
+        return;
+    }
+
     StaticJsonDocument<256> body;
     if (!parse_body(data, len, body)) {
         send_text(request, 400, "invalid json");
@@ -875,76 +979,387 @@ void handle_ota_last_result(AsyncWebServerRequest* request) {
     send_json(request, root);
 }
 
-void set_ota_result(bool success, bool reboot_pending, uint16_t code, uint32_t bytes, const String& filename, const char* detail) {
+void set_ota_result(
+    OtaTarget target,
+    bool success,
+    bool reboot_pending,
+    uint16_t code,
+    uint32_t bytes,
+    const String& filename,
+    const char* detail) {
     g_ota_last_result.valid = true;
     g_ota_last_result.success = success;
     g_ota_last_result.reboot_pending = reboot_pending;
     g_ota_last_result.http_status = code;
     g_ota_last_result.bytes = bytes;
     g_ota_last_result.ts_ms = millis();
+    snprintf(g_ota_last_result.target, sizeof(g_ota_last_result.target), "%s", target_name(target));
     snprintf(g_ota_last_result.filename, sizeof(g_ota_last_result.filename), "%s", filename.c_str());
     snprintf(g_ota_last_result.detail, sizeof(g_ota_last_result.detail), "%s", detail != nullptr ? detail : "");
-    if (filename.endsWith(".gif")) {
-        snprintf(g_ota_last_result.target, sizeof(g_ota_last_result.target), "screensaver");
-    } else if (filename == "spiffs.bin") {
-        snprintf(g_ota_last_result.target, sizeof(g_ota_last_result.target), "spiffs");
-    } else {
-        snprintf(g_ota_last_result.target, sizeof(g_ota_last_result.target), "firmware");
+}
+
+OtaTarget upload_target_for(AsyncWebServerRequest* request, const String& filename) {
+    const String url = request->url();
+    String lower_name = filename;
+    lower_name.toLowerCase();
+
+    if (url.indexOf("/api/update/screensaver") >= 0 || lower_name.endsWith(".gif")) {
+        return OtaTarget::Screensaver;
+    }
+    if (url.endsWith("/api/system/OTAWWW") || url.indexOf("/api/update/spiffs") >= 0) {
+        return OtaTarget::Spiffs;
+    }
+    if (url.endsWith("/api/system/OTA") || url.indexOf("/api/update/firmware") >= 0) {
+        return OtaTarget::Firmware;
+    }
+    return OtaTarget::None;
+}
+
+const char* screensaver_path() {
+    if (g_service != nullptr && g_service->_board != nullptr) {
+        const auto& display = g_service->_board->display_profile();
+        if (display.width == 320 && display.height == 240) {
+            return "/screen_saver_320x240.gif";
+        }
+    }
+    return "/screen_saver_240x135.gif";
+}
+
+void update_ota_progress(uint32_t transferred, size_t total, const String& filename, const char* prefix) {
+    g_ota_progress.bytes = transferred;
+    g_ota_progress.last_progress_ms = millis();
+
+    if (total == 0) {
+        return;
+    }
+
+    uint32_t percent = (static_cast<uint64_t>(transferred) * 100ULL) / total;
+    if (percent > 100) {
+        percent = 100;
+    }
+    g_ota_progress.progress = static_cast<uint8_t>(percent);
+
+    if (static_cast<int>(percent) != g_ota_upload.last_logged_percent) {
+        LOG_I("%s %s: %u%% (%u / %u bytes)",
+              filename.c_str(),
+              prefix != nullptr ? prefix : "ota",
+              static_cast<unsigned>(percent),
+              static_cast<unsigned>(transferred),
+              static_cast<unsigned>(total));
+        g_ota_upload.last_logged_percent = static_cast<int>(percent);
     }
 }
 
+void reset_upload_state() {
+    if (g_ota_upload.screensaver_file) {
+        g_ota_upload.screensaver_file.close();
+    }
+    g_ota_upload.abort = false;
+    g_ota_upload.target = OtaTarget::None;
+    g_ota_upload.request = nullptr;
+    g_ota_upload.buffer_len = 0;
+    g_ota_upload.last_logged_percent = -1;
+    g_ota_upload.screensaver_path[0] = '\0';
+}
+
+void fail_upload(
+    AsyncWebServerRequest* request,
+    OtaTarget target,
+    uint16_t http_status,
+    uint32_t bytes,
+    const String& filename,
+    const char* detail) {
+    g_ota_upload.abort = true;
+    if (g_ota_upload.screensaver_file) {
+        g_ota_upload.screensaver_file.close();
+    }
+    if (target == OtaTarget::Firmware || target == OtaTarget::Spiffs) {
+        Update.abort();
+    }
+    if (target == OtaTarget::Spiffs && bytes == 0) {
+        set_spiffs_update_flag(false);
+    }
+
+    g_ota_progress.running = false;
+    g_ota_progress.error = true;
+    g_ota_progress.bytes = bytes;
+    g_ota_progress.last_progress_ms = millis();
+    set_ota_result(target, false, false, http_status, bytes, filename, detail);
+
+    LOG_E("[web] %s upload failed: %s", target_name(target), detail != nullptr ? detail : "unknown");
+    send_text(request, http_status, detail != nullptr ? detail : "upload failed");
+}
+
+bool validate_upload_begin(AsyncWebServerRequest* request, OtaTarget target, const String& filename, size_t len, uint8_t* data) {
+    String lower_name = filename;
+    lower_name.toLowerCase();
+
+    if (target == OtaTarget::Firmware && filename != "firmware.bin") {
+        fail_upload(request, target, 400, 0, filename, "firmware update requires firmware.bin");
+        return false;
+    }
+    if (target == OtaTarget::Spiffs && filename != "spiffs.bin") {
+        fail_upload(request, target, 400, 0, filename, "website update requires spiffs.bin");
+        return false;
+    }
+    if (target == OtaTarget::Screensaver && !lower_name.endsWith(".gif")) {
+        fail_upload(request, target, 400, 0, filename, "screensaver update requires a GIF file");
+        return false;
+    }
+    if (target == OtaTarget::Screensaver) {
+        if (request->contentLength() > kScreensaverMaxBytes) {
+            fail_upload(request, target, 400, 0, filename, "GIF file too large (max 400 KB)");
+            return false;
+        }
+        if (len < 6 || data == nullptr || (memcmp(data, "GIF87a", 6) != 0 && memcmp(data, "GIF89a", 6) != 0)) {
+            fail_upload(request, target, 400, 0, filename, "Not a valid GIF file");
+            return false;
+        }
+    }
+    return true;
+}
+
+bool begin_upload(AsyncWebServerRequest* request, OtaTarget target, const String& filename, size_t len, uint8_t* data) {
+    if (ota_is_running() && g_ota_upload.request != request) {
+        send_text(request, 409, "another OTA upload is already running");
+        return false;
+    }
+
+    reset_upload_state();
+    g_ota_upload.target = target;
+    g_ota_upload.request = request;
+
+    set_ota_result(target, false, false, 0, 0, filename, "upload_started");
+
+    if (!validate_upload_begin(request, target, filename, len, data)) {
+        return false;
+    }
+
+    g_ota_progress.running = true;
+    g_ota_progress.error = false;
+    g_ota_progress.progress = 0;
+    g_ota_progress.bytes = 0;
+    g_ota_progress.last_progress_ms = millis();
+    snprintf(g_ota_progress.filename, sizeof(g_ota_progress.filename), "%s", filename.c_str());
+
+    if (target == OtaTarget::Screensaver) {
+        snprintf(g_ota_upload.screensaver_path,
+                 sizeof(g_ota_upload.screensaver_path),
+                 "%s",
+                 screensaver_path());
+        SPIFFS.remove(g_ota_upload.screensaver_path);
+        g_ota_upload.screensaver_file = SPIFFS.open(g_ota_upload.screensaver_path, "w");
+        if (!g_ota_upload.screensaver_file) {
+            fail_upload(request, target, 500, 0, filename, "Failed to open screensaver file for writing");
+            return false;
+        }
+
+        LOG_I("[web] GIF upload started: %s -> %s total=%u bytes",
+              filename.c_str(),
+              g_ota_upload.screensaver_path,
+              static_cast<unsigned>(request->contentLength()));
+        return true;
+    }
+
+    const int update_type = target == OtaTarget::Spiffs ? U_SPIFFS : U_FLASH;
+    if (target == OtaTarget::Spiffs) {
+        set_spiffs_update_flag(true);
+    }
+
+    LOG_I("[web] OTA started target=%s file=%s total=%u bytes",
+          target_name(target),
+          filename.c_str(),
+          static_cast<unsigned>(request->contentLength()));
+
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN, update_type)) {
+        fail_upload(request, target, 500, 0, filename, Update.errorString());
+        return false;
+    }
+    return true;
+}
+
+bool write_ota_buffer(
+    AsyncWebServerRequest* request,
+    const String& filename,
+    const uint8_t* data,
+    size_t len,
+    bool final,
+    size_t index) {
+    size_t offset = 0;
+    while (offset < len) {
+        const size_t copy_len = min(len - offset, kOtaWriteBufferSize - g_ota_upload.buffer_len);
+        memcpy(g_ota_upload.buffer + g_ota_upload.buffer_len, data + offset, copy_len);
+        g_ota_upload.buffer_len += copy_len;
+        offset += copy_len;
+
+        const bool flush = g_ota_upload.buffer_len == kOtaWriteBufferSize || (final && offset == len);
+        if (!flush) {
+            continue;
+        }
+
+        if (Update.write(g_ota_upload.buffer, g_ota_upload.buffer_len) != g_ota_upload.buffer_len) {
+            fail_upload(
+                request,
+                g_ota_upload.target,
+                500,
+                static_cast<uint32_t>(index + offset),
+                filename,
+                Update.errorString());
+            g_ota_upload.buffer_len = 0;
+            return false;
+        }
+
+        g_ota_upload.buffer_len = 0;
+        vTaskDelay(pdMS_TO_TICKS(1));
+        update_ota_progress(
+            static_cast<uint32_t>(index + offset),
+            request->contentLength(),
+            filename,
+            "ota");
+    }
+
+    if (final && g_ota_upload.buffer_len > 0) {
+        if (Update.write(g_ota_upload.buffer, g_ota_upload.buffer_len) != g_ota_upload.buffer_len) {
+            fail_upload(
+                request,
+                g_ota_upload.target,
+                500,
+                static_cast<uint32_t>(index + len),
+                filename,
+                Update.errorString());
+            g_ota_upload.buffer_len = 0;
+            return false;
+        }
+
+        g_ota_upload.buffer_len = 0;
+        vTaskDelay(pdMS_TO_TICKS(1));
+        update_ota_progress(
+            static_cast<uint32_t>(index + len),
+            request->contentLength(),
+            filename,
+            "ota");
+    }
+    return true;
+}
+
 void upload_handler(AsyncWebServerRequest* request, const String& filename, size_t index, uint8_t* data, size_t len, bool final) {
-    const bool screensaver = request->url().indexOf("screensaver") >= 0 || filename.endsWith(".gif");
     if (index == 0) {
-        g_ota_progress.running = true;
-        g_ota_progress.progress = 0;
-        g_ota_progress.bytes = 0;
-        snprintf(g_ota_progress.filename, sizeof(g_ota_progress.filename), "%s", filename.c_str());
-
-        if (screensaver) {
-            SPIFFS.remove("/screen_saver_240x135.gif");
-            File f = SPIFFS.open("/screen_saver_240x135.gif", "w");
-            if (f) {
-                f.close();
-            }
-        } else {
-            const int cmd = request->url().indexOf("spiffs") >= 0 || request->url().indexOf("OTAWWW") >= 0
-                ? U_SPIFFS
-                : U_FLASH;
-            if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
-                set_ota_result(false, false, 500, 0, filename, Update.errorString());
-            }
+        const OtaTarget target = upload_target_for(request, filename);
+        if (target == OtaTarget::None) {
+            fail_upload(request, target, 404, 0, filename, "unknown update target");
+            return;
+        }
+        if (!begin_upload(request, target, filename, len, data)) {
+            return;
         }
     }
 
-    if (screensaver) {
-        File f = SPIFFS.open("/screen_saver_240x135.gif", index == 0 ? "w" : "a");
-        if (f) {
-            f.write(data, len);
-            f.close();
-        }
-    } else if (!Update.hasError()) {
-        if (Update.write(data, len) != len) {
-            set_ota_result(false, false, 500, g_ota_progress.bytes, filename, Update.errorString());
-        }
+    if (g_ota_upload.request != request || g_ota_upload.abort) {
+        return;
     }
 
-    g_ota_progress.bytes += len;
-    if (request->contentLength() > 0) {
-        g_ota_progress.progress = static_cast<uint8_t>((g_ota_progress.bytes * 100u) / request->contentLength());
+    const OtaTarget target = g_ota_upload.target;
+    if (target == OtaTarget::Screensaver) {
+        if (!g_ota_upload.screensaver_file || g_ota_upload.screensaver_file.write(data, len) != len) {
+            fail_upload(request, target, 500, static_cast<uint32_t>(index + len), filename, "screensaver write failed");
+            return;
+        }
+        update_ota_progress(static_cast<uint32_t>(index + len), request->contentLength(), filename, "upload");
+        vTaskDelay(pdMS_TO_TICKS(1));
+
+        if (final) {
+            g_ota_upload.screensaver_file.close();
+            g_ota_progress.running = false;
+            g_ota_progress.progress = 100;
+            g_ota_progress.bytes = static_cast<uint32_t>(index + len);
+            set_ota_result(target, true, false, 200, g_ota_progress.bytes, filename, "upload_success");
+            LOG_I("[web] GIF upload complete: %u bytes saved as %s",
+                  static_cast<unsigned>(g_ota_progress.bytes),
+                  g_ota_upload.screensaver_path);
+            reset_upload_state();
+
+            StaticJsonDocument<64> root;
+            root["status"] = "ok";
+            send_json(request, root);
+        }
+        return;
+    }
+
+    if (!write_ota_buffer(request, filename, data, len, final, index)) {
+        return;
     }
 
     if (final) {
-        g_ota_progress.running = false;
-        g_ota_progress.progress = 100;
-        bool ok = true;
-        const char* detail = "ok";
-        if (!screensaver) {
-            ok = Update.end(true);
-            detail = ok ? "ok" : Update.errorString();
+        bool ok = Update.end(true);
+        if (!ok) {
+            fail_upload(
+                request,
+                target,
+                500,
+                static_cast<uint32_t>(index + len),
+                filename,
+                Update.errorString());
+            return;
         }
-        set_ota_result(ok, ok && !screensaver, ok ? 200 : 500, g_ota_progress.bytes, filename, detail);
-        send_text(request, ok ? 200 : 500, ok ? "OK" : detail);
+
+        if (target == OtaTarget::Spiffs) {
+            set_spiffs_update_flag(false);
+        }
+
+        g_ota_progress.running = false;
+        g_ota_progress.error = false;
+        g_ota_progress.progress = 100;
+        g_ota_progress.bytes = static_cast<uint32_t>(index + len);
+        g_ota_progress.last_progress_ms = millis();
+        set_ota_result(target, true, true, 200, g_ota_progress.bytes, filename, "upload_success_reboot_pending");
+        LOG_W("[web] %s OTA success: %.1f KB, rebooting",
+              target_name(target),
+              g_ota_progress.bytes / 1024.0f);
+        reset_upload_state();
+
+        StaticJsonDocument<64> root;
+        root["status"] = "ok";
+        send_json(request, root);
+        schedule_restart(target == OtaTarget::Spiffs ? "ota_spiffs_finished" : "ota_firmware_finished");
+    }
+}
+
+void web_maintenance_task(void*) {
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(250));
+        web_socket.cleanupClients();
+
+        if (g_ota_progress.running && g_ota_progress.last_progress_ms != 0) {
+            const uint32_t now = millis();
+            if (static_cast<uint32_t>(now - g_ota_progress.last_progress_ms) > kOtaStallTimeoutMs) {
+                LOG_E("[web] OTA stalled >60s at %u%%, rebooting",
+                      static_cast<unsigned>(g_ota_progress.progress));
+                if (g_ota_upload.target == OtaTarget::Firmware || g_ota_upload.target == OtaTarget::Spiffs) {
+                    Update.abort();
+                }
+                if (g_ota_upload.screensaver_file) {
+                    g_ota_upload.screensaver_file.close();
+                }
+                g_ota_progress.running = false;
+                g_ota_progress.error = true;
+                set_ota_result(
+                    g_ota_upload.target,
+                    false,
+                    true,
+                    500,
+                    g_ota_progress.bytes,
+                    String(g_ota_progress.filename),
+                    "ota stalled, reboot pending");
+                schedule_restart("ota_stall", 500);
+            }
+        }
+
+        if (g_restart_schedule.pending &&
+            static_cast<int32_t>(millis() - g_restart_schedule.due_ms) >= 0) {
+            LOG_W("[web] restarting now reason=%s", g_restart_schedule.reason);
+            Serial.flush();
+            ESP.restart();
+        }
     }
 }
 
@@ -1129,6 +1544,10 @@ bool WebService::start(
     web_server.addHandler(&web_socket);
     register_common_routes(_fs_ready);
     web_server.begin();
+
+    if (g_web_maintenance_task == nullptr) {
+        xTaskCreate(web_maintenance_task, "(web_maint)", 4096, nullptr, 1, &g_web_maintenance_task);
+    }
 
     _started = true;
     LOG_I("[web] AxeOS service started fs=%u", _fs_ready ? 1u : 0u);
