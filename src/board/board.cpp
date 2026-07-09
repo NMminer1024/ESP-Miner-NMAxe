@@ -479,7 +479,7 @@ BoardSpecConfig get_board_config_compile_time() {
 #elif defined(BOARD_NMQAXE_PP_REV81)
     config.name                      = "NMQAxe++";     // runtime functional ID
     config.asic.name                 = "BM1373";
-    config.asic.num_req              = 4;
+    config.asic.num_req              = 1;
     config.asic.temp_limit.high      = 75.0f;
     config.asic.temp_limit.medium    = 65.0f;
     config.asic.temp_limit.low       = 50.0f;
@@ -500,18 +500,18 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 10000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 128;
+    config.asic.diff_thr_init        = 512;
     config.display_name              = "NMQAxe++Rev8.1";
     config.asic.default_frq          = 375;
-    config.asic.default_vcore        = 950;
+    config.asic.default_vcore        = 1050;
     config.asic.min_vcore            = 900;
-    config.asic.max_vcore            = 1200;
+    config.asic.max_vcore            = 1500;
     config.asic.job_interval_ms      = 500;
-    config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
-    config.ui.dashboard_page.power.power         = {0.0f, 150.0f};
-    config.ui.dashboard_page.performance.asic_freq_req  = {350.0f, 550.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {0.85f, 1.150f};
-    config.ui.dashboard_page.performance.vcore_measure  = {0.85f, 1.150f};
+    config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
+    config.ui.dashboard_page.power.power         = {0.0f, 20.0f};
+    config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 750.0f};
+    config.ui.dashboard_page.performance.vcore_req      = {0.85f, 1.40f};
+    config.ui.dashboard_page.performance.vcore_measure  = {0.85f, 1.40f};
     config.ui.setting_page.oc = {
             {"300 MHz",           300},
             {"325 MHz",           325},
@@ -521,15 +521,36 @@ BoardSpecConfig get_board_config_compile_time() {
             {"425 MHz",           425},
             {"450 MHz",           450},
             {"475 MHz",           475},
+            {"500 MHz",           500},
+            {"525 MHz",           525},
+            {"550 MHz",           550},
+            {"575 MHz",           575},
+            {"600 MHz",           600},
+            {"625 MHz",           625},
+            {"650 MHz",           650},
+            {"675 MHz",           675},
+            {"700 MHz",           700},
         };
     config.ui.setting_page.vc = {
             {"900 mV",            900},
             {"925 mV",            925},
-            {"950 mV (default)",  950},
+            {"950 mV",            950},
             {"975 mV",            975},
             {"1000 mV",           1000},
             {"1025 mV",           1025},
-            {"1050 mV",           1050},
+            {"1050 mV(default)",  1050},
+            {"1075 mV",           1075},
+            {"1100 mV",           1100},
+            {"1125 mV",           1125},
+            {"1150 mV",           1150},
+            {"1175 mV",           1175},
+            {"1200 mV",           1200},
+            {"1225 mV",           1225},
+            {"1250 mV",           1250},
+            {"1275 mV",           1275},
+            {"1300 mV",           1300},
+            {"1325 mV",           1325},
+            {"1350 mV",           1350},
         };
     config.create_power_instance     = create_qaxepp_3ph_power_instance; // 3-phase
     config.setup_temp_hal = [](AxePowerHal* pwr) {

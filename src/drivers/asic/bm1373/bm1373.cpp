@@ -293,7 +293,11 @@ esp_err_t BM1373::wait_for_result(miner_result *result, uint32_t timeout_ms){
     // dbg::hex_print((uint8_t*)rsp, sizeof(rsp), "asic rsp");
 
     asic.job_id       = (asic.job_id & 0xf0) >> 1; // upper 4 bits are job id for BM137x
-    int asic_id       = (uint8_t) ((asic.nonce & 0x0000fc00) >> 11);
+    // BM1373 has ~3.4x the small cores (6860 vs 2040), so its core-id field is
+    // wider. Bit15 (nonce bit15) is a search/core toggle, NOT an address bit,
+    // and produced spurious id=4 with a 4-chip chain. Only bits 13-14 map to
+    // the real daisy-chain address (0..3 for 4 chips).
+    int asic_id       = (uint8_t) ((asic.nonce & 0x00006000u) >> 13);
 
     result->asic      = asic;
     result->asic_id   = asic_id;

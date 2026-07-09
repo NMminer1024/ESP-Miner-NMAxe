@@ -3,7 +3,7 @@
 #include "drivers/asic/bm_hal.h"
 
 #define BM1373_CORE_COUNT       128
-#define BM1373_SMALL_CORE_COUNT 2040
+#define BM1373_SMALL_CORE_COUNT 6860
 
 class BM1373: public BMxxx{
 private:
