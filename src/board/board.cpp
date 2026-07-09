@@ -276,9 +276,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.fans.clear();
     config.fans.push_back(fan_cfg); // single fan
 
-#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61)
-    // --- shared: NMQAXE_PLUS_PLUS and NMQAXE_PLUS_PLUS_REV61 ---
-    config.name                      = "NMQAxe++";     // runtime functional ID
+#elif defined(BOARD_NMQAXE_PP)
+    config.name                      = "NMQAxe++";
+    config.display_name              = "NMQAxe++";
     config.asic.name                 = "BM1370";
     config.asic.num_req              = 4;
     config.asic.temp_limit.high      = 75.0f;
@@ -289,9 +289,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.tft.dc_pin                = 3;
     config.tft.bl.pin                = 6;
     config.tft.bl.pwm_ch             = 0;
-    config.tft.bl.pwm_freq           = 1000*100; // Hz
-    config.tft.bl.pwm_resolution     = 8;        // bits
-    config.tft.rst_pin               = -1;       
+    config.tft.bl.pwm_freq           = 1000*100;
+    config.tft.bl.pwm_resolution     = 8;
+    config.tft.rst_pin               = -1;
     config.tft.pwr_pin               = -1;
     config.tft.color_invert          = true;
     config.spi.cs_pin                = -1;
@@ -302,10 +302,6 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
     config.asic.diff_thr_init        = 128;
-
-    // --- per-variant fields ---
-#   if defined(BOARD_NMQAXE_PP)
-    config.display_name              = "NMQAxe++";
     config.asic.default_frq          = 600;
     config.asic.default_vcore        = 1150;
     config.asic.min_vcore            = 1000;
@@ -336,9 +332,136 @@ BoardSpecConfig get_board_config_compile_time() {
             {"1200 mV",           1200},
             {"1225 mV ",          1225},
         };
-    config.create_power_instance     = create_qaxepp_2ph_power_instance;  // 2-phase
-#   else // NMQAXE_PLUS_PLUS_REV61
+    config.create_power_instance     = create_qaxepp_2ph_power_instance;
+    config.setup_temp_hal = [](AxePowerHal* pwr) {
+        tps53647_register_vcore_temp_hal(static_cast<TPS53647Class*>(pwr));
+        tmp102_register_asic_temp_hal();
+    };
+    config.asic.req_frq             = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ,    config.asic.default_frq);
+    config.asic.req_vcore           = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
+    config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
+    config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
+    config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
+    config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
+    config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
+    config.btn.boot_pin              = 0;
+    config.btn.user_pin              = -1;
+    config.pwr.en_pins.pwr_pll_0v8   = 39;
+    config.pwr.en_pins.pwr_vdd_1v8   = 40;
+    config.pwr.en_pins.pwr_vcore     = 38;
+    config.pwr.adc_pins.vbus         = 18;
+    config.pwr.adc_pins.ibus         = 11;
+    config.pwr.adc_pins.vcore        = 17;
+    config.pwr.vcore_regulator_pin   = -1;
+    config.pwr.pgood_pin             = 21;
+    config.pwr.dc_plug_pin           = -1;
+    config.pwr.vbus_min_required     = 8000;
+    config.pwr.temp_limit.high       = 130.0f;
+    config.pwr.temp_limit.medium     = 110.0f;
+    config.pwr.temp_limit.low        = 80.0f;
+    config.pwr.power_low_threshold   = 20.0f;
+    config.iic.scl_pin               = 7;
+    config.iic.sda_pin               = 8;
+    config.led.wifi_pin              = -1;
+    config.led.pool_pin              = -1;
+    config.led.sys_pin               = 9;
+    config.asic.rx_pin               = 44;
+    config.asic.tx_pin               = 43;
+    config.asic.rst_pin              = 45;
+    config.asic.com_baud_init        = 115200;
+    config.asic.com_baud_work        = 1000000;
+    config.asic.com_port             = &Serial1;
+    config.preference.screen.brightness    = 100;
+    config.preference.screen.auto_rolling  = false;
+    config.preference.screen.flip          = false;
+    config.preference.screen.saver_enable  = true;
+    config.preference.screen.saver_timeout = 15*60;
+    config.preference.led.enable           = true;
+    config.create_asic_instance            = create_qaxepp_asic_instance;
+
+    config.fans.clear();
+    fan_cfg.id                        = 0;
+    fan_cfg.init.pwm.pin              = 41;
+    fan_cfg.init.pwm.ch               = 1;
+    fan_cfg.init.pwm.freq             = 1000*100;
+    fan_cfg.init.pwm.resolution       = 8;
+    fan_cfg.init.torch.pulse_gpio_num = 42;
+    fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED;
+    fan_cfg.init.torch.lctrl_mode     = PCNT_MODE_KEEP;
+    fan_cfg.init.torch.hctrl_mode     = PCNT_MODE_KEEP;
+    fan_cfg.init.torch.pos_mode       = PCNT_COUNT_INC;
+    fan_cfg.init.torch.neg_mode       = PCNT_COUNT_DIS;
+    fan_cfg.init.torch.counter_h_lim  = 30000;
+    fan_cfg.init.torch.counter_l_lim  = 0;
+    fan_cfg.init.torch.unit           = PCNT_UNIT_0;
+    fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
+    fan_cfg.init.self_test_rpm_thr   = 1500;
+    fan_cfg.init.danger_rpm_thr      = 100;
+    fan_cfg.pid.Kp                   = 50.0f;
+    fan_cfg.pid.Ki                   = 1.0f;
+    fan_cfg.pid.Kd                   = 0.0f;
+    fan_cfg.pid.prev_error           = 0;
+    fan_cfg.pid.integral             = 0;
+    fan_cfg.pid.output_min           = 0.00f;
+    fan_cfg.pid.output_max           = 100.0f;
+    fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
+    fan_cfg.target_temp              = nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "30").toFloat();
+    config.fans.push_back(fan_cfg);
+
+    fan_cfg.id                        = 1;
+    fan_cfg.init.pwm.pin              = 10;
+    fan_cfg.init.pwm.ch               = 2;
+    fan_cfg.init.pwm.freq             = 1000*100;
+    fan_cfg.init.pwm.resolution       = 8;
+    fan_cfg.init.torch.pulse_gpio_num = 47;
+    fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED;
+    fan_cfg.init.torch.lctrl_mode     = PCNT_MODE_KEEP;
+    fan_cfg.init.torch.hctrl_mode     = PCNT_MODE_KEEP;
+    fan_cfg.init.torch.pos_mode       = PCNT_COUNT_INC;
+    fan_cfg.init.torch.neg_mode       = PCNT_COUNT_DIS;
+    fan_cfg.init.torch.counter_h_lim  = 30000;
+    fan_cfg.init.torch.counter_l_lim  = 0;
+    fan_cfg.init.torch.unit           = PCNT_UNIT_1;
+    fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
+    fan_cfg.init.self_test_rpm_thr   = 2000;
+    fan_cfg.init.danger_rpm_thr      = 100;
+    fan_cfg.pid.Kp                   = 50.0f;
+    fan_cfg.pid.Ki                   = 1.0f;
+    fan_cfg.pid.Kd                   = 0.0f;
+    fan_cfg.pid.prev_error           = 0;
+    fan_cfg.pid.integral             = 0;
+    fan_cfg.pid.output_min           = 0.00f;
+    fan_cfg.pid.output_max           = 100.0f;
+    fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
+    fan_cfg.target_temp              = nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "70").toFloat();
+    config.fans.push_back(fan_cfg);
+
+#elif defined(BOARD_NMQAXE_PP_REV61)
+    config.name                      = "NMQAxe++";
     config.display_name              = "NMQAxe++Rev6.1";
+    config.asic.name                 = "BM1370";
+    config.asic.num_req              = 4;
+    config.asic.temp_limit.high      = 75.0f;
+    config.asic.temp_limit.medium    = 65.0f;
+    config.asic.temp_limit.low       = 50.0f;
+    config.tft.width                 = 240;
+    config.tft.height                = 320;
+    config.tft.dc_pin                = 3;
+    config.tft.bl.pin                = 6;
+    config.tft.bl.pwm_ch             = 0;
+    config.tft.bl.pwm_freq           = 1000*100;
+    config.tft.bl.pwm_resolution     = 8;
+    config.tft.rst_pin               = -1;
+    config.tft.pwr_pin               = -1;
+    config.tft.color_invert          = true;
+    config.spi.cs_pin                = -1;
+    config.spi.miso_pin              = 2;
+    config.spi.mosi_pin              = 1;
+    config.spi.sclk_pin              = 5;
+    config.ui.hashrate_dist_page.max_x_hr  = 10000;
+    config.ui.hashrate_dist_page.max_x_bars= 20;
+    config.ui.hashrate_dist_page.count     = 0;
+    config.asic.diff_thr_init        = 128;
     config.asic.default_frq          = 750;
     config.asic.default_vcore        = 1250;
     config.asic.min_vcore            = 1100;
@@ -371,8 +494,7 @@ BoardSpecConfig get_board_config_compile_time() {
             {"1350 mV",           1350},
             {"1400 mV",           1400},
         };
-    config.create_power_instance     = create_qaxepp_3ph_power_instance; // 3-phase
-#   endif
+    config.create_power_instance     = create_qaxepp_3ph_power_instance;
     config.setup_temp_hal = [](AxePowerHal* pwr) {
         tps53647_register_vcore_temp_hal(static_cast<TPS53647Class*>(pwr));
         tmp102_register_asic_temp_hal();
@@ -385,26 +507,26 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
     config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
     config.btn.boot_pin              = 0;
-    config.btn.user_pin              = -1; // Not used
+    config.btn.user_pin              = -1;
     config.pwr.en_pins.pwr_pll_0v8   = 39;
     config.pwr.en_pins.pwr_vdd_1v8   = 40;
     config.pwr.en_pins.pwr_vcore     = 38;
     config.pwr.adc_pins.vbus         = 18;
     config.pwr.adc_pins.ibus         = 11;
     config.pwr.adc_pins.vcore        = 17;
-    config.pwr.vcore_regulator_pin   = -1;  // Not used 
+    config.pwr.vcore_regulator_pin   = -1;
     config.pwr.pgood_pin             = 21;
-    config.pwr.dc_plug_pin           = -1;  // Not used
-    config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
+    config.pwr.dc_plug_pin           = -1;
+    config.pwr.vbus_min_required     = 8000;
     config.pwr.temp_limit.high       = 130.0f;
     config.pwr.temp_limit.medium     = 110.0f;
     config.pwr.temp_limit.low        = 80.0f;
-    config.pwr.power_low_threshold   = 20.0f; // Watt
-    config.iic.scl_pin               = 7;   
+    config.pwr.power_low_threshold   = 20.0f;
+    config.iic.scl_pin               = 7;
     config.iic.sda_pin               = 8;
-    config.led.wifi_pin              = -1; // Not used
-    config.led.pool_pin              = -1; // Not used
-    config.led.sys_pin               = 9; 
+    config.led.wifi_pin              = -1;
+    config.led.pool_pin              = -1;
+    config.led.sys_pin               = 9;
     config.asic.rx_pin               = 44;
     config.asic.tx_pin               = 43;
     config.asic.rst_pin              = 45;
@@ -415,7 +537,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.preference.screen.auto_rolling  = false;
     config.preference.screen.flip          = false;
     config.preference.screen.saver_enable  = true;
-    config.preference.screen.saver_timeout = 15*60; // 15 minutes
+    config.preference.screen.saver_timeout = 15*60;
     config.preference.led.enable           = true;
     config.create_asic_instance            = create_qaxepp_asic_instance;
 
@@ -423,10 +545,10 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.id                        = 0;
     fan_cfg.init.pwm.pin              = 41;
     fan_cfg.init.pwm.ch               = 1;
-    fan_cfg.init.pwm.freq             = 1000*100; // Hz
-    fan_cfg.init.pwm.resolution       = 8;        // bits
+    fan_cfg.init.pwm.freq             = 1000*100;
+    fan_cfg.init.pwm.resolution       = 8;
     fan_cfg.init.torch.pulse_gpio_num = 42;
-    fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED; // Not used
+    fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED;
     fan_cfg.init.torch.lctrl_mode     = PCNT_MODE_KEEP;
     fan_cfg.init.torch.hctrl_mode     = PCNT_MODE_KEEP;
     fan_cfg.init.torch.pos_mode       = PCNT_COUNT_INC;
@@ -446,15 +568,15 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
     fan_cfg.target_temp              = nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "30").toFloat();
-    config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
+    config.fans.push_back(fan_cfg);
 
     fan_cfg.id                        = 1;
     fan_cfg.init.pwm.pin              = 10;
     fan_cfg.init.pwm.ch               = 2;
-    fan_cfg.init.pwm.freq             = 1000*100; // Hz
-    fan_cfg.init.pwm.resolution       = 8;        // bits
+    fan_cfg.init.pwm.freq             = 1000*100;
+    fan_cfg.init.pwm.resolution       = 8;
     fan_cfg.init.torch.pulse_gpio_num = 47;
-    fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED; // Not used
+    fan_cfg.init.torch.ctrl_gpio_num  = PCNT_PIN_NOT_USED;
     fan_cfg.init.torch.lctrl_mode     = PCNT_MODE_KEEP;
     fan_cfg.init.torch.hctrl_mode     = PCNT_MODE_KEEP;
     fan_cfg.init.torch.pos_mode       = PCNT_COUNT_INC;
@@ -474,7 +596,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
     fan_cfg.target_temp              = nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "70").toFloat();
-    config.fans.push_back(fan_cfg); // fan2 for power cooling(optional)
+    config.fans.push_back(fan_cfg);
 
 #elif defined(BOARD_NMQAXE_PP_REV81)
     config.name                      = "NMQAxe++";     // runtime functional ID
