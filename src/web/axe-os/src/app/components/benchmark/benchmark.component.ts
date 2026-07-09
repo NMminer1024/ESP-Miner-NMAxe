@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { forkJoin, interval, Subscription } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
@@ -61,6 +61,16 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   private loadedFreqMin  = 0;
   private loadedVcoreMin = 0;
 
+  // Require whole numbers for all benchmark numeric fields.
+  private readonly integerValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+    const v = control.value;
+    if (v === null || v === undefined || v === '') return null;
+    const n = typeof v === 'number' ? v : Number(v);
+    if (!Number.isFinite(n)) return { number: true };
+    if (!Number.isInteger(n)) return { integer: true };
+    return null;
+  };
+
   constructor(
     private fb: FormBuilder,
     private systemService: SystemService,
@@ -93,15 +103,15 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         if (this.isRunning) this.startElapsedTimer();
 
         this.form = this.fb.group({
-          freqMin:    [data.freqMin,    [Validators.required, Validators.min(100), Validators.max(5000)]],
-          freqMax:    [data.freqMax,    [Validators.required, Validators.min(100), Validators.max(5000)]],
-          freqStep:   [data.freqStep,   [Validators.required, Validators.min(1),   Validators.max(500)]],
-          vcoreMin:   [data.vcoreMin,   [Validators.required, Validators.min(600), Validators.max(2000)]],
-          vcoreMax:   [data.vcoreMax,   [Validators.required, Validators.min(600), Validators.max(2000)]],
-          vcoreStep:  [data.vcoreStep,  [Validators.required, Validators.min(1),   Validators.max(200)]],
-          sampleIntv: [data.sampleIntv, [Validators.required, Validators.min(1),   Validators.max(300)]],
-          bmTime:     [data.bmTime,     [Validators.required, Validators.min(30),  Validators.max(7200)]],
-          stabTime:   [data.stabTime,   [Validators.required, Validators.min(30),  Validators.max(3600)]],
+          freqMin:    [data.freqMin,    [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
+          freqMax:    [data.freqMax,    [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
+          freqStep:   [data.freqStep,   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(500)]],
+          vcoreMin:   [data.vcoreMin,   [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
+          vcoreMax:   [data.vcoreMax,   [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
+          vcoreStep:  [data.vcoreStep,  [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(200)]],
+          sampleIntv: [data.sampleIntv, [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
+          bmTime:     [data.bmTime,     [Validators.required, this.integerValidator, Validators.min(30),  Validators.max(7200)]],
+          stabTime:   [data.stabTime,   [Validators.required, this.integerValidator, Validators.min(30),  Validators.max(3600)]],
         });
 
         this.syncFormLock();
@@ -119,11 +129,13 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   // ── Field validation error messages ─────────────────────────────────────
   public fieldError(name: string): string {
     const ctrl = this.form?.get(name);
-    if (!ctrl || ctrl.valid || !ctrl.touched) return '';
+    if (!ctrl || ctrl.disabled || !ctrl.touched || !ctrl.invalid) return '';
     if (ctrl.hasError('required')) return 'This field is required.';
+    if (ctrl.hasError('number')) return 'Please enter a valid number.';
+    if (ctrl.hasError('integer')) return 'Must be a whole number (no decimals).';
     if (ctrl.hasError('min')) return `Must be ≥ ${ctrl.getError('min').min}.`;
     if (ctrl.hasError('max')) return `Must be ≤ ${ctrl.getError('max').max}.`;
-    return 'Invalid value — enter a positive integer.';
+    return 'Invalid value.';
   }
 
   // ── Button state helpers ──────────────────────────────────────────────────
@@ -308,6 +320,10 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   }
 
   private doResume(): void {
+    if (this.form?.dirty) {
+      this.toastr.warning('Parameters changed. Resume keeps the old position. Use Start Fresh to apply new values.', 'Resume blocked');
+      return;
+    }
     this.systemService.startBenchmark('', { resume: true })
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
