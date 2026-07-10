@@ -624,7 +624,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadHistoryData(): void {
-    console.log('📊 Starting loadHistoryData method');
+    console.log('[Monitor] loadHistoryData start', {
+      sampleInterval: this.sampleInterval,
+      selectedTimeRange: this.selectedTimeRange,
+      selectedFields: this.selectedFields
+    });
     
     // 检查浏览器状态
     this.checkBrowserMemory();
@@ -632,6 +636,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.hasLoadingError = true;
       this.loadingMessage = 'No network connection detected. Please check your internet connection.';
       this.isLoading = false;
+      console.warn('[Monitor] network check failed before history load');
       return;
     }
     
@@ -649,14 +654,16 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.loadingMessage = 'Loading data...';
     }
     
-    console.log('Loading 24h history data...');
-    console.log('API URL will be: /api/system/status/history');
-    console.log('SystemService available:', !!this.systemService);
-    console.log(`Sample interval: ${this.sampleInterval}, Expected timeout: ${this.getExpectedTimeout()}s`);
+    console.log('[Monitor] loading history request', {
+      api: '/api/dashboard/chart/history',
+      systemServiceAvailable: !!this.systemService,
+      sampleInterval: this.sampleInterval,
+      expectedTimeoutSeconds: this.getExpectedTimeout()
+    });
     
     // 强制垃圾回收（如果浏览器支持）
     if ('gc' in window && typeof (window as any).gc === 'function') {
-      console.log('🗑️ Triggering garbage collection before large data load');
+      console.log('[Monitor] triggering garbage collection before large data load');
       (window as any).gc();
     }
     
@@ -667,7 +674,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             errors.pipe(
               mergeMap((error, index) => {
                 this.retryCount = index + 1;
-                console.warn(`❌ History load attempt ${this.retryCount} failed:`, error);
+                console.warn(`[Monitor] history load attempt ${this.retryCount} failed`, error);
                 
                 // 检查错误类型
                 const isTimeout = error.message?.includes('timeout') || error.message?.includes('timed out');
@@ -697,7 +704,13 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                   this.loadingMessage = `Error occurred, retrying in ${retryDelay/1000}s... (${this.retryCount}/${this.maxRetries})`;
                 }
                 
-                console.log(`🔄 Retrying in ${retryDelay}ms...`);
+                console.log('[Monitor] retrying history load', {
+                  retryDelayMs: retryDelay,
+                  retryCount: this.retryCount,
+                  isTimeout,
+                  isNetworkError,
+                  isParsingError
+                });
                 
                 // 每次重试前检查内存
                 this.checkBrowserMemory();
@@ -706,7 +719,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             )
           ),
           catchError(error => {
-            console.error('❌ Final error after all retries:', error);
+            console.error('[Monitor] final error after all retries', error);
             this.hasLoadingError = true;
             
             // 根据错误类型设置不同的错误信息
@@ -721,7 +734,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             }
             
             // 即使加载失败，也要重新启动实时更新
-            console.log('🔄 Restarting real-time updates after history load failure');
+            console.log('[Monitor] restarting real-time updates after history load failure');
             this.startRealTimeUpdates();
             
             return throwError(error);
@@ -729,8 +742,13 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         )
         .subscribe({
           next: (response: any) => {
-            console.log('✅ History API called successfully after', this.retryCount, 'retries');
-            console.log('History data loaded:', response);
+            console.log('[Monitor] history API response received', {
+              retries: this.retryCount,
+              hasStatistics: !!response?.statistics,
+              statisticsLength: response?.statistics?.length || 0,
+              size: response?.size,
+              sampleInterval: response?.sampleInterval
+            });
             
             this.loadingMessage = 'Processing data...';
             
@@ -739,23 +757,24 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
               this.historyData = response.statistics.map((item: any[], index: number) => {
                 const processed = {
                   hashrate: item[0] || '0',           // hashRate (GH/s) - 索引0
-                  asic_temp: item[1] || '0',          // asicTemp (°C) - 索引1  
-                  vcore_temp: item[2] || '0',         // vcoreTemp (°C) - 索引2
-                  pbus: item[3] || '0',               // Pbus (W) - 索引3
-                  vbus: item[4] || '0',               // Vbus (V) - 索引4
-                  ibus: item[5] || '0',               // Ibus (A) - 索引5
-                  vcore: item[6] || 0,                // Vcore (mV) - 索引6
-                  fanspeed: item[7] || 0,             // fanspeed (%) - 索引7
-                  fanrpm: item[8] || 0,               // fanrpm (RPM) - 索引8
-                  wifi_rssi: item[9] || 0,            // wifiRSSI (dBm) - 索引9
-                  free_heap: item[10] || 0,           // freeHeap (KB) - 索引10
-                  free_psram: item[11] || 0,          // freePsram (KB) - 索引11
-                  latency: item[12] || 0,             // latency (ms) - 索引12
-                  epoch: item[13] || Date.now()       // epoch (ms) - 索引13
+                  share_rate: item[1] || '0',         // shareRate (n/s) - 索引1
+                  asic_temp: item[2] || '0',          // asicTemp (°C) - 索引2
+                  vcore_temp: item[3] || '0',         // vcoreTemp (°C) - 索引3
+                  pbus: item[4] || '0',               // Pbus (W) - 索引4
+                  vbus: item[5] || '0',               // Vbus (V) - 索引5
+                  ibus: item[6] || '0',               // Ibus (A) - 索引6
+                  vcore: item[7] || 0,                // Vcore (mV) - 索引7
+                  fanspeed: item[8] || 0,             // fanspeed (%) - 索引8
+                  fanrpm: item[9] || 0,               // fanrpm (RPM) - 索引9
+                  wifi_rssi: item[10] || 0,           // wifiRSSI (dBm) - 索引10
+                  free_heap: item[11] || 0,           // freeHeap (KB) - 索引11
+                  free_psram: item[12] || 0,          // freePsram (KB) - 索引12
+                  latency: item[13] || 0,             // latency (ms) - 索引13
+                  epoch: item[14] || Date.now()       // epoch (ms) - 索引14
                 };
                 
                 if (index < 3 || index === response.statistics.length - 1) {
-                  console.log(`Data point ${index}:`, {
+                  console.log(`[Monitor] history data point ${index}`, {
                     raw: item,
                     processed: processed,
                     timestamp: new Date(processed.epoch).toLocaleString(),
@@ -770,7 +789,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
               // 按时间戳排序，确保数据顺序正确
               this.historyData.sort((a, b) => a.epoch - b.epoch);
               
-              console.log('History data time range:', {
+              console.log('[Monitor] history data time range', {
                 total: this.historyData.length,
                 first: this.historyData[0] ? new Date(this.historyData[0].epoch).toLocaleString() : 'none',
                 last: this.historyData[this.historyData.length - 1] ? new Date(this.historyData[this.historyData.length - 1].epoch).toLocaleString() : 'none',
@@ -781,7 +800,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
               this.lastUpdateTime = new Date().toLocaleString();
               
               // 确保图表立即更新显示数据
-              console.log('Triggering initial chart update...');
+              console.log('[Monitor] triggering initial chart update', { points: this.historyData.length });
               this.updateChart();
               
               // 开始实时更新
@@ -793,7 +812,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             this.loadingMessage = 'Loading...';
           },
           error: (error: any) => {
-            console.error('❌ Final subscription error:', error);
+            console.error('[Monitor] final subscription error', error);
             this.isLoading = false;
             // Error handling is already done in catchError above
           }
@@ -837,7 +856,10 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.realtimeInterval = this.realtimeIntervalMap.get(this.sampleInterval) || 15;
     this.realtimeCountdown = this.realtimeInterval; // Initialize countdown
     
-    console.log(`🔄 Starting adaptive real-time updates: ${this.realtimeInterval}s interval for sample rate 1/${this.sampleInterval}`);
+    console.log('[Monitor] starting adaptive real-time updates', {
+      realtimeIntervalSeconds: this.realtimeInterval,
+      sampleInterval: this.sampleInterval
+    });
     
     // Stop any existing subscriptions
     if (this.realTimeSubscription) {
@@ -884,13 +906,15 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private getRealTimeData(): void {
-    console.log('Getting real-time data...');
-    console.log('API URL will be: /api/system/status/realtime');
+    console.log('[Monitor] getting real-time data');
+    console.log('[Monitor] realtime endpoint', '/api/dashboard/chart/realtime');
     
     this.systemService.getStatusRealtime().subscribe({
       next: (response: any) => {
-        console.log('✅ Realtime API called successfully');
-        console.log('Real-time response:', response);
+        console.log('[Monitor] realtime API response received', {
+          hasStatistics: !!response?.statistics,
+          statisticsLength: response?.statistics?.length || 0
+        });
         if (response && response.statistics && Array.isArray(response.statistics) && response.statistics.length > 0) {
           const latestData = response.statistics[0];
           const newNode: HistoryNode = {
@@ -952,28 +976,28 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
           this.lastUpdateTime = new Date().toLocaleString();
           this.updateChart();
           
-          console.log('Real-time data updated');
+          console.log('[Monitor] realtime data updated');
         }
       },
       error: (error: any) => {
-        console.error('❌ Failed to get real-time data:', error);
+        console.error('[Monitor] failed to get realtime data', error);
         
         // 检查错误类型并提供更好的日志信息
         if (error.name === 'TimeoutError' || error.message?.includes('timeout')) {
-          console.warn('⏰ Real-time data request timed out - this is usually temporary');
+          console.warn('[Monitor] realtime request timed out - this is usually temporary');
         } else if (error.status === 0) {
           if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-            console.warn('🌐 Real-time request failed: browser is offline');
+              console.warn('[Monitor] realtime request failed: browser is offline');
           } else {
             const eventType = error?.error instanceof ProgressEvent ? error.error.type : '';
             if (eventType === 'abort') {
-              console.warn('🌐 Real-time request aborted by browser/client');
+                console.warn('[Monitor] realtime request aborted by browser/client');
             } else {
-              console.warn('🌐 Real-time request connection dropped (Wi-Fi jitter / TCP reset / AP roam)');
+                console.warn('[Monitor] realtime request connection dropped (Wi-Fi jitter / TCP reset / AP roam)');
             }
           }
         } else {
-          console.error('Error details:', {
+            console.error('[Monitor] realtime request error details', {
             status: error.status,
             statusText: error.statusText,
             url: error.url,
@@ -988,13 +1012,18 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private updateChart(): void {
     if (!this.chart || !this.historyData.length) {
-      console.log('Chart update skipped - chart:', !!this.chart, 'data length:', this.historyData.length);
+      console.log('[Monitor] chart update skipped', {
+        hasChart: !!this.chart,
+        dataLength: this.historyData.length
+      });
       return;
     }
 
-    console.log('Updating chart with data:', this.historyData.length, 'points');
-    console.log('Selected fields:', this.selectedFields);
-    console.log('Selected time range:', this.selectedTimeRange);
+    console.log('[Monitor] updating chart', {
+      dataLength: this.historyData.length,
+      selectedFields: this.selectedFields,
+      selectedTimeRange: this.selectedTimeRange
+    });
 
     // 根据时间范围过滤数据
     let filteredData: HistoryNode[];
@@ -1003,22 +1032,22 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.selectedTimeRange === 'all' || (timeRange && timeRange.minutes === -1)) {
       // 显示所有历史数据
       filteredData = [...this.historyData];
-      console.log('Showing all historical data');
+      console.log('[Monitor] showing all historical data');
     } else {
       // 根据选择的时间范围过滤
       const cutoffTime = Date.now() - (timeRange?.minutes || 60) * 60 * 1000;
       filteredData = this.historyData.filter(item => item.epoch >= cutoffTime);
-      console.log(`Showing last ${timeRange?.minutes} minutes of data`);
+      console.log('[Monitor] showing filtered data window', { minutes: timeRange?.minutes });
     }
     
-    console.log('Filtered data:', {
+    console.log('[Monitor] filtered data summary', {
       total: this.historyData.length,
       filtered: filteredData.length,
       timeSpan: filteredData.length > 1 ? (filteredData[filteredData.length - 1].epoch - filteredData[0].epoch) / (1000 * 60) : 0 // 分钟
     });
 
     if (filteredData.length === 0) {
-      console.warn('No data available for chart');
+      console.warn('[Monitor] no data available for chart');
       return;
     }
 
@@ -1039,7 +1068,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       
       if (data.length > 0) {
-        console.log(`Dataset for ${field}: ${data.length} points, range: ${new Date(data[0].x).toLocaleTimeString()} - ${new Date(data[data.length - 1].x).toLocaleTimeString()}`);
+        console.log(`[Monitor] dataset prepared for ${field}`, {
+          points: data.length,
+          start: new Date(data[0].x).toLocaleTimeString(),
+          end: new Date(data[data.length - 1].x).toLocaleTimeString()
+        });
       }
       
       return {
@@ -1230,7 +1263,10 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
         this.fieldSums.set(field, sum);
         this.fieldCounts.set(field, count);
         
-        console.log(`Field ${field} average calculated: ${average.toFixed(2)} (${count} points)`);
+        console.log(`[Monitor] field ${field} average calculated`, {
+          average: Number(average.toFixed(2)),
+          points: count
+        });
       }
     });
   }
@@ -1256,7 +1292,10 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.fieldCounts.set(field, newCount);
     this.fieldAverages.set(field, newAverage);
 
-    console.log(`Field ${field} average updated: ${newAverage.toFixed(2)} (${newCount} points)`);
+    console.log(`[Monitor] field ${field} average updated`, {
+      average: Number(newAverage.toFixed(2)),
+      points: newCount
+    });
   }
 
   private parseValue(value: any, field: string): number {
