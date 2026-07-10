@@ -65,14 +65,16 @@
         <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="frequency">OverClock(MHz)</label>
         <div class="col-12 md:col-10">
           <p-dropdown [options]="DropdownFrequency" optionLabel="name" optionValue="value"
-                      formControlName="frequency"></p-dropdown>
+                      formControlName="frequency" appendTo="body" panelStyleClass="mining-setting-dropdown-panel"
+                      scrollHeight="70vh"></p-dropdown>
         </div>
       </div>
 
       <div class="field grid p-fluid">
         <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coreVoltage">Vcore(mV)</label>
         <p-dropdown class="col-12 md:col-10" [options]="CoreVoltage" optionLabel="name"
-                    optionValue="value" formControlName="coreVoltage"></p-dropdown>
+                    optionValue="value" formControlName="coreVoltage" appendTo="body"
+                    panelStyleClass="mining-setting-dropdown-panel" scrollHeight="70vh"></p-dropdown>
       </div>
     </ng-container>
 
