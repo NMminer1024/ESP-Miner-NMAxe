@@ -163,14 +163,14 @@ bool BM1373::set_frequency(float current_frequency, float target_frequency){
         }
         current = next_dividable;
         if (!this->_set_hash_frequency(-1, current, freq_max_diff)) return false;
-        delay(1);
+        delay(100);
     }
 
     while ((direction > 0 && current < target_frequency) || (direction < 0 && current > target_frequency)) {
         float next_step = fminf(fabs(direction), fabs(target_frequency - current));
         current += direction > 0 ? next_step : -next_step;
         if (!this->_set_hash_frequency(-1, current, freq_max_diff)) return false;
-        delay(1);
+        delay(100);
     }
     if (!this->_set_hash_frequency(-1, target_frequency, freq_max_diff)) return false;
     return true;
@@ -290,6 +290,47 @@ void BM1373::init(uint64_t freq, int diff, uint8_t asic_count){
 void BM1373::send_work_to_asic(asic_job *job){
     job->num_midstates = 0x01;
     this->_send_bm1373((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*)job, sizeof(asic_job));
+
+    // Periodic read of hash-counter register 0x90 for HCN hashrate diagnostics.
+    // Sent immediately after a job frame (TX thread) to avoid UART interleaving.
+    uint32_t now = millis();
+    if (now - this->_reg_poll_last_ms >= BM1373_REG_POLL_MS) {
+        uint8_t reg_read[2] = {0x00, BM1373_REG_POLL_ADDR};
+        this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_READ), reg_read, 2);
+        this->_reg_poll_last_ms = now;
+    }
+}
+
+// HCN (hash-counter register 0x90) hashrate diagnostic.
+// counter unit = 2^32 hashes. Print-only: does NOT affect mining statistics.
+void BM1373::_hcn_on_response(uint8_t chip_addr, uint32_t counter){
+    uint8_t idx = (chip_addr >> 4) & 0x0f;
+    uint32_t now_us = micros();
+    if (this->_hcn_seen[idx]) {
+        uint32_t d_cnt = counter - this->_hcn_prev_cnt[idx];
+        uint32_t d_us  = now_us  - this->_hcn_prev_us[idx];
+        if (d_us > 0) {
+            double ghs = (double)d_cnt * 4294967296.0 / (double)d_us / 1000.0;
+            this->_hcn_ghs[idx] = (float)ghs;
+        }
+    }
+    this->_hcn_prev_cnt[idx] = counter;
+    this->_hcn_prev_us[idx]  = now_us;
+    this->_hcn_seen[idx]     = true;
+
+    uint32_t now_ms = millis();
+    if (now_ms - this->_hcn_print_last_ms >= 5000u) {
+        this->_hcn_print_last_ms = now_ms;
+        double total = 0.0;
+        char buf[128]; int off = 0;
+        for (uint8_t i = 0; i < 16; i++) {
+            if (!this->_hcn_seen[i]) continue;
+            total += this->_hcn_ghs[i];
+            off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, this->_hcn_ghs[i]);
+            if (off >= (int)sizeof(buf) - 16) break;
+        }
+        LOG_I("HCN hashrate (reg 0x90, diag): %s| total=%.2f GH/s", buf, total);
+    }
 }
 
 esp_err_t BM1373::wait_for_result(miner_result *result, uint32_t timeout_ms){
@@ -306,6 +347,15 @@ esp_err_t BM1373::wait_for_result(miner_result *result, uint32_t timeout_ms){
         LOG_W("Invalid asic response preamble: %02X %02X", rsp[0], rsp[1]);
         this->clear_port_cache();
         return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    // Intercept hash-counter (reg 0x90) read responses for HCN diagnostics.
+    // Format: AA 55 [cnt u32 BE] [chip_addr] 90 00 00 [crc]
+    if (rsp[7] == 0x90 && rsp[8] == 0x00 && rsp[9] == 0x00) {
+        uint32_t counter = ((uint32_t)rsp[2] << 24) | ((uint32_t)rsp[3] << 16) |
+                           ((uint32_t)rsp[4] << 8)  |  (uint32_t)rsp[5];
+        this->_hcn_on_response(rsp[6], counter);
+        return ESP_ERR_INVALID_RESPONSE; // skip this frame; caller re-reads
     }
 
     asic_result asic  = *(asic_result*)(rsp);

@@ -3,7 +3,12 @@
 #include "drivers/asic/bm_hal.h"
 
 #define BM1373_CORE_COUNT       128
-#define BM1373_SMALL_CORE_COUNT 6860
+// Derived from expected-hashrate measurements at 400/600/740 MHz:
+// 2764.8 / 4147.2 / 5114.88 GH/s => exactly 6912 small cores (128 x 54).
+#define BM1373_SMALL_CORE_COUNT 6912
+// Periodic hash-counter register poll interval (ms).
+#define BM1373_REG_POLL_MS      5000
+#define BM1373_REG_POLL_ADDR    0x90
 // Daisy-chain address step. Each chip is assigned SETADDRESS = i * interval,
 // and the chip stamps its core/chip address into nonce bits[17:24]
 // (big-endian view). The chip index occupies the top log2(asic_count) bits of
@@ -16,6 +21,14 @@ class BM1373: public BMxxx{
 private:
     uint32_t _diff_current;
     uint8_t  _asic_count = 1;   // chips detected at init; used to decode asic_id
+    // HCN hash-counter (reg 0x90) diagnostics — print-only, no effect on mining.
+    uint32_t _reg_poll_last_ms  = 0;
+    uint32_t _hcn_prev_cnt[16]  = {0};
+    uint32_t _hcn_prev_us[16]   = {0};
+    bool     _hcn_seen[16]      = {false};
+    float    _hcn_ghs[16]       = {0};
+    uint32_t _hcn_print_last_ms = 0;
+    void _hcn_on_response(uint8_t chip_addr, uint32_t counter);
     void _send_bm1373(uint8_t header, uint8_t * data, uint8_t len);
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();
