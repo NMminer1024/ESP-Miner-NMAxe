@@ -239,6 +239,7 @@ void BM1366::init(uint64_t freq, int diff, uint8_t asic_count){
     // Each chip reserves multiple address slots for internal sub-unit
     // (core-domain / PLL group) selection within a single chip.
     uint8_t address_interval = (uint8_t) (256 / asic_count);
+        this->_hcn_addr_interval = asic_count > 1 ? address_interval : 255;
     for (uint8_t i = 0; i < asic_count; i++) {
       this->_set_chip_address(i * address_interval);
     }
@@ -296,6 +297,45 @@ void BM1366::init(uint64_t freq, int diff, uint8_t asic_count){
 void BM1366::send_work_to_asic(asic_job *job){
     job->num_midstates = 0x01;
     this->_send_bm1366((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*)job, sizeof(asic_job));
+
+    uint32_t now = millis();
+    if (now - this->_reg_poll_last_ms >= BM1366_REG_POLL_MS) {
+        uint8_t reg_read[2] = {0x00, BM1366_REG_POLL_ADDR};
+        this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_READ), reg_read, 2);
+        this->_reg_poll_last_ms = now;
+    }
+}
+
+void BM1366::_hcn_on_response(uint8_t chip_addr, uint32_t counter){
+    uint8_t idx = chip_addr / this->_hcn_addr_interval;
+    if (idx >= 16) idx = 0;
+
+    uint32_t now_us = micros();
+    if (this->_hcn_seen[idx]) {
+        uint32_t d_cnt = counter - this->_hcn_prev_cnt[idx];
+        uint32_t d_us  = now_us  - this->_hcn_prev_us[idx];
+        if (d_us > 0) {
+            double ghs = (double)d_cnt * 4294967296.0 / (double)d_us / 1000.0;
+            this->_hcn_ghs[idx] = (float)ghs;
+        }
+    }
+    this->_hcn_prev_cnt[idx] = counter;
+    this->_hcn_prev_us[idx]  = now_us;
+    this->_hcn_seen[idx]     = true;
+
+    uint32_t now_ms = millis();
+    if (now_ms - this->_hcn_print_last_ms >= 5000u) {
+        this->_hcn_print_last_ms = now_ms;
+        double total = 0.0;
+        char buf[128]; int off = 0;
+        for (uint8_t i = 0; i < 16; i++) {
+            if (!this->_hcn_seen[i]) continue;
+            total += this->_hcn_ghs[i];
+            off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, this->_hcn_ghs[i]);
+            if (off >= (int)sizeof(buf) - 16) break;
+        }
+        LOG_I("HCN hashrate (reg 0x90, diag): %s| total=%.2f GH/s", buf, total);
+    }
 }
 
 esp_err_t BM1366::wait_for_result(miner_result *result, uint32_t timeout_ms){
@@ -309,6 +349,13 @@ esp_err_t BM1366::wait_for_result(miner_result *result, uint32_t timeout_ms){
     }
     if(rsp[0] != 0xAA && rsp[1] != 0x55){
         this->clear_port_cache();
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    if (rsp[7] == 0x90 && rsp[8] == 0x00 && rsp[9] == 0x00) {
+        uint32_t counter = ((uint32_t)rsp[2] << 24) | ((uint32_t)rsp[3] << 16) |
+                           ((uint32_t)rsp[4] << 8)  |  (uint32_t)rsp[5];
+        this->_hcn_on_response(rsp[6], counter);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
