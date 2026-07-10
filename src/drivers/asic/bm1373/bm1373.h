@@ -4,10 +4,18 @@
 
 #define BM1373_CORE_COUNT       128
 #define BM1373_SMALL_CORE_COUNT 6860
+// Daisy-chain address step. Each chip is assigned SETADDRESS = i * interval,
+// and the chip stamps its core/chip address into nonce bits[17:24]
+// (big-endian view). The chip index occupies the top log2(asic_count) bits of
+// that field, so it is recovered as address_field / (256 / asic_count).
+// SETADDRESS assignment in init() uses BM1373_ADDR_INTERVAL and is independent
+// of the decode divisor below.
+#define BM1373_ADDR_INTERVAL    16
 
 class BM1373: public BMxxx{
 private:
     uint32_t _diff_current;
+    uint8_t  _asic_count = 1;   // chips detected at init; used to decode asic_id
     void _send_bm1373(uint8_t header, uint8_t * data, uint8_t len);
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();

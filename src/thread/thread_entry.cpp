@@ -743,7 +743,7 @@ void miner_rx_thread_entry(void* args) {
 
                 LOG_I("| %d/%d  |%-6s|%-6s|%-7s|",
                       result.asic_id + 1, 
-                      ctx->spec->asic.num_req,
+                      miner->get_asic_count(),
                       formatNumber(diff, 4).c_str(),
                       formatNumber(stratum->get_pool_difficulty(), 4).c_str(),
                       formatNumber(st.diff.network, 7).c_str());
@@ -1107,6 +1107,14 @@ void power_loop_thread_entry(void* args) {
                 }
             }
         }
+
+        // {
+        //     static uint32_t last_debug = millis();
+        //     if (millis() - last_debug >= 3000) {
+        //         power->debugPrint();
+        //         last_debug = millis();
+        //     }
+        // }
 
         // skip vcore regulation while the miner is intentionally idle
         if (ctx->mining && ctx->mining->is_controlled_idle()) {

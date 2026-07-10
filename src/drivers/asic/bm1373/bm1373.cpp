@@ -213,6 +213,7 @@ uint8_t BM1373::get_asic_count(){
 
 void BM1373::init(uint64_t freq, int diff, uint8_t asic_count){
     LOG_W("Initializing BM1373 ASICs with frequency %.2f MHz, difficulty %d, and %d chips", (float)freq, diff, asic_count);
+    this->_asic_count = asic_count ? asic_count : 1; // cached for asic_id decode
     // 1. Set version mask (one extra after get_asic_count's 4)
     this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
 
@@ -231,7 +232,7 @@ void BM1373::init(uint64_t freq, int diff, uint8_t asic_count){
     // BM1373 uses interval=16, giving each chip 16 address slots (base+0..15)
     // for internal sub-unit (core-domain / PLL group) selection.
     // e.g. with 4 chips: chip0=addr0, chip1=addr16, chip2=addr32, chip3=addr48.
-    uint8_t address_interval = 16;
+    uint8_t address_interval = BM1373_ADDR_INTERVAL;
     for (uint8_t i = 0; i < asic_count; i++) {
         this->_set_chip_address(i * address_interval);
     }
@@ -312,11 +313,14 @@ esp_err_t BM1373::wait_for_result(miner_result *result, uint32_t timeout_ms){
     // dbg::hex_print((uint8_t*)rsp, sizeof(rsp), "asic rsp");
 
     asic.job_id       = (asic.job_id & 0xf0) >> 1; // upper 4 bits are job id for BM137x
-    // BM1373 has ~3.4x the small cores (6860 vs 2040), so its core-id field is
-    // wider. Bit15 (nonce bit15) is a search/core toggle, NOT an address bit,
-    // and produced spurious id=4 with a 4-chip chain. Only bits 13-14 map to
-    // the real daisy-chain address (0..3 for 4 chips).
-    int asic_id       = (uint8_t) ((asic.nonce & 0x00006000u) >> 13);
+    // Chip address is encoded in nonce bits[17:24] of the big-endian nonce
+    // (same layout as BM1368/BM1370). The chip index sits in the top
+    // log2(asic_count) bits of that field, so divide by (256 / asic_count).
+    // e.g. 2 chips -> divisor 128 -> field {0,64}->id0, {128,192}->id1.
+    uint32_t nonce_be   = __builtin_bswap32(asic.nonce);
+    uint8_t  addr_field = (nonce_be >> 17) & 0xffu;
+    uint8_t  divisor    = (this->_asic_count > 1) ? (uint8_t)(256u / this->_asic_count) : 255u;
+    int asic_id       = addr_field / divisor;
 
     result->asic      = asic;
     result->asic_id   = asic_id;
