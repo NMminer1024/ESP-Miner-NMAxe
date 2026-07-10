@@ -44,7 +44,7 @@ bool BM1373::_set_hash_frequency(int id, float target_freq, float max_diff){
     uint8_t freqbuf[6] = {0x00, 0x08, 0x40, 0xA0, 0x02, 0x41};
     uint8_t postdiv_min = 255;
     uint8_t postdiv2_min = 255;
-    float best_freq = 0;
+    float best_freq = 0, best_err = 999.0f;
     uint8_t best_refdiv = 0, best_fbdiv = 0, best_postdiv1 = 0, best_postdiv2 = 0;
 
     for (uint8_t refdiv = 2; refdiv > 0; refdiv--) {
@@ -52,21 +52,34 @@ bool BM1373::_set_hash_frequency(int id, float target_freq, float max_diff){
             for (uint8_t postdiv2 = 7; postdiv2 > 0; postdiv2--) {
                 uint16_t fb_divider = round(target_freq / 25.0 * (refdiv * postdiv2 * postdiv1));
                 float newf = 25.0 * fb_divider / (refdiv * postdiv2 * postdiv1);
+                float err = fabs(target_freq - newf);
                 
-                if (fb_divider >= 0xa0 && fb_divider <= 0xef &&
-                    fabs(target_freq - newf) < max_diff &&
-                    postdiv1 >= postdiv2 &&
-                    postdiv1 * postdiv2 < postdiv_min &&
-                    postdiv2 <= postdiv2_min) {
-                    
-                    postdiv2_min = postdiv2;
-                    postdiv_min = postdiv1 * postdiv2;
-                    best_freq = newf;
-                    best_refdiv = refdiv;
-                    best_fbdiv = fb_divider;
-                    best_postdiv1 = postdiv1;
-                    best_postdiv2 = postdiv2;
+                if (fb_divider < 0xa0 || fb_divider > 0xef) continue;
+                if (err >= max_diff) continue;
+                if (postdiv1 < postdiv2) continue;
+
+                uint8_t product = postdiv1 * postdiv2;
+                bool exact    = (err < 0.001f);
+                bool best_exact = (best_err < 0.001f);
+
+                if (best_fbdiv == 0) {
+                    // first valid candidate
+                } else if (exact && !best_exact) {
+                    // exact match beats inexact
+                } else if (!exact && best_exact) {
+                    continue; // inexact cannot beat exact
+                } else if (!(product < postdiv_min && postdiv2 <= postdiv2_min)) {
+                    continue; // both same exactness: use original dual-condition
                 }
+
+                postdiv2_min = postdiv2;
+                postdiv_min = product;
+                best_freq = newf;
+                best_err  = err;
+                best_refdiv = refdiv;
+                best_fbdiv = fb_divider;
+                best_postdiv1 = postdiv1;
+                best_postdiv2 = postdiv2;
             }
         }
     }
@@ -122,6 +135,10 @@ void BM1373::frequency_ramp_up(float target_frequency){
 bool BM1373::set_frequency(float current_frequency, float target_frequency){
     float current = current_frequency;
     float step    = 6.25;
+    // Max allowed deviation between target and actual PLL frequency (MHz).
+    // Nexus reference uses ~0.9 MHz tolerance; a tighter value yields
+    // a different (fbdiv,postdiv) combo at equal output frequency.
+    const float freq_max_diff = 0.9f;
 
     if (target_frequency == 0) {
         LOG_W("Skipping frequency ramp");
@@ -145,17 +162,17 @@ bool BM1373::set_frequency(float current_frequency, float target_frequency){
             next_dividable = floor(current / step) * step;
         }
         current = next_dividable;
-        if (!this->_set_hash_frequency(-1, current, 0.002)) return false;
+        if (!this->_set_hash_frequency(-1, current, freq_max_diff)) return false;
         delay(1);
     }
 
     while ((direction > 0 && current < target_frequency) || (direction < 0 && current > target_frequency)) {
         float next_step = fminf(fabs(direction), fabs(target_frequency - current));
         current += direction > 0 ? next_step : -next_step;
-        if (!this->_set_hash_frequency(-1, current, 0.002)) return false;
+        if (!this->_set_hash_frequency(-1, current, freq_max_diff)) return false;
         delay(1);
     }
-    if (!this->_set_hash_frequency(-1, target_frequency, 0.002)) return false;
+    if (!this->_set_hash_frequency(-1, target_frequency, freq_max_diff)) return false;
     return true;
 }
 
@@ -195,6 +212,7 @@ uint8_t BM1373::get_asic_count(){
 }
 
 void BM1373::init(uint64_t freq, int diff, uint8_t asic_count){
+    LOG_W("Initializing BM1373 ASICs with frequency %.2f MHz, difficulty %d, and %d chips", (float)freq, diff, asic_count);
     // 1. Set version mask (one extra after get_asic_count's 4)
     this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
 
@@ -265,6 +283,7 @@ void BM1373::init(uint64_t freq, int diff, uint8_t asic_count){
     // 15. Baud rate register setup (matching trace end)
     uint8_t init_baud[] = {0x00, 0x28, 0x11, 0x30, 0x02, 0x00};
     this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_WRITE), init_baud, 6);
+    LOG_W("BM1373 ASICs initialized successfully");
 }
 
 void BM1373::send_work_to_asic(asic_job *job){

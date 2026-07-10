@@ -698,6 +698,18 @@ void miner_rx_thread_entry(void* args) {
                 st.asic_rsp_counter[result.asic_id]++;
                 LOG_D("ASIC[%d] nonce 0x%08x", result.asic_id, result.asic.nonce);
 
+                { // share-per-second counter
+                    static uint32_t sps_count = 0, sps_last = 0;
+                    sps_count++;
+                    uint32_t now = millis();
+                    uint32_t dt = now - sps_last;
+                    if (dt >= 1000*10) {
+                        LOG_W("Share rate: %.1f/s", sps_count * 1000.0f / dt);
+                        sps_count = 0;
+                        sps_last = now;
+                    }
+                }
+
                 // throttled summary log
                 static uint32_t last = millis();
                 if (millis() - last >= MINER_LOG_SUMMARY_INTERVAL) {
@@ -1411,6 +1423,12 @@ void monitor_thread_entry(void* args) {
                 ntp_fail_cnt    = 0;
                 ntp_ever_synced = true;
                 last_ntp_sync   = st.uptime_session;
+                // Reconstruct boot epoch from NTP time minus session uptime.
+                // This allows UI to derive precise uptime from RTC (time(NULL))
+                // independently of the monitor thread's delay(1000) drift.
+                if (st.boot_epoch == 0) {
+                    st.boot_epoch = tv.tv_sec - (time_t)st.uptime_session;
+                }
             } else {
                 ntp_fail_cnt++;
                 LOG_W("NTP sync FAIL [server: %s] consecutive_fail=%d/%d  ever_synced=%s  last_sync=%llus ago",

@@ -967,7 +967,17 @@ void MinerApp::_tick_thread_entry(void* args) {
                               formatNumber(app._state_miner->diff.network, 3);
             m.ver.text      = String(BOARD_CURRENT_FW_VERSION).substring(1);
             {
-                String uptime = convert_uptime_to_string(app._state_miner->uptime_session);
+                // Derive uptime from RTC (time(NULL)) after NTP sync for
+                // sub-second precision, falling back to session counter before.
+                uint64_t uptime_s;
+                if (app._state_miner->boot_epoch > 0) {
+                    time_t now_utc;
+                    time(&now_utc);
+                    uptime_s = (uint64_t)(now_utc - app._state_miner->boot_epoch);
+                } else {
+                    uptime_s = app._state_miner->uptime_session;
+                }
+                String uptime = convert_uptime_to_string(uptime_s);
                 m.uptime_day.text = uptime.substring(0, 3);
                 m.uptime_hms.text = uptime.substring(5);
             }

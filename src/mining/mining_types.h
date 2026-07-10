@@ -74,6 +74,7 @@ struct MinerStatus {
     uint32_t   share_rejected = 0;
     uint64_t   uptime_ever = 0;
     uint64_t   uptime_session = 0;
+    time_t     boot_epoch = 0;          // UTC epoch at boot (set after first NTP sync)
     uint32_t   latency = 0;             // ms, pool round-trip
     uint32_t   asic_update = 0;         // ms, last ASIC response timestamp
     uint32_t   stratum_update = 0;      // ms, last stratum data timestamp

@@ -601,7 +601,8 @@ BoardSpecConfig get_board_config_compile_time() {
 #elif defined(BOARD_NMQAXE_PP_REV81)
     config.name                      = "NMQAxe++";     // runtime functional ID
     config.asic.name                 = "BM1373";
-    config.asic.num_req              = 1;
+    config.display_name              = "NMQAxe++Rev8.1";
+    config.asic.num_req              = 4;
     config.asic.temp_limit.high      = 75.0f;
     config.asic.temp_limit.medium    = 65.0f;
     config.asic.temp_limit.low       = 50.0f;
@@ -622,8 +623,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 20000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 1024;
-    config.display_name              = "NMQAxe++Rev8.1";
+    config.asic.diff_thr_init        = 1024*2;
     config.asic.default_frq          = 450;
     config.asic.default_vcore        = 1125;
     config.asic.min_vcore            = 1000;
@@ -635,6 +635,10 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.performance.vcore_req      = {0.9f, 1.40f};
     config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 1.40f};
     config.ui.setting_page.oc = {
+            {"300 MHz",           300},
+            {"325 MHz",           325},
+            {"350 MHz",           350},
+            {"375 MHz",           375},
             {"400 MHz",           400},
             {"425 MHz",           425},
             {"450 MHz (default)", 450},
