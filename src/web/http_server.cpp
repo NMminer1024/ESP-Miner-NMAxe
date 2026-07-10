@@ -872,6 +872,7 @@ void get_status_history(AsyncWebServerRequest* request){
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
+    labels.add("shareRate");
     labels.add("asicTemp");
     labels.add("vcoreTemp");
     labels.add("Pbus");
@@ -912,6 +913,7 @@ void get_status_history(AsyncWebServerRequest* request){
                 
                 // history_node_t fields are now native floats/ints — no String validation needed
                 dataPoint.add(history.hashrate);
+                dataPoint.add(history.share_rate);
                 dataPoint.add(history.asic_temp);
                 dataPoint.add(history.vcore_temp);
                 dataPoint.add(history.pbus);
@@ -1007,6 +1009,7 @@ void get_status_realtime(AsyncWebServerRequest* request){
     root["timestamp"] = ms;
     JsonArray labels = root.createNestedArray("labels");
     labels.add("hashRate");
+    labels.add("shareRate");
     labels.add("asicTemp");
     labels.add("vcoreTemp");
     labels.add("Pbus");
@@ -1029,6 +1032,7 @@ void get_status_realtime(AsyncWebServerRequest* request){
             auto& history = g_web->status->status_history.deque.back();
             JsonArray dataPoint = data.createNestedArray();
             dataPoint.add(history.hashrate);           // hashRate (GH/s)
+            dataPoint.add(history.share_rate);         // shareRate (nonces/s)
             dataPoint.add(history.asic_temp);          // asic_temp (°C)
             dataPoint.add(history.vcore_temp);         // vcore_temp (°C)
             dataPoint.add(history.pbus);               // power (W)

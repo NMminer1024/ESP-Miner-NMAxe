@@ -22,6 +22,7 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
 
   private realtimeSubscription?: Subscription;
   private countdownSubscription?: Subscription;
+  private columnIndexMap: { [key: string]: number } = {}; // Dynamically resolved from API labels
   private realtimeIntervalMap = new Map<number, number>([
     [1, 5],   // High detail: update every 5 seconds for continuous display
     [5, 15],  // Normal detail: update every 15 seconds
@@ -71,6 +72,18 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
           pointHoverRadius: 4,
           borderWidth: 2,
           yAxisID: 'y'
+        },
+        {
+          label: 'Share Rate (n/s)',
+          data: [],
+          fill: false,
+          borderColor: '#28a745',
+          backgroundColor: '#28a745',
+          tension: 0.1,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+          yAxisID: 'y2'
         },
         {
           label: 'ASIC Temp (°C)',
@@ -175,6 +188,8 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
               
               if (datasetLabel.includes('Hashrate')) {
                 return `${datasetLabel}: ${value.toFixed(1)} GH/s`;
+              } else if (datasetLabel.includes('Share Rate')) {
+                return `${datasetLabel}: ${value.toFixed(1)} n/s`;
               } else {
                 return `${datasetLabel}: ${value.toFixed(1)}°C`;
               }
@@ -234,6 +249,24 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
             drawBorder: false,
             drawOnChartArea: false
           }
+        },
+        y2: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: {
+            display: true,
+            text: 'Share Rate (n/s)',
+            color: '#28a745'
+          },
+          ticks: {
+            color: '#28a745'
+          },
+          grid: {
+            color: surfaceBorder,
+            drawBorder: false,
+            drawOnChartArea: false
+          }
         }
       }
     };
@@ -280,30 +313,51 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Build column index map from response labels (only on first call)
+    if (response.labels && response.labels.length > 0) {
+      this.ensureColumnMap(response.labels);
+    }
+
     this.totalDataPoints = response.size || 0;
     this.dataCount = response.sampledSize || response.statistics.length;
 
     const timeLabels: number[] = [];
     const hashrateData: number[] = [];
+    const shareRateData: number[] = [];
     const asicTempData: number[] = [];
     const vcoreTempData: number[] = [];
 
-    response.statistics.forEach((dataPoint: any[], index: number) => {
-      if (dataPoint.length >= 12) {
-        timeLabels.push(dataPoint[11]); // epoch timestamp (ms)
-        hashrateData.push(typeof dataPoint[0] === 'string' ? parseFloat(dataPoint[0]) : dataPoint[0]); // GH/s
-        asicTempData.push(typeof dataPoint[1] === 'string' ? parseFloat(dataPoint[1]) : dataPoint[1]); // °C
-        vcoreTempData.push(typeof dataPoint[2] === 'string' ? parseFloat(dataPoint[2]) : dataPoint[2]); // °C
-      }
-    });
+    // Use dynamic column resolution if map is available
+    if (Object.keys(this.columnIndexMap).length > 0) {
+      response.statistics.forEach((dataPoint: any[]) => {
+        timeLabels.push(this.getValue(dataPoint, 'epoch', 0));
+        hashrateData.push(this.getValue(dataPoint, 'hashRate', 0));
+        shareRateData.push(this.getValue(dataPoint, 'shareRate', 0));
+        asicTempData.push(this.getValue(dataPoint, 'asicTemp', 0));
+        vcoreTempData.push(this.getValue(dataPoint, 'vcoreTemp', 0));
+      });
+    } else {
+      // Legacy fallback: hard-coded indices — last element is always epoch
+      console.warn('⚠️ No column map, using legacy hard-coded indices');
+      response.statistics.forEach((dataPoint: any[]) => {
+        if (dataPoint.length >= 12) {
+          timeLabels.push(dataPoint[dataPoint.length - 1]); // last = epoch
+          hashrateData.push(typeof dataPoint[0] === 'string' ? parseFloat(dataPoint[0]) : dataPoint[0]);
+          shareRateData.push(0); // No shareRate in legacy
+          asicTempData.push(typeof dataPoint[1] === 'string' ? parseFloat(dataPoint[1]) : dataPoint[1]);
+          vcoreTempData.push(typeof dataPoint[2] === 'string' ? parseFloat(dataPoint[2]) : dataPoint[2]);
+        }
+      });
+    }
 
-    this.updateChart(timeLabels, hashrateData, asicTempData, vcoreTempData);
+    this.updateChart(timeLabels, hashrateData, shareRateData, asicTempData, vcoreTempData);
   }
 
-  private updateChart(timeLabels: number[], hashrateData: number[], asicTempData: number[], vcoreTempData: number[]): void {
+  private updateChart(timeLabels: number[], hashrateData: number[], shareRateData: number[], asicTempData: number[], vcoreTempData: number[]): void {
     console.log('📊 updateChart called with data:', {
       timeLabels: timeLabels.length,
       hashrateData: hashrateData.length,
+      shareRateData: shareRateData.length,
       asicTempData: asicTempData.length,
       vcoreTempData: vcoreTempData.length
     });
@@ -324,10 +378,14 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
         },
         {
           ...this.chartData.datasets[1],
-          data: asicTempData
+          data: shareRateData
         },
         {
           ...this.chartData.datasets[2],
+          data: asicTempData
+        },
+        {
+          ...this.chartData.datasets[3],
           data: vcoreTempData
         }
       ]
@@ -372,7 +430,7 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
       this.systemService.getStatusRealtime().subscribe({
         next: (response: StatusHistoryResponse) => {
           if (response.statistics && response.statistics.length > 0) {
-            this.addRealtimeData(response.statistics[0]);
+            this.addRealtimeData(response.statistics[0], response.labels);
           }
         },
         error: (error) => {
@@ -400,31 +458,80 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
     this.startAdaptiveRealtimeUpdate();
   }
 
-  private addRealtimeData(dataPoint: any[]): void {
-    if (dataPoint.length >= 12) {
-      const timestamp = dataPoint[11];
-      const hashrate = typeof dataPoint[0] === 'string' ? parseFloat(dataPoint[0]) : dataPoint[0];
-      const asicTemp = typeof dataPoint[1] === 'string' ? parseFloat(dataPoint[1]) : dataPoint[1];
-      const vcoreTemp = typeof dataPoint[2] === 'string' ? parseFloat(dataPoint[2]) : dataPoint[2];
+  /**
+   * Build column index map from API response labels.
+   * Called once when the first response with labels arrives.
+   * Labels are expected to be strings like "hashRate", "shareRate", "asicTemp", etc.
+   */
+  private ensureColumnMap(labels: string[]): void {
+    if (Object.keys(this.columnIndexMap).length > 0) return; // Already built
+    labels.forEach((label: string, index: number) => {
+      this.columnIndexMap[label] = index;
+    });
+    console.log('📋 Column index map built:', this.columnIndexMap);
+  }
+
+  /**
+   * Read a value from a dataPoint array by its label name.
+   * Falls back to defaultValue if the column doesn't exist or index is out of bounds.
+   */
+  private getValue(dataPoint: any[], label: string, defaultValue: number = 0): number {
+    const idx = this.columnIndexMap[label];
+    if (idx === undefined || idx >= dataPoint.length) {
+      return defaultValue;
+    }
+    const val = dataPoint[idx];
+    if (val === null || val === undefined) return defaultValue;
+    return typeof val === 'string' ? parseFloat(val) : Number(val);
+  }
+
+  private addRealtimeData(dataPoint: any[], labels?: string[]): void {
+    // Build column map from labels if provided
+    if (labels && labels.length > 0) {
+      this.ensureColumnMap(labels);
+    }
+
+    // Fall back to length-based detection if column map is empty
+    if (Object.keys(this.columnIndexMap).length > 0) {
+      const timestamp = this.getValue(dataPoint, 'epoch', Date.now());
+      const hashrate = this.getValue(dataPoint, 'hashRate', 0);
+      const shareRate = this.getValue(dataPoint, 'shareRate', 0);
+      const asicTemp = this.getValue(dataPoint, 'asicTemp', 0);
+      const vcoreTemp = this.getValue(dataPoint, 'vcoreTemp', 0);
 
       // Add new data point
       this.chartData.labels.push(new Date(timestamp).toLocaleTimeString());
       this.chartData.datasets[0].data.push(hashrate);
-      this.chartData.datasets[1].data.push(asicTemp);
-      this.chartData.datasets[2].data.push(vcoreTemp);
+      this.chartData.datasets[1].data.push(shareRate);
+      this.chartData.datasets[2].data.push(asicTemp);
+      this.chartData.datasets[3].data.push(vcoreTemp);
+    } else {
+      // Legacy fallback: use hard-coded indices (old format, 14 elements)
+      console.warn('⚠️ No column map yet, using legacy hard-coded indices');
+      if (dataPoint.length >= 12) {
+        const timestamp = dataPoint[dataPoint.length - 1]; // last element = epoch
+        const hashrate = typeof dataPoint[0] === 'string' ? parseFloat(dataPoint[0]) : dataPoint[0];
+        const asicTemp = typeof dataPoint[1] === 'string' ? parseFloat(dataPoint[1]) : dataPoint[1];
+        const vcoreTemp = typeof dataPoint[2] === 'string' ? parseFloat(dataPoint[2]) : dataPoint[2];
 
-      // Limit displayed data points to maintain chart performance
-      // Adjust max points based on sample interval for consistent time window
-      const maxPoints = Math.floor(14400 / this.sampleInterval);
-      if (this.chartData.labels.length > maxPoints) {
-        this.chartData.labels.shift();
-        this.chartData.datasets.forEach((dataset: any) => dataset.data.shift());
+        this.chartData.labels.push(new Date(timestamp).toLocaleTimeString());
+        this.chartData.datasets[0].data.push(hashrate);
+        this.chartData.datasets[1].data.push(0); // No shareRate in legacy format
+        this.chartData.datasets[2].data.push(asicTemp);
+        this.chartData.datasets[3].data.push(vcoreTemp);
       }
+    }
 
-      // Update chart
-      if (this.chart && this.chart.chart) {
-        this.chart.chart.update('none');
-      }
+    // Limit displayed data points to maintain chart performance
+    const maxPoints = Math.floor(14400 / this.sampleInterval);
+    while (this.chartData.labels.length > maxPoints) {
+      this.chartData.labels.shift();
+      this.chartData.datasets.forEach((dataset: any) => dataset.data.shift());
+    }
+
+    // Update chart
+    if (this.chart && this.chart.chart) {
+      this.chart.chart.update('none');
     }
   }
 

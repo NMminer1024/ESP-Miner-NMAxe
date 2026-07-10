@@ -68,6 +68,7 @@ struct DiffInfo {
 struct MinerStatus {
     DiffInfo   diff;
     hashrate_t hashrate{0.0, 0.0, 0.0};
+    float      share_rate = 0.0f;       // ASIC nonce find rate (nonces/s)
     float      efficiency = 0.0f;       // J/TH
     uint16_t   hits = 0;                // block-proximity hit counter
     uint32_t   share_accepted = 0;

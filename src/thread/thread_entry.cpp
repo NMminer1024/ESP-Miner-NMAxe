@@ -704,7 +704,8 @@ void miner_rx_thread_entry(void* args) {
                     uint32_t now = millis();
                     uint32_t dt = now - sps_last;
                     if (dt >= 1000*10) {
-                        LOG_W("Share rate: %.1f/s", sps_count * 1000.0f / dt);
+                        st.share_rate = sps_count * 1000.0f / dt;
+                        LOG_D("Share rate: %.1f/s", st.share_rate);
                         sps_count = 0;
                         sps_last = now;
                     }
@@ -811,6 +812,9 @@ void miner_rx_thread_entry(void* args) {
                     add_share_diff_history(st.proximity_history.deque, node, 36);
                     xSemaphoreGive(st.proximity_history.mutex);
                 }
+            }
+            else{
+                LOG_W("ASIC job ID %d not found in cache, skipping nonce 0x%08x", result.asic.job_id, result.asic.nonce);
             }
         } else if (ESP_ERR_INVALID_SIZE == err) {
             LOG_W("Asic response size error.");
@@ -1600,6 +1604,7 @@ void monitor_thread_entry(void* args) {
         if (st.uptime_session % MINER_HISTORY_SAMPLE_INTERVAL == 0) {
             history_node_t node;
             node.hashrate   = (float)(st.hashrate._3m / 1e9);  // GH/s
+            node.share_rate = st.share_rate;                   // nonces/s
             node.asic_temp  = ctx->temp->asic;
             node.vcore_temp = ctx->temp->vcore;
             node.pbus       = (ctx->pwr->vbus * ctx->pwr->ibus / 1000.0f / 1000.0f); // W

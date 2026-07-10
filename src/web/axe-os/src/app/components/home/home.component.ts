@@ -172,8 +172,8 @@ export class HomeComponent implements OnInit {
       startWith(0),
       switchMap(() => this.systemService.getStatusRealtime()),
       map(response => {
-        if (response?.statistics?.length && response.statistics[0]?.length >= 13) {
-          return Number(response.statistics[0][12]) || 0;
+        if (response?.statistics?.length && response.statistics[0]?.length >= 14) {
+          return Number(response.statistics[0][13]) || 0;
         }
         return 0;
       }),

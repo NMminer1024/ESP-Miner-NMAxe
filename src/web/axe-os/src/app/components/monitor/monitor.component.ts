@@ -11,6 +11,7 @@ Chart.register(...registerables);
 
 interface HistoryNode {
   hashrate: string;
+  share_rate: string | number;
   asic_temp: string;
   vcore_temp: string;
   pbus: string;
@@ -108,6 +109,7 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   // Field configuration options
   fieldOptions: FieldOption[] = [
     { value: 'hashrate', label: 'Hash Rate', unit: 'GH/s', type: 'string', selected: true, color: '#4CAF50' },
+    { value: 'share_rate', label: 'Share Rate', unit: 'n/s', type: 'number', selected: false, color: '#28a745' },
     { value: 'asic_temp', label: 'ASIC Temp', unit: '°C', type: 'string', selected: true, color: '#FF9800' },
     { value: 'vcore_temp', label: 'VCore Temp', unit: '°C', type: 'string', selected: true, color: '#FF5722' },
     { value: 'pbus', label: 'Power', unit: 'W', type: 'string', selected: false, color: '#2196F3' },
@@ -893,19 +895,20 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
           const latestData = response.statistics[0];
           const newNode: HistoryNode = {
             hashrate: latestData[0] || '0',      // hashRate (GH/s) - 索引0
-            asic_temp: latestData[1] || '0',     // asicTemp (°C) - 索引1
-            vcore_temp: latestData[2] || '0',    // vcoreTemp (°C) - 索引2
-            pbus: latestData[3] || '0',          // Pbus (W) - 索引3
-            vbus: latestData[4] || '0',          // Vbus (V) - 索引4
-            ibus: latestData[5] || '0',          // Ibus (A) - 索引5
-            vcore: latestData[6] || 0,           // Vcore (mV) - 索引6
-            fanspeed: latestData[7] || 0,        // fanspeed (%) - 索引7
-            fanrpm: latestData[8] || 0,          // fanrpm (RPM) - 索引8
-            wifi_rssi: latestData[9] || 0,       // wifiRSSI (dBm) - 索引9
-            free_heap: latestData[10] || 0,      // freeHeap (KB) - 索引10
-            free_psram: latestData[11] || 0,     // freePsram (KB) - 索引11
-            latency: latestData[12] || 0,        // latency (ms) - 索引12
-            epoch: latestData[13] || Date.now()  // epoch (ms) - 索引13
+            share_rate: latestData[1] || 0,      // shareRate (n/s) - 索引1
+            asic_temp: latestData[2] || '0',     // asicTemp (°C) - 索引2
+            vcore_temp: latestData[3] || '0',    // vcoreTemp (°C) - 索引3
+            pbus: latestData[4] || '0',          // Pbus (W) - 索引4
+            vbus: latestData[5] || '0',          // Vbus (V) - 索引5
+            ibus: latestData[6] || '0',          // Ibus (A) - 索引6
+            vcore: latestData[7] || 0,           // Vcore (mV) - 索引7
+            fanspeed: latestData[8] || 0,        // fanspeed (%) - 索引8
+            fanrpm: latestData[9] || 0,          // fanrpm (RPM) - 索引9
+            wifi_rssi: latestData[10] || 0,      // wifiRSSI (dBm) - 索引10
+            free_heap: latestData[11] || 0,      // freeHeap (KB) - 索引11
+            free_psram: latestData[12] || 0,     // freePsram (KB) - 索引12
+            latency: latestData[13] || 0,        // latency (ms) - 索引13
+            epoch: latestData[14] || Date.now()  // epoch (ms) - 索引14
           };
           
           // 添加新数据到历史数据数组

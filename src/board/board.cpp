@@ -623,7 +623,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 20000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 1024*2;
+    config.asic.diff_thr_init        = 1024;
     config.asic.default_frq          = 450;
     config.asic.default_vcore        = 1125;
     config.asic.min_vcore            = 1000;

@@ -20,6 +20,7 @@ typedef struct{
 // All numeric fields — eliminates per-node String heap allocations that fragment PSRAM.
 typedef struct{
     float          hashrate;      // hashrate, GH/s
+    float          share_rate;    // ASIC nonce find rate, nonces/s
     float          asic_temp;     // asic temperature, C
     float          vcore_temp;    // vcore temperature, C
     float          pbus;          // power, W

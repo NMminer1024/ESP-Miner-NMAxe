@@ -166,6 +166,7 @@ bool AsicMinerClass::is_asic_frequency_updating(){
     } else {
         updating = this->_asic_freq_updating;
     }
+    if(updating) LOG_W("ASIC frequency update in progress");
     return updating;
 }
 
