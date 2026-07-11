@@ -431,8 +431,9 @@ void miner_init_thread_entry(void* args) {
                         INIT_EVENT_WIFI_STA_CONNECTED,
                         pdFALSE, pdTRUE, portMAX_DELAY);
 
+    // Cold start: reset → init at default baud → switch to work baud.
     if (!ctx->miner->begin(ctx->spec->asic.req_frq, ctx->spec->asic.diff_thr_init,
-                           ctx->spec->asic.com_baud_work)) {
+                           ctx->spec->asic.com_baud_init, ctx->spec->asic.com_baud_work)) {
         while (true) {
             LOG_E("Miner ASIC init failed, retrying...");
             delay(1000);
@@ -548,7 +549,10 @@ void miner_tx_thread_entry(void* args) {
             miner->clear_asic_job_cache();
             miner->reset_hashrate();
             st.hashrate = {0.0, 0.0, 0.0};
-            if (!miner->begin(spec.asic.req_frq, spec.asic.diff_thr_init, spec.asic.com_baud_work)) {
+            // Resume after Vcore restore: same sequence as cold start — reset, init at
+            // default baud, then switch to work baud.
+            if (!miner->begin(spec.asic.req_frq, spec.asic.diff_thr_init,
+                              spec.asic.com_baud_init, spec.asic.com_baud_work)) {
                 LOG_E("Mining resume failed: ASIC reinitialization failed");
                 power->set_vcore_status(PWR_OFF);
                 st.runtime_state = MINER_RUNTIME_ERROR;

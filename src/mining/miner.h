@@ -79,7 +79,9 @@ public:
     ~AsicMinerClass();
     void set_stratum(StratumClass* s){ this->_stratum = s; }       // dependency injection
     void set_asic_name(const String& n){ this->_asic_name = n; }   // dependency injection
-    bool begin(uint16_t freq, uint16_t diff, uint32_t baudrate);
+    // init_baudrate: ASIC default baud after reset (115200), used for init commands.
+    // work_baudrate: operational baudrate (e.g. 1M), switched to after init completes.
+    bool begin(uint16_t freq, uint16_t diff, uint32_t init_baudrate, uint32_t work_baudrate);
     bool request_asic_frequency(uint16_t target_freq);
     bool apply_pending_asic_frequency();
     bool is_asic_frequency_updating();
