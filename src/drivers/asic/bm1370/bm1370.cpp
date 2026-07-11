@@ -211,6 +211,8 @@ uint8_t BM1370::get_asic_count(){
 }
 
 void BM1370::init(uint64_t freq, int diff, uint8_t asic_count){
+    LOG_W("************************************************************");
+
     this->_set_version_mask(ASIC_DEFAULT_VSERSION_MASK);
 
     uint8_t init4[] = {0x00, 0xA8, 0x00, 0x07, 0x00, 0x00};
@@ -294,6 +296,7 @@ void BM1370::init(uint64_t freq, int diff, uint8_t asic_count){
 
     uint8_t init157[6] = {0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF}; 
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), init157, 6);
+    LOG_W("************************************************************");
 }
 
 void BM1370::send_work_to_asic(asic_job *job){

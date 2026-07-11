@@ -37,6 +37,7 @@ void log_emit(bool auto_new_line, uint8_t color_n, const char* fmt, ...) {
     va_end(args);
 
     int content_len = strlen(msg_buffer);
+#ifdef LOG_COLOR_ENABLE
     if (content_len > 0 && content_len < 950) {
         if (auto_new_line) {
             snprintf(log_buffer, sizeof(log_buffer), "\033[%um" DBG_SECTION_NAME " %s\033[0m\r\n",
@@ -54,6 +55,21 @@ void log_emit(bool auto_new_line, uint8_t color_n, const char* fmt, ...) {
                      (unsigned)color_n, msg_buffer);
         }
     }
+#else
+    if (content_len > 0 && content_len < 950) {
+        if (auto_new_line) {
+            snprintf(log_buffer, sizeof(log_buffer), DBG_SECTION_NAME " %s\r\n", msg_buffer);
+        } else {
+            snprintf(log_buffer, sizeof(log_buffer), "%s", msg_buffer);
+        }
+    } else {
+        if (auto_new_line) {
+            snprintf(log_buffer, sizeof(log_buffer), DBG_SECTION_NAME " %s\r\n", msg_buffer);
+        } else {
+            snprintf(log_buffer, sizeof(log_buffer), "%s", msg_buffer);
+        }
+    }
+#endif
 
     Serial.print(log_buffer);
     webSocket.textAll(log_buffer);

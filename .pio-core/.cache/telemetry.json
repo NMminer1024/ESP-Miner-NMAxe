@@ -1,0 +1,1 @@
+{"events": [{"name": "cmd_run", "params": {"path_args": ["run"]}, "timestamp": 1783354219}, {"name": "platform_run", "params": {"platform": "espressif32@6.6.0", "framework": ["arduino"], "board": "AxeSeries", "upload_protocol": "custom", "pid": "ec7dc63d86cd24c7966fc0d8f40c156059dd04b0", "platform_name": "espressif32", "platform_version": "6.6.0"}, "timestamp": 1783354219}]}

@@ -408,6 +408,7 @@ void miner_init_thread_entry(void* args) {
     }
     LOG_I("%s init completed, job interval set to %d ms",
           ctx->spec->asic.name.c_str(), ctx->spec->asic.job_interval_ms);
+    xEventGroupSetBits(ctx->init_evt, INIT_EVENT_MINER_READY);
     vTaskDelete(NULL);
 }
 
@@ -543,6 +544,11 @@ void miner_tx_thread_entry(void* args) {
         }
         return false;
     };
+
+    // Wait for ASIC hardware init to complete before sending any job
+    LOG_I("(asic_tx) waiting for miner ready gate...");
+    xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    LOG_I("(asic_tx) miner ready gate opened.");
 
     // forever loop
     while (true) {

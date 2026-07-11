@@ -887,10 +887,8 @@ void MinerApp::_tick_thread_entry(void* args) {
 
                 case LoadingStage::READY_CONFIRM:
                     set_loading(100, "Miner ready!", 0x00FF00);
-                    if ((ib & INIT_EVENT_MINER_READY) == 0 && now - loading_stage_ms >= 500) {
-                        xEventGroupSetBits(app._sync_system->init_evt, INIT_EVENT_MINER_READY);
-                        LOG_I("INIT_EVENT_MINER_READY set");
-                    }
+                    // INIT_EVENT_MINER_READY is now set exclusively by miner_init_thread
+                    // once ASIC hardware init (miner->begin) completes.
                     break;
             }
         }

@@ -1,0 +1,45 @@
+name: Examples
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        example:
+          - "examples/arduino-ble5-advertising"
+          - "examples/arduino-blink"
+          - "examples/arduino-usb-keyboard"
+          - "examples/arduino-wifiscan"
+          - "examples/espidf-arduino-blink"
+          - "examples/espidf-arduino-wifiscan"
+          - "examples/espidf-aws-iot"
+          - "examples/espidf-ble-eddystone"
+          - "examples/espidf-coap-server"
+          - "examples/espidf-exceptions"
+          - "examples/espidf-hello-world"
+          - "examples/espidf-http-request"
+          - "examples/espidf-peripherals-uart"
+          - "examples/espidf-peripherals-usb"
+          - "examples/espidf-storage-sdcard"
+          - "examples/espidf-storage-spiffs"
+          - "examples/espidf-ulp-adc"
+          - "examples/espidf-ulp-pulse"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.9"
+      - name: Install dependencies
+        run: |
+          pip install -U https://github.com/platformio/platformio/archive/develop.zip
+          pio pkg install --global --platform symlink://.
+      - name: Build examples
+        run: |
+          pio run -d ${{ matrix.example }}

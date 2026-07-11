@@ -27,7 +27,7 @@ void BMxxx::change_uart_baud(uint32_t baudrate){
 }
 
 size_t BMxxx::send(uint8_t *cmd, uint16_t len){
-    // dbg::hex_print(cmd, len, "Send data to ASIC");
+    dbg::hex_print(cmd, len, "Send data to ASIC");
     return this->_serial.write(cmd, len);
 }
 
