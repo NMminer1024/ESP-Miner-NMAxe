@@ -624,24 +624,24 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
     config.asic.diff_thr_init        = 1024 * 2;
-    config.asic.default_frq          = 450;
-    config.asic.default_vcore        = 1125;
+    config.asic.default_frq          = 325;
+    config.asic.default_vcore        = 1000;
     config.asic.min_vcore            = 1000;
-    config.asic.max_vcore            = 1500;
+    config.asic.max_vcore            = 1400;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
     config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 750.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {0.9f, 1.40f};
-    config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 1.40f};
+    config.ui.dashboard_page.performance.vcore_req      = {0.9f, 1.25f};
+    config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 1.25f};
     config.ui.setting_page.oc = {
             {"300 MHz",           300},
-            {"325 MHz",           325},
+            {"325 MHz(default)",  325},
             {"350 MHz",           350},
             {"375 MHz",           375},
             {"400 MHz",           400},
             {"425 MHz",           425},
-            {"450 MHz (default)", 450},
+            {"450 MHz",           450},
             {"475 MHz",           475},
             {"500 MHz",           500},
             {"525 MHz",           525},
@@ -654,21 +654,18 @@ BoardSpecConfig get_board_config_compile_time() {
             {"700 MHz",           700},
         };
     config.ui.setting_page.vc = {
-            {"1000 mV",           1000},
+            {"900 mV",            900},
+            {"925 mV",            925},
+            {"950 mV",            950},
+            {"1000 mV (default)", 1000},
             {"1025 mV",           1025},
             {"1050 mV",           1050},
             {"1075 mV",           1075},
             {"1100 mV",           1100},
-            {"1125 mV (default)", 1125},
+            {"1125 mV",           1125},
             {"1150 mV",           1150},
             {"1175 mV",           1175},
             {"1200 mV",           1200},
-            {"1225 mV",           1225},
-            {"1250 mV",           1250},
-            {"1275 mV",           1275},
-            {"1300 mV",           1300},
-            {"1325 mV",           1325},
-            {"1350 mV",           1350},
         };
     config.create_power_instance     = create_qaxepp81_3ph_power_instance; // 3-phase
     config.setup_temp_hal = [](AxePowerHal* pwr) {

@@ -56,8 +56,9 @@ constexpr uint8_t  HCN_MAX_ASIC_CHANNELS = 16;
 constexpr uint32_t HCN_LOG_INTERVAL_MS   = 5000u;
 constexpr uint32_t HCN_STALE_MS          = 30000u;
 constexpr uint32_t HCN_MIN_DELTA_MS      = 1000u;
-constexpr float    HCN_EMA_ALPHA         = 0.25f;
-constexpr uint16_t HCN_WINDOW_RING_CAP   = 3700;
+constexpr float    HCN_EMA_ALPHA         = 0.45f;
+constexpr float    HCN_EMA_FASTSTART     = 0.85f;
+constexpr uint8_t  HCN_FASTSTART_SAMPLES = 12;
 
 typedef struct {
     SemaphoreHandle_t mutex;
@@ -69,136 +70,12 @@ typedef struct {
 
     float gh_s[HCN_MAX_ASIC_CHANNELS];
     uint32_t gh_ms[HCN_MAX_ASIC_CHANNELS];
+    uint8_t sample_count[HCN_MAX_ASIC_CHANNELS];
     uint32_t last_log_ms;
 } hcn_hashrate_cache_t;
 
 static hcn_hashrate_cache_t g_hcn_cache = {0};
 
-typedef struct {
-    uint32_t ts_ms;
-    float hs;
-} hcn_window_sample_t;
-
-typedef struct {
-    hcn_window_sample_t ring[HCN_WINDOW_RING_CAP];
-    uint16_t head;
-    uint16_t size;
-} hcn_window_state_t;
-
-static hcn_window_state_t g_hcn_window = {0};
-
-static void hcn_window_reset() {
-    g_hcn_window.head = 0;
-    g_hcn_window.size = 0;
-}
-
-static void hcn_window_push(uint32_t ts_ms, double hs) {
-    hcn_window_sample_t s = {0};
-    s.ts_ms = ts_ms;
-    s.hs = (float)hs;
-
-    g_hcn_window.ring[g_hcn_window.head] = s;
-    g_hcn_window.head = (uint16_t)((g_hcn_window.head + 1) % HCN_WINDOW_RING_CAP);
-    if (g_hcn_window.size < HCN_WINDOW_RING_CAP) g_hcn_window.size++;
-}
-
-static double hcn_window_avg_hs(uint32_t now_ms, uint32_t window_ms) {
-    if (g_hcn_window.size == 0) return 0.0;
-
-    double sum = 0.0;
-    uint16_t cnt = 0;
-
-    for (uint16_t i = 0; i < g_hcn_window.size; i++) {
-        const uint16_t idx = (uint16_t)((g_hcn_window.head + HCN_WINDOW_RING_CAP - 1 - i) % HCN_WINDOW_RING_CAP);
-        const hcn_window_sample_t &s = g_hcn_window.ring[idx];
-        if ((now_ms - s.ts_ms) > window_ms) break;
-        sum += s.hs;
-        cnt++;
-    }
-
-    if (cnt == 0) return 0.0;
-    return sum / (double)cnt;
-}
-
-static void hcn_cache_init_once() {
-    if (g_hcn_cache.inited) return;
-    g_hcn_cache.mutex = xSemaphoreCreateMutex();
-    g_hcn_cache.inited = (g_hcn_cache.mutex != nullptr);
-    if (!g_hcn_cache.inited) {
-        LOG_E("HCN cache mutex create failed, HCN hashrate disabled.");
-    }
-}
-
-static void hcn_cache_on_result(const asic_hcn_result& hcn) {
-    hcn_cache_init_once();
-    if (!g_hcn_cache.inited) return;
-    if (hcn.asic_id >= HCN_MAX_ASIC_CHANNELS) return;
-    if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) != pdTRUE) return;
-
-    const uint8_t asic_id = hcn.asic_id;
-    const uint32_t now_ms = millis();
-
-    if (g_hcn_cache.seen[asic_id]) {
-        const uint32_t d_cnt = hcn.hash_count - g_hcn_cache.prev_cnt[asic_id];
-        const uint32_t d_ms  = now_ms - g_hcn_cache.prev_ms[asic_id];
-        // Ignore too-short intervals to suppress occasional UART burst/glitch spikes.
-        if (d_ms >= HCN_MIN_DELTA_MS) {
-            const float raw_ghs = (float)((double)d_cnt * 4294967296.0 / ((double)d_ms * 1000000.0));
-            if (g_hcn_cache.gh_s[asic_id] > 0.0f) {
-                g_hcn_cache.gh_s[asic_id] = g_hcn_cache.gh_s[asic_id] + HCN_EMA_ALPHA * (raw_ghs - g_hcn_cache.gh_s[asic_id]);
-            } else {
-                g_hcn_cache.gh_s[asic_id] = raw_ghs;
-            }
-            g_hcn_cache.gh_ms[asic_id] = now_ms;
-        }
-    }
-    g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
-    g_hcn_cache.prev_ms[asic_id]  = now_ms;
-    g_hcn_cache.seen[asic_id]     = true;
-
-    if (now_ms - g_hcn_cache.last_log_ms >= HCN_LOG_INTERVAL_MS) {
-        g_hcn_cache.last_log_ms = now_ms;
-        char buf[128] = {0};
-        int off = 0;
-        double total = 0.0;
-        for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
-            if (!g_hcn_cache.seen[i]) continue;
-            if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
-            total += g_hcn_cache.gh_s[i];
-            off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, g_hcn_cache.gh_s[i]);
-            if (off >= (int)sizeof(buf) - 16) break;
-        }
-        LOG_I("HCN hashrate (reg 0x90, biz): %s| total=%.2f GH/s", buf, total);
-    }
-
-    xSemaphoreGive(g_hcn_cache.mutex);
-}
-
-static bool hcn_cache_get_total_hs(double* total_hs, uint8_t* active_channels, uint32_t* newest_sample_ms) {
-    if (total_hs == nullptr || active_channels == nullptr || newest_sample_ms == nullptr) return false;
-    hcn_cache_init_once();
-    if (!g_hcn_cache.inited) return false;
-    if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) != pdTRUE) return false;
-
-    const uint32_t now_ms = millis();
-    double total_ghs = 0.0;
-    uint8_t active = 0;
-    uint32_t newest_ms = 0;
-    for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
-        if (!g_hcn_cache.seen[i]) continue;
-        if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
-        total_ghs += g_hcn_cache.gh_s[i];
-        active++;
-        if (g_hcn_cache.gh_ms[i] > newest_ms) newest_ms = g_hcn_cache.gh_ms[i];
-    }
-
-    *total_hs = total_ghs * 1e9;
-    *active_channels = active;
-    *newest_sample_ms = newest_ms;
-
-    xSemaphoreGive(g_hcn_cache.mutex);
-    return active > 0;
-}
 } // namespace
 
 static void wait_for_wifi_sta_connected(EventGroupHandle_t init_evt, const char* thread_name) {
@@ -816,7 +693,57 @@ void miner_rx_thread_entry(void* args) {
     };
 
     auto on_hcn_result = [](const asic_hcn_result& hcn) {
-        hcn_cache_on_result(hcn);
+        // lazy init
+        if (!g_hcn_cache.inited) {
+            g_hcn_cache.mutex = xSemaphoreCreateMutex();
+            g_hcn_cache.inited = (g_hcn_cache.mutex != nullptr);
+            if (!g_hcn_cache.inited) {
+                LOG_E("HCN cache mutex create failed, HCN hashrate disabled.");
+                return;
+            }
+        }
+        if (hcn.asic_id >= HCN_MAX_ASIC_CHANNELS) return;
+        if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) != pdTRUE) return;
+
+        const uint8_t asic_id = hcn.asic_id;
+        const uint32_t now_ms = millis();
+
+        if (g_hcn_cache.seen[asic_id]) {
+            const uint32_t d_cnt = hcn.hash_count - g_hcn_cache.prev_cnt[asic_id];
+            const uint32_t d_ms  = now_ms - g_hcn_cache.prev_ms[asic_id];
+            if (d_ms >= HCN_MIN_DELTA_MS) {
+                const float raw_ghs = (float)((double)d_cnt * 4294967296.0 / ((double)d_ms * 1000000.0));
+                const float alpha = (g_hcn_cache.sample_count[asic_id] < HCN_FASTSTART_SAMPLES)
+                                    ? HCN_EMA_FASTSTART : HCN_EMA_ALPHA;
+                if (g_hcn_cache.gh_s[asic_id] > 0.0f) {
+                    g_hcn_cache.gh_s[asic_id] = g_hcn_cache.gh_s[asic_id] + alpha * (raw_ghs - g_hcn_cache.gh_s[asic_id]);
+                } else {
+                    g_hcn_cache.gh_s[asic_id] = raw_ghs;
+                }
+                if (g_hcn_cache.sample_count[asic_id] < 255) g_hcn_cache.sample_count[asic_id]++;
+                g_hcn_cache.gh_ms[asic_id] = now_ms;
+            }
+        }
+        g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
+        g_hcn_cache.prev_ms[asic_id]  = now_ms;
+        g_hcn_cache.seen[asic_id]     = true;
+
+        if (now_ms - g_hcn_cache.last_log_ms >= HCN_LOG_INTERVAL_MS) {
+            g_hcn_cache.last_log_ms = now_ms;
+            char buf[128] = {0};
+            int off = 0;
+            double total = 0.0;
+            for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
+                if (!g_hcn_cache.seen[i]) continue;
+                if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
+                total += g_hcn_cache.gh_s[i];
+                off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, g_hcn_cache.gh_s[i]);
+                if (off >= (int)sizeof(buf) - 16) break;
+            }
+            LOG_I("HCN hashrate (reg 0x90, biz): %s| total=%.2f GH/s", buf, total);
+        }
+
+        xSemaphoreGive(g_hcn_cache.mutex);
     };
 
     const bool ota_running_default = false;
@@ -1667,26 +1594,80 @@ void monitor_thread_entry(void* args) {
             hashrate_t nonce_hr = {0.0, 0.0, 0.0};
             bool nonce_ok = ctx->miner->calculate_hashrate(&nonce_hr);
 
-            double hcn_total_hs = 0.0;
-            uint8_t hcn_active_ch = 0;
-            uint32_t hcn_newest_ms = 0;
-            bool hcn_ok = hcn_cache_get_total_hs(&hcn_total_hs, &hcn_active_ch, &hcn_newest_ms);
-            (void)hcn_newest_ms;
+            static double hcn_total_hs = 0.0;
+            static uint8_t hcn_active_ch = 0;
+            // inline HCN total-hashrate aggregator (single call-site in monitor)
+            auto hcn_get_total_hs = [&]() -> bool {
+                if (!g_hcn_cache.inited) {
+                    g_hcn_cache.mutex = xSemaphoreCreateMutex();
+                    g_hcn_cache.inited = (g_hcn_cache.mutex != nullptr);
+                    if (!g_hcn_cache.inited) return false;
+                }
+                if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) != pdTRUE) return false;
+                const uint32_t now_ms = millis();
+                double total_ghs = 0.0;
+                uint8_t active = 0;
+                for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
+                    if (!g_hcn_cache.seen[i]) continue;
+                    if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
+                    total_ghs += g_hcn_cache.gh_s[i];
+                    active++;
+                }
+                xSemaphoreGive(g_hcn_cache.mutex);
+                hcn_total_hs = total_ghs * 1e9;
+                hcn_active_ch = active;
+                return active > 0;
+            };
+            bool hcn_ok = hcn_get_total_hs();
             bool use_hcn = hcn_ok && hcn_active_ch > 0;
 
             static bool use_hcn_last = false;
-            if (use_hcn != use_hcn_last) {
+            const bool source_switched = (use_hcn != use_hcn_last);
+            const bool switched_to_hcn = source_switched && use_hcn;
+            if (source_switched) {
                 LOG_W("Hashrate source switched to %s", use_hcn ? "HCN(0x90)" : "NONCE-fallback");
-                if (!use_hcn) hcn_window_reset();
                 use_hcn_last = use_hcn;
             }
 
             if (use_hcn) {
-                const uint32_t now_ms = millis();
-                hcn_window_push(now_ms, hcn_total_hs);
-                st.hashrate._3m  = hcn_window_avg_hs(now_ms,  3 * 60 * 1000u);
-                st.hashrate._30m = hcn_window_avg_hs(now_ms, 30 * 60 * 1000u);
-                st.hashrate._1h  = hcn_window_avg_hs(now_ms, 60 * 60 * 1000u);
+                // Window EMA with staged fast-start so UI converges within ~10-20s.
+                static double  ema_3m  = 0.0;
+                static double  ema_30m = 0.0;
+                static double  ema_1h  = 0.0;
+                static bool    ema_inited = false;
+                static uint16_t ema_samples = 0;
+
+                // Reset on nonce->HCN switch so stale state doesn't pollute new HCN startup.
+                if (switched_to_hcn) {
+                    ema_inited = false;
+                    ema_3m = ema_30m = ema_1h = 0.0;
+                    ema_samples = 0;
+                }
+
+                // Stage 1 (<=10 samples): aggressive lock-in; Stage 2 (<=30): settle;
+                // Stage 3: steady smoothing.
+                auto alpha_for = [&](double a1, double a2, double a3) -> double {
+                    if (ema_samples <= 10) return a1;
+                    if (ema_samples <= 30) return a2;
+                    return a3;
+                };
+
+                const double A_3M  = alpha_for(0.55, 0.22, 0.10);
+                const double A_30M = alpha_for(0.40, 0.14, 0.05);
+                const double A_1H  = alpha_for(0.30, 0.10, 0.035);
+
+                if (ema_inited) {
+                    ema_3m  = ema_3m  + A_3M  * (hcn_total_hs - ema_3m );
+                    ema_30m = ema_30m + A_30M * (hcn_total_hs - ema_30m);
+                    ema_1h  = ema_1h  + A_1H  * (hcn_total_hs - ema_1h );
+                } else {
+                    ema_3m = ema_30m = ema_1h = hcn_total_hs;
+                    ema_inited = true;
+                }
+                if (ema_samples < 0xFFFFu) ema_samples++;
+                st.hashrate._3m  = ema_3m;
+                st.hashrate._30m = ema_30m;
+                st.hashrate._1h  = ema_1h;
             } else if (nonce_ok) {
                 st.hashrate = nonce_hr;
             } else {
