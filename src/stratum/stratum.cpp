@@ -25,7 +25,8 @@ void StratumClass::reset(){
     this->_is_subscribed = false;
     this->_is_authorized = false;
     this->_pool_difficulty = 0.0;
-    this->_vr_mask = 0xffffffff;
+    // Default to disabled until mining.configure/mining.set_version_mask provides a mask.
+    this->_vr_mask = 0x00000000;
     this->_suggest_diff_support = true;
     this->_gid = 1;
 }
@@ -48,7 +49,8 @@ void StratumClass::reset(pool_info_t pConfig, stratum_info_t sConfig){
     this->_is_subscribed = false;
     this->_is_authorized = false;
     this->_pool_difficulty = 0.0;
-    this->_vr_mask = 0xffffffff;
+    // Default to disabled until mining.configure/mining.set_version_mask provides a mask.
+    this->_vr_mask = 0x00000000;
     this->_suggest_diff_support = true;
     this->_gid = 1;
 }

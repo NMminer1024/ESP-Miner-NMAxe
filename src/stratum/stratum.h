@@ -97,7 +97,8 @@ public:
         this->_pool_difficulty = 0.0;
         this->_gid = 1;
         this->_rsp_str = "";
-        this->_vr_mask = 0xffffffff;
+        // Default to disabled until mining.configure/mining.set_version_mask provides a mask.
+        this->_vr_mask = 0x00000000;
         this->_rsp_json.clear();
         this->_sub_info = {"", "", 0};
         this->_msg_rsp_map.clear();

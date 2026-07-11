@@ -92,7 +92,7 @@ public:
     double get_asic_diff();
     String get_extranonce2_by_asic_job_id(uint8_t asic_job_id);
     String get_pool_job_id_by_asic_job_id(uint8_t asic_job_id);
-    esp_err_t listen_asic_rsp(miner_result *result, uint32_t timeout_ms = 1000*60);
+    asic_rx_result listen_asic_rsp(uint32_t timeout_ms = 1000*60);
     bool submit_job_share(String pool_job_id, String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version);
     bool find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job);
     bool clear_asic_job_cache();

@@ -51,6 +51,156 @@
 #include <unordered_set>
 #include <vector>
 
+namespace {
+constexpr uint8_t  HCN_MAX_ASIC_CHANNELS = 16;
+constexpr uint32_t HCN_LOG_INTERVAL_MS   = 5000u;
+constexpr uint32_t HCN_STALE_MS          = 30000u;
+constexpr uint32_t HCN_MIN_DELTA_MS      = 1000u;
+constexpr float    HCN_EMA_ALPHA         = 0.25f;
+constexpr uint16_t HCN_WINDOW_RING_CAP   = 3700;
+
+typedef struct {
+    SemaphoreHandle_t mutex;
+    bool inited;
+
+    uint32_t prev_cnt[HCN_MAX_ASIC_CHANNELS];
+    uint32_t prev_ms[HCN_MAX_ASIC_CHANNELS];
+    bool seen[HCN_MAX_ASIC_CHANNELS];
+
+    float gh_s[HCN_MAX_ASIC_CHANNELS];
+    uint32_t gh_ms[HCN_MAX_ASIC_CHANNELS];
+    uint32_t last_log_ms;
+} hcn_hashrate_cache_t;
+
+static hcn_hashrate_cache_t g_hcn_cache = {0};
+
+typedef struct {
+    uint32_t ts_ms;
+    float hs;
+} hcn_window_sample_t;
+
+typedef struct {
+    hcn_window_sample_t ring[HCN_WINDOW_RING_CAP];
+    uint16_t head;
+    uint16_t size;
+} hcn_window_state_t;
+
+static hcn_window_state_t g_hcn_window = {0};
+
+static void hcn_window_reset() {
+    g_hcn_window.head = 0;
+    g_hcn_window.size = 0;
+}
+
+static void hcn_window_push(uint32_t ts_ms, double hs) {
+    hcn_window_sample_t s = {0};
+    s.ts_ms = ts_ms;
+    s.hs = (float)hs;
+
+    g_hcn_window.ring[g_hcn_window.head] = s;
+    g_hcn_window.head = (uint16_t)((g_hcn_window.head + 1) % HCN_WINDOW_RING_CAP);
+    if (g_hcn_window.size < HCN_WINDOW_RING_CAP) g_hcn_window.size++;
+}
+
+static double hcn_window_avg_hs(uint32_t now_ms, uint32_t window_ms) {
+    if (g_hcn_window.size == 0) return 0.0;
+
+    double sum = 0.0;
+    uint16_t cnt = 0;
+
+    for (uint16_t i = 0; i < g_hcn_window.size; i++) {
+        const uint16_t idx = (uint16_t)((g_hcn_window.head + HCN_WINDOW_RING_CAP - 1 - i) % HCN_WINDOW_RING_CAP);
+        const hcn_window_sample_t &s = g_hcn_window.ring[idx];
+        if ((now_ms - s.ts_ms) > window_ms) break;
+        sum += s.hs;
+        cnt++;
+    }
+
+    if (cnt == 0) return 0.0;
+    return sum / (double)cnt;
+}
+
+static void hcn_cache_init_once() {
+    if (g_hcn_cache.inited) return;
+    g_hcn_cache.mutex = xSemaphoreCreateMutex();
+    g_hcn_cache.inited = (g_hcn_cache.mutex != nullptr);
+    if (!g_hcn_cache.inited) {
+        LOG_E("HCN cache mutex create failed, HCN hashrate disabled.");
+    }
+}
+
+static void hcn_cache_on_result(const asic_hcn_result& hcn) {
+    hcn_cache_init_once();
+    if (!g_hcn_cache.inited) return;
+    if (hcn.asic_id >= HCN_MAX_ASIC_CHANNELS) return;
+    if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) != pdTRUE) return;
+
+    const uint8_t asic_id = hcn.asic_id;
+    const uint32_t now_ms = millis();
+
+    if (g_hcn_cache.seen[asic_id]) {
+        const uint32_t d_cnt = hcn.hash_count - g_hcn_cache.prev_cnt[asic_id];
+        const uint32_t d_ms  = now_ms - g_hcn_cache.prev_ms[asic_id];
+        // Ignore too-short intervals to suppress occasional UART burst/glitch spikes.
+        if (d_ms >= HCN_MIN_DELTA_MS) {
+            const float raw_ghs = (float)((double)d_cnt * 4294967296.0 / ((double)d_ms * 1000000.0));
+            if (g_hcn_cache.gh_s[asic_id] > 0.0f) {
+                g_hcn_cache.gh_s[asic_id] = g_hcn_cache.gh_s[asic_id] + HCN_EMA_ALPHA * (raw_ghs - g_hcn_cache.gh_s[asic_id]);
+            } else {
+                g_hcn_cache.gh_s[asic_id] = raw_ghs;
+            }
+            g_hcn_cache.gh_ms[asic_id] = now_ms;
+        }
+    }
+    g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
+    g_hcn_cache.prev_ms[asic_id]  = now_ms;
+    g_hcn_cache.seen[asic_id]     = true;
+
+    if (now_ms - g_hcn_cache.last_log_ms >= HCN_LOG_INTERVAL_MS) {
+        g_hcn_cache.last_log_ms = now_ms;
+        char buf[128] = {0};
+        int off = 0;
+        double total = 0.0;
+        for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
+            if (!g_hcn_cache.seen[i]) continue;
+            if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
+            total += g_hcn_cache.gh_s[i];
+            off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, g_hcn_cache.gh_s[i]);
+            if (off >= (int)sizeof(buf) - 16) break;
+        }
+        LOG_I("HCN hashrate (reg 0x90, biz): %s| total=%.2f GH/s", buf, total);
+    }
+
+    xSemaphoreGive(g_hcn_cache.mutex);
+}
+
+static bool hcn_cache_get_total_hs(double* total_hs, uint8_t* active_channels, uint32_t* newest_sample_ms) {
+    if (total_hs == nullptr || active_channels == nullptr || newest_sample_ms == nullptr) return false;
+    hcn_cache_init_once();
+    if (!g_hcn_cache.inited) return false;
+    if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) != pdTRUE) return false;
+
+    const uint32_t now_ms = millis();
+    double total_ghs = 0.0;
+    uint8_t active = 0;
+    uint32_t newest_ms = 0;
+    for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
+        if (!g_hcn_cache.seen[i]) continue;
+        if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
+        total_ghs += g_hcn_cache.gh_s[i];
+        active++;
+        if (g_hcn_cache.gh_ms[i] > newest_ms) newest_ms = g_hcn_cache.gh_ms[i];
+    }
+
+    *total_hs = total_ghs * 1e9;
+    *active_channels = active;
+    *newest_sample_ms = newest_ms;
+
+    xSemaphoreGive(g_hcn_cache.mutex);
+    return active > 0;
+}
+} // namespace
+
 static void wait_for_wifi_sta_connected(EventGroupHandle_t init_evt, const char* thread_name) {
     if (init_evt == nullptr) return;
     LOG_I("%s waiting for WiFi STA connected gate...", thread_name);
@@ -258,12 +408,12 @@ void stratum_thread_entry(void* args) {
                             stratum->set_version_mask(strtoul(json["params"][0].as<const char*>(), NULL, 16));
                             LOG_L("Version mask set to %s", json["params"][0].as<const char*>());
                         } else {
-                            stratum->set_version_mask(0xffffffff);
-                            LOG_W("Version mask not found in params");
+                            stratum->set_version_mask(0x00000000);
+                            LOG_W("Version mask not found in params, disable version rolling");
                         }
                     } else {
-                        stratum->set_version_mask(0xffffffff);
-                        LOG_W("Version rolling key not found in response");
+                        stratum->set_version_mask(0x00000000);
+                        LOG_W("Version rolling key not found in response, disable version rolling");
                     }
                     stratum->del_msg_rsp_map(method.id);
                     break;
@@ -298,13 +448,18 @@ void stratum_thread_entry(void* args) {
                             DeserializationError error = deserializeJson(json, method.raw);
                             if (error) { LOG_E("Failed to parse STRATUM_DOWN_SUCCESS json"); }
                             else {
-                                stratum->set_version_mask(0xffffffff);
                                 if (json["result"]["version-rolling"] == true) {
                                     if (json["result"].containsKey("version-rolling.mask")) {
                                         stratum->set_version_mask(strtoul(json["result"]["version-rolling.mask"].as<const char*>(), NULL, 16));
                                         LOG_I("Version mask set to %s", json["result"]["version-rolling.mask"].as<const char*>());
-                                    } else LOG_W("Version mask not found in response");
-                                } else LOG_W("Version rolling not supported");
+                                    } else {
+                                        stratum->set_version_mask(0x00000000);
+                                        LOG_W("Version mask not found in response, disable version rolling");
+                                    }
+                                } else {
+                                    stratum->set_version_mask(0x00000000);
+                                    LOG_W("Version rolling not supported, disable version rolling");
+                                }
                             }
                         } else if (rsp.method == "mining.authorize") {
                             DeserializationError error = deserializeJson(json, method.raw);
@@ -579,8 +734,12 @@ void miner_tx_thread_entry(void* args) {
 
         // get job from pool job caches
         {
-            pool_job_data_t next_job = stratum->pop_job_cache();
-            if (next_job.id != "") miner->pool_job_now = next_job;
+            // During ASIC init/ramp there may be multiple queued notify jobs.
+            // Drain queue and keep the newest job to avoid submitting stale shares.
+            while (stratum->get_job_cache_size() > 0) {
+                pool_job_data_t next_job = stratum->pop_job_cache();
+                if (next_job.id != "") miner->pool_job_now = next_job;
+            }
         }
         if (miner->pool_job_now.id == "") continue;
 
@@ -656,21 +815,39 @@ void miner_rx_thread_entry(void* args) {
         return le_hash_to_diff(hash);
     };
 
+    auto on_hcn_result = [](const asic_hcn_result& hcn) {
+        hcn_cache_on_result(hcn);
+    };
+
     const bool ota_running_default = false;
+
     while (true) {
         if (st.is_controlled_idle()) { delay(100); continue; }
         if (!stratum->is_subscribed()) { delay(1000); continue; }
         if (miner->is_asic_frequency_updating()) { delay(50); continue; }
         if (ctx->ota_running ? *ctx->ota_running : ota_running_default) { delay(50); continue; }
 
-        esp_err_t err = miner->listen_asic_rsp(&result, 1000 * 30);
+        asic_rx_result rx = miner->listen_asic_rsp(1000 * 30);
         if (miner->is_asic_frequency_updating()) continue;
-        if (ESP_OK == err) {
+        if (rx.status == ASIC_RX_STATUS_OK) {
+            if (rx.type == ASIC_RX_TYPE_HCN) {
+                on_hcn_result(rx.data.hcn);
+                continue;
+            }
+
+            if (rx.type != ASIC_RX_TYPE_NONCE) continue;
+
+            result = rx.data.nonce;
             if (!stratum->is_subscribed()) continue;
             if (miner->find_job_by_asic_job_id(result.asic.job_id, &job)) {
                 st.asic_update = millis();
-                uint32_t version_bits = (reverse_uint16(result.asic.version) << 13); // logic from bitaxe
-                uint32_t version      = version_bits | (*(uint32_t*)job.version);
+                // Constrain ASIC-returned version bits by current pool mask.
+                // This avoids invalid rolling bits during early startup before
+                // mining.configure/mining.set_version_mask fully settles.
+                const uint32_t base_version = *(uint32_t*)job.version;
+                const uint32_t version_mask = stratum->get_version_mask();
+                const uint32_t version_bits = (reverse_uint16(result.asic.version) << 13) & version_mask; // logic from bitaxe
+                const uint32_t version      = (base_version & ~version_mask) | version_bits;
                 double diff = calculate_diff(version, job.prev_block_hash, job.merkle_root,
                                              *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.asic.nonce);
 
@@ -678,7 +855,7 @@ void miner_rx_thread_entry(void* args) {
                 if (diff < miner->get_asic_diff()) continue;
 
                 // fetch job context first so dedup can run before hashrate is counted
-                uint32_t version_submit = version ^ (*(uint32_t*)job.version);
+                uint32_t version_submit = (version ^ base_version) & version_mask;
                 String   pool_id_submit = miner->get_pool_job_id_by_asic_job_id(result.asic.job_id);
                 String   extra2_submit  = miner->get_extranonce2_by_asic_job_id(result.asic.job_id);
                 if (pool_id_submit.length() == 0 || extra2_submit.length() == 0) continue; // slot evicted
@@ -822,14 +999,14 @@ void miner_rx_thread_entry(void* args) {
             else{
                 LOG_W("ASIC job ID %d not found in cache, skipping nonce 0x%08x", result.asic.job_id, result.asic.nonce);
             }
-        } else if (ESP_ERR_INVALID_SIZE == err) {
+        } else if (rx.status == ASIC_RX_STATUS_INVALID_SIZE) {
             LOG_W("Asic response size error.");
-        } else if (ESP_ERR_TIMEOUT == err) {
+        } else if (rx.status == ASIC_RX_STATUS_TIMEOUT) {
             LOG_W("Asic response timeout.");
-        } else if (ESP_ERR_INVALID_RESPONSE == err) {
-            LOG_W("Asic response header error.");
+        } else if (rx.status == ASIC_RX_STATUS_INVALID_RESPONSE) {
+            // LOG_W("Asic response header error.");
         } else {
-            LOG_W("Asic response error: %s", esp_err_to_name(err));
+            LOG_W("Asic response error: status=%d type=%d", (int)rx.status, (int)rx.type);
         }
     }
 }
@@ -1486,9 +1663,38 @@ void monitor_thread_entry(void* args) {
             ctx->pwr->ibus  = power->get_ibus();
             ctx->pwr->vcore = power->get_vcore();
             if (ctx->wifi_rssi) *ctx->wifi_rssi = WiFi.RSSI();
+
+            hashrate_t nonce_hr = {0.0, 0.0, 0.0};
+            bool nonce_ok = ctx->miner->calculate_hashrate(&nonce_hr);
+
+            double hcn_total_hs = 0.0;
+            uint8_t hcn_active_ch = 0;
+            uint32_t hcn_newest_ms = 0;
+            bool hcn_ok = hcn_cache_get_total_hs(&hcn_total_hs, &hcn_active_ch, &hcn_newest_ms);
+            (void)hcn_newest_ms;
+            bool use_hcn = hcn_ok && hcn_active_ch > 0;
+
+            static bool use_hcn_last = false;
+            if (use_hcn != use_hcn_last) {
+                LOG_W("Hashrate source switched to %s", use_hcn ? "HCN(0x90)" : "NONCE-fallback");
+                if (!use_hcn) hcn_window_reset();
+                use_hcn_last = use_hcn;
+            }
+
+            if (use_hcn) {
+                const uint32_t now_ms = millis();
+                hcn_window_push(now_ms, hcn_total_hs);
+                st.hashrate._3m  = hcn_window_avg_hs(now_ms,  3 * 60 * 1000u);
+                st.hashrate._30m = hcn_window_avg_hs(now_ms, 30 * 60 * 1000u);
+                st.hashrate._1h  = hcn_window_avg_hs(now_ms, 60 * 60 * 1000u);
+            } else if (nonce_ok) {
+                st.hashrate = nonce_hr;
+            } else {
+                st.hashrate = {0.0, 0.0, 0.0};
+            }
+
             if (st.hashrate._3m > 0)
                 st.efficiency = (ctx->pwr->vbus * ctx->pwr->ibus / 1e6) / (st.hashrate._3m / 1e12); // J/TH
-            ctx->miner->calculate_hashrate(&st.hashrate);
             xSemaphoreGive(st.update_xsem);
 
             // hashrate distribution histogram (PSRAM-backed counts)

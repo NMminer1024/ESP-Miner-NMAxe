@@ -180,11 +180,10 @@ uint16_t AsicMinerClass::get_asic_frequency_current(){
     return freq;
 }
 
-esp_err_t AsicMinerClass::listen_asic_rsp(miner_result *result, uint32_t timeout_ms){
+asic_rx_result AsicMinerClass::listen_asic_rsp(uint32_t timeout_ms){
     /* logic from project bitaxe: https://github.com/skot/bitaxe */
     /* Thanks for their efforts on this project */
-    esp_err_t err = this->_asic->wait_for_result(result, timeout_ms);
-    return err;
+    return this->_asic->wait_for_result(timeout_ms);
 }
 
 bool AsicMinerClass::mining(pool_job_data_t *pool_job){

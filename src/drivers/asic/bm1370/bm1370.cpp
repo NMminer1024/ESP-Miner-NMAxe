@@ -311,62 +311,51 @@ void BM1370::send_work_to_asic(asic_job *job){
     }
 }
 
-void BM1370::_hcn_on_response(uint8_t chip_addr, uint32_t counter){
-    uint8_t idx = (chip_addr >> 2) & 0x0f;
-    uint32_t now_us = micros();
-    if (this->_hcn_seen[idx]) {
-        uint32_t d_cnt = counter - this->_hcn_prev_cnt[idx];
-        uint32_t d_us  = now_us  - this->_hcn_prev_us[idx];
-        if (d_us > 0) {
-            double ghs = (double)d_cnt * 4294967296.0 / (double)d_us / 1000.0;
-            this->_hcn_ghs[idx] = (float)ghs;
-        }
-    }
-    this->_hcn_prev_cnt[idx] = counter;
-    this->_hcn_prev_us[idx]  = now_us;
-    this->_hcn_seen[idx]     = true;
+bool BM1370::decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn){
+    if (rsp[7] != 0x90 || rsp[8] != 0x00 || rsp[9] != 0x00) return false;
 
-    uint32_t now_ms = millis();
-    if (now_ms - this->_hcn_print_last_ms >= 5000u) {
-        this->_hcn_print_last_ms = now_ms;
-        double total = 0.0;
-        char buf[128]; int off = 0;
-        for (uint8_t i = 0; i < 16; i++) {
-            if (!this->_hcn_seen[i]) continue;
-            total += this->_hcn_ghs[i];
-            off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, this->_hcn_ghs[i]);
-            if (off >= (int)sizeof(buf) - 16) break;
-        }
-        LOG_I("HCN hashrate (reg 0x90, diag): %s| total=%.2f GH/s", buf, total);
-    }
+    hcn->chip_addr  = rsp[6];
+    hcn->asic_id    = (rsp[6] >> 2) & 0x0f;
+    hcn->reg_addr   = 0x90;
+    hcn->hash_count = ((uint32_t)rsp[2] << 24) | ((uint32_t)rsp[3] << 16) |
+                      ((uint32_t)rsp[4] << 8)  |  (uint32_t)rsp[5];
+    return true;
 }
 
-esp_err_t BM1370::wait_for_result(miner_result *result, uint32_t timeout_ms){
+asic_rx_result BM1370::wait_for_result(uint32_t timeout_ms){
+    asic_rx_result rx = {};
+    rx.status = ASIC_RX_STATUS_INVALID_RESPONSE;
+    rx.type = ASIC_RX_TYPE_NONE;
+
     uint8_t rsp[11] = {0,};
     uint16_t len = this->receive(rsp, sizeof(rsp), timeout_ms);
-    if(len == 0) return ESP_ERR_TIMEOUT;
+    if(len == 0) {
+        rx.status = ASIC_RX_STATUS_TIMEOUT;
+        return rx;
+    }
 
     // dbg::hex_print(rsp, len, "asic rsp");
 
     if(len != 11){
         LOG_W("Invalid asic response length: %d", len);
         this->clear_port_cache();
-        return ESP_ERR_INVALID_SIZE;
+        rx.status = ASIC_RX_STATUS_INVALID_SIZE;
+        return rx;
     }
     if(rsp[0] != 0xAA || rsp[1] != 0x55){
         LOG_W("Invalid asic response preamble: %02X %02X", rsp[0], rsp[1]);
         this->clear_port_cache();
-        return ESP_ERR_INVALID_RESPONSE;
+        rx.status = ASIC_RX_STATUS_INVALID_RESPONSE;
+        return rx;
     }
 
     // hex dump raw response for CRC diagnosis
     // dbg::hex_print(rsp, 11, "asic_rsp_raw");
 
-    if (rsp[7] == 0x90 && rsp[8] == 0x00 && rsp[9] == 0x00) {
-        uint32_t counter = ((uint32_t)rsp[2] << 24) | ((uint32_t)rsp[3] << 16) |
-                           ((uint32_t)rsp[4] << 8)  |  (uint32_t)rsp[5];
-        this->_hcn_on_response(rsp[6], counter);
-        return ESP_ERR_INVALID_RESPONSE;
+    if (this->decode_hcn_response_0x90(rsp, &rx.data.hcn)) {
+        rx.status = ASIC_RX_STATUS_OK;
+        rx.type = ASIC_RX_TYPE_HCN;
+        return rx;
     }
 
     asic_result asic  = *(asic_result*)(rsp);
@@ -374,14 +363,16 @@ esp_err_t BM1370::wait_for_result(miner_result *result, uint32_t timeout_ms){
     asic.job_id       = (asic.job_id & 0xf0) >> 1; // upper 4 bits are job id for BM1370
     int asic_id       = (uint8_t) ((asic.nonce & 0x0000fc00) >> 11);
 
-    result->asic      = asic;
-    result->asic_id   = asic_id;
+        rx.data.nonce.asic      = asic;
+        rx.data.nonce.asic_id   = asic_id;
+        rx.status          = ASIC_RX_STATUS_OK;
+        rx.type            = ASIC_RX_TYPE_NONCE;
 
     LOG_D("ASIC[%d] found nonce: 0x%08X (job id: %d, version: 0x%04X)", 
-          result->asic_id, 
-          result->asic.nonce, 
-          result->asic.job_id, 
-          result->asic.version);
+            rx.data.nonce.asic_id, 
+            rx.data.nonce.asic.nonce, 
+            rx.data.nonce.asic.job_id, 
+            rx.data.nonce.asic.version);
 
     // /* logic from project bitaxe: https://github.com/skot/bitaxe */
     // /* Thanks for their efforts on this project */
@@ -392,7 +383,7 @@ esp_err_t BM1370::wait_for_result(miner_result *result, uint32_t timeout_ms){
     // core_id = (uint8_t)((core_id >> 25) & 0x7f);
     // uint8_t small_core = asic.job_id & 0x07;
 
-    return ESP_OK;
+    return rx;
 }
 
 uint16_t BM1370::get_cores(){

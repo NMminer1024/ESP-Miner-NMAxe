@@ -288,62 +288,50 @@ void BM1373::send_work_to_asic(asic_job *job){
     }
 }
 
-// HCN (hash-counter register 0x90) hashrate diagnostic.
-// counter unit = 2^32 hashes. Print-only: does NOT affect mining statistics.
-void BM1373::_hcn_on_response(uint8_t chip_addr, uint32_t counter){
-    uint8_t idx = (chip_addr >> 4) & 0x0f;
-    uint32_t now_us = micros();
-    if (this->_hcn_seen[idx]) {
-        uint32_t d_cnt = counter - this->_hcn_prev_cnt[idx];
-        uint32_t d_us  = now_us  - this->_hcn_prev_us[idx];
-        if (d_us > 0) {
-            double ghs = (double)d_cnt * 4294967296.0 / (double)d_us / 1000.0;
-            this->_hcn_ghs[idx] = (float)ghs;
-        }
-    }
-    this->_hcn_prev_cnt[idx] = counter;
-    this->_hcn_prev_us[idx]  = now_us;
-    this->_hcn_seen[idx]     = true;
+bool BM1373::decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn){
+    if (rsp[7] != 0x90 || rsp[8] != 0x00 || rsp[9] != 0x00) return false;
 
-    uint32_t now_ms = millis();
-    if (now_ms - this->_hcn_print_last_ms >= 5000u) {
-        this->_hcn_print_last_ms = now_ms;
-        double total = 0.0;
-        char buf[128]; int off = 0;
-        for (uint8_t i = 0; i < 16; i++) {
-            if (!this->_hcn_seen[i]) continue;
-            total += this->_hcn_ghs[i];
-            off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, this->_hcn_ghs[i]);
-            if (off >= (int)sizeof(buf) - 16) break;
-        }
-        LOG_I("HCN hashrate (reg 0x90, diag): %s| total=%.2f GH/s", buf, total);
-    }
+    hcn->chip_addr  = rsp[6];
+    hcn->asic_id    = (rsp[6] >> 4) & 0x0f;
+    hcn->reg_addr   = 0x90;
+    hcn->hash_count = ((uint32_t)rsp[2] << 24) | ((uint32_t)rsp[3] << 16) |
+                      ((uint32_t)rsp[4] << 8)  |  (uint32_t)rsp[5];
+    return true;
 }
 
-esp_err_t BM1373::wait_for_result(miner_result *result, uint32_t timeout_ms){
+asic_rx_result BM1373::wait_for_result(uint32_t timeout_ms){
+    asic_rx_result rx = {};
+    rx.status = ASIC_RX_STATUS_INVALID_RESPONSE;
+    rx.type = ASIC_RX_TYPE_NONE;
+
     uint8_t rsp[11] = {0,};
     uint16_t len = this->receive(rsp, sizeof(rsp), timeout_ms);
-    if(len == 0) return ESP_ERR_TIMEOUT;
+    if(len == 0) {
+        rx.status = ASIC_RX_STATUS_TIMEOUT;
+        return rx;
+    }
+
+
+    // dbg::hex_print((uint8_t*)rsp, len, "asic rsp");
+
 
     if(len != 11){
         LOG_W("Invalid asic response length: %d", len);
         this->clear_port_cache();
-        return ESP_ERR_INVALID_SIZE;
+        rx.status = ASIC_RX_STATUS_INVALID_SIZE;
+        return rx;
     }
     if(rsp[0] != 0xAA || rsp[1] != 0x55){
         LOG_W("Invalid asic response preamble: %02X %02X", rsp[0], rsp[1]);
         this->clear_port_cache();
-        return ESP_ERR_INVALID_RESPONSE;
+        rx.status = ASIC_RX_STATUS_INVALID_RESPONSE;
+        return rx;
     }
 
-    // Intercept hash-counter (reg 0x90) read responses for HCN diagnostics.
-    // Uses 3-byte match (90 00 00) to avoid false positives with nonce frames
-    // whose raw job_id byte (rsp[7] low nibble) can alias 0x90.
-    if (rsp[7] == 0x90 && rsp[8] == 0x00 && rsp[9] == 0x00) {
-        uint32_t counter = ((uint32_t)rsp[2] << 24) | ((uint32_t)rsp[3] << 16) |
-                           ((uint32_t)rsp[4] << 8)  |  (uint32_t)rsp[5];
-        this->_hcn_on_response(rsp[6], counter);
-        return ESP_ERR_INVALID_RESPONSE; // skip this frame; caller re-reads
+    if (this->decode_hcn_response_0x90(rsp, &rx.data.hcn)) {
+        rx.status = ASIC_RX_STATUS_OK;
+        rx.type = ASIC_RX_TYPE_HCN;
+        return rx;
     }
 
     asic_result asic  = *(asic_result*)(rsp);
@@ -360,16 +348,18 @@ esp_err_t BM1373::wait_for_result(miner_result *result, uint32_t timeout_ms){
     uint8_t  divisor    = (this->_asic_count > 1) ? (uint8_t)(256u / this->_asic_count) : 255u;
     int asic_id       = addr_field / divisor;
 
-    result->asic      = asic;
-    result->asic_id   = asic_id;
+        rx.data.nonce.asic      = asic;
+        rx.data.nonce.asic_id   = asic_id;
+        rx.status          = ASIC_RX_STATUS_OK;
+        rx.type            = ASIC_RX_TYPE_NONCE;
 
     LOG_D("ASIC[%d] found nonce: 0x%08X (job id: %d, version: 0x%04X)", 
-          result->asic_id, 
-          result->asic.nonce, 
-          result->asic.job_id, 
-          result->asic.version);
+            rx.data.nonce.asic_id, 
+            rx.data.nonce.asic.nonce, 
+            rx.data.nonce.asic.job_id, 
+            rx.data.nonce.asic.version);
 
-    return ESP_OK;
+        return rx;
 }
 
 uint16_t BM1373::get_cores(){

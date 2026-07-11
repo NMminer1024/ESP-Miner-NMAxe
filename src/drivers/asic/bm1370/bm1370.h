@@ -4,19 +4,13 @@
 
 #define BM1370_CORE_COUNT       128
 #define BM1370_SMALL_CORE_COUNT 2040
-#define BM1370_REG_POLL_MS      5000
+#define BM1370_REG_POLL_MS      2000
 #define BM1370_REG_POLL_ADDR    0x90
 
 class BM1370: public BMxxx{
 private:
     uint32_t _diff_current;
     uint32_t _reg_poll_last_ms  = 0;
-    uint32_t _hcn_prev_cnt[16]  = {0};
-    uint32_t _hcn_prev_us[16]   = {0};
-    bool     _hcn_seen[16]      = {false};
-    float    _hcn_ghs[16]       = {0};
-    uint32_t _hcn_print_last_ms = 0;
-    void _hcn_on_response(uint8_t chip_addr, uint32_t counter);
     void _send_bm1370(uint8_t header, uint8_t * data, uint8_t len);
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();
@@ -34,8 +28,9 @@ public:
     uint8_t get_asic_count() override;
     uint32_t get_asic_difficulty() override;
     void send_work_to_asic(asic_job *job) override;
+    bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) override;
     uint16_t get_cores() override;
     uint16_t get_small_cores() override;
-    esp_err_t wait_for_result(miner_result *result, uint32_t timeout_ms = 60*1000) override;
+    asic_rx_result wait_for_result(uint32_t timeout_ms = 60*1000) override;
 };
 #endif

@@ -63,6 +63,35 @@ typedef struct __attribute__((__packed__)){
     uint8_t     asic_id;
 } miner_result;
 
+typedef enum {
+    ASIC_RX_STATUS_OK = 0,
+    ASIC_RX_STATUS_TIMEOUT,
+    ASIC_RX_STATUS_INVALID_SIZE,
+    ASIC_RX_STATUS_INVALID_RESPONSE,
+} asic_rx_status_t;
+
+typedef enum {
+    ASIC_RX_TYPE_NONE = 0,
+    ASIC_RX_TYPE_NONCE,
+    ASIC_RX_TYPE_HCN,
+} asic_rx_type_t;
+
+typedef struct {
+    uint8_t  asic_id;
+    uint8_t  chip_addr;
+    uint8_t  reg_addr;
+    uint32_t hash_count;
+} asic_hcn_result;
+
+typedef struct {
+    asic_rx_status_t status;
+    asic_rx_type_t   type;
+    union {
+        miner_result    nonce;
+        asic_hcn_result hcn;
+    } data;
+} asic_rx_result;
+
 class BMxxx{
 private:
     HardwareSerial& _serial;
@@ -85,7 +114,8 @@ public:
     virtual uint8_t get_asic_count() = 0;
     virtual uint32_t get_asic_difficulty() = 0;
     virtual void send_work_to_asic(asic_job *job) = 0;
-    virtual esp_err_t wait_for_result(miner_result *result, uint32_t timeout_ms) = 0;
+    virtual bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) = 0;
+    virtual asic_rx_result wait_for_result(uint32_t timeout_ms) = 0;
     virtual uint16_t get_cores() = 0;
     virtual uint16_t get_small_cores() = 0;
 };
