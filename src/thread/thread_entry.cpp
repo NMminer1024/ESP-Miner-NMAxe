@@ -1113,16 +1113,16 @@ void power_loop_thread_entry(void* args) {
                 }
             }
         }
-
-        // {
-        //     static uint32_t last_debug = millis();
-        //     if (millis() - last_debug >= 3000) {
-        //         // power->debugPrint();
-        //         power->dump();
-        //         last_debug = millis();
-        //     }
-        // }
-
+#if 0
+        {
+            static uint32_t last_debug = millis();
+            if (millis() - last_debug >= 3000) {
+                power->debugPrint();
+                // power->dump();
+                last_debug = millis();
+            }
+        }
+#endif
         // skip vcore regulation while the miner is intentionally idle
         if (ctx->mining && ctx->mining->is_controlled_idle()) {
             continue;

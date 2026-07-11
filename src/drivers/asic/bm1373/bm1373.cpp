@@ -183,8 +183,7 @@ uint8_t BM1373::get_asic_count(){
         memset(rsp, 0, sizeof(rsp));
         uint8_t len = this->receive(rsp, sizeof(rsp), 1000);
         if(len == 0) break;
-        LOG_D("BM1373 probe rsp len=%d", len);
-        dbg::hex_print(rsp, len, "BM1373 probe raw");
+        // dbg::hex_print(rsp, len, "BM1373 probe raw");
         uint8_t *rsp_ptr = rsp;
         while (rsp_ptr <= rsp + len - 11) {
             if(memcmp(rsp_ptr, "\xaa\x55\x13\x72\x00\x00\x00\x00\x00\x00\x07", 11) == 0){
@@ -338,7 +337,8 @@ esp_err_t BM1373::wait_for_result(miner_result *result, uint32_t timeout_ms){
     }
 
     // Intercept hash-counter (reg 0x90) read responses for HCN diagnostics.
-    // Format: AA 55 [cnt u32 BE] [chip_addr] 90 00 00 [crc]
+    // Uses 3-byte match (90 00 00) to avoid false positives with nonce frames
+    // whose raw job_id byte (rsp[7] low nibble) can alias 0x90.
     if (rsp[7] == 0x90 && rsp[8] == 0x00 && rsp[9] == 0x00) {
         uint32_t counter = ((uint32_t)rsp[2] << 24) | ((uint32_t)rsp[3] << 16) |
                            ((uint32_t)rsp[4] << 8)  |  (uint32_t)rsp[5];
