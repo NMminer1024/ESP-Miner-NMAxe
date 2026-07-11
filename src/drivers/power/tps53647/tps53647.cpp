@@ -237,7 +237,16 @@ void TPS53647Class::hw_init(void){
     // 1011:57A
     // 1100:60A
     // 1101:63A
-    this->_write_byte(PMBUS_MFR_SPECIFIC_00, 0b0011 & 0x0F); 
+    // Board-specific current-limit code. High-current boards (e.g. BM1373) set
+    // TPS53647_OCL_DEFAULT to skip this write and keep the chip's higher NVM
+    // default, since the ASIC draws more than the 63 A this register can express.
+    if (this->_cfg.iout_oc_level != TPS53647_OCL_DEFAULT) {
+        this->_write_byte(PMBUS_MFR_SPECIFIC_00, this->_cfg.iout_oc_level & 0x0F);
+        LOG_W("[TPS53647] MFR_SPECIFIC_00(0xD0) written: 0x%02X (%dA OCL)", 
+              this->_cfg.iout_oc_level & 0x0F, 24 + (this->_cfg.iout_oc_level & 0x0F) * 3);
+    } else {
+        LOG_W("[TPS53647] MFR_SPECIFIC_00(0xD0) SKIPPED — keeping NVM default");
+    }
 
     // set number of phases
     this->_set_phases(this->_cfg.num_phases);
@@ -249,6 +258,24 @@ void TPS53647Class::hw_init(void){
     // Iout current — warn and fault thresholds from board config
     this->_write_word(PMBUS_IOUT_OC_WARN_LIMIT,  this->_float_to_slinear11(this->_cfg.ifault - 2.0f)); // set OC warn limit 5A below fault limit
     this->_write_word(PMBUS_IOUT_OC_FAULT_LIMIT, this->_float_to_slinear11(this->_cfg.ifault));
+
+    // ── Read-back verification ────────────────────────────────────────────────
+    {
+        uint8_t rb_d0 = 0, rb_da = 0, rb_dc = 0, rb_dd = 0, rb_e4 = 0;
+        uint16_t rb_oc_warn = 0, rb_oc_fault = 0;
+        this->_read_reg(PMBUS_MFR_SPECIFIC_00, &rb_d0, 1); // 0xD0 OCL
+        this->_read_reg(PMBUS_MFR_SPECIFIC_10, &rb_da, 1); // 0xDA imax
+        this->_read_reg(PMBUS_MFR_SPECIFIC_12, &rb_dc, 1); // 0xDC freq
+        this->_read_reg(PMBUS_MFR_SPECIFIC_13, &rb_dd, 1); // 0xDD op-mode
+        this->_read_reg(PMBUS_MFR_SPECIFIC_20, &rb_e4, 1); // 0xE4 phases
+        this->_read_reg(PMBUS_IOUT_OC_WARN_LIMIT,  (uint8_t*)&rb_oc_warn,  2);
+        this->_read_reg(PMBUS_IOUT_OC_FAULT_LIMIT, (uint8_t*)&rb_oc_fault, 2);
+        LOG_W("[TPS53647] readback: D0(OCL)=0x%02X DA(imax)=0x%02X(%dA) DC(freq)=0x%02X DD(mode)=0x%02X E4(phases+1)=0x%02X",
+              rb_d0, rb_da, rb_da, rb_dc, rb_dd, rb_e4);
+        LOG_W("[TPS53647] readback: IOUT_OC_WARN=0x%04X(%.1fA) IOUT_OC_FAULT=0x%04X(%.1fA)",
+              rb_oc_warn,  this->_slinear11_to_float(rb_oc_warn),
+              rb_oc_fault, this->_slinear11_to_float(rb_oc_fault));
+    }
 }
 
 bool TPS53647Class::is_vcore_ready(void){
@@ -433,6 +460,138 @@ float TPS53647Class::get_temperature(void) {
 // ---------------------------------------------------------------------------
 static float _tps53647_temp_cb(void *ctx) {
     return static_cast<TPS53647Class*>(ctx)->get_temperature();
+}
+
+// ---------------------------------------------------------------------------
+// Full register dump
+// ---------------------------------------------------------------------------
+void TPS53647Class::dump(void) {
+    uint16_t raw16 = 0;
+    uint8_t  raw8  = 0;
+
+    LOG_W("========== TPS53647 REGISTER DUMP ==========");
+
+    // ── Read-only telemetry (SLINEAR11 or VID) ──────────────────────────
+    this->_read_reg(PMBUS_READ_VIN, (uint8_t*)&raw16, 2);
+    LOG_W("READ_VIN         (0x88): 0x%04X (%.3f V)", raw16, this->_slinear11_to_float(raw16));
+
+    this->_read_reg(PMBUS_READ_IIN, (uint8_t*)&raw16, 2);
+    LOG_W("READ_IIN         (0x89): 0x%04X (%.3f A)", raw16, this->_slinear11_to_float(raw16));
+
+    this->_read_reg(PMBUS_READ_VOUT, (uint8_t*)&raw16, 2);
+    {
+        uint8_t vid = (uint8_t)(raw16 & 0xFF);
+        uint16_t mv = (vid == 0) ? 0 : (uint16_t)((vid - 1) * 5 + 250);
+        LOG_W("READ_VOUT        (0x8B): 0x%04X (%.3f V)", raw16, mv / 1000.0f);
+    }
+
+    this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw16, 2);
+    LOG_W("READ_IOUT        (0x8C): 0x%04X (%.3f A)", raw16, this->_slinear11_to_float(raw16));
+
+    this->_read_reg(PMBUS_READ_TEMPERATURE_1, (uint8_t*)&raw16, 2);
+    LOG_W("READ_TEMP_1      (0x8D): 0x%04X (%.1f C)", raw16, this->_slinear11_to_float(raw16));
+
+    this->_read_reg(PMBUS_READ_POUT, (uint8_t*)&raw16, 2);
+    LOG_W("READ_POUT        (0x96): 0x%04X (%.3f W)", raw16, this->_slinear11_to_float(raw16));
+
+    this->_read_reg(PMBUS_READ_PIN, (uint8_t*)&raw16, 2);
+    LOG_W("READ_PIN         (0x97): 0x%04X (%.3f W)", raw16, this->_slinear11_to_float(raw16));
+
+    // ── Configuration / status (1-byte reads) ───────────────────────────
+    this->_read_reg(PMBUS_OPERATION, &raw8, 1);
+    LOG_W("OPERATION        (0x01): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_ON_OFF_CONFIG, &raw8, 1);
+    LOG_W("ON_OFF_CONFIG    (0x02): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_CAPABILITY, &raw8, 1);
+    LOG_W("CAPABILITY       (0x19): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_VOUT_MODE, &raw8, 1);
+    LOG_W("VOUT_MODE        (0x20): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_VOUT_COMMAND, (uint8_t*)&raw16, 2);
+    {
+        uint8_t vid = (uint8_t)(raw16 & 0xFF);
+        uint16_t mv = (vid == 0) ? 0 : (uint16_t)((vid - 1) * 5 + 250);
+        LOG_W("VOUT_COMMAND     (0x21): 0x%04X (%.3f V)", raw16, mv / 1000.0f);
+    }
+
+    // ── Status registers ────────────────────────────────────────────────
+    this->_read_reg(PMBUS_STATUS_BYTE, &raw8, 1);
+    LOG_W("STATUS_BYTE      (0x78): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_STATUS_WORD, (uint8_t*)&raw16, 2);
+    LOG_W("STATUS_WORD      (0x79): 0x%04X", raw16);
+
+    this->_read_reg(PMBUS_STATUS_VOUT, &raw8, 1);
+    LOG_W("STATUS_VOUT      (0x7A): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_STATUS_IOUT, &raw8, 1);
+    LOG_W("STATUS_IOUT      (0x7B): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_STATUS_INPUT, &raw8, 1);
+    LOG_W("STATUS_INPUT     (0x7C): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_STATUS_TEMPERATURE, &raw8, 1);
+    LOG_W("STATUS_TEMP      (0x7D): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_STATUS_CML, &raw8, 1);
+    LOG_W("STATUS_CML       (0x7E): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_STATUS_MFR_SPECIFIC, &raw8, 1);
+    LOG_W("STATUS_MFR       (0x80): 0x%02X", raw8);
+
+    // ── MFR_SPECIFIC registers ──────────────────────────────────────────
+    this->_read_reg(PMBUS_MFR_SPECIFIC_00, &raw8, 1);
+    LOG_W("MFR_SPEC_00      (0xD0): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_01, &raw8, 1);
+    LOG_W("MFR_SPEC_01      (0xD1): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_04, &raw8, 1);
+    LOG_W("MFR_SPEC_04      (0xD4): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_05, &raw8, 1);
+    LOG_W("MFR_SPEC_05      (0xD5): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_07, &raw8, 1);
+    LOG_W("MFR_SPEC_07      (0xD7): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_08, &raw8, 1);
+    LOG_W("MFR_SPEC_08      (0xD8): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_09, &raw8, 1);
+    LOG_W("MFR_SPEC_09      (0xD9): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_10, &raw8, 1);
+    LOG_W("MFR_SPEC_10      (0xDA): 0x%02X (imax)", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_11, &raw8, 1);
+    LOG_W("MFR_SPEC_11      (0xDB): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_12, &raw8, 1);
+    LOG_W("MFR_SPEC_12      (0xDC): 0x%02X (fsw)", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_13, &raw8, 1);
+    LOG_W("MFR_SPEC_13      (0xDD): 0x%02X (op mode)", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_14, &raw8, 1);
+    LOG_W("MFR_SPEC_14      (0xDE): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_15, &raw8, 1);
+    LOG_W("MFR_SPEC_15      (0xDF): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_16, &raw8, 1);
+    LOG_W("MFR_SPEC_16      (0xE0): 0x%02X", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_20, &raw8, 1);
+    LOG_W("MFR_SPEC_20      (0xE4): 0x%02X (phases)", raw8);
+
+    this->_read_reg(PMBUS_MFR_SPECIFIC_44, (uint8_t*)&raw16, 2);
+    LOG_W("MFR_SPEC_44      (0xFC): 0x%04X (device id)", raw16);
+
+    LOG_W("=============================================");
 }
 
 void tps53647_register_vcore_temp_hal(TPS53647Class *inst) {

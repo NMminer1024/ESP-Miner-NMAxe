@@ -79,6 +79,7 @@ AsicMinerClass::~AsicMinerClass(){
 
 bool AsicMinerClass::begin(uint16_t freq, uint16_t diff, uint32_t baudrate){
     if (this->_asic == NULL) return false;
+    this->_asic->reset();
     this->_asic->init(freq, diff, this->_asic_count);
     this->_asic_freq_current = freq;
     this->_asic_ready = true;

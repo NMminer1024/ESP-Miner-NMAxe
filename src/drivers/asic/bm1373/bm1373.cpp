@@ -86,7 +86,7 @@ bool BM1373::_set_hash_frequency(int id, float target_freq){
     freqbuf[5] = (((best_postdiv1 - 1) & 0xf) << 4) | ((best_postdiv2 - 1) & 0xf);
 
     this->_send_bm1373(TYPE_CMD | GROUP_ALL | CMD_WRITE, freqbuf, 6);
-    LOG_I("Setting Frequency to %.2fMHz (%.2f) (error: %.2fMHZ)", target_freq, best_freq, min_diff);
+    LOG_D("Setting Frequency to %.2fMHz (%.2f) (error: %.2fMHZ)", target_freq, best_freq, min_diff);
     return true;
 }
 
@@ -166,16 +166,8 @@ void BM1373::change_uart_baud(uint32_t baudrate){
     uint8_t init_baud[] = {0x00, 0x28, 0x11, 0x30, 0x02, 0x00};
     this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_WRITE), init_baud, 6);
     LOG_D("set ASIC baudrate to %d, wait 500ms...", baudrate);
-    delay(500);
+    delay(1000);
     BMxxx::change_uart_baud(baudrate);
-    delay(500);
-
-    // uint8_t init4[] = {0x00, 0x08, 0x40, 0xa8, 0x02, 0x60};
-    // this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_WRITE), init4, 6);
-
-    // uint8_t init3[] = {0x00, 0x10, 0x00, 0x00, 0x15, 0xa4};
-    // this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_WRITE), init3, 6);
-
 }
 
 uint8_t BM1373::get_asic_count(){
@@ -206,7 +198,6 @@ uint8_t BM1373::get_asic_count(){
 }
 
 void BM1373::init(uint64_t freq, int diff, uint8_t asic_count){
-    LOG_W("************************************************************");
     LOG_W("Initializing BM1373 ASICs with frequency %.2f MHz, difficulty %d, and %d chips", (float)freq, diff, asic_count);
     this->_asic_count = asic_count ? asic_count : 1; // cached for asic_id decode
     // 1. Set version mask (one extra after get_asic_count's 4)
@@ -281,9 +272,7 @@ void BM1373::init(uint64_t freq, int diff, uint8_t asic_count){
     // 14. Final version mask
     uint8_t init_a4_final[6] = {0x00, 0xA4, 0x90, 0x00, 0xFF, 0xFF};
     this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_WRITE), init_a4_final, 6);
-
     LOG_W("BM1373 ASICs initialized successfully");
-    LOG_W("************************************************************");
 }
 
 void BM1373::send_work_to_asic(asic_job *job){

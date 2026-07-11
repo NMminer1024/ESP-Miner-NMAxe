@@ -1046,7 +1046,7 @@ void power_init_thread_entry(void* args) {
         LOG_W("Waiting for vcore power setup...");
     }
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VCORE_READY);
-    delay(100);
+    delay(500);
 
     LOG_D("Vcore ready at %dmV/%dmV", power->get_vcore(), spec.asic.req_vcore);
 
@@ -1117,7 +1117,8 @@ void power_loop_thread_entry(void* args) {
         // {
         //     static uint32_t last_debug = millis();
         //     if (millis() - last_debug >= 3000) {
-        //         power->debugPrint();
+        //         // power->debugPrint();
+        //         power->dump();
         //         last_debug = millis();
         //     }
         // }
