@@ -110,8 +110,8 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
           vcoreMax:   [data.vcoreMax,   [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
           vcoreStep:  [data.vcoreStep,  [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(200)]],
           sampleIntv: [data.sampleIntv, [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
-          bmTime:     [data.bmTime,     [Validators.required, this.integerValidator, Validators.min(30),  Validators.max(7200)]],
-          stabTime:   [data.stabTime,   [Validators.required, this.integerValidator, Validators.min(30),  Validators.max(3600)]],
+          bmTime:     [data.bmTime,     [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(7200)]],
+          stabTime:   [data.stabTime,   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(3600)]],
         });
 
         this.syncFormLock();

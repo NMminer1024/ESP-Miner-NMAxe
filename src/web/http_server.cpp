@@ -1298,9 +1298,9 @@ void get_benchmark(AsyncWebServerRequest* request){
     resp->printf("\"vcoreMin\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,   vc_min_def));
     resp->printf("\"vcoreMax\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,   vc_max_def));
     resp->printf("\"vcoreStep\":%d,",    nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP,  25));
-    resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 5));
-    resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        1000));
-    resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   200));
+    resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 2));
+    resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        60));
+    resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   30));
     resp->printf("\"curFreq\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,    0));
     resp->printf("\"curVcore\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE,   0));
     resp->printf("\"startTs\":%lu,",     (unsigned long)nvs_config_get_u32(NVS_CONFIG_BM_START_TS,  0));
@@ -1957,9 +1957,21 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
 
                 int progress = (int)((index + offset) * 100.0 / flen);
                 if (progress != lastPercentage) {
+                    static uint32_t ota_speed_start_ms = 0;
+                    static size_t   ota_speed_start_bytes = 0;
+                    uint32_t now_ms = millis();
                     g_web->ota->progress         = progress;
-                    g_web->ota->last_progress_ms = millis();
-                    LOG_I("%s ota: %d%%", filename.c_str(), progress);
+                    g_web->ota->last_progress_ms = now_ms;
+                    size_t total_bytes = index + offset;
+                    if (ota_speed_start_ms > 0 && now_ms > ota_speed_start_ms) {
+                        float kBps = (float)(total_bytes - ota_speed_start_bytes) / 1024.0f
+                                   / ((now_ms - ota_speed_start_ms) / 1000.0f);
+                        LOG_I("%s ota: %d%%, %.1f kB/s", filename.c_str(), progress, kBps);
+                    } else {
+                        ota_speed_start_ms    = now_ms;
+                        ota_speed_start_bytes = total_bytes;
+                        LOG_I("%s ota: %d%%", filename.c_str(), progress);
+                    }
                     lastPercentage = progress;
                 }
             }

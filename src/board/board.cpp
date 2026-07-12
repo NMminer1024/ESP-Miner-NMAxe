@@ -626,7 +626,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.diff_thr_init        = 1024 * 2;
     config.asic.default_frq          = 325;
     config.asic.default_vcore        = 1000;
-    config.asic.min_vcore            = 1000;
+    config.asic.min_vcore            = 900;
     config.asic.max_vcore            = 1400;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
@@ -646,12 +646,6 @@ BoardSpecConfig get_board_config_compile_time() {
             {"500 MHz",           500},
             {"525 MHz",           525},
             {"550 MHz",           550},
-            {"575 MHz",           575},
-            {"600 MHz",           600},
-            {"625 MHz",           625},
-            {"650 MHz",           650},
-            {"675 MHz",           675},
-            {"700 MHz",           700},
         };
     config.ui.setting_page.vc = {
             {"900 mV",            900},

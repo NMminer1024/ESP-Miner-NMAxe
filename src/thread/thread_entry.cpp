@@ -59,6 +59,8 @@ constexpr uint32_t HCN_MIN_DELTA_MS      = 1000u;
 constexpr float    HCN_EMA_ALPHA         = 0.45f;
 constexpr float    HCN_EMA_FASTSTART     = 0.85f;
 constexpr uint8_t  HCN_FASTSTART_SAMPLES = 12;
+constexpr float    HCN_MAX_GHS_PER_CH    = 4000.0f;
+constexpr float    HCN_MAX_GHS_TOTAL     = 20000.0f;
 
 typedef struct {
     SemaphoreHandle_t mutex;
@@ -75,6 +77,32 @@ typedef struct {
 } hcn_hashrate_cache_t;
 
 static hcn_hashrate_cache_t g_hcn_cache = {0};
+
+static bool hcn_cache_ensure_inited() {
+    if (g_hcn_cache.inited) return true;
+    g_hcn_cache.mutex = xSemaphoreCreateMutex();
+    g_hcn_cache.inited = (g_hcn_cache.mutex != nullptr);
+    if (!g_hcn_cache.inited) {
+        LOG_E("HCN cache mutex create failed, HCN hashrate disabled.");
+    }
+    return g_hcn_cache.inited;
+}
+
+static void hcn_cache_reset(const char* reason) {
+    if (!hcn_cache_ensure_inited()) return;
+    if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(20)) != pdTRUE) return;
+
+    memset(g_hcn_cache.prev_cnt, 0, sizeof(g_hcn_cache.prev_cnt));
+    memset(g_hcn_cache.prev_ms, 0, sizeof(g_hcn_cache.prev_ms));
+    memset(g_hcn_cache.seen, 0, sizeof(g_hcn_cache.seen));
+    memset(g_hcn_cache.gh_s, 0, sizeof(g_hcn_cache.gh_s));
+    memset(g_hcn_cache.gh_ms, 0, sizeof(g_hcn_cache.gh_ms));
+    memset(g_hcn_cache.sample_count, 0, sizeof(g_hcn_cache.sample_count));
+    g_hcn_cache.last_log_ms = 0;
+
+    xSemaphoreGive(g_hcn_cache.mutex);
+    LOG_W("HCN cache reset: %s", reason ? reason : "unknown");
+}
 
 } // namespace
 
@@ -492,6 +520,7 @@ void miner_tx_thread_entry(void* args) {
             miner->reset_hashrate();
             miner->end();
         }
+        hcn_cache_reset("pause/clear runtime caches");
         if (stratum != nullptr) {
             stratum->clear_job_cache();
             stratum->clear_sub_extranonce2();
@@ -548,6 +577,7 @@ void miner_tx_thread_entry(void* args) {
 
             miner->clear_asic_job_cache();
             miner->reset_hashrate();
+            hcn_cache_reset("resume before reinit");
             st.hashrate = {0.0, 0.0, 0.0};
             // Resume after Vcore restore: same sequence as cold start — reset, init at
             // default baud, then switch to work baud.
@@ -698,14 +728,7 @@ void miner_rx_thread_entry(void* args) {
 
     auto on_hcn_result = [](const asic_hcn_result& hcn) {
         // lazy init
-        if (!g_hcn_cache.inited) {
-            g_hcn_cache.mutex = xSemaphoreCreateMutex();
-            g_hcn_cache.inited = (g_hcn_cache.mutex != nullptr);
-            if (!g_hcn_cache.inited) {
-                LOG_E("HCN cache mutex create failed, HCN hashrate disabled.");
-                return;
-            }
-        }
+        if (!hcn_cache_ensure_inited()) return;
         if (hcn.asic_id >= HCN_MAX_ASIC_CHANNELS) return;
         if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) != pdTRUE) return;
 
@@ -713,10 +736,28 @@ void miner_rx_thread_entry(void* args) {
         const uint32_t now_ms = millis();
 
         if (g_hcn_cache.seen[asic_id]) {
+            if (hcn.hash_count < g_hcn_cache.prev_cnt[asic_id]) {
+                // Counter moved backwards (ASIC reset/reinit/noise). Reset this channel baseline.
+                g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
+                g_hcn_cache.prev_ms[asic_id]  = now_ms;
+                g_hcn_cache.gh_s[asic_id] = 0.0f;
+                g_hcn_cache.gh_ms[asic_id] = 0;
+                g_hcn_cache.sample_count[asic_id] = 0;
+                xSemaphoreGive(g_hcn_cache.mutex);
+                return;
+            }
+
             const uint32_t d_cnt = hcn.hash_count - g_hcn_cache.prev_cnt[asic_id];
             const uint32_t d_ms  = now_ms - g_hcn_cache.prev_ms[asic_id];
             if (d_ms >= HCN_MIN_DELTA_MS) {
                 const float raw_ghs = (float)((double)d_cnt * 4294967296.0 / ((double)d_ms * 1000000.0));
+                if (!std::isfinite(raw_ghs) || raw_ghs < 0.0f || raw_ghs > HCN_MAX_GHS_PER_CH) {
+                    g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
+                    g_hcn_cache.prev_ms[asic_id]  = now_ms;
+                    xSemaphoreGive(g_hcn_cache.mutex);
+                    return;
+                }
+
                 const float alpha = (g_hcn_cache.sample_count[asic_id] < HCN_FASTSTART_SAMPLES)
                                     ? HCN_EMA_FASTSTART : HCN_EMA_ALPHA;
                 if (g_hcn_cache.gh_s[asic_id] > 0.0f) {
@@ -1602,11 +1643,7 @@ void monitor_thread_entry(void* args) {
             static uint8_t hcn_active_ch = 0;
             // inline HCN total-hashrate aggregator (single call-site in monitor)
             auto hcn_get_total_hs = [&]() -> bool {
-                if (!g_hcn_cache.inited) {
-                    g_hcn_cache.mutex = xSemaphoreCreateMutex();
-                    g_hcn_cache.inited = (g_hcn_cache.mutex != nullptr);
-                    if (!g_hcn_cache.inited) return false;
-                }
+                if (!hcn_cache_ensure_inited()) return false;
                 if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) != pdTRUE) return false;
                 const uint32_t now_ms = millis();
                 double total_ghs = 0.0;
@@ -1616,6 +1653,10 @@ void monitor_thread_entry(void* args) {
                     if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
                     total_ghs += g_hcn_cache.gh_s[i];
                     active++;
+                }
+                if (total_ghs > HCN_MAX_GHS_TOTAL) {
+                    total_ghs = 0.0;
+                    active = 0;
                 }
                 xSemaphoreGive(g_hcn_cache.mutex);
                 hcn_total_hs = total_ghs * 1e9;
@@ -3153,9 +3194,9 @@ void benchmark_thread_entry(void* args) {
     uint16_t vcore_min  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,  1000);
     uint16_t vcore_max  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,  1300);
     uint16_t vcore_step = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP, 25);
-    uint8_t  smp_intv   = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 10);
-    uint16_t bm_time    = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        180);
-    uint16_t stab_time  = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   120);
+    uint8_t  smp_intv   = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 2);
+    uint16_t bm_time    = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        60);
+    uint16_t stab_time  = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   30);
 
     uint16_t cur_freq   = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
     uint16_t cur_vcore  = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
