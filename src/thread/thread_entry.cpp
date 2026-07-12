@@ -3350,7 +3350,7 @@ void benchmark_thread_entry(void* args) {
     double at_avg  = (sample_cnt > 0) ? (at_sum  / sample_cnt) : 0;
     double vt_avg  = (sample_cnt > 0) ? (vt_sum  / sample_cnt) : 0;
 
-    bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * 0.98);
+    bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * 0.99);
     LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s | eff:%.3fJ/TH | pwr:%.2fW | asicT:%.1fC vcoreT:%.1fC",
           stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, eff_avg, pwr_avg, at_avg, vt_avg);
 
