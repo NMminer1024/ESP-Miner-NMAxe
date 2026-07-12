@@ -1299,7 +1299,7 @@ void get_benchmark(AsyncWebServerRequest* request){
     resp->printf("\"vcoreMax\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,   vc_max_def));
     resp->printf("\"vcoreStep\":%d,",    nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP,  25));
     resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 2));
-    resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        60));
+    resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        120));
     resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   30));
     resp->printf("\"curFreq\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,    0));
     resp->printf("\"curVcore\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE,   0));

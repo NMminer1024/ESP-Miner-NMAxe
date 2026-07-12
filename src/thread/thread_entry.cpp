@@ -3207,7 +3207,7 @@ void benchmark_thread_entry(void* args) {
     uint16_t vcore_max  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,  1300);
     uint16_t vcore_step = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP, 25);
     uint8_t  smp_intv   = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 2);
-    uint16_t bm_time    = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        60);
+    uint16_t bm_time    = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        120);
     uint16_t stab_time  = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   30);
 
     uint16_t cur_freq   = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);

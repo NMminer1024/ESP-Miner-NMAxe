@@ -616,7 +616,7 @@ export class SystemService {
         mode: 0,
         freqMin: 400, freqMax: 575, freqStep: 25,
         vcoreMin: 1100, vcoreMax: 1300, vcoreStep: 25,
-        sampleIntv: 2, bmTime: 60, stabTime: 30,
+        sampleIntv: 2, bmTime: 120, stabTime: 30,
         curFreq: 0, curVcore: 0,
         results: [
           {freq: 400, vcore: 1100, expHR: 268.8, avgHR: 265.1, avgAsicTemp: 55.2, avgVcoreTemp: 38.5, effJTH: 0.042, avgPwr: 11.1, ts: now - 7200},
