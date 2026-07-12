@@ -114,6 +114,7 @@ public:
     virtual uint8_t get_asic_count() = 0;
     virtual uint32_t get_asic_difficulty() = 0;
     virtual void send_work_to_asic(asic_job *job) = 0;
+    virtual void poll_hcn_register() = 0;
     virtual bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) = 0;
     virtual asic_rx_result wait_for_result(uint32_t timeout_ms) = 0;
     virtual uint16_t get_cores() = 0;

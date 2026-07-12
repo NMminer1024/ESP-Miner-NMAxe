@@ -536,6 +536,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     bctx.miner       = _service_miner;
     bctx.status      = _state_miner;
     bctx.pwr         = &_state_power_telemetry;
+    bctx.power       = _hal_power;
     bctx.temp        = &_state_temp;
     bctx.reboot_xsem = _sync_system->reboot_xsem;
     bctx.init_evt    = _sync_system->init_evt;

@@ -302,13 +302,11 @@ void BM1370::init(uint64_t freq, int diff, uint8_t asic_count){
 void BM1370::send_work_to_asic(asic_job *job){
     job->num_midstates = 0x01;
     this->_send_bm1370((TYPE_JOB | GROUP_SINGLE | CMD_WRITE), (uint8_t*)job, sizeof(asic_job));
+}
 
-    uint32_t now = millis();
-    if (now - this->_reg_poll_last_ms >= BM1370_REG_POLL_MS) {
-        uint8_t reg_read[2] = {0x00, BM1370_REG_POLL_ADDR};
-        this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_READ), reg_read, 2);
-        this->_reg_poll_last_ms = now;
-    }
+void BM1370::poll_hcn_register(){
+    uint8_t reg_read[2] = {0x00, BM1370_REG_POLL_ADDR};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_READ), reg_read, 2);
 }
 
 bool BM1370::decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn){

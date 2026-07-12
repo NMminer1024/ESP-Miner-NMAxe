@@ -6,8 +6,7 @@
 // Derived from expected-hashrate measurements at 400/600/740 MHz:
 // 2764.8 / 4147.2 / 5114.88 GH/s => exactly 6912 small cores (128 x 54).
 #define BM1373_SMALL_CORE_COUNT 6912
-// Periodic hash-counter register poll interval (ms).
-#define BM1373_REG_POLL_MS      2000
+// Periodic hash-counter register poll address.
 #define BM1373_REG_POLL_ADDR    0x90
 // Daisy-chain address step. Each chip is assigned SETADDRESS = i * interval,
 // and the chip stamps its core/chip address into nonce bits[17:24]
@@ -21,7 +20,6 @@ class BM1373: public BMxxx{
 private:
     uint32_t _diff_current;
     uint8_t  _asic_count = 1;   // chips detected at init; used to decode asic_id
-    uint32_t _reg_poll_last_ms  = 0;
     void _send_bm1373(uint8_t header, uint8_t * data, uint8_t len);
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();
@@ -39,6 +37,7 @@ public:
     uint8_t get_asic_count() override;
     uint32_t get_asic_difficulty() override;
     void send_work_to_asic(asic_job *job) override;
+    void poll_hcn_register() override;
     bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) override;
     uint16_t get_cores() override;
     uint16_t get_small_cores() override;

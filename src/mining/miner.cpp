@@ -265,6 +265,10 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     return true;
 }
 
+void AsicMinerClass::poll_hcn_register(){
+    this->_asic->poll_hcn_register();
+}
+
 uint32_t AsicMinerClass::set_asic_diff(uint64_t diff){
     return this->_asic->set_job_difficulty(diff);
 }

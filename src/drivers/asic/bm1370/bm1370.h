@@ -4,13 +4,11 @@
 
 #define BM1370_CORE_COUNT       128
 #define BM1370_SMALL_CORE_COUNT 2040
-#define BM1370_REG_POLL_MS      2000
 #define BM1370_REG_POLL_ADDR    0x90
 
 class BM1370: public BMxxx{
 private:
     uint32_t _diff_current;
-    uint32_t _reg_poll_last_ms  = 0;
     void _send_bm1370(uint8_t header, uint8_t * data, uint8_t len);
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();
@@ -28,6 +26,7 @@ public:
     uint8_t get_asic_count() override;
     uint32_t get_asic_difficulty() override;
     void send_work_to_asic(asic_job *job) override;
+    void poll_hcn_register() override;
     bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) override;
     uint16_t get_cores() override;
     uint16_t get_small_cores() override;

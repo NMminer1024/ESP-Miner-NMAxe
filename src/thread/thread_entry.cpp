@@ -672,6 +672,18 @@ void miner_tx_thread_entry(void* args) {
             // exit if pool disconnected
             if (!stratum->is_subscribed()) break;
 
+            // Periodic HCN register poll for hashrate diagnostics.
+            // Independent of job rate — poll interval configurable here.
+            {
+                static uint32_t hcn_last_ms = 0;
+                constexpr uint32_t HCN_POLL_MS = 2000;
+                uint32_t now = millis();
+                if (now - hcn_last_ms >= HCN_POLL_MS) {
+                    miner->poll_hcn_register();
+                    hcn_last_ms = now;
+                }
+            }
+
             // set asic diff as pool diff if pool diff < initial asic diff
             double target_diff = min(stratum->get_pool_difficulty(), (double)spec.asic.diff_thr_init);
             static double last_diff = 0.0;
@@ -3243,12 +3255,18 @@ void benchmark_thread_entry(void* args) {
     bm.eta_sec = (uint32_t)stab_time + (uint32_t)bm_time + bm_future_rounds;
 
     LOG_W("[BM] Stabilizing for %ds at freq=%dMHz vcore=%dmV ...", stab_time, cur_freq, cur_vcore);
+    bool oc_ot_abort = false;
     for (uint16_t s = 0; s < stab_time; s++) {
         bm.phase_elapsed = s;
         bm.asic_temp     = ctx->temp->asic;
         bm.vcore_temp    = ctx->temp->vcore;
         uint32_t stab_rem = (stab_time > s) ? (stab_time - s) : 0;
         bm.eta_sec = stab_rem + (uint32_t)bm_time + bm_future_rounds;
+        if (ctx->power && (ctx->power->is_oc_fault() || ctx->power->is_ot_fault())) {
+            LOG_W("[BM] OC/OT fault during stabilization — aborting round.");
+            oc_ot_abort = true;
+            break;
+        }
         delay(1000);
     }
 
@@ -3271,6 +3289,7 @@ void benchmark_thread_entry(void* args) {
     LOG_W("[BM] Expected HR: %.1f GH/s (freq=%d small_cores=%d asic_cnt=%d)",
           exp_hr_ghs, cur_freq, small_cores, asic_count);
 
+    if (!oc_ot_abort) {
     for (uint32_t i = 0; i < total_samples; i++) {
         for (uint8_t s = 0; s < smp_intv; s++) delay(1000);
 
@@ -3292,6 +3311,14 @@ void benchmark_thread_entry(void* args) {
 
         if (hr_ghs == 0.0) zero_hr_cnt++;
         else               zero_hr_cnt = 0;
+
+        // Immediate abort on OC/OT hardware fault — unsafe (freq, vcore) pair.
+        if (ctx->power && (ctx->power->is_oc_fault() || ctx->power->is_ot_fault())) {
+            LOG_W("[BM] OC/OT fault during sampling (sample %u/%u) — aborting round.",
+                  (unsigned)(i + 1), (unsigned)total_samples);
+            sample_cnt = 0; // discard all partial samples
+            break;
+        }
 
         if (zero_hr_cnt >= 5) {
             LOG_W("[BM] Zero hashrate for 5 samples, aborting round.");
@@ -3316,7 +3343,7 @@ void benchmark_thread_entry(void* args) {
             break;
         }
     }
-
+    } // if (!oc_ot_abort)
     double hr_avg  = (sample_cnt > 0) ? (hr_sum  / sample_cnt) : 0;
     double eff_avg = (sample_cnt > 0) ? (eff_sum / sample_cnt) : 0;
     double pwr_avg = (sample_cnt > 0) ? (pwr_sum / sample_cnt) : 0;
