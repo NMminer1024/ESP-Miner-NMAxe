@@ -149,7 +149,7 @@ bool BM1373::set_frequency(float current_frequency, float target_frequency){
         }
         current = next_dividable;
         if (!this->_set_hash_frequency(-1, current)) return false;
-        delay(100);
+        delay(10);
     }
 
     while ((direction > 0 && current < target_frequency) || (direction < 0 && current > target_frequency)) {

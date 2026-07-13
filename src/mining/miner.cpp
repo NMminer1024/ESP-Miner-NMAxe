@@ -82,8 +82,8 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff, uint32_t init_baudrate,
     // Hardware reset brings ASIC back to its default baudrate (115200).
     // Switch ESP32 UART to match BEFORE sending any init commands, otherwise
     // register writes (PLL, diff, etc.) will be garbled and init silently fails.
-    this->_asic->reset();
     this->_asic->BMxxx::change_uart_baud(init_baudrate);  // local-only, derived override skipped
+    this->_asic->reset();
     this->_asic->init(freq, diff, this->_asic_count);
     this->_asic_freq_current = freq;
     this->_asic_ready = true;
