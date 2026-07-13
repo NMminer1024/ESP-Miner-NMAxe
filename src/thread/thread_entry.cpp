@@ -3335,9 +3335,9 @@ void benchmark_thread_entry(void* args) {
 
         double hr_avg = hr_sum / sample_cnt;
         uint32_t remaining = (total_samples - i - 1) * smp_intv;
-        LOG_W("[BM] [%3lus] %2.0f%% | HR:%.1fGH/s EXP:%.0fGH/s | AT:%.1fC VT:%.1fC | Vcore:%dmV | Pwr:%.1fW",
+        LOG_W("[BM] [%3lus] %2.0f%% | HR:%.1fGH/s EXP:%.0fGH/s | AT:%.1fC VT:%.1fC | Vcore:%dmV | F:%dMHz | Pwr:%.1fW",
               (unsigned long)remaining, 100.0 * (i + 1) / total_samples,
-              hr_ghs, exp_hr_ghs, at, ctx->temp->vcore, ctx->pwr->vcore, pwr_w);
+              hr_ghs, exp_hr_ghs, at, ctx->temp->vcore, ctx->pwr->vcore, cur_freq, pwr_w);
 
         if (sample_cnt >= total_samples / 2 && exp_hr_ghs > 0 && hr_avg < exp_hr_ghs * 0.5) {
             LOG_W("[BM] Avg HR too low (%.1f < 50%% of %.1f), aborting round early.", hr_avg, exp_hr_ghs);

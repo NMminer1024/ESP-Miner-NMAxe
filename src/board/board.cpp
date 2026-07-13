@@ -303,7 +303,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 10000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 1024 * 2;
+    config.asic.diff_thr_init        = 1024 * 1;
     config.asic.default_frq          = 600;
     config.asic.default_vcore        = 1150;
     config.asic.min_vcore            = 1000;
@@ -464,7 +464,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 10000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 1024 * 2;
+    config.asic.diff_thr_init        = 1024 * 1;
     config.asic.default_frq          = 750;
     config.asic.default_vcore        = 1250;
     config.asic.min_vcore            = 1100;
@@ -627,7 +627,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 20000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 1024 * 4;
+    config.asic.diff_thr_init        = 1024 * 2;
     config.asic.default_frq          = 325;
     config.asic.default_vcore        = 1000;
     config.asic.min_vcore            = 900;
@@ -635,7 +635,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
-    config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 750.0f};
+    config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 900.0f};
     config.ui.dashboard_page.performance.vcore_req      = {0.9f, 1.5f};
     config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 1.5f};
     config.ui.setting_page.oc = {
@@ -658,6 +658,12 @@ BoardSpecConfig get_board_config_compile_time() {
             {"700 MHz",           700},
             {"725 MHz",           725},
             {"750 MHz",           750},
+            {"775 MHz",           775},
+            {"800 MHz",           800},
+            {"825 MHz",           825},
+            {"850 MHz",           850},
+            {"875 MHz",           875},
+            {"900 MHz",           900},
         };
     config.ui.setting_page.vc = {
             {"900 mV",            900},
@@ -683,6 +689,7 @@ BoardSpecConfig get_board_config_compile_time() {
             {"1425 mV",           1425},
             {"1450 mV",           1450},
             {"1475 mV",           1475},
+            {"1500 mV",           1500},
         };
     config.create_power_instance     = create_qaxepp81_3ph_power_instance; // 3-phase
     config.setup_temp_hal = [](AxePowerHal* pwr) {
