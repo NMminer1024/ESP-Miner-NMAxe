@@ -77,7 +77,9 @@ void PageLoadingBase::_set_scrolling_label_text(lv_obj_t* lbl, const String& v,
 void PageLoadingBase::_on_ip_text(const String& v, void* ctx) {
     if (!ctx) return;
     PageLoadingBase* self = static_cast<PageLoadingBase*>(ctx);
-    self->_set_scrolling_label_text(self->_lb_ip, v, self->_ip_font, self->_ip_max_width);
+    // Show slogan before IP is available; switch to IP once received.
+    const String& display = (v.length() > 0) ? v : String("Make it better");
+    self->_set_scrolling_label_text(self->_lb_ip, display, self->_ip_font, self->_ip_max_width);
 }
 
 void PageLoadingBase::_on_pool_text(const String& v, void* ctx) {

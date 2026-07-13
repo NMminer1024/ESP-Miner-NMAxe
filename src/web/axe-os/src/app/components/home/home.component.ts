@@ -17,6 +17,7 @@ export class HomeComponent implements OnInit {
 
   public quickLink$: Observable<string | undefined>;
   public expectedHashRate$: Observable<number | undefined>;
+  public hashratePct$: Observable<number | undefined>;
   public chartData?: any;
   public latency$: Observable<number>;
 
@@ -125,6 +126,13 @@ export class HomeComponent implements OnInit {
 
     this.expectedHashRate$ = this.info$.pipe(map(info => {
       return Math.floor((info.frequency || info.freqReq || 0) * ((info.smallCoreCount || info.smallCoreCnt || 0) * (info.asicCount || 0)) / 1000)
+    }));
+
+    this.hashratePct$ = this.info$.pipe(map(info => {
+      const exp = Math.floor((info.frequency || info.freqReq || 0) * ((info.smallCoreCount || info.smallCoreCnt || 0) * (info.asicCount || 0)) / 1000);
+      if (!exp || exp <= 0) return undefined;
+      const cur = info.hashRate || 0;
+      return parseFloat(((cur / exp - 1) * 100).toFixed(1));
     }))
 
     this.quickLink$ = this.info$.pipe(
