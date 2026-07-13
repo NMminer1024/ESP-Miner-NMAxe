@@ -307,10 +307,6 @@ asic_rx_result BM1373::wait_for_result(uint32_t timeout_ms){
         return rx;
     }
 
-
-    // dbg::hex_print((uint8_t*)rsp, len, "asic rsp");
-
-
     if(len != 11){
         LOG_W("Invalid asic response length: %d", len);
         this->clear_port_cache();
@@ -331,8 +327,6 @@ asic_rx_result BM1373::wait_for_result(uint32_t timeout_ms){
     }
 
     asic_result asic  = *(asic_result*)(rsp);
-
-    // dbg::hex_print((uint8_t*)rsp, sizeof(rsp), "asic rsp");
 
     asic.job_id       = (asic.job_id & 0xf0) >> 1; // upper 4 bits are job id for BM137x
     // Chip address is encoded in nonce bits[17:24] of the big-endian nonce

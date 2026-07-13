@@ -154,6 +154,7 @@ struct BoardSpecConfig {
         int8_t  rst_pin;          // ESP32 rst pin to asic rst pin
         uint32_t com_baud_init;   // initial communication baudrate 
         uint32_t com_baud_work;   // working communication baudrate
+        float    hcn_max_ghs_per_ch;// GH/s, per-chip upper bound for HCN(0x90) raw hashrate sanity filter
         struct {
             float high;      // high temperature limit
             float medium;    // medium temperature limit

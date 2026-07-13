@@ -103,6 +103,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.com_baud_init        = 115200;
     config.asic.com_baud_work        = 1000000;
     config.asic.com_port             = &Serial1;
+    config.asic.hcn_max_ghs_per_ch   = 1000.0f;  // BM1366 ~500 GH/s, 2x margin
     config.preference.screen.brightness    = 100;
     config.preference.screen.auto_rolling  = false;
     config.preference.screen.flip          = true;
@@ -236,6 +237,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.com_baud_init        = 115200;
     config.asic.com_baud_work        = 1000000;
     config.asic.com_port             = &Serial1;
+    config.asic.hcn_max_ghs_per_ch   = 3000.0f;  // BM1370 ~1.8 TH/s, ~1.7x margin
     config.preference.screen.brightness    = 100;
     config.preference.screen.auto_rolling  = false;
     config.preference.screen.flip          = true;
@@ -371,6 +373,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.com_baud_init        = 115200;
     config.asic.com_baud_work        = 1000000;
     config.asic.com_port             = &Serial1;
+    config.asic.hcn_max_ghs_per_ch   = 3000.0f;  // BM1370 ~1.8 TH/s, ~1.7x margin
     config.preference.screen.brightness    = 100;
     config.preference.screen.auto_rolling  = false;
     config.preference.screen.flip          = false;
@@ -533,6 +536,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.com_baud_init        = 115200;
     config.asic.com_baud_work        = 1000000;
     config.asic.com_port             = &Serial1;
+    config.asic.hcn_max_ghs_per_ch   = 3000.0f;  // BM1370 ~1.8 TH/s, ~1.7x margin
     config.preference.screen.brightness    = 100;
     config.preference.screen.auto_rolling  = false;
     config.preference.screen.flip          = false;
@@ -719,6 +723,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.com_baud_init        = 115200;
     config.asic.com_baud_work        = 1000000;
     config.asic.com_port             = &Serial1;
+    config.asic.hcn_max_ghs_per_ch   = 10000.0f;  // BM1373 ~4-5 TH/s, ~2x margin
     config.preference.screen.brightness    = 100;
     config.preference.screen.auto_rolling  = false;
     config.preference.screen.flip          = false;

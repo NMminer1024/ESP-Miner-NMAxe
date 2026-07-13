@@ -59,8 +59,6 @@ constexpr uint32_t HCN_MIN_DELTA_MS      = 1000u;
 constexpr float    HCN_EMA_ALPHA         = 0.45f;
 constexpr float    HCN_EMA_FASTSTART     = 0.85f;
 constexpr uint8_t  HCN_FASTSTART_SAMPLES = 12;
-constexpr float    HCN_MAX_GHS_PER_CH    = 4000.0f;
-constexpr float    HCN_MAX_GHS_TOTAL     = 20000.0f;
 
 typedef struct {
     SemaphoreHandle_t mutex;
@@ -738,7 +736,9 @@ void miner_rx_thread_entry(void* args) {
         return le_hash_to_diff(hash);
     };
 
-    auto on_hcn_result = [](const asic_hcn_result& hcn) {
+    const float hcn_max_ghs = ctx->spec->asic.hcn_max_ghs_per_ch;
+
+    auto on_hcn_result = [hcn_max_ghs](const asic_hcn_result& hcn) {
         // lazy init
         if (!hcn_cache_ensure_inited()) return;
         if (hcn.asic_id >= HCN_MAX_ASIC_CHANNELS) return;
@@ -763,7 +763,7 @@ void miner_rx_thread_entry(void* args) {
             const uint32_t d_ms  = now_ms - g_hcn_cache.prev_ms[asic_id];
             if (d_ms >= HCN_MIN_DELTA_MS) {
                 const float raw_ghs = (float)((double)d_cnt * 4294967296.0 / ((double)d_ms * 1000000.0));
-                if (!std::isfinite(raw_ghs) || raw_ghs < 0.0f || raw_ghs > HCN_MAX_GHS_PER_CH) {
+                if (!std::isfinite(raw_ghs) || raw_ghs < 0.0f || raw_ghs > hcn_max_ghs) {
                     g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
                     g_hcn_cache.prev_ms[asic_id]  = now_ms;
                     xSemaphoreGive(g_hcn_cache.mutex);
@@ -1654,6 +1654,7 @@ void monitor_thread_entry(void* args) {
             static double hcn_total_hs = 0.0;
             static uint8_t hcn_active_ch = 0;
             // inline HCN total-hashrate aggregator (single call-site in monitor)
+            const float hcn_total_limit = spec.asic.num_req * spec.asic.hcn_max_ghs_per_ch;
             auto hcn_get_total_hs = [&]() -> bool {
                 if (!hcn_cache_ensure_inited()) return false;
                 if (xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) != pdTRUE) return false;
@@ -1666,7 +1667,7 @@ void monitor_thread_entry(void* args) {
                     total_ghs += g_hcn_cache.gh_s[i];
                     active++;
                 }
-                if (total_ghs > HCN_MAX_GHS_TOTAL) {
+                if (total_ghs > hcn_total_limit) {
                     total_ghs = 0.0;
                     active = 0;
                 }
