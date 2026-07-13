@@ -99,7 +99,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
     config.asic.min_vcore            = 1100;
     config.asic.max_vcore            = 1300;
-    config.asic.diff_thr_init        = 64;
+    config.asic.diff_thr_init        = 512;
     config.asic.com_baud_init        = 115200;
     config.asic.com_baud_work        = 1000000;
     config.asic.com_port             = &Serial1;
@@ -230,7 +230,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
     config.asic.min_vcore            = 1000;
     config.asic.max_vcore            = 1250;
-    config.asic.diff_thr_init        = 128;
+    config.asic.diff_thr_init        = 1024;
     config.asic.rx_pin               = 44;
     config.asic.tx_pin               = 43;
     config.asic.rst_pin              = 45;
@@ -303,7 +303,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 10000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 256;
+    config.asic.diff_thr_init        = 1024 * 2;
     config.asic.default_frq          = 600;
     config.asic.default_vcore        = 1150;
     config.asic.min_vcore            = 1000;
@@ -464,7 +464,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 10000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 512;
+    config.asic.diff_thr_init        = 1024 * 2;
     config.asic.default_frq          = 750;
     config.asic.default_vcore        = 1250;
     config.asic.min_vcore            = 1100;
@@ -627,7 +627,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 20000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 1024 * 2;
+    config.asic.diff_thr_init        = 1024 * 4;
     config.asic.default_frq          = 325;
     config.asic.default_vcore        = 1000;
     config.asic.min_vcore            = 900;
