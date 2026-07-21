@@ -166,6 +166,32 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 ## Release Log
 ***
 
+### (2026.07.21) - v3.1.01
+- `Modify`:
+  - > ⚠️ **Important: Starting from this version, All-in-One universal firmware is no longer provided. Always select the firmware matching your device model (NMAxe / NMAxeGamma / NMQAxe++) — choosing the wrong model may cause the device to malfunction!**
+  - > 1. **[flash.nmminer.com](https://flash.nmminer.com/) Wired Flashing**: Select the correct device model on the web page before flashing. Wired flashing is the fallback for all edge cases including OTA failures — even a bricked device can be recovered this way.
+  - > 2. **AxeOS OTA Upgrade**: The firmware archive downloaded from the Update page contains firmware files for all models. Choose the one matching your device before upgrading.
+- `Add`:
+  - **BM1373 ASIC Driver**: Open-sourced low-level driver for the BM1373 ASIC chip, achieving ~6 TH/s per chip in testing.
+  - **Share Rate Chart**: New share accept/reject rate history chart on the AxeOS Dashboard for visual insight into submission efficiency.
+  - **Hashrate Percentage Badge**: Dashboard now shows the current hashrate as a percentage of expected, so you can tell at a glance if the miner is running at its best.
+  - **Block Hit "Just Now" Label**: The block-hit celebration overlay now displays the relative time since the block was found.
+  - **Screen Flip Requires Reboot**: Screen orientation change now takes effect after reboot to prevent accidental flips.
+- `Fixed`:
+  - Fixed fan RPM sampling fluctuation and stall-protection logic.
+  - Fixed stale countdown overlay lingering during standby screensaver.
+  - Fixed history data array index misalignment for improved data accuracy.
+- `Improved`:
+  - **Much Faster Hashrate Convergence**: Hashrate converges to real value in ~10 seconds after startup, down from ~3 minutes previously.
+  - **More Accurate Benchmark**: Default test duration increased from 60 s to 120 s; stability threshold tightened from 98% to 99% for more reliable results.
+  - **Overlay Experience Overhaul**: All overlays (Pause, Fault, OTA, Benchmark) now show a unified device IP footer; spacing, fonts, and opacity are more consistent; fade-in/out animations are smoother.
+  - **Find-me Enhancement**: When locating a device from the Swarm page, the screen now blinks at 500 ms intervals with centered text — easier to spot in a stack of miners.
+  - **OTA Experience**: Progress label now always visible; upgrade file size shown in KB so you're never left guessing during an update.
+  - Optimized GIF screensaver playback to reduce CPU usage.
+  - Streamlined task stack sizes to lower long-term memory pressure.
+- `Remove`:
+  - None.
+
 ### (2026.06.15) - v3.0.21
 - `Add`:
   - **Mining Pause/Resume**: runtime pause/resume via `PATCH /api/mining/state` without ESP32 reboot; pause overlay with centered layout and 3-decimal power display; blocked during benchmark with toast warning.
