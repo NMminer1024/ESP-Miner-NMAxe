@@ -82,15 +82,16 @@ private:
     uint32_t                                        _job_counter;
     uint8_t                                         _pool_job_cache_size;
     String                                          _client_id;   // injected: "<display_name>/<fw_version>" for mining.subscribe
+    SemaphoreHandle_t                               _msg_rsp_mutex;
     std::deque<pool_job_data_t, PsramAllocator<pool_job_data_t>>                                                                      _pool_job_cache;   // PSRAM
     std::map<stratum_msg_rsp_id_t, stratum_rsp, std::less<stratum_msg_rsp_id_t>, PsramAllocator<std::pair<const stratum_msg_rsp_id_t, stratum_rsp>>> _msg_rsp_map; // PSRAM
 public:
     PoolClass  *pool;
     SemaphoreHandle_t new_job_xsem, clear_job_xsem;
 
-    StratumClass() : _rsp_json(4096) {};
+    StratumClass() : _rsp_json(4096), _msg_rsp_mutex(nullptr) {};
     StratumClass(pool_info_t pConfig, stratum_info_t sConfig, uint8_t job_cached_max): 
-     _stratum_info(sConfig), _rsp_json(4096), _pool_job_cache_size(job_cached_max){
+     _stratum_info(sConfig), _rsp_json(4096), _pool_job_cache_size(job_cached_max), _msg_rsp_mutex(nullptr){
         this->pool = new PoolClass(pConfig);
         this->_max_rsp_id_cache = 20;
         this->_job_counter = 0;
@@ -101,6 +102,7 @@ public:
         this->_vr_mask = 0x00000000;
         this->_rsp_json.clear();
         this->_sub_info = {"", "", 0};
+        this->_msg_rsp_mutex = xSemaphoreCreateMutex();
         this->_msg_rsp_map.clear();
         this->_suggest_diff_support = true;
         this->_is_subscribed = false;

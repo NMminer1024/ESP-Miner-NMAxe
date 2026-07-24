@@ -11,13 +11,20 @@
 
 StratumClass::~StratumClass(){
     this->_rsp_json.garbageCollect();
+    if (this->_msg_rsp_mutex != nullptr) {
+        vSemaphoreDelete(this->_msg_rsp_mutex);
+        this->_msg_rsp_mutex = nullptr;
+    }
 }
 
 void StratumClass::reset(){
     this->_job_counter = 0;
     this->_rsp_str = "";
     this->_rsp_json.clear();
-    this->_msg_rsp_map.clear();
+    if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
+        this->_msg_rsp_map.clear();
+        xSemaphoreGive(this->_msg_rsp_mutex);
+    }
     this->_sub_info.extranonce1 = "";
     this->_sub_info.extranonce2 = "0";
     this->_sub_info.extranonce2_size = 0;
@@ -41,7 +48,10 @@ void StratumClass::reset(pool_info_t pConfig, stratum_info_t sConfig){
     this->_stratum_info = sConfig;
     this->_rsp_str = "";
     this->_rsp_json.clear();
-    this->_msg_rsp_map.clear();
+    if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
+        this->_msg_rsp_map.clear();
+        xSemaphoreGive(this->_msg_rsp_mutex);
+    }
     this->_sub_info.extranonce1 = "";
     this->_sub_info.extranonce2 = "0";
     this->_sub_info.extranonce2_size = 0;
@@ -70,16 +80,25 @@ bool StratumClass::_parse_rsp(){
 }
 
 bool StratumClass::_clear_rsp_id_cache(){
-    if(this->_msg_rsp_map.size() > this->_max_rsp_id_cache){
-        for(auto it = this->_msg_rsp_map.begin(); it != this->_msg_rsp_map.end();){
-            if(it->first < this->_gid - this->_max_rsp_id_cache){
+    if (this->_msg_rsp_mutex == nullptr || xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) != pdTRUE) {
+        return false;
+    }
+
+    if (this->_msg_rsp_map.size() > this->_max_rsp_id_cache) {
+        const uint32_t min_keep_id = (this->_gid > this->_max_rsp_id_cache) ? (this->_gid - this->_max_rsp_id_cache) : 0;
+        for (auto it = this->_msg_rsp_map.begin(); it != this->_msg_rsp_map.end();) {
+            if (it->first < min_keep_id) {
+                const uint32_t cleared_id = it->first;
+                const String method = it->second.method;
                 it = this->_msg_rsp_map.erase(it);
-                LOG_D("Message ID [%d] [%s] cleared from cache, cache size %d", it->first, it->second.method.c_str(), this->_msg_rsp_map.size());
-            }else{
-                it++;
+                LOG_D("Message ID [%u] [%s] cleared from cache, cache size %d", cleared_id, method.c_str(), this->_msg_rsp_map.size());
+            } else {
+                ++it;
             }
         }
     }
+
+    xSemaphoreGive(this->_msg_rsp_mutex);
     return true;
 }
 
@@ -90,7 +109,10 @@ bool StratumClass::hello_pool(uint32_t hello_interval, uint32_t lost_max_time){
         uint32_t id = this->_get_msg_id();
         String payload = "{\"id\": " + String(id) + ", \"method\": \"mining.suggest_difficulty\", \"params\": [" + String(this->_pool_difficulty, 4) + "]}\n";
         if(this->pool->write(payload) != 0){
-            this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, millis()};
+            if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
+                this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, millis()};
+                xSemaphoreGive(this->_msg_rsp_mutex);
+            }
             LOG_W("Hello pool...");
             return true;
         }
@@ -238,7 +260,10 @@ bool StratumClass::subscribe(){
     this->_sub_info.extranonce1 = String((const char*)this->_rsp_json["result"][1]);
     this->_sub_info.extranonce2_size = this->_rsp_json["result"][2];
     this->_is_subscribed = true;
-    this->_msg_rsp_map[id] = {"mining.subscribe", false, millis()};
+    if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
+        this->_msg_rsp_map[id] = {"mining.subscribe", false, millis()};
+        xSemaphoreGive(this->_msg_rsp_mutex);
+    }
     log_i("Sending mining.subscribe : %s", payload.c_str());
     LOG_I("extranonce1 : %s", this->_sub_info.extranonce1.c_str());
     LOG_I("extranonce2 size : %d", this->_sub_info.extranonce2_size);
@@ -252,7 +277,10 @@ bool StratumClass::authorize(){
         LOG_E("Failed to send mining.authorize request");
         return false;
     }
-    this->_msg_rsp_map[id] = {"mining.authorize", false, millis()};
+    if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
+        this->_msg_rsp_map[id] = {"mining.authorize", false, millis()};
+        xSemaphoreGive(this->_msg_rsp_mutex);
+    }
     log_i("Sending mining.authorize : %s", payload.c_str());
     delay(100);
     return true;
@@ -265,7 +293,10 @@ bool StratumClass::suggest_difficulty(){
         LOG_E("Failed to send mining.suggest_difficulty request");
         return false;
     }
-    this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, millis()};
+    if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
+        this->_msg_rsp_map[id] = {"mining.suggest_difficulty", false, millis()};
+        xSemaphoreGive(this->_msg_rsp_mutex);
+    }
     log_i("Sending mining.suggest_difficulty : %s", payload.c_str());
     delay(100);
     return true;
@@ -278,7 +309,10 @@ bool StratumClass::config_version_rolling(){
         LOG_E("Failed to send mining.configure request");
         return false;
     }
-    this->_msg_rsp_map[id] = {"mining.configure", false, millis()};
+    if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
+        this->_msg_rsp_map[id] = {"mining.configure", false, millis()};
+        xSemaphoreGive(this->_msg_rsp_mutex);
+    }
     log_i("Sending mining.configure : %s", payload.c_str());
     delay(100);
     return true;
@@ -303,13 +337,23 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
         LOG_E("Failed to send mining.submit request");
         return false;
     }
-    this->_msg_rsp_map[msgid] = {"mining.submit", false, millis()};
+    if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
+        this->_msg_rsp_map[msgid] = {"mining.submit", false, millis()};
+        xSemaphoreGive(this->_msg_rsp_mutex);
+    }
     // log_i("%s", payload.c_str());
 
     //wait for response from pool
     uint32_t start = millis();
     while(true){
-        if(this->_msg_rsp_map[msgid].status) return true;
+        if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
+            auto it = this->_msg_rsp_map.find(msgid);
+            if (it != this->_msg_rsp_map.end() && it->second.status) {
+                xSemaphoreGive(this->_msg_rsp_mutex);
+                return true;
+            }
+            xSemaphoreGive(this->_msg_rsp_mutex);
+        }
         if(millis() - start > 1000*20) return false;
         delay(1);
     }
@@ -318,9 +362,16 @@ bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime
 
 bool StratumClass::is_submit_timeout(){
     bool timeout = true, has_submit = false;
-    
+
+    if (this->_msg_rsp_mutex == nullptr || xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) != pdTRUE) {
+        return false;
+    }
+
     //cache size check
-    if(this->_msg_rsp_map.size() <= this->_max_rsp_id_cache / 2) return false;
+    if(this->_msg_rsp_map.size() <= this->_max_rsp_id_cache / 2) {
+        xSemaphoreGive(this->_msg_rsp_mutex);
+        return false;
+    }
 
     //check if there is any submit request
     for(auto it = this->_msg_rsp_map.begin(); it != this->_msg_rsp_map.end();it++){
@@ -329,7 +380,10 @@ bool StratumClass::is_submit_timeout(){
             break;
         }
     }
-    if(!has_submit) return false;
+    if(!has_submit) {
+        xSemaphoreGive(this->_msg_rsp_mutex);
+        return false;
+    }
 
     //timeout check, if all submit has no response, return true
     for(auto it = this->_msg_rsp_map.begin(); it != this->_msg_rsp_map.end();it++){
@@ -338,6 +392,7 @@ bool StratumClass::is_submit_timeout(){
             break;
         }
     }
+    xSemaphoreGive(this->_msg_rsp_mutex);
     return timeout;
 }
 
@@ -375,24 +430,34 @@ pool_job_data_t StratumClass::pop_job_cache(){
 }
 
 bool StratumClass::set_msg_rsp_map(uint32_t id, bool status){
+    if (this->_msg_rsp_mutex == nullptr || xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) != pdTRUE) {
+        return false;
+    }
     auto it = this->_msg_rsp_map.find(id);
     if(it == this->_msg_rsp_map.end()){
+        xSemaphoreGive(this->_msg_rsp_mutex);
         LOG_E("Message ID [%d] not found in response map", id);
         return false;
     }
     LOG_D("Message [%s] with ID [%d] status set to [%s]", it->second.method.c_str(), id, status ? "true" : "false");
     it->second.status = status;
+    xSemaphoreGive(this->_msg_rsp_mutex);
     return true;
 }
 
 bool StratumClass::del_msg_rsp_map(uint32_t id){
+    if (this->_msg_rsp_mutex == nullptr || xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) != pdTRUE) {
+        return false;
+    }
     auto it = this->_msg_rsp_map.find(id);
     if(it == this->_msg_rsp_map.end()){
+        xSemaphoreGive(this->_msg_rsp_mutex);
         LOG_E("Message ID [%d] not found in response map", id);
         return false;
     }
     LOG_D("Message [%s] with ID [%d] deleted from response map, cache size %d", it->second.method.c_str(), id, this->_msg_rsp_map.size());
     this->_msg_rsp_map.erase(it);
+    xSemaphoreGive(this->_msg_rsp_mutex);
     return true;
 }
 
@@ -401,11 +466,16 @@ stratum_rsp StratumClass::get_method_rsp_by_id(uint32_t id){
         .method = "",
         .status = false
     };
+    if (this->_msg_rsp_mutex == nullptr || xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) != pdTRUE) {
+        return rsp;
+    }
     if (!this->_msg_rsp_map.empty()) {
-       if(this->_msg_rsp_map.find(id) != this->_msg_rsp_map.end()){
-           rsp = this->_msg_rsp_map[id];
+       auto it = this->_msg_rsp_map.find(id);
+       if(it != this->_msg_rsp_map.end()){
+           rsp = it->second;
        }
     }
+    xSemaphoreGive(this->_msg_rsp_mutex);
     return rsp;
 }
 
