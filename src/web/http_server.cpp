@@ -430,7 +430,7 @@ void patch_setting_time(AsyncWebServerRequest* request, uint8_t *data, size_t le
 // -- /api/setting/mining -- GET -----------------------------------------------
 // Returns stratum config, current asic freq/vcore, and OC/VC dropdown options.
 void get_setting_mining(AsyncWebServerRequest* request){
-    const uint16_t json_size_max = 1024*3;
+    const uint16_t json_size_max = 1024*4;
     StaticJsonDocument<json_size_max> root;
     root.clear();
 

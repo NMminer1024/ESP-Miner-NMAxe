@@ -686,12 +686,12 @@ BoardSpecConfig get_board_config_compile_time() {
             {"1350 mV",           1350},
             {"1375 mV",           1375},
             {"1400 mV",           1400},
-            {"1425 mV",           1425},
-            {"1450 mV",           1450},
-            {"1475 mV",           1475},
-            {"1500 mV",           1500},
+            // {"1425 mV",           1425},
+            // {"1450 mV",           1450},
+            // {"1475 mV",           1475},
+            // {"1500 mV",           1500},
         };
-    config.create_power_instance     = create_qaxepp81_3ph_power_instance; // 3-phase
+    config.create_power_instance     = create_qaxepp81_4ph_power_instance; // 4-phase
     config.setup_temp_hal = [](AxePowerHal* pwr) {
         tps53647_register_vcore_temp_hal(static_cast<TPS53647Class*>(pwr));
         tmp102_register_asic_temp_hal();
