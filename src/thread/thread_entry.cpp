@@ -797,7 +797,7 @@ void miner_rx_thread_entry(void* args) {
                 off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, g_hcn_cache.gh_s[i]);
                 if (off >= (int)sizeof(buf) - 16) break;
             }
-            LOG_D("HCN hashrate (reg 0x90, biz): %s| total=%.2f GH/s", buf, total);
+            LOG_W("HCN hashrate (reg 0x90, biz): %s| total=%.2f GH/s", buf, total);
         }
 
         xSemaphoreGive(g_hcn_cache.mutex);

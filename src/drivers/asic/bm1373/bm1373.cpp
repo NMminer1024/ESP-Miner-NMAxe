@@ -166,7 +166,7 @@ void BM1373::change_uart_baud(uint32_t baudrate){
     uint8_t init_baud[] = {0x00, 0x28, 0x11, 0x30, 0x02, 0x00};
     this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_WRITE), init_baud, 6);
     LOG_D("set ASIC baudrate to %d, wait 500ms...", baudrate);
-    delay(1000);
+    delay(500);
     BMxxx::change_uart_baud(baudrate);
 }
 

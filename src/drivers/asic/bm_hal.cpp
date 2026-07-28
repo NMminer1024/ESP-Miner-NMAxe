@@ -24,6 +24,7 @@ void BMxxx::reset(){
 void BMxxx::change_uart_baud(uint32_t baudrate){
     LOG_D("Changing UART baudrate to %d...", baudrate);
     this->_serial.updateBaudRate(baudrate);
+    delay(50);
 }
 
 size_t BMxxx::send(uint8_t *cmd, uint16_t len){

@@ -33,4 +33,5 @@ inline AxePowerHal* create_qaxepp81_4ph_power_instance(axe_pwr_enable_pin_t en_p
     tps53647_cfg_t cfg = {4,      60,    160.0f,    0.003f,  125.0f, 0x03};
     return new TPS53647Class(en_pins, adc_pins, pgood, plug, cfg);
 }
+
 #endif // __NMQAXEPP_BOARD_H_

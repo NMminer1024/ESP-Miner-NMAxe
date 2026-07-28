@@ -278,6 +278,9 @@ double AsicMinerClass::get_asic_diff(){
 }
 
 uint8_t AsicMinerClass::connect_chip(){
+    // this->_asic_count = 2;
+    // return this->_asic_count;// for testing
+
     this->_asic->reset();
     this->_asic_count = this->_asic->get_asic_count();
     if(0 == this->_asic_count) {
