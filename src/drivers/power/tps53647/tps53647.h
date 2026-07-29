@@ -87,6 +87,11 @@
 // 63 A ceiling this register can express.
 #define TPS53647_OCL_DEFAULT 0xFF
 
+enum tps53647_vr_mode_t : uint8_t {
+    TPS53647_VR12_5 = 0,
+    TPS53647_VR12_0 = 1,
+};
+
 struct tps53647_cfg_t {
     uint8_t num_phases;       // 2 or 3
     uint8_t imax;             // max current in A (PMBUS_MFR_SPECIFIC_10)
@@ -97,12 +102,12 @@ struct tps53647_cfg_t {
     // in 3 A steps. Set to TPS53647_OCL_DEFAULT to skip the write and keep the
     // chip default (required for BM1373 which needs ~67 A at 600 MHz/1225 mV).
     uint8_t iout_oc_level;
+    tps53647_vr_mode_t vr_mode;
 };
 
 class TPS53647Class: public AxePowerHal{
 private:
     uint8_t       _vcore_pgood_pin;
-    float         _chip_min_output_vlot_mv;  // TPS53647 hardware min output voltage in V
     uint16_t      _vcore_min_mv;             // Vcore range min in mV, ASIC-related
     uint16_t      _vcore_max_mv;             // Vcore range max in mV, ASIC-related
     tps53647_cfg_t _cfg;                     // board-specific phase / current config
@@ -110,6 +115,10 @@ private:
     void     _write_byte(uint8_t regaddr, uint8_t data);
     void     _write_word(uint8_t regaddr, uint16_t data);
     void     _write_cmd(uint8_t cmd);
+    uint16_t _vid_base_mv(void);
+    uint16_t _vid_step_mv(void);
+    uint8_t  _vid_max_reg(void);
+    uint8_t  _mode_reg_value(void);
     uint8_t  _mv_to_vid(uint16_t mv);
     uint16_t _vid_to_mv(uint8_t reg);
     float    _slinear11_to_float(uint16_t value);
@@ -118,8 +127,7 @@ private:
 public:
     TPS53647Class(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t pgood, uint8_t plug, tps53647_cfg_t cfg)
         : AxePowerHal(en_pins, adc_pins), _cfg(cfg) {
-        this->_vcore_pgood_pin         = pgood;
-        this->_chip_min_output_vlot_mv = 0.25f; // TPS53647 minimum output voltage 0.25 V
+        this->_vcore_pgood_pin = pgood;
     }
     ~TPS53647Class();
     /** Implementations of pure virtual functions from AxePowerHal */

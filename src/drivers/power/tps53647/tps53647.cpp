@@ -101,24 +101,42 @@ void TPS53647Class::_write_word(uint8_t regaddr, uint16_t data){
     }
 }
 
+uint16_t TPS53647Class::_vid_base_mv(void) {
+    return (this->_cfg.vr_mode == TPS53647_VR12_5) ? 500 : 250;
+}
+
+uint16_t TPS53647Class::_vid_step_mv(void) {
+    return (this->_cfg.vr_mode == TPS53647_VR12_5) ? 10 : 5;
+}
+
+uint8_t TPS53647Class::_vid_max_reg(void) {
+    return (this->_cfg.vr_mode == TPS53647_VR12_5) ? 0xC9 : 0xFF;
+}
+
+uint8_t TPS53647Class::_mode_reg_value(void) {
+    // bit7 selects VID table: 1=VR12.0, 0=VR12.5
+    return (this->_cfg.vr_mode == TPS53647_VR12_0) ? 0x89 : 0x09;
+}
+
 uint8_t TPS53647Class::_mv_to_vid(uint16_t mv){
     if (mv == 0.0f) return 0x00;
 
-    float vlot = (float)mv / 1000.0f;
+    uint16_t base_mv = this->_vid_base_mv();
+    uint16_t step_mv = this->_vid_step_mv();
+    uint8_t max_reg = this->_vid_max_reg();
+    int reg = ((int)mv - (int)base_mv) / (int)step_mv + 1;
 
-    int reg = (int) ((vlot - this->_chip_min_output_vlot_mv) / 0.005f) + 1;
-
-    // Clamp to valid VID range (0x01 to 0xFF); never return 0 for a non-zero request
-    if (reg > 0xFF) {
+    // Clamp to valid VID range for the selected VR mode; never return 0 for a non-zero request
+    if (reg > max_reg) {
         // mv is the TPS-side output target, intentionally above the user-configured ASIC
         // voltage: power_loop adds extra mV to compensate for the PCB wire voltage drop
         // between TPS output and ASIC pins. The user's configured ASIC voltage is lower.
-        uint16_t chip_max_mv = (uint16_t)((0xFF - 1) * 5 + this->_chip_min_output_vlot_mv * 1000);
+        uint16_t chip_max_mv = this->_vid_to_mv(max_reg);
         LOG_W("To deliver the configured ASIC voltage, TPS must output %dmV (wire-drop compensated), "
               "but the TPS chip max is %dmV — clamping to chip max", mv, chip_max_mv);
-        reg = 0xFF;
+        reg = max_reg;
     } else if (reg < 1) {
-        uint16_t chip_min_mv = (uint16_t)(this->_chip_min_output_vlot_mv * 1000);
+        uint16_t chip_min_mv = base_mv;
         LOG_W("TPS output target %dmV (wire-drop compensated) is below chip min %dmV — clamping to chip min", mv, chip_min_mv);
         reg = 0x01;
     }
@@ -128,10 +146,10 @@ uint8_t TPS53647Class::_mv_to_vid(uint16_t mv){
 
 uint16_t TPS53647Class::_vid_to_mv(uint8_t reg){
     if (reg == 0x00) return 0.0f;
-    float vlot = (reg - 1) * 0.005f + this->_chip_min_output_vlot_mv;
+    uint16_t mv = (uint16_t)((reg - 1) * this->_vid_step_mv() + this->_vid_base_mv());
 
-    LOG_W("Converted VID 0x%02X to %dmV", reg, (uint16_t)(vlot*1000.0f));
-    return (uint16_t)(vlot*1000.0f);
+    LOG_W("Converted VID 0x%02X to %dmV", reg, mv);
+    return mv;
 }
 
 uint16_t TPS53647Class::_float_to_slinear11(float x){
@@ -214,11 +232,8 @@ void TPS53647Class::hw_init(void){
     // set maximum current
     this->_write_byte(PMBUS_MFR_SPECIFIC_10, this->_cfg.imax);
 
-    // operation mode
-    // VR12 Mode
-    // Enable dynamic phase shedding
-    // Slew Rate 0.68mV/us
-    this->_write_byte(PMBUS_MFR_SPECIFIC_13, 0x89); // default value
+    // operation mode: keep existing load-line / slew settings, only switch VID table by config
+    this->_write_byte(PMBUS_MFR_SPECIFIC_13, this->_mode_reg_value());
 
     // set up the ON_OFF_CONFIG
     this->_write_byte(PMBUS_ON_OFF_CONFIG, 0b00010111);
@@ -481,7 +496,7 @@ void TPS53647Class::dump(void) {
     this->_read_reg(PMBUS_READ_VOUT, (uint8_t*)&raw16, 2);
     {
         uint8_t vid = (uint8_t)(raw16 & 0xFF);
-        uint16_t mv = (vid == 0) ? 0 : (uint16_t)((vid - 1) * 5 + 250);
+        uint16_t mv = this->_vid_to_mv(vid);
         LOG_W("READ_VOUT        (0x8B): 0x%04X (%.3f V)", raw16, mv / 1000.0f);
     }
 
@@ -513,7 +528,7 @@ void TPS53647Class::dump(void) {
     this->_read_reg(PMBUS_VOUT_COMMAND, (uint8_t*)&raw16, 2);
     {
         uint8_t vid = (uint8_t)(raw16 & 0xFF);
-        uint16_t mv = (vid == 0) ? 0 : (uint16_t)((vid - 1) * 5 + 250);
+        uint16_t mv = this->_vid_to_mv(vid);
         LOG_W("VOUT_COMMAND     (0x21): 0x%04X (%.3f V)", raw16, mv / 1000.0f);
     }
 
