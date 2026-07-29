@@ -634,7 +634,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.max_vcore            = 2500;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
-    config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
+    config.ui.dashboard_page.power.power         = {0.0f, 250.0f};
     config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 900.0f};
     config.ui.dashboard_page.performance.vcore_req      = {0.9f, 2.5f};
     config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 2.5f};

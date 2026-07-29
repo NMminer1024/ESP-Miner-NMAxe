@@ -355,30 +355,38 @@ void TPS53647Class::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
 }
 
 uint32_t TPS53647Class::get_vbus(void){
-    uint32_t vadc = this->get_vbus_adc();
-    LOG_D("Vbus %dmv", (uint32_t)(vadc));
-    return (uint32_t)(vadc * GAIN_VBUS_SAMPLE);
+    // ADC path (commented out):
+    // uint32_t vadc = this->get_vbus_adc();
+    // LOG_D("Vbus %dmv", (uint32_t)(vadc));
+    // return (uint32_t)(vadc * GAIN_VBUS_SAMPLE);
+
+    // PMBus path: READ_VIN (0x88) → SLINEAR11 → V → mV
+    uint16_t raw = 0;
+    this->_read_reg(PMBUS_READ_VIN, (uint8_t*)&raw, 2);
+    float vin_v = this->_slinear11_to_float(raw);
+    uint32_t vin_mv = (uint32_t)(vin_v * 1000.0f);
+    LOG_D("Vbus PMBus 0x%04X -> %.3f V -> %u mV", raw, vin_v, vin_mv);
+    return vin_mv;
 }
 
 uint32_t TPS53647Class::get_ibus(void){
-    uint32_t vadc = this->get_ibus_adc();
-    LOG_D("ibus %dmv", vadc);
-    float real = (float)vadc / GAIN_IBUS_SAMPLE;
-    uint32_t current = (uint32_t)(real / this->_cfg.reg_ibus_sample);
-    return current;
+    // ADC path (commented out):
+    // uint32_t vadc = this->get_ibus_adc();
+    // LOG_D("ibus %dmv", vadc);
+    // float real = (float)vadc / GAIN_IBUS_SAMPLE;
+    // uint32_t current = (uint32_t)(real / this->_cfg.reg_ibus_sample);
+    // return current;
+
+    // PMBus path: READ_IIN (0x89) → SLINEAR11 → A → mA
+    uint16_t raw = 0;
+    this->_read_reg(PMBUS_READ_IIN, (uint8_t*)&raw, 2);
+    float iin_a = this->_slinear11_to_float(raw);
+    uint32_t iin_ma = (uint32_t)(iin_a * 1000.0f);
+    LOG_D("Ibus PMBus 0x%04X -> %.3f A -> %u mA", raw, iin_a, iin_ma);
+    return iin_ma;
 }
 
 uint32_t TPS53647Class::get_vcore(void){
-    // ── PMBus READ_VOUT diagnostic (VID mode: low byte is VID code) ──────────
-    // {
-    //     uint16_t raw_vout = 0;
-    //     this->_read_reg(PMBUS_READ_VOUT, (uint8_t*)&raw_vout, 2);
-    //     uint8_t vid = (uint8_t)(raw_vout & 0xFF);
-    //     uint32_t vcore_pmbus_mv = (vid == 0) ? 0u : (uint32_t)((vid - 1) * 5 + 250);
-    //     LOG_W("[TPS53647] PMBus READ_VOUT VID=0x%02X => %u mV", vid, vcore_pmbus_mv);
-    //     return vcore_pmbus_mv;
-    // }
-
     uint32_t vadc     = this->get_vcore_adc();
     uint32_t vcore_mv = (uint32_t)(vadc * GAIN_VCORE_SAMPLE);
     LOG_D("[TPS53647] ADC vcore %u mV (x2 gain -> %u mV)", vadc, vcore_mv);
