@@ -631,13 +631,13 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_frq          = 325;
     config.asic.default_vcore        = 1000;
     config.asic.min_vcore            = 900;
-    config.asic.max_vcore            = 2500;
+    config.asic.max_vcore            = 2000;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
-    config.ui.dashboard_page.power.power         = {0.0f, 250.0f};
+    config.ui.dashboard_page.power.power         = {0.0f, 240.0f};
     config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 900.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {0.9f, 2.5f};
-    config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 2.5f};
+    config.ui.dashboard_page.performance.vcore_req      = {0.9f, 2.0f};
+    config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 2.0f};
     config.ui.setting_page.oc = {
             {"300 MHz",           300},
             {"325 MHz(default)",  325},
@@ -686,10 +686,10 @@ BoardSpecConfig get_board_config_compile_time() {
             {"1350 mV",           1350},
             {"1375 mV",           1375},
             {"1400 mV",           1400},
-            // {"1425 mV",           1425},
-            // {"1450 mV",           1450},
-            // {"1475 mV",           1475},
-            // {"1500 mV",           1500},
+            {"1425 mV",           1425},
+            {"1450 mV",           1450},
+            {"1475 mV",           1475},
+            {"1500 mV",           1500},
         };
     config.create_power_instance     = create_qaxepp81_4ph_power_instance; // 4-phase
     config.setup_temp_hal = [](AxePowerHal* pwr) {
