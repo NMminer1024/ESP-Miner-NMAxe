@@ -29,8 +29,8 @@ inline AxePowerHal* create_qaxepp61_3ph_power_instance(axe_pwr_enable_pin_t en_p
 }
 // 4-phase board (QAxe++ Rev8.1, BM1373): 0.003 Ω shunt, higher OC limit.
 inline AxePowerHal* create_qaxepp81_4ph_power_instance(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t vcore_regulator_pwm_pin, uint8_t pgood, uint8_t plug) {
-    //                    phase, imax,  ifault,  sample reg, tfault, iout_oc_level(0x04=36A), vr_mode
-    tps53647_cfg_t cfg = {4,      120,    130.0f,    0.003f,  125.0f, 0x04, TPS53647_VR12_5};
+    //                    phase, imax,  ifault,  sample reg, tfault, iout_oc_level(0x03=33A), vr_mode
+    tps53647_cfg_t cfg = {4,      120,    160.0f,    0.003f,  125.0f, 0x03, TPS53647_VR12_0};
     return new TPS53647Class(en_pins, adc_pins, pgood, plug, cfg);
 }
 

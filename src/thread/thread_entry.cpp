@@ -551,6 +551,7 @@ void miner_tx_thread_entry(void* args) {
         if (state == MINER_RUNTIME_RESUMING) {
             LOG_W("Resuming mining: restoring Vcore and reinitializing ASIC");
             refresh_mining_timeouts();
+            power->clear_faults();
             power->set_vcore_voltage(spec.asic.req_vcore);
             power->set_vcore_status(PWR_ON);
 
@@ -576,6 +577,7 @@ void miner_tx_thread_entry(void* args) {
             miner->clear_asic_job_cache();
             miner->reset_hashrate();
             hcn_cache_reset("resume before reinit");
+            power->clear_faults();
             st.hashrate = {0.0, 0.0, 0.0};
             // Resume after Vcore restore: same sequence as cold start — reset, init at
             // default baud, then switch to work baud.
