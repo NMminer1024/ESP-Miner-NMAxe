@@ -148,7 +148,7 @@ uint16_t TPS53647Class::_vid_to_mv(uint8_t reg){
     if (reg == 0x00) return 0.0f;
     uint16_t mv = (uint16_t)((reg - 1) * this->_vid_step_mv() + this->_vid_base_mv());
 
-    LOG_W("Converted VID 0x%02X to %dmV", reg, mv);
+    LOG_D("Converted VID 0x%02X to %dmV", reg, mv);
     return mv;
 }
 
@@ -430,6 +430,9 @@ void TPS53647Class::debugPrint(void){
     float pout = this->_slinear11_to_float(raw);
     this->_read_reg(PMBUS_READ_PIN,  (uint8_t*)&raw, 2);
     float pin  = this->_slinear11_to_float(raw);
+    this->_read_reg(PMBUS_READ_VOUT, (uint8_t*)&raw, 2);
+    uint8_t vid = (uint8_t)(raw & 0xFF);
+    float vout = this->_vid_to_mv(vid) / 1000.0f;
     float eff  = (pin > 0.1f) ? (pout / pin * 100.0f) : 0.0f;
 
     // OC status — STATUS_IOUT bit7=OC_FAULT(latched), bit5=OC_WARN
@@ -449,22 +452,18 @@ void TPS53647Class::debugPrint(void){
     char buf[400];
     snprintf(buf, sizeof(buf),
         "\n-----------TPS53647 OC MONITOR-----------"
-        "\n  IOUT = %.2f A  (limit: %.1f A)"
+        "\n  VOUT = %.3f V  IOUT = %.2f A  (limit: %.1f A)"
         "\n  POUT = %.2f W   PIN = %.2f W   Eff = %.1f %%"
         "\n  TEMP = %.1f \xc2\xb0" "C  (warn:95\xc2\xb0" "C  fault:125\xc2\xb0" "C)"
-        "\n  STATUS_WORD = 0x%04X  [IOUT_summary(b14):%d  TEMP_summary(b2):%d]"
         "\n  STATUS_IOUT = 0x%02X  [OC_FAULT:%d  OC_WARN:%d]"
         "\n  STATUS_TEMP = 0x%02X  [OT_FAULT:%d  OT_WARN:%d]"
-        "\n  OC_FAULT_RESP(0x47) = 0x%02X  [action:%d retries:%d]"
-        "\n    action: 0=continue 1/2=shutdown+retry 3=latch-off"
         "\n------------------------------------------",
+        vout,
         iout, this->_cfg.ifault,
         pout, pin, eff,
         temp_c,
-        status_word, (status_word >> 14) & 1, (status_word >> 2) & 1,
         status_iout, (status_iout >> 7) & 1, (status_iout >> 5) & 1,
-        status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1,
-        iout_oc_fault_resp, (iout_oc_fault_resp >> 6) & 0x3, iout_oc_fault_resp & 0x7);
+        status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1);
     LOG_W("%s", buf);
 }
 
