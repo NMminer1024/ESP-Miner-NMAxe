@@ -658,6 +658,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     LoadingStage loading_stage = LoadingStage::WAIT_ADC;
     uint32_t loading_stage_ms = millis();
     uint32_t loading_detail_ms = 0;
+    uint32_t asic_fw_ms = 0;
 
     xEventGroupWaitBits(app._sync_system->init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     uint8_t boot_brightness = app._config_pref.screen.brightness ? app._config_pref.screen.brightness : 80;
@@ -742,6 +743,17 @@ void MinerApp::_tick_thread_entry(void* args) {
                     break;
 
                 case LoadingStage::WAIT_ASIC:
+                    if (stage_elapsed >= 6000) {
+                        if (asic_fw_ms == 0 || now - asic_fw_ms >= 1000) {
+                            LOG_E("Wrong firmware? Expected %s on %s",
+                                  app._board_spec.asic.name.c_str(),
+                                  app._board_spec.display_name.c_str());
+                            xEventGroupSetBits(app._sync_system->sys_evt, SYS_EVENT_WRONG_FIRMWARE);
+                            asic_fw_ms = now;
+                        }
+                        break;
+                    }
+
                     if (loading_detail_ms == 0 || now - loading_detail_ms >= 100) {
                         uint8_t asic_anim_idx = (uint8_t)((stage_elapsed / 100) % 4);
                         set_loading(40, ASIC_INIT_STR[asic_anim_idx], 0xFFFFFF);
@@ -749,11 +761,9 @@ void MinerApp::_tick_thread_entry(void* args) {
                     }
                     if (stage_elapsed >= 300 && app._service_miner && app._service_miner->get_asic_count() > 0) {
                         uint8_t asic_cnt = app._service_miner->get_asic_count();
-                        String asic_cnt_str = (asic_cnt > 1)
-                            ? (String(asic_cnt) + "/" + String(app._board_spec.asic.num_req) + " chips")
-                            : "1 chip";
+                        String asic_cnt_str = String(asic_cnt) + "/" + String(app._board_spec.asic.num_req);
                         uint32_t color = (asic_cnt != app._board_spec.asic.num_req) ? 0xFF0000 : 0x00FF00;
-                        set_loading(40, "Found " + asic_cnt_str, color);
+                        set_loading(40, "Found " + asic_cnt_str + " " + app._board_spec.asic.name, color);
                         advance_loading(LoadingStage::WAIT_ASIC_CONFIRM, now);
                     }
                     break;

@@ -41,6 +41,7 @@ private:
     enum class ActiveOverlayKind : uint8_t {
         None,
         Blocking,
+        Warning,
         Fault,
         Ota,
         FindMe,
@@ -74,6 +75,7 @@ private:
     void _show_ota_overlay(uint32_t now);
     void _show_benchmark_overlay();
     void _show_mining_pause_overlay();
+    void _show_wrong_firmware_overlay(const String& body);
     void _show_footer_ip(lv_coord_t y, bool large_font = false);
     void _dismiss_transient_overlays();
     void _set_active_overlay(ActiveOverlayKind kind);
@@ -81,6 +83,7 @@ private:
     static bool _is_transient_overlay(ActiveOverlayKind kind);
 
     bool _render_countdown_overlays();
+    bool _render_wrong_firmware_overlay(EventBits_t bits);
     bool _render_find_overlay(uint32_t now, EventBits_t bits);
     bool _render_fault_overlay(EventBits_t bits);
     bool _render_ota_overlay(uint32_t now);

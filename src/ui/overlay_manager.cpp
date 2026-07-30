@@ -271,6 +271,42 @@ void OverlayManager::_show(uint32_t accent, const char* title, const String& bod
     }
 }
 
+void OverlayManager::_show_wrong_firmware_overlay(const String& body) {
+    if (!_panel) return;
+    _set_active_overlay(ActiveOverlayKind::Warning);
+    _reset_layout();
+    _gif_hide();
+    if (_btn_yes) { lv_obj_add_flag(_btn_yes, LV_OBJ_FLAG_HIDDEN); }
+    if (_btn_no)  { lv_obj_add_flag(_btn_no,  LV_OBJ_FLAG_HIDDEN); }
+    _fault_event = 0;
+
+    lv_obj_set_style_bg_color(_panel, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(_panel, LV_OPA_COVER, 0);
+
+    lv_obj_set_style_text_font(_lb_title, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(_lb_title, lv_color_hex(0xFF5252), 0);
+    lv_label_set_text(_lb_title, "Wrong firmware");
+    lv_obj_align(_lb_title, LV_ALIGN_TOP_MID, 0, 8);
+
+    lv_obj_set_style_text_font(_lb_body, LV_VER_RES <= 135 ? &lv_font_montserrat_20 : &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(_lb_body, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(_lb_body, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(_lb_body, LV_PCT(90));
+    lv_label_set_text(_lb_body, body.c_str());
+    lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 2);
+
+    if (_lb_aux)  lv_obj_add_flag(_lb_aux, LV_OBJ_FLAG_HIDDEN);
+    if (_lb_aux2) lv_obj_add_flag(_lb_aux2, LV_OBJ_FLAG_HIDDEN);
+    if (_bar)     lv_obj_add_flag(_bar, LV_OBJ_FLAG_HIDDEN);
+    if (_img)     lv_obj_add_flag(_img, LV_OBJ_FLAG_HIDDEN);
+
+    if (!_visible) {
+        lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);
+        _visible = true;
+    }
+}
+
 void OverlayManager::_show_celebration(uint32_t accent, const char* title, const String& body, const lv_img_dsc_t* img) {
     if (!_panel || !_img) return;
 
@@ -1151,6 +1187,16 @@ bool OverlayManager::_render_fault_overlay(EventBits_t bits) {
     return false;
 }
 
+bool OverlayManager::_render_wrong_firmware_overlay(EventBits_t bits) {
+    if (!(bits & SYS_EVENT_WRONG_FIRMWARE)) return false;
+
+    const MinerApp& app = MinerApp::instance();
+    String body = String("Expected ") + app.spec().asic.name +
+                  "\non " + app.spec().display_name;
+    _show_wrong_firmware_overlay(body);
+    return true;
+}
+
 bool OverlayManager::_render_ota_overlay(uint32_t now) {
     if (_ota_rebooting) {
         _show_rebooting_overlay("OTA update complete");
@@ -1333,6 +1379,7 @@ void OverlayManager::update() {
     uint32_t bits = _ctx.sys_evt ? xEventGroupGetBits(_ctx.sys_evt) : 0;
 
     if (_render_countdown_overlays()) return;
+    if (_render_wrong_firmware_overlay(bits)) return;
     if (_render_fault_overlay(bits)) return;
     if (_render_ota_overlay(now)) return;
     if (_render_find_overlay(now, bits)) return;

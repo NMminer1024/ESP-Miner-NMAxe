@@ -156,7 +156,7 @@ bool BM1373::set_frequency(float current_frequency, float target_frequency){
         float next_step = fminf(fabs(direction), fabs(target_frequency - current));
         current += direction > 0 ? next_step : -next_step;
         if (!this->_set_hash_frequency(-1, current)) return false;
-        delay(10);
+        delay(100);
     }
     if (!this->_set_hash_frequency(-1, target_frequency)) return false;
     return true;

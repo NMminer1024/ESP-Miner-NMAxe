@@ -38,4 +38,5 @@ enum {
     SYS_EVENT_FIND_NEIGHBOR_TRIGGERED    = (1 << 5),   // blink screen to locate neighbor miner
     SYS_EVENT_POWER_OC_FAULT             = (1 << 6),   // power overcurrent fault -> prompt user
     SYS_EVENT_POWER_OT_FAULT             = (1 << 7),   // power over-temperature fault -> prompt user
+    SYS_EVENT_WRONG_FIRMWARE             = (1 << 8),   // boot-time firmware/board mismatch -> full-screen warning
 };
