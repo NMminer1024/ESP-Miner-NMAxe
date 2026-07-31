@@ -440,14 +440,19 @@ void TPS53647Class::debugPrint(void){
     uint16_t status_word        = 0;
     uint8_t  status_iout        = 0;
     uint8_t  status_temp        = 0;
+    uint8_t  status_mfr_specific = 0;
     uint8_t  iout_oc_fault_resp = 0;
     uint16_t raw_temp           = 0;
+    uint16_t raw_iout_oc_fault_limit = 0;
     this->_read_reg(PMBUS_STATUS_WORD,            (uint8_t*)&status_word, 2);
     this->_read_reg(PMBUS_STATUS_IOUT,            &status_iout,           1);
     this->_read_reg(PMBUS_STATUS_TEMPERATURE,     &status_temp,           1);
+    this->_read_reg(PMBUS_STATUS_MFR_SPECIFIC,    &status_mfr_specific,   1);
     this->_read_reg(PMBUS_IOUT_OC_FAULT_RESPONSE, &iout_oc_fault_resp,    1);
     this->_read_reg(PMBUS_READ_TEMPERATURE_1,     (uint8_t*)&raw_temp,    2);
+    this->_read_reg(PMBUS_IOUT_OC_FAULT_LIMIT,    (uint8_t*)&raw_iout_oc_fault_limit, 2);
     float temp_c = this->_slinear11_to_float(raw_temp);
+    float iout_limit_a = this->_slinear11_to_float(raw_iout_oc_fault_limit);
 
     char buf[400];
     snprintf(buf, sizeof(buf),
@@ -457,13 +462,15 @@ void TPS53647Class::debugPrint(void){
         "\n  TEMP = %.1f \xc2\xb0" "C  (warn:95\xc2\xb0" "C  fault:125\xc2\xb0" "C)"
         "\n  STATUS_IOUT = 0x%02X  [OC_FAULT:%d  OC_WARN:%d]"
         "\n  STATUS_TEMP = 0x%02X  [OT_FAULT:%d  OT_WARN:%d]"
+        "\n  STATUS_MFR_SPECIFIC (80h) = 0x%02X"
         "\n------------------------------------------",
         vout,
-        iout, this->_cfg.ifault,
+        iout, iout_limit_a,
         pout, pin, eff,
         temp_c,
         status_iout, (status_iout >> 7) & 1, (status_iout >> 5) & 1,
-        status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1);
+        status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1,
+        status_mfr_specific);
     LOG_W("%s", buf);
 }
 
@@ -562,7 +569,7 @@ void TPS53647Class::dump(void) {
     LOG_W("STATUS_CML       (0x7E): 0x%02X", raw8);
 
     this->_read_reg(PMBUS_STATUS_MFR_SPECIFIC, &raw8, 1);
-    LOG_W("STATUS_MFR       (0x80): 0x%02X", raw8);
+    LOG_W("STATUS_MFR_SPECIFIC (80h): 0x%02X", raw8);
 
     // ── MFR_SPECIFIC registers ──────────────────────────────────────────
     this->_read_reg(PMBUS_MFR_SPECIFIC_00, &raw8, 1);

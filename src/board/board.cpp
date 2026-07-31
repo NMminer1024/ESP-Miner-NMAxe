@@ -606,7 +606,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.name                      = "NMQAxe++";     // runtime functional ID
     config.asic.name                 = "BM1373";
     config.display_name              = "NMQAxe++Rev8.1";
-    config.asic.num_req              = 2;
+    config.asic.num_req              = 4;
     config.asic.temp_limit.high      = 75.0f;
     config.asic.temp_limit.medium    = 65.0f;
     config.asic.temp_limit.low       = 50.0f;
