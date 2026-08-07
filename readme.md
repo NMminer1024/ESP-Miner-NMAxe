@@ -166,6 +166,19 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 ## Release Log
 ***
 
+### (2026.08.07) - v3.1.02
+- `Add`:
+  - **Wrong-Firmware Detection**: The device now auto-detects firmware-to-hardware mismatches at startup. When the wrong model firmware is flashed, a full-screen warning overlay blocks operation to prevent hardware malfunction.
+- `Fixed`:
+  - **Stratum Response Cache Race Condition**: Fixed a concurrency race in the stratum response cache under high load, preventing potential data corruption.
+- `Improved`:
+  - **BM1373 ASIC Init Faster**: UART baud-rate switch delay reduced from 1000 ms to 500 ms, with an extra 50 ms base delay, speeding up ASIC startup.
+  - **HCN Log Level**: HCN log level adjusted from `LOG_D` to `LOG_W` to reduce debug log noise.
+- `Modify`:
+  - None.
+- `Remove`:
+  - None.
+
 ### (2026.07.21) - v3.1.01
 - `Modify`:
   - > ⚠️ **Important: Starting from this version, All-in-One universal firmware is no longer provided. Always select the firmware matching your device model (NMAxe / NMAxeGamma / NMQAxe++) — choosing the wrong model may cause the device to malfunction!**
