@@ -153,7 +153,7 @@ export class HomeComponent implements OnInit {
           return `https://solo.d-central.tech/#/app/${address}`;
         } else if (poolUrl.includes('solo.ckpool.org:3333')) {
           const address = poolUser.split('.')[0]
-          return `https://solostats.ckpool.org/users/${address}`;
+          return `https://stats.ckpool.org/users/${address}`;
         } else if (poolUrl.includes('xec.nmminer.com')) {
           const address = poolUser.split('.')[0]
           return `https://xec.nmminer.com/user?workername=${address}`;
