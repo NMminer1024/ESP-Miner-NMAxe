@@ -111,6 +111,47 @@ bool MinerApp::init() {
     hardware_pre_init(_board_spec);
     LOG_I("board model detected: %s", _board_spec.display_name.c_str());
 
+    // ── Board revision check: GPIO46 strapping pin ─────────────────────────
+    // QAxe++: GPIO46 = LOW,  QAxe++Rev6.1: GPIO46 = HIGH.
+    // Only the two QAxe++ revisions carry this pin; other boards skip the check.
+    // A mismatch (wrong firmware flashed on the wrong revision) raises the
+    // same SYS_EVENT_WRONG_FIRMWARE full-screen warning as the ASIC check.
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61)
+    {
+        // Board revision strapping pin:
+        //   QAxe++       : GPIO46 = LOW  (tied to GND)
+        //   QAxe++Rev6.1 : GPIO46 = HIGH (tied to 3V3)
+        // Read once at boot (before any power rail is enabled) to detect a
+        // firmware/revision mismatch, i.e. QAxe++ firmware flashed onto a
+        // Rev6.1 board or vice versa. Only the two QAxe++ revisions carry
+        // this pin; other boards skip the check entirely.
+        constexpr uint8_t BOARD_REV_DETECT_PIN = 46;
+        const char* detected = "NMQAxe++";
+        const char* expected = "NMQAxe++";
+        bool expect_high = false;
+#if defined(BOARD_NMQAXE_PP_REV61)
+        detected = "NMQAxe++Rev6.1";
+        expected = "NMQAxe++Rev6.1";
+        expect_high = true;
+#endif
+        pinMode(BOARD_REV_DETECT_PIN, INPUT);
+        delay(10);
+        uint8_t s1 = digitalRead(BOARD_REV_DETECT_PIN);
+        delay(50);
+        uint8_t s2 = digitalRead(BOARD_REV_DETECT_PIN);
+        delay(100);
+        uint8_t s3 = digitalRead(BOARD_REV_DETECT_PIN);
+        // Stable level = majority vote of the three samples.
+        uint8_t level = ((s1 + s2 + s3) >= 2) ? 1 : 0;
+        if (level != (expect_high ? 1 : 0)) {
+            _board_rev_mismatch_board = detected;
+            LOG_E("Board revision mismatch! Firmware for %s running on %s (GPIO%d=%d)",
+                  expected, detected, BOARD_REV_DETECT_PIN, level);
+            xEventGroupSetBits(_sync_system->sys_evt, SYS_EVENT_WRONG_FIRMWARE);
+        }
+    }
+#endif
+
     // If benchmark mode was persisted, override the nominal ASIC operating
     // point here before any downstream object is created from _board_spec. This keeps
     // power/miner construction aligned with the benchmark resume state.

@@ -1191,8 +1191,16 @@ bool OverlayManager::_render_wrong_firmware_overlay(EventBits_t bits) {
     if (!(bits & SYS_EVENT_WRONG_FIRMWARE)) return false;
 
     const MinerApp& app = MinerApp::instance();
-    String body = String("Expected ") + app.spec().asic.name +
-                  "\non " + app.spec().display_name;
+    String body;
+    if (app.board_rev_mismatch_board().length() > 0) {
+        // GPIO46 revision check failed: firmware built for one QAxe++ revision
+        // is running on the other. Show the detected board, not the ASIC name.
+        body = String("Expected ") + app.spec().display_name +
+               "\non " + app.board_rev_mismatch_board();
+    } else {
+        body = String("Expected ") + app.spec().asic.name +
+               "\non " + app.spec().display_name;
+    }
     _show_wrong_firmware_overlay(body);
     return true;
 }

@@ -33,6 +33,7 @@ public:
     const MinerStatus* status() const { return _state_miner; }
     const BoardSpecConfig& spec() const { return _board_spec; }
     BoardSpecConfig& spec_mut() { return _board_spec; }
+    const String& board_rev_mismatch_board() const { return _board_rev_mismatch_board; }
     const TempState& temp() const { return _state_temp; }
     const PowerTelemetry& pwr_tele() const { return _state_power_telemetry; }
     const std::vector<fan_status_t>& fan_status() const { return _state_fans; }
@@ -82,6 +83,7 @@ private:
     // ── Platform-wide synchronization / ownership roots ────────────────────
     SystemSync* _sync_system = nullptr;          // init/sys event groups + reboot gate
     BoardSpecConfig _board_spec;                 // resolved runtime board spec
+    String _board_rev_mismatch_board;            // non-empty when GPIO46 revision check failed (detected board name)
 
     // ── Persistent configuration restored from NVS ─────────────────────────
     WifiConnConfig _config_wifi;                 // WiFi STA/AP identity and host name
