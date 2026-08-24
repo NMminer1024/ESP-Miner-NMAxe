@@ -3,8 +3,144 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFiClient.h>
+#include <WiFi.h>
 #include <string.h>
 #include <algorithm>
+
+// ── Binance DNS / connection cache ─────────────────────────────────────────
+// data-api.binance.vision is a hostname; lwIP does NOT cache DNS results, so a
+// naive http.begin(url) triggers a fresh getaddrinfo() on every request, and the
+// market task issues several requests per MINER_MARKET_UPDATE_INTERVAL. A slow or
+// unreachable DNS server can block past the 5 s task-watchdog window and crash the
+// (market) task. We resolve once, cache the IP with a TTL, back off on repeated
+// failures, and only re-resolve when the cached IP stops working.
+namespace {
+constexpr uint32_t MARKET_DNS_TTL_MS         = 30UL * 60UL * 1000UL; // 30 min: reuse cached IP
+constexpr uint32_t MARKET_DNS_RETRY_MIN_MS   = 5UL  * 60UL * 1000UL; // 5 min: min gap between DNS retries
+constexpr uint32_t MARKET_DNS_BACKOFF_MS     = 10UL * 60UL * 1000UL; // 10 min: after repeated DNS failures
+constexpr uint32_t MARKET_DNS_MAX_FAILS      = 3;                    // consecutive DNS failures -> backoff
+constexpr uint32_t MARKET_CONN_FAIL_MAX      = 3;                    // cached-IP failures -> re-resolve
+constexpr uint32_t MARKET_CONNECT_TIMEOUT_MS = 3000;                 // TCP connect timeout < TWDT 5 s
+constexpr uint32_t MARKET_READ_TIMEOUT_MS    = 4000;                 // stream read deadline < TWDT 5 s
+constexpr uint32_t MARKET_BODY_MAX_BYTES     = 16UL * 1024UL;        // cap for buffered JSON bodies
+
+struct BinanceHostCache {
+    IPAddress ip;
+    bool      valid         = false;
+    uint32_t  cached_at     = 0;
+    uint32_t  conn_failures = 0;
+    uint32_t  dns_failures  = 0;
+    uint32_t  next_dns_at   = 0;   // earliest time a new DNS query is allowed
+};
+BinanceHostCache g_binance_host;
+
+// Resolve MARKET_HOST once and cache the IP. Returns true (and fills out) when a
+// usable IP is available right now; returns false when we should skip the network
+// request this cycle (inside the retry/backoff window after DNS failures).
+bool resolve_binance_host(IPAddress& out) {
+    const uint32_t now = millis();
+
+    if (g_binance_host.valid &&
+        (now - g_binance_host.cached_at) < MARKET_DNS_TTL_MS) {
+        out = g_binance_host.ip;
+        return true;
+    }
+
+    if (now < g_binance_host.next_dns_at) {
+        return false;   // still in retry/backoff window
+    }
+
+    IPAddress ip;
+    if (WiFi.hostByName(MARKET_HOST, ip)) {
+        g_binance_host.ip            = ip;
+        g_binance_host.valid         = true;
+        g_binance_host.cached_at     = now;
+        g_binance_host.dns_failures  = 0;
+        g_binance_host.conn_failures = 0;
+        g_binance_host.next_dns_at   = 0;
+        out = ip;
+        return true;
+    }
+
+    g_binance_host.valid = false;
+    g_binance_host.dns_failures++;
+    if (g_binance_host.dns_failures >= MARKET_DNS_MAX_FAILS) {
+        g_binance_host.next_dns_at  = now + MARKET_DNS_BACKOFF_MS;
+        g_binance_host.dns_failures = 0;
+        LOG_W("Binance DNS failed %u times, backing off %u ms.",
+              (unsigned)MARKET_DNS_MAX_FAILS, (unsigned)MARKET_DNS_BACKOFF_MS);
+    } else {
+        g_binance_host.next_dns_at = now + MARKET_DNS_RETRY_MIN_MS;
+    }
+    return false;
+}
+
+void note_binance_conn_failure() {
+    g_binance_host.conn_failures++;
+    if (g_binance_host.conn_failures >= MARKET_CONN_FAIL_MAX) {
+        // Cached IP no longer works (CDN rotation, etc.) — drop it so the next
+        // cycle re-resolves, but keep a retry guard to avoid DNS storms.
+        g_binance_host.valid         = false;
+        g_binance_host.conn_failures = 0;
+        g_binance_host.next_dns_at   = millis() + MARKET_DNS_RETRY_MIN_MS;
+    }
+}
+
+void note_binance_conn_success() {
+    g_binance_host.conn_failures = 0;
+}
+
+// Establish a TCP connection to Binance using the cached/resolved IP (no DNS on
+// the hot path). Returns true if connected, false if this cycle should be skipped.
+bool binance_connect(WiFiClient& client) {
+    IPAddress ip;
+    if (!resolve_binance_host(ip)) {
+        return false;
+    }
+    if (client.connect(ip, (uint16_t)atoi(MARKET_PORT), MARKET_CONNECT_TIMEOUT_MS)) {
+        client.setTimeout(MARKET_READ_TIMEOUT_MS);   // bound every later read/readBytes
+        return true;
+    }
+    note_binance_conn_failure();
+    return false;
+}
+
+// Read the HTTP response body into `out`, bounded by a byte cap and a wall-clock
+// deadline. Returns true when EOF is reached cleanly; false on timeout/overflow.
+// This prevents deserializeJson() from stalling indefinitely if the server hangs
+// mid-body (which would otherwise block the market task past the TWDT window).
+bool read_http_body(HTTPClient& http, String& out, uint32_t max_bytes, uint32_t timeout_ms) {
+    WiFiClient* stream = http.getStreamPtr();
+    if (!stream) return false;
+
+    out = String();
+    out.reserve((size_t)(max_bytes < 1024u ? max_bytes : 1024u));
+
+    const uint32_t deadline = millis() + timeout_ms;
+    uint8_t buf[256];
+    while (out.length() < max_bytes) {
+        if (millis() > deadline) {
+            LOG_W("HTTP body read timed out after %u ms (%u bytes buffered).",
+                  (unsigned)timeout_ms, (unsigned)out.length());
+            return false;
+        }
+        int avail = stream->available();
+        if (avail <= 0) {
+            if (!stream->connected()) break;   // peer closed: clean EOF
+            delay(1);
+            continue;
+        }
+        int to_read = (avail < (int)sizeof(buf)) ? avail : (int)sizeof(buf);
+        if ((uint32_t)to_read > max_bytes - out.length()) {
+            to_read = (int)(max_bytes - out.length());
+        }
+        int n = stream->readBytes(buf, to_read);
+        if (n <= 0) break;
+        out.concat((const char*)buf, (unsigned)n);
+    }
+    return true;
+}
+} // namespace
 
 // https://developers.binance.com/docs/zh-CN/binance-spot-api-docs/rest-api/market-data-endpoints
 bool MarketClass::fetch_available_usdt_pairs() {
@@ -20,13 +156,23 @@ bool MarketClass::fetch_available_usdt_pairs() {
     http.setConnectTimeout(MARKET_HTTP_TIMEOUT_MS);
     http.addHeader("Connection", "close");
 
+    // Pre-connect via the cached IP *after* begin() so the Host header stays the
+    // domain name; HTTPClient::connect() then reuses this socket and skips DNS.
+    if (!binance_connect(client)) {
+        LOG_D("Binance unreachable (DNS/connect), skip ticker list fetch.");
+        http.end();
+        return false;
+    }
+
     int httpCode = http.GET();
     if (httpCode != HTTP_CODE_OK) {
         LOG_E("Failed to fetch ticker list. HTTP code: %d, error: %s",
               httpCode, http.errorToString(httpCode).c_str());
+        note_binance_conn_failure();
         http.end();
         return false;
     }
+    note_binance_conn_success();
 
     this->_pairsBufLen = 0;
     this->_pairsCount  = 0;
@@ -45,9 +191,15 @@ bool MarketClass::fetch_available_usdt_pairs() {
     uint8_t  sym_pos    = 0;
     uint16_t found      = 0;
     uint32_t bytes_since_yield = 0;
+    const uint32_t read_deadline = millis() + MARKET_READ_TIMEOUT_MS;
 
     uint8_t chunk[128];
     while ((remaining != 0) && (stream->connected() || stream->available())) {
+        if (millis() > read_deadline) {
+            LOG_W("Ticker list read timed out after %u ms (%d pairs so far).",
+                  (unsigned)MARKET_READ_TIMEOUT_MS, (int)found);
+            break;
+        }
         int avail = stream->available();
         if (avail == 0) { delay(1); continue; }
 
@@ -117,10 +269,19 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol, CoinPrice &out) {
     http.setConnectTimeout(MARKET_HTTP_TIMEOUT_MS);
     http.addHeader("Connection", "close");        // don't keep-alive; free sockets promptly
 
+    if (!binance_connect(client)) return false;
+
     int httpCode = http.GET();
     if (httpCode == HTTP_CODE_OK) {
+        note_binance_conn_success();
+        String body;
+        if (!read_http_body(http, body, 4096, MARKET_READ_TIMEOUT_MS)) {
+            LOG_E("Ticker body read failed/timeout for %s.", symbol.c_str());
+            http.end();
+            return false;
+        }
         BasicJsonDocument<PsramJsonAllocator> doc(800);
-        DeserializationError error = deserializeJson(doc, http.getStream());
+        DeserializationError error = deserializeJson(doc, body);
         http.end();
         delay(1);
         if (!error) {
@@ -135,6 +296,7 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol, CoinPrice &out) {
     } else {
         LOG_E("Failed to get 24hr ticker data. HTTP code: %d, error: %s",
               httpCode, http.errorToString(httpCode).c_str());
+        note_binance_conn_failure();
         http.end();
     }
     return false;
@@ -188,13 +350,17 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
     http.setConnectTimeout(MARKET_HTTP_TIMEOUT_MS);
     http.addHeader("Connection", "close");
 
+    if (!binance_connect(client)) return;
+
     int httpCode = http.GET();
     if (httpCode != HTTP_CODE_OK) {
         LOG_E("[Watchlist] Batch fetch failed. HTTP code: %d, error: %s",
               httpCode, http.errorToString(httpCode).c_str());
+        note_binance_conn_failure();
         http.end();
         return;
     }
+    note_binance_conn_success();
 
     // Filter: only keep symbol / lastPrice / priceChangePercent to save RAM
     StaticJsonDocument<128> filter;
@@ -202,9 +368,16 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
     filter[0]["lastPrice"]          = true;
     filter[0]["priceChangePercent"] = true;
 
+    String body;
+    if (!read_http_body(http, body, MARKET_BODY_MAX_BYTES, MARKET_READ_TIMEOUT_MS)) {
+        LOG_E("[Watchlist] Body read failed/timeout.");
+        http.end();
+        return;
+    }
+
     // PSRAM-backed JsonDocument sized for the filtered result (~150 bytes per entry)
     BasicJsonDocument<PsramJsonAllocator> doc(150 * symbols.size() + 256);
-    DeserializationError error = deserializeJson(doc, http.getStream(),
+    DeserializationError error = deserializeJson(doc, body,
                                                  DeserializationOption::Filter(filter));
     http.end();
     delay(1);
