@@ -30,7 +30,7 @@ void PageConfig240x135::_create_dynamic(lv_obj_t* parent) {
     _lb_logo = lv_img_create(parent);
 #if defined(BOARD_NMAXE_GAMMA)
     lv_img_set_src(_lb_logo, &logo_worker_nmaxegamma);
-#elif defined(BOARD_NMAXE) || defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#elif defined(BOARD_NMAXE) || defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
     lv_img_set_src(_lb_logo, &logo_worker_nmaxe);
 #else
     #error "No board model defined. Add -D BOARD_<model> in platformio.ini"

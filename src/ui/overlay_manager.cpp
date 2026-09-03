@@ -1152,7 +1152,7 @@ bool OverlayManager::_render_find_overlay(uint32_t now, EventBits_t bits) {
     lv_obj_clear_flag(_lb_title, LV_OBJ_FLAG_HIDDEN);
     lv_obj_align(_lb_title, LV_ALIGN_CENTER, 0, -18);
 
-#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
     const bool is_touch = true;
 #elif defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
     const bool is_touch = false;

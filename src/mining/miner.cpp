@@ -203,7 +203,7 @@ bool AsicMinerClass::mining(pool_job_data_t *pool_job){
     // else LOG_W("Unknown ASIC model, using default step 8");
 #if defined(BOARD_NMAXE)
     step = 8;
-#elif defined(BOARD_NMAXE_GAMMA) || defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#elif defined(BOARD_NMAXE_GAMMA) || defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
     step = 24;
 #else
     #error "Unknown board type for ASIC job step size"

@@ -1833,7 +1833,7 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             String gif_name;
 #if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
             gif_name = "screen_saver_240x135.gif";
-#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
             gif_name = "screen_saver_320x240.gif";
 #else
             #error "No board model defined. Add -D BOARD_<model> in platformio.ini"

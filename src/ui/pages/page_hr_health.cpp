@@ -172,7 +172,7 @@ void PageHr_healthBase::_on_update() {
         lv_label_set_text(_lb_hr_unit, hr_unit.c_str());
     }
 
-#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
     if (_show_asic_pie) {
         // Use board-design expected chip count (num_req), not runtime detected count.
         // This ensures all sectors always show — a dead chip simply stays at 0%.

@@ -133,7 +133,7 @@ void PageMinerBase::_on_update() {
     m.fan_symbol_color = fan_color;
 
     if (_lb_blk_hit) {
-#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
         const bool is_pp = true;
 #elif defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
         const bool is_pp = false;

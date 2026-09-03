@@ -70,7 +70,7 @@ void PageClockBase::_sync_time_and_date() {
                                                      lv_obj_get_style_text_font(_lb_ampm, LV_PART_MAIN),
                                                      0, LV_TEXT_FLAG_NONE);
             lv_obj_set_width(_lb_ampm, ampm_width);
-#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
             lv_obj_align(_lb_ampm, LV_ALIGN_CENTER, width / 1.7f, -32);
 #elif defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
             lv_obj_align(_lb_ampm, LV_ALIGN_CENTER, width / 1.5f, 2);
