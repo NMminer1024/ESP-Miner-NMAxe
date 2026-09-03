@@ -1212,9 +1212,19 @@ void power_init_thread_entry(void* args) {
     // set vcore voltage to required voltage
     power->set_vcore_voltage(spec.asic.req_vcore);
     power->set_vcore_status(PWR_ON);
+    if (spec.pwr.en_pins.pwr_vcore >= 0) {
+        LOG_W("Vcore EN pin (GPIO %d) commanded HIGH, MCU-side readback = %s",
+              spec.pwr.en_pins.pwr_vcore,
+              digitalRead(spec.pwr.en_pins.pwr_vcore) == HIGH ? "HIGH" : "LOW");
+    }
+    uint8_t vcore_wait_dbg_counter = 0;
     while (!power->is_vcore_ready()) {
         delay(500);
         LOG_W("Waiting for vcore power setup...");
+        if (++vcore_wait_dbg_counter >= 4) {   // every ~2s, dump VOUT/STATUS_WORD to see why it's not ready
+            vcore_wait_dbg_counter = 0;
+            power->debugPrint();
+        }
     }
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VCORE_READY);
     delay(500);
@@ -1357,6 +1367,11 @@ void fan_thread_entry(void* args) {
         else          LOG_W("TMP102 VRM : FAIL (no response)");
         if (asic_ok)  LOG_D("TMP102 ASIC: OK %.1fC", asic_avg);
         else          LOG_W("TMP102 ASIC: FAIL (no response)");
+        static bool asic_detail_printed = false;
+        if (asic_ok && !asic_detail_printed) {
+            tmp102_debug_print(TMP102_IIC_ASIC_ADDR, "ASIC");
+            asic_detail_printed = true;
+        }
         if (vcore_ok && asic_ok) break;
         LOG_E("TMP102 self test failed, retrying...");
         delay(retry_delay_ms);

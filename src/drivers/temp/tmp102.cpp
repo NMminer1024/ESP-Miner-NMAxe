@@ -86,6 +86,23 @@ float get_asic_temperature(){
     return NAN;
 }
 
+void tmp102_debug_print(uint8_t chipaddr, const char* label){
+    float temp = NAN;
+    uint16_t config = 0;
+    bool temp_ok = get_temperature(chipaddr, &temp);
+    bool cfg_ok  = get_config(chipaddr, &config);
+    if (!temp_ok) {
+        LOG_W("TMP102 %s (0x%02X): temperature read failed", label, chipaddr);
+        return;
+    }
+    // CR1:CR0 sit at bits [7:6] of the 12-bit config value returned by get_config()
+    // (see the >>4 shift in get_config()); 00=0.25Hz 01=1Hz 10=4Hz 11=8Hz conversion rate.
+    uint8_t conv_rate = (config >> 6) & 0x03;
+    static const char* conv_rate_str[4] = {"0.25Hz", "1Hz", "4Hz", "8Hz"};
+    LOG_I("TMP102 %s (0x%02X): %.2f C, config=0x%04X (conv_rate=%s)%s",
+          label, chipaddr, temp, config, conv_rate_str[conv_rate], cfg_ok ? "" : " [config read failed]");
+}
+
 // ---------------------------------------------------------------------------
 // Temperature HAL registration helpers
 // ---------------------------------------------------------------------------

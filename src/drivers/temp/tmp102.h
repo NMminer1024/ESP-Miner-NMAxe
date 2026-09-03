@@ -16,6 +16,9 @@ void tmp102_init();
 float get_vcore_temperature();
 float get_asic_temperature();
 
+// Logs address/temperature/config register for one channel (chipaddr = TMP102_IIC_*_ADDR).
+void tmp102_debug_print(uint8_t chipaddr, const char* label);
+
 // Register TMP102 channels into the temperature HAL
 void tmp102_register_vcore_temp_hal(void); // vcore only
 void tmp102_register_asic_temp_hal(void);  // asic only

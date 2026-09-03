@@ -278,9 +278,14 @@ double AsicMinerClass::get_asic_diff(){
 }
 
 uint8_t AsicMinerClass::connect_chip(){
-    // this->_asic_count = 2;
-    // return this->_asic_count;// for testing
-
+#if defined(BOARD_NMQAXE_PP_NEXUS) && defined(NEXUS_ASIC_BENCH_STUB)
+    // TEMPORARY bench-test stub: no ASIC soldered yet, fakes chip detection so the
+    // rest of the boot sequence (mining threads, "Wrong firmware?" check) proceeds.
+    // Remove NEXUS_ASIC_BENCH_STUB from platformio.ini once the real BM1373s are soldered.
+    LOG_W("NEXUS_ASIC_BENCH_STUB active: faking 2 x %s chips, no physical ASIC present", this->_asic_name);
+    this->_asic_count = 2;
+    return this->_asic_count;
+#endif
     this->_asic->reset();
     this->_asic_count = this->_asic->get_asic_count();
     if(0 == this->_asic_count) {
