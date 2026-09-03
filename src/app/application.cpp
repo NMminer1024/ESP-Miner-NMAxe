@@ -700,6 +700,7 @@ void MinerApp::_tick_thread_entry(void* args) {
     uint32_t loading_stage_ms = millis();
     uint32_t loading_detail_ms = 0;
     uint32_t asic_fw_ms = 0;
+    float    loading_t_vrm = 0.0f, loading_t_asic = 0.0f;
 
     xEventGroupWaitBits(app._sync_system->init_evt, INIT_EVENT_SCREEN_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     uint8_t boot_brightness = app._config_pref.screen.brightness ? app._config_pref.screen.brightness : 80;
@@ -816,10 +817,16 @@ void MinerApp::_tick_thread_entry(void* args) {
                     break;
 
                 case LoadingStage::WAIT_TMP: {
-                    float t_vrm  = temp_hal_get_vcore();
-                    float t_asic = temp_hal_get_asic();
-                    String vrm_str  = isnan(t_vrm)  ? "NAN" : (String(t_vrm, 1) + "C");
-                    String asic_str = isnan(t_asic) ? "NAN" : (String(t_asic, 1) + "C");
+                    // Throttle temperature sampling to 500ms. On a wrong-firmware
+                    // board the VRM/TPS53647 sensor is absent and every read logs
+                    // an error, so sampling at the 10ms UI rate floods the console.
+                    if (loading_detail_ms == 0 || now - loading_detail_ms >= 500) {
+                        loading_t_vrm  = temp_hal_get_vcore();
+                        loading_t_asic = temp_hal_get_asic();
+                        loading_detail_ms = now;
+                    }
+                    String vrm_str  = isnan(loading_t_vrm)  ? "NAN" : (String(loading_t_vrm, 1) + "C");
+                    String asic_str = isnan(loading_t_asic) ? "NAN" : (String(loading_t_asic, 1) + "C");
                     set_loading(50, String(TMP_CHK_STR[anim_idx]) + " " + vrm_str + "/" + asic_str, 0xFFFFFF);
                     if ((ib & INIT_EVENT_TMP_READY) != 0) {
                         set_loading(50, String("Temp Pass  ") + vrm_str + "/" + asic_str, 0x00FF00);
@@ -1076,7 +1083,7 @@ void MinerApp::_tick_thread_entry(void* args) {
         }
 
         if (!app._state_fans.empty()) {
-#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81) || defined(BOARD_NMQAXE_PP_NEXUS)
             if (app._state_fans.size() > 1) {
                 AppState::instance().miner.fan.text = String((unsigned)app._state_fans[1].rpm) + "/" +
                                                       String((unsigned)app._state_fans[0].rpm);
@@ -1324,7 +1331,7 @@ bool MinerApp::_ui_init() {
     // Screensaver GIF path (uploaded via web). Filename matches http upload handler.
 #if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
     octx.gif_path = "/screen_saver_240x135.gif";
-#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
     octx.gif_path = "/screen_saver_320x240.gif";
 #else
     #error "No board model defined. Add -D BOARD_<model> in platformio.ini"

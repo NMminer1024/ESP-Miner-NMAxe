@@ -1011,7 +1011,7 @@ void config_monitor_thread_entry(void* args) {
         if (st.client_connected == false) {
             // For NMQAxe++: the UI thread owns the decrement (lv_indev touch detect);
             // this thread only fires the reboot when timeout reaches 0.
-#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81) || defined(BOARD_NMQAXE_PP_NEXUS)
             if (st.config_timeout == 0) {
                 LOG_W("WiFi configuration timeout, rebooting...");
                 reboot_intent_set(REBOOT_INTENT_WIFI_CONFIG_TIMEOUT,
@@ -1175,20 +1175,28 @@ void power_init_thread_entry(void* args) {
     // Vcore bring-up itself remains gated on sufficient Vbus.
     const EventBits_t vcore_gate_bits = INIT_EVENT_FAN_READY | INIT_EVENT_WIFI_STA_CONNECTED;
     uint32_t last_vbus_warn_ms = 0;
+    uint32_t last_vbus_read_ms = 0;
+    uint32_t cached_vbus_mv   = 0;
     while (true) {
         EventBits_t gate = xEventGroupWaitBits(ctx->init_evt,
                                                vcore_gate_bits,
                                                pdFALSE, pdTRUE,
                                                pdMS_TO_TICKS(100));
-        bool vbus_ready = power->get_vbus() >= spec.pwr.vbus_min_required;
+        uint32_t now = millis();
+        // Throttle the PMBus READ_VIN poll to 1s: on a wrong-firmware board the
+        // TPS53647 is absent and every read logs an error, flooding the console.
+        if (last_vbus_read_ms == 0 || now - last_vbus_read_ms >= 1000) {
+            cached_vbus_mv = power->get_vbus();
+            last_vbus_read_ms = now;
+        }
+        bool vbus_ready = cached_vbus_mv >= spec.pwr.vbus_min_required;
         if (vbus_ready) {
             xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VBUS_READY);
         } else {
             xEventGroupClearBits(ctx->init_evt, INIT_EVENT_VBUS_READY);
-            uint32_t now = millis();
             if (last_vbus_warn_ms == 0 || now - last_vbus_warn_ms >= 1000) {
                 LOG_W("Vbus is %.2fV , at least %.2fV required...",
-                      power->get_vbus() / 1000.0, spec.pwr.vbus_min_required / 1000.0);
+                      cached_vbus_mv / 1000.0, spec.pwr.vbus_min_required / 1000.0);
                 last_vbus_warn_ms = now;
             }
         }
@@ -1326,6 +1334,10 @@ void fan_thread_entry(void* args) {
     tmp102_init();
 
     // TMP102 self-test: retry until both sensors pass (3-sample average each attempt)
+    // Exponential back-off: on a wrong-firmware board the VRM (TPS53647) is absent,
+    // so retrying at a fixed 500ms floods the console with read errors. Back off
+    // up to 5s to throttle those logs without touching the low-level driver.
+    uint32_t retry_delay_ms = 500;
     while (true) {
         float vcore_sum = 0, asic_sum = 0;
         int   vcore_cnt = 0, asic_cnt = 0;
@@ -1347,7 +1359,9 @@ void fan_thread_entry(void* args) {
         else          LOG_W("TMP102 ASIC: FAIL (no response)");
         if (vcore_ok && asic_ok) break;
         LOG_E("TMP102 self test failed, retrying...");
-        delay(500);
+        delay(retry_delay_ms);
+        retry_delay_ms *= 2;
+        if (retry_delay_ms > 5000) retry_delay_ms = 5000;
     }
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_TMP_READY);
 
@@ -2092,7 +2106,7 @@ void button_thread_entry(void* args) {
 #if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
                 UIManager::instance().start_factory_countdown();
                 return;
-#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81) || defined(BOARD_NMQAXE_PP_NEXUS)
 #else
                 #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
 #endif
@@ -2103,7 +2117,7 @@ void button_thread_entry(void* args) {
             if (c->on_activity) c->on_activity();
 #if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
                 UIManager::instance().cancel_factory_countdown();
-#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81) || defined(BOARD_NMQAXE_PP_NEXUS)
 #else
                 #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
 #endif
@@ -2113,7 +2127,7 @@ void button_thread_entry(void* args) {
             if (c->on_activity) c->on_activity();
 #if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
                 UIManager::instance().tick_factory_countdown();
-#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81) || defined(BOARD_NMQAXE_PP_NEXUS)
 #else
                 #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
 #endif
@@ -2161,7 +2175,7 @@ void led_thread_entry(void* args) {
         ledcSetup(pwmChannel, freq, resolution);
         ledcAttachPin(spec.led.sys_pin, pwmChannel);
         ledcWrite(pwmChannel, 255); // off
-#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
         strip = new Adafruit_NeoPixel(8, spec.led.sys_pin, NEO_GRB + NEO_KHZ800);
         while (!strip) {
             LOG_E("Failed to create NeoPixel instance for SYS LED");
@@ -2210,7 +2224,7 @@ void led_thread_entry(void* args) {
             uint8_t speed = (ctx->status->hashrate._3m > 0) ? 1 : 20;
             ledcWrite(pwmChannel, (uint32_t)((1 + sin(speed * led_cnt / 100.0f)) * (1 << resolution - 1)));
             led_cnt++;
-#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)
+#elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
             if (pref.led.sleep || !pref.led.enable) {
                 for (int i = 0; i < strip->numPixels(); i++) strip->setPixelColor(i, strip->Color(0, 0, 0));
                 strip->show();
