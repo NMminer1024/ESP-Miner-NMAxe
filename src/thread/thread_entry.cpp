@@ -1294,7 +1294,7 @@ void power_loop_thread_entry(void* args) {
                 }
             }
         }
-#if 0
+#if 1
         {
             static uint32_t last_debug = millis();
             if (millis() - last_debug >= 3000) {
@@ -1316,7 +1316,7 @@ void power_loop_thread_entry(void* args) {
                   vcore_measure, spec.asic.req_vcore, err);
             continue;
         }
-        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV",
+        LOG_W("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV",
               vcore_measure, spec.asic.req_vcore, err, err / 5);
         static uint32_t vcore_set = spec.asic.req_vcore;
         vcore_set -= err / 2; // half error correction

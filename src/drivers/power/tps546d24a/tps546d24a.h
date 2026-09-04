@@ -95,6 +95,10 @@ struct tps546d24a_cfg_t {
     uint16_t vout_min_mv;     // hardware protective VOUT_MIN clamp, mV (wide; tight range is set_vcore_range())
     uint16_t vout_max_mv;     // hardware protective VOUT_MAX clamp, mV (wide; tight range is set_vcore_range())
     float    reg_ibus_sample; // ibus shunt scale for the external ADC path (chip has no READ_IIN register)
+    uint8_t  vcore_series_count; // number of ASIC dies stacked in SERIES on the Vcore rail
+                                 // (1 = single die / parallel, 2 = series pair). The user-facing
+                                 // per-die mV is multiplied by this to form the rail VOUT_COMMAND,
+                                 // and READ_VOUT is divided by it to report per-die mV.
 };
 
 class TPS546D24AClass: public AxePowerHal{
@@ -102,8 +106,9 @@ private:
     uint8_t       _i2c_addr;
     bool          _device_ok;                // false until hw_init() confirms the device responds; guards runtime reads
     int8_t        _vcore_pgood_pin;          // -1 => no PGOOD GPIO wired, fall back to PMBus STATUS_WORD
-    uint16_t      _vcore_min_mv;             // Vcore range min in mV, ASIC-related
-    uint16_t      _vcore_max_mv;             // Vcore range max in mV, ASIC-related
+    uint16_t      _vcore_min_mv;             // Vcore range min in mV (per-die), ASIC-related
+    uint16_t      _vcore_max_mv;             // Vcore range max in mV (per-die), ASIC-related
+    uint8_t       _vcore_series_count;       // ASIC dies stacked in series on Vcore (1 = single/parallel)
     tps546d24a_cfg_t _cfg;
     uint8_t  _read_reg(uint8_t regaddr, uint8_t *data, uint8_t length);
     uint8_t  _read_block(uint8_t regaddr, uint8_t *data, uint8_t data_length); // SMBus block read: consumes the leading byte-count byte, returns it (0xFF on I2C error)
@@ -116,12 +121,14 @@ private:
     uint16_t _float_to_slinear11(float x);
     uint16_t _mv_to_ulinear16(uint16_t mv);
     uint16_t _ulinear16_to_mv(uint16_t raw);
+    void     _write_vout_limit_ratios(uint16_t rail_mv); // OV/UV fault+warn limits, ratio-of-rail (chip silently clamps UV limits set too far below VOUT_MAX otherwise)
 public:
     TPS546D24AClass(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t pgood, uint8_t plug, tps546d24a_cfg_t cfg)
         : AxePowerHal(en_pins, adc_pins), _cfg(cfg) {
         this->_i2c_addr        = cfg.i2c_addr;
         this->_device_ok       = false;
         this->_vcore_pgood_pin = (int8_t)pgood;
+        this->_vcore_series_count = (cfg.vcore_series_count >= 1) ? cfg.vcore_series_count : 1;
     }
     ~TPS546D24AClass();
     /** Implementations of pure virtual functions from AxePowerHal */

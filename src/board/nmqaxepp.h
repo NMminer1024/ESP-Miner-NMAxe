@@ -52,7 +52,16 @@ inline AxePowerHal* create_nexus_3ph_power_instance(axe_pwr_enable_pin_t en_pins
     tps546d24a_cfg_t cfg = {
         0x14,   // i2c_addr (measured: ADRSEL Rtop=46.4k/Rbot=10.0k -> address 0x14)
         3,      // num_phases
-        0.5f,   // vout_scale_loop (fixed by the master's VSEL resistor strap -- do not change without re-measuring VSEL)
+        0.25f,  // vout_scale_loop: 1.0 was wrong (assumed no FB divider). Real data says
+                //   otherwise — cmd 3000mV keeps measuring ~750mV actual (ratio ~0.25,
+                //   not 1.0), and the earlier 0.5 test literally halved the rail
+                //   (cmd 3000mV -> ~1500mV), proving output = VOUT_COMMAND * vout_scale_loop
+                //   on this part. 0.25 matches shufps/NerdQAxePlus's own single-domain
+                //   TPS546 default (rev7/TPS546.h TPS546_INIT_SCALE_LOOP); their series-
+                //   stacked config uses 0.125. This also explains why STATUS_VOUT's
+                //   MIN_MAX_CLAMP was persistently set: VOUT_MAX is converted through this
+                //   same wrong scale internally, so the real DAC-side ceiling was clamped
+                //   far below 3.1V, not just a stale latched bit.
         156.0f, // ifault_total (52A/phase x 3, chip divides by phase count automatically)
         120.0f, // iwarn_total  (40A/phase x 3)
         125.0f, // tfault
@@ -62,8 +71,11 @@ inline AxePowerHal* create_nexus_3ph_power_instance(axe_pwr_enable_pin_t en_pins
         1700,   // vout_min_mv (hardware protective clamp, wide)
         3100,   // vout_max_mv (hardware protective clamp, wide)
         0.003f, // reg_ibus_sample -- TODO: confirm actual ibus shunt value on this board
+        2,      // vcore_series_count: 2 BM1373 dies stacked in SERIES on Vcore
     };
     return new TPS546D24AClass(en_pins, adc_pins, pgood, plug, cfg);
 }
+
+
 
 #endif // __NMQAXEPP_BOARD_H_

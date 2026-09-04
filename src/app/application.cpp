@@ -380,7 +380,7 @@ void MinerApp::_begin_power(BootProgress& boot) {
     _ctx_power = &ctx;
 
     _create_task(power_init_thread_entry, "(pwr_init)", 1024 * 7, _ctx_power, TASK_PRIORITY_PWR, 1);
-    _create_task(power_loop_thread_entry, "(pwr_loop)", 1024 * 3, _ctx_power, TASK_PRIORITY_PWR, 1);
+    _create_task(power_loop_thread_entry, "(pwr_loop)", 1024 * 4, _ctx_power, TASK_PRIORITY_PWR, 1);
 }
 
 void MinerApp::_begin_wifi_connect(BootProgress& boot) {

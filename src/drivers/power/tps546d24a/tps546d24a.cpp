@@ -25,29 +25,31 @@ TPS546D24AClass::~TPS546D24AClass(){
 }
 
 uint8_t TPS546D24AClass::_read_reg(uint8_t regaddr, uint8_t *data, uint8_t length) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    esp_err_t ret = ESP_FAIL;
+    for (uint8_t attempt = 0; attempt < 2; attempt++) {
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, regaddr, ACK_CHECK_EN);
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+        i2c_master_write_byte(cmd, regaddr, ACK_CHECK_EN);
 
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_READ, ACK_CHECK_EN);
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_READ, ACK_CHECK_EN);
 
-    if (length > 1) {
-        i2c_master_read(cmd, data, length - 1, (i2c_ack_type_t)ACK_VAL);
+        if (length > 1) {
+            i2c_master_read(cmd, data, length - 1, (i2c_ack_type_t)ACK_VAL);
+        }
+        i2c_master_read_byte(cmd, data + length - 1, (i2c_ack_type_t)NACK_VAL);
+        i2c_master_stop(cmd);
+
+        ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
+        i2c_cmd_link_delete(cmd);
+
+        if (ret == ESP_OK) return 0;
+        if (attempt == 0) delay(10); // chip busy after certain writes NACKs a read within a couple ms; 10ms matches the OPERATION-write precedent below
     }
-    i2c_master_read_byte(cmd, data + length - 1, (i2c_ack_type_t)NACK_VAL);
-    i2c_master_stop(cmd);
-
-    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
-    i2c_cmd_link_delete(cmd);
-
-    if (ret != ESP_OK) {
-        LOG_E("TPS546D24A read register 0x%02X failed: %d", regaddr, ret);
-        return 1;
-    }
-    return 0;
+    LOG_E("TPS546D24A read register 0x%02X failed after retry: %d", regaddr, ret);
+    return 1;
 }
 
 // SMBus block-read protocol (used by IC_DEVICE_ID/MFR_ID/MFR_MODEL/etc.): unlike a plain
@@ -83,53 +85,61 @@ uint8_t TPS546D24AClass::_read_block(uint8_t regaddr, uint8_t *data, uint8_t dat
 }
 
 void TPS546D24AClass::_write_byte(uint8_t regaddr, uint8_t data) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    esp_err_t ret = ESP_FAIL;
+    for (uint8_t attempt = 0; attempt < 2; attempt++) {
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+        i2c_master_write_byte(cmd, regaddr, ACK_CHECK_EN);
+        i2c_master_write_byte(cmd, data, ACK_CHECK_EN);
+        i2c_master_stop(cmd);
 
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, regaddr, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, data, ACK_CHECK_EN);
-    i2c_master_stop(cmd);
+        ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
+        i2c_cmd_link_delete(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
-    i2c_cmd_link_delete(cmd);
-
-    if (ret != ESP_OK) {
-        LOG_E("TPS546D24A write register 0x%02X failed: %d", regaddr, ret);
+        if (ret == ESP_OK) return;
+        if (attempt == 0) delay(10); // 2ms was proven insufficient: OV/UV limit writes right after VOUT_MIN/MAX failed every time even with a retry at 2ms
     }
+    LOG_E("TPS546D24A write register 0x%02X failed after retry: %d", regaddr, ret);
 }
 
 void TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, regaddr, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, (uint8_t)(data & 0x00FF), ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, (uint8_t)((data & 0xFF00) >> 8), ACK_CHECK_EN);
-    i2c_master_stop(cmd);
+    esp_err_t ret = ESP_FAIL;
+    for (uint8_t attempt = 0; attempt < 2; attempt++) {
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+        i2c_master_write_byte(cmd, regaddr, ACK_CHECK_EN);
+        i2c_master_write_byte(cmd, (uint8_t)(data & 0x00FF), ACK_CHECK_EN);
+        i2c_master_write_byte(cmd, (uint8_t)((data & 0xFF00) >> 8), ACK_CHECK_EN);
+        i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
-    i2c_cmd_link_delete(cmd);
+        ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
+        i2c_cmd_link_delete(cmd);
 
-    if (ret != ESP_OK) {
-        LOG_E("TPS546D24A write word register 0x%02X failed: %d", regaddr, ret);
+        if (ret == ESP_OK) return;
+        if (attempt == 0) delay(10); // 2ms was proven insufficient: OV/UV limit writes right after VOUT_MIN/MAX failed every time even with a retry at 2ms
     }
+    LOG_E("TPS546D24A write word register 0x%02X failed after retry: %d", regaddr, ret);
 }
 
 void TPS546D24AClass::_write_cmd(uint8_t cmd) {
-    i2c_cmd_handle_t command = i2c_cmd_link_create();
+    esp_err_t ret = ESP_FAIL;
+    for (uint8_t attempt = 0; attempt < 2; attempt++) {
+        i2c_cmd_handle_t command = i2c_cmd_link_create();
 
-    i2c_master_start(command);
-    i2c_master_write_byte(command, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(command, cmd, ACK_CHECK_EN);
-    i2c_master_stop(command);
+        i2c_master_start(command);
+        i2c_master_write_byte(command, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+        i2c_master_write_byte(command, cmd, ACK_CHECK_EN);
+        i2c_master_stop(command);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, command, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
-    i2c_cmd_link_delete(command);
+        ret = i2c_master_cmd_begin(I2C_MASTER_NUM, command, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
+        i2c_cmd_link_delete(command);
 
-    if (ret != ESP_OK) {
-        LOG_E("TPS546D24A write command 0x%02X failed: %d", cmd, ret);
+        if (ret == ESP_OK) return;
+        if (attempt == 0) delay(10);
     }
+    LOG_E("TPS546D24A write command 0x%02X failed after retry: %d", cmd, ret);
 }
 
 // Address-only probe (no data) across the whole 7-bit range; used when the configured
@@ -288,6 +298,16 @@ void TPS546D24AClass::hw_init(void){
     // is enforced in software by set_vcore_range() / set_vcore_voltage() below.
     this->_write_word(PMBUS_VOUT_MIN, this->_mv_to_ulinear16(this->_cfg.vout_min_mv));
     this->_write_word(PMBUS_VOUT_MAX, this->_mv_to_ulinear16(this->_cfg.vout_max_mv));
+    delay(10); // back-to-back word writes right after VOUT_MIN/MAX were seen to NACK/timeout at 2ms even with a retry
+
+    // These 4 were never written before, so the chip enforced whatever OV/UV thresholds
+    // were left over from POR/NVM defaults (not matched to this rail's 1.7-3.1V window) —
+    // symptom seen: a real ~0.75V readout tripped a stale OV_WARN while genuine UV never
+    // latched. Ratio-of-rail here (re-applied on every set_vcore_voltage() call below) —
+    // a fixed offset from vout_min_mv was tried first and got silently clamped by the chip
+    // to ~82-88% of VOUT_MAX (readback: 2549/2729mV against a requested 1500/1600mV),
+    // so the limits must track the actual commanded rail, not the wide hw clamp window.
+    this->_write_vout_limit_ratios(this->_cfg.vout_min_mv);
 
     // Soft-start ramp time.
     this->_write_word(PMBUS_TON_RISE, this->_float_to_slinear11(this->_cfg.ton_rise_ms));
@@ -301,10 +321,16 @@ void TPS546D24AClass::hw_init(void){
     this->_write_word(PMBUS_IOUT_OC_WARN_LIMIT,  this->_float_to_slinear11(this->_cfg.iwarn_total));
     this->_write_word(PMBUS_IOUT_OC_FAULT_LIMIT, this->_float_to_slinear11(this->_cfg.ifault_total));
 
+    // Reconfiguring VOUT_MIN/MAX/limits above while OPERATION was already ON can latch
+    // transient STATUS_VOUT/IOUT bits (sticky until cleared) that don't reflect the final
+    // config — clear them so debugPrint()/is_vcore_ready() start from a clean state.
+    this->_write_cmd(PMBUS_CLEAR_FAULTS);
+
     // ── Read-back verification ────────────────────────────────────────────────
     {
         uint16_t rb_scale = 0, rb_vmin = 0, rb_vmax = 0, rb_ton_rise = 0;
         uint16_t rb_oc_warn = 0, rb_oc_fault = 0, rb_ot_warn = 0, rb_ot_fault = 0;
+        uint16_t rb_ov_fault = 0, rb_ov_warn = 0, rb_uv_warn = 0, rb_uv_fault = 0;
         uint16_t rb_stack = 0;
         uint8_t  rb_sync = 0;
         this->_read_reg(PMBUS_VOUT_SCALE_LOOP,        (uint8_t*)&rb_scale,    2);
@@ -315,6 +341,10 @@ void TPS546D24AClass::hw_init(void){
         this->_read_reg(PMBUS_IOUT_OC_FAULT_LIMIT,    (uint8_t*)&rb_oc_fault, 2);
         this->_read_reg(PMBUS_OT_WARN_LIMIT,          (uint8_t*)&rb_ot_warn,  2);
         this->_read_reg(PMBUS_OT_FAULT_LIMIT,         (uint8_t*)&rb_ot_fault, 2);
+        this->_read_reg(PMBUS_VOUT_OV_FAULT_LIMIT,    (uint8_t*)&rb_ov_fault, 2);
+        this->_read_reg(PMBUS_VOUT_OV_WARN_LIMIT,     (uint8_t*)&rb_ov_warn,  2);
+        this->_read_reg(PMBUS_VOUT_UV_WARN_LIMIT,     (uint8_t*)&rb_uv_warn,  2);
+        this->_read_reg(PMBUS_VOUT_UV_FAULT_LIMIT,    (uint8_t*)&rb_uv_fault, 2);
         this->_read_reg(PMBUS_MFR_SPECIFIC_28,        (uint8_t*)&rb_stack,    2);
         this->_read_reg(PMBUS_SYNC_CONFIG,            &rb_sync,               1);
         LOG_W("[TPS546D24A] readback: SCALE_LOOP=%.3f VOUT_MIN=%dmV VOUT_MAX=%dmV TON_RISE=%.2fms",
@@ -323,6 +353,9 @@ void TPS546D24AClass::hw_init(void){
         LOG_W("[TPS546D24A] readback: IOUT_OC_WARN=%.1fA IOUT_OC_FAULT=%.1fA OT_WARN=%.1fC OT_FAULT=%.1fC STACK_CONFIG=0x%04X SYNC_CONFIG=0x%02X",
               this->_slinear11_to_float(rb_oc_warn), this->_slinear11_to_float(rb_oc_fault),
               this->_slinear11_to_float(rb_ot_warn), this->_slinear11_to_float(rb_ot_fault), rb_stack, rb_sync);
+        LOG_W("[TPS546D24A] readback: VOUT_OV_FAULT=%dmV VOUT_OV_WARN=%dmV VOUT_UV_WARN=%dmV VOUT_UV_FAULT=%dmV",
+              this->_ulinear16_to_mv(rb_ov_fault), this->_ulinear16_to_mv(rb_ov_warn),
+              this->_ulinear16_to_mv(rb_uv_warn), this->_ulinear16_to_mv(rb_uv_fault));
     }
 }
 
@@ -383,10 +416,24 @@ void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
         return;
     }
 
-    uint16_t volt_mv = (req_mv <= this->_vcore_min_mv) ? this->_vcore_min_mv : ((req_mv >= this->_vcore_max_mv) ? this->_vcore_max_mv : req_mv);
-    uint16_t raw = this->_mv_to_ulinear16(volt_mv);
+    // req_mv is the user-facing per-die voltage. Clamp to the per-die range first, then
+    // scale by the series count to form the actual regulator rail voltage.
+    uint16_t per_die_mv = (req_mv <= this->_vcore_min_mv) ? this->_vcore_min_mv : ((req_mv >= this->_vcore_max_mv) ? this->_vcore_max_mv : req_mv);
+    uint16_t rail_mv = (uint16_t)(per_die_mv * this->_vcore_series_count);
+    uint16_t raw = this->_mv_to_ulinear16(rail_mv);
     this->_write_word(PMBUS_VOUT_COMMAND, raw);
-    LOG_D("TPS546D24A VOUT_COMMAND -> %dmV (raw 0x%04X)", volt_mv, raw);
+    // OV/UV limits must track the commanded rail — a static window based on vout_min/max_mv
+    // gets silently clamped by the chip (see hw_init() comment) instead of NACKing.
+    this->_write_vout_limit_ratios(rail_mv);
+    LOG_W("TPS546D24A VOUT_COMMAND -> %dmV/die x%u = %dmV rail (raw 0x%04X)",
+          per_die_mv, this->_vcore_series_count, rail_mv, raw);
+}
+
+void TPS546D24AClass::_write_vout_limit_ratios(uint16_t rail_mv){
+    this->_write_word(PMBUS_VOUT_OV_FAULT_LIMIT, this->_mv_to_ulinear16((uint16_t)(rail_mv * 1.25f)));
+    this->_write_word(PMBUS_VOUT_OV_WARN_LIMIT,  this->_mv_to_ulinear16((uint16_t)(rail_mv * 1.10f)));
+    this->_write_word(PMBUS_VOUT_UV_WARN_LIMIT,  this->_mv_to_ulinear16((uint16_t)(rail_mv * 0.90f)));
+    this->_write_word(PMBUS_VOUT_UV_FAULT_LIMIT, this->_mv_to_ulinear16((uint16_t)(rail_mv * 0.75f)));
 }
 
 void TPS546D24AClass::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
@@ -407,19 +454,43 @@ uint32_t TPS546D24AClass::get_vbus(void){
 }
 
 uint32_t TPS546D24AClass::get_ibus(void){
-    // TPS546D24A has no READ_IIN register — read the board's external shunt-sense ADC instead.
+    // ADC path (active) — measured true INPUT current via the
+    // board's external shunt-sense ADC on the DC input side:
     uint32_t vadc = this->get_ibus_adc();   // mV, from the MCU ADC
     float shunt_mv = (float)vadc / GAIN_IBUS_SAMPLE;
     uint32_t current_ma = (uint32_t)(shunt_mv / this->_cfg.reg_ibus_sample);
     LOG_D("Ibus ADC raw %umV -> %.2fmV shunt -> %umA", vadc, shunt_mv, current_ma);
     return current_ma;
+
+    // // PMBus path (commented out for rollback): the TPS546D24A has NO READ_IIN
+    // // register, so there is no true input-current telemetry. READ_IOUT (0x8C)
+    // // reports the stack OUTPUT current (SLINEAR11, PHASE=0xFF => total across
+    // // phases) — NOT the input bus current.
+    // if (!this->_device_ok) return 0;
+    // uint16_t raw = 0;
+    // this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
+    // float iout_a = this->_slinear11_to_float(raw);
+    // uint32_t iout_ma = (uint32_t)(iout_a * 1000.0f);
+    // LOG_D("Iout PMBus 0x%04X -> %.3f A -> %u mA", raw, iout_a, iout_ma);
+    // return iout_ma;
 }
 
 uint32_t TPS546D24AClass::get_vcore(void){
-    uint32_t vadc     = this->get_vcore_adc();
-    uint32_t vcore_mv = (uint32_t)(vadc * GAIN_VCORE_SAMPLE);
-    LOG_D("[TPS546D24A] ADC vcore %u mV (x%.1f gain -> %u mV)", vadc, GAIN_VCORE_SAMPLE, vcore_mv);
-    return vcore_mv;
+    // ADC path (commented out for rollback):
+    //   uint32_t vadc     = this->get_vcore_adc();
+    //   uint32_t vcore_mv = (uint32_t)(vadc * GAIN_VCORE_SAMPLE);
+    //   LOG_D("[TPS546D24A] ADC vcore %u mV (x%.1f gain -> %u mV)", vadc, GAIN_VCORE_SAMPLE, vcore_mv);
+    //   return vcore_mv;
+
+    // PMBus path: READ_VOUT (0x8B) → ULINEAR16 (VOUT_MODE N=-9) → rail mV → per-die mV
+    if (!this->_device_ok) return 0;
+    uint16_t raw = 0;
+    this->_read_reg(PMBUS_READ_VOUT, (uint8_t*)&raw, 2);
+    uint32_t rail_mv = (uint32_t)this->_ulinear16_to_mv(raw);
+    uint32_t per_die_mv = (rail_mv + this->_vcore_series_count / 2) / this->_vcore_series_count;
+    LOG_D("[TPS546D24A] Vcore PMBus 0x%04X -> %u mV rail / %u = %u mV/die",
+          raw, rail_mv, this->_vcore_series_count, per_die_mv);
+    return per_die_mv;
 }
 
 float TPS546D24AClass::get_temperature(void) {
@@ -475,12 +546,16 @@ void TPS546D24AClass::debugPrint(void){
 
     uint16_t status_word        = 0;
     uint8_t  status_iout        = 0;
+    uint8_t  status_vout        = 0;
+    uint8_t  status_input       = 0;
     uint8_t  status_temp        = 0;
     uint8_t  status_mfr         = 0;
     uint16_t raw_temp           = 0;
     uint16_t raw_iout_oc_fault_limit = 0;
     this->_read_reg(PMBUS_STATUS_WORD,            (uint8_t*)&status_word, 2);
     this->_read_reg(PMBUS_STATUS_IOUT,            &status_iout,           1);
+    this->_read_reg(PMBUS_STATUS_VOUT,            &status_vout,           1);
+    this->_read_reg(PMBUS_STATUS_INPUT,           &status_input,          1);
     this->_read_reg(PMBUS_STATUS_TEMPERATURE,     &status_temp,           1);
     this->_read_reg(PMBUS_STATUS_MFR_SPECIFIC,    &status_mfr,            1);
     this->_read_reg(PMBUS_READ_TEMPERATURE_1,     (uint8_t*)&raw_temp,    2);
@@ -488,12 +563,14 @@ void TPS546D24AClass::debugPrint(void){
     float temp_c = this->_slinear11_to_float(raw_temp);
     float iout_limit_a = this->_slinear11_to_float(raw_iout_oc_fault_limit);
 
-    char buf[560];
+    char buf[720];
     snprintf(buf, sizeof(buf),
         "\n-----------TPS546D24A OC MONITOR-----------"
         "\n  VOUT = %.3f V (cmd %.3f V)  IOUT = %.2f A  (stack limit: %.1f A)"
         "\n  TEMP = %.1f \xc2\xb0" "C (hottest phase)"
-        "\n  STATUS_IOUT = 0x%02X  [OC_FAULT:%d  OC_WARN:%d]"
+        "\n  STATUS_VOUT  = 0x%02X  [OV_FAULT:%d  OV_WARN:%d  UV_WARN:%d  UV_FAULT:%d  MIN_MAX_CLAMP:%d  TON_MAX_FAULT:%d]"
+        "\n  STATUS_IOUT  = 0x%02X  [OC_FAULT:%d  OC_WARN:%d  bit4(reserved_per_datasheet):%d]"
+        "\n  STATUS_INPUT = 0x%02X  [VIN_OV_FAULT:%d  VIN_UV_FAULT:%d  IIN_OC_FAULT:%d]"
         "\n  STATUS_TEMP = 0x%02X  [OT_FAULT:%d  OT_WARN:%d]"
         "\n  STATUS_MFR_SPECIFIC = 0x%02X  [POR_FAULT:%d  SELF_FAULT:%d]"
         "\n  STATUS_WORD = 0x%04X"
@@ -502,7 +579,9 @@ void TPS546D24AClass::debugPrint(void){
         vout, vout_cmd,
         iout, iout_limit_a,
         temp_c,
-        status_iout, (status_iout >> 7) & 1, (status_iout >> 5) & 1,
+        status_vout, (status_vout >> 7) & 1, (status_vout >> 6) & 1, (status_vout >> 5) & 1, (status_vout >> 4) & 1, (status_vout >> 3) & 1, (status_vout >> 2) & 1,
+        status_iout, (status_iout >> 7) & 1, (status_iout >> 5) & 1, (status_iout >> 4) & 1,
+        status_input, (status_input >> 7) & 1, (status_input >> 4) & 1, (status_input >> 2) & 1,
         status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1,
         status_mfr, (status_mfr >> 7) & 1, (status_mfr >> 6) & 1,
         status_word,

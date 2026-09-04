@@ -819,19 +819,18 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.count     = 0;
     config.asic.diff_thr_init        = 1024 * 2;
     config.asic.default_frq          = 325;
-    // Nexus's 2 BM1373 dies are Vcore-series-stacked (not parallel like Rev8.1) — the
-    // regulator output must be ~2x the per-die voltage so each die drops its own share.
-    // All values below are the regulator's total VOUT_COMMAND target, i.e. 2x the
-    // equivalent per-die number used on Rev8.1 (900-1500mV/die -> 1800-3000mV rail).
-    config.asic.default_vcore        = 2000;
-    config.asic.min_vcore            = 1800;
-    config.asic.max_vcore            = 3000;
+    // Nexus's 2 BM1373 dies are Vcore-series-stacked (not parallel like Rev8.1), but the
+    // series scaling is handled INSIDE TPS546D24AClass (vcore_series_count=2), so all the
+    // values below are user-facing PER-DIE numbers identical to Rev8.1 (900-1500mV/die).
+    config.asic.default_vcore        = 1000;
+    config.asic.min_vcore            = 900;
+    config.asic.max_vcore            = 1500;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 25.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 250.0f};
     config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 900.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {1.8f, 3.0f};
-    config.ui.dashboard_page.performance.vcore_measure  = {1.8f, 3.0f};
+    config.ui.dashboard_page.performance.vcore_req      = {0.9f, 1.5f};
+    config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 1.5f};
     config.ui.setting_page.oc = {
             {"300 MHz",           300},
             {"325 MHz(default)",  325},
@@ -859,28 +858,28 @@ BoardSpecConfig get_board_config_compile_time() {
             {"875 MHz",           875},
             {"900 MHz",           900},
         };
-    // Values are the actual regulator rail (2x per-die), matching min/max_vcore above.
+    // Per-die voltages (identical to Rev8.1); the series rail is derived inside the driver.
     config.ui.setting_page.vc = {
-            {"1800 mV (900mV/die)",             1800},
-            {"1850 mV (925mV/die)",             1850},
-            {"1900 mV (950mV/die)",             1900},
-            {"2000 mV (1000mV/die, default)",   2000},
-            {"2050 mV (1025mV/die)",            2050},
-            {"2100 mV (1050mV/die)",            2100},
-            {"2150 mV (1075mV/die)",            2150},
-            {"2200 mV (1100mV/die)",            2200},
-            {"2250 mV (1125mV/die)",            2250},
-            {"2300 mV (1150mV/die)",            2300},
-            {"2350 mV (1175mV/die)",            2350},
-            {"2400 mV (1200mV/die)",            2400},
-            {"2450 mV (1225mV/die)",            2450},
-            {"2500 mV (1250mV/die)",            2500},
-            {"2550 mV (1275mV/die)",            2550},
-            {"2600 mV (1300mV/die)",            2600},
-            {"2650 mV (1325mV/die)",            2650},
-            {"2700 mV (1350mV/die)",            2700},
-            {"2750 mV (1375mV/die)",            2750},
-            {"2800 mV (1400mV/die)",            2800},
+            {"900 mV",            900},
+            {"925 mV",            925},
+            {"950 mV",            950},
+            {"1000 mV (default)", 1000},
+            {"1025 mV",           1025},
+            {"1050 mV",           1050},
+            {"1075 mV",           1075},
+            {"1100 mV",           1100},
+            {"1125 mV",           1125},
+            {"1150 mV",           1150},
+            {"1175 mV",           1175},
+            {"1200 mV",           1200},
+            {"1225 mV",           1225},
+            {"1250 mV",           1250},
+            {"1275 mV",           1275},
+            {"1300 mV",           1300},
+            {"1325 mV",           1325},
+            {"1350 mV",           1350},
+            {"1375 mV",           1375},
+            {"1400 mV",           1400},
         };
     config.create_power_instance     = create_nexus_3ph_power_instance; // TPS546D24A, 3-phase (1 master + 2 slaves)
     config.setup_temp_hal = [](AxePowerHal* pwr) {
