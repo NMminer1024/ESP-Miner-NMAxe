@@ -750,24 +750,23 @@ void miner_rx_thread_entry(void* args) {
         const uint32_t now_ms = millis();
 
         if (g_hcn_cache.seen[asic_id]) {
-            if (hcn.hash_count < g_hcn_cache.prev_cnt[asic_id]) {
-                // Counter moved backwards (ASIC reset/reinit/noise). Reset this channel baseline.
-                g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
-                g_hcn_cache.prev_ms[asic_id]  = now_ms;
-                g_hcn_cache.gh_s[asic_id] = 0.0f;
-                g_hcn_cache.gh_ms[asic_id] = 0;
-                g_hcn_cache.sample_count[asic_id] = 0;
-                xSemaphoreGive(g_hcn_cache.mutex);
-                return;
-            }
-
+            // Unsigned wraparound subtraction: correctly handles the register rolling
+            // over past UINT32_MAX (legit at these rates only after weeks of uptime).
+            // A real ASIC reset/reinit (counter jumps back near 0) instead yields a huge
+            // d_cnt close to 2^32, which the raw_ghs sanity check below rejects anyway -
+            // no separate "moved backwards = reset" special case needed.
             const uint32_t d_cnt = hcn.hash_count - g_hcn_cache.prev_cnt[asic_id];
             const uint32_t d_ms  = now_ms - g_hcn_cache.prev_ms[asic_id];
             if (d_ms >= HCN_MIN_DELTA_MS) {
                 const float raw_ghs = (float)((double)d_cnt * 4294967296.0 / ((double)d_ms * 1000000.0));
                 if (!std::isfinite(raw_ghs) || raw_ghs < 0.0f || raw_ghs > hcn_max_ghs) {
+                    // Implausible rate: either noise or a genuine ASIC reset/reinit.
+                    // Reset this channel's baseline/EMA so the next sample re-warms clean.
                     g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
                     g_hcn_cache.prev_ms[asic_id]  = now_ms;
+                    g_hcn_cache.gh_s[asic_id] = 0.0f;
+                    g_hcn_cache.gh_ms[asic_id] = 0;
+                    g_hcn_cache.sample_count[asic_id] = 0;
                     xSemaphoreGive(g_hcn_cache.mutex);
                     return;
                 }
