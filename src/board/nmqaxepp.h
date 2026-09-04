@@ -70,7 +70,7 @@ inline AxePowerHal* create_nexus_3ph_power_instance(axe_pwr_enable_pin_t en_pins
         // per-die 900-1500mV window (1800-3000mV); clamp is widened with margin.
         1700,   // vout_min_mv (hardware protective clamp, wide)
         3100,   // vout_max_mv (hardware protective clamp, wide)
-        0.003f, // reg_ibus_sample -- TODO: confirm actual ibus shunt value on this board
+        0.003f, // reg_ibus_sample: 3 mΩ input shunt (confirmed on this board)
         2,      // vcore_series_count: 2 BM1373 dies stacked in SERIES on Vcore
     };
     return new TPS546D24AClass(en_pins, adc_pins, pgood, plug, cfg);

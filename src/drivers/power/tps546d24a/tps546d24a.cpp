@@ -13,6 +13,7 @@
 // (the TPS546D24A has no READ_IIN register, so ibus must go through the MCU ADC;
 // vcore is also read through the ADC for consistency with the previous design).
 #define GAIN_IBUS_SAMPLE                (50.0f)
+#define GAIN_VBUS_SAMPLE                (6.1f)   // input divider ratio (same as TPS53355/TPS53647 boards)
 #define GAIN_VCORE_SAMPLE               (2.0f)   // TODO: re-verify divider ratio on the new sense circuit
 
 // VOUT_MODE we program at init: REL=0 (absolute), MODE=00 (linear), N=-9 (1.953mV/LSB).
@@ -443,14 +444,21 @@ void TPS546D24AClass::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
 }
 
 uint32_t TPS546D24AClass::get_vbus(void){
-    if (!this->_device_ok) return 0;
-    // PMBus path: READ_VIN (0x88) → SLINEAR11 → V → mV
-    uint16_t raw = 0;
-    this->_read_reg(PMBUS_READ_VIN, (uint8_t*)&raw, 2);
-    float vin_v = this->_slinear11_to_float(raw);
-    uint32_t vin_mv = (uint32_t)(vin_v * 1000.0f);
-    LOG_D("Vbus PMBus 0x%04X -> %.3f V -> %u mV", raw, vin_v, vin_mv);
+    // ADC path (active) — measured true INPUT voltage via the board's external
+    // resistor-divider sense on the DC input side (do not read the TPS PMBus).
+    uint32_t vadc = this->get_vbus_adc();   // mV, from the MCU ADC (post-divider)
+    uint32_t vin_mv = (uint32_t)(vadc * GAIN_VBUS_SAMPLE);
+    LOG_D("Vbus ADC raw %umV -> %u mV", vadc, vin_mv);
     return vin_mv;
+
+    // // PMBus path (removed per request): READ_VIN (0x88) → SLINEAR11 → V → mV
+    // if (!this->_device_ok) return 0;
+    // uint16_t raw = 0;
+    // this->_read_reg(PMBUS_READ_VIN, (uint8_t*)&raw, 2);
+    // float vin_v = this->_slinear11_to_float(raw);
+    // uint32_t vin_mv = (uint32_t)(vin_v * 1000.0f);
+    // LOG_D("Vbus PMBus 0x%04X -> %.3f V -> %u mV", raw, vin_v, vin_mv);
+    // return vin_mv;
 }
 
 uint32_t TPS546D24AClass::get_ibus(void){
