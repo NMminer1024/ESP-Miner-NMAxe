@@ -2171,6 +2171,8 @@ void led_thread_entry(void* args) {
     PreferenceState& pref = *ctx->pref;
 
     const int pwmChannel = 3;
+    const int wifiPwmChannel = 4;
+    const int poolPwmChannel = 5;
     const int freq = 5 * 1000;
     const int resolution = 8;
 
@@ -2179,10 +2181,16 @@ void led_thread_entry(void* args) {
     if (spec.led.wifi_pin != -1) {
         pinMode(spec.led.wifi_pin, OUTPUT);
         digitalWrite(spec.led.wifi_pin, HIGH);
+        // [new] ledcSetup(wifiPwmChannel, freq, resolution);
+        // [new] ledcAttachPin(spec.led.wifi_pin, wifiPwmChannel);
+        // [new] ledcWrite(wifiPwmChannel, 255); // off
     }
     if (spec.led.pool_pin != -1) {
         pinMode(spec.led.pool_pin, OUTPUT);
         digitalWrite(spec.led.pool_pin, HIGH);
+        // [new] ledcSetup(poolPwmChannel, freq, resolution);
+        // [new] ledcAttachPin(spec.led.pool_pin, poolPwmChannel);
+        // [new] ledcWrite(poolPwmChannel, 255); // off
     }
     if (spec.led.sys_pin != -1) {
 #if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
@@ -2213,12 +2221,16 @@ void led_thread_entry(void* args) {
                 if (spec.led.wifi_pin != -1) digitalWrite(spec.led.wifi_pin, HIGH);
                 if (spec.led.pool_pin != -1) digitalWrite(spec.led.pool_pin, HIGH);
                 if (spec.led.sys_pin != -1)  ledcWrite(pwmChannel, 255);
+                // [new] if (spec.led.wifi_pin != -1) ledcWrite(wifiPwmChannel, 255);
+                // [new] if (spec.led.pool_pin != -1) ledcWrite(poolPwmChannel, 255);
                 continue;
             }
             if (ctx->ota_running && *ctx->ota_running) {
                 if (spec.led.wifi_pin != -1) digitalWrite(spec.led.wifi_pin, HIGH);
                 if (spec.led.pool_pin != -1) digitalWrite(spec.led.pool_pin, HIGH);
                 if (spec.led.sys_pin != -1)  ledcWrite(pwmChannel, 255);
+                // [new] if (spec.led.wifi_pin != -1) ledcWrite(wifiPwmChannel, 255);
+                // [new] if (spec.led.pool_pin != -1) ledcWrite(poolPwmChannel, 255);
                 continue;
             }
 
@@ -2238,6 +2250,10 @@ void led_thread_entry(void* args) {
 
             uint8_t speed = (ctx->status->hashrate._3m > 0) ? 1 : 20;
             ledcWrite(pwmChannel, (uint32_t)((1 + sin(speed * led_cnt / 100.0f)) * (1 << resolution - 1)));
+            // [new] uint32_t brightness = (uint32_t)((1 + sin(speed * led_cnt / 100.0f)) * (1 << resolution - 1));
+            // [new] if (spec.led.wifi_pin != -1) ledcWrite(wifiPwmChannel, brightness);
+            // [new] if (spec.led.pool_pin != -1) ledcWrite(poolPwmChannel, brightness);
+            // [new] if (spec.led.sys_pin != -1)  ledcWrite(pwmChannel, brightness);
             led_cnt++;
 #elif defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
             if (pref.led.sleep || !pref.led.enable) {
