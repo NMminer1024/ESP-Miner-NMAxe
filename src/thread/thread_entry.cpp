@@ -1294,7 +1294,9 @@ void power_loop_thread_entry(void* args) {
                 }
             }
         }
-#if 1
+#if defined(BOARD_NMQAXE_PP_NEXUS)
+        // Nexus-only: still bringing up power on an unpopulated board, so keep this
+        // verbose dump on. Other boards share this loop and must stay silent by default.
         {
             static uint32_t last_debug = millis();
             if (millis() - last_debug >= 3000) {
@@ -1316,8 +1318,13 @@ void power_loop_thread_entry(void* args) {
                   vcore_measure, spec.asic.req_vcore, err);
             continue;
         }
+#if defined(BOARD_NMQAXE_PP_NEXUS)
         LOG_W("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV",
               vcore_measure, spec.asic.req_vcore, err, err / 5);
+#else
+        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV",
+              vcore_measure, spec.asic.req_vcore, err, err / 5);
+#endif
         static uint32_t vcore_set = spec.asic.req_vcore;
         vcore_set -= err / 2; // half error correction
         vcore_set = (vcore_set < power->get_vcore_min()) ? power->get_vcore_min() : vcore_set;
