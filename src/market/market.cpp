@@ -22,7 +22,6 @@ constexpr uint32_t MARKET_DNS_MAX_FAILS      = 3;                    // consecut
 constexpr uint32_t MARKET_CONN_FAIL_MAX      = 3;                    // cached-IP failures -> re-resolve
 constexpr uint32_t MARKET_CONNECT_TIMEOUT_MS = 3000;                 // TCP connect timeout < TWDT 5 s
 constexpr uint32_t MARKET_READ_TIMEOUT_MS    = 4000;                 // stream read deadline < TWDT 5 s
-constexpr uint32_t MARKET_BODY_MAX_BYTES     = 16UL * 1024UL;        // cap for buffered JSON bodies
 
 struct BinanceHostCache {
     IPAddress ip;
@@ -105,41 +104,6 @@ bool binance_connect(WiFiClient& client) {
     return false;
 }
 
-// Read the HTTP response body into `out`, bounded by a byte cap and a wall-clock
-// deadline. Returns true when EOF is reached cleanly; false on timeout/overflow.
-// This prevents deserializeJson() from stalling indefinitely if the server hangs
-// mid-body (which would otherwise block the market task past the TWDT window).
-bool read_http_body(HTTPClient& http, String& out, uint32_t max_bytes, uint32_t timeout_ms) {
-    WiFiClient* stream = http.getStreamPtr();
-    if (!stream) return false;
-
-    out = String();
-    out.reserve((size_t)(max_bytes < 1024u ? max_bytes : 1024u));
-
-    const uint32_t deadline = millis() + timeout_ms;
-    uint8_t buf[256];
-    while (out.length() < max_bytes) {
-        if (millis() > deadline) {
-            LOG_W("HTTP body read timed out after %u ms (%u bytes buffered).",
-                  (unsigned)timeout_ms, (unsigned)out.length());
-            return false;
-        }
-        int avail = stream->available();
-        if (avail <= 0) {
-            if (!stream->connected()) break;   // peer closed: clean EOF
-            delay(1);
-            continue;
-        }
-        int to_read = (avail < (int)sizeof(buf)) ? avail : (int)sizeof(buf);
-        if ((uint32_t)to_read > max_bytes - out.length()) {
-            to_read = (int)(max_bytes - out.length());
-        }
-        int n = stream->readBytes(buf, to_read);
-        if (n <= 0) break;
-        out.concat((const char*)buf, (unsigned)n);
-    }
-    return true;
-}
 } // namespace
 
 // https://developers.binance.com/docs/zh-CN/binance-spot-api-docs/rest-api/market-data-endpoints
@@ -274,14 +238,10 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol, CoinPrice &out) {
     int httpCode = http.GET();
     if (httpCode == HTTP_CODE_OK) {
         note_binance_conn_success();
-        String body;
-        if (!read_http_body(http, body, 4096, MARKET_READ_TIMEOUT_MS)) {
-            LOG_E("Ticker body read failed/timeout for %s.", symbol.c_str());
-            http.end();
-            return false;
-        }
+        // Stream-parse directly: ArduinoJson stops as soon as the JSON document is
+        // complete, so we never depend on socket close/Content-Length to finish.
         BasicJsonDocument<PsramJsonAllocator> doc(800);
-        DeserializationError error = deserializeJson(doc, body);
+        DeserializationError error = deserializeJson(doc, http.getStream());
         http.end();
         delay(1);
         if (!error) {
@@ -368,16 +328,10 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
     filter[0]["lastPrice"]          = true;
     filter[0]["priceChangePercent"] = true;
 
-    String body;
-    if (!read_http_body(http, body, MARKET_BODY_MAX_BYTES, MARKET_READ_TIMEOUT_MS)) {
-        LOG_E("[Watchlist] Body read failed/timeout.");
-        http.end();
-        return;
-    }
-
-    // PSRAM-backed JsonDocument sized for the filtered result (~150 bytes per entry)
+    // PSRAM-backed JsonDocument sized for the filtered result (~150 bytes per entry).
+    // Stream-parse directly so ArduinoJson stops at end-of-JSON (no full-body buffer).
     BasicJsonDocument<PsramJsonAllocator> doc(150 * symbols.size() + 256);
-    DeserializationError error = deserializeJson(doc, body,
+    DeserializationError error = deserializeJson(doc, http.getStream(),
                                                  DeserializationOption::Filter(filter));
     http.end();
     delay(1);
