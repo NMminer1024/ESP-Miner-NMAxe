@@ -425,7 +425,7 @@ void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
     // OV/UV limits must track the commanded rail — a static window based on vout_min/max_mv
     // gets silently clamped by the chip (see hw_init() comment) instead of NACKing.
     this->_write_vout_limit_ratios(rail_mv);
-    LOG_W("TPS546D24A VOUT_COMMAND -> %dmV/die x%u = %dmV rail (raw 0x%04X)",
+    LOG_D("TPS546D24A VOUT_COMMAND -> %dmV/die x%u = %dmV rail (raw 0x%04X)",
           per_die_mv, this->_vcore_series_count, rail_mv, raw);
 }
 
