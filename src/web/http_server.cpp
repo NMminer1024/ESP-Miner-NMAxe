@@ -24,6 +24,21 @@ AsyncWebSocket  webSocket("/ws");
 // before any route is registered. The free-function request handlers read it.
 WebCtx* g_web = nullptr;
 
+// Log a web config change to the serial console. Every config-modifying
+// PATCH/POST handler calls this right after a successful JSON parse so the
+// operator can see exactly what the web UI sent.
+//
+// Each top-level field is logged on its own line (key = value) instead of
+// dumping the raw body, because the logger truncates a single line at 512
+// bytes — a long stratum URL would otherwise cut off the trailing fields
+// (e.g. asicVcoreReq / asicFreqReq).
+static void log_web_config_change(const char* endpoint, const JsonObject& root) {
+    for (const auto& kv : root) {
+        String val = kv.value().as<String>();
+        LOG_W("[web] config change %s: %s = %s", endpoint, kv.key().c_str(), val.c_str());
+    }
+}
+
 struct OtaLastResultSnapshot {
     bool valid;
     bool success;
@@ -368,6 +383,7 @@ void patch_setting_network(AsyncWebServerRequest* request, uint8_t *data, size_t
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
+        log_web_config_change("/api/setting/network", root.as<JsonObject>());
         if (root.containsKey("ssid"))     nvs_config_set_string(NVS_CONFIG_WIFI_SSID, root["ssid"].as<String>().c_str());
         if (root.containsKey("wifiPass")) nvs_config_set_string(NVS_CONFIG_WIFI_PASS, root["wifiPass"].as<String>().c_str());
         if (root.containsKey("hostname")) {
@@ -408,6 +424,7 @@ void patch_setting_time(AsyncWebServerRequest* request, uint8_t *data, size_t le
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
+        log_web_config_change("/api/setting/time", root.as<JsonObject>());
         if (root.containsKey("timezone")) {
             nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
             (*g_web->tz) = root["timezone"].as<String>();
@@ -499,6 +516,7 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
+        log_web_config_change("/api/setting/mining", root.as<JsonObject>());
         if (root.containsKey("stratum") && root["stratum"].is<JsonObject>()) {
             JsonObject stratum = root["stratum"].as<JsonObject>();
             if (stratum.containsKey("primary") && stratum["primary"].is<JsonObject>()) {
@@ -578,6 +596,7 @@ void patch_setting_market(AsyncWebServerRequest* request, uint8_t *data, size_t 
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
+        log_web_config_change("/api/setting/market", root.as<JsonObject>());
         if (root.containsKey("mainprice")) {
             nvs_config_set_string(NVS_CONFIG_PRICE_DISPLAY_COIN, root["mainprice"].as<String>().c_str());
             (*g_web->coin_price) = root["mainprice"].as<String>();
@@ -648,6 +667,7 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
+        log_web_config_change("/api/setting/preference", root.as<JsonObject>());
         if (root.containsKey("Brightness")) {
             uint8_t brightness = (root["Brightness"].as<uint8_t>() <=1) ? 1 : ((root["Brightness"].as<uint8_t>() >= 100) ? 100 : root["Brightness"].as<uint8_t>());
             g_web->pref->screen.brightness = brightness;
@@ -713,10 +733,6 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
                     }
                 }
             }
-        }
-
-        for(const auto &kv : root.as<JsonObject>()) {
-            LOG_W("Preference update: %s = %s", kv.key().c_str(), kv.value().as<String>().c_str());
         }
 
         request->send(200, "application/json", "{\"status\":\"ok\"}");
@@ -1246,6 +1262,7 @@ void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t le
         request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
         return;
     }
+    log_web_config_change("/api/theme", root.as<JsonObject>());
 
     if(root.containsKey("colorScheme")){
         nvs_config_set_string(NVS_CONFIG_THEME_SCHEME, root["colorScheme"].as<String>().c_str());
@@ -1326,6 +1343,7 @@ void patch_benchmark(AsyncWebServerRequest* request, uint8_t *data, size_t len, 
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
+        log_web_config_change("/api/benchmark", root.as<JsonObject>());
         if (root.containsKey("freqMin"))    nvs_config_set_u16(NVS_CONFIG_BM_FREQ_MIN,    root["freqMin"].as<uint16_t>());
         if (root.containsKey("freqMax"))    nvs_config_set_u16(NVS_CONFIG_BM_FREQ_MAX,    root["freqMax"].as<uint16_t>());
         if (root.containsKey("freqStep"))   nvs_config_set_u16(NVS_CONFIG_BM_FREQ_STEP,   root["freqStep"].as<uint16_t>());
