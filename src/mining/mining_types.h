@@ -34,6 +34,10 @@ enum MinerRuntimeState {
     MINER_RUNTIME_PAUSED,
     MINER_RUNTIME_RESUMING,
     MINER_RUNTIME_ERROR,
+    // Firmware-initiated fast Vcore power-cycle + ASIC reinit (HCN imbalance
+    // recovery). Distinct from the user pause/resume quartet so user_paused is
+    // never set and the mining-pause overlay stays hidden (silent recovery).
+    MINER_RUNTIME_AUTO_REINITING,
 };
 
 static inline const char* miner_runtime_state_to_string(MinerRuntimeState state) {
@@ -43,6 +47,7 @@ static inline const char* miner_runtime_state_to_string(MinerRuntimeState state)
         case MINER_RUNTIME_PAUSED:   return "paused";
         case MINER_RUNTIME_RESUMING: return "resuming";
         case MINER_RUNTIME_ERROR:    return "error";
+        case MINER_RUNTIME_AUTO_REINITING: return "auto_reiniting";
         default:                     return "unknown";
     }
 }
@@ -103,12 +108,15 @@ struct MinerStatus {
 
     // Controlled-idle: miner is intentionally not hashing (paused/resuming/error).
     // Power/fan loops use this to suppress vcore regulation and activity checks.
+    // AUTO_REINITING included so the fast recovery path is shielded from the
+    // daemon/power-loop checks for its ~2s duration without touching them.
     bool is_controlled_idle() const {
         return user_paused ||
                runtime_state == MINER_RUNTIME_PAUSING ||
                runtime_state == MINER_RUNTIME_PAUSED  ||
                runtime_state == MINER_RUNTIME_RESUMING ||
-               runtime_state == MINER_RUNTIME_ERROR;
+               runtime_state == MINER_RUNTIME_ERROR   ||
+               runtime_state == MINER_RUNTIME_AUTO_REINITING;
     }
     bool in_resume_grace(uint32_t now_ms) const {
         if (resume_grace_until_ms == 0) return false;

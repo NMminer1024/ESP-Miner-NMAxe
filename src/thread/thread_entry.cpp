@@ -70,6 +70,43 @@ constexpr float    HR_DIAG_PEAK_DECAY    = 0.999f;// per-second decay so the pea
 // reply decodes". Diagnostic only, a stale read by a few counts is harmless.
 static volatile uint32_t g_hcn_poll_sent_total = 0;
 
+// ── Auto-reinit on HCN per-channel imbalance (silent Vcore power-cycle) ──────
+// Motivation: on Vcore-series-stacked boards (e.g. NMQAxe++Nexus, 2xBM1373) the
+// midpoint voltage is unregulated and can drift as the dies warm unevenly; the
+// under-volted die then hashes far below its sibling while TOTAL rail power is
+// unchanged. The only reliable firmware recovery is a Vcore off->on edge (the
+// midpoint re-divides at the rising edge while both dies are cold) followed by
+// a full ASIC reinit. Detection runs in the monitor thread against the HCN
+// (0x90) per-channel EMA; execution is a dedicated branch in the miner-tx
+// control lambda via MINER_RUNTIME_AUTO_REINITING (never sets user_paused, so
+// the pause overlay stays hidden and the web pause/resume API is untouched).
+constexpr float    AR_IMBALANCE_RATIO    = 0.60f;  // trigger when min < ratio * max
+constexpr uint32_t AR_SUSTAIN_SEC        = 30;     // condition must hold this long (1s ticks)
+constexpr float    AR_MIN_MAX_GHS        = 500.0f; // ignore when even the best channel is weak
+constexpr uint32_t AR_COOLDOWN_MS        = 15 * 60 * 1000u;  // min gap between auto re-inits
+constexpr uint8_t  AR_MAX_ATTEMPTS       = 5;      // give up for the session after this many
+constexpr uint32_t AR_DISCHARGE_MS       = 800;    // Vcore off time before re-powering
+constexpr uint32_t AR_READY_TIMEOUT_MS   = 3000;   // is_vcore_ready() poll ceiling
+constexpr uint32_t AR_READY_POLL_MS      = 50;     // is_vcore_ready() poll step
+constexpr uint32_t AR_POST_CHECK_MS      = 30 * 1000u;  // post-reinit recovery verdict delay
+constexpr uint8_t  AR_REJECT_STREAK      = 3;      // consecutive rejected 0x90 samples that trigger a reinit
+
+// Cross-thread request: written once by the monitor-thread detector, consumed by
+// the miner-tx control lambda. volatile fields suffice (single writer, single
+// reader; a torn snapshot only costs one cycle of delay).
+typedef struct {
+    volatile bool     pending = false;
+    volatile float    min_ghs = 0.0f;
+    volatile float    max_ghs = 0.0f;
+    volatile uint8_t  min_ch  = 0;
+    volatile uint8_t  max_ch  = 0;
+    volatile uint32_t sustain_sec = 0;
+    volatile uint8_t  attempt = 0;
+    volatile uint8_t  reason  = 0;    // 0 = channel imbalance, 1 = reject streak
+    volatile float    last_raw_ghs = 0.0f;  // reason 1: the rejected raw rate that broke the streak
+} ar_request_t;
+static ar_request_t g_ar_request;
+
 typedef struct {
     SemaphoreHandle_t mutex;
     bool inited;
@@ -98,6 +135,14 @@ typedef struct {
     float    diag_last_reject_raw_ghs;
     uint32_t diag_last_reject_d_cnt;
     uint32_t diag_last_reject_d_ms;
+
+    // Consecutive-reject streak: incremented on every rejected raw_ghs sample, reset on
+    // any accepted one. Used by the monitor-thread auto-reinit detector so it can react
+    // in ~6s (3 polls) to a persistently-garbage 0x90 counter instead of waiting 30s
+    // for the staleness filter to drop all channels first.
+    uint8_t  reject_streak;
+    float    last_reject_raw_ghs;
+    uint8_t  last_reject_ch;
 } hcn_hashrate_cache_t;
 
 static hcn_hashrate_cache_t g_hcn_cache = {0};
@@ -123,6 +168,7 @@ static void hcn_cache_reset(const char* reason) {
     memset(g_hcn_cache.gh_ms, 0, sizeof(g_hcn_cache.gh_ms));
     memset(g_hcn_cache.sample_count, 0, sizeof(g_hcn_cache.sample_count));
     g_hcn_cache.last_log_ms = 0;
+    g_hcn_cache.reject_streak = 0;
 
     xSemaphoreGive(g_hcn_cache.mutex);
     LOG_W("HCN cache reset: %s", reason ? reason : "unknown");
@@ -560,6 +606,89 @@ void miner_tx_thread_entry(void* args) {
         if (miner == nullptr || power == nullptr) return false;
 
         MinerRuntimeState state = st.runtime_state;
+
+        // Firmware-initiated fast reinit (HCN imbalance recovery). Compressed copy
+        // of the RESUMING sequence: no user_paused (pause overlay stays hidden),
+        // short fixed discharge, fast ready polling. On any failure we fall into
+        // MINER_RUNTIME_ERROR, which is also controlled-idle: the daemon's
+        // power-low / hashrate-low watchdogs stay suppressed and only the generic
+        // ASIC-frozen path (if no nonce ever arrives) can escalate to a reboot.
+        if (state == MINER_RUNTIME_AUTO_REINITING) {
+            const float    req_min    = g_ar_request.min_ghs;
+            const float    req_max    = g_ar_request.max_ghs;
+            const uint8_t  req_min_ch = g_ar_request.min_ch;
+            const uint8_t  req_max_ch = g_ar_request.max_ch;
+            const uint32_t req_sus    = g_ar_request.sustain_sec;
+            const uint8_t  req_att    = g_ar_request.attempt;
+            const uint8_t  req_reason = g_ar_request.reason;
+            const float    req_raw    = g_ar_request.last_raw_ghs;
+            g_ar_request.pending = false;
+            if (req_reason == 1) {
+                LOG_W("[ASIC-REINIT] HCN reject streak: %u consecutive 0x90 samples failed sanity (last raw=%.0f GH/s, ch%u) -> fast power-cycle reinit (attempt %u/%u)",
+                      AR_REJECT_STREAK, req_raw, req_min_ch, req_att, AR_MAX_ATTEMPTS);
+            } else {
+                LOG_W("[ASIC-REINIT] HCN imbalance: ch%u=%.0f GH/s vs ch%u=%.0f GH/s (min/max=%.2f < %.2f, sustained %lus) -> fast power-cycle reinit (attempt %u/%u)",
+                      req_min_ch, req_min, req_max_ch, req_max,
+                      (req_max > 0.0f) ? (req_min / req_max) : 0.0f, (double)AR_IMBALANCE_RATIO,
+                      (unsigned long)req_sus, req_att, AR_MAX_ATTEMPTS);
+            }
+
+            refresh_mining_timeouts();
+            clear_mining_runtime_caches();
+
+            // Vcore off -> discharge -> on: the series midpoint re-divides on the
+            // rising edge with both dies cold, which is the actual rebalance event.
+            power->set_vcore_status(PWR_OFF);
+            delay(AR_DISCHARGE_MS);
+            power->clear_faults();
+            power->set_vcore_voltage(spec.asic.req_vcore);
+            power->set_vcore_status(PWR_ON);
+
+            bool vcore_ready = false;
+            uint32_t start_ms = millis();
+            while (millis() - start_ms < AR_READY_TIMEOUT_MS) {
+                if (power->is_vcore_ready()) { vcore_ready = true; break; }
+                refresh_mining_timeouts();
+                delay(AR_READY_POLL_MS);
+            }
+
+            if (!vcore_ready) {
+                LOG_E("[ASIC-REINIT] Vcore not ready within %lums, giving up (state -> error)",
+                      (unsigned long)AR_READY_TIMEOUT_MS);
+                power->set_vcore_status(PWR_OFF);
+                st.runtime_state = MINER_RUNTIME_ERROR;
+                refresh_mining_timeouts();
+                xSemaphoreGive(st.update_xsem);
+                return true;
+            }
+
+            miner->clear_asic_job_cache();
+            miner->reset_hashrate();
+            hcn_cache_reset("auto-reinit before begin");
+            power->clear_faults();
+            st.hashrate = {0.0, 0.0, 0.0};
+            // Hard reset drops the ASIC to its default baud, so begin() must redo the
+            // full low-baud init -> ramp -> work-baud switch (same as cold start).
+            if (!miner->begin(spec.asic.req_frq, spec.asic.diff_thr_init,
+                              spec.asic.com_baud_init, spec.asic.com_baud_work)) {
+                LOG_E("[ASIC-REINIT] ASIC reinitialization failed (state -> error)");
+                power->set_vcore_status(PWR_OFF);
+                st.runtime_state = MINER_RUNTIME_ERROR;
+                refresh_mining_timeouts();
+                xSemaphoreGive(st.update_xsem);
+                return true;
+            }
+
+            refresh_mining_timeouts();
+            st.resume_grace_until_ms = millis() + MINER_RESUME_GRACE_MS;
+            st.runtime_state = MINER_RUNTIME_RUNNING;
+            if (stratum != nullptr) xSemaphoreGive(stratum->new_job_xsem);
+            xSemaphoreGive(st.update_xsem);
+            LOG_W("[ASIC-REINIT] fast reinit done, mining resumed (grace %lums)",
+                  (unsigned long)MINER_RESUME_GRACE_MS);
+            return true;
+        }
+
         if (state == MINER_RUNTIME_PAUSING) {
             LOG_W("Pausing mining: clearing ASIC work and powering off Vcore");
             st.user_paused = true;
@@ -814,10 +943,14 @@ void miner_rx_thread_entry(void* args) {
                     g_hcn_cache.gh_s[asic_id] = 0.0f;
                     g_hcn_cache.gh_ms[asic_id] = 0;
                     g_hcn_cache.sample_count[asic_id] = 0;
+                    if (g_hcn_cache.reject_streak < 255) g_hcn_cache.reject_streak++;
+                    g_hcn_cache.last_reject_raw_ghs = raw_ghs;
+                    g_hcn_cache.last_reject_ch      = asic_id;
                     xSemaphoreGive(g_hcn_cache.mutex);
                     return;
                 }
                 g_hcn_cache.diag_ok_cnt++;
+                g_hcn_cache.reject_streak = 0;   // any accepted sample heals the streak
 
                 const float alpha = (g_hcn_cache.sample_count[asic_id] < HCN_FASTSTART_SAMPLES)
                                     ? HCN_EMA_FASTSTART : HCN_EMA_ALPHA;
@@ -851,7 +984,7 @@ void miner_rx_thread_entry(void* args) {
                 if (off >= (int)sizeof(buf) - 16) break;
             }
             LOG_W("HCN hashrate (reg 0x90, biz): %s| total=%.2f GH/s | addr_mismatch=%u", buf, total, g_hcn_cache.addr_mismatch_count);
-            LOG_W("[DIAG] HCN calc: ok=%u reject=%u skip=%u | last_reject raw_ghs=%.2f d_cnt=%u d_ms=%u",
+            LOG_D("[DIAG] HCN calc: ok=%u reject=%u skip=%u | last_reject raw_ghs=%.2f d_cnt=%u d_ms=%u",
                   g_hcn_cache.diag_ok_cnt, g_hcn_cache.diag_reject_cnt, g_hcn_cache.diag_skip_cnt,
                   g_hcn_cache.diag_last_reject_raw_ghs, g_hcn_cache.diag_last_reject_d_cnt, g_hcn_cache.diag_last_reject_d_ms);
             g_hcn_cache.diag_ok_cnt = 0;
@@ -860,7 +993,7 @@ void miner_rx_thread_entry(void* args) {
 
             uint32_t tag_seen = 0, decoded_ok = 0;
             ctx->miner->get_hcn_diag_counts(&tag_seen, &decoded_ok);
-            LOG_W("[DIAG] HCN poll_sent=%u frame_tag_seen(0x90)=%u frame_decoded_ok=%u",
+            LOG_D("[DIAG] HCN poll_sent=%u frame_tag_seen(0x90)=%u frame_decoded_ok=%u",
                   g_hcn_poll_sent_total, tag_seen, decoded_ok);
         }
 
@@ -1850,7 +1983,7 @@ void monitor_thread_entry(void* args) {
                 }
                 if (hcn_dead_streak_s == HR_DIAG_HCN_DEAD_SEC && !hcn_dead_logged) {
                     hcn_dead_logged = true;
-                    LOG_W("[DIAG] HCN(0x90) telemetry lost for %us straight, hashrate=%.2f GH/s (source=%s)",
+                    LOG_D("[DIAG] HCN(0x90) telemetry lost for %us straight, hashrate=%.2f GH/s (source=%s)",
                           HR_DIAG_HCN_DEAD_SEC, st.hashrate._3m / 1e9, use_hcn ? "HCN" : "NONCE-fallback");
                 }
 
@@ -1861,7 +1994,7 @@ void monitor_thread_entry(void* args) {
                     hr_halved_logged  = false;
                 } else if (hr_recent_peak_hs > 0.0 && st.hashrate._3m < hr_recent_peak_hs * HR_DIAG_DROP_RATIO && !hr_halved_logged) {
                     hr_halved_logged = true;
-                    LOG_W("[DIAG] Hashrate dropped to %.2f GH/s, below %.0f%% of recent peak %.2f GH/s (HCN active ch=%u)",
+                    LOG_D("[DIAG] Hashrate dropped to %.2f GH/s, below %.0f%% of recent peak %.2f GH/s (HCN active ch=%u)",
                           st.hashrate._3m / 1e9, HR_DIAG_DROP_RATIO * 100.0f, hr_recent_peak_hs / 1e9, hcn_active_ch);
                 }
                 hr_recent_peak_hs *= HR_DIAG_PEAK_DECAY;
@@ -1888,6 +2021,149 @@ void monitor_thread_entry(void* args) {
                 for (int i = 0; i < (int)spec.ui.hashrate_dist_page.max_x_bars; i++) {
                     uint8_t y = (uint8_t)(100 * (float)counts[i] / (float)spec.ui.hashrate_dist_page.count);
                     spec.ui.hashrate_dist_page.dist_map[i] = y;
+                }
+            }
+        }
+
+        // --- HCN per-channel imbalance detector (1s cadence) --------------------
+        // Looks for "one die hashing far below its sibling while total power is
+        // unchanged" (series-stacked midpoint drift). On a sustained match it asks
+        // the tx thread for a silent fast Vcore power-cycle + ASIC reinit
+        // (MINER_RUNTIME_AUTO_REINITING). Chip-count agnostic (works for 2- and
+        // 4-chip boards); boards without 0x90 decode (BM1366/BM1370) never see any
+        // HCN channel data, so this block is a natural no-op there.
+        {
+            static uint32_t ar_imbalance_streak = 0;
+            static uint32_t ar_last_trigger_ms  = 0;
+            static uint8_t  ar_attempts         = 0;
+            static uint32_t ar_gave_up_ms       = 0;
+            static uint32_t ar_post_check_due_ms = 0;
+
+            const uint32_t now_ms = millis();
+            bool ar_safety_ok = true;
+            {
+                const MinerRuntimeState rstate = st.runtime_state;
+                if (rstate != MINER_RUNTIME_RUNNING)          ar_safety_ok = false;
+                if (st.user_paused)                            ar_safety_ok = false;
+                if (st.suppress_activity_checks(now_ms))       ar_safety_ok = false;
+                const bool miner_ready = ctx->init_evt &&
+                    ((xEventGroupGetBits(ctx->init_evt) & INIT_EVENT_MINER_READY) != 0);
+                if (!miner_ready)                              ar_safety_ok = false;
+                if (ctx->bm_mode && *ctx->bm_mode != 0)        ar_safety_ok = false;
+                if (ctx->ota_running && *ctx->ota_running)     ar_safety_ok = false;
+                if (ctx->miner && ctx->miner->is_asic_frequency_updating()) ar_safety_ok = false;
+                if (ar_attempts >= AR_MAX_ATTEMPTS)            ar_safety_ok = false;
+                if (ar_last_trigger_ms != 0 &&
+                    (uint32_t)(now_ms - ar_last_trigger_ms) < AR_COOLDOWN_MS) ar_safety_ok = false;
+            }
+
+            // Post-reinit verdict: re-check channel balance once the new EMA has
+            // had time to re-warm, so the log shows whether the power-cycle helped.
+            if (ar_post_check_due_ms != 0 && (int32_t)(now_ms - ar_post_check_due_ms) >= 0) {
+                ar_post_check_due_ms = 0;
+                if (hcn_cache_ensure_inited() &&
+                    xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                    float vmin = 0.0f, vmax = 0.0f;
+                    bool  any  = false;
+                    for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
+                        if (!g_hcn_cache.seen[i]) continue;
+                        if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
+                        if (g_hcn_cache.sample_count[i] < HCN_FASTSTART_SAMPLES) continue;
+                        const float v = g_hcn_cache.gh_s[i];
+                        if (!any) { vmin = vmax = v; any = true; }
+                        else { if (v < vmin) vmin = v; if (v > vmax) vmax = v; }
+                    }
+                    xSemaphoreGive(g_hcn_cache.mutex);
+                    if (any && vmax > 0.0f) {
+                        LOG_W("[ASIC-REINIT] post-reinit check: min=%.0f GH/s max=%.0f GH/s (ratio=%.2f) — %s",
+                              vmin, vmax, vmin / vmax,
+                              (vmin >= AR_IMBALANCE_RATIO * vmax) ? "recovered" : "still imbalanced");
+                    } else {
+                        LOG_W("[ASIC-REINIT] post-reinit check: no HCN channels re-warmed yet");
+                    }
+                }
+            }
+
+            if (!ar_safety_ok) {
+                ar_imbalance_streak = 0;
+                if (ar_attempts >= AR_MAX_ATTEMPTS && ar_gave_up_ms == 0) {
+                    ar_gave_up_ms = now_ms;
+                    LOG_E("[ASIC-REINIT] giving up after %u attempts this session, hardware rebalance required",
+                          AR_MAX_ATTEMPTS);
+                }
+            } else if (hcn_cache_ensure_inited() &&
+                       xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                float  min_ghs = 0.0f, max_ghs = 0.0f;
+                uint8_t min_ch = 0, max_ch = 0, active = 0;
+                for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
+                    if (!g_hcn_cache.seen[i]) continue;
+                    if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
+                    // Skip channels still in EMA fast-start so the convergence
+                    // transient right after boot/reinit is not judged as imbalance.
+                    if (g_hcn_cache.sample_count[i] < HCN_FASTSTART_SAMPLES) continue;
+                    const float v = g_hcn_cache.gh_s[i];
+                    if (active == 0) { min_ghs = max_ghs = v; min_ch = max_ch = i; }
+                    else {
+                        if (v < min_ghs) { min_ghs = v; min_ch = i; }
+                        if (v > max_ghs) { max_ghs = v; max_ch = i; }
+                    }
+                    active++;
+                }
+                xSemaphoreGive(g_hcn_cache.mutex);
+
+                const bool imbalanced = (active >= 2) && (active >= spec.asic.num_req) &&
+                                        (max_ghs >= AR_MIN_MAX_GHS) &&
+                                        (min_ghs < AR_IMBALANCE_RATIO * max_ghs);
+                if (imbalanced) {
+                    ar_imbalance_streak++;
+                    if (ar_imbalance_streak == 10 || ar_imbalance_streak == 20) {
+                        LOG_W("[ASIC-REINIT] imbalance building: ch%u=%.0f vs ch%u=%.0f GH/s, %lus/%lus",
+                              min_ch, min_ghs, max_ch, max_ghs,
+                              (unsigned long)ar_imbalance_streak, (unsigned long)AR_SUSTAIN_SEC);
+                    }
+                    if (ar_imbalance_streak >= AR_SUSTAIN_SEC) {
+                        ar_imbalance_streak = 0;
+                        ar_attempts++;
+                        ar_last_trigger_ms = now_ms;
+                        ar_post_check_due_ms = now_ms + AR_POST_CHECK_MS;
+                        g_ar_request.min_ghs     = min_ghs;
+                        g_ar_request.max_ghs     = max_ghs;
+                        g_ar_request.min_ch      = min_ch;
+                        g_ar_request.max_ch      = max_ch;
+                        g_ar_request.sustain_sec = AR_SUSTAIN_SEC;
+                        g_ar_request.attempt     = ar_attempts;
+                        g_ar_request.pending     = true;
+                        st.runtime_state = MINER_RUNTIME_AUTO_REINITING;
+                        if (st.control_xsem != NULL) xSemaphoreGive(st.control_xsem);
+                        xSemaphoreGive(st.update_xsem);
+                    }
+                } else {
+                    ar_imbalance_streak = 0;  // hysteresis: any healthy tick resets
+                }
+
+                // ── Trigger 2: consecutive rejected 0x90 samples (fast path, ~6s) ──
+                // Distinct from trigger 1's slow staleness wait: if every recent 0x90
+                // poll produced an implausible rate (garbage/rolling counter), the chip
+                // is in a bad state and a full reinit is the fastest way to re-arm the
+                // counter. Streak resets on any accepted sample, so a single good read
+                // prevents a spurious trigger.
+                if (g_ar_request.pending == false &&
+                    g_hcn_cache.reject_streak >= AR_REJECT_STREAK) {
+                    ar_attempts++;
+                    ar_last_trigger_ms = now_ms;
+                    ar_post_check_due_ms = now_ms + AR_POST_CHECK_MS;
+                    g_ar_request.min_ghs      = 0.0f;
+                    g_ar_request.max_ghs      = 0.0f;
+                    g_ar_request.min_ch       = g_hcn_cache.last_reject_ch;
+                    g_ar_request.max_ch       = 0;
+                    g_ar_request.sustain_sec  = 0;
+                    g_ar_request.attempt      = ar_attempts;
+                    g_ar_request.reason       = 1;
+                    g_ar_request.last_raw_ghs = g_hcn_cache.last_reject_raw_ghs;
+                    g_ar_request.pending      = true;
+                    st.runtime_state = MINER_RUNTIME_AUTO_REINITING;
+                    if (st.control_xsem != NULL) xSemaphoreGive(st.control_xsem);
+                    xSemaphoreGive(st.update_xsem);
                 }
             }
         }
