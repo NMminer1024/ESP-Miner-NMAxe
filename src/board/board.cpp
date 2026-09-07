@@ -824,7 +824,7 @@ BoardSpecConfig get_board_config_compile_time() {
     // values below are user-facing PER-DIE numbers identical to Rev8.1 (900-1500mV/die).
     config.asic.default_vcore        = 1200;
     config.asic.min_vcore            = 900;
-    config.asic.max_vcore            = 1300;
+    config.asic.max_vcore            = 1250;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
