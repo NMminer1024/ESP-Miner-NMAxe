@@ -818,22 +818,22 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
     config.asic.diff_thr_init        = 1024 * 2;
-    config.asic.default_frq          = 325;
+    config.asic.default_frq          = 750;
     // Nexus's 2 BM1373 dies are Vcore-series-stacked (not parallel like Rev8.1), but the
     // series scaling is handled INSIDE TPS546D24AClass (vcore_series_count=2), so all the
     // values below are user-facing PER-DIE numbers identical to Rev8.1 (900-1500mV/die).
-    config.asic.default_vcore        = 1000;
+    config.asic.default_vcore        = 1200;
     config.asic.min_vcore            = 900;
-    config.asic.max_vcore            = 1500;
+    config.asic.max_vcore            = 1300;
     config.asic.job_interval_ms      = 500;
-    config.ui.dashboard_page.power.ibus          = {0.0f, 25.0f};
-    config.ui.dashboard_page.power.power         = {0.0f, 250.0f};
-    config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 900.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {0.9f, 1.5f};
-    config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 1.5f};
+    config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
+    config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
+    config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 850.0f};
+    config.ui.dashboard_page.performance.vcore_req      = {0.9f, 1.3f};
+    config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 1.3f};
     config.ui.setting_page.oc = {
             {"300 MHz",           300},
-            {"325 MHz(default)",  325},
+            {"325 MHz",           325},
             {"350 MHz",           350},
             {"375 MHz",           375},
             {"400 MHz",           400},
@@ -850,20 +850,16 @@ BoardSpecConfig get_board_config_compile_time() {
             {"675 MHz",           675},
             {"700 MHz",           700},
             {"725 MHz",           725},
-            {"750 MHz",           750},
+            {"750 MHz(default)",  750},
             {"775 MHz",           775},
-            {"800 MHz",           800},
-            {"825 MHz",           825},
-            {"850 MHz",           850},
-            {"875 MHz",           875},
-            {"900 MHz",           900},
+            {"800 MHz",           800}
         };
     // Per-die voltages (identical to Rev8.1); the series rail is derived inside the driver.
     config.ui.setting_page.vc = {
             {"900 mV",            900},
             {"925 mV",            925},
             {"950 mV",            950},
-            {"1000 mV (default)", 1000},
+            {"1000 mV",           1000},
             {"1025 mV",           1025},
             {"1050 mV",           1050},
             {"1075 mV",           1075},
@@ -871,15 +867,9 @@ BoardSpecConfig get_board_config_compile_time() {
             {"1125 mV",           1125},
             {"1150 mV",           1150},
             {"1175 mV",           1175},
-            {"1200 mV",           1200},
+            {"1200 mV(default)",  1200},
             {"1225 mV",           1225},
             {"1250 mV",           1250},
-            {"1275 mV",           1275},
-            {"1300 mV",           1300},
-            {"1325 mV",           1325},
-            {"1350 mV",           1350},
-            {"1375 mV",           1375},
-            {"1400 mV",           1400},
         };
     config.create_power_instance     = create_nexus_3ph_power_instance; // TPS546D24A, 3-phase (1 master + 2 slaves)
     config.setup_temp_hal = [](AxePowerHal* pwr) {
@@ -891,7 +881,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
     config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
     config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
-    config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
+    config.ui.dashboard_page.heat.vcore          = {0.0f, 90.0f};
     config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
     config.btn.boot_pin              = 0;
     config.btn.user_pin              = -1; // Not used

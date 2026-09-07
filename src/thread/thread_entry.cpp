@@ -1293,7 +1293,7 @@ void power_loop_thread_entry(void* args) {
                 }
             }
         }
-#if 0
+#if 1
         {
             static uint32_t last_debug = millis();
             if (millis() - last_debug >= 3000) {
