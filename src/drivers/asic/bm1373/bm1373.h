@@ -20,6 +20,8 @@ class BM1373: public BMxxx{
 private:
     uint32_t _diff_current;
     uint8_t  _asic_count = 1;   // chips detected at init; used to decode asic_id
+    uint32_t _hcn_tag_seen   = 0; // frames where rsp[7]==0x90 (reg-addr byte matched)
+    uint32_t _hcn_decoded_ok = 0; // of those, frames that also matched rsp[8]/rsp[9]==0x00
     void _send_bm1373(uint8_t header, uint8_t * data, uint8_t len);
     void _set_chip_address(uint8_t address);
     void _set_chain_inactive();
@@ -38,9 +40,14 @@ public:
     uint32_t get_asic_difficulty() override;
     void send_work_to_asic(asic_job *job) override;
     void poll_hcn_register() override;
+    void reset_hcn_register() override;
     bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) override;
     uint16_t get_cores() override;
     uint16_t get_small_cores() override;
     asic_rx_result wait_for_result(uint32_t timeout_ms = 60*1000) override;
+    void get_hcn_diag_counts(uint32_t *tag_seen, uint32_t *decoded_ok) override {
+        if (tag_seen)   *tag_seen   = this->_hcn_tag_seen;
+        if (decoded_ok) *decoded_ok = this->_hcn_decoded_ok;
+    }
 };
 #endif

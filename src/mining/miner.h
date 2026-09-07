@@ -88,6 +88,8 @@ public:
     uint16_t get_asic_frequency_current();
     bool mining(pool_job_data_t *pool_job);
     void poll_hcn_register();
+    void reset_hcn_register();
+    void get_hcn_diag_counts(uint32_t *tag_seen, uint32_t *decoded_ok);
     uint32_t set_asic_diff(uint64_t diff);
     uint8_t connect_chip();
     uint8_t get_asic_count();

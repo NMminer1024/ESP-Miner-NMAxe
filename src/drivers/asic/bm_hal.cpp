@@ -7,6 +7,10 @@ BMxxx::BMxxx(HardwareSerial &port, uint32_t init_baud, uint8_t rx, uint8_t tx, u
     this->_tx_pin = tx;
     pinMode(this->_rst_pin, OUTPUT);
     this->_serial.setPins(this->_rx_pin, this->_tx_pin);
+    // Default HW UART RX ring (256B) can overflow under bursty low-diff share traffic,
+    // silently dropping the infrequent (every 2s) HCN 0x90 poll response frames first.
+    // Must be set before begin().
+    this->_serial.setRxBufferSize(2048);
     this->_serial.begin(init_baud);
 }
 
@@ -16,9 +20,9 @@ BMxxx::~BMxxx(){
 
 void BMxxx::reset(){
     digitalWrite(this->_rst_pin, LOW);
-    delay(50);
-    digitalWrite(this->_rst_pin, HIGH);
     delay(100);
+    digitalWrite(this->_rst_pin, HIGH);
+    delay(500);
 }
 
 void BMxxx::change_uart_baud(uint32_t baudrate){

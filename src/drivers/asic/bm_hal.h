@@ -115,9 +115,18 @@ public:
     virtual uint32_t get_asic_difficulty() = 0;
     virtual void send_work_to_asic(asic_job *job) = 0;
     virtual void poll_hcn_register() = 0;
+    // Broadcast-reset the HCN(0x90) counter register on all chips. A reference vendor
+    // driver sends this once before the first poll; our implementation never did,
+    // which may be why some chips' counters never start.
+    // Default no-op so drivers without HCN support don't need to implement this.
+    virtual void reset_hcn_register() {}
     virtual bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) = 0;
     virtual asic_rx_result wait_for_result(uint32_t timeout_ms) = 0;
     virtual uint16_t get_cores() = 0;
     virtual uint16_t get_small_cores() = 0;
+    // Optional HCN(0x90) decode diagnostics: tag_seen counts frames whose reg-address byte
+    // matched 0x90 (even if the rest of the match failed), decoded_ok counts full matches.
+    // Default no-op so drivers without HCN support don't need to implement this.
+    virtual void get_hcn_diag_counts(uint32_t *tag_seen, uint32_t *decoded_ok) { if (tag_seen) *tag_seen = 0; if (decoded_ok) *decoded_ok = 0; }
 };
 #endif

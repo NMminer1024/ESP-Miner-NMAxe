@@ -269,6 +269,14 @@ void AsicMinerClass::poll_hcn_register(){
     this->_asic->poll_hcn_register();
 }
 
+void AsicMinerClass::reset_hcn_register(){
+    this->_asic->reset_hcn_register();
+}
+
+void AsicMinerClass::get_hcn_diag_counts(uint32_t *tag_seen, uint32_t *decoded_ok){
+    this->_asic->get_hcn_diag_counts(tag_seen, decoded_ok);
+}
+
 uint32_t AsicMinerClass::set_asic_diff(uint64_t diff){
     return this->_asic->set_job_difficulty(diff);
 }

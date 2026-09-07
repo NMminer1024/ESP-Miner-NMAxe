@@ -65,6 +65,11 @@ constexpr uint32_t HR_DIAG_HCN_DEAD_SEC  = 10;    // consecutive seconds with 0 
 constexpr float    HR_DIAG_DROP_RATIO    = 0.60f; // log once when hashrate falls below this fraction of recent peak
 constexpr float    HR_DIAG_PEAK_DECAY    = 0.999f;// per-second decay so the peak re-baselines after ~10min on intentional changes
 
+// Cross-thread counter: incremented by the tx loop each time a 0x90 poll command is sent,
+// read by the rx loop's periodic HCN log line to tell "never sent" apart from "sent but no
+// reply decodes". Diagnostic only, a stale read by a few counts is harmless.
+static volatile uint32_t g_hcn_poll_sent_total = 0;
+
 typedef struct {
     SemaphoreHandle_t mutex;
     bool inited;
@@ -77,6 +82,22 @@ typedef struct {
     uint32_t gh_ms[HCN_MAX_ASIC_CHANNELS];
     uint8_t sample_count[HCN_MAX_ASIC_CHANNELS];
     uint32_t last_log_ms;
+
+    // Diagnostic: raw chip_addr byte last seen for each asic_id bucket, and a count of
+    // how many times a bucket received a sample from a *different* chip_addr than before
+    // (would mean two physical chips are colliding into the same decoded asic_id).
+    uint8_t  last_chip_addr[HCN_MAX_ASIC_CHANNELS];
+    bool     chip_addr_known[HCN_MAX_ASIC_CHANNELS];
+    uint32_t addr_mismatch_count;
+
+    // Diagnostic: why did the rate calc not produce a fresh sample this cycle?
+    // Reset each time the periodic log prints, so counts reflect the last ~5s window.
+    uint32_t diag_reject_cnt;      // raw_ghs failed the sanity check (implausible/reset)
+    uint32_t diag_skip_cnt;        // d_ms < HCN_MIN_DELTA_MS, calc skipped entirely
+    uint32_t diag_ok_cnt;          // raw_ghs accepted, EMA updated
+    float    diag_last_reject_raw_ghs;
+    uint32_t diag_last_reject_d_cnt;
+    uint32_t diag_last_reject_d_ms;
 } hcn_hashrate_cache_t;
 
 static hcn_hashrate_cache_t g_hcn_cache = {0};
@@ -680,11 +701,20 @@ void miner_tx_thread_entry(void* args) {
             // Periodic HCN register poll for hashrate diagnostics.
             // Independent of job rate — poll interval configurable here.
             {
+                // One-time broadcast reset before the first poll (a reference vendor driver
+                // does this before its first poll; we never sent this, which may be why some
+                // chips' counters never start incrementing).
+                static bool hcn_reset_sent = false;
+                if (!hcn_reset_sent) {
+                    miner->reset_hcn_register();
+                    hcn_reset_sent = true;
+                }
                 static uint32_t hcn_last_ms = 0;
                 constexpr uint32_t HCN_POLL_MS = 2000;
                 uint32_t now = millis();
                 if (now - hcn_last_ms >= HCN_POLL_MS) {
                     miner->poll_hcn_register();
+                    g_hcn_poll_sent_total++;
                     hcn_last_ms = now;
                 }
             }
@@ -745,7 +775,7 @@ void miner_rx_thread_entry(void* args) {
 
     const float hcn_max_ghs = ctx->spec->asic.hcn_max_ghs_per_ch;
 
-    auto on_hcn_result = [hcn_max_ghs](const asic_hcn_result& hcn) {
+    auto on_hcn_result = [hcn_max_ghs, ctx](const asic_hcn_result& hcn) {
         // lazy init
         if (!hcn_cache_ensure_inited()) return;
         if (hcn.asic_id >= HCN_MAX_ASIC_CHANNELS) return;
@@ -753,6 +783,14 @@ void miner_rx_thread_entry(void* args) {
 
         const uint8_t asic_id = hcn.asic_id;
         const uint32_t now_ms = millis();
+
+        // Diagnostic: does this asic_id bucket ever receive samples from more than one
+        // physical chip_addr? That would mean two chips are being merged into one slot.
+        if (g_hcn_cache.chip_addr_known[asic_id] && g_hcn_cache.last_chip_addr[asic_id] != hcn.chip_addr) {
+            g_hcn_cache.addr_mismatch_count++;
+        }
+        g_hcn_cache.last_chip_addr[asic_id]  = hcn.chip_addr;
+        g_hcn_cache.chip_addr_known[asic_id] = true;
 
         if (g_hcn_cache.seen[asic_id]) {
             // Unsigned wraparound subtraction: correctly handles the register rolling
@@ -767,6 +805,10 @@ void miner_rx_thread_entry(void* args) {
                 if (!std::isfinite(raw_ghs) || raw_ghs < 0.0f || raw_ghs > hcn_max_ghs) {
                     // Implausible rate: either noise or a genuine ASIC reset/reinit.
                     // Reset this channel's baseline/EMA so the next sample re-warms clean.
+                    g_hcn_cache.diag_reject_cnt++;
+                    g_hcn_cache.diag_last_reject_raw_ghs = raw_ghs;
+                    g_hcn_cache.diag_last_reject_d_cnt   = d_cnt;
+                    g_hcn_cache.diag_last_reject_d_ms    = d_ms;
                     g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
                     g_hcn_cache.prev_ms[asic_id]  = now_ms;
                     g_hcn_cache.gh_s[asic_id] = 0.0f;
@@ -775,6 +817,7 @@ void miner_rx_thread_entry(void* args) {
                     xSemaphoreGive(g_hcn_cache.mutex);
                     return;
                 }
+                g_hcn_cache.diag_ok_cnt++;
 
                 const float alpha = (g_hcn_cache.sample_count[asic_id] < HCN_FASTSTART_SAMPLES)
                                     ? HCN_EMA_FASTSTART : HCN_EMA_ALPHA;
@@ -785,6 +828,8 @@ void miner_rx_thread_entry(void* args) {
                 }
                 if (g_hcn_cache.sample_count[asic_id] < 255) g_hcn_cache.sample_count[asic_id]++;
                 g_hcn_cache.gh_ms[asic_id] = now_ms;
+            } else {
+                g_hcn_cache.diag_skip_cnt++;
             }
         }
         g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
@@ -800,10 +845,23 @@ void miner_rx_thread_entry(void* args) {
                 if (!g_hcn_cache.seen[i]) continue;
                 if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
                 total += g_hcn_cache.gh_s[i];
-                off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, g_hcn_cache.gh_s[i]);
+                // raw cnt included so we can tell "two buckets reading the same physical
+                // counter" (near-identical cnt) apart from "two genuinely separate counters".
+                off += snprintf(buf + off, sizeof(buf) - off, "ch%u(a=0x%02X,cnt=%u)=%.0f ", i, g_hcn_cache.last_chip_addr[i], g_hcn_cache.prev_cnt[i], g_hcn_cache.gh_s[i]);
                 if (off >= (int)sizeof(buf) - 16) break;
             }
-            LOG_W("HCN hashrate (reg 0x90, biz): %s| total=%.2f GH/s", buf, total);
+            LOG_W("HCN hashrate (reg 0x90, biz): %s| total=%.2f GH/s | addr_mismatch=%u", buf, total, g_hcn_cache.addr_mismatch_count);
+            LOG_W("[DIAG] HCN calc: ok=%u reject=%u skip=%u | last_reject raw_ghs=%.2f d_cnt=%u d_ms=%u",
+                  g_hcn_cache.diag_ok_cnt, g_hcn_cache.diag_reject_cnt, g_hcn_cache.diag_skip_cnt,
+                  g_hcn_cache.diag_last_reject_raw_ghs, g_hcn_cache.diag_last_reject_d_cnt, g_hcn_cache.diag_last_reject_d_ms);
+            g_hcn_cache.diag_ok_cnt = 0;
+            g_hcn_cache.diag_reject_cnt = 0;
+            g_hcn_cache.diag_skip_cnt = 0;
+
+            uint32_t tag_seen = 0, decoded_ok = 0;
+            ctx->miner->get_hcn_diag_counts(&tag_seen, &decoded_ok);
+            LOG_W("[DIAG] HCN poll_sent=%u frame_tag_seen(0x90)=%u frame_decoded_ok=%u",
+                  g_hcn_poll_sent_total, tag_seen, decoded_ok);
         }
 
         xSemaphoreGive(g_hcn_cache.mutex);
@@ -1320,7 +1378,7 @@ void power_loop_thread_entry(void* args) {
                   vcore_measure, spec.asic.req_vcore, err);
             continue;
         }
-        LOG_W("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV",
+        LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV",
               vcore_measure, spec.asic.req_vcore, err, err / 5);
         static uint32_t vcore_set = spec.asic.req_vcore;
         vcore_set -= err / 2; // half error correction

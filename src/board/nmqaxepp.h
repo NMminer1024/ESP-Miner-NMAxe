@@ -56,9 +56,9 @@ inline AxePowerHal* create_nexus_3ph_power_instance(axe_pwr_enable_pin_t en_pins
                 //   otherwise — cmd 3000mV keeps measuring ~750mV actual (ratio ~0.25,
                 //   not 1.0), and the earlier 0.5 test literally halved the rail
                 //   (cmd 3000mV -> ~1500mV), proving output = VOUT_COMMAND * vout_scale_loop
-                //   on this part. 0.25 matches shufps/NerdQAxePlus's own single-domain
-                //   TPS546 default (rev7/TPS546.h TPS546_INIT_SCALE_LOOP); their series-
-                //   stacked config uses 0.125. This also explains why STATUS_VOUT's
+                //   on this part. 0.25 matches a reference single-domain TPS546 driver's
+                //   default scale-loop constant; the series-stacked config there uses 0.125.
+                //   This also explains why STATUS_VOUT's
                 //   MIN_MAX_CLAMP was persistently set: VOUT_MAX is converted through this
                 //   same wrong scale internally, so the real DAC-side ceiling was clamped
                 //   far below 3.1V, not just a stale latched bit.

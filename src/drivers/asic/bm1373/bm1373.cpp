@@ -238,16 +238,21 @@ void BM1373::init(uint64_t freq, int diff, uint8_t asic_count){
     this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_WRITE), init68, 6);
 
     // 10. Per-chip register configuration
-    // BM1373: per-chip writes use interval 4 (0, 4, 8, 12) for the chip address in data
+    // Address must match SETADDRESS (i*BM1373_ADDR_INTERVAL=16), not i*4 -- confirmed against
+    // a reference vendor driver for an identical 2-chip BM1373 config. With i*4, only
+    // chip0 (addr 0) ever coincidentally matched; chip1 (addr 16) never received this
+    // per-chip config, which likely explains both its lower real hashrate and its 0x90
+    // counter never incrementing.
     // Note: only 2 registers writes to 3C (BM1370 has 3)
     for (uint8_t i = 0; i < asic_count; i++) {
-        uint8_t set_a8_register[6] = {(uint8_t)(i * 4), 0xA8, 0x00, 0x07, 0x01, 0xF0};
+        const uint8_t addr = i * BM1373_ADDR_INTERVAL;
+        uint8_t set_a8_register[6] = {addr, 0xA8, 0x00, 0x07, 0x01, 0xF0};
         this->_send_bm1373((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_a8_register, 6);
-        uint8_t set_18_register[6] = {(uint8_t)(i * 4), 0x18, 0xFF, 0x00, 0xC1, 0x00};
+        uint8_t set_18_register[6] = {addr, 0x18, 0xFF, 0x00, 0xC1, 0x00};
         this->_send_bm1373((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_18_register, 6);
-        uint8_t set_3c_register_first[6] = {(uint8_t)(i * 4), 0x3C, 0x80, 0x00, 0x80, 0x0C};
+        uint8_t set_3c_register_first[6] = {addr, 0x3C, 0x80, 0x00, 0x80, 0x0C};
         this->_send_bm1373((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_first, 6);
-        uint8_t set_3c_register_second[6] = {(uint8_t)(i * 4), 0x3C, 0x80, 0x00, 0x82, 0xAA};
+        uint8_t set_3c_register_second[6] = {addr, 0x3C, 0x80, 0x00, 0x82, 0xAA};
         this->_send_bm1373((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_second, 6);
     }
 
@@ -284,8 +289,18 @@ void BM1373::poll_hcn_register(){
     this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_READ), reg_read, 2);
 }
 
+// Broadcast-write zero to arm/start the counter on every chip (a reference vendor driver
+// does this once before its first poll; call this the same way before ours).
+void BM1373::reset_hcn_register(){
+    uint8_t reg_reset[6] = {0x00, BM1373_REG_POLL_ADDR, 0x00, 0x00, 0x00, 0x00};
+    this->_send_bm1373((TYPE_CMD | GROUP_ALL | CMD_WRITE), reg_reset, 6);
+}
+
 bool BM1373::decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn){
-    if (rsp[7] != 0x90 || rsp[8] != 0x00 || rsp[9] != 0x00) return false;
+    if (rsp[7] != 0x90) return false;
+    this->_hcn_tag_seen++;
+    if (rsp[8] != 0x00 || rsp[9] != 0x00) return false;
+    this->_hcn_decoded_ok++;
 
     hcn->chip_addr  = rsp[6];
     hcn->asic_id    = (rsp[6] >> 4) & 0x0f;
