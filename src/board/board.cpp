@@ -875,8 +875,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
     config.btn.boot_pin              = 0;
     config.btn.user_pin              = -1; // Not used
-    config.pwr.en_pins.pwr_pll_0v8   = 39;
-    config.pwr.en_pins.pwr_vdd_1v8   = 40;
+    config.pwr.en_pins.pwr_pll_0v8   = -1; // Not used
+    config.pwr.en_pins.pwr_vdd_1v8   = -1; // Not used  
     config.pwr.en_pins.pwr_vcore     = 38;
     config.pwr.adc_pins.vbus         = 18;
     config.pwr.adc_pins.ibus         = 11;
@@ -885,9 +885,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.pwr.pgood_pin             = 21;  
     config.pwr.dc_plug_pin           = -1;  // Not used
     config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
-    config.pwr.temp_limit.high       = 130.0f;
-    config.pwr.temp_limit.medium     = 110.0f;
-    config.pwr.temp_limit.low        = 80.0f;
+    config.pwr.temp_limit.high       = 100.0f;
+    config.pwr.temp_limit.medium     = 80.0f;
+    config.pwr.temp_limit.low        = 60.0f;
     config.pwr.power_low_threshold   = 20.0f; // Watt
     config.iic.scl_pin               = 7;   
     config.iic.sda_pin               = 8;
