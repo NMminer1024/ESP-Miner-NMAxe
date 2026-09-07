@@ -60,6 +60,11 @@ constexpr float    HCN_EMA_ALPHA         = 0.45f;
 constexpr float    HCN_EMA_FASTSTART     = 0.85f;
 constexpr uint8_t  HCN_FASTSTART_SAMPLES = 12;
 
+// Log-only diagnostics for tracking down transient hashrate collapses (no recovery action).
+constexpr uint32_t HR_DIAG_HCN_DEAD_SEC  = 10;    // consecutive seconds with 0 active HCN channels before logging
+constexpr float    HR_DIAG_DROP_RATIO    = 0.60f; // log once when hashrate falls below this fraction of recent peak
+constexpr float    HR_DIAG_PEAK_DECAY    = 0.999f;// per-second decay so the peak re-baselines after ~10min on intentional changes
+
 typedef struct {
     SemaphoreHandle_t mutex;
     bool inited;
@@ -1293,7 +1298,7 @@ void power_loop_thread_entry(void* args) {
                 }
             }
         }
-#if 1
+#if 0
         {
             static uint32_t last_debug = millis();
             if (millis() - last_debug >= 3000) {
@@ -1765,6 +1770,36 @@ void monitor_thread_entry(void* args) {
             if (st.hashrate._3m > 0)
                 st.efficiency = (ctx->pwr->vbus * ctx->pwr->ibus / 1e6) / (st.hashrate._3m / 1e12); // J/TH
             xSemaphoreGive(st.update_xsem);
+
+            // Diagnostics only (no auto-recovery): flag HCN telemetry blackout and hashrate collapse
+            // so the exact onset time is visible in the log the next time this reproduces.
+            {
+                static uint32_t hcn_dead_streak_s = 0;
+                static bool     hcn_dead_logged   = false;
+                if (hcn_active_ch == 0) {
+                    hcn_dead_streak_s++;
+                } else {
+                    hcn_dead_streak_s = 0;
+                    hcn_dead_logged   = false;
+                }
+                if (hcn_dead_streak_s == HR_DIAG_HCN_DEAD_SEC && !hcn_dead_logged) {
+                    hcn_dead_logged = true;
+                    LOG_W("[DIAG] HCN(0x90) telemetry lost for %us straight, hashrate=%.2f GH/s (source=%s)",
+                          HR_DIAG_HCN_DEAD_SEC, st.hashrate._3m / 1e9, use_hcn ? "HCN" : "NONCE-fallback");
+                }
+
+                static double hr_recent_peak_hs = 0.0;
+                static bool   hr_halved_logged  = false;
+                if (st.hashrate._3m > hr_recent_peak_hs) {
+                    hr_recent_peak_hs = st.hashrate._3m;
+                    hr_halved_logged  = false;
+                } else if (hr_recent_peak_hs > 0.0 && st.hashrate._3m < hr_recent_peak_hs * HR_DIAG_DROP_RATIO && !hr_halved_logged) {
+                    hr_halved_logged = true;
+                    LOG_W("[DIAG] Hashrate dropped to %.2f GH/s, below %.0f%% of recent peak %.2f GH/s (HCN active ch=%u)",
+                          st.hashrate._3m / 1e9, HR_DIAG_DROP_RATIO * 100.0f, hr_recent_peak_hs / 1e9, hcn_active_ch);
+                }
+                hr_recent_peak_hs *= HR_DIAG_PEAK_DECAY;
+            }
 
             // hashrate distribution histogram (PSRAM-backed counts)
             spec.ui.hashrate_dist_page.time = st.uptime_session;

@@ -2,6 +2,7 @@
 #include "utils/logger/logger.h"
 #include "drivers/temp/temp_hal.h"
 #include <driver/i2c.h>
+#include <string.h>
 
 #define I2C_MASTER_NUM                  I2C_NUM_0
 #define I2C_MASTER_TIMEOUT_MS           1000
@@ -589,30 +590,49 @@ void TPS546D24AClass::debugPrint(void){
     float temp_c = this->_slinear11_to_float(raw_temp);
     float iout_limit_a = this->_slinear11_to_float(raw_iout_oc_fault_limit);
 
-    char buf[720];
+    // Only expand the fault/warn bits that are actually set, so the healthy case
+    // prints two compact lines. This keeps the whole message well under the
+    // logger's 512-byte message buffer (the old verbose dump overflowed it).
+    char flags[160];
+    flags[0] = '\0';
+#define APPEND_FLAG(name) do { \
+        int _l = (int)strlen(flags); \
+        snprintf(flags + _l, sizeof(flags) - _l, "%s%s", _l ? " " : "", (name)); \
+    } while (0)
+    if (status_vout  & 0x80) APPEND_FLAG("OV_FAULT");
+    if (status_vout  & 0x40) APPEND_FLAG("OV_WARN");
+    if (status_vout  & 0x20) APPEND_FLAG("UV_WARN");
+    if (status_vout  & 0x10) APPEND_FLAG("UV_FAULT");
+    if (status_vout  & 0x08) APPEND_FLAG("MIN_MAX_CLAMP");
+    if (status_vout  & 0x04) APPEND_FLAG("TON_MAX");
+    if (status_iout  & 0x80) APPEND_FLAG("OC_FAULT");
+    if (status_iout  & 0x20) APPEND_FLAG("OC_WARN");
+    if (status_input & 0x80) APPEND_FLAG("VIN_OV");
+    if (status_input & 0x10) APPEND_FLAG("VIN_UV");
+    if (status_input & 0x04) APPEND_FLAG("IIN_OC");
+    if (status_temp  & 0x80) APPEND_FLAG("OT_FAULT");
+    if (status_temp  & 0x40) APPEND_FLAG("OT_WARN");
+    if (status_mfr   & 0x80) APPEND_FLAG("POR");
+    if (status_mfr   & 0x40) APPEND_FLAG("SELF");
+#undef APPEND_FLAG
+
+    char pgood_str[24];
+    if (this->_vcore_pgood_pin < 0) {
+        snprintf(pgood_str, sizeof(pgood_str), "n/a");
+    } else {
+        snprintf(pgood_str, sizeof(pgood_str), "%s(pin%d)",
+                 digitalRead(this->_vcore_pgood_pin) == HIGH ? "HIGH" : "LOW",
+                 this->_vcore_pgood_pin);
+    }
+
+    char buf[384];
     snprintf(buf, sizeof(buf),
-        "\n-----------TPS546D24A OC MONITOR-----------"
-        "\n  VOUT = %.3f V (cmd %.3f V)  IOUT = %.2f A  (stack limit: %.1f A)"
-        "\n  TEMP = %.1f \xc2\xb0" "C (hottest phase)"
-        "\n  STATUS_VOUT  = 0x%02X  [OV_FAULT:%d  OV_WARN:%d  UV_WARN:%d  UV_FAULT:%d  MIN_MAX_CLAMP:%d  TON_MAX_FAULT:%d]"
-        "\n  STATUS_IOUT  = 0x%02X  [OC_FAULT:%d  OC_WARN:%d  bit4(reserved_per_datasheet):%d]"
-        "\n  STATUS_INPUT = 0x%02X  [VIN_OV_FAULT:%d  VIN_UV_FAULT:%d  IIN_OC_FAULT:%d]"
-        "\n  STATUS_TEMP = 0x%02X  [OT_FAULT:%d  OT_WARN:%d]"
-        "\n  STATUS_MFR_SPECIFIC = 0x%02X  [POR_FAULT:%d  SELF_FAULT:%d]"
-        "\n  STATUS_WORD = 0x%04X"
-        "\n  PGOOD_GPIO(pin %d) = %s"
-        "\n------------------------------------------",
-        vout, vout_cmd,
-        iout, iout_limit_a,
-        temp_c,
-        status_vout, (status_vout >> 7) & 1, (status_vout >> 6) & 1, (status_vout >> 5) & 1, (status_vout >> 4) & 1, (status_vout >> 3) & 1, (status_vout >> 2) & 1,
-        status_iout, (status_iout >> 7) & 1, (status_iout >> 5) & 1, (status_iout >> 4) & 1,
-        status_input, (status_input >> 7) & 1, (status_input >> 4) & 1, (status_input >> 2) & 1,
-        status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1,
-        status_mfr, (status_mfr >> 7) & 1, (status_mfr >> 6) & 1,
-        status_word,
-        this->_vcore_pgood_pin,
-        (this->_vcore_pgood_pin < 0) ? "n/a (using STATUS_WORD fallback)" : (digitalRead(this->_vcore_pgood_pin) == HIGH ? "HIGH (good)" : "LOW (not good)"));
+        "\nTPS546D24A OC: VOUT=%.3fV(cmd%.3f) IOUT=%.2fA lim=%.1fA T=%.1fC"
+        "\nSTAT VO=%02X IO=%02X IN=%02X TP=%02X MF=%02X WORD=%04X PGOOD=%s%s%s",
+        vout, vout_cmd, iout, iout_limit_a, temp_c,
+        status_vout, status_iout, status_input, status_temp, status_mfr, status_word,
+        pgood_str,
+        flags[0] ? "\nFLAGS: " : "", flags);
     LOG_W("%s", buf);
 }
 

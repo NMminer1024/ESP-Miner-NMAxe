@@ -48,7 +48,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.heat.asic           = {0.0f, 80.0f};
     config.ui.dashboard_page.heat.vcore          = {0.0f, 100.0f};
     config.ui.dashboard_page.heat.fan            = {0.0f, 9000.0f};
-    config.ui.dashboard_page.performance.asic_freq_req  = {390.0f, 650.0f};
+    // Freq ceiling padded to 700 (default 575 is also the top OC option) so the frontend's
+    // hardcoded value>=0.9*max "High" check doesn't fire at 88% margin on a stock default.
+    config.ui.dashboard_page.performance.asic_freq_req  = {390.0f, 700.0f};
     config.ui.dashboard_page.performance.vcore_req      = {1.000f, 1.500f};
     config.ui.dashboard_page.performance.vcore_measure  = {1.000f, 1.500f};
     config.ui.setting_page.oc = {
@@ -312,8 +314,10 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 160.0f};
     config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, 800.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {1.00f, 1.300f};
-    config.ui.dashboard_page.performance.vcore_measure  = {1.00f, 1.300f};
+    // Vcore ceiling padded to 1.400 (default 1150mV was 88% of 1.300 old max) so the frontend's
+    // hardcoded value>=0.9*max "High" check doesn't fire at a stock default.
+    config.ui.dashboard_page.performance.vcore_req      = {1.00f, 1.400f};
+    config.ui.dashboard_page.performance.vcore_measure  = {1.00f, 1.400f};
     config.ui.setting_page.oc = {
             {"515 MHz",           515},
             {"550 MHz",           550},
@@ -823,25 +827,19 @@ BoardSpecConfig get_board_config_compile_time() {
     // series scaling is handled INSIDE TPS546D24AClass (vcore_series_count=2), so all the
     // values below are user-facing PER-DIE numbers identical to Rev8.1 (900-1500mV/die).
     config.asic.default_vcore        = 1200;
-    config.asic.min_vcore            = 900;
+    // Factory floor raised so the lowest selectable freq/vcore pair still clears ~7TH/s
+    // (benchmark: 550MHz/1250mV -> 7643.6 GH/s, ~9% margin over 7TH/s).
+    config.asic.min_vcore            = 1150;
     config.asic.max_vcore            = 1250;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
-    config.ui.dashboard_page.performance.asic_freq_req  = {280.0f, 850.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {0.9f, 1.3f};
-    config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 1.3f};
+    // Ceilings padded (freq 820->900, vcore 1.3->1.4) so the default 750MHz/1200mV point
+    // stays below the frontend's hardcoded value>=0.9*max "High" check (it was 91-92% before).
+    config.ui.dashboard_page.performance.asic_freq_req  = {550.0f, 900.0f};
+    config.ui.dashboard_page.performance.vcore_req      = {1.15f, 1.4f};
+    config.ui.dashboard_page.performance.vcore_measure  = {1.15f, 1.4f};
     config.ui.setting_page.oc = {
-            {"300 MHz",           300},
-            {"325 MHz",           325},
-            {"350 MHz",           350},
-            {"375 MHz",           375},
-            {"400 MHz",           400},
-            {"425 MHz",           425},
-            {"450 MHz",           450},
-            {"475 MHz",           475},
-            {"500 MHz",           500},
-            {"525 MHz",           525},
             {"550 MHz",           550},
             {"575 MHz",           575},
             {"600 MHz",           600},
@@ -855,16 +853,8 @@ BoardSpecConfig get_board_config_compile_time() {
             {"800 MHz",           800}
         };
     // Per-die voltages (identical to Rev8.1); the series rail is derived inside the driver.
+    // Floor raised to 1150mV alongside the 550MHz freq floor -- see min_vcore comment above.
     config.ui.setting_page.vc = {
-            {"900 mV",            900},
-            {"925 mV",            925},
-            {"950 mV",            950},
-            {"1000 mV",           1000},
-            {"1025 mV",           1025},
-            {"1050 mV",           1050},
-            {"1075 mV",           1075},
-            {"1100 mV",           1100},
-            {"1125 mV",           1125},
             {"1150 mV",           1150},
             {"1175 mV",           1175},
             {"1200 mV(default)",  1200},
@@ -973,7 +963,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
-    fan_cfg.target_temp              = nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "70").toFloat();
+    fan_cfg.target_temp              = nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "50").toFloat();
     config.fans.push_back(fan_cfg);
 
 #else
