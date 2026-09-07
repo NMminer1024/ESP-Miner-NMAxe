@@ -121,7 +121,7 @@ private:
     uint16_t _float_to_slinear11(float x);
     uint16_t _mv_to_ulinear16(uint16_t mv);
     uint16_t _ulinear16_to_mv(uint16_t raw);
-    void     _write_vout_limit_ratios(uint16_t rail_mv); // OV/UV fault+warn limits, ratio-of-rail (chip silently clamps UV limits set too far below VOUT_MAX otherwise)
+    void     _write_vout_limit_ratios(uint16_t rail_mv); // OV/UV fault+warn limits, ratio-of-rail, clamped into [VOUT_MIN, VOUT_MAX] so the chip doesn't NACK them
 public:
     TPS546D24AClass(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t pgood, uint8_t plug, tps546d24a_cfg_t cfg)
         : AxePowerHal(en_pins, adc_pins), _cfg(cfg) {

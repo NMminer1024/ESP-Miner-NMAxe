@@ -301,14 +301,13 @@ void TPS546D24AClass::hw_init(void){
     this->_write_word(PMBUS_VOUT_MAX, this->_mv_to_ulinear16(this->_cfg.vout_max_mv));
     delay(10); // back-to-back word writes right after VOUT_MIN/MAX were seen to NACK/timeout at 2ms even with a retry
 
-    // These 4 were never written before, so the chip enforced whatever OV/UV thresholds
-    // were left over from POR/NVM defaults (not matched to this rail's 1.7-3.1V window) —
-    // symptom seen: a real ~0.75V readout tripped a stale OV_WARN while genuine UV never
-    // latched. Ratio-of-rail here (re-applied on every set_vcore_voltage() call below) —
-    // a fixed offset from vout_min_mv was tried first and got silently clamped by the chip
-    // to ~82-88% of VOUT_MAX (readback: 2549/2729mV against a requested 1500/1600mV),
-    // so the limits must track the actual commanded rail, not the wide hw clamp window.
-    this->_write_vout_limit_ratios(this->_cfg.vout_min_mv);
+    // OV/UV limit registers (0x40/0x42/0x43/0x44) are intentionally NOT written here:
+    // at this point VOUT_COMMAND is still the POR default (~2.5 V), so deriving limits
+    // from vout_min_mv produced UV limits below VOUT_MIN and OV limits below VOUT_COMMAND,
+    // which the TPS546D24A rejects with a NACK (the "write word register 0x40/0x42/0x43/
+    // 0x44 failed" boot log). They are written correctly, relative to the real commanded
+    // rail, in set_vcore_voltage() — which runs before the EN pin is asserted, so the
+    // output never comes up with stale POR thresholds.
 
     // Soft-start ramp time.
     this->_write_word(PMBUS_TON_RISE, this->_float_to_slinear11(this->_cfg.ton_rise_ms));
@@ -431,10 +430,29 @@ void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
 }
 
 void TPS546D24AClass::_write_vout_limit_ratios(uint16_t rail_mv){
-    this->_write_word(PMBUS_VOUT_OV_FAULT_LIMIT, this->_mv_to_ulinear16((uint16_t)(rail_mv * 1.25f)));
-    this->_write_word(PMBUS_VOUT_OV_WARN_LIMIT,  this->_mv_to_ulinear16((uint16_t)(rail_mv * 1.10f)));
-    this->_write_word(PMBUS_VOUT_UV_WARN_LIMIT,  this->_mv_to_ulinear16((uint16_t)(rail_mv * 0.90f)));
-    this->_write_word(PMBUS_VOUT_UV_FAULT_LIMIT, this->_mv_to_ulinear16((uint16_t)(rail_mv * 0.75f)));
+    uint16_t ov_fault = (uint16_t)(rail_mv * 1.25f);
+    uint16_t ov_warn  = (uint16_t)(rail_mv * 1.10f);
+    uint16_t uv_warn  = (uint16_t)(rail_mv * 0.90f);
+    uint16_t uv_fault = (uint16_t)(rail_mv * 0.75f);
+
+    // The TPS546D24A NACKs limit writes that fall outside the [VOUT_MIN, VOUT_MAX]
+    // hardware clamp window or that break OV_FAULT > OV_WARN > VOUT_COMMAND >
+    // UV_WARN > UV_FAULT. A low rail (e.g. 1800 mV at 900 mV/die) otherwise pushes the
+    // UV limits below VOUT_MIN and gets rejected. Clamp into the valid window and keep
+    // the warn/fault ordering intact before writing.
+    uint16_t vmin = this->_cfg.vout_min_mv;
+    uint16_t vmax = this->_cfg.vout_max_mv;
+    if (ov_fault > vmax) ov_fault = vmax;
+    if (ov_warn  > vmax) ov_warn  = vmax;
+    if (ov_warn  >= ov_fault) ov_warn = ov_fault - 1;
+    if (uv_fault < vmin) uv_fault = vmin;
+    if (uv_warn  < vmin) uv_warn  = vmin;
+    if (uv_warn  <= uv_fault) uv_warn = uv_fault + 1;
+
+    this->_write_word(PMBUS_VOUT_OV_FAULT_LIMIT, this->_mv_to_ulinear16(ov_fault));
+    this->_write_word(PMBUS_VOUT_OV_WARN_LIMIT,  this->_mv_to_ulinear16(ov_warn));
+    this->_write_word(PMBUS_VOUT_UV_WARN_LIMIT,  this->_mv_to_ulinear16(uv_warn));
+    this->_write_word(PMBUS_VOUT_UV_FAULT_LIMIT, this->_mv_to_ulinear16(uv_fault));
 }
 
 void TPS546D24AClass::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
