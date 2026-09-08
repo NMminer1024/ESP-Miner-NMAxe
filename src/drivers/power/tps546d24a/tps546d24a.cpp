@@ -59,31 +59,33 @@ uint8_t TPS546D24AClass::_read_reg(uint8_t regaddr, uint8_t *data, uint8_t lengt
 // consumed and NOT treated as payload — _read_reg() above doesn't do this and will shift
 // every payload byte by one for these commands.
 uint8_t TPS546D24AClass::_read_block(uint8_t regaddr, uint8_t *data, uint8_t data_length) {
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, regaddr, ACK_CHECK_EN);
-
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_READ, ACK_CHECK_EN);
-
+    esp_err_t ret = ESP_FAIL;
     uint8_t byte_count = 0;
-    i2c_master_read_byte(cmd, &byte_count, (i2c_ack_type_t)ACK_VAL);
-    if (data_length > 1) {
-        i2c_master_read(cmd, data, data_length - 1, (i2c_ack_type_t)ACK_VAL);
-    }
-    i2c_master_read_byte(cmd, data + data_length - 1, (i2c_ack_type_t)NACK_VAL);
-    i2c_master_stop(cmd);
+    for (uint8_t attempt = 0; attempt < 2; attempt++) {
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
-    i2c_cmd_link_delete(cmd);
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
+        i2c_master_write_byte(cmd, regaddr, ACK_CHECK_EN);
 
-    if (ret != ESP_OK) {
-        LOG_E("TPS546D24A block-read register 0x%02X failed: %d", regaddr, ret);
-        return 0xFF;
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_READ, ACK_CHECK_EN);
+
+        i2c_master_read_byte(cmd, &byte_count, (i2c_ack_type_t)ACK_VAL);
+        if (data_length > 1) {
+            i2c_master_read(cmd, data, data_length - 1, (i2c_ack_type_t)ACK_VAL);
+        }
+        i2c_master_read_byte(cmd, data + data_length - 1, (i2c_ack_type_t)NACK_VAL);
+        i2c_master_stop(cmd);
+
+        ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
+        i2c_cmd_link_delete(cmd);
+
+        if (ret == ESP_OK) return byte_count;
+        if (attempt == 0) delay(10); // same NACK-right-after-write recovery window as _read_reg()
     }
-    return byte_count;
+    LOG_E("TPS546D24A block-read register 0x%02X failed after retry: %d", regaddr, ret);
+    return 0xFF;
 }
 
 void TPS546D24AClass::_write_byte(uint8_t regaddr, uint8_t data) {
@@ -252,13 +254,25 @@ void TPS546D24AClass::hw_init(void){
     // value quoted in 7.6.72's text (6Dh) for this byte, so it isn't a reliable
     // discriminator — the other 5 bytes are consistent across both and are enough
     // to confirm we're talking to a TPS546D24A at this address.
+    //
+    // Retry the ID read: the PMBus interface can still be in POR/MTP-load when the
+    // ESP32 gets here (~hundreds of ms after power-on) and transiently NACKs. A miss
+    // here would latch _device_ok=false and wedge the boot chain on the temp self-test.
     uint8_t dev_id[6] = {0};
-    uint8_t block_count = this->_read_block(PMBUS_IC_DEVICE_ID, dev_id, 6);
-    bool id_read_ok = (block_count != 0xFF);
-    LOG_D("TPS546D24A IC_DEVICE_ID (block_count=%u): %02X %02X %02X %02X %02X %02X",
-          block_count, dev_id[0], dev_id[1], dev_id[2], dev_id[3], dev_id[4], dev_id[5]);
-    bool id_ok = id_read_ok && dev_id[0] == 0x54 && dev_id[1] == 0x49 && dev_id[2] == 0x54 &&
-                 dev_id[4] == 0x24 && dev_id[5] == 0x41;
+    bool id_ok = false;
+    for (uint8_t attempt = 0; attempt < 5 && !id_ok; attempt++) {
+        if (attempt) {
+            LOG_W("TPS546D24A ID read attempt %u failed, retrying...", attempt);
+            delay(100);
+        }
+        memset(dev_id, 0, sizeof(dev_id));
+        uint8_t block_count = this->_read_block(PMBUS_IC_DEVICE_ID, dev_id, 6);
+        bool id_read_ok = (block_count != 0xFF);
+        LOG_D("TPS546D24A IC_DEVICE_ID (block_count=%u): %02X %02X %02X %02X %02X %02X",
+              block_count, dev_id[0], dev_id[1], dev_id[2], dev_id[3], dev_id[4], dev_id[5]);
+        id_ok = id_read_ok && dev_id[0] == 0x54 && dev_id[1] == 0x49 && dev_id[2] == 0x54 &&
+                dev_id[4] == 0x24 && dev_id[5] == 0x41;
+    }
     if (!id_ok) {
         LOG_E("TPS546D24A device ID mismatch/no response at I2C 0x%02X — check ADRSEL strap / address", this->_i2c_addr);
         this->_scan_bus();
