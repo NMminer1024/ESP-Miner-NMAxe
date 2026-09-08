@@ -822,42 +822,54 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
     config.asic.diff_thr_init        = 1024 * 2;
-    config.asic.default_frq          = 750;
+    config.asic.default_frq          = 600;
     // Nexus's 2 BM1373 dies are Vcore-series-stacked (not parallel like Rev8.1), but the
     // series scaling is handled INSIDE TPS546D24AClass (vcore_series_count=2), so all the
-    // values below are user-facing PER-DIE numbers identical to Rev8.1 (900-1500mV/die).
-    config.asic.default_vcore        = 1200;
-    // Factory floor raised so the lowest selectable freq/vcore pair still clears ~7TH/s
-    // (benchmark: 550MHz/1250mV -> 7643.6 GH/s, ~9% margin over 7TH/s).
-    config.asic.min_vcore            = 1150;
+    // values below are user-facing PER-DIE numbers (1000-1250mV/die).
+    config.asic.default_vcore        = 1150;
+    // Selectable floor lowered to 400MHz/1000mV to allow low-power operation;
+    // pairs this low are meant for ECO-style tuning, verify stability with a benchmark.
+    config.asic.min_vcore            = 1000;
     config.asic.max_vcore            = 1250;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
-    // Ceilings padded (freq 820->900, vcore 1.3->1.4) so the default 750MHz/1200mV point
-    // stays below the frontend's hardcoded value>=0.9*max "High" check (it was 91-92% before).
-    config.ui.dashboard_page.performance.asic_freq_req  = {550.0f, 900.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {1.15f, 1.4f};
-    config.ui.dashboard_page.performance.vcore_measure  = {1.15f, 1.4f};
+    // Ceilings padded (freq 820->900, vcore 1.3->1.4) so the default 600MHz/1150mV point
+    // stays well below the frontend's hardcoded value>=0.9*max "High" check.
+    config.ui.dashboard_page.performance.asic_freq_req  = {400.0f, 900.0f};
+    config.ui.dashboard_page.performance.vcore_req      = {1.0f, 1.4f};
+    config.ui.dashboard_page.performance.vcore_measure  = {1.0f, 1.4f};
     config.ui.setting_page.oc = {
+            {"400 MHz",           400},
+            {"425 MHz",           425},
+            {"450 MHz",           450},
+            {"475 MHz",           475},
+            {"500 MHz",           500},
+            {"525 MHz",           525},
             {"550 MHz",           550},
             {"575 MHz",           575},
-            {"600 MHz",           600},
+            {"600 MHz(default)",  600},
             {"625 MHz",           625},
             {"650 MHz",           650},
             {"675 MHz",           675},
             {"700 MHz",           700},
             {"725 MHz",           725},
-            {"750 MHz(default)",  750},
+            {"750 MHz",           750},
             {"775 MHz",           775},
             {"800 MHz",           800}
         };
-    // Per-die voltages (identical to Rev8.1); the series rail is derived inside the driver.
-    // Floor raised to 1150mV alongside the 550MHz freq floor -- see min_vcore comment above.
+    // Per-die voltages; the series rail is derived inside the driver.
+    // Floor lowered to 1000mV alongside the 400MHz freq floor -- see min_vcore comment above.
     config.ui.setting_page.vc = {
-            {"1150 mV",           1150},
+            {"1000 mV",           1000},
+            {"1025 mV",           1025},
+            {"1050 mV",           1050},
+            {"1075 mV",           1075},
+            {"1100 mV",           1100},
+            {"1125 mV",           1125},
+            {"1150 mV(default)",  1150},
             {"1175 mV",           1175},
-            {"1200 mV(default)",  1200},
+            {"1200 mV",           1200},
             {"1225 mV",           1225},
             {"1250 mV",           1250},
         };

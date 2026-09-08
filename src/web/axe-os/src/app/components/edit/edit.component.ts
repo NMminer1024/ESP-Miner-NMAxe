@@ -197,10 +197,9 @@ export class EditComponent implements OnInit {
 
     const b = p.bm;
     if (!b) {
-      return wrap(p.label, `${p.freq}MHz @ ${p.vcore}mV`, [
-        ['Source', 'Board defaults'],
-        ['Note', 'Run benchmark for measured data'],
-      ]);
+      return wrap(p.label, `${p.freq}MHz @ ${p.vcore}mV`, this.presetSource === 'benchmark'
+        ? [['Source', 'Board default'], ['Note', 'Not covered by benchmark results']]
+        : [['Source', 'Board defaults'], ['Note', 'Run benchmark for measured data']]);
     }
     const rows: Array<[string, string]> = [
       ['Hashrate', this.formatHashRate(b.avgHR)],
@@ -228,21 +227,34 @@ export class EditComponent implements OnInit {
     }
 
     if (uniq.size >= 3) {
-      // Benchmark-derived: Turbo = best hashrate, ECO = best efficiency (lowest J/TH),
-      // Normal = entry closest to the current frequency among the remaining ones
+      // Benchmark-derived: ECO = best efficiency (lowest J/TH), Turbo = best hashrate,
+      // Normal = board default pair; measured data attached when the benchmark covers it
       this.presetSource = 'benchmark';
       const entries = [...uniq.values()];
       const turbo = entries.reduce((b, r) => r.avgHR > b.avgHR ? r : b);
       const eco = entries.reduce((b, r) => r.effJTH < b.effJTH ? r : b);
-      const rest = entries.filter(r => r !== turbo && r !== eco);
-      const normal = rest.length
-        ? rest.reduce((b, r) => Math.abs(r.freq - curFreq) < Math.abs(b.freq - curFreq) ? r : b)
-        : turbo;
+
       const fromBm = (key: 'eco' | 'normal' | 'turbo', label: string, b: BenchmarkEntry): ModePreset =>
         ({key, label, freq: b.freq, vcore: b.vcore, hashRate: b.avgHR, power: b.avgPwr, bm: b});
+
+      let normal: ModePreset;
+      if (oc.length && vc.length) {
+        const nFreq = oc[this.defaultIdx(oc)].value;
+        const nVcore = vc[this.defaultIdx(vc)].value;
+        const nBm = uniq.get(pair(nFreq, nVcore));
+        normal = nBm ? fromBm('normal', 'Normal', nBm)
+                     : {key: 'normal', label: 'Normal', freq: nFreq, vcore: nVcore};
+      } else {
+        const rest = entries.filter(r => r !== turbo && r !== eco);
+        const b = rest.length
+          ? rest.reduce((best, r) => Math.abs(r.freq - curFreq) < Math.abs(best.freq - curFreq) ? r : best)
+          : turbo;
+        normal = fromBm('normal', 'Normal', b);
+      }
+
       this.presets = [
         fromBm('eco', 'ECO', eco),
-        fromBm('normal', 'Normal', normal),
+        normal,
         fromBm('turbo', 'Turbo', turbo),
       ];
       return;

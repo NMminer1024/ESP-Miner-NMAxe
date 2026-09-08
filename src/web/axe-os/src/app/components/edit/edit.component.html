@@ -23,7 +23,7 @@
                 <ng-container *ngIf="!p.hashRate">{{ p.freq }}MHz&#64;{{ p.vcore }}mV</ng-container>
               </span>
               <span class="mode-btn-na" *ngIf="p.disabled">{{ p.disabledHint }}</span>
-              <span class="mode-btn-bmreq" *ngIf="!p.disabled && !p.hashRate">benchmark required</span>
+              <span class="mode-btn-bmreq" *ngIf="presetSource === 'default' && !p.disabled && !p.hashRate">benchmark required</span>
             </button>
           </div>
           <div class="mt-2">
