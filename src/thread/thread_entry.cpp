@@ -2002,7 +2002,7 @@ void monitor_thread_entry(void* args) {
                 static uint32_t hcn_dead_streak_s = 0;
                 static bool     hcn_dead_logged   = false;
                 // Don't start the "HCN telemetry lost" watchdog until the ASIC is fully
-                // initialized; the ~13s frequency ramp in miner->begin() has no HCN polls
+                // initialized; the frequency ramp in miner->begin() has no HCN polls
                 // yet, so counting it would false-positive on every boot/resume.
                 const bool miner_ready = ctx->init_evt &&
                                          ((xEventGroupGetBits(ctx->init_evt) & INIT_EVENT_MINER_READY) != 0);

@@ -1,5 +1,84 @@
 <ng-container *ngIf="form != null">
   <form [formGroup]="form">
+    <!-- Performance Section: mode presets + advanced manual tuning -->
+    <div class="mining-pool-section perf-section">
+      <div class="pool-header">
+        <span class="pool-icon">⚡</span>
+        <h4 class="pool-title">Performance</h4>
+        <small class="pool-description">Preset modes apply immediately; expand Advanced for manual tuning</small>
+      </div>
+
+      <div class="field grid p-fluid align-items-center" *ngIf="presets.length">
+        <label class="col-12 mb-2 md:col-2 md:mb-0">Mode</label>
+        <div class="col-12 md:col-10">
+          <div class="mode-buttons">
+            <button *ngFor="let p of presets" pButton type="button" class="btn mode-btn"
+                    [class.mode-btn-active]="selectedMode === p.key"
+                    [disabled]="p.disabled || modeCooldown" [pTooltip]="presetTooltip(p)"
+                    [tooltipPosition]="tooltipPos(p)" [escape]="false"
+                    (click)="onModeSelect(p.key)">
+              <span class="mode-btn-label">{{ p.label }}</span>
+              <span class="mode-btn-value" [ngClass]="'mode-' + p.key" *ngIf="!p.disabled">
+                <ng-container *ngIf="p.hashRate"><span class="unit">~</span><span class="num">{{ hashValue(p.hashRate!) }}</span><span class="unit">{{ hashUnit(p.hashRate!) }}&#64;</span><span class="num">{{ p.power | number:'1.0-0' }}</span><span class="unit">W</span></ng-container>
+                <ng-container *ngIf="!p.hashRate">{{ p.freq }}MHz&#64;{{ p.vcore }}mV</ng-container>
+              </span>
+              <span class="mode-btn-na" *ngIf="p.disabled">{{ p.disabledHint }}</span>
+              <span class="mode-btn-bmreq" *ngIf="!p.disabled && !p.hashRate">benchmark required</span>
+            </button>
+          </div>
+          <div class="mt-2">
+            <small *ngIf="presetSource === 'benchmark'">Presets from benchmark results —</small>
+            <small *ngIf="selectedMode === 'custom'">Custom — adjust Frequency/Vcore in Advanced below.</small>
+            <small> Mode applies immediately.</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Advanced: individual Frequency / Vcore -->
+      <div class="advanced-toggle mt-2 mb-2" (click)="advancedOpen = !advancedOpen">
+        <i class="pi" [ngClass]="advancedOpen ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+        <span>Advanced (Frequency / Vcore)</span>
+      </div>
+
+      <div *ngIf="advancedOpen">
+      <ng-container *ngIf="!devToolsOpen && (ASICModel == eASICModel.BM1366 || ASICModel == eASICModel.BM1370 || ASICModel == eASICModel.BM1373)">
+        <div class="field grid p-fluid">
+          <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="frequency">OverClock(MHz)</label>
+          <div class="col-12 md:col-10">
+            <p-dropdown [options]="DropdownFrequency" optionLabel="name" optionValue="value"
+                        formControlName="frequency" appendTo="body" panelStyleClass="mining-setting-dropdown-panel"
+                        scrollHeight="70vh"></p-dropdown>
+          </div>
+        </div>
+
+        <div class="field grid p-fluid">
+          <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coreVoltage">Vcore(mV)</label>
+          <p-dropdown class="col-12 md:col-10" [options]="CoreVoltage" optionLabel="name"
+                      optionValue="value" formControlName="coreVoltage" appendTo="body"
+                      panelStyleClass="mining-setting-dropdown-panel" scrollHeight="70vh"></p-dropdown>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="devToolsOpen === true">
+
+        <div class="field grid p-fluid">
+          <label htmlFor="frequency" class="col-12 mb-2 md:col-2 md:mb-0">OverClock(MHz)</label>
+          <div class="col-12 md:col-10">
+            <input pInputText id="frequency" formControlName="frequency" type="number" />
+          </div>
+        </div>
+
+        <div class="field grid p-fluid">
+          <label htmlFor="coreVoltage" class="col-12 mb-2 md:col-2 md:mb-0">Vcore(mV)</label>
+          <div class="col-12 md:col-10">
+            <input pInputText id="coreVoltage" formControlName="coreVoltage" type="number" />
+          </div>
+        </div>
+
+      </ng-container>
+      </div>
+    </div>
+
     <!-- Primary Pool Section -->
     <div class="mining-pool-section primary-pool">
       <div class="pool-header">
@@ -59,78 +138,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Performance Mode presets -->
-    <div class="field grid p-fluid" *ngIf="presets.length">
-      <label class="col-12 mb-2 md:col-2 md:mb-0">Performance Mode</label>
-      <div class="col-12 md:col-10">
-        <div class="mode-buttons">
-          <button *ngFor="let p of presets" pButton type="button" class="btn mode-btn"
-                  [class.mode-btn-active]="selectedMode === p.key"
-                  [disabled]="p.disabled || modeCooldown" [pTooltip]="presetTooltip(p)"
-                  [tooltipPosition]="tooltipPos(p)" [escape]="false"
-                  (click)="onModeSelect(p.key)">
-            <span class="mode-btn-label">{{ p.label }}</span>
-            <span class="mode-btn-value" [ngClass]="'mode-' + p.key" *ngIf="!p.disabled">
-              <ng-container *ngIf="p.hashRate"><span class="unit">~</span><span class="num">{{ hashValue(p.hashRate!) }}</span><span class="unit">{{ hashUnit(p.hashRate!) }}&#64;</span><span class="num">{{ p.power | number:'1.0-0' }}</span><span class="unit">W</span></ng-container>
-              <ng-container *ngIf="!p.hashRate">{{ p.freq }}MHz&#64;{{ p.vcore }}mV</ng-container>
-            </span>
-            <span class="mode-btn-na" *ngIf="p.disabled">{{ p.disabledHint }}</span>
-            <span class="mode-btn-bmreq" *ngIf="!p.disabled && !p.hashRate">benchmark required</span>
-          </button>
-        </div>
-        <div class="mt-2">
-          <small *ngIf="presetSource === 'benchmark'">Presets from benchmark results —</small>
-          <small *ngIf="selectedMode === 'custom'">Custom — adjust Frequency/Vcore in Advanced below.</small>
-          <small> Mode applies immediately.</small>
-        </div>
-      </div>
-    </div>
-
-    <!-- Advanced: individual Frequency / Vcore -->
-    <div class="advanced-toggle mt-2 mb-2" (click)="advancedOpen = !advancedOpen">
-      <i class="pi" [ngClass]="advancedOpen ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
-      <span>Advanced (Frequency / Vcore)</span>
-    </div>
-
-    <div *ngIf="advancedOpen">
-    <ng-container *ngIf="!devToolsOpen && (ASICModel == eASICModel.BM1366 || ASICModel == eASICModel.BM1370 || ASICModel == eASICModel.BM1373)">
-      <div class="field grid p-fluid">
-        <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="frequency">OverClock(MHz)</label>
-        <div class="col-12 md:col-10">
-          <p-dropdown [options]="DropdownFrequency" optionLabel="name" optionValue="value"
-                      formControlName="frequency" appendTo="body" panelStyleClass="mining-setting-dropdown-panel"
-                      scrollHeight="70vh"></p-dropdown>
-        </div>
-      </div>
-
-      <div class="field grid p-fluid">
-        <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="coreVoltage">Vcore(mV)</label>
-        <p-dropdown class="col-12 md:col-10" [options]="CoreVoltage" optionLabel="name"
-                    optionValue="value" formControlName="coreVoltage" appendTo="body"
-                    panelStyleClass="mining-setting-dropdown-panel" scrollHeight="70vh"></p-dropdown>
-      </div>
-    </ng-container>
-
-    <ng-container *ngIf="devToolsOpen === true">
-
-      <div class="field grid p-fluid">
-        <label htmlFor="frequency" class="col-12 mb-2 md:col-2 md:mb-0">OverClock(MHz)</label>
-        <div class="col-12 md:col-10">
-          <input pInputText id="frequency" formControlName="frequency" type="number" />
-        </div>
-      </div>
-
-      <div class="field grid p-fluid">
-        <label htmlFor="coreVoltage" class="col-12 mb-2 md:col-2 md:mb-0">Vcore(mV)</label>
-        <div class="col-12 md:col-10">
-          <input pInputText id="coreVoltage" formControlName="coreVoltage" type="number" />
-        </div>
-      </div>
-
-    </ng-container>
-    </div>
-
 
     <!-- <div class="col-12 md:col-4" *ngIf="form.get('overheat_mode')?.value === 1">
       <div class="field-checkbox">

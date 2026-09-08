@@ -17,7 +17,7 @@
   }
   
   .pool-description {
-    color: #666;
+    color: #a5a5a5;
     font-style: italic;
     font-size: 12px;
   }
@@ -36,6 +36,14 @@
   
   .pool-title {
     color: #ff9417;
+  }
+}
+
+.perf-section {
+  border-color: #007bff; // Blue dashed border
+
+  .pool-title {
+    color: #007bff;
   }
 }
 
