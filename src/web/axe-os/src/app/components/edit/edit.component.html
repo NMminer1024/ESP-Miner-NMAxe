@@ -75,6 +75,7 @@
               <ng-container *ngIf="p.hashRate"><span class="unit">~</span><span class="num">{{ hashValue(p.hashRate!) }}</span><span class="unit">{{ hashUnit(p.hashRate!) }}&#64;</span><span class="num">{{ p.power | number:'1.0-0' }}</span><span class="unit">W</span></ng-container>
               <ng-container *ngIf="!p.hashRate">{{ p.freq }}MHz&#64;{{ p.vcore }}mV</ng-container>
             </span>
+            <span class="mode-btn-na" *ngIf="p.disabled">{{ p.disabledHint }}</span>
             <span class="mode-btn-bmreq" *ngIf="!p.disabled && !p.hashRate">benchmark required</span>
           </button>
         </div>

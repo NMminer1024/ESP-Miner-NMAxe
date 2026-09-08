@@ -29,7 +29,8 @@ interface ModePreset {
   power?: number;       // W, measured — only present for benchmark-derived presets
   bm?: BenchmarkEntry;  // source benchmark entry (tooltip detail)
   disabled?: boolean;
-  disabledReason?: string;
+  disabledReason?: string;  // tooltip detail
+  disabledHint?: string;    // short text shown inside the button
 }
 
 @Component({
@@ -259,6 +260,7 @@ export class EditComponent implements OnInit {
     if (fi === -1) {
       eco.disabled = true;
       eco.disabledReason = 'No frequency option below default';
+      eco.disabledHint = 'no lower option';
     } else {
       eco.freq = oc[fi].value;
       const vi = this.closestIdx(vc, normalVcore * (eco.freq / normalFreq), v => v <= normalVcore);
@@ -269,6 +271,7 @@ export class EditComponent implements OnInit {
     if (df >= oc.length - 1) {
       turbo.disabled = true;
       turbo.disabledReason = 'Default is already the highest frequency option';
+      turbo.disabledHint = 'already at max';
     } else {
       turbo.freq = oc[oc.length - 1].value;
       const vi = this.closestIdx(vc, normalVcore * (turbo.freq / normalFreq), v => v >= normalVcore);

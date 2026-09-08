@@ -5,6 +5,7 @@ import {SystemService} from 'src/app/services/system.service';
 import {eASICModel} from 'src/models/enum/eASICModel';
 import {ISystemInfo} from 'src/models/ISystemInfo';
 import {IGaugeLimits} from 'src/models/IGaugeLimits';
+import {resolveQuickLink} from 'src/app/services/quick-link.util';
 
 @Component({
   selector: 'app-home',
@@ -140,39 +141,7 @@ export class HomeComponent implements OnInit {
         // Parse new stratum nested structure or fallback to legacy flat structure
         const poolUrl = info.stratum?.url || info.stratumURLUSED || info.usedUrl || '';
         const poolUser = info.stratum?.user || info.stratumUserUSED || info.usedUser || '';
-        const coin = info.coin || info.coinPriceDisplay || '';
-        
-        if (poolUrl.includes('public-pool.io')) {
-          const address = poolUser.split('.')[0]
-          return `https://web.public-pool.io/#/app/${address}`;
-        } else if (poolUrl.includes('ocean.xyz')) {
-          const address = poolUser.split('.')[0]
-          return `https://ocean.xyz/stats/${address}`;
-        } else if (poolUrl.includes('solo.d-central.tech')) {
-          const address = poolUser.split('.')[0]
-          return `https://solo.d-central.tech/#/app/${address}`;
-        } else if (poolUrl.includes('solo.ckpool.org:3333')) {
-          const address = poolUser.split('.')[0]
-          return `https://stats.ckpool.org/users/${address}`;
-        } else if (poolUrl.includes('xec.nmminer.com')) {
-          const address = poolUser.split('.')[0]
-          return `https://xec.nmminer.com/user?workername=${address}`;
-        } else if (poolUrl.includes('au.solobtc.nmminer.com')) {
-          const address = poolUser.split('.')[0]
-          return `https://au.solobtc.nmminer.com/#/app/${address}`;
-        } else if (poolUrl.includes('solobtc.nmminer.com')) {
-          const address = poolUser.split('.')[0]
-          return `https://solobtc.nmminer.com/#/app/${address}`;
-        } else if (poolUrl.includes('molepool.com')) {
-          const address = poolUser.split('.')[0]
-          return `https://${coin}.molepool.com/account/${address}`;
-        } else if (poolUrl.includes('dgb-stratum.solominer.net')) {
-          const address = poolUser.split('.')[0]
-          return `https://digibyte.solominer.net/#/app/${address}`;
-        } 
-        else {
-          return undefined;
-        }
+        return resolveQuickLink(poolUrl, poolUser);
       })
     )
 
