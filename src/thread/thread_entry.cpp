@@ -120,13 +120,6 @@ typedef struct {
     uint8_t sample_count[HCN_MAX_ASIC_CHANNELS];
     uint32_t last_log_ms;
 
-    // Diagnostic: raw chip_addr byte last seen for each asic_id bucket, and a count of
-    // how many times a bucket received a sample from a *different* chip_addr than before
-    // (would mean two physical chips are colliding into the same decoded asic_id).
-    uint8_t  last_chip_addr[HCN_MAX_ASIC_CHANNELS];
-    bool     chip_addr_known[HCN_MAX_ASIC_CHANNELS];
-    uint32_t addr_mismatch_count;
-
     // Diagnostic: why did the rate calc not produce a fresh sample this cycle?
     // Reset each time the periodic log prints, so counts reflect the last ~5s window.
     uint32_t diag_reject_cnt;      // raw_ghs failed the sanity check (implausible/reset)
@@ -913,14 +906,6 @@ void miner_rx_thread_entry(void* args) {
         const uint8_t asic_id = hcn.asic_id;
         const uint32_t now_ms = millis();
 
-        // Diagnostic: does this asic_id bucket ever receive samples from more than one
-        // physical chip_addr? That would mean two chips are being merged into one slot.
-        if (g_hcn_cache.chip_addr_known[asic_id] && g_hcn_cache.last_chip_addr[asic_id] != hcn.chip_addr) {
-            g_hcn_cache.addr_mismatch_count++;
-        }
-        g_hcn_cache.last_chip_addr[asic_id]  = hcn.chip_addr;
-        g_hcn_cache.chip_addr_known[asic_id] = true;
-
         if (g_hcn_cache.seen[asic_id]) {
             // Unsigned wraparound subtraction: correctly handles the register rolling
             // over past UINT32_MAX (legit at these rates only after weeks of uptime).
@@ -971,19 +956,17 @@ void miner_rx_thread_entry(void* args) {
 
         if (now_ms - g_hcn_cache.last_log_ms >= HCN_LOG_INTERVAL_MS) {
             g_hcn_cache.last_log_ms = now_ms;
-            char buf[128] = {0};
+            char buf[256] = {0};
             int off = 0;
             double total = 0.0;
             for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
                 if (!g_hcn_cache.seen[i]) continue;
                 if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
                 total += g_hcn_cache.gh_s[i];
-                // raw cnt included so we can tell "two buckets reading the same physical
-                // counter" (near-identical cnt) apart from "two genuinely separate counters".
-                off += snprintf(buf + off, sizeof(buf) - off, "ch%u(a=0x%02X,cnt=%u)=%.0f ", i, g_hcn_cache.last_chip_addr[i], g_hcn_cache.prev_cnt[i], g_hcn_cache.gh_s[i]);
+                off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, g_hcn_cache.gh_s[i]);
                 if (off >= (int)sizeof(buf) - 16) break;
             }
-            LOG_W("HCN hashrate (reg 0x90, biz): %s| total=%.2f GH/s | addr_mismatch=%u", buf, total, g_hcn_cache.addr_mismatch_count);
+            LOG_W("HCN: %s| total=%.2f GH/s", buf, total);
             LOG_D("[DIAG] HCN calc: ok=%u reject=%u skip=%u | last_reject raw_ghs=%.2f d_cnt=%u d_ms=%u",
                   g_hcn_cache.diag_ok_cnt, g_hcn_cache.diag_reject_cnt, g_hcn_cache.diag_skip_cnt,
                   g_hcn_cache.diag_last_reject_raw_ghs, g_hcn_cache.diag_last_reject_d_cnt, g_hcn_cache.diag_last_reject_d_ms);
