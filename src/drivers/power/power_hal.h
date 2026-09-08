@@ -66,7 +66,16 @@ public:
     // Send CLEAR_FAULTS to the regulator to un-latch sticky STATUS_IOUT / STATUS_WORD bits.
     // Call this after a handled OC event or after ASIC startup to discard transient faults.
     virtual void clear_faults(void) {}
-    
+
+    // Real-time output current in amps (PMBus READ_IOUT). NAN if not supported.
+    virtual float get_iout_amps(void) { return NAN; }
+    // OC fault current limit in amps. NAN if not supported.
+    virtual float get_oc_limit_amps(void) { return NAN; }
+    // Real-time temperature in °C (PMBus READ_TEMPERATURE_1). NAN if not supported.
+    virtual float get_temperature(void) { return NAN; }
+    // OT fault temperature limit in °C. NAN if not supported.
+    virtual float get_ot_limit_celsius(void) { return NAN; }
+
     uint32_t get_vbus_adc(void);
     uint32_t get_ibus_adc(void);
     uint32_t get_vcore_adc(void);

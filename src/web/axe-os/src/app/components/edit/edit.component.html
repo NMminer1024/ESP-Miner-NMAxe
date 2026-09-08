@@ -60,6 +60,39 @@
       </div>
     </div>
 
+    <!-- Performance Mode presets -->
+    <div class="field grid p-fluid" *ngIf="presets.length">
+      <label class="col-12 mb-2 md:col-2 md:mb-0">Performance Mode</label>
+      <div class="col-12 md:col-10">
+        <div class="mode-buttons">
+          <button *ngFor="let p of presets" pButton type="button" class="btn mode-btn"
+                  [class.mode-btn-active]="selectedMode === p.key"
+                  [disabled]="p.disabled || modeCooldown" [pTooltip]="presetTooltip(p)"
+                  [tooltipPosition]="tooltipPos(p)" [escape]="false"
+                  (click)="onModeSelect(p.key)">
+            <span class="mode-btn-label">{{ p.label }}</span>
+            <span class="mode-btn-value" [ngClass]="'mode-' + p.key" *ngIf="!p.disabled">
+              <ng-container *ngIf="p.hashRate"><span class="unit">~</span><span class="num">{{ hashValue(p.hashRate!) }}</span><span class="unit">{{ hashUnit(p.hashRate!) }}&#64;</span><span class="num">{{ p.power | number:'1.0-0' }}</span><span class="unit">W</span></ng-container>
+              <ng-container *ngIf="!p.hashRate">{{ p.freq }}MHz&#64;{{ p.vcore }}mV</ng-container>
+            </span>
+            <span class="mode-btn-bmreq" *ngIf="!p.disabled && !p.hashRate">benchmark required</span>
+          </button>
+        </div>
+        <div class="mt-2">
+          <small *ngIf="presetSource === 'benchmark'">Presets from benchmark results —</small>
+          <small *ngIf="selectedMode === 'custom'">Custom — adjust Frequency/Vcore in Advanced below.</small>
+          <small> Mode applies immediately.</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced: individual Frequency / Vcore -->
+    <div class="advanced-toggle mt-2 mb-2" (click)="advancedOpen = !advancedOpen">
+      <i class="pi" [ngClass]="advancedOpen ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+      <span>Advanced (Frequency / Vcore)</span>
+    </div>
+
+    <div *ngIf="advancedOpen">
     <ng-container *ngIf="!devToolsOpen && (ASICModel == eASICModel.BM1366 || ASICModel == eASICModel.BM1370 || ASICModel == eASICModel.BM1373)">
       <div class="field grid p-fluid">
         <label class="col-12 mb-2 md:col-2 md:mb-0" htmlFor="frequency">OverClock(MHz)</label>
@@ -95,6 +128,7 @@
       </div>
 
     </ng-container>
+    </div>
 
 
     <!-- <div class="col-12 md:col-4" *ngIf="form.get('overheat_mode')?.value === 1">

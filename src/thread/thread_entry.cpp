@@ -1,4 +1,4 @@
-﻿#include "thread_entry.h"
+#include "thread_entry.h"
 #include "../app/application.h"
 #include "../app/system_events.h"
 #include "../utils/logger/logger.h"
@@ -59,6 +59,11 @@ constexpr uint32_t HCN_MIN_DELTA_MS      = 1000u;
 constexpr float    HCN_EMA_ALPHA         = 0.45f;
 constexpr float    HCN_EMA_FASTSTART     = 0.85f;
 constexpr uint8_t  HCN_FASTSTART_SAMPLES = 12;
+// A 0x90 counter that does not increment across this many consecutive polls is
+// treated as dead: the channel is dropped from the active set so the hashrate
+// source can fall back to nonces. Escalation to a full reinit is handled by the
+// monitor's no-progress watchdog (trigger 3).
+constexpr uint8_t  HCN_STALL_DROP        = 3;
 
 // Log-only diagnostics for tracking down transient hashrate collapses (no recovery action).
 constexpr uint32_t HR_DIAG_HCN_DEAD_SEC  = 10;    // consecutive seconds with 0 active HCN channels before logging
@@ -90,6 +95,7 @@ constexpr uint32_t AR_READY_TIMEOUT_MS   = 3000;   // is_vcore_ready() poll ceil
 constexpr uint32_t AR_READY_POLL_MS      = 50;     // is_vcore_ready() poll step
 constexpr uint32_t AR_POST_CHECK_MS      = 30 * 1000u;  // post-reinit recovery verdict delay
 constexpr uint8_t  AR_REJECT_STREAK      = 3;      // consecutive rejected 0x90 samples that trigger a reinit
+constexpr uint8_t  AR_HCN_DEAD_SEC       = 6;      // 1s ticks with polls flowing but no advancing 0x90 sample -> reinit
 
 // Cross-thread request: written once by the monitor-thread detector, consumed by
 // the miner-tx control lambda. volatile fields suffice (single writer, single
@@ -102,7 +108,7 @@ typedef struct {
     volatile uint8_t  max_ch  = 0;
     volatile uint32_t sustain_sec = 0;
     volatile uint8_t  attempt = 0;
-    volatile uint8_t  reason  = 0;    // 0 = channel imbalance, 1 = reject streak
+    volatile uint8_t  reason  = 0;    // 0 = channel imbalance, 1 = reject streak, 2 = no progress
     volatile float    last_raw_ghs = 0.0f;  // reason 1: the rejected raw rate that broke the streak
 } ar_request_t;
 static ar_request_t g_ar_request;
@@ -118,12 +124,16 @@ typedef struct {
     float gh_s[HCN_MAX_ASIC_CHANNELS];
     uint32_t gh_ms[HCN_MAX_ASIC_CHANNELS];
     uint8_t sample_count[HCN_MAX_ASIC_CHANNELS];
+    // Consecutive polls with d_cnt == 0 (counter not incrementing). Reset on any
+    // advancing sample; at HCN_STALL_DROP the channel is dropped from the active set.
+    uint8_t stall_cnt[HCN_MAX_ASIC_CHANNELS];
     uint32_t last_log_ms;
 
     // Diagnostic: why did the rate calc not produce a fresh sample this cycle?
     // Reset each time the periodic log prints, so counts reflect the last ~5s window.
     uint32_t diag_reject_cnt;      // raw_ghs failed the sanity check (implausible/reset)
     uint32_t diag_skip_cnt;        // d_ms < HCN_MIN_DELTA_MS, calc skipped entirely
+    uint32_t diag_stall_cnt;       // d_cnt == 0, counter not incrementing
     uint32_t diag_ok_cnt;          // raw_ghs accepted, EMA updated
     float    diag_last_reject_raw_ghs;
     uint32_t diag_last_reject_d_cnt;
@@ -136,6 +146,11 @@ typedef struct {
     uint8_t  reject_streak;
     float    last_reject_raw_ghs;
     uint8_t  last_reject_ch;
+
+    // Last time any channel produced an accepted sample with d_cnt > 0 (real hashing
+    // evidence from the 0x90 counter). Read by the monitor's no-progress watchdog
+    // (trigger 3): polls flowing but this never advancing means the chain is dead.
+    uint32_t last_progress_ms;
 } hcn_hashrate_cache_t;
 
 static hcn_hashrate_cache_t g_hcn_cache = {0};
@@ -160,8 +175,10 @@ static void hcn_cache_reset(const char* reason) {
     memset(g_hcn_cache.gh_s, 0, sizeof(g_hcn_cache.gh_s));
     memset(g_hcn_cache.gh_ms, 0, sizeof(g_hcn_cache.gh_ms));
     memset(g_hcn_cache.sample_count, 0, sizeof(g_hcn_cache.sample_count));
+    memset(g_hcn_cache.stall_cnt, 0, sizeof(g_hcn_cache.stall_cnt));
     g_hcn_cache.last_log_ms = 0;
     g_hcn_cache.reject_streak = 0;
+    g_hcn_cache.last_progress_ms = 0;
 
     xSemaphoreGive(g_hcn_cache.mutex);
     LOG_W("HCN cache reset: %s", reason ? reason : "unknown");
@@ -619,6 +636,9 @@ void miner_tx_thread_entry(void* args) {
             if (req_reason == 1) {
                 LOG_W("[ASIC-REINIT] HCN reject streak: %u consecutive 0x90 samples failed sanity (last raw=%.0f GH/s, ch%u) -> fast power-cycle reinit (attempt %u/%u)",
                       AR_REJECT_STREAK, req_raw, req_min_ch, req_att, AR_MAX_ATTEMPTS);
+            } else if (req_reason == 2) {
+                LOG_W("[ASIC-REINIT] HCN no progress: %lus without an advancing 0x90 sample while polls were flowing -> fast power-cycle reinit (attempt %u/%u)",
+                      (unsigned long)req_sus, req_att, AR_MAX_ATTEMPTS);
             } else {
                 LOG_W("[ASIC-REINIT] HCN imbalance: ch%u=%.0f GH/s vs ch%u=%.0f GH/s (min/max=%.2f < %.2f, sustained %lus) -> fast power-cycle reinit (attempt %u/%u)",
                       req_min_ch, req_min, req_max_ch, req_max,
@@ -915,6 +935,26 @@ void miner_rx_thread_entry(void* args) {
             const uint32_t d_cnt = hcn.hash_count - g_hcn_cache.prev_cnt[asic_id];
             const uint32_t d_ms  = now_ms - g_hcn_cache.prev_ms[asic_id];
             if (d_ms >= HCN_MIN_DELTA_MS) {
+                if (d_cnt == 0) {
+                    // Counter not incrementing: the chip stopped hashing or its 0x90
+                    // counter never started. Do NOT refresh gh_ms — a dead counter
+                    // must not keep the channel "active" at 0 GH/s, otherwise it
+                    // suppresses the nonce-fallback hashrate indefinitely. After
+                    // HCN_STALL_DROP consecutive stalls, drop the channel outright
+                    // (the monitor's no-progress watchdog escalates to a full reinit).
+                    g_hcn_cache.diag_stall_cnt++;
+                    if (g_hcn_cache.stall_cnt[asic_id] < 255) g_hcn_cache.stall_cnt[asic_id]++;
+                    if (g_hcn_cache.stall_cnt[asic_id] >= HCN_STALL_DROP) {
+                        g_hcn_cache.gh_s[asic_id]         = 0.0f;
+                        g_hcn_cache.gh_ms[asic_id]        = 0;
+                        g_hcn_cache.sample_count[asic_id] = 0;
+                    }
+                    g_hcn_cache.prev_cnt[asic_id] = hcn.hash_count;
+                    g_hcn_cache.prev_ms[asic_id]  = now_ms;
+                    xSemaphoreGive(g_hcn_cache.mutex);
+                    return;
+                }
+                g_hcn_cache.stall_cnt[asic_id] = 0;
                 const float raw_ghs = (float)((double)d_cnt * 4294967296.0 / ((double)d_ms * 1000000.0));
                 if (!std::isfinite(raw_ghs) || raw_ghs < 0.0f || raw_ghs > hcn_max_ghs) {
                     // Implausible rate: either noise or a genuine ASIC reset/reinit.
@@ -936,6 +976,7 @@ void miner_rx_thread_entry(void* args) {
                 }
                 g_hcn_cache.diag_ok_cnt++;
                 g_hcn_cache.reject_streak = 0;   // any accepted sample heals the streak
+                g_hcn_cache.last_progress_ms = now_ms;  // d_cnt > 0 here: hashing evidence
 
                 const float alpha = (g_hcn_cache.sample_count[asic_id] < HCN_FASTSTART_SAMPLES)
                                     ? HCN_EMA_FASTSTART : HCN_EMA_ALPHA;
@@ -959,20 +1000,26 @@ void miner_rx_thread_entry(void* args) {
             char buf[256] = {0};
             int off = 0;
             double total = 0.0;
+            bool first = true;
+            off += snprintf(buf + off, sizeof(buf) - off, "(");
             for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
                 if (!g_hcn_cache.seen[i]) continue;
                 if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
                 total += g_hcn_cache.gh_s[i];
-                off += snprintf(buf + off, sizeof(buf) - off, "ch%u=%.0f ", i, g_hcn_cache.gh_s[i]);
+                if (!first) off += snprintf(buf + off, sizeof(buf) - off, ", ");
+                off += snprintf(buf + off, sizeof(buf) - off, "%.0f", g_hcn_cache.gh_s[i]);
+                first = false;
                 if (off >= (int)sizeof(buf) - 16) break;
             }
-            LOG_W("HCN: %s| total=%.2f GH/s", buf, total);
-            LOG_D("[DIAG] HCN calc: ok=%u reject=%u skip=%u | last_reject raw_ghs=%.2f d_cnt=%u d_ms=%u",
-                  g_hcn_cache.diag_ok_cnt, g_hcn_cache.diag_reject_cnt, g_hcn_cache.diag_skip_cnt,
+            off += snprintf(buf + off, sizeof(buf) - off, ")");
+            LOG_W("HCN: %s = %.2f GH/s", buf, total);
+            LOG_D("[DIAG] HCN calc: ok=%u reject=%u skip=%u stall=%u | last_reject raw_ghs=%.2f d_cnt=%u d_ms=%u",
+                  g_hcn_cache.diag_ok_cnt, g_hcn_cache.diag_reject_cnt, g_hcn_cache.diag_skip_cnt, g_hcn_cache.diag_stall_cnt,
                   g_hcn_cache.diag_last_reject_raw_ghs, g_hcn_cache.diag_last_reject_d_cnt, g_hcn_cache.diag_last_reject_d_ms);
             g_hcn_cache.diag_ok_cnt = 0;
             g_hcn_cache.diag_reject_cnt = 0;
             g_hcn_cache.diag_skip_cnt = 0;
+            g_hcn_cache.diag_stall_cnt = 0;
 
             uint32_t tag_seen = 0, decoded_ok = 0;
             ctx->miner->get_hcn_diag_counts(&tag_seen, &decoded_ok);
@@ -1431,7 +1478,8 @@ void power_loop_thread_entry(void* args) {
             bool ot_warn  = power->is_ot_warn();
             bool ot_fault = power->is_ot_fault();
             if (oc_fault) {
-                LOG_W("Overcurrent FAULT detected! Taking safety actions...");
+                LOG_W("Overcurrent FAULT detected! IOUT=%.2fA limit=%.1fA. Taking safety actions...",
+                      power->get_iout_amps(), power->get_oc_limit_amps());
                 // Immediate safety action: shut down ASIC power
                 power->set_vcore_status(PWR_OFF);
                 power->set_vdd_1v8(PWR_OFF);
@@ -1449,11 +1497,13 @@ void power_loop_thread_entry(void* args) {
             } else if (oc_warn) {
                 static uint32_t last = millis();
                 if (millis() - last >= 3000) {
-                    LOG_W("Overcurrent WARNING detected...");
+                    LOG_W("!!! Overcurrent WARNING detected !!! (%.2fA/%.1fA)",
+                          power->get_iout_amps(), power->get_oc_limit_amps());
                     last = millis();
                 }
             } else if (ot_fault) {
-                LOG_W("Overtemperature FAULT detected! Taking safety actions...");
+                LOG_W("!!! Overtemperature FAULT detected! Temp=%.1fC limit=%.0fC. Taking safety actions !!!",
+                      power->get_temperature(), power->get_ot_limit_celsius());
                 power->set_vcore_status(PWR_OFF);
                 power->set_vdd_1v8(PWR_OFF);
                 power->set_pll_0v8(PWR_OFF);
@@ -1467,7 +1517,8 @@ void power_loop_thread_entry(void* args) {
             } else if (ot_warn) {
                 static uint32_t last = millis();
                 if (millis() - last >= 3000) {
-                    LOG_W("Overtemperature WARNING detected...");
+                    LOG_W("Overtemperature WARNING detected... (%.1fC/%.0fC)",
+                          power->get_temperature(), power->get_ot_limit_celsius());
                     last = millis();
                 }
             }
@@ -2013,8 +2064,8 @@ void monitor_thread_entry(void* args) {
         // unchanged" (series-stacked midpoint drift). On a sustained match it asks
         // the tx thread for a silent fast Vcore power-cycle + ASIC reinit
         // (MINER_RUNTIME_AUTO_REINITING). Chip-count agnostic (works for 2- and
-        // 4-chip boards); boards without 0x90 decode (BM1366/BM1370) never see any
-        // HCN channel data, so this block is a natural no-op there.
+        // 4-chip boards); on single-chip boards there is no sibling to compare
+        // against, so the active >= 2 requirement makes it a natural no-op there.
         {
             static uint32_t ar_imbalance_streak = 0;
             static uint32_t ar_last_trigger_ms  = 0;
@@ -2148,6 +2199,74 @@ void monitor_thread_entry(void* args) {
                     if (st.control_xsem != NULL) xSemaphoreGive(st.control_xsem);
                     xSemaphoreGive(st.update_xsem);
                 }
+            }
+        }
+
+        // --- Trigger 3: HCN(0x90) no-progress watchdog -> immediate reinit ----------
+        // All supported chips (BM1366/BM1370/BM1373) answer the 0x90 poll by design,
+        // so "no progress" always means the chain is unhealthy. Deliberately NOT
+        // gated on bm_mode — a dead 0x90 channel in the middle of a benchmark round
+        // is exactly the case to recover from. "Progress" = any accepted sample with
+        // d_cnt > 0; total silence, stalled counters and garbage frames all look the
+        // same here. Polls must actually be flowing (else the pool/tx side is
+        // stalled, which is not an ASIC problem).
+        {
+            static uint32_t np_poll_cnt        = 0;   // last seen poll counter
+            static uint32_t np_flow_ms         = 0;   // last time the poll counter moved
+            static uint32_t np_progress_seen   = 0;   // last observed last_progress_ms
+            static uint8_t  np_streak          = 0;   // consecutive 1s ticks without progress
+            static uint8_t  np_attempts        = 0;
+            static uint32_t np_last_trigger_ms = 0;
+
+            const uint32_t now_ms = millis();
+            if (g_hcn_poll_sent_total != np_poll_cnt) {
+                np_poll_cnt = g_hcn_poll_sent_total;
+                np_flow_ms  = now_ms;
+            }
+
+            uint32_t last_progress_ms = 0;
+            if (hcn_cache_ensure_inited() &&
+                xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                last_progress_ms = g_hcn_cache.last_progress_ms;
+                xSemaphoreGive(g_hcn_cache.mutex);
+            }
+
+            const bool np_gates_ok =
+                st.runtime_state == MINER_RUNTIME_RUNNING &&
+                !st.user_paused &&
+                ctx->init_evt &&
+                ((xEventGroupGetBits(ctx->init_evt) & INIT_EVENT_MINER_READY) != 0) &&
+                !(ctx->ota_running && *ctx->ota_running) &&
+                !(ctx->miner && ctx->miner->is_asic_frequency_updating()) &&
+                np_attempts < AR_MAX_ATTEMPTS &&
+                (np_last_trigger_ms == 0 ||
+                 (uint32_t)(now_ms - np_last_trigger_ms) >= AR_COOLDOWN_MS) &&
+                np_poll_cnt != 0 &&                             // polls started at some point
+                (uint32_t)(now_ms - np_flow_ms) < 4000u;        // ... and are still flowing
+
+            if (!np_gates_ok) {
+                np_streak = 0;
+            } else if (last_progress_ms != np_progress_seen) {
+                np_progress_seen = last_progress_ms;
+                np_streak = 0;
+            } else if (++np_streak >= AR_HCN_DEAD_SEC && !g_ar_request.pending) {
+                np_streak = 0;
+                np_attempts++;
+                np_last_trigger_ms        = now_ms;
+                g_ar_request.min_ghs      = 0.0f;
+                g_ar_request.max_ghs      = 0.0f;
+                g_ar_request.min_ch       = 0;
+                g_ar_request.max_ch       = 0;
+                g_ar_request.sustain_sec  = AR_HCN_DEAD_SEC;
+                g_ar_request.attempt      = np_attempts;
+                g_ar_request.reason       = 2;
+                g_ar_request.last_raw_ghs = 0.0f;
+                g_ar_request.pending      = true;
+                st.runtime_state = MINER_RUNTIME_AUTO_REINITING;
+                if (st.control_xsem != NULL) xSemaphoreGive(st.control_xsem);
+                xSemaphoreGive(st.update_xsem);
+                LOG_W("[ASIC-REINIT] HCN no progress: polls flowing but no advancing 0x90 sample for %us -> fast power-cycle reinit (attempt %u/%u)",
+                      (unsigned)AR_HCN_DEAD_SEC, np_attempts, AR_MAX_ATTEMPTS);
             }
         }
 

@@ -561,6 +561,21 @@ void TPS546D24AClass::clear_faults(void){
     this->_write_cmd(PMBUS_CLEAR_FAULTS);
 }
 
+float TPS546D24AClass::get_iout_amps(void){
+    if (!this->_device_ok) return NAN;
+    uint16_t raw = 0;
+    this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
+    return this->_slinear11_to_float(raw);
+}
+
+float TPS546D24AClass::get_oc_limit_amps(void){
+    return this->_cfg.ifault_total;
+}
+
+float TPS546D24AClass::get_ot_limit_celsius(void){
+    return this->_cfg.tfault;
+}
+
 void TPS546D24AClass::debugPrint(void){
     uint16_t raw = 0;
 

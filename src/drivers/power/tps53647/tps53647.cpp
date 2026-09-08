@@ -403,6 +403,20 @@ void TPS53647Class::clear_faults(void){
     this->_write_cmd(PMBUS_CLEAR_FAULTS);
 }
 
+float TPS53647Class::get_iout_amps(void){
+    uint16_t raw = 0;
+    this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
+    return this->_slinear11_to_float(raw);
+}
+
+float TPS53647Class::get_oc_limit_amps(void){
+    return this->_cfg.ifault;
+}
+
+float TPS53647Class::get_ot_limit_celsius(void){
+    return this->_cfg.tfault;
+}
+
 bool TPS53647Class::is_oc_warn(void){
     uint8_t status_iout = 0;
     this->_read_reg(PMBUS_STATUS_IOUT, &status_iout, 1);
