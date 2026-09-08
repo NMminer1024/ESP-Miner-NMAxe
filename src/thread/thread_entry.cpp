@@ -3726,12 +3726,25 @@ void benchmark_thread_entry(void* args) {
 
     BenchmarkState& bm = *ctx->bm;
 
-    uint16_t freq_min   = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,   400);
-    uint16_t freq_max   = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MAX,   625);
-    uint16_t freq_step  = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,  50);
-    uint16_t vcore_min  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,  1000);
-    uint16_t vcore_max  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,  1300);
-    uint16_t vcore_step = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP, 25);
+    // Sweep defaults come from the board spec (same source as GET /api/benchmark);
+    // NVS-stored user overrides win when present.
+    const BoardSpecConfig* bspec = ctx->spec;
+    uint16_t freq_min_def  = 400, freq_max_def = 625;
+    if (bspec && !bspec->ui.setting_page.oc.empty()) {
+        freq_min_def = bspec->ui.setting_page.oc.front().value;
+        freq_max_def = bspec->ui.setting_page.oc.back().value;
+    }
+    uint16_t vcore_min_def = (bspec && bspec->asic.min_vcore)    ? bspec->asic.min_vcore    : 1000;
+    uint16_t vcore_max_def = (bspec && bspec->asic.max_vcore)    ? bspec->asic.max_vcore    : 1300;
+    uint16_t freq_step_def = (bspec && bspec->asic.bm_freq_step) ? bspec->asic.bm_freq_step : 25;
+    uint16_t vcore_step_def= (bspec && bspec->asic.bm_vcore_step)? bspec->asic.bm_vcore_step: 25;
+
+    uint16_t freq_min   = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,   freq_min_def);
+    uint16_t freq_max   = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MAX,   freq_max_def);
+    uint16_t freq_step  = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,  freq_step_def);
+    uint16_t vcore_min  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,  vcore_min_def);
+    uint16_t vcore_max  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,  vcore_max_def);
+    uint16_t vcore_step = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP, vcore_step_def);
     uint8_t  smp_intv   = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 2);
     uint16_t bm_time    = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        120);
     uint16_t stab_time  = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   30);

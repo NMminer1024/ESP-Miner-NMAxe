@@ -148,6 +148,8 @@ struct BoardSpecConfig {
         uint16_t default_vcore;   // mV, default core voltage
         uint16_t min_vcore;       // mV, minimum core voltage
         uint16_t max_vcore;       // mV, maximum core voltage
+        uint16_t bm_freq_step;    // MHz, benchmark sweep default freq step
+        uint16_t bm_vcore_step;   // mV, benchmark sweep default vcore step
         uint16_t diff_thr_init;   // initial difficulty threshold
         int8_t  rx_pin;           // ESP32 rx pin to asic tx pin
         int8_t  tx_pin;           // ESP32 tx pin to asic rx pin

@@ -1,4 +1,4 @@
-﻿
+
 #include <Arduino.h>
 #include <Update.h>
 #include <SPIFFS.h>
@@ -1305,16 +1305,18 @@ void get_benchmark(AsyncWebServerRequest* request){
       } }
     uint16_t vc_min_def = g_web->spec->asic.min_vcore ? g_web->spec->asic.min_vcore : 1000;
     uint16_t vc_max_def = g_web->spec->asic.max_vcore ? g_web->spec->asic.max_vcore : 1300;
+    uint16_t bm_fstep_def = g_web->spec->asic.bm_freq_step ? g_web->spec->asic.bm_freq_step : 25;
+    uint16_t bm_vstep_def = g_web->spec->asic.bm_vcore_step ? g_web->spec->asic.bm_vcore_step : 25;
     AsyncResponseStream *resp = request->beginResponseStream("application/json");
     resp->addHeader("Access-Control-Allow-Origin", "*");
     resp->print("{");
     resp->printf("\"mode\":%d,",         nvs_config_get_u8 (NVS_CONFIG_BM_MODE,        0));
     resp->printf("\"freqMin\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,    oc_min_def));
     resp->printf("\"freqMax\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MAX,    oc_max_def));
-    resp->printf("\"freqStep\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,   25));
+    resp->printf("\"freqStep\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_FREQ_STEP,   bm_fstep_def));
     resp->printf("\"vcoreMin\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,   vc_min_def));
     resp->printf("\"vcoreMax\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,   vc_max_def));
-    resp->printf("\"vcoreStep\":%d,",    nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP,  25));
+    resp->printf("\"vcoreStep\":%d,",    nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP,  bm_vstep_def));
     resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 2));
     resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        120));
     resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   30));

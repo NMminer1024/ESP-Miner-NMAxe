@@ -9,6 +9,8 @@
 #include "../drivers/power/power_hal.h"    // AxePowerHal (OC/OT fault check)
 #include "../drivers/temp/temp_ctx.h"     // TempState
 
+struct BoardSpecConfig;  // fwd — board.h not needed for a pointer member
+
 // ============================================================================
 //  BenchmarkCtx — launch context for benchmark_thread_entry
 //
@@ -24,6 +26,7 @@ struct BenchmarkCtx {
     const PowerTelemetry* pwr = nullptr;        // measured vbus/ibus/vcore
     AxePowerHal*      power = nullptr;          // OC/OT fault status (HAL)
     const TempState*  temp = nullptr;           // sampled asic/vcore temps
+    const BoardSpecConfig* spec = nullptr;      // board defaults for the sweep range/step
     SemaphoreHandle_t reboot_xsem = nullptr;
     EventGroupHandle_t init_evt = nullptr;      // INIT_EVENT_MINER_READY gate
 };

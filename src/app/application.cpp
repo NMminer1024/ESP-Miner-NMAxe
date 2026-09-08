@@ -1,4 +1,4 @@
-﻿#include "application.h"
+#include "application.h"
 
 #include "lvgl.h"
 #include "system_events.h"
@@ -579,6 +579,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     bctx.pwr         = &_state_power_telemetry;
     bctx.power       = _hal_power;
     bctx.temp        = &_state_temp;
+    bctx.spec        = &_board_spec;
     bctx.reboot_xsem = _sync_system->reboot_xsem;
     bctx.init_evt    = _sync_system->init_evt;
     _ctx_benchmark = &bctx;

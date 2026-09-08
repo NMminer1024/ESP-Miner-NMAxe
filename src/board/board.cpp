@@ -101,6 +101,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
     config.asic.min_vcore            = 1100;
     config.asic.max_vcore            = 1300;
+    config.asic.bm_freq_step         = 25;
+    config.asic.bm_vcore_step        = 25;
     config.asic.diff_thr_init        = 512;
     config.asic.com_baud_init        = 115200;
     config.asic.com_baud_work        = 1000000;
@@ -232,6 +234,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
     config.asic.min_vcore            = 1000;
     config.asic.max_vcore            = 1250;
+    config.asic.bm_freq_step         = 25;
+    config.asic.bm_vcore_step        = 25;
     config.asic.diff_thr_init        = 1024;
     config.asic.rx_pin               = 44;
     config.asic.tx_pin               = 43;
@@ -310,6 +314,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_vcore        = 1150;
     config.asic.min_vcore            = 1000;
     config.asic.max_vcore            = 1350;
+    config.asic.bm_freq_step         = 25;
+    config.asic.bm_vcore_step        = 25;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 160.0f};
@@ -473,6 +479,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_vcore        = 1250;
     config.asic.min_vcore            = 1100;
     config.asic.max_vcore            = 1550;
+    config.asic.bm_freq_step         = 25;
+    config.asic.bm_vcore_step        = 25;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 18.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
@@ -636,6 +644,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_vcore        = 1000;
     config.asic.min_vcore            = 900;
     config.asic.max_vcore            = 1500;
+    config.asic.bm_freq_step         = 25;
+    config.asic.bm_vcore_step        = 25;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 25.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 250.0f};
@@ -831,6 +841,10 @@ BoardSpecConfig get_board_config_compile_time() {
     // pairs this low are meant for ECO-style tuning, verify stability with a benchmark.
     config.asic.min_vcore            = 1000;
     config.asic.max_vcore            = 1250;
+    // Finer sweep granularity: the 400-800MHz / 1000-1250mV window is wide, and the
+    // BM1373 V/f curve is smooth enough that 10MHz/10mV steps pay off here.
+    config.asic.bm_freq_step         = 10;
+    config.asic.bm_vcore_step        = 10;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
