@@ -228,7 +228,8 @@ export class EditComponent implements OnInit {
 
     if (uniq.size >= 3) {
       // Benchmark-derived: ECO = best efficiency (lowest J/TH), Turbo = best hashrate,
-      // Normal = board default pair; measured data attached when the benchmark covers it
+      // Normal = board default pair if the benchmark covers it, otherwise the entry
+      // closest to the default point (ties broken by lower measured power)
       this.presetSource = 'benchmark';
       const entries = [...uniq.values()];
       const turbo = entries.reduce((b, r) => r.avgHR > b.avgHR ? r : b);
@@ -242,8 +243,16 @@ export class EditComponent implements OnInit {
         const nFreq = oc[this.defaultIdx(oc)].value;
         const nVcore = vc[this.defaultIdx(vc)].value;
         const nBm = uniq.get(pair(nFreq, nVcore));
-        normal = nBm ? fromBm('normal', 'Normal', nBm)
-                     : {key: 'normal', label: 'Normal', freq: nFreq, vcore: nVcore};
+        if (nBm) {
+          normal = fromBm('normal', 'Normal', nBm);
+        } else {
+          const near = entries.reduce((b, r) => {
+            const dr = Math.abs(r.freq - nFreq) + Math.abs(r.vcore - nVcore);
+            const db = Math.abs(b.freq - nFreq) + Math.abs(b.vcore - nVcore);
+            return dr < db || (dr === db && r.avgPwr < b.avgPwr) ? r : b;
+          });
+          normal = fromBm('normal', 'Normal', near);
+        }
       } else {
         const rest = entries.filter(r => r !== turbo && r !== eco);
         const b = rest.length
