@@ -805,6 +805,39 @@ a {
         }
       }
 
+      // Performance section styling - Blue theme (mirrors primary/backup pool)
+      &.perf-section {
+        border: 2px dashed #42A5F5 !important; // Blue dashed border
+        background: linear-gradient(135deg, rgba(66, 165, 245, 0.05), rgba(66, 165, 245, 0.02)) !important;
+
+        .pool-icon {
+          background: linear-gradient(135deg, #42A5F5, #1E88E5);
+          color: #000;
+          box-shadow: 0 0 20px rgba(66, 165, 245, 0.4);
+        }
+
+        .pool-title {
+          color: #42A5F5;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .pool-description {
+          color: #42A5F5;
+          background: rgba(66, 165, 245, 0.15);
+        }
+
+        // Input focus effects for performance section
+        .p-inputtext:focus {
+          border-color: #42A5F5 !important;
+          box-shadow: 0 0 0 2px rgba(66, 165, 245, 0.25) !important;
+        }
+
+        .p-dropdown:focus {
+          border-color: #42A5F5 !important;
+          box-shadow: 0 0 0 2px rgba(66, 165, 245, 0.25) !important;
+        }
+      }
+
       // Enhanced input styling
       .p-dropdown {
         border-radius: 8px !important;

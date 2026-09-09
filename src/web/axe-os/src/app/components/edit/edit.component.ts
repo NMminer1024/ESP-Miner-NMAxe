@@ -129,7 +129,7 @@ export class EditComponent implements OnInit {
         // Derive the current mode; any manual edit that leaves a preset marks the mode Custom
         const matched = this.presets.find(p => !p.disabled && p.freq === freqVal && p.vcore === vcoreVal);
         this.selectedMode = matched ? matched.key : 'custom';
-        this.advancedOpen = !matched;
+        this.advancedOpen = false;  // always start collapsed; Custom users expand it manually
         this.form.valueChanges.subscribe(v => {
           if (this.applyingPreset) return;
           const m = this.presets.find(p => !p.disabled && p.freq === v.frequency && p.vcore === v.coreVoltage);
