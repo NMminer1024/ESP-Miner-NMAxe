@@ -96,6 +96,8 @@ constexpr uint32_t AR_READY_POLL_MS      = 50;     // is_vcore_ready() poll step
 constexpr uint32_t AR_POST_CHECK_MS      = 30 * 1000u;  // post-reinit recovery verdict delay
 constexpr uint8_t  AR_REJECT_STREAK      = 3;      // consecutive rejected 0x90 samples that trigger a reinit
 constexpr uint8_t  AR_HCN_DEAD_SEC       = 6;      // 1s ticks with polls flowing but no advancing 0x90 sample -> reinit
+constexpr uint8_t  AR_PL_LOSS_TICKS      = 5;      // 1s ticks with fewer active HCN channels than chips -> reinit
+constexpr uint32_t AR_PL_WARMUP_MS       = 15000;  // grace after polls (re)start before channel count is judged
 
 // Cross-thread request: written once by the monitor-thread detector, consumed by
 // the miner-tx control lambda. volatile fields suffice (single writer, single
@@ -108,7 +110,7 @@ typedef struct {
     volatile uint8_t  max_ch  = 0;
     volatile uint32_t sustain_sec = 0;
     volatile uint8_t  attempt = 0;
-    volatile uint8_t  reason  = 0;    // 0 = channel imbalance, 1 = reject streak, 2 = no progress
+    volatile uint8_t  reason  = 0;    // 0 = channel imbalance, 1 = reject streak, 2 = no progress, 3 = channels missing
     volatile float    last_raw_ghs = 0.0f;  // reason 1: the rejected raw rate that broke the streak
 } ar_request_t;
 static ar_request_t g_ar_request;
@@ -639,6 +641,9 @@ void miner_tx_thread_entry(void* args) {
             } else if (req_reason == 2) {
                 LOG_W("[ASIC-REINIT] HCN no progress: %lus without an advancing 0x90 sample while polls were flowing -> fast power-cycle reinit (attempt %u/%u)",
                       (unsigned long)req_sus, req_att, AR_MAX_ATTEMPTS);
+            } else if (req_reason == 3) {
+                LOG_W("[ASIC-REINIT] HCN channels missing: only %u/%u channels active for %lus -> fast power-cycle reinit (attempt %u/%u)",
+                      req_min_ch, req_max_ch, (unsigned long)req_sus, req_att, AR_MAX_ATTEMPTS);
             } else {
                 LOG_W("[ASIC-REINIT] HCN imbalance: ch%u=%.0f GH/s vs ch%u=%.0f GH/s (min/max=%.2f < %.2f, sustained %lus) -> fast power-cycle reinit (attempt %u/%u)",
                       req_min_ch, req_min, req_max_ch, req_max,
@@ -2202,32 +2207,48 @@ void monitor_thread_entry(void* args) {
             }
         }
 
-        // --- Trigger 3: HCN(0x90) no-progress watchdog -> immediate reinit ----------
+        // --- Trigger 3: HCN(0x90) no-progress / channel-loss watchdog -> reinit -----
         // All supported chips (BM1366/BM1370/BM1373) answer the 0x90 poll by design,
-        // so "no progress" always means the chain is unhealthy. Deliberately NOT
-        // gated on bm_mode — a dead 0x90 channel in the middle of a benchmark round
-        // is exactly the case to recover from. "Progress" = any accepted sample with
-        // d_cnt > 0; total silence, stalled counters and garbage frames all look the
-        // same here. Polls must actually be flowing (else the pool/tx side is
-        // stalled, which is not an ASIC problem).
+        // so "no progress" or "fewer active channels than chips" always means the
+        // chain is unhealthy. Deliberately NOT gated on bm_mode — a dead 0x90
+        // channel in the middle of a benchmark round is exactly the case to recover
+        // from. "Progress" = any accepted sample with d_cnt > 0; total silence,
+        // stalled counters and garbage frames all look the same here. Polls must
+        // actually be flowing (else the pool/tx side is stalled, which is not an
+        // ASIC problem).
         {
             static uint32_t np_poll_cnt        = 0;   // last seen poll counter
             static uint32_t np_flow_ms         = 0;   // last time the poll counter moved
+            static uint32_t np_first_flow_ms   = 0;   // first poll after entering RUNNING (warmup anchor)
             static uint32_t np_progress_seen   = 0;   // last observed last_progress_ms
-            static uint8_t  np_streak          = 0;   // consecutive 1s ticks without progress
+            static uint8_t  np_streak          = 0;   // consecutive 1s ticks without any progress
+            static uint8_t  pl_streak          = 0;   // consecutive 1s ticks with missing channels
             static uint8_t  np_attempts        = 0;
             static uint32_t np_last_trigger_ms = 0;
 
             const uint32_t now_ms = millis();
+            // Re-arm the warmup window whenever mining leaves RUNNING (reinit, pause,
+            // error), so freshly re-initialized channels get AR_PL_WARMUP_MS to appear
+            // before the channel count is judged again.
+            if (st.runtime_state != MINER_RUNTIME_RUNNING) np_first_flow_ms = 0;
             if (g_hcn_poll_sent_total != np_poll_cnt) {
+                if (np_first_flow_ms == 0 && st.runtime_state == MINER_RUNTIME_RUNNING) {
+                    np_first_flow_ms = now_ms;
+                }
                 np_poll_cnt = g_hcn_poll_sent_total;
                 np_flow_ms  = now_ms;
             }
 
             uint32_t last_progress_ms = 0;
+            uint8_t  active_ch = 0;
             if (hcn_cache_ensure_inited() &&
                 xSemaphoreTake(g_hcn_cache.mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
                 last_progress_ms = g_hcn_cache.last_progress_ms;
+                for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
+                    if (!g_hcn_cache.seen[i]) continue;
+                    if ((now_ms - g_hcn_cache.gh_ms[i]) > HCN_STALE_MS) continue;
+                    active_ch++;
+                }
                 xSemaphoreGive(g_hcn_cache.mutex);
             }
 
@@ -2246,6 +2267,7 @@ void monitor_thread_entry(void* args) {
 
             if (!np_gates_ok) {
                 np_streak = 0;
+                pl_streak = 0;
             } else if (last_progress_ms != np_progress_seen) {
                 np_progress_seen = last_progress_ms;
                 np_streak = 0;
@@ -2267,6 +2289,37 @@ void monitor_thread_entry(void* args) {
                 xSemaphoreGive(st.update_xsem);
                 LOG_W("[ASIC-REINIT] HCN no progress: polls flowing but no advancing 0x90 sample for %us -> fast power-cycle reinit (attempt %u/%u)",
                       (unsigned)AR_HCN_DEAD_SEC, np_attempts, AR_MAX_ATTEMPTS);
+            }
+
+            // Partial channel loss: one chip dead while its sibling keeps hashing
+            // satisfies neither trigger 1 (needs >= 2 active channels) nor the
+            // no-progress streak above (the survivor keeps feeding it). Count the
+            // expected chips that have no fresh accepted sample; if any are missing
+            // for AR_PL_LOSS_TICKS straight, reinit. Warmup gate keeps boot/reinit
+            // transients (channels need ~2 polls to produce their first rate) from
+            // looking like a loss.
+            const bool pl_warmup_done = np_first_flow_ms != 0 &&
+                                        (uint32_t)(now_ms - np_first_flow_ms) >= AR_PL_WARMUP_MS;
+            if (!np_gates_ok || !pl_warmup_done || active_ch >= spec.asic.num_req) {
+                pl_streak = 0;
+            } else if (++pl_streak >= AR_PL_LOSS_TICKS && !g_ar_request.pending) {
+                pl_streak = 0;
+                np_attempts++;
+                np_last_trigger_ms        = now_ms;
+                g_ar_request.min_ghs      = 0.0f;
+                g_ar_request.max_ghs      = 0.0f;
+                g_ar_request.min_ch       = active_ch;
+                g_ar_request.max_ch       = spec.asic.num_req;
+                g_ar_request.sustain_sec  = AR_PL_LOSS_TICKS;
+                g_ar_request.attempt      = np_attempts;
+                g_ar_request.reason       = 3;
+                g_ar_request.last_raw_ghs = 0.0f;
+                g_ar_request.pending      = true;
+                st.runtime_state = MINER_RUNTIME_AUTO_REINITING;
+                if (st.control_xsem != NULL) xSemaphoreGive(st.control_xsem);
+                xSemaphoreGive(st.update_xsem);
+                LOG_W("[ASIC-REINIT] HCN channels missing: only %u/%u active for %u consecutive ticks -> fast power-cycle reinit (attempt %u/%u)",
+                      active_ch, (unsigned)spec.asic.num_req, (unsigned)AR_PL_LOSS_TICKS, np_attempts, AR_MAX_ATTEMPTS);
             }
         }
 
