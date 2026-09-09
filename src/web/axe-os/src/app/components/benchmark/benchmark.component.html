@@ -120,6 +120,13 @@
 <div class="card modern-card" *ngIf="results.length > 0">
   <h2 class="card-title"><span class="card-icon">📊</span>Results<app-help-btn key="benchmark-results"></app-help-btn></h2>
 
+  <!-- View tabs -->
+  <div class="bm-view-tabs">
+    <button type="button" class="bm-tab" [class.active]="activeView==='table'" (click)="setView('table')">📋 Table</button>
+    <button type="button" class="bm-tab" [class.active]="activeView==='chart'" (click)="setView('chart')">📈 Chart</button>
+  </div>
+
+  <ng-container *ngIf="activeView==='table'">
   <!-- Total benchmark duration -->
   <div class="bm-duration" *ngIf="totalSec > 0 && !isRunning">
     <span class="bm-duration-label">⏱ Total Time:</span>
@@ -189,6 +196,27 @@
       </tbody>
     </table>
   </div>
+  </ng-container>
+
+  <!-- Chart view -->
+  <ng-container *ngIf="activeView==='chart'">
+    <div class="bm-chart-empty" *ngIf="chartFreqCount < 2">
+      Need at least 2 distinct frequency points to draw curves.
+    </div>
+    <ng-container *ngIf="chartFreqCount >= 2">
+      <div class="bm-charts-grid">
+        <div class="bm-chart-box">
+          <div class="bm-chart-title">Freq – Hashrate – Power</div>
+          <div class="bm-chart-canvas"><canvas #hrChartCanvas></canvas></div>
+        </div>
+        <div class="bm-chart-box">
+          <div class="bm-chart-title">Freq – Efficiency</div>
+          <div class="bm-chart-canvas"><canvas #effChartCanvas></canvas></div>
+        </div>
+      </div>
+      <div class="bm-chart-tip">💡 Same frequency, multiple voltages: the hashrate chart keeps the max-HR point, the efficiency chart keeps the min-J/TH point. Hover a point for details — click it to apply that freq / vcore setting.</div>
+    </ng-container>
+  </ng-container>
 
   <!-- Download / clear -->
   <div class="bm-actions" style="margin-top:12px">

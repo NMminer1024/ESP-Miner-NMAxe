@@ -123,6 +123,82 @@
   flex-wrap: wrap;
 }
 
+// ── View tabs (Table / Chart) ─────────────────────────────────────────────
+.bm-view-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+
+  .bm-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #94a3b8;
+    font-size: 0.92rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      color: #e2e8f0;
+    }
+
+    &.active {
+      color: #fff;
+      border-bottom-color: #4ade80;
+    }
+  }
+}
+
+// ── Charts ─────────────────────────────────────────────────────────────────
+.bm-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.bm-chart-box {
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 8px;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.bm-chart-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.bm-chart-canvas {
+  position: relative;
+  height: 300px;
+}
+
+.bm-chart-tip {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
+  line-height: 1.5;
+}
+
+.bm-chart-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-color-secondary);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .bm-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 // ── Results table ────────────────────────────────────────────────────────────
 .bm-table-wrap {
   overflow-x: auto;

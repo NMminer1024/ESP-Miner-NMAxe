@@ -1,10 +1,13 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { forkJoin, interval, Subscription } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
+import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { SystemService } from 'src/app/services/system.service';
 import { LoadingService } from 'src/app/services/loading.service';
+
+Chart.register(...registerables);
 
 export interface BenchmarkResult {
   freq: number;
@@ -54,8 +57,32 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   public pendingApply: BenchmarkResult | null = null;
 
   // Device identity for download filename
-  private deviceDisplayName = 'NMAxe';
+  public deviceDisplayName = 'NMAxe';
   private deviceIp = '';
+
+  // ── Chart view state ──────────────────────────────────────────────────────
+  public activeView: 'table' | 'chart' = 'table';
+  private hrChart: Chart | null = null;
+  private effChart: Chart | null = null;
+  private hrCanvas?: ElementRef<HTMLCanvasElement>;
+  private effCanvas?: ElementRef<HTMLCanvasElement>;
+  // Rows backing the chart points (same order as chart data, for tooltips/click-apply)
+  private hrRows: BenchmarkResult[] = [];
+  private effRows: BenchmarkResult[] = [];
+  private effBestIdx = -1;
+
+  // Canvases live inside *ngIf, so use setters: (re)init when they appear,
+  // destroy the stale Chart instance when the view removes them.
+  @ViewChild('hrChartCanvas') set hrChartCanvas(el: ElementRef<HTMLCanvasElement> | undefined) {
+    if (!el) { this.hrChart?.destroy(); this.hrChart = null; this.hrCanvas = undefined; return; }
+    this.hrCanvas = el;
+    this.maybeInitCharts();
+  }
+  @ViewChild('effChartCanvas') set effChartCanvas(el: ElementRef<HTMLCanvasElement> | undefined) {
+    if (!el) { this.effChart?.destroy(); this.effChart = null; this.effCanvas = undefined; return; }
+    this.effCanvas = el;
+    this.maybeInitCharts();
+  }
 
   // Baseline sweep range (from initial GET response, used for resume detection)
   private loadedFreqMin  = 0;
@@ -124,6 +151,10 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
     this.timerSub?.unsubscribe();
+    this.hrChart?.destroy();
+    this.effChart?.destroy();
+    this.hrChart = null;
+    this.effChart = null;
   }
 
   // ── Field validation error messages ─────────────────────────────────────
@@ -217,6 +248,359 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     this.results = results;
     this.bestEff = results.length ? results.reduce((b, r) => r.effJTH < b.effJTH ? r : b) : null;
     this.bestHR  = results.length ? results.reduce((b, r) => r.avgHR  > b.avgHR  ? r : b) : null;
+    this.buildChartSeries();
+    this.updateCharts();
+  }
+
+  // ── Chart view ────────────────────────────────────────────────────────────
+  public setView(v: 'table' | 'chart'): void {
+    this.activeView = v;
+  }
+
+  // Distinct frequency count across usable rows — curves need at least 2 points
+  public get chartFreqCount(): number {
+    return new Set(this.results.filter(r => r.avgHR > 0 || r.effJTH > 0).map(r => r.freq)).size;
+  }
+
+  // Collapse the freq × vcore grid to one row per frequency, matching the
+  // meaning of each chart: HR/power chart keeps the max-hashrate row per freq,
+  // efficiency chart keeps the min-J/TH row per freq.
+  private buildChartSeries(): void {
+    const byFreqHR  = new Map<number, BenchmarkResult>();
+    const byFreqEff = new Map<number, BenchmarkResult>();
+    for (const r of this.results) {
+      if (r.avgHR > 0) {
+        const cur = byFreqHR.get(r.freq);
+        if (!cur || r.avgHR > cur.avgHR) byFreqHR.set(r.freq, r);
+      }
+      if (r.effJTH > 0) {
+        const cur = byFreqEff.get(r.freq);
+        if (!cur || r.effJTH < cur.effJTH) byFreqEff.set(r.freq, r);
+      }
+    }
+    this.hrRows  = [...byFreqHR.values()].sort((a, b) => a.freq - b.freq);
+    this.effRows = [...byFreqEff.values()].sort((a, b) => a.freq - b.freq);
+    this.effBestIdx = this.effRows.length
+      ? this.effRows.reduce((bi, r, i, arr) => r.effJTH < arr[bi].effJTH ? i : bi, 0)
+      : -1;
+  }
+
+  private maybeInitCharts(): void {
+    if (this.activeView !== 'chart' || !this.hrCanvas || !this.effCanvas) return;
+    if (!this.hrChart)  this.initHrChart();
+    if (!this.effChart) this.initEffChart();
+    this.updateCharts();
+  }
+
+  private chartTheme() {
+    const style = getComputedStyle(document.documentElement);
+    return {
+      text:   style.getPropertyValue('--text-color-secondary').trim() || '#cccccc',
+      grid:   style.getPropertyValue('--surface-border').trim() || 'rgba(255, 255, 255, 0.1)',
+      mobile: window.innerWidth <= 768
+    };
+  }
+
+  private initHrChart(): void {
+    const ctx = this.hrCanvas?.nativeElement.getContext('2d');
+    if (!ctx) return;
+    const t = this.chartTheme();
+
+    const config: ChartConfiguration = {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Avg HR (GH/s)',
+            data: [],
+            borderColor: '#F79646',
+            backgroundColor: '#F79646',
+            yAxisID: 'y',
+            tension: 0.2,
+            pointRadius: 3,
+            borderWidth: 2
+          },
+          {
+            label: 'Avg Power (W)',
+            data: [],
+            borderColor: '#4A7EBB',
+            backgroundColor: '#4A7EBB',
+            yAxisID: 'y1',
+            tension: 0.2,
+            pointRadius: 3,
+            pointStyle: 'rect',
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { intersect: false, mode: 'index' },
+        onHover: (e: any, elements: any[]) => {
+          const target = e?.native?.target as HTMLElement | undefined;
+          if (target) target.style.cursor = elements?.length ? 'pointer' : 'default';
+        },
+        onClick: (_e: any, elements: any[]) => {
+          if (!elements?.length) return;
+          const r = this.hrRows[elements[0].index];
+          if (r) this.openApplyConfirm(r);
+        },
+        plugins: {
+          legend: { labels: { color: t.text, boxWidth: 14, font: { size: t.mobile ? 9 : 11 } } },
+          tooltip: {
+            backgroundColor: 'rgba(30, 30, 30, 0.95)',
+            titleColor: '#ffffff',
+            bodyColor: '#e2e8f0',
+            footerColor: '#7d8ba0',
+            borderColor: '#4a4a4a',
+            borderWidth: 1,
+            cornerRadius: 8,
+            padding: 12,
+            boxPadding: 5,
+            usePointStyle: true,
+            titleFont: { size: 13, weight: 'bold' },
+            titleMarginBottom: 8,
+            bodyFont: { size: 11 },
+            bodySpacing: 5,
+            footerFont: { size: 10, style: 'italic' },
+            footerMarginTop: 8,
+            callbacks: {
+              title: (items: any[]) => {
+                const r = this.hrRows[items[0]?.dataIndex];
+                return r ? `${r.freq} MHz  ·  ${r.vcore} mV` : '';
+              },
+              label: (item: any) => {
+                const r = this.hrRows[item.dataIndex];
+                if (!r) return '';
+                if (item.datasetIndex === 0) {
+                  return r.avgHR >= 1000
+                    ? ` HR   ${(r.avgHR / 1000).toFixed(2)} TH/s`
+                    : ` HR   ${r.avgHR.toFixed(1)} GH/s`;
+                }
+                return ` Pwr  ${r.avgPwr.toFixed(1)} W`;
+              },
+              afterBody: (items: any[]) => {
+                const r = this.hrRows[items[0]?.dataIndex];
+                if (!r) return [];
+                return [
+                  ` Eff    ${r.effJTH.toFixed(2)} J/TH`,
+                  ` ASIC ${r.avgAsicTemp.toFixed(1)} °C  ·  VRM ${r.avgVcoreTemp.toFixed(1)} °C`
+                ];
+              },
+              footer: () => 'Click to apply this point'
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Frequency (MHz)', color: t.text, font: { size: t.mobile ? 9 : 11 } },
+            ticks: { color: t.text, font: { size: t.mobile ? 8 : 10 } },
+            grid: { color: t.grid }
+          },
+          y: {
+            position: 'left',
+            title: { display: true, text: 'Hashrate (GH/s)', color: '#F79646', font: { size: t.mobile ? 9 : 11 } },
+            ticks: { color: '#F79646', font: { size: t.mobile ? 8 : 10 } },
+            grid: { color: t.grid }
+          },
+          y1: {
+            position: 'right',
+            title: { display: true, text: 'Power (W)', color: '#4A7EBB', font: { size: t.mobile ? 9 : 11 } },
+            ticks: { color: '#4A7EBB', font: { size: t.mobile ? 8 : 10 } },
+            grid: { drawOnChartArea: false }
+          }
+        }
+      }
+    };
+    this.hrChart = new Chart(ctx, config);
+  }
+
+  private initEffChart(): void {
+    const ctx = this.effCanvas?.nativeElement.getContext('2d');
+    if (!ctx) return;
+    const t = this.chartTheme();
+
+    const config: ChartConfiguration = {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Efficiency (J/TH)',
+            data: [],
+            borderColor: '#10b981',
+            backgroundColor: '#10b981',
+            tension: 0.2,
+            pointRadius: 3,
+            borderWidth: 2
+          },
+          {
+            // Best-point marker: null everywhere except at effBestIdx
+            label: 'Best',
+            data: [],
+            showLine: false,
+            pointStyle: 'star',
+            pointRadius: 8,
+            pointHoverRadius: 9,
+            borderColor: '#fbbf24',
+            backgroundColor: '#fbbf24'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { intersect: false, mode: 'index' },
+        onHover: (e: any, elements: any[]) => {
+          const target = e?.native?.target as HTMLElement | undefined;
+          if (target) target.style.cursor = elements?.length ? 'pointer' : 'default';
+        },
+        onClick: (_e: any, elements: any[]) => {
+          if (!elements?.length) return;
+          const r = this.effRows[elements[0].index];
+          if (r) this.openApplyConfirm(r);
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: t.text, boxWidth: 14, font: { size: t.mobile ? 9 : 11 },
+              filter: (item: any) => item.text !== 'Best'
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(30, 30, 30, 0.95)',
+            titleColor: '#ffffff',
+            bodyColor: '#e2e8f0',
+            footerColor: '#7d8ba0',
+            borderColor: '#4a4a4a',
+            borderWidth: 1,
+            cornerRadius: 8,
+            padding: 12,
+            boxPadding: 5,
+            usePointStyle: true,
+            titleFont: { size: 13, weight: 'bold' },
+            titleMarginBottom: 8,
+            bodyFont: { size: 11 },
+            bodySpacing: 5,
+            footerFont: { size: 10, style: 'italic' },
+            footerMarginTop: 8,
+            filter: (item: any) => item.datasetIndex === 0,
+            callbacks: {
+              title: (items: any[]) => {
+                const r = this.effRows[items[0]?.dataIndex];
+                return r ? `${r.freq} MHz  ·  ${r.vcore} mV` : '';
+              },
+              label: (item: any) => {
+                const r = this.effRows[item.dataIndex];
+                return r ? ` Eff   ${r.effJTH.toFixed(2)} J/TH` : '';
+              },
+              afterBody: (items: any[]) => {
+                const r = this.effRows[items[0]?.dataIndex];
+                if (!r) return [];
+                const hr = r.avgHR >= 1000 ? `${(r.avgHR / 1000).toFixed(2)} TH/s` : `${r.avgHR.toFixed(1)} GH/s`;
+                return [
+                  ` HR    ${hr}`,
+                  ` Pwr  ${r.avgPwr.toFixed(1)} W`,
+                  ` ASIC ${r.avgAsicTemp.toFixed(1)} °C  ·  VRM ${r.avgVcoreTemp.toFixed(1)} °C`
+                ];
+              },
+              footer: () => 'Click to apply this point'
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Frequency (MHz)', color: t.text, font: { size: t.mobile ? 9 : 11 } },
+            ticks: { color: t.text, font: { size: t.mobile ? 8 : 10 } },
+            grid: { color: t.grid }
+          },
+          y: {
+            title: { display: true, text: 'Efficiency (J/TH)', color: '#10b981', font: { size: t.mobile ? 9 : 11 } },
+            ticks: { color: '#10b981', font: { size: t.mobile ? 8 : 10 } },
+            grid: { color: t.grid }
+          }
+        }
+      },
+      plugins: [this.createEffBandPlugin(), this.createBestLabelPlugin()]
+    };
+    this.effChart = new Chart(ctx, config);
+  }
+
+  private updateCharts(): void {
+    if (this.hrChart) {
+      const maxHR = this.hrRows.reduce((m, r) => Math.max(m, r.avgHR), 0);
+      const useTH = maxHR >= 1000;
+      this.hrChart.data.labels = this.hrRows.map(r => String(r.freq));
+      this.hrChart.data.datasets[0].data = this.hrRows.map(r => useTH ? r.avgHR / 1000 : r.avgHR);
+      this.hrChart.data.datasets[0].label = useTH ? 'Avg HR (TH/s)' : 'Avg HR (GH/s)';
+      this.hrChart.data.datasets[1].data = this.hrRows.map(r => r.avgPwr > 0 ? r.avgPwr : null) as any;
+      const yTitle = (this.hrChart.options.scales?.['y'] as any)?.title;
+      if (yTitle) yTitle.text = useTH ? 'Hashrate (TH/s)' : 'Hashrate (GH/s)';
+      this.hrChart.update('none');
+    }
+    if (this.effChart) {
+      this.effChart.data.labels = this.effRows.map(r => String(r.freq));
+      this.effChart.data.datasets[0].data = this.effRows.map(r => r.effJTH);
+      this.effChart.data.datasets[1].data = this.effRows.map((r, i) => i === this.effBestIdx ? r.effJTH : null) as any;
+      this.effChart.update('none');
+    }
+  }
+
+  // Shades the contiguous "high efficiency" band (eff ≤ 105% of best) around the best point
+  private createEffBandPlugin() {
+    const self = this;
+    return {
+      id: 'effBand',
+      beforeDatasetsDraw(chart: any) {
+        const rows = self.effRows;
+        if (rows.length < 2 || self.effBestIdx < 0) return;
+        const threshold = rows[self.effBestIdx].effJTH * 1.05;
+        let lo = self.effBestIdx, hi = self.effBestIdx;
+        while (lo > 0 && rows[lo - 1].effJTH <= threshold) lo--;
+        while (hi < rows.length - 1 && rows[hi + 1].effJTH <= threshold) hi++;
+        if (lo === hi) return;
+        const { ctx, chartArea, scales } = chart;
+        if (!chartArea) return;
+        const x0 = scales.x.getPixelForValue(lo);
+        const x1 = scales.x.getPixelForValue(hi);
+        ctx.save();
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.10)';
+        ctx.fillRect(x0, chartArea.top, x1 - x0, chartArea.bottom - chartArea.top);
+        ctx.restore();
+      }
+    };
+  }
+
+  // Draws the "Best x J/TH @ freq / vcore" label next to the best-point marker
+  private createBestLabelPlugin() {
+    const self = this;
+    return {
+      id: 'bestLabel',
+      afterDatasetsDraw(chart: any) {
+        if (self.effBestIdx < 0 || !chart.chartArea) return;
+        const r = self.effRows[self.effBestIdx];
+        const el = chart.getDatasetMeta(1)?.data?.[self.effBestIdx];
+        if (!r || !el) return;
+        const ctx = chart.ctx;
+        const label = `Best ${r.effJTH.toFixed(2)} J/TH @ ${r.freq} MHz / ${r.vcore} mV`;
+        ctx.save();
+        ctx.font = '11px sans-serif';
+        ctx.fillStyle = '#fbbf24';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const w = ctx.measureText(label).width;
+        let tx = el.x + 12;
+        let ty = el.y - 12;
+        if (tx + w > chart.chartArea.right) tx = el.x - 12 - w;
+        if (ty < chart.chartArea.top + 8) ty = el.y + 16;
+        ctx.fillText(label, tx, ty);
+        ctx.restore();
+      }
+    };
   }
 
   private startPolling(): void {

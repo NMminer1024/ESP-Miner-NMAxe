@@ -55,7 +55,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '📊 Reading results',
-        body: '• Avg HR — Measured average hashrate (GH/s)\n• Exp HR — Expected hashrate at that frequency (theoretical max)\n• Eff (J/TH) — Energy efficiency — lower is better\n• Avg Pwr — Average power draw at that operating point (W)\n• Best Efficiency row is highlighted in green; Best Hashrate in blue'
+        body: '• Avg HR — Measured average hashrate (GH/s)\n• Exp HR — Expected hashrate at that frequency (theoretical max)\n• Eff (J/TH) — Energy efficiency — lower is better\n• Avg Pwr — Average power draw at that operating point (W)\n• Best Efficiency row is highlighted in green; Best Hashrate in blue\n• Use the 📋 Table / 📈 Chart tabs above the results to switch between the raw table and freq–hashrate–power / freq–efficiency curves'
       },
       {
         heading: '⚠ Notes',
@@ -260,6 +260,10 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       {
         heading: '🏆 Row highlighting',
         body: '• Green row — Best efficiency point (lowest J/TH). This is usually the sweet spot for running 24/7 with minimum electricity cost.\n• Blue row — Highest hashrate point (highest Avg HR). Choose this if you want maximum output regardless of power draw.\n• Gold row — The same operating point wins both best efficiency AND best hashrate simultaneously (rare).'
+      },
+      {
+        heading: '📈 Chart view',
+        body: 'The 📋 Table / 📈 Chart tabs switch between the raw results table and curve charts.\n\n• Freq – Hashrate – Power — Orange line: best Avg HR per frequency (left axis, auto-switches to TH/s for large values). Blue line: power draw at that same operating point (right axis).\n• Freq – Efficiency — Green line: best J/TH per frequency. The gold star marks the overall best point, and the shaded band is the "high-efficiency zone" (within 5% of best).\n• When several Vcore values were tested at the same frequency, the hashrate chart keeps the max-hashrate point and the efficiency chart keeps the min-J/TH point.\n• Hover any point for full details (Vcore, efficiency, temperatures). Click a point to apply that Freq/Vcore setting directly.\n• While a sweep is running, the curves grow live as new results arrive (refreshes every 10 seconds).'
       },
       {
         heading: '⚡ Efficiency (J/TH) explained',
