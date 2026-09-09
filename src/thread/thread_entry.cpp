@@ -3735,7 +3735,9 @@ void benchmark_thread_entry(void* args) {
         freq_max_def = bspec->ui.setting_page.oc.back().value;
     }
     uint16_t vcore_min_def = (bspec && bspec->asic.min_vcore)    ? bspec->asic.min_vcore    : 1000;
-    uint16_t vcore_max_def = (bspec && bspec->asic.max_vcore)    ? bspec->asic.max_vcore    : 1300;
+    // Sweep ceiling uses the user-facing vc-list max; asic.max_vcore is regulator
+    // headroom for line-loss compensation and must stay out of the sweep.
+    uint16_t vcore_max_def = (bspec && bspec->user_vcore_max())  ? bspec->user_vcore_max()  : 1300;
     uint16_t freq_step_def = (bspec && bspec->asic.bm_freq_step) ? bspec->asic.bm_freq_step : 25;
     uint16_t vcore_step_def= (bspec && bspec->asic.bm_vcore_step)? bspec->asic.bm_vcore_step: 25;
 
@@ -3958,7 +3960,7 @@ void benchmark_thread_entry(void* args) {
         if (cur_vcore > vcore_max) {
             LOG_W("[BM] freq=%dMHz unstable at all vcores, skipping to next freq.", cur_freq);
             cur_freq  += freq_step;
-            cur_vcore  = vcore_max;
+            cur_vcore  = vcore_min;
             if (cur_freq > freq_max) {
                 LOG_W("[BM] All frequencies exhausted — benchmark complete, applying best result.");
                 finish_and_reboot("benchmark complete (all unstable), switching to Normal mode");

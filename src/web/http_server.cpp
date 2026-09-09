@@ -534,12 +534,24 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
         }
         if (root.containsKey("asicVcoreReq")) {
             uint16_t req_mv = root["asicVcoreReq"].as<uint16_t>();
+            // Clamp to the user-facing range (vc list max); asic.max_vcore is regulator
+            // headroom for the power loop's line-loss PID, not a user-settable target.
+            const uint16_t vc_min = g_web->spec->asic.min_vcore;
+            const uint16_t vc_max = g_web->spec->user_vcore_max();
+            if (vc_min > 0 && req_mv < vc_min) req_mv = vc_min;
+            if (vc_max > 0 && req_mv > vc_max) req_mv = vc_max;
             g_web->spec->asic.req_vcore = req_mv;
             g_web->power->set_vcore_voltage(req_mv);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, req_mv);
         }
         if (root.containsKey("asicFreqReq")) {
             uint16_t req_mhz = root["asicFreqReq"].as<uint16_t>();
+            // Clamp to the selectable OC list range (first..last entry).
+            const auto& oc_opts = g_web->spec->ui.setting_page.oc;
+            if (!oc_opts.empty()) {
+                if (req_mhz < oc_opts.front().value) req_mhz = oc_opts.front().value;
+                if (req_mhz > oc_opts.back().value)  req_mhz = oc_opts.back().value;
+            }
             if (g_web->miner != nullptr && !g_web->miner->request_asic_frequency(req_mhz)) {
                 LOG_W("ASIC frequency hot-switch request failed to queue: %uMHz", req_mhz);
             }
@@ -1304,7 +1316,8 @@ void get_benchmark(AsyncWebServerRequest* request){
           oc_max_def = o.value;
       } }
     uint16_t vc_min_def = g_web->spec->asic.min_vcore ? g_web->spec->asic.min_vcore : 1000;
-    uint16_t vc_max_def = g_web->spec->asic.max_vcore ? g_web->spec->asic.max_vcore : 1300;
+    // User-facing ceiling (vc list max), not asic.max_vcore (regulator headroom).
+    uint16_t vc_max_def = g_web->spec->user_vcore_max() ? g_web->spec->user_vcore_max() : 1300;
     uint16_t bm_fstep_def = g_web->spec->asic.bm_freq_step ? g_web->spec->asic.bm_freq_step : 25;
     uint16_t bm_vstep_def = g_web->spec->asic.bm_vcore_step ? g_web->spec->asic.bm_vcore_step : 25;
     AsyncResponseStream *resp = request->beginResponseStream("application/json");
@@ -1477,11 +1490,18 @@ void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t 
             request->send(400, "application/json", "{\"error\":\"missing freq or vcore\"}");
             free(buf); return;
         }
-        // Clamp vcore to board safety limits
+        // Clamp vcore to board safety limits (user-facing: vc list max; the regulator
+        // headroom in asic.max_vcore is reserved for the power loop's line-loss PID).
         uint16_t vcore_min = g_web->spec->asic.min_vcore;
-        uint16_t vcore_max = g_web->spec->asic.max_vcore;
+        uint16_t vcore_max = g_web->spec->user_vcore_max();
         if (vcore_min > 0 && vcore < vcore_min) vcore = vcore_min;
         if (vcore_max > 0 && vcore > vcore_max) vcore = vcore_max;
+        // Clamp freq to the selectable OC list range (first..last entry).
+        const auto& oc_opts = g_web->spec->ui.setting_page.oc;
+        if (!oc_opts.empty()) {
+            if (freq < oc_opts.front().value) freq = oc_opts.front().value;
+            if (freq > oc_opts.back().value)  freq = oc_opts.back().value;
+        }
         // Always persist to NVS and ensure Normal mode flag is cleared
         nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    freq);
         nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);

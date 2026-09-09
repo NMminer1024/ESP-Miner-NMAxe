@@ -146,8 +146,14 @@ struct BoardSpecConfig {
         uint16_t default_frq;     // MHz, default frequency
         uint16_t req_vcore;       // mV, required core voltage
         uint16_t default_vcore;   // mV, default core voltage
-        uint16_t min_vcore;       // mV, minimum core voltage
-        uint16_t max_vcore;       // mV, maximum core voltage
+        // Regulator setpoint clamp range — NOT the user-facing selectable limits.
+        // max_vcore must carry ~100-200mV of headroom above the vc dropdown's last
+        // entry so the power loop's line-loss compensation can push the regulator
+        // output past the requested chip-side voltage (and it is the hard safety
+        // ceiling if the vcore ADC ever misreads low). User-facing caps derive
+        // from the vc list via user_vcore_max() below.
+        uint16_t min_vcore;       // mV, regulator setpoint floor
+        uint16_t max_vcore;       // mV, regulator setpoint ceiling (incl. line-loss headroom)
         uint16_t bm_freq_step;    // MHz, benchmark sweep default freq step
         uint16_t bm_vcore_step;   // mV, benchmark sweep default vcore step
         uint16_t diff_thr_init;   // initial difficulty threshold
@@ -217,6 +223,16 @@ struct BoardSpecConfig {
     // Temperature HAL setup — called after power HAL is constructed; receives the power instance
     // so TPS53647-based boards can cast and register their built-in temperature reader.
     std::function<void(AxePowerHal*)> setup_temp_hal;
+
+    // User-facing vcore ceiling: last entry of the vc dropdown list. asic.max_vcore
+    // is deliberately higher (regulator headroom for line-loss compensation), so
+    // anything the user can select — benchmark sweep defaults, API apply clamps —
+    // must use this, not asic.max_vcore. Falls back to asic.max_vcore when the
+    // board defines no vc list.
+    uint16_t user_vcore_max() const {
+        if (!ui.setting_page.vc.empty()) return ui.setting_page.vc.back().value;
+        return asic.max_vcore;
+    }
 };
 
 void hardware_pre_init(const BoardSpecConfig& config);

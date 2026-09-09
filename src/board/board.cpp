@@ -100,7 +100,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
     config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
     config.asic.min_vcore            = 1100;
-    config.asic.max_vcore            = 1300;
+    // Regulator ceiling = vc list max (1300) + 100mV line-loss headroom for the power loop.
+    config.asic.max_vcore            = 1400;
     config.asic.bm_freq_step         = 25;
     config.asic.bm_vcore_step        = 25;
     config.asic.diff_thr_init        = 512;
@@ -233,7 +234,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.req_frq              = nvs_config_get_u16(NVS_CONFIG_ASIC_FREQ, config.asic.default_frq);
     config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
     config.asic.min_vcore            = 1000;
-    config.asic.max_vcore            = 1250;
+    // Regulator ceiling = vc list max (1250) + 100mV line-loss headroom for the power loop.
+    config.asic.max_vcore            = 1350;
     config.asic.bm_freq_step         = 25;
     config.asic.bm_vcore_step        = 25;
     config.asic.diff_thr_init        = 1024;
@@ -478,25 +480,29 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_frq          = 750;
     config.asic.default_vcore        = 1250;
     config.asic.min_vcore            = 1100;
+    // Regulator setpoint ceiling for the power loop's line-loss compensation
+    // (thread_entry.cpp power_loop, tps53647.cpp set_vcore_voltage clamp) — NOT the
+    // user-facing cap. The user-selectable max is the vc list's last entry (1400mV);
+    // this must stay ~150mV above it so the PID can push the TPS output past the
+    // target to cover the rail-to-chip drop (same pattern as NMQAxePP 1350/1225,
+    // Rev8.1 1500/1400).
     config.asic.max_vcore            = 1550;
     config.asic.bm_freq_step         = 10;
     config.asic.bm_vcore_step        = 10;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 18.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
-    config.ui.dashboard_page.performance.asic_freq_req  = {600.0f, 1100.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {1.10f, 1.500f};
-    config.ui.dashboard_page.performance.vcore_measure  = {1.10f, 1.500f};
+    // Freq ceiling padded to 900 (OC list tops out at 800, default 750) so the frontend's
+    // hardcoded value>=0.9*max "High" check doesn't fire at/near the selectable range.
+    config.ui.dashboard_page.performance.asic_freq_req  = {600.0f, 900.0f};
+    config.ui.dashboard_page.performance.vcore_req      = {1.10f, 1.400f};
+    config.ui.dashboard_page.performance.vcore_measure  = {1.10f, 1.400f};
     config.ui.setting_page.oc = {
             {"650 MHz ",          650},
             {"675 MHz",           675},
             {"700 MHz",           700},
             {"750 MHz (default)", 750},
             {"800 MHz",           800},
-            {"850 MHz",           850},
-            {"900 MHz",           900},
-            {"950 MHz",           950},
-            {"1000 MHz",          1000},
         };
     config.ui.setting_page.vc = {
             {"1150 mV",           1150},
@@ -835,12 +841,14 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_frq          = 600;
     // Nexus's 2 BM1373 dies are Vcore-series-stacked (not parallel like Rev8.1), but the
     // series scaling is handled INSIDE TPS546D24AClass (vcore_series_count=2), so all the
-    // values below are user-facing PER-DIE numbers (900-1250mV/die).
+    // values below are user-facing PER-DIE numbers (selectable range 900-1250mV/die).
     config.asic.default_vcore        = 1150;
     // Selectable floor lowered to 325MHz/900mV to allow low-power operation;
     // pairs this low are meant for ECO-style tuning, verify stability with a benchmark.
     config.asic.min_vcore            = 900;
-    config.asic.max_vcore            = 1250;
+    // Regulator ceiling = vc list max (1250/die) + 200mV/die line-loss headroom for the
+    // power loop (series-stacked rail, so the rail-level headroom is 2x this).
+    config.asic.max_vcore            = 1450;
     // Finer sweep granularity: the 325-800MHz / 900-1250mV window is wide, and the
     // BM1373 V/f curve is smooth enough that 10MHz/10mV steps pay off here.
     config.asic.bm_freq_step         = 10;
