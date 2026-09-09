@@ -71,11 +71,25 @@
 // State: current round's freq/vcore written before each reboot
 #define NVS_CONFIG_BM_CUR_FREQ          "bm_cur_freq"
 #define NVS_CONFIG_BM_CUR_VCORE         "bm_cur_vcore"
-// Result: JSON array string, appended after each stable round
+// Result: JSON array string, appended after each stable round.
+// NVS_CONFIG_BM_RESULT is the legacy single-string key (kept only for one-time
+// migration); entries now live in a per-index ring (bm_r_000...) because a single
+// NVS string value cannot span flash pages and caps at ~4KB (~28 entries).
 #define NVS_CONFIG_BM_RESULT            "bm_result"
+#define NVS_CONFIG_BM_R_START           "bm_r_start"    // ring: index of oldest entry
+#define NVS_CONFIG_BM_R_COUNT           "bm_r_cnt"      // ring: number of stored entries
+#define BM_RESULT_MAX_ENTRIES           80              // ~220B/entry -> ~18KB of the 24KB partition
 // Timing: start timestamp (Unix s) written at POST /start; total elapsed written at completion
 #define NVS_CONFIG_BM_START_TS          "bm_start_ts"
 #define NVS_CONFIG_BM_TOTAL_SEC         "bm_total_sec"
+
+// Benchmark result ring storage — same "[{...},{...}]" string semantics as the
+// legacy bm_result key, so all consumers (web API, best-pick, factory-reset
+// preserve) work unchanged.
+char *    bm_result_read_all(void);                     // malloc'd "[...]" oldest->newest, caller frees
+esp_err_t bm_result_append(const char* entry_json);     // ring-append one entry object; evicts oldest when full
+void      bm_result_restore_all(const char* json_array);// bulk-restore entries from a "[...]" string (empty ring assumed)
+void      bm_result_clear(void);
 
 char *    nvs_config_get_string(const char * key, const char * default_value);
 String    nvs_config_get_string_value(const char * key, const char * default_value);

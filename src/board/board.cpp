@@ -102,7 +102,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.min_vcore            = 1100;
     config.asic.max_vcore            = 1300;
     config.asic.bm_freq_step         = 25;
-    config.asic.bm_vcore_step        = 25;
+    config.asic.bm_vcore_step        = 10;
     config.asic.diff_thr_init        = 512;
     config.asic.com_baud_init        = 115200;
     config.asic.com_baud_work        = 1000000;
@@ -234,7 +234,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.req_vcore            = nvs_config_get_u16(NVS_CONFIG_ASIC_VOLTAGE, config.asic.default_vcore);
     config.asic.min_vcore            = 1000;
     config.asic.max_vcore            = 1250;
-    config.asic.bm_freq_step         = 25;
+    config.asic.bm_freq_step         = 10;
     config.asic.bm_vcore_step        = 25;
     config.asic.diff_thr_init        = 1024;
     config.asic.rx_pin               = 44;
@@ -314,8 +314,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_vcore        = 1150;
     config.asic.min_vcore            = 1000;
     config.asic.max_vcore            = 1350;
-    config.asic.bm_freq_step         = 25;
-    config.asic.bm_vcore_step        = 25;
+    config.asic.bm_freq_step         = 10;
+    config.asic.bm_vcore_step        = 10;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 160.0f};
@@ -479,8 +479,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_vcore        = 1250;
     config.asic.min_vcore            = 1100;
     config.asic.max_vcore            = 1550;
-    config.asic.bm_freq_step         = 25;
-    config.asic.bm_vcore_step        = 25;
+    config.asic.bm_freq_step         = 10;
+    config.asic.bm_vcore_step        = 10;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 18.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
@@ -644,8 +644,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_vcore        = 1000;
     config.asic.min_vcore            = 900;
     config.asic.max_vcore            = 1500;
-    config.asic.bm_freq_step         = 25;
-    config.asic.bm_vcore_step        = 25;
+    config.asic.bm_freq_step         = 10;
+    config.asic.bm_vcore_step        = 10;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 25.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 250.0f};
@@ -835,13 +835,13 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_frq          = 600;
     // Nexus's 2 BM1373 dies are Vcore-series-stacked (not parallel like Rev8.1), but the
     // series scaling is handled INSIDE TPS546D24AClass (vcore_series_count=2), so all the
-    // values below are user-facing PER-DIE numbers (1000-1250mV/die).
+    // values below are user-facing PER-DIE numbers (900-1250mV/die).
     config.asic.default_vcore        = 1150;
-    // Selectable floor lowered to 400MHz/1000mV to allow low-power operation;
+    // Selectable floor lowered to 325MHz/900mV to allow low-power operation;
     // pairs this low are meant for ECO-style tuning, verify stability with a benchmark.
-    config.asic.min_vcore            = 1000;
+    config.asic.min_vcore            = 900;
     config.asic.max_vcore            = 1250;
-    // Finer sweep granularity: the 400-800MHz / 1000-1250mV window is wide, and the
+    // Finer sweep granularity: the 325-800MHz / 900-1250mV window is wide, and the
     // BM1373 V/f curve is smooth enough that 10MHz/10mV steps pay off here.
     config.asic.bm_freq_step         = 10;
     config.asic.bm_vcore_step        = 10;
@@ -850,10 +850,13 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
     // Ceilings padded (freq 820->900, vcore 1.3->1.4) so the default 600MHz/1150mV point
     // stays well below the frontend's hardcoded value>=0.9*max "High" check.
-    config.ui.dashboard_page.performance.asic_freq_req  = {400.0f, 900.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {1.0f, 1.4f};
-    config.ui.dashboard_page.performance.vcore_measure  = {1.0f, 1.4f};
+    config.ui.dashboard_page.performance.asic_freq_req  = {325.0f, 900.0f};
+    config.ui.dashboard_page.performance.vcore_req      = {0.9f, 1.4f};
+    config.ui.dashboard_page.performance.vcore_measure  = {0.9f, 1.4f};
     config.ui.setting_page.oc = {
+            {"325 MHz",           325},
+            {"350 MHz",           350},
+            {"375 MHz",           375},
             {"400 MHz",           400},
             {"425 MHz",           425},
             {"450 MHz",           450},
@@ -873,8 +876,10 @@ BoardSpecConfig get_board_config_compile_time() {
             {"800 MHz",           800}
         };
     // Per-die voltages; the series rail is derived inside the driver.
-    // Floor lowered to 1000mV alongside the 400MHz freq floor -- see min_vcore comment above.
+    // Floor lowered to 900mV alongside the 325MHz freq floor -- see min_vcore comment above.
     config.ui.setting_page.vc = {
+            {"900 mV",             900},
+            {"925 mV",             925},
             {"1000 mV",           1000},
             {"1025 mV",           1025},
             {"1050 mV",           1050},

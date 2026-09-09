@@ -2454,7 +2454,7 @@ void daemon_thread_entry(void* args) {
         if (xSemaphoreTake(ctx->recover_factory_xsem, 0) == pdTRUE) {
             LOG_W("Factory reset triggered, erasing config (benchmark results preserved) and restart...");
 
-            char*    bm_result_save    = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+            char*    bm_result_save    = bm_result_read_all();
             uint32_t bm_start_ts_save  = nvs_config_get_u32(NVS_CONFIG_BM_START_TS,  0);
             uint32_t bm_total_sec_save = nvs_config_get_u32(NVS_CONFIG_BM_TOTAL_SEC, 0);
             bool     bm_has_data       = bm_result_save
@@ -2464,7 +2464,7 @@ void daemon_thread_entry(void* args) {
                   (int)bm_has_data, (unsigned long)bm_start_ts_save, (unsigned long)bm_total_sec_save);
 
             if (erase_all_nvs()) {
-                if (bm_has_data)            nvs_config_set_string(NVS_CONFIG_BM_RESULT,   bm_result_save);
+                if (bm_has_data)            bm_result_restore_all(bm_result_save);
                 if (bm_start_ts_save  > 0)  nvs_config_set_u32(NVS_CONFIG_BM_START_TS,  bm_start_ts_save);
                 if (bm_total_sec_save > 0)  nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, bm_total_sec_save);
                 LOG_I("Factory reset: benchmark data restored successfully");
@@ -3900,8 +3900,8 @@ void benchmark_thread_entry(void* args) {
         nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
         nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
         {
-            char* res_str = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
-            BasicJsonDocument<PsramJsonAllocator> rdoc(4096);
+            char* res_str = bm_result_read_all();
+            BasicJsonDocument<PsramJsonAllocator> rdoc(32768);  // ring cap is 80 entries (~11KB JSON)
             DeserializationError rerr = deserializeJson(rdoc, res_str);
             free(res_str);
             uint16_t best_freq = 0, best_vcore = 0;
@@ -3935,42 +3935,15 @@ void benchmark_thread_entry(void* args) {
     };
 
     if (stable) {
-        char* existing = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
-        String results(existing);
-        free(existing);
-
-        results.trim();
-        if (results.endsWith("]")) results.remove(results.length() - 1);
-        if (!results.endsWith("[")) results += ",";
-
         char entry[300];
         snprintf(entry, sizeof(entry),
             "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f,\"ts\":%ld}",
             cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg, eff_avg, pwr_avg, (long)time(nullptr));
-        results += entry;
-        results += "]";
 
-        esp_err_t nvs_write_err;
-        do {
-            nvs_write_err = nvs_config_try_set_string(NVS_CONFIG_BM_RESULT, results.c_str());
-            if (nvs_write_err == ESP_OK) break;
-            if (nvs_write_err != ESP_ERR_NVS_NOT_ENOUGH_SPACE &&
-                nvs_write_err != ESP_ERR_NVS_VALUE_TOO_LONG) {
-                LOG_E("[BM] NVS write failed (%s), result not saved.", esp_err_to_name(nvs_write_err));
-                break;
-            }
-            int obj_start = results.indexOf('{');
-            if (obj_start < 0) { nvs_write_err = ESP_FAIL; break; }
-            int obj_end = results.indexOf('}', obj_start);
-            if (obj_end < 0) { nvs_write_err = ESP_FAIL; break; }
-            int remove_len = obj_end - obj_start + 1;
-            if ((size_t)(obj_end + 1) < results.length() && results[obj_end + 1] == ',')
-                remove_len++;
-            results.remove(obj_start, remove_len);
-            LOG_W("[BM] NVS full, evicted oldest entry (%u chars remaining).", (unsigned)results.length());
-        } while (results.length() > 2);
-
+        // Ring storage: capacity bounded by partition size (80 entries), oldest evicted when full
+        esp_err_t nvs_write_err = bm_result_append(entry);
         if (nvs_write_err == ESP_OK) LOG_W("[BM] Result saved: %s", entry);
+        else LOG_E("[BM] NVS write failed (%s), result not saved.", esp_err_to_name(nvs_write_err));
 
         cur_freq  += freq_step;
         cur_vcore  = (cur_vcore > vcore_min + vcore_step) ? (cur_vcore - vcore_step) : vcore_min;

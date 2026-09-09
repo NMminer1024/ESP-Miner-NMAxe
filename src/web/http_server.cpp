@@ -1293,7 +1293,7 @@ void echo_handler(AsyncWebServerRequest* request){
 
 // GET /api/benchmark
 void get_benchmark(AsyncWebServerRequest* request){
-    char *result_json = nvs_config_get_string(NVS_CONFIG_BM_RESULT, "[]");
+    char *result_json = bm_result_read_all();
     // Board-specific default sweep range.
     // Freq : iterate (same pattern as get_setting_mining) to avoid new front()/back() instantiations.
     // Vcore: read from asic struct integers directly — no vector access needed.
@@ -1432,7 +1432,7 @@ void post_benchmark_stop(AsyncWebServerRequest* request){
 // DELETE /api/benchmark/results
 // Clears sweep results AND resets all config params so defaults revert to board values.
 void delete_benchmark_results(AsyncWebServerRequest* request){
-    nvs_config_set_string(NVS_CONFIG_BM_RESULT, "[]");
+    bm_result_clear();
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MIN);
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MAX);
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_STEP);
