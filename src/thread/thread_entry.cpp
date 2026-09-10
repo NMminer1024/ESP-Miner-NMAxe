@@ -680,6 +680,10 @@ void miner_tx_thread_entry(void* args) {
                 return true;
             }
 
+            // Wait for the Nexus logic-level rail to rise and the ASIC to
+            // stabilize before ESP32 talks to it. Mirrors the cold-start 1000ms wait.
+            delay(1000);
+
             miner->clear_asic_job_cache();
             miner->reset_hashrate();
             hcn_cache_reset("auto-reinit before begin");
@@ -1456,7 +1460,7 @@ void power_init_thread_entry(void* args) {
             power->debugPrint();
         }
     }
-    delay(500);// !!!!additional delay to ensure vcore stabilization, very important for Nexus boards!!! logic level switch need this delay
+    delay(1000);// wait for the Nexus logic-level rail to rise and the ASIC to stabilize before ESP32 talks to it
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VCORE_READY);
     delay(500);
 
