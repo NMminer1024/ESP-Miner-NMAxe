@@ -1456,6 +1456,7 @@ void power_init_thread_entry(void* args) {
             power->debugPrint();
         }
     }
+    delay(500);// !!!!additional delay to ensure vcore stabilization, very important for Nexus boards!!! logic level switch need this delay
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VCORE_READY);
     delay(500);
 
