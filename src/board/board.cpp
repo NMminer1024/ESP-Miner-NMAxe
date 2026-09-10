@@ -486,11 +486,11 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.min_vcore            = 1100;
     // Regulator setpoint ceiling for the power loop's line-loss compensation
     // (thread_entry.cpp power_loop, tps53647.cpp set_vcore_voltage clamp) — NOT the
-    // user-facing cap. The user-selectable max is the vc list's last entry (1400mV);
+    // user-facing cap. The user-selectable max is the vc list's last entry (1350mV);
     // this must stay ~150mV above it so the PID can push the TPS output past the
-    // target to cover the rail-to-chip drop (same pattern as NMQAxePP 1350/1225,
+    // target to cover the rail-to-chip drop (same pattern as NMQAxePP 1325/1225,
     // Rev8.1 1500/1400).
-    config.asic.max_vcore            = 1550;
+    config.asic.max_vcore            = 1500;
     config.asic.bm_freq_step         = 10;
     config.asic.bm_vcore_step        = 10;
     config.asic.job_interval_ms      = 500;
@@ -499,13 +499,17 @@ BoardSpecConfig get_board_config_compile_time() {
     // Freq ceiling padded to 900 (OC list tops out at 800, default 750) so the frontend's
     // hardcoded value>=0.9*max "High" check doesn't fire at/near the selectable range.
     config.ui.dashboard_page.performance.asic_freq_req  = {600.0f, 900.0f};
-    config.ui.dashboard_page.performance.vcore_req      = {1.10f, 1.400f};
-    config.ui.dashboard_page.performance.vcore_measure  = {1.10f, 1.400f};
+    // Vcore gauge ceiling 1.55 keeps the selectable max (1350mV) below the frontend's
+    // hardcoded value>=0.9*max "High" check (0.9*1550=1395mV).
+    config.ui.dashboard_page.performance.vcore_req      = {1.10f, 1.550f};
+    config.ui.dashboard_page.performance.vcore_measure  = {1.10f, 1.550f};
     config.ui.setting_page.oc = {
             {"650 MHz ",          650},
             {"675 MHz",           675},
             {"700 MHz",           700},
+            {"725 MHz",           725},
             {"750 MHz (default)", 750},
+            {"775 MHz",           775},
             {"800 MHz",           800},
         };
     config.ui.setting_page.vc = {
@@ -517,7 +521,6 @@ BoardSpecConfig get_board_config_compile_time() {
             {"1275 mV",           1275},
             {"1300 mV",           1300},
             {"1350 mV",           1350},
-            {"1400 mV",           1400},
         };
     config.create_power_instance     = create_qaxepp61_3ph_power_instance;
     config.setup_temp_hal = [](AxePowerHal* pwr) {
