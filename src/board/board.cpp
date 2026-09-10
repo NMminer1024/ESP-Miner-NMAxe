@@ -316,22 +316,24 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.default_vcore        = 1150;
     config.asic.min_vcore            = 1100;
     // Regulator setpoint ceiling for the power loop's line-loss compensation — NOT the
-    // user-facing cap. The user-selectable range is the vc list (1100..1275mV); this
+    // user-facing cap. The user-selectable range is the vc list (1100..1225mV); this
     // stays 100mV above its last entry so the PID can push the TPS output past the
     // target to cover the rail-to-chip drop (same pattern as NMAxe 1400/1300,
     // Rev8.1 1500/1400).
-    config.asic.max_vcore            = 1375;
+    config.asic.max_vcore            = 1325;
     config.asic.bm_freq_step         = 10;
     config.asic.bm_vcore_step        = 10;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 15.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 160.0f};
-    config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, 800.0f};
-    // Vcore floor matches the vc dropdown min (1100mV); ceiling padded to 1.450 so the
-    // frontend's hardcoded value>=0.9*max "High" check (0.9*1450=1305mV) doesn't fire
-    // anywhere in the selectable 1100..1275mV range.
-    config.ui.dashboard_page.performance.vcore_req      = {1.10f, 1.450f};
-    config.ui.dashboard_page.performance.vcore_measure  = {1.10f, 1.450f};
+    // Gauge ceiling 750 keeps the selectable max (650MHz) below the frontend's
+    // hardcoded value>=0.9*max "High" check (0.9*750=675MHz).
+    config.ui.dashboard_page.performance.asic_freq_req  = {500.0f, 750.0f};
+    // Vcore floor matches the vc dropdown min (1100mV); ceiling padded to 1.40 so the
+    // frontend's hardcoded value>=0.9*max "High" check (0.9*1400=1260mV) doesn't fire
+    // anywhere in the selectable 1100..1225mV range.
+    config.ui.dashboard_page.performance.vcore_req      = {1.10f, 1.40f};
+    config.ui.dashboard_page.performance.vcore_measure  = {1.10f, 1.40f};
     config.ui.setting_page.oc = {
             {"515 MHz",           515},
             {"550 MHz",           550},
@@ -339,8 +341,6 @@ BoardSpecConfig get_board_config_compile_time() {
             {"600 MHz (default)", 600},
             {"625 MHz",           625},
             {"650 MHz ",          650},
-            {"700 MHz",           700},
-            {"750 MHz",           750},
         };
     config.ui.setting_page.vc = {
             {"1100 mV",           1100},
@@ -349,8 +349,6 @@ BoardSpecConfig get_board_config_compile_time() {
             {"1175 mV",           1175},
             {"1200 mV",           1200},
             {"1225 mV",           1225},
-            {"1250 mV",           1250},
-            {"1275 mV",           1275},
         };
     config.create_power_instance     = create_qaxepp_2ph_power_instance;
     config.setup_temp_hal = [](AxePowerHal* pwr) {
