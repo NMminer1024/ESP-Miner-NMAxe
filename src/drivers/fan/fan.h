@@ -33,6 +33,17 @@ typedef struct{
     fan_pid_t  pid;
 }fan_config_t;
 
+// Keep the auto-fan target below the over-temperature trip point by this margin,
+// otherwise the PID would hold the temperature inside the protection zone.
+#define FAN_TARGET_TEMP_MARGIN_C  5.0f
+
+static inline float fan_clamp_target_temp(float target, float limit_high)
+{
+    float max_t = limit_high - FAN_TARGET_TEMP_MARGIN_C;
+    if (target < 0.0f) return 0.0f;
+    return (target > max_t) ? max_t : target;
+}
+
 typedef struct{
     uint8_t     id;        // Fan identifier
     bool        self_test; // Self-test status

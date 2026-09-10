@@ -24,6 +24,14 @@ AsyncWebSocket  webSocket("/ws");
 // before any route is registered. The free-function request handlers read it.
 WebCtx* g_web = nullptr;
 
+// Highest safe auto-fan target for a fan: its over-temperature trip point
+// (fan id 0 → ASIC limit, id 1 → Vcore/power limit) minus a safety margin.
+static float fan_max_target_temp(uint8_t fan_id) {
+    float limit = (fan_id == 1) ? g_web->spec->pwr.temp_limit.high
+                                : g_web->spec->asic.temp_limit.high;
+    return limit - FAN_TARGET_TEMP_MARGIN_C;
+}
+
 // Log a web config change to the serial console. Every config-modifying
 // PATCH/POST handler calls this right after a successful JSON parse so the
 // operator can see exactly what the web UI sent.
@@ -658,6 +666,7 @@ void get_setting_preference(AsyncWebServerRequest* request){
         fanObj["rpm"]       = fan.rpm;
         fanObj["auto"]      = cfg->auto_speed;
         fanObj["target"]    = cfg->target_temp;
+        fanObj["maxTarget"] = fan_max_target_temp(fan.id);
     }
     String json_str;
     serializeJson(root, json_str);
@@ -721,9 +730,10 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
                         g_web->spec->fans[0].auto_speed = fan["auto"].as<uint16_t>();
                     }
                     if (fan.containsKey("target")) {
-                        String t = String(fan["target"].as<float>(), 1);
+                        float target = fan_clamp_target_temp(fan["target"].as<float>(), g_web->spec->asic.temp_limit.high);
+                        String t = String(target, 1);
                         nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, t.c_str());
-                        g_web->spec->fans[0].target_temp = fan["target"].as<float>();
+                        g_web->spec->fans[0].target_temp = target;
                     }
                     if (fan.containsKey("speed")) {
                         nvs_config_set_u16(NVS_CONFIG_ASIC_FAN_SPEED, fan["speed"].as<uint16_t>());
@@ -735,9 +745,10 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
                         g_web->spec->fans[1].auto_speed = fan["auto"].as<uint16_t>();
                     }
                     if (fan.containsKey("target")) {
-                        String t = String(fan["target"].as<float>(), 1);
+                        float target = fan_clamp_target_temp(fan["target"].as<float>(), g_web->spec->pwr.temp_limit.high);
+                        String t = String(target, 1);
                         nvs_config_set_string(NVS_CONFIG_VCORE_TARGET_TEMP, t.c_str());
-                        g_web->spec->fans[1].target_temp = fan["target"].as<float>();
+                        g_web->spec->fans[1].target_temp = target;
                     }
                     if (fan.containsKey("speed")) {
                         nvs_config_set_u16(NVS_CONFIG_VCORE_FAN_SPEED, fan["speed"].as<uint16_t>());

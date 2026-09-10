@@ -4,6 +4,9 @@ export interface IFan {
   id: number;
   speed: number;
   rpm: number;
+  auto?: number;      // 1 = auto speed targeting `target`, 0 = manual `speed`
+  target?: number;    // auto-mode target temperature (°C)
+  maxTarget?: number; // board-specific safe ceiling for `target` (°C)
 }
 
 export interface IStratumPool {

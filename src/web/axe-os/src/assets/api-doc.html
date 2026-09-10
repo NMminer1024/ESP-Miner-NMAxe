@@ -1388,14 +1388,16 @@ Content-Type: application/octet-stream
       <span class="kw">"speed"</span>: <span class="num">80</span>,             <span class="cmt">// current duty cycle %</span>
       <span class="kw">"rpm"</span>:   <span class="num">4200</span>,
       <span class="kw">"auto"</span>:  <span class="bool">true</span>,           <span class="cmt">// auto-speed mode</span>
-      <span class="kw">"target"</span>:<span class="num">65.0</span>            <span class="cmt">// °C target temperature</span>
+      <span class="kw">"target"</span>:<span class="num">65.0</span>,           <span class="cmt">// °C target temperature</span>
+      <span class="kw">"maxTarget"</span>: <span class="num">70.0</span>        <span class="cmt">// °C safe ceiling for target (board-specific)</span>
     },
     {
       <span class="kw">"id"</span>:     <span class="num">1</span>,             <span class="cmt">// 1 = vcore fan</span>
       <span class="kw">"speed"</span>: <span class="num">60</span>,
       <span class="kw">"rpm"</span>:   <span class="num">3100</span>,
       <span class="kw">"auto"</span>:  <span class="bool">false</span>,
-      <span class="kw">"target"</span>:<span class="num">55.0</span>
+      <span class="kw">"target"</span>:<span class="num">55.0</span>,
+      <span class="kw">"maxTarget"</span>: <span class="num">125.0</span>
     }
   ]
 }</pre>

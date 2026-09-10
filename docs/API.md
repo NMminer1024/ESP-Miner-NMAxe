@@ -300,13 +300,14 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
   "hwModel": "NMAxe",
   "displayName": "NMAxe",
   "fans": [
-    { "id": 0, "speed": 60, "rpm": 3600, "auto": 1, "target": 55.0 },
-    { "id": 1, "speed": 80, "rpm": 4200, "auto": 1, "target": 85.0 }
+    { "id": 0, "speed": 60, "rpm": 3600, "auto": 1, "target": 55.0, "maxTarget": 70.0 },
+    { "id": 1, "speed": 80, "rpm": 4200, "auto": 1, "target": 85.0, "maxTarget": 125.0 }
   ]
 }
 ```
 
 > `fans[1]` (Vcore fan) is only present on NMQAxe++.
+> `fans[].maxTarget` is the board-specific safe ceiling for the auto-mode target temperature: the over-temperature trip point minus a 5 °C margin. Values sent above it are clamped on save.
 
 **PATCH**
 ```json
@@ -322,6 +323,7 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 ```
 
 > `fans[].speed` takes effect only when `auto=0`. `fans[1]` (Vcore fan, `id=1`) is NMQAxe++ only.
+> `fans[].target` is clamped to `[0, maxTarget]` before being stored, so an auto-fan target can never reach the over-temperature protection threshold.
 
 > `screensaverMode`: `0` = animated GIF, `1` = black (backlight off while screensaver is active). Only effective when `screensaverEnable=1` and `screensaverTimeout > 0`.
 

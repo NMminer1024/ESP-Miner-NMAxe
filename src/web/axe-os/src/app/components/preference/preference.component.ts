@@ -82,11 +82,16 @@ export class PreferenceComponent implements OnInit {
         const vcoreFan = info.fans?.find((f: any) => f.id === 1);
         this.hasDualFan   = !!vcoreFan;
 
+        // Per-board safe ceilings sent by the firmware (over-temperature trip
+        // point minus margin); fall back to the legacy fixed limits.
+        this.asicTempMax  = asicFan?.maxTarget  ?? 80;
+        this.vcoreTempMax = vcoreFan?.maxTarget ?? 100;
+
         const autoasicfanspeed  = asicFan?.auto   ?? 1;
-        const asictargettemp    = asicFan?.target ?? 30;
+        const asictargettemp    = Math.min(asicFan?.target ?? 30, this.asicTempMax);
         const asicfanspeed      = asicFan?.speed  ?? 100;
         const autovcorefanspeed = vcoreFan?.auto   ?? 1;
-        const vcoretargettemp   = vcoreFan?.target ?? 85;
+        const vcoretargettemp   = Math.min(vcoreFan?.target ?? 85, this.vcoreTempMax);
         const vcorefanspeed     = vcoreFan?.speed  ?? 100;
 
         this.ASICModel = info.asic || info.ASICModel;
