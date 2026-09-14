@@ -338,7 +338,7 @@ bool AsicMinerClass::submit_job_share(String pool_job_id, String extranonce2, ui
     return this->_stratum->submit(pool_job_id, extranonce2, ntime, nonce, version);
 }
 
-bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
+bool AsicMinerClass::calculate_hashrate(hashrate_t *phr, hashrate_diag_t *diag){
     if (phr == NULL) return false;
 
     const uint32_t W3M  =  3 * 60 * 1000u;
@@ -389,6 +389,14 @@ bool AsicMinerClass::calculate_hashrate(hashrate_t *phr){
     phr->_3m  = _s3m  * 4294967296.0 / (double)(W3M  / 1000u);
     phr->_30m = _s30m * 4294967296.0 / (double)(W30M / 1000u);
     phr->_1h  = _s60m * 4294967296.0 / (double)(W60M / 1000u);
+    if (diag != nullptr) {
+        diag->ring_size   = (uint32_t)_hr_deque.size();
+        diag->samples_3m  = (uint32_t)(_hr_deque.size() - _off_3m);
+        diag->samples_30m = (uint32_t)(_hr_deque.size() - _off_30m);
+        diag->sum_3m      = _s3m;
+        diag->sum_30m     = _s30m;
+        diag->sum_60m     = _s60m;
+    }
     return true;
 }
 

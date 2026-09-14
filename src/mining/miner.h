@@ -16,6 +16,15 @@ typedef struct{
     double   _1h;
 }hashrate_t;
 
+typedef struct{
+    uint32_t ring_size;
+    uint32_t samples_3m;
+    uint32_t samples_30m;
+    double   sum_3m;
+    double   sum_30m;
+    double   sum_60m;
+} hashrate_diag_t;
+
 // ["hashRate","temp","vrTemp","power","voltage","current","coreVoltageActual","fanspeed","fanrpm","wifiRSSI","freeram","freepsram","timestamp"],
 // All numeric fields — eliminates per-node String heap allocations that fragment PSRAM.
 typedef struct{
@@ -101,7 +110,7 @@ public:
     bool submit_job_share(String pool_job_id, String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version);
     bool find_job_by_asic_job_id(uint8_t asic_job_id, asic_job* job);
     bool clear_asic_job_cache();
-    bool calculate_hashrate(hashrate_t *phr);
+    bool calculate_hashrate(hashrate_t *phr, hashrate_diag_t *diag = nullptr);
     void record_nonce();      // call on every valid ASIC nonce (ASIC RX thread)
     void reset_hashrate();    // call on stratum disconnect to clear stale samples
     bool end();
