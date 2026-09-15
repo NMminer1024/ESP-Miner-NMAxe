@@ -870,18 +870,13 @@ void miner_tx_thread_entry(void* args) {
                 }
             }
 
-            // ASIC difficulty is fixed at diff_thr_init.
-            // Pool difficulty is only used for share submission filtering (below_pool check),
-            // NOT for adjusting the ASIC ticket mask. Dynamically lowering the ASIC diff
-            // (e.g. when a fallback pool sets a lower difficulty) causes the hashrate ring
-            // to under-report: record_nonce() uses get_asic_difficulty() which would be
-            // halved, while the ASIC still reports nonces at the original rate.
-            static bool asic_diff_initialized = false;
-            if (!asic_diff_initialized) {
-                uint32_t diff = miner->set_asic_diff(spec.asic.diff_thr_init);
-                LOG_W("ASIC diff fixed at %d (pool diff=%.1f, used only for share filtering)",
-                      diff, stratum->get_pool_difficulty());
-                asic_diff_initialized = true;
+            // set asic diff as pool diff if pool diff < initial asic diff
+            double target_diff = min(stratum->get_pool_difficulty(), (double)spec.asic.diff_thr_init);
+            static double last_diff = 0.0;
+            if (target_diff != last_diff) {
+                uint32_t diff = miner->set_asic_diff(target_diff);
+                LOG_W("Change asic diff from [%.1f] to [%d/%.1f] successfully", last_diff, diff, target_diff);
+                last_diff = target_diff;
             }
 
             // interval 'job_interval_ms' per asic job, exit if a new pool job arrived
@@ -930,6 +925,79 @@ void miner_rx_thread_entry(void* args) {
     };
 
     const float hcn_max_ghs = ctx->spec->asic.hcn_max_ghs_per_ch;
+
+    struct NonceDiag {
+        uint32_t start_ms;
+        uint32_t raw;
+        uint32_t invalid_asic_id;
+        uint32_t unsubscribed;
+        uint32_t job_ok;
+        uint32_t job_miss;
+        uint32_t calc_invalid;
+        uint32_t below_asic;
+        uint32_t context_miss;
+        uint32_t duplicate;
+        uint32_t recorded;
+        uint32_t below_pool;
+        uint32_t submit_attempt;
+        uint32_t submit_queued;
+        uint32_t rx_timeout;
+        uint32_t rx_invalid_size;
+        uint32_t rx_invalid_response;
+        uint32_t rx_other_error;
+        uint32_t accepted_base;
+        uint32_t rejected_base;
+        double   recorded_diff_sum;
+        uint32_t raw_ch[HCN_MAX_ASIC_CHANNELS];
+        uint32_t job_miss_ch[HCN_MAX_ASIC_CHANNELS];
+        uint32_t below_asic_ch[HCN_MAX_ASIC_CHANNELS];
+        uint32_t context_miss_ch[HCN_MAX_ASIC_CHANNELS];
+        uint32_t duplicate_ch[HCN_MAX_ASIC_CHANNELS];
+        uint32_t recorded_ch[HCN_MAX_ASIC_CHANNELS];
+    };
+
+    NonceDiag nonce_diag = {};
+    nonce_diag.start_ms = millis();
+    nonce_diag.accepted_base = st.share_accepted;
+    nonce_diag.rejected_base = st.share_rejected;
+
+    auto nonce_diag_log_and_reset = [&]() {
+        const uint32_t now_ms = millis();
+        const uint32_t dt_ms = now_ms - nonce_diag.start_ms;
+        if (dt_ms < 60000u) return;
+
+        const double interval_hr_ths = dt_ms > 0
+            ? nonce_diag.recorded_diff_sum * 4294967296.0 / ((double)dt_ms / 1000.0) / 1e12
+            : 0.0;
+        const uint32_t accepted_now = st.share_accepted;
+        const uint32_t rejected_now = st.share_rejected;
+        LOG_W("[NONCE-DIAG] dt=%lums asic_diff=%.0f pool_diff=%.3f raw=%u bad_id=%u unsub=%u job_ok=%u job_miss=%u calc_invalid=%u below_asic=%u ctx_miss=%u dup=%u recorded=%u below_pool=%u submit=%u queued=%u pool_ack=%u pool_reject=%u",
+              (unsigned long)dt_ms, miner->get_asic_diff(), stratum->get_pool_difficulty(),
+              nonce_diag.raw, nonce_diag.invalid_asic_id, nonce_diag.unsubscribed,
+              nonce_diag.job_ok, nonce_diag.job_miss, nonce_diag.calc_invalid,
+              nonce_diag.below_asic, nonce_diag.context_miss, nonce_diag.duplicate,
+              nonce_diag.recorded, nonce_diag.below_pool, nonce_diag.submit_attempt,
+              nonce_diag.submit_queued, accepted_now - nonce_diag.accepted_base,
+              rejected_now - nonce_diag.rejected_base);
+        LOG_W("[NONCE-RATE] dt=%lums recorded=%u diff_sum=%.0f interval_hr=%.3fTH/s rx_timeout=%u invalid_size=%u invalid_rsp=%u other_err=%u",
+              (unsigned long)dt_ms, nonce_diag.recorded, nonce_diag.recorded_diff_sum,
+              interval_hr_ths, nonce_diag.rx_timeout, nonce_diag.rx_invalid_size,
+              nonce_diag.rx_invalid_response, nonce_diag.rx_other_error);
+        for (uint8_t i = 0; i < HCN_MAX_ASIC_CHANNELS; i++) {
+            if (nonce_diag.raw_ch[i] == 0 && nonce_diag.recorded_ch[i] == 0 &&
+                nonce_diag.job_miss_ch[i] == 0 && nonce_diag.below_asic_ch[i] == 0 &&
+                nonce_diag.context_miss_ch[i] == 0 && nonce_diag.duplicate_ch[i] == 0) continue;
+            LOG_W("[NONCE-CH%u] raw=%u job_miss=%u below_asic=%u ctx_miss=%u dup=%u recorded=%u",
+                  i, nonce_diag.raw_ch[i], nonce_diag.job_miss_ch[i],
+                  nonce_diag.below_asic_ch[i], nonce_diag.context_miss_ch[i],
+                  nonce_diag.duplicate_ch[i], nonce_diag.recorded_ch[i]);
+        }
+
+        nonce_diag = {};
+        nonce_diag.start_ms = now_ms;
+        nonce_diag.accepted_base = accepted_now;
+        nonce_diag.rejected_base = rejected_now;
+    };
 
     auto on_hcn_result = [hcn_max_ghs, ctx](const asic_hcn_result& hcn) {
         // lazy init
@@ -1053,6 +1121,7 @@ void miner_rx_thread_entry(void* args) {
         if (ctx->ota_running ? *ctx->ota_running : ota_running_default) { delay(50); continue; }
 
         asic_rx_result rx = miner->listen_asic_rsp(1000 * 30);
+        nonce_diag_log_and_reset();
         if (miner->is_asic_frequency_updating()) continue;
         if (rx.status == ASIC_RX_STATUS_OK) {
             if (rx.type == ASIC_RX_TYPE_HCN) {
@@ -1063,10 +1132,16 @@ void miner_rx_thread_entry(void* args) {
             if (rx.type != ASIC_RX_TYPE_NONCE) continue;
 
             result = rx.data.nonce;
+            nonce_diag.raw++;
+            const bool diag_asic_valid = result.asic_id < HCN_MAX_ASIC_CHANNELS;
+            if (diag_asic_valid) nonce_diag.raw_ch[result.asic_id]++;
+            else nonce_diag.invalid_asic_id++;
             if (!stratum->is_subscribed()) {
+                nonce_diag.unsubscribed++;
                 continue;
             }
             if (miner->find_job_by_asic_job_id(result.asic.job_id, &job)) {
+                nonce_diag.job_ok++;
                 st.asic_update = millis();
                 // Constrain ASIC-returned version bits by current pool mask.
                 // This avoids invalid rolling bits during early startup before
@@ -1079,9 +1154,12 @@ void miner_rx_thread_entry(void* args) {
                                              *(uint32_t*)job.ntime, *(uint32_t*)job.nbits, result.asic.nonce);
 
                 if ((diff <= std::numeric_limits<double>::epsilon()) || std::isnan(diff) || std::isinf(diff)) {
+                    nonce_diag.calc_invalid++;
                     continue;
                 }
                 if (diff < miner->get_asic_diff()) {
+                    nonce_diag.below_asic++;
+                    if (diag_asic_valid) nonce_diag.below_asic_ch[result.asic_id]++;
                     continue;
                 }
 
@@ -1090,6 +1168,8 @@ void miner_rx_thread_entry(void* args) {
                 String   pool_id_submit = miner->get_pool_job_id_by_asic_job_id(result.asic.job_id);
                 String   extra2_submit  = miner->get_extranonce2_by_asic_job_id(result.asic.job_id);
                 if (pool_id_submit.length() == 0 || extra2_submit.length() == 0) {
+                    nonce_diag.context_miss++;
+                    if (diag_asic_valid) nonce_diag.context_miss_ch[result.asic_id]++;
                     continue;
                 }
 
@@ -1102,17 +1182,36 @@ void miner_rx_thread_entry(void* args) {
                     _dedup_job_key = _cur_job_key;
                 }
                 if (_submitted_nonces.count(result.asic.nonce)) {
+                    nonce_diag.duplicate++;
+                    if (diag_asic_valid) nonce_diag.duplicate_ch[result.asic_id]++;
                     LOG_W("Dup nonce 0x%08x skipped (pool_job=%s)", result.asic.nonce, pool_id_submit.c_str());
                     continue;
                 }
                 _submitted_nonces.insert(result.asic.nonce);
 
                 // record nonce into hashrate ring; calculation driven by monitor thread
+                const double recorded_diff = miner->get_asic_diff();
                 miner->record_nonce();
+                nonce_diag.recorded++;
+                nonce_diag.recorded_diff_sum += recorded_diff;
+                if (diag_asic_valid) nonce_diag.recorded_ch[result.asic_id]++;
 
                 // per-asic share count
                 st.asic_rsp_counter[result.asic_id]++;
                 LOG_D("ASIC[%d] nonce 0x%08x", result.asic_id, result.asic.nonce);
+
+                { // share-per-second counter
+                    static uint32_t sps_count = 0, sps_last = 0;
+                    sps_count++;
+                    uint32_t now = millis();
+                    uint32_t dt = now - sps_last;
+                    if (dt >= 1000*10) {
+                        st.share_rate = sps_count * 1000.0f / dt;
+                        LOG_D("Share rate: %.1f/s", st.share_rate);
+                        sps_count = 0;
+                        sps_last = now;
+                    }
+                }
 
                 // throttled summary log
                 static uint32_t last = millis();
@@ -1142,10 +1241,6 @@ void miner_rx_thread_entry(void* args) {
                     last = millis();
                 }
 
-                if (diff < stratum->get_pool_difficulty()) {
-                    continue;
-                }
-
                 LOG_I("| %d/%d  |%-6s|%-6s|%-7s|",
                       result.asic_id + 1, 
                       miner->get_asic_count(),
@@ -1153,23 +1248,15 @@ void miner_rx_thread_entry(void* args) {
                       formatNumber(stratum->get_pool_difficulty(), 4).c_str(),
                       formatNumber(st.diff.network, 7).c_str());
 
+                if (diff < stratum->get_pool_difficulty()) {
+                    nonce_diag.below_pool++;
+                    continue;
+                }
 
-
+                nonce_diag.submit_attempt++;
                 bool res = miner->submit_job_share(pool_id_submit, extra2_submit, result.asic.nonce, *(uint32_t*)job.ntime, version_submit);
                 if (!res) continue;
-
-                { // share-per-second counter (pool-submitted shares only)
-                    static uint32_t sps_count = 0, sps_last = 0;
-                    sps_count++;
-                    uint32_t now = millis();
-                    uint32_t dt = now - sps_last;
-                    if (dt >= 1000*10) {
-                        st.share_rate = sps_count * 1000.0f / dt;
-                        LOG_D("Share rate: %.1f/s", st.share_rate);
-                        sps_count = 0;
-                        sps_last = now;
-                    }
-                }
+                nonce_diag.submit_queued++;
 
                 // block hit?
                 if (diff >= st.diff.network) {
@@ -1234,15 +1321,21 @@ void miner_rx_thread_entry(void* args) {
                 }
             }
             else{
+                nonce_diag.job_miss++;
+                if (diag_asic_valid) nonce_diag.job_miss_ch[result.asic_id]++;
                 LOG_W("ASIC job ID %d not found in cache, skipping nonce 0x%08x", result.asic.job_id, result.asic.nonce);
             }
         } else if (rx.status == ASIC_RX_STATUS_INVALID_SIZE) {
+            nonce_diag.rx_invalid_size++;
             LOG_W("Asic response size error.");
         } else if (rx.status == ASIC_RX_STATUS_TIMEOUT) {
+            nonce_diag.rx_timeout++;
             LOG_W("Asic response timeout.");
         } else if (rx.status == ASIC_RX_STATUS_INVALID_RESPONSE) {
+            nonce_diag.rx_invalid_response++;
             // LOG_W("Asic response header error.");
         } else {
+            nonce_diag.rx_other_error++;
             LOG_W("Asic response error: status=%d type=%d", (int)rx.status, (int)rx.type);
         }
     }
@@ -1936,7 +2029,8 @@ void monitor_thread_entry(void* args) {
             if (ctx->wifi_rssi) *ctx->wifi_rssi = WiFi.RSSI();
 
             hashrate_t nonce_hr = {0.0, 0.0, 0.0};
-            bool nonce_ok = ctx->miner->calculate_hashrate(&nonce_hr, nullptr);
+            hashrate_diag_t nonce_ring = {};
+            bool nonce_ok = ctx->miner->calculate_hashrate(&nonce_hr, &nonce_ring);
 
             static double hcn_total_hs = 0.0;
             static uint8_t hcn_active_ch = 0;
@@ -2017,6 +2111,19 @@ void monitor_thread_entry(void* args) {
                 st.hashrate = nonce_hr;
             } else {
                 st.hashrate = {0.0, 0.0, 0.0};
+            }
+
+            {
+                static uint32_t nonce_ring_last_log_ms = 0;
+                const uint32_t now_ms = millis();
+                if (now_ms - nonce_ring_last_log_ms >= 60000u) {
+                    nonce_ring_last_log_ms = now_ms;
+                    LOG_W("[NONCE-RING] source=%s hcn_ch=%u asic_diff=%.0f size=%u samples_3m=%u samples_30m=%u sum_3m=%.0f sum_30m=%.0f sum_60m=%.0f hr_3m=%.3fTH/s hr_30m=%.3fTH/s hr_1h=%.3fTH/s",
+                          use_hcn ? "HCN" : "NONCE", hcn_active_ch, ctx->miner->get_asic_diff(),
+                          nonce_ring.ring_size, nonce_ring.samples_3m, nonce_ring.samples_30m,
+                          nonce_ring.sum_3m, nonce_ring.sum_30m, nonce_ring.sum_60m,
+                          nonce_hr._3m / 1e12, nonce_hr._30m / 1e12, nonce_hr._1h / 1e12);
+                }
             }
 
             if (st.hashrate._3m > 0)

@@ -104,7 +104,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.max_vcore            = 1400;
     config.asic.bm_freq_step         = 25;
     config.asic.bm_vcore_step        = 25;
-    config.asic.diff_thr_init        = 128;
+    config.asic.diff_thr_init        = 512;
     config.asic.com_baud_init        = 115200;
     config.asic.com_baud_work        = 1000000;
     config.asic.com_port             = &Serial1;
@@ -238,7 +238,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.max_vcore            = 1350;
     config.asic.bm_freq_step         = 25;
     config.asic.bm_vcore_step        = 25;
-    config.asic.diff_thr_init        = 256;
+    config.asic.diff_thr_init        = 1024;
     config.asic.rx_pin               = 44;
     config.asic.tx_pin               = 43;
     config.asic.rst_pin              = 45;
@@ -311,7 +311,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 10000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 512;
+    config.asic.diff_thr_init        = 1024 * 1;
     config.asic.default_frq          = 600;
     config.asic.default_vcore        = 1150;
     config.asic.min_vcore            = 1100;
@@ -484,7 +484,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 10000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 1024;
+    config.asic.diff_thr_init        = 1024 * 1;
     config.asic.default_frq          = 750;
     config.asic.default_vcore        = 1250;
     config.asic.min_vcore            = 1100;
@@ -656,7 +656,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 20000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 1024;
+    config.asic.diff_thr_init        = 1024 * 2;
     config.asic.default_frq          = 325;
     config.asic.default_vcore        = 1000;
     config.asic.min_vcore            = 900;
@@ -848,7 +848,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.hashrate_dist_page.max_x_hr  = 20000;
     config.ui.hashrate_dist_page.max_x_bars= 20;
     config.ui.hashrate_dist_page.count     = 0;
-    config.asic.diff_thr_init        = 1024;
+    config.asic.diff_thr_init        = 1024 * 2;
     config.asic.default_frq          = 600;
     // Nexus's 2 BM1373 dies are Vcore-series-stacked (not parallel like Rev8.1), but the
     // series scaling is handled INSIDE TPS546D24AClass (vcore_series_count=2), so all the
