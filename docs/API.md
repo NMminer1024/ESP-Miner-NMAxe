@@ -276,7 +276,7 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 }
 ```
 
-> `asicVcoreReq` and `asicFreqReq` both take effect in real time after `PATCH /api/setting/mining`. Vcore is applied through the power regulator; frequency is hot-switched through the ASIC PLL. Both values are saved to NVS for the next boot. Stratum changes are saved to NVS and take effect after reconnect/restart.
+> `asicVcoreReq` and `asicFreqReq` both take effect in real time after `PATCH /api/setting/mining`. Vcore is applied through the power regulator; frequency is hot-switched through the ASIC PLL. Both values are saved to NVS for the next boot. Values outside the selectable dropdown range (`overclock.options` / `vcore.options`) are clamped to that range before saving. Stratum changes are saved to NVS and take effect after reconnect/restart.
 
 ### Market — `/api/setting/market`
 
@@ -341,9 +341,10 @@ Upload a custom animated GIF as screensaver.
 
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
-| GET  | `/api/update/progress`  | Poll upload/flash progress (0–100 %) |
-| POST | `/api/update/firmware`  | Upload `firmware.bin` (multipart/form-data) |
-| POST | `/api/update/spiffs`    | Upload `spiffs.bin` (multipart/form-data) |
+| GET  | `/api/update/progress`    | Poll upload/flash progress (0–100 %) |
+| GET  | `/api/update/last-result` | Snapshot of the latest OTA/upload outcome |
+| POST | `/api/update/firmware`    | Upload `firmware.bin` (multipart/form-data) |
+| POST | `/api/update/spiffs`      | Upload `spiffs.bin` (multipart/form-data) |
 
 > Legacy aliases (kept for compatibility): `/api/system/OTA`, `/api/system/OTAWWW`
 
@@ -351,6 +352,18 @@ Upload a custom animated GIF as screensaver.
 ```json
 { "running": true, "progress": 45, "filename": "firmware.bin" }
 ```
+
+**Last-result response**
+```json
+{
+  "valid": false, "success": false, "rebootPending": false,
+  "httpStatus": 0, "bytes": 0, "tsMs": 0,
+  "target": "firmware", "filename": "firmware.bin", "detail": "",
+  "running": false, "progress": 0
+}
+```
+
+> `target` is one of `firmware` / `spiffs` / `screensaver` / `unknown`. `rebootPending` is set after a successful firmware or SPIFFS flash. `valid` is `false` when no upload has ever completed.
 
 ---
 

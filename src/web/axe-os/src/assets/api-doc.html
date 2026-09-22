@@ -1284,7 +1284,7 @@
   <span class="kw">"asicVcoreReq"</span>: <span class="num">1200</span>,   <span class="cmt">// mV – applied immediately, saved to NVS</span>
   <span class="kw">"asicFreqReq"</span>:  <span class="num">500</span>    <span class="cmt">// MHz – applied immediately via ASIC PLL, saved to NVS</span>
 }</pre>
-          <div class="note">ASIC frequency and Vcore both take effect in real time after saving. Frequency is hot-switched through the ASIC PLL; Vcore is applied through the power regulator. Stratum pool changes still require reconnect or restart.</div>
+          <div class="note">ASIC frequency and Vcore both take effect in real time after saving. Frequency is hot-switched through the ASIC PLL; Vcore is applied through the power regulator. Values outside the selectable dropdown range are clamped to that range before saving. Stratum pool changes still require reconnect or restart.</div>
           <div class="block-label">PATCH – Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
         </div>
@@ -1640,6 +1640,37 @@ Content-Type: application/octet-stream
           <div class="note">ℹ️ Poll this endpoint during any upload to track progress. When <code>running</code> is <code>false</code> the
           previous upload has completed (or no upload has started). The device reboots automatically after a successful
           firmware or SPIFFS flash. Screensaver GIF uploads do not require a reboot.</div>
+        </div>
+      </div>
+
+      <!-- GET /api/update/last-result -->
+      <div class="endpoint" id="ota-last-result">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/update/last-result</code>
+          <span class="endpoint-summary">Snapshot of the latest OTA / upload outcome</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Returns the result of the most recent upload / OTA operation, captured at the moment the operation
+            finished (success or failure). Useful for showing the last outcome after a reboot when the live
+            <code>/api/update/progress</code> state has been reset. Applies to all upload types: firmware,
+            SPIFFS image, and screensaver GIF.
+          </p>
+          <div class="block-label">Response 200 – application/json</div>
+          <pre>{
+  <span class="kw">"valid"</span>:         <span class="bool">false</span>,         <span class="cmt">// false when no upload has ever completed</span>
+  <span class="kw">"success"</span>:       <span class="bool">false</span>,         <span class="cmt">// whether the last upload succeeded</span>
+  <span class="kw">"rebootPending"</span>: <span class="bool">false</span>,         <span class="cmt">// set after a successful firmware / SPIFFS flash</span>
+  <span class="kw">"httpStatus"</span>:    <span class="num">0</span>,             <span class="cmt">// HTTP status code of the upload response</span>
+  <span class="kw">"bytes"</span>:         <span class="num">0</span>,             <span class="cmt">// bytes written</span>
+  <span class="kw">"tsMs"</span>:          <span class="num">0</span>,             <span class="cmt">// timestamp (ms)</span>
+  <span class="kw">"target"</span>:        <span class="str">"firmware"</span>,      <span class="cmt">// firmware | spiffs | screensaver | unknown</span>
+  <span class="kw">"filename"</span>:      <span class="str">"firmware.bin"</span>,
+  <span class="kw">"detail"</span>:        <span class="str">""</span>,             <span class="cmt">// failure reason when not successful</span>
+  <span class="kw">"running"</span>:       <span class="bool">false</span>,         <span class="cmt">// whether an upload is currently in progress</span>
+  <span class="kw">"progress"</span>:      <span class="num">0</span>              <span class="cmt">// current progress 0–100 (%)</span>
+}</pre>
         </div>
       </div>
 
