@@ -166,6 +166,31 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 ## Release Log
 ***
 
+### (2026.09.22) - v3.1.03
+- `Add`:
+  - **NMQAxe++Nexus Board Support**: New board variant (BM1373 ASIC).
+  - **Board Revision Auto-Detection**: QAxe++ vs QAxe++Rev6.1 are now auto-detected at boot via the GPIO46 strapping pin. Flashing the wrong firmware shows a full-screen "Wrong firmware" overlay with the detected board name instead of failing silently.
+  - **HCN Auto-Reinit**: When channel imbalance, no progress, or missing channels are detected, the miner automatically performs a fast Vcore power-cycle recovery (at least 15 minutes between attempts). Mining briefly pauses and then resumes automatically — this is normal behavior.
+  - **Performance Mode Presets**: The edit page now exposes one-tap **ECO / Normal / Turbo** presets for beginner-friendly tuning, applied immediately. Presets are benchmark-derived when available, otherwise fall back to board defaults.
+  - **Benchmark Charts**: New frequency-hashrate-power and frequency-efficiency charts on the benchmark results page.
+- `Modify`:
+  - **Freq/Vcore Range Clamping**: Frequency and Vcore set via the web UI or API are now clamped to the selectable dropdown range before saving, preventing out-of-range values.
+  - Per-board defaults and adjustable ranges were tuned (e.g. Nexus default 600 MHz / 1150 mV with floor extended to 400 MHz / 1000 mV; Rev8.1 default 325 MHz / 1000 mV).
+  - **Advanced Tuning Collapsed**: Manual frequency / Vcore tuning is now folded into a hidden "Advanced (Frequency / Vcore)" section; after any manual change the mode shows as "Custom".
+  - ckpool quick link updated to `stats.ckpool.org`.
+- `Improved`:
+  - **Benchmark Capacity**: Result storage increased from ~28 to a maximum of 80 entries; legacy data migrates automatically, no manual action needed.
+  - **Fan Safety Ceiling**: Auto-fan target temperature now has a safe upper limit (over-temperature trip point minus 5 °C); values above it are clamped on save.
+- `Fixed`:
+  - Fixed market module occasional watchdog-timeout reboots under certain network conditions.
+  - Fixed Nexus board Vcore calibration offset (actual output was only ~25% of the commanded value).
+  - Improved power-up sequencing and stability (Vcore stabilization delay, PLL ramp delay), reducing occasional boot hangs.
+- `Remove`:
+  - None.
+- `API`:
+  - `GET /api/setting/preference` now returns a read-only `fans[].maxTarget` field: the safe ceiling for the auto-fan target temperature.
+  - Documented `GET /api/update/last-result`: returns a snapshot of the latest OTA/upload outcome.
+
 ### (2026.08.07) - v3.1.02
 - `Add`:
   - **Wrong-Firmware Detection**: The device now auto-detects firmware-to-hardware mismatches at startup. When the wrong model firmware is flashed, a full-screen warning overlay blocks operation to prevent hardware malfunction.
