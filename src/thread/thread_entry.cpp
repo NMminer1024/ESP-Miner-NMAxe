@@ -1,4 +1,4 @@
-#include "thread_entry.h"
+﻿#include "thread_entry.h"
 #include "../app/application.h"
 #include "../app/system_events.h"
 #include "../utils/logger/logger.h"
@@ -1556,17 +1556,15 @@ void power_init_thread_entry(void* args) {
     // set vcore voltage to required voltage
     power->set_vcore_voltage(spec.asic.req_vcore);
     power->set_vcore_status(PWR_ON);
-    if (spec.pwr.en_pins.pwr_vcore >= 0) {
-        LOG_W("Vcore EN pin (GPIO %d) commanded HIGH, MCU-side readback = %s",
-              spec.pwr.en_pins.pwr_vcore,
-              digitalRead(spec.pwr.en_pins.pwr_vcore) == HIGH ? "HIGH" : "LOW");
-    }
-    uint8_t vcore_wait_dbg_counter = 0;
+    // is_vcore_ready() stays silent while healthy and self-diagnoses on failure,
+    // so this loop only needs a slow heartbeat plus a periodic full dump.
+    uint16_t vcore_wait_ticks = 0;
     while (!power->is_vcore_ready()) {
         delay(500);
-        LOG_W("Waiting for vcore power setup...");
-        if (++vcore_wait_dbg_counter >= 4) {   // every ~2s, dump VOUT/STATUS_WORD to see why it's not ready
-            vcore_wait_dbg_counter = 0;
+        if (++vcore_wait_ticks % 6 == 0) {
+            LOG_W("Waiting for vcore power setup... (%ds)", vcore_wait_ticks / 2);
+        }
+        if (vcore_wait_ticks % 40 == 0) {
             power->debugPrint();
         }
     }

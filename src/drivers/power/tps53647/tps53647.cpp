@@ -277,16 +277,22 @@ void TPS53647Class::hw_init(void){
     // ── Read-back verification ────────────────────────────────────────────────
     {
         uint8_t rb_d0 = 0, rb_da = 0, rb_dc = 0, rb_dd = 0, rb_e4 = 0;
+        uint8_t rb_ooc = 0, rb_vcmd = 0;
         uint16_t rb_oc_warn = 0, rb_oc_fault = 0;
         this->_read_reg(PMBUS_MFR_SPECIFIC_00, &rb_d0, 1); // 0xD0 OCL
         this->_read_reg(PMBUS_MFR_SPECIFIC_10, &rb_da, 1); // 0xDA imax
         this->_read_reg(PMBUS_MFR_SPECIFIC_12, &rb_dc, 1); // 0xDC freq
         this->_read_reg(PMBUS_MFR_SPECIFIC_13, &rb_dd, 1); // 0xDD op-mode
         this->_read_reg(PMBUS_MFR_SPECIFIC_20, &rb_e4, 1); // 0xE4 phases
+        this->_read_reg(PMBUS_ON_OFF_CONFIG, &rb_ooc, 1);  // 0x02 ON_OFF_CONFIG
+        this->_read_reg(PMBUS_VOUT_COMMAND,  &rb_vcmd, 1); // 0x21 VOUT_COMMAND (VID)
         this->_read_reg(PMBUS_IOUT_OC_WARN_LIMIT,  (uint8_t*)&rb_oc_warn,  2);
         this->_read_reg(PMBUS_IOUT_OC_FAULT_LIMIT, (uint8_t*)&rb_oc_fault, 2);
         LOG_W("[TPS53647] readback: D0(OCL)=0x%02X DA(imax)=0x%02X(%dA) DC(freq)=0x%02X DD(mode)=0x%02X E4(phases+1)=0x%02X",
               rb_d0, rb_da, rb_da, rb_dc, rb_dd, rb_e4);
+        LOG_W("[TPS53647] readback: ON_OFF_CONFIG(0x02)=0x%02X [EN-pin:%d pol(act-high):%d op-cmd:%d]  VOUT_COMMAND(0x21)=0x%02X(%dmV)",
+              rb_ooc, (rb_ooc >> 2) & 1, (rb_ooc >> 4) & 1, (rb_ooc >> 3) & 1,
+              rb_vcmd, this->_vid_to_mv(rb_vcmd));
         LOG_W("[TPS53647] readback: IOUT_OC_WARN=0x%04X(%.1fA) IOUT_OC_FAULT=0x%04X(%.1fA)",
               rb_oc_warn,  this->_slinear11_to_float(rb_oc_warn),
               rb_oc_fault, this->_slinear11_to_float(rb_oc_fault));
@@ -294,10 +300,77 @@ void TPS53647Class::hw_init(void){
 }
 
 bool TPS53647Class::is_vcore_ready(void){
-    if(digitalRead(this->_vcore_pgood_pin) == HIGH){
+    bool pin_good = (digitalRead(this->_vcore_pgood_pin) == HIGH);
+    if (pin_good) {
         delay(1);
-        return (digitalRead(this->_vcore_pgood_pin) == HIGH);
+        pin_good = (digitalRead(this->_vcore_pgood_pin) == HIGH);
     }
+    if (pin_good) {
+        this->_pgood_fail_log_ms = 0;   // arm the throttle so a later failure logs immediately
+        return true;
+    }
+
+    uint32_t now = millis();
+    if (this->_pgood_fail_log_ms != 0 && (now - this->_pgood_fail_log_ms) < 3000) {
+        return false;
+    }
+    this->_pgood_fail_log_ms = now;
+
+    uint16_t status_word = 0;
+    uint8_t  status_vout = 0, status_iout = 0, status_input = 0;
+    uint8_t  status_temp = 0, status_cml = 0;
+    uint8_t  operation = 0, on_off_config = 0, vout_command = 0;
+    this->_read_reg(PMBUS_STATUS_WORD,        (uint8_t*)&status_word, 2);
+    this->_read_reg(PMBUS_STATUS_VOUT,        &status_vout,   1);
+    this->_read_reg(PMBUS_STATUS_IOUT,        &status_iout,   1);
+    this->_read_reg(PMBUS_STATUS_INPUT,       &status_input,  1);
+    this->_read_reg(PMBUS_STATUS_TEMPERATURE, &status_temp,   1);
+    this->_read_reg(PMBUS_STATUS_CML,         &status_cml,    1);
+    this->_read_reg(PMBUS_OPERATION,          &operation,     1);
+    this->_read_reg(PMBUS_ON_OFF_CONFIG,      &on_off_config, 1);
+    this->_read_reg(PMBUS_VOUT_COMMAND,       &vout_command,  1);
+
+    // STATUS_WORD bit11 is POWER_GOOD# (1 = chip says power is NOT good)
+    const bool chip_pg   = ((status_word >> 11) & 1) == 0;
+    const bool en_pin_hi = (this->_asic_pwr_en_pins.pwr_vcore < 0) ||
+                           (digitalRead(this->_asic_pwr_en_pins.pwr_vcore) == HIGH);
+
+    const char* cause;
+    if (chip_pg) {
+        cause = "CHIP REPORTS POWER GOOD but PGOOD GPIO reads LOW -> PGOOD net/pull-up/GPIO problem, not the regulator";
+    } else if ((status_cml & 0xC0) != 0) {
+        cause = "PMBus command/data rejected (CML) -> a config write was invalid, regulator refused to start";
+    } else if (((status_input >> 4) & 1) || ((status_word >> 3) & 1)) {
+        cause = "VIN undervoltage -> input rail sagging or latched off, needs a full VIN power cycle";
+    } else if ((status_vout & 0x80) || ((status_word >> 5) & 1)) {
+        cause = "VOUT overvoltage fault latched -> output shorted high or feedback/sense problem";
+    } else if ((status_vout >> 4) & 1) {
+        cause = "VOUT undervoltage fault latched -> output pulled down, soft-start failed (short on Vcore?)";
+    } else if ((status_iout & 0x80) || ((status_word >> 4) & 1)) {
+        cause = "IOUT overcurrent fault latched -> inrush or short on Vcore";
+    } else if (status_temp & 0xC0) {
+        cause = "over-temperature fault latched -> check cooling";
+    } else if (vout_command == 0x00) {
+        cause = "VOUT_COMMAND is 0 (VID=0) -> no output target was programmed, check NVS asic_voltage";
+    } else if (((on_off_config >> 3) & 1) && (((operation >> 7) & 1) == 0)) {
+        cause = "ON_OFF_CONFIG requires the OPERATION command but OPERATION=OFF -> EN pin alone will never start it";
+    } else if (!en_pin_hi) {
+        cause = "Vcore EN GPIO is driven LOW -> firmware has not enabled the rail";
+    } else if (((on_off_config >> 2) & 1) == 0) {
+        cause = "ON_OFF_CONFIG ignores the EN pin -> config write did not take effect after RESTORE_DEFAULT_ALL";
+    } else if ((status_word >> 6) & 1) {
+        cause = "chip reports OFF with no fault flagged -> EN net may not actually reach the chip pin";
+    } else {
+        cause = "enabled with no fault flagged, output still not in regulation -> soft-start stalled";
+    }
+
+    LOG_W("[TPS53647] Vcore NOT ready: %s", cause);
+    LOG_W("[TPS53647]   EN gpio=%s  chip_PG=%d  VOUT_COMMAND=0x%02X(%dmV)  OPERATION=0x%02X  ON_OFF_CONFIG=0x%02X[en-pin:%d op-cmd:%d]",
+          en_pin_hi ? "HIGH" : "LOW", chip_pg ? 1 : 0,
+          vout_command, this->_vid_to_mv(vout_command), operation,
+          on_off_config, (on_off_config >> 2) & 1, (on_off_config >> 3) & 1);
+    LOG_W("[TPS53647]   WORD=0x%04X VOUT=0x%02X IOUT=0x%02X IN=0x%02X TEMP=0x%02X CML=0x%02X",
+          status_word, status_vout, status_iout, status_input, status_temp, status_cml);
     return false;
 }
 
@@ -336,6 +409,8 @@ void TPS53647Class::set_vcore_status(power_state_t state){
 
 void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
     if(req_mv == 0) {
+        LOG_W("[TPS53647] req_vcore=0 -> VOUT_COMMAND NOT written, Vcore forced OFF. "
+              "PGOOD stays LOW until a valid voltage is set (check NVS asic_voltage).");
         this->set_vcore_status(PWR_OFF);
         return;
     }
@@ -343,7 +418,17 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
     // this->set_vcore_status(PWR_ON);
     uint16_t vlot_mv = (req_mv <= this->_vcore_min_mv) ? this->_vcore_min_mv : ((req_mv >= this->_vcore_max_mv) ? this->_vcore_max_mv : req_mv);
 
+    if (vlot_mv != req_mv && req_mv != this->_last_clamp_warned_mv) {
+        this->_last_clamp_warned_mv = req_mv;
+        LOG_W("[TPS53647] req_vcore=%dmV clamped to %dmV (range %d~%d mV)",
+              req_mv, vlot_mv, this->_vcore_min_mv, this->_vcore_max_mv);
+    }
+
     uint8_t reg = this->_mv_to_vid(vlot_mv);
+    if (reg != this->_last_vid_written) {
+        this->_last_vid_written = reg;
+        LOG_I("[TPS53647] VOUT_COMMAND <- VID 0x%02X (%dmV)", reg, vlot_mv);
+    }
 
     this->_write_word(PMBUS_VOUT_COMMAND, reg); //VCORE Voltage Set Register   
 }
@@ -438,54 +523,49 @@ bool TPS53647Class::is_ot_warn(void){
 void TPS53647Class::debugPrint(void){
     uint16_t raw = 0;
 
-    this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
-    float iout = this->_slinear11_to_float(raw);
-    this->_read_reg(PMBUS_READ_POUT, (uint8_t*)&raw, 2);
-    float pout = this->_slinear11_to_float(raw);
-    this->_read_reg(PMBUS_READ_PIN,  (uint8_t*)&raw, 2);
-    float pin  = this->_slinear11_to_float(raw);
     this->_read_reg(PMBUS_READ_VOUT, (uint8_t*)&raw, 2);
     uint8_t vid = (uint8_t)(raw & 0xFF);
     float vout = this->_vid_to_mv(vid) / 1000.0f;
-    float eff  = (pin > 0.1f) ? (pout / pin * 100.0f) : 0.0f;
+    this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
+    float iout = this->_slinear11_to_float(raw);
+    this->_read_reg(PMBUS_READ_PIN,  (uint8_t*)&raw, 2);
+    float pin  = this->_slinear11_to_float(raw);
+    this->_read_reg(PMBUS_READ_TEMPERATURE_1, (uint8_t*)&raw, 2);
+    float temp_c = this->_slinear11_to_float(raw);
 
-    // OC status — STATUS_IOUT bit7=OC_FAULT(latched), bit5=OC_WARN
-    // STATUS_WORD bit14=IOUT/POUT summary, bit2=TEMPERATURE summary
-    uint16_t status_word        = 0;
-    uint8_t  status_iout        = 0;
-    uint8_t  status_temp        = 0;
-    uint8_t  status_mfr_specific = 0;
-    uint8_t  iout_oc_fault_resp = 0;
-    uint16_t raw_temp           = 0;
-    uint16_t raw_iout_oc_fault_limit = 0;
-    this->_read_reg(PMBUS_STATUS_WORD,            (uint8_t*)&status_word, 2);
-    this->_read_reg(PMBUS_STATUS_IOUT,            &status_iout,           1);
-    this->_read_reg(PMBUS_STATUS_TEMPERATURE,     &status_temp,           1);
-    this->_read_reg(PMBUS_STATUS_MFR_SPECIFIC,    &status_mfr_specific,   1);
-    this->_read_reg(PMBUS_IOUT_OC_FAULT_RESPONSE, &iout_oc_fault_resp,    1);
-    this->_read_reg(PMBUS_READ_TEMPERATURE_1,     (uint8_t*)&raw_temp,    2);
-    this->_read_reg(PMBUS_IOUT_OC_FAULT_LIMIT,    (uint8_t*)&raw_iout_oc_fault_limit, 2);
-    float temp_c = this->_slinear11_to_float(raw_temp);
-    float iout_limit_a = this->_slinear11_to_float(raw_iout_oc_fault_limit);
+    uint16_t status_word = 0;
+    uint8_t  status_vout = 0, status_iout = 0, status_input = 0;
+    uint8_t  status_temp = 0, status_cml = 0;
+    uint8_t  operation = 0, on_off_config = 0, vout_command = 0;
+    this->_read_reg(PMBUS_STATUS_WORD,        (uint8_t*)&status_word, 2);
+    this->_read_reg(PMBUS_STATUS_VOUT,        &status_vout,    1);
+    this->_read_reg(PMBUS_STATUS_IOUT,        &status_iout,    1);
+    this->_read_reg(PMBUS_STATUS_INPUT,       &status_input,   1);
+    this->_read_reg(PMBUS_STATUS_TEMPERATURE, &status_temp,    1);
+    this->_read_reg(PMBUS_STATUS_CML,         &status_cml,     1);
+    this->_read_reg(PMBUS_OPERATION,          &operation,      1);
+    this->_read_reg(PMBUS_ON_OFF_CONFIG,      &on_off_config,  1);
+    this->_read_reg(PMBUS_VOUT_COMMAND,       &vout_command,   1);
 
-    char buf[400];
-    snprintf(buf, sizeof(buf),
-        "\n-----------TPS53647 OC MONITOR-----------"
-        "\n  VOUT = %.3f V  IOUT = %.2f A  (limit: %.1f A)"
-        "\n  POUT = %.2f W   PIN = %.2f W   Eff = %.1f %%"
-        "\n  TEMP = %.1f \xc2\xb0" "C  (warn:95\xc2\xb0" "C  fault:125\xc2\xb0" "C)"
-        "\n  STATUS_IOUT = 0x%02X  [OC_FAULT:%d  OC_WARN:%d]"
-        "\n  STATUS_TEMP = 0x%02X  [OT_FAULT:%d  OT_WARN:%d]"
-        "\n  STATUS_MFR_SPECIFIC (80h) = 0x%02X"
-        "\n------------------------------------------",
-        vout,
-        iout, iout_limit_a,
-        pout, pin, eff,
-        temp_c,
-        status_iout, (status_iout >> 7) & 1, (status_iout >> 5) & 1,
-        status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1,
-        status_mfr_specific);
-    LOG_W("%s", buf);
+    LOG_W("-----------TPS53647 vcore bring-up state-----------");
+    LOG_W("  VOUT=%.3fV  IOUT=%.2fA  PIN=%.2fW  TEMP=%.1f\xc2\xb0" "C", vout, iout, pin, temp_c);
+    LOG_W("  target: VOUT_COMMAND=0x%02X(%dmV)  OPERATION=0x%02X[ON:%d]  ON_OFF_CONFIG=0x%02X[EN-pin:%d pol:%d op-cmd:%d]",
+          vout_command, this->_vid_to_mv(vout_command),
+          operation, (operation >> 7) & 1,
+          on_off_config, (on_off_config >> 2) & 1, (on_off_config >> 4) & 1, (on_off_config >> 3) & 1);
+    LOG_W("  STATUS_WORD=0x%04X [PG#:%d OFF:%d VOUT_OV:%d IOUT_OC:%d VIN_UV:%d TEMP:%d CML:%d]",
+          status_word,
+          (status_word >> 11) & 1, (status_word >> 6) & 1, (status_word >> 5) & 1,
+          (status_word >> 4) & 1, (status_word >> 3) & 1, (status_word >> 2) & 1,
+          (status_word >> 1) & 1);
+    LOG_W("  VOUT_ST=0x%02X[OV_F:%d UV_F:%d]  IN_ST=0x%02X[VIN_UV_F:%d]  CML_ST=0x%02X[bad_cmd:%d bad_data:%d]",
+          status_vout, (status_vout >> 7) & 1, (status_vout >> 4) & 1,
+          status_input, (status_input >> 4) & 1,
+          status_cml, (status_cml >> 7) & 1, (status_cml >> 6) & 1);
+    LOG_W("  IOUT_ST=0x%02X[OC_F:%d OC_W:%d]  TEMP_ST=0x%02X[OT_F:%d OT_W:%d]",
+          status_iout, (status_iout >> 7) & 1, (status_iout >> 5) & 1,
+          status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1);
+    LOG_W("--------------------------------------------------");
 }
 
 // ---------------------------------------------------------------------------

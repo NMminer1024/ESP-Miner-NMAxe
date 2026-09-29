@@ -110,6 +110,9 @@ private:
     uint8_t       _vcore_pgood_pin;
     uint16_t      _vcore_min_mv;             // Vcore range min in mV, ASIC-related
     uint16_t      _vcore_max_mv;             // Vcore range max in mV, ASIC-related
+    uint32_t      _pgood_fail_log_ms = 0;    // throttle for the PGOOD-failure diagnosis log
+    uint8_t       _last_vid_written = 0xFF;  // de-dupe the VID log against the 50ms regulation loop
+    uint16_t      _last_clamp_warned_mv = 0;
     tps53647_cfg_t _cfg;                     // board-specific phase / current config
     uint8_t  _read_reg(uint8_t regaddr, uint8_t *data, uint8_t length);
     void     _write_byte(uint8_t regaddr, uint8_t data);
