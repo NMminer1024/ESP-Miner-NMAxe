@@ -1,4 +1,4 @@
-#include "thread_entry.h"
+﻿#include "thread_entry.h"
 #include "../app/application.h"
 #include "../app/system_events.h"
 #include "../utils/logger/logger.h"
@@ -971,7 +971,7 @@ void miner_rx_thread_entry(void* args) {
             : 0.0;
         const uint32_t accepted_now = st.share_accepted;
         const uint32_t rejected_now = st.share_rejected;
-        LOG_W("[NONCE-DIAG] dt=%lums asic_diff=%.0f pool_diff=%.3f raw=%u bad_id=%u unsub=%u job_ok=%u job_miss=%u calc_invalid=%u below_asic=%u ctx_miss=%u dup=%u recorded=%u below_pool=%u submit=%u queued=%u pool_ack=%u pool_reject=%u",
+        LOG_D("[NONCE-DIAG] dt=%lums asic_diff=%.0f pool_diff=%.3f raw=%u bad_id=%u unsub=%u job_ok=%u job_miss=%u calc_invalid=%u below_asic=%u ctx_miss=%u dup=%u recorded=%u below_pool=%u submit=%u queued=%u pool_ack=%u pool_reject=%u",
               (unsigned long)dt_ms, miner->get_asic_diff(), stratum->get_pool_difficulty(),
               nonce_diag.raw, nonce_diag.invalid_asic_id, nonce_diag.unsubscribed,
               nonce_diag.job_ok, nonce_diag.job_miss, nonce_diag.calc_invalid,
@@ -979,7 +979,7 @@ void miner_rx_thread_entry(void* args) {
               nonce_diag.recorded, nonce_diag.below_pool, nonce_diag.submit_attempt,
               nonce_diag.submit_queued, accepted_now - nonce_diag.accepted_base,
               rejected_now - nonce_diag.rejected_base);
-        LOG_W("[NONCE-RATE] dt=%lums recorded=%u diff_sum=%.0f interval_hr=%.3fTH/s rx_timeout=%u invalid_size=%u invalid_rsp=%u other_err=%u",
+        LOG_D("[NONCE-RATE] dt=%lums recorded=%u diff_sum=%.0f interval_hr=%.3fTH/s rx_timeout=%u invalid_size=%u invalid_rsp=%u other_err=%u",
               (unsigned long)dt_ms, nonce_diag.recorded, nonce_diag.recorded_diff_sum,
               interval_hr_ths, nonce_diag.rx_timeout, nonce_diag.rx_invalid_size,
               nonce_diag.rx_invalid_response, nonce_diag.rx_other_error);
@@ -987,7 +987,7 @@ void miner_rx_thread_entry(void* args) {
             if (nonce_diag.raw_ch[i] == 0 && nonce_diag.recorded_ch[i] == 0 &&
                 nonce_diag.job_miss_ch[i] == 0 && nonce_diag.below_asic_ch[i] == 0 &&
                 nonce_diag.context_miss_ch[i] == 0 && nonce_diag.duplicate_ch[i] == 0) continue;
-            LOG_W("[NONCE-CH%u] raw=%u job_miss=%u below_asic=%u ctx_miss=%u dup=%u recorded=%u",
+            LOG_D("[NONCE-CH%u] raw=%u job_miss=%u below_asic=%u ctx_miss=%u dup=%u recorded=%u",
                   i, nonce_diag.raw_ch[i], nonce_diag.job_miss_ch[i],
                   nonce_diag.below_asic_ch[i], nonce_diag.context_miss_ch[i],
                   nonce_diag.duplicate_ch[i], nonce_diag.recorded_ch[i]);
@@ -1556,17 +1556,15 @@ void power_init_thread_entry(void* args) {
     // set vcore voltage to required voltage
     power->set_vcore_voltage(spec.asic.req_vcore);
     power->set_vcore_status(PWR_ON);
-    if (spec.pwr.en_pins.pwr_vcore >= 0) {
-        LOG_W("Vcore EN pin (GPIO %d) commanded HIGH, MCU-side readback = %s",
-              spec.pwr.en_pins.pwr_vcore,
-              digitalRead(spec.pwr.en_pins.pwr_vcore) == HIGH ? "HIGH" : "LOW");
-    }
-    uint8_t vcore_wait_dbg_counter = 0;
+    // is_vcore_ready() stays silent while healthy and self-diagnoses on failure,
+    // so this loop only needs a slow heartbeat plus a periodic full dump.
+    uint16_t vcore_wait_ticks = 0;
     while (!power->is_vcore_ready()) {
         delay(500);
-        LOG_W("Waiting for vcore power setup...");
-        if (++vcore_wait_dbg_counter >= 4) {   // every ~2s, dump VOUT/STATUS_WORD to see why it's not ready
-            vcore_wait_dbg_counter = 0;
+        if (++vcore_wait_ticks % 6 == 0) {
+            LOG_W("Waiting for vcore power setup... (%ds)", vcore_wait_ticks / 2);
+        }
+        if (vcore_wait_ticks % 40 == 0) {
             power->debugPrint();
         }
     }
@@ -2118,7 +2116,7 @@ void monitor_thread_entry(void* args) {
                 const uint32_t now_ms = millis();
                 if (now_ms - nonce_ring_last_log_ms >= 60000u) {
                     nonce_ring_last_log_ms = now_ms;
-                    LOG_W("[NONCE-RING] source=%s hcn_ch=%u asic_diff=%.0f size=%u samples_3m=%u samples_30m=%u sum_3m=%.0f sum_30m=%.0f sum_60m=%.0f hr_3m=%.3fTH/s hr_30m=%.3fTH/s hr_1h=%.3fTH/s",
+                    LOG_D("[NONCE-RING] source=%s hcn_ch=%u asic_diff=%.0f size=%u samples_3m=%u samples_30m=%u sum_3m=%.0f sum_30m=%.0f sum_60m=%.0f hr_3m=%.3fTH/s hr_30m=%.3fTH/s hr_1h=%.3fTH/s",
                           use_hcn ? "HCN" : "NONCE", hcn_active_ch, ctx->miner->get_asic_diff(),
                           nonce_ring.ring_size, nonce_ring.samples_3m, nonce_ring.samples_30m,
                           nonce_ring.sum_3m, nonce_ring.sum_30m, nonce_ring.sum_60m,

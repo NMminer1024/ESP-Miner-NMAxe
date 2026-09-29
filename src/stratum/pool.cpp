@@ -96,6 +96,12 @@ String PoolClass::readline(uint32_t timeout_ms) {
     }
     if (this->_line.length() >= 4096) {
         LOG_E("Response too long %d Bytes, discarding", this->_line.length());
+        // 打印原始报文（分块，避免单条日志超过 logger 的 512 字节缓冲被截断）
+        const int chunk = 480;
+        for (size_t off = 0; off < this->_line.length(); off += chunk) {
+            String part = this->_line.substring(off, off + chunk);
+            LOG_W("RAW[%d/%d]: %s", (int)off, (int)this->_line.length(), part.c_str());
+        }
         this->_line = ""; 
     }
     this->_last_read = millis();
