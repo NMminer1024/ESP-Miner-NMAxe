@@ -8,6 +8,8 @@
 #include "black_img.h"
 #include "blockhit_img.h"
 #include "logo_img.h"
+#include "rev61_logo_array.h"
+#include "nexus_logo_array.h"
 #include "achievement_img.h"
 
 /****************************** worker logo****************************/
@@ -58,6 +60,30 @@ lv_img_dsc_t logo_miner_nmqaxepp_70_70 = {
     },
     .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
     .data = (const uint8_t *)logo_miner_nmqaxepp_70_70_img_array,
+};
+
+lv_img_dsc_t logo_worker_rev61 = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR_ALPHA,  //transparent color, alpha channel included
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)rev61_worker_logo_img_array,
+};
+
+lv_img_dsc_t logo_worker_nexus = {
+    .header = {
+        .cf = LV_IMG_CF_TRUE_COLOR_ALPHA,  //transparent color, alpha channel included
+        .always_zero = 0,
+        .reserved = 0,
+        .w = 0 ,  
+        .h = 0, 
+    },
+    .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
+    .data = (const uint8_t *)nexus_worker_logo_img_array,
 };
 
 /****************************** 135x240 page images****************************/

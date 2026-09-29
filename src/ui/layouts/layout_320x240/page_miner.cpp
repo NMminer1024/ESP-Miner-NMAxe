@@ -34,10 +34,27 @@ void PageMiner320x240::_create_dynamic(lv_obj_t* parent) {
     lv_img_set_src(bg, &mining_page_img_240_320);
     lv_obj_set_pos(bg, 0, 0);
     lv_obj_add_flag(bg, LV_OBJ_FLAG_EVENT_BUBBLE);
+    // Base logo: worker icon + QAXE++ strip (all boards)
     lv_obj_t* logo = lv_img_create(parent);
     lv_img_set_src(logo, &logo_worker_nmqaxepp);
-    lv_obj_align(logo, LV_ALIGN_TOP_LEFT, 70, 44);
+#if defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_NEXUS)
+    lv_obj_align(logo, LV_ALIGN_TOP_LEFT, 70, 39);  // Rev61/Nexus: base shifted up 5px
+#else
+    lv_obj_align(logo, LV_ALIGN_TOP_LEFT, 70, 44);  // QAXE++: original position
+#endif
     lv_obj_add_flag(logo, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+    // Board-specific text logo below base (Rev61 / Nexus)
+#if defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_NEXUS)
+    lv_obj_t* logo_text = lv_img_create(parent);
+#if defined(BOARD_NMQAXE_PP_REV61)
+    lv_img_set_src(logo_text, &logo_worker_rev61);
+#else
+    lv_img_set_src(logo_text, &logo_worker_nexus);
+#endif
+    lv_obj_align(logo_text, LV_ALIGN_TOP_LEFT, 70, 115);  // left-aligned with base logo
+    lv_obj_add_flag(logo_text, LV_OBJ_FLAG_EVENT_BUBBLE);
+#endif
 
     _lb_blk_hit    = mk(&ds_digib_font_56, 0xEE7D30, LV_ALIGN_TOP_MID,    20, 65,  SW, " ", LV_LABEL_LONG_SCROLL_CIRCULAR);
     _lb_hashrate   = mk(&ds_digib_font_52, 0xEE7D30, LV_ALIGN_BOTTOM_MID, 62, -44, 100," ", LV_LABEL_LONG_SCROLL_CIRCULAR);

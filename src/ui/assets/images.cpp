@@ -12,6 +12,10 @@ void images_init(uint16_t w, uint16_t h) {
     logo_worker_nmqaxepp.data_size = 70 * 79 * LV_IMG_PX_SIZE_ALPHA_BYTE;
     logo_miner_nmqaxepp_70_70.header.w = 70;  logo_miner_nmqaxepp_70_70.header.h = 70;
     logo_miner_nmqaxepp_70_70.data_size = 70 * 70 * LV_IMG_PX_SIZE_ALPHA_BYTE;
+    logo_worker_rev61.header.w = 84;  logo_worker_rev61.header.h = 18;
+    logo_worker_rev61.data_size = 84 * 18 * LV_IMG_PX_SIZE_ALPHA_BYTE;
+    logo_worker_nexus.header.w = 70;  logo_worker_nexus.header.h = 15;
+    logo_worker_nexus.data_size = 70 * 15 * LV_IMG_PX_SIZE_ALPHA_BYTE;
 
     const uint32_t bytes = (uint32_t)w * h * LV_COLOR_SIZE / 8;
     auto set = [&](lv_img_dsc_t& d) { d.header.w = w; d.header.h = h; d.data_size = bytes; };

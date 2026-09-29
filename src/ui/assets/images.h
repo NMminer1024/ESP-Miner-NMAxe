@@ -12,6 +12,8 @@ extern lv_img_dsc_t logo_worker_nmaxe;
 extern lv_img_dsc_t logo_worker_nmaxegamma;
 extern lv_img_dsc_t logo_worker_nmqaxepp;
 extern lv_img_dsc_t logo_miner_nmqaxepp_70_70;
+extern lv_img_dsc_t logo_worker_rev61;
+extern lv_img_dsc_t logo_worker_nexus;
 
 // 135x240 (NMAxe / Gamma) page backgrounds
 extern lv_img_dsc_t loading_page_img_135_240;
