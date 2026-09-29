@@ -29,8 +29,10 @@ static void s_save_last_page(size_t idx) {
 }
 
 // ============================================================================
-//  All layout instances — both resolutions compiled in, selected at runtime
+//  Layout instances — only the resolution matching the BOARD_* macro is
+//  compiled in (see ui_layout.h); selection below is compile-time.
 // ============================================================================
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
 static PageLoading240x135  s_load_135;
 static PageConfig240x135   s_cfg_135;
 static PageMiner240x135    s_miner_135;
@@ -39,7 +41,7 @@ static PageHr_health240x135 s_health_135;
 static PageClock240x135    s_clock_135;
 static PageMarket240x135   s_market_135;
 static PageSetting240x135  s_sett_135;
-
+#else
 static PageLoading320x240  s_load_240;
 static PageConfig320x240   s_cfg_240;
 static PageMiner320x240    s_miner_240;
@@ -48,23 +50,38 @@ static PageHr_health320x240 s_health_240;
 static PageClock320x240    s_clock_240;
 static PageMarket320x240   s_market_240;
 static PageSetting320x240  s_sett_240;
+#endif
 
-// Helper: pick the correct layout array based on screen dimensions
+// Helper: pick the layout for a page (resolution fixed at compile time)
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
 static UIPage* s_pick_layouts(UIPageId id, uint16_t w, uint16_t h) {
-    // Match by width — NMAXE is 135 wide, QAxe++ is 240 wide
-    bool is_135 = (h <= 160);
     switch (id) {
-        case UIPageId::LOADING:        return is_135 ? (UIPage*)&s_load_135   : (UIPage*)&s_load_240;
-        case UIPageId::CONFIG:         return is_135 ? (UIPage*)&s_cfg_135    : (UIPage*)&s_cfg_240;
-        case UIPageId::MINER:          return is_135 ? (UIPage*)&s_miner_135  : (UIPage*)&s_miner_240;
-        case UIPageId::DASHBOARD:      return is_135 ? (UIPage*)&s_dash_135   : (UIPage*)&s_dash_240;
-        case UIPageId::HR_HEALTH:      return is_135 ? (UIPage*)&s_health_135 : (UIPage*)&s_health_240;
-        case UIPageId::CLOCK:          return is_135 ? (UIPage*)&s_clock_135  : (UIPage*)&s_clock_240;
-        case UIPageId::MARKET:         return is_135 ? (UIPage*)&s_market_135 : (UIPage*)&s_market_240;
-        case UIPageId::SETTING_SWARM:  return is_135 ? (UIPage*)&s_sett_135   : (UIPage*)&s_sett_240;
+        case UIPageId::LOADING:        return (UIPage*)&s_load_135;
+        case UIPageId::CONFIG:         return (UIPage*)&s_cfg_135;
+        case UIPageId::MINER:          return (UIPage*)&s_miner_135;
+        case UIPageId::DASHBOARD:      return (UIPage*)&s_dash_135;
+        case UIPageId::HR_HEALTH:      return (UIPage*)&s_health_135;
+        case UIPageId::CLOCK:          return (UIPage*)&s_clock_135;
+        case UIPageId::MARKET:         return (UIPage*)&s_market_135;
+        case UIPageId::SETTING_SWARM:  return (UIPage*)&s_sett_135;
         default: return nullptr;
     }
 }
+#else
+static UIPage* s_pick_layouts(UIPageId id, uint16_t w, uint16_t h) {
+    switch (id) {
+        case UIPageId::LOADING:        return (UIPage*)&s_load_240;
+        case UIPageId::CONFIG:         return (UIPage*)&s_cfg_240;
+        case UIPageId::MINER:          return (UIPage*)&s_miner_240;
+        case UIPageId::DASHBOARD:      return (UIPage*)&s_dash_240;
+        case UIPageId::HR_HEALTH:      return (UIPage*)&s_health_240;
+        case UIPageId::CLOCK:          return (UIPage*)&s_clock_240;
+        case UIPageId::MARKET:         return (UIPage*)&s_market_240;
+        case UIPageId::SETTING_SWARM:  return (UIPage*)&s_sett_240;
+        default: return nullptr;
+    }
+}
+#endif
 
 // ============================================================================
 //  init() — create tileview + register all pages
@@ -100,8 +117,13 @@ void UIManager::init(uint16_t w, uint16_t h) {
     _register_page(s_pick_layouts(UIPageId::MARKET, w, h),        UIPageId::MARKET,        2, 1, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP | LV_DIR_BOTTOM));
     _register_page(s_pick_layouts(UIPageId::SETTING_SWARM, w, h), UIPageId::SETTING_SWARM, 2, 0, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM));
 
-    LOG_I("UIManager: %u pages registered for %dx%d (%s)",
-          (unsigned)_pages.size(), w, h, (h <= 160) ? "NMAXE" : "QAxe++");
+#if defined(BOARD_NMAXE) || defined(BOARD_NMAXE_GAMMA)
+    LOG_I("UIManager: %u pages registered for %dx%d (240x135 layout)",
+          (unsigned)_pages.size(), w, h);
+#else
+    LOG_I("UIManager: %u pages registered for %dx%d (320x240 layout)",
+          (unsigned)_pages.size(), w, h);
+#endif
 }
 
 // ============================================================================
