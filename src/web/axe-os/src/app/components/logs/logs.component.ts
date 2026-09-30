@@ -479,7 +479,8 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
     // 获取硬件型号
     this.systemService.getInfo().subscribe(info => {
       // Map new field names to legacy names for backward compatibility
-      info.boardVersion = (info.identity as any)?.hwModel ?? info.hwModel ?? info.boardVersion;
+      // Prefer displayName so revisions (e.g. NMQAxe++Rev6.1) are distinguishable in the filename
+      info.boardVersion = (info.identity as any)?.displayName ?? (info.identity as any)?.hwModel ?? info.hwModel ?? info.boardVersion;
       
       const hardwareModel = info.boardVersion || 'Unknown';
       
