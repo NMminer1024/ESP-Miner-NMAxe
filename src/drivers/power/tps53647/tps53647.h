@@ -19,6 +19,8 @@
 #define PMBUS_VOUT_MARGIN_LOW 0x26
 #define PMBUS_IOUT_CAL_OFFSET 0x39
 #define PMBUS_VOUT_OV_FAULT_RESPONSE 0x41
+// Named per-driver: tps546d24a.h defines PMBUS_VOUT_OV_FAULT_LIMIT at 0x40
+#define TPS53647_VOUT_OV_FAULT_LIMIT 0x42
 #define PMBUS_VOUT_UV_FAULT_RESPONSE 0x45
 #define PMBUS_IOUT_OC_FAULT_LIMIT 0x46
 #define PMBUS_IOUT_OC_FAULT_RESPONSE 0x47
@@ -111,7 +113,7 @@ private:
     uint16_t      _vcore_min_mv;             // Vcore range min in mV, ASIC-related
     uint16_t      _vcore_max_mv;             // Vcore range max in mV, ASIC-related
     uint32_t      _pgood_fail_log_ms = 0;    // throttle for the PGOOD-failure diagnosis log
-    uint8_t       _last_vid_written = 0xFF;  // de-dupe the VID log against the 50ms regulation loop
+    uint8_t       _last_vid_verified = 0xFF; // de-dupe the write-verify readback
     uint16_t      _last_clamp_warned_mv = 0;
     tps53647_cfg_t _cfg;                     // board-specific phase / current config
     uint8_t  _read_reg(uint8_t regaddr, uint8_t *data, uint8_t length);

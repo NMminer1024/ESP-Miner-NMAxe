@@ -329,6 +329,10 @@ bool TPS53647Class::is_vcore_ready(void){
     this->_read_reg(PMBUS_OPERATION,          &operation,     1);
     this->_read_reg(PMBUS_ON_OFF_CONFIG,      &on_off_config, 1);
     this->_read_reg(PMBUS_VOUT_COMMAND,       &vout_command,  1);
+    uint16_t raw_vout = 0, ov_limit = 0, vout_max = 0;
+    this->_read_reg(PMBUS_READ_VOUT,          (uint8_t*)&raw_vout, 2);
+    this->_read_reg(TPS53647_VOUT_OV_FAULT_LIMIT,(uint8_t*)&ov_limit, 2);
+    this->_read_reg(PMBUS_VOUT_MAX,           (uint8_t*)&vout_max, 2);
 
     // STATUS_WORD bit11 is POWER_GOOD# (1 = chip says power is NOT good)
     const bool chip_pg   = ((status_word >> 11) & 1) == 0;
@@ -369,6 +373,11 @@ bool TPS53647Class::is_vcore_ready(void){
           en_pin_hi ? "HIGH" : "LOW", chip_pg ? 1 : 0,
           vout_command, this->_vid_to_mv(vout_command), operation,
           on_off_config, (on_off_config >> 2) & 1, (on_off_config >> 3) & 1);
+    LOG_W("[TPS53647]   ACTUAL_VOUT=%.3fV  OV_LIMIT=%.3fV  VOUT_MAX=%dmV  (target %dmV)",
+          this->_vid_to_mv((uint8_t)(raw_vout & 0xFF)) / 1000.0f,
+          this->_slinear11_to_float(ov_limit),
+          vout_max & 0x7FF,   // LINEAR11: raw value is mV
+          this->_vid_to_mv(vout_command));
     LOG_W("[TPS53647]   WORD=0x%04X VOUT=0x%02X IOUT=0x%02X IN=0x%02X TEMP=0x%02X CML=0x%02X",
           status_word, status_vout, status_iout, status_input, status_temp, status_cml);
     return false;
@@ -425,12 +434,17 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
     }
 
     uint8_t reg = this->_mv_to_vid(vlot_mv);
-    if (reg != this->_last_vid_written) {
-        this->_last_vid_written = reg;
-        LOG_I("[TPS53647] VOUT_COMMAND <- VID 0x%02X (%dmV)", reg, vlot_mv);
-    }
 
     this->_write_word(PMBUS_VOUT_COMMAND, reg); //VCORE Voltage Set Register   
+    if (reg != this->_last_vid_verified) {   // verify once per distinct VID
+        this->_last_vid_verified = reg;
+        uint8_t rb = 0;
+        this->_read_reg(PMBUS_VOUT_COMMAND, &rb, 1);
+        if (rb != reg) {
+            LOG_E("[TPS53647] VOUT_COMMAND write NOT applied: wrote 0x%02X(%dmV), chip holds 0x%02X(%dmV) -> regulator runs on NVM default",
+                  reg, vlot_mv, rb, this->_vid_to_mv(rb));
+        }
+    }
 }
 
 void TPS53647Class::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
