@@ -329,10 +329,8 @@ bool TPS53647Class::is_vcore_ready(void){
     this->_read_reg(PMBUS_OPERATION,          &operation,     1);
     this->_read_reg(PMBUS_ON_OFF_CONFIG,      &on_off_config, 1);
     this->_read_reg(PMBUS_VOUT_COMMAND,       &vout_command,  1);
-    uint16_t raw_vout = 0, ov_limit = 0, vout_max = 0;
+    uint16_t raw_vout = 0;
     this->_read_reg(PMBUS_READ_VOUT,          (uint8_t*)&raw_vout, 2);
-    this->_read_reg(TPS53647_VOUT_OV_FAULT_LIMIT,(uint8_t*)&ov_limit, 2);
-    this->_read_reg(PMBUS_VOUT_MAX,           (uint8_t*)&vout_max, 2);
 
     // STATUS_WORD bit11 is POWER_GOOD# (1 = chip says power is NOT good)
     const bool chip_pg   = ((status_word >> 11) & 1) == 0;
@@ -364,19 +362,20 @@ bool TPS53647Class::is_vcore_ready(void){
         cause = "ON_OFF_CONFIG ignores the EN pin -> config write did not take effect after RESTORE_DEFAULT_ALL";
     } else if ((status_word >> 6) & 1) {
         cause = "chip reports OFF with no fault flagged -> EN net may not actually reach the chip pin";
+    } else if ((raw_vout & 0xFF) > 0) {
+        cause = "soft-start IN PROGRESS (VOUT rising, no fault) - normal bring-up, keep waiting";
     } else {
-        cause = "enabled with no fault flagged, output still not in regulation -> soft-start stalled";
+        cause = "soft-start NOT started (VOUT still 0, no fault) - check VOUT_COMMAND write / EN timing above";
     }
 
     LOG_W("[TPS53647] Vcore NOT ready: %s", cause);
-    LOG_W("[TPS53647]   EN gpio=%s  chip_PG=%d  VOUT_COMMAND=0x%02X(%dmV)  OPERATION=0x%02X  ON_OFF_CONFIG=0x%02X[en-pin:%d op-cmd:%d]",
+    LOG_W("[TPS53647]   EN gpio=%s  chip_PG=%d  VOUT_COMMAND=0x%02X(%dmV)  last_written_VID=0x%02X(%dmV)  OPERATION=0x%02X  ON_OFF_CONFIG=0x%02X[en-pin:%d op-cmd:%d]",
           en_pin_hi ? "HIGH" : "LOW", chip_pg ? 1 : 0,
-          vout_command, this->_vid_to_mv(vout_command), operation,
-          on_off_config, (on_off_config >> 2) & 1, (on_off_config >> 3) & 1);
-    LOG_W("[TPS53647]   ACTUAL_VOUT=%.3fV  OV_LIMIT=%.3fV  VOUT_MAX=%dmV  (target %dmV)",
+          vout_command, this->_vid_to_mv(vout_command),
+          this->_last_vid_verified, this->_vid_to_mv(this->_last_vid_verified),
+          operation, on_off_config, (on_off_config >> 2) & 1, (on_off_config >> 3) & 1);
+    LOG_W("[TPS53647]   ACTUAL_VOUT=%.3fV  (target %dmV)",
           this->_vid_to_mv((uint8_t)(raw_vout & 0xFF)) / 1000.0f,
-          this->_slinear11_to_float(ov_limit),
-          vout_max & 0x7FF,   // LINEAR11: raw value is mV
           this->_vid_to_mv(vout_command));
     LOG_W("[TPS53647]   WORD=0x%04X VOUT=0x%02X IOUT=0x%02X IN=0x%02X TEMP=0x%02X CML=0x%02X",
           status_word, status_vout, status_iout, status_input, status_temp, status_cml);
@@ -436,14 +435,13 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
     uint8_t reg = this->_mv_to_vid(vlot_mv);
 
     this->_write_word(PMBUS_VOUT_COMMAND, reg); //VCORE Voltage Set Register   
-    if (reg != this->_last_vid_verified) {   // verify once per distinct VID
+    if (reg != this->_last_vid_verified) {   // log once per distinct VID
         this->_last_vid_verified = reg;
         uint8_t rb = 0;
         this->_read_reg(PMBUS_VOUT_COMMAND, &rb, 1);
-        if (rb != reg) {
-            LOG_E("[TPS53647] VOUT_COMMAND write NOT applied: wrote 0x%02X(%dmV), chip holds 0x%02X(%dmV) -> regulator runs on NVM default",
-                  reg, vlot_mv, rb, this->_vid_to_mv(rb));
-        }
+        LOG_W("[TPS53647] set VOUT_COMMAND: target=%dmV VID=0x%02X -> readback=0x%02X (%s)",
+              vlot_mv, reg, rb,
+              (rb == reg) ? "APPLIED" : "NOT-APPLIED (chip keeps NVM default)");
     }
 }
 
