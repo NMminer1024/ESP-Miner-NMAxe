@@ -29,7 +29,8 @@ struct SwarmState {
     float                  best_session_bd = 0.0f;
     float                  best_ever_bd = 0.0f;
     neighbor_ip_set_t      confirmed_ips;          // confirmed NM peers (kept across gens)
-    neighbor_ip_set_t      probe_blacklist;        // non-NM IPs (cleared per generation)
+    neighbor_ip_set_t      axe_family_ips;         // subset of confirmed_ips whose /probe model is NMAxe*/NMQAxe*; sole writer: swarm thread
+    neighbor_ip_seen_map_t probe_blacklist;        // IP -> expiry millis; non-NM (30 min) or probe failure (5 min)
     neighbor_ip_set_t      gossip_union;           // supplemental IPs from peers' /alive
     neighbor_ip_fail_map_t probe_fail_cnt;         // consecutive probe failures per IP
     uint32_t               last_scan_gen = 0;      // last processed scan generation
@@ -54,6 +55,9 @@ struct NeighborState {
     // (mDNS fresh → 30 min safety-net, stale → legacy 5 min).
     // Aligned uint32_t: atomic read/write on Xtensa, no lock needed.
     volatile uint32_t    mdns_last_ok_ms = 0;
+    // True when every confirmed Axe-family peer was seen via mDNS recently, i.e. ICMP
+    // is only a safety net. Written by the swarm thread, read by the scan thread.
+    volatile bool        mdns_covered = false;
 };
 
 // ============================================================================

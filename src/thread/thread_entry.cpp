@@ -3609,13 +3609,10 @@ void scan_thread_entry(void* args) {
             nbr.last_scan_ms = millis();
             xSemaphoreGive(nbr.mutex);
         }
-        // Cadence: when mDNS discovery is fresh (< 2 min old) the ICMP full
-        // scan is only a safety net → relax to 30 min. If mDNS is stale or
-        // never worked (multicast blocked, AP isolation), keep the legacy
-        // 5 min so discovery degrades gracefully to the old behavior.
-        uint32_t mdns_age = millis() - nbr.mdns_last_ok_ms;
-        uint32_t wait_ms  = (nbr.mdns_last_ok_ms != 0 && mdns_age < 2 * 60 * 1000)
-                            ? 30 * 60 * 1000 : 5 * 60 * 1000;
+        // Cadence: relax to 30 min only when mDNS covers every confirmed Axe peer (ICMP is then
+        // just a safety net). Mixed-firmware LANs or blocked multicast keep the legacy 5 min,
+        // because devices mDNS cannot see are found by ICMP only.
+        uint32_t wait_ms  = nbr.mdns_covered ? 30 * 60 * 1000 : 5 * 60 * 1000;
         if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             nbr.next_scan_due_ms = millis() + wait_ms;
             xSemaphoreGive(nbr.mutex);
@@ -3713,6 +3710,29 @@ void swarm_thread_entry(void* args) {
         return true;
     };
 
+    // Blacklist with expiry: non-NM hosts rest 30 min, transient probe failures only 5 min
+    // (a miner mid-reboot must come back quickly). Caller must hold no lock.
+    constexpr uint32_t BLACKLIST_NON_NM_MS = 30UL * 60 * 1000;
+    constexpr uint32_t BLACKLIST_FAIL_MS   = 5UL * 60 * 1000;
+    auto blacklist_add = [&ctx](neighbor_ip_t ip, uint32_t ttl_ms) {
+        if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            ctx.probe_blacklist[ip] = millis() + ttl_ms;
+            xSemaphoreGive(ctx.mutex);
+        }
+    };
+    auto blacklist_has = [&ctx](neighbor_ip_t ip) -> bool {
+        bool hit = false;
+        if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+            auto it = ctx.probe_blacklist.find(ip);
+            if (it != ctx.probe_blacklist.end()) {
+                if ((int32_t)(it->second - millis()) > 0) hit = true;
+                else ctx.probe_blacklist.erase(it);
+            }
+            xSemaphoreGive(ctx.mutex);
+        }
+        return hit;
+    };
+
     while (true) {
         delay(30 * 1000);
 
@@ -3741,11 +3761,7 @@ void swarm_thread_entry(void* args) {
         const uint8_t MAX_PROBE_FAIL = 3;
         if (cur_gen != ctx.last_scan_gen) {
             ctx.last_scan_gen = cur_gen;
-            if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                ctx.probe_blacklist.clear();
-                xSemaphoreGive(ctx.mutex);
-            }
-            LOG_W("(swarm) new scan gen=%u, blacklist reset; confirmed=%u gossip=%u (kept)",
+            LOG_D("(swarm) new scan gen=%u; confirmed=%u gossip=%u",
                   cur_gen, (uint32_t)ctx.confirmed_ips.size(), (uint32_t)ctx.gossip_union.size());
         }
 
@@ -3756,12 +3772,7 @@ void swarm_thread_entry(void* args) {
         auto add_target = [&](neighbor_ip_t ip) {
             if (ip == selfIP) return;
             if (seen.count(ip)) return;
-            bool bl = false;
-            if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-                bl = ctx.probe_blacklist.count(ip) > 0;
-                xSemaphoreGive(ctx.mutex);
-            }
-            if (bl) return;
+            if (blacklist_has(ip)) return;
             seen.insert(ip);
             targets.push_back(ip);
         };
@@ -3834,13 +3845,16 @@ void swarm_thread_entry(void* args) {
                         if (ebd > best_ever_bd)    best_ever_bd    = ebd;
                         ctx.confirmed_ips.insert(ip);
                         ctx.probe_fail_cnt[ip] = 0;
+                        {
+                            const char* mdl = doc["model"] | "";
+                            if (strncmp(mdl, "NMAxe", 5) == 0 || strncmp(mdl, "NMQAxe", 6) == 0) ctx.axe_family_ips.insert(ip);
+                            else                                                                   ctx.axe_family_ips.erase(ip);
+                        }
                         LOG_D("(swarm) %s NM device hr=%.0f sbd=%.0f ebd=%.0f", ip_buf, hr, sbd, ebd);
                     } else {
-                        if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                            ctx.probe_blacklist.insert(ip);
-                            xSemaphoreGive(ctx.mutex);
-                        }
+                        blacklist_add(ip, BLACKLIST_NON_NM_MS);
                         ctx.confirmed_ips.erase(ip);
+                        ctx.axe_family_ips.erase(ip);
                         ctx.probe_fail_cnt.erase(ip);
                         LOG_D("(swarm) %s not NM device, blacklisted", ip_buf);
                     }
@@ -3852,26 +3866,49 @@ void swarm_thread_entry(void* args) {
                     if (fc < 0xFF) fc++;
                     if (fc >= MAX_PROBE_FAIL) {
                         ctx.confirmed_ips.erase(ip);
+                        ctx.axe_family_ips.erase(ip);
                         ctx.probe_fail_cnt.erase(ip);
                         LOG_W("(swarm) %s removed from confirmed after %u failures", ip_buf, MAX_PROBE_FAIL);
                     } else {
                         LOG_D("(swarm) probe %s => %d, fail_cnt=%u (kept)", ip_buf, code, fc);
                     }
                 } else {
-                    if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                        ctx.probe_blacklist.insert(ip);
-                        xSemaphoreGive(ctx.mutex);
-                    }
+                    blacklist_add(ip, BLACKLIST_FAIL_MS);
                     LOG_D("(swarm) probe %s => %d, blacklisted", ip_buf, code);
                 }
             }
             delay(50);
         }
 
+        // ── mDNS coverage: every confirmed Axe-family peer was heard via mDNS within the TTL ──
+        // Non-Axe NM devices (e.g. NMMiner) do not speak mDNS and are ignored here.
+        {
+            neighbor_ip_seen_map_t mdns_now;
+            if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                mdns_now = nbr.mdns_peers;
+                xSemaphoreGive(nbr.mutex);
+            }
+            const uint32_t now_ms = millis();
+            uint32_t missing = 0;
+            for (const auto& ip : ctx.axe_family_ips) {
+                auto it = mdns_now.find(ip);
+                if (it == mdns_now.end() || (uint32_t)(now_ms - it->second) >= 35000u) missing++;
+            }
+            const bool covered = (nbr.mdns_last_ok_ms != 0) && (missing == 0);
+            if (covered != nbr.mdns_covered) {
+                LOG_I("(swarm) mDNS coverage %s: axe peers=%u, not seen via mDNS=%u",
+                      covered ? "FULL (ICMP relaxed)" : "PARTIAL (ICMP kept at 5 min)",
+                      (uint32_t)ctx.axe_family_ips.size(), missing);
+            }
+            nbr.mdns_covered = covered;
+        }
+
         // ── Gossip: ask each confirmed NM peer for its /alive list ──
+        // Only useful for finding peers mDNS cannot see, so skip it when mDNS covers everything.
         size_t gossip_added = 0;
         BasicJsonDocument<PsramJsonAllocator> gdoc(2048);
         for (const auto& ip : ctx.confirmed_ips) {
+            if (nbr.mdns_covered) break;
             if (*sctx->ota_running) break;
             if (xEventGroupGetBits(sctx->sys_evt) & SYS_EVENT_SCREEN_SAVER_TRIGGERED) break;
 
@@ -3905,12 +3942,7 @@ void swarm_thread_entry(void* args) {
                 if (!neighbor_ip_from_string(v.as<const char*>(), &candidate)) continue;
                 if (candidate == selfIP) continue;
                 if (ctx.confirmed_ips.count(candidate)) continue;
-                bool bl = false;
-                if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-                    bl = ctx.probe_blacklist.count(candidate) > 0;
-                    xSemaphoreGive(ctx.mutex);
-                }
-                if (bl) continue;
+                if (blacklist_has(candidate)) continue;
                 if (ctx.gossip_union.insert(candidate).second) gossip_added++;
             }
             delay(50);
