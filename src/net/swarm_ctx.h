@@ -38,6 +38,7 @@ struct SwarmState {
 // ============================================================================
 struct NeighborState {
     neighbor_ip_vector_t alive_ips;                // ICMP-alive IP list
+    neighbor_ip_set_t    mdns_peers;               // mDNS-discovered peers; sole writer: mdns task (guarded by mutex)
     SemaphoreHandle_t    mutex = nullptr;
     SemaphoreHandle_t    scan_required = nullptr;  // released to trigger a re-scan
     uint32_t             last_scan_ms = 0;

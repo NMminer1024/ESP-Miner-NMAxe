@@ -3602,7 +3602,6 @@ void scan_thread_entry(void* args) {
 //    probes them for hashrate / best-difficulty detail.
 void mdns_thread_entry(void* args) {
     SwarmCtx* sctx = static_cast<SwarmCtx*>(args);
-    SwarmState&    ctx = *sctx->swarm;
     NeighborState& nbr = *sctx->neighbor;
 
     wait_for_wifi_sta_connected(sctx->init_evt, "(mdns)");
@@ -3627,9 +3626,9 @@ void mdns_thread_entry(void* args) {
         }
 
         nbr.mdns_last_ok_ms = millis();
-        if (found > 0 && xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            for (const auto& ip : peers) ctx.confirmed_ips.insert(ip);
-            xSemaphoreGive(ctx.mutex);
+        if (found > 0 && xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            for (const auto& ip : peers) nbr.mdns_peers.insert(ip);
+            xSemaphoreGive(nbr.mutex);
         }
 
         // Per-query overview (INFO): always visible at default log level.
@@ -3689,14 +3688,18 @@ void swarm_thread_entry(void* args) {
 
         // ── Snapshot current scan generation and alive list ──
         neighbor_ip_vector_t alive;
+        neighbor_ip_set_t    mdns_snapshot;
         uint32_t cur_gen = 0;
         if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
-            alive   = nbr.alive_ips;
-            cur_gen = nbr.scan_generation;
+            alive         = nbr.alive_ips;
+            mdns_snapshot = nbr.mdns_peers;
+            cur_gen       = nbr.scan_generation;
             xSemaphoreGive(nbr.mutex);
         } else {
             LOG_W("(swarm) WARNING: failed to acquire nbr.mutex in 200ms");
         }
+        // confirmed_ips has a single writer (this thread): fold in mDNS peers here.
+        for (const auto& ip : mdns_snapshot) ctx.confirmed_ips.insert(ip);
 
         const uint8_t MAX_PROBE_FAIL = 3;
         if (cur_gen != ctx.last_scan_gen) {
