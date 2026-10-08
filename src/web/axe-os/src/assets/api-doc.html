@@ -1801,11 +1801,11 @@ Content-Type: application/octet-stream
         <div class="endpoint-head">
           <span class="method-badge method-post">POST</span>
           <code class="endpoint-path">/api/swarm/scan</code>
-          <span class="endpoint-summary">Trigger an immediate subnet re-scan</span>
+          <span class="endpoint-summary">Trigger discovery refresh</span>
         </div>
         <div class="endpoint-body">
           <p class="ep-desc">
-            Signals the IP-scan thread to abort the current scan and restart from the beginning. Typically called by the AxeOS Swarm page on load to get fresh data quickly. No request body is needed.
+            Runs an mDNS query immediately (results appear in <code>/alive</code> within seconds) and, only if the last ICMP subnet scan is older than 5 minutes, starts a background ICMP re-scan. The current <code>/alive</code> list is never cleared. Typically called by the AxeOS Swarm page on load. No request body is needed.
           </p>
           <div class="block-label">Request body</div>
           <pre><span class="cmt">// empty body or {}</span></pre>
@@ -1967,7 +1967,7 @@ Content-Type: application/octet-stream
   <span class="kw">"scanning"</span>:     <span class="bool">false</span>,          <span class="cmt">// true while a /24 subnet scan is in progress</span>
   <span class="kw">"progress"</span>:     <span class="num">254</span>,            <span class="cmt">// hosts probed so far in the current scan</span>
   <span class="kw">"total"</span>:        <span class="num">254</span>,            <span class="cmt">// total hosts in the /24 subnet</span>
-  <span class="kw">"next_scan_in"</span>: <span class="num">287</span>,            <span class="cmt">// seconds until next automatic ICMP scan (0 if overdue)</span>
+  <span class="kw">"next_scan_in"</span>: <span class="num">287</span>,            <span class="cmt">// seconds until the next automatic ICMP scan (0 while scanning or overdue)</span>
   <span class="kw">"mdns_active"</span>:  <span class="bool">true</span>,           <span class="cmt">// true when mDNS discovery is fresh (&lt; 15 s old)</span>
   <span class="kw">"mdns_next_in"</span>: <span class="num">7</span>,              <span class="cmt">// seconds until next mDNS query (10 s cycle)</span>
   <span class="kw">"ips"</span>:          [

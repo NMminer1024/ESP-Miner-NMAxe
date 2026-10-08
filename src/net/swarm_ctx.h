@@ -16,6 +16,8 @@ using neighbor_ip_set_t    = std::set<neighbor_ip_t, std::less<neighbor_ip_t>,
                                       PsramAllocator<neighbor_ip_t>>;
 using neighbor_ip_fail_map_t = std::map<neighbor_ip_t, uint8_t, std::less<neighbor_ip_t>,
                                         PsramAllocator<std::pair<const neighbor_ip_t, uint8_t>>>;
+using neighbor_ip_seen_map_t = std::map<neighbor_ip_t, uint32_t, std::less<neighbor_ip_t>,
+                                        PsramAllocator<std::pair<const neighbor_ip_t, uint32_t>>>;
 
 // ============================================================================
 //  SwarmState — aggregated neighbor-miner statistics (replaces board.status.swarm)
@@ -38,10 +40,12 @@ struct SwarmState {
 // ============================================================================
 struct NeighborState {
     neighbor_ip_vector_t alive_ips;                // ICMP-alive IP list
-    neighbor_ip_set_t    mdns_peers;               // mDNS-discovered peers; sole writer: mdns task (guarded by mutex)
+    neighbor_ip_seen_map_t mdns_peers;             // mDNS peer -> last-seen millis; sole writer: mdns task (guarded by mutex)
     SemaphoreHandle_t    mutex = nullptr;
     SemaphoreHandle_t    scan_required = nullptr;  // released to trigger a re-scan
+    SemaphoreHandle_t    mdns_kick = nullptr;      // released to run an mDNS query immediately
     uint32_t             last_scan_ms = 0;
+    uint32_t             next_scan_due_ms = 0;     // millis() deadline of the next ICMP scan (0 = unknown)
     uint32_t             scan_generation = 0;      // +1 per completed full scan
     bool                 is_scanning = false;
     uint16_t             scan_progress = 0;        // 0..254

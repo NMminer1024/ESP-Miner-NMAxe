@@ -3233,14 +3233,23 @@ void webserver_thread_entry(void* args) {
     webServer.on("/api/dashboard/luck/history",   HTTP_GET, get_lucky_history);
     // ── Swarm endpoints ───────────────────────────────────────────────────────
     webServer.on("/api/swarm/scan", HTTP_POST, [ctx](AsyncWebServerRequest* request) {
-        if (ctx->neighbor->scan_required){
+        // Opening the Swarm page: query mDNS right away (cheap, ~3 s) and only
+        // trigger a background ICMP rescan when the last one is stale (> 5 min).
+        if (ctx->neighbor->mdns_kick) xSemaphoreGive(ctx->neighbor->mdns_kick);
+        uint32_t lms = 0;
+        if (xSemaphoreTake(ctx->neighbor->mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            lms = ctx->neighbor->last_scan_ms;
+            xSemaphoreGive(ctx->neighbor->mutex);
+        }
+        bool stale = (lms == 0) || (millis() - lms > 5UL * 60 * 1000);
+        if (stale && ctx->neighbor->scan_required) {
             xSemaphoreGive(ctx->neighbor->scan_required);
-            LOG_I("Triggered alive IP scan by swarm request");
+            LOG_I("Triggered alive IP scan by swarm request (last scan stale)");
         }
         AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
         r->addHeader("Access-Control-Allow-Origin", "*");
         request->send(r);
-    }); // trigger alive_ip_scan_thread immediately
+    }); // kick mDNS now; ICMP rescan only when stale
     // ── Find me: blink screen to help user locate a specific device ───────────
     webServer.on("/api/swarm/find", HTTP_POST, [ctx](AsyncWebServerRequest* request) {
         xEventGroupSetBits(ctx->sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
@@ -3322,16 +3331,18 @@ void webserver_thread_entry(void* args) {
         bool scanning   = ctx->neighbor->is_scanning;
         uint16_t prog   = ctx->neighbor->scan_progress;
         uint32_t lms    = 0;
+        uint32_t due_ms = 0;
         resp->printf("{\"self\":\"%s\",\"scanning\":%s,\"progress\":%u,\"total\":254",
             self_ip.c_str(), scanning ? "true" : "false", (unsigned)prog);
         if (xSemaphoreTake(ctx->neighbor->mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
-            lms = ctx->neighbor->last_scan_ms;
+            lms    = ctx->neighbor->last_scan_ms;
+            due_ms = ctx->neighbor->next_scan_due_ms;
             xSemaphoreGive(ctx->neighbor->mutex);
         }
         uint32_t next_in = 0;
-        if (!scanning && lms > 0) {
-            uint32_t elapsed_s = (millis() - lms) / 1000;
-            next_in = (elapsed_s < 300) ? (300 - elapsed_s) : 0;
+        if (!scanning && lms > 0 && due_ms != 0) {
+            int32_t remain_ms = (int32_t)(due_ms - millis());
+            next_in = remain_ms > 0 ? (uint32_t)(remain_ms / 1000) : 0;
         }
         resp->printf(",\"next_scan_in\":%u", (unsigned)next_in);
         // mDNS discovery status: fresh (< 15s ≈ 1.5 query cycles) → UI shows the
@@ -3360,7 +3371,14 @@ void webserver_thread_entry(void* args) {
                          (unsigned)(address & 0xFF));
             };
             char ip_buf[16];
-            for (const auto& ip : ctx->neighbor->alive_ips) {
+            // Union of ICMP-alive and TTL-fresh mDNS peers, de-duplicated (self already emitted).
+            neighbor_ip_set_t out_set;
+            for (const auto& ip : ctx->neighbor->alive_ips) out_set.insert(ip);
+            const uint32_t now_ms = millis();
+            for (const auto& kv : ctx->neighbor->mdns_peers) {
+                if ((uint32_t)(now_ms - kv.second) < 35000u) out_set.insert(kv.first);
+            }
+            for (const auto& ip : out_set) {
                 neighbor_ip_to_cstr(ip, ip_buf, sizeof(ip_buf));
                 resp->printf(",\"%s\"", ip_buf);
             }
@@ -3524,6 +3542,17 @@ void scan_thread_entry(void* args) {
 
         neighbor_ip_vector_t found;
         found.reserve(16);
+        // Previous round's result stays visible until this round overwrites it.
+        neighbor_ip_vector_t prev_alive;
+        if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+            prev_alive = nbr.alive_ips;
+            xSemaphoreGive(nbr.mutex);
+        }
+        auto merged_with_prev = [&](const neighbor_ip_vector_t& cur) {
+            neighbor_ip_set_t s(prev_alive.begin(), prev_alive.end());
+            s.insert(cur.begin(), cur.end());
+            return neighbor_ip_vector_t(s.begin(), s.end());
+        };
 
         nbr.is_scanning   = true;
         nbr.scan_progress = 0;
@@ -3544,11 +3573,7 @@ void scan_thread_entry(void* args) {
             nbr.scan_progress = (uint16_t)last;
 
             if (xSemaphoreTake(nbr.scan_required, 0) == pdTRUE) {
-                if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
-                    nbr.alive_ips.clear();
-                    xSemaphoreGive(nbr.mutex);
-                    LOG_D("(scan) page refresh: reset scan progress, alive_ips cleared (gen unchanged)");
-                }
+                // Restart this round from .1; keep the visible list untouched.
                 last = 1;
                 seq  = 0;
                 found.clear();
@@ -3562,8 +3587,9 @@ void scan_thread_entry(void* args) {
             if ((seq % 10 == 0) || (last == MAX_SCAN)) {
                 bool is_last = (last == MAX_SCAN);
                 if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                    // Last flush of a round is authoritative; mid-round flushes also keep prev devices.
                     if (is_last) nbr.alive_ips = std::move(found);
-                    else         nbr.alive_ips = found;
+                    else         nbr.alive_ips = merged_with_prev(found);
                     nbr.last_scan_ms = millis();
                     xSemaphoreGive(nbr.mutex);
                 }
@@ -3590,6 +3616,10 @@ void scan_thread_entry(void* args) {
         uint32_t mdns_age = millis() - nbr.mdns_last_ok_ms;
         uint32_t wait_ms  = (nbr.mdns_last_ok_ms != 0 && mdns_age < 2 * 60 * 1000)
                             ? 30 * 60 * 1000 : 5 * 60 * 1000;
+        if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            nbr.next_scan_due_ms = millis() + wait_ms;
+            xSemaphoreGive(nbr.mutex);
+        }
         xSemaphoreTake(nbr.scan_required, wait_ms);
     }
 }
@@ -3613,7 +3643,8 @@ void mdns_thread_entry(void* args) {
     };
 
     while (true) {
-        delay(10 * 1000);
+        // Wakes early when the Swarm page asks for an immediate query.
+        xSemaphoreTake(nbr.mdns_kick, pdMS_TO_TICKS(10 * 1000));
 
         if (WiFi.status() != WL_CONNECTED) continue;
         if (*sctx->ota_running)            continue;
@@ -3626,8 +3657,14 @@ void mdns_thread_entry(void* args) {
         }
 
         nbr.mdns_last_ok_ms = millis();
-        if (found > 0 && xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            for (const auto& ip : peers) nbr.mdns_peers.insert(ip);
+        if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            const uint32_t now_ms = millis();
+            for (const auto& ip : peers) nbr.mdns_peers[ip] = now_ms;
+            // Single multicast queries lose replies; keep peers for 35 s before dropping.
+            for (auto it = nbr.mdns_peers.begin(); it != nbr.mdns_peers.end();) {
+                if ((uint32_t)(now_ms - it->second) >= 35000u) it = nbr.mdns_peers.erase(it);
+                else ++it;
+            }
             xSemaphoreGive(nbr.mutex);
         }
 
@@ -3688,7 +3725,7 @@ void swarm_thread_entry(void* args) {
 
         // ── Snapshot current scan generation and alive list ──
         neighbor_ip_vector_t alive;
-        neighbor_ip_set_t    mdns_snapshot;
+        neighbor_ip_seen_map_t mdns_snapshot;
         uint32_t cur_gen = 0;
         if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
             alive         = nbr.alive_ips;
@@ -3699,7 +3736,7 @@ void swarm_thread_entry(void* args) {
             LOG_W("(swarm) WARNING: failed to acquire nbr.mutex in 200ms");
         }
         // confirmed_ips has a single writer (this thread): fold in mDNS peers here.
-        for (const auto& ip : mdns_snapshot) ctx.confirmed_ips.insert(ip);
+        for (const auto& kv : mdns_snapshot) ctx.confirmed_ips.insert(kv.first);
 
         const uint8_t MAX_PROBE_FAIL = 3;
         if (cur_gen != ctx.last_scan_gen) {

@@ -103,6 +103,7 @@ bool MinerApp::init() {
 
     _state_neighbor->mutex         = xSemaphoreCreateMutex();
     _state_neighbor->scan_required = xSemaphoreCreateCounting(1, 0);
+    _state_neighbor->mdns_kick     = xSemaphoreCreateCounting(1, 0);
 
     // ── Stage 3: materialize compile-time board spec ──
     // When BOARD_COMPILE_TIME is defined (PlatformIO env), the board is selected
