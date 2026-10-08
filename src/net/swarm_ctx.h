@@ -44,6 +44,11 @@ struct NeighborState {
     uint32_t             scan_generation = 0;      // +1 per completed full scan
     bool                 is_scanning = false;
     uint16_t             scan_progress = 0;        // 0..254
+    // Last successful mDNS discovery (millis). Written by the swarm thread,
+    // read by the scan thread to decide the ICMP full-scan cadence
+    // (mDNS fresh → 30 min safety-net, stale → legacy 5 min).
+    // Aligned uint32_t: atomic read/write on Xtensa, no lock needed.
+    volatile uint32_t    mdns_last_ok_ms = 0;
 };
 
 // ============================================================================

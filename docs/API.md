@@ -418,7 +418,9 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | `scanning` | bool | `true` while a subnet scan is in progress |
 | `progress` | int | Current scan progress (0–254 hosts probed so far) |
 | `total` | int | Total hosts to probe (always 254 for a /24 subnet) |
-| `next_scan_in` | int | Seconds until the next automatic scan (0 if overdue or never scanned) |
+| `next_scan_in` | int | Seconds until the next automatic ICMP scan (0 if overdue or never scanned) |
+| `mdns_active` | bool | `true` when mDNS discovery is fresh (< 15 s old); UI shows live auto-discovery instead of the scan-progress ring |
+| `mdns_next_in` | int | Seconds until the next mDNS query (10 s cycle) |
 | `ips` | array | List of all alive IP addresses on the subnet (including self) |
 
 ---

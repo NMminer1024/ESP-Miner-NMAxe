@@ -51,6 +51,9 @@ void webserver_thread_entry(void* args);
 // ── Scan: LAN alive IP discovery (ICMP ping) ────────────────────────────────
 void scan_thread_entry(void* args);
 
+// ── mDNS: LAN NMAxe peer discovery (10 s cadence, dedicated task) ───────────
+void mdns_thread_entry(void* args);
+
 // ── Swarm: probe / aggregate neighbor miner stats ───────────────────────────
 void swarm_thread_entry(void* args);
 

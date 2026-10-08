@@ -187,23 +187,23 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     sections: [
       {
         heading: '📡 How are devices found?',
-        body: 'When you open the Swarm page, your miner automatically scans every possible address on your local network (up to 254 addresses in the same subnet) to find all active devices. It does this by sending a small "are you there?" ping to each address one by one.\n\nDevices that respond are then checked to see if they are NMAxe miners. Only confirmed miners appear in the table.'
+        body: 'Your miner uses mDNS (multicast DNS) to continuously discover other NMAxe miners on the local network. Every 10 seconds it broadcasts a short "any NMAxe miners here?" query; only NMAxe devices answer, so every hit is already a confirmed miner. This is fast and low-cost — no per-address waiting.\n\nAs a safety net, a slower full network scan (ICMP ping of all 254 addresses in the subnet) also runs periodically. If mDNS is unavailable (e.g. multicast blocked or AP isolation), discovery gracefully falls back to this scan, and the card shows the familiar scan-progress ring instead.'
       },
       {
-        heading: '⏳ Why does it take a while to show all miners?',
-        body: 'The scan checks all 254 possible addresses in order, one at a time. For each address with no device connected, the miner has to wait up to about half a second before concluding "nobody home" and moving on.\n\nThis means:\n• Networks with few devices → scan finishes faster\n• Networks with many empty addresses → each one adds ~0.5 s to the scan\n• A full scan typically takes 2–5 minutes\n\nMiners found early in the scan appear in the table immediately — the rest gradually fill in as the scan progresses. The progress ring shows how far along the scan is.'
+        heading: '⏳ What does the card show?',
+        body: '• mDNS active (normal case): a pulsing radar icon with an "mDNS · auto" badge, the number of miners found, and a small countdown in the top-right corner showing seconds until the next 10-second discovery query.\n• mDNS unavailable: the card switches to the classic scan-progress ring (0–100%) while the full ICMP scan runs, then shows the miner count with a countdown to the next scan.'
       },
       {
-        heading: '🔄 When does it rescan?',
-        body: '• Automatically every 5 minutes — the countdown ring in the top-right corner of this card shows how long until the next automatic scan.\n• Immediately when you open or refresh the Swarm page — a fresh scan starts from scratch and the progress ring is shown in place of the miner count.'
+        heading: '🔄 How often does it refresh?',
+        body: '• mDNS discovery: every 10 seconds (the small top-right countdown reflects this cycle).\n• Full ICMP safety-net scan: every 5 minutes, relaxed to 30 minutes while mDNS is working normally.\n• Opening or refreshing the Swarm page triggers a fresh discovery pass immediately.'
       },
       {
         heading: '⚠ Notes',
         body: '• Only devices on the same subnet (e.g. 192.168.1.x) are scanned. Miners on a different network will not appear.<br>• Scanning is paused during OTA updates and while the screen saver is active, to avoid slowing down those operations.<br>• If a miner is powered off, it will disappear after the next complete scan.'
       },
       {
-        heading: '🔒 Is this scan safe? Does it expose my privacy?',
-        body: 'Yes, completely safe. Here is why:<br><br>• <b>Just a knock on the door</b> — The scan only sends a standard ping (same as the <code>ping</code> command on your PC) to each address and asks “are you there?”. It cannot read any data from other devices.<br>• <b>Your network, your rules</b> — The scan only covers your own local network (same as your phone and PC do every day). You are the owner of that network.<br>• <b>Results never leave your device</b> — Discovered IPs are stored only in the miner’s memory and are cleared on every reboot. Nothing is uploaded to any server.<br>• <b>Non-miners are immediately ignored</b> — After confirming a device is not an NMAxe miner, it is not contacted again until the next scan cycle.<br>• <b>Fully open source and auditable</b> — Every line of this code is public. See for yourself: <a href="https://github.com/NMminer1024/ESP-Miner-NMAxe" target="_blank" rel="noopener">github.com/NMminer1024/ESP-Miner-NMAxe</a>'
+        heading: '🔒 Is this discovery safe? Does it expose my privacy?',
+        body: 'Yes, completely safe. Here is why:<br><br>• <b>Just a knock on the door</b> — mDNS sends a tiny multicast "any NMAxe miners here?" query (and the ICMP fallback sends a standard ping, same as the <code>ping</code> command on your PC). Neither can read any data from other devices.<br>• <b>Your network, your rules</b> — Discovery only covers your own local network (same as your phone and PC do every day). You are the owner of that network.<br>• <b>Results never leave your device</b> — Discovered IPs are stored only in the miner’s memory and are cleared on every reboot. Nothing is uploaded to any server.<br>• <b>Non-miners are immediately ignored</b> — After confirming a device is not an NMAxe miner, it is not contacted again until the next cycle.<br>• <b>Fully open source and auditable</b> — Every line of this code is public. See for yourself: <a href="https://github.com/NMminer1024/ESP-Miner-NMAxe" target="_blank" rel="noopener">github.com/NMminer1024/ESP-Miner-NMAxe</a>'
       }
     ]
   },
@@ -223,7 +223,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• Device discovery uses network scanning (ICMP ping) — all miners must be on the same subnet.\n• Apply All reboots all devices; wait ~60 seconds before checking results.\n• Benchmark data is device-specific and is NOT synced via Swarm.'
+        body: '• Device discovery uses mDNS (with an ICMP scan fallback) — all miners must be on the same subnet.\n• Apply All reboots all devices; wait ~60 seconds before checking results.\n• Benchmark data is device-specific and is NOT synced via Swarm.'
       }
     ]
   },

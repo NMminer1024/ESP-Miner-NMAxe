@@ -15,6 +15,7 @@
 #include "../net/wifi_ctx.h"
 #include "../market/market_ctx.h"
 #include "../net/swarm_ctx.h"
+#include "../net/mdns_discovery.h"
 #include "../app/daemon_ctx.h"
 #include "../app/monitor_ctx.h"
 #include "../app/button_ctx.h"
@@ -1415,6 +1416,10 @@ void wifi_connect_thread_entry(void* args) {
                     if (MDNS.begin(mdns.c_str())) {
                         MDNS.addService("http", "tcp", 80);
                         MDNS.addServiceTxt("http", "tcp", "model", ctx->cfg->board_name.c_str());
+                        // Dedicated service type for swarm discovery: peers query
+                        // _nmaxe._tcp.local and only NMAxe devices answer.
+                        MDNS.addService("nmaxe", "tcp", 80);
+                        MDNS.addServiceTxt("nmaxe", "tcp", "model", ctx->cfg->board_name.c_str());
                         LOG_I("mDNS started: http://%s.local", mdns.c_str());
                     } else {
                         LOG_W("mDNS start FAILED (name conflict?), falling back to IP access");
@@ -3329,6 +3334,22 @@ void webserver_thread_entry(void* args) {
             next_in = (elapsed_s < 300) ? (300 - elapsed_s) : 0;
         }
         resp->printf(",\"next_scan_in\":%u", (unsigned)next_in);
+        // mDNS discovery status: fresh (< 15s ≈ 1.5 query cycles) → UI shows the
+        // "live auto-discovery" presentation instead of the ICMP scan-progress ring.
+        const uint32_t MDNS_QUERY_PERIOD_S = 10;
+        bool   mdns_active  = false;
+        uint32_t mdns_next_in = 0;
+        if (ctx->neighbor->mdns_last_ok_ms != 0) {
+            uint32_t mdns_age_ms = millis() - ctx->neighbor->mdns_last_ok_ms;
+            if (mdns_age_ms < 15 * 1000) {
+                mdns_active = true;
+                uint32_t mdns_elapsed_s = mdns_age_ms / 1000;
+                mdns_next_in = (mdns_elapsed_s < MDNS_QUERY_PERIOD_S)
+                               ? (MDNS_QUERY_PERIOD_S - mdns_elapsed_s) : 0;
+            }
+        }
+        resp->printf(",\"mdns_active\":%s,\"mdns_next_in\":%u",
+                     mdns_active ? "true" : "false", (unsigned)mdns_next_in);
         resp->printf(",\"ips\":[\"%s\"", self_ip.c_str());
         if (xSemaphoreTake(ctx->neighbor->mutex, pdMS_TO_TICKS(300)) == pdTRUE) {
             auto neighbor_ip_to_cstr = [](neighbor_ip_t address, char *buffer, size_t buffer_size) {
@@ -3562,7 +3583,68 @@ void scan_thread_entry(void* args) {
             nbr.last_scan_ms = millis();
             xSemaphoreGive(nbr.mutex);
         }
-        xSemaphoreTake(nbr.scan_required, 5 * 60 * 1000);
+        // Cadence: when mDNS discovery is fresh (< 2 min old) the ICMP full
+        // scan is only a safety net → relax to 30 min. If mDNS is stale or
+        // never worked (multicast blocked, AP isolation), keep the legacy
+        // 5 min so discovery degrades gracefully to the old behavior.
+        uint32_t mdns_age = millis() - nbr.mdns_last_ok_ms;
+        uint32_t wait_ms  = (nbr.mdns_last_ok_ms != 0 && mdns_age < 2 * 60 * 1000)
+                            ? 30 * 60 * 1000 : 5 * 60 * 1000;
+        xSemaphoreTake(nbr.scan_required, wait_ms);
+    }
+}
+
+// ── mDNS discovery: dedicated lightweight task ──────────────────────────────
+//    Queries the LAN every 10 s for _nmaxe._tcp peers. Runs in its own task so
+//    the heavier swarm HTTP probe/gossip (which blocks 60+ s) cannot stall the
+//    discovery cadence. Every mDNS response is already an NMAxe device, so
+//    discovered IPs go straight into the confirmed set — the swarm thread still
+//    probes them for hashrate / best-difficulty detail.
+void mdns_thread_entry(void* args) {
+    SwarmCtx* sctx = static_cast<SwarmCtx*>(args);
+    SwarmState&    ctx = *sctx->swarm;
+    NeighborState& nbr = *sctx->neighbor;
+
+    wait_for_wifi_sta_connected(sctx->init_evt, "(mdns)");
+
+    auto self_ip = []() -> neighbor_ip_t {
+        IPAddress a = WiFi.localIP();
+        return ((neighbor_ip_t)a[0] << 24) | ((neighbor_ip_t)a[1] << 16) |
+               ((neighbor_ip_t)a[2] << 8)  |  (neighbor_ip_t)a[3];
+    };
+
+    while (true) {
+        delay(10 * 1000);
+
+        if (WiFi.status() != WL_CONNECTED) continue;
+        if (*sctx->ota_running)            continue;
+
+        neighbor_ip_set_t peers;
+        int found = mdns_discovery_query(&peers, self_ip(), 3000);
+        if (found < 0) {
+            LOG_W("(mdns) query failed, relying on ICMP scan fallback");
+            continue;
+        }
+
+        nbr.mdns_last_ok_ms = millis();
+        if (found > 0 && xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            for (const auto& ip : peers) ctx.confirmed_ips.insert(ip);
+            xSemaphoreGive(ctx.mutex);
+        }
+
+        // Per-query overview (INFO): always visible at default log level.
+        char peer_list[128] = "";
+        if (found > 0) {
+            size_t off = 0;
+            for (const auto& ip : peers) {
+                char b[16];
+                int w = snprintf(b, sizeof(b), "%u.%u.%u.%u ",
+                    (unsigned)((ip >> 24) & 0xFF), (unsigned)((ip >> 16) & 0xFF),
+                    (unsigned)((ip >> 8) & 0xFF), (unsigned)(ip & 0xFF));
+                if (off + (size_t)w < sizeof(peer_list)) { memcpy(peer_list + off, b, (size_t)w); off += (size_t)w; }
+            }
+        }
+        LOG_I("(mdns) query: %d peer(s) [%s]", found, peer_list);
     }
 }
 

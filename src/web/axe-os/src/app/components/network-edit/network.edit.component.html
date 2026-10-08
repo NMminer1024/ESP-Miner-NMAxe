@@ -39,8 +39,12 @@
                 <div class="col-12 md:col-10">
                     <input pInputText id="mdnsName" type="text" formControlName="mdnsName" maxlength="20"
                            placeholder="e.g. nmaxepp81-06ea1" (input)="onMdnsInput($event)"/>
-                    <small class="mdns-hint">Reach this miner on the LAN as http://&lt;name&gt;.local without knowing its IP.
-                        Lowercase letters, digits and hyphens only.</small>
+                    <small class="mdns-hint">Reach this miner on the LAN as
+                        <a *ngIf="mdnsUrlValid" [href]="mdnsUrl" target="_blank" rel="noopener noreferrer" class="mdns-link">{{ mdnsUrl }}</a>
+                        <ng-container *ngIf="!mdnsUrlValid">http://&lt;name&gt;.local</ng-container>
+                        without knowing its IP. Lowercase letters, digits and hyphens only.
+                        If you change the name, make sure it is not already in use by another device on your LAN,
+                        otherwise it will be auto-renamed (e.g. <code class="mdns-code">-2</code> suffix).</small>
                     <small *ngIf="form.get('mdnsName')?.invalid && form.get('mdnsName')?.touched" class="p-error">
                         Use lowercase letters, digits and hyphens only (no leading/trailing hyphen).
                     </small>

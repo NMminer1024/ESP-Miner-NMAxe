@@ -1958,6 +1958,8 @@ Content-Type: application/octet-stream
           <p class="ep-desc">
             Returns the device's own IP along with all IP addresses that responded to ICMP pings during the last /24 subnet scan.
             Rather than having each miner independently probe the network, the design offloads discovery to the querying side: the miner performs a single coarse ICMP sweep and caches the results; callers receive the full alive-IP list and are responsible for the finer-grained NM-device identification (via <code>/probe</code>). This keeps the miner's CPU and network load minimal — it only does one pass of raw reachability, leaving protocol-level classification to the client.
+            <br><br>
+            The response also reports <b>mDNS discovery status</b>. When mDNS is active (fresh within ~15 s), the UI shows a live auto-discovery presentation instead of the ICMP scan-progress ring.
           </p>
           <div class="block-label">Response 200</div>
           <pre>{
@@ -1965,7 +1967,9 @@ Content-Type: application/octet-stream
   <span class="kw">"scanning"</span>:     <span class="bool">false</span>,          <span class="cmt">// true while a /24 subnet scan is in progress</span>
   <span class="kw">"progress"</span>:     <span class="num">254</span>,            <span class="cmt">// hosts probed so far in the current scan</span>
   <span class="kw">"total"</span>:        <span class="num">254</span>,            <span class="cmt">// total hosts in the /24 subnet</span>
-  <span class="kw">"next_scan_in"</span>: <span class="num">287</span>,            <span class="cmt">// seconds until next automatic scan (0 if overdue)</span>
+  <span class="kw">"next_scan_in"</span>: <span class="num">287</span>,            <span class="cmt">// seconds until next automatic ICMP scan (0 if overdue)</span>
+  <span class="kw">"mdns_active"</span>:  <span class="bool">true</span>,           <span class="cmt">// true when mDNS discovery is fresh (&lt; 15 s old)</span>
+  <span class="kw">"mdns_next_in"</span>: <span class="num">7</span>,              <span class="cmt">// seconds until next mDNS query (10 s cycle)</span>
   <span class="kw">"ips"</span>:          [
     <span class="str">"192.168.1.42"</span>,   <span class="cmt">// self is always first</span>
     <span class="str">"192.168.1.1"</span>,

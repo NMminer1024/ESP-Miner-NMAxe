@@ -26,3 +26,21 @@
   color: #888;
   line-height: 1.4;
 }
+
+.mdns-link {
+  color: #28a745;
+  text-decoration: underline;
+  font-weight: 600;
+
+  &:hover {
+    color: #1e7e34;
+  }
+}
+
+.mdns-code {
+  color: #666;
+  background: #f4f4f4;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: monospace;
+}

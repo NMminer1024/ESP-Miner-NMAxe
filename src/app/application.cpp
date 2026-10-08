@@ -433,6 +433,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
 
     _create_task(swarm_thread_entry, "(swarm)",    1024 * 4, _ctx_swarm, TASK_PRIORITY_SWARM, 0);
     _create_task(scan_thread_entry,  "(neighbor)", 1024 * 3, _ctx_swarm, TASK_PRIORITY_SCAN,  0);
+    _create_task(mdns_thread_entry,  "(mdns)",     1024 * 3, _ctx_swarm, TASK_PRIORITY_SCAN,  0);
 
     static ButtonCtx button_ctx;
     button_ctx.spec                 = &_board_spec;

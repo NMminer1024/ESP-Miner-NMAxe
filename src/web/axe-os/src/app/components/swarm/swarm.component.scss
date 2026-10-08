@@ -1265,6 +1265,58 @@ a:active {
   text-align: center;
 }
 
+// mDNS live auto-discovery (radar pulse) — replaces the ICMP scan-progress ring
+.mdns-radar-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0.1rem auto 0.35rem;
+}
+.mdns-core {
+  position: relative;
+  z-index: 2;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.mdns-pulse {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 28px; height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  border: 2px solid rgba(186, 104, 200, 0.7);
+  opacity: 0;
+  z-index: 1;
+  animation: mdns-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.mdns-pulse-2 { animation-delay: 1.2s; }
+@keyframes mdns-ping {
+  0%   { transform: scale(0.4); opacity: 0.85; }
+  70%  { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.mdns-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #BA68C8;
+  background: rgba(186, 104, 200, 0.14);
+  border: 1px solid rgba(186, 104, 200, 0.35);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  margin-bottom: 0.3rem;
+}
+.mdns-count {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+}
+
 // Corner countdown (done state)
 .scan-corner-wrap {
   position: absolute;

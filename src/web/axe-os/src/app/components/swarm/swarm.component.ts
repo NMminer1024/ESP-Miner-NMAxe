@@ -171,6 +171,11 @@ export class SwarmComponent implements OnInit, OnDestroy {
   private countdownTimer: any = null;
   private countdownTotal = 0;
 
+  // mDNS live-discovery state (replaces the ICMP scan-progress ring when active)
+  public mdnsActive   = false;
+  public mdnsNextSecs = 0;
+  private mdnsTimer: any = null;
+
   // Swarm discovery state
   private deviceMap      = new Map<string, NMDevice>();
   private probeFailCount = new Map<string, number>();
@@ -217,19 +222,31 @@ export class SwarmComponent implements OnInit, OnDestroy {
       // The blacklist is per-scan-cycle: reset it here so newly-alive IPs are re-probed.
       const aliveSubscription = interval(3000).pipe(startWith(0)).subscribe(() => {
         this.blacklist.clear();
-        this.http.get<{ self: string; ips: string[]; scanning?: boolean; progress?: number; total?: number; next_scan_in?: number }>(`${this.uri}/alive`).pipe(
-          catchError(() => of({ self: '', ips: [] as string[], scanning: false, progress: 0, total: 254, next_scan_in: 0 }))
+        this.http.get<{ self: string; ips: string[]; scanning?: boolean; progress?: number; total?: number; next_scan_in?: number; mdns_active?: boolean; mdns_next_in?: number }>(`${this.uri}/alive`).pipe(
+          catchError(() => of({ self: '', ips: [] as string[], scanning: false, progress: 0, total: 254, next_scan_in: 0, mdns_active: false, mdns_next_in: 0 }))
         ).subscribe(resp => {
           // Update discovery card state
           this.scanning     = !!resp.scanning;
           this.scanProgress = resp.progress ?? 0;
           this.scanTotal    = resp.total    ?? 254;
+          this.mdnsActive   = !!resp.mdns_active;
+
+          // mDNS live-discovery countdown (10s cycle) — independent of ICMP scan.
+          if (this.mdnsActive) {
+            this._startMdnsCountdown(resp.mdns_next_in ?? 0);
+          } else {
+            this._stopMdnsCountdown();
+          }
+
+          // ICMP scan countdown only drives the corner ring when mDNS is NOT active.
           if (this.scanning) {
             this._stopCountdown();
-          } else {
+          } else if (!this.mdnsActive) {
             const nextIn = resp.next_scan_in ?? 0;
             if (nextIn > 0) this._startCountdown(nextIn);
             else            this._stopCountdown();
+          } else {
+            this._stopCountdown();
           }
 
           const ips = (resp.ips || []).filter((ip: string) => !!ip);
@@ -278,6 +295,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.subscription.unsubscribe();
     }
     this._stopCountdown();
+    this._stopMdnsCountdown();
 
     if (this.intervalId) {
       clearInterval(this.intervalId);
@@ -310,12 +328,38 @@ export class SwarmComponent implements OnInit, OnDestroy {
     this.countdownSecs  = 0;
   }
 
+  // ── mDNS live-discovery countdown (10s query cycle) ────────────────────────
+  private _startMdnsCountdown(secs: number): void {
+    this.mdnsNextSecs = secs;
+    if (this.mdnsTimer) return; // already ticking — value refreshed each /alive poll
+    this.mdnsTimer = setInterval(() => {
+      if (this.mdnsNextSecs > 0) this.mdnsNextSecs--;
+    }, 1000);
+  }
+
+  private _stopMdnsCountdown(): void {
+    if (this.mdnsTimer) {
+      clearInterval(this.mdnsTimer);
+      this.mdnsTimer = null;
+    }
+    this.mdnsNextSecs = 0;
+  }
+
   public get scanProgressPct(): number {
     return this.scanTotal > 0 ? Math.round(this.scanProgress / this.scanTotal * 100) : 0;
   }
 
   public get countdownPct(): number {
     return this.countdownTotal > 0 ? this.countdownSecs / this.countdownTotal : 0;
+  }
+
+  // Corner ring fill: mDNS query cycle (10s) when active, else ICMP scan cycle.
+  public get cornerCountdownPct(): number {
+    if (this.mdnsActive) {
+      const total = 10;
+      return this.mdnsNextSecs >= total ? 1 : (this.mdnsNextSecs / total);
+    }
+    return this.countdownPct;
   }
 
   private updateTime() {

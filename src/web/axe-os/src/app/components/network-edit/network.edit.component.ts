@@ -143,6 +143,17 @@ export class NetworkEditComponent implements OnInit {
     }
   }
 
+  // Dynamic, clickable mDNS URL for the hint link
+  get mdnsUrl(): string {
+    const name = this.form?.get('mdnsName')?.value || '';
+    return `http://${name}.local`;
+  }
+
+  get mdnsUrlValid(): boolean {
+    const name = this.form?.get('mdnsName')?.value || '';
+    return /^[a-z0-9](?:[a-z0-9-]{0,18}[a-z0-9])?$/.test(name);
+  }
+
   public restart() {
     this.systemService.restart()
       .pipe(this.loadingService.lockUIUntilComplete())

@@ -41,17 +41,31 @@
     </div>
     <!-- Discovery card -->
     <div class="stat-card discovery-card">
-      <!-- Corner countdown ring (visible after scan completes) -->
-      <div class="scan-corner-wrap" *ngIf="!scanning && countdownSecs > 0">
+      <!-- Corner countdown ring: mDNS query cycle when active, else ICMP scan cycle -->
+      <div class="scan-corner-wrap" *ngIf="(mdnsActive && mdnsNextSecs > 0) || (!scanning && countdownSecs > 0)">
         <svg class="scan-corner-svg" viewBox="0 0 44 44" width="44" height="44">
           <circle class="scan-corner-track" cx="22" cy="22" r="18"/>
           <circle class="scan-corner-arc" cx="22" cy="22" r="18"
-            [style.stroke-dashoffset]="113.1 * (1 - countdownPct)"/>
+            [style.stroke-dashoffset]="113.1 * (1 - cornerCountdownPct)"/>
         </svg>
-        <div class="scan-corner-num">{{ countdownSecs }}s</div>
+        <div class="scan-corner-num">{{ mdnsActive ? mdnsNextSecs : countdownSecs }}s</div>
       </div>
-      <!-- Scanning: ring progress -->
-      <ng-container *ngIf="scanning">
+      <!-- mDNS live auto-discovery (preferred presentation when mDNS is fresh) -->
+      <ng-container *ngIf="mdnsActive">
+        <div class="scan-ring-section">
+          <div class="stat-label">Discovery</div>
+          <div class="mdns-radar-wrap">
+            <span class="mdns-pulse mdns-pulse-1"></span>
+            <span class="mdns-pulse mdns-pulse-2"></span>
+            <span class="mdns-core">📡</span>
+          </div>
+          <div class="mdns-badge">mDNS &middot; auto</div>
+          <div class="stat-value mdns-count">{{ swarmData.length }}</div>
+          <div class="scan-card-sub">miners &middot; auto-discovering&hellip;</div>
+        </div>
+      </ng-container>
+      <!-- ICMP scanning: ring progress (fallback when mDNS unavailable) -->
+      <ng-container *ngIf="scanning && !mdnsActive">
         <div class="scan-ring-section">
           <div class="scan-icon">📡</div>
           <div class="stat-label">Discovery</div>
@@ -66,8 +80,8 @@
           <div class="scan-card-sub">scanning&hellip;</div>
         </div>
       </ng-container>
-      <!-- Done: miners found -->
-      <ng-container *ngIf="!scanning">
+      <!-- Done: miners found (legacy, only when mDNS is NOT active) -->
+      <ng-container *ngIf="!scanning && !mdnsActive">
         <div class="stat-icon">📡</div>
         <div class="stat-content">
           <div class="stat-label">Discovery</div>
