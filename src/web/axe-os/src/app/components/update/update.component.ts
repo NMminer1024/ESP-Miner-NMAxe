@@ -180,7 +180,17 @@ export class UpdateComponent implements OnInit, AfterViewInit, OnDestroy {
         return 'ahead'; // 当前版本超前
       }
     }
-    
+
+    // 数字部分完全相等时，比较字母后缀（开发版标记，如 v3.1.03c vs release v3.1.03）。
+    // 带后缀的构建是该 release 之后的开发版本，应视为超前（ahead），否则
+    // buildVersionChain() 会因 versionsEqual 严格比较失败（currentIndex=-1）且
+    // versionStatus='current' 而漏掉所有分支，导致版本时间线渲染为空。
+    const curSuffix = (cleanCurrent.match(/[0-9]*([a-zA-Z]+)$/) || [])[1] || '';
+    const latSuffix = (cleanLatest.match(/[0-9]*([a-zA-Z]+)$/) || [])[1] || '';
+    if (curSuffix !== latSuffix) {
+      return curSuffix > latSuffix ? 'ahead' : 'behind';
+    }
+
     return 'current'; // 版本相同
   }
 
