@@ -176,12 +176,14 @@ bool MinerApp::init() {
     // WiFi connection config (replaces g_board.info.connection.wifi)
     {
         String dev = gen_device_code();
-        String ap_default = _board_spec.name + "_" + dev.substring(0, 5);
+        String ap_default   = _board_spec.name + "_" + dev.substring(0, 5);
+        String mdns_default = _board_spec.mdns_name + "-" + dev.substring(0, 5);
         _config_wifi.ap_ip      = IPAddress(192, 168, 4, 1);
         _config_wifi.ap_ssid    = nvs_config_get_string_value(NVS_CONFIG_AP_SSID,  ap_default.c_str());
         _config_wifi.sta_ssid   = nvs_config_get_string_value(NVS_CONFIG_WIFI_SSID, "NMTech-2.4G");
         _config_wifi.sta_pwd    = nvs_config_get_string_value(NVS_CONFIG_WIFI_PASS, "NMMiner2048");
         _config_wifi.hostname   = nvs_config_get_string_value(NVS_CONFIG_HOSTNAME, _config_wifi.ap_ssid.c_str());
+        _config_wifi.mdns_name  = nvs_config_get_string_value(NVS_CONFIG_MDNS_NAME, mdns_default.c_str());
         _config_wifi.board_name = _board_spec.name;
     }
 

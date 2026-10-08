@@ -27,6 +27,8 @@ void disable_usb_uart();
 
 String gen_device_code(void);
 
+String mdns_name_sanitize(const String& in);
+
 int str_to_byte_array(const char *in, size_t in_size, uint8_t *out);
 
 String get_last_reboot_reason();

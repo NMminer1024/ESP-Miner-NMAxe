@@ -31,6 +31,7 @@ struct WifiConnConfig {
     String    ap_ssid;
     IPAddress ap_ip{192, 168, 4, 1};
     String    hostname;
+    String    mdns_name;    // mDNS .local name (independent of hostname / AP SSID)
     String    board_name;   // spec.name — selects config-timeout ownership branch
 };
 

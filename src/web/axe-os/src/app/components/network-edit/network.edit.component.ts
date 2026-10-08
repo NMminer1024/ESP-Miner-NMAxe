@@ -15,6 +15,7 @@ export class NetworkEditComponent implements OnInit {
 
   public form!: FormGroup;
   public savedChanges: boolean = false;
+  public advancedOpen = false;  // mDNS section starts collapsed, like the mining card
   private originalFormValues: any = {};
 
   @Input() uri = '';
@@ -33,9 +34,12 @@ export class NetworkEditComponent implements OnInit {
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe(info => {
         const hostname = info.hostName || info.hostname || '';
+        const mdnsName = info.mdnsName || '';
         const ssid     = info.ssid || '';
         this.form = this.fb.group({
           hostname: [hostname, [Validators.required, Validators.maxLength(20)]],
+          mdnsName: [mdnsName, [Validators.required, Validators.maxLength(20),
+            Validators.pattern(/^[a-z0-9](?:[a-z0-9-]{0,18}[a-z0-9])?$/)]],
           ssid: [ssid, [Validators.required]],
           wifiPass: ['*****'],
         });
@@ -43,6 +47,7 @@ export class NetworkEditComponent implements OnInit {
         // 保存原始值用于比较
         this.originalFormValues = {
           hostname,
+          mdnsName,
           ssid,
           wifiPass: '*****'
         };
@@ -65,7 +70,7 @@ export class NetworkEditComponent implements OnInit {
     const currentValues = this.form.getRawValue();
     
     // 检查除了 wifiPass 之外的字段
-    const fieldsToCheck = ['hostname', 'ssid'];
+    const fieldsToCheck = ['hostname', 'mdnsName', 'ssid'];
     for (const field of fieldsToCheck) {
       if (currentValues[field] !== this.originalFormValues[field]) {
         return true;
@@ -126,6 +131,16 @@ export class NetworkEditComponent implements OnInit {
   showWifiPassword: boolean = false;
   toggleWifiPasswordVisibility() {
     this.showWifiPassword = !this.showWifiPassword;
+  }
+
+  // mDNS names are case-insensitive — normalize to lowercase as the user types
+  onMdnsInput(event: Event) {
+    const el = event.target as HTMLInputElement;
+    const ctrl = this.form.get('mdnsName');
+    if (ctrl && el.value !== el.value.toLowerCase()) {
+      ctrl.setValue(el.value.toLowerCase());
+      el.value = ctrl.value;
+    }
   }
 
   public restart() {

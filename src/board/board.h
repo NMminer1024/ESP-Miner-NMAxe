@@ -88,6 +88,7 @@ struct work_option_t {
 struct BoardSpecConfig {
     String   name;          // runtime functional ID, used in all spec.name == checks
     String   display_name;  // UI-only label shown in hwModel / web
+    String   mdns_name;     // mDNS base name (lowercase [a-z0-9-]); full = mdns_name + "-" + dev5
 
     struct{
         struct{

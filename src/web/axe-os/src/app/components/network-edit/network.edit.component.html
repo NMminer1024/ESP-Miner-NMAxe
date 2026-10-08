@@ -27,6 +27,27 @@
             </div>
         </div>
 
+        <!-- Advanced: mDNS name -->
+        <div class="advanced-toggle mt-2 mb-2" (click)="advancedOpen = !advancedOpen">
+            <i class="pi" [ngClass]="advancedOpen ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+            <span>Advanced (mDNS name)</span>
+        </div>
+
+        <div *ngIf="advancedOpen">
+            <div class="field grid p-fluid">
+                <label htmlFor="mdnsName" class="col-12 mb-2 md:col-2 md:mb-0">mDNS Name:</label>
+                <div class="col-12 md:col-10">
+                    <input pInputText id="mdnsName" type="text" formControlName="mdnsName" maxlength="20"
+                           placeholder="e.g. nmaxepp81-06ea1" (input)="onMdnsInput($event)"/>
+                    <small class="mdns-hint">Reach this miner on the LAN as http://&lt;name&gt;.local without knowing its IP.
+                        Lowercase letters, digits and hyphens only.</small>
+                    <small *ngIf="form.get('mdnsName')?.invalid && form.get('mdnsName')?.touched" class="p-error">
+                        Use lowercase letters, digits and hyphens only (no leading/trailing hyphen).
+                    </small>
+                </div>
+            </div>
+        </div>
+
         <div class="mt-2">
             <button pButton [disabled]="form.invalid || (!form.dirty && !hasFormChanged())" (click)="updateSystem()"
                 class="btn btn-primary mr-2"

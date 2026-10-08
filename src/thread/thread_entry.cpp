@@ -1,4 +1,4 @@
-﻿#include "thread_entry.h"
+#include "thread_entry.h"
 #include "../app/application.h"
 #include "../app/system_events.h"
 #include "../utils/logger/logger.h"
@@ -38,6 +38,7 @@
 #include <HTTPClient.h>
 #include <WiFiUdp.h>
 #include <NTPClient.h>
+#include <ESPmDNS.h>
 #include <set>
 #include <sys/time.h>
 #include "lwip/sockets.h"
@@ -1407,6 +1408,18 @@ void wifi_connect_thread_entry(void* args) {
                 st.status  = WL_CONNECTED;
                 retry_cnt  = 0;
                 LOG_I("Got IP : %s", WiFi.localIP().toString().c_str());
+                // Publish mDNS so the miner is reachable as http://<mdns_name>.local
+                // (sanitized: user values may contain chars invalid for DNS labels).
+                {
+                    String mdns = mdns_name_sanitize(ctx->cfg->mdns_name);
+                    if (MDNS.begin(mdns.c_str())) {
+                        MDNS.addService("http", "tcp", 80);
+                        MDNS.addServiceTxt("http", "tcp", "model", ctx->cfg->board_name.c_str());
+                        LOG_I("mDNS started: http://%s.local", mdns.c_str());
+                    } else {
+                        LOG_W("mDNS start FAILED (name conflict?), falling back to IP access");
+                    }
+                }
                 break;
             case SYSTEM_EVENT_STA_DISCONNECTED:
                 st.ip = st.gateway = st.subnet = st.dns = IPAddress(0, 0, 0, 0);

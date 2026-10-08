@@ -18,6 +18,7 @@ BoardSpecConfig get_board_config_compile_time() {
 #if defined(BOARD_NMAXE)
     config.name                      = "NMAxe";
     config.display_name              = "NMAxe";
+    config.mdns_name                 = "nmaxe";
     config.asic.name                 = "BM1366";
     config.asic.num_req              = 1;
     config.asic.temp_limit.high      = 75.0f;
@@ -152,6 +153,7 @@ BoardSpecConfig get_board_config_compile_time() {
 #elif defined(BOARD_NMAXE_GAMMA)
     config.name                      = "NMAxeGamma";
     config.display_name              = "NMAxeGamma";
+    config.mdns_name                 = "nmaxegamma";
     config.asic.name                 = "BM1370";
     config.asic.num_req              = 1;
     config.asic.temp_limit.high      = 70.0f;
@@ -289,6 +291,7 @@ BoardSpecConfig get_board_config_compile_time() {
 #elif defined(BOARD_NMQAXE_PP)
     config.name                      = "NMQAxe++";
     config.display_name              = "NMQAxe++";
+    config.mdns_name                 = "nmaxepp";
     config.asic.name                 = "BM1370";
     config.asic.num_req              = 4;
     config.asic.temp_limit.high      = 75.0f;
@@ -462,6 +465,7 @@ BoardSpecConfig get_board_config_compile_time() {
 #elif defined(BOARD_NMQAXE_PP_REV61)
     config.name                      = "NMQAxe++";
     config.display_name              = "NMQAxe++Rev6.1";
+    config.mdns_name                 = "nmaxepp61";
     config.asic.name                 = "BM1370";
     config.asic.num_req              = 4;
     config.asic.temp_limit.high      = 75.0f;
@@ -635,6 +639,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.name                      = "NMQAxe++";     // runtime functional ID
     config.asic.name                 = "BM1373";
     config.display_name              = "NMQAxe++Rev8.1";
+    config.mdns_name                 = "nmaxepp81";
     config.asic.num_req              = 4;
     config.asic.temp_limit.high      = 75.0f;
     config.asic.temp_limit.medium    = 65.0f;
@@ -827,6 +832,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.name                      = "NMQAxe++";     // runtime functional ID
     config.asic.name                 = "BM1373";
     config.display_name              = "NMQAxe++Nexus";
+    config.mdns_name                 = "nmaxeppnexus";
     config.asic.num_req              = 2;
     config.asic.temp_limit.high      = 75.0f;
     config.asic.temp_limit.medium    = 65.0f;

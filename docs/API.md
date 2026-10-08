@@ -226,13 +226,15 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 
 **GET**
 ```json
-{ "hostName": "NMAxe", "ssid": "MyWifi", "status": "connected", "ip": "192.168.1.100" }
+{ "hostName": "NMAxe", "mdnsName": "nmaxepp81-06ea1", "ssid": "MyWifi", "status": "connected", "ip": "192.168.1.100" }
 ```
 
 **PATCH**
 ```json
-{ "hostname": "...", "ssid": "...", "wifiPass": "..." }
+{ "hostname": "...", "mdnsName": "...", "ssid": "...", "wifiPass": "..." }
 ```
+
+> `mdnsName`: mDNS `.local` name — the miner is reachable on the LAN as `http://<mdnsName>.local`. Lowercase `[a-z0-9-]` only, max 20 chars, no leading/trailing hyphen. Independent of `hostname` (which also sets the AP SSID). Default: `<board-mdns-base>-<5-hex-device-code>`, e.g. `nmaxepp81-06ea1`. Takes effect after reboot.
 
 ### Time — `/api/setting/time`
 

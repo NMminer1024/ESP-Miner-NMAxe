@@ -14,6 +14,7 @@
 #define NVS_CONFIG_WIFI_PASS                "wifipass"
 #define NVS_CONFIG_HOSTNAME                 "hostname"
 #define NVS_CONFIG_AP_SSID                  "apssid"
+#define NVS_CONFIG_MDNS_NAME                "mdnsname"
 #define NVS_CONFIG_STRATUM_USER_PRIMARY     "stratumuser"
 #define NVS_CONFIG_STRATUM_URL_PRIMARY      "stratumurl1"
 #define NVS_CONFIG_STRATUM_PASS_PRIMARY     "stratumpass1"

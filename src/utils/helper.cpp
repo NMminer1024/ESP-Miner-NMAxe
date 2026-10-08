@@ -73,6 +73,26 @@ String gen_device_code(void){
   return ret;
 }
 
+// Sanitize a string into a valid mDNS/DNS hostname label:
+// lowercase, [a-z0-9-] only, no leading/trailing '-', max 63 chars.
+// Safety net for MDNS.begin() — user-entered values (via API or legacy
+// firmware) may contain '+', '_', uppercase, spaces, etc.
+String mdns_name_sanitize(const String& in) {
+    String out;
+    out.reserve(in.length());
+    for (unsigned int i = 0; i < in.length(); i++) {
+        char c = in[i];
+        if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')
+            out += c;
+    }
+    while (out.startsWith("-")) out.remove(0, 1);
+    while (out.endsWith("-"))   out.remove(out.length() - 1, 1);
+    if (out.length() > 63) out = out.substring(0, 63);
+    if (out.length() == 0) out = "nmaxe";
+    return out;
+}
+
 unsigned char reverse_bits(unsigned char num)
 {
     unsigned char reversed = 0;

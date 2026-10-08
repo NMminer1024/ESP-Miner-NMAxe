@@ -365,9 +365,10 @@ void get_system_info(AsyncWebServerRequest* request){
 
 // GET /api/setting/network -- hostname, SSID, WiFi status and IP.
 void get_setting_network(AsyncWebServerRequest* request){
-    StaticJsonDocument<256> root;
+    StaticJsonDocument<384> root;
     root.clear();
     root["hostName"] = g_web->wifi_cfg->hostname;
+    root["mdnsName"] = g_web->wifi_cfg->mdns_name;
     root["ssid"]     = g_web->wifi_cfg->sta_ssid;
     root["status"]   = (g_web->wifi->status == WL_CONNECTED) ? "connected" : "disconnected";
     root["ip"]       = g_web->wifi->ip.toString();
@@ -399,6 +400,10 @@ void patch_setting_network(AsyncWebServerRequest* request, uint8_t *data, size_t
             nvs_config_set_string(NVS_CONFIG_AP_SSID,  root["hostname"].as<String>().c_str());
             g_web->wifi_cfg->hostname                = root["hostname"].as<String>();
             g_web->wifi_cfg->ap_ssid = root["hostname"].as<String>();
+        }
+        if (root.containsKey("mdnsName")) {
+            nvs_config_set_string(NVS_CONFIG_MDNS_NAME, root["mdnsName"].as<String>().c_str());
+            g_web->wifi_cfg->mdns_name = root["mdnsName"].as<String>();
         }
         request->send(200, "application/json", "{\"status\":\"ok\"}");
     }
