@@ -412,6 +412,14 @@ void TPS53647Class::set_vcore_status(power_state_t state){
         digitalWrite(this->_asic_pwr_en_pins.pwr_vcore, LOW);
     } else {
         digitalWrite(this->_asic_pwr_en_pins.pwr_vcore, HIGH);
+        // The TPS53647 reloads VOUT_COMMAND from its NVM default at the moment EN is
+        // asserted (soft-start), discarding whatever was written before EN went high.
+        // Re-assert the requested voltage right after EN so the chip ramps toward the
+        // user target instead of stalling on the NVM default (e.g. 1000mV). Without
+        // this, only the power-loop (50ms cadence) eventually pulls the rail up.
+        if (this->_last_req_mv > 0) {
+            this->_write_word(PMBUS_VOUT_COMMAND, this->_mv_to_vid(this->_last_req_mv));
+        }
     }
 }
 
@@ -434,6 +442,7 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
 
     uint8_t reg = this->_mv_to_vid(vlot_mv);
 
+    this->_last_req_mv = vlot_mv;   // remember so set_vcore_status(PWR_ON) can re-assert after EN
     this->_write_word(PMBUS_VOUT_COMMAND, reg); //VCORE Voltage Set Register   
     if (reg != this->_last_vid_verified) {   // log once per distinct VID
         this->_last_vid_verified = reg;

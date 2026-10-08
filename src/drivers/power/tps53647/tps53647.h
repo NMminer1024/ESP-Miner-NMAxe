@@ -113,6 +113,7 @@ private:
     uint32_t      _pgood_fail_log_ms = 0;    // throttle for the PGOOD-failure diagnosis log
     uint8_t       _last_vid_verified = 0xFF; // de-dupe the write-verify readback
     uint16_t      _last_clamp_warned_mv = 0;
+    uint16_t      _last_req_mv = 0;          // last requested vcore (mV); re-asserted on EN
     tps53647_cfg_t _cfg;                     // board-specific phase / current config
     uint8_t  _read_reg(uint8_t regaddr, uint8_t *data, uint8_t length);
     void     _write_byte(uint8_t regaddr, uint8_t data);
