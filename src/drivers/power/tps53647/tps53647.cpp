@@ -448,9 +448,15 @@ void TPS53647Class::set_vcore_voltage(uint16_t req_mv){
         this->_last_vid_verified = reg;
         uint8_t rb = 0;
         this->_read_reg(PMBUS_VOUT_COMMAND, &rb, 1);
-        LOG_W("[TPS53647] set VOUT_COMMAND: target=%dmV VID=0x%02X -> readback=0x%02X (%s)",
-              vlot_mv, reg, rb,
-              (rb == reg) ? "APPLIED" : "NOT-APPLIED (chip keeps NVM default)");
+        if (rb == reg) {
+            // Normal case: power-loop re-writes a new VID every ~50ms, so keep this
+            // at debug level to avoid flooding the console once the rail is stable.
+            LOG_D("[TPS53647] set VOUT_COMMAND: target=%dmV VID=0x%02X -> readback=0x%02X (APPLIED)",
+                  vlot_mv, reg, rb);
+        } else {
+            LOG_W("[TPS53647] set VOUT_COMMAND: target=%dmV VID=0x%02X -> readback=0x%02X (NOT-APPLIED, chip keeps NVM default)",
+                  vlot_mv, reg, rb);
+        }
     }
 }
 
