@@ -179,7 +179,8 @@ export class SwarmComponent implements OnInit, OnDestroy {
   // Swarm discovery state
   private deviceMap      = new Map<string, NMDevice>();
   private probeFailCount = new Map<string, number>();
-  private blacklist      = new Set<string>();
+  private blacklist      = new Map<string, number>();   // ip -> expiry (ms epoch)
+  private static readonly BLACKLIST_TTL_MS = 5 * 60 * 1000;
   private lastContactMs  = new Map<string, number>();
   private knownAliveIps  = new Set<string>();
 
@@ -217,11 +218,10 @@ export class SwarmComponent implements OnInit, OnDestroy {
       this.swarmData = [];
       this.swarmSummary = undefined;
 
-      // Subscription 1: Refresh /alive every 10 s to update the IP candidate list.
+      // Subscription 1: Refresh /alive every 3 s to update the IP candidate list.
       // New IPs get probed; IPs already in deviceMap get an immediate info refresh.
-      // The blacklist is per-scan-cycle: reset it here so newly-alive IPs are re-probed.
+      // Non-NM hosts are blacklisted for 5 min so they are not re-probed on every poll.
       const aliveSubscription = interval(3000).pipe(startWith(0)).subscribe(() => {
-        this.blacklist.clear();
         this.http.get<{ self: string; ips: string[]; scanning?: boolean; progress?: number; total?: number; next_scan_in?: number; mdns_active?: boolean; mdns_next_in?: number }>(`${this.uri}/alive`).pipe(
           catchError(() => of({ self: '', ips: [] as string[], scanning: false, progress: 0, total: 254, next_scan_in: 0, mdns_active: false, mdns_next_in: 0 }))
         ).subscribe(resp => {
@@ -255,7 +255,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
           ips.forEach((ip: string) => {
             if (this.deviceMap.has(ip)) {
               this.fetchDeviceInfo(ip);
-            } else {
+            } else if (!this.isBlacklisted(ip)) {
               this.probeDevice(ip);
             }
           });
@@ -751,9 +751,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
     this.http.get<any>(`http://${ip}/probe`).pipe(
       timeout(3000),
       catchError(() => {
-        const n = (this.probeFailCount.get(ip) || 0) + 1;
-        this.probeFailCount.set(ip, n);
-        if (n >= 3) this.blacklist.add(ip);
+        this.recordProbeFailure(ip);
         return EMPTY;
       })
     ).subscribe((data: any) => {
@@ -762,11 +760,28 @@ export class SwarmComponent implements OnInit, OnDestroy {
         this.probeFailCount.set(ip, 0);
         this.fetchDeviceInfo(ip);
       } else {
-        const n = (this.probeFailCount.get(ip) || 0) + 1;
-        this.probeFailCount.set(ip, n);
-        if (n >= 3) this.blacklist.add(ip);
+        this.recordProbeFailure(ip);
       }
     });
+  }
+
+  /** Count a failed probe; after 3 in a row blacklist the IP and restart the count for the next TTL window. */
+  private recordProbeFailure(ip: string): void {
+    const n = (this.probeFailCount.get(ip) || 0) + 1;
+    if (n >= 3) {
+      this.blacklist.set(ip, Date.now() + SwarmComponent.BLACKLIST_TTL_MS);
+      this.probeFailCount.delete(ip);
+    } else {
+      this.probeFailCount.set(ip, n);
+    }
+  }
+
+  private isBlacklisted(ip: string): boolean {
+    const until = this.blacklist.get(ip);
+    if (until === undefined) return false;
+    if (until > Date.now()) return true;
+    this.blacklist.delete(ip);
+    return false;
   }
 
   /** Fetch /api/system/info from a confirmed NM device and update the device map. */
