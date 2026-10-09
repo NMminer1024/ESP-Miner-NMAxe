@@ -3666,18 +3666,7 @@ void mdns_thread_entry(void* args) {
         }
 
         // Per-query overview (INFO): always visible at default log level.
-        char peer_list[128] = "";
-        if (found > 0) {
-            size_t off = 0;
-            for (const auto& ip : peers) {
-                char b[16];
-                int w = snprintf(b, sizeof(b), "%u.%u.%u.%u ",
-                    (unsigned)((ip >> 24) & 0xFF), (unsigned)((ip >> 16) & 0xFF),
-                    (unsigned)((ip >> 8) & 0xFF), (unsigned)(ip & 0xFF));
-                if (off + (size_t)w < sizeof(peer_list)) { memcpy(peer_list + off, b, (size_t)w); off += (size_t)w; }
-            }
-        }
-        LOG_I("(mdns) query: %d peer(s) [%s]", found, peer_list);
+        LOG_I("(mdns) query: %d peer(s)", found);
     }
 }
 
