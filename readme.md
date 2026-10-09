@@ -166,6 +166,31 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 ## Release Log
 ***
 
+### (2026.10.09) - v3.2.01
+- `Add`:
+  - **Independent mDNS Hostname**: The miner now registers an independent `.local` name on the LAN, reachable as `http://<mdnsName>.local` — decoupled from `hostname` (which also sets the AP SSID). Default name is `<board-mdns-base>-<5-hex-device-code>`, e.g. `nmaxepp81-06ea1`.
+  - **Network Edit Page mDNS Config**: The AxeOS "Network Edit" page gains an mDNS name field (lowercase `[a-z0-9-]` only, max 20 chars, no leading/trailing hyphen). Takes effect after reboot.
+  - **Swarm mDNS Auto-Discovery**: New periodic mDNS neighbor-discovery task (10 s cycle) querying multiple DNS-SD service types for extensible discovery; mDNS peers are merged into the `/alive` neighbor list.
+  - **Board-Specific Text Logos**: New board-specific text logos for the Rev61 and Nexus miner pages.
+- `Modify`:
+  - **Swarm Scan Rework**: ICMP scanning is now coverage-driven — when mDNS already covers every confirmed Axe peer, the automatic ICMP cadence relaxes from 5 min to 30 min; devices mDNS cannot see are still found via ICMP.
+  - `POST /api/swarm/scan` now runs an immediate mDNS query, then starts a background ICMP re-scan only if the last one is older than 5 min; it never clears the `/alive` list.
+  - **Per-Env Layout Compilation**: UI now compiles only the resolution layout matching the `BOARD_*` macro (unused 240x135 / 320x240 pages are dropped per environment).
+- `Improved`:
+  - **Swarm Page**: New live mDNS status (`mdns_active`, `mdns_next_in`); when mDNS is fresh (< 15 s) the UI shows live auto-discovery instead of the scan-progress ring.
+  - **Non-Miner Host Blacklist**: The Swarm page blacklists non-miner hosts for 5 min instead of re-probing every 3 s, plus a TTL-probe blacklist to cut down useless ICMP noise.
+  - **Log Noise Reduction**: NONCE debug logs downgraded from `LOG_W` to `LOG_D`; TPS53647 `APPLIED VOUT_COMMAND` log demoted to `LOG_D` to stop console flooding.
+  - **Realtime Log Filename**: The realtime log download now prefers `displayName` over `hwModel` in the filename.
+- `Fixed`:
+  - **TPS53647 Soft-Start**: Re-asserts `VOUT_COMMAND` after the EN pin is enabled, fixing Vcore soft-start failure when the chip holds the NVM default.
+  - mDNS peers are now single-writer via `NeighborState.mdns_peers`, eliminating a concurrent-write hazard.
+- `Remove`:
+  - None.
+- `API`:
+  - `GET/PATCH /api/setting/network` now include `mdnsName` (rules above; takes effect after reboot).
+  - `POST /api/swarm/scan`: immediate mDNS query, background ICMP re-scan only when the last scan is older than 5 min; never clears `/alive`.
+  - `GET /api/swarm/status` adds `mdns_active` (mDNS freshness) and `mdns_next_in` (seconds until next mDNS query); `ips` is now self plus the de-duplicated union of ICMP-alive hosts and mDNS peers seen within 35 s; `next_scan_in` now reflects the ICMP scan thread schedule (5 min, or 30 min while mDNS is healthy).
+
 ### (2026.09.22) - v3.1.03
 - `Add`:
   - **NMQAxe++Nexus Board Support**: New board variant (BM1373 ASIC).
