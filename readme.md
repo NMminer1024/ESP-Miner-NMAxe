@@ -81,6 +81,13 @@ NMAxe series are ESP32-S3 based Bitcoin solo miners forked from [bitaxe](https:/
 | btc-africa.f2pool.com | 1314 | BTC | Africa |
 | btc-latin.f2pool.com | 1314 | BTC | Latin America |
 
+### Hybrid Mining
+| URL | Port | Coin | Region |
+| :--- | :---: | :---: | :---: |
+| [stratum.btcpowlab-pool.com](https://btcpowlab-pool.com/) | 3333 | BTC | Global |
+
+> ⚠️ **btcpowlab-pool.com**: worker name must contain only letters, numbers, `-` or `_`. Do not use `+` (e.g. the auto-generated `NMQAxe++_xxxxx` will be rejected); use a name like `address.NMQAxe_xxxxx` or `address.worker1`.
+
 ## Monitoring
 ***
 The AxeOS web interface provides real-time monitoring. The **Swarm** page lets you manage multiple miners from a single view; the **Lucky Statistics** chart tracks your solo mining progress over time.
