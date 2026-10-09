@@ -83,24 +83,39 @@ int mdns_discovery_query(neighbor_ip_set_t* out_ips, uint32_t self_ip, uint32_t 
     if (!out_ips) return -1;
     out_ips->clear();
 
-    // ── Build the query packet: Q(1) _nmaxe._tcp.local PTR IN ──────────────
-    uint8_t pkt[128];
+    // ── Build the query packet: one PTR question per known service type ────
+    // To discover a new miner family, just append its DNS-SD service type here
+    // (e.g. "_bitaxe._tcp.local"). The response parser already collects every
+    // A record regardless of which service it belongs to, so no other change
+    // is needed. Keep names short; the packet buffer below must fit all of
+    // them (each name ≈ len+1 bytes + 4 bytes QTYPE/QCLASS).
+    constexpr const char* kMdnsServiceNames[] = {
+        "_nmaxe._tcp.local",     // NMAxe / NMQAxe / Gamma (this firmware)
+        "_nmminer._tcp.local",   // NMMiner (mDNS support planned upstream)
+    };
+    constexpr size_t kSvcCount = sizeof(kMdnsServiceNames) / sizeof(kMdnsServiceNames[0]);
+
+    uint8_t pkt[256];
     memset(pkt, 0, sizeof(pkt));
     uint16_t txid = (uint16_t)(millis() & 0xFFFF);
     pkt[0] = (txid >> 8) & 0xFF;
     pkt[1] = txid & 0xFF;
-    pkt[2] = 0; pkt[3] = 0;          // flags: standard query
-    pkt[4] = 0; pkt[5] = 1;          // QDCOUNT = 1
-    pkt[6] = 0; pkt[7] = 0;          // ANCOUNT
-    pkt[8] = 0; pkt[9] = 0;          // NSCOUNT
-    pkt[10] = 0; pkt[11] = 0;        // ARCOUNT
+    pkt[2] = 0; pkt[3] = 0;               // flags: standard query
+    pkt[4] = 0; pkt[5] = (uint8_t)kSvcCount; // QDCOUNT
+    pkt[6] = 0; pkt[7] = 0;               // ANCOUNT
+    pkt[8] = 0; pkt[9] = 0;               // NSCOUNT
+    pkt[10] = 0; pkt[11] = 0;             // ARCOUNT
 
-    int nlen = dns_put_name(pkt, sizeof(pkt), 12, "_nmaxe._tcp.local");
-    if (nlen < 0) { LOG_E("(mdns) query name too long"); return -1; }
-    size_t q = 12 + (size_t)nlen;
-    pkt[q]     = 0; pkt[q + 1] = 12; // QTYPE = PTR (12)
-    pkt[q + 2] = 0; pkt[q + 3] = 1;  // QCLASS = IN (1)
-    size_t pkt_len = q + 4;
+    size_t q = 12;
+    for (size_t i = 0; i < kSvcCount; i++) {
+        int nlen = dns_put_name(pkt, sizeof(pkt), q, kMdnsServiceNames[i]);
+        if (nlen < 0) { LOG_E("(mdns) query name too long: %s", kMdnsServiceNames[i]); return -1; }
+        q += (size_t)nlen;
+        pkt[q]     = 0; pkt[q + 1] = 12; // QTYPE = PTR (12)
+        pkt[q + 2] = 0; pkt[q + 3] = 1;  // QCLASS = IN (1)
+        q += 4;
+    }
+    size_t pkt_len = q;
 
     // ── Socket: bind to an EPHEMERAL port (port 0 → OS picks). We must NOT
     //    bind 5353 here — the lwIP mDNS responder started by MDNS.begin()

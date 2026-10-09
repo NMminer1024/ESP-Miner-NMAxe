@@ -6,11 +6,13 @@
 // ============================================================================
 //  mDNS (DNS-SD) discovery client for swarm peer detection.
 //
-//  Queries the LAN multicast group (224.0.0.251:5353) for the
-//  "_nmaxe._tcp.local" service type and collects the A-record IPs of all
-//  responding NMAxe miners. Only devices that publish the _nmaxe service
-//  (i.e. NMAxe firmware) answer, so the result is a precise peer list —
-//  no identity filtering via HTTP /probe needed.
+//  Queries the LAN multicast group (224.0.0.251:5353) for a set of known
+//  DNS-SD service types (see kMdnsServiceNames in mdns_discovery.cpp) and
+//  collects the A-record IPs of all responding miners. Currently this covers
+//  "_nmaxe._tcp.local" (NMAxe family) and "_nmminer._tcp.local" (NMMiner).
+//  To support a new miner family, append its service type to that array —
+//  the response parser already gathers every A record regardless of which
+//  service it belongs to, so no other change is required.
 //
 //  Fallback semantics: if the query fails (socket error) or no responses
 //  arrive (AP client isolation, multicast blocked, ...), the caller keeps
