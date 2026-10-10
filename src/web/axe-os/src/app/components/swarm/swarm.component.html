@@ -60,8 +60,7 @@
             <span class="mdns-core">📡</span>
           </div>
           <div class="mdns-badge">mDNS &middot; auto</div>
-          <div class="stat-value mdns-count">{{ swarmData.length }}</div>
-          <div class="scan-card-sub">miners &middot; auto-discovering&hellip;</div>
+          <div class="scan-card-sub">auto-discovering&hellip;</div>
         </div>
       </ng-container>
       <!-- ICMP scanning: ring progress (fallback when mDNS unavailable) -->
@@ -80,13 +79,12 @@
           <div class="scan-card-sub">scanning&hellip;</div>
         </div>
       </ng-container>
-      <!-- Done: miners found (legacy, only when mDNS is NOT active) -->
+      <!-- Idle (legacy, only when mDNS is NOT active): no count — the workers card owns it -->
       <ng-container *ngIf="!scanning && !mdnsActive">
         <div class="stat-icon">📡</div>
         <div class="stat-content">
           <div class="stat-label">Discovery</div>
-          <div class="stat-value">{{ swarmData.length }}</div>
-          <div class="stat-unit">miners found</div>
+          <div class="scan-card-sub">idle</div>
         </div>
       </ng-container>
       <!-- Help button: always visible, bottom-left to avoid countdown ring at top-right -->

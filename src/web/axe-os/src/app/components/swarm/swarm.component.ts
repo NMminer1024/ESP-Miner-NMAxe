@@ -729,9 +729,9 @@ export class SwarmComponent implements OnInit, OnDestroy {
     return this.getBestDiffFromArray(everDiffs);
   }
 
-  /** Total workers card: firmware aggregate when unfiltered, else table count. */
+  /** Total workers card: always the table row count, so the card and the list
+   * below it can never disagree (the firmware aggregate is LCD-only). */
   public getTotalWorkers(): number {
-    if (this.filterModels.size === 0 && this.fwSummary) return this.fwSummary.workers;
     return this.swarmData.length || 0;
   }
 
