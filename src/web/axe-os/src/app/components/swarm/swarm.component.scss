@@ -1213,6 +1213,27 @@ a:active {
   left: 0.45rem;
 }
 
+.discovery-scan-corner {
+  position: absolute;
+  bottom: 0.35rem;
+  right: 0.45rem;
+
+  .deep-scan-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-color-secondary, #9ca3af);
+    cursor: pointer;
+    padding: 0.2rem;
+    font-size: 1rem;
+    line-height: 1;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: var(--primary-color, #f80421);
+    }
+  }
+}
+
 // Scan ring (scanning state)
 .scan-ring-section {
   width: 100%;

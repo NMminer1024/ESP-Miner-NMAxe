@@ -19,6 +19,11 @@ using neighbor_ip_fail_map_t = std::map<neighbor_ip_t, uint8_t, std::less<neighb
 using neighbor_ip_seen_map_t = std::map<neighbor_ip_t, uint32_t, std::less<neighbor_ip_t>,
                                         PsramAllocator<std::pair<const neighbor_ip_t, uint32_t>>>;
 
+// mDNS peer freshness window: 802.11 multicast frames get no link-layer ACK, so
+// a single query/answer is easily lost — keep a peer visible this long after
+// its last answer before dropping it (spans several 10 s query cycles).
+constexpr uint32_t MDNS_PEER_TTL_MS = 60000;
+
 // ============================================================================
 //  SwarmState — aggregated neighbor-miner statistics (replaces board.status.swarm)
 // ============================================================================
@@ -52,7 +57,7 @@ struct NeighborState {
     uint16_t             scan_progress = 0;        // 0..254
     // Last successful mDNS discovery (millis). Written by the swarm thread,
     // read by the scan thread to decide the ICMP full-scan cadence
-    // (mDNS fresh → 30 min safety-net, stale → legacy 5 min).
+    // (mDNS fresh → 60 min safety-net, stale → legacy 5 min).
     // Aligned uint32_t: atomic read/write on Xtensa, no lock needed.
     volatile uint32_t    mdns_last_ok_ms = 0;
     // True when every confirmed Axe-family peer was seen via mDNS recently, i.e. ICMP

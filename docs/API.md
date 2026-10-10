@@ -373,8 +373,9 @@ Upload a custom animated GIF as screensaver.
 
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
-| POST | `/api/swarm/scan` | Run an mDNS query now; start a background ICMP re-scan only if the last one is older than 5 min. Never clears the `/alive` list |
+| POST | `/api/swarm/scan` | Run an mDNS query now; start a background ICMP re-scan only if the last one is stale (5 min, or 60 min while mDNS fully covers the Axe peers). `?force=1` always starts a re-scan. Never clears the `/alive` list |
 | POST | `/api/swarm/find` | Locate a specific device by blinking its screen |
+| GET | `/api/swarm/summary` | Firmware-aggregated swarm totals (the same `SwarmState` the LCD shows): `workers`, `hr` (H/s), `sbd`, `ebd` |
 
 ### `POST /api/swarm/find`
 
@@ -418,10 +419,10 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | `scanning` | bool | `true` while a subnet scan is in progress |
 | `progress` | int | Current scan progress (0–254 hosts probed so far) |
 | `total` | int | Total hosts to probe (always 254 for a /24 subnet) |
-| `next_scan_in` | int | Seconds until the next automatic ICMP scan, taken from the scan thread's schedule (5 min, or 30 min while mDNS is healthy; 0 while scanning) |
-| `mdns_active` | bool | `true` when mDNS discovery is fresh (< 15 s old); UI shows live auto-discovery instead of the scan-progress ring |
+| `next_scan_in` | int | Seconds until the next automatic ICMP scan, taken from the scan thread's schedule (5 min, or 60 min while mDNS is healthy; 0 while scanning) |
+| `mdns_active` | bool | `true` when mDNS discovery is fresh (< 25 s old); UI shows live auto-discovery instead of the scan-progress ring |
 | `mdns_next_in` | int | Seconds until the next mDNS query (10 s cycle) |
-| `ips` | array | Self plus the de-duplicated union of ICMP-alive hosts and mDNS peers seen within the last 35 s |
+| `ips` | array | Self plus the de-duplicated union of ICMP-alive hosts and mDNS peers seen within the last 60 s |
 
 ---
 

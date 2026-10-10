@@ -3234,22 +3234,50 @@ void webserver_thread_entry(void* args) {
     // ── Swarm endpoints ───────────────────────────────────────────────────────
     webServer.on("/api/swarm/scan", HTTP_POST, [ctx](AsyncWebServerRequest* request) {
         // Opening the Swarm page: query mDNS right away (cheap, ~3 s) and only
-        // trigger a background ICMP rescan when the last one is stale (> 5 min).
+        // trigger a background ICMP rescan when the last one is stale.
+        // ?force=1 (the page's deep-scan button) always triggers a rescan.
         if (ctx->neighbor->mdns_kick) xSemaphoreGive(ctx->neighbor->mdns_kick);
+        const bool force = request->hasParam("force");
         uint32_t lms = 0;
         if (xSemaphoreTake(ctx->neighbor->mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             lms = ctx->neighbor->last_scan_ms;
             xSemaphoreGive(ctx->neighbor->mutex);
         }
-        bool stale = (lms == 0) || (millis() - lms > 5UL * 60 * 1000);
+        // Match the scan thread's cadence (60 min safety net when mDNS covers
+        // every confirmed Axe peer, otherwise the legacy 5 min) so opening the
+        // Swarm page does not defeat the relaxed ICMP schedule.
+        const uint32_t stale_ms = ctx->neighbor->mdns_covered ? 60UL * 60 * 1000 : 5UL * 60 * 1000;
+        bool stale = force || (lms == 0) || (millis() - lms > stale_ms);
         if (stale && ctx->neighbor->scan_required) {
             xSemaphoreGive(ctx->neighbor->scan_required);
-            LOG_I("Triggered alive IP scan by swarm request (last scan stale)");
+            LOG_I("Triggered alive IP scan by swarm request (%s)", force ? "forced" : "last scan stale");
         }
         AsyncWebServerResponse *r = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
         r->addHeader("Access-Control-Allow-Origin", "*");
         request->send(r);
-    }); // kick mDNS now; ICMP rescan only when stale
+    }); // kick mDNS now; ICMP rescan when stale, or always when forced
+    // ── Swarm summary: the firmware-aggregated totals (SwarmState) — the same
+    // numbers the LCD shows, so AxeOS aggregate cards can match the screens. ──
+    webServer.on("/api/swarm/summary", HTTP_GET, [ctx](AsyncWebServerRequest* request) {
+        if (ctx->ota->running) {
+            request->send(503, "text/plain", "OTA in progress");
+            return;
+        }
+        uint32_t workers = 1;
+        float thr = 0.0f, sbd = 0.0f, ebd = 0.0f;
+        if (ctx->swarm && xSemaphoreTake(ctx->swarm->mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            workers = ctx->swarm->total_workers;
+            thr     = ctx->swarm->total_hr;
+            sbd     = ctx->swarm->best_session_bd;
+            ebd     = ctx->swarm->best_ever_bd;
+            xSemaphoreGive(ctx->swarm->mutex);
+        }
+        AsyncResponseStream* resp = request->beginResponseStream("application/json");
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+        resp->printf("{\"workers\":%u,\"hr\":%.0f,\"sbd\":%.0f,\"ebd\":%.0f}",
+                     (unsigned)workers, (double)thr, (double)sbd, (double)ebd);
+        request->send(resp);
+    });
     // ── Find me: blink screen to help user locate a specific device ───────────
     webServer.on("/api/swarm/find", HTTP_POST, [ctx](AsyncWebServerRequest* request) {
         xEventGroupSetBits(ctx->sys_evt, SYS_EVENT_FIND_NEIGHBOR_TRIGGERED);
@@ -3345,14 +3373,17 @@ void webserver_thread_entry(void* args) {
             next_in = remain_ms > 0 ? (uint32_t)(remain_ms / 1000) : 0;
         }
         resp->printf(",\"next_scan_in\":%u", (unsigned)next_in);
-        // mDNS discovery status: fresh (< 15s ≈ 1.5 query cycles) → UI shows the
-        // "live auto-discovery" presentation instead of the ICMP scan-progress ring.
+        // mDNS discovery status: fresh → UI shows the "live auto-discovery"
+        // presentation instead of the ICMP scan-progress ring. The query cycle
+        // is 10 s + up to 3 s query time (+ scheduling jitter), so a 15 s
+        // window could flap the UI between the two presentations; 25 s (≈2
+        // worst-case cycles) keeps it stable without hiding real outages.
         const uint32_t MDNS_QUERY_PERIOD_S = 10;
         bool   mdns_active  = false;
         uint32_t mdns_next_in = 0;
         if (ctx->neighbor->mdns_last_ok_ms != 0) {
             uint32_t mdns_age_ms = millis() - ctx->neighbor->mdns_last_ok_ms;
-            if (mdns_age_ms < 15 * 1000) {
+            if (mdns_age_ms < 25 * 1000) {
                 mdns_active = true;
                 uint32_t mdns_elapsed_s = mdns_age_ms / 1000;
                 mdns_next_in = (mdns_elapsed_s < MDNS_QUERY_PERIOD_S)
@@ -3376,7 +3407,7 @@ void webserver_thread_entry(void* args) {
             for (const auto& ip : ctx->neighbor->alive_ips) out_set.insert(ip);
             const uint32_t now_ms = millis();
             for (const auto& kv : ctx->neighbor->mdns_peers) {
-                if ((uint32_t)(now_ms - kv.second) < 35000u) out_set.insert(kv.first);
+                if ((uint32_t)(now_ms - kv.second) < MDNS_PEER_TTL_MS) out_set.insert(kv.first);
             }
             for (const auto& ip : out_set) {
                 neighbor_ip_to_cstr(ip, ip_buf, sizeof(ip_buf));
@@ -3609,10 +3640,12 @@ void scan_thread_entry(void* args) {
             nbr.last_scan_ms = millis();
             xSemaphoreGive(nbr.mutex);
         }
-        // Cadence: relax to 30 min only when mDNS covers every confirmed Axe peer (ICMP is then
-        // just a safety net). Mixed-firmware LANs or blocked multicast keep the legacy 5 min,
-        // because devices mDNS cannot see are found by ICMP only.
-        uint32_t wait_ms  = nbr.mdns_covered ? 30 * 60 * 1000 : 5 * 60 * 1000;
+        // Cadence: when mDNS covers every confirmed Axe peer, ICMP is only a
+        // safety net — run it rarely (60 min; the Swarm page can force one via
+        // /api/swarm/scan?force=1). Mixed-firmware LANs or blocked multicast
+        // keep the legacy 5 min, because devices mDNS cannot see are found by
+        // ICMP only.
+        uint32_t wait_ms  = nbr.mdns_covered ? 60 * 60 * 1000 : 5 * 60 * 1000;
         if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             nbr.next_scan_due_ms = millis() + wait_ms;
             xSemaphoreGive(nbr.mutex);
@@ -3632,6 +3665,10 @@ void mdns_thread_entry(void* args) {
     NeighborState& nbr = *sctx->neighbor;
 
     wait_for_wifi_sta_connected(sctx->init_evt, "(mdns)");
+
+    // Run the first query immediately after WiFi is up instead of waiting out
+    // the first 10 s cycle, so peers appear on the Swarm page right away.
+    if (nbr.mdns_kick) xSemaphoreGive(nbr.mdns_kick);
 
     auto self_ip = []() -> neighbor_ip_t {
         IPAddress a = WiFi.localIP();
@@ -3657,9 +3694,9 @@ void mdns_thread_entry(void* args) {
         if (xSemaphoreTake(nbr.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             const uint32_t now_ms = millis();
             for (const auto& ip : peers) nbr.mdns_peers[ip] = now_ms;
-            // Single multicast queries lose replies; keep peers for 35 s before dropping.
+            // Single multicast queries lose replies; keep peers for a while before dropping.
             for (auto it = nbr.mdns_peers.begin(); it != nbr.mdns_peers.end();) {
-                if ((uint32_t)(now_ms - it->second) >= 35000u) it = nbr.mdns_peers.erase(it);
+                if ((uint32_t)(now_ms - it->second) >= MDNS_PEER_TTL_MS) it = nbr.mdns_peers.erase(it);
                 else ++it;
             }
             xSemaphoreGive(nbr.mutex);
@@ -3834,6 +3871,7 @@ void swarm_thread_entry(void* args) {
                         if (ebd > best_ever_bd)    best_ever_bd    = ebd;
                         ctx.confirmed_ips.insert(ip);
                         ctx.probe_fail_cnt[ip] = 0;
+                        ctx.gossip_union.erase(ip);  // graduated from candidate to confirmed
                         {
                             const char* mdl = doc["model"] | "";
                             if (strncmp(mdl, "NMAxe", 5) == 0 || strncmp(mdl, "NMQAxe", 6) == 0) ctx.axe_family_ips.insert(ip);
@@ -3845,9 +3883,14 @@ void swarm_thread_entry(void* args) {
                         ctx.confirmed_ips.erase(ip);
                         ctx.axe_family_ips.erase(ip);
                         ctx.probe_fail_cnt.erase(ip);
+                        ctx.gossip_union.erase(ip);  // blacklisted; gossip may re-add after expiry
                         LOG_D("(swarm) %s not NM device, blacklisted", ip_buf);
                     }
                 }
+            } else if (code == 503) {
+                // Peer is up but busy with OTA: not a probe failure — keep it
+                // confirmed and off the blacklist so it does not flap in/out.
+                LOG_D("(swarm) probe %s => 503 (OTA in progress), kept", ip_buf);
             } else {
                 bool is_confirmed = ctx.confirmed_ips.count(ip) > 0;
                 if (is_confirmed) {
@@ -3863,6 +3906,7 @@ void swarm_thread_entry(void* args) {
                     }
                 } else {
                     blacklist_add(ip, BLACKLIST_FAIL_MS);
+                    ctx.gossip_union.erase(ip);  // blacklisted; gossip may re-add after expiry
                     LOG_D("(swarm) probe %s => %d, blacklisted", ip_buf, code);
                 }
             }
@@ -3881,7 +3925,7 @@ void swarm_thread_entry(void* args) {
             uint32_t missing = 0;
             for (const auto& ip : ctx.axe_family_ips) {
                 auto it = mdns_now.find(ip);
-                if (it == mdns_now.end() || (uint32_t)(now_ms - it->second) >= 35000u) missing++;
+                if (it == mdns_now.end() || (uint32_t)(now_ms - it->second) >= MDNS_PEER_TTL_MS) missing++;
             }
             const bool covered = (nbr.mdns_last_ok_ms != 0) && (missing == 0);
             if (covered != nbr.mdns_covered) {
@@ -3947,18 +3991,24 @@ void swarm_thread_entry(void* args) {
             LOG_W("(swarm) INVALID self hr=%.0f, using 0 (torn read?)", self_hr);
             self_hr = 0.0;
         }
+        uint32_t agg_workers = 0;
+        float    agg_hr = 0.0f, agg_sbd = 0.0f, agg_ebd = 0.0f;
         if (xSemaphoreTake(ctx.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            ctx.total_workers   = (uint32_t)ctx.confirmed_ips.size() + 1;
+            ctx.total_workers   = workers + 1;  // only peers that answered /probe, plus self
             ctx.total_hr        = total_hr + self_hr;
             ctx.best_session_bd = (best_session_bd > st.diff.best_session) ? best_session_bd : st.diff.best_session;
             ctx.best_ever_bd    = (best_ever_bd > st.diff.best_ever) ? best_ever_bd : st.diff.best_ever;
+            agg_workers = ctx.total_workers;
+            agg_hr      = ctx.total_hr;
+            agg_sbd     = ctx.best_session_bd;
+            agg_ebd     = ctx.best_ever_bd;
             xSemaphoreGive(ctx.mutex);
         }
         LOG_D("(swarm) gen=%u probed=%u(+self) workers=%u hr=%sH/s sbd=%s ebd=%s",
-              ctx.last_scan_gen, (uint32_t)targets.size(), ctx.total_workers,
-              formatNumber(ctx.total_hr, 3).c_str(),
-              formatNumber(ctx.best_session_bd, 3).c_str(),
-              formatNumber(ctx.best_ever_bd, 3).c_str());
+              ctx.last_scan_gen, (uint32_t)targets.size(), agg_workers,
+              formatNumber(agg_hr, 3).c_str(),
+              formatNumber(agg_sbd, 3).c_str(),
+              formatNumber(agg_ebd, 3).c_str());
     }
 }
 

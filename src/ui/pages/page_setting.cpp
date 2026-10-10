@@ -13,6 +13,14 @@ void PageSwarmBase::destroy() {
 }
 
 void PageSwarmBase::_on_update() {
+    // _on_update runs at LVGL frame rate (~200 Hz); the swarm aggregate only
+    // changes every >= 30 s, so refresh the labels at 2 Hz at most.
+    const uint32_t now_ms = millis();
+    if ((uint32_t)(now_ms - _last_refresh_ms) < 500) {
+        return;
+    }
+    _last_refresh_ms = now_ms;
+
     SwarmState* swarm = MinerApp::instance().swarm();
     if (!swarm || !swarm->mutex) {
         return;

@@ -191,7 +191,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⏳ What does the card show?',
-        body: '• mDNS active (normal case): a pulsing radar icon with an "mDNS · auto" badge, the number of miners found, and a small countdown in the top-right corner showing seconds until the next 10-second discovery query.\n• mDNS unavailable: the card switches to the classic scan-progress ring (0–100%) while the full ICMP scan runs, then shows the miner count with a countdown to the next scan.'
+        body: '• mDNS active (normal case): a pulsing radar icon with an "mDNS · auto" badge, the number of miners found, and a small countdown in the top-right corner showing seconds until the next 10-second discovery query.\n• mDNS unavailable: the card switches to the classic scan-progress ring (0–100%) while the full ICMP scan runs, then shows the miner count with a countdown to the next scan.\n• Missing a device? Use the magnifier button in the bottom-right corner to force a full ICMP deep scan immediately — useful for devices that do not announce themselves via mDNS.'
       },
       {
         heading: '🔄 How often does it refresh?',

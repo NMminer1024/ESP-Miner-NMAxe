@@ -112,7 +112,7 @@ const TableSortFunctions = {
   [SortIndex.PoolDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.PoolDiff) - DiffSuffixPipe.revert(b.PoolDiff),
   [SortIndex.NetDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.NetDiff) - DiffSuffixPipe.revert(b.NetDiff),
   [SortIndex.LastDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.LastDiff) - DiffSuffixPipe.revert(b.LastDiff),
-  [SortIndex.BestDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.BestDiff.split("\r")[0]) - DiffSuffixPipe.revert(b.BestDiff.split("\r")[0]),
+  [SortIndex.BestDiff]: (a: NMDevice, b: NMDevice) => DiffSuffixPipe.revert(a.BestDiff.split("\n")[0]) - DiffSuffixPipe.revert(b.BestDiff.split("\n")[0]),
   [SortIndex.Valid]: (a: NMDevice, b: NMDevice) => a.Valid - b.Valid,
   [SortIndex.Power]: (a: NMDevice, b: NMDevice) => a.Power.localeCompare(b.Power),
   [SortIndex.Temp]: (a: NMDevice, b: NMDevice) => a.Temp - b.Temp,
@@ -183,6 +183,10 @@ export class SwarmComponent implements OnInit, OnDestroy {
   private static readonly BLACKLIST_TTL_MS = 5 * 60 * 1000;
   private lastContactMs  = new Map<string, number>();
   private knownAliveIps  = new Set<string>();
+  // Firmware-aggregated swarm summary (same SwarmState the LCD shows). When no
+  // model filter is active, the aggregate cards prefer this over browser-side
+  // sums so web and LCD show identical totals.
+  public fwSummary?: { workers: number; hr: number; sbd: number; ebd: number };
 
   @Input() uri = '';
 
@@ -260,6 +264,13 @@ export class SwarmComponent implements OnInit, OnDestroy {
             }
           });
 
+          // Confirmed devices missing from this round's alive list still get
+          // their single per-cycle refresh here (previously a second 3 s
+          // subscription fetched every device again, doubling request load).
+          this.deviceMap.forEach((_, ip) => {
+            if (!this.knownAliveIps.has(ip)) this.fetchDeviceInfo(ip);
+          });
+
           // Evict devices not seen in alive list for > 5 minutes
           const now = Date.now();
           this.deviceMap.forEach((_, ip) => {
@@ -274,9 +285,13 @@ export class SwarmComponent implements OnInit, OnDestroy {
         });
       });
 
-      // Subscription 2: Refresh device info every 3 s for already-confirmed devices.
-      const refreshSubscription = interval(3000).subscribe(() => {
-        this.deviceMap.forEach((_, ip) => this.fetchDeviceInfo(ip));
+      // Subscription 2: Firmware-aggregated swarm summary — the same SwarmState
+      // the LCD reads, so the aggregate cards match the device screens.
+      const summarySubscription = interval(3000).pipe(startWith(0)).subscribe(() => {
+        this.http.get<{ workers: number; hr: number; sbd: number; ebd: number }>(`${this.uri}/api/swarm/summary`).pipe(
+          timeout(3000),
+          catchError(() => of(null))
+        ).subscribe(s => { this.fwSummary = s ?? undefined; });
       });
 
       // Subscription 3: Wake this device's screensaver every 5 s while the swarm page is open.
@@ -285,7 +300,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       });
 
       this.subscription.add(aliveSubscription);
-      this.subscription.add(refreshSubscription);
+      this.subscription.add(summarySubscription);
       this.subscription.add(heartbeatSubscription);
     });
   }
@@ -661,6 +676,8 @@ export class SwarmComponent implements OnInit, OnDestroy {
 
   // Methods for filtered statistics
   public getFilteredHashRate(): number {
+    // Unfiltered: prefer the firmware-aggregated total (identical to the LCD).
+    if (this.filterModels.size === 0 && this.fwSummary) return this.fwSummary.hr;
     const filteredData = this.getFilteredData();
     let totalHashRate = 0;
     filteredData.forEach(device => {
@@ -687,9 +704,10 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 
   public getFilteredBestDiffSession(): string {
+    if (this.filterModels.size === 0 && this.fwSummary) return DiffSuffixPipe.transform(this.fwSummary.sbd);
     const filteredData = this.getFilteredData();
     if (filteredData.length === 0) return '0';
-    
+
     const sessionDiffs = filteredData.map(device => {
       // 处理 \r 或 \n 分隔符
       const parts = device.BestDiff.split(/[\r\n]/);
@@ -699,15 +717,22 @@ export class SwarmComponent implements OnInit, OnDestroy {
   }
 
   public getFilteredBestDiffEver(): string {
+    if (this.filterModels.size === 0 && this.fwSummary) return DiffSuffixPipe.transform(this.fwSummary.ebd);
     const filteredData = this.getFilteredData();
     if (filteredData.length === 0) return '0';
-    
+
     const everDiffs = filteredData.map(device => {
       // 处理 \r 或 \n 分隔符
       const parts = device.BestDiff.split(/[\r\n]/);
       return parts.length > 1 ? parts[1] : '0';
     });
     return this.getBestDiffFromArray(everDiffs);
+  }
+
+  /** Total workers card: firmware aggregate when unfiltered, else table count. */
+  public getTotalWorkers(): number {
+    if (this.filterModels.size === 0 && this.fwSummary) return this.fwSummary.workers;
+    return this.swarmData.length || 0;
   }
 
   private getBestDiffFromArray(diffs: string[]): string {
@@ -822,7 +847,7 @@ export class SwarmComponent implements OnInit, OnDestroy {
       PoolDiff:   miner?.poolDiff      ?? '0',
       NetDiff:    miner?.networkDiff   ?? '0',
       LastDiff:   miner?.lastDiff      ?? '0',
-      BestDiff:   `${miner?.bestDiffSession ?? '0'}\r${miner?.bestDiffEver ?? '0'}`,
+      BestDiff:   `${miner?.bestDiffSession ?? '0'}\n${miner?.bestDiffEver ?? '0'}`,
       Valid:      miner?.blkhits        ?? 0,
       Power:      pwr   ? `${pwr.power.toFixed(1)}W` : '---',
       Temp:       temps?.asic   ?? 0,
@@ -837,6 +862,15 @@ export class SwarmComponent implements OnInit, OnDestroy {
       Lastseen:   Date.now(),   // ms timestamp, updated by rebuildSwarmData
       selected:   false,
     };
+  }
+
+  /** Force a full ICMP deep scan — manual fallback when mDNS can't see a device. */
+  public deepScan(): void {
+    this.http.post(`${this.uri}/api/swarm/scan?force=1`, {}).pipe(
+      catchError(() => of(null))
+    ).subscribe(() => {
+      this.toastr.info('Deep network scan started — this takes a few minutes.', 'Discovery');
+    });
   }
 
   /** Format absolute-ms timestamp as human-readable last-seen string. */
@@ -895,13 +929,13 @@ function getHashRateSummary(devices: NMDevice[]): string {
 }
 
 function getBestDiffSession(devices: NMDevice[]): string {
-  const sessionDiffs = devices.map(device => device.BestDiff.slice(0, device.BestDiff.indexOf('\r')));
+  const sessionDiffs = devices.map(device => device.BestDiff.split(/[\r\n]/)[0]);
   return getBestDiffSummary(sessionDiffs);
 }
 
 function getBestDiffEver(devices: NMDevice[]): string {
-  const sessionDiffs = devices.map(device => device.BestDiff.slice(device.BestDiff.indexOf('\r')));
-  return getBestDiffSummary(sessionDiffs);
+  const everDiffs = devices.map(device => device.BestDiff.split(/[\r\n]/)[1] || '0');
+  return getBestDiffSummary(everDiffs);
 }
 
 function getBestDiffSummary(diffs: string[]): string {

@@ -23,7 +23,7 @@
       <div class="stat-icon">👥</div>
       <div class="stat-content">
         <div class="stat-label">Total Workers</div>
-        <div class="stat-value">{{ swarmData.length || 0 }}</div>
+        <div class="stat-value">{{ getTotalWorkers() }}</div>
         <div class="stat-unit">miners</div>
       </div>
     </div>
@@ -92,6 +92,12 @@
       <!-- Help button: always visible, bottom-left to avoid countdown ring at top-right -->
       <div class="discovery-help-corner">
         <app-help-btn key="swarm-discovery"></app-help-btn>
+      </div>
+      <!-- Deep scan: manual ICMP fallback, bottom-right -->
+      <div class="discovery-scan-corner" pTooltip="Deep network scan (ICMP fallback)" tooltipPosition="left">
+        <button class="deep-scan-btn" type="button" (click)="deepScan()">
+          <i class="pi pi-search-plus"></i>
+        </button>
       </div>
     </div>
   </div>

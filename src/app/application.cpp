@@ -434,7 +434,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
 
     _create_task(swarm_thread_entry, "(swarm)",    1024 * 4, _ctx_swarm, TASK_PRIORITY_SWARM, 0);
     _create_task(scan_thread_entry,  "(neighbor)", 1024 * 3, _ctx_swarm, TASK_PRIORITY_SCAN,  0);
-    _create_task(mdns_thread_entry,  "(mdns)",     1024 * 3, _ctx_swarm, TASK_PRIORITY_SCAN,  0);
+    _create_task(mdns_thread_entry,  "(mdns)",     1024 * 4, _ctx_swarm, TASK_PRIORITY_SCAN,  0);
 
     static ButtonCtx button_ctx;
     button_ctx.spec                 = &_board_spec;
@@ -480,6 +480,7 @@ void MinerApp::_begin_infra(BootProgress& boot) {
     web_ctx.ota            = &_state_ota;
     web_ctx.pref           = &_config_pref;
     web_ctx.neighbor       = _state_neighbor;
+    web_ctx.swarm          = _state_swarm;
     web_ctx.fan_status     = &_state_fans;
     web_ctx.bm_mode        = &_config_benchmark_mode;
     web_ctx.utc            = &_state_utc;
@@ -1181,22 +1182,6 @@ void MinerApp::_tick_thread_entry(void* args) {
             m.swarm_hr.text = formatNumber(thr, 2) + "H/s";
             m.swarm_bd.text = formatNumber(sbd, 4);
             xSemaphoreGive(app._state_swarm->mutex);
-
-            // ── Setting / Swarm page ──
-            auto& ss = AppState::instance().setting_swarm;
-            ss.workers.text   = String("Workers: ") + String(workers);
-            ss.total_hr.text  = String("HR: ") + formatNumber(thr, 3);
-            ss.best_diff.text = String("Best: ") + formatNumber(app._state_swarm->best_ever_bd, 4);
-        }
-
-        if (app._state_neighbor && app._state_neighbor->mutex &&
-            xSemaphoreTake(app._state_neighbor->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
-            size_t n = app._state_neighbor->alive_ips.size();
-            xSemaphoreGive(app._state_neighbor->mutex);
-            AppState::instance().setting_swarm.neighbors.text = String("Neighbors: ") + String((unsigned)n);
-        }
-        if (app._state_wifi) {
-            AppState::instance().setting_swarm.ip.text = String("IP: ") + app._state_wifi->ip.toString();
         }
 
         size_t current_page = UIManager::instance().current();

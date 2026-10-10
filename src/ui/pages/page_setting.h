@@ -19,6 +19,7 @@ protected:
     lv_obj_t* _lb_best_ever = nullptr;
     lv_coord_t _W = 0;
     lv_coord_t _H = 0;
+    uint32_t _last_refresh_ms = 0;   // throttle _on_update (source updates >= 30 s)
 
     virtual void _create_dynamic(lv_obj_t* parent) = 0;
 };

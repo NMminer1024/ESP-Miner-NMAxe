@@ -42,6 +42,7 @@ struct WebCtx {
     OtaState*        ota      = nullptr;  // g_board.status.ota
     PreferenceState* pref     = nullptr;  // g_board.status.preference
     NeighborState*   neighbor = nullptr;  // g_board.status.neighbor
+    SwarmState*      swarm    = nullptr;  // g_board.status.swarm (aggregated peer stats, LCD source)
     std::vector<fan_status_t>* fan_status = nullptr;  // g_board.status.fan.list
 
     // ── Scalars / sync primitives ───────────────────────────────────────────

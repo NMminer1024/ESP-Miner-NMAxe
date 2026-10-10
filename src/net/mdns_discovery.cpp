@@ -148,17 +148,25 @@ int mdns_discovery_query(neighbor_ip_set_t* out_ips, uint32_t self_ip, uint32_t 
                                  ((uint32_t)MDNS_GROUP[2] << 8)  |  (uint32_t)MDNS_GROUP[3]);
 
     uint32_t t0 = millis();
-    bool sent = false;
-    uint8_t rbuf[512];
+    // 802.11 multicast frames get no link-layer ACK/retry, so a single query is
+    // easily lost. Re-send the query a few times across the receive window;
+    // responders deduplicate repeated questions, so this is harmless.
+    uint8_t  sends_left = 3;
+    uint32_t next_send  = 0;
+    // One standard MTU: dual-service (http + nmaxe) responses can exceed 512 B,
+    // and a truncated datagram silently loses the A record we came for.
+    // static: single caller (the mdns task) — keep 1.5 KB off its small stack.
+    static uint8_t rbuf[1460];
 
     while (millis() - t0 < timeout_ms) {
-        if (!sent) {
+        if (sends_left > 0 && (int32_t)(millis() - next_send) >= 0) {
             if (::sendto(sock, pkt, pkt_len, 0, (struct sockaddr*)&dest, sizeof(dest)) < 0) {
                 LOG_W("(mdns) sendto failed: %d", errno);
                 ::close(sock);
                 return -1;
             }
-            sent = true;
+            sends_left--;
+            next_send = millis() + 250;
         }
         int n = ::recvfrom(sock, rbuf, sizeof(rbuf), 0, nullptr, nullptr);
         if (n < 12) continue; // too short / timeout (EAGAIN)
