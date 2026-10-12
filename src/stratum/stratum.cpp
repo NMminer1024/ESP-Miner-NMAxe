@@ -15,6 +15,10 @@ StratumClass::~StratumClass(){
         vSemaphoreDelete(this->_msg_rsp_mutex);
         this->_msg_rsp_mutex = nullptr;
     }
+    if (this->_submit_mutex != nullptr) {
+        vSemaphoreDelete(this->_submit_mutex);
+        this->_submit_mutex = nullptr;
+    }
 }
 
 void StratumClass::reset(){
@@ -318,46 +322,61 @@ bool StratumClass::config_version_rolling(){
     return true;
 }
 
-bool StratumClass::submit(String pool_job_id, String extranonce2, uint32_t ntime, uint32_t nonce, uint32_t version){
-    if(!this->pool->is_connected()) return false;
-    uint32_t msgid = this->_get_msg_id();
-    char version_str[9] = {0,}, nonce_str[9] = {0,};
-    sprintf(version_str, "%08x", version);
-    sprintf(nonce_str, "%08x", nonce);
-
-    String payload = "{\"id\": " + String(msgid) + ", \"method\": \"mining.submit\", \"params\": [\"" + 
-    this->_stratum_info.user + "\", \"" + 
-    pool_job_id + "\", \"" + 
-    extranonce2 + "\", \"" + 
-    String(ntime, 16) + "\", \"" + 
-    String(nonce_str) + "\", \"" + 
-    String(version_str) + "\"]}\n";
-
-    if(this->pool->write(payload) != payload.length()){
-        LOG_E("Failed to send mining.submit request");
-        return false;
+bool StratumClass::submit_async(String pool_job_id, String extranonce2, uint32_t ntime, uint32_t nonce, uint32_t version){
+    // Producer side (miner_rx thread): only enqueue, never touch the pool TLS
+    // socket. The real socket write + response bookkeeping runs on the stratum
+    // thread via flush_submit_queue(), removing the cross-thread use-after-free
+    // on WiFiClientSecure that caused the CORRUPT HEAP (double-free) crash.
+    if (this->_submit_mutex == nullptr || xSemaphoreTake(this->_submit_mutex, pdMS_TO_TICKS(5)) != pdTRUE) {
+        return false; // queue busy -> drop share rather than block the ASIC RX drain
     }
-    if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
-        this->_msg_rsp_map[msgid] = {"mining.submit", false, millis()};
-        xSemaphoreGive(this->_msg_rsp_mutex);
+    if (this->_submit_queue.size() >= SUBMIT_QUEUE_MAX) {
+        this->_submit_queue.pop_front(); // drop oldest stale share
     }
-    // log_i("%s", payload.c_str());
+    this->_submit_queue.push_back({pool_job_id, extranonce2, ntime, nonce, version});
+    xSemaphoreGive(this->_submit_mutex);
+    return true;
+}
 
-    //wait for response from pool
-    uint32_t start = millis();
-    while(true){
+void StratumClass::flush_submit_queue(){
+    if (this->_submit_mutex == nullptr || xSemaphoreTake(this->_submit_mutex, pdMS_TO_TICKS(1)) != pdTRUE) {
+        return;
+    }
+    std::deque<submit_queue_item_t, PsramAllocator<submit_queue_item_t>> batch;
+    batch.swap(this->_submit_queue);
+    xSemaphoreGive(this->_submit_mutex);
+
+    if (batch.empty()) return;
+
+    // Pool disconnected -> stale shares reference invalid jobs, drop them all.
+    if (!this->pool->is_connected()) {
+        batch.clear();
+        return;
+    }
+
+    for (const auto& item : batch) {
+        uint32_t msgid = this->_get_msg_id();
+        char version_str[9] = {0,}, nonce_str[9] = {0,};
+        sprintf(version_str, "%08x", item.version);
+        sprintf(nonce_str, "%08x", item.nonce);
+
+        String payload = "{\"id\": " + String(msgid) + ", \"method\": \"mining.submit\", \"params\": [\"" + 
+        this->_stratum_info.user + "\", \"" + 
+        item.pool_job_id + "\", \"" + 
+        item.extranonce2 + "\", \"" + 
+        String(item.ntime, 16) + "\", \"" + 
+        String(nonce_str) + "\", \"" + 
+        String(version_str) + "\"]}\n";
+
+        if(this->pool->write(payload) != payload.length()){
+            LOG_E("Failed to send mining.submit request");
+            break;
+        }
         if (this->_msg_rsp_mutex != nullptr && xSemaphoreTake(this->_msg_rsp_mutex, portMAX_DELAY) == pdTRUE) {
-            auto it = this->_msg_rsp_map.find(msgid);
-            if (it != this->_msg_rsp_map.end() && it->second.status) {
-                xSemaphoreGive(this->_msg_rsp_mutex);
-                return true;
-            }
+            this->_msg_rsp_map[msgid] = {"mining.submit", false, millis()};
             xSemaphoreGive(this->_msg_rsp_mutex);
         }
-        if(millis() - start > 1000*20) return false;
-        delay(1);
     }
-    return false;
 }
 
 bool StratumClass::is_submit_timeout(){

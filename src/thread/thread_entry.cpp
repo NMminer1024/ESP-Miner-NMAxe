@@ -489,6 +489,9 @@ void stratum_thread_entry(void* args) {
             }
             delay(1);
         }
+        // Drain shares enqueued by the ASIC RX thread. Only the stratum thread
+        // may touch the pool TLS socket, so it owns the actual write + bookkeeping.
+        stratum->flush_submit_queue();
         // responsive idle: poll available() every 1ms (up to 50ms) to minimize latency error
         for (uint8_t i = 0; i < 50 && !stratum->pool->available(); i++) { delay(1); }
     }

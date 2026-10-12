@@ -13,6 +13,7 @@
 #define  HELLO_POOL_INTERVAL_MS    (1000*60*2)
 #define  LOST_POOL_TIMEOUT_MS      (1000*60*5)
 #define  SUBMIT_TIMEOUT_MS         (1000*60*2)
+#define  SUBMIT_QUEUE_MAX          16
 
 typedef uint32_t stratum_msg_rsp_id_t;
 
@@ -32,6 +33,14 @@ typedef struct{
     bool     status;
     uint32_t stamp;
 }stratum_rsp;
+
+typedef struct {
+    String   pool_job_id;
+    String   extranonce2;
+    uint32_t ntime;
+    uint32_t nonce;
+    uint32_t version;
+} submit_queue_item_t;
 
 typedef struct{
     String      user;
@@ -83,15 +92,17 @@ private:
     uint8_t                                         _pool_job_cache_size;
     String                                          _client_id;   // injected: "<display_name>/<fw_version>" for mining.subscribe
     SemaphoreHandle_t                               _msg_rsp_mutex;
+    SemaphoreHandle_t                               _submit_mutex;
     std::deque<pool_job_data_t, PsramAllocator<pool_job_data_t>>                                                                      _pool_job_cache;   // PSRAM
+    std::deque<submit_queue_item_t, PsramAllocator<submit_queue_item_t>>                                                              _submit_queue;     // PSRAM
     std::map<stratum_msg_rsp_id_t, stratum_rsp, std::less<stratum_msg_rsp_id_t>, PsramAllocator<std::pair<const stratum_msg_rsp_id_t, stratum_rsp>>> _msg_rsp_map; // PSRAM
 public:
     PoolClass  *pool;
     SemaphoreHandle_t new_job_xsem, clear_job_xsem;
 
-    StratumClass() : _rsp_json(4096), _msg_rsp_mutex(nullptr) {};
+    StratumClass() : _rsp_json(4096), _msg_rsp_mutex(nullptr), _submit_mutex(nullptr) {};
     StratumClass(pool_info_t pConfig, stratum_info_t sConfig, uint8_t job_cached_max): 
-     _stratum_info(sConfig), _rsp_json(4096), _pool_job_cache_size(job_cached_max), _msg_rsp_mutex(nullptr){
+     _stratum_info(sConfig), _rsp_json(4096), _pool_job_cache_size(job_cached_max), _msg_rsp_mutex(nullptr), _submit_mutex(nullptr){
         this->pool = new PoolClass(pConfig);
         this->_max_rsp_id_cache = 20;
         this->_job_counter = 0;
@@ -103,6 +114,7 @@ public:
         this->_rsp_json.clear();
         this->_sub_info = {"", "", 0};
         this->_msg_rsp_mutex = xSemaphoreCreateMutex();
+        this->_submit_mutex   = xSemaphoreCreateMutex();
         this->_msg_rsp_map.clear();
         this->_suggest_diff_support = true;
         this->_is_subscribed = false;
@@ -118,7 +130,8 @@ public:
     bool authorize();
     bool suggest_difficulty();
     bool config_version_rolling();
-    bool submit(String pool_job_id, String extranonce2, uint32_t ntime, uint32_t nonce, uint32_t version);
+    bool submit_async(String pool_job_id, String extranonce2, uint32_t ntime, uint32_t nonce, uint32_t version);
+    void flush_submit_queue();
     bool hello_pool(uint32_t hello_interval, uint32_t lost_max_time);
     bool is_primary_pool_available(String url, uint16_t port);
     stratum_method_data listen_methods();

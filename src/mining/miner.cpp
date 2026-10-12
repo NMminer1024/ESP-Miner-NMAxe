@@ -335,7 +335,7 @@ String AsicMinerClass::get_pool_job_id_by_asic_job_id(uint8_t asic_job_id){
 
 bool AsicMinerClass::submit_job_share(String pool_job_id, String extranonce2, uint32_t nonce, uint32_t ntime, uint32_t version){
     if(pool_job_id.length() == 0) return false;
-    return this->_stratum->submit(pool_job_id, extranonce2, ntime, nonce, version);
+    return this->_stratum->submit_async(pool_job_id, extranonce2, ntime, nonce, version);
 }
 
 bool AsicMinerClass::calculate_hashrate(hashrate_t *phr, hashrate_diag_t *diag){
