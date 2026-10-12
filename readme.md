@@ -173,27 +173,6 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 ## Release Log
 ***
 
-### (2026.10.09) - v3.2.01
-- `Add`:
-  - **Independent mDNS Hostname**: register a dedicated `.local` name (`http://<mdnsName>.local`), decoupled from `hostname`; e.g. `nmaxepp81-06ea1`.
-  - **mDNS Name Config**: new field on the Network Edit page (lowercase `[a-z0-9-]`, ≤20 chars), effective after reboot.
-  - **Swarm mDNS Auto-Discovery**: 10 s periodic discovery across multiple DNS-SD service types; peers merged into `/alive`.
-  - **Board-Specific Text Logos**: added for the Rev61 and Nexus miner pages.
-- `Modify`:
-  - **Coverage-Driven ICMP**: auto-scan cadence relaxes 5 min → 30 min once mDNS covers every peer; mDNS-blind devices are still found by ICMP.
-  - **Per-Env Layout Compilation**: UI compiles only the layout matching `BOARD_*`, dropping unused resolution pages.
-- `Improved`:
-  - **Swarm Page**: live mDNS status; non-miner hosts blacklisted 5 min (TTL probe) instead of re-probed every 3 s; the Total Workers card mirrors the table row count.
-  - **Log Noise**: NONCE / TPS53647 `APPLIED VOUT_COMMAND` logs demoted to `LOG_D`.
-  - **Realtime Log Filename**: prefers `displayName` over `hwModel`.
-- `Fixed`:
-  - **TPS53647 Soft-Start**: re-asserts `VOUT_COMMAND` after EN, fixing Vcore soft-start when the NVM default is held.
-  - mDNS peers are now single-writer via `NeighborState.mdns_peers`.
-- `API`:
-  - `GET/PATCH /api/setting/network`: + `mdnsName`.
-  - `POST /api/swarm/scan`: immediate mDNS query + background ICMP re-scan (only if last scan > 5 min); never clears `/alive`.
-  - `GET /api/swarm/status`: + `mdns_active` / `mdns_next_in`; `ips` = self + ICMP-alive ∪ mDNS peers (35 s).
-
 ### (2026.09.22) - v3.1.03
 - `Add`:
   - **NMQAxe++Nexus Board Support**: New board variant (BM1373 ASIC).
