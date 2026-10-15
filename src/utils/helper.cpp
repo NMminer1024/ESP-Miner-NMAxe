@@ -186,6 +186,14 @@ String formatNumber(float num, uint8_t total_bits) {
         return "999.9Y";
     }
 
+    // Pre-round to the max decimal places (the 1-digit-integer case) BEFORE
+    // measuring the integer-part length. Otherwise a value like 9.9997 is
+    // measured as 1 integer digit (2 decimals) but String() rounds it up to
+    // "10.00" — 4 chars — causing the "10.00" flicker at power-of-10
+    // boundaries. After pre-rounding it becomes 10.0 -> 2 integer digits ->
+    // 1 decimal -> "10.0". Values that don't cross a boundary are unchanged.
+    num = roundf(num * powf(10.0f, (int)total_bits - 1)) / powf(10.0f, (int)total_bits - 1);
+
     int integerPartLength = 1;
     if (num >= 10) {
         integerPartLength = 2;
