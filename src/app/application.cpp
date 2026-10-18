@@ -403,7 +403,7 @@ void MinerApp::_begin_display(BootProgress& boot) {
     lv_init();
     _ui_init();
     xEventGroupSetBits(_sync_system->init_evt, INIT_EVENT_SCREEN_READY);
-    _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 5, nullptr, TASK_PRIORITY_LVGL_DRV, 1);
+    _create_task(_lvgl_thread_entry, "(lvgl)", 1024 * 5, _state_miner, TASK_PRIORITY_LVGL_DRV, 1);
 }
 
 void MinerApp::_begin_infra(BootProgress& boot) {
@@ -1283,11 +1283,12 @@ void MinerApp::_update_backlight_by_events(bool& ss_active, float& bl_wave, uint
 }
 
 void MinerApp::_lvgl_thread_entry(void* args) {
-    (void)args;
+    MinerStatus* st = static_cast<MinerStatus*>(args);
     while (true) {
         // Update top-layer overlays (benchmark/pause/fault) then drive pages + LVGL.
         OverlayManager::instance().update();
         UIManager::instance().render_update();
+        if (st) st->ui_update = millis();  // heartbeat for log-only stall check
         delay(5);
     }
 }

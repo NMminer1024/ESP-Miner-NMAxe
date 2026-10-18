@@ -39,6 +39,12 @@
 #define NVS_CONFIG_VCORE_FAN_SPEED          "vcorefanspeed" // enabe manual fan speed control for Vcore cooling, value in percentage (0-100) , if applicable
 #define NVS_CONFIG_TPS53647_PHASE_NUM       "tps53647phn"   // number of phases for TPS53647 power management (2 or 3), for QAxe++
 
+// Tunables — defaults equal the historical hardcoded values, so behavior is
+// bit-identical when these keys are unset.
+#define NVS_CONFIG_SCAN_YIELD_BATCH         "scanyieldbatch"  // IPs per ARP-yield batch (default 10)
+#define NVS_CONFIG_SCAN_YIELD_MS            "scanyieldms"     // yield delay ms (default 1100)
+#define NVS_CONFIG_NTP_SYNC_INTERVAL        "ntpsyncinterval" // NTP sync interval seconds (default 3600)
+
 #define NVS_CONFIG_AUTO_SCREEN              "autoscreen"
 #define NVS_CONFIG_BEST_EVER                "bestever"
 #define NVS_CONFIG_SELF_TEST                "selftest"
