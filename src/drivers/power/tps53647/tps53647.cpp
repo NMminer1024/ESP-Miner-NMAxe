@@ -550,49 +550,90 @@ bool TPS53647Class::is_ot_warn(void){
 void TPS53647Class::debugPrint(void){
     uint16_t raw = 0;
 
+    this->_read_reg(PMBUS_VOUT_COMMAND,       (uint8_t*)&raw, 2);
+    uint8_t  vout_command = (uint8_t)(raw & 0xFF);
+    uint16_t cmd_mv = this->_vid_to_mv(vout_command);
     this->_read_reg(PMBUS_READ_VOUT, (uint8_t*)&raw, 2);
-    uint8_t vid = (uint8_t)(raw & 0xFF);
-    float vout = this->_vid_to_mv(vid) / 1000.0f;
+    float vout = this->_vid_to_mv((uint8_t)(raw & 0xFF)) / 1000.0f;
     this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
     float iout = this->_slinear11_to_float(raw);
+    this->_read_reg(PMBUS_READ_IIN,  (uint8_t*)&raw, 2);
+    float iin  = this->_slinear11_to_float(raw);
+    this->_read_reg(PMBUS_READ_POUT, (uint8_t*)&raw, 2);
+    float pout = this->_slinear11_to_float(raw);
     this->_read_reg(PMBUS_READ_PIN,  (uint8_t*)&raw, 2);
     float pin  = this->_slinear11_to_float(raw);
     this->_read_reg(PMBUS_READ_TEMPERATURE_1, (uint8_t*)&raw, 2);
     float temp_c = this->_slinear11_to_float(raw);
 
+    // What the chip itself is actually configured to protect against (SLINEAR11
+    // readback). If these are far above what the MOS FETs can take, the chip
+    // will never trip in time and the FETs burn instead — that is what to watch.
+    this->_read_reg(PMBUS_IOUT_OC_FAULT_LIMIT, (uint8_t*)&raw, 2);
+    float oc_fault_lim = this->_slinear11_to_float(raw);
+    this->_read_reg(PMBUS_IOUT_OC_WARN_LIMIT,  (uint8_t*)&raw, 2);
+    float oc_warn_lim  = this->_slinear11_to_float(raw);
+
     uint16_t status_word = 0;
     uint8_t  status_vout = 0, status_iout = 0, status_input = 0;
-    uint8_t  status_temp = 0, status_cml = 0;
-    uint8_t  operation = 0, on_off_config = 0, vout_command = 0;
-    this->_read_reg(PMBUS_STATUS_WORD,        (uint8_t*)&status_word, 2);
-    this->_read_reg(PMBUS_STATUS_VOUT,        &status_vout,    1);
-    this->_read_reg(PMBUS_STATUS_IOUT,        &status_iout,    1);
-    this->_read_reg(PMBUS_STATUS_INPUT,       &status_input,   1);
-    this->_read_reg(PMBUS_STATUS_TEMPERATURE, &status_temp,    1);
-    this->_read_reg(PMBUS_STATUS_CML,         &status_cml,     1);
-    this->_read_reg(PMBUS_OPERATION,          &operation,      1);
-    this->_read_reg(PMBUS_ON_OFF_CONFIG,      &on_off_config,  1);
-    this->_read_reg(PMBUS_VOUT_COMMAND,       &vout_command,   1);
+    uint8_t  status_temp = 0, status_cml = 0, status_mfr = 0;
+    this->_read_reg(PMBUS_STATUS_WORD,          (uint8_t*)&status_word, 2);
+    this->_read_reg(PMBUS_STATUS_VOUT,          &status_vout, 1);
+    this->_read_reg(PMBUS_STATUS_IOUT,          &status_iout, 1);
+    this->_read_reg(PMBUS_STATUS_INPUT,         &status_input, 1);
+    this->_read_reg(PMBUS_STATUS_TEMPERATURE,   &status_temp, 1);
+    this->_read_reg(PMBUS_STATUS_CML,           &status_cml, 1);
+    this->_read_reg(PMBUS_STATUS_MFR_SPECIFIC,  &status_mfr, 1);
 
-    LOG_W("-----------TPS53647 vcore bring-up state-----------");
-    LOG_W("  VOUT=%.3fV  IOUT=%.2fA  PIN=%.2fW  TEMP=%.1f\xc2\xb0" "C", vout, iout, pin, temp_c);
-    LOG_W("  target: VOUT_COMMAND=0x%02X(%dmV)  OPERATION=0x%02X[ON:%d]  ON_OFF_CONFIG=0x%02X[EN-pin:%d pol:%d op-cmd:%d]",
-          vout_command, this->_vid_to_mv(vout_command),
-          operation, (operation >> 7) & 1,
-          on_off_config, (on_off_config >> 2) & 1, (on_off_config >> 4) & 1, (on_off_config >> 3) & 1);
-    LOG_W("  STATUS_WORD=0x%04X [PG#:%d OFF:%d VOUT_OV:%d IOUT_OC:%d VIN_UV:%d TEMP:%d CML:%d]",
-          status_word,
-          (status_word >> 11) & 1, (status_word >> 6) & 1, (status_word >> 5) & 1,
-          (status_word >> 4) & 1, (status_word >> 3) & 1, (status_word >> 2) & 1,
-          (status_word >> 1) & 1);
-    LOG_W("  VOUT_ST=0x%02X[OV_F:%d UV_F:%d]  IN_ST=0x%02X[VIN_UV_F:%d]  CML_ST=0x%02X[bad_cmd:%d bad_data:%d]",
-          status_vout, (status_vout >> 7) & 1, (status_vout >> 4) & 1,
-          status_input, (status_input >> 4) & 1,
-          status_cml, (status_cml >> 7) & 1, (status_cml >> 6) & 1);
-    LOG_W("  IOUT_ST=0x%02X[OC_F:%d OC_W:%d]  TEMP_ST=0x%02X[OT_F:%d OT_W:%d]",
-          status_iout, (status_iout >> 7) & 1, (status_iout >> 5) & 1,
+    LOG_W("--------- TPS53647 vcore state ---------");
+    LOG_W("  VOUT_CMD    : 0x%02X = %dmV", vout_command, cmd_mv);
+    LOG_W("  VOUT        : %.3fV (cmd %dmV, diff %+dmV)",
+          vout, cmd_mv, (int)(vout * 1000.0f) - (int)cmd_mv);
+    LOG_W("  IOUT        : %.2fA  (%.1fA/phase x%u)",
+          iout, iout / (float)this->_cfg.num_phases, this->_cfg.num_phases);
+    LOG_W("  IIN         : %.2fA", iin);
+    LOG_W("  PIN         : %.2fW", pin);
+    LOG_W("  POUT        : %.2fW", pout);
+    if (pin > 0.5f) {
+        // Conversion loss shows up as heat in the MOS FETs — a rising loss at the
+        // same IOUT is an early sign of degrading/failing FETs.
+        LOG_W("  EFF         : %.1f%% (loss %.1fW)", pout / pin * 100.0f, pin - pout);
+    }
+    LOG_W("  TEMP        : %.1f\xc2\xb0" "C", temp_c);
+    LOG_W("  OC_FAULT_LIM: %.0fA (chip)  cfg=%.0fA", oc_fault_lim, this->_cfg.ifault);
+    LOG_W("  OC_WARN_LIM : %.0fA (chip)", oc_warn_lim);
+    if (oc_fault_lim > 1.0f) {
+        LOG_W("  IOUT_LOAD   : %.0f%% of OC_FAULT_LIM", iout / oc_fault_lim * 100.0f);
+    }
+    LOG_W("  STATUS_WORD : 0x%04X  PG:%s OFF:%d",
+          status_word, ((status_word >> 11) & 1) ? "BAD" : "OK", (status_word >> 6) & 1);
+    LOG_W("  STATUS_IOUT : 0x%02X  OC_FAULT:%d OC_WARN:%d",
+          status_iout, (status_iout >> 7) & 1, (status_iout >> 5) & 1);
+    LOG_W("  STATUS_VOUT : 0x%02X  OV_FAULT:%d UV_FAULT:%d",
+          status_vout, (status_vout >> 7) & 1, (status_vout >> 4) & 1);
+    LOG_W("  STATUS_TEMP : 0x%02X  OT_FAULT:%d OT_WARN:%d",
           status_temp, (status_temp >> 7) & 1, (status_temp >> 6) & 1);
-    LOG_W("--------------------------------------------------");
+    LOG_W("  STATUS_INPUT: 0x%02X  VIN_UV_FAULT:%d", status_input, (status_input >> 4) & 1);
+    LOG_W("  STATUS_CML  : 0x%02X  BAD_CMD:%d BAD_DATA:%d",
+          status_cml, (status_cml >> 7) & 1, (status_cml >> 6) & 1);
+    LOG_W("  STATUS_MFR  : 0x%02X", status_mfr);
+
+    // Current-related red flags for the burned-MOS investigation.
+    if (status_iout & 0x80) {
+        LOG_W("  !! OC_FAULT latched: chip saw output overcurrent (sticky until CLEAR_FAULTS)");
+    }
+    if (oc_warn_lim > 1.0f && iout >= oc_warn_lim) {
+        LOG_W("  !! IOUT %.1fA is AT/ABOVE OC_WARN_LIM %.0fA", iout, oc_warn_lim);
+    }
+    if (oc_fault_lim > 1.0f && iout >= 0.9f * oc_fault_lim) {
+        LOG_W("  !! IOUT within 10%% of OC_FAULT_LIM (%.0fA): chip-side protection margin is thin",
+              oc_fault_lim);
+    }
+    if (this->_cfg.ifault > 0.0f && oc_fault_lim > 1.0f && fabsf(oc_fault_lim - this->_cfg.ifault) > 5.0f) {
+        LOG_W("  !! chip OC_FAULT_LIM %.0fA != cfg %.0fA: limit write may not have applied",
+              oc_fault_lim, this->_cfg.ifault);
+    }
+    LOG_W("----------------------------------------");
 }
 
 // ---------------------------------------------------------------------------
