@@ -173,6 +173,25 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 ## Release Log
 ***
 
+### (2026.10.19) - v3.2.01
+- `Add`:
+  - **Independent mDNS Hostname**: reachable via `http://<mdnsName>.local`; configurable on the Network Edit page, effective after reboot.
+  - **Swarm mDNS Auto-Discovery**: 10 s periodic discovery merged into `/alive`; when mDNS covers all peers the ICMP scan cadence auto-relaxes (5 min -> 30/60 min); `?force=1` triggers a deep scan.
+  - **TPS53647 Current Diagnostics**: current-centric debug print (per-phase IOUT, OC-limit margin, latched-fault red flags) to help diagnose burned MOSFETs.
+- `Modify`:
+  - **Async Stratum Share Submit**: asic_rx only enqueues; the stratum thread owns the socket, eliminating cross-thread TLS access.
+  - **Per-board Firmware Trimming**: each build compiles only its matching resolution UI pages/backgrounds; numeric fonts subsetted — saves ~1.6 MB flash per env.
+- `Improved`:
+  - **Swarm Web Requests Halved**: per-device 3 s polling replaced by the summary endpoint; non-miner hosts blacklisted for 5 min.
+  - **Hashrate Display Anti-flicker**: `formatNumber` pre-rounds at powers-of-10 boundaries, eliminating the 10.00 flicker.
+- `Fixed`:
+  - **TLS double-free crash**: two threads concurrently closing the same TLS connection caused CORRUPT HEAP reboots — root-fixed by the async share submit rework.
+  - **TPS53647 Soft-Start**: re-asserts `VOUT_COMMAND` after EN, fixing Vcore bring-up when the chip holds the NVM default.
+- `Remove`:
+  - None.
+- `API`:
+  - `GET/PATCH /api/setting/network` + `mdnsName`; new `GET /api/swarm/summary`; `GET /api/swarm/status` + `mdns_active` / `mdns_next_in`.
+
 ### (2026.09.22) - v3.1.03
 - `Add`:
   - **NMQAxe++Nexus Board Support**: New board variant (BM1373 ASIC).
