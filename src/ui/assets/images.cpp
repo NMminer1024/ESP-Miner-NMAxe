@@ -20,15 +20,18 @@ void images_init(uint16_t w, uint16_t h) {
     const uint32_t bytes = (uint32_t)w * h * LV_COLOR_SIZE / 8;
     auto set = [&](lv_img_dsc_t& d) { d.header.w = w; d.header.h = h; d.data_size = bytes; };
 
-    if (h <= 160) {   // 135x240 set (NMAxe / Gamma)
-        set(loading_page_img_135_240);  set(config_page_img_135_240);
-        set(mining_page_img_135_240);   set(black_page_img_135_240);
-        set(block_hits_page_img_135_240); set(new_achievement_page_img_135_240);
-        set(status_page_img_135_240);
-    } else {          // 240x320 set (NMQAxe++)
-        set(loading_page_img_240_320);  set(config_page_img_240_320);
-        set(mining_page_img_240_320);   set(black_page_img_240_320);
-        set(block_hits_page_img_240_320); set(new_achievement_page_img_240_320);
-        set(status_page_img_240_320);
-    }
+    // Only the active resolution's descriptors exist at compile time
+    // (see ui_resolution.h); the runtime w/h still sets their dimensions.
+#if UI_RES_135_240
+    set(loading_page_img_135_240);  set(config_page_img_135_240);
+    set(mining_page_img_135_240);   set(black_page_img_135_240);
+    set(block_hits_page_img_135_240); set(new_achievement_page_img_135_240);
+    set(status_page_img_135_240);
+#endif
+#if UI_RES_240_320
+    set(loading_page_img_240_320);  set(config_page_img_240_320);
+    set(mining_page_img_240_320);   set(black_page_img_240_320);
+    set(block_hits_page_img_240_320); set(new_achievement_page_img_240_320);
+    set(status_page_img_240_320);
+#endif
 }

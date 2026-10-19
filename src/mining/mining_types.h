@@ -16,6 +16,9 @@ typedef uint16_t asic_id_t;
 // ── Mining timing constants (mirror legacy global.h) ────────────────────────
 #define MINER_ASIC_ALIVE_TIMEOUT        (1000*60*3)  // ms, ASIC frozen watchdog
 #define MINER_STRATUM_ALIVE_TIMEOUT     (1000*60*5)  // ms, pool silence watchdog
+// UI/LVGL stall detection is log-only (no reboot action): the threshold is set
+// far above any legitimate render pause so it never fires in normal operation.
+#define MINER_UI_ALIVE_TIMEOUT          (1000*60*2)  // ms, UI render stall (log-only)
 #define MINER_RESUME_GRACE_MS           (1000*60*3)  // ms, post-resume grace window
 #define MINER_LOG_SUMMARY_INTERVAL      (1000*60*1)  // ms, summary log cadence
 
@@ -84,6 +87,7 @@ struct MinerStatus {
     uint32_t   latency = 0;             // ms, pool round-trip
     uint32_t   asic_update = 0;         // ms, last ASIC response timestamp
     uint32_t   stratum_update = 0;      // ms, last stratum data timestamp
+    volatile uint32_t ui_update = 0;    // ms, last UI render heartbeat (log-only stall check)
 
     // --- runtime control (owned by miner tx; read by power/fan/rx/web) ---
     volatile MinerRuntimeState runtime_state = MINER_RUNTIME_RUNNING;

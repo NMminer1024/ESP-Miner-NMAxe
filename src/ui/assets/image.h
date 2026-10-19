@@ -1,16 +1,19 @@
 #ifndef IMAGE_H_
 #define IMAGE_H_
 
+#include "ui_resolution.h"
+// Each *_img.h guards its per-resolution bitmap arrays with UI_RES_135_240 /
+// UI_RES_240_320, so only the active resolution's data is compiled here.
 #include "loading_img.h"
 #include "mining_img.h"
 #include "config_img.h"
 #include "status_img.h"
 #include "black_img.h"
 #include "blockhit_img.h"
+#include "achievement_img.h"
 #include "logo_img.h"
 #include "rev61_logo_array.h"
 #include "nexus_logo_array.h"
-#include "achievement_img.h"
 
 /****************************** worker logo****************************/
 
@@ -87,6 +90,7 @@ lv_img_dsc_t logo_worker_nexus = {
 };
 
 /****************************** 135x240 page images****************************/
+#if UI_RES_135_240
 lv_img_dsc_t loading_page_img_135_240 = {
     .header = {
         .cf = LV_IMG_CF_TRUE_COLOR,  
@@ -170,9 +174,11 @@ lv_img_dsc_t new_achievement_page_img_135_240 = {
     .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
     .data = (const uint8_t *)achievement_page_img_array_135_240,
 };
+#endif  // UI_RES_135_240
 
 
 /****************************** 240x320 page images****************************/
+#if UI_RES_240_320
 lv_img_dsc_t loading_page_img_240_320 = {
     .header = {
         .cf = LV_IMG_CF_TRUE_COLOR,  
@@ -256,5 +262,6 @@ lv_img_dsc_t new_achievement_page_img_240_320 = {
     .data_size = 0 * 0 * LV_COLOR_SIZE / 8,
     .data = (const uint8_t *)achievement_img_array_240_320,
 };
+#endif  // UI_RES_240_320
 
 #endif

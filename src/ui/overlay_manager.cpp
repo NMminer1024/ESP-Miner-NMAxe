@@ -1234,8 +1234,11 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
         _transient_kind != TransientOverlayKind::CelebrationBlockHit &&
         _transient_kind != TransientOverlayKind::CelebrationHighDiff) {
         _block_hit_achieved_at = millis();
-        const lv_img_dsc_t* img = (LV_VER_RES <= 135)
-            ? &block_hits_page_img_135_240 : &block_hits_page_img_240_320;
+#if UI_RES_135_240
+        const lv_img_dsc_t* img = &block_hits_page_img_135_240;
+#else
+        const lv_img_dsc_t* img = &block_hits_page_img_240_320;
+#endif
         _show_celebration(0xFFD700, "BLOCK FOUND!",
             "Congratulations!\nYou solved a block!", img);
         _transient_kind = TransientOverlayKind::CelebrationBlockHit;
@@ -1255,8 +1258,11 @@ bool OverlayManager::_render_celebration_overlay(uint32_t now, EventBits_t bits)
         if (_ctx.status) body = formatNumber(_ctx.status->diff.best_ever, 4);
         _high_diff_last_best = _ctx.status ? _ctx.status->diff.best_ever : 0.0;
         _high_diff_achieved_at = millis();
-        const lv_img_dsc_t* img = (LV_VER_RES <= 135)
-            ? &new_achievement_page_img_135_240 : &new_achievement_page_img_240_320;
+#if UI_RES_135_240
+        const lv_img_dsc_t* img = &new_achievement_page_img_135_240;
+#else
+        const lv_img_dsc_t* img = &new_achievement_page_img_240_320;
+#endif
         _show_celebration(0x00E5FF, "NEW BEST!", body, img);
         _transient_kind = TransientOverlayKind::CelebrationHighDiff;
         _celebration_is_block_hit = false;
