@@ -173,7 +173,7 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 ## Release Log
 ***
 
-### (2026.10.19) - v3.2.01
+### (2026.10.20) - v3.2.01
 - `Add`:
   - **Independent mDNS Hostname**: reachable via `http://<mdnsName>.local`; configurable on the Network Edit page, effective after reboot.
   - **Swarm mDNS Auto-Discovery**: 10 s periodic discovery merged into `/alive`; when mDNS covers all peers the ICMP scan cadence auto-relaxes (5 min -> 30/60 min); `?force=1` triggers a deep scan.
