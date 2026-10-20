@@ -21,6 +21,42 @@
     font-style: italic;
     font-size: 12px;
   }
+
+  // settings.component.scss styles .mining-pool-section .pool-header via ::ng-deep
+  // (leaks into this nested <app-edit> component). On narrow screens the chip-style
+  // description collapses into a tall column and overlaps the mode buttons below —
+  // re-stack the header and flatten the description to a normal full-width line.
+  // (.perf-section raises specificity above the leaked 4-class selector.)
+  &.perf-section .pool-header {
+    flex-wrap: wrap;
+
+    .pool-description {
+      flex-basis: 100%;
+      margin-left: 0;
+      margin-top: 6px;
+      padding: 0;
+      background: transparent;
+      border-radius: 0;
+      text-align: left;
+      line-height: 1.4;
+      opacity: 1;
+    }
+  }
+}
+
+// Narrow screens: keep the three preset buttons readable — shrink the value
+// line so "~5.27TH/s@96W" fits inside each flex:1 button without clipping.
+@media (max-width: 480px) {
+  .mode-btn.p-button {
+    padding: 10px 4px;
+
+    .mode-btn-value {
+      font-size: 10px;
+
+      .num  { font-size: 11px; }
+      .unit { font-size: 9px;  }
+    }
+  }
 }
 
 .primary-pool {
@@ -181,11 +217,13 @@
 
 .mode-btn.p-button {
   flex: 1;
+  min-width: 0; // allow shrinking below intrinsic content width inside .mode-buttons
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   padding: 10px 8px;
+  white-space: normal; // PrimeNG default nowrap causes horizontal clipping in narrow buttons
   background: #4a4a4a;
   border: 1px solid #5a5a5a;
   color: #ddd;
@@ -210,6 +248,12 @@
     font-size: 11px;
     opacity: 0.85;
     line-height: 1.2;
+    // Wrap instead of overflowing the button border on narrow buttons.
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    column-gap: 3px;
+    max-width: 100%;
 
     &.mode-eco    { color: #7ee2a0; }
     &.mode-normal { color: #7cc4ff; }
@@ -224,6 +268,11 @@
       font-size: 11px;
       opacity: 0.8;
       margin: 0 1px;
+    }
+
+    // Keep "~5.27TH/s" and "@110W" as atomic units when wrapping.
+    .mode-val-hr, .mode-val-pw {
+      white-space: nowrap;
     }
   }
 
