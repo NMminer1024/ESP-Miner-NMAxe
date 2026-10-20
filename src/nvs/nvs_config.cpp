@@ -289,15 +289,58 @@ bool erase_all_nvs(void){
 // bm_r_start (oldest index) + bm_r_cnt (entry count); appends past the cap
 // overwrite the oldest entry — same LRU semantics as the legacy single-string
 // eviction. Read side reassembles the identical "[{...},{...}]" JSON string.
+//
+// Upsert semantics: the (freq, vcore) pair is the unique key of an entry.
+// Writing an entry whose freq AND vcore exactly match an existing one
+// overwrites it in place (ring position and count unchanged, ts refreshed).
+// e.g. 325MHz/1125mV vs 325MHz/1124mV are DIFFERENT keys -> both stored.
 
 static void bm_r_key(char* out, size_t out_len, uint16_t idx) {
     snprintf(out, out_len, "bm_r_%03u", idx);
+}
+
+// Entries are flat JSON objects; freq/vcore are plain integers, so a light
+// strstr+atoi parse is enough (no ArduinoJson needed in this hot path).
+static bool bm_r_parse_fv(const char* entry_json, uint16_t& freq, uint16_t& vcore) {
+    const char* f = strstr(entry_json, "\"freq\":");
+    const char* v = strstr(entry_json, "\"vcore\":");
+    if (!f || !v) return false;
+    freq  = (uint16_t)atoi(f + 7);
+    vcore = (uint16_t)atoi(v + 8);
+    return true;
 }
 
 static esp_err_t bm_result_append_ring(const char* entry_json) {
     uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
     uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
     esp_err_t err  = ESP_OK;
+
+    // Upsert: exact (freq, vcore) match -> overwrite that slot in place.
+    uint16_t nf = 0, nv = 0;
+    if (bm_r_parse_fv(entry_json, nf, nv)) {
+        for (uint16_t i = 0; i < cnt; i++) {
+            uint16_t pos = (start + i) % BM_RESULT_MAX_ENTRIES;
+            char key[12];
+            bm_r_key(key, sizeof(key), pos);
+            char* old = nvs_config_get_string(key, "");
+            if (!old) continue;
+            uint16_t of = 0, ov = 0;
+            bool match = bm_r_parse_fv(old, of, ov) && of == nf && ov == nv;
+            free(old);
+            if (match) {
+                err = nvs_config_try_set_string(key, entry_json);
+                if (err == ESP_OK) {
+                    LOG_W("[BM] Same (freq=%u, vcore=%u) entry exists — overwritten with latest result.", nf, nv);
+                    return ESP_OK;
+                }
+                // In-place write failed (e.g. NVS full and new value is longer)
+                // — fall through to the append+evict path below.
+                LOG_W("[BM] In-place overwrite failed (%s), falling back to append.", esp_err_to_name(err));
+                break;
+            }
+        }
+    }
+
     while (true) {
         uint16_t pos = (cnt < BM_RESULT_MAX_ENTRIES) ? (start + cnt) % BM_RESULT_MAX_ENTRIES : start;
         char key[12];
