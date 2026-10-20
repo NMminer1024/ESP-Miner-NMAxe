@@ -248,7 +248,7 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 { "timezone": "8.0", "timeFormat": 24, "dateFormat": "YYYY/MM/DD" }
 ```
 
-> `timeFormat`: `24` = 24-hour, `12` = 12-hour.
+> `timeFormat`: `24` = 24-hour, `12` = 12-hour. All three fields apply in real time after `PATCH` — no restart required. `timeFormat`/`dateFormat` are read live by the display render loop; a changed `timezone` (numeric UTC offset, e.g. `"8.0"`) is re-applied by the monitor thread (`setenv("TZ")` + `tzset()`) within ~1 second via `SYS_EVENT_TZ_CHANGED`, instead of waiting for the next hourly NTP sync.
 
 ### Mining — `/api/setting/mining`
 

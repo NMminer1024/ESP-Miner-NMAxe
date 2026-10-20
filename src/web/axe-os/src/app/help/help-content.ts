@@ -303,7 +303,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• You must click Save and then restart the device for time changes to take effect.\n• The device syncs time from the internet via NTP (Network Time Protocol) automatically on boot — if the time shown is wrong, check your network connection and timezone offset.\n• Time is not battery-backed; the clock resets to epoch on power loss and re-syncs after WiFi connects.'
+        body: '• Changes apply in real time after saving — no restart needed (the timezone offset takes effect within a second).\n• The device syncs time from the internet via NTP (Network Time Protocol) automatically on boot — if the time shown is wrong, check your network connection and timezone offset.\n• Time is not battery-backed; the clock resets to epoch on power loss and re-syncs after WiFi connects.'
       }
     ]
   },

@@ -96,8 +96,41 @@ void monitor_thread_entry(void* args) {
     ntpClient->setTimeOffset(0); // UTC, no timezone offset
     LOG_I("NTP client started, primary server: %s", NTP_SERVERS[ntp_server_idx]);
 
+    // Apply a numeric timezone offset (e.g. "8.0", "-5.5") to the C library TZ
+    // env so localtime_r()/strftime() render local time. POSIX TZ sign is
+    // inverted vs the offset (UTC+8 -> "UTC-8"). Shared by the NTP-sync path and
+    // the SYS_EVENT_TZ_CHANGED hot-reload path.
+    auto apply_tz = [](const String& tz_str) {
+        float tz_offset = tz_str.toFloat();
+        int tz_hour = (int)tz_offset;
+        int tz_min  = (int)((fabs(tz_offset) - abs(tz_hour)) * 60 + 0.5f);
+
+        char tz_buf[16] = {0};
+        if (tz_offset >= 0) {
+            if (tz_min == 0) sprintf(tz_buf, "UTC-%d",     tz_hour);
+            else             sprintf(tz_buf, "UTC-%d:%02d", tz_hour, tz_min);
+        } else {
+            if (tz_min == 0) sprintf(tz_buf, "UTC+%d",     abs(tz_hour));
+            else             sprintf(tz_buf, "UTC+%d:%02d", abs(tz_hour), tz_min);
+        }
+        setenv("TZ", tz_buf, 1);
+        tzset();
+        return String(tz_buf);
+    };
+
     while (true) {
         delay(1000);
+
+        // Hot-reload timezone: the web UI saved a new offset (SYS_EVENT_TZ_CHANGED).
+        // Re-read NVS into a local copy (avoids racing the web thread's write to
+        // the shared *g_web->tz String) and re-apply immediately so local time
+        // updates within ~1s instead of waiting for the next hourly NTP sync.
+        if (ctx->sys_evt && (xEventGroupGetBits(ctx->sys_evt) & SYS_EVENT_TZ_CHANGED)) {
+            xEventGroupClearBits(ctx->sys_evt, SYS_EVENT_TZ_CHANGED);
+            String tz_nvs = nvs_config_get_string_value(NVS_CONFIG_TIMEZONE, "8.0");
+            String applied = apply_tz(tz_nvs);
+            LOG_W("(monitor) timezone hot-reload: tz[%s] env[%s]", tz_nvs.c_str(), applied.c_str());
+        }
 
         // --- NTP sync ---
         bool wifi_up     = (WL_CONNECTED == *ctx->wifi_status);
@@ -115,20 +148,7 @@ void monitor_thread_entry(void* args) {
                 settimeofday(&tv, NULL);
                 *ctx->utc = tv.tv_sec;
 
-                float tz_offset = ctx->tz->toFloat();
-                int tz_hour = (int)tz_offset;
-                int tz_min  = (int)((fabs(tz_offset) - abs(tz_hour)) * 60 + 0.5f);
-
-                char tz_buf[16] = {0};
-                if (tz_offset >= 0) {
-                    if (tz_min == 0) sprintf(tz_buf, "UTC-%d",     tz_hour);
-                    else             sprintf(tz_buf, "UTC-%d:%02d", tz_hour, tz_min);
-                } else {
-                    if (tz_min == 0) sprintf(tz_buf, "UTC+%d",     abs(tz_hour));
-                    else             sprintf(tz_buf, "UTC+%d:%02d", abs(tz_hour), tz_min);
-                }
-                setenv("TZ", tz_buf, 1);
-                tzset();
+                String tz_buf = apply_tz(*ctx->tz);
 
                 String time_local = convert_time_to_local((uint32_t)*ctx->utc);
                 LOG_W("NTP sync OK  [server: %s] UTC[%llu] local[%s] tz[%s] env[%s]",

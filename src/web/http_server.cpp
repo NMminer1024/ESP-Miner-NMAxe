@@ -439,8 +439,18 @@ void patch_setting_time(AsyncWebServerRequest* request, uint8_t *data, size_t le
         }
         log_web_config_change("/api/setting/time", root.as<JsonObject>());
         if (root.containsKey("timezone")) {
-            nvs_config_set_string(NVS_CONFIG_TIMEZONE, root["timezone"].as<String>().c_str());
-            (*g_web->tz) = root["timezone"].as<String>();
+            const String new_tz = root["timezone"].as<String>();
+            const bool   tz_changed = (new_tz != *g_web->tz);
+            nvs_config_set_string(NVS_CONFIG_TIMEZONE, new_tz.c_str());
+            (*g_web->tz) = new_tz;
+            // timeFormat/dateFormat are read live by the UI render loop, but the
+            // TZ env (setenv/tzset) is only refreshed on NTP sync (hourly). Notify
+            // the monitor thread to re-apply it now so the offset takes effect
+            // within ~1s instead of after the next NTP sync / reboot.
+            if (tz_changed && g_web->sys_evt) {
+                xEventGroupSetBits(g_web->sys_evt, SYS_EVENT_TZ_CHANGED);
+                LOG_I("Timezone changed -> monitor TZ re-apply requested");
+            }
         }
         if (root.containsKey("timeFormat")) {
             uint8_t tf = root["timeFormat"].as<uint8_t>();

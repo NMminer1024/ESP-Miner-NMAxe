@@ -1234,7 +1234,7 @@
             <div class="col">
               <div class="block-label">PATCH – Request body</div>
               <pre>{
-  <span class="kw">"timezone"</span>:   <span class="str">"UTC"</span>,
+  <span class="kw">"timezone"</span>:   <span class="str">"8.0"</span>,  <span class="cmt">// numeric UTC offset</span>
   <span class="kw">"timeFormat"</span>: <span class="num">12</span>,  <span class="cmt">// 24=24h, 12=12h</span>
   <span class="kw">"dateFormat"</span>: <span class="str">"MM/DD/YYYY"</span>
 }</pre>
@@ -1242,6 +1242,7 @@
           </div>
           <div class="block-label">PATCH – Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="note">All three fields apply in real time after saving — no restart required. <code>timeFormat</code>/<code>dateFormat</code> are read live by the display render loop; a changed <code>timezone</code> is re-applied by the monitor thread (setenv TZ + tzset) within ~1 second via an event flag.</div>
         </div>
       </div>
 

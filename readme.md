@@ -181,6 +181,7 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 - `Modify`:
   - **Async Stratum Share Submit**: asic_rx only enqueues; the stratum thread owns the socket, eliminating cross-thread TLS access.
   - **Pool Config Hot-Apply**: saving Primary/Backup pool URL/user/password on the Mining settings card now applies without restart — the stratum thread re-reads NVS and reconnects within seconds when the active pool changed; invalid URLs are rejected with 400 before reaching NVS.
+  - **Time Settings Hot-Apply**: timezone / time format / date format on the Time settings card now apply without restart — the monitor thread re-applies the TZ env (setenv+tzset) within ~1s of a timezone change; format fields were already read live by the UI.
   - **Per-board Firmware Trimming**: each build compiles only its matching resolution UI pages/backgrounds; numeric fonts subsetted — saves ~1.6 MB flash per env.
 - `Improved`:
   - **Swarm Web Requests Halved**: per-device 3 s polling replaced by the summary endpoint; non-miner hosts blacklisted for 5 min.
