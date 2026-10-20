@@ -39,4 +39,5 @@ enum {
     SYS_EVENT_POWER_OC_FAULT             = (1 << 6),   // power overcurrent fault -> prompt user
     SYS_EVENT_POWER_OT_FAULT             = (1 << 7),   // power over-temperature fault -> prompt user
     SYS_EVENT_WRONG_FIRMWARE             = (1 << 8),   // boot-time firmware/board mismatch -> full-screen warning
+    SYS_EVENT_POOL_CONFIG_CHANGED        = (1 << 9),   // web saved pool config -> stratum thread hot-reloads NVS
 };

@@ -278,7 +278,7 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 }
 ```
 
-> `asicVcoreReq` and `asicFreqReq` both take effect in real time after `PATCH /api/setting/mining`. Vcore is applied through the power regulator; frequency is hot-switched through the ASIC PLL. Both values are saved to NVS for the next boot. Values outside the selectable dropdown range (`overclock.options` / `vcore.options`) are clamped to that range before saving. Stratum changes are saved to NVS and take effect after reconnect/restart.
+> `asicVcoreReq` and `asicFreqReq` both take effect in real time after `PATCH /api/setting/mining`. Vcore is applied through the power regulator; frequency is hot-switched through the ASIC PLL. Both values are saved to NVS for the next boot. Values outside the selectable dropdown range (`overclock.options` / `vcore.options`) are clamped to that range before saving. Stratum pool changes are saved to NVS and applied hot: the stratum thread re-reads NVS within a few seconds and reconnects when the *active* pool (primary/fallback in use) changed; an update to the idle pool applies at the next failover. Malformed pool URLs are rejected with `400 {"error":"invalid pool url"}` before anything is written to NVS.
 
 ### Market — `/api/setting/market`
 

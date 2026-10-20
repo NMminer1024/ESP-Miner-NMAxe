@@ -530,8 +530,45 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
             free(buf); return;
         }
         log_web_config_change("/api/setting/mining", root.as<JsonObject>());
+        bool pool_changed = false;
         if (root.containsKey("stratum") && root["stratum"].is<JsonObject>()) {
             JsonObject stratum = root["stratum"].as<JsonObject>();
+            // Validate URLs before storing so a malformed value never reaches NVS.
+            auto check_url = [&](const char* key, const char* val) -> bool {
+                pool_info_t tmp;
+                if (!parse_pool_url(String(val), tmp)) {
+                    LOG_W("Rejected invalid pool URL for %s: [%s]", key, val);
+                    return false;
+                }
+                return true;
+            };
+            bool valid = true;
+            const String old_url_pri = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL);
+            const String old_url_fb  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL);
+            if (stratum.containsKey("primary") && stratum["primary"].is<JsonObject>()) {
+                JsonObject primary = stratum["primary"].as<JsonObject>();
+                if (primary.containsKey("url")) {
+                    const String url = primary["url"].as<String>();
+                    if (!check_url("stratum.primary.url", url.c_str())) valid = false;
+                    else if (url != old_url_pri) pool_changed = true;
+                }
+                if (primary.containsKey("user") && primary["user"].as<String>() != nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_PRIMARY, "")) pool_changed = true;
+                if (primary.containsKey("pwd")  && primary["pwd"].as<String>()  != nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_PRIMARY, "")) pool_changed = true;
+            }
+            if (stratum.containsKey("fallback") && stratum["fallback"].is<JsonObject>()) {
+                JsonObject fallback = stratum["fallback"].as<JsonObject>();
+                if (fallback.containsKey("url")) {
+                    const String url = fallback["url"].as<String>();
+                    if (!check_url("stratum.fallback.url", url.c_str())) valid = false;
+                    else if (url != old_url_fb) pool_changed = true;
+                }
+                if (fallback.containsKey("user") && fallback["user"].as<String>() != nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_FALLBACK, "")) pool_changed = true;
+                if (fallback.containsKey("pwd")  && fallback["pwd"].as<String>()  != nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_FALLBACK, "")) pool_changed = true;
+            }
+            if (!valid) {
+                request->send(400, "application/json", "{\"error\":\"invalid pool url\"}");
+                free(buf); return;
+            }
             if (stratum.containsKey("primary") && stratum["primary"].is<JsonObject>()) {
                 JsonObject primary = stratum["primary"].as<JsonObject>();
                 if (primary.containsKey("url"))  nvs_config_set_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  primary["url"].as<String>().c_str());
@@ -543,6 +580,12 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
                 if (fallback.containsKey("url"))  nvs_config_set_string(NVS_CONFIG_STRATUM_URL_FALLBACK,  fallback["url"].as<String>().c_str());
                 if (fallback.containsKey("user")) nvs_config_set_string(NVS_CONFIG_STRATUM_USER_FALLBACK, fallback["user"].as<String>().c_str());
                 if (fallback.containsKey("pwd"))  nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, fallback["pwd"].as<String>().c_str());
+            }
+            // Hot-reload: notify the stratum thread (it re-reads NVS and rebuilds
+            // the pool connection itself; the web thread never touches ConnInfo).
+            if (pool_changed && g_web->sys_evt) {
+                xEventGroupSetBits(g_web->sys_evt, SYS_EVENT_POOL_CONFIG_CHANGED);
+                LOG_I("Pool config changed -> stratum hot-reload requested");
             }
         }
         if (root.containsKey("asicVcoreReq")) {

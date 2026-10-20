@@ -135,7 +135,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• Changes take effect after saving and rebooting.\n• The device tries the primary pool first; if it cannot connect within ~30 seconds it falls back to the backup pool.\n• Latency shown in the top bar is the RTT to the active Stratum server.'
+        body: '• Pool changes apply immediately after saving — the device reconnects to the new pool without a reboot.\n• The device tries the primary pool first; if it cannot connect within ~30 seconds it falls back to the backup pool.\n• Latency shown in the top bar is the RTT to the active Stratum server.'
       }
     ]
   },

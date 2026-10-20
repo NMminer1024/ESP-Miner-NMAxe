@@ -109,6 +109,57 @@ void stratum_thread_entry(void* args) {
             continue;
         } else w_retry = 0;
 
+        // Hot-reload pool config: the web thread saved new stratum settings to
+        // NVS (SYS_EVENT_POOL_CONFIG_CHANGED). Only this thread writes ConnInfo,
+        // so re-parse NVS here and rebuild the connection through the same
+        // reset()/begin()/connect() path used by primary<->fallback failover.
+        if (xEventGroupGetBits(ctx->sys_evt) & SYS_EVENT_POOL_CONFIG_CHANGED) {
+            xEventGroupClearBits(ctx->sys_evt, SYS_EVENT_POOL_CONFIG_CHANGED);
+
+            // Snapshot the old configs before re-parsing NVS: the active slot is
+            // identified by comparing against the saved primary/fallback values,
+            // and a reconnect is needed only if that slot's config changed.
+            const pool_info_t    old_pool_pri = conn.pool.primary;
+            const pool_info_t    old_pool_fb  = conn.pool.fallback;
+            const stratum_info_t old_str_pri  = conn.stratum.primary;
+            const stratum_info_t old_str_fb   = conn.stratum.fallback;
+            const bool was_primary = (conn.pool.use == old_pool_pri);
+
+            String url_pri = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL);
+            String url_fb  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL);
+            if (!parse_pool_url(url_pri, conn.pool.primary)) {
+                LOG_W("(stratum) new primary URL invalid [%s], keeping previous", url_pri.c_str());
+            }
+            if (!parse_pool_url(url_fb, conn.pool.fallback)) {
+                LOG_W("(stratum) new fallback URL invalid [%s], keeping previous", url_fb.c_str());
+            }
+            conn.stratum.primary.user  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_PRIMARY,  conn.stratum.primary.user.c_str());
+            conn.stratum.primary.pwd   = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_PRIMARY,  conn.stratum.primary.pwd.c_str());
+            conn.stratum.fallback.user = nvs_config_get_string_value(NVS_CONFIG_STRATUM_USER_FALLBACK, conn.stratum.fallback.user.c_str());
+            conn.stratum.fallback.pwd  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_PASS_FALLBACK, conn.stratum.fallback.pwd.c_str());
+
+            // Re-point the active slot from its (possibly new) source config.
+            conn.pool.use    = was_primary ? conn.pool.primary : conn.pool.fallback;
+            conn.stratum.use = was_primary ? conn.stratum.primary : conn.stratum.fallback;
+
+            // Reconnect only when the *active* slot changed; a change to the
+            // idle slot takes effect at the next failover automatically.
+            const bool active_changed = was_primary
+                ? (conn.pool.primary != old_pool_pri || conn.stratum.primary.user != old_str_pri.user || conn.stratum.primary.pwd != old_str_pri.pwd)
+                : (conn.pool.fallback != old_pool_fb || conn.stratum.fallback.user != old_str_fb.user || conn.stratum.fallback.pwd != old_str_fb.pwd);
+
+            if (active_changed) {
+                LOG_I("(stratum) active pool config changed -> reconnect [%s:%d]", conn.pool.use.url.c_str(), conn.pool.use.port);
+                stratum->reset(conn.pool.use, conn.stratum.use);
+                stratum->set_pool_difficulty(pool_init_diff);
+                stratum->pool->begin(conn.pool.use.ssl);
+                stratum->pool->connect();
+                st.diff.last = 0;
+            } else {
+                LOG_I("(stratum) idle pool config updated (no reconnect needed)");
+            }
+        }
+
         // check pool status
         if ((conn.pool.use == conn.pool.primary) && (stratum->pool->is_connected())) {
             is_primary_pool = true;

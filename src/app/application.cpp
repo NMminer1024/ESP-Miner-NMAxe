@@ -296,12 +296,14 @@ bool MinerApp::_init_mining_instances() {
     String stratum_pri = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_PRIMARY,  PRIMARY_POOL_URL);
     String stratum_fb  = nvs_config_get_string_value(NVS_CONFIG_STRATUM_URL_FALLBACK, FALLBACK_POOL_URL);
 
-    conn.pool.primary.ssl  = (stratum_pri.indexOf("ssl") != -1) || (stratum_pri.indexOf("tls") != -1);
-    conn.pool.primary.url  = stratum_pri.substring(stratum_pri.indexOf(":") + 3, stratum_pri.lastIndexOf(":"));
-    conn.pool.primary.port = stratum_pri.substring(stratum_pri.lastIndexOf(":") + 1).toInt();
-    conn.pool.fallback.ssl  = (stratum_fb.indexOf("ssl") != -1) || (stratum_fb.indexOf("tls") != -1);
-    conn.pool.fallback.url  = stratum_fb.substring(stratum_fb.indexOf(":") + 3, stratum_fb.lastIndexOf(":"));
-    conn.pool.fallback.port = stratum_fb.substring(stratum_fb.lastIndexOf(":") + 1).toInt();
+    if (!parse_pool_url(stratum_pri, conn.pool.primary)) {
+        LOG_W("Primary pool URL invalid [%s], using default", stratum_pri.c_str());
+        parse_pool_url(String(PRIMARY_POOL_URL), conn.pool.primary);
+    }
+    if (!parse_pool_url(stratum_fb, conn.pool.fallback)) {
+        LOG_W("Fallback pool URL invalid [%s], using default", stratum_fb.c_str());
+        parse_pool_url(String(FALLBACK_POOL_URL), conn.pool.fallback);
+    }
     conn.pool.use           = conn.pool.primary;
 
     // Stratum users/passwords (default worker = "<USER>.<spec.name>_<dev5>").

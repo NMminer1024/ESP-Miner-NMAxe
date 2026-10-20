@@ -48,6 +48,13 @@ void StratumClass::reset(pool_info_t pConfig, stratum_info_t sConfig){
     
     this->pool = new PoolClass(pConfig);
 
+    // Queued shares reference the OLD pool's job ids — dropping them prevents
+    // flush_submit_queue() from sending stale shares to the newly connected pool.
+    if (this->_submit_mutex != nullptr && xSemaphoreTake(this->_submit_mutex, portMAX_DELAY) == pdTRUE) {
+        this->_submit_queue.clear();
+        xSemaphoreGive(this->_submit_mutex);
+    }
+
     this->_job_counter = 0;
     this->_stratum_info = sConfig;
     this->_rsp_str = "";

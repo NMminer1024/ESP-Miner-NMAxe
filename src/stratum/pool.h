@@ -22,6 +22,21 @@ typedef struct pool_info_s {
     }
 } pool_info_t;
 
+// Parse "stratum+tcp://host:port" / "stratum+ssl://host:port" into a pool_info_t.
+// Returns false when the string has no scheme separator or a zero port, so
+// callers (boot init / web hot-reload) can reject malformed URLs consistently.
+static inline bool parse_pool_url(const String& url_str, pool_info_t& out) {
+    const int scheme_sep = url_str.indexOf("://");
+    if (scheme_sep < 0) return false;
+    const int last_colon = url_str.lastIndexOf(":");
+    if (last_colon <= scheme_sep + 2) return false;
+
+    out.ssl  = (url_str.indexOf("ssl") != -1) || (url_str.indexOf("tls") != -1);
+    out.url  = url_str.substring(scheme_sep + 3, last_colon);
+    out.port = url_str.substring(last_colon + 1).toInt();
+    return out.url.length() > 0 && out.port > 0;
+}
+
 class PoolClass{
 private:
     WiFiClientSecure        *_wificlientSecure;

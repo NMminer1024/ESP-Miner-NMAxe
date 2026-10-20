@@ -180,6 +180,7 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
   - **TPS53647 Current Diagnostics**: current-centric debug print (per-phase IOUT, OC-limit margin, latched-fault red flags) to help diagnose burned MOSFETs.
 - `Modify`:
   - **Async Stratum Share Submit**: asic_rx only enqueues; the stratum thread owns the socket, eliminating cross-thread TLS access.
+  - **Pool Config Hot-Apply**: saving Primary/Backup pool URL/user/password on the Mining settings card now applies without restart — the stratum thread re-reads NVS and reconnects within seconds when the active pool changed; invalid URLs are rejected with 400 before reaching NVS.
   - **Per-board Firmware Trimming**: each build compiles only its matching resolution UI pages/backgrounds; numeric fonts subsetted — saves ~1.6 MB flash per env.
 - `Improved`:
   - **Swarm Web Requests Halved**: per-device 3 s polling replaced by the summary endpoint; non-miner hosts blacklisted for 5 min.

@@ -1286,9 +1286,11 @@
   <span class="kw">"asicVcoreReq"</span>: <span class="num">1200</span>,   <span class="cmt">// mV – applied immediately, saved to NVS</span>
   <span class="kw">"asicFreqReq"</span>:  <span class="num">500</span>    <span class="cmt">// MHz – applied immediately via ASIC PLL, saved to NVS</span>
 }</pre>
-          <div class="note">ASIC frequency and Vcore both take effect in real time after saving. Frequency is hot-switched through the ASIC PLL; Vcore is applied through the power regulator. Values outside the selectable dropdown range are clamped to that range before saving. Stratum pool changes still require reconnect or restart.</div>
+          <div class="note">All fields take effect in real time after saving — no restart required. ASIC frequency is hot-switched through the ASIC PLL; Vcore is applied through the power regulator; values outside the selectable dropdown range are clamped to that range. Stratum pool changes are stored to NVS and the stratum thread reconnects to the new pool within a few seconds (only when the active pool changed; an idle backup pool update applies at the next failover). URLs must parse as <code>stratum+tcp://host:port</code> or <code>stratum+ssl://host:port</code>; invalid URLs are rejected with 400.</div>
           <div class="block-label">PATCH – Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <div class="block-label">PATCH – Response 400 (invalid pool URL)</div>
+          <pre>{ <span class="kw">"error"</span>: <span class="str">"invalid pool url"</span> }</pre>
         </div>
       </div>
 
