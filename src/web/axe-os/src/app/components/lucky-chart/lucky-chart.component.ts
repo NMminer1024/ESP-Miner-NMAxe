@@ -77,6 +77,23 @@ function formatTimestamp(timestamp: number): string {
   });
 }
 
+// 格式化日期为 MM-DD（本地时区，与 formatTimestamp 一致）
+function formatDateShort(timestamp: number): string {
+  const d = new Date(timestamp);
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// 数据是否跨越了多个日历日（本地时区）。幸运柱会被长期保留(top-3)，
+// 设备跑几天后时间轴可能跨天，此时需要显示日期避免混淆。
+function spansMultipleDays(data: { epoch: number }[]): boolean {
+  if (data.length < 2) return false;
+  const first = new Date(data[0].epoch);
+  const last = new Date(data[data.length - 1].epoch);
+  return first.getFullYear() !== last.getFullYear() ||
+         first.getMonth() !== last.getMonth() ||
+         first.getDate() !== last.getDate();
+}
+
 @Component({
   selector: 'app-lucky-chart',
   templateUrl: './lucky-chart.component.html',
@@ -692,6 +709,78 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     return 1; // Default minimum value for log scale
   }
 
+  /**
+   * 构建X轴标签：跨天时用两行（上：MM-DD，下：HH:MM:SS），且只在日期变化处显示日期行；
+   * 同一天时保持原来的单行 HH:MM:SS。
+   */
+  private buildTimeLabels(): (string | string[])[] {
+    const multiDay = spansMultipleDays(this.luckyData);
+    if (!multiDay) {
+      return this.luckyData.map(d => formatTimestamp(d.epoch));
+    }
+    let prevDate = '';
+    return this.luckyData.map(d => {
+      const dateStr = formatDateShort(d.epoch);
+      const timeStr = formatTimestamp(d.epoch);
+      if (dateStr !== prevDate) {
+        prevDate = dateStr;
+        return [dateStr, timeStr];
+      }
+      return timeStr;
+    });
+  }
+
+  /**
+   * 跨日分隔线插件：在相邻样本跨越本地日历日处画竖直虚线，并标注日期。
+   */
+  private createDayBoundaryPlugin() {
+    return {
+      id: 'dayBoundaries',
+      afterDatasetsDraw: (chart: any) => {
+        const data = this.luckyData;
+        if (!spansMultipleDays(data)) return;
+
+        const { ctx, scales: { x } } = chart;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta.data.length) return;
+
+        ctx.save();
+        for (let i = 1; i < data.length; i++) {
+          const a = new Date(data[i - 1].epoch);
+          const b = new Date(data[i].epoch);
+          const sameDay = a.getFullYear() === b.getFullYear() &&
+                          a.getMonth() === b.getMonth() &&
+                          a.getDate() === b.getDate();
+          if (sameDay) continue;
+
+          // boundary between category i-1 and i
+          const xPrev = meta.data[i - 1]?.x;
+          const xCur = meta.data[i]?.x;
+          if (xPrev == null || xCur == null) continue;
+          const bx = (xPrev + xCur) / 2;
+          const top = chart.chartArea.top;
+          const bottom = chart.chartArea.bottom;
+
+          ctx.beginPath();
+          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+          ctx.lineWidth = 1;
+          ctx.moveTo(bx, top);
+          ctx.lineTo(bx, bottom);
+          ctx.stroke();
+
+          // date label above the boundary
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(formatDateShort(data[i].epoch), bx, top - 4);
+        }
+        ctx.restore();
+      }
+    };
+  }
+
   private initializeChart(): void {
     if (!this.chartCanvas || !this.isComponentActive) return;
 
@@ -715,7 +804,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     const logMin = 1;
 
     const chartData: ChartData = {
-      labels: this.luckyData.map(d => formatTimestamp(d.epoch)),
+      labels: this.buildTimeLabels(),
       datasets: [
         {
           type: 'bar' as const,
@@ -771,7 +860,10 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
             title: (context: any) => {
               const index = context[0].dataIndex;
               const epoch = this.luckyData[index].epoch;
-              return formatTimestamp(epoch);
+              // 跨天时tooltip标题带上日期，避免只看到时分秒产生混淆
+              return spansMultipleDays(this.luckyData)
+                ? `${formatDateShort(epoch)} ${formatTimestamp(epoch)}`
+                : formatTimestamp(epoch);
             },
             label: (context: any) => {
               const index = context.dataIndex;
@@ -839,7 +931,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
       type: 'bar',
       data: chartData,
       options: chartOptions,
-      plugins: [this.createModernBarPlugin(), this.createMedalPlugin()] // 添加现代化柱子插件和奖牌插件
+      plugins: [this.createModernBarPlugin(), this.createMedalPlugin(), this.createDayBoundaryPlugin()] // 柱子/奖牌/跨日分隔线插件
     };
 
     this.chart = new Chart(ctx, config);
@@ -856,7 +948,7 @@ export class LuckyChartComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('🔄 Updating lucky chart...');
 
     // 先更新数据和样式
-    this.chart.data.labels = this.luckyData.map(d => formatTimestamp(d.epoch));
+    this.chart.data.labels = this.buildTimeLabels();
     
     if (this.chart.data.datasets[0]) {
       this.chart.data.datasets[0].data = this.luckyData.map(d => d.share_diff > 0 ? d.share_diff : 0.1);
