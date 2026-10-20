@@ -44,9 +44,20 @@ static inline float fan_clamp_target_temp(float target, float limit_high)
     return (target > max_t) ? max_t : target;
 }
 
+// Tri-state self-test result so the UI can distinguish "still testing"
+// from "tested and failed" (plain bool self_test is false in both cases).
+// Written by the fan self-test task AFTER rpm/self_test are updated, so the
+// UI can treat a non-zero state as "the rpm next to it is this round's result".
+enum fan_self_test_state_t : uint8_t {
+    FAN_SELF_TEST_TESTING = 0,
+    FAN_SELF_TEST_PASS    = 1,
+    FAN_SELF_TEST_FAIL    = 2,
+};
+
 typedef struct{
     uint8_t     id;        // Fan identifier
     bool        self_test; // Self-test status
+    uint8_t     self_test_state; // fan_self_test_state_t: last completed self-test round result
     uint16_t    speed;     //%
     uint16_t    rpm;       //RPM
 }fan_status_t;

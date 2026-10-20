@@ -368,6 +368,9 @@ void fan_thread_entry(void* args) {
                 a->fan_status->rpm = rpm; // live update so loading page shows real-time RPM
             }
             a->fan_status->self_test = (rpm > a->rpm_thr);
+            // Written last: once the UI sees a non-TESTING state, rpm is already
+            // this round's measured value.
+            a->fan_status->self_test_state = a->fan_status->self_test ? FAN_SELF_TEST_PASS : FAN_SELF_TEST_FAIL;
             LOG_W("Fan[%d] self test result: %s, measured rpm: %d, threshold rpm: %d",
                   a->fan_status->id, a->fan_status->self_test ? "OK" : "FAIL", rpm, a->rpm_thr);
             xSemaphoreGive(a->done);
@@ -385,6 +388,9 @@ void fan_thread_entry(void* args) {
             st_args[i].fan_status = &fan;
             st_args[i].rpm_thr    = fan_cfg->init.self_test_rpm_thr;
             st_args[i].done       = st_done;
+            // Mark this round as in-progress so the loading page doesn't keep
+            // showing a stale FAIL from the previous round while measuring.
+            fan.self_test_state = FAN_SELF_TEST_TESTING;
             xTaskCreate(selftest_task, "fan_st", 4096, &st_args[i], uxTaskPriorityGet(NULL), NULL);
             i++;
         }
@@ -395,7 +401,14 @@ void fan_thread_entry(void* args) {
         for (auto& fan : fan_list) all_fan_ok = all_fan_ok && fan.self_test;
 
         if (all_fan_ok) { LOG_W("All fans passed self test."); break; }
-        else LOG_W("Some fans failed self test, retrying...");
+        else {
+            LOG_W("Some fans failed self test, retrying...");
+            // Hold the FAIL state before the next round overwrites it with
+            // TESTING. Without this, the state lives only a few ms between
+            // semaphore return and the next loop iteration, so the loading
+            // page (10ms poll) barely catches one frame of the FAIL message.
+            delay(2500);
+        }
     }
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_FAN_READY);
     delay(2000); // let user see the self-test result on loading page before fan speed changes

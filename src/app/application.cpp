@@ -354,10 +354,11 @@ void MinerApp::_begin_fan(BootProgress& boot) {
     uint16_t default_speed = nvs_config_get_u16(NVS_CONFIG_ASIC_FAN_SPEED, 100);
     for (uint8_t i = 0; i < _board_spec.fans.size(); i++) {
         fan_status_t state;
-        state.id        = i;
-        state.self_test = false;
-        state.speed     = default_speed;
-        state.rpm       = 0;
+        state.id             = i;
+        state.self_test      = false;
+        state.self_test_state = FAN_SELF_TEST_TESTING;
+        state.speed          = default_speed;
+        state.rpm            = 0;
         _state_fans.push_back(state);
     }
 
@@ -864,12 +865,32 @@ void MinerApp::_tick_thread_entry(void* args) {
                     break;
 
                 case LoadingStage::WAIT_FAN_READY: {
-                    String fan_msg = FAN_SELF_TEST_STR[anim_idx];
-                    if (!app._state_fans.empty()) {
-                        fan_msg += String(app._state_fans[0].rpm) + "/ " +
-                                   String(app._board_spec.fans[0].init.self_test_rpm_thr) + "rpm";
+                    // If any fan failed the current/last self-test round, surface
+                    // which one on the loading page (red/white blink), mirroring
+                    // the serial log. self_test_state is written by the fan task
+                    // after rpm, so a FAIL state always pairs with a fresh rpm.
+                    int failed_idx = -1;
+                    for (size_t fi = 0; fi < app._state_fans.size(); fi++) {
+                        if (app._state_fans[fi].self_test_state == FAN_SELF_TEST_FAIL) {
+                            failed_idx = (int)fi;
+                            break;
+                        }
                     }
-                    set_loading(50, fan_msg, 0xFFFFFF);
+                    if (failed_idx >= 0 && (size_t)failed_idx < app._board_spec.fans.size()) {
+                        const fan_status_t& fs = app._state_fans[failed_idx];
+                        String fail_msg = "Fan[" + String((int)fs.id) + "] FAIL! " +
+                                          String((unsigned)fs.rpm) + "/ " +
+                                          String(app._board_spec.fans[failed_idx].init.self_test_rpm_thr) + "rpm";
+                        uint32_t color = blink_500ms ? 0xFF0000 : 0xFFFFFF;
+                        set_loading(50, fail_msg, color);
+                    } else {
+                        String fan_msg = FAN_SELF_TEST_STR[anim_idx];
+                        if (!app._state_fans.empty()) {
+                            fan_msg += String(app._state_fans[0].rpm) + "/ " +
+                                       String(app._board_spec.fans[0].init.self_test_rpm_thr) + "rpm";
+                        }
+                        set_loading(50, fan_msg, 0xFFFFFF);
+                    }
                     if ((ib & INIT_EVENT_FAN_READY) != 0) {
                         String pass_msg = "Fan Pass!";
                         if (!app._state_fans.empty()) {
