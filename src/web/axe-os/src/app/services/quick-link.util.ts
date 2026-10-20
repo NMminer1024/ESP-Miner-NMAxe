@@ -10,6 +10,9 @@ interface QuickLinkRule {
 
 const MOLEPOOL_COINS: Sha256dCoin[] = ['BTC', 'BCH', 'XEC'];
 
+// coins of solo.drminer.xyz we can infer from the address (the pool also serves BSV/FB)
+const DRMINER_COINS: Sha256dCoin[] = ['BTC', 'BCH', 'DGB', 'XEC'];
+
 const stripAddressPrefix = (address: string): string =>
   address.replace(/^(ecash|bitcoincash):/i, '');
 
@@ -64,6 +67,14 @@ const RULES: QuickLinkRule[] = ([
     match: 'sololuck.io',
     coin: 'BTC',
     build: (address) => `https://sololuck.io/users/${address}`
+  },
+  {
+    match: 'solo.drminer.xyz',
+    // multi-coin sha256d pool (btc/dgb/bch/xec/...); coin inferred from the address.
+    // site route: /coin/<id>/wallet/<address> (verified against its vue-router defs)
+    build: (address, coin) => DRMINER_COINS.includes(coin)
+      ? `https://solo.drminer.xyz/coin/${coin.toLowerCase()}/wallet/${address}`
+      : undefined
   },
 ] as QuickLinkRule[]).sort((a, b) => b.match.length - a.match.length);
 

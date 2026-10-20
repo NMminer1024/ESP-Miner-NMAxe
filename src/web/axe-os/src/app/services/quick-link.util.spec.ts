@@ -77,6 +77,16 @@ describe('quick-link.util', () => {
       expect(resolveQuickLink('stratum+tcp://sololuck.io:3333', `${BTC_ADDR}.worker`))
         .toBe(`https://sololuck.io/users/${BTC_ADDR}`);
     });
+    it('solo.drminer.xyz multi-coin: coin inferred from address', () => {
+      expect(resolveQuickLink('solo.drminer.xyz:3333', 'bc1qe7r70mv34xhjpwyanvpa43an95rha3287yrv77.w'))
+        .toBe('https://solo.drminer.xyz/coin/btc/wallet/bc1qe7r70mv34xhjpwyanvpa43an95rha3287yrv77');
+      expect(resolveQuickLink('stratum+tcp://solo.drminer.xyz:4333', 'dgb1qxyz.w'))
+        .toBe('https://solo.drminer.xyz/coin/dgb/wallet/dgb1qxyz');
+      expect(resolveQuickLink('solo.drminer.xyz', 'ecash:qp09xfp0ktcrcyysxvrtyf6dp9fgpgrll5yckwk9hn.w'))
+        .toBe('https://solo.drminer.xyz/coin/xec/wallet/ecash:qp09xfp0ktcrcyysxvrtyf6dp9fgpgrll5yckwk9hn');
+      expect(resolveQuickLink('solo.drminer.xyz', 'bitcoincash:qp07l6vwr0qpsdvk93wy2v8z4s4lpfnsmywr9pn3p2.w'))
+        .toBe('https://solo.drminer.xyz/coin/bch/wallet/bitcoincash:qp07l6vwr0qpsdvk93wy2v8z4s4lpfnsmywr9pn3p2');
+    });
     it('returns undefined for unknown pools or empty input', () => {
       expect(resolveQuickLink('unknown.pool.io', `${BTC_ADDR}.w`)).toBeUndefined();
       expect(resolveQuickLink('', BTC_ADDR)).toBeUndefined();
