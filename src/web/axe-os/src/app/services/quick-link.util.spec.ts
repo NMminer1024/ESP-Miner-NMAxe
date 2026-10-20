@@ -82,6 +82,9 @@ describe('quick-link.util', () => {
         .toBe('https://solo.drminer.xyz/coin/btc/wallet/bc1qe7r70mv34xhjpwyanvpa43an95rha3287yrv77');
       expect(resolveQuickLink('stratum+tcp://solo.drminer.xyz:4333', 'dgb1qxyz.w'))
         .toBe('https://solo.drminer.xyz/coin/dgb/wallet/dgb1qxyz');
+      // real device config used stratum+ssl:// scheme — must be stripped like stratum+tcp://
+      expect(resolveQuickLink('stratum+ssl://solo.drminer.xyz:4335', 'bc1qe7r70mv34xhjpwyanvpa43an95rha3287yrv77.w'))
+        .toBe('https://solo.drminer.xyz/coin/btc/wallet/bc1qe7r70mv34xhjpwyanvpa43an95rha3287yrv77');
       expect(resolveQuickLink('solo.drminer.xyz', 'ecash:qp09xfp0ktcrcyysxvrtyf6dp9fgpgrll5yckwk9hn.w'))
         .toBe('https://solo.drminer.xyz/coin/xec/wallet/ecash:qp09xfp0ktcrcyysxvrtyf6dp9fgpgrll5yckwk9hn');
       expect(resolveQuickLink('solo.drminer.xyz', 'bitcoincash:qp07l6vwr0qpsdvk93wy2v8z4s4lpfnsmywr9pn3p2.w'))

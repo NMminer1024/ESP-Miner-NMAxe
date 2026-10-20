@@ -104,8 +104,8 @@ export function detectCoin(host: string, address: string, poolHint?: Sha256dCoin
 
 export function resolveQuickLink(poolUrl: string, poolUser: string): string | undefined {
   const host = (poolUrl || '')
-    .replace(/^stratum\+tcp:\/\//i, '')
-    .replace(/^https?:\/\//i, '')
+    // strip any URI scheme: stratum+tcp://, stratum+ssl://, ssl://, http(s):// ...
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
     .split(':')[0]
     .split('/')[0]
     .toLowerCase();
