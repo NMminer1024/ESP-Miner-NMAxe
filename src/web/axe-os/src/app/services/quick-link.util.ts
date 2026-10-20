@@ -60,6 +60,11 @@ const RULES: QuickLinkRule[] = ([
     coin: 'DGB',
     build: (address) => `https://digibyte.solominer.net/#/app/${address}`
   },
+  {
+    match: 'sololuck.io',
+    coin: 'BTC',
+    build: (address) => `https://sololuck.io/users/${address}`
+  },
 ] as QuickLinkRule[]).sort((a, b) => b.match.length - a.match.length);
 
 // A molepool stratum host like "bch.molepool.com" names the coin in its subdomain.

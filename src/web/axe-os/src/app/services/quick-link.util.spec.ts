@@ -71,6 +71,12 @@ describe('quick-link.util', () => {
       expect(resolveQuickLink('dgb-stratum.solominer.net', 'DTestAddressForDigibyte1234567.w'))
         .toBe('https://digibyte.solominer.net/#/app/DTestAddressForDigibyte1234567');
     });
+    it('sololuck solo pool', () => {
+      expect(resolveQuickLink('sololuck.io', `${BTC_ADDR}.w`))
+        .toBe(`https://sololuck.io/users/${BTC_ADDR}`);
+      expect(resolveQuickLink('stratum+tcp://sololuck.io:3333', `${BTC_ADDR}.worker`))
+        .toBe(`https://sololuck.io/users/${BTC_ADDR}`);
+    });
     it('returns undefined for unknown pools or empty input', () => {
       expect(resolveQuickLink('unknown.pool.io', `${BTC_ADDR}.w`)).toBeUndefined();
       expect(resolveQuickLink('', BTC_ADDR)).toBeUndefined();
