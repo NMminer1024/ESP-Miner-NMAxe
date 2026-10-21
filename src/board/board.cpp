@@ -149,7 +149,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.0f;
     fan_cfg.pid.output_max           = 99.999f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "30").toFloat(), config.asic.temp_limit.high);
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "40").toFloat(), config.asic.temp_limit.high);
     config.fans.clear();
     config.fans.push_back(fan_cfg); // single fan
 
@@ -287,7 +287,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min            = 0.0f;
     fan_cfg.pid.output_max            = 99.999f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "30").toFloat(), config.asic.temp_limit.high);
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "40").toFloat(), config.asic.temp_limit.high);
     config.fans.clear();
     config.fans.push_back(fan_cfg); // single fan
 
@@ -434,7 +434,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "30").toFloat(), config.asic.temp_limit.high);
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "40").toFloat(), config.asic.temp_limit.high);
     config.fans.push_back(fan_cfg);
 
     fan_cfg.id                        = 1;
@@ -462,7 +462,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "70").toFloat(), config.pwr.temp_limit.high);
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "80").toFloat(), config.pwr.temp_limit.high);
     config.fans.push_back(fan_cfg);
 
 #elif defined(BOARD_NMQAXE_PP_REV61)
@@ -607,7 +607,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "30").toFloat(), config.asic.temp_limit.high);
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "40").toFloat(), config.asic.temp_limit.high);
     config.fans.push_back(fan_cfg);
 
     fan_cfg.id                        = 1;
@@ -635,7 +635,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "70").toFloat(), config.pwr.temp_limit.high);
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "75").toFloat(), config.pwr.temp_limit.high);
     config.fans.push_back(fan_cfg);
 
 #elif defined(BOARD_NMQAXE_PP_REV81)
@@ -800,7 +800,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "30").toFloat(), config.asic.temp_limit.high);
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "40").toFloat(), config.asic.temp_limit.high);
     config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
 
     fan_cfg.id                        = 1;
@@ -994,7 +994,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "30").toFloat(), config.asic.temp_limit.high);
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "40").toFloat(), config.asic.temp_limit.high);
     config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
 
     fan_cfg.id                        = 1;
@@ -1022,7 +1022,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "50").toFloat(), config.pwr.temp_limit.high);
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "65").toFloat(), config.pwr.temp_limit.high);
     config.fans.push_back(fan_cfg);
 
 #else

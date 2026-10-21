@@ -88,7 +88,7 @@ export class PreferenceComponent implements OnInit {
         this.vcoreTempMax = vcoreFan?.maxTarget ?? 100;
 
         const autoasicfanspeed  = asicFan?.auto   ?? 1;
-        const asictargettemp    = Math.min(asicFan?.target ?? 30, this.asicTempMax);
+        const asictargettemp    = Math.min(asicFan?.target ?? 40, this.asicTempMax);
         const asicfanspeed      = asicFan?.speed  ?? 100;
         const autovcorefanspeed = vcoreFan?.auto   ?? 1;
         const vcoretargettemp   = Math.min(vcoreFan?.target ?? 85, this.vcoreTempMax);
@@ -104,7 +104,7 @@ export class PreferenceComponent implements OnInit {
           brightness:         [brightness, [Validators.required, Validators.min(1), Validators.max(100)]],
           autoscreen:         [autoscreen == 1],
           autoasicfanspeed:   [autoasicfanspeed == 1 || autoasicfanspeed === true, [Validators.required]],
-          asictargettemp:     [parseFloat(String(asictargettemp)) || 30, [Validators.required, Validators.min(this.asicTempMin), Validators.max(this.asicTempMax)]],
+          asictargettemp:     [parseFloat(String(asictargettemp)) || 40, [Validators.required, Validators.min(this.asicTempMin), Validators.max(this.asicTempMax)]],
           asicfanspeed:       [asicfanspeed, [Validators.required]],
           autovcorefanspeed:  [autovcorefanspeed == 1 || autovcorefanspeed === true, [Validators.required]],
           vcoretargettemp:    [parseFloat(String(vcoretargettemp)) || 85, [Validators.required, Validators.min(this.vcoreTempMin), Validators.max(this.vcoreTempMax)]],
@@ -148,7 +148,7 @@ export class PreferenceComponent implements OnInit {
   };
 
   public getTemperatureSliderClass(): string {
-    const temp = this.form?.get('asictargettemp')?.value || 30;
+    const temp = this.form?.get('asictargettemp')?.value || 40;
     if (temp <= 50) return 'temp-safe';
     else if (temp <= 60) return 'temp-normal';
     else if (temp <= 65) return 'temp-warm';
