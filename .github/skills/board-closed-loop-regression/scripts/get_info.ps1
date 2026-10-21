@@ -1,7 +1,15 @@
-# One-shot baseline snapshot for the closed-loop report.
-param([string]$Ip = $(throw 'Ip required'))
-$i = try { Invoke-RestMethod "http://$Ip/api/system/info" -TimeoutSec 5 } catch { $null }
+# One-shot baseline snapshot for the closed-loop report. Generic: prints the
+# identity block plus any dotted fields the caller asks for.
+param(
+    [string]$Ip = $(throw 'Board IP required'),
+    [string]$Path = '/api/system/info',
+    [string[]]$Fields = @('identity.fwVersion', 'identity.hwModel', 'identity.appSha256')
+)
+function Get-Dotted($obj, [string]$path) {
+    $cur = $obj
+    foreach ($seg in $path.Split('.')) { $cur = $cur.$seg; if ($null -eq $cur) { return $null } }
+    return $cur
+}
+$i = try { Invoke-RestMethod "http://$Ip$Path" -TimeoutSec 5 } catch { $null }
 if (-not $i) { 'device not answering'; exit 1 }
-"fw=$($i.identity.fwVersion) model=$($i.identity.hwModel) sha=$($i.identity.appSha256)"
-"hr=$([math]::Round($i.miner.hashRate,1)) asic=$($i.asic.model)x$($i.asic.count) freqReq=$($i.asic.freqReq) vcoreReq=$($i.asic.vcoreReq) vcore=$($i.asic.vcoreReal)"
-"temp=$([math]::Round($i.temps.asic,1)) uptime=$($i.miner.uptimeSeconds) acc=$($i.miner.sAccepted) rej=$($i.miner.sRejected) heap=$($i.miner.freeHeap)"
+foreach ($f in $Fields) { "{0} = {1}" -f $f, (Get-Dotted $i $f) }
