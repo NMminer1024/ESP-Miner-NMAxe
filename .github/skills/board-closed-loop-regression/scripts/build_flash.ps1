@@ -10,9 +10,31 @@ param(
     [string]$UptimeField = 'miner.uptimeSeconds',   # dotted path to uptime seconds
     [double]$MinMetric = 0,                          # optional extra health metric
     [string]$MetricField = '',                       # dotted path, e.g. 'miner.hashRate'
-    [int]$BootTimeoutSec = 300
+    [int]$BootTimeoutSec = 300,
+    [string]$Pio = ''                                # optional: path to platformio.exe; default: resolve from PATH
 )
-$pio = 'C:\Users\bitpony\AppData\Local\Programs\Python\Python311\Scripts\platformio.exe'
+# Resolve the PlatformIO CLI without hardcoding any machine-specific path:
+# -Pio override > "platformio"/"pio" on PATH > "python/python3 -m platformio".
+$pioCmd = $null
+if ($Pio) {
+    if (-not (Test-Path $Pio)) { throw "-Pio path not found: $Pio" }
+    $pioCmd = @($Pio)
+} else {
+    foreach ($name in 'platformio', 'pio') {
+        $c = Get-Command $name -ErrorAction SilentlyContinue
+        if ($c) { $pioCmd = @($c.Source); break }
+    }
+    if (-not $pioCmd) {
+        foreach ($py in 'python', 'python3') {
+            $c = Get-Command $py -ErrorAction SilentlyContinue
+            if ($c) {
+                & $c.Source -m platformio --version *> $null
+                if ($LASTEXITCODE -eq 0) { $pioCmd = @($c.Source, '-m', 'platformio'); break }
+            }
+        }
+    }
+    if (-not $pioCmd) { throw 'platformio CLI not found on PATH (pass -Pio <path>, or install it: pip install platformio)' }
+}
 function Get-Dotted($obj, [string]$path) {
     $cur = $obj
     foreach ($seg in $path.Split('.')) { $cur = $cur.$seg; if ($null -eq $cur) { return $null } }
@@ -28,7 +50,9 @@ foreach ($p in (git diff --name-only)) {
         [System.IO.File]::WriteAllBytes($full, $b[3..($b.Length - 1)]); "BOM stripped: $p"
     }
 }
-$out = & $pio run --environment $Env 2>&1
+$pioArgs = @('run', '--environment', $Env)
+if ($pioCmd.Count -gt 1) { $pioArgs = $pioCmd[1..($pioCmd.Count - 1)] + $pioArgs }
+$out = & $pioCmd[0] @pioArgs 2>&1
 $out | Select-String -Pattern 'error:|\[SUCCESS\]|\[FAILED\]' | ForEach-Object { $_.Line }
 if (-not ($out -match '\[SUCCESS\]')) { Pop-Location; exit 1 }
 curl.exe -s -m 180 -F "file=@.pio\build\$Env\firmware.bin;filename=firmware.bin" "http://$Ip/api/update/firmware"; ''
