@@ -27,6 +27,7 @@ public:
     uint32_t get_asic_difficulty() override;
     void send_work_to_asic(asic_job *job) override;
     void poll_hcn_register() override;
+    void reset_hcn_register() override;
     bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) override;
     uint16_t get_cores() override;
     uint16_t get_small_cores() override;

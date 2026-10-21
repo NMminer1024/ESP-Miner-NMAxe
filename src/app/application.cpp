@@ -538,6 +538,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     ctx.stratum       = _service_stratum;
     ctx.power         = _hal_power;
     ctx.spec          = &_board_spec;
+    ctx.temp          = &_state_temp;
     ctx.status        = _state_miner;
     ctx.conn          = _service_conn;
     ctx.init_evt      = _sync_system->init_evt;

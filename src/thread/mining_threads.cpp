@@ -56,6 +56,26 @@
 #include "thread_shared.h"
 using namespace thread_shared;
 
+// Ticket diff last applied to the chip; reset after every begin() since init() rewrites it.
+static double asic_diff_applied = 0.0;
+
+// Set when the last begin() used warmup_frq; the tx loop raises to req_frq once warm.
+static volatile bool s_warmup_pending = false;
+
+// Measured on BM1366: putting a cold die straight onto a high PLL frequency hangs a core
+// group until the next re-init, so cold (re)starts go through spec.asic.warmup_frq first.
+static uint16_t start_frequency(const MinerCtx* ctx) {
+    const auto& a = ctx->spec->asic;
+    s_warmup_pending = false;
+    if (a.warmup_frq == 0 || a.req_frq <= a.warmup_frq || ctx->temp == nullptr) return a.req_frq;
+    const float t = ctx->temp->asic;
+    if (!(t < a.warmup_temp)) return a.req_frq;
+    s_warmup_pending = true;
+    LOG_W("ASIC cold (%.1fC < %.0fC): start at %uMHz, raise to %uMHz once warm",
+          t, a.warmup_temp, a.warmup_frq, a.req_frq);
+    return a.warmup_frq;
+}
+
 
 // ── Miner count: wait for power, enumerate ASIC chips ───────────────────────
 //    Mirrors legacy miner_asic_count_thread_entry; board_sal_t* -> MinerCtx*.
@@ -108,7 +128,7 @@ void miner_init_thread_entry(void* args) {
                         pdFALSE, pdTRUE, portMAX_DELAY);
 
     // Cold start: reset → init at default baud → switch to work baud.
-    if (!ctx->miner->begin(ctx->spec->asic.req_frq, ctx->spec->asic.diff_thr_init,
+    if (!ctx->miner->begin(start_frequency(ctx), ctx->spec->asic.diff_thr_init,
                            ctx->spec->asic.com_baud_init, ctx->spec->asic.com_baud_work)) {
         while (true) {
             LOG_E("Miner ASIC init failed, retrying...");
@@ -161,6 +181,26 @@ void miner_tx_thread_entry(void* args) {
         uint32_t now = millis();
         st.asic_update = now;
         st.stratum_update = now;
+    };
+
+    auto raise_after_warmup = [&]() {
+        if (!s_warmup_pending || st.runtime_state != MINER_RUNTIME_RUNNING) return;
+        if (miner->is_asic_frequency_updating()) return;
+        const float t = ctx->temp ? ctx->temp->asic : 0.0f;
+        if (t < spec.asic.warmup_temp) {
+            static uint32_t last_log_ms = 0;
+            if (millis() - last_log_ms >= 60000) {
+                LOG_W("ASIC warming up: %.1fC < %.0fC, holding %uMHz (target %uMHz)",
+                      t, spec.asic.warmup_temp, miner->get_asic_frequency_current(), spec.asic.req_frq);
+                last_log_ms = millis();
+            }
+            return;
+        }
+        s_warmup_pending = false;
+        if (miner->get_asic_frequency_current() == spec.asic.req_frq) return;
+        LOG_W("ASIC warm (%.1fC): raising PLL %uMHz -> %uMHz",
+              t, miner->get_asic_frequency_current(), spec.asic.req_frq);
+        miner->request_asic_frequency(spec.asic.req_frq);
     };
 
     auto clear_mining_runtime_caches = [&]() {
@@ -258,7 +298,7 @@ void miner_tx_thread_entry(void* args) {
             st.hashrate = {0.0, 0.0, 0.0};
             // Hard reset drops the ASIC to its default baud, so begin() must redo the
             // full low-baud init -> ramp -> work-baud switch (same as cold start).
-            if (!miner->begin(spec.asic.req_frq, spec.asic.diff_thr_init,
+            if (!miner->begin(start_frequency(ctx), spec.asic.diff_thr_init,
                               spec.asic.com_baud_init, spec.asic.com_baud_work)) {
                 LOG_E("[ASIC-REINIT] ASIC reinitialization failed (state -> error)");
                 power->set_vcore_status(PWR_OFF);
@@ -267,6 +307,7 @@ void miner_tx_thread_entry(void* args) {
                 xSemaphoreGive(st.update_xsem);
                 return true;
             }
+            asic_diff_applied = 0.0;   // init() rewrote the chip's ticket mask
 
             refresh_mining_timeouts();
             st.resume_grace_until_ms = millis() + MINER_RESUME_GRACE_MS;
@@ -318,6 +359,11 @@ void miner_tx_thread_entry(void* args) {
                 return true;
             }
 
+            // Same rail-settle wait as cold start (hw_threads) and the AUTO_REINITING path.
+            delay(1000);
+            LOG_W("Vcore ready at %dmV (req %dmV) before ASIC reinit",
+                  power->get_vcore(), spec.asic.req_vcore);
+
             miner->clear_asic_job_cache();
             miner->reset_hashrate();
             hcn_cache_reset("resume before reinit");
@@ -325,7 +371,7 @@ void miner_tx_thread_entry(void* args) {
             st.hashrate = {0.0, 0.0, 0.0};
             // Resume after Vcore restore: same sequence as cold start — reset, init at
             // default baud, then switch to work baud.
-            if (!miner->begin(spec.asic.req_frq, spec.asic.diff_thr_init,
+            if (!miner->begin(start_frequency(ctx), spec.asic.diff_thr_init,
                               spec.asic.com_baud_init, spec.asic.com_baud_work)) {
                 LOG_E("Mining resume failed: ASIC reinitialization failed");
                 power->set_vcore_status(PWR_OFF);
@@ -336,6 +382,7 @@ void miner_tx_thread_entry(void* args) {
                 xSemaphoreGive(st.update_xsem);
                 return true;
             }
+            asic_diff_applied = 0.0;   // init() rewrote the chip's ticket mask
 
             refresh_mining_timeouts();
             st.resume_grace_until_ms = millis() + MINER_RESUME_GRACE_MS;
@@ -372,6 +419,7 @@ void miner_tx_thread_entry(void* args) {
         }
 
         apply_pending_frequency();
+        raise_after_warmup();
 
         // null loop if not subscribed
         if (!stratum->is_subscribed()) {
@@ -407,6 +455,7 @@ void miner_tx_thread_entry(void* args) {
         while (true) {
             if (apply_mining_control()) break;
             apply_pending_frequency();
+            raise_after_warmup();
 
             // construct asic job and send to asic
             if (!miner->mining(&miner->pool_job_now)) {
@@ -419,17 +468,17 @@ void miner_tx_thread_entry(void* args) {
             // Periodic HCN register poll for hashrate diagnostics.
             // Independent of job rate — poll interval configurable here.
             {
-                // One-time broadcast reset before the first poll (a reference vendor driver
-                // does this before its first poll; we never sent this, which may be why some
-                // chips' counters never start incrementing).
-                static bool hcn_reset_sent = false;
-                if (!hcn_reset_sent) {
+                uint32_t now = millis();
+                // Broadcast zero-write to arm the 0x90 counter before the first poll of
+                // every ASIC init cycle (a reference vendor driver does this; a cold or
+                // re-inited chip's counter state is otherwise undefined). The pending
+                // flag is re-armed by miner->begin(), so pause/resume and auto-reinit
+                // cycles re-arm too — not just once per firmware lifetime.
+                if (miner->consume_hcn_reset_pending()) {
                     miner->reset_hcn_register();
-                    hcn_reset_sent = true;
                 }
                 static uint32_t hcn_last_ms = 0;
                 constexpr uint32_t HCN_POLL_MS = 2000;
-                uint32_t now = millis();
                 if (now - hcn_last_ms >= HCN_POLL_MS) {
                     miner->poll_hcn_register();
                     g_hcn_poll_sent_total++;
@@ -439,11 +488,10 @@ void miner_tx_thread_entry(void* args) {
 
             // set asic diff as pool diff if pool diff < initial asic diff
             double target_diff = min(stratum->get_pool_difficulty(), (double)spec.asic.diff_thr_init);
-            static double last_diff = 0.0;
-            if (target_diff != last_diff) {
+            if (target_diff != asic_diff_applied) {
                 uint32_t diff = miner->set_asic_diff(target_diff);
-                LOG_W("Change asic diff from [%.1f] to [%d/%.1f] successfully", last_diff, diff, target_diff);
-                last_diff = target_diff;
+                LOG_W("Change asic diff from [%.1f] to [%d/%.1f] successfully", asic_diff_applied, diff, target_diff);
+                asic_diff_applied = target_diff;
             }
 
             // interval 'job_interval_ms' per asic job, exit if a new pool job arrived
@@ -681,6 +729,15 @@ void miner_rx_thread_entry(void* args) {
     };
 
     const bool ota_running_default = false;
+    uint32_t rx_idle_slices = 0;
+
+    // Same ready gate as the tx thread: without it, an early stratum subscribe
+    // makes this thread sit in listen_asic_rsp() while the init thread is still
+    // probing/configuring the ASIC (chip enumeration, PLL readback), stealing
+    // those command responses.
+    LOG_I("(asic_rx) waiting for miner ready gate...");
+    xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
+    LOG_I("(asic_rx) miner ready gate opened.");
 
     while (true) {
         if (st.is_controlled_idle()) { delay(100); continue; }
@@ -688,9 +745,12 @@ void miner_rx_thread_entry(void* args) {
         if (miner->is_asic_frequency_updating()) { delay(50); continue; }
         if (ctx->ota_running ? *ctx->ota_running : ota_running_default) { delay(50); continue; }
 
-        asic_rx_result rx = miner->listen_asic_rsp(1000 * 30);
+        // Short slices: a long blocking read outlives pause/re-init and steals the
+        // register replies begin() is waiting for.
+        asic_rx_result rx = miner->listen_asic_rsp(1000);
         nonce_diag_log_and_reset();
         if (miner->is_asic_frequency_updating()) continue;
+        if (rx.status != ASIC_RX_STATUS_TIMEOUT) rx_idle_slices = 0;
         if (rx.status == ASIC_RX_STATUS_OK) {
             if (rx.type == ASIC_RX_TYPE_HCN) {
                 on_hcn_result(rx.data.hcn);
@@ -898,7 +958,10 @@ void miner_rx_thread_entry(void* args) {
             LOG_W("Asic response size error.");
         } else if (rx.status == ASIC_RX_STATUS_TIMEOUT) {
             nonce_diag.rx_timeout++;
-            LOG_W("Asic response timeout.");
+            if (++rx_idle_slices >= 30) {
+                LOG_W("Asic response timeout.");
+                rx_idle_slices = 0;
+            }
         } else if (rx.status == ASIC_RX_STATUS_INVALID_RESPONSE) {
             nonce_diag.rx_invalid_response++;
             // LOG_W("Asic response header error.");

@@ -75,6 +75,10 @@ private:
     volatile bool               _asic_freq_update_pending;
     volatile bool               _asic_freq_updating;
     bool                        _asic_ready;
+    // HCN(0x90) counter arm flag: set false in begin() (cold start, resume, and
+    // auto-reinit all go through begin()), consumed once by the tx loop which
+    // then calls reset_hcn_register() before the first poll.
+    volatile bool               _hcn_reset_pending = false;
     SemaphoreHandle_t           _asic_freq_mutex;
     // Running sums + front cursors for incremental O(1) hashrate maintenance.
     // _off_3m / _off_30m are offsets (from current deque front) of the oldest
@@ -98,6 +102,9 @@ public:
     bool mining(pool_job_data_t *pool_job);
     void poll_hcn_register();
     void reset_hcn_register();
+    // Returns true once per begin() so the tx loop re-arms the 0x90 counter after
+    // every ASIC (re)init instead of only once per firmware lifetime.
+    bool consume_hcn_reset_pending(){ bool p = this->_hcn_reset_pending; this->_hcn_reset_pending = false; return p; }
     void get_hcn_diag_counts(uint32_t *tag_seen, uint32_t *decoded_ok);
     uint32_t set_asic_diff(uint64_t diff);
     uint8_t connect_chip();

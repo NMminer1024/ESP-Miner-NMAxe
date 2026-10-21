@@ -174,6 +174,94 @@ void BM1366::frequency_ramp_up(float target_frequency){
     this->set_frequency(56.25, target_frequency);
 }
 
+// CMD_READ a 32-bit register from the chain and return it big-endian.
+// Register-read replies are SHORTER than the 11-byte nonce/HCN frames:
+//   AA 55 <data...> <chipaddr> <reg> <crc5>
+// with data width = register width (PLL0 0x08 is 32-bit -> 9 bytes total;
+// HCN 0x90 is 48-bit -> 11 bytes). Verified on hardware: reading 0x08 at
+// 575MHz replies "AA 55 D0 E6 02 40 00 08 07".
+// Only reliable on single-chip chains; NMAxe is a single BM1366.
+bool BM1366::_read_register(uint8_t reg, uint32_t *value){
+    uint8_t reg_read[2] = {0x00, reg};
+    this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_READ), reg_read, 2);
+
+    uint8_t rsp[11] = {0,};
+    // A 9-byte reply never fills the 11-byte buffer, so receive() returns after
+    // the timeout with len=9 — that is the expected normal case for 0x08.
+    uint16_t len = this->receive(rsp, sizeof(rsp), 300);
+    bool valid = (len == 9 || len == 11) && rsp[0] == 0xAA && rsp[1] == 0x55 && rsp[7] == reg;
+    if (valid && len == 11 && (rsp[8] != 0x00 || rsp[9] != 0x00)) valid = false;
+    if (!valid) {
+        char hex[40] = {0};
+        int off = 0;
+        for (uint16_t i = 0; i < len && off < (int)sizeof(hex) - 4; i++) {
+            off += snprintf(hex + off, sizeof(hex) - off, "%02X ", rsp[i]);
+        }
+        LOG_W("REG 0x%02X read: no valid reply (len=%u, got: %s)", reg, len, hex);
+        this->clear_port_cache();
+        return false;
+    }
+    if (value) {
+        *value = ((uint32_t)rsp[2] << 24) | ((uint32_t)rsp[3] << 16) |
+                 ((uint32_t)rsp[4] << 8)  |  (uint32_t)rsp[5];
+    }
+    return true;
+}
+
+// Decode a PLL0(0x08) readback into the actual hash clock in MHz. The register
+// is {ctrl, fbdiv, refdiv, postdiv1-1<<4|postdiv2-1} big-endian; the chip also
+// sets status/lock bits in ctrl (we write 0x40, it reads back 0xD0 when locked),
+// so raw-byte comparison is wrong — decode the dividers and compare frequencies.
+// Example: D0 E6 02 40 -> fbdiv 230, refdiv 2, pd1 5, pd2 1 -> 575.00 MHz.
+static float _pll_mhz_from_reg(uint32_t reg){
+    uint8_t fbdiv   = (reg >> 16) & 0xFF;
+    uint8_t refdiv  = (reg >>  8) & 0xFF;
+    uint8_t pd1 = ((reg & 0xFF) >> 4) + 1;
+    uint8_t pd2 = ( reg & 0x0F)       + 1;
+    if (refdiv == 0 || fbdiv == 0) return -1.0f;
+    return 25.0f * (float)fbdiv / ((float)refdiv * (float)pd1 * (float)pd2);
+}
+
+// Verify PLL0(0x08) actually latched the target frequency and re-ramp on
+// mismatch. Every PLL write in the ramp is fire-and-forget, so a lost UART
+// byte would leave the chip silently running at an intermediate frequency.
+bool BM1366::_ramp_and_verify(float target_freq){
+    if (!this->set_frequency(56.25, target_freq)) return false;
+
+    for (int attempt = 0; attempt < 3; attempt++) {
+        uint32_t readback = 0;
+        if (!this->_read_register(0x08, &readback)) {
+            // Read failed (frame lost / reg unreadable). Don't block mining.
+            LOG_W("PLL0(0x08) readback failed, cannot verify %.2fMHz", target_freq);
+            return true;
+        }
+        float actual_mhz = _pll_mhz_from_reg(readback);
+        if (fabsf(actual_mhz - target_freq) < 0.5f) {
+            LOG_I("PLL0(0x08) verified: 0x%08X -> %.2fMHz (target %.2fMHz)", readback, actual_mhz, target_freq);
+            return true;
+        }
+        LOG_E("PLL0(0x08) latched %.2fMHz (raw 0x%08X), target %.2fMHz — re-ramping (attempt %d/3)",
+              actual_mhz, readback, target_freq, attempt + 1);
+        // Continue the ramp from wherever the chip actually is, not from 56.25.
+        if (actual_mhz > 0.0f) this->set_frequency(actual_mhz, target_freq);
+        else                   this->_set_hash_frequency(target_freq);
+        delay(5);
+    }
+
+    uint32_t final_readback = 0;
+    float final_mhz = -1.0f;
+    if (this->_read_register(0x08, &final_readback)) {
+        final_mhz = _pll_mhz_from_reg(final_readback);
+        if (fabsf(final_mhz - target_freq) < 0.5f) {
+            LOG_I("PLL0(0x08) verified after retry: 0x%08X -> %.2fMHz", final_readback, final_mhz);
+            return true;
+        }
+    }
+    LOG_E("PLL0(0x08) still at %.2fMHz (raw 0x%08X) after retries, target %.2fMHz - ASIC will under-perform",
+          final_mhz, final_readback, target_freq);
+    return false;
+}
+
 bool BM1366::set_frequency(float current_frequency, float target_frequency){
     float step = 6.25;
     float current = current_frequency;
@@ -200,14 +288,17 @@ bool BM1366::set_frequency(float current_frequency, float target_frequency){
         }
         current = next_dividable;
         if (!this->_set_hash_frequency(current)) return false;
-        delay(1);
+        // 1ms -> 20ms: same write-loss mitigation as BM1373 (commit bb82021b).
+        // The ASIC needs time to latch each PLL write; back-to-back 1ms steps
+        // can drop writes and leave the chip at an intermediate frequency.
+        delay(20);
     }
 
     while ((direction > 0 && current < target) || (direction < 0 && current > target)) {
         float next_step = fmin(fabs(direction), fabs(target - current));
         current += direction > 0 ? next_step : -next_step;
         if (!this->_set_hash_frequency(current)) return false;
-        delay(1);
+        delay(20);
     }
     if (!this->_set_hash_frequency(target)) return false;
     LOG_W("Setting clock frequency from %.2fMHz to %.2fMHz", current_frequency, target);
@@ -278,7 +369,7 @@ void BM1366::init(uint64_t freq, int diff, uint8_t asic_count){
         this->_send_bm1366((TYPE_CMD | GROUP_SINGLE | CMD_WRITE), set_3c_register_third, 6);
     }
 
-    this->frequency_ramp_up((float)freq);//do_frequency_ramp_up();
+    this->_ramp_and_verify((float)freq);//do_frequency_ramp_up();
 
     // this->_set_hash_frequency(freq);//BM1366_send_hash_frequency(frequency);
 
@@ -302,10 +393,55 @@ void BM1366::send_work_to_asic(asic_job *job){
 void BM1366::poll_hcn_register(){
     uint8_t reg_read[2] = {0x00, BM1366_REG_POLL_ADDR};
     this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_READ), reg_read, 2);
+    static const uint8_t dom_regs[6] = {0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x4C};
+    for (uint8_t reg : dom_regs) {
+        delay(2);   // back-to-back CMD_READs drop replies
+        uint8_t rd[2] = {0x00, reg};
+        this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_READ), rd, 2);
+    }
+}
+
+bool BM1366::_decode_domain_counter(const uint8_t *rsp){
+    if (rsp[10] & 0x80) return false;   // job (nonce) response
+    int idx;
+    switch (rsp[7]) {
+        case 0x88: idx = 0; break;
+        case 0x89: idx = 1; break;
+        case 0x8A: idx = 2; break;
+        case 0x8B: idx = 3; break;
+        case 0x8C: idx = 4; break;
+        case 0x4C: idx = 5; break;
+        default: return false;
+    }
+    const uint32_t v = ((uint32_t)rsp[2] << 24) | ((uint32_t)rsp[3] << 16) | ((uint32_t)rsp[4] << 8) | rsp[5];
+    const uint32_t now = millis();
+    if (this->_dom_prev_ms[idx] != 0 && now - this->_dom_prev_ms[idx] >= 1000) {
+        this->_dom_ghs[idx] = (float)((double)(v - this->_dom_prev[idx]) * 4294967296.0 /
+                                      ((double)(now - this->_dom_prev_ms[idx]) * 1e6));
+    }
+    this->_dom_prev[idx] = v;
+    this->_dom_prev_ms[idx] = now;
+    if (idx == 5 && now - this->_dom_log_ms >= 10000) {
+        this->_dom_log_ms = now;
+        const float *g = this->_dom_ghs;
+        LOG_W("[DOMAIN] d0=%.0f d1=%.0f d2=%.0f d3=%.0f sum=%.0f total(0x8C)=%.0f err(0x4C)=%.1f GH/s",
+              g[0], g[1], g[2], g[3], g[0] + g[1] + g[2] + g[3], g[4], g[5]);
+    }
+    return true;
+}
+
+// Broadcast-write zero to arm/start the counter on every chip (same as BM1373;
+// a reference vendor driver does this once before its first poll).
+void BM1366::reset_hcn_register(){
+    uint8_t reg_reset[6] = {0x00, BM1366_REG_POLL_ADDR, 0x00, 0x00, 0x00, 0x00};
+    this->_send_bm1366((TYPE_CMD | GROUP_ALL | CMD_WRITE), reg_reset, 6);
 }
 
 bool BM1366::decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn){
-    if (rsp[7] != 0x90 || rsp[8] != 0x00 || rsp[9] != 0x00) return false;
+    if (rsp[7] != 0x90) return false;
+    this->_hcn_tag_seen++;
+    if (rsp[8] != 0x00 || rsp[9] != 0x00) return false;
+    this->_hcn_decoded_ok++;
 
     hcn->chip_addr  = rsp[6];
     hcn->asic_id    = (uint8_t)(rsp[6] / this->_hcn_addr_interval);
@@ -329,11 +465,13 @@ asic_rx_result BM1366::wait_for_result(uint32_t timeout_ms){
     }
 
     if(len != 11){
+        LOG_W("Invalid asic response length: %d", len);
         this->clear_port_cache();
         rx.status = ASIC_RX_STATUS_INVALID_SIZE;
         return rx;
     }
-    if(rsp[0] != 0xAA && rsp[1] != 0x55){
+    if(rsp[0] != 0xAA || rsp[1] != 0x55){
+        LOG_W("Invalid asic response preamble: %02X %02X", rsp[0], rsp[1]);
         this->clear_port_cache();
         rx.status = ASIC_RX_STATUS_INVALID_RESPONSE;
         return rx;
@@ -342,6 +480,12 @@ asic_rx_result BM1366::wait_for_result(uint32_t timeout_ms){
     if (this->decode_hcn_response_0x90(rsp, &rx.data.hcn)) {
         rx.status = ASIC_RX_STATUS_OK;
         rx.type = ASIC_RX_TYPE_HCN;
+        return rx;
+    }
+
+    if (this->_decode_domain_counter(rsp)) {
+        rx.status = ASIC_RX_STATUS_OK;
+        rx.type = ASIC_RX_TYPE_NONE;
         return rx;
     }
 

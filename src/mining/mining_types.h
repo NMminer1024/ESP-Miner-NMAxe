@@ -10,6 +10,7 @@
 #include "stratum/stratum.h"          // StratumClass, stratum_info_t, pool_info_t (via pool.h)
 #include "board/board.h"              // BoardSpecConfig
 #include "drivers/power/power_hal.h"  // AxePowerHal
+#include "drivers/temp/temp_ctx.h"    // TempState
 
 typedef uint16_t asic_id_t;
 
@@ -160,6 +161,7 @@ struct MinerCtx {
     StratumClass*      stratum = nullptr;
     AxePowerHal*       power   = nullptr;
     BoardSpecConfig*   spec    = nullptr;
+    const TempState*   temp    = nullptr;
     MinerStatus*       status  = nullptr;
     ConnInfo*          conn    = nullptr;
     EventGroupHandle_t init_evt = nullptr;

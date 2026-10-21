@@ -309,6 +309,13 @@ void BM1370::poll_hcn_register(){
     this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_READ), reg_read, 2);
 }
 
+// Broadcast-write zero to arm/start the counter on every chip (same as BM1373;
+// a reference vendor driver does this once before its first poll).
+void BM1370::reset_hcn_register(){
+    uint8_t reg_reset[6] = {0x00, BM1370_REG_POLL_ADDR, 0x00, 0x00, 0x00, 0x00};
+    this->_send_bm1370((TYPE_CMD | GROUP_ALL | CMD_WRITE), reg_reset, 6);
+}
+
 bool BM1370::decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn){
     if (rsp[7] != 0x90 || rsp[8] != 0x00 || rsp[9] != 0x00) return false;
 

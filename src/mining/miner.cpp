@@ -87,6 +87,10 @@ bool AsicMinerClass::begin(uint16_t freq, uint16_t diff, uint32_t init_baudrate,
     this->_asic->init(freq, diff, this->_asic_count);
     this->_asic_freq_current = freq;
     this->_asic_ready = true;
+    // Re-arm the HCN(0x90) counter after every (re)init: the tx loop sends the
+    // broadcast zero-write once before its first poll of this init cycle.
+    // Drivers whose init() already re-arms the counter (BM1373) opt out.
+    this->_hcn_reset_pending = this->_asic->rearm_hcn_after_init();
     if (this->_asic_freq_mutex != NULL && xSemaphoreTake(this->_asic_freq_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
         if (this->_asic_freq_target == freq) this->_asic_freq_update_pending = false;
         xSemaphoreGive(this->_asic_freq_mutex);

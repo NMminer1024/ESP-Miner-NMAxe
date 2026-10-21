@@ -217,11 +217,19 @@ void power_loop_thread_entry(void* args) {
         }
 #endif
         // skip vcore regulation while the miner is intentionally idle
+        static uint32_t vcore_set = spec.asic.req_vcore;
         if (ctx->mining && ctx->mining->is_controlled_idle()) {
+            // Resume/reinit restart the rail at req_vcore; start the loop from there too.
+            vcore_set = spec.asic.req_vcore;
             continue;
         }
 
         uint32_t vcore_measure = power->get_vcore();
+        // get_vcore() samples for ~50ms: a pause/reinit cutting Vcore inside that window
+        // yields a collapsing reading that would slam vcore_set to max_vcore.
+        if (ctx->mining && ctx->mining->is_controlled_idle()) {
+            continue;
+        }
         int32_t err = vcore_measure - spec.asic.req_vcore;
         if (abs(err) <= 5) {
             LOG_D("Vcore %d/%dmV, error %d mV, Vcore within acceptable range",
@@ -230,7 +238,6 @@ void power_loop_thread_entry(void* args) {
         }
         LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV",
               vcore_measure, spec.asic.req_vcore, err, err / 5);
-        static uint32_t vcore_set = spec.asic.req_vcore;
         vcore_set -= err / 2; // half error correction
         vcore_set = (vcore_set < power->get_vcore_min()) ? power->get_vcore_min() : vcore_set;
         vcore_set = (vcore_set > power->get_vcore_max()) ? power->get_vcore_max() : vcore_set;

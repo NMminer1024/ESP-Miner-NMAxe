@@ -110,6 +110,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.asic.com_baud_work        = 1000000;
     config.asic.com_port             = &Serial1;
     config.asic.hcn_max_ghs_per_ch   = 1000.0f;  // BM1366 ~500 GH/s, 2x margin
+    // Measured: 575MHz applied with the die <~38C hangs core group 56..83 (-25%) until re-init.
+    config.asic.warmup_frq           = 500;
+    config.asic.warmup_temp          = 42.0f;
     config.preference.screen.brightness    = 100;
     config.preference.screen.auto_rolling  = false;
     config.preference.screen.flip          = true;

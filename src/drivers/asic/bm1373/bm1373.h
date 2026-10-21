@@ -41,6 +41,9 @@ public:
     void send_work_to_asic(asic_job *job) override;
     void poll_hcn_register() override;
     void reset_hcn_register() override;
+    // init()'s per-chip config already re-arms 0x90; a second broadcast write after
+    // every (re)init freezes a chain chip's counter (verified on Nexus by A/B).
+    bool rearm_hcn_after_init() override { return false; }
     bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) override;
     uint16_t get_cores() override;
     uint16_t get_small_cores() override;

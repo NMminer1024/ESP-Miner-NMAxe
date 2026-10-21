@@ -120,6 +120,11 @@ public:
     // which may be why some chips' counters never start.
     // Default no-op so drivers without HCN support don't need to implement this.
     virtual void reset_hcn_register() {}
+    // Whether the tx loop must re-send reset_hcn_register() after every ASIC (re)init.
+    // BM1373 chains: init() already re-arms 0x90 via the per-chip 0xA8/0x18/0x3C config,
+    // and the extra broadcast write freezes one chip's counter after resume
+    // (A/B on Nexus: per-begin re-arm = 4/10 BAD pause/resume cycles, none = 5/5 GOOD).
+    virtual bool rearm_hcn_after_init() { return true; }
     virtual bool decode_hcn_response_0x90(const uint8_t *rsp, asic_hcn_result *hcn) = 0;
     virtual asic_rx_result wait_for_result(uint32_t timeout_ms) = 0;
     virtual uint16_t get_cores() = 0;
