@@ -950,6 +950,19 @@ void miner_rx_thread_entry(void* args) {
                 if (new_best_session) st.diff.best_session = diff;
                 if (new_best_ever)    st.diff.best_ever = diff;
 
+                // lifetime Top-10 share difficulties (persisted to NVS). Epoch 0
+                // when NTP has not synced yet — the UI then hides the timestamp.
+                // Also snapshot the connection in use (pool host:port + stratum
+                // user/wallet) and the pool-reported network difficulty, so each
+                // rank records where it was mined and whether it was block-
+                // proximity (diff >= net).
+                if (st.record_top_diff(diff, (uint32_t)(ctx->utc ? *ctx->utc : 0ULL),
+                                       stratum->get_pool_hostport().c_str(),
+                                       stratum->get_user().c_str(),
+                                       st.diff.network)) {
+                    xSemaphoreGive(ctx->nvs_save_xsem);
+                }
+
                 if (new_best_ever) {
                     xSemaphoreGive(ctx->nvs_save_xsem);
                     if (diff > 100.0f * 1000.0f * 1000.0f) { // > 100M

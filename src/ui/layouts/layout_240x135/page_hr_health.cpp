@@ -11,17 +11,22 @@ void PageHr_health240x135::create(lv_obj_t* parent) {
     _lb_hr_y = -4;
     _lb_hr_unit_x = 138;
     _lb_hr_unit_y = 8;
-    _lb_scale_x = -125;
-    _lb_scale_y = 5;
-    _chart_x = 15;
-    _chart_y = 8;
-    _chart_w = _W - 14;
-    _chart_h = _H - 48;
     _hr_font = &ds_digib_font_36;
     _hr_unit_font = &ds_digib_font_20;
-    _scale_font = &lv_font_montserrat_14;
-    _chart_tick_font = &lv_font_montserrat_10;
     _show_asic_pie = false;
+
+    // Lucky Statistics (session data, mirrors the AxeOS card): session Top-10
+    // share samples by difficulty, sorted descending. Bars = share difficulty
+    // (top-3 = gold/silver/bronze), red line = network difficulty. Lost on reboot.
+    // _chart_x leaves a left gutter for the log Y-axis tick labels.
+    _chart_x = 30;
+    _chart_y = 52;
+    _chart_w = 200;
+    _chart_h = 58;
+    _bar_gap = 3;
+    _lucky_points = 10;      // 10 bars: session top-3 pinned + newest, chronological
+    _lucky_axis_ticks = 4;
+    _lucky_bar_values = false;   // too cramped for per-bar value labels on 135px
 
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(parent, 0, 0);
@@ -51,17 +56,17 @@ void PageHr_health240x135::_create_dynamic(lv_obj_t* parent) {
     lv_label_set_long_mode(_lb_hr_unit, LV_LABEL_LONG_DOT);
     lv_obj_align(_lb_hr_unit, LV_ALIGN_TOP_MID, _lb_hr_unit_x, _lb_hr_unit_y);
 
-    const BoardSpecConfig& spec = MinerApp::instance().spec();
-    uint16_t scale = (uint16_t)(spec.ui.hashrate_dist_page.max_x_hr / spec.ui.hashrate_dist_page.max_x_bars);
-    String scale_str = "Scale : " + String(scale) + " GH/s";
-    uint16_t width = lv_txt_get_width(scale_str.c_str(), scale_str.length(), _scale_font, 0, LV_TEXT_FLAG_NONE);
-    _lb_scale = lv_label_create(parent);
-    lv_obj_set_width(_lb_scale, width);
-    lv_label_set_text(_lb_scale, scale_str.c_str());
-    lv_obj_set_style_text_font(_lb_scale, _scale_font, LV_PART_MAIN);
-    lv_obj_set_style_text_color(_lb_scale, lv_color_hex(0xFFA500), LV_PART_MAIN);
-    lv_label_set_long_mode(_lb_scale, LV_LABEL_LONG_DOT);
-    lv_obj_align(_lb_scale, LV_ALIGN_TOP_RIGHT, _lb_scale_x, _lb_scale_y);
+    // Tiny title in the dead space right of the hashrate unit.
+    _lb_title = lv_label_create(parent);
+    lv_label_set_text(_lb_title, "Lucky");
+    lv_obj_set_style_text_font(_lb_title, &lv_font_montserrat_10, LV_PART_MAIN);
+    lv_obj_set_style_text_color(_lb_title, lv_color_hex(0xFFC107), LV_PART_MAIN);
+    lv_obj_align(_lb_title, LV_ALIGN_TOP_RIGHT, -4, 2);
 
-    _create_chart();
+    // Legend doubles as the block-solve warning strip.
+    _lb_legend = lv_label_create(parent);
+    lv_label_set_text(_lb_legend, "");
+    lv_obj_set_style_text_font(_lb_legend, &lv_font_montserrat_10, LV_PART_MAIN);
+    lv_obj_set_style_text_color(_lb_legend, lv_color_hex(0x808080), LV_PART_MAIN);
+    lv_obj_align(_lb_legend, LV_ALIGN_TOP_MID, 0, 120);
 }

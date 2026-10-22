@@ -43,6 +43,45 @@
     &.latency-poor { color: rgba(255, 107, 107, 0.75); }   // > 200ms  红色
   }
 
+  // Corner action button (Block Hits card → clear counter). Matches the
+  // Top-10 card's clear button styling: filled, clearly clickable button.
+  .card-clear-btn {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    z-index: 2;
+    background: rgba(255, 107, 107, 0.14);
+    border: 1px solid rgba(255, 107, 107, 0.55);
+    border-radius: 6px;
+    color: #ff8a8a;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 5px 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    transition: background .15s, border-color .15s, color .15s, transform .1s, box-shadow .15s;
+
+    &:hover {
+      background: rgba(255, 107, 107, 0.28);
+      border-color: #ff6b6b;
+      color: #ffffff;
+      box-shadow: 0 3px 10px rgba(255, 107, 107, 0.35);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      background: rgba(255, 107, 107, 0.4);
+    }
+
+    &:focus-visible {
+      outline: 2px solid #ff6b6b;
+      outline-offset: 2px;
+    }
+  }
+
   .hashrate-pct-badge {
     position: absolute;
     top: 8px;
@@ -85,7 +124,7 @@
     background: linear-gradient(90deg, #FF9800, #FFB74D);
   }
 
-  &.difficulty-card::before {
+  &.blockhits-card::before {
     background: linear-gradient(90deg, #9C27B0, #BA68C8);
   }
 }
@@ -148,26 +187,10 @@
     text-overflow: ellipsis;
   }
 
-  &.difficulty-value {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    font-size: 16px;
-    
-    .session-diff {
-      color: #4CAF50;
-      font-weight: bold;
-    }
-    
-    .diff-separator {
-      color: #aaa;
-      margin: 0 4px;
-    }
-    
-    .alltime-diff {
-      color: #FF9800;
-      font-weight: bold;
-    }
+  &.blockhits-value {
+    // Matches the LCD block-hits digit color (0xEE7D30 in page_clock /
+    // page_miner layouts) so web and screen agree.
+    color: #EE7D30;
   }
 }
 

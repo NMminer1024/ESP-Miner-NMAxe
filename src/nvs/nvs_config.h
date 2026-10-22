@@ -47,6 +47,10 @@
 
 #define NVS_CONFIG_AUTO_SCREEN              "autoscreen"
 #define NVS_CONFIG_BEST_EVER                "bestever"
+#define NVS_CONFIG_TOP_DIFFS                "topdiffs"    // lifetime Top-10 share difficulties, comma-separated
+#define NVS_CONFIG_TOP_DIFF_TS              "topdiffts"   // UTC epoch per Top-10 entry, comma-separated (0 = unknown)
+#define NVS_CONFIG_TOP_DIFF_SNAP            "topdiffsnap" // pool|user snapshot per Top-10 entry, "p1|u1;p2|u2;..." (';' entries, '|' fields)
+#define NVS_CONFIG_TOP_DIFF_NET             "topdiffnet"  // pool-reported network difficulty per Top-10 entry, comma-separated (0 = unknown)
 #define NVS_CONFIG_SELF_TEST                "selftest"
 #define NVS_CONFIG_BLOCK_HITS               "blockhits"
 #define NVS_CONFIG_UPTIME                   "uptime"

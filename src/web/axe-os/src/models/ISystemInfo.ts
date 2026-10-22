@@ -165,6 +165,7 @@ export interface ISystemInfo {
   brightness?: number,
   bestDiff?: string,
   bestSessionDiff?: string,
+  blkhits?: number,
   smallCoreCount?: number,
   flipscreen?: number,
   invertscreen?: number,

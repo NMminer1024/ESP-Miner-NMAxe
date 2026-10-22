@@ -210,7 +210,7 @@ Set `paused` to `false` to start mining again:
 
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
-| GET | `/api/dashboard/hr/dist`        | Hashrate distribution bar config and sample counts |
+| GET | `/api/dashboard/topdiffs`       | Lifetime Top-10 best share difficulties (descending, NVS-persisted) |
 | GET | `/api/dashboard/gauge/limits`   | Min/max ranges for power, heat, and performance gauges |
 | GET | `/api/dashboard/chart/history`  | Full miner status time-series (up to 2000 records, ~24 h) |
 | GET | `/api/dashboard/chart/realtime` | Single latest data point for live chart update |

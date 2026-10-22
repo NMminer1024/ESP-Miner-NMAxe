@@ -78,6 +78,7 @@ export class HomeComponent implements OnInit {
         info.sharesAccepted  = mnr?.sAccepted       ?? info.sharesAccepted;
         info.sharesRejected  = mnr?.sRejected       ?? info.sharesRejected;
         info.uptimeSeconds   = mnr?.uptimeSeconds   ?? info.uptimeSeconds;
+        info.blkhits         = mnr?.blkhits         ?? info.blkhits;
         info.bestDiff        = info.bestDiffEver;
         info.bestSessionDiff = info.bestDiffSession;
 
@@ -198,5 +199,24 @@ export class HomeComponent implements OnInit {
     if (f < 0.6) return '#00e676';
     if (f < 0.85) return '#ffab40';
     return '#ff5252';
+  }
+
+  // Clear the lifetime block-hit counter (moved here from the topbar's
+  // "Clear Block Hits" button; same endpoint, now on the card itself).
+  // Confirmation uses the in-page p-dialog instead of a native confirm().
+  public clearBlockHitsDialogVisible: boolean = false;
+
+  public showClearBlockHitsDialog(): void {
+    this.clearBlockHitsDialogVisible = true;
+  }
+
+  public clearBlockHits(): void {
+    this.clearBlockHitsDialogVisible = false;
+    this.systemService.resetMinerStats().subscribe({
+      // Dashboard polls every 5s, so the card refreshes on the next tick.
+      error: (err) => {
+        console.error('Could not clear block hits:', err);
+      }
+    });
   }
 }

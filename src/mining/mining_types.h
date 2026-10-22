@@ -74,12 +74,70 @@ struct DiffInfo {
 //  documented per field; the mining threads (stratum/tx/rx) and monitor are
 //  the principal participants, with display/web as read-only consumers.
 // ============================================================================
+// Lifetime Top-10 best share difficulties, kept sorted descending (index 0 =
+// best). Zero entries mean "not filled yet". Written by the ASIC rx thread on
+// every accepted share that cracks into the list; read by web/UI and persisted
+// to NVS (NVS_CONFIG_TOP_DIFFS) on the nvs_save_xsem signal.
+#define MINER_TOP_DIFF_COUNT 10
+// Snapshot of the connection in use when a Top-10 entry was achieved:
+// pool = "host:port" of the stratum connection, user = stratum user
+// (wallet[.worker]). Empty string = unknown (pre-snapshot firmware upgrade).
+// Sizing budget: pool covers any real stratum FQDN + port (IP form max 21);
+// user covers the longest valid BTC address (bech32m "bc1p..." = 62 chars)
+// plus a generous worker suffix. Both truncate safely via snprintf if a user
+// configures something longer — the NVS copy of stratumuser stays authoritative.
+// Combined NVS payload worst case: COUNT * (POOL + USER + 2 separators)
+// ~= 1.5 KB, well under the 4000-byte per-key nvs_set_str limit.
+#define MINER_TOP_SNAP_POOL_LEN 48
+#define MINER_TOP_SNAP_USER_LEN 96
+
 struct MinerStatus {
     DiffInfo   diff;
     hashrate_t hashrate{0.0, 0.0, 0.0};
     float      share_rate = 0.0f;       // ASIC nonce find rate (nonces/s)
     float      efficiency = 0.0f;       // J/TH
     uint16_t   hits = 0;                // block-proximity hit counter
+    double     best_top_diffs[MINER_TOP_DIFF_COUNT] = {0};
+    // UTC epoch (seconds) when each entry was achieved; 0 = unknown (pre-
+    // timestamp firmware upgrade, or share found before the first NTP sync).
+    // Shifted in lockstep with best_top_diffs. Persisted alongside as a second
+    // comma-separated NVS string (NVS_CONFIG_TOP_DIFF_TS).
+    uint32_t   best_top_diff_ts[MINER_TOP_DIFF_COUNT] = {0};
+    // Pool / wallet snapshot per entry, shifted in lockstep too. Persisted as
+    // a third NVS string (NVS_CONFIG_TOP_DIFF_SNAP): entries separated by ';',
+    // fields by '|' ("pool1|user1;pool2|user2;...").
+    char       best_top_diff_pool[MINER_TOP_DIFF_COUNT][MINER_TOP_SNAP_POOL_LEN] = {{0}};
+    char       best_top_diff_user[MINER_TOP_DIFF_COUNT][MINER_TOP_SNAP_USER_LEN] = {{0}};
+    // Network difficulty the pool reported at the moment the entry was
+    // achieved — lets the UI show whether the share was block-proximity
+    // (share diff >= network diff means a real block solve). 0 = unknown
+    // (pre-support upgrade). Persisted as a fourth comma-separated NVS string
+    // (NVS_CONFIG_TOP_DIFF_NET).
+    double     best_top_diff_net[MINER_TOP_DIFF_COUNT] = {0};
+
+    // Insert an accepted share difficulty into the lifetime Top-10 list.
+    // Returns true when the share cracked into the list (caller should then
+    // trigger an NVS save so the ranking survives reboots).
+    bool record_top_diff(double d, uint32_t epoch, const char* pool, const char* user, double net) {
+        if (d <= 0.0 || d <= best_top_diffs[MINER_TOP_DIFF_COUNT - 1]) {
+            return false;
+        }
+        int pos = MINER_TOP_DIFF_COUNT - 1;
+        while (pos > 0 && best_top_diffs[pos - 1] < d) {
+            best_top_diffs[pos] = best_top_diffs[pos - 1];
+            best_top_diff_ts[pos] = best_top_diff_ts[pos - 1];
+            best_top_diff_net[pos] = best_top_diff_net[pos - 1];
+            memcpy(best_top_diff_pool[pos], best_top_diff_pool[pos - 1], MINER_TOP_SNAP_POOL_LEN);
+            memcpy(best_top_diff_user[pos], best_top_diff_user[pos - 1], MINER_TOP_SNAP_USER_LEN);
+            pos--;
+        }
+        best_top_diffs[pos] = d;
+        best_top_diff_ts[pos] = epoch;
+        best_top_diff_net[pos] = net;
+        snprintf(best_top_diff_pool[pos], MINER_TOP_SNAP_POOL_LEN, "%s", pool ? pool : "");
+        snprintf(best_top_diff_user[pos], MINER_TOP_SNAP_USER_LEN, "%s", user ? user : "");
+        return true;
+    }
     uint32_t   share_accepted = 0;
     uint32_t   share_rejected = 0;
     uint64_t   uptime_ever = 0;

@@ -907,7 +907,8 @@ void webserver_thread_entry(void* args) {
         request->send(r);
     });
     // ── Dashboard data endpoints ──────────────────────────────────────────────
-    webServer.on("/api/dashboard/hr/dist",        HTTP_GET, get_hr_distribution);
+    webServer.on("/api/dashboard/topdiffs",       HTTP_GET, get_top_diffs);
+    webServer.on("/api/dashboard/topdiffs",    HTTP_DELETE, delete_top_diffs);
     webServer.on("/api/dashboard/gauge/limits",   HTTP_GET, get_gauge_limits);
     webServer.on("/api/dashboard/chart/history",  HTTP_GET, get_status_history);
     webServer.on("/api/dashboard/chart/realtime", HTTP_GET, get_status_realtime);

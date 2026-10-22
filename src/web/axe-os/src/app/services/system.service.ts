@@ -293,8 +293,14 @@ export class SystemService {
     return this.httpClient.get<IOtaLastResult>(`${uri}/api/update/last-result`);
   }
 
-  public getHashrateDistribution(uri: string = ''): Observable<any> {
-    return this.httpClient.get(`${uri}/api/dashboard/hr/dist`);
+  public getTopDiffs(uri: string = ''): Observable<any> {
+    return this.httpClient.get(`${uri}/api/dashboard/topdiffs`);
+  }
+
+  // Wipe the lifetime Top-10 best-difficulty history (device-side NVS, including
+  // the bestever seed). Mirrors the reboot-list clear pattern.
+  public clearTopDiffs(uri: string = '') {
+    return this.httpClient.delete(`${uri}/api/dashboard/topdiffs`, {responseType: 'text'});
   }
 
   /** Wake the screensaver on this device (or a remote device when uri is provided). */

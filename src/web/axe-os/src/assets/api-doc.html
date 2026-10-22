@@ -496,8 +496,12 @@
     </div>
     <div class="nav-group">
       <div class="nav-group-title">Dashboard</div>
-      <a class="nav-item" href="#dash-hr-dist">
-        <span class="nav-badge badge-get">GET</span> HR Distribution
+      <a class="nav-item" href="#dash-topdiffs-clear">
+        <span class="nav-method nav-delete">DEL</span>
+        <span class="nav-path">/api/dashboard/topdiffs</span>
+      </a>
+      <a class="nav-item" href="#dash-topdiffs">
+        <span class="nav-badge badge-get">GET</span> Top 10 Difficulties
       </a>
       <a class="nav-item" href="#dash-gauge">
         <span class="nav-badge badge-get">GET</span> Gauge Limits
@@ -1014,35 +1018,67 @@
         <div class="section-title">Dashboard</div>
       </div>
       <p class="section-desc">
-        Data feed endpoints consumed by the AxeOS dashboard widgets: hashrate
-        distribution histogram, gauge range bounds, time-series history, and
-        real-time snapshot.
+        Data feed endpoints consumed by the AxeOS dashboard widgets: lifetime
+        Top-10 best share difficulties, gauge range bounds, time-series history,
+        and real-time snapshot.
       </p>
 
-      <!-- GET /api/dashboard/hr/dist -->
-      <div class="endpoint" id="dash-hr-dist">
+      <!-- GET /api/dashboard/topdiffs -->
+      <div class="endpoint" id="dash-topdiffs">
         <div class="endpoint-head">
           <span class="method-badge method-get">GET</span>
-          <code class="endpoint-path">/api/dashboard/hr/dist</code>
-          <span class="endpoint-summary">Hashrate distribution histogram config</span>
+          <code class="endpoint-path">/api/dashboard/topdiffs</code>
+          <span class="endpoint-summary">Lifetime Top-10 best share difficulties</span>
         </div>
         <div class="endpoint-body">
-          <p class="ep-desc">Returns the hashrate distribution bar chart configuration including bucket counts and the sample distribution map.</p>
+          <p class="ep-desc">Returns the ten highest share difficulties this miner has ever found, sorted descending (index 0 = best). Persisted in NVS and surviving reboots. Replaces the removed <code>/api/dashboard/hr/dist</code> hashrate-distribution endpoint. <code>ts</code> carries the UTC epoch (seconds) when each entry was achieved, index-aligned with <code>top</code>; 0 means unknown (entry predates timestamp support or was found before the first NTP sync). <code>pool</code> and <code>user</code> carry the connection snapshot at the moment each entry was achieved — pool <code>"host:port"</code> and stratum user (wallet[.worker]); <code>""</code> means unknown (entry predates snapshot support). <code>net</code> carries the pool-reported network difficulty at achievement time (same format as <code>top</code>); <code>"0"</code> = unknown. A share whose difficulty reached <code>net</code> was a block solve.</p>
           <div class="block-label">Response 200</div>
           <pre>{
-  <span class="kw">"max_bars"</span>: <span class="num">20</span>,         <span class="cmt">// number of histogram bars</span>
-  <span class="kw">"max_hr"</span>:   <span class="num">600</span>,         <span class="cmt">// GH/s – X-axis maximum</span>
-  <span class="kw">"count"</span>:    <span class="num">360</span>,         <span class="cmt">// total sample count in distribution</span>
-  <span class="kw">"time"</span>:     <span class="num">3600</span>,         <span class="cmt">// seconds – sampling window</span>
-  <span class="kw">"dist"</span>: {
-    <span class="kw">"400"</span>: <span class="num">12</span>,              <span class="cmt">// key = GH/s bucket, value = sample count</span>
-    <span class="kw">"420"</span>: <span class="num">28</span>,
-    <span class="kw">"440"</span>: <span class="num">45</span>,
-    <span class="kw">"460"</span>: <span class="num">87</span>,
-    <span class="kw">"480"</span>: <span class="num">64</span>,
-    <span class="kw">"500"</span>: <span class="num">31</span>
-  }
+  <span class="kw">"top"</span>: [
+    <span class="str">"90.12T"</span>,          <span class="cmt">// #1 best share difficulty (formatted, 4 significant digits)</span>
+    <span class="str">"45.08T"</span>,
+    <span class="str">"12.34G"</span>,
+    <span class="str">"0"</span>                <span class="cmt">// unfilled slots report "0"</span>
+  ],
+  <span class="kw">"ts"</span>: [
+    <span class="num">1761112345</span>,        <span class="cmt">// UTC epoch seconds per entry, aligned with "top"; 0 = unknown</span>
+    <span class="num">1761098877</span>,
+    <span class="num">0</span>,
+    <span class="num">0</span>
+  ],
+  <span class="kw">"pool"</span>: [
+    <span class="str">"pool.example.com:3333"</span>, <span class="cmt">// pool in use per entry, aligned with "top"; "" = unknown</span>
+    <span class="str">"pool.other.com:4444"</span>,
+    <span class="str">""</span>,
+    <span class="str">""</span>
+  ],
+  <span class="kw">"user"</span>: [
+    <span class="str">"bc1q...xyz.worker1"</span>,    <span class="cmt">// stratum user (wallet) in use per entry; "" = unknown</span>
+    <span class="str">"bc1q...xyz"</span>,
+    <span class="str">""</span>,
+    <span class="str">""</span>
+  ],
+  <span class="kw">"net"</span>: [
+    <span class="str">"86.50T"</span>,          <span class="cmt">// pool-reported network difficulty at achievement; "0" = unknown.</span>
+    <span class="str">"86.50T"</span>,          <span class="cmt">// top &gt;= net means the share was a block solve</span>
+    <span class="str">"0"</span>,
+    <span class="str">"0"</span>
+  ]
 }</pre>
+        </div>
+      </div>
+
+      <!-- DELETE /api/dashboard/topdiffs -->
+      <div class="endpoint" id="dash-topdiffs-clear">
+        <div class="endpoint-head">
+          <span class="method-badge method-delete">DELETE</span>
+          <code class="endpoint-path">/api/dashboard/topdiffs</code>
+          <span class="endpoint-summary">Clear lifetime Top-10 best difficulty history</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Wipes the entire Top-10 best-difficulty history (RAM and NVS), including the #1 entry. Also resets <code>bestever</code> in NVS, since the list is seeded from it at boot on firmware upgrades — otherwise the old best would resurrect after a reboot. Best-session difficulty is untouched. Exposed as the <em>clear</em> button on the dashboard Top-10 card.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
         </div>
       </div>
 

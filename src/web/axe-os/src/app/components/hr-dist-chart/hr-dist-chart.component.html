@@ -1,25 +1,16 @@
 <div class="hr-dist-chart-container">
   <div class="chart-header">
-    <h3 class="chart-title">📊 Hashrate Distribution</h3>
+    <h3 class="chart-title">🏆 Top 10 Best Difficulty History</h3>
     <div class="chart-header-right">
-      <div class="chart-stats">
-        <div class="stat-item">
-          <span class="stat-label">Scale</span>
-          <span class="stat-value">{{ scale }} {{ scaleUnit }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Time</span>
-          <span class="stat-value">{{ formattedTime }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">Samples</span>
-          <span class="stat-value">{{ samplingCount }}</span>
-        </div>
-      </div>
+      <button type="button" class="clear-btn" (click)="showClearTopDiffsDialog()" title="Clear all best difficulty history">clear</button>
       <app-help-btn key="hr-dist"></app-help-btn>
     </div>
   </div>
-  
+
+  <div class="best-diff-banner" *ngIf="bestDiff">
+    <span class="best-diff-value">{{ bestDiff }}</span>
+  </div>
+
   <div class="chart-wrapper">
     <!-- 原生Canvas实现，参考monitor组件 -->
     <canvas #chartCanvas 
@@ -27,3 +18,25 @@
     </canvas>
   </div>
 </div>
+
+<!-- Clear Top-10 history confirmation (in-page modal) -->
+<p-dialog header="Clear Best Difficulty History"
+          [(visible)]="clearTopDiffsDialogVisible"
+          [modal]="true"
+          [style]="{width: 'min(420px, 90vw)'}"
+          [closable]="true"
+          [dismissableMask]="true">
+    <p>This will erase the lifetime Top-10 best difficulty history on this miner, including the #1 entry and Best Ever Difficulty.</p>
+    <ng-template pTemplate="footer">
+        <button pButton type="button" label="Cancel"
+                icon="pi pi-times"
+                class="p-button-secondary p-button-outlined"
+                (click)="clearTopDiffsDialogVisible = false">
+        </button>
+        <button pButton type="button" label="Clear"
+                icon="pi pi-trash"
+                class="p-button-danger"
+                (click)="clearTopDiffs()">
+        </button>
+    </ng-template>
+</p-dialog>

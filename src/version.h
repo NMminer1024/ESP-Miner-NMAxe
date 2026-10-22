@@ -5,5 +5,5 @@
 //  need not pull in the whole board god-structure.
 // ============================================================================
 
-#define BOARD_CURRENT_FW_VERSION        "v3.2.01d"
+#define BOARD_CURRENT_FW_VERSION        "v3.2.01e"
 #define BOARD_CURRENT_HW_VERSION        "v1.1.1"

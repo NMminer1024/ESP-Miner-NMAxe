@@ -1,54 +1,48 @@
 #include "ui/pages/page_hr_health.h"
 
+// Integer-mantissa KMGT label for the medal value labels ("166K", not
+// "166.4K" / "93.2K"): round the mantissa, never print decimals.
+static String fmtIntKMGT(float num) {
+    static const char* units[] = {"", "K", "M", "G", "T", "P", "E"};
+    int ui = 0;
+    while (num >= 1000.0f && ui < 6) { num /= 1000.0f; ui++; }
+    return String((long)lroundf(num)) + units[ui];
+}
+
+// Compact label for an exact power-of-ten axis tick: exponent d -> "1"/"10"/
+// "100" scaled by the K/M/G/T/P/E unit (d/3). Matches the AxeOS log axis.
+static String fmtDecade(int d) {
+    static const char* units[] = {"", "K", "M", "G", "T", "P", "E"};
+    int ui = d / 3;
+    if (ui < 0) ui = 0;
+    if (ui > 6) ui = 6;
+    const int lead = d - ui * 3;   // 0, 1 or 2
+    const char* mant = (lead == 0) ? "1" : (lead == 1) ? "10" : "100";
+    return String(mant) + units[ui];
+}
+
 void PageHr_healthBase::destroy() {
     _parent = nullptr;
     _lb_hr = nullptr;
     _lb_hr_unit = nullptr;
-    _lb_scale = nullptr;
-    _chart = nullptr;
-    _chart_series = nullptr;
     _pie = {};
     _last_update_ms = 0;
     _last_hashrate = -1.0;
-}
-
-void PageHr_healthBase::_create_chart() {
-    if (!_parent || _chart != nullptr) {
-        return;
+    _lb_title = nullptr;
+    _chart = nullptr;
+    _chart_line = nullptr;
+    _series_share = nullptr;
+    _series_net = nullptr;
+    _lb_legend = nullptr;
+    for (int i = 0; i < 3; i++) {
+        _medal_slot[i] = -1;
+        _val_lbs[i] = nullptr;
     }
-
-    const BoardSpecConfig& spec = MinerApp::instance().spec();
-    const uint16_t max_bars = (uint16_t)spec.ui.hashrate_dist_page.max_x_bars;
-
-    _chart = lv_chart_create(_parent);
-    lv_obj_add_flag(_chart, LV_OBJ_FLAG_EVENT_BUBBLE);
-    lv_obj_set_size(_chart, _chart_w, _chart_h);
-    lv_obj_align(_chart, LV_ALIGN_CENTER, _chart_x, _chart_y);
-    lv_chart_set_type(_chart, LV_CHART_TYPE_BAR);
-    lv_chart_set_range(_chart, LV_CHART_AXIS_PRIMARY_X, 0, max_bars - 1);
-    lv_chart_set_range(_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 100);
-    lv_chart_set_div_line_count(_chart, 5, 4);
-    _chart_series = lv_chart_add_series(_chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    lv_chart_set_point_count(_chart, max_bars);
-    lv_chart_set_all_value(_chart, _chart_series, 0);
-    lv_chart_set_axis_tick(_chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, max_bars, 1, true, 25);
-    lv_chart_set_axis_tick(_chart, LV_CHART_AXIS_PRIMARY_Y, 1, 2, 5, 1, true, 25);
-    lv_obj_set_style_bg_opa(_chart, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_opa(_chart, LV_OPA_TRANSP, LV_PART_MAIN);
-
-    static lv_style_t style_grid;
-    static bool style_inited = false;
-    if (!style_inited) {
-        lv_style_init(&style_grid);
-        lv_style_set_line_dash_width(&style_grid, 2);
-        lv_style_set_line_dash_gap(&style_grid, 4);
-        lv_style_set_line_opa(&style_grid, LV_OPA_50);
-        style_inited = true;
+    for (int i = 0; i < 8; i++) {
+        _axis_lbs[i] = nullptr;
     }
-    lv_obj_add_style(_chart, &style_grid, LV_PART_MAIN | LV_STATE_DEFAULT);
-    if (_chart_tick_font) {
-        lv_obj_set_style_text_font(_chart, _chart_tick_font, LV_PART_TICKS);
-    }
+    _snap_count = 0;
+    _snap_last_epoch = 0;
 }
 
 void PageHr_healthBase::_create_pie_chart(uint8_t sector_count) {
@@ -137,43 +131,32 @@ void PageHr_healthBase::_on_update() {
         return;
     }
 
-    if (_last_hashrate == st->hashrate._3m) {
-        _last_update_ms = now;
-        return;
-    }
-    _last_hashrate = st->hashrate._3m;
+    // Hashrate label — refresh only when the value actually changed.
+    if (_last_hashrate != st->hashrate._3m) {
+        _last_hashrate = st->hashrate._3m;
 
-    const BoardSpecConfig& spec = MinerApp::instance().spec();
+        String hr_value = formatNumber(st->hashrate._3m, 3);
+        String hr_unit = (st->hashrate._3m > 0.0 && hr_value.length() > 0)
+            ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s")
+            : "";
+        String hr_num = (st->hashrate._3m > 0.0 && hr_value.length() > 0)
+            ? hr_value.substring(0, hr_value.length() - 1)
+            : hr_value;
 
-    if (_chart && _chart_series) {
-        for (uint16_t i = 0; i < spec.ui.hashrate_dist_page.max_x_bars; ++i) {
-            uint8_t y = 0;
-            auto it = spec.ui.hashrate_dist_page.dist_map.find(i);
-            if (it != spec.ui.hashrate_dist_page.dist_map.end()) {
-                y = it->second;
-            }
-            lv_chart_set_value_by_id(_chart, _chart_series, i, y);
+        if (_lb_hr) {
+            lv_label_set_text(_lb_hr, hr_num.c_str());
         }
-        lv_chart_refresh(_chart);
-    }
-
-    String hr_value = formatNumber(st->hashrate._3m, 3);
-    String hr_unit = (st->hashrate._3m > 0.0 && hr_value.length() > 0)
-        ? (String(hr_value.charAt(hr_value.length() - 1)) + "H/s")
-        : "";
-    String hr_num = (st->hashrate._3m > 0.0 && hr_value.length() > 0)
-        ? hr_value.substring(0, hr_value.length() - 1)
-        : hr_value;
-
-    if (_lb_hr) {
-        lv_label_set_text(_lb_hr, hr_num.c_str());
-    }
-    if (_lb_hr_unit) {
-        lv_label_set_text(_lb_hr_unit, hr_unit.c_str());
+        if (_lb_hr_unit) {
+            lv_label_set_text(_lb_hr_unit, hr_unit.c_str());
+        }
     }
 
 #if defined(BOARD_NMQAXE_PP) || defined(BOARD_NMQAXE_PP_REV61) || defined(BOARD_NMQAXE_PP_REV81)  || defined(BOARD_NMQAXE_PP_NEXUS)
+    // ASIC share-distribution pie is temporarily disabled (the page now shows
+    // Lucky Statistics). The code path is kept intact — flip _show_asic_pie
+    // back to true in the 320x240 layout to restore it.
     if (_show_asic_pie) {
+        const BoardSpecConfig& spec = MinerApp::instance().spec();
         // Use board-design expected chip count (num_req), not runtime detected count.
         // This ensures all sectors always show — a dead chip simply stays at 0%.
         uint8_t asic_count = spec.asic.num_req;
@@ -208,5 +191,344 @@ void PageHr_healthBase::_on_update() {
     #error "No board model defined. Add -D BOARD_<model> in platformio.ini"
 #endif
 
+    // Lucky Statistics: session share/net-difficulty chart fed from
+    // proximity_history (RAM, lost on reboot). Redraws only when the sample
+    // set actually changed.
+    _update_lucky(st);
+
     _last_update_ms = now;
+}
+
+// ── Lucky Statistics ────────────────────────────────────────────────────────
+// Log-scaled (log10) so a 100K share and a 90T share coexist on one axis,
+// matching the AxeOS card. Gold line = share difficulty per rank (#1..#10);
+// red line = network difficulty the pool reported when that share landed.
+// ── Lucky Statistics (session data, mirrors the AxeOS card) ────────────────
+// Source: st.proximity_history — the accepted shares of this power-on session
+// (RAM deque ≤36; lost on reboot). The LCD only has room for _lucky_points
+// bars, so the window is: the session top-3 shares (NEVER dropped) plus the
+// newest remaining samples to fill the row — then everything is re-sorted by
+// arrival time, so the x-axis order stays identical to the AxeOS card
+// (oldest→newest). Bars = share difficulty (top-3 = gold/silver/bronze),
+// red line = network difficulty at that moment.
+void PageHr_healthBase::_create_lucky_chart() {
+    if (_chart || _chart_w <= 0 || _chart_h <= 0) {
+        return;
+    }
+    const uint16_t pts = (uint16_t)(_lucky_points > 0 && _lucky_points <= LUCKY_SAMPLES
+                                        ? _lucky_points : LUCKY_SAMPLES);
+
+    // ── Bottom chart: share-difficulty BARS (like the AxeOS card) ──────────
+    _chart = lv_chart_create(_parent);
+    lv_obj_set_size(_chart, _chart_w, _chart_h);
+    lv_obj_set_pos(_chart, _chart_x, _chart_y);
+    lv_obj_clear_flag(_chart, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_opa(_chart, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(_chart, 0, LV_PART_MAIN);
+    // Grid: light-white dashed lines (matches the requested style).
+    lv_obj_set_style_line_color(_chart, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_line_opa(_chart, LV_OPA_40, LV_PART_MAIN);
+    lv_obj_set_style_line_width(_chart, 1, LV_PART_MAIN);
+    lv_obj_set_style_line_dash_width(_chart, 3, LV_PART_MAIN);
+    lv_obj_set_style_line_dash_gap(_chart, 3, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(_chart, _pad_side, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(_chart, _pad_side, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(_chart, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(_chart, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(_chart, _bar_gap, LV_PART_MAIN);                 // gap between bars
+    lv_obj_set_style_radius(_chart, 1, LV_PART_ITEMS);
+    lv_chart_set_type(_chart, LV_CHART_TYPE_BAR);
+    lv_chart_set_point_count(_chart, pts);
+    lv_chart_set_update_mode(_chart, LV_CHART_UPDATE_MODE_CIRCULAR);
+    lv_chart_set_div_line_count(_chart, _lucky_axis_ticks, 5);
+    _series_share = lv_chart_add_series(_chart, lv_color_hex(0x29B6F6), LV_CHART_AXIS_PRIMARY_Y);
+    // Per-sample bar colours: session top-3 = gold/silver/bronze, rest blue.
+    lv_obj_add_event_cb(_chart, _lucky_bar_cb, LV_EVENT_DRAW_PART_BEGIN, this);
+
+    // ── Y-axis decade tick labels (log scale, like the AxeOS card) ─────────
+    // Created hidden; text + position set in _update_lucky once the log range
+    // is known. They live in the left gutter (_axis_gutter px wide).
+    for (int i = 0; i < _lucky_axis_ticks && i < 8; i++) {
+        _axis_lbs[i] = lv_label_create(_parent);
+        lv_label_set_text(_axis_lbs[i], "");
+        lv_obj_set_style_text_font(_axis_lbs[i], &lv_font_montserrat_10, LV_PART_MAIN);
+        lv_obj_set_style_text_color(_axis_lbs[i], lv_color_hex(0xB0B0B0), LV_PART_MAIN);
+        lv_obj_set_width(_axis_lbs[i], _chart_x > 4 ? _chart_x - 3 : 0);
+        lv_obj_set_style_text_align(_axis_lbs[i], LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN);
+        lv_obj_add_flag(_axis_lbs[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // ── Overlay chart: red network-difficulty LINE, drawn on top ───────────
+    // LVGL 8.4 cannot mix BAR + LINE in one chart, so a second transparent
+    // chart is stacked on the same rect. Its side padding is widened by
+    // half a bar block so line vertices land exactly on bar centres.
+    const lv_coord_t content_w = _chart_w - 2 * _pad_side;
+    const lv_coord_t block_w = (content_w - (pts - 1) * _bar_gap) / pts;
+    const lv_coord_t line_pad = _pad_side + block_w / 2;
+
+    _chart_line = lv_chart_create(_parent);
+    lv_obj_set_size(_chart_line, _chart_w, _chart_h);
+    lv_obj_set_pos(_chart_line, _chart_x, _chart_y);
+    lv_obj_clear_flag(_chart_line, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_opa(_chart_line, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(_chart_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_left(_chart_line, line_pad, LV_PART_MAIN);
+    lv_obj_set_style_pad_right(_chart_line, line_pad, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(_chart_line, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(_chart_line, 0, LV_PART_MAIN);
+    lv_obj_set_style_line_width(_chart_line, 2, LV_PART_ITEMS);                  // net line
+    lv_obj_set_style_line_rounded(_chart_line, true, LV_PART_ITEMS);
+    lv_obj_set_style_size(_chart_line, 2, LV_PART_INDICATOR);                    // small dots
+    lv_chart_set_type(_chart_line, LV_CHART_TYPE_LINE);
+    lv_chart_set_point_count(_chart_line, pts);
+    lv_chart_set_update_mode(_chart_line, LV_CHART_UPDATE_MODE_CIRCULAR);
+    lv_chart_set_div_line_count(_chart_line, 0, 0);                              // grid from bar chart
+    _series_net = lv_chart_add_series(_chart_line, lv_color_hex(0xFF5252), LV_CHART_AXIS_PRIMARY_Y);
+
+    // Share-difficulty value labels above the medal bars (positioned in
+    // _update_lucky once bar heights are known).
+    if (_lucky_bar_values) {
+        for (int i = 0; i < 3; i++) {
+            _val_lbs[i] = lv_label_create(_parent);
+            lv_label_set_text(_val_lbs[i], "");
+            lv_obj_set_style_text_font(_val_lbs[i], &lv_font_montserrat_10, LV_PART_MAIN);
+            lv_obj_set_style_text_color(_val_lbs[i], lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+        }
+    }
+
+    if (_lb_legend) {
+        lv_label_set_text(_lb_legend, "");
+    }
+}
+
+// LV_EVENT_DRAW_PART_BEGIN on the BAR chart: recolour the session top-3
+// sample bars as gold / silver / bronze medals; all others stay web-blue.
+void PageHr_healthBase::_lucky_bar_cb(lv_event_t* e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_DRAW_PART_BEGIN) return;
+    PageHr_healthBase* self = (PageHr_healthBase*)lv_event_get_user_data(e);
+    if (!self) return;
+    lv_obj_draw_part_dsc_t* dsc = (lv_obj_draw_part_dsc_t*)lv_event_get_draw_part_dsc(e);
+    if (!dsc || dsc->part != LV_PART_ITEMS || dsc->type != LV_CHART_DRAW_PART_BAR) return;
+    if (!dsc->rect_dsc) return;
+    const int slot = (int)dsc->id;   // sample index in the session window
+    lv_color_t c = lv_color_hex(0x29B6F6);   // regular share bar (web blue)
+    for (int m = 0; m < 3; m++) {
+        if (self->_medal_slot[m] == slot) {
+            c = lv_color_hex(m == 0 ? 0xFFC107 : (m == 1 ? 0xC0C0C0 : 0xCD7F32));
+            break;
+        }
+    }
+    dsc->rect_dsc->bg_color = c;
+}
+
+void PageHr_healthBase::_update_lucky(const MinerStatus* st) {
+    if (!_chart) {
+        _create_lucky_chart();
+    }
+    if (!_chart || !_chart_line || !_series_share || !_series_net) {
+        return;
+    }
+
+    // ── Snapshot the session deque under its mutex ─────────────────────────
+    // Copying into fixed arrays keeps the rest of the update lock-free and
+    // gives us a cheap change-detection baseline.
+    int n = 0;
+    if (st->proximity_history.mutex &&
+        xSemaphoreTake(st->proximity_history.mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        int skip = 0;
+        if ((int)st->proximity_history.deque.size() > LUCKY_SAMPLES) {
+            skip = (int)st->proximity_history.deque.size() - LUCKY_SAMPLES;
+        }
+        int i = 0;
+        for (const auto& node : st->proximity_history.deque) {
+            if (i++ < skip) continue;
+            if (n >= LUCKY_SAMPLES) break;
+            _snap_share[n] = node.share_diff;
+            _snap_net[n]   = node.net_diff;
+            _snap_epoch[n] = node.epoch;
+            n++;
+        }
+        xSemaphoreGive(st->proximity_history.mutex);
+    }
+
+    // ── Change detection: sample count + newest timestamp ─────────────────
+    // The deque only mutates when a share lands (push or random eviction),
+    // and every mutation changes either the size or the newest epoch. A
+    // steady-state session therefore costs one mutex grab + two compares.
+    const uint64_t newest = (n > 0) ? _snap_epoch[n - 1] : 0ULL;
+    if (n == _snap_count && newest == _snap_last_epoch && newest != 0ULL) {
+        return;
+    }
+    _snap_count = n;
+    _snap_last_epoch = newest;
+
+    // ── Build the display window (top-3 pinned + newest, chronological) ────
+    // pts = bars this layout draws. Selection rule:
+    //   1. The session top-3 shares by difficulty are ALWAYS kept.
+    //   2. Remaining slots are filled with the NEWEST samples (back to front).
+    //   3. The selection is re-sorted by arrival index, so the x axis keeps
+    //      the exact AxeOS ordering (oldest→newest); gaps just mean older
+    //      samples aged out of the window.
+    const int pts = (_lucky_points > 0 && _lucky_points <= LUCKY_SAMPLES)
+                        ? _lucky_points : LUCKY_SAMPLES;
+    float disp_share[LUCKY_SAMPLES], disp_net[LUCKY_SAMPLES];
+    int dn = 0;
+    {
+        bool sel[LUCKY_SAMPLES] = {false};
+        // 1. Pin the session top-3 (by share_diff) — never dropped.
+        for (int m = 0; m < 3 && m < n; m++) {
+            int best = -1;
+            float bestv = -1.0f;
+            for (int i = 0; i < n; i++) {
+                if (sel[i]) continue;
+                if (_snap_share[i] > bestv) { bestv = _snap_share[i]; best = i; }
+            }
+            if (best >= 0) sel[best] = true;
+        }
+        // 2. Fill the remaining slots with the newest samples (newest first).
+        int pinned = 0;
+        for (int i = 0; i < n; i++) if (sel[i]) pinned++;
+        for (int i = n - 1; i >= 0 && pinned < pts; i--) {
+            if (!sel[i]) { sel[i] = true; pinned++; }
+        }
+        // 3. Emit in chronological (snapshot index) order.
+        int d = 0;
+        for (int i = 0; i < n && d < pts; i++) {
+            if (!sel[i]) continue;
+            disp_share[d] = _snap_share[i];
+            disp_net[d]   = _snap_net[i];
+            d++;
+        }
+        dn = d;
+        // Medals = the pinned top-3, located inside the display window.
+        for (int m = 0; m < 3; m++) _medal_slot[m] = -1;
+        for (int m = 0; m < 3; m++) {
+            int best = -1;
+            float bestv = -1.0f;
+            for (int i = 0; i < dn; i++) {
+                bool taken = false;
+                for (int k = 0; k < m; k++) if (_medal_slot[k] == i) { taken = true; break; }
+                if (taken) continue;
+                if (disp_share[i] > bestv) { bestv = disp_share[i]; best = i; }
+            }
+            _medal_slot[m] = best;
+        }
+    }
+
+    // ── Log-scaled axis (like the AxeOS card's Chart.js log axis) ─────────
+    // Range = floor(lo)..ceil(hi) of the data's log10 values — no extra
+    // decade padding, so the plot area is fully used. Tick labels are placed
+    // at the TRUE decade positions (1K/10K/100K/1M...) inside the range.
+    double lo = 1e30, hi = -1e30;
+    for (int i = 0; i < dn; i++) {
+        if (disp_share[i] > 0.0f) { double v = log10(disp_share[i]); lo = fmin(lo, v); hi = fmax(hi, v); }
+        if (disp_net[i]   > 0.0f) { double v = log10(disp_net[i]);   lo = fmin(lo, v); hi = fmax(hi, v); }
+    }
+    if (dn == 0) { lo = 3.0; hi = 5.0; }   // empty-state placeholder axis
+    const int scale = 100;
+    lv_coord_t y_min = (lv_coord_t)((int)floor(lo) * scale);
+    lv_coord_t y_max = (lv_coord_t)((int)ceil(hi) * scale);
+    if (y_max <= y_min) y_max = y_min + scale;
+    // Both charts share the identical Y range so bars and line align.
+    lv_chart_set_range(_chart, LV_CHART_AXIS_PRIMARY_Y, y_min, y_max);
+    lv_chart_set_range(_chart_line, LV_CHART_AXIS_PRIMARY_Y, y_min, y_max);
+    // One horizontal grid line per decade (range ends are whole decades, so
+    // the evenly-spaced div lines land exactly on the tick labels).
+    lv_chart_set_div_line_count(_chart, (y_max - y_min) / scale + 1, 5);
+
+    // ── Place the Y-axis decade labels at their true log positions ───────
+    int tick_idx = 0;
+    {
+        const lv_coord_t content_h = _chart_h - 2;   // pad_top=2, pad_bottom=0
+        const lv_coord_t yspan = (y_max > y_min) ? (y_max - y_min) : 1;
+        for (int d = (int)ceil(lo); d <= (int)floor(hi) && tick_idx < 8; d++) {
+            if (!_axis_lbs[tick_idx]) { tick_idx++; continue; }
+            lv_coord_t gy = _chart_y + 2
+                + (lv_coord_t)((int64_t)(y_max - d * scale) * content_h / yspan);
+            lv_coord_t lh = lv_obj_get_height(_axis_lbs[tick_idx]);
+            if (lh <= 0) lh = 10;
+            lv_label_set_text(_axis_lbs[tick_idx], fmtDecade(d).c_str());
+            lv_obj_align(_axis_lbs[tick_idx], LV_ALIGN_TOP_LEFT, 0, gy - lh / 2);
+            lv_obj_clear_flag(_axis_lbs[tick_idx], LV_OBJ_FLAG_HIDDEN);
+            tick_idx++;
+        }
+        for (int i = tick_idx; i < 8; i++) {
+            if (_axis_lbs[i]) {
+                lv_label_set_text(_axis_lbs[i], "");
+                lv_obj_add_flag(_axis_lbs[i], LV_OBJ_FLAG_HIDDEN);
+            }
+        }
+    }
+
+    // ── Write point arrays; samples are left-aligned, tail slots empty ────
+    for (int i = 0; i < pts; i++) {
+        if (i < dn) {
+            _series_share->y_points[i] = (disp_share[i] > 0.0f)
+                ? (lv_coord_t)(log10(disp_share[i]) * scale) : LV_CHART_POINT_NONE;
+            _series_net->y_points[i] = (disp_net[i] > 0.0f)
+                ? (lv_coord_t)(log10(disp_net[i]) * scale) : LV_CHART_POINT_NONE;
+        } else {
+            _series_share->y_points[i] = LV_CHART_POINT_NONE;
+            _series_net->y_points[i]   = LV_CHART_POINT_NONE;
+        }
+    }
+    lv_chart_refresh(_chart);
+    lv_chart_refresh(_chart_line);
+
+    // ── Value labels above the medal bars (big screens only) ──────────────
+    // Bar-top screen-Y mirrors LVGL's BAR geometry:
+    //   y_tmp = (val - ymin) * content_h / (ymax - ymin)
+    //   top   = chart_y + pad_top + (content_h - y_tmp)
+    if (_lucky_bar_values) {
+        const lv_coord_t content_w = _chart_w - 2 * _pad_side;
+        const lv_coord_t content_h = _chart_h - 2;   // pad_top=2, pad_bottom=0
+        const lv_coord_t block_w = (content_w - (pts - 1) * _bar_gap) / pts;
+        const lv_coord_t yspan = (y_max > y_min) ? (y_max - y_min) : 1;
+        for (int m = 0; m < 3; m++) {
+            if (!_val_lbs[m]) continue;
+            const int slot = _medal_slot[m];
+            if (slot >= 0 && slot < dn && disp_share[slot] > 0.0f) {
+                lv_coord_t val = _series_share->y_points[slot];
+                lv_coord_t y_tmp = (lv_coord_t)((int64_t)(val - y_min) * content_h / yspan);
+                lv_coord_t bar_top = _chart_y + 2 + (content_h - y_tmp);
+                lv_coord_t cx = _chart_x + _pad_side
+                    + (lv_coord_t)((int64_t)slot * (content_w - block_w) / (pts - 1))
+                    + block_w / 2;
+                lv_label_set_text(_val_lbs[m], fmtIntKMGT(disp_share[slot]).c_str());
+                lv_coord_t lw = lv_obj_get_width(_val_lbs[m]);
+                if (lw <= 0) lw = 40;
+                lv_coord_t ly = bar_top - (lv_coord_t)lv_obj_get_height(_val_lbs[m]) - 1;
+                if (ly < _chart_y) ly = _chart_y;   // keep inside chart area
+                lv_obj_set_pos(_val_lbs[m], cx - lw / 2, ly);
+                lv_obj_clear_flag(_val_lbs[m], LV_OBJ_FLAG_HIDDEN);
+            } else {
+                lv_label_set_text(_val_lbs[m], "");
+                lv_obj_add_flag(_val_lbs[m], LV_OBJ_FLAG_HIDDEN);
+            }
+        }
+    }
+
+    // ── Legend: sample count + block-solve warning ────────────────────────
+    // solved counts over the FULL session snapshot (not just the visible
+    // window) so a solve outside the plotted bars is still reported.
+    int solved = 0;
+    for (int i = 0; i < n; i++) {
+        if (_snap_net[i] > 0.0f && _snap_share[i] >= _snap_net[i]) solved++;
+    }
+    if (_lb_legend) {
+        // Plain ASCII only: montserrat_10 has no glyph for U+00B7 etc.
+        // (they rendered as tofu boxes on the LCD).
+        if (solved > 0) {
+            lv_label_set_text(_lb_legend, (String(LV_SYMBOL_WARNING) + " " +
+                String(solved) + " block solve" + (solved > 1 ? "s" : "")).c_str());
+            lv_obj_set_style_text_color(_lb_legend, lv_color_hex(0xFF5252), LV_PART_MAIN);
+        } else if (dn > 0) {
+            lv_label_set_text(_lb_legend, "bar share diff / line net diff");
+            lv_obj_set_style_text_color(_lb_legend, lv_color_hex(0x808080), LV_PART_MAIN);
+        } else {
+            lv_label_set_text(_lb_legend, "no shares yet this session");
+            lv_obj_set_style_text_color(_lb_legend, lv_color_hex(0x808080), LV_PART_MAIN);
+        }
+    }
 }

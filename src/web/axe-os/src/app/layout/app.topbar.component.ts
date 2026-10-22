@@ -61,7 +61,6 @@ import { ISystemInfo } from 'src/models/ISystemInfo';
 export class AppTopBarComponent {
 
     items!: MenuItem[];
-    clearBlockHitsDialogVisible: boolean = false;
     private infoPoll$: Observable<ISystemInfo>;
     poolDisplay$: Observable<{ url: string; wallet: string; rssi: number; uptime: number }>;
     miningControl$: Observable<{ state: string; paused: boolean; bmMode: number }>;
@@ -173,25 +172,5 @@ export class AppTopBarComponent {
                 }
             });
     }
-
-    public showClearBlockHitsDialog() {
-        this.clearBlockHitsDialogVisible = true;
-    }
-
-    public clearBlockHits() {
-        this.clearBlockHitsDialogVisible = false;
-        
-        this.systemService.resetMinerStats('')
-            .pipe(this.loadingService.lockUIUntilComplete())
-            .subscribe({
-                next: () => {
-                    this.toastr.success('Success!', 'Block hits cleared');
-                },
-                error: (err: HttpErrorResponse) => {
-                    this.toastr.error('Error', `Could not clear block hits. ${err.message}`);
-                }
-            });
-    }
-
 
 }

@@ -47,16 +47,13 @@
         </div>
       </div>
 
-      <div class="stat-card difficulty-card">
-        <div class="stat-icon">🎯</div>
+      <div class="stat-card blockhits-card">
+        <button type="button" class="card-clear-btn" (click)="showClearBlockHitsDialog()" title="Clear block hit counter">clear</button>
+        <div class="stat-icon">🧱</div>
         <div class="stat-content">
-          <div class="stat-label">Best Difficulty</div>
-          <div class="stat-value difficulty-value">
-            <span class="session-diff">{{ info.bestSessionDiff }}</span>
-            <span class="diff-separator"> / </span>
-            <span class="alltime-diff">{{ info.bestDiff }}</span>
-          </div>
-          <div class="stat-unit">session / all-time</div>
+          <div class="stat-label">Block Hits</div>
+          <div class="stat-value blockhits-value">{{ info.blkhits ?? 0 }}</div>
+          <div class="stat-unit">lifetime</div>
         </div>
       </div>
     </div>
@@ -77,6 +74,28 @@
     <div class="lucky-chart-section">
       <app-lucky-chart></app-lucky-chart>
     </div>
+
+    <!-- Clear Block Hits confirmation (in-page modal) -->
+    <p-dialog header="Clear Block Hits"
+              [(visible)]="clearBlockHitsDialogVisible"
+              [modal]="true"
+              [style]="{width: 'min(420px, 90vw)'}"
+              [closable]="true"
+              [dismissableMask]="true">
+        <p>This will reset the lifetime block hit counter on this miner.</p>
+        <ng-template pTemplate="footer">
+            <button pButton type="button" label="Cancel"
+                    icon="pi pi-times"
+                    class="p-button-secondary p-button-outlined"
+                    (click)="clearBlockHitsDialogVisible = false">
+            </button>
+            <button pButton type="button" label="Clear"
+                    icon="pi pi-trash"
+                    class="p-button-danger"
+                    (click)="clearBlockHits()">
+            </button>
+        </ng-template>
+    </p-dialog>
 
     <!-- Secondary Stats Grid -->
     <div class="secondary-stats">

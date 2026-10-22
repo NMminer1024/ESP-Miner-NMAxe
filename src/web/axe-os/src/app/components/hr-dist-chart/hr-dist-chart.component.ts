@@ -1,17 +1,18 @@
 import { Component, OnInit, ViewChild, AfterViewInit, ElementRef, OnDestroy } from '@angular/core';
-import { Observable, interval, startWith, switchMap, tap, Subscription } from 'rxjs';
+import { Observable, interval, switchMap, tap, Subscription } from 'rxjs';
 import { SystemService } from 'src/app/services/system.service';
-import { Chart, ChartConfiguration, ChartData, ChartOptions, registerables } from 'chart.js';
+import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
+import { DiffSuffixPipe } from 'src/app/pipes/diff-suffix.pipe';
 
 // 注册Chart.js组件
 Chart.register(...registerables);
 
-interface HashrateDistribution {
-  max_bars: number;
-  max_hr: number;
-  count: number;
-  time: number;
-  dist: { [key: string]: number };
+interface TopDiffsResponse {
+  top: string[]; // lifetime Top-10 share difficulties, descending, e.g. "90.12T"
+  ts?: number[]; // UTC epoch (seconds) per entry, index-aligned; 0 = unknown
+  pool?: string[]; // pool "host:port" in use when achieved, index-aligned; "" = unknown
+  user?: string[]; // stratum user (wallet[.worker]) in use, index-aligned; "" = unknown
+  net?: string[]; // pool-reported network difficulty at achievement, e.g. "90.12T"; "0" = unknown
 }
 
 @Component({
@@ -26,31 +27,20 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
   private chart: Chart | null = null;
   private dataSubscription: Subscription | null = null;
 
-  public distData$!: Observable<HashrateDistribution>; // 延迟初始化
-  public scale: number = 0;
-  public samplingTime: number = 0;
-  public samplingCount: number = 0;
-  public scaleUnit: string = 'GH/s';
-  public formattedTime: string = '0s';
-  private currentMaxHr: number = 0;
-  private currentMaxBars: number = 0;
+  public topData$!: Observable<TopDiffsResponse>; // 延迟初始化
+  public bestDiff: string = '';                    // Top1 difficulty, banner
+  private topValues: number[] = [];                // numeric difficulties, descending
 
   constructor(private systemService: SystemService) {
     // Constructor中不创建数据流，将在ngOnInit中创建
   }
 
   ngOnInit(): void {
-    // 创建数据流但不立即订阅
-    this.distData$ = interval(10000).pipe(
-      switchMap(() => this.systemService.getHashrateDistribution()),
-      tap((data: HashrateDistribution) => {
+    // 创建数据流但不立即订阅（Top10 榜单变化缓慢，60s 轮询即可）
+    this.topData$ = interval(60000).pipe(
+      switchMap(() => this.systemService.getTopDiffs()),
+      tap((data: TopDiffsResponse) => {
         this.updateChart(data);
-        this.updateScaleAndUnit(data.max_hr, data.max_bars);
-        this.currentMaxHr = data.max_hr;
-        this.currentMaxBars = data.max_bars;
-        this.samplingTime = data.time;
-        this.samplingCount = data.count;
-        this.formattedTime = this.formatTime(data.time);
       })
     );
   }
@@ -72,6 +62,10 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.chart) {
       this.chart.destroy();
     }
+    if (this.topDiffTooltipEl) {
+      this.topDiffTooltipEl.remove();
+      this.topDiffTooltipEl = null;
+    }
   }
 
   private initChart(): void {
@@ -88,15 +82,15 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
     // 检测是否为移动端，针对性优化布局
     const isMobile = window.innerWidth <= 768;
     const layoutPadding = isMobile ? 
-      { top: 2, right: 4, bottom: 30, left: 4 } : // 移动端：减少顶部边距，增加底部边距防止截断
-      { top: 8, right: 8, bottom: 15, left: 8 };  // PC端正常边距
+      { top: 14, right: 4, bottom: 30, left: 4 } : // 移动端：顶部留白容纳Top3难度标注，底部防截断
+      { top: 18, right: 8, bottom: 15, left: 8 };  // PC端：顶部留白容纳Top3难度标注
 
     const chartConfig: ChartConfiguration = {
       type: 'bar',
       data: {
         labels: [],
         datasets: [{
-          label: 'Hashrate Distribution (%)',
+          label: 'Best Difficulty',
           data: [],
           backgroundColor: 'transparent', // 设为透明，由自定义插件绘制
           borderColor: 'transparent', // 设为透明，由自定义插件绘制
@@ -121,33 +115,12 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
             display: false
           },
           tooltip: {
-            enabled: true,
+            // Custom HTML tooltip: label/value columns aligned, per-field
+            // colors, long wallet addresses wrap instead of blowing up width.
+            enabled: false,
             mode: 'index',
             intersect: false,
-            backgroundColor: 'rgba(42, 42, 42, 0.9)',
-            titleColor: '#ffffff',
-            bodyColor: '#ffffff',
-            borderColor: '#404040',
-            borderWidth: 1,
-            cornerRadius: 8,
-            displayColors: true,
-            callbacks: {
-              title: (context: any) => {
-                const index = context[0].dataIndex;
-                const scaleValue = this.currentMaxBars > 0 ? this.currentMaxHr / this.currentMaxBars : 0;
-                const rangeStart = index * scaleValue;
-                const rangeEnd = (index + 1) * scaleValue;
-                
-                if (scaleValue >= 1000) {
-                  return `Range: ${(rangeStart/1000).toFixed(1)}-${(rangeEnd/1000).toFixed(1)} TH/s`;
-                } else {
-                  return `Range: ${Math.round(rangeStart)}-${Math.round(rangeEnd)} GH/s`;
-                }
-              },
-              label: (context: any) => {
-                return `Time Distribution: ${context.parsed.y}%`;
-              }
-            }
+            external: (context: any) => this.renderTopDiffTooltip(context)
           }
         },
         layout: {
@@ -157,7 +130,7 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
           x: {
             title: {
               display: true,
-              text: 'Hashrate',
+              text: 'Rank',
               color: textColorSecondary,
               font: {
                 size: 11
@@ -183,14 +156,12 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
               display: false
             },
             min: 0,
-            max: 100,
             ticks: {
               color: textColorSecondary,
               font: {
                 size: 10
               },
-              callback: (value: any) => `${value}%`,
-              stepSize: 20
+              callback: (value: any) => DiffSuffixPipe.transform(value)
             },
             grid: {
               color: surfaceBorder
@@ -205,37 +176,40 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
     this.setupCanvasStyles();
   }
 
+  // Clear the lifetime Top-10 history on the device (NVS included), then
+  // refresh the chart immediately so the empty state is visible right away.
+  // Confirmation uses the in-page p-dialog instead of a native confirm().
+  public clearTopDiffsDialogVisible: boolean = false;
+
+  public showClearTopDiffsDialog(): void {
+    this.clearTopDiffsDialogVisible = true;
+  }
+
+  public clearTopDiffs(): void {
+    this.clearTopDiffsDialogVisible = false;
+    this.systemService.clearTopDiffs().subscribe({
+      next: () => this.loadInitialData(),
+      error: (error) => {
+        console.error('❌ Failed to clear top diffs:', error);
+      }
+    });
+  }
+
   private loadInitialData(): void {
-    console.log('🚀 Loading initial hashrate distribution data');
     // 立即获取一次数据
-    this.systemService.getHashrateDistribution().subscribe({
-      next: (data: HashrateDistribution) => {
+    this.systemService.getTopDiffs().subscribe({
+      next: (data: TopDiffsResponse) => {
         this.updateChart(data);
-        this.updateScaleAndUnit(data.max_hr, data.max_bars);
-        this.currentMaxHr = data.max_hr;
-        this.currentMaxBars = data.max_bars;
-        this.samplingTime = data.time;
-        this.samplingCount = data.count;
-        this.formattedTime = this.formatTime(data.time);
-        console.log('✅ Initial hashrate distribution data loaded');
       },
       error: (error) => {
-        console.error('❌ Failed to load initial hashrate distribution data:', error);
+        console.error('❌ Failed to load initial top diffs data:', error);
       }
     });
   }
 
   private startPeriodicUpdates(): void {
-    console.log('⏰ Starting periodic hashrate distribution updates');
     // 启动定期更新（从第二次开始）
-    this.dataSubscription = this.distData$.subscribe({
-      next: (data) => {
-        console.log('🔄 Periodic hashrate distribution data updated');
-      },
-      error: (error) => {
-        console.error('❌ Periodic update failed:', error);
-      }
-    });
+    this.dataSubscription = this.topData$.subscribe();
   }
 
   private setupCanvasStyles(): void {
@@ -255,71 +229,132 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private getScaleValue(): number {
-    return this.currentMaxBars > 0 ? this.currentMaxHr / this.currentMaxBars : 0;
+  // Raw difficulty strings per rank, for tooltips (index 0 = #1 best).
+  public rankLabels: string[] = [];
+
+  // Achievement epoch (UTC seconds) per rank; 0 = unknown.
+  public rankTimes: number[] = [];
+
+  // Pool ("host:port") and stratum user (wallet) snapshot per rank; '' = unknown.
+  public rankPools: string[] = [];
+  public rankUsers: string[] = [];
+
+  // Pool-reported network difficulty (formatted, e.g. "90.12T") per rank;
+  // '0'/'' = unknown. Share diff >= net diff means the share solved a block.
+  public rankNets: string[] = [];
+
+  // Custom HTML tooltip: "#N Best Difficulty" title, then label/value rows
+  // with aligned columns and per-field colors. Unknown fields (pre-snapshot
+  // firmware) are simply omitted. Styles live in the component SCSS under
+  // .topdiff-tooltip.
+  private topDiffTooltipEl: HTMLDivElement | null = null;
+
+  private renderTopDiffTooltip(context: any): void {
+    const { chart, tooltip } = context;
+    if (!this.topDiffTooltipEl) {
+      this.topDiffTooltipEl = document.createElement('div');
+      this.topDiffTooltipEl.className = 'topdiff-tooltip';
+      document.body.appendChild(this.topDiffTooltipEl);
+    }
+    const el = this.topDiffTooltipEl;
+
+    if (tooltip.opacity === 0) {
+      el.style.opacity = '0';
+      return;
+    }
+
+    const i = tooltip.dataPoints?.[0]?.dataIndex ?? 0;
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const row = (label: string, value: string, cls: string) =>
+      `<div class="tt-row"><span class="tt-label">${label}</span><span class="tt-value ${cls}">${esc(value)}</span></div>`;
+
+    let html = `<div class="tt-title">#${i + 1} Best Difficulty</div>`;
+    html += row('Difficulty', this.rankLabels[i] ?? String(tooltip.dataPoints?.[0]?.parsed?.y ?? ''), 'tt-diff');
+    const epoch = this.rankTimes[i] ?? 0;
+    if (epoch > 0) html += row('Achieved', this.formatLocal(epoch), 'tt-time');
+    const pool = this.rankPools[i] ?? '';
+    if (pool) html += row('Pool', pool, 'tt-pool');
+    const user = this.rankUsers[i] ?? '';
+    // Show only the wallet part: stratum user is "wallet[.worker]" — BTC
+    // addresses never contain '.', so everything after the first dot is the
+    // worker suffix and gets trimmed for display.
+    if (user) html += row('Wallet', user.split('.')[0], 'tt-wallet');
+    // Network difficulty the pool reported at achievement time. When the
+    // share reached it, the share was a real block solve — flag it.
+    const net = this.rankNets[i] ?? '';
+    const netNum = net ? DiffSuffixPipe.revert(net) : 0;
+    if (netNum > 0) {
+      const shareNum = this.topValues[i] ?? 0;
+      const solved = shareNum >= netNum;
+      html += row('Net Diff', net + (solved ? '  ⚡ block solve' : ''), solved ? 'tt-net-solved' : 'tt-net');
+    }
+    el.innerHTML = html;
+
+    // Position near the hovered bar, clamped inside the viewport.
+    const rect = chart.canvas.getBoundingClientRect();
+    el.style.opacity = '1';
+    let left = rect.left + window.scrollX + tooltip.caretX + 12;
+    let top = rect.top + window.scrollY + tooltip.caretY - el.offsetHeight / 2;
+    if (left + el.offsetWidth > window.innerWidth - 8) {
+      left = rect.left + window.scrollX + tooltip.caretX - el.offsetWidth - 12;
+    }
+    left = Math.max(8, left);
+    top = Math.max(8, Math.min(top, window.innerHeight + window.scrollY - el.offsetHeight - 8));
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
   }
 
-  private updateScaleAndUnit(maxHr: number, maxBars: number): void {
-    const scaleValue = maxHr / maxBars;
-    
-    if (scaleValue >= 1000) {
-      this.scale = Math.round(scaleValue / 1000);
-      this.scaleUnit = 'TH/s';
-    } else {
-      this.scale = Math.round(scaleValue);
-      this.scaleUnit = 'GH/s';
-    }
+  private formatLocal(epochSec: number): string {
+    const d = new Date(epochSec * 1000);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
-  private formatTime(seconds: number): string {
-    if (seconds < 100) {
-      return `${seconds}s`;
-    }
-    
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${remainingSeconds}s`;
-    } else {
-      return `${minutes}m ${remainingSeconds}s`;
-    }
-  }
+  private updateChart(data: TopDiffsResponse): void {
+    let top = Array.isArray(data?.top) ? data.top : [];
 
-  private updateChart(data: HashrateDistribution): void {
+    // Parse "90.12T"-style strings into plain numbers for the bar heights.
+    this.topValues = top.map(v => DiffSuffixPipe.revert(v));
+
+    // A freshly upgraded device may have fewer than 10 entries (zero-filled
+    // tail slots); drop them so only real ranks are drawn.
+    const filled = this.topValues.findIndex(v => !(v > 0));
+    if (filled >= 0) {
+      top = top.slice(0, filled);
+      this.topValues = this.topValues.slice(0, filled);
+    }
+    this.rankLabels = [...top];
+    // Timestamps / pool / user are index-aligned with the raw arrays; keep
+    // only filled ranks. Older firmware omits these fields entirely.
+    const rawTs = Array.isArray(data?.ts) ? data.ts : [];
+    this.rankTimes = rawTs.slice(0, this.topValues.length).map(v => Number(v) || 0);
+    const rawPool = Array.isArray(data?.pool) ? data.pool : [];
+    this.rankPools = rawPool.slice(0, this.topValues.length).map(v => String(v ?? ''));
+    const rawUser = Array.isArray(data?.user) ? data.user : [];
+    this.rankUsers = rawUser.slice(0, this.topValues.length).map(v => String(v ?? ''));
+    const rawNet = Array.isArray(data?.net) ? data.net : [];
+    this.rankNets = rawNet.slice(0, this.topValues.length).map(v => String(v ?? ''));
+    // Expose labels to the custom bar plugin (draws Top3 value captions).
+    if (this.chart) (this.chart as any).$rankLabels = this.rankLabels;
+
+    // Banner: Top1 difficulty at the card top, centered.
+    this.bestDiff = this.topValues.length > 0 && this.topValues[0] > 0 ? top[0] : '';
+
     if (!this.chart) return;
 
+    // Left-to-right descending rank labels (#1 … #10).
     const labels: string[] = [];
     const values: number[] = [];
-
-    // 根据 max_bars 生成标签和数据
-    for (let i = 0; i < data.max_bars; i++) {
-      const keyStr = i.toString();
-      const percentage = data.dist[keyStr] || 0;
-      
-      // 计算实际的算力范围标签
-      const scaleValue = data.max_hr / data.max_bars;
-      const rangeStart = i * scaleValue;
-      const rangeEnd = (i + 1) * scaleValue;
-      
-      // 智能单位转换
-      if (scaleValue >= 1000) {
-        // 使用 TH/s
-        labels.push(`${(rangeStart/1000).toFixed(1)}-${(rangeEnd/1000).toFixed(1)}`);
-      } else {
-        // 使用 GH/s
-        labels.push(`${Math.round(rangeStart)}-${Math.round(rangeEnd)}`);
-      }
-      
-      values.push(percentage);
+    for (let i = 0; i < this.topValues.length; i++) {
+      labels.push(`#${i + 1}`);
+      values.push(this.topValues[i]);
     }
 
-    // 更新图表数据
+    // Update chart data
     this.chart.data.labels = labels;
     this.chart.data.datasets[0].data = values;
 
-    // 更新图表
+    // Update chart
     this.chart.update('none'); // 使用'none'模式避免动画
   }
 
@@ -347,13 +382,18 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
           
           if (barHeight <= 0) return;
           
-          // 使用蓝色渐变，与原来的颜色主题保持一致
-          const fillColor = 'rgba(54, 162, 235, 0.8)';
+          // 名次配色：#1 金 / #2 银 / #3 铜，其余默认蓝
+          const rankColors = [
+            { fill: 'rgba(255, 193, 7, 0.85)',  edge: 'rgba(255, 193, 7, 1)'  }, // gold
+            { fill: 'rgba(192, 196, 202, 0.85)', edge: 'rgba(192, 196, 202, 1)' }, // silver
+            { fill: 'rgba(205, 127, 50, 0.85)',  edge: 'rgba(205, 127, 50, 1)'  }, // bronze
+          ];
+          const color = rankColors[index] ?? { fill: 'rgba(33, 150, 243, 0.8)', edge: 'rgba(33, 150, 243, 1)' };
           
           // 创建渐变效果
           const gradient = ctx.createLinearGradient(0, y, 0, base);
-          gradient.addColorStop(0, fillColor);
-          gradient.addColorStop(1, 'rgba(54, 162, 235, 0.4)'); // 底部更透明
+          gradient.addColorStop(0, color.fill);
+          gradient.addColorStop(1, color.fill.replace(/0\.85?\)$/, '0.35)')); // 底部更透明
           
           // 绘制圆角矩形
           const cornerRadius = 4; // 圆角半径
@@ -366,9 +406,23 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
           ctx.fill();
           
           // 添加细微的边框
-          ctx.strokeStyle = 'rgba(54, 162, 235, 1)';
+          ctx.strokeStyle = color.edge;
           ctx.lineWidth = 1;
           ctx.stroke();
+
+          // Top3 柱顶标注具体难度值（如 "32.84G"）
+          if (index < 3) {
+            const label = (chart as any).$rankLabels?.[index];
+            if (label) {
+              ctx.save();
+              ctx.font = '600 10px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              ctx.fillStyle = color.edge;
+              ctx.fillText(label, x, barY - 2);
+              ctx.restore();
+            }
+          }
         });
         
         ctx.restore();

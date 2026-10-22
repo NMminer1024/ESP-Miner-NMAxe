@@ -19,6 +19,40 @@
   }
 }
 
+.clear-btn {
+  // Filled, clearly clickable button (destructive action tint).
+  background: rgba(255, 107, 107, 0.14);
+  border: 1px solid rgba(255, 107, 107, 0.55);
+  border-radius: 6px;
+  color: #ff8a8a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 5px 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: background .15s, border-color .15s, color .15s, transform .1s, box-shadow .15s;
+
+  &:hover {
+    background: rgba(255, 107, 107, 0.28);
+    border-color: #ff6b6b;
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(255, 107, 107, 0.35);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    background: rgba(255, 107, 107, 0.4);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #ff6b6b;
+    outline-offset: 2px;
+  }
+}
+
 .chart-header {
   display: flex;
   justify-content: space-between;
@@ -44,6 +78,23 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+// Top1 difficulty banner, centered at the card top
+.best-diff-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 2px 0 4px;
+
+  .best-diff-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #ffc107;
+    text-shadow: 0 2px 8px rgba(255, 193, 7, 0.35);
+    letter-spacing: 1px;
+  }
 }
 
 .chart-stats {
@@ -227,4 +278,61 @@
   .chart-wrapper {
     min-height: 560px; // PC端图表包装器最小高度
   }
+}
+
+/* Custom Top-10 tooltip (created by the Chart.js external handler and
+   appended to document.body, hence ::ng-deep). Two-column label/value
+   layout with per-field colors; long wallet addresses wrap. */
+::ng-deep .topdiff-tooltip {
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s ease;
+  min-width: 240px;
+  // No max width: the panel grows to fit the longest value (full wallet
+  // address on one line).
+  padding: 10px 12px;
+  background: rgba(30, 30, 30, 0.96);
+  border: 1px solid #4a4a4a;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e0e0e0;
+
+  .tt-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffc107;
+    margin-bottom: 6px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .tt-row {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+  }
+
+  .tt-label {
+    flex: 0 0 68px;
+    color: #9e9e9e;
+    font-weight: 500;
+  }
+
+  .tt-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    word-break: break-all;
+    font-weight: 600;
+  }
+
+  .tt-diff   { color: #ffc107; }                  // difficulty — gold, matches banner
+  .tt-time   { color: #90caf9; }                  // achieved time — blue
+  .tt-pool   { color: #81c784; }                  // pool — green
+  .tt-wallet { color: #ce93d8; font-size: 11px; }  // wallet — purple, smaller
+  .tt-net          { color: #b0bec5; }             // network diff at the time — grey
+  .tt-net-solved   { color: #ff5252; font-weight: 700; } // share >= net diff: block solve
 }

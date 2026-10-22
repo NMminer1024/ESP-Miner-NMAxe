@@ -253,6 +253,93 @@ bool MinerApp::init() {
         _state_miner->diff.best_ever = strtoull(best_ever.c_str(), nullptr, 10);
         _state_miner->hits           = nvs_config_get_u16(NVS_CONFIG_BLOCK_HITS, 0);
         _state_miner->uptime_ever    = nvs_config_get_u64(NVS_CONFIG_UPTIME, 0);
+
+        // Lifetime Top-10 share difficulties: "d0,d1,..." descending, stored as
+        // plain integers (sub-integer precision is irrelevant at these scales).
+        String top_diffs = nvs_config_get_string_value(NVS_CONFIG_TOP_DIFFS, "");
+        if (top_diffs.length() > 0) {
+            int idx = 0;
+            int start = 0;
+            while (idx < MINER_TOP_DIFF_COUNT && start <= (int)top_diffs.length()) {
+                int comma = top_diffs.indexOf(',', start);
+                if (comma < 0) comma = top_diffs.length();
+                String tok = top_diffs.substring(start, comma);
+                if (tok.length() > 0) {
+                    _state_miner->best_top_diffs[idx++] = tok.toDouble();
+                }
+                start = comma + 1;
+                if (comma == (int)top_diffs.length()) break;
+            }
+        } else if (_state_miner->diff.best_ever > 0.0) {
+            // First boot on firmware with the Top-10 feature: no "topdiffs" key
+            // exists yet, but the legacy "bestever" value is by definition the
+            // all-time best share difficulty — seed it as rank #1 so the board
+            // does not show an empty ranking until a new share cracks in.
+            _state_miner->best_top_diffs[0] = _state_miner->diff.best_ever;
+            LOG_I("Top-10 diffs: seeded rank #1 from legacy bestever [%s]",
+                  formatNumber(_state_miner->best_top_diffs[0], 4).c_str());
+        }
+        // Matching achievement epochs. Older firmware wrote no such key (or the
+        // bestever-seeded #1 has no known time): entries keep epoch 0 and the
+        // UI simply hides their timestamp line.
+        {
+            String top_ts = nvs_config_get_string_value(NVS_CONFIG_TOP_DIFF_TS, "");
+            int idx = 0;
+            int start = 0;
+            while (idx < MINER_TOP_DIFF_COUNT && start <= (int)top_ts.length()) {
+                int comma = top_ts.indexOf(',', start);
+                if (comma < 0) comma = top_ts.length();
+                String tok = top_ts.substring(start, comma);
+                if (tok.length() > 0) {
+                    _state_miner->best_top_diff_ts[idx++] = (uint32_t)tok.toDouble();
+                }
+                start = comma + 1;
+                if (comma == (int)top_ts.length()) break;
+            }
+        }
+        // Pool|user connection snapshot per entry: "p0|u0;p1|u1;..." (';'
+        // separates entries, '|' splits pool host:port from stratum user).
+        // Pre-snapshot firmware has no such key — entries keep empty strings
+        // and the UI hides the pool/wallet line for them.
+        {
+            String snap = nvs_config_get_string_value(NVS_CONFIG_TOP_DIFF_SNAP, "");
+            int idx = 0;
+            int start = 0;
+            while (idx < MINER_TOP_DIFF_COUNT && start <= (int)snap.length()) {
+                int semi = snap.indexOf(';', start);
+                if (semi < 0) semi = snap.length();
+                String entry = snap.substring(start, semi);
+                int bar = entry.indexOf('|');
+                if (bar >= 0) {
+                    String pool = entry.substring(0, bar);
+                    String user = entry.substring(bar + 1);
+                    strncpy(_state_miner->best_top_diff_pool[idx], pool.c_str(), MINER_TOP_SNAP_POOL_LEN - 1);
+                    strncpy(_state_miner->best_top_diff_user[idx], user.c_str(), MINER_TOP_SNAP_USER_LEN - 1);
+                }
+                idx++;
+                start = semi + 1;
+                if (semi == (int)snap.length()) break;
+            }
+        }
+        // Pool-reported network difficulty per entry, "n0,n1,..." — lets the UI
+        // show whether each share was block-proximity at the time it landed.
+        // Pre-support firmware has no such key: entries keep 0 and the UI hides
+        // the network-difficulty line for them.
+        {
+            String top_net = nvs_config_get_string_value(NVS_CONFIG_TOP_DIFF_NET, "");
+            int idx = 0;
+            int start = 0;
+            while (idx < MINER_TOP_DIFF_COUNT && start <= (int)top_net.length()) {
+                int comma = top_net.indexOf(',', start);
+                if (comma < 0) comma = top_net.length();
+                String tok = top_net.substring(start, comma);
+                if (tok.length() > 0) {
+                    _state_miner->best_top_diff_net[idx++] = tok.toDouble();
+                }
+                start = comma + 1;
+                if (comma == (int)top_net.length()) break;
+            }
+        }
     }
 
     _service_market = new MarketClass();

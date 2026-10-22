@@ -821,24 +821,68 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
     free(buf);
 }
 
-// GET /api/dashboard/hr/dist -- hashrate distribution bar config and sample counts.
-void get_hr_distribution(AsyncWebServerRequest* request){
-    const uint16_t json_size_max  =  512;
-    StaticJsonDocument<json_size_max> root = StaticJsonDocument<json_size_max>();
+// GET /api/dashboard/topdiffs -- lifetime Top-10 best share difficulties,
+// stored in NVS and kept sorted descending (index 0 = best). Replaces the old
+// /api/dashboard/hr/dist hashrate-distribution endpoint (removed once HCN gave
+// accurate hashrate, making the distribution histogram obsolete).
+void get_top_diffs(AsyncWebServerRequest* request){
+    // Pool ("host:port") + stratum user (wallet) snapshots per entry can push
+    // the payload past a static buffer, so allocate the doc from PSRAM.
+    // Worst case ~10*(47+95) chars + JSON overhead < 2 KB; 4 KB keeps margin.
+    BasicJsonDocument<PsramJsonAllocator> root(4096);
 
     root.clear();
-    root["max_bars"]    = g_web->spec->ui.hashrate_dist_page.max_x_bars;
-    root["max_hr"]      = g_web->spec->ui.hashrate_dist_page.max_x_hr;
-    root["count"]       = g_web->spec->ui.hashrate_dist_page.count;
-    root["time"]        = g_web->spec->ui.hashrate_dist_page.time;
-    JsonObject dist_map = root.createNestedObject("dist");
-    for (const auto& pair : g_web->spec->ui.hashrate_dist_page.dist_map) {
-        dist_map[String(pair.first)] = pair.second; 
+    JsonArray top = root.createNestedArray("top");
+    for (int i = 0; i < MINER_TOP_DIFF_COUNT; i++) {
+        top.add(formatNumber(g_web->status->best_top_diffs[i], 4));
+    }
+    // Achievement epoch (UTC seconds) per entry, index-aligned with "top";
+    // 0 = unknown (pre-timestamp upgrade or pre-NTP share).
+    JsonArray ts = root.createNestedArray("ts");
+    for (int i = 0; i < MINER_TOP_DIFF_COUNT; i++) {
+        ts.add(g_web->status->best_top_diff_ts[i]);
+    }
+    // Connection snapshot per entry, index-aligned with "top": pool the share
+    // was mined on and stratum user (wallet[.worker]); "" = unknown
+    // (pre-snapshot firmware upgrade).
+    JsonArray pool = root.createNestedArray("pool");
+    JsonArray user = root.createNestedArray("user");
+    for (int i = 0; i < MINER_TOP_DIFF_COUNT; i++) {
+        pool.add(g_web->status->best_top_diff_pool[i]);
+        user.add(g_web->status->best_top_diff_user[i]);
+    }
+    // Pool-reported network difficulty at achievement time, formatted like
+    // "top" (e.g. "90.12T"); "0" = unknown (pre-support upgrade). Comparing
+    // it against "top" shows whether the share was a block-proximity hit.
+    JsonArray net = root.createNestedArray("net");
+    for (int i = 0; i < MINER_TOP_DIFF_COUNT; i++) {
+        net.add(formatNumber(g_web->status->best_top_diff_net[i], 4));
     }
 
     String json_str;
     serializeJson(root, json_str);
     request->send(200, "application/json", json_str);
+}
+
+// DELETE /api/dashboard/topdiffs -- wipe the lifetime Top-10 share-difficulty
+// history (RAM + NVS). Also clears NVS_CONFIG_BEST_EVER: on boot the Top-10
+// list is seeded from bestever for firmware upgrades, so leaving it set would
+// resurrect the old #1 entry after the next reboot. best_session is left
+// untouched (session-scoped, resets on reboot anyway).
+void delete_top_diffs(AsyncWebServerRequest* request){
+    memset(g_web->status->best_top_diffs, 0, sizeof(g_web->status->best_top_diffs));
+    memset(g_web->status->best_top_diff_ts, 0, sizeof(g_web->status->best_top_diff_ts));
+    memset(g_web->status->best_top_diff_net, 0, sizeof(g_web->status->best_top_diff_net));
+    memset(g_web->status->best_top_diff_pool, 0, sizeof(g_web->status->best_top_diff_pool));
+    memset(g_web->status->best_top_diff_user, 0, sizeof(g_web->status->best_top_diff_user));
+    g_web->status->diff.best_ever = 0.0;
+    nvs_config_set_string(NVS_CONFIG_TOP_DIFFS, "");
+    nvs_config_set_string(NVS_CONFIG_TOP_DIFF_TS, "");
+    nvs_config_set_string(NVS_CONFIG_TOP_DIFF_NET, "");
+    nvs_config_set_string(NVS_CONFIG_TOP_DIFF_SNAP, "");
+    nvs_config_set_string(NVS_CONFIG_BEST_EVER, "0");
+    LOG_I("Miner stats reset: lifetime Top-10 best difficulties cleared");
+    request->send(200, "application/json", "{\"status\":\"ok\"}");
 }
 
 // GET /api/dashboard/gauge/limits -- min/max ranges for dashboard power/heat/performance gauges.

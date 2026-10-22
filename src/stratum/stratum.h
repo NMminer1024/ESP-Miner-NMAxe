@@ -186,6 +186,16 @@ public:
     double get_pool_difficulty(){
         return this->_pool_difficulty;
     }
+    // Connection snapshot helpers: stratum user (wallet[.worker]) and the
+    // "host:port" of the pool currently in use. Used by the Top-10 best-
+    // difficulty history to record where a share was mined.
+    const String& get_user(){
+        return this->_stratum_info.user;
+    }
+    String get_pool_hostport(){
+        pool_info_t p = this->pool ? this->pool->get_pool_info() : pool_info_t{};
+        return p.url + ":" + String(p.port);
+    }
 };
 
 // void stratum_thread_entry(void *args);

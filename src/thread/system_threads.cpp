@@ -342,30 +342,6 @@ void monitor_thread_entry(void* args) {
                 }
                 hr_recent_peak_hs *= HR_DIAG_PEAK_DECAY;
             }
-
-            // hashrate distribution histogram (PSRAM-backed counts)
-            spec.ui.hashrate_dist_page.time = st.uptime_session;
-            {
-                static uint16_t SCALE = (spec.ui.hashrate_dist_page.max_x_hr / spec.ui.hashrate_dist_page.max_x_bars);
-                static uint64_t* counts = NULL;
-                if (counts == NULL) {
-                    counts = (uint64_t*)heap_caps_malloc(spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-                    if (counts == NULL) {
-                        LOG_E("Failed to allocate hashrate distribution counts in PSRAM");
-                        continue;
-                    }
-                    memset(counts, 0, spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
-                }
-                double hr_now = st.hashrate._3m;
-                int index = (int)(hr_now / 1000 / 1000 / 1000 / SCALE); // GH/s, scaled
-                index = (index >= (int)spec.ui.hashrate_dist_page.max_x_bars) ? spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
-                counts[index]++;
-                spec.ui.hashrate_dist_page.count++;
-                for (int i = 0; i < (int)spec.ui.hashrate_dist_page.max_x_bars; i++) {
-                    uint8_t y = (uint8_t)(100 * (float)counts[i] / (float)spec.ui.hashrate_dist_page.count);
-                    spec.ui.hashrate_dist_page.dist_map[i] = y;
-                }
-            }
         }
 
         // --- HCN per-channel imbalance detector (1s cadence) --------------------
@@ -786,6 +762,26 @@ void monitor_thread_entry(void* args) {
             nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(st.diff.best_ever).c_str());
             nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, st.hits);
             nvs_config_set_u64(NVS_CONFIG_UPTIME, st.uptime_ever);
+            // lifetime Top-10 share difficulties, "d0,d1,..." descending,
+            // plus the matching per-entry achievement epochs, network
+            // difficulty at achievement, and the pool|user connection
+            // snapshot ("p0|u0;p1|u1;...").
+            {
+                String top_str, ts_str, net_str, snap_str;
+                for (int i = 0; i < MINER_TOP_DIFF_COUNT; i++) {
+                    if (i > 0) { top_str += ","; ts_str += ","; net_str += ","; snap_str += ";"; }
+                    top_str  += String(st.best_top_diffs[i]);
+                    ts_str   += String(st.best_top_diff_ts[i]);
+                    net_str  += String(st.best_top_diff_net[i]);
+                    snap_str += st.best_top_diff_pool[i];
+                    snap_str += "|";
+                    snap_str += st.best_top_diff_user[i];
+                }
+                nvs_config_set_string(NVS_CONFIG_TOP_DIFFS, top_str.c_str());
+                nvs_config_set_string(NVS_CONFIG_TOP_DIFF_TS, ts_str.c_str());
+                nvs_config_set_string(NVS_CONFIG_TOP_DIFF_NET, net_str.c_str());
+                nvs_config_set_string(NVS_CONFIG_TOP_DIFF_SNAP, snap_str.c_str());
+            }
             last_nvs_save_time = st.uptime_session;
             LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]",
                   formatNumber(st.diff.best_ever, 4).c_str(), st.hits,

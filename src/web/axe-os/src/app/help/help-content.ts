@@ -12,26 +12,26 @@ export interface HelpEntry {
 
 export const HELP_CONTENT: Record<string, HelpEntry> = {
 
-  // ── Hashrate Distribution ─────────────────────────────────────────────────
+  // ── Top 10 Best Difficulty ────────────────────────────────────────────────
   'hr-dist': {
-    title: 'Hashrate Distribution',
-    icon: 'pi pi-chart-bar',
+    title: 'Top 10 Best Difficulty',
+    icon: 'pi pi-trophy',
     sections: [
       {
-        heading: '📊 What is it?',
-        body: 'This bar chart shows how often your miner ran at each hashrate range since the last boot. The X-axis is divided into equal GH/s bands (width = Scale value); the Y-axis is the percentage of samples that fell in that band.\n\nExample: if the bar at "400 GH/s" reaches 80%, the miner spent 80% of its uptime producing hashrate in the 400–450 GH/s range.'
+        heading: '🏆 What is it?',
+        body: 'This bar chart shows the ten hardest shares this miner has ever found, ranked #1 (best) on the left down to #10 on the right. The value at the top center is your all-time best share difficulty.\n\nA share whose difficulty reaches the current Bitcoin network difficulty (~90T) would be a full block solve — bars approaching that height are "block-proximity" shares.'
       },
       {
         heading: '📐 How it works (backend)',
-        body: 'The firmware samples the 3-minute rolling hashrate once per second, every second — including idle periods where hashrate is 0. Each sample is mapped to a bar index = hashrate_GH ÷ Scale. The bar height is recalculated as (samples in this band ÷ total samples) × 100%.\n\n• Scale — Width of each GH/s band (= max_hr ÷ number of bars)\n• Samples — Total number of 1-second samples collected\n• Time — Uptime in seconds since the last boot'
+        body: 'Every share accepted by the pool is inserted into a lifetime Top-10 ranking kept in flash (NVS), together with the time each entry was achieved and a snapshot of the connection in use at that moment (pool address, wallet / stratum user, and the network difficulty the pool reported then). The ranking survives reboots and firmware updates — it is only cleared by the card\'s clear button or a factory reset.\n\n• Bar height — raw share difficulty of that rank\n• Banner — the #1 best difficulty ever found\n• Hover a bar — shows the difficulty, when it was achieved (local time), the pool + wallet in use, and the network difficulty at that moment (a share reaching it was a real block solve, flagged ⚡)\n• Entries recorded by older firmware hide unknown fields\n• The chart refreshes every 60 seconds'
       },
       {
         heading: '🔍 How to read it',
-        body: '• Tall single bar — Hashrate is stable; the miner consistently hits one operating point.\n• Wide spread across multiple bars — Hashrate is fluctuating (pool reconnections, thermal throttling, or ASIC instability).\n• Bar at the far left (near 0 GH/s) — The miner was idle, disconnected, or restarting during part of the session. A small leftmost bar is normal at boot; a large one may indicate connectivity issues.'
+        body: '• Bars clustered near network difficulty — you are mining solo (or on a p2pool-style node) and regularly finding block-proximity shares.\n• A steep drop from #1 to #2 — one exceptionally lucky share stands out from normal pool-difficulty work.\n• Empty / zero bars — fewer than ten accepted shares so far; the list fills up as mining continues.'
       },
       {
         heading: '⚠ Notes',
-        body: '• The distribution resets on every reboot — it only reflects the current session.\n• Samples are taken every second unconditionally; the Samples counter should closely match the Time (uptime) value.\n• The chart refreshes every 10 seconds.'
+        body: '• Difficulty here is the raw share difficulty reported by the pool, not a payout amount.\n• The Top-10 list is per-device and stored on the device itself — it is not synced with the pool statistics.'
       }
     ]
   },
@@ -86,8 +86,8 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
         body: 'Shows ASIC chip temperature and VRM (voltage regulator) temperature. Sustained ASIC temperature above ~85 °C may reduce chip lifespan. If temperatures are high, increase fan speed or reduce frequency/voltage in Settings.'
       },
       {
-        heading: '💰 Best Difficulty',
-        body: 'The highest single-share difficulty ever found by this miner. A share at Bitcoin network difficulty (currently ~90T) would be a block solve. This value is saved to flash and survives reboots.'
+        heading: '🧱 Block Hits',
+        body: 'The number of block-proximity hits: shares whose difficulty met or exceeds the current Bitcoin network difficulty (currently ~90T) — i.e. valid block candidates found by this miner. The counter is saved to flash and survives reboots; it can be reset from the top bar.'
       }
     ]
   },
