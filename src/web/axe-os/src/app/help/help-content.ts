@@ -13,13 +13,13 @@ export interface HelpEntry {
 export const HELP_CONTENT: Record<string, HelpEntry> = {
 
   // ── Top 10 Best Difficulty ────────────────────────────────────────────────
-  'hr-dist': {
+  'best-diff': {
     title: 'Top 10 Best Difficulty',
     icon: 'pi pi-trophy',
     sections: [
       {
         heading: '🏆 What is it?',
-        body: 'This bar chart shows the ten hardest shares this miner has ever found, ranked #1 (best) on the left down to #10 on the right. The value at the top center is your all-time best share difficulty.\n\nA share whose difficulty reaches the current Bitcoin network difficulty (~90T) would be a full block solve — bars approaching that height are "block-proximity" shares.'
+        body: 'This bar chart shows the ten hardest shares this miner has ever found, ranked #1 (best) on the left down to #10 on the right. The banner at the top center shows your best share difficulty this session / all time.\n\nA share whose difficulty reaches the current Bitcoin network difficulty (~90T) would be a full block solve — bars approaching that height are "block-proximity" shares.'
       },
       {
         heading: '📐 How it works (backend)',

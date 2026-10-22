@@ -37,7 +37,7 @@ static PageLoading240x135  s_load_135;
 static PageConfig240x135   s_cfg_135;
 static PageMiner240x135    s_miner_135;
 static PageDashboard240x135 s_dash_135;
-static PageHr_health240x135 s_health_135;
+static PageLucky240x135 s_lucky_135;
 static PageClock240x135    s_clock_135;
 static PageMarket240x135   s_market_135;
 static PageSetting240x135  s_sett_135;
@@ -46,7 +46,7 @@ static PageLoading320x240  s_load_240;
 static PageConfig320x240   s_cfg_240;
 static PageMiner320x240    s_miner_240;
 static PageDashboard320x240 s_dash_240;
-static PageHr_health320x240 s_health_240;
+static PageLucky320x240 s_lucky_240;
 static PageClock320x240    s_clock_240;
 static PageMarket320x240   s_market_240;
 static PageSetting320x240  s_sett_240;
@@ -60,7 +60,7 @@ static UIPage* s_pick_layouts(UIPageId id, uint16_t w, uint16_t h) {
         case UIPageId::CONFIG:         return (UIPage*)&s_cfg_135;
         case UIPageId::MINER:          return (UIPage*)&s_miner_135;
         case UIPageId::DASHBOARD:      return (UIPage*)&s_dash_135;
-        case UIPageId::HR_HEALTH:      return (UIPage*)&s_health_135;
+        case UIPageId::LUCKY:          return (UIPage*)&s_lucky_135;
         case UIPageId::CLOCK:          return (UIPage*)&s_clock_135;
         case UIPageId::MARKET:         return (UIPage*)&s_market_135;
         case UIPageId::SETTING_SWARM:  return (UIPage*)&s_sett_135;
@@ -74,7 +74,7 @@ static UIPage* s_pick_layouts(UIPageId id, uint16_t w, uint16_t h) {
         case UIPageId::CONFIG:         return (UIPage*)&s_cfg_240;
         case UIPageId::MINER:          return (UIPage*)&s_miner_240;
         case UIPageId::DASHBOARD:      return (UIPage*)&s_dash_240;
-        case UIPageId::HR_HEALTH:      return (UIPage*)&s_health_240;
+        case UIPageId::LUCKY:          return (UIPage*)&s_lucky_240;
         case UIPageId::CLOCK:          return (UIPage*)&s_clock_240;
         case UIPageId::MARKET:         return (UIPage*)&s_market_240;
         case UIPageId::SETTING_SWARM:  return (UIPage*)&s_sett_240;
@@ -106,13 +106,13 @@ void UIManager::init(uint16_t w, uint16_t h) {
     // 2. Register all 8 pages (matching original display.cpp page order)
     // Tile layout: rows with horizontal swipe, columns for vertical grouping
     // 2D tile grid + per-page swipe directions — identical to legacy display.cpp:
-    //   (col,row): LOADING(0,0) CONFIG(0,1) | MINER(1,0) DASHBOARD(1,1) HR_HEALTH(1,2)
+    //   (col,row): LOADING(0,0) CONFIG(0,1) | MINER(1,0) DASHBOARD(1,1) LUCKY(1,2)
     //              SETTING(2,0) MARKET(2,1) CLOCK(2,2)
     _register_page(s_pick_layouts(UIPageId::LOADING, w, h),       UIPageId::LOADING,       0, 0, LV_DIR_NONE);
     _register_page(s_pick_layouts(UIPageId::CONFIG, w, h),        UIPageId::CONFIG,        0, 1, LV_DIR_NONE);
     _register_page(s_pick_layouts(UIPageId::MINER, w, h),         UIPageId::MINER,         1, 0, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_BOTTOM));
     _register_page(s_pick_layouts(UIPageId::DASHBOARD, w, h),     UIPageId::DASHBOARD,     1, 1, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP | LV_DIR_BOTTOM));
-    _register_page(s_pick_layouts(UIPageId::HR_HEALTH, w, h),     UIPageId::HR_HEALTH,     1, 2, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP));
+    _register_page(s_pick_layouts(UIPageId::LUCKY, w, h),         UIPageId::LUCKY,         1, 2, (lv_dir_t)(LV_DIR_RIGHT | LV_DIR_TOP));
     _register_page(s_pick_layouts(UIPageId::CLOCK, w, h),         UIPageId::CLOCK,         2, 2, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP));
     _register_page(s_pick_layouts(UIPageId::MARKET, w, h),        UIPageId::MARKET,        2, 1, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_TOP | LV_DIR_BOTTOM));
     _register_page(s_pick_layouts(UIPageId::SETTING_SWARM, w, h), UIPageId::SETTING_SWARM, 2, 0, (lv_dir_t)(LV_DIR_LEFT  | LV_DIR_BOTTOM));
@@ -562,14 +562,14 @@ lv_obj_t* UIManager::_resolve_target_tile(size_t departure_idx, lv_coord_t drift
             switch ((UIPageId)departure_idx) {
                 case UIPageId::MINER:         target_idx = (size_t)UIPageId::SETTING_SWARM; has_target = true; break;
                 case UIPageId::DASHBOARD:     target_idx = (size_t)UIPageId::MARKET;        has_target = true; break;
-                case UIPageId::HR_HEALTH:     target_idx = (size_t)UIPageId::CLOCK;         has_target = true; break;
+                case UIPageId::LUCKY:         target_idx = (size_t)UIPageId::CLOCK;         has_target = true; break;
                 default: break;
             }
         } else {
             switch ((UIPageId)departure_idx) {
                 case UIPageId::SETTING_SWARM: target_idx = (size_t)UIPageId::MINER;         has_target = true; break;
                 case UIPageId::MARKET:        target_idx = (size_t)UIPageId::DASHBOARD;     has_target = true; break;
-                case UIPageId::CLOCK:         target_idx = (size_t)UIPageId::HR_HEALTH;     has_target = true; break;
+                case UIPageId::CLOCK:         target_idx = (size_t)UIPageId::LUCKY;         has_target = true; break;
                 default: break;
             }
         }
@@ -578,7 +578,7 @@ lv_obj_t* UIManager::_resolve_target_tile(size_t departure_idx, lv_coord_t drift
         if (drift_y > 0) {
             switch ((UIPageId)departure_idx) {
                 case UIPageId::MINER:         target_idx = (size_t)UIPageId::DASHBOARD;     has_target = true; break;
-                case UIPageId::DASHBOARD:     target_idx = (size_t)UIPageId::HR_HEALTH;     has_target = true; break;
+                case UIPageId::DASHBOARD:     target_idx = (size_t)UIPageId::LUCKY;         has_target = true; break;
                 case UIPageId::MARKET:        target_idx = (size_t)UIPageId::CLOCK;         has_target = true; break;
                 case UIPageId::SETTING_SWARM: target_idx = (size_t)UIPageId::MARKET;        has_target = true; break;
                 default: break;
@@ -586,7 +586,7 @@ lv_obj_t* UIManager::_resolve_target_tile(size_t departure_idx, lv_coord_t drift
         } else {
             switch ((UIPageId)departure_idx) {
                 case UIPageId::DASHBOARD:     target_idx = (size_t)UIPageId::MINER;         has_target = true; break;
-                case UIPageId::HR_HEALTH:     target_idx = (size_t)UIPageId::DASHBOARD;     has_target = true; break;
+                case UIPageId::LUCKY:         target_idx = (size_t)UIPageId::DASHBOARD;     has_target = true; break;
                 case UIPageId::CLOCK:         target_idx = (size_t)UIPageId::MARKET;        has_target = true; break;
                 case UIPageId::MARKET:        target_idx = (size_t)UIPageId::SETTING_SWARM; has_target = true; break;
                 default: break;

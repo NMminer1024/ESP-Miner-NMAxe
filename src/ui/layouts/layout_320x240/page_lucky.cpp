@@ -1,9 +1,9 @@
-#include "page_hr_health.h"
+#include "page_lucky.h"
 
 #include "lvgl.h"
 #include "ui/assets/images.h"
 
-void PageHr_health320x240::create(lv_obj_t* parent) {
+void PageLucky320x240::create(lv_obj_t* parent) {
     _W = 320;
     _H = 240;
     _parent = parent;
@@ -14,8 +14,8 @@ void PageHr_health320x240::create(lv_obj_t* parent) {
     _hr_font = &ds_digib_font_56;
     _hr_unit_font = &ds_digib_font_20;
     // ASIC share-distribution pie temporarily disabled — this page now shows
-    // Lucky Statistics (Top-10 best difficulties + network-difficulty curve).
-    // Pie code path kept intact; flip to true to restore.
+    // Lucky Statistics (session share-difficulty bars + network-difficulty
+    // line). Pie code path kept intact; flip to true to restore.
     _show_asic_pie = false;
     _pie.center_x = 100;
     _pie.center_y = 65;
@@ -26,8 +26,8 @@ void PageHr_health320x240::create(lv_obj_t* parent) {
     _pie_cfg[3] = PieSectorConfig(90, lv_color_hex(0x2E3192), "A4\r25%");
 
     // Lucky Statistics chart geometry: full-width plot under the hashrate.
-    // Session data (proximity_history, lost on reboot). Big screen shows only
-    // the session Top-10 by share difficulty, sorted descending.
+    // Session data (proximity_history, lost on reboot): 10 bars = session
+    // top-3 pinned + newest samples, kept in chronological order.
     // _chart_x leaves a left gutter for the log Y-axis tick labels.
     _chart_x = 34;
     _chart_y = 68;
@@ -44,7 +44,7 @@ void PageHr_health320x240::create(lv_obj_t* parent) {
     _create_dynamic(parent);
 }
 
-void PageHr_health320x240::_create_dynamic(lv_obj_t* parent) {
+void PageLucky320x240::_create_dynamic(lv_obj_t* parent) {
     lv_obj_t* bg = lv_img_create(parent);
     lv_img_set_src(bg, &status_page_img_240_320);
     lv_obj_set_pos(bg, 0, 0);

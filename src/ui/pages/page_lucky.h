@@ -9,7 +9,7 @@
 #include "ui/hal.h"
 #include "utils/helper.h"
 
-class PageHr_healthBase : public UIPage {
+class PageLuckyBase : public UIPage {
 public:
     void destroy() override;
     void _on_update() override;

@@ -1,9 +1,9 @@
-#include "page_hr_health.h"
+#include "page_lucky.h"
 
 #include "lvgl.h"
 #include "ui/assets/images.h"
 
-void PageHr_health240x135::create(lv_obj_t* parent) {
+void PageLucky240x135::create(lv_obj_t* parent) {
     _W = 240;
     _H = 135;
     _parent = parent;
@@ -15,10 +15,10 @@ void PageHr_health240x135::create(lv_obj_t* parent) {
     _hr_unit_font = &ds_digib_font_20;
     _show_asic_pie = false;
 
-    // Lucky Statistics (session data, mirrors the AxeOS card): session Top-10
-    // share samples by difficulty, sorted descending. Bars = share difficulty
-    // (top-3 = gold/silver/bronze), red line = network difficulty. Lost on reboot.
-    // _chart_x leaves a left gutter for the log Y-axis tick labels.
+    // Lucky Statistics (session data, mirrors the AxeOS card): 10 bars =
+    // session top-3 pinned + newest samples, chronological. Bars = share
+    // difficulty (top-3 = gold/silver/bronze), red line = network difficulty.
+    // Lost on reboot. _chart_x leaves a left gutter for the log Y-axis ticks.
     _chart_x = 30;
     _chart_y = 52;
     _chart_w = 200;
@@ -34,7 +34,7 @@ void PageHr_health240x135::create(lv_obj_t* parent) {
     _create_dynamic(parent);
 }
 
-void PageHr_health240x135::_create_dynamic(lv_obj_t* parent) {
+void PageLucky240x135::_create_dynamic(lv_obj_t* parent) {
     lv_obj_t* bg = lv_img_create(parent);
     lv_img_set_src(bg, &status_page_img_135_240);
     lv_obj_set_pos(bg, 0, 0);

@@ -11,7 +11,7 @@ import {ToastrModule} from 'ngx-toastr';
 import {AppRoutingModule} from './app-routing.module';
 import {AppComponent} from './app.component';
 import {EditComponent} from './components/edit/edit.component';
-import {HrDistChartComponent} from './components/hr-dist-chart/hr-dist-chart.component';
+import {BestDiffChartComponent} from './components/best-diff-chart/best-diff-chart.component';
 import {LuckyChartComponent} from './components/lucky-chart/lucky-chart.component';
 import {NetworkEditComponent} from './components/network-edit/network.edit.component';
 import {TimeEditComponent} from './components/time-edit/time.edit.component';
@@ -40,7 +40,7 @@ const components = [
   AppComponent,
   EditComponent,
   HomeComponent,
-  HrDistChartComponent,
+  BestDiffChartComponent,
   LuckyChartComponent,
   LoadingComponent,
   SettingsComponent,

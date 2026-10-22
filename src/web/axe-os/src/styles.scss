@@ -38,7 +38,7 @@ canvas {
     .charts-grid {
         .chart-section {
             /* 确保图表区域最大化利用空间 */
-            app-monitor, app-hr-dist-chart {
+            app-monitor, app-best-diff-chart {
                 display: block;
                 width: 100%;
                 overflow: hidden; /* 防止内容溢出 */
@@ -66,7 +66,7 @@ canvas {
         margin-bottom: 10px; /* 减少底部间距 */
         
         .chart-section {
-            app-monitor, app-hr-dist-chart {
+            app-monitor, app-best-diff-chart {
                 /* 进一步优化小屏幕显示 */
                 .card.modern-card {
                     border-radius: 6px !important;

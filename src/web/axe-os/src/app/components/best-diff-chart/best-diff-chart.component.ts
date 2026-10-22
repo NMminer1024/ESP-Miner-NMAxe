@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, AfterViewInit, ElementRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, ViewChild, AfterViewInit, ElementRef, OnDestroy, Input } from '@angular/core';
 import { Observable, interval, switchMap, tap, Subscription } from 'rxjs';
 import { SystemService } from 'src/app/services/system.service';
 import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
@@ -16,11 +16,11 @@ interface TopDiffsResponse {
 }
 
 @Component({
-  selector: 'app-hr-dist-chart',
-  templateUrl: './hr-dist-chart.component.html',
-  styleUrls: ['./hr-dist-chart.component.scss']
+  selector: 'app-best-diff-chart',
+  templateUrl: './best-diff-chart.component.html',
+  styleUrls: ['./best-diff-chart.component.scss']
 })
-export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
+export class BestDiffChartComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('chartCanvas', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
 
   // Chart.js实例
@@ -28,8 +28,20 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
   private dataSubscription: Subscription | null = null;
 
   public topData$!: Observable<TopDiffsResponse>; // 延迟初始化
-  public bestDiff: string = '';                    // Top1 difficulty, banner
+  public bestDiff: string = '';                    // banner text: "session/ever" (or Top1 fallback)
   private topValues: number[] = [];                // numeric difficulties, descending
+
+  // Session / lifetime best difficulty (from /api/system/info via home).
+  // Optional in ISystemInfo (older firmware), hence 'string | undefined'.
+  @Input() bestDiffSession?: string;
+  @Input() bestDiffEver?: string;
+
+  // True when the banner shows the "session/ever" pair (caption applies);
+  // false → legacy single Top1 fallback with no caption.
+  public get hasSessionEver(): boolean {
+    return this._sessionEverShown;
+  }
+  private _sessionEverShown = false;
 
   constructor(private systemService: SystemService) {
     // Constructor中不创建数据流，将在ngOnInit中创建
@@ -337,8 +349,17 @@ export class HrDistChartComponent implements OnInit, AfterViewInit, OnDestroy {
     // Expose labels to the custom bar plugin (draws Top3 value captions).
     if (this.chart) (this.chart as any).$rankLabels = this.rankLabels;
 
-    // Banner: Top1 difficulty at the card top, centered.
-    this.bestDiff = this.topValues.length > 0 && this.topValues[0] > 0 ? top[0] : '';
+    // Banner: "session best / all-time best" pair; falls back to the Top-10
+    // #1 entry when the system-info inputs are unavailable (older firmware).
+    const sess = String(this.bestDiffSession ?? '');
+    const ever = String(this.bestDiffEver ?? '');
+    if (sess && ever && sess !== '0' && ever !== '0') {
+      this.bestDiff = sess + '/' + ever;
+      this._sessionEverShown = true;
+    } else {
+      this.bestDiff = this.topValues.length > 0 && this.topValues[0] > 0 ? top[0] : '';
+      this._sessionEverShown = false;
+    }
 
     if (!this.chart) return;
 

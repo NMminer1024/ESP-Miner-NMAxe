@@ -1,4 +1,4 @@
-#include "ui/pages/page_hr_health.h"
+#include "ui/pages/page_lucky.h"
 
 // Integer-mantissa KMGT label for the medal value labels ("166K", not
 // "166.4K" / "93.2K"): round the mantissa, never print decimals.
@@ -21,7 +21,7 @@ static String fmtDecade(int d) {
     return String(mant) + units[ui];
 }
 
-void PageHr_healthBase::destroy() {
+void PageLuckyBase::destroy() {
     _parent = nullptr;
     _lb_hr = nullptr;
     _lb_hr_unit = nullptr;
@@ -45,7 +45,7 @@ void PageHr_healthBase::destroy() {
     _snap_last_epoch = 0;
 }
 
-void PageHr_healthBase::_create_pie_chart(uint8_t sector_count) {
+void PageLuckyBase::_create_pie_chart(uint8_t sector_count) {
     if (!_parent || !_show_asic_pie || sector_count == 0 || sector_count > 4 || _pie.arcs[0] != nullptr) {
         return;
     }
@@ -87,7 +87,7 @@ void PageHr_healthBase::_create_pie_chart(uint8_t sector_count) {
     }
 }
 
-void PageHr_healthBase::_update_pie_chart(const uint16_t* angles) {
+void PageLuckyBase::_update_pie_chart(const uint16_t* angles) {
     if (!_show_asic_pie || !_pie.arcs[0] || !angles) {
         return;
     }
@@ -116,7 +116,7 @@ void PageHr_healthBase::_update_pie_chart(const uint16_t* angles) {
     }
 }
 
-void PageHr_healthBase::_on_update() {
+void PageLuckyBase::_on_update() {
     if (!_parent) {
         return;
     }
@@ -199,10 +199,6 @@ void PageHr_healthBase::_on_update() {
     _last_update_ms = now;
 }
 
-// ── Lucky Statistics ────────────────────────────────────────────────────────
-// Log-scaled (log10) so a 100K share and a 90T share coexist on one axis,
-// matching the AxeOS card. Gold line = share difficulty per rank (#1..#10);
-// red line = network difficulty the pool reported when that share landed.
 // ── Lucky Statistics (session data, mirrors the AxeOS card) ────────────────
 // Source: st.proximity_history — the accepted shares of this power-on session
 // (RAM deque ≤36; lost on reboot). The LCD only has room for _lucky_points
@@ -211,7 +207,7 @@ void PageHr_healthBase::_on_update() {
 // arrival time, so the x-axis order stays identical to the AxeOS card
 // (oldest→newest). Bars = share difficulty (top-3 = gold/silver/bronze),
 // red line = network difficulty at that moment.
-void PageHr_healthBase::_create_lucky_chart() {
+void PageLuckyBase::_create_lucky_chart() {
     if (_chart || _chart_w <= 0 || _chart_h <= 0) {
         return;
     }
@@ -303,10 +299,10 @@ void PageHr_healthBase::_create_lucky_chart() {
 
 // LV_EVENT_DRAW_PART_BEGIN on the BAR chart: recolour the session top-3
 // sample bars as gold / silver / bronze medals; all others stay web-blue.
-void PageHr_healthBase::_lucky_bar_cb(lv_event_t* e) {
+void PageLuckyBase::_lucky_bar_cb(lv_event_t* e) {
     lv_event_code_t code = lv_event_get_code(e);
     if (code != LV_EVENT_DRAW_PART_BEGIN) return;
-    PageHr_healthBase* self = (PageHr_healthBase*)lv_event_get_user_data(e);
+    PageLuckyBase* self = (PageLuckyBase*)lv_event_get_user_data(e);
     if (!self) return;
     lv_obj_draw_part_dsc_t* dsc = (lv_obj_draw_part_dsc_t*)lv_event_get_draw_part_dsc(e);
     if (!dsc || dsc->part != LV_PART_ITEMS || dsc->type != LV_CHART_DRAW_PART_BAR) return;
@@ -322,7 +318,7 @@ void PageHr_healthBase::_lucky_bar_cb(lv_event_t* e) {
     dsc->rect_dsc->bg_color = c;
 }
 
-void PageHr_healthBase::_update_lucky(const MinerStatus* st) {
+void PageLuckyBase::_update_lucky(const MinerStatus* st) {
     if (!_chart) {
         _create_lucky_chart();
     }
@@ -496,6 +492,10 @@ void PageHr_healthBase::_update_lucky(const MinerStatus* st) {
                     + (lv_coord_t)((int64_t)slot * (content_w - block_w) / (pts - 1))
                     + block_w / 2;
                 lv_label_set_text(_val_lbs[m], fmtIntKMGT(disp_share[slot]).c_str());
+                // Match the label colour to its medal bar (gold/silver/bronze).
+                lv_obj_set_style_text_color(_val_lbs[m],
+                    lv_color_hex(m == 0 ? 0xFFC107 : (m == 1 ? 0xC0C0C0 : 0xCD7F32)),
+                    LV_PART_MAIN);
                 lv_coord_t lw = lv_obj_get_width(_val_lbs[m]);
                 if (lw <= 0) lw = 40;
                 lv_coord_t ly = bar_top - (lv_coord_t)lv_obj_get_height(_val_lbs[m]) - 1;

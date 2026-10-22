@@ -1,14 +1,17 @@
-<div class="hr-dist-chart-container">
+<div class="best-diff-chart-container">
   <div class="chart-header">
     <h3 class="chart-title">🏆 Top 10 Best Difficulty History</h3>
     <div class="chart-header-right">
       <button type="button" class="clear-btn" (click)="showClearTopDiffsDialog()" title="Clear all best difficulty history">clear</button>
-      <app-help-btn key="hr-dist"></app-help-btn>
+      <app-help-btn key="best-diff"></app-help-btn>
     </div>
   </div>
 
-  <div class="best-diff-banner" *ngIf="bestDiff">
-    <span class="best-diff-value">{{ bestDiff }}</span>
+  <div class="best-diff-banner" *ngIf="bestDiff"
+       [title]="hasSessionEver ? 'Session best / all time best' : 'Best difficulty ever'">
+    <span class="best-diff-session" *ngIf="hasSessionEver">{{ bestDiffSession }}</span>
+    <span class="best-diff-sep" *ngIf="hasSessionEver">/</span>
+    <span class="best-diff-ever">{{ hasSessionEver ? bestDiffEver : bestDiff }}</span>
   </div>
 
   <div class="chart-wrapper">

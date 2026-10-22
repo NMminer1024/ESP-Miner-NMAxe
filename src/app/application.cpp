@@ -1164,18 +1164,18 @@ void MinerApp::_tick_thread_entry(void* args) {
                                formatNumber(app._state_temp.asic, 2) + "'C";
             }
 
-            // ── Hashrate-health page ──
-            auto& hh = AppState::instance().hr_health;
+            // ── Lucky Statistics page ──
+            auto& lk = AppState::instance().lucky;
             double ghs = (double)app._state_miner->hashrate._3m;
             char hb[24];
             if (ghs >= 1000.0) snprintf(hb, sizeof(hb), "%.2f TH/s", ghs / 1000.0);
             else               snprintf(hb, sizeof(hb), "%.1f GH/s", ghs);
-            hh.hashrate.text   = String(hb);
-            hh.efficiency.text = String("Eff: ") + String(app._state_miner->efficiency, 1) + " J/TH";
-            hh.shares.text     = String("Shares: ") +
+            lk.hashrate.text   = String(hb);
+            lk.efficiency.text = String("Eff: ") + String(app._state_miner->efficiency, 1) + " J/TH";
+            lk.shares.text     = String("Shares: ") +
                                  String((unsigned)app._state_miner->share_rejected) + "/" +
                                  String((unsigned)app._state_miner->share_accepted);
-            hh.best_diff.text  = String("Best: ") + String(app._state_miner->diff.best_ever, 0);
+            lk.best_diff.text  = String("Best: ") + String(app._state_miner->diff.best_ever, 0);
         }
 
         // ── Dashboard page: power / thermal / performance ──

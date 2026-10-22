@@ -1,4 +1,4 @@
-.hr-dist-chart-container {
+.best-diff-chart-container {
   background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
   border-radius: 10px;
   padding: 6px; // 进一步减少padding给图表更多空间
@@ -84,15 +84,33 @@
 .best-diff-banner {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: baseline;
+  gap: 0.4rem;
   flex-shrink: 0;
   margin: 2px 0 4px;
 
-  .best-diff-value {
+  // Session best (xx): cyan-blue, consistent with the session-themed charts
+  // elsewhere; visually distinct from the white all-time best.
+  .best-diff-session {
     font-size: 1.6rem;
     font-weight: 700;
-    color: #ffc107;
-    text-shadow: 0 2px 8px rgba(255, 193, 7, 0.35);
+    color: #29b6f6;
+    text-shadow: 0 2px 8px rgba(41, 182, 246, 0.35);
+    letter-spacing: 1px;
+  }
+
+  .best-diff-sep {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #8a8a8a;
+  }
+
+  // All-time best (yy): white, clearly distinct from the cyan session best.
+  .best-diff-ever, .best-diff-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 2px 8px rgba(255, 255, 255, 0.25);
     letter-spacing: 1px;
   }
 }
@@ -176,7 +194,7 @@
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .hr-dist-chart-container {
+  .best-diff-chart-container {
     padding: 8px; // 进一步减少padding给图表更多空间
     margin-bottom: 0.5rem;
   }
@@ -222,7 +240,7 @@
 }
 
 @media (max-width: 480px) {
-  .hr-dist-chart-container {
+  .best-diff-chart-container {
     padding: 6px; // 最小化padding
   }
   
@@ -271,7 +289,7 @@
 
 /* PC端专用优化样式 */
 @media (min-width: 769px) {
-  .hr-dist-chart-container {
+  .best-diff-chart-container {
     min-height: 600px; // PC端容器最小高度
   }
   
