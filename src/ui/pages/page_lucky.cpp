@@ -243,8 +243,9 @@ void PageLuckyBase::_create_lucky_chart() {
 
     // ── Y-axis decade tick labels (log scale, like the AxeOS card) ─────────
     // Created hidden; text + position set in _update_lucky once the log range
-    // is known. They live in the left gutter (_axis_gutter px wide).
-    for (int i = 0; i < _lucky_axis_ticks && i < 8; i++) {
+    // is known. They live in the left gutter (_chart_x px wide). Always all 8
+    // slots — the data may span more decades than the layout's tick budget.
+    for (int i = 0; i < 8; i++) {
         _axis_lbs[i] = lv_label_create(_parent);
         lv_label_set_text(_axis_lbs[i], "");
         lv_obj_set_style_text_font(_axis_lbs[i], &lv_font_montserrat_10, LV_PART_MAIN);
@@ -434,11 +435,13 @@ void PageLuckyBase::_update_lucky(const MinerStatus* st) {
     lv_chart_set_div_line_count(_chart, (y_max - y_min) / scale + 1, 5);
 
     // ── Place the Y-axis decade labels at their true log positions ───────
+    // One label per horizontal grid line: decades y_min/scale .. y_max/scale
+    // inclusive (the div lines above are spaced exactly one decade apart).
     int tick_idx = 0;
     {
         const lv_coord_t content_h = _chart_h - 2;   // pad_top=2, pad_bottom=0
         const lv_coord_t yspan = (y_max > y_min) ? (y_max - y_min) : 1;
-        for (int d = (int)ceil(lo); d <= (int)floor(hi) && tick_idx < 8; d++) {
+        for (int d = (int)(y_min / scale); d <= (int)(y_max / scale) && tick_idx < 8; d++) {
             if (!_axis_lbs[tick_idx]) { tick_idx++; continue; }
             lv_coord_t gy = _chart_y + 2
                 + (lv_coord_t)((int64_t)(y_max - d * scale) * content_h / yspan);
@@ -492,10 +495,9 @@ void PageLuckyBase::_update_lucky(const MinerStatus* st) {
                     + (lv_coord_t)((int64_t)slot * (content_w - block_w) / (pts - 1))
                     + block_w / 2;
                 lv_label_set_text(_val_lbs[m], fmtIntKMGT(disp_share[slot]).c_str());
-                // Match the label colour to its medal bar (gold/silver/bronze).
-                lv_obj_set_style_text_color(_val_lbs[m],
-                    lv_color_hex(m == 0 ? 0xFFC107 : (m == 1 ? 0xC0C0C0 : 0xCD7F32)),
-                    LV_PART_MAIN);
+                // Pure white — the medal-tinted labels were hard to read on
+                // the busy background.
+                lv_obj_set_style_text_color(_val_lbs[m], lv_color_hex(0xFFFFFF), LV_PART_MAIN);
                 lv_coord_t lw = lv_obj_get_width(_val_lbs[m]);
                 if (lw <= 0) lw = 40;
                 lv_coord_t ly = bar_top - (lv_coord_t)lv_obj_get_height(_val_lbs[m]) - 1;
