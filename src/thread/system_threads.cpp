@@ -398,6 +398,12 @@ void monitor_thread_entry(void* args) {
                 if (ar_attempts >= AR_MAX_ATTEMPTS)            ar_safety_ok = false;
                 if (ar_last_trigger_ms != 0 &&
                     (uint32_t)(now_ms - ar_last_trigger_ms) < AR_COOLDOWN_MS) ar_safety_ok = false;
+                // OC/OT protection has powered the ASIC down; an HCN imbalance/
+                // reject-streak reinit here would silently re-raise Vcore and defeat
+                // the safety shutdown. Hold off until the fault is dismissed.
+                if (ctx->sys_evt &&
+                    (xEventGroupGetBits(ctx->sys_evt) &
+                     (SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT))) ar_safety_ok = false;
             }
 
             // Post-reinit verdict: re-check channel balance once the new EMA has
@@ -563,6 +569,12 @@ void monitor_thread_entry(void* args) {
                 ((xEventGroupGetBits(ctx->init_evt) & INIT_EVENT_MINER_READY) != 0) &&
                 !(ctx->ota_running && *ctx->ota_running) &&
                 !(ctx->miner && ctx->miner->is_asic_frequency_updating()) &&
+                // OC/OT protection has powered the ASIC down on purpose: the
+                // resulting HCN no-progress looks exactly like a dead chain, but
+                // re-powering here would defeat the safety shutdown.
+                !(ctx->sys_evt &&
+                  (xEventGroupGetBits(ctx->sys_evt) &
+                   (SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT))) &&
                 np_attempts < AR_MAX_ATTEMPTS &&
                 (np_last_trigger_ms == 0 ||
                  (uint32_t)(now_ms - np_last_trigger_ms) >= AR_COOLDOWN_MS) &&

@@ -62,8 +62,9 @@ inline AxePowerHal* create_nexus_3ph_power_instance(axe_pwr_enable_pin_t en_pins
                 //   MIN_MAX_CLAMP was persistently set: VOUT_MAX is converted through this
                 //   same wrong scale internally, so the real DAC-side ceiling was clamped
                 //   far below 3.1V, not just a stale latched bit.
-        71.0f,  // ifault_total (measured full-load 69A @ 2.5V rail; 1.25x margin)
-        65.0f,  // iwarn_total  (1.10x margin; must stay below ifault)
+        68.0f,  // ifault_total (user-set protection: ~22.7A/phase across 3 phases)
+        62.2f,  // iwarn_total  (same 0.915 warn/fault ratio as before;
+                //               must stay below ifault)
         85.0f,  // tfault
         5.0f,   // ton_rise_ms (written via PMBus regardless of the MSEL2 strap)
         // The 2 BM1373 dies are Vcore-series-stacked, so the rail must cover 2x the

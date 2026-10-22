@@ -127,6 +127,26 @@ void miner_init_thread_entry(void* args) {
                         INIT_EVENT_WIFI_STA_CONNECTED,
                         pdFALSE, pdTRUE, portMAX_DELAY);
 
+    // The early count runs on VDD/VPLL only (USB-only boot must still detect chips).
+    // On boards whose ASIC logic rail derives from Vcore (Nexus/BM1373), a chip can
+    // miss the early probe and the count would stay short forever: begin() and every
+    // later reinit reuse the cached count. Re-probe now that Vcore is up — only when
+    // the early count was short, so healthy boards pay zero extra cost. Retry a few
+    // times (500ms apart) because the chain can still be settling right after Vcore rise.
+    if (ctx->miner->get_asic_count() != ctx->spec->asic.num_req) {
+        constexpr uint8_t RECOUNT_MAX_ATTEMPTS = 3;
+        uint8_t cnt = 0;
+        for (uint8_t attempt = 1; attempt <= RECOUNT_MAX_ATTEMPTS; attempt++) {
+            cnt = ctx->miner->recount_chips();
+            if (cnt == ctx->spec->asic.num_req) break;
+            if (attempt < RECOUNT_MAX_ATTEMPTS) delay(500);
+        }
+        if (cnt != ctx->spec->asic.num_req) {
+            LOG_E("ASIC recount after Vcore up still short (%d/%d) after %u attempts",
+                  cnt, ctx->spec->asic.num_req, RECOUNT_MAX_ATTEMPTS);
+        }
+    }
+
     // Cold start: reset → init at default baud → switch to work baud.
     if (!ctx->miner->begin(start_frequency(ctx), ctx->spec->asic.diff_thr_init,
                            ctx->spec->asic.com_baud_init, ctx->spec->asic.com_baud_work)) {

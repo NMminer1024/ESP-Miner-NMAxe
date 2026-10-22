@@ -300,6 +300,22 @@ uint8_t AsicMinerClass::connect_chip(){
     return this->_asic_count;
 }
 
+uint8_t AsicMinerClass::recount_chips(){
+    if (this->_asic == NULL) return this->_asic_count;
+    this->_asic->reset();
+    uint8_t cnt = this->_asic->get_asic_count();
+    // Never downgrade a good count on a transient miss (probe timeout, chain settle).
+    if (cnt == 0) {
+        LOG_W("ASIC recount returned 0, keeping previous count (%d)", this->_asic_count);
+        return this->_asic_count;
+    }
+    if (cnt != this->_asic_count) {
+        LOG_W("ASIC recount after Vcore up: %d -> %d chips", this->_asic_count, cnt);
+        this->_asic_count = cnt;
+    }
+    return cnt;
+}
+
 uint8_t AsicMinerClass::get_asic_count(){
     return this->_asic_count;
 }

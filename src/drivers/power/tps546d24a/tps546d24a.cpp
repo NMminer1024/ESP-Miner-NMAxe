@@ -289,13 +289,15 @@ void TPS546D24AClass::hw_init(void){
 
     this->_write_cmd(PMBUS_CLEAR_FAULTS);
 
-    // Only the CONTROL(EN/UVLO) pin governs on/off, high-active, immediate stop —
-    // matches the board's GPIO-driven enable line, re-asserted defensively on every boot.
-    this->_write_byte(PMBUS_ON_OFF_CONFIG, 0b00010111);
+    // ON_OFF_CONFIG = 0x18 (PU|CMD): CMD=1 makes the part honor the OPERATION (0x01)
+    // ON/OFF command, ANDed with the CONTROL(EN) pin (active-high). The previous 0x17
+    // was a straight copy of the TPS53647 value whose bit map differs — its CMD bit
+    // (bit3) was 0, so OPERATION=0x00 was silently ignored and the ASIC could never
+    // actually be powered down on an overcurrent fault.
+    this->_write_byte(PMBUS_ON_OFF_CONFIG, 0x18);
 
-    // OPERATION's software ON bit is ANDed with the CONTROL pin state — measured EN=3.3V
-    // at the chip but output stayed off until this was added, so ON_OFF_CONFIG bit3 does
-    // NOT actually skip this command on this part. 0x80 = ON, no margining.
+    // OPERATION (0x80 = ON, no margining) is ANDed with the CONTROL pin state. With
+    // CMD=1 in ON_OFF_CONFIG above, this command actually gates the output.
     this->_write_byte(PMBUS_OPERATION, 0x80);
     delay(10); // internal command processing busies the chip briefly; the next 2 writes were seen to NACK without this
 

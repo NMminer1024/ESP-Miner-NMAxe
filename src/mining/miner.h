@@ -108,6 +108,10 @@ public:
     void get_hcn_diag_counts(uint32_t *tag_seen, uint32_t *decoded_ok);
     uint32_t set_asic_diff(uint64_t diff);
     uint8_t connect_chip();
+    // Re-run chip enumeration after Vcore came up (early count only had VDD/VPLL).
+    // Accepts the new count only when it is >0, so a transient miss can never
+    // clobber an already-good count. Returns the (possibly updated) count.
+    uint8_t recount_chips();
     uint8_t get_asic_count();
     uint16_t get_asic_small_cores();
     double get_asic_diff();
