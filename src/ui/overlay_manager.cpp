@@ -1350,6 +1350,7 @@ bool OverlayManager::_render_screensaver_overlay(uint32_t now, EventBits_t bits)
                                     : String("Solo mining:\nbe a friend of time.");
             lv_label_set_text(_lb_body, body.c_str());
             lv_obj_set_style_text_color(_lb_body, lv_color_hex(0x66BB6A), 0);
+            lv_obj_set_style_text_align(_lb_body, LV_TEXT_ALIGN_CENTER, 0);
             lv_obj_align(_lb_body, LV_ALIGN_CENTER, 0, 8);
         }
         if (_gif) lv_obj_move_background(_gif);
