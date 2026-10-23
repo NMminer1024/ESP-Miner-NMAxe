@@ -498,9 +498,16 @@ void PageLuckyBase::_update_lucky(const MinerStatus* st) {
                 // Pure white — the medal-tinted labels were hard to read on
                 // the busy background.
                 lv_obj_set_style_text_color(_val_lbs[m], lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+                // Force a synchronous layout so the label's width/height
+                // reflect the text just set. Without this, the FIRST update
+                // measures the still-empty label (height 0), placing it right
+                // on top of the bar; only the second refresh looks correct.
+                lv_obj_update_layout(_val_lbs[m]);
                 lv_coord_t lw = lv_obj_get_width(_val_lbs[m]);
                 if (lw <= 0) lw = 40;
-                lv_coord_t ly = bar_top - (lv_coord_t)lv_obj_get_height(_val_lbs[m]) - 1;
+                lv_coord_t lh = lv_obj_get_height(_val_lbs[m]);
+                if (lh <= 0) lh = 12;   // montserrat_10 fallback, same as axis ticks
+                lv_coord_t ly = bar_top - lh - 1;
                 if (ly < _chart_y) ly = _chart_y;   // keep inside chart area
                 lv_obj_set_pos(_val_lbs[m], cx - lw / 2, ly);
                 lv_obj_clear_flag(_val_lbs[m], LV_OBJ_FLAG_HIDDEN);
