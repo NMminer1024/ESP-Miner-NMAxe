@@ -912,7 +912,7 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
     config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
     config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
-    config.ui.dashboard_page.heat.vcore          = {0.0f, 90.0f};
+    config.ui.dashboard_page.heat.vcore          = {0.0f, NEXUS_VRM_OT_FAULT_C - FAN_TARGET_TEMP_MARGIN_C};
     config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
     config.btn.boot_pin              = 0;
     config.btn.user_pin              = -1; // Not used
@@ -926,9 +926,24 @@ BoardSpecConfig get_board_config_compile_time() {
     config.pwr.pgood_pin             = 21;  
     config.pwr.dc_plug_pin           = -1;  // Not used
     config.pwr.vbus_min_required     = 8000;// mV, minimum vbus voltage to start mining
-    config.pwr.temp_limit.high       = 100.0f;
-    config.pwr.temp_limit.medium     = 80.0f;
-    config.pwr.temp_limit.low        = 60.0f;
+    // VRM (Vcore) thermal limits, derived from the regulator's OWN trip point.
+    //
+    // These used to be hardcoded 100/80/60, which sat ABOVE the TPS546D24A's
+    // OT_FAULT_LIMIT of 85 °C. The two layers therefore disagreed:
+    //   - the auto-fan clamp is (this high - FAN_TARGET_TEMP_MARGIN_C), i.e. it was
+    //     95 °C, so a user-set target of 90 °C was accepted and the fans only went
+    //     to full speed at 90 °C
+    //   - but the regulator shuts its output down at 85 °C by itself
+    // net effect: between 85 and 95 °C the rail was disabled by hardware while the
+    // software believed everything was fine, and the resulting power-fault alert
+    // confused the field report.
+    //
+    // Keeping the software limit one margin BELOW the chip trip means software
+    // always acts first (fan ramp, then the 10 s over-temp escalation), and the
+    // regulator trip remains a last-resort backstop that should never fire.
+    config.pwr.temp_limit.high       = NEXUS_VRM_OT_FAULT_C - FAN_TARGET_TEMP_MARGIN_C;
+    config.pwr.temp_limit.medium     = 70.0f;   // UI "hot" tint, 10 °C below high
+    config.pwr.temp_limit.low        = 55.0f;
     config.pwr.power_low_threshold   = 20.0f; // Watt
     config.iic.scl_pin               = 7;   
     config.iic.sda_pin               = 8;

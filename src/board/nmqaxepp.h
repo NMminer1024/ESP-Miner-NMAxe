@@ -35,6 +35,20 @@ inline AxePowerHal* create_qaxepp81_4ph_power_instance(axe_pwr_enable_pin_t en_p
     return new TPS53647Class(en_pins, adc_pins, pgood, plug, cfg);
 }
 
+// ── Nexus VRM thermal limits ────────────────────────────────────────────────
+// Single source of truth for the TPS546D24A over-temperature trip. board.cpp
+// derives the *software* limits from this value, so the two layers cannot drift
+// apart again (they did: software allowed 100 °C while the chip tripped at 85 °C,
+// so a fan target of 90 °C sat in the gap where the windings had already been
+// shut down by the regulator's own OT_FAULT and the fans never reached full
+// speed).
+//
+// 85 °C is the value written to PMBUS_OT_FAULT_LIMIT (OT_WARN = 75 °C, i.e.
+// tfault - 10, see tps546d24a.cpp hw_init()). Do not raise it to widen the
+// software range: that trades a visible software trip for an invisible
+// regulator trip, which is the failure mode this constant exists to prevent.
+constexpr float NEXUS_VRM_OT_FAULT_C = 85.0f;
+
 // 3-phase stack (QAxe++ Nexus, BM1373): 1 master (U8) + 2 slaves (U9, U10), TPS546D24A.
 // Hardware pin-strap notes (bring-up board, current schematic as-is unless noted):
 //  - Master (U8) ADRSEL: Rtop=46.4k to BP1V5 / Rbot=10.0k to AGND (measured) -> address 0x14,
@@ -75,7 +89,8 @@ inline AxePowerHal* create_nexus_3ph_power_instance(axe_pwr_enable_pin_t en_pins
                 //   working range, so OC_WARN latches during Turbo runs. The latch is
                 //   cleared on operating-point change (power_loop clears only when
                 //   nothing is actually faulting); retuning the threshold is still open.
-        85.0f,  // tfault
+        NEXUS_VRM_OT_FAULT_C,  // tfault - see NEXUS_VRM_OT_FAULT_C above; board.cpp
+                //   derives pwr.temp_limit.high from the same constant.
         5.0f,   // ton_rise_ms (written via PMBus regardless of the MSEL2 strap)
         // The 2 BM1373 dies are Vcore-series-stacked, so the rail must cover 2x the
         // per-die 900-1500mV window (1800-3000mV); clamp is widened with margin.
