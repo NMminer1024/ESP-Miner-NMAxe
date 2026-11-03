@@ -29,4 +29,9 @@ struct BenchmarkCtx {
     const BoardSpecConfig* spec = nullptr;      // board defaults for the sweep range/step
     SemaphoreHandle_t reboot_xsem = nullptr;
     EventGroupHandle_t init_evt = nullptr;      // INIT_EVENT_MINER_READY gate
+    // Shared OTA flag. The benchmark reboots between rounds and when the sweep
+    // finishes; an OTA upload in flight owns that reboot, so the benchmark must
+    // not raise its own (it would abort the upload and mislabel the reboot
+    // reason). nullptr -> treat as "no OTA".
+    volatile bool* ota_running = nullptr;
 };

@@ -104,6 +104,40 @@ void benchmark_thread_entry(void* args) {
           freq_min, freq_max, freq_step, vcore_min, vcore_max, vcore_step);
     LOG_W("[BM] stab=%ds bm=%ds smp=%ds", stab_time, bm_time, smp_intv);
 
+    // Reboot helper that yields to an in-flight OTA.
+    //
+    // The benchmark reboots by design (the new freq/vcore is applied at boot), and
+    // an OTA also ends in a reboot. If both happen the benchmark's request lands
+    // first and tears down the upload mid-transfer — the device then either keeps
+    // running the old image or, worse, boots a partially written one. It also
+    // overwrites the reboot reason, hiding that the restart came from OTA.
+    //
+    // All the state the next boot needs is already in NVS by the time we get here,
+    // so the safe action is to let the OTA own the restart: wait for it, and only
+    // raise our own if the OTA ended WITHOUT restarting (failed or cancelled).
+    auto reboot_or_defer_to_ota = [&](const char* reason) {
+        if (ctx->ota_running && *ctx->ota_running) {
+            LOG_W("[BM] OTA in progress — state saved to NVS, deferring reboot to the OTA restart");
+            // OTA success releases reboot_xsem itself; a failed/cancelled upload
+            // clears the flag without restarting, which falls through to our reboot.
+            uint32_t wait_start = millis();
+            while (ctx->ota_running && *ctx->ota_running) {
+                delay(500);
+                // Safety valve: never block the benchmark thread indefinitely if the
+                // flag is left set by an aborted upload.
+                if (millis() - wait_start > 15 * 60 * 1000u) {
+                    LOG_E("[BM] OTA still flagged running after 15 min, rebooting anyway");
+                    break;
+                }
+            }
+            LOG_W("[BM] OTA finished without restarting the device, rebooting now");
+        }
+        reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, reason);
+        if (ctx->reboot_xsem != nullptr) {
+            xSemaphoreGive(ctx->reboot_xsem);
+        }
+    };
+
     xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
 
     bm.cur_freq     = cur_freq;
@@ -276,8 +310,7 @@ void benchmark_thread_entry(void* args) {
             uint32_t _start = nvs_config_get_u32(NVS_CONFIG_BM_START_TS, 0);
             if (_start > 0) nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, (uint32_t)time(nullptr) - _start);
         }
-        reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, reason);
-        xSemaphoreGive(ctx->reboot_xsem);
+        reboot_or_defer_to_ota(reason);
         vTaskDelete(NULL);
     };
 
@@ -317,7 +350,6 @@ void benchmark_thread_entry(void* args) {
     nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  cur_freq);
     nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, cur_vcore);
     LOG_W("[BM] Next round: freq=%dMHz vcore=%dmV, rebooting...", cur_freq, cur_vcore);
-    reboot_intent_set(REBOOT_INTENT_DAEMON_GENERIC, "benchmark round complete, rebooting for next (freq,vcore)");
-    xSemaphoreGive(ctx->reboot_xsem);
+    reboot_or_defer_to_ota("benchmark round complete, rebooting for next (freq,vcore)");
     vTaskDelete(NULL);
 }

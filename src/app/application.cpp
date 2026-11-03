@@ -679,6 +679,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     bctx.spec        = &_board_spec;
     bctx.reboot_xsem = _sync_system->reboot_xsem;
     bctx.init_evt    = _sync_system->init_evt;
+    bctx.ota_running = &_state_ota.running;   // defer benchmark reboots during OTA
     _ctx_benchmark = &bctx;
 
     _create_task(benchmark_thread_entry, "(benchmark)", 1024 * 6, _ctx_benchmark, TASK_PRIORITY_MONITOR, 0);
