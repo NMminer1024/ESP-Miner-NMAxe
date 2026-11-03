@@ -294,7 +294,7 @@
               </tr>
               <tr>
                 <td class="label">Session Uptime:</td>
-                <td class="value">{{ info.uptimeSeconds | dateAgo }}</td>
+                <td class="value">{{ formatUptime(info.uptimeSeconds) }}</td>
               </tr>
               <tr>
                 <td class="label">Free Memory:</td>

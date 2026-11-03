@@ -201,6 +201,21 @@ export class HomeComponent implements OnInit {
     return '#ff5252';
   }
 
+  // Session uptime as fixed-width hms, matching the firmware's
+  // convert_uptime_to_string() on the device LCD ("000d 00:15:17"), so the
+  // Overview card, the LCD and /api/system/info can be cross-checked directly.
+  // The dateAgo pipe was wrong in kind here: uptime is a duration, not a past
+  // timestamp, and it rendered as "3 days ago".
+  public formatUptime(seconds: number | undefined): string {
+    const total = Math.max(0, Math.floor(seconds ?? 0));
+    const d = Math.floor(total / 86400);
+    const h = Math.floor((total % 86400) / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const pad = (n: number, w: number) => String(n).padStart(w, '0');
+    return `${pad(d, 3)}d ${pad(h, 2)}:${pad(m, 2)}:${pad(s, 2)}`;
+  }
+
   // Clear the lifetime block-hit counter (moved here from the topbar's
   // "Clear Block Hits" button; same endpoint, now on the card itself).
   // Confirmation uses the in-page p-dialog instead of a native confirm().

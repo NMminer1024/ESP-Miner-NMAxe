@@ -6,6 +6,7 @@
 #include "../board/board.h"
 #include "../mining/mining_types.h"
 #include "../drivers/power/power_hal.h"
+#include <esp_timer.h>      // esp_timer_get_time() — monotonic uptime source
 #include "../drivers/power/power_ctx.h"
 #include "../drivers/fan/fan.h"
 #include "../drivers/fan/fan_ctx.h"
@@ -91,6 +92,27 @@ void monitor_thread_entry(void* args) {
     WiFiUDP   udpNtpClient;
     NTPClient* ntpClient = new NTPClient(udpNtpClient, NTP_SERVERS[ntp_server_idx]);
     uint64_t  last_nvs_save_time = st.uptime_session;
+
+    // ── Uptime is derived from a monotonic clock, not from loop iterations ──
+    //
+    // This loop used to do `st.uptime_session++` once per iteration and treat one
+    // iteration as one second. It never was one second: the period is
+    // delay(1000) + the loop body + scheduler delay, and the body is neither small
+    // nor constant:
+    //   - get_vbus()/get_ibus() sleep 5 x 10 ms each (power_hal.cpp SAMPLES_*)
+    //     -> a fixed ~100 ms every iteration;
+    //   - PMBus/I2C transactions (up to a 1000 ms timeout), log emission
+    //     (Serial over USB-CDC + webSocket.textAll, both under one global mutex),
+    //     and preemption by every higher-priority task pinned to this core
+    //     (LVGL/LED/WiFi/Stratum/TX are all above MONITOR).
+    // Measured on a Nexus: 89.7% of real time on an idle-ish unit, as low as 68.6%
+    // when busier — a load-dependent rate error, which also made the UI (derived
+    // from boot_epoch) disagree with the API (raw counter) by ~20 min/hour.
+    //
+    // Now the counter tracks elapsed real time exactly, and boot_epoch computed
+    // from it is correct, so UI and API agree.
+    const uint64_t uptime_boot_us  = (uint64_t)esp_timer_get_time();  // 64-bit, monotonic
+    const uint64_t uptime_ever_base = st.uptime_ever;   // NVS-restored lifetime, captured once
 
     ntpClient->begin();
     ntpClient->setTimeOffset(0); // UTC, no timezone offset
@@ -193,8 +215,14 @@ void monitor_thread_entry(void* args) {
             *ctx->utc = now;
         }
 
-        st.uptime_ever++;
-        st.uptime_session++;
+        // Derived from the monotonic clock (see uptime_boot_us above), so a slow or
+        // preempted iteration no longer loses time. uptime_ever is rebased once from
+        // the NVS-restored value so the lifetime counter keeps accumulating.
+        {
+            const uint64_t elapsed_s = ((uint64_t)esp_timer_get_time() - uptime_boot_us) / 1000000ULL;
+            st.uptime_session = elapsed_s;
+            st.uptime_ever    = uptime_ever_base + elapsed_s;
+        }
 
         // --- per-second telemetry, hashrate recalc, efficiency, distribution ---
         {
@@ -616,7 +644,15 @@ void monitor_thread_entry(void* args) {
         }
 
         // --- safety status checks (skipped entirely in benchmark mode) ---
-        if (st.uptime_session % 2 == 0) {
+        //
+        // Elapsed-time accumulator instead of `uptime_session % 2 == 0`. With uptime
+        // tracking real time the counter can advance by 2 between two iterations, so
+        // a modulo test silently skips periods (the same reason the 5 s history
+        // sampler below was moved off modulo).
+        static uint32_t last_safety_check_ms = 0;
+        const bool safety_check_due = (millis() - last_safety_check_ms >= 2000u);
+        if (safety_check_due) {
+            last_safety_check_ms = millis();
             if (*ctx->bm_mode == 0) {
             if (!(ctx->ota_running && *ctx->ota_running)) {
                 static uint8_t  vcore_err_cnt = 0;
@@ -715,7 +751,13 @@ void monitor_thread_entry(void* args) {
         }
 
         // update miner status history queue
-        if (st.uptime_session % MINER_HISTORY_SAMPLE_INTERVAL == 0) {
+        //
+        // Elapsed-time accumulator instead of `uptime_session % 5 == 0`: the counter is
+        // now real time and can step by 2, so a modulo test would skip samples (e.g.
+        // 4 -> 6 never hits 5) and silently halve the history density.
+        static uint32_t last_history_sample_ms = 0;
+        if (millis() - last_history_sample_ms >= (uint32_t)MINER_HISTORY_SAMPLE_INTERVAL * 1000u) {
+            last_history_sample_ms = millis();
             history_node_t node;
             node.hashrate   = (float)(st.hashrate._3m / 1e9);  // GH/s
             node.share_rate = st.share_rate;                   // nonces/s
