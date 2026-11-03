@@ -156,7 +156,9 @@ public:
     void clear_faults(void) override;
     float get_iout_amps(void) override;
     float get_oc_limit_amps(void) override;
+    float get_oc_warn_limit(void) override;
     float get_ot_limit_celsius(void) override;
+    float get_ot_warn_limit_celsius(void) override;
 };
 
 // Register TPS546D24A instance as the Vcore temperature source in temp_hal

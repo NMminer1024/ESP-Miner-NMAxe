@@ -525,8 +525,18 @@ float TPS53647Class::get_oc_limit_amps(void){
     return this->_cfg.ifault;
 }
 
+float TPS53647Class::get_oc_warn_limit(void){
+    // Matches hw_init(): OC_WARN = ifault - 2 A.
+    return this->_cfg.ifault - 2.0f;
+}
+
 float TPS53647Class::get_ot_limit_celsius(void){
     return this->_cfg.tfault;
+}
+
+float TPS53647Class::get_ot_warn_limit_celsius(void){
+    // Matches hw_init(): OT_WARN = tfault - 10 C.
+    return this->_cfg.tfault - 10.0f;
 }
 
 bool TPS53647Class::is_oc_warn(void){

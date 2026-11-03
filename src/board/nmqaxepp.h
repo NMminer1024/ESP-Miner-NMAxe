@@ -84,11 +84,15 @@ inline AxePowerHal* create_nexus_3ph_power_instance(axe_pwr_enable_pin_t en_pins
                 //   NOTE: the chip stores this as SLINEAR11 (5-bit mantissa) and ends
                 //   up enforcing 70.5A - that is what get_oc_limit_amps() now reports
                 //   back instead of echoing this constant.
-        65.0f,  // iwarn_total (must stay below ifault). NOTE: Turbo normal operation
-                //   measures 63-66A, i.e. this warn point sits inside the Turbo
-                //   working range, so OC_WARN latches during Turbo runs. The latch is
-                //   cleared on operating-point change (power_loop clears only when
-                //   nothing is actually faulting); retuning the threshold is still open.
+        68.0f,  // iwarn_total - must sit BELOW ifault_total (71) to be a real leading
+                //   indicator, and ABOVE the Turbo working range so it does not
+                //   false-alarm. Was 65, which sat INSIDE that range (measured
+                //   63-66A), so OC_WARN latched during every Turbo run and the log
+                //   read as a constant false alarm. 68 is ~2A above the Turbo peak
+                //   (silent in normal Turbo) and ~2.5A below the chip's actual
+                //   OC_FAULT (70.5A after SLINEAR11), so it fires only when current
+                //   is genuinely approaching the trip point. The live/latched split
+                //   in power_loop keeps any residual latched warn honest.
         NEXUS_VRM_OT_FAULT_C,  // tfault - see NEXUS_VRM_OT_FAULT_C above; board.cpp
                 //   derives pwr.temp_limit.high from the same constant.
         5.0f,   // ton_rise_ms (written via PMBus regardless of the MSEL2 strap)

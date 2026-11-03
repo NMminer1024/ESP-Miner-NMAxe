@@ -285,17 +285,35 @@ void power_loop_thread_entry(void* args) {
                     "power overtemperature fault, Vcore/VDD/PLL shut down",
                     "ASIC powered down due to OverTemperature. Please check your cooling system and ambient temperature.");
             } else if (oc_warn) {
+                // The chip latches OC_WARN until CLEAR_FAULTS, so the bit alone cannot
+                // tell "overcurrent right now" from "crossed the warn line minutes ago
+                // at a different operating point". Compare the LIVE total current to the
+                // chip's own OC_WARN threshold to label it honestly.
+                float iout = power->get_iout_amps();
+                float wlim = power->get_oc_warn_limit();
+                bool live = (iout == iout) && (wlim == wlim) && (iout >= wlim);  // NAN-safe
                 static uint32_t last = millis();
                 if (millis() - last >= 3000) {
-                    LOG_W("!!! Overcurrent WARNING detected !!! (%.2fA/%.1fA)",
-                          power->get_iout_amps(), power->get_oc_limit_amps());
+                    if (live) {
+                        LOG_W("!!! Overcurrent WARNING (live) !!! IOUT=%.2fA >= warn-limit %.1fA", iout, wlim);
+                    } else {
+                        LOG_W("Overcurrent WARNING latched (IOUT now %.2fA, below warn-limit %.1fA; stale, clears on op-point change)",
+                              iout, wlim);
+                    }
                     last = millis();
                 }
             } else if (ot_warn) {
+                float temp = power->get_temperature();
+                float wlim = power->get_ot_warn_limit_celsius();
+                bool live = (temp == temp) && (wlim == wlim) && (temp >= wlim);  // NAN-safe
                 static uint32_t last = millis();
                 if (millis() - last >= 3000) {
-                    LOG_W("Overtemperature WARNING detected... (%.1fC/%.0fC)",
-                          power->get_temperature(), power->get_ot_limit_celsius());
+                    if (live) {
+                        LOG_W("Overtemperature WARNING (live)... Temp=%.1fC >= warn-limit %.1fC", temp, wlim);
+                    } else {
+                        LOG_W("Overtemperature WARNING latched (Temp now %.1fC, below warn-limit %.1fC; stale)",
+                              temp, wlim);
+                    }
                     last = millis();
                 }
             }

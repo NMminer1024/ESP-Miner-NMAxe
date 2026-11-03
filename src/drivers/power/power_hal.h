@@ -71,10 +71,16 @@ public:
     virtual float get_iout_amps(void) { return NAN; }
     // OC fault current limit in amps. NAN if not supported.
     virtual float get_oc_limit_amps(void) { return NAN; }
+    // OC WARN current limit in amps (PMBus IOUT_OC_WARN_LIMIT). NAN if not supported.
+    // Used to tell a LIVE overcurrent warning (READ_IOUT >= this) apart from a stale
+    // latched OC_WARN bit left over from an earlier operating point.
+    virtual float get_oc_warn_limit(void) { return NAN; }
     // Real-time temperature in °C (PMBus READ_TEMPERATURE_1). NAN if not supported.
     virtual float get_temperature(void) { return NAN; }
     // OT fault temperature limit in °C. NAN if not supported.
     virtual float get_ot_limit_celsius(void) { return NAN; }
+    // OT WARN temperature limit in °C (PMBus OT_WARN_LIMIT). NAN if not supported.
+    virtual float get_ot_warn_limit_celsius(void) { return NAN; }
 
     uint32_t get_vbus_adc(void);
     uint32_t get_ibus_adc(void);

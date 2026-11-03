@@ -601,6 +601,30 @@ float TPS546D24AClass::get_oc_limit_amps(void){
     return this->_cfg.ifault_total;   // I2C unavailable -> best available value
 }
 
+float TPS546D24AClass::get_oc_warn_limit(void){
+    // The chip's own OC_WARN threshold (PHASE=0xFF total). hw_threads compares the
+    // live READ_IOUT against this to label a warning LIVE vs a stale latched bit.
+    if (this->_device_ok) {
+        uint16_t raw = 0;
+        if (this->_read_reg(PMBUS_IOUT_OC_WARN_LIMIT, (uint8_t*)&raw, 2) == 0) {
+            float limit = this->_slinear11_to_float(raw);
+            if (limit > 0.0f) return limit;
+        }
+    }
+    return this->_cfg.iwarn_total;
+}
+
+float TPS546D24AClass::get_ot_warn_limit_celsius(void){
+    if (this->_device_ok) {
+        uint16_t raw = 0;
+        if (this->_read_reg(PMBUS_OT_WARN_LIMIT, (uint8_t*)&raw, 2) == 0) {
+            float limit = this->_slinear11_to_float(raw);
+            if (limit > 0.0f) return limit;
+        }
+    }
+    return this->_cfg.tfault - 10.0f;   // hw_init writes warn = fault - 10
+}
+
 float TPS546D24AClass::get_ot_limit_celsius(void){
     // Same reasoning as get_oc_limit_amps(): quote the chip's OT_FAULT_LIMIT.
     if (this->_device_ok) {
