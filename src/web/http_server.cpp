@@ -2159,6 +2159,10 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
                 if (Update.write(ota_buf, ota_buf_len) != ota_buf_len) {
                     LOG_E("OTA Update error: %s", Update.errorString());
                     String err_msg = String("OTA write failed: ") + Update.errorString();
+                    // Release the OTA flag: without this the flag stays set until the
+                    // 60s stall watchdog reboots the device, and anything waiting on
+                    // ota_running (benchmark reboot, daemon checks) is blocked needlessly.
+                    g_web->ota->running = false;
                     ota_last_result_set(false, false, 500, (uint32_t)(index + offset), filename, err_msg.c_str());
                     request->send(500, "text/plain", err_msg);
                     ota_buf_len = 0;
@@ -2217,6 +2221,9 @@ void file_upload_handler(AsyncWebServerRequest *request, const String& filename,
             } else {
                 LOG_E("OTA Update error: %s", Update.errorString());
                 String err_msg = String("OTA end failed: ") + Update.errorString();
+                // Same as the write-failure path above: a failed end() must release
+                // ota_running so waiters can proceed instead of tripping the stall watchdog.
+                g_web->ota->running = false;
                 ota_last_result_set(false, false, 500, (uint32_t)(index + len), filename, err_msg.c_str());
                 request->send(500, "text/plain", err_msg);
             }
