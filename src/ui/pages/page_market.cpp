@@ -24,25 +24,10 @@ void PageMarketBase::destroy() {
 }
 
 String PageMarketBase::_format_price(float price) {
-    String price_str;
-    int decimals = (price < 0.01f) ? 7 : (price < 1.0f) ? 5 : 2;
-    if (price >= 1000.0f) {
-        int int_part = (int)price;
-        float dec_part = price - int_part;
-        String int_str = String(int_part);
-        String fmt_int;
-        int len = int_str.length();
-        for (int j = 0; j < len; ++j) {
-            if (j > 0 && (len - j) % 3 == 0) {
-                fmt_int += ",";
-            }
-            fmt_int += int_str.charAt(j);
-        }
-        price_str = fmt_int + String(dec_part, decimals).substring(1);
-    } else {
-        price_str = String(price, decimals);
-    }
-    return price_str;
+    // Delegates to the shared money formatter so the market wall cannot drift
+    // from the MINER / CLOCK page rendering. No "$" here: this layout draws the
+    // currency symbol in its own label (_lb_dollar_signs).
+    return format_money(price);
 }
 
 void PageMarketBase::_init_labels() {
@@ -186,7 +171,8 @@ void PageMarketBase::_sync_watchlist_page() {
 
         String name = sym.endsWith("USDT") ? sym.substring(0, sym.length() - 4) : sym;
         String price_str = _format_price(cp.price);
-        uint32_t color = (cp.change_pct >= 0.0f) ? 0x00FF7F : 0xFF4444;
+        // Same constants the MINER page price uses (see app_state.h).
+        uint32_t color = (cp.change_pct >= 0.0f) ? APP_COLOR_PRICE_UP : APP_COLOR_PRICE_DOWN;
         String change_str = (cp.change_pct >= 0.0f ? "+" : "") + String(cp.change_pct, 1) + "%";
 
         if (i < _lb_names.size()) {

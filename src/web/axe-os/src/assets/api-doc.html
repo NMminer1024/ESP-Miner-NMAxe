@@ -677,6 +677,7 @@
     <span class="kw">"state"</span>:           <span class="str">"running"</span>,  <span class="cmt">// running | pausing | paused | resuming | error</span>
     <span class="kw">"paused"</span>:          <span class="bool">false</span>,      <span class="cmt">// true during user pause/resume control</span>
     <span class="kw">"pauseReason"</span>:     <span class="str">""</span>,         <span class="cmt">// "user" when paused from API/UI</span>
+    <span class="kw">"protection"</span>:      <span class="str">"none"</span>,     <span class="cmt">// none | overcurrent | overtemperature</span>
     <span class="kw">"hashRate"</span>:        <span class="num">0.465</span>,      <span class="cmt">// GH/s – 3-minute rolling average</span>
     <span class="kw">"bestDiffEver"</span>:    <span class="str">"52.3G"</span>,    <span class="cmt">// best difficulty since first boot</span>
     <span class="kw">"bestDiffSession"</span>: <span class="str">"12.1G"</span>,    <span class="cmt">// best difficulty this session</span>
@@ -722,6 +723,16 @@
             </tbody>
           </table>
           <div class="note">ℹ️ <code>miner.paused</code> is <code>true</code> in any state other than <code>running</code>. The <code>miner.pauseReason</code> field is <code>"user"</code> when paused via API/UI, <code>""</code> otherwise.</div>
+          <div class="block-label">Protection values (<code>miner.protection</code> field)</div>
+          <table class="field-table">
+            <thead><tr><th>value</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>none</code></td><td>No hardware protection is latched.</td></tr>
+              <tr><td><code>overcurrent</code></td><td>Vcore overcurrent protection tripped. Vcore/VDD/PLL switched off by the firmware.</td></tr>
+              <tr><td><code>overtemperature</code></td><td>Vcore regulator overtemperature protection tripped. Vcore/VDD/PLL switched off by the firmware.</td></tr>
+            </tbody>
+          </table>
+          <div class="note note-warn">⚠️ <code>miner.paused</code> reflects <b>user-requested</b> pause only. A unit shut down by hardware protection reports <code>paused: false</code> with <code>protection</code> set — check <code>protection</code> (or the very low <code>power</code> reading) instead of relying on <code>paused</code> alone. The protection latch is cleared by a restart.</div>
         </div>
       </div>
 
@@ -781,6 +792,7 @@
   <span class="kw">"state"</span>:        <span class="str">"pausing"</span>,  <span class="cmt">// running | pausing | paused | resuming | error</span>
   <span class="kw">"paused"</span>:       <span class="bool">true</span>,        <span class="cmt">// true during any paused/pausing/resuming/error state</span>
   <span class="kw">"reason"</span>:       <span class="str">"user"</span>,      <span class="cmt">// "user" when paused by API; "" otherwise</span>
+  <span class="kw">"protection"</span>:   <span class="str">"none"</span>,      <span class="cmt">// none | overcurrent | overtemperature</span>
   <span class="kw">"vcoreEnabled"</span>: <span class="bool">false</span>       <span class="cmt">// false when state is pausing | paused | error</span>
 }</pre>
           <div class="block-label">State values</div>

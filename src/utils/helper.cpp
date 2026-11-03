@@ -211,6 +211,73 @@ String formatNumber(float num, uint8_t total_bits) {
     return formattedNumber;
 }
 
+// Format a fiat/crypto price for display.
+//
+// Deliberately does NOT use the SI suffixes that formatNumber() emits. A price
+// is not a quantity series like hashrate/difficulty: "$77.9021K" reads as a
+// contradiction to most users, who expect "$77,902" (thousands separators).
+//
+//   >= 1000        : 0 decimals + separators   -> 77,902
+//   1    .. 999.99 : 2 decimals                -> 168.42
+//   0.01 .. 0.9999 : 4 decimals                -> 0.1632
+//   0.0001.. 0.0099: 6 decimals                -> 0.009900
+//   < 0.0001       : 7 decimals                -> 0.0000089
+String format_money(double value) {
+    // NaN fails "value > 0.0"; +inf is caught by the upper bound. Avoiding
+    // isfinite() here keeps the function portable between newlib (macro) and
+    // host/stdc++ (std::isfinite only).
+    if (!(value > 0.0) || value > 1e12) {
+        return String("--");
+    }
+
+    // Bracket chosen so the rendered string stays bounded in width (worst case
+    // 9 chars) across the whole 0.0000001 .. 1e9 range. This matters: the market
+    // wall price column is only ~97 px wide on 240x135 with Inconsolata_18.
+    int decimals;
+    if (value >= 1000.0)      decimals = 0;
+    else if (value >= 1.0)    decimals = 2;
+    else if (value >= 0.01)   decimals = 4;
+    else if (value >= 0.0001) decimals = 6;
+    else                      decimals = 7;
+
+    // Pre-round, then re-derive the bracket: rounding can push a value across a
+    // boundary (999.999 -> 1000), which would otherwise leave a 4-digit integer
+    // part with no thousands separator.
+    double scale   = pow(10.0, decimals);
+    double rounded = round(value * scale) / scale;
+    if (rounded >= 1000.0 && decimals != 0) {
+        decimals = 0;
+        rounded  = round(value);
+    }
+
+    char num[24];
+    snprintf(num, sizeof(num), "%.*f", decimals, rounded);
+
+    // Insert thousands separators into the integer part. Doing this by hand
+    // (instead of %.0f on a shifted value) keeps the fractional digits intact.
+    //
+    // Separator is a COMMA. This relies on the price labels using a text font
+    // (Inconsolata, same as the market wall) rather than the DS_DIGIB
+    // seven-segment font: DS_DIGIB's comma glyph is a dot with a very short
+    // tail, which at 18-24 px is indistinguishable from its decimal point and
+    // made "76,958" read as "76.958".
+    char out[32];
+    int  oi   = 0;
+    const char* dot  = strchr(num, '.');
+    int         ilen = dot ? (int)(dot - num) : (int)strlen(num);
+    for (int i = 0; i < ilen && oi < (int)sizeof(out) - 1; ++i) {
+        if (i > 0 && (ilen - i) % 3 == 0) out[oi++] = ',';
+        out[oi++] = num[i];
+    }
+    if (dot != nullptr) {
+        for (const char* p = dot; *p != '\0' && oi < (int)sizeof(out) - 1; ++p) {
+            out[oi++] = *p;
+        }
+    }
+    out[oi] = '\0';
+    return String(out);
+}
+
 String get_last_reboot_reason(){
   switch(esp_reset_reason()){
     case ESP_RST_UNKNOWN: return "Unknown";

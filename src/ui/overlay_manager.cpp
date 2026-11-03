@@ -970,7 +970,26 @@ void OverlayManager::_fault_action_yes_cb(lv_event_t* e) {
 void OverlayManager::_fault_action_no_cb(lv_event_t* e) {
     auto* self = static_cast<OverlayManager*>(lv_event_get_user_data(e));
     if (!self || !self->_ctx.sys_evt) return;
+
+    const bool was_hw_fault =
+        (xEventGroupGetBits(self->_ctx.sys_evt) &
+         (SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT)) != 0;
+
     xEventGroupClearBits(self->_ctx.sys_evt, SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT);
+
+    // Clearing the bit re-arms the power supervisor (it holds until the bit goes
+    // away, then clears the chip's latched status). But the Vcore rail is still
+    // off and the ASIC is stopped, so without this the unit would sit at 0 TH/s
+    // until a reboot — which is exactly what the alert used to imply would not
+    // happen. Request the resume path: it restores Vcore and reinitializes the
+    // ASIC, and the supervisor is already armed by then, so the unit never runs
+    // unsupervised.
+    if (was_hw_fault && self->_ctx.status != nullptr &&
+        !self->_ctx.status->user_paused) {
+        LOG_W("Protection alert dismissed: power supervisor re-armed, restarting mining");
+        self->_ctx.status->runtime_state      = MINER_RUNTIME_RESUMING;
+        self->_ctx.status->resume_grace_until_ms = 0;
+    }
 }
 
 void OverlayManager::_show_mining_pause_overlay() {

@@ -585,10 +585,31 @@ float TPS546D24AClass::get_iout_amps(void){
 }
 
 float TPS546D24AClass::get_oc_limit_amps(void){
-    return this->_cfg.ifault_total;
+    // Report what the CHIP is actually enforcing, not what we asked for.
+    // The two can differ (a rejected write, a POR value surviving hw_init, a
+    // per-phase adjustment made by the stack), and printing the config constant
+    // produced log lines that read as a contradiction:
+    //   "Overcurrent FAULT detected! IOUT=64.12A limit=71.0A"
+    // A fault line must quote the threshold that actually tripped.
+    if (this->_device_ok) {
+        uint16_t raw = 0;
+        if (this->_read_reg(PMBUS_IOUT_OC_FAULT_LIMIT, (uint8_t*)&raw, 2) == 0) {
+            float limit = this->_slinear11_to_float(raw);
+            if (limit > 0.0f) return limit;
+        }
+    }
+    return this->_cfg.ifault_total;   // I2C unavailable -> best available value
 }
 
 float TPS546D24AClass::get_ot_limit_celsius(void){
+    // Same reasoning as get_oc_limit_amps(): quote the chip's OT_FAULT_LIMIT.
+    if (this->_device_ok) {
+        uint16_t raw = 0;
+        if (this->_read_reg(PMBUS_OT_FAULT_LIMIT, (uint8_t*)&raw, 2) == 0) {
+            float limit = this->_slinear11_to_float(raw);
+            if (limit > 0.0f) return limit;
+        }
+    }
     return this->_cfg.tfault;
 }
 

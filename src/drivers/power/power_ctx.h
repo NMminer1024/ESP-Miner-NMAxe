@@ -32,4 +32,8 @@ struct PowerCtx {
     EventGroupHandle_t     sys_evt     = nullptr;  // SYS_EVENT_* runtime notifications
     volatile bool*         ota_running = nullptr;  // skip fault handling during OTA (nullptr -> false)
     MinerStatus*           mining      = nullptr;  // controlled-idle check (nullptr -> not idle)
+    // Release to the daemon when protection trips repeatedly in a short window and
+    // the unit must be restarted instead of resumed. nullptr -> escalation is
+    // unavailable and the thread keeps holding in the safe state.
+    SemaphoreHandle_t      reboot_xsem = nullptr;
 };

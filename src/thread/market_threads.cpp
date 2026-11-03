@@ -93,14 +93,30 @@ void market_thread_entry(void* args) {
         }
 
         if (*ctx->wifi_status == WL_CONNECTED) {
+            // Re-read the coin settings from NVS every cycle instead of using the
+            // values copied into MarketCtx at boot. That copy is a snapshot, so the
+            // web UI could change the main coin / watchlist and the thread would keep
+            // polling the OLD symbol forever, while the UI showed the NEW symbol next
+            // to the OLD coin's price.
+            //
+            // Same pattern as the pool / timezone hot-reload paths: the owning thread
+            // re-reads NVS rather than sharing a mutable String with the web thread
+            // (a String assignment on one task can reallocate while the other holds
+            // c_str(), which is a use-after-free). Read-only NVS access here, no
+            // growth of flash wear: NVS reads do not write.
+            String coin_price     = nvs_config_get_string_value(NVS_CONFIG_PRICE_DISPLAY_COIN, "BTC");
+            String coin_watchlist = nvs_config_get_string_value(NVS_CONFIG_COIN_WATCHLIST,
+                                                                "BTC,ETH,LTC,BNB,DOGE,XRP,TRX,SOL");
+            coin_price.toUpperCase();
+
             bool fetched = false;
             for (uint8_t attempt = 1; attempt <= MARKET_MAX_RETRIES; attempt++) {
-                if (market->refresh_main_pair(ctx->coin_price)) {
+                if (market->refresh_main_pair(coin_price)) {
                     fetched = true;
                     break;
                 }
                 LOG_D("Market data fetch failed (attempt %d/%d) for symbol [%sUSDT]",
-                      attempt, MARKET_MAX_RETRIES, ctx->coin_price.c_str());
+                      attempt, MARKET_MAX_RETRIES, coin_price.c_str());
                 if (attempt < MARKET_MAX_RETRIES) {
                     delay(MARKET_RETRY_DELAY_MS);
                 }
@@ -111,7 +127,7 @@ void market_thread_entry(void* args) {
 
             delay(1);
             // Fetch watchlist pairs, then sort by price descending for display
-            market->refresh_watchlist(ctx->coin_watchlist);
+            market->refresh_watchlist(coin_watchlist);
             delay(1);
             market->sort_watchlist_by_price();
             delay(1);

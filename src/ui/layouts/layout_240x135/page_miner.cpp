@@ -52,7 +52,18 @@ void PageMiner240x135::_create_dynamic(lv_obj_t* parent) {
     _lb_blk_hit    = mk(&ds_digib_font_56, 0xEE7D30, LV_ALIGN_TOP_MID,    6,  36, SW, " ", LV_LABEL_LONG_SCROLL_CIRCULAR);
     _lb_hashrate   = mk(&ds_digib_font_38, 0xEE7D30, LV_ALIGN_BOTTOM_MID, 50, 0,  100," ", LV_LABEL_LONG_SCROLL_CIRCULAR);
     _lb_hr_unit    = mk(&ds_digib_font_28, 0xFFFFFF, LV_ALIGN_TOP_MID,    182,110,SW, " ", LV_LABEL_LONG_DOT);
-    _lb_price      = mk(&ds_digib_font_20, 0xFFFFFF, LV_ALIGN_LEFT_MID,   33, 29, SW, "",  LV_LABEL_LONG_DOT);
+    // Price uses the market-wall text font, NOT ds_digib: the 7-segment font's
+    // comma is visually a dot and made "76,958" read as "76.958".
+    // Price sits in the empty horizontal strip just above the lower-left panel.
+    // Area measured from the background bitmap, not estimated: in the glyph band
+    // (y 89..102) the nearest bright pixel of that panel's frame is at x=118, and
+    // everything left of it is background. Usable width = 118 px.
+    // Width is fixed and the text is centred inside it, so long values stay clear
+    // of the frame instead of running into it. Worst case from format_money() is
+    // "$0.0000089" = 10 chars x 9 px (Inconsolata_18 adv_w 144/16) = 90 px, which
+    // fits with ~14 px margin on each side.
+    _lb_price      = mk(&Inconsolata_18, 0xFFFFFF, LV_ALIGN_LEFT_MID,   0, 29, 117, "",  LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_align(_lb_price, LV_TEXT_ALIGN_CENTER, 0);
     _lb_ver        = mk(&ds_digib_font_16, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   2,  22, SW, &BOARD_CURRENT_FW_VERSION[1], LV_LABEL_LONG_DOT);
     _lb_power      = mk(&Inconsolata_18,   0xFFFFFF, LV_ALIGN_TOP_LEFT,   16, 114,(lv_coord_t)(SW/2.5), " ", LV_LABEL_LONG_DOT);
     _lb_ip         = mk(&ds_digib_font_16, 0xFFFFFF, LV_ALIGN_TOP_LEFT,   140,2,  (lv_coord_t)(SW/2.5), " ", LV_LABEL_LONG_SCROLL_CIRCULAR);

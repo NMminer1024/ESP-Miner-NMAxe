@@ -9,6 +9,7 @@ void PageMinerBase::destroy() {
     m.hashrate_unit.unsubscribe(_on_text);
     m.blk_hit.unsubscribe(_on_text);
     m.price.unsubscribe(_on_text);
+    m.price.unsubscribe(_on_color);
     m.ver.unsubscribe(_on_text);
     m.power.unsubscribe(_on_text);
     m.ip.unsubscribe(_on_text);
@@ -41,6 +42,7 @@ void PageMinerBase::_finish_create() {
     m.hashrate_unit.subscribe(_on_text, &_lb_hr_unit);
     m.blk_hit.subscribe(_on_text, &_lb_blk_hit);
     m.price.subscribe(_on_text, &_lb_price);
+    m.price.color.subscribe(_on_color, &_lb_price);
     m.ver.subscribe(_on_text, &_lb_ver);
     m.power.subscribe(_on_text, &_lb_power);
     m.ip.subscribe(_on_text, &_lb_ip);

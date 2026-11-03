@@ -71,6 +71,7 @@ The response is structured into nested sub-objects.
 | `miner.state` | string | — | Runtime mining state: `running`, `pausing`, `paused`, `resuming`, or `error` |
 | `miner.paused` | bool | — | `true` while user pause/resume control is active |
 | `miner.pauseReason` | string | — | Pause reason, currently `"user"` for API/UI-triggered pause |
+| `miner.protection` | string | — | Latched hardware protection: `none`, `overcurrent`, or `overtemperature`. Independent of `paused` — a protection shutdown reports `paused: false` |
 | `miner.hashRate` | float | GH/s | 3-minute average hashrate |
 | `miner.bestDiffEver` | string | — | All-time best share difficulty (e.g. `"1.23M"`) |
 | `miner.bestDiffSession` | string | — | Session best share difficulty |
@@ -141,6 +142,7 @@ Active pool connection — read-only snapshot.
     "state": "running",
     "paused": false,
     "pauseReason": "",
+    "protection": "none",
     "hashRate": 720.5,
     "bestDiffEver": "1.23M",
     "bestDiffSession": "456.7K",
@@ -192,11 +194,14 @@ Set `paused` to `false` to start mining again:
   "state": "pausing",
   "paused": true,
   "reason": "user",
+  "protection": "none",
   "vcoreEnabled": false
 }
 ```
 
 `409 Conflict` is returned while Benchmark mode or OTA update is running. The pause state is runtime-only and is not saved to NVS; after reboot, normal mining starts as usual.
+
+> **`protection` vs `paused`**: `paused` only reflects a user-requested pause. When the firmware shuts the rail down on overcurrent or overtemperature, `paused` stays `false` while `protection` is set — monitor `protection` (or the near-zero `power` reading) rather than inferring a shutdown from `paused` alone. The latch is cleared by a restart.
     "pwd": "x"
   }
 }

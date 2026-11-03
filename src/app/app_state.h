@@ -71,6 +71,13 @@ private:
 // ============================================================================
 // ObsLabel — text + color pair for a single UI label widget
 // ============================================================================
+
+// Up / down text colors for values driven by a 24 h change percentage.
+// Same pair the market wall uses, so the MINER page price and the price wall
+// never disagree on what "up" and "down" look like.
+static constexpr uint32_t APP_COLOR_PRICE_UP   = 0x00FF7F;
+static constexpr uint32_t APP_COLOR_PRICE_DOWN = 0xFF4444;
+
 struct ObsLabel {
     Observable<String>   text;
     Observable<uint32_t> color{(uint32_t)0xFFFFFF};

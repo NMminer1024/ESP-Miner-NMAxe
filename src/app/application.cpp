@@ -470,6 +470,7 @@ void MinerApp::_begin_power(BootProgress& boot) {
     ctx.sys_evt     = _sync_system->sys_evt;
     ctx.ota_running = &_state_ota.running;
     ctx.mining      = _state_miner;    // controlled-idle check (nullptr until miners launch)
+    ctx.reboot_xsem = _sync_system->reboot_xsem;  // protection escalation -> restart
     _ctx_power = &ctx;
 
     _create_task(power_init_thread_entry, "(pwr_init)", 1024 * 7, _ctx_power, TASK_PRIORITY_PWR, 1);
@@ -596,8 +597,8 @@ void MinerApp::_begin_market(BootProgress& boot) {
     ctx.ota_running    = &_state_ota.running;
     ctx.init_evt       = _sync_system->init_evt;
     ctx.sys_evt        = _sync_system->sys_evt;
-    ctx.coin_price     = _config_coin_price;
-    ctx.coin_watchlist = _config_coin_watchlist;
+    // Coin symbols are intentionally not passed here: the market thread reads them
+    // from NVS each cycle so web UI changes apply without a reboot.
     _ctx_market = &ctx;
 
     _create_task(market_thread_entry, "(market)", 1024 * 4, _ctx_market, TASK_PRIORITY_MARKET, 0);
@@ -1265,23 +1266,27 @@ void MinerApp::_tick_thread_entry(void* args) {
             auto& mk = AppState::instance().market;
             String sym = app._config_coin_price; sym.toUpperCase();
             mk.symbol.text = sym;
-            char pb[24];
-            if (mp.price >= 1000.0f)      snprintf(pb, sizeof(pb), "$%.0f", mp.price);
-            else if (mp.price >= 1.0f)    snprintf(pb, sizeof(pb), "$%.2f", mp.price);
-            else                          snprintf(pb, sizeof(pb), "$%.4f", mp.price);
-            mk.price.text = String(pb);
+            // Shared money formatter: no SI suffix, thousands separators.
+            mk.price.text = String("$") + format_money(mp.price);
             char cb[16];
             snprintf(cb, sizeof(cb), "%+.2f%%", mp.change_pct);
             mk.change.text  = String(cb);
             mk.change.color = (mp.change_pct >= 0.0f) ? (uint32_t)0x00C853 : (uint32_t)0xFF5252;
             if (now - app._service_market->get_last_update() <= (MINER_MARKET_UPDATE_INTERVAL * 3)) {
-                String miner_price = formatNumber(mp.price, 6);
-                AppState::instance().miner.price.text = String("$") + miner_price;
+                // Color the main-display price by the 24 h change, same convention
+                // as the market wall (green up / red down) so the two screens agree.
+                auto& mp_miner = AppState::instance().miner.price;
+                mp_miner.text  = String("$") + format_money(mp.price);
+                mp_miner.color = (mp.change_pct >= 0.0f) ? APP_COLOR_PRICE_UP
+                                                         : APP_COLOR_PRICE_DOWN;
             } else {
-                AppState::instance().miner.price.text = "";
+                // Stale feed: hide the value and drop back to the neutral color so
+                // the next real update does not silently inherit a stale tint.
+                auto& mp_miner = AppState::instance().miner.price;
+                mp_miner.text  = "";
+                mp_miner.color = 0xFFFFFF;
             }
-            String clock_price = (mp.price > 1.0f) ? String(mp.price, 1) : String(mp.price, 6);
-            AppState::instance().clock.price.text = String("$") + clock_price;
+            AppState::instance().clock.price.text = String("$") + format_money(mp.price);
         }
 
         if (app._state_swarm && xSemaphoreTake(app._state_swarm->mutex, pdMS_TO_TICKS(20)) == pdTRUE) {

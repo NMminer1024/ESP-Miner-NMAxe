@@ -371,7 +371,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     sections: [
       {
         heading: '💰 Main Price',
-        body: 'The cryptocurrency whose live price is shown on the main display screen of your miner. Only one coin can be selected as the main price.\n\nThe price is fetched from the internet and refreshed periodically. If the device has no internet connection, the display will show the last known price.'
+        body: 'The cryptocurrency whose live price is shown on the main display screen of your miner. Only one coin can be selected as the main price.\n\nThe price is fetched from the internet and refreshed periodically. If the device has no internet connection, the display will show the last known price.\n\nThe price is tinted by its 24 h change (same convention as the price wall): green when up, red when down.'
       },
       {
         heading: '👀 Watchlist',

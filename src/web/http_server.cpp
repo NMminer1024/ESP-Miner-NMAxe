@@ -126,8 +126,24 @@ static bool miner_state_is_paused_like(MinerRuntimeState state) {
            state == MINER_RUNTIME_ERROR;
 }
 
+// Name of the hardware protection that is currently latched, or "none".
+//
+// This is deliberately independent of MinerRuntimeState: `paused` only describes a
+// USER pause, so a unit that shut the rail down on overcurrent still reported
+// paused=false next to 0.8 W of input power — the contradictory pair from the
+// Nexus field report. Protection state comes from the sys_evt bits that
+// power_loop sets when it takes the safety action, so the API can tell
+// "protecting the hardware" apart from "mining" and "user-paused".
+static const char* active_protection_name(void) {
+    if (g_web->sys_evt == nullptr) return "none";
+    EventBits_t bits = xEventGroupGetBits(g_web->sys_evt);
+    if (bits & SYS_EVENT_POWER_OC_FAULT) return "overcurrent";
+    if (bits & SYS_EVENT_POWER_OT_FAULT) return "overtemperature";
+    return "none";
+}
+
 static void send_mining_state_response(AsyncWebServerRequest *request, uint16_t code = 200) {
-    StaticJsonDocument<256> root;
+    StaticJsonDocument<320> root;
     MinerRuntimeState state = g_web->status->runtime_state;
     bool paused = g_web->status->user_paused || miner_state_is_paused_like(state);
 
@@ -135,6 +151,7 @@ static void send_mining_state_response(AsyncWebServerRequest *request, uint16_t 
     root["state"] = miner_runtime_state_to_string(state);
     root["paused"] = paused;
     root["reason"] = paused ? "user" : "";
+    root["protection"] = active_protection_name();
     root["vcoreEnabled"] = !(state == MINER_RUNTIME_PAUSING || state == MINER_RUNTIME_PAUSED || state == MINER_RUNTIME_ERROR);
 
     String json_str;
@@ -299,6 +316,11 @@ void get_system_info(AsyncWebServerRequest* request){
     minerObj["state"]           = miner_runtime_state_to_string(miner_state);
     minerObj["paused"]          = miner_paused;
     minerObj["pauseReason"]     = miner_paused ? "user" : "";
+    // Hardware protection latch, independent of the user-pause flags above.
+    // "none" | "overcurrent" | "overtemperature". Lets an external monitor tell
+    // "shut down by protection" apart from "still mining" without inferring it
+    // from the power reading.
+    minerObj["protection"]      = active_protection_name();
     minerObj["hashRate"]        = g_web->status->hashrate._3m / 1000 / 1000 / 1000;
     minerObj["bestDiffEver"]    = formatNumber(g_web->status->diff.best_ever, 4);
     minerObj["bestDiffSession"] = formatNumber(g_web->status->diff.best_session, 4);
@@ -598,6 +620,9 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
                 LOG_I("Pool config changed -> stratum hot-reload requested");
             }
         }
+        // Track whether the operating point actually moved: only then does it make
+        // sense to discard latched status bits.
+        bool op_point_changed = false;
         if (root.containsKey("asicVcoreReq")) {
             uint16_t req_mv = root["asicVcoreReq"].as<uint16_t>();
             // Clamp to the user-facing range (vc list max); asic.max_vcore is regulator
@@ -606,6 +631,7 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
             const uint16_t vc_max = g_web->spec->user_vcore_max();
             if (vc_min > 0 && req_mv < vc_min) req_mv = vc_min;
             if (vc_max > 0 && req_mv > vc_max) req_mv = vc_max;
+            if (req_mv != g_web->spec->asic.req_vcore) op_point_changed = true;
             g_web->spec->asic.req_vcore = req_mv;
             g_web->power->set_vcore_voltage(req_mv);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, req_mv);
@@ -621,8 +647,26 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
             if (g_web->miner != nullptr && !g_web->miner->request_asic_frequency(req_mhz)) {
                 LOG_W("ASIC frequency hot-switch request failed to queue: %uMHz", req_mhz);
             }
+            if (req_mhz != g_web->spec->asic.req_frq) op_point_changed = true;
             g_web->spec->asic.req_frq = req_mhz;
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, req_mhz);
+        }
+        // Discard latched STATUS_IOUT / STATUS_TEMPERATURE bits after the operating
+        // point moves, so a WARN that fired at the old (hotter/faster) pair stops
+        // being reported as if it were current. Symptom this fixes: switching away
+        // from Turbo left power_loop logging "Overcurrent WARNING" every 3 s forever
+        // at 26 A (ECO) / 43 A (Normal) — the warning bit is sticky and nothing ever
+        // cleared it outside the miner init/reinit paths.
+        //
+        // GUARD: CLEAR_FAULTS clears ALL latched bits, including a genuine OC_FAULT
+        // or OT_FAULT. Clearing those while the condition is still present would
+        // silently disarm the protection, so this only runs when nothing is
+        // actually faulting. power_loop owns the fault handling; here we only drop
+        // stale warning history.
+        if (op_point_changed && g_web->power != nullptr &&
+            !g_web->power->is_oc_fault() && !g_web->power->is_ot_fault()) {
+            g_web->power->clear_faults();
+            LOG_I("Operating point changed -> cleared latched power status bits");
         }
         request->send(200, "application/json", "{\"status\":\"ok\"}");
     }
@@ -1752,7 +1796,26 @@ void patch_mining_state(AsyncWebServerRequest *request, uint8_t *data, size_t le
                 LOG_W("Mining pause requested by API");
             }
         } else {
-            if (state != MINER_RUNTIME_RUNNING || g_web->status->user_paused) {
+            // Resume also releases a latched hardware protection. The power
+            // supervisor holds while SYS_EVENT_POWER_OC/OT_FAULT is set and re-arms
+            // as soon as it clears, so an API resume does the same thing the
+            // on-screen "Dismiss" button does. Without this an API-only client could
+            // request resume, get 200, and watch nothing happen.
+            bool cleared_protection = false;
+            if (g_web->sys_evt &&
+                (xEventGroupGetBits(g_web->sys_evt) &
+                 (SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT))) {
+                xEventGroupClearBits(g_web->sys_evt,
+                                     SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT);
+                cleared_protection = true;
+                LOG_W("API resume: cleared latched hardware protection, supervisor re-arming");
+            }
+            // `cleared_protection` MUST force the resume on its own: a protection
+            // shutdown leaves runtime_state at RUNNING (it is not a user pause), so
+            // the state check below would be false and mining would stay at 0 TH/s
+            // with Vcore off until the monitor's HCN watchdog happened to fire.
+            if (cleared_protection ||
+                state != MINER_RUNTIME_RUNNING || g_web->status->user_paused) {
                 g_web->status->runtime_state = MINER_RUNTIME_RESUMING;
                 g_web->status->pause_started_ms = 0;
                 LOG_W("Mining resume requested by API");

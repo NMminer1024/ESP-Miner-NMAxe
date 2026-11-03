@@ -151,6 +151,108 @@ void power_loop_thread_entry(void* args) {
 
     xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_VCORE_READY, pdFALSE, pdTRUE, portMAX_DELAY);
 
+    // ── Protection hold state ────────────────────────────────────────────────
+    // Escalation: two trips inside this window means "resuming is not working",
+    // so the unit is restarted instead of being allowed to cycle.
+    constexpr uint32_t PROT_ESCALATE_WINDOW_MS = 60000;
+    constexpr uint8_t  PROT_ESCALATE_TRIPS     = 2;
+    constexpr uint32_t PROT_LOG_INTERVAL_MS    = 30000;  // hold-state heartbeat (not 1/s)
+    constexpr uint32_t PROT_HOLD_POLL_MS       = 100;
+
+    static uint8_t  trip_count_in_window = 0;
+    static uint32_t first_trip_ms        = 0;
+
+    // Shut the rails down, publish the fault, and HOLD here until something clears
+    // the fault bit. Previously this was an unconditional `while(true)`, which killed
+    // the supervisor for the rest of the boot: the fault bit was published, the UI
+    // could dismiss it, the mining thread could power Vcore back up through its auto
+    // reinit, and the ASIC then ran with NO overcurrent/overtemperature supervision
+    // until a manual reboot. The unit also logged the same line every second forever.
+    //
+    // The hold now releases when the fault bit is cleared, which is the explicit
+    // "operator acknowledged / resume requested" signal. Releasing re-arms by
+    // clearing the chip's latched status so a stale bit cannot re-trip instantly.
+    auto enter_protection_hold = [&](bool is_oc, EventBits_t oc_bit, RebootIntent reboot_intent,
+                                     const char* intent_msg, const char* hold_msg) {
+        // Immediate safety action: shut down ASIC power.
+        power->set_vcore_status(PWR_OFF);
+        power->set_vdd_1v8(PWR_OFF);
+        power->set_pll_0v8(PWR_OFF);
+        // Pre-stamp the real root cause so the ASIC-frozen watchdog (3 min later)
+        // sees this intent and does not overwrite it.
+        reboot_intent_set(reboot_intent, intent_msg);
+        xEventGroupSetBits(ctx->sys_evt, oc_bit);
+
+        // Count trips in the rolling window.
+        uint32_t now_ms = millis();
+        if (first_trip_ms == 0 ||
+            (uint32_t)(now_ms - first_trip_ms) > PROT_ESCALATE_WINDOW_MS) {
+            first_trip_ms        = now_ms;
+            trip_count_in_window = 1;
+        } else {
+            trip_count_in_window++;
+        }
+        LOG_E("%s", hold_msg);
+        LOG_W("Protection trip %u in the last %lus window",
+              (unsigned)trip_count_in_window,
+              (unsigned long)((now_ms - first_trip_ms) / 1000));
+
+        if (trip_count_in_window >= PROT_ESCALATE_TRIPS) {
+            // Restarting alone is NOT enough to break the cycle: the operating point
+            // is persisted in NVS, so the unit would come back up, trip again on the
+            // very same point, and reboot forever. Reset the work point so the
+            // restart actually reloads a configuration that is known to run — the
+            // same recovery the overcurrent overlay's "Reset & Reboot" performs.
+            uint16_t safe_frq   = spec.asic.default_frq;
+            uint16_t safe_vcore = spec.asic.default_vcore;
+            // On some boards default_frq/default_vcore are themselves read back from
+            // NVS, so they equal the current (failing) setting and "reset" would be a
+            // no-op. Fall back to the lowest supported point in that case; anything
+            // static beats restarting into the same trip.
+            if (safe_frq >= spec.asic.req_frq && !spec.ui.setting_page.oc.empty()) {
+                safe_frq = spec.ui.setting_page.oc.front().value;
+            }
+            if (safe_vcore >= spec.asic.req_vcore) {
+                safe_vcore = spec.asic.min_vcore;
+            }
+            LOG_E("Protection tripped %u times within %lus: resuming is not viable, "
+                  "resetting %uMHz/%umV -> %uMHz/%umV and restarting",
+                  (unsigned)trip_count_in_window,
+                  (unsigned long)(PROT_ESCALATE_WINDOW_MS / 1000),
+                  (unsigned)spec.asic.req_frq, (unsigned)spec.asic.req_vcore,
+                  (unsigned)safe_frq, (unsigned)safe_vcore);
+            nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    safe_frq);
+            nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, safe_vcore);
+            if (ctx->reboot_xsem != nullptr) {
+                xSemaphoreGive(ctx->reboot_xsem);
+                // Daemon picks it up; hold in the safe state while it does.
+                while (true) { delay(500); }
+            }
+            // No restart channel: stay in the safe state rather than resume blindly.
+            while (true) { delay(1000); }
+        }
+
+        // Controlled wait: stay powered down, but keep supervising. `protection`
+        // in /api/system/info derives from these bits, so an operator (or an
+        // external monitor) can see exactly which protection is latched.
+        uint32_t last_log = millis();
+        while (xEventGroupGetBits(ctx->sys_evt) & oc_bit) {
+            delay(PROT_HOLD_POLL_MS);
+            uint32_t t = millis();
+            if (t - last_log >= PROT_LOG_INTERVAL_MS) {
+                last_log = t;
+                LOG_E("%s (still latched; dismiss the alert or restart to recover)",
+                      hold_msg);
+            }
+        }
+
+        // Fault bit cleared -> re-arm. Clear the chip's latched status first so the
+        // very same sticky bit cannot immediately re-enter this hold.
+        power->clear_faults();
+        LOG_W("Protection re-armed (%s cleared); supervising Vcore again",
+              is_oc ? "overcurrent" : "overtemperature");
+    };
+
     while (true) {
         delay(50);
 
@@ -160,42 +262,34 @@ void power_loop_thread_entry(void* args) {
             bool oc_fault = power->is_oc_fault();
             bool ot_warn  = power->is_ot_warn();
             bool ot_fault = power->is_ot_fault();
+            // ORDER MATTERS: every *_fault must be evaluated before any *_warn.
+            // STATUS_IOUT/STATUS_TEMPERATURE warning bits are STICKY (latched until
+            // CLEAR_FAULTS), so a stale OC_WARN that was once set during a Turbo run
+            // stays true forever. With the warn branch ahead of OT_FAULT, that stale
+            // bit swallowed genuine over-temperature events: the unit kept logging
+            // "Overcurrent WARNING" every 3 s while the real condition was the VRM
+            // overheating, and the OT shutdown path never ran. Faults win, warnings
+            // only fill the gap when nothing is actually faulting.
             if (oc_fault) {
                 LOG_W("Overcurrent FAULT detected! IOUT=%.2fA limit=%.1fA. Taking safety actions...",
                       power->get_iout_amps(), power->get_oc_limit_amps());
-                // Immediate safety action: shut down ASIC power
-                power->set_vcore_status(PWR_OFF);
-                power->set_vdd_1v8(PWR_OFF);
-                power->set_pll_0v8(PWR_OFF);
-                // Pre-stamp the real root cause so the ASIC-frozen watchdog (3 min later)
-                // sees this intent and does not overwrite it.
-                reboot_intent_set(REBOOT_INTENT_OVERCURRENT_FAULT,
-                                  "power overcurrent fault, Vcore/VDD/PLL shut down");
-                xEventGroupSetBits(ctx->sys_evt, SYS_EVENT_POWER_OC_FAULT);
-                // Park this thread — display/UI thread keeps running for user interaction
-                while (true) {
-                    delay(1000);
-                    LOG_E("ASIC powered down due to Power OverCurrent. Please check your ASICs OverClocking settings, and cooling.");
-                }
+                enter_protection_hold(
+                    true, SYS_EVENT_POWER_OC_FAULT, REBOOT_INTENT_OVERCURRENT_FAULT,
+                    "power overcurrent fault, Vcore/VDD/PLL shut down",
+                    "ASIC powered down due to Power OverCurrent. Please check your ASICs OverClocking settings, and cooling.");
+            } else if (ot_fault) {
+                LOG_W("!!! Overtemperature FAULT detected! Temp=%.1fC limit=%.0fC. Taking safety actions !!!",
+                      power->get_temperature(), power->get_ot_limit_celsius());
+                enter_protection_hold(
+                    false, SYS_EVENT_POWER_OT_FAULT, REBOOT_INTENT_OVERHEAT_VCORE,
+                    "power overtemperature fault, Vcore/VDD/PLL shut down",
+                    "ASIC powered down due to OverTemperature. Please check your cooling system and ambient temperature.");
             } else if (oc_warn) {
                 static uint32_t last = millis();
                 if (millis() - last >= 3000) {
                     LOG_W("!!! Overcurrent WARNING detected !!! (%.2fA/%.1fA)",
                           power->get_iout_amps(), power->get_oc_limit_amps());
                     last = millis();
-                }
-            } else if (ot_fault) {
-                LOG_W("!!! Overtemperature FAULT detected! Temp=%.1fC limit=%.0fC. Taking safety actions !!!",
-                      power->get_temperature(), power->get_ot_limit_celsius());
-                power->set_vcore_status(PWR_OFF);
-                power->set_vdd_1v8(PWR_OFF);
-                power->set_pll_0v8(PWR_OFF);
-                reboot_intent_set(REBOOT_INTENT_OVERHEAT_VCORE,
-                                  "power overtemperature fault, Vcore/VDD/PLL shut down");
-                xEventGroupSetBits(ctx->sys_evt, SYS_EVENT_POWER_OT_FAULT);
-                while (true) {
-                    delay(1000);
-                    LOG_E("ASIC powered down due to OverTemperature. Please check your cooling system and ambient temperature.");
                 }
             } else if (ot_warn) {
                 static uint32_t last = millis();

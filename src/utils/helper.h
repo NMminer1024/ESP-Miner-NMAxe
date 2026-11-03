@@ -35,6 +35,11 @@ String get_last_reboot_reason();
 
 String formatNumber(float num, uint8_t bits);
 
+// Format a fiat/crypto price for on-screen display. Currency values must NOT
+// use the SI suffixes that formatNumber() emits (K/M/G) — see helper.cpp for
+// the magnitude-based decimal rules. Returns "--" for 0 / negative / NaN.
+String format_money(double value);
+
 uint16_t reverse_uint16(uint16_t num);
 
 bool reverse_words(uint8_t *data, size_t len);

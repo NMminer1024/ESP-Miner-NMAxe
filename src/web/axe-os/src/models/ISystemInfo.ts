@@ -51,6 +51,9 @@ export interface IInfoMiner {
   state?:           string;
   paused?:          boolean;
   pauseReason?:     string;
+  // Latched hardware protection: 'none' | 'overcurrent' | 'overtemperature'.
+  // Independent of `paused`, which only reflects a user-requested pause.
+  protection?:      string;
   bmMode?:          number;
   hashRate:        number;
   bestDiffEver:    string;
