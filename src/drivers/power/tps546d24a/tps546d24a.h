@@ -155,6 +155,7 @@ public:
     bool is_ot_warn(void)  override;
     void clear_faults(void) override;
     float get_iout_amps(void) override;
+    int8_t read_phase_iout_amps(uint8_t phase_idx, float *out) override;
     float get_oc_limit_amps(void) override;
     float get_oc_warn_limit(void) override;
     float get_ot_limit_celsius(void) override;

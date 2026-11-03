@@ -57,6 +57,93 @@
 using namespace thread_shared;
 
 
+// ── OC trip forensics: rolling total-current trace ──────────────────────────
+// The customer's core question ("average reads 64 A but the chip tripped at
+// 70.5 A") can only be answered with what the current was actually doing in the
+// seconds before the comparator fired. READ_IOUT is the chip's own *averaged*
+// view, so this trace is NOT the sub-microsecond instantaneous peak the analog
+// per-phase comparator sees — it is the honest averaged trajectory, plus a
+// per-phase snapshot taken at the trip. Together they show the gap between the
+// averaged stack total and the per-phase peaks that actually trip it. Kept tiny
+// (~1 KB) and only dumped on a real OC fault.
+namespace {
+    constexpr uint16_t ITRACE_N = 120;   // 120 x ~50 ms ~= 6 s window
+    float    g_itr_iout[ITRACE_N];       // NAN marks a failed read (skipped in stats)
+    uint32_t g_itr_tms[ITRACE_N];
+    uint16_t g_itr_head  = 0;            // next write slot
+    uint16_t g_itr_count = 0;            // valid samples, capped at ITRACE_N
+
+    float itrace_sample(float iout) {
+        g_itr_iout[g_itr_head] = iout;
+        g_itr_tms[g_itr_head]  = millis();
+        g_itr_head = (uint16_t)((g_itr_head + 1) % ITRACE_N);
+        if (g_itr_count < ITRACE_N) g_itr_count++;
+        return iout;
+    }
+
+    // Dump the trace + a per-phase snapshot. Called from power_loop the instant an
+    // OC fault is seen, BEFORE enter_protection_hold powers Vcore down — so the
+    // per-phase reads still see the live rail (the chip's own OC_FAULT_RESPONSE
+    // does not shut the output down; our supervisor does, a few lines later).
+    void itrace_dump(AxePowerHal* power, const char* tag) {
+        if (g_itr_count == 0) return;
+        const uint16_t start = (uint16_t)((g_itr_head + ITRACE_N - g_itr_count) % ITRACE_N);
+        float mn = NAN, mx = NAN, sum = 0.0f;
+        int   n = 0;
+        for (uint16_t i = 0; i < g_itr_count; i++) {
+            float v = g_itr_iout[(uint16_t)((start + i) % ITRACE_N)];
+            if (v != v) continue;                 // NAN
+            if (!(mn == mn) || v < mn) mn = v;
+            if (!(mx == mx) || v > mx) mx = v;
+            sum += v; n++;
+        }
+        const uint32_t span_ms = millis() - g_itr_tms[start];
+        LOG_W("[OC-TRACE %s] %d samples / %lums: min=%.2fA max=%.2fA avg=%.2fA (chip OC_FAULT limit=%.1fA)",
+              tag, n, (unsigned long)span_ms, mn, mx, n ? sum / n : 0.0f,
+              power->get_oc_limit_amps());
+        // Last 12 samples (~0.6 s up to the trip) as a compact approach list.
+        {
+            const uint16_t tail = g_itr_count < 12 ? g_itr_count : 12;
+            char buf[12 * 8];
+            int  off = 0;
+            for (uint16_t i = tail; i >= 1; i--) {
+                if (off >= (int)sizeof(buf) - 8) break;   // never overrun on a huge/bad value
+                uint16_t idx = (uint16_t)((g_itr_head + ITRACE_N - i) % ITRACE_N);
+                float v = g_itr_iout[idx];
+                off += snprintf(buf + off, sizeof(buf) - off, "%s%.1f",
+                                (i == tail ? "" : " "), (v == v) ? v : 0.0f);
+            }
+            LOG_W("[OC-TRACE %s] last %u x ~50ms (A): %s | TRIP", tag, (unsigned)tail, buf);
+        }
+        // Per-phase snapshot at the trip (authoritative runtime phase count).
+        // Timing caveat: the chip's analog comparator + OC_FAULT_RESPONSE shut the
+        // output down in microseconds, far faster than this 50 ms poll can detect
+        // the sticky bit — so on a slow soft-start ramp these reads usually land
+        // AFTER the collapse (all ~0 A), which itself confirms the chip already
+        // auto-reacted. On a sudden in-load OC event the first detection poll can
+        // still catch a live per-phase split before the response fully settles.
+        int8_t ph = power->detect_phase();
+        if (ph > 0) {
+            for (int8_t p = 0; p < ph; p++) {
+                float pa = NAN;
+                if (power->read_phase_iout_amps((uint8_t)p, &pa) == 0) {
+                    LOG_W("[OC-TRACE %s] phase %d IOUT=%.2fA", tag, (int)p, pa);
+                } else {
+                    LOG_W("[OC-TRACE %s] phase %d IOUT unavailable", tag, (int)p);
+                }
+            }
+        }
+        // Reset the window after dumping. Without this, a second trip whose
+        // pre-trip interval had sampling paused (protection hold keeps Vcore off)
+        // would re-dump the PREVIOUS trip's samples with a stretched span — the
+        // stale-data bug seen when forcing two trips back to back. Each trip must
+        // report only its own approach window; an empty one honestly shows 0.
+        g_itr_head  = 0;
+        g_itr_count = 0;
+    }
+}
+
+
 // ── Power init: bring up rails, gate on fan/wifi/vbus, set vcore ────────────
 //    Mirrors legacy power_init_thread_entry; board_sal_t* -> PowerCtx* (DI).
 void power_init_thread_entry(void* args) {
@@ -270,9 +357,20 @@ void power_loop_thread_entry(void* args) {
             // "Overcurrent WARNING" every 3 s while the real condition was the VRM
             // overheating, and the OT shutdown path never ran. Faults win, warnings
             // only fill the gap when nothing is actually faulting.
+            //
+            // Trace sampling: one extra READ_IOUT per ~50 ms loop iteration
+            // (~20 reads/s on top of the 4 status-byte polls already here — well
+            // under 1% of a 400 kHz bus). Sampling stops while a fault hold is
+            // active (Vcore is off there, so the samples would all be ~0 A and
+            // would bury the pre-trip window we care about).
+            float iout_live = NAN;
+            if (!oc_fault && !ot_fault) {
+                iout_live = itrace_sample(power->get_iout_amps());
+            }
             if (oc_fault) {
                 LOG_W("Overcurrent FAULT detected! IOUT=%.2fA limit=%.1fA. Taking safety actions...",
                       power->get_iout_amps(), power->get_oc_limit_amps());
+                itrace_dump(power, "OC");
                 enter_protection_hold(
                     true, SYS_EVENT_POWER_OC_FAULT, REBOOT_INTENT_OVERCURRENT_FAULT,
                     "power overcurrent fault, Vcore/VDD/PLL shut down",
@@ -288,8 +386,9 @@ void power_loop_thread_entry(void* args) {
                 // The chip latches OC_WARN until CLEAR_FAULTS, so the bit alone cannot
                 // tell "overcurrent right now" from "crossed the warn line minutes ago
                 // at a different operating point". Compare the LIVE total current to the
-                // chip's own OC_WARN threshold to label it honestly.
-                float iout = power->get_iout_amps();
+                // chip's own OC_WARN threshold to label it honestly. Reuse the
+                // trace sample from this iteration instead of a second READ_IOUT.
+                float iout = iout_live;
                 float wlim = power->get_oc_warn_limit();
                 bool live = (iout == iout) && (wlim == wlim) && (iout >= wlim);  // NAN-safe
                 static uint32_t last = millis();

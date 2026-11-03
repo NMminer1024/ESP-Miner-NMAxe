@@ -69,6 +69,12 @@ public:
 
     // Real-time output current in amps (PMBus READ_IOUT). NAN if not supported.
     virtual float get_iout_amps(void) { return NAN; }
+    // Per-phase output current in amps: select phase_idx via PMBus PHASE (0x04),
+    // read READ_IOUT, then restore the 0xFF whole-stack selection. Returns 0 on
+    // success, non-zero if per-phase telemetry is unavailable. Only meant for
+    // rare forensic dumps (OC trip), never a polling loop: the select/read/restore
+    // is three separate I2C transactions that another task could interleave with.
+    virtual int8_t read_phase_iout_amps(uint8_t phase_idx, float *out) { (void)phase_idx; (void)out; return -1; }
     // OC fault current limit in amps. NAN if not supported.
     virtual float get_oc_limit_amps(void) { return NAN; }
     // OC WARN current limit in amps (PMBus IOUT_OC_WARN_LIMIT). NAN if not supported.

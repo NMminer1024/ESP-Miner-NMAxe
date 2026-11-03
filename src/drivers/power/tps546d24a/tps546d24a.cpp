@@ -584,6 +584,23 @@ float TPS546D24AClass::get_iout_amps(void){
     return this->_slinear11_to_float(raw);
 }
 
+int8_t TPS546D24AClass::read_phase_iout_amps(uint8_t phase_idx, float *out){
+    if (!this->_device_ok || !out) return -1;
+    // PHASE (0x04) selects which device in the BCX stack answers the NEXT PMBus
+    // read. hw_init leaves it at 0xFF (whole stack); switch to the phase, read
+    // READ_IOUT, then restore 0xFF so every other reader keeps seeing the total.
+    // NOTE: three separate transactions — a concurrent task could slip a read in
+    // between and get the wrong phase. Acceptable for rare trip-forensics dumps
+    // only; power_loop is the sole periodic I2C reader and it is the caller here.
+    this->_write_byte(PMBUS_PHASE, phase_idx);
+    uint16_t raw = 0;
+    int8_t rc = (int8_t)this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
+    this->_write_byte(PMBUS_PHASE, TPS546D24A_PHASE_ALL);
+    if (rc != 0) return rc;
+    *out = this->_slinear11_to_float(raw);
+    return 0;
+}
+
 float TPS546D24AClass::get_oc_limit_amps(void){
     // Report what the CHIP is actually enforcing, not what we asked for.
     // The two can differ (a rejected write, a POR value surviving hw_init, a
