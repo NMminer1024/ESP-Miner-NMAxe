@@ -361,7 +361,14 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
     config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
     config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
-    config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
+    // VRM (Vcore) thermal limits derived from the regulator's OWN trip point, so
+    // software always acts before the chip: fans reach full at 115 °C, the software
+    // over-temperature escalation fires at 120 °C, the TPS53647 OT_FAULT trips at
+    // 125 °C. These were hardcoded 130/110/80 with a 130 °C gauge ceiling — 5 °C
+    // ABOVE the chip trip — so the rail could be shut down by hardware while the
+    // firmware still reported everything as fine. Same class of bug already fixed
+    // on Nexus; see QXPP_VRM_OT_FAULT_C in nmqaxepp.h.
+    config.ui.dashboard_page.heat.vcore          = {0.0f, QXPP_VRM_OT_FAULT_C - FAN_TARGET_TEMP_MARGIN_C};
     config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
     config.btn.boot_pin              = 0;
     config.btn.user_pin              = -1;
@@ -375,8 +382,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.pwr.pgood_pin             = 21;
     config.pwr.dc_plug_pin           = -1;
     config.pwr.vbus_min_required     = 8000;
-    config.pwr.temp_limit.high       = 130.0f;
-    config.pwr.temp_limit.medium     = 110.0f;
+    config.pwr.temp_limit.high       = QXPP_VRM_OT_FAULT_C - FAN_TARGET_TEMP_MARGIN_C;
+    config.pwr.temp_limit.medium     = 110.0f;   // UI "hot" tint, 10 °C below high
     config.pwr.temp_limit.low        = 80.0f;
     config.pwr.power_low_threshold   = 20.0f;
     config.iic.scl_pin               = 7;
@@ -531,7 +538,11 @@ BoardSpecConfig get_board_config_compile_time() {
     config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
     config.ui.dashboard_page.heat.mcu            = {0.0f, 75.0f};
     config.ui.dashboard_page.heat.asic           = {0.0f, 70.0f};
-    config.ui.dashboard_page.heat.vcore          = {0.0f, 130.0f};
+    // VRM (Vcore) thermal limits derived from the regulator's OWN trip point, so
+    // software always acts before the chip: fans reach full at 115 °C, the software
+    // over-temperature escalation fires at 120 °C, the TPS53647 OT_FAULT trips at
+    // 125 °C. See the QAxe++ block above / QXPP_VRM_OT_FAULT_C in nmqaxepp.h.
+    config.ui.dashboard_page.heat.vcore          = {0.0f, QXPP_VRM_OT_FAULT_C - FAN_TARGET_TEMP_MARGIN_C};
     config.ui.dashboard_page.heat.fan            = {0.0f, 5000.0f};
     config.btn.boot_pin              = 0;
     config.btn.user_pin              = -1;
@@ -545,8 +556,8 @@ BoardSpecConfig get_board_config_compile_time() {
     config.pwr.pgood_pin             = 21;
     config.pwr.dc_plug_pin           = -1;
     config.pwr.vbus_min_required     = 8000;
-    config.pwr.temp_limit.high       = 130.0f;
-    config.pwr.temp_limit.medium     = 110.0f;
+    config.pwr.temp_limit.high       = QXPP_VRM_OT_FAULT_C - FAN_TARGET_TEMP_MARGIN_C;
+    config.pwr.temp_limit.medium     = 110.0f;   // UI "hot" tint, 10 °C below high
     config.pwr.temp_limit.low        = 80.0f;
     config.pwr.power_low_threshold   = 20.0f;
     config.iic.scl_pin               = 7;

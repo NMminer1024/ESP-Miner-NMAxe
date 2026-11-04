@@ -16,16 +16,31 @@ inline BMxxx* create_qaxepp81_asic_instance(HardwareSerial& serial, uint32_t bau
     return new BM1373(serial, baud, rx, tx, rst);
 }
 
+// ── QAxe++ (2-phase) / QAxe++ Rev6.1 (3-phase) VRM thermal limits ───────────
+// Single source of truth for the TPS53647 over-temperature trip. Both power
+// instances below write this value to PMBUS_OT_FAULT_LIMIT (OT_WARN = -10 °C,
+// see tps53647.cpp hw_init), and board.cpp derives the *software* limits from it
+// so the two layers cannot drift apart.
+//
+// They DID drift: board.cpp hardcoded pwr.temp_limit.high = 130 °C while the
+// regulator shuts its output down at 125 °C. The software over-temperature
+// escalation (system_threads: vcore > temp_limit.high for 10 s) could therefore
+// never fire first, and the auto-fan clamp (high - 5 = 125 °C) sat exactly ON the
+// chip trip instead of below it. Net effect: between 125 and 130 °C the rail was
+// disabled by hardware while the firmware still believed everything was fine.
+// Keep this in sync with the tfault field of create_qaxepp_2ph/61_*_power_instance.
+constexpr float QXPP_VRM_OT_FAULT_C = 125.0f;
+
 // 2-phase board (QAxe++): 0.005 Ω shunt, lower OC limit
 inline AxePowerHal* create_qaxepp_2ph_power_instance(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t vcore_regulator_pwm_pin, uint8_t pgood, uint8_t plug) {
     //                    phase, imax,  ifault,  sample reg, tfault, iout_oc_level(0x03=33A), vr_mode
-    tps53647_cfg_t cfg = {2,      60,     73.0f,  0.005f,     125.0f, 0x03, TPS53647_VR12_0};
+    tps53647_cfg_t cfg = {2,      60,     73.0f,  0.005f,     QXPP_VRM_OT_FAULT_C, 0x03, TPS53647_VR12_0};
     return new TPS53647Class(en_pins, adc_pins, pgood, plug, cfg);
 }
 // 3-phase board (QAxe++ Rev6.1): 0.003 Ω shunt, higher OC limit
 inline AxePowerHal* create_qaxepp61_3ph_power_instance(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t vcore_regulator_pwm_pin, uint8_t pgood, uint8_t plug) {
     //                    phase, imax,  ifault,  sample reg, tfault, iout_oc_level(0x03=33A), vr_mode
-    tps53647_cfg_t cfg = {3,      120,    100.0f,    0.003f,  125.0f, 0x03, TPS53647_VR12_0};
+    tps53647_cfg_t cfg = {3,      120,    100.0f,    0.003f,  QXPP_VRM_OT_FAULT_C, 0x03, TPS53647_VR12_0};
     return new TPS53647Class(en_pins, adc_pins, pgood, plug, cfg);
 }
 // 4-phase board (QAxe++ Rev8.1, BM1373): 0.003 Ω shunt, higher OC limit.

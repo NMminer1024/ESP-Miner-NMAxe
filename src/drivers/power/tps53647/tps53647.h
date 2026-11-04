@@ -97,7 +97,7 @@ struct tps53647_cfg_t {
     uint8_t imax;             // max current in A (PMBUS_MFR_SPECIFIC_10)
     float   ifault;           // OC fault limit in A; warn = ifault - 2 A
     float   reg_ibus_sample;  // shunt resistance: 0.005 Ω (2-ph) / 0.0025 Ω (3-ph)
-    float   tfault;           // OT fault limit in °C; warn = tfault - 20 °C
+    float   tfault;           // OT fault limit in °C; warn = tfault - 10 °C (hw_init)
     // PMBUS_MFR_SPECIFIC_00 current-limit code (4-bit): 0b0000=24 A .. 0b1101=63 A
     // in 3 A steps. Set to TPS53647_OCL_DEFAULT to skip the write and keep the
     // chip default (required for BM1373 which needs ~67 A at 600 MHz/1225 mV).
