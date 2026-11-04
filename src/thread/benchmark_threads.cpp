@@ -101,6 +101,26 @@ static void bm_load_config(BenchmarkCtx* ctx, BmSweepConfig& c) {
     c.smp_intv   = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 2);
     c.bm_time    = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        120);
     c.stab_time  = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   30);
+
+    // ── Sanitise ─────────────────────────────────────────────────────────────
+    // These keys can be written straight through the REST API, which does not
+    // range-check them, and an older firmware may have stored different limits.
+    // The sweep used to be reboot-per-round, so a nonsense value only cost one
+    // wasted boot; now the thread is resident and a zero step / inverted window
+    // would spin it in place forever without ever reaching the end condition.
+    // Clamp to the board defaults whenever a value is outside the accepted range
+    // so a bad NVS state self-heals on the next round.
+    if (c.freq_min  < 100u  || c.freq_min  > 5000u) c.freq_min  = freq_min_def;
+    if (c.freq_max  < 100u  || c.freq_max  > 5000u) c.freq_max  = freq_max_def;
+    if (c.freq_step < 1u    || c.freq_step > 500u)  c.freq_step = freq_step_def;
+    if (c.vcore_min  < 600u  || c.vcore_min  > 2000u) c.vcore_min  = vcore_min_def;
+    if (c.vcore_max  < 600u  || c.vcore_max  > 2000u) c.vcore_max  = vcore_max_def;
+    if (c.vcore_step < 1u    || c.vcore_step > 200u)  c.vcore_step = vcore_step_def;
+    if (c.smp_intv   == 0u   || c.smp_intv   > 300u)  c.smp_intv   = 2;
+    if (c.bm_time    == 0u   || c.bm_time    > 7200u) c.bm_time    = 120;
+    if (c.stab_time  == 0u   || c.stab_time  > 3600u) c.stab_time  = 30;
+    if (c.freq_max  < c.freq_min)  c.freq_max  = c.freq_min;   // single-point sweep is legal
+    if (c.vcore_max < c.vcore_min) c.vcore_max = c.vcore_min;
 }
 
 // Hot-switch the operating point. Vcore moves first (the rail must be at
@@ -110,17 +130,33 @@ static void bm_load_config(BenchmarkCtx* ctx, BmSweepConfig& c) {
 // re-request the previous frequency in between.
 // Returns false when the frequency could not be queued or the PLL did not
 // reach the target in time — the caller treats the round as unstable.
-static bool bm_apply_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore) {
+//
+// `abortable` makes the waits observe bm_mode: a Stop/Apply/Reset issued while a
+// switch is in flight returns immediately instead of leaving the rider staring at
+// the old readout for up to 15s. The terminal paths (finish-up, restore) pass
+// false because they run *after* bm_mode was cleared and must complete.
+static bool bm_apply_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, bool abortable = true) {
     BoardSpecConfig* spec = ctx->spec;
+    const bool watch = abortable && ctx->bm_mode != nullptr;
 
     if (spec && spec->asic.req_vcore != vcore) {
         spec->asic.req_vcore = vcore;
         if (ctx->power) ctx->power->set_vcore_voltage(vcore);
-        delay(1500);   // rail slew + first power-loop correction pass
+        // 1.5s rail slew + first power-loop correction pass, in slices so an API
+        // stop is not blocked behind the voltage move.
+        for (int i = 0; i < 15; i++) {
+            if (watch && *ctx->bm_mode != 1) return false;
+            delay(100);
+        }
     }
 
     if (!ctx->miner) return false;
-    if (ctx->miner->get_asic_frequency_current() == freq) {
+    // "Already there" is only true when nothing else is queued: an aborted
+    // switch can leave a pending request pointing at the sweep point while the
+    // PLL still reports the previous frequency, and taking the fast path here
+    // would let that stale target be applied *after* we claim to be done.
+    if (ctx->miner->get_asic_frequency_current() == freq &&
+        !ctx->miner->is_asic_frequency_update_pending()) {
         if (spec) spec->asic.req_frq = freq;
         return true;
     }
@@ -128,6 +164,7 @@ static bool bm_apply_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore) {
 
     bool queued = false;
     for (int attempt = 0; attempt < 5 && !queued; attempt++) {
+        if (watch && *ctx->bm_mode != 1) return false;
         queued = ctx->miner->request_asic_frequency(freq);
         if (!queued) delay(200);
     }
@@ -137,6 +174,7 @@ static bool bm_apply_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore) {
     }
     const uint32_t t0 = millis();
     while (true) {
+        if (watch && *ctx->bm_mode != 1) return false;
         if (!ctx->miner->is_asic_frequency_updating() &&
             ctx->miner->get_asic_frequency_current() == freq) return true;
         // Fast-fail: the request was consumed (no longer pending), the applier
@@ -169,7 +207,8 @@ static void bm_restore_normal_point(BenchmarkCtx* ctx) {
                                      ctx->spec ? ctx->spec->asic.default_vcore : 0);
     if (nf == 0 || nv == 0) return;
     LOG_W("[BM] Restoring Normal-mode operating point: freq=%dMHz vcore=%dmV", nf, nv);
-    bm_apply_point(ctx, nf, nv);
+    // Not abortable: bm_mode is already 0 on every path that reaches this point.
+    bm_apply_point(ctx, nf, nv, false);
 }
 
 // Select the best qualified result from NVS, apply it to Normal mode (hot, no
@@ -213,7 +252,9 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
                   best_freq, best_vcore, best_avgHR);
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
-            bm_apply_point(ctx, best_freq, best_vcore);
+            // Terminal apply: a stop arriving now must not leave the miner on the
+            // sweep point, so this switch is not abortable.
+            bm_apply_point(ctx, best_freq, best_vcore, false);
         } else {
             LOG_W("[BM] No qualified result (all failed, unverified, or none stored) — "
                   "restoring pre-sweep settings rather than applying an unverified point.");
@@ -252,6 +293,21 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         uint16_t cur_freq   = nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
         uint16_t cur_vcore  = nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
 
+        // A PATCH (or a fresh start with a narrower window) can move the range
+        // under a running sweep. Keep the checkpoint inside it so the loop still
+        // has a reachable end condition instead of scanning a stale point.
+        if (cur_freq  < freq_min)  cur_freq  = freq_min;
+        if (cur_vcore < vcore_min) cur_vcore = vcore_min;
+        if (cur_vcore > vcore_max) {
+            cur_freq  += freq_step;
+            cur_vcore  = vcore_min;
+        }
+        if (cur_freq > freq_max) {
+            LOG_W("[BM] Sweep window moved past the checkpoint (%dMHz) — completing.", cur_freq);
+            bm_finish(ctx, "sweep window moved past the checkpoint");
+            return;
+        }
+
         LOG_W("[BM] === Benchmark round: freq=%d vcore=%d ===", cur_freq, cur_vcore);
         LOG_W("[BM] Range freq %d~%dMHz step=%d, vcore %d~%dmV step=%d",
               freq_min, freq_max, freq_step, vcore_min, vcore_max, vcore_step);
@@ -263,6 +319,9 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         // switch-down still hashing at the higher rate). Skip the round and
         // advance as unstable instead; nothing is recorded.
         if (!bm_apply_point(ctx, cur_freq, cur_vcore)) {
+            // A stop/apply that landed during the switch is not a failed point:
+            // leave the checkpoint where it is so a later Resume retries it.
+            if (*ctx->bm_mode != 1) break;
             LOG_W("[BM] Switch to %dMHz/%dmV failed — advancing as unstable (no measurement).",
                   cur_freq, cur_vcore);
             cur_vcore += vcore_step;
