@@ -105,6 +105,20 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     private loadingService: LoadingService
   ) {}
 
+  // Device-persisted sweep parameters can sit outside the ranges this UI
+  // accepts: they may have been written through the REST API (e.g. a short
+  // smoke run with stabTime=10) or by an older firmware whose limits differed.
+  // Feeding such a value straight into the FormControl leaves the form
+  // permanently invalid, which disables the primary button and shows
+  // "Invalid fields: Stabilize Time" even though the device is idle and fine.
+  // Clamp on load so the form always starts usable; the clamped value is what
+  // gets written back on the next Start.
+  private clampField(v: any, min: number, max: number, fallback: number): number {
+    const n = Number(v);
+    if (!isFinite(n)) return fallback;
+    return Math.min(max, Math.max(min, Math.round(n)));
+  }
+
   ngOnInit(): void {
     // Load device identity for download filename
     forkJoin({
@@ -130,15 +144,15 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         if (this.isRunning) this.startElapsedTimer();
 
         this.form = this.fb.group({
-          freqMin:    [data.freqMin,    [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
-          freqMax:    [data.freqMax,    [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
-          freqStep:   [data.freqStep,   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(500)]],
-          vcoreMin:   [data.vcoreMin,   [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
-          vcoreMax:   [data.vcoreMax,   [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
-          vcoreStep:  [data.vcoreStep,  [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(200)]],
-          sampleIntv: [data.sampleIntv, [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
-          bmTime:     [data.bmTime,     [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(7200)]],
-          stabTime:   [data.stabTime,   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(3600)]],
+          freqMin:    [this.clampField(data.freqMin,    100, 5000, 400),  [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
+          freqMax:    [this.clampField(data.freqMax,    100, 5000, 625),  [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
+          freqStep:   [this.clampField(data.freqStep,   1,   500,  25),   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(500)]],
+          vcoreMin:   [this.clampField(data.vcoreMin,   600, 2000, 1000), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
+          vcoreMax:   [this.clampField(data.vcoreMax,   600, 2000, 1300), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
+          vcoreStep:  [this.clampField(data.vcoreStep,  1,   200,  25),   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(200)]],
+          sampleIntv: [this.clampField(data.sampleIntv, 1,   300,  2),    [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
+          bmTime:     [this.clampField(data.bmTime,     15,  7200, 120),  [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(7200)]],
+          stabTime:   [this.clampField(data.stabTime,   15,  3600, 30),   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(3600)]],
         });
 
         this.syncFormLock();
@@ -797,15 +811,15 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
             this.loadedFreqMin  = data.freqMin;
             this.loadedVcoreMin = data.vcoreMin;
             this.form.patchValue({
-              freqMin:    data.freqMin,
-              freqMax:    data.freqMax,
-              freqStep:   data.freqStep,
-              vcoreMin:   data.vcoreMin,
-              vcoreMax:   data.vcoreMax,
-              vcoreStep:  data.vcoreStep,
-              sampleIntv: data.sampleIntv,
-              bmTime:     data.bmTime,
-              stabTime:   data.stabTime,
+              freqMin:    this.clampField(data.freqMin,    100, 5000, 400),
+              freqMax:    this.clampField(data.freqMax,    100, 5000, 625),
+              freqStep:   this.clampField(data.freqStep,   1,   500,  25),
+              vcoreMin:   this.clampField(data.vcoreMin,   600, 2000, 1000),
+              vcoreMax:   this.clampField(data.vcoreMax,   600, 2000, 1300),
+              vcoreStep:  this.clampField(data.vcoreStep,  1,   200,  25),
+              sampleIntv: this.clampField(data.sampleIntv, 1,   300,  2),
+              bmTime:     this.clampField(data.bmTime,     15,  7200, 120),
+              stabTime:   this.clampField(data.stabTime,   15,  3600, 30),
             });
           });
           const msg: string = res?.message ?? 'Benchmark reset.';
