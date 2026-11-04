@@ -14,3 +14,4 @@ reflect.md
 /design
 REFLECT_MIGRATION.md
 compile_commands*.json
+tmp/
