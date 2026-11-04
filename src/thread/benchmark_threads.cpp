@@ -208,6 +208,19 @@ void benchmark_thread_entry(void* args) {
     // peak crosses it is exactly the "it tripped even though the number looked
     // fine" case. NAN/absent telemetry leaves these at 0.
     double iout_max = 0, pwr_max = 0, at_max = 0, vt_max = 0;
+    // Per-phase peaks. The regulator divides the stack-total OC limit across the
+    // phases, so the comparator trips on (limit / phases) for the HEAVIEST phase.
+    // Qualifying on the total alone lets an imbalanced stack pass the margin rule
+    // while sitting right on the per-phase trip point. phase_cnt stays 0 on boards
+    // without per-phase telemetry (TPS53355 / TPS53647), where the rule falls back
+    // to the total.
+    double  iout_phase_max = 0;
+    int8_t  phase_cnt = 0;
+    float   phase_min_at_max = NAN;   // lightest phase at the same instant, for imbalance
+    {
+        int8_t hp = ctx->power ? ctx->power->detect_phase() : -1;
+        if (hp > 0) phase_cnt = hp;
+    }
 
     bm.in_stab       = false;
     bm.phase_total   = bm_time;
@@ -265,6 +278,26 @@ void benchmark_thread_entry(void* args) {
         if (ctx->power) {
             float io = ctx->power->get_iout_amps();
             if (io == io && io > iout_max) iout_max = io;   // NAN-safe
+            // Per-phase peaks: once per sample interval (smp_intv seconds), which
+            // keeps the select/read/restore cost negligible for a benchmark run.
+            if (phase_cnt > 0) {
+                float worst = NAN, lightest = NAN;
+                bool  any = false;
+                for (int8_t p = 0; p < phase_cnt; p++) {
+                    float a = NAN;
+                    if (ctx->power->read_phase_iout_amps((uint8_t)p, &a) != 0) continue;
+                    if (a != a) continue;
+                    any = true;
+                    if (!(worst == worst) || a > worst) worst = a;
+                    if (!(lightest == lightest) || a < lightest) lightest = a;
+                }
+                if (any && worst == worst) {
+                    if (worst > iout_phase_max) {
+                        iout_phase_max = worst;
+                        phase_min_at_max = lightest;
+                    }
+                }
+            }
         }
 
         hr_sum  += hr_ghs;
@@ -331,7 +364,17 @@ void benchmark_thread_entry(void* args) {
     } else {
         float oc_warn = ctx->power ? ctx->power->get_oc_warn_limit() : NAN;
         if (oc_warn == oc_warn && oc_warn > 0.0f) {
-            if (iout_max > oc_warn) {
+            // Prefer the PER-PHASE comparison when the board reports per-phase
+            // current: the controller splits the stack-total limit across phases
+            // and trips on the heaviest one, so an imbalanced stack reaches the
+            // per-phase trip point while the total still looks comfortable. Only
+            // fall back to the total when no per-phase data is available.
+            if (phase_cnt > 0 && iout_phase_max > 0.0) {
+                float plim = oc_warn / (float)phase_cnt;
+                if (iout_phase_max > plim) {
+                    qualified = false; q_reason = "peak phase current above per-phase OC warn limit";
+                }
+            } else if (iout_max > oc_warn) {
                 qualified = false; q_reason = "peak current above OC warn limit";
             }
         } else if (bspec) {
@@ -353,6 +396,21 @@ void benchmark_thread_entry(void* args) {
     }
     if (fault_tripped) {
         LOG_W("[BM] Round tripped protection — no valid peak data, verdict=FAILED.");
+    } else if (phase_cnt > 0 && iout_phase_max > 0.0) {
+        float oc_warn = ctx->power ? ctx->power->get_oc_warn_limit() : NAN;
+        float plim = (oc_warn == oc_warn && oc_warn > 0.0f) ? (oc_warn / (float)phase_cnt) : NAN;
+        // Imbalance at the worst instant: how far the heaviest phase sat above the
+        // average of all phases. This is what erodes the effective total headroom
+        // (a +7 % imbalance turns a 70.5 A stack limit into ~66 A of usable total).
+        float imbalance_pct = NAN;
+        if (iout_phase_max > 0.0 && phase_min_at_max == phase_min_at_max) {
+            const float avg_phase = (iout_phase_max + phase_min_at_max) * 0.5f;
+            if (avg_phase > 0.0f) imbalance_pct = 100.0f * (iout_phase_max - avg_phase) / avg_phase;
+        }
+        LOG_W("[BM] Peaks: phase-max=%.2fA/%.1fA-per-phase (IOUT total max=%.2fA, %d phases, imbalance %.1f%%) "
+              "PWRmax=%.2fW ATmax=%.1fC VTmax=%.1fC -> qualified=%d (%s)",
+              iout_phase_max, plim, iout_max, (int)phase_cnt, imbalance_pct,
+              pwr_max, at_max, vt_max, (int)qualified, q_reason);
     } else {
         LOG_W("[BM] Peaks: IOUTmax=%.2fA PWRmax=%.2fW ATmax=%.1fC VTmax=%.1fC -> qualified=%d (%s)",
               iout_max, pwr_max, at_max, vt_max, (int)qualified, q_reason);
@@ -364,13 +422,15 @@ void benchmark_thread_entry(void* args) {
     // avgHR in the table, i.e. it would be picked as Turbo even though this exact
     // point now trips. Write an explicit tombstone instead.
     if (fault_tripped) {
-        char tomb[512];
+        char tomb[640];
         snprintf(tomb, sizeof(tomb),
             "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":0.0,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
             "\"effJTH\":0.0,\"avgPwr\":0.0,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
+            "\"maxPhaseIout\":%.2f,\"phases\":%d,"
             "\"q\":0,\"fail\":1,\"ts\":%ld}",
             cur_freq, cur_vcore, exp_hr_ghs, at_avg, vt_avg,
-            iout_max, pwr_max, at_max, vt_max, (long)time(nullptr));
+            iout_max, pwr_max, at_max, vt_max,
+            iout_phase_max, (int)phase_cnt, (long)time(nullptr));
         esp_err_t terr = bm_result_append(tomb);
         LOG_W("[BM] Protection tripped at %dMHz/%dmV — stored as FAILED (invalidates any earlier result)%s",
               cur_freq, cur_vcore, (terr == ESP_OK) ? "." : " (NVS write failed)");
@@ -425,13 +485,15 @@ void benchmark_thread_entry(void* args) {
     };
 
     if (stable) {
-        char entry[512];
+        char entry[640];
         snprintf(entry, sizeof(entry),
             "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
             "\"effJTH\":%.3f,\"avgPwr\":%.2f,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
+            "\"maxPhaseIout\":%.2f,\"phases\":%d,"
             "\"q\":%d,\"fail\":0,\"ts\":%ld}",
             cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg,
             eff_avg, pwr_avg, iout_max, pwr_max, at_max, vt_max,
+            iout_phase_max, (int)phase_cnt,
             qualified ? 1 : 0, (long)time(nullptr));
 
         // Ring storage: capacity bounded by partition size (80 entries), oldest evicted when full

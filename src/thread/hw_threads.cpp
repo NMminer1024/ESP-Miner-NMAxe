@@ -144,6 +144,70 @@ namespace {
 }
 
 
+// ── Per-phase current snapshot (throttled) ──────────────────────────────────
+// IOUT_OC_WARN/FAULT limits are written with PHASE=0xFF, i.e. as a STACK TOTAL,
+// and the controller divides them across the phases. The comparator that trips
+// therefore works on (limit / num_phases) of the HEAVIEST phase, not on the
+// total. Measured on Nexus at 800MHz/1225mV: total read 67.2 A (limit 70.5 A)
+// while phase 1 was 23.7 A against a 23.5 A per-phase trip point — a 6.9 %
+// imbalance turned a "70.5 A" limit into an effective ~66 A one. Comparing the
+// TOTAL against the total limit therefore reported those warnings as "latched
+// (stale)" moments before the unit actually tripped.
+namespace {
+    constexpr uint32_t PHASE_SNAP_INTERVAL_MS = 2000;
+
+    struct PhaseSnapshot {
+        uint32_t ts_ms   = 0;
+        int8_t   phases  = 0;     // 0 = not probed yet, <0 = board has no per-phase telemetry
+        float    worst_a = NAN;   // heaviest phase
+        int8_t   worst_i = -1;
+        float    total_a = NAN;   // sum of the sampled phases
+    };
+    PhaseSnapshot g_phase_snap;
+
+    // Refreshed at most every PHASE_SNAP_INTERVAL_MS: each phase costs three I2C
+    // transactions (select/read/restore), so this must never run at loop rate.
+    // `force` is used right before a trip dump, where accuracy beats cost.
+    const PhaseSnapshot& phase_snapshot(AxePowerHal* power, bool force) {
+        const uint32_t now = millis();
+        if (!force && g_phase_snap.ts_ms != 0 &&
+            (uint32_t)(now - g_phase_snap.ts_ms) < PHASE_SNAP_INTERVAL_MS) {
+            return g_phase_snap;
+        }
+        if (g_phase_snap.phases == 0) g_phase_snap.phases = power->detect_phase();
+        if (g_phase_snap.phases <= 0) {
+            g_phase_snap.ts_ms = now;
+            return g_phase_snap;      // unsupported board: callers fall back to total
+        }
+
+        float worst = NAN, sum = 0.0f;
+        int8_t worst_i = -1;
+        int good = 0;
+        for (int8_t p = 0; p < g_phase_snap.phases; p++) {
+            float a = NAN;
+            if (power->read_phase_iout_amps((uint8_t)p, &a) != 0) continue;
+            if (a != a) continue;                       // NAN
+            sum += a;
+            good++;
+            if (!(worst == worst) || a > worst) { worst = a; worst_i = p; }
+        }
+        g_phase_snap.worst_a = (good > 0) ? worst   : NAN;
+        g_phase_snap.worst_i = (good > 0) ? worst_i : -1;
+        g_phase_snap.total_a = (good > 0) ? sum     : NAN;
+        g_phase_snap.ts_ms   = now;
+        return g_phase_snap;
+    }
+
+    // Per-phase limit for a stack TOTAL limit. Returns NAN when the board exposes
+    // no per-phase telemetry (then callers must fall back to the total).
+    float per_phase_limit(float total_limit, const PhaseSnapshot& ps) {
+        if (!(total_limit == total_limit) || total_limit <= 0.0f) return NAN;
+        if (ps.phases <= 0) return NAN;
+        return total_limit / (float)ps.phases;
+    }
+}
+
+
 // ── Power init: bring up rails, gate on fan/wifi/vbus, set vcore ────────────
 //    Mirrors legacy power_init_thread_entry; board_sal_t* -> PowerCtx* (DI).
 void power_init_thread_entry(void* args) {
@@ -387,8 +451,20 @@ void power_loop_thread_entry(void* args) {
                 iout_live = itrace_sample(power->get_iout_amps());
             }
             if (oc_fault) {
-                LOG_W("Overcurrent FAULT detected! IOUT=%.2fA limit=%.1fA. Taking safety actions...",
-                      power->get_iout_amps(), power->get_oc_limit_amps());
+                // Quote the per-phase trip point too: the limit is a stack TOTAL
+                // divided across phases, so "limit=70.5A" alone reads as "it should
+                // not have tripped" when in fact the heaviest phase had crossed
+                // 70.5/3 = 23.5 A.
+                const PhaseSnapshot& fs = phase_snapshot(power, true);
+                const float flim = power->get_oc_limit_amps();
+                const float plim = per_phase_limit(flim, fs);
+                if (plim == plim) {
+                    LOG_W("Overcurrent FAULT detected! IOUT=%.2fA limit=%.1fA total (%.1fA/phase over %d phases). Taking safety actions...",
+                          power->get_iout_amps(), flim, plim, (int)fs.phases);
+                } else {
+                    LOG_W("Overcurrent FAULT detected! IOUT=%.2fA limit=%.1fA. Taking safety actions...",
+                          power->get_iout_amps(), flim);
+                }
                 itrace_dump(power, "OC");
                 enter_protection_hold(
                     true, SYS_EVENT_POWER_OC_FAULT, REBOOT_INTENT_OVERCURRENT_FAULT,
@@ -404,19 +480,41 @@ void power_loop_thread_entry(void* args) {
             } else if (oc_warn) {
                 // The chip latches OC_WARN until CLEAR_FAULTS, so the bit alone cannot
                 // tell "overcurrent right now" from "crossed the warn line minutes ago
-                // at a different operating point". Compare the LIVE total current to the
-                // chip's own OC_WARN threshold to label it honestly. Reuse the
-                // trace sample from this iteration instead of a second READ_IOUT.
-                float iout = iout_live;
+                // at a different operating point".
+                //
+                // Compare against the PER-PHASE limit whenever the board exposes
+                // per-phase telemetry. Comparing the total against the total limit is
+                // wrong on an imbalanced stack: measured on Nexus, total 67.1 A was
+                // reported as "latched (stale)" while the heaviest phase sat at
+                // 23.7 A against a 22.5 A per-phase warn point — and it tripped
+                // seconds later. The warning was live all along.
                 float wlim = power->get_oc_warn_limit();
-                bool live = (iout == iout) && (wlim == wlim) && (iout >= wlim);  // NAN-safe
+                const PhaseSnapshot& ws = phase_snapshot(power, false);
+                const float wphase = per_phase_limit(wlim, ws);
+                bool live;
+                if (wphase == wphase) {                       // per-phase comparison
+                    live = (ws.worst_a == ws.worst_a) && (ws.worst_a >= wphase);
+                } else {                                      // total-only fallback
+                    live = (iout_live == iout_live) && (wlim == wlim) && (iout_live >= wlim);
+                }
                 static uint32_t last = millis();
                 if (millis() - last >= 3000) {
                     if (live) {
-                        LOG_W("!!! Overcurrent WARNING (live) !!! IOUT=%.2fA >= warn-limit %.1fA", iout, wlim);
+                        if (wphase == wphase) {
+                            LOG_W("!!! Overcurrent WARNING (live) !!! phase %d = %.2fA >= %.1fA/phase (IOUT total %.2fA)",
+                                  (int)ws.worst_i, ws.worst_a, wphase, iout_live);
+                        } else {
+                            LOG_W("!!! Overcurrent WARNING (live) !!! IOUT=%.2fA >= warn-limit %.1fA",
+                                  iout_live, wlim);
+                        }
                     } else {
-                        LOG_W("Overcurrent WARNING latched (IOUT now %.2fA, below warn-limit %.1fA; stale, clears on op-point change)",
-                              iout, wlim);
+                        if (wphase == wphase) {
+                            LOG_W("Overcurrent WARNING latched (heaviest phase %d now %.2fA, below %.1fA/phase; IOUT total %.2fA; stale, clears on op-point change)",
+                                  (int)ws.worst_i, ws.worst_a, wphase, iout_live);
+                        } else {
+                            LOG_W("Overcurrent WARNING latched (IOUT now %.2fA, below warn-limit %.1fA; stale, clears on op-point change)",
+                                  iout_live, wlim);
+                        }
                     }
                     last = millis();
                 }

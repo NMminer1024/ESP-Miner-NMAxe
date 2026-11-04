@@ -71,9 +71,17 @@ public:
     virtual float get_iout_amps(void) { return NAN; }
     // Per-phase output current in amps: select phase_idx via PMBus PHASE (0x04),
     // read READ_IOUT, then restore the 0xFF whole-stack selection. Returns 0 on
-    // success, non-zero if per-phase telemetry is unavailable. Only meant for
-    // rare forensic dumps (OC trip), never a polling loop: the select/read/restore
-    // is three separate I2C transactions that another task could interleave with.
+    // success, non-zero if per-phase telemetry is unavailable.
+    //
+    // Why this matters: IOUT_OC_FAULT/WARN limits are programmed with PHASE=0xFF,
+    // i.e. as a STACK TOTAL, and the controller divides them across the phases.
+    // The comparator that actually trips therefore works on (limit / num_phases)
+    // for the HEAVIEST phase — so a stack with a few percent of phase imbalance
+    // trips well below the total limit shown in the logs.
+    //
+    // Cost: three separate I2C transactions per phase, and another task could
+    // interleave a read between select and restore. Call it from a THROTTLED
+    // snapshot (seconds apart) or from rare forensics, never at loop rate.
     virtual int8_t read_phase_iout_amps(uint8_t phase_idx, float *out) { (void)phase_idx; (void)out; return -1; }
     // OC fault current limit in amps. NAN if not supported.
     virtual float get_oc_limit_amps(void) { return NAN; }

@@ -21,10 +21,16 @@ interface BenchmarkEntry {
   // Peak (worst-case) values recorded during the round — qualification uses these,
   // not the averages: a point whose average is inside the limit but whose peak
   // crosses it is exactly the "it tripped even though the number looked fine" case.
-  maxIout?: number;    // A   — PMBus boards only
+  maxIout?: number;    // A   — PMBus boards only (stack total peak)
   maxPwr?: number;     // W
   maxAsicTemp?: number;// °C
   maxVcoreTemp?: number; // °C
+  // Heaviest-phase peak and the runtime phase count. The regulator divides the
+  // stack-total OC limit across phases and trips on the heaviest one, so this is
+  // the number that actually decides whether a point is safe. 0 on boards with
+  // no per-phase telemetry.
+  maxPhaseIout?: number; // A
+  phases?: number;
   // Firmware-computed verdict: 1 = passed the safety margin, 0 = failed it.
   // ABSENT on results written before the margin rule existed — those are treated
   // as NOT qualified (assuming an unverified point is safe is the failure mode
@@ -223,6 +229,11 @@ export class EditComponent implements OnInit {
       ['Temp Vcore', `${b.avgVcoreTemp.toFixed(1)} °C`],
     ];
     if (b.ts) rows.push(['Measured', new Date(b.ts * 1000).toLocaleString()]);
+    // Show the per-phase peak when the board reports it: it is the value the
+    // regulator actually trips on (limit / phases), not the stack total.
+    if (b.maxPhaseIout && b.phases) {
+      rows.push(['Peak phase', `${b.maxPhaseIout.toFixed(1)} A (of ${b.phases})`]);
+    }
     return wrap(`${p.label} — from benchmark`, `${b.freq}MHz @ ${b.vcore}mV`, rows);
   }
 
