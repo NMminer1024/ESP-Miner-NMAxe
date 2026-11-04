@@ -15,23 +15,18 @@ struct BoardSpecConfig;  // fwd — board.h not needed for a pointer member
 //  BenchmarkCtx — launch context for benchmark_thread_entry
 //
 //  Auto frequency/vcore sweep: samples hashrate at each (freq, vcore) point,
-//  persists stable results to NVS, and reboots to the next round. Applies the
-//  best result to Normal mode when the sweep completes.
+//  persists stable results to NVS, and HOT-SWITCHES to the next round in place
+//  (no per-round reboot). Applies the best result to Normal mode when the
+//  sweep completes.
 // ============================================================================
 struct BenchmarkCtx {
-    volatile uint8_t* bm_mode = nullptr;        // 0=Normal (exit), 1=Benchmark (run)
+    volatile uint8_t* bm_mode = nullptr;        // 0=Normal (idle), 1=Benchmark (run); flipped live by the web API
     BenchmarkState*   bm = nullptr;             // UI overlay progress sink
-    AsicMinerClass*   miner = nullptr;          // get_asic_small_cores / get_asic_count
+    AsicMinerClass*   miner = nullptr;          // get_asic_small_cores / get_asic_count / frequency hot-switch
     MinerStatus*      status = nullptr;         // live hashrate
     const PowerTelemetry* pwr = nullptr;        // measured vbus/ibus/vcore
     AxePowerHal*      power = nullptr;          // OC/OT fault status (HAL)
     const TempState*  temp = nullptr;           // sampled asic/vcore temps
-    const BoardSpecConfig* spec = nullptr;      // board defaults for the sweep range/step
-    SemaphoreHandle_t reboot_xsem = nullptr;
+    BoardSpecConfig*  spec = nullptr;           // board defaults + live req_frq/req_vcore (hot-switch target)
     EventGroupHandle_t init_evt = nullptr;      // INIT_EVENT_MINER_READY gate
-    // Shared OTA flag. The benchmark reboots between rounds and when the sweep
-    // finishes; an OTA upload in flight owns that reboot, so the benchmark must
-    // not raise its own (it would abort the upload and mislabel the reboot
-    // reason). nullptr -> treat as "no OTA".
-    volatile bool* ota_running = nullptr;
 };

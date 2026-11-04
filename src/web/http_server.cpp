@@ -1456,8 +1456,8 @@ void echo_handler(AsyncWebServerRequest* request){
 //
 // GET  /api/benchmark         — config + status + results
 // PATCH /api/benchmark        — update config parameters (does NOT start)
-// POST /api/benchmark/start   — write params, set bm_mode=1, reboot
-// POST /api/benchmark/stop    — set bm_mode=0, reboot
+// POST /api/benchmark/start   — write params, set bm_mode=1 (sweep starts in place, no reboot)
+// POST /api/benchmark/stop    — set bm_mode=0 (sweep aborts, Normal point restored, no reboot)
 // DELETE /api/benchmark/results — clear stored results
 
 // GET /api/benchmark
@@ -1574,14 +1574,12 @@ void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t 
                   nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE, 0));
         }
         nvs_config_set_u8(NVS_CONFIG_BM_MODE, 1);
+        *g_web->bm_mode = 1;   // live flag: the resident benchmark thread picks it up within ~1s
 
         LOG_W("[BM] Benchmark mode=1 set (resume=%d)", (int)do_resume);
-        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"benchmark starting, device will reboot\"}");
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"benchmark starting\"}");
         response->addHeader("Access-Control-Allow-Origin", "*");
         request->send(response);
-        delay(300);
-        reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark start API");
-        xSemaphoreGive(g_web->reboot_xsem);
     }
     free(buf);
 }
@@ -1589,14 +1587,12 @@ void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t 
 // POST /api/benchmark/stop
 void post_benchmark_stop(AsyncWebServerRequest* request){
     nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 0);
+    *g_web->bm_mode = 0;   // benchmark thread abandons the round and restores the Normal point
     nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, 0);  // discard partial run time
     LOG_W("[BM] Benchmark stopped via API");
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"benchmark stopped, device will reboot\"}");
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"message\":\"benchmark stopped\"}");
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
-    delay(300);
-    reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark stop API");
-    xSemaphoreGive(g_web->reboot_xsem);
 }
 
 // DELETE /api/benchmark/results
@@ -1622,11 +1618,12 @@ void delete_benchmark_results(AsyncWebServerRequest* request){
 }
 
 // POST /api/benchmark/apply
-// Saves a specific freq+vcore as the Normal-mode ASIC settings.
-// If device is already in Normal mode (bm_mode==0), hot-switches freq+vcore immediately
-// (no reboot, mirrors PATCH /api/setting/mining behaviour).
-// If device is in Benchmark mode (bm_mode==1 — sweep still running), reboots to exit cleanly.
-// Response: {"status":"ok","reboot":false} or {"status":"ok","reboot":true}
+// Saves a specific freq+vcore as the Normal-mode ASIC settings and hot-switches
+// to them immediately (no reboot) — in Normal mode this mirrors
+// PATCH /api/setting/mining; in Benchmark mode the sweep thread sees bm_mode==0,
+// abandons the current round, and its restore-to-Normal converges to the same
+// point just written here.
+// Response: {"status":"ok","reboot":false}
 void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
     static const uint16_t BUF_SIZE = 256;
     if (total >= BUF_SIZE) { request->send(400, "application/json", "{\"error\":\"payload too large\"}"); return; }
@@ -1659,49 +1656,41 @@ void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t 
             if (freq < oc_opts.front().value) freq = oc_opts.front().value;
             if (freq > oc_opts.back().value)  freq = oc_opts.back().value;
         }
-        // Always persist to NVS and ensure Normal mode flag is cleared
+        // Persist to NVS BEFORE clearing the mode flag: the sweep thread's
+        // abort path restores from these keys, so it converges to this point.
         nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    freq);
         nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
         nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 0);
-        bool need_reboot = ((*g_web->bm_mode) != 0);
-        if (!need_reboot) {
-            // Normal mode — hot-switch freq+vcore immediately, no reboot needed.
-            // Apply vcore first (voltage must be stable before PLL change).
-            g_web->spec->asic.req_vcore = vcore;
-            if (g_web->power  != nullptr) g_web->power->set_vcore_voltage(vcore);
-            g_web->spec->asic.req_frq = freq;
-            if (g_web->miner  != nullptr && !g_web->miner->request_asic_frequency(freq)) {
-                LOG_W("[BM] Apply (hot): freq hot-switch request failed to queue: %uMHz", freq);
-            }
-            LOG_I("[BM] Apply via API (hot): freq=%dMHz vcore=%dmV — active immediately, no reboot", freq, vcore);
-            AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"reboot\":false}");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            request->send(response);
-        } else {
-            // Benchmark mode active — reboot to exit BM sweep cleanly
-            LOG_W("[BM] Apply via API: freq=%dMHz vcore=%dmV — rebooting to exit BM mode", freq, vcore);
-            AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"reboot\":true}");
-            response->addHeader("Access-Control-Allow-Origin", "*");
-            request->send(response);
-            delay(300);
-            reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark apply API");
-            xSemaphoreGive(g_web->reboot_xsem);
+        const bool was_bm = ((*g_web->bm_mode) != 0);
+        *g_web->bm_mode = 0;
+        // Hot-switch freq+vcore immediately (vcore first — voltage must be
+        // stable before the PLL change).
+        g_web->spec->asic.req_vcore = vcore;
+        if (g_web->power  != nullptr) g_web->power->set_vcore_voltage(vcore);
+        g_web->spec->asic.req_frq = freq;
+        if (g_web->miner  != nullptr && !g_web->miner->request_asic_frequency(freq)) {
+            LOG_W("[BM] Apply (hot): freq hot-switch request failed to queue: %uMHz", freq);
         }
+        LOG_W("[BM] Apply via API (hot): freq=%dMHz vcore=%dmV — active immediately%s",
+              freq, vcore, was_bm ? ", BM sweep aborted" : "");
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\",\"reboot\":false}");
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(response);
     }
     free(buf);
 }
 
 // POST /api/benchmark/reset
-// Stops any active benchmark run, clears accumulated results and resets the
-// sweep state (cur_freq / cur_vcore) back to the configured minimums.
-// If benchmark mode is currently active (bm_mode == 1) a reboot is triggered
-// so the device returns to normal mining immediately.
+// Stops any active benchmark run and resets the sweep state (cur_freq /
+// cur_vcore) back to the configured minimums. An active sweep aborts in place
+// (the thread restores the Normal-mode point) — no reboot.
 void post_benchmark_reset(AsyncWebServerRequest* request){
     bool was_running = (nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) == 1);
 
     // Reset progress state and config keys so defaults revert to board values.
     // NOTE: results are intentionally preserved — use DELETE /api/benchmark/results to clear them.
     nvs_config_set_u8    (NVS_CONFIG_BM_MODE,    0);
+    *g_web->bm_mode = 0;
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MIN);
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MAX);
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_STEP);
@@ -1719,17 +1708,9 @@ void post_benchmark_reset(AsyncWebServerRequest* request){
     LOG_W("[BM] Benchmark reset via API (was_running=%d)", (int)was_running);
 
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json",
-        was_running
-        ? "{\"status\":\"ok\",\"message\":\"benchmark reset, device will reboot\"}"
-        : "{\"status\":\"ok\",\"message\":\"benchmark reset\"}");
+        "{\"status\":\"ok\",\"message\":\"benchmark reset\"}");
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
-
-    if (was_running) {
-        delay(300);
-        reboot_intent_set(REBOOT_INTENT_USER_WEB_REBOOT, "benchmark reset API");
-        xSemaphoreGive(g_web->reboot_xsem);
-    }
 }
 
 // POST /api/system/restart -- trigger a graceful soft reboot via semaphore.

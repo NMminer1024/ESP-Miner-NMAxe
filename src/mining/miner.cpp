@@ -180,6 +180,17 @@ bool AsicMinerClass::is_asic_frequency_updating(){
     return updating;
 }
 
+bool AsicMinerClass::is_asic_frequency_update_pending(){
+    bool pending = false;
+    if (this->_asic_freq_mutex != NULL && xSemaphoreTake(this->_asic_freq_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        pending = this->_asic_freq_update_pending;
+        xSemaphoreGive(this->_asic_freq_mutex);
+    } else {
+        pending = this->_asic_freq_update_pending;
+    }
+    return pending;
+}
+
 uint16_t AsicMinerClass::get_asic_frequency_current(){
     uint16_t freq = this->_asic_freq_current;
     if (this->_asic_freq_mutex != NULL && xSemaphoreTake(this->_asic_freq_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {

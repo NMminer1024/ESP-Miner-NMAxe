@@ -273,7 +273,7 @@
     <i class="pi pi-step-forward bm-dialog-icon"></i>
     <p>Resume the sweep from the last stopped position:</p>
     <p><strong>{{ curFreq }} MHz / {{ curVcore }} mV</strong></p>
-    <p>The device will <strong>reboot</strong> and continue from where it left off.</p>
+    <p>The sweep continues in place — <strong>no reboot</strong> needed.</p>
     <p style="color: var(--yellow-300); font-size: 0.875rem">Edited form values are <strong>not</strong> applied when resuming. Choose <em>Start Fresh</em> to start from your new Min settings.</p>
     <p style="color: var(--text-color-secondary); font-size: 0.875rem">Existing results will be preserved. Use <em>Start Fresh</em> to restart from the beginning instead.</p>
   </div>
@@ -302,7 +302,7 @@
   <div class="bm-dialog-body">
     <i class="pi pi-exclamation-triangle bm-dialog-icon"></i>
     <p>The benchmark will sweep through all configured frequency and voltage combinations.</p>
-    <p>The device will <strong>reboot multiple times</strong> during the process — this is normal.</p>
+    <p>The device switches frequency/voltage <strong>in place between rounds — no reboots</strong>.</p>
     <p>Total estimated duration depends on parameter range and timing settings.</p>
   </div>
   <ng-template pTemplate="footer">
@@ -326,7 +326,7 @@
   <div class="bm-dialog-body">
     <i class="pi pi-stop bm-dialog-icon" style="color: var(--red-400)"></i>
     <p>Stopping will <strong>pause the sweep</strong> at the current position.</p>
-    <p>The device will <strong>reboot</strong> to exit benchmark mode.</p>
+    <p>The device <strong>returns to the previous operating point</strong> — no reboot.</p>
     <p style="color: var(--text-color-secondary); font-size: 0.875rem">Results collected so far will be preserved. You can resume the sweep from this position later.</p>
   </div>
   <ng-template pTemplate="footer">
@@ -351,7 +351,7 @@
     <i class="pi pi-exclamation-triangle bm-dialog-icon"></i>
     <p>This will stop any running benchmark and <strong>reset all sweep parameters back to board defaults</strong>.</p>
     <p><strong>Existing results will be preserved.</strong> Use &ldquo;Clear Results&rdquo; in the Results card if you want to delete them.</p>
-    <p *ngIf="isRunning">The device is currently running a benchmark and <strong>will reboot</strong>.</p>
+    <p *ngIf="isRunning">The running benchmark <strong>stops in place</strong> and the miner returns to its Normal-mode point — no reboot.</p>
   </div>
   <ng-template pTemplate="footer">
     <button pButton type="button" label="Cancel" icon="pi pi-times"
@@ -380,15 +380,14 @@
       <span>Avg HR: <strong>{{ pendingApply.avgHR | number:'1.1-1' }} GH/s</strong></span>
       <span>Efficiency: <strong>{{ pendingApply.effJTH | number:'1.3-3' }} J/TH</strong></span>
     </div>
-    <p *ngIf="isRunning">The device will <strong>reboot</strong> to exit Benchmark mode.</p>
-    <p *ngIf="!isRunning">Settings will take effect <strong>immediately</strong> without reboot.</p>
+    <p>Settings take effect <strong>immediately</strong> — no reboot.<span *ngIf="isRunning"> The running benchmark stops.</span></p>
   </div>
   <ng-template pTemplate="footer">
     <button pButton type="button" label="Cancel" icon="pi pi-times"
             class="p-button-outlined p-button-secondary btn"
             (click)="showApplyConfirm = false">
     </button>
-    <button pButton type="button" [label]="isRunning ? 'Apply & Reboot' : 'Apply'" icon="pi pi-check"
+    <button pButton type="button" label="Apply" icon="pi pi-check"
             class="p-button-success btn"
             (click)="confirmApply()">
     </button>

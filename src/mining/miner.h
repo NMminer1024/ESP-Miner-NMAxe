@@ -98,6 +98,7 @@ public:
     bool request_asic_frequency(uint16_t target_freq);
     bool apply_pending_asic_frequency();
     bool is_asic_frequency_updating();
+    bool is_asic_frequency_update_pending();
     uint16_t get_asic_frequency_current();
     bool mining(pool_job_data_t *pool_job);
     void poll_hcn_register();

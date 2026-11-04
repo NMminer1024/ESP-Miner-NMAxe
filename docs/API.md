@@ -523,11 +523,11 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 |:------:|:---------|:------------|
 | GET    | `/api/benchmark`         | Config, sweep state and stored results |
 | PATCH  | `/api/benchmark`         | Update sweep parameters (does NOT start) |
-| POST   | `/api/benchmark/start`   | Start (or resume) benchmark sweep; device reboots |
-| POST   | `/api/benchmark/stop`    | Stop benchmark and reboot into normal mining |
+| POST   | `/api/benchmark/start`   | Start (or resume) benchmark sweep — runs in place, no reboot |
+| POST   | `/api/benchmark/stop`    | Stop benchmark; sweep aborts and the Normal-mode point is restored, no reboot |
 | DELETE | `/api/benchmark/results` | Clear results and reset all sweep config to board defaults |
-| POST   | `/api/benchmark/reset`   | Stop sweep, clear results, reset state; reboots if running |
-| POST   | `/api/benchmark/apply`   | Apply a benchmark result as normal ASIC settings; hot-switches freq+vcore immediately in Normal mode, reboots only if benchmark sweep is still active |
+| POST   | `/api/benchmark/reset`   | Stop sweep and reset state/config to defaults (results preserved); no reboot |
+| POST   | `/api/benchmark/apply`   | Apply a benchmark result as normal ASIC settings; always hot-switches freq+vcore immediately (a running sweep aborts in place), never reboots |
 
 ### `GET /api/benchmark` — Response Fields
 
@@ -569,8 +569,6 @@ All fields are optional. `POST /api/benchmark/start` also accepts `{"resume": tr
 
 > Both fields are required. `vcore` is clamped to the board's safety limits.
 >
-> **Behaviour depends on current mode:**
-> - **Normal mode** (`bm_mode == 0`): applies vcore via hardware power rail then hot-switches the ASIC PLL — no reboot needed. Response: `{"status":"ok","reboot":false}`
-> - **Benchmark mode** (`bm_mode == 1`, sweep still running): saves to NVS then reboots to exit the sweep cleanly. Response: `{"status":"ok","reboot":true}`
+> The point is always applied without a reboot: vcore is set on the hardware power rail first, then the ASIC PLL is hot-switched. If a benchmark sweep is still running (`bm_mode == 1`), it aborts in place and its sweep position is kept for a later resume. Response is always `{"status":"ok","reboot":false}`.
 >
-> The `reboot` field in the response lets the UI show different feedback ("active immediately" vs "rebooting"). This endpoint is preferred over `PATCH /api/setting/mining` when applying a result from the benchmark table, as it also clears the `bm_mode` flag.
+> This endpoint is preferred over `PATCH /api/setting/mining` when applying a result from the benchmark table, as it also clears the `bm_mode` flag.

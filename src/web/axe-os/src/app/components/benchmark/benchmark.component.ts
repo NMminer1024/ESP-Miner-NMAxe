@@ -714,7 +714,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         next: () => {
           this.isRunning = true;
           this.syncFormLock();
-          this.toastr.info('Resuming from last position — device will reboot.', 'Resuming...');
+          this.toastr.info('Resuming from last position.', 'Resuming...');
           this.startPolling();
         },
         error: (err: any) => {
@@ -731,7 +731,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         next: () => {
           this.isRunning = true;
           this.syncFormLock();
-          this.toastr.info('Benchmark starting — device will reboot.', 'Starting...');
+          this.toastr.info('Benchmark starting — no reboot needed.', 'Starting...');
           this.startPolling();
         },
         error: (err: any) => {
@@ -758,7 +758,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
           this.isRunning = false;
           this.syncFormLock();
           this.pollSub?.unsubscribe();
-          this.toastr.info('Benchmark stopped — device will reboot.', 'Stopped');
+          this.toastr.info('Benchmark stopped — returning to the previous operating point.', 'Stopped');
         },
         error: (err: any) => {
           this.toastr.error(`Could not stop: ${err.message}`, 'Error');
@@ -809,11 +809,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
             });
           });
           const msg: string = res?.message ?? 'Benchmark reset.';
-          if (msg.includes('reboot')) {
-            this.toastr.info(msg, 'Reset');
-          } else {
-            this.toastr.success(msg, 'Reset');
-          }
+          this.toastr.success(msg, 'Reset');
         },
         error: (err: any) => {
           this.toastr.error(`Could not reset: ${err.message}`, 'Error');
@@ -867,12 +863,8 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     this.systemService.applyBenchmarkResult('', r)
       .pipe(this.loadingService.lockUIUntilComplete())
       .subscribe({
-        next: (res: any) => {
-          if (res?.reboot) {
-            this.toastr.info(`Applied ${r.freq} MHz / ${r.vcore} mV — rebooting to exit Benchmark mode.`, 'Applied');
-          } else {
-            this.toastr.success(`Applied ${r.freq} MHz / ${r.vcore} mV — settings active immediately.`, 'Applied');
-          }
+        next: () => {
+          this.toastr.success(`Applied ${r.freq} MHz / ${r.vcore} mV — settings active immediately.`, 'Applied');
         },
         error: (err: any) => {
           this.toastr.error(`Could not apply: ${err.message}`, 'Error');

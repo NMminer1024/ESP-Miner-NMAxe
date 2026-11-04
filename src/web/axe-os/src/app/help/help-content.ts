@@ -47,7 +47,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚙ How it works',
-        body: 'The sweep starts at Freq Min / Vcore Min and increments by the configured Step values until reaching Max. At each point the miner first enters a Warmup phase — waiting for temperature to stabilise — then a Sampling phase where hashrate is averaged over the configured time. All results are saved to NVS flash and survive device reboots.'
+        body: 'The sweep starts at Freq Min / Vcore Min and increments by the configured Step values until reaching Max. The miner switches frequency and voltage in place between points — no reboots. At each point the miner first enters a Warmup phase — waiting for temperature to stabilise — then a Sampling phase where hashrate is averaged over the configured time. All results are saved to NVS flash and survive device reboots.'
       },
       {
         heading: '📐 Parameters',
@@ -59,7 +59,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• A full sweep can take hours. Use Stop to pause and Resume to continue from where you left off.\n• Do NOT change Settings while a benchmark is running — it may corrupt sweep results.\n• Reset erases all NVS benchmark data and restores factory sweep parameters.\n• Results survive a factory reset (10-second long-press) but are erased by Reset Benchmark.\n• Temperature readings are VRM (voltage regulator) and ASIC (chip) respectively.\n• Apply — if the benchmark has finished (Normal mode), freq and Vcore switch immediately without rebooting. If the sweep is still active, the device reboots to exit Benchmark mode cleanly.'
+        body: '• A full sweep can take hours. Use Stop to pause and Resume to continue from where you left off.\n• Do NOT change Settings while a benchmark is running — it may corrupt sweep results.\n• Reset restores factory sweep parameters but keeps your measured results; only Clear Results deletes them.\n• Results survive a factory reset (10-second long-press).\n• Temperature readings are VRM (voltage regulator) and ASIC (chip) respectively.\n• Apply — freq and Vcore always switch immediately without rebooting; if a sweep is still active, it simply stops at its current position.'
       }
     ]
   },
@@ -275,11 +275,11 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '🎯 How to pick your operating point',
-        body: 'This miner operates in solo mode — there is no guaranteed daily income. Each block found is a luck event. The goal is to maximise your hashrate or minimise power consumption, not to predict earnings.\n\n1. Green row (best efficiency) — Lowest J/TH. Run here to minimise electricity costs while keeping hashrate reasonable. Good for long-term 24/7 operation.\n2. Blue row (best hashrate) — Highest Avg HR. More hash attempts per second = statistically higher chance of finding the next block.\n3. If temperature is a concern, find a row with acceptable ASIC Temp that still gives good hashrate.\n4. Once decided, click "Apply" on that row — it saves Freq and Vcore to your Settings and reboots to exit Benchmark mode. Normal Mining Settings changes apply Freq and Vcore in real time.'
+        body: 'This miner operates in solo mode — there is no guaranteed daily income. Each block found is a luck event. The goal is to maximise your hashrate or minimise power consumption, not to predict earnings.\n\n1. Green row (best efficiency) — Lowest J/TH. Run here to minimise electricity costs while keeping hashrate reasonable. Good for long-term 24/7 operation.\n2. Blue row (best hashrate) — Highest Avg HR. More hash attempts per second = statistically higher chance of finding the next block.\n3. If temperature is a concern, find a row with acceptable ASIC Temp that still gives good hashrate.\n4. Once decided, click "Apply" on that row — it saves Freq and Vcore to your Settings and switches to them immediately (a running sweep simply stops, no reboot). Normal Mining Settings changes also apply Freq and Vcore in real time.'
       },
       {
         heading: '💾 Data management',
-        body: '• Results are stored in device flash (NVS) and survive power cycles.\n• "Download JSON" exports all results as a text file for offline analysis or backup.\n• "Clear Results" permanently deletes all stored data — download first!\n• Results survive a factory reset (10-second long-press) but NOT a "Reset Benchmark" in the Benchmark card.'
+        body: '• Results are stored in device flash (NVS) and survive power cycles.\n• "Download JSON" exports all results as a text file for offline analysis or backup.\n• "Clear Results" permanently deletes all stored data — download first!\n• Results survive a factory reset (10-second long-press) and also a "Reset Benchmark" (which only restores default sweep parameters).'
       }
     ]
   },

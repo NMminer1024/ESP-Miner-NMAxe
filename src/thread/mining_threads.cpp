@@ -291,6 +291,13 @@ void miner_tx_thread_entry(void* args) {
         if (current_freq > 0) ctx->spec->asic.req_frq = current_freq;
         st.hashrate = {0.0, 0.0, 0.0};
         st.asic_update = millis();
+        // Drop the per-channel HCN EMA along with the nonce ring: otherwise the
+        // monitor's hashrate EMA keeps reporting the PREVIOUS operating point's
+        // rate for ~10-20s after a hot-switch, polluting benchmark sampling and
+        // the dashboard reading. The cache reset flips the source to
+        // nonce-fallback for one poll cycle (~2s), then the HCN EMA restarts
+        // from scratch on the new point via the source-switch path.
+        hcn_cache_reset("freq hot-switch");
         LOG_W("ASIC PLL hot-switch completed, freq now %uMHz", current_freq);
         return true;
     };

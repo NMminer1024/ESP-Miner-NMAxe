@@ -1485,7 +1485,8 @@ Content-Type: application/octet-stream
       <p class="section-desc">
         Benchmark mode sweeps ASIC frequency and Vcore combinations, stores measured
         results in NVS, and can apply a selected result back to normal mining settings.
-        Starting, stopping, resetting while running, or applying a result triggers a reboot.
+        Rounds switch frequency/Vcore in place via hot PLL/rail control — starting,
+        stopping, resetting, and applying all happen without a reboot.
       </p>
 
       <!-- GET/PATCH /api/benchmark -->
@@ -1552,7 +1553,8 @@ Content-Type: application/octet-stream
         </div>
         <div class="endpoint-body">
           <p class="ep-desc">
-            Optionally updates sweep fields, enables benchmark mode, and reboots. When
+            Optionally updates sweep fields and enables benchmark mode — the sweep starts
+            in place, without a reboot. When
             <code>resume</code> is omitted or false, the firmware resets the sweep position to
             <code>freqMin</code>/<code>vcoreMin</code>; with <code>resume:true</code>, it keeps
             the current sweep position.
@@ -1564,7 +1566,7 @@ Content-Type: application/octet-stream
   <span class="kw">"freqMax"</span>: <span class="num">625</span>
 }</pre>
           <div class="block-label">Response 200</div>
-          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark starting, device will reboot"</span> }</pre>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark starting"</span> }</pre>
         </div>
       </div>
 
@@ -1576,11 +1578,11 @@ Content-Type: application/octet-stream
           <span class="endpoint-summary">Stop benchmark mode</span>
         </div>
         <div class="endpoint-body">
-          <p class="ep-desc">Disables benchmark mode, discards partial accumulated runtime, and reboots into normal mining.</p>
+          <p class="ep-desc">Disables benchmark mode and discards partial accumulated runtime. The running sweep aborts in place and the miner returns to its previous Normal-mode operating point — no reboot.</p>
           <div class="block-label">Request body</div>
           <pre><span class="cmt">// empty body or {}</span></pre>
           <div class="block-label">Response 200</div>
-          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark stopped, device will reboot"</span> }</pre>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark stopped"</span> }</pre>
         </div>
       </div>
 
@@ -1609,13 +1611,11 @@ Content-Type: application/octet-stream
           <span class="endpoint-summary">Reset benchmark state</span>
         </div>
         <div class="endpoint-body">
-          <p class="ep-desc">Stops any active benchmark, clears results and progress, and resets config keys to board defaults. It reboots only when benchmark mode was active.</p>
+          <p class="ep-desc">Stops any active benchmark and resets config keys and sweep progress to board defaults. Stored results are preserved (use DELETE /api/benchmark/results to clear them). An active sweep aborts in place — no reboot.</p>
           <div class="block-label">Request body</div>
           <pre><span class="cmt">// empty body or {}</span></pre>
-          <div class="block-label">Response 200 – not running</div>
+          <div class="block-label">Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark reset"</span> }</pre>
-          <div class="block-label">Response 200 – running</div>
-          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark reset, device will reboot"</span> }</pre>
         </div>
       </div>
 
@@ -1628,24 +1628,16 @@ Content-Type: application/octet-stream
         </div>
         <div class="endpoint-body">
           <p class="ep-desc">
-            Saves the selected frequency and Vcore to normal ASIC settings and clears benchmark
-            mode. Behaviour depends on the current run state:
+            Saves the selected frequency and Vcore to normal ASIC settings, clears benchmark
+            mode, and hot-switches to the new point immediately — vcore on the hardware power
+            rail first, then the ASIC PLL. <strong>No reboot in either mode.</strong> If a sweep
+            is still running it aborts and its progress position is kept for a later resume.
           </p>
-          <ul class="ep-list">
-            <li><strong>Normal mode</strong> (<code>bm_mode == 0</code>) — applies Vcore to the
-              hardware power rail then hot-switches the ASIC PLL immediately.
-              <strong>No reboot required.</strong> Response includes <code>"reboot":false</code>.</li>
-            <li><strong>Benchmark mode</strong> (<code>bm_mode == 1</code>, sweep still running) —
-              saves settings to NVS then reboots to exit the sweep cleanly.
-              Response includes <code>"reboot":true</code>.</li>
-          </ul>
           <p class="ep-desc"><code>vcore</code> is clamped to board safety limits before applying.</p>
           <div class="block-label">Request body</div>
           <pre>{ <span class="kw">"freq"</span>: <span class="num">575</span>, <span class="kw">"vcore"</span>: <span class="num">1200</span> }</pre>
-          <div class="block-label">Response 200 – Normal mode (hot-switch, no reboot)</div>
+          <div class="block-label">Response 200 (hot-switch, no reboot)</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"reboot"</span>: <span class="kw">false</span> }</pre>
-          <div class="block-label">Response 200 – Benchmark mode (will reboot)</div>
-          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"reboot"</span>: <span class="kw">true</span> }</pre>
           <div class="block-label">Response 400</div>
           <pre>{ <span class="kw">"error"</span>: <span class="str">"missing freq or vcore"</span> }</pre>
         </div>
