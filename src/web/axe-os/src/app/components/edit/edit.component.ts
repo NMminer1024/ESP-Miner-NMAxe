@@ -18,6 +18,19 @@ interface BenchmarkEntry {
   effJTH: number;      // J/TH
   avgPwr: number;      // W
   ts?: number;         // Unix seconds
+  // Peak (worst-case) values recorded during the round — qualification uses these,
+  // not the averages: a point whose average is inside the limit but whose peak
+  // crosses it is exactly the "it tripped even though the number looked fine" case.
+  maxIout?: number;    // A   — PMBus boards only
+  maxPwr?: number;     // W
+  maxAsicTemp?: number;// °C
+  maxVcoreTemp?: number; // °C
+  // Firmware-computed verdict: 1 = passed the safety margin, 0 = failed it.
+  // ABSENT on results written before the margin rule existed — those are treated
+  // as NOT qualified (assuming an unverified point is safe is the failure mode
+  // this check exists to prevent).
+  q?: number;
+  fail?: number;       // 1 = this point tripped protection; must never be selected
 }
 
 interface ModePreset {
@@ -232,8 +245,19 @@ export class EditComponent implements OnInit {
       // closest to the default point (ties broken by lower measured power)
       this.presetSource = 'benchmark';
       const entries = [...uniq.values()];
-      const turbo = entries.reduce((b, r) => r.avgHR > b.avgHR ? r : b);
-      const eco = entries.reduce((b, r) => r.effJTH < b.effJTH ? r : b);
+      // Eligibility gate — mirrors the firmware rule (benchmark_threads.cpp):
+      //   fail=1          -> this point tripped protection, never select it
+      //   q != 1          -> did not pass the safety margin (or predates the rule)
+      //   avgHR <= 0      -> no measured hashrate (tombstone / aborted round)
+      const eligible = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
+      const turboOk = eligible.length > 0;
+      const ecoOk   = eligible.length > 0;
+      const turbo = turboOk
+        ? eligible.reduce((b, r) => r.avgHR > b.avgHR ? r : b)
+        : entries.reduce((b, r) => r.avgHR > b.avgHR ? r : b);   // display-only fallback
+      const eco = ecoOk
+        ? eligible.reduce((b, r) => r.effJTH < b.effJTH ? r : b)
+        : entries.reduce((b, r) => r.effJTH < b.effJTH ? r : b);
 
       const fromBm = (key: 'eco' | 'normal' | 'turbo', label: string, b: BenchmarkEntry): ModePreset =>
         ({key, label, freq: b.freq, vcore: b.vcore, hashRate: b.avgHR, power: b.avgPwr, bm: b});
@@ -261,11 +285,25 @@ export class EditComponent implements OnInit {
         normal = fromBm('normal', 'Normal', b);
       }
 
-      this.presets = [
-        fromBm('eco', 'ECO', eco),
-        normal,
-        fromBm('turbo', 'Turbo', turbo),
-      ];
+      // A disabled preset must not carry measured values: the button would then
+      // advertise a hashrate for a point the user is not allowed to select.
+      const ecoPreset   = fromBm('eco',   'ECO',   eco);
+      const turboPreset = fromBm('turbo', 'Turbo', turbo);
+      if (!ecoOk) {
+        ecoPreset.disabled = true;
+        ecoPreset.disabledHint = 'no safe point';
+        ecoPreset.disabledReason = 'No benchmark point passed the safety margin.';
+        ecoPreset.hashRate = undefined;
+        ecoPreset.power = undefined;
+      }
+      if (!turboOk) {
+        turboPreset.disabled = true;
+        turboPreset.disabledHint = 'no safe point';
+        turboPreset.disabledReason = 'No benchmark point passed the safety margin (peak current or temperature too close to the limit). Re-run the benchmark, or pick a point manually in Advanced.';
+        turboPreset.hashRate = undefined;
+        turboPreset.power = undefined;
+      }
+      this.presets = [ecoPreset, normal, turboPreset];
       return;
     }
 
@@ -289,14 +327,17 @@ export class EditComponent implements OnInit {
     }
 
     const turbo: ModePreset = {key: 'turbo', label: 'Turbo', freq: 0, vcore: 0};
+    // Without a qualified benchmark point, Turbo must NOT fall back to "highest
+    // frequency at the highest reachable voltage". That combination is the LEAST
+    // verified point on the board, and selecting it silently is exactly how units
+    // ended up tripping. Keep the button visible but disabled, with the reason.
+    turbo.disabled = true;
     if (df >= oc.length - 1) {
-      turbo.disabled = true;
-      turbo.disabledReason = 'Default is already the highest frequency option';
       turbo.disabledHint = 'already at max';
+      turbo.disabledReason = 'Default is already the highest frequency option.';
     } else {
-      turbo.freq = oc[oc.length - 1].value;
-      const vi = this.closestIdx(vc, normalVcore * (turbo.freq / normalFreq), v => v >= normalVcore);
-      turbo.vcore = vc[vi === -1 ? dv : vi].value;
+      turbo.disabledHint = 'needs benchmark';
+      turbo.disabledReason = 'Turbo requires a benchmark result that passed the safety margin. Run a benchmark first — Advanced still allows manual tuning.';
     }
 
     this.presets = [eco, {key: 'normal', label: 'Normal', freq: normalFreq, vcore: normalVcore}, turbo];

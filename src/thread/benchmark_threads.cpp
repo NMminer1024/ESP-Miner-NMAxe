@@ -176,6 +176,12 @@ void benchmark_thread_entry(void* args) {
 
     LOG_W("[BM] Stabilizing for %ds at freq=%dMHz vcore=%dmV ...", stab_time, cur_freq, cur_vcore);
     bool oc_ot_abort = false;
+    // Set ONLY when the regulator actually tripped (OC/OT), as opposed to an
+    // unstable/zero-hashrate round. The distinction drives two behaviours:
+    //   - the point is stored as an explicit failure (tombstone), and
+    //   - the sweep skips the remaining vcores for this frequency instead of
+    //     retrying higher (raising vcore after an OC trip feeds the fault).
+    bool fault_tripped = false;
     for (uint16_t s = 0; s < stab_time; s++) {
         bm.phase_elapsed = s;
         bm.asic_temp     = ctx->temp->asic;
@@ -185,6 +191,7 @@ void benchmark_thread_entry(void* args) {
         if (ctx->power && (ctx->power->is_oc_fault() || ctx->power->is_ot_fault())) {
             LOG_W("[BM] OC/OT fault during stabilization — aborting round.");
             oc_ot_abort = true;
+            fault_tripped = true;
             break;
         }
         delay(1000);
@@ -196,6 +203,11 @@ void benchmark_thread_entry(void* args) {
     double hr_sum = 0, eff_sum = 0, pwr_sum = 0, at_sum = 0, vt_sum = 0;
     uint32_t sample_cnt = 0;
     uint8_t  zero_hr_cnt = 0;
+    // Worst-case values seen during the accepted samples. Qualification MUST use
+    // peaks, not averages: a point whose average sits inside the limit while its
+    // peak crosses it is exactly the "it tripped even though the number looked
+    // fine" case. NAN/absent telemetry leaves these at 0.
+    double iout_max = 0, pwr_max = 0, at_max = 0, vt_max = 0;
 
     bm.in_stab       = false;
     bm.phase_total   = bm_time;
@@ -237,12 +249,22 @@ void benchmark_thread_entry(void* args) {
             LOG_W("[BM] OC/OT fault during sampling (sample %u/%u) — aborting round.",
                   (unsigned)(i + 1), (unsigned)total_samples);
             sample_cnt = 0; // discard all partial samples
+            fault_tripped = true;
             break;
         }
 
         if (zero_hr_cnt >= 5) {
             LOG_W("[BM] Zero hashrate for 5 samples, aborting round.");
             break;
+        }
+
+        // Peak tracking (accepted samples only — the aborts above are excluded).
+        if (pwr_w > pwr_max) pwr_max = pwr_w;
+        if (at    > at_max)  at_max  = at;
+        if (ctx->temp->vcore > vt_max) vt_max = ctx->temp->vcore;
+        if (ctx->power) {
+            float io = ctx->power->get_iout_amps();
+            if (io == io && io > iout_max) iout_max = io;   // NAN-safe
         }
 
         hr_sum  += hr_ghs;
@@ -274,6 +296,76 @@ void benchmark_thread_entry(void* args) {
     LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s | eff:%.3fJ/TH | pwr:%.2fW | asicT:%.1fC vcoreT:%.1fC",
           stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, eff_avg, pwr_avg, at_avg, vt_avg);
 
+    // ── Safety-margin qualification ───────────────────────────────────────────
+    // "Stable" only means the ASIC reached its expected hashrate; it says nothing
+    // about electrical/thermal headroom. A point can be perfectly stable AND sit
+    // right on top of the regulator trip point — that is the Turbo complaint.
+    //
+    // The rule is deliberately capability-based, because the boards do not all
+    // expose the same telemetry:
+    //   - TPS546D24A (Nexus) / TPS53647 (QAxe++): real PMBus OC status + READ_IOUT
+    //     -> require peak current below the chip's OC_WARN threshold.
+    //   - TPS53355 (NMAxe / NMAxeGamma): no PMBus status at all (is_oc_fault() is a
+    //     base-class false), so current margin CANNOT be evaluated. Fall back to
+    //     peak input power against the board's power ceiling. Temperature is the
+    //     only shared signal, so it applies everywhere.
+    constexpr float BM_TEMP_MARGIN_C = 5.0f;
+    bool  qualified = true;
+    const char* q_reason = "ok";
+    if (fault_tripped) {
+        // A round that tripped has no valid measurements (sampling is discarded),
+        // so evaluating the margin rule against zeros would report "qualified=1"
+        // right before the tombstone says FAILED. The trip IS the verdict.
+        qualified = false;
+        q_reason = "protection tripped";
+    } else {
+        float oc_warn = ctx->power ? ctx->power->get_oc_warn_limit() : NAN;
+        if (oc_warn == oc_warn && oc_warn > 0.0f) {
+            if (iout_max > oc_warn) {
+                qualified = false; q_reason = "peak current above OC warn limit";
+            }
+        } else if (bspec) {
+            float pwr_ceiling = bspec->ui.dashboard_page.power.power.max;
+            if (pwr_ceiling > 1.0f && pwr_max > pwr_ceiling) {
+                qualified = false; q_reason = "peak power above board ceiling";
+            }
+        }
+        if (qualified && bspec && bspec->asic.temp_limit.high > 0.0f &&
+            at_max > (double)bspec->asic.temp_limit.high - BM_TEMP_MARGIN_C) {
+            qualified = false; q_reason = "ASIC temperature within margin of limit";
+        }
+        // Only evaluated when the board actually reports a Vcore temperature;
+        // boards without that sensor leave vt_max at 0.
+        if (qualified && bspec && bspec->pwr.temp_limit.high > 0.0f && vt_max > 0.0 &&
+            vt_max > (double)bspec->pwr.temp_limit.high - BM_TEMP_MARGIN_C) {
+            qualified = false; q_reason = "Vcore temperature within margin of limit";
+        }
+    }
+    if (fault_tripped) {
+        LOG_W("[BM] Round tripped protection — no valid peak data, verdict=FAILED.");
+    } else {
+        LOG_W("[BM] Peaks: IOUTmax=%.2fA PWRmax=%.2fW ATmax=%.1fC VTmax=%.1fC -> qualified=%d (%s)",
+              iout_max, pwr_max, at_max, vt_max, (int)qualified, q_reason);
+    }
+
+    // A tripped point must INVALIDATE the stored result for this frequency, not
+    // merely skip writing. Results are upserted by freq alone, so skipping leaves
+    // an older "stable" entry alive — and that entry can still be the highest
+    // avgHR in the table, i.e. it would be picked as Turbo even though this exact
+    // point now trips. Write an explicit tombstone instead.
+    if (fault_tripped) {
+        char tomb[512];
+        snprintf(tomb, sizeof(tomb),
+            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":0.0,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
+            "\"effJTH\":0.0,\"avgPwr\":0.0,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
+            "\"q\":0,\"fail\":1,\"ts\":%ld}",
+            cur_freq, cur_vcore, exp_hr_ghs, at_avg, vt_avg,
+            iout_max, pwr_max, at_max, vt_max, (long)time(nullptr));
+        esp_err_t terr = bm_result_append(tomb);
+        LOG_W("[BM] Protection tripped at %dMHz/%dmV — stored as FAILED (invalidates any earlier result)%s",
+              cur_freq, cur_vcore, (terr == ESP_OK) ? "." : " (NVS write failed)");
+    }
+
     // Lambda: select best avgHR result from NVS and apply to Normal mode, then reboot.
     auto finish_and_reboot = [&](const char* reason) {
         bm.active = false;
@@ -289,6 +381,13 @@ void benchmark_thread_entry(void* args) {
             float    best_avgHR = -1.0f;
             if (!rerr && rdoc.is<JsonArray>()) {
                 for (JsonObject e : rdoc.as<JsonArray>()) {
+                    // Only points that passed the safety margin may be auto-applied.
+                    // Entries without "q" predate the margin rule and are treated as
+                    // NOT qualified — assuming an unverified point is safe is the
+                    // failure mode this whole check exists to prevent.
+                    uint8_t fail = e["fail"] | (uint8_t)0;
+                    int     q    = e["q"]    | 0;
+                    if (fail || q != 1) continue;
                     float avgHR = e["avgHR"] | 0.0f;
                     if (avgHR > best_avgHR) {
                         best_avgHR = avgHR;
@@ -298,12 +397,13 @@ void benchmark_thread_entry(void* args) {
                 }
             }
             if (best_freq > 0 && best_vcore > 0) {
-                LOG_W("[BM] Best result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying to Normal mode.",
+                LOG_W("[BM] Best qualified result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying.",
                       best_freq, best_vcore, best_avgHR);
                 nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
                 nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
             } else {
-                LOG_W("[BM] No stable results found, keeping current Normal mode settings.");
+                LOG_W("[BM] No qualified result (all failed, unverified, or none stored) — "
+                      "keeping current settings rather than applying an unverified point.");
             }
         }
         {
@@ -315,10 +415,14 @@ void benchmark_thread_entry(void* args) {
     };
 
     if (stable) {
-        char entry[300];
+        char entry[512];
         snprintf(entry, sizeof(entry),
-            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,\"effJTH\":%.3f,\"avgPwr\":%.2f,\"ts\":%ld}",
-            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg, eff_avg, pwr_avg, (long)time(nullptr));
+            "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
+            "\"effJTH\":%.3f,\"avgPwr\":%.2f,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
+            "\"q\":%d,\"fail\":0,\"ts\":%ld}",
+            cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg,
+            eff_avg, pwr_avg, iout_max, pwr_max, at_max, vt_max,
+            qualified ? 1 : 0, (long)time(nullptr));
 
         // Ring storage: capacity bounded by partition size (80 entries), oldest evicted when full
         esp_err_t nvs_write_err = bm_result_append(entry);
@@ -331,6 +435,18 @@ void benchmark_thread_entry(void* args) {
         if (cur_freq > freq_max) {
             LOG_W("[BM] All frequencies tested — benchmark complete, applying best result.");
             finish_and_reboot("benchmark complete, switching to Normal mode with best params");
+            return;
+        }
+    } else if (fault_tripped) {
+        // Raising vcore after an overcurrent trip pushes more power into the fault —
+        // strictly the wrong direction. The tombstone above already invalidated this
+        // frequency, so skip straight to the next one instead of retrying vcores.
+        LOG_W("[BM] freq=%dMHz tripped protection — skipping remaining vcores for this frequency.", cur_freq);
+        cur_freq  += freq_step;
+        cur_vcore  = vcore_min;
+        if (cur_freq > freq_max) {
+            LOG_W("[BM] All frequencies exhausted (with protection trips) — benchmark complete.");
+            finish_and_reboot("benchmark complete (protection trips), applying best qualified point");
             return;
         }
     } else {

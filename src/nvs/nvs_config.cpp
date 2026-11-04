@@ -374,7 +374,14 @@ static esp_err_t bm_result_append_ring(const char* entry_json) {
             break;
         }
         if ((err == ESP_ERR_NVS_NOT_ENOUGH_SPACE || err == ESP_ERR_NVS_VALUE_TOO_LONG) && cnt > 0) {
-            // Partition full despite the ring cap (other keys grew) — evict oldest and retry
+            // Evicting MUST free the physical key. This previously only advanced the
+            // ring head, leaving every entry in NVS: the loop could walk the ring
+            // down to zero entries and still fail with NOT_ENOUGH_SPACE, so the
+            // result was silently dropped while the log claimed entries had been
+            // evicted. Deleting also gives NVS a hole it can garbage-collect.
+            char evict_key[12];
+            bm_r_key(evict_key, sizeof(evict_key), start);
+            nvs_config_delete_key(evict_key);
             start = (start + 1) % BM_RESULT_MAX_ENTRIES;
             cnt--;
             nvs_config_set_u16(NVS_CONFIG_BM_R_START, start);
