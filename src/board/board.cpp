@@ -84,6 +84,12 @@ BoardSpecConfig get_board_config_compile_time() {
     config.pwr.temp_limit.medium     = 75.0f;
     config.pwr.temp_limit.low        = 50.0f;
     config.pwr.power_low_threshold   = 10.0f; // Watt
+    // Bundled adapter: 12 V / 2 A (24 W). Tightest budget of the whole product
+    // line — the single BM1366 already runs a large fraction of it at the stock
+    // 575MHz/1250mV point, so treat any overclock here as an adapter question,
+    // not just a hashrate question.
+    config.pwr.adapter_max_w         = 24.0f;
+    config.pwr.adapter_max_a         = 2.0f;
     config.iic.scl_pin               = 8;   
     config.iic.sda_pin               = 9;
     config.led.wifi_pin              = 6;
@@ -223,6 +229,11 @@ BoardSpecConfig get_board_config_compile_time() {
     config.pwr.temp_limit.medium     = 75.0f;
     config.pwr.temp_limit.low        = 50.0f;
     config.pwr.power_low_threshold   = 10.0f; // Watt
+    // Bundled adapter: 12 V / 3 A (36 W). Measured at the stock 600MHz/1125mV
+    // point the board already draws ~2.8 A, i.e. ~92 % of the rating, so the
+    // remaining headroom for overclocking is small.
+    config.pwr.adapter_max_w         = 36.0f;
+    config.pwr.adapter_max_a         = 3.0f;
     config.iic.scl_pin               = 8;   
     config.iic.sda_pin               = 9;
     config.led.wifi_pin              = 6;
@@ -386,6 +397,10 @@ BoardSpecConfig get_board_config_compile_time() {
     config.pwr.temp_limit.medium     = 110.0f;   // UI "hot" tint, 10 °C below high
     config.pwr.temp_limit.low        = 80.0f;
     config.pwr.power_low_threshold   = 20.0f;
+    // Bundled adapter: 12 V / 10 A (120 W). Measured at 600MHz/1150mV the board
+    // draws ~6.8 A (~68 %), leaving real headroom for the higher OC options.
+    config.pwr.adapter_max_w         = 120.0f;
+    config.pwr.adapter_max_a         = 10.0f;
     config.iic.scl_pin               = 7;
     config.iic.sda_pin               = 8;
     config.led.wifi_pin              = -1;
@@ -560,6 +575,10 @@ BoardSpecConfig get_board_config_compile_time() {
     config.pwr.temp_limit.medium     = 110.0f;   // UI "hot" tint, 10 °C below high
     config.pwr.temp_limit.low        = 80.0f;
     config.pwr.power_low_threshold   = 20.0f;
+    // Bundled adapter: 12 V / 12 A (144 W). Measured at 700MHz/1250mV the board
+    // draws ~8.4 A (~70 %), leaving real headroom for the higher OC options.
+    config.pwr.adapter_max_w         = 144.0f;
+    config.pwr.adapter_max_a         = 12.0f;
     config.iic.scl_pin               = 7;
     config.iic.sda_pin               = 8;
     config.led.wifi_pin              = -1;
