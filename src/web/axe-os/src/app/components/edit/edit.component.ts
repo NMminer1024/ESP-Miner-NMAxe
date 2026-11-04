@@ -250,14 +250,22 @@ export class EditComponent implements OnInit {
       //   q != 1          -> did not pass the safety margin (or predates the rule)
       //   avgHR <= 0      -> no measured hashrate (tombstone / aborted round)
       const eligible = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
-      const turboOk = eligible.length > 0;
-      const ecoOk   = eligible.length > 0;
+      // ECO needs at least TWO qualified points to mean anything: with a single
+      // point "lowest J/TH" and "highest hashrate" are the same entry, so ECO and
+      // Turbo would be identical buttons. Field reports read that as a bug (Turbo
+      // showing a LOWER hashrate than Normal, because Normal still quoted an
+      // unqualified historical entry). Disable ECO instead of duplicating Turbo.
+      const turboOk = eligible.length >= 1;
+      const ecoOk   = eligible.length >= 2;
+      // Display-only fallbacks when nothing qualifies: the best raw entry, so the
+      // tooltip can still explain what the benchmark measured. Never applied —
+      // the button is disabled in that case.
       const turbo = turboOk
         ? eligible.reduce((b, r) => r.avgHR > b.avgHR ? r : b)
-        : entries.reduce((b, r) => r.avgHR > b.avgHR ? r : b);   // display-only fallback
+        : entries.reduce((b, r) => r.avgHR > b.avgHR ? r : b);
       const eco = ecoOk
         ? eligible.reduce((b, r) => r.effJTH < b.effJTH ? r : b)
-        : entries.reduce((b, r) => r.effJTH < b.effJTH ? r : b);
+        : turbo;
 
       const fromBm = (key: 'eco' | 'normal' | 'turbo', label: string, b: BenchmarkEntry): ModePreset =>
         ({key, label, freq: b.freq, vcore: b.vcore, hashRate: b.avgHR, power: b.avgPwr, bm: b});
@@ -266,19 +274,27 @@ export class EditComponent implements OnInit {
       if (oc.length && vc.length) {
         const nFreq = oc[this.defaultIdx(oc)].value;
         const nVcore = vc[this.defaultIdx(vc)].value;
+        // Normal quotes measurements ONLY from a qualified entry. Previously it
+        // looked the board-default pair up in the raw map, so an unqualified (or
+        // outright FAILED) entry could supply the shown hashrate/power — the button
+        // then advertised a point the safety rule had just rejected.
         const nBm = uniq.get(pair(nFreq, nVcore));
-        if (nBm) {
+        if (nBm && !nBm.fail && nBm.q === 1 && nBm.avgHR > 0) {
           normal = fromBm('normal', 'Normal', nBm);
         } else {
-          const near = entries.reduce((b, r) => {
-            const dr = Math.abs(r.freq - nFreq) + Math.abs(r.vcore - nVcore);
-            const db = Math.abs(b.freq - nFreq) + Math.abs(b.vcore - nVcore);
-            return dr < db || (dr === db && r.avgPwr < b.avgPwr) ? r : b;
-          });
-          normal = fromBm('normal', 'Normal', near);
+          // Nearest QUALIFIED point for the numbers, but keep the board-default
+          // freq/vcore as the actual target (Normal's definition is the default).
+          const near = eligible.length
+            ? eligible.reduce((b, r) => {
+                const dr = Math.abs(r.freq - nFreq) + Math.abs(r.vcore - nVcore);
+                const db = Math.abs(b.freq - nFreq) + Math.abs(b.vcore - nVcore);
+                return dr < db || (dr === db && r.avgPwr < b.avgPwr) ? r : b;
+              })
+            : null;
+          normal = {key: 'normal', label: 'Normal', freq: nFreq, vcore: nVcore, bm: near ?? undefined};
         }
       } else {
-        const rest = entries.filter(r => r !== turbo && r !== eco);
+        const rest = eligible.filter(r => r !== turbo && r !== eco);
         const b = rest.length
           ? rest.reduce((best, r) => Math.abs(r.freq - curFreq) < Math.abs(best.freq - curFreq) ? r : best)
           : turbo;
@@ -291,8 +307,15 @@ export class EditComponent implements OnInit {
       const turboPreset = fromBm('turbo', 'Turbo', turbo);
       if (!ecoOk) {
         ecoPreset.disabled = true;
-        ecoPreset.disabledHint = 'no safe point';
-        ecoPreset.disabledReason = 'No benchmark point passed the safety margin.';
+        if (eligible.length === 1) {
+          // One qualified point: ECO would just be a copy of Turbo. Say so plainly
+          // instead of showing two buttons that do the same thing.
+          ecoPreset.disabledHint = 'needs more data';
+          ecoPreset.disabledReason = 'Only one benchmark point has passed the safety margin, so ECO and Turbo would be the same point. Run the benchmark over a wider frequency range to get a low-power option.';
+        } else {
+          ecoPreset.disabledHint = 'no safe point';
+          ecoPreset.disabledReason = 'No benchmark point passed the safety margin.';
+        }
         ecoPreset.hashRate = undefined;
         ecoPreset.power = undefined;
       }

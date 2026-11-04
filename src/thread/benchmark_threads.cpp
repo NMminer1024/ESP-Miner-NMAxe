@@ -292,9 +292,19 @@ void benchmark_thread_entry(void* args) {
     double at_avg  = (sample_cnt > 0) ? (at_sum  / sample_cnt) : 0;
     double vt_avg  = (sample_cnt > 0) ? (vt_sum  / sample_cnt) : 0;
 
-    bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * 0.99);
-    LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s | eff:%.3fJ/TH | pwr:%.2fW | asicT:%.1fC vcoreT:%.1fC",
-          stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs, eff_avg, pwr_avg, at_avg, vt_avg);
+    // Stability gate: measured hashrate must reach this fraction of the theoretical
+    // value (freq x small_cores x asic_count). This used to be 0.99, which was too
+    // tight in the field: spot checks on Gamma and QAxe++ showed many perfectly
+    // healthy rounds landing at 98.6-98.9%, so they were thrown away and Turbo ended
+    // up with no candidates at all ("ran a benchmark, still no Turbo"). 0.98 still
+    // catches genuinely failed rounds - a hung core group shows up as a much larger
+    // drop - while tolerating normal sampling noise on the 3-minute average.
+    constexpr double BM_STABLE_RATIO = 0.98;
+    bool stable = (exp_hr_ghs > 0) && (hr_avg >= exp_hr_ghs * BM_STABLE_RATIO);
+    LOG_W("[BM] Round %s | avg HR:%.1fGH/s exp:%.1fGH/s (%.2f%%, gate %.0f%%) | eff:%.3fJ/TH | pwr:%.2fW | asicT:%.1fC vcoreT:%.1fC",
+          stable ? "STABLE" : "UNSTABLE", hr_avg, exp_hr_ghs,
+          (exp_hr_ghs > 0) ? (100.0 * hr_avg / exp_hr_ghs) : 0.0, BM_STABLE_RATIO * 100.0,
+          eff_avg, pwr_avg, at_avg, vt_avg);
 
     // ── Safety-margin qualification ───────────────────────────────────────────
     // "Stable" only means the ASIC reached its expected hashrate; it says nothing
