@@ -23,6 +23,12 @@
 #define NVS_CONFIG_STRATUM_PASS_FALLBACK    "stratumpass2"
 #define NVS_CONFIG_ASIC_FREQ                "asicfrequency"
 #define NVS_CONFIG_ASIC_VOLTAGE             "asicvoltage"
+// Operating point that last tripped OC/OT protection. Written by the protection
+// supervisor, consumed by the resume path so "resume" cannot walk straight back
+// into the point that just failed. Cleared as soon as a lower point is applied.
+#define NVS_CONFIG_PROT_FAIL_FREQ           "protfailf"   // MHz
+#define NVS_CONFIG_PROT_FAIL_VCORE          "protfailv"   // mV
+#define NVS_CONFIG_PROT_FAIL_CNT            "protfailn"   // consecutive trips at that same point
 #define NVS_CONFIG_SCREEN_BRIGHTNESS        "brightness"
 #define NVS_CONFIG_DEVICE_MODEL             "devicemodel"
 #define NVS_CONFIG_FLIP_SCREEN              "flipscreen"

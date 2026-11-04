@@ -270,6 +270,25 @@ void power_loop_thread_entry(void* args) {
         reboot_intent_set(reboot_intent, intent_msg);
         xEventGroupSetBits(ctx->sys_evt, oc_bit);
 
+        // Remember WHICH point tripped. The resume path uses this to avoid walking
+        // straight back into the same fault ("press resume, trips again"). The count
+        // is consecutive at the same point and survives reboots, so a user who
+        // re-selects a known-bad point is escalated instead of silently retried.
+        {
+            const uint16_t f = spec.asic.req_frq;
+            const uint16_t v = spec.asic.req_vcore;
+            const uint16_t pf = nvs_config_get_u16(NVS_CONFIG_PROT_FAIL_FREQ,  0);
+            const uint16_t pv = nvs_config_get_u16(NVS_CONFIG_PROT_FAIL_VCORE, 0);
+            const uint8_t  cnt = (pf == f && pv == v)
+                                 ? (uint8_t)(nvs_config_get_u8(NVS_CONFIG_PROT_FAIL_CNT, 0) + 1)
+                                 : (uint8_t)1;
+            nvs_config_set_u16(NVS_CONFIG_PROT_FAIL_FREQ,  f);
+            nvs_config_set_u16(NVS_CONFIG_PROT_FAIL_VCORE, v);
+            nvs_config_set_u8 (NVS_CONFIG_PROT_FAIL_CNT,   cnt);
+            LOG_W("Failed operating point recorded: %uMHz/%umV (consecutive trips at this point: %u)",
+                  (unsigned)f, (unsigned)v, (unsigned)cnt);
+        }
+
         // Count trips in the rolling window.
         uint32_t now_ms = millis();
         if (first_trip_ms == 0 ||

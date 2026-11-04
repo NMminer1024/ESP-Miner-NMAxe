@@ -77,6 +77,104 @@ static uint16_t start_frequency(const MinerCtx* ctx) {
 }
 
 
+// ── Resume safety: never resume into the point that just tripped ────────────
+// The protection supervisor records the operating point that tripped in NVS
+// (NVS_CONFIG_PROT_FAIL_*). Resuming straight back into it simply re-arms the same
+// fault — which is exactly what "I press resume and it trips again" was. Step one
+// option DOWN instead, persisted so a reboot agrees with the live value.
+//
+// Order is deliberate:
+//   1. lower vcore within the board's selectable list  — an OC/OT trip is a
+//      power problem, and vcore is the dominant factor
+//   2. only if vcore is already at the floor, drop one frequency step
+// A second consecutive trip at the same point (count >= 2, i.e. the user re-picked
+// a known-bad point) falls back to the board default when that is genuinely lower.
+static void avoid_last_failed_point(MinerCtx* ctx) {
+    BoardSpecConfig* spec = ctx->spec;
+    if (spec == nullptr) return;
+
+    const uint16_t pf = nvs_config_get_u16(NVS_CONFIG_PROT_FAIL_FREQ,  0);
+    const uint16_t pv = nvs_config_get_u16(NVS_CONFIG_PROT_FAIL_VCORE, 0);
+    if (pf == 0 || pv == 0) return;                                     // nothing recorded
+    if (pf != spec->asic.req_frq || pv != spec->asic.req_vcore) {
+        // Stale record (the user or the escalation path already moved elsewhere).
+        // Drop it so a future coincidence cannot resurrect an old failure.
+        nvs_config_delete_key(NVS_CONFIG_PROT_FAIL_FREQ);
+        nvs_config_delete_key(NVS_CONFIG_PROT_FAIL_VCORE);
+        nvs_config_delete_key(NVS_CONFIG_PROT_FAIL_CNT);
+        return;
+    }
+
+    const uint8_t fail_cnt = nvs_config_get_u8(NVS_CONFIG_PROT_FAIL_CNT, 0);
+
+    uint16_t new_freq  = pf;
+    uint16_t new_vcore = pv;
+    bool     stepped   = false;
+
+    const auto& vc = spec->ui.setting_page.vc;
+    const auto& oc = spec->ui.setting_page.oc;
+
+    // Repeated failure at a point the user re-selected: prefer the board default,
+    // but only when it is actually lower than where we are now.
+    if (fail_cnt >= 2 && spec->asic.default_vcore > 0 &&
+        spec->asic.default_vcore < pv && spec->asic.default_frq > 0 &&
+        spec->asic.default_frq <= pf) {
+        new_freq  = spec->asic.default_frq;
+        new_vcore = spec->asic.default_vcore;
+        stepped   = true;
+        LOG_W("Point %uMHz/%umV has now tripped %u times — falling back to the board "
+              "default %uMHz/%umV instead of one step down.",
+              (unsigned)pf, (unsigned)pv, (unsigned)fail_cnt,
+              (unsigned)new_freq, (unsigned)new_vcore);
+    } else {
+        // Largest selectable value strictly BELOW the failed one. Exact-match lookup
+        // is not enough: the running point is often a custom value (e.g. 1185 mV)
+        // that is not present in the board's option list.
+        bool have_vc = false;
+        for (const auto& o : vc) {
+            if (o.value < pv && (!have_vc || o.value > new_vcore)) {
+                new_vcore = o.value;
+                have_vc   = true;
+            }
+        }
+        stepped = have_vc;
+        if (!stepped) {
+            // Vcore already at the floor — drop one frequency step instead.
+            uint16_t best_f = 0;
+            bool     have_f = false;
+            for (const auto& o : oc) {
+                if (o.value < pf && (!have_f || o.value > best_f)) {
+                    best_f = o.value;
+                    have_f = true;
+                }
+            }
+            if (have_f) { new_freq = best_f; stepped = true; }
+        }
+    }
+
+    if (!stepped) {
+        LOG_E("Protection tripped at %uMHz/%umV and no lower option exists — refusing "
+              "to resume automatically. Pick a safer operating point.",
+              (unsigned)pf, (unsigned)pv);
+        return;
+    }
+
+    LOG_W("Not resuming into %uMHz/%umV (it tripped protection) — applying %uMHz/%umV instead.",
+          (unsigned)pf, (unsigned)pv, (unsigned)new_freq, (unsigned)new_vcore);
+
+    spec->asic.req_frq   = new_freq;    // live value the resume path below reads
+    spec->asic.req_vcore = new_vcore;
+    nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    new_freq);
+    nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
+
+    // Consumed: we have moved away from the failed point, so it must not keep
+    // forcing further step-downs on every later resume.
+    nvs_config_delete_key(NVS_CONFIG_PROT_FAIL_FREQ);
+    nvs_config_delete_key(NVS_CONFIG_PROT_FAIL_VCORE);
+    nvs_config_delete_key(NVS_CONFIG_PROT_FAIL_CNT);
+}
+
+
 // ── Miner count: wait for power, enumerate ASIC chips ───────────────────────
 //    Mirrors legacy miner_asic_count_thread_entry; board_sal_t* -> MinerCtx*.
 void miner_count_thread_entry(void* args) {
@@ -355,6 +453,9 @@ void miner_tx_thread_entry(void* args) {
 
         if (state == MINER_RUNTIME_RESUMING) {
             LOG_W("Resuming mining: restoring Vcore and reinitializing ASIC");
+            // Must run BEFORE the vcore/ASIC bring-up below: it may lower the
+            // operating point away from the one that just tripped protection.
+            avoid_last_failed_point(ctx);
             refresh_mining_timeouts();
             power->clear_faults();
             power->set_vcore_voltage(spec.asic.req_vcore);
