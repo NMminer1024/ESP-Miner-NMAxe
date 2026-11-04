@@ -956,6 +956,14 @@ BoardSpecConfig get_board_config_compile_time() {
     config.pwr.temp_limit.medium     = 70.0f;   // UI "hot" tint, 10 °C below high
     config.pwr.temp_limit.low        = 55.0f;
     config.pwr.power_low_threshold   = 20.0f; // Watt
+    // Bundled adapter: 180 W / 15 A. Measured on the bench, the CURRENT is what
+    // binds: at 785MHz/1210mV the rail sags to ~11.80 V, so 180 W would need
+    // 15.25 A — already past the 15 A rating — while the reading shows 14.71 A
+    // (98 % of 15 A) and only 96 % of 180 W. A wattage-only rule would therefore
+    // call that point comfortable. Both numbers are recorded; the current one is
+    // the primary check.
+    config.pwr.adapter_max_w         = 180.0f;
+    config.pwr.adapter_max_a         = 15.0f;
     config.iic.scl_pin               = 7;   
     config.iic.sda_pin               = 8;
     config.led.wifi_pin              = -1; // Not used

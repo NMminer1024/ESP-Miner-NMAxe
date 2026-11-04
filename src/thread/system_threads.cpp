@@ -660,6 +660,7 @@ void monitor_thread_entry(void* args) {
                 static std::vector<uint16_t> fan_err_cnt;
                 static uint16_t pwr_err_cnt   = 0;
                 static uint16_t hr_err_cnt    = 0;
+                static uint16_t over_pwr_cnt  = 0;   // sustained input-over-budget ticks
                 if (fan_err_cnt.size() != ctx->fan_status->size()) {
                     fan_err_cnt.assign(ctx->fan_status->size(), 0);
                 }
@@ -668,6 +669,7 @@ void monitor_thread_entry(void* args) {
                     std::fill(fan_err_cnt.begin(), fan_err_cnt.end(), 0);
                     pwr_err_cnt = 0;
                     hr_err_cnt  = 0;
+                    over_pwr_cnt = 0;
                     st.asic_update = millis();
                 }
 
@@ -732,6 +734,82 @@ void monitor_thread_entry(void* args) {
                         xSemaphoreGive(ctx->reboot_xsem);
                     }
                 } else pwr_err_cnt = 0;
+
+                // ── Input budget (bundled adapter) ───────────────────────────
+                // There was no upper input limit at all before this: the firmware
+                // only knew about power being too LOW. On Nexus the stock adapter is
+                // 180 W / 15 A and the CURRENT is what binds (at a sagging 11.80 V
+                // rail, 180 W would need 15.25 A), so the current is the primary test.
+                //
+                // Two levels, deliberately NOT a reboot:
+                //   >=95 %  : log a rate-limited warning, keep mining
+                //   >=100 % : sustained -> step the operating point DOWN
+                // Over-power here is thermal accumulation in the adapter, not a
+                // microseconds-level hazard, and rebooting would land straight back
+                // on the same point and loop. Stepping down also preserves the user's
+                // ability to run a bigger adapter without the firmware fighting them.
+                if (!suppress_activity_checks && miner_ready &&
+                    (spec.pwr.adapter_max_a > 0.0f || spec.pwr.adapter_max_w > 0.0f)) {
+                    const float ibus_a = ctx->pwr->ibus / 1000.0f;
+                    const float in_w   = ctx->pwr->vbus * ctx->pwr->ibus / 1000000.0f;
+                    float pct = 0.0f;
+                    if (spec.pwr.adapter_max_a > 0.0f)      pct = 100.0f * ibus_a / spec.pwr.adapter_max_a;
+                    else if (spec.pwr.adapter_max_w > 0.0f) pct = 100.0f * in_w / spec.pwr.adapter_max_w;
+
+                    if (pct >= 95.0f) {
+                        static uint32_t last_alert_ms = 0;
+                        if (last_alert_ms == 0 || millis() - last_alert_ms >= 60000) {
+                            last_alert_ms = millis();
+                            LOG_W("Input at %.0f%% of the adapter budget (%.2fA / %.1fW). %s",
+                                  pct, ibus_a, in_w,
+                                  (pct >= 100.0f) ? "OVER RATING — will step down if it persists"
+                                                  : "close to the rating");
+                        }
+                    }
+                    if (pct >= 100.0f) {
+                        if (++over_pwr_cnt > 120) {   // ~2 min of sustained overload
+                            over_pwr_cnt = 0;
+                            uint16_t new_freq  = spec.asic.req_frq;
+                            uint16_t new_vcore = spec.asic.req_vcore;
+                            bool stepped = false;
+                            // Same order as the protection resume path: voltage first
+                            // (it dominates input power), then one frequency step.
+                            bool have_vc = false;
+                            for (const auto& o : spec.ui.setting_page.vc) {
+                                if (o.value < spec.asic.req_vcore &&
+                                    (!have_vc || o.value > new_vcore)) {
+                                    new_vcore = o.value; have_vc = true;
+                                }
+                            }
+                            stepped = have_vc;
+                            if (!stepped) {
+                                uint16_t best_f = 0; bool have_f = false;
+                                for (const auto& o : spec.ui.setting_page.oc) {
+                                    if (o.value < spec.asic.req_frq &&
+                                        (!have_f || o.value > best_f)) {
+                                        best_f = o.value; have_f = true;
+                                    }
+                                }
+                                if (have_f) { new_freq = best_f; stepped = true; }
+                            }
+                            if (stepped) {
+                                LOG_W("Input over adapter budget for ~2min — stepping down %uMHz/%umV -> %uMHz/%umV (not rebooting).",
+                                      (unsigned)spec.asic.req_frq, (unsigned)spec.asic.req_vcore,
+                                      (unsigned)new_freq, (unsigned)new_vcore);
+                                spec.asic.req_frq   = new_freq;
+                                spec.asic.req_vcore = new_vcore;
+                                nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    new_freq);
+                                nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
+                            } else {
+                                LOG_E("Input over adapter budget but no lower operating point exists — reduce the settings manually.");
+                            }
+                        }
+                    } else {
+                        over_pwr_cnt = 0;
+                    }
+                } else {
+                    over_pwr_cnt = 0;
+                }
 
                 // hashrate
                 if (!suppress_activity_checks && st.hashrate._3m <= 1) {

@@ -175,6 +175,32 @@ void benchmark_thread_entry(void* args) {
     bm.eta_sec = (uint32_t)stab_time + (uint32_t)bm_time + bm_future_rounds;
 
     LOG_W("[BM] Stabilizing for %ds at freq=%dMHz vcore=%dmV ...", stab_time, cur_freq, cur_vcore);
+
+    // Start every round from a clean status slate.
+    //
+    // The PMBus OC/OT status bits (STATUS_IOUT bit7 / STATUS_TEMPERATURE bit7) are
+    // STICKY: once set they stay set until CLEAR_FAULTS or a power cycle. This code
+    // only ever READ them, so a bit latched by an earlier test — or by a previous
+    // sweep point at a more aggressive setting — aborted the next round immediately
+    // and, because a tripped round now writes a destructive FAILED tombstone, that
+    // permanently invalidated a perfectly good frequency. Observed on Nexus: a round
+    // at 775MHz/1175mV reported fail=1 while every measured peak was comfortably
+    // inside its limit (phase 20.1A/22.5A, input 13.3A/14.25A, Vcore 67C/115C).
+    //
+    // Anything that latches DURING the round is still caught by the loops below, so
+    // this only discards state that describes a different operating point.
+    if (ctx->power) {
+        const bool stale_oc = ctx->power->is_oc_fault();
+        const bool stale_ot = ctx->power->is_ot_fault();
+        if (stale_oc || stale_ot) {
+            LOG_W("[BM] Clearing stale latched fault before round (OC=%d OT=%d) — "
+                  "carried over from an earlier test, not caused by this point.",
+                  (int)stale_oc, (int)stale_ot);
+        }
+        ctx->power->clear_faults();
+        delay(20);   // let the regulator finish clearing its status registers
+    }
+
     bool oc_ot_abort = false;
     // Set ONLY when the regulator actually tripped (OC/OT), as opposed to an
     // unstable/zero-hashrate round. The distinction drives two behaviours:
@@ -189,7 +215,18 @@ void benchmark_thread_entry(void* args) {
         uint32_t stab_rem = (stab_time > s) ? (stab_time - s) : 0;
         bm.eta_sec = stab_rem + (uint32_t)bm_time + bm_future_rounds;
         if (ctx->power && (ctx->power->is_oc_fault() || ctx->power->is_ot_fault())) {
-            LOG_W("[BM] OC/OT fault during stabilization — aborting round.");
+            // Name the actual fault. "OC/OT fault" alone cannot be diagnosed: an
+            // OC trip at a safe current reading means a transient per-phase spike,
+            // while an OT trip points at the VRM thermals — completely different
+            // follow-ups.
+            const bool oc = ctx->power->is_oc_fault();
+            const bool ot = ctx->power->is_ot_fault();
+            LOG_W("[BM] Fault during stabilization (OC=%d OT=%d) at %dMHz/%dmV — aborting round. "
+                  "Vcore=%.1fC, input=%.2fA/%.1fW",
+                  (int)oc, (int)ot, cur_freq, cur_vcore,
+                  ctx->temp ? (double)ctx->temp->vcore : 0.0,
+                  ctx->pwr ? (double)(ctx->pwr->ibus / 1000.0) : 0.0,
+                  ctx->pwr ? (double)(ctx->pwr->vbus * ctx->pwr->ibus / 1000000.0) : 0.0);
             oc_ot_abort = true;
             fault_tripped = true;
             break;
@@ -217,6 +254,11 @@ void benchmark_thread_entry(void* args) {
     double  iout_phase_max = 0;
     int8_t  phase_cnt = 0;
     float   phase_min_at_max = NAN;   // lightest phase at the same instant, for imbalance
+    // Input side. The adapter rating is a CURRENT limit in practice: 180 W at a
+    // sagging 11.80 V rail needs 15.25 A, so wattage alone reads "96 %" while the
+    // current is at 98 % of 15 A. Both peaks are kept, current is the primary test.
+    double  ibus_max = 0;             // A  (input)
+    double  pwr_max_in = 0;           // W  (input, = vbus * ibus)
     {
         int8_t hp = ctx->power ? ctx->power->detect_phase() : -1;
         if (hp > 0) phase_cnt = hp;
@@ -259,8 +301,13 @@ void benchmark_thread_entry(void* args) {
 
         // Immediate abort on OC/OT hardware fault — unsafe (freq, vcore) pair.
         if (ctx->power && (ctx->power->is_oc_fault() || ctx->power->is_ot_fault())) {
-            LOG_W("[BM] OC/OT fault during sampling (sample %u/%u) — aborting round.",
-                  (unsigned)(i + 1), (unsigned)total_samples);
+            const bool oc = ctx->power->is_oc_fault();
+            const bool ot = ctx->power->is_ot_fault();
+            LOG_W("[BM] Fault during sampling (OC=%d OT=%d) at sample %u/%u — aborting round. "
+                  "peaks so far: phase=%.2fA total=%.2fA input=%.2fA/%.1fW Vcore=%.1fC",
+                  (int)oc, (int)ot, (unsigned)(i + 1), (unsigned)total_samples,
+                  iout_phase_max, iout_max, (double)ibus_max, pwr_max_in,
+                  ctx->temp ? (double)vt_max : 0.0);
             sample_cnt = 0; // discard all partial samples
             fault_tripped = true;
             break;
@@ -273,6 +320,8 @@ void benchmark_thread_entry(void* args) {
 
         // Peak tracking (accepted samples only — the aborts above are excluded).
         if (pwr_w > pwr_max) pwr_max = pwr_w;
+        if (pwr_w > pwr_max_in) pwr_max_in = pwr_w;
+        if (ibus  > ibus_max)  ibus_max  = ibus;
         if (at    > at_max)  at_max  = at;
         if (ctx->temp->vcore > vt_max) vt_max = ctx->temp->vcore;
         if (ctx->power) {
@@ -353,6 +402,10 @@ void benchmark_thread_entry(void* args) {
     //     peak input power against the board's power ceiling. Temperature is the
     //     only shared signal, so it applies everywhere.
     constexpr float BM_TEMP_MARGIN_C = 5.0f;
+    // Fraction of the bundled adapter's rating a 24/7 point may use. The remaining
+    // headroom absorbs rail sag (Vbus drops as load rises, which raises the current
+    // for the same wattage) and slow thermal drift in the adapter.
+    constexpr float BM_ADAPTER_BUDGET = 0.95f;
     bool  qualified = true;
     const char* q_reason = "ok";
     if (fault_tripped) {
@@ -393,6 +446,29 @@ void benchmark_thread_entry(void* args) {
             vt_max > (double)bspec->pwr.temp_limit.high - BM_TEMP_MARGIN_C) {
             qualified = false; q_reason = "Vcore temperature within margin of limit";
         }
+        // ── Bundled adapter budget ────────────────────────────────────────────
+        // Last gate, and the one that actually decides whether a Turbo point may
+        // be run 24/7 on the stock PSU. Checked against the CURRENT first: at a
+        // sagging rail the wattage figure understates the draw.
+        //
+        // Budget is 95 %, not 100 %: the margin has to absorb rail sag and slow
+        // temperature drift. Measured reference on Nexus — 775MHz/1175mV drew
+        // 13.5 A / 160 W (90 % of 15 A, 89 % of 180 W) and qualifies; 785MHz/1210mV
+        // drew 14.71 A / 173.5 W (98 %, 96 %) and does not.
+        if (qualified && bspec && bspec->pwr.adapter_max_a > 0.0f) {
+            const float budget_a = bspec->pwr.adapter_max_a * BM_ADAPTER_BUDGET;
+            if (ibus_max > budget_a) {
+                qualified = false;
+                q_reason = "peak input current above adapter budget";
+            }
+        }
+        if (qualified && bspec && bspec->pwr.adapter_max_w > 0.0f) {
+            const float budget_w = bspec->pwr.adapter_max_w * BM_ADAPTER_BUDGET;
+            if (pwr_max_in > budget_w) {
+                qualified = false;
+                q_reason = "peak input power above adapter budget";
+            }
+        }
     }
     if (fault_tripped) {
         LOG_W("[BM] Round tripped protection — no valid peak data, verdict=FAILED.");
@@ -415,6 +491,21 @@ void benchmark_thread_entry(void* args) {
         LOG_W("[BM] Peaks: IOUTmax=%.2fA PWRmax=%.2fW ATmax=%.1fC VTmax=%.1fC -> qualified=%d (%s)",
               iout_max, pwr_max, at_max, vt_max, (int)qualified, q_reason);
     }
+    // Adapter occupancy, on its own line so it survives log filters that match on
+    // "qualified" / "Peaks". Only printed for boards that declare a budget.
+    if (bspec && (bspec->pwr.adapter_max_a > 0.0f || bspec->pwr.adapter_max_w > 0.0f)) {
+        char ibus_pct[24] = "n/a", pwr_pct[24] = "n/a";
+        if (bspec->pwr.adapter_max_a > 0.0f) {
+            snprintf(ibus_pct, sizeof(ibus_pct), "%.0f%%", 100.0 * ibus_max / bspec->pwr.adapter_max_a);
+        }
+        if (bspec->pwr.adapter_max_w > 0.0f) {
+            snprintf(pwr_pct, sizeof(pwr_pct), "%.0f%%", 100.0 * pwr_max_in / bspec->pwr.adapter_max_w);
+        }
+        LOG_W("[BM] Adapter: peak %.2fA (%s of %.0fA) / %.1fW (%s of %.0fW) — budget %.0f%%",
+              ibus_max, ibus_pct, (double)bspec->pwr.adapter_max_a,
+              pwr_max_in, pwr_pct, (double)bspec->pwr.adapter_max_w,
+              BM_ADAPTER_BUDGET * 100.0);
+    }
 
     // A tripped point must INVALIDATE the stored result for this frequency, not
     // merely skip writing. Results are upserted by freq alone, so skipping leaves
@@ -422,15 +513,15 @@ void benchmark_thread_entry(void* args) {
     // avgHR in the table, i.e. it would be picked as Turbo even though this exact
     // point now trips. Write an explicit tombstone instead.
     if (fault_tripped) {
-        char tomb[640];
+        char tomb[720];
         snprintf(tomb, sizeof(tomb),
             "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":0.0,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
             "\"effJTH\":0.0,\"avgPwr\":0.0,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
-            "\"maxPhaseIout\":%.2f,\"phases\":%d,"
+            "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f,"
             "\"q\":0,\"fail\":1,\"ts\":%ld}",
             cur_freq, cur_vcore, exp_hr_ghs, at_avg, vt_avg,
             iout_max, pwr_max, at_max, vt_max,
-            iout_phase_max, (int)phase_cnt, (long)time(nullptr));
+            iout_phase_max, (int)phase_cnt, ibus_max, pwr_max_in, (long)time(nullptr));
         esp_err_t terr = bm_result_append(tomb);
         LOG_W("[BM] Protection tripped at %dMHz/%dmV — stored as FAILED (invalidates any earlier result)%s",
               cur_freq, cur_vcore, (terr == ESP_OK) ? "." : " (NVS write failed)");
@@ -485,15 +576,15 @@ void benchmark_thread_entry(void* args) {
     };
 
     if (stable) {
-        char entry[640];
+        char entry[720];
         snprintf(entry, sizeof(entry),
             "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
             "\"effJTH\":%.3f,\"avgPwr\":%.2f,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
-            "\"maxPhaseIout\":%.2f,\"phases\":%d,"
+            "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f,"
             "\"q\":%d,\"fail\":0,\"ts\":%ld}",
             cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg,
             eff_avg, pwr_avg, iout_max, pwr_max, at_max, vt_max,
-            iout_phase_max, (int)phase_cnt,
+            iout_phase_max, (int)phase_cnt, ibus_max, pwr_max_in,
             qualified ? 1 : 0, (long)time(nullptr));
 
         // Ring storage: capacity bounded by partition size (80 entries), oldest evicted when full

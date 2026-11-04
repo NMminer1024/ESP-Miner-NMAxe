@@ -176,6 +176,17 @@ struct BoardSpecConfig {
         int8_t               dc_plug_pin;         // pin to detect if DC is plugged in
         uint16_t             vbus_min_required;   // mV, minimum vbus voltage to start mining
         uint16_t             power_low_threshold; // Watt, power low warning threshold
+        // Input budget of the bundled power adapter — the real constraint on how
+        // far an operating point may be pushed. NOTE: ui.dashboard_page.power.power.max
+        // is the GAUGE FULL-SCALE value (Nexus: 200 W), not the adapter rating, so it
+        // must never be used as a safety limit.
+        //
+        // CURRENT is the binding limit, not wattage: 180 W at a loaded 11.8 V rail
+        // needs 15.25 A, i.e. more than the 15 A rating. Measured on Nexus,
+        // 785MHz/1210mV drew 14.71 A (98 % of 15 A) while reading only 96 % of 180 W —
+        // a wattage-only rule would call that comfortable.
+        float                adapter_max_w;       // W    — 0 = unknown, skip wattage checks
+        float                adapter_max_a;       // A    — 0 = unknown, skip current checks
         struct {
             float high;      // high temperature limit
             float medium;    // medium temperature limit
