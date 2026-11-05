@@ -750,6 +750,18 @@ void monitor_thread_entry(void* args) {
                     nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    new_freq);
                     nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
 
+                    // req_vcore is consumed by the power loop on its own, but nothing
+                    // watches req_frq once warmup is done - so the frequency half of
+                    // the pair has to be pushed to the PLL explicitly, or the miner
+                    // would keep hashing at the old clock while reporting the new one.
+                    if (ctx->miner && new_freq != cur_freq) {
+                        if (!ctx->miner->request_asic_frequency(new_freq)) {
+                            LOG_W("Over-temperature step-down could not queue %uMHz; "
+                                  "the PLL stays at its current clock until the next request.",
+                                  (unsigned)new_freq);
+                        }
+                    }
+
                     last_heat_step_ms = millis();
                     return true;
                 };

@@ -220,24 +220,27 @@
 }
 
 // Header: swarm-style dark green
+// Thirteen columns have to fit inside the card, so the column unit lives in a
+// tooltip instead of the label and the padding stays tight. Without this the
+// Action column (Apply / Delete) hides behind a horizontal scrollbar.
 .bm-table thead th.bm-th {
   background: #2d5a27;
   color: #fff;
-  padding: 10px 6px;
+  padding: 7px 3px;
   text-align: center;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: bold;
   position: sticky;
   top: 0;
   z-index: 4;
 
   i {
-    font-size: 0.7rem;
-    margin-left: 4px;
+    font-size: 0.62rem;
+    margin-left: 2px;
     opacity: 0.7;
   }
 
@@ -261,15 +264,14 @@
 .bm-table tbody td {
   background: #444;
   color: #fff;
-  padding: 6px 4px;
+  padding: 6px 3px;
   text-align: center;
   border-bottom: 1px solid #555;
   border-right: 1px solid #4a4a4a;
   font-family: 'Courier New', Consolas, 'Lucida Console', monospace;
-  font-size: 12px;
+  font-size: 11.5px;
   white-space: nowrap;
 }
-
 .bm-table tbody tr:hover td {
   background: #555;
 }
@@ -353,6 +355,18 @@ td.bm-val-best-eff {
 .bm-td-fan {
   cursor: help;
   font-variant-numeric: tabular-nums;
+}
+
+// ── Firmware column ───────────────────────────────────────────────────────────
+.bm-table thead th.bm-th-fw {
+  cursor: default;
+  &:hover { background: #2d5a27; }
+}
+
+.bm-td-fw {
+  cursor: help;
+  font-size: 0.72rem;
+  opacity: 0.85;
 }
 
 // Delete button sits next to Apply, visually secondary so it is not hit by

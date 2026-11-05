@@ -154,35 +154,38 @@
           <th class="bm-th" [class.sort-asc]="sortCol==='ts' && sortDir===1" [class.sort-desc]="sortCol==='ts' && sortDir===-1" (click)="sortBy('ts')">
             Time <i [class]="sortIcon('ts')"></i>
           </th>
-          <th class="bm-th" [class.sort-asc]="sortCol==='freq' && sortDir===1" [class.sort-desc]="sortCol==='freq' && sortDir===-1" (click)="sortBy('freq')">
-            Freq (MHz) <i [class]="sortIcon('freq')"></i>
+          <th class="bm-th" [class.sort-asc]="sortCol==='freq' && sortDir===1" [class.sort-desc]="sortCol==='freq' && sortDir===-1" (click)="sortBy('freq')" pTooltip="Frequency (MHz)" tooltipPosition="top">
+            Freq <i [class]="sortIcon('freq')"></i>
           </th>
-          <th class="bm-th" [class.sort-asc]="sortCol==='vcore' && sortDir===1" [class.sort-desc]="sortCol==='vcore' && sortDir===-1" (click)="sortBy('vcore')">
-            Vcore (mV) <i [class]="sortIcon('vcore')"></i>
+          <th class="bm-th" [class.sort-asc]="sortCol==='vcore' && sortDir===1" [class.sort-desc]="sortCol==='vcore' && sortDir===-1" (click)="sortBy('vcore')" pTooltip="Vcore (mV)" tooltipPosition="top">
+            Vcore <i [class]="sortIcon('vcore')"></i>
           </th>
-          <th class="bm-th" [class.sort-asc]="sortCol==='expHR' && sortDir===1" [class.sort-desc]="sortCol==='expHR' && sortDir===-1" (click)="sortBy('expHR')">
-            Exp HR (GH/s) <i [class]="sortIcon('expHR')"></i>
+          <th class="bm-th" [class.sort-asc]="sortCol==='expHR' && sortDir===1" [class.sort-desc]="sortCol==='expHR' && sortDir===-1" (click)="sortBy('expHR')" pTooltip="Expected hashrate (GH/s)" tooltipPosition="top">
+            Exp HR <i [class]="sortIcon('expHR')"></i>
           </th>
-          <th class="bm-th" [class.sort-asc]="sortCol==='avgHR' && sortDir===1" [class.sort-desc]="sortCol==='avgHR' && sortDir===-1" (click)="sortBy('avgHR')">
-            Avg HR (GH/s) <i [class]="sortIcon('avgHR')"></i>
+          <th class="bm-th" [class.sort-asc]="sortCol==='avgHR' && sortDir===1" [class.sort-desc]="sortCol==='avgHR' && sortDir===-1" (click)="sortBy('avgHR')" pTooltip="Measured average hashrate (GH/s)" tooltipPosition="top">
+            Avg HR <i [class]="sortIcon('avgHR')"></i>
           </th>
-          <th class="bm-th" [class.sort-asc]="sortCol==='avgAsicTemp' && sortDir===1" [class.sort-desc]="sortCol==='avgAsicTemp' && sortDir===-1" (click)="sortBy('avgAsicTemp')">
-            ASIC Temp (°C) <i [class]="sortIcon('avgAsicTemp')"></i>
+          <th class="bm-th" [class.sort-asc]="sortCol==='avgAsicTemp' && sortDir===1" [class.sort-desc]="sortCol==='avgAsicTemp' && sortDir===-1" (click)="sortBy('avgAsicTemp')" pTooltip="ASIC temperature (°C)" tooltipPosition="top">
+            ASIC <i [class]="sortIcon('avgAsicTemp')"></i>
           </th>
-          <th class="bm-th" [class.sort-asc]="sortCol==='avgVcoreTemp' && sortDir===1" [class.sort-desc]="sortCol==='avgVcoreTemp' && sortDir===-1" (click)="sortBy('avgVcoreTemp')">
-            VRM Temp (°C) <i [class]="sortIcon('avgVcoreTemp')"></i>
+          <th class="bm-th" [class.sort-asc]="sortCol==='avgVcoreTemp' && sortDir===1" [class.sort-desc]="sortCol==='avgVcoreTemp' && sortDir===-1" (click)="sortBy('avgVcoreTemp')" pTooltip="VRM / Vcore temperature (°C)" tooltipPosition="top">
+            VRM <i [class]="sortIcon('avgVcoreTemp')"></i>
           </th>
-          <th class="bm-th" [class.sort-asc]="sortCol==='effJTH' && sortDir===1" [class.sort-desc]="sortCol==='effJTH' && sortDir===-1" (click)="sortBy('effJTH')">
-            Eff (J/TH) <i [class]="sortIcon('effJTH')"></i>
+          <th class="bm-th" [class.sort-asc]="sortCol==='effJTH' && sortDir===1" [class.sort-desc]="sortCol==='effJTH' && sortDir===-1" (click)="sortBy('effJTH')" pTooltip="Efficiency (J/TH) — lower is better" tooltipPosition="top">
+            Eff <i [class]="sortIcon('effJTH')"></i>
           </th>
-          <th class="bm-th" [class.sort-asc]="sortCol==='avgPwr' && sortDir===1" [class.sort-desc]="sortCol==='avgPwr' && sortDir===-1" (click)="sortBy('avgPwr')">
-            Avg Pwr (W) <i [class]="sortIcon('avgPwr')"></i>
+          <th class="bm-th" [class.sort-asc]="sortCol==='avgPwr' && sortDir===1" [class.sort-desc]="sortCol==='avgPwr' && sortDir===-1" (click)="sortBy('avgPwr')" pTooltip="Average power draw (W)" tooltipPosition="top">
+            Pwr <i [class]="sortIcon('avgPwr')"></i>
           </th>
           <th class="bm-th bm-th-status" pTooltip="Whether this point passed the firmware's safety-margin check (peak current, adapter budget, temperature)" tooltipPosition="top">
             Status
           </th>
           <th class="bm-th bm-th-fan" pTooltip="Peak fan duty while this point was measured. Two fans read 'Vcore / ASIC'; one fan reads just ASIC. 100% means cooling was already saturated." tooltipPosition="top">
             Fan
+          </th>
+          <th class="bm-th bm-th-fw" pTooltip="Firmware build that measured this point. Results survive an upgrade, so one table can mix builds." tooltipPosition="top">
+            FW
           </th>
           <th class="bm-th bm-th-action">Action</th>
         </tr>
@@ -210,6 +213,7 @@
                   [pTooltip]="verdictTip(r)" tooltipPosition="top">{{ verdictLabel(r) }}</span>
           </td>
           <td class="bm-td-fan" [pTooltip]="fanTip(r)" tooltipPosition="top">{{ fanText(r) }}</td>
+          <td class="bm-td-fw" [pTooltip]="fwTip(r)" tooltipPosition="top">{{ fwText(r) }}</td>
           <td class="bm-td-action">
             <button pButton type="button" label="Apply" icon="pi pi-check"
                     class="p-button-outlined p-button-success p-button-sm btn"

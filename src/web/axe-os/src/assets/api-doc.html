@@ -1527,8 +1527,9 @@ Content-Type: application/octet-stream
       <span class="kw">"effJTH"</span>: <span class="num">0.047</span>, <span class="kw">"avgPwr"</span>: <span class="num">18.0</span>, <span class="kw">"ts"</span>: <span class="num">1716000000</span>,
       <span class="cmt">// Peak fan duty (%) while sampling. fanVcore only on two-fan models;</span>
       <span class="cmt">// both are ABSENT when there is no such fan or on older results.</span>
-      <span class="kw">"fanAsic"</span>:  <span class="num">68</span>,     <span class="cmt">// ASIC heatsink fan</span>
+      <span class="kw">"fanAsic"</span>:  <span class="num">68</span>,     <span class="cmt">// ASIC heatsink fan (100 on fixed-speed boards)</span>
       <span class="kw">"fanVcore"</span>: <span class="num">46</span>,     <span class="cmt">// Vcore / VRM fan</span>
+      <span class="kw">"fw"</span>:       <span class="str">"v3.2.02c"</span>,<span class="cmt">// build that measured this row (absent on older results)</span>
       <span class="cmt">// Verdicts. "q" is ABSENT on results written before the safety-margin</span>
       <span class="cmt">// rule existed — treat those as unverified, never as passing.</span>
       <span class="kw">"q"</span>:    <span class="num">1</span>,      <span class="cmt">// 1 = passed the margin, 0 = a peak was too close to a limit</span>

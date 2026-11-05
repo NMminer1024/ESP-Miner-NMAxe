@@ -224,6 +224,14 @@ struct BoardSpecConfig {
 
     std::vector<fan_config_t> fans;  // support multiple fans
 
+    // True when the board's cooling is not something the user can act on: the
+    // fan runs at full speed by design, so the duty is a constant rather than a
+    // control variable. Benchmark results from such a board are always "cooling
+    // at full blast", and the results table should say 100 % instead of quoting
+    // the PID's ceiling (99 %). Boards that really do modulate the fan leave
+    // this false and report the measured duty.
+    bool fan_duty_fixed_full = false;
+
     // creator function pointer
     BMxxx*       (*create_asic_instance)(HardwareSerial&, uint32_t, uint8_t, uint8_t, uint8_t);
     // Power HAL factory — std::function allows lambda captures for per-board cfg

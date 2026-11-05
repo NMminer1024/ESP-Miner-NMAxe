@@ -27,6 +27,7 @@
 #include "../ui/ui_manager.h"
 #include "../web/recovery_page.h"
 #include "../nvs/nvs_config.h"
+#include "../version.h"
 #include <nvs.h>
 #include <OneButton.h>
 #include <Adafruit_NeoPixel.h>
@@ -541,7 +542,13 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
             if (at    > at_max)  at_max  = at;
             if (ctx->temp->vcore > vt_max) vt_max = ctx->temp->vcore;
             // Fan duty peaks. fan id 0 cools the ASIC, id 1 the Vcore/VRM stage.
-            if (ctx->fans) {
+            // On a board whose fan is not user-controllable the duty is a constant
+            // rather than a measurement: record 100 % so the row reads "cooling at
+            // full blast, no headroom left" instead of the PID ceiling's 99 %.
+            if (ctx->spec && ctx->spec->fan_duty_fixed_full) {
+                fan_asic_seen  = true;
+                fan_asic_max   = 100;
+            } else if (ctx->fans) {
                 for (const fan_status_t& f : *ctx->fans) {
                     if (f.id == 0) { fan_asic_seen = true;  if (f.speed > fan_asic_max)  fan_asic_max  = f.speed; }
                     else if (f.id == 1) { fan_vcore_seen = true; if (f.speed > fan_vcore_max) fan_vcore_max = f.speed; }
@@ -757,6 +764,13 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
             }
         }
 
+        // Firmware that produced this entry. Stored per row because the results
+        // outlive an upgrade: mixing rows from v3.2.02a and v3.2.02c in one table
+        // is normal, and the safety verdicts are not comparable across builds.
+        // BOARD_CURRENT_FW_VERSION is a literal, so this adds ~20 bytes.
+        char fw_json[32] = "";
+        snprintf(fw_json, sizeof(fw_json), ",\"fw\":\"%s\"", BOARD_CURRENT_FW_VERSION);
+
         // A tripped point must INVALIDATE the stored result for this frequency, not
         // merely skip writing. Results are upserted by freq alone, so skipping leaves
         // an older "stable" entry alive — and that entry can still be the highest
@@ -768,11 +782,11 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
                 "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":0.0,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
                 "\"effJTH\":0.0,\"avgPwr\":0.0,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
                 "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f,"
-                "\"q\":0,\"fail\":1%s,\"ts\":%ld}",
+                "\"q\":0,\"fail\":1%s%s,\"ts\":%ld}",
                 cur_freq, cur_vcore, exp_hr_ghs, at_avg, vt_avg,
                 iout_max, pwr_max, at_max, vt_max,
                 iout_phase_max, (int)phase_cnt, ibus_max, pwr_max_in,
-                fan_json, (long)time(nullptr));
+                fan_json, fw_json, (long)time(nullptr));
             esp_err_t terr = bm_result_append(tomb);
             LOG_W("[BM] Protection tripped at %dMHz/%dmV — stored as FAILED (invalidates any earlier result)%s",
                   cur_freq, cur_vcore, (terr == ESP_OK) ? "." : " (NVS write failed)");
@@ -784,11 +798,11 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
                 "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
                 "\"effJTH\":%.3f,\"avgPwr\":%.2f,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
                 "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f,"
-                "\"q\":%d,\"fail\":0%s,\"ts\":%ld}",
+                "\"q\":%d,\"fail\":0%s%s,\"ts\":%ld}",
                 cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg,
                 eff_avg, pwr_avg, iout_max, pwr_max, at_max, vt_max,
                 iout_phase_max, (int)phase_cnt, ibus_max, pwr_max_in,
-                qualified ? 1 : 0, fan_json, (long)time(nullptr));
+                qualified ? 1 : 0, fan_json, fw_json, (long)time(nullptr));
 
             // Ring storage: capacity bounded by partition size (80 entries), oldest evicted when full
             esp_err_t nvs_write_err = bm_result_append(entry);

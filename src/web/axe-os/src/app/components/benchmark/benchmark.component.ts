@@ -25,6 +25,10 @@ export interface BenchmarkResult {
   // fanVcore = the Vcore / VRM fan (id 1) — only present on two-fan models
   fanAsic?: number;
   fanVcore?: number;
+  // Firmware build that produced this row. ABSENT on results written before the
+  // field existed. Kept per row because results outlive an upgrade, and the
+  // safety verdicts are only comparable within one build.
+  fw?: string;
   // Firmware-computed verdicts. ABSENT on results measured before the
   // safety-margin rule existed (older firmware, or an entry that survived an
   // upgrade). Those are legacy measurements: the numbers are real, but nothing
@@ -947,6 +951,18 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     return parts.join('; ') + (at100
       ? '. Cooling was already saturated at this point — it has no headroom left for higher ambient temperatures.'
       : '');
+  }
+
+  // ── Firmware column ───────────────────────────────────────────────────────
+  // Results survive an upgrade, so one table can mix rows from several builds.
+  public fwText(r: BenchmarkResult): string {
+    return r.fw && r.fw.length ? r.fw : '--';
+  }
+
+  public fwTip(r: BenchmarkResult): string {
+    return r.fw && r.fw.length
+      ? `Measured by ${r.fw}.`
+      : 'Firmware version not recorded — this result predates the field.';
   }
 
   // ── Per-row delete ────────────────────────────────────────────────────────
