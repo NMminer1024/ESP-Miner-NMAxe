@@ -327,6 +327,16 @@ static double bm_r_json_double(const char* entry_json, const char* key) {
     return atof(p);
 }
 
+// Whether any stored result MAY carry a soak verdict.
+//
+// bm_result_clear_soak() walks the whole ring (up to 80 NVS string reads). Its
+// trigger is the fan-policy PATCH, which runs on the async_tcp task - i.e. on the
+// HTTP response path - so paying that cost for a board that was never soaked is
+// wasteful and risks a slow response. Remember in RAM that the ring is clean.
+// Initialised to true because the ring survives a reboot: the first call after
+// boot has to actually look before it can conclude there is nothing to do.
+static volatile bool s_soak_marks_may_exist = true;
+
 // Remove the entry at logical position `idx` (0 = oldest) and compact the ring by
 // shifting everything after it one slot toward the head. Shared by the duplicate
 // trim in the append path and by bm_result_delete_freq().
@@ -470,6 +480,9 @@ char* bm_result_read_all(void) {
 
 void bm_result_restore_all(const char* json_array) {
     if (!json_array) return;
+    // Restored entries are arbitrary JSON and may already carry "soak":1, so the
+    // RAM shortcut must not assume the ring is clean.
+    s_soak_marks_may_exist = true;
     String s(json_array);
     int pos = 0;
     while (true) {
@@ -614,6 +627,7 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need) {
         free(out);
         free(e);
         if (err != ESP_OK) return err;
+        s_soak_marks_may_exist = true;
         LOG_W("[BM] freq=%u marked as soak-verified (fanNeed=%u%%)", freq, fan_need);
         return ESP_OK;
     }
@@ -626,9 +640,11 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need) {
 // are removed rather than left to be trusted, because trusting one would select a
 // point the current cooling cannot sustain — the exact failure the soak prevents.
 void bm_result_clear_soak(void) {
+    if (!s_soak_marks_may_exist) return;   // nothing to clear, skip the ring walk
     bm_result_migrate_legacy();
     uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
     uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
+    uint16_t cleared = 0;
 
     for (uint16_t i = 0; i < cnt; i++) {
         char key[12];
@@ -642,9 +658,15 @@ void bm_result_clear_soak(void) {
             if (t != nullptr) {
                 memmove(s, t, strlen(t) + 1);
                 nvs_config_set_string(key, e);
+                cleared++;
             }
         }
         free(e);
+    }
+    s_soak_marks_may_exist = false;
+    if (cleared > 0) {
+        LOG_W("[BM] %u soak verdict(s) discarded - they were measured under the previous fan policy",
+              (unsigned)cleared);
     }
 }
 
@@ -657,4 +679,5 @@ void bm_result_clear(void) {
     nvs_config_delete_key(NVS_CONFIG_BM_R_START);
     nvs_config_delete_key(NVS_CONFIG_BM_R_COUNT);
     nvs_config_delete_key(NVS_CONFIG_BM_RESULT);  // legacy
+    s_soak_marks_may_exist = false;
 }

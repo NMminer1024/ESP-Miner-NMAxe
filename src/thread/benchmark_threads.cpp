@@ -306,6 +306,12 @@ static constexpr uint32_t BM_SOAK_POLL_MS    = 5000;
 static constexpr double   BM_SOAK_DRIFT_C    = 0.3;    // over ~1 min, per rail
 static constexpr double   BM_SOAK_MARGIN_C   = 5.0;
 static constexpr uint32_t BM_SOAK_LOG_S      = 15;     // progress log cadence, seconds
+static constexpr uint32_t BM_SOAK_COOLDOWN_MS = 90u * 1000u;  // discharge between candidates
+// A soak only means something while the chip is actually hashing. An ASIC that
+// stalled (or whose reinit did not bring the rail back) sits at ambient, so its
+// temperature would pass every limit and its "settled" fan duty would be a
+// fiction. Require the point to reach this fraction of its expected hashrate.
+static constexpr double   BM_SOAK_MIN_HR_RATIO = 0.50;
 
 static uint16_t bm_fan_duty_of(BenchmarkCtx* ctx, uint8_t fan_id) {
     if (!ctx->fans) return 0;
@@ -330,6 +336,7 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint
     BenchmarkState& bm = *ctx->bm;
     bm.active       = true;
     bm.in_soak      = true;
+    bm.in_cool      = false;
     bm.in_stab      = false;
     bm.cur_freq     = freq;
     bm.cur_vcore    = vcore;
@@ -352,6 +359,7 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint
     double  at_hist[13], vt_hist[13];
     uint8_t hist_n = 0, hist_pos = 0;
     double  at_peak = 0.0, vt_peak = 0.0;
+    double  hr_peak = 0.0;
     bool    ok = true;
     uint32_t soak_log_tick = 0;   // progress line every BM_SOAK_LOG_S seconds
 
@@ -362,13 +370,21 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint
 
         const double at = ctx->temp ? ctx->temp->asic  : 0.0;
         const double vt = ctx->temp ? ctx->temp->vcore : 0.0;
-        if (at > at_peak) at_peak = at;
-        if (vt > vt_peak) vt_peak = vt;
+        // Peaks answer "how close did this point run to a limit", so only
+        // readings at or below the limit count. A reading above it is either
+        // the previous point's residue (the hard check below has a grace period
+        // for that) or a genuine runaway (also decided there); folding either
+        // into the peak would reject the point twice for the same number.
+        if (at_limit <= 0.0 || at <= at_limit) { if (at > at_peak) at_peak = at; }
+        if (vt_limit <= 0.0 || vt <= vt_limit) { if (vt > vt_peak) vt_peak = vt; }
+
+        const double hr = ctx->status ? (ctx->status->hashrate._3m / 1e9) : 0.0;
+        if (hr > hr_peak) hr_peak = hr;
 
         bm.phase_elapsed = (millis() - t0) / 1000u;
         bm.asic_temp     = (float)at;
         bm.vcore_temp    = (float)vt;
-        bm.avg_hr_ghs    = ctx->status ? (float)(ctx->status->hashrate._3m / 1e9) : 0.0f;
+        bm.avg_hr_ghs    = (float)hr;
         bm.eta_sec       = (bm.phase_elapsed < bm.phase_total) ? (bm.phase_total - bm.phase_elapsed) : 0;
 
         // Periodic progress line: without it a soak is silent for up to 8 minutes
@@ -376,21 +392,49 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint
         // drift toward the limit vs a sudden jump) or whether it is even moving.
         if (++soak_log_tick % (BM_SOAK_LOG_S / (BM_SOAK_POLL_MS / 1000u)) == 0) {
             LOG_W("[BM] Soak %u/%u @ %dMHz/%dmV: %lus elapsed, ASIC %.1fC (peak %.1fC, limit %.0fC), "
-                  "Vcore %.1fC (peak %.1fC), fan %u%%.",
+                  "Vcore %.1fC (peak %.1fC), HR %.0f/%.0f GH/s, fan %u%%.",
                   (unsigned)bm.soak_idx, (unsigned)bm.soak_total, freq, vcore,
                   (unsigned long)(bm.phase_elapsed), at, at_peak, at_limit, vt, vt_peak,
-                  (unsigned)bm_fan_duty_of(ctx, 0));
+                  hr, (double)bm.exp_hr_ghs, (unsigned)bm_fan_duty_of(ctx, 0));
         }
 
-        if (at_limit > 0.0 && at > at_limit) {
-            LOG_W("[BM] Soak failed: ASIC %.1fC > %.0fC limit at %dMHz/%dmV.", at, at_limit, freq, vcore);
+        // A candidate starts from whatever temperature the PREVIOUS candidate
+        // left behind. Failing the instant the reading is over the limit turns
+        // that residue into a false negative: on 124.88 the 600MHz soak was
+        // rejected at 75.2C while the 700MHz soak above it read 70.4C, because
+        // the heatsink was still discharging and 30% fan could not keep up.
+        //
+        // So the hard limit is only final once the point has had BM_SOAK_MIN_MS
+        // to settle - unless it is clearly running away, which is what the
+        // extra headroom below catches. The peak-margin rule after the loop
+        // still rejects anything that merely came close.
+        constexpr double BM_SOAK_RUNAWAY_C = 5.0;
+        const uint32_t elapsed_now = millis() - t0;
+        if (at_limit > 0.0 && at > at_limit + BM_SOAK_RUNAWAY_C) {
+            LOG_W("[BM] Soak failed: ASIC %.1fC is %.0fC past the %.0fC limit at %dMHz/%dmV.",
+                  at, BM_SOAK_RUNAWAY_C, at_limit, freq, vcore);
             ok = false;
             break;
         }
-        if (vt_limit > 0.0 && vt > vt_limit) {
-            LOG_W("[BM] Soak failed: Vcore %.1fC > %.0fC limit at %dMHz/%dmV.", vt, vt_limit, freq, vcore);
+        if (vt_limit > 0.0 && vt > vt_limit + BM_SOAK_RUNAWAY_C) {
+            LOG_W("[BM] Soak failed: Vcore %.1fC is %.0fC past the %.0fC limit at %dMHz/%dmV.",
+                  vt, BM_SOAK_RUNAWAY_C, vt_limit, freq, vcore);
             ok = false;
             break;
+        }
+        if (elapsed_now >= BM_SOAK_MIN_MS) {
+            if (at_limit > 0.0 && at > at_limit) {
+                LOG_W("[BM] Soak failed: ASIC %.1fC > %.0fC limit after %lus at %dMHz/%dmV.",
+                      at, at_limit, (unsigned long)(elapsed_now / 1000), freq, vcore);
+                ok = false;
+                break;
+            }
+            if (vt_limit > 0.0 && vt > vt_limit) {
+                LOG_W("[BM] Soak failed: Vcore %.1fC > %.0fC limit after %lus at %dMHz/%dmV.",
+                      vt, vt_limit, (unsigned long)(elapsed_now / 1000), freq, vcore);
+                ok = false;
+                break;
+            }
         }
 
         at_hist[hist_pos] = at;
@@ -422,6 +466,17 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint
 
     bm.in_soak = false;
     if (!ok) return false;
+
+    // The point must have actually been producing hashes. Without this, a chip
+    // that stalled mid-soak (observed on 124.88: HCN stopped advancing, the
+    // reinit never brought Vcore back, and the following candidate measured 31C
+    // on an unpowered die) would "pass" every temperature limit and be applied.
+    if (bm.exp_hr_ghs > 0.0f && hr_peak < (double)bm.exp_hr_ghs * BM_SOAK_MIN_HR_RATIO) {
+        LOG_W("[BM] Soak failed: hashrate peaked at %.0f GH/s of %.0f expected at %dMHz/%dmV — "
+              "the point was not really mining, so its temperature proves nothing.",
+              hr_peak, (double)bm.exp_hr_ghs, freq, vcore);
+        return false;
+    }
 
     // Peaks decide, not the final reading: the point is only safe if it never
     // came within the margin of a limit while soaking.
@@ -476,6 +531,58 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
     for (size_t ci = 0; ci < cands.size(); ci++) {
         const Cand& c = cands[ci];
         if (*ctx->bm_mode != 1) { ctx->bm->soak_total = 0; return; }
+
+        // Cool down before EVERY candidate, the first one included.
+        //
+        // The first candidate used to be judged straight out of the sweep, i.e.
+        // with the heat of every point the sweep had just run still sitting in
+        // the heatsink, while the later ones got a cooldown. That is not a
+        // property of the point under test: on Nexus, 750MHz peaked at 79C
+        // against a 75C usable ceiling as candidate #1, while 740MHz - 10MHz
+        // lower, but taken after a cooldown - stayed comfortably inside. Judging
+        // the highest-hashrate point from a hotter start made the sweep
+        // systematically reject its own top candidates.
+        //
+        // The miner keeps hashing at the previous point during this wait (there
+        // is no idle point to drop to that would not itself need a PLL switch),
+        // so the fans are pinned at 100% to make the discharge outpace the heat
+        // the point is still producing. A single 20 s lease would expire in the
+        // middle of a 90 s wait, hence the renew inside the loop.
+        {
+            BenchmarkState& bm = *ctx->bm;
+            bm.in_cool      = true;
+            bm.in_soak      = false;
+            bm.in_stab      = false;
+            bm.soak_idx     = (uint8_t)(ci + 1);
+            bm.phase_total  = BM_SOAK_COOLDOWN_MS / 1000u;
+            bm.phase_elapsed = 0;
+            bm.eta_sec      = bm.phase_total;
+            bm_fan_acquire(ctx);
+            LOG_W("[BM] Cooling down before soak %u/%u (%lus, fans 100%%)...",
+                  (unsigned)(ci + 1), (unsigned)cands.size(), BM_SOAK_COOLDOWN_MS / 1000u);
+            const uint32_t cd0 = millis();
+            uint32_t log_tick = 0;
+            while (millis() - cd0 < BM_SOAK_COOLDOWN_MS && *ctx->bm_mode == 1) {
+                bm_fan_renew(ctx);
+                delay(1000);
+                if (*ctx->bm_mode != 1) break;
+                bm.phase_elapsed = (millis() - cd0) / 1000u;
+                bm.eta_sec       = (bm.phase_elapsed < bm.phase_total) ? (bm.phase_total - bm.phase_elapsed) : 0;
+                bm.asic_temp     = ctx->temp ? ctx->temp->asic  : 0.0f;
+                bm.vcore_temp    = ctx->temp ? ctx->temp->vcore : 0.0f;
+                // A 90 s wait used to be a silent gap in the log, which makes a
+                // closed-loop capture look like a hang.
+                if (++log_tick % BM_SOAK_LOG_S == 0) {
+                    LOG_W("[BM] Cooling %u/%u: %lus elapsed, %lus left, ASIC %.1fC, Vcore %.1fC.",
+                          (unsigned)bm.soak_idx, (unsigned)bm.soak_total,
+                          (unsigned long)bm.phase_elapsed, (unsigned long)bm.eta_sec,
+                          (double)bm.asic_temp, (double)bm.vcore_temp);
+                }
+            }
+            bm.in_cool = false;
+            if (*ctx->bm_mode != 1) { ctx->bm->soak_total = 0; return; }
+        }
+
         ctx->bm->soak_idx = (uint8_t)(ci + 1);
         uint16_t fan_need = 0;
         if (bm_soak_point(ctx, c.freq, c.vcore, &fan_need)) {
@@ -491,6 +598,7 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
     ctx->bm->soak_total = 0;
     ctx->bm->soak_idx   = 0;
     ctx->bm->in_soak    = false;
+    ctx->bm->in_cool    = false;   // a stop during a cooldown must not leave the phase set
 
     bm_fan_acquire(ctx);   // leave the fans pinned for the finish path
 }

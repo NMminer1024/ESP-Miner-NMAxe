@@ -709,11 +709,13 @@ void OverlayManager::_show_benchmark_overlay() {
         snprintf(buf, sizeof(buf), "  Temp   : %.0fC / %.0fC", b.vcore_temp, b.asic_temp);
         lv_label_set_text(_bm_rows[1], buf);
 
-        if (b.in_soak) snprintf(buf, sizeof(buf), "  Phase  : Soaking %u/%u", (unsigned)b.soak_idx, (unsigned)b.soak_total);
-        else           snprintf(buf, sizeof(buf), "  Phase  : %s", b.in_stab ? "Warmup    " : "Sampling ");
+        if (b.in_soak)      snprintf(buf, sizeof(buf), "  Phase  : Soaking %u/%u", (unsigned)b.soak_idx, (unsigned)b.soak_total);
+        else if (b.in_cool) snprintf(buf, sizeof(buf), "  Phase  : Cooling %u/%u", (unsigned)b.soak_idx, (unsigned)b.soak_total);
+        else                snprintf(buf, sizeof(buf), "  Phase  : %s", b.in_stab ? "Warmup    " : "Sampling ");
         lv_label_set_text(_bm_rows[2], buf);
         lv_obj_set_style_text_color(_bm_rows[2], b.in_soak ? lv_color_hex(0xFB923F)
-                                       : (b.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA)), 0);
+                                       : (b.in_cool ? lv_color_hex(0x94A3B8)
+                                       : (b.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA))), 0);
 
         snprintf(buf, sizeof(buf), "  Left   : %lus", (unsigned long)phase_remaining);
         lv_label_set_text(_bm_rows[3], buf);
@@ -725,8 +727,9 @@ void OverlayManager::_show_benchmark_overlay() {
 
         // During the soak the sweep round counters are meaningless — the point
         // under test is a stored candidate, not the next grid cell.
-        if (b.in_soak) snprintf(buf, sizeof(buf), "  Soak   : normal fan policy");
-        else           snprintf(buf, sizeof(buf), "  Round  : F%u/%u  V%u/%u", freq_idx, freq_total, vc_idx, vc_total);
+        if (b.in_soak)      snprintf(buf, sizeof(buf), "  Soak   : normal fan policy");
+        else if (b.in_cool) snprintf(buf, sizeof(buf), "  Cool   : fan 100%%, discharging");
+        else                snprintf(buf, sizeof(buf), "  Round  : F%u/%u  V%u/%u", freq_idx, freq_total, vc_idx, vc_total);
         lv_label_set_text(_bm_rows[5], buf);
         lv_obj_set_style_text_color(_bm_rows[5], lv_color_hex(0xAAAAAA), 0);
 
@@ -742,6 +745,8 @@ void OverlayManager::_show_benchmark_overlay() {
 
         if (b.in_soak) {
             snprintf(buf, sizeof(buf), "  Soak : %u/%u", (unsigned)b.soak_idx, (unsigned)b.soak_total);
+        } else if (b.in_cool) {
+            snprintf(buf, sizeof(buf), "  Cool : %u/%u", (unsigned)b.soak_idx, (unsigned)b.soak_total);
         } else if (b.in_stab) {
             snprintf(buf, sizeof(buf), "  Avg  : --/%.0f GH/s", b.exp_hr_ghs);
         } else {
@@ -752,15 +757,16 @@ void OverlayManager::_show_benchmark_overlay() {
         // The sweep round counters are meaningless during the soak — the point
         // under test is a stored candidate, not the next grid cell — so show the
         // soak countdown instead of an out-of-range F/V index.
-        if (b.in_soak) snprintf(buf, sizeof(buf), "  Left : ~%s", eta_str);
-        else           snprintf(buf, sizeof(buf), "  Round: F%u/%u V%u/%u ~%s", freq_idx, freq_total, vc_idx, vc_total, eta_str);
+        if (b.in_soak || b.in_cool) snprintf(buf, sizeof(buf), "  Left : ~%s", eta_str);
+        else                        snprintf(buf, sizeof(buf), "  Round: F%u/%u V%u/%u ~%s", freq_idx, freq_total, vc_idx, vc_total, eta_str);
         lv_label_set_text(_bm_rows[3], buf);
     }
 
     _show_footer_ip(is_large ? 186 : 97, is_large);
     lv_bar_set_value(_bar, pct, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(_bar, b.in_soak ? lv_color_hex(0xFB923F)
-                          : (b.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA)), LV_PART_INDICATOR);
+                          : (b.in_cool ? lv_color_hex(0x94A3B8)
+                          : (b.in_stab ? lv_color_hex(0xFACC15) : lv_color_hex(0x60A5FA))), LV_PART_INDICATOR);
 
     if (!_visible) {
         lv_obj_clear_flag(_panel, LV_OBJ_FLAG_HIDDEN);

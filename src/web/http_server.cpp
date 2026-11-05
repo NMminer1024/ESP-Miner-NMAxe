@@ -581,6 +581,22 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
             free(buf); return;
         }
         log_web_config_change("/api/setting/mining", root.as<JsonObject>());
+        // The operating point belongs to the sweep while a benchmark runs.
+        //
+        // Accepting this would be worse than refusing: the sweep re-applies its
+        // own point on the very next round, so the user would see "Applied" and
+        // then silently lose the setting, with the PLL bounced twice in a row on
+        // the way. patch_mining_state already refuses pause/resume for the same
+        // reason; this is the matching gate for the freq/vcore half.
+        //
+        // Pool credentials are deliberately NOT blocked: shares must keep flowing
+        // during a sweep and changing the pool does not touch the ASIC.
+        if ((*g_web->bm_mode) != 0 &&
+            (root.containsKey("asicFreqReq") || root.containsKey("asicVcoreReq"))) {
+            request->send(409, "application/json",
+                "{\"error\":\"asic frequency/voltage cannot be changed while a benchmark is running - stop the benchmark first\"}");
+            free(buf); return;
+        }
         bool pool_changed = false;
         if (root.containsKey("stratum") && root["stratum"].is<JsonObject>()) {
             JsonObject stratum = root["stratum"].as<JsonObject>();
@@ -842,50 +858,114 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
         }
         // fans array: id=0 → ASIC fan, id=1 → Vcore fan
         if (root.containsKey("fans") && root["fans"].is<JsonArray>()) {
+            // Whether the COOLING actually changed, which is the only thing that can
+            // invalidate a soak verdict.
+            //
+            // This used to be "did the payload mention a fan field", and the web form
+            // always submits the complete fans array (auto + target + speed), so every
+            // save looked like a cooling change. Editing the screen brightness, the
+            // screensaver or the LED therefore wiped every soak result and left ECO /
+            // Turbo greyed out with "re-run benchmark" - for a user who never touched
+            // the fans.
+            //
+            // Compare against the STORED policy instead, and only on the field that
+            // actually drives the duty:
+            //   auto ON  -> target temperature decides; the manual duty is ignored by
+            //               the PID, so sending a different speed is not a change
+            //   auto OFF -> the manual duty decides; the target is ignored
             bool policy_changed = false;
+            // Boards with no controllable fan run a fixed duty; nothing here can alter
+            // the cooling a soak was measured under.
+            const bool fan_ctl = g_web->spec != nullptr && g_web->spec->fan_controllable;
+
+            auto fan_policy_differs = [](bool auto_old, bool auto_new,
+                                         float target_old, float target_new,
+                                         uint16_t speed_old, uint16_t speed_new) -> bool {
+                if (auto_old != auto_new) return true;
+                if (auto_new) return fabsf(target_new - target_old) > 0.05f;
+                return speed_old != speed_new;
+            };
+
             for (JsonObject fan : root["fans"].as<JsonArray>()) {
                 if (!fan.containsKey("id")) continue;
                 uint8_t fan_id = fan["id"].as<uint8_t>();
                 if (fan_id == 0) {
+                    // Snapshot the stored policy BEFORE overwriting it.
+                    const bool     auto_old   = g_web->spec->fans[0].auto_speed;
+                    const float    target_old = g_web->spec->fans[0].target_temp;
+                    const uint16_t speed_old  = nvs_config_get_u16(NVS_CONFIG_ASIC_FAN_SPEED,
+                                                                   (*g_web->fan_status)[0].speed);
+                    const bool     auto_new   = fan.containsKey("auto")
+                                                  ? (fan["auto"].as<uint16_t>() != 0) : auto_old;
+                    float          target_new = target_old;
+                    if (fan.containsKey("target")) {
+                        target_new = fan_clamp_target_temp(fan["target"].as<float>(),
+                                                           g_web->spec->asic.temp_limit.high);
+                    }
+                    const uint16_t speed_new = fan.containsKey("speed")
+                                                 ? fan["speed"].as<uint16_t>() : speed_old;
+                    if (fan_ctl && fan_policy_differs(auto_old, auto_new, target_old, target_new,
+                                                      speed_old, speed_new)) {
+                        policy_changed = true;
+                    }
+
                     if (fan.containsKey("auto")) {
                         nvs_config_set_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, fan["auto"].as<uint16_t>());
                         g_web->spec->fans[0].auto_speed = fan["auto"].as<uint16_t>();
-                        policy_changed = true;
                     }
                     if (fan.containsKey("target")) {
-                        float target = fan_clamp_target_temp(fan["target"].as<float>(), g_web->spec->asic.temp_limit.high);
-                        String t = String(target, 1);
+                        String t = String(target_new, 1);
                         nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, t.c_str());
-                        g_web->spec->fans[0].target_temp = target;
-                        policy_changed = true;
+                        g_web->spec->fans[0].target_temp = target_new;
                     }
                     if (fan.containsKey("speed")) {
                         nvs_config_set_u16(NVS_CONFIG_ASIC_FAN_SPEED, fan["speed"].as<uint16_t>());
                         (*g_web->fan_status)[0].speed = fan["speed"].as<uint16_t>();
-                        policy_changed = true;
                     }
                 } else if (fan_id == 1) {
+                    // Single-fan boards have no slot 1. Reject rather than index past
+                    // the vector end - a client that sends id=1 anyway must not be able
+                    // to fault the request handler.
+                    if (g_web->spec->fans.size() < 2 || g_web->fan_status->size() < 2) continue;
+                    const bool     auto_old   = g_web->spec->fans[1].auto_speed;
+                    const float    target_old = g_web->spec->fans[1].target_temp;
+                    const uint16_t speed_old  = nvs_config_get_u16(NVS_CONFIG_VCORE_FAN_SPEED,
+                                                                   (*g_web->fan_status)[1].speed);
+                    const bool     auto_new   = fan.containsKey("auto")
+                                                  ? (fan["auto"].as<uint16_t>() != 0) : auto_old;
+                    float          target_new = target_old;
+                    if (fan.containsKey("target")) {
+                        target_new = fan_clamp_target_temp(fan["target"].as<float>(),
+                                                           g_web->spec->pwr.temp_limit.high);
+                    }
+                    const uint16_t speed_new = fan.containsKey("speed")
+                                                 ? fan["speed"].as<uint16_t>() : speed_old;
+                    if (fan_ctl && fan_policy_differs(auto_old, auto_new, target_old, target_new,
+                                                      speed_old, speed_new)) {
+                        policy_changed = true;
+                    }
+
                     if (fan.containsKey("auto")) {
                         nvs_config_set_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, fan["auto"].as<uint16_t>());
                         g_web->spec->fans[1].auto_speed = fan["auto"].as<uint16_t>();
-                        policy_changed = true;
                     }
                     if (fan.containsKey("target")) {
-                        float target = fan_clamp_target_temp(fan["target"].as<float>(), g_web->spec->pwr.temp_limit.high);
-                        String t = String(target, 1);
+                        String t = String(target_new, 1);
                         nvs_config_set_string(NVS_CONFIG_VCORE_TARGET_TEMP, t.c_str());
-                        g_web->spec->fans[1].target_temp = target;
-                        policy_changed = true;
+                        g_web->spec->fans[1].target_temp = target_new;
                     }
                     if (fan.containsKey("speed")) {
                         nvs_config_set_u16(NVS_CONFIG_VCORE_FAN_SPEED, fan["speed"].as<uint16_t>());
                         (*g_web->fan_status)[1].speed = fan["speed"].as<uint16_t>();
-                        policy_changed = true;
                     }
                 }
             }
-            // Soak verdicts describe the old cooling, so they no longer apply.
-            if (policy_changed) bm_result_clear_soak();
+            // Soak verdicts describe the OLD cooling, so a real change invalidates them.
+            // Unchanged settings keep them: they are still valid evidence.
+            if (policy_changed) {
+                LOG_W("Fan policy changed -> invalidating soak verification results");
+                bm_result_clear_soak();
+            }
         }
 
         request->send(200, "application/json", "{\"status\":\"ok\"}");
@@ -1568,6 +1648,14 @@ void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t 
     if (index + len < BUF_SIZE) memcpy(buf + index, data, len);
     if (index + len == total) {
         buf[total] = '\0';
+        // An OTA is writing the flash partition and will reboot the device, so a
+        // sweep started now would be killed mid-round and could race the flash
+        // erase. Refuse instead of queueing: there is nothing to resume into.
+        if (g_web->ota != nullptr && g_web->ota->running) {
+            request->send(409, "application/json",
+                "{\"error\":\"an OTA update is in progress - benchmark cannot start until it finishes\"}");
+            free(buf); return;
+        }
         // Optional: accept params in the start body to update them before starting.
         // Also supports {"resume":true} to continue from the last stopped position.
         bool do_resume = false;

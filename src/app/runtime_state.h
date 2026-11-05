@@ -64,4 +64,9 @@ struct BenchmarkState {
     bool     in_soak = false;
     uint8_t  soak_idx = 0;         // 1-based candidate being soaked
     uint8_t  soak_total = 0;       // candidates queued for the soak
+    // Cooldown between soak candidates. The miner KEEPS HASHING at the previous
+    // point while the heatsink discharges, so this is not an idle phase and the
+    // overlay must name it: without the flag the screen read "Sampling" with a
+    // stale sweep round counter for 90 s per candidate.
+    bool     in_cool = false;
 };
