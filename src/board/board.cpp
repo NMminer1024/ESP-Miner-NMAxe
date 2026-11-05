@@ -155,11 +155,10 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "40").toFloat(), config.asic.temp_limit.high);
     config.fans.clear();
     config.fans.push_back(fan_cfg); // single fan
-    // The NMAxe fan is a fixed full-speed blower: there is no user-facing fan
-    // control and the PID simply sits at its ceiling. Recording 99 % would
-    // understate that cooling has no headroom left, so benchmark results quote
-    // 100 % on this board.
-    config.fan_duty_fixed_full = true;
+    // The NMAxe blower is hardwired to full speed: the PWM is written but the
+    // airflow never changes. Record 100 % in benchmark results, and skip the
+    // benchmark fan takeover since there is nothing to take over.
+    config.fan_controllable = false;
 
 #elif defined(BOARD_NMAXE_GAMMA)
     config.name                      = "NMAxeGamma";

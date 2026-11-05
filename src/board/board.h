@@ -224,13 +224,18 @@ struct BoardSpecConfig {
 
     std::vector<fan_config_t> fans;  // support multiple fans
 
-    // True when the board's cooling is not something the user can act on: the
-    // fan runs at full speed by design, so the duty is a constant rather than a
-    // control variable. Benchmark results from such a board are always "cooling
-    // at full blast", and the results table should say 100 % instead of quoting
-    // the PID's ceiling (99 %). Boards that really do modulate the fan leave
-    // this false and report the measured duty.
-    bool fan_duty_fixed_full = false;
+    // Whether the fan duty actually changes the airflow. NMAxe's blower is
+    // hardwired to full speed: the PWM value is written but has no effect, so
+    // the PWM value is not a control variable. Boards without control report a
+    // constant 100 % in benchmark results instead of quoting the PID ceiling.
+    bool fan_controllable = true;
+
+    // Benchmark fan takeover. The fan thread holds fan_override_duty while the
+    // deadline is in the future and otherwise ignores it, so a benchmark thread
+    // that dies cannot leave the fan pinned. The benchmark renews the deadline;
+    // 0 means "no request". Never persisted.
+    volatile uint32_t fan_override_until_ms = 0;
+    uint16_t          fan_override_duty     = 0;
 
     // creator function pointer
     BMxxx*       (*create_asic_instance)(HardwareSerial&, uint32_t, uint8_t, uint8_t, uint8_t);

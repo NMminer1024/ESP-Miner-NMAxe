@@ -198,6 +198,80 @@ static bool bm_apply_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, boo
     }
 }
 
+// ── Benchmark fan takeover ───────────────────────────────────────────────────
+// Every point has to be measured under the SAME cooling, otherwise J/TH is not
+// comparable across points: the PID drops the fan to 0 % at a low-power point
+// (its target temperature is never reached) and saturates at 100 % at a
+// high-power one, so the two rows describe different thermal conditions.
+//
+// The benchmark therefore pins the fans for the duration of the sweep. The lease
+// is renewed every second; the fan thread ignores an expired lease, so a crash in
+// this thread cannot leave the fans pinned.
+static constexpr uint16_t BM_FAN_DUTY      = 100;
+// Longer than the slowest path that does not renew it (bm_apply_point can wait
+// 15 s for the PLL plus the 1.5 s rail settle), so the lease cannot expire in the
+// middle of a switch and hand the fan back to the PID.
+static constexpr uint32_t BM_FAN_LEASE_MS   = 20000;
+// Below this, a fan is considered dead for measurement purposes. Above it the
+// airflow exists, which is all the sweep needs to stay comparable.
+static constexpr uint32_t BM_FAN_STALL_MS   = 15000;
+
+static void bm_fan_acquire(BenchmarkCtx* ctx) {
+    if (!ctx->spec || !ctx->spec->fan_controllable) return;
+    ctx->spec->fan_override_duty     = BM_FAN_DUTY;
+    ctx->spec->fan_override_until_ms = millis() + BM_FAN_LEASE_MS;
+}
+
+static void bm_fan_renew(BenchmarkCtx* ctx) {
+    if (!ctx->spec || !ctx->spec->fan_controllable) return;
+    if (ctx->spec->fan_override_until_ms == 0) return;   // never acquired
+    ctx->spec->fan_override_until_ms = millis() + BM_FAN_LEASE_MS;
+}
+
+static void bm_fan_release(BenchmarkCtx* ctx) {
+    if (!ctx->spec) return;
+    ctx->spec->fan_override_until_ms = 0;
+}
+
+// A dead fan invalidates the measurement rather than the operating point: the
+// point may be perfectly good, we simply cannot cool it. Report separately so the
+// caller stops the sweep instead of writing a FAILED tombstone.
+static bool bm_fan_stalled(BenchmarkCtx* ctx) {
+    if (!ctx->fans) return false;
+    for (const fan_status_t& f : *ctx->fans) {
+        if (f.id >= ctx->spec->fans.size()) continue;
+        if (f.rpm < ctx->spec->fans[f.id].init.danger_rpm_thr) return true;
+    }
+    return false;
+}
+
+// Sweep-side thermal guard. The general safety supervisor is gated on bm_mode==0,
+// and the TPS53355 boards (NMAxe / Gamma) expose no PMBus OT status bit, so
+// without this a benchmark point could sit above the temperature limit with
+// nothing watching — observed on 124.43, where the VRM rail reached 90 C against
+// an 85 C limit with no reaction.
+//
+// The overshoot has to PERSIST before it counts. A point inherits the thermal
+// state of the previous one, so the first samples after a switch routinely read
+// above the limit while the fan brings the temperature down; acting on that both
+// aborted healthy rounds and overwrote their stored result with a FAILED
+// tombstone.
+static constexpr uint32_t BM_THERMAL_HOLD_MS = 45000;
+
+static bool bm_thermal_over(BenchmarkCtx* ctx, const char** what) {
+    if (ctx->spec && ctx->temp && ctx->spec->asic.temp_limit.high > 0.0f &&
+        ctx->temp->asic > ctx->spec->asic.temp_limit.high) {
+        *what = "ASIC";
+        return true;
+    }
+    if (ctx->spec && ctx->temp && ctx->spec->pwr.temp_limit.high > 0.0f &&
+        ctx->temp->vcore > ctx->spec->pwr.temp_limit.high) {
+        *what = "Vcore";
+        return true;
+    }
+    return false;
+}
+
 // Return to the persisted Normal-mode operating point. The sweep never writes
 // NVS_CONFIG_ASIC_FREQ/VOLTAGE (only finish/apply do), so these still hold the
 // user's pre-sweep settings.
@@ -269,6 +343,7 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
     LOG_W("[BM] Sweep finished (%s) — back to Normal mode without reboot.", reason);
     nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
     *ctx->bm_mode = 0;
+    bm_fan_release(ctx);
 }
 
 // Run rounds until the sweep completes (bm_finish) or bm_mode is cleared
@@ -280,7 +355,11 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
     xEventGroupWaitBits(ctx->init_evt, INIT_EVENT_MINER_READY, pdFALSE, pdTRUE, portMAX_DELAY);
     if (*ctx->bm_mode != 1) return;
 
+    bm_fan_acquire(ctx);
+    bool fan_failed_any = false;
+
     while (*ctx->bm_mode == 1) {
+        bm_fan_renew(ctx);
         // Config and the current point are re-read EVERY round (the legacy
         // per-reboot design did the same on every boot), so a PATCH or a fresh
         // start issued mid-sweep takes effect from the next round.
@@ -404,20 +483,60 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         }
 
         bool aborted = false;
+        // Set when a dead fan stops the sweep. Distinct from a user stop: the
+        // remaining points are not measured because the result would be invalid,
+        // not because the user asked to stop.
+        bool fan_failed = false;
         bool oc_ot_abort = false;
-        // Set ONLY when the regulator actually tripped (OC/OT), as opposed to an
-        // unstable/zero-hashrate round. The distinction drives two behaviours:
+        // Set ONLY when the regulator actually tripped (OC/OT) or the sweep's own
+        // thermal guard fired, as opposed to an unstable/zero-hashrate round. The
+        // distinction drives two behaviours:
         //   - the point is stored as an explicit failure (tombstone), and
         //   - the sweep skips the remaining vcores for this frequency instead of
         //     retrying higher (raising vcore after an OC trip feeds the fault).
         bool fault_tripped = false;
+        uint32_t fan_stall_ms = 0;
+        uint32_t heat_over_ms  = 0;
         for (uint16_t s = 0; s < stab_time; s++) {
             if (*ctx->bm_mode != 1) { aborted = true; break; }
+            bm_fan_renew(ctx);
             bm.phase_elapsed = s;
             bm.asic_temp     = ctx->temp->asic;
             bm.vcore_temp    = ctx->temp->vcore;
             uint32_t stab_rem = (stab_time > s) ? (stab_time - s) : 0;
             bm.eta_sec = stab_rem + (uint32_t)bm_time + bm_future_rounds;
+
+            {
+                const char* which = "";
+                if (bm_thermal_over(ctx, &which)) {
+                    heat_over_ms += 1000;
+                    if (heat_over_ms >= BM_THERMAL_HOLD_MS) {
+                        LOG_W("[BM] %s stayed over its temperature limit for %lus "
+                              "(%.1fC) at %dMHz/%dmV — aborting round.",
+                              which, (unsigned long)(BM_THERMAL_HOLD_MS / 1000),
+                              (double)((which[0] == 'A') ? ctx->temp->asic : ctx->temp->vcore),
+                              cur_freq, cur_vcore);
+                        fault_tripped = true;
+                        oc_ot_abort   = true;   // nothing valid to measure
+                        break;
+                    }
+                } else {
+                    heat_over_ms = 0;
+                }
+                if (bm_fan_stalled(ctx)) {
+                    fan_stall_ms += 1000;
+                    if (fan_stall_ms >= BM_FAN_STALL_MS) {
+                        LOG_E("[BM] Fan stalled for %lus at %dMHz/%dmV — cooling is not "
+                              "working, stopping the sweep instead of recording invalid results.",
+                              (unsigned long)(BM_FAN_STALL_MS / 1000), cur_freq, cur_vcore);
+                        fan_failed = true;
+                        break;
+                    }
+                } else {
+                    fan_stall_ms = 0;
+                }
+            }
+
             if (ctx->power && (ctx->power->is_oc_fault() || ctx->power->is_ot_fault())) {
                 // Name the actual fault. "OC/OT fault" alone cannot be diagnosed: an
                 // OC trip at a safe current reading means a transient per-phase spike,
@@ -436,6 +555,15 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
                 break;
             }
             delay(1000);
+        }
+
+        if (fan_failed) {
+            // Cooling is not working, so no further point can be measured honestly.
+            // Stop the whole sweep and hand the miner back rather than filling the
+            // table with rows taken under a dead fan.
+            LOG_E("[BM] Sweep aborted: fan is not producing airflow.");
+            fan_failed_any = true;
+            break;
         }
 
         if (aborted) break;
@@ -496,6 +624,38 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
                 delay(1000);
             }
             if (aborted) break;
+            bm_fan_renew(ctx);
+
+            {
+                const char* which = "";
+                if (bm_thermal_over(ctx, &which)) {
+                    heat_over_ms += (uint32_t)smp_intv * 1000u;
+                    if (heat_over_ms >= BM_THERMAL_HOLD_MS) {
+                        LOG_W("[BM] %s stayed over its temperature limit for %lus "
+                              "(%.1fC) at %dMHz/%dmV — aborting round.",
+                              which, (unsigned long)(BM_THERMAL_HOLD_MS / 1000),
+                              (double)((which[0] == 'A') ? ctx->temp->asic : ctx->temp->vcore),
+                              cur_freq, cur_vcore);
+                        sample_cnt = 0;   // the partial samples describe an unsafe point
+                        fault_tripped = true;
+                        break;
+                    }
+                } else {
+                    heat_over_ms = 0;
+                }
+                if (bm_fan_stalled(ctx)) {
+                    fan_stall_ms += (uint32_t)smp_intv * 1000u;
+                    if (fan_stall_ms >= BM_FAN_STALL_MS) {
+                        LOG_E("[BM] Fan stalled for %lus at %dMHz/%dmV — cooling is not "
+                              "working, stopping the sweep.",
+                              (unsigned long)(BM_FAN_STALL_MS / 1000), cur_freq, cur_vcore);
+                        fan_failed = true;
+                        break;
+                    }
+                } else {
+                    fan_stall_ms = 0;
+                }
+            }
 
             double hr_ghs = ctx->status->hashrate._3m / 1e9;
             double vbus   = ctx->pwr->vbus / 1000.0;
@@ -542,10 +702,10 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
             if (at    > at_max)  at_max  = at;
             if (ctx->temp->vcore > vt_max) vt_max = ctx->temp->vcore;
             // Fan duty peaks. fan id 0 cools the ASIC, id 1 the Vcore/VRM stage.
-            // On a board whose fan is not user-controllable the duty is a constant
+            // On a board whose fan cannot be controlled the duty is a constant
             // rather than a measurement: record 100 % so the row reads "cooling at
             // full blast, no headroom left" instead of the PID ceiling's 99 %.
-            if (ctx->spec && ctx->spec->fan_duty_fixed_full) {
+            if (ctx->spec && !ctx->spec->fan_controllable) {
                 fan_asic_seen  = true;
                 fan_asic_max   = 100;
             } else if (ctx->fans) {
@@ -598,6 +758,12 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
             }
         }
         } // if (!oc_ot_abort)
+
+        if (fan_failed) {
+            LOG_E("[BM] Sweep aborted: fan is not producing airflow.");
+            fan_failed_any = true;
+            break;
+        }
 
         if (aborted) break;
 
@@ -854,8 +1020,17 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
     // from /api/benchmark/apply, that endpoint already wrote the requested point
     // into the same NVS keys, so this converges to the user's choice.
     bm.active = false;
-    LOG_W("[BM] Sweep interrupted (bm_mode cleared) — restoring Normal-mode point.");
+    if (fan_failed_any) {
+        // Ended by the sweep itself, not by the user: clear the mode flag so the
+        // device does not resume into a sweep whose cooling is broken.
+        nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
+        *ctx->bm_mode = 0;
+        LOG_E("[BM] Sweep stopped because the fan is not producing airflow.");
+    } else {
+        LOG_W("[BM] Sweep interrupted (bm_mode cleared) — restoring Normal-mode point.");
+    }
     bm_restore_normal_point(ctx);
+    bm_fan_release(ctx);
 }
 
 void benchmark_thread_entry(void* args) {
@@ -866,6 +1041,7 @@ void benchmark_thread_entry(void* args) {
     while (true) {
         if (*ctx->bm_mode != 1) {
             ctx->bm->active = false;
+            bm_fan_release(ctx);
             delay(1000);
             continue;
         }

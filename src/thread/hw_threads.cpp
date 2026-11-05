@@ -773,7 +773,29 @@ void fan_thread_entry(void* args) {
         fan_status_t* fan_status = get_fan_status(fan_cfg.id);
         if (fan_status == nullptr) return;
 
-        if (update_pid && fan_cfg.auto_speed && fan_status->self_test) {
+        // Benchmark takeover: hold a fixed duty so every measured point sees the
+        // same cooling. Lease-based, so a hung benchmark thread cannot pin the fan.
+        constexpr size_t FAN_SLOTS_MAX = 4;
+        static bool     ovr_prev[FAN_SLOTS_MAX]  = {false};
+        static uint16_t ovr_saved[FAN_SLOTS_MAX] = {0};
+        const bool override_active =
+            spec.fan_override_until_ms != 0 &&
+            (int32_t)(millis() - spec.fan_override_until_ms) < 0;
+
+        if (fan_index < FAN_SLOTS_MAX) {
+            if (override_active && !ovr_prev[fan_index]) {
+                ovr_saved[fan_index] = fan_status->speed;
+            } else if (!override_active && ovr_prev[fan_index]) {
+                // Hand control back where we found it, so a manual duty set through
+                // the API survives a benchmark run.
+                fan_status->speed = ovr_saved[fan_index];
+            }
+            ovr_prev[fan_index] = override_active;
+        }
+
+        if (update_pid && override_active && spec.fan_controllable) {
+            fan_status->speed = spec.fan_override_duty;
+        } else if (update_pid && fan_cfg.auto_speed && fan_status->self_test) {
             uint32_t now_ms = millis();
             float dt = (pid_start_ms[fan_index] == 0) ? 0.125f : (now_ms - pid_start_ms[fan_index]) / 1000.0f;
             if (dt <= 0.0f) dt = 0.001f;
