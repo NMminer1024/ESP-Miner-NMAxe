@@ -15,6 +15,7 @@
 #include "board/board.h"
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
+#include <esp_mac.h>
 
 AsyncWebServer  webServer(80);
 // AsyncWebSocket runs on the same port 80 at path /ws, no separate port needed.
@@ -344,6 +345,22 @@ void get_system_info(AsyncWebServerRequest* request){
     identityObj["hostName"]    = g_web->wifi_cfg->hostname;
     identityObj["ssid"]       = g_web->wifi_cfg->sta_ssid;
     identityObj["rssi"]       = g_web->wifi->rssi;
+    // Factory MAC of the station interface, uppercase hex without separators
+    // ("A4CF12B9E4F7"). Read straight from eFuse rather than from the WiFi
+    // driver, so the field is present even if the radio is down. Used by the
+    // dashboard to tell two otherwise identical miners apart when their
+    // displayName/hostname were both left at the board default.
+    {
+        uint8_t mac[6] = {0};
+        if (esp_read_mac(mac, ESP_MAC_WIFI_STA) == ESP_OK) {
+            char mac_str[13] = {0};
+            snprintf(mac_str, sizeof(mac_str), "%02X%02X%02X%02X%02X%02X",
+                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            identityObj["mac"] = mac_str;
+        } else {
+            identityObj["mac"] = "";
+        }
+    }
     // SHA256 of the running app's ELF (embedded by the linker into
     // esp_app_desc.app_elf_sha256). This is the SAME value the IDF panic
     // handler prints as "ELF file SHA256: ..." in coredumps, so the dashboard

@@ -305,8 +305,8 @@
                 <td class="value">{{ info.version }}<span *ngIf="info.appSha256" class="sha-suffix">/{{ info.appSha256 }}</span></td>
               </tr>
               <tr>
-                <td class="label">Hardware Model:</td>
-                <td class="value">{{ info.boardVersion }}</td>
+                <td class="label">Hardware:</td>
+                <td class="value">{{ info.boardVersion }}<span *ngIf="info.mac" class="sha-suffix">/{{ info.mac }}</span></td>
               </tr>
             </table>
           </div>

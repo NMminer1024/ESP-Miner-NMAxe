@@ -143,6 +143,7 @@ export interface ISystemInfo {
   appSha256?: string,
   hwModel?: string,
   displayName?: string,
+  mac?: string,
   hostName?: string,
   wifiSSID?: string,
   wifiRSSI?: number,
