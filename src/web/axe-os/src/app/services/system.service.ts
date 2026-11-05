@@ -96,7 +96,7 @@ export class SystemService {
             hwModel:     "NMAxe",
             displayName: "NMAxe",
             hostName:    "NMAxe",
-            mac:         "A4CF12B9E4F7",
+            mac:         "FC:9E:53:4A:8B:43",
             ssid:        "default",
             rssi:        -55,
           },

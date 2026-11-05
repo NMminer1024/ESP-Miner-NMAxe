@@ -94,7 +94,7 @@ The response is structured into nested sub-objects.
 | `identity.hwModel` | string | Functional board ID — stable across hardware revisions (e.g. `"NMQAxe+"`) |
 | `identity.displayName` | string | Human-readable variant label including revision (e.g. `"NMQAxe++Rev6.1"`) |
 | `identity.hostName` | string | Device hostname |
-| `identity.mac` | string | Factory station MAC, uppercase hex without separators (e.g. `"A4CF12B9E4F7"`). Read from eFuse, so it is present even when the radio is down. |
+| `identity.mac` | string | Factory station MAC, uppercase colon-separated hex (e.g. `"FC:9E:53:4A:8B:43"`). Read from eFuse, so it is present even when the radio is down. |
 | `identity.ssid` | string | Connected Wi-Fi SSID |
 | `identity.rssi` | int | Wi-Fi signal strength (dBm) |
 | `identity.appSha256` | string | First 16 hex chars of the running app image SHA256. Pairs a device with the exact build artifact when triaging crash reports. |

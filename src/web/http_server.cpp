@@ -345,16 +345,18 @@ void get_system_info(AsyncWebServerRequest* request){
     identityObj["hostName"]    = g_web->wifi_cfg->hostname;
     identityObj["ssid"]       = g_web->wifi_cfg->sta_ssid;
     identityObj["rssi"]       = g_web->wifi->rssi;
-    // Factory MAC of the station interface, uppercase hex without separators
-    // ("A4CF12B9E4F7"). Read straight from eFuse rather than from the WiFi
-    // driver, so the field is present even if the radio is down. Used by the
-    // dashboard to tell two otherwise identical miners apart when their
-    // displayName/hostname were both left at the board default.
+    // Factory MAC of the station interface, uppercase colon-separated hex
+    // ("FC:9E:53:4A:8B:43") - the form printed on the module label and used by
+    // router DHCP client lists, so it can be matched by eye. Read straight from
+    // eFuse rather than from the WiFi driver, so the field is present even if
+    // the radio is down. Used by the dashboard to tell two otherwise identical
+    // miners apart when their displayName/hostname were both left at the board
+    // default.
     {
         uint8_t mac[6] = {0};
         if (esp_read_mac(mac, ESP_MAC_WIFI_STA) == ESP_OK) {
-            char mac_str[13] = {0};
-            snprintf(mac_str, sizeof(mac_str), "%02X%02X%02X%02X%02X%02X",
+            char mac_str[18] = {0};
+            snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X",
                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
             identityObj["mac"] = mac_str;
         } else {
