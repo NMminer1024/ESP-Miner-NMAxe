@@ -1,4 +1,4 @@
-# bm_abort_race_test.ps1 — stop the sweep while the PLL hot-switch is in flight.
+# bm_abort_race_test.ps1 - stop the sweep while the PLL hot-switch is in flight.
 #
 # Regression guard for two coupled bugs in the in-place sweep:
 #   1. bm_apply_point used to block through the vcore settle + PLL wait, so a Stop
@@ -20,17 +20,32 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+$wsScript = Join-Path $root '.github\skills\board-closed-loop-regression\scripts\ws_log.ps1'
 Push-Location $root
 try {
     function Get-Info { (curl.exe -s --max-time 8 "http://$Ip/api/system/info") | ConvertFrom-Json }
 
+    # Reuse the repo's own WS log capture (auto-reconnects across reboots).
+    function Start-WsLog($ip, $out) {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $out) | Out-Null
+        Remove-Item $out -ErrorAction SilentlyContinue
+        return Start-Process powershell -PassThru -WindowStyle Hidden -ArgumentList @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $wsScript,
+            '-Ip', $ip, '-Out', $out
+        )
+    }
+    function Stop-WsLog($proc) {
+        if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+        Start-Sleep -Milliseconds 500
+    }
+
     $b = Get-Info
     $baseFreq = [int]$b.asic.freqReq
     "BASELINE fw=$($b.identity.fwVersion) asic=$baseFreq/$($b.asic.vcoreReq) hr=$([math]::Round($b.miner.hashRate,1)) uptime=$($b.miner.uptimeSeconds)"
-    if ($baseFreq -eq $TestFreq) { throw "Baseline freq equals TestFreq ($TestFreq) — pick another target." }
+    if ($baseFreq -eq $TestFreq) { throw "Baseline freq equals TestFreq ($TestFreq) - pick another target." }
 
-    Remove-Item $LogFile -ErrorAction SilentlyContinue
-    $logger = Start-Process -FilePath node -ArgumentList "tool\wslog.js $Ip $LogFile 150" -NoNewWindow -PassThru
+    $logger = Start-WsLog $Ip $LogFile
+    Start-Sleep -Seconds 2
 
     $pass = 0; $fail = 0
     foreach ($d in $DelaysMs) {
@@ -56,7 +71,8 @@ try {
     $f = Get-Info
     "SUMMARY pass=$pass fail=$fail finalAsic=$($f.asic.freqReq)/$($f.asic.vcoreReq) uptime=$($f.miner.uptimeSeconds) (baseline uptime $($b.miner.uptimeSeconds))"
     "REBOOT-LAST " + (curl.exe -s --max-time 8 "http://$Ip/api/reboot/last")
-    if (-not $logger.HasExited) { $logger.WaitForExit(60000) | Out-Null }
+
+    Stop-WsLog $logger
     "=== DEVICE LOG (BM/switch only) ==="
     Get-Content $LogFile -ErrorAction SilentlyContinue |
         Select-String -Pattern '\[BM\]|hot-switch|PLL' | ForEach-Object { $_.Line }
