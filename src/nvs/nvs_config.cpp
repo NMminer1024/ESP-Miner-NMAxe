@@ -579,6 +579,75 @@ bool bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
     return true;
 }
 
+// Mark a stored result as having passed the soak check, recording the fan duty
+// that held it at a steady temperature. Rewrites the entry in place (results are
+// keyed by frequency), so the sweep's measurements are preserved and only the
+// verification fields are added.
+esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need) {
+    bm_result_migrate_legacy();
+    uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
+    uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
+
+    for (uint16_t i = 0; i < cnt; i++) {
+        char key[12];
+        bm_r_key(key, sizeof(key), (start + i) % BM_RESULT_MAX_ENTRIES);
+        char* e = nvs_config_get_string(key, "");
+        if (!e) continue;
+
+        uint16_t of = 0;
+        const bool match = bm_r_parse_freq(e, of) && of == freq;
+        if (!match) { free(e); continue; }
+
+        // Splice the new fields in before "ts" so the existing key order and every
+        // other value stay untouched.
+        char* ts = strstr(e, ",\"ts\":");
+        if (ts == nullptr) { free(e); return ESP_ERR_INVALID_STATE; }
+
+        const size_t prefix = (size_t)(ts - e);
+        char* out = (char*)malloc(prefix + 64 + strlen(ts) + 1);
+        if (!out) { free(e); return ESP_ERR_NO_MEM; }
+        memcpy(out, e, prefix);
+        int n = snprintf(out + prefix, 64, ",\"soak\":1,\"fanNeed\":%u", fan_need);
+        strcpy(out + prefix + n, ts);
+
+        esp_err_t err = nvs_config_try_set_string(key, out);
+        free(out);
+        free(e);
+        if (err != ESP_OK) return err;
+        LOG_W("[BM] freq=%u marked as soak-verified (fanNeed=%u%%)", freq, fan_need);
+        return ESP_OK;
+    }
+    return ESP_ERR_NOT_FOUND;
+}
+
+// Drop every soak verdict. A soak says "this point stays inside its limits under
+// THE fan policy that was in force at the time", so changing that policy (auto vs
+// manual, target temperature, manual duty) makes all existing verdicts stale. They
+// are removed rather than left to be trusted, because trusting one would select a
+// point the current cooling cannot sustain — the exact failure the soak prevents.
+void bm_result_clear_soak(void) {
+    bm_result_migrate_legacy();
+    uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
+    uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
+
+    for (uint16_t i = 0; i < cnt; i++) {
+        char key[12];
+        bm_r_key(key, sizeof(key), (start + i) % BM_RESULT_MAX_ENTRIES);
+        char* e = nvs_config_get_string(key, "");
+        if (!e) continue;
+
+        char* s = strstr(e, ",\"soak\":1");
+        if (s != nullptr) {
+            char* t = strstr(s + 1, ",\"ts\":");
+            if (t != nullptr) {
+                memmove(s, t, strlen(t) + 1);
+                nvs_config_set_string(key, e);
+            }
+        }
+        free(e);
+    }
+}
+
 void bm_result_clear(void) {
     for (uint16_t i = 0; i < BM_RESULT_MAX_ENTRIES; i++) {
         char key[12];

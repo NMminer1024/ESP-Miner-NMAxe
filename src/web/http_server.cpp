@@ -842,6 +842,7 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
         }
         // fans array: id=0 → ASIC fan, id=1 → Vcore fan
         if (root.containsKey("fans") && root["fans"].is<JsonArray>()) {
+            bool policy_changed = false;
             for (JsonObject fan : root["fans"].as<JsonArray>()) {
                 if (!fan.containsKey("id")) continue;
                 uint8_t fan_id = fan["id"].as<uint8_t>();
@@ -849,34 +850,42 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
                     if (fan.containsKey("auto")) {
                         nvs_config_set_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, fan["auto"].as<uint16_t>());
                         g_web->spec->fans[0].auto_speed = fan["auto"].as<uint16_t>();
+                        policy_changed = true;
                     }
                     if (fan.containsKey("target")) {
                         float target = fan_clamp_target_temp(fan["target"].as<float>(), g_web->spec->asic.temp_limit.high);
                         String t = String(target, 1);
                         nvs_config_set_string(NVS_CONFIG_ASIC_TARGET_TEMP, t.c_str());
                         g_web->spec->fans[0].target_temp = target;
+                        policy_changed = true;
                     }
                     if (fan.containsKey("speed")) {
                         nvs_config_set_u16(NVS_CONFIG_ASIC_FAN_SPEED, fan["speed"].as<uint16_t>());
                         (*g_web->fan_status)[0].speed = fan["speed"].as<uint16_t>();
+                        policy_changed = true;
                     }
                 } else if (fan_id == 1) {
                     if (fan.containsKey("auto")) {
                         nvs_config_set_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, fan["auto"].as<uint16_t>());
                         g_web->spec->fans[1].auto_speed = fan["auto"].as<uint16_t>();
+                        policy_changed = true;
                     }
                     if (fan.containsKey("target")) {
                         float target = fan_clamp_target_temp(fan["target"].as<float>(), g_web->spec->pwr.temp_limit.high);
                         String t = String(target, 1);
                         nvs_config_set_string(NVS_CONFIG_VCORE_TARGET_TEMP, t.c_str());
                         g_web->spec->fans[1].target_temp = target;
+                        policy_changed = true;
                     }
                     if (fan.containsKey("speed")) {
                         nvs_config_set_u16(NVS_CONFIG_VCORE_FAN_SPEED, fan["speed"].as<uint16_t>());
                         (*g_web->fan_status)[1].speed = fan["speed"].as<uint16_t>();
+                        policy_changed = true;
                     }
                 }
             }
+            // Soak verdicts describe the old cooling, so they no longer apply.
+            if (policy_changed) bm_result_clear_soak();
         }
 
         request->send(200, "application/json", "{\"status\":\"ok\"}");

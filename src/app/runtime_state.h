@@ -58,4 +58,10 @@ struct BenchmarkState {
     uint16_t stab_total = 0;       // total stabilization seconds
     uint16_t bm_total = 0;         // total sampling seconds
     uint32_t eta_sec = 0;          // estimated seconds remaining
+    // Post-sweep soak phase (best candidates re-verified under the normal fan
+    // policy). The overlay shows "Soaking" with the candidate index instead of
+    // the sweep round counters; phase_elapsed/phase_total carry the soak timer.
+    bool     in_soak = false;
+    uint8_t  soak_idx = 0;         // 1-based candidate being soaked
+    uint8_t  soak_total = 0;       // candidates queued for the soak
 };

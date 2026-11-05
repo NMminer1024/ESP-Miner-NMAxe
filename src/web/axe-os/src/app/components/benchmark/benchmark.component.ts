@@ -29,6 +29,12 @@ export interface BenchmarkResult {
   // field existed. Kept per row because results outlive an upgrade, and the
   // safety verdicts are only comparable within one build.
   fw?: string;
+  // Set when the point survived the post-sweep soak under the normal fan policy.
+  // The sweep measures at 100 % cooling, which is comparable but optimistic; only
+  // a soaked point is known to be sustainable in real operation.
+  soak?: number;
+  // Fan duty the point actually settled at during the soak. ABSENT unless soaked.
+  fanNeed?: number;
   // Firmware-computed verdicts. ABSENT on results measured before the
   // safety-margin rule existed (older firmware, or an entry that survived an
   // upgrade). Those are legacy measurements: the numbers are real, but nothing
@@ -295,16 +301,22 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     return !this.isFailed(r) && r.q === 1 && r.avgHR > 0;
   }
 
+  public isSoaked(r: BenchmarkResult): boolean {
+    return r.soak === 1;
+  }
+
   public verdictLabel(r: BenchmarkResult): string {
     if (this.isFailed(r)) return 'failed';
     if (this.isLegacy(r)) return 'legacy';
-    return r.q === 1 ? 'verified' : 'over limit';
+    if (r.q !== 1) return 'over limit';
+    return this.isSoaked(r) ? 'verified' : 'unsoaked';
   }
 
   public verdictClass(r: BenchmarkResult): string {
     if (this.isFailed(r)) return 'bm-badge-failed';
     if (this.isLegacy(r)) return 'bm-badge-warn';
-    return r.q === 1 ? 'bm-badge-ok' : 'bm-badge-over';
+    if (r.q !== 1) return 'bm-badge-over';
+    return this.isSoaked(r) ? 'bm-badge-ok' : 'bm-badge-warn';
   }
 
   public verdictTip(r: BenchmarkResult): string {
@@ -316,7 +328,9 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
              'The numbers are real, but ECO/Turbo ignore this row. Re-run the benchmark to qualify it.';
     }
     return r.q === 1
-      ? 'Passed the safety margin: peak current, adapter budget and temperature all inside their limits.'
+      ? (this.isSoaked(r)
+          ? 'Passed the safety margin and held its temperature under your normal fan policy. Eligible for ECO / Turbo.'
+          : 'Passed the safety margin, but was not re-run under your normal fan policy, so it is not eligible for ECO / Turbo. Re-run the benchmark to verify it.')
       : 'Stable hashrate, but a peak value sat too close to a limit, so ECO/Turbo will not select this point.';
   }
 
@@ -336,7 +350,11 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     // recommended operating point. With nothing qualified the tag falls back to
     // the best raw entry, which the banner above the table then qualifies.
     const usable = results.filter(r => !this.isFailed(r) && r.avgHR > 0);
-    const pool   = usable.some(r => this.isQualified(r)) ? usable.filter(r => this.isQualified(r)) : usable;
+    const qualified = usable.filter(r => this.isQualified(r));
+    // Prefer soak-verified rows so the tags point at a point that is actually
+    // selectable (ECO/Turbo ignore unsoaked ones), then fall back progressively.
+    const soaked = qualified.filter(r => this.isSoaked(r));
+    const pool = soaked.length ? soaked : (qualified.length ? qualified : usable);
     const effPool = pool.filter(r => r.effJTH > 0);
     this.bestEff = effPool.length ? effPool.reduce((b, r) => r.effJTH < b.effJTH ? r : b) : null;
     this.bestHR  = pool.length    ? pool.reduce((b, r) => r.avgHR  > b.avgHR  ? r : b)    : null;
@@ -925,32 +943,27 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       });
   }
 
-  // ── Fan duty column ───────────────────────────────────────────────────────
-  // Two-fan boards show "Vcore / ASIC", single-fan boards show just the ASIC
-  // value. Results measured before the field existed, and fans that never
-  // reported a duty, render as "--" so an absent reading is never mistaken for a
-  // genuine 0 %.
-  public hasTwoFans(): boolean {
-    return this.results.some(r => r.fanVcore !== undefined && r.fanVcore !== null);
-  }
-
+  // ── Fan column ────────────────────────────────────────────────────────────
+  // Shows the duty the point settled at during the soak (fanNeed) — the number
+  // that says how much cooling the point really costs. Rows that were never
+  // soaked have no such answer and read "--".
   public fanText(r: BenchmarkResult): string {
-    const fmt = (v?: number) => (v === undefined || v === null) ? '--' : `${v}%`;
-    const asic = fmt(r.fanAsic);
-    return this.hasTwoFans() ? `${fmt(r.fanVcore)} / ${asic}` : asic;
+    if (r.fanNeed === undefined || r.fanNeed === null) return '--';
+    return `${r.fanNeed}%`;
   }
 
   public fanTip(r: BenchmarkResult): string {
-    if (r.fanAsic === undefined && r.fanVcore === undefined) {
-      return 'No fan duty recorded — this result predates the field.';
+    if (r.fanNeed !== undefined && r.fanNeed !== null) {
+      return `Held steady at ${r.fanNeed}% fan during the soak. ` +
+             (r.fanNeed >= 100
+               ? 'The fan is already saturated, so this point has no headroom for a hotter room.'
+               : `${100 - r.fanNeed}% of fan range still unused.`);
     }
-    const parts: string[] = [];
-    if (r.fanVcore !== undefined && r.fanVcore !== null) parts.push(`Vcore/VRM fan peaked at ${r.fanVcore}%`);
-    if (r.fanAsic  !== undefined && r.fanAsic  !== null) parts.push(`ASIC fan peaked at ${r.fanAsic}%`);
-    const at100 = [r.fanVcore, r.fanAsic].some(v => v !== undefined && v !== null && v >= 100);
-    return parts.join('; ') + (at100
-      ? '. Cooling was already saturated at this point — it has no headroom left for higher ambient temperatures.'
-      : '');
+    const measured = (r.fanAsic === undefined || r.fanAsic === null) ? null : r.fanAsic;
+    return measured === null
+      ? 'Not soak-verified, and no fan duty was recorded for this result.'
+      : `Not soak-verified. It measured at ${measured}% during the sweep, but the sweep pins the fan, ` +
+        'so that number does not say what the point needs in normal operation.';
   }
 
   // ── Firmware column ───────────────────────────────────────────────────────

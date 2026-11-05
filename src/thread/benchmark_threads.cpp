@@ -53,6 +53,7 @@
 #include <limits>
 #include <unordered_set>
 #include <vector>
+#include <algorithm>
 
 #include "thread_shared.h"
 using namespace thread_shared;
@@ -286,12 +287,231 @@ static void bm_restore_normal_point(BenchmarkCtx* ctx) {
     bm_apply_point(ctx, nf, nv, false);
 }
 
+// ── Soak verification ────────────────────────────────────────────────────────
+// The sweep measures every point under pinned 100 % cooling, which makes the
+// rows comparable but optimistic: it says nothing about whether the point is
+// sustainable under the fan policy the user actually runs. On 124.43 the applied
+// point then drifted into the over-temperature step-down minutes later, i.e. the
+// sweep picked a point the machine could not live with.
+//
+// After the sweep, the best candidates are re-run with the normal fan loop
+// restored and held until their temperature stops rising. Only points that stay
+// inside the limits there are eligible for automatic application, and the duty
+// the fan settled at is recorded as fanNeed - the number that answers "how much
+// cooling does this point really cost".
+static constexpr uint8_t  BM_SOAK_CANDIDATES = 3;
+static constexpr uint32_t BM_SOAK_MAX_MS     = 8u * 60u * 1000u;
+static constexpr uint32_t BM_SOAK_MIN_MS     = 90u * 1000u;
+static constexpr uint32_t BM_SOAK_POLL_MS    = 5000;
+static constexpr double   BM_SOAK_DRIFT_C    = 0.3;    // over ~1 min, per rail
+static constexpr double   BM_SOAK_MARGIN_C   = 5.0;
+static constexpr uint32_t BM_SOAK_LOG_S      = 15;     // progress log cadence, seconds
+
+static uint16_t bm_fan_duty_of(BenchmarkCtx* ctx, uint8_t fan_id) {
+    if (!ctx->fans) return 0;
+    for (const fan_status_t& f : *ctx->fans) {
+        if (f.id == fan_id) return f.speed;
+    }
+    return 0;
+}
+
+// One candidate: apply it, hand the fans back to the normal loop, and watch
+// until the temperatures stop moving. Returns true when the point held inside
+// the limits, storing the settled fan duty in *fan_need.
+static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint16_t* fan_need) {
+    LOG_W("[BM] Soak %u/%u: verifying %dMHz/%dmV under the normal fan policy...",
+          (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, freq, vcore);
+    if (!bm_apply_point(ctx, freq, vcore)) return false;
+    bm_fan_release(ctx);   // back to the user's fan policy: this is the real test
+
+    // Drive the LCD overlay through the soak: without this the screen drops back
+    // to the normal mining view the moment bm_finish() cleared `active`, leaving
+    // up to 8 minutes per candidate with no on-device indication at all.
+    BenchmarkState& bm = *ctx->bm;
+    bm.active       = true;
+    bm.in_soak      = true;
+    bm.in_stab      = false;
+    bm.cur_freq     = freq;
+    bm.cur_vcore    = vcore;
+    bm.phase_total  = BM_SOAK_MAX_MS / 1000u;
+    bm.phase_elapsed = 0;
+    bm.avg_hr_ghs   = 0.0f;
+    // Mining keeps running at the candidate point during the soak, so the overlay
+    // can show a real hashrate against this point's expectation instead of the
+    // stale sweep counters left over from the last grid cell.
+    {
+        uint32_t sc = ctx->miner ? ctx->miner->get_asic_small_cores() : 0;
+        uint8_t  ac = ctx->miner ? ctx->miner->get_asic_count()       : 0;
+        bm.exp_hr_ghs = (float)((double)freq * ((double)(sc * ac) / 1000.0));
+    }
+
+    const double at_limit = ctx->spec ? (double)ctx->spec->asic.temp_limit.high : 0.0;
+    const double vt_limit = ctx->spec ? (double)ctx->spec->pwr.temp_limit.high  : 0.0;
+
+    const uint32_t t0 = millis();
+    double  at_hist[13], vt_hist[13];
+    uint8_t hist_n = 0, hist_pos = 0;
+    double  at_peak = 0.0, vt_peak = 0.0;
+    bool    ok = true;
+    uint32_t soak_log_tick = 0;   // progress line every BM_SOAK_LOG_S seconds
+
+    while (true) {
+        if (*ctx->bm_mode != 1) { bm.in_soak = false; return false; }   // stopped mid-soak
+        delay(BM_SOAK_POLL_MS);
+        if (*ctx->bm_mode != 1) { bm.in_soak = false; return false; }
+
+        const double at = ctx->temp ? ctx->temp->asic  : 0.0;
+        const double vt = ctx->temp ? ctx->temp->vcore : 0.0;
+        if (at > at_peak) at_peak = at;
+        if (vt > vt_peak) vt_peak = vt;
+
+        bm.phase_elapsed = (millis() - t0) / 1000u;
+        bm.asic_temp     = (float)at;
+        bm.vcore_temp    = (float)vt;
+        bm.avg_hr_ghs    = ctx->status ? (float)(ctx->status->hashrate._3m / 1e9) : 0.0f;
+        bm.eta_sec       = (bm.phase_elapsed < bm.phase_total) ? (bm.phase_total - bm.phase_elapsed) : 0;
+
+        // Periodic progress line: without it a soak is silent for up to 8 minutes
+        // per candidate, and a log capture cannot tell WHY a point failed (slow
+        // drift toward the limit vs a sudden jump) or whether it is even moving.
+        if (++soak_log_tick % (BM_SOAK_LOG_S / (BM_SOAK_POLL_MS / 1000u)) == 0) {
+            LOG_W("[BM] Soak %u/%u @ %dMHz/%dmV: %lus elapsed, ASIC %.1fC (peak %.1fC, limit %.0fC), "
+                  "Vcore %.1fC (peak %.1fC), fan %u%%.",
+                  (unsigned)bm.soak_idx, (unsigned)bm.soak_total, freq, vcore,
+                  (unsigned long)(bm.phase_elapsed), at, at_peak, at_limit, vt, vt_peak,
+                  (unsigned)bm_fan_duty_of(ctx, 0));
+        }
+
+        if (at_limit > 0.0 && at > at_limit) {
+            LOG_W("[BM] Soak failed: ASIC %.1fC > %.0fC limit at %dMHz/%dmV.", at, at_limit, freq, vcore);
+            ok = false;
+            break;
+        }
+        if (vt_limit > 0.0 && vt > vt_limit) {
+            LOG_W("[BM] Soak failed: Vcore %.1fC > %.0fC limit at %dMHz/%dmV.", vt, vt_limit, freq, vcore);
+            ok = false;
+            break;
+        }
+
+        at_hist[hist_pos] = at;
+        vt_hist[hist_pos] = vt;
+        hist_pos = (uint8_t)((hist_pos + 1) % 13);
+        if (hist_n < 13) hist_n++;
+
+        const uint32_t elapsed = millis() - t0;
+        if (elapsed >= BM_SOAK_MIN_MS && hist_n >= 13) {
+            double at_min = at_hist[0], at_max = at_hist[0];
+            double vt_min = vt_hist[0], vt_max = vt_hist[0];
+            for (uint8_t k = 1; k < 13; k++) {
+                if (at_hist[k] < at_min) at_min = at_hist[k];
+                if (at_hist[k] > at_max) at_max = at_hist[k];
+                if (vt_hist[k] < vt_min) vt_min = vt_hist[k];
+                if (vt_hist[k] > vt_max) vt_max = vt_hist[k];
+            }
+            if ((at_max - at_min) < BM_SOAK_DRIFT_C && (vt_max - vt_min) < BM_SOAK_DRIFT_C) {
+                LOG_W("[BM] Soak settled after %lus: ASIC %.1fC, Vcore %.1fC.",
+                      (unsigned long)(elapsed / 1000), at, vt);
+                break;
+            }
+        }
+        if (elapsed >= BM_SOAK_MAX_MS) {
+            LOG_W("[BM] Soak timed out after %lus; judging on the peaks reached.", BM_SOAK_MAX_MS / 1000);
+            break;
+        }
+    }
+
+    bm.in_soak = false;
+    if (!ok) return false;
+
+    // Peaks decide, not the final reading: the point is only safe if it never
+    // came within the margin of a limit while soaking.
+    if (at_limit > 0.0 && at_peak > at_limit - BM_SOAK_MARGIN_C) {
+        LOG_W("[BM] Soak failed: ASIC peak %.1fC is within %.0fC of the %.0fC limit.",
+              at_peak, BM_SOAK_MARGIN_C, at_limit);
+        return false;
+    }
+    if (vt_limit > 0.0 && vt_peak > vt_limit - BM_SOAK_MARGIN_C) {
+        LOG_W("[BM] Soak failed: Vcore peak %.1fC is within %.0fC of the %.0fC limit.",
+              vt_peak, BM_SOAK_MARGIN_C, vt_limit);
+        return false;
+    }
+
+    if (fan_need) *fan_need = bm_fan_duty_of(ctx, 0);
+    return true;
+}
+
+// Soak the best candidates, best-hashrate first, until one passes.
+static void bm_soak_run(BenchmarkCtx* ctx) {
+    // Take the fan back for the remaining rounds (the next one may still run).
+    bm_fan_renew(ctx);
+
+    char* res_str = bm_result_read_all();
+    BasicJsonDocument<PsramJsonAllocator> rdoc(32768);
+    DeserializationError rerr = deserializeJson(rdoc, res_str);
+    free(res_str);
+    if (rerr || !rdoc.is<JsonArray>()) return;
+
+    struct Cand { uint16_t freq, vcore; float avgHR; };
+    std::vector<Cand> cands;
+    for (JsonObject e : rdoc.as<JsonArray>()) {
+        if ((int)(e["q"] | 0) != 1) continue;
+        if ((int)(e["fail"] | 0) != 0) continue;
+        float hr = e["avgHR"] | 0.0f;
+        if (hr <= 0.0f) continue;
+        Cand c;
+        c.freq  = e["freq"]  | (uint16_t)0;
+        c.vcore = e["vcore"] | (uint16_t)0;
+        c.avgHR = hr;
+        if (c.freq && c.vcore) cands.push_back(c);
+    }
+    if (cands.empty()) return;
+
+    std::sort(cands.begin(), cands.end(), [](const Cand& a, const Cand& b) {
+        return a.avgHR > b.avgHR;
+    });
+    if (cands.size() > BM_SOAK_CANDIDATES) cands.resize(BM_SOAK_CANDIDATES);
+
+    LOG_W("[BM] Soaking %u candidate point(s) under the normal fan policy.", (unsigned)cands.size());
+    ctx->bm->soak_total = (uint8_t)cands.size();
+    for (size_t ci = 0; ci < cands.size(); ci++) {
+        const Cand& c = cands[ci];
+        if (*ctx->bm_mode != 1) { ctx->bm->soak_total = 0; return; }
+        ctx->bm->soak_idx = (uint8_t)(ci + 1);
+        uint16_t fan_need = 0;
+        if (bm_soak_point(ctx, c.freq, c.vcore, &fan_need)) {
+            bm_result_mark_soak(c.freq, fan_need);
+            LOG_W("[BM] Soak %u/%u PASSED: %dMHz/%dmV at %u%% fan — this is the point to apply.",
+                  (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, c.freq, c.vcore, fan_need);
+            break;   // best hashrate that survives is the one we want
+        } else {
+            LOG_W("[BM] Soak %u/%u FAILED: %dMHz/%dmV — trying the next candidate.",
+                  (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, c.freq, c.vcore);
+        }
+    }
+    ctx->bm->soak_total = 0;
+    ctx->bm->soak_idx   = 0;
+    ctx->bm->in_soak    = false;
+
+    bm_fan_acquire(ctx);   // leave the fans pinned for the finish path
+}
+
 // Select the best qualified result from NVS, apply it to Normal mode (hot, no
 // reboot) and end the sweep. Without a qualified point, keep the user's
 // pre-sweep settings instead of applying an unverified one.
 static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
     BenchmarkState& bm = *ctx->bm;
     bm.active = false;
+
+    // Verify the best candidates under the real fan policy before committing to
+    // one. A sweep picked at 100 % cooling can name a point the machine cannot
+    // sustain, which then gets stepped down minutes later.
+    bm_soak_run(ctx);
+    if (*ctx->bm_mode != 1) {   // stopped during the soak
+        bm.active = false;      // the soak re-activated the overlay — clear it here
+        bm_restore_normal_point(ctx);
+        bm_fan_release(ctx);
+        return;
+    }
 
     BmSweepConfig c;
     bm_load_config(ctx, c);
@@ -305,6 +525,7 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
         free(res_str);
         uint16_t best_freq = 0, best_vcore = 0;
         float    best_avgHR = -1.0f;
+        int      soaked = 0;
         if (!rerr && rdoc.is<JsonArray>()) {
             for (JsonObject e : rdoc.as<JsonArray>()) {
                 // Only points that passed the safety margin may be auto-applied.
@@ -314,6 +535,12 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
                 uint8_t fail = e["fail"] | (uint8_t)0;
                 int     q    = e["q"]    | 0;
                 if (fail || q != 1) continue;
+                // A point is only eligible once it has also survived the soak, i.e.
+                // held its temperature under the fan policy the user actually runs.
+                // The sweep's own numbers were taken at 100 % cooling and say
+                // nothing about whether the machine can live with the point.
+                if ((int)(e["soak"] | 0) != 1) continue;
+                soaked++;
                 float avgHR = e["avgHR"] | 0.0f;
                 if (avgHR > best_avgHR) {
                     best_avgHR = avgHR;
@@ -323,7 +550,7 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
             }
         }
         if (best_freq > 0 && best_vcore > 0) {
-            LOG_W("[BM] Best qualified result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying.",
+            LOG_W("[BM] Best soak-verified result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying.",
                   best_freq, best_vcore, best_avgHR);
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
@@ -331,8 +558,9 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
             // sweep point, so this switch is not abortable.
             bm_apply_point(ctx, best_freq, best_vcore, false);
         } else {
-            LOG_W("[BM] No qualified result (all failed, unverified, or none stored) — "
-                  "restoring pre-sweep settings rather than applying an unverified point.");
+            LOG_W("[BM] No soak-verified result (%d candidates were verified) — keeping the "
+                  "pre-sweep settings instead of applying a point that only looks good at 100%% fan.",
+                  soaked);
             bm_restore_normal_point(ctx);
         }
     }
@@ -341,6 +569,7 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
         if (_start > 0) nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, (uint32_t)time(nullptr) - _start);
     }
     LOG_W("[BM] Sweep finished (%s) — back to Normal mode without reboot.", reason);
+    bm.active = false;          // the soak re-activated the overlay — clear it here
     nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
     *ctx->bm_mode = 0;
     bm_fan_release(ctx);
