@@ -55,7 +55,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '📊 Reading results',
-        body: '• Avg HR — Measured average hashrate (GH/s)\n• Exp HR — Expected hashrate at that frequency (theoretical max)\n• Eff (J/TH) — Energy efficiency — lower is better\n• Avg Pwr — Average power draw at that operating point (W)\n• Best Efficiency row is highlighted in green; Best Hashrate in blue\n• Status — Verified (passed the safety-margin check), Over limit (stable, but a peak sat too close to a limit), Failed (protection tripped), or Legacy (measured by an older firmware, see below)\n• Use the 📋 Table / 📈 Chart tabs above the results to switch between the raw table and freq–hashrate–power / freq–efficiency curves'
+        body: '• Avg HR — Measured average hashrate (GH/s)\n• Exp HR — Expected hashrate at that frequency (theoretical max)\n• Eff (J/TH) — Energy efficiency — lower is better\n• Avg Pwr — Average power draw at that operating point (W)\n• Fan — Peak fan duty while the point was measured. Two-fan boards read "Vcore / ASIC"; single-fan boards read just ASIC. 100% means cooling was already saturated and had no headroom left for a hotter room. "--" means the result predates the field.\n• Best Efficiency row is highlighted in green; Best Hashrate in blue\n• Status — Verified (passed the safety-margin check), Over limit (stable, but a peak sat too close to a limit), Failed (protection tripped), or Legacy (measured by an older firmware, see below)\n• Use the 📋 Table / 📈 Chart tabs above the results to switch between the raw table and freq–hashrate–power / freq–efficiency curves'
       },
       {
         heading: '⚠ Legacy results',
@@ -63,7 +63,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '⚠ Notes',
-        body: '• A full sweep can take hours. Use Stop to pause and Resume to continue from where you left off.\n• Do NOT change Settings while a benchmark is running — it may corrupt sweep results.\n• Reset restores factory sweep parameters but keeps your measured results; only Clear Results deletes them.\n• Results survive a factory reset (10-second long-press).\n• Temperature readings are VRM (voltage regulator) and ASIC (chip) respectively.\n• Apply — freq and Vcore always switch immediately without rebooting; if a sweep is still active, it simply stops at its current position.'
+        body: '• A full sweep can take hours. Use Stop to pause and Resume to continue from where you left off.\n• Do NOT change Settings while a benchmark is running — it may corrupt sweep results.\n• The 🗑 button on a row deletes just that result; it does not touch the sweep configuration or the other rows.\n• Reset restores factory sweep parameters but keeps your measured results; only Clear Results deletes them all.\n• Results survive a factory reset (10-second long-press).\n• Temperature readings are VRM (voltage regulator) and ASIC (chip) respectively.\n• Apply — freq and Vcore always switch immediately without rebooting; if a sweep is still active, it simply stops at its current position.'
       }
     ]
   },

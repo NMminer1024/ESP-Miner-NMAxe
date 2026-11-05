@@ -309,6 +309,24 @@ static bool bm_r_parse_freq(const char* entry_json, uint16_t& freq) {
     return true;
 }
 
+// Remove the entry at logical position `idx` (0 = oldest) and compact the ring by
+// shifting everything after it one slot toward the head. Shared by the duplicate
+// trim in the append path and by bm_result_delete_freq().
+static void bm_r_remove_at(uint16_t start, uint16_t& cnt, uint16_t idx) {
+    for (uint16_t j = idx + 1; j < cnt; j++) {
+        char dst[12], src[12];
+        bm_r_key(dst, sizeof(dst), (start + j - 1) % BM_RESULT_MAX_ENTRIES);
+        bm_r_key(src, sizeof(src), (start + j) % BM_RESULT_MAX_ENTRIES);
+        char* mv = nvs_config_get_string(src, "");
+        if (mv) { nvs_config_set_string(dst, mv); free(mv); }
+    }
+    char last[12];
+    bm_r_key(last, sizeof(last), (start + cnt - 1) % BM_RESULT_MAX_ENTRIES);
+    nvs_config_delete_key(last);
+    cnt--;
+    nvs_config_set_u16(NVS_CONFIG_BM_R_COUNT, cnt);
+}
+
 static esp_err_t bm_result_append_ring(const char* entry_json) {
     uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
     uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
@@ -344,18 +362,7 @@ static esp_err_t bm_result_append_ring(const char* entry_json) {
             } else {
                 // Extra duplicate of the same freq — drop it and compact the
                 // ring by shifting every entry after it one slot toward oldest.
-                for (uint16_t j = i + 1; j < cnt; j++) {
-                    char dst[12], src[12];
-                    bm_r_key(dst, sizeof(dst), (start + j - 1) % BM_RESULT_MAX_ENTRIES);
-                    bm_r_key(src, sizeof(src), (start + j) % BM_RESULT_MAX_ENTRIES);
-                    char* mv = nvs_config_get_string(src, "");
-                    if (mv) { nvs_config_set_string(dst, mv); free(mv); }
-                }
-                char last[12];
-                bm_r_key(last, sizeof(last), (start + cnt - 1) % BM_RESULT_MAX_ENTRIES);
-                nvs_config_delete_key(last);
-                cnt--;
-                nvs_config_set_u16(NVS_CONFIG_BM_R_COUNT, cnt);
+                bm_r_remove_at(start, cnt, i);
                 LOG_W("[BM] Dropped duplicate freq=%u entry (%u entries remaining).", nf, cnt);
                 i--; // positions shifted left; re-check the same index
             }
@@ -456,6 +463,34 @@ void bm_result_restore_all(const char* json_array) {
         bm_result_append_ring(entry.c_str());
         pos = e + 1;
     }
+}
+
+// Delete every stored entry for one frequency. Results are keyed by frequency
+// alone, so this removes exactly the row the user asked to forget and leaves the
+// remaining entries in their original order.
+// Returns ESP_ERR_NOT_FOUND when that frequency is not stored.
+esp_err_t bm_result_delete_freq(uint16_t freq) {
+    bm_result_migrate_legacy();
+    uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
+    uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
+
+    bool removed = false;
+    for (uint16_t i = 0; i < cnt; i++) {
+        char key[12];
+        bm_r_key(key, sizeof(key), (start + i) % BM_RESULT_MAX_ENTRIES);
+        char* e = nvs_config_get_string(key, "");
+        if (!e) continue;
+        uint16_t of = 0;
+        bool match = bm_r_parse_freq(e, of) && of == freq;
+        free(e);
+        if (!match) continue;
+        bm_r_remove_at(start, cnt, i);
+        removed = true;
+        i--;   // positions shifted left; the next entry is now at this index
+    }
+    if (!removed) return ESP_ERR_NOT_FOUND;
+    LOG_W("[BM] Deleted stored result(s) for freq=%u (%u entries remaining).", freq, cnt);
+    return ESP_OK;
 }
 
 void bm_result_clear(void) {

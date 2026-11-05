@@ -653,6 +653,12 @@ export class SystemService {
     return this.httpClient.delete(`${uri}/api/benchmark/results`);
   }
 
+  // Remove one row. Results are keyed by frequency alone, so this deletes exactly
+  // that point and leaves the sweep config / other results untouched.
+  public deleteBenchmarkResult(freq: number, uri: string = ''): Observable<any> {
+    return this.httpClient.delete(`${uri}/api/benchmark/results`, { params: { freq: String(freq) } });
+  }
+
   public resetBenchmark(uri: string = ''): Observable<any> {
     return this.httpClient.post(`${uri}/api/benchmark/reset`, {});
   }

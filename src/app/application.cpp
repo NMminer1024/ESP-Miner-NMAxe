@@ -676,6 +676,7 @@ void MinerApp::_begin_miners(BootProgress& boot) {
     bctx.pwr         = &_state_power_telemetry;
     bctx.power       = _hal_power;
     bctx.temp        = &_state_temp;
+    bctx.fans        = &_state_fans;
     bctx.spec        = &_board_spec;
     bctx.init_evt    = _sync_system->init_evt;
     _ctx_benchmark = &bctx;

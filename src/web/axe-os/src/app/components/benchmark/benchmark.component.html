@@ -181,6 +181,9 @@
           <th class="bm-th bm-th-status" pTooltip="Whether this point passed the firmware's safety-margin check (peak current, adapter budget, temperature)" tooltipPosition="top">
             Status
           </th>
+          <th class="bm-th bm-th-fan" pTooltip="Peak fan duty while this point was measured. Two fans read 'Vcore / ASIC'; one fan reads just ASIC. 100% means cooling was already saturated." tooltipPosition="top">
+            Fan
+          </th>
           <th class="bm-th bm-th-action">Action</th>
         </tr>
       </thead>
@@ -206,10 +209,16 @@
             <span class="bm-badge" [ngClass]="verdictClass(r)"
                   [pTooltip]="verdictTip(r)" tooltipPosition="top">{{ verdictLabel(r) }}</span>
           </td>
+          <td class="bm-td-fan" [pTooltip]="fanTip(r)" tooltipPosition="top">{{ fanText(r) }}</td>
           <td class="bm-td-action">
             <button pButton type="button" label="Apply" icon="pi pi-check"
                     class="p-button-outlined p-button-success p-button-sm btn"
                     (click)="openApplyConfirm(r)">
+            </button>
+            <button pButton type="button" icon="pi pi-trash"
+                    class="p-button-outlined p-button-danger p-button-sm btn bm-del-btn"
+                    pTooltip="Delete this row" tooltipPosition="top"
+                    (click)="openDeleteRow(r)">
             </button>
           </td>
         </tr>
@@ -381,6 +390,36 @@
     <button pButton type="button" label="Reset" icon="pi pi-refresh"
             class="p-button-warning btn"
             (click)="confirmReset()">
+    </button>
+  </ng-template>
+</p-dialog>
+
+<!-- Delete one result row -->
+<p-dialog [(visible)]="showDeleteRowConfirm"
+          header="Delete Result?"
+          [modal]="true"
+          [style]="{width: '400px'}"
+          [draggable]="false">
+  <div class="bm-dialog-body" *ngIf="pendingDelete">
+    <i class="pi pi-trash bm-dialog-icon" style="color: var(--red-400)"></i>
+    <p>Remove this result from the device?</p>
+    <div class="bm-apply-params">
+      <span>Frequency: <strong>{{ pendingDelete.freq }} MHz</strong></span>
+      <span>Vcore: <strong>{{ pendingDelete.vcore }} mV</strong></span>
+      <span>Avg HR: <strong>{{ pendingDelete.avgHR | number:'1.1-1' }} GH/s</strong></span>
+    </div>
+    <p style="color: var(--text-color-secondary); font-size: 0.875rem">
+      Only this row is removed. The sweep configuration and every other result stay as they are.
+    </p>
+  </div>
+  <ng-template pTemplate="footer">
+    <button pButton type="button" label="Cancel" icon="pi pi-times"
+            class="p-button-outlined p-button-secondary btn"
+            (click)="showDeleteRowConfirm = false">
+    </button>
+    <button pButton type="button" label="Delete" icon="pi pi-trash"
+            class="p-button-danger btn"
+            (click)="confirmDeleteRow()">
     </button>
   </ng-template>
 </p-dialog>

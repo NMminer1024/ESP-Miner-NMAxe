@@ -1614,9 +1614,39 @@ void post_benchmark_stop(AsyncWebServerRequest* request){
     request->send(response);
 }
 
-// DELETE /api/benchmark/results
-// Clears sweep results AND resets all config params so defaults revert to board values.
+// DELETE /api/benchmark/results[?freq=NNN]
+//
+// Without a parameter: clears ALL results and resets the sweep configuration so
+// the defaults revert to the board values (the historical behaviour).
+//
+// With ?freq=NNN: removes just that frequency's row. Results are keyed by
+// frequency alone, so one row is exactly one entry — the sweep config, the
+// progress checkpoint and every other stored point are left untouched. This is
+// the "delete this row" button in the results table.
 void delete_benchmark_results(AsyncWebServerRequest* request){
+    if (request->hasParam("freq")) {
+        const uint16_t freq = (uint16_t)request->getParam("freq")->value().toInt();
+        if (freq == 0) {
+            request->send(400, "application/json", "{\"error\":\"invalid freq\"}");
+            return;
+        }
+        esp_err_t err = bm_result_delete_freq(freq);
+        if (err == ESP_ERR_NOT_FOUND) {
+            request->send(404, "application/json", "{\"error\":\"no result for that frequency\"}");
+            return;
+        }
+        if (err != ESP_OK) {
+            request->send(500, "application/json", "{\"error\":\"nvs delete failed\"}");
+            return;
+        }
+        LOG_W("[BM] Single result deleted via API: freq=%u", freq);
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json",
+            "{\"status\":\"ok\",\"message\":\"result deleted\"}");
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(response);
+        return;
+    }
+
     bm_result_clear();
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MIN);
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MAX);

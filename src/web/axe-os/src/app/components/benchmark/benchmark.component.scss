@@ -344,6 +344,24 @@ td.bm-val-best-eff {
 
 .bm-td-status { cursor: help; }
 
+// ── Fan duty cell ─────────────────────────────────────────────────────────────
+.bm-table thead th.bm-th-fan {
+  cursor: default;
+  &:hover { background: #2d5a27; }
+}
+
+.bm-td-fan {
+  cursor: help;
+  font-variant-numeric: tabular-nums;
+}
+
+// Delete button sits next to Apply, visually secondary so it is not hit by
+// accident on a table full of Apply buttons.
+.bm-del-btn {
+  margin-left: 4px;
+  min-width: 2rem;
+}
+
 .bm-badge {
   display: inline-block;
   padding: 1px 6px;

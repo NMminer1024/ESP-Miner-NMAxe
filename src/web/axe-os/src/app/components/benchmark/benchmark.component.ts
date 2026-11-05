@@ -19,6 +19,12 @@ export interface BenchmarkResult {
   effJTH: number;
   avgPwr: number;
   ts?: number;  // Unix timestamp (seconds)
+  // Peak fan duty (%) observed while sampling this point. ABSENT on boards
+  // without that fan and on results written before the fields existed.
+  // fanAsic  = the ASIC heatsink fan (id 0)
+  // fanVcore = the Vcore / VRM fan (id 1) — only present on two-fan models
+  fanAsic?: number;
+  fanVcore?: number;
   // Firmware-computed verdicts. ABSENT on results measured before the
   // safety-margin rule existed (older firmware, or an entry that survived an
   // upgrade). Those are legacy measurements: the numbers are real, but nothing
@@ -62,6 +68,10 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   public showClearConfirm = false;
   public showApplyConfirm = false;
   public pendingApply: BenchmarkResult | null = null;
+
+  // Per-row delete confirmation
+  public showDeleteRowConfirm = false;
+  public pendingDelete: BenchmarkResult | null = null;
 
   // Device identity for download filename
   public deviceDisplayName = 'NMAxe';
@@ -907,6 +917,60 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
         },
         error: (err: any) => {
           this.toastr.error(`Could not clear: ${err.message}`, 'Error');
+        }
+      });
+  }
+
+  // ── Fan duty column ───────────────────────────────────────────────────────
+  // Two-fan boards show "Vcore / ASIC", single-fan boards show just the ASIC
+  // value. Results measured before the field existed, and fans that never
+  // reported a duty, render as "--" so an absent reading is never mistaken for a
+  // genuine 0 %.
+  public hasTwoFans(): boolean {
+    return this.results.some(r => r.fanVcore !== undefined && r.fanVcore !== null);
+  }
+
+  public fanText(r: BenchmarkResult): string {
+    const fmt = (v?: number) => (v === undefined || v === null) ? '--' : `${v}%`;
+    const asic = fmt(r.fanAsic);
+    return this.hasTwoFans() ? `${fmt(r.fanVcore)} / ${asic}` : asic;
+  }
+
+  public fanTip(r: BenchmarkResult): string {
+    if (r.fanAsic === undefined && r.fanVcore === undefined) {
+      return 'No fan duty recorded — this result predates the field.';
+    }
+    const parts: string[] = [];
+    if (r.fanVcore !== undefined && r.fanVcore !== null) parts.push(`Vcore/VRM fan peaked at ${r.fanVcore}%`);
+    if (r.fanAsic  !== undefined && r.fanAsic  !== null) parts.push(`ASIC fan peaked at ${r.fanAsic}%`);
+    const at100 = [r.fanVcore, r.fanAsic].some(v => v !== undefined && v !== null && v >= 100);
+    return parts.join('; ') + (at100
+      ? '. Cooling was already saturated at this point — it has no headroom left for higher ambient temperatures.'
+      : '');
+  }
+
+  // ── Per-row delete ────────────────────────────────────────────────────────
+  public openDeleteRow(r: BenchmarkResult): void {
+    this.pendingDelete = r;
+    this.showDeleteRowConfirm = true;
+  }
+
+  public confirmDeleteRow(): void {
+    const r = this.pendingDelete;
+    this.showDeleteRowConfirm = false;
+    if (!r) return;
+    this.systemService.deleteBenchmarkResult(r.freq)
+      .pipe(this.loadingService.lockUIUntilComplete())
+      .subscribe({
+        next: () => {
+          // Drop it locally too: the firmware keys rows by frequency, so filtering
+          // by freq matches exactly the entry that was removed.
+          this.setResults(this.results.filter(x => x.freq !== r.freq));
+          this.toastr.success(`Deleted ${r.freq} MHz / ${r.vcore} mV.`, 'Deleted');
+          this.pendingDelete = null;
+        },
+        error: (err: any) => {
+          this.toastr.error(`Could not delete: ${err.message}`, 'Error');
         }
       });
   }

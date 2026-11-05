@@ -527,6 +527,7 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | POST   | `/api/benchmark/start`   | Start (or resume) benchmark sweep — runs in place, no reboot |
 | POST   | `/api/benchmark/stop`    | Stop benchmark; sweep aborts and the Normal-mode point is restored, no reboot |
 | DELETE | `/api/benchmark/results` | Clear results and reset all sweep config to board defaults |
+| DELETE | `/api/benchmark/results?freq=N` | Delete only that frequency's result row; sweep config and other rows untouched |
 | POST   | `/api/benchmark/reset`   | Stop sweep and reset state/config to defaults (results preserved); no reboot |
 | POST   | `/api/benchmark/apply`   | Apply a benchmark result as normal ASIC settings; always hot-switches freq+vcore immediately (a running sweep aborts in place), never reboots |
 
