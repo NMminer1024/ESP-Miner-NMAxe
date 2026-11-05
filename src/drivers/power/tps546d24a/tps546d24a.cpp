@@ -22,8 +22,40 @@
 #define TPS546D24A_VOUT_MODE_BYTE       0x17
 #define TPS546D24A_VOUT_MODE_N          (-9)
 
-TPS546D24AClass::~TPS546D24AClass(){
+// RAII guard for _bus_mtx (recursive — public methods may call other public
+// methods, e.g. set_vcore_voltage(0) -> set_vcore_status()). Take failures are
+// NOT retried: the caller gets a safe default and the 50ms power loop / next
+// API call retries. Warn is throttled so a contended bus cannot flood the log.
+class TpsBusGuard {
+public:
+    TpsBusGuard(SemaphoreHandle_t m, uint32_t timeout_ms)
+        : _m(m), _ok(m != nullptr && xSemaphoreTakeRecursive(m, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
+        if (!_ok) {
+            static uint32_t last_warn = 0;
+            uint32_t now = millis();
+            if (now - last_warn >= 1000) {
+                LOG_W("TPS546D24A bus lock busy (%ums), skipping this access", timeout_ms);
+                last_warn = now;
+            }
+        }
+    }
+    ~TpsBusGuard() { if (_ok) xSemaphoreGiveRecursive(_m); }
+    bool ok() const { return _ok; }
+private:
+    SemaphoreHandle_t _m;
+    bool _ok;
+};
+// Default 200ms: covers the longest normal holder (set_vcore_voltage ~5 txns,
+// debugPrint ~14 txns) with margin; power loop runs at 50ms so skipping one
+// round on timeout is harmless. NEVER use portMAX_DELAY here.
+#define TPS_BUS_LOCK(timeout_ms)  TpsBusGuard _bus_guard(this->_bus_mtx, (timeout_ms))
+#define TPS_BUS_LOCK_DEFAULT()    TPS_BUS_LOCK(200)
 
+TPS546D24AClass::~TPS546D24AClass(){
+    if (this->_bus_mtx) {
+        vSemaphoreDelete(this->_bus_mtx);
+        this->_bus_mtx = nullptr;
+    }
 }
 
 uint8_t TPS546D24AClass::_read_reg(uint8_t regaddr, uint8_t *data, uint8_t length) {
@@ -109,7 +141,13 @@ void TPS546D24AClass::_write_byte(uint8_t regaddr, uint8_t data) {
 
 void TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
     esp_err_t ret = ESP_FAIL;
-    for (uint8_t attempt = 0; attempt < 2; attempt++) {
+    // 3 attempts with escalating backoff. A chip-busy NACK clears within tens of ms, so the
+    // 100ms third attempt distinguishes timing (would succeed) from a semantic reject
+    // (INVDATA — still fails). Measured: delay(10)/delay(50) after VOUT_COMMAND did NOT
+    // clear the OV/UV limit-write rejections, and STATUS_CML=0x40 (INVDATA) pointed at the
+    // value, not the bus.
+    const uint16_t backoff_ms[3] = {0, 10, 100};
+    for (uint8_t attempt = 0; attempt < 3; attempt++) {
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (this->_i2c_addr << 1) | I2C_MASTER_WRITE, ACK_CHECK_EN);
@@ -122,9 +160,24 @@ void TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
         i2c_cmd_link_delete(cmd);
 
         if (ret == ESP_OK) return;
-        if (attempt == 0) delay(10); // 2ms was proven insufficient: OV/UV limit writes right after VOUT_MIN/MAX failed every time even with a retry at 2ms
+        if (attempt < 2) delay(backoff_ms[attempt + 1]);
     }
-    LOG_E("TPS546D24A write word register 0x%02X failed after retry: %d", regaddr, ret);
+    // Forensics for the OV/UV limit writes: quote the chip's CURRENT VOUT_COMMAND and the
+    // value it actually holds at regaddr, plus STATUS_CML. INVDATA(0x40)+a VOUT_COMMAND that
+    // differs from what we just wrote = the chip re-based the percentage on a not-yet-settled
+    // command; INVDATA with matching command = our ratio is genuinely out of the enforced range.
+    uint8_t cml = 0;
+    this->_read_reg(PMBUS_STATUS_CML, &cml, 1);
+    uint16_t rb_cmd = 0, rb_val = 0;
+    this->_read_reg(PMBUS_VOUT_COMMAND, (uint8_t*)&rb_cmd, 2);
+    this->_read_reg(regaddr,            (uint8_t*)&rb_val, 2);
+    // Silenced to LOG_D on purpose (2026-11-05): the OV/UV limit writes fail with
+    // CML=0x40 (INVDATA) on Nexus whenever VOUT_COMMAND moves — the chip rejects the
+    // ratio-encoded values, but regulation itself is fine (VOUT_COMMAND lands, mining
+    // normal, OC/OT limits are separate registers and unaffected). Kept at debug level
+    // so the forensics (CML / cmd / held) stay available when LOG_D is enabled.
+    LOG_D("TPS546D24A write word 0x%02X=0x%04X failed: %d (CML=0x%02X cmd=%dmV held=%dmV)",
+          regaddr, data, ret, cml, this->_ulinear16_to_mv(rb_cmd), this->_ulinear16_to_mv(rb_val));
 }
 
 void TPS546D24AClass::_write_cmd(uint8_t cmd) {
@@ -245,6 +298,15 @@ uint16_t TPS546D24AClass::_ulinear16_to_mv(uint16_t raw){
 }
 
 void TPS546D24AClass::hw_init(void){
+    // Boot runs before the periodic readers exist, so this take is effectively
+    // uncontended; 1000ms covers the ID-retry delays inside in case a reader
+    // thread was already up (re-init path).
+    TPS_BUS_LOCK(1000);
+    if (!_bus_guard.ok()) {
+        LOG_E("TPS546D24A hw_init: bus lock unavailable, aborting init");
+        this->_device_ok = false;
+        return;
+    }
     if (this->_vcore_pgood_pin >= 0) {
         pinMode(this->_vcore_pgood_pin, INPUT_PULLUP);
     }
@@ -377,6 +439,8 @@ void TPS546D24AClass::hw_init(void){
 }
 
 int8_t TPS546D24AClass::detect_phase(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return -1;
     if (!this->_device_ok) return -1;
     uint16_t stack_cfg = 0;
     if (this->_read_reg(PMBUS_MFR_SPECIFIC_28, (uint8_t*)&stack_cfg, 2) != 0) return -1;
@@ -385,6 +449,8 @@ int8_t TPS546D24AClass::detect_phase(void){
 }
 
 bool TPS546D24AClass::is_vcore_ready(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return false;   // "not ready yet" — boot loop just retries
     if (this->_vcore_pgood_pin >= 0) {
         if (digitalRead(this->_vcore_pgood_pin) == HIGH) {
             delay(1);
@@ -415,6 +481,8 @@ void TPS546D24AClass::set_pll_0v8(power_state_t state){
 }
 
 void TPS546D24AClass::set_vcore_status(power_state_t state){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return;        // caller (protection loop / API) retries
     if(-1 != this->_asic_pwr_en_pins.pwr_vcore) {
         digitalWrite(this->_asic_pwr_en_pins.pwr_vcore, (state == PWR_OFF) ? LOW : HIGH);
     }
@@ -428,6 +496,9 @@ void TPS546D24AClass::set_vcore_status(power_state_t state){
 }
 
 void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
+    // Recursive take: the req_mv==0 path re-enters via set_vcore_status().
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return;
     if(req_mv == 0) {
         this->set_vcore_status(PWR_OFF);
         return;
@@ -439,6 +510,13 @@ void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
     uint16_t rail_mv = (uint16_t)(per_die_mv * this->_vcore_series_count);
     uint16_t raw = this->_mv_to_ulinear16(rail_mv);
     this->_write_word(PMBUS_VOUT_COMMAND, raw);
+    delay(50); // chip-busy window after a VOUT_COMMAND change (same class as the OPERATION /
+               // VOUT_MIN-MAX precedents in hw_init()). Measured on Nexus (v3.2.02d, 2026-11-05):
+               // without any delay the four OV/UV limit writes below NACK 100% of the time right
+               // after a VOUT_COMMAND change (BM hot-switch and first post-boot regulation both
+               // reproduced it; the bus lock ruled out task interleaving — "bus lock busy" = 0).
+               // delay(10) was NOT enough (still 100% fail) — loop re-settle after a commanded
+               // voltage move is longer than the command-processing window seen in hw_init.
     // OV/UV limits must track the commanded rail — a static window based on vout_min/max_mv
     // gets silently clamped by the chip (see hw_init() comment) instead of NACKing.
     this->_write_vout_limit_ratios(rail_mv);
@@ -519,6 +597,8 @@ uint32_t TPS546D24AClass::get_ibus(void){
 }
 
 uint32_t TPS546D24AClass::get_vcore(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return 0;      // same value as the existing I2C-failure path
     // ADC path (commented out for rollback):
     //   uint32_t vadc     = this->get_vcore_adc();
     //   uint32_t vcore_mv = (uint32_t)(vadc * GAIN_VCORE_SAMPLE);
@@ -537,6 +617,8 @@ uint32_t TPS546D24AClass::get_vcore(void){
 }
 
 float TPS546D24AClass::get_temperature(void) {
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return NAN;
     if (!this->_device_ok) return NAN;
     uint8_t data[2] = {0, 0};
     if (_read_reg(PMBUS_READ_TEMPERATURE_1, data, 2) != 0) return NAN;
@@ -545,6 +627,8 @@ float TPS546D24AClass::get_temperature(void) {
 }
 
 bool TPS546D24AClass::is_oc_fault(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return false;  // safe: OC_FAULT is sticky, next 50ms poll sees it
     if (!this->_device_ok) return false;
     uint8_t status_iout = 0;
     this->_read_reg(PMBUS_STATUS_IOUT, &status_iout, 1);
@@ -552,6 +636,8 @@ bool TPS546D24AClass::is_oc_fault(void){
 }
 
 bool TPS546D24AClass::is_oc_warn(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return false;  // sticky bit — see is_oc_fault()
     if (!this->_device_ok) return false;
     uint8_t status_iout = 0;
     this->_read_reg(PMBUS_STATUS_IOUT, &status_iout, 1);
@@ -559,6 +645,8 @@ bool TPS546D24AClass::is_oc_warn(void){
 }
 
 bool TPS546D24AClass::is_ot_fault(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return false;  // sticky bit — see is_oc_fault()
     if (!this->_device_ok) return false;
     uint8_t status_temp = 0;
     this->_read_reg(PMBUS_STATUS_TEMPERATURE, &status_temp, 1);
@@ -566,6 +654,8 @@ bool TPS546D24AClass::is_ot_fault(void){
 }
 
 bool TPS546D24AClass::is_ot_warn(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return false;  // sticky bit — see is_oc_fault()
     if (!this->_device_ok) return false;
     uint8_t status_temp = 0;
     this->_read_reg(PMBUS_STATUS_TEMPERATURE, &status_temp, 1);
@@ -573,11 +663,15 @@ bool TPS546D24AClass::is_ot_warn(void){
 }
 
 void TPS546D24AClass::clear_faults(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return;
     if (!this->_device_ok) return;
     this->_write_cmd(PMBUS_CLEAR_FAULTS);
 }
 
 float TPS546D24AClass::get_iout_amps(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return NAN;
     if (!this->_device_ok) return NAN;
     uint16_t raw = 0;
     this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
@@ -585,13 +679,14 @@ float TPS546D24AClass::get_iout_amps(void){
 }
 
 int8_t TPS546D24AClass::read_phase_iout_amps(uint8_t phase_idx, float *out){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return -1;
     if (!this->_device_ok || !out) return -1;
     // PHASE (0x04) selects which device in the BCX stack answers the NEXT PMBus
     // read. hw_init leaves it at 0xFF (whole stack); switch to the phase, read
     // READ_IOUT, then restore 0xFF so every other reader keeps seeing the total.
-    // NOTE: three separate transactions — a concurrent task could slip a read in
-    // between and get the wrong phase. Acceptable for rare trip-forensics dumps
-    // only; power_loop is the sole periodic I2C reader and it is the caller here.
+    // The three-transaction sequence (PHASE / READ_IOUT / PHASE) is atomic under
+    // _bus_mtx — no concurrent reader can slip in between and see the wrong phase.
     this->_write_byte(PMBUS_PHASE, phase_idx);
     uint16_t raw = 0;
     int8_t rc = (int8_t)this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
@@ -608,7 +703,8 @@ float TPS546D24AClass::get_oc_limit_amps(void){
     // produced log lines that read as a contradiction:
     //   "Overcurrent FAULT detected! IOUT=64.12A limit=71.0A"
     // A fault line must quote the threshold that actually tripped.
-    if (this->_device_ok) {
+    TPS_BUS_LOCK_DEFAULT();
+    if (_bus_guard.ok() && this->_device_ok) {
         uint16_t raw = 0;
         if (this->_read_reg(PMBUS_IOUT_OC_FAULT_LIMIT, (uint8_t*)&raw, 2) == 0) {
             float limit = this->_slinear11_to_float(raw);
@@ -621,7 +717,8 @@ float TPS546D24AClass::get_oc_limit_amps(void){
 float TPS546D24AClass::get_oc_warn_limit(void){
     // The chip's own OC_WARN threshold (PHASE=0xFF total). hw_threads compares the
     // live READ_IOUT against this to label a warning LIVE vs a stale latched bit.
-    if (this->_device_ok) {
+    TPS_BUS_LOCK_DEFAULT();
+    if (_bus_guard.ok() && this->_device_ok) {
         uint16_t raw = 0;
         if (this->_read_reg(PMBUS_IOUT_OC_WARN_LIMIT, (uint8_t*)&raw, 2) == 0) {
             float limit = this->_slinear11_to_float(raw);
@@ -632,7 +729,8 @@ float TPS546D24AClass::get_oc_warn_limit(void){
 }
 
 float TPS546D24AClass::get_ot_warn_limit_celsius(void){
-    if (this->_device_ok) {
+    TPS_BUS_LOCK_DEFAULT();
+    if (_bus_guard.ok() && this->_device_ok) {
         uint16_t raw = 0;
         if (this->_read_reg(PMBUS_OT_WARN_LIMIT, (uint8_t*)&raw, 2) == 0) {
             float limit = this->_slinear11_to_float(raw);
@@ -644,7 +742,8 @@ float TPS546D24AClass::get_ot_warn_limit_celsius(void){
 
 float TPS546D24AClass::get_ot_limit_celsius(void){
     // Same reasoning as get_oc_limit_amps(): quote the chip's OT_FAULT_LIMIT.
-    if (this->_device_ok) {
+    TPS_BUS_LOCK_DEFAULT();
+    if (_bus_guard.ok() && this->_device_ok) {
         uint16_t raw = 0;
         if (this->_read_reg(PMBUS_OT_FAULT_LIMIT, (uint8_t*)&raw, 2) == 0) {
             float limit = this->_slinear11_to_float(raw);
@@ -655,6 +754,8 @@ float TPS546D24AClass::get_ot_limit_celsius(void){
 }
 
 void TPS546D24AClass::debugPrint(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return;
     uint16_t raw = 0;
 
     this->_read_reg(PMBUS_READ_IOUT, (uint8_t*)&raw, 2);
@@ -730,6 +831,8 @@ void TPS546D24AClass::debugPrint(void){
 }
 
 void TPS546D24AClass::dump(void) {
+    TPS_BUS_LOCK(500);   // ~30 transactions, longer than the default window
+    if (!_bus_guard.ok()) return;
     uint16_t raw16 = 0;
     uint8_t  raw8  = 0;
 

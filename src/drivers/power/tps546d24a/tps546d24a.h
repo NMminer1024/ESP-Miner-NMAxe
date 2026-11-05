@@ -1,6 +1,8 @@
 #ifndef __TPS546D24A_H__
 #define __TPS546D24A_H__
 #include <Arduino.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "drivers/power/power_hal.h"
 
 /* Standard PMBus commands used by the TPS546D24A (ZHCSMI5A) */
@@ -110,6 +112,15 @@ private:
     uint16_t      _vcore_max_mv;             // Vcore range max in mV (per-die), ASIC-related
     uint8_t       _vcore_series_count;       // ASIC dies stacked in series on Vcore (1 = single/parallel)
     tps546d24a_cfg_t _cfg;
+    // Sequence-level lock for every multi-transaction PMBus access (set_vcore_voltage
+    // writes VOUT_COMMAND + 4 OV/UV limits as one logical unit; BM thread, power loop
+    // and the web task all call it concurrently — the legacy I2C driver only makes a
+    // SINGLE transaction atomic, not the sequence).
+    // RECURSIVE mutex: set_vcore_voltage(0) calls set_vcore_status() internally; a
+    // plain mutex would self-deadlock there. Has priority inheritance (unlike a binary
+    // semaphore). LEAF-LOCK RULE: while held, never take any other lock (web state
+    // mutex, NVS, event groups) — keeps the lock-wait graph acyclic by construction.
+    SemaphoreHandle_t _bus_mtx;
     uint8_t  _read_reg(uint8_t regaddr, uint8_t *data, uint8_t length);
     uint8_t  _read_block(uint8_t regaddr, uint8_t *data, uint8_t data_length); // SMBus block read: consumes the leading byte-count byte, returns it (0xFF on I2C error)
     void     _write_byte(uint8_t regaddr, uint8_t data);
@@ -129,6 +140,7 @@ public:
         this->_device_ok       = false;
         this->_vcore_pgood_pin = (int8_t)pgood;
         this->_vcore_series_count = (cfg.vcore_series_count >= 1) ? cfg.vcore_series_count : 1;
+        this->_bus_mtx = xSemaphoreCreateRecursiveMutex();
     }
     ~TPS546D24AClass();
     /** Implementations of pure virtual functions from AxePowerHal */
