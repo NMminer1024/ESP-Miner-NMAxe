@@ -96,6 +96,13 @@ public:
     // work_baudrate: operational baudrate (e.g. 1M), switched to after init completes.
     bool begin(uint16_t freq, uint16_t diff, uint32_t init_baudrate, uint32_t work_baudrate);
     bool request_asic_frequency(uint16_t target_freq);
+    // Queue a frequency change AND wait for the PLL to reach it. Callers that
+    // must lower Vcore together with the frequency need this: the rail may only
+    // come down once the ASIC is no longer hashing at the old (higher)
+    // frequency, otherwise the chip runs under-volted for the whole queue +
+    // PLL-switch window. Returns true when the ASIC reports target_freq, false
+    // on timeout / rejection / miner not ready.
+    bool request_and_await_asic_frequency(uint16_t target_freq, uint32_t timeout_ms = 5000);
     bool apply_pending_asic_frequency();
     bool is_asic_frequency_updating();
     bool is_asic_frequency_update_pending();

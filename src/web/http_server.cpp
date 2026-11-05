@@ -658,33 +658,66 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
         // Track whether the operating point actually moved: only then does it make
         // sense to discard latched status bits.
         bool op_point_changed = false;
-        if (root.containsKey("asicVcoreReq")) {
-            uint16_t req_mv = root["asicVcoreReq"].as<uint16_t>();
+        // Resolve both requested values (and their clamps) BEFORE touching
+        // hardware, so the pair can be applied in a direction-safe order:
+        // when the frequency goes DOWN the PLL must settle first, otherwise the
+        // rail drops while the ASIC still hashes at the old higher frequency
+        // (under-volted high-frequency run — same hazard as the benchmark
+        // start path). When the frequency goes UP, the rail moves first.
+        bool    vcore_req = root.containsKey("asicVcoreReq");
+        bool    freq_req  = root.containsKey("asicFreqReq");
+        uint16_t req_mv   = 0;
+        uint16_t req_mhz  = 0;
+        if (vcore_req) {
+            req_mv = root["asicVcoreReq"].as<uint16_t>();
             // Clamp to the user-facing range (vc list max); asic.max_vcore is regulator
             // headroom for the power loop's line-loss PID, not a user-settable target.
             const uint16_t vc_min = g_web->spec->asic.min_vcore;
             const uint16_t vc_max = g_web->spec->user_vcore_max();
             if (vc_min > 0 && req_mv < vc_min) req_mv = vc_min;
             if (vc_max > 0 && req_mv > vc_max) req_mv = vc_max;
-            if (req_mv != g_web->spec->asic.req_vcore) op_point_changed = true;
-            g_web->spec->asic.req_vcore = req_mv;
-            g_web->power->set_vcore_voltage(req_mv);
-            nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, req_mv);
         }
-        if (root.containsKey("asicFreqReq")) {
-            uint16_t req_mhz = root["asicFreqReq"].as<uint16_t>();
+        if (freq_req) {
+            req_mhz = root["asicFreqReq"].as<uint16_t>();
             // Clamp to the selectable OC list range (first..last entry).
             const auto& oc_opts = g_web->spec->ui.setting_page.oc;
             if (!oc_opts.empty()) {
                 if (req_mhz < oc_opts.front().value) req_mhz = oc_opts.front().value;
                 if (req_mhz > oc_opts.back().value)  req_mhz = oc_opts.back().value;
             }
-            if (g_web->miner != nullptr && !g_web->miner->request_asic_frequency(req_mhz)) {
-                LOG_W("ASIC frequency hot-switch request failed to queue: %uMHz", req_mhz);
+        }
+
+        auto apply_vcore_req = [&]() {
+            if (!vcore_req) return;
+            if (req_mv != g_web->spec->asic.req_vcore) op_point_changed = true;
+            g_web->spec->asic.req_vcore = req_mv;
+            g_web->power->set_vcore_voltage(req_mv);
+            nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, req_mv);
+        };
+        auto apply_freq_req = [&](bool await_pll) {
+            if (!freq_req) return;
+            bool ok;
+            if (await_pll && g_web->miner != nullptr) {
+                ok = g_web->miner->request_and_await_asic_frequency(req_mhz);
+            } else {
+                ok = g_web->miner != nullptr && g_web->miner->request_asic_frequency(req_mhz);
+            }
+            if (!ok) {
+                LOG_W("ASIC frequency hot-switch %s failed: %uMHz", await_pll ? "down-switch" : "request", req_mhz);
             }
             if (req_mhz != g_web->spec->asic.req_frq) op_point_changed = true;
             g_web->spec->asic.req_frq = req_mhz;
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, req_mhz);
+        };
+
+        const uint16_t cur_freq_hw = g_web->miner ? g_web->miner->get_asic_frequency_current() : 0;
+        if (vcore_req && freq_req && cur_freq_hw != 0 && req_mhz < cur_freq_hw) {
+            // Down-shift: PLL first (awaited), rail second.
+            apply_freq_req(true);
+            apply_vcore_req();
+        } else {
+            apply_vcore_req();
+            apply_freq_req(false);
         }
         // Discard latched STATUS_IOUT / STATUS_TEMPERATURE bits after the operating
         // point moves, so a WARN that fired at the old (hotter/faster) pair stops
@@ -1809,13 +1842,26 @@ void post_benchmark_apply(AsyncWebServerRequest* request, uint8_t *data, size_t 
         nvs_config_set_u8 (NVS_CONFIG_BM_MODE, 0);
         const bool was_bm = ((*g_web->bm_mode) != 0);
         *g_web->bm_mode = 0;
-        // Hot-switch freq+vcore immediately (vcore first — voltage must be
-        // stable before the PLL change).
-        g_web->spec->asic.req_vcore = vcore;
-        if (g_web->power  != nullptr) g_web->power->set_vcore_voltage(vcore);
-        g_web->spec->asic.req_frq = freq;
-        if (g_web->miner  != nullptr && !g_web->miner->request_asic_frequency(freq)) {
-            LOG_W("[BM] Apply (hot): freq hot-switch request failed to queue: %uMHz", freq);
+        // Direction-dependent hot-switch order (same rule as bm_apply_point):
+        // the ASIC must never hash at a frequency the rail cannot support.
+        //   freq down -> PLL down first (awaited), THEN lower the rail.
+        //   freq up   -> raise the rail first so it supports the new frequency.
+        const uint16_t cur_freq_hw = g_web->miner ? g_web->miner->get_asic_frequency_current() : 0;
+        if (cur_freq_hw != 0 && freq < cur_freq_hw) {
+            g_web->spec->asic.req_frq = freq;
+            if (g_web->miner != nullptr &&
+                !g_web->miner->request_and_await_asic_frequency(freq)) {
+                LOG_W("[BM] Apply (hot): freq down-switch did not settle before Vcore move: %uMHz", freq);
+            }
+            g_web->spec->asic.req_vcore = vcore;
+            if (g_web->power  != nullptr) g_web->power->set_vcore_voltage(vcore);
+        } else {
+            g_web->spec->asic.req_vcore = vcore;
+            if (g_web->power  != nullptr) g_web->power->set_vcore_voltage(vcore);
+            g_web->spec->asic.req_frq = freq;
+            if (g_web->miner  != nullptr && !g_web->miner->request_asic_frequency(freq)) {
+                LOG_W("[BM] Apply (hot): freq hot-switch request failed to queue: %uMHz", freq);
+            }
         }
         LOG_W("[BM] Apply via API (hot): freq=%dMHz vcore=%dmV — active immediately%s",
               freq, vcore, was_bm ? ", BM sweep aborted" : "");

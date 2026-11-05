@@ -125,9 +125,10 @@ static void bm_load_config(BenchmarkCtx* ctx, BmSweepConfig& c) {
     if (c.vcore_max < c.vcore_min) c.vcore_max = c.vcore_min;
 }
 
-// Hot-switch the operating point. Vcore moves first (the rail must be at
-// target before the PLL changes — same order as the web/apply hot path), then
-// the frequency request is queued for the mining thread and awaited.
+// Hot-switch the operating point. The two rails are moved in a
+// DIRECTION-DEPENDENT order so the ASIC is never left running at a frequency the
+// Vcore rail cannot support (the V/F curve is monotonic: a higher frequency needs
+// a higher voltage). See the body for the rule.
 // spec.asic.req_frq is synced BEFORE the request so the warmup logic cannot
 // re-request the previous frequency in between.
 // Returns false when the frequency could not be queued or the PLL did not
@@ -140,62 +141,100 @@ static void bm_load_config(BenchmarkCtx* ctx, BmSweepConfig& c) {
 static bool bm_apply_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, bool abortable = true) {
     BoardSpecConfig* spec = ctx->spec;
     const bool watch = abortable && ctx->bm_mode != nullptr;
+    if (!ctx->miner) return false;
 
-    if (spec && spec->asic.req_vcore != vcore) {
+    // Ordering rule, keyed on the FREQUENCY direction (the frequency is what the
+    // rail must support, so it is the safe axis to branch on):
+    //   * raising / holding frequency -> move the (higher) voltage FIRST, so the
+    //     rail already supports the new frequency when the PLL switches. The
+    //     intermediate (old_freq, new_higher_vcore) pair is over-volted but safe.
+    //   * lowering frequency          -> switch the PLL DOWN first, then lower the
+    //     rail. The intermediate (new_lower_freq, old_vcore) pair is over-volted
+    //     but safe.
+    // The bug this fixes: the old code always moved voltage first. A sweep that
+    // starts from a high Normal-mode point (e.g. 600 MHz / ~1150 mV) and drops to
+    // freq_min/vcore_min therefore pulled the rail down to 950 mV while the ASIC
+    // was still hashing at 600 MHz, then waited for the PLL — an under-volted
+    // high-frequency run for ~5 s (observed on Nexus as a 600 MHz / 950 mV sample
+    // before settling to 325).
+    const uint16_t cur_freq = ctx->miner->get_asic_frequency_current();
+    const bool freq_down = (cur_freq != 0) && (freq < cur_freq);
+
+    // Move the Vcore rail, with the 1.5 s slew + first power-loop correction pass
+    // sliced so an API stop is not blocked behind the voltage move. No-op when the
+    // rail is already at target. Returns false only if aborted mid-move.
+    auto apply_vcore = [&]() -> bool {
+        if (!spec || spec->asic.req_vcore == vcore) return true;
         spec->asic.req_vcore = vcore;
         if (ctx->power) ctx->power->set_vcore_voltage(vcore);
-        // 1.5s rail slew + first power-loop correction pass, in slices so an API
-        // stop is not blocked behind the voltage move.
         for (int i = 0; i < 15; i++) {
             if (watch && *ctx->bm_mode != 1) return false;
             delay(100);
         }
-    }
+        return !(watch && *ctx->bm_mode != 1);
+    };
 
-    if (!ctx->miner) return false;
-    // "Already there" is only true when nothing else is queued: an aborted
-    // switch can leave a pending request pointing at the sweep point while the
-    // PLL still reports the previous frequency, and taking the fast path here
-    // would let that stale target be applied *after* we claim to be done.
-    if (ctx->miner->get_asic_frequency_current() == freq &&
-        !ctx->miner->is_asic_frequency_update_pending()) {
+    // Queue the frequency request and await the PLL. Returns false on a rejected
+    // or timed-out switch (caller treats the round as unstable).
+    auto apply_freq = [&]() -> bool {
+        // "Already there" is only true when nothing else is queued: an aborted
+        // switch can leave a pending request pointing at the sweep point while the
+        // PLL still reports the previous frequency, and taking the fast path here
+        // would let that stale target be applied *after* we claim to be done.
+        if (ctx->miner->get_asic_frequency_current() == freq &&
+            !ctx->miner->is_asic_frequency_update_pending()) {
+            if (spec) spec->asic.req_frq = freq;
+            return true;
+        }
         if (spec) spec->asic.req_frq = freq;
-        return true;
-    }
-    if (spec) spec->asic.req_frq = freq;
 
-    bool queued = false;
-    for (int attempt = 0; attempt < 5 && !queued; attempt++) {
-        if (watch && *ctx->bm_mode != 1) return false;
-        queued = ctx->miner->request_asic_frequency(freq);
-        if (!queued) delay(200);
-    }
-    if (!queued) {
-        LOG_E("[BM] Frequency request %uMHz could not be queued", freq);
-        return false;
-    }
-    const uint32_t t0 = millis();
-    while (true) {
-        if (watch && *ctx->bm_mode != 1) return false;
-        if (!ctx->miner->is_asic_frequency_updating() &&
-            ctx->miner->get_asic_frequency_current() == freq) return true;
-        // Fast-fail: the request was consumed (no longer pending), the applier
-        // is idle, and the current freq still isn't the target — the PLL
-        // rejected it (e.g. off the 6.25MHz grid). No point waiting longer.
-        if (!ctx->miner->is_asic_frequency_update_pending() &&
-            !ctx->miner->is_asic_frequency_updating() &&
-            ctx->miner->get_asic_frequency_current() != freq &&
-            millis() - t0 > 3000) {   // grace: let the mining thread pick it up first
-            LOG_E("[BM] PLL rejected %uMHz (still %uMHz) — skipping point",
-                  freq, ctx->miner->get_asic_frequency_current());
+        bool queued = false;
+        for (int attempt = 0; attempt < 5 && !queued; attempt++) {
+            if (watch && *ctx->bm_mode != 1) return false;
+            queued = ctx->miner->request_asic_frequency(freq);
+            if (!queued) delay(200);
+        }
+        if (!queued) {
+            LOG_E("[BM] Frequency request %uMHz could not be queued", freq);
             return false;
         }
-        if (millis() - t0 > 15000) {
-            LOG_E("[BM] PLL did not reach %uMHz within 15s (still %uMHz)",
-                  freq, ctx->miner->get_asic_frequency_current());
-            return false;
+        const uint32_t t0 = millis();
+        while (true) {
+            if (watch && *ctx->bm_mode != 1) return false;
+            if (!ctx->miner->is_asic_frequency_updating() &&
+                ctx->miner->get_asic_frequency_current() == freq) return true;
+            // Fast-fail: the request was consumed (no longer pending), the applier
+            // is idle, and the current freq still isn't the target — the PLL
+            // rejected it (e.g. off the 6.25MHz grid). No point waiting longer.
+            if (!ctx->miner->is_asic_frequency_update_pending() &&
+                !ctx->miner->is_asic_frequency_updating() &&
+                ctx->miner->get_asic_frequency_current() != freq &&
+                millis() - t0 > 3000) {   // grace: let the mining thread pick it up first
+                LOG_E("[BM] PLL rejected %uMHz (still %uMHz) — skipping point",
+                      freq, ctx->miner->get_asic_frequency_current());
+                return false;
+            }
+            if (millis() - t0 > 15000) {
+                LOG_E("[BM] PLL did not reach %uMHz within 15s (still %uMHz)",
+                      freq, ctx->miner->get_asic_frequency_current());
+                return false;
+            }
+            delay(250);
         }
-        delay(250);
+    };
+
+    if (freq_down) {
+        // Step down: drop the frequency first. If the PLL switch fails we return
+        // WITHOUT touching the rail — the ASIC is still at the old (higher)
+        // frequency, and lowering the rail there is exactly the hazard being
+        // avoided, so it stays at its current (safe) value.
+        if (!apply_freq()) return false;
+        return apply_vcore();
+    } else {
+        // Step up (or hold): raise the rail first so it supports the new frequency
+        // before the PLL moves.
+        if (!apply_vcore()) return false;
+        return apply_freq();
     }
 }
 

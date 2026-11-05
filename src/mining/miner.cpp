@@ -122,6 +122,49 @@ bool AsicMinerClass::request_asic_frequency(uint16_t target_freq){
     return true;
 }
 
+bool AsicMinerClass::request_and_await_asic_frequency(uint16_t target_freq, uint32_t timeout_ms){
+    if (target_freq == 0) return false;
+
+    // Already at target with nothing queued: nothing to wait for.
+    if (this->get_asic_frequency_current() == target_freq &&
+        !this->is_asic_frequency_update_pending()) {
+        return true;
+    }
+
+    bool queued = false;
+    for (int attempt = 0; attempt < 5 && !queued; attempt++) {
+        queued = this->request_asic_frequency(target_freq);
+        if (!queued) delay(200);
+    }
+    if (!queued) {
+        LOG_E("Frequency request %uMHz could not be queued", target_freq);
+        return false;
+    }
+
+    const uint32_t t0 = millis();
+    while (true) {
+        if (!this->is_asic_frequency_updating() &&
+            this->get_asic_frequency_current() == target_freq) {
+            return true;
+        }
+        // Fast-fail: request consumed, applier idle, still not at target — the
+        // PLL rejected it (e.g. off the 6.25MHz grid).
+        if (!this->is_asic_frequency_update_pending() &&
+            !this->is_asic_frequency_updating() &&
+            this->get_asic_frequency_current() != target_freq &&
+            millis() - t0 > 3000) {
+            LOG_E("PLL rejected %uMHz (still %uMHz)", target_freq, this->get_asic_frequency_current());
+            return false;
+        }
+        if (millis() - t0 > timeout_ms) {
+            LOG_E("PLL did not reach %uMHz within %lums (still %uMHz)",
+                  target_freq, (unsigned long)timeout_ms, this->get_asic_frequency_current());
+            return false;
+        }
+        delay(250);
+    }
+}
+
 bool AsicMinerClass::apply_pending_asic_frequency(){
     if (this->_asic == NULL || !this->_asic_ready) return false;
 

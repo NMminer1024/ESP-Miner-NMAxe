@@ -205,24 +205,50 @@ void PageSettingBase::_save_settings() {
     bool flip_changed = (app.pref().screen.flip != flip);
     nvs_config_set_u8(NVS_CONFIG_FLIP_SCREEN, flip ? 1 : 0);
 
+    // Direction-dependent order (same rule as bm_apply_point / the web PATCH):
+    // resolve both dropdowns first, then apply so the ASIC never hashes at a
+    // frequency the rail cannot support. Freq down -> PLL first (awaited), rail
+    // second; freq up -> rail first.
+    uint16_t new_vcore = 0, new_freq = 0;
     if (_dropdown_vcore) {
         char vcore_buf[32] = "";
         lv_dropdown_get_selected_str(_dropdown_vcore, vcore_buf, sizeof(vcore_buf));
-        uint16_t vcore = (uint16_t)atoi(vcore_buf);
-        app.spec_mut().asic.req_vcore = vcore;
-        if (app.power()) app.power()->set_vcore_voltage(vcore);
-        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, vcore);
+        new_vcore = (uint16_t)atoi(vcore_buf);
     }
-
     if (_dropdown_freq) {
         char freq_buf[32] = "";
         lv_dropdown_get_selected_str(_dropdown_freq, freq_buf, sizeof(freq_buf));
-        uint16_t freq = (uint16_t)atoi(freq_buf);
-        app.spec_mut().asic.req_frq = freq;
-        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, freq);
-        if (app.miner() && !app.miner()->request_asic_frequency(freq)) {
-            // no-op: legacy just warned
+        new_freq = (uint16_t)atoi(freq_buf);
+    }
+
+    const uint16_t cur_freq_hw = app.miner() ? app.miner()->get_asic_frequency_current() : 0;
+    const bool freq_down = (new_freq != 0) && (cur_freq_hw != 0) && (new_freq < cur_freq_hw);
+
+    auto apply_vcore = [&]() {
+        if (!new_vcore) return;
+        app.spec_mut().asic.req_vcore = new_vcore;
+        if (app.power()) app.power()->set_vcore_voltage(new_vcore);
+        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
+    };
+    auto apply_freq = [&](bool await_pll) {
+        if (!new_freq) return;
+        app.spec_mut().asic.req_frq = new_freq;
+        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, new_freq);
+        if (app.miner()) {
+            bool ok = await_pll ? app.miner()->request_and_await_asic_frequency(new_freq)
+                                : app.miner()->request_asic_frequency(new_freq);
+            if (!ok) {
+                // no-op: legacy just warned
+            }
         }
+    };
+
+    if (freq_down && new_vcore) {
+        apply_freq(true);
+        apply_vcore();
+    } else {
+        apply_vcore();
+        apply_freq(false);
     }
 
     if (_dropdown_saver) {
