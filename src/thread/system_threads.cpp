@@ -673,33 +673,115 @@ void monitor_thread_entry(void* args) {
                     st.asic_update = millis();
                 }
 
+                // ── Over-temperature step-down ───────────────────────────────
+                // Both temperature limits share one policy, so it lives in a
+                // lambda. The old code shaved 5 mV off Vcore and left the
+                // frequency alone, which had two problems:
+                //   - it produced untested values (1175 -> 1145). A cube that is
+                //     only marginal at 1175 mV can start throwing HW errors once
+                //     the rail drops, so the "cooling" action itself made the unit
+                //     look unstable.
+                //   - the change was never persisted, so every reboot walked the
+                //     same ramp again and the reported operating point differed
+                //     from run to run.
+                // Stepping onto a MEASURED (freq, vcore) pair out of the benchmark
+                // results keeps the move on a combination the board has already
+                // survived, and it is saved so the decision sticks.
+                //
+                // The step is rate-limited: a -5 mV nudge every 2 s was a gradual
+                // ramp, but one jump lands a whole selectable step down, so the
+                // next decision has to wait for the temperature to react. Without
+                // this the unit would walk several points in 20 s.
+                constexpr uint32_t OVERHEAT_STEP_INTERVAL_MS = 30000;
+                // Counted in 2 s safety ticks: ~2 min of "already as low as we can
+                // go and still too hot" before the restart escalation.
+                constexpr uint8_t  OVERHEAT_RESTART_TICKS   = 60;
+                static uint32_t last_heat_step_ms = 0;
+
+                auto step_down_for_overheat = [&](const char* what, float reading, float limit) -> bool {
+                    // true = a step was actually applied on this tick, so the
+                    // caller can restart its escalation counter.
+                    if (last_heat_step_ms != 0 &&
+                        (uint32_t)(millis() - last_heat_step_ms) < OVERHEAT_STEP_INTERVAL_MS) {
+                        return false;   // still inside the observation window
+                    }
+
+                    const uint16_t cur_freq  = spec.asic.req_frq;
+                    const uint16_t cur_vcore = spec.asic.req_vcore;
+                    uint16_t new_freq  = cur_freq;
+                    uint16_t new_vcore = cur_vcore;
+                    const bool measured =
+                        bm_result_pick_safer_point(cur_freq, cur_vcore, &new_freq, &new_vcore);
+
+                    if (!measured) {
+                        // No qualified entry below us: fall back to one selectable
+                        // Vcore step, then to the floor. Kept as the last resort so
+                        // cooling still reacts on a board that was never benchmarked.
+                        new_freq = cur_freq;
+                        uint16_t vc_pick = 0;
+                        bool have_vc = false;
+                        for (const auto& o : spec.ui.setting_page.vc) {
+                            if (o.value < cur_vcore && (!have_vc || o.value > vc_pick)) {
+                                vc_pick = o.value;
+                                have_vc = true;
+                            }
+                        }
+                        if (have_vc)                                    new_vcore = vc_pick;
+                        else if (cur_vcore >= spec.asic.min_vcore + 5)   new_vcore = cur_vcore - 5;
+                        else                                            new_vcore = spec.asic.min_vcore;
+                    }
+
+                    if (new_freq == cur_freq && new_vcore == cur_vcore) {
+                        // Already at the lowest option — nothing left to give.
+                        return false;
+                    }
+
+                    LOG_W("%s over limit (%.1fC > %.1fC): stepping %uMHz/%umV -> %uMHz/%umV (%s).",
+                          what, (double)reading, (double)limit,
+                          (unsigned)cur_freq, (unsigned)cur_vcore,
+                          (unsigned)new_freq, (unsigned)new_vcore,
+                          measured ? "benchmark-qualified pair"
+                                   : "no qualified point below, one selectable step");
+
+                    spec.asic.req_frq   = new_freq;
+                    spec.asic.req_vcore = new_vcore;
+                    // Persist: this is a real decision, and leaving it in RAM only
+                    // means it repeats after every reboot.
+                    nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    new_freq);
+                    nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
+
+                    last_heat_step_ms = millis();
+                    return true;
+                };
+
                 // vcore temperature
                 if (ctx->temp->vcore > spec.pwr.temp_limit.high) {
-                    uint16_t vcore_req_last = spec.asic.req_vcore;
-                    uint8_t step = 5;
-                    if (spec.asic.req_vcore >= spec.asic.min_vcore + step) spec.asic.req_vcore -= step;
-                    else                                                   spec.asic.req_vcore = spec.asic.min_vcore;
-                    LOG_W("Vcore part temp reach danger (vcore: %.1fC), decrease vcore from %d to %d mV", ctx->temp->vcore, vcore_req_last, spec.asic.req_vcore);
-                    if (++vcore_err_cnt > 10) {
-                        LOG_W("Vcore part temp keep danger, restart miner...");
-                        reboot_intent_set(REBOOT_INTENT_OVERHEAT_VCORE, "Vcore=%.1fC > limit=%dC for >10s", ctx->temp->vcore, (int)spec.pwr.temp_limit.high);
+                    if (step_down_for_overheat("Vcore part temp", ctx->temp->vcore, spec.pwr.temp_limit.high)) {
+                        vcore_err_cnt = 0;   // took action; re-arm the escalation window
+                    } else if (++vcore_err_cnt > OVERHEAT_RESTART_TICKS) {
+                        LOG_W("Vcore part temp keep danger and no lower point is available, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_OVERHEAT_VCORE, "Vcore=%.1fC > limit=%dC for >120s", ctx->temp->vcore, (int)spec.pwr.temp_limit.high);
                         xSemaphoreGive(ctx->reboot_xsem);
                     }
-                } else vcore_err_cnt = 0;
+                } else { vcore_err_cnt = 0; }
 
                 // asic temperature
                 if (ctx->temp->asic > spec.asic.temp_limit.high) {
-                    uint16_t vcore_req_last = spec.asic.req_vcore;
-                    uint8_t step = 5;
-                    if (spec.asic.req_vcore >= spec.asic.min_vcore + step) spec.asic.req_vcore -= step;
-                    else                                                   spec.asic.req_vcore = spec.asic.min_vcore;
-                    LOG_W("ASIC temp reach danger (asic: %.1fC), decrease vcore from %d to %d mV", ctx->temp->asic, vcore_req_last, spec.asic.req_vcore);
-                    if (++asic_err_cnt > 10) {
-                        LOG_W("ASIC temp keep danger, restart miner...");
-                        reboot_intent_set(REBOOT_INTENT_OVERHEAT_ASIC, "ASIC=%.1fC > limit=%dC for >10s", ctx->temp->asic, (int)spec.asic.temp_limit.high);
+                    if (step_down_for_overheat("ASIC temp", ctx->temp->asic, spec.asic.temp_limit.high)) {
+                        asic_err_cnt = 0;
+                    } else if (++asic_err_cnt > OVERHEAT_RESTART_TICKS) {
+                        LOG_W("ASIC temp keep danger and no lower point is available, restart miner...");
+                        reboot_intent_set(REBOOT_INTENT_OVERHEAT_ASIC, "ASIC=%.1fC > limit=%dC for >120s", ctx->temp->asic, (int)spec.asic.temp_limit.high);
                         xSemaphoreGive(ctx->reboot_xsem);
                     }
-                } else asic_err_cnt = 0;
+                } else { asic_err_cnt = 0; }
+
+                // Both rails back in range: allow the next excursion to step down
+                // immediately instead of inheriting the previous cooldown.
+                if (ctx->temp->vcore <= spec.pwr.temp_limit.high &&
+                    ctx->temp->asic  <= spec.asic.temp_limit.high) {
+                    last_heat_step_ms = 0;
+                }
 
                 // fan status
                 if (!suppress_activity_checks && ctx->temp->asic > spec.asic.temp_limit.low) {

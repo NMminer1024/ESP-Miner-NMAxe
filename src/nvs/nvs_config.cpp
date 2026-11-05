@@ -309,6 +309,24 @@ static bool bm_r_parse_freq(const char* entry_json, uint16_t& freq) {
     return true;
 }
 
+// Lightweight field readers for a flat result object. A missing key returns -1
+// (int) / 0.0 (double) so callers can tell "absent" from a real 0.
+static long bm_r_json_int(const char* entry_json, const char* key) {
+    const char* p = strstr(entry_json, key);
+    if (!p) return -1;
+    p += strlen(key);
+    while (*p == ' ') p++;
+    return atol(p);
+}
+
+static double bm_r_json_double(const char* entry_json, const char* key) {
+    const char* p = strstr(entry_json, key);
+    if (!p) return 0.0;
+    p += strlen(key);
+    while (*p == ' ') p++;
+    return atof(p);
+}
+
 // Remove the entry at logical position `idx` (0 = oldest) and compact the ring by
 // shifting everything after it one slot toward the head. Shared by the duplicate
 // trim in the append path and by bm_result_delete_freq().
@@ -491,6 +509,74 @@ esp_err_t bm_result_delete_freq(uint16_t freq) {
     if (!removed) return ESP_ERR_NOT_FOUND;
     LOG_W("[BM] Deleted stored result(s) for freq=%u (%u entries remaining).", freq, cnt);
     return ESP_OK;
+}
+
+// Pick a safer operating point from the MEASURED, qualified benchmark results.
+//
+// Used by the over-temperature step-down. The old behaviour shaved 5 mV off the
+// requested Vcore while leaving the frequency alone, which has two problems:
+//   - it lands on values that were never tested (1175 -> 1145), and a cube that
+//     is only marginal at 1175 mV can start producing HW errors at 1145 mV. The
+//     unit then looks "unstable" precisely when the thermal path was trying to
+//     help.
+//   - nothing records the move, so every reboot walks the same ramp again.
+// A benchmark entry, by contrast, is a (freq, vcore) PAIR that was actually run
+// and passed the safety margin, so stepping to one is guaranteed to be a
+// combination the board has already survived.
+//
+// "Safer" = neither dimension above the current point AND at least one strictly
+// below, so the call can never pick something equal to or more aggressive than
+// where we already are. Among those, the entry with the highest measured average
+// hashrate wins: the smallest performance loss that still sheds heat.
+//
+// Returns false when no qualified entry is strictly below the current point (no
+// benchmark data, everything is legacy, or we are already at the bottom) - the
+// caller must then fall back to its own step.
+bool bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
+                                uint16_t* out_freq, uint16_t* out_vcore) {
+    if (out_freq == nullptr || out_vcore == nullptr) return false;
+    bm_result_migrate_legacy();
+
+    const uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
+    const uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
+
+    bool     found  = false;
+    uint16_t best_f = 0, best_v = 0;
+    double   best_hr = -1.0;
+
+    for (uint16_t i = 0; i < cnt; i++) {
+        char key[12];
+        bm_r_key(key, sizeof(key), (start + i) % BM_RESULT_MAX_ENTRIES);
+        char* e = nvs_config_get_string(key, "");
+        if (!e) continue;
+
+        // Only points that finished a real measurement AND passed the margin.
+        // A tombstone (fail=1) has avgHR=0 and must never be selected, and a
+        // legacy entry has no "q" at all - bm_r_json_int reports -1 for absent,
+        // so the == 1 test rejects those without a special case.
+        const long q      = bm_r_json_int(e, "\"q\":");
+        const long fail   = bm_r_json_int(e, "\"fail\":");
+        const long f      = bm_r_json_int(e, "\"freq\":");
+        const long v      = bm_r_json_int(e, "\"vcore\":");
+        const double hr   = bm_r_json_double(e, "\"avgHR\":");
+        free(e);
+
+        if (q != 1 || fail != 0) continue;
+        if (f <= 0 || v <= 0 || hr <= 0.0) continue;
+        if (f > (long)cur_freq || v > (long)cur_vcore) continue;      // not safer
+        if (f == (long)cur_freq && v == (long)cur_vcore) continue;    // current point
+        if (hr > best_hr) {
+            best_hr = hr;
+            best_f  = (uint16_t)f;
+            best_v  = (uint16_t)v;
+            found   = true;
+        }
+    }
+
+    if (!found) return false;
+    *out_freq  = best_f;
+    *out_vcore = best_v;
+    return true;
 }
 
 void bm_result_clear(void) {

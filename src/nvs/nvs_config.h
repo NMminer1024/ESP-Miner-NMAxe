@@ -106,6 +106,10 @@
 char *    bm_result_read_all(void);                     // malloc'd "[...]" oldest->newest, caller frees
 esp_err_t bm_result_append(const char* entry_json);     // ring-append one entry object; evicts oldest when full
 esp_err_t bm_result_delete_freq(uint16_t freq);         // remove the row(s) for one frequency; ESP_ERR_NOT_FOUND if absent
+// Pick a measured, qualified (freq, vcore) pair strictly below the given point,
+// preferring the highest measured hashrate. False when nothing qualifies.
+bool      bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
+                                     uint16_t* out_freq, uint16_t* out_vcore);
 void      bm_result_restore_all(const char* json_array);// bulk-restore entries from a "[...]" string (empty ring assumed)
 void      bm_result_clear(void);
 
