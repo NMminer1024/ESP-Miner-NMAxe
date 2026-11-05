@@ -778,6 +778,10 @@ void fan_thread_entry(void* args) {
         constexpr size_t FAN_SLOTS_MAX = 4;
         static bool     ovr_prev[FAN_SLOTS_MAX]  = {false};
         static uint16_t ovr_saved[FAN_SLOTS_MAX] = {0};
+        // Last duty the PID actually produced. Used when a temperature sample is
+        // unusable, so a failing probe holds the existing cooling instead of
+        // stopping the fan.
+        static uint16_t pid_last_good[FAN_SLOTS_MAX] = {0};
         const bool override_active =
             spec.fan_override_until_ms != 0 &&
             (int32_t)(millis() - spec.fan_override_until_ms) < 0;
@@ -802,14 +806,29 @@ void fan_thread_entry(void* args) {
             float target   = fan_cfg.target_temp;
             float measured = (fan_cfg.id == 0) ? ctx->temp->asic : ctx->temp->vcore; // fan0=ASIC, fan1=Vcore
             float duty = pid_compute(&fan_cfg.pid, target, measured, dt);
-            // Baud-rate guard on the CAST: a non-finite float converted to uint16_t
-            // is undefined and was observed as 65535 (fan ran full speed while every
-            // consumer read a nonsense duty). pid_compute already recovers from NaN,
-            // this keeps any future path from publishing one.
-            if (!isfinite(duty)) duty = 0.0f;
-            if (duty < 0.0f)    duty = 0.0f;
-            if (duty > 100.0f)  duty = 100.0f;
-            fan_status->speed = (uint16_t)duty;
+            if (!isfinite(duty)) {
+                // The temperature sample was unusable (probe NACK / timeout / not
+                // initialised). Do NOT fall back to 0: the ASIC is still hashing, so
+                // stopping the fan is the dangerous direction - that regression was
+                // observed as the VRM fan dropping to 0 % at 69 C. Hold the last duty
+                // the PID produced, and if there is none yet (probe never gave a
+                // usable reading) run at full speed so the board is cooled while the
+                // fault is diagnosed.
+                uint16_t fallback = (fan_index < FAN_SLOTS_MAX && pid_last_good[fan_index] > 0)
+                                      ? pid_last_good[fan_index] : 100;
+                static uint32_t last_warn_ms = 0;
+                if (millis() - last_warn_ms >= 30000) {
+                    last_warn_ms = millis();
+                    LOG_W("Fan[%u] temperature reading unusable - holding %.0f%% duty.",
+                          (unsigned)fan_cfg.id, (double)fallback);
+                }
+                fan_status->speed = fallback;
+            } else {
+                if (duty < 0.0f)   duty = 0.0f;
+                if (duty > 100.0f) duty = 100.0f;
+                fan_status->speed = (uint16_t)duty;
+                if (fan_index < FAN_SLOTS_MAX) pid_last_good[fan_index] = fan_status->speed;
+            }
             pid_start_ms[fan_index] = now_ms;
         }
 

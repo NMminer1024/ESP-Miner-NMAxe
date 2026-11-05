@@ -32,18 +32,19 @@ float pid_compute(fan_pid_t* pid, float setpoint, float measured, float dt) {
     // Without this guard the NaN propagates into `integral` and STAYS there: every
     // clamp below is a comparison, and every comparison against NaN is false, so
     // neither the integral nor the output bound is ever applied again. The result
-    // is a permanently dead PID whose output is NaN, which the caller casts to
-    // uint16_t — observed as fan duty 65535 % on the VRM fan, i.e. the fan itself
-    // ran at full speed while every reading of it was garbage.
+    // is a permanently dead PID whose output is NaN, which the caller used to cast
+    // to uint16_t — observed as fan duty 65535 % on the VRM fan.
     //
-    // Recover instead of saturating: drop the accumulated integral (it was built
-    // from readings we cannot trust) and request 0 % for this tick. The fan loop
-    // re-runs on the next temperature event, so a single bad sample costs one
-    // cycle rather than latching a bogus duty forever.
+    // Return NAN to mean "this sample is unusable, no output computed". The caller
+    // MUST NOT interpret that as 0 %: a fan that stops while the ASIC keeps hashing
+    // is the dangerous direction, so it holds the last good duty instead (or full
+    // speed if there is no good value yet). The integral is dropped because it was
+    // accumulated from readings that cannot be trusted; that is the actual repair
+    // for the latch, since it is what let one bad sample poison every later tick.
     if (!isfinite(setpoint) || !isfinite(measured) || !isfinite(dt) || dt <= 0.0f) {
         pid->integral   = 0.0f;
         pid->prev_error = 0.0f;
-        return 0.0f;
+        return NAN;
     }
     float error = measured - setpoint;
     pid->integral += error * dt;
@@ -58,7 +59,7 @@ float pid_compute(fan_pid_t* pid, float setpoint, float measured, float dt) {
     // Belt and braces: a NaN can still appear from an infinite derivative.
     if (!isfinite(output)) {
         pid->integral = 0.0f;
-        return 0.0f;
+        return NAN;
     }
     if (output > pid->output_max) output = pid->output_max;
     if (output < pid->output_min) output = pid->output_min;
