@@ -949,48 +949,6 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       });
   }
 
-  // ── Fan column ────────────────────────────────────────────────────────────
-  // Shows the duty each fan settled at during the soak (fanNeed / fanNeedVcore)
-  // — the numbers that say how much cooling the point really costs. Read as
-  // "ASIC / VRM"; single-fan boards show one value. Rows that were never soaked
-  // have no such answer and read "--".
-  public fanText(r: BenchmarkResult): string {
-    const a = r.fanNeed;
-    const v = r.fanNeedVcore;
-    const hasA = a !== undefined && a !== null;
-    const hasV = v !== undefined && v !== null;
-    if (hasA && hasV) return `${a}/${v}%`;
-    if (hasA) return `${a}%`;
-    if (hasV) return `${v}%`;
-    return '--';
-  }
-
-  public fanTip(r: BenchmarkResult): string {
-    const a = r.fanNeed;
-    const v = r.fanNeedVcore;
-    const hasA = a !== undefined && a !== null;
-    const hasV = v !== undefined && v !== null;
-    if (hasA || hasV) {
-      const parts: string[] = [];
-      if (hasA) {
-        parts.push(`ASIC fan ${a}% — ` +
-          (a! >= 100 ? 'saturated, no headroom for a hotter room'
-                     : `${100 - a!}% of range still unused`));
-      }
-      if (hasV) {
-        parts.push(`VRM fan ${v}% — ` +
-          (v! >= 100 ? 'saturated, no headroom for a hotter room'
-                     : `${100 - v!}% of range still unused`));
-      }
-      return `Settled duty after the soak: ${parts.join('; ')}.`;
-    }
-    const measured = (r.fanAsic === undefined || r.fanAsic === null) ? null : r.fanAsic;
-    return measured === null
-      ? 'Not soak-verified, and no fan duty was recorded for this result.'
-      : `Not soak-verified. It measured at ${measured}% during the sweep, but the sweep pins the fan, ` +
-        'so that number does not say what the point needs in normal operation.';
-  }
-
   // ── Firmware column ───────────────────────────────────────────────────────
   // Results survive an upgrade, so one table can mix rows from several builds.
   public fwText(r: BenchmarkResult): string {

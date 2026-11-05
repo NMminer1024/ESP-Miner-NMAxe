@@ -346,17 +346,6 @@ td.bm-val-best-eff {
 
 .bm-td-status { cursor: help; }
 
-// ── Fan duty cell ─────────────────────────────────────────────────────────────
-.bm-table thead th.bm-th-fan {
-  cursor: default;
-  &:hover { background: #2d5a27; }
-}
-
-.bm-td-fan {
-  cursor: help;
-  font-variant-numeric: tabular-nums;
-}
-
 // ── Firmware column ───────────────────────────────────────────────────────────
 .bm-table thead th.bm-th-fw {
   cursor: default;
