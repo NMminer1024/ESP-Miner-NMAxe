@@ -592,11 +592,15 @@ bool bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
     return true;
 }
 
-// Mark a stored result as having passed the soak check, recording the fan duty
-// that held it at a steady temperature. Rewrites the entry in place (results are
-// keyed by frequency), so the sweep's measurements are preserved and only the
-// verification fields are added.
-esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need) {
+// Mark a stored result as having passed the soak check, recording the duty each
+// fan settled at. Rewrites the entry in place (results are keyed by frequency),
+// so the sweep's measurements are preserved and only the verification fields are
+// added.
+//
+// fan_need_vcore < 0 means the board has no second (VRM) fan, so the field is
+// omitted rather than written as 0 — a 0 % reading would claim the point needs
+// no VRM cooling at all.
+esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vcore) {
     bm_result_migrate_legacy();
     uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
     uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
@@ -616,11 +620,36 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need) {
         char* ts = strstr(e, ",\"ts\":");
         if (ts == nullptr) { free(e); return ESP_ERR_INVALID_STATE; }
 
-        const size_t prefix = (size_t)(ts - e);
-        char* out = (char*)malloc(prefix + 64 + strlen(ts) + 1);
+        // Overwrite, never append.
+        //
+        // Soak is a mandatory stage of every benchmark run, not a cache: the same
+        // point is re-soaked whenever a sweep finishes with it in the top
+        // candidates, and there is no "already verified, skip it" shortcut. This
+        // function therefore has to be idempotent. It used to insert the fields
+        // unconditionally, so soaking a point twice produced a duplicate key —
+        //   ...,"soak":1,"fanNeed":60,"soak":1,"fanNeed":38,"ts":...
+        // — which is ambiguous for every reader (ArduinoJson keeps one of them,
+        // and which one is unspecified), grew the entry on each run, and made the
+        // fanNeed shown in the UI a coin toss between this run's value and a
+        // stale one.
+        //
+        // Drop every existing soak segment first: cut the prefix at the FIRST
+        // occurrence, which collapses any number of accumulated duplicates (they
+        // are all inserted at the same spot, immediately before "ts").
+        size_t prefix = (size_t)(ts - e);
+        const char* first = strstr(e, ",\"soak\":1");
+        if (first != nullptr && first < ts) {
+            const size_t cut = (size_t)(first - e);
+            if (cut < prefix) prefix = cut;
+        }
+
+        char* out = (char*)malloc(prefix + 96 + strlen(ts) + 1);
         if (!out) { free(e); return ESP_ERR_NO_MEM; }
         memcpy(out, e, prefix);
-        int n = snprintf(out + prefix, 64, ",\"soak\":1,\"fanNeed\":%u", fan_need);
+        int n = snprintf(out + prefix, 96, ",\"soak\":1,\"fanNeed\":%u", fan_need);
+        if (fan_need_vcore >= 0) {
+            n += snprintf(out + prefix + n, 96 - n, ",\"fanNeedVcore\":%d", fan_need_vcore);
+        }
         strcpy(out + prefix + n, ts);
 
         esp_err_t err = nvs_config_try_set_string(key, out);
@@ -628,7 +657,12 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need) {
         free(e);
         if (err != ESP_OK) return err;
         s_soak_marks_may_exist = true;
-        LOG_W("[BM] freq=%u marked as soak-verified (fanNeed=%u%%)", freq, fan_need);
+        if (fan_need_vcore >= 0) {
+            LOG_W("[BM] freq=%u marked as soak-verified (fanNeed=%u%% ASIC / %d%% VRM)",
+                  freq, fan_need, fan_need_vcore);
+        } else {
+            LOG_W("[BM] freq=%u marked as soak-verified (fanNeed=%u%%)", freq, fan_need);
+        }
         return ESP_OK;
     }
     return ESP_ERR_NOT_FOUND;

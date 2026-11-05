@@ -110,8 +110,10 @@ esp_err_t bm_result_delete_freq(uint16_t freq);         // remove the row(s) for
 // preferring the highest measured hashrate. False when nothing qualifies.
 bool      bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
                                      uint16_t* out_freq, uint16_t* out_vcore);
-// Add "soak":1 and the steady-state fan duty to one stored result.
-esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need);
+// Add "soak":1 and the settled duty of each fan to one stored result.
+// fan_need_vcore < 0 = board has no VRM fan, so that field is omitted.
+// Idempotent: any existing soak fields are replaced, never appended.
+esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vcore = -1);
 // Drop all soak verdicts (the fan policy they were measured under changed).
 void      bm_result_clear_soak(void);
 void      bm_result_restore_all(const char* json_array);// bulk-restore entries from a "[...]" string (empty ring assumed)

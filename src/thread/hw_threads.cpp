@@ -801,7 +801,15 @@ void fan_thread_entry(void* args) {
             if (dt <= 0.0f) dt = 0.001f;
             float target   = fan_cfg.target_temp;
             float measured = (fan_cfg.id == 0) ? ctx->temp->asic : ctx->temp->vcore; // fan0=ASIC, fan1=Vcore
-            fan_status->speed = (uint16_t)pid_compute(&fan_cfg.pid, target, measured, dt);
+            float duty = pid_compute(&fan_cfg.pid, target, measured, dt);
+            // Baud-rate guard on the CAST: a non-finite float converted to uint16_t
+            // is undefined and was observed as 65535 (fan ran full speed while every
+            // consumer read a nonsense duty). pid_compute already recovers from NaN,
+            // this keeps any future path from publishing one.
+            if (!isfinite(duty)) duty = 0.0f;
+            if (duty < 0.0f)    duty = 0.0f;
+            if (duty > 100.0f)  duty = 100.0f;
+            fan_status->speed = (uint16_t)duty;
             pid_start_ms[fan_index] = now_ms;
         }
 

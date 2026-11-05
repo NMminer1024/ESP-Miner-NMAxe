@@ -28,6 +28,23 @@ uint16_t calculate_rpm(int16_t pulse_count, double time_seconds) {
 
 float pid_compute(fan_pid_t* pid, float setpoint, float measured, float dt) {
     const uint16_t MAX_INTEGRAL = 300.0f;
+    // A temperature probe can fail (I2C NACK, PMBus timeout) and hand us NaN.
+    // Without this guard the NaN propagates into `integral` and STAYS there: every
+    // clamp below is a comparison, and every comparison against NaN is false, so
+    // neither the integral nor the output bound is ever applied again. The result
+    // is a permanently dead PID whose output is NaN, which the caller casts to
+    // uint16_t — observed as fan duty 65535 % on the VRM fan, i.e. the fan itself
+    // ran at full speed while every reading of it was garbage.
+    //
+    // Recover instead of saturating: drop the accumulated integral (it was built
+    // from readings we cannot trust) and request 0 % for this tick. The fan loop
+    // re-runs on the next temperature event, so a single bad sample costs one
+    // cycle rather than latching a bogus duty forever.
+    if (!isfinite(setpoint) || !isfinite(measured) || !isfinite(dt) || dt <= 0.0f) {
+        pid->integral   = 0.0f;
+        pid->prev_error = 0.0f;
+        return 0.0f;
+    }
     float error = measured - setpoint;
     pid->integral += error * dt;
 
@@ -38,6 +55,11 @@ float pid_compute(fan_pid_t* pid, float setpoint, float measured, float dt) {
     float output = pid->Kp * error + pid->Ki * pid->integral + pid->Kd * derivative;
     pid->prev_error = error;
 
+    // Belt and braces: a NaN can still appear from an infinite derivative.
+    if (!isfinite(output)) {
+        pid->integral = 0.0f;
+        return 0.0f;
+    }
     if (output > pid->output_max) output = pid->output_max;
     if (output < pid->output_min) output = pid->output_min;
     LOG_D("target: %.2f, measured: %.2f, output: %.2f, error: %.2f, integral: %.2f, derivative: %.2f, dt: %.2f",

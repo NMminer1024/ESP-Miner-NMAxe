@@ -33,8 +33,12 @@ export interface BenchmarkResult {
   // The sweep measures at 100 % cooling, which is comparable but optimistic; only
   // a soaked point is known to be sustainable in real operation.
   soak?: number;
-  // Fan duty the point actually settled at during the soak. ABSENT unless soaked.
+  // Duty each fan settled at during the soak. fanNeed is the ASIC fan (id 0) and
+  // is always present once soaked; fanNeedVcore is the VRM fan (id 1) and is
+  // absent on single-fan boards. They are independent regulators with their own
+  // target temperature, so one can be saturated while the other still has room.
   fanNeed?: number;
+  fanNeedVcore?: number;
   // Firmware-computed verdicts. ABSENT on results measured before the
   // safety-margin rule existed (older firmware, or an entry that survived an
   // upgrade). Those are legacy measurements: the numbers are real, but nothing
@@ -301,6 +305,10 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     return !this.isFailed(r) && r.q === 1 && r.avgHR > 0;
   }
 
+  // Soak is no longer a verdict shown next to a row: a point that fails it is
+  // deleted from the results, so everything in the table has already been judged.
+  // The flag is still read, to say whether the fan figures are a soak measurement
+  // or a sweep one.
   public isSoaked(r: BenchmarkResult): boolean {
     return r.soak === 1;
   }
@@ -308,15 +316,13 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   public verdictLabel(r: BenchmarkResult): string {
     if (this.isFailed(r)) return 'failed';
     if (this.isLegacy(r)) return 'legacy';
-    if (r.q !== 1) return 'over limit';
-    return this.isSoaked(r) ? 'verified' : 'unsoaked';
+    return r.q === 1 ? 'verified' : 'over limit';
   }
 
   public verdictClass(r: BenchmarkResult): string {
     if (this.isFailed(r)) return 'bm-badge-failed';
     if (this.isLegacy(r)) return 'bm-badge-warn';
-    if (r.q !== 1) return 'bm-badge-over';
-    return this.isSoaked(r) ? 'bm-badge-ok' : 'bm-badge-warn';
+    return r.q === 1 ? 'bm-badge-ok' : 'bm-badge-over';
   }
 
   public verdictTip(r: BenchmarkResult): string {
@@ -328,9 +334,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
              'The numbers are real, but ECO/Turbo ignore this row. Re-run the benchmark to qualify it.';
     }
     return r.q === 1
-      ? (this.isSoaked(r)
-          ? 'Passed the safety margin and held its temperature under your normal fan policy. Eligible for ECO / Turbo.'
-          : 'Passed the safety margin, but was not re-run under your normal fan policy, so it is not eligible for ECO / Turbo. Re-run the benchmark to verify it.')
+      ? 'Passed the safety margin (peak current, adapter budget, temperature) and held its temperature under your normal fan policy.'
       : 'Stable hashrate, but a peak value sat too close to a limit, so ECO/Turbo will not select this point.';
   }
 
@@ -351,8 +355,10 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     // the best raw entry, which the banner above the table then qualifies.
     const usable = results.filter(r => !this.isFailed(r) && r.avgHR > 0);
     const qualified = usable.filter(r => this.isQualified(r));
-    // Prefer soak-verified rows so the tags point at a point that is actually
-    // selectable (ECO/Turbo ignore unsoaked ones), then fall back progressively.
+    // Rows that passed the soak are preferred because their fan figure is a real
+    // measurement instead of the pinned 100 % the sweep records. Eligibility no
+    // longer depends on it: a failed soak deletes the row, so whatever is left
+    // has already been judged.
     const soaked = qualified.filter(r => this.isSoaked(r));
     const pool = soaked.length ? soaked : (qualified.length ? qualified : usable);
     const effPool = pool.filter(r => r.effJTH > 0);
@@ -944,20 +950,39 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   }
 
   // ── Fan column ────────────────────────────────────────────────────────────
-  // Shows the duty the point settled at during the soak (fanNeed) — the number
-  // that says how much cooling the point really costs. Rows that were never
-  // soaked have no such answer and read "--".
+  // Shows the duty each fan settled at during the soak (fanNeed / fanNeedVcore)
+  // — the numbers that say how much cooling the point really costs. Read as
+  // "ASIC / VRM"; single-fan boards show one value. Rows that were never soaked
+  // have no such answer and read "--".
   public fanText(r: BenchmarkResult): string {
-    if (r.fanNeed === undefined || r.fanNeed === null) return '--';
-    return `${r.fanNeed}%`;
+    const a = r.fanNeed;
+    const v = r.fanNeedVcore;
+    const hasA = a !== undefined && a !== null;
+    const hasV = v !== undefined && v !== null;
+    if (hasA && hasV) return `${a}/${v}%`;
+    if (hasA) return `${a}%`;
+    if (hasV) return `${v}%`;
+    return '--';
   }
 
   public fanTip(r: BenchmarkResult): string {
-    if (r.fanNeed !== undefined && r.fanNeed !== null) {
-      return `Held steady at ${r.fanNeed}% fan during the soak. ` +
-             (r.fanNeed >= 100
-               ? 'The fan is already saturated, so this point has no headroom for a hotter room.'
-               : `${100 - r.fanNeed}% of fan range still unused.`);
+    const a = r.fanNeed;
+    const v = r.fanNeedVcore;
+    const hasA = a !== undefined && a !== null;
+    const hasV = v !== undefined && v !== null;
+    if (hasA || hasV) {
+      const parts: string[] = [];
+      if (hasA) {
+        parts.push(`ASIC fan ${a}% — ` +
+          (a! >= 100 ? 'saturated, no headroom for a hotter room'
+                     : `${100 - a!}% of range still unused`));
+      }
+      if (hasV) {
+        parts.push(`VRM fan ${v}% — ` +
+          (v! >= 100 ? 'saturated, no headroom for a hotter room'
+                     : `${100 - v!}% of range still unused`));
+      }
+      return `Settled duty after the soak: ${parts.join('; ')}.`;
     }
     const measured = (r.fanAsic === undefined || r.fanAsic === null) ? null : r.fanAsic;
     return measured === null

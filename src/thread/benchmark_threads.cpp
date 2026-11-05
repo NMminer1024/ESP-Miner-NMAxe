@@ -313,26 +313,43 @@ static constexpr uint32_t BM_SOAK_COOLDOWN_MS = 90u * 1000u;  // discharge betwe
 // fiction. Require the point to reach this fraction of its expected hashrate.
 static constexpr double   BM_SOAK_MIN_HR_RATIO = 0.50;
 
-static uint16_t bm_fan_duty_of(BenchmarkCtx* ctx, uint8_t fan_id) {
-    if (!ctx->fans) return 0;
+// Duty of one fan, as a percentage. Returns false when the board has no fan
+// with that id, so the caller can tell "this fan does not exist" from "it
+// happened to sit at 0 %" — the first means the field must be omitted from the
+// result, the second is a real measurement.
+static bool bm_fan_duty_of(BenchmarkCtx* ctx, uint8_t fan_id, uint16_t* out) {
+    if (!ctx->fans) return false;
     for (const fan_status_t& f : *ctx->fans) {
-        if (f.id == fan_id) return f.speed;
+        if (f.id == fan_id) {
+            if (out) *out = f.speed;
+            return true;
+        }
     }
-    return 0;
+    return false;
 }
 
 // One candidate: apply it, hand the fans back to the normal loop, and watch
 // until the temperatures stop moving. Returns true when the point held inside
-// the limits, storing the settled fan duty in *fan_need.
-static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint16_t* fan_need) {
+// the limits, storing the settled duty of EACH fan in *fan_need_asic /
+// *fan_need_vcore.
+//
+// Both fans are recorded because they are independent regulators with their own
+// target temperature: on a two-fan board the ASIC fan can be pinned at 100 %
+// while the VRM fan idles around 60 %, and reporting only the first one claims
+// the point costs more cooling than it does (and hides which of the two is
+// actually out of headroom).
+static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
+                          uint16_t* fan_need_asic, uint16_t* fan_need_vcore,
+                          bool* has_vcore_fan) {
     LOG_W("[BM] Soak %u/%u: verifying %dMHz/%dmV under the normal fan policy...",
           (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, freq, vcore);
-    if (!bm_apply_point(ctx, freq, vcore)) return false;
-    bm_fan_release(ctx);   // back to the user's fan policy: this is the real test
 
-    // Drive the LCD overlay through the soak: without this the screen drops back
-    // to the normal mining view the moment bm_finish() cleared `active`, leaving
-    // up to 8 minutes per candidate with no on-device indication at all.
+    // Arm the overlay BEFORE the switch, not after it.
+    //
+    // bm_apply_point can sit on the rail slew (1.5 s) plus the PLL wait (up to
+    // 15 s). Leaving the overlay dark until it returns meant the screen dropped
+    // back to the normal mining view for the whole switch, which reads as "the
+    // benchmark ended" right in the middle of its final stage.
     BenchmarkState& bm = *ctx->bm;
     bm.active       = true;
     bm.in_soak      = true;
@@ -351,6 +368,12 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint
         uint8_t  ac = ctx->miner ? ctx->miner->get_asic_count()       : 0;
         bm.exp_hr_ghs = (float)((double)freq * ((double)(sc * ac) / 1000.0));
     }
+
+    if (!bm_apply_point(ctx, freq, vcore)) {
+        bm.in_soak = false;   // nothing is being soaked after all
+        return false;
+    }
+    bm_fan_release(ctx);   // back to the user's fan policy: this is the real test
 
     const double at_limit = ctx->spec ? (double)ctx->spec->asic.temp_limit.high : 0.0;
     const double vt_limit = ctx->spec ? (double)ctx->spec->pwr.temp_limit.high  : 0.0;
@@ -391,11 +414,21 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint
         // per candidate, and a log capture cannot tell WHY a point failed (slow
         // drift toward the limit vs a sudden jump) or whether it is even moving.
         if (++soak_log_tick % (BM_SOAK_LOG_S / (BM_SOAK_POLL_MS / 1000u)) == 0) {
+            // Print both fans: they are independently regulated, and a point can
+            // be limited by the VRM fan while the ASIC fan still has room.
+            uint16_t fd_a = 0, fd_v = 0;
+            const bool has_a = bm_fan_duty_of(ctx, 0, &fd_a);
+            const bool has_v = bm_fan_duty_of(ctx, 1, &fd_v);
+            char fanbuf[24];
+            if (has_a && has_v)   snprintf(fanbuf, sizeof(fanbuf), "%u/%u%%", fd_a, fd_v);
+            else if (has_a)       snprintf(fanbuf, sizeof(fanbuf), "%u%%", fd_a);
+            else if (has_v)       snprintf(fanbuf, sizeof(fanbuf), "%u%%", fd_v);
+            else                  snprintf(fanbuf, sizeof(fanbuf), "n/a");
             LOG_W("[BM] Soak %u/%u @ %dMHz/%dmV: %lus elapsed, ASIC %.1fC (peak %.1fC, limit %.0fC), "
-                  "Vcore %.1fC (peak %.1fC), HR %.0f/%.0f GH/s, fan %u%%.",
+                  "Vcore %.1fC (peak %.1fC), HR %.0f/%.0f GH/s, fan %s.",
                   (unsigned)bm.soak_idx, (unsigned)bm.soak_total, freq, vcore,
                   (unsigned long)(bm.phase_elapsed), at, at_peak, at_limit, vt, vt_peak,
-                  hr, (double)bm.exp_hr_ghs, (unsigned)bm_fan_duty_of(ctx, 0));
+                  hr, (double)bm.exp_hr_ghs, fanbuf);
         }
 
         // A candidate starts from whatever temperature the PREVIOUS candidate
@@ -491,7 +524,16 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore, uint
         return false;
     }
 
-    if (fan_need) *fan_need = bm_fan_duty_of(ctx, 0);
+    if (fan_need_asic != nullptr) {
+        uint16_t d = 0;
+        if (bm_fan_duty_of(ctx, 0, &d)) *fan_need_asic = d;
+    }
+    if (fan_need_vcore != nullptr || has_vcore_fan != nullptr) {
+        uint16_t d = 0;
+        const bool present = bm_fan_duty_of(ctx, 1, &d);
+        if (present && fan_need_vcore != nullptr) *fan_need_vcore = d;
+        if (has_vcore_fan != nullptr) *has_vcore_fan = present;
+    }
     return true;
 }
 
@@ -550,6 +592,7 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
         // middle of a 90 s wait, hence the renew inside the loop.
         {
             BenchmarkState& bm = *ctx->bm;
+            bm.active       = true;   // keep the overlay up: the benchmark is still running
             bm.in_cool      = true;
             bm.in_soak      = false;
             bm.in_stab      = false;
@@ -570,6 +613,10 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
                 bm.eta_sec       = (bm.phase_elapsed < bm.phase_total) ? (bm.phase_total - bm.phase_elapsed) : 0;
                 bm.asic_temp     = ctx->temp ? ctx->temp->asic  : 0.0f;
                 bm.vcore_temp    = ctx->temp ? ctx->temp->vcore : 0.0f;
+                // The miner is still hashing at the previous point while it cools,
+                // so report the live rate instead of leaving the last sweep round's
+                // average on screen next to a countdown.
+                bm.avg_hr_ghs    = ctx->status ? (float)(ctx->status->hashrate._3m / 1e9) : 0.0f;
                 // A 90 s wait used to be a silent gap in the log, which makes a
                 // closed-loop capture look like a hang.
                 if (++log_tick % BM_SOAK_LOG_S == 0) {
@@ -584,14 +631,47 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
         }
 
         ctx->bm->soak_idx = (uint8_t)(ci + 1);
-        uint16_t fan_need = 0;
-        if (bm_soak_point(ctx, c.freq, c.vcore, &fan_need)) {
-            bm_result_mark_soak(c.freq, fan_need);
-            LOG_W("[BM] Soak %u/%u PASSED: %dMHz/%dmV at %u%% fan — this is the point to apply.",
-                  (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, c.freq, c.vcore, fan_need);
+        uint16_t fan_need = 0, fan_need_vcore = 0;
+        bool has_vcore_fan = false;
+        if (bm_soak_point(ctx, c.freq, c.vcore, &fan_need, &fan_need_vcore, &has_vcore_fan)) {
+            bm_result_mark_soak(c.freq, fan_need, has_vcore_fan ? (int)fan_need_vcore : -1);
+            if (has_vcore_fan) {
+                LOG_W("[BM] Soak %u/%u PASSED: %dMHz/%dmV at %u%%/%u%% fan (ASIC/VRM) — this is the point to apply.",
+                      (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, c.freq, c.vcore,
+                      fan_need, fan_need_vcore);
+            } else {
+                LOG_W("[BM] Soak %u/%u PASSED: %dMHz/%dmV at %u%% fan — this is the point to apply.",
+                      (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, c.freq, c.vcore, fan_need);
+            }
             break;   // best hashrate that survives is the one we want
         } else {
-            LOG_W("[BM] Soak %u/%u FAILED: %dMHz/%dmV — trying the next candidate.",
+            // A false return has two very different meanings.
+            //
+            // If the sweep was cleared under us (Stop / Apply / Reset), the point
+            // was simply not measured to completion. That says nothing about it,
+            // so the previous verdict — if any — must survive: withdrawing it here
+            // would make pressing Stop silently cost the user a verified point.
+            if (*ctx->bm_mode != 1) {
+                LOG_W("[BM] Soak %u/%u interrupted at %dMHz/%dmV — verdict left untouched.",
+                      (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, c.freq, c.vcore);
+                ctx->bm->soak_total = 0;
+                ctx->bm->soak_idx   = 0;
+                ctx->bm->in_soak    = false;
+                ctx->bm->in_cool    = false;
+                return;
+            }
+            // Otherwise soak ran to a decision and rejected this point. Drop the
+            // whole row.
+            //
+            // Soak is the final gate of the benchmark, not a badge: a point that
+            // cannot hold its temperature under the fan policy the user actually
+            // runs is not usable data, and keeping it around only produced a table
+            // where most rows read "unsoaked" and looked broken. Removing it is
+            // also what makes "Turbo = the highest hashrate in the table" true by
+            // construction — whatever is left has passed both the margin rule and
+            // the soak.
+            bm_result_delete_freq(c.freq);
+            LOG_W("[BM] Soak %u/%u FAILED: %dMHz/%dmV — result removed, trying the next candidate.",
                   (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, c.freq, c.vcore);
         }
     }
@@ -608,14 +688,19 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
 // pre-sweep settings instead of applying an unverified one.
 static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
     BenchmarkState& bm = *ctx->bm;
-    bm.active = false;
+    // NOTE: `active` is deliberately NOT cleared here. bm_finish() runs the soak
+    // stage, which is part of the benchmark, not a postscript: clearing the flag
+    // before it dropped the overlay back to the normal mining view for the whole
+    // first cooldown plus the first candidate's voltage/PLL switch, so the screen
+    // looked like the benchmark had already ended. It is cleared on every exit
+    // path below instead, i.e. only once the benchmark is genuinely over.
 
     // Verify the best candidates under the real fan policy before committing to
     // one. A sweep picked at 100 % cooling can name a point the machine cannot
     // sustain, which then gets stepped down minutes later.
     bm_soak_run(ctx);
     if (*ctx->bm_mode != 1) {   // stopped during the soak
-        bm.active = false;      // the soak re-activated the overlay — clear it here
+        bm.active = false;
         bm_restore_normal_point(ctx);
         bm_fan_release(ctx);
         return;
@@ -633,7 +718,7 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
         free(res_str);
         uint16_t best_freq = 0, best_vcore = 0;
         float    best_avgHR = -1.0f;
-        int      soaked = 0;
+        int      candidates = 0;
         if (!rerr && rdoc.is<JsonArray>()) {
             for (JsonObject e : rdoc.as<JsonArray>()) {
                 // Only points that passed the safety margin may be auto-applied.
@@ -643,12 +728,12 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
                 uint8_t fail = e["fail"] | (uint8_t)0;
                 int     q    = e["q"]    | 0;
                 if (fail || q != 1) continue;
-                // A point is only eligible once it has also survived the soak, i.e.
-                // held its temperature under the fan policy the user actually runs.
-                // The sweep's own numbers were taken at 100 % cooling and say
-                // nothing about whether the machine can live with the point.
-                if ((int)(e["soak"] | 0) != 1) continue;
-                soaked++;
+                // No "soak" test here any more: a failed soak now deletes the row
+                // outright (see bm_soak_run), so anything still in the table has
+                // already been judged. Requiring the flag as well would silently
+                // skip points whose soak was never attempted — for example when a
+                // narrow re-run left an older, already-cleared entry untouched.
+                candidates++;
                 float avgHR = e["avgHR"] | 0.0f;
                 if (avgHR > best_avgHR) {
                     best_avgHR = avgHR;
@@ -658,7 +743,7 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
             }
         }
         if (best_freq > 0 && best_vcore > 0) {
-            LOG_W("[BM] Best soak-verified result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying.",
+            LOG_W("[BM] Best qualified result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying.",
                   best_freq, best_vcore, best_avgHR);
             nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    best_freq);
             nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, best_vcore);
@@ -666,9 +751,9 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
             // sweep point, so this switch is not abortable.
             bm_apply_point(ctx, best_freq, best_vcore, false);
         } else {
-            LOG_W("[BM] No soak-verified result (%d candidates were verified) — keeping the "
-                  "pre-sweep settings instead of applying a point that only looks good at 100%% fan.",
-                  soaked);
+            LOG_W("[BM] No qualified result (%d candidate(s) in the table) — keeping the "
+                  "pre-sweep settings instead of applying an unverified point.",
+                  candidates);
             bm_restore_normal_point(ctx);
         }
     }
@@ -677,7 +762,7 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
         if (_start > 0) nvs_config_set_u32(NVS_CONFIG_BM_TOTAL_SEC, (uint32_t)time(nullptr) - _start);
     }
     LOG_W("[BM] Sweep finished (%s) — back to Normal mode without reboot.", reason);
-    bm.active = false;          // the soak re-activated the overlay — clear it here
+    bm.active = false;          // genuinely over: hand the screen back
     nvs_config_set_u8(NVS_CONFIG_BM_MODE, 0);
     *ctx->bm_mode = 0;
     bm_fan_release(ctx);

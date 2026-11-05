@@ -265,16 +265,16 @@ export class EditComponent implements OnInit {
       //   fail=1          -> this point tripped protection, never select it
       //   q != 1          -> did not pass the safety margin (or predates the rule)
       //   avgHR <= 0      -> no measured hashrate (tombstone / aborted round)
-      const eligible = entries.filter(r => !r.fail && r.q === 1 && r.soak === 1 && r.avgHR > 0);
-      // Qualified but never soaked: the sweep judged it at 100 % fan, which is not
-      // how the machine is actually cooled. Kept separate from "no safe point" so
-      // the user is told to re-run rather than to give up.
-      const qualified = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
-      const unsoakedOnly = eligible.length === 0 && qualified.length > 0;
-      // Rows with no "q" were measured by firmware that predates the margin rule.
-      // Worth telling apart from "every point was measured and rejected": the
-      // user's data is fine, it simply has to be re-measured to be selectable.
-      // Collapsing the two cases into "no safe point" reads as a regression.
+      //
+      // Soak is NOT checked here any more. It is a mandatory stage of the sweep and
+      // a point that fails it is deleted from the results, so every remaining row
+      // has already been soaked and judged. Requiring the flag as well would
+      // disable ECO/Turbo for older rows whose verdict had been cleared, and it is
+      // what made most rows read "unsoaked" in the first place.
+      const eligible = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
+      // Rows measured before the margin rule existed. Worth telling apart from
+      // "every point was measured and rejected": the user's data is fine, it
+      // simply has to be re-measured to be selectable.
       const legacyCount = entries.filter(r => r.q === undefined || r.q === null).length;
       const legacyOnly  = eligible.length === 0 && legacyCount > 0;
       // ECO needs at least TWO qualified points to mean anything: with a single
@@ -334,10 +334,7 @@ export class EditComponent implements OnInit {
       const turboPreset = fromBm('turbo', 'Turbo', turbo);
       if (!ecoOk) {
         ecoPreset.disabled = true;
-        if (unsoakedOnly) {
-          ecoPreset.disabledHint = 're-run benchmark';
-          ecoPreset.disabledReason = `${qualified.length} point(s) passed the safety margin but were not verified under your normal fan policy, so ECO cannot pick a low-power option from them. Re-run the benchmark — the new sweep soaks the best points automatically.`;
-        } else if (legacyOnly) {
+        if (legacyOnly) {
           ecoPreset.disabledHint = 're-run benchmark';
           ecoPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. ECO cannot pick a low-power point from unverified data - re-run the benchmark and the new results will be qualified automatically.`;
         } else if (eligible.length === 1) {
@@ -354,10 +351,7 @@ export class EditComponent implements OnInit {
       }
       if (!turboOk) {
         turboPreset.disabled = true;
-        if (unsoakedOnly) {
-          turboPreset.disabledHint = 're-run benchmark';
-          turboPreset.disabledReason = `${qualified.length} point(s) passed the safety margin but were not verified under your normal fan policy. The sweep measures at 100% fan, which a real 24/7 run cannot assume — re-run the benchmark to soak the candidates, or pick a point manually in Advanced.`;
-        } else if (legacyOnly) {
+        if (legacyOnly) {
           turboPreset.disabledHint = 're-run benchmark';
           turboPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. They are kept for reference but cannot be selected automatically - re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.`;
         } else {
