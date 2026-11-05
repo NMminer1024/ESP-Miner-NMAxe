@@ -3,6 +3,16 @@
 #include "utils/crc/crc.h"
 #include "utils/helper.h"
 
+// PLL divider-search tolerance, in MHz. History: 0.001 (exact-hit) -> 1.0
+// (2025-05-18, reverted two days later) -> 0.002. The exact-hit setting makes
+// grid holes (e.g. 605 MHz: no fbdiv in [160,239] divides to it) hard-fail the
+// whole switch, which costs a benchmark round every time the sweep steps into
+// one. Relaxed to 2.0 MHz — same snap-to-nearest behaviour as BM1373 — so the
+// chip locks to the closest achievable frequency instead of rejecting the
+// point. NOTE: the actual clock can then differ from the requested label by
+// up to this margin (e.g. 605 -> ~603.6); benchmark rows keep the label.
+static constexpr float ASIC_PLL_MAX_DIFF_MHZ = 2.0f;
+
 
 void BM1370::_send_bm1370(uint8_t header, uint8_t * data, uint8_t len){
     packet_type_t packet_type = (header & TYPE_JOB) ? JOB_PACKET : CMD_PACKET;
@@ -159,17 +169,17 @@ bool BM1370::set_frequency(float current_frequency, float target_frequency){
             next_dividable = floor(current / step) * step;
         }
         current = next_dividable;
-        if (!this->_set_hash_frequency(-1, current, 0.002)) return false;
+        if (!this->_set_hash_frequency(-1, current, ASIC_PLL_MAX_DIFF_MHZ)) return false;
         delay(1);
     }
 
     while ((direction > 0 && current < target_frequency) || (direction < 0 && current > target_frequency)) {
         float next_step = fminf(fabs(direction), fabs(target_frequency - current));
         current += direction > 0 ? next_step : -next_step;
-        if (!this->_set_hash_frequency(-1, current, 0.002)) return false;
+        if (!this->_set_hash_frequency(-1, current, ASIC_PLL_MAX_DIFF_MHZ)) return false;
         delay(1);
     }
-    if (!this->_set_hash_frequency(-1, target_frequency, 0.002)) return false;
+    if (!this->_set_hash_frequency(-1, target_frequency, ASIC_PLL_MAX_DIFF_MHZ)) return false;
     return true;
 }
 
