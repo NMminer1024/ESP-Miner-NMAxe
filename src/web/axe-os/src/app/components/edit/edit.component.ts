@@ -261,6 +261,12 @@ export class EditComponent implements OnInit {
       //   q != 1          -> did not pass the safety margin (or predates the rule)
       //   avgHR <= 0      -> no measured hashrate (tombstone / aborted round)
       const eligible = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
+      // Rows with no "q" were measured by firmware that predates the margin rule.
+      // Worth telling apart from "every point was measured and rejected": the
+      // user's data is fine, it simply has to be re-measured to be selectable.
+      // Collapsing the two cases into "no safe point" reads as a regression.
+      const legacyCount = entries.filter(r => r.q === undefined || r.q === null).length;
+      const legacyOnly  = eligible.length === 0 && legacyCount > 0;
       // ECO needs at least TWO qualified points to mean anything: with a single
       // point "lowest J/TH" and "highest hashrate" are the same entry, so ECO and
       // Turbo would be identical buttons. Field reports read that as a bug (Turbo
@@ -318,7 +324,10 @@ export class EditComponent implements OnInit {
       const turboPreset = fromBm('turbo', 'Turbo', turbo);
       if (!ecoOk) {
         ecoPreset.disabled = true;
-        if (eligible.length === 1) {
+        if (legacyOnly) {
+          ecoPreset.disabledHint = 're-run benchmark';
+          ecoPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. ECO cannot pick a low-power point from unverified data - re-run the benchmark and the new results will be qualified automatically.`;
+        } else if (eligible.length === 1) {
           // One qualified point: ECO would just be a copy of Turbo. Say so plainly
           // instead of showing two buttons that do the same thing.
           ecoPreset.disabledHint = 'needs more data';
@@ -332,8 +341,13 @@ export class EditComponent implements OnInit {
       }
       if (!turboOk) {
         turboPreset.disabled = true;
-        turboPreset.disabledHint = 'no safe point';
-        turboPreset.disabledReason = 'No benchmark point passed the safety margin (peak current or temperature too close to the limit). Re-run the benchmark, or pick a point manually in Advanced.';
+        if (legacyOnly) {
+          turboPreset.disabledHint = 're-run benchmark';
+          turboPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. They are kept for reference but cannot be selected automatically - re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.`;
+        } else {
+          turboPreset.disabledHint = 'no safe point';
+          turboPreset.disabledReason = 'No benchmark point passed the safety margin (peak current or temperature too close to the limit). Re-run the benchmark, or pick a point manually in Advanced.';
+        }
         turboPreset.hashRate = undefined;
         turboPreset.power = undefined;
       }
@@ -366,9 +380,16 @@ export class EditComponent implements OnInit {
     // verified point on the board, and selecting it silently is exactly how units
     // ended up tripping. Keep the button visible but disabled, with the reason.
     turbo.disabled = true;
+    // Fewer than three stored points: either nothing was measured, or what is
+    // there is legacy (measured before the margin rule). Say which, so "needs
+    // benchmark" is not shown to a user who already ran one.
+    const legacyStored = results.filter(r => r.q === undefined || r.q === null).length;
     if (df >= oc.length - 1) {
       turbo.disabledHint = 'already at max';
       turbo.disabledReason = 'Default is already the highest frequency option.';
+    } else if (legacyStored > 0) {
+      turbo.disabledHint = 're-run benchmark';
+      turbo.disabledReason = 'The stored benchmark points were measured by an older firmware and were never checked against the safety margin, so Turbo cannot select one. Re-run the benchmark — Advanced still allows manual tuning.';
     } else {
       turbo.disabledHint = 'needs benchmark';
       turbo.disabledReason = 'Turbo requires a benchmark result that passed the safety margin. Run a benchmark first — Advanced still allows manual tuning.';

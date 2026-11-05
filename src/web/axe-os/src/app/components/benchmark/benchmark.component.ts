@@ -19,6 +19,13 @@ export interface BenchmarkResult {
   effJTH: number;
   avgPwr: number;
   ts?: number;  // Unix timestamp (seconds)
+  // Firmware-computed verdicts. ABSENT on results measured before the
+  // safety-margin rule existed (older firmware, or an entry that survived an
+  // upgrade). Those are legacy measurements: the numbers are real, but nothing
+  // ever checked them against the peak current / adapter budget / temperature
+  // limits, so they must never be selected automatically.
+  q?: number;     // 1 = passed the safety margin, 0 = failed it
+  fail?: number;  // 1 = this point tripped protection
 }
 
 @Component({
@@ -257,11 +264,68 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     return errs.length ? `Invalid fields: ${errs.join(', ')}` : 'Form has validation errors';
   }
 
+  // ── Result verdicts ───────────────────────────────────────────────────────
+  // A row with no "q" was measured before the safety-margin rule existed. It is
+  // NOT the same as "unsafe" - the numbers are genuine measurements - but it was
+  // never checked against the peak current / adapter budget / temperature limits,
+  // so the firmware refuses to auto-select it and so must the presets.
+  public isLegacy(r: BenchmarkResult): boolean {
+    return r.q === undefined || r.q === null;
+  }
+
+  public isFailed(r: BenchmarkResult): boolean {
+    return r.fail === 1;
+  }
+
+  public isQualified(r: BenchmarkResult): boolean {
+    return !this.isFailed(r) && r.q === 1 && r.avgHR > 0;
+  }
+
+  public verdictLabel(r: BenchmarkResult): string {
+    if (this.isFailed(r)) return 'failed';
+    if (this.isLegacy(r)) return 'legacy';
+    return r.q === 1 ? 'verified' : 'over limit';
+  }
+
+  public verdictClass(r: BenchmarkResult): string {
+    if (this.isFailed(r)) return 'bm-badge-failed';
+    if (this.isLegacy(r)) return 'bm-badge-warn';
+    return r.q === 1 ? 'bm-badge-ok' : 'bm-badge-over';
+  }
+
+  public verdictTip(r: BenchmarkResult): string {
+    if (this.isFailed(r)) {
+      return 'Protection tripped at this point. The result invalidates any earlier measurement of the same frequency.';
+    }
+    if (this.isLegacy(r)) {
+      return 'Measured by an older firmware, before results were checked against the safety margin. ' +
+             'The numbers are real, but ECO/Turbo ignore this row. Re-run the benchmark to qualify it.';
+    }
+    return r.q === 1
+      ? 'Passed the safety margin: peak current, adapter budget and temperature all inside their limits.'
+      : 'Stable hashrate, but a peak value sat too close to a limit, so ECO/Turbo will not select this point.';
+  }
+
+  // Number of rows that predate the margin check (tombstones excluded - those
+  // carry their own verdict).
+  public get legacyCount(): number {
+    return this.results.filter(r => this.isLegacy(r) && !this.isFailed(r)).length;
+  }
+
   // ── Results management ────────────────────────────────────────────────────
   private setResults(results: BenchmarkResult[]): void {
     this.results = results;
-    this.bestEff = results.length ? results.reduce((b, r) => r.effJTH < b.effJTH ? r : b) : null;
-    this.bestHR  = results.length ? results.reduce((b, r) => r.avgHR  > b.avgHR  ? r : b) : null;
+    // The best-of tags must not land on a FAILED tombstone: its avgHR and effJTH
+    // are both 0, and "lowest J/TH" therefore awarded it the trophy outright.
+    // Unverified legacy rows are also excluded whenever at least one qualified
+    // row exists, so the table never advertises an unchecked point as the
+    // recommended operating point. With nothing qualified the tag falls back to
+    // the best raw entry, which the banner above the table then qualifies.
+    const usable = results.filter(r => !this.isFailed(r) && r.avgHR > 0);
+    const pool   = usable.some(r => this.isQualified(r)) ? usable.filter(r => this.isQualified(r)) : usable;
+    const effPool = pool.filter(r => r.effJTH > 0);
+    this.bestEff = effPool.length ? effPool.reduce((b, r) => r.effJTH < b.effJTH ? r : b) : null;
+    this.bestHR  = pool.length    ? pool.reduce((b, r) => r.avgHR  > b.avgHR  ? r : b)    : null;
     this.buildChartSeries();
     this.updateCharts();
   }

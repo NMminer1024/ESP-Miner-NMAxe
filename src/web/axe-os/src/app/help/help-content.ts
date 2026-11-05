@@ -55,7 +55,11 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       },
       {
         heading: '📊 Reading results',
-        body: '• Avg HR — Measured average hashrate (GH/s)\n• Exp HR — Expected hashrate at that frequency (theoretical max)\n• Eff (J/TH) — Energy efficiency — lower is better\n• Avg Pwr — Average power draw at that operating point (W)\n• Best Efficiency row is highlighted in green; Best Hashrate in blue\n• Use the 📋 Table / 📈 Chart tabs above the results to switch between the raw table and freq–hashrate–power / freq–efficiency curves'
+        body: '• Avg HR — Measured average hashrate (GH/s)\n• Exp HR — Expected hashrate at that frequency (theoretical max)\n• Eff (J/TH) — Energy efficiency — lower is better\n• Avg Pwr — Average power draw at that operating point (W)\n• Best Efficiency row is highlighted in green; Best Hashrate in blue\n• Status — Verified (passed the safety-margin check), Over limit (stable, but a peak sat too close to a limit), Failed (protection tripped), or Legacy (measured by an older firmware, see below)\n• Use the 📋 Table / 📈 Chart tabs above the results to switch between the raw table and freq–hashrate–power / freq–efficiency curves'
+      },
+      {
+        heading: '⚠ Legacy results',
+        body: 'Results marked LEGACY were measured by a firmware that predates the safety-margin check. The hashrate and temperature figures are genuine measurements and you can still apply them by hand, but nothing ever checked them against peak current, the adapter budget or the temperature limits — so ECO / Turbo ignore them, and a sweep that ends with nothing but legacy rows keeps your current settings instead of applying one. Re-run the benchmark to replace them with verified results.'
       },
       {
         heading: '⚠ Notes',
