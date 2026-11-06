@@ -78,6 +78,20 @@ struct BmSweepConfig {
     uint16_t bm_time, stab_time;
 };
 
+// Format one JSON number, emitting `null` instead of nan/inf.
+//
+// A single failed Vcore temperature read used to be summed straight into the
+// average, so the stored row came out as "avgVcoreTemp":nan. Bare nan/inf are
+// not JSON, and ONE such row makes the whole results array unparseable — the
+// benchmark page hung on "Waiting..." and the firmware's own
+// bm_soak_run()/bm_finish() deserialization failed, so no soak ran and no best
+// point was applied. `null` says the same thing ("this field was not measured")
+// without poisoning the document.
+static void bm_json_num(char* out, size_t out_len, double v, int prec) {
+    if (v == v && v > -1e9 && v < 1e9) snprintf(out, out_len, "%.*f", prec, v);
+    else                               snprintf(out, out_len, "null");
+}
+
 static void bm_load_config(BenchmarkCtx* ctx, BmSweepConfig& c) {
     // Sweep defaults come from the board spec (same source as GET /api/benchmark);
     // NVS-stored user overrides win when present.
@@ -1034,6 +1048,13 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
 
         double hr_sum = 0, eff_sum = 0, pwr_sum = 0, at_sum = 0, vt_sum = 0;
         uint32_t sample_cnt = 0;
+        // Temperature averages count only VALID samples. ctx->temp->vcore is NAN
+        // when the PMBus temperature read fails (bus lock / NACK); adding that to
+        // the sum turned the whole average into nan, which is not representable in
+        // JSON and broke every consumer of /api/benchmark. Keeping the counters
+        // separate also means one bad read no longer biases the average of the
+        // rest (the samples either side of it are still good).
+        uint32_t at_cnt = 0, vt_cnt = 0;
         uint8_t  zero_hr_cnt = 0;
         // Worst-case values seen during the accepted samples. Qualification MUST use
         // peaks, not averages: a point whose average sits inside the limit while its
@@ -1203,8 +1224,10 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
             hr_sum  += hr_ghs;
             eff_sum += (hr_ghs > 0 && pwr_w > 0) ? (pwr_w / (hr_ghs / 1000.0)) : 0;
             pwr_sum += pwr_w;
-            at_sum  += at;
-            vt_sum  += ctx->temp->vcore;
+            // Skip failed telemetry reads instead of poisoning the averages.
+            if (at == at && at > 0.0) { at_sum += at; at_cnt++; }
+            const double vt_now = ctx->temp->vcore;
+            if (vt_now == vt_now && vt_now > 0.0) { vt_sum += vt_now; vt_cnt++; }
             sample_cnt++;
 
             double hr_avg = hr_sum / sample_cnt;
@@ -1231,8 +1254,19 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         double hr_avg  = (sample_cnt > 0) ? (hr_sum  / sample_cnt) : 0;
         double eff_avg = (sample_cnt > 0) ? (eff_sum / sample_cnt) : 0;
         double pwr_avg = (sample_cnt > 0) ? (pwr_sum / sample_cnt) : 0;
-        double at_avg  = (sample_cnt > 0) ? (at_sum  / sample_cnt) : 0;
-        double vt_avg  = (sample_cnt > 0) ? (vt_sum  / sample_cnt) : 0;
+        // No valid temperature sample at all -> NAN, which bm_json_num() writes
+        // as null. Never a nan token, and never a misleading 0.0.
+        // sample_cnt is zeroed on the fault paths (those partial samples describe
+        // an unsafe point), so those rows must not report averages either.
+        const bool at_meas = (sample_cnt > 0 && at_cnt > 0);
+        const bool vt_meas = (sample_cnt > 0 && vt_cnt > 0);
+        double at_avg  = at_meas ? (at_sum / at_cnt) : NAN;
+        double vt_avg  = vt_meas ? (vt_sum / vt_cnt) : NAN;
+        if (sample_cnt > 0 && vt_cnt < sample_cnt) {
+            LOG_W("[BM] %u of %u temperature sample(s) invalid on the Vcore rail%s",
+                  (unsigned)(sample_cnt - vt_cnt), (unsigned)sample_cnt,
+                  (vt_cnt > 0) ? "; failed reads excluded from the average" : "; no valid reading at all");
+        }
 
         // Stability gate: measured hashrate must reach this fraction of the theoretical
         // value (freq x small_cores x asic_count). This used to be 0.99, which was too
@@ -1398,6 +1432,14 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         char fw_json[32] = "";
         snprintf(fw_json, sizeof(fw_json), ",\"fw\":\"%s\"", BOARD_CURRENT_FW_VERSION);
 
+        // JSON-safe temperature fields. "never measured" is null, not 0.0 and
+        // certainly not nan: a single nan token invalidates the whole document.
+        char j_avgAt[12], j_avgVt[12], j_maxAt[12], j_maxVt[12];
+        bm_json_num(j_avgAt, sizeof(j_avgAt), at_avg, 1);
+        bm_json_num(j_avgVt, sizeof(j_avgVt), vt_avg, 1);
+        bm_json_num(j_maxAt, sizeof(j_maxAt), at_meas ? at_max : NAN, 1);
+        bm_json_num(j_maxVt, sizeof(j_maxVt), vt_meas ? vt_max : NAN, 1);
+
         // A tripped point must INVALIDATE the stored result for this frequency, not
         // merely skip writing. Results are upserted by freq alone, so skipping leaves
         // an older "stable" entry alive — and that entry can still be the highest
@@ -1406,28 +1448,47 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         if (fault_tripped) {
             char tomb[720];
             snprintf(tomb, sizeof(tomb),
-                "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":0.0,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
-                "\"effJTH\":0.0,\"avgPwr\":0.0,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
+                "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":0.0,\"avgAsicTemp\":%s,\"avgVcoreTemp\":%s,"
+                "\"effJTH\":0.0,\"avgPwr\":0.0,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%s,\"maxVcoreTemp\":%s,"
                 "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f,"
                 "\"q\":0,\"fail\":1%s%s,\"ts\":%ld}",
-                cur_freq, cur_vcore, exp_hr_ghs, at_avg, vt_avg,
-                iout_max, pwr_max, at_max, vt_max,
+                cur_freq, cur_vcore, exp_hr_ghs, j_avgAt, j_avgVt,
+                iout_max, pwr_max, j_maxAt, j_maxVt,
                 iout_phase_max, (int)phase_cnt, ibus_max, pwr_max_in,
                 fan_json, fw_json, (long)time(nullptr));
             esp_err_t terr = bm_result_append(tomb);
-            LOG_W("[BM] Protection tripped at %dMHz/%dmV — stored as FAILED (invalidates any earlier result)%s",
-                  cur_freq, cur_vcore, (terr == ESP_OK) ? "." : " (NVS write failed)");
+            if (terr == ESP_OK) {
+                LOG_W("[BM] Protection tripped at %dMHz/%dmV — stored as FAILED (invalidates any earlier result).",
+                      cur_freq, cur_vcore);
+            } else {
+                // The tombstone is the ONLY thing standing between this frequency
+                // and the stale "qualified" row an earlier round stored. If it
+                // cannot be written, leaving that row in place would let bm_finish
+                // AUTO-APPLY a point that has just tripped protection - the precise
+                // failure the tombstone exists to prevent. Deleting the old row is
+                // the weaker but still safe outcome: the frequency simply has no
+                // result any more, so nothing about it can be selected.
+                LOG_E("[BM] Protection tripped at %dMHz/%dmV but the FAILED marker could not be stored (%s) "
+                      "— deleting this frequency's earlier result instead, so it cannot be auto-applied.",
+                      cur_freq, cur_vcore, esp_err_to_name(terr));
+                esp_err_t derr = bm_result_delete_freq((uint16_t)cur_freq);
+                if (derr != ESP_OK && derr != ESP_ERR_NOT_FOUND) {
+                    LOG_E("[BM] Could not delete the stale result for %dMHz either (%s) — "
+                          "avoid applying benchmark points until the results are cleared.",
+                          cur_freq, esp_err_to_name(derr));
+                }
+            }
         }
 
         if (stable) {
             char entry[720];
             snprintf(entry, sizeof(entry),
-                "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%.1f,\"avgVcoreTemp\":%.1f,"
-                "\"effJTH\":%.3f,\"avgPwr\":%.2f,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%.1f,\"maxVcoreTemp\":%.1f,"
+                "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%s,\"avgVcoreTemp\":%s,"
+                "\"effJTH\":%.3f,\"avgPwr\":%.2f,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%s,\"maxVcoreTemp\":%s,"
                 "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f,"
                 "\"q\":%d,\"fail\":0%s%s,\"ts\":%ld}",
-                cur_freq, cur_vcore, exp_hr_ghs, hr_avg, at_avg, vt_avg,
-                eff_avg, pwr_avg, iout_max, pwr_max, at_max, vt_max,
+                cur_freq, cur_vcore, exp_hr_ghs, hr_avg, j_avgAt, j_avgVt,
+                eff_avg, pwr_avg, iout_max, pwr_max, j_maxAt, j_maxVt,
                 iout_phase_max, (int)phase_cnt, ibus_max, pwr_max_in,
                 qualified ? 1 : 0, fan_json, fw_json, (long)time(nullptr));
 
