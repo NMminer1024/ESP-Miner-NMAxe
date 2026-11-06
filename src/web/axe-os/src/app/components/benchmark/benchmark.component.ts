@@ -70,7 +70,11 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
   private timerSub?: Subscription;
 
   // Sorting state
-  public sortCol: keyof BenchmarkResult = 'ts';
+  // Default: frequency ascending, so the table reads as a V/f sweep from the
+  // lowest clock up — the same order the sweep measures in and the same axis the
+  // chart uses. (Time ascending used to be the default, which put the newest
+  // measurement at the bottom of the table.)
+  public sortCol: keyof BenchmarkResult = 'freq';
   public sortDir: 1 | -1 = 1;
 
   // Pre-computed best entries (updated whenever results change)
