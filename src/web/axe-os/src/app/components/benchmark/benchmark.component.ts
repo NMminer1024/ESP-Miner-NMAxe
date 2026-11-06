@@ -378,15 +378,31 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     // the best raw entry, which the banner above the table then qualifies.
     const usable = results.filter(r => !this.isFailed(r) && r.avgHR > 0);
     const qualified = usable.filter(r => this.isQualified(r));
-    // Rows that passed the soak are preferred because their fan figure is a real
-    // measurement instead of the pinned 100 % the sweep records. Eligibility no
-    // longer depends on it: a failed soak deletes the row, so whatever is left
-    // has already been judged.
+    // ── The two tags deliberately use DIFFERENT candidate pools ─────────────
+    //
+    // Hashrate is recorded while the point runs, and a soak is what makes that
+    // figure trustworthy: the sweep samples it at pinned 100 % cooling, which is
+    // not how the unit will be operated. ⚡ therefore prefers soaked rows and
+    // falls back to all qualified rows when nothing has been soaked yet.
     const soaked = qualified.filter(r => this.isSoaked(r));
-    const pool = soaked.length ? soaked : (qualified.length ? qualified : usable);
-    const effPool = pool.filter(r => r.effJTH > 0);
-    this.bestEff = effPool.length ? effPool.reduce((b, r) => r.effJTH < b.effJTH ? r : b) : null;
-    this.bestHR  = pool.length    ? pool.reduce((b, r) => r.avgHR  > b.avgHR  ? r : b)    : null;
+    const hrPool = soaked.length ? soaked : (qualified.length ? qualified : usable);
+
+    // Efficiency must NOT share that pool. Narrowing the candidates to the
+    // soaked rows and then asking "which is most efficient" can leave a single
+    // row, and one row is trivially both fastest and most efficient: measured on
+    // a bench board, the only soaked point (705MHz, 14.69 J/TH) was given both
+    // tags while 605MHz sat at 13.11 J/TH, and the chart panel still pointed at
+    // 605 - two views of one dataset disagreeing. Soak verifies thermals; it
+    // says nothing about efficiency.
+    //
+    // The trophy also needs something to compare against: with fewer than two
+    // qualified rows "lowest J/TH" is not a choice at all. That mirrors the rule
+    // the mode presets apply before offering ECO (edit.component.ts, ecoOk >= 2).
+    // When nothing is qualified the table is showing raw/legacy numbers, so fall
+    // back to the pool ⚡ used and let the banner above the table qualify it.
+    const effPool = qualified.length ? qualified.filter(r => r.effJTH > 0) : usable.filter(r => r.effJTH > 0);
+    this.bestEff = (qualified.length >= 2 && effPool.length) ? effPool.reduce((b, r) => r.effJTH < b.effJTH ? r : b) : null;
+    this.bestHR  = hrPool.length    ? hrPool.reduce((b, r) => r.avgHR  > b.avgHR  ? r : b)    : null;
     this.buildChartSeries();
     this.updateCharts();
   }
