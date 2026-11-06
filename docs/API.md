@@ -81,8 +81,9 @@ The response is structured into nested sub-objects.
 | `miner.blkhits` | int | — | Block-hit counter (valid shares meeting network difficulty) |
 | `miner.sAccepted` | int | — | Cumulative accepted shares |
 | `miner.sRejected` | int | — | Cumulative rejected shares |
-| `miner.uptimeSeconds` | int | s | Session uptime (resets on reboot) |
+| `miner.uptimeSeconds` | int | s | Session uptime (resets on reboot). Derived from a monotonic clock (`esp_timer_get_time()`), not loop iterations |
 | `miner.uptimeEver` | int | s | Total cumulative uptime across all sessions |
+| `miner.bmMode` | int | — | Benchmark flag: `1` while a benchmark sweep is active, `0` in normal mining |
 | `miner.freeHeap` | int | bytes | ESP32 free heap memory |
 | `miner.minFreeHeap` | int | bytes | ESP32 minimum free heap since boot (watermark) |
 
@@ -144,6 +145,7 @@ Active pool connection — read-only snapshot.
     "paused": false,
     "pauseReason": "",
     "protection": "none",
+    "bmMode": 0,
     "hashRate": 720.5,
     "bestDiffEver": "1.23M",
     "bestDiffSession": "456.7K",
@@ -527,7 +529,7 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | POST   | `/api/benchmark/start`   | Start (or resume) benchmark sweep — runs in place, no reboot |
 | POST   | `/api/benchmark/stop`    | Stop benchmark; sweep aborts and the Normal-mode point is restored, no reboot |
 | DELETE | `/api/benchmark/results` | Clear results and reset all sweep config to board defaults |
-| DELETE | `/api/benchmark/results?freq=N` | Delete only that frequency's result row; sweep config and other rows untouched |
+| DELETE | `/api/benchmark/results?freq=N` | Delete only that frequency's result row; sweep config and other rows untouched. `400` invalid freq (`0`), `404` no result for that frequency, `500` NVS delete failed |
 | POST   | `/api/benchmark/reset`   | Stop sweep and reset state/config to defaults (results preserved); no reboot |
 | POST   | `/api/benchmark/apply`   | Apply a benchmark result as normal ASIC settings; always hot-switches freq+vcore immediately (a running sweep aborts in place), never reboots |
 
@@ -542,14 +544,44 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | `vcoreMin` | int | mV — sweep start core voltage |
 | `vcoreMax` | int | mV — sweep end core voltage |
 | `vcoreStep` | int | mV — voltage increment per step |
-| `sampleIntv` | int | Minutes — sampling interval between hash-rate measurements |
+| `sampleIntv` | int | Seconds — sampling interval between hash-rate measurements |
 | `bmTime` | int | Seconds — measurement window per step |
-| `stabTime` | int | Milliseconds — stabilisation delay before each measurement |
+| `stabTime` | int | Seconds — stabilisation delay before each measurement |
 | `curFreq` | int | MHz — current sweep position (frequency) |
 | `curVcore` | int | mV — current sweep position (voltage) |
 | `startTs` | int | Unix timestamp when the current sweep started |
 | `totalSec` | int | Accumulated sweep time across all sessions (seconds) |
-| `results` | array | Array of result objects stored in NVS |
+| `results` | array | Array of result objects stored in NVS (see below) |
+
+#### Result row fields (`results[]`)
+
+Results are keyed by **frequency alone**: the latest run at a frequency overwrites the previous row, and a FAILED row (`fail:1`) invalidates any earlier "qualified" row for the same frequency. Temperature fields are `null` when that sensor never reported (never `0` or `NaN`).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `freq` | int | MHz — the swept frequency (row key) |
+| `vcore` | int | mV — the voltage that PASSED at this frequency (lower attempts that went unstable are not stored) |
+| `expHR` | float | GH/s — expected hashrate from freq × small-core count |
+| `avgHR` | float | GH/s — measured 3-min-average hashrate (`0` on a FAILED row) |
+| `avgAsicTemp` / `avgVcoreTemp` | float\|null | °C — average temperatures, `null` = never measured |
+| `effJTH` | float | J/GH — efficiency (`0` on a FAILED row) |
+| `avgPwr` | float | W — average input power (vbus × ibus) |
+| `maxIout` | float | A — peak input current during sampling |
+| `maxPwr` | float | W — peak input power during sampling |
+| `maxAsicTemp` / `maxVcoreTemp` | float\|null | °C — peak temperatures, `null` = never measured |
+| `maxPhaseIout` | float | A — peak current of the HEAVIEST VRM phase (the per-phase OC margin is judged on this) |
+| `phases` | int | Runtime-detected phase count (`0` on boards without per-phase telemetry) |
+| `maxIbus` | float | A — peak input current (the adapter current budget is judged on this) |
+| `maxPwrIn` | float | W — peak input power (the adapter watt budget is judged on this) |
+| `fanAsic` | int\|absent | % — peak ASIC-fan duty while sampling; `100` on fixed-speed boards; absent when no such fan or on older results |
+| `fanVcore` | int\|absent | % — peak VRM-fan duty; two-fan models only |
+| `fw` | string\|absent | Firmware build that measured this row (results outlive an upgrade; verdicts are not comparable across builds). Absent on older results |
+| `q` | int\|absent | Qualification: `1` = passed the OC/OT/adapter safety margin, `0` = a peak was too close to a limit. **Absent on results written before the margin rule existed — treat those as unverified, never as passing** |
+| `fail` | int | `1` = protection tripped at this point (tombstone); invalidates earlier same-freq results |
+| `soak` | int\|absent | `1` = the point also passed the post-sweep soak under the real fan policy and is safe to auto-apply. Absent until soaked |
+| `fanNeed` | int\|absent | % — ASIC-fan duty the point settled at during the soak (present with `soak`) |
+| `fanNeedVcore` | int\|absent | % — VRM-fan duty at soak settle; omitted on single-fan boards |
+| `ts` | int | Unix timestamp when the row was written |
 
 ### `PATCH /api/benchmark` / `POST /api/benchmark/start` — Request Body
 
@@ -559,9 +591,11 @@ All fields are optional. `POST /api/benchmark/start` also accepts `{"resume": tr
 {
   "freqMin": 400, "freqMax": 625, "freqStep": 25,
   "vcoreMin": 1000, "vcoreMax": 1250, "vcoreStep": 25,
-  "sampleIntv": 5, "bmTime": 1000, "stabTime": 200
+  "sampleIntv": 2, "bmTime": 120, "stabTime": 30
 }
 ```
+
+> `POST /api/benchmark/start` returns **`409`** `{"error":"an OTA update is in progress - benchmark cannot start until it finishes"}` while an OTA upload is running — a sweep started then would be killed mid-round and could race the flash erase.
 
 ### `POST /api/benchmark/apply` — Request Body
 
@@ -569,8 +603,8 @@ All fields are optional. `POST /api/benchmark/start` also accepts `{"resume": tr
 { "freq": 575, "vcore": 1200 }
 ```
 
-> Both fields are required. `vcore` is clamped to the board's safety limits.
+> Both fields are required. `vcore` is clamped to the board's user-facing safety range (`min_vcore` … vcore-list max) and `freq` to the selectable overclock range before anything is saved.
 >
-> The point is always applied without a reboot: vcore is set on the hardware power rail first, then the ASIC PLL is hot-switched. If a benchmark sweep is still running (`bm_mode == 1`), it aborts in place and its sweep position is kept for a later resume. Response is always `{"status":"ok","reboot":false}`.
+> The point is always applied without a reboot, with a direction-dependent switch order so the ASIC never hashes at a frequency the rail cannot support: on a **frequency down-shift** the PLL steps down first (awaited), then the rail is lowered; on an **up-shift** the rail is raised first, then the PLL. If a benchmark sweep is still running (`bm_mode == 1`), it aborts in place and its sweep position is kept for a later resume. Response is always `{"status":"ok","reboot":false}`.
 >
 > This endpoint is preferred over `PATCH /api/setting/mining` when applying a result from the benchmark table, as it also clears the `bm_mode` flag.

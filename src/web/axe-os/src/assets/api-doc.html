@@ -581,6 +581,9 @@
       <a class="nav-item" href="#swarm-scan">
         <span class="nav-badge badge-post">POST</span> Trigger Scan
       </a>
+      <a class="nav-item" href="#swarm-summary">
+        <span class="nav-badge badge-get">GET</span> Swarm Summary
+      </a>
       <a class="nav-item" href="#swarm-find">
         <span class="nav-badge badge-post">POST</span> Find Device
       </a>
@@ -689,8 +692,9 @@
     <span class="kw">"minFreeHeap"</span>:     <span class="num">163840</span>,    <span class="cmt">// minimum free heap since boot (watermark)</span>
     <span class="kw">"sAccepted"</span>:       <span class="num">1024</span>,      <span class="cmt">// accepted shares this session</span>
     <span class="kw">"sRejected"</span>:       <span class="num">3</span>,          <span class="cmt">// rejected shares this session</span>
-    <span class="kw">"uptimeSeconds"</span>:   <span class="num">3600</span>,      <span class="cmt">// seconds since last reboot</span>
-    <span class="kw">"uptimeEver"</span>:      <span class="num">86400</span>      <span class="cmt">// cumulative uptime seconds</span>
+    <span class="kw">"uptimeSeconds"</span>:   <span class="num">3600</span>,      <span class="cmt">// seconds since last reboot (monotonic-clock derived)</span>
+    <span class="kw">"uptimeEver"</span>:      <span class="num">86400</span>,     <span class="cmt">// cumulative uptime seconds</span>
+    <span class="kw">"bmMode"</span>:          <span class="num">0</span>           <span class="cmt">// 1 while a benchmark sweep is active</span>
   },
   <span class="kw">"identity"</span>: {
     <span class="kw">"fwVersion"</span>: <span class="str">"1.2.0"</span>,
@@ -1525,6 +1529,16 @@ Content-Type: application/octet-stream
       <span class="kw">"freq"</span>: <span class="num">575</span>, <span class="kw">"vcore"</span>: <span class="num">1250</span>, <span class="kw">"expHR"</span>: <span class="num">386.7</span>, <span class="kw">"avgHR"</span>: <span class="num">384.1</span>,
       <span class="kw">"avgAsicTemp"</span>: <span class="num">65.5</span>, <span class="kw">"avgVcoreTemp"</span>: <span class="num">48.9</span>,
       <span class="kw">"effJTH"</span>: <span class="num">0.047</span>, <span class="kw">"avgPwr"</span>: <span class="num">18.0</span>, <span class="kw">"ts"</span>: <span class="num">1716000000</span>,
+      <span class="cmt">// Peaks during the sampling window. Temperatures are null when that sensor</span>
+      <span class="cmt">// never reported — never 0 and never NaN.</span>
+      <span class="kw">"maxIout"</span>: <span class="num">14.20</span>, <span class="kw">"maxPwr"</span>: <span class="num">168.50</span>,
+      <span class="kw">"maxAsicTemp"</span>: <span class="num">71.3</span>, <span class="kw">"maxVcoreTemp"</span>: <span class="num">54.2</span>,
+      <span class="cmt">// Per-phase and input-side peaks — what the safety margin is judged on.</span>
+      <span class="cmt">// The regulator splits the stack-total OC limit across phases, so the trip</span>
+      <span class="cmt">// happens at (limit / phases) on the HEAVIEST phase; the adapter budget is a</span>
+      <span class="cmt">// current limit in practice, so maxIbus is the primary input test.</span>
+      <span class="kw">"maxPhaseIout"</span>: <span class="num">11.40</span>, <span class="kw">"phases"</span>: <span class="num">3</span>,
+      <span class="kw">"maxIbus"</span>: <span class="num">14.20</span>, <span class="kw">"maxPwrIn"</span>: <span class="num">168.50</span>,
       <span class="cmt">// Peak fan duty (%) while sampling. fanVcore only on two-fan models;</span>
       <span class="cmt">// both are ABSENT when there is no such fan or on older results.</span>
       <span class="kw">"fanAsic"</span>:  <span class="num">68</span>,     <span class="cmt">// ASIC heatsink fan (100 on fixed-speed boards)</span>
@@ -1533,7 +1547,11 @@ Content-Type: application/octet-stream
       <span class="cmt">// Verdicts. "q" is ABSENT on results written before the safety-margin</span>
       <span class="cmt">// rule existed — treat those as unverified, never as passing.</span>
       <span class="kw">"q"</span>:    <span class="num">1</span>,      <span class="cmt">// 1 = passed the margin, 0 = a peak was too close to a limit</span>
-      <span class="kw">"fail"</span>: <span class="num">0</span>       <span class="cmt">// 1 = protection tripped here; invalidates earlier same-freq results</span>
+      <span class="kw">"fail"</span>: <span class="num">0</span>,      <span class="cmt">// 1 = protection tripped here; invalidates earlier same-freq results</span>
+      <span class="cmt">// Soak verdict — added only after the point also survived the post-sweep</span>
+      <span class="cmt">// soak under the user's real fan policy. Only a soaked point is auto-applied;</span>
+      <span class="cmt">"soak"</span>: <span class="num">1</span>,      <span class="cmt">// fanNeed* = the duty each fan settled at, fanNeedVcore omitted on single-fan boards</span>
+      <span class="kw">"fanNeed"</span>: <span class="num">62</span>, <span class="kw">"fanNeedVcore"</span>: <span class="num">40</span>
     }
   ]
 }</pre>
@@ -1577,6 +1595,9 @@ Content-Type: application/octet-stream
 }</pre>
           <div class="block-label">Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span>, <span class="kw">"message"</span>: <span class="str">"benchmark starting"</span> }</pre>
+          <div class="block-label">Response 409 – OTA in flight</div>
+          <pre>{ <span class="kw">"error"</span>: <span class="str">"an OTA update is in progress - benchmark cannot start until it finishes"</span> }</pre>
+          <div class="note note-warn">⚠️ A sweep started during an OTA upload would be killed mid-round and could race the flash erase, so the start is refused rather than queued.</div>
         </div>
       </div>
 
@@ -1600,16 +1621,27 @@ Content-Type: application/octet-stream
       <div class="endpoint" id="benchmark-results">
         <div class="endpoint-head">
           <span class="method-badge method-delete">DELETE</span>
-          <code class="endpoint-path">/api/benchmark/results</code>
-          <span class="endpoint-summary">Clear results and sweep config</span>
+          <code class="endpoint-path">/api/benchmark/results<span class="cmt">[?freq=NNN]</span></code>
+          <span class="endpoint-summary">Clear all results — or one row with <code>?freq=</code></span>
         </div>
         <div class="endpoint-body">
           <p class="ep-desc">
-            Clears the stored result array and deletes benchmark config/progress keys so
-            defaults fall back to board-specific values on the next <code>GET</code>.
+            Without a parameter: clears the stored result array and deletes benchmark
+            config/progress keys so defaults fall back to board-specific values on the next
+            <code>GET</code>.
+          </p>
+          <p class="ep-desc">
+            With <code>?freq=NNN</code>: removes only that frequency's row. Results are keyed by
+            frequency alone, so one row is exactly one entry — the sweep config, the progress
+            checkpoint and every other stored point are untouched. This is the per-row
+            <em>Delete</em> button in the results table.
           </p>
           <div class="block-label">Response 200</div>
-          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+          <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }   <span class="cmt">// single-row delete adds "message":"result deleted"</span></pre>
+          <div class="block-label">Errors (single-row delete)</div>
+          <pre>{ <span class="kw">"error"</span>: <span class="str">"invalid freq"</span> }          <span class="cmt">// 400 – freq=0</span>
+{ <span class="kw">"error"</span>: <span class="str">"no result for that frequency"</span> } <span class="cmt">// 404</span>
+{ <span class="kw">"error"</span>: <span class="str">"nvs delete failed"</span> }            <span class="cmt">// 500</span></pre>
         </div>
       </div>
 
@@ -1639,11 +1671,14 @@ Content-Type: application/octet-stream
         <div class="endpoint-body">
           <p class="ep-desc">
             Saves the selected frequency and Vcore to normal ASIC settings, clears benchmark
-            mode, and hot-switches to the new point immediately — vcore on the hardware power
-            rail first, then the ASIC PLL. <strong>No reboot in either mode.</strong> If a sweep
-            is still running it aborts and its progress position is kept for a later resume.
+            mode, and hot-switches to the new point immediately. <strong>No reboot in either
+            mode.</strong> The switch order depends on direction so the ASIC never hashes at a
+            frequency the rail cannot support: on a <strong>frequency down-shift</strong> the PLL
+            steps down first (awaited) and only then is the rail lowered; on an
+            <strong>up-shift</strong> the rail is raised first, then the PLL. If a sweep is still
+            running it aborts and its progress position is kept for a later resume.
           </p>
-          <p class="ep-desc"><code>vcore</code> is clamped to board safety limits before applying.</p>
+          <p class="ep-desc"><code>vcore</code> is clamped to the board's user-facing range (<code>min_vcore</code> … vcore-list max) and <code>freq</code> to the selectable overclock range before anything is saved.</p>
           <div class="block-label">Request body</div>
           <pre>{ <span class="kw">"freq"</span>: <span class="num">575</span>, <span class="kw">"vcore"</span>: <span class="num">1200</span> }</pre>
           <div class="block-label">Response 200 (hot-switch, no reboot)</div>
@@ -1858,12 +1893,34 @@ Content-Type: application/octet-stream
         </div>
         <div class="endpoint-body">
           <p class="ep-desc">
-            Runs an mDNS query immediately (results appear in <code>/alive</code> within seconds) and, only if the last ICMP subnet scan is older than 5 minutes, starts a background ICMP re-scan. The current <code>/alive</code> list is never cleared. Typically called by the AxeOS Swarm page on load. No request body is needed.
+            Runs an mDNS query immediately (results appear in <code>/alive</code> within seconds) and starts a background ICMP re-scan only if the last one is stale — 5 minutes normally, relaxed to 60 minutes while mDNS fully covers the Axe peers. <code>?force=1</code> (the page's deep-scan button) always triggers a re-scan. The current <code>/alive</code> list is never cleared. Typically called by the AxeOS Swarm page on load. No request body is needed.
           </p>
           <div class="block-label">Request body</div>
           <pre><span class="cmt">// empty body or {}</span></pre>
           <div class="block-label">Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
+        </div>
+      </div>
+
+      <!-- GET /api/swarm/summary -->
+      <div class="endpoint" id="swarm-summary">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/swarm/summary</code>
+          <span class="endpoint-summary">Firmware-aggregated swarm totals</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">
+            Returns the same <code>SwarmState</code> totals the LCD shows, so the AxeOS
+            aggregate cards match the device screen. Returns <code>503</code> while an OTA is running.
+          </p>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"workers"</span>: <span class="num">4</span>,          <span class="cmt">// peers that answered /probe, plus self</span>
+  <span class="kw">"hr"</span>:       <span class="num">1540</span>,        <span class="cmt">// H/s – summed hashrate</span>
+  <span class="kw">"sbd"</span>:      <span class="num">2147483648</span>,  <span class="cmt">// swarm best session difficulty</span>
+  <span class="kw">"ebd"</span>:      <span class="num">8589934592</span>   <span class="cmt">// swarm best ever difficulty</span>
+}</pre>
         </div>
       </div>
 
