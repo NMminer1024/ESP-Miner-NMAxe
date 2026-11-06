@@ -921,9 +921,19 @@ BoardSpecConfig get_board_config_compile_time() {
         };
     // Per-die voltages; the series rail is derived inside the driver.
     // Floor lowered to 900mV alongside the 325MHz freq floor -- see min_vcore comment above.
+    //
+    // 950 and 975 were missing: the table jumped 925 -> 1000 while the benchmark
+    // sweep happily tests the whole 10 mV grid in between (reported on Nexus,
+    // v3.2.02k: "the Advanced Vcore list jumps from 925 to 1000 mV"). A point the
+    // sweep could QUALIFY at 950/975 therefore could not be selected by hand, and
+    // the ECO fallback - which snaps a proportional target onto this list - landed
+    // on 925 mV instead. Keep the list a complete 25 mV grid like every other
+    // board's, with the two sub-1000 entries an ECO-style point needs.
     config.ui.setting_page.vc = {
             {"900 mV",             900},
             {"925 mV",             925},
+            {"950 mV",             950},
+            {"975 mV",             975},
             {"1000 mV",           1000},
             {"1025 mV",           1025},
             {"1050 mV",           1050},

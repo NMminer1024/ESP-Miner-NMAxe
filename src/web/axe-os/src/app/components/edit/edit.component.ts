@@ -13,8 +13,9 @@ interface BenchmarkEntry {
   vcore: number;
   expHR: number;       // GH/s
   avgHR: number;       // GH/s
-  avgAsicTemp: number;
-  avgVcoreTemp: number;
+  // NULLABLE: a failed telemetry read is stored as null, never as `nan`.
+  avgAsicTemp: number | null;
+  avgVcoreTemp: number | null;
   effJTH: number;      // J/TH
   avgPwr: number;      // W
   ts?: number;         // Unix seconds
@@ -205,6 +206,11 @@ export class EditComponent implements OnInit {
     return `~${this.hashValue(ghs)}${this.hashUnit(ghs)}`;
   }
 
+  // Temperature with a unit, tolerating "not measured" (null).
+  private fmtC(v: number | null | undefined): string {
+    return (typeof v === 'number' && isFinite(v)) ? `${v.toFixed(1)} °C` : 'n/a';
+  }
+
   // Keep tooltips inside the viewport: edge buttons open sideways instead of centered above.
   public tooltipPos(p: ModePreset): string {
     return p.key === 'eco' ? 'right' : p.key === 'turbo' ? 'left' : 'top';
@@ -230,8 +236,8 @@ export class EditComponent implements OnInit {
       ['Expected', this.formatHashRate(b.expHR)],
       ['Efficiency', `${b.effJTH.toFixed(1)} J/TH`],
       ['Power', `${b.avgPwr.toFixed(1)} W`],
-      ['Temp ASIC', `${b.avgAsicTemp.toFixed(1)} °C`],
-      ['Temp Vcore', `${b.avgVcoreTemp.toFixed(1)} °C`],
+      ['Temp ASIC', this.fmtC(b.avgAsicTemp)],
+      ['Temp Vcore', this.fmtC(b.avgVcoreTemp)],
     ];
     if (b.ts) rows.push(['Measured', new Date(b.ts * 1000).toLocaleString()]);
     // Show the per-phase peak when the board reports it: it is the value the
@@ -372,16 +378,30 @@ export class EditComponent implements OnInit {
     const dv = this.defaultIdx(vc);
     const normalFreq = oc[df].value, normalVcore = vc[dv].value;
 
+    // ECO in the no-data fallback.
+    //
+    // ECO means "the point with the best J/TH that PASSED the safety margin", so
+    // without any qualified result there is nothing to select. This used to
+    // synthesise one from a fixed ratio (freq = 0.85 x default, vcore scaled by
+    // the same ratio and then snapped onto the vc list) and leave the button
+    // ENABLED, while the click applies immediately through onModeSelect() - one
+    // press away from persisting an unverified point. Reported on Nexus
+    // (v3.2.02k): ECO offered 500MHz/925mV although the sweep had qualified
+    // 500MHz at 1080mV and 925mV was below the sweep minimum of 950mV. The ratio
+    // knows nothing about the sweep window, the board's verified floor, or which
+    // points exist.
+    //
+    // Turbo is already disabled for exactly this reason; ECO now matches it, and
+    // Advanced still allows manual tuning.
     const eco: ModePreset = {key: 'eco', label: 'ECO', freq: 0, vcore: 0};
-    const fi = this.closestIdx(oc, normalFreq * 0.85, v => v < normalFreq);
-    if (fi === -1) {
-      eco.disabled = true;
-      eco.disabledReason = 'No frequency option below default';
-      eco.disabledHint = 'no lower option';
+    eco.disabled = true;
+    const legacyForEco = results.filter(r => r.q === undefined || r.q === null).length;
+    if (legacyForEco > 0) {
+      eco.disabledHint = 're-run benchmark';
+      eco.disabledReason = 'The stored benchmark points were measured by an older firmware and were never checked against the safety margin, so ECO cannot pick a low-power point from them. Re-run the benchmark — Advanced still allows manual tuning.';
     } else {
-      eco.freq = oc[fi].value;
-      const vi = this.closestIdx(vc, normalVcore * (eco.freq / normalFreq), v => v <= normalVcore);
-      eco.vcore = vc[vi === -1 ? 0 : vi].value;
+      eco.disabledHint = 'needs benchmark';
+      eco.disabledReason = 'ECO picks the most efficient point that passed the safety margin, so it needs a benchmark result. Run a benchmark first — Advanced still allows manual tuning.';
     }
 
     const turbo: ModePreset = {key: 'turbo', label: 'Turbo', freq: 0, vcore: 0};
@@ -414,6 +434,13 @@ export class EditComponent implements OnInit {
   }
 
   // Index of the option closest to target; on ties the lower value wins.
+  //
+  // NOTE: no longer used by the preset fallback. ECO used to synthesise its point
+  // by scaling the board default by 0.85 and snapping the scaled voltage onto the
+  // vc list with this helper, which is how it produced 500MHz/925mV on Nexus
+  // while the sweep had qualified 500MHz at 1080mV. Kept because it is the only
+  // "nearest option" helper for a numeric option list; reintroduce it only with a
+  // rule that also respects the verified/swept floor.
   private closestIdx(
     options: Array<{name: string, value: number}>,
     target: number,

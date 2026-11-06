@@ -14,8 +14,11 @@ export interface BenchmarkResult {
   vcore: number;
   expHR: number;
   avgHR: number;
-  avgAsicTemp: number;
-  avgVcoreTemp: number;
+  // Temperatures are NULLABLE: a failed telemetry read is stored as JSON null
+  // (it used to be averaged into `nan`, which made the whole response
+  // unparseable). Anything that formats them must tolerate null.
+  avgAsicTemp: number | null;
+  avgVcoreTemp: number | null;
   effJTH: number;
   avgPwr: number;
   ts?: number;  // Unix timestamp (seconds)
@@ -503,7 +506,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
                 if (!r) return [];
                 return [
                   ` Eff    ${r.effJTH.toFixed(2)} J/TH`,
-                  ` ASIC ${r.avgAsicTemp.toFixed(1)} °C  ·  VRM ${r.avgVcoreTemp.toFixed(1)} °C`
+                  ` ASIC ${this.fmtC(r.avgAsicTemp)}  ·  VRM ${this.fmtC(r.avgVcoreTemp)}`
                 ];
               },
               footer: () => 'Click to apply this point'
@@ -621,7 +624,7 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
                 return [
                   ` HR    ${hr}`,
                   ` Pwr  ${r.avgPwr.toFixed(1)} W`,
-                  ` ASIC ${r.avgAsicTemp.toFixed(1)} °C  ·  VRM ${r.avgVcoreTemp.toFixed(1)} °C`
+                  ` ASIC ${this.fmtC(r.avgAsicTemp)}  ·  VRM ${this.fmtC(r.avgVcoreTemp)}`
                 ];
               },
               footer: () => 'Click to apply this point'
@@ -789,6 +792,13 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', hour12: false
     });
+  }
+
+  // Temperature with a unit, tolerating "not measured" (null).
+  // A failed Vcore read is stored as null; calling toFixed() on it threw and took
+  // the whole chart tooltip down with it.
+  private fmtC(v: number | null | undefined): string {
+    return (typeof v === 'number' && isFinite(v)) ? `${v.toFixed(1)} °C` : 'n/a';
   }
 
   public sortIcon(col: keyof BenchmarkResult): string {
