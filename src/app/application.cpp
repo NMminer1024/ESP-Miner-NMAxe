@@ -112,6 +112,24 @@ bool MinerApp::init() {
     hardware_pre_init(_board_spec);
     LOG_I("board model detected: %s", _board_spec.display_name.c_str());
 
+    // ── Reclaim unreachable benchmark result slots ────────────────────────────
+    // A result slot outside the ring's [bm_r_start, bm_r_cnt) window cannot be
+    // shown, downloaded or applied - bm_result_read_all() (and therefore
+    // GET /api/benchmark) only walks that window - yet it still occupies NVS.
+    // A 143-byte row costs 1 header + 6 chunk entries = 7 of the partition's 756
+    // entries, so a leftover set is expensive: measured on a customer board, 66
+    // such rows held 64% of a 24 KB partition and made EVERY config save fail
+    // with ESP_ERR_NVS_NOT_ENOUGH_SPACE while the UI showed no results at all.
+    //
+    // Doing it here makes recovery automatic on the first boot after an update,
+    // instead of waiting for a write to fail. Safe by construction: reachable
+    // rows use exactly the reader's window and are never touched, and if the
+    // ring metadata is missing/out of range the sweep refuses to guess.
+    {
+        const uint16_t orphans = bm_result_sweep_orphans();
+        if (orphans) LOG_W("[BM] Boot: reclaimed %u unreachable result slot(s)", (unsigned)orphans);
+    }
+
     // ── Board revision check: GPIO46 strapping pin ─────────────────────────
     // QAxe++: GPIO46 = LOW,  QAxe++Rev6.1: GPIO46 = HIGH.
     // Only the two QAxe++ revisions carry this pin; other boards skip the check.

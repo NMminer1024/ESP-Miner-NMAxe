@@ -895,6 +895,8 @@ void webserver_thread_entry(void* args) {
     webServer.on("/api/reboot/last", HTTP_GET,    get_reboot_last);
     webServer.on("/api/reboot/list", HTTP_GET,    get_reboot_list);
     webServer.on("/api/reboot/list", HTTP_DELETE, delete_reboot_list);
+    // Read-only NVS inventory: used/free entries, per-key sizes, biggest values.
+    webServer.on("/api/system/nvs",  HTTP_GET,    get_nvs_stats);
     // ── Coredump (post-mortem summary in flash, cleared on demand) ─────────
     webServer.on("/api/coredump/info", HTTP_GET,    get_coredump_info);
     webServer.on("/api/coredump",      HTTP_DELETE, delete_coredump);

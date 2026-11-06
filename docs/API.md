@@ -19,6 +19,7 @@ All endpoints are served on **port 80**. Response bodies are JSON unless noted o
 - [Theme](#theme)
 - [Log & WebSocket](#log--websocket)
 - [Reboot History](#reboot-history)
+- [NVS Diagnostics](#nvs-diagnostics)
 - [Coredump](#coredump)
 - [Benchmark](#benchmark)
 
@@ -287,6 +288,14 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 ```
 
 > `asicVcoreReq` and `asicFreqReq` both take effect in real time after `PATCH /api/setting/mining`. Vcore is applied through the power regulator; frequency is hot-switched through the ASIC PLL. Both values are saved to NVS for the next boot. Values outside the selectable dropdown range (`overclock.options` / `vcore.options`) are clamped to that range before saving. Stratum pool changes are saved to NVS and applied hot: the stratum thread re-reads NVS within a few seconds and reconnects when the *active* pool (primary/fallback in use) changed; an update to the idle pool applies at the next failover. Malformed pool URLs are rejected with `400 {"error":"invalid pool url"}` before anything is written to NVS.
+>
+> **Storage failures are reported, not swallowed.** If a stratum value cannot be written to NVS the request fails and nothing else is applied (the ASIC is *not* re-tuned):
+> ```json
+> { "error": "nvs_write_failed", "code": 4357,
+>   "detail": "ESP_ERR_NVS_NOT_ENOUGH_SPACE", "key": "stratumurl1",
+>   "hint": "NVS is full or fragmented - clear benchmark results / top-10 or factory reset, then retry" }
+> ```
+> HTTP status `500`. Before giving up, the firmware reclaims unreachable benchmark result slots (rows no ring index points at — invisible in the UI but still occupying NVS) and retries once, so a full-but-littered partition does not block a pool change. Use [`GET /api/system/nvs`](#get-apisystemnvs--response-fields) to see what is actually stored.
 
 ### Market — `/api/setting/market`
 
@@ -486,6 +495,41 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 ```
 
 > `GET /api/reboot/last` returns a single object (not an array). If no history exists it returns `{"class":"cold","intent":"none"}`.
+
+---
+
+## NVS Diagnostics
+
+| Method | Endpoint | Description |
+|:------:|:---------|:------------|
+| GET    | `/api/system/nvs` | Read-only inventory of the `nvs` partition (occupancy + per-key sizes) |
+
+Read-only. Touches nothing but flash reads; safe to call at any time.
+
+### `GET /api/system/nvs` — Response Fields
+
+| Field | Description |
+|-------|-------------|
+| `partition.size_bytes` | NVS partition size read **from the partition table** (`24576` on a current build). A smaller value means the board was flashed with an older partition table — an OTA updates the app only, never the partition table. |
+| `partition.total_entries` | Total 32-byte NVS entries (6 × 126 = 756 for a 24 KB partition) |
+| `partition.used_entries` / `free_entries` | Live / free entries as reported by `nvs_get_stats()` |
+| `partition.namespaces` | Number of namespaces present |
+| `entries[]` | `{ns, key, type, bytes}` for every stored key (`type` = `u8`/`u16`/`u32`/`u64`/`str`/`blob`) |
+| `namespaces[]` | `{ns, keys, bytes}` — key count and payload bytes per namespace |
+| `largest[]` | The 10 biggest values, descending (these are what block page reclaim) |
+
+```json
+{
+  "partition": { "ok": true, "size_bytes": 24576, "total_entries": 756,
+                 "used_entries": 214, "free_entries": 542, "namespaces": 5 },
+  "entries": [ { "ns": "main", "key": "stratumurl1", "type": "str", "bytes": 36 } ],
+  "namespaces": [ { "ns": "main", "keys": 25, "bytes": 757 } ],
+  "largest": [ { "ns": "phy", "key": "cal_data", "bytes": 1904 } ],
+  "entry_bytes": 32, "page_bytes": 4096
+}
+```
+
+> **Why payload bytes ≠ partition usage.** NVS is log-structured: a string of N bytes costs one 32-byte item header plus `ceil((N+1)/28)` 32-byte chunks, and reclaiming space requires an entire 4 KB page to be evacuated first. So `free_entries > 0` does **not** guarantee a write will succeed, and deletes themselves need a free entry (for the tombstone). A device reporting `ESP_ERR_NVS_NOT_ENOUGH_SPACE` with a seemingly empty benchmark table is usually holding **unreachable** `bm_r_*` rows — result slots outside the `bm_r_start`/`bm_r_cnt` window, invisible to `GET /api/benchmark`. `DELETE /api/benchmark/results` removes them; a firmware ≥ v3.2.02m also reclaims them automatically when a pool-config write hits a full partition.
 
 ---
 

@@ -965,6 +965,28 @@
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
         </div>
       </div>
+
+      <!-- GET /api/system/nvs -->
+      <div class="endpoint" id="nvs-stats">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/system/nvs</code>
+          <span class="endpoint-summary">NVS inventory (read-only diagnostics)</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Reports what the NVS partition actually holds: used/free 32-byte entries and the size of every stored key. Use it when a save fails with <code>ESP_ERR_NVS_NOT_ENOUGH_SPACE</code>.</p>
+          <div class="block-label">Response 200</div>
+          <pre>{
+  <span class="kw">"partition"</span>: { <span class="kw">"ok"</span>: true, <span class="kw">"size_bytes"</span>: 24576, <span class="kw">"total_entries"</span>: 756,
+                 <span class="kw">"used_entries"</span>: 214, <span class="kw">"free_entries"</span>: 542, <span class="kw">"namespaces"</span>: 5 },
+  <span class="kw">"entries"</span>:    [ { <span class="kw">"ns"</span>: <span class="str">"main"</span>, <span class="kw">"key"</span>: <span class="str">"stratumurl1"</span>, <span class="kw">"type"</span>: <span class="str">"str"</span>, <span class="kw">"bytes"</span>: 36 } ],
+  <span class="kw">"namespaces"</span>: [ { <span class="kw">"ns"</span>: <span class="str">"main"</span>, <span class="kw">"keys"</span>: 25, <span class="kw">"bytes"</span>: 757 } ],
+  <span class="kw">"largest"</span>:    [ { <span class="kw">"ns"</span>: <span class="str">"phy"</span>, <span class="kw">"key"</span>: <span class="str">"cal_data"</span>, <span class="kw">"bytes"</span>: 1904 } ],
+  <span class="kw">"entry_bytes"</span>: 32, <span class="kw">"page_bytes"</span>: 4096
+}</pre>
+          <p class="ep-desc"><strong>Notes.</strong> Payload bytes are not the same as partition usage: a string costs one 32-byte header plus <code>ceil((N+1)/28)</code> 32-byte chunks, and space is only reclaimed when a whole 4 KB page can be evacuated. A non-zero <code>free_entries</code> therefore does not guarantee a write will succeed, and deletes need a free entry too (the tombstone). A table that looks empty while <code>used_entries</code> stays high usually means unreachable <code>bm_r_*</code> result rows (slots outside the <code>bm_r_start</code>/<code>bm_r_cnt</code> window); <code>DELETE /api/benchmark/results</code> reclaims them. <code>size_bytes</code> is read from the partition table — a value below 24576 means the board runs an older partition table (an OTA never updates it).</p>
+        </div>
+      </div>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════

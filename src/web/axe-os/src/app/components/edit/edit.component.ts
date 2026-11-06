@@ -510,7 +510,12 @@ export class EditComponent implements OnInit {
           this.toastr.success('All settings applied in real time.', 'Saved.');
         },
         error: (err: HttpErrorResponse) => {
-          this.toastr.error('Error.', `Could not save. ${err.message}`);
+          // Surface the device's own reason (e.g. nvs_write_failed) instead of a
+          // generic HTTP error, so a storage failure is not mistaken for a UI bug.
+          const body: any = err?.error;
+          const detail = (typeof body === 'string' ? body : (body?.detail || body?.error))
+            || err.message || 'unknown error';
+          this.toastr.error('Could not save. ' + detail, 'Error.');
         }
       });
   }

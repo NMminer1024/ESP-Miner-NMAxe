@@ -16,6 +16,7 @@
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
 #include <esp_mac.h>
+#include <nvs.h>
 
 AsyncWebServer  webServer(80);
 // AsyncWebSocket runs on the same port 80 at path /ws, no separate port needed.
@@ -636,17 +637,57 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
                 request->send(400, "application/json", "{\"error\":\"invalid pool url\"}");
                 free(buf); return;
             }
-            if (stratum.containsKey("primary") && stratum["primary"].is<JsonObject>()) {
-                JsonObject primary = stratum["primary"].as<JsonObject>();
-                if (primary.containsKey("url"))  nvs_config_set_string(NVS_CONFIG_STRATUM_URL_PRIMARY,  primary["url"].as<String>().c_str());
-                if (primary.containsKey("user")) nvs_config_set_string(NVS_CONFIG_STRATUM_USER_PRIMARY, primary["user"].as<String>().c_str());
-                if (primary.containsKey("pwd"))  nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_PRIMARY, primary["pwd"].as<String>().c_str());
+            // Report the REAL storage result. A failed nvs_set_str() used to be
+            // swallowed, so the UI said "Saved" while flash kept the old pool and
+            // the next boot restored it.
+            esp_err_t   nvs_err     = ESP_OK;
+            const char* nvs_err_key = "";
+            auto save_pool_stratum = [&]() -> esp_err_t {
+                nvs_err     = ESP_OK;
+                nvs_err_key = "";
+                auto put = [&](const char* key, const char* val) {
+                    esp_err_t e = nvs_config_set_string(key, val);
+                    if (e != ESP_OK) {
+                        if (nvs_err == ESP_OK) { nvs_err = e; nvs_err_key = key; }
+                        LOG_E("Pool config NOT saved: NVS write failed for '%s': %s",
+                              key, esp_err_to_name(e));
+                    }
+                };
+                if (stratum.containsKey("primary") && stratum["primary"].is<JsonObject>()) {
+                    JsonObject primary = stratum["primary"].as<JsonObject>();
+                    if (primary.containsKey("url"))  put(NVS_CONFIG_STRATUM_URL_PRIMARY,  primary["url"].as<String>().c_str());
+                    if (primary.containsKey("user")) put(NVS_CONFIG_STRATUM_USER_PRIMARY, primary["user"].as<String>().c_str());
+                    if (primary.containsKey("pwd"))  put(NVS_CONFIG_STRATUM_PASS_PRIMARY, primary["pwd"].as<String>().c_str());
+                }
+                if (stratum.containsKey("fallback") && stratum["fallback"].is<JsonObject>()) {
+                    JsonObject fallback = stratum["fallback"].as<JsonObject>();
+                    if (fallback.containsKey("url"))  put(NVS_CONFIG_STRATUM_URL_FALLBACK,  fallback["url"].as<String>().c_str());
+                    if (fallback.containsKey("user")) put(NVS_CONFIG_STRATUM_USER_FALLBACK, fallback["user"].as<String>().c_str());
+                    if (fallback.containsKey("pwd"))  put(NVS_CONFIG_STRATUM_PASS_FALLBACK, fallback["pwd"].as<String>().c_str());
+                }
+                return nvs_err;
+            };
+            if (save_pool_stratum() == ESP_ERR_NVS_NOT_ENOUGH_SPACE) {
+                // The pool is the one setting a miner cannot live without, so before
+                // giving up, reclaim benchmark result slots that no ring index points
+                // at (invisible in the UI, still holding NVS entries - measured at
+                // ~65% of the 24 KB partition on a long-lived board). Reachable rows
+                // are never touched. Then retry once.
+                const uint16_t freed = bm_result_sweep_orphans();
+                if (freed) {
+                    LOG_W("NVS full while saving pool config - reclaimed %u orphan benchmark slot(s), retrying",
+                          (unsigned)freed);
+                    save_pool_stratum();
+                }
             }
-            if (stratum.containsKey("fallback") && stratum["fallback"].is<JsonObject>()) {
-                JsonObject fallback = stratum["fallback"].as<JsonObject>();
-                if (fallback.containsKey("url"))  nvs_config_set_string(NVS_CONFIG_STRATUM_URL_FALLBACK,  fallback["url"].as<String>().c_str());
-                if (fallback.containsKey("user")) nvs_config_set_string(NVS_CONFIG_STRATUM_USER_FALLBACK, fallback["user"].as<String>().c_str());
-                if (fallback.containsKey("pwd"))  nvs_config_set_string(NVS_CONFIG_STRATUM_PASS_FALLBACK, fallback["pwd"].as<String>().c_str());
+            if (nvs_err != ESP_OK) {
+                char msg[320];
+                snprintf(msg, sizeof(msg),
+                         "{\"error\":\"nvs_write_failed\",\"code\":%d,\"detail\":\"%s\",\"key\":\"%s\","
+                         "\"hint\":\"NVS is full or fragmented - clear benchmark results / top-10 or factory reset, then retry\"}",
+                         (int)nvs_err, esp_err_to_name(nvs_err), nvs_err_key);
+                request->send(500, "application/json", msg);
+                free(buf); return;
             }
             // Hot-reload: notify the stratum thread (it re-reads NVS and rebuilds
             // the pool connection itself; the web thread never touches ConnInfo).
@@ -1777,7 +1818,11 @@ void delete_benchmark_results(AsyncWebServerRequest* request){
         return;
     }
 
-    bm_result_clear();
+    // Report erasures that failed instead of a blind "ok". Deleting a key needs a
+    // free NVS entry (the tombstone), so a nearly full partition can refuse - that
+    // is exactly how 66 result rows survived a "Clear Results" and kept the pool
+    // config unwritable.
+    const uint16_t stuck = bm_result_clear();
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MIN);
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_MAX);
     nvs_config_delete_key(NVS_CONFIG_BM_FREQ_STEP);
@@ -1791,6 +1836,15 @@ void delete_benchmark_results(AsyncWebServerRequest* request){
     nvs_config_delete_key(NVS_CONFIG_BM_CUR_VCORE);
     nvs_config_delete_key(NVS_CONFIG_BM_START_TS);
     nvs_config_delete_key(NVS_CONFIG_BM_TOTAL_SEC);
+    if (stuck) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "{\"error\":\"nvs_delete_failed\",\"detail\":\"ESP_ERR_NVS_NOT_ENOUGH_SPACE\",\"rows_left\":%u,"
+                 "\"hint\":\"deleting needs a free NVS entry - free space first, then retry\"}",
+                 (unsigned)stuck);
+        request->send(500, "application/json", msg);
+        return;
+    }
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
@@ -2063,6 +2117,148 @@ void delete_reboot_list(AsyncWebServerRequest * request) {
     reboot_log_clear();
     AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
     resp->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(resp);
+}
+
+// ── GET /api/system/nvs -- read-only NVS inventory (diagnostics) ────────────
+//
+// Why this exists: writes to the "main" namespace can fail with
+// ESP_ERR_NVS_NOT_ENOUGH_SPACE while the obvious data (benchmark rows, top-10)
+// looks small. NVS is an entry (32 B) based log-structured store with a 4 KB
+// page granularity: a value must fit inside ONE page, pages can only be
+// reclaimed by moving every live entry out first, so a handful of large values
+// plus long rewrite history can exhaust the partition long before its nominal
+// 24 KB is "full" of useful data. Guessing from the outside is not possible -
+// this endpoint reports the real numbers:
+//   * partition: used/free entry counts from nvs_get_stats()
+//   * entries[]: every key with its namespace and payload size in bytes
+//   * namespaces[]: key count + bytes per namespace
+//   * largest[]: the 10 biggest values (the ones that block page reclaim)
+void get_nvs_stats(AsyncWebServerRequest * request) {
+    AsyncResponseStream* resp = request->beginResponseStream("application/json");
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+
+    nvs_stats_t st;
+    memset(&st, 0, sizeof(st));
+    const bool stats_ok = (nvs_get_stats("nvs", &st) == ESP_OK);
+    // Size straight from the partition table. This is the field that exposes a
+    // board flashed with an OLD partition table: an OTA updates the app only,
+    // never the partition table, so a device can run the same firmware yet have
+    // far less NVS than partitions.csv promises.
+    const esp_partition_t* nvs_part = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "nvs");
+    resp->printf("{\"partition\":{\"ok\":%s,\"size_bytes\":%u,\"total_entries\":%u,\"used_entries\":%u,"
+                 "\"free_entries\":%u,\"namespaces\":%u}",
+                 stats_ok ? "true" : "false",
+                 (unsigned)(nvs_part ? nvs_part->size : 0),
+                 (unsigned)st.total_entries, (unsigned)st.used_entries,
+                 (unsigned)st.free_entries, (unsigned)st.namespace_count);
+
+    // Aggregates and top-10 kept in BSS: the web task stack is small and this
+    // handler holds ~200 iterations of flash reads.
+    struct NsAgg { char name[20]; uint16_t keys; uint32_t bytes; };
+    struct Big   { char ns[20]; char key[24]; uint32_t bytes; };
+    static NsAgg ns_agg[8];
+    static Big   big[10];
+    uint8_t ns_n = 0, big_n = 0;
+
+    nvs_handle_t h = 0;
+    char h_ns[20] = "";
+
+    resp->print(",\"entries\":[");
+    bool first = true;
+    for (nvs_iterator_t it = nvs_entry_find("nvs", nullptr, NVS_TYPE_ANY); it != nullptr; ) {
+        nvs_entry_info_t info;
+        nvs_entry_info(it, &info);
+
+        // Reuse one read handle per namespace instead of opening per key.
+        if (strcmp(h_ns, info.namespace_name) != 0) {
+            if (h) { nvs_close(h); h = 0; }
+            if (nvs_open_from_partition("nvs", info.namespace_name, NVS_READONLY, &h) != ESP_OK) h = 0;
+            strncpy(h_ns, info.namespace_name, sizeof(h_ns) - 1);
+            h_ns[sizeof(h_ns) - 1] = '\0';
+        }
+
+        const char* tname = "?";
+        uint32_t    bytes = 0;
+        switch (info.type) {
+            case NVS_TYPE_U8:   tname = "u8";   bytes = 1; break;
+            case NVS_TYPE_I8:   tname = "i8";   bytes = 1; break;
+            case NVS_TYPE_U16:  tname = "u16";  bytes = 2; break;
+            case NVS_TYPE_I16:  tname = "i16";  bytes = 2; break;
+            case NVS_TYPE_U32:  tname = "u32";  bytes = 4; break;
+            case NVS_TYPE_I32:  tname = "i32";  bytes = 4; break;
+            case NVS_TYPE_U64:  tname = "u64";  bytes = 8; break;
+            case NVS_TYPE_I64:  tname = "i64";  bytes = 8; break;
+            case NVS_TYPE_STR: {
+                tname = "str";
+                size_t len = 0;
+                if (h && nvs_get_str(h, info.key, nullptr, &len) == ESP_OK) bytes = (uint32_t)len;
+                break;
+            }
+            case NVS_TYPE_BLOB: {
+                tname = "blob";
+                size_t len = 0;
+                if (h && nvs_get_blob(h, info.key, nullptr, &len) == ESP_OK) bytes = (uint32_t)len;
+                break;
+            }
+            default: break;
+        }
+
+        if (!first) resp->print(",");
+        first = false;
+        resp->printf("{\"ns\":\"%s\",\"key\":\"%s\",\"type\":\"%s\",\"bytes\":%u}",
+                     info.namespace_name, info.key, tname, (unsigned)bytes);
+
+        // per-namespace aggregate
+        uint8_t i = 0;
+        for (; i < ns_n; i++) if (strcmp(ns_agg[i].name, info.namespace_name) == 0) break;
+        if (i == ns_n && ns_n < (uint8_t)(sizeof(ns_agg) / sizeof(ns_agg[0]))) {
+            strncpy(ns_agg[ns_n].name, info.namespace_name, sizeof(ns_agg[ns_n].name) - 1);
+            ns_agg[ns_n].keys = 0; ns_agg[ns_n].bytes = 0;
+            i = ns_n++;
+        }
+        if (i < ns_n) { ns_agg[i].keys++; ns_agg[i].bytes += bytes; }
+
+        // keep the 10 largest values, descending (simple insertion into a
+        // fixed-size sorted array: nothing bigger than big[0], nothing smaller
+        // than big[big_n-1])
+        if (bytes > 0) {
+            uint8_t pos = big_n;
+            while (pos > 0 && big[pos - 1].bytes < bytes) pos--;
+            if (pos < 10) {
+                const uint8_t last = (big_n < 10) ? big_n : 9;
+                for (uint8_t k = last; k > pos; k--) big[k] = big[k - 1];
+                strncpy(big[pos].ns, info.namespace_name, sizeof(big[pos].ns) - 1);
+                big[pos].ns[sizeof(big[pos].ns) - 1] = '\0';
+                strncpy(big[pos].key, info.key, sizeof(big[pos].key) - 1);
+                big[pos].key[sizeof(big[pos].key) - 1] = '\0';
+                big[pos].bytes = bytes;
+                if (big_n < 10) big_n++;
+            }
+        }
+
+        it = nvs_entry_next(it);
+    }
+    if (h) nvs_close(h);
+    resp->print("]");
+
+    resp->print(",\"namespaces\":[");
+    for (uint8_t i = 0; i < ns_n; i++) {
+        if (i) resp->print(",");
+        resp->printf("{\"ns\":\"%s\",\"keys\":%u,\"bytes\":%u}",
+                     ns_agg[i].name, (unsigned)ns_agg[i].keys, (unsigned)ns_agg[i].bytes);
+    }
+    resp->print("]");
+
+    resp->print(",\"largest\":[");
+    for (uint8_t i = 0; i < big_n; i++) {
+        if (i) resp->print(",");
+        resp->printf("{\"ns\":\"%s\",\"key\":\"%s\",\"bytes\":%u}",
+                     big[i].ns, big[i].key, (unsigned)big[i].bytes);
+    }
+    resp->print("],\"entry_bytes\":32,\"page_bytes\":4096}");
+
     request->send(resp);
 }
 

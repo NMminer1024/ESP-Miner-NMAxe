@@ -49,23 +49,27 @@ String nvs_config_get_string_value(const char * key, const char * default_value)
     return out;
 }
 
-void nvs_config_set_string(const char * key, const char * value)
+esp_err_t nvs_config_set_string(const char * key, const char * value)
 {
     nvs_handle handle;
     esp_err_t err;
     err = nvs_open(NVS_CONFIG_NAMESPACE, NVS_READWRITE, &handle);
     if (err != ESP_OK) {
-        return;
+        LOG_E("NVS open failed for key '%s': %s", key, esp_err_to_name(err));
+        return err;
     }
 
     err = nvs_set_str(handle, key, value);
-    if (err != ESP_OK) {
-        nvs_close(handle);
-        return;
-    }
-
     nvs_close(handle);
-    return;
+    if (err != ESP_OK) {
+        // Loud on purpose: this used to be silent, so a full/fragmented NVS
+        // looked exactly like a successful save (web said "Saved", reboot kept
+        // the old value).
+        LOG_E("NVS write FAILED for key '%s' (value len=%u): %s (0x%x)",
+              key, (unsigned)(value ? strlen(value) : 0),
+              esp_err_to_name(err), (unsigned)err);
+    }
+    return err;
 }
 
 // Like nvs_config_set_string but returns the raw NVS error code so the caller
@@ -243,11 +247,20 @@ bool nvs_config_delete_key(const char * key)
     nvs_handle handle;
     esp_err_t err = nvs_open(NVS_CONFIG_NAMESPACE, NVS_READWRITE, &handle);
     if (err != ESP_OK) {
+        LOG_E("NVS open failed while deleting '%s': %s", key, esp_err_to_name(err));
         return false;
     }
 
     err = nvs_erase_key(handle, key);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        nvs_close(handle);
+        return false;   // already absent - not an error worth logging
+    }
     if (err != ESP_OK) {
+        // Erasing is an append of a tombstone entry, so a full partition can
+        // refuse to delete. Silence here is how "clear results" reported success
+        // while every row stayed in NVS consuming space.
+        LOG_E("NVS ERASE FAILED for key '%s': %s (0x%x)", key, esp_err_to_name(err), (unsigned)err);
         nvs_close(handle);
         return false;
     }
@@ -1009,14 +1022,105 @@ void bm_result_clear_soak(void) {
     }
 }
 
-void bm_result_clear(void) {
+// Empty every result slot, reporting slots that could NOT be erased.
+//
+// Erasing a key is a WRITE in NVS: it appends a tombstone entry, so a partition
+// that is nearly full can refuse to delete. The old void version ignored that
+// return value, which is how a board ended up with 66 result rows still in NVS
+// after a "clear" that reported success - and those rows then blocked every
+// subsequent config save with ESP_ERR_NVS_NOT_ENOUGH_SPACE.
+//
+// The ring metadata is only dropped when every slot is gone: keeping start/count
+// while slots survive would keep the ring readable (and retryable) instead of
+// silently turning the leftovers into unreachable orphans.
+uint16_t bm_result_clear(void) {
+    uint16_t failed = 0;
     for (uint16_t i = 0; i < BM_RESULT_MAX_ENTRIES; i++) {
         char key[12];
         bm_r_key(key, sizeof(key), i);
-        nvs_config_delete_key(key);
+        char* e = nvs_config_get_string(key, "");
+        const bool present = e && e[0] != '\0';
+        free(e);
+        if (!present) continue;
+        if (!nvs_config_delete_key(key)) {
+            failed++;
+            LOG_E("[BM] Clear results: could not erase %s - NVS needs a free entry to delete. "
+                  "It still occupies space; free some space and retry.", key);
+        }
     }
-    nvs_config_delete_key(NVS_CONFIG_BM_R_START);
-    nvs_config_delete_key(NVS_CONFIG_BM_R_COUNT);
-    nvs_config_delete_key(NVS_CONFIG_BM_RESULT);  // legacy
-    s_soak_marks_may_exist = false;
+    if (failed == 0) {
+        nvs_config_delete_key(NVS_CONFIG_BM_R_START);
+        nvs_config_delete_key(NVS_CONFIG_BM_R_COUNT);
+        nvs_config_delete_key(NVS_CONFIG_BM_RESULT);  // legacy
+        s_soak_marks_may_exist = false;
+    } else {
+        LOG_E("[BM] Clear results INCOMPLETE: %u row(s) remain in NVS", (unsigned)failed);
+    }
+    return failed;
+}
+
+// Delete result slots that the ring window does not describe.
+//
+// A slot outside [start, start+cnt) is unreachable: GET /api/benchmark and every
+// firmware consumer walk the ring by index, so those rows cannot be shown,
+// downloaded or applied - they are pure NVS cost. Measured on a customer board
+// (v3.2.02m, 24 KB partition): 66 such rows held ~386 of 598 used entries, and
+// their presence was enough to make every config write fail with
+// ESP_ERR_NVS_NOT_ENOUGH_SPACE even though the UI reported no results at all.
+//
+// Safe by construction: the live window is computed exactly the way
+// bm_result_read_all() computes it, so a row that the reader can return is never
+// touched here - and if the metadata is unusable, nothing is swept at all.
+uint16_t bm_result_sweep_orphans(void) {
+    // Read the ring metadata RAW so "key absent" can be told apart from "key == 0".
+    // The fallback-getter would return 0 for a missing key, silently turning a
+    // corrupt/lost index into "window starts at slot 0, count 0" and making every
+    // stored row look unreachable.
+    uint16_t start = 0, cnt = 0;
+    bool     have_start = false, have_cnt = false;
+    nvs_handle h_meta;
+    if (nvs_open(NVS_CONFIG_NAMESPACE, NVS_READONLY, &h_meta) == ESP_OK) {
+        have_start = (nvs_get_u16(h_meta, NVS_CONFIG_BM_R_START, &start) == ESP_OK);
+        have_cnt   = (nvs_get_u16(h_meta, NVS_CONFIG_BM_R_COUNT, &cnt)   == ESP_OK);
+        nvs_close(h_meta);
+    }
+    if (!have_start && !have_cnt) {
+        start = 0; cnt = 0;              // ring never used / already cleared: every slot is garbage
+    } else if (!(have_start && have_cnt)) {
+        LOG_W("[BM] Orphan sweep skipped: ring metadata is incomplete (start=%d cnt=%d). "
+              "Guessing the window could delete reachable results.", (int)have_start, (int)have_cnt);
+        return 0;
+    } else if (start >= BM_RESULT_MAX_ENTRIES || cnt > BM_RESULT_MAX_ENTRIES) {
+        LOG_W("[BM] Orphan sweep skipped: ring metadata out of range (start=%u cnt=%u).",
+              (unsigned)start, (unsigned)cnt);
+        return 0;
+    }
+    uint16_t freed = 0;
+
+    for (uint16_t i = 0; i < BM_RESULT_MAX_ENTRIES; i++) {
+        const uint16_t off  = (uint16_t)((i + BM_RESULT_MAX_ENTRIES - start) % BM_RESULT_MAX_ENTRIES);
+        if (cnt > 0 && off < cnt) continue;   // reachable row - keep it
+
+        char key[12];
+        bm_r_key(key, sizeof(key), i);
+        char* e = nvs_config_get_string(key, "");
+        const bool present = e && e[0] != '\0';
+        uint16_t   freq    = 0;
+        const bool have_f  = present && bm_r_parse_freq(e, freq);
+        free(e);
+        if (!present) continue;
+
+        if (nvs_config_delete_key(key)) {
+            freed++;
+            if (have_f) LOG_W("[BM] Reclaimed unreachable result slot %s (freq=%u MHz) - freed NVS space",
+                              key, (unsigned)freq);
+            else        LOG_W("[BM] Reclaimed unreachable result slot %s", key);
+        } else {
+            LOG_E("[BM] Could not reclaim unreachable slot %s - NVS is too full to even erase", key);
+        }
+    }
+    if (freed) {
+        LOG_W("[BM] Orphan sweep freed %u result slot(s) that no ring index pointed at", (unsigned)freed);
+    }
+    return freed;
 }

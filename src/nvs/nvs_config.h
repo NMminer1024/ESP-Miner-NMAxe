@@ -124,11 +124,25 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vco
 // Drop all soak verdicts (the fan policy they were measured under changed).
 void      bm_result_clear_soak(void);
 void      bm_result_restore_all(const char* json_array);// bulk-restore entries from a "[...]" string (empty ring assumed)
-void      bm_result_clear(void);
+// Delete every stored result row. Returns the number of rows that could NOT be
+// erased: erasing a key needs a free NVS entry for the tombstone, so a nearly
+// full partition can refuse the delete itself. Callers must surface a non-zero
+// return instead of reporting success.
+uint16_t  bm_result_clear(void);
+// Reclaim result slots that no ring index points at (bm_r_000..bm_r_079 outside
+// the [bm_r_start, bm_r_start+bm_r_cnt) window). Such rows are invisible to GET
+// /api/benchmark yet still occupy NVS entries - on a long-lived board they were
+// measured to hold ~65% of the 24 KB partition. Deleting them loses nothing the
+// UI could show. Returns the number of slots actually freed.
+uint16_t  bm_result_sweep_orphans(void);
 
 char *    nvs_config_get_string(const char * key, const char * default_value);
 String    nvs_config_get_string_value(const char * key, const char * default_value);
-void      nvs_config_set_string(const char * key, const char * value);
+// Returns the real NVS result. Callers that report success to the user (the web
+// PATCH handlers) MUST check it: on a full/fragmented partition nvs_set_str()
+// fails and the value never reaches flash, while a void signature used to make
+// the failure indistinguishable from success.
+esp_err_t nvs_config_set_string(const char * key, const char * value);
 esp_err_t nvs_config_try_set_string(const char * key, const char * value);  // returns ESP_OK or the NVS error (e.g. ESP_ERR_NVS_NOT_ENOUGH_SPACE)
 
 uint8_t  nvs_config_get_u8(const char * key,  const uint8_t default_value);
