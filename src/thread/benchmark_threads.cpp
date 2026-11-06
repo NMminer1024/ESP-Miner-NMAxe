@@ -598,8 +598,19 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
     char* res_str = bm_result_read_all();
     BasicJsonDocument<PsramJsonAllocator> rdoc(32768);
     DeserializationError rerr = deserializeJson(rdoc, res_str);
+    if (rerr) {
+        // Silent here used to be indistinguishable from "no candidates": the
+        // sweep finished, nothing was soaked, nothing said why. One unparseable
+        // byte (a nan token from an older build) was enough to skip the entire
+        // final stage, so say it out loud.
+        LOG_E("[BM] Results are not valid JSON (%s) — SKIPPING the soak stage. "
+              "No point was soak-verified, so none can be auto-applied.", rerr.c_str());
+    }
     free(res_str);
-    if (rerr || !rdoc.is<JsonArray>()) return;
+    if (rerr || !rdoc.is<JsonArray>()) {
+        if (!rerr) LOG_E("[BM] Results JSON is not an array — SKIPPING the soak stage.");
+        return;
+    }
 
     struct Cand { uint16_t freq, vcore; float avgHR; };
     std::vector<Cand> cands;
@@ -769,6 +780,13 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
         BasicJsonDocument<PsramJsonAllocator> rdoc(32768);  // ring cap is 80 entries (~11KB JSON)
         DeserializationError rerr = deserializeJson(rdoc, res_str);
         free(res_str);
+        if (rerr) {
+            // Otherwise this path is identical to "the table is empty", and the
+            // user is told nothing while the miner quietly keeps its pre-sweep
+            // settings. Name the actual cause.
+            LOG_E("[BM] Results are not valid JSON (%s) — no point can be selected. "
+                  "Keeping the pre-sweep settings.", rerr.c_str());
+        }
         uint16_t best_freq = 0, best_vcore = 0;
         float    best_avgHR = -1.0f;
         int      candidates = 0;
@@ -833,6 +851,18 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
     bm_fan_acquire(ctx);
     bool fan_failed_any = false;
 
+    // Lowest voltage that came in UNSTABLE at the frequency currently being
+    // swept (0 = nothing failed yet, i.e. the first voltage tried passed).
+    //
+    // The stored row keeps only the voltage that PASSED, and the next frequency
+    // starts one step BELOW the previous success, so a row reading "+10 mV above
+    // factory" is ambiguous: either the lower step failed, or it was never tried.
+    // That ambiguity was reported from the field ("I cannot confirm whether lower
+    // voltages failed or the extra step is deliberate margin"). Recording it here
+    // answers it in the log without spending any of the scarce NVS bytes on it.
+    uint16_t vfail_freq  = 0;
+    uint16_t vfail_vcore = 0;
+
     while (*ctx->bm_mode == 1) {
         bm_fan_renew(ctx);
         // Config and the current point are re-read EVERY round (the legacy
@@ -862,6 +892,9 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
             bm_finish(ctx, "sweep window moved past the checkpoint");
             return;
         }
+
+        // Fresh frequency: forget the previous one's failures.
+        if (cur_freq != vfail_freq) { vfail_freq = cur_freq; vfail_vcore = 0; }
 
         LOG_W("[BM] === Benchmark round: freq=%d vcore=%d ===", cur_freq, cur_vcore);
         LOG_W("[BM] Range freq %d~%dMHz step=%d, vcore %d~%dmV step=%d",
@@ -1497,6 +1530,17 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
             if (nvs_write_err == ESP_OK) LOG_W("[BM] Result saved: %s", entry);
             else LOG_E("[BM] NVS write failed (%s), result not saved.", esp_err_to_name(nvs_write_err));
 
+            // Explain the stored voltage relative to the attempts below it.
+            if (vfail_vcore > 0) {
+                LOG_W("[BM] freq=%dMHz: stored %dmV; the lower voltage %dmV was tried and came in UNSTABLE "
+                      "(this row is the lowest voltage that passed, not a deliberate margin).",
+                      cur_freq, cur_vcore, vfail_vcore);
+            } else {
+                LOG_W("[BM] freq=%dMHz: stored %dmV on the first voltage tried this sweep; "
+                      "no lower voltage was attempted, so this row says nothing about the floor.",
+                      cur_freq, cur_vcore);
+            }
+
             cur_freq  += freq_step;
             cur_vcore  = (cur_vcore > vcore_min + vcore_step) ? (cur_vcore - vcore_step) : vcore_min;
 
@@ -1518,9 +1562,15 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
                 return;
             }
         } else {
+            // Unstable at this voltage: remember the lowest failure so the round
+            // that eventually passes can say what it is standing on.
+            if (vfail_vcore == 0 || cur_vcore < vfail_vcore) vfail_vcore = cur_vcore;
+            LOG_W("[BM] freq=%dMHz: %dmV came in UNSTABLE — retrying at a higher voltage.",
+                  cur_freq, cur_vcore);
             cur_vcore += vcore_step;
             if (cur_vcore > vcore_max) {
-                LOG_W("[BM] freq=%dMHz unstable at all vcores, skipping to next freq.", cur_freq);
+                LOG_W("[BM] freq=%dMHz unstable at all vcores (lowest failure %dmV), skipping to next freq.",
+                      cur_freq, vfail_vcore);
                 cur_freq  += freq_step;
                 cur_vcore  = vcore_min;
                 if (cur_freq > freq_max) {

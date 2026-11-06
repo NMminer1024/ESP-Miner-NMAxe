@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
-import { forkJoin, interval, Subscription } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { forkJoin, interval, of, Subscription } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { SystemService } from 'src/app/services/system.service';
 import { LoadingService } from 'src/app/services/loading.service';
@@ -165,35 +165,55 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
 
     this.systemService.getBenchmark()
       .pipe(this.loadingService.lockUIUntilComplete())
-      .subscribe((data: any) => {
-        this.isRunning = data.mode === 1;
-        this.curFreq   = data.curFreq;
-        this.curVcore  = data.curVcore;
-        this.totalSec  = data.totalSec ?? 0;
-        this.startTs   = data.startTs  ?? 0;
-        this.loadedFreqMin  = data.freqMin;
-        this.loadedVcoreMin = data.vcoreMin;
-        this.setResults(Array.isArray(data.results) ? data.results : []);
+      .subscribe({
+        next: (data: any) => {
+          this.isRunning = data.mode === 1;
+          this.curFreq   = data.curFreq;
+          this.curVcore  = data.curVcore;
+          this.totalSec  = data.totalSec ?? 0;
+          this.startTs   = data.startTs  ?? 0;
+          this.loadedFreqMin  = data.freqMin;
+          this.loadedVcoreMin = data.vcoreMin;
+          this.setResults(Array.isArray(data.results) ? data.results : []);
 
-        if (this.isRunning) this.startElapsedTimer();
+          if (this.isRunning) this.startElapsedTimer();
 
-        this.form = this.fb.group({
-          freqMin:    [this.clampField(data.freqMin,    100, 5000, 400),  [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
-          freqMax:    [this.clampField(data.freqMax,    100, 5000, 625),  [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
-          freqStep:   [this.clampField(data.freqStep,   1,   500,  25),   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(500)]],
-          vcoreMin:   [this.clampField(data.vcoreMin,   600, 2000, 1000), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
-          vcoreMax:   [this.clampField(data.vcoreMax,   600, 2000, 1300), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
-          vcoreStep:  [this.clampField(data.vcoreStep,  1,   200,  25),   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(200)]],
-          sampleIntv: [this.clampField(data.sampleIntv, 1,   300,  2),    [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
-          bmTime:     [this.clampField(data.bmTime,     15,  7200, 120),  [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(7200)]],
-          stabTime:   [this.clampField(data.stabTime,   15,  3600, 30),   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(3600)]],
-        });
+          this.createForm(data);
 
-        this.syncFormLock();
-        if (this.isRunning) {
-          this.startPolling();
+          if (this.isRunning) {
+            this.startPolling();
+          }
+        },
+        // Without this branch a failed request (or a response the browser cannot
+        // parse) left `form` undefined forever: the template gates on
+        // `form != null`, so the page sat on "Waiting..." with no error and no
+        // recovery - reported on Nexus with v3.2.02k, where one row carried
+        // "avgVcoreTemp":nan and made the whole document invalid JSON. The
+        // firmware now emits null instead, but the page must still say what
+        // happened rather than spin.
+        error: (err: any) => {
+          this.toastr.error(
+            `Could not load benchmark data: ${err?.message ?? err}. ` +
+            'The form below uses board defaults; check the device log.',
+            'Benchmark data unavailable');
+          this.createForm({});
         }
       });
+  }
+
+  private createForm(data: any): void {
+    this.form = this.fb.group({
+      freqMin:    [this.clampField(data.freqMin,    100, 5000, 400),  [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
+      freqMax:    [this.clampField(data.freqMax,    100, 5000, 625),  [Validators.required, this.integerValidator, Validators.min(100), Validators.max(5000)]],
+      freqStep:   [this.clampField(data.freqStep,   1,   500,  25),   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(500)]],
+      vcoreMin:   [this.clampField(data.vcoreMin,   600, 2000, 1000), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
+      vcoreMax:   [this.clampField(data.vcoreMax,   600, 2000, 1300), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
+      vcoreStep:  [this.clampField(data.vcoreStep,  1,   200,  25),   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(200)]],
+      sampleIntv: [this.clampField(data.sampleIntv, 1,   300,  2),    [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
+      bmTime:     [this.clampField(data.bmTime,     15,  7200, 120),  [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(7200)]],
+      stabTime:   [this.clampField(data.stabTime,   15,  3600, 30),   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(3600)]],
+    });
+    this.syncFormLock();
   }
 
   ngOnDestroy(): void {
@@ -724,8 +744,19 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
 
   private startPolling(): void {
     this.pollSub = interval(10000).pipe(
-      switchMap(() => this.systemService.getBenchmark())
+      // A failed poll must not kill the poller. Without catchError the first
+      // error terminated the subscription, so a single dropped request (device
+      // busy writing NVS, OTA, WiFi hiccup) stopped the page from ever noticing
+      // the sweep had finished - it kept showing the last state and the
+      // "elapsed" clock forever.
+      switchMap(() => this.systemService.getBenchmark().pipe(
+        catchError((err: any) => {
+          console.warn('benchmark poll failed', err);
+          return of(null);
+        })
+      ))
     ).subscribe((data: any) => {
+      if (!data) return;   // transient failure: keep the existing state
       this.isRunning = data.mode === 1;
       this.syncFormLock();
       this.curFreq   = data.curFreq;
