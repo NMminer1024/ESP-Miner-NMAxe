@@ -352,6 +352,17 @@ static void bm_restore_normal_point(BenchmarkCtx* ctx) {
 // inside the limits there are eligible for automatic application, and the duty
 // the fan settled at is recorded as fanNeed - the number that answers "how much
 // cooling does this point really cost".
+// Fraction of the bundled adapter's rating a 24/7 point may use. The remaining
+// headroom absorbs rail sag (Vbus drops as load rises, which raises the current
+// for the same wattage) and slow thermal drift in the adapter.
+//
+// Shared by the sweep's qualification and the post-sweep soak: the sweep
+// measures at 100 % cooling, the soak under the user's real fan policy, and the
+// hotter run draws MORE input current for the same hashrate (reported from the
+// field: 114.6 W at 50-56 C versus 111.1 W at 39 C for a comparable point), so
+// the sweep's margin is optimistic and has to be re-checked at the soak.
+static constexpr float BM_ADAPTER_BUDGET = 0.95f;
+
 static constexpr uint8_t  BM_SOAK_CANDIDATES = 3;
 static constexpr uint32_t BM_SOAK_MAX_MS     = 8u * 60u * 1000u;
 static constexpr uint32_t BM_SOAK_MIN_MS     = 90u * 1000u;
@@ -439,6 +450,24 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
     bool    ok = true;
     uint32_t soak_log_tick = 0;   // progress line every BM_SOAK_LOG_S seconds
 
+    // Electrical peaks measured under the USER'S fan policy.
+    //
+    // The sweep qualifies adapter headroom at 100 % cooling, where the chips are
+    // coldest and the point is cheapest to run. In real operation the same point
+    // runs hotter and therefore draws more input current for the same hashrate,
+    // so a point that cleared the 95 % budget at 39 C can sit above it at 55 C
+    // (reported from the field: 114.6 W versus 111.1 W). Re-checking here is what
+    // makes "Turbo stays inside the bundled adapter" true for the fan policy the
+    // user actually runs instead of only for the benchmark's own.
+    double  soak_ibus_peak = 0.0;   // A
+    double  soak_pwr_in_peak = 0.0;// W
+    double  soak_phase_peak = 0.0;  // A, heaviest phase
+    int8_t  soak_phase_cnt = 0;
+    {
+        int8_t hp = ctx->power ? ctx->power->detect_phase() : -1;
+        if (hp > 0) soak_phase_cnt = hp;
+    }
+
     while (true) {
         if (*ctx->bm_mode != 1) { bm.in_soak = false; return false; }   // stopped mid-soak
         delay(BM_SOAK_POLL_MS);
@@ -456,6 +485,27 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
 
         const double hr = ctx->status ? (ctx->status->hashrate._3m / 1e9) : 0.0;
         if (hr > hr_peak) hr_peak = hr;
+
+        // Electrical peaks, same polarity rules as the sweep: only readings that
+        // could plausibly belong to this point are folded in, and a failed read
+        // (NAN / 0 mV) is skipped rather than counted as a peak.
+        if (ctx->pwr) {
+            const double vbus_s = ctx->pwr->vbus / 1000.0;
+            const double ibus_s = ctx->pwr->ibus / 1000.0;
+            if (ibus_s > 0.0) {
+                if (ibus_s > soak_ibus_peak) soak_ibus_peak = ibus_s;
+                const double pin = vbus_s * ibus_s;
+                if (pin > soak_pwr_in_peak) soak_pwr_in_peak = pin;
+            }
+            if (ctx->power && soak_phase_cnt > 0) {
+                for (int8_t p = 0; p < soak_phase_cnt; p++) {
+                    float a = NAN;
+                    if (ctx->power->read_phase_iout_amps((uint8_t)p, &a) != 0) continue;
+                    if (a != a || a <= 0.0f) continue;
+                    if ((double)a > soak_phase_peak) soak_phase_peak = (double)a;
+                }
+            }
+        }
 
         bm.phase_elapsed = (millis() - t0) / 1000u;
         bm.asic_temp     = (float)at;
@@ -478,10 +528,13 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
             else if (has_v)       snprintf(fanbuf, sizeof(fanbuf), "%u%%", fd_v);
             else                  snprintf(fanbuf, sizeof(fanbuf), "n/a");
             LOG_W("[BM] Soak %u/%u @ %dMHz/%dmV: %lus elapsed, ASIC %.1fC (peak %.1fC, limit %.0fC), "
-                  "Vcore %.1fC (peak %.1fC), HR %.0f/%.0f GH/s, fan %s.",
+                  "Vcore %.1fC (peak %.1fC), HR %.0f/%.0f GH/s, input %.2fA/%.1fW (peak %.2fA/%.1fW), fan %s.",
                   (unsigned)bm.soak_idx, (unsigned)bm.soak_total, freq, vcore,
                   (unsigned long)(bm.phase_elapsed), at, at_peak, at_limit, vt, vt_peak,
-                  hr, (double)bm.exp_hr_ghs, fanbuf);
+                  hr, (double)bm.exp_hr_ghs,
+                  ctx->pwr ? ctx->pwr->ibus / 1000.0 : 0.0,
+                  ctx->pwr ? (ctx->pwr->vbus * ctx->pwr->ibus / 1e6) : 0.0,
+                  soak_ibus_peak, soak_pwr_in_peak, fanbuf);
         }
 
         // A candidate starts from whatever temperature the PREVIOUS candidate
@@ -575,6 +628,44 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
         LOG_W("[BM] Soak failed: Vcore peak %.1fC is within %.0fC of the %.0fC limit.",
               vt_peak, BM_SOAK_MARGIN_C, vt_limit);
         return false;
+    }
+
+    // ── Adapter budget, re-applied under the real fan policy ──────────────────
+    // The sweep already checked this at 100 % cooling; a hotter chip draws more
+    // current for the same hashrate, so the sweep's headroom is optimistic. Both
+    // the current and the wattage are checked - at a sagging rail the wattage
+    // figure understates the draw - and current is the primary one.
+    if (ctx->spec) {
+        const BoardSpecConfig* bspec = ctx->spec;
+        if (bspec->pwr.adapter_max_a > 0.0f) {
+            const double budget_a = (double)bspec->pwr.adapter_max_a * BM_ADAPTER_BUDGET;
+            if (soak_ibus_peak > budget_a) {
+                LOG_W("[BM] Soak failed: peak input %.2fA exceeds the %.2fA budget (%.0f%% of %.0fA) "
+                      "at %dMHz/%dmV under the current fan policy — the sweep measured this point at "
+                      "100%% cooling, and running it hotter is what pushed it over.",
+                      soak_ibus_peak, budget_a, BM_ADAPTER_BUDGET * 100.0,
+                      (double)bspec->pwr.adapter_max_a, freq, vcore);
+                return false;
+            }
+        }
+        if (bspec->pwr.adapter_max_w > 0.0f) {
+            const double budget_w = (double)bspec->pwr.adapter_max_w * BM_ADAPTER_BUDGET;
+            if (soak_pwr_in_peak > budget_w) {
+                LOG_W("[BM] Soak failed: peak input %.1fW exceeds the %.1fW budget (%.0f%% of %.0fW) "
+                      "at %dMHz/%dmV under the current fan policy.",
+                      soak_pwr_in_peak, budget_w, BM_ADAPTER_BUDGET * 100.0,
+                      (double)bspec->pwr.adapter_max_w, freq, vcore);
+                return false;
+            }
+        }
+        if (soak_ibus_peak > 0.0) {
+            LOG_W("[BM] Soak %u/%u @ %dMHz/%dmV: peak input %.2fA (%.0f%% of adapter) / %.1fW, "
+                  "heaviest phase %.2fA — inside the %.0f%% budget under the fan policy in force.",
+                  (unsigned)bm.soak_idx, (unsigned)bm.soak_total, freq, vcore,
+                  soak_ibus_peak,
+                  (bspec->pwr.adapter_max_a > 0.0f) ? 100.0 * soak_ibus_peak / bspec->pwr.adapter_max_a : 0.0,
+                  soak_pwr_in_peak, soak_phase_peak, BM_ADAPTER_BUDGET * 100.0);
+        }
     }
 
     if (fan_need_asic != nullptr) {
@@ -1329,10 +1420,8 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         //     peak input power against the board's power ceiling. Temperature is the
         //     only shared signal, so it applies everywhere.
         constexpr float BM_TEMP_MARGIN_C = 5.0f;
-        // Fraction of the bundled adapter's rating a 24/7 point may use. The remaining
-        // headroom absorbs rail sag (Vbus drops as load rises, which raises the current
-        // for the same wattage) and slow thermal drift in the adapter.
-        constexpr float BM_ADAPTER_BUDGET = 0.95f;
+        // BM_ADAPTER_BUDGET is defined at file scope: the soak re-applies the same
+        // budget under the user's fan policy.
         bool  qualified = true;
         const char* q_reason = "ok";
         if (fault_tripped) {
