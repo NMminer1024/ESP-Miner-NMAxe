@@ -24,7 +24,12 @@ typedef uint16_t asic_id_t;
 #define MINER_LOG_SUMMARY_INTERVAL      (1000*60*1)  // ms, summary log cadence
 
 // ── History / persistence cadence (mirror legacy global.h) ──────────────────
+// Overridable from the build flags so a soak/regression run can shorten the
+// period (the periodic save now skips unchanged values, so a 2-minute period is
+// a cheap way to observe several ticks inside one test session).
+#ifndef BOARD_NVS_SAVE_INTERVAL
 #define BOARD_NVS_SAVE_INTERVAL         (60*60)         // seconds between NVS persists
+#endif
 #define MINER_HISTORY_SAMPLE_DEEPTH     (1000*3600*24)  // history retention window (ms)
 #define MINER_HISTORY_SAMPLE_INTERVAL   (5)             // history sample interval (s)
 #define MINER_HISTORY_MAX_SIZE          (20000)         // hard cap on deque element count

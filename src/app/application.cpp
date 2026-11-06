@@ -317,12 +317,17 @@ bool MinerApp::init() {
         }
         // Pool|user connection snapshot per entry: "p0|u0;p1|u1;..." (';'
         // separates entries, '|' splits pool host:port from stratum user).
-        // Pre-snapshot firmware has no such key — entries keep empty strings
-        // and the UI hides the pool/wallet line for them.
+        // A leading '@' means every rank shares one connection ("@pool|user") —
+        // the compact form the monitor writes when all ten ranks were mined on
+        // the same pool with the same wallet (ten copies of one string cost ~700
+        // of the key's ~810 bytes). Pre-snapshot firmware has no such key —
+        // entries keep empty strings and the UI hides the pool/wallet line.
         {
             String snap = nvs_config_get_string_value(NVS_CONFIG_TOP_DIFF_SNAP, "");
+            const bool shared = (snap.length() > 0 && snap[0] == '@');
+            const int  first  = shared ? 1 : 0;
             int idx = 0;
-            int start = 0;
+            int start = first;
             while (idx < MINER_TOP_DIFF_COUNT && start <= (int)snap.length()) {
                 int semi = snap.indexOf(';', start);
                 if (semi < 0) semi = snap.length();
@@ -331,10 +336,15 @@ bool MinerApp::init() {
                 if (bar >= 0) {
                     String pool = entry.substring(0, bar);
                     String user = entry.substring(bar + 1);
-                    strncpy(_state_miner->best_top_diff_pool[idx], pool.c_str(), MINER_TOP_SNAP_POOL_LEN - 1);
-                    strncpy(_state_miner->best_top_diff_user[idx], user.c_str(), MINER_TOP_SNAP_USER_LEN - 1);
+                    for (int k = shared ? 0 : idx; k < (shared ? MINER_TOP_DIFF_COUNT : idx + 1); k++) {
+                        if (k < MINER_TOP_DIFF_COUNT) {
+                            strncpy(_state_miner->best_top_diff_pool[k], pool.c_str(), MINER_TOP_SNAP_POOL_LEN - 1);
+                            strncpy(_state_miner->best_top_diff_user[k], user.c_str(), MINER_TOP_SNAP_USER_LEN - 1);
+                        }
+                    }
                 }
                 idx++;
+                if (shared) break;                  // one pair describes every rank
                 start = semi + 1;
                 if (semi == (int)snap.length()) break;
             }

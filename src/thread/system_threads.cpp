@@ -58,6 +58,110 @@
 using namespace thread_shared;
 
 
+// ── NVS save helpers: never rewrite a value that has not changed ─────────────
+//
+// The monitor persists lifetime counters every BOARD_NVS_SAVE_INTERVAL, and it
+// used to write ALL of them unconditionally - including the Top-10 set
+// (topdiffs + ts + net + snap, ~1.1 KB = ~51 of the partition's 756 entries)
+// even when no new rank had been earned. That is ~46 wasted rewrites out of 47.
+//
+// NVS is log-structured: overwriting a value appends a fresh entry and leaves the
+// old one to be reclaimed only once a whole 4 KB page can be evacuated. Rewriting
+// unchanged data is therefore not free - it is exactly what turned a 24 KB
+// partition into ESP_ERR_NVS_NOT_ENOUGH_SPACE on long-lived boards while the
+// visible data was tiny (see docs/API.md, "NVS Diagnostics").
+//
+// Comparing first costs a flash READ (no wear, ~microseconds) and cuts the hourly
+// churn from ~51 entries to ~2 (the uptime counter, and the hit count when it
+// actually moved).
+static constexpr int NVS_SAVE_UNCHANGED =  0;
+static constexpr int NVS_SAVE_WRITTEN   =  1;
+static constexpr int NVS_SAVE_FAILED    = -1;
+
+static int nvs_save_str(const char* key, const String& val) {
+    char* cur = nvs_config_get_string(key, "");
+    const bool differs = (!cur || val != cur);
+    if (cur) free(cur);
+    if (!differs) return NVS_SAVE_UNCHANGED;
+    esp_err_t e = nvs_config_set_string(key, val.c_str());
+    if (e != ESP_OK) {
+        LOG_E("[nvs] periodic save of '%s' failed: %s", key, esp_err_to_name(e));
+        return NVS_SAVE_FAILED;
+    }
+    return NVS_SAVE_WRITTEN;
+}
+
+static int nvs_save_u16(const char* key, uint16_t val) {
+    // 0xFFFF is unreachable for every counter stored through this helper.
+    if (nvs_config_get_u16(key, 0xFFFF) == val) return NVS_SAVE_UNCHANGED;
+    esp_err_t e = nvs_config_try_set_u16(key, val);
+    if (e != ESP_OK) {
+        LOG_E("[nvs] periodic save of '%s' failed: %s", key, esp_err_to_name(e));
+        return NVS_SAVE_FAILED;
+    }
+    return NVS_SAVE_WRITTEN;
+}
+
+static int nvs_save_u64(const char* key, uint64_t val) {
+    if (nvs_config_get_u64(key, UINT64_MAX) == val) return NVS_SAVE_UNCHANGED;
+    esp_err_t e = nvs_config_try_set_u64(key, val);
+    if (e != ESP_OK) {
+        LOG_E("[nvs] periodic save of '%s' failed: %s", key, esp_err_to_name(e));
+        return NVS_SAVE_FAILED;
+    }
+    return NVS_SAVE_WRITTEN;
+}
+
+// Serialize the Top-10 connection snapshot ("pool|user" per rank).
+//
+// Every rank is normally mined on the same pool with the same wallet, so storing
+// the pair ten times wasted ~700 of the key's ~810 bytes (31 entries) to repeat
+// one string. When all ranks are identical the value collapses to "@pool|user";
+// a mixed set keeps the original ';'-separated form, which the boot parser
+// already understands (see application.cpp).
+static String top_snap_to_nvs(const MinerStatus& st) {
+    bool all_same = true;
+    for (int i = 1; i < MINER_TOP_DIFF_COUNT && all_same; i++) {
+        all_same = (strcmp(st.best_top_diff_pool[i], st.best_top_diff_pool[0]) == 0) &&
+                   (strcmp(st.best_top_diff_user[i], st.best_top_diff_user[0]) == 0);
+    }
+    if (all_same) {
+        String s = "@";
+        s += st.best_top_diff_pool[0];
+        s += "|";
+        s += st.best_top_diff_user[0];
+        return s;
+    }
+    String s;
+    for (int i = 0; i < MINER_TOP_DIFF_COUNT; i++) {
+        if (i > 0) s += ";";
+        s += st.best_top_diff_pool[i];
+        s += "|";
+        s += st.best_top_diff_user[i];
+    }
+    return s;
+}
+
+// Log the partition's remaining headroom after a periodic save.
+//
+// "free entries" alone does not prove a write will fit (NVS reclaims whole 4 KB
+// pages), but it is the one number that predicts the failure early: below two
+// pages there is no spare page to evacuate into, which is when config saves start
+// returning ESP_ERR_NVS_NOT_ENOUGH_SPACE.
+static void nvs_log_headroom() {
+    nvs_stats_t s;
+    if (nvs_get_stats("nvs", &s) != ESP_OK) return;
+    if (s.free_entries < (2 * 126)) {
+        LOG_W("[nvs] low space: %u of %u entries free (%.1f%%) - old benchmark result rows or "
+              "the reboot log may need clearing; GET /api/system/nvs lists them",
+              (unsigned)s.free_entries, (unsigned)s.total_entries,
+              s.total_entries ? (100.0 * s.free_entries / s.total_entries) : 0.0);
+    } else {
+        LOG_I("[nvs] %u of %u entries free", (unsigned)s.free_entries, (unsigned)s.total_entries);
+    }
+}
+
+
 // ── Monitor: NTP/time sync, telemetry, hashrate calc, safety watchdogs ──────
 //    Mirrors legacy monitor_thread_entry; board_sal_t* -> MonitorCtx* (DI).
 //    UI page-rolling and backlight control are owned by the reflect UI
@@ -973,33 +1077,46 @@ void monitor_thread_entry(void* args) {
 
         // persist some status to NVS on request
         if (xSemaphoreTake(ctx->nvs_save_xsem, 0) == pdTRUE) {
-            nvs_config_set_string(NVS_CONFIG_BEST_EVER, String(st.diff.best_ever).c_str());
-            nvs_config_set_u16(NVS_CONFIG_BLOCK_HITS, st.hits);
-            nvs_config_set_u64(NVS_CONFIG_UPTIME, st.uptime_ever);
+            uint8_t written = 0, unchanged = 0, failed = 0;
+            auto track = [&](int r) {
+                if (r == NVS_SAVE_WRITTEN)      written++;
+                else if (r == NVS_SAVE_FAILED)  failed++;
+                else                            unchanged++;
+            };
+
+            track(nvs_save_str(NVS_CONFIG_BEST_EVER, String(st.diff.best_ever)));
+            track(nvs_save_u16(NVS_CONFIG_BLOCK_HITS, st.hits));
+            track(nvs_save_u64(NVS_CONFIG_UPTIME, st.uptime_ever));
             // lifetime Top-10 share difficulties, "d0,d1,..." descending,
             // plus the matching per-entry achievement epochs, network
             // difficulty at achievement, and the pool|user connection
-            // snapshot ("p0|u0;p1|u1;...").
+            // snapshot (see top_snap_to_nvs: a single "@pool|user" when every
+            // rank shares the same connection).
             {
-                String top_str, ts_str, net_str, snap_str;
+                String top_str, ts_str, net_str;
                 for (int i = 0; i < MINER_TOP_DIFF_COUNT; i++) {
-                    if (i > 0) { top_str += ","; ts_str += ","; net_str += ","; snap_str += ";"; }
+                    if (i > 0) { top_str += ","; ts_str += ","; net_str += ","; }
                     top_str  += String(st.best_top_diffs[i]);
                     ts_str   += String(st.best_top_diff_ts[i]);
                     net_str  += String(st.best_top_diff_net[i]);
-                    snap_str += st.best_top_diff_pool[i];
-                    snap_str += "|";
-                    snap_str += st.best_top_diff_user[i];
                 }
-                nvs_config_set_string(NVS_CONFIG_TOP_DIFFS, top_str.c_str());
-                nvs_config_set_string(NVS_CONFIG_TOP_DIFF_TS, ts_str.c_str());
-                nvs_config_set_string(NVS_CONFIG_TOP_DIFF_NET, net_str.c_str());
-                nvs_config_set_string(NVS_CONFIG_TOP_DIFF_SNAP, snap_str.c_str());
+                track(nvs_save_str(NVS_CONFIG_TOP_DIFFS,   top_str));
+                track(nvs_save_str(NVS_CONFIG_TOP_DIFF_TS, ts_str));
+                track(nvs_save_str(NVS_CONFIG_TOP_DIFF_NET, net_str));
+                track(nvs_save_str(NVS_CONFIG_TOP_DIFF_SNAP, top_snap_to_nvs(st)));
             }
             last_nvs_save_time = st.uptime_session;
-            LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s]",
-                  formatNumber(st.diff.best_ever, 4).c_str(), st.hits,
-                  convert_uptime_to_string(st.uptime_ever).c_str());
+
+            if (written || failed) {
+                LOG_W("Save diff best ever [%s], block hits [%d], uptime [%s] - NVS %u written, "
+                      "%u unchanged (skipped), %u failed",
+                      formatNumber(st.diff.best_ever, 4).c_str(), st.hits,
+                      convert_uptime_to_string(st.uptime_ever).c_str(),
+                      (unsigned)written, (unsigned)unchanged, (unsigned)failed);
+            }
+            // Values that did not move stay untouched: on a quiet miner this is
+            // zero writes, which is the whole point (see the helpers above).
+            nvs_log_headroom();
         }
     }
 }

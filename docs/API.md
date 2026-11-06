@@ -529,7 +529,9 @@ Read-only. Touches nothing but flash reads; safe to call at any time.
 }
 ```
 
-> **Why payload bytes ≠ partition usage.** NVS is log-structured: a string of N bytes costs one 32-byte item header plus `ceil((N+1)/28)` 32-byte chunks, and reclaiming space requires an entire 4 KB page to be evacuated first. So `free_entries > 0` does **not** guarantee a write will succeed, and deletes themselves need a free entry (for the tombstone). A device reporting `ESP_ERR_NVS_NOT_ENOUGH_SPACE` with a seemingly empty benchmark table is usually holding **unreachable** `bm_r_*` rows — result slots outside the `bm_r_start`/`bm_r_cnt` window, invisible to `GET /api/benchmark`. `DELETE /api/benchmark/results` removes them; a firmware ≥ v3.2.02m also reclaims them automatically when a pool-config write hits a full partition.
+> **Why payload bytes ≠ partition usage.** NVS is log-structured: a string of N bytes costs one 32-byte item header plus `ceil((N+1)/28)` 32-byte chunks, and reclaiming space requires an entire 4 KB page to be evacuated first. So `free_entries > 0` does **not** guarantee a write will succeed, and deletes themselves need a free entry (for the tombstone). A device reporting `ESP_ERR_NVS_NOT_ENOUGH_SPACE` with a seemingly empty benchmark table is usually holding **unreachable** `bm_r_*` rows — result slots outside the `bm_r_start`/`bm_r_cnt` window, invisible to `GET /api/benchmark`. `DELETE /api/benchmark/results` removes them; the firmware also reclaims them automatically at boot and when a pool-config write hits a full partition.
+>
+> **Write amplification.** Because every overwrite appends a new entry, a periodic save that rewrites unchanged values burns the partition for nothing. The lifetime counters are therefore persisted only when the value actually differs (they are read back and compared first): a quiet miner now costs ~1–2 entries per hour instead of ~51, and the Top-10 connection snapshot collapses to a single `@pool|user` pair when all ranks share one pool and wallet.
 
 ---
 

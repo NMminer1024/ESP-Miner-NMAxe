@@ -55,7 +55,7 @@
 #define NVS_CONFIG_BEST_EVER                "bestever"
 #define NVS_CONFIG_TOP_DIFFS                "topdiffs"    // lifetime Top-10 share difficulties, comma-separated
 #define NVS_CONFIG_TOP_DIFF_TS              "topdiffts"   // UTC epoch per Top-10 entry, comma-separated (0 = unknown)
-#define NVS_CONFIG_TOP_DIFF_SNAP            "topdiffsnap" // pool|user snapshot per Top-10 entry, "p1|u1;p2|u2;..." (';' entries, '|' fields)
+#define NVS_CONFIG_TOP_DIFF_SNAP            "topdiffsnap" // pool|user snapshot per Top-10 entry: "p1|u1;p2|u2;..." (';' entries, '|' fields), or "@pool|user" when every rank shares one connection (compact form the monitor writes to save ~26 entries)
 #define NVS_CONFIG_TOP_DIFF_NET             "topdiffnet"  // pool-reported network difficulty per Top-10 entry, comma-separated (0 = unknown)
 #define NVS_CONFIG_SELF_TEST                "selftest"
 #define NVS_CONFIG_BLOCK_HITS               "blockhits"
@@ -157,6 +157,7 @@ void nvs_config_set_u32(const char * key, const uint32_t value);
 
 uint64_t nvs_config_get_u64(const char * key, const uint64_t default_value);
 void nvs_config_set_u64(const char * key, const uint64_t value);
+esp_err_t nvs_config_try_set_u64(const char * key, const uint64_t value);  // returns ESP_OK or the NVS error
 
 bool erase_all_nvs(void);
 bool nvs_config_delete_key(const char * key);

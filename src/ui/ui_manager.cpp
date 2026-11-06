@@ -25,7 +25,17 @@ static void s_save_last_page(size_t idx) {
     if (!s_is_runtime_nav_page(idx)) {
         return;
     }
+    // Skip the write when the page did not actually change: navigating back and
+    // forth would otherwise append an NVS entry per tap (and a tombstone) for a
+    // value that is already stored.
+    static int s_saved = -1;
+    if (s_saved == (int)idx) return;
+    if (nvs_config_get_u8(NVS_CONFIG_UI_LAST_PAGE, 0xFF) == (uint8_t)idx) {
+        s_saved = (int)idx;
+        return;
+    }
     nvs_config_set_u8(NVS_CONFIG_UI_LAST_PAGE, (uint8_t)idx);
+    s_saved = (int)idx;
 }
 
 // ============================================================================

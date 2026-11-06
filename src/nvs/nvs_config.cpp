@@ -241,6 +241,17 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
     return;
 }
 
+esp_err_t nvs_config_try_set_u64(const char * key, const uint64_t value)
+{
+    nvs_handle handle;
+    esp_err_t err = nvs_open(NVS_CONFIG_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) return err;
+    err = nvs_set_u64(handle, key, value);
+    if (err == ESP_OK) nvs_commit(handle);
+    nvs_close(handle);
+    return err;
+}
+
 
 bool nvs_config_delete_key(const char * key)
 {
