@@ -546,29 +546,70 @@ void power_loop_thread_entry(void* args) {
 #endif
         // skip vcore regulation while the miner is intentionally idle
         static uint32_t vcore_set = spec.asic.req_vcore;
+        // Restart the correction ramps at the new target whenever the operating
+        // point changes (benchmark round, preset apply, manual OC). Otherwise the
+        // first iterations after a switch correct from the PREVIOUS point's
+        // value and command the regulator backwards: a dip on an upward move
+        // (undervolted at the higher frequency) or a boost on a downward one.
+        static uint16_t vcore_req_last = spec.asic.req_vcore;
+        if (spec.asic.req_vcore != vcore_req_last) {
+            vcore_req_last = spec.asic.req_vcore;
+            vcore_set = spec.asic.req_vcore;
+        }
         if (ctx->mining && ctx->mining->is_controlled_idle()) {
             // Resume/reinit restart the rail at req_vcore; start the loop from there too.
             vcore_set = spec.asic.req_vcore;
             continue;
         }
 
-        uint32_t vcore_measure = power->get_vcore();
+        const uint32_t vcore_measure = power->get_vcore();
         // get_vcore() samples for ~50ms: a pause/reinit cutting Vcore inside that window
         // yields a collapsing reading that would slam vcore_set to max_vcore.
         if (ctx->mining && ctx->mining->is_controlled_idle()) {
             continue;
         }
-        int32_t err = vcore_measure - spec.asic.req_vcore;
-        if (abs(err) <= 5) {
-            LOG_D("Vcore %d/%dmV, error %d mV, Vcore within acceptable range",
-                  vcore_measure, spec.asic.req_vcore, err);
+        // A failed read is reported as 0 mV, not as an error code. Feeding that
+        // into the correction made the loop believe the rail had collapsed and
+        // answer with a full half-error step in the OPPOSITE direction:
+        // err = 0 - req_vcore, so vcore_set grew by req_vcore/2 and clamped to
+        // max_vcore. Measured on Nexus with v3.2.02k: one failed Vcore read drove
+        // the rail to ~1297 mV against a 1150 mV target, and the input current
+        // jumped ~3 A for the duration of the excursion (which is why maxIbus on
+        // a 126 W point exceeded the 158 W point's).
+        //
+        // A live rail cannot read 0 mV, so treat it as "no measurement": hold the
+        // current setpoint and skip the correction. The rail was in equilibrium
+        // before the read failed, so holding is both safer and more accurate than
+        // acting on a value we know is wrong.
+        if (vcore_measure == 0) {
+            static uint32_t last_bad_ms = 0;
+            if (millis() - last_bad_ms >= 5000) {
+                last_bad_ms = millis();
+                LOG_W("Vcore read failed (0 mV) — holding setpoint %umV, correction skipped",
+                      (unsigned)vcore_set);
+            }
             continue;
         }
+        const int32_t err = (int32_t)vcore_measure - (int32_t)spec.asic.req_vcore;
+        if (err <= 5 && err >= -5) {
+            LOG_D("Vcore %d/%dmV, error %d mV, Vcore within acceptable range",
+                  (int)(int32_t)vcore_measure, spec.asic.req_vcore, (int)err);
+            continue;
+        }
+        // Cap one correction step. The loop runs every ~100 ms, so 50 mV still
+        // crosses the widest legitimate switch (1220 -> 900 mV) in well under a
+        // second, while a single glitched reading can no longer move the rail by
+        // hundreds of millivolts.
+        constexpr int32_t VCORE_MAX_STEP_MV = 50;
+        int32_t step = err / 2;                    // half error correction
+        if (step >  VCORE_MAX_STEP_MV) step =  VCORE_MAX_STEP_MV;
+        if (step < -VCORE_MAX_STEP_MV) step = -VCORE_MAX_STEP_MV;
         LOG_D("Vcore %d/%dmV, error %d mV, Adjust vcore for error correction %d mV",
-              vcore_measure, spec.asic.req_vcore, err, err / 5);
-        vcore_set -= err / 2; // half error correction
-        vcore_set = (vcore_set < power->get_vcore_min()) ? power->get_vcore_min() : vcore_set;
-        vcore_set = (vcore_set > power->get_vcore_max()) ? power->get_vcore_max() : vcore_set;
+              (int)(int32_t)vcore_measure, spec.asic.req_vcore, (int)err, (int)step);
+        int32_t next_set = (int32_t)vcore_set - step;
+        if (next_set < (int32_t)power->get_vcore_min()) next_set = (int32_t)power->get_vcore_min();
+        if (next_set > (int32_t)power->get_vcore_max()) next_set = (int32_t)power->get_vcore_max();
+        vcore_set = (uint32_t)next_set;
         power->set_vcore_voltage(vcore_set);
     }
     // exit
