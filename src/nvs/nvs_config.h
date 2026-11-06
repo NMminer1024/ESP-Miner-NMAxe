@@ -95,7 +95,14 @@
 #define NVS_CONFIG_BM_RESULT            "bm_result"
 #define NVS_CONFIG_BM_R_START           "bm_r_start"    // ring: index of oldest entry
 #define NVS_CONFIG_BM_R_COUNT           "bm_r_cnt"      // ring: number of stored entries
-#define BM_RESULT_MAX_ENTRIES           80              // ~220B/entry -> ~18KB of the 24KB partition
+// The ring is capped by the 24KB nvs partition (partitions.csv), NOT by this
+// number. Entries grew from ~170B (v3.2.01: freq/vcore/HR/temps/J-TH/power/ts)
+// to ~400B once the safety-margin verdict, peak currents, per-phase data, fan
+// duties and the firmware tag were added, so only ~50 rows fit. This constant
+// stays as the hard index bound (bm_r_000..bm_r_079); reaching it is no longer
+// the capacity limit — NVS space is, and bm_result_append_ring() reports which
+// row it had to drop when that happens.
+#define BM_RESULT_MAX_ENTRIES           80
 // Timing: start timestamp (Unix s) written at POST /start; total elapsed written at completion
 #define NVS_CONFIG_BM_START_TS          "bm_start_ts"
 #define NVS_CONFIG_BM_TOTAL_SEC         "bm_total_sec"
@@ -129,6 +136,7 @@ void nvs_config_set_u8(const char * key, const uint8_t value);
 
 uint16_t nvs_config_get_u16(const char * key, const uint16_t default_value);
 void nvs_config_set_u16(const char * key, const uint16_t value);
+esp_err_t nvs_config_try_set_u16(const char * key, const uint16_t value);  // returns ESP_OK or the NVS error
 
 uint32_t nvs_config_get_u32(const char * key, const uint32_t default_value);
 void nvs_config_set_u32(const char * key, const uint32_t value);

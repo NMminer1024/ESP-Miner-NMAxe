@@ -4,6 +4,7 @@
 #include <string.h>
 #include "utils/logger/logger.h"
 #include "utils/helper.h"
+#include "version.h"   // BOARD_CURRENT_FW_VERSION — eviction prefers dropping other builds' rows
 
 char * nvs_config_get_string(const char * key, const char * default_value)
 {
@@ -108,10 +109,9 @@ void nvs_config_set_u8(const char * key, const uint8_t value){
     }
 
     err = nvs_set_u8(handle, key, value);
-    if (err != ESP_OK) {
-        return;
-    }
-
+    // Close on BOTH paths. Returning early here leaked a handle every time a
+    // write failed, and the failure we now surface (ESP_ERR_NVS_NOT_ENOUGH_SPACE)
+    // is exactly the one that repeats, so the leak would compound.
     nvs_close(handle);
     return;
 }
@@ -146,12 +146,26 @@ void nvs_config_set_u16(const char * key, const uint16_t value)
     }
 
     err = nvs_set_u16(handle, key, value);
-    if (err != ESP_OK) {
-        return;
-    }
-
+    // Close on both paths: see nvs_config_set_u8().
     nvs_close(handle);
     return;
+}
+
+// Like nvs_config_set_u16 but returns the NVS error so a caller can react.
+// The benchmark result ring stores its head/count as u16 keys, and a silent
+// failure there leaves the ring metadata disagreeing with the slots that were
+// actually written - the rows exist but are unreachable, or the reader walks
+// stale indices. Those two keys are therefore the one place that must not use
+// the fire-and-forget setter.
+esp_err_t nvs_config_try_set_u16(const char * key, const uint16_t value)
+{
+    nvs_handle handle;
+    esp_err_t err = nvs_open(NVS_CONFIG_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) return err;
+    err = nvs_set_u16(handle, key, value);
+    if (err == ESP_OK) nvs_commit(handle);
+    nvs_close(handle);
+    return err;
 }
 
 uint32_t nvs_config_get_u32(const char * key, const uint32_t default_value)
@@ -183,9 +197,7 @@ void nvs_config_set_u32(const char * key, const uint32_t value)
     }
 
     err = nvs_set_u32(handle, key, value);
-    if (err != ESP_OK) {
-        return;
-    }
+    // Close on both paths: see nvs_config_set_u8().
     nvs_close(handle);
     return;
 }
@@ -201,12 +213,12 @@ uint64_t nvs_config_get_u64(const char * key, const uint64_t default_value)
 
     uint64_t out;
     err = nvs_get_u64(handle, key, &out);
+    nvs_close(handle);
 
     if (err != ESP_OK) {
         return default_value;
     }
 
-    nvs_close(handle);
     return out;
 }
 
@@ -220,9 +232,7 @@ void nvs_config_set_u64(const char * key, const uint64_t value)
     }
 
     err = nvs_set_u64(handle, key, value);
-    if (err != ESP_OK) {
-        return;
-    }
+    // Close on both paths: see nvs_config_set_u8().
     nvs_close(handle);
     return;
 }
@@ -300,6 +310,17 @@ static void bm_r_key(char* out, size_t out_len, uint16_t idx) {
     snprintf(out, out_len, "bm_r_%03u", idx);
 }
 
+// How many stored rows one append may sacrifice before it gives up.
+//
+// Eviction is meant to converge in one or two steps: dropping the head frees
+// exactly the slot the next write targets. Needing more means the entry does not
+// fit at all (fragmentation, or a value larger than the partition can hold), and
+// continuing to delete rows would trade the user's whole history for a result
+// that never gets saved. Four is deliberately small: it still absorbs the
+// "middle hole too small" case (which then falls back to head eviction) while
+// keeping the worst case bounded.
+static constexpr uint8_t BM_APPEND_MAX_DROPS = 4;
+
 // Entries are flat JSON objects; freq is a plain integer, so a light
 // strstr+atoi parse is enough (no ArduinoJson needed in this hot path).
 static bool bm_r_parse_freq(const char* entry_json, uint16_t& freq) {
@@ -337,22 +358,190 @@ static double bm_r_json_double(const char* entry_json, const char* key) {
 // boot has to actually look before it can conclude there is nothing to do.
 static volatile bool s_soak_marks_may_exist = true;
 
+// Write the ring's head/count, reporting a failure instead of swallowing it.
+//
+// These two u16 keys are the reader's ONLY description of the ring. If a write
+// silently fails (the old nvs_config_set_u16 returned void and discarded the
+// error), the slots and the metadata diverge: rows get written but stay
+// unreachable, or the reader walks an index range that re-reads the same slot.
+// Both look like "my results vanished" or "the table wobbles", with nothing in
+// the log - the exact failure mode this ring already caused once.
+//
+// A failed metadata write cannot be repaired here (there is no transaction), so
+// the contract is: keep the write that succeeded visible and make the mismatch
+// loud enough to diagnose.
+static void bm_r_write_meta(uint16_t start, uint16_t cnt, const char* what) {
+    esp_err_t e1 = nvs_config_try_set_u16(NVS_CONFIG_BM_R_COUNT, cnt);
+    esp_err_t e2 = nvs_config_try_set_u16(NVS_CONFIG_BM_R_START, start);
+    if (e1 != ESP_OK || e2 != ESP_OK) {
+        LOG_E("[BM] Ring metadata write FAILED while %s (start=%u cnt=%u): count=%s start=%s. "
+              "Stored results and the index may now disagree; clear the results to recover.",
+              what, (unsigned)start, (unsigned)cnt,
+              esp_err_to_name(e1), esp_err_to_name(e2));
+    }
+}
+
 // Remove the entry at logical position `idx` (0 = oldest) and compact the ring by
 // shifting everything after it one slot toward the head. Shared by the duplicate
 // trim in the append path and by bm_result_delete_freq().
+//
+// Compaction MUST be space-neutral, because this runs precisely when NVS is out
+// of room (that is why a row is being removed at all). The original version
+// shifted every entry BEFORE freeing anything, so each copy needed a brand-new
+// NVS entry while the source was still occupying its own - and it wrote through
+// nvs_config_set_string(), which discards the error. On a full partition those
+// copies therefore failed SILENTLY: on Nexus (2026-11-06) deleting the 775MHz row
+// also vaporised an unrelated 565MHz row, with nothing in the log to say so.
+//
+// Order is now: free the victim's slot, then move each entry with
+// write-then-delete-source, so the ring never needs more than the single hole we
+// just created. A failed copy keeps its source (no data loss) and is reported.
 static void bm_r_remove_at(uint16_t start, uint16_t& cnt, uint16_t idx) {
+    // 1. Free the victim's own slot first: that is the working room for the shift.
+    char key[12];
+    bm_r_key(key, sizeof(key), (start + idx) % BM_RESULT_MAX_ENTRIES);
+    nvs_config_delete_key(key);
+
+    // 2. Pull every later entry one slot toward the head.
+    bool moved_all = true;
     for (uint16_t j = idx + 1; j < cnt; j++) {
         char dst[12], src[12];
         bm_r_key(dst, sizeof(dst), (start + j - 1) % BM_RESULT_MAX_ENTRIES);
         bm_r_key(src, sizeof(src), (start + j) % BM_RESULT_MAX_ENTRIES);
         char* mv = nvs_config_get_string(src, "");
-        if (mv) { nvs_config_set_string(dst, mv); free(mv); }
+        if (!mv) continue;
+        if (strlen(mv) == 0) { free(mv); continue; }   // already-empty slot
+        esp_err_t e = nvs_config_try_set_string(dst, mv);
+        free(mv);
+        if (e == ESP_OK) {
+            nvs_config_delete_key(src);   // source is now duplicated in dst
+        } else {
+            // Keep the source: the entry still exists exactly once, one slot
+            // further along than intended. Loud, because the next read will
+            // show a hole where the caller expects a compacted ring.
+            moved_all = false;
+            LOG_E("[BM] Ring compaction at slot %u failed (%s) — entry kept in place; "
+                  "the stored rows are intact but the ring is not compacted.",
+                  (unsigned)j, esp_err_to_name(e));
+        }
     }
-    char last[12];
-    bm_r_key(last, sizeof(last), (start + cnt - 1) % BM_RESULT_MAX_ENTRIES);
-    nvs_config_delete_key(last);
+
+    // 3. The tail slot is normally empty by now (its source was deleted after a
+    //    successful copy). Only clear it when the whole shift went through: if a
+    //    copy failed, the tail can still be the ONLY copy of that row, and
+    //    deleting it here would be exactly the silent data loss this function
+    //    was rewritten to stop.
+    if (moved_all) {
+        bm_r_key(key, sizeof(key), (start + cnt - 1) % BM_RESULT_MAX_ENTRIES);
+        nvs_config_delete_key(key);
+    } else {
+        LOG_E("[BM] Ring left uncompacted after a failed shift; %u slot(s) still hold data "
+              "beyond the recorded count. Download the results before clearing them.",
+              (unsigned)(cnt > 0 ? cnt : 0));
+    }
     cnt--;
-    nvs_config_set_u16(NVS_CONFIG_BM_R_COUNT, cnt);
+    bm_r_write_meta(start, cnt, "removing an entry");
+}
+
+// Read the "fw" string value of an entry. Returns false when the tag is absent
+// (rows written before the per-row firmware stamp existed).
+static bool bm_r_parse_fw(const char* entry_json, char* out, size_t out_len) {
+    static const char kKey[] = "\"fw\":\"";
+    const char* p = strstr(entry_json, kKey);
+    if (!p) return false;
+    p += sizeof(kKey) - 1;
+    const char* q = strchr(p, '"');
+    if (!q) return false;
+    size_t n = (size_t)(q - p);
+    if (n >= out_len) n = out_len - 1;
+    memcpy(out, p, n);
+    out[n] = '\0';
+    return true;
+}
+
+// Choose which row to drop when the ring has no room left, and say why.
+//
+// The historical rule was "drop the oldest", and entries are appended in
+// insertion order, so an over-full ring silently ate the lowest frequencies
+// first. On Nexus (v3.2.02k) that removed 40 of the 48 stored baseline rows
+// (325..715MHz) while keeping 725..795MHz, which reads — correctly — as data
+// corruption, and it kept a 795MHz/1230mV over-current setting around for the
+// user to apply by hand.
+//
+// "Oldest" also has to mean oldest by TIMESTAMP, not by ring position. An
+// upsert rewrites a row IN PLACE and refreshes its ts while leaving its position
+// untouched, so the ring head is often the row that was measured most recently.
+// Judged by position, a freshly measured low frequency was the first casualty on
+// Nexus (2026-11-06): 585MHz was dropped seconds after being measured while every
+// v3.2.02k-era row above it survived — the opposite of "drop the least useful".
+//
+// Preference order, cheapest-to-lose first:
+//   1. FAILED tombstone (fail=1)      — its only job is invalidating a frequency
+//   2. no measured hashrate           — aborted / half-measured round
+//   3. another build's row            — no "fw" tag, or a tag that is not this
+//                                       build: its safety verdict was computed
+//                                       by different code, so it cannot be
+//                                       trusted or compared here. This also
+//                                       drains the legacy backlog left by an
+//                                       upgrade before any current row is lost.
+//   4. the OLDEST ts                  — nothing else distinguishes them; ts is
+//                                       refreshed on every upsert, so this is the
+//                                       row whose MEASUREMENT is oldest.
+static uint16_t bm_r_pick_victim(uint16_t start, uint16_t cnt, const char** why) {
+    static const char* kWhy[3] = {
+        "failed row",
+        "row without a measured hashrate",
+        "row from another firmware build",
+    };
+    // Within every class the OLDEST MEASUREMENT wins, not the first in ring
+    // order: an upsert rewrites a row in place and refreshes its ts, so ring
+    // position says when a frequency was first stored, not when it was measured.
+    int16_t best[3]    = {-1, -1, -1};
+    long    best_ts[3] = {0, 0, 0};
+    int16_t oldest_i   = -1;
+    long    oldest_ts  = 0;
+    for (uint16_t i = 0; i < cnt; i++) {
+        char key[12];
+        bm_r_key(key, sizeof(key), (start + i) % BM_RESULT_MAX_ENTRIES);
+        char* e = nvs_config_get_string(key, "");
+        if (!e) continue;
+        if (strlen(e) > 0) {
+            // A row with no/invalid ts (ts < 0) sorts first: an untimestamped row
+            // cannot be shown to be recent. Such a row is also the cheapest to
+            // lose, so treating it as "oldest" is right in both readings.
+            const long ts = bm_r_json_int(e, "\"ts\":");
+            int cls = -1;
+            if (bm_r_json_int(e, "\"fail\":") == 1) {
+                cls = 0;
+            } else if (bm_r_json_double(e, "\"avgHR\":") <= 0.0) {
+                cls = 1;
+            } else {
+                char fw[24] = "";
+                if (!bm_r_parse_fw(e, fw, sizeof(fw)) ||
+                    strcmp(fw, BOARD_CURRENT_FW_VERSION) != 0) {
+                    cls = 2;
+                }
+            }
+            if (cls >= 0 && (best[cls] < 0 || ts < best_ts[cls])) {
+                best[cls]    = (int16_t)i;
+                best_ts[cls] = ts;
+            }
+            if (oldest_i < 0 || ts < oldest_ts) {
+                oldest_i  = (int16_t)i;
+                oldest_ts = ts;
+            }
+        }
+        free(e);
+    }
+    for (int c = 0; c < 3; c++) {
+        if (best[c] >= 0) { *why = kWhy[c]; return (uint16_t)best[c]; }
+    }
+    if (oldest_i < 0) {
+        *why = "oldest entry";
+        return 0;
+    }
+    *why = "oldest measurement";
+    return (uint16_t)oldest_i;
 }
 
 static esp_err_t bm_result_append_ring(const char* entry_json) {
@@ -382,10 +571,30 @@ static esp_err_t bm_result_append_ring(const char* entry_json) {
                     replaced = true;
                     LOG_W("[BM] freq=%u entry exists (any vcore) — overwritten with latest result.", nf);
                 } else {
-                    // In-place write failed (e.g. NVS full and new value is longer)
-                    // — fall through to the append+evict path below.
-                    LOG_W("[BM] In-place overwrite failed (%s), falling back to append.", esp_err_to_name(err));
-                    break;
+                    // The new entry is longer than the stored one (the result now
+                    // carries peak currents, per-phase data, fan duties and the fw
+                    // tag), so NVS can refuse the in-place write while the OLD row
+                    // still occupies its space. Falling straight through to the
+                    // append path left that row alive and added a second one: TWO
+                    // rows for the same frequency (Nexus, after the ring reached
+                    // capacity: 725MHz and 775MHz each kept a factory row next to
+                    // the fresh row). Free our own slot and retry in place first —
+                    // one row per frequency is the ring's invariant.
+                    LOG_W("[BM] In-place overwrite of freq=%u failed (%s) — freeing the old row and retrying.",
+                          nf, esp_err_to_name(err));
+                    nvs_config_delete_key(key);
+                    err = nvs_config_try_set_string(key, entry_json);
+                    if (err == ESP_OK) {
+                        replaced = true;
+                    } else {
+                        // Not enough room even after freeing this row: fall back to
+                        // append (which evicts). The slot stays empty; bm_result_read_all()
+                        // skips empty slots, so the table stays correct — it just runs
+                        // with one slot less until the results are cleared.
+                        LOG_W("[BM] Retry for freq=%u still failed (%s) — appending instead.",
+                              nf, esp_err_to_name(err));
+                        break;
+                    }
                 }
             } else {
                 // Extra duplicate of the same freq — drop it and compact the
@@ -398,33 +607,92 @@ static esp_err_t bm_result_append_ring(const char* entry_json) {
         if (replaced) return ESP_OK;
     }
 
-    while (true) {
+    uint8_t drops = 0;      // rows sacrificed in this call (bounded, see below)
+    bool evict_head_next = false;   // set when a freed middle slot could not be refilled
+    for (uint8_t attempt = 0; attempt <= BM_RESULT_MAX_ENTRIES; attempt++) {
         uint16_t pos = (cnt < BM_RESULT_MAX_ENTRIES) ? (start + cnt) % BM_RESULT_MAX_ENTRIES : start;
         char key[12];
         bm_r_key(key, sizeof(key), pos);
         err = nvs_config_try_set_string(key, entry_json);
         if (err == ESP_OK) {
-            if (cnt < BM_RESULT_MAX_ENTRIES) nvs_config_set_u16(NVS_CONFIG_BM_R_COUNT, cnt + 1);
-            else                             nvs_config_set_u16(NVS_CONFIG_BM_R_START, (start + 1) % BM_RESULT_MAX_ENTRIES);
+            // The slot is written; the metadata has to follow, or the row just
+            // written is invisible to the reader (or the ring re-reads a stale
+            // slot). bm_r_write_meta logs loudly if it cannot.
+            if (cnt < BM_RESULT_MAX_ENTRIES) {
+                cnt++;
+                bm_r_write_meta(start, cnt, "appending a result");
+            } else {
+                uint16_t ns = (uint16_t)((start + 1) % BM_RESULT_MAX_ENTRIES);
+                bm_r_write_meta(ns, cnt, "advancing the ring head");
+            }
+            return ESP_OK;
+        }
+        if (err != ESP_ERR_NVS_NOT_ENOUGH_SPACE && err != ESP_ERR_NVS_VALUE_TOO_LONG) break;
+        if (cnt == 0) break;
+
+        // Bounded give-up. Each iteration below DELETES a stored row, so an
+        // unbounded loop trades the whole history for one result that may never
+        // fit (fragmentation, or an entry too large for the partition). Real
+        // eviction converges after one or two drops; needing more than this means
+        // something else is wrong and the honest answer is "not saved".
+        if (drops >= BM_APPEND_MAX_DROPS) {
+            LOG_E("[BM] Gave up after dropping %u row(s): the new %u-byte result still does not fit "
+                  "in the results partition. Nothing further was discarded — clear old results "
+                  "or free NVS space to recover.", (unsigned)drops, (unsigned)strlen(entry_json));
+            err = ESP_ERR_NVS_NOT_ENOUGH_SPACE;
             break;
         }
-        if ((err == ESP_ERR_NVS_NOT_ENOUGH_SPACE || err == ESP_ERR_NVS_VALUE_TOO_LONG) && cnt > 0) {
-            // Evicting MUST free the physical key. This previously only advanced the
-            // ring head, leaving every entry in NVS: the loop could walk the ring
-            // down to zero entries and still fail with NOT_ENOUGH_SPACE, so the
-            // result was silently dropped while the log claimed entries had been
-            // evicted. Deleting also gives NVS a hole it can garbage-collect.
-            char evict_key[12];
-            bm_r_key(evict_key, sizeof(evict_key), start);
-            nvs_config_delete_key(evict_key);
+
+        // No room: drop the least useful row (see bm_r_pick_victim). Evicting MUST
+        // free the physical key as well - the old code only advanced the ring head,
+        // so the loop could walk the ring down to zero entries and still fail while
+        // the log claimed entries had been evicted.
+        const char* why = "";
+        const uint16_t idx = evict_head_next ? 0 : bm_r_pick_victim(start, cnt, &why);
+        if (evict_head_next) why = "oldest entry (previous hole was too small)";
+        evict_head_next = false;
+        const uint16_t vpos = (start + idx) % BM_RESULT_MAX_ENTRIES;
+        char vkey[12];
+        bm_r_key(vkey, sizeof(vkey), vpos);
+        uint16_t vfreq = 0;
+        char* vold = nvs_config_get_string(vkey, "");
+        const bool have_vf = vold && bm_r_parse_freq(vold, vfreq);
+        free(vold);
+        nvs_config_delete_key(vkey);
+        drops++;
+        if (idx == 0) {
             start = (start + 1) % BM_RESULT_MAX_ENTRIES;
             cnt--;
-            nvs_config_set_u16(NVS_CONFIG_BM_R_START, start);
-            nvs_config_set_u16(NVS_CONFIG_BM_R_COUNT, cnt);
-            LOG_W("[BM] NVS full, evicted oldest entry (%u entries remaining).", cnt);
-            continue;
+            bm_r_write_meta(start, cnt, "evicting the oldest row");
         }
-        break;
+        char vdesc[32];
+        if (have_vf) snprintf(vdesc, sizeof(vdesc), "%uMHz", (unsigned)vfreq);
+        else         snprintf(vdesc, sizeof(vdesc), "an unreadable row");
+        LOG_W("[BM] NVS full: dropped %s (%s, %u entries left). The results partition is 24KB, "
+              "so only a limited number of rows fit — download the table if you need the full history.",
+              vdesc, why, (unsigned)cnt);
+        if (idx != 0) {
+            // Reuse the freed slot: the row is replaced in place, so the ring neither
+            // shrinks nor has to shift every later entry (a shift needs free space,
+            // which is exactly what is missing).
+            if (nvs_config_try_set_string(vkey, entry_json) == ESP_OK) return ESP_OK;
+
+            // The hole could not hold the NEW entry. That is the normal case when
+            // upgrading: a row written by an older build is ~170 bytes while the
+            // current one is ~400, so a hole sized for the old row can never fit
+            // the new one. The slot stays empty and is still counted — harmless
+            // (bm_result_read_all skips empty strings), but retrying middle
+            // victims at random would drop several rows before converging.
+            //
+            // Head eviction is the one path that ALWAYS frees the exact slot the
+            // next write targets: pos = (start+cnt) mod MAX stays the same when
+            // both start and cnt move by one. So ask for it explicitly.
+            LOG_W("[BM] Freed slot for %s is too small for the new entry (%u bytes) — "
+                  "next eviction will come from the ring head.",
+                  vdesc, (unsigned)strlen(entry_json));
+            evict_head_next = true;
+        }
+        err = ESP_ERR_NVS_NOT_ENOUGH_SPACE;
     }
     return err;
 }
@@ -457,6 +725,41 @@ esp_err_t bm_result_append(const char* entry_json) {
     return bm_result_append_ring(entry_json);
 }
 
+// Replace a bare `nan` / `inf` JSON value with `null`.
+//
+// Firmware up to v3.2.02k could store a non-finite temperature
+// ("avgVcoreTemp":nan) straight from a failed telemetry read. Bare nan/inf are
+// NOT valid JSON, and one such row makes the whole array unparseable — which
+// took out the benchmark page AND the firmware's own soak/finish deserialization.
+// Results outlive an upgrade, so a repaired build must clean what the previous
+// one wrote instead of trusting it; otherwise the table stays broken until the
+// offending frequency is re-measured or the results are cleared.
+//
+// Entries are flat objects with numeric values plus the "fw" string, and ":nan"
+// can only appear as a value, so a simple value-position scan is safe.
+static void bm_r_sanitize_json(String& j) {
+    String out;
+    out.reserve(j.length() + 8);
+    const int n = (int)j.length();
+    for (int i = 0; i < n; i++) {
+        if (j[i] != ':') { out += j[i]; continue; }
+        int k = i + 1;
+        if (k < n && j[k] == '-') k++;
+        if (k + 2 < n) {
+            const char a = j[k], b = j[k + 1], c = j[k + 2];
+            const bool is_nan = (a == 'n' && b == 'a' && c == 'n');
+            const bool is_inf = (a == 'i' && b == 'n' && c == 'f');
+            if (is_nan || is_inf) {
+                out += ":null";
+                i = k + 2;      // skip the malformed literal
+                continue;
+            }
+        }
+        out += j[i];
+    }
+    j = out;
+}
+
 char* bm_result_read_all(void) {
     bm_result_migrate_legacy();
     uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
@@ -469,7 +772,9 @@ char* bm_result_read_all(void) {
         if (e) {
             if (strlen(e) > 0) {
                 if (out.length() > 1) out += ",";
-                out += e;
+                String ent(e);
+                bm_r_sanitize_json(ent);
+                out += ent;
             }
             free(e);
         }
