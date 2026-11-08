@@ -144,11 +144,8 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr   = 4000;
     fan_cfg.init.danger_rpm_thr      = 500;
-    fan_cfg.pid.Kp                   = 50.0f;
-    fan_cfg.pid.Ki                   = 1.0f;
-    fan_cfg.pid.Kd                   = 0.0f;
-    fan_cfg.pid.prev_error           = 0;
-    fan_cfg.pid.integral             = 0;
+    // Thermal model per board/fan -> PID gains are derived, not typed here.
+    fan_cfg.thermal                  = fan_plant_fixed_blower();
     fan_cfg.pid.output_min           = 0.0f;
     fan_cfg.pid.output_max           = 99.999f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
@@ -288,11 +285,8 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr    = 4000;
     fan_cfg.init.danger_rpm_thr       = 500;
-    fan_cfg.pid.Kp                    = 50.0f;
-    fan_cfg.pid.Ki                    = 1.0f;
-    fan_cfg.pid.Kd                    = 0.0f;
-    fan_cfg.pid.prev_error            = 0;
-    fan_cfg.pid.integral              = 0;
+    // Thermal model per board/fan -> PID gains are derived, not typed here.
+    fan_cfg.thermal                   = fan_plant_gamma_asic();
     fan_cfg.pid.output_min            = 0.0f;
     fan_cfg.pid.output_max            = 99.999f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
@@ -443,11 +437,8 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr   = 1500;
     fan_cfg.init.danger_rpm_thr      = 100;
-    fan_cfg.pid.Kp                   = 50.0f;
-    fan_cfg.pid.Ki                   = 1.0f;
-    fan_cfg.pid.Kd                   = 0.0f;
-    fan_cfg.pid.prev_error           = 0;
-    fan_cfg.pid.integral             = 0;
+    // Thermal model per board/fan -> PID gains are derived, not typed here.
+    fan_cfg.thermal                  = fan_plant_qaxepp2_asic();
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
@@ -471,11 +462,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr   = 2000;
     fan_cfg.init.danger_rpm_thr      = 100;
-    fan_cfg.pid.Kp                   = 50.0f;
-    fan_cfg.pid.Ki                   = 1.0f;
-    fan_cfg.pid.Kd                   = 0.0f;
-    fan_cfg.pid.prev_error           = 0;
-    fan_cfg.pid.integral             = 0;
+    fan_cfg.thermal                  = fan_plant_qaxepp2_vcore();
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
@@ -621,11 +608,8 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr   = 1500;
     fan_cfg.init.danger_rpm_thr      = 100;
-    fan_cfg.pid.Kp                   = 50.0f;
-    fan_cfg.pid.Ki                   = 1.0f;
-    fan_cfg.pid.Kd                   = 0.0f;
-    fan_cfg.pid.prev_error           = 0;
-    fan_cfg.pid.integral             = 0;
+    // Thermal model per board/fan -> PID gains are derived, not typed here.
+    fan_cfg.thermal                  = fan_plant_qaxepp3_asic();
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
@@ -649,11 +633,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr   = 2000;
     fan_cfg.init.danger_rpm_thr      = 100;
-    fan_cfg.pid.Kp                   = 50.0f;
-    fan_cfg.pid.Ki                   = 1.0f;
-    fan_cfg.pid.Kd                   = 0.0f;
-    fan_cfg.pid.prev_error           = 0;
-    fan_cfg.pid.integral             = 0;
+    fan_cfg.thermal                  = fan_plant_qaxepp3_vcore();
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
@@ -811,11 +791,8 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr   = 1500;
     fan_cfg.init.danger_rpm_thr      = 100;
-    fan_cfg.pid.Kp                   = 50.0f;
-    fan_cfg.pid.Ki                   = 1.0f;
-    fan_cfg.pid.Kd                   = 0.0f;
-    fan_cfg.pid.prev_error           = 0;
-    fan_cfg.pid.integral             = 0;
+    // Thermal model per board/fan -> PID gains are derived, not typed here.
+    fan_cfg.thermal                  = fan_plant_qaxepp3_asic();
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
@@ -839,11 +816,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr   = 2000;
     fan_cfg.init.danger_rpm_thr      = 100;
-    fan_cfg.pid.Kp                   = 50.0f;
-    fan_cfg.pid.Ki                   = 1.0f;
-    fan_cfg.pid.Kd                   = 0.0f;
-    fan_cfg.pid.prev_error           = 0;
-    fan_cfg.pid.integral             = 0;
+    fan_cfg.thermal                  = fan_plant_qaxepp3_vcore();
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
@@ -1035,11 +1008,8 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr   = 1500;
     fan_cfg.init.danger_rpm_thr      = 100;
-    fan_cfg.pid.Kp                   = 50.0f;
-    fan_cfg.pid.Ki                   = 1.0f;
-    fan_cfg.pid.Kd                   = 0.0f;
-    fan_cfg.pid.prev_error           = 0;
-    fan_cfg.pid.integral             = 0;
+    // Thermal model per board/fan -> PID gains are derived, not typed here.
+    fan_cfg.thermal                  = fan_plant_nexus_asic();
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
@@ -1063,11 +1033,7 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.init.torch.channel        = PCNT_CHANNEL_0;
     fan_cfg.init.self_test_rpm_thr   = 2000;
     fan_cfg.init.danger_rpm_thr      = 100;
-    fan_cfg.pid.Kp                   = 50.0f;
-    fan_cfg.pid.Ki                   = 1.0f;
-    fan_cfg.pid.Kd                   = 0.0f;
-    fan_cfg.pid.prev_error           = 0;
-    fan_cfg.pid.integral             = 0;
+    fan_cfg.thermal                  = fan_plant_nexus_vcore();
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);

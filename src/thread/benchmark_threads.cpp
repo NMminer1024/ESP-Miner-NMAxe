@@ -385,7 +385,15 @@ static bool bm_fan_duty_of(BenchmarkCtx* ctx, uint8_t fan_id, uint16_t* out) {
     if (!ctx->fans) return false;
     for (const fan_status_t& f : *ctx->fans) {
         if (f.id == fan_id) {
-            if (out) *out = f.speed;
+            // On a board whose fan cannot be controlled the duty is a constant,
+            // not a measurement: report full speed so fanNeed reads "no cooling
+            // headroom left" instead of quoting a PID number that regulates
+            // nothing. Same rule the sweep already applies to fanAsic.
+            if (ctx->spec && !ctx->spec->fan_controllable) {
+                if (out) *out = 100;
+            } else if (out) {
+                *out = f.speed;
+            }
             return true;
         }
     }

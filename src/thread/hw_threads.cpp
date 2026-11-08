@@ -672,6 +672,31 @@ void fan_thread_entry(void* args) {
     // fan init
     for (auto& fan : spec.fans) {
         fan_drv_init(fan.init);
+        // One thermal model per fan per board (fan.thermal, filled in by the
+        // board table). The PID gains are derived from it here - never typed in
+        // the board file - so a new board only supplies the plant description.
+        if (!fan_pid_configure(&fan.pid, &fan.thermal)) {
+            // Board table left the plant empty: fall back to the generic class
+            // for this fan slot and say so, instead of running an unconfigured
+            // loop (the old Kp=50 would hunt).
+            fan.thermal = (fan.id == 0) ? fan_plant_generic_asic() : fan_plant_generic_vcore();
+            fan_pid_configure(&fan.pid, &fan.thermal);
+            LOG_W("Fan[%d] has no thermal model defined - using the generic preset.", fan.id);
+        }
+        if (!fan.thermal.identified) {
+            LOG_W("Fan[%d] thermal model is an estimate (K=%.3f C/%%, L=%.1fs, tau=%.0fs) - "
+                  "run a step test to identify this board.",
+                  fan.id, (double)fan.thermal.gain, (double)fan.thermal.dead_time_s,
+                  (double)fan.thermal.tau_s);
+        }
+        LOG_I("Fan[%d] PID from plant: K=%.3f C/%%, L=%.1fs, tau=%.0fs -> Kp=%.2f %%/C, "
+              "Ki=%.3f, deadband=%.2fC, filter=%.1fs, slew +%.0f/-%.1f %%/s, lambda=%.0fs%s",
+              fan.id, (double)fan.thermal.gain, (double)fan.thermal.dead_time_s,
+              (double)fan.thermal.tau_s, (double)fan.pid.Kp, (double)fan.pid.Ki,
+              (double)fan.pid.deadband, (double)fan.pid.tau_filter,
+              (double)fan.pid.slew_up, (double)fan.pid.slew_down,
+              (double)(2.0f * (fan.thermal.dead_time_s > 0.5f ? fan.thermal.dead_time_s : 0.5f)),
+              fan.thermal.identified ? "" : " [ESTIMATED]");
         LOG_D("Fan[%d] initialized with torch pin %d, pwm pin %d",
               fan.id, fan.init.torch.pulse_gpio_num, fan.init.pwm.pin);
     }
@@ -820,55 +845,224 @@ void fan_thread_entry(void* args) {
         static bool     ovr_prev[FAN_SLOTS_MAX]  = {false};
         static uint16_t ovr_saved[FAN_SLOTS_MAX] = {0};
         // Last duty the PID actually produced. Used when a temperature sample is
-        // unusable, so a failing probe holds the existing cooling instead of
-        // stopping the fan.
+        // unusable, so a failing probe ramps the cooling up instead of leaving the
+        // fan wherever it happened to be.
         static uint16_t pid_last_good[FAN_SLOTS_MAX] = {0};
+        static bool     pid_have_good[FAN_SLOTS_MAX] = {false};
+        // One-shot bump-less transfer request: set when a manual/benchmark
+        // takeover ends. The next PID tick re-seeds the loop from the duty that is
+        // actually applied (see fan_pid_reset) instead of from an empty state.
+        static bool     bumpless_pending[FAN_SLOTS_MAX] = {false};
+        // Post-takeover cushion. Two separate things happen after a takeover:
+        //   - the loop must not integrate away the steady duty it was handed,
+        //   - and it must not walk below that duty while the chip is still cold.
+        // Both are bounded by floor_until_ms, which is why these are NOT cleared
+        // by the bump-less reset (that was the bug: one flag for both).
+        static uint16_t floor_duty[FAN_SLOTS_MAX] = {0};
+        static uint32_t floor_until_ms[FAN_SLOTS_MAX] = {0};
+        // Tracks the manual -> auto edge. A fan that was driven manually (API, or
+        // auto turned off and back on) has a PID state that predates that period,
+        // so the loop is re-seeded from the duty that is actually applied.
+        static bool     prev_auto[FAN_SLOTS_MAX] = {false};
+        // Last duty the loop settled at while it owned the fan. This is the only
+        // knowledge of "how much cooling this operating point needs", and it is
+        // what the post-manual floor uses: a manual cooling period (or a soak
+        // cooldown) ENDS above it, and the loop must not walk below it while the
+        // chip is still cold, or the thermal lag carries the temperature past the
+        // target. Measured on 124.18: without the floor on the manual->auto edge
+        // the fan slid 100 % -> 4 % (the point needs ~58 %) and the regulator
+        // peaked at 71.3 °C instead of 69.4 °C.
+        static uint16_t last_auto_duty[FAN_SLOTS_MAX] = {0};
+        static bool     have_last_auto[FAN_SLOTS_MAX] = {false};
+        // Start of the current unusable-reading episode (0 = readings are fine).
+        static uint32_t lost_since_ms[FAN_SLOTS_MAX] = {0};
+        static uint32_t last_warn_ms[FAN_SLOTS_MAX] = {0};
         const bool override_active =
             spec.fan_override_until_ms != 0 &&
             (int32_t)(millis() - spec.fan_override_until_ms) < 0;
 
         if (fan_index < FAN_SLOTS_MAX) {
             if (override_active && !ovr_prev[fan_index]) {
-                ovr_saved[fan_index] = fan_status->speed;
+                ovr_saved[fan_index]      = fan_status->speed;
+                bumpless_pending[fan_index] = false;  // a new takeover supersedes the old one
+                floor_until_ms[fan_index]   = 0;
             } else if (!override_active && ovr_prev[fan_index]) {
-                // Hand control back where we found it, so a manual duty set through
-                // the API survives a benchmark run.
-                fan_status->speed = ovr_saved[fan_index];
+                // A manual duty set through the API survives a benchmark run.
+                // In auto mode we deliberately do NOT jump back to the saved
+                // duty: the fan is leaving a 100 % cooldown, and the slew limiter
+                // in pid_compute() must walk it down so the chip cannot overshoot
+                // while the heat sink is still cold.
+                if (!fan_cfg.auto_speed) {
+                    fan_status->speed = ovr_saved[fan_index];
+                    bumpless_pending[fan_index] = false;
+                } else {
+                    bumpless_pending[fan_index] = true;
+                    floor_duty[fan_index]       = ovr_saved[fan_index];
+                    // 60 s, not minutes: the overshoot this guards against appears
+                    // within ~30 s of the hand-over, and a longer floor would
+                    // inflate the fan duty a benchmark soak records as fanNeed.
+                    floor_until_ms[fan_index]   = millis() + 60000u;
+                }
             }
             ovr_prev[fan_index] = override_active;
+
+            // Manual -> auto edge (API write, or auto toggled off and back on): the
+            // PID state predates the manual period, so re-seed it from the duty
+            // that is applied right now instead of snapping back to a stale value
+            // - and raise the same cushion the benchmark hand-over uses. Without
+            // the floor the loop integrates the chip's residual cold away by
+            // walking the duty down, and the thermal lag then overshoots the
+            // target (100 % -> 4 % on a point that needs 58 %, measured on 124.18).
+            const bool now_auto = fan_cfg.auto_speed;
+            if (now_auto && !prev_auto[fan_index]) {
+                bumpless_pending[fan_index] = true;
+                if (have_last_auto[fan_index]) {
+                    floor_duty[fan_index]     = last_auto_duty[fan_index];
+                    floor_until_ms[fan_index] = millis() + 60000u;
+                }
+            }
+            prev_auto[fan_index] = now_auto;
         }
 
         if (update_pid && override_active && spec.fan_controllable) {
             fan_status->speed = spec.fan_override_duty;
+            // Keep the PID's clock running while the takeover owns the fan.
+            // Without this the first tick after the hand-over sees dt = the whole
+            // takeover (a 90 s soak cooldown), and every dt-scaled term jumps:
+            // the slew limiter alone would allow 90 s * slew_down in one step,
+            // i.e. exactly the 100 % -> 6 % slam this change set out to remove.
+            pid_start_ms[fan_index] = millis();
+        } else if (update_pid && !spec.fan_controllable) {
+            // The board's blower is hardwired to full speed (NMAxe): the PWM value
+            // is written but the airflow never changes, so driving a PID here
+            // regulates a plant that does not exist. Report the truth - full
+            // speed - instead of whatever the loop computed. This also keeps the
+            // UI speed figure and the benchmark fanNeed/fanAsic fields at 100,
+            // which is how they read before the loop gained derived gains.
+            fan_status->speed = 100;
         } else if (update_pid && fan_cfg.auto_speed && fan_status->self_test) {
             uint32_t now_ms = millis();
             float dt = (pid_start_ms[fan_index] == 0) ? 0.125f : (now_ms - pid_start_ms[fan_index]) / 1000.0f;
             if (dt <= 0.0f) dt = 0.001f;
             float target   = fan_cfg.target_temp;
             float measured = (fan_cfg.id == 0) ? ctx->temp->asic : ctx->temp->vcore; // fan0=ASIC, fan1=Vcore
+
+            if (fan_index < FAN_SLOTS_MAX && bumpless_pending[fan_index] && isfinite(measured)) {
+                // Bumpless transfer: start from the duty that is applied now,
+                // with an empty integrator. The first PID output is therefore
+                // close to the current duty and the slew limiter does the rest.
+                fan_pid_reset(&fan_cfg.pid, measured, (float)fan_status->speed);
+                bumpless_pending[fan_index] = false;
+            }
+
+            // Re-seed BEFORE computing, so the first post-recovery output is
+            // continuous with the duty the fault ramp left in place.
+            if (fan_index < FAN_SLOTS_MAX && lost_since_ms[fan_index] != 0 && isfinite(measured)) {
+                LOG_W("Fan[%u] temperature reading recovered after %lus - resuming PID from %u%%.",
+                      (unsigned)fan_cfg.id,
+                      (unsigned long)((now_ms - lost_since_ms[fan_index]) / 1000),
+                      (unsigned)fan_status->speed);
+                fan_pid_reset(&fan_cfg.pid, measured, (float)fan_status->speed);
+                lost_since_ms[fan_index] = 0;
+            }
+
             float duty = pid_compute(&fan_cfg.pid, target, measured, dt);
             if (!isfinite(duty)) {
                 // The temperature sample was unusable (probe NACK / timeout / not
                 // initialised). Do NOT fall back to 0: the ASIC is still hashing, so
-                // stopping the fan is the dangerous direction - that regression was
-                // observed as the VRM fan dropping to 0 % at 69 C. Hold the last duty
-                // the PID produced, and if there is none yet (probe never gave a
-                // usable reading) run at full speed so the board is cooled while the
-                // fault is diagnosed.
-                uint16_t fallback = (fan_index < FAN_SLOTS_MAX && pid_last_good[fan_index] > 0)
-                                      ? pid_last_good[fan_index] : 100;
-                static uint32_t last_warn_ms = 0;
-                if (millis() - last_warn_ms >= 30000) {
-                    last_warn_ms = millis();
-                    LOG_W("Fan[%u] temperature reading unusable - holding %.0f%% duty.",
-                          (unsigned)fan_cfg.id, (double)fallback);
+                // stopping the fan is the dangerous direction. Hold the last good
+                // duty for 2 s (one or two isolated bad samples are common on a
+                // shared I2C bus), then ramp towards full speed over 30 s. A short
+                // "hold 2 %" during a genuinely lost reading is the wrong direction.
+                uint16_t base;
+                if (fan_index < FAN_SLOTS_MAX) {
+                    base = pid_have_good[fan_index] ? pid_last_good[fan_index] : 100;
+                    if (lost_since_ms[fan_index] == 0) lost_since_ms[fan_index] = now_ms;
+                    uint32_t lost_ms = now_ms - lost_since_ms[fan_index];
+                    uint16_t fallback = base;
+                    if (lost_ms > 2000) {
+                        uint32_t ramp = lost_ms - 2000;
+                        if (ramp > 30000) ramp = 30000;
+                        fallback = (uint16_t)(base + ((100u - base) * ramp) / 30000u);
+                    }
+                    // "0 means never warned": comparing millis() against a
+                    // synthesised (now - 30000) underflows in the first 30 s
+                    // after boot and would swallow the very first warning.
+                    if (last_warn_ms[fan_index] == 0 ||
+                        millis() - last_warn_ms[fan_index] >= 30000) {
+                        last_warn_ms[fan_index] = millis();
+                        LOG_W("Fan[%u] temperature reading unusable - ramping duty from %u%% to %u%% (%lus lost).",
+                              (unsigned)fan_cfg.id, (unsigned)base, (unsigned)fallback,
+                              (unsigned long)(lost_ms / 1000));
+                    }
+                    fan_status->speed = fallback;
+                } else {
+                    fan_status->speed = 100;
                 }
-                fan_status->speed = fallback;
             } else {
-                if (duty < 0.0f)   duty = 0.0f;
-                if (duty > 100.0f) duty = 100.0f;
-                fan_status->speed = (uint16_t)duty;
-                if (fan_index < FAN_SLOTS_MAX) pid_last_good[fan_index] = fan_status->speed;
+                if (fan_index < FAN_SLOTS_MAX) {
+                    // Post-takeover cushion: hold the last known steady duty until
+                    // the temperature has actually reached the target, or for at
+                    // most 60 s. Without this the PI walks the fan down while the
+                    // chip is still cold after a cooldown, and the thermal lag then
+                    // carries the temperature past the target.
+                    //
+                    // The release threshold must be the TARGET, not a slack point
+                    // below it: a cooldown ends at 65-66 C for a 67 C target, so a
+                    // "-1.0 C" slack released the cushion on the very first tick
+                    // and the fan slid 100 % -> 5 % (measured on 124.18, v3.2.02q).
+                    if (floor_until_ms[fan_index] != 0) {
+                        const float meas_f    = fan_cfg.pid.meas_f;
+                        // Release as soon as the reading is at or above the target
+                        // band. Above the target there is no undershoot risk left -
+                        // the PI is already asking for more cooling than the floor,
+                        // so holding it would only delay the response. Below the
+                        // band is exactly what the cushion exists for.
+                        const bool  at_target = meas_f >= (target - fan_cfg.pid.deadband);
+                        const bool  expired   = (int32_t)(now_ms - floor_until_ms[fan_index]) >= 0;
+                        if (at_target || expired) {
+                            LOG_I("Fan[%u] takeover cushion released (%s, %.1fC vs target %.1fC) at %.0f%%.",
+                                  (unsigned)fan_cfg.id,
+                                  at_target ? "temperature reached the band" : "60s timeout",
+                                  (double)meas_f, (double)target, (double)duty);
+                            floor_until_ms[fan_index] = 0;
+                        } else {
+                            const float fl = (float)floor_duty[fan_index];
+                            if (duty < fl) duty = fl;
+                            // Make the PI consistent with the duty that is really
+                            // applied. Simply clamping the output lets the integral
+                            // keep winding DOWN against the clamp, and the moment
+                            // the cushion is released that stored error dumps the
+                            // fan in one go. Back-calculating the integral keeps
+                            // "output == floor" true, so the release is bumpless.
+                            const float e = meas_f - target;
+                            if (fan_cfg.pid.Ki > 0.0f) {
+                                fan_cfg.pid.integral = (fl - fan_cfg.pid.Kp * e) / fan_cfg.pid.Ki;
+                            }
+                            fan_cfg.pid.out = fl;
+                        }
+                    }
+                    // The float output is the slew state; only the reported/PWM
+                    // value is rounded. Rounding the state would stall a 3 %/s
+                    // ramp at 8 Hz (0.375 % per tick rounds to 0).
+                    uint16_t rounded = (uint16_t)(duty + 0.5f);
+                    if (rounded > 100) rounded = 100;
+                    fan_status->speed = rounded;
+                    pid_last_good[fan_index] = rounded;
+                    pid_have_good[fan_index] = true;
+                    // Remember what this operating point actually settled at; it
+                    // is the cushion a later manual/benchmark takeover is handed
+                    // back to. Only while the loop owns the fan (this branch), so
+                    // a manual or override value can never become the reference.
+                    if (floor_until_ms[fan_index] == 0) {
+                        last_auto_duty[fan_index] = rounded;
+                        have_last_auto[fan_index] = true;
+                    }
+                } else {
+                    if (duty < 0.0f)   duty = 0.0f;
+                    if (duty > 100.0f) duty = 100.0f;
+                    fan_status->speed = (uint16_t)(duty + 0.5f);
+                }
             }
             pid_start_ms[fan_index] = now_ms;
         }
