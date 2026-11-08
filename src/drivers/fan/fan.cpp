@@ -263,10 +263,28 @@ fan_thermal_plant_t fan_plant_nexus_vcore(void)
     return make_plant(0.030f, 12.0f, 75.0f, 1.0f, 4.0f, 30.0f, 0.0f, false);
 }
 
-// NMAxeGamma: single BM1370, one fan.
+// NMAxeGamma: single BM1370, one small blower with very little headroom.
+//
+// MEASURED on 124.11 (Gamma-B) at 550MHz/1130mV, ~21 W, manual duty steps:
+//   100 % -> 48.1 C     70 % -> 55.1 C     40 % -> 66 C and still climbing
+//   (the 40 % step was aborted at 67 C on purpose - see gamma_identify.ps1)
+//   K = 0.232 C/% between 100 % and 70 %, steeper (~0.37) below 70 %
+//   dead time 3-7 s, tau 46 s (100 % step) / 81 s (70 % step)
+//
+// Design points worth writing down:
+//   - The controllable band is narrow and sits HIGH: 100 % only reaches 48 C at
+//     21 W, so a 50 C target needs ~93 % duty. The factory default target (50)
+//     therefore runs the blower essentially saturated - that is the machine, not
+//     a loop defect.
+//   - K is taken as 0.22 (the 100-70 % figure) and tau as 50 s (between the two
+//     measured steps, weighted toward the 70 % one the loop works in). Using the
+//     81 s value alone would raise Kp and ring on a cooldown; using 46 s would
+//     make it sluggish on a heat-up.
+//   - The sensor (TMP102, 0.2 C scatter) is the quiet one, so the noise budget -
+//     not the plant - is what allows a gain this size.
 fan_thermal_plant_t fan_plant_gamma_asic(void)
 {
-    return make_plant(0.25f, 6.0f, 40.0f, 0.20f, 4.0f, 25.0f, 0.0f, false);
+    return make_plant(0.22f, 6.0f, 50.0f, 0.20f, 4.0f, 25.0f, 0.0f, true);
 }
 
 void fan_pid_reset(fan_pid_t* pid, float measured, float output)
