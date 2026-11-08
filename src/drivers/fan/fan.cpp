@@ -268,20 +268,26 @@ fan_thermal_plant_t fan_plant_nexus_vcore(void)
 // MEASURED on 124.11 (Gamma-B) at 550MHz/1130mV, ~21 W, manual duty steps:
 //   100 % -> 48.1 C     70 % -> 55.1 C     40 % -> 66 C and still climbing
 //   (the 40 % step was aborted at 67 C on purpose - see gamma_identify.ps1)
-//   K = 0.232 C/% between 100 % and 70 %, steeper (~0.37) below 70 %
-//   dead time 3-7 s, tau 46 s (100 % step) / 81 s (70 % step)
+//   K = 0.232 C/% between 100 % and 70 %, steeper (0.369 C/%) below 70 %
+//   first response 2.3-3.2 s after the edge, tau 45.6 s (100 % step) and
+//   80.8 s (70 % step) by the t10/t90 method
 //
 // Design points worth writing down:
 //   - The controllable band is narrow and sits HIGH: 100 % only reaches 48 C at
 //     21 W, so a 50 C target needs ~93 % duty. The factory default target (50)
 //     therefore runs the blower essentially saturated - that is the machine, not
 //     a loop defect.
-//   - K is taken as 0.22 (the 100-70 % figure) and tau as 50 s (between the two
-//     measured steps, weighted toward the 70 % one the loop works in). Using the
-//     81 s value alone would raise Kp and ring on a cooldown; using 46 s would
-//     make it sluggish on a heat-up.
-//   - The sensor (TMP102, 0.2 C scatter) is the quiet one, so the noise budget -
-//     not the plant - is what allows a gain this size.
+//   - dead_time_s stays at 6 s, NOT the measured 2.3-3.2 s. lambda = 2L, so a
+//     smaller L tightens the loop: with L=3 s the SIMC gain comes out at
+//     25.3 %/C. 6 s is the value that was A/B-verified on this board, so it is
+//     kept deliberately conservative rather than swapped for the raw number.
+//   - tau = 50 s sits just above the heat-up value (45.6 s) and well below the
+//     cooldown value (80.8 s). Taking 80.8 s alone would raise the gain to
+//     20.4 %/C and ring on a cooldown; taking 45.6 s alone gives 11.5 %/C.
+//   - The noise budget binds here: TMP102 scatters ~0.2 C, so the cap is
+//     4.0/0.2 = 20 %/C against a SIMC request of 12.63 %/C - it just fits. This
+//     is also why identified=true matters: an unmeasured plant scales that cap
+//     by 0.6 (12 %/C) and the gain would be truncated to 12.00 instead of 12.63.
 fan_thermal_plant_t fan_plant_gamma_asic(void)
 {
     return make_plant(0.22f, 6.0f, 50.0f, 0.20f, 4.0f, 25.0f, 0.0f, true);
