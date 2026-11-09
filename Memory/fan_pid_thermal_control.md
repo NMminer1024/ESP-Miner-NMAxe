@@ -231,7 +231,7 @@ SIMC 在 K=0.107 时请求 13.0 %/C，K=0.057 时请求 24.4 %/C，而噪声上�
 饱和端（100 %），52 °C 验证目标落在 ~60 %。用 0.140 会得 Kp 21 并在 60 %
 振铃，用 0.447 会让饱和端迟钝。
 
-**旧固件（v3.2.02m）对照组**（`fan_verify_nexus.ps1`，target ASIC 52 / Vcore
+**旧固件（v3.2.02m）对照组**（`fan_verify.ps1` 带 Nexus 参数，target ASIC 52 / Vcore
 67，数据 `fan_verify_nexus_old_m.csv`）：
 
 | 阶段 | fan1 范围 | 跳变≥15 | 最大单步 | vcore 读数 |
@@ -316,15 +316,28 @@ Gamma 是 0.51（一半跟踪一半抖动），Nexus 低功率点是 0.09，Nexu
 **落地的两处修改**（v3.2.02u）：
 
 1. **占空比滞环** `fan_pid_t.duty_hyst`，由 plant 派生、**不手填**：
-   `duty_hyst = 0.5 × Kc × sensor_noise`，**小于 2 点则置 0（禁用）**。
+   `duty_hyst = 0.5 × Kp × sensor_lsb`，**小于 2 点则置 0（禁用）**。
+
+   > ⚠️ 必须用 **`sensor_lsb`（量化步长）**，不能用 `sensor_noise`（读数散布）。
+   > 最初写成 noise，导致 QAxe++ 2 相 Vcore 也被判成 2 点滞环（其 noise=1.0），
+   > 但那颗 TPS53647 实际是 **1/16 °C 分辨率**，2 点摆动是真实响应，压掉就是错误。
+   > 修正后：**只有 Nexus Vcore 得到 2 %，其余 9 个环全部 0**。
+
+   | 传感器 | LSB | 代表 |
+   |---|---|---|
+   | TMP102（12-bit） | 0.0625 °C | 所有 ASIC 环 |
+   | TPS53647（QAxe++/Rev6.1 Vcore） | 0.0625 °C | noise 1 °C ≠ LSB |
+   | **TPS546D24A（Nexus Vcore）** | **1 °C** ← 唯一粗的 | 手册 7.6.66 `LSB = 1°C` |
+
    - Nexus Vcore = 4.0 × 1.0 × 0.5 = **2** ✓
-   - QAxe++ Vcore 也是 **2** ✓
-   - Gamma 1 → **0**；所有 ASIC 环（TMP102 1/16 °C）**0** —— 本来就正常的板子行为不变
+   - QAxe++ / Rev6.1 Vcore = 4.0 × 0.0625 × 0.5 ≈ 0.13 → **0** ✓（真机已验）
+   - 所有 ASIC 环 → **0**；Gamma / NMAxe → **0**
    - 语义：连续需求照常算，只有偏离**实际施加值** ≥ hyst 才真正写风扇
    - 地板生效时跳过（地板优先）
+   - 对账脚本：`fan_hyst_matrix.ps1`（改 plant 后必须重跑）
 2. **接管地板改为纯下限**：`if (duty < fl)` 才钳并反算积分，见上文。
 
-**验证（`fan_verify_nexus.ps1`，同一脚本同一工作点）**：
+**验证（`fan_verify.ps1` 带 Nexus 参数，同一脚本同一工作点）**：
 
 | 阶段 | fan1 最大单步 t → **u** | 跳变≥15 t → **u** |
 |---|---|---|
@@ -350,6 +363,32 @@ B_AUTO 的 span 从 9 涨到 18 不是退化：928 个样本里只变了 13 次�
 - `fan_replay_tuning.ps1` — 用录制数据离线回放候选参数，**不刷机就能比方案**
 - `nexus_actuator_sweep.ps1` — 占空比→rpm 权限曲线
 - `steady_capture.ps1` — 生产点等间隔稳态采样
+- `fan_hyst_matrix.ps1` / `fan_regression_matrix.ps1` — 改 plant 后对账滞环与整定值
+
+**`fan_verify.ps1` 已合并为单文件**（原 `fan_verify_nexus.ps1` 已删除）。
+六个阶段固定，各板只差数字，全部走参数；带 `-DryRun` 可在不碰设备的情况下打印
+调度表核对。三块板的调用：
+
+```powershell
+# QAxe++ 2 相（默认参数，与原 fan_verify.ps1 逐行一致）
+.\fan_verify.ps1 -Ip 192.168.124.7 -Out old.csv
+
+# Nexus（原 fan_verify_nexus.ps1 等价）
+.\fan_verify.ps1 -Ip 192.168.124.2 -Out nexus.csv `
+    -Freq 700 -Vcore 1150 -TargetAsic 52 -AsicAbortC 66 -VcoreAbortC 76 `
+    -AbortOnProtection -StepFreq 650 -StepVcore 1120 `
+    -RestoreFreq 775 -RestoreVcore 1200 -RestoreTargetAsic 45 -RestoreTargetVcore 67
+
+# Rev6.1（原 fan_verify_rev61.ps1 等价）
+.\fan_verify.ps1 -Ip 192.168.124.6 -Out rev61.csv `
+    -Freq 725 -Vcore 1250 -AsicAbortC 65 -VcoreAbortC 92 `
+    -StepFreq 800 -StepVcore 1290 -SetupSec 240 `
+    -RestoreTargetAsic 40 -RestoreTargetVcore 75
+```
+
+> **选点铁律**：必须在风扇能真实移动的区间。555/1170 在 Rev6.1 上会被钳到 650
+> 且风扇 0 %；800/1290 双风扇饱和 —— 两端都是平线，A/B 什么也证明不了。
+
 
 ## 关键结论：两个风扇的增益差不是“风扇编号”，而是传感器噪声
 
