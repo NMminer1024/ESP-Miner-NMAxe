@@ -119,6 +119,29 @@ void fan_pid_tuning_from_plant(const fan_thermal_plant_t* plant, fan_pid_tuning_
     // clamp) is what prevents windup.
     out->integral_limit = (out->Ki > 0.0f) ? (100.0f / out->Ki) : 0.0f;
 
+    // ── applied-duty hysteresis ─────────────────────────────────────────────
+    // A loop cannot regulate finer than its sensor RESOLVES, and that is not the
+    // same thing as its noise. Two sensors on these boards illustrate it:
+    //   TPS53647 / TMP102 : report 1/16 C steps, scatter ~0.2-1 C
+    //   TPS546D24A        : READ_TEMPERATURE_1 has LSB = 1 C (datasheet 7.6.66)
+    // Only the second kind turns the PI into an integer relay: the reading sits
+    // frozen and then jumps a whole degree, and every jump becomes a fan move
+    // that regulates nothing.
+    //
+    // Measured on the Nexus VRM channel (1 C LSB, Kp 4 %/C): 349 distinct duty
+    // values in 189 s of steady state, span 5 points, while corr(duty, power)
+    // was 0.09 and corr(duty, temperature) 0.05 - none of that motion tracked
+    // anything. Half a quantisation step's worth of duty is the natural size:
+    // below it there is no information to act on.
+    //
+    // Using sensor_noise here instead of sensor_lsb would be WRONG and would
+    // have applied a 2-point hysteresis to the QAxe++ Vcore loop as well, whose
+    // sensor resolves 1/16 C but scatters by ~1 C. That loop measures a real
+    // 2-point response and must keep it. With LSB the term lands at 0.125 points
+    // there and switches itself off.
+    out->duty_hyst = 0.5f * Kc * plant->sensor_lsb;
+    if (out->duty_hyst < 2.0f) out->duty_hyst = 0.0f;
+
     out->lambda_s = lambda;
 }
 
@@ -132,6 +155,7 @@ void fan_pid_apply_tuning(fan_pid_t* pid, const fan_pid_tuning_t* t)
     pid->slew_up        = t->slew_up;
     pid->slew_down      = t->slew_down;
     pid->integral_limit = t->integral_limit;
+    pid->duty_hyst      = t->duty_hyst;
 
     pid->prev_error = 0.0f;
     pid->integral   = 0.0f;
@@ -172,7 +196,7 @@ bool fan_pid_configure(fan_pid_t* pid, const fan_thermal_plant_t* plant)
 //  and read K = dT/dDuty, L from the first response, tau from the 63 % point.
 // ---------------------------------------------------------------------------
 static fan_thermal_plant_t make_plant(float K, float L, float tau,
-                                      float noise, float dither,
+                                      float noise, float lsb, float dither,
                                       float slew_up, float slew_down,
                                       bool identified)
 {
@@ -181,6 +205,7 @@ static fan_thermal_plant_t make_plant(float K, float L, float tau,
     p.dead_time_s  = L;
     p.tau_s        = tau;
     p.sensor_noise = noise;
+    p.sensor_lsb   = lsb;
     p.max_dither   = dither;
     p.slew_up      = slew_up;
     p.slew_down    = slew_down;
@@ -192,21 +217,22 @@ fan_thermal_plant_t fan_plant_fixed_blower(void)
 {
     // NMAxe: the blower runs at full speed no matter what the PWM says. There is
     // no control loop; the description only exists so the fan table is complete.
-    return make_plant(1.0f, 1.0f, 10.0f, 1.0f, 1.0f, 0.0f, 0.0f, true);
+    return make_plant(1.0f, 1.0f, 10.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, true);
 }
 
 fan_thermal_plant_t fan_plant_generic_asic(void)
 {
     // Unknown board: assume a small die on a decent heat sink fed by a 4-pin
     // blower. Conservative on purpose (identified = false tightens Kp).
-    return make_plant(0.20f, 6.0f, 35.0f, 0.25f, 4.0f, 25.0f, 0.0f, false);
+    // LSB 1/16 C: an unknown board must not get a hysteresis it may not need.
+    return make_plant(0.20f, 6.0f, 35.0f, 0.25f, 0.0625f, 4.0f, 25.0f, 0.0f, false);
 }
 
 fan_thermal_plant_t fan_plant_generic_vcore(void)
 {
     // Unknown board with a regulator-side temperature sensor: usually noisier
     // and slower than a die sensor.
-    return make_plant(0.05f, 10.0f, 60.0f, 1.0f, 4.0f, 25.0f, 0.0f, false);
+    return make_plant(0.05f, 10.0f, 60.0f, 1.0f, 0.0625f, 4.0f, 25.0f, 0.0f, false);
 }
 
 // NMQAxe++ (2-phase, BM1370 x4). MEASURED on 124.18.
@@ -224,7 +250,7 @@ fan_thermal_plant_t fan_plant_qaxepp2_asic(void)
     //   designing on the slower tau would raise Kp and ring on a cooldown.
     // The die sensor (TMP102) is far quieter than the VRM one, which is why this
     // loop may use a much larger gain than the Vcore loop on the same board.
-    return make_plant(0.31f, 8.6f, 45.0f, 0.20f, 4.0f, 30.0f, 0.0f, true);
+    return make_plant(0.31f, 8.6f, 45.0f, 0.20f, 0.0625f, 4.0f, 30.0f, 0.0f, true);
 }
 
 fan_thermal_plant_t fan_plant_qaxepp2_vcore(void)
@@ -235,7 +261,11 @@ fan_thermal_plant_t fan_plant_qaxepp2_vcore(void)
     // The gain is strongly duty-dependent (the 75-100 % knee is half as
     // sensitive as 55-75 %), so use the value of the band the loop actually
     // works in. The sensor scatters by ~1 °C, which is what really limits Kp.
-    return make_plant(0.07f, 9.0f, 58.0f, 1.0f, 4.0f, 30.0f, 0.0f, true);
+    // TPS53647 reports 1/16 C steps but scatters by ~1 C, so noise and LSB differ
+    // by 16x here. Kp is capped by the NOISE (that is what makes the duty dither)
+    // while the hysteresis below is driven by the LSB (nothing to do when the
+    // reading resolves finer than one duty point).
+    return make_plant(0.07f, 9.0f, 58.0f, 1.0f, 0.0625f, 4.0f, 30.0f, 0.0f, true);
 }
 
 // NMQAxe++ Rev6.1 / Rev8.1 (3-4 phase): same fans and sensors, but the VRM has
@@ -243,24 +273,55 @@ fan_thermal_plant_t fan_plant_qaxepp2_vcore(void)
 // responds more slowly. Not measured yet.
 fan_thermal_plant_t fan_plant_qaxepp3_asic(void)
 {
-    return make_plant(0.30f, 6.0f, 45.0f, 0.20f, 4.0f, 30.0f, 0.0f, false);
+    return make_plant(0.30f, 6.0f, 45.0f, 0.20f, 0.0625f, 4.0f, 30.0f, 0.0f, false);
 }
 
 fan_thermal_plant_t fan_plant_qaxepp3_vcore(void)
 {
-    return make_plant(0.030f, 11.0f, 70.0f, 1.0f, 4.0f, 30.0f, 0.0f, false);
+    return make_plant(0.030f, 11.0f, 70.0f, 1.0f, 0.0625f, 4.0f, 30.0f, 0.0f, false);
 }
 
-// Nexus (3-phase TPS546D24A, series stack): the regulator telemetry is the same
-// PMBus temperature channel, the module is larger and slower.
+// Nexus (3-phase TPS546D24A, 2x BM1373). MEASURED on 124.2 (2026-11-09),
+// 700 MHz / 1150 mV (~135 W), one fan stepped at a time with the other pinned
+// at 100 % so the two channels stay independent.
+//
+//   ASIC fan -> TMP102
+//     100 % -> 44.89 C    70 % -> 49.10 C    50 % -> 58.05 C
+//     K = 0.263 C/% over the whole 100-50 % band, but that band is strongly
+//     non-linear: 0.140 C/% between 100-70 % and 0.447 C/% between 70-50 %.
+//     The average is used because it spans the whole range the loop works in
+//     (the factory 45 C target sits saturated at 100 %, the 52 C verification
+//     target settles near 60 %). Designing on the 0.447 local slope would give
+//     Kp 6.7 and make the saturated end sluggish; designing on 0.140 would
+//     give Kp 21 and ring at 60 %.
+//     L 4.3-5.3 s, tau 26.5 s (70 % step) / 52.2 s (50 % step) -> 45 s.
+//     TMP102 reads in 1/16 C steps with a steady-state sd of 0.075 C, so the
+//     noise budget is 0.15 C (twice the measured scatter, as elsewhere).
 fan_thermal_plant_t fan_plant_nexus_asic(void)
 {
-    return make_plant(0.28f, 7.0f, 50.0f, 0.20f, 4.0f, 30.0f, 0.0f, false);
+    return make_plant(0.263f, 5.0f, 45.0f, 0.15f, 0.0625f, 4.0f, 30.0f, 0.0f, true);
 }
 
+//   Vcore fan -> TPS546D24A PMBus temperature
+//     100 % -> 57.13 C    50 % -> 60.00 C    0 % -> 68.27 C
+//     K = 0.107 C/% over 100-0 % (0.057-0.068 in 100-50 %, 0.146 in 50-0 %),
+//     L 6.5-14.7 s, tau 49-51 s in BOTH directions.
+//
+//     The important property of this board is the SENSOR, not the plant: the
+//     TPS546D24A reports WHOLE degrees (readings are 57/58, 68/69), 16x coarser
+//     than the TPS53647 on the QAxe++. That is why the old Kp = 50 produced a
+//     relay here (80-133 jumps of >=15 points in 4-5 min, measured on 124.2 with
+//     the same script the fix is verified with).
+//
+//     NOTE, opposite of Gamma: the plant gain does not decide the outcome. SIMC
+//     asks for 13.0 %/C at K = 0.107 and 24.4 %/C at K = 0.057, while the noise
+//     cap is 4.0 / 1.0 = 4.0 %/C, so Kp comes out 4.00 for any K in that range.
+//     What actually changed is identified = true: it lifts the cap from 2.4
+//     (4.0 x 0.6 for an unmeasured plant) to 4.0. K is still recorded from the
+//     measurement so a future, quieter sensor scales the loop correctly.
 fan_thermal_plant_t fan_plant_nexus_vcore(void)
 {
-    return make_plant(0.030f, 12.0f, 75.0f, 1.0f, 4.0f, 30.0f, 0.0f, false);
+    return make_plant(0.107f, 12.0f, 50.0f, 1.0f, 1.0f, 4.0f, 30.0f, 0.0f, true);
 }
 
 // NMAxeGamma: single BM1370, one small blower with very little headroom.
@@ -290,7 +351,7 @@ fan_thermal_plant_t fan_plant_nexus_vcore(void)
 //     by 0.6 (12 %/C) and the gain would be truncated to 12.00 instead of 12.63.
 fan_thermal_plant_t fan_plant_gamma_asic(void)
 {
-    return make_plant(0.22f, 6.0f, 50.0f, 0.20f, 4.0f, 25.0f, 0.0f, true);
+    return make_plant(0.22f, 6.0f, 50.0f, 0.20f, 0.0625f, 4.0f, 25.0f, 0.0f, true);
 }
 
 void fan_pid_reset(fan_pid_t* pid, float measured, float output)

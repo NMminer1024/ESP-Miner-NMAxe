@@ -690,11 +690,12 @@ void fan_thread_entry(void* args) {
                   (double)fan.thermal.tau_s);
         }
         LOG_I("Fan[%d] PID from plant: K=%.3f C/%%, L=%.1fs, tau=%.0fs -> Kp=%.2f %%/C, "
-              "Ki=%.3f, deadband=%.2fC, filter=%.1fs, slew +%.0f/-%.1f %%/s, lambda=%.0fs%s",
+              "Ki=%.3f, deadband=%.2fC, filter=%.1fs, slew +%.0f/-%.1f %%/s, hyst=%.0f%%, lambda=%.0fs%s",
               fan.id, (double)fan.thermal.gain, (double)fan.thermal.dead_time_s,
               (double)fan.thermal.tau_s, (double)fan.pid.Kp, (double)fan.pid.Ki,
               (double)fan.pid.deadband, (double)fan.pid.tau_filter,
               (double)fan.pid.slew_up, (double)fan.pid.slew_down,
+              (double)fan.pid.duty_hyst,
               (double)(2.0f * (fan.thermal.dead_time_s > 0.5f ? fan.thermal.dead_time_s : 0.5f)),
               fan.thermal.identified ? "" : " [ESTIMATED]");
         LOG_D("Fan[%d] initialized with torch pin %d, pwm pin %d",
@@ -1011,6 +1012,7 @@ void fan_thread_entry(void* args) {
                     // below it: a cooldown ends at 65-66 C for a 67 C target, so a
                     // "-1.0 C" slack released the cushion on the very first tick
                     // and the fan slid 100 % -> 5 % (measured on 124.18, v3.2.02q).
+                    bool floor_binding = false;
                     if (floor_until_ms[fan_index] != 0) {
                         const float meas_f    = fan_cfg.pid.meas_f;
                         // Release as soon as the reading is at or above the target
@@ -1028,18 +1030,29 @@ void fan_thread_entry(void* args) {
                             floor_until_ms[fan_index] = 0;
                         } else {
                             const float fl = (float)floor_duty[fan_index];
-                            if (duty < fl) duty = fl;
-                            // Make the PI consistent with the duty that is really
-                            // applied. Simply clamping the output lets the integral
-                            // keep winding DOWN against the clamp, and the moment
-                            // the cushion is released that stored error dumps the
-                            // fan in one go. Back-calculating the integral keeps
-                            // "output == floor" true, so the release is bumpless.
-                            const float e = meas_f - target;
-                            if (fan_cfg.pid.Ki > 0.0f) {
-                                fan_cfg.pid.integral = (fl - fan_cfg.pid.Kp * e) / fan_cfg.pid.Ki;
+                            // The cushion is a LOWER BOUND and nothing else. It may
+                            // only touch the loop when the demand is actually below
+                            // it: re-seeding the output unconditionally rewrote a
+                            // 100 % cooldown duty down to the floor in a single
+                            // tick, bypassing the very slew limiter this loop is
+                            // built around (measured on 124.2, v3.2.02t: 100 -> 51
+                            // in one sample, i.e. the one remaining jump).
+                            if (duty < fl) {
+                                duty = fl;
+                                floor_binding = true;
+                                // Make the PI consistent with the duty that is
+                                // really applied. Clamping only the output lets the
+                                // integral keep winding DOWN against it, and the
+                                // moment the cushion is released that stored error
+                                // dumps the fan in one go. Back-calculating the
+                                // integral keeps "output == floor" true, so the
+                                // release is bumpless.
+                                const float e = meas_f - target;
+                                if (fan_cfg.pid.Ki > 0.0f) {
+                                    fan_cfg.pid.integral = (fl - fan_cfg.pid.Kp * e) / fan_cfg.pid.Ki;
+                                }
+                                fan_cfg.pid.out = fl;
                             }
-                            fan_cfg.pid.out = fl;
                         }
                     }
                     // The float output is the slew state; only the reported/PWM
@@ -1047,6 +1060,23 @@ void fan_thread_entry(void* args) {
                     // ramp at 8 Hz (0.375 % per tick rounds to 0).
                     uint16_t rounded = (uint16_t)(duty + 0.5f);
                     if (rounded > 100) rounded = 100;
+
+                    // Applied-duty hysteresis. fan_status->speed is the duty the
+                    // fan is really running at, so holding it still costs nothing
+                    // and removes the dither a coarse sensor produces: on the
+                    // Nexus VRM channel one sensor LSB is worth ~4 duty points,
+                    // which showed up as 349 distinct duty values in 189 s of
+                    // steady state with corr(duty, power) = 0.09 (no tracking).
+                    // See fan_pid_tuning_from_plant() for how the size is derived.
+                    // Skipped while the takeover cushion binds, because that floor
+                    // is authoritative and must not be undone by holding still.
+                    const float hyst = fan_cfg.pid.duty_hyst;
+                    if (hyst >= 1.0f && !floor_binding) {
+                        const int diff = (int)rounded - (int)fan_status->speed;
+                        if (diff > -(int)hyst && diff < (int)hyst) {
+                            rounded = fan_status->speed;
+                        }
+                    }
                     fan_status->speed = rounded;
                     pid_last_good[fan_index] = rounded;
                     pid_have_good[fan_index] = true;

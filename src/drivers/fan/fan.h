@@ -20,6 +20,11 @@ typedef struct{
     float slew_up;         // %/s, fastest allowed duty increase
     float slew_down;       // %/s, fastest allowed duty decrease (asymmetric: slow)
     float integral_limit;  // °C·s, clamp on the integral state
+    // Applied-duty hysteresis (%). The continuous demand may move, but the value
+    // sent to the fan only follows once it has drifted this far away from what
+    // the fan is really doing. This is what stops a sensor with a coarse LSB from
+    // turning into permanent ±1 % duty dither; 0 = disabled.
+    float duty_hyst;
     // ── state ───────────────────────────────────────────────────────────────
     float prev_error;      // kept for backward compatibility
     float integral;
@@ -63,6 +68,7 @@ typedef struct{
     float dead_time_s;   // L   : air path + sensor/CMOS response delay
     float tau_s;         // tau : dominant thermal time constant
     float sensor_noise;  // °C  : worst-case reading scatter/resolution
+    float sensor_lsb;    // °C  : quantisation step of the REPORTED reading
     float max_dither;    // %   : duty scatter the sensor noise may cause
     float slew_up;       // %/s : actuator limit, speeding up
     float slew_down;     // %/s : how fast cooling may be removed
@@ -78,6 +84,7 @@ typedef struct{
     float slew_up;       // %/s
     float slew_down;     // %/s
     float integral_limit;// °C·s
+    float duty_hyst;     // %, applied-duty hysteresis (0 = off)
     float lambda_s;      // s, resulting closed-loop time constant (for logs)
 }fan_pid_tuning_t;
 
