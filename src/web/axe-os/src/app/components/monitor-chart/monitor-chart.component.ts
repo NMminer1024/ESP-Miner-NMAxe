@@ -337,11 +337,13 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
         vcoreTempData.push(this.getValue(dataPoint, 'vcoreTemp', 0));
       });
     } else {
-      // Legacy fallback: hard-coded indices — last element is always epoch
+      // Legacy fallback: hard-coded indices. epoch is fixed at index 14 — the
+      // schema is append-only, so it is NOT the last element any more (fanCount,
+      // fan1speed, fan1rpm were appended after it).
       console.warn('⚠️ No column map, using legacy hard-coded indices');
       response.statistics.forEach((dataPoint: any[]) => {
-        if (dataPoint.length >= 12) {
-          timeLabels.push(dataPoint[dataPoint.length - 1]); // last = epoch
+        if (dataPoint.length >= 15) {
+          timeLabels.push(dataPoint[14]); // epoch = index 14 (fixed)
           hashrateData.push(typeof dataPoint[0] === 'string' ? parseFloat(dataPoint[0]) : dataPoint[0]);
           shareRateData.push(0); // No shareRate in legacy
           asicTempData.push(typeof dataPoint[1] === 'string' ? parseFloat(dataPoint[1]) : dataPoint[1]);
@@ -506,10 +508,11 @@ export class MonitorChartComponent implements OnInit, OnDestroy {
       this.chartData.datasets[2].data.push(asicTemp);
       this.chartData.datasets[3].data.push(vcoreTemp);
     } else {
-      // Legacy fallback: use hard-coded indices (old format, 14 elements)
+      // Legacy fallback: use hard-coded indices (epoch is fixed at index 14;
+      // the schema is append-only so it is not the last element).
       console.warn('⚠️ No column map yet, using legacy hard-coded indices');
-      if (dataPoint.length >= 12) {
-        const timestamp = dataPoint[dataPoint.length - 1]; // last element = epoch
+      if (dataPoint.length >= 15) {
+        const timestamp = dataPoint[14]; // epoch = index 14 (fixed)
         const hashrate = typeof dataPoint[0] === 'string' ? parseFloat(dataPoint[0]) : dataPoint[0];
         const asicTemp = typeof dataPoint[1] === 'string' ? parseFloat(dataPoint[1]) : dataPoint[1];
         const vcoreTemp = typeof dataPoint[2] === 'string' ? parseFloat(dataPoint[2]) : dataPoint[2];

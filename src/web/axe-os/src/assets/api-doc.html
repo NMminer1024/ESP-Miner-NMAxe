@@ -1172,11 +1172,12 @@
   <span class="kw">"labels"</span>: [
     <span class="str">"hashRate"</span>, <span class="str">"shareRate"</span>, <span class="str">"asicTemp"</span>, <span class="str">"vcoreTemp"</span>, <span class="str">"Pbus"</span>, <span class="str">"Vbus"</span>,
     <span class="str">"Ibus"</span>, <span class="str">"Vcore"</span>, <span class="str">"fanspeed"</span>, <span class="str">"fanrpm"</span>, <span class="str">"wifiRSSI"</span>,
-    <span class="str">"freeHeap"</span>, <span class="str">"freePsram"</span>, <span class="str">"latency"</span>, <span class="str">"epoch"</span>
+    <span class="str">"freeHeap"</span>, <span class="str">"freePsram"</span>, <span class="str">"latency"</span>, <span class="str">"epoch"</span>,
+    <span class="str">"fanCount"</span>, <span class="str">"fan1speed"</span>, <span class="str">"fan1rpm"</span>
   ],
   <span class="kw">"statistics"</span>: [
     <span class="cmt">// each entry is an array of values aligned to labels above</span>
-    [<span class="str">"465000000"</span>, <span class="num">123.4</span>, <span class="str">"52.8"</span>, <span class="str">"45.2"</span>, <span class="str">"12.5"</span>, <span class="str">"5020"</span>, <span class="str">"2490"</span>, <span class="num">1198</span>, <span class="num">80</span>, <span class="num">4200</span>, <span class="num">-62</span>, <span class="num">204800</span>, <span class="num">1048576</span>, <span class="num">120</span>, <span class="num">1711526400</span>],
+    [<span class="str">"465000000"</span>, <span class="num">123.4</span>, <span class="str">"52.8"</span>, <span class="str">"45.2"</span>, <span class="str">"12.5"</span>, <span class="str">"5020"</span>, <span class="str">"2490"</span>, <span class="num">1198</span>, <span class="num">80</span>, <span class="num">4200</span>, <span class="num">-62</span>, <span class="num">204800</span>, <span class="num">1048576</span>, <span class="num">120</span>, <span class="num">1711526400</span>, <span class="num">2</span>, <span class="num">80</span>, <span class="num">2300</span>],
     <span class="cmt">// ... more records ...</span>
   ],
   <span class="kw">"size"</span>:                  <span class="num">3600</span>,  <span class="cmt">// total records stored</span>
@@ -1185,6 +1186,7 @@
   <span class="kw">"userRequestedInterval"</span>: <span class="num">10</span>,    <span class="cmt">// interval requested via query param</span>
   <span class="kw">"maxDataPoints"</span>:         <span class="num">2000</span>   <span class="cmt">// hard cap</span>
 }</pre>
+          <p class="ep-desc"><strong>Column order is append-only.</strong> Resolve every column by its label in <code>labels[]</code>, never by a hard-coded index. Fan data is reported per fan: <code>fanspeed</code>/<code>fanrpm</code> are the ASIC fan (id 0, kept for backward compatibility) and <code>fan1speed</code>/<code>fan1rpm</code> the Vcore fan (id 1). <code>fanCount</code> tells how many fans the board has (1 or 2) so clients can plot one curve per physical fan. Single-fan boards still return all 18 columns with <code>fanCount=1</code> and the <code>fan1*</code> columns zeroed; firmware older than this schema returns 15 columns — treat a missing <code>fanCount</code> as <code>1</code>.</p>
         </div>
       </div>
 
@@ -1202,9 +1204,10 @@
   <span class="kw">"timestamp"</span>: <span class="num">1711526400000</span>,
   <span class="kw">"labels"</span>: [<span class="str">"hashRate"</span>, <span class="str">"shareRate"</span>, <span class="str">"asicTemp"</span>, <span class="str">"vcoreTemp"</span>, <span class="str">"Pbus"</span>, <span class="str">"Vbus"</span>,
              <span class="str">"Ibus"</span>, <span class="str">"Vcore"</span>, <span class="str">"fanspeed"</span>, <span class="str">"fanrpm"</span>, <span class="str">"wifiRSSI"</span>,
-             <span class="str">"freeHeap"</span>, <span class="str">"freePsram"</span>, <span class="str">"latency"</span>, <span class="str">"epoch"</span>],
+             <span class="str">"freeHeap"</span>, <span class="str">"freePsram"</span>, <span class="str">"latency"</span>, <span class="str">"epoch"</span>,
+             <span class="str">"fanCount"</span>, <span class="str">"fan1speed"</span>, <span class="str">"fan1rpm"</span>],
   <span class="kw">"statistics"</span>: [
-    [<span class="str">"465000000"</span>, <span class="num">123.4</span>, <span class="str">"52.8"</span>, <span class="str">"45.2"</span>, <span class="str">"12.5"</span>, <span class="str">"5020"</span>, <span class="str">"2490"</span>, <span class="num">1198</span>, <span class="num">80</span>, <span class="num">4200</span>, <span class="num">-62</span>, <span class="num">204800</span>, <span class="num">1048576</span>, <span class="num">120</span>, <span class="num">1711526400</span>]
+    [<span class="str">"465000000"</span>, <span class="num">123.4</span>, <span class="str">"52.8"</span>, <span class="str">"45.2"</span>, <span class="str">"12.5"</span>, <span class="str">"5020"</span>, <span class="str">"2490"</span>, <span class="num">1198</span>, <span class="num">80</span>, <span class="num">4200</span>, <span class="num">-62</span>, <span class="num">204800</span>, <span class="num">1048576</span>, <span class="num">120</span>, <span class="num">1711526400</span>, <span class="num">2</span>, <span class="num">80</span>, <span class="num">2300</span>]
   ]
 }</pre>
         </div>

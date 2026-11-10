@@ -18,8 +18,10 @@ interface HistoryNode {
   vbus: string;
   ibus: string;
   vcore: number;
-  fanspeed: number;
-  fanrpm: number;
+  fanspeed: number;   // ASIC fan (id 0) duty, %
+  fanrpm: number;     // ASIC fan (id 0) RPM
+  fanspeed1: number;  // Vcore fan (id 1) duty, % — 0 on single-fan boards
+  fanrpm1: number;    // Vcore fan (id 1) RPM — 0 on single-fan boards
   wifi_rssi: number;
   free_heap: number;
   free_psram: number;
@@ -40,6 +42,19 @@ interface TimeRange {
   value: string;
   label: string;
   minutes: number;
+}
+
+// One plotted curve. Fan metrics expand to one series per physical fan so a
+// dual-fan board shows ASIC + VCORE curves from the single "Fan Speed" /
+// "Fan RPM" selection.
+interface ChartSeries {
+  key: string;      // averages map key: 'fanspeed' or 'fanspeed:1'
+  field: string;    // base fieldOptions value
+  fanIdx: number;   // 0 = ASIC fan (legacy columns), 1 = Vcore fan
+  label: string;
+  unit: string;
+  color: string;
+  dash?: number[];
 }
 
 @Component({
@@ -63,6 +78,8 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
   lastUpdateTime = '';
   dataSize = 0;
   boardVersion = 'ESP-Miner'; // Default board version
+  fanCount = 1; // Fans this board has (from GET /api/system-info fans[])
+  private columnIndexMap: { [key: string]: number } = {}; // chart labels → column index
 
   // 均值计算相关属性
   private fieldAverages: Map<string, number> = new Map(); // 存储各指标的累计均值
@@ -283,6 +300,20 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
           this.boardVersion = data.boardVersion;
           console.log('Board version loaded:', this.boardVersion);
         }
+
+        // Fan count drives how many fan curves the chart plots (1 = ASIC only,
+        // 2 = ASIC + VCORE). Clamp to the firmware's MINER_HISTORY_MAX_FANS.
+        const newFanCount = Math.max(1, Math.min(2, data?.fans?.length || 1));
+        if (newFanCount !== this.fanCount) {
+          this.fanCount = newFanCount;
+          // Chart may already be rendering (ngAfterViewInit path) — redraw so
+          // the VCORE curves appear without waiting for the next realtime tick.
+          if (this.chart && this.historyData.length) {
+            this.recalculateAverages(this.historyData);
+            this.updateChart();
+          }
+        }
+        console.log('Fan count loaded:', this.fanCount);
       },
       error: (error: any) => {
         console.warn('Failed to load system info:', error);
@@ -391,7 +422,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             labels: {
               color: '#ffffff',
               usePointStyle: true,
-              padding: 20
+              padding: 20,
+              // Avg lines are already reported inside the tooltip — keep the
+              // legend to one entry per fan, distinguished by color/dash only.
+              filter: (item: any, data: any) =>
+                !(data.datasets[item.datasetIndex]?.label || '').includes('Avg')
             }
           },
           tooltip: {
@@ -429,9 +464,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                   const timeStr = new Date(timestamp).toLocaleString();
                   
                   // 精确对齐时间标题，总宽度应该与数据行保持一致
-                  // 数据行格式：|标签10字符 |当前值13字符 │平均值13字符 |
-                  // 总宽度：1 + 10 + 1 + 13 + 1 + 13 + 1 = 40字符
-                  const totalWidth = 40;
+                  // 数据行格式：|标签16字符 |当前值13字符 │平均值13字符 |
+                  // 总宽度：1 + 16 + 1 + 13 + 1 + 13 + 1 = 46字符
+                  const totalWidth = 46;
                   const timeLength = timeStr.length;
                   const padding = Math.max(0, Math.floor((totalWidth - timeLength) / 2));
                   const rightPadding = totalWidth - timeLength - padding;
@@ -453,33 +488,34 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                   return ''; // 不显示均值线的悬浮提示
                 }
                 
-                // 获取字段信息
-                const fieldOption = this.fieldOptions.find(f => 
-                  dataset.label.includes(f.label)
-                );
+                // Series metadata attached in updateChart — robust even when two
+                // fan curves share a color family (ASIC vs VCORE).
+                const seriesLabel: string | undefined = dataset.seriesLabel;
+                const seriesUnit: string | undefined = dataset.seriesUnit;
+                const seriesKey: string | undefined = dataset.seriesKey;
                 
-                if (fieldOption) {
-                  // 获取该字段的平均值
-                  const average = this.fieldAverages.get(fieldOption.value);
+                if (seriesLabel && seriesUnit) {
+                  // 获取该曲线的平均值
+                  const average = seriesKey !== undefined ? this.fieldAverages.get(seriesKey) : undefined;
                   
                   if (average !== undefined) {
                     // 使用精确的表格对齐格式
                     const currentVal = value.toFixed(1);
                     const avgVal = average.toFixed(1);
                     
-                    // 标签列：10个字符，左对齐，确保能显示完整的标签名
-                    const label = fieldOption.label.length > 10 ? 
-                      fieldOption.label.substring(0, 10) : 
-                      fieldOption.label.padEnd(10, ' ');
+                    // 标签列：16个字符，左对齐（"ASIC Fan Speed"/"VCORE Fan RPM" 需完整显示）
+                    const label = seriesLabel.length > 16 ? 
+                      seriesLabel.substring(0, 16) : 
+                      seriesLabel.padEnd(16, ' ');
                     
                     // 当前值列：13个字符，右对齐
-                    const currentWithUnit = `${currentVal} ${fieldOption.unit}`;
+                    const currentWithUnit = `${currentVal} ${seriesUnit}`;
                     const currentFormatted = currentWithUnit.length > 13 ? 
                       currentWithUnit.substring(0, 13) : 
                       currentWithUnit.padStart(13, ' ');
                     
                     // 平均值列：13个字符，右对齐
-                    const avgWithUnit = `${avgVal} ${fieldOption.unit}`;
+                    const avgWithUnit = `${avgVal} ${seriesUnit}`;
                     const avgFormatted = avgWithUnit.length > 13 ? 
                       avgWithUnit.substring(0, 13) : 
                       avgWithUnit.padStart(13, ' ');
@@ -489,11 +525,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                     // 如果没有平均值，只显示当前值
                     const currentVal = value.toFixed(1);
                     
-                    const label = fieldOption.label.length > 10 ? 
-                      fieldOption.label.substring(0, 10) : 
-                      fieldOption.label.padEnd(10, ' ');
+                    const label = seriesLabel.length > 16 ? 
+                      seriesLabel.substring(0, 16) : 
+                      seriesLabel.padEnd(16, ' ');
                     
-                    const currentWithUnit = `${currentVal} ${fieldOption.unit}`;
+                    const currentWithUnit = `${currentVal} ${seriesUnit}`;
                     const currentFormatted = currentWithUnit.length > 13 ? 
                       currentWithUnit.substring(0, 13) : 
                       currentWithUnit.padStart(13, ' ');
@@ -508,15 +544,12 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
                 return `${dataset.label.split(' ')[0]}: ${value.toFixed(2)}`;
               },
               labelColor: (context: any) => {
-                // 为每个指标返回其对应的颜色
-                const dataset = context.dataset;
-                const fieldOption = this.fieldOptions.find(f => 
-                  dataset.label.includes(f.label)
-                );
+                // 为每条曲线返回其自身的颜色（VCORE 虚线与 ASIC 同族不同色）
+                const color = context.dataset.borderColor || '#4CAF50';
                 
                 return {
-                  borderColor: fieldOption?.color || '#4CAF50',
-                  backgroundColor: fieldOption?.color || '#4CAF50'
+                  borderColor: color,
+                  backgroundColor: color
                 };
               },
               afterBody: (context: any) => {
@@ -753,25 +786,33 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
             this.loadingMessage = 'Processing data...';
             
             if (response && response.statistics && Array.isArray(response.statistics)) {
-              // 将数组数据转换为对象格式
+              this.ensureColumnMap(response.labels);
+              // 将数组数据转换为对象格式（按 labels 动态解析，兼容旧固件的 15 列）
               this.historyData = response.statistics.map((item: any[], index: number) => {
                 const processed = {
-                  hashrate: item[0] || '0',           // hashRate (GH/s) - 索引0
-                  share_rate: item[1] || '0',         // shareRate (n/s) - 索引1
-                  asic_temp: item[2] || '0',          // asicTemp (°C) - 索引2
-                  vcore_temp: item[3] || '0',         // vcoreTemp (°C) - 索引3
-                  pbus: item[4] || '0',               // Pbus (W) - 索引4
-                  vbus: item[5] || '0',               // Vbus (V) - 索引5
-                  ibus: item[6] || '0',               // Ibus (A) - 索引6
-                  vcore: item[7] || 0,                // Vcore (mV) - 索引7
-                  fanspeed: item[8] || 0,             // fanspeed (%) - 索引8
-                  fanrpm: item[9] || 0,               // fanrpm (RPM) - 索引9
-                  wifi_rssi: item[10] || 0,           // wifiRSSI (dBm) - 索引10
-                  free_heap: item[11] || 0,           // freeHeap (KB) - 索引11
-                  free_psram: item[12] || 0,          // freePsram (KB) - 索引12
-                  latency: item[13] || 0,             // latency (ms) - 索引13
-                  epoch: item[14] || Date.now()       // epoch (ms) - 索引14
+                  hashrate: String(this.col(item, 'hashRate', 0)),           // hashRate (GH/s)
+                  share_rate: this.col(item, 'shareRate', 1),                // shareRate (n/s)
+                  asic_temp: String(this.col(item, 'asicTemp', 2)),          // asicTemp (°C)
+                  vcore_temp: String(this.col(item, 'vcoreTemp', 3)),        // vcoreTemp (°C)
+                  pbus: String(this.col(item, 'Pbus', 4)),                   // Pbus (W)
+                  vbus: String(this.col(item, 'Vbus', 5)),                   // Vbus (V)
+                  ibus: String(this.col(item, 'Ibus', 6)),                   // Ibus (A)
+                  vcore: this.col(item, 'Vcore', 7) || 0,                   // Vcore (mV)
+                  fanspeed: this.col(item, 'fanspeed', 8) || 0,             // ASIC fan duty (%)
+                  fanrpm: this.col(item, 'fanrpm', 9) || 0,                 // ASIC fan RPM
+                  wifi_rssi: this.col(item, 'wifiRSSI', 10) || 0,           // wifiRSSI (dBm)
+                  free_heap: this.col(item, 'freeHeap', 11) || 0,           // freeHeap (KB)
+                  free_psram: this.col(item, 'freePsram', 12) || 0,         // freePsram (KB)
+                  latency: this.col(item, 'latency', 13) || 0,              // latency (ms)
+                  epoch: this.col(item, 'epoch', 14) || Date.now(),         // epoch (ms)
+                  fanspeed1: this.col(item, 'fan1speed', -1) || 0,          // Vcore fan duty (%), 0 on old firmware
+                  fanrpm1: this.col(item, 'fan1rpm', -1) || 0               // Vcore fan RPM, 0 on old firmware
                 };
+                // Old firmware (no fanCount column): never plot a phantom VCORE curve.
+                const apiFanCount = this.col(item, 'fanCount', -1);
+                if (apiFanCount >= 1) {
+                  this.fanCount = Math.max(1, Math.min(2, apiFanCount));
+                }
                 
                 if (index < 3 || index === response.statistics.length - 1) {
                   console.log(`[Monitor] history data point ${index}`, {
@@ -916,23 +957,26 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
           statisticsLength: response?.statistics?.length || 0
         });
         if (response && response.statistics && Array.isArray(response.statistics) && response.statistics.length > 0) {
+          this.ensureColumnMap(response.labels);
           const latestData = response.statistics[0];
           const newNode: HistoryNode = {
-            hashrate: latestData[0] || '0',      // hashRate (GH/s) - 索引0
-            share_rate: latestData[1] || 0,      // shareRate (n/s) - 索引1
-            asic_temp: latestData[2] || '0',     // asicTemp (°C) - 索引2
-            vcore_temp: latestData[3] || '0',    // vcoreTemp (°C) - 索引3
-            pbus: latestData[4] || '0',          // Pbus (W) - 索引4
-            vbus: latestData[5] || '0',          // Vbus (V) - 索引5
-            ibus: latestData[6] || '0',          // Ibus (A) - 索引6
-            vcore: latestData[7] || 0,           // Vcore (mV) - 索引7
-            fanspeed: latestData[8] || 0,        // fanspeed (%) - 索引8
-            fanrpm: latestData[9] || 0,          // fanrpm (RPM) - 索引9
-            wifi_rssi: latestData[10] || 0,      // wifiRSSI (dBm) - 索引10
-            free_heap: latestData[11] || 0,      // freeHeap (KB) - 索引11
-            free_psram: latestData[12] || 0,     // freePsram (KB) - 索引12
-            latency: latestData[13] || 0,        // latency (ms) - 索引13
-            epoch: latestData[14] || Date.now()  // epoch (ms) - 索引14
+            hashrate: String(this.col(latestData, 'hashRate', 0)),      // hashRate (GH/s)
+            share_rate: this.col(latestData, 'shareRate', 1),           // shareRate (n/s)
+            asic_temp: String(this.col(latestData, 'asicTemp', 2)),     // asicTemp (°C)
+            vcore_temp: String(this.col(latestData, 'vcoreTemp', 3)),   // vcoreTemp (°C)
+            pbus: String(this.col(latestData, 'Pbus', 4)),              // Pbus (W)
+            vbus: String(this.col(latestData, 'Vbus', 5)),              // Vbus (V)
+            ibus: String(this.col(latestData, 'Ibus', 6)),              // Ibus (A)
+            vcore: this.col(latestData, 'Vcore', 7) || 0,              // Vcore (mV)
+            fanspeed: this.col(latestData, 'fanspeed', 8) || 0,        // ASIC fan duty (%)
+            fanrpm: this.col(latestData, 'fanrpm', 9) || 0,            // ASIC fan RPM
+            wifi_rssi: this.col(latestData, 'wifiRSSI', 10) || 0,      // wifiRSSI (dBm)
+            free_heap: this.col(latestData, 'freeHeap', 11) || 0,      // freeHeap (KB)
+            free_psram: this.col(latestData, 'freePsram', 12) || 0,    // freePsram (KB)
+            latency: this.col(latestData, 'latency', 13) || 0,         // latency (ms)
+            epoch: this.col(latestData, 'epoch', 14) || Date.now(),    // epoch (ms)
+            fanspeed1: this.col(latestData, 'fan1speed', -1) || 0,     // Vcore fan duty (%)
+            fanrpm1: this.col(latestData, 'fan1rpm', -1) || 0          // Vcore fan RPM
           };
           
           // 添加新数据到历史数据数组
@@ -950,9 +994,9 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
           }
           
           if (shouldUpdateAverages) {
-            this.selectedFields.forEach(field => {
-              const value = this.parseValue(newNode[field as keyof HistoryNode], field);
-              this.updateFieldAverage(field, value);
+            this.buildSeries().forEach(s => {
+              const value = this.seriesValue(newNode, s);
+              this.updateFieldAverage(s.key, value);
             });
           }
           
@@ -1054,21 +1098,21 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     // 重新计算当前过滤数据的均值
     this.recalculateAverages(filteredData);
 
-    // 更新图表数据
-    const datasets = this.selectedFields.map(field => {
-      const fieldOption = this.fieldOptions.find(f => f.value === field);
+    // 更新图表数据 — fan metrics expand to one curve per physical fan
+    const series = this.buildSeries();
+    const datasets = series.map(s => {
       const data = filteredData.map(item => {
-        const y = this.parseValue(item[field as keyof HistoryNode], field);
+        const y = this.seriesValue(item, s);
         // latency=0 means "no measurement yet" (physically impossible round-trip);
         // render as NaN so Chart.js shows a gap rather than a misleading flat zero line.
         return {
           x: item.epoch,
-          y: (field === 'latency' && y === 0) ? NaN : y
+          y: (s.field === 'latency' && y === 0) ? NaN : y
         };
       });
       
       if (data.length > 0) {
-        console.log(`[Monitor] dataset prepared for ${field}`, {
+        console.log(`[Monitor] dataset prepared for ${s.label}`, {
           points: data.length,
           start: new Date(data[0].x).toLocaleTimeString(),
           end: new Date(data[data.length - 1].x).toLocaleTimeString()
@@ -1076,23 +1120,29 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       
       return {
-        label: `${fieldOption?.label} (${fieldOption?.unit})`,
+        label: `${s.label} (${s.unit})`,
         data: data,
-        borderColor: fieldOption?.color || '#4CAF50',
-        backgroundColor: `${fieldOption?.color || '#4CAF50'}20`,
+        borderColor: s.color,
+        backgroundColor: `${s.color}20`,
+        borderDash: s.dash || [],
         tension: 0.1,
         pointRadius: 2,
         pointHoverRadius: 6,
         borderWidth: 2,
-        fill: false
-      };
+        fill: false,
+        // custom metadata for the tooltip callbacks (label matching by name is
+        // ambiguous once ASIC/VCORE curves share a color family)
+        seriesKey: s.key,
+        fieldKey: s.field,
+        seriesLabel: s.label,
+        seriesUnit: s.unit
+      } as any;
     });
 
     // 添加均值线数据集
     if (this.showAverageLines) {
-      this.selectedFields.forEach(field => {
-        const fieldOption = this.fieldOptions.find(f => f.value === field);
-        const average = this.fieldAverages.get(field);
+      series.forEach(s => {
+        const average = this.fieldAverages.get(s.key);
         
         if (average !== undefined && filteredData.length > 0) {
           // 创建均值线数据 - 在时间范围内的水平直线
@@ -1100,12 +1150,12 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
           const maxTime = filteredData[filteredData.length - 1].epoch;
           
           const avgDataset: any = {
-            label: `${fieldOption?.label} Avg (${fieldOption?.unit})`,
+            label: `${s.label} Avg (${s.unit})`,
             data: [
               { x: minTime, y: average },
               { x: maxTime, y: average }
             ],
-            borderColor: fieldOption?.color || '#4CAF50',
+            borderColor: s.color,
             backgroundColor: 'transparent',
             borderWidth: 1,
             pointRadius: 0, // 不显示数据点
@@ -1121,6 +1171,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.chart.data.datasets = datasets;
+    // Dual-fan boards need a legend to tell ASIC (solid) from VCORE (dashed);
+    // single-fan boards keep the original legend-free layout.
+    if (this.chart.options.plugins?.legend) {
+      this.chart.options.plugins.legend.display = this.fanCount > 1;
+    }
     
     // 打印时间轴信息用于调试
     const minTime = Math.min(...filteredData.map(item => item.epoch));
@@ -1243,15 +1298,15 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (data.length === 0) return;
 
-    // 为每个选中的字段计算均值
-    this.selectedFields.forEach(field => {
+    // 为每条 plotted series 计算均值（fan 指标按物理风扇各算一条）
+    this.buildSeries().forEach(s => {
       let sum = 0;
       let count = 0;
 
       data.forEach(item => {
-        const value = this.parseValue(item[field as keyof HistoryNode], field);
+        const value = this.seriesValue(item, s);
         // latency=0 means "no measurement yet" (physically impossible round-trip); exclude from average
-        if (!isNaN(value) && isFinite(value) && !(field === 'latency' && value === 0)) {
+        if (!isNaN(value) && isFinite(value) && !(s.field === 'latency' && value === 0)) {
           sum += value;
           count++;
         }
@@ -1259,11 +1314,11 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (count > 0) {
         const average = sum / count;
-        this.fieldAverages.set(field, average);
-        this.fieldSums.set(field, sum);
-        this.fieldCounts.set(field, count);
+        this.fieldAverages.set(s.key, average);
+        this.fieldSums.set(s.key, sum);
+        this.fieldCounts.set(s.key, count);
         
-        console.log(`[Monitor] field ${field} average calculated`, {
+        console.log(`[Monitor] series ${s.label} average calculated`, {
           average: Number(average.toFixed(2)),
           points: count
         });
@@ -1310,6 +1365,56 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     
     return 0;
+  }
+
+  // Build label → column-index map from the API response (append-only schema:
+  // old firmware returns 15 columns, new firmware 18 — never assume indices).
+  private ensureColumnMap(labels: string[] | undefined): void {
+    if (!labels || labels.length === 0 || Object.keys(this.columnIndexMap).length > 0) return;
+    labels.forEach((label, index) => { this.columnIndexMap[label] = index; });
+    console.log('[Monitor] column map built:', this.columnIndexMap);
+  }
+
+  // Read one column by label; fallbackIdx is the legacy hard-coded position used
+  // only when the label map is unavailable. -1 means "column does not exist".
+  private col(row: any[], label: string, fallbackIdx: number): number {
+    const idx = this.columnIndexMap[label] ?? fallbackIdx;
+    if (idx < 0 || idx >= row.length) return 0;
+    const v = row[idx];
+    return typeof v === 'number' ? v : parseFloat(v) || 0;
+  }
+
+  // Expand selected base fields into plotted series. Fan metrics become one
+  // series per physical fan: ASIC solid, VCORE dashed.
+  private buildSeries(): ChartSeries[] {
+    const series: ChartSeries[] = [];
+    this.selectedFields.forEach(field => {
+      const opt = this.fieldOptions.find(f => f.value === field);
+      if (!opt) return;
+      if (field === 'fanspeed' || field === 'fanrpm') {
+        const suffix = field === 'fanspeed' ? 'Speed' : 'RPM';
+        series.push({ key: field, field, fanIdx: 0,
+          label: `ASIC Fan ${suffix}`, unit: opt.unit, color: opt.color });
+        if (this.fanCount > 1) {
+          // Clearly distinct from the ASIC fan color (indigo / cyan), not a
+          // near-neighbor of the same hue — the two curves must be readable
+          // at a glance even without the dash pattern.
+          const dashColor = field === 'fanspeed' ? '#E91E63' : '#FF9800';
+          series.push({ key: `${field}:1`, field, fanIdx: 1,
+            label: `VCORE Fan ${suffix}`, unit: opt.unit, color: dashColor, dash: [6, 4] });
+        }
+      } else {
+        series.push({ key: field, field, fanIdx: 0, label: opt.label, unit: opt.unit, color: opt.color });
+      }
+    });
+    return series;
+  }
+
+  // Value of one plotted series at a data point.
+  private seriesValue(item: HistoryNode, s: ChartSeries): number {
+    if (s.field === 'fanspeed') return this.parseValue(s.fanIdx === 1 ? item.fanspeed1 : item.fanspeed, s.field);
+    if (s.field === 'fanrpm')  return this.parseValue(s.fanIdx === 1 ? item.fanrpm1  : item.fanrpm,  s.field);
+    return this.parseValue(item[s.field as keyof HistoryNode], s.field);
   }
 
   onFieldSelectionChange(): void {
@@ -1379,15 +1484,16 @@ export class MonitorComponent implements OnInit, AfterViewInit, OnDestroy {
       filteredData = this.historyData.filter(item => item.epoch >= cutoffTime);
     }
     
+    const series = this.buildSeries();
     const headers = ['Timestamp', 'Time', 
-                    ...this.selectedFields.map(field => this.getFieldLabel(field))];
+                    ...series.map(s => `${s.label} (${s.unit})`)];
     
     const csvContent = [
       headers.join(','),
       ...filteredData.map(item => [
         item.epoch,
         `"${new Date(item.epoch).toLocaleString()}"`,
-        ...this.selectedFields.map(field => this.parseValue(item[field as keyof HistoryNode], field))
+        ...series.map(s => this.seriesValue(item, s))
       ].join(','))
     ].join('\n');
     

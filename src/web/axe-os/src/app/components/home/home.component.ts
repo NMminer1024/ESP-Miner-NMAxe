@@ -151,6 +151,8 @@ export class HomeComponent implements OnInit {
       startWith(0),
       switchMap(() => this.systemService.getStatusRealtime()),
       map(response => {
+        // Column order is append-only: latency is fixed at index 13, epoch at 14,
+        // fan columns at 15-17. Later columns may be appended, never reordered.
         if (response?.statistics?.length && response.statistics[0]?.length >= 14) {
           return Number(response.statistics[0][13]) || 0;
         }
