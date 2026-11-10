@@ -1,253 +1,265 @@
-# 风扇 PID 温度闭环：现场抖动分析与平滑改造
+# Fan PID thermal closed loop: field jitter analysis and smoothing rework
 
-## 现场症状（v3.2.02k/m，NMQAxe++）
-- Vcore 风扇在 8.7 h 内出现 28 次 ≥30 个百分点的跳变（0–92 %），
-  而 TPS53647 的 Vcore 温度始终在 60–61 °C。
-- ASIC 风扇同一台机器上相对平滑；但冷启动/负载阶跃时也会 0 → 59 % 单拍跳变。
-- soak 冷却（风扇 100 %）结束交还自动策略时，风扇直接掉到 6 %，
-  ASIC 从过冷状态冲高到 57.9 °C，输入电流峰值 14.85 A。
+## Field symptoms (v3.2.02k/m, NMQAxe++)
+- The Vcore fan showed 28 jumps of >=30 percentage points (0-92 %) over 8.7 h,
+  while the TPS53647 Vcore temperature stayed at 60-61 °C the whole time.
+- The ASIC fan on the same machine was comparatively smooth; but on cold start /
+  load step it also jumped 0 -> 59 % in a single tick.
+- When soak cooldown (fans at 100 %) ended and control returned to the auto policy,
+  the fan dropped straight to 6 %, the ASIC shot up from a cold state to 57.9 °C,
+  and input current peaked at 14.85 A.
 
-## 根因（代码 + 实测）
-`src/drivers/fan/fan.cpp` 旧默认值（board.cpp 每个 board 都写死相同值）：
+## Root cause (code + measurements)
+`src/drivers/fan/fan.cpp` old defaults (board.cpp hardcoded the same values for every board):
 
 ```
 Kp = 50 %/°C, Ki = 1 %/(°C·s), Kd = 0, integral clamp = ±300 °C·s
 ```
 
-- 被控对象稳态增益远小于 1 °C/%，且风扇/风道/热容带来数十秒滞后。
-  Kp=50 意味着 1 °C 误差要求 50 % 占空比 —— 这不是调节器，是继电器；
-  0.7 °C 的读数变化就能让 Vcore 风扇 3 % ↔ 100 %。
-- 温度传感器（TPS53647 / TMP102）实际分辨率 1/16 °C，API 显示到 0.1 °C；
-  量化本身不是主因，但放大了 P 项的台阶感。
-- 积分限幅 ±300 °C·s = 1 °C 误差连续 5 分钟，输出可以长期钉在饱和端；
-  一旦温度越过目标，积分要很久才退出来 → 长周期极限环。
-- 原始 PID 每 125 ms 计算一次，`fan_status->speed` 为整数百分比；
-  任何 <1 %/tick 的斜坡都会被取整吃掉。
+- The plant's steady-state gain is far below 1 °C/%, and the fan/airflow/thermal
+  capacitance add tens of seconds of lag. Kp=50 means a 1 °C error demands a 50 %
+  duty — this is not a controller, it is a relay; a 0.7 °C reading change alone could
+  swing the Vcore fan 3 % <-> 100 %.
+- The temperature sensors (TPS53647 / TMP102) actually resolve to 1/16 °C, API shows
+  0.1 °C; quantization itself is not the main cause but amplifies the P-term's step feel.
+- Integral clamp ±300 °C·s = 1 °C error for 5 straight minutes; the output can stay pinned
+  at the saturated end for a long time; once temperature crosses the target, the integral
+  takes a long time to unwind -> long-period limit cycle.
+- The original PID ran every 125 ms, `fan_status->speed` is an integer percentage;
+  any ramp <1 %/tick was eaten by rounding.
 
-## 实测基线（124.18，v3.2.02o，COM17 抓日志 + /api 4 Hz 采样）
-数据：`docs/baseline/fan_124_18_experiment.csv`
-- 被测点 555 MHz / 1170 mV（约 69 W），ASIC 风扇固定自动（~38–40 %）。
-- **被控对象（Vcore 风扇 → TPS53647 温度）是 FOPDT**：
-  - 100 % 阶跃：73.4 °C → 65.5 °C，dead time L≈9 s，τ≈58 s。
-  - 稳态增益是**强非线性**：0→55 % 约 0.10 °C/%，55→75 % 约 0.05 °C/%，
-    75→100 % 仅 0.03 °C/%。目标 67 °C 正好落在 55–70 % 的“膝盖”区。
-  - 该功率下 0 % 只能到 73 °C、100 % 只能到 65.5 °C，所以 65 °C 目标不可达；
-    选 67 °C 才能让风扇有真实调节区间。
-- 旧 PID 现场复现：温度 82.3 → 81.9 → 82.6 → 84.4 时，
-  风扇 23 % → 3 % → 39 % → 100 %（±0.7 °C 触发 36–97 点跳变）。
-- 负载 102 W → 69 W 时 Vcore 风扇 **100 % → 0 % 单拍**，温度 88.5 → 73 °C。
-- 冷启动：ASIC 风扇在目标 40 °C 下先停 0 %，到 42.4 °C 后单拍跳到 59 %
-  （P=50 × 2.4 °C，叠加 −57 的积分）。
+## Measured baseline (124.18, v3.2.02o, COM17 log capture + /api sampling at 4 Hz)
+Data: `docs/baseline/fan_124_18_experiment.csv`
+- Test point 555 MHz / 1170 mV (~69 W), ASIC fan left on auto (~38-40 %).
+- **The plant (Vcore fan -> TPS53647 temperature) is FOPDT**:
+  - 100 % step: 73.4 °C -> 65.5 °C, dead time L≈9 s, τ≈58 s.
+  - Steady-state gain is **strongly nonlinear**: 0->55 % about 0.10 °C/%, 55->75 % about
+    0.05 °C/%, 75->100 % only 0.03 °C/%. The 67 °C target sits right in the 55-70 % "knee".
+  - At this power 0 % only reaches 73 °C and 100 % only reaches 65.5 °C, so a 65 °C target
+    is unreachable; choosing 67 °C gives the fan a real control range.
+- Old PID reproduced in the field: as temperature went 82.3 -> 81.9 -> 82.6 -> 84.4,
+  the fan went 23 % -> 3 % -> 39 % -> 100 % (±0.7 °C triggering 36-97 point jumps).
+- On load 102 W -> 69 W the Vcore fan went **100 % -> 0 % in one tick**, temperature 88.5 -> 73 °C.
+- Cold start: the ASIC fan at target 40 °C first sat at 0 %, then at 42.4 °C jumped to 59 %
+  in one tick (P=50 × 2.4 °C, plus an integral of −57).
 
-## 新控制律（`fan_pid_configure` / `pid_compute`）
-- 测量低通：ASIC τ=4 s，Vcore τ=6 s（同时恢复亚 LSB 分辨率）。
-- 死区：ASIC 0.20 °C，Vcore 0.30 °C；带内冻结积分。
-- 增益：近目标 Kp=3（ASIC）/2.5（Vcore）%/°C；|e| 从 2→8 °C 连续升到 3 倍。
-  Kp 按**最坏情况 1 °C 分辨率**上限设计：1 LSB ≤ 2.5–3 % 占空比。
-- 积分：Ki=0.10 / 0.08 %/(°C·s)，条件积分抗饱和，积分自身可覆盖 100 % 输出
-  （高功率稳态需要 80–100 % 风扇，旧的 60 % 上限会顶死）。
-- 非对称速率限制：上升 25 %/s（4 s 到满速），下降 3 %/s（100→20 % 约 27 s）。
-  `pid->out` 保存 float，只有上报/PWM 值取整，避免 3 %/s 在 8 Hz 下被取整卡死。
-- 安全：误差 > +8 °C 立即 100 %，不受速率限制。
-- 接管/故障交接：override 结束或探头恢复时 `fan_pid_reset()`，
-  以当前实际占空比为起点、清空积分 → bump-less。
-- **冷却交接地板**：soak 的 90 s 100 % 冷却结束后，在温度回到目标带内之前，
-  占空比不低于 override 前的稳态值（最多保持 180 s）。这是避免 100→6 %
-  直接把冷排热量“还给”芯片的关键。
-- 探头丢失：先保持最后有效占空比 2 s，然后 30 s 内线性升到 100 %
-  （不再“保持 2 %”）。
+## New control law (`fan_pid_configure` / `pid_compute`)
+- Measurement low-pass: ASIC τ=4 s, Vcore τ=6 s (also restores sub-LSB resolution).
+- Deadband: ASIC 0.20 °C, Vcore 0.30 °C; integral frozen inside the band.
+- Gains: near target Kp=3 (ASIC) / 2.5 (Vcore) %/°C; as |e| goes 2->8 °C it rises
+  continuously to 3×. Kp is sized against the **worst-case 1 °C resolution**:
+  1 LSB ≤ 2.5-3 % duty.
+- Integral: Ki=0.10 / 0.08 %/(°C·s), conditional-integration anti-windup, the integral alone
+  can cover a 100 % output (high-power steady state needs 80-100 % fan; the old 60 % cap
+  would pin it).
+- Asymmetric slew limit: rise 25 %/s (4 s to full), fall 3 %/s (100->20 % about 27 s).
+  `pid->out` keeps a float, only the reported/PWM value is rounded, so 3 %/s is not stalled
+  by rounding at 8 Hz.
+- Safety: error > +8 °C goes straight to 100 %, bypassing the slew limit.
+- Takeover / fault handoff: on override end or sensor recovery `fan_pid_reset()`,
+  starting from the current actual duty and clearing the integral -> bump-less.
+- **Cooldown-handover floor**: after soak's 90 s 100 % cooldown ends, until temperature
+  returns into the target band, duty does not drop below the pre-override steady-state value
+  (held for at most 180 s). This is the key to avoiding 100->6 % dumping the cold-radiator
+  heat straight back onto the chip.
+- Sensor loss: first hold the last valid duty for 2 s, then ramp linearly to 100 % over 30 s
+  (no longer "hold at 2 %").
 
-## 控制模型抽象（per-board / per-fan）
+## Control model abstraction (per-board / per-fan)
 
-旧代码的问题不止是增益大小：`Kp/Ki` 是**在每个 board 的 `board.cpp` 里手写复制的常量**，
-5 个板子 10 个风扇全是 `Kp=50, Ki=1`，所以“这台机器的对象”和“那台机器的对象”无法区分。
+The old code's problem was not just gain magnitude: `Kp/Ki` were **hand-copied constants in
+each board's `board.cpp`**, all 5 boards × 10 fans were `Kp=50, Ki=1`, so "this machine's
+plant" and "that machine's plant" could not be distinguished.
 
-现在改成**先描述被控对象，再由规则算出增益**：
+Now it is **describe the plant first, then derive gains by rule**:
 
 ```c
 // fan.h
-typedef struct {                 // 一台板子 × 一个风扇 一份
-    float gain;          // K   °C per %  （工作点附近的 |dT/dDuty|）
+typedef struct {                 // one per board × fan
+    float gain;          // K   °C per %  (|dT/dDuty| near the operating point)
     float dead_time_s;   // L   s
     float tau_s;         // tau s
-    float sensor_noise;  // °C  最坏读数抖动/分辨率
-    float max_dither;    // %   允许传感器噪声引起的占空比抖动
-    float slew_up;       // %/s 执行器能力
-    float slew_down;     // %/s 允许的降温速率（0 = 由增益推导）
-    bool  identified;    // true = 实测过
+    float sensor_noise;  // °C  worst-case reading jitter/resolution
+    float max_dither;    // %   allowed duty dither from sensor noise
+    float slew_up;       // %/s actuator capability
+    float slew_down;     // %/s allowed cool-down rate (0 = derived from gain)
+    bool  identified;    // true = measured
 } fan_thermal_plant_t;
 ```
 
-`fan_pid_tuning_from_plant()` 用 **SIMC / lambda 整定（FOPDT）**：
+`fan_pid_tuning_from_plant()` uses **SIMC / lambda tuning (FOPDT)**:
 
-| 步骤 | 公式 | 说明 |
+| Step | Formula | Note |
 |---|---|---|
-| 闭环时间常数 | λ = 2L | 纯延迟主导的热对象下相位裕度 ~60°，λ=L 会振铃 |
-| 比例增益 | Kp = τ / (K·(λ+L)) | 对象增益越小 → 需要越大增益 |
-| 积分 | Ki = Kp / τ | 积分时间取对象时间常数 |
-| 噪声约束 | Kp ≤ max_dither / sensor_noise | **这条是治抖动的关键**：1 °C 抖动 × Kp 就是占空比抖动 |
-| 滤波 | τ_filter = L/2 | ≥ 死区时间的一半，兼作亚 LSB 平均 |
-| 死区 | deadband = sensor_noise/2 | 读数分不清“到位”和“差一个 LSB” |
-| 降速 | slew_down = 0.05 / K（夹 1–15 %/s） | 只降温 0.05 °C/s，避免 soak 交接时把冷排热量还给芯片 |
-| 未实测 | Kp × 0.6 | `identified=false` 时额外保守 |
+| Closed-loop time constant | λ = 2L | For a dead-time-dominated thermal plant this gives ~60° phase margin; λ=L rings |
+| Proportional gain | Kp = τ / (K·(λ+L)) | Smaller plant gain -> larger controller gain needed |
+| Integral | Ki = Kp / τ | Integral time set to the plant time constant |
+| Noise constraint | Kp ≤ max_dither / sensor_noise | **This is the key anti-jitter rule**: 1 °C jitter × Kp is the duty jitter |
+| Filter | τ_filter = L/2 | ≥ half the dead time, also serves as sub-LSB averaging |
+| Deadband | deadband = sensor_noise/2 | A reading can't tell "on target" from "off by one LSB" |
+| Fall rate | slew_down = 0.05 / K (clamped 1-15 %/s) | Cool only 0.05 °C/s, to avoid dumping cold-radiator heat back on soak handover |
+| Not measured | Kp × 0.6 | Extra conservative when `identified=false` |
 
-同一套规则给出（实测/估算）：
+The same rules give (measured/estimated):
 
-| 板卡/风扇 | K (°C/%) | L (s) | τ (s) | 噪声 (°C) | 实测? | 结果 Kp / Ki (%/°C, %/(°C·s)) |
+| Board/fan | K (°C/%) | L (s) | τ (s) | noise (°C) | measured? | Result Kp / Ki (%/°C, %/(°C·s)) |
 |---|---|---|---|---|---|---|
-| QAxe++ 2ph ASIC | 0.31 | 8.6 | 45 | 0.20 | **是** | 5.63 / 0.125 |
-| QAxe++ 2ph Vcore | 0.07 | 9.0 | 58 | 1.0 | **是** | 4.00 / 0.069 |
-| Rev6.1/Rev8.1 ASIC | 0.30 | 6.0 | 45 | 0.20 | 否 | 8.33 / 0.185 |
-| Rev6.1/Rev8.1 Vcore | 0.030 | 11.0 | 70 | 1.0 | 否 | 2.40 / 0.034 |
-| Nexus ASIC | 0.263 | 5.0 | 45 | 0.15 | **是** | 11.41 / 0.254 |
-| Nexus Vcore | 0.107 | 12.0 | 50 | 1.0 | **是** | 4.00 / 0.080 |
-| NMAxeGamma ASIC | 0.22 | 6.0* | 50 | 0.20 | **是** | 12.63 / 0.253 |
-| NMAxe（定速鼓风机） | — | — | — | — | — | 不闭环 |
+| QAxe++ 2ph ASIC | 0.31 | 8.6 | 45 | 0.20 | **yes** | 5.63 / 0.125 |
+| QAxe++ 2ph Vcore | 0.07 | 9.0 | 58 | 1.0 | **yes** | 4.00 / 0.069 |
+| Rev6.1/Rev8.1 ASIC | 0.30 | 6.0 | 45 | 0.20 | no | 8.33 / 0.185 |
+| Rev6.1/Rev8.1 Vcore | 0.030 | 11.0 | 70 | 1.0 | no | 2.40 / 0.034 |
+| Nexus ASIC | 0.263 | 5.0 | 45 | 0.15 | **yes** | 11.41 / 0.254 |
+| Nexus Vcore | 0.107 | 12.0 | 50 | 1.0 | **yes** | 4.00 / 0.080 |
+| NMAxeGamma ASIC | 0.22 | 6.0* | 50 | 0.20 | **yes** | 12.63 / 0.253 |
+| NMAxe (fixed-speed blower) | — | — | — | — | — | not closed-loop |
 
-> 此表由 `fan.cpp` 里的 `make_plant(...)` 复算得到，改代码时请同步。
-> 2026-11-09 校对：Rev6.1/8.1 ASIC 行此前误写为 0.25/8.6/7.0，实际是 0.30/6.0/8.33。
+> This table is recomputed by `make_plant(...)` in `fan.cpp`; keep it in sync when editing code.
+> 2026-11-09 correction: the Rev6.1/8.1 ASIC row was previously mis-written as 0.25/8.6/7.0,
+> it is actually 0.30/6.0/8.33.
 
-\* Gamma 的 `L` 取 6 s 是**保守保留**，实测首响应只有 2.3–3.2 s。`λ = 2L`，
-所以真实 L 会更激进（L=3 s 时 SIMC 给出 25 %/C）；6 s 是在这块板子上 A/B 验证过
-的值，因此不改。详见 `fan_plant_gamma_asic()` 的注释。
+\* Gamma's `L` of 6 s is a **deliberate conservative hold**, not the measured value (measured
+first response is only 2.3-3.2 s). Since `λ = 2L`, the real L would be more aggressive
+(L=3 s gives SIMC 25 %/C); 6 s is the value A/B-validated on this board, so it is not changed.
+See the comment in `fan_plant_gamma_asic()`.
 
-### QAxe++ 实测原始数据（124.18，555 MHz/1170 mV，约 70 W）
-ASIC 风扇（TMP102，目标 40 °C）：
+### QAxe++ raw measured data (124.18, 555 MHz/1170 mV, ~70 W)
+ASIC fan (TMP102, target 40 °C):
 
-| 手动占空比 | 稳态 ASIC 温度 |
+| Manual duty | Steady ASIC temperature |
 |---|---|
 | 20 % | 53.3 °C |
 | 80 % | 34.8 °C |
 
-→ K = (53.3−34.8)/60 = **0.31 °C/%**；阶跃死区时间 **~9 s**；
-升温方向 τ≈63 s，降温方向 ~40 s（**取较快的 40–45 s 做整定**，
-否则按 63 s 算出的 Kp 偏高，在降温方向上会振铃）。
+→ K = (53.3−34.8)/60 = **0.31 °C/%**; step dead time **~9 s**;
+heat-up τ≈63 s, cool-down ~40 s (**tune on the faster 40-45 s**, otherwise the Kp computed
+from 63 s is too high and rings in the cool-down direction).
 
-Vcore 风扇（TPS53647，目标 67 °C）：
+Vcore fan (TPS53647, target 67 °C):
 
-| 手动占空比 | 稳态 Vcore 温度 |
+| Manual duty | Steady Vcore temperature |
 |---|---|
 | 100 % | 65.5 °C |
-| 75 % | 66.2–66.3 °C |
+| 75 % | 66.2-66.3 °C |
 | 55 % | 67.8 °C |
-| 0 %（该功率） | 73.4 °C |
+| 0 % (this power) | 73.4 °C |
 
-→ K 在 55–75 % 段 **0.075–0.082 °C/%**，75–100 % 段只有 0.034 °C/%（非线性膝盖）；
-死区时间 9 s，τ 58 s。目标 67 °C 正落在 55–70 % 的可用区间中部。
-**注意**：该点 100 % 只能到 65.5 °C，所以目标 65 °C 及以下对这条负载是不可达的，
-现场看到“风扇长期 100 %”属于正常饱和，不是环路问题。
+→ K is **0.075-0.082 °C/%** over the 55-75 % segment, only 0.034 °C/% over 75-100 %
+(nonlinear knee); dead time 9 s, τ 58 s. The 67 °C target sits mid-way in the usable 55-70 % range.
+**Note**: at this point 100 % only reaches 65.5 °C, so targets of 65 °C and below are unreachable
+for this load; seeing "fan stuck at 100 %" in the field is normal saturation, not a loop problem.
 
-### NMAxeGamma 实测（124.11 "Gamma-B"，单风扇，v3.2.02s）
+### NMAxeGamma measured (124.11 "Gamma-B", single fan, v3.2.02s)
 
-**对象辨识**（`tool/fan_pid/gamma_identify.ps1`，550 MHz/1130 mV ≈ 21 W）：
-数据 `docs/baseline/gamma_ident.csv`
+**Plant identification** (`tool/fan_pid/gamma_identify.ps1`, 550 MHz/1130 mV ≈ 21 W):
+data `docs/baseline/gamma_ident.csv`
 
-| 手动占空比 | 稳态 ASIC 温度 |
+| Manual duty | Steady ASIC temperature |
 |---|---|
 | 100 % | 48.1 °C |
 | 70 % | 55.1 °C |
-| 40 % | 66 °C 且仍在上升 → **安全中止**（阈值 67 °C） |
+| 40 % | 66 °C and still rising -> **safety abort** (threshold 67 °C) |
 
-→ K = 0.232 °C/%（100→70 %）、0.369 °C/%（70→40 %，非线性更陡）；
-首响应 **2.3–3.2 s**（不是 t10，t10 为 5.7/11.6/11.1 s 含热延迟），
-τ ≈ 45.6 s（100 % 阶跃）/ 80.8 s（70 % 阶跃）。
+→ K = 0.232 °C/% (100->70 %), 0.369 °C/% (70->40 %, nonlinear steeper);
+first response **2.3-3.2 s** (not t10; t10 is 5.7/11.6/11.1 s including thermal lag),
+τ ≈ 45.6 s (100 % step) / 80.8 s (70 % step).
 
-**两个必须记住的机器特性**：
-1. **可控区间窄且偏上**：21 W 时 100 % 只能到 48 °C，所以出厂默认 target=50
-   需要约 93 % 占空比 → 风扇几乎常年饱和。这是机器本身，不是环路缺陷。
-2. `maxTarget=65`，散热余量很小；低于 70 % 占空比温度会迅速失控，
-   做阶跃辨识时必须把中止阈值设在板级 70 °C 限值之下（本次用 67 °C，已触发）。
+**Two machine characteristics to remember**:
+1. **Narrow control range, biased high**: at 21 W 100 % only reaches 48 °C, so the factory
+   default target=50 needs ~93 % duty -> the fan is nearly always saturated. This is the
+   machine itself, not a loop defect.
+2. `maxTarget=65`, very little cooling headroom; below 70 % duty temperature runs away fast,
+   so step identification must set the abort threshold below the board-level 70 °C limit
+   (67 °C used here, it did trigger).
 
-模型：`make_plant(0.22f, 6.0f, 50.0f, 0.20f, 4.0f, 25.0f, 0.0f, true)`
-→ 启动日志 `Fan[0] PID from plant: K=0.220 C/%, L=6.0s, tau=50s -> Kp=12.63 %/C,
+Model: `make_plant(0.22f, 6.0f, 50.0f, 0.20f, 4.0f, 25.0f, 0.0f, true)`
+-> boot log `Fan[0] PID from plant: K=0.220 C/%, L=6.0s, tau=50s -> Kp=12.63 %/C,
 Ki=0.253, deadband=0.15C, filter=3.0s, slew +25/-1.2 %/s, lambda=12s`
 
-> `L = 6 s` 是**故意保留的保守值**，不是实测值（实测首响应 2.3–3.2 s）。
-> `λ = 2L`，用真实 L 会更激进（L=3 s → SIMC 25.3 %/C），而 6 s 是这块板上
-> A/B 验证过的，所以不改。
+> `L = 6 s` is a **deliberately held conservative value**, not measured (measured first
+> response 2.3-3.2 s). `λ = 2L`, using the real L would be more aggressive (L=3 s -> SIMC
+> 25.3 %/C), and 6 s is A/B-validated on this board, so it is not changed.
 >
-> 另注：`identified=true` 在这里**确实有数值影响**。噪声上限 `4.0/0.20 = 20 %/C`
-> 对 SIMC 请求的 12.63 %/C 刚好放行；若仍标 `identified=false`，该上限乘 0.6
-> 变成 12 %/C，增益会被截断到 **12.00**。所以 Kp 从 8.9 到 12.63 的跳变里，
-> 参数和标志各占一部分。
+> Side note: `identified=true` **does have a numeric effect here**. The noise cap
+> `4.0/0.20 = 20 %/C` just lets through the 12.63 %/C SIMC requests; if it were still marked
+> `identified=false`, that cap × 0.6 becomes 12 %/C and the gain would be clipped to **12.00**.
+> So of the Kp jump from 8.9 to 12.63, the parameters and the flag each account for part.
 
-**A/B（同一 target=55 °C，8 分钟稳态统计，t≥240 s）**：
+**A/B (same target=55 °C, 8-minute steady-state stats, t≥240 s)**:
 
-| 指标 | v3.2.02o (Kp=50) | v3.2.02s (Kp=12.6) | 改善 |
+| Metric | v3.2.02o (Kp=50) | v3.2.02s (Kp=12.6) | Improvement |
 |---|---|---|---|
-| 风扇标准差 | 3.57 | **2.91** | −18 % |
-| 风扇摆幅 | 19 点 | **11 点** | −42 % |
-| 温度标准差 | 0.312 °C | **0.177 °C** | −43 % |
-| 温度摆幅 | 1.5 °C | **0.81 °C** | −46 % |
-| 稳态误差（到 55） | 0.25 °C | **0.11 °C** | −56 % |
-| 跳变≥15 | 0 | 0 | — |
-| 最大单步 | 7 | **2** | — |
-| 功耗 / 算力 | 23.54 W / 1211 GH/s | 23.57 W / 1209 GH/s | 无回归 |
+| Fan std dev | 3.57 | **2.91** | −18 % |
+| Fan span | 19 points | **11 points** | −42 % |
+| Temp std dev | 0.312 °C | **0.177 °C** | −43 % |
+| Temp span | 1.5 °C | **0.81 °C** | −46 % |
+| Steady-state error (to 55) | 0.25 °C | **0.11 °C** | −56 % |
+| Jumps ≥15 | 0 | 0 | — |
+| Max single step | 7 | **2** | — |
+| Power / hashrate | 23.54 W / 1211 GH/s | 23.57 W / 1209 GH/s | no regression |
 
-数据：`gamma_loop_old_o.csv` vs `gamma_loop_new_s.csv`
+Data: `gamma_loop_old_o.csv` vs `gamma_loop_new_s.csv`
 
-**为什么 Gamma 的 Kp 是 QAxe++ ASIC 环的 2.2 倍（12.63 vs 5.63）**：
-SIMC 公式 `Kp = τ/(K·3L)`。Gamma 的 K 更小（0.22 vs 0.31）且 L 更短
-（6 vs 8.6 s），所以需要更大增益。代价是风扇动作更活跃——这是物理上的
-必然，不是调参失误。想更安静只能牺牲响应速度（加大 λ）。
+**Why Gamma's Kp is 2.2× the QAxe++ ASIC loop (12.63 vs 5.63)**: the SIMC formula
+`Kp = τ/(K·3L)`. Gamma's K is smaller (0.22 vs 0.31) and L shorter (6 vs 8.6 s), so it needs
+a larger gain. The cost is a more active fan — this is physically necessary, not a tuning error.
+To be quieter you can only sacrifice response speed (larger λ).
 
-**残余现象（可接受）**：稳态仍有约 11 点、周期 ~160 s 的风扇缓慢摆动。
-检验后确认 **corr(fan, power) = 0.51**、`corr(temp, power) = 0.48`，
-即一半以上是环路在跟踪真实负载波动（功率 23.3–24.3 W），不是自激极限环。
-温度标准差 0.177 °C 仅略高于死区 0.15 °C，控制品质已经很好。
+**Residual behavior (acceptable)**: steady state still has a slow ~11-point, ~160 s period fan
+wander. After checking, **corr(fan, power) = 0.51**, `corr(temp, power) = 0.48`, i.e. more than
+half is the loop tracking real load fluctuation (power 23.3-24.3 W), not a self-excited limit
+cycle. Temp std dev 0.177 °C is only slightly above the 0.15 °C deadband — control quality is already good.
 
-### NMQAxe++Nexus 实测（124.2，双风扇，v3.2.02t）
+### NMQAxe++Nexus measured (124.2, dual fan, v3.2.02t)
 
-**辨识条件**：700 MHz/1150 mV（约 135 W，11.3 A / 15 A 适配器），一次只阶跃
-一个风扇、另一个固定 100 %（脚本 `tool/fan_pid/nexus_identify.ps1`）。
-数据 `nexus_ident.csv` + `nexus_ident_vcore_tail.csv`（后者补跑被中断的
-V0/V100B）。
+**Identification conditions**: 700 MHz/1150 mV (~135 W, 11.3 A / 15 A adapter), step one fan at
+a time with the other fixed at 100 % (script `tool/fan_pid/nexus_identify.ps1`).
+Data `nexus_ident.csv` + `nexus_ident_vcore_tail.csv` (the latter re-runs the interrupted V0/V100B).
 
-| 风扇 | 占空比 | 稳态温度 | 段增益 |
+| Fan | Duty | Steady temperature | Segment gain |
 |---|---|---|---|
-| ASIC（TMP102） | 100 % | 44.89 °C | — |
+| ASIC (TMP102) | 100 % | 44.89 °C | — |
 | | 70 % | 49.10 °C | 0.140 °C/% |
 | | 50 % | 58.05 °C | **0.447 °C/%** |
-| Vcore（TPS546D24A） | 100 % | 57.13 °C | — |
-| | 50 % | 60.00 °C | 0.057–0.068 °C/% |
+| Vcore (TPS546D24A) | 100 % | 57.13 °C | — |
+| | 50 % | 60.00 °C | 0.057-0.068 °C/% |
 | | 0 % | 68.27 °C | **0.146 °C/%** |
 
-ASIC：L 4.3–5.3 s，τ 26.5 s（70 % 阶跃）/ 52.2 s（50 % 阶跃）；
-Vcore：L 6.5–14.7 s，τ 49–51 s（两个方向一致）。
+ASIC: L 4.3-5.3 s, τ 26.5 s (70 % step) / 52.2 s (50 % step);
+Vcore: L 6.5-14.7 s, τ 49-51 s (consistent in both directions).
 
-**这块板的决定性特征是 Vcore 传感器分辨率**：TPS546D24A 的 PMBus 温度只报
-**整数摄氏度**（读数只有 57/58、68/69），比 QAxe++ 的 TPS53647（1/16 °C）
-粗 16 倍。旧 Kp=50 在这里不是振动而是继电器，实测 4–5 分钟内 **80–133 次
-≥15 点跳变**（见下表）。
+**The decisive characteristic of this board is the Vcore sensor resolution**: the TPS546D24A's
+PMBus temperature reports only **integer Celsius** (readings only 57/58, 68/69), 16× coarser
+than QAxe++'s TPS53647 (1/16 °C). The old Kp=50 here is not oscillation but a relay — measured
+**80-133 jumps ≥15 points within 4-5 minutes** (see table below).
 
-**与 Gamma 相反的一点**：Vcore 环的 Kp 不由对象增益决定。
-SIMC 在 K=0.107 时请求 13.0 %/C，K=0.057 时请求 24.4 %/C，而噪声上限
-`4.0/1.0 = 4.0 %/C` 全部截断 → Kp 恒定 4.00。真正变化的是
-`identified=false → true`：上限从 2.4 提到 4.0。
+**The opposite of Gamma**: the Vcore loop's Kp is not set by the plant gain. SIMC requests
+13.0 %/C at K=0.107 and 24.4 %/C at K=0.057, but the noise cap `4.0/1.0 = 4.0 %/C` clips them
+all -> Kp is constant 4.00. What really changes is `identified=false -> true`: the cap goes from
+2.4 up to 4.0.
 
-**ASIC 非线性取值的取舍**：整段 100–50 % 平均 0.263 °C/%，但
-100–70 % 只有 0.140、70–50 % 高到 0.447。取 0.263（Kp 11.41）而不是局部
-0.447（Kp 6.71），因为环路工作区间横跨整个 50–100 %：出厂 45 °C 目标在
-饱和端（100 %），52 °C 验证目标落在 ~60 %。用 0.140 会得 Kp 21 并在 60 %
-振铃，用 0.447 会让饱和端迟钝。
+**ASIC nonlinear value trade-off**: the whole 100-50 % range averages 0.263 °C/%, but 100-70 %
+is only 0.140 while 70-50 % is as high as 0.447. Take 0.263 (Kp 11.41) rather than the local
+0.447 (Kp 6.71), because the loop's operating range spans all of 50-100 %: the factory 45 °C
+target is at the saturated end (100 %), the 52 °C validation target lands at ~60 %. Using 0.140
+would give Kp 21 and ring at 60 %; using 0.447 would make the saturated end sluggish.
 
-**旧固件（v3.2.02m）对照组**（`fan_verify.ps1` 带 Nexus 参数，target ASIC 52 / Vcore
-67，数据 `fan_verify_nexus_old_m.csv`）：
+**Old firmware (v3.2.02m) control group** (`fan_verify.ps1` with Nexus params, target ASIC 52 /
+Vcore 67, data `fan_verify_nexus_old_m.csv`):
 
-| 阶段 | fan1 范围 | 跳变≥15 | 最大单步 | vcore 读数 |
+| Phase | fan1 range | jumps ≥15 | max single step | vcore reading |
 |---|---|---|---|---|
-| B_AUTO 5 min | 4–100 % | **80** | 51 | 66–68 °C |
-| D_HANDOVER 4 min | 0–100 % | **131** | 100 | 64–71 °C |
-| E_LOADDOWN 4 min | 0–87 % | **133** | 54 | 0–68 °C |
-| F_RESTORE 1 min | 16–100 % | 30 | 51 | 67–68 °C |
+| B_AUTO 5 min | 4-100 % | **80** | 51 | 66-68 °C |
+| D_HANDOVER 4 min | 0-100 % | **131** | 100 | 64-71 °C |
+| E_LOADDOWN 4 min | 0-87 % | **133** | 54 | 0-68 °C |
+| F_RESTORE 1 min | 16-100 % | 30 | 51 | 67-68 °C |
 
-同一份数据里 ASIC 环（fan0）是干净的：B_AUTO 55–67 %、跳变 0、最大单步 4。
-所以这块板的问题是 **Vcore 环 + 1 °C 传感器分辨率**，不是环路整体。
+In the same data the ASIC loop (fan0) is clean: B_AUTO 55-67 %, jumps 0, max single step 4.
+So this board's problem is **the Vcore loop + 1 °C sensor resolution**, not the loop as a whole.
 
-**新固件（v3.2.02t）A/B**（同一脚本、同一工作点、同一 target；数据
-`fan_verify_nexus_new_t.csv`）：
+**New firmware (v3.2.02t) A/B** (same script, same operating point, same target; data
+`fan_verify_nexus_new_t.csv`):
 
-| 阶段 | fan1 跳变≥15 旧→新 | 最大单步 旧→新 | fan1 摆幅 旧→新 | vcore 峰值 旧→新 |
+| Phase | fan1 jumps ≥15 old→new | max single step old→new | fan1 span old→new | vcore peak old→new |
 |---|---|---|---|---|
 | A_SETUP | 103 → **1** | 100 → 84 | 100 → 100 | 68 → 72 °C |
 | **B_AUTO** | **80 → 0** | 51 → **2** | 96 → **9** | 68 → 69 °C |
@@ -256,37 +268,41 @@ SIMC 在 K=0.107 时请求 13.0 %/C，K=0.057 时请求 24.4 %/C，而噪声上�
 | **E_LOADDOWN** | **133 → 0** | 54 → **2** | 87 → 53 | 68 → 70 °C |
 | F_RESTORE | 30 → 1 | 51 → 64 | 84 → 83 | 68 → 70 °C |
 
-- `B_AUTO` 稳态：fan1 45–54 %（span 9）、vcore 67–69 °C、跳变 0、单步 2。
-- ASIC 环无回归：`B_AUTO` fan0 56–61 %、跳变 0、单步 2（旧 55–67 %、单步 4）。
-- **生产点 775/1200 稳态**（160 s 后）：fan1 **67 %**、vcore **67 °C**、算力 10441 GH/s、
-  164 W。旧固件同点是 fan1 87 %、vcore 68 °C 且持续跳变——新固件**风扇少 20 个点
-  还把温度压到目标**（旧版的极限环平均占空比偏高）。
-- 性能：133–141 W 段 10424 GH/s / 163.3 W / 13.76 A，与旧固件同量级，无拒绝份额。
+- `B_AUTO` steady state: fan1 45-54 % (span 9), vcore 67-69 °C, jumps 0, single step 2.
+- ASIC loop no regression: `B_AUTO` fan0 56-61 %, jumps 0, single step 2 (old 55-67 %, single step 4).
+- **Production point 775/1200 steady state** (after 160 s): fan1 **67 %**, vcore **67 °C**,
+  hashrate 10441 GH/s, 164 W. Old firmware at the same point was fan1 87 %, vcore 68 °C and
+  continuously jumping — the new firmware uses **20 fewer fan points and still holds temperature
+  at target** (the old version's limit cycle averaged a higher duty).
+- Performance: 133-141 W segment 10424 GH/s / 163.3 W / 13.76 A, same order as old firmware,
+  no rejected shares.
 
-**遗留缺陷（与 QAxe++ r 版同源，已在 v3.2.02u 修复）**：D_HANDOVER 唯一那次 48 点台阶
-发生在接管第一拍（`t=570.7`，100 → 51），直接落到地板值。原因是 `hw_threads.cpp`
-的地板分支里 `pid.out = fl` 是**无条件**执行的：只要地板激活，即使当前输出（100 %）
-高于地板，也会把 slew 状态改写成地板值，绕过速率限制。地板本应只有下限作用
-（`if (duty < fl) duty = fl`），反算积分也只在被钳住时才需要。实测温度未过冲
-（64 → 67 °C，旧版 64 → 71 °C），所以当时保留，但它是一次真实的单拍跳变，
-在 u 版已改为纯下限。
+**Residual defect (same root as QAxe++ r version, fixed in v3.2.02u)**: the single 48-point step
+in D_HANDOVER happened on the first takeover tick (`t=570.7`, 100 -> 51), dropping straight to the
+floor value. The cause is that in `hw_threads.cpp`'s floor branch `pid.out = fl` runs
+**unconditionally**: as long as the floor is active, even when the current output (100 %) is above
+the floor, it rewrites the slew state to the floor value, bypassing the rate limit. The floor should
+only act as a lower bound (`if (duty < fl) duty = fl`), and the back-computed integral is only needed
+when actually clamped. Measured temperature did not overshoot (64 -> 67 °C, old 64 -> 71 °C), so it
+was kept at the time, but it was a real single-tick jump, changed to a pure lower bound in the u version.
 
-### 残余摆动：先判别「跟踪负载」还是「量化抖动」（v3.2.02u，124.2）
+### Residual wander: first distinguish "tracking load" from "quantization dither" (v3.2.02u, 124.2)
 
-目标是"风扇稳、不跳变"。动手前先用 `tool/fan_pid/fan_wander_corr.ps1` 在**单个稳态段内**
-算相关系数——这一步决定该不该压：
+The goal is "fan steady, no jumps". Before acting, use `tool/fan_pid/fan_wander_corr.ps1` to
+compute correlation coefficients **within a single steady segment** — this step decides whether to
+suppress:
 
-| 工作点 | corr(fan1, pwr) | corr(fan1, vcore) | 功率波动 | 判定 |
+| Operating point | corr(fan1, pwr) | corr(fan1, vcore) | power fluctuation | verdict |
 |---|---|---|---|---|
-| 700/1150，target 67 | **0.089** | 0.046 | ±0.6 %（sd 0.21 W） | **纯抖动**，压掉零成本 |
-| 775/1200 生产点 | **−0.834** | −0.741 | 163–166 W，算力 9.1–12.0 TH/s | **在跟踪真实负载**，不能压 |
+| 700/1150, target 67 | **0.089** | 0.046 | ±0.6 % (sd 0.21 W) | **pure dither**, suppress at zero cost |
+| 775/1200 production point | **−0.834** | −0.741 | 163-166 W, hashrate 9.1-12.0 TH/s | **tracking real load**, must not suppress |
 
-两块板（Gamma/Nexus）、两个工作点的结论都不同，**所以必须先测再调**。
-Gamma 是 0.51（一半跟踪一半抖动），Nexus 低功率点是 0.09，Nexus 生产点是 −0.83。
+Two boards (Gamma/Nexus), two operating points, different conclusions each — **so measure before tuning**.
+Gamma is 0.51 (half tracking, half dither), Nexus low-power point is 0.09, Nexus production point is −0.83.
 
-**执行器权限先验证**（`tool/fan_pid/nexus_actuator_sweep.ps1`，600/1150，fan0 固定 80 %）：
+**Verify actuator authority first** (`tool/fan_pid/nexus_actuator_sweep.ps1`, 600/1150, fan0 fixed 80 %):
 
-| duty | rpm | Δrpm/点 | vcore |
+| duty | rpm | Δrpm/point | vcore |
 |---|---|---|---|
 | 40 % | 1275 | — | 63.3 °C |
 | 45 % | 1416 | +28 | 60.5 °C |
@@ -294,52 +310,56 @@ Gamma 是 0.51（一半跟踪一半抖动），Nexus 低功率点是 0.09，Nexu
 | 55 % | 1708 | +26 | 57.0 °C |
 | 60 % | 1833 | +25 | 56.0 °C |
 
-1 点 ≈ 28 rpm、转速测量 sd ≈ 13 rpm → 分辨率约 2×噪声，**没有死区**，值得调。
-该点 K ≈ 0.19–0.36 °C/%（比 700/1150 的 0.107 陡），说明「一板一个 K」是近似；
-但因 Kp 被噪声上限截断，行为不受影响。
+1 point ≈ 28 rpm, rpm measurement sd ≈ 13 rpm -> resolution about 2× noise, **no dead zone**, worth tuning.
+K at this point ≈ 0.19-0.36 °C/% (steeper than 700/1150's 0.107), showing "one K per board" is an
+approximation; but since Kp is clipped by the noise cap, behavior is unaffected.
 
-**离线回放定方案**（`tool/fan_pid/fan_replay_tuning.ps1`，喂录制的真实温度序列；
-先确认回放能在「当前参数」下复现实测 span 5 / sd 1.08）：
+**Decide the plan by offline replay** (`tool/fan_pid/fan_replay_tuning.ps1`, feeding recorded real
+temperature sequences; first confirm replay reproduces the measured span 5 / sd 1.08 under "current params"):
 
-| 方案 | span | 独立占空比值（189 s） |
+| Plan | span | distinct duty values (189 s) |
 |---|---|---|
-| 当前 | 5 | **349** ← 声学问题在这 |
-| 死区 0.5 → 1.0 LSB（单独改） | 5 | 161（sd 反而 1.08→1.28） |
-| Kp 4 → 2（`max_dither` 4→2） | 3 | 338 |
-| **Kp4 + 占空比滞环 2** | 4 | **3** |
-| Kp2 + 死区1 + 滞环3 | **0** | 1（响应变慢） |
+| current | 5 | **349** ← the acoustic problem is here |
+| deadband 0.5 → 1.0 LSB (change alone) | 5 | 161 (sd actually 1.08→1.28) |
+| Kp 4 → 2 (`max_dither` 4→2) | 3 | 338 |
+| **Kp4 + duty hysteresis 2** | 4 | **3** |
+| Kp2 + deadband1 + hysteresis3 | **0** | 1 (response slower) |
 
-**反直觉但可解释**：单独加大死区**更差**。读数只取整数，误差只能是 0/±1/±2；
-死区 0.5 时误差 0.6 就动、幅度 2 点；死区 1.0 必须攒到 1.0 才动、幅度 4 点。
-步数少了，每步大了一倍。所以死区必须与降增益同时改，或者别动死区。
+**Counterintuitive but explainable**: enlarging the deadband alone is **worse**. The reading is
+integer-only, so error can only be 0/±1/±2; with deadband 0.5 an error of 0.6 moves it, amplitude
+2 points; with deadband 1.0 it must accumulate to 1.0 before moving, amplitude 4 points. Fewer steps,
+each one double the size. So the deadband must change together with lowering the gain, or leave it alone.
 
-**落地的两处修改**（v3.2.02u）：
+**The two changes landed** (v3.2.02u):
 
-1. **占空比滞环** `fan_pid_t.duty_hyst`，由 plant 派生、**不手填**：
-   `duty_hyst = 0.5 × Kp × sensor_lsb`，**小于 2 点则置 0（禁用）**。
+1. **Duty hysteresis** `fan_pid_t.duty_hyst`, derived from the plant, **not hand-filled**:
+   `duty_hyst = 0.5 × Kp × sensor_lsb`, **set to 0 (disabled) if less than 2 points**.
 
-   > ⚠️ 必须用 **`sensor_lsb`（量化步长）**，不能用 `sensor_noise`（读数散布）。
-   > 最初写成 noise，导致 QAxe++ 2 相 Vcore 也被判成 2 点滞环（其 noise=1.0），
-   > 但那颗 TPS53647 实际是 **1/16 °C 分辨率**，2 点摆动是真实响应，压掉就是错误。
-   > 修正后：**只有 Nexus Vcore 得到 2 %，其余 9 个环全部 0**。
+   > ⚠️ Must use **`sensor_lsb` (quantization step)**, not `sensor_noise` (reading spread).
+   > It was first written with noise, causing QAxe++ 2-phase Vcore to also be judged as 2-point
+   > hysteresis (its noise=1.0), but that TPS53647 is actually **1/16 °C resolution**, and the
+   > 2-point wander is a real response — suppressing it would be wrong. After the fix:
+   > **only Nexus Vcore gets 2 %, the other 9 loops all get 0**.
 
-   | 传感器 | LSB | 代表 |
+   | Sensor | LSB | Example |
    |---|---|---|
-   | TMP102（12-bit） | 0.0625 °C | 所有 ASIC 环 |
-   | TPS53647（QAxe++/Rev6.1 Vcore） | 0.0625 °C | noise 1 °C ≠ LSB |
-   | **TPS546D24A（Nexus Vcore）** | **1 °C** ← 唯一粗的 | 手册 7.6.66 `LSB = 1°C` |
+   | TMP102 (12-bit) | 0.0625 °C | all ASIC loops |
+   | TPS53647 (QAxe++/Rev6.1 Vcore) | 0.0625 °C | noise 1 °C ≠ LSB |
+   | **TPS546D24A (Nexus Vcore)** | **1 °C** ← the only coarse one | datasheet 7.6.66 `LSB = 1°C` |
 
    - Nexus Vcore = 4.0 × 1.0 × 0.5 = **2** ✓
-   - QAxe++ / Rev6.1 Vcore = 4.0 × 0.0625 × 0.5 ≈ 0.13 → **0** ✓（真机已验）
-   - 所有 ASIC 环 → **0**；Gamma / NMAxe → **0**
-   - 语义：连续需求照常算，只有偏离**实际施加值** ≥ hyst 才真正写风扇
-   - 地板生效时跳过（地板优先）
-   - 对账脚本：`fan_hyst_matrix.ps1`（改 plant 后必须重跑）
-2. **接管地板改为纯下限**：`if (duty < fl)` 才钳并反算积分，见上文。
+   - QAxe++ / Rev6.1 Vcore = 4.0 × 0.0625 × 0.5 ≈ 0.13 → **0** ✓ (verified on real hardware)
+   - All ASIC loops → **0**; Gamma / NMAxe → **0**
+   - Semantics: the continuous demand is computed as usual; only when deviating from the
+     **actually applied value** by ≥ hyst does it really write the fan
+   - Skipped when the floor is active (floor takes priority)
+   - Reconciliation script: `fan_hyst_matrix.ps1` (must re-run after changing the plant)
+2. **Takeover floor changed to a pure lower bound**: only clamp and back-compute the integral when
+   `if (duty < fl)`, see above.
 
-**验证（`fan_verify.ps1` 带 Nexus 参数，同一脚本同一工作点）**：
+**Verification (`fan_verify.ps1` with Nexus params, same script same operating point)**:
 
-| 阶段 | fan1 最大单步 t → **u** | 跳变≥15 t → **u** |
+| Phase | fan1 max single step t → **u** | jumps ≥15 t → **u** |
 |---|---|---|
 | A_SETUP | 84 → **2** | 1 → **0** |
 | B_AUTO | 2 → **2** | 0 → **0** |
@@ -348,186 +368,193 @@ Gamma 是 0.51（一半跟踪一半抖动），Nexus 低功率点是 0.09，Nexu
 | E_LOADDOWN | 2 → **2** | 0 → **0** |
 | F_RESTORE | 64 → **2** | 1 → **0** |
 
-**所有阶段最大单步 = 2 点、跳变 0**。D_HANDOVER 的 48 → 2 就是地板修复的直接证据。
+**All phases max single step = 2 points, jumps 0**. D_HANDOVER's 48 → 2 is the direct evidence of the floor fix.
 
-B_AUTO 的 span 从 9 涨到 18 不是退化：928 个样本里只变了 13 次（每次 2 点），
-轨迹是 70 → 69 → 68 → 67 °C 的**单向收敛**（`t=180` 从上一阶段 71 °C 追回目标），
-属于三段式 2 % 步进，不是摆动。
+B_AUTO's span going from 9 to 18 is not a regression: out of 928 samples it changed only 13 times
+(2 points each), the trajectory is a **one-way convergence** 70 -> 69 -> 68 -> 67 °C (`t=180` recovering
+to target from the previous phase's 71 °C) — three-segment 2 % stepping, not oscillation.
 
-**生产点 775/1200（342 s 稳态）**：fan1 39–69 %、vcore 66–72 °C、
-**maxstep 2、跳变≥5 为 0**；算力 10496 GH/s、163.3 W、13.75 A、`protection=none`、
-无新增异常重启。
+**Production point 775/1200 (342 s steady state)**: fan1 39-69 %, vcore 66-72 °C,
+**maxstep 2, jumps ≥5 = 0**; hashrate 10496 GH/s, 163.3 W, 13.75 A, `protection=none`,
+no new abnormal reboots.
 
-### v3.2.02u 新增工具
-- `fan_wander_corr.ps1` — 判别抖动 vs 跟踪（**每次调参前先跑**）
-- `fan_replay_tuning.ps1` — 用录制数据离线回放候选参数，**不刷机就能比方案**
-- `nexus_actuator_sweep.ps1` — 占空比→rpm 权限曲线
-- `steady_capture.ps1` — 生产点等间隔稳态采样
-- `fan_hyst_matrix.ps1` / `fan_regression_matrix.ps1` — 改 plant 后对账滞环与整定值
+### v3.2.02u new tools
+- `fan_wander_corr.ps1` — distinguish dither vs tracking (**run before every tuning pass**)
+- `fan_replay_tuning.ps1` — offline replay of candidate params on recorded data, **compare plans without flashing**
+- `nexus_actuator_sweep.ps1` — duty→rpm authority curve
+- `steady_capture.ps1` — evenly-spaced steady-state sampling at the production point
+- `fan_hyst_matrix.ps1` / `fan_regression_matrix.ps1` — reconcile hysteresis and tuning values after changing the plant
 
-**`fan_verify.ps1` 已合并为单文件**（原 `fan_verify_nexus.ps1` 已删除）。
-六个阶段固定，各板只差数字，全部走参数；带 `-DryRun` 可在不碰设备的情况下打印
-调度表核对。三块板的调用：
+**`fan_verify.ps1` has been merged into a single file** (the old `fan_verify_nexus.ps1` is deleted).
+Six phases fixed, boards differ only in numbers, all via parameters; `-DryRun` prints the schedule
+without touching the device for a check. Calls for the three boards:
 
 ```powershell
-# QAxe++ 2 相（默认参数，与原 fan_verify.ps1 逐行一致）
+# QAxe++ 2-phase (default params, line-for-line identical to the original fan_verify.ps1)
 .\fan_verify.ps1 -Ip 192.168.124.7 -Out old.csv
 
-# Nexus（原 fan_verify_nexus.ps1 等价）
+# Nexus (equivalent to the original fan_verify_nexus.ps1)
 .\fan_verify.ps1 -Ip 192.168.124.2 -Out nexus.csv `
     -Freq 700 -Vcore 1150 -TargetAsic 52 -AsicAbortC 66 -VcoreAbortC 76 `
     -AbortOnProtection -StepFreq 650 -StepVcore 1120 `
     -RestoreFreq 775 -RestoreVcore 1200 -RestoreTargetAsic 45 -RestoreTargetVcore 67
 
-# Rev6.1（原 fan_verify_rev61.ps1 等价）
+# Rev6.1 (equivalent to the original fan_verify_rev61.ps1)
 .\fan_verify.ps1 -Ip 192.168.124.6 -Out rev61.csv `
     -Freq 725 -Vcore 1250 -AsicAbortC 65 -VcoreAbortC 92 `
     -StepFreq 800 -StepVcore 1290 -SetupSec 240 `
     -RestoreTargetAsic 40 -RestoreTargetVcore 75
 ```
 
-> **选点铁律**：必须在风扇能真实移动的区间。555/1170 在 Rev6.1 上会被钳到 650
-> 且风扇 0 %；800/1290 双风扇饱和 —— 两端都是平线，A/B 什么也证明不了。
+> **Iron rule for point selection**: it must be in a range where the fan can actually move. On Rev6.1,
+> 555/1170 gets clamped to 650 with the fan at 0 %; 800/1290 saturates both fans — both ends are flat
+> lines, and A/B proves nothing.
 
 
-## 关键结论：两个风扇的增益差不是“风扇编号”，而是传感器噪声
+## Key conclusion: the two fans' gain difference is not "fan number" but sensor noise
 
-要点：**两个风环的增益差 2.5 倍，原因不是“哪个风扇”，而是传感器噪声**
-（TMP102 0.2 °C vs TPS53647 1 °C）。旧代码给两者同一个 Kp=50，
-对 ASIC 环是超调，对 Vcore 环直接就是继电器。这也说明“按风扇编号写死两套参数”
-同样不行：换一个传感器/分压网络数值就应该跟着变。
+Key point: **the two fan loops differ 2.5× in gain, and the reason is not "which fan" but sensor
+noise** (TMP102 0.2 °C vs TPS53647 1 °C). The old code gave both the same Kp=50 — for the ASIC loop
+that is overshoot, for the Vcore loop it is straight-up a relay. This also shows "hardcoding two sets
+of params by fan number" doesn't work either: change the sensor / divider network and the values should
+change with it.
 
-启动时会打印一行，便于现场核对：
+A line is printed at boot for easy field verification:
 ```
 Fan[1] PID from plant: K=0.035 C/%, L=9.0s, tau=58s -> Kp=4.00 %/C, Ki=0.069,
        deadband=0.50C, filter=4.5s, slew +30/-1.4 %/s
 ```
-`[ESTIMATED]` 后缀表示该板还没做过阶跃实测。
+The `[ESTIMATED]` suffix means that board has not had a step measurement yet.
 
-### 给新板子填模型的方法（4 个数，不用调参）
-1. 固定一个低功率工作点（避免风扇饱和），把该风扇设为手动 100 %，等稳态。
-2. 阶跃到 50 %：记录开始变化的时间（L）与到 63 % 的时间（τ）。
-3. `K = (T_100 - T_50) / 50`。
-4. 读该传感器在固定占空比下的抖动幅度，填 `sensor_noise`。
-5. 把 4 个数写进对应 `fan_plant_*()`，`identified = true`。
+### How to fill the model for a new board (4 numbers, no tuning)
+1. Fix a low-power operating point (avoid fan saturation), set that fan to manual 100 %, wait for steady state.
+2. Step to 50 %: record the time it starts changing (L) and the time to 63 % (τ).
+3. `K = (T_100 - T_50) / 50`.
+4. Read that sensor's jitter amplitude at a fixed duty, fill `sensor_noise`.
+5. Write the 4 numbers into the corresponding `fan_plant_*()`, `identified = true`.
 
-## 改动文件
-- `src/drivers/fan/fan.h` — `fan_thermal_plant_t` / `fan_pid_tuning_t`，
-  `fan_config_t.thermal`，整定与预设原型
-- `src/drivers/fan/fan.cpp` — SIMC 整定规则 + 各板预设 + `pid_compute`
-- `src/board/board.cpp` — 10 处 `Kp/Ki` 常量换成 `fan_cfg.thermal = fan_plant_*()`
-- `src/thread/hw_threads.cpp` — 由 `fan.thermal` 配置 PID、缺模型回退、启动日志
-### v3.2.02p 现场验证（124.18 实测）
-启动日志确认链路正确（无 `[ESTIMATED]`）：
+## Files changed
+- `src/drivers/fan/fan.h` — `fan_thermal_plant_t` / `fan_pid_tuning_t`,
+  `fan_config_t.thermal`, tuning and preset prototypes
+- `src/drivers/fan/fan.cpp` — SIMC tuning rules + per-board presets + `pid_compute`
+- `src/board/board.cpp` — 10 `Kp/Ki` constants replaced with `fan_cfg.thermal = fan_plant_*()`
+- `src/thread/hw_threads.cpp` — configure PID from `fan.thermal`, fallback when model missing, boot log
+### v3.2.02p field verification (124.18 measured)
+Boot log confirms the chain is correct (no `[ESTIMATED]`):
 ```
 Fan[0] K=0.310 C/%, L=8.6s, tau=45s -> Kp=5.63 %/C, Ki=0.125, slew +30/-1.3 %/s
 Fan[1] K=0.070 C/%, L=9.0s, tau=58s -> Kp=4.00 %/C, Ki=0.069, slew +30/-1.0 %/s
 ```
 
-| 阶段 | 旧 v3.2.02o | 新 v3.2.02p |
+| Phase | old v3.2.02o | new v3.2.02p |
 |---|---|---|
-| B_AUTO 跳变≥15 | **429 次 / 5 min** | **0** |
-| B_AUTO 最大单步 | 54 | **2** |
-| B_AUTO 风扇 | 31–100 % | 55–61 %（收敛到目标 67 °C ±0.4） |
-| D_HANDOVER 最大单步 | 100 | **1** |
+| B_AUTO jumps ≥15 | **429 / 5 min** | **0** |
+| B_AUTO max single step | 54 | **2** |
+| B_AUTO fan | 31-100 % | 55-61 % (converging to target 67 °C ±0.4) |
+| D_HANDOVER max single step | 100 | **1** |
 
-**发现的新问题（p → q → r 修复）**：D_HANDOVER 温度峰值 p 版 71.3 °C，比旧版 69.4 °C 还高。
-原因不是抖动，而是**降速太顺 → 滑过头**：
+**Newly found problem (fixed p -> q -> r)**: D_HANDOVER temperature peak was 71.3 °C in the p version,
+higher than the old 69.4 °C. The cause was not jitter but **the fall being too smooth -> coasting past**:
 ```
-t=580 89% 65.4C → t=640 27% 66.5C → t=660 7% 68.1C → t=736 36% 71.3C(峰值)
+t=580 89% 65.4C -> t=640 27% 66.5C -> t=660 7% 68.1C -> t=736 36% 71.3C(peak)
 ```
-该工作点稳态需要 ~58 %，风扇却一路滑到 6–7 %。
+This operating point needs ~58 % steady state, but the coasted all the way down to 6-7 %.
 
-两次修复：
-1. **q**：新增 `last_auto_duty[] / have_last_auto[]`，PID 掌控风扇时记录稳态占空比；
-   `auto=0 → auto=1` 时以它为地板。**但释放阈值写成 `target - deadband - 1.0`（=65.5 °C），
-   而冷却结束正好是 65–66 °C → 第一拍就释放，地板形同虚设（q 版仍滑到 5 %）。**
-2. **r**：释放阈值改为 `meas_f >= target - deadband`（真正到达目标）；
-   并且被地板钳住时**反算积分** `integral = (floor - Kp*e)/Ki`、`pid.out = floor`。
-   原来只钳输出、积分继续往下绕，释放瞬间存下的误差会一次性把风扇拽下去。
+Two fixes:
+1. **q**: added `last_auto_duty[] / have_last_auto[]`, recording the steady-state duty while the PID
+   owns the fan; on `auto=0 -> auto=1` use it as the floor. **But the release threshold was written as
+   `target - deadband - 1.0` (=65.5 °C), and cooldown ends right at 65-66 °C -> released on the first
+   tick, the floor was useless (q version still coasted to 5 %).**
+2. **r**: release threshold changed to `meas_f >= target - deadband` (actually reaching target); and when
+   clamped by the floor, **back-compute the integral** `integral = (floor - Kp*e)/Ki`, `pid.out = floor`.
+   Previously it only clamped the output while the integral kept winding down, so on release the stored
+   error yanked the fan down all at once.
 
-日志可验证释放条件：
+The release condition is verifiable in the log:
 ```
-q: Fan[1] takeover cushion released (in band):  65.5C vs target 67.0C   <- 过早
-r: Fan[1] takeover cushion released (at target): 66.5C vs target 67.0C  <- 正确
+q: Fan[1] takeover cushion released (in band):  65.5C vs target 67.0C   <- too early
+r: Fan[1] takeover cushion released (at target): 66.5C vs target 67.0C  <- correct
 ```
 
-### 交接专项测试（`tool/fan_pid/fan_test_handover.ps1`，10 min）
-同一路径（手动 100 % → 自动，等价于 soak 冷却交还）三版对比：
+### Handover-specific test (`tool/fan_pid/fan_test_handover.ps1`, 10 min)
+Same path (manual 100 % -> auto, equivalent to soak cooldown handoff), three-version comparison:
 
-| 版本 | 风扇最低 | 温度峰值 | 最大单步 |
+| Version | fan minimum | temperature peak | max single step |
 |---|---|---|---|
-| v3.2.02o（原逻辑） | **0 %** | 69.4 °C | **100** |
+| v3.2.02o (original logic) | **0 %** | 69.4 °C | **100** |
 | v3.2.02p | 4 % | **71.3 °C** | 1 |
-| **v3.2.02r** | **55 %** | **67.9 °C** | 45（仅交接瞬间一次） |
+| **v3.2.02r** | **55 %** | **67.9 °C** | 45 (once, at the handover instant) |
 
-r 版 C_HANDOVER 全程风扇 55–59 %，温度 65.4 → 67.9，收敛到 67.1–67.8。
-数据：`docs/baseline/fan_handover_r.csv`
+The r version's C_HANDOVER held the fan at 55-59 % throughout, temperature 65.4 -> 67.9, converging to 67.1-67.8.
+Data: `docs/baseline/fan_handover_r.csv`
 
-## 影响面审查（2026-11-08，5 个 env 全部编译通过）
+## Impact review (2026-11-08, all 5 envs compile)
 
-### 完整六阶段回归（v3.2.02r，`fan_verify.ps1`，124.18）
-数据：`docs/baseline/fan_verify_old_o.csv` vs `docs/baseline/fan_verify_r_full.csv`
+### Full six-phase regression (v3.2.02r, `fan_verify.ps1`, 124.18)
+Data: `docs/baseline/fan_verify_old_o.csv` vs `docs/baseline/fan_verify_r_full.csv`
 
-| 阶段 | 旧 v3.2.02o | 新 v3.2.02r |
+| Phase | old v3.2.02o | new v3.2.02r |
 |---|---|---|
-| B_AUTO | f1 31–100，温度 65.9–67.8，跳变 **429**，单步 **54** | f1 60–64，温度 65.9–67.3，跳变 **0**，单步 **2** |
-| C_COOLDOWN | f1 100，65.0–67.3 | 同（本就正确） |
-| D_HANDOVER | f1 **0**–100，温度 65.0–**69.4**，跳变 **248**，单步 **100** | f1 **59**–100，温度 64.8–**67.3**，跳变 **1**，单步 38 |
-| E_LOADSTEP | f1 66–100，67.1–88.6 | f1 61–100，67.1–89.9 |
+| B_AUTO | f1 31-100, temp 65.9-67.8, jumps **429**, single step **54** | f1 60-64, temp 65.9-67.3, jumps **0**, single step **2** |
+| C_COOLDOWN | f1 100, 65.0-67.3 | same (already correct) |
+| D_HANDOVER | f1 **0**-100, temp 65.0-**69.4**, jumps **248**, single step **100** | f1 **59**-100, temp 64.8-**67.3**, jumps **1**, single step 38 |
+| E_LOADSTEP | f1 66-100, 67.1-88.6 | f1 61-100, 67.1-89.9 |
 
-**性能无回归**（1 分钟平均，725/1250）：
+**No performance regression** (1-minute average, 725/1250):
 
-| 指标 | 测试前 | 回归后 |
+| Metric | before test | after regression |
 |---|---|---|
-| 算力 | 5863.7 GH/s | **5920.9 GH/s** |
-| 功耗 | 101.86 W | **101.34 W** |
-| 输入电流 | 8.247 A | **8.21 A** |
-| Vcore 温度 | 88.03 °C | 88.83 °C |
-| 拒绝份额 | 0 | **0** |
-| 保护事件 | none | **none** |
+| hashrate | 5863.7 GH/s | **5920.9 GH/s** |
+| power | 101.86 W | **101.34 W** |
+| input current | 8.247 A | **8.21 A** |
+| Vcore temperature | 88.03 °C | 88.83 °C |
+| rejected shares | 0 | **0** |
+| protection events | none | **none** |
 
-编译：5 个 env 全部 SUCCESS（NMAxe/Gamma 58.5 % Flash；三个 QAxe++ 73.5 %）。
+Compile: all 5 envs SUCCESS (NMAxe/Gamma 58.5 % Flash; the three QAxe++ 73.5 %).
 
-### 回归中确认的"行为改善"而非回退
-- E_LOADSTEP 温度上限 89.9 vs 88.6：负载阶跃到满载时风扇按 30 %/s 上升，
-  温度短暂略高属预期（旧版是瞬间 100 % 的暴力跳变）；**跳变次数 1 → 0**。
-- A_SETUP 起点温度更高：那是上一个工作点的残留，与阶段本身无关。
+### "Behavior improvements" confirmed during regression, not regressions
+- E_LOADSTEP temperature ceiling 89.9 vs 88.6: on a load step to full, the fan rises at 30 %/s, so a
+  brief slightly higher temperature is expected (the old version was a violent instant jump to 100 %);
+  **jump count 1 -> 0**.
+- A_SETUP higher starting temperature: that is residue from the previous operating point, unrelated to the phase.
 
-### 不受影响的接口（已核对）
-- `fan_status_t` **未改**（仍为 id / self_test / self_test_state / speed / rpm）
-  → `http_server.cpp`、`application.cpp`、`monitor_ctx`、`benchmark_ctx` 全部无感。
-- `fan_pid_t` / `fan_config_t` 没有任何 `memcpy` / `sizeof` 序列化，也不写 NVS
-  → 结构体变大不会破坏持久化格式。
-- 手动风扇（`auto=0`）路径保持原样：`speed` 由 API 直接写，PID 不介入。
-- 过温保护链路（`hw_threads` 的 OC/OT escalation）未改动。
-- 单风扇板（NMAxe/Gamma）：`FAN_SLOTS_MAX=4` 的静态数组按 index 使用，无越界。
+### Unaffected interfaces (verified)
+- `fan_status_t` **unchanged** (still id / self_test / self_test_state / speed / rpm)
+  -> `http_server.cpp`, `application.cpp`, `monitor_ctx`, `benchmark_ctx` all unaffected.
+- `fan_pid_t` / `fan_config_t` have no `memcpy` / `sizeof` serialization and are not written to NVS
+  -> a larger struct does not break the persistence format.
+- Manual fan (`auto=0`) path kept as-is: `speed` written directly by the API, PID does not intervene.
+- Over-temperature protection chain (`hw_threads` OC/OT escalation) unchanged.
+- Single-fan boards (NMAxe/Gamma): the `FAN_SLOTS_MAX=4` static array is used by index, no out-of-bounds.
 
-### 审查中发现并修复的 5 个问题
-1. **`dt` 未上限**（最严重）：override 期间不更新 `pid_start_ms`，soak 90 s 冷却结束后
-   第一拍 `dt=90 s`，`slew_down*dt` 直接放行整段跳变 —— 正好抵消本次修复。
-   两处修：override 分支里也更新 `pid_start_ms`；`pid_compute()` 里 `dt` 夹到 0.5 s。
-2. **`slew_down` 只有上限没有下限**：原式 `0.05/K` 对 ASIC 对象（K=0.31）只有
-   0.16 %/s，即 100→20 % 要 8 分钟，而 τ 只有 40 s → 会持续**过冷/下冲**。
-   改为 `max(0.05/K, 60/T)` 并夹在 1–15 %/s，实际 1.0–1.7 %/s。
-3. **NMAxe 定速鼓风机**：`fan_controllable=false` 但 PID 仍在算。旧增益下恰好
-   饱和在 ~100 %，新增益下会显示成个位数 → UI 显示与 benchmark `fanNeed` 双双回退。
-   修：`drive_fan()` 增加 `!fan_controllable` 分支恒报 100 %；`bm_fan_duty_of()`
-   同步按 100 % 返回（与 sweep 的 `fanAsic` 规则一致）。
-4. **`last_warn_ms` 下溢**：用 `now - 30000` 初始化，开机前 30 s 内
-   `millis()-last_warn_ms` 回绕，吞掉第一条告警。改为哨兵 0 判断。
-5. **交接标志被 bump-less 重置吃掉**（此前自查发现）：一个 `handover` 标志同时承担
-   “重置积分”和“保持地板”两个职责，前者清掉后者导致地板永不生效。
-   拆成 `bumpless_pending[]` 与 `floor_duty[]/floor_until_ms[]`。
+### 5 issues found and fixed during the review
+1. **`dt` unbounded** (most severe): `pid_start_ms` was not updated during override, so after soak's 90 s
+   cooldown the first tick had `dt=90 s`, and `slew_down*dt` let the whole jump through — exactly canceling
+   this fix. Fixed in two places: update `pid_start_ms` in the override branch too; clamp `dt` to 0.5 s in
+   `pid_compute()`.
+2. **`slew_down` had only an upper bound, no lower bound**: the original `0.05/K` for the ASIC plant
+   (K=0.31) is only 0.16 %/s, i.e. 100->20 % takes 8 minutes while τ is only 40 s -> persistent
+   **overcool/undershoot**. Changed to `max(0.05/K, 60/T)` clamped to 1-15 %/s, actually 1.0-1.7 %/s.
+3. **NMAxe fixed-speed blower**: `fan_controllable=false` but the PID still computed. Under the old gains it
+   happened to saturate at ~100 %, under the new gains it would show single digits -> UI display and benchmark
+   `fanNeed` both regressed. Fix: `drive_fan()` adds a `!fan_controllable` branch always reporting 100 %;
+   `bm_fan_duty_of()` returns 100 % in sync (consistent with the sweep's `fanAsic` rule).
+4. **`last_warn_ms` underflow**: initialized with `now - 30000`, within the first 30 s after boot
+   `millis()-last_warn_ms` wraps, swallowing the first warning. Changed to a sentinel-0 check.
+5. **Handover flag eaten by the bump-less reset** (found in self-review): one `handover` flag carried both
+   "reset the integral" and "hold the floor"; the former clearing the latter meant the floor never took effect.
+   Split into `bumpless_pending[]` and `floor_duty[]/floor_until_ms[]`.
 
-### 有意的行为变化（非回退）
-- 风扇响应变慢：上升 25–30 %/s（~3.5 s 到满速），下降 ~1–1.7 %/s。
-  这是平滑的代价，也是客户第 5 条（冷却交接过冲）的解法。
-- `>8 °C` 误差仍直接 100 %，且 `slew_up` 保证 4 s 内到满速 → 过温保护余量不变。
-- 未实测板卡（Rev6.1/8.1、Nexus）用估算对象，Kp 再降 40 %，
-  启动日志标 `[ESTIMATED]`；实测后只需填 4 个数。
+### Intentional behavior changes (not regressions)
+- Fan response is slower: rise 25-30 %/s (~3.5 s to full), fall ~1-1.7 %/s. This is the cost of smoothing,
+  and also the solution to customer complaint #5 (cooldown-handover overshoot).
+- `>8 °C` error still goes straight to 100 %, and `slew_up` guarantees full speed within 4 s -> over-temperature
+  protection margin unchanged.
+- Unmeasured boards (Rev6.1/8.1, Nexus) use estimated plants, Kp lowered another 40 %, boot log marked
+  `[ESTIMATED]`; after measuring you only fill in 4 numbers.
 
-### 资源
+### Resources
 | env | RAM | Flash |
 |---|---|---|
 | NMAxe | 24.3 % (79472 B) | 58.5 % |
@@ -536,48 +563,49 @@ r 版 C_HANDOVER 全程风扇 55–59 %，温度 65.4 → 67.9，收敛到 67.1�
 | NMQAxePPRev61 | 24.5 % (80128 B) | 73.5 % |
 | NMQAxePPNexus | 24.5 % (80128 B) | 73.5 % |
 
-RAM 仅 +32 B（`fan_config_t` 内嵌 2 个对象描述），Flash +~3 KB。
+RAM only +32 B (`fan_config_t` embeds 2 plant objects), Flash +~3 KB.
 
-## 调参依据 / 后续
-- 阶跃数据（C_STEP_*）给出稳态增益与 τ 后，再校 Kp/Ki 与 `slew_down`。
-- 强烈建议下一步加 **功率前馈**：`duty_ff ≈ f(req_frq × req_vcore²)`，
-  可在 Benchmark 换点时直接把风扇带到大致工作点，积分只修残差。
-  目前 `FanCtx` 只有温度，没有 power/freq；若要做需把 `spec` 和功率信息
-  传入或在 `drive_fan()` 里读 `spec->asic.req_frq/req_vcore`。
-- B 阶段（555-1170 / 目标 65）用来做新旧固件同点 A/B：旧固件 8 分钟内
-  应能看到 ≥15 点的周期性跳变，新固件应无。
+## Tuning basis / follow-ups
+- Once the step data (C_STEP_*) gives steady-state gain and τ, re-check Kp/Ki and `slew_down`.
+- Strongly recommend adding **power feed-forward** next: `duty_ff ≈ f(req_frq × req_vcore²)`, which can bring
+  the fan straight to roughly the operating point when Benchmark switches points, with the integral only fixing
+  the residual. Currently `FanCtx` has only temperature, no power/freq; to do this you'd need to pass `spec` and
+  power info in, or read `spec->asic.req_frq/req_vcore` inside `drive_fan()`.
+- Phase B (555-1170 / target 65) is used for same-point A/B of old vs new firmware: the old firmware should show
+  ≥15-point periodic jumps within 8 minutes, the new one should not.
 
-## 验证方法
+## Verification method
 ```
-# 1) 对象辨识（手动占空比阶跃，只读传感器）
+# 1) Plant identification (manual duty step, read-only sensors)
 tool/fan_pid/fan_identify_asic.ps1 -Ip <ip> -Out docs/baseline/fan_asic_ident.csv
 tool/fan_pid/fan_experiment.ps1    -Ip <ip> -Out docs/baseline/fan_vcore_ident.csv
-# 2) 分析：稳态增益 / 死区时间 / 时间常数 + 自动阶段的抖动统计
+# 2) Analysis: steady-state gain / dead time / time constant + jitter stats during the auto phase
 tool/fan_pid/analyze_steps.ps1 -Csv <csv> -Signal asic
 tool/fan_pid/analyze_steps.ps1 -Csv <csv> -Signal vcore
-# 3) A/B：同一脚本、同一工作点、同一目标温度，新旧固件各跑一次
+# 3) A/B: same script, same operating point, same target temperature, run once each on old and new firmware
 tool/fan_pid/fan_verify.ps1 -Ip <ip> -TargetVcore 67 -Out <csv>
-# 4) 串口抓启动日志，核对实际生效的 PID：
-#    "Fan[1] PID from plant: ... Kp=.. %/C, Ki=.."（带 [ESTIMATED] 表示未实测）
+# 4) Capture boot logs over serial, verify the PID actually in effect:
+#    "Fan[1] PID from plant: ... Kp=.. %/C, Ki=.." ([ESTIMATED] means not measured)
 ```
 
-判据：
-- 自动阶段 `jumps>=15` 次数：旧固件 0.9 次/分钟 → 新固件应为 0。
-- 冷启动/负载阶跃：单拍跳变消失，上升沿受 30 %/s 限制、下降沿 ~1–3 %/s。
-- 交接：100 % → 自动不出现温度过冲（旧固件 +8 °C）。
+Criteria:
+- Auto-phase `jumps>=15` count: old firmware 0.9/min -> new firmware should be 0.
+- Cold start / load step: single-tick jumps gone, rising edge limited to 30 %/s, falling edge ~1-3 %/s.
+- Handover: 100 % -> auto shows no temperature overshoot (old firmware +8 °C).
 
-### 旧固件对照组实测（v3.2.02o，124.18，目标 67 °C，`fan_verify.ps1`）
-数据：`docs/baseline/fan_verify_old_o.csv`
+### Old firmware control-group measurement (v3.2.02o, 124.18, target 67 °C, `fan_verify.ps1`)
+Data: `docs/baseline/fan_verify_old_o.csv`
 
-| 阶段 | 时长 | f1 (min/avg/max) | Vcore 温度 | 跳变≥15 | 最大单步 |
+| Phase | duration | f1 (min/avg/max) | Vcore temperature | jumps ≥15 | max single step |
 |---|---|---|---|---|---|
-| A_SETUP | 3.0 min | 0/92/100 | 65.9–72.9 | 25 | 100 |
-| **B_AUTO** | 5.0 min | 31/65/100 | 65.9–67.8 | **429** | 54 |
-| C_COOLDOWN | 1.5 min | 100/100/100 | 65.0–67.3 | 0 | 0 |
-| **D_HANDOVER** | 4.0 min | 0/50/100 | 65.0–69.4 | **248** | **100** |
-| E_LOADSTEP | 4.0 min | 66/100/100 | 67.1–88.6 | 1 | 34 |
+| A_SETUP | 3.0 min | 0/92/100 | 65.9-72.9 | 25 | 100 |
+| **B_AUTO** | 5.0 min | 31/65/100 | 65.9-67.8 | **429** | 54 |
+| C_COOLDOWN | 1.5 min | 100/100/100 | 65.0-67.3 | 0 | 0 |
+| **D_HANDOVER** | 4.0 min | 0/50/100 | 65.0-69.4 | **248** | **100** |
+| E_LOADSTEP | 4.0 min | 66/100/100 | 67.1-88.6 | 1 | 34 |
 
-两条现场抱怨被完全复现：
-- **B_AUTO：5 分钟 429 次 ≥15 点跳变**（85.9 次/分）——不是偶发，是持续极限环。
-- **D_HANDOVER：冷却 100 % 交还自动后第一拍 100→0 %**，温度从 65.0 冲到 69.4 °C
-  ——正是客户 soak 后 ASIC 冲高 57.9 °C、输入峰值 14.85 A 的机制。
+Both field complaints were fully reproduced:
+- **B_AUTO: 429 jumps ≥15 points in 5 minutes** (85.9/min) — not occasional, a sustained limit cycle.
+- **D_HANDOVER: after cooldown 100 % hands back to auto, the first tick goes 100->0 %**, temperature surging
+  from 65.0 to 69.4 °C — exactly the mechanism behind the customer's post-soak ASIC surge to 57.9 °C and
+  input peak 14.85 A.
