@@ -42,10 +42,22 @@ static float fan_max_target_temp(uint8_t fan_id) {
 // dumping the raw body, because the logger truncates a single line at 512
 // bytes — a long stratum URL would otherwise cut off the trailing fields
 // (e.g. asicVcoreReq / asicFreqReq).
-static void log_web_config_change(const char* endpoint, const JsonObject& root) {
+//
+// The client address is part of the line on purpose. A fan target was found
+// changed on a test board with nobody claiming the edit, and there was no way to
+// tell whether it came from the web UI, another session on the LAN or a script:
+// the firmware only logged the new value. Every caller here already has the
+// request, so the origin costs nothing to record.
+static void log_web_config_change(const char* endpoint, const JsonObject& root,
+                                  AsyncWebServerRequest* request = nullptr) {
+    String ip;
+    if (request != nullptr && request->client() != nullptr) {
+        ip = request->client()->remoteIP().toString();
+    }
+    const char* from = (ip.length() > 0) ? ip.c_str() : "unknown";
     for (const auto& kv : root) {
         String val = kv.value().as<String>();
-        LOG_W("[web] config change %s: %s = %s", endpoint, kv.key().c_str(), val.c_str());
+        LOG_W("[web] config change %s from %s: %s = %s", endpoint, from, kv.key().c_str(), val.c_str());
     }
 }
 
@@ -434,7 +446,7 @@ void patch_setting_network(AsyncWebServerRequest* request, uint8_t *data, size_t
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
-        log_web_config_change("/api/setting/network", root.as<JsonObject>());
+        log_web_config_change("/api/setting/network", root.as<JsonObject>(), request);
         if (root.containsKey("ssid"))     nvs_config_set_string(NVS_CONFIG_WIFI_SSID, root["ssid"].as<String>().c_str());
         if (root.containsKey("wifiPass")) nvs_config_set_string(NVS_CONFIG_WIFI_PASS, root["wifiPass"].as<String>().c_str());
         if (root.containsKey("hostname")) {
@@ -479,7 +491,7 @@ void patch_setting_time(AsyncWebServerRequest* request, uint8_t *data, size_t le
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
-        log_web_config_change("/api/setting/time", root.as<JsonObject>());
+        log_web_config_change("/api/setting/time", root.as<JsonObject>(), request);
         if (root.containsKey("timezone")) {
             const String new_tz = root["timezone"].as<String>();
             const bool   tz_changed = (new_tz != *g_web->tz);
@@ -581,7 +593,7 @@ void patch_setting_mining(AsyncWebServerRequest* request, uint8_t *data, size_t 
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
-        log_web_config_change("/api/setting/mining", root.as<JsonObject>());
+        log_web_config_change("/api/setting/mining", root.as<JsonObject>(), request);
         // The operating point belongs to the sweep while a benchmark runs.
         //
         // Accepting this would be worse than refusing: the sweep re-applies its
@@ -827,7 +839,7 @@ void patch_setting_market(AsyncWebServerRequest* request, uint8_t *data, size_t 
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
-        log_web_config_change("/api/setting/market", root.as<JsonObject>());
+        log_web_config_change("/api/setting/market", root.as<JsonObject>(), request);
         if (root.containsKey("mainprice")) {
             nvs_config_set_string(NVS_CONFIG_PRICE_DISPLAY_COIN, root["mainprice"].as<String>().c_str());
             (*g_web->coin_price) = root["mainprice"].as<String>();
@@ -899,7 +911,7 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
-        log_web_config_change("/api/setting/preference", root.as<JsonObject>());
+        log_web_config_change("/api/setting/preference", root.as<JsonObject>(), request);
         if (root.containsKey("Brightness")) {
             uint8_t brightness = (root["Brightness"].as<uint8_t>() <=1) ? 1 : ((root["Brightness"].as<uint8_t>() >= 100) ? 100 : root["Brightness"].as<uint8_t>());
             g_web->pref->screen.brightness = brightness;
@@ -1613,7 +1625,7 @@ void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t le
         request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
         return;
     }
-    log_web_config_change("/api/theme", root.as<JsonObject>());
+    log_web_config_change("/api/theme", root.as<JsonObject>(), request);
 
     if(root.containsKey("colorScheme")){
         nvs_config_set_string(NVS_CONFIG_THEME_SCHEME, root["colorScheme"].as<String>().c_str());
@@ -1697,7 +1709,7 @@ void patch_benchmark(AsyncWebServerRequest* request, uint8_t *data, size_t len, 
             request->send(400, "application/json", "{\"error\":\"invalid json\"}");
             free(buf); return;
         }
-        log_web_config_change("/api/benchmark", root.as<JsonObject>());
+        log_web_config_change("/api/benchmark", root.as<JsonObject>(), request);
         if (root.containsKey("freqMin"))    nvs_config_set_u16(NVS_CONFIG_BM_FREQ_MIN,    root["freqMin"].as<uint16_t>());
         if (root.containsKey("freqMax"))    nvs_config_set_u16(NVS_CONFIG_BM_FREQ_MAX,    root["freqMax"].as<uint16_t>());
         if (root.containsKey("freqStep"))   nvs_config_set_u16(NVS_CONFIG_BM_FREQ_STEP,   root["freqStep"].as<uint16_t>());
