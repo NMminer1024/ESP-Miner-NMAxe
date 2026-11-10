@@ -119,6 +119,8 @@ Active pool connection — read-only snapshot.
 | `fans[].speed` | int | Speed percentage (0–100) |
 | `fans[].rpm` | int | Actual RPM |
 
+> `fans[]` length is the authoritative fan count for the board (1 on NMAxe/NMAxeGamma, 2 on NMQAxe++ variants — ASIC fan `id 0`, Vcore fan `id 1`). The chart endpoints mirror it as the `fanCount` column; the web UI reads this to decide how many fan curves to draw, so no board-specific logic is needed.
+
 <details>
 <summary>Full Example Response</summary>
 
@@ -224,6 +226,33 @@ Set `paused` to `false` to start mining again:
 | GET | `/api/dashboard/chart/history`  | Full miner status time-series (up to 2000 records, ~24 h) |
 | GET | `/api/dashboard/chart/realtime` | Single latest data point for live chart update |
 | GET | `/api/dashboard/luck/history`   | Block-proximity history for luck/difficulty chart |
+
+### Chart series schema — `labels[]` / `statistics[][]`
+
+Both chart endpoints return position-aligned rows: `statistics[i][j]` is the value of column `labels[j]`. **Always resolve columns by label, never by hard-coded index** — the schema is append-only. Current fixed 18-column order (identical on both endpoints):
+
+| idx | label | unit | notes |
+|----:|:------|:-----|:------|
+| 0 | `hashRate` | GH/s | |
+| 1 | `shareRate` | n/s | |
+| 2 | `asicTemp` | °C | |
+| 3 | `vcoreTemp` | °C | |
+| 4 | `Pbus` | W | |
+| 5 | `Vbus` | V | |
+| 6 | `Ibus` | A | |
+| 7 | `Vcore` | mV | |
+| 8 | `fanspeed` | % | ASIC fan (id 0) duty — kept for backward compatibility |
+| 9 | `fanrpm` | RPM | ASIC fan (id 0) RPM — kept for backward compatibility |
+| 10 | `wifiRSSI` | dBm | |
+| 11 | `freeHeap` | KB | |
+| 12 | `freePsram` | KB | |
+| 13 | `latency` | ms | `0` = not measured yet |
+| 14 | `epoch` | ms | |
+| 15 | `fanCount` | — | fans this board has (1 or 2); drives how many fan curves to plot |
+| 16 | `fan1speed` | % | Vcore fan (id 1) duty; `0` on single-fan boards |
+| 17 | `fan1rpm` | RPM | Vcore fan (id 1) RPM; `0` on single-fan boards |
+
+> The schema is fixed regardless of board: single-fan boards still send 18 columns with `fanCount=1` and the `fan1*` columns zeroed. Older firmware returns 15 columns — treat a missing `fanCount` as `1`.
 
 ---
 

@@ -1230,9 +1230,9 @@ void get_status_history(AsyncWebServerRequest* request){
     
     // Calculate JSON document size based on estimated samples
     // ArduinoJson 6 internal: each VariantSlot = 16 bytes on ESP32 (32-bit).
-    // Per data point: 14 elements × 16B + 1 nested array slot × 16B = 240 bytes.
+    // Per data point: 18 elements × 16B + 1 nested array slot × 16B = 304 bytes.
     uint32_t base_overhead = 2048;
-    uint32_t per_sample_size = 256;  // ArduinoJson internal memory per sample (240 + margin)
+    uint32_t per_sample_size = 320;  // ArduinoJson internal memory per sample (304 + margin)
     uint32_t json_size_max = base_overhead + (estimated_samples * per_sample_size);
     
     // Add 25% safety margin
@@ -1265,6 +1265,12 @@ void get_status_history(AsyncWebServerRequest* request){
     labels.add("freePsram");
     labels.add("latency");
     labels.add("epoch");
+    // Fan columns beyond fan[0]: fixed schema (never conditional) so old
+    // clients keep working on indices 0-14 while new clients read fanCount
+    // to decide how many fan curves to plot. Single-fan boards report 0.
+    labels.add("fanCount");
+    labels.add("fan1speed");
+    labels.add("fan1rpm");
     
     JsonArray data = root.createNestedArray("statistics");
     
@@ -1299,13 +1305,16 @@ void get_status_history(AsyncWebServerRequest* request){
                 dataPoint.add(history.vbus);
                 dataPoint.add(history.ibus);
                 dataPoint.add(history.vcore);
-                dataPoint.add(history.fanspeed);
-                dataPoint.add(history.fanrpm);
+                dataPoint.add(history.fan_speed[0]);
+                dataPoint.add(history.fan_rpm[0]);
                 dataPoint.add(history.wifi_rssi);
                 dataPoint.add(history.free_ram);
                 dataPoint.add(history.free_psram);
                 dataPoint.add(history.latency);
                 dataPoint.add(history.epoch);
+                dataPoint.add(history.fan_count);
+                dataPoint.add(history.fan_speed[1]);
+                dataPoint.add(history.fan_rpm[1]);
                 sampled_count++;
                 
                 // Yield every 100 samples to prevent watchdog timeout
@@ -1379,7 +1388,7 @@ void get_status_history(AsyncWebServerRequest* request){
 
 // GET /api/dashboard/chart/realtime -- single latest data point for live chart update.
 void get_status_realtime(AsyncWebServerRequest* request){
-    uint32_t json_size_max = 1024; // in bytes 
+    uint32_t json_size_max = 1536; // in bytes — 18 labels + one 18-column row
     
     // Use local document instead of static to prevent memory leaks
     BasicJsonDocument<PsramJsonAllocator> root(json_size_max);
@@ -1402,6 +1411,10 @@ void get_status_realtime(AsyncWebServerRequest* request){
     labels.add("freePsram");
     labels.add("latency");
     labels.add("epoch");
+    // Same fixed 18-column schema as /chart/history — see get_status_history().
+    labels.add("fanCount");
+    labels.add("fan1speed");
+    labels.add("fan1rpm");
     
     JsonArray data = root.createNestedArray("statistics");
     
@@ -1418,13 +1431,16 @@ void get_status_realtime(AsyncWebServerRequest* request){
             dataPoint.add(history.vbus);               // voltage (V)
             dataPoint.add(history.ibus);               // current (A)
             dataPoint.add(history.vcore);              // coreVoltageActual (mV)
-            dataPoint.add(history.fanspeed);           // fanspeed (%)
-            dataPoint.add(history.fanrpm);             // fanrpm (RPM)
+            dataPoint.add(history.fan_speed[0]);       // fanspeed (%) — ASIC fan
+            dataPoint.add(history.fan_rpm[0]);         // fanrpm (RPM)   — ASIC fan
             dataPoint.add(history.wifi_rssi);          // wifiRSSI (dBm)
             dataPoint.add(history.free_ram);           // freeHeap (KB)
             dataPoint.add(history.free_psram);         // freePsram (KB)
             dataPoint.add(history.latency);            // latency (ms)
             dataPoint.add(history.epoch);              // timestamp (ms)
+            dataPoint.add(history.fan_count);          // fanCount (1-2)
+            dataPoint.add(history.fan_speed[1]);       // fan1speed (%) — Vcore fan
+            dataPoint.add(history.fan_rpm[1]);         // fan1rpm (RPM)   — Vcore fan
         }
         xSemaphoreGive(g_web->status->status_history.mutex);
     }

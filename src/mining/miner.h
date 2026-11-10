@@ -25,8 +25,18 @@ typedef struct{
     double   sum_60m;
 } hashrate_diag_t;
 
-// ["hashRate","temp","vrTemp","power","voltage","current","coreVoltageActual","fanspeed","fanrpm","wifiRSSI","freeram","freepsram","timestamp"],
+// Chart column order (index-aligned with the API `labels[]`, append-only):
+// ["hashRate","shareRate","asicTemp","vcoreTemp","Pbus","Vbus","Ibus","Vcore",
+//  "fanspeed","fanrpm","wifiRSSI","freeHeap","freePsram","latency","epoch",
+//  "fanCount","fan1speed","fan1rpm"]
 // All numeric fields — eliminates per-node String heap allocations that fragment PSRAM.
+//
+// Fan columns are per-fan arrays (index 0 = ASIC fan, 1 = Vcore fan) so the
+// chart history covers every fan the board physically has, not just fan[0].
+// MINER_HISTORY_MAX_FANS matches the board-spec ceiling (2); boards with one
+// fan keep slot 1 zeroed. +3 bytes/node vs the old single pair — at
+// MINER_HISTORY_MAX_SIZE that is ~60 KB extra PSRAM, negligible.
+#define MINER_HISTORY_MAX_FANS 2
 typedef struct{
     float          hashrate;      // hashrate, GH/s
     float          share_rate;    // ASIC nonce find rate, nonces/s
@@ -36,8 +46,9 @@ typedef struct{
     float          vbus;          // voltage, V
     float          ibus;          // current, A
     uint16_t       vcore;         // vcore measured, mV
-    uint16_t       fanspeed;      // fan speed, %
-    uint16_t       fanrpm;        // fan rpm, RPM
+    uint8_t        fan_count;     // fans this board reports (1 or 2)
+    uint8_t        fan_speed[MINER_HISTORY_MAX_FANS]; // fan duty, % (0-100)
+    uint16_t       fan_rpm[MINER_HISTORY_MAX_FANS];   // fan rpm, RPM
     int8_t         wifi_rssi;     // wifi rssi, dBm
     uint32_t       free_ram;      // free ram, Kbytes
     uint32_t       free_psram;    // free psram, Kbytes

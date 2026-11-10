@@ -1043,8 +1043,16 @@ void monitor_thread_entry(void* args) {
             node.vbus       = (ctx->pwr->vbus / 1000.0f); // V
             node.ibus       = (ctx->pwr->ibus / 1000.0f); // A
             node.vcore      = ctx->pwr->vcore;            // mV
-            node.fanspeed   = ctx->fan_status->empty() ? 0 : (*ctx->fan_status)[0].speed;
-            node.fanrpm     = ctx->fan_status->empty() ? 0 : (*ctx->fan_status)[0].rpm;
+            // Record every fan the board has (ASIC fan[0], Vcore fan[1]), not just
+            // fan[0] — the chart needs per-fan history on dual-fan boards.
+            node.fan_count  = (uint8_t)(ctx->fan_status->size() < MINER_HISTORY_MAX_FANS
+                                          ? ctx->fan_status->size() : MINER_HISTORY_MAX_FANS);
+            for (size_t fi = 0; fi < MINER_HISTORY_MAX_FANS; fi++) {
+                node.fan_speed[fi] = (fi < ctx->fan_status->size())
+                                       ? (uint8_t)(*ctx->fan_status)[fi].speed : 0;
+                node.fan_rpm[fi]   = (fi < ctx->fan_status->size())
+                                       ? (*ctx->fan_status)[fi].rpm : 0;
+            }
             node.wifi_rssi  = ctx->wifi_rssi ? *ctx->wifi_rssi : 0;
             node.free_ram   = ESP.getFreeHeap() / 1024;
             node.free_psram = ESP.getFreePsram() / 1024;
