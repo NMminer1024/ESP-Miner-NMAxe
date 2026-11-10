@@ -1068,10 +1068,24 @@ void fan_thread_entry(void* args) {
                     // which showed up as 349 distinct duty values in 189 s of
                     // steady state with corr(duty, power) = 0.09 (no tracking).
                     // See fan_pid_tuning_from_plant() for how the size is derived.
-                    // Skipped while the takeover cushion binds, because that floor
-                    // is authoritative and must not be undone by holding still.
-                    const float hyst = fan_cfg.pid.duty_hyst;
-                    if (hyst >= 1.0f && !floor_binding) {
+                    //
+                    // Skipped in two cases, both because holding still there is
+                    // worse than the dither it saves:
+                    //
+                    //  - while the takeover cushion binds, because that floor is
+                    //    authoritative and must not be undone by holding still;
+                    //  - while the large-error bypass in pid_compute() is active.
+                    //    That path sets the output to full speed and returns, so
+                    //    the demand is 100 every tick. With a 2-point hysteresis
+                    //    and the fan at 99 the difference is 1, so the applied duty
+                    //    was held at 99 for as long as the error stayed above 8 C -
+                    //    i.e. the guarantee "a chip 8 C over target gets full
+                    //    speed" was silently false (found by simulation, S1).
+                    //    The condition below is exactly the one pid_compute uses.
+                    const float hyst   = fan_cfg.pid.duty_hyst;
+                    const float err_by = fan_cfg.pid.meas_f - target;
+                    const bool  bypass = (err_by > 8.0f) || (err_by < -8.0f);
+                    if (hyst >= 1.0f && !floor_binding && !bypass) {
                         const int diff = (int)rounded - (int)fan_status->speed;
                         if (diff > -(int)hyst && diff < (int)hyst) {
                             rounded = fan_status->speed;
