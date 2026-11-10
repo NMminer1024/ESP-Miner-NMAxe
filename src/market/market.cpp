@@ -322,8 +322,11 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
     }
     note_binance_conn_success();
 
-    // Filter: only keep symbol / lastPrice / priceChangePercent to save RAM
-    StaticJsonDocument<128> filter;
+    // Filter: only keep symbol / lastPrice / priceChangePercent to save RAM.
+    // static: only the (market) task ever parses here, and it keeps the ~128 B
+    // document off the 4 KB-class stack.
+    static StaticJsonDocument<128> filter;
+    filter.clear();
     filter[0]["symbol"]             = true;
     filter[0]["lastPrice"]          = true;
     filter[0]["priceChangePercent"] = true;
@@ -341,29 +344,69 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
         return;
     }
 
-    this->_watchlist_pairs.clear();
+    // Build the new snapshot entirely off the guarded state, then publish it with a
+    // single swap. The UI task reads the old snapshot until that swap lands.
+    WatchlistMap   fresh;
+    SortedWatchlist fresh_sorted;
     for (JsonObject item : doc.as<JsonArray>()) {
         String sym = item["symbol"].as<String>();
         if (sym.isEmpty()) continue;
         CoinPrice cp;
         cp.price      = item["lastPrice"].as<String>().toFloat();
         cp.change_pct = item["priceChangePercent"].as<String>().toFloat();
-        this->_watchlist_pairs[sym] = cp;
+        fresh[sym] = cp;
         LOG_D("[Watchlist] %s  price=%.4f  change=%.2f%%", sym.c_str(), cp.price, cp.change_pct);
         delay(1);
     }
-}
 
-void MarketClass::sort_watchlist_by_price() {
-    _sortedWatchlist.clear();
-    _sortedWatchlist.reserve(_watchlist_pairs.size());
-    for (const auto& kv : _watchlist_pairs) {
-        _sortedWatchlist.push_back(kv);
+    fresh_sorted.reserve(fresh.size());
+    for (const auto& kv : fresh) {
+        fresh_sorted.push_back(kv);
     }
-    std::sort(_sortedWatchlist.begin(), _sortedWatchlist.end(),
+    std::sort(fresh_sorted.begin(), fresh_sorted.end(),
               [](const std::pair<String, CoinPrice>& a,
                  const std::pair<String, CoinPrice>& b) {
                   return a.second.price > b.second.price;
               });
-    LOG_D("[Market] Watchlist sorted by price desc, %d entries", (int)_sortedWatchlist.size());
+    LOG_D("[Market] Watchlist sorted by price desc, %d entries", (int)fresh_sorted.size());
+
+    this->publish_watchlist(std::move(fresh), std::move(fresh_sorted));
+}
+
+void MarketClass::publish_watchlist(WatchlistMap&& fresh, SortedWatchlist&& sorted) {
+    if (!_wl_mutex) return;
+    if (xSemaphoreTake(_wl_mutex, pdMS_TO_TICKS(200)) != pdTRUE) {
+        LOG_W("[Market] watchlist publish skipped: lock busy");
+        return;
+    }
+    _watchlist_pairs  = std::move(fresh);
+    _sortedWatchlist  = std::move(sorted);
+    xSemaphoreGive(_wl_mutex);
+}
+
+size_t MarketClass::watchlist_size() const {
+    if (!_wl_mutex) return 0;
+    if (xSemaphoreTake(_wl_mutex, pdMS_TO_TICKS(50)) != pdTRUE) return 0;
+    size_t n = _sortedWatchlist.size();
+    xSemaphoreGive(_wl_mutex);
+    return n;
+}
+
+size_t MarketClass::copy_watchlist_window(size_t offset, size_t count, WatchlistRow* out) const {
+    if (!out || !_wl_mutex) return 0;
+    if (xSemaphoreTake(_wl_mutex, pdMS_TO_TICKS(50)) != pdTRUE) return 0;
+    size_t copied = 0;
+    for (size_t i = offset; i < _sortedWatchlist.size() && copied < count; ++i) {
+        const auto& kv = _sortedWatchlist[i];
+        const String& sym = kv.first;
+        size_t len = sym.length();
+        if (len >= sizeof(out[copied].symbol)) len = sizeof(out[copied].symbol) - 1;
+        memcpy(out[copied].symbol, sym.c_str(), len);
+        out[copied].symbol[len]  = '\0';
+        out[copied].price        = kv.second.price;
+        out[copied].change_pct   = kv.second.change_pct;
+        ++copied;
+    }
+    xSemaphoreGive(_wl_mutex);
+    return copied;
 }

@@ -137,12 +137,14 @@ void PageMarketBase::_sync_watchlist_page() {
         return;
     }
 
-    const auto& wl = market->get_sorted_watchlist();
-    if (wl.empty()) {
+    // Snapshot under the market lock: the (market) task rebuilds the watchlist every
+    // refresh cycle, so iterating its containers directly races a realloc and walks
+    // freed PSRAM nodes. Rows are fixed-size POD, so the copy owns no allocations.
+    size_t total_coins = market->watchlist_size();
+    if (total_coins == 0) {
         return;
     }
 
-    size_t total_coins = wl.size();
     _total_pages = (uint16_t)((total_coins + _max_per_page - 1) / _max_per_page);
     if (_total_pages == 0) {
         _total_pages = 1;
@@ -151,13 +153,15 @@ void PageMarketBase::_sync_watchlist_page() {
         _cur_page = 0;
     }
 
-    auto it = wl.cbegin();
-    for (uint16_t skip = 0; skip < _cur_page * _max_per_page && it != wl.cend(); ++skip) {
-        ++it;
+    const size_t offset = (size_t)_cur_page * _max_per_page;
+    std::vector<WatchlistRow> rows(_max_per_page);
+    size_t got = market->copy_watchlist_window(offset, _max_per_page, rows.data());
+    if (got == 0) {
+        return;   // lock busy — keep the previous frame
     }
 
     for (uint16_t i = 0; i < _max_per_page; ++i) {
-        if (it == wl.cend()) {
+        if (i >= got) {
             if (i < _lb_names.size()) lv_label_set_text(_lb_names[i], "");
             if (i < _lb_dollar_signs.size()) lv_label_set_text(_lb_dollar_signs[i], "");
             if (i < _lb_prices.size()) lv_label_set_text(_lb_prices[i], "");
@@ -165,15 +169,16 @@ void PageMarketBase::_sync_watchlist_page() {
             continue;
         }
 
-        const String& sym = it->first;
-        const CoinPrice& cp = it->second;
-        ++it;
-
-        String name = sym.endsWith("USDT") ? sym.substring(0, sym.length() - 4) : sym;
-        String price_str = _format_price(cp.price);
+        const WatchlistRow& row = rows[i];
+        const char* sym = row.symbol;
+        size_t sym_len = strlen(sym);
+        String name = (sym_len > 4 && strcmp(sym + sym_len - 4, "USDT") == 0)
+                          ? String(sym).substring(0, sym_len - 4)
+                          : String(sym);
+        String price_str = _format_price(row.price);
         // Same constants the MINER page price uses (see app_state.h).
-        uint32_t color = (cp.change_pct >= 0.0f) ? APP_COLOR_PRICE_UP : APP_COLOR_PRICE_DOWN;
-        String change_str = (cp.change_pct >= 0.0f ? "+" : "") + String(cp.change_pct, 1) + "%";
+        uint32_t color = (row.change_pct >= 0.0f) ? APP_COLOR_PRICE_UP : APP_COLOR_PRICE_DOWN;
+        String change_str = (row.change_pct >= 0.0f ? "+" : "") + String(row.change_pct, 1) + "%";
 
         if (i < _lb_names.size()) {
             lv_label_set_text(_lb_names[i], name.c_str());

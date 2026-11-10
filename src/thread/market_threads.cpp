@@ -126,10 +126,9 @@ void market_thread_entry(void* args) {
             }
 
             delay(1);
-            // Fetch watchlist pairs, then sort by price descending for display
+            // Fetch watchlist pairs; refresh_watchlist() publishes them already
+            // sorted by price descending for display.
             market->refresh_watchlist(coin_watchlist);
-            delay(1);
-            market->sort_watchlist_by_price();
             delay(1);
         } else {
             LOG_D("Market update skipped: WiFi not connected.");

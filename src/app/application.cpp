@@ -629,7 +629,12 @@ void MinerApp::_begin_market(BootProgress& boot) {
     // from NVS each cycle so web UI changes apply without a reboot.
     _ctx_market = &ctx;
 
-    _create_task(market_thread_entry, "(market)", 1024 * 4, _ctx_market, TASK_PRIORITY_MARKET, 0);
+    // 8 KB, not 4 KB: refresh_watchlist() alone costs a 672 B frame (measured with
+    // -fstack-usage), on top of the HTTPClient/WiFiClient connect chain and an
+    // ArduinoJson filtered parse. v3.2.02u coredumped with crash task "(market)"
+    // under CONFIG_FREERTOS_CHECK_STACKOVERFLOW_CANARY — a stack overflow, and it
+    // disappeared whenever the watchlist was empty (that path returns early).
+    _create_task(market_thread_entry, "(market)", 1024 * 8, _ctx_market, TASK_PRIORITY_MARKET, 0);
 }
 
 void MinerApp::_begin_aphorism(BootProgress& boot) {

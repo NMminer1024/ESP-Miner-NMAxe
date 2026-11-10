@@ -3,7 +3,10 @@
 // Using ESP32 built-in HTTPClient instead of ArduinoHttpClient for better stability.
 // HTTPClient has explicit timeout support and avoids indefinite blocking on slow servers.
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <map>
+#include <utility>
 #include <vector>
 #include "utils/helper.h"
 
@@ -19,6 +22,14 @@ struct CoinPrice {
     float change_pct = 0.0f;  // 24 h change percent
 };
 
+// Fixed-size row handed to readers (UI/web) so they never touch the guarded
+// containers or their String allocations. Binance symbols are <= 12 chars.
+struct WatchlistRow {
+    char  symbol[16];
+    float price;
+    float change_pct;
+};
+
 class MarketClass{
     // Watchlist map stored in PSRAM (map nodes allocated via PsramAllocator).
     using WatchlistMap = std::map<String, CoinPrice, std::less<String>,
@@ -30,6 +41,9 @@ public:
 private:
     uint32_t                    _lastUpdate;
     CoinPrice                   _main_pair;
+    // Guards _watchlist_pairs + _sortedWatchlist: the (market) task rebuilds them
+    // every refresh cycle while the LVGL task reads them at 1 Hz.
+    SemaphoreHandle_t           _wl_mutex;
     WatchlistMap                _watchlist_pairs;  // key = full symbol e.g. "ETHUSDT"
     SortedWatchlist             _sortedWatchlist;  // price-descending sorted copy (PSRAM)
     // All USDT pairs stored as a flat PSRAM buffer: "BTCUSDT\nETHUSDT\n..."
@@ -38,9 +52,14 @@ private:
     uint16_t                    _pairsCount;
     volatile bool               _needs_refresh;
 
+    // Swap a fully built snapshot into the guarded state. The critical section holds
+    // only two container swaps — no allocation, no I/O, no delay.
+    void publish_watchlist(WatchlistMap&& fresh, SortedWatchlist&& sorted);
+
 public:
     MarketClass() : _pairsBuf(nullptr), _pairsBufLen(0), _pairsCount(0),
-                    _lastUpdate(0), _needs_refresh(false) {
+                    _lastUpdate(0), _wl_mutex(nullptr), _needs_refresh(false) {
+        _wl_mutex = xSemaphoreCreateMutex();
         _pairsBuf = (char*)heap_caps_malloc(MARKET_PAIRS_BUF_CAP,
                                             MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     }
@@ -55,13 +74,18 @@ public:
     }
     ~MarketClass(){
         if (_pairsBuf) { heap_caps_free(_pairsBuf); _pairsBuf = nullptr; }
+        if (_wl_mutex) { vSemaphoreDelete(_wl_mutex); _wl_mutex = nullptr; }
     }
 
     uint32_t get_last_update() const { return _lastUpdate; }
     const CoinPrice& get_main_pair() const { return _main_pair; }
-    const WatchlistMap& get_watchlist_pairs() const { return _watchlist_pairs; }
-    // Returns watchlist sorted by price descending (populated by sort_watchlist_by_price()).
-    const SortedWatchlist& get_sorted_watchlist() const { return _sortedWatchlist; }
+    // Rows in the price-descending snapshot. 0 when the lock is busy, so a reader
+    // keeps its previous frame instead of racing a rebuild.
+    size_t watchlist_size() const;
+    // Copy rows [offset, offset+count) of the snapshot into caller-owned `out` under
+    // the lock; returns the number of rows written. Readers must not iterate
+    // _sortedWatchlist directly — it is rebuilt by the (market) task every cycle.
+    size_t copy_watchlist_window(size_t offset, size_t count, WatchlistRow* out) const;
     // Returns the flat PSRAM buffer of '\n'-separated pair symbols, or nullptr if unavailable.
     const char* get_pairs_buffer() const { return _pairsBuf; }
     uint16_t    get_pairs_count()  const { return _pairsCount; }
@@ -76,11 +100,9 @@ public:
     bool refresh_main_pair(const String &coin_symbol);
 
     // Parse a comma-separated coin_watchlist string (e.g. "BTC,ETH,BNB"),
-    // fetch 24 hr ticker for each <symbol>USDT pair, and refresh watchlist_pairs.
+    // fetch 24 hr ticker for each <symbol>USDT pair, then publish the result as the
+    // new snapshot (sorted by price descending). All building happens outside the lock.
     void refresh_watchlist(const String &coin_watchlist);
-
-    // Copy watchlist into _sortedWatchlist and sort by price descending.
-    void sort_watchlist_by_price();
 };
 
 // void market_thread_entry(void *args);
