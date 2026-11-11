@@ -1564,6 +1564,10 @@ Content-Type: application/octet-stream
       <span class="cmt">// current limit in practice, so maxIbus is the primary input test.</span>
       <span class="kw">"maxPhaseIout"</span>: <span class="num">11.40</span>, <span class="kw">"phases"</span>: <span class="num">3</span>,
       <span class="kw">"maxIbus"</span>: <span class="num">14.20</span>, <span class="kw">"maxPwrIn"</span>: <span class="num">168.50</span>,
+      <span class="cmt">// Voltage floor: the HIGHEST voltage that came in UNSTABLE at this</span>
+      <span class="cmt">// frequency, and the % of expected hashrate it reached. Both are</span>
+      <span class="cmt">// ABSENT when the first voltage tried passed (floor never probed).</span>
+      <span class="kw">"vFail"</span>:    <span class="num">980</span>, <span class="kw">"vFailPct"</span>: <span class="num">97.85</span>,
       <span class="cmt">// Peak fan duty (%) while sampling. fanVcore only on two-fan models;</span>
       <span class="cmt">// both are ABSENT when there is no such fan or on older results.</span>
       <span class="kw">"fanAsic"</span>:  <span class="num">68</span>,     <span class="cmt">// ASIC heatsink fan (100 on fixed-speed boards)</span>

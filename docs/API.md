@@ -648,6 +648,8 @@ Results are keyed by **frequency alone**: the latest run at a frequency overwrit
 | `phases` | int | Runtime-detected phase count (`0` on boards without per-phase telemetry) |
 | `maxIbus` | float | A — peak input current (the adapter current budget is judged on this) |
 | `maxPwrIn` | float | W — peak input power (the adapter watt budget is judged on this) |
+| `vFail` | int\|absent | mV — **highest** voltage that came in UNSTABLE at this frequency. Absent when the first voltage tried already passed, i.e. the floor was never probed |
+| `vFailPct` | float\|absent | % of expected hashrate that `vFail` reached (e.g. `97.85`) — only the failing round measured it, so it is stored rather than derived from `avgHR`/`expHR` |
 | `fanAsic` | int\|absent | % — peak ASIC-fan duty while sampling; `100` on fixed-speed boards; absent when no such fan or on older results |
 | `fanVcore` | int\|absent | % — peak VRM-fan duty; two-fan models only |
 | `fw` | string\|absent | Firmware build that measured this row (results outlive an upgrade; verdicts are not comparable across builds). Absent on older results |
