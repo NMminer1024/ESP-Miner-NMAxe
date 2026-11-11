@@ -300,6 +300,53 @@ uptime fix does not touch.
    * verified: regex hits exactly 1 site in v3.6.0 and v3.10.3; `pio run -e NMQAxePP`
      SUCCESS with the patched file compiled; re-running does not double-insert.
 
+   **Note for other machines / stale builds — how the patch reaches the binary.**
+   The patch edits the *unpacked library copy* at
+   `.pio/libdeps/<env>/ESPAsyncWebServer/src/AsyncWebSocket.cpp`, which is a build
+   artifact (`gitignored`), so `git status` stays clean and you will not see it in
+   a diff. It reaches the compiled object by one of two routes:
+
+   * **Normal pull (library already in `.pio/libdeps`, upstream form).** The
+     `extra_scripts` load-time call rewrites the file; SCons then sees a newer
+     mtime and recompiles `AsyncWebSocket.cpp.o` in the same build. Verified:
+     restoring the library to upstream form and rebuilding printed
+     `[patch_libdeps] patched ... (1 site)` and SUCCESS.
+   * **No `.pio/libdeps` yet** (fresh clone, `rm -rf .pio`, or after a `lib_deps`
+     change forces a re-download). The script loads *before* PlatformIO installs
+     the libraries, so the file may not exist at that moment; the
+     `env.AddPreAction("buildprog", ...)` hook patches it after the install and
+     before compiling. Verified on 2026-11-11 by deleting the library directory
+     and rebuilding: PlatformIO re-installed `ESPAsyncWebServer @ 3.10.3+sha.1d17fae`,
+     the log printed `[patch_libdeps] patched ... (1 site)` and the build
+     succeeded. Cross-check on the object file (upstream has only `strlen` in
+     this translation unit, never `strnlen`):
+
+     ```powershell
+     & "$env:USERPROFILE\.platformio\packages\toolchain-xtensa-esp32s3\bin\xtensa-esp32s3-elf-nm.exe" `
+       .pio\build\<env>\lib*\ESPAsyncWebServer\AsyncWebSocket.cpp.o | Select-String strnlen
+     # patched -> "U strnlen" is present
+     ```
+
+   **Trap found while verifying this:** PlatformIO treats every directory inside
+   `.pio/libdeps/<env>/` as a library, so do **not** park a backup copy there
+   (e.g. `ESPAsyncWebServer.bak`) while testing — it gets compiled *instead of*
+   the real library, silently producing an unpatched build.
+
+   How to confirm on any machine — one of these must show the patched form:
+
+   ```powershell
+   # 1) the build log mentions the patch
+   pio run -e <env> | Select-String patch_libdeps
+   # 2) the library source is bounded (expect "reason_len", not "strlen(reasonString)")
+   Select-String -Path .pio\libdeps\<env>\ESPAsyncWebServer\src\AsyncWebSocket.cpp -Pattern "reason_len|strlen\(reasonString\)"
+   ```
+
+   `pio run -t clean` only deletes `.pio/build/<env>`, **not** `.pio/libdeps`, so
+   the patched copy survives and is simply recompiled — no manual re-patch needed.
+   If a build ever reports `could not find the unbounded strlen(reasonString) call`
+   the script exits non-zero on purpose: the library's call shape changed upstream
+   and the patch must be re-audited before shipping.
+
    Caveat: this is a **hardening** fix. The field panic's `a2` was a wild pointer
    (`a2 & ~3 == exc_vaddr`), which the close-frame path cannot produce, so this
    line is not the proven trigger of the recorded panics — see the forensic notes
