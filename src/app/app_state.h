@@ -172,16 +172,6 @@ struct DashboardPageState {
 };
 
 // ============================================================================
-// Hashrate-health page state
-// ============================================================================
-struct HrHealthPageState {
-    ObsLabel hashrate;    // 3-min avg hashrate, "1.23 TH/s"
-    ObsLabel efficiency;  // "21.4 J/TH"
-    ObsLabel shares;      // "rej/acc"
-    ObsLabel best_diff;   // best-ever difficulty
-};
-
-// ============================================================================
 // AppState — application global state singleton
 //
 //   Usage (from any FreeRTOS task):
@@ -204,7 +194,6 @@ public:
     ClockPageState      clock;
     MarketPageState     market;
     DashboardPageState     dashboard;
-    HrHealthPageState      hr_health;
 
 private:
     AppState() = default;

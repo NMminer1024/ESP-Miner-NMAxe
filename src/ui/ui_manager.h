@@ -7,8 +7,7 @@
 #include <functional>
 
 // ============================================================================
-// UIPageId — page enum (order must match _register_page calls in init())
-// Matches original display.cpp: LOADING/CONFIG/MINER/DASHBOARD/HR_HEALTH/CLOCK/MARKET/SETTING_SWARM
+// UIPageId — page enum (order must match the _register_page calls in init())
 // ============================================================================
 enum class UIPageId : uint8_t {
     LOADING        = 0,
