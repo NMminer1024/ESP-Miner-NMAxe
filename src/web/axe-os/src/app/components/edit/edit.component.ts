@@ -43,6 +43,10 @@ interface BenchmarkEntry {
   // artificial condition, not in real operation.
   soak?: number;
   fanNeed?: number;    // settled fan duty during the soak, %
+  // Highest voltage that failed at this frequency and the % of expected hashrate
+  // it reached. Absent when the first voltage tried passed (floor never probed).
+  vFail?: number;
+  vFailPct?: number;
 }
 
 interface ModePreset {

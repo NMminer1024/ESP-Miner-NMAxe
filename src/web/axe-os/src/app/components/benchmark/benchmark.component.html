@@ -194,7 +194,7 @@
             [class.bm-best-both-row]="r === bestEff && r === bestHR">
           <td>{{ formatTs(r.ts) }}</td>
           <td>{{ r.freq }}</td>
-          <td>{{ r.vcore }}</td>
+          <td [pTooltip]="vcoreTip(r)" tooltipPosition="top">{{ r.vcore }}</td>
           <td>{{ r.expHR | number:'1.1-1' }}</td>
           <td [class.bm-val-best-hr]="r === bestHR">
             <span *ngIf="r === bestHR" class="bm-best-tag">⚡</span>{{ r.avgHR | number:'1.1-1' }}

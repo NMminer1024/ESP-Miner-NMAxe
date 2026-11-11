@@ -49,6 +49,12 @@ export interface BenchmarkResult {
   // limits, so they must never be selected automatically.
   q?: number;     // 1 = passed the safety margin, 0 = failed it
   fail?: number;  // 1 = this point tripped protection
+  // Highest voltage that FAILED at this frequency, and the hashrate it reached
+  // (% of expected). ABSENT when the first voltage tried already passed, which
+  // means "the floor was never probed" — a different statement from "the step
+  // below failed". Written by firmware from v3.2.02a on.
+  vFail?: number;
+  vFailPct?: number;
 }
 
 @Component({
@@ -1020,6 +1026,21 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     return r.fw && r.fw.length
       ? `Measured by ${r.fw}.`
       : 'Firmware version not recorded — this result predates the field.';
+  }
+
+  // ── Voltage floor ─────────────────────────────────────────────────────────
+  // The row stores only the voltage that PASSED, and the sweep starts each
+  // frequency one step below the previous success — so "+10 mV above factory"
+  // is ambiguous on its own. vFail answers it: either a lower voltage was tried
+  // and failed (with how close it came), or the floor was never probed.
+  public vcoreTip(r: BenchmarkResult): string {
+    if (r.vFail && r.vFail > 0) {
+      const pct = (r.vFailPct != null) ? ` at ${r.vFailPct.toFixed(2)} % of expected hashrate` : '';
+      return `Lowest voltage that passed. The highest voltage that failed was ` +
+             `${r.vFail} mV${pct} — this is a measured floor, not a deliberate margin.`;
+    }
+    return 'Passed on the first voltage tried at this frequency, so no lower voltage was ' +
+           'attempted. This row says nothing about the voltage floor.';
   }
 
   // ── Per-row delete ────────────────────────────────────────────────────────

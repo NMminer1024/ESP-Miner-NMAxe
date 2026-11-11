@@ -116,6 +116,20 @@
   }
 }
 
+// Save note: the settings on this page apply live, so name the ones that do not
+// (Network only) instead of telling the user to restart a working miner.
+.save-note {
+  flex-basis: 100%;
+  color: #9aa4b2 !important;
+  font-size: 0.82rem;
+  line-height: 1.5;
+
+  b {
+    color: #cbd5e1 !important;
+    font-weight: 600;
+  }
+}
+
 // Temperature slider color styles
 .temp-safe {
   ::ng-deep .p-slider .p-slider-range {
@@ -181,5 +195,9 @@
 
   .save-row b {
     font-size: 0.8rem !important;
+  }
+
+  .save-note {
+    font-size: 0.76rem !important;
   }
 }

@@ -145,7 +145,22 @@
       <button pButton [disabled]="form.invalid" (click)="updateSystem()"
               class="btn btn-primary mr-2">Save
       </button>
-      <b>You must restart this device after saving for changes to take effect.</b>
+      <!--
+        This used to say "You must restart this device after saving", which is wrong
+        for most of this page. Measured on Nexus: a fan target change takes effect on
+        the next PID tick, i.e. within a second, with no reboot at all. Telling the
+        user to restart anyway wastes a full stop/start on a live miner (and hides a
+        real failure behind "did you reboot?").
+
+        So name the settings that DO need one. On this page that is nothing: every
+        item is applied live while the form is saved.
+      -->
+      <span class="save-note">
+        <b>Applied immediately on Save</b> — fan mode, target temperature, fan speed,
+        screen flip, brightness, screensaver, auto-scroll and the LED indicator all take
+        effect within a second; no restart needed. Only the <b>Network</b> page (hostname,
+        WiFi, static address) requires a restart.
+      </span>
     </div>
   </form>
 </ng-container>
