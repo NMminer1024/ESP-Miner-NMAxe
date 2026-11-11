@@ -354,18 +354,55 @@ fan_thermal_plant_t fan_plant_gamma_asic(void)
     return make_plant(0.22f, 6.0f, 50.0f, 0.20f, 0.0625f, 4.0f, 25.0f, 0.0f, true);
 }
 
-void fan_pid_reset(fan_pid_t* pid, float measured, float output)
+// Re-seed the loop so its FIRST output after the reset is the duty that is
+// really applied, not zero.
+//
+// Clearing the integrator alone is not bumpless. u = Kp*e + Ki*integral, so with
+// integral = 0 and the error near the target the demand collapses to ~0 % and the
+// output can only walk down at slew_down. Measured on Nexus (v3.2.02u): every
+// soak hand-over left a 100 % cooldown at ~1 %/s while the chip was still cold
+// (100 -> 80 -> 60 -> 51 over 49 s), the rising temperature then reversed the
+// loop, and the soak's peak-current sample landed inside that dip instead of on
+// the steady point (775MHz/1220mV rejected by 0.02 A at 14.27 A while its steady
+// draw was 13.85 A).
+//
+// Back-solving the integral makes the hand-over genuinely continuous: the first
+// pid_compute() returns `output`, the slew limiter has nothing to do, and the
+// loop then moves only as far as the real error asks for.
+void fan_pid_reset(fan_pid_t* pid, float setpoint, float measured, float output)
 {
-    pid->integral = 0.0f;
     pid->prev_error = 0.0f;
     pid->d_f = 0.0f;
+    if (output > pid->output_max) output = pid->output_max;
+    if (output < pid->output_min) output = pid->output_min;
     pid->out = output;
-    if (isfinite(measured)) {
-        pid->meas_f = measured;
-        pid->valid  = true;
-    } else {
-        pid->valid  = false;
+
+    if (!isfinite(measured) || !isfinite(setpoint)) {
+        pid->integral = 0.0f;
+        pid->valid    = false;
+        return;
     }
+    pid->meas_f = measured;
+    pid->valid  = true;
+
+    if (pid->Ki <= 0.0f) { pid->integral = 0.0f; return; }
+
+    // Same error shaping as pid_compute(): dead band, then the gain schedule.
+    float e = measured - setpoint;
+    if (fabsf(e) < pid->deadband) e = 0.0f;
+    float w = (fabsf(e) - 2.0f) / 6.0f;
+    if (w < 0.0f) w = 0.0f;
+    if (w > 1.0f) w = 1.0f;
+    const float kp = pid->Kp * (1.0f + 2.0f * w);
+
+    // Solve u = kp*e + Ki*integral for the integral that yields `output`
+    // (the derivative term is zero right after the reset).
+    float i = (output - kp * e) / pid->Ki;
+    if (pid->integral_limit > 0.0f) {
+        if (i >  pid->integral_limit) i =  pid->integral_limit;
+        if (i < -pid->integral_limit) i = -pid->integral_limit;
+    }
+    pid->integral = i;
 }
 
 float pid_compute(fan_pid_t* pid, float setpoint, float measured, float dt) {

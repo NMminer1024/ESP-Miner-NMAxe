@@ -496,10 +496,13 @@ void TPS546D24AClass::set_vcore_status(power_state_t state){
 }
 
 void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
-    // Recursive take: the req_mv==0 path re-enters via set_vcore_status().
-    TPS_BUS_LOCK_DEFAULT();
-    if (!_bus_guard.ok()) return;
-    if(req_mv == 0) {
+    if (req_mv == 0) {
+        // Powering the rail down invalidates both caches: the next enable reprograms
+        // from scratch instead of trusting a stale rail value.
+        TPS_BUS_LOCK_DEFAULT();
+        if (!_bus_guard.ok()) return;
+        this->_limit_rail_mv = 0;
+        this->_vout_rail_mv  = 0;
         this->set_vcore_status(PWR_OFF);
         return;
     }
@@ -508,18 +511,61 @@ void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
     // scale by the series count to form the actual regulator rail voltage.
     uint16_t per_die_mv = (req_mv <= this->_vcore_min_mv) ? this->_vcore_min_mv : ((req_mv >= this->_vcore_max_mv) ? this->_vcore_max_mv : req_mv);
     uint16_t rail_mv = (uint16_t)(per_die_mv * this->_vcore_series_count);
+
+    // ── Fast path, checked BEFORE taking the bus ──────────────────────────────
+    // The correction loop calls this every ~100 ms and its setpoint frequently lands
+    // on the same mV it already commanded. Answering that without acquiring the lock
+    // is the whole point: the lock is what the temperature thread waits 200 ms for,
+    // and taking it just to discover there is nothing to do is pure loss.
+    //
+    // Reading _vout_rail_mv outside the lock is safe: it is a single uint16_t (an
+    // atomic access on Xtensa) that only this function writes, while holding the
+    // lock. The worst case is two tasks both seeing the old value and both doing the
+    // work — which is exactly the pre-existing behaviour, not a regression.
+    if (rail_mv == this->_vout_rail_mv) return;
+
+    // Recursive take: the req_mv==0 path re-enters via set_vcore_status().
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return;
+    // Re-check under the lock: another task may have applied this exact value while
+    // we were waiting for the semaphore.
+    if (rail_mv == this->_vout_rail_mv) return;
+
     uint16_t raw = this->_mv_to_ulinear16(rail_mv);
     this->_write_word(PMBUS_VOUT_COMMAND, raw);
-    delay(50); // chip-busy window after a VOUT_COMMAND change (same class as the OPERATION /
-               // VOUT_MIN-MAX precedents in hw_init()). Measured on Nexus (v3.2.02d, 2026-11-05):
-               // without any delay the four OV/UV limit writes below NACK 100% of the time right
-               // after a VOUT_COMMAND change (BM hot-switch and first post-boot regulation both
-               // reproduced it; the bus lock ruled out task interleaving — "bus lock busy" = 0).
-               // delay(10) was NOT enough (still 100% fail) — loop re-settle after a commanded
-               // voltage move is longer than the command-processing window seen in hw_init.
-    // OV/UV limits must track the commanded rail — a static window based on vout_min/max_mv
-    // gets silently clamped by the chip (see hw_init() comment) instead of NACKing.
-    this->_write_vout_limit_ratios(rail_mv);
+    this->_vout_rail_mv = rail_mv;
+
+    // OV/UV limits must track the commanded rail — a static window based on
+    // vout_min/max_mv gets silently clamped by the chip (see hw_init() comment)
+    // instead of NACKing.
+    //
+    // Re-written only when the rail moved by more than LIMIT_REPROG_MV.
+    //
+    // The limits are ratios of the rail (x1.25 / x1.10 / x0.90 / x0.75), so a 25-50 mV
+    // step moves a 1.25 V OV_FAULT threshold by ~30-60 mV against a protection margin
+    // of several hundred mV — reprogramming for it protects nothing. It DOES cost four
+    // PMBus transactions plus the settle delay below, which is what keeps the bus busy
+    // while the temperature thread waits for its lock. Reported from the field on
+    // v3.2.02u: five failed Vcore reads in 7.5 h, every one of them exactly on a round
+    // boundary, where the correction loop calls this function on every ~100 ms tick.
+    //
+    // 25 mV is ~13 VOUT_COMMAND LSBs at N=-9 (1.953 mV), i.e. wider than one correction
+    // step (capped at 50 mV, half-error so typically 12-25), so a real switch still
+    // tracks while the small trims that dominate steady state are skipped.
+    constexpr uint16_t LIMIT_REPROG_MV = 25;
+    const uint16_t rail_delta = (uint16_t)((rail_mv > this->_limit_rail_mv)
+                                             ? (rail_mv - this->_limit_rail_mv)
+                                             : (this->_limit_rail_mv - rail_mv));
+    if (this->_limit_rail_mv == 0 || rail_delta > LIMIT_REPROG_MV) {
+        // The settle delay belongs to the LIMIT writes, not to VOUT_COMMAND itself
+        // (see the measurement quoted in the previous version of this code: without
+        // it the four limit writes NACK 100% of the time). Skipping the limits
+        // therefore also skips 50 ms of held lock, which is the dominant cost of
+        // this function.
+        delay(50);
+        this->_write_vout_limit_ratios(rail_mv);
+        this->_limit_rail_mv = rail_mv;
+    }
     LOG_D("TPS546D24A VOUT_COMMAND -> %dmV/die x%u = %dmV rail (raw 0x%04X)",
           per_die_mv, this->_vcore_series_count, rail_mv, raw);
 }

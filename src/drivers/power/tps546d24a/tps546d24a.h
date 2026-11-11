@@ -112,6 +112,19 @@ private:
     uint16_t      _vcore_max_mv;             // Vcore range max in mV (per-die), ASIC-related
     uint8_t       _vcore_series_count;       // ASIC dies stacked in series on Vcore (1 = single/parallel)
     tps546d24a_cfg_t _cfg;
+    // Last rail voltage the OV/UV limit registers were programmed for, and whether
+    // they hold a valid programming yet. 0 = nothing written since boot.
+    //
+    // The limits are a fixed RATIO of the rail (x1.25 / x1.10 / x0.90 / x0.75), and
+    // the correction loop moves the setpoint in 25-50 mV steps. Re-writing four
+    // registers for a step that shifts a 1.25 V OV_FAULT threshold by 60 mV buys
+    // nothing, and those four writes are what keeps the PMBus busy while a
+    // temperature read is waiting for the lock (field report: every failed Vcore
+    // read landed exactly on a round boundary).
+    uint16_t      _limit_rail_mv;
+    // Last rail the VOUT_COMMAND register was set to; lets a repeated identical
+    // request skip the whole PMBus sequence, 50 ms settle included.
+    uint16_t      _vout_rail_mv;
     // Sequence-level lock for every multi-transaction PMBus access (set_vcore_voltage
     // writes VOUT_COMMAND + 4 OV/UV limits as one logical unit; BM thread, power loop
     // and the web task all call it concurrently — the legacy I2C driver only makes a
@@ -138,6 +151,8 @@ public:
         : AxePowerHal(en_pins, adc_pins), _cfg(cfg) {
         this->_i2c_addr        = cfg.i2c_addr;
         this->_device_ok       = false;
+        this->_limit_rail_mv   = 0;
+        this->_vout_rail_mv    = 0;
         this->_vcore_pgood_pin = (int8_t)pgood;
         this->_vcore_series_count = (cfg.vcore_series_count >= 1) ? cfg.vcore_series_count : 1;
         this->_bus_mtx = xSemaphoreCreateRecursiveMutex();

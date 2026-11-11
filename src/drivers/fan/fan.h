@@ -167,5 +167,8 @@ bool fan_pid_configure(fan_pid_t* pid, const fan_thermal_plant_t* plant);
 // Re-seed the loop after a manual/benchmark takeover or a sensor fault so the
 // next output starts from the duty that is actually applied right now and the
 // temperature filter does not carry a stale value across the handover.
-void fan_pid_reset(fan_pid_t* pid, float measured, float output);
+//
+// `setpoint` is required (not optional) because the integral is back-solved from
+// it: clearing the integrator is NOT bumpless (see fan.cpp).
+void fan_pid_reset(fan_pid_t* pid, float setpoint, float measured, float output);
 #endif 

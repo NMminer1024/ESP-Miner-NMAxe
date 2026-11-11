@@ -590,6 +590,31 @@ void power_loop_thread_entry(void* args) {
             }
             continue;
         }
+        // A rail that is still ramping up is NOT a rail that is undershooting.
+        //
+        // The 0 mV test above only catches a completely failed read. A soft-start
+        // in progress returns a real, small number, and the correction loop reads
+        // it as "the rail is 700 mV low" and climbs at 50 mV per 100 ms. Reported
+        // from the field on v3.2.02u: after a reboot from 325/990 the rail read
+        // 254 then 334 mV, and the loop drove the setpoint to 1355–1356 mV — above
+        // the top of the whole Vcore list — for ~10 s until the real rail caught
+        // up and the error reversed.
+        //
+        // A live rail under load cannot sit at a fraction of its target, so treat
+        // "well below target" as "not established yet" and hold. 60 % of target is
+        // far above any legitimate steady-state error (measured worst case on
+        // Nexus: 15 mV, i.e. 1.3 % at 1150 mV) and far below the soft-start range.
+        constexpr uint32_t VCORE_ESTABLISHED_PCT = 60;
+        if (vcore_measure < (int32_t)spec.asic.req_vcore * VCORE_ESTABLISHED_PCT / 100) {
+            static uint32_t last_ramp_ms = 0;
+            if (millis() - last_ramp_ms >= 5000) {
+                last_ramp_ms = millis();
+                LOG_I("Vcore %dmV is %u%% of the %umV target — rail still ramping, correction held",
+                      (int)(int32_t)vcore_measure, (unsigned)VCORE_ESTABLISHED_PCT,
+                      (unsigned)spec.asic.req_vcore);
+            }
+            continue;
+        }
         const int32_t err = (int32_t)vcore_measure - (int32_t)spec.asic.req_vcore;
         if (err <= 5 && err >= -5) {
             LOG_D("Vcore %d/%dmV, error %d mV, Vcore within acceptable range",
@@ -609,6 +634,18 @@ void power_loop_thread_entry(void* args) {
         int32_t next_set = (int32_t)vcore_set - step;
         if (next_set < (int32_t)power->get_vcore_min()) next_set = (int32_t)power->get_vcore_min();
         if (next_set > (int32_t)power->get_vcore_max()) next_set = (int32_t)power->get_vcore_max();
+        // The correction may only spend the regulator headroom that exists ABOVE
+        // the user-facing ceiling, and that headroom is what the board reserved for
+        // line loss (Nexus: max_vcore 1450 vs a 1250 mV vc-list top = 200 mV).
+        //
+        // Clamping to get_vcore_max() alone let a transient push the setpoint to
+        // 1450 mV, i.e. 200 mV above the highest voltage a user can even select —
+        // the 1355 mV boot overshoot above is one instance of that. Line loss does
+        // not grow to 200 mV at these currents, so the ceiling is generous already.
+        int32_t headroom = (int32_t)power->get_vcore_max() - (int32_t)spec.user_vcore_max();
+        if (headroom < 0) headroom = 0;
+        const int32_t set_ceiling = (int32_t)spec.asic.req_vcore + headroom;
+        if (next_set > set_ceiling) next_set = set_ceiling;
         vcore_set = (uint32_t)next_set;
         power->set_vcore_voltage(vcore_set);
     }
@@ -949,10 +986,11 @@ void fan_thread_entry(void* args) {
             float measured = (fan_cfg.id == 0) ? ctx->temp->asic : ctx->temp->vcore; // fan0=ASIC, fan1=Vcore
 
             if (fan_index < FAN_SLOTS_MAX && bumpless_pending[fan_index] && isfinite(measured)) {
-                // Bumpless transfer: start from the duty that is applied now,
-                // with an empty integrator. The first PID output is therefore
-                // close to the current duty and the slew limiter does the rest.
-                fan_pid_reset(&fan_cfg.pid, measured, (float)fan_status->speed);
+                // Bumpless transfer: back-solve the integrator so the first PID
+                // output IS the duty that is applied now. Clearing it instead
+                // made the demand collapse to ~0 % and the hand-over walked the
+                // fan down at slew_down (see fan_pid_reset in fan.cpp).
+                fan_pid_reset(&fan_cfg.pid, target, measured, (float)fan_status->speed);
                 bumpless_pending[fan_index] = false;
             }
 
@@ -963,7 +1001,7 @@ void fan_thread_entry(void* args) {
                       (unsigned)fan_cfg.id,
                       (unsigned long)((now_ms - lost_since_ms[fan_index]) / 1000),
                       (unsigned)fan_status->speed);
-                fan_pid_reset(&fan_cfg.pid, measured, (float)fan_status->speed);
+                fan_pid_reset(&fan_cfg.pid, target, measured, (float)fan_status->speed);
                 lost_since_ms[fan_index] = 0;
             }
 
