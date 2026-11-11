@@ -970,6 +970,18 @@ BoardSpecConfig get_board_config_compile_time() {
     // the primary check.
     config.pwr.adapter_max_w         = 180.0f;
     config.pwr.adapter_max_a         = 15.0f;
+    // Nexus alone runs at 0.93 instead of the 0.95 default (13.95 A of 15 A).
+    //
+    // 0.90 was tried first and rejected the 750MHz/1200mV point, whose steady draw
+    // under the user's fan policy is 13.59 A (90.6 %) — the same point the field
+    // reported as acceptable. 0.93 accepts it with a real 7 % reserve and still
+    // leaves the 785MHz/1210mV / 795MHz/1230mV class (14.7 A and up, 98 %+) clearly
+    // outside. Note 775MHz/1220mV sits at 13.85 A (92.3 %) and therefore also
+    // passes at this setting.
+    //
+    // Other boards keep the default: they never came near their rating, so
+    // tightening them would only invalidate points they already qualified.
+    config.pwr.adapter_budget        = 0.93f;
     config.iic.scl_pin               = 7;   
     config.iic.sda_pin               = 8;
     config.led.wifi_pin              = -1; // Not used

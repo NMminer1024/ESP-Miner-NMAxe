@@ -356,12 +356,24 @@ static void bm_restore_normal_point(BenchmarkCtx* ctx) {
 // headroom absorbs rail sag (Vbus drops as load rises, which raises the current
 // for the same wattage) and slow thermal drift in the adapter.
 //
+// This is the DEFAULT. A board may override it in `pwr.adapter_budget` — Nexus runs
+// 0.93 (13.95 A of 15 A) because its candidates sit at 86 % and 92 % of the rating
+// and 0.90 rejected both, including the 86 % point the field accepts.
+//
 // Shared by the sweep's qualification and the post-sweep soak: the sweep
 // measures at 100 % cooling, the soak under the user's real fan policy, and the
 // hotter run draws MORE input current for the same hashrate (reported from the
 // field: 114.6 W at 50-56 C versus 111.1 W at 39 C for a comparable point), so
 // the sweep's margin is optimistic and has to be re-checked at the soak.
-static constexpr float BM_ADAPTER_BUDGET = 0.95f;
+static constexpr float BM_ADAPTER_BUDGET_DEFAULT = 0.95f;
+
+// Budget actually in force for this board.
+static float bm_adapter_budget(const BoardSpecConfig* spec) {
+    if (spec && spec->pwr.adapter_budget > 0.01f && spec->pwr.adapter_budget < 1.0f) {
+        return spec->pwr.adapter_budget;
+    }
+    return BM_ADAPTER_BUDGET_DEFAULT;
+}
 
 static constexpr uint8_t  BM_SOAK_CANDIDATES = 3;
 static constexpr uint32_t BM_SOAK_MAX_MS     = 8u * 60u * 1000u;
@@ -452,6 +464,20 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
 
     const uint32_t t0 = millis();
     double  at_hist[13], vt_hist[13];
+    // Duty history, so "settled" cannot mean "the temperature stopped moving while
+    // the fan was still walking".
+    //
+    // Reported from the field: 750MHz/1200mV was marked soak-verified with
+    // fanNeedVcore = 56 %, sampled while the VRM fan was still climbing 38 -> 44 ->
+    // 48 -> 54 %; in steady operation it needs 100 % to hold 61 C. The stored duty
+    // therefore understated the real cooling cost of the point.
+    //
+    // Temperature alone cannot catch this: the loop trades duty against temperature,
+    // so a slow ramp looks flat on the thermistor for a whole window while the
+    // actuator is still moving. Requiring BOTH to stop is what makes the recorded
+    // fanNeed the steady duty instead of a sample taken mid-ramp.
+    uint16_t f0_hist[13], f1_hist[13];
+    bool     f0_seen[13], f1_seen[13];
     uint8_t hist_n = 0, hist_pos = 0;
     double  at_peak = 0.0, vt_peak = 0.0;
     double  hr_peak = 0.0;
@@ -586,6 +612,14 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
 
         at_hist[hist_pos] = at;
         vt_hist[hist_pos] = vt;
+        {
+            uint16_t d = 0;
+            f0_seen[hist_pos] = bm_fan_duty_of(ctx, 0, &d);
+            f0_hist[hist_pos] = d;
+            d = 0;
+            f1_seen[hist_pos] = bm_fan_duty_of(ctx, 1, &d);
+            f1_hist[hist_pos] = d;
+        }
         hist_pos = (uint8_t)((hist_pos + 1) % 13);
         if (hist_n < 13) hist_n++;
 
@@ -593,16 +627,84 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
         if (elapsed >= BM_SOAK_MIN_MS && hist_n >= 13) {
             double at_min = at_hist[0], at_max = at_hist[0];
             double vt_min = vt_hist[0], vt_max = vt_hist[0];
-            for (uint8_t k = 1; k < 13; k++) {
+            uint16_t f0_min = f0_hist[0], f0_max = f0_hist[0];
+            uint16_t f1_min = f1_hist[0], f1_max = f1_hist[0];
+            bool f0_any = false, f1_any = false;
+            for (uint8_t k = 0; k < 13; k++) {
                 if (at_hist[k] < at_min) at_min = at_hist[k];
                 if (at_hist[k] > at_max) at_max = at_hist[k];
                 if (vt_hist[k] < vt_min) vt_min = vt_hist[k];
                 if (vt_hist[k] > vt_max) vt_max = vt_hist[k];
+                if (f0_seen[k]) {
+                    if (!f0_any) { f0_min = f0_max = f0_hist[k]; f0_any = true; }
+                    else {
+                        if (f0_hist[k] < f0_min) f0_min = f0_hist[k];
+                        if (f0_hist[k] > f0_max) f0_max = f0_hist[k];
+                    }
+                }
+                if (f1_seen[k]) {
+                    if (!f1_any) { f1_min = f1_max = f1_hist[k]; f1_any = true; }
+                    else {
+                        if (f1_hist[k] < f1_min) f1_min = f1_hist[k];
+                        if (f1_hist[k] > f1_max) f1_max = f1_hist[k];
+                    }
+                }
+            }
+            // BM_SOAK_DUTY_WALK: how far the MEAN duty may move between the first
+            // and the second half of the window before the loop counts as still
+            // walking. Compared as halves rather than min/max on purpose: a
+            // settled loop still dithers by one sensor LSB, and on Nexus one
+            // Vcore LSB (1 C) is worth about 4 duty points at Kp = 4 %/C. A
+            // min/max test of 3 points therefore never fires there and the soak
+            // ran to its 8 min timeout instead of settling (measured at
+            // 725MHz/1180mV: 62 -> 52 % over 480 s, temperature flat the whole
+            // time). A monotonic ramp moves both halves apart; dither does not.
+            //
+            // BM_SOAK_DUTY_SPAN is the wide safety net: a loop oscillating over a
+            // large range is not settled either, whatever its halves average to.
+            constexpr double BM_SOAK_DUTY_WALK = 3.0;   // points between half-means
+            constexpr uint16_t BM_SOAK_DUTY_SPAN = 10;  // points, peak-to-peak
+
+            // Half-means of the duty history, in CHRONOLOGICAL order.
+            //
+            // hist_* is a circular buffer, so index order is not time order once the
+            // window has wrapped: the oldest sample sits at hist_pos and index 0 holds
+            // the newest. Splitting on the raw index would compare two scrambled
+            // subsets and could call a clean ramp "settled". Walk from hist_pos so
+            // slot 0 of the walk is the oldest sample.
+            auto half_means = [](const uint16_t* h, const bool* seen, uint8_t start, double* first, double* second) {
+                double s0 = 0.0, s1 = 0.0;
+                int n0 = 0, n1 = 0;
+                for (int i = 0; i < 13; i++) {
+                    const uint8_t k = (uint8_t)((start + i) % 13);
+                    if (!seen[k]) continue;
+                    if (i < 6) { s0 += h[k]; n0++; }
+                    else       { s1 += h[k]; n1++; }
+                }
+                if (n0 == 0 || n1 == 0) return false;
+                *first  = s0 / n0;
+                *second = s1 / n1;
+                return true;
+            };
+            bool duty_stable = true;
+            double a0, a1, v0, v1;
+            // hist_pos is where the NEXT sample will go, which is also the oldest
+            // slot once the window is full (hist_n == 13).
+            if (f0_any && half_means(f0_hist, f0_seen, hist_pos, &a0, &a1)) {
+                if (fabs(a1 - a0) > BM_SOAK_DUTY_WALK || (f0_max - f0_min) > BM_SOAK_DUTY_SPAN) duty_stable = false;
+            }
+            if (f1_any && half_means(f1_hist, f1_seen, hist_pos, &v0, &v1)) {
+                if (fabs(v1 - v0) > BM_SOAK_DUTY_WALK || (f1_max - f1_min) > BM_SOAK_DUTY_SPAN) duty_stable = false;
             }
             if ((at_max - at_min) < BM_SOAK_DRIFT_C && (vt_max - vt_min) < BM_SOAK_DRIFT_C) {
-                LOG_W("[BM] Soak settled after %lus: ASIC %.1fC, Vcore %.1fC.",
-                      (unsigned long)(elapsed / 1000), at, vt);
-                break;
+                if (duty_stable) {
+                    LOG_W("[BM] Soak settled after %lus: ASIC %.1fC, Vcore %.1fC, fan %s.",
+                          (unsigned long)(elapsed / 1000), at, vt,
+                          f0_any && f1_any ? "stable" : (f0_any || f1_any ? "stable (1 fan)" : "n/a"));
+                    break;
+                }
+                LOG_I("[BM] Soak: temperature flat but fan still moving (%u-%u%% / %u-%u%%) — waiting for the duty to settle.",
+                      (unsigned)f0_min, (unsigned)f0_max, (unsigned)f1_min, (unsigned)f1_max);
             }
         }
         if (elapsed >= BM_SOAK_MAX_MS) {
@@ -645,23 +747,24 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
     // figure understates the draw - and current is the primary one.
     if (ctx->spec) {
         const BoardSpecConfig* bspec = ctx->spec;
+        const double budget_frac = (double)bm_adapter_budget(bspec);
         if (bspec->pwr.adapter_max_a > 0.0f) {
-            const double budget_a = (double)bspec->pwr.adapter_max_a * BM_ADAPTER_BUDGET;
+            const double budget_a = (double)bspec->pwr.adapter_max_a * budget_frac;
             if (soak_ibus_peak > budget_a) {
                 LOG_W("[BM] Soak failed: peak input %.2fA exceeds the %.2fA budget (%.0f%% of %.0fA) "
                       "at %dMHz/%dmV under the current fan policy — the sweep measured this point at "
                       "100%% cooling, and running it hotter is what pushed it over.",
-                      soak_ibus_peak, budget_a, BM_ADAPTER_BUDGET * 100.0,
+                      soak_ibus_peak, budget_a, budget_frac * 100.0,
                       (double)bspec->pwr.adapter_max_a, freq, vcore);
                 return false;
             }
         }
         if (bspec->pwr.adapter_max_w > 0.0f) {
-            const double budget_w = (double)bspec->pwr.adapter_max_w * BM_ADAPTER_BUDGET;
+            const double budget_w = (double)bspec->pwr.adapter_max_w * budget_frac;
             if (soak_pwr_in_peak > budget_w) {
                 LOG_W("[BM] Soak failed: peak input %.1fW exceeds the %.1fW budget (%.0f%% of %.0fW) "
                       "at %dMHz/%dmV under the current fan policy.",
-                      soak_pwr_in_peak, budget_w, BM_ADAPTER_BUDGET * 100.0,
+                      soak_pwr_in_peak, budget_w, budget_frac * 100.0,
                       (double)bspec->pwr.adapter_max_w, freq, vcore);
                 return false;
             }
@@ -672,18 +775,33 @@ static bool bm_soak_point(BenchmarkCtx* ctx, uint16_t freq, uint16_t vcore,
                   (unsigned)bm.soak_idx, (unsigned)bm.soak_total, freq, vcore,
                   soak_ibus_peak,
                   (bspec->pwr.adapter_max_a > 0.0f) ? 100.0 * soak_ibus_peak / bspec->pwr.adapter_max_a : 0.0,
-                  soak_pwr_in_peak, soak_phase_peak, BM_ADAPTER_BUDGET * 100.0);
+                  soak_pwr_in_peak, soak_phase_peak, budget_frac * 100.0);
         }
     }
 
+    // Record the SETTLED duty, averaged over the last window rather than read at the
+    // instant the loop decided to stop.
+    //
+    // The instantaneous reading was what produced fanNeedVcore = 56 % for a point
+    // that needs 100 %: the value was sampled while the loop was still walking. An
+    // average over the window survives one sample landing on a dither edge, and it
+    // is also the number the timeout path should report - a soak that timed out has
+    // still been holding station for minutes, just not within the drift tolerance.
     if (fan_need_asic != nullptr) {
+        double sum = 0.0; int n = 0;
+        for (int k = 0; k < 13; k++) { if (f0_seen[k]) { sum += f0_hist[k]; n++; } }
         uint16_t d = 0;
-        if (bm_fan_duty_of(ctx, 0, &d)) *fan_need_asic = d;
+        if (n > 0)          *fan_need_asic = (uint16_t)(sum / n + 0.5);
+        else if (bm_fan_duty_of(ctx, 0, &d)) *fan_need_asic = d;
     }
     if (fan_need_vcore != nullptr || has_vcore_fan != nullptr) {
+        double sum = 0.0; int n = 0;
+        for (int k = 0; k < 13; k++) { if (f1_seen[k]) { sum += f1_hist[k]; n++; } }
         uint16_t d = 0;
-        const bool present = bm_fan_duty_of(ctx, 1, &d);
-        if (present && fan_need_vcore != nullptr) *fan_need_vcore = d;
+        const bool present = (n > 0) || bm_fan_duty_of(ctx, 1, &d);
+        if (present && fan_need_vcore != nullptr) {
+            *fan_need_vcore = (n > 0) ? (uint16_t)(sum / n + 0.5) : d;
+        }
         if (has_vcore_fan != nullptr) *has_vcore_fan = present;
     }
     return true;
@@ -950,17 +1068,28 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
     bm_fan_acquire(ctx);
     bool fan_failed_any = false;
 
-    // Lowest voltage that came in UNSTABLE at the frequency currently being
-    // swept (0 = nothing failed yet, i.e. the first voltage tried passed).
+    // Voltage that came in UNSTABLE at the frequency currently being swept
+    // (0 = nothing failed yet, i.e. the first voltage tried passed).
     //
     // The stored row keeps only the voltage that PASSED, and the next frequency
     // starts one step BELOW the previous success, so a row reading "+10 mV above
-    // factory" is ambiguous: either the lower step failed, or it was never tried.
-    // That ambiguity was reported from the field ("I cannot confirm whether lower
-    // voltages failed or the extra step is deliberate margin"). Recording it here
-    // answers it in the log without spending any of the scarce NVS bytes on it.
+    // factory" is ambiguous: either a lower step failed, or it was never tried.
+    //
+    // Recorded as the HIGHEST failure, not the lowest, because that is the one
+    // that answers "how close did the floor come to this row": at 325MHz the sweep
+    // tried 950, 960, 970 and 980 before 990 passed, and 980 sat at 97.85 % of the
+    // expected hashrate — one tenth of a point below the 98 % gate. Reporting the
+    // lowest failure (950) would say "everything below 990 failed badly", which is
+    // the opposite of what the numbers show. Reported from the field: "the highest
+    // failed voltage and its % would be most useful (e.g. 980 / 97.85 %)".
+    //
+    // Both values are written into the result row as "vFail" / "vFailPct" so the
+    // page and the API can answer it without the log. The percentage is stored
+    // too rather than recomputed from avgHR/expHR, because only the FAILING round
+    // had that number — a passing row's own avgHR is a different measurement.
     uint16_t vfail_freq  = 0;
     uint16_t vfail_vcore = 0;
+    double   vfail_pct   = 0.0;
 
     while (*ctx->bm_mode == 1) {
         bm_fan_renew(ctx);
@@ -993,7 +1122,7 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         }
 
         // Fresh frequency: forget the previous one's failures.
-        if (cur_freq != vfail_freq) { vfail_freq = cur_freq; vfail_vcore = 0; }
+        if (cur_freq != vfail_freq) { vfail_freq = cur_freq; vfail_vcore = 0; vfail_pct = 0.0; }
 
         LOG_W("[BM] === Benchmark round: freq=%d vcore=%d ===", cur_freq, cur_vcore);
         LOG_W("[BM] Range freq %d~%dMHz step=%d, vcore %d~%dmV step=%d",
@@ -1428,8 +1557,9 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         //     peak input power against the board's power ceiling. Temperature is the
         //     only shared signal, so it applies everywhere.
         constexpr float BM_TEMP_MARGIN_C = 5.0f;
-        // BM_ADAPTER_BUDGET is defined at file scope: the soak re-applies the same
-        // budget under the user's fan policy.
+        // The budget itself is per board (`pwr.adapter_budget`); see
+        // bm_adapter_budget(). The soak re-applies the same value under the user's
+        // fan policy.
         bool  qualified = true;
         const char* q_reason = "ok";
         if (fault_tripped) {
@@ -1476,19 +1606,22 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
             // be run 24/7 on the stock PSU. Checked against the CURRENT first: at a
             // sagging rail the wattage figure understates the draw.
             //
-            // Budget is 95 %, not 100 %: the margin has to absorb rail sag and slow
-            // temperature drift. Measured reference on Nexus — 775MHz/1175mV drew
-            // 13.5 A / 160 W (90 % of 15 A, 89 % of 180 W) and qualifies; 785MHz/1210mV
-            // drew 14.71 A / 173.5 W (98 %, 96 %) and does not.
+            // The budget is per board (`pwr.adapter_budget`): 93 % on Nexus, where
+            // qualified candidates sit at 86 % and 92 % of the rating, and 95 %
+            // everywhere else, whose points never came near their rating. The margin
+            // has to absorb rail sag and slow temperature drift. Measured reference on
+            // Nexus at 0.95 — 775MHz/1175mV drew 13.5 A / 160 W and qualified;
+            // 785MHz/1210mV drew 14.71 A / 173.5 W (98 %, 96 %) and did not.
+            const float budget_frac = bm_adapter_budget(bspec);
             if (qualified && bspec && bspec->pwr.adapter_max_a > 0.0f) {
-                const float budget_a = bspec->pwr.adapter_max_a * BM_ADAPTER_BUDGET;
+                const float budget_a = bspec->pwr.adapter_max_a * budget_frac;
                 if (ibus_max > budget_a) {
                     qualified = false;
                     q_reason = "peak input current above adapter budget";
                 }
             }
             if (qualified && bspec && bspec->pwr.adapter_max_w > 0.0f) {
-                const float budget_w = bspec->pwr.adapter_max_w * BM_ADAPTER_BUDGET;
+                const float budget_w = bspec->pwr.adapter_max_w * budget_frac;
                 if (pwr_max_in > budget_w) {
                     qualified = false;
                     q_reason = "peak input power above adapter budget";
@@ -1531,7 +1664,7 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
                 LOG_W("[BM] Adapter: peak %.2fA (%s of %.0fA) / %.1fW (%s of %.0fW) — budget %.0f%%",
                       ibus_max, ibus_pct, (double)bspec->pwr.adapter_max_a,
                       pwr_max_in, pwr_pct, (double)bspec->pwr.adapter_max_w,
-                      BM_ADAPTER_BUDGET * 100.0);
+                      bm_adapter_budget(bspec) * 100.0);
             }
         }
         if (fan_asic_seen || fan_vcore_seen) {
@@ -1611,15 +1744,28 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         }
 
         if (stable) {
-            char entry[720];
+            // vFail: the highest voltage that did NOT hold this frequency, with the
+            // hashrate it reached. Omitted when the first voltage tried passed, so a
+            // row without the field means "the floor was never probed", which is a
+            // different statement from "vFail = stored - step".
+            //
+            // ~30 bytes against a ~340 byte row. Kept in the row rather than derived
+            // on the page: only the failing round measured that percentage.
+            char vfail_json[48] = "";
+            if (vfail_vcore > 0) {
+                snprintf(vfail_json, sizeof(vfail_json),
+                         ",\"vFail\":%u,\"vFailPct\":%.2f", (unsigned)vfail_vcore, vfail_pct);
+            }
+
+            char entry[760];
             snprintf(entry, sizeof(entry),
                 "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%s,\"avgVcoreTemp\":%s,"
                 "\"effJTH\":%.3f,\"avgPwr\":%.2f,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%s,\"maxVcoreTemp\":%s,"
-                "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f,"
+                "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f%s,"
                 "\"q\":%d,\"fail\":0%s%s,\"ts\":%ld}",
                 cur_freq, cur_vcore, exp_hr_ghs, hr_avg, j_avgAt, j_avgVt,
                 eff_avg, pwr_avg, iout_max, pwr_max, j_maxAt, j_maxVt,
-                iout_phase_max, (int)phase_cnt, ibus_max, pwr_max_in,
+                iout_phase_max, (int)phase_cnt, ibus_max, pwr_max_in, vfail_json,
                 qualified ? 1 : 0, fan_json, fw_json, (long)time(nullptr));
 
             // Ring storage: capacity bounded by partition size (80 entries), oldest evicted when full
@@ -1629,9 +1775,9 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
 
             // Explain the stored voltage relative to the attempts below it.
             if (vfail_vcore > 0) {
-                LOG_W("[BM] freq=%dMHz: stored %dmV; the lower voltage %dmV was tried and came in UNSTABLE "
-                      "(this row is the lowest voltage that passed, not a deliberate margin).",
-                      cur_freq, cur_vcore, vfail_vcore);
+                LOG_W("[BM] freq=%dMHz: stored %dmV; the highest voltage that failed was %dmV (%.2f%% of "
+                      "expected) — this row is the lowest voltage that passed, not a deliberate margin.",
+                      cur_freq, cur_vcore, vfail_vcore, vfail_pct);
             } else {
                 LOG_W("[BM] freq=%dMHz: stored %dmV on the first voltage tried this sweep; "
                       "no lower voltage was attempted, so this row says nothing about the floor.",
@@ -1659,15 +1805,20 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
                 return;
             }
         } else {
-            // Unstable at this voltage: remember the lowest failure so the round
-            // that eventually passes can say what it is standing on.
-            if (vfail_vcore == 0 || cur_vcore < vfail_vcore) vfail_vcore = cur_vcore;
-            LOG_W("[BM] freq=%dMHz: %dmV came in UNSTABLE — retrying at a higher voltage.",
-                  cur_freq, cur_vcore);
+            // Unstable at this voltage: remember the HIGHEST failure together with the
+            // hashrate it reached, so the round that eventually passes can report how
+            // close the floor came (see the vfail_* declaration above).
+            if (cur_vcore > vfail_vcore) {
+                vfail_vcore = cur_vcore;
+                vfail_pct   = (exp_hr_ghs > 0.0) ? (100.0 * hr_avg / exp_hr_ghs) : 0.0;
+            }
+            LOG_W("[BM] freq=%dMHz: %dmV came in UNSTABLE (%.2f%%) — retrying at a higher voltage.",
+                  cur_freq, cur_vcore, (exp_hr_ghs > 0.0) ? (100.0 * hr_avg / exp_hr_ghs) : 0.0);
             cur_vcore += vcore_step;
             if (cur_vcore > vcore_max) {
-                LOG_W("[BM] freq=%dMHz unstable at all vcores (lowest failure %dmV), skipping to next freq.",
-                      cur_freq, vfail_vcore);
+                LOG_W("[BM] freq=%dMHz unstable at all vcores (highest failure %dmV @ %.2f%%), "
+                      "skipping to next freq.",
+                      cur_freq, vfail_vcore, vfail_pct);
                 cur_freq  += freq_step;
                 cur_vcore  = vcore_min;
                 if (cur_freq > freq_max) {

@@ -187,6 +187,27 @@ struct BoardSpecConfig {
         // a wattage-only rule would call that comfortable.
         float                adapter_max_w;       // W    — 0 = unknown, skip wattage checks
         float                adapter_max_a;       // A    — 0 = unknown, skip current checks
+        // Fraction of the adapter rating a 24/7 point may occupy. Per board, because
+        // the same ratio is not equally meaningful everywhere:
+        //
+        // Nexus is the only board where a qualified point lands close enough to the
+        // rating that the last few percent decide the verdict. Its two candidates sit
+        // at 750/1200 = 12.88 A (86 %) and 775/1220 = 13.85 A (92 %), and 0.90 (13.50 A)
+        // rejected BOTH — too tight for the first, while the field considers 750
+        // acceptable. 0.93 (13.95 A) accepts 750 with a real 7 % reserve and rejects
+        // 775 on the units that actually measure ~14.2 A there. It does NOT reject
+        // 775 unconditionally: a unit whose 775/1220 sits at 13.85 A would pass, which
+        // is the accepted trade-off for not throwing away 750.
+        //
+        // Every other board keeps 0.95: lowering it globally would invalidate points
+        // they have already qualified, for no evidence of a problem.
+        //
+        // 0 = use BM_ADAPTER_BUDGET_DEFAULT (0.95).
+        //
+        // Defaulted here rather than left unset: BoardSpecConfig is a plain struct
+        // built in each board's branch, and a board that forgets to assign this
+        // field would otherwise carry a garbage ratio into the qualification rule.
+        float                adapter_budget = 0.0f;
         struct {
             float high;      // high temperature limit
             float medium;    // medium temperature limit
