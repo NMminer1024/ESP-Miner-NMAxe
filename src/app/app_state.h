@@ -172,9 +172,9 @@ struct DashboardPageState {
 };
 
 // ============================================================================
-// Lucky Statistics page state (hashrate readout + share/luck stats)
+// Hashrate-health page state
 // ============================================================================
-struct LuckyPageState {
+struct HrHealthPageState {
     ObsLabel hashrate;    // 3-min avg hashrate, "1.23 TH/s"
     ObsLabel efficiency;  // "21.4 J/TH"
     ObsLabel shares;      // "rej/acc"
@@ -204,7 +204,7 @@ public:
     ClockPageState      clock;
     MarketPageState     market;
     DashboardPageState     dashboard;
-    LuckyPageState           lucky;
+    HrHealthPageState      hr_health;
 
 private:
     AppState() = default;

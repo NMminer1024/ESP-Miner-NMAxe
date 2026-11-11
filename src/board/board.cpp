@@ -38,6 +38,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.spi.miso_pin              = -1;
     config.spi.mosi_pin              = 48;
     config.spi.sclk_pin              = 38;
+    config.ui.hashrate_dist_page.max_x_hr  = 1000;
+    config.ui.hashrate_dist_page.max_x_bars= 20;
+    config.ui.hashrate_dist_page.count     = 0;
 
     config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
     config.ui.dashboard_page.power.ibus          = {0.0f, 4.0f};
@@ -181,6 +184,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.spi.miso_pin              = -1;
     config.spi.mosi_pin              = 48;
     config.spi.sclk_pin              = 38;
+    config.ui.hashrate_dist_page.max_x_hr  = 2000;
+    config.ui.hashrate_dist_page.max_x_bars= 20;
+    config.ui.hashrate_dist_page.count     = 0;
 
     config.ui.dashboard_page.power.vbus          = {0.0f, 15.0f};
     config.ui.dashboard_page.power.ibus          = {0.0f, 5.0f};
@@ -317,6 +323,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.spi.miso_pin              = 2;
     config.spi.mosi_pin              = 1;
     config.spi.sclk_pin              = 5;
+    config.ui.hashrate_dist_page.max_x_hr  = 10000;
+    config.ui.hashrate_dist_page.max_x_bars= 20;
+    config.ui.hashrate_dist_page.count     = 0;
     config.asic.diff_thr_init        = 1024 * 1;
     config.asic.default_frq          = 600;
     config.asic.default_vcore        = 1150;
@@ -492,6 +501,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.spi.miso_pin              = 2;
     config.spi.mosi_pin              = 1;
     config.spi.sclk_pin              = 5;
+    config.ui.hashrate_dist_page.max_x_hr  = 10000;
+    config.ui.hashrate_dist_page.max_x_bars= 20;
+    config.ui.hashrate_dist_page.count     = 0;
     config.asic.diff_thr_init        = 1024 * 1;
     config.asic.default_frq          = 750;
     config.asic.default_vcore        = 1250;
@@ -663,6 +675,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.spi.miso_pin              = 2;
     config.spi.mosi_pin              = 1;
     config.spi.sclk_pin              = 5;
+    config.ui.hashrate_dist_page.max_x_hr  = 20000;
+    config.ui.hashrate_dist_page.max_x_bars= 20;
+    config.ui.hashrate_dist_page.count     = 0;
     config.asic.diff_thr_init        = 1024 * 2;
     config.asic.default_frq          = 325;
     config.asic.default_vcore        = 1000;
@@ -846,6 +861,9 @@ BoardSpecConfig get_board_config_compile_time() {
     config.spi.miso_pin              = 2;
     config.spi.mosi_pin              = 1;
     config.spi.sclk_pin              = 5;
+    config.ui.hashrate_dist_page.max_x_hr  = 20000;
+    config.ui.hashrate_dist_page.max_x_bars= 20;
+    config.ui.hashrate_dist_page.count     = 0;
     config.asic.diff_thr_init        = 1024 * 2;
     config.asic.default_frq          = 600;
     // Nexus's 2 BM1373 dies are Vcore-series-stacked (not parallel like Rev8.1), but the

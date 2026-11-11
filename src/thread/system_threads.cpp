@@ -474,6 +474,30 @@ void monitor_thread_entry(void* args) {
                 }
                 hr_recent_peak_hs *= HR_DIAG_PEAK_DECAY;
             }
+
+            // hashrate distribution histogram (PSRAM-backed counts)
+            spec.ui.hashrate_dist_page.time = st.uptime_session;
+            {
+                static uint16_t SCALE = (spec.ui.hashrate_dist_page.max_x_hr / spec.ui.hashrate_dist_page.max_x_bars);
+                static uint64_t* counts = NULL;
+                if (counts == NULL) {
+                    counts = (uint64_t*)heap_caps_malloc(spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+                    if (counts == NULL) {
+                        LOG_E("Failed to allocate hashrate distribution counts in PSRAM");
+                        continue;
+                    }
+                    memset(counts, 0, spec.ui.hashrate_dist_page.max_x_bars * sizeof(uint64_t));
+                }
+                double hr_now = st.hashrate._3m;
+                int index = (int)(hr_now / 1000 / 1000 / 1000 / SCALE); // GH/s, scaled
+                index = (index >= (int)spec.ui.hashrate_dist_page.max_x_bars) ? spec.ui.hashrate_dist_page.max_x_bars - 1 : index;
+                counts[index]++;
+                spec.ui.hashrate_dist_page.count++;
+                for (int i = 0; i < (int)spec.ui.hashrate_dist_page.max_x_bars; i++) {
+                    uint8_t y = (uint8_t)(100 * (float)counts[i] / (float)spec.ui.hashrate_dist_page.count);
+                    spec.ui.hashrate_dist_page.dist_map[i] = y;
+                }
+            }
         }
 
         // --- HCN per-channel imbalance detector (1s cadence) --------------------

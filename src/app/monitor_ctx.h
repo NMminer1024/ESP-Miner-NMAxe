@@ -20,7 +20,7 @@
 // ============================================================================
 struct MonitorCtx {
     AxePowerHal*     power  = nullptr;       // measured rail readers
-    BoardSpecConfig* spec   = nullptr;       // mutable: req_vcore throttle
+    BoardSpecConfig* spec   = nullptr;       // mutable: req_vcore throttle + ui.hashrate_dist_page
     AsicMinerClass*  miner  = nullptr;       // calculate_hashrate()
     MinerStatus*     status = nullptr;       // shared mining runtime state
     PowerTelemetry*  pwr    = nullptr;       // measured vbus/ibus/vcore sink

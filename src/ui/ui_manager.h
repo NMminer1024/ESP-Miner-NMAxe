@@ -8,15 +8,14 @@
 
 // ============================================================================
 // UIPageId — page enum (order must match _register_page calls in init())
-// Matches original display.cpp: LOADING/CONFIG/MINER/DASHBOARD/LUCKY/CLOCK/MARKET/SETTING_SWARM
-// (LUCKY was formerly the "hashrate health" page; it now shows Lucky Statistics)
+// Matches original display.cpp: LOADING/CONFIG/MINER/DASHBOARD/HR_HEALTH/CLOCK/MARKET/SETTING_SWARM
 // ============================================================================
 enum class UIPageId : uint8_t {
     LOADING        = 0,
     CONFIG         = 1,
     MINER          = 2,
     DASHBOARD      = 3,
-    LUCKY          = 4,
+    HR_HEALTH      = 4,
     CLOCK          = 5,
     MARKET         = 6,
     SETTING_SWARM  = 7,
