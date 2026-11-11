@@ -105,6 +105,46 @@ Any close frame with code > 1001 and no reason text makes `strlen` scan past the
 frame. Still present in v3.12.1; fixed on `main` only
 (`strnlen(reasonString, datalen - 2)`).
 
+**Re-confirmed on v3.10.3 (the version we bumped to).** The bump to v3.10.3 added
+`_ws_clients_lock` but did **not** touch this line — it is still
+`strlen(reasonString)` at `AsyncWebSocket.cpp:697` in the tree we now build. So the
+library upgrade closed the `_clients` list race but left the strlen over-read open.
+
+**Correction (2026-11-11): an earlier draft of this file claimed the strlen argument
+was a valid pointer `0x3fcd5258`. That was a misread.** `0x3fcd5258` is word[6] of the
+crash-task CORE note, which is the **TCB handle**, not `a2`: it equals the base of that
+task's stack `PT_LOAD` (`0x3fcd4b90`) plus `0x6c8`, and the TCB is exactly 344 B
+(`0x158`) — matching the 344-byte `PT_LOAD` pairs. The real argument is in the
+`EXTRA_INFO` note and is **wild** (`a2 = 0x8a4faeaa`, see the table below). So the
+"unterminated-but-real buffer" reading is NOT supported; the argument itself is a bad
+pointer.
+
+**What the notes actually show (symbol-independent).** For `coredump_124.10.elf` the
+crash-task CORE note has PC at word[18] = `0x400556c0`, with neighbouring ROM PCs
+`0x400556d5 / 0x400556e5`; all three symbolize to **ROM `strlen`**
+(`esp32s3_rev0_rom.elf`). The `EXTRA_INFO` note gives `exc_cause = 28 (LoadProhibited)`,
+`exc_vaddr = 0x8a4faea8`, `a2 = 0x8a4faeaa` (the strlen argument — wild), and
+`a0 = 0x82033a14`. Stripping the Xtensa window-base bits from `a0`
+(`0x82033a14 & 0x3FFFFFFF | 0x40000000`) gives **`0x42033a14`, a valid IROM
+(instruction-window) address** — so the *caller* is a real function and the current
+frame is intact. The argument, not the frame, is corrupt.
+
+**The decisive arithmetic: `a2 & ~3 == exc_vaddr`.** On ESP32-S3 the
+instruction/data-mapped external window is `0x42000000-0x43FFFFFF` / `0x3C000000-
+0x3DFFFFFF`; `0x8a4faeaa` is in **no** mapped range at all, so `exc_cause = 28
+(LoadProhibited)` is a plain unmapped read. And `0x8a4faeaa & ~3 = 0x8a4faea8`, which
+is *exactly* `exc_vaddr`. So the load that faulted is strlen's word-aligned load
+**at the argument itself** — not a scan that walked off the end of a neighbouring
+buffer. `a2` is a garbage pointer value, not the address of an unterminated string.
+This single equality is what rules out the close-frame hypothesis below (there,
+`reasonString = data + 2` is always a valid DRAM offset and can never be `0x8a4faeaa`).
+
+**Reachability caveat (why it is hard to reproduce).** The strlen only runs when
+`reasonCode > 1001`. A normal browser reload sends close code **1000** (normal) or
+**1001** (going away) — neither is `> 1001`, so the common "open the dashboard"
+action does *not* hit this path. It needs an abnormal close (1002/1003/1007/1008/…)
+with no reason text, which is why the 7-session raw-socket probe below did not panic.
+
 ## What was tried on hardware (2026-11-11)
 
 Raw-socket WS probes against 124.10 / 124.18: close frames with code 1007 and
@@ -147,6 +187,67 @@ So the endpoint is roughly linear and not a latency problem. Response size does
 saturate once the deque exceeds ~2000 samples (≈2.8 h of uptime), which means
 response size alone cannot explain a crash threshold at ~18 h.
 
+## "Does data accumulate until a web hit crashes it?" — chart path audited (2026-11-11)
+
+Hypothesis tested: some cache grows with uptime so that opening the dashboard
+(the chart pulls the whole history deque) eventually crashes the device. Audited
+every buffer the dashboard touches and measured on hardware. **Conclusion: the
+chart path is bounded and does not leak; it is not the crash source.**
+
+Buffers the dashboard touches, and their caps:
+
+| buffer | allocator | cap | grows with uptime? |
+|---|---|---|---|
+| `status_history.deque` | `PsramAllocator` (PSRAM) | `MINER_HISTORY_MAX_SIZE=20000` **and** 24 h window | plateaus at 20 000 nodes ≈ 27.8 h (true 5 s cadence) |
+| chart JSON doc | `PsramJsonAllocator` (PSRAM) | `estimated_samples ≤ MAX_DATA_POINTS=2000` | **no** — capped at 2000 samples regardless of deque size |
+| chart output buffer | `heap_caps_malloc(PSRAM)` | `measureJson` of the ≤2000-sample doc | **no** — response saturates ≈48 KB |
+| `proximity_history.deque` | PSRAM | 36 entries (`add_share_diff_history`) | no |
+| `_hr_deque`, `_pool_job_cache`, `_submit_queue`, `_msg_rsp_map` | PSRAM | time-window / fixed-size trims | no |
+
+Hardware measurements (124.10, the weakest board — lowest internal heap):
+
+* **60 full `interval=1` chart loads**: `freeHeap 59612 → 64324` (rose, not fell),
+  `minFreeHeap` flat at **36464** the whole time, response steady ≈48 KB. No leak,
+  no crash.
+* **40 aborted downloads** (connect, read 512 B, RST mid-stream): internal heap
+  unchanged. The PSRAM output buffer is freed by the response callback's last chunk;
+  an aborted request deletes the response object (`WebRequest.cpp` `delete _response`)
+  and the callback filler is not re-entered, so no PSRAM leak either.
+* deque on a freshly rebooted board: `size=378`, `maxDataPoints=2000` — confirms the
+  server-side cap independent of uptime.
+
+So neither the deque nor the chart response grows past a fixed ceiling, and repeated
+dashboard access does not erode the heap. The ~18 h correlation is **not** explained
+by chart data accumulation.
+
+## Was the uptime fix (713167d5) the regression? — No
+
+Commit `713167d5` (2026-11-03) "derive uptime from a monotonic clock" changed
+`st.uptime_session++` (loop iterations, ran at ~70 % of real time) to
+`esp_timer_get_time()` (true seconds), and moved two modulo timers
+(`uptime_session % 5`, `% 2`) to `millis()` elapsed-time accumulators.
+
+Checked whether it could be the regression:
+
+* **Type/overflow:** `uptime_session`/`uptime_ever` were already `uint64_t` before
+  the fix (`git show 713167d5^:src/mining/mining_types.h`). No `uint16_t` per-second
+  counter exists anywhere in the uptime path. The `2^16 = 65536 s` coincidence with
+  the crash uptimes (69954 / 74953 / 76122 s) is **not** a truncation — nothing wraps
+  at 65536. `millis()` itself wraps at ~49.7 d, far beyond these uptimes.
+* **Sampling cadence:** the fix made history sampling fire at a true 5 s instead of
+  ~7 s effective, so the deque fills ~40 % faster and hits the 20 000 cap at ~27.8 h
+  instead of ~38.9 h. But the cap is a *plateau*, not a cliff — past it the deque
+  stays 20 000 and the chart response stays capped at 2000 samples. A faster plateau
+  does not create a crash threshold at 18 h.
+* **Interaction with async_tcp:** none. `uptime_session` is read only for display
+  (`/probe`, `/api/system/info`, LCD) and as a subtraction base (NTP interval, NVS
+  save interval). It never feeds a WS broadcast, a buffer size, or an allocation.
+
+Verdict: the uptime fix is **not** the regression. It changed *when* the deque
+plateaus, not *whether* anything unbounded grows. The crash predates it in kind
+(same strlen-in-ROM signature) and its trigger is the WS close-frame path, which the
+uptime fix does not touch.
+
 ## Fix
 
 1. Bump the WebSocket library to the **smallest** release that fixes it:
@@ -182,6 +283,28 @@ response size alone cannot explain a crash threshold at ~18 h.
 4. Instrumentation for the next occurrence: keep the **USB serial** console open
    while refreshing the page — the panic handler prints the full backtrace with
    symbol names, which the 1-frame coredump summary cannot.
+
+5. **Bound the close-reason `strlen` — applied 2026-11-11.** v3.10.3 still ships
+   the unbounded scan (`strlen(reasonString)` on a non-NUL-terminated frame), so a
+   build-time patch was added instead of waiting for an upstream release:
+
+   * `patch_libdeps.py` (repo root) rewrites the call in the unpacked library to
+     `strnlen(reasonString, datalen - 2)` with a `datalen > 2` guard.
+   * wired in `platformio.ini` as `post:patch_libdeps.py` (alongside the existing
+     `pre:build_web.py`), and re-applied from a `buildprog` pre-action so a fresh
+     checkout / fresh libdeps install is covered too.
+   * idempotent (marker check), and it **fails the build loudly** if the upstream
+     call shape changes, so we can never silently ship the unbounded version.
+   * safe for us: `webSocketEvent()` ignores `data`/`len` for `WS_EVT_ERROR`
+     (prints only `error`), so the shorter bounded length changes no behaviour.
+   * verified: regex hits exactly 1 site in v3.6.0 and v3.10.3; `pio run -e NMQAxePP`
+     SUCCESS with the patched file compiled; re-running does not double-insert.
+
+   Caveat: this is a **hardening** fix. The field panic's `a2` was a wild pointer
+   (`a2 & ~3 == exc_vaddr`), which the close-frame path cannot produce, so this
+   line is not the proven trigger of the recorded panics — see the forensic notes
+   above. It removes one network-reachable over-read; it does not by itself close
+   the `_clients` use-after-free investigation.
 
 ## Coredump download endpoint (added, works)
 
@@ -225,22 +348,39 @@ Result:
   (`appSha256` unchanged), which is the positive control that no new crash
   overwrote it.
 
-## Forensic note: the old dump confirms a smashed stack, not a bad string
+## Forensic note: a fixed caller passes a corrupt argument (NOT a smashed frame)
 
-With `coredump_124.10.elf` + a rebuild of the crashing commit loaded in
-`xtensa-esp32s3-elf-gdb`:
+**Correction (2026-11-11): an earlier draft called `a0` "garbage" and concluded the
+stack frame was overwritten. That was wrong — it ignored the Xtensa window ABI.**
+On Xtensa, `a0` returned from a `call8`/`call12`/`call4` encodes the window base in
+bits 31:29 and the callinc in bit 6. `a0 = 0x82033a14` has window base `0b100` (=4)
+in the top bits; stripping them (`0x82033a14 & 0x03FFFFFF | 0x40000000`) gives
+**`0x42033a14`, a valid DROM (flash) code address**. So the *return address is real*
+and the current register frame is intact.
 
-- crashing thread PC = ROM `strlen`;
-- **`a0` (return address) = `0x82033a14`, `a2` (the argument) = `0x8a4faeaa`** —
-  neither is a valid ESP32-S3 code address (code lives in `0x4000_0000`–`0x4005_ffff`
-  ROM / `0x4200_0000`+ flash / `0x4037_0000`+ IRAM);
-- 400 words of the crashing task's stack around `sp` contain **zero** values in
-  the flash code range.
+The decisive cross-board fact:
 
-So the task's stack had already been overwritten with heap/PSRAM data before the
-panic. That is the signature of a wild write through a dangling pointer, not of
-the firmware passing a bad-but-otherwise-intact string. It also explains
-`btCorrupted=true` with a depth-1 trace.
+| board | fw / hw | `a0` raw | `a0` window-stripped |
+|---|---|---|---|
+| 124.10 | v3.2.02z / NMAxeGamma | `0x82033a14` | `0x42033a14` |
+| 124.12 | v3.2.02z / NMAxeGamma | `0x82033a14` | `0x42033a14` (identical) |
+| 124.18 | v3.2.02z / NMQAxe++ | `0x82037140` | `0x42037140` (different layout) |
+
+Two boards on the **same firmware + same board model** have the **identical** `a0`;
+the third (different board model → different link layout) differs. That is the
+signature of a **specific, fixed function calling `strlen`**, not a random wild jump
+(a wild jump would give a different `a0` every time). What is corrupt is the
+**argument** `a2` (`0x8a4faeaa` / `0xbaaa8ad4` / `0x80000000` — all wild), and
+`exc_vaddr ≈ a2` (differ only by the strlen word-alignment step), i.e. `strlen`
+faulted while scanning *at* the bad pointer.
+
+So the model is: a real function reads a `char*` field **out of a heap object that
+has already been corrupted/freed**, and hands it to `strlen`. The register set is
+fine (coredump saves it separately); the *object* the pointer was loaded from is not.
+
+`btCorrupted=true` + depth 1 is still consistent: the IDF backtrace walker reads the
+window-spill area on the stack, and that spill area can be clobbered even while the
+live registers are clean. It does **not** imply the strlen caller's frame was smashed.
 
 Caveat: the ELF could not be reproduced bit-exactly (sha `1f459f3f…` vs the
 recorded `3b13cb96…`; that build came from a dirty working tree), so per-frame
@@ -258,10 +398,11 @@ The `EXTRA_INFO` note carries the Xtensa `esp_core_dump_summary_extra_info_t`:
 | 124.18 | 28 (same layout) | `0x80000000` | `0x82037140` | `0x80000000` |
 
 All three are **read** faults (LoadProhibited, never StoreProhibited), so nothing
-was being written at the moment of the panic — the write that smashed the stack
-happened earlier. `a0` is a different garbage value per board, so it is not a
-fixed constant to chase; the invariant is only "a0 and a2 are both non-code
-addresses", i.e. the frame was overwritten.
+was being written at the moment of the panic — the corruption happened earlier.
+`a0` is **not** garbage: window-stripped it is a valid DROM address, and it is
+**identical across the two same-fw/same-model boards** (see the Forensic note). The
+invariant is therefore "a fixed real caller + a wild `a2`", i.e. a corrupt pointer
+loaded from a heap object — not a smashed frame.
 
 ## Uptime correlation (the strongest remaining lead)
 
@@ -274,11 +415,20 @@ Every recorded crash happened **after 65536 s (18.2 h) of uptime**:
 | 124.12 | 74 953 s = 20.8 h |
 
 65536 s is exactly one `uint16_t` second-counter wrap, so a 16-bit seconds field
-is the obvious suspect. A sweep of `uint16_t` fields assigned from
-`millis()`/uptime found no such counter in the web path (`mdns txid` uses only the
-low 16 bits by design; `bm_time`/`stab_time` are config seconds), so this is not
-yet proven — it is, however, the one numerical threshold that matches all three
-data points.
+is an attractive suspect. It was swept for and **not found**: no `uint16_t` is
+assigned from `millis()`/uptime in the web or WS path (`mdns txid` uses only the
+low 16 bits *by design*; `bm_time`/`stab_time` are config seconds; `uptime_session`
+was `uint64_t` both before and after `713167d5`). So there is no mechanism at 65536 s.
+
+**Better explanation — selection bias, not a threshold.** The crash is triggered by
+*web interaction* (page load / reload → WS disconnect + reconnect + log flood).
+Bench boards sit idle for long stretches and are visited by hand only occasionally,
+so "uptime at crash" is really "time since boot until the next human visit". Three
+events clustering at 19-21 h is consistent with **the operator's visit cadence**,
+not with a counter wrap. With n = 3, the 18.2 h "threshold" is not evidence and
+should not be used to steer the root-cause search. Note also that all the
+short-uptime reproduction attempts below were *inherently* unable to hit a
+long-uptime-only condition, so they neither confirm nor refute it.
 
 ## Attempted reproduction on the OLD firmware (2026-11-11, 124.13, v3.2.02z)
 
