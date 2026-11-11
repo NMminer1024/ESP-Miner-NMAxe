@@ -47,6 +47,19 @@ bool coredump_present(size_t* out_size_bytes, bool* out_crc_ok = nullptr);
 // mismatch). On failure *out is zeroed.
 bool coredump_get_summary(coredump_summary_lite_t* out);
 
+// Raw flash read of the image, for HTTP streaming download. `offset` is relative
+// to the start of the image as reported by esp_core_dump_image_get(), which
+// still has the IDF image header in front of the ELF. Returns false when no
+// dump exists or the flash read failed.
+bool coredump_read(size_t offset, uint8_t* buf, size_t len);
+
+// Offset of the ELF core inside that image (the IDF header in front of it is
+// not part of the ELF, and gdb refuses a file that starts with it). Measured 20
+// bytes on IDF 4.4/ESP32-S3; the value is discovered by scanning for the ELF
+// magic instead of being hardcoded, and 0 is returned when no ELF is found
+// (e.g. an unexpected compressed image), so callers fall back to the raw bytes.
+size_t coredump_elf_offset(void);
+
 // Erase the partition. Returns true on success.
 bool coredump_erase();
 

@@ -899,6 +899,7 @@ void webserver_thread_entry(void* args) {
     webServer.on("/api/system/nvs",  HTTP_GET,    get_nvs_stats);
     // ── Coredump (post-mortem summary in flash, cleared on demand) ─────────
     webServer.on("/api/coredump/info", HTTP_GET,    get_coredump_info);
+    webServer.on("/api/coredump/download", HTTP_GET, get_coredump_download);
     webServer.on("/api/coredump",      HTTP_DELETE, delete_coredump);
     // ── Wakeup: any caller (local or cross-origin swarm panel) can wake this device's screensaver.
     webServer.on("/api/wakeup", HTTP_GET, [ctx](AsyncWebServerRequest *request){

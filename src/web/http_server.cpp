@@ -2341,6 +2341,38 @@ void get_coredump_info(AsyncWebServerRequest * request) {
     request->send(resp);
 }
 
+// GET /api/coredump/download -- stream the raw ELF coredump image.
+//
+// /api/coredump/info only exposes the summary, and when the stack walker gives
+// up (btCorrupted=true) that summary carries a single frame, which is not
+// enough to name the caller. The ELF core still holds every task stack plus the
+// exception frame, so a real post-mortem (gdb + the matching firmware.elf) is
+// only possible with the raw image. Streamed straight from flash: no RAM buffer
+// large enough to matter, and it also works when the dump is >50 KB.
+void get_coredump_download(AsyncWebServerRequest * request) {
+    size_t total = 0;
+    if (!coredump_present(&total, nullptr) || total == 0) {
+        request->send(404, "application/json", "{\"error\":\"no coredump\"}");
+        return;
+    }
+    // The stored image starts with the IDF header; serve the ELF core itself so
+    // the file can be handed to gdb directly.
+    const size_t base = coredump_elf_offset();
+    const size_t sz   = (base < total) ? (total - base) : total;
+    AsyncWebServerResponse *response = request->beginResponse(
+        "application/octet-stream", sz,
+        [sz, base](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+            if (index >= sz) return 0;
+            size_t n = (sz - index < maxLen) ? (sz - index) : maxLen;
+            if (!coredump_read(base + index, buffer, n)) return 0;
+            return n;
+        });
+    response->addHeader("Content-Disposition", "attachment; filename=\"coredump.elf\"");
+    response->addHeader("Access-Control-Allow-Origin", "*");
+    request->send(response);
+    LOG_I("[coredump] download started (%u bytes)", (unsigned)sz);
+}
+
 // DELETE /api/coredump -- erase the partition. Use only after the user has
 // downloaded what they need; this is irreversible.
 void delete_coredump(AsyncWebServerRequest * request) {
@@ -2635,6 +2667,19 @@ void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEve
     //       which is re-entrant inside a WebSocket event callback. Use Serial.printf directly.
     switch (type) {
         case WS_EVT_CONNECT:
+            // A full send queue must drop the message, not kill the connection.
+            //
+            // Every LOG_* line is broadcast with webSocket.textAll() from
+            // whichever task logged it (dbg::log_emit), so a browser that stops
+            // draining (background tab, slow Wi-Fi, a page stuck loading) fills
+            // the 32-message queue quickly. The library default then closes the
+            // client from inside the very loop that walks
+            // AsyncWebSocket::_clients, and the page reconnects immediately - a
+            // reconnect storm at the exact moment the list is being modified.
+            // Dropping a log line costs nothing; dropping the client costs a
+            // reconnect (and, before ESPAsyncWebServer 3.10.3, a use-after-free
+            // on that list, which surfaces as a panic inside ROM strlen).
+            client->setCloseClientOnQueueFull(false);
             Serial.printf("> [WS] client #%u connected from %s\r\n",
                           client->id(), client->remoteIP().toString().c_str());
             // A WebSocket connection is the most reliable signal that a user has opened the web UI.

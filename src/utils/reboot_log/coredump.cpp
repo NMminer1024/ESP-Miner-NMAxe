@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <esp_err.h>
 #include <esp_core_dump.h>
+#include <esp_partition.h>
 
 #include "../logger/logger.h"
 
@@ -64,6 +65,47 @@ bool coredump_get_summary(coredump_summary_lite_t* out) {
 
     free(full);
     return true;
+}
+
+// ── Raw read (download) ────────────────────────────────────────────────────
+bool coredump_read(size_t offset, uint8_t* buf, size_t len) {
+    if (buf == nullptr || len == 0) return false;
+    size_t addr = 0, size = 0;
+    if (esp_core_dump_image_get(&addr, &size) != ESP_OK) return false;
+    if (size == 0 || offset >= size) return false;
+    if (offset + len > size) len = size - offset;
+    const esp_partition_t* part = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_COREDUMP, "coredump");
+    if (part == nullptr) return false;
+    // esp_core_dump_image_get() reports an ABSOLUTE flash address, while
+    // esp_partition_read() wants an offset from the start of the partition.
+    // Passing the absolute address straight through makes the read fail with
+    // ESP_ERR_INVALID_ARG and the download streams 0 bytes (observed on
+    // hardware). Accept either form so a future IDF that switches to
+    // partition-relative addressing keeps working.
+    size_t base = addr;
+    if (addr >= part->address && addr < part->address + part->size) {
+        base = addr - part->address;
+    }
+    return esp_partition_read(part, base + offset, buf, len) == ESP_OK;
+}
+
+// Offset of the ELF core inside the dump image.
+//
+// esp_core_dump_image_get() returns the image starting AT the IDF header (20
+// bytes on IDF 4.4 / ESP32-S3, measured on hardware: the image begins with a
+// u32 size field and the ELF magic sits at +0x14). gdb will not load a file
+// whose first bytes are not an ELF header, so the download endpoint needs to
+// skip it. Discovering the offset by scanning keeps this correct if the header
+// grows, and returning 0 keeps the endpoint working for a non-ELF image.
+size_t coredump_elf_offset(void) {
+    static const uint8_t ELF_MAGIC[4] = {0x7F, 'E', 'L', 'F'};
+    uint8_t probe[64];
+    if (!coredump_read(0, probe, sizeof(probe))) return 0;
+    for (size_t i = 0; i + sizeof(ELF_MAGIC) <= sizeof(probe); ++i) {
+        if (memcmp(probe + i, ELF_MAGIC, sizeof(ELF_MAGIC)) == 0) return i;
+    }
+    return 0;
 }
 
 // ── Erase ──────────────────────────────────────────────────────────────────

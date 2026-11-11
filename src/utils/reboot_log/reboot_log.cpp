@@ -14,6 +14,20 @@
 #include "version.h"
 #include "../logger/logger.h"
 
+// SoC-level reset cause. esp_reset_reason() collapses the USB resets to
+// ESP_RST_UNKNOWN on this IDF version (its enum has no ESP_RST_USB), so the
+// history used to record a USB intervention as "unknown / external" -- which is
+// indistinguishable from a genuinely unexplained reboot. Measured on hardware:
+// opening the USB serial port of an ESP32-S3 with RTS high resets the chip
+// (RESET_REASON_CORE_USB_UART = 0x15), and so do RESET_REASON_CORE_USB_JTAG
+// (0x16) and a host re-enumerating the CDC device on cable insertion.
+#if __has_include("esp32s3/rom/rtc.h")
+  #include "esp32s3/rom/rtc.h"
+  #define REBOOT_LOG_HAVE_RTC_CAUSE 1
+#else
+  #define REBOOT_LOG_HAVE_RTC_CAUSE 0
+#endif
+
 // ── NVS layout (namespace "reboot") ──────────────────────────────────────────
 //   "head"    u8     index of next slot to write (0..RING-1)
 //   "count"   u8     valid record count (0..RING)
@@ -120,6 +134,26 @@ const char* reboot_reset_reason_str(uint8_t v) {
         case ESP_RST_SDIO:       return "sdio";
         default:                 return "other";
     }
+}
+
+// Name the SoC reset cause when esp_reset_reason() cannot.
+//
+// Returns nullptr when the coarse reason is already meaningful. Only the two
+// USB causes are recovered: they are the ones this SDK hides behind
+// ESP_RST_UNKNOWN, and the ones a user can trigger by plugging in a cable or
+// by letting a terminal assert RTS.
+static const char* soc_reset_cause_detail(esp_reset_reason_t reason) {
+    if (reason != ESP_RST_UNKNOWN) return nullptr;
+#if REBOOT_LOG_HAVE_RTC_CAUSE
+    switch (rtc_get_reset_reason(0)) {
+        case 0x15: return "usb_uart";   // RESET_REASON_CORE_USB_UART
+        case 0x16: return "usb_jtag";   // RESET_REASON_CORE_USB_JTAG
+        default:   return nullptr;
+    }
+#else
+    (void)reason;
+    return nullptr;
+#endif
 }
 
 const char* reboot_class_str(uint8_t v) {
@@ -236,6 +270,10 @@ void reboot_log_init() {
     // detail: prefer the planner's text; otherwise fall back to a reset_reason word
     if (intent_v) {
         strncpy(rec.detail, s_rtc.detail, sizeof(rec.detail) - 1);
+    } else if (const char* soc = soc_reset_cause_detail(reason)) {
+        // e.g. "usb_uart": the host reset the chip over USB. Labelling this
+        // "unknown" made a cable insertion look like an unexplained crash.
+        strncpy(rec.detail, soc, sizeof(rec.detail) - 1);
     } else {
         strncpy(rec.detail, reboot_reset_reason_str((uint8_t)reason), sizeof(rec.detail) - 1);
     }

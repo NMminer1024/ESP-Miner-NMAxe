@@ -29,6 +29,10 @@ void get_reboot_list(AsyncWebServerRequest * request);
 void delete_reboot_list(AsyncWebServerRequest * request);
 // ── Coredump (post-mortem of the most recent crash, ELF in flash) ───────────
 void get_coredump_info(AsyncWebServerRequest * request);
+// Streams the raw ELF core so it can be decoded with gdb + the matching
+// firmware.elf. Necessary whenever btCorrupted=true (the summary carries a
+// single frame and cannot name the caller).
+void get_coredump_download(AsyncWebServerRequest * request);
 void delete_coredump(AsyncWebServerRequest * request);
 // ── NVS inventory (read-only diagnostics: used/free entries, per-key sizes) ──
 void get_nvs_stats(AsyncWebServerRequest * request);
