@@ -67,14 +67,20 @@ struct __attribute__((packed)) RebootRecord {
     uint32_t boot_index;                            // monotonic boot counter
     uint32_t epoch_ts;                              // unix time at boot (0 if unknown)
     uint32_t uptime_last_sec;                       // how long the previous run lasted
-    uint32_t free_heap_min;                         // minimum free heap during previous run
+    uint32_t free_heap_min;                         // min free heap across ALL regions (PSRAM-dominated; legacy field)
     uint8_t  reset_reason;                          // esp_reset_reason_t value
     uint8_t  intent;                                // RebootIntent
     uint8_t  cls;                                   // RebootClass (precomputed)
     uint8_t  reserved0;
     char     fw_version[REBOOT_LOG_FW_LEN];         // firmware version string of the previous run
     char     detail[REBOOT_LOG_DETAIL_LEN];         // human-readable detail
-    uint32_t reserved1[3];
+    // These two occupy what used to be reserved1[3]. Keeping them at the SAME
+    // byte offset as the old reserved words is deliberate: records written by
+    // earlier firmware stay byte-compatible and simply report 0 ("not
+    // recorded") instead of being reinterpreted as shifted garbage.
+    uint32_t heap_min_internal;                     // min free INTERNAL sram during previous run (0 = not recorded)
+    uint32_t heap_min_psram;                        // min free PSRAM during previous run (0 = not recorded)
+    uint32_t reserved1;
     uint32_t crc32;                                 // CRC of all preceding bytes
 };
 static_assert(sizeof(RebootRecord) == 128, "RebootRecord must stay exactly 128 bytes");

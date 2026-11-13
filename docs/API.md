@@ -505,7 +505,9 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | `idx` | int | Monotonic boot index (increments each boot, survives resets) |
 | `ts` | int | Unix timestamp at the time of reboot (0 if RTC not synced) |
 | `uptime` | int | Uptime in seconds of the previous session |
-| `heapMin` | int | Minimum free internal heap (bytes) during the previous session |
+| `heapMin` | int | Minimum free heap across **all** regions. Legacy field: because the 8 MB PSRAM joins the ESP32 heap, this reads as a PSRAM-scale number and says nothing about on-chip SRAM |
+| `heapMinInternal` | int | Minimum free **on-chip SRAM** during the previous session (bytes). This is the scarce resource; `0` means the record predates the field |
+| `heapMinPsram` | int | Minimum free **PSRAM** during the previous session (bytes). `0` means the record predates the field |
 | `reset` | string | ESP32 reset reason (e.g. `"panic"`, `"watchdog"`, `"power_on"`) |
 | `intent` | string | Software reboot intent (e.g. `"ota_finished"`, `"user_web"`, `"none"`) |
 | `class` | string | Reboot class: `"cold"`, `"normal"`, `"crash"`, `"ota"` |
@@ -516,7 +518,8 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 ```json
 [
   {
-    "idx": 142, "ts": 1716000000, "uptime": 11520, "heapMin": 49152,
+    "idx": 142, "ts": 1716000000, "uptime": 11520,
+    "heapMin": 7941800, "heapMinInternal": 43560, "heapMinPsram": 7065363,
     "reset": "panic", "intent": "none", "class": "crash",
     "fw": "v3.0.11", "detail": "panic"
   }
@@ -573,6 +576,18 @@ Read-only. Touches nothing but flash reads; safe to call at any time.
 
 ### `GET /api/coredump/info` — Response Fields
 
+The response is split into two groups that must not be mixed up:
+
+- **Crash-time fields** (`crash*`, `task`, `pc`, `bt`) describe the image that **crashed**.
+- **Running fields** (`running*`) describe the image running right now and are context only.
+
+A dump stores the crashing image's ELF SHA256 but **no version string** (verified by
+scanning a real dump: no `v3.2.02*` text and no `esp_app_desc` magic). The version is
+therefore taken from a persisted crash-identity record captured on the boot that
+followed the panic, never from the currently running firmware. After an OTA that left
+an old dump behind, `belongsToRunningImage` is `false` and `crashFwVersion` is empty
+rather than being filled with the new build's version.
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `present` | bool | `true` if a coredump exists in flash |
@@ -582,13 +597,28 @@ Read-only. Touches nothing but flash reads; safe to call at any time.
 | `pc` | int | Program counter at crash (hex address as integer) |
 | `bt` | array | Backtrace addresses (array of integers) |
 | `btCorrupted` | bool | `true` if the backtrace could not be fully decoded |
-| `appSha256` | string | First 16 hex chars of the firmware SHA256 at crash time |
+| `appSha256` | string | Full 64-hex SHA256 of the **crashing** image, read from the dump itself |
+| `crashAppSha256` | string | Same image as `appSha256`, truncated to 16 hex chars so it can be compared with `runningAppSha256` |
+| `crashFwVersion` | string | Version of the **crashing** image. `""` = not recoverable (dump came from a different image) |
+| `crashUptimeSec` | int | How long the crashing run lasted (0 when unknown) |
+| `crashMinFreeHeap` | int | Min free heap during the crashing run (bytes, 0 when unknown) |
+| `crashEpoch` | int | Unix time the crash was detected (0 when unknown) |
+| `crashIdentityKnown` | bool | `false` = only the SHA is known, the version is not |
+| `runningFwVersion` | string | Firmware version **currently running** (context only) |
+| `runningAppSha256` | string | 16-hex SHA of the image **currently running** (context only) |
+| `belongsToRunningImage` | bool | `false` = the dump was produced by a **different** image (typically an OTA leftover); do not attribute it to the current build |
 
 ```json
-{ "present": true, "size": 12480, "crcOk": true,
-  "task": "miner", "pc": 1075871436,
-  "bt": [1075871436, 1075869312], "btCorrupted": false,
-  "appSha256": "ef970b389312276b" }
+{ "present": true, "size": 52644, "crcOk": true,
+  "task": "async_tcp", "pc": 1074091697, "btCorrupted": true,
+  "bt": [1074091697],
+  "appSha256": "21dc69fe5c07a802...",
+  "crashAppSha256": "21dc69fe5c07a802",
+  "crashFwVersion": "v3.2.02d",
+  "crashUptimeSec": 95001, "crashMinFreeHeap": 7035363, "crashEpoch": 1794578960,
+  "crashIdentityKnown": true,
+  "runningFwVersion": "v3.2.02g", "runningAppSha256": "1a2b3c4d5e6f7a8b",
+  "belongsToRunningImage": false }
 ```
 
 > When no coredump is present: `{ "present": false }`.

@@ -209,9 +209,9 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
     });
   }
 
-  // Pull host + fwVersion from /api/system/info, then build the textarea
-  // contents. Done as a separate request so the coredump card paints quickly
-  // on slow networks; on failure we still show a partial summary.
+  // Pull host name from /api/system/info (for the download filename) and build
+  // the textarea contents. Done as a separate request so the coredump card
+  // paints quickly on slow networks; on failure we still show a partial summary.
   private refreshCoredumpSummary(): void {
     const cd = this.coredump;
     if (!cd?.present) { this.coredumpSummary = ''; return; }
@@ -219,10 +219,10 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
       next: (info: any) => {
         this.fwVersion = String(info?.identity?.fwVersion ?? info?.fwVersion ?? info?.version ?? 'unknown');
         this.hostName  = String(info?.identity?.hostName  ?? info?.hostName  ?? info?.hostname ?? 'device');
-        this.coredumpSummary = this.buildCoredumpText(cd, this.fwVersion);
+        this.coredumpSummary = this.buildCoredumpText(cd);
       },
       error: () => {
-        this.coredumpSummary = this.buildCoredumpText(cd, this.fwVersion);
+        this.coredumpSummary = this.buildCoredumpText(cd);
       }
     });
   }
@@ -329,18 +329,48 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   // Render the coredump summary into a multi-line plain-text block, mirroring
   // what the user sees on the card. Useful for pasting into bug reports.
-  private buildCoredumpText(cd: ICoredumpInfo, fwVersion?: string): string {
+  //
+  // Every crash value comes from the dump / its persisted identity. The running
+  // firmware is shown separately and never substituted for the crash version:
+  // a dump carries the crashing image's SHA but no version string, so reporting
+  // the running version there produced wrong attributions after an OTA.
+  private buildCoredumpText(cd: ICoredumpInfo): string {
     const lines: string[] = [];
     lines.push('=== ESP32 Coredump Summary ===');
     if (cd.crcOk === false) {
       lines.push('[WARNING] CRC check failed: dump may be truncated (common with TWDT crashes).');
       lines.push('[WARNING] Backtrace addresses below may be incomplete or incorrect.');
     }
-    lines.push(`Firmware   : ${fwVersion || '(unknown)'}`);
-    if (cd.size != null)        lines.push(`Size       : ${cd.size} bytes`);
-    if (cd.task)                lines.push(`Crash Task : ${cd.task}`);
-    if (cd.pc != null)          lines.push(`PC         : ${this.formatAddr(cd.pc)}`);
-    if (cd.appSha256)           lines.push(`App SHA256 : ${cd.appSha256}`);
+
+    // ── Crash time (authoritative) ─────────────────────────────────────────
+    if (cd.crashFwVersion) {
+      lines.push(`Crash firmware : ${cd.crashFwVersion}`);
+    } else {
+      lines.push(`Crash firmware : (unknown - dump predates the running image)`);
+    }
+
+    const crashSha = cd.crashAppSha256 || cd.appSha256;
+    if (crashSha)      lines.push(`Crash app SHA  : ${crashSha}`);
+    if (cd.size != null) lines.push(`Dump size      : ${cd.size} bytes`);
+    if (cd.task)       lines.push(`Crash task     : ${cd.task}`);
+    if (cd.pc != null) lines.push(`Crash PC       : ${this.formatAddr(cd.pc)}`);
+    if (cd.crashUptimeSec)   lines.push(`Ran before crash: ${cd.crashUptimeSec} s (${this.formatDuration(cd.crashUptimeSec)})`);
+    if (cd.crashMinFreeHeap) lines.push(`Min free heap  : ${(cd.crashMinFreeHeap / 1048576).toFixed(2)} MB`);
+    if (cd.crashEpoch)       lines.push(`Crash detected : ${this.formatEpoch(cd.crashEpoch)}`);
+
+    // ── Running image (context only) ───────────────────────────────────────
+    if (cd.runningFwVersion || cd.runningAppSha256) {
+      lines.push('');
+      lines.push(`Running firmware: ${cd.runningFwVersion || '(unknown)'}`);
+      if (cd.runningAppSha256) lines.push(`Running app SHA : ${cd.runningAppSha256}`);
+    }
+
+    if (cd.belongsToRunningImage === false) {
+      lines.push('');
+      lines.push('[WARNING] This dump belongs to a DIFFERENT image than the running firmware.');
+      lines.push('[WARNING] It was left behind by an earlier OTA; do not attribute it to the current build.');
+    }
+
     if (cd.bt && cd.bt.length) {
       lines.push('');
       lines.push(`Backtrace${cd.btCorrupted ? ' (possibly partial/corrupted)' : ''}:`);
@@ -349,6 +379,22 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
       lines.push('Backtrace  : (none captured)');
     }
     return lines.join('\n');
+  }
+
+  // "26h 23m" style duration for the crash-run uptime.
+  private formatDuration(sec: number): string {
+    if (!sec || sec < 0) return '—';
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  private formatEpoch(ts: number): string {
+    if (!ts) return '—';
+    const d = new Date(ts * 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+           `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
   // Format a 32-bit address as the conventional 0x........ hex string.
@@ -382,6 +428,18 @@ export class LogsComponent implements OnInit, OnDestroy, AfterViewChecked {
     if (!bytes) return '—';
     if (bytes >= 1024) return `${(bytes/1024).toFixed(1)} KB`;
     return `${bytes} B`;
+  }
+
+  // On-chip SRAM headroom. Records written before this field existed carry 0,
+  // so they render as "—" rather than a misleading zero.
+  public heapInternal(rec: IRebootRecord): string {
+    return this.formatHeap(rec.heapMinInternal || 0);
+  }
+
+  // PSRAM headroom. Older records only have the legacy total (heapMin), which is
+  // PSRAM-dominated anyway, so fall back to it for a comparable reading.
+  public heapPsram(rec: IRebootRecord): string {
+    return this.formatHeap(rec.heapMinPsram || rec.heapMin || 0);
   }
 
   public classMeta(cls: string) {

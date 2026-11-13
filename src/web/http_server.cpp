@@ -13,6 +13,7 @@
 #include "utils/reboot_log/reboot_log.h"
 #include "utils/reboot_log/coredump.h"
 #include "board/board.h"
+#include "version.h"
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
 #include <esp_mac.h>
@@ -2017,7 +2018,10 @@ void patch_mining_state(AsyncWebServerRequest *request, uint8_t *data, size_t le
 //
 // JSON shape (one record):
 //   {
-//     "idx": 142, "ts": 0, "uptime": 11520, "heapMin": 49152,
+//     "idx": 142, "ts": 0, "uptime": 11520,
+//     "heapMin": 7941,          // total min free heap (PSRAM-dominated, legacy)
+//     "heapMinInternal": 43560, // min free on-chip SRAM  <- the scarce one
+//     "heapMinPsram": 8069000,  // min free PSRAM
 //     "reset": "panic", "intent": "none", "class": "crash",
 //     "fw": "v3.0.11", "detail": "panic"
 //   }
@@ -2025,7 +2029,12 @@ static void reboot_record_to_json(const RebootRecord& r, JsonObject obj) {
     obj["idx"]     = r.boot_index;
     obj["ts"]      = r.epoch_ts;
     obj["uptime"]  = r.uptime_last_sec;
-    obj["heapMin"] = r.free_heap_min;
+    // heapMin is the total figure and, because PSRAM joins the heap, it reads as
+    // an 8 MB-scale number that says nothing about on-chip SRAM. Keep it for
+    // existing clients and expose the two real regions next to it.
+    obj["heapMin"]         = r.free_heap_min;
+    obj["heapMinInternal"] = r.heap_min_internal;
+    obj["heapMinPsram"]    = r.heap_min_psram;
     obj["reset"]   = reboot_reset_reason_str(r.reset_reason);
     obj["intent"]  = reboot_intent_str(r.intent);
     obj["class"]   = reboot_class_str(r.cls);
@@ -2036,7 +2045,7 @@ static void reboot_record_to_json(const RebootRecord& r, JsonObject obj) {
 // GET /api/reboot/last -- newest record only (for the dashboard banner).
 void get_reboot_last(AsyncWebServerRequest * request) {
     RebootRecord r;
-    BasicJsonDocument<PsramJsonAllocator> doc(512);
+    BasicJsonDocument<PsramJsonAllocator> doc(768);
     if (reboot_log_get_last(&r)) {
         reboot_record_to_json(r, doc.to<JsonObject>());
     } else {
@@ -2055,7 +2064,9 @@ void get_reboot_last(AsyncWebServerRequest * request) {
 void get_reboot_list(AsyncWebServerRequest * request) {
     RebootRecord recs[REBOOT_LOG_RING_SIZE];
     size_t n = reboot_log_get_recent(recs, REBOOT_LOG_RING_SIZE);
-    BasicJsonDocument<PsramJsonAllocator> doc(4096);
+    // 480 B per record covers all 11 fields with margin (was 4096 for 9 fields
+    // and would overflow once heapMinInternal/heapMinPsram were added).
+    BasicJsonDocument<PsramJsonAllocator> doc(REBOOT_LOG_RING_SIZE * 480 + 256);
     JsonArray arr = doc.to<JsonArray>();
     for (size_t i = 0; i < n; ++i) {
         reboot_record_to_json(recs[i], arr.createNestedObject());
@@ -2235,8 +2246,16 @@ void get_nvs_stats(AsyncWebServerRequest * request) {
 // When no dump (or corrupted): {"present": false}.
 
 // GET /api/coredump/info -- presence + summary metadata.
+//
+// Every field is split into two unambiguous groups:
+//   crash*  / task / pc / bt  -> describes the image that CRASHED
+//   running*                  -> describes the image running right now
+// The crashing image is identified by the dump's own ELF SHA plus a persisted
+// crash-identity record (see coredump.h); it is never inferred from the
+// currently running firmware. `belongsToRunningImage == false` means the dump
+// is a leftover from an earlier image (typically an OTA that did not clear it).
 void get_coredump_info(AsyncWebServerRequest * request) {
-    BasicJsonDocument<PsramJsonAllocator> doc(1024);
+    BasicJsonDocument<PsramJsonAllocator> doc(2048);
     JsonObject obj = doc.to<JsonObject>();
     size_t sz = 0;
     bool crc_ok = false;
@@ -2252,14 +2271,39 @@ void get_coredump_info(AsyncWebServerRequest * request) {
     obj["size"]   = (uint32_t)sz;
     obj["crcOk"]  = crc_ok;   // false → dump may be truncated / corrupted
 
+    // ── Running image (context only, never the crash identity) ─────────────
+    char running_sha[COREDUMP_SHA_SHORT_LEN] = {0};
+    {
+        const esp_app_desc_t* desc = esp_ota_get_app_description();
+        if (desc) {
+            for (int i = 0; i < 8; ++i)
+                snprintf(running_sha + i * 2, 3, "%02x", desc->app_elf_sha256[i]);
+        }
+    }
+    obj["runningFwVersion"] = BOARD_CURRENT_FW_VERSION;
+    obj["runningAppSha256"] = running_sha;
+
+    // ── Crash-time facts taken straight from the dump ──────────────────────
     coredump_summary_lite_t s;
     if (coredump_get_summary(&s) && s.valid) {
         obj["task"]         = (const char*)s.task;
         obj["pc"]           = s.pc;
         obj["btCorrupted"]  = s.bt_corrupted;
-        obj["appSha256"]    = (const char*)s.app_sha256;
+        obj["appSha256"]    = (const char*)s.app_sha256;  // full 64-hex, from the dump
         JsonArray bt = obj.createNestedArray("bt");
         for (uint8_t i = 0; i < s.bt_depth; ++i) bt.add(s.bt[i]);
+    }
+
+    // ── Crash-time identity from persisted metadata ────────────────────────
+    coredump_crash_identity_t id;
+    if (coredump_get_crash_identity(&id, running_sha)) {
+        obj["crashIdentityKnown"]    = id.valid;
+        obj["crashAppSha256"]        = id.app_sha256;            // 16 hex, compare with runningAppSha256
+        obj["crashFwVersion"]        = id.fw_version;            // "" => not recoverable
+        obj["crashUptimeSec"]        = id.uptime_sec;
+        obj["crashMinFreeHeap"]      = id.min_free_heap;
+        obj["crashEpoch"]            = id.epoch_ts;
+        obj["belongsToRunningImage"] = id.belongs_to_running_image;
     }
     String body; serializeJson(doc, body);
     AsyncWebServerResponse* resp = request->beginResponse(200, "application/json", body);

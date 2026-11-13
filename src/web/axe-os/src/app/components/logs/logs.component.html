@@ -159,7 +159,8 @@
             <div class="banner-meta">
               boot #{{ rebootList[0].idx }}
               · ran {{ formatUptime(rebootList[0].uptime) }}
-              · min heap {{ formatHeap(rebootList[0].heapMin) }}
+              · min SRAM {{ heapInternal(rebootList[0]) }}
+              · min PSRAM {{ heapPsram(rebootList[0]) }}
               · fw {{ rebootList[0].fw || '—' }}
             </div>
           </div>
@@ -180,7 +181,8 @@
                 <th class="col-type">Type</th>
                 <th class="col-reason">Reason</th>
                 <th class="col-uptime">Ran for</th>
-                <th class="col-heap">Min heap</th>
+                <th class="col-heap" title="Minimum free on-chip SRAM during that run">Min SRAM</th>
+                <th class="col-heap" title="Minimum free PSRAM during that run">Min PSRAM</th>
                 <th class="col-fw">FW</th>
               </tr>
             </thead>
@@ -196,7 +198,8 @@
                 </td>
                 <td class="col-reason">{{ reasonText(r) }}</td>
                 <td class="col-uptime">{{ formatUptime(r.uptime) }}</td>
-                <td class="col-heap">{{ formatHeap(r.heapMin) }}</td>
+                <td class="col-heap">{{ heapInternal(r) }}</td>
+                <td class="col-heap">{{ heapPsram(r) }}</td>
                 <td class="col-fw">{{ r.fw || '—' }}</td>
               </tr>
             </tbody>

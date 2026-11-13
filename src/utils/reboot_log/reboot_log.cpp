@@ -4,6 +4,7 @@
 #include <esp_attr.h>
 #include <esp_system.h>
 #include <esp_heap_caps.h>
+#include <esp_ota_ops.h>
 #include <nvs.h>
 #include <nvs_flash.h>
 #include <string.h>
@@ -12,6 +13,7 @@
 #include <time.h>
 
 #include "version.h"
+#include "coredump.h"
 #include "../logger/logger.h"
 
 // SoC-level reset cause. esp_reset_reason() collapses the USB resets to
@@ -46,7 +48,7 @@ struct __attribute__((packed)) RtcState {
     uint32_t magic;
     uint32_t boot_count;          // increments every boot once init() runs
     uint32_t last_uptime_sec;     // mirrored ~1 Hz by reboot_log_tick()
-    uint32_t last_min_heap;       // mirrored ~1 Hz by reboot_log_tick()
+    uint32_t last_min_heap;       // total (PSRAM-dominated) min free heap, mirrored ~1 Hz
     uint8_t  intent;              // RebootIntent currently armed
     uint8_t  intent_valid;        // 0 = no intent for this boot
     uint16_t pad;
@@ -55,7 +57,21 @@ struct __attribute__((packed)) RtcState {
     uint32_t crc32;
 };
 
+// Per-region heap minimums live in their OWN RTC block on purpose: appending
+// fields to RtcState would change its CRC, so the boot right after an upgrade
+// would look like a first boot and lose the previous run's uptime/heap.
+// Keeping this block separate means an older firmware that never wrote it just
+// reads back zero ("not recorded") while RtcState stays byte-compatible.
+#define RTC_HEAP_MAGIC 0x50414548u  // 'HEAP'
+struct __attribute__((packed)) RtcHeapState {
+    uint32_t magic;
+    uint32_t min_internal;
+    uint32_t min_psram;
+    uint32_t crc32;
+};
+
 RTC_NOINIT_ATTR static RtcState s_rtc;
+RTC_NOINIT_ATTR static RtcHeapState s_rtc_heap;
 
 // Updated by reboot_log_init() — true once init has run and RTC is trustworthy.
 static bool s_rtc_ready = false;
@@ -89,6 +105,25 @@ static void rtc_seal() {
 static void rtc_reset_zero() {
     memset(&s_rtc, 0, sizeof(s_rtc));
     rtc_seal();
+}
+
+// ── Per-region heap RTC block ──────────────────────────────────────────────
+static uint32_t rtc_heap_crc(const RtcHeapState* s) {
+    return crc32_calc((const uint8_t*)s, offsetof(RtcHeapState, crc32));
+}
+
+static bool rtc_heap_valid(const RtcHeapState* s) {
+    return s->magic == RTC_HEAP_MAGIC && s->crc32 == rtc_heap_crc(s);
+}
+
+static void rtc_heap_seal() {
+    s_rtc_heap.magic = RTC_HEAP_MAGIC;
+    s_rtc_heap.crc32 = rtc_heap_crc(&s_rtc_heap);
+}
+
+static void rtc_heap_reset_zero() {
+    memset(&s_rtc_heap, 0, sizeof(s_rtc_heap));
+    rtc_heap_seal();
 }
 
 // ── String tables ────────────────────────────────────────────────────────────
@@ -256,6 +291,12 @@ void reboot_log_init() {
     rec.boot_index      = s_rtc.boot_count;        // index of the previous boot
     rec.uptime_last_sec = first_boot ? 0 : s_rtc.last_uptime_sec;
     rec.free_heap_min   = first_boot ? 0 : s_rtc.last_min_heap;
+    // Per-region minimums come from their own RTC block. Old firmware never
+    // wrote it, so an upgrade yields 0 here ("not recorded") instead of a
+    // meaningless number, while s_rtc itself stays byte-compatible.
+    const bool heap_rtc_ok = !first_boot && rtc_heap_valid(&s_rtc_heap);
+    rec.heap_min_internal = heap_rtc_ok ? s_rtc_heap.min_internal : 0;
+    rec.heap_min_psram    = heap_rtc_ok ? s_rtc_heap.min_psram    : 0;
     rec.reset_reason    = (uint8_t)reason;
     rec.intent          = (uint8_t)intent;
     rec.cls             = (uint8_t)classify(reason, intent, intent_v);
@@ -300,17 +341,43 @@ void reboot_log_init() {
     s_rtc.last_uptime_sec  = 0;
     s_rtc.last_min_heap    = 0;
     rtc_seal();
+    rtc_heap_reset_zero();
 
     s_rtc_ready = true;
 
-    LOG_W("[reboot_log] prev boot #%u: reset=%s intent=%s class=%s ran=%us minHeap=%uB detail=\"%s\"",
+    LOG_W("[reboot_log] prev boot #%u: reset=%s intent=%s class=%s ran=%us minHeap=%uB (sram=%uB psram=%uB) detail=\"%s\"",
           (unsigned)rec.boot_index,
           reboot_reset_reason_str(rec.reset_reason),
           reboot_intent_str(rec.intent),
           reboot_class_str(rec.cls),
           (unsigned)rec.uptime_last_sec,
           (unsigned)rec.free_heap_min,
+          (unsigned)rec.heap_min_internal,
+          (unsigned)rec.heap_min_psram,
           rec.detail);
+
+    // 5. Attribute the stored coredump to the image that produced it.
+    //
+    // A coredump carries the crashing image's ELF SHA but no version string,
+    // so the dashboard used to label an old dump with whatever firmware was
+    // running when the page was opened. Capture the identity here - the crash
+    // boot is the only moment when "the running image" and "the crashing image"
+    // are guaranteed to be the same one - and persist it across later reboots
+    // and OTAs.
+    {
+        char running_sha[COREDUMP_SHA_SHORT_LEN] = {0};
+        const esp_app_desc_t* desc = esp_ota_get_app_description();
+        if (desc) {
+            for (int i = 0; i < 8; ++i)
+                snprintf(running_sha + i * 2, 3, "%02x", desc->app_elf_sha256[i]);
+        }
+        coredump_capture_crash_identity(rec.cls == REBOOT_CLASS_CRASH,
+                                        BOARD_CURRENT_FW_VERSION,
+                                        running_sha,
+                                        rec.uptime_last_sec,
+                                        rec.free_heap_min,
+                                        rec.epoch_ts);
+    }
 }
 
 // ── Intent setter ───────────────────────────────────────────────────────────
@@ -346,8 +413,18 @@ void reboot_intent_set_if_unset(RebootIntent intent, const char* detail_fmt, ...
 void reboot_log_tick() {
     if (!s_rtc_ready) return;
     s_rtc.last_uptime_sec = (uint32_t)(millis() / 1000UL);
-    s_rtc.last_min_heap   = (uint32_t)esp_get_minimum_free_heap_size();
+    // Three distinct values, deliberately kept apart:
+    //   total      - what esp_get_minimum_free_heap_size() reports; with 8 MB of
+    //                PSRAM in the heap it is PSRAM-dominated, so showing it as
+    //                "min heap" made an 8 MB-scale number look like free SRAM.
+    //   internal   - on-chip SRAM. This is the scarce resource: fragments long
+    //                before it is exhausted, and WiFi/DMA allocations need it.
+    //   psram      - external RAM headroom.
+    s_rtc.last_min_heap     = (uint32_t)esp_get_minimum_free_heap_size();
+    s_rtc_heap.min_internal = (uint32_t)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
+    s_rtc_heap.min_psram    = (uint32_t)heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM);
     rtc_seal();
+    rtc_heap_seal();
 }
 
 // ── Readers ─────────────────────────────────────────────────────────────────
