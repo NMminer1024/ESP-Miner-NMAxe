@@ -1,8 +1,13 @@
 param(
-    [Parameter(Mandatory = $true)]
+    # Leave empty to auto-discover every Axe-family board on the subnet.
     [string[]]$Ip,
 
     [int]$IntervalSeconds = 30,
+
+    # Rescan for boards this often (minutes). 0 disables rediscovery.
+    # A hardcoded IP list silently stops covering a board that DHCP moved or
+    # that was plugged in later, so the list is refreshed periodically.
+    [int]$RediscoverMinutes = 10,
 
     [string]$OutputDir = (Join-Path $PSScriptRoot '..\docs\baseline\web_crash_capture'),
 
@@ -14,6 +19,10 @@ $OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 $state = @{}
+
+# Axe-family models served by this firmware. NMMiner (cyd2.8 / cyd3.5) is a
+# different product with no coredump endpoint and no app SHA, so it is excluded.
+$AxeModelPattern = 'NMAxe|NMQAxe'
 
 function Invoke-JsonGet {
     param(
@@ -27,6 +36,42 @@ function Invoke-JsonGet {
     } catch {
         return $null
     }
+}
+
+# Probe the /24 of this machine (or of the first seed IP) for Axe boards.
+# /probe is the cheapest endpoint the firmware exposes, so discovery does not
+# perturb anything it is measuring.
+function Find-AxeBoards {
+    param([string]$SeedIp, [int]$TimeoutSeconds = 120)
+
+    $prefix = if ($SeedIp -and $SeedIp -match '^(\d+\.\d+\.\d+)\.') { $Matches[1] } else { '192.168.124' }
+    Write-Host "[$(Get-Date -Format T)] discovering $prefix.0/24 ..."
+
+    $jobs = 1..254 | ForEach-Object {
+        Start-Job -ScriptBlock {
+            param($addr)
+            $body = & curl.exe --silent --connect-timeout 1 --max-time 2 ("http://$addr/probe") 2>$null
+            if ($LASTEXITCODE -eq 0 -and $body -match '"model"') { "$addr`t$body" }
+        } -ArgumentList "$prefix.$_"
+    }
+
+    $found = @()
+    try {
+        $results = $jobs | Wait-Job -Timeout $TimeoutSeconds | Receive-Job | Where-Object { $_ }
+        foreach ($line in $results) {
+            $parts = $line -split "`t", 2
+            try {
+                $probe = $parts[1] | ConvertFrom-Json
+                if ($probe.model -match $AxeModelPattern) {
+                    $found += [pscustomobject]@{ ip = $parts[0]; model = $probe.model; hostname = $probe.hostname }
+                }
+            } catch { }
+        }
+    } finally {
+        $jobs | Remove-Job -Force -ErrorAction SilentlyContinue
+    }
+
+    return @($found | Sort-Object { [int]($_.ip -replace '.*\.', '') })
 }
 
 function Save-Json {
@@ -110,7 +155,37 @@ function Append-Sample {
 Write-Host "Read-only capture started. No dashboard, chart-history, or WebSocket requests will be made."
 Write-Host "Output: $OutputDir"
 
+$lastDiscovery = [datetime]::MinValue
+
+# Build the target list: explicit -Ip wins, otherwise discover the Axe fleet.
+if (-not $Ip -or @($Ip).Count -eq 0) {
+    $discovered = Find-AxeBoards -SeedIp $(if ($Ip) { @($Ip)[0] } else { $null })
+    if ($discovered.Count -eq 0) {
+        throw 'No Axe boards found on the subnet. Pass -Ip <address> to target one explicitly.'
+    }
+    $Ip = @($discovered | ForEach-Object { $_.ip })
+    Write-Host ("Targets ({0}): {1}" -f $discovered.Count, (($discovered | ForEach-Object { "$($_.hostname)@$($_.ip)" }) -join ', '))
+    $lastDiscovery = Get-Date
+} else {
+    Write-Host ("Targets ({0}): {1}" -f @($Ip).Count, (@($Ip) -join ', '))
+}
+
 do {
+    # Refresh the target list so a board that DHCP moved, or one that was
+    # plugged in after startup, is picked up instead of being silently dropped.
+    if (-not $Once -and $RediscoverMinutes -gt 0 -and
+        ((Get-Date) - $lastDiscovery).TotalMinutes -ge $RediscoverMinutes) {
+        $current = @(Find-AxeBoards -SeedIp @($Ip)[0] | ForEach-Object { $_.ip })
+        if ($current.Count -gt 0) {
+            $added   = @($current | Where-Object { $Ip -notcontains $_ })
+            $dropped = @($Ip | Where-Object { $current -notcontains $_ })
+            if ($added.Count -gt 0)   { Write-Host ("[$(Get-Date -Format T)] discovered new: {0}" -f ($added -join ', ')) }
+            if ($dropped.Count -gt 0) { Write-Host ("[$(Get-Date -Format T)] no longer answering: {0}" -f ($dropped -join ', ')) }
+            $Ip = $current
+        }
+        $lastDiscovery = Get-Date
+    }
+
     foreach ($address in $Ip) {
         $probe = Invoke-JsonGet $address '/probe' 3
         $systemInfo = Invoke-JsonGet $address '/api/system/info' 8

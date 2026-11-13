@@ -16,3 +16,6 @@ REFLECT_MIGRATION.md
 compile_commands*.json
 tmp/
 *.bak
+
+# Archived firmware.elf for coredump symbolization (large, local only) - see tool/archive_elf.ps1
+artifacts/
