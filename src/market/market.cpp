@@ -22,6 +22,7 @@ constexpr uint32_t MARKET_DNS_MAX_FAILS      = 3;                    // consecut
 constexpr uint32_t MARKET_CONN_FAIL_MAX      = 3;                    // cached-IP failures -> re-resolve
 constexpr uint32_t MARKET_CONNECT_TIMEOUT_MS = 3000;                 // TCP connect timeout < TWDT 5 s
 constexpr uint32_t MARKET_READ_TIMEOUT_MS    = 4000;                 // stream read deadline < TWDT 5 s
+constexpr size_t   MARKET_BODY_MAX_BYTES     = 32 * 1024;            // bounded transient PSRAM buffer (50-symbol watchlist ≈ 27 KB)
 
 struct BinanceHostCache {
     IPAddress ip;
@@ -102,6 +103,49 @@ bool binance_connect(WiFiClient& client) {
     }
     note_binance_conn_failure();
     return false;
+}
+
+bool read_http_body(HTTPClient& http, char*& body, size_t& body_len) {
+    body = nullptr;
+    body_len = 0;
+
+    const int32_t content_len = http.getSize();
+    if (content_len <= 0 || content_len > (int32_t)MARKET_BODY_MAX_BYTES) {
+        LOG_W("Binance body length unsupported: %d", (int)content_len);
+        return false;
+    }
+
+    body = (char*)heap_caps_malloc((size_t)content_len + 1,
+                                   MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!body) {
+        LOG_E("Failed to allocate %d-byte Binance body buffer.", (int)content_len + 1);
+        return false;
+    }
+
+    WiFiClient* stream = http.getStreamPtr();
+    const uint32_t started_at = millis();
+    while (body_len < (size_t)content_len &&
+           (millis() - started_at) < MARKET_READ_TIMEOUT_MS) {
+        int available = stream->available();
+        if (available <= 0) {
+            delay(1);
+            continue;
+        }
+        size_t want = std::min((size_t)available, (size_t)content_len - body_len);
+        int got = stream->read((uint8_t*)body + body_len, want);
+        if (got > 0) body_len += (size_t)got;
+    }
+    body[body_len] = '\0';
+
+    if (body_len != (size_t)content_len) {
+        LOG_W("Binance body incomplete: %u/%d bytes",
+              (unsigned)body_len, (int)content_len);
+        heap_caps_free(body);
+        body = nullptr;
+        body_len = 0;
+        return false;
+    }
+    return true;
 }
 
 } // namespace
@@ -238,12 +282,14 @@ bool MarketClass::get_coin_ticker_24hr(const String &symbol, CoinPrice &out) {
     int httpCode = http.GET();
     if (httpCode == HTTP_CODE_OK) {
         note_binance_conn_success();
-        // Stream-parse directly: ArduinoJson stops as soon as the JSON document is
-        // complete, so we never depend on socket close/Content-Length to finish.
         BasicJsonDocument<PsramJsonAllocator> doc(800);
-        DeserializationError error = deserializeJson(doc, http.getStream());
+        char* body = nullptr;
+        size_t body_len = 0;
+        bool body_ok = read_http_body(http, body, body_len);
         http.end();
-        delay(1);
+        DeserializationError error = body_ok ? deserializeJson(doc, body, body_len)
+                                             : DeserializationError::IncompleteInput;
+        if (body) heap_caps_free(body);
         if (!error) {
             out.price      = doc["lastPrice"].as<String>().toFloat();
             out.change_pct = doc["priceChangePercent"].as<String>().toFloat();
@@ -331,13 +377,17 @@ void MarketClass::refresh_watchlist(const String &coin_watchlist) {
     filter[0]["lastPrice"]          = true;
     filter[0]["priceChangePercent"] = true;
 
-    // PSRAM-backed JsonDocument sized for the filtered result (~150 bytes per entry).
-    // Stream-parse directly so ArduinoJson stops at end-of-JSON (no full-body buffer).
+    // Read the body in available chunks, yielding while the socket is empty, then
+    // parse from PSRAM so Stream::timedRead() cannot busy-wait on core 0.
     BasicJsonDocument<PsramJsonAllocator> doc(150 * symbols.size() + 256);
-    DeserializationError error = deserializeJson(doc, http.getStream(),
-                                                 DeserializationOption::Filter(filter));
+    char* body = nullptr;
+    size_t body_len = 0;
+    bool body_ok = read_http_body(http, body, body_len);
     http.end();
-    delay(1);
+    DeserializationError error = body_ok
+        ? deserializeJson(doc, body, body_len, DeserializationOption::Filter(filter))
+        : DeserializationError::IncompleteInput;
+    if (body) heap_caps_free(body);
 
     if (error) {
         LOG_E("[Watchlist] Failed to parse batch JSON: %s", error.c_str());
