@@ -41,34 +41,53 @@ function Invoke-JsonGet {
 # Probe the /24 of this machine (or of the first seed IP) for Axe boards.
 # /probe is the cheapest endpoint the firmware exposes, so discovery does not
 # perturb anything it is measuring.
+#
+# Hosts are discovered with async TCP connects, not one job per address: spawning
+# 254 PowerShell processes takes minutes and hundreds of MB, while 254 parallel
+# ConnectAsync calls settle in about a second on a LAN.
 function Find-AxeBoards {
-    param([string]$SeedIp, [int]$TimeoutSeconds = 120)
+    param([string]$SeedIp, [int]$ConnectTimeoutMs = 1200)
 
     $prefix = if ($SeedIp -and $SeedIp -match '^(\d+\.\d+\.\d+)\.') { $Matches[1] } else { '192.168.124' }
     Write-Host "[$(Get-Date -Format T)] discovering $prefix.0/24 ..."
 
-    $jobs = 1..254 | ForEach-Object {
-        Start-Job -ScriptBlock {
-            param($addr)
-            $body = & curl.exe --silent --connect-timeout 1 --max-time 2 ("http://$addr/probe") 2>$null
-            if ($LASTEXITCODE -eq 0 -and $body -match '"model"') { "$addr`t$body" }
-        } -ArgumentList "$prefix.$_"
+    $attempts = New-Object System.Collections.ArrayList
+    foreach ($n in 1..254) {
+        $addr = "$prefix.$n"
+        $client = New-Object System.Net.Sockets.TcpClient
+        try {
+            $task = $client.ConnectAsync($addr, 80)
+            [void]$attempts.Add([pscustomobject]@{ Ip = $addr; Client = $client; Task = $task })
+        } catch {
+            $client.Dispose()
+        }
+    }
+
+    # WaitAll throws on a faulted connect, which is the normal case for an unused
+    # address, so wait per-task with a deadline instead of using the aggregate.
+    $deadline = (Get-Date).AddMilliseconds($ConnectTimeoutMs)
+    foreach ($a in $attempts) {
+        $remaining = [int][math]::Max(0, ($deadline - (Get-Date)).TotalMilliseconds)
+        try { [void]$a.Task.Wait($remaining) } catch { }
     }
 
     $found = @()
-    try {
-        $results = $jobs | Wait-Job -Timeout $TimeoutSeconds | Receive-Job | Where-Object { $_ }
-        foreach ($line in $results) {
-            $parts = $line -split "`t", 2
-            try {
-                $probe = $parts[1] | ConvertFrom-Json
+    foreach ($a in $attempts) {
+        $reachable = $false
+        try { $reachable = $a.Task.IsCompleted -and -not $a.Task.IsFaulted -and $a.Client.Connected } catch { }
+        if (-not $reachable) { $a.Client.Dispose(); continue }
+
+        # Port 80 is open - ask what it is. Only Axe firmware answers /probe.
+        try {
+            $body = & curl.exe --silent --max-time 3 ("http://" + $a.Ip + "/probe") 2>$null
+            if ($body -match '"model"') {
+                $probe = $body | ConvertFrom-Json
                 if ($probe.model -match $AxeModelPattern) {
-                    $found += [pscustomobject]@{ ip = $parts[0]; model = $probe.model; hostname = $probe.hostname }
+                    $found += [pscustomobject]@{ ip = $a.Ip; model = $probe.model; hostname = $probe.hostname }
                 }
-            } catch { }
-        }
-    } finally {
-        $jobs | Remove-Job -Force -ErrorAction SilentlyContinue
+            }
+        } catch { }
+        $a.Client.Dispose()
     }
 
     return @($found | Sort-Object { [int]($_.ip -replace '.*\.', '') })
