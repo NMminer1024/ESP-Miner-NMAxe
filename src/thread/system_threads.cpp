@@ -51,6 +51,7 @@
 #include "lwip/netif.h"
 #include "lwip/tcpip.h"
 #include <limits>
+#include <cmath>
 #include <unordered_set>
 #include <vector>
 
@@ -1059,13 +1060,34 @@ void monitor_thread_entry(void* args) {
         if (millis() - last_history_sample_ms >= (uint32_t)MINER_HISTORY_SAMPLE_INTERVAL * 1000u) {
             last_history_sample_ms = millis();
             history_node_t node;
-            node.hashrate   = (float)(st.hashrate._3m / 1e9);  // GH/s
-            node.share_rate = st.share_rate;                   // nonces/s
-            node.asic_temp  = ctx->temp->asic;
-            node.vcore_temp = ctx->temp->vcore;
-            node.pbus       = (ctx->pwr->vbus * ctx->pwr->ibus / 1000.0f / 1000.0f); // W
-            node.vbus       = (ctx->pwr->vbus / 1000.0f); // V
-            node.ibus       = (ctx->pwr->ibus / 1000.0f); // A
+
+            // Sensors report failure as NAN (temp_hal contracts for that), and a
+            // single failed I2C read used to be stored verbatim. A non-finite
+            // value cannot be represented in JSON, so one bad row invalidated the
+            // whole chart payload on the client. Keep the previous finite value
+            // instead: a chart is a trend, and holding the last reading is far
+            // more truthful than a hole or a dip to zero.
+            static float last_hashrate   = 0.0f;
+            static float last_share_rate = 0.0f;
+            static float last_asic_temp  = 0.0f;
+            static float last_vcore_temp = 0.0f;
+            static float last_pbus       = 0.0f;
+            static float last_vbus       = 0.0f;
+            static float last_ibus       = 0.0f;
+
+            auto hold_prev = [](float sample, float& last) -> float {
+                if (isfinite(sample)) last = sample;
+                return last;
+            };
+
+            node.hashrate   = hold_prev((float)(st.hashrate._3m / 1e9), last_hashrate);   // GH/s
+            node.share_rate = hold_prev(st.share_rate, last_share_rate);                  // nonces/s
+            node.asic_temp  = hold_prev(ctx->temp->asic,  last_asic_temp);
+            node.vcore_temp = hold_prev(ctx->temp->vcore, last_vcore_temp);
+            node.pbus       = hold_prev((ctx->pwr->vbus * ctx->pwr->ibus / 1000.0f / 1000.0f),
+                                        last_pbus);                                       // W
+            node.vbus       = hold_prev((ctx->pwr->vbus / 1000.0f), last_vbus);           // V
+            node.ibus       = hold_prev((ctx->pwr->ibus / 1000.0f), last_ibus);           // A
             node.vcore      = ctx->pwr->vcore;            // mV
             // Record every fan the board has (ASIC fan[0], Vcore fan[1]), not just
             // fan[0] — the chart needs per-fan history on dual-fan boards.

@@ -19,6 +19,7 @@
 #include <esp_mac.h>
 #include <nvs.h>
 #include <memory>
+#include <math.h>
 
 AsyncWebServer  webServer(80);
 // AsyncWebSocket runs on the same port 80 at path /ws, no separate port needed.
@@ -1192,6 +1193,19 @@ static bool append_jsonf(char* buffer, size_t capacity, size_t* used, const char
     return true;
 }
 
+// Format a float for JSON, writing the bare token "null" when the value is not
+// finite. %.7g prints "nan"/"inf", neither of which is legal JSON, so a single
+// failed sensor read would make the entire response unparseable on the client.
+// This preserves the behaviour ArduinoJson had before this handler was rewritten
+// to serialize directly.
+static void json_float_or_null(char* out, size_t out_size, float value) {
+    if (isfinite(value)) {
+        snprintf(out, out_size, "%.7g", value);
+    } else {
+        snprintf(out, out_size, "null");
+    }
+}
+
 // GET /api/dashboard/chart/history -- full miner status time-series (up to MAX_DATA_POINTS records).
 // Snapshot fixed-size records under the history lock, then serialize directly
 // into PSRAM. Avoid building a large ArduinoJson DOM in the async_tcp task:
@@ -1266,10 +1280,26 @@ void get_status_history(AsyncWebServerRequest* request){
                            static_cast<unsigned long long>(timestamp_ms));
     for (size_t i = 0; ok && i < sampled_count; i++) {
         const history_node_t& h = samples[i];
+        // A temperature read can fail (the sensor HAL returns NAN on an I2C
+        // error), and that NAN is stored in the history node. ArduinoJson wrote
+        // such values as `null`; a plain "%.7g" would emit the literal `nan`,
+        // which is not valid JSON and made the whole payload unparseable - one
+        // bad row out of 474 was enough to blank the chart. Format through this
+        // helper so non-finite values keep the original `null` contract.
+        char f_hashrate[16], f_share[16], f_asic[16], f_vcore_t[16];
+        char f_pbus[16], f_vbus[16], f_ibus[16];
+        json_float_or_null(f_hashrate, sizeof(f_hashrate), h.hashrate);
+        json_float_or_null(f_share,    sizeof(f_share),    h.share_rate);
+        json_float_or_null(f_asic,     sizeof(f_asic),     h.asic_temp);
+        json_float_or_null(f_vcore_t,  sizeof(f_vcore_t),  h.vcore_temp);
+        json_float_or_null(f_pbus,     sizeof(f_pbus),     h.pbus);
+        json_float_or_null(f_vbus,     sizeof(f_vbus),     h.vbus);
+        json_float_or_null(f_ibus,     sizeof(f_ibus),     h.ibus);
+
         ok = append_jsonf(json_buf, json_capacity, &used,
-                          "%s[%.7g,%.7g,%.7g,%.7g,%.7g,%.7g,%.7g,%u,%u,%u,%d,%u,%u,%u,%llu,%u,%u,%u]",
-                          i == 0 ? "" : ",", h.hashrate, h.share_rate, h.asic_temp, h.vcore_temp,
-                          h.pbus, h.vbus, h.ibus, static_cast<unsigned>(h.vcore),
+                          "%s[%s,%s,%s,%s,%s,%s,%s,%u,%u,%u,%d,%u,%u,%u,%llu,%u,%u,%u]",
+                          i == 0 ? "" : ",", f_hashrate, f_share, f_asic, f_vcore_t,
+                          f_pbus, f_vbus, f_ibus, static_cast<unsigned>(h.vcore),
                           static_cast<unsigned>(h.fan_speed[0]), static_cast<unsigned>(h.fan_rpm[0]),
                           static_cast<int>(h.wifi_rssi), static_cast<unsigned>(h.free_ram),
                           static_cast<unsigned>(h.free_psram), static_cast<unsigned>(h.latency),
