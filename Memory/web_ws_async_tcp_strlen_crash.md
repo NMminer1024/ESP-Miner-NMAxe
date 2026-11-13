@@ -1,5 +1,77 @@
 # async_tcp panic inside ROM strlen (v3.2.02z) — WebSocket client-list race
 
+## 2026-11-13 correction: a complete stack identifies chart-history JSON
+
+The next field recurrence on NMQAxe++ `192.168.124.18` materially changes the
+diagnosis. The board ran `v3.2.02d` / app SHA `fc5b5c1ca6c20353` for **90,880 s
+(25 h 14 m 40 s)**, then panicked when the dashboard was refreshed. The raw ELF
+coredump was preserved under
+`docs/baseline/incident_124_18_20261113_212128/coredump.bin` (SHA256
+`b919d90204dfbaee5b561c79e1398669918575f13de3cd43e32804bc04cf18db`).
+
+Unlike the earlier one-frame summaries, GDB can unwind this dump. The crash task
+is `async_tcp`, with `a2=0xbaa2c2ab` (wild pointer), and the call chain is:
+
+```text
+ROM strlen
+ArduinoJson::ZeroTerminatedRamString::size
+ArduinoJson::CollectionData::getSlot / getOrAddMember
+get_status_history() at src/web/http_server.cpp
+AsyncCallbackWebHandler::handleRequest
+AsyncWebServerRequest::_onData
+AsyncClient::_recv
+_async_service_task
+```
+
+The fault occurs while `get_status_history()` adds metadata after constructing a
+large ArduinoJson DOM for up to 2,000 rows x 18 columns. This is direct evidence
+that the dashboard chart request is the active crash path; the earlier statement
+below that the chart was not the source is superseded. The WebSocket client-list
+and close-reason fixes remain valid hardening, but they do not fix this recurrence.
+
+The endpoint now snapshots at most 2,000 fixed-size `history_node_t` records into
+PSRAM while holding the history mutex, releases the mutex, and serializes JSON
+directly into a bounded PSRAM buffer. It no longer creates the large ArduinoJson
+slot graph in `async_tcp`. The response buffer is owned by the callback via a
+`shared_ptr` custom deleter, so an aborted browser refresh also frees it.
+
+### Cross-board reproduction: 6/6 panics on the same line
+
+A single `GET /api/dashboard/chart/history?interval=1` (no dashboard UI, no
+WebSocket) panicked **every** long-uptime board on the first attempt. Each dump
+was symbolized against the ELF whose `app_elf_sha256` matched the dump's
+`appSha256`, so the frames are exact, not approximate:
+
+| IP | model | appSha256 | uptime at panic | exc pc | a2 |
+|---|---|---|---|---|---|
+| .18 | NMQAxe++ | `fc5b5c1ca6c20353` | 90 880 s | 0x400556b1 | `0xbaa2c2ab` |
+| .78 | NMQAxe++ (Nexus) | `21dc69fe5c07a802` | 95 001 s | 0x400556b1 | `0xdf275f83` |
+| .10 | NMAxeGamma | `ce50326497d8392a` | 162 918 s | 0x400556b1 | `0xffffffff` |
+| .11 | NMAxeGamma | `ce50326497d8392a` | 162 940 s | 0x400556bd | `0xaaaaa6aa` |
+| .12 | NMAxeGamma | `ce50326497d8392a` | 162 961 s | 0x400556bd | `0xaa242aaa` |
+| .13 | NMAxeGamma | `ce50326497d8392a` | 162 981 s | 0x400556bd | `0xb02aeefe` |
+
+All six resolve to `get_status_history()` at `http_server.cpp:1345`, inside
+ArduinoJson `getOrAddMember`/`set<int>` (the result-metadata write that follows
+the row loop), with the ROM `strlen` argument a garbage pointer and
+`a2 & ~3 == exc_vaddr`. Two models + three firmware SHAs + six boards rules out
+model-specific and board-specific causes; the shared variable is the size of the
+JSON document built in the `async_tcp` task, which grows with the history deque
+and therefore with uptime.
+
+Reproduction also means the earlier "chart path is bounded and does not leak"
+conclusion was measured on the wrong axis: the buffers were bounded in *size*,
+yet constructing the large DOM in the network task was itself the fault. Bounded
+memory does not make a 2,000-row `BasicJsonDocument` safe.
+
+Evidence: `docs/baseline/trigger_20261113/` (pre/post snapshots, six raw dumps,
+GDB logs, `RESULTS.md`). All boards rebooted and resumed mining on their own.
+
+`tool/capture_web_crash.ps1` provides non-destructive field capture. It polls only
+`/probe`, `/api/system/info`, and coredump metadata; it never opens the dashboard,
+chart endpoint, or WebSocket. On reachability changes, uptime reset, or a new
+coredump it saves reboot metadata and downloads the raw dump automatically.
+
 ## Symptom
 
 Two boards, same firmware `v3.2.02z`, both panic while the operator is

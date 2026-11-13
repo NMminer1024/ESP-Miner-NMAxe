@@ -17,6 +17,7 @@
 #include <esp_partition.h>
 #include <esp_mac.h>
 #include <nvs.h>
+#include <memory>
 
 AsyncWebServer  webServer(80);
 // AsyncWebSocket runs on the same port 80 at path /ws, no separate port needed.
@@ -1177,201 +1178,126 @@ void get_gauge_limits(AsyncWebServerRequest* request){
     request->send(200, "application/json", json_str);
 }
 
+static bool append_jsonf(char* buffer, size_t capacity, size_t* used, const char* format, ...) {
+    if (*used >= capacity) return false;
+
+    va_list args;
+    va_start(args, format);
+    int written = vsnprintf(buffer + *used, capacity - *used, format, args);
+    va_end(args);
+
+    if (written < 0 || static_cast<size_t>(written) >= capacity - *used) return false;
+    *used += static_cast<size_t>(written);
+    return true;
+}
+
 // GET /api/dashboard/chart/history -- full miner status time-series (up to MAX_DATA_POINTS records).
-// Uses PSRAM for both JSON document and serialization buffer to avoid
-// fragmenting internal SRAM and to survive long uptimes on boards with high
-// baseline PSRAM usage (e.g. NMQAxe++).
+// Snapshot fixed-size records under the history lock, then serialize directly
+// into PSRAM. Avoid building a large ArduinoJson DOM in the async_tcp task:
+// the DOM's slot chain was the confirmed crash site after long uptime.
 void get_status_history(AsyncWebServerRequest* request){
     LOG_D("Starting status history request processing...");
-    
-    // Maximum data points limit to prevent frontend overload
+
     const size_t MAX_DATA_POINTS = 2000;
-    
-    // Safely check history data size with mutex protection
-    size_t history_size = 0;
-    if (xSemaphoreTake(g_web->status->status_history.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        history_size = g_web->status->status_history.deque.size();
-        xSemaphoreGive(g_web->status->status_history.mutex);
-        LOG_D("History size retrieved: %d records", history_size);
-    } else {
-        LOG_E("Failed to acquire history mutex, aborting request");
-        request->send(500, "application/json", "{\"error\":\"Failed to access history data\"}");
-        return;
-    }
-    
-    if (history_size == 0) {
-        LOG_W("No history data available, returning empty response");
-        request->send(200, "application/json", "{\"statistics\":[],\"size\":0,\"sampledSize\":0}");
-        return;
-    }
-    
-    // Parse sample interval from request parameters (user preference)
+
     int user_sample_interval = 10;
     if(request->hasParam("interval")) {
         user_sample_interval = request->getParam("interval")->value().toInt();
         if(user_sample_interval < 1) user_sample_interval = 1;
         if(user_sample_interval > 100) user_sample_interval = 100;
-        LOG_D("User requested sample interval: %d", user_sample_interval);
     }
-    
-    // Calculate actual sample interval to ensure max 2000 data points
-    int actual_sample_interval = user_sample_interval;
-    size_t estimated_samples = (history_size + actual_sample_interval - 1) / actual_sample_interval;
-    
-    // Adjust sample interval if estimated samples exceed limit
-    if (estimated_samples > MAX_DATA_POINTS) {
-        actual_sample_interval = (history_size + MAX_DATA_POINTS - 1) / MAX_DATA_POINTS;
-        estimated_samples = (history_size + actual_sample_interval - 1) / actual_sample_interval;
-        LOG_D("Adjusted sample interval from %d to %d to limit data points to %d (estimated: %d)", 
-              user_sample_interval, actual_sample_interval, MAX_DATA_POINTS, estimated_samples);
-    } else {
-        LOG_D("Using requested sample interval %d, estimated samples: %d", actual_sample_interval, estimated_samples);
+
+    history_node_t* samples = static_cast<history_node_t*>(
+        heap_caps_malloc(MAX_DATA_POINTS * sizeof(history_node_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (!samples) {
+        LOG_E("Failed to allocate history snapshot in PSRAM");
+        request->send(500, "application/json", "{\"error\":\"PSRAM allocation failed for history snapshot\"}");
+        return;
     }
-    
-    // Calculate JSON document size based on estimated samples
-    // ArduinoJson 6 internal: each VariantSlot = 16 bytes on ESP32 (32-bit).
-    // Per data point: 18 elements × 16B + 1 nested array slot × 16B = 304 bytes.
-    uint32_t base_overhead = 2048;
-    uint32_t per_sample_size = 320;  // ArduinoJson internal memory per sample (304 + margin)
-    uint32_t json_size_max = base_overhead + (estimated_samples * per_sample_size);
-    
-    // Add 25% safety margin
-    json_size_max = json_size_max + (json_size_max / 4);
-    
-    // Ensure minimum size
-    if (json_size_max < 32 * 1024) json_size_max = 32 * 1024;
-    
-    LOG_D("Creating PSRAM JSON document with %dKB for %d estimated samples", json_size_max/1024, estimated_samples);
-    
-    // Create JSON document in PSRAM (Fix 2)
-    BasicJsonDocument<PsramJsonAllocator> root(json_size_max);
-    
-    // Build JSON structure
-    uint64_t ms = (*g_web->utc) * 1000ULL;
-    root["timestamp"] = ms;
-    JsonArray labels = root.createNestedArray("labels");
-    labels.add("hashRate");
-    labels.add("shareRate");
-    labels.add("asicTemp");
-    labels.add("vcoreTemp");
-    labels.add("Pbus");
-    labels.add("Vbus");
-    labels.add("Ibus");
-    labels.add("Vcore");
-    labels.add("fanspeed");
-    labels.add("fanrpm");
-    labels.add("wifiRSSI");
-    labels.add("freeHeap");
-    labels.add("freePsram");
-    labels.add("latency");
-    labels.add("epoch");
-    // Fan columns beyond fan[0]: fixed schema (never conditional) so old
-    // clients keep working on indices 0-14 while new clients read fanCount
-    // to decide how many fan curves to plot. Single-fan boards report 0.
-    labels.add("fanCount");
-    labels.add("fan1speed");
-    labels.add("fan1rpm");
-    
-    JsonArray data = root.createNestedArray("statistics");
-    
-    int idx = 0;
-    int sampled_count = 0;
+
+    size_t sampled_count = 0;
     size_t actual_history_size = 0;
-    
-    // Acquire mutex for history traversal
-    // NOTE: portMAX_DELAY in async_tcp context can deadlock the entire TCP stack.
-    //       Use a bounded timeout; if the mutex is unavailable, return 503.
+    int actual_sample_interval = user_sample_interval;
+
     if (xSemaphoreTake(g_web->status->status_history.mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
         actual_history_size = g_web->status->status_history.deque.size();
-        LOG_D("Starting sampling: %d total records, interval: %d, max points: %d", 
-              actual_history_size, actual_sample_interval, MAX_DATA_POINTS);
-        
+        if (actual_history_size == 0) {
+            xSemaphoreGive(g_web->status->status_history.mutex);
+            heap_caps_free(samples);
+            request->send(200, "application/json", "{\"statistics\":[],\"size\":0,\"sampledSize\":0}");
+            return;
+        }
+
+        size_t estimated_samples = (actual_history_size + actual_sample_interval - 1) / actual_sample_interval;
+        if (estimated_samples > MAX_DATA_POINTS) {
+            actual_sample_interval = (actual_history_size + MAX_DATA_POINTS - 1) / MAX_DATA_POINTS;
+        }
+
+        size_t idx = 0;
         for (const auto& history : g_web->status->status_history.deque) {
-            if(idx % actual_sample_interval == 0) {
-                // Stop if we've reached the maximum data points limit
-                if (sampled_count >= (int)MAX_DATA_POINTS) {
-                    LOG_D("Reached maximum data points limit (%d), stopping sampling", MAX_DATA_POINTS);
-                    break;
-                }
-                
-                JsonArray dataPoint = data.createNestedArray();
-                
-                // history_node_t fields are now native floats/ints — no String validation needed
-                dataPoint.add(history.hashrate);
-                dataPoint.add(history.share_rate);
-                dataPoint.add(history.asic_temp);
-                dataPoint.add(history.vcore_temp);
-                dataPoint.add(history.pbus);
-                dataPoint.add(history.vbus);
-                dataPoint.add(history.ibus);
-                dataPoint.add(history.vcore);
-                dataPoint.add(history.fan_speed[0]);
-                dataPoint.add(history.fan_rpm[0]);
-                dataPoint.add(history.wifi_rssi);
-                dataPoint.add(history.free_ram);
-                dataPoint.add(history.free_psram);
-                dataPoint.add(history.latency);
-                dataPoint.add(history.epoch);
-                dataPoint.add(history.fan_count);
-                dataPoint.add(history.fan_speed[1]);
-                dataPoint.add(history.fan_rpm[1]);
-                sampled_count++;
-                
-                // Yield every 100 samples to prevent watchdog timeout
-                // NOTE: taskYIELD() is safe in async_tcp context; delay() is not
-                if (sampled_count % 100 == 0) {
-                    taskYIELD();
-                }
+            if ((idx % actual_sample_interval) == 0 && sampled_count < MAX_DATA_POINTS) {
+                samples[sampled_count++] = history;
             }
             idx++;
-            
-            // Yield every 500 raw data points
-            if (idx % 500 == 0) {
-                taskYIELD();
-            }
         }
-        
         xSemaphoreGive(g_web->status->status_history.mutex);
-        LOG_D("Sampling completed: %d samples from %d total records, interval: %d", 
-              sampled_count, actual_history_size, actual_sample_interval);
     } else {
+        heap_caps_free(samples);
         LOG_E("Failed to acquire history mutex for data collection");
         request->send(500, "application/json", "{\"error\":\"Failed to access history data\"}");
         return;
     }
-    
-    // Add metadata
-    root["size"] = actual_history_size;
-    root["sampledSize"] = sampled_count;
-    root["sampleInterval"] = actual_sample_interval;
-    root["userRequestedInterval"] = user_sample_interval;
-    root["maxDataPoints"] = MAX_DATA_POINTS;
-    
-    // Serialize directly into a PSRAM buffer to avoid a large contiguous
-    // Arduino String allocation on the (possibly fragmented) default heap. (Fix 4)
-    size_t json_len = measureJson(root);
-    char* json_buf = (char*)heap_caps_malloc(json_len + 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+
+    const size_t json_capacity = 1024 + sampled_count * 320;
+    char* json_buf = static_cast<char*>(
+        heap_caps_malloc(json_capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
     if (!json_buf) {
-        LOG_E("Failed to allocate %d bytes in PSRAM for JSON output", json_len + 1);
+        heap_caps_free(samples);
+        LOG_E("Failed to allocate %d bytes in PSRAM for JSON output", json_capacity);
         request->send(500, "application/json", "{\"error\":\"PSRAM allocation failed for response\"}");
         return;
     }
-    serializeJson(root, json_buf, json_len + 1);
-    
-    // Free the JSON document memory before sending to reduce peak usage
-    root.clear();
-    
-    // Stream the PSRAM buffer to the client via a callback-based response
-    // so that no secondary copy of the payload is needed.
+
+    size_t used = 0;
+    const uint64_t timestamp_ms = (*g_web->utc) * 1000ULL;
+    bool ok = append_jsonf(json_buf, json_capacity, &used,
+                           "{\"timestamp\":%llu,\"labels\":[\"hashRate\",\"shareRate\",\"asicTemp\",\"vcoreTemp\",\"Pbus\",\"Vbus\",\"Ibus\",\"Vcore\",\"fanspeed\",\"fanrpm\",\"wifiRSSI\",\"freeHeap\",\"freePsram\",\"latency\",\"epoch\",\"fanCount\",\"fan1speed\",\"fan1rpm\"],\"statistics\":[",
+                           static_cast<unsigned long long>(timestamp_ms));
+    for (size_t i = 0; ok && i < sampled_count; i++) {
+        const history_node_t& h = samples[i];
+        ok = append_jsonf(json_buf, json_capacity, &used,
+                          "%s[%.7g,%.7g,%.7g,%.7g,%.7g,%.7g,%.7g,%u,%u,%u,%d,%u,%u,%u,%llu,%u,%u,%u]",
+                          i == 0 ? "" : ",", h.hashrate, h.share_rate, h.asic_temp, h.vcore_temp,
+                          h.pbus, h.vbus, h.ibus, static_cast<unsigned>(h.vcore),
+                          static_cast<unsigned>(h.fan_speed[0]), static_cast<unsigned>(h.fan_rpm[0]),
+                          static_cast<int>(h.wifi_rssi), static_cast<unsigned>(h.free_ram),
+                          static_cast<unsigned>(h.free_psram), static_cast<unsigned>(h.latency),
+                          static_cast<unsigned long long>(h.epoch), static_cast<unsigned>(h.fan_count),
+                          static_cast<unsigned>(h.fan_speed[1]), static_cast<unsigned>(h.fan_rpm[1]));
+    }
+    heap_caps_free(samples);
+
+    ok = ok && append_jsonf(json_buf, json_capacity, &used,
+                            "],\"size\":%u,\"sampledSize\":%u,\"sampleInterval\":%d,\"userRequestedInterval\":%d,\"maxDataPoints\":%u}",
+                            static_cast<unsigned>(actual_history_size), static_cast<unsigned>(sampled_count),
+                            actual_sample_interval, user_sample_interval, static_cast<unsigned>(MAX_DATA_POINTS));
+    if (!ok) {
+        heap_caps_free(json_buf);
+        LOG_E("History JSON exceeded %d-byte PSRAM buffer", json_capacity);
+        request->send(500, "application/json", "{\"error\":\"History response serialization overflow\"}");
+        return;
+    }
+
+    const size_t json_len = used;
+    std::shared_ptr<char> response_buf(json_buf, [](char* ptr) {
+        heap_caps_free(ptr);
+    });
     AsyncWebServerResponse *response = request->beginResponse(
         "application/json", json_len,
-        [json_buf, json_len](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+        [response_buf, json_len](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
             size_t remaining = json_len - index;
             size_t toWrite = (remaining < maxLen) ? remaining : maxLen;
-            memcpy(buffer, json_buf + index, toWrite);
-            if (index + toWrite >= json_len) {
-                heap_caps_free(json_buf);  // free PSRAM buffer after last chunk
-            }
+            memcpy(buffer, response_buf.get() + index, toWrite);
             return toWrite;
         });
     response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -1382,7 +1308,7 @@ void get_status_history(AsyncWebServerRequest* request){
     response->addHeader("Access-Control-Allow-Headers", "Content-Type");
     request->send(response);
     
-    LOG_D("Response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d", 
+    LOG_D("Response sent: %d bytes, history=%d, sampled=%d, interval=%d/%d, max_points=%d",
           json_len, actual_history_size, sampled_count, actual_sample_interval, user_sample_interval, MAX_DATA_POINTS);
 }
 
