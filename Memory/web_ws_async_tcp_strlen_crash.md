@@ -564,6 +564,52 @@ attached, and **none reproduced the crash** (uptime only increased):
 Because all of these were run at short uptime, they neither confirm nor refute
 the uptime correlation. They do rule out "any single page load triggers it".
 
+## Torn frames with NUL bytes in the log stream (2026-11-15, v3.2.02h)
+
+A second, distinct symptom from the field on 192.168.20.108: about five times in
+a night the `/ws` log stream delivered binary garbage (literal `^@` = NUL, plus
+0x1A/0x02/0x15), and in 2 of 5 cases the miner then closed the WebSocket. Always
+shortly after the once-a-minute summary block.
+
+### It is device-side, not a decoding artefact
+
+`cat -v` output proves the bytes came off the wire: **a UTF-8 sequence split
+mid-character can never produce a NUL** — it only yields an incomplete multi-byte
+sequence (→ U+FFFD). This corrects an earlier reading of the same report as a
+client-side decode problem.
+
+The decisive detail is that the garbage carried the **tail of a genuine log line**
+(`44:39.489] | 2/2  |38.88K|8.192K|6.098644G|`) whose timestamp matched the second
+the garbage arrived. Head garbage + correct tail = the payload was modified during
+copy/send, not mistyped at the source.
+
+Ruled out in source (do not re-investigate):
+
+- **zero-copy reuse of `log_buffer`** — `makeSharedBuffer()` in the library does
+  `make_shared<vector<uint8_t>>(len)` + `memcpy`, one independent copy per frame;
+- **AsyncTCP version mix** — `libdeps` holds both `AsyncTCP` 3.5.0 (stale dir) and
+  `AsyncTCP@src-…` 3.4.10, but the linked artifact is the pinned 3.4.10;
+- **unlocked `log_buffer`** — a single writer and a single `textAll` site, both
+  under the same mutex.
+
+### Reproduction attempt: NOT reproduced
+
+| run | load | lines | bad frames |
+|---|---|---|---|
+| several single-point sweeps | 1 client, heavy log bursts | 6 443 | 0 |
+| stress | **5 concurrent `/ws` clients** + 3-point sweep | 7 668 | 0 |
+
+>14 000 lines, zero bad frames, zero invalid-UTF-8 frames, zero unexpected
+disconnects. Recorded as a **negative result**: the common case is clean, and this
+does not establish the defect is fixed. Any future occurrence needs a capturing
+tool that reports `# BADFRAME` (see `ws_log.ps1`), because that marker proves the
+corruption came off the wire rather than from the client.
+
+One practical trap while chasing this: **the version letters are not
+chronological.** The field called the defect "new in v3.2.02h" and said earlier
+`k`/`m`/`u` logs were clean, which reads as `h` being older — but `u` was set on
+2026-11-10 and `h` on 2026-11-14, so `h` is the newer build.
+
 ## Reusable lessons
 
 * `0x4005xxxx` is ROM on ESP32-S3: symbolize with `esp32s3_rev0_rom.elf`, not the
