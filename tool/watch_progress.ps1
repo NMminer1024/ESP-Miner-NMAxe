@@ -89,14 +89,24 @@ while ($true) {
         $ip   = $last.ip
         $up   = [double]$last.uptimeSeconds
         $deque = [double]$last.dequeSize
-        $cad   = [double]$last.cadenceSec
         $ageS  = ($now - [datetime]$last.timestamp).TotalSeconds
 
-        $frac = $up / $windowSeconds
-        if ($frac -ge 1) { $ready = $true }
+        # The deque only ever holds the retention window, so once uptime exceeds
+        # it the span covered by the deque is capped at the window. Dividing the
+        # full uptime by the deque size (what the CSV stores) then overstates the
+        # sample interval: at 33 h it reported 8.3 s when the real interval was
+        # still 6.2 s, which made a healthy run look like it had slowed down.
+        $span = [math]::Min($up, $windowSeconds)
+        $cad  = if ($deque -gt 0) { $span / $deque } else { 0 }
 
-        # Expected deque once the retention window is full.
-        $expect = if ($cad -gt 0) { [math]::Round($windowSeconds / $cad) } else { 0 }
+        $frac   = $up / $windowSeconds
+        $windowFull = $up -ge $windowSeconds
+        if ($windowFull) { $ready = $true }
+
+        # Until the window is full the deque is still filling; after that it is a
+        # steady state where each sample evicts one, so the expected size is just
+        # whatever it settled at.
+        $expect = if ($windowFull) { $deque } elseif ($cad -gt 0) { [math]::Round($windowSeconds / $cad) } else { 0 }
         $eta    = [math]::Max(0, $windowSeconds - $up)
 
         # The soak samples every SoakIntervalMinutes, so a gap of up to that long
@@ -108,7 +118,11 @@ while ($true) {
 
         Write-Host ''
         Write-Host ("  {0,-16} fw {1}  sha {2}" -f $ip, $last.firmware, $last.appSha256) -ForegroundColor White
-        Write-Host ("    window  {0} {1,5:N1}%   eta {2}" -f (Write-Bar $frac), ($frac * 100), (Format-Duration $eta))
+        if ($windowFull) {
+            Write-Host ("    window  {0} FULL - reproduction conditions reached" -f (Write-Bar 1.0)) -ForegroundColor Green
+        } else {
+            Write-Host ("    window  {0} {1,5:N1}%   eta {2}" -f (Write-Bar $frac), ($frac * 100), (Format-Duration $eta))
+        }
         Write-Host ("    uptime  {0,-12} deque {1,-6} / ~{2} expected   cadence {3:N2} s" -f `
             (Format-Duration $up), $deque, $expect, $cad)
         Write-Host ("    heap {0}  psram {1}  latency {2} ms  http {3}" -f `
