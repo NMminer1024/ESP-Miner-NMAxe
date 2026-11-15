@@ -345,6 +345,11 @@ static void bm_r_key(char* out, size_t out_len, uint16_t idx) {
 // keeping the worst case bounded.
 static constexpr uint8_t BM_APPEND_MAX_DROPS = 4;
 
+// "No row may be evicted" - returned by bm_r_pick_victim() when every candidate
+// is protected (a soak verdict) or excluded (the row being upgraded). Distinct
+// from 0, which is a real ring index.
+static constexpr uint16_t BM_R_NO_VICTIM = 0xFFFF;
+
 // Entries are flat JSON objects; freq is a plain integer, so a light
 // strstr+atoi parse is enough (no ArduinoJson needed in this hot path).
 static bool bm_r_parse_freq(const char* entry_json, uint16_t& freq) {
@@ -511,7 +516,19 @@ static bool bm_r_parse_fw(const char* entry_json, char* out, size_t out_len) {
 //   4. the OLDEST ts                  — nothing else distinguishes them; ts is
 //                                       refreshed on every upsert, so this is the
 //                                       row whose MEASUREMENT is oldest.
-static uint16_t bm_r_pick_victim(uint16_t start, uint16_t cnt, const char** why) {
+//
+// `skip` (0xFFFF = none) excludes one index from consideration. Two callers need
+// it: the soak-verdict path must not evict the row it is trying to upgrade, and
+// the exclusion has to survive the ranking rather than be patched afterwards -
+// skipping the winner after the fact would return the second-best in one class
+// while a cheaper class still had entries.
+//
+// `protect_soaked` keeps rows that already carry a verdict out of the running.
+// A soak verdict is the most expensive evidence in the partition (it took a
+// 2-minute soak to produce) and the one thing another sweep cannot cheaply
+// recreate, so it ranks below even the oldest plain measurement.
+static uint16_t bm_r_pick_victim(uint16_t start, uint16_t cnt, const char** why,
+                                 uint16_t skip = 0xFFFF, bool protect_soaked = false) {
     static const char* kWhy[3] = {
         "failed row",
         "row without a measured hashrate",
@@ -525,17 +542,21 @@ static uint16_t bm_r_pick_victim(uint16_t start, uint16_t cnt, const char** why)
     int16_t oldest_i   = -1;
     long    oldest_ts  = 0;
     for (uint16_t i = 0; i < cnt; i++) {
+        if (i == skip) continue;
         char key[12];
         bm_r_key(key, sizeof(key), (start + i) % BM_RESULT_MAX_ENTRIES);
         char* e = nvs_config_get_string(key, "");
         if (!e) continue;
         if (strlen(e) > 0) {
+            const bool soaked = protect_soaked && strstr(e, ",\"soak\":1") != nullptr;
             // A row with no/invalid ts (ts < 0) sorts first: an untimestamped row
             // cannot be shown to be recent. Such a row is also the cheapest to
             // lose, so treating it as "oldest" is right in both readings.
             const long ts = bm_r_json_int(e, "\"ts\":");
             int cls = -1;
-            if (bm_r_json_int(e, "\"fail\":") == 1) {
+            if (soaked) {
+                cls = -1;                       // protected: never a candidate
+            } else if (bm_r_json_int(e, "\"fail\":") == 1) {
                 cls = 0;
             } else if (bm_r_json_double(e, "\"avgHR\":") <= 0.0) {
                 cls = 1;
@@ -550,7 +571,7 @@ static uint16_t bm_r_pick_victim(uint16_t start, uint16_t cnt, const char** why)
                 best[cls]    = (int16_t)i;
                 best_ts[cls] = ts;
             }
-            if (oldest_i < 0 || ts < oldest_ts) {
+            if (!soaked && (oldest_i < 0 || ts < oldest_ts)) {
                 oldest_i  = (int16_t)i;
                 oldest_ts = ts;
             }
@@ -561,8 +582,11 @@ static uint16_t bm_r_pick_victim(uint16_t start, uint16_t cnt, const char** why)
         if (best[c] >= 0) { *why = kWhy[c]; return (uint16_t)best[c]; }
     }
     if (oldest_i < 0) {
-        *why = "oldest entry";
-        return 0;
+        // Nothing left that may be given up. Returning index 0 here would name a
+        // row the caller was explicitly told to keep - which is how a "protected"
+        // or "skip this index" call would silently destroy the wrong row.
+        *why = "nothing may be evicted";
+        return BM_R_NO_VICTIM;
     }
     *why = "oldest measurement";
     return (uint16_t)oldest_i;
@@ -675,6 +699,15 @@ static esp_err_t bm_result_append_ring(const char* entry_json) {
         const uint16_t idx = evict_head_next ? 0 : bm_r_pick_victim(start, cnt, &why);
         if (evict_head_next) why = "oldest entry (previous hole was too small)";
         evict_head_next = false;
+        if (idx == BM_R_NO_VICTIM) {
+            // Every row is either protected or unusable. Say so instead of
+            // indexing with 0xFFFF and deleting an arbitrary entry.
+            LOG_E("[BM] NVS full and no row may be evicted - the new %u-byte result was not "
+                  "stored. Clear results or free NVS space.",
+                  (unsigned)strlen(entry_json));
+            err = ESP_ERR_NVS_NOT_ENOUGH_SPACE;
+            break;
+        }
         const uint16_t vpos = (start + idx) % BM_RESULT_MAX_ENTRIES;
         char vkey[12];
         bm_r_key(vkey, sizeof(vkey), vpos);
@@ -981,9 +1014,9 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vco
         }
         strcpy(out + prefix + n, ts);
 
-        // Captured before the frees below: the error log quotes it, and reading a
-        // freed buffer to build a diagnostic is the kind of bug this file already
-        // paid for once.
+        // Captured before any free: the error log quotes it, and reading a freed
+        // buffer to build a diagnostic is the kind of bug this file already paid
+        // for once.
         const size_t old_len = strlen(e);
         esp_err_t err = nvs_config_try_set_string(key, out);
 #ifdef BM_TEST_FORCE_SOAK_MARK_FAIL
@@ -992,6 +1025,57 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vco
         // release build (nothing in platformio.ini sets it).
         if (err == ESP_OK) err = ESP_ERR_NVS_NOT_ENOUGH_SPACE;
 #endif
+
+        // Out of space is recoverable, and leaving it unrecovered costs the user
+        // the whole sweep.
+        //
+        // Hit for real on Nexus with NVS down to ~137 free entries: the verdict
+        // for the freshly soaked best point would not fit, so the run applied
+        // nothing and hours of measurement were wasted. That is not a verdict
+        // about the point - it is the partition being full of OLD rows.
+        //
+        // So buy the room the honest way: drop the least useful OTHER row (same
+        // ranking the append path uses - failed tombstone, then an unmeasured
+        // row, then another build's row, then the oldest measurement) and retry.
+        // Never the row being marked, and never another SOAKED row: those verdicts
+        // are the most expensive thing in the partition and this one is about to
+        // join them.
+        //
+        // Bounded, because every iteration destroys data: if two evictions do not
+        // free enough, the cause is something other than "one row away from
+        // fitting" and the honest answer is "not stored".
+        for (int attempt = 0;
+             (err == ESP_ERR_NVS_NOT_ENOUGH_SPACE || err == ESP_ERR_NVS_VALUE_TOO_LONG) &&
+             attempt < 2;
+             attempt++) {
+            const char* why = "";
+            // Exclude the row being upgraded and every row that already carries a
+            // verdict: a soak is 2 minutes of measurement, the most expensive
+            // thing in the partition, and this row is about to join that set.
+            const uint16_t v = bm_r_pick_victim(start, cnt, &why, i, true);
+            if (v == BM_R_NO_VICTIM) break;
+
+            char vkey[12];
+            bm_r_key(vkey, sizeof(vkey), v);
+            uint16_t vfreq = 0;
+            char* vold = nvs_config_get_string(vkey, "");
+            const bool have_vf = vold && bm_r_parse_freq(vold, vfreq);
+            free(vold);
+
+            nvs_config_delete_key(vkey);
+
+            if (have_vf) {
+                LOG_W("[BM] NVS full: dropped %uMHz (%s) to make room for the soak verdict on freq=%u.",
+                      (unsigned)vfreq, why, freq);
+            } else {
+                LOG_W("[BM] NVS full: dropped an unreadable row (%s) to make room for the soak "
+                      "verdict on freq=%u.", why, freq);
+            }
+
+            err = nvs_config_try_set_string(key, out);
+            if (err == ESP_OK) break;
+        }
+
         free(out);
         free(e);
         if (err != ESP_OK) {
