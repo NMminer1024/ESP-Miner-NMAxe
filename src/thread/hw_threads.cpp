@@ -945,6 +945,16 @@ void fan_thread_entry(void* args) {
         // peaked at 71.3 °C instead of 69.4 °C.
         static uint16_t last_auto_duty[FAN_SLOTS_MAX] = {0};
         static bool     have_last_auto[FAN_SLOTS_MAX] = {false};
+        // Operating point that last_auto_duty belongs to.
+        //
+        // Without this the value could be handed to a DIFFERENT point. A duty that
+        // is right for 600MHz is far too little for 785MHz, and using it as a
+        // floor after a hand-over is exactly how the undershoot this cushion exists
+        // to prevent comes back. Recording the pair turns "a number we once saw"
+        // into "what this point settled at", which is the only reading that is
+        // safe to act on.
+        static uint16_t last_auto_freq[FAN_SLOTS_MAX]  = {0};
+        static uint16_t last_auto_vcore[FAN_SLOTS_MAX] = {0};
         // Start of the current unusable-reading episode (0 = readings are fine).
         static uint32_t lost_since_ms[FAN_SLOTS_MAX] = {0};
         static uint32_t last_warn_ms[FAN_SLOTS_MAX] = {0};
@@ -968,7 +978,27 @@ void fan_thread_entry(void* args) {
                     bumpless_pending[fan_index] = false;
                 } else {
                     bumpless_pending[fan_index] = true;
-                    floor_duty[fan_index]       = ovr_saved[fan_index];
+                    // The cushion's job is "do not walk below what this chip needs".
+                    //
+                    // ovr_saved is where the fan HAPPENED to be when the takeover
+                    // began, not what the chip needs. During a benchmark that is
+                    // 100 % (the sweep pins the fans), so the floor became 100 % for
+                    // the whole 60 s window - the reported symptom: an applied point
+                    // held the ASIC fan at 86 -> 100 % with nothing asking for it.
+                    // Worse, a floor of 100 % keeps the chip below target, so the
+                    // release condition "temperature reached the band" can never fire
+                    // and only the 60 s timeout ends it.
+                    //
+                    // Prefer the duty this exact operating point settled at before
+                    // the takeover. The point must match: a value measured at a lower
+                    // frequency is not a safe lower bound here, so anything else keeps
+                    // the old conservative behaviour.
+                    floor_duty[fan_index] = ovr_saved[fan_index];
+                    if (have_last_auto[fan_index] &&
+                        last_auto_freq[fan_index]  == spec.asic.req_frq &&
+                        last_auto_vcore[fan_index] == spec.asic.req_vcore) {
+                        floor_duty[fan_index] = last_auto_duty[fan_index];
+                    }
                     // 60 s, not minutes: the overshoot this guards against appears
                     // within ~30 s of the hand-over, and a longer floor would
                     // inflate the fan duty a benchmark soak records as fanNeed.
@@ -1169,9 +1199,13 @@ void fan_thread_entry(void* args) {
                     // is the cushion a later manual/benchmark takeover is handed
                     // back to. Only while the loop owns the fan (this branch), so
                     // a manual or override value can never become the reference.
+                    // The point is stored with the duty so a hand-over can tell
+                    // whether the number still applies (see last_auto_freq).
                     if (floor_until_ms[fan_index] == 0) {
-                        last_auto_duty[fan_index] = rounded;
-                        have_last_auto[fan_index] = true;
+                        last_auto_duty[fan_index]  = rounded;
+                        last_auto_freq[fan_index]  = spec.asic.req_frq;
+                        last_auto_vcore[fan_index] = spec.asic.req_vcore;
+                        have_last_auto[fan_index]  = true;
                     }
                 } else {
                     if (duty < 0.0f)   duty = 0.0f;
