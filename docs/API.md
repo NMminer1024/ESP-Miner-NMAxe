@@ -5,6 +5,8 @@ Base URL: `http://{device-ip}`
 All endpoints are served on **port 80**. Response bodies are JSON unless noted otherwise. `PATCH`/`POST` request bodies must use `Content-Type: application/json` (except multipart file uploads).
 
 > 💡 An interactive version of this document is also available on-device at `http://{device-ip}/api-doc` after flashing.
+>
+> **This document describes the firmware as it is now, not a particular release.** It deliberately contains no version numbers: referring to one would make every release a documentation change, and a stale reference is worse than none. Where a behaviour was introduced by a specific change, that is recorded in the commit history and `readme.md`, not here. Version-bearing *values* in example payloads are written as placeholders (`"<fw-version>"`) for the same reason.
 
 ---
 
@@ -92,7 +94,7 @@ The response is structured into nested sub-objects.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `identity.fwVersion` | string | Firmware version (e.g. `"v2.9.31"`) |
+| `identity.fwVersion` | string | Firmware version (e.g. `"<fw-version>"`) |
 | `identity.hwModel` | string | Functional board ID — stable across hardware revisions (e.g. `"NMQAxe+"`) |
 | `identity.displayName` | string | Human-readable variant label including revision (e.g. `"NMQAxe++Rev6.1"`) |
 | `identity.hostName` | string | Device hostname |
@@ -164,7 +166,7 @@ Active pool connection — read-only snapshot.
     "uptimeEver": 2592000
   },
   "identity": {
-    "fwVersion": "v2.9.31",
+    "fwVersion": "<fw-version>",
     "hwModel": "NMAxe",
     "displayName": "NMAxe",
     "hostName": "nmaxe-001",
@@ -521,7 +523,7 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
     "idx": 142, "ts": 1716000000, "uptime": 11520,
     "heapMin": 7941800, "heapMinInternal": 43560, "heapMinPsram": 7065363,
     "reset": "panic", "intent": "none", "class": "crash",
-    "fw": "v3.0.11", "detail": "panic"
+    "fw": "<fw-version>", "detail": "panic"
   }
 ]
 ```
@@ -563,7 +565,7 @@ Read-only. Touches nothing but flash reads; safe to call at any time.
 
 > **Why payload bytes ≠ partition usage.** NVS is log-structured: a string of N bytes costs one 32-byte item header plus `ceil((N+1)/32)` 32-byte chunks, and reclaiming space requires an entire 4 KB page to be evacuated first. So `free_entries > 0` does **not** guarantee a write will succeed, and deletes themselves need a free entry (for the tombstone). A device reporting `ESP_ERR_NVS_NOT_ENOUGH_SPACE` with a seemingly empty benchmark table is usually holding **unreachable** `bm_r_*` rows — result slots outside the `bm_r_start`/`bm_r_cnt` window, invisible to `GET /api/benchmark`. `DELETE /api/benchmark/results` removes them; the firmware also reclaims them automatically at boot and when a pool-config write hits a full partition.
 >
-> **What a benchmark row actually costs.** Measuring `bm_r_*` sizes on a Nexus (v3.2.02i, 27 rows, 756 entries total) gives an exact match for the formula above: a ~339 B row consumes **12 entries**, and the same row with its soak verdict (`soak`, `fanNeed`, `fanNeedVcore`, ~+45 B) consumes **14**. That board reports `used_entries = 602`, of which 324 are those rows, so everything else (config, WiFi credentials, reboot log, phy calibration — 83 keys) holds **278 entries**. A fully configured board therefore fits roughly `(756 − 278) / 14 ≈ 34` soaked rows — the firmware's 80-entry ring index is not the limit, the partition is. `free_entries / 14` is the approximate number of further rows, which is what the `[nvs] low space` log line now reports directly.
+> **What a benchmark row actually costs.** Measuring `bm_r_*` sizes on a configured Nexus board (27 rows, 756 entries total) gives an exact match for the formula above: a ~339 B row consumes **12 entries**, and the same row with its soak verdict (`soak`, `fanNeed`, `fanNeedVcore`, ~+45 B) consumes **14**. That board reports `used_entries = 602`, of which 324 are those rows, so everything else (config, WiFi credentials, reboot log, phy calibration — 83 keys) holds **278 entries**. A fully configured board therefore fits roughly `(756 − 278) / 14 ≈ 34` soaked rows — the firmware's 80-entry ring index is not the limit, the partition is. `free_entries / 14` is the approximate number of further rows, which is what the `[nvs] low space` log line now reports directly.
 >
 > **Write amplification.** Because every overwrite appends a new entry, a periodic save that rewrites unchanged values burns the partition for nothing. The lifetime counters are therefore persisted only when the value actually differs (they are read back and compared first): a quiet miner now costs ~1–2 entries per hour instead of ~51, and the Top-10 connection snapshot collapses to a single `@pool|user` pair when all ranks share one pool and wallet.
 
@@ -584,7 +586,7 @@ The response is split into two groups that must not be mixed up:
 - **Running fields** (`running*`) describe the image running right now and are context only.
 
 A dump stores the crashing image's ELF SHA256 but **no version string** (verified by
-scanning a real dump: no `v3.2.02*` text and no `esp_app_desc` magic). The version is
+scanning a real dump: no firmware version text and no `esp_app_desc` magic). The version is
 therefore taken from a persisted crash-identity record captured on the boot that
 followed the panic, never from the currently running firmware. After an OTA that left
 an old dump behind, `belongsToRunningImage` is `false` and `crashFwVersion` is empty
@@ -616,10 +618,10 @@ rather than being filled with the new build's version.
   "bt": [1074091697],
   "appSha256": "21dc69fe5c07a802...",
   "crashAppSha256": "21dc69fe5c07a802",
-  "crashFwVersion": "v3.2.02d",
+  "crashFwVersion": "<crashed-version>",
   "crashUptimeSec": 95001, "crashMinFreeHeap": 7035363, "crashEpoch": 1794578960,
   "crashIdentityKnown": true,
-  "runningFwVersion": "v3.2.02g", "runningAppSha256": "1a2b3c4d5e6f7a8b",
+  "runningFwVersion": "<running-version>", "runningAppSha256": "1a2b3c4d5e6f7a8b",
   "belongsToRunningImage": false }
 ```
 

@@ -867,7 +867,7 @@
   <span class="kw">"reset"</span>:   <span class="str">"panic"</span>,        <span class="cmt">// ESP32 hardware reset reason (see Reset values table)</span>
   <span class="kw">"intent"</span>:  <span class="str">"none"</span>,         <span class="cmt">// software reboot intent set before restart (see Intent values table)</span>
   <span class="kw">"class"</span>:   <span class="str">"crash"</span>,        <span class="cmt">// cold | planned | unknown_sw | crash | power | external | other</span>
-  <span class="kw">"fw"</span>:      <span class="str">"v3.0.20"</span>,      <span class="cmt">// firmware version that ran during the previous session</span>
+  <span class="kw">"fw"</span>:      <span class="str">"&lt;fw-version&gt;"</span>,      <span class="cmt">// firmware version that ran during the previous session</span>
   <span class="kw">"detail"</span>:  <span class="str">"panic"</span>         <span class="cmt">// free-form description (reset reason string or intent detail)</span>
 }</pre>
           <div class="note">If no record exists yet, the firmware returns <code>{"class":"cold","intent":"none"}</code>.</div>
@@ -946,7 +946,7 @@
   {
     <span class="kw">"idx"</span>: <span class="num">142</span>, <span class="kw">"ts"</span>: <span class="num">1716000000</span>, <span class="kw">"uptime"</span>: <span class="num">11520</span>, <span class="kw">"heapMin"</span>: <span class="num">49152</span>,
     <span class="kw">"reset"</span>: <span class="str">"panic"</span>, <span class="kw">"intent"</span>: <span class="str">"none"</span>, <span class="kw">"class"</span>: <span class="str">"crash"</span>,
-    <span class="kw">"fw"</span>: <span class="str">"v3.0.20"</span>, <span class="kw">"detail"</span>: <span class="str">"panic"</span>
+    <span class="kw">"fw"</span>: <span class="str">"&lt;fw-version&gt;"</span>, <span class="kw">"detail"</span>: <span class="str">"panic"</span>
   }
 ]</pre>
         </div>
@@ -1572,7 +1572,7 @@ Content-Type: application/octet-stream
       <span class="cmt">// both are ABSENT when there is no such fan or on older results.</span>
       <span class="kw">"fanAsic"</span>:  <span class="num">68</span>,     <span class="cmt">// ASIC heatsink fan (100 on fixed-speed boards)</span>
       <span class="kw">"fanVcore"</span>: <span class="num">46</span>,     <span class="cmt">// Vcore / VRM fan</span>
-      <span class="kw">"fw"</span>:       <span class="str">"v3.2.02c"</span>,<span class="cmt">// build that measured this row (absent on older results)</span>
+      <span class="kw">"fw"</span>:       <span class="str">"&lt;fw-version&gt;"</span>,<span class="cmt">// build that measured this row (absent on older results)</span>
       <span class="cmt">// Verdicts. "q" is ABSENT on results written before the safety-margin</span>
       <span class="cmt">// rule existed — treat those as unverified, never as passing.</span>
       <span class="kw">"q"</span>:    <span class="num">1</span>,      <span class="cmt">// 1 = passed the margin, 0 = a peak was too close to a limit</span>
