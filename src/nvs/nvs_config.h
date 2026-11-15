@@ -132,7 +132,11 @@ bool      bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
 // Add "soak":1 and the settled duty of each fan to one stored result.
 // fan_need_vcore < 0 = board has no VRM fan, so that field is omitted.
 // Idempotent: any existing soak fields are replaced, never appended.
+// Returns the NVS error when the verdict could not be stored - the caller must
+// not treat such a row as verified (see bm_result_is_soaked / bm_finish).
 esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vcore = -1);
+// Whether that frequency's stored row carries a soak verdict.
+bool      bm_result_is_soaked(uint16_t freq);
 // Drop all soak verdicts (the fan policy they were measured under changed).
 void      bm_result_clear_soak(void);
 void      bm_result_restore_all(const char* json_array);// bulk-restore entries from a "[...]" string (empty ring assumed)

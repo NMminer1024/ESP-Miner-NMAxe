@@ -915,7 +915,24 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
         uint16_t fan_need = 0, fan_need_vcore = 0;
         bool has_vcore_fan = false;
         if (bm_soak_point(ctx, c.freq, c.vcore, &fan_need, &fan_need_vcore, &has_vcore_fan)) {
-            bm_result_mark_soak(c.freq, fan_need, has_vcore_fan ? (int)fan_need_vcore : -1);
+            // The verdict is the whole point of this stage, so a write that does not
+            // land has to be visible. It used to be dropped on the floor: the row
+            // kept its sweep data, no "marked as soak-verified" line appeared, and
+            // the point was still auto-applied - which is exactly what the field
+            // reported (775MHz applied with no soak:1 and no log line).
+            //
+            // A failure does not abort the sweep: the measurement itself is still
+            // good, and the next candidate gets its own chance. bm_finish() will
+            // simply refuse to apply a row without a verdict.
+            const esp_err_t mark_err = bm_result_mark_soak(
+                c.freq, fan_need, has_vcore_fan ? (int)fan_need_vcore : -1);
+            if (mark_err != ESP_OK) {
+                LOG_E("[BM] Soak %u/%u passed at %dMHz/%dmV but the verdict could not be stored "
+                      "(%s) - it will not be applied automatically. Use Stop/Apply, or clear "
+                      "old results and re-run the benchmark.",
+                      (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total,
+                      c.freq, c.vcore, esp_err_to_name(mark_err));
+            }
             if (has_vcore_fan) {
                 LOG_W("[BM] Soak %u/%u PASSED: %dMHz/%dmV at %u%%/%u%% fan (ASIC/VRM) — this is the point to apply.",
                       (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total, c.freq, c.vcore,
@@ -1021,6 +1038,14 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
                 // already been judged. Requiring the flag as well would silently
                 // skip points whose soak was never attempted — for example when a
                 // narrow re-run left an older, already-cleared entry untouched.
+                //
+                // One case that reasoning missed, reported from the field: a soak
+                // that PASSED but whose verdict could not be written to NVS leaves
+                // a complete-looking row with no "soak":1, and this loop applied it
+                // while the log said nothing. So a row still does not have to be
+                // soaked to stay in the table — but it does have to be soaked to be
+                // applied. Asking NVS one question is cheap next to applying a point
+                // whose verification silently vanished.
                 candidates++;
                 float avgHR = e["avgHR"] | 0.0f;
                 if (avgHR > best_avgHR) {
@@ -1028,6 +1053,32 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
                     best_freq  = e["freq"]  | (uint16_t)0;
                     best_vcore = e["vcore"] | (uint16_t)0;
                 }
+            }
+        }
+        // The best row must actually carry a verdict. If the highest-hashrate row
+        // does not, a LOWER soaked row is the right answer — falling back to
+        // "apply nothing" would throw away a verified point that is still better
+        // than the pre-sweep settings.
+        if (best_freq > 0 && best_vcore > 0 && !bm_result_is_soaked(best_freq)) {
+            LOG_W("[BM] Best qualified result (%dMHz/%dmV, %.1fGH/s) carries no soak verdict in NVS — "
+                  "not applying it; looking for a soaked row instead.",
+                  best_freq, best_vcore, best_avgHR);
+            uint16_t alt_freq = 0, alt_vcore = 0;
+            float    alt_hr   = -1.0f;
+            for (JsonObject e : rdoc.as<JsonArray>()) {
+                if ((int)(e["fail"] | 0) != 0 || (int)(e["q"] | 0) != 1) continue;
+                const float    hr = e["avgHR"] | 0.0f;
+                const uint16_t f  = e["freq"]  | (uint16_t)0;
+                const uint16_t v  = e["vcore"] | (uint16_t)0;
+                if (!f || !v || hr <= 0.0f) continue;
+                if (!bm_result_is_soaked(f)) continue;
+                if (hr > alt_hr) { alt_hr = hr; alt_freq = f; alt_vcore = v; }
+            }
+            best_freq  = alt_freq;
+            best_vcore = alt_vcore;
+            best_avgHR = alt_hr;
+            if (best_freq == 0) {
+                LOG_W("[BM] No soaked result to apply — keeping the pre-sweep settings.");
             }
         }
         if (best_freq > 0 && best_vcore > 0) {

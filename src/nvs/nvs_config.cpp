@@ -981,10 +981,38 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vco
         }
         strcpy(out + prefix + n, ts);
 
+        // Captured before the frees below: the error log quotes it, and reading a
+        // freed buffer to build a diagnostic is the kind of bug this file already
+        // paid for once.
+        const size_t old_len = strlen(e);
         esp_err_t err = nvs_config_try_set_string(key, out);
+#ifdef BM_TEST_FORCE_SOAK_MARK_FAIL
+        // Test-only: force the failure path so it can be exercised on demand
+        // instead of waiting for a partition to fill up. Never defined in a
+        // release build (nothing in platformio.ini sets it).
+        if (err == ESP_OK) err = ESP_ERR_NVS_NOT_ENOUGH_SPACE;
+#endif
         free(out);
         free(e);
-        if (err != ESP_OK) return err;
+        if (err != ESP_OK) {
+            // Loud on purpose. A silent failure here is indistinguishable from
+            // "the soak never ran": the row keeps its sweep data with no verdict,
+            // the log says nothing, and the point could still be auto-applied.
+            //
+            // The row is deliberately LEFT IN PLACE rather than deleted to make
+            // room for the retry. Overwriting in place needs room for the old
+            // entry and the new one at once (a write appends before it drops), and
+            // this row grows by ~45 bytes / 2 entries, while deleting it frees 12
+            // and costs 1-2 tombstones - so a retry after the delete would usually
+            // fail anyway, having thrown away the measurement in the process. The
+            // honest outcome when the partition is full is "the verdict was not
+            // stored"; bm_finish() then declines to apply this row.
+            LOG_E("[BM] freq=%u passed the soak but its verdict could NOT be stored (%s, %u bytes) - "
+                  "this row will not be auto-applied. Clear old results or free NVS space "
+                  "(GET /api/system/nvs lists what is stored).",
+                  freq, esp_err_to_name(err), (unsigned)old_len);
+            return err;
+        }
         s_soak_marks_may_exist = true;
         if (fan_need_vcore >= 0) {
             LOG_W("[BM] freq=%u marked as soak-verified (fanNeed=%u%% ASIC / %d%% VRM)",
@@ -995,6 +1023,30 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vco
         return ESP_OK;
     }
     return ESP_ERR_NOT_FOUND;
+}
+
+// Whether one stored result carries a soak verdict.
+//
+// A light strstr over the row, like the other readers here: the entry is a flat
+// object and "soak" appears only as the verdict key. Used by bm_finish() to
+// decide what it may auto-apply - a row whose verdict could not be stored is not
+// evidence, even though every other field of it looks complete.
+bool bm_result_is_soaked(uint16_t freq) {
+    if (!s_soak_marks_may_exist) return false;
+    uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
+    uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
+    for (uint16_t i = 0; i < cnt; i++) {
+        char key[12];
+        bm_r_key(key, sizeof(key), (start + i) % BM_RESULT_MAX_ENTRIES);
+        char* e = nvs_config_get_string(key, "");
+        if (!e) continue;
+        uint16_t of = 0;
+        const bool match = bm_r_parse_freq(e, of) && of == freq;
+        const bool soaked = match && strstr(e, ",\"soak\":1") != nullptr;
+        free(e);
+        if (soaked) return true;
+    }
+    return false;
 }
 
 // Drop every soak verdict. A soak says "this point stays inside its limits under
