@@ -97,11 +97,23 @@
 #define NVS_CONFIG_BM_R_COUNT           "bm_r_cnt"      // ring: number of stored entries
 // The ring is capped by the 24KB nvs partition (partitions.csv), NOT by this
 // number. Entries grew from ~170B (v3.2.01: freq/vcore/HR/temps/J-TH/power/ts)
-// to ~400B once the safety-margin verdict, peak currents, per-phase data, fan
-// duties and the firmware tag were added, so only ~50 rows fit. This constant
-// stays as the hard index bound (bm_r_000..bm_r_079); reaching it is no longer
-// the capacity limit — NVS space is, and bm_result_append_ring() reports which
-// row it had to drop when that happens.
+// to ~340B once the safety-margin verdict, peak currents, per-phase data, fan
+// duties and the firmware tag were added, so the real ceiling is much lower
+// than 80.
+//
+// Measured on Nexus (v3.2.02i, 27 rows, 6 pages x 126 = 756 entries):
+//   a result row costs 12 entries  (1 header + ceil((339+1)/32) = 11 chunks)
+//   the same row with its soak verdict costs 14  (+ ~45B -> 13 chunks)
+//   the other 83 keys (config, WiFi, reboot log, phy cal) cost 278 entries
+//   measured used_entries = 602, of which 324 are the 27 rows
+// so a configured board holds roughly (756 - 278) / 14 ~= 34 soaked rows, not
+// 80. Reaching 80 would need a ~48KB partition: 80 x 14 x 32 = 35KB of rows
+// alone, before anything else.
+//
+// This constant stays as the hard index bound (bm_r_000..bm_r_079); reaching it
+// is not the capacity limit - NVS space is, and bm_result_append_ring() reports
+// which row it had to drop when that happens. Do not quote it to users as
+// "how many results fit"; GET /api/system/nvs reports the real headroom.
 #define BM_RESULT_MAX_ENTRIES           80
 // Timing: start timestamp (Unix s) written at POST /start; total elapsed written at completion
 #define NVS_CONFIG_BM_START_TS          "bm_start_ts"

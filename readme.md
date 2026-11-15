@@ -207,7 +207,7 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
   - **Advanced Tuning Collapsed**: Manual frequency / Vcore tuning is now folded into a hidden "Advanced (Frequency / Vcore)" section; after any manual change the mode shows as "Custom".
   - ckpool quick link updated to `stats.ckpool.org`.
 - `Improved`:
-  - **Benchmark Capacity**: Result storage increased from ~28 to a maximum of 80 entries; legacy data migrates automatically, no manual action needed.
+  - **Benchmark Capacity**: Result storage increased from ~28 to a per-frequency ring index of 80 slots; legacy data migrates automatically, no manual action needed. The real ceiling is the 24 KB NVS partition rather than the index — a stored result costs ~12 NVS entries (~339 B) and ~14 once its soak verdict is added, so a fully configured board holds roughly 30 results. `GET /api/system/nvs` reports the actual headroom.
   - **Fan Safety Ceiling**: Auto-fan target temperature now has a safe upper limit (over-temperature trip point minus 5 °C); values above it are clamped on save.
 - `Fixed`:
   - Fixed market module occasional watchdog-timeout reboots under certain network conditions.

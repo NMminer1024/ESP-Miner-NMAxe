@@ -149,16 +149,28 @@ static String top_snap_to_nvs(const MinerStatus& st) {
 // pages), but it is the one number that predicts the failure early: below two
 // pages there is no spare page to evacuate into, which is when config saves start
 // returning ESP_ERR_NVS_NOT_ENOUGH_SPACE.
+//
+// Entries are not the unit an operator thinks in, though. A stored benchmark row
+// costs a fixed, undocumented number of them (measured on Nexus: 12 for a ~339 B
+// row, 14 once the soak verdict is added), so "182 entries free" reads as "plenty"
+// until the next sweep starts evicting rows. Quote the row count instead, which is
+// what the warning actually means - and say it is approximate, because the real
+// number depends on how many other keys still have to be written.
+static constexpr uint32_t NVS_ENTRIES_PER_RESULT_ROW = 14;   // ~384 B row incl. soak
+
 static void nvs_log_headroom() {
     nvs_stats_t s;
     if (nvs_get_stats("nvs", &s) != ESP_OK) return;
     if (s.free_entries < (2 * 126)) {
-        LOG_W("[nvs] low space: %u of %u entries free (%.1f%%) - old benchmark result rows or "
-              "the reboot log may need clearing; GET /api/system/nvs lists them",
+        LOG_W("[nvs] low space: %u of %u entries free (%.1f%%) - about %u more benchmark result "
+              "row(s); clear old results or the reboot log; GET /api/system/nvs lists them",
               (unsigned)s.free_entries, (unsigned)s.total_entries,
-              s.total_entries ? (100.0 * s.free_entries / s.total_entries) : 0.0);
+              s.total_entries ? (100.0 * s.free_entries / s.total_entries) : 0.0,
+              (unsigned)(s.free_entries / NVS_ENTRIES_PER_RESULT_ROW));
     } else {
-        LOG_I("[nvs] %u of %u entries free", (unsigned)s.free_entries, (unsigned)s.total_entries);
+        LOG_I("[nvs] %u of %u entries free (about %u more result row(s))",
+              (unsigned)s.free_entries, (unsigned)s.total_entries,
+              (unsigned)(s.free_entries / NVS_ENTRIES_PER_RESULT_ROW));
     }
 }
 

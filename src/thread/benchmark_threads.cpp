@@ -1768,7 +1768,10 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
                 iout_phase_max, (int)phase_cnt, ibus_max, pwr_max_in, vfail_json,
                 qualified ? 1 : 0, fan_json, fw_json, (long)time(nullptr));
 
-            // Ring storage: capacity bounded by partition size (80 entries), oldest evicted when full
+            // Ring storage: the index allows BM_RESULT_MAX_ENTRIES slots, but the
+            // real limit is NVS space - a ~340 B row costs 12 entries (~14 with its
+            // soak verdict), so a configured board holds roughly 30, not 80. The
+            // oldest row is evicted when the partition refuses the write.
             esp_err_t nvs_write_err = bm_result_append(entry);
             if (nvs_write_err == ESP_OK) LOG_W("[BM] Result saved: %s", entry);
             else LOG_E("[BM] NVS write failed (%s), result not saved.", esp_err_to_name(nvs_write_err));
