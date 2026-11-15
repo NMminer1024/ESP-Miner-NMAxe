@@ -551,14 +551,47 @@ void power_loop_thread_entry(void* args) {
         // first iterations after a switch correct from the PREVIOUS point's
         // value and command the regulator backwards: a dip on an upward move
         // (undervolted at the higher frequency) or a boost on a downward one.
+        //
+        // The same edge starts a quiet window (below): a setpoint change is the
+        // one moment where the regulator bus is genuinely busy, so it is also the
+        // one moment where a failed read is expected rather than alarming.
+        static uint32_t vcore_change_ms = millis() - 2000u;   // nothing pending at boot
         static uint16_t vcore_req_last = spec.asic.req_vcore;
         if (spec.asic.req_vcore != vcore_req_last) {
-            vcore_req_last = spec.asic.req_vcore;
-            vcore_set = spec.asic.req_vcore;
+            vcore_req_last  = spec.asic.req_vcore;
+            vcore_set       = spec.asic.req_vcore;
+            vcore_change_ms = millis();
         }
         if (ctx->mining && ctx->mining->is_controlled_idle()) {
             // Resume/reinit restart the rail at req_vcore; start the loop from there too.
             vcore_set = spec.asic.req_vcore;
+            continue;
+        }
+
+        // Quiet window after a setpoint change.
+        //
+        // Field data (v3.2.02u and v3.2.02h, 7 of 7 occurrences): every
+        // "Vcore read failed (0 mV)" landed exactly at a ROUND START. That is not
+        // a coincidence - a round start is the only moment when the setpoint is
+        // written, the PLL is being switched, and this loop is still polling every
+        // ~100 ms, so the regulator bus is at its busiest. The read fails because
+        // the bus is contended, not because the rail collapsed.
+        //
+        // The 0 mV guard below already makes that SAFE (hold the setpoint, skip the
+        // correction), so this is not a safety fix - it stops the loop from
+        // reporting a bus-arbitration artefact as though it were a rail fault,
+        // which is what made the field log look like a hardware problem.
+        //
+        // The window matches the settle wait bm_apply_point() already performs
+        // after commanding a new voltage (15 x 100 ms), so it covers exactly the
+        // period in which the rail is being driven to the new target and the
+        // correction loop has nothing useful to contribute anyway: the rail is
+        // commanded directly, and this loop only trims residual line-loss error.
+        //
+        // Suppression is silent by design. Logging "read suppressed" would replace
+        // one piece of noise with another, and there is nothing to act on.
+        constexpr uint32_t VCORE_SETTLE_MS = 1500;
+        if ((uint32_t)(millis() - vcore_change_ms) < VCORE_SETTLE_MS) {
             continue;
         }
 

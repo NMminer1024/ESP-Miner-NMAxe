@@ -48,11 +48,17 @@ foreach ($j in $jobs) {
         $i = Invoke-RestMethod "http://$($j.ip)/api/system/info" -TimeoutSec 5
         $j | Add-Member -NotePropertyName before_fw  -NotePropertyValue $i.identity.fwVersion  -Force
         $j | Add-Member -NotePropertyName before_sha -NotePropertyValue $i.identity.appSha256 -Force
+        # Recorded so the post-upload check can prove the board really rebooted.
+        # It used to read $j.uptime0, which was never set, so [double]$null made
+        # every comparison false and EVERY successful flash reported
+        # "NO UPTIME RESET - upload did not land".
+        $j | Add-Member -NotePropertyName before_up  -NotePropertyValue ([double]$i.miner.uptimeSeconds) -Force
         '  {0,-16} fw={1} sha={2} uptime={3}s' -f $j.ip, $j.before_fw, $j.before_sha, $i.miner.uptimeSeconds
     } catch {
         '  {0,-16} UNREACHABLE' -f $j.ip
         $j | Add-Member -NotePropertyName before_fw  -NotePropertyValue '?' -Force
         $j | Add-Member -NotePropertyName before_sha -NotePropertyValue '?' -Force
+        $j | Add-Member -NotePropertyName before_up  -NotePropertyValue ([double]-1) -Force
     }
 }
 
@@ -105,7 +111,19 @@ foreach ($j in $jobs) {
         try {
             $i = Invoke-RestMethod "http://$($j.ip)/api/system/info" -TimeoutSec 4
             if ($i.identity.fwVersion -eq $Version) {
-                $rebooted = ([double]$i.miner.uptimeSeconds -lt [double]$j.uptime0)
+                # "Rebooted" = the uptime is now lower than it was before the
+                # upload. The version string alone is not enough: a board that
+                # was already on this version (re-flashing the same build, or a
+                # rollback) reports the same string without having restarted.
+                # A board whose uptime could not be read before the upload
+                # (-1) cannot prove either way, so the SHA change decides.
+                $beforeUp = [double]$j.before_up
+                $afterUp  = [double]$i.miner.uptimeSeconds
+                $rebooted = if ($beforeUp -lt 0) {
+                    ($i.identity.appSha256 -ne $j.before_sha)
+                } else {
+                    $afterUp -lt $beforeUp
+                }
                 $j | Add-Member -NotePropertyName after_fw  -NotePropertyValue $i.identity.fwVersion  -Force
                 $j | Add-Member -NotePropertyName after_sha -NotePropertyValue $i.identity.appSha256 -Force
                 $j | Add-Member -NotePropertyName after_up  -NotePropertyValue $i.miner.uptimeSeconds -Force
