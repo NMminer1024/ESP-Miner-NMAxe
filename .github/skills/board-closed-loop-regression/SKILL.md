@@ -79,8 +79,28 @@ The transferable parts are: control group first; capture-before-flash; evidence 
 
 ## Scripts (bundled, Windows PowerShell 5.1)
 
-- `scripts/ws_log.ps1` — WS log capture, infinite reconnect loop, survives reboots
+- `scripts/ws_log.ps1` — WS log capture, infinite reconnect loop, survives reboots. Also **validates every frame** (see below).
 - `scripts/serial_log.ps1` — serial capture for pre-WiFi boot logs (user plugs USB, gives COM)
 - `scripts/build_flash.ps1` — BOM-strip, PlatformIO build, OTA, wait-for-boot, print new sha
 - `scripts/get_info.ps1` — baseline snapshot (version, sha, metrics)
 - `scripts/check_log.ps1` — regex evidence counts/lines over a time window of a capture file
+
+### Reading `ws_log.ps1` output
+
+Lines starting with `#` are the capturer's own bookkeeping, not device output:
+
+| Marker | Meaning |
+|---|---|
+| `# ---- ws connected/dropped … (frames=N bad=M bytes=K) ----` | session boundary; the counters make multi-board runs comparable at a glance |
+| `# BADFRAME … len= sha256= reason=` + `#   hex: …` | a frame that is **not** a valid log line. The raw bytes are appended to `badframes_<ip>.bin` (length-prefixed) |
+| `# BADFRAME-STREAM … reason=library rejected the payload` | the payload was not valid UTF-8, so the client library faulted before handing over any bytes |
+
+`bad=0` on a healthy board is the control; any `BADFRAME` means the corruption came off the wire, because no decoding step sits between the socket and that line.
+
+**Limitation worth knowing before diagnosing corruption:** `System.Net.WebSockets.ClientWebSocket`
+validates UTF-8 on Text frames and faults without exposing the payload, so a
+`BADFRAME-STREAM` can be *detected* but its bytes cannot be recovered with this
+tool. When the bytes themselves are the evidence, read the frames manually over a
+`TcpClient`, or use a client that can return the payload undecoded (for example
+Python `websockets` with `recv(decode=False)`).
+
