@@ -1,4 +1,4 @@
-"""Local patch for ESPAsyncWebServer: bound the WebSocket close-reason scan.
+"""Local patches for ESPAsyncWebServer WebSocket correctness.
 
 WHY
 ---
@@ -30,6 +30,18 @@ WHAT THIS DOES
 Replaces `strlen(reasonString)` with `strnlen(reasonString, datalen - 2)`, i.e.
 the scan is bounded to the bytes that actually belong to this frame.
 
+It also makes an outgoing WebSocket frame one TCP enqueue transaction. Upstream
+queues the frame header and payload with separate `AsyncClient::add()` calls. If
+the header succeeds but the payload hits lwIP's pbuf queue limit, the orphaned
+header remains queued while `AsyncWebSocketMessage::send()` rolls its counters
+back and retries the whole frame. The wire then contains header, header, payload.
+
+The patched form builds header + payload in one temporary buffer and calls
+`add()` once. Normal log frames use a small stack buffer; only larger frames
+allocate. A failed add queues nothing; a successful add is the commit point.
+`send()` is only a best-effort `tcp_output()` kick after that point, because its
+failure does not undo the preceding successful `tcp_write()`.
+
 HOW IT IS APPLIED
 -----------------
 Registered from `platformio.ini` as `extra_scripts = post:patch_libdeps.py`.
@@ -45,7 +57,8 @@ import re
 Import("env")
 
 # Marker present only in our patched form; used to make the operation idempotent.
-_MARKER = "strnlen(reasonString, datalen - 2)"
+_CLOSE_MARKER = "strnlen(reasonString, datalen - 2)"
+_ATOMIC_FRAME_MARKER = "local patch: queue each WebSocket frame atomically"
 
 # The upstream call, whitespace-tolerant so it matches v3.6.0 (10 spaces indent)
 # as well as v3.9.0+ (12 spaces) without pinning an exact revision.
@@ -67,6 +80,59 @@ _PATCHED = (
     "(uint8_t *)reasonString, reason_len);"
 )
 
+_FRAME_PATTERN = re.compile(
+    r"(?P<indent>[ \t]*)uint8_t \*buf = \(uint8_t \*\)malloc\(headLen\);.*?"
+    r"(?P=indent)// Serial\.println\(\"SF\"\);\n"
+    r"(?P=indent)return len;",
+    re.DOTALL,
+)
+
+_FRAME_PATCHED = r"""\g<indent>// --- local patch: queue each WebSocket frame atomically -------------
+\g<indent>// Two separate add() calls can leave an orphaned header in lwIP when
+\g<indent>// the payload write hits the pbuf queue limit. The caller then rolls
+\g<indent>// back and retries, producing header + header + payload on the wire.
+\g<indent>const size_t frameLen = headLen + len;
+\g<indent>uint8_t stackBuf[256];
+\g<indent>uint8_t *buf = frameLen <= sizeof(stackBuf) ? stackBuf : (uint8_t *)malloc(frameLen);
+\g<indent>if (buf == NULL) {
+\g<indent>  async_ws_log_e("Failed to allocate");
+\g<indent>  return 0;
+\g<indent>}
+
+\g<indent>buf[0] = opcode & 0x0F;
+\g<indent>if (final) {
+\g<indent>  buf[0] |= 0x80;
+\g<indent>}
+\g<indent>if (len < 126) {
+\g<indent>  buf[1] = len & 0x7F;
+\g<indent>} else {
+\g<indent>  buf[1] = 126;
+\g<indent>  buf[2] = (uint8_t)((len >> 8) & 0xFF);
+\g<indent>  buf[3] = (uint8_t)(len & 0xFF);
+\g<indent>}
+\g<indent>if (len && mask) {
+\g<indent>  buf[1] |= 0x80;
+\g<indent>  memcpy(buf + (headLen - 4), mbuf, 4);
+\g<indent>  for (size_t i = 0; i < len; i++) {
+\g<indent>    buf[headLen + i] = data[i] ^ mbuf[i % 4];
+\g<indent>  }
+\g<indent>} else if (len) {
+\g<indent>  memcpy(buf + headLen, data, len);
+\g<indent>}
+
+\g<indent>const size_t queued = client->add((const char *)buf, frameLen);
+\g<indent>if (buf != stackBuf) {
+\g<indent>  free(buf);
+\g<indent>}
+\g<indent>if (queued != frameLen) {
+\g<indent>  return 0;
+\g<indent>}
+
+\g<indent>// add()/tcp_write() is the commit point. tcp_output() failure leaves
+\g<indent>// the bytes queued for a later poll/ACK, so it must not trigger retry.
+\g<indent>(void)client->send();
+\g<indent>return len;"""
+
 
 def _target_path():
     """Path of the AsyncWebSocket source for the environment being built."""
@@ -86,14 +152,22 @@ def _apply(path):
     with open(path, "r", encoding="utf-8", errors="surrogateescape") as f:
         src = f.read()
 
-    if _MARKER in src:
+    close_done = _CLOSE_MARKER in src
+    frame_done = _ATOMIC_FRAME_MARKER in src
+    if close_done and frame_done:
         return "already-patched"
 
-    new_src, n = _PATTERN.subn(
-        lambda m: _PATCHED.format(i=m.group("indent")), src
-    )
+    new_src = src
+    close_n = 0
+    frame_n = 0
+    if not close_done:
+        new_src, close_n = _PATTERN.subn(
+            lambda m: _PATCHED.format(i=m.group("indent")), new_src
+        )
+    if not frame_done:
+        new_src, frame_n = _FRAME_PATTERN.subn(_FRAME_PATCHED, new_src)
 
-    if n == 0:
+    if not close_done and close_n == 0:
         # Not the shape we expect -> upstream changed. Fail loudly instead of
         # silently shipping an unpatched (still buggy) library.
         print(
@@ -105,10 +179,21 @@ def _apply(path):
             "AsyncWebSocketClient::_onData() and update patch_libdeps.py."
         )
         env.Exit(1)
+    if not frame_done and frame_n == 0:
+        print(
+            "[patch_libdeps] ERROR: could not find the split WebSocket "
+            "header/payload enqueue in %s" % path
+        )
+        print(
+            "[patch_libdeps] The library probably changed. Re-audit "
+            "webSocketSendFrame() and update patch_libdeps.py."
+        )
+        env.Exit(1)
 
     with open(path, "w", encoding="utf-8", errors="surrogateescape", newline="") as f:
         f.write(new_src)
 
+    n = close_n + frame_n
     print("[patch_libdeps] patched %s (%d site%s)" % (path, n, "" if n == 1 else "s"))
     return "patched"
 
@@ -121,7 +206,7 @@ def _patch_now(target=None, source=None, env=None):
 #    build after the first one).
 _status = _apply(_target_path())
 if _status == "already-patched":
-    print("[patch_libdeps] ESPAsyncWebSocket close-reason scan already bounded")
+    print("[patch_libdeps] ESPAsyncWebSocket correctness patches already applied")
 elif _status is None:
     print("[patch_libdeps] library not unpacked yet, will patch before compiling")
 

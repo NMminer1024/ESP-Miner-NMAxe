@@ -610,6 +610,62 @@ chronological.** The field called the defect "new in v3.2.02h" and said earlier
 `k`/`m`/`u` logs were clean, which reads as `h` being older — but `u` was set on
 2026-11-10 and `h` on 2026-11-14, so `h` is the newer build.
 
+### 2026-11-16: byte capture proved a duplicated frame header
+
+The field client was corrected to read raw RFC 6455 frames (header, exact declared
+payload, continuation until FIN). Eight of eight corrupt events had the same
+wire shape:
+
+```text
+81 3e  81 3e  <62-byte text payload>
+```
+
+The first two payload bytes were an exact copy of that frame's own header. The
+previous frame was complete, so this is not a client desynchronisation or a split
+UTF-8 character. The apparent close frames in the earlier report were ordinary
+log bytes interpreted at the wrong boundary after the duplicated header.
+
+The exact mechanism exists in ESPAsyncWebServer v3.10.3:
+
+1. `webSocketSendFrame()` calls `AsyncClient::add()` for the header.
+2. It calls `add()` again for the payload. If lwIP accepts the header but rejects
+   the payload (for example because the pbuf queue is full), it returns zero while
+   leaving the header queued.
+3. `AsyncWebSocketMessage::send()` rolls `_sent` / `_ack` back and retries the
+   complete frame, producing header + header + payload.
+
+This became observable after v3.6.0 -> v3.10.3: the newer `_runQueue()` pipelines
+multiple messages instead of waiting for each frame's ACK, so it reaches the pbuf
+queue limit during short log bursts (the once-a-minute table is a common trigger).
+`client->space()` reports TCP byte space, not remaining pbuf queue entries, so the
+existing send-window check cannot prevent this partial enqueue.
+
+### Conservative fix verified on hardware (v3.2.02n)
+
+`patch_libdeps.py` now patches `webSocketSendFrame()` so one complete WebSocket
+frame is assembled in a contiguous temporary buffer and passed to exactly one
+`AsyncClient::add()` call. Common <=256-byte log frames use a stack buffer; only
+larger frames allocate. A successful `add()` is the commit point. `send()` is a
+best-effort `tcp_output()` kick and its failure does not roll back data already
+accepted by `tcp_write()`.
+
+Validation on Nexus 192.168.124.2, SHA `fbaaa37f1ebe5a43`:
+
+- clean reinstall of ESPAsyncWebServer v3.10.3: both local patches matched and the
+  firmware built successfully; repeat build was idempotent;
+- running at the original 765/1200 point, normal mining recovered;
+- five simultaneous `websockets 17.4` clients received raw payload bytes for
+  300 s: **2,875 messages / 178,645 bytes, 0 duplicate headers, 0 invalid UTF-8,
+  0 disconnects**. The window covered five once-a-minute summary-table bursts;
+- an earlier 12-client run was discarded for verdict purposes: it exceeded the
+  server's client capacity and produced deliberate close-frame churn, not protocol
+  corruption.
+
+The board stayed on its original 765/1200 operating point at ~10.4 TH/s, produced
+no coredump, and remained healthy after the test. Builds also passed for
+`NMQAxePPNexus`, `NMQAxePP`, and `NMAxeGamma`; a clean library reinstall applied
+both patch sites, and a repeat build was idempotent.
+
 ## Reusable lessons
 
 * `0x4005xxxx` is ROM on ESP32-S3: symbolize with `esp32s3_rev0_rom.elf`, not the
