@@ -1732,10 +1732,10 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         {
             int n = 0;
             if (fan_vcore_seen) {
-                n += snprintf(fan_json + n, sizeof(fan_json) - n, ",\"fanVcore\":%u", fan_vcore_max);
+                n += snprintf(fan_json + n, sizeof(fan_json) - n, ",\"fv\":%u", fan_vcore_max);
             }
             if (fan_asic_seen && n < (int)sizeof(fan_json)) {
-                snprintf(fan_json + n, sizeof(fan_json) - n, ",\"fanAsic\":%u", fan_asic_max);
+                snprintf(fan_json + n, sizeof(fan_json) - n, ",\"fa\":%u", fan_asic_max);
             }
         }
 
@@ -1761,10 +1761,14 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
         // point now trips. Write an explicit tombstone instead.
         if (fault_tripped) {
             char tomb[720];
+            // Compact keys for the display-only fields (see BM_COMPACT_KEYS in
+            // nvs_config.cpp); bm_result_read_all() restores the public names.
+            // freq/vcore/avgHR/q/fail/ts/fw keep their names because the
+            // firmware itself reads them back.
             snprintf(tomb, sizeof(tomb),
-                "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":0.0,\"avgAsicTemp\":%s,\"avgVcoreTemp\":%s,"
-                "\"effJTH\":0.0,\"avgPwr\":0.0,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%s,\"maxVcoreTemp\":%s,"
-                "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f,"
+                "{\"freq\":%d,\"vcore\":%d,\"e\":%.1f,\"avgHR\":0.0,\"at\":%s,\"vt\":%s,"
+                "\"ef\":0.0,\"p\":0.0,\"mi\":%.2f,\"mp\":%.2f,\"xt\":%s,\"xv\":%s,"
+                "\"pi\":%.2f,\"ph\":%d,\"mb\":%.2f,\"mw\":%.2f,"
                 "\"q\":0,\"fail\":1%s%s,\"ts\":%ld}",
                 cur_freq, cur_vcore, exp_hr_ghs, j_avgAt, j_avgVt,
                 iout_max, pwr_max, j_maxAt, j_maxVt,
@@ -1805,14 +1809,14 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
             char vfail_json[48] = "";
             if (vfail_vcore > 0) {
                 snprintf(vfail_json, sizeof(vfail_json),
-                         ",\"vFail\":%u,\"vFailPct\":%.2f", (unsigned)vfail_vcore, vfail_pct);
+                         ",\"vF\":%u,\"vP\":%.2f", (unsigned)vfail_vcore, vfail_pct);
             }
 
             char entry[760];
             snprintf(entry, sizeof(entry),
-                "{\"freq\":%d,\"vcore\":%d,\"expHR\":%.1f,\"avgHR\":%.1f,\"avgAsicTemp\":%s,\"avgVcoreTemp\":%s,"
-                "\"effJTH\":%.3f,\"avgPwr\":%.2f,\"maxIout\":%.2f,\"maxPwr\":%.2f,\"maxAsicTemp\":%s,\"maxVcoreTemp\":%s,"
-                "\"maxPhaseIout\":%.2f,\"phases\":%d,\"maxIbus\":%.2f,\"maxPwrIn\":%.2f%s,"
+                "{\"freq\":%d,\"vcore\":%d,\"e\":%.1f,\"avgHR\":%.1f,\"at\":%s,\"vt\":%s,"
+                "\"ef\":%.3f,\"p\":%.2f,\"mi\":%.2f,\"mp\":%.2f,\"xt\":%s,\"xv\":%s,"
+                "\"pi\":%.2f,\"ph\":%d,\"mb\":%.2f,\"mw\":%.2f%s,"
                 "\"q\":%d,\"fail\":0%s%s,\"ts\":%ld}",
                 cur_freq, cur_vcore, exp_hr_ghs, hr_avg, j_avgAt, j_avgVt,
                 eff_avg, pwr_avg, iout_max, pwr_max, j_maxAt, j_maxVt,
@@ -1820,9 +1824,9 @@ static void bm_run_sweep(BenchmarkCtx* ctx) {
                 qualified ? 1 : 0, fan_json, fw_json, (long)time(nullptr));
 
             // Ring storage: the index allows BM_RESULT_MAX_ENTRIES slots, but the
-            // real limit is NVS space - a ~340 B row costs 12 entries (~14 with its
-            // soak verdict), so a configured board holds roughly 30, not 80. The
-            // oldest row is evicted when the partition refuses the write.
+            // real limit is NVS space - a ~238 B compact row costs 9 entries (10
+            // with its soak verdict), so a configured board holds roughly 30-35,
+            // not 80. The oldest row is evicted when the partition refuses the write.
             esp_err_t nvs_write_err = bm_result_append(entry);
             if (nvs_write_err == ESP_OK) LOG_W("[BM] Result saved: %s", entry);
             else LOG_E("[BM] NVS write failed (%s), result not saved.", esp_err_to_name(nvs_write_err));

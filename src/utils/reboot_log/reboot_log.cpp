@@ -39,6 +39,11 @@ static const char* NS_REBOOT     = "reboot";
 static const char* K_HEAD        = "head";
 static const char* K_COUNT       = "count";
 static const char* K_BOOTIDX     = "bootidx";
+// Ring-layout version. Absent/1 = the original 10-slot ring; 2 = the current
+// 5-slot ring. Written only after a successful migration.
+static const char* K_LAYOUT      = "layoutv";
+static constexpr uint8_t LAYOUT_VERSION = 2;
+static constexpr uint8_t RING_SIZE_V1   = 10;
 static const char  K_REC_PREFIX  = 'r';
 
 // ── RTC NOINIT state (survives SW resets / panics, lost on power-down) ───────
@@ -239,6 +244,91 @@ static void rec_key(uint8_t slot, char out[8]) {
     snprintf(out, 8, "%c%u", K_REC_PREFIX, (unsigned)slot);
 }
 
+// Re-pack the ring when the on-flash layout predates this build.
+//
+// The slot index is `head % RING`, so shrinking 10 -> 5 slots makes a stored
+// head ambiguous: head=7 is a valid slot in the old ring and slot 2 in the new
+// one. Reading with the new size would therefore return the wrong records, and
+// the five slots that no longer exist would keep 25 NVS entries allocated.
+//
+// So the upgrade rewrites the newest records into the new layout once, erases
+// the slots that no longer exist, and only then stamps the layout version. A
+// failed write leaves the version unset, which makes the next boot retry; the
+// old data is still readable until that succeeds.
+static constexpr uint8_t RING_SORT_MAX = RING_SIZE_V1;
+
+static void migrate_ring_if_needed() {
+    nvs_handle_t h;
+    if (nvs_open(NS_REBOOT, NVS_READWRITE, &h) != ESP_OK) return;
+
+    uint8_t ver = 0;
+    nvs_get_u8(h, K_LAYOUT, &ver);
+    if (ver >= LAYOUT_VERSION) { nvs_close(h); return; }
+
+    // 1. Read the ring exactly as the OLD firmware laid it out.
+    uint8_t head_v1 = 0, count_v1 = 0;
+    nvs_get_u8(h, K_HEAD,  &head_v1);
+    nvs_get_u8(h, K_COUNT, &count_v1);
+    if (head_v1  >= RING_SIZE_V1) head_v1  = 0;
+    if (count_v1 >  RING_SIZE_V1) count_v1 = RING_SIZE_V1;
+
+    RebootRecord recs[RING_SORT_MAX];
+    size_t n = 0;
+    int slot = (int)head_v1 - 1;
+    for (size_t i = 0; i < count_v1; ++i) {
+        if (slot < 0) slot += RING_SIZE_V1;
+        char k[8];
+        rec_key((uint8_t)slot, k);
+        size_t sz = sizeof(RebootRecord);
+        if (nvs_get_blob(h, k, &recs[n], &sz) == ESP_OK &&
+            sz == sizeof(RebootRecord) &&
+            rec_valid(&recs[n])) {
+            n++;                       // recs[] comes out NEWEST-first
+        }
+        slot--;
+    }
+
+    // 2. Release the slots that no longer exist BEFORE rewriting.
+    //
+    //    Not cosmetic: the rewrite is 5 x 128 B, i.e. it needs ~25 entries of
+    //    headroom before NVS can reclaim the old versions, and this runs on
+    //    partitions that benchmark results have already filled. Freeing the
+    //    dead slots first is what makes the migration complete on such a device
+    //    instead of failing every boot. The records are already in RAM, so the
+    //    only exposure is a power loss inside this window.
+    for (uint8_t i = REBOOT_LOG_RING_SIZE; i < RING_SIZE_V1; ++i) {
+        char k[8];
+        rec_key(i, k);
+        nvs_erase_key(h, k);
+    }
+
+    // 3. Keep the newest REBOOT_LOG_RING_SIZE records, written oldest-first so
+    //    the reader's "newest sits at head-1" rule still holds.
+    const size_t keep = (n < REBOOT_LOG_RING_SIZE) ? n : REBOOT_LOG_RING_SIZE;
+    for (size_t i = 0; i < keep; ++i) {
+        char k[8];
+        rec_key((uint8_t)i, k);
+        const RebootRecord* src = &recs[keep - 1 - i];   // newest-first -> oldest-first
+        if (nvs_set_blob(h, k, src, sizeof(*src)) != ESP_OK) {
+            LOG_E("[reboot] ring migration: could not rewrite slot r%u — keeping the old layout",
+                  (unsigned)i);
+            nvs_commit(h);             // persist the erase, keep ver unset: retry next boot
+            nvs_close(h);
+            return;
+        }
+    }
+
+    nvs_set_u8(h, K_HEAD,   (uint8_t)(keep % REBOOT_LOG_RING_SIZE));
+    nvs_set_u8(h, K_COUNT,  (uint8_t)keep);
+    nvs_set_u8(h, K_LAYOUT, LAYOUT_VERSION);
+    nvs_commit(h);
+    nvs_close(h);
+
+    LOG_I("[reboot] history ring migrated to %u slots: %u record(s) kept, r%u..r%u released",
+          (unsigned)REBOOT_LOG_RING_SIZE, (unsigned)keep,
+          (unsigned)REBOOT_LOG_RING_SIZE, (unsigned)(RING_SIZE_V1 - 1));
+}
+
 // Push a freshly built record into the ring. Returns true on success.
 static bool nvs_push_record(const RebootRecord* rec) {
     nvs_handle_t h;
@@ -320,6 +410,11 @@ void reboot_log_init() {
     }
 
     rec_seal(&rec);
+
+    // 2.5 Re-pack the ring if the flash layout predates this build. Must happen
+    //     BEFORE the first push: push indexes slots with the NEW ring size, and
+    //     a pre-migration head would point at a completely different slot.
+    migrate_ring_if_needed();
 
     // 3. Persist (best-effort; failing write does not break boot).
     if (!first_boot || reason != ESP_RST_POWERON || s_rtc.boot_count > 0) {
@@ -467,7 +562,11 @@ void reboot_log_clear() {
     nvs_handle_t h;
     if (nvs_open(NS_REBOOT, NVS_READWRITE, &h) != ESP_OK) return;
     // Wipe every record key + counters; leave bootidx alone (monotonic).
-    for (uint8_t i = 0; i < REBOOT_LOG_RING_SIZE; ++i) {
+    //
+    // Iterates the LEGACY slot count on purpose: a device whose migration has
+    // not completed yet still has r5..r9 on flash, and leaving them behind
+    // would keep ~25 entries allocated after a user clears the history.
+    for (uint8_t i = 0; i < RING_SIZE_V1; ++i) {
         char k[8]; rec_key(i, k);
         nvs_erase_key(h, k);
     }

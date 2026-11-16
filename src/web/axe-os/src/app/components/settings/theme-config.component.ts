@@ -217,11 +217,16 @@ export class ThemeConfigComponent implements OnInit {
   changeTheme(theme: ThemeOption) {
     // Update CSS variables
     this.applyThemeColors(theme.accentColors);
-    // Save theme settings to NVS
+    // Save theme settings to NVS.
+    //
+    // Persist the PRESET NAME, not the 21-key color map: the firmware derives
+    // every color from the name now, which saves ~24 NVS entries per device.
+    // This used to save `config().theme`, which was permanently 'dark' — so the
+    // map was the only record of the choice, and dropping the map would have
+    // lost it.
     this.themeService.saveThemeSettings({
       colorScheme: this.selectedScheme,
-      theme: this.layoutService.config().theme,
-      accentColors: theme.accentColors
+      theme: theme.name
     }).subscribe(
       () => {},
       error => console.error('Error saving theme settings:', error)

@@ -151,12 +151,24 @@ static String top_snap_to_nvs(const MinerStatus& st) {
 // returning ESP_ERR_NVS_NOT_ENOUGH_SPACE.
 //
 // Entries are not the unit an operator thinks in, though. A stored benchmark row
-// costs a fixed, undocumented number of them (measured on Nexus: 12 for a ~339 B
-// row, 14 once the soak verdict is added), so "182 entries free" reads as "plenty"
-// until the next sweep starts evicting rows. Quote the row count instead, which is
-// what the warning actually means - and say it is approximate, because the real
-// number depends on how many other keys still have to be written.
-static constexpr uint32_t NVS_ENTRIES_PER_RESULT_ROW = 14;   // ~384 B row incl. soak
+// costs a fixed, undocumented number of them (measured on Nexus: 9 for a ~238 B
+// compact row, 10 once the soak verdict is added), so "392 entries free" reads as
+// "plenty" until the next sweep starts evicting rows. Quote the row count instead,
+// which is what the warning actually means - and say it is approximate, because the
+// real number depends on how many other keys still have to be written.
+static constexpr uint32_t NVS_ENTRIES_PER_RESULT_ROW = 10;   // ~258 B row incl. soak
+// NVS garbage collection needs one whole free page (126 entries) to evacuate
+// into; those entries are not available for new writes, so subtract them before
+// converting to rows. Without this the log over-promises by ~9 rows and the
+// real limit (measured on Nexus: 276 free -> ~19 rows, not 20+) looks like a
+// sudden failure instead of the steady-state it actually is.
+static constexpr uint32_t NVS_GC_RESERVE_ENTRIES = 126;
+
+static unsigned nvs_rows_headroom(const nvs_stats_t& s) {
+    return (unsigned)((s.free_entries > NVS_GC_RESERVE_ENTRIES
+                           ? s.free_entries - NVS_GC_RESERVE_ENTRIES
+                           : 0) / NVS_ENTRIES_PER_RESULT_ROW);
+}
 
 static void nvs_log_headroom() {
     nvs_stats_t s;
@@ -166,11 +178,11 @@ static void nvs_log_headroom() {
               "row(s); clear old results or the reboot log; GET /api/system/nvs lists them",
               (unsigned)s.free_entries, (unsigned)s.total_entries,
               s.total_entries ? (100.0 * s.free_entries / s.total_entries) : 0.0,
-              (unsigned)(s.free_entries / NVS_ENTRIES_PER_RESULT_ROW));
+              nvs_rows_headroom(s));
     } else {
         LOG_I("[nvs] %u of %u entries free (about %u more result row(s))",
               (unsigned)s.free_entries, (unsigned)s.total_entries,
-              (unsigned)(s.free_entries / NVS_ENTRIES_PER_RESULT_ROW));
+              nvs_rows_headroom(s));
     }
 }
 

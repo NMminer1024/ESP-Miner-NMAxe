@@ -1530,44 +1530,109 @@ void options_theme_handler(AsyncWebServerRequest* request){
     request->send(200, "application/json", "");
 }
 
+// Accent color presets.
+//
+// The web UI offers exactly four hardcoded presets (Red/Blue/Green/Purple —
+// see axe-os theme-config.component.ts). Older firmware stored the whole
+// 21-key accent map in NVS ("themecolors", ~730 B ≈ 24 entries), which is
+// pure redundancy: the preset name alone identifies every color. The map is
+// now derived here from the stored theme name instead, and the key is deleted
+// on first read to reclaim the entries. The table below must stay in sync
+// with the frontend presets — it is what keeps old devices (which stored only
+// "dark" as the theme name) rendering the right colors after the upgrade.
+struct ThemePreset {
+    const char* name;        // stored in NVS_CONFIG_THEME_NAME
+    const char* primary;
+    const char* hover;
+    const char* focus_ring;  // full CSS value, rgba differs per preset
+};
+static const ThemePreset THEME_PRESETS[] = {
+    { "Red",    "#F80421", "#e63c2e", "0 0 0 0.2rem rgba(255,64,50,0.2)" },
+    { "Blue",   "#2196f3", "#1e88e5", "0 0 0 0.2rem rgba(33,150,243,0.2)" },
+    { "Green",  "#4caf50", "#43a047", "0 0 0 0.2rem rgba(76,175,80,0.2)"  },
+    { "Purple", "#9c27b0", "#8e24aa", "0 0 0 0.2rem rgba(156,39,176,0.2)" },
+};
+static constexpr int THEME_PRESET_COUNT = sizeof(THEME_PRESETS) / sizeof(THEME_PRESETS[0]);
+
+// Case-insensitive preset lookup by name; nullptr when unknown.
+static const ThemePreset* theme_preset_by_name(const char* name) {
+    for (int i = 0; i < THEME_PRESET_COUNT; i++)
+        if (strcasecmp(name, THEME_PRESETS[i].name) == 0) return &THEME_PRESETS[i];
+    return nullptr;
+}
+
+// Preset lookup by primary color — used by the one-time migration below to
+// recover the preset name from a stored "themecolors" map.
+static const ThemePreset* theme_preset_by_primary(const char* primary) {
+    for (int i = 0; i < THEME_PRESET_COUNT; i++)
+        if (strcasecmp(primary, THEME_PRESETS[i].primary) == 0) return &THEME_PRESETS[i];
+    return nullptr;
+}
+
+// Fill "accentColors" in the response with the 21 CSS variables of a preset,
+// built from the same template the frontend applies on click.
+static void theme_fill_accent(JsonObject out, const ThemePreset* p) {
+    char buf[64];
+    out["--primary-color"]        = p->primary;
+    out["--primary-color-text"]   = "#ffffff";
+    out["--highlight-bg"]         = p->primary;
+    out["--highlight-text-color"] = "#ffffff";
+    out["--focus-ring"]           = p->focus_ring;
+    out["--slider-bg"]            = "#dee2e6";
+    out["--slider-range-bg"]      = p->primary;
+    out["--slider-handle-bg"]     = p->primary;
+    out["--progressbar-bg"]       = "#dee2e6";
+    out["--progressbar-value-bg"] = p->primary;
+    out["--checkbox-border"]      = p->primary;
+    out["--checkbox-bg"]          = p->primary;
+    out["--checkbox-hover-bg"]    = p->hover;
+    out["--button-bg"]            = p->primary;
+    out["--button-hover-bg"]      = p->hover;
+    snprintf(buf, sizeof(buf), "0 0 0 2px #ffffff, 0 0 0 4px %s", p->primary);
+    out["--button-focus-shadow"]  = buf;
+    out["--togglebutton-bg"]      = p->primary;
+    snprintf(buf, sizeof(buf), "1px solid %s", p->primary);
+    out["--togglebutton-border"]  = buf;
+    out["--togglebutton-hover-bg"] = p->hover;
+    snprintf(buf, sizeof(buf), "1px solid %s", p->hover);
+    out["--togglebutton-hover-border"] = buf;
+    out["--togglebutton-text-color"]   = "#ffffff";
+}
+
 // GET /api/theme -- current color scheme name and accent color map.
 void get_theme_handler(AsyncWebServerRequest* request){
     char *scheme = nvs_config_get_string(NVS_CONFIG_THEME_SCHEME, "dark");
-    char *name = nvs_config_get_string(NVS_CONFIG_THEME_NAME, "dark");
-    char *colors = nvs_config_get_string(NVS_CONFIG_THEME_COLORS, 
-        "{"
-        "\"--primary-color\":\"#F80421\","
-        "\"--primary-color-text\":\"#ffffff\","
-        "\"--highlight-bg\":\"#F80421\","
-        "\"--highlight-text-color\":\"#ffffff\","
-        "\"--focus-ring\":\"0 0 0 0.2rem rgba(248,4,33,0.2)\","
-        "\"--slider-bg\":\"#dee2e6\","
-        "\"--slider-range-bg\":\"#F80421\","
-        "\"--slider-handle-bg\":\"#F80421\","
-        "\"--progressbar-bg\":\"#dee2e6\","
-        "\"--progressbar-value-bg\":\"#F80421\","
-        "\"--checkbox-border\":\"#F80421\","
-        "\"--checkbox-bg\":\"#F80421\","
-        "\"--checkbox-hover-bg\":\"#df031d\","
-        "\"--button-bg\":\"#F80421\","
-        "\"--button-hover-bg\":\"#df031d\","
-        "\"--button-focus-shadow\":\"0 0 0 2px #ffffff, 0 0 0 4px #F80421\","
-        "\"--togglebutton-bg\":\"#F80421\","
-        "\"--togglebutton-border\":\"1px solid #F80421\","
-        "\"--togglebutton-hover-bg\":\"#df031d\","
-        "\"--togglebutton-hover-border\":\"1px solid #df031d\","
-        "\"--togglebutton-text-color\":\"#ffffff\""
-        "}"
-    );
-    
-    BasicJsonDocument<PsramJsonAllocator> root(1024), colors_json(512);
-    DeserializationError error = deserializeJson(colors_json, colors);
+    char *name = nvs_config_get_string(NVS_CONFIG_THEME_NAME, "Red");
 
+    // One-time migration: recover the preset name from a legacy "themecolors"
+    // map (older UIs stored the theme name as "dark", not the preset), then
+    // delete the key so its ~24 NVS entries go back to the free pool.
+    {
+        char *legacy = nvs_config_get_string(NVS_CONFIG_THEME_COLORS, "");
+        if (legacy && legacy[0]) {
+            BasicJsonDocument<PsramJsonAllocator> legacy_json(512);
+            if (deserializeJson(legacy_json, legacy) == DeserializationError::Ok) {
+                const char* primary = legacy_json["--primary-color"] | (const char*)"";
+                const ThemePreset* p = theme_preset_by_primary(primary);
+                if (p && strcasecmp(name, p->name) != 0) {
+                    nvs_config_set_string(NVS_CONFIG_THEME_NAME, p->name);
+                    free(name);
+                    name = strdup(p->name);
+                }
+            }
+            if (nvs_config_delete_key(NVS_CONFIG_THEME_COLORS))
+                LOG_I("[theme] removed legacy 'themecolors' key (entries reclaimed)");
+        }
+        free(legacy);
+    }
+
+    const ThemePreset* preset = theme_preset_by_name(name);
+    if (!preset) preset = &THEME_PRESETS[0];   // unknown/legacy name -> Red, as before
+
+    BasicJsonDocument<PsramJsonAllocator> root(2048);
     root["colorScheme"] = scheme;
     root["theme"] = name;
-    if(error.code() == DeserializationError::Ok){
-        root["accentColors"] = colors_json;
-    }
+    theme_fill_accent(root.createNestedObject("accentColors"), preset);
 
     String colors_str;
     serializeJson(root, colors_str);
@@ -1577,7 +1642,6 @@ void get_theme_handler(AsyncWebServerRequest* request){
     //free memory
     free(scheme);
     free(name);
-    free(colors);
 }
 
 // POST /api/theme -- persist colorScheme, theme name and accentColors to NVS.
@@ -1604,12 +1668,11 @@ void post_theme_handler(AsyncWebServerRequest* request, uint8_t *data, size_t le
         nvs_config_set_string(NVS_CONFIG_THEME_SCHEME, root["colorScheme"].as<String>().c_str());
     }
     if(root.containsKey("theme")){
+        // "theme" carries the preset NAME (Red/Blue/Green/Purple). The accent
+        // color map itself is no longer stored — GET derives it from this name
+        // (see get_theme_handler), which frees ~24 NVS entries per device.
+        // An "accentColors" body from an older UI is accepted but ignored.
         nvs_config_set_string(NVS_CONFIG_THEME_NAME, root["theme"].as<String>().c_str());
-    }
-    if(root.containsKey("accentColors")){
-        String colors_str;
-        serializeJson(root["accentColors"], colors_str);
-        nvs_config_set_string(NVS_CONFIG_THEME_COLORS, colors_str.c_str());
     }
     request->send(200, "application/json", "{\"status\":\"ok\"}");
 }

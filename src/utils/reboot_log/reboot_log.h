@@ -19,7 +19,15 @@
 #include <stddef.h>
 
 // ── On-disk / on-RAM constants ───────────────────────────────────────────────
-#define REBOOT_LOG_RING_SIZE      10        // number of historical records kept in NVS
+// 5, not 10: each record is a fixed 128-byte blob = 5 NVS entries, so the ring
+// costs 25 entries instead of 50 on a 24 KB partition that benchmark results
+// also have to fit in. Five boots is still enough to see a crash loop's start.
+//
+// CHANGING THIS REQUIRES A MIGRATION (see migrate_ring_if_needed() in
+// reboot_log.cpp): the slot index is `head % RING`, so an old head is a valid
+// but DIFFERENT slot in the new ring, and the old slots keep their entries
+// allocated until they are erased.
+#define REBOOT_LOG_RING_SIZE      5         // number of historical records kept in NVS
 #define REBOOT_LOG_DETAIL_LEN     64        // bytes for human-readable detail (incl. NUL)
 #define REBOOT_LOG_FW_LEN         24        // bytes for fw_version string (incl. NUL)
 #define REBOOT_RECORD_MAGIC       0x474C4252u   // 'RBLG'

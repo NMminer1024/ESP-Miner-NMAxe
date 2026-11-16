@@ -65,7 +65,9 @@ export class LayoutService {
         inputStyle: 'outlined',
         menuMode: 'static',
         colorScheme: 'dark',
-        theme: 'dark',
+        // Preset NAME (Red/Blue/Green/Purple) — NOT a color map and not
+        // 'dark'/'light', which is colorScheme. Only persisted as a name.
+        theme: 'Red',
         scale: 14,
     };
 
@@ -103,33 +105,15 @@ export class LayoutService {
                         });
                     }
                 } else {
-                    // Save default red dark theme if no settings exist
+                    // No settings yet: persist ONLY the scheme and the preset
+                    // name. The 21-key accent map used to be stored here too
+                    // (~730 B = 24 NVS entries) but it is fully derivable from
+                    // the name, and the firmware now builds it for us in
+                    // GET /api/theme. Storing it again would re-create the very
+                    // key that change was meant to reclaim.
                     this.themeService.saveThemeSettings({
                         colorScheme: 'dark',
-                        theme: 'dark',
-                        accentColors: {
-                            '--primary-color': '#F80421',
-                            '--primary-color-text': '#ffffff',
-                            '--highlight-bg': '#F80421',
-                            '--highlight-text-color': '#ffffff',
-                            '--focus-ring': '0 0 0 0.2rem rgba(248,4,33,0.2)',
-                            '--slider-bg': '#dee2e6',
-                            '--slider-range-bg': '#F80421',
-                            '--slider-handle-bg': '#F80421',
-                            '--progressbar-bg': '#dee2e6',
-                            '--progressbar-value-bg': '#F80421',
-                            '--checkbox-border': '#F80421',
-                            '--checkbox-bg': '#F80421',
-                            '--checkbox-hover-bg': '#df031d',
-                            '--button-bg': '#F80421',
-                            '--button-hover-bg': '#df031d',
-                            '--button-focus-shadow': '0 0 0 2px #ffffff, 0 0 0 4px #F80421',
-                            '--togglebutton-bg': '#F80421',
-                            '--togglebutton-border': '1px solid #F80421',
-                            '--togglebutton-hover-bg': '#df031d',
-                            '--togglebutton-hover-border': '1px solid #df031d',
-                            '--togglebutton-text-color': '#ffffff'
-                        }
+                        theme: 'Red'
                     }).subscribe();
                 }
                 // Update signal with config

@@ -817,6 +817,94 @@ static void bm_r_sanitize_json(String& j) {
     j = out;
 }
 
+// ── Compact storage keys -> public API keys ─────────────────────────────────
+//
+// A stored result row is mostly *display* data: only `freq`, `vcore`, `avgHR`,
+// `q`, `fail`, `ts`, `soak` and `fw` are ever read back by the firmware. The
+// remaining 19 fields exist purely for the table and the API, so they are
+// stored under two-character names. That is worth ~110 bytes per row, and the
+// saving is not cosmetic: NVS entry count steps at every 32-byte chunk
+// boundary, so a ~415 B row costs 14 entries while a ~305 B row costs 11.
+//
+// bm_result_read_all() expands the names again, which keeps /api/benchmark and
+// the web UI byte-for-byte identical. Unknown keys pass through unchanged, so
+// rows written by older firmware stay readable (and the change is reversible:
+// a downgraded build still reads its own long-key rows).
+struct BmCompactKey {
+    const char* stored;
+    const char* api;
+};
+static const BmCompactKey BM_COMPACT_KEYS[] = {
+    { "e",  "expHR" },
+    { "at", "avgAsicTemp" },
+    { "vt", "avgVcoreTemp" },
+    { "ef", "effJTH" },
+    { "p",  "avgPwr" },
+    { "mi", "maxIout" },
+    { "mp", "maxPwr" },
+    { "xt", "maxAsicTemp" },
+    { "xv", "maxVcoreTemp" },
+    { "pi", "maxPhaseIout" },
+    { "ph", "phases" },
+    { "mb", "maxIbus" },
+    { "mw", "maxPwrIn" },
+    { "vF", "vFail" },
+    { "vP", "vFailPct" },
+    { "fa", "fanAsic" },
+    { "fv", "fanVcore" },
+    { "fn", "fanNeed" },
+    { "fc", "fanNeedVcore" },
+};
+static constexpr size_t BM_COMPACT_KEY_COUNT = sizeof(BM_COMPACT_KEYS) / sizeof(BM_COMPACT_KEYS[0]);
+
+static const char* bm_api_key_for(const char* stored, size_t len) {
+    for (size_t i = 0; i < BM_COMPACT_KEY_COUNT; i++) {
+        if (strlen(BM_COMPACT_KEYS[i].stored) == len &&
+            strncmp(BM_COMPACT_KEYS[i].stored, stored, len) == 0) {
+            return BM_COMPACT_KEYS[i].api;
+        }
+    }
+    return nullptr;
+}
+
+// Rewrite one stored row's keys into the public names. Values are copied
+// verbatim (quoted strings included), so numbers keep their exact stored text
+// and no float round-trip happens here.
+static void bm_r_expand_keys(const char* row, String& out) {
+    out = "{";
+    const char* p = row;
+    bool first = true;
+    if (*p == '{') p++;
+    while (*p && *p != '}') {
+        if (*p == ',') { p++; continue; }
+        if (*p != '"') { p++; continue; }   // malformed fragment: skip it
+        const char* key_start = ++p;
+        while (*p && *p != '"') p++;
+        const size_t key_len = (size_t)(p - key_start);
+        if (*p == '"') p++;
+        if (*p != ':') break;
+        p++;
+        const char* val_start = p;
+        if (*p == '"') {
+            p++;
+            while (*p && *p != '"') p++;
+            if (*p == '"') p++;
+        } else {
+            while (*p && *p != ',' && *p != '}') p++;
+        }
+        const size_t val_len = (size_t)(p - val_start);
+        if (!first) out += ',';
+        first = false;
+        const char* api = bm_api_key_for(key_start, key_len);
+        out += '"';
+        if (api) out += api;
+        else     out.concat(key_start, (unsigned)key_len);
+        out += "\":";
+        out.concat(val_start, (unsigned)val_len);
+    }
+    out += '}';
+}
+
 char* bm_result_read_all(void) {
     bm_result_migrate_legacy();
     uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
@@ -831,7 +919,12 @@ char* bm_result_read_all(void) {
                 if (out.length() > 1) out += ",";
                 String ent(e);
                 bm_r_sanitize_json(ent);
-                out += ent;
+                // Stored rows use compact keys for the display-only fields (see
+                // BM_COMPACT_KEYS). Expand them here, at the single chokepoint
+                // every reader goes through, so the API and UI never see them.
+                String api_row;
+                bm_r_expand_keys(ent.c_str(), api_row);
+                out += api_row;
             }
             free(e);
         }
@@ -1008,9 +1101,13 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vco
         char* out = (char*)malloc(prefix + 96 + strlen(ts) + 1);
         if (!out) { free(e); return ESP_ERR_NO_MEM; }
         memcpy(out, e, prefix);
-        int n = snprintf(out + prefix, 96, ",\"soak\":1,\"fanNeed\":%u", fan_need);
+        // Compact names ("fn"/"fc"), consistent with the rest of the row; the
+        // reader expands them back to fanNeed / fanNeedVcore. "soak" stays
+        // spelled out because the firmware logic (and the eviction ranking)
+        // looks for it directly.
+        int n = snprintf(out + prefix, 96, ",\"soak\":1,\"fn\":%u", fan_need);
         if (fan_need_vcore >= 0) {
-            n += snprintf(out + prefix + n, 96 - n, ",\"fanNeedVcore\":%d", fan_need_vcore);
+            n += snprintf(out + prefix + n, 96 - n, ",\"fc\":%d", fan_need_vcore);
         }
         strcpy(out + prefix + n, ts);
 
