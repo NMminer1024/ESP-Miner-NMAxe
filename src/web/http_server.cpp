@@ -1702,7 +1702,12 @@ void get_benchmark(AsyncWebServerRequest* request){
           if (first) { oc_min_def = o.value; first = false; }
           oc_max_def = o.value;
       } }
-    uint16_t vc_min_def = g_web->spec->asic.min_vcore ? g_web->spec->asic.min_vcore : 1000;
+    // Benchmark start voltage: the board may sweep from higher than the regulator
+    // floor (bm_vcore_min), because on Nexus every frequency above ~325 MHz needs
+    // over 1000 mV and starting at 900 wastes ~10 rounds per point.
+    uint16_t vc_min_def = g_web->spec->asic.bm_vcore_min ? g_web->spec->asic.bm_vcore_min
+                        : g_web->spec->asic.min_vcore    ? g_web->spec->asic.min_vcore
+                                                         : 1000;
     // User-facing ceiling (vc list max), not asic.max_vcore (regulator headroom).
     uint16_t vc_max_def = g_web->spec->user_vcore_max() ? g_web->spec->user_vcore_max() : 1300;
     uint16_t bm_fstep_def = g_web->spec->asic.bm_freq_step ? g_web->spec->asic.bm_freq_step : 25;
@@ -1797,9 +1802,24 @@ void post_benchmark_start(AsyncWebServerRequest* request, uint8_t *data, size_t 
             }
         }
         if (!do_resume) {
-            // Fresh start: reset sweep state to first round
-            uint16_t freq_min  = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,  400);
-            uint16_t vcore_min = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN, 1000);
+            // Fresh start: reset the checkpoint to the FIRST round of the window.
+            //
+            // The defaults here must be the same board values bm_load_config()
+            // falls back to, or the first round contradicts the window the sweep
+            // then runs: with a hardcoded 400/1000, a cleared config made round 1
+            // start at 400MHz/1000mV while the very next log line announced
+            // "Range freq 325~800 ... vcore 950~1250". On Nexus that skipped the
+            // 325MHz point entirely and started 50mV above the configured floor.
+            uint16_t oc_min_def = 400;
+            { bool first = true;
+              for (const auto& o : g_web->spec->ui.setting_page.oc) {
+                  if (first) { oc_min_def = o.value; first = false; }
+              } }
+            const uint16_t vc_min_def = g_web->spec->asic.bm_vcore_min ? g_web->spec->asic.bm_vcore_min
+                                      : g_web->spec->asic.min_vcore    ? g_web->spec->asic.min_vcore
+                                                                       : 1000;
+            uint16_t freq_min  = nvs_config_get_u16(NVS_CONFIG_BM_FREQ_MIN,  oc_min_def);
+            uint16_t vcore_min = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN, vc_min_def);
             nvs_config_set_u16(NVS_CONFIG_BM_CUR_FREQ,  freq_min);
             nvs_config_set_u16(NVS_CONFIG_BM_CUR_VCORE, vcore_min);
             nvs_config_set_u32(NVS_CONFIG_BM_START_TS,  (uint32_t)time(nullptr));

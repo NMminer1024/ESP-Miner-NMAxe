@@ -885,13 +885,22 @@ BoardSpecConfig get_board_config_compile_time() {
     // hand. It also keeps the results partition comfortable: 20 rows instead of
     // 48 on a 24 KB NVS that already holds the configuration.
     //
-    // Vcore 15 mV: finer than 25, so the stored value sits closer to the real
-    // floor instead of up to 24 mV above it (which wastes power at every point),
-    // but coarser than 10, which needed ~21 rounds per frequency and pushed a
-    // full sweep past 17 h. Values off the 25 mV Vcore list are fine — the
-    // reader applies them as-is and the UI shows them as a "Custom" entry.
+    // Vcore 10 mV from a 950 mV start.
+    //
+    // 950 is where this board actually lands: measured across several Nexus units,
+    // 325 MHz needs ~1000 mV, so a 900 mV start burns ~10 rounds per frequency
+    // proving that 900-940 mV fail. Starting at 950 roughly halves the sweep.
+    //
+    // 10 mV (not 15) because at 950 the window is narrow enough for it to be
+    // affordable: ~13 h for a full 20-point window instead of ~8 h at 15 mV, and
+    // the stored value lands within 9 mV of the true floor instead of 14 mV.
+    //
+    // The start is bm_vcore_min, NOT min_vcore: min_vcore stays 900 because it is
+    // the regulator setpoint floor and the over-temperature step-down floor, and
+    // raising it would make the 900/925 mV dropdown entries unappliable.
     config.asic.bm_freq_step         = 25;
-    config.asic.bm_vcore_step        = 15;
+    config.asic.bm_vcore_step        = 10;
+    config.asic.bm_vcore_min         = 950;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};

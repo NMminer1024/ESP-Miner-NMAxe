@@ -101,7 +101,9 @@ static void bm_load_config(BenchmarkCtx* ctx, BmSweepConfig& c) {
         freq_min_def = bspec->ui.setting_page.oc.front().value;
         freq_max_def = bspec->ui.setting_page.oc.back().value;
     }
-    uint16_t vcore_min_def = (bspec && bspec->asic.min_vcore)    ? bspec->asic.min_vcore    : 1000;
+    uint16_t vcore_min_def = (bspec && bspec->asic.bm_vcore_min)  ? bspec->asic.bm_vcore_min
+                           : (bspec && bspec->asic.min_vcore)     ? bspec->asic.min_vcore
+                                                                  : 1000;
     // Sweep ceiling uses the user-facing vc-list max; asic.max_vcore is regulator
     // headroom for line-loss compensation and must stay out of the sweep.
     uint16_t vcore_max_def = (bspec && bspec->user_vcore_max())  ? bspec->user_vcore_max()  : 1300;

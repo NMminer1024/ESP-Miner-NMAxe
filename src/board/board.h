@@ -157,6 +157,15 @@ struct BoardSpecConfig {
         uint16_t max_vcore;       // mV, regulator setpoint ceiling (incl. line-loss headroom)
         uint16_t bm_freq_step;    // MHz, benchmark sweep default freq step
         uint16_t bm_vcore_step;   // mV, benchmark sweep default vcore step
+        // Benchmark sweep START voltage. Deliberately separate from min_vcore:
+        // min_vcore is the regulator setpoint floor and the over-temperature
+        // step-down floor, so raising it would also make the 900/925 mV entries
+        // in the vc dropdown unappliable. 0 = start at min_vcore.
+        //
+        // The initializer matters: BoardSpecConfig is default-initialised, so a
+        // POD member without one would read an indeterminate value on every board
+        // that does not set it.
+        uint16_t bm_vcore_min = 0;  // mV, benchmark sweep default starting voltage
         uint16_t diff_thr_init;   // initial difficulty threshold
         int8_t  rx_pin;           // ESP32 rx pin to asic tx pin
         int8_t  tx_pin;           // ESP32 tx pin to asic rx pin
