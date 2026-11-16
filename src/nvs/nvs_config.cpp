@@ -592,7 +592,20 @@ static uint16_t bm_r_pick_victim(uint16_t start, uint16_t cnt, const char** why,
     return (uint16_t)oldest_i;
 }
 
+static void bm_r_compact_row(const char* row, String& out);   // defined below
+static esp_err_t bm_result_append_ring_raw(const char* entry_json);
+
+// Single write chokepoint: normalise the row to its compact on-flash form before
+// anything reaches NVS. Doing it here (rather than in the caller's snprintf)
+// also covers bulk restore/import, which would otherwise re-inflate a compact
+// row back to long keys.
 static esp_err_t bm_result_append_ring(const char* entry_json) {
+    String compact;
+    bm_r_compact_row(entry_json, compact);
+    return bm_result_append_ring_raw(compact.c_str());
+}
+
+static esp_err_t bm_result_append_ring_raw(const char* entry_json) {
     uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
     uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
     esp_err_t err  = ESP_OK;
@@ -867,6 +880,96 @@ static const char* bm_api_key_for(const char* stored, size_t len) {
     return nullptr;
 }
 
+// Inverse lookup: public name -> stored name. nullptr means "no compact form",
+// i.e. the key is read back by the firmware itself (freq/vcore/avgHR/q/fail/ts/fw)
+// and therefore keeps its name.
+static const char* bm_stored_key_for(const char* api, size_t len) {
+    for (size_t i = 0; i < BM_COMPACT_KEY_COUNT; i++) {
+        if (strlen(BM_COMPACT_KEYS[i].api) == len &&
+            strncmp(BM_COMPACT_KEYS[i].api, api, len) == 0) {
+            return BM_COMPACT_KEYS[i].stored;
+        }
+    }
+    return nullptr;
+}
+
+// Fields that are re-derived on read instead of being stored:
+//
+//  expHR    = freq x (small cores x chip count) / 1000 - a pure product.
+//  maxPwrIn = maxPwr, exactly: the sampler updates both from the same sample
+//             with the same initial value, so the two are byte-identical in
+//             every row ever written (verified on hardware: 63.46 / 63.46).
+//
+// Dropping them is not cosmetic. A stored row is "1 header + ceil(N/32)" NVS
+// entries, so ~32 bytes is a whole entry: measured on Nexus a row with these
+// fields costs 10 entries and one without costs 9.
+static bool bm_key_is_derived(const char* key, size_t len) {
+    return (len == 5 && strncmp(key, "expHR",    5) == 0) ||
+           (len == 8 && strncmp(key, "maxPwrIn", 8) == 0);
+}
+
+// Normalise one row to its compact on-flash form: derived fields dropped,
+// "fail":0 dropped (every reader treats absent as 0), long names shortened.
+// Applied at the single write chokepoint so a restored/imported row cannot
+// re-inflate the partition either. Idempotent: an already-compact row is
+// reproduced unchanged, because short names are not API names.
+static void bm_r_compact_row(const char* row, String& out) {
+    out = "{";
+    const char* p = row;
+    bool first = true;
+    if (*p == '{') p++;
+    while (*p && *p != '}') {
+        if (*p == ',') { p++; continue; }
+        if (*p != '"') { p++; continue; }
+        const char* key_start = ++p;
+        while (*p && *p != '"') p++;
+        const size_t key_len = (size_t)(p - key_start);
+        if (*p == '"') p++;
+        if (*p != ':') break;
+        p++;
+        const char* val_start = p;
+        if (*p == '"') {
+            p++;
+            while (*p && *p != '"') p++;
+            if (*p == '"') p++;
+        } else {
+            while (*p && *p != ',' && *p != '}') p++;
+        }
+        const size_t val_len = (size_t)(p - val_start);
+
+        if (bm_key_is_derived(key_start, key_len)) continue;
+        // "fail":0 is the default everywhere (bm_r_json_int reports -1 only for
+        // ABSENT keys, and both call sites compare against >0 / ==1), so a clean
+        // row does not need to spell it out. A tombstone (fail:1) is kept.
+        if (key_len == 4 && strncmp(key_start, "fail", 4) == 0) {
+            char tmp[16];
+            const size_t n = (val_len < sizeof(tmp) - 1) ? val_len : sizeof(tmp) - 1;
+            memcpy(tmp, val_start, n);
+            tmp[n] = '\0';
+            if (atoi(tmp) == 0) continue;
+        }
+
+        if (!first) out += ',';
+        first = false;
+        const char* stored = bm_stored_key_for(key_start, key_len);
+        out += '"';
+        if (stored) out += stored;
+        else        out.concat(key_start, (unsigned)key_len);
+        out += "\":";
+        out.concat(val_start, (unsigned)val_len);
+    }
+    out += '}';
+}
+
+// Board factor for the expHR rebuild. One NVS entry, written once per board.
+static const char * K_BM_EXP_FACTOR = "bm_expf";
+
+void bm_result_set_exp_hr_factor(uint16_t factor) {
+    if (factor == 0) return;
+    if (nvs_config_get_u16(K_BM_EXP_FACTOR, 0) == factor) return;  // no write amplification
+    nvs_config_set_u16(K_BM_EXP_FACTOR, factor);
+}
+
 // Rewrite one stored row's keys into the public names. Values are copied
 // verbatim (quoted strings included), so numbers keep their exact stored text
 // and no float round-trip happens here.
@@ -905,6 +1008,48 @@ static void bm_r_expand_keys(const char* row, String& out) {
     out += '}';
 }
 
+// Rebuild the fields that bm_r_compact_row() does not store, so /api/benchmark
+// keeps exactly the shape it had before rows were compacted:
+//
+//  fail:0   - absent everywhere else already means 0, but the API documented the
+//             field, so spell it out rather than change the contract.
+//  maxPwrIn - verbatim copy of maxPwr (they were always identical).
+//  expHR    - freq x board factor / 1000. The factor is persisted once per board
+//             by bm_result_set_exp_hr_factor(); while it is unknown (a board that
+//             has never swept since the upgrade) the field is reported as 0
+//             rather than guessed.
+static void bm_r_inject_derived(String& row) {
+    String add;
+    if (strstr(row.c_str(), "\"fail\":") == nullptr) add += ",\"fail\":0";
+
+    if (strstr(row.c_str(), "\"maxPwrIn\":") == nullptr) {
+        const char* p = strstr(row.c_str(), "\"maxPwr\":");
+        if (p) {
+            p += 9;                              // strlen("\"maxPwr\":")
+            const char* q = p;
+            while (*q && *q != ',' && *q != '}') q++;
+            add += ",\"maxPwrIn\":";
+            add.concat(p, (unsigned)(q - p));
+        }
+    }
+
+    if (strstr(row.c_str(), "\"expHR\":") == nullptr) {
+        uint16_t f = 0;
+        const uint16_t k = nvs_config_get_u16(K_BM_EXP_FACTOR, 0);
+        char buf[40];
+        if (k != 0 && bm_r_parse_freq(row.c_str(), f)) {
+            snprintf(buf, sizeof(buf), ",\"expHR\":%.1f", (double)f * (double)k / 1000.0);
+        } else {
+            snprintf(buf, sizeof(buf), ",\"expHR\":0");
+        }
+        add += buf;
+    }
+
+    if (add.length() == 0) return;
+    const int last = row.lastIndexOf('}');
+    if (last >= 0) row = row.substring(0, last) + add + "}";
+}
+
 char* bm_result_read_all(void) {
     bm_result_migrate_legacy();
     uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
@@ -924,6 +1069,7 @@ char* bm_result_read_all(void) {
                 // every reader goes through, so the API and UI never see them.
                 String api_row;
                 bm_r_expand_keys(ent.c_str(), api_row);
+                bm_r_inject_derived(api_row);
                 out += api_row;
             }
             free(e);
@@ -1029,7 +1175,10 @@ bool bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
         const double hr   = bm_r_json_double(e, "\"avgHR\":");
         free(e);
 
-        if (q != 1 || fail != 0) continue;
+        // `> 0`, not `!= 0`: bm_r_json_int reports -1 for an ABSENT key, and rows
+        // now omit "fail":0 (see bm_r_compact_row), so an equality test against 0
+        // would reject every clean row.
+        if (q != 1 || fail > 0) continue;
         if (f <= 0 || v <= 0 || hr <= 0.0) continue;
         if (f > (long)cur_freq || v > (long)cur_vcore) continue;      // not safer
         if (f == (long)cur_freq && v == (long)cur_vcore) continue;    // current point

@@ -137,6 +137,12 @@ bool      bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
 esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vcore = -1);
 // Whether that frequency's stored row carries a soak verdict.
 bool      bm_result_is_soaked(uint16_t freq);
+// Board factor (small cores x chip count) used to rebuild "expHR" on read.
+// expHR is a pure product of freq and this factor, so it is no longer stored;
+// persisting the factor costs one NVS entry once and saves ~12 bytes per row.
+// Call once per boot after the ASIC count is known; repeated identical calls are
+// no-ops (no write amplification).
+void      bm_result_set_exp_hr_factor(uint16_t factor);
 // Drop all soak verdicts (the fan policy they were measured under changed).
 void      bm_result_clear_soak(void);
 void      bm_result_restore_all(const char* json_array);// bulk-restore entries from a "[...]" string (empty ring assumed)

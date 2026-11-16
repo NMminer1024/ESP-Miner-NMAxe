@@ -255,6 +255,12 @@ void miner_init_thread_entry(void* args) {
     }
     LOG_I("%s init completed, job interval set to %d ms",
           ctx->spec->asic.name.c_str(), ctx->spec->asic.job_interval_ms);
+    // Persist the board's expHR factor (small cores x detected chip count) once.
+    // Benchmark rows no longer store expHR (it is a pure product of freq and this
+    // factor); the reader rebuilds it from here. Costs one NVS entry per board and
+    // saves ~12 bytes in every stored row.
+    bm_result_set_exp_hr_factor((uint16_t)((uint32_t)ctx->miner->get_asic_small_cores() *
+                                           (uint32_t)ctx->miner->get_asic_count()));
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_MINER_READY);
     vTaskDelete(NULL);
 }
