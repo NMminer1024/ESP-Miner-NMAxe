@@ -791,6 +791,7 @@ void monitor_thread_entry(void* args) {
         // a modulo test silently skips periods (the same reason the 5 s history
         // sampler below was moved off modulo).
         static uint32_t last_safety_check_ms = 0;
+        static uint32_t over_pwr_since_ms = 0;
         const bool safety_check_due = (millis() - last_safety_check_ms >= 2000u);
         if (safety_check_due) {
             last_safety_check_ms = millis();
@@ -801,7 +802,6 @@ void monitor_thread_entry(void* args) {
                 static std::vector<uint16_t> fan_err_cnt;
                 static uint16_t pwr_err_cnt   = 0;
                 static uint16_t hr_err_cnt    = 0;
-                static uint16_t over_pwr_cnt  = 0;   // sustained input-over-budget ticks
                 if (fan_err_cnt.size() != ctx->fan_status->size()) {
                     fan_err_cnt.assign(ctx->fan_status->size(), 0);
                 }
@@ -810,7 +810,7 @@ void monitor_thread_entry(void* args) {
                     std::fill(fan_err_cnt.begin(), fan_err_cnt.end(), 0);
                     pwr_err_cnt = 0;
                     hr_err_cnt  = 0;
-                    over_pwr_cnt = 0;
+                    over_pwr_since_ms = 0;
                     st.asic_update = millis();
                 }
 
@@ -1002,8 +1002,10 @@ void monitor_thread_entry(void* args) {
                         }
                     }
                     if (pct >= 100.0f) {
-                        if (++over_pwr_cnt > 120) {   // ~2 min of sustained overload
-                            over_pwr_cnt = 0;
+                        constexpr uint32_t ADAPTER_OVERLOAD_STEPDOWN_MS = 120000;
+                        if (over_pwr_since_ms == 0) over_pwr_since_ms = millis();
+                        if ((uint32_t)(millis() - over_pwr_since_ms) >= ADAPTER_OVERLOAD_STEPDOWN_MS) {
+                            over_pwr_since_ms = 0;
                             uint16_t new_freq  = spec.asic.req_frq;
                             uint16_t new_vcore = spec.asic.req_vcore;
                             bool stepped = false;
@@ -1028,7 +1030,7 @@ void monitor_thread_entry(void* args) {
                                 if (have_f) { new_freq = best_f; stepped = true; }
                             }
                             if (stepped) {
-                                LOG_W("Input over adapter budget for ~2min — stepping down %uMHz/%umV -> %uMHz/%umV (not rebooting).",
+                                LOG_W("Input over adapter rating for 120s — stepping down %uMHz/%umV -> %uMHz/%umV (not rebooting).",
                                       (unsigned)spec.asic.req_frq, (unsigned)spec.asic.req_vcore,
                                       (unsigned)new_freq, (unsigned)new_vcore);
                                 spec.asic.req_frq   = new_freq;
@@ -1040,10 +1042,10 @@ void monitor_thread_entry(void* args) {
                             }
                         }
                     } else {
-                        over_pwr_cnt = 0;
+                        over_pwr_since_ms = 0;
                     }
                 } else {
-                    over_pwr_cnt = 0;
+                    over_pwr_since_ms = 0;
                 }
 
                 // hashrate
@@ -1056,6 +1058,9 @@ void monitor_thread_entry(void* args) {
                 } else hr_err_cnt = 0;
             } // end !ota.running
             } // end bm_mode == 0
+            if (*ctx->bm_mode != 0 || (ctx->ota_running && *ctx->ota_running)) {
+                over_pwr_since_ms = 0;
+            }
         }
 
         // save status to NVS (interval-driven request)
