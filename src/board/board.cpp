@@ -876,10 +876,22 @@ BoardSpecConfig get_board_config_compile_time() {
     // Regulator ceiling = vc list max (1250/die) + 200mV/die line-loss headroom for the
     // power loop (series-stacked rail, so the rail-level headroom is 2x this).
     config.asic.max_vcore            = 1450;
-    // Finer sweep granularity: the 325-800MHz / 900-1250mV window is wide, and the
-    // BM1373 V/f curve is smooth enough that 10MHz/10mV steps pay off here.
-    config.asic.bm_freq_step         = 10;
-    config.asic.bm_vcore_step        = 10;
+    // Sweep granularity, tuned for THIS board's selectable lists.
+    //
+    // Freq 25 MHz, not 10: the OC list is 325..800 in 25 MHz steps, so a 25 MHz
+    // sweep lands exactly on selectable points — every benchmark row can be
+    // reproduced from Settings. A 10 MHz sweep produced 48 points of which only
+    // 10 existed in the list, so 38 measured rows could not be re-selected by
+    // hand. It also keeps the results partition comfortable: 20 rows instead of
+    // 48 on a 24 KB NVS that already holds the configuration.
+    //
+    // Vcore 15 mV: finer than 25, so the stored value sits closer to the real
+    // floor instead of up to 24 mV above it (which wastes power at every point),
+    // but coarser than 10, which needed ~21 rounds per frequency and pushed a
+    // full sweep past 17 h. Values off the 25 mV Vcore list are fine — the
+    // reader applies them as-is and the UI shows them as a "Custom" entry.
+    config.asic.bm_freq_step         = 25;
+    config.asic.bm_vcore_step        = 15;
     config.asic.job_interval_ms      = 500;
     config.ui.dashboard_page.power.ibus          = {0.0f, 20.0f};
     config.ui.dashboard_page.power.power         = {0.0f, 200.0f};
