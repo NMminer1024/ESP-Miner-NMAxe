@@ -65,6 +65,7 @@ NMAxe series are ESP32-S3 based Bitcoin solo miners forked from [bitaxe](https:/
 | [solobtc.nmminer.com](https://www.nmminer.com/) | 3333 | BTC | 0.001 |
 | [au.solobtc.nmminer.com](https://www.nmminer.com/) | 3333 | BTC | 0.001 |
 | [solo.ckpool.org](https://solo.ckpool.org/) | 3333 | BTC | 10K (auto-adjusted) |
+| [solo.drminer.xyz](https://solo.drminer.xyz/) | 3333 | BTC | 0.001 |
 | [xec.nmminer.com](https://www.nmminer.com/) | 3333 | XEC | 1K (auto-adjusted) |
 | [eu.molepool.com](https://www.molepool.com/) | 7450 | DGB | 32.768K |
 | [eu.molepool.com](https://www.molepool.com/) | 5566 | BCH | 32.768K |
@@ -85,9 +86,6 @@ NMAxe series are ESP32-S3 based Bitcoin solo miners forked from [bitaxe](https:/
 | URL | Port | Coin | Region |
 | :--- | :---: | :---: | :---: |
 | [stratum.btcpowlab-pool.com](https://btcpowlab-pool.com/) | 3333 | BTC | Global |
-| [solo.drminer.xyz](https://solo.drminer.xyz/) | 3333 | BTC | Global |
-
-> ⚠️ **btcpowlab-pool.com**: worker name must contain only letters, numbers, `-` or `_`. Do not use `+` (e.g. the auto-generated `NMQAxe++_xxxxx` will be rejected); use a name like `address.NMQAxe_xxxxx` or `address.worker1`.
 
 ## Monitoring
 ***
