@@ -104,5 +104,15 @@ public:
     virtual uint32_t get_vbus(void) = 0;
     virtual uint32_t get_ibus(void) = 0;
     virtual uint32_t get_vcore(void) = 0;
+
+    // Per-die voltage the regulator's VOUT_COMMAND register currently holds, read
+    // back from the chip (NAN when the class has no such register).
+    //
+    // Deliberately SEPARATE from get_vcore(): that is the MEASURED output. This is
+    // what the regulator has been TOLD to produce, and on a chip that stays powered
+    // it survives an ESP32-only reset — which is how a command written by an earlier
+    // boot can bring the rail up at the wrong voltage before the firmware programs
+    // it again. Reading it BEFORE writing anything is what tells those two apart.
+    virtual float get_vout_command_mv() { return NAN; }
 };
 #endif 

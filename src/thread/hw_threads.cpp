@@ -229,6 +229,52 @@ void power_init_thread_entry(void* args) {
     delay(100); // wait for power stable
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VDD_VPLL_READY);
 
+    // ── Program VOUT_COMMAND now, with EN still off ──────────────────────────
+    //
+    // The rail is enabled only further down (after the fan/WiFi/Vbus gate), so
+    // writing the target here cannot produce any output — but it does remove the
+    // window in which the regulator holds whatever command it woke up with.
+    //
+    // Reported from the field on v3.2.02p and v3.2.02u: after a USB flash the rail
+    // read 1355-1356 mV against a 990 mV target for ~8 s, with the die already
+    // conducting (27 W / 2.24 A). The gate below is exactly that ~8 s, and
+    // VOUT_COMMAND is retained by the regulator across an ESP32-only reset (measured
+    // on the bench: a normal OTA reboot starts with the PREVIOUS boot's command still
+    // in the chip), so the rail can be sitting on a stale value the whole time.
+    // Programming early bounds that window to the boot itself instead of the boot
+    // plus the fan self-test plus the WiFi join.
+    {
+        const float cmd = power->get_vout_command_mv();
+        if (cmd == cmd) {
+            LOG_I("Vcore boot: chip VOUT_COMMAND = %.0fmV/die BEFORE programming "
+                  "(target %umV/die) — %s",
+                  (double)cmd, (unsigned)spec.asic.req_vcore,
+                  (fabsf(cmd - (float)spec.asic.req_vcore) <= 5.0f)
+                      ? "matches the target"
+                      : "DIFFERS: the chip is holding a value this boot did not write");
+        } else {
+            LOG_I("Vcore boot: chip VOUT_COMMAND unreadable BEFORE programming (target %umV/die)",
+                  (unsigned)spec.asic.req_vcore);
+        }
+    }
+    power->set_vcore_voltage(spec.asic.req_vcore);
+    {
+        // Prove the write landed. A lost VOUT_COMMAND used to be invisible: the
+        // driver cached it as applied and never retried (fixed in v3.2.02q, which
+        // also leaves the cache alone on failure so the next caller retries).
+        const float cmd = power->get_vout_command_mv();
+        const uint32_t mv = power->get_vcore();   // measured, EN not asserted yet
+        if (cmd == cmd) {
+            LOG_I("Vcore boot: programmed %umV/die -> chip VOUT_COMMAND = %.0fmV/die, "
+                  "READ_VOUT = %umV before EN is re-asserted",
+                  (unsigned)spec.asic.req_vcore, (double)cmd, (unsigned)mv);
+        } else {
+            LOG_I("Vcore boot: programmed %umV/die -> chip VOUT_COMMAND unreadable, "
+                  "READ_VOUT = %umV before EN is re-asserted",
+                  (unsigned)spec.asic.req_vcore, (unsigned)mv);
+        }
+    }
+
     // Do not block early boot on low Vbus: USB-only power must still be able to
     // continue through WiFi / ASIC count so the loading page can show chip detect.
     // Vcore bring-up itself remains gated on sufficient Vbus.
@@ -268,7 +314,9 @@ void power_init_thread_entry(void* args) {
     // wait for fan ready, wifi connected, and sufficient Vbus before setting
     // vcore voltage, to avoid too high temperature without proper cooling or
     // network connection for error reporting.
-    // set vcore voltage to required voltage
+    //
+    // VOUT_COMMAND was already written before the gate above, so this call is
+    // answered from the driver's cache and does not touch the bus.
     power->set_vcore_voltage(spec.asic.req_vcore);
     power->set_vcore_status(PWR_ON);
     // is_vcore_ready() stays silent while healthy and self-diagnoses on failure,
@@ -288,6 +336,23 @@ void power_init_thread_entry(void* args) {
     delay(500);
 
     LOG_D("Vcore ready at %dmV/%dmV", power->get_vcore(), spec.asic.req_vcore);
+    // Third line of the boot diagnostic: the rail is enabled and settled, so this
+    // is the first reading that reflects real output. A value far above the target
+    // here, with a matching VOUT_COMMAND, means the chip is doing what it was told;
+    // a value far above with a matching target means the regulator itself is not
+    // regulating, which is a different (hardware) problem.
+    {
+        const float cmd = power->get_vout_command_mv();
+        const uint32_t mv = power->get_vcore();
+        if (cmd == cmd) {
+            LOG_I("Vcore boot: EN on, READ_VOUT = %umV/die (target %umV/die), "
+                  "chip VOUT_COMMAND = %.0fmV/die",
+                  (unsigned)mv, (unsigned)spec.asic.req_vcore, (double)cmd);
+        } else {
+            LOG_I("Vcore boot: EN on, READ_VOUT = %umV/die (target %umV/die)",
+                  (unsigned)mv, (unsigned)spec.asic.req_vcore);
+        }
+    }
 
     vTaskDelete(NULL);
 }

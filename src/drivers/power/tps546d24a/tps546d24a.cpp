@@ -28,27 +28,53 @@
 // API call retries. Warn is throttled so a contended bus cannot flood the log.
 class TpsBusGuard {
 public:
-    TpsBusGuard(SemaphoreHandle_t m, uint32_t timeout_ms)
-        : _m(m), _ok(m != nullptr && xSemaphoreTakeRecursive(m, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
-        if (!_ok) {
+    TpsBusGuard(const char* tag, uint32_t timeout_ms, SemaphoreHandle_t m,
+                const char** holder, uint8_t* depth)
+        : _m(m), _holder(holder), _depth(depth),
+          _ok(m != nullptr && xSemaphoreTakeRecursive(m, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
+        if (_ok) {
+            // Only the OUTERMOST take names the holder: set_vcore_voltage(0) re-enters
+            // through set_vcore_status(), and the inner frame's release must not clear
+            // the name while the outer frame still holds the bus.
+            if (_depth != nullptr) {
+                if (*_depth == 0 && _holder != nullptr) *_holder = tag;
+                if (*_depth < 0xFF) (*_depth)++;
+            }
+        } else {
             static uint32_t last_warn = 0;
             uint32_t now = millis();
             if (now - last_warn >= 1000) {
-                LOG_W("TPS546D24A bus lock busy (%ums), skipping this access", timeout_ms);
+                // Name the holder. "bus busy" alone cannot be acted on; "held by
+                // set_vcore_voltage, skipped get_vcore" says whether the skip landed
+                // during a point change (expected, harmless) or in steady state.
+                const char* who = (holder != nullptr && *holder != nullptr) ? *holder : "unknown";
+                LOG_W("TPS546D24A bus lock busy (%ums, held by %s), skipping %s",
+                      timeout_ms, who, tag);
                 last_warn = now;
             }
         }
     }
-    ~TpsBusGuard() { if (_ok) xSemaphoreGiveRecursive(_m); }
+    ~TpsBusGuard() {
+        if (_ok) {
+            if (_depth != nullptr && *_depth > 0 && --(*_depth) == 0 && _holder != nullptr) {
+                *_holder = nullptr;
+            }
+            xSemaphoreGiveRecursive(_m);
+        }
+    }
     bool ok() const { return _ok; }
 private:
     SemaphoreHandle_t _m;
-    bool _ok;
+    const char**      _holder;
+    uint8_t*          _depth;
+    bool              _ok;
 };
 // Default 200ms: covers the longest normal holder (set_vcore_voltage ~5 txns,
 // debugPrint ~14 txns) with margin; power loop runs at 50ms so skipping one
 // round on timeout is harmless. NEVER use portMAX_DELAY here.
-#define TPS_BUS_LOCK(timeout_ms)  TpsBusGuard _bus_guard(this->_bus_mtx, (timeout_ms))
+#define TPS_BUS_LOCK(timeout_ms) \
+    TpsBusGuard _bus_guard(__func__, (timeout_ms), this->_bus_mtx, \
+                           &this->_bus_holder, &this->_bus_depth)
 #define TPS_BUS_LOCK_DEFAULT()    TPS_BUS_LOCK(200)
 
 TPS546D24AClass::~TPS546D24AClass(){
@@ -689,6 +715,24 @@ uint32_t TPS546D24AClass::get_vcore(void){
     LOG_D("[TPS546D24A] Vcore PMBus 0x%04X -> %u mV rail / %u = %u mV/die",
           raw, rail_mv, this->_vcore_series_count, per_die_mv);
     return per_die_mv;
+}
+
+// What the regulator has been TOLD to produce, in per-die millivolts.
+//
+// Read-only, and deliberately kept separate from get_vcore(): the value here
+// survives an ESP32-only reset because the regulator stays powered, while the
+// measured output does not. That difference is the whole point of the boot-time
+// diagnostic in power_init_thread_entry() — it is how "the chip came up on its
+// own default" is told apart from "the chip still held a command written by an
+// earlier boot". After set_vcore_voltage() both look identical.
+float TPS546D24AClass::get_vout_command_mv(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return NAN;
+    if (!this->_device_ok) return NAN;
+    uint16_t raw = 0;
+    if (this->_read_reg(PMBUS_VOUT_COMMAND, (uint8_t*)&raw, 2) != 0) return NAN;
+    const uint32_t rail_mv = (uint32_t)this->_ulinear16_to_mv(raw);
+    return (float)((rail_mv + this->_vcore_series_count / 2) / this->_vcore_series_count);
 }
 
 float TPS546D24AClass::get_temperature(void) {

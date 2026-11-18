@@ -125,6 +125,12 @@ private:
     // Last rail the VOUT_COMMAND register was set to; lets a repeated identical
     // request skip the whole PMBus sequence, 50 ms settle included.
     uint16_t      _vout_rail_mv;
+    // Which method currently holds _bus_mtx, plus its recursion depth. Purely for
+    // forensics: a timed-out take can then say WHO was holding the bus instead of
+    // only that it was busy (field reports correlate these with point changes).
+    // Written only by the holder; single-word stores, no extra locking.
+    const char*   _bus_holder = nullptr;
+    uint8_t       _bus_depth  = 0;
     // Sequence-level lock for every multi-transaction PMBus access (set_vcore_voltage
     // writes VOUT_COMMAND + 4 OV/UV limits as one logical unit; BM thread, power loop
     // and the web task all call it concurrently — the legacy I2C driver only makes a
@@ -176,6 +182,9 @@ public:
     uint32_t get_vbus(void) override;
     uint32_t get_ibus(void) override;
     uint32_t get_vcore(void) override;
+    // Per-die VOUT_COMMAND read back from the chip: what it has been TOLD to
+    // produce, not what it is producing. NAN on a failed read or a busy bus.
+    float    get_vout_command_mv(void) override;
     float    get_temperature(void);   // reads PMBUS_READ_TEMPERATURE_1 via SLINEAR11 (hottest phase in stack)
     void debugPrint(void) override;
     void dump(void) override;
