@@ -127,28 +127,52 @@ static void avoid_last_failed_point(MinerCtx* ctx) {
               (unsigned)pf, (unsigned)pv, (unsigned)fail_cnt,
               (unsigned)new_freq, (unsigned)new_vcore);
     } else {
-        // Largest selectable value strictly BELOW the failed one. Exact-match lookup
-        // is not enough: the running point is often a custom value (e.g. 1185 mV)
-        // that is not present in the board's option list.
-        bool have_vc = false;
-        for (const auto& o : vc) {
-            if (o.value < pv && (!have_vc || o.value > new_vcore)) {
-                new_vcore = o.value;
-                have_vc   = true;
-            }
-        }
-        stepped = have_vc;
-        if (!stepped) {
-            // Vcore already at the floor — drop one frequency step instead.
-            uint16_t best_f = 0;
-            bool     have_f = false;
-            for (const auto& o : oc) {
-                if (o.value < pf && (!have_f || o.value > best_f)) {
-                    best_f = o.value;
-                    have_f = true;
+        // Prefer a measured benchmark point over a raw dropdown step.
+        //
+        // Reported from the field: a trip at 775MHz/1220mV resumed into
+        // 775MHz/1200mV, which had already failed the sweep (92.7 % of expected
+        // hashrate) — it only exists as an entry in the voltage dropdown, so it was
+        // never a qualified point at all. The over-temperature path already asks the
+        // benchmark table (bm_result_pick_safer_point); the resume path did not, so
+        // the same safety rule was applied by one caller and skipped by the other.
+        //
+        // bm_result_pick_safer_point only returns rows that finished a real
+        // measurement AND passed the margin, with neither dimension above the failed
+        // point, choosing the highest measured hashrate among them. When the table
+        // has nothing usable (never benchmarked, all legacy, or already at the
+        // bottom) it returns false and we fall through to the old dropdown step.
+        uint16_t bm_freq = 0, bm_vcore = 0;
+        if (bm_result_pick_safer_point(pf, pv, &bm_freq, &bm_vcore)) {
+            new_freq  = bm_freq;
+            new_vcore = bm_vcore;
+            stepped   = true;
+            LOG_W("Protection tripped at %uMHz/%umV — falling back to the qualified benchmark point "
+                  "%uMHz/%umV instead of one dropdown step.",
+                  (unsigned)pf, (unsigned)pv, (unsigned)new_freq, (unsigned)new_vcore);
+        } else {
+            // Largest selectable value strictly BELOW the failed one. Exact-match lookup
+            // is not enough: the running point is often a custom value (e.g. 1185 mV)
+            // that is not present in the board's option list.
+            bool have_vc = false;
+            for (const auto& o : vc) {
+                if (o.value < pv && (!have_vc || o.value > new_vcore)) {
+                    new_vcore = o.value;
+                    have_vc   = true;
                 }
             }
-            if (have_f) { new_freq = best_f; stepped = true; }
+            stepped = have_vc;
+            if (!stepped) {
+                // Vcore already at the floor — drop one frequency step instead.
+                uint16_t best_f = 0;
+                bool     have_f = false;
+                for (const auto& o : oc) {
+                    if (o.value < pf && (!have_f || o.value > best_f)) {
+                        best_f = o.value;
+                        have_f = true;
+                    }
+                }
+                if (have_f) { new_freq = best_f; stepped = true; }
+            }
         }
     }
 

@@ -137,7 +137,10 @@ private:
     uint8_t  _read_reg(uint8_t regaddr, uint8_t *data, uint8_t length);
     uint8_t  _read_block(uint8_t regaddr, uint8_t *data, uint8_t data_length); // SMBus block read: consumes the leading byte-count byte, returns it (0xFF on I2C error)
     void     _write_byte(uint8_t regaddr, uint8_t data);
-    void     _write_word(uint8_t regaddr, uint16_t data);
+    // Returns false when every retry was NACKed. Callers that maintain a cache of
+    // "what the chip is programmed to" MUST NOT update it on false, or the fast path
+    // will skip the retry forever and the rail stays on whatever it held before.
+    bool     _write_word(uint8_t regaddr, uint16_t data);
     void     _write_cmd(uint8_t cmd);
     void     _scan_bus(void);   // diagnostic: log every I2C address that ACKs, used when the configured address doesn't respond
     void     _check_smbus_alert(void); // diagnostic: single-byte STATUS_BYTE read + SMBus ARA (0x0C) probe
@@ -145,7 +148,7 @@ private:
     uint16_t _float_to_slinear11(float x);
     uint16_t _mv_to_ulinear16(uint16_t mv);
     uint16_t _ulinear16_to_mv(uint16_t raw);
-    void     _write_vout_limit_ratios(uint16_t rail_mv); // OV/UV fault+warn limits, ratio-of-rail, clamped into [VOUT_MIN, VOUT_MAX] so the chip doesn't NACK them
+    bool     _write_vout_limit_ratios(uint16_t rail_mv); // OV/UV fault+warn limits, ratio-of-rail, clamped into [VOUT_MIN, VOUT_MAX] so the chip doesn't NACK them; false when any write was rejected
 public:
     TPS546D24AClass(axe_pwr_enable_pin_t en_pins, axe_pwr_adc_pin_t adc_pins, uint8_t pgood, uint8_t plug, tps546d24a_cfg_t cfg)
         : AxePowerHal(en_pins, adc_pins), _cfg(cfg) {

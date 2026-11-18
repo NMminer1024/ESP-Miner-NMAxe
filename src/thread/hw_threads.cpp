@@ -508,11 +508,18 @@ void power_loop_thread_entry(void* args) {
                                   iout_live, wlim);
                         }
                     } else {
+                        // Wording matters here: the averaged readback being below the
+                        // limit does NOT mean the event was false. OC_WARN is a per-phase
+                        // INSTANTANEOUS comparator and READ_IOUT is the chip's filtered
+                        // average, so a real spike is invisible to this re-check. Calling
+                        // it "stale" made the field read a genuine warning as a false
+                        // alarm — reported on v3.2.02p, 742 lines at one operating point
+                        // followed by a real OC_FAULT 38 minutes later.
                         if (wphase == wphase) {
-                            LOG_W("Overcurrent WARNING latched (heaviest phase %d now %.2fA, below %.1fA/phase; IOUT total %.2fA; stale, clears on op-point change)",
+                            LOG_W("Overcurrent WARNING latched (phase %d averaged %.2fA, below %.1fA/phase; IOUT total %.2fA) — comparator tripped earlier, latch clears only on CLEAR_FAULTS or a point change",
                                   (int)ws.worst_i, ws.worst_a, wphase, iout_live);
                         } else {
-                            LOG_W("Overcurrent WARNING latched (IOUT now %.2fA, below warn-limit %.1fA; stale, clears on op-point change)",
+                            LOG_W("Overcurrent WARNING latched (IOUT averaged %.2fA, below warn-limit %.1fA) — comparator tripped earlier, latch clears only on CLEAR_FAULTS or a point change",
                                   iout_live, wlim);
                         }
                     }
@@ -527,7 +534,7 @@ void power_loop_thread_entry(void* args) {
                     if (live) {
                         LOG_W("Overtemperature WARNING (live)... Temp=%.1fC >= warn-limit %.1fC", temp, wlim);
                     } else {
-                        LOG_W("Overtemperature WARNING latched (Temp now %.1fC, below warn-limit %.1fC; stale)",
+                        LOG_W("Overtemperature WARNING latched (Temp now %.1fC, below warn-limit %.1fC) — latch clears on CLEAR_FAULTS or a point change",
                               temp, wlim);
                     }
                     last = millis();

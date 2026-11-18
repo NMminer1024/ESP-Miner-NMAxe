@@ -271,22 +271,29 @@ export class EditComponent implements OnInit {
       // closest to the default point (ties broken by lower measured power)
       this.presetSource = 'benchmark';
       const entries = [...uniq.values()];
-      // Eligibility gate — mirrors the firmware rule (benchmark_threads.cpp):
+      // Eligibility gate — mirrors the FIRMWARE rule (benchmark_threads.cpp
+      // bm_finish), not the older UI rule:
       //   fail=1          -> this point tripped protection, never select it
       //   q != 1          -> did not pass the safety margin (or predates the rule)
       //   avgHR <= 0      -> no measured hashrate (tombstone / aborted round)
+      //   soak != 1       -> the point was never judged under the user's fan policy
       //
-      // Soak is NOT checked here any more. It is a mandatory stage of the sweep and
-      // a point that fails it is deleted from the results, so every remaining row
-      // has already been soaked and judged. Requiring the flag as well would
-      // disable ECO/Turbo for older rows whose verdict had been cleared, and it is
-      // what made most rows read "unsoaked" in the first place.
-      const eligible = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
+      // The soak test is REQUIRED here, and leaving it out was a real defect: the
+      // soak stops at the first candidate that passes, so every remaining row of a
+      // sweep is "q=1 but never soaked". The firmware refuses to auto-apply those,
+      // but these buttons did not check, so Turbo could name — and hot-switch to —
+      // a point that had never been verified under the running fan policy.
+      const marginOk = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
+      const eligible = marginOk.filter(r => r.soak === 1);
       // Rows measured before the margin rule existed. Worth telling apart from
       // "every point was measured and rejected": the user's data is fine, it
       // simply has to be re-measured to be selectable.
       const legacyCount = entries.filter(r => r.q === undefined || r.q === null).length;
       const legacyOnly  = eligible.length === 0 && legacyCount > 0;
+      // "Passed the margin but was never soaked" — the sweep stopped early. This is
+      // NOT the same as "no safe point", and saying so avoids sending the user off
+      // to re-check a result that is already fine.
+      const unsoakedOnly = eligible.length === 0 && legacyCount === 0 && marginOk.length > 0;
       // ECO needs at least TWO qualified points to mean anything: with a single
       // point "lowest J/TH" and "highest hashrate" are the same entry, so ECO and
       // Turbo would be identical buttons. Field reports read that as a bug (Turbo
@@ -347,6 +354,9 @@ export class EditComponent implements OnInit {
         if (legacyOnly) {
           ecoPreset.disabledHint = 're-run benchmark';
           ecoPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. ECO cannot pick a low-power point from unverified data - re-run the benchmark and the new results will be qualified automatically.`;
+        } else if (unsoakedOnly) {
+          ecoPreset.disabledHint = 'not soak-verified';
+          ecoPreset.disabledReason = 'The stored points passed the safety margin but were never soaked under your fan policy, so they are only known to be safe at 100 % cooling. Re-run the benchmark to get a verified ECO point.';
         } else if (eligible.length === 1) {
           // One qualified point: ECO would just be a copy of Turbo. Say so plainly
           // instead of showing two buttons that do the same thing.
@@ -364,6 +374,9 @@ export class EditComponent implements OnInit {
         if (legacyOnly) {
           turboPreset.disabledHint = 're-run benchmark';
           turboPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. They are kept for reference but cannot be selected automatically - re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.`;
+        } else if (unsoakedOnly) {
+          turboPreset.disabledHint = 'not soak-verified';
+          turboPreset.disabledReason = 'The stored points passed the safety margin but were never soaked under your fan policy, so they are only known to be safe at 100 % cooling. Re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.';
         } else {
           turboPreset.disabledHint = 'no safe point';
           turboPreset.disabledReason = 'No benchmark point passed the safety margin (peak current or temperature too close to the limit). Re-run the benchmark, or pick a point manually in Advanced.';

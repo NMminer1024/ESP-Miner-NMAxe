@@ -139,7 +139,7 @@ void TPS546D24AClass::_write_byte(uint8_t regaddr, uint8_t data) {
     LOG_E("TPS546D24A write register 0x%02X failed after retry: %d", regaddr, ret);
 }
 
-void TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
+bool TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
     esp_err_t ret = ESP_FAIL;
     // 3 attempts with escalating backoff. A chip-busy NACK clears within tens of ms, so the
     // 100ms third attempt distinguishes timing (would succeed) from a semantic reject
@@ -159,7 +159,7 @@ void TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
         ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
         i2c_cmd_link_delete(cmd);
 
-        if (ret == ESP_OK) return;
+        if (ret == ESP_OK) return true;
         if (attempt < 2) delay(backoff_ms[attempt + 1]);
     }
     // Forensics for the OV/UV limit writes: quote the chip's CURRENT VOUT_COMMAND and the
@@ -178,6 +178,7 @@ void TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
     // so the forensics (CML / cmd / held) stay available when LOG_D is enabled.
     LOG_D("TPS546D24A write word 0x%02X=0x%04X failed: %d (CML=0x%02X cmd=%dmV held=%dmV)",
           regaddr, data, ret, cml, this->_ulinear16_to_mv(rb_cmd), this->_ulinear16_to_mv(rb_val));
+    return false;
 }
 
 void TPS546D24AClass::_write_cmd(uint8_t cmd) {
@@ -532,7 +533,27 @@ void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
     if (rail_mv == this->_vout_rail_mv) return;
 
     uint16_t raw = this->_mv_to_ulinear16(rail_mv);
-    this->_write_word(PMBUS_VOUT_COMMAND, raw);
+    // Only cache the rail when the chip actually accepted it.
+    //
+    // Reported from the field (cold start after a USB flash): the rail sat at
+    // 1355-1356 mV for ~8 s against a 990 mV target. The chip's VOUT_COMMAND is
+    // battery-backed/RAM-held, so a write lost during early boot leaves the part on
+    // its own default — and because this cache was updated unconditionally, the fast
+    // path above then answered every later request for the same value with "already
+    // done", so the correct command was never retried for the rest of the boot.
+    //
+    // Leaving the cache at the OLD value makes the next call (power loop, resume, or
+    // the next UI apply) write again, which is exactly the retry that was missing.
+    if (!this->_write_word(PMBUS_VOUT_COMMAND, raw)) {
+        static uint32_t last_fail_ms = 0;
+        if (last_fail_ms == 0 || millis() - last_fail_ms >= 5000) {
+            last_fail_ms = millis();
+            LOG_E("TPS546D24A VOUT_COMMAND %umV rail (raw 0x%04X) was NOT accepted by the chip — "
+                  "keeping the previous value cached so the write is retried (rail may be on the "
+                  "regulator's own default until it lands)", rail_mv, raw);
+        }
+        return;
+    }
     this->_vout_rail_mv = rail_mv;
 
     // OV/UV limits must track the commanded rail — a static window based on
@@ -563,14 +584,18 @@ void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
         // therefore also skips 50 ms of held lock, which is the dominant cost of
         // this function.
         delay(50);
-        this->_write_vout_limit_ratios(rail_mv);
-        this->_limit_rail_mv = rail_mv;
+        // Cache the rail the limits were programmed for only when all four landed.
+        // Same reasoning as VOUT_COMMAND: a cached "done" after a rejected write means
+        // the OV/UV window can never be re-based on the live rail.
+        if (this->_write_vout_limit_ratios(rail_mv)) {
+            this->_limit_rail_mv = rail_mv;
+        }
     }
     LOG_D("TPS546D24A VOUT_COMMAND -> %dmV/die x%u = %dmV rail (raw 0x%04X)",
           per_die_mv, this->_vcore_series_count, rail_mv, raw);
 }
 
-void TPS546D24AClass::_write_vout_limit_ratios(uint16_t rail_mv){
+bool TPS546D24AClass::_write_vout_limit_ratios(uint16_t rail_mv){
     uint16_t ov_fault = (uint16_t)(rail_mv * 1.25f);
     uint16_t ov_warn  = (uint16_t)(rail_mv * 1.10f);
     uint16_t uv_warn  = (uint16_t)(rail_mv * 0.90f);
@@ -590,10 +615,14 @@ void TPS546D24AClass::_write_vout_limit_ratios(uint16_t rail_mv){
     if (uv_warn  < vmin) uv_warn  = vmin;
     if (uv_warn  <= uv_fault) uv_warn = uv_fault + 1;
 
-    this->_write_word(PMBUS_VOUT_OV_FAULT_LIMIT, this->_mv_to_ulinear16(ov_fault));
-    this->_write_word(PMBUS_VOUT_OV_WARN_LIMIT,  this->_mv_to_ulinear16(ov_warn));
-    this->_write_word(PMBUS_VOUT_UV_WARN_LIMIT,  this->_mv_to_ulinear16(uv_warn));
-    this->_write_word(PMBUS_VOUT_UV_FAULT_LIMIT, this->_mv_to_ulinear16(uv_fault));
+    // Keep evaluating all four: the chip is already moving, and bailing out early would
+    // leave the remaining limits on the previous rail's ratios for another cycle.
+    bool all_ok = true;
+    if (!this->_write_word(PMBUS_VOUT_OV_FAULT_LIMIT, this->_mv_to_ulinear16(ov_fault))) all_ok = false;
+    if (!this->_write_word(PMBUS_VOUT_OV_WARN_LIMIT,  this->_mv_to_ulinear16(ov_warn)))  all_ok = false;
+    if (!this->_write_word(PMBUS_VOUT_UV_WARN_LIMIT,  this->_mv_to_ulinear16(uv_warn)))  all_ok = false;
+    if (!this->_write_word(PMBUS_VOUT_UV_FAULT_LIMIT, this->_mv_to_ulinear16(uv_fault))) all_ok = false;
+    return all_ok;
 }
 
 void TPS546D24AClass::set_vcore_range(uint16_t min_mv, uint16_t max_mv){

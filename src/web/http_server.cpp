@@ -51,6 +51,42 @@ static float fan_max_target_temp(uint8_t fan_id) {
 // tell whether it came from the web UI, another session on the LAN or a script:
 // the firmware only logged the new value. Every caller here already has the
 // request, so the origin costs nothing to record.
+// Mask the value of every credential key inside an already-serialized JSON
+// fragment, e.g. `{"primary":{"url":"…","pwd":"hunter2"}}` -> `"pwd":"***"`.
+//
+// This has to work on the TEXT, not on the JsonObject: the pool password is not
+// a top-level field. A mining PATCH arrives as `stratum: { primary: { pwd } }`,
+// and the loop below stringifies that whole sub-object into one value, so a
+// check on the top-level key name ("stratum") never sees it. Reported from the
+// field: v3.2.02p logged the pool password in cleartext on every settings save.
+//
+// Key names are matched quoted, so a value that merely contains the word "pwd"
+// is not mistaken for a key. Escaped quotes inside the value are skipped when
+// looking for the closing one.
+static void mask_json_secrets(String& s) {
+    static const char* kKeys[] = { "\"pwd\"", "\"password\"", "\"pass\"" };
+    for (const char* key : kKeys) {
+        const int klen = (int)strlen(key);
+        int from = 0;
+        while (from < (int)s.length()) {
+            const int kp = s.indexOf(key, from);
+            if (kp < 0) break;
+            const int colon = s.indexOf(':', kp + klen);
+            if (colon < 0) break;
+            const int q1 = s.indexOf('"', colon + 1);
+            if (q1 < 0) break;
+            int q2 = -1;
+            for (int i = q1 + 1; i < (int)s.length(); i++) {
+                if (s[i] == '\\') { i++; continue; }
+                if (s[i] == '"') { q2 = i; break; }
+            }
+            if (q2 < 0) break;
+            s = s.substring(0, q1 + 1) + "***" + s.substring(q2);
+            from = q1 + 3 + 1;   // past the closing quote of the mask
+        }
+    }
+}
+
 static void log_web_config_change(const char* endpoint, const JsonObject& root,
                                   AsyncWebServerRequest* request = nullptr) {
     String ip;
@@ -59,8 +95,17 @@ static void log_web_config_change(const char* endpoint, const JsonObject& root,
     }
     const char* from = (ip.length() > 0) ? ip.c_str() : "unknown";
     for (const auto& kv : root) {
+        const char* key = kv.key().c_str();
         String val = kv.value().as<String>();
-        LOG_W("[web] config change %s from %s: %s = %s", endpoint, from, kv.key().c_str(), val.c_str());
+        // Mask credentials. The pool password reaches this log as "pwd" (older
+        // scripts use "password"/"pass"), nested inside `stratum`, and the log is
+        // written to the serial console — visible to anyone with the USB cable,
+        // captured in bug reports, and streamed to every connected WS client.
+        // The sub-object is masked as text so nesting depth does not matter; the
+        // key itself is still printed, because "did the field arrive" is the point
+        // of this line and its value is not.
+        mask_json_secrets(val);
+        LOG_W("[web] config change %s from %s: %s = %s", endpoint, from, key, val.c_str());
     }
 }
 
