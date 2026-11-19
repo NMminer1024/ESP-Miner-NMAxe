@@ -378,6 +378,39 @@ void TPS546D24AClass::hw_init(void){
 
     this->_write_cmd(PMBUS_CLEAR_FAULTS);
 
+    // ── What state did we inherit? Log it BEFORE changing anything ───────────
+    //
+    // Field evidence (v3.2.02p, cold start, 2026-11-19): the rail was already live
+    // at 1355 mV/die under load (33-36 W, 2.7-3.0 A) about 6 s after reset, with no
+    // firmware enable command issued yet. That is only possible if something
+    // enabled the output earlier, and the two candidates are:
+    //   (a) this driver, via the OPERATION write below (it used to be 0x80 = ON);
+    //   (b) the chip itself, at power-up, on its stored ON_OFF_CONFIG/VOUT_COMMAND.
+    // Reading these registers at the earliest reachable moment separates them, and
+    // the values are the chip's NVM contents because nothing has written them yet.
+    {
+        uint8_t  st_cfg = 0, st_op = 0, st_vmode = 0;
+        uint16_t st_cmd = 0, st_vout = 0, st_word = 0;
+        this->_read_reg(PMBUS_ON_OFF_CONFIG, &st_cfg, 1);
+        this->_read_reg(PMBUS_OPERATION,     &st_op, 1);
+        this->_read_reg(PMBUS_VOUT_MODE,     &st_vmode, 1);
+        this->_read_reg(PMBUS_VOUT_COMMAND,  (uint8_t*)&st_cmd, 2);
+        this->_read_reg(PMBUS_READ_VOUT,     (uint8_t*)&st_vout, 2);
+        this->_read_reg(PMBUS_STATUS_WORD,   (uint8_t*)&st_word, 2);
+        LOG_I("[TPS546D24A] inherited: ON_OFF_CONFIG=0x%02X (PU=%u CMD=%u CP=%u) OPERATION=0x%02X "
+              "VOUT_MODE=0x%02X VOUT_COMMAND=%dmV rail READ_VOUT=%dmV STATUS_WORD=0x%04X",
+              st_cfg, (st_cfg >> 4) & 1u, (st_cfg >> 3) & 1u, (st_cfg >> 2) & 1u, st_op,
+              st_vmode, this->_ulinear16_to_mv(st_cmd), this->_ulinear16_to_mv(st_vout), st_word);
+        // A live rail here means the output was enabled by SOMETHING before us. Say so
+        // at warning level: on a cold start that something is the chip's NVM default,
+        // and the rail is then sitting at whatever voltage that default commands.
+        if (this->_ulinear16_to_mv(st_vout) > 100) {
+            LOG_W("[TPS546D24A] rail is ALREADY LIVE at %dmV (rail) before this driver has enabled "
+                  "anything — output was enabled before hw_init (chip NVM or the EN pin)",
+                  this->_ulinear16_to_mv(st_vout));
+        }
+    }
+
     // ON_OFF_CONFIG = 0x18 (PU|CMD): CMD=1 makes the part honor the OPERATION (0x01)
     // ON/OFF command, ANDed with the CONTROL(EN) pin (active-high). The previous 0x17
     // was a straight copy of the TPS53647 value whose bit map differs — its CMD bit
@@ -385,13 +418,37 @@ void TPS546D24AClass::hw_init(void){
     // actually be powered down on an overcurrent fault.
     this->_write_byte(PMBUS_ON_OFF_CONFIG, 0x18);
 
-    // OPERATION (0x80 = ON, no margining) is ANDed with the CONTROL pin state. With
-    // CMD=1 in ON_OFF_CONFIG above, this command actually gates the output.
-    this->_write_byte(PMBUS_OPERATION, 0x80);
+    // ── OPERATION: OFF, not ON ────────────────────────────────────────────────
+    //
+    // This used to write 0x80 (ON) here, i.e. the driver enabled the output at init
+    // time — BEFORE any VOUT_COMMAND had been programmed, because the target voltage
+    // only arrives later with set_vcore_voltage() from power_init. Whatever the chip
+    // happened to hold was therefore driven onto the dies:
+    //   - after a normal reboot that is the previous boot's command, so it looks fine;
+    //   - on a cold start it is the chip's own NVM default, which on Nexus is
+    //     ~1355 mV/die — the overshoot the field measured, for 11 s, at 33-36 W.
+    //
+    // The output must stay off until both halves are ready. set_vcore_status(PWR_ON)
+    // is the one place that turns it on, and by then VOUT_COMMAND has been written.
+    // Writing 0x00 (not leaving it alone) matters because the chip's inherited
+    // OPERATION may already be ON from its own power-up sequence.
+    this->_write_byte(PMBUS_OPERATION, 0x00);
     delay(10); // internal command processing busies the chip briefly; the next 2 writes were seen to NACK without this
 
     // Fixed absolute VOUT format (see TPS546D24A_VOUT_MODE_N docs above).
     this->_write_byte(PMBUS_VOUT_MODE, TPS546D24A_VOUT_MODE_BYTE);
+    {
+        // Every mV conversion in this driver depends on this exponent, so a silent
+        // failure here would mis-scale the whole rail. Reported from the field:
+        // "write register 0x20 failed after retry: -1" on a cold start, where the chip
+        // was already enabled and busy before we got to configure it.
+        uint8_t vm_rb = 0;
+        if (this->_read_reg(PMBUS_VOUT_MODE, &vm_rb, 1) == 0 && vm_rb != TPS546D24A_VOUT_MODE_BYTE) {
+            LOG_E("[TPS546D24A] VOUT_MODE readback 0x%02X != written 0x%02X — every mV value this "
+                  "driver reports is scaled with N=-9, recheck before trusting volt readings",
+                  vm_rb, TPS546D24A_VOUT_MODE_BYTE);
+        }
+    }
 
     // Internal feedback divider ratio — must match the VSEL strap's electrical intent.
     this->_write_word(PMBUS_VOUT_SCALE_LOOP, this->_float_to_slinear11(this->_cfg.vout_scale_loop));

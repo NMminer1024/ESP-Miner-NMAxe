@@ -259,19 +259,28 @@ void power_init_thread_entry(void* args) {
     }
     power->set_vcore_voltage(spec.asic.req_vcore);
     {
-        // Prove the write landed. A lost VOUT_COMMAND used to be invisible: the
-        // driver cached it as applied and never retried (fixed in v3.2.02q, which
-        // also leaves the cache alone on failure so the next caller retries).
+        // Prove the write landed AND that the output is still off.
+        //
+        // The "output is off here" part is the actual fix for the cold-start
+        // overshoot: hw_init used to enable the regulator (OPERATION=0x80) before any
+        // voltage had been programmed, so the dies sat on whatever VOUT_COMMAND the
+        // chip held — the previous boot's on a warm restart, its own NVM default on a
+        // cold start (field: 1355 mV/die for 11 s at 33-36 W). READ_VOUT near zero
+        // here is the evidence that the rail is no longer live before we say so.
         const float cmd = power->get_vout_command_mv();
-        const uint32_t mv = power->get_vcore();   // measured, EN not asserted yet
+        const uint32_t mv = power->get_vcore();
         if (cmd == cmd) {
             LOG_I("Vcore boot: programmed %umV/die -> chip VOUT_COMMAND = %.0fmV/die, "
-                  "READ_VOUT = %umV before EN is re-asserted",
+                  "READ_VOUT = %umV with the output still disabled",
                   (unsigned)spec.asic.req_vcore, (double)cmd, (unsigned)mv);
         } else {
             LOG_I("Vcore boot: programmed %umV/die -> chip VOUT_COMMAND unreadable, "
-                  "READ_VOUT = %umV before EN is re-asserted",
+                  "READ_VOUT = %umV with the output still disabled",
                   (unsigned)spec.asic.req_vcore, (unsigned)mv);
+        }
+        if (mv > 100) {
+            LOG_W("Vcore boot: rail reads %umV before the enable step — something enabled the "
+                  "output ahead of the firmware (expected 0mV here)", (unsigned)mv);
         }
     }
 
