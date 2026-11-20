@@ -1123,20 +1123,28 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
             ctx->bm->in_cool    = false;
             return;
         }
-        // Otherwise soak ran to a decision and rejected this point. Drop the
-        // whole row.
+        // Otherwise soak ran to a decision and rejected this point. Mark the row
+        // UNQUALIFIED ("q":0) and keep it.
         //
-        // Soak is the final gate of the benchmark, not a badge: a point that
-        // cannot hold its temperature under the fan policy the user actually
-        // runs is not usable data, and keeping it around only produced a table
-        // where most rows read "unsoaked" and looked broken. Removing it is
-        // also what makes "Turbo = the highest hashrate in the table" true by
-        // construction — whatever is left has passed both the margin rule and
-        // the soak.
-        bm_result_delete_freq(cands[ci].freq);
-        LOG_W("[BM] Soak %u/%u FAILED: %dMHz/%dmV — result removed, trying the next candidate.",
-              (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total,
-              cands[ci].freq, cands[ci].vcore);
+        // It used to be deleted, which threw away a completed measurement because
+        // of one verdict and shrank the table by several rows on a full sweep -
+        // the user's first reaction was "where did my points go". q=0 already means
+        // "a peak sat too close to a limit", which is exactly what every soak
+        // rejection is, so bm_finish(), the ECO/Turbo presets and the table all
+        // exclude it already, and the row remains selectable by hand in Advanced.
+        //
+        // A failure here is loud: leaving q=1 would let the point be auto-applied.
+        if (bm_result_mark_unqualified(cands[ci].freq) != ESP_OK) {
+            LOG_E("[BM] Soak %u/%u FAILED at %dMHz/%dmV but the row could not be marked "
+                  "unqualified - it may still be auto-applied. Clear the results and re-run.",
+                  (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total,
+                  cands[ci].freq, cands[ci].vcore);
+        } else {
+            LOG_W("[BM] Soak %u/%u FAILED: %dMHz/%dmV - kept as unqualified (q=0), trying the "
+                  "next candidate.",
+                  (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total,
+                  cands[ci].freq, cands[ci].vcore);
+        }
     }
 
     // The extra ECO candidate, when the shortlist did not already cover it. Its
@@ -1146,9 +1154,14 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
         LOG_W("[BM] Soak: adding the most efficient qualified point %dMHz/%dmV (%.3f J/TH) for ECO.",
               eco_cand.freq, eco_cand.vcore, (double)eco_cand.effJTH);
         if (!soak_one(cands.size(), eco_cand) && *ctx->bm_mode == 1) {
-            bm_result_delete_freq(eco_cand.freq);
-            LOG_W("[BM] Soak FAILED for the ECO candidate %dMHz/%dmV — result removed; ECO will "
-                  "stay unavailable until a point survives the soak.", eco_cand.freq, eco_cand.vcore);
+            if (bm_result_mark_unqualified(eco_cand.freq) != ESP_OK) {
+                LOG_E("[BM] The ECO candidate %dMHz/%dmV failed the soak and could not be "
+                      "marked unqualified - it may still be auto-applied.", eco_cand.freq, eco_cand.vcore);
+            } else {
+                LOG_W("[BM] The ECO candidate %dMHz/%dmV FAILED the soak - kept as unqualified "
+                      "(q=0); ECO will stay unavailable until a point survives the soak.",
+                      eco_cand.freq, eco_cand.vcore);
+            }
         }
     }
 
@@ -1212,9 +1225,9 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
                 uint8_t fail = e["fail"] | (uint8_t)0;
                 int     q    = e["q"]    | 0;
                 if (fail || q != 1) continue;
-                // No "soak" test here any more: a failed soak now deletes the row
-                // outright (see bm_soak_run), so anything still in the table has
-                // already been judged. Requiring the flag as well would silently
+                // No "soak" test here any more: a failed soak now marks the row
+                // q=0 (see bm_soak_run), so anything still at q=1 has either passed
+                // or was never judged. Requiring the flag as well would silently
                 // skip points whose soak was never attempted — for example when a
                 // narrow re-run left an older, already-cleared entry untouched.
                 //

@@ -1355,6 +1355,53 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vco
     return ESP_ERR_NOT_FOUND;
 }
 
+// Mark one stored result as NOT qualified, keeping every measured field.
+//
+// Used when the post-sweep soak rejects a point. It used to delete the whole row,
+// which threw away a completed measurement (average hashrate, efficiency, peaks)
+// because of one verdict - and on a full sweep that shrank the table by several
+// rows, so the user's first reaction was "where did my points go".
+//
+// "q":0 is the right encoding: it already means "a peak sat too close to a limit",
+// which is exactly what all three soak rejections are (temperature margin, adapter
+// reserve, no cooling headroom left). Every consumer - bm_finish(), the ECO/Turbo
+// presets, the results table - already excludes q != 1, so nothing downstream
+// needs to learn a new rule and the row stays selectable by hand in Advanced.
+//
+// Same-length substitution, so the stored size does not change and NVS chunking is
+// unaffected.
+esp_err_t bm_result_mark_unqualified(uint16_t freq) {
+    bm_result_migrate_legacy();
+    uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
+    uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
+
+    for (uint16_t i = 0; i < cnt; i++) {
+        char key[12];
+        bm_r_key(key, sizeof(key), (start + i) % BM_RESULT_MAX_ENTRIES);
+        char* e = nvs_config_get_string(key, "");
+        if (!e) continue;
+
+        uint16_t of = 0;
+        const bool match = bm_r_parse_freq(e, of) && of == freq;
+        if (!match) { free(e); continue; }
+
+        char* q1 = strstr(e, "\"q\":1");
+        if (q1 == nullptr) { free(e); continue; }   // already 0, or predates the field
+
+        q1[4] = '0';                                // "q":1 -> "q":0, same length
+        const esp_err_t err = nvs_config_try_set_string(key, e);
+        free(e);
+        if (err != ESP_OK) {
+            LOG_E("[BM] freq=%u failed the soak but could not be marked unqualified (%s) - the "
+                  "row keeps q=1 and may be auto-applied. Report this.",
+                  freq, esp_err_to_name(err));
+            return err;
+        }
+        return ESP_OK;
+    }
+    return ESP_ERR_NOT_FOUND;
+}
+
 // Whether one stored result carries a soak verdict.
 //
 // A light strstr over the row, like the other readers here: the entry is a flat
