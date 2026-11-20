@@ -338,10 +338,11 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     return !this.isFailed(r) && r.q === 1 && r.avgHR > 0;
   }
 
-  // Soak is no longer a verdict shown next to a row: a point that fails it is
-  // deleted from the results, so everything in the table has already been judged.
-  // The flag is still read, to say whether the fan figures are a soak measurement
-  // or a sweep one.
+  // Soak is not a separate verdict shown next to a row: a point that fails it is
+  // kept but marked q=0 (since v3.2.02v; it used to be deleted), so the row stays
+  // visible with its measured numbers and simply reads "over limit". The flag is
+  // still read, to say whether the fan figures are a soak measurement or a sweep
+  // one.
   public isSoaked(r: BenchmarkResult): boolean {
     return r.soak === 1;
   }
@@ -395,7 +396,17 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     // not how the unit will be operated. ⚡ therefore prefers soaked rows and
     // falls back to all qualified rows when nothing has been soaked yet.
     const soaked = qualified.filter(r => this.isSoaked(r));
-    const hrPool = soaked.length ? soaked : (qualified.length ? qualified : usable);
+    // The firmware soaks ONE extra row on purpose: the lowest-J/TH qualified point,
+    // so ECO has a verified candidate of its own (benchmark_threads.cpp bm_soak_run).
+    // When that row is the ONLY soaked one it is an efficiency result, not a
+    // hashrate result - tagging it ⚡ would advertise the slowest point in the table
+    // as the fastest. Reported from the field on v3.2.02v: ⚡ landed on 375MHz
+    // (5088 GH/s) while a qualified 675MHz (9273 GH/s) row sat in the same table.
+    // Same rule the mode presets apply before offering Turbo (edit.component.ts).
+    const effPoolAll = qualified.filter(r => r.effJTH > 0);
+    const ecoCandidate = effPoolAll.length ? effPoolAll.reduce((b, r) => r.effJTH < b.effJTH ? r : b) : null;
+    const soakedIsEcoOnly = soaked.length === 1 && ecoCandidate !== null && soaked[0] === ecoCandidate;
+    const hrPool = (soaked.length && !soakedIsEcoOnly) ? soaked : (qualified.length ? qualified : usable);
 
     // Efficiency must NOT share that pool. Narrowing the candidates to the
     // soaked rows and then asking "which is most efficient" can leave a single

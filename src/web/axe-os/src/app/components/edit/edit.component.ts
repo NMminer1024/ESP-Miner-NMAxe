@@ -299,12 +299,31 @@ export class EditComponent implements OnInit {
       // Turbo would be identical buttons. Field reports read that as a bug (Turbo
       // showing a LOWER hashrate than Normal, because Normal still quoted an
       // unqualified historical entry). Disable ECO instead of duplicating Turbo.
-      const turboOk = eligible.length >= 1;
-      const ecoOk   = eligible.length >= 2;
+      const turboOk   = eligible.length >= 1;
+      const ecoOkBase = eligible.length >= 2;
+      // The row the FIRMWARE soaks as its extra ECO candidate: the lowest-J/TH
+      // qualified point in the table (benchmark_threads.cpp bm_soak_run). It matters
+      // here because a soak verdict alone does not say WHY a row was soaked.
+      const ecoCandidate = marginOk.length
+        ? marginOk.reduce((b, r) => r.effJTH < b.effJTH ? r : b)
+        : undefined;
+      // A single soaked row cannot be both presets. When the ONLY soaked row is
+      // that ECO candidate, Turbo has nothing of its own and must say so instead of
+      // adopting the low-power point — reported from the field on v3.2.02v: every
+      // high-hashrate candidate lost its soak to the cooling-headroom rule, the ECO
+      // row was the only survivor, and Turbo pointed at it (5088 GH/s) while a
+      // qualified 9273 GH/s point sat unsold in the same table.
+      //
+      // ECO stays usable in exactly that state: the one verified row IS the
+      // efficient point, which is what ECO is for.
+      const turboIsOnlyEco = eligible.length === 1 &&
+                             ecoCandidate !== undefined && eligible[0] === ecoCandidate;
+      const ecoOk       = ecoOkBase || turboIsOnlyEco;
+      const turboUsable = turboOk && !turboIsOnlyEco;
       // Display-only fallbacks when nothing qualifies: the best raw entry, so the
       // tooltip can still explain what the benchmark measured. Never applied —
       // the button is disabled in that case.
-      const turbo = turboOk
+      const turbo = turboUsable
         ? eligible.reduce((b, r) => r.avgHR > b.avgHR ? r : b)
         : entries.reduce((b, r) => r.avgHR > b.avgHR ? r : b);
       const eco = ecoOk
@@ -371,7 +390,7 @@ export class EditComponent implements OnInit {
         ecoPreset.hashRate = undefined;
         ecoPreset.power = undefined;
       }
-      if (!turboOk) {
+      if (!turboUsable) {
         turboPreset.disabled = true;
         if (legacyOnly) {
           turboPreset.disabledHint = 're-run benchmark';
@@ -379,6 +398,12 @@ export class EditComponent implements OnInit {
         } else if (unsoakedOnly) {
           turboPreset.disabledHint = 'not soak-verified';
           turboPreset.disabledReason = 'The stored points passed the safety margin but were never soaked under your fan policy, so they are only known to be safe at 100 % cooling. Re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.';
+        } else if (turboIsOnlyEco) {
+          // The only soaked row is the ECO candidate, so there is no verified
+          // high-hashrate point. Say that instead of relabelling the low-power
+          // point as Turbo.
+          turboPreset.disabledHint = 'no verified Turbo point';
+          turboPreset.disabledReason = 'Every high-hashrate point failed the soak: under your fan policy they ran out of cooling headroom or input-budget reserve. The one point that passed is the low-power ECO point, which is not a Turbo substitute. Improve cooling (fan target / airflow), or pick a point manually in Advanced.';
         } else {
           turboPreset.disabledHint = 'no safe point';
           turboPreset.disabledReason = 'No benchmark point passed the safety margin (peak current or temperature too close to the limit). Re-run the benchmark, or pick a point manually in Advanced.';

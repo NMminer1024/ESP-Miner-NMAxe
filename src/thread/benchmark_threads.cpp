@@ -1247,31 +1247,31 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
                 }
             }
         }
-        // The best row must actually carry a verdict. If the highest-hashrate row
-        // does not, a LOWER soaked row is the right answer — falling back to
-        // "apply nothing" would throw away a verified point that is still better
-        // than the pre-sweep settings.
+        // The best qualified row must carry a soak verdict. If it does not, apply
+        // NOTHING and keep the pre-sweep settings.
+        //
+        // This used to fall back to "the highest-hashrate SOAKED row", which was
+        // written for one narrow case (a soak that passed but whose verdict could
+        // not be written to NVS). It is wrong in a much more common one, reported
+        // from the field on v3.2.02v: the soak stage ALSO soaks the most efficient
+        // point so ECO can qualify, and when every high-hashrate candidate is
+        // rejected for lack of cooling headroom, that ECO row is the only soaked
+        // row left. The fallback then applied it - dropping the miner from the best
+        // qualified point (675MHz, 9273 GH/s) to the most efficient one (375MHz,
+        // 5088 GH/s), a ~45 % hashrate loss, and the UI labelled it "Turbo".
+        //
+        // A lower-hashrate point is never a substitute for the best one: it is a
+        // different preset (ECO) with a different purpose. Without a verified best
+        // point there is nothing to promote to Turbo.
         if (best_freq > 0 && best_vcore > 0 && !bm_result_is_soaked(best_freq)) {
-            LOG_W("[BM] Best qualified result (%dMHz/%dmV, %.1fGH/s) carries no soak verdict in NVS — "
-                  "not applying it; looking for a soaked row instead.",
-                  best_freq, best_vcore, best_avgHR);
-            uint16_t alt_freq = 0, alt_vcore = 0;
-            float    alt_hr   = -1.0f;
-            for (JsonObject e : rdoc.as<JsonArray>()) {
-                if ((int)(e["fail"] | 0) != 0 || (int)(e["q"] | 0) != 1) continue;
-                const float    hr = e["avgHR"] | 0.0f;
-                const uint16_t f  = e["freq"]  | (uint16_t)0;
-                const uint16_t v  = e["vcore"] | (uint16_t)0;
-                if (!f || !v || hr <= 0.0f) continue;
-                if (!bm_result_is_soaked(f)) continue;
-                if (hr > alt_hr) { alt_hr = hr; alt_freq = f; alt_vcore = v; }
-            }
-            best_freq  = alt_freq;
-            best_vcore = alt_vcore;
-            best_avgHR = alt_hr;
-            if (best_freq == 0) {
-                LOG_W("[BM] No soaked result to apply — keeping the pre-sweep settings.");
-            }
+            LOG_W("[BM] Best qualified result (%dMHz/%dmV, %.1fGH/s) carries no soak verdict — "
+                  "NOT applying anything. The pre-sweep settings stay in place (%d candidate(s) "
+                  "in the table). A lower-hashrate point is the ECO preset, not a Turbo "
+                  "substitute, so it is deliberately not applied here.",
+                  best_freq, best_vcore, best_avgHR, candidates);
+            best_freq  = 0;
+            best_vcore = 0;
+            best_avgHR = -1.0f;
         }
         if (best_freq > 0 && best_vcore > 0) {
             LOG_W("[BM] Best qualified result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying.",
