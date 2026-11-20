@@ -406,21 +406,16 @@ static constexpr double   BM_SOAK_MIN_HR_RATIO = 0.50;
 //   * the loop must be OUT OF AUTHORITY: pinned at 100 % *and* above target.
 //     A fan at 100 % that is holding 3 °C BELOW its target is oversized, not
 //     saturated.
-static constexpr uint16_t BM_SOAK_FAN_NO_HEADROOM = 100;
-// Settled temperature must exceed the auto target by this much before a pinned
-// fan counts as out of authority. One sensor LSB plus the PID deadband.
-static constexpr double   BM_SOAK_FAN_TARGET_TOL_C = 0.5;
-
 // True when this fan has run out of headroom at the point being measured.
 static bool bm_fan_saturated(BenchmarkCtx* ctx, uint8_t fan_id,
                              uint16_t duty, double temp_c) {
     if (ctx->spec == nullptr || !ctx->spec->fan_controllable) return false;
-    if (duty < BM_SOAK_FAN_NO_HEADROOM) return false;
+    if (duty < board_safety::FAN_PINNED_DUTY) return false;
     if (fan_id >= ctx->spec->fans.size()) return false;
     const fan_config_t& f = ctx->spec->fans[fan_id];
     if (!f.auto_speed) return false;          // manual duty: the user's choice
     if (temp_c != temp_c) return false;       // no reading: do not invent a verdict
-    return temp_c > (double)f.target_temp + BM_SOAK_FAN_TARGET_TOL_C;
+    return temp_c > (double)f.target_temp + board_safety::FAN_TARGET_OVERSHOOT_C;
 }
 
 // Fraction of the adapter budget that must remain UNUSED at the soak peak.
@@ -429,7 +424,7 @@ static bool bm_fan_saturated(BenchmarkCtx* ctx, uint8_t fan_id,
 // this is the margin on top of it. Measured on Nexus: 750/1200 draws 13.59 A of
 // 13.95 A (2.6 % reserve) and the field considers it good, while 775/1220 draws
 // 13.85 A (0.7 %) and is the point that later gets stepped down.
-static constexpr double   BM_SOAK_BUDGET_RESERVE = 0.02;
+static constexpr double   BM_SOAK_BUDGET_RESERVE = board_safety::ADAPTER_BUDGET_RESERVE;
 
 // Duty of one fan, as a percentage. Returns false when the board has no fan
 // with that id, so the caller can tell "this fan does not exist" from "it
@@ -975,6 +970,13 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
     // Most EFFICIENT qualified point, tracked across the whole table (not just the
     // hashrate shortlist). It gets its own soak below.
     Cand eco_cand = { 0, 0, 0.0f, 0.0f };
+    // The q=1 point nearest the board's Normal default. Normal is also an
+    // auto-applied preset, so it must have survived the real-fan soak; otherwise
+    // it could apply a point that was only qualified with fans pinned at 100%.
+    Cand normal_cand = { 0, 0, 0.0f, 0.0f };
+    uint32_t normal_distance = UINT32_MAX;
+    const uint16_t normal_freq = ctx->spec ? ctx->spec->asic.default_frq : 0;
+    const uint16_t normal_vcore = ctx->spec ? ctx->spec->asic.default_vcore : 0;
     for (JsonObject e : rdoc.as<JsonArray>()) {
         if ((int)(e["q"] | 0) != 1) continue;
         if ((int)(e["fail"] | 0) != 0) continue;
@@ -1001,6 +1003,16 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
             (eco_cand.freq == 0 || c.effJTH < eco_cand.effJTH)) {
             eco_cand = c;
         }
+        if (c.freq && c.vcore && normal_freq > 0 && normal_vcore > 0) {
+            const uint32_t distance = (uint32_t)abs((int)c.freq - (int)normal_freq) +
+                                      (uint32_t)abs((int)c.vcore - (int)normal_vcore);
+            if (normal_cand.freq == 0 || distance < normal_distance ||
+                (distance == normal_distance && c.effJTH > 0.0f &&
+                 (normal_cand.effJTH <= 0.0f || c.effJTH < normal_cand.effJTH))) {
+                normal_cand = c;
+                normal_distance = distance;
+            }
+        }
     }
     if (cands.empty()) return;
 
@@ -1019,15 +1031,29 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
     // the UI (correctly) refuses to offer ECO from a single row. Reported from the
     // field on v3.2.02s: 19 rows passed the margin, one was soaked, and the ECO
     // button said "needs more data".
+    auto is_shortlisted = [&](const Cand& candidate) {
+        for (const Cand& c : cands) {
+            if (c.freq == candidate.freq && c.vcore == candidate.vcore) return true;
+        }
+        return false;
+    };
+    bool soak_normal_extra = normal_cand.freq != 0 && !is_shortlisted(normal_cand) &&
+                             !bm_result_is_soaked(normal_cand.freq);
     bool soak_eco_extra = (eco_cand.freq != 0);
     for (const Cand& c : cands) {
         if (c.freq == eco_cand.freq && c.vcore == eco_cand.vcore) { soak_eco_extra = false; break; }
     }
     if (soak_eco_extra && bm_result_is_soaked(eco_cand.freq)) soak_eco_extra = false;
+    if (soak_eco_extra && soak_normal_extra &&
+        eco_cand.freq == normal_cand.freq && eco_cand.vcore == normal_cand.vcore) {
+        soak_eco_extra = false;  // the Normal candidate soak also verifies ECO
+    }
 
-    const size_t soak_total = cands.size() + (soak_eco_extra ? 1u : 0u);
-    LOG_W("[BM] Soaking %u candidate point(s) under the normal fan policy%s.",
+    const size_t soak_total = cands.size() + (soak_normal_extra ? 1u : 0u) +
+                              (soak_eco_extra ? 1u : 0u);
+    LOG_W("[BM] Soaking %u candidate point(s) under the normal fan policy%s%s.",
           (unsigned)soak_total,
+          soak_normal_extra ? " (incl. the Normal point nearest the board default)" : "",
           soak_eco_extra ? " (incl. the most efficient point, for ECO)" : "");
     ctx->bm->soak_total = (uint8_t)soak_total;
 
@@ -1171,13 +1197,33 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
         }
     }
 
-    // The extra ECO candidate, when the shortlist did not already cover it. Its
-    // verdict is independent of whether a higher-hashrate point passed: ECO quotes
-    // the most efficient row, and one verified row is not enough to offer it.
+    size_t extra_idx = cands.size();
+    // Normal is a board-default operating mode, but a q=1 sweep row only passed
+    // with 100% cooling. If its nearest qualified point was not in the hashrate
+    // shortlist, soak it explicitly so Normal can select a real-fan-verified pair.
+    if (soak_normal_extra && *ctx->bm_mode == 1 && !bm_result_is_soaked(normal_cand.freq)) {
+        LOG_W("[BM] Soak: adding the Normal point nearest the board default %uMHz/%umV: "
+              "%dMHz/%dmV (%.3f J/TH).",
+              (unsigned)normal_freq, (unsigned)normal_vcore,
+              (int)normal_cand.freq, (int)normal_cand.vcore, (double)normal_cand.effJTH);
+        if (!soak_one(extra_idx++, normal_cand) && *ctx->bm_mode == 1) {
+            if (bm_result_mark_unqualified(normal_cand.freq) != ESP_OK) {
+                LOG_E("[BM] The Normal candidate %dMHz/%dmV failed the soak but could not be "
+                      "marked unqualified - it may still be auto-applied.",
+                      (int)normal_cand.freq, (int)normal_cand.vcore);
+            } else {
+                LOG_W("[BM] The Normal candidate %dMHz/%dmV FAILED the soak - kept as "
+                      "unqualified (q=0).", (int)normal_cand.freq, (int)normal_cand.vcore);
+            }
+        }
+    }
+
+    // The extra ECO candidate, when the hashrate shortlist and Normal candidate
+    // did not already cover it. ECO is the most efficient qualified row.
     if (soak_eco_extra && *ctx->bm_mode == 1 && !bm_result_is_soaked(eco_cand.freq)) {
         LOG_W("[BM] Soak: adding the most efficient qualified point %dMHz/%dmV (%.3f J/TH) for ECO.",
               eco_cand.freq, eco_cand.vcore, (double)eco_cand.effJTH);
-        if (!soak_one(cands.size(), eco_cand) && *ctx->bm_mode == 1) {
+        if (!soak_one(extra_idx, eco_cand) && *ctx->bm_mode == 1) {
             if (bm_result_mark_unqualified(eco_cand.freq) != ESP_OK) {
                 LOG_E("[BM] The ECO candidate %dMHz/%dmV failed the soak and could not be "
                       "marked unqualified - it may still be auto-applied.", eco_cand.freq, eco_cand.vcore);

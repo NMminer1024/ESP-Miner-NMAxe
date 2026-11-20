@@ -266,9 +266,9 @@ export class EditComponent implements OnInit {
     }
 
     if (uniq.size >= 3) {
-      // Benchmark-derived: ECO = best efficiency (lowest J/TH), Turbo = best hashrate,
-      // Normal = board default pair if the benchmark covers it, otherwise the entry
-      // closest to the default point (ties broken by lower measured power)
+      // Benchmark-derived: ECO = best efficiency (lowest J/TH), Turbo = best
+      // soak-verified hashrate, Normal = the soak-verified point closest to the
+      // board default pair (ties broken by lower measured power).
       this.presetSource = 'benchmark';
       const entries = [...uniq.values()];
       // Eligibility gate — mirrors the FIRMWARE rule (benchmark_threads.cpp
@@ -337,31 +337,40 @@ export class EditComponent implements OnInit {
       if (oc.length && vc.length) {
         const nFreq = oc[this.defaultIdx(oc)].value;
         const nVcore = vc[this.defaultIdx(vc)].value;
-        // Normal quotes measurements ONLY from a qualified entry. Previously it
-        // looked the board-default pair up in the raw map, so an unqualified (or
-        // outright FAILED) entry could supply the shown hashrate/power — the button
-        // then advertised a point the safety rule had just rejected.
-        const nBm = uniq.get(pair(nFreq, nVcore));
-        if (nBm && !nBm.fail && nBm.q === 1 && nBm.avgHR > 0) {
+        // Normal must also use a point that survived the soak under the live fan
+        // policy. A q=1 sweep row only passed with 100% cooling and is not enough
+        // evidence for an automatic preset. Prefer the soaked point closest to the
+        // board default pair (e.g. Nexus 600/1130 instead of its 600/1150 default).
+        const nBm = eligible.length
+          ? eligible.reduce((best, r) => {
+              const d = Math.abs(r.freq - nFreq) + Math.abs(r.vcore - nVcore);
+              const bestD = Math.abs(best.freq - nFreq) + Math.abs(best.vcore - nVcore);
+              return d < bestD || (d === bestD && r.avgPwr < best.avgPwr) ? r : best;
+            })
+          : null;
+        if (nBm) {
           normal = fromBm('normal', 'Normal', nBm);
         } else {
-          // Nearest QUALIFIED point for the numbers, but keep the board-default
-          // freq/vcore as the actual target (Normal's definition is the default).
-          const near = eligible.length
-            ? eligible.reduce((b, r) => {
-                const dr = Math.abs(r.freq - nFreq) + Math.abs(r.vcore - nVcore);
-                const db = Math.abs(b.freq - nFreq) + Math.abs(b.vcore - nVcore);
-                return dr < db || (dr === db && r.avgPwr < b.avgPwr) ? r : b;
-              })
-            : null;
-          normal = {key: 'normal', label: 'Normal', freq: nFreq, vcore: nVcore, bm: near ?? undefined};
+          normal = {
+            key: 'normal', label: 'Normal', freq: nFreq, vcore: nVcore,
+            disabled: true,
+            disabledHint: 'not soak-verified',
+            disabledReason: 'No benchmark point has passed the soak under your current fan policy, so there is no verified Normal point to select automatically. Re-run the benchmark or choose a point manually in Advanced.'
+          };
         }
       } else {
-        const rest = eligible.filter(r => r !== turbo && r !== eco);
-        const b = rest.length
-          ? rest.reduce((best, r) => Math.abs(r.freq - curFreq) < Math.abs(best.freq - curFreq) ? r : best)
-          : turbo;
-        normal = fromBm('normal', 'Normal', b);
+        const nBm = eligible.length
+          ? eligible.reduce((best, r) => {
+              const d = Math.abs(r.freq - curFreq) + Math.abs(r.vcore - curVcore);
+              const bestD = Math.abs(best.freq - curFreq) + Math.abs(best.vcore - curVcore);
+              return d < bestD || (d === bestD && r.avgPwr < best.avgPwr) ? r : best;
+            })
+          : null;
+        normal = nBm
+          ? fromBm('normal', 'Normal', nBm)
+          : {key: 'normal', label: 'Normal', freq: curFreq, vcore: curVcore,
+             disabled: true, disabledHint: 'not soak-verified',
+             disabledReason: 'No benchmark point has passed the soak under your current fan policy, so there is no verified Normal point to select automatically. Re-run the benchmark or choose a point manually in Advanced.'};
       }
 
       // A disabled preset must not carry measured values: the button would then
@@ -469,7 +478,24 @@ export class EditComponent implements OnInit {
       turbo.disabledReason = 'Turbo requires a benchmark result that passed the safety margin. Run a benchmark first — Advanced still allows manual tuning.';
     }
 
-    this.presets = [eco, {key: 'normal', label: 'Normal', freq: normalFreq, vcore: normalVcore}, turbo];
+    const fallbackSoaked = results.filter(r => !r.fail && r.q === 1 && r.soak === 1 && r.avgHR > 0);
+    const normalCandidate = fallbackSoaked.length
+      ? fallbackSoaked.reduce((best, r) => {
+          const d = Math.abs(r.freq - normalFreq) + Math.abs(r.vcore - normalVcore);
+          const bestD = Math.abs(best.freq - normalFreq) + Math.abs(best.vcore - normalVcore);
+          return d < bestD || (d === bestD && r.avgPwr < best.avgPwr) ? r : best;
+        })
+      : undefined;
+    const hasQualifiedButUnsoaked = results.some(r => !r.fail && r.q === 1 && r.avgHR > 0);
+    const normal: ModePreset = normalCandidate
+      ? {key: 'normal', label: 'Normal', freq: normalCandidate.freq, vcore: normalCandidate.vcore,
+         hashRate: normalCandidate.avgHR, power: normalCandidate.avgPwr, bm: normalCandidate}
+      : hasQualifiedButUnsoaked
+        ? {key: 'normal', label: 'Normal', freq: normalFreq, vcore: normalVcore,
+           disabled: true, disabledHint: 'not soak-verified',
+           disabledReason: 'Benchmark results exist, but none has passed soak under the current fan policy. Normal is disabled rather than applying an unverified point; re-run the benchmark or choose manually in Advanced.'}
+        : {key: 'normal', label: 'Normal', freq: normalFreq, vcore: normalVcore};
+    this.presets = [eco, normal, turbo];
   }
 
   private defaultIdx(options: Array<{name: string, value: number}>): number {

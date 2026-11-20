@@ -1147,7 +1147,8 @@ esp_err_t bm_result_delete_freq(uint16_t freq) {
 // benchmark data, everything is legacy, or we are already at the bottom) - the
 // caller must then fall back to its own step.
 bool bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
-                                uint16_t* out_freq, uint16_t* out_vcore) {
+                                uint16_t* out_freq, uint16_t* out_vcore,
+                                bool require_soak) {
     if (out_freq == nullptr || out_vcore == nullptr) return false;
     bm_result_migrate_legacy();
 
@@ -1173,12 +1174,13 @@ bool bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
         const long f      = bm_r_json_int(e, "\"freq\":");
         const long v      = bm_r_json_int(e, "\"vcore\":");
         const double hr   = bm_r_json_double(e, "\"avgHR\":");
+        const bool soaked = !require_soak || bm_r_json_int(e, "\"soak\":") == 1;
         free(e);
 
         // `> 0`, not `!= 0`: bm_r_json_int reports -1 for an ABSENT key, and rows
         // now omit "fail":0 (see bm_r_compact_row), so an equality test against 0
         // would reject every clean row.
-        if (q != 1 || fail > 0) continue;
+        if (q != 1 || fail > 0 || !soaked) continue;
         if (f <= 0 || v <= 0 || hr <= 0.0) continue;
         if (f > (long)cur_freq || v > (long)cur_vcore) continue;      // not safer
         if (f == (long)cur_freq && v == (long)cur_vcore) continue;    // current point

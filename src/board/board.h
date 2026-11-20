@@ -11,6 +11,14 @@
 #include <vector>
 #include <functional>
 
+namespace board_safety {
+constexpr double   ADAPTER_BUDGET_RESERVE       = 0.02;
+constexpr float    ADAPTER_CLEAR_HYSTERESIS     = 0.98f;
+constexpr uint16_t FAN_PINNED_DUTY              = 99;
+constexpr double   FAN_TARGET_OVERSHOOT_C       = 0.5;
+constexpr uint32_t RUNTIME_DERATE_HOLD_MS       = 120000;
+}
+
 // /******************default parameter define for NMAxe***********************/
 // #define BOARD_NMAXE_NAME                                "NMAxe"
 // #define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"       

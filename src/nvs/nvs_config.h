@@ -128,7 +128,8 @@ esp_err_t bm_result_delete_freq(uint16_t freq);         // remove the row(s) for
 // Pick a measured, qualified (freq, vcore) pair strictly below the given point,
 // preferring the highest measured hashrate. False when nothing qualifies.
 bool      bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
-                                     uint16_t* out_freq, uint16_t* out_vcore);
+                                     uint16_t* out_freq, uint16_t* out_vcore,
+                                     bool require_soak = false);
 // Add "soak":1 and the settled duty of each fan to one stored result.
 // fan_need_vcore < 0 = board has no VRM fan, so that field is omitted.
 // Idempotent: any existing soak fields are replaced, never appended.
