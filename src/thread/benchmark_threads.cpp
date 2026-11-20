@@ -929,6 +929,30 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
     // Take the fan back for the remaining rounds (the next one may still run).
     bm_fan_renew(ctx);
 
+    // A latched OC/OT fault means the protection supervisor has the rail OFF
+    // (READ_VOUT ~0, hashrate 0). Soaking in that state is not a measurement: every
+    // candidate trips BM_SOAK_MIN_HR_RATIO ("the point was not really mining"), and
+    // each one is then marked q=0 - which also destroys verdicts that an EARLIER
+    // run legitimately earned. Reported from the field: a full sweep reached
+    // 800MHz/1230mV, the OC fault latched, and the soak stage that followed wiped
+    // the q=1 rows at 700/725/750 and left no soaked row at all, so Turbo/ECO both
+    // disappeared with nothing in the UI explaining why.
+    //
+    // Skipping preserves the table exactly as it was: the sweep's own rows stay,
+    // and any pre-existing soak verdict is left alone. The operator clears the
+    // fault and the results are still usable. This is the same predicate the sweep
+    // stages already use (see the is_oc_fault/is_ot_fault checks above), so it does
+    // not introduce a new notion of "faulted".
+    if (ctx->power != nullptr &&
+        (ctx->power->is_oc_fault() || ctx->power->is_ot_fault())) {
+        LOG_E("[BM] Hardware protection is latched (OC=%d OT=%d) — SKIPPING the soak stage. "
+              "No point can be verified while the rail is off; the results table is left "
+              "untouched so existing verdicts survive. Clear the fault and re-run the "
+              "benchmark when cooling/input budget allows.",
+              (int)ctx->power->is_oc_fault(), (int)ctx->power->is_ot_fault());
+        return;
+    }
+
     char* res_str = bm_result_read_all();
     BasicJsonDocument<PsramJsonAllocator> rdoc(32768);
     DeserializationError rerr = deserializeJson(rdoc, res_str);
