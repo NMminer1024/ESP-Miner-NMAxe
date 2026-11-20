@@ -934,28 +934,53 @@ BoardSpecConfig get_board_config_compile_time() {
     // Per-die voltages; the series rail is derived inside the driver.
     // Floor lowered to 900mV alongside the 325MHz freq floor -- see min_vcore comment above.
     //
-    // 950 and 975 were missing: the table jumped 925 -> 1000 while the benchmark
-    // sweep happily tests the whole 10 mV grid in between (reported on Nexus,
-    // v3.2.02k: "the Advanced Vcore list jumps from 925 to 1000 mV"). A point the
-    // sweep could QUALIFY at 950/975 therefore could not be selected by hand, and
-    // the ECO fallback - which snaps a proportional target onto this list - landed
-    // on 925 mV instead. Keep the list a complete 25 mV grid like every other
-    // board's, with the two sub-1000 entries an ECO-style point needs.
+    // 10 mV steps, matching `bm_vcore_step` above.
+    //
+    // This list used to be a 25 mV grid (900, 925, 950, 975, 1000, 1025, ...) while
+    // the sweep measured and stored the whole 10 mV grid. Every point the benchmark
+    // qualified at 990/1190/1210/1220 was therefore unselectable by hand, and the
+    // resume/over-temperature step-down - which lands on a SELECTABLE value - could
+    // not reproduce a measured point either. Reported from the field on v3.2.02s:
+    // 325/990 had to be typed in through the browser developer tools.
+    //
+    // Cost is UI-only: ~11 extra entries in the Advanced dropdown. `min_vcore` stays
+    // 900 because it is the regulator setpoint floor, not the first sweep point.
     config.ui.setting_page.vc = {
             {"900 mV",             900},
-            {"925 mV",             925},
+            {"910 mV",             910},
+            {"920 mV",             920},
+            {"930 mV",             930},
+            {"940 mV",             940},
             {"950 mV",             950},
-            {"975 mV",             975},
+            {"960 mV",             960},
+            {"970 mV",             970},
+            {"980 mV",             980},
+            {"990 mV",             990},
             {"1000 mV",           1000},
-            {"1025 mV",           1025},
+            {"1010 mV",           1010},
+            {"1020 mV",           1020},
+            {"1030 mV",           1030},
+            {"1040 mV",           1040},
             {"1050 mV",           1050},
-            {"1075 mV",           1075},
+            {"1060 mV",           1060},
+            {"1070 mV",           1070},
+            {"1080 mV",           1080},
+            {"1090 mV",           1090},
             {"1100 mV",           1100},
-            {"1125 mV",           1125},
+            {"1110 mV",           1110},
+            {"1120 mV",           1120},
+            {"1130 mV",           1130},
+            {"1140 mV",           1140},
             {"1150 mV(default)",  1150},
-            {"1175 mV",           1175},
+            {"1160 mV",           1160},
+            {"1170 mV",           1170},
+            {"1180 mV",           1180},
+            {"1190 mV",           1190},
             {"1200 mV",           1200},
-            {"1225 mV",           1225},
+            {"1210 mV",           1210},
+            {"1220 mV",           1220},
+            {"1230 mV",           1230},
+            {"1240 mV",           1240},
             {"1250 mV",           1250},
         };
     config.create_power_instance     = create_nexus_3ph_power_instance; // TPS546D24A, 3-phase (1 master + 2 slaves)
@@ -1064,7 +1089,26 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_ASIC_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "40").toFloat(), config.asic.temp_limit.high);
+    // 55 °C, NOT the 40 °C the single-fan boards use.
+    //
+    // 40 °C is UNREACHABLE here, so it pins the loop at 100 % for the life of the
+    // unit: measured on 124.2 (750 MHz/1190 mV, ~160 W) the ASIC fan holds
+    // 50.8-52 °C at 100 %, and the identification run at 700/1150 (~135 W) gave
+    // 44.89 °C at 100 %, 49.10 °C at 70 %, 58.05 °C at 50 %. Any target below
+    // ~45 °C is therefore past the end of the fan's authority: the duty saturates
+    // and the "temperature" is just whatever full speed achieves.
+    //
+    // 55 °C settles around 64 % duty at 160 W (36 points of reserve) and stays
+    // 20 °C below the 75 °C ASIC limit.
+    //
+    // The two fans share one air path, so this number is NOT free-standing: a
+    // colder ASIC target starves the VRM. Measured at 160 W, ASIC target 52 left
+    // the VRM fan at 100 %, unable to reach its own 65 °C. See the Vcore target
+    // below for the pair that works.
+    //
+    // Users who set a lower target on purpose are unaffected: this is only the
+    // default for a board whose NVS has no value yet.
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_ASIC_TARGET_TEMP, "55").toFloat(), config.asic.temp_limit.high);
     config.fans.push_back(fan_cfg); // fan1 for asic cooling(required)
 
     fan_cfg.id                        = 1;
@@ -1088,7 +1132,18 @@ BoardSpecConfig get_board_config_compile_time() {
     fan_cfg.pid.output_min           = 0.00f;
     fan_cfg.pid.output_max           = 100.0f;
     fan_cfg.auto_speed               = nvs_config_get_u16(NVS_CONFIG_AUTO_VCORE_FAN_SPEED, true);
-    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "65").toFloat(), config.pwr.temp_limit.high);
+    // 70 °C, not 65 °C.
+    //
+    // 65 °C is not reachable once the ASIC fan stops running flat out: measured
+    // at 160 W with the ASIC target at 52/55, the VRM fan sat at 100 % and still
+    // read 67-68 °C. A target the loop cannot reach is worse than no target - the
+    // duty pins at 100 %, the soak's cooling-headroom rule then rejects EVERY
+    // point, and ECO/Turbo disappear from the UI.
+    //
+    // 70 °C holds with ~15 % duty in reserve at 160 W and sits 15 °C below the
+    // TPS546D24A's own OT_FAULT (85 °C, i.e. pwr.temp_limit.high is 80). It is
+    // above the chip's OT_WARN (75 °C) by design, so no warning is produced.
+    fan_cfg.target_temp              = fan_clamp_target_temp(nvs_config_get_string_value(NVS_CONFIG_VCORE_TARGET_TEMP, "70").toFloat(), config.pwr.temp_limit.high);
     config.fans.push_back(fan_cfg);
 
 #else

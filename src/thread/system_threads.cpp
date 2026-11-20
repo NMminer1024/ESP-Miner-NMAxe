@@ -1013,8 +1013,30 @@ void monitor_thread_entry(void* args) {
                                                   : "close to the rating");
                         }
                     }
+                    // ── Sustained adapter overload: timer with hysteresis ─────────
+                    //
+                    // This used to be a plain `if (pct >= 100) accumulate; else
+                    // reset`, and the field capture on 124.2 (v3.2.02t) showed why
+                    // that never fires at the boundary: at 800MHz/1220mV the input
+                    // sat at 15.13 A / 179.7 W (100.9 % of the 15 A rating), and the
+                    // reading kept dipping to 15.05 A (100.0 %) or below. Each dip
+                    // reset the timer, so "OVER RATING - will step down if it
+                    // persists" was printed twice, 60 s apart, and the point was
+                    // NEVER stepped down - it stayed over the adapter rating
+                    // indefinitely.
+                    //
+                    // One ampere of measurement noise around the clamp was enough to
+                    // disable the only protection that keeps a 24/7 point inside the
+                    // adapter. Now:
+                    //   pct >= 100 %  -> accumulate
+                    //   pct <  98 %   -> clear (genuinely back inside the rating;
+                    //                    the alert band starts at 95 %)
+                    //   98..100 %     -> HOLD (neither accumulate nor restart).
+                    //                    This is the band the noisy reading lives in,
+                    //                    and "sustained" has to survive it.
+                    constexpr uint32_t ADAPTER_OVERLOAD_STEPDOWN_MS = 120000;
+                    constexpr float    ADAPTER_OVERLOAD_CLEAR_PCT     = 98.0f;
                     if (pct >= 100.0f) {
-                        constexpr uint32_t ADAPTER_OVERLOAD_STEPDOWN_MS = 120000;
                         if (over_pwr_since_ms == 0) over_pwr_since_ms = millis();
                         if ((uint32_t)(millis() - over_pwr_since_ms) >= ADAPTER_OVERLOAD_STEPDOWN_MS) {
                             over_pwr_since_ms = 0;
@@ -1053,9 +1075,10 @@ void monitor_thread_entry(void* args) {
                                 LOG_E("Input over adapter budget but no lower operating point exists — reduce the settings manually.");
                             }
                         }
-                    } else {
+                    } else if (pct < ADAPTER_OVERLOAD_CLEAR_PCT) {
                         over_pwr_since_ms = 0;
                     }
+                    // 98 % <= pct < 100 %: hold the accumulated time (see above).
                 } else {
                     over_pwr_since_ms = 0;
                 }

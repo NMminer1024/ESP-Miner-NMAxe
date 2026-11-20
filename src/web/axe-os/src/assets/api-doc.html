@@ -1578,7 +1578,11 @@ Content-Type: application/octet-stream
       <span class="kw">"q"</span>:    <span class="num">1</span>,      <span class="cmt">// 1 = passed the margin, 0 = a peak was too close to a limit</span>
       <span class="kw">"fail"</span>: <span class="num">0</span>,      <span class="cmt">// 1 = protection tripped here; invalidates earlier same-freq results</span>
       <span class="cmt">// Soak verdict — added only after the point also survived the post-sweep</span>
-      <span class="cmt">// soak under the user's real fan policy. Only a soaked point is auto-applied;</span>
+      <span class="cmt">// soak under the user's real fan policy: inside the temperature limits with</span>
+      <span class="cmt">// 5 C of margin, inside the adapter budget minus a 2 % reserve, and with an</span>
+      <span class="cmt">// auto-mode fan still below 100 % (a fan pinned at 100 % while above its</span>
+      <span class="cmt">// target fails; a manually pinned fan is not judged). Only a soaked point</span>
+      <span class="cmt">// is auto-applied;</span>
       <span class="cmt">"soak"</span>: <span class="num">1</span>,      <span class="cmt">// fanNeed* = the duty each fan settled at, fanNeedVcore omitted on single-fan boards</span>
       <span class="kw">"fanNeed"</span>: <span class="num">62</span>, <span class="kw">"fanNeedVcore"</span>: <span class="num">40</span>
     }

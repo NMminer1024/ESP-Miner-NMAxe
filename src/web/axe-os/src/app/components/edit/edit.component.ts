@@ -358,10 +358,12 @@ export class EditComponent implements OnInit {
           ecoPreset.disabledHint = 'not soak-verified';
           ecoPreset.disabledReason = 'The stored points passed the safety margin but were never soaked under your fan policy, so they are only known to be safe at 100 % cooling. Re-run the benchmark to get a verified ECO point.';
         } else if (eligible.length === 1) {
-          // One qualified point: ECO would just be a copy of Turbo. Say so plainly
-          // instead of showing two buttons that do the same thing.
+          // One soak-verified point: ECO would just be a copy of Turbo. The
+          // firmware now also soaks the most efficient point, so a single verified
+          // row no longer means "only one row passed the margin" (all of them may
+          // have) - it means the second soak has not produced a row yet.
           ecoPreset.disabledHint = 'needs more data';
-          ecoPreset.disabledReason = 'Only one benchmark point has passed the safety margin, so ECO and Turbo would be the same point. Run the benchmark over a wider frequency range to get a low-power option.';
+          ecoPreset.disabledReason = 'Only one point is soak-verified, so ECO and Turbo would be the same point. Re-run the benchmark: it now soaks the most efficient point in addition to the highest-hashrate one, which gives ECO its own verified row.';
         } else {
           ecoPreset.disabledHint = 'no safe point';
           ecoPreset.disabledReason = 'No benchmark point passed the safety margin.';

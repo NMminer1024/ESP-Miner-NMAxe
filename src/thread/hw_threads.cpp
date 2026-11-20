@@ -524,6 +524,16 @@ void power_loop_thread_entry(void* args) {
             if (!oc_fault && !ot_fault) {
                 iout_live = itrace_sample(power->get_iout_amps());
             }
+            // Time-qualified step-down state for a latched OC warning.
+            //
+            // Declared here, outside the `oc_warn` branch, so the timer can be
+            // RESET when the warning disappears. Left inside the branch it kept its
+            // value across a latch that cleared on its own (a point change, or a
+            // CLEAR_FAULTS from the resume path), so the NEXT latch started with the
+            // previous one's elapsed time already on the clock and could step down
+            // on its first read.
+            static uint32_t oc_latched_since_ms   = 0;
+            static uint32_t oc_last_latch_step_ms = 0;
             if (oc_fault) {
                 // Quote the per-phase trip point too: the limit is a stack TOTAL
                 // divided across phases, so "limit=70.5A" alone reads as "it should
@@ -574,6 +584,7 @@ void power_loop_thread_entry(void* args) {
                 static uint32_t last = millis();
                 if (millis() - last >= 3000) {
                     if (live) {
+                        oc_latched_since_ms = 0;   // genuine overcurrent right now
                         if (wphase == wphase) {
                             LOG_W("!!! Overcurrent WARNING (live) !!! phase %d = %.2fA >= %.1fA/phase (IOUT total %.2fA)",
                                   (int)ws.worst_i, ws.worst_a, wphase, iout_live);
@@ -596,6 +607,95 @@ void power_loop_thread_entry(void* args) {
                             LOG_W("Overcurrent WARNING latched (IOUT averaged %.2fA, below warn-limit %.1fA) — comparator tripped earlier, latch clears only on CLEAR_FAULTS or a point change",
                                   iout_live, wlim);
                         }
+
+                        // ── Step down after a latch that will not clear ───────
+                        // A latch that is never live for this long means one of two
+                        // things, and both have the same remedy: either the point sits
+                        // close enough to the comparator that spikes keep setting it, or
+                        // the bit was set once and nothing will clear it until the point
+                        // changes. So after OC_LATCH_STEPDOWN_MS of continuous latched
+                        // reads the operating point is stepped down one notch and the
+                        // latch is cleared, instead of logging the same line forever.
+                        //
+                        // Deliberately slow and one-way: the averaged readback cannot
+                        // see the spike that set the bit, so "not live now" is NOT
+                        // evidence that the warning was false (field: 742 latched lines,
+                        // then a real OC_FAULT 38 minutes later). Stepping down is the
+                        // cheap direction; stepping back up is the user's decision.
+                        //
+                        // Skipped while a benchmark runs: the sweep owns the operating
+                        // point and switches it on purpose.
+                        constexpr uint32_t OC_LATCH_STEPDOWN_MS = 10u * 60u * 1000u;
+                        const uint32_t now_ms = millis();
+                        if (oc_latched_since_ms == 0) oc_latched_since_ms = now_ms;
+                        const bool window_ok = (oc_last_latch_step_ms == 0) ||
+                            ((uint32_t)(now_ms - oc_last_latch_step_ms) >= OC_LATCH_STEPDOWN_MS);
+                        const bool bench_running = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) != 0;
+                        if (window_ok && !bench_running &&
+                            (uint32_t)(now_ms - oc_latched_since_ms) >= OC_LATCH_STEPDOWN_MS) {
+                            // PowerCtx carries a const spec because this thread is not
+                            // supposed to reshape the board. Stepping DOWN an operating
+                            // point is the one exception, and it is the same object the
+                            // mining/over-temperature paths already mutate: the point
+                            // has to move somewhere, and req_* is where every consumer
+                            // reads it from.
+                            BoardSpecConfig& rw = const_cast<BoardSpecConfig&>(*ctx->spec);
+                            const uint16_t cur_freq  = rw.asic.req_frq;
+                            const uint16_t cur_vcore = rw.asic.req_vcore;
+                            uint16_t new_freq = cur_freq, new_vcore = cur_vcore;
+                            const bool measured =
+                                bm_result_pick_safer_point(cur_freq, cur_vcore, &new_freq, &new_vcore);
+                            if (!measured) {
+                                // No qualified row below us: one selectable Vcore step,
+                                // then one frequency step, same order as the protection
+                                // resume path (voltage dominates input current).
+                                new_freq = cur_freq;
+                                uint16_t pick = 0;
+                                bool have_vc = false;
+                                for (const auto& o : rw.ui.setting_page.vc) {
+                                    if (o.value < cur_vcore && (!have_vc || o.value > pick)) {
+                                        pick = o.value;
+                                        have_vc = true;
+                                    }
+                                }
+                                if (have_vc) {
+                                    new_vcore = pick;
+                                } else if (cur_vcore >= rw.asic.min_vcore + 5) {
+                                    new_vcore = (uint16_t)(cur_vcore - 5);
+                                } else {
+                                    uint16_t best_f = 0;
+                                    bool have_f = false;
+                                    for (const auto& o : rw.ui.setting_page.oc) {
+                                        if (o.value < cur_freq && (!have_f || o.value > best_f)) {
+                                            best_f = o.value;
+                                            have_f = true;
+                                        }
+                                    }
+                                    if (have_f) new_freq = best_f;
+                                }
+                            }
+                            oc_last_latch_step_ms = now_ms;
+                            oc_latched_since_ms   = 0;
+                            if (new_freq != cur_freq || new_vcore != cur_vcore) {
+                                LOG_W("OC warning latched for %lumin at %uMHz/%umV with the averaged "
+                                      "readback below the limit — stepping down to %uMHz/%umV and clearing "
+                                      "the latch (%s).",
+                                      (unsigned long)(OC_LATCH_STEPDOWN_MS / 60000u),
+                                      (unsigned)cur_freq, (unsigned)cur_vcore,
+                                      (unsigned)new_freq, (unsigned)new_vcore,
+                                      measured ? "benchmark-qualified pair" : "one selectable step");
+                                rw.asic.req_frq   = new_freq;
+                                rw.asic.req_vcore = new_vcore;
+                                nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    new_freq);
+                                nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
+                                power->clear_faults();
+                            } else {
+                                LOG_E("OC warning latched for %lumin at %uMHz/%umV but no lower "
+                                      "operating point exists — reduce the settings manually.",
+                                      (unsigned long)(OC_LATCH_STEPDOWN_MS / 60000u),
+                                      (unsigned)cur_freq, (unsigned)cur_vcore);
+                            }
+                        }
                     }
                     last = millis();
                 }
@@ -614,6 +714,10 @@ void power_loop_thread_entry(void* args) {
                     last = millis();
                 }
             }
+            // The latch is gone (CLEAR_FAULTS, a point change, or a genuine return
+            // below the warning line): restart the window, so a later latch is judged
+            // on its own elapsed time rather than inheriting this one's.
+            if (!oc_warn) oc_latched_since_ms = 0;
         }
 #if 0
         {

@@ -87,6 +87,21 @@ static void mask_json_secrets(String& s) {
     }
 }
 
+// Top-level keys whose VALUE is a credential.
+//
+// The text masker below cannot cover these: `wifiPass` is a TOP-LEVEL field, so
+// `kv.value().as<String>()` hands back the bare password - no key name, no
+// quotes to match on - and there is nothing for mask_json_secrets() to find.
+// Reported from the field on v3.2.02s: saving a new WiFi password wrote
+// `wifiPass = <cleartext>` to the console and to /ws.
+static bool is_secret_top_key(const char* k) {
+    static const char* kSecret[] = { "wifiPass", "wifiPassword", "pwd", "password", "pass" };
+    for (const char* s : kSecret) {
+        if (strcmp(k, s) == 0) return true;
+    }
+    return false;
+}
+
 static void log_web_config_change(const char* endpoint, const JsonObject& root,
                                   AsyncWebServerRequest* request = nullptr) {
     String ip;
@@ -97,14 +112,18 @@ static void log_web_config_change(const char* endpoint, const JsonObject& root,
     for (const auto& kv : root) {
         const char* key = kv.key().c_str();
         String val = kv.value().as<String>();
-        // Mask credentials. The pool password reaches this log as "pwd" (older
-        // scripts use "password"/"pass"), nested inside `stratum`, and the log is
-        // written to the serial console — visible to anyone with the USB cable,
-        // captured in bug reports, and streamed to every connected WS client.
-        // The sub-object is masked as text so nesting depth does not matter; the
-        // key itself is still printed, because "did the field arrive" is the point
-        // of this line and its value is not.
-        mask_json_secrets(val);
+        // Mask credentials. Two different shapes reach this loop:
+        //   - nested objects (the pool config: `stratum = {primary:{pwd}}`), which
+        //     mask_json_secrets() can rewrite as text because the key is quoted;
+        //   - flat top-level fields (`wifiPass`), whose value is the bare secret,
+        //     which is why they are checked by key name instead.
+        // The key itself is still printed, because "did the field arrive" is the
+        // point of this line and its value is not.
+        if (is_secret_top_key(key)) {
+            val = "***";
+        } else {
+            mask_json_secrets(val);
+        }
         LOG_W("[web] config change %s from %s: %s = %s", endpoint, from, key, val.c_str());
     }
 }

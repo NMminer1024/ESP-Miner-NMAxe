@@ -691,8 +691,8 @@ Results are keyed by **frequency alone**: the latest run at a frequency overwrit
 | `fw` | string\|absent | Firmware build that measured this row (results outlive an upgrade; verdicts are not comparable across builds). Absent on older results |
 | `q` | int\|absent | Qualification: `1` = passed the OC/OT/adapter safety margin, `0` = a peak was too close to a limit. **Absent on results written before the margin rule existed — treat those as unverified, never as passing** |
 | `fail` | int | `1` = protection tripped at this point (tombstone); invalidates earlier same-freq results |
-| `soak` | int\|absent | `1` = the point also passed the post-sweep soak under the real fan policy and is safe to auto-apply. Absent until soaked |
-| `fanNeed` | int\|absent | % — ASIC-fan duty the point settled at during the soak (present with `soak`) |
+| `soak` | int\|absent | `1` = the point also passed the post-sweep soak under the real fan policy and is safe to auto-apply. Absent until soaked. The soak rejects a point that exceeds a temperature limit or ends within 5 °C of it, draws more than the adapter budget **minus a 2 % reserve**, or leaves an **auto-mode** fan pinned at 100 % while still above its target (no cooling headroom left; a manually pinned fan is the user's choice and is not judged) |
+| `fanNeed` | int\|absent | % — ASIC-fan duty the point settled at during the soak (present with `soak`). A saturated auto fan never reaches `soak:1` |
 | `fanNeedVcore` | int\|absent | % — VRM-fan duty at soak settle; omitted on single-fan boards |
 | `ts` | int | Unix timestamp when the row was written |
 

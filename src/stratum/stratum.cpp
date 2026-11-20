@@ -84,7 +84,10 @@ bool StratumClass::_parse_rsp(){
     DeserializationError error = deserializeJson(this->_rsp_json, this->_rsp_str);
     if (error) {
         LOG_E("StratumClass::_parse_rsp Failed to parse JSON, error: %s", error.c_str());
-        LOG_E("  Raw string len=%d : [%s]", this->_rsp_str.length(), this->_rsp_str.c_str());
+        // The raw payload is only actionable while debugging the parser itself, and
+        // it echoes whatever the pool sent. Keep it behind the DEBUG build level so
+        // a shipping build logs the failure without the body.
+        LOG_D("  Raw string len=%d : [%s]", this->_rsp_str.length(), this->_rsp_str.c_str());
         return false;
     }
     return true;
@@ -292,7 +295,21 @@ bool StratumClass::authorize(){
         this->_msg_rsp_map[id] = {"mining.authorize", false, millis()};
         xSemaphoreGive(this->_msg_rsp_mutex);
     }
-    log_i("Sending mining.authorize : %s", payload.c_str());
+    // Do NOT log the request payload: it carries the pool password.
+    //
+    // This line used to dump `payload` verbatim at INFO level, which is compiled
+    // into shipping builds (DBG_LEVEL defaults to LOG), on EVERY authorize - boot,
+    // every reconnect, primary<->fallback failover, and after a pool-settings save.
+    // It goes to the USB console AND the /ws log stream, so the credential landed
+    // in every capture and bug report. Reported from the field on v3.2.02s.
+    //
+    // The user name is kept because a failed authorization is diagnosed from it;
+    // only the credential is masked. The mask is done here rather than by lowering
+    // the level to DEBUG: raising DBG_LEVEL in a debug build would bring the
+    // plaintext straight back.
+    log_i("Sending mining.authorize : {\"id\": %u, \"method\": \"mining.authorize\", "
+          "\"params\": [\"%s\", \"***\"]}",
+          (unsigned)id, this->_stratum_info.user.c_str());
     delay(100);
     return true;
 }
