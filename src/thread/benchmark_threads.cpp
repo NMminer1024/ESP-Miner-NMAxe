@@ -116,9 +116,9 @@ static void bm_load_config(BenchmarkCtx* ctx, BmSweepConfig& c) {
     c.vcore_min  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,  vcore_min_def);
     c.vcore_max  = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,  vcore_max_def);
     c.vcore_step = nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP, vcore_step_def);
-    c.smp_intv   = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 2);
-    c.bm_time    = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        120);
-    c.stab_time  = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   30);
+    c.smp_intv   = nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 1);
+    c.bm_time    = nvs_config_get_u16(NVS_CONFIG_BM_TIME,        30);
+    c.stab_time  = nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   15);
 
     // ── Sanitise ─────────────────────────────────────────────────────────────
     // These keys can be written straight through the REST API, which does not
@@ -134,9 +134,9 @@ static void bm_load_config(BenchmarkCtx* ctx, BmSweepConfig& c) {
     if (c.vcore_min  < 600u  || c.vcore_min  > 2000u) c.vcore_min  = vcore_min_def;
     if (c.vcore_max  < 600u  || c.vcore_max  > 2000u) c.vcore_max  = vcore_max_def;
     if (c.vcore_step < 1u    || c.vcore_step > 200u)  c.vcore_step = vcore_step_def;
-    if (c.smp_intv   == 0u   || c.smp_intv   > 300u)  c.smp_intv   = 2;
-    if (c.bm_time    == 0u   || c.bm_time    > 7200u) c.bm_time    = 120;
-    if (c.stab_time  == 0u   || c.stab_time  > 3600u) c.stab_time  = 30;
+    if (c.smp_intv   == 0u   || c.smp_intv   > 300u)  c.smp_intv   = 1;
+    if (c.bm_time    == 0u   || c.bm_time    > 7200u) c.bm_time    = 30;
+    if (c.stab_time  == 0u   || c.stab_time  > 3600u) c.stab_time  = 15;
     if (c.freq_max  < c.freq_min)  c.freq_max  = c.freq_min;   // single-point sweep is legal
     if (c.vcore_max < c.vcore_min) c.vcore_max = c.vcore_min;
 }

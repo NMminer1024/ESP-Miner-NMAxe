@@ -219,9 +219,9 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       vcoreMin:   [this.clampField(data.vcoreMin,   600, 2000, 1000), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
       vcoreMax:   [this.clampField(data.vcoreMax,   600, 2000, 1300), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
       vcoreStep:  [this.clampField(data.vcoreStep,  1,   200,  25),   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(200)]],
-      sampleIntv: [this.clampField(data.sampleIntv, 1,   300,  2),    [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
-      bmTime:     [this.clampField(data.bmTime,     15,  7200, 120),  [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(7200)]],
-      stabTime:   [this.clampField(data.stabTime,   15,  3600, 30),   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(3600)]],
+      sampleIntv: [this.clampField(data.sampleIntv, 1,   300,  1),    [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
+      bmTime:     [this.clampField(data.bmTime,     15,  7200, 30),   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(7200)]],
+      stabTime:   [this.clampField(data.stabTime,   15,  3600, 15),   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(3600)]],
     });
     this.syncFormLock();
   }
@@ -997,9 +997,9 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
               vcoreMin:   this.clampField(data.vcoreMin,   600, 2000, 1000),
               vcoreMax:   this.clampField(data.vcoreMax,   600, 2000, 1300),
               vcoreStep:  this.clampField(data.vcoreStep,  1,   200,  25),
-              sampleIntv: this.clampField(data.sampleIntv, 1,   300,  2),
-              bmTime:     this.clampField(data.bmTime,     15,  7200, 120),
-              stabTime:   this.clampField(data.stabTime,   15,  3600, 30),
+              sampleIntv: this.clampField(data.sampleIntv, 1,   300,  1),
+              bmTime:     this.clampField(data.bmTime,     15,  7200, 30),
+              stabTime:   this.clampField(data.stabTime,   15,  3600, 15),
             });
           });
           const msg: string = res?.message ?? 'Benchmark reset.';
