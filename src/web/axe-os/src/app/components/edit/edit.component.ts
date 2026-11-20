@@ -285,6 +285,12 @@ export class EditComponent implements OnInit {
       // a point that had never been verified under the running fan policy.
       const marginOk = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
       const eligible = marginOk.filter(r => r.soak === 1);
+      // Firmware only soaks the three highest-hashrate candidates for Turbo;
+      // separate Normal/ECO soaks must not be relabelled as Turbo.
+      const turboEligible = [...marginOk]
+        .sort((left, right) => right.avgHR - left.avgHR)
+        .slice(0, 3)
+        .filter(r => r.soak === 1);
       // Rows measured before the margin rule existed. Worth telling apart from
       // "every point was measured and rejected": the user's data is fine, it
       // simply has to be re-measured to be selectable.
@@ -293,13 +299,13 @@ export class EditComponent implements OnInit {
       // "Passed the margin but was never soaked" — the sweep stopped early. This is
       // NOT the same as "no safe point", and saying so avoids sending the user off
       // to re-check a result that is already fine.
-      const unsoakedOnly = eligible.length === 0 && legacyCount === 0 && marginOk.length > 0;
+      const noSoakPassed = eligible.length === 0 && legacyCount === 0 && marginOk.length > 0;
       // ECO needs at least TWO qualified points to mean anything: with a single
       // point "lowest J/TH" and "highest hashrate" are the same entry, so ECO and
       // Turbo would be identical buttons. Field reports read that as a bug (Turbo
       // showing a LOWER hashrate than Normal, because Normal still quoted an
       // unqualified historical entry). Disable ECO instead of duplicating Turbo.
-      const turboOk   = eligible.length >= 1;
+      const turboOk   = turboEligible.length >= 1;
       const ecoOkBase = eligible.length >= 2;
       // The row the FIRMWARE soaks as its extra ECO candidate: the lowest-J/TH
       // qualified point in the table (benchmark_threads.cpp bm_soak_run). It matters
@@ -324,7 +330,7 @@ export class EditComponent implements OnInit {
       // tooltip can still explain what the benchmark measured. Never applied —
       // the button is disabled in that case.
       const turbo = turboUsable
-        ? eligible.reduce((b, r) => r.avgHR > b.avgHR ? r : b)
+        ? turboEligible.reduce((b, r) => r.avgHR > b.avgHR ? r : b)
         : entries.reduce((b, r) => r.avgHR > b.avgHR ? r : b);
       const eco = ecoOk
         ? eligible.reduce((b, r) => r.effJTH < b.effJTH ? r : b)
@@ -382,9 +388,9 @@ export class EditComponent implements OnInit {
         if (legacyOnly) {
           ecoPreset.disabledHint = 're-run benchmark';
           ecoPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. ECO cannot pick a low-power point from unverified data - re-run the benchmark and the new results will be qualified automatically.`;
-        } else if (unsoakedOnly) {
+        } else if (noSoakPassed) {
           ecoPreset.disabledHint = 'not soak-verified';
-          ecoPreset.disabledReason = 'The stored points passed the safety margin but were never soaked under your fan policy, so they are only known to be safe at 100 % cooling. Re-run the benchmark to get a verified ECO point.';
+          ecoPreset.disabledReason = 'No qualified point has passed the soak under your current fan policy. Some points may not have been tested yet or may have failed; re-run the benchmark to get a verified ECO point.';
         } else if (eligible.length === 1) {
           // One soak-verified point: ECO would just be a copy of Turbo. The
           // firmware now also soaks the most efficient point, so a single verified
@@ -404,9 +410,12 @@ export class EditComponent implements OnInit {
         if (legacyOnly) {
           turboPreset.disabledHint = 're-run benchmark';
           turboPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. They are kept for reference but cannot be selected automatically - re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.`;
-        } else if (unsoakedOnly) {
+        } else if (noSoakPassed) {
           turboPreset.disabledHint = 'not soak-verified';
-          turboPreset.disabledReason = 'The stored points passed the safety margin but were never soaked under your fan policy, so they are only known to be safe at 100 % cooling. Re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.';
+          turboPreset.disabledReason = 'No qualified point has passed the soak under your current fan policy. Some points may not have been tested yet or may have failed; re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.';
+        } else if (turboEligible.length === 0 && marginOk.length > 0) {
+          turboPreset.disabledHint = 'no verified Turbo point';
+          turboPreset.disabledReason = 'None of the three highest-hashrate qualified candidates passed soak under your current fan policy. A Normal or ECO soak is not treated as a Turbo substitute.';
         } else if (turboIsOnlyEco) {
           // The only soaked row is the ECO candidate, so there is no verified
           // high-hashrate point. Say that instead of relabelling the low-power

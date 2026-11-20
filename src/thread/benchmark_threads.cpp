@@ -1173,25 +1173,18 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
             ctx->bm->in_cool    = false;
             return;
         }
-        // Otherwise soak ran to a decision and rejected this point. Mark the row
-        // UNQUALIFIED ("q":0) and keep it.
-        //
-        // It used to be deleted, which threw away a completed measurement because
-        // of one verdict and shrank the table by several rows on a full sweep -
-        // the user's first reaction was "where did my points go". q=0 already means
-        // "a peak sat too close to a limit", which is exactly what every soak
-        // rejection is, so bm_finish(), the ECO/Turbo presets and the table all
-        // exclude it already, and the row remains selectable by hand in Advanced.
-        //
-        // A failure here is loud: leaving q=1 would let the point be auto-applied.
-        if (bm_result_mark_unqualified(cands[ci].freq) != ESP_OK) {
-            LOG_E("[BM] Soak %u/%u FAILED at %dMHz/%dmV but the row could not be marked "
-                  "unqualified - it may still be auto-applied. Clear the results and re-run.",
+          // Otherwise the real-fan check rejected the point. Keep q=1 because the
+          // sweep measurement and its margin verdict remain valid; persist soak=0 so
+          // presets and runtime fallback cannot mistake it for a passed soak.
+          const esp_err_t soak_fail_err = bm_result_mark_soak_failed(cands[ci].freq);
+          if (soak_fail_err != ESP_OK) {
+            LOG_E("[BM] Soak %u/%u FAILED at %dMHz/%dmV but its failure status could not be "
+                "stored (%s). Check the NVS log; the sweep row is retained.",
                   (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total,
-                  cands[ci].freq, cands[ci].vcore);
+                cands[ci].freq, cands[ci].vcore, esp_err_to_name(soak_fail_err));
         } else {
-            LOG_W("[BM] Soak %u/%u FAILED: %dMHz/%dmV - kept as unqualified (q=0), trying the "
-                  "next candidate.",
+            LOG_W("[BM] Soak %u/%u FAILED: %dMHz/%dmV - sweep qualification retained (q=1), "
+                "soak verdict failed; trying the next candidate.",
                   (unsigned)ctx->bm->soak_idx, (unsigned)ctx->bm->soak_total,
                   cands[ci].freq, cands[ci].vcore);
         }
@@ -1207,14 +1200,10 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
               (unsigned)normal_freq, (unsigned)normal_vcore,
               (int)normal_cand.freq, (int)normal_cand.vcore, (double)normal_cand.effJTH);
         if (!soak_one(extra_idx++, normal_cand) && *ctx->bm_mode == 1) {
-            if (bm_result_mark_unqualified(normal_cand.freq) != ESP_OK) {
-                LOG_E("[BM] The Normal candidate %dMHz/%dmV failed the soak but could not be "
-                      "marked unqualified - it may still be auto-applied.",
-                      (int)normal_cand.freq, (int)normal_cand.vcore);
-            } else {
-                LOG_W("[BM] The Normal candidate %dMHz/%dmV FAILED the soak - kept as "
-                      "unqualified (q=0).", (int)normal_cand.freq, (int)normal_cand.vcore);
-            }
+            const esp_err_t err = bm_result_mark_soak_failed(normal_cand.freq);
+            LOG_W("[BM] The Normal candidate %dMHz/%dmV FAILED the soak; q remains sweep-qualified. "
+                "Soak failure status: %s.", (int)normal_cand.freq, (int)normal_cand.vcore,
+                esp_err_to_name(err));
         }
     }
 
@@ -1224,14 +1213,10 @@ static void bm_soak_run(BenchmarkCtx* ctx) {
         LOG_W("[BM] Soak: adding the most efficient qualified point %dMHz/%dmV (%.3f J/TH) for ECO.",
               eco_cand.freq, eco_cand.vcore, (double)eco_cand.effJTH);
         if (!soak_one(extra_idx, eco_cand) && *ctx->bm_mode == 1) {
-            if (bm_result_mark_unqualified(eco_cand.freq) != ESP_OK) {
-                LOG_E("[BM] The ECO candidate %dMHz/%dmV failed the soak and could not be "
-                      "marked unqualified - it may still be auto-applied.", eco_cand.freq, eco_cand.vcore);
-            } else {
-                LOG_W("[BM] The ECO candidate %dMHz/%dmV FAILED the soak - kept as unqualified "
-                      "(q=0); ECO will stay unavailable until a point survives the soak.",
-                      eco_cand.freq, eco_cand.vcore);
-            }
+            const esp_err_t err = bm_result_mark_soak_failed(eco_cand.freq);
+            LOG_W("[BM] The ECO candidate %dMHz/%dmV FAILED the soak; q remains sweep-qualified. "
+                "Soak failure status: %s.", eco_cand.freq, eco_cand.vcore,
+                esp_err_to_name(err));
         }
     }
 
@@ -1283,8 +1268,8 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
             LOG_E("[BM] Results are not valid JSON (%s) — no point can be selected. "
                   "Keeping the pre-sweep settings.", rerr.c_str());
         }
-        uint16_t best_freq = 0, best_vcore = 0;
-        float    best_avgHR = -1.0f;
+        struct TurboCandidate { uint16_t freq, vcore; float avgHR; };
+        std::vector<TurboCandidate> turbo_candidates;
         int      candidates = 0;
         if (!rerr && rdoc.is<JsonArray>()) {
             for (JsonObject e : rdoc.as<JsonArray>()) {
@@ -1308,40 +1293,32 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
                 // soaked to stay in the table — but it does have to be soaked to be
                 // applied. Asking NVS one question is cheap next to applying a point
                 // whose verification silently vanished.
-                candidates++;
                 float avgHR = e["avgHR"] | 0.0f;
-                if (avgHR > best_avgHR) {
-                    best_avgHR = avgHR;
-                    best_freq  = e["freq"]  | (uint16_t)0;
-                    best_vcore = e["vcore"] | (uint16_t)0;
-                }
+                const uint16_t freq = e["freq"] | (uint16_t)0;
+                const uint16_t vcore = e["vcore"] | (uint16_t)0;
+                if (avgHR <= 0.0f || freq == 0 || vcore == 0) continue;
+                candidates++;
+                turbo_candidates.push_back({freq, vcore, avgHR});
             }
         }
-        // The best qualified row must carry a soak verdict. If it does not, apply
-        // NOTHING and keep the pre-sweep settings.
-        //
-        // This used to fall back to "the highest-hashrate SOAKED row", which was
-        // written for one narrow case (a soak that passed but whose verdict could
-        // not be written to NVS). It is wrong in a much more common one, reported
-        // from the field on v3.2.02v: the soak stage ALSO soaks the most efficient
-        // point so ECO can qualify, and when every high-hashrate candidate is
-        // rejected for lack of cooling headroom, that ECO row is the only soaked
-        // row left. The fallback then applied it - dropping the miner from the best
-        // qualified point (675MHz, 9273 GH/s) to the most efficient one (375MHz,
-        // 5088 GH/s), a ~45 % hashrate loss, and the UI labelled it "Turbo".
-        //
-        // A lower-hashrate point is never a substitute for the best one: it is a
-        // different preset (ECO) with a different purpose. Without a verified best
-        // point there is nothing to promote to Turbo.
-        if (best_freq > 0 && best_vcore > 0 && !bm_result_is_soaked(best_freq)) {
-            LOG_W("[BM] Best qualified result (%dMHz/%dmV, %.1fGH/s) carries no soak verdict — "
-                  "NOT applying anything. The pre-sweep settings stay in place (%d candidate(s) "
-                  "in the table). A lower-hashrate point is the ECO preset, not a Turbo "
-                  "substitute, so it is deliberately not applied here.",
-                  best_freq, best_vcore, best_avgHR, candidates);
-            best_freq  = 0;
-            best_vcore = 0;
-            best_avgHR = -1.0f;
+        std::sort(turbo_candidates.begin(), turbo_candidates.end(),
+                  [](const TurboCandidate& left, const TurboCandidate& right) {
+                      return left.avgHR > right.avgHR;
+                  });
+        if (turbo_candidates.size() > BM_SOAK_CANDIDATES) {
+            turbo_candidates.resize(BM_SOAK_CANDIDATES);
+        }
+
+        // Only the hashrate shortlist can supply Turbo. Normal/ECO are soaked for
+        // their own presets and must never be promoted just because they survived.
+        uint16_t best_freq = 0, best_vcore = 0;
+        float    best_avgHR = -1.0f;
+        for (const TurboCandidate& candidate : turbo_candidates) {
+            if (!bm_result_is_soaked(candidate.freq)) continue;
+            best_freq = candidate.freq;
+            best_vcore = candidate.vcore;
+            best_avgHR = candidate.avgHR;
+            break;
         }
         if (best_freq > 0 && best_vcore > 0) {
             LOG_W("[BM] Best qualified result: freq=%dMHz vcore=%dmV avgHR=%.1fGH/s — applying.",
@@ -1352,9 +1329,9 @@ static void bm_finish(BenchmarkCtx* ctx, const char* reason) {
             // sweep point, so this switch is not abortable.
             bm_apply_point(ctx, best_freq, best_vcore, false);
         } else {
-            LOG_W("[BM] No qualified result (%d candidate(s) in the table) — keeping the "
-                  "pre-sweep settings instead of applying an unverified point.",
-                  candidates);
+            LOG_W("[BM] No soak-verified Turbo candidate among the top %u of %d qualified row(s) — "
+                "keeping the pre-sweep settings. Normal/ECO-only soak results are not promoted.",
+                (unsigned)BM_SOAK_CANDIDATES, candidates);
             bm_restore_normal_point(ctx);
         }
     }

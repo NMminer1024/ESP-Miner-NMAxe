@@ -804,21 +804,19 @@ void monitor_thread_entry(void* args) {
         // sampler below was moved off modulo).
         static uint32_t last_safety_check_ms = 0;
         static uint32_t over_pwr_since_ms = 0;
-        static uint32_t pinned_fan_since_ms = 0;
-        static uint16_t margin_watch_freq = spec.asic.req_frq;
-        static uint16_t margin_watch_vcore = spec.asic.req_vcore;
+        static uint16_t budget_watch_freq = spec.asic.req_frq;
+        static uint16_t budget_watch_vcore = spec.asic.req_vcore;
         const bool safety_check_due = (millis() - last_safety_check_ms >= 2000u);
         if (safety_check_due) {
             last_safety_check_ms = millis();
             // A user/preset/benchmark point change starts a fresh observation
             // window. Never carry 2 minutes measured at the previous point into
             // the new one, even if the new point also sits outside the margin.
-            if (margin_watch_freq != spec.asic.req_frq ||
-                margin_watch_vcore != spec.asic.req_vcore) {
-                margin_watch_freq  = spec.asic.req_frq;
-                margin_watch_vcore = spec.asic.req_vcore;
+            if (budget_watch_freq != spec.asic.req_frq ||
+                budget_watch_vcore != spec.asic.req_vcore) {
+                budget_watch_freq  = spec.asic.req_frq;
+                budget_watch_vcore = spec.asic.req_vcore;
                 over_pwr_since_ms  = 0;
-                pinned_fan_since_ms = 0;
             }
             if (*ctx->bm_mode == 0) {
             if (!(ctx->ota_running && *ctx->ota_running)) {
@@ -1028,13 +1026,10 @@ void monitor_thread_entry(void* args) {
                                                   : "close to the rating");
                         }
                     }
-                    // Runtime headroom protection. The soak is a snapshot, not a
-                    // promise about the warmest part of the day: field data on
-                    // 750/1200 went from a 12.88 A cool-day average / 13.15 A peak
-                    // to a 13.59 A warm-afternoon average / 13.75 A peak. Monitor
-                    // the same reserved adapter ceiling and
-                    // fan-saturation condition during normal mining, then step to a
-                    // lower q=1 benchmark row if either persists.
+                    // Runtime adapter protection. Fan saturation is a cooling
+                    // preference signal, not by itself a reason to change the
+                    // user's operating point. Only sustained input-budget excess
+                    // can trigger this derate; temperature limits are handled above.
                     const float budget_fraction =
                         (spec.pwr.adapter_budget > 0.01f && spec.pwr.adapter_budget < 1.0f)
                             ? spec.pwr.adapter_budget : 0.95f;
@@ -1047,25 +1042,6 @@ void monitor_thread_entry(void* args) {
                     const bool power_over = spec.pwr.adapter_max_w > 0.0f &&
                                             in_w > safe_power_w;
 
-                    bool fan_saturated = false;
-                    if (spec.fan_controllable && ctx->fan_status && ctx->temp) {
-                        for (const fan_config_t& fan : spec.fans) {
-                            if (!fan.auto_speed) continue;
-                            const float temp = (fan.id == 0) ? ctx->temp->asic :
-                                               (fan.id == 1) ? ctx->temp->vcore : NAN;
-                            if (!(temp == temp) || temp <= fan.target_temp +
-                                (float)board_safety::FAN_TARGET_OVERSHOOT_C) continue;
-                            for (const fan_status_t& live_fan : *ctx->fan_status) {
-                                if (live_fan.id == fan.id &&
-                                    live_fan.speed >= board_safety::FAN_PINNED_DUTY) {
-                                    fan_saturated = true;
-                                    break;
-                                }
-                            }
-                            if (fan_saturated) break;
-                        }
-                    }
-
                     const bool current_clear = spec.pwr.adapter_max_a <= 0.0f ||
                         ibus_a < safe_current_a * board_safety::ADAPTER_CLEAR_HYSTERESIS;
                     const bool power_clear = spec.pwr.adapter_max_w <= 0.0f ||
@@ -1073,36 +1049,33 @@ void monitor_thread_entry(void* args) {
                     const uint32_t now_ms = millis();
                     const bool input_over = current_over || power_over;
                     if (!input_over && current_clear && power_clear) over_pwr_since_ms = 0;
-                    if (!fan_saturated) pinned_fan_since_ms = 0;
                     const bool starting_input = input_over && over_pwr_since_ms == 0;
-                    const bool starting_fan = fan_saturated && pinned_fan_since_ms == 0;
                     if (starting_input) over_pwr_since_ms = now_ms;
-                    if (starting_fan) pinned_fan_since_ms = now_ms;
-                    if (input_over || fan_saturated) {
+                    if (input_over) {
                         constexpr uint32_t RUNTIME_MARGIN_DERATE_MS = board_safety::RUNTIME_DERATE_HOLD_MS;
-                        if (starting_input || starting_fan) {
-                                LOG_W("Runtime safety margin exceeded (current=%d power=%d auto-fan-pinned=%d) "
-                                    "at %uMHz/%umV; will step down to a lower qualified benchmark point "
-                                    "if it persists for %lus.",
-                                    (int)current_over, (int)power_over, (int)fan_saturated,
+                        if (starting_input) {
+                            LOG_W("Runtime adapter budget exceeded (current=%d power=%d) "
+                                  "at %uMHz/%umV; will step down if it persists for %lus.",
+                                  (int)current_over, (int)power_over,
                                   (unsigned)spec.asic.req_frq, (unsigned)spec.asic.req_vcore,
                                   (unsigned long)(RUNTIME_MARGIN_DERATE_MS / 1000u));
                         }
                         const bool sustained_input = input_over && now_ms - over_pwr_since_ms >= RUNTIME_MARGIN_DERATE_MS;
-                        const bool sustained_fan = fan_saturated && now_ms - pinned_fan_since_ms >= RUNTIME_MARGIN_DERATE_MS;
-                        if (sustained_input || sustained_fan) {
+                        if (sustained_input) {
                             over_pwr_since_ms = 0;
-                            pinned_fan_since_ms = 0;
                             uint16_t new_freq = spec.asic.req_frq;
                             uint16_t new_vcore = spec.asic.req_vcore;
-                            const bool measured = bm_result_pick_safer_point(
+                            const bool soak_verified = bm_result_pick_safer_point(
                                 spec.asic.req_frq, spec.asic.req_vcore, &new_freq, &new_vcore, true);
+                            const bool measured = soak_verified || bm_result_pick_safer_point(
+                                spec.asic.req_frq, spec.asic.req_vcore, &new_freq, &new_vcore, false);
+                            const bool has_qualified = bm_result_has_qualified_point();
                             bool stepped = measured;
-                            if (!stepped) {
+                            if (!stepped && !has_qualified) {
                                 // No lower measured-and-qualified pair exists. Use one
-                                // selectable Vcore step, then one frequency step as the
-                                // last-resort safety action for either sustained input
-                                // excess or a pinned auto fan; never step upward.
+                                // selectable step only when there is no qualified
+                                // benchmark table to contradict it. Once measured points
+                                // exist, never persist an untested operating point.
                                 bool have_vc = false;
                                 for (const auto& option : spec.ui.setting_page.vc) {
                                     if (option.value < spec.asic.req_vcore &&
@@ -1126,25 +1099,26 @@ void monitor_thread_entry(void* args) {
                             }
                             if (stepped && (new_freq != spec.asic.req_frq ||
                                             new_vcore != spec.asic.req_vcore)) {
-                                LOG_W("Runtime margin exceeded for %lus — stepping %uMHz/%umV -> "
+                                LOG_W("Runtime adapter budget exceeded for %lus — stepping %uMHz/%umV -> "
                                       "%uMHz/%umV (%s).",
                                       (unsigned long)(RUNTIME_MARGIN_DERATE_MS / 1000u),
                                       (unsigned)spec.asic.req_frq, (unsigned)spec.asic.req_vcore,
                                       (unsigned)new_freq, (unsigned)new_vcore,
-                                      measured ? "soak-verified benchmark point" : "one selectable step");
+                                      soak_verified ? "soak-verified benchmark point" :
+                                      measured ? "sweep-qualified benchmark point" : "one selectable step");
                                 spec.asic.req_frq   = new_freq;
                                 spec.asic.req_vcore = new_vcore;
                                 nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, new_freq);
                                 nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
                             } else {
-                                LOG_E("Runtime margin exceeded but no lower soak-verified point exists; "
-                                      "reduce frequency/voltage or improve cooling/power.");
+                                LOG_E("Runtime adapter budget exceeded but no lower usable benchmark point exists%s; "
+                                      "current settings are unchanged. Reduce frequency/voltage or improve power.",
+                                      has_qualified ? " (qualified rows exist, but none is lower and soak-eligible)" : "");
                             }
                         }
                     }
                 } else {
                     over_pwr_since_ms = 0;
-                    pinned_fan_since_ms = 0;
                 }
 
                 // hashrate
@@ -1159,7 +1133,6 @@ void monitor_thread_entry(void* args) {
             } // end bm_mode == 0
             if (*ctx->bm_mode != 0 || (ctx->ota_running && *ctx->ota_running)) {
                 over_pwr_since_ms = 0;
-                pinned_fan_since_ms = 0;
             }
         }
 

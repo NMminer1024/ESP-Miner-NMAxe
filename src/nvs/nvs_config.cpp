@@ -1174,13 +1174,14 @@ bool bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
         const long f      = bm_r_json_int(e, "\"freq\":");
         const long v      = bm_r_json_int(e, "\"vcore\":");
         const double hr   = bm_r_json_double(e, "\"avgHR\":");
-        const bool soaked = !require_soak || bm_r_json_int(e, "\"soak\":") == 1;
+        const long soak = bm_r_json_int(e, "\"soak\":");
+        const bool soak_ok = require_soak ? soak == 1 : soak != 0;
         free(e);
 
         // `> 0`, not `!= 0`: bm_r_json_int reports -1 for an ABSENT key, and rows
         // now omit "fail":0 (see bm_r_compact_row), so an equality test against 0
         // would reject every clean row.
-        if (q != 1 || fail > 0 || !soaked) continue;
+        if (q != 1 || fail > 0 || !soak_ok) continue;
         if (f <= 0 || v <= 0 || hr <= 0.0) continue;
         if (f > (long)cur_freq || v > (long)cur_vcore) continue;      // not safer
         if (f == (long)cur_freq && v == (long)cur_vcore) continue;    // current point
@@ -1196,6 +1197,29 @@ bool bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
     *out_freq  = best_f;
     *out_vcore = best_v;
     return true;
+}
+
+bool bm_result_has_qualified_point() {
+    bm_result_migrate_legacy();
+    const uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
+    const uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
+
+    for (uint16_t i = 0; i < cnt; i++) {
+        char key[12];
+        bm_r_key(key, sizeof(key), (start + i) % BM_RESULT_MAX_ENTRIES);
+        char* e = nvs_config_get_string(key, "");
+        if (!e) continue;
+
+        const long q    = bm_r_json_int(e, "\"q\":");
+        const long fail = bm_r_json_int(e, "\"fail\":");
+        const long freq = bm_r_json_int(e, "\"freq\":");
+        const long vcore = bm_r_json_int(e, "\"vcore\":");
+        const double hr = bm_r_json_double(e, "\"avgHR\":");
+        free(e);
+
+        if (q == 1 && fail <= 0 && freq > 0 && vcore > 0 && hr > 0.0) return true;
+    }
+    return false;
 }
 
 // Mark a stored result as having passed the soak check, recording the duty each
@@ -1243,7 +1267,7 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vco
         // occurrence, which collapses any number of accumulated duplicates (they
         // are all inserted at the same spot, immediately before "ts").
         size_t prefix = (size_t)(ts - e);
-        const char* first = strstr(e, ",\"soak\":1");
+        const char* first = strstr(e, ",\"soak\":");
         if (first != nullptr && first < ts) {
             const size_t cut = (size_t)(first - e);
             if (cut < prefix) prefix = cut;
@@ -1357,22 +1381,10 @@ esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vco
     return ESP_ERR_NOT_FOUND;
 }
 
-// Mark one stored result as NOT qualified, keeping every measured field.
-//
-// Used when the post-sweep soak rejects a point. It used to delete the whole row,
-// which threw away a completed measurement (average hashrate, efficiency, peaks)
-// because of one verdict - and on a full sweep that shrank the table by several
-// rows, so the user's first reaction was "where did my points go".
-//
-// "q":0 is the right encoding: it already means "a peak sat too close to a limit",
-// which is exactly what all three soak rejections are (temperature margin, adapter
-// reserve, no cooling headroom left). Every consumer - bm_finish(), the ECO/Turbo
-// presets, the results table - already excludes q != 1, so nothing downstream
-// needs to learn a new rule and the row stays selectable by hand in Advanced.
-//
-// Same-length substitution, so the stored size does not change and NVS chunking is
-// unaffected.
-esp_err_t bm_result_mark_unqualified(uint16_t freq) {
+// Record a failed real-fan soak separately from the sweep's q qualification.
+// A soak failure does not invalidate the sweep measurement; it only makes the row
+// ineligible for presets and for runtime fallback under the current fan policy.
+esp_err_t bm_result_mark_soak_failed(uint16_t freq) {
     bm_result_migrate_legacy();
     uint16_t start = nvs_config_get_u16(NVS_CONFIG_BM_R_START, 0);
     uint16_t cnt   = nvs_config_get_u16(NVS_CONFIG_BM_R_COUNT, 0);
@@ -1387,19 +1399,60 @@ esp_err_t bm_result_mark_unqualified(uint16_t freq) {
         const bool match = bm_r_parse_freq(e, of) && of == freq;
         if (!match) { free(e); continue; }
 
-        char* q1 = strstr(e, "\"q\":1");
-        if (q1 == nullptr) { free(e); continue; }   // already 0, or predates the field
-
-        q1[4] = '0';                                // "q":1 -> "q":0, same length
-        const esp_err_t err = nvs_config_try_set_string(key, e);
-        free(e);
-        if (err != ESP_OK) {
-            LOG_E("[BM] freq=%u failed the soak but could not be marked unqualified (%s) - the "
-                  "row keeps q=1 and may be auto-applied. Report this.",
-                  freq, esp_err_to_name(err));
+        char* soak = strstr(e, ",\"soak\":");
+        if (soak != nullptr) {
+            char* value = strchr(soak, ':');
+            if (value == nullptr || (value[1] != '0' && value[1] != '1')) {
+                free(e);
+                return ESP_ERR_INVALID_STATE;
+            }
+            if (value[1] == '0') { free(e); return ESP_OK; }
+            value[1] = '0';
+            esp_err_t err = nvs_config_try_set_string(key, e);
+            if (err == ESP_ERR_NVS_NOT_ENOUGH_SPACE || err == ESP_ERR_NVS_VALUE_TOO_LONG) {
+                char* q1 = strstr(e, "\"q\":1");
+                if (q1 != nullptr) {
+                    q1[4] = '0';
+                    const esp_err_t fallback_err = nvs_config_try_set_string(key, e);
+                    if (fallback_err == ESP_OK) {
+                        LOG_E("[BM] freq=%u soak failure could not be stored (NVS full); "
+                              "marked q=0 as a fail-closed fallback.", freq);
+                    }
+                }
+            }
+            free(e);
             return err;
         }
-        return ESP_OK;
+
+        char* ts = strstr(e, ",\"ts\":");
+        if (ts == nullptr) { free(e); return ESP_ERR_INVALID_STATE; }
+        const size_t prefix = (size_t)(ts - e);
+        const size_t old_len = strlen(e);
+        char* out = (char*)malloc(old_len + 10);
+        if (!out) { free(e); return ESP_ERR_NO_MEM; }
+        memcpy(out, e, prefix);
+        memcpy(out + prefix, ",\"soak\":0", 9);
+        strcpy(out + prefix + 9, ts);
+        esp_err_t err = nvs_config_try_set_string(key, out);
+        free(out);
+
+        if (err == ESP_ERR_NVS_NOT_ENOUGH_SPACE || err == ESP_ERR_NVS_VALUE_TOO_LONG) {
+            // Do not leave an old or absent verdict eligible after a failed soak.
+            // q=0 is the same-length, fail-closed fallback when NVS cannot store
+            // the separate soak status.
+            char* q1 = strstr(e, "\"q\":1");
+            if (q1 != nullptr) {
+                q1[4] = '0';
+                const esp_err_t fallback_err = nvs_config_try_set_string(key, e);
+                if (fallback_err == ESP_OK) {
+                    LOG_E("[BM] freq=%u soak failure could not be stored (NVS full); "
+                          "marked q=0 as a fail-closed fallback.", freq);
+                }
+            }
+        }
+        if (err == ESP_OK) s_soak_marks_may_exist = true;
+        free(e);
+        return err;
     }
     return ESP_ERR_NOT_FOUND;
 }
@@ -1446,7 +1499,7 @@ void bm_result_clear_soak(void) {
         char* e = nvs_config_get_string(key, "");
         if (!e) continue;
 
-        char* s = strstr(e, ",\"soak\":1");
+        char* s = strstr(e, ",\"soak\":");
         if (s != nullptr) {
             char* t = strstr(s + 1, ",\"ts\":");
             if (t != nullptr) {

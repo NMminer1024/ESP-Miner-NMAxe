@@ -130,6 +130,8 @@ esp_err_t bm_result_delete_freq(uint16_t freq);         // remove the row(s) for
 bool      bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
                                      uint16_t* out_freq, uint16_t* out_vcore,
                                      bool require_soak = false);
+// Whether the table contains any measured row that passed the sweep qualification.
+bool      bm_result_has_qualified_point();
 // Add "soak":1 and the settled duty of each fan to one stored result.
 // fan_need_vcore < 0 = board has no VRM fan, so that field is omitted.
 // Idempotent: any existing soak fields are replaced, never appended.
@@ -138,11 +140,9 @@ bool      bm_result_pick_safer_point(uint16_t cur_freq, uint16_t cur_vcore,
 esp_err_t bm_result_mark_soak(uint16_t freq, uint16_t fan_need, int fan_need_vcore = -1);
 // Whether that frequency's stored row carries a soak verdict.
 bool      bm_result_is_soaked(uint16_t freq);
-// Mark one stored result as NOT qualified ("q":0) while KEEPING every measured
-// field. Used when the post-sweep soak rejects a point: the measurement is still
-// real data, and every consumer already excludes q != 1, so the row drops out of
-// auto-apply and out of the ECO/Turbo presets without costing the user the row.
-esp_err_t bm_result_mark_unqualified(uint16_t freq);
+// Record a failed soak without changing the sweep qualification. If storage is
+// full, fail closed by marking the row q=0 instead.
+esp_err_t bm_result_mark_soak_failed(uint16_t freq);
 // Board factor (small cores x chip count) used to rebuild "expHR" on read.
 // expHR is a pure product of freq and this factor, so it is no longer stored;
 // persisting the factor costs one NVS entry once and saves ~12 bytes per row.
